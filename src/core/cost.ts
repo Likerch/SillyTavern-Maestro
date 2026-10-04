@@ -43,6 +43,8 @@ export interface UsageInfo {
     completion: number;
     /** Real cost when the provider reports it (OpenRouter `usage.cost`). */
     usd?: number;
+    /** Prompt tokens served from the provider's cache (OpenRouter/OpenAI, Anthropic, Google, DeepSeek). */
+    cached?: number;
 }
 
 export type RecentCost = CostEntry & { anlas?: number };
@@ -259,7 +261,7 @@ export function createCostMeter(deps: CostMeterDeps): CostMeterImpl {
                     source,
                     task,
                     usd: usage.usd ?? 0,
-                    tokens: { prompt: usage.prompt, completion: usage.completion },
+                    tokens: tokensOf(usage),
                     estimated: usage.usd === undefined,
                     chatId,
                 });
@@ -440,7 +442,27 @@ export function readUsage(raw: unknown): UsageInfo | undefined {
     const completion =
         firstNumber(usage['completion_tokens'], usage['output_tokens'], usage['candidatesTokenCount']) ?? 0;
     const usd = firstNumber(usage['cost'], usage['total_cost']);
-    return usd === undefined ? { prompt, completion } : { prompt, completion, usd };
+    const details = isRecord(usage['prompt_tokens_details']) ? usage['prompt_tokens_details'] : {};
+    const cached = firstNumber(
+        details['cached_tokens'],
+        usage['cache_read_input_tokens'],
+        usage['cachedContentTokenCount'],
+        usage['prompt_cache_hit_tokens'],
+    );
+    const info: UsageInfo = { prompt, completion };
+    if (cached !== undefined && cached > 0) info.cached = cached;
+    if (usd !== undefined) info.usd = usd;
+    return info;
+}
+
+/** Token counts of a usage for a cost entry (`cached` only when the provider reported a cache hit). */
+export function tokensOf(usage: UsageInfo): { prompt: number; completion: number; cached?: number } {
+    const tokens: { prompt: number; completion: number; cached?: number } = {
+        prompt: usage.prompt,
+        completion: usage.completion,
+    };
+    if (usage.cached !== undefined) tokens.cached = usage.cached;
+    return tokens;
 }
 
 /** Usage from a response body: a JSON object, or SSE text whose chunks carry usage (last/biggest wins). */
@@ -473,8 +495,14 @@ export function usageFromBody(text: string): UsageInfo | undefined {
 function mergeUsage(a: UsageInfo | undefined, b: UsageInfo): UsageInfo {
     if (!a) return b;
     const usd = b.usd ?? a.usd;
-    const merged = { prompt: Math.max(a.prompt, b.prompt), completion: Math.max(a.completion, b.completion) };
-    return usd === undefined ? merged : { ...merged, usd };
+    const merged: UsageInfo = {
+        prompt: Math.max(a.prompt, b.prompt),
+        completion: Math.max(a.completion, b.completion),
+    };
+    const cached = Math.max(a.cached ?? 0, b.cached ?? 0);
+    if (cached > 0) merged.cached = cached;
+    if (usd !== undefined) merged.usd = usd;
+    return merged;
 }
 
 /* ------------------------------------------------------------------ day totals */

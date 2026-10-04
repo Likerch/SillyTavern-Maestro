@@ -26,4 +26,14 @@ export interface InspectorApi {
     turns(limit?: number): InspectorRecord[];
     last(): InspectorRecord | undefined;
     onTurn(listener: (record: InspectorRecord) => void): Unsubscribe;
+    // Addition of stage 7 (optional so that fakes of the stage-1 contract stay valid).
+    /** Extra blocks under a turn's prompt weights (M20 shows each rule's before/after). */
+    addSection?(section: InspectorSection): Unsubscribe;
+}
+
+export interface InspectorSection {
+    id: string;
+    order: number;
+    /** Null hides the section for this record. */
+    render(record: InspectorRecord): HTMLElement | null;
 }

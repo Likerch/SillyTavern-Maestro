@@ -429,6 +429,17 @@ export function promptTab(app: App, inspector: Inspector, settings: InspectorSet
                     ),
                 ]);
 
+            const extraSections = (record: InspectorRecord): HTMLElement[] =>
+                inspector.extraSections().flatMap((item) => {
+                    try {
+                        const node = item.render(record);
+                        return node ? [node] : [];
+                    } catch (error) {
+                        app.log.warn(`inspector section ${item.id} failed`, error);
+                        return [];
+                    }
+                });
+
             const draw = (): void => {
                 if (!alive) return;
                 clear(container);
@@ -447,6 +458,7 @@ export function promptTab(app: App, inspector: Inspector, settings: InspectorSet
                             ? turnView(records, record)
                             : section(t('m2.turn.title'), emptyState(t('m2.turn.empty'), 'fa-layer-group')),
                         record ? repeatsView(record) : null,
+                        ...(record ? extraSections(record) : []),
                         record ? exportView(record) : null,
                         settingsView(),
                     ]),

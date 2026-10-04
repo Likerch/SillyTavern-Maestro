@@ -1,4 +1,5 @@
 // Every plan module, in stage order. Stages add their modules here.
+import { architectModule } from '../features/architect';
 import { bookRolesModule } from '../features/bookRoles';
 import { bunnymoModeModule } from '../features/bunnymoMode';
 import { canonModule } from '../features/canon';
@@ -22,6 +23,7 @@ import { rulesModule } from '../features/rules';
 import { scenariosModule } from '../features/scenarios';
 import { sheetsModule } from '../features/sheets';
 import { signalsModule } from '../features/signals';
+import { treasurerModule } from '../features/treasurer';
 import { wizardModule } from '../features/wizard';
 import { worldModule } from '../features/world';
 import type { MaestroModule } from '../shared/contracts';
@@ -58,4 +60,7 @@ export const MODULES: MaestroModule[] = [
     presetStudioModule,
     // Stage 6: reply quality.
     qualityModule,
+    // Stage 7: resources.
+    architectModule,
+    treasurerModule,
 ];

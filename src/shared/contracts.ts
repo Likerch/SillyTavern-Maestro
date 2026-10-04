@@ -245,7 +245,8 @@ export interface CostEntry {
     source: 'main' | 'qvink' | 'maestro' | 'nai' | 'other';
     task?: string;
     usd: number;
-    tokens?: { prompt: number; completion: number };
+    /** `cached`: prompt tokens served from the provider's prompt cache, when it reports them. */
+    tokens?: { prompt: number; completion: number; cached?: number };
     estimated?: boolean;
     at: number;
     chatId?: string | null;

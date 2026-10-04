@@ -29,6 +29,7 @@ import type {
     Unsubscribe,
 } from '../../shared/contracts';
 import type { MetricsApi } from '../metrics/api';
+import type { TreasurerApi } from '../treasurer/api';
 import type { SheetsApi } from '../sheets/api';
 import { StActions, swipeIdOf } from './actions';
 import type { BoundaryRule, Defect, DefectAction, DefectKind, QualityApi, QualityStats, QualityVerdict } from './api';
@@ -882,6 +883,11 @@ export class QualityService implements QualityApi {
                     this.app.modules.api<MetricsApi>('metrics')?.noteAutoSwipe();
                 } catch (error) {
                     this.log.debug('metrics did not take the auto-swipe note', error);
+                }
+                try {
+                    this.app.modules.api<TreasurerApi>('treasurer')?.noteAutoSwipe?.();
+                } catch (error) {
+                    this.log.debug('treasurer did not take the auto-swipe note', error);
                 }
             }
         });

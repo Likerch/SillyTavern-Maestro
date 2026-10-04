@@ -18,7 +18,7 @@ import type {
     Logger,
     SettingsService,
 } from '../shared/contracts';
-import { readUsage } from './cost';
+import { readUsage, tokensOf } from './cost';
 
 export interface OwnRequestHooks {
     /** Marks a request in flight so the fetch-level meter does not count it twice. */
@@ -116,7 +116,7 @@ export function createLlmClient(deps: LlmClientDeps): LlmClientImpl {
     function recordCost(task: string, raw: unknown, spent: Spent): void {
         const usage = readUsage(raw);
         const usd = usage?.usd ?? 0;
-        const tokens = usage ? { prompt: usage.prompt, completion: usage.completion } : undefined;
+        const tokens = usage ? tokensOf(usage) : undefined;
         cost.record(
             dropUndefined({ source: 'maestro' as const, task, usd, tokens, estimated: usage?.usd === undefined }),
         );

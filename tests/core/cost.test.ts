@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createBus } from '../../src/core/bus';
-import { costFileName, createCostMeter, dateKey, readUsage, usageFromBody } from '../../src/core/cost';
+import { costFileName, createCostMeter, dateKey, readUsage, tokensOf, usageFromBody } from '../../src/core/cost';
 import { Settings } from '../../src/core/settings';
 import { createHost } from '../../src/host';
 import type { HostImpl } from '../../src/host';
@@ -383,6 +383,25 @@ describe('usage parsing', () => {
             prompt: 7,
             completion: 8,
         });
+        // Provider prompt-cache hits: OpenRouter/OpenAI, Anthropic, Google, DeepSeek; zero is not a hit.
+        expect(
+            readUsage({
+                usage: { prompt_tokens: 10, completion_tokens: 2, prompt_tokens_details: { cached_tokens: 8 } },
+            }),
+        ).toEqual({ prompt: 10, completion: 2, cached: 8 });
+        expect(readUsage({ usage: { input_tokens: 10, output_tokens: 2, cache_read_input_tokens: 6 } })?.cached).toBe(
+            6,
+        );
+        expect(
+            readUsage({ usage: { prompt_tokens: 10, completion_tokens: 2, prompt_cache_hit_tokens: 4 } })?.cached,
+        ).toBe(4);
+        expect(
+            readUsage({
+                usage: { prompt_tokens: 10, completion_tokens: 2, prompt_tokens_details: { cached_tokens: 0 } },
+            }),
+        ).toEqual({ prompt: 10, completion: 2 });
+        expect(tokensOf({ prompt: 1, completion: 2, cached: 1 })).toEqual({ prompt: 1, completion: 2, cached: 1 });
+        expect(tokensOf({ prompt: 1, completion: 2 })).toEqual({ prompt: 1, completion: 2 });
         expect(readUsage({ usage: null })).toBeUndefined();
         expect(readUsage('text')).toBeUndefined();
     });

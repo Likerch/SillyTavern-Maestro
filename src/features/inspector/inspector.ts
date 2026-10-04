@@ -18,7 +18,7 @@ import {
 import type { LoreMeasure, SlotMeasure } from '../../domain/lore-inspector';
 import type { App, GenerationInfo, Logger, Unsubscribe } from '../../shared/contracts';
 import type { LoreContent, LoreJournalApi, TurnLoreRecord } from '../loreJournal/api';
-import type { InspectorApi, InspectorRecord } from './api';
+import type { InspectorApi, InspectorRecord, InspectorSection } from './api';
 
 export interface InspectorSettings {
     keepTurns: number;
@@ -113,6 +113,7 @@ export class Inspector implements InspectorApi {
     private loading: Promise<void> | null = null;
     private openai: Dict | null = null;
     private readonly listeners = new Set<(record: InspectorRecord) => void>();
+    private readonly sections = new Set<InspectorSection>();
     private readonly tokenCache = new Map<string, number>();
     private disposed = false;
 
@@ -162,6 +163,7 @@ export class Inspector implements InspectorApi {
         own(() => {
             this.disposed = true;
             this.listeners.clear();
+            this.sections.clear();
             this.pending = null;
             this.awaiting = null;
         });
@@ -485,6 +487,18 @@ export class Inspector implements InspectorApi {
         return () => {
             this.listeners.delete(listener);
         };
+    }
+
+    addSection(section: InspectorSection): Unsubscribe {
+        this.sections.add(section);
+        return () => {
+            this.sections.delete(section);
+        };
+    }
+
+    /** Sections other modules added, in their order. */
+    extraSections(): InspectorSection[] {
+        return [...this.sections].sort((a, b) => a.order - b.order);
     }
 
     /** Prompt text and lore contents of a turn, when it is the last turn of this session. */

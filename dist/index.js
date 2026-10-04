@@ -1,5 +1,5 @@
 //#region src/adapters/base.ts
-function isDict$67(value) {
+function isDict$79(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function stringList$5(value) {
@@ -23,10 +23,10 @@ function extras$1(host) {
 /** `extension_settings[key]` when it is an object. */
 function extensionSettingsOf(host, key) {
 	const value = host.ctx().extensionSettings[key];
-	return isDict$67(value) ? value : null;
+	return isDict$79(value) ? value : null;
 }
 function toManifest(value) {
-	if (!isDict$67(value)) return null;
+	if (!isDict$79(value)) return null;
 	const manifest = {};
 	for (const key of [
 		"display_name",
@@ -262,7 +262,7 @@ var CORE_COMMENT_RE = /Master - |AUTO-TRIGGER:|AUTO-FILTRATION:|ANTI[\s-]*CLANKE
 var PACK_KEY_RE = /^<([A-Za-z][A-Za-z0-9_-]*)(?::([^<>]+))?>$/;
 /** A character tag block: `<BunnymoTags>…</BunnymoTags>` (with a colon it is an entry wrapper instead). */
 var TAG_BLOCK_RE$2 = /<bunnymotags>([\s\S]*?)<\/bunnymotags>/i;
-var TAG_RE$3 = /<([A-Za-z][A-Za-z0-9_-]*):([^<>\n]+)>/g;
+var TAG_RE$4 = /<([A-Za-z][A-Za-z0-9_-]*):([^<>\n]+)>/g;
 /** Bare MBTI archetype without a colon: `<ESFP-H>`, `<INTJ-U>`. MBTI pack entries fire on it. */
 var MBTI_TAG_RE$1 = /<([EI][NS][FT][JP]-[UH])>/gi;
 /**
@@ -272,13 +272,13 @@ var MBTI_TAG_RE$1 = /<([EI][NS][FT][JP]-[UH])>/gi;
 var PLACEHOLDER_RE$2 = /^(?:BLANK|NEW|VALUE|TARGET|NAME|NAME[\s_]HERE|PLACEHOLDER|TBD|X{3,})$/i;
 /** Entry wrapper `<BunnymoTags:Title>…</BunnymoTags:Title>`, used by the core and by some packs. */
 var WRAPPED_RE = /^<BunnymoTags:/i;
-function text$9(value) {
+function text$11(value) {
 	return value === void 0 || value === null ? "" : String(value);
 }
 /** Primary and secondary keys of an entry, trimmed, without empty ones. */
 function entryKeys$1(entry) {
 	const list = (value) => Array.isArray(value) ? value : [];
-	return [...list(entry?.key), ...list(entry?.keysecondary)].map((key) => text$9(key).trim()).filter(Boolean);
+	return [...list(entry?.key), ...list(entry?.keysecondary)].map((key) => text$11(key).trim()).filter(Boolean);
 }
 /**
 * Is this an entry of the BunnyMo core lorebook? By a sheet command in its keys or by a known entry title.
@@ -286,7 +286,7 @@ function entryKeys$1(entry) {
 */
 function isBunnyMoCoreEntry(entry) {
 	if (entryKeys$1(entry).some((key) => BUNNYMO_SHEET_COMMANDS.includes(key.toLowerCase()))) return true;
-	return CORE_COMMENT_RE.test(text$9(entry?.comment));
+	return CORE_COMMENT_RE.test(text$11(entry?.comment));
 }
 /**
 * Which books are BunnyMo: the core (3+ core entries) and packs ((3+ tag-keyed entries that are at least 60 %
@@ -295,7 +295,7 @@ function isBunnyMoCoreEntry(entry) {
 function classifyWorlds(entries) {
 	const stats = /* @__PURE__ */ new Map();
 	for (const entry of entries) {
-		const world = text$9(entry?.world);
+		const world = text$11(entry?.world);
 		if (!world) continue;
 		const item = stats.get(world) ?? {
 			core: 0,
@@ -304,7 +304,7 @@ function classifyWorlds(entries) {
 			wrapped: 0
 		};
 		if (isBunnyMoCoreEntry(entry)) item.core += 1;
-		if (WRAPPED_RE.test(text$9(entry?.content).trimStart())) item.wrapped += 1;
+		if (WRAPPED_RE.test(text$11(entry?.content).trimStart())) item.wrapped += 1;
 		const keys = entryKeys$1(entry);
 		if (keys.length) {
 			item.keyed += 1;
@@ -326,14 +326,14 @@ function classifyWorlds(entries) {
 * Template placeholders (`<GENRE:BLANK>`, `<Dere:NEW>`) are skipped.
 */
 function archiveTags(entry) {
-	const block = TAG_BLOCK_RE$2.exec(text$9(entry?.content));
+	const block = TAG_BLOCK_RE$2.exec(text$11(entry?.content));
 	if (!block?.[1]) return {
 		name: null,
 		tags: []
 	};
 	let name = null;
 	const tags = /* @__PURE__ */ new Set();
-	for (const match of block[1].matchAll(TAG_RE$3)) {
+	for (const match of block[1].matchAll(TAG_RE$4)) {
 		const key = (match[1] ?? "").trim();
 		const value = (match[2] ?? "").trim();
 		if (key.toUpperCase() === "NAME") name = value;
@@ -351,7 +351,7 @@ function archiveTags(entry) {
 * block whose name is a placeholder.
 */
 function isCharacterArchive(entry) {
-	if (!TAG_BLOCK_RE$2.test(text$9(entry?.content)) || isBunnyMoCoreEntry(entry)) return false;
+	if (!TAG_BLOCK_RE$2.test(text$11(entry?.content)) || isBunnyMoCoreEntry(entry)) return false;
 	const { name, tags } = archiveTags(entry);
 	return name !== null ? !PLACEHOLDER_RE$2.test(name) : tags.length > 0;
 }
@@ -359,7 +359,7 @@ function isCharacterArchive(entry) {
 function archiveWorlds(entries) {
 	const worlds = /* @__PURE__ */ new Set();
 	for (const entry of entries) {
-		const world = text$9(entry?.world);
+		const world = text$11(entry?.world);
 		if (world && !worlds.has(world) && isCharacterArchive(entry)) worlds.add(world);
 	}
 	return worlds;
@@ -429,7 +429,7 @@ var BunnyMoAdapter = class extends NeighbourBase {
 			const worldInfo = await this.host.modules.worldInfo();
 			for (const name of stringList$5(worldInfo.selected_world_info)) names.add(name);
 			const settings = worldInfo.world_info;
-			if (isDict$67(settings) && Array.isArray(settings.charLore)) charLore = settings.charLore;
+			if (isDict$79(settings) && Array.isArray(settings.charLore)) charLore = settings.charLore;
 		} catch (error) {
 			this.log.debug("world-info.js is not available; global books are skipped", error);
 		}
@@ -443,7 +443,7 @@ var BunnyMoAdapter = class extends NeighbourBase {
 			const primary = character.data?.extensions?.world;
 			if (typeof primary === "string" && primary) names.add(primary);
 			const key = avatarKey$2(character.avatar ?? "");
-			for (const lore of charLore) if (isDict$67(lore) && lore.name === key) for (const book of stringList$5(lore.extraBooks)) names.add(book);
+			for (const lore of charLore) if (isDict$79(lore) && lore.name === key) for (const book of stringList$5(lore.extraBooks)) names.add(book);
 		}
 		const known = extras$1(this.host).getWorldInfoNames?.() ?? [];
 		return known.length ? [...names].filter((name) => known.includes(name)) : [...names];
@@ -486,11 +486,11 @@ var BunnyMoAdapter = class extends NeighbourBase {
 			this.log.debug(`lorebook ${book} did not load`, error);
 			return null;
 		}
-		if (!isDict$67(data) || !isDict$67(data.entries)) return null;
+		if (!isDict$79(data) || !isDict$79(data.entries)) return null;
 		const entries = [];
 		const enabled = [];
 		for (const raw of Object.values(data.entries)) {
-			if (!isDict$67(raw)) continue;
+			if (!isDict$79(raw)) continue;
 			const entry = {
 				key: raw.key,
 				keysecondary: raw.keysecondary,
@@ -521,7 +521,7 @@ function isCkManifest(manifest) {
 }
 function globalObject(name) {
 	const value = globalThis[name];
-	return isDict$67(value) ? value : null;
+	return isDict$79(value) ? value : null;
 }
 var CkAdapter = class extends NeighbourBase {
 	id = "ck";
@@ -563,7 +563,7 @@ var CkAdapter = class extends NeighbourBase {
 	}
 	ragEnabled() {
 		const rag = this.settings()?.rag;
-		return isDict$67(rag) && rag.enabled === true;
+		return isDict$79(rag) && rag.enabled === true;
 	}
 };
 //#endregion
@@ -581,24 +581,24 @@ var KNOWN_INFO_KEYS = /* @__PURE__ */ new Set([
 	"temperature",
 	"recentEvents"
 ]);
-function isDict$66(value) {
+function isDict$78(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /** Trims and drops brackets that wrap the whole value (`[Friend]`), as DES's renderers do. */
-function clean(value) {
+function clean$1(value) {
 	let result = value.trim();
 	while (result.length >= 2 && result.startsWith("[") && result.endsWith("]")) result = result.slice(1, -1).trim();
 	return result;
 }
 /** Text of a scalar or of `{value}` / `{text}` / `{description}`; arrays joined with ", ". Empty → undefined. */
 function textOf$1(value) {
-	if (typeof value === "string") return clean(value) || void 0;
+	if (typeof value === "string") return clean$1(value) || void 0;
 	if (typeof value === "number" || typeof value === "boolean") return String(value);
 	if (Array.isArray(value)) {
 		const parts = value.map(textOf$1).filter((part) => !!part);
 		return parts.length ? parts.join(", ") : void 0;
 	}
-	if (isDict$66(value)) for (const key of [
+	if (isDict$78(value)) for (const key of [
 		"value",
 		"text",
 		"description",
@@ -640,13 +640,13 @@ function statsOf(raw) {
 		});
 	};
 	if (Array.isArray(raw)) {
-		for (const item of raw) if (isDict$66(item)) push(item.name, item.value);
-	} else if (isDict$66(raw)) for (const [name, value] of Object.entries(raw)) push(name, isDict$66(value) ? value.value : value);
+		for (const item of raw) if (isDict$78(item)) push(item.name, item.value);
+	} else if (isDict$78(raw)) for (const [name, value] of Object.entries(raw)) push(name, isDict$78(value) ? value.value : value);
 	return stats;
 }
 function detailsOf(raw) {
 	const details = {};
-	if (!isDict$66(raw)) return details;
+	if (!isDict$78(raw)) return details;
 	for (const [key, value] of Object.entries(raw)) {
 		const text = textOf$1(value);
 		if (key && text) details[key] = text;
@@ -654,18 +654,18 @@ function detailsOf(raw) {
 	return details;
 }
 function relationshipOf(entry) {
-	if (typeof entry.Relationship === "string") return clean(entry.Relationship) || void 0;
+	if (typeof entry.Relationship === "string") return clean$1(entry.Relationship) || void 0;
 	const relationship = entry.relationship;
-	if (isDict$66(relationship)) return textOf$1(relationship.status) ?? textOf$1(relationship);
+	if (isDict$78(relationship)) return textOf$1(relationship.status) ?? textOf$1(relationship);
 	return textOf$1(relationship);
 }
 function thoughtsOf(entry) {
 	const thoughts = entry.thoughts;
-	if (isDict$66(thoughts)) return textOf$1(thoughts.content) ?? textOf$1(thoughts);
+	if (isDict$78(thoughts)) return textOf$1(thoughts.content) ?? textOf$1(thoughts);
 	return textOf$1(thoughts);
 }
 function characterOf(raw) {
-	if (!isDict$66(raw) || typeof raw.name !== "string" || !raw.name.trim()) return null;
+	if (!isDict$78(raw) || typeof raw.name !== "string" || !raw.name.trim()) return null;
 	const thoughts = thoughtsOf(raw);
 	const character = {
 		name: raw.name.trim(),
@@ -683,7 +683,7 @@ function characterOf(raw) {
 /** Characters from `characterThoughts`: an array (DES 2.6 parse) or `{characters: [...]}` (legacy, defaults). */
 function parseDesCharacters(raw) {
 	const data = parseTrackerJson(raw);
-	const list = Array.isArray(data) ? data : isDict$66(data) && Array.isArray(data.characters) ? data.characters : [];
+	const list = Array.isArray(data) ? data : isDict$78(data) && Array.isArray(data.characters) ? data.characters : [];
 	const characters = [];
 	for (const item of list) {
 		const character = characterOf(item);
@@ -692,7 +692,7 @@ function parseDesCharacters(raw) {
 	return characters;
 }
 function timeOf(raw) {
-	if (isDict$66(raw)) {
+	if (isDict$78(raw)) {
 		const start = textOf$1(raw.start) ?? textOf$1(raw.value);
 		const end = textOf$1(raw.end);
 		if (!start && !end) return void 0;
@@ -705,7 +705,7 @@ function timeOf(raw) {
 	return flat ? { start: flat } : void 0;
 }
 function weatherOf(raw) {
-	if (isDict$66(raw)) {
+	if (isDict$78(raw)) {
 		const emoji = textOf$1(raw.emoji);
 		const forecast = textOf$1(raw.forecast) ?? textOf$1(raw.value);
 		if (!emoji && !forecast) return void 0;
@@ -720,7 +720,7 @@ function weatherOf(raw) {
 function temperatureOf(raw) {
 	if (typeof raw === "number" && Number.isFinite(raw)) return { value: raw };
 	if (typeof raw === "string") return raw.trim() ? { value: raw.trim() } : void 0;
-	if (!isDict$66(raw)) return void 0;
+	if (!isDict$78(raw)) return void 0;
 	const value = raw.value;
 	const temperature = typeof value === "number" && Number.isFinite(value) ? { value } : typeof value === "string" && value.trim() ? { value: value.trim() } : void 0;
 	const unit = textOf$1(raw.unit);
@@ -729,14 +729,14 @@ function temperatureOf(raw) {
 }
 function eventsOf$1(raw) {
 	if (Array.isArray(raw)) return raw.map(textOf$1).filter((event) => !!event);
-	if (isDict$66(raw) && raw.events !== void 0 && raw.value === void 0) return eventsOf$1(raw.events);
+	if (isDict$78(raw) && raw.events !== void 0 && raw.value === void 0) return eventsOf$1(raw.events);
 	const flat = textOf$1(raw);
 	return flat ? [flat] : [];
 }
 /** Scene data from `infoBox`; null when the section is missing or not a JSON object. */
 function parseDesInfoBox(raw) {
 	const data = parseTrackerJson(raw);
-	if (!isDict$66(data)) return null;
+	if (!isDict$78(data)) return null;
 	const info = {
 		recentEvents: eventsOf$1(data.recentEvents),
 		fields: {}
@@ -761,14 +761,14 @@ function parseDesInfoBox(raw) {
 /** A quest title from a string, `{title}`, `{value}` (nested) or `{description}`; "None" → null. */
 function questOf(raw) {
 	let value = raw;
-	while (isDict$66(value) && value.value !== void 0) value = value.value;
-	const title = isDict$66(value) ? textOf$1(value.title) ?? textOf$1(value.description) : textOf$1(value);
+	while (isDict$78(value) && value.value !== void 0) value = value.value;
+	const title = isDict$78(value) ? textOf$1(value.title) ?? textOf$1(value.description) : textOf$1(value);
 	return title && !NO_QUEST_RE.test(title) ? title : null;
 }
 /** Quests from `quests`: `{main, optional[]}` with string or `{title}` items. Null when missing. */
 function parseDesQuests(raw) {
 	const data = parseTrackerJson(raw);
-	if (!isDict$66(data)) return null;
+	if (!isDict$78(data)) return null;
 	const optional = Array.isArray(data.optional) ? data.optional.map(questOf).filter((quest) => quest !== null) : [];
 	return {
 		main: questOf(data.main),
@@ -784,8 +784,8 @@ function parseDesTracker(strings) {
 	};
 }
 function swipeRecordOf(swipes, swipeId) {
-	const record = Array.isArray(swipes) ? swipes[swipeId] : isDict$66(swipes) ? swipes[String(swipeId)] : void 0;
-	if (!isDict$66(record)) return null;
+	const record = Array.isArray(swipes) ? swipes[swipeId] : isDict$78(swipes) ? swipes[String(swipeId)] : void 0;
+	if (!isDict$78(record)) return null;
 	const { quests = null, infoBox = null, characterThoughts = null } = record;
 	if (quests === null && infoBox === null && characterThoughts === null) return null;
 	return {
@@ -801,12 +801,12 @@ function swipeRecordOf(swipes, swipeId) {
 * stores an all-null record).
 */
 function desSwipeRecord(message) {
-	if (!isDict$66(message) || message.is_user === true) return null;
+	if (!isDict$78(message) || message.is_user === true) return null;
 	const swipeId = typeof message.swipe_id === "number" && message.swipe_id >= 0 ? message.swipe_id : 0;
-	const direct = swipeRecordOf((isDict$66(message.extra) ? message.extra : void 0)?.dooms_tracker_swipes, swipeId);
+	const direct = swipeRecordOf((isDict$78(message.extra) ? message.extra : void 0)?.dooms_tracker_swipes, swipeId);
 	if (direct) return direct;
 	const info = Array.isArray(message.swipe_info) ? message.swipe_info[swipeId] : void 0;
-	return swipeRecordOf((isDict$66(info) && isDict$66(info.extra) ? info.extra : void 0)?.dooms_tracker_swipes, swipeId);
+	return swipeRecordOf((isDict$78(info) && isDict$78(info.extra) ? info.extra : void 0)?.dooms_tracker_swipes, swipeId);
 }
 var DES_KNOWN_NAMES = ["third-party/Dooms-Enhancement-Suite"];
 var DES_VERIFIED_VERSIONS = ["2.6.0"];
@@ -887,9 +887,9 @@ var DesAdapter = class extends NeighbourBase {
 	*/
 	settings() {
 		const live = this.modules.state?.extensionSettings;
-		if (isDict$67(live)) return live;
+		if (isDict$79(live)) return live;
 		const saved = this.located ? this.host.ctx().extensionSettings[this.located.name] : void 0;
-		return isDict$67(saved) ? saved : null;
+		return isDict$79(saved) ? saved : null;
 	}
 	/** DES's own switch (on unless explicitly false). */
 	enabled() {
@@ -915,7 +915,7 @@ var DesAdapter = class extends NeighbourBase {
 	*/
 	knownCharacters() {
 		const roster = this.chatState()?.knownCharacters;
-		return isDict$67(roster) ? Object.keys(roster) : [];
+		return isDict$79(roster) ? Object.keys(roster) : [];
 	}
 	/** Names hidden from "Present Characters" in this chat (DES compares them case-insensitively). */
 	removedCharacters() {
@@ -925,7 +925,7 @@ var DesAdapter = class extends NeighbourBase {
 	aliases() {
 		const map = this.settings()?.characterAliases;
 		const copy = {};
-		if (!isDict$67(map)) return copy;
+		if (!isDict$79(map)) return copy;
 		for (const [canonical, list] of Object.entries(map)) if (Array.isArray(list)) copy[canonical] = list.map(String);
 		return copy;
 	}
@@ -948,7 +948,7 @@ var DesAdapter = class extends NeighbourBase {
 	}
 	chatState() {
 		const state = this.host.ctx().chatMetadata[DES_KEYS$1.chatMetadata];
-		return isDict$67(state) ? state : null;
+		return isDict$79(state) ? state : null;
 	}
 };
 var DESRU_KNOWN_NAMES = ["third-party/SillyTavern-DES-RU", "third-party/SillyTavern-Doom-Enhancement-Suite-RU"];
@@ -998,8 +998,8 @@ var DesRuAdapter = class extends NeighbourBase {
 	/** A DES-RU module switch; modules are on by default, as in DES-RU's DEFAULT_SETTINGS. */
 	moduleEnabled(module) {
 		const modules = this.settings()?.modules;
-		const slice = isDict$67(modules) ? modules[module] : void 0;
-		return !isDict$67(slice) || slice.enabled !== false;
+		const slice = isDict$79(modules) ? modules[module] : void 0;
+		return !isDict$79(slice) || slice.enabled !== false;
 	}
 	/** DES-RU's API (read live: it appears when DES-RU starts and goes when it is disabled); undefined before 0.8.0. */
 	api() {
@@ -1048,13 +1048,13 @@ function readLocalizerApi(value) {
 }
 /** Reads the Localizer marker of a World Info entry as a typed copy; null when the entry has none. */
 function readLocalizerMarker(entry) {
-	const extensions = isDict$67(entry) ? entry.extensions : void 0;
-	const marker = isDict$67(extensions) ? extensions[LOCALIZER_MARKER_KEY] : void 0;
-	if (!isDict$67(marker)) return null;
+	const extensions = isDict$79(entry) ? entry.extensions : void 0;
+	const marker = isDict$79(extensions) ? extensions[LOCALIZER_MARKER_KEY] : void 0;
+	if (!isDict$79(marker)) return null;
 	const languages = {};
-	if (isDict$67(marker.languages)) for (const [id, state] of Object.entries(marker.languages)) {
-		if (!isDict$67(state)) continue;
-		const added = isDict$67(state.added) ? state.added : {};
+	if (isDict$79(marker.languages)) for (const [id, state] of Object.entries(marker.languages)) {
+		if (!isDict$79(state)) continue;
+		const added = isDict$79(state.added) ? state.added : {};
 		languages[id] = {
 			language: typeof state.language === "string" ? state.language : id,
 			sources: stringList$5(state.sources),
@@ -1139,39 +1139,39 @@ function readNaiApi(value) {
 function isNaiManifest(manifest) {
 	return manifest.display_name === "NAI Studio" || manifest.generate_interceptor === "NAIST_ProcessTriggers" || homePageHas(manifest, "likerch/st-nai-studio");
 }
-function text$8(value) {
+function text$10(value) {
 	return typeof value === "string" ? value : "";
 }
 /** A typed deep copy of one stored passport; null for junk. Legacy passports without an id get 'main'. */
 function readPassport(raw) {
-	if (!isDict$67(raw)) return null;
+	if (!isDict$79(raw)) return null;
 	const copy = structuredClone(raw);
 	const slots = {};
-	if (isDict$67(copy.slots)) {
+	if (isDict$79(copy.slots)) {
 		for (const [slot, value] of Object.entries(copy.slots)) if (typeof value === "string") slots[slot] = value;
 	}
-	const outfits = Array.isArray(copy.outfits) ? copy.outfits.filter(isDict$67).map((outfit) => ({
-		name: text$8(outfit.name),
-		tags: text$8(outfit.tags)
+	const outfits = Array.isArray(copy.outfits) ? copy.outfits.filter(isDict$79).map((outfit) => ({
+		name: text$10(outfit.name),
+		tags: text$10(outfit.tags)
 	})) : [];
-	const states = Array.isArray(copy.states) ? copy.states.filter(isDict$67).map((state) => ({
-		id: text$8(state.id),
-		tags: text$8(state.tags),
+	const states = Array.isArray(copy.states) ? copy.states.filter(isDict$79).map((state) => ({
+		id: text$10(state.id),
+		tags: text$10(state.tags),
 		enabled: state.enabled === true
 	})) : [];
 	const kind = KINDS$2.find((candidate) => candidate === copy.kind) ?? "character";
 	return {
 		...copy,
-		id: text$8(copy.id) || "main",
+		id: text$10(copy.id) || "main",
 		kind,
-		name: text$8(copy.name),
+		name: text$10(copy.name),
 		aliases: stringList$5(copy.aliases),
-		tags: text$8(copy.tags),
+		tags: text$10(copy.tags),
 		slots,
 		outfits,
-		activeOutfit: text$8(copy.activeOutfit),
+		activeOutfit: text$10(copy.activeOutfit),
 		states,
-		negative: text$8(copy.negative)
+		negative: text$10(copy.negative)
 	};
 }
 var NaiAdapter = class extends NeighbourBase {
@@ -1257,8 +1257,8 @@ var NaiAdapter = class extends NeighbourBase {
 	*/
 	passportsOf(characterIndex) {
 		const field = this.host.ctx().characters[characterIndex]?.data?.extensions?.[NAI_KEY];
-		if (!isDict$67(field)) return [];
-		return (Array.isArray(field.passports) ? field.passports : isDict$67(field.passport) ? [field.passport] : []).map(readPassport).filter((passport) => passport !== null);
+		if (!isDict$79(field)) return [];
+		return (Array.isArray(field.passports) ? field.passports : isDict$79(field.passport) ? [field.passport] : []).map(readPassport).filter((passport) => passport !== null);
 	}
 };
 //#endregion
@@ -1284,7 +1284,7 @@ var PresetAdapter = class extends NeighbourBase {
 	/** ST's live Chat Completion settings (`oai_settings`); read-only for Maestro. */
 	settings() {
 		const settings = extras$1(this.host).chatCompletionSettings;
-		return isDict$67(settings) ? settings : null;
+		return isDict$79(settings) ? settings : null;
 	}
 	/** Name of the active Chat Completion preset. */
 	presetName() {
@@ -1295,7 +1295,7 @@ var PresetAdapter = class extends NeighbourBase {
 	prompts() {
 		const prompts = this.settings()?.prompts;
 		if (!Array.isArray(prompts)) return [];
-		return prompts.filter(isDict$67).map((prompt) => ({
+		return prompts.filter(isDict$79).map((prompt) => ({
 			identifier: typeof prompt.identifier === "string" ? prompt.identifier : "",
 			name: typeof prompt.name === "string" ? prompt.name : "",
 			role: typeof prompt.role === "string" ? prompt.role : "system",
@@ -1307,7 +1307,7 @@ var PresetAdapter = class extends NeighbourBase {
 		if (MARINARA_NAME_RE.test(this.presetName() ?? "")) return true;
 		const prompts = this.settings()?.prompts;
 		if (!Array.isArray(prompts)) return false;
-		const contents = prompts.filter(isDict$67).map((prompt) => typeof prompt.content === "string" ? prompt.content : "");
+		const contents = prompts.filter(isDict$79).map((prompt) => typeof prompt.content === "string" ? prompt.content : "");
 		return MARINARA_SECTION_TAGS.every((tag) => contents.some((content) => content.includes(tag)));
 	}
 };
@@ -1350,7 +1350,7 @@ var QvinkAdapter = class extends NeighbourBase {
 	chatEnabled() {
 		if (this.setting("use_global_toggle_state")) return this.setting("global_toggle_state");
 		const chatState = this.host.ctx().chatMetadata[QVINK_KEY];
-		const perChat = isDict$67(chatState) ? chatState.enabled : void 0;
+		const perChat = isDict$79(chatState) ? chatState.enabled : void 0;
 		return typeof perChat === "boolean" ? perChat : this.setting("default_chat_enabled");
 	}
 	/** "Remove Messages": every message older than the injection threshold leaves the prompt. */
@@ -1360,7 +1360,7 @@ var QvinkAdapter = class extends NeighbourBase {
 	/** Qvink's record of a message, as a typed copy; null when there is none. */
 	memoryOf(index) {
 		const raw = this.host.ctx().chat[index]?.extra?.[QVINK_KEY];
-		if (!isDict$67(raw)) return null;
+		if (!isDict$79(raw)) return null;
 		const memory = {
 			memory: typeof raw.memory === "string" ? raw.memory : "",
 			remember: raw.remember === true,
@@ -2309,12 +2309,12 @@ function createChatStore(host, files, log, options = {}) {
 }
 //#endregion
 //#region src/core/cost.ts
-var GENERATE_URL$1 = /\/api\/backends\/chat-completions\/generate/;
+var GENERATE_URL$2 = /\/api\/backends\/chat-completions\/generate/;
 /** A generation whose request never left (aborted by an interceptor) must not claim later requests. */
-var ARM_TTL_MS$1 = 3e5;
+var ARM_TTL_MS$2 = 3e5;
 var MAX_RECENT = 200;
 var MAX_SEEN = 5e3;
-var DOC_VERSION = 1;
+var DOC_VERSION$1 = 1;
 function costFileName(date) {
 	return `maestro-cost-${date}.json`;
 }
@@ -2359,7 +2359,7 @@ function createCostMeter(deps) {
 		const name = costFileName(delta.date);
 		const merged = addDays(sanitizeDay(await files.read(name), delta.date), delta);
 		await files.write(name, {
-			version: DOC_VERSION,
+			version: DOC_VERSION$1,
 			...merged
 		});
 		if (doc.date === delta.date) {
@@ -2436,7 +2436,7 @@ function createCostMeter(deps) {
 		const armed = generation;
 		if (armed) {
 			generation = null;
-			if (now() - armed.at <= ARM_TTL_MS$1) return {
+			if (now() - armed.at <= ARM_TTL_MS$2) return {
 				own: false,
 				source: "main",
 				task: armed.type
@@ -2470,10 +2470,7 @@ function createCostMeter(deps) {
 				source,
 				task,
 				usd: usage.usd ?? 0,
-				tokens: {
-					prompt: usage.prompt,
-					completion: usage.completion
-				},
+				tokens: tokensOf$1(usage),
 				estimated: usage.usd === void 0,
 				chatId
 			});
@@ -2581,8 +2578,8 @@ function createCostMeter(deps) {
 		},
 		install() {
 			if (unsubscribers.length > 0) return;
-			unsubscribers.push(host.fetchGate.beforeRequest(GENERATE_URL$1, onGenerateRequest));
-			unsubscribers.push(host.fetchGate.afterResponse(GENERATE_URL$1, onGenerateResponse));
+			unsubscribers.push(host.fetchGate.beforeRequest(GENERATE_URL$2, onGenerateRequest));
+			unsubscribers.push(host.fetchGate.afterResponse(GENERATE_URL$2, onGenerateResponse));
 			unsubscribers.push(bus.on("generation:before", (info) => {
 				generation = {
 					type: info.type,
@@ -2622,14 +2619,23 @@ function readUsage(raw) {
 	const prompt = firstNumber(usage["prompt_tokens"], usage["input_tokens"], usage["promptTokenCount"]) ?? 0;
 	const completion = firstNumber(usage["completion_tokens"], usage["output_tokens"], usage["candidatesTokenCount"]) ?? 0;
 	const usd = firstNumber(usage["cost"], usage["total_cost"]);
-	return usd === void 0 ? {
+	const cached = firstNumber((isRecord$9(usage["prompt_tokens_details"]) ? usage["prompt_tokens_details"] : {})["cached_tokens"], usage["cache_read_input_tokens"], usage["cachedContentTokenCount"], usage["prompt_cache_hit_tokens"]);
+	const info = {
 		prompt,
 		completion
-	} : {
-		prompt,
-		completion,
-		usd
 	};
+	if (cached !== void 0 && cached > 0) info.cached = cached;
+	if (usd !== void 0) info.usd = usd;
+	return info;
+}
+/** Token counts of a usage for a cost entry (`cached` only when the provider reported a cache hit). */
+function tokensOf$1(usage) {
+	const tokens = {
+		prompt: usage.prompt,
+		completion: usage.completion
+	};
+	if (usage.cached !== void 0) tokens.cached = usage.cached;
+	return tokens;
 }
 /** Usage from a response body: a JSON object, or SSE text whose chunks carry usage (last/biggest wins). */
 function usageFromBody(text) {
@@ -2657,10 +2663,10 @@ function mergeUsage(a, b) {
 		prompt: Math.max(a.prompt, b.prompt),
 		completion: Math.max(a.completion, b.completion)
 	};
-	return usd === void 0 ? merged : {
-		...merged,
-		usd
-	};
+	const cached = Math.max(a.cached ?? 0, b.cached ?? 0);
+	if (cached > 0) merged.cached = cached;
+	if (usd !== void 0) merged.usd = usd;
+	return merged;
 }
 function dateKey$1(ms) {
 	const date = new Date(ms);
@@ -2726,8 +2732,8 @@ function sanitizeDay(raw, date) {
 	const day = emptyDay(date);
 	if (!isRecord$9(raw) || raw["date"] !== date) return day;
 	day.totalUsd = nonNegative(raw["totalUsd"]);
-	day.bySource = numberMap(raw["bySource"]);
-	day.byTask = numberMap(raw["byTask"]);
+	day.bySource = numberMap$1(raw["bySource"]);
+	day.byTask = numberMap$1(raw["byTask"]);
 	const tokens = isRecord$9(raw["tokens"]) ? raw["tokens"] : {};
 	day.tokens = {
 		prompt: nonNegative(tokens["prompt"]),
@@ -2760,7 +2766,7 @@ function positiveNumber(value) {
 	const n = nonNegative(value);
 	return n > 0 ? n : void 0;
 }
-function numberMap(value) {
+function numberMap$1(value) {
 	const out = {};
 	if (!isRecord$9(value)) return out;
 	for (const [key, item] of Object.entries(value)) {
@@ -3642,10 +3648,7 @@ function createLlmClient(deps) {
 	function recordCost(task, raw, spent) {
 		const usage = readUsage(raw);
 		const usd = usage?.usd ?? 0;
-		const tokens = usage ? {
-			prompt: usage.prompt,
-			completion: usage.completion
-		} : void 0;
+		const tokens = usage ? tokensOf$1(usage) : void 0;
 		cost.record(dropUndefined({
 			source: "maestro",
 			task,
@@ -6395,12 +6398,12 @@ var INBOX_CSS = `
 .maestro-inbox-edit { display: flex; flex-direction: column; gap: 6px; }
 .maestro-inbox-edit textarea { width: 100%; min-height: 4em; box-sizing: border-box; resize: vertical; }
 `;
-function isDict$65(value) {
+function isDict$77(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /** What the payload says about the card (see the convention above). */
 function cardMeta(item) {
-	const payload = isDict$65(item.payload) ? item.payload : {};
+	const payload = isDict$77(item.payload) ? item.payload : {};
 	const meta = {
 		entityName: typeof payload.entityName === "string" ? payload.entityName.trim() : "",
 		editable: false
@@ -6450,7 +6453,7 @@ function inboxTab(env) {
 		return ok;
 	};
 	const acceptEdited = async (item, value) => {
-		const payload = isDict$65(item.payload) ? item.payload : {};
+		const payload = isDict$77(item.payload) ? item.payload : {};
 		if (await env.inbox.accept(item.id, {
 			...payload,
 			value
@@ -7709,7 +7712,7 @@ function onRegistryChange(listener) {
 }
 //#endregion
 //#region src/ui/views/settings.ts
-var SETTINGS_TAB = "settings";
+var SETTINGS_TAB$1 = "settings";
 var AUTONOMY_LEVELS = [
 	"auto",
 	"notify",
@@ -7727,7 +7730,7 @@ var EMPTY_PROFILE_LABEL = {
 	default: "ui.settings.profileNone",
 	fallback: "ui.settings.profileNoFallback"
 };
-var LIMIT_ACTIONS = [
+var LIMIT_ACTIONS$1 = [
 	"warn",
 	"economy",
 	"stopBackground"
@@ -7812,7 +7815,7 @@ function settingsTab(env) {
 			field$1(t("ui.settings.dailyLimitAction"), select({
 				value: limit.action,
 				label: t("ui.settings.dailyLimitAction"),
-				options: LIMIT_ACTIONS.map((value) => ({
+				options: LIMIT_ACTIONS$1.map((value) => ({
 					value,
 					label: t(`ui.settings.limitAction.${value}`)
 				})),
@@ -7957,7 +7960,7 @@ function settingsTab(env) {
 		]);
 	};
 	return {
-		id: SETTINGS_TAB,
+		id: SETTINGS_TAB$1,
 		titleKey: "ui.tab.settings",
 		icon: "fa-gear",
 		order: 90,
@@ -9418,391 +9421,60 @@ function installDataActions(app) {
 	return offs;
 }
 //#endregion
-//#region src/domain/lore-journal.ts
-/** Canon books of M6: "Maestro · канон · <short id>" (src/features/canon/api.ts). */
-var CANON_BOOK_PREFIX = "Maestro · канон";
-/** Tag order (also the bit order of the stored tag mask). */
-var LORE_TAG_ORDER = [
-	"bunnymo.core",
-	"bunnymo.pack",
-	"ck.archive",
-	"localizer",
-	"des.book",
-	"canon",
-	"maestro.book",
-	"constant"
+//#region src/domain/architect-budget.ts
+var BUDGET_SOURCE_IDS = [
+	"lore",
+	"ckRag",
+	"qvink",
+	"des",
+	"voices",
+	"mechanics",
+	"director"
 ];
-function isDict$64(value) {
-	return typeof value === "object" && value !== null && !Array.isArray(value);
+/** Upper bound of one budget (tokens): anything larger is a typo. */
+var MAX_BUDGET_TOKENS = 1e6;
+/** A budget value as stored: a whole number of tokens ≥ 0 (0 = no budget); anything else → 0. */
+function cleanBudget(value) {
+	if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) return 0;
+	return Math.min(MAX_BUDGET_TOKENS, Math.floor(value));
 }
-function strings$15(value) {
-	return Array.isArray(value) ? value.filter((item) => typeof item === "string" && !!item) : [];
+/** Every source with a clean value (missing and broken ones → 0). */
+function cleanBudgets(raw) {
+	const source = typeof raw === "object" && raw !== null && !Array.isArray(raw) ? raw : {};
+	const result = {};
+	for (const id of BUDGET_SOURCE_IDS) result[id] = cleanBudget(source[id]);
+	return result;
 }
-/** Canon items carry `extensions.maestro` with a `kind` (CanonMeta); overrides keep the base book's name. */
-function isCanonMeta$1(extensions) {
-	return isDict$64(extensions) && isDict$64(extensions.maestro) && typeof extensions.maestro.kind === "string";
-}
-function tagsFor(entry, context, hasLocalizerMarker) {
-	const tags = [];
-	if (context.bunnymoCore.has(entry.world)) tags.push("bunnymo.core");
-	else if (context.bunnymoPacks.has(entry.world)) tags.push("bunnymo.pack");
-	if (context.ckRepos.has(entry.world)) tags.push("ck.archive");
-	if (hasLocalizerMarker) tags.push("localizer");
-	if (context.desBooks.has(entry.world)) tags.push("des.book");
-	if (entry.world.startsWith("Maestro · канон") || isCanonMeta$1(entry.extensions)) tags.push("canon");
-	else if (entry.world.startsWith("Maestro · ")) tags.push("maestro.book");
-	if (entry.constant) tags.push("constant");
-	return tags;
-}
-function tagMask(tags) {
-	let mask = 0;
-	LORE_TAG_ORDER.forEach((tag, bit) => {
-		if (tags.includes(tag)) mask |= 1 << bit;
-	});
-	return mask;
-}
-function tagsOfMask(mask) {
-	return LORE_TAG_ORDER.filter((_, bit) => (mask & 1 << bit) !== 0);
-}
-function desLinkedBooks(settings) {
-	const links = {
-		campaign: [],
-		campaignAll: [],
-		autoLinked: [],
-		workshop: []
+/**
+* Cuts lore over the budget: non-exempt activations, non-constant before constant, lowest `order` first, then the
+* ones ST ranks lower; it stops as soon as the total fits. With limit 0 nothing is cut.
+*/
+function planLoreBudget(items, limit) {
+	let total = items.reduce((sum, item) => sum + Math.max(0, item.tokens), 0);
+	if (!(limit > 0) || total <= limit) return {
+		cut: [],
+		used: total,
+		cutTokens: 0
 	};
-	if (!isDict$64(settings)) return links;
-	const lorebook = isDict$64(settings.lorebook) ? settings.lorebook : {};
-	const campaigns = isDict$64(lorebook.campaigns) ? lorebook.campaigns : {};
-	const all = /* @__PURE__ */ new Set();
-	for (const campaign of Object.values(campaigns)) if (isDict$64(campaign)) for (const book of strings$15(campaign.books)) all.add(book);
-	const active = typeof lorebook.activeCampaignId === "string" ? campaigns[lorebook.activeCampaignId] : void 0;
-	const campaign = new Set(strings$15(lorebook.campaignActivated));
-	if (isDict$64(active)) for (const book of strings$15(active.books)) campaign.add(book);
-	links.campaign = [...campaign];
-	links.campaignAll = [...all];
-	links.autoLinked = strings$15(lorebook.autoLinked);
-	const injections = isDict$64(settings.characterInjection) ? settings.characterInjection : {};
-	const workshop = /* @__PURE__ */ new Set();
-	for (const injection of Object.values(injections)) if (isDict$64(injection) && typeof injection.lorebook === "string" && injection.lorebook) workshop.add(injection.lorebook);
-	links.workshop = [...workshop];
-	return links;
-}
-/** Every active book with the reasons it is active, in ST's scan priority: chat, persona, character, global. */
-function bookReasons(sources) {
-	const rows = /* @__PURE__ */ new Map();
-	const add = (book, reason) => {
-		if (!book) return;
-		const list = rows.get(book) ?? [];
-		if (!list.includes(reason)) list.push(reason);
-		rows.set(book, list);
-	};
-	if (sources.chat) {
-		add(sources.chat, "chat");
-		if (sources.ckChatBooks.includes(sources.chat)) add(sources.chat, "ckConnector");
+	const candidates = items.filter((item) => !item.exempt).sort((a, b) => Number(a.constant) - Number(b.constant) || a.order - b.order || b.priority - a.priority || (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
+	const cut = [];
+	let cutTokens = 0;
+	for (const item of candidates) {
+		if (total <= limit) break;
+		const tokens = Math.max(0, item.tokens);
+		cut.push(item.key);
+		cutTokens += tokens;
+		total -= tokens;
 	}
-	add(sources.persona, "persona");
-	for (const book of sources.characterPrimary) add(book, "character");
-	for (const book of sources.characterExtra) add(book, "characterExtra");
-	for (const book of sources.global) {
-		add(book, "global");
-		if (sources.des.campaign.includes(book)) add(book, "desCampaign");
-		if (sources.des.autoLinked.includes(book)) add(book, "desAutoLink");
-		if (sources.des.workshop.includes(book)) add(book, "workshop");
-	}
-	for (const book of rows.keys()) if (book.startsWith("Maestro · канон")) add(book, "canon");
-	return [...rows].map(([book, reasons]) => ({
-		book,
-		reasons
-	}));
-}
-function emptyJournal() {
 	return {
-		v: 1,
-		worlds: [],
-		titles: {},
-		records: [],
-		stats: {
-			turns: 0,
-			chars: 0,
-			canon: 0,
-			entries: {}
-		}
+		cut,
+		used: total,
+		cutTokens
 	};
 }
-/**
-* Repairs a loaded document in place (the chat store tracks the object identity, so it must not be replaced)
-* and returns it typed.
-*/
-function ensureJournal(doc) {
-	const raw = doc;
-	raw.v = 1;
-	if (!Array.isArray(raw.worlds)) raw.worlds = [];
-	if (!isDict$64(raw.titles)) raw.titles = {};
-	if (!Array.isArray(raw.records)) raw.records = [];
-	const stats = isDict$64(raw.stats) ? raw.stats : {};
-	raw.stats = {
-		turns: typeof stats.turns === "number" ? stats.turns : 0,
-		chars: typeof stats.chars === "number" ? stats.chars : 0,
-		canon: typeof stats.canon === "number" ? stats.canon : 0,
-		entries: isDict$64(stats.entries) ? stats.entries : {}
-	};
-	raw.records = raw.records.filter((record) => isDict$64(record) && typeof record.i === "number" && Array.isArray(record.a));
-	return raw;
-}
-function worldIndex(doc, name) {
-	let index = doc.worlds.indexOf(name);
-	if (index < 0) {
-		doc.worlds.push(name);
-		index = doc.worlds.length - 1;
-	}
-	return index;
-}
-var CUT_CODES = {
-	none: 0,
-	budget: 1,
-	maestro: 2,
-	other: 3
-};
-function cutCode(row) {
-	if (!row.cut) return CUT_CODES.none;
-	if (row.cutBy === "budget") return CUT_CODES.budget;
-	if (row.cutBy === "maestro") return CUT_CODES.maestro;
-	return CUT_CODES.other;
-}
-function encodeRecord(doc, record) {
-	const a = record.activations.map((row) => {
-		const w = worldIndex(doc, row.world);
-		if (row.comment) doc.titles[`${w}:${row.uid}`] = row.comment;
-		return [
-			w,
-			row.uid,
-			row.chars,
-			row.tokens,
-			row.position,
-			row.depth ?? null,
-			row.role ?? null,
-			row.order,
-			row.loop,
-			row.recursionLevel,
-			row.via ? worldIndex(doc, row.via.world) : null,
-			row.via ? row.via.uid : null,
-			cutCode(row),
-			tagMask(row.tags),
-			row.key ?? null
-		];
-	});
-	const stored = {
-		i: record.messageIndex,
-		at: record.at,
-		t: record.generationType,
-		a,
-		c: record.totalChars,
-		k: record.totalTokens,
-		o: record.overflow ? 1 : 0
-	};
-	if (record.budgetTokens !== void 0) stored.b = record.budgetTokens;
-	if (record.canonChars !== void 0) stored.cc = record.canonChars;
-	return stored;
-}
-function decodeRecord(doc, stored) {
-	const activations = stored.a.map((tuple) => {
-		const [w, uid, chars, tokens, position, depth, role, order, loop, level, viaW, viaUid, cut, mask, key] = tuple;
-		const row = {
-			world: doc.worlds[w] ?? "",
-			uid,
-			comment: doc.titles[`${w}:${uid}`] ?? "",
-			chars,
-			tokens,
-			position,
-			order,
-			loop,
-			recursionLevel: level,
-			tags: tagsOfMask(mask)
-		};
-		if (depth !== null) row.depth = depth;
-		if (role !== null) row.role = role;
-		if (viaW !== null && viaUid !== null) row.via = {
-			world: doc.worlds[viaW] ?? "",
-			uid: viaUid
-		};
-		if (key !== null) row.key = key;
-		if (cut !== CUT_CODES.none) {
-			row.cut = true;
-			if (cut === CUT_CODES.budget) row.cutBy = "budget";
-			else if (cut === CUT_CODES.maestro) row.cutBy = "maestro";
-		}
-		return row;
-	});
-	const record = {
-		messageIndex: stored.i,
-		at: stored.at,
-		generationType: stored.t,
-		activations,
-		totalChars: stored.c,
-		totalTokens: stored.k,
-		overflow: stored.o === 1
-	};
-	if (stored.b !== void 0) record.budgetTokens = stored.b;
-	if (stored.cc !== void 0) record.canonChars = stored.cc;
-	return record;
-}
-function decodeRecords(doc) {
-	return doc.records.map((stored) => decodeRecord(doc, stored));
-}
-function applyStats(doc, stored, sign) {
-	const stats = doc.stats;
-	stats.turns = Math.max(0, stats.turns + sign);
-	stats.chars = Math.max(0, stats.chars + sign * stored.c);
-	stats.canon = Math.max(0, stats.canon + sign * (stored.cc ?? 0));
-	for (const tuple of stored.a) {
-		if (tuple[12] !== CUT_CODES.none) continue;
-		const key = `${tuple[0]}:${tuple[1]}`;
-		const current = stats.entries[key] ?? [
-			0,
-			0,
-			stored.i
-		];
-		const activations = current[0] + sign;
-		if (activations <= 0) {
-			delete stats.entries[key];
-			continue;
-		}
-		stats.entries[key] = [
-			activations,
-			Math.max(0, current[1] + sign * tuple[2]),
-			sign > 0 ? Math.max(current[2], stored.i) : current[2]
-		];
-	}
-}
-/**
-* Adds a turn: a record for the same message (swipe, regenerate, continue) replaces the earlier one and its
-* counters; the oldest records beyond `keep` are dropped from the list but stay in the running counters.
-*/
-function addRecord(doc, record, keep) {
-	const stored = encodeRecord(doc, record);
-	const previous = doc.records.findIndex((item) => item.i === record.messageIndex);
-	if (previous >= 0) {
-		const [old] = doc.records.splice(previous, 1);
-		if (old) applyStats(doc, old, -1);
-	}
-	doc.records.push(stored);
-	applyStats(doc, stored, 1);
-	const limit = Math.max(1, Math.floor(keep));
-	if (doc.records.length > limit) doc.records.splice(0, doc.records.length - limit);
-	return stored;
-}
-/** Drops records of messages that no longer exist (index ≥ `fromIndex`), with their counters. */
-function removeRecordsFrom(doc, fromIndex) {
-	let removed = 0;
-	doc.records = doc.records.filter((stored) => {
-		if (stored.i < fromIndex) return true;
-		applyStats(doc, stored, -1);
-		removed++;
-		return false;
-	});
-	return removed;
-}
-/** Stores lazily attributed keys into the stored record of the same turn. Returns false when it is gone. */
-function setRecordKeys(doc, record) {
-	const stored = doc.records.find((item) => item.i === record.messageIndex && item.at === record.at);
-	if (!stored) return false;
-	for (const row of record.activations) {
-		if (row.key === void 0) continue;
-		const w = doc.worlds.indexOf(row.world);
-		const tuple = stored.a.find((item) => item[0] === w && item[1] === row.uid);
-		if (tuple) tuple[14] = row.key;
-	}
-	return true;
-}
-/** Entries of the ENTRIES_LOADED lists, de-duplicated by world and uid. */
-function catalogFromLists(lists) {
-	if (!isDict$64(lists)) return [];
-	const seen = /* @__PURE__ */ new Set();
-	const entries = [];
-	for (const name of [
-		"chatLore",
-		"personaLore",
-		"characterLore",
-		"globalLore"
-	]) {
-		const list = lists[name];
-		if (!Array.isArray(list)) continue;
-		for (const raw of list) {
-			if (!isDict$64(raw) || typeof raw.world !== "string") continue;
-			const uid = Number(raw.uid);
-			if (!Number.isFinite(uid)) continue;
-			const id = `${raw.world}\u0000${uid}`;
-			if (seen.has(id)) continue;
-			seen.add(id);
-			entries.push({
-				world: raw.world,
-				uid,
-				comment: typeof raw.comment === "string" ? raw.comment : "",
-				chars: typeof raw.content === "string" ? raw.content.length : 0,
-				constant: raw.constant === true,
-				disabled: raw.disable === true
-			});
-		}
-	}
-	return entries;
-}
-/**
-* Chat summary from the running counters. Book weight is chars per turn on average; entry weight is the total
-* contribution (activations × average size). "Always active" needs at least two turns; "never active" lists
-* enabled entries of the books scanned last that no recorded turn activated.
-*/
-function summarize(doc, catalog, limits = {}) {
-	const turns = doc.stats.turns;
-	const rows = [];
-	const books = /* @__PURE__ */ new Map();
-	for (const [key, [activations, chars, lastSeen]] of Object.entries(doc.stats.entries)) {
-		const separator = key.indexOf(":");
-		const w = Number(key.slice(0, separator));
-		const uid = Number(key.slice(separator + 1));
-		const world = doc.worlds[w];
-		if (world === void 0 || !Number.isFinite(uid) || activations <= 0) continue;
-		rows.push({
-			world,
-			uid,
-			comment: doc.titles[key] ?? "",
-			activations,
-			avgChars: Math.round(chars / activations),
-			lastSeenTurn: lastSeen,
-			total: chars
-		});
-		const book = books.get(world) ?? {
-			activations: 0,
-			total: 0
-		};
-		book.activations += activations;
-		book.total += chars;
-		books.set(world, book);
-	}
-	const strip = ({ total: _total, ...row }) => row;
-	const heaviestEntries = [...rows].sort((a, b) => b.total - a.total).slice(0, limits.entries ?? 15).map(strip);
-	const heaviestBooks = [...books].map(([world, book]) => ({
-		world,
-		activations: book.activations,
-		avgChars: turns ? Math.round(book.total / turns) : 0
-	})).sort((a, b) => b.avgChars - a.avgChars).slice(0, limits.books ?? 10);
-	const alwaysActive = turns >= 2 ? rows.filter((row) => row.activations >= turns).sort((a, b) => b.avgChars - a.avgChars).map(strip) : [];
-	const active = new Set(rows.map((row) => `${row.world}\u0000${row.uid}`));
-	return {
-		turns,
-		heaviestBooks,
-		heaviestEntries,
-		alwaysActive,
-		neverActive: turns ? catalog.filter((entry) => !entry.disabled && !active.has(`${entry.world}\u0000${entry.uid}`)).sort((a, b) => b.chars - a.chars).map((entry) => ({
-			world: entry.world,
-			uid: entry.uid,
-			comment: entry.comment,
-			activations: 0,
-			avgChars: entry.chars
-		})) : [],
-		avgTotalChars: turns ? Math.round(doc.stats.chars / turns) : 0,
-		avgCanonChars: turns ? Math.round(doc.stats.canon / turns) : 0
-	};
+/** Share of a budget used, 0..1+ (0 when there is no budget). */
+function budgetShare(used, limit) {
+	return limit > 0 && used > 0 ? used / limit : 0;
 }
 //#endregion
 //#region src/domain/rules-lore.ts
@@ -9984,6 +9656,6112 @@ function diffActivations(before, after) {
 function isPlainObject(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
+//#endregion
+//#region src/domain/architect-text.ts
+/** Default counter: the project-wide chars/3.6 estimate (exact counts are never awaited on the send path, P15). */
+var estimateText = (text) => estimateTokens$1(text.length);
+var TERMINATORS = /* @__PURE__ */ new Set([
+	".",
+	"!",
+	"?",
+	"…"
+]);
+var CLOSERS = /* @__PURE__ */ new Set([
+	"\"",
+	"'",
+	"»",
+	"”",
+	"’",
+	")",
+	"]",
+	"*",
+	"_"
+]);
+function isSpace(char) {
+	return char === " " || char === "	" || char === "\n" || char === "\r" || char === "\xA0";
+}
+/**
+* Sentence segments with their trailing whitespace (`segments.join('') === text`). A segment ends after a line
+* break or after `. ! ? …` (plus closing quotes/brackets) followed by whitespace; nothing inside `<…>` ends one.
+*/
+function splitSentenceSegments(text) {
+	const segments = [];
+	let start = 0;
+	let inTag = false;
+	let i = 0;
+	const cut = (end) => {
+		let stop = end;
+		while (stop < text.length && isSpace(text[stop])) stop++;
+		if (stop > start) segments.push(text.slice(start, stop));
+		start = stop;
+		return stop;
+	};
+	while (i < text.length) {
+		const char = text[i];
+		if (inTag) {
+			if (char === ">") inTag = false;
+			i++;
+			continue;
+		}
+		if (char === "<" && /[A-Za-z/!]/.test(text[i + 1] ?? "")) {
+			inTag = true;
+			i++;
+			continue;
+		}
+		if (char === "\n") {
+			i = cut(i + 1);
+			continue;
+		}
+		if (TERMINATORS.has(char)) {
+			let end = i + 1;
+			while (end < text.length && (TERMINATORS.has(text[end]) || CLOSERS.has(text[end]))) end++;
+			if (end >= text.length || isSpace(text[end])) {
+				i = cut(end);
+				continue;
+			}
+			i = end;
+			continue;
+		}
+		i++;
+	}
+	if (start < text.length) segments.push(text.slice(start));
+	return segments;
+}
+/** Paragraph segments (split after blank lines) with their trailing whitespace; joining gives the text back. */
+function splitParagraphs$1(text) {
+	const segments = [];
+	const re = /\n[ \t]*\n\s*/g;
+	let start = 0;
+	let match;
+	while ((match = re.exec(text)) !== null) {
+		const end = match.index + match[0].length;
+		segments.push(text.slice(start, end));
+		start = end;
+	}
+	if (start < text.length) segments.push(text.slice(start));
+	return segments;
+}
+var TAG_RE$3 = /<\/?[A-Za-z][\w:.-]*(?:\s[^<>]*)?\/?>/;
+var HEADER_RE = /^\s*(?:#{1,6}\s|(?:Tags|Reason):)/;
+/**
+* Segments that trimming and duplicate removal never drop: empty ones, markdown headers, CK chunk metadata lines,
+* and anything holding a tag (`<context>`, `</memories>`, `<SPECIES:ELF>`) — so a cut never breaks a tag pair.
+*/
+function isProtectedSegment(segment) {
+	if (!segment.trim()) return true;
+	return HEADER_RE.test(segment) || TAG_RE$3.test(segment);
+}
+/** Lower case, ё → е, only letters and digits separated by single spaces. */
+function normalizeSentence(text) {
+	return text.normalize("NFC").toLowerCase().replace(/ё/g, "е").replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+}
+/** Stable key of a sentence (normalised text hash); '' for a sentence without letters or digits. */
+function sentenceKey(sentence) {
+	const normalized = normalizeSentence(sentence);
+	return normalized ? stableHash(normalized) : "";
+}
+/** Removes every unprotected sentence whose key is in `keys`; everything else stays as it was. */
+function removeSentences(text, keys) {
+	if (!keys.size || !text) return {
+		text,
+		removed: 0,
+		removedChars: 0
+	};
+	let removed = 0;
+	let removedChars = 0;
+	const kept = [];
+	for (const segment of splitSentenceSegments(text)) {
+		if (!isProtectedSegment(segment) && keys.has(sentenceKey(segment))) {
+			removed++;
+			removedChars += segment.length;
+			continue;
+		}
+		kept.push(segment);
+	}
+	return removed ? {
+		text: kept.join(""),
+		removed,
+		removedChars
+	} : {
+		text,
+		removed: 0,
+		removedChars: 0
+	};
+}
+/** Text left after protected-only content is ignored: true when something worth sending remains. */
+function hasStoryText(text) {
+	return splitSentenceSegments(text).some((segment) => !isProtectedSegment(segment) && /[\p{L}\p{N}]/u.test(segment));
+}
+/**
+* Removes whole units from one end until the text fits `budget` tokens; protected units (tags, headers) stay.
+* When nothing removable is left the result may still be over the budget.
+*/
+function trimToTokens(text, budget, options) {
+	const count = options.count ?? estimateText;
+	const before = count(text);
+	if (!(budget >= 0) || before <= budget) return {
+		text,
+		before,
+		after: before,
+		removed: 0
+	};
+	const units = options.unit === "paragraph" ? splitParagraphs$1(text) : splitSentenceSegments(text);
+	const firstIndex = units.findIndex((unit) => unit.trim().length > 0);
+	const locked = units.map((unit, index) => isProtectedSegment(unit) || options.keepFirst === true && index === firstIndex);
+	const alive = units.map(() => true);
+	const joined = () => units.filter((_, i) => alive[i]).join("");
+	let total = before;
+	let removed = 0;
+	const order = units.map((_, index) => index);
+	if (options.from === "end") order.reverse();
+	for (const index of order) {
+		if (total <= budget) {
+			total = count(joined());
+			if (total <= budget) break;
+		}
+		if (locked[index]) continue;
+		alive[index] = false;
+		removed++;
+		total -= count(units[index]);
+	}
+	const result = joined();
+	return {
+		text: result,
+		before,
+		after: count(result),
+		removed
+	};
+}
+/** CarrotKernel RAG chunks: `### header` blocks joined by blank lines (fullsheet-rag.js injectRAGResults). */
+function splitRagChunks(text) {
+	const parts = [];
+	const re = /\n[ \t]*\n\s*(?=###\s)/g;
+	let start = 0;
+	let match;
+	while ((match = re.exec(text)) !== null) {
+		parts.push(text.slice(start, match.index));
+		start = match.index;
+	}
+	parts.push(text.slice(start));
+	return parts.filter((part) => part.length > 0);
+}
+/**
+* Trims a CK RAG injection: CK lists its chunks best first, so whole chunks go from the end; when one chunk is
+* left and still too long, its sentences go from the end (headers, tags and `Tags:` lines stay). An injection that
+* cannot fit at all becomes ''.
+*/
+function trimRagInjection(text, budget, count = estimateText) {
+	const before = count(text);
+	if (!(budget >= 0) || before <= budget) return {
+		text,
+		before,
+		after: before,
+		removed: 0
+	};
+	const chunks = splitRagChunks(text);
+	let removed = 0;
+	while (chunks.length > 1 && count(chunks.join("")) > budget) {
+		chunks.pop();
+		removed++;
+	}
+	let result = chunks.join("");
+	if (count(result) > budget) {
+		const last = chunks.pop() ?? "";
+		const rest = chunks.join("");
+		const inner = trimToTokens(last, Math.max(0, budget - count(rest)), {
+			from: "end",
+			unit: "sentence",
+			count
+		});
+		removed += inner.removed;
+		result = hasStoryText(inner.text) && count(rest + inner.text) <= budget ? rest + inner.text : rest;
+		if (!hasStoryText(result)) result = "";
+	}
+	return {
+		text: result,
+		before,
+		after: count(result),
+		removed
+	};
+}
+/**
+* Trims Qvink's short-term memory injection oldest first. `memories` are the injected memory texts in chronological
+* order (as Qvink concatenates them); removing the oldest k cuts from the first memory to the (k+1)-th, so the
+* template header and the separator layout stay. Null when the memories cannot be found in the text (another
+* template or prefill): the caller then trims by sentences.
+*/
+function trimMemoryInjection(text, memories, budget, count = estimateText) {
+	const before = count(text);
+	if (!(budget >= 0) || before <= budget) return {
+		text,
+		before,
+		after: before,
+		removed: 0
+	};
+	const starts = [];
+	let pos = 0;
+	for (const raw of memories) {
+		const memory = raw.trim();
+		if (!memory) continue;
+		const index = text.indexOf(memory, pos);
+		if (index < 0) return null;
+		starts.push(index);
+		pos = index + memory.length;
+	}
+	if (!starts.length) return null;
+	const head = text.slice(0, starts[0]);
+	for (let k = 1; k < starts.length; k++) {
+		const candidate = head + text.slice(starts[k]);
+		if (count(candidate) <= budget) return {
+			text: candidate,
+			before,
+			after: count(candidate),
+			removed: k
+		};
+	}
+	return {
+		text: "",
+		before,
+		after: 0,
+		removed: starts.length
+	};
+}
+//#endregion
+//#region src/domain/architect-dupes.ts
+var SHINGLE$1 = 3;
+/** Shingles present in more sentences than this are boilerplate and do not link sentences. */
+var MAX_POSTINGS = 64;
+function shinglesOf(words) {
+	const result = /* @__PURE__ */ new Set();
+	for (let i = 0; i + SHINGLE$1 <= words.length; i++) result.add(words.slice(i, i + SHINGLE$1).join(" "));
+	return result;
+}
+var DisjointSet = class {
+	parent = [];
+	add() {
+		this.parent.push(this.parent.length);
+		return this.parent.length - 1;
+	}
+	find(x) {
+		let root = x;
+		while (this.parent[root] !== root) root = this.parent[root];
+		let node = x;
+		while (this.parent[node] !== root) {
+			const next = this.parent[node];
+			this.parent[node] = root;
+			node = next;
+		}
+		return root;
+	}
+	union(a, b) {
+		const ra = this.find(a);
+		const rb = this.find(b);
+		if (ra !== rb) this.parent[Math.max(ra, rb)] = Math.min(ra, rb);
+	}
+};
+/** Sentences found in two or more sources of different groups, biggest repeats first. */
+function findDuplicateFacts(sources, options = {}) {
+	const minWords = Math.max(SHINGLE$1, options.minWords ?? 6);
+	const threshold = options.threshold ?? .6;
+	const limit = options.limit ?? 20;
+	const count = options.count ?? estimateText;
+	const sentences = [];
+	const sets = new DisjointSet();
+	const postings = /* @__PURE__ */ new Map();
+	const groupOf = (index) => {
+		const source = sources[index];
+		return source.group ?? source.owner;
+	};
+	sources.forEach((source, sourceIndex) => {
+		if (!source.text) return;
+		const seenKeys = /* @__PURE__ */ new Set();
+		for (const segment of splitSentenceSegments(source.text)) {
+			if (isProtectedSegment(segment)) continue;
+			const normalized = normalizeSentence(segment);
+			const words = normalized ? normalized.split(" ") : [];
+			if (words.length < minWords) continue;
+			const key = stableHash(normalized);
+			if (seenKeys.has(key)) continue;
+			seenKeys.add(key);
+			const sentence = {
+				source: sourceIndex,
+				text: segment.trim(),
+				key,
+				shingles: shinglesOf(words)
+			};
+			const id = sets.add();
+			sentences.push(sentence);
+			const shared = /* @__PURE__ */ new Map();
+			for (const shingle of sentence.shingles) {
+				const list = postings.get(shingle);
+				if (!list) {
+					postings.set(shingle, [id]);
+					continue;
+				}
+				if (list.length <= MAX_POSTINGS) {
+					for (const other of list) shared.set(other, (shared.get(other) ?? 0) + 1);
+					list.push(id);
+				}
+			}
+			for (const [other, common] of shared) {
+				const candidate = sentences[other];
+				if (groupOf(candidate.source) === groupOf(sourceIndex)) continue;
+				const union = candidate.shingles.size + sentence.shingles.size - common;
+				if (union > 0 && common / union >= threshold) sets.union(id, other);
+			}
+		}
+	});
+	const byRoot = /* @__PURE__ */ new Map();
+	sentences.forEach((_, index) => {
+		const root = sets.find(index);
+		const list = byRoot.get(root);
+		if (list) list.push(index);
+		else byRoot.set(root, [index]);
+	});
+	const groups = [];
+	for (const indexes of byRoot.values()) {
+		if (indexes.length < 2) continue;
+		const members = [];
+		const seenSources = /* @__PURE__ */ new Set();
+		const ordered = [...indexes].sort((a, b) => sentences[a].source - sentences[b].source || a - b);
+		for (const index of ordered) {
+			const sentence = sentences[index];
+			if (seenSources.has(sentence.source)) continue;
+			seenSources.add(sentence.source);
+			const source = sources[sentence.source];
+			members.push({
+				owner: source.owner,
+				ref: source.ref,
+				sentence: sentence.text,
+				key: sentence.key,
+				tokens: count(sentence.text)
+			});
+		}
+		const groupsSeen = new Set([...seenSources].map(groupOf));
+		if (members.length < 2 || groupsSeen.size < 2) continue;
+		const keys = [...new Set(ordered.map((index) => sentences[index].key))].sort();
+		groups.push({
+			group: {
+				id: `d${stableHash(keys[0])}`,
+				text: members[0].sentence,
+				members,
+				keys
+			},
+			weight: members.reduce((sum, member) => sum + member.tokens, 0)
+		});
+	}
+	return groups.sort((a, b) => b.weight - a.weight || (a.group.id < b.group.id ? -1 : 1)).slice(0, limit).map((item) => item.group);
+}
+//#endregion
+//#region src/domain/architect-prompt.ts
+function isDict$76(value) {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+/** Text parts of a message: [content] for string content, the `text` of each text part for multimodal content. */
+function messageTextParts(message) {
+	if (!isDict$76(message)) return [];
+	const content = message.content;
+	if (typeof content === "string") return [content];
+	if (!Array.isArray(content)) return [];
+	return content.map((part) => isDict$76(part) && typeof part.text === "string" ? part.text : "");
+}
+/**
+* Forms an extension prompt can take in the final prompt, most exact first: as set, trimmed (ST trims in-chat
+* injections), and with macros substituted when it has any.
+*/
+function slotNeedles(value, substitute) {
+	const needles = [value, value.trim()];
+	if (substitute && value.includes("{{")) try {
+		needles.push(substitute(value.trim()));
+	} catch {}
+	return [...new Set(needles.filter((needle) => needle.trim().length > 0))];
+}
+/** First message (from `from`) holding one of the needles. */
+function findInMessages(messages, needles, from = 0) {
+	for (const needle of needles) for (let index = Math.max(0, from); index < messages.length; index++) {
+		const parts = messageTextParts(messages[index]);
+		for (let part = 0; part < parts.length; part++) {
+			const start = parts[part].indexOf(needle);
+			if (start >= 0) return {
+				message: index,
+				part,
+				start,
+				needle
+			};
+		}
+	}
+	return null;
+}
+function spliceText(text, start, length, replacement) {
+	return text.slice(0, start) + replacement + text.slice(start + length);
+}
+/**
+* Short-term memories Qvink injects now, oldest first (its collect_chat_messages('short')): messages with a memory,
+* `include === 'short'` and not lagging.
+*/
+function qvinkShortMemories(chat) {
+	const result = [];
+	for (const message of chat) {
+		if (!isDict$76(message) || !isDict$76(message.extra)) continue;
+		const record = message.extra.qvink_memory;
+		if (!isDict$76(record) || record.include !== "short" || record.lagging === true) continue;
+		if (typeof record.memory === "string" && record.memory.trim()) result.push(record.memory);
+	}
+	return result;
+}
+//#endregion
+//#region src/domain/architect-cache.ts
+function isDict$75(value) {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function num$7(value) {
+	return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : void 0;
+}
+/** Cache numbers of one parsed response object (or stream chunk); null without a usable `usage`. */
+function readCacheUsage(raw) {
+	if (!isDict$75(raw)) return null;
+	const message = isDict$75(raw.message) ? raw.message : void 0;
+	const usage = isDict$75(raw.usage) ? raw.usage : isDict$75(raw.usageMetadata) ? raw.usageMetadata : message && isDict$75(message.usage) ? message.usage : void 0;
+	if (!usage) return null;
+	const details = isDict$75(usage.prompt_tokens_details) ? usage.prompt_tokens_details : void 0;
+	const hit = num$7(usage.prompt_cache_hit_tokens);
+	const miss = num$7(usage.prompt_cache_miss_tokens);
+	const claudeRead = num$7(usage.cache_read_input_tokens);
+	const claudeWrite = num$7(usage.cache_creation_input_tokens);
+	let prompt = num$7(usage.prompt_tokens) ?? num$7(usage.promptTokenCount);
+	if (prompt === void 0 && num$7(usage.input_tokens) !== void 0) prompt = (num$7(usage.input_tokens) ?? 0) + (claudeRead ?? 0) + (claudeWrite ?? 0);
+	if (prompt === void 0 && (hit !== void 0 || miss !== void 0)) prompt = (hit ?? 0) + (miss ?? 0);
+	if (prompt === void 0) return null;
+	const cached = num$7(details?.cached_tokens) ?? hit ?? claudeRead ?? num$7(usage.cachedContentTokenCount) ?? 0;
+	return {
+		prompt,
+		cached: Math.min(cached, prompt)
+	};
+}
+/** Most `"usage"` occurrences a streamed body is searched for (from its end). */
+var MAX_STREAM_HITS = 8;
+/**
+* Cache numbers from a response body: one JSON document, or an SSE stream. Streams are not parsed whole: only the
+* lines holding `"usage"` / `"usageMetadata"` are, from the end (the final chunk carries the totals; Claude splits
+* them between message_start and message_delta, so the biggest numbers win).
+*/
+function cacheUsageFromBody(body) {
+	const text = body.trim();
+	if (!text) return null;
+	if (text.startsWith("{")) try {
+		const parsed = readCacheUsage(JSON.parse(text));
+		if (parsed) return parsed;
+	} catch {}
+	let result = null;
+	let from = text.length;
+	for (let hits = 0; hits < MAX_STREAM_HITS && from > 0; hits++) {
+		const index = Math.max(text.lastIndexOf("\"usage\"", from - 1), text.lastIndexOf("\"usageMetadata\"", from - 1));
+		if (index < 0) break;
+		const lineStart = text.lastIndexOf("\n", index) + 1;
+		const lineEnd = text.indexOf("\n", index);
+		const line = text.slice(lineStart, lineEnd < 0 ? text.length : lineEnd).trim();
+		from = lineStart;
+		const data = line.replace(/^data:\s?/, "").trim();
+		if (!data.startsWith("{")) continue;
+		try {
+			const usage = readCacheUsage(JSON.parse(data));
+			if (usage) result = result ? {
+				prompt: Math.max(result.prompt, usage.prompt),
+				cached: Math.max(result.cached, usage.cached)
+			} : usage;
+		} catch {}
+	}
+	return result;
+}
+/** FNV-1a over UTF-16 code units, mixed with the length (comparisons only, not for storage). */
+function quickHash(text) {
+	let hash = 2166136261;
+	for (let i = 0; i < text.length; i++) {
+		hash ^= text.charCodeAt(i);
+		hash = Math.imul(hash, 16777619);
+	}
+	return (hash ^ text.length) >>> 0;
+}
+/** Text of a chat-completion message: string content, or the text parts of multimodal content. */
+function messageContentText(message) {
+	if (!isDict$75(message)) return "";
+	const content = message.content;
+	if (typeof content === "string") return content;
+	if (!Array.isArray(content)) return "";
+	return content.map((part) => isDict$75(part) && typeof part.text === "string" ? part.text : "").filter(Boolean).join("\n");
+}
+/** One hash per message: role, name and text. */
+function hashMessages(messages) {
+	return messages.map((message) => {
+		return quickHash(`${isDict$75(message) && typeof message.role === "string" ? message.role : ""}\u0001${isDict$75(message) && typeof message.name === "string" ? message.name : ""}\u0001${messageContentText(message)}`);
+	});
+}
+/** Message hashes of an outgoing chat-completion request body; null for other bodies (text completion). */
+function requestMessageHashes(body) {
+	if (typeof body !== "string" || !body.includes("\"messages\"")) return null;
+	try {
+		const parsed = JSON.parse(body);
+		return isDict$75(parsed) && Array.isArray(parsed.messages) ? hashMessages(parsed.messages) : null;
+	} catch {
+		return null;
+	}
+}
+/**
+* Index of the first message that differs from the previous request (a cache can serve everything before it);
+* null without a previous request. Identical prompts give their length.
+*/
+function firstChangeIndex(previous, current) {
+	if (!previous) return null;
+	const length = Math.min(previous.length, current.length);
+	for (let i = 0; i < length; i++) if (previous[i] !== current[i]) return i;
+	return length;
+}
+function median(values) {
+	if (!values.length) return null;
+	const sorted = [...values].sort((a, b) => a - b);
+	const middle = Math.floor(sorted.length / 2);
+	return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
+}
+/** Totals over the newest `window` samples; the first change point is the median. */
+function summarizeCache(samples, window = 50) {
+	const recent = samples.slice(-window);
+	let cachedTokens = 0;
+	let promptTokens = 0;
+	for (const sample of recent) {
+		if (sample.prompt === null) continue;
+		promptTokens += sample.prompt;
+		cachedTokens += sample.cached ?? 0;
+	}
+	const changes = recent.map((sample) => sample.firstChangeAt).filter((value) => value !== null);
+	return {
+		requests: recent.length,
+		cachedTokens,
+		promptTokens,
+		hitRate: promptTokens > 0 ? cachedTokens / promptTokens : 0,
+		firstChangeAt: median(changes)
+	};
+}
+/** ST extension_prompt_types. */
+var IN_PROMPT = 0;
+var BEFORE_PROMPT = 2;
+/**
+* P16: a volatile injection must not sit before stable content — every message after it that the previous request
+* already had (same hash anywhere in it) would be re-billed. Without a previous request only injections in the
+* prompt's head (in-prompt / before-prompt positions) with messages after them are reported.
+*/
+function findOrderViolations(slots, hashes, previous) {
+	const violations = [];
+	for (const slot of slots) {
+		if (slot.index < 0 || slot.index >= hashes.length) continue;
+		let stableAfter = 0;
+		if (previous) {
+			for (let i = slot.index + 1; i < hashes.length; i++) if (previous.has(hashes[i])) stableAfter++;
+		} else if (slot.position === IN_PROMPT || slot.position === BEFORE_PROMPT) stableAfter = hashes.length - slot.index - 1;
+		if (stableAfter > 0) violations.push({
+			key: slot.key,
+			messageIndex: slot.index,
+			stableAfter,
+			position: slot.position,
+			depth: slot.depth
+		});
+	}
+	return violations;
+}
+//#endregion
+//#region src/domain/lore-inspector.ts
+var OWNER_PATTERNS = [
+	[/^dooms[-_]/i, "des"],
+	[/^(?:carrot|script_inject_carrot)/i, "ck"],
+	[/^qvink_memory/i, "qvink"],
+	[/^nai_studio/i, "nai"],
+	[/^desru_/i, "desru"],
+	[/^maestro_/i, "maestro"],
+	[/^customWIOutlet_/, "wiOutlet"],
+	[/^customDepthWI/, "wiDepth"],
+	[/^1_memory$/, "summary"],
+	[/^2_floating_prompt$/, "authorsNote"],
+	[/^(?:DEPTH_PROMPT|PERSONA_DESCRIPTION)/, "card"]
+];
+function slotOwner(key) {
+	for (const [pattern, owner] of OWNER_PATTERNS) if (pattern.test(key)) return owner;
+	return "other";
+}
+/** Prompt Manager identifiers of the slots ST maps by name (openai.js:1388-1430); others use `key.replace(/\W/g,'_')`. */
+var KNOWN_SLOT_IDENTIFIERS = {
+	"1_memory": "summary",
+	"2_floating_prompt": "authorsNote",
+	"3_vectors": "vectorsMemory",
+	"4_vectors_data_bank": "vectorsDataBank",
+	chromadb: "smartContext"
+};
+function promptIdentifierOf(key) {
+	return KNOWN_SLOT_IDENTIFIERS[key] ?? key.replace(/\W/g, "_");
+}
+/** Card blocks of the Prompt Manager (markers filled from the character and persona). */
+var CARD_IDENTIFIERS = /* @__PURE__ */ new Set([
+	"charDescription",
+	"charPersonality",
+	"scenario",
+	"personaDescription"
+]);
+/** extension_prompt_types (script.js:484-489). */
+var SLOT_POSITION = {
+	NONE: -1,
+	IN_PROMPT: 0,
+	IN_CHAT: 1,
+	BEFORE_PROMPT: 2
+};
+/** world_info_position values of entries injected into blocks other than before/after. */
+var WI_POSITION$1 = {
+	before: 0,
+	after: 1,
+	ANTop: 2,
+	ANBottom: 3,
+	atDepth: 4,
+	EMTop: 5,
+	EMBottom: 6,
+	outlet: 7
+};
+/** Text of a Chat Completion message (string content or multimodal parts). */
+function messageText(message) {
+	if (typeof message !== "object" || message === null) return "";
+	const content = message.content;
+	if (typeof content === "string") return content;
+	if (!Array.isArray(content)) return "";
+	return content.map((part) => typeof part === "object" && part !== null && typeof part.text === "string" ? part.text : "").join("");
+}
+function messageRole(message) {
+	if (typeof message !== "object" || message === null) return "system";
+	const role = message.role;
+	return typeof role === "string" ? role : "system";
+}
+function charsByRole(messages) {
+	const chars = {
+		system: 0,
+		user: 0,
+		assistant: 0,
+		tool: 0
+	};
+	for (const message of messages) {
+		const role = messageRole(message);
+		const length = messageText(message).length;
+		if (role === "user" || role === "assistant" || role === "tool") chars[role] += length;
+		else chars.system += length;
+	}
+	return chars;
+}
+/**
+* Splits the prompt into sources. Slots with position NONE (outlets, `{{macro}}` reads) are left inside the block
+* that references them; depth lore lives in `customDepthWI_*` slots, so with M1 data it is shown per book.
+*/
+function reconstructSources(input) {
+	const sources = /* @__PURE__ */ new Map();
+	const add = (source) => {
+		if (!(source.tokens > 0)) return;
+		const existing = sources.get(source.id);
+		if (existing) existing.tokens += source.tokens;
+		else sources.set(source.id, { ...source });
+	};
+	const take = (id, tokens) => {
+		const source = sources.get(id);
+		if (source) source.tokens = Math.max(0, source.tokens - tokens);
+	};
+	const names = input.presetNames ?? {};
+	const inPromptSlots = /* @__PURE__ */ new Map();
+	for (const slot of input.slots) if (slot.position === SLOT_POSITION.IN_PROMPT || slot.position === SLOT_POSITION.BEFORE_PROMPT) inPromptSlots.set(promptIdentifierOf(slot.key), slot);
+	const extensionSource = (slot, tokens) => {
+		const owner = slotOwner(slot.key);
+		return owner === "card" ? {
+			id: `card:${slot.key}`,
+			kind: "card",
+			name: slot.key,
+			tokens
+		} : {
+			id: `ext:${owner}`,
+			kind: "extension",
+			owner,
+			tokens
+		};
+	};
+	let total = 0;
+	let history = 0;
+	let worldInfo = 0;
+	const exact = input.counts !== null;
+	if (input.counts) for (const [identifier, value] of Object.entries(input.counts)) {
+		const tokens = Number(value);
+		if (!Number.isFinite(tokens) || tokens <= 0) continue;
+		total += tokens;
+		if (identifier === "chatHistory") history += tokens;
+		else if (identifier === "worldInfoBefore" || identifier === "worldInfoAfter") worldInfo += tokens;
+		else if (identifier === "dialogueExamples" || CARD_IDENTIFIERS.has(identifier)) add({
+			id: `card:${identifier}`,
+			kind: "card",
+			name: identifier,
+			tokens
+		});
+		else {
+			const slot = inPromptSlots.get(identifier);
+			if (slot) {
+				add(extensionSource(slot, tokens));
+				inPromptSlots.delete(identifier);
+			} else add({
+				id: `preset:${identifier}`,
+				kind: "preset",
+				name: names[identifier] ?? identifier,
+				tokens
+			});
+		}
+	}
+	else {
+		total = Math.max(0, input.messageTokens ?? 0);
+		history = total;
+	}
+	for (const slot of input.slots) {
+		if (!(slot.tokens > 0)) continue;
+		const owner = slotOwner(slot.key);
+		if (slot.position === SLOT_POSITION.IN_CHAT) {
+			history -= slot.tokens;
+			if (owner === "wiDepth") {
+				if (input.lore === null) add({
+					id: "lore:",
+					kind: "lore",
+					tokens: slot.tokens
+				});
+			} else add(extensionSource(slot, slot.tokens));
+		} else if (!exact && inPromptSlots.has(promptIdentifierOf(slot.key))) {
+			history -= slot.tokens;
+			add(extensionSource(slot, slot.tokens));
+		}
+	}
+	for (const prompt of input.absolute ?? []) {
+		if (!(prompt.tokens > 0)) continue;
+		history -= prompt.tokens;
+		add({
+			id: `preset:${prompt.identifier}`,
+			kind: "preset",
+			name: prompt.name || prompt.identifier,
+			tokens: prompt.tokens
+		});
+	}
+	if (input.lore) {
+		const takeFrom = (id, tokens) => {
+			if (sources.has(id)) take(id, tokens);
+			else if (!exact) history -= tokens;
+		};
+		for (const item of input.lore) {
+			if (!(item.tokens > 0)) continue;
+			add({
+				id: `lore:${item.book}`,
+				kind: "lore",
+				name: item.book,
+				tokens: item.tokens
+			});
+			switch (item.position) {
+				case WI_POSITION$1.before:
+				case WI_POSITION$1.after:
+					if (exact) worldInfo -= item.tokens;
+					else history -= item.tokens;
+					break;
+				case WI_POSITION$1.ANTop:
+				case WI_POSITION$1.ANBottom:
+					takeFrom("ext:authorsNote", item.tokens);
+					break;
+				case WI_POSITION$1.EMTop:
+				case WI_POSITION$1.EMBottom:
+					takeFrom("card:dialogueExamples", item.tokens);
+					break;
+				case WI_POSITION$1.atDepth: break;
+				default: if (!exact) history -= item.tokens;
+			}
+		}
+		if (worldInfo > 0) add({
+			id: "preset:worldInfoFormat",
+			kind: "preset",
+			name: "worldInfoFormat",
+			tokens: worldInfo
+		});
+	} else if (worldInfo > 0) add({
+		id: "lore:",
+		kind: "lore",
+		tokens: worldInfo
+	});
+	add({
+		id: "history",
+		kind: "history",
+		tokens: Math.max(0, history)
+	});
+	const list = [...sources.values()].filter((source) => source.tokens > 0);
+	return {
+		total,
+		exact,
+		sources: list
+	};
+}
+/** Lore of a turn by book and placement (entries cut from the prompt are left out). */
+function loreMeasures(activations) {
+	const measures = /* @__PURE__ */ new Map();
+	for (const row of activations) {
+		if (row.cut) continue;
+		const key = `${row.world}\u0000${row.position}`;
+		const measure = measures.get(key) ?? {
+			book: row.world,
+			position: row.position,
+			tokens: 0
+		};
+		measure.tokens += row.tokens;
+		measures.set(key, measure);
+	}
+	return [...measures.values()];
+}
+/** Adds a turn to a rolling list: the same message replaces its earlier turn; at most `keep` are kept. */
+function pushTurn(list, record, keep) {
+	const next = list.filter((item) => item.messageIndex !== record.messageIndex);
+	next.push(record);
+	const limit = Math.max(1, Math.floor(keep));
+	return next.length > limit ? next.slice(next.length - limit) : next;
+}
+function compareSources$1(current, previous, all) {
+	const total = current.reduce((sum, source) => sum + source.tokens, 0);
+	const previousById = previous ? new Map(previous.map((source) => [source.id, source.tokens])) : null;
+	const sums = /* @__PURE__ */ new Map();
+	for (const turn of all) for (const source of turn) sums.set(source.id, (sums.get(source.id) ?? 0) + source.tokens);
+	return [...current].sort((a, b) => b.tokens - a.tokens).map((source) => {
+		const row = {
+			source,
+			share: total ? source.tokens / total : 0
+		};
+		if (previousById) row.deltaPrevious = source.tokens - (previousById.get(source.id) ?? 0);
+		if (all.length) row.deltaAverage = Math.round(source.tokens - (sums.get(source.id) ?? 0) / all.length);
+		return row;
+	});
+}
+/** Bar segments: presets, card, lore, history, and each extension owner on its own. */
+function barGroups(sources) {
+	const groups = /* @__PURE__ */ new Map();
+	for (const source of sources) {
+		const group = source.kind === "extension" ? source.owner ?? "other" : source.kind;
+		groups.set(group, (groups.get(group) ?? 0) + source.tokens);
+	}
+	return [...groups].map(([group, tokens]) => ({
+		group,
+		tokens
+	})).sort((a, b) => b.tokens - a.tokens);
+}
+var LIST_MARKER = /^(?:[-*•>]+|\d+[.)])\s+/;
+function splitSentences$2(text) {
+	return text.split(/(?<=[.!?…])\s+|\n+/).map((part) => part.replace(LIST_MARKER, "").replace(/\s+/g, " ").trim()).filter(Boolean);
+}
+/** Identical sentences of at least `minLength` characters found in two or more different sources. */
+function findRepeats(texts, minLength = 60, limit = 20) {
+	const seen = /* @__PURE__ */ new Map();
+	for (const { source, text } of texts) {
+		if (!text) continue;
+		for (const sentence of splitSentences$2(text)) {
+			if (sentence.length < minLength) continue;
+			const key = sentence.toLowerCase();
+			const item = seen.get(key) ?? {
+				sentence,
+				sources: /* @__PURE__ */ new Set()
+			};
+			item.sources.add(source);
+			seen.set(key, item);
+		}
+	}
+	return [...seen.values()].filter((item) => item.sources.size >= 2).sort((a, b) => b.sentence.length - a.sentence.length).slice(0, limit).map((item) => ({
+		sentence: item.sentence,
+		sources: [...item.sources]
+	}));
+}
+var SECRET_PATTERNS = [
+	/\bsk-(?:ant-|or-|proj-)?[A-Za-z0-9_-]{16,}/g,
+	/\bpst-[A-Za-z0-9_-]{16,}/g,
+	/\bBearer\s+[A-Za-z0-9._~+/-]{16,}=*/g,
+	/\bAIza[0-9A-Za-z_-]{30,}/g,
+	/\bgh[pousr]_[A-Za-z0-9]{30,}/g,
+	/\bxox[abprs]-[A-Za-z0-9-]{10,}/g
+];
+/** Replaces API-key-like strings (OpenAI/Anthropic/OpenRouter, NovelAI, bearer tokens, Google, GitHub, Slack). */
+function scrubSecrets(text) {
+	let result = text;
+	for (const pattern of SECRET_PATTERNS) result = result.replace(pattern, "[secret]");
+	return result;
+}
+/** Prompt messages for an export: secrets always scrubbed; with `redactChat`, user and assistant text dropped. */
+function exportMessages(messages, redactChat) {
+	return messages.map((message) => {
+		const role = messageRole(message);
+		const text = messageText(message);
+		if (redactChat && (role === "user" || role === "assistant")) return {
+			role,
+			chars: text.length,
+			redacted: true
+		};
+		return {
+			role,
+			chars: text.length,
+			content: scrubSecrets(text)
+		};
+	});
+}
+//#endregion
+//#region src/features/architect/cache.ts
+var GENERATE_URL$1 = /\/api\/backends\/chat-completions\/generate/;
+/** An arm the request never claimed (aborted generation) expires. */
+var ARM_TTL_MS$1 = 6e4;
+var KEEP_SAMPLES = 100;
+var CacheMeter = class {
+	app;
+	enabled;
+	log;
+	now;
+	armedAt = null;
+	pending = /* @__PURE__ */ new WeakMap();
+	samples = [];
+	previous = null;
+	listeners = /* @__PURE__ */ new Set();
+	disposed = false;
+	constructor(app, enabled, log, now = Date.now) {
+		this.app = app;
+		this.enabled = enabled;
+		this.log = log;
+		this.now = now;
+	}
+	install() {
+		const gate = this.app.host.fetchGate;
+		return [
+			gate.beforeRequest(GENERATE_URL$1, (_url, init) => {
+				this.onRequest(init);
+			}),
+			gate.afterResponse(GENERATE_URL$1, (_url, response, init) => this.onResponse(response, init)),
+			() => {
+				this.disposed = true;
+				this.listeners.clear();
+			}
+		];
+	}
+	/** The next chat-completion request is the main generation's. */
+	arm() {
+		if (this.enabled()) this.armedAt = this.now();
+	}
+	disarm() {
+		this.armedAt = null;
+	}
+	/** A new chat: the first change is measured against requests of this chat only. */
+	reset() {
+		this.previous = null;
+		this.armedAt = null;
+	}
+	stats() {
+		return summarizeCache(this.samples, 50);
+	}
+	samplesCount() {
+		return this.samples.length;
+	}
+	onChange(listener) {
+		this.listeners.add(listener);
+		return () => this.listeners.delete(listener);
+	}
+	onRequest(init) {
+		const armed = this.armedAt;
+		if (armed === null || !init || this.disposed) return;
+		this.armedAt = null;
+		if (this.now() - armed > ARM_TTL_MS$1) return;
+		const pending = {
+			at: this.now(),
+			chatId: this.app.host.chatId(),
+			firstChangeAt: null,
+			hashed: false,
+			response: null
+		};
+		this.pending.set(init, pending);
+		const body = init.body;
+		setTimeout(() => {
+			try {
+				const hashes = requestMessageHashes(body);
+				if (hashes) {
+					const previous = this.previous && this.previous.chatId === pending.chatId ? this.previous.hashes : null;
+					pending.firstChangeAt = firstChangeIndex(previous, hashes);
+					this.previous = {
+						chatId: pending.chatId,
+						hashes
+					};
+				}
+			} catch (error) {
+				this.log.debug("request body could not be hashed", error);
+			}
+			pending.hashed = true;
+			if (pending.response) this.commit(pending);
+		}, 0);
+	}
+	onResponse(response, init) {
+		const pending = init ? this.pending.get(init) : void 0;
+		if (!pending || !init) return;
+		this.pending.delete(init);
+		if (!response.ok) return;
+		response.text().then((text) => {
+			const usage = cacheUsageFromBody(text);
+			pending.response = {
+				prompt: usage?.prompt ?? null,
+				cached: usage?.cached ?? null
+			};
+			if (pending.hashed) this.commit(pending);
+		}).catch((error) => this.log.debug("could not read the cache numbers of a response", error));
+	}
+	commit(pending) {
+		if (this.disposed || !pending.response) return;
+		this.samples.push({
+			at: pending.at,
+			prompt: pending.response.prompt,
+			cached: pending.response.cached,
+			firstChangeAt: pending.firstChangeAt
+		});
+		if (this.samples.length > KEEP_SAMPLES) this.samples = this.samples.slice(-50);
+		for (const listener of [...this.listeners]) try {
+			listener();
+		} catch (error) {
+			this.log.error("cache listener failed", error);
+		}
+	}
+};
+//#endregion
+//#region src/features/architect/consents.ts
+var ARCHITECT_DOC_KIND = "architect";
+var MAX_CONSENTS = 200;
+/** Owners whose `ref` is a lorebook entry (`${world}#${uid}`); every other owner is an extension prompt key. */
+var LORE_OWNERS = /* @__PURE__ */ new Set([
+	"lore",
+	"canon",
+	"ckArchive"
+]);
+function isDict$74(value) {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function emptyDoc$3() {
+	return {
+		v: 1,
+		consents: []
+	};
+}
+function isConsent(value) {
+	return isDict$74(value) && typeof value.id === "string" && typeof value.keep === "string" && Array.isArray(value.keys) && Array.isArray(value.sources);
+}
+function ensureDoc$1(doc) {
+	const raw = doc;
+	raw.v = 1;
+	raw.consents = Array.isArray(raw.consents) ? raw.consents.filter(isConsent) : [];
+	return raw;
+}
+var ConsentStore = class {
+	app;
+	log;
+	chatId = null;
+	consents = [];
+	loading = null;
+	drops = null;
+	listeners = /* @__PURE__ */ new Set();
+	constructor(app, log) {
+		this.app = app;
+		this.log = log;
+	}
+	/** Loads the consents of the current chat (cheap when already loaded). */
+	async load() {
+		const chatId = this.app.host.chatId();
+		if (chatId === this.chatId && !this.loading) return;
+		if (!chatId) {
+			this.set(null, []);
+			return;
+		}
+		if (!this.loading) this.loading = (async () => {
+			const doc = ensureDoc$1(await this.app.chat.getFor(chatId, ARCHITECT_DOC_KIND, emptyDoc$3));
+			if (this.app.host.chatId() === chatId) this.set(chatId, doc.consents);
+		})().catch((error) => this.log.warn("duplicate consents could not be loaded", error)).finally(() => {
+			this.loading = null;
+		});
+		await this.loading;
+	}
+	list() {
+		return this.matchesChat() ? this.consents.map((item) => ({
+			...item,
+			sources: [...item.sources]
+		})) : [];
+	}
+	/** The consent covering a fact: same id, or any shared sentence key. */
+	find(id, keys = []) {
+		if (!this.matchesChat()) return void 0;
+		const wanted = new Set(keys);
+		return this.consents.find((item) => item.id === id || item.keys.some((key) => wanted.has(key)));
+	}
+	/** Stores (or with `keep` null removes) the consent for a fact; persisted in the chat document. */
+	async save(consent, id) {
+		await this.load();
+		const chatId = this.app.host.chatId();
+		if (!chatId) return;
+		for (let attempt = 0; attempt < 2; attempt++) {
+			const doc = ensureDoc$1(await this.app.chat.getFor(chatId, ARCHITECT_DOC_KIND, emptyDoc$3));
+			const keys = new Set(consent?.keys ?? []);
+			doc.consents = doc.consents.filter((item) => item.id !== id && !item.keys.some((key) => keys.has(key)));
+			if (consent) doc.consents.push(consent);
+			if (doc.consents.length > MAX_CONSENTS) doc.consents = doc.consents.slice(-200);
+			const saved = await this.app.chat.put(ARCHITECT_DOC_KIND, doc);
+			if (this.app.host.chatId() === chatId) this.set(chatId, doc.consents);
+			if (saved) return;
+		}
+		this.log.warn("duplicate consents were not saved (another tab keeps writing them)");
+	}
+	/** Lore refs (`world#uid`) → sentence keys to remove from that entry's scan copy. */
+	loreDrops() {
+		return this.dropMaps().lore;
+	}
+	/** Extension prompt keys → sentence keys to remove from that injection in the assembled prompt. */
+	slotDrops() {
+		return this.dropMaps().slots;
+	}
+	/** Duplicate id the given source copy of a sentence belongs to (for the report). */
+	consentFor(ref) {
+		return this.matchesChat() ? this.consents.filter((item) => item.keep !== ref && item.sources.some((source) => source.ref === ref)) : [];
+	}
+	onChange(listener) {
+		this.listeners.add(listener);
+		return () => this.listeners.delete(listener);
+	}
+	matchesChat() {
+		return this.chatId !== null && this.chatId === this.app.host.chatId();
+	}
+	dropMaps() {
+		if (!this.matchesChat()) return {
+			lore: /* @__PURE__ */ new Map(),
+			slots: /* @__PURE__ */ new Map()
+		};
+		if (this.drops) return this.drops;
+		const lore = /* @__PURE__ */ new Map();
+		const slots = /* @__PURE__ */ new Map();
+		for (const consent of this.consents) for (const source of consent.sources) {
+			if (source.ref === consent.keep) continue;
+			const target = LORE_OWNERS.has(source.owner) ? lore : slots;
+			const set = target.get(source.ref) ?? /* @__PURE__ */ new Set();
+			for (const key of consent.keys) set.add(key);
+			target.set(source.ref, set);
+		}
+		this.drops = {
+			lore,
+			slots
+		};
+		return this.drops;
+	}
+	set(chatId, consents) {
+		this.chatId = chatId;
+		this.consents = consents.map((item) => ({ ...item }));
+		this.drops = null;
+		for (const listener of [...this.listeners]) try {
+			listener();
+		} catch (error) {
+			this.log.error("consent listener failed", error);
+		}
+	}
+};
+//#endregion
+//#region src/domain/entry-types.ts
+/** Same ids as `EntryType` of the canon API (src/features/canon/api.ts). */
+var ENTRY_TYPE_IDS = [
+	"character",
+	"place",
+	"item",
+	"faction",
+	"event",
+	"tradition",
+	"mechanic",
+	"rule",
+	"chapter",
+	"note"
+];
+var line = (id, label) => ({
+	id,
+	label
+});
+var text$9 = (id, label) => ({
+	id,
+	label,
+	multiline: true
+});
+var ENTRY_TYPES = {
+	character: {
+		id: "character",
+		label: "Character",
+		fields: [
+			line("name", "Name"),
+			line("aliases", "Aliases"),
+			line("role", "Role"),
+			line("age", "Age"),
+			text$9("appearance", "Appearance"),
+			text$9("personality", "Personality"),
+			text$9("background", "Background"),
+			text$9("relationships", "Relationships"),
+			text$9("speech", "Speech"),
+			text$9("goals", "Goals")
+		]
+	},
+	place: {
+		id: "place",
+		label: "Place",
+		fields: [
+			line("name", "Name"),
+			line("aliases", "Aliases"),
+			line("kind", "Kind"),
+			line("location", "Location"),
+			text$9("description", "Description"),
+			text$9("atmosphere", "Atmosphere"),
+			text$9("inhabitants", "Inhabitants"),
+			text$9("features", "Notable features"),
+			text$9("secrets", "Secrets")
+		]
+	},
+	item: {
+		id: "item",
+		label: "Item",
+		fields: [
+			line("name", "Name"),
+			line("aliases", "Aliases"),
+			line("kind", "Kind"),
+			text$9("appearance", "Appearance"),
+			text$9("properties", "Properties"),
+			line("owner", "Owner"),
+			text$9("origin", "Origin"),
+			line("whereabouts", "Whereabouts")
+		]
+	},
+	faction: {
+		id: "faction",
+		label: "Faction",
+		fields: [
+			line("name", "Name"),
+			line("aliases", "Aliases"),
+			line("kind", "Kind"),
+			line("leader", "Leader"),
+			text$9("members", "Members"),
+			text$9("goals", "Goals"),
+			line("territory", "Territory"),
+			line("allies", "Allies"),
+			line("enemies", "Enemies"),
+			text$9("symbols", "Symbols and customs")
+		]
+	},
+	event: {
+		id: "event",
+		label: "Event",
+		fields: [
+			line("name", "Name"),
+			line("when", "When"),
+			line("where", "Where"),
+			line("participants", "Participants"),
+			text$9("description", "What happened"),
+			text$9("consequences", "Consequences")
+		]
+	},
+	tradition: {
+		id: "tradition",
+		label: "Tradition",
+		fields: [
+			line("name", "Name"),
+			line("culture", "Culture"),
+			line("when", "When"),
+			text$9("practice", "Practice"),
+			text$9("meaning", "Meaning"),
+			text$9("taboos", "Taboos")
+		]
+	},
+	mechanic: {
+		id: "mechanic",
+		label: "Mechanic",
+		fields: [
+			line("name", "Name"),
+			text$9("summary", "Summary"),
+			text$9("rules", "Rules"),
+			text$9("limits", "Costs and limits"),
+			text$9("examples", "Examples")
+		]
+	},
+	rule: {
+		id: "rule",
+		label: "Rule",
+		fields: [
+			line("name", "Name"),
+			text$9("statement", "Rule"),
+			line("scope", "Scope"),
+			text$9("exceptions", "Exceptions")
+		]
+	},
+	chapter: {
+		id: "chapter",
+		label: "Chapter",
+		fields: [
+			line("name", "Title"),
+			line("period", "Period"),
+			text$9("summary", "Summary"),
+			text$9("events", "Key events"),
+			line("characters", "Characters"),
+			text$9("threads", "Open threads")
+		]
+	},
+	note: {
+		id: "note",
+		label: "Note",
+		fields: [line("name", "Title"), text$9("text", "Text")]
+	}
+};
+/**
+* Stored key of the field values next to `type` (in `extensions.maestro` or the sidecar record). Not `fields`:
+* canon items use `extensions.maestro.fields` for the list of WI fields an override replaces.
+*/
+var TYPED_FIELDS_KEY = "typeFields";
+function isEntryType(value) {
+	return typeof value === "string" && ENTRY_TYPE_IDS.includes(value);
+}
+/** Typed meta from `extensions.maestro` or a sidecar record; null when there is no valid type. */
+function readTypedMeta(value) {
+	if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
+	const record = value;
+	if (!isEntryType(record.type)) return null;
+	const fields = {};
+	const stored = record[TYPED_FIELDS_KEY];
+	if (typeof stored === "object" && stored !== null && !Array.isArray(stored)) {
+		for (const [key, item] of Object.entries(stored)) if (typeof item === "string") fields[key] = item;
+	}
+	return {
+		type: record.type,
+		fields
+	};
+}
+function emptyFields(type) {
+	return Object.fromEntries(ENTRY_TYPES[type].fields.map((field) => [field.id, ""]));
+}
+/** Field values of a meta for its type (template order), missing ones as ''. */
+function templateValues(meta) {
+	return {
+		...emptyFields(meta.type),
+		...meta.fields
+	};
+}
+/** Same type and the same non-empty field values. */
+function sameTypedMeta(a, b) {
+	if (!a || !b) return a === b;
+	if (a.type !== b.type) return false;
+	const keys = /* @__PURE__ */ new Set([...Object.keys(a.fields), ...Object.keys(b.fields)]);
+	for (const key of keys) if ((a.fields[key] ?? "").trim() !== (b.fields[key] ?? "").trim()) return false;
+	return true;
+}
+/**
+* Content from the fields: «Character: Anna» first (the name field), then «Label: value» per filled field;
+* multi-line values go under «Label:». Values are written as typed (trimmed); empty fields are skipped.
+*/
+function composeContent(meta) {
+	const template = ENTRY_TYPES[meta.type];
+	const lines = [];
+	const [first, ...rest] = template.fields;
+	const name = first ? (meta.fields[first.id] ?? "").trim() : "";
+	if (name) lines.push(`${template.label}: ${name}`);
+	for (const field of rest) {
+		const value = (meta.fields[field.id] ?? "").trim();
+		if (!value) continue;
+		lines.push(value.includes("\n") ? `${field.label}:\n${value}` : `${field.label}: ${value}`);
+	}
+	return lines.join("\n");
+}
+/**
+* Best-effort reverse of composeContent: fills the fields of `type` from content written in the «Label: value»
+* form (lines that start with a known label). Unrecognised text is left out; used to pre-fill a newly typed entry.
+*/
+function fieldsFromContent(type, content) {
+	const template = ENTRY_TYPES[type];
+	const fields = emptyFields(type);
+	const [first, ...rest] = template.fields;
+	const byLabel = new Map(rest.map((field) => [field.label.toLowerCase(), field.id]));
+	let current = null;
+	for (const raw of content.split("\n")) {
+		const match = /^([^:\n]{1,40}):\s?(.*)$/.exec(raw);
+		const label = match?.[1]?.trim().toLowerCase();
+		if (match && first && label === template.label.toLowerCase()) {
+			fields[first.id] = (match[2] ?? "").trim();
+			current = null;
+			continue;
+		}
+		const id = label ? byLabel.get(label) : void 0;
+		if (match && id) {
+			fields[id] = (match[2] ?? "").trim();
+			current = id;
+			continue;
+		}
+		if (current !== null) fields[current] = fields[current] ? `${fields[current]}\n${raw}` : raw;
+	}
+	for (const key of Object.keys(fields)) fields[key] = (fields[key] ?? "").trim();
+	return fields;
+}
+/**
+* `extensions` with the typed meta merged into `extensions.maestro` (other keys of both objects kept — canon
+* books keep their CanonMeta there). `meta = null` removes `type`/`typeFields`; `maestro` emptied that way is dropped.
+* Returns a new object (or undefined when nothing is left of an absent `extensions`).
+*/
+function withTypedMeta(extensions, meta) {
+	const hadExtensions = typeof extensions === "object" && extensions !== null && !Array.isArray(extensions);
+	const next = hadExtensions ? { ...extensions } : {};
+	const previous = next.maestro;
+	const hadMaestro = typeof previous === "object" && previous !== null && !Array.isArray(previous);
+	const maestro = hadMaestro ? { ...previous } : {};
+	if (meta) {
+		maestro.type = meta.type;
+		maestro[TYPED_FIELDS_KEY] = { ...meta.fields };
+	} else {
+		delete maestro.type;
+		delete maestro[TYPED_FIELDS_KEY];
+	}
+	const wasEmpty = hadMaestro && Object.keys(previous).length === 0;
+	if (Object.keys(maestro).length || wasEmpty) next.maestro = maestro;
+	else delete next.maestro;
+	if (!hadExtensions && !Object.keys(next).length) return void 0;
+	return next;
+}
+//#endregion
+//#region src/domain/architect-presence.ts
+function isDict$73(value) {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+/** Ids of the current place, its ancestors, descendants and siblings; empty without a current place. */
+function nearPlaceIds(places, currentId) {
+	const near = /* @__PURE__ */ new Set();
+	if (!currentId) return near;
+	const byId = new Map(places.map((place) => [place.id, place]));
+	const current = byId.get(currentId);
+	near.add(currentId);
+	if (!current) return near;
+	let parent = current.parent;
+	while (parent && !near.has(parent)) {
+		near.add(parent);
+		parent = byId.get(parent)?.parent ?? null;
+	}
+	const children = /* @__PURE__ */ new Map();
+	for (const place of places) {
+		if (!place.parent) continue;
+		const list = children.get(place.parent) ?? [];
+		list.push(place.id);
+		children.set(place.parent, list);
+	}
+	const stack = [...children.get(currentId) ?? []];
+	while (stack.length) {
+		const id = stack.pop();
+		if (near.has(id)) continue;
+		near.add(id);
+		stack.push(...children.get(id) ?? []);
+	}
+	if (current.parent) for (const id of children.get(current.parent) ?? []) near.add(id);
+	return near;
+}
+/** World-model entity id of a registry place. */
+function placeEntityId(placeId) {
+	return `place:${placeId}`;
+}
+/**
+* Messages since each entity was last mentioned: `perMessage` lists the entity ids mentioned in each message,
+* oldest first; the newest message has distance 0.
+*/
+function mentionDistances(perMessage) {
+	const result = /* @__PURE__ */ new Map();
+	for (let i = perMessage.length - 1; i >= 0; i--) {
+		const distance = perMessage.length - 1 - i;
+		for (const id of perMessage[i] ?? []) if (!result.has(id)) result.set(id, distance);
+	}
+	return result;
+}
+/** What the presence rule does with an entry about `subject`. */
+function judgeSubject(subject, facts) {
+	const since = facts.mentions.get(subject.id);
+	const recent = since !== void 0 && since < facts.window;
+	if (subject.kind === "character") {
+		if (facts.present.has(subject.id)) return { action: "pin" };
+		if (facts.absent.has(subject.id) && !recent) return {
+			action: "damp",
+			reason: "absent",
+			sinceMention: since ?? -1
+		};
+		return { action: "none" };
+	}
+	if (!facts.currentPlace) return { action: "none" };
+	if (subject.id === facts.currentPlace) return { action: "pin" };
+	if (!facts.nearPlaces.has(subject.id) && !recent) return {
+		action: "damp",
+		reason: "farPlace",
+		sinceMention: since ?? -1
+	};
+	return { action: "none" };
+}
+function text$8(value) {
+	return typeof value === "string" ? value.trim() : "";
+}
+/** First primary key that is a plain word or name (regex keys `/…/flags` are skipped). */
+function firstPlainKey(entry) {
+	if (!Array.isArray(entry.key)) return "";
+	for (const raw of entry.key) {
+		const key = text$8(raw);
+		if (key && !/^\/.+\/[a-z]*$/i.test(key)) return key;
+	}
+	return "";
+}
+/** Typed metadata of an entry: `extensions.maestro` (Maestro and canon books) or the given sidecar record. */
+function typedMetaOf(entry, sidecar) {
+	return readTypedMeta((isDict$73(entry.extensions) ? entry.extensions : void 0)?.maestro) ?? readTypedMeta(sidecar);
+}
+/**
+* Names an entry may be about, best first: the typed name (with the kind its type gives), then the comment, then the
+* first plain key. A typed entry of another type (item, rule, chapter…) is about no character or place: [].
+*/
+function subjectNames(entry, typed) {
+	const names = [];
+	if (typed) {
+		if (typed.type !== "character" && typed.type !== "place") return [];
+		const kind = typed.type;
+		const name = text$8(typed.fields.name);
+		if (name) names.push({
+			name,
+			kind
+		});
+		const comment = text$8(entry.comment);
+		if (comment) names.push({
+			name: comment,
+			kind
+		});
+		const key = firstPlainKey(entry);
+		if (key) names.push({
+			name: key,
+			kind
+		});
+		return dedupe(names);
+	}
+	const comment = text$8(entry.comment);
+	if (comment) names.push({ name: comment });
+	const key = firstPlainKey(entry);
+	if (key) names.push({ name: key });
+	return dedupe(names);
+}
+function dedupe(names) {
+	const seen = /* @__PURE__ */ new Set();
+	return names.filter((item) => {
+		const id = `${item.kind ?? ""}\u0000${item.name.toLowerCase()}`;
+		if (seen.has(id)) return false;
+		seen.add(id);
+		return true;
+	});
+}
+/** Cache key of an entry's subject: everything the resolution reads (identity, comment, first key, type marker). */
+function subjectCacheKey(entry) {
+	const extensions = isDict$73(entry.extensions) ? entry.extensions : void 0;
+	const maestro = isDict$73(extensions?.maestro) ? extensions.maestro : void 0;
+	const typed = maestro ? `${String(maestro.type ?? "")}:${JSON.stringify(maestro.typeFields ?? "")}` : "";
+	return `${String(entry.world)}#${String(entry.uid)}#${text$8(entry.comment)}#${firstPlainKey(entry)}#${typed}`;
+}
+/**
+* Entries the pin rule may force into the scan: enabled, not constant (already active), with text, and without
+* gates ST would check (character filter, generation triggers, probability, recursion delay) — forcing must not
+* bypass a condition the author set.
+*/
+function isPinnable(entry) {
+	if (entry.disable === true || entry.constant === true) return false;
+	if (typeof entry.content !== "string" || !entry.content.trim()) return false;
+	if (Array.isArray(entry.triggers) && entry.triggers.length) return false;
+	const filter = isDict$73(entry.characterFilter) ? entry.characterFilter : void 0;
+	if (filter) {
+		const names = Array.isArray(filter.names) ? filter.names.length : 0;
+		const tags = Array.isArray(filter.tags) ? filter.tags.length : 0;
+		if (names || tags) return false;
+	}
+	if (entry.useProbability === true && typeof entry.probability === "number" && entry.probability < 100) return false;
+	const delay = entry.delayUntilRecursion;
+	return !(delay === true || typeof delay === "number" && delay > 0);
+}
+//#endregion
+//#region src/domain/lore-journal.ts
+/** Canon books of M6: "Maestro · канон · <short id>" (src/features/canon/api.ts). */
+var CANON_BOOK_PREFIX = "Maestro · канон";
+/** Tag order (also the bit order of the stored tag mask). */
+var LORE_TAG_ORDER = [
+	"bunnymo.core",
+	"bunnymo.pack",
+	"ck.archive",
+	"localizer",
+	"des.book",
+	"canon",
+	"maestro.book",
+	"constant"
+];
+function isDict$72(value) {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function strings$15(value) {
+	return Array.isArray(value) ? value.filter((item) => typeof item === "string" && !!item) : [];
+}
+/** Canon items carry `extensions.maestro` with a `kind` (CanonMeta); overrides keep the base book's name. */
+function isCanonMeta$1(extensions) {
+	return isDict$72(extensions) && isDict$72(extensions.maestro) && typeof extensions.maestro.kind === "string";
+}
+function tagsFor(entry, context, hasLocalizerMarker) {
+	const tags = [];
+	if (context.bunnymoCore.has(entry.world)) tags.push("bunnymo.core");
+	else if (context.bunnymoPacks.has(entry.world)) tags.push("bunnymo.pack");
+	if (context.ckRepos.has(entry.world)) tags.push("ck.archive");
+	if (hasLocalizerMarker) tags.push("localizer");
+	if (context.desBooks.has(entry.world)) tags.push("des.book");
+	if (entry.world.startsWith("Maestro · канон") || isCanonMeta$1(entry.extensions)) tags.push("canon");
+	else if (entry.world.startsWith("Maestro · ")) tags.push("maestro.book");
+	if (entry.constant) tags.push("constant");
+	return tags;
+}
+function tagMask(tags) {
+	let mask = 0;
+	LORE_TAG_ORDER.forEach((tag, bit) => {
+		if (tags.includes(tag)) mask |= 1 << bit;
+	});
+	return mask;
+}
+function tagsOfMask(mask) {
+	return LORE_TAG_ORDER.filter((_, bit) => (mask & 1 << bit) !== 0);
+}
+function desLinkedBooks(settings) {
+	const links = {
+		campaign: [],
+		campaignAll: [],
+		autoLinked: [],
+		workshop: []
+	};
+	if (!isDict$72(settings)) return links;
+	const lorebook = isDict$72(settings.lorebook) ? settings.lorebook : {};
+	const campaigns = isDict$72(lorebook.campaigns) ? lorebook.campaigns : {};
+	const all = /* @__PURE__ */ new Set();
+	for (const campaign of Object.values(campaigns)) if (isDict$72(campaign)) for (const book of strings$15(campaign.books)) all.add(book);
+	const active = typeof lorebook.activeCampaignId === "string" ? campaigns[lorebook.activeCampaignId] : void 0;
+	const campaign = new Set(strings$15(lorebook.campaignActivated));
+	if (isDict$72(active)) for (const book of strings$15(active.books)) campaign.add(book);
+	links.campaign = [...campaign];
+	links.campaignAll = [...all];
+	links.autoLinked = strings$15(lorebook.autoLinked);
+	const injections = isDict$72(settings.characterInjection) ? settings.characterInjection : {};
+	const workshop = /* @__PURE__ */ new Set();
+	for (const injection of Object.values(injections)) if (isDict$72(injection) && typeof injection.lorebook === "string" && injection.lorebook) workshop.add(injection.lorebook);
+	links.workshop = [...workshop];
+	return links;
+}
+/** Every active book with the reasons it is active, in ST's scan priority: chat, persona, character, global. */
+function bookReasons(sources) {
+	const rows = /* @__PURE__ */ new Map();
+	const add = (book, reason) => {
+		if (!book) return;
+		const list = rows.get(book) ?? [];
+		if (!list.includes(reason)) list.push(reason);
+		rows.set(book, list);
+	};
+	if (sources.chat) {
+		add(sources.chat, "chat");
+		if (sources.ckChatBooks.includes(sources.chat)) add(sources.chat, "ckConnector");
+	}
+	add(sources.persona, "persona");
+	for (const book of sources.characterPrimary) add(book, "character");
+	for (const book of sources.characterExtra) add(book, "characterExtra");
+	for (const book of sources.global) {
+		add(book, "global");
+		if (sources.des.campaign.includes(book)) add(book, "desCampaign");
+		if (sources.des.autoLinked.includes(book)) add(book, "desAutoLink");
+		if (sources.des.workshop.includes(book)) add(book, "workshop");
+	}
+	for (const book of rows.keys()) if (book.startsWith("Maestro · канон")) add(book, "canon");
+	return [...rows].map(([book, reasons]) => ({
+		book,
+		reasons
+	}));
+}
+function emptyJournal() {
+	return {
+		v: 1,
+		worlds: [],
+		titles: {},
+		records: [],
+		stats: {
+			turns: 0,
+			chars: 0,
+			canon: 0,
+			entries: {}
+		}
+	};
+}
+/**
+* Repairs a loaded document in place (the chat store tracks the object identity, so it must not be replaced)
+* and returns it typed.
+*/
+function ensureJournal(doc) {
+	const raw = doc;
+	raw.v = 1;
+	if (!Array.isArray(raw.worlds)) raw.worlds = [];
+	if (!isDict$72(raw.titles)) raw.titles = {};
+	if (!Array.isArray(raw.records)) raw.records = [];
+	const stats = isDict$72(raw.stats) ? raw.stats : {};
+	raw.stats = {
+		turns: typeof stats.turns === "number" ? stats.turns : 0,
+		chars: typeof stats.chars === "number" ? stats.chars : 0,
+		canon: typeof stats.canon === "number" ? stats.canon : 0,
+		entries: isDict$72(stats.entries) ? stats.entries : {}
+	};
+	raw.records = raw.records.filter((record) => isDict$72(record) && typeof record.i === "number" && Array.isArray(record.a));
+	return raw;
+}
+function worldIndex(doc, name) {
+	let index = doc.worlds.indexOf(name);
+	if (index < 0) {
+		doc.worlds.push(name);
+		index = doc.worlds.length - 1;
+	}
+	return index;
+}
+var CUT_CODES = {
+	none: 0,
+	budget: 1,
+	maestro: 2,
+	other: 3
+};
+function cutCode(row) {
+	if (!row.cut) return CUT_CODES.none;
+	if (row.cutBy === "budget") return CUT_CODES.budget;
+	if (row.cutBy === "maestro") return CUT_CODES.maestro;
+	return CUT_CODES.other;
+}
+function encodeRecord(doc, record) {
+	const a = record.activations.map((row) => {
+		const w = worldIndex(doc, row.world);
+		if (row.comment) doc.titles[`${w}:${row.uid}`] = row.comment;
+		return [
+			w,
+			row.uid,
+			row.chars,
+			row.tokens,
+			row.position,
+			row.depth ?? null,
+			row.role ?? null,
+			row.order,
+			row.loop,
+			row.recursionLevel,
+			row.via ? worldIndex(doc, row.via.world) : null,
+			row.via ? row.via.uid : null,
+			cutCode(row),
+			tagMask(row.tags),
+			row.key ?? null
+		];
+	});
+	const stored = {
+		i: record.messageIndex,
+		at: record.at,
+		t: record.generationType,
+		a,
+		c: record.totalChars,
+		k: record.totalTokens,
+		o: record.overflow ? 1 : 0
+	};
+	if (record.budgetTokens !== void 0) stored.b = record.budgetTokens;
+	if (record.canonChars !== void 0) stored.cc = record.canonChars;
+	return stored;
+}
+function decodeRecord(doc, stored) {
+	const activations = stored.a.map((tuple) => {
+		const [w, uid, chars, tokens, position, depth, role, order, loop, level, viaW, viaUid, cut, mask, key] = tuple;
+		const row = {
+			world: doc.worlds[w] ?? "",
+			uid,
+			comment: doc.titles[`${w}:${uid}`] ?? "",
+			chars,
+			tokens,
+			position,
+			order,
+			loop,
+			recursionLevel: level,
+			tags: tagsOfMask(mask)
+		};
+		if (depth !== null) row.depth = depth;
+		if (role !== null) row.role = role;
+		if (viaW !== null && viaUid !== null) row.via = {
+			world: doc.worlds[viaW] ?? "",
+			uid: viaUid
+		};
+		if (key !== null) row.key = key;
+		if (cut !== CUT_CODES.none) {
+			row.cut = true;
+			if (cut === CUT_CODES.budget) row.cutBy = "budget";
+			else if (cut === CUT_CODES.maestro) row.cutBy = "maestro";
+		}
+		return row;
+	});
+	const record = {
+		messageIndex: stored.i,
+		at: stored.at,
+		generationType: stored.t,
+		activations,
+		totalChars: stored.c,
+		totalTokens: stored.k,
+		overflow: stored.o === 1
+	};
+	if (stored.b !== void 0) record.budgetTokens = stored.b;
+	if (stored.cc !== void 0) record.canonChars = stored.cc;
+	return record;
+}
+function decodeRecords(doc) {
+	return doc.records.map((stored) => decodeRecord(doc, stored));
+}
+function applyStats(doc, stored, sign) {
+	const stats = doc.stats;
+	stats.turns = Math.max(0, stats.turns + sign);
+	stats.chars = Math.max(0, stats.chars + sign * stored.c);
+	stats.canon = Math.max(0, stats.canon + sign * (stored.cc ?? 0));
+	for (const tuple of stored.a) {
+		if (tuple[12] !== CUT_CODES.none) continue;
+		const key = `${tuple[0]}:${tuple[1]}`;
+		const current = stats.entries[key] ?? [
+			0,
+			0,
+			stored.i
+		];
+		const activations = current[0] + sign;
+		if (activations <= 0) {
+			delete stats.entries[key];
+			continue;
+		}
+		stats.entries[key] = [
+			activations,
+			Math.max(0, current[1] + sign * tuple[2]),
+			sign > 0 ? Math.max(current[2], stored.i) : current[2]
+		];
+	}
+}
+/**
+* Adds a turn: a record for the same message (swipe, regenerate, continue) replaces the earlier one and its
+* counters; the oldest records beyond `keep` are dropped from the list but stay in the running counters.
+*/
+function addRecord(doc, record, keep) {
+	const stored = encodeRecord(doc, record);
+	const previous = doc.records.findIndex((item) => item.i === record.messageIndex);
+	if (previous >= 0) {
+		const [old] = doc.records.splice(previous, 1);
+		if (old) applyStats(doc, old, -1);
+	}
+	doc.records.push(stored);
+	applyStats(doc, stored, 1);
+	const limit = Math.max(1, Math.floor(keep));
+	if (doc.records.length > limit) doc.records.splice(0, doc.records.length - limit);
+	return stored;
+}
+/** Drops records of messages that no longer exist (index ≥ `fromIndex`), with their counters. */
+function removeRecordsFrom(doc, fromIndex) {
+	let removed = 0;
+	doc.records = doc.records.filter((stored) => {
+		if (stored.i < fromIndex) return true;
+		applyStats(doc, stored, -1);
+		removed++;
+		return false;
+	});
+	return removed;
+}
+/** Stores lazily attributed keys into the stored record of the same turn. Returns false when it is gone. */
+function setRecordKeys(doc, record) {
+	const stored = doc.records.find((item) => item.i === record.messageIndex && item.at === record.at);
+	if (!stored) return false;
+	for (const row of record.activations) {
+		if (row.key === void 0) continue;
+		const w = doc.worlds.indexOf(row.world);
+		const tuple = stored.a.find((item) => item[0] === w && item[1] === row.uid);
+		if (tuple) tuple[14] = row.key;
+	}
+	return true;
+}
+/** Entries of the ENTRIES_LOADED lists, de-duplicated by world and uid. */
+function catalogFromLists(lists) {
+	if (!isDict$72(lists)) return [];
+	const seen = /* @__PURE__ */ new Set();
+	const entries = [];
+	for (const name of [
+		"chatLore",
+		"personaLore",
+		"characterLore",
+		"globalLore"
+	]) {
+		const list = lists[name];
+		if (!Array.isArray(list)) continue;
+		for (const raw of list) {
+			if (!isDict$72(raw) || typeof raw.world !== "string") continue;
+			const uid = Number(raw.uid);
+			if (!Number.isFinite(uid)) continue;
+			const id = `${raw.world}\u0000${uid}`;
+			if (seen.has(id)) continue;
+			seen.add(id);
+			entries.push({
+				world: raw.world,
+				uid,
+				comment: typeof raw.comment === "string" ? raw.comment : "",
+				chars: typeof raw.content === "string" ? raw.content.length : 0,
+				constant: raw.constant === true,
+				disabled: raw.disable === true
+			});
+		}
+	}
+	return entries;
+}
+/**
+* Chat summary from the running counters. Book weight is chars per turn on average; entry weight is the total
+* contribution (activations × average size). "Always active" needs at least two turns; "never active" lists
+* enabled entries of the books scanned last that no recorded turn activated.
+*/
+function summarize(doc, catalog, limits = {}) {
+	const turns = doc.stats.turns;
+	const rows = [];
+	const books = /* @__PURE__ */ new Map();
+	for (const [key, [activations, chars, lastSeen]] of Object.entries(doc.stats.entries)) {
+		const separator = key.indexOf(":");
+		const w = Number(key.slice(0, separator));
+		const uid = Number(key.slice(separator + 1));
+		const world = doc.worlds[w];
+		if (world === void 0 || !Number.isFinite(uid) || activations <= 0) continue;
+		rows.push({
+			world,
+			uid,
+			comment: doc.titles[key] ?? "",
+			activations,
+			avgChars: Math.round(chars / activations),
+			lastSeenTurn: lastSeen,
+			total: chars
+		});
+		const book = books.get(world) ?? {
+			activations: 0,
+			total: 0
+		};
+		book.activations += activations;
+		book.total += chars;
+		books.set(world, book);
+	}
+	const strip = ({ total: _total, ...row }) => row;
+	const heaviestEntries = [...rows].sort((a, b) => b.total - a.total).slice(0, limits.entries ?? 15).map(strip);
+	const heaviestBooks = [...books].map(([world, book]) => ({
+		world,
+		activations: book.activations,
+		avgChars: turns ? Math.round(book.total / turns) : 0
+	})).sort((a, b) => b.avgChars - a.avgChars).slice(0, limits.books ?? 10);
+	const alwaysActive = turns >= 2 ? rows.filter((row) => row.activations >= turns).sort((a, b) => b.avgChars - a.avgChars).map(strip) : [];
+	const active = new Set(rows.map((row) => `${row.world}\u0000${row.uid}`));
+	return {
+		turns,
+		heaviestBooks,
+		heaviestEntries,
+		alwaysActive,
+		neverActive: turns ? catalog.filter((entry) => !entry.disabled && !active.has(`${entry.world}\u0000${entry.uid}`)).sort((a, b) => b.chars - a.chars).map((entry) => ({
+			world: entry.world,
+			uid: entry.uid,
+			comment: entry.comment,
+			activations: 0,
+			avgChars: entry.chars
+		})) : [],
+		avgTotalChars: turns ? Math.round(doc.stats.chars / turns) : 0,
+		avgCanonChars: turns ? Math.round(doc.stats.canon / turns) : 0
+	};
+}
+//#endregion
+//#region src/domain/roles-meta.ts
+function isDict$71(value) {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function emptyEntryMetaFile() {
+	return {
+		schema: 1,
+		entries: {}
+	};
+}
+/** Sidecar key of an entry: `${book}#${uid}`. */
+function entryMetaKey(book, uid) {
+	return `${book}#${uid}`;
+}
+/** Book and uid of a sidecar key (the book name may itself contain `#`). */
+function parseEntryMetaKey(key) {
+	const index = key.lastIndexOf("#");
+	if (index <= 0) return null;
+	const uid = Number(key.slice(index + 1));
+	if (!Number.isInteger(uid) || uid < 0) return null;
+	return {
+		book: key.slice(0, index),
+		uid
+	};
+}
+/** Hash of what the entry says: its content (keys and settings may change without invalidating a type/passport). */
+function entryContentHash(entry) {
+	const content = isDict$71(entry) ? entry.content : void 0;
+	return stableHash(typeof content === "string" ? content : "");
+}
+/** Content hashes of every entry of a book (`data.entries`), by uid. */
+function entryHashes(data) {
+	const hashes = /* @__PURE__ */ new Map();
+	const entries = isDict$71(data) && isDict$71(data.entries) ? data.entries : {};
+	for (const [key, entry] of Object.entries(entries)) {
+		if (!isDict$71(entry)) continue;
+		const uid = typeof entry.uid === "number" && Number.isInteger(entry.uid) ? entry.uid : Number(key);
+		if (Number.isInteger(uid)) hashes.set(uid, entryContentHash(entry));
+	}
+	return hashes;
+}
+/** A stored sidecar file with junk records dropped. */
+function readEntryMetaFile(raw) {
+	const file = emptyEntryMetaFile();
+	const entries = isDict$71(raw) && isDict$71(raw.entries) ? raw.entries : {};
+	for (const [key, record] of Object.entries(entries)) {
+		if (!parseEntryMetaKey(key) || !isDict$71(record) || !isDict$71(record.meta)) continue;
+		if (typeof record.contentHash !== "string") continue;
+		file.entries[key] = {
+			meta: record.meta,
+			contentHash: record.contentHash,
+			at: typeof record.at === "number" ? record.at : 0
+		};
+	}
+	return file;
+}
+/** The stored meta when it still belongs to the entry; `stale` when the content changed since it was written. */
+function checkEntryMeta(record, currentHash) {
+	if (!record) return { state: "none" };
+	if (currentHash === void 0) return { state: "unknown" };
+	if (record.contentHash !== currentHash) return { state: "stale" };
+	return {
+		state: "ok",
+		meta: record.meta
+	};
+}
+/**
+* Merges another tab's file with this tab's changes: keys changed here (`dirty`) take this tab's value (absent =
+* deleted here), every other key keeps the stored one.
+*/
+function mergeEntryMeta(stored, local, dirty) {
+	const merged = {
+		schema: 1,
+		entries: { ...stored.entries }
+	};
+	for (const key of dirty) {
+		const record = local.entries[key];
+		if (record) merged.entries[key] = record;
+		else delete merged.entries[key];
+	}
+	return merged;
+}
+//#endregion
+//#region src/domain/canon-book.ts
+var CANON_KINDS = [
+	"override",
+	"addition",
+	"suppress",
+	"pin"
+];
+var CANON_STATUSES = [
+	"active",
+	"provisional",
+	"archived"
+];
+var CANON_ORIGINS = [
+	"user",
+	"revision",
+	"living",
+	"chronicle",
+	"backstage",
+	"entity",
+	"import"
+];
+/** An override never switches its base on or off (that is what suppression is for). */
+var NEVER_OVERRIDE = [...[
+	"uid",
+	"world",
+	"displayIndex",
+	"extensions",
+	"hash",
+	"decorators"
+], "disable"];
+/** Override fields when the item does not list them (text and keys). */
+var DEFAULT_OVERRIDE_FIELDS$2 = [
+	"content",
+	"key",
+	"keysecondary",
+	"comment"
+];
+/** ST 1.19 `newWorldInfoEntryTemplate` (world-info.js 4082-4130). */
+var WI_ENTRY_TEMPLATE = Object.freeze({
+	key: [],
+	keysecondary: [],
+	comment: "",
+	content: "",
+	constant: false,
+	vectorized: false,
+	selective: true,
+	selectiveLogic: 0,
+	addMemo: false,
+	order: 100,
+	position: 0,
+	disable: false,
+	ignoreBudget: false,
+	excludeRecursion: false,
+	preventRecursion: false,
+	matchPersonaDescription: false,
+	matchCharacterDescription: false,
+	matchCharacterPersonality: false,
+	matchCharacterDepthPrompt: false,
+	matchScenario: false,
+	matchCreatorNotes: false,
+	delayUntilRecursion: 0,
+	probability: 100,
+	useProbability: true,
+	depth: 4,
+	outletName: "",
+	group: "",
+	groupOverride: false,
+	groupWeight: 100,
+	scanDepth: null,
+	caseSensitive: null,
+	matchWholeWords: null,
+	useGroupScoring: null,
+	automationId: "",
+	role: 0,
+	sticky: null,
+	cooldown: null,
+	delay: null,
+	triggers: [],
+	characterFilter: {
+		isExclude: false,
+		names: [],
+		tags: []
+	}
+});
+function isDict$70(value) {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+/** Canon book of a chat: "Maestro · канон · <8 chars of a stable hash of the chat id>". */
+function canonBookName(chatId) {
+	return `${CANON_BOOK_PREFIX} · ${stableHash(chatId).padStart(8, "0").slice(0, 8)}`;
+}
+/**
+* A fresh copy of a value for an entry copy: arrays and plain objects are rebuilt (nested arrays of ST's cache must
+* never be shared with a copy someone may change), primitives pass through.
+*/
+function copyValue$1(value) {
+	if (Array.isArray(value)) return value.map((item) => copyValue$1(item));
+	if (isDict$70(value)) {
+		const out = {};
+		for (const [key, item] of Object.entries(value)) out[key] = copyValue$1(item);
+		return out;
+	}
+	return value;
+}
+/** JSON-safe deep copy (books are JSON). */
+function jsonClone(value) {
+	const text = JSON.stringify(value);
+	return text === void 0 ? value : JSON.parse(text);
+}
+/** Lowest free uid of a book (ST's getFreeWorldEntryUid). */
+function freeUid$1(entries) {
+	let uid = 0;
+	while (Object.prototype.hasOwnProperty.call(entries, String(uid))) uid++;
+	return uid;
+}
+/** Template fields missing from `entry`, filled with fresh defaults (arrays are never shared with the template). */
+function withTemplate(entry) {
+	const out = {};
+	for (const [key, value] of Object.entries(WI_ENTRY_TEMPLATE)) out[key] = Object.prototype.hasOwnProperty.call(entry, key) ? copyValue$1(entry[key]) : copyValue$1(value);
+	for (const [key, value] of Object.entries(entry)) if (!Object.prototype.hasOwnProperty.call(out, key)) out[key] = copyValue$1(value);
+	return out;
+}
+/** Fields an override replaces: the listed ones (or text and keys), never bookkeeping or `disable`. */
+function overrideFields(explicit, entry) {
+	const listed = Array.isArray(explicit) ? explicit.filter((item) => typeof item === "string") : null;
+	const base = listed && listed.length ? listed : entry ? Object.keys(entry) : [...DEFAULT_OVERRIDE_FIELDS$2];
+	return [...new Set(base)].filter((field) => !NEVER_OVERRIDE.includes(field));
+}
+function hasValue$1(value) {
+	if (Array.isArray(value)) return value.length > 0;
+	if (typeof value === "string") return value.trim() !== "";
+	return value !== void 0 && value !== null;
+}
+/**
+* Override fields of a stored item: its own list, or — for items made without one — the default fields that hold
+* a value (an empty template `key: []` must not wipe the base's keys).
+*/
+function itemOverrideFields(meta, entry) {
+	if (Array.isArray(meta.fields) && meta.fields.length) return overrideFields(meta.fields);
+	return DEFAULT_OVERRIDE_FIELDS$2.filter((field) => hasValue$1(entry[field]));
+}
+/**
+* The base entry with the override's fields (fresh arrays), keeping the base's world and uid. Works on a scan copy
+* (`{uid, world, ...}`) as well as on a stored entry.
+*/
+function materializeOverride(base, override, fields) {
+	const out = { ...base };
+	for (const field of fields) {
+		if (NEVER_OVERRIDE.includes(field) || !Object.prototype.hasOwnProperty.call(override, field)) continue;
+		out[field] = copyValue$1(override[field]);
+	}
+	if ("world" in base) out.world = base.world;
+	out.uid = base.uid;
+	return out;
+}
+var KNOWN_META_FIELDS = [
+	"kind",
+	"status",
+	"origin",
+	"type",
+	"base",
+	"sourceMessage",
+	"createdAt",
+	"updatedAt",
+	"survivedTurns",
+	"pinWhen",
+	"fields"
+];
+function oneOf$1(list, value, fallback) {
+	return typeof value === "string" && list.includes(value) ? value : fallback;
+}
+/** Validated meta of a stored canon entry; null when the entry is not a canon item. */
+function readCanonMeta(raw) {
+	if (!isDict$70(raw) || !CANON_KINDS.includes(String(raw.kind))) return null;
+	const meta = {
+		kind: raw.kind,
+		status: oneOf$1(CANON_STATUSES, raw.status, "active"),
+		origin: oneOf$1(CANON_ORIGINS, raw.origin, "user"),
+		createdAt: typeof raw.createdAt === "number" ? raw.createdAt : 0,
+		updatedAt: typeof raw.updatedAt === "number" ? raw.updatedAt : 0
+	};
+	if (typeof raw.type === "string") meta.type = raw.type;
+	if (isDict$70(raw.base) && typeof raw.base.world === "string" && Number.isInteger(raw.base.uid)) {
+		meta.base = {
+			world: raw.base.world,
+			uid: raw.base.uid,
+			contentHash: typeof raw.base.contentHash === "string" ? raw.base.contentHash : ""
+		};
+		if (typeof raw.base.content === "string") meta.base.content = raw.base.content;
+	}
+	if (typeof raw.sourceMessage === "number") meta.sourceMessage = raw.sourceMessage;
+	if (typeof raw.survivedTurns === "number") meta.survivedTurns = raw.survivedTurns;
+	if (typeof raw.pinWhen === "string") meta.pinWhen = raw.pinWhen;
+	if (Array.isArray(raw.fields)) meta.fields = raw.fields.filter((item) => typeof item === "string");
+	for (const [key, value] of Object.entries(raw)) if (!KNOWN_META_FIELDS.includes(key)) meta[key] = value;
+	if (meta.kind !== "addition" && !meta.base) return null;
+	return meta;
+}
+/**
+* Canon items of a loaded canon book, by uid. An entry without canon meta (made by hand in the Lore Studio or ST's
+* editor) is a user addition; one whose meta is broken (an override without a base) is not an item.
+*/
+function canonItemsOf(data) {
+	const entries = isDict$70(data) && isDict$70(data.entries) ? data.entries : {};
+	const items = [];
+	for (const [key, entry] of Object.entries(entries)) {
+		if (!isDict$70(entry)) continue;
+		const raw = (isDict$70(entry.extensions) ? entry.extensions : {}).maestro;
+		const meta = isDict$70(raw) && raw.kind !== void 0 ? readCanonMeta(raw) : {
+			kind: "addition",
+			status: "active",
+			origin: "user",
+			createdAt: 0,
+			updatedAt: 0
+		};
+		if (!meta) continue;
+		const uid = Number.isInteger(entry.uid) ? entry.uid : Number(key);
+		if (!Number.isInteger(uid)) continue;
+		items.push({
+			uid,
+			meta,
+			entry
+		});
+	}
+	return items.sort((a, b) => a.uid - b.uid);
+}
+/** The slot an item occupies on its base: an override and a suppression exclude each other, a pin is separate. */
+function baseSlot$1(kind) {
+	if (kind === "override" || kind === "suppress") return "replace";
+	return kind === "pin" ? "pin" : null;
+}
+/** The existing item a new draft updates: same base and slot. */
+function findItemForBase(items, kind, base) {
+	const slot = baseSlot$1(kind);
+	if (!slot || !base) return void 0;
+	return items.find((item) => baseSlot$1(item.meta.kind) === slot && item.meta.base?.world === base.world && item.meta.base.uid === base.uid);
+}
+/**
+* A canon entry as stored in the canon book: the WI template, the draft's fields, `extensions.maestro` = meta.
+* Items that are not additions are disabled in the book: alone they mean nothing (if the user ever activates the
+* canon book directly, only additions act).
+*/
+function buildCanonEntry(uid, fields, meta, fallbackComment = "") {
+	const entry = withTemplate(fields);
+	entry.uid = uid;
+	if (!entry.comment && fallbackComment) entry.comment = fallbackComment;
+	if (meta.kind !== "addition") entry.disable = true;
+	entry.extensions = {
+		...isDict$70(fields.extensions) ? copyValue$1(fields.extensions) : {},
+		maestro: copyValue$1(meta)
+	};
+	delete entry.world;
+	delete entry.hash;
+	delete entry.decorators;
+	return entry;
+}
+/** The marker a scan copy carries (stable between turns: no timestamps, so the entry hash stays the same). */
+function scanMarker(item) {
+	const marker = {
+		kind: item.meta.kind,
+		status: item.meta.status,
+		origin: item.meta.origin,
+		canonUid: item.uid
+	};
+	if (item.meta.type) marker.type = item.meta.type;
+	return marker;
+}
+/** Base text when the item was made vs now; null when the base did not change. A missing base counts as drift. */
+function baseDriftOf(item, baseEntry) {
+	const base = item.meta.base;
+	if (!base) return null;
+	const now = isDict$70(baseEntry) && typeof baseEntry.content === "string" ? baseEntry.content : "";
+	if (isDict$70(baseEntry) && entryContentHash(baseEntry) === base.contentHash) return null;
+	return {
+		then: base.content ?? "",
+		now
+	};
+}
+function stripMaestro(entry) {
+	const out = { ...entry };
+	if (isDict$70(out.extensions)) {
+		const extensions = { ...out.extensions };
+		delete extensions.maestro;
+		if (Object.keys(extensions).length) out.extensions = extensions;
+		else delete out.extensions;
+	}
+	delete out.world;
+	delete out.hash;
+	delete out.decorators;
+	return out;
+}
+/**
+* A plain lorebook from the canon (plan §4.9 «Экспорт канона»): additions as they are, overrides materialised over
+* their base (the base itself when the override is gone), and one disabled note entry listing the suppressed,
+* overridden and pinned base entries (they need the user's attention once Maestro no longer mixes the canon in).
+*/
+function buildExportBook(items, baseOf, labels) {
+	const entries = {};
+	let next = 0;
+	const add = (entry) => {
+		const uid = next++;
+		entries[String(uid)] = {
+			...withTemplate(stripMaestro(entry)),
+			uid,
+			displayIndex: uid
+		};
+	};
+	const notes = {
+		suppressed: [],
+		overridden: [],
+		pinned: []
+	};
+	const describe = (item) => {
+		const base = item.meta.base;
+		const entry = base ? baseOf(base.world, base.uid) : null;
+		const comment = entry && typeof entry.comment === "string" ? entry.comment : "";
+		return labels.line(base?.world ?? "", base?.uid ?? -1, comment);
+	};
+	for (const item of items) {
+		const base = item.meta.base;
+		if (item.meta.kind === "addition") add({
+			...item.entry,
+			disable: false
+		});
+		else if (item.meta.kind === "override" && base) {
+			const baseEntry = baseOf(base.world, base.uid);
+			const fields = itemOverrideFields(item.meta, item.entry);
+			add(baseEntry ? materializeOverride(baseEntry, item.entry, fields) : {
+				...item.entry,
+				disable: false
+			});
+			notes.overridden.push(describe(item));
+		} else if (item.meta.kind === "suppress") notes.suppressed.push(describe(item));
+		else if (item.meta.kind === "pin") notes.pinned.push(describe(item));
+	}
+	const sections = [];
+	if (notes.suppressed.length) sections.push(`${labels.suppressed}\n${notes.suppressed.join("\n")}`);
+	if (notes.overridden.length) sections.push(`${labels.overridden}\n${notes.overridden.join("\n")}`);
+	if (notes.pinned.length) sections.push(`${labels.pinned}\n${notes.pinned.join("\n")}`);
+	if (sections.length) add({
+		comment: labels.noteTitle,
+		content: sections.join("\n\n"),
+		disable: true,
+		key: []
+	});
+	return { entries };
+}
+/** `base`, or `base (2)`, `base (3)`… — the first name not taken (case-insensitive, like ST's world names). */
+function uniqueBookName(base, existing) {
+	const taken = new Set([...existing].map((name) => name.toLowerCase()));
+	if (!taken.has(base.toLowerCase())) return base;
+	for (let index = 2;; index++) {
+		const name = `${base} (${index})`;
+		if (!taken.has(name.toLowerCase())) return name;
+	}
+}
+//#endregion
+//#region src/domain/lore-match.ts
+/** World Info secondary-key logic (`world_info_logic`, WI:33). */
+var WI_LOGIC = {
+	AND_ANY: 0,
+	NOT_ALL: 1,
+	NOT_ANY: 2,
+	AND_ALL: 3
+};
+/** The separator ST puts before every scanned message (WI:290-292). */
+var MATCHER = "";
+var JOINER = `\n${MATCHER}`;
+/** Port of ST's `parseRegexFromString` (WI:2901): `/pattern/flags` → RegExp, anything else → null. */
+function parseRegexKey$1(input) {
+	const match = /^\/([\w\W]+?)\/([gimsuy]*)$/.exec(input);
+	if (!match) return null;
+	let pattern = match[1] ?? "";
+	const flags = match[2] ?? "";
+	if (/(^|[^\\])\//.test(pattern)) return null;
+	pattern = pattern.replace("\\/", "/");
+	try {
+		return new RegExp(pattern, flags);
+	} catch {
+		return null;
+	}
+}
+function escapeRegex$1(text) {
+	return text.replace(/[/\-\\^$*+?.()|[\]{}]/g, "\\$&");
+}
+/** Port of `WorldInfoBuffer.matchKeys` (WI:337-366). */
+function matchKey$1(haystack, needle, options) {
+	const regex = (options.parseRegex ?? parseRegexKey$1)(needle);
+	if (regex) return regex.test(haystack);
+	const text = options.caseSensitive ? haystack : haystack.toLowerCase();
+	const key = options.caseSensitive ? needle : needle.toLowerCase();
+	if (!options.matchWholeWords) return text.includes(key);
+	if (key.split(/\s+/).length > 1) return text.includes(key);
+	return new RegExp(`(?:^|\\W)(${escapeRegex$1(key)})(?:$|\\W)`).test(text);
+}
+function stringList$4(value) {
+	return Array.isArray(value) ? value.filter((item) => typeof item === "string") : [];
+}
+/** Per-entry options with ST's fallback to the global settings (`entry.caseSensitive ?? global`). */
+function entryMatchOptions(entry, globals, parseRegex) {
+	const caseSensitive = typeof entry.caseSensitive === "boolean" ? entry.caseSensitive : globals.caseSensitive;
+	const matchWholeWords = typeof entry.matchWholeWords === "boolean" ? entry.matchWholeWords : globals.matchWholeWords;
+	return parseRegex ? {
+		caseSensitive,
+		matchWholeWords,
+		parseRegex
+	} : {
+		caseSensitive,
+		matchWholeWords
+	};
+}
+var identity = (text) => text;
+function matchesAny(text, keys, options, substitute) {
+	for (const key of keys) {
+		const substituted = substitute(key);
+		if (substituted && matchKey$1(text, substituted.trim(), options)) return key;
+	}
+	return null;
+}
+/**
+* Which key activated the entry on `text`, as a short label: the primary key, plus the secondary keys that the
+* entry's logic needed (`Аня + лес`). Null when no primary key matches. When the secondary condition fails on
+* this text the primary key is still returned: the entry did activate, and the scan text is a reconstruction.
+*/
+function findTriggerKey(entry, text, globals, substitute = identity, parseRegex) {
+	const options = entryMatchOptions(entry, globals, parseRegex);
+	const primary = matchesAny(text, stringList$4(entry.key), options, substitute);
+	if (primary === null) return null;
+	const secondary = stringList$4(entry.keysecondary);
+	if (!entry.selective || secondary.length === 0) return primary;
+	const logic = typeof entry.selectiveLogic === "number" ? entry.selectiveLogic : WI_LOGIC.AND_ANY;
+	const matched = [];
+	const missed = [];
+	for (const key of secondary) {
+		const substituted = substitute(key);
+		if (substituted && matchKey$1(text, substituted.trim(), options)) matched.push(key);
+		else missed.push(key);
+	}
+	if (logic === WI_LOGIC.AND_ANY && matched.length) return `${primary} + ${matched[0]}`;
+	if (logic === WI_LOGIC.AND_ALL && !missed.length) return [primary, ...matched].join(" + ");
+	if (logic === WI_LOGIC.NOT_ALL && missed.length) return `${primary} + ¬${missed[0]}`;
+	if (logic === WI_LOGIC.NOT_ANY && !matched.length) return `${primary} + ¬(${secondary.join(", ")})`;
+	return primary;
+}
+/** Rebuilds `WorldInfoBuffer.get()` (WI:279-328) for one entry. */
+function buildScanText(input) {
+	const depth = Math.max(0, Math.floor(input.depth));
+	if (depth <= 0) return "";
+	let result = MATCHER + input.messages.slice(0, depth).map((message) => message.trim()).join(JOINER);
+	const global = input.global ?? {};
+	const flags = input.flags ?? {};
+	const pairs = [
+		[flags.matchPersonaDescription, global.personaDescription],
+		[flags.matchCharacterDescription, global.characterDescription],
+		[flags.matchCharacterPersonality, global.characterPersonality],
+		[flags.matchCharacterDepthPrompt, global.characterDepthPrompt],
+		[flags.matchScenario, global.scenario],
+		[flags.matchCreatorNotes, global.creatorNotes]
+	];
+	for (const [flag, value] of pairs) if (flag === true && value) result += JOINER + value;
+	if (input.injects?.length) result += JOINER + input.injects.join(JOINER);
+	if (input.recursion?.length) result += JOINER + input.recursion.join(JOINER);
+	return result;
+}
+/**
+* The first candidate whose content contains one of the entry's primary keys (candidates in priority order:
+* the caller lists the most recent scan loop first). Cheap: plain substring/regex tests, no secondary logic.
+*/
+function findVia(entry, candidates, globals, substitute = identity, parseRegex) {
+	const keys = stringList$4(entry.key);
+	if (!keys.length) return void 0;
+	const options = entryMatchOptions(entry, globals, parseRegex);
+	for (const candidate of candidates) {
+		if (!candidate.content) continue;
+		if (matchesAny(candidate.content, keys, options, substitute) !== null) return {
+			world: candidate.world,
+			uid: candidate.uid
+		};
+	}
+}
+//#endregion
+//#region src/domain/canon-keys.ts
+var CYRILLIC_RE$10 = /\p{Script=Cyrillic}/u;
+var LATIN_RE$2 = /[A-Za-z]/;
+var WORD_CHAR_RE$2 = /[\p{L}\p{N}_]/u;
+var REGEX_KEY_RE = /^\/[\s\S]+\/[gimsuy]*$/;
+/** Endings dropped from a Russian name to reach a stem that also matches the other case forms. */
+var STEM_ENDING_RE = /[аяоеёьйыиуюэ]$/i;
+var MIN_STEM$1 = 3;
+function hasCyrillic$1(text) {
+	return CYRILLIC_RE$10.test(text);
+}
+function hasLatin(text) {
+	return LATIN_RE$2.test(text);
+}
+/** A `/pattern/flags` key (ST's regex key syntax). */
+function isRegexKey$1(key) {
+	return REGEX_KEY_RE.test(key.trim());
+}
+/** Lower case with ё folded to е: Russian texts mix both spellings. */
+function normalizeForMatch(text) {
+	return text.toLowerCase().replace(/ё/g, "е");
+}
+/**
+* Escapes a literal for a `/…/u` World Info key. Unlike ST's escapeRegex it leaves `-` alone (an escaped hyphen
+* outside a class is invalid with `u`), writes braces as classes (the macro engine eats `\{`), escapes `/` (ST
+* rejects an unescaped slash inside the pattern), matches any whitespace run between words and both е and ё.
+*/
+function escapeForKey(text) {
+	let out = "";
+	let space = false;
+	for (const char of text.trim()) {
+		if (/\s/.test(char)) {
+			if (!space) out += "\\s+";
+			space = true;
+			continue;
+		}
+		space = false;
+		if (char === "{") out += "[{]";
+		else if (char === "}") out += "[}]";
+		else if (char === "е" || char === "ё") out += "[её]";
+		else if (char === "Е" || char === "Ё") out += "[ЕЁ]";
+		else if ("\\^$.*+?()[]|/".includes(char)) out += `\\${char}`;
+		else out += char;
+	}
+	return out;
+}
+/** Drops one final vowel, soft sign or й when the rest keeps at least three letters (Маша → Маш, Анна → Анн). */
+function russianStem(word) {
+	const trimmed = word.trim();
+	if (!hasCyrillic$1(trimmed) || /\s/.test(trimmed)) return trimmed;
+	const stem = trimmed.replace(STEM_ENDING_RE, "");
+	return stem.length >= MIN_STEM$1 ? stem : trimmed;
+}
+/**
+* A left-boundary regex key for a Russian term: `/(?:^|[^\p{L}\p{N}_])Маш/iu` matches «Маша», «Машей», «Маши» but
+* not «Ромашка». Null for terms without Cyrillic, with `{{` (macros) or empty.
+*/
+function leftBoundaryKey$1(term) {
+	const trimmed = term.trim();
+	if (!trimmed || !hasCyrillic$1(trimmed) || trimmed.includes("{{")) return null;
+	return `/(?:^|[^\\p{L}\\p{N}_])${escapeForKey(russianStem(trimmed))}/iu`;
+}
+/** Unique non-empty strings in first-seen order (case-sensitive). */
+function uniqueStrings(values) {
+	const seen = /* @__PURE__ */ new Set();
+	const out = [];
+	for (const value of values) {
+		if (typeof value !== "string") continue;
+		const text = value.trim();
+		if (!text || seen.has(text)) continue;
+		seen.add(text);
+		out.push(text);
+	}
+	return out;
+}
+/**
+* Russian keys for a term from what DES-RU offered: its plain case forms, else its single regex key, else the term
+* itself plus our left-boundary key (Cyrillic terms only).
+*/
+function russianKeysFrom(term, forms, formsKey) {
+	const plain = Array.isArray(forms) ? uniqueStrings(forms).filter((form) => !form.includes("{{")) : [];
+	if (plain.length) return plain;
+	if (typeof formsKey === "string" && formsKey.trim() && !formsKey.includes("{{")) return [formsKey.trim()];
+	const trimmed = term.trim();
+	if (!trimmed) return [];
+	const regex = leftBoundaryKey$1(trimmed);
+	return regex ? [trimmed, regex] : [trimmed];
+}
+/** English side of a pair: Latin, no Cyrillic, no regex, no macros. */
+function englishName(text) {
+	const trimmed = text.trim();
+	if (!trimmed || !hasLatin(trimmed) || hasCyrillic$1(trimmed) || isRegexKey$1(trimmed) || trimmed.includes("{{")) return null;
+	return trimmed;
+}
+/** Builds the matcher; pairs without a usable English or Russian side are skipped. Deterministic. */
+function buildGlossary(pairs) {
+	const byEnglish = /* @__PURE__ */ new Map();
+	for (const pair of pairs) {
+		const en = englishName(pair.en);
+		const ru = pair.ru.trim();
+		if (!en || !ru || ru.includes("{{")) continue;
+		const key = en.toLowerCase();
+		let row = byEnglish.get(key);
+		if (!row) {
+			row = {
+				en,
+				needles: [],
+				regexes: []
+			};
+			byEnglish.set(key, row);
+		}
+		if (isRegexKey$1(ru)) {
+			if (!hasCyrillic$1(ru)) continue;
+			const regex = parseRegexKey$1(ru);
+			if (regex && !row.regexes.some((item) => item.source === regex.source && item.flags === regex.flags)) row.regexes.push(regex);
+			continue;
+		}
+		if (!hasCyrillic$1(ru)) continue;
+		for (const form of [russianStem(ru), ...pair.forms ?? []]) {
+			if (typeof form !== "string" || !hasCyrillic$1(form)) continue;
+			const needle = normalizeForMatch(form.trim());
+			if (needle && !row.needles.includes(needle)) row.needles.push(needle);
+		}
+	}
+	const rows = [...byEnglish.values()].filter((row) => row.needles.length || row.regexes.length);
+	rows.sort((a, b) => a.en.toLowerCase() < b.en.toLowerCase() ? -1 : a.en.toLowerCase() > b.en.toLowerCase() ? 1 : 0);
+	return { rows };
+}
+/** `needle` occurs in `text` right after a non-word character (or at the start). */
+function containsWithLeftBoundary(text, needle) {
+	if (!needle) return false;
+	let from = 0;
+	for (;;) {
+		const index = text.indexOf(needle, from);
+		if (index < 0) return false;
+		const before = index > 0 ? text[index - 1] : void 0;
+		if (before === void 0 || !WORD_CHAR_RE$2.test(before)) return true;
+		from = index + 1;
+	}
+}
+/** English names whose Russian forms occur in `text`, sorted, at most `limit`. */
+function matchGlossary(glossary, text, limit = 40) {
+	if (!text || !glossary.rows.length) return [];
+	const normalized = normalizeForMatch(text);
+	const found = [];
+	for (const row of glossary.rows) {
+		if (found.length >= limit) break;
+		if (row.needles.some((needle) => containsWithLeftBoundary(normalized, needle)) || row.regexes.some((regex) => {
+			regex.lastIndex = 0;
+			return regex.test(text);
+		})) found.push(row.en);
+	}
+	return found;
+}
+/** Joins names into the scan text, cut to `maxChars` at a name boundary. */
+function formatGlosses(names, maxChars = 600) {
+	let out = "";
+	for (const name of names) {
+		const next = out ? `${out}, ${name}` : name;
+		if (next.length > maxChars) break;
+		out = next;
+	}
+	return out;
+}
+/** Pairs from one entry's keys: every Russian key stands for every English key of the same entry. */
+function pairsFromKeys(keys) {
+	const list = uniqueStrings(keys);
+	const english = list.filter((key) => englishName(key) !== null);
+	const russian = list.filter((key) => hasCyrillic$1(key) && !key.includes("{{"));
+	const pairs = [];
+	for (const en of english) for (const ru of russian) pairs.push({
+		ru,
+		en
+	});
+	return pairs;
+}
+/** DES canonical aliases `{name: [aliases]}`: whichever side is Russian maps to the English ones. */
+function pairsFromAliases(aliases) {
+	if (!aliases || typeof aliases !== "object" || Array.isArray(aliases)) return [];
+	const pairs = [];
+	for (const [canonical, list] of Object.entries(aliases)) {
+		const names = uniqueStrings([canonical, ...Array.isArray(list) ? list : []]);
+		pairs.push(...pairsFromKeys(names));
+	}
+	return pairs;
+}
+/** Localizer marker of one entry: the keys it appended (Russian) stand for the source keys it translated. */
+function pairsFromLocalizer(sources, added) {
+	const english = uniqueStrings(sources).filter((key) => englishName(key) !== null);
+	if (!english.length || english.length > 3) return [];
+	const pairs = [];
+	for (const ru of uniqueStrings(added)) {
+		if (!hasCyrillic$1(ru)) continue;
+		for (const en of english) pairs.push({
+			ru,
+			en
+		});
+	}
+	return pairs;
+}
+//#endregion
+//#region src/domain/canon-inject.ts
+var LIST_NAMES = [
+	"globalLore",
+	"characterLore",
+	"chatLore",
+	"personaLore"
+];
+/** Activation key ST uses in `activated.entries`. */
+function activationKey(world, uid) {
+	return `${String(world)}.${String(uid)}`;
+}
+/** The four lists of a WORLDINFO_ENTRIES_LOADED payload; null when the payload does not look like one. */
+function listsOf(payload) {
+	if (!isDict$70(payload)) return null;
+	const lists = {};
+	for (const name of LIST_NAMES) {
+		const list = payload[name];
+		if (!Array.isArray(list)) return null;
+		lists[name] = list;
+	}
+	return lists;
+}
+/**
+* Takes entries of canon books out of the lists (a canon book must never be active by itself: its overrides would
+* act as plain entries next to their bases). Returns the canon books that were found.
+*/
+function stripCanonBooks(lists) {
+	const found = /* @__PURE__ */ new Set();
+	for (const name of LIST_NAMES) {
+		const list = lists[name];
+		for (let i = list.length - 1; i >= 0; i--) {
+			const world = list[i]?.world;
+			if (typeof world !== "string" || !world.startsWith("Maestro · канон")) continue;
+			if (!isOwnCopy(list[i])) found.add(world);
+			list.splice(i, 1);
+		}
+	}
+	return [...found].sort();
+}
+function isOwnCopy(entry) {
+	const extensions = isDict$70(entry?.extensions) ? entry.extensions : void 0;
+	return typeof (isDict$70(extensions?.maestro) ? extensions.maestro : void 0)?.canonUid === "number";
+}
+function findBase(lists, world, uid) {
+	for (const name of LIST_NAMES) {
+		const list = lists[name];
+		const index = list.findIndex((entry) => entry?.world === world && Number(entry?.uid) === uid);
+		if (index >= 0) return {
+			list,
+			index
+		};
+	}
+	return null;
+}
+function markerOf(entry) {
+	const extensions = isDict$70(entry.extensions) ? entry.extensions : void 0;
+	return isDict$70(extensions?.maestro) ? extensions.maestro : void 0;
+}
+/** The scan copy of an addition: a fresh object with fresh arrays, in the canon book's name. */
+function additionCopy(item, canonBook) {
+	const copy = copyValue$1(item.entry);
+	const extensions = isDict$70(copy.extensions) ? copy.extensions : {};
+	return {
+		...copy,
+		uid: item.uid,
+		world: canonBook,
+		extensions: {
+			...extensions,
+			maestro: scanMarker(item)
+		}
+	};
+}
+/** The override of a base scan copy (world and uid of the base; base extensions kept, canon marker added). */
+function overrideCopy(base, item) {
+	const copy = materializeOverride(base, item.entry, itemOverrideFields(item.meta, item.entry));
+	copy.extensions = {
+		...isDict$70(base.extensions) ? base.extensions : {},
+		maestro: scanMarker(item)
+	};
+	return copy;
+}
+function acts(item, options, base) {
+	if (item.meta.status === "provisional" && options.silentProvisional?.includes(item.meta.origin)) return false;
+	if (item.meta.status !== "archived") return true;
+	return options.mentioned?.(item, base) === true;
+}
+/**
+* Applies the canon to the scan copies in place (the lists themselves are per-scan arrays; nested values of the
+* entries are never mutated). Canon books are stripped first, so a second run over the same payload gives the same
+* result.
+*/
+function applyCanon(lists, items, options) {
+	const result = {
+		added: 0,
+		replaced: 0,
+		suppressed: 0,
+		pins: [],
+		dormant: 0,
+		missing: 0
+	};
+	stripCanonBooks(lists);
+	const ordered = [...items].sort((a, b) => kindRank(a) - kindRank(b) || a.uid - b.uid);
+	for (const item of ordered) {
+		const base = item.meta.base;
+		const found = base && item.meta.kind !== "addition" ? findBase(lists, base.world, base.uid) : null;
+		const current = found ? found.list[found.index] : void 0;
+		if (!acts(item, options, current)) {
+			result.dormant++;
+			continue;
+		}
+		switch (item.meta.kind) {
+			case "addition":
+				lists.chatLore.push(additionCopy(item, options.canonBook));
+				result.added++;
+				break;
+			case "override":
+				if (!found || !current) {
+					result.missing++;
+					break;
+				}
+				if (markerOf(current)?.canonUid !== item.uid) found.list[found.index] = overrideCopy(current, item);
+				result.replaced++;
+				break;
+			case "suppress":
+				if (!found) {
+					result.missing++;
+					break;
+				}
+				found.list.splice(found.index, 1);
+				result.suppressed++;
+				break;
+			case "pin": {
+				if (!base) break;
+				if (item.meta.pinWhen && item.meta.pinWhen !== "always" && options.pinActive?.(item) !== true) break;
+				const key = activationKey(base.world, base.uid);
+				if (!result.pins.includes(key)) result.pins.push(key);
+				break;
+			}
+		}
+	}
+	return result;
+}
+/** Overrides first, suppressions after them (a suppression wins over an override of the same base), then the rest. */
+function kindRank(item) {
+	switch (item.meta.kind) {
+		case "override": return 0;
+		case "suppress": return 1;
+		case "addition": return 2;
+		default: return 3;
+	}
+}
+/** The last `count` messages as one lower-case text (ё → е) for mention checks. */
+function recentText(messages, count) {
+	const parts = [];
+	for (let i = messages.length - 1; i >= 0 && parts.length < count; i--) {
+		const message = messages[i];
+		if (!isDict$70(message) || message.is_system === true) continue;
+		if (typeof message.mes === "string" && message.mes) parts.push(message.mes);
+	}
+	return parts.reverse().join("\n");
+}
+/**
+* Any of the keys occurs in the text: plain keys as case-insensitive substrings (Cyrillic keys behave like that in
+* ST anyway), regex keys with their own flags. `text` is the raw recent text.
+*/
+function keysMentioned(keys, text) {
+	if (!Array.isArray(keys) || !text) return false;
+	const normalized = normalizeForMatch(text);
+	for (const raw of keys) {
+		if (typeof raw !== "string") continue;
+		const key = raw.trim();
+		if (!key) continue;
+		const regex = parseRegexKey$1(key);
+		if (regex) {
+			if (regex.test(text)) return true;
+			continue;
+		}
+		if (normalized.includes(normalizeForMatch(key))) return true;
+	}
+	return false;
+}
+/** Keys of an item for the mention check: its own keys, primary and secondary. */
+function itemKeys(item) {
+	const list = (value) => Array.isArray(value) ? value.filter((key) => typeof key === "string") : [];
+	return [...list(item.entry.key), ...list(item.entry.keysecondary)];
+}
+/** Is an activated entry the canon's own (an addition copy or an override copy)? */
+function isCanonActivation(entry, canonBook) {
+	if (!isDict$70(entry)) return false;
+	if (entry.world === canonBook) return true;
+	const marker = markerOf(entry);
+	return typeof marker?.canonUid === "number" && typeof marker.kind === "string";
+}
+/**
+* Which new canon activations fit the canon budget (plan M6 п. 7, audit B4): highest `order` first, then the newest;
+* lower-order and older ones are cut first. `used` is what earlier loops of the same scan already keep.
+*/
+function planCanonBudget(used, candidates, limit) {
+	const keep = [];
+	const cut = [];
+	let total = used;
+	if (!(limit > 0)) return {
+		keep: candidates.map((item) => item.key),
+		cut,
+		used: total + sum(candidates)
+	};
+	const ordered = [...candidates].sort((a, b) => b.order - a.order || b.updatedAt - a.updatedAt || (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
+	for (const item of ordered) if (total + item.chars <= limit) {
+		keep.push(item.key);
+		total += item.chars;
+	} else cut.push(item.key);
+	return {
+		keep,
+		cut,
+		used: total
+	};
+}
+function sum(items) {
+	return items.reduce((total, item) => total + item.chars, 0);
+}
+//#endregion
+//#region src/domain/world-facts.ts
+/** Per-character DES fields that describe looks (English snake_case keys and DES-RU's Russian ones). */
+var APPEARANCE_FIELD_RE$1 = /appear|look|outfit|cloth|wear|attire|внешн|облик|одежд|наряд/i;
+var DES_CONFIDENCE = .5;
+var CANON_CONFIDENCE = {
+	active: .9,
+	provisional: .5,
+	archived: .3
+};
+/** «date, time» (or «date, start–end») of a DES scene; undefined when DES has neither. */
+function storyTimeOf(info) {
+	if (!info) return void 0;
+	const time = info.time ? info.time.start && info.time.end && info.time.end !== info.time.start ? `${info.time.start}–${info.time.end}` : info.time.start ?? info.time.end : void 0;
+	const parts = [info.date, time].filter((part) => !!part && !!part.trim());
+	return parts.length ? parts.join(", ") : void 0;
+}
+/** Relationship and appearance fields of one DES character as provisional facts. */
+function desFacts(entity, character, messageIndex, storyTime) {
+	const source = {
+		kind: "des.character",
+		ref: `${messageIndex}#${character.name}`,
+		label: character.name,
+		messageIndex
+	};
+	const facts = [];
+	const push = (text) => {
+		const fact = {
+			entity,
+			text,
+			source: { ...source },
+			messageIndex,
+			confidence: DES_CONFIDENCE,
+			status: "provisional"
+		};
+		if (storyTime) fact.storyTime = storyTime;
+		facts.push(fact);
+	};
+	if (character.relationship) push(`relationship: ${character.relationship}`);
+	for (const [field, value] of Object.entries(character.details)) if (APPEARANCE_FIELD_RE$1.test(field) && value.trim()) push(`${field}: ${value.trim()}`);
+	return facts;
+}
+/** A canon item as a fact: active items are active facts, provisional ones provisional, archived ones stale. */
+function canonFact(entity, item, book) {
+	const content = typeof item.entry.content === "string" ? item.entry.content.trim() : "";
+	if (!content) return null;
+	const comment = typeof item.entry.comment === "string" ? item.entry.comment.trim() : "";
+	const status = item.meta.status === "active" ? "active" : item.meta.status === "archived" ? "stale" : "provisional";
+	return {
+		entity,
+		text: content,
+		source: {
+			kind: "canon.entry",
+			ref: `${book}#${item.uid}`,
+			label: comment || `#${item.uid}`,
+			world: book,
+			uid: item.uid
+		},
+		confidence: CANON_CONFIDENCE[item.meta.status] ?? CANON_CONFIDENCE.provisional ?? .5,
+		status
+	};
+}
+//#endregion
+//#region src/domain/world-names.ts
+/** Entity kinds of the world model (same ids as `EntityKind` in src/features/world/api.ts). */
+var WORLD_KINDS = [
+	"persona",
+	"character",
+	"place",
+	"item",
+	"faction",
+	"event",
+	"tradition",
+	"promise",
+	"secret",
+	"quest",
+	"mechanic"
+];
+var WORD_CHAR_RE$1 = /[\p{L}\p{N}_]/u;
+var LETTER_RE$1 = /\p{L}/u;
+var MAX_NAME_CHARS$1 = 60;
+var MAX_NAME_WORDS$1 = 4;
+/** Letters a Cyrillic name may be followed by (a case ending the forms did not list: «Анн|ой»). */
+var NAME_TAIL = 2;
+/** Letters after a stem («Маш» + «енька» is too much, «Маш» + «ей» is fine). */
+var STEM_TAIL = 3;
+var MIN_NEEDLE = 2;
+/** Order of kinds in lists (persona first, then people, places, things). */
+function kindOrder(kind) {
+	const index = WORLD_KINDS.indexOf(kind);
+	return index < 0 ? WORLD_KINDS.length : index;
+}
+/** People share one namespace: a DES roster name equal to the persona's name is the persona. */
+function kindFamily(kind) {
+	return kind === "character" || kind === "persona" ? "being" : kind;
+}
+/** NFC, lower case, ё → е, whitespace runs → one space, trimmed. */
+function normalizeName(text) {
+	return text.normalize("NFC").toLowerCase().replace(/ё/g, "е").replace(/\s+/g, " ").trim();
+}
+/** Same as normalizeName but keeps the length of leading/trailing text (used on whole messages). */
+function normalizeText$1(text) {
+	return text.normalize("NFC").toLowerCase().replace(/ё/g, "е").replace(/\s+/g, " ");
+}
+/** `${kind}:${normalised name}` (places use their registry id instead). */
+function entityIdOf(kind, name) {
+	return `${kind}:${normalizeName(name)}`;
+}
+/** Order-independent key of two ids (separated pairs, proposed merges). */
+function pairKey$1(a, b) {
+	return a < b ? `${a}\u0000${b}` : `${b}\u0000${a}`;
+}
+function wordsOf$3(normalized) {
+	return normalized.split(" ").filter(Boolean);
+}
+/**
+* A lorebook key or alias that can stand for a name: not a regex, no macros, not a BunnyMo tag or sheet command,
+* one line of at most four words and 60 characters, with at least one letter.
+*/
+function looksLikeName(value) {
+	if (typeof value !== "string") return false;
+	const text = value.trim();
+	if (text.length < MIN_NEEDLE || text.length > MAX_NAME_CHARS$1) return false;
+	if (isRegexKey$1(text) || text.includes("{{") || /[\n\r<>]/.test(text) || /^[!@#/]/.test(text)) return false;
+	if (!LETTER_RE$1.test(text)) return false;
+	return wordsOf$3(normalizeName(text)).length <= MAX_NAME_WORDS$1;
+}
+/** Name-like values, trimmed, unique by normalised form, first spelling kept. */
+function nameList(values) {
+	const seen = /* @__PURE__ */ new Set();
+	const out = [];
+	for (const value of values) {
+		if (!looksLikeName(value)) continue;
+		const text = value.trim();
+		const key = normalizeName(text);
+		if (seen.has(key)) continue;
+		seen.add(key);
+		out.push(text);
+	}
+	return out;
+}
+/** «Лиз, Лиза; Liz» → names (typed entries keep aliases in one comma-separated field). */
+function splitAliases(text) {
+	return typeof text === "string" ? nameList(text.split(/[,;\n]/)) : [];
+}
+/**
+* Needles of one entity: every name, alias and form (Cyrillic ones may take a short ending, Latin ones need a right
+* boundary). With `stems` (no DES-RU forms known), single Cyrillic words also give their stem («Маша» → «Маш»).
+*/
+function mentionNeedles(names, forms, stems) {
+	const out = /* @__PURE__ */ new Map();
+	const add = (needle, tail) => {
+		if (needle.length < MIN_NEEDLE) return;
+		const known = out.get(needle);
+		if (known === void 0 || known < tail) out.set(needle, tail);
+	};
+	for (const raw of [...names, ...forms]) {
+		if (typeof raw !== "string") continue;
+		const needle = normalizeName(raw);
+		if (!needle) continue;
+		const cyrillic = hasCyrillic$1(needle);
+		add(needle, cyrillic ? NAME_TAIL : 0);
+		if (stems && cyrillic && !needle.includes(" ")) {
+			const stem = normalizeName(russianStem(raw));
+			if (stem !== needle) add(stem, STEM_TAIL);
+		}
+	}
+	return [...out].map(([needle, tail]) => ({
+		needle,
+		tail
+	}));
+}
+function buildMentionMatcher(rows) {
+	return { rows: [...rows].filter((row) => row.needles.length > 0) };
+}
+/** Position of the first occurrence with a left boundary and at most `tail` word characters after it; -1 if none. */
+function findNeedle(text, needle, tail) {
+	if (!needle) return -1;
+	let from = 0;
+	for (;;) {
+		const index = text.indexOf(needle, from);
+		if (index < 0) return -1;
+		from = index + 1;
+		const before = index > 0 ? text[index - 1] : void 0;
+		if (before !== void 0 && WORD_CHAR_RE$1.test(before)) continue;
+		const end = index + needle.length;
+		let extra = 0;
+		while (end + extra < text.length && WORD_CHAR_RE$1.test(text[end + extra] ?? "") && extra <= tail) extra++;
+		if (extra <= tail) return index;
+	}
+}
+/** Ids of the rows mentioned in `text`, in order of their first mention. */
+function findMentions(matcher, text) {
+	if (!text || !matcher.rows.length) return [];
+	const haystack = normalizeText$1(text);
+	const hits = [];
+	for (const row of matcher.rows) {
+		let best = -1;
+		for (const { needle, tail } of row.needles) {
+			const at = findNeedle(haystack, needle, tail);
+			if (at >= 0 && (best < 0 || at < best)) best = at;
+		}
+		if (best >= 0) hits.push({
+			id: row.id,
+			at: best
+		});
+	}
+	hits.sort((a, b) => a.at - b.at);
+	return hits.map((hit) => hit.id);
+}
+//#endregion
+//#region src/domain/relations-history.ts
+function isAssistantMessage(message) {
+	return !!message && !message.is_user && !message.is_system;
+}
+/** Index of the assistant message committed last: the one before the last user message (P14); -1 if none. */
+function lastCommittedIndex(chat) {
+	let user = -1;
+	for (let i = chat.length - 1; i >= 0; i--) if (chat[i]?.is_user) {
+		user = i;
+		break;
+	}
+	for (let i = user - 1; i >= 0; i--) if (isAssistantMessage(chat[i])) return i;
+	return -1;
+}
+/** An assistant message is committed once a user message follows it. */
+function isCommittedIndex(chat, index) {
+	if (!isAssistantMessage(chat[index])) return false;
+	for (let i = index + 1; i < chat.length; i++) if (chat[i]?.is_user) return true;
+	return false;
+}
+/** The next assistant message after `index`, -1 if none. */
+function nextAssistantIndex(chat, index) {
+	for (let i = index + 1; i < chat.length; i++) if (isAssistantMessage(chat[i])) return i;
+	return -1;
+}
+function relationKey(from, to) {
+	return `${normalizeName(from)}\u0000${normalizeName(to)}`;
+}
+/** Statuses compare without case and extra spaces («Friendly» = «friendly »). */
+function sameStatus(a, b) {
+	return normalizeName(a) === normalizeName(b);
+}
+/**
+* Sorted by message, one point per message and source (the later one in the list wins), consecutive equal statuses
+* collapsed onto the earliest. Returns a new array.
+*/
+function collapseHistory(history) {
+	const byMessage = /* @__PURE__ */ new Map();
+	for (const point of history) {
+		if (!point || typeof point.status !== "string" || !point.status.trim()) continue;
+		if (!Number.isInteger(point.messageIndex) || point.messageIndex < 0) continue;
+		byMessage.set(`${point.messageIndex}\u0000${point.source}`, { ...point });
+	}
+	const sorted = [...byMessage.values()].sort((a, b) => a.messageIndex - b.messageIndex);
+	const out = [];
+	for (const point of sorted) {
+		const last = out[out.length - 1];
+		if (last && sameStatus(last.status, point.status)) continue;
+		out.push(point);
+	}
+	return out;
+}
+/** Current status: the last point's, '' without history. */
+function currentStatus(history) {
+	return history[history.length - 1]?.status ?? "";
+}
+/** Observations of one message: every character with a relationship status toward the persona. */
+function observationsFrom(snapshot, persona, resolve = (name) => name) {
+	if (!snapshot || !persona.trim()) return [];
+	const storyTime = storyTimeOf(snapshot.infoBox);
+	const out = [];
+	for (const character of snapshot.characters) {
+		if (!character.relationship) continue;
+		const from = resolve(character.name) || character.name;
+		if (normalizeName(from) === normalizeName(persona)) continue;
+		const observation = {
+			from,
+			to: persona,
+			status: character.relationship
+		};
+		if (storyTime) observation.storyTime = storyTime;
+		out.push(observation);
+	}
+	return out;
+}
+/**
+* Applies what one message says: its earlier points of `source` are replaced by the observations; pairs left without
+* history are dropped. Returns new relations (inputs are not changed).
+*/
+function applyMessage(relations, messageIndex, observations, source = "des", sent) {
+	const map = /* @__PURE__ */ new Map();
+	for (const relation of relations) map.set(relationKey(relation.from, relation.to), {
+		from: relation.from,
+		to: relation.to,
+		history: relation.history.filter((point) => !(point.messageIndex === messageIndex && point.source === source))
+	});
+	for (const observation of observations) {
+		const key = relationKey(observation.from, observation.to);
+		const relation = map.get(key) ?? {
+			from: observation.from,
+			to: observation.to,
+			history: []
+		};
+		const point = {
+			messageIndex,
+			status: observation.status.trim(),
+			source
+		};
+		if (observation.storyTime) point.storyTime = observation.storyTime;
+		if (sent) point.sent = sent;
+		relation.history.push(point);
+		map.set(key, relation);
+	}
+	const out = [];
+	for (const relation of map.values()) {
+		const history = collapseHistory(relation.history);
+		if (history.length) out.push({
+			...relation,
+			history
+		});
+	}
+	return out;
+}
+/**
+* Drops points of a message that is no longer what it was: `at` (swipe, edit) drops the points of that message,
+* `from` (deletion) drops that message's points and every later one.
+*/
+function dropPoints(relations, messageIndex, mode) {
+	const out = [];
+	for (const relation of relations) {
+		const history = collapseHistory(relation.history.filter((point) => mode === "at" ? point.messageIndex !== messageIndex : point.messageIndex < messageIndex));
+		if (history.length) out.push({
+			...relation,
+			history
+		});
+	}
+	return out;
+}
+/**
+* True when some DES point no longer sits on the message it was read from (messages were deleted in the middle):
+* `valid` checks the message at the point's index (an assistant message, the same `send_date`).
+*/
+function needsRepair(relations, valid) {
+	return relations.some((relation) => relation.history.some((point) => point.source === "des" && !valid(point)));
+}
+/** A point as the API shows it (without the bookkeeping `sent`). */
+function publicPoint(point) {
+	const copy = { ...point };
+	delete copy.sent;
+	return copy;
+}
+/** Relations merged by canonical names (the world model may learn later that «Лиза» is «Elizabeth»). */
+function mergeByName(relations, canonical) {
+	const map = /* @__PURE__ */ new Map();
+	for (const relation of relations) {
+		const from = canonical(relation.from) || relation.from;
+		const to = canonical(relation.to) || relation.to;
+		const key = relationKey(from, to);
+		const known = map.get(key);
+		if (known) known.history.push(...relation.history);
+		else map.set(key, {
+			from,
+			to,
+			history: [...relation.history]
+		});
+	}
+	const out = [];
+	for (const relation of map.values()) {
+		const history = collapseHistory(relation.history);
+		if (history.length) out.push({
+			...relation,
+			history
+		});
+	}
+	return out;
+}
+/** A stored document's relations, with junk dropped (files may be edited by hand or come from an old version). */
+function readRelations(value) {
+	if (!Array.isArray(value)) return [];
+	const out = [];
+	for (const item of value) {
+		if (!item || typeof item !== "object") continue;
+		const raw = item;
+		if (typeof raw.from !== "string" || typeof raw.to !== "string" || !raw.from.trim() || !raw.to.trim()) continue;
+		const history = [];
+		for (const point of Array.isArray(raw.history) ? raw.history : []) {
+			if (!point || typeof point !== "object") continue;
+			const p = point;
+			if (typeof p.messageIndex !== "number" || typeof p.status !== "string") continue;
+			const source = p.source === "canon" || p.source === "user" ? p.source : "des";
+			const data = {
+				messageIndex: p.messageIndex,
+				status: p.status,
+				source
+			};
+			if (typeof p.storyTime === "string" && p.storyTime) data.storyTime = p.storyTime;
+			if (typeof p.sent === "string" && p.sent) data.sent = p.sent;
+			history.push(data);
+		}
+		const collapsed = collapseHistory(history);
+		if (collapsed.length) out.push({
+			from: raw.from,
+			to: raw.to,
+			history: collapsed
+		});
+	}
+	return out;
+}
+//#endregion
+//#region src/domain/text-clean.ts
+function isDict$69(value) {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+/** Names of real HTML elements (lower case). BunnyMo tags (`<SPECIES:ELF>`, `<PHYSICAL>`) are not among them. */
+var HTML_ELEMENTS = /* @__PURE__ */ new Set([
+	"a",
+	"abbr",
+	"address",
+	"area",
+	"article",
+	"aside",
+	"audio",
+	"b",
+	"base",
+	"bdi",
+	"bdo",
+	"big",
+	"blink",
+	"blockquote",
+	"body",
+	"br",
+	"button",
+	"canvas",
+	"caption",
+	"center",
+	"cite",
+	"code",
+	"col",
+	"colgroup",
+	"data",
+	"datalist",
+	"dd",
+	"del",
+	"details",
+	"dfn",
+	"dialog",
+	"dir",
+	"div",
+	"dl",
+	"dt",
+	"em",
+	"embed",
+	"fieldset",
+	"figcaption",
+	"figure",
+	"font",
+	"footer",
+	"form",
+	"h1",
+	"h2",
+	"h3",
+	"h4",
+	"h5",
+	"h6",
+	"head",
+	"header",
+	"hgroup",
+	"hr",
+	"html",
+	"i",
+	"iframe",
+	"img",
+	"input",
+	"ins",
+	"kbd",
+	"label",
+	"legend",
+	"li",
+	"link",
+	"main",
+	"map",
+	"mark",
+	"marquee",
+	"math",
+	"menu",
+	"meta",
+	"meter",
+	"nav",
+	"nobr",
+	"noscript",
+	"object",
+	"ol",
+	"optgroup",
+	"option",
+	"output",
+	"p",
+	"param",
+	"picture",
+	"pre",
+	"progress",
+	"q",
+	"rp",
+	"rt",
+	"ruby",
+	"s",
+	"samp",
+	"script",
+	"search",
+	"section",
+	"select",
+	"slot",
+	"small",
+	"source",
+	"span",
+	"strike",
+	"strong",
+	"style",
+	"sub",
+	"summary",
+	"sup",
+	"svg",
+	"table",
+	"tbody",
+	"td",
+	"template",
+	"textarea",
+	"tfoot",
+	"th",
+	"thead",
+	"time",
+	"title",
+	"tr",
+	"track",
+	"tt",
+	"u",
+	"ul",
+	"var",
+	"video",
+	"wbr"
+]);
+/** Elements whose tags separate lines of text. */
+var BLOCK_ELEMENTS = /* @__PURE__ */ new Set([
+	"address",
+	"article",
+	"aside",
+	"blockquote",
+	"br",
+	"center",
+	"dd",
+	"details",
+	"div",
+	"dl",
+	"dt",
+	"figcaption",
+	"figure",
+	"footer",
+	"h1",
+	"h2",
+	"h3",
+	"h4",
+	"h5",
+	"h6",
+	"header",
+	"hr",
+	"li",
+	"main",
+	"nav",
+	"ol",
+	"p",
+	"pre",
+	"section",
+	"summary",
+	"table",
+	"tr",
+	"ul"
+]);
+/**
+* True for a real HTML element name (any case), or a custom element (lower case with a hyphen — `<INTJ-U>` is a
+* BunnyMo tag, not an element).
+*/
+function isHtmlElementName(name) {
+	return HTML_ELEMENTS.has(name.toLowerCase()) || /^[a-z][a-z0-9]*-[a-z0-9-]+$/.test(name);
+}
+var TRACKER_KEYS = [
+	"quests",
+	"infoBox",
+	"infobox",
+	"characterThoughts",
+	"characters"
+];
+var TRACKER_KEY_RE$3 = /"(?:quests|infoBox|infobox|characterThoughts|characters)"\s*:/;
+/** A fence at the very start: ```json, ```markdown, ```md or a bare ```; the body runs to the closing fence. */
+var LEADING_FENCE_RE = /^\s*```(?:json|markdown|md)?[ \t]*\r?\n([\s\S]*?)\r?\n?[ \t]*```[ \t]*(?:\r?\n|$)/i;
+/** End index (exclusive) of the balanced `{…}` starting at `start`, strings respected; -1 when unbalanced. */
+function balancedObjectEnd(text, start) {
+	let depth = 0;
+	let inString = false;
+	let escaped = false;
+	for (let i = start; i < text.length; i++) {
+		const char = text[i];
+		if (escaped) escaped = false;
+		else if (char === "\\") escaped = inString;
+		else if (char === "\"") inString = !inString;
+		else if (!inString) {
+			if (char === "{") depth++;
+			else if (char === "}") {
+				depth--;
+				if (depth === 0) return i + 1;
+			}
+		}
+	}
+	return -1;
+}
+/** The JSON text is DES tracker data: an object with one of DES's sections (parsed or, if broken, by its keys). */
+function looksLikeTracker(json) {
+	const body = json.trim();
+	if (!body.startsWith("{")) return false;
+	try {
+		const parsed = JSON.parse(body);
+		return isDict$69(parsed) && TRACKER_KEYS.some((key) => key in parsed);
+	} catch {
+		return TRACKER_KEY_RE$3.test(body);
+	}
+}
+/**
+* Removes the DES tracker JSON that opens a reply in together mode: a leading ```json fence (or ```markdown / a
+* bare fence) whose body is tracker JSON, or an unfenced leading JSON object with tracker sections. Any other
+* code block or JSON is kept.
+*/
+function stripDesTrackerJson(text) {
+	if (typeof text !== "string" || !text) return typeof text === "string" ? text : "";
+	const fence = LEADING_FENCE_RE.exec(text);
+	if (fence) return looksLikeTracker(fence[1] ?? "") ? text.slice(fence[0].length).replace(/^\s+/, "") : text;
+	const start = text.search(/\S/);
+	if (start < 0 || text[start] !== "{") return text;
+	const end = balancedObjectEnd(text, start);
+	if (end < 0 || !looksLikeTracker(text.slice(start, end))) return text;
+	return text.slice(end).replace(/^\s+/, "");
+}
+var NAMED_ENTITIES = {
+	lt: "<",
+	gt: ">",
+	quot: "\"",
+	apos: "'",
+	nbsp: " ",
+	amp: "&"
+};
+function decodeEntities(text) {
+	if (!text.includes("&")) return text;
+	return text.replace(/&(#x[0-9a-f]{1,6}|#[0-9]{1,7}|[a-z]+);/gi, (whole, body) => {
+		if (body[0] === "#") {
+			const code = body[1] === "x" || body[1] === "X" ? parseInt(body.slice(2), 16) : parseInt(body.slice(1), 10);
+			return Number.isFinite(code) && code > 0 && code <= 1114111 ? String.fromCodePoint(code) : whole;
+		}
+		return NAMED_ENTITIES[body.toLowerCase()] ?? whole;
+	});
+}
+/**
+* Removes HTML: comments, `<style>`/`<script>` blocks with their content, and tags of real HTML elements (block
+* tags become line breaks); entities are decoded. Tags that are not HTML (`<SPECIES:ELF>`, `<PHYSICAL>`,
+* `<STYLE:GOTHIC>`) stay: a tag name must be followed by whitespace, `/` or `>` to count as HTML.
+*/
+function stripHtml(text) {
+	if (typeof text !== "string") return "";
+	if (!text.includes("<") && !text.includes("&")) return text;
+	return decodeEntities(text.replace(/<!--[\s\S]*?-->/g, "").replace(/<(style|script)(?=[\s>])[^>]*>[\s\S]*?<\/\1\s*>/gi, "").replace(/<\/?([A-Za-z][A-Za-z0-9-]*)(?=[\s/>])[^<>]*>/g, (whole, name) => {
+		if (!isHtmlElementName(name)) return whole;
+		return BLOCK_ELEMENTS.has(name.toLowerCase()) ? "\n" : "";
+	}));
+}
+/** The block CK appends in "thinking" display mode: `<BunnyMoTags>`, then "Name:" and "• CATEGORY: values" lines. */
+var DUMP_BLOCK_RE = /(\n[ \t]*)*<BunnyMoTags>\n?([\s\S]*?)<\/BunnyMoTags>/g;
+/**
+* The body is a CK dump: only "Name:" and "• CATEGORY: values" lines (categories may be missing — CK skips tags
+* saved as arrays), no `<KEY:VALUE>` tags. A BunnyMo sheet looks different and is kept.
+*/
+function isCkDumpBody(body) {
+	const lines = String(body ?? "").split("\n").map((line) => line.trim()).filter(Boolean);
+	if (!lines.length || /<[A-Za-z][A-Za-z0-9_]*:/.test(body)) return false;
+	return lines.every((line) => line.startsWith("•") || line.endsWith(":"));
+}
+/** Removes CarrotKernel's `<BunnyMoTags>` dumps (with the blank lines before them); sheets are kept. */
+function stripCkDumps(text) {
+	if (typeof text !== "string" || !text.includes("<BunnyMoTags>")) return typeof text === "string" ? text : "";
+	return text.replace(DUMP_BLOCK_RE, (whole, _spacing, body) => isCkDumpBody(body) ? "" : whole);
+}
+var NAI_PLACEHOLDER_RE$1 = /[ \t]*\[nai:img:[^\]\s]{1,80}\][ \t]*/g;
+/**
+* Removes NAI Studio's inline image placeholders `[nai:img:<id>]` with the spaces around them; inside a line one
+* space keeps the words apart.
+*/
+function stripNaiPlaceholders(text) {
+	if (typeof text !== "string") return "";
+	if (!text.includes("[nai:img:")) return text;
+	return text.replace(NAI_PLACEHOLDER_RE$1, (match, offset, whole) => {
+		const before = whole[offset - 1];
+		const after = whole[offset + match.length];
+		return before === void 0 || before === "\n" || after === void 0 || after === "\n" ? "" : " ";
+	});
+}
+/**
+* A picture post (NAI Studio `postToChat`): `extra.nai_studio` on the message, or a gallery whose every item carries
+* NAI metadata while the text is empty or just the image prompt. A story reply illustrated later (paintbrush) keeps
+* its own text and is not a picture post.
+*/
+function isImagePost(message) {
+	if (!isDict$69(message) || !isDict$69(message.extra)) return false;
+	const extra = message.extra;
+	if (isDict$69(extra.nai_studio)) return true;
+	const media = extra.media;
+	if (!Array.isArray(media) || !media.length || !media.every((item) => isDict$69(item) && isDict$69(item.nai_studio))) return false;
+	const text = typeof message.mes === "string" ? message.mes.trim() : "";
+	if (!text) return true;
+	return media.some((item) => {
+		const meta = item.nai_studio;
+		const title = item.title;
+		return typeof title === "string" && title.trim() === text || meta.prompt === text;
+	});
+}
+function normalizeWhitespace(text) {
+	return text.replace(/\r\n?/g, "\n").replace(/[ \t]+$/gm, "").replace(/\n{3,}/g, "\n\n").trim();
+}
+/**
+* Story text of a message (or of a raw string) for analysis: picture posts give '', otherwise the text without
+* the DES tracker JSON, CK dumps, NAI placeholders and HTML, with tidy whitespace.
+*/
+function cleanForAnalysis(message) {
+	if (typeof message !== "string" && isImagePost(message)) return "";
+	const raw = typeof message === "string" ? message : isDict$69(message) ? message.mes : void 0;
+	if (typeof raw !== "string" || !raw) return "";
+	let text = stripDesTrackerJson(raw);
+	text = stripCkDumps(text);
+	text = stripNaiPlaceholders(text);
+	text = stripHtml(text);
+	return normalizeWhitespace(text);
+}
+//#endregion
+//#region src/features/architect/context.ts
+function isDict$68(value) {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+var MENTION_CACHE_LIMIT = 600;
+var SUBJECT_CACHE_LIMIT = 6e3;
+/** Book roles whose entries M20 never touches (P13: BunnyMo is a vocabulary, not a cast). */
+var PROTECTED_ROLES = /* @__PURE__ */ new Set([
+	"bunnymo.core",
+	"bunnymo.pack",
+	"canon"
+]);
+var ARCHIVE_ROLE = "ck.archive";
+function isRelevant(entity) {
+	return !!entity && (entity.kind === "character" || entity.kind === "place");
+}
+function refOf(entity) {
+	return {
+		id: entity.id,
+		kind: entity.kind === "place" ? "place" : "character"
+	};
+}
+var SceneContext = class {
+	app;
+	settings;
+	log;
+	world = {
+		api: void 0,
+		off: null
+	};
+	places = {
+		api: void 0,
+		off: null
+	};
+	canon = {
+		api: void 0,
+		off: null
+	};
+	roles = {
+		api: void 0,
+		off: null
+	};
+	versions = {
+		world: 0,
+		places: 0,
+		canon: 0,
+		roles: 0
+	};
+	snap = null;
+	subjects = /* @__PURE__ */ new Map();
+	subjectsKey = "";
+	index = null;
+	cast = null;
+	placeInfo = null;
+	tracker = null;
+	mentionCache = /* @__PURE__ */ new Map();
+	mentionVersion = -1;
+	pins = {
+		key: "",
+		set: /* @__PURE__ */ new Set()
+	};
+	pinsLoading = null;
+	warmTimer = null;
+	disposed = false;
+	constructor(app, settings, log) {
+		this.app = app;
+		this.settings = settings;
+		this.log = log;
+	}
+	dispose() {
+		this.disposed = true;
+		for (const bound of [
+			this.world,
+			this.places,
+			this.canon,
+			this.roles
+		]) {
+			bound.off?.();
+			bound.off = null;
+			bound.api = void 0;
+		}
+		if (this.warmTimer) clearTimeout(this.warmTimer);
+		this.warmTimer = null;
+	}
+	bind(bound, key, version, extra) {
+		const api = this.app.modules.api(key);
+		if (api === bound.api) return api;
+		bound.off?.();
+		bound.off = null;
+		bound.api = api;
+		const bump = () => {
+			this.versions[version]++;
+		};
+		bump();
+		if (api && !this.disposed) {
+			const offs = [];
+			try {
+				offs.push(api.onChange(bump));
+				const more = extra?.(api, bump);
+				if (more) offs.push(more);
+			} catch (error) {
+				this.log.debug(`could not follow ${key}`, error);
+			}
+			bound.off = () => offs.forEach((off) => off());
+		}
+		return api;
+	}
+	/** Re-binds to the current module APIs (cheap identity checks); call at the start of every scan handler. */
+	track() {
+		if (this.disposed) return;
+		this.bind(this.world, "world", "world");
+		this.bind(this.places, "places", "places", (api, bump) => api.onEnter(() => bump()));
+		this.bind(this.canon, "canon", "canon");
+		this.bind(this.roles, "bookRoles", "roles");
+	}
+	worldApi() {
+		return this.world.api;
+	}
+	placesApi() {
+		return this.places.api;
+	}
+	canonBook() {
+		try {
+			return this.canon.api?.bookName() ?? "";
+		} catch {
+			return "";
+		}
+	}
+	/** An entry of the chat canon (its book, or an override copy carrying the canon marker). */
+	isCanonEntry(entry) {
+		if ((typeof entry.world === "string" ? entry.world : "").startsWith("Maestro · канон")) return true;
+		return isCanonActivation(entry, this.canonBook() || "Maestro · канон");
+	}
+	bookRole(book) {
+		if (!book) return void 0;
+		try {
+			return this.roles.api?.roleOf(book)?.role;
+		} catch {
+			return;
+		}
+	}
+	/** BunnyMo core and packs, canon books: M20 never damps, cuts or rewrites their entries. */
+	isProtectedBook(book) {
+		if (book.startsWith("Maestro · канон")) return true;
+		const role = this.bookRole(book);
+		return role !== void 0 && PROTECTED_ROLES.has(role);
+	}
+	/** BunnyMo core or pack books (P13: never rewritten, not even on a scan copy). */
+	isBunnyMoBook(book) {
+		const role = this.bookRole(book);
+		return role === "bunnymo.core" || role === "bunnymo.pack";
+	}
+	isArchiveBook(book) {
+		return this.bookRole(book) === ARCHIVE_ROLE;
+	}
+	/**
+	* Activation keys (`world.uid`) of the base entries the canon pins. Read from the canon asynchronously and cached
+	* per chat and canon version; a scan uses what is known (M6 forces them itself, this only protects them).
+	*/
+	canonPins() {
+		const api = this.canon.api;
+		if (!api) return this.pins.set;
+		const key = `${this.app.host.chatId() ?? ""}|${this.versions.canon}`;
+		if (this.pins.key !== key && this.pinsLoading !== key) {
+			this.pinsLoading = key;
+			api.list({ kind: "pin" }).then((items) => {
+				const set = /* @__PURE__ */ new Set();
+				for (const item of items) {
+					const base = item.meta.base;
+					if (base) set.add(activationKey(base.world, base.uid));
+				}
+				this.pins = {
+					key,
+					set
+				};
+			}).catch((error) => this.log.debug("canon pins are not available", error)).finally(() => {
+				if (this.pinsLoading === key) this.pinsLoading = null;
+			});
+		}
+		return this.pins.set;
+	}
+	/** The character or place an entry is about (cached per entry identity until the world, places or roles change). */
+	subject(entry) {
+		const world = this.world.api;
+		if (!world) return null;
+		const versionKey = `${this.versions.world}.${this.versions.places}.${this.versions.roles}`;
+		if (versionKey !== this.subjectsKey) {
+			this.subjects.clear();
+			this.subjectsKey = versionKey;
+		}
+		const key = subjectCacheKey(entry);
+		const cached = this.subjects.get(key);
+		if (cached !== void 0) return cached;
+		let result = null;
+		try {
+			result = this.resolveSubject(world, entry);
+		} catch (error) {
+			this.log.debug("entry subject could not be resolved", error);
+		}
+		if (this.subjects.size >= SUBJECT_CACHE_LIMIT) this.subjects.clear();
+		this.subjects.set(key, result);
+		return result;
+	}
+	resolveSubject(world, entry) {
+		const book = typeof entry.world === "string" ? entry.world : "";
+		const uid = Number(entry.uid);
+		let sidecar;
+		try {
+			sidecar = this.roles.api?.entryMeta(book, uid);
+		} catch {
+			sidecar = void 0;
+		}
+		const typed = typedMetaOf(entry, sidecar);
+		if (typed && typed.type !== "character" && typed.type !== "place") return null;
+		if (typed) for (const name of subjectNames(entry, typed)) {
+			const entity = world.resolve(name.name, name.kind);
+			if (isRelevant(entity)) return refOf(entity);
+		}
+		const indexed = this.subjectIndex(world).get(`${book}#${uid}`);
+		if (indexed) return indexed;
+		if (typed) return null;
+		for (const name of subjectNames(entry, null)) {
+			const entity = world.resolve(name.name);
+			if (isRelevant(entity)) return refOf(entity);
+		}
+		return null;
+	}
+	/** `${world}#${uid}` → subject, from the world model's entity sources and the places' description entries. */
+	subjectIndex(world) {
+		const key = `${this.versions.world}.${this.versions.places}`;
+		if (this.index?.key === key) return this.index.map;
+		const map = /* @__PURE__ */ new Map();
+		try {
+			for (const entity of world.entities()) {
+				if (!isRelevant(entity)) continue;
+				for (const source of entity.sources) {
+					if (source.world === void 0 || source.uid === void 0) continue;
+					if (source.kind !== "lore.entry" && source.kind !== "canon.entry" && source.kind !== "ck.archive") continue;
+					const ref = `${source.world}#${source.uid}`;
+					if (!map.has(ref)) map.set(ref, refOf(entity));
+				}
+			}
+			for (const place of this.places.api?.list() ?? []) if (place.entry) map.set(`${place.entry.world}#${place.entry.uid}`, {
+				id: placeEntityId(place.id),
+				kind: "place"
+			});
+		} catch (error) {
+			this.log.debug("subject index could not be built", error);
+		}
+		this.index = {
+			key,
+			map
+		};
+		return map;
+	}
+	/** The scene facts for the generation in progress; null without the world model. */
+	snapshot() {
+		const world = this.world.api;
+		if (!world) return null;
+		const chat = this.app.host.ctx().chat ?? [];
+		const type = this.app.turn.current()?.type ?? "normal";
+		const window = this.settings().presence.mentionWindow;
+		let end = chat.length;
+		const last = chat[end - 1];
+		if (type === "swipe" && isDict$68(last) && last.is_user !== true && last.is_system !== true) end--;
+		const committed = lastCommittedIndex(chat);
+		const lastText = isDict$68(last) && typeof last.mes === "string" ? last.mes : "";
+		const key = [
+			this.app.host.chatId() ?? "",
+			end,
+			lastText.length,
+			isDict$68(last) ? String(last.swipe_id ?? 0) : "",
+			committed,
+			type,
+			window,
+			this.versions.world,
+			this.versions.places
+		].join("|");
+		if (this.snap?.key === key) return this.snap;
+		const cast = this.castOf(world);
+		const names = this.trackerNames(chat, committed);
+		let present;
+		let absent;
+		if (names) {
+			present = /* @__PURE__ */ new Set();
+			for (const name of names) {
+				const entity = world.resolve(name, "character");
+				if (entity) present.add(entity.id);
+			}
+			absent = new Set([...cast.roster].filter((id) => !present.has(id)));
+		} else {
+			present = cast.present;
+			absent = cast.absent;
+		}
+		const place = this.placesNow();
+		const mentions = mentionDistances(this.mentionRows(world, chat, end, window));
+		this.snap = {
+			key,
+			present,
+			absent,
+			currentPlace: place.current,
+			nearPlaces: place.near,
+			mentions,
+			window,
+			fromTracker: names !== null
+		};
+		return this.snap;
+	}
+	/** DES roster and the world model's presence flags (per world version). */
+	castOf(world) {
+		if (this.cast?.version === this.versions.world) return this.cast;
+		const roster = /* @__PURE__ */ new Set();
+		const present = /* @__PURE__ */ new Set();
+		const absent = /* @__PURE__ */ new Set();
+		try {
+			for (const entity of world.entities("character")) {
+				const inRoster = entity.sources.some((source) => source.kind === "des.character");
+				if (inRoster) roster.add(entity.id);
+				if (entity.present === true) present.add(entity.id);
+				else if (entity.present === false && inRoster) absent.add(entity.id);
+			}
+		} catch (error) {
+			this.log.debug("characters are not available", error);
+		}
+		this.cast = {
+			version: this.versions.world,
+			roster,
+			present,
+			absent
+		};
+		return this.cast;
+	}
+	/** Names of the characters in the scene of the committed reply; null when it has no DES characters. */
+	trackerNames(chat, committed) {
+		const message = committed >= 0 ? chat[committed] : void 0;
+		const text = isDict$68(message) && typeof message.mes === "string" ? message.mes : "";
+		const key = `${committed}|${isDict$68(message) ? String(message.swipe_id ?? 0) : ""}|${text.length}`;
+		if (this.tracker?.key === key) return this.tracker.names;
+		let names = null;
+		try {
+			const record = desSwipeRecord(message);
+			if (record) {
+				const characters = parseDesTracker(record).characters;
+				if (characters.length) names = characters.filter((item) => !item.offScene).map((item) => item.name);
+			}
+		} catch (error) {
+			this.log.debug("DES tracker of the committed reply could not be read", error);
+		}
+		this.tracker = {
+			key,
+			names
+		};
+		return names;
+	}
+	placesNow() {
+		const api = this.places.api;
+		if (!api) return {
+			current: null,
+			near: /* @__PURE__ */ new Set()
+		};
+		if (this.placeInfo?.version === this.versions.places) return this.placeInfo;
+		let current = null;
+		let near = /* @__PURE__ */ new Set();
+		try {
+			const place = api.current();
+			if (place) {
+				current = placeEntityId(place.id);
+				near = new Set([...nearPlaceIds(api.list(), place.id)].map(placeEntityId));
+			}
+		} catch (error) {
+			this.log.debug("places are not available", error);
+		}
+		this.placeInfo = {
+			version: this.versions.places,
+			current,
+			near
+		};
+		return this.placeInfo;
+	}
+	/**
+	* Entity ids mentioned per message, oldest first: the last K non-system messages are computed (cached per
+	* message text); older ones up to MENTION_LOOKBACK only when already cached (warmMentions fills them in the
+	* background), so «messages since the last mention» costs nothing on the send path.
+	*/
+	mentionRows(world, chat, end, window) {
+		if (this.mentionVersion !== this.versions.world) {
+			this.mentionCache.clear();
+			this.mentionVersion = this.versions.world;
+		}
+		const rows = [];
+		let counted = 0;
+		for (let i = end - 1; i >= 0 && counted < 40; i--) {
+			const message = chat[i];
+			if (!isDict$68(message) || message.is_system === true) continue;
+			const ids = this.mentionsOf(world, i, message, counted < window);
+			if (!ids) break;
+			rows.unshift(ids);
+			counted++;
+		}
+		return rows;
+	}
+	mentionsOf(world, index, message, compute) {
+		const text = typeof message.mes === "string" ? message.mes : "";
+		const key = `${index}|${String(message.swipe_id ?? 0)}|${text.length}|${quickHash(text)}`;
+		const cached = this.mentionCache.get(key);
+		if (cached) return cached;
+		if (!compute) return null;
+		let ids = [];
+		try {
+			ids = world.mentions(cleanForAnalysis(message)).filter((entity) => isRelevant(entity)).map((entity) => entity.id);
+		} catch (error) {
+			this.log.debug("mentions could not be read", error);
+		}
+		if (this.mentionCache.size >= MENTION_CACHE_LIMIT) this.mentionCache.clear();
+		this.mentionCache.set(key, ids);
+		return ids;
+	}
+	/** Fills the mention cache for the look-back window when the page is idle (never on the send path). */
+	warmMentions() {
+		if (this.warmTimer || this.disposed) return;
+		this.warmTimer = setTimeout(() => {
+			this.warmTimer = null;
+			const world = this.world.api;
+			if (!world || this.disposed) return;
+			const chat = this.app.host.ctx().chat ?? [];
+			let counted = 0;
+			for (let i = chat.length - 1; i >= 0 && counted < 40; i--) {
+				const message = chat[i];
+				if (!isDict$68(message) || message.is_system === true) continue;
+				this.mentionsOf(world, i, message, true);
+				counted++;
+			}
+		}, 0);
+	}
+	/** What the presence rule does with this entry now (null subject: nothing). */
+	verdict(entry, scene) {
+		const subject = this.subject(entry);
+		if (!subject) return {
+			action: "none",
+			subject
+		};
+		return {
+			...judgeSubject(subject, scene),
+			subject
+		};
+	}
+};
+//#endregion
+//#region src/features/architect/lore.ts
+var DAMP_RULE_ID = "architect.damp";
+var PIN_RULE_ID = "architect.pin";
+var LORE_BUDGET_RULE_ID = "architect.loreBudget";
+var DEDUP_RULE_ID = "architect.dedup";
+function isDict$67(value) {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function text$7(value) {
+	return typeof value === "string" ? value : "";
+}
+/** Valid entry copies of every list, in ST's list order. */
+function entriesOf$3(lists) {
+	const result = [];
+	for (const list of [
+		lists.globalLore,
+		lists.characterLore,
+		lists.chatLore,
+		lists.personaLore
+	]) {
+		if (!Array.isArray(list)) continue;
+		for (const entry of list) if (isDict$67(entry) && typeof entry.world === "string" && entry.uid !== void 0) result.push(entry);
+	}
+	return result;
+}
+function emptyLoreTurn() {
+	return {
+		at: 0,
+		damped: [],
+		dampedTokens: 0,
+		pinned: [],
+		cuts: [],
+		loreBefore: 0,
+		loreAfter: 0,
+		dropped: [],
+		droppedTokens: 0
+	};
+}
+var ArchitectLore = class {
+	app;
+	scene;
+	settings;
+	tokens;
+	consents;
+	log;
+	pinCandidates = /* @__PURE__ */ new Map();
+	/** Copies this rule disabled (WeakMap: they die with the scan). */
+	dampedCopies = /* @__PURE__ */ new WeakMap();
+	/** Copies the dedup rule rewrote, with what it did. */
+	dedupCopies = /* @__PURE__ */ new WeakMap();
+	run = null;
+	real = emptyLoreTurn();
+	constructor(app, scene, settings, tokens, consents, log) {
+		this.app = app;
+		this.scene = scene;
+		this.settings = settings;
+		this.tokens = tokens;
+		this.consents = consents;
+		this.log = log;
+	}
+	/** Results of the latest real scan. */
+	latest() {
+		return {
+			...this.real,
+			damped: [...this.real.damped],
+			pinned: [...this.real.pinned],
+			cuts: [...this.real.cuts],
+			dropped: [...this.real.dropped]
+		};
+	}
+	/**
+	* A generation starts (before its scan): results of the previous scan must not be reported for this one — ST skips
+	* the scan loops entirely when no entry is active.
+	*/
+	resetTurn() {
+		this.real = emptyLoreTurn();
+	}
+	rules() {
+		const base = {
+			owner: "maestro",
+			stage: 7,
+			kind: "lore",
+			defaultLevel: "auto",
+			enabledByDefault: true,
+			safeBeforeWizard: true
+		};
+		return [
+			{
+				...base,
+				id: DAMP_RULE_ID,
+				titleKey: "m20.rule.damp.title",
+				descriptionKey: "m20.rule.damp.description",
+				requires: ["st.events.entriesLoaded"],
+				order: 40,
+				applyEntries: (lists, changes) => this.damp(lists, changes)
+			},
+			{
+				...base,
+				id: PIN_RULE_ID,
+				titleKey: "m20.rule.pin.title",
+				descriptionKey: "m20.rule.pin.description",
+				requires: ["st.events.entriesLoaded", "st.events.scanDone"],
+				order: 41,
+				applyEntries: (lists) => this.pickPins(lists),
+				applyScanDone: (args, scan) => this.forcePins(args, scan)
+			},
+			{
+				...base,
+				id: LORE_BUDGET_RULE_ID,
+				titleKey: "m20.rule.loreBudget.title",
+				descriptionKey: "m20.rule.loreBudget.description",
+				requires: ["st.events.scanDone"],
+				order: 50,
+				applyScanDone: (args, scan) => this.budget(args, scan)
+			},
+			{
+				...base,
+				id: DEDUP_RULE_ID,
+				titleKey: "m20.rule.dedup.title",
+				descriptionKey: "m20.rule.dedup.description",
+				requires: ["st.events.entriesLoaded"],
+				order: 60,
+				applyEntries: (lists, changes) => this.dedup(lists, changes)
+			}
+		];
+	}
+	simulating() {
+		return this.app.modules.api("loreJournal")?.simulating() === true;
+	}
+	/** Per-call memo of «M20 never touches this book» (role lookups allocate). */
+	protectedBooks() {
+		const memo = /* @__PURE__ */ new Map();
+		return (book) => {
+			let value = memo.get(book);
+			if (value === void 0) {
+				value = this.scene.isProtectedBook(book);
+				memo.set(book, value);
+			}
+			return value;
+		};
+	}
+	damp(lists, changes) {
+		const damped = [];
+		let tokens = 0;
+		if (this.settings().presence.damp) {
+			this.scene.track();
+			const scene = this.scene.snapshot();
+			if (scene) {
+				const pins = this.scene.canonPins();
+				const isProtected = this.protectedBooks();
+				for (const entry of entriesOf$3(lists)) {
+					const known = this.dampedCopies.get(entry);
+					if (known && entry.disable === true) {
+						changes.push({
+							world: entry.world,
+							uid: entry.uid,
+							field: "disable",
+							before: false,
+							after: true
+						});
+						damped.push(known);
+						tokens += this.tokens.entry(entry);
+						continue;
+					}
+					if (entry.disable === true || entry.constant === true) continue;
+					if (isProtected(entry.world) || this.scene.isCanonEntry(entry)) continue;
+					if (pins.has(activationKey(entry.world, entry.uid))) continue;
+					const verdict = this.scene.verdict(entry, scene);
+					if (verdict.action !== "damp" || !verdict.subject) continue;
+					changes.push({
+						world: entry.world,
+						uid: entry.uid,
+						field: "disable",
+						before: false,
+						after: true
+					});
+					entry.disable = true;
+					const item = {
+						world: entry.world,
+						uid: Number(entry.uid),
+						comment: text$7(entry.comment),
+						entity: verdict.subject.id,
+						reason: verdict.reason,
+						sinceMention: verdict.sinceMention
+					};
+					this.dampedCopies.set(entry, item);
+					damped.push(item);
+					tokens += this.tokens.entry(entry);
+				}
+			}
+		}
+		if (!this.simulating()) {
+			this.real.damped = damped;
+			this.real.dampedTokens = tokens;
+			this.real.at = Date.now();
+		}
+		return damped;
+	}
+	/** ENTRIES_LOADED: which entries the first loop will force (present characters, the current place). */
+	pickPins(lists) {
+		const candidates = [];
+		if (this.settings().presence.pin) {
+			this.scene.track();
+			const scene = this.scene.snapshot();
+			if (scene) {
+				const isProtected = this.protectedBooks();
+				for (const entry of entriesOf$3(lists)) {
+					if (!isPinnable(entry) || isProtected(entry.world) || this.scene.isCanonEntry(entry)) continue;
+					const verdict = this.scene.verdict(entry, scene);
+					if (verdict.action !== "pin" || !verdict.subject) continue;
+					candidates.push([activationKey(entry.world, entry.uid), {
+						entity: verdict.subject.id,
+						reason: verdict.subject.kind === "place" ? "currentPlace" : "present",
+						order: Number(entry.order) || 0
+					}]);
+				}
+			}
+		}
+		candidates.sort((a, b) => b[1].order - a[1].order);
+		this.pinCandidates = new Map(candidates.slice(0, 12));
+	}
+	/** The state of this scan; a new sortedEntries array starts a new one (and a new real result). */
+	runFor(args, scan) {
+		if (!this.run || this.run.sorted !== args.sortedEntries) {
+			this.run = {
+				sorted: args.sortedEntries,
+				pinsDone: false,
+				pinned: [],
+				protect: /* @__PURE__ */ new Set(),
+				cuts: [],
+				cutTokens: 0,
+				used: 0
+			};
+			if (!scan.simulated) {
+				this.real.pinned = [];
+				this.real.cuts = [];
+				this.real.loreBefore = 0;
+				this.real.loreAfter = 0;
+			}
+		}
+		return this.run;
+	}
+	/** SCAN_DONE, first loop: pinned entries join the activations (their sortedEntries object, macros resolved). */
+	forcePins(args, scan) {
+		const run = this.runFor(args, scan);
+		if (run.pinsDone || scan.loop > 1 || !this.settings().presence.pin) return;
+		run.pinsDone = true;
+		const activated = isDict$67(args.activated) ? args.activated.entries : void 0;
+		if (!(activated instanceof Map) || !this.pinCandidates.size) return;
+		const map = activated;
+		const sorted = Array.isArray(args.sortedEntries) ? args.sortedEntries : [];
+		let byKey = null;
+		for (const [key, candidate] of this.pinCandidates) {
+			if (map.has(key)) {
+				run.protect.add(key);
+				continue;
+			}
+			byKey ??= new Map(sorted.filter(isDict$67).map((item) => [activationKey(item.world, item.uid), item]));
+			const entry = byKey.get(key);
+			if (!entry || entry.disable === true) continue;
+			if (typeof entry.content === "string" && entry.content.includes("{{")) try {
+				entry.content = this.app.host.ctx().substituteParams(entry.content);
+			} catch (error) {
+				this.log.debug("macros of a pinned entry were not substituted", error);
+			}
+			map.set(key, entry);
+			run.protect.add(key);
+			run.pinned.push({
+				world: String(entry.world),
+				uid: Number(entry.uid),
+				comment: text$7(entry.comment),
+				entity: candidate.entity,
+				reason: candidate.reason,
+				tokens: this.tokens.entry(entry)
+			});
+		}
+		if (!scan.simulated) this.real.pinned = [...run.pinned];
+	}
+	budget(args, scan) {
+		const run = this.runFor(args, scan);
+		const activated = isDict$67(args.activated) ? args.activated.entries : void 0;
+		if (!(activated instanceof Map)) return [];
+		const map = activated;
+		const limit = this.settings().budgets.lore;
+		const sorted = Array.isArray(args.sortedEntries) ? args.sortedEntries : [];
+		let positions = null;
+		const position = (entry) => {
+			positions ??= new Map(sorted.map((item, index) => [item, index]));
+			return positions.get(entry) ?? Number.MAX_SAFE_INTEGER;
+		};
+		const items = [];
+		const byKey = /* @__PURE__ */ new Map();
+		let exemptOf = null;
+		if (limit > 0) {
+			this.scene.track();
+			const scene = this.scene.snapshot();
+			const pins = this.scene.canonPins();
+			const isProtected = this.protectedBooks();
+			exemptOf = (key, entry) => run.protect.has(key) || pins.has(key) || entry.ignoreBudget === true || isProtected(text$7(entry.world)) || this.scene.isCanonEntry(entry) || scene !== null && this.scene.verdict(entry, scene).action === "pin";
+		}
+		for (const [rawKey, entry] of map) {
+			if (!isDict$67(entry)) continue;
+			const key = String(rawKey);
+			byKey.set(key, entry);
+			items.push({
+				key,
+				tokens: this.tokens.entry(entry),
+				order: Number(entry.order) || 0,
+				priority: limit > 0 ? position(entry) : 0,
+				exempt: exemptOf ? exemptOf(key, entry) : true,
+				constant: entry.constant === true
+			});
+		}
+		const plan = planLoreBudget(items, limit);
+		const lore = this.app.modules.api("loreJournal");
+		const cuts = [];
+		for (const key of plan.cut) {
+			const entry = byKey.get(key);
+			if (!entry) continue;
+			map.delete(key);
+			entry.disable = true;
+			if (position(entry) === Number.MAX_SAFE_INTEGER) {
+				const twin = sorted.find((item) => isDict$67(item) && item.world === entry.world && item.uid === entry.uid);
+				if (isDict$67(twin)) twin.disable = true;
+			}
+			lore?.markCut?.(text$7(entry.world), Number(entry.uid));
+			cuts.push({
+				world: text$7(entry.world),
+				uid: Number(entry.uid),
+				comment: text$7(entry.comment),
+				tokens: this.tokens.entry(entry),
+				order: Number(entry.order) || 0
+			});
+		}
+		run.cuts.push(...cuts);
+		run.cutTokens += plan.cutTokens;
+		run.used = plan.used;
+		if (!scan.simulated) {
+			this.real.cuts = [...run.cuts];
+			this.real.loreBefore = run.used + run.cutTokens;
+			this.real.loreAfter = run.used;
+			this.real.at = Date.now();
+			if (scan.final) this.tokens.want([...map.values()].filter(isDict$67));
+		}
+		return cuts;
+	}
+	dedup(lists, changes) {
+		const dropped = [];
+		let droppedTokens = 0;
+		const drops = this.consents.loreDrops();
+		if (drops.size) for (const entry of entriesOf$3(lists)) {
+			const known = this.dedupCopies.get(entry);
+			if (known) {
+				changes.push(known.change);
+				dropped.push(known.dropped);
+				droppedTokens += known.dropped.tokens;
+				continue;
+			}
+			if (entry.disable === true) continue;
+			const ref = `${entry.world}#${String(entry.uid)}`;
+			const keys = drops.get(ref);
+			if (!keys || this.scene.isBunnyMoBook(entry.world)) continue;
+			let content = text$7(entry.content);
+			if (!content) continue;
+			if (content.includes("{{")) try {
+				content = this.app.host.ctx().substituteParams(content);
+			} catch {}
+			const result = removeSentences(content, keys);
+			if (!result.removed) continue;
+			let change;
+			if (hasStoryText(result.text)) {
+				change = {
+					world: entry.world,
+					uid: entry.uid,
+					field: "content.length",
+					before: content.length,
+					after: result.text.length
+				};
+				entry.content = result.text;
+			} else {
+				change = {
+					world: entry.world,
+					uid: entry.uid,
+					field: "disable",
+					before: false,
+					after: true
+				};
+				entry.disable = true;
+			}
+			const consent = this.consents.consentFor(ref)[0];
+			const item = {
+				duplicateId: consent?.id ?? "",
+				owner: consent?.sources.find((source) => source.ref === ref)?.owner ?? "lore",
+				ref,
+				tokens: estimateTokens$1(result.removedChars)
+			};
+			this.dedupCopies.set(entry, {
+				change,
+				dropped: item
+			});
+			changes.push(change);
+			dropped.push(item);
+			droppedTokens += item.tokens;
+		}
+		if (!this.simulating()) {
+			this.real.dropped = dropped;
+			this.real.droppedTokens = droppedTokens;
+		}
+		return dropped;
+	}
+};
+//#endregion
+//#region src/features/architect/settings.ts
+var ARCHITECT_KEY = "architect";
+var BUDGET_SOURCES = BUDGET_SOURCE_IDS;
+function defaultArchitectSettings() {
+	return {
+		budgets: cleanBudgets({}),
+		presence: {
+			damp: false,
+			pin: false,
+			mentionWindow: 6
+		},
+		duplicates: { detect: true },
+		cache: {
+			measure: true,
+			orderCheck: true
+		}
+	};
+}
+function isDict$66(value) {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function flag(value, fallback) {
+	return typeof value === "boolean" ? value : fallback;
+}
+function cleanWindow(value) {
+	if (typeof value !== "number" || !Number.isFinite(value)) return 6;
+	return Math.max(1, Math.min(50, Math.floor(value)));
+}
+/**
+* The stored slice, repaired in place (a hand-edited or older settings file never breaks the module). Valid values
+* and the nested objects themselves are kept, so it is cheap to call on the send path.
+*/
+function readArchitectSettings(slice) {
+	const defaults = defaultArchitectSettings();
+	const raw = slice;
+	if (!isDict$66(raw.budgets)) raw.budgets = cleanBudgets(raw.budgets);
+	else {
+		const clean = cleanBudgets(raw.budgets);
+		for (const source of BUDGET_SOURCES) if (raw.budgets[source] !== clean[source]) raw.budgets[source] = clean[source];
+	}
+	if (!isDict$66(raw.presence)) raw.presence = { ...defaults.presence };
+	const presence = raw.presence;
+	presence.damp = flag(presence.damp, defaults.presence.damp);
+	presence.pin = flag(presence.pin, defaults.presence.pin);
+	if (presence.mentionWindow !== cleanWindow(presence.mentionWindow)) presence.mentionWindow = cleanWindow(presence.mentionWindow);
+	if (!isDict$66(raw.duplicates)) raw.duplicates = { ...defaults.duplicates };
+	const duplicates = raw.duplicates;
+	duplicates.detect = flag(duplicates.detect, defaults.duplicates.detect);
+	if (!isDict$66(raw.cache)) raw.cache = { ...defaults.cache };
+	const cache = raw.cache;
+	cache.measure = flag(cache.measure, defaults.cache.measure);
+	cache.orderCheck = flag(cache.orderCheck, defaults.cache.orderCheck);
+	return slice;
+}
+//#endregion
+//#region src/features/architect/prompt.ts
+function isDict$65(value) {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+/** Extension prompt keys the injection budgets act on. */
+var BUDGET_SLOTS = {
+	ckRag: "carrotkernel_rag",
+	qvink: "qvink_memory_short",
+	des: "dooms-tracker-context"
+};
+/** Sources of later stages: the budget is stored, there is nothing to measure yet. */
+var FUTURE_SOURCES = /* @__PURE__ */ new Set([
+	"voices",
+	"mechanics",
+	"director"
+]);
+/** ST extension_prompt_types.NONE: never injected. */
+var POSITION_NONE = -1;
+/** Replaces the text of one part of a message (string content, or a new array with a new text part). */
+function setPartText(message, part, text) {
+	if (!isDict$65(message)) return;
+	if (typeof message.content === "string") {
+		message.content = text;
+		return;
+	}
+	if (Array.isArray(message.content)) {
+		const parts = [...message.content];
+		const old = parts[part];
+		if (!isDict$65(old)) return;
+		parts[part] = {
+			...old,
+			text
+		};
+		message.content = parts;
+	}
+}
+var PromptStage = class {
+	app;
+	settings;
+	consents;
+	log;
+	activated = null;
+	constructor(app, settings, consents, log) {
+		this.app = app;
+		this.settings = settings;
+		this.consents = consents;
+		this.log = log;
+	}
+	/** A new generation: the lore of the previous one is not this prompt's. */
+	reset() {
+		this.activated = null;
+	}
+	/** WORLD_INFO_ACTIVATED (non-dry scans): the entries that reached the prompt, contents macro-substituted. */
+	onActivated(entries) {
+		this.activated = Array.isArray(entries) ? entries : null;
+	}
+	substitute(text) {
+		try {
+			return this.app.host.ctx().substituteParams(text);
+		} catch {
+			return text;
+		}
+	}
+	/**
+	* Where a slot's text landed: as set, trimmed (ST trims in-chat injections) or macro-substituted. `form` turns
+	* the slot text into the found form, so a replacement can be put in the same shape.
+	*/
+	locate(messages, value) {
+		const forms = [(text) => text, (text) => text.trim()];
+		if (value.includes("{{")) forms.push((text) => this.substitute(text.trim()));
+		for (const form of forms) {
+			const needle = form(value);
+			if (!needle.trim()) continue;
+			const hit = findInMessages(messages, [needle]);
+			if (hit) return {
+				hit,
+				form
+			};
+		}
+		return null;
+	}
+	/**
+	* Splices the replacement into the message; a plain message left empty leaves the prompt (ST's getChat() drops
+	* empty messages too, and `data.chat` is the very array ST sends).
+	*/
+	replace(messages, hit, replacement) {
+		const message = messages[hit.message];
+		const next = spliceText(messageTextParts(message)[hit.part] ?? "", hit.start, hit.needle.length, replacement);
+		setPartText(message, hit.part, next);
+		if (isDict$65(message) && typeof message.content === "string" && !next.trim() && !message.tool_calls) messages.splice(hit.message, 1);
+	}
+	trim(source, value, limit) {
+		if (source === "ckRag") return trimRagInjection(value, limit, estimateText);
+		if (source === "qvink") return trimMemoryInjection(value, qvinkShortMemories(this.app.host.ctx().chat ?? []), limit, estimateText) ?? trimToTokens(value, limit, {
+			from: "start",
+			unit: "sentence",
+			keepFirst: true,
+			count: estimateText
+		});
+		return trimToTokens(value, limit, {
+			from: "start",
+			unit: "sentence",
+			count: estimateText
+		});
+	}
+	/** CHAT_COMPLETION_PROMPT_READY (non-dry): budgets and consented drops on the final messages; the capture. */
+	onPromptReady(data) {
+		if (!isDict$65(data) || data.dryRun !== false || !Array.isArray(data.chat)) return null;
+		const messages = data.chat;
+		const prompts = this.app.host.ctx().extensionPrompts ?? {};
+		const settings = this.settings();
+		const budgets = [];
+		const trims = [];
+		const finals = /* @__PURE__ */ new Map();
+		for (const source of BUDGET_SOURCES) {
+			if (source === "lore") continue;
+			const limit = settings.budgets[source];
+			if (FUTURE_SOURCES.has(source)) {
+				budgets.push({
+					source,
+					limit,
+					used: 0,
+					cut: 0,
+					status: limit > 0 ? "noSource" : "off"
+				});
+				continue;
+			}
+			const key = BUDGET_SLOTS[source];
+			const slot = prompts[key];
+			const value = slot && Number(slot.position) !== POSITION_NONE && typeof slot.value === "string" ? slot.value : "";
+			if (!value.trim()) {
+				budgets.push({
+					source,
+					limit,
+					used: 0,
+					cut: 0,
+					status: limit > 0 ? "empty" : "off"
+				});
+				continue;
+			}
+			const before = estimateText(value);
+			if (!(limit > 0)) {
+				budgets.push({
+					source,
+					limit,
+					used: before,
+					cut: 0,
+					status: "off"
+				});
+				continue;
+			}
+			if (before <= limit) {
+				budgets.push({
+					source,
+					limit,
+					used: before,
+					cut: 0,
+					status: "ok"
+				});
+				continue;
+			}
+			const found = this.locate(messages, value);
+			if (!found) {
+				budgets.push({
+					source,
+					limit,
+					used: before,
+					cut: 0,
+					status: "notFound"
+				});
+				continue;
+			}
+			const result = this.trim(source, value, limit);
+			try {
+				this.replace(messages, found.hit, result.text ? found.form(result.text) : "");
+			} catch (error) {
+				this.log.warn(`could not shorten ${key}`, error);
+				budgets.push({
+					source,
+					limit,
+					used: before,
+					cut: 0,
+					status: "notFound"
+				});
+				continue;
+			}
+			finals.set(key, result.text);
+			budgets.push({
+				source,
+				limit,
+				used: result.after,
+				cut: Math.max(0, before - result.after),
+				status: result.after <= limit ? "trimmed" : "over"
+			});
+			trims.push({
+				source,
+				key,
+				before,
+				after: result.after,
+				units: result.removed
+			});
+		}
+		const dropped = this.dropConsented(messages, prompts, finals);
+		const slots = [];
+		for (const [key, slot] of Object.entries(prompts)) {
+			if (!slot || typeof slot.value !== "string" || !slot.value.trim()) continue;
+			if (Number(slot.position) === POSITION_NONE) continue;
+			slots.push({
+				key,
+				value: finals.get(key) ?? slot.value,
+				position: Number(slot.position),
+				depth: Number(slot.depth) || 0,
+				role: Number(slot.role) || 0
+			});
+		}
+		const lore = [];
+		for (const raw of this.activated ?? []) {
+			if (!isDict$65(raw) || typeof raw.world !== "string") continue;
+			lore.push({
+				world: raw.world,
+				uid: Number(raw.uid),
+				content: typeof raw.content === "string" ? raw.content : "",
+				entry: raw
+			});
+		}
+		return {
+			at: Date.now(),
+			chatId: this.app.host.chatId(),
+			messages,
+			slots,
+			lore,
+			budgets,
+			trims,
+			dropped
+		};
+	}
+	/** Facts the user chose to keep elsewhere leave the injections that repeat them (inside the slot's text only). */
+	dropConsented(messages, prompts, finals) {
+		const dropped = [];
+		const drops = this.consents.slotDrops();
+		if (!drops.size) return dropped;
+		for (const [key, keys] of drops) {
+			const slot = prompts[key];
+			if (!slot || Number(slot.position) === POSITION_NONE) continue;
+			const value = finals.get(key) ?? (typeof slot.value === "string" ? slot.value : "");
+			if (!value.trim()) continue;
+			const found = this.locate(messages, value);
+			if (!found) continue;
+			const result = removeSentences(found.hit.needle, keys);
+			if (!result.removed) continue;
+			this.replace(messages, found.hit, result.text);
+			finals.set(key, removeSentences(value, keys).text);
+			const consent = this.consents.consentFor(key)[0];
+			dropped.push({
+				duplicateId: consent?.id ?? "",
+				owner: consent?.sources.find((source) => source.ref === key)?.owner ?? "other",
+				ref: key,
+				tokens: estimateTokens$1(result.removedChars)
+			});
+		}
+		return dropped;
+	}
+};
+//#endregion
+//#region src/features/architect/tokens.ts
+function contentOf$4(entry) {
+	return typeof entry.content === "string" ? entry.content : "";
+}
+var TokenMeter = class {
+	count;
+	log;
+	maxSize;
+	batch;
+	exact = /* @__PURE__ */ new Map();
+	wanted = /* @__PURE__ */ new Map();
+	filling = false;
+	constructor(count, log, maxSize = 4e3, batch = 40) {
+		this.count = count;
+		this.log = log;
+		this.maxSize = maxSize;
+		this.batch = batch;
+	}
+	textKey(text) {
+		return `t${text.length}:${quickHash(text)}`;
+	}
+	entryKey(entry) {
+		return `e${String(entry.world)}.${String(entry.uid)}#${String(entry.hash ?? "")}#${contentOf$4(entry).length}`;
+	}
+	/** Tokens of a text (cached exact or estimate). */
+	text(text) {
+		if (!text) return 0;
+		return this.exact.get(this.textKey(text)) ?? estimateText(text);
+	}
+	/** Tokens of a lore entry's content (cached exact or estimate). */
+	entry(entry) {
+		const content = contentOf$4(entry);
+		if (!content) return 0;
+		return this.exact.get(this.entryKey(entry)) ?? estimateText(content);
+	}
+	/** Remembers texts / entries to count exactly later (no work now). */
+	want(items) {
+		for (const item of items) {
+			if (this.wanted.size >= this.batch * 4) return;
+			const text = typeof item === "string" ? item : contentOf$4(item);
+			if (!text) continue;
+			const key = typeof item === "string" ? this.textKey(text) : this.entryKey(item);
+			if (!this.exact.has(key)) this.wanted.set(key, text);
+		}
+	}
+	/** Counts up to one batch of wanted items in the background; resolves when done. */
+	fill() {
+		if (this.filling || !this.wanted.size) return Promise.resolve();
+		const todo = [...this.wanted].slice(0, this.batch);
+		for (const [key] of todo) this.wanted.delete(key);
+		this.filling = true;
+		const run = async () => {
+			for (const [key, text] of todo) try {
+				const tokens = Number(await this.count(text));
+				if (Number.isFinite(tokens) && tokens >= 0) this.remember(key, tokens);
+			} catch (error) {
+				this.log.debug("token count failed", error);
+				return;
+			}
+		};
+		return run().finally(() => {
+			this.filling = false;
+		});
+	}
+	remember(key, tokens) {
+		if (this.exact.size >= this.maxSize && !this.exact.has(key)) this.exact.clear();
+		this.exact.set(key, tokens);
+	}
+};
+//#endregion
+//#region src/features/architect/service.ts
+/** Autonomy kind of a duplicate consent (the user acts directly: 'auto' by default). */
+var CONSENT_KIND = "architect.duplicate";
+/** Journal target of a consent; undo restores the previous consent. */
+var CONSENT_TARGET = "m20.consent";
+var KEEP_REPORTS = 30;
+var NOT_A_TURN$2 = /* @__PURE__ */ new Set(["quiet", "impersonate"]);
+/** Slot owners whose text is lore again (WI depth/outlet injections) or Maestro's own: not duplicate sources. */
+var SKIPPED_OWNERS = /* @__PURE__ */ new Set([
+	"wiDepth",
+	"wiOutlet",
+	"maestro"
+]);
+function isDict$64(value) {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function isConsentPayload(value) {
+	return isDict$64(value) && typeof value.id === "string" && (value.consent === null || isDict$64(value.consent));
+}
+var ArchitectService = class {
+	app;
+	log;
+	tokens;
+	scene;
+	consents;
+	lore;
+	prompt;
+	meter;
+	awaiting = null;
+	history = [];
+	facts = [];
+	factKeys = /* @__PURE__ */ new Map();
+	previousPrompt = null;
+	rulesLink = {
+		api: void 0,
+		offs: []
+	};
+	listeners = /* @__PURE__ */ new Set();
+	changeListeners = /* @__PURE__ */ new Set();
+	timers = /* @__PURE__ */ new Set();
+	disposed = false;
+	constructor(app, log) {
+		this.app = app;
+		this.log = log;
+		this.tokens = new TokenMeter(async (text) => this.app.host.ctx().getTokenCountAsync(text), log);
+		this.scene = new SceneContext(app, () => this.settings(), log);
+		this.consents = new ConsentStore(app, log);
+		this.lore = new ArchitectLore(app, this.scene, () => this.settings(), this.tokens, this.consents, log);
+		this.prompt = new PromptStage(app, () => this.settings(), this.consents, log);
+		this.meter = new CacheMeter(app, () => this.settings().cache.measure, log);
+	}
+	settings() {
+		return readArchitectSettings(this.app.settings.module(ARCHITECT_KEY));
+	}
+	install(own) {
+		const { host, bus } = this.app;
+		const on = (key, handler, order) => {
+			const name = host.events.name(key);
+			if (!name) {
+				this.log.debug(`ST event ${key} is missing`);
+				return;
+			}
+			own(host.events.on(name, handler, order ? { order } : void 0));
+		};
+		on("CHAT_COMPLETION_PROMPT_READY", (data) => this.onPromptReady(data), "last");
+		on("WORLD_INFO_ACTIVATED", (entries) => this.prompt.onActivated(entries));
+		on("GENERATION_STARTED", (type, _params, dryRun) => this.onGenerationStarted(type, dryRun));
+		own(bus.on("generation:before", (info) => this.onGenerationBefore(info)));
+		own(bus.on("generation:ended", () => {
+			this.idle(() => {
+				this.tokens.fill();
+				this.scene.warmMentions();
+			});
+		}));
+		own(bus.on("reply:ready", ({ messageIndex }) => this.onReplyReady(messageIndex)));
+		own(bus.on("chat:changed", () => {
+			this.awaiting = null;
+			this.facts = [];
+			this.factKeys.clear();
+			this.history = [];
+			this.previousPrompt = null;
+			this.meter.reset();
+			this.prompt.reset();
+			this.consents.load();
+			this.changed();
+		}));
+		own(this.app.settings.onChange(() => this.ensureRules()));
+		own(this.consents.onChange(() => this.changed()));
+		own(this.meter.onChange(() => this.changed()));
+		for (const off of this.meter.install()) own(off);
+		this.app.journal.registerUndo(CONSENT_TARGET, async (change) => {
+			const id = isDict$64(change.ref) ? change.ref.id : void 0;
+			if (typeof id !== "string") return false;
+			const before = isDict$64(change.before) ? change.before : null;
+			await this.consents.save(before, id);
+			this.refreshKeeps();
+			return true;
+		});
+		own(this.app.inbox.registerApplier(CONSENT_KIND, async (payload) => {
+			if (isConsentPayload(payload)) await this.applyConsent(payload);
+		}));
+		own(() => this.dispose());
+		this.ensureRules();
+		this.consents.load();
+	}
+	dispose() {
+		this.disposed = true;
+		for (const timer of this.timers) clearTimeout(timer);
+		this.timers.clear();
+		this.releaseRules();
+		this.scene.dispose();
+		this.listeners.clear();
+		this.changeListeners.clear();
+	}
+	idle(task) {
+		if (this.disposed) return;
+		const timer = setTimeout(() => {
+			this.timers.delete(timer);
+			if (this.disposed) return;
+			try {
+				task();
+			} catch (error) {
+				this.log.warn("architect background step failed", error);
+			}
+		}, 0);
+		this.timers.add(timer);
+	}
+	/**
+	* Registers the lore rules in M22's engine; re-registers when M22 restarted (a new API object). False while M22
+	* is off: the lore part then does nothing (the tab says so).
+	*/
+	ensureRules() {
+		if (this.disposed) return false;
+		const api = this.app.modules.api("rules");
+		if (api === this.rulesLink.api) return !!api;
+		this.releaseRules();
+		const offs = [];
+		if (api) for (const rule of this.lore.rules()) try {
+			offs.push(api.register(rule));
+		} catch (error) {
+			this.log.warn(`rule ${rule.id} could not be registered`, error);
+		}
+		this.rulesLink = {
+			api,
+			offs
+		};
+		return !!api;
+	}
+	rulesActive() {
+		return !!this.app.modules.api("rules");
+	}
+	releaseRules() {
+		for (const off of this.rulesLink.offs) try {
+			off();
+		} catch (error) {
+			this.log.debug("rule could not be unregistered", error);
+		}
+		this.rulesLink = {
+			api: void 0,
+			offs: []
+		};
+	}
+	onGenerationStarted(type, dryRun) {
+		const kind = typeof type === "string" && type ? type : "normal";
+		if (dryRun === true) return;
+		this.awaiting = NOT_A_TURN$2.has(kind) ? null : { type: kind };
+	}
+	onGenerationBefore(info) {
+		this.ensureRules();
+		this.prompt.reset();
+		this.scene.track();
+		this.scene.canonPins();
+		if (!info.dryRun) this.lore.resetTurn();
+		if (info.quiet || info.dryRun || NOT_A_TURN$2.has(info.type)) return;
+		this.awaiting = { type: info.type };
+	}
+	onPromptReady(data) {
+		let capture = null;
+		try {
+			capture = this.prompt.onPromptReady(data);
+		} catch (error) {
+			this.log.error("prompt stage failed", error);
+		}
+		if (!capture) return null;
+		const turn = this.awaiting;
+		this.awaiting = null;
+		if (!turn) return capture;
+		this.meter.arm();
+		const ready = capture;
+		this.idle(() => this.finish(ready, turn.type));
+		return capture;
+	}
+	onReplyReady(messageIndex) {
+		const last = this.history[this.history.length - 1];
+		if (last && last.messageIndex === void 0) last.messageIndex = messageIndex;
+	}
+	/** Builds the turn's report: budgets, lore rule results, duplicates and the P16 check. Exposed for tests. */
+	finish(capture, type) {
+		const settings = this.settings();
+		const loreTurn = this.lore.latest();
+		const loreLimit = settings.budgets.lore;
+		const loreCut = Math.max(0, loreTurn.loreBefore - loreTurn.loreAfter);
+		const loreStatus = !(loreLimit > 0) ? "off" : !this.rulesActive() ? "na" : loreTurn.cuts.length ? "cut" : loreTurn.loreAfter > loreLimit ? "over" : "ok";
+		const budgets = [{
+			source: "lore",
+			limit: loreLimit,
+			used: loreTurn.loreAfter,
+			cut: loreCut,
+			status: loreStatus
+		}, ...capture.budgets];
+		let duplicates = [];
+		try {
+			if (settings.duplicates.detect) duplicates = this.detectDuplicates(capture);
+			else {
+				this.factKeys.clear();
+				duplicates = this.consentedFacts(/* @__PURE__ */ new Set());
+			}
+		} catch (error) {
+			this.log.warn("duplicate facts could not be checked", error);
+		}
+		this.facts = duplicates;
+		let order = [];
+		try {
+			order = this.checkOrder(capture, settings.cache.orderCheck);
+		} catch (error) {
+			this.log.debug("P16 check failed", error);
+		}
+		const dropped = [...loreTurn.dropped, ...capture.dropped];
+		const effects = [];
+		if (settings.presence.damp || loreTurn.damped.length) effects.push({
+			rule: "damp",
+			before: loreTurn.dampedTokens,
+			after: 0,
+			count: loreTurn.damped.length
+		});
+		if (settings.presence.pin || loreTurn.pinned.length) {
+			const added = loreTurn.pinned.reduce((sum, item) => sum + item.tokens, 0);
+			effects.push({
+				rule: "pin",
+				before: 0,
+				after: added,
+				count: loreTurn.pinned.length
+			});
+		}
+		if (loreLimit > 0) effects.push({
+			rule: "loreBudget",
+			before: loreTurn.loreBefore,
+			after: loreTurn.loreAfter,
+			count: loreTurn.cuts.length
+		});
+		for (const trim of capture.trims) if (trim.source === "ckRag" || trim.source === "qvink" || trim.source === "des") effects.push({
+			rule: trim.source,
+			before: trim.before,
+			after: trim.after,
+			count: trim.units
+		});
+		if (dropped.length) {
+			const tokens = dropped.reduce((sum, item) => sum + item.tokens, 0);
+			effects.push({
+				rule: "dedup",
+				before: tokens,
+				after: 0,
+				count: dropped.length
+			});
+		}
+		const report = {
+			at: capture.at,
+			generationType: type,
+			budgets,
+			damped: loreTurn.damped,
+			duplicates,
+			pinned: loreTurn.pinned,
+			cuts: loreTurn.cuts,
+			trims: capture.trims,
+			dropped,
+			order,
+			effects
+		};
+		this.history.push(report);
+		if (this.history.length > KEEP_REPORTS) this.history = this.history.slice(-30);
+		for (const listener of [...this.listeners]) try {
+			listener(report);
+		} catch (error) {
+			this.log.error("architect report listener failed", error);
+		}
+		this.changed();
+		return report;
+	}
+	/** Owner of a lore activation: the chat canon, a CK archive, or plain lore (its book is its group). */
+	loreSource(world, entry) {
+		if (this.scene.isBunnyMoBook(world)) return null;
+		if (this.scene.isCanonEntry(entry)) return {
+			owner: "canon",
+			group: "canon"
+		};
+		if (this.scene.isArchiveBook(world)) return {
+			owner: "ckArchive",
+			group: `ckArchive:${world}`
+		};
+		return {
+			owner: "lore",
+			group: `lore:${world}`
+		};
+	}
+	detectDuplicates(capture) {
+		const sources = [];
+		for (const item of capture.lore) {
+			const owner = this.loreSource(item.world, item.entry);
+			if (!owner || !item.content) continue;
+			sources.push({
+				owner: owner.owner,
+				group: owner.group,
+				ref: `${item.world}#${item.uid}`,
+				text: item.content
+			});
+		}
+		for (const slot of capture.slots) {
+			const owner = slotOwner(slot.key);
+			if (SKIPPED_OWNERS.has(owner)) continue;
+			sources.push({
+				owner,
+				ref: slot.key,
+				text: slot.value
+			});
+		}
+		const groups = findDuplicateFacts(sources);
+		this.factKeys.clear();
+		const matched = /* @__PURE__ */ new Set();
+		return [...groups.map((group) => {
+			this.factKeys.set(group.id, group.keys);
+			const consent = this.consents.find(group.id, group.keys);
+			if (consent) matched.add(consent.id);
+			return {
+				id: group.id,
+				text: group.text,
+				sources: group.members.map((member) => ({
+					owner: member.owner,
+					ref: member.ref,
+					tokens: member.tokens
+				})),
+				keep: consent?.keep ?? null
+			};
+		}), ...this.consentedFacts(matched)];
+	}
+	/**
+	* Facts deduplicated by consent no longer repeat (or are not looked for): they stay listed so the consent can
+	* be withdrawn. `matched`: consents already shown with a detected fact.
+	*/
+	consentedFacts(matched) {
+		const facts = [];
+		for (const consent of this.consents.list()) {
+			if (matched.has(consent.id) || this.factKeys.has(consent.id)) continue;
+			this.factKeys.set(consent.id, consent.keys);
+			facts.push({
+				id: consent.id,
+				text: consent.text,
+				sources: consent.sources.map((source) => ({ ...source })),
+				keep: consent.keep
+			});
+		}
+		return facts;
+	}
+	/** P16: Maestro's changing injections (`maestro_*` slots) must sit after content that did not change. */
+	checkOrder(capture, enabled) {
+		if (!enabled) {
+			this.previousPrompt = null;
+			return [];
+		}
+		const hashes = hashMessages(capture.messages);
+		const located = [];
+		for (const slot of capture.slots) {
+			if (!slot.key.startsWith("maestro_")) continue;
+			const hit = findInMessages(capture.messages, slotNeedles(slot.value, (text) => this.substitute(text)));
+			if (hit) located.push({
+				key: slot.key,
+				index: hit.message,
+				position: slot.position,
+				depth: slot.depth
+			});
+		}
+		const previous = this.previousPrompt && this.previousPrompt.chatId === capture.chatId ? this.previousPrompt.hashes : null;
+		this.previousPrompt = {
+			chatId: capture.chatId,
+			hashes: new Set(hashes)
+		};
+		return findOrderViolations(located, hashes, previous);
+	}
+	substitute(text) {
+		try {
+			return this.app.host.ctx().substituteParams(text);
+		} catch {
+			return text;
+		}
+	}
+	budgets() {
+		const budgets = this.settings().budgets;
+		return BUDGET_SOURCES.map((source) => ({
+			source,
+			tokens: budgets[source]
+		}));
+	}
+	async setBudget(source, tokens) {
+		if (!BUDGET_SOURCES.includes(source)) return;
+		this.settings().budgets[source] = cleanBudget(tokens);
+		this.app.settings.save();
+		this.app.settings.notify("m20.budgets");
+		this.changed();
+	}
+	lastReport() {
+		return this.history[this.history.length - 1] ?? null;
+	}
+	reports() {
+		return [...this.history];
+	}
+	duplicates() {
+		return this.facts.map((fact) => ({
+			...fact,
+			sources: fact.sources.map((source) => ({ ...source }))
+		}));
+	}
+	async keepSource(duplicateId, owner) {
+		const fact = this.facts.find((item) => item.id === duplicateId);
+		const keys = this.factKeys.get(duplicateId);
+		if (!fact || !keys) return;
+		const previous = this.consents.find(duplicateId, keys) ?? null;
+		let next = null;
+		let label = "";
+		if (owner !== null) {
+			const source = fact.sources.find((item) => item.ref === owner) ?? fact.sources.find((item) => item.owner === owner);
+			if (!source) return;
+			label = this.sourceLabel(source.owner, source.ref);
+			next = {
+				id: duplicateId,
+				keys: [...keys],
+				text: fact.text,
+				sources: fact.sources.map((item) => ({ ...item })),
+				keep: source.ref,
+				at: Date.now()
+			};
+		}
+		const t = (key, params) => this.app.i18n.t(key, params);
+		await this.app.autonomy.decide({
+			module: "M20",
+			kind: CONSENT_KIND,
+			title: next ? t("m20.dup.journal.keep", { source: label }) : t("m20.dup.journal.report"),
+			description: fact.text,
+			changes: [{
+				target: CONSENT_TARGET,
+				ref: { id: duplicateId },
+				before: previous,
+				after: next
+			}],
+			payload: {
+				id: duplicateId,
+				consent: next
+			},
+			apply: (payload) => this.applyConsent(payload)
+		}, "auto");
+	}
+	async applyConsent(payload) {
+		await this.consents.save(payload.consent, payload.id);
+		this.refreshKeeps();
+	}
+	/** Facts of the last report follow the stored consents. */
+	refreshKeeps() {
+		this.facts = this.facts.map((fact) => ({
+			...fact,
+			keep: this.consents.find(fact.id, this.factKeys.get(fact.id) ?? [])?.keep ?? null
+		}));
+		this.changed();
+	}
+	/** «лор · Book #12», «память Qvink» — how a source is named in the UI. */
+	sourceLabel(owner, ref) {
+		const t = (key) => this.app.i18n.t(key);
+		const ownerKey = `m20.owner.${owner}`;
+		const name = t(ownerKey) === ownerKey ? owner : t(ownerKey);
+		if (owner === "lore" || owner === "ckArchive" || owner === "canon") {
+			const hash = ref.lastIndexOf("#");
+			return hash > 0 ? `${name} · ${ref.slice(0, hash)} #${ref.slice(hash + 1)}` : name;
+		}
+		return name;
+	}
+	cache() {
+		return this.meter.stats();
+	}
+	onReport(listener) {
+		this.listeners.add(listener);
+		return () => this.listeners.delete(listener);
+	}
+	onCache(listener) {
+		return this.meter.onChange(listener);
+	}
+	/** Any change the tab shows (reports, consents, cache, settings). */
+	onChange(listener) {
+		this.changeListeners.add(listener);
+		return () => this.changeListeners.delete(listener);
+	}
+	changed() {
+		for (const listener of [...this.changeListeners]) try {
+			listener();
+		} catch (error) {
+			this.log.error("architect listener failed", error);
+		}
+	}
+	/** The public facade (internal helpers stay private to the module). */
+	api() {
+		return {
+			budgets: () => this.budgets(),
+			setBudget: (source, tokens) => this.setBudget(source, tokens),
+			lastReport: () => this.lastReport(),
+			duplicates: () => this.duplicates(),
+			keepSource: (id, owner) => this.keepSource(id, owner),
+			cache: () => this.cache(),
+			onReport: (listener) => this.onReport(listener),
+			reports: () => this.reports(),
+			onCache: (listener) => this.onCache(listener)
+		};
+	}
+};
+//#endregion
+//#region src/features/architect/strings.ts
+var ARCHITECT_STRINGS = {
+	en: {
+		"m20.title": "Prompt architect",
+		"m20.tab": "Architect",
+		"m20.intro": "A smaller and sharper prompt with the same knowledge: budgets per source, lore of who is here and where, repeated facts and the provider cache. Nothing changes the prompt until you turn it on here.",
+		"m20.noChat": "Open a chat: the architect works on its prompts.",
+		"m20.rulesMissing": "The lore part of the architect runs inside the «Rules» module (M22), which is off: the lore budget, damping, pinning and repeats in lore do nothing now.",
+		"m20.budgets.title": "Budgets",
+		"m20.budgets.hint": "Tokens per turn for each source; 0 means no budget. Counts are estimates (about 3.6 characters per token).",
+		"m20.source.lore": "Lore (all books)",
+		"m20.source.ckRag": "CarrotKernel RAG",
+		"m20.source.qvink": "Qvink short-term memory",
+		"m20.source.des": "DES context block",
+		"m20.source.voices": "Voice cards",
+		"m20.source.mechanics": "Mechanics",
+		"m20.source.director": "Director",
+		"m20.source.lore.hint": "Over the budget the lowest-order entries go first. Pinned entries, the canon, entries of present characters and of the current place, and «ignore budget» entries are never cut. Caps of single books are in «Rules».",
+		"m20.source.ckRag.hint": "Whole chunks go from the end (CK lists the best ones first).",
+		"m20.source.qvink.hint": "The oldest memories go first; long-term memory is never touched.",
+		"m20.source.des.hint": "Only DES's optional context block is shortened (oldest sentences first). Tracker instructions, the format and the example tracker are never cut.",
+		"m20.source.noSource": "No source yet: the value is kept and works once the source arrives.",
+		"m20.usage": "{used} of {limit}",
+		"m20.usage.free": "last turn: {used}",
+		"m20.status.off": "no budget",
+		"m20.status.ok": "fits",
+		"m20.status.trimmed": "shortened by {cut}",
+		"m20.status.cut": "cut {cut}",
+		"m20.status.over": "still over the budget",
+		"m20.status.empty": "sent nothing",
+		"m20.status.notFound": "its text was not found in the prompt",
+		"m20.status.noSource": "no source yet",
+		"m20.status.na": "nothing may be cut",
+		"m20.presence.title": "Presence and place",
+		"m20.presence.hint": "Who is here comes from the DES tracker of the last committed reply, places from the place registry. Constant entries, the canon, its pins and BunnyMo are never damped.",
+		"m20.presence.damp": "Damp lore about absent characters and far places",
+		"m20.presence.pin": "Pin lore about present characters and the current place",
+		"m20.presence.window": "A mention in the last K messages keeps an entry",
+		"m20.presence.noWorld": "The world model (M7) is off: there is nothing to judge presence by.",
+		"m20.presence.damped": "Damped last turn: {count}",
+		"m20.presence.pinned": "Pinned last turn: {count}",
+		"m20.presence.cuts": "Cut by the lore budget last turn: {count}",
+		"m20.reason.absent": "not in the scene",
+		"m20.reason.farPlace": "far place",
+		"m20.reason.present": "in the scene",
+		"m20.reason.currentPlace": "current place",
+		"m20.since": "last mention {count} messages ago",
+		"m20.since.never": "not mentioned lately",
+		"m20.col.entry": "Entry",
+		"m20.col.about": "About",
+		"m20.col.why": "Why",
+		"m20.col.tokens": "Tokens",
+		"m20.dup.title": "Repeated facts",
+		"m20.dup.hint": "The same fact reached the prompt from several sources. Nothing is removed until you choose the source to keep; then the other copies are dropped on the fly (the books stay as they are).",
+		"m20.dup.detect": "Look for repeated facts after every turn",
+		"m20.dup.none": "No repeated facts in the last prompt.",
+		"m20.dup.off": "The search is off.",
+		"m20.dup.keep": "Keep only {source}",
+		"m20.dup.reportOnly": "Report only",
+		"m20.dup.kept": "Kept: {source}. The other copies are dropped.",
+		"m20.dup.journal.keep": "Repeated fact: keep only {source}",
+		"m20.dup.journal.report": "Repeated fact: report only",
+		"m20.owner.lore": "lore",
+		"m20.owner.canon": "canon",
+		"m20.owner.ckArchive": "CK archive",
+		"m20.owner.ck": "CK RAG",
+		"m20.owner.qvink": "Qvink memory",
+		"m20.owner.des": "DES",
+		"m20.owner.desru": "DES-RU",
+		"m20.owner.nai": "NAI Studio",
+		"m20.owner.summary": "Summary",
+		"m20.owner.authorsNote": "Author's note",
+		"m20.owner.card": "card",
+		"m20.owner.maestro": "Maestro",
+		"m20.owner.other": "other",
+		"m20.cache.title": "Provider cache",
+		"m20.cache.measure": "Measure the provider cache",
+		"m20.cache.orderCheck": "Check the order of Maestro's injections (changing ones go last)",
+		"m20.cache.summary": "Hits {rate} over {requests} requests: {cached} of {prompt} prompt tokens came from the cache.",
+		"m20.cache.firstChange": "The prompt usually starts to change at message {index}.",
+		"m20.cache.none": "No measured requests yet.",
+		"m20.cache.noUsage": "The provider sent no cache numbers.",
+		"m20.order.title": "Maestro's changing injections before unchanged text",
+		"m20.order.item": "{key}: message {index}, unchanged messages after it: {count}",
+		"m20.order.none": "Maestro's changing injections sit at the end.",
+		"m20.report.title": "Last turn",
+		"m20.report.none": "No turn yet.",
+		"m20.report.at": "Turn of {time}",
+		"m20.col.rule": "Rule",
+		"m20.col.before": "Before",
+		"m20.col.after": "After",
+		"m20.col.count": "How many",
+		"m20.effect.damp": "Damping",
+		"m20.effect.pin": "Pinning",
+		"m20.effect.loreBudget": "Lore budget",
+		"m20.effect.ckRag": "CK RAG budget",
+		"m20.effect.qvink": "Qvink budget",
+		"m20.effect.des": "DES budget",
+		"m20.effect.dedup": "Repeats dropped",
+		"m20.inspector.title": "Architect",
+		"m20.inspector.none": "The architect changed nothing in this prompt.",
+		"m20.rule.damp.title": "Architect: damp absent and far",
+		"m20.rule.damp.description": "Lore about characters who are not in the scene and about far places is left out of the scan unless they were mentioned in the last messages. Set it up in the «Architect» tab.",
+		"m20.rule.pin.title": "Architect: pin present and current place",
+		"m20.rule.pin.description": "Lore about the characters in the scene and about the current place joins the prompt even without a keyword. Set it up in the «Architect» tab.",
+		"m20.rule.loreBudget.title": "Architect: lore budget",
+		"m20.rule.loreBudget.description": "Total lore of a turn over the budget: the lowest-order entries leave first; pinned, canon and present stay. Set the budget in the «Architect» tab.",
+		"m20.rule.dedup.title": "Architect: drop repeated facts in lore",
+		"m20.rule.dedup.description": "A fact you chose to keep in another source is cut out of the lore entry for this turn (the book stays as it is)."
+	},
+	ru: {
+		"m20.title": "Архитектор промпта",
+		"m20.tab": "Архитектор",
+		"m20.intro": "Промпт меньше и точнее при тех же знаниях: бюджеты по источникам, лор тех, кто рядом, повторы фактов и кэш провайдера. Пока ты ничего не включил здесь, промпт не меняется.",
+		"m20.noChat": "Открой чат: архитектор работает с его промптами.",
+		"m20.rulesMissing": "Лорная часть архитектора работает внутри модуля «Правила» (M22), а он выключен: бюджет лора, приглушение, закрепление и повторы в лоре сейчас не действуют.",
+		"m20.budgets.title": "Бюджеты",
+		"m20.budgets.hint": "Токены на ход для каждого источника; 0 — без ограничения. Счёт примерный (около 3,6 символа на токен).",
+		"m20.source.lore": "Лор (все книги)",
+		"m20.source.ckRag": "RAG CarrotKernel",
+		"m20.source.qvink": "Краткосрочная память Qvink",
+		"m20.source.des": "Блок контекста DES",
+		"m20.source.voices": "Голосовые карточки",
+		"m20.source.mechanics": "Механики",
+		"m20.source.director": "Режиссёр",
+		"m20.source.lore.hint": "При превышении первыми уходят записи с наименьшим порядком. Закреплённые записи, канон, записи присутствующих и текущего места и записи с «игнорировать бюджет» не снимаются. Потолки отдельных книг — в «Правилах».",
+		"m20.source.ckRag.hint": "Целые фрагменты убираются с конца (CK ставит лучшие первыми).",
+		"m20.source.qvink.hint": "Первыми уходят самые старые воспоминания; долгосрочная память не трогается.",
+		"m20.source.des.hint": "Сокращается только необязательный блок контекста DES (сначала старые предложения). Инструкции трекера, формат и пример трекера не трогаются никогда.",
+		"m20.source.noSource": "Источника пока нет: значение сохранится и заработает, когда он появится.",
+		"m20.usage": "{used} из {limit}",
+		"m20.usage.free": "в прошлом ходе: {used}",
+		"m20.status.off": "без ограничения",
+		"m20.status.ok": "в пределах",
+		"m20.status.trimmed": "сокращено на {cut}",
+		"m20.status.cut": "снято {cut}",
+		"m20.status.over": "всё ещё больше бюджета",
+		"m20.status.empty": "ничего не прислал",
+		"m20.status.notFound": "текст не найден в промпте",
+		"m20.status.noSource": "источника пока нет",
+		"m20.status.na": "резать нечего",
+		"m20.presence.title": "Присутствие и место",
+		"m20.presence.hint": "Кто в сцене — по трекеру DES последнего принятого ответа, места — из реестра мест. Постоянные записи, канон, его закрепления и BunnyMo не приглушаются никогда.",
+		"m20.presence.damp": "Приглушать лор об отсутствующих и далёких местах",
+		"m20.presence.pin": "Закреплять лор присутствующих и текущего места",
+		"m20.presence.window": "Упоминание в последних K сообщениях сохраняет запись",
+		"m20.presence.noWorld": "Модель мира (M7) выключена — присутствие определить не по чему.",
+		"m20.presence.damped": "Приглушено в прошлом ходе: {count}",
+		"m20.presence.pinned": "Закреплено в прошлом ходе: {count}",
+		"m20.presence.cuts": "Снято бюджетом лора в прошлом ходе: {count}",
+		"m20.reason.absent": "нет в сцене",
+		"m20.reason.farPlace": "далёкое место",
+		"m20.reason.present": "в сцене",
+		"m20.reason.currentPlace": "текущее место",
+		"m20.since": "последнее упоминание — сообщений назад: {count}",
+		"m20.since.never": "давно не упоминался",
+		"m20.col.entry": "Запись",
+		"m20.col.about": "О ком / о чём",
+		"m20.col.why": "Почему",
+		"m20.col.tokens": "Токены",
+		"m20.dup.title": "Повторы фактов",
+		"m20.dup.hint": "Один и тот же факт пришёл в промпт из нескольких источников. Ничего не убирается, пока ты не выберешь, какой источник оставить; после этого остальные копии убираются на лету (книги не меняются).",
+		"m20.dup.detect": "Искать повторы после каждого хода",
+		"m20.dup.none": "В последнем промпте повторов нет.",
+		"m20.dup.off": "Поиск выключен.",
+		"m20.dup.keep": "Оставить только {source}",
+		"m20.dup.reportOnly": "Только отчёт",
+		"m20.dup.kept": "Оставлено: {source}. Остальные копии убираются.",
+		"m20.dup.journal.keep": "Повтор факта: оставить только {source}",
+		"m20.dup.journal.report": "Повтор факта: только отчёт",
+		"m20.owner.lore": "лор",
+		"m20.owner.canon": "канон",
+		"m20.owner.ckArchive": "архив CK",
+		"m20.owner.ck": "RAG CK",
+		"m20.owner.qvink": "память Qvink",
+		"m20.owner.des": "DES",
+		"m20.owner.desru": "DES-RU",
+		"m20.owner.nai": "NAI Studio",
+		"m20.owner.summary": "сводка",
+		"m20.owner.authorsNote": "заметка автора",
+		"m20.owner.card": "карточка",
+		"m20.owner.maestro": "Maestro",
+		"m20.owner.other": "другое",
+		"m20.cache.title": "Кэш провайдера",
+		"m20.cache.measure": "Замерять кэш провайдера",
+		"m20.cache.orderCheck": "Проверять порядок вставок Maestro (изменчивое — в конце)",
+		"m20.cache.summary": "Попадания {rate} за {requests} запросов: {cached} из {prompt} токенов промпта — из кэша.",
+		"m20.cache.firstChange": "Обычно промпт начинает меняться с сообщения № {index}.",
+		"m20.cache.none": "Замеров пока нет.",
+		"m20.cache.noUsage": "Провайдер не прислал данных о кэше.",
+		"m20.order.title": "Изменчивые вставки Maestro перед неизменным текстом",
+		"m20.order.item": "{key}: сообщение № {index}, неизменных сообщений после него: {count}",
+		"m20.order.none": "Изменчивые вставки Maestro стоят в конце.",
+		"m20.report.title": "Последний ход",
+		"m20.report.none": "Ходов ещё не было.",
+		"m20.report.at": "Ход в {time}",
+		"m20.col.rule": "Правило",
+		"m20.col.before": "До",
+		"m20.col.after": "После",
+		"m20.col.count": "Сколько",
+		"m20.effect.damp": "Приглушение",
+		"m20.effect.pin": "Закрепление",
+		"m20.effect.loreBudget": "Бюджет лора",
+		"m20.effect.ckRag": "Бюджет RAG CK",
+		"m20.effect.qvink": "Бюджет Qvink",
+		"m20.effect.des": "Бюджет DES",
+		"m20.effect.dedup": "Убранные повторы",
+		"m20.inspector.title": "Архитектор",
+		"m20.inspector.none": "В этом промпте архитектор ничего не менял.",
+		"m20.rule.damp.title": "Архитектор: приглушение отсутствующих и далёких",
+		"m20.rule.damp.description": "Лор о персонажах, которых нет в сцене, и о далёких местах не участвует в сканировании, если о них не говорили в последних сообщениях. Настройка — во вкладке «Архитектор».",
+		"m20.rule.pin.title": "Архитектор: закрепление присутствующих и текущего места",
+		"m20.rule.pin.description": "Лор о персонажах в сцене и о текущем месте попадает в промпт даже без ключевого слова. Настройка — во вкладке «Архитектор».",
+		"m20.rule.loreBudget.title": "Архитектор: бюджет лора",
+		"m20.rule.loreBudget.description": "Если лора за ход больше бюджета, первыми уходят записи с наименьшим порядком; закреплённые, канон и записи присутствующих остаются. Бюджет задаётся во вкладке «Архитектор».",
+		"m20.rule.dedup.title": "Архитектор: повторы фактов в лоре",
+		"m20.rule.dedup.description": "Факт, который ты решил оставить в другом источнике, убирается из записи лора на этот ход (книга не меняется)."
+	}
+};
+//#endregion
+//#region src/features/architect/view.ts
+var ARCHITECT_TAB = "architect";
+var ARCHITECT_CSS = `
+.maestro-m20-budgets { display: flex; flex-direction: column; gap: 10px; }
+.maestro-m20-budget { display: flex; flex-direction: column; gap: 3px; }
+.maestro-m20-bar { height: 6px; border-radius: 3px; background: var(--maestro-raised-strong); overflow: hidden; }
+.maestro-m20-fill { height: 100%; background: var(--maestro-accent); }
+.maestro-m20-fill.maestro-m20-over { background: var(--maestro-warn); }
+.maestro-m20-line { font-size: 0.9em; }
+.maestro-m20-facts { display: flex; flex-direction: column; gap: 10px; }
+.maestro-m20-fact { border: 1px solid var(--maestro-border); border-radius: var(--maestro-radius-sm); padding: 6px 8px; }
+.maestro-m20-fact-text { font-style: italic; overflow-wrap: anywhere; }
+.maestro-m20-sources { display: flex; flex-wrap: wrap; gap: 4px; margin: 4px 0; }
+.maestro-m20-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.maestro-m20-list { display: flex; flex-direction: column; gap: 2px; font-size: 0.9em; }
+`;
+function architectTab(app, service) {
+	const i18n = app.i18n;
+	const t = i18n.t.bind(i18n);
+	const number = (value) => {
+		try {
+			return new Intl.NumberFormat(i18n.locale() === "ru" ? "ru-RU" : "en-US").format(Math.round(value));
+		} catch {
+			return String(Math.round(value));
+		}
+	};
+	const percent = (share) => `${(share * 100).toFixed(share < .1 ? 1 : 0)}%`;
+	return {
+		id: ARCHITECT_TAB,
+		titleKey: "m20.tab",
+		icon: "fa-compass-drafting",
+		order: 53,
+		render(container) {
+			let alive = true;
+			const save = (path) => {
+				app.settings.save();
+				app.settings.notify(path);
+				draw();
+			};
+			const budgetRow = (source, report) => {
+				const limit = service.settings().budgets[source];
+				const row = report?.budgets.find((item) => item.source === source);
+				const used = row?.used ?? 0;
+				const share = budgetShare(used, limit);
+				const status = row?.status ?? (FUTURE_SOURCES.has(source) && limit > 0 ? "noSource" : void 0);
+				const lines = [];
+				if (FUTURE_SOURCES.has(source)) lines.push(el("div", {
+					class: "maestro-hint",
+					text: t("m20.source.noSource")
+				}));
+				else {
+					if (limit > 0) lines.push(el("div", {
+						class: "maestro-m20-bar",
+						attrs: { role: "presentation" }
+					}, [el("div", {
+						class: ["maestro-m20-fill", share > 1 || status === "over" ? "maestro-m20-over" : null],
+						attrs: { style: `width: ${Math.min(100, Math.round(share * 100))}%` }
+					})]));
+					const line = [row ? limit > 0 ? t("m20.usage", {
+						used: number(used),
+						limit: number(limit)
+					}) : t("m20.usage.free", { used: number(used) }) : "", status && status !== "off" ? t(`m20.status.${status}`, { cut: number(row?.cut ?? 0) }) : ""].filter(Boolean).join(" · ");
+					if (line) lines.push(el("div", {
+						class: "maestro-m20-line maestro-muted",
+						text: line
+					}));
+					lines.push(el("div", {
+						class: "maestro-hint",
+						text: t(`m20.source.${source}.hint`)
+					}));
+				}
+				return el("div", {
+					class: "maestro-m20-budget",
+					data: { source }
+				}, [field$1(t(`m20.source.${source}`), numberInput({
+					value: limit,
+					min: 0,
+					max: 1e6,
+					step: 100,
+					label: t(`m20.source.${source}`),
+					onChange: async (value) => {
+						await service.setBudget(source, value);
+						draw();
+					}
+				})), ...lines]);
+			};
+			const budgetsView = (report) => section$1(t("m20.budgets.title"), [el("div", {
+				class: "maestro-hint",
+				text: t("m20.budgets.hint")
+			}), el("div", { class: "maestro-m20-budgets" }, BUDGET_SOURCES.map((source) => budgetRow(source, report)))]);
+			const presenceView = (report) => {
+				const presence = service.settings().presence;
+				const world = !!app.modules.api("world");
+				const damped = report?.damped ?? [];
+				const pinned = report?.pinned ?? [];
+				const cuts = report?.cuts ?? [];
+				const since = (count) => count >= 0 ? t("m20.since", { count }) : t("m20.since.never");
+				return section$1(t("m20.presence.title"), [
+					el("div", {
+						class: "maestro-hint",
+						text: t("m20.presence.hint")
+					}),
+					world ? null : banner(t("m20.presence.noWorld"), "info", "fa-circle-info"),
+					toggle({
+						label: t("m20.presence.damp"),
+						checked: presence.damp,
+						onChange: (checked) => {
+							presence.damp = checked;
+							save("m20.presence.damp");
+						}
+					}),
+					toggle({
+						label: t("m20.presence.pin"),
+						checked: presence.pin,
+						onChange: (checked) => {
+							presence.pin = checked;
+							save("m20.presence.pin");
+						}
+					}),
+					field$1(t("m20.presence.window"), numberInput({
+						value: presence.mentionWindow,
+						min: 1,
+						max: 50,
+						step: 1,
+						label: t("m20.presence.window"),
+						onChange: (value) => {
+							presence.mentionWindow = cleanWindow(value);
+							save("m20.presence.mentionWindow");
+						}
+					})),
+					damped.length ? el("details", {}, [el("summary", { text: t("m20.presence.damped", { count: damped.length }) }), table([
+						{
+							key: "entry",
+							label: t("m20.col.entry"),
+							cell: (row) => row.comment || `${row.world} #${row.uid}`
+						},
+						{
+							key: "about",
+							label: t("m20.col.about"),
+							cell: (row) => row.entity
+						},
+						{
+							key: "why",
+							label: t("m20.col.why"),
+							cell: (row) => `${t(`m20.reason.${row.reason}`)} · ${since(row.sinceMention)}`
+						}
+					], damped)]) : null,
+					pinned.length ? el("details", {}, [el("summary", { text: t("m20.presence.pinned", { count: pinned.length }) }), table([
+						{
+							key: "entry",
+							label: t("m20.col.entry"),
+							cell: (row) => row.comment || `${row.world} #${row.uid}`
+						},
+						{
+							key: "why",
+							label: t("m20.col.why"),
+							cell: (row) => t(`m20.reason.${row.reason}`)
+						},
+						{
+							key: "tokens",
+							label: t("m20.col.tokens"),
+							numeric: true,
+							cell: (row) => number(row.tokens)
+						}
+					], pinned)]) : null,
+					cuts.length ? el("details", {}, [el("summary", { text: t("m20.presence.cuts", { count: cuts.length }) }), table([{
+						key: "entry",
+						label: t("m20.col.entry"),
+						cell: (row) => row.comment || `${row.world} #${row.uid}`
+					}, {
+						key: "tokens",
+						label: t("m20.col.tokens"),
+						numeric: true,
+						cell: (row) => number(row.tokens)
+					}], cuts)]) : null
+				]);
+			};
+			const factView = (fact) => {
+				const kept = fact.keep ? fact.sources.find((source) => source.ref === fact.keep) : void 0;
+				const actions = fact.sources.map((source) => button({
+					label: t("m20.dup.keep", { source: service.sourceLabel(source.owner, source.ref) }),
+					kind: fact.keep === source.ref ? "primary" : "default",
+					disabled: fact.keep === source.ref,
+					onClick: async () => {
+						await service.keepSource(fact.id, source.ref);
+						draw();
+					}
+				}));
+				if (fact.keep) actions.push(button({
+					label: t("m20.dup.reportOnly"),
+					kind: "ghost",
+					onClick: async () => {
+						await service.keepSource(fact.id, null);
+						draw();
+					}
+				}));
+				return el("div", {
+					class: "maestro-m20-fact",
+					data: { fact: fact.id }
+				}, [
+					el("div", {
+						class: "maestro-m20-fact-text",
+						text: fact.text
+					}),
+					el("div", { class: "maestro-m20-sources" }, fact.sources.map((source) => badge(`${service.sourceLabel(source.owner, source.ref)} · ${number(source.tokens)}`, fact.keep === source.ref ? "ok" : "muted"))),
+					kept ? el("div", {
+						class: "maestro-hint",
+						text: t("m20.dup.kept", { source: service.sourceLabel(kept.owner, kept.ref) })
+					}) : null,
+					el("div", { class: "maestro-m20-actions" }, actions)
+				]);
+			};
+			const duplicatesView = () => {
+				const settings = service.settings();
+				const facts = service.duplicates();
+				return section$1(t("m20.dup.title"), [
+					el("div", {
+						class: "maestro-hint",
+						text: t("m20.dup.hint")
+					}),
+					toggle({
+						label: t("m20.dup.detect"),
+						checked: settings.duplicates.detect,
+						onChange: (checked) => {
+							settings.duplicates.detect = checked;
+							save("m20.duplicates.detect");
+						}
+					}),
+					!settings.duplicates.detect && !facts.length ? el("div", {
+						class: "maestro-muted",
+						text: t("m20.dup.off")
+					}) : facts.length ? el("div", { class: "maestro-m20-facts" }, facts.map(factView)) : emptyState(t("m20.dup.none"))
+				]);
+			};
+			const cacheView = (report) => {
+				const settings = service.settings();
+				const stats = service.cache();
+				const order = report?.order ?? [];
+				const lines = [];
+				if (!stats.requests) lines.push(el("div", {
+					class: "maestro-muted",
+					text: t("m20.cache.none")
+				}));
+				else if (!stats.promptTokens) lines.push(el("div", {
+					class: "maestro-muted",
+					text: t("m20.cache.noUsage")
+				}));
+				else lines.push(el("div", {
+					class: "maestro-m20-line",
+					text: t("m20.cache.summary", {
+						rate: percent(stats.hitRate),
+						requests: stats.requests,
+						cached: number(stats.cachedTokens),
+						prompt: number(stats.promptTokens)
+					})
+				}));
+				if (stats.firstChangeAt !== null) lines.push(el("div", {
+					class: "maestro-m20-line maestro-muted",
+					text: t("m20.cache.firstChange", { index: number(stats.firstChangeAt) })
+				}));
+				return section$1(t("m20.cache.title"), [
+					toggle({
+						label: t("m20.cache.measure"),
+						checked: settings.cache.measure,
+						onChange: (checked) => {
+							settings.cache.measure = checked;
+							save("m20.cache.measure");
+						}
+					}),
+					toggle({
+						label: t("m20.cache.orderCheck"),
+						checked: settings.cache.orderCheck,
+						onChange: (checked) => {
+							settings.cache.orderCheck = checked;
+							save("m20.cache.orderCheck");
+						}
+					}),
+					...lines,
+					settings.cache.orderCheck && report ? order.length ? el("div", { class: "maestro-m20-list" }, [el("div", {
+						class: "maestro-warn-text",
+						text: t("m20.order.title")
+					}), ...order.map((item) => el("div", { text: t("m20.order.item", {
+						key: item.key,
+						index: item.messageIndex,
+						count: item.stableAfter
+					}) }))]) : el("div", {
+						class: "maestro-m20-line maestro-muted",
+						text: t("m20.order.none")
+					}) : null
+				]);
+			};
+			const reportView = (report) => section$1(t("m20.report.title"), [report ? el("div", {
+				class: "maestro-muted",
+				text: t("m20.report.at", { time: formatTime$1(report.at, i18n) })
+			}) : null, report ? effectsTable(app, report.effects ?? [], number) : emptyState(t("m20.report.none"), "fa-compass-drafting")]);
+			const draw = () => {
+				if (!alive) return;
+				clear(container);
+				if (!app.host.chatId()) {
+					container.append(el("div", { class: "maestro-view" }, [emptyState(t("m20.noChat"), "fa-comments")]));
+					return;
+				}
+				const report = service.lastReport();
+				container.append(el("div", { class: "maestro-view maestro-m20" }, [
+					el("p", {
+						class: "maestro-hint",
+						text: t("m20.intro")
+					}),
+					service.ensureRules() ? null : banner(t("m20.rulesMissing"), "warn"),
+					budgetsView(report),
+					presenceView(report),
+					duplicatesView(),
+					cacheView(report),
+					reportView(report)
+				]));
+			};
+			const off = service.onChange(() => draw());
+			draw();
+			return () => {
+				alive = false;
+				off();
+			};
+		}
+	};
+}
+/** Before/after of every rule of one turn (used by the tab and by the inspector section). */
+function effectsTable(app, effects, number) {
+	const t = app.i18n.t.bind(app.i18n);
+	if (!effects.length) return emptyState(t("m20.inspector.none"));
+	return table([
+		{
+			key: "rule",
+			label: t("m20.col.rule"),
+			cell: (row) => t(`m20.effect.${row.rule}`)
+		},
+		{
+			key: "before",
+			label: t("m20.col.before"),
+			numeric: true,
+			cell: (row) => number(row.before)
+		},
+		{
+			key: "after",
+			label: t("m20.col.after"),
+			numeric: true,
+			cell: (row) => number(row.after)
+		},
+		{
+			key: "count",
+			label: t("m20.col.count"),
+			numeric: true,
+			cell: (row) => number(row.count)
+		}
+	], [...effects], { caption: t("m20.report.title") });
+}
+/** The architect's section of the turn inspector (M2): the report of the same turn, if this session has it. */
+function inspectorSection(app, service, record) {
+	const reports = service.reports();
+	const report = reports.find((item) => item.messageIndex === record.messageIndex && Math.abs(item.at - record.at) < 6e4) ?? reports.find((item) => item.messageIndex === void 0 && Math.abs(item.at - record.at) < 5e3);
+	if (!report) return null;
+	const number = (value) => String(Math.round(value));
+	return section$1(app.i18n.t("m20.inspector.title"), effectsTable(app, report.effects ?? [], number));
+}
+//#endregion
+//#region src/features/architect/index.ts
+var architectModule = {
+	id: "M20",
+	key: ARCHITECT_KEY,
+	stage: 7,
+	titleKey: "m20.title",
+	enabledByDefault: true,
+	defaults: defaultArchitectSettings,
+	i18n: ARCHITECT_STRINGS,
+	init({ app, log, own }) {
+		const service = new ArchitectService(app, log);
+		service.install(own);
+		app.modules.expose(ARCHITECT_KEY, service.api());
+		own(app.ui.style("maestro-m20", ARCHITECT_CSS));
+		own(app.ui.addTab(architectTab(app, service)));
+		const inspector = app.modules.api("inspector");
+		if (typeof inspector?.addSection === "function") own(inspector.addSection({
+			id: ARCHITECT_KEY,
+			order: 30,
+			render: (record) => inspectorSection(app, service, record)
+		}));
+	}
+};
 //#endregion
 //#region src/domain/roles-detect.ts
 var ROLE_IDS = [
@@ -10177,91 +15955,8 @@ function sameRecord(a, b) {
 	return a.role === b.role && a.source === b.source && a.fingerprint === b.fingerprint && a.pack?.name === b.pack?.name && a.pack?.version === b.pack?.version;
 }
 //#endregion
-//#region src/domain/roles-meta.ts
-function isDict$62(value) {
-	return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-function emptyEntryMetaFile() {
-	return {
-		schema: 1,
-		entries: {}
-	};
-}
-/** Sidecar key of an entry: `${book}#${uid}`. */
-function entryMetaKey(book, uid) {
-	return `${book}#${uid}`;
-}
-/** Book and uid of a sidecar key (the book name may itself contain `#`). */
-function parseEntryMetaKey(key) {
-	const index = key.lastIndexOf("#");
-	if (index <= 0) return null;
-	const uid = Number(key.slice(index + 1));
-	if (!Number.isInteger(uid) || uid < 0) return null;
-	return {
-		book: key.slice(0, index),
-		uid
-	};
-}
-/** Hash of what the entry says: its content (keys and settings may change without invalidating a type/passport). */
-function entryContentHash(entry) {
-	const content = isDict$62(entry) ? entry.content : void 0;
-	return stableHash(typeof content === "string" ? content : "");
-}
-/** Content hashes of every entry of a book (`data.entries`), by uid. */
-function entryHashes(data) {
-	const hashes = /* @__PURE__ */ new Map();
-	const entries = isDict$62(data) && isDict$62(data.entries) ? data.entries : {};
-	for (const [key, entry] of Object.entries(entries)) {
-		if (!isDict$62(entry)) continue;
-		const uid = typeof entry.uid === "number" && Number.isInteger(entry.uid) ? entry.uid : Number(key);
-		if (Number.isInteger(uid)) hashes.set(uid, entryContentHash(entry));
-	}
-	return hashes;
-}
-/** A stored sidecar file with junk records dropped. */
-function readEntryMetaFile(raw) {
-	const file = emptyEntryMetaFile();
-	const entries = isDict$62(raw) && isDict$62(raw.entries) ? raw.entries : {};
-	for (const [key, record] of Object.entries(entries)) {
-		if (!parseEntryMetaKey(key) || !isDict$62(record) || !isDict$62(record.meta)) continue;
-		if (typeof record.contentHash !== "string") continue;
-		file.entries[key] = {
-			meta: record.meta,
-			contentHash: record.contentHash,
-			at: typeof record.at === "number" ? record.at : 0
-		};
-	}
-	return file;
-}
-/** The stored meta when it still belongs to the entry; `stale` when the content changed since it was written. */
-function checkEntryMeta(record, currentHash) {
-	if (!record) return { state: "none" };
-	if (currentHash === void 0) return { state: "unknown" };
-	if (record.contentHash !== currentHash) return { state: "stale" };
-	return {
-		state: "ok",
-		meta: record.meta
-	};
-}
-/**
-* Merges another tab's file with this tab's changes: keys changed here (`dirty`) take this tab's value (absent =
-* deleted here), every other key keeps the stored one.
-*/
-function mergeEntryMeta(stored, local, dirty) {
-	const merged = {
-		schema: 1,
-		entries: { ...stored.entries }
-	};
-	for (const key of dirty) {
-		const record = local.entries[key];
-		if (record) merged.entries[key] = record;
-		else delete merged.entries[key];
-	}
-	return merged;
-}
-//#endregion
 //#region src/features/bookRoles/context.ts
-function isDict$61(value) {
+function isDict$62(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function strings$14(value) {
@@ -10278,7 +15973,7 @@ async function loadBook$1(app, book, log) {
 	if (typeof load !== "function") return null;
 	try {
 		const data = await load(book);
-		return isDict$61(data) && isDict$61(data.entries) ? data : null;
+		return isDict$62(data) && isDict$62(data.entries) ? data : null;
 	} catch (error) {
 		log.debug(`lorebook ${book} did not load`, error);
 		return null;
@@ -10297,21 +15992,21 @@ async function readRoleContext(app, log) {
 	const context = emptyRoleContext();
 	const ctx = app.host.ctx();
 	const module = await worldInfoModule(app, log);
-	const settings = module && isDict$61(module.world_info) ? module.world_info : null;
+	const settings = module && isDict$62(module.world_info) ? module.world_info : null;
 	const cardBooks = /* @__PURE__ */ new Set();
 	for (const character of ctx.characters ?? []) {
 		const primary = character?.data?.extensions?.world;
 		if (typeof primary === "string" && primary) cardBooks.add(primary);
 	}
-	for (const lore of Array.isArray(settings?.charLore) ? settings.charLore : []) if (isDict$61(lore)) for (const book of strings$14(lore.extraBooks)) cardBooks.add(book);
+	for (const lore of Array.isArray(settings?.charLore) ? settings.charLore : []) if (isDict$62(lore)) for (const book of strings$14(lore.extraBooks)) cardBooks.add(book);
 	context.cardBooks = cardBooks;
 	const chatBook = ctx.chatMetadata?.world_info;
 	context.chatBook = typeof chatBook === "string" && chatBook ? chatBook : null;
 	const personaBooks = /* @__PURE__ */ new Set();
-	const power = isDict$61(ctx.powerUserSettings) ? ctx.powerUserSettings : {};
+	const power = isDict$62(ctx.powerUserSettings) ? ctx.powerUserSettings : {};
 	if (typeof power.persona_description_lorebook === "string" && power.persona_description_lorebook) personaBooks.add(power.persona_description_lorebook);
-	if (isDict$61(power.persona_descriptions)) {
-		for (const persona of Object.values(power.persona_descriptions)) if (isDict$61(persona) && typeof persona.lorebook === "string" && persona.lorebook) personaBooks.add(persona.lorebook);
+	if (isDict$62(power.persona_descriptions)) {
+		for (const persona of Object.values(power.persona_descriptions)) if (isDict$62(persona) && typeof persona.lorebook === "string" && persona.lorebook) personaBooks.add(persona.lorebook);
 	}
 	context.personaBooks = personaBooks;
 	context.globalBooks = new Set(strings$14(module?.selected_world_info));
@@ -10882,7 +16577,7 @@ var CARROTCAST_RE = /carrot\s*-?\s*cast/i;
 var BUNNYFLIX_RE = /bunnyflix/i;
 /** CarrotCast entries name their streaming service near the top; the whole text is never scanned (P15). */
 var MARKER_SPAN = 600;
-function text$7(value) {
+function text$6(value) {
 	return typeof value === "string" ? value : "";
 }
 /** Pack key normalisation (research §1.6): trim, upper case, no spaces after `:`; regex keys stay verbatim. */
@@ -10904,7 +16599,7 @@ function packKeySignature(entry) {
 }
 /** Content compared up to whitespace (packs are re-saved by different editors). */
 function packContentSignature(content) {
-	return text$7(content).replace(/\s+/g, " ").trim();
+	return text$6(content).replace(/\s+/g, " ").trim();
 }
 /** Stable id of a conflict group: its books in code-point order. */
 function packGroupId(books) {
@@ -10933,7 +16628,7 @@ function findVersionConflicts(entries, isPack) {
 	for (const list of bySignature.values()) {
 		const books = [...new Set(list.map((entry) => entry.world))];
 		if (books.length < 2) continue;
-		if (list.some((entry) => INTENDED_PAIR_RE$2.test(text$7(entry.comment)))) continue;
+		if (list.some((entry) => INTENDED_PAIR_RE$2.test(text$6(entry.comment)))) continue;
 		if (new Set(list.map((entry) => packContentSignature(entry.content))).size < 2) continue;
 		books.sort((a, b) => (order.get(a) ?? 0) - (order.get(b) ?? 0));
 		const id = packGroupId(books);
@@ -10966,9 +16661,9 @@ function hasNsfwKey(keys) {
 }
 /** An entry of a CarrotCast pack: by its book name or the BunnyFlix header near the top of the text. */
 function isCarrotCastEntry(entry) {
-	const book = text$7(entry.world) || text$7(entry.book);
+	const book = text$6(entry.world) || text$6(entry.book);
 	if (CARROTCAST_RE.test(book)) return true;
-	return BUNNYFLIX_RE.test(text$7(entry.content).slice(0, MARKER_SPAN));
+	return BUNNYFLIX_RE.test(text$6(entry.content).slice(0, MARKER_SPAN));
 }
 //#endregion
 //#region src/domain/bunnymo-mode-tags.ts
@@ -11055,18 +16750,18 @@ var NOT_CATEGORIES = /* @__PURE__ */ new Set([
 	"SECTION"
 ]);
 var TEMPLATE_TAG_RE = /<([A-Za-z][A-Za-z0-9_-]*):[^<>\n]+>/g;
-function text$6(value) {
+function text$5(value) {
 	return typeof value === "string" ? value : value === void 0 || value === null ? "" : String(value);
 }
-function isDict$60(value) {
+function isDict$61(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /** Entries of book data (`{entries: {uid: entry}}`) with their uid; invalid entries are skipped. */
 function entriesWithUid(data) {
-	const entries = isDict$60(data) && isDict$60(data.entries) ? data.entries : {};
+	const entries = isDict$61(data) && isDict$61(data.entries) ? data.entries : {};
 	const result = [];
 	for (const [key, entry] of Object.entries(entries)) {
-		if (!isDict$60(entry)) continue;
+		if (!isDict$61(entry)) continue;
 		const uid = Number(entry.uid ?? key);
 		if (Number.isFinite(uid)) result.push({
 			uid,
@@ -11128,7 +16823,7 @@ function entryKind(entry, core, tags = entryTags(entry)) {
 /** Categories the core's sheet templates use (`<KEY:VALUE>` in entry text), upper case. */
 function templateCategories(entries) {
 	const categories = /* @__PURE__ */ new Set();
-	for (const { entry } of entries) for (const match of text$6(entry.content).matchAll(TEMPLATE_TAG_RE)) {
+	for (const { entry } of entries) for (const match of text$5(entry.content).matchAll(TEMPLATE_TAG_RE)) {
 		const name = (match[1] ?? "").toUpperCase();
 		if (name && !NOT_CATEGORIES.has(name)) categories.add(name);
 	}
@@ -11138,7 +16833,7 @@ function templateCategories(entries) {
 function archiveNameOf(entry) {
 	const { name } = archiveTags(entry);
 	if (name) return name;
-	const comment = text$6(entry.comment).trim();
+	const comment = text$5(entry.comment).trim();
 	if (comment) return comment;
 	return keyList$1(entry)[0]?.trim() ?? "";
 }
@@ -11177,8 +16872,8 @@ function buildTagDictionary(input) {
 		const parsed = entryTags(entry);
 		if (!parsed.length) continue;
 		const kind = entryKind(entry, book.core, parsed);
-		const content = text$6(entry.content);
-		const comment = text$6(entry.comment).trim();
+		const content = text$5(entry.content);
+		const comment = text$5(entry.comment).trim();
 		for (const tag of parsed) {
 			const item = ensure(tag);
 			item.tag.entries.push({
@@ -11276,7 +16971,7 @@ function tagVocabulary(dictionary, infoCategories = []) {
 }
 var WRITTEN_TAG_RE = /^<([^<>:\n]+)(?::([^<>\n]*))?>$/;
 var NAME_TAG_RE$1 = /^<\s*name\s*:([^<>\n]*)>$/i;
-var CYRILLIC_RE$10 = /\p{Script=Cyrillic}/u;
+var CYRILLIC_RE$9 = /\p{Script=Cyrillic}/u;
 var KEY_RE$1 = /^[A-Za-z][A-Za-z0-9_-]*$/;
 /** `!updatesheet` transitional markup that must never be written into a block (research §5). */
 var TRANSITIONAL_RE = /→|->|↔|\d\s*%|\b(?:FADING|STRENGTHENING|WEAKENING|EMERGING|CONVERTING)\b/i;
@@ -11344,7 +17039,7 @@ function checkOne(raw, vocabulary, seen, mbti) {
 		tag: written,
 		ok: true
 	};
-	if (CYRILLIC_RE$10.test(written)) return {
+	if (CYRILLIC_RE$9.test(written)) return {
 		tag: written,
 		ok: false,
 		reason: "cyrillic"
@@ -11480,909 +17175,6 @@ function checkTags(tags, vocabulary) {
 	const seen = /* @__PURE__ */ new Set();
 	const mbti = { count: 0 };
 	return tags.map((tag) => checkOne(tag, vocabulary, seen, mbti));
-}
-//#endregion
-//#region src/domain/canon-book.ts
-var CANON_KINDS = [
-	"override",
-	"addition",
-	"suppress",
-	"pin"
-];
-var CANON_STATUSES = [
-	"active",
-	"provisional",
-	"archived"
-];
-var CANON_ORIGINS = [
-	"user",
-	"revision",
-	"living",
-	"chronicle",
-	"backstage",
-	"entity",
-	"import"
-];
-/** An override never switches its base on or off (that is what suppression is for). */
-var NEVER_OVERRIDE = [...[
-	"uid",
-	"world",
-	"displayIndex",
-	"extensions",
-	"hash",
-	"decorators"
-], "disable"];
-/** Override fields when the item does not list them (text and keys). */
-var DEFAULT_OVERRIDE_FIELDS$2 = [
-	"content",
-	"key",
-	"keysecondary",
-	"comment"
-];
-/** ST 1.19 `newWorldInfoEntryTemplate` (world-info.js 4082-4130). */
-var WI_ENTRY_TEMPLATE = Object.freeze({
-	key: [],
-	keysecondary: [],
-	comment: "",
-	content: "",
-	constant: false,
-	vectorized: false,
-	selective: true,
-	selectiveLogic: 0,
-	addMemo: false,
-	order: 100,
-	position: 0,
-	disable: false,
-	ignoreBudget: false,
-	excludeRecursion: false,
-	preventRecursion: false,
-	matchPersonaDescription: false,
-	matchCharacterDescription: false,
-	matchCharacterPersonality: false,
-	matchCharacterDepthPrompt: false,
-	matchScenario: false,
-	matchCreatorNotes: false,
-	delayUntilRecursion: 0,
-	probability: 100,
-	useProbability: true,
-	depth: 4,
-	outletName: "",
-	group: "",
-	groupOverride: false,
-	groupWeight: 100,
-	scanDepth: null,
-	caseSensitive: null,
-	matchWholeWords: null,
-	useGroupScoring: null,
-	automationId: "",
-	role: 0,
-	sticky: null,
-	cooldown: null,
-	delay: null,
-	triggers: [],
-	characterFilter: {
-		isExclude: false,
-		names: [],
-		tags: []
-	}
-});
-function isDict$59(value) {
-	return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-/** Canon book of a chat: "Maestro · канон · <8 chars of a stable hash of the chat id>". */
-function canonBookName(chatId) {
-	return `${CANON_BOOK_PREFIX} · ${stableHash(chatId).padStart(8, "0").slice(0, 8)}`;
-}
-/**
-* A fresh copy of a value for an entry copy: arrays and plain objects are rebuilt (nested arrays of ST's cache must
-* never be shared with a copy someone may change), primitives pass through.
-*/
-function copyValue$1(value) {
-	if (Array.isArray(value)) return value.map((item) => copyValue$1(item));
-	if (isDict$59(value)) {
-		const out = {};
-		for (const [key, item] of Object.entries(value)) out[key] = copyValue$1(item);
-		return out;
-	}
-	return value;
-}
-/** JSON-safe deep copy (books are JSON). */
-function jsonClone(value) {
-	const text = JSON.stringify(value);
-	return text === void 0 ? value : JSON.parse(text);
-}
-/** Lowest free uid of a book (ST's getFreeWorldEntryUid). */
-function freeUid$1(entries) {
-	let uid = 0;
-	while (Object.prototype.hasOwnProperty.call(entries, String(uid))) uid++;
-	return uid;
-}
-/** Template fields missing from `entry`, filled with fresh defaults (arrays are never shared with the template). */
-function withTemplate(entry) {
-	const out = {};
-	for (const [key, value] of Object.entries(WI_ENTRY_TEMPLATE)) out[key] = Object.prototype.hasOwnProperty.call(entry, key) ? copyValue$1(entry[key]) : copyValue$1(value);
-	for (const [key, value] of Object.entries(entry)) if (!Object.prototype.hasOwnProperty.call(out, key)) out[key] = copyValue$1(value);
-	return out;
-}
-/** Fields an override replaces: the listed ones (or text and keys), never bookkeeping or `disable`. */
-function overrideFields(explicit, entry) {
-	const listed = Array.isArray(explicit) ? explicit.filter((item) => typeof item === "string") : null;
-	const base = listed && listed.length ? listed : entry ? Object.keys(entry) : [...DEFAULT_OVERRIDE_FIELDS$2];
-	return [...new Set(base)].filter((field) => !NEVER_OVERRIDE.includes(field));
-}
-function hasValue$1(value) {
-	if (Array.isArray(value)) return value.length > 0;
-	if (typeof value === "string") return value.trim() !== "";
-	return value !== void 0 && value !== null;
-}
-/**
-* Override fields of a stored item: its own list, or — for items made without one — the default fields that hold
-* a value (an empty template `key: []` must not wipe the base's keys).
-*/
-function itemOverrideFields(meta, entry) {
-	if (Array.isArray(meta.fields) && meta.fields.length) return overrideFields(meta.fields);
-	return DEFAULT_OVERRIDE_FIELDS$2.filter((field) => hasValue$1(entry[field]));
-}
-/**
-* The base entry with the override's fields (fresh arrays), keeping the base's world and uid. Works on a scan copy
-* (`{uid, world, ...}`) as well as on a stored entry.
-*/
-function materializeOverride(base, override, fields) {
-	const out = { ...base };
-	for (const field of fields) {
-		if (NEVER_OVERRIDE.includes(field) || !Object.prototype.hasOwnProperty.call(override, field)) continue;
-		out[field] = copyValue$1(override[field]);
-	}
-	if ("world" in base) out.world = base.world;
-	out.uid = base.uid;
-	return out;
-}
-var KNOWN_META_FIELDS = [
-	"kind",
-	"status",
-	"origin",
-	"type",
-	"base",
-	"sourceMessage",
-	"createdAt",
-	"updatedAt",
-	"survivedTurns",
-	"pinWhen",
-	"fields"
-];
-function oneOf$1(list, value, fallback) {
-	return typeof value === "string" && list.includes(value) ? value : fallback;
-}
-/** Validated meta of a stored canon entry; null when the entry is not a canon item. */
-function readCanonMeta(raw) {
-	if (!isDict$59(raw) || !CANON_KINDS.includes(String(raw.kind))) return null;
-	const meta = {
-		kind: raw.kind,
-		status: oneOf$1(CANON_STATUSES, raw.status, "active"),
-		origin: oneOf$1(CANON_ORIGINS, raw.origin, "user"),
-		createdAt: typeof raw.createdAt === "number" ? raw.createdAt : 0,
-		updatedAt: typeof raw.updatedAt === "number" ? raw.updatedAt : 0
-	};
-	if (typeof raw.type === "string") meta.type = raw.type;
-	if (isDict$59(raw.base) && typeof raw.base.world === "string" && Number.isInteger(raw.base.uid)) {
-		meta.base = {
-			world: raw.base.world,
-			uid: raw.base.uid,
-			contentHash: typeof raw.base.contentHash === "string" ? raw.base.contentHash : ""
-		};
-		if (typeof raw.base.content === "string") meta.base.content = raw.base.content;
-	}
-	if (typeof raw.sourceMessage === "number") meta.sourceMessage = raw.sourceMessage;
-	if (typeof raw.survivedTurns === "number") meta.survivedTurns = raw.survivedTurns;
-	if (typeof raw.pinWhen === "string") meta.pinWhen = raw.pinWhen;
-	if (Array.isArray(raw.fields)) meta.fields = raw.fields.filter((item) => typeof item === "string");
-	for (const [key, value] of Object.entries(raw)) if (!KNOWN_META_FIELDS.includes(key)) meta[key] = value;
-	if (meta.kind !== "addition" && !meta.base) return null;
-	return meta;
-}
-/**
-* Canon items of a loaded canon book, by uid. An entry without canon meta (made by hand in the Lore Studio or ST's
-* editor) is a user addition; one whose meta is broken (an override without a base) is not an item.
-*/
-function canonItemsOf(data) {
-	const entries = isDict$59(data) && isDict$59(data.entries) ? data.entries : {};
-	const items = [];
-	for (const [key, entry] of Object.entries(entries)) {
-		if (!isDict$59(entry)) continue;
-		const raw = (isDict$59(entry.extensions) ? entry.extensions : {}).maestro;
-		const meta = isDict$59(raw) && raw.kind !== void 0 ? readCanonMeta(raw) : {
-			kind: "addition",
-			status: "active",
-			origin: "user",
-			createdAt: 0,
-			updatedAt: 0
-		};
-		if (!meta) continue;
-		const uid = Number.isInteger(entry.uid) ? entry.uid : Number(key);
-		if (!Number.isInteger(uid)) continue;
-		items.push({
-			uid,
-			meta,
-			entry
-		});
-	}
-	return items.sort((a, b) => a.uid - b.uid);
-}
-/** The slot an item occupies on its base: an override and a suppression exclude each other, a pin is separate. */
-function baseSlot$1(kind) {
-	if (kind === "override" || kind === "suppress") return "replace";
-	return kind === "pin" ? "pin" : null;
-}
-/** The existing item a new draft updates: same base and slot. */
-function findItemForBase(items, kind, base) {
-	const slot = baseSlot$1(kind);
-	if (!slot || !base) return void 0;
-	return items.find((item) => baseSlot$1(item.meta.kind) === slot && item.meta.base?.world === base.world && item.meta.base.uid === base.uid);
-}
-/**
-* A canon entry as stored in the canon book: the WI template, the draft's fields, `extensions.maestro` = meta.
-* Items that are not additions are disabled in the book: alone they mean nothing (if the user ever activates the
-* canon book directly, only additions act).
-*/
-function buildCanonEntry(uid, fields, meta, fallbackComment = "") {
-	const entry = withTemplate(fields);
-	entry.uid = uid;
-	if (!entry.comment && fallbackComment) entry.comment = fallbackComment;
-	if (meta.kind !== "addition") entry.disable = true;
-	entry.extensions = {
-		...isDict$59(fields.extensions) ? copyValue$1(fields.extensions) : {},
-		maestro: copyValue$1(meta)
-	};
-	delete entry.world;
-	delete entry.hash;
-	delete entry.decorators;
-	return entry;
-}
-/** The marker a scan copy carries (stable between turns: no timestamps, so the entry hash stays the same). */
-function scanMarker(item) {
-	const marker = {
-		kind: item.meta.kind,
-		status: item.meta.status,
-		origin: item.meta.origin,
-		canonUid: item.uid
-	};
-	if (item.meta.type) marker.type = item.meta.type;
-	return marker;
-}
-/** Base text when the item was made vs now; null when the base did not change. A missing base counts as drift. */
-function baseDriftOf(item, baseEntry) {
-	const base = item.meta.base;
-	if (!base) return null;
-	const now = isDict$59(baseEntry) && typeof baseEntry.content === "string" ? baseEntry.content : "";
-	if (isDict$59(baseEntry) && entryContentHash(baseEntry) === base.contentHash) return null;
-	return {
-		then: base.content ?? "",
-		now
-	};
-}
-function stripMaestro(entry) {
-	const out = { ...entry };
-	if (isDict$59(out.extensions)) {
-		const extensions = { ...out.extensions };
-		delete extensions.maestro;
-		if (Object.keys(extensions).length) out.extensions = extensions;
-		else delete out.extensions;
-	}
-	delete out.world;
-	delete out.hash;
-	delete out.decorators;
-	return out;
-}
-/**
-* A plain lorebook from the canon (plan §4.9 «Экспорт канона»): additions as they are, overrides materialised over
-* their base (the base itself when the override is gone), and one disabled note entry listing the suppressed,
-* overridden and pinned base entries (they need the user's attention once Maestro no longer mixes the canon in).
-*/
-function buildExportBook(items, baseOf, labels) {
-	const entries = {};
-	let next = 0;
-	const add = (entry) => {
-		const uid = next++;
-		entries[String(uid)] = {
-			...withTemplate(stripMaestro(entry)),
-			uid,
-			displayIndex: uid
-		};
-	};
-	const notes = {
-		suppressed: [],
-		overridden: [],
-		pinned: []
-	};
-	const describe = (item) => {
-		const base = item.meta.base;
-		const entry = base ? baseOf(base.world, base.uid) : null;
-		const comment = entry && typeof entry.comment === "string" ? entry.comment : "";
-		return labels.line(base?.world ?? "", base?.uid ?? -1, comment);
-	};
-	for (const item of items) {
-		const base = item.meta.base;
-		if (item.meta.kind === "addition") add({
-			...item.entry,
-			disable: false
-		});
-		else if (item.meta.kind === "override" && base) {
-			const baseEntry = baseOf(base.world, base.uid);
-			const fields = itemOverrideFields(item.meta, item.entry);
-			add(baseEntry ? materializeOverride(baseEntry, item.entry, fields) : {
-				...item.entry,
-				disable: false
-			});
-			notes.overridden.push(describe(item));
-		} else if (item.meta.kind === "suppress") notes.suppressed.push(describe(item));
-		else if (item.meta.kind === "pin") notes.pinned.push(describe(item));
-	}
-	const sections = [];
-	if (notes.suppressed.length) sections.push(`${labels.suppressed}\n${notes.suppressed.join("\n")}`);
-	if (notes.overridden.length) sections.push(`${labels.overridden}\n${notes.overridden.join("\n")}`);
-	if (notes.pinned.length) sections.push(`${labels.pinned}\n${notes.pinned.join("\n")}`);
-	if (sections.length) add({
-		comment: labels.noteTitle,
-		content: sections.join("\n\n"),
-		disable: true,
-		key: []
-	});
-	return { entries };
-}
-/** `base`, or `base (2)`, `base (3)`… — the first name not taken (case-insensitive, like ST's world names). */
-function uniqueBookName(base, existing) {
-	const taken = new Set([...existing].map((name) => name.toLowerCase()));
-	if (!taken.has(base.toLowerCase())) return base;
-	for (let index = 2;; index++) {
-		const name = `${base} (${index})`;
-		if (!taken.has(name.toLowerCase())) return name;
-	}
-}
-//#endregion
-//#region src/domain/lore-match.ts
-/** World Info secondary-key logic (`world_info_logic`, WI:33). */
-var WI_LOGIC = {
-	AND_ANY: 0,
-	NOT_ALL: 1,
-	NOT_ANY: 2,
-	AND_ALL: 3
-};
-/** The separator ST puts before every scanned message (WI:290-292). */
-var MATCHER = "";
-var JOINER = `\n${MATCHER}`;
-/** Port of ST's `parseRegexFromString` (WI:2901): `/pattern/flags` → RegExp, anything else → null. */
-function parseRegexKey$1(input) {
-	const match = /^\/([\w\W]+?)\/([gimsuy]*)$/.exec(input);
-	if (!match) return null;
-	let pattern = match[1] ?? "";
-	const flags = match[2] ?? "";
-	if (/(^|[^\\])\//.test(pattern)) return null;
-	pattern = pattern.replace("\\/", "/");
-	try {
-		return new RegExp(pattern, flags);
-	} catch {
-		return null;
-	}
-}
-function escapeRegex$1(text) {
-	return text.replace(/[/\-\\^$*+?.()|[\]{}]/g, "\\$&");
-}
-/** Port of `WorldInfoBuffer.matchKeys` (WI:337-366). */
-function matchKey$1(haystack, needle, options) {
-	const regex = (options.parseRegex ?? parseRegexKey$1)(needle);
-	if (regex) return regex.test(haystack);
-	const text = options.caseSensitive ? haystack : haystack.toLowerCase();
-	const key = options.caseSensitive ? needle : needle.toLowerCase();
-	if (!options.matchWholeWords) return text.includes(key);
-	if (key.split(/\s+/).length > 1) return text.includes(key);
-	return new RegExp(`(?:^|\\W)(${escapeRegex$1(key)})(?:$|\\W)`).test(text);
-}
-function stringList$4(value) {
-	return Array.isArray(value) ? value.filter((item) => typeof item === "string") : [];
-}
-/** Per-entry options with ST's fallback to the global settings (`entry.caseSensitive ?? global`). */
-function entryMatchOptions(entry, globals, parseRegex) {
-	const caseSensitive = typeof entry.caseSensitive === "boolean" ? entry.caseSensitive : globals.caseSensitive;
-	const matchWholeWords = typeof entry.matchWholeWords === "boolean" ? entry.matchWholeWords : globals.matchWholeWords;
-	return parseRegex ? {
-		caseSensitive,
-		matchWholeWords,
-		parseRegex
-	} : {
-		caseSensitive,
-		matchWholeWords
-	};
-}
-var identity = (text) => text;
-function matchesAny(text, keys, options, substitute) {
-	for (const key of keys) {
-		const substituted = substitute(key);
-		if (substituted && matchKey$1(text, substituted.trim(), options)) return key;
-	}
-	return null;
-}
-/**
-* Which key activated the entry on `text`, as a short label: the primary key, plus the secondary keys that the
-* entry's logic needed (`Аня + лес`). Null when no primary key matches. When the secondary condition fails on
-* this text the primary key is still returned: the entry did activate, and the scan text is a reconstruction.
-*/
-function findTriggerKey(entry, text, globals, substitute = identity, parseRegex) {
-	const options = entryMatchOptions(entry, globals, parseRegex);
-	const primary = matchesAny(text, stringList$4(entry.key), options, substitute);
-	if (primary === null) return null;
-	const secondary = stringList$4(entry.keysecondary);
-	if (!entry.selective || secondary.length === 0) return primary;
-	const logic = typeof entry.selectiveLogic === "number" ? entry.selectiveLogic : WI_LOGIC.AND_ANY;
-	const matched = [];
-	const missed = [];
-	for (const key of secondary) {
-		const substituted = substitute(key);
-		if (substituted && matchKey$1(text, substituted.trim(), options)) matched.push(key);
-		else missed.push(key);
-	}
-	if (logic === WI_LOGIC.AND_ANY && matched.length) return `${primary} + ${matched[0]}`;
-	if (logic === WI_LOGIC.AND_ALL && !missed.length) return [primary, ...matched].join(" + ");
-	if (logic === WI_LOGIC.NOT_ALL && missed.length) return `${primary} + ¬${missed[0]}`;
-	if (logic === WI_LOGIC.NOT_ANY && !matched.length) return `${primary} + ¬(${secondary.join(", ")})`;
-	return primary;
-}
-/** Rebuilds `WorldInfoBuffer.get()` (WI:279-328) for one entry. */
-function buildScanText(input) {
-	const depth = Math.max(0, Math.floor(input.depth));
-	if (depth <= 0) return "";
-	let result = MATCHER + input.messages.slice(0, depth).map((message) => message.trim()).join(JOINER);
-	const global = input.global ?? {};
-	const flags = input.flags ?? {};
-	const pairs = [
-		[flags.matchPersonaDescription, global.personaDescription],
-		[flags.matchCharacterDescription, global.characterDescription],
-		[flags.matchCharacterPersonality, global.characterPersonality],
-		[flags.matchCharacterDepthPrompt, global.characterDepthPrompt],
-		[flags.matchScenario, global.scenario],
-		[flags.matchCreatorNotes, global.creatorNotes]
-	];
-	for (const [flag, value] of pairs) if (flag === true && value) result += JOINER + value;
-	if (input.injects?.length) result += JOINER + input.injects.join(JOINER);
-	if (input.recursion?.length) result += JOINER + input.recursion.join(JOINER);
-	return result;
-}
-/**
-* The first candidate whose content contains one of the entry's primary keys (candidates in priority order:
-* the caller lists the most recent scan loop first). Cheap: plain substring/regex tests, no secondary logic.
-*/
-function findVia(entry, candidates, globals, substitute = identity, parseRegex) {
-	const keys = stringList$4(entry.key);
-	if (!keys.length) return void 0;
-	const options = entryMatchOptions(entry, globals, parseRegex);
-	for (const candidate of candidates) {
-		if (!candidate.content) continue;
-		if (matchesAny(candidate.content, keys, options, substitute) !== null) return {
-			world: candidate.world,
-			uid: candidate.uid
-		};
-	}
-}
-//#endregion
-//#region src/domain/canon-keys.ts
-var CYRILLIC_RE$9 = /\p{Script=Cyrillic}/u;
-var LATIN_RE$2 = /[A-Za-z]/;
-var WORD_CHAR_RE$2 = /[\p{L}\p{N}_]/u;
-var REGEX_KEY_RE = /^\/[\s\S]+\/[gimsuy]*$/;
-/** Endings dropped from a Russian name to reach a stem that also matches the other case forms. */
-var STEM_ENDING_RE = /[аяоеёьйыиуюэ]$/i;
-var MIN_STEM$1 = 3;
-function hasCyrillic$1(text) {
-	return CYRILLIC_RE$9.test(text);
-}
-function hasLatin(text) {
-	return LATIN_RE$2.test(text);
-}
-/** A `/pattern/flags` key (ST's regex key syntax). */
-function isRegexKey$1(key) {
-	return REGEX_KEY_RE.test(key.trim());
-}
-/** Lower case with ё folded to е: Russian texts mix both spellings. */
-function normalizeForMatch(text) {
-	return text.toLowerCase().replace(/ё/g, "е");
-}
-/**
-* Escapes a literal for a `/…/u` World Info key. Unlike ST's escapeRegex it leaves `-` alone (an escaped hyphen
-* outside a class is invalid with `u`), writes braces as classes (the macro engine eats `\{`), escapes `/` (ST
-* rejects an unescaped slash inside the pattern), matches any whitespace run between words and both е and ё.
-*/
-function escapeForKey(text) {
-	let out = "";
-	let space = false;
-	for (const char of text.trim()) {
-		if (/\s/.test(char)) {
-			if (!space) out += "\\s+";
-			space = true;
-			continue;
-		}
-		space = false;
-		if (char === "{") out += "[{]";
-		else if (char === "}") out += "[}]";
-		else if (char === "е" || char === "ё") out += "[её]";
-		else if (char === "Е" || char === "Ё") out += "[ЕЁ]";
-		else if ("\\^$.*+?()[]|/".includes(char)) out += `\\${char}`;
-		else out += char;
-	}
-	return out;
-}
-/** Drops one final vowel, soft sign or й when the rest keeps at least three letters (Маша → Маш, Анна → Анн). */
-function russianStem(word) {
-	const trimmed = word.trim();
-	if (!hasCyrillic$1(trimmed) || /\s/.test(trimmed)) return trimmed;
-	const stem = trimmed.replace(STEM_ENDING_RE, "");
-	return stem.length >= MIN_STEM$1 ? stem : trimmed;
-}
-/**
-* A left-boundary regex key for a Russian term: `/(?:^|[^\p{L}\p{N}_])Маш/iu` matches «Маша», «Машей», «Маши» but
-* not «Ромашка». Null for terms without Cyrillic, with `{{` (macros) or empty.
-*/
-function leftBoundaryKey$1(term) {
-	const trimmed = term.trim();
-	if (!trimmed || !hasCyrillic$1(trimmed) || trimmed.includes("{{")) return null;
-	return `/(?:^|[^\\p{L}\\p{N}_])${escapeForKey(russianStem(trimmed))}/iu`;
-}
-/** Unique non-empty strings in first-seen order (case-sensitive). */
-function uniqueStrings(values) {
-	const seen = /* @__PURE__ */ new Set();
-	const out = [];
-	for (const value of values) {
-		if (typeof value !== "string") continue;
-		const text = value.trim();
-		if (!text || seen.has(text)) continue;
-		seen.add(text);
-		out.push(text);
-	}
-	return out;
-}
-/**
-* Russian keys for a term from what DES-RU offered: its plain case forms, else its single regex key, else the term
-* itself plus our left-boundary key (Cyrillic terms only).
-*/
-function russianKeysFrom(term, forms, formsKey) {
-	const plain = Array.isArray(forms) ? uniqueStrings(forms).filter((form) => !form.includes("{{")) : [];
-	if (plain.length) return plain;
-	if (typeof formsKey === "string" && formsKey.trim() && !formsKey.includes("{{")) return [formsKey.trim()];
-	const trimmed = term.trim();
-	if (!trimmed) return [];
-	const regex = leftBoundaryKey$1(trimmed);
-	return regex ? [trimmed, regex] : [trimmed];
-}
-/** English side of a pair: Latin, no Cyrillic, no regex, no macros. */
-function englishName(text) {
-	const trimmed = text.trim();
-	if (!trimmed || !hasLatin(trimmed) || hasCyrillic$1(trimmed) || isRegexKey$1(trimmed) || trimmed.includes("{{")) return null;
-	return trimmed;
-}
-/** Builds the matcher; pairs without a usable English or Russian side are skipped. Deterministic. */
-function buildGlossary(pairs) {
-	const byEnglish = /* @__PURE__ */ new Map();
-	for (const pair of pairs) {
-		const en = englishName(pair.en);
-		const ru = pair.ru.trim();
-		if (!en || !ru || ru.includes("{{")) continue;
-		const key = en.toLowerCase();
-		let row = byEnglish.get(key);
-		if (!row) {
-			row = {
-				en,
-				needles: [],
-				regexes: []
-			};
-			byEnglish.set(key, row);
-		}
-		if (isRegexKey$1(ru)) {
-			if (!hasCyrillic$1(ru)) continue;
-			const regex = parseRegexKey$1(ru);
-			if (regex && !row.regexes.some((item) => item.source === regex.source && item.flags === regex.flags)) row.regexes.push(regex);
-			continue;
-		}
-		if (!hasCyrillic$1(ru)) continue;
-		for (const form of [russianStem(ru), ...pair.forms ?? []]) {
-			if (typeof form !== "string" || !hasCyrillic$1(form)) continue;
-			const needle = normalizeForMatch(form.trim());
-			if (needle && !row.needles.includes(needle)) row.needles.push(needle);
-		}
-	}
-	const rows = [...byEnglish.values()].filter((row) => row.needles.length || row.regexes.length);
-	rows.sort((a, b) => a.en.toLowerCase() < b.en.toLowerCase() ? -1 : a.en.toLowerCase() > b.en.toLowerCase() ? 1 : 0);
-	return { rows };
-}
-/** `needle` occurs in `text` right after a non-word character (or at the start). */
-function containsWithLeftBoundary(text, needle) {
-	if (!needle) return false;
-	let from = 0;
-	for (;;) {
-		const index = text.indexOf(needle, from);
-		if (index < 0) return false;
-		const before = index > 0 ? text[index - 1] : void 0;
-		if (before === void 0 || !WORD_CHAR_RE$2.test(before)) return true;
-		from = index + 1;
-	}
-}
-/** English names whose Russian forms occur in `text`, sorted, at most `limit`. */
-function matchGlossary(glossary, text, limit = 40) {
-	if (!text || !glossary.rows.length) return [];
-	const normalized = normalizeForMatch(text);
-	const found = [];
-	for (const row of glossary.rows) {
-		if (found.length >= limit) break;
-		if (row.needles.some((needle) => containsWithLeftBoundary(normalized, needle)) || row.regexes.some((regex) => {
-			regex.lastIndex = 0;
-			return regex.test(text);
-		})) found.push(row.en);
-	}
-	return found;
-}
-/** Joins names into the scan text, cut to `maxChars` at a name boundary. */
-function formatGlosses(names, maxChars = 600) {
-	let out = "";
-	for (const name of names) {
-		const next = out ? `${out}, ${name}` : name;
-		if (next.length > maxChars) break;
-		out = next;
-	}
-	return out;
-}
-/** Pairs from one entry's keys: every Russian key stands for every English key of the same entry. */
-function pairsFromKeys(keys) {
-	const list = uniqueStrings(keys);
-	const english = list.filter((key) => englishName(key) !== null);
-	const russian = list.filter((key) => hasCyrillic$1(key) && !key.includes("{{"));
-	const pairs = [];
-	for (const en of english) for (const ru of russian) pairs.push({
-		ru,
-		en
-	});
-	return pairs;
-}
-/** DES canonical aliases `{name: [aliases]}`: whichever side is Russian maps to the English ones. */
-function pairsFromAliases(aliases) {
-	if (!aliases || typeof aliases !== "object" || Array.isArray(aliases)) return [];
-	const pairs = [];
-	for (const [canonical, list] of Object.entries(aliases)) {
-		const names = uniqueStrings([canonical, ...Array.isArray(list) ? list : []]);
-		pairs.push(...pairsFromKeys(names));
-	}
-	return pairs;
-}
-/** Localizer marker of one entry: the keys it appended (Russian) stand for the source keys it translated. */
-function pairsFromLocalizer(sources, added) {
-	const english = uniqueStrings(sources).filter((key) => englishName(key) !== null);
-	if (!english.length || english.length > 3) return [];
-	const pairs = [];
-	for (const ru of uniqueStrings(added)) {
-		if (!hasCyrillic$1(ru)) continue;
-		for (const en of english) pairs.push({
-			ru,
-			en
-		});
-	}
-	return pairs;
-}
-//#endregion
-//#region src/domain/canon-inject.ts
-var LIST_NAMES = [
-	"globalLore",
-	"characterLore",
-	"chatLore",
-	"personaLore"
-];
-/** Activation key ST uses in `activated.entries`. */
-function activationKey(world, uid) {
-	return `${String(world)}.${String(uid)}`;
-}
-/** The four lists of a WORLDINFO_ENTRIES_LOADED payload; null when the payload does not look like one. */
-function listsOf(payload) {
-	if (!isDict$59(payload)) return null;
-	const lists = {};
-	for (const name of LIST_NAMES) {
-		const list = payload[name];
-		if (!Array.isArray(list)) return null;
-		lists[name] = list;
-	}
-	return lists;
-}
-/**
-* Takes entries of canon books out of the lists (a canon book must never be active by itself: its overrides would
-* act as plain entries next to their bases). Returns the canon books that were found.
-*/
-function stripCanonBooks(lists) {
-	const found = /* @__PURE__ */ new Set();
-	for (const name of LIST_NAMES) {
-		const list = lists[name];
-		for (let i = list.length - 1; i >= 0; i--) {
-			const world = list[i]?.world;
-			if (typeof world !== "string" || !world.startsWith("Maestro · канон")) continue;
-			if (!isOwnCopy(list[i])) found.add(world);
-			list.splice(i, 1);
-		}
-	}
-	return [...found].sort();
-}
-function isOwnCopy(entry) {
-	const extensions = isDict$59(entry?.extensions) ? entry.extensions : void 0;
-	return typeof (isDict$59(extensions?.maestro) ? extensions.maestro : void 0)?.canonUid === "number";
-}
-function findBase(lists, world, uid) {
-	for (const name of LIST_NAMES) {
-		const list = lists[name];
-		const index = list.findIndex((entry) => entry?.world === world && Number(entry?.uid) === uid);
-		if (index >= 0) return {
-			list,
-			index
-		};
-	}
-	return null;
-}
-function markerOf(entry) {
-	const extensions = isDict$59(entry.extensions) ? entry.extensions : void 0;
-	return isDict$59(extensions?.maestro) ? extensions.maestro : void 0;
-}
-/** The scan copy of an addition: a fresh object with fresh arrays, in the canon book's name. */
-function additionCopy(item, canonBook) {
-	const copy = copyValue$1(item.entry);
-	const extensions = isDict$59(copy.extensions) ? copy.extensions : {};
-	return {
-		...copy,
-		uid: item.uid,
-		world: canonBook,
-		extensions: {
-			...extensions,
-			maestro: scanMarker(item)
-		}
-	};
-}
-/** The override of a base scan copy (world and uid of the base; base extensions kept, canon marker added). */
-function overrideCopy(base, item) {
-	const copy = materializeOverride(base, item.entry, itemOverrideFields(item.meta, item.entry));
-	copy.extensions = {
-		...isDict$59(base.extensions) ? base.extensions : {},
-		maestro: scanMarker(item)
-	};
-	return copy;
-}
-function acts(item, options, base) {
-	if (item.meta.status === "provisional" && options.silentProvisional?.includes(item.meta.origin)) return false;
-	if (item.meta.status !== "archived") return true;
-	return options.mentioned?.(item, base) === true;
-}
-/**
-* Applies the canon to the scan copies in place (the lists themselves are per-scan arrays; nested values of the
-* entries are never mutated). Canon books are stripped first, so a second run over the same payload gives the same
-* result.
-*/
-function applyCanon(lists, items, options) {
-	const result = {
-		added: 0,
-		replaced: 0,
-		suppressed: 0,
-		pins: [],
-		dormant: 0,
-		missing: 0
-	};
-	stripCanonBooks(lists);
-	const ordered = [...items].sort((a, b) => kindRank(a) - kindRank(b) || a.uid - b.uid);
-	for (const item of ordered) {
-		const base = item.meta.base;
-		const found = base && item.meta.kind !== "addition" ? findBase(lists, base.world, base.uid) : null;
-		const current = found ? found.list[found.index] : void 0;
-		if (!acts(item, options, current)) {
-			result.dormant++;
-			continue;
-		}
-		switch (item.meta.kind) {
-			case "addition":
-				lists.chatLore.push(additionCopy(item, options.canonBook));
-				result.added++;
-				break;
-			case "override":
-				if (!found || !current) {
-					result.missing++;
-					break;
-				}
-				if (markerOf(current)?.canonUid !== item.uid) found.list[found.index] = overrideCopy(current, item);
-				result.replaced++;
-				break;
-			case "suppress":
-				if (!found) {
-					result.missing++;
-					break;
-				}
-				found.list.splice(found.index, 1);
-				result.suppressed++;
-				break;
-			case "pin": {
-				if (!base) break;
-				if (item.meta.pinWhen && item.meta.pinWhen !== "always" && options.pinActive?.(item) !== true) break;
-				const key = activationKey(base.world, base.uid);
-				if (!result.pins.includes(key)) result.pins.push(key);
-				break;
-			}
-		}
-	}
-	return result;
-}
-/** Overrides first, suppressions after them (a suppression wins over an override of the same base), then the rest. */
-function kindRank(item) {
-	switch (item.meta.kind) {
-		case "override": return 0;
-		case "suppress": return 1;
-		case "addition": return 2;
-		default: return 3;
-	}
-}
-/** The last `count` messages as one lower-case text (ё → е) for mention checks. */
-function recentText(messages, count) {
-	const parts = [];
-	for (let i = messages.length - 1; i >= 0 && parts.length < count; i--) {
-		const message = messages[i];
-		if (!isDict$59(message) || message.is_system === true) continue;
-		if (typeof message.mes === "string" && message.mes) parts.push(message.mes);
-	}
-	return parts.reverse().join("\n");
-}
-/**
-* Any of the keys occurs in the text: plain keys as case-insensitive substrings (Cyrillic keys behave like that in
-* ST anyway), regex keys with their own flags. `text` is the raw recent text.
-*/
-function keysMentioned(keys, text) {
-	if (!Array.isArray(keys) || !text) return false;
-	const normalized = normalizeForMatch(text);
-	for (const raw of keys) {
-		if (typeof raw !== "string") continue;
-		const key = raw.trim();
-		if (!key) continue;
-		const regex = parseRegexKey$1(key);
-		if (regex) {
-			if (regex.test(text)) return true;
-			continue;
-		}
-		if (normalized.includes(normalizeForMatch(key))) return true;
-	}
-	return false;
-}
-/** Keys of an item for the mention check: its own keys, primary and secondary. */
-function itemKeys(item) {
-	const list = (value) => Array.isArray(value) ? value.filter((key) => typeof key === "string") : [];
-	return [...list(item.entry.key), ...list(item.entry.keysecondary)];
-}
-/** Is an activated entry the canon's own (an addition copy or an override copy)? */
-function isCanonActivation(entry, canonBook) {
-	if (!isDict$59(entry)) return false;
-	if (entry.world === canonBook) return true;
-	const marker = markerOf(entry);
-	return typeof marker?.canonUid === "number" && typeof marker.kind === "string";
-}
-/**
-* Which new canon activations fit the canon budget (plan M6 п. 7, audit B4): highest `order` first, then the newest;
-* lower-order and older ones are cut first. `used` is what earlier loops of the same scan already keep.
-*/
-function planCanonBudget(used, candidates, limit) {
-	const keep = [];
-	const cut = [];
-	let total = used;
-	if (!(limit > 0)) return {
-		keep: candidates.map((item) => item.key),
-		cut,
-		used: total + sum(candidates)
-	};
-	const ordered = [...candidates].sort((a, b) => b.order - a.order || b.updatedAt - a.updatedAt || (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
-	for (const item of ordered) if (total + item.chars <= limit) {
-		keep.push(item.key);
-		total += item.chars;
-	} else cut.push(item.key);
-	return {
-		keep,
-		cut,
-		used: total
-	};
-}
-function sum(items) {
-	return items.reduce((total, item) => total + item.chars, 0);
 }
 //#endregion
 //#region src/domain/bunnymo-mode-packs.ts
@@ -13440,17 +18232,17 @@ function convertKeyList(value, caseSensitive) {
 }
 //#endregion
 //#region src/domain/doctor-fixes.ts
-function isDict$58(value) {
+function isDict$60(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function isBookData(value) {
-	return isDict$58(value) && isDict$58(value.entries);
+	return isDict$60(value) && isDict$60(value.entries);
 }
 /** JSON with sorted object keys; `undefined` and `null` are the same ("use the default"). */
 function stableStringify$1(value) {
 	if (value === void 0 || value === null) return "null";
 	if (Array.isArray(value)) return `[${value.map(stableStringify$1).join(",")}]`;
-	if (isDict$58(value)) return `{${Object.keys(value).filter((key) => value[key] !== void 0).sort().map((key) => `${JSON.stringify(key)}:${stableStringify$1(value[key])}`).join(",")}}`;
+	if (isDict$60(value)) return `{${Object.keys(value).filter((key) => value[key] !== void 0).sort().map((key) => `${JSON.stringify(key)}:${stableStringify$1(value[key])}`).join(",")}}`;
 	return JSON.stringify(value) ?? "null";
 }
 /** The entry holds exactly these field values. */
@@ -13460,8 +18252,8 @@ function entryHas(entry, values) {
 /** The stored key of an entry by uid (`entries[uid]`, or the entry whose `uid` field matches). */
 function entryKeyOf(data, uid) {
 	const direct = data.entries[String(uid)];
-	if (isDict$58(direct)) return String(uid);
-	for (const [key, entry] of Object.entries(data.entries)) if (isDict$58(entry) && Number(entry.uid) === uid) return key;
+	if (isDict$60(direct)) return String(uid);
+	for (const [key, entry] of Object.entries(data.entries)) if (isDict$60(entry) && Number(entry.uid) === uid) return key;
 	return null;
 }
 function copyValue(value) {
@@ -13544,7 +18336,7 @@ async function commitPatches(io, book, patches, options = {}) {
 }
 /** Entries of a stored book in the shape the BunnyMo heuristics read. */
 function likeScan(book, data) {
-	return Object.values(data.entries).filter(isDict$58).map((entry) => ({
+	return Object.values(data.entries).filter(isDict$60).map((entry) => ({
 		...entry,
 		world: book
 	}));
@@ -13556,13 +18348,13 @@ function isBunnyMoBook(book, data) {
 }
 /** The book holds at least one character archive. */
 function hasArchives(data) {
-	return Object.values(data.entries).some((entry) => isDict$58(entry) && isCharacterArchive(entry));
+	return Object.values(data.entries).some((entry) => isDict$60(entry) && isCharacterArchive(entry));
 }
 /** Enabled entries with their uid. */
 function enabledEntriesOf(data) {
 	const result = [];
 	for (const [key, entry] of Object.entries(data.entries)) {
-		if (!isDict$58(entry) || entry.disable === true) continue;
+		if (!isDict$60(entry) || entry.disable === true) continue;
 		const uid = Number(entry.uid ?? key);
 		if (Number.isFinite(uid)) result.push({
 			uid,
@@ -13609,13 +18401,13 @@ function repairBraces(key) {
 * the marker's `added` lists, so the marker keeps describing the entry.
 */
 function planLocalizerFix(uid, entry) {
-	const extensions = isDict$58(entry.extensions) ? entry.extensions : null;
-	const marker = extensions && isDict$58(extensions[LOCALIZER_MARKER]) ? extensions[LOCALIZER_MARKER] : null;
-	const languages = marker && isDict$58(marker.languages) ? marker.languages : null;
+	const extensions = isDict$60(entry.extensions) ? entry.extensions : null;
+	const marker = extensions && isDict$60(extensions[LOCALIZER_MARKER]) ? extensions[LOCALIZER_MARKER] : null;
+	const languages = marker && isDict$60(marker.languages) ? marker.languages : null;
 	if (!extensions || !marker || !languages) return null;
 	const replace = /* @__PURE__ */ new Map();
 	for (const state of Object.values(languages)) {
-		const added = isDict$58(state) && isDict$58(state.added) ? state.added : null;
+		const added = isDict$60(state) && isDict$60(state.added) ? state.added : null;
 		if (!added) continue;
 		for (const field of KEY_FIELDS) for (const key of stringKeys(added[field])) {
 			const problem = regexKeyProblem(key);
@@ -13630,7 +18422,7 @@ function planLocalizerFix(uid, entry) {
 		return next ? [next] : [];
 	}) : keys;
 	const nextLanguages = Object.fromEntries(Object.entries(languages).map(([lang, state]) => {
-		if (!isDict$58(state) || !isDict$58(state.added)) return [lang, state];
+		if (!isDict$60(state) || !isDict$60(state.added)) return [lang, state];
 		const added = { ...state.added };
 		for (const field of KEY_FIELDS) if (Array.isArray(added[field])) added[field] = fix(added[field]);
 		return [lang, {
@@ -13736,7 +18528,7 @@ var BUNNYMO_RULES = [
 	"wrapper.nsfwCollision",
 	"book.cap"
 ];
-function isDict$57(value) {
+function isDict$59(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function strings$13(value) {
@@ -13875,12 +18667,12 @@ var BunnyMoModeService = class {
 		try {
 			if (store) {
 				const data = await store.load(book);
-				return isDict$57(data) && isDict$57(data.entries) ? data : null;
+				return isDict$59(data) && isDict$59(data.entries) ? data : null;
 			}
 			const load = this.app.host.ctx().loadWorldInfo;
 			if (typeof load !== "function") return null;
 			const data = await load(book);
-			return isDict$57(data) && isDict$57(data.entries) ? copy(data) : null;
+			return isDict$59(data) && isDict$59(data.entries) ? copy(data) : null;
 		} catch (error) {
 			this.log.debug(`lorebook ${book} did not load`, error);
 			return null;
@@ -14142,7 +18934,7 @@ var BunnyMoModeService = class {
 		this.emit();
 	}
 	async undoSelection(change) {
-		const chatId = isDict$57(change.ref) ? change.ref.chatId : void 0;
+		const chatId = isDict$59(change.ref) ? change.ref.chatId : void 0;
 		if (!chatId || chatId !== this.app.host.chatId()) return false;
 		await this.app.chat.setPointer(SELECTION_POINTER, readPackSelection(change.before));
 		this.emit();
@@ -14172,7 +18964,7 @@ var BunnyMoModeService = class {
 		if (!lists) return 0;
 		this.classifyUnknown(lists);
 		const removed = suppressBooks(lists, (world) => isOffBySelection(selection, world) && this.kindOf(world) === "pack");
-		if (!simulating && isDict$57(payload)) {
+		if (!simulating && isDict$59(payload)) {
 			if (!this.seenPayloads.has(payload)) {
 				this.seenPayloads.add(payload);
 				this.suppressed = removed;
@@ -14316,7 +19108,7 @@ var BunnyMoModeService = class {
 	isBunnyMo(book, data) {
 		const kind = this.kindOf(book);
 		if (kind === "core" || kind === "pack") return true;
-		return !!data && isDict$57(data.entries) && isBunnyMoBook(book, data);
+		return !!data && isDict$59(data.entries) && isBunnyMoBook(book, data);
 	}
 	async saveSheet(sheet) {
 		const { book, uid } = sheet;
@@ -14415,7 +19207,7 @@ var BunnyMoModeService = class {
 		}
 	}
 	async undoSheet(change) {
-		const ref = isDict$57(change.ref) ? change.ref : {};
+		const ref = isDict$59(change.ref) ? change.ref : {};
 		const book = typeof ref.book === "string" ? ref.book : null;
 		const uid = Number(ref.uid);
 		if (!book || !Number.isFinite(uid) || typeof change.before !== "string") return false;
@@ -16043,11 +20835,11 @@ function emptyBook(chatId, chatName) {
 	};
 }
 function entriesOf$1(data) {
-	if (!isDict$59(data.entries)) data.entries = {};
+	if (!isDict$70(data.entries)) data.entries = {};
 	return data.entries;
 }
 function titleOf(entry, uid) {
-	if (isDict$59(entry)) {
+	if (isDict$70(entry)) {
 		if (typeof entry.comment === "string" && entry.comment.trim()) return entry.comment.trim();
 		const key = Array.isArray(entry.key) ? entry.key.find((item) => typeof item === "string" && item.trim()) : "";
 		if (typeof key === "string" && key) return key;
@@ -16083,7 +20875,7 @@ var CanonStore = class {
 		};
 		on("WORLDINFO_UPDATED", (name, data) => {
 			if (typeof name !== "string" || !isCanonBookName(name)) return;
-			if (isDict$59(data) && isDict$59(data.entries)) this.remember(name, jsonClone(data));
+			if (isDict$70(data) && isDict$70(data.entries)) this.remember(name, jsonClone(data));
 			else this.invalidate(name);
 			this.emit();
 		});
@@ -16169,7 +20961,7 @@ var CanonStore = class {
 		if (typeof ctx.loadWorldInfo !== "function") return null;
 		try {
 			const data = await ctx.loadWorldInfo(name);
-			return isDict$59(data) && isDict$59(data.entries) ? data : null;
+			return isDict$70(data) && isDict$70(data.entries) ? data : null;
 		} catch (error) {
 			this.log.debug(`lorebook ${name} did not load`, error);
 			return null;
@@ -16177,8 +20969,8 @@ var CanonStore = class {
 	}
 	async readEntry(book, uid) {
 		const data = await this.readBook(book);
-		const entry = data && isDict$59(data.entries) ? data.entries[String(uid)] : void 0;
-		return isDict$59(entry) ? entry : null;
+		const entry = data && isDict$70(data.entries) ? data.entries[String(uid)] : void 0;
+		return isDict$70(entry) ? entry : null;
 	}
 	async list(filter = {}) {
 		const name = this.bookName();
@@ -16283,8 +21075,8 @@ var CanonStore = class {
 			const existing = options.uid !== void 0 ? state.items.find((item) => item.uid === options.uid) : findItemForBase(state.items, kind, draft.meta.base);
 			const uid = options.uid ?? existing?.uid ?? freeUid$1(entries);
 			const previous = entries[String(uid)];
-			const before = isDict$59(previous) ? jsonClone(previous) : null;
-			const previousMeta = before && isDict$59(before.extensions) ? readCanonMeta(before.extensions.maestro) : null;
+			const before = isDict$70(previous) ? jsonClone(previous) : null;
+			const previousMeta = before && isDict$70(before.extensions) ? readCanonMeta(before.extensions.maestro) : null;
 			const now = Date.now();
 			const meta = {
 				...draft.meta,
@@ -16331,7 +21123,7 @@ var CanonStore = class {
 			const data = jsonClone(state.data);
 			const entries = entriesOf$1(data);
 			const before = entries[String(uid)];
-			if (!isDict$59(before)) return;
+			if (!isDict$70(before)) return;
 			delete entries[String(uid)];
 			await this.saveBook(name, data);
 			await this.journal("canon.remove", this.t("m6.journal.remove", { title: titleOf(before, uid) }), [{
@@ -16355,7 +21147,7 @@ var CanonStore = class {
 			const data = jsonClone(state.data);
 			const entries = entriesOf$1(data);
 			const current = entries[String(uid)];
-			if (!isDict$59(current) || !isDict$59(current.extensions) || !isDict$59(current.extensions.maestro)) return;
+			if (!isDict$70(current) || !isDict$70(current.extensions) || !isDict$70(current.extensions.maestro)) return;
 			const raw = current.extensions.maestro;
 			if (!readCanonMeta(raw) || raw.status === status) return;
 			const before = jsonClone(current);
@@ -16411,8 +21203,8 @@ var CanonStore = class {
 		const canonBook = this.bookName();
 		return this.enqueue(async () => {
 			const baseData = await this.readBook(base.world);
-			const current = baseData && isDict$59(baseData.entries) ? baseData.entries[String(base.uid)] : void 0;
-			if (!baseData || !isDict$59(current)) return false;
+			const current = baseData && isDict$70(baseData.entries) ? baseData.entries[String(base.uid)] : void 0;
+			if (!baseData || !isDict$70(current)) return false;
 			const data = jsonClone(baseData);
 			const before = jsonClone(current);
 			const after = item.meta.kind === "override" ? materializeOverride(current, item.entry, itemOverrideFields(item.meta, item.entry)) : {
@@ -16432,7 +21224,7 @@ var CanonStore = class {
 				before,
 				after
 			}];
-			if (state.data && isDict$59(entriesOf$1(state.data)[String(uid)])) {
+			if (state.data && isDict$70(entriesOf$1(state.data)[String(uid)])) {
 				const canonData = jsonClone(state.data);
 				const removed = entriesOf$1(canonData)[String(uid)];
 				delete entriesOf$1(canonData)[String(uid)];
@@ -16465,7 +21257,7 @@ var CanonStore = class {
 			if (!base) continue;
 			if (!books.has(base.world)) books.set(base.world, await this.readBook(base.world));
 			const data = books.get(base.world);
-			const changed = baseDriftOf(item, data && isDict$59(data.entries) ? data.entries[String(base.uid)] : void 0);
+			const changed = baseDriftOf(item, data && isDict$70(data.entries) ? data.entries[String(base.uid)] : void 0);
 			if (changed) drift.push({
 				item,
 				baseThen: changed.then,
@@ -16490,8 +21282,8 @@ var CanonStore = class {
 		for (const name of (this.worldNames() ?? []).filter((book) => isCanonBookName(book))) {
 			const data = await this.readBook(name);
 			if (!data || !canonItemsOf(data).length) continue;
-			const extensions = isDict$59(data.extensions) ? data.extensions : {};
-			const meta = isDict$59(extensions.maestro) ? extensions.maestro : {};
+			const extensions = isDict$70(data.extensions) ? data.extensions : {};
+			const meta = isDict$70(extensions.maestro) ? extensions.maestro : {};
 			const chatName = typeof meta.chatName === "string" && meta.chatName ? meta.chatName : name;
 			created.push(await this.exportBook(name, chatName));
 		}
@@ -16507,8 +21299,8 @@ var CanonStore = class {
 		}
 		const baseOf = (world, uid) => {
 			const data = books.get(world);
-			const entry = data && isDict$59(data.entries) ? data.entries[String(uid)] : void 0;
-			return isDict$59(entry) ? entry : null;
+			const entry = data && isDict$70(data.entries) ? data.entries[String(uid)] : void 0;
+			return isDict$70(entry) ? entry : null;
 		};
 		const book = buildExportBook(items, baseOf, {
 			noteTitle: this.t("m6.export.noteTitle"),
@@ -16546,7 +21338,7 @@ var CanonStore = class {
 			if (!source) return false;
 			const data = jsonClone(source);
 			data.extensions = {
-				...isDict$59(data.extensions) ? data.extensions : {},
+				...isDict$70(data.extensions) ? data.extensions : {},
 				maestro: {
 					role: "canon",
 					chatId,
@@ -16572,9 +21364,9 @@ var CanonStore = class {
 				const data = jsonClone(current);
 				let changed = false;
 				for (const entry of Object.values(entriesOf$1(data))) {
-					if (!isDict$59(entry) || !isDict$59(entry.extensions)) continue;
+					if (!isDict$70(entry) || !isDict$70(entry.extensions)) continue;
 					const meta = entry.extensions.maestro;
-					if (!isDict$59(meta) || !isDict$59(meta.base) || meta.base.world !== oldName) continue;
+					if (!isDict$70(meta) || !isDict$70(meta.base) || meta.base.world !== oldName) continue;
 					entry.extensions = {
 						...entry.extensions,
 						maestro: {
@@ -16603,7 +21395,7 @@ var CanonStore = class {
 			if (!state.data && change.before === null) return true;
 			const data = state.data ? jsonClone(state.data) : { entries: {} };
 			const entries = entriesOf$1(data);
-			if (isDict$59(change.before)) entries[String(uid)] = jsonClone(change.before);
+			if (isDict$70(change.before)) entries[String(uid)] = jsonClone(change.before);
 			else delete entries[String(uid)];
 			await this.saveBook(book, data, !state.exists);
 			this.emit();
@@ -16619,7 +21411,7 @@ var CanonStore = class {
 			if (!current) return false;
 			const data = jsonClone(current);
 			const entries = entriesOf$1(data);
-			if (isDict$59(change.before)) entries[String(uid)] = jsonClone(change.before);
+			if (isDict$70(change.before)) entries[String(uid)] = jsonClone(change.before);
 			else delete entries[String(uid)];
 			await this.saveBook(book, data);
 			return true;
@@ -16784,7 +21576,7 @@ var CanonGlosses = class {
 	collectLocalizer(lists) {
 		const pairs = [];
 		for (const list of Object.values(lists)) for (const entry of list) {
-			if (!isDict$59(entry) || !isDict$59(entry.extensions) || !entry.extensions.lorebook_localizer) continue;
+			if (!isDict$70(entry) || !isDict$70(entry.extensions) || !entry.extensions.lorebook_localizer) continue;
 			const marker = readLocalizerMarker(entry);
 			if (!marker) continue;
 			for (const state of Object.values(marker.languages)) pairs.push(...pairsFromLocalizer(state.sources, [...state.added.key, ...state.added.keysecondary]));
@@ -16978,11 +21770,11 @@ var CanonScan = class {
 		}
 	}
 	onScanDone(args) {
-		if (!isDict$59(args)) return;
+		if (!isDict$70(args)) return;
 		const book = this.store.bookName();
-		const activated = isDict$59(args.activated) ? args.activated.entries : void 0;
+		const activated = isDict$70(args.activated) ? args.activated.entries : void 0;
 		if (!book || !(activated instanceof Map)) return;
-		const state = isDict$59(args.state) ? args.state : {};
+		const state = isDict$70(args.state) ? args.state : {};
 		const loop = typeof state.loopCount === "number" && state.loopCount > 0 ? state.loopCount : 1;
 		const sorted = Array.isArray(args.sortedEntries) ? args.sortedEntries : [];
 		let scan = this.scan;
@@ -17005,8 +21797,8 @@ var CanonScan = class {
 	forcePins(activated, sorted, scan) {
 		for (const key of this.pins) {
 			if (activated.has(key)) continue;
-			const entry = sorted.find((item) => isDict$59(item) && activationKey(item.world, item.uid) === key);
-			if (!isDict$59(entry)) continue;
+			const entry = sorted.find((item) => isDict$70(item) && activationKey(item.world, item.uid) === key);
+			if (!isDict$70(entry)) continue;
 			if (typeof entry.content === "string") try {
 				entry.content = this.app.host.ctx().substituteParams(entry.content);
 			} catch (error) {
@@ -17026,7 +21818,7 @@ var CanonScan = class {
 			const key = String(rawKey);
 			if (scan.accepted.has(key) || scan.pinned.has(key) || !isCanonActivation(entry, book)) continue;
 			const copy = entry;
-			const marker = isDict$59(copy.extensions) && isDict$59(copy.extensions.maestro) ? copy.extensions.maestro : {};
+			const marker = isDict$70(copy.extensions) && isDict$70(copy.extensions.maestro) ? copy.extensions.maestro : {};
 			const uid = copy.world === book ? Number(copy.uid) : Number(marker.canonUid);
 			byKey.set(key, copy);
 			candidates.push({
@@ -17047,8 +21839,8 @@ var CanonScan = class {
 			activated.delete(key);
 			entry.disable = true;
 			if (!sorted.includes(entry)) {
-				const twin = sorted.find((item) => isDict$59(item) && activationKey(item.world, item.uid) === key);
-				if (isDict$59(twin)) twin.disable = true;
+				const twin = sorted.find((item) => isDict$70(item) && activationKey(item.world, item.uid) === key);
+				if (isDict$70(twin)) twin.disable = true;
 			}
 			scan.cut++;
 			lore?.markCut?.(String(entry.world), Number(entry.uid));
@@ -17743,19 +22535,19 @@ var STOP_WORDS$1 = /* @__PURE__ */ new Set([
 	"ли"
 ]);
 /** NFC, lower case, ё → е, whitespace runs → one space, trimmed. */
-function normalizeText$1(text) {
+function normalizeText(text) {
 	return String(text ?? "").normalize("NFC").toLowerCase().replace(/ё/g, "е").replace(/\s+/g, " ").trim();
 }
 /** Words of a text (letters and digits), normalised. */
 function textWords(text) {
-	return normalizeText$1(text).split(WORD_SPLIT_RE$1).filter(Boolean);
+	return normalizeText(text).split(WORD_SPLIT_RE$1).filter(Boolean);
 }
 /**
 * A crude stem: one Russian ending cut (the stem keeps ≥ 3 letters); English plurals, -ing and -ed cut. Enough to
 * make case forms and plurals one token; not a linguistic stemmer.
 */
 function stemWord$1(word) {
-	const value = normalizeText$1(word);
+	const value = normalizeText(word);
 	if (!value || DIGITS_RE.test(value)) return value;
 	if (CYRILLIC_RE$6.test(value)) {
 		for (const ending of RU_ENDINGS$2) if (value.endsWith(ending) && value.length - ending.length >= 3) return value.slice(0, -ending.length);
@@ -17801,7 +22593,7 @@ function sameTokens(a, b) {
 function textsDiffer(a, b, threshold) {
 	const left = tokenSet(a);
 	const right = tokenSet(b);
-	if (!left.size && !right.size) return normalizeText$1(a) !== normalizeText$1(b);
+	if (!left.size && !right.size) return normalizeText(a) !== normalizeText(b);
 	let common = 0;
 	for (const token of left) if (right.has(token)) common++;
 	const differing = left.size + right.size - 2 * common;
@@ -18063,7 +22855,7 @@ function tokensOf(text) {
 		const index = match.index ?? 0;
 		tokens.push({
 			text: word,
-			lower: normalizeText$1(word),
+			lower: normalizeText(word),
 			index,
 			end: index + word.length,
 			capital: isCapitalised(word)
@@ -18136,7 +22928,7 @@ function quotedNames$1(text) {
 		if (/[.!?,;:…—–()]/.test(inner)) continue;
 		const words = inner.split(/\s+/);
 		if (words.length > MAX_QUOTED_WORDS || letters(inner) < 2) continue;
-		if (words.length === 1 && COMMON.has(normalizeText$1(inner))) continue;
+		if (words.length === 1 && COMMON.has(normalizeText(inner))) continue;
 		out.push(inner);
 	}
 	return out;
@@ -18226,7 +23018,7 @@ function monthNumber(word) {
 /** Minutes since midnight of a clock time in the text («18:30», «6:30 PM», «9 am», «полдень»); null if none. */
 function parseClock(text) {
 	if (!text) return null;
-	const value = normalizeText$1(text);
+	const value = normalizeText(text);
 	const clock = CLOCK_RE.exec(value);
 	let hours = null;
 	let minutes = 0;
@@ -18270,7 +23062,7 @@ function calendar(year, month, day) {
 /** A story day («Day 3», «День 3», «3rd day») or a calendar date («March 5, 1856», «5 марта», «1856-03-05»). */
 function parseDay(text) {
 	if (!text) return null;
-	const value = normalizeText$1(text);
+	const value = normalizeText(text);
 	const story = STORY_DAY_RE.exec(value);
 	if (story) return {
 		kind: "day",
@@ -18828,19 +23620,19 @@ function clip$7(text, max = QUOTE_CHARS$2) {
 	const space = cut.lastIndexOf(" ");
 	return `${(space > max * .6 ? cut.slice(0, space) : cut).trimEnd()}…`;
 }
-function splitSentences$2(text, limit) {
+function splitSentences$1(text, limit) {
 	return text.slice(0, limit).split(/(?<=[.!?…])\s+|\n+|;\s+/).map((sentence) => sentence.trim()).filter((sentence) => /\p{L}/u.test(sentence)).slice(0, MAX_SENTENCES);
 }
 /** Original words with their positions (letters and digits). */
-function wordsOf$3(text) {
+function wordsOf$2(text) {
 	return [...text.matchAll(/[\p{L}\p{N}]+/gu)].map((match) => ({
 		raw: match[0],
-		lower: normalizeText$1(match[0])
+		lower: normalizeText(match[0])
 	}));
 }
 /** Role key of a word (the matching stem), or null when the word is no role. */
 function roleKey$1(word) {
-	const value = normalizeText$1(word);
+	const value = normalizeText(word);
 	if (!value) return null;
 	if (hasCyrillic$1(value)) {
 		let best = null;
@@ -18860,14 +23652,14 @@ function mentioned(words, entities) {
 	return found;
 }
 function needlesOf(name) {
-	return normalizeText$1(name).split(/[^\p{L}\p{N}]+/u).filter((word) => word.length >= 3 && !STOP_WORDS$1.has(word) && !NOT_NAMES.has(word)).map((word) => hasCyrillic$1(word) ? stemWord$1(word) : word);
+	return normalizeText(name).split(/[^\p{L}\p{N}]+/u).filter((word) => word.length >= 3 && !STOP_WORDS$1.has(word) && !NOT_NAMES.has(word)).map((word) => hasCyrillic$1(word) ? stemWord$1(word) : word);
 }
 /** Capitalised words of a text that may be names (used when the caller gave no entities). */
 function capitalisedNames$1(text) {
 	const out = /* @__PURE__ */ new Set();
 	for (const match of text.matchAll(/\p{Lu}\p{Ll}{2,}/gu)) {
 		const word = match[0];
-		if (!NOT_NAMES.has(normalizeText$1(word)) && !STOP_WORDS$1.has(normalizeText$1(word))) out.add(word);
+		if (!NOT_NAMES.has(normalizeText(word)) && !STOP_WORDS$1.has(normalizeText(word))) out.add(word);
 	}
 	return [...out];
 }
@@ -19108,8 +23900,8 @@ function contentOf$3(text) {
 function analyseText(text, limit, entities, inherit) {
 	let carried = new Set(inherit);
 	const names = new Set(entities.flatMap((entity) => entity.needles.map(stemWord$1)));
-	return splitSentences$2(text, limit).map((sentence) => {
-		const words = wordsOf$3(sentence);
+	return splitSentences$1(text, limit).map((sentence) => {
+		const words = wordsOf$2(sentence);
 		const named = mentioned(words, entities);
 		const explicit = named.size > 0;
 		if (explicit) carried = named;
@@ -19186,7 +23978,7 @@ function analyseContradictions(input) {
 	};
 	const given = (Array.isArray(input.entities) ? input.entities : []).filter((name) => typeof name === "string" && !!name.trim());
 	const usable = (given.length ? given : capitalisedNames$1(statement)).map((name) => ({
-		name: normalizeText$1(name),
+		name: normalizeText(name),
 		needles: needlesOf(name)
 	})).filter((entity) => entity.needles.length);
 	const statementSentences = analyseText(statement, MAX_STATEMENT_CHARS, usable, new Set(given.length ? usable.map((entity) => entity.name) : []));
@@ -19237,7 +24029,7 @@ var STATEMENT_CHARS = 2e3;
 var AGAINST_CHARS = 3e3;
 var TOTAL_CHARS = 12e3;
 var MAX_AGAINST$1 = 20;
-var MAX_HINTS = 6;
+var MAX_HINTS$1 = 6;
 var DEFAULT_CONFIDENCE = .6;
 var CHECK_SCHEMA = {
 	type: "object",
@@ -19313,10 +24105,10 @@ function defuse(text) {
 }
 /** Stable key of a check (the queue dedupes by it): statement, entities and texts, normalised. */
 function checkKey(input) {
-	const against = (input.against ?? []).map((item) => [item.label.trim(), normalizeText$1(item.text)]);
-	const entities = [...input.entities ?? []].map(normalizeText$1).sort();
+	const against = (input.against ?? []).map((item) => [item.label.trim(), normalizeText(item.text)]);
+	const entities = [...input.entities ?? []].map(normalizeText).sort();
 	return stableHash(JSON.stringify([
-		normalizeText$1(input.statement),
+		normalizeText(input.statement),
 		entities,
 		against
 	]));
@@ -19341,7 +24133,7 @@ function buildCheckPayload(input, hits) {
 		statement: clip$6(input.statement, STATEMENT_CHARS),
 		entities: input.entities.filter((name) => name.trim()).slice(0, 20),
 		against,
-		hints: hits.slice(0, MAX_HINTS).map((hit) => `${hit.kind} (${hit.label}): "${hit.statement}" vs "${hit.conflicting}"`)
+		hints: hits.slice(0, MAX_HINTS$1).map((hit) => `${hit.kind} (${hit.label}): "${hit.statement}" vs "${hit.conflicting}"`)
 	};
 }
 function buildCheckMessages(payload) {
@@ -19391,7 +24183,7 @@ function parseCheckAnswer(data, againstCount) {
 		const statementQuote = quote(item.statementQuote);
 		const againstQuote = quote(item.againstQuote);
 		if (against === null || !statementQuote && !againstQuote) continue;
-		const key = `${against}\u0000${normalizeText$1(statementQuote)}\u0000${normalizeText$1(againstQuote)}`;
+		const key = `${against}\u0000${normalizeText(statementQuote)}\u0000${normalizeText(againstQuote)}`;
 		if (seen.has(key)) continue;
 		seen.add(key);
 		const confidence = typeof item.confidence === "number" && Number.isFinite(item.confidence) ? Math.min(1, Math.max(0, item.confidence)) : DEFAULT_CONFIDENCE;
@@ -19407,8 +24199,8 @@ function parseCheckAnswer(data, againstCount) {
 	return out;
 }
 function overlaps$1(a, b) {
-	const left = normalizeText$1(a);
-	const right = normalizeText$1(b);
+	const left = normalizeText(a);
+	const right = normalizeText(b);
 	if (!left || !right) return false;
 	return left.includes(right) || right.includes(left);
 }
@@ -19708,268 +24500,8 @@ var contradictionsModule = {
 	}
 };
 //#endregion
-//#region src/domain/entry-types.ts
-/** Same ids as `EntryType` of the canon API (src/features/canon/api.ts). */
-var ENTRY_TYPE_IDS = [
-	"character",
-	"place",
-	"item",
-	"faction",
-	"event",
-	"tradition",
-	"mechanic",
-	"rule",
-	"chapter",
-	"note"
-];
-var line = (id, label) => ({
-	id,
-	label
-});
-var text$5 = (id, label) => ({
-	id,
-	label,
-	multiline: true
-});
-var ENTRY_TYPES = {
-	character: {
-		id: "character",
-		label: "Character",
-		fields: [
-			line("name", "Name"),
-			line("aliases", "Aliases"),
-			line("role", "Role"),
-			line("age", "Age"),
-			text$5("appearance", "Appearance"),
-			text$5("personality", "Personality"),
-			text$5("background", "Background"),
-			text$5("relationships", "Relationships"),
-			text$5("speech", "Speech"),
-			text$5("goals", "Goals")
-		]
-	},
-	place: {
-		id: "place",
-		label: "Place",
-		fields: [
-			line("name", "Name"),
-			line("aliases", "Aliases"),
-			line("kind", "Kind"),
-			line("location", "Location"),
-			text$5("description", "Description"),
-			text$5("atmosphere", "Atmosphere"),
-			text$5("inhabitants", "Inhabitants"),
-			text$5("features", "Notable features"),
-			text$5("secrets", "Secrets")
-		]
-	},
-	item: {
-		id: "item",
-		label: "Item",
-		fields: [
-			line("name", "Name"),
-			line("aliases", "Aliases"),
-			line("kind", "Kind"),
-			text$5("appearance", "Appearance"),
-			text$5("properties", "Properties"),
-			line("owner", "Owner"),
-			text$5("origin", "Origin"),
-			line("whereabouts", "Whereabouts")
-		]
-	},
-	faction: {
-		id: "faction",
-		label: "Faction",
-		fields: [
-			line("name", "Name"),
-			line("aliases", "Aliases"),
-			line("kind", "Kind"),
-			line("leader", "Leader"),
-			text$5("members", "Members"),
-			text$5("goals", "Goals"),
-			line("territory", "Territory"),
-			line("allies", "Allies"),
-			line("enemies", "Enemies"),
-			text$5("symbols", "Symbols and customs")
-		]
-	},
-	event: {
-		id: "event",
-		label: "Event",
-		fields: [
-			line("name", "Name"),
-			line("when", "When"),
-			line("where", "Where"),
-			line("participants", "Participants"),
-			text$5("description", "What happened"),
-			text$5("consequences", "Consequences")
-		]
-	},
-	tradition: {
-		id: "tradition",
-		label: "Tradition",
-		fields: [
-			line("name", "Name"),
-			line("culture", "Culture"),
-			line("when", "When"),
-			text$5("practice", "Practice"),
-			text$5("meaning", "Meaning"),
-			text$5("taboos", "Taboos")
-		]
-	},
-	mechanic: {
-		id: "mechanic",
-		label: "Mechanic",
-		fields: [
-			line("name", "Name"),
-			text$5("summary", "Summary"),
-			text$5("rules", "Rules"),
-			text$5("limits", "Costs and limits"),
-			text$5("examples", "Examples")
-		]
-	},
-	rule: {
-		id: "rule",
-		label: "Rule",
-		fields: [
-			line("name", "Name"),
-			text$5("statement", "Rule"),
-			line("scope", "Scope"),
-			text$5("exceptions", "Exceptions")
-		]
-	},
-	chapter: {
-		id: "chapter",
-		label: "Chapter",
-		fields: [
-			line("name", "Title"),
-			line("period", "Period"),
-			text$5("summary", "Summary"),
-			text$5("events", "Key events"),
-			line("characters", "Characters"),
-			text$5("threads", "Open threads")
-		]
-	},
-	note: {
-		id: "note",
-		label: "Note",
-		fields: [line("name", "Title"), text$5("text", "Text")]
-	}
-};
-/**
-* Stored key of the field values next to `type` (in `extensions.maestro` or the sidecar record). Not `fields`:
-* canon items use `extensions.maestro.fields` for the list of WI fields an override replaces.
-*/
-var TYPED_FIELDS_KEY = "typeFields";
-function isEntryType(value) {
-	return typeof value === "string" && ENTRY_TYPE_IDS.includes(value);
-}
-/** Typed meta from `extensions.maestro` or a sidecar record; null when there is no valid type. */
-function readTypedMeta(value) {
-	if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
-	const record = value;
-	if (!isEntryType(record.type)) return null;
-	const fields = {};
-	const stored = record[TYPED_FIELDS_KEY];
-	if (typeof stored === "object" && stored !== null && !Array.isArray(stored)) {
-		for (const [key, item] of Object.entries(stored)) if (typeof item === "string") fields[key] = item;
-	}
-	return {
-		type: record.type,
-		fields
-	};
-}
-function emptyFields(type) {
-	return Object.fromEntries(ENTRY_TYPES[type].fields.map((field) => [field.id, ""]));
-}
-/** Field values of a meta for its type (template order), missing ones as ''. */
-function templateValues(meta) {
-	return {
-		...emptyFields(meta.type),
-		...meta.fields
-	};
-}
-/** Same type and the same non-empty field values. */
-function sameTypedMeta(a, b) {
-	if (!a || !b) return a === b;
-	if (a.type !== b.type) return false;
-	const keys = /* @__PURE__ */ new Set([...Object.keys(a.fields), ...Object.keys(b.fields)]);
-	for (const key of keys) if ((a.fields[key] ?? "").trim() !== (b.fields[key] ?? "").trim()) return false;
-	return true;
-}
-/**
-* Content from the fields: «Character: Anna» first (the name field), then «Label: value» per filled field;
-* multi-line values go under «Label:». Values are written as typed (trimmed); empty fields are skipped.
-*/
-function composeContent(meta) {
-	const template = ENTRY_TYPES[meta.type];
-	const lines = [];
-	const [first, ...rest] = template.fields;
-	const name = first ? (meta.fields[first.id] ?? "").trim() : "";
-	if (name) lines.push(`${template.label}: ${name}`);
-	for (const field of rest) {
-		const value = (meta.fields[field.id] ?? "").trim();
-		if (!value) continue;
-		lines.push(value.includes("\n") ? `${field.label}:\n${value}` : `${field.label}: ${value}`);
-	}
-	return lines.join("\n");
-}
-/**
-* Best-effort reverse of composeContent: fills the fields of `type` from content written in the «Label: value»
-* form (lines that start with a known label). Unrecognised text is left out; used to pre-fill a newly typed entry.
-*/
-function fieldsFromContent(type, content) {
-	const template = ENTRY_TYPES[type];
-	const fields = emptyFields(type);
-	const [first, ...rest] = template.fields;
-	const byLabel = new Map(rest.map((field) => [field.label.toLowerCase(), field.id]));
-	let current = null;
-	for (const raw of content.split("\n")) {
-		const match = /^([^:\n]{1,40}):\s?(.*)$/.exec(raw);
-		const label = match?.[1]?.trim().toLowerCase();
-		if (match && first && label === template.label.toLowerCase()) {
-			fields[first.id] = (match[2] ?? "").trim();
-			current = null;
-			continue;
-		}
-		const id = label ? byLabel.get(label) : void 0;
-		if (match && id) {
-			fields[id] = (match[2] ?? "").trim();
-			current = id;
-			continue;
-		}
-		if (current !== null) fields[current] = fields[current] ? `${fields[current]}\n${raw}` : raw;
-	}
-	for (const key of Object.keys(fields)) fields[key] = (fields[key] ?? "").trim();
-	return fields;
-}
-/**
-* `extensions` with the typed meta merged into `extensions.maestro` (other keys of both objects kept — canon
-* books keep their CanonMeta there). `meta = null` removes `type`/`typeFields`; `maestro` emptied that way is dropped.
-* Returns a new object (or undefined when nothing is left of an absent `extensions`).
-*/
-function withTypedMeta(extensions, meta) {
-	const hadExtensions = typeof extensions === "object" && extensions !== null && !Array.isArray(extensions);
-	const next = hadExtensions ? { ...extensions } : {};
-	const previous = next.maestro;
-	const hadMaestro = typeof previous === "object" && previous !== null && !Array.isArray(previous);
-	const maestro = hadMaestro ? { ...previous } : {};
-	if (meta) {
-		maestro.type = meta.type;
-		maestro[TYPED_FIELDS_KEY] = { ...meta.fields };
-	} else {
-		delete maestro.type;
-		delete maestro[TYPED_FIELDS_KEY];
-	}
-	const wasEmpty = hadMaestro && Object.keys(previous).length === 0;
-	if (Object.keys(maestro).length || wasEmpty) next.maestro = maestro;
-	else delete next.maestro;
-	if (!hadExtensions && !Object.keys(next).length) return void 0;
-	return next;
-}
-//#endregion
 //#region src/domain/chronicle-chapters.ts
-function isDict$56(value) {
+function isDict$58(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function strings$11(value) {
@@ -19999,9 +24531,9 @@ function memoryHash(text) {
 /** Stored tracking records, repaired (unknown fields and broken records dropped). */
 function readTracked(raw) {
 	const out = {};
-	if (!isDict$56(raw)) return out;
+	if (!isDict$58(raw)) return out;
 	for (const [key, value] of Object.entries(raw)) {
-		if (!/^\d+$/.test(key) || !isDict$56(value)) continue;
+		if (!/^\d+$/.test(key) || !isDict$58(value)) continue;
 		const state = MEMORY_STATES.includes(String(value.state)) ? value.state : null;
 		if (!state || typeof value.date !== "string" || typeof value.hash !== "string") continue;
 		const item = {
@@ -20341,7 +24873,7 @@ function chapterId(indexes, dates) {
 	return `ch-${stableHash(`${indexes.join(",")}|${dates.join("|")}`)}`;
 }
 function readChronicleMeta(raw) {
-	if (!isDict$56(raw) || typeof raw.id !== "string" || !raw.id) return null;
+	if (!isDict$58(raw) || typeof raw.id !== "string" || !raw.id) return null;
 	if (!Number.isInteger(raw.from) || !Number.isInteger(raw.to)) return null;
 	return {
 		id: raw.id,
@@ -20356,11 +24888,11 @@ function readChronicleMeta(raw) {
 }
 /** A canon item (uid, meta, entry) as a chronicle chapter; null for anything else. */
 function chapterInfoOf(item) {
-	const meta = isDict$56(item.meta) ? item.meta : {};
+	const meta = isDict$58(item.meta) ? item.meta : {};
 	if (meta.type !== "chapter" || meta.origin !== "chronicle") return null;
 	const chronicle = readChronicleMeta(meta.chronicle);
 	if (!chronicle) return null;
-	const fields = isDict$56(meta["typeFields"]) ? meta[TYPED_FIELDS_KEY] : {};
+	const fields = isDict$58(meta["typeFields"]) ? meta[TYPED_FIELDS_KEY] : {};
 	const content = typeof item.entry.content === "string" ? item.entry.content : "";
 	const comment = typeof item.entry.comment === "string" ? item.entry.comment.trim() : "";
 	return {
@@ -20639,482 +25171,6 @@ function detectImportant(text) {
 	return Object.keys(PATTERNS).filter((code) => PATTERNS[code].some((pattern) => pattern.test(text)));
 }
 //#endregion
-//#region src/domain/world-names.ts
-/** Entity kinds of the world model (same ids as `EntityKind` in src/features/world/api.ts). */
-var WORLD_KINDS = [
-	"persona",
-	"character",
-	"place",
-	"item",
-	"faction",
-	"event",
-	"tradition",
-	"promise",
-	"secret",
-	"quest",
-	"mechanic"
-];
-var WORD_CHAR_RE$1 = /[\p{L}\p{N}_]/u;
-var LETTER_RE$1 = /\p{L}/u;
-var MAX_NAME_CHARS$1 = 60;
-var MAX_NAME_WORDS$1 = 4;
-/** Letters a Cyrillic name may be followed by (a case ending the forms did not list: «Анн|ой»). */
-var NAME_TAIL = 2;
-/** Letters after a stem («Маш» + «енька» is too much, «Маш» + «ей» is fine). */
-var STEM_TAIL = 3;
-var MIN_NEEDLE = 2;
-/** Order of kinds in lists (persona first, then people, places, things). */
-function kindOrder(kind) {
-	const index = WORLD_KINDS.indexOf(kind);
-	return index < 0 ? WORLD_KINDS.length : index;
-}
-/** People share one namespace: a DES roster name equal to the persona's name is the persona. */
-function kindFamily(kind) {
-	return kind === "character" || kind === "persona" ? "being" : kind;
-}
-/** NFC, lower case, ё → е, whitespace runs → one space, trimmed. */
-function normalizeName(text) {
-	return text.normalize("NFC").toLowerCase().replace(/ё/g, "е").replace(/\s+/g, " ").trim();
-}
-/** Same as normalizeName but keeps the length of leading/trailing text (used on whole messages). */
-function normalizeText(text) {
-	return text.normalize("NFC").toLowerCase().replace(/ё/g, "е").replace(/\s+/g, " ");
-}
-/** `${kind}:${normalised name}` (places use their registry id instead). */
-function entityIdOf(kind, name) {
-	return `${kind}:${normalizeName(name)}`;
-}
-/** Order-independent key of two ids (separated pairs, proposed merges). */
-function pairKey$1(a, b) {
-	return a < b ? `${a}\u0000${b}` : `${b}\u0000${a}`;
-}
-function wordsOf$2(normalized) {
-	return normalized.split(" ").filter(Boolean);
-}
-/**
-* A lorebook key or alias that can stand for a name: not a regex, no macros, not a BunnyMo tag or sheet command,
-* one line of at most four words and 60 characters, with at least one letter.
-*/
-function looksLikeName(value) {
-	if (typeof value !== "string") return false;
-	const text = value.trim();
-	if (text.length < MIN_NEEDLE || text.length > MAX_NAME_CHARS$1) return false;
-	if (isRegexKey$1(text) || text.includes("{{") || /[\n\r<>]/.test(text) || /^[!@#/]/.test(text)) return false;
-	if (!LETTER_RE$1.test(text)) return false;
-	return wordsOf$2(normalizeName(text)).length <= MAX_NAME_WORDS$1;
-}
-/** Name-like values, trimmed, unique by normalised form, first spelling kept. */
-function nameList(values) {
-	const seen = /* @__PURE__ */ new Set();
-	const out = [];
-	for (const value of values) {
-		if (!looksLikeName(value)) continue;
-		const text = value.trim();
-		const key = normalizeName(text);
-		if (seen.has(key)) continue;
-		seen.add(key);
-		out.push(text);
-	}
-	return out;
-}
-/** «Лиз, Лиза; Liz» → names (typed entries keep aliases in one comma-separated field). */
-function splitAliases(text) {
-	return typeof text === "string" ? nameList(text.split(/[,;\n]/)) : [];
-}
-/**
-* Needles of one entity: every name, alias and form (Cyrillic ones may take a short ending, Latin ones need a right
-* boundary). With `stems` (no DES-RU forms known), single Cyrillic words also give their stem («Маша» → «Маш»).
-*/
-function mentionNeedles(names, forms, stems) {
-	const out = /* @__PURE__ */ new Map();
-	const add = (needle, tail) => {
-		if (needle.length < MIN_NEEDLE) return;
-		const known = out.get(needle);
-		if (known === void 0 || known < tail) out.set(needle, tail);
-	};
-	for (const raw of [...names, ...forms]) {
-		if (typeof raw !== "string") continue;
-		const needle = normalizeName(raw);
-		if (!needle) continue;
-		const cyrillic = hasCyrillic$1(needle);
-		add(needle, cyrillic ? NAME_TAIL : 0);
-		if (stems && cyrillic && !needle.includes(" ")) {
-			const stem = normalizeName(russianStem(raw));
-			if (stem !== needle) add(stem, STEM_TAIL);
-		}
-	}
-	return [...out].map(([needle, tail]) => ({
-		needle,
-		tail
-	}));
-}
-function buildMentionMatcher(rows) {
-	return { rows: [...rows].filter((row) => row.needles.length > 0) };
-}
-/** Position of the first occurrence with a left boundary and at most `tail` word characters after it; -1 if none. */
-function findNeedle(text, needle, tail) {
-	if (!needle) return -1;
-	let from = 0;
-	for (;;) {
-		const index = text.indexOf(needle, from);
-		if (index < 0) return -1;
-		from = index + 1;
-		const before = index > 0 ? text[index - 1] : void 0;
-		if (before !== void 0 && WORD_CHAR_RE$1.test(before)) continue;
-		const end = index + needle.length;
-		let extra = 0;
-		while (end + extra < text.length && WORD_CHAR_RE$1.test(text[end + extra] ?? "") && extra <= tail) extra++;
-		if (extra <= tail) return index;
-	}
-}
-/** Ids of the rows mentioned in `text`, in order of their first mention. */
-function findMentions(matcher, text) {
-	if (!text || !matcher.rows.length) return [];
-	const haystack = normalizeText(text);
-	const hits = [];
-	for (const row of matcher.rows) {
-		let best = -1;
-		for (const { needle, tail } of row.needles) {
-			const at = findNeedle(haystack, needle, tail);
-			if (at >= 0 && (best < 0 || at < best)) best = at;
-		}
-		if (best >= 0) hits.push({
-			id: row.id,
-			at: best
-		});
-	}
-	hits.sort((a, b) => a.at - b.at);
-	return hits.map((hit) => hit.id);
-}
-//#endregion
-//#region src/domain/text-clean.ts
-function isDict$55(value) {
-	return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-/** Names of real HTML elements (lower case). BunnyMo tags (`<SPECIES:ELF>`, `<PHYSICAL>`) are not among them. */
-var HTML_ELEMENTS = /* @__PURE__ */ new Set([
-	"a",
-	"abbr",
-	"address",
-	"area",
-	"article",
-	"aside",
-	"audio",
-	"b",
-	"base",
-	"bdi",
-	"bdo",
-	"big",
-	"blink",
-	"blockquote",
-	"body",
-	"br",
-	"button",
-	"canvas",
-	"caption",
-	"center",
-	"cite",
-	"code",
-	"col",
-	"colgroup",
-	"data",
-	"datalist",
-	"dd",
-	"del",
-	"details",
-	"dfn",
-	"dialog",
-	"dir",
-	"div",
-	"dl",
-	"dt",
-	"em",
-	"embed",
-	"fieldset",
-	"figcaption",
-	"figure",
-	"font",
-	"footer",
-	"form",
-	"h1",
-	"h2",
-	"h3",
-	"h4",
-	"h5",
-	"h6",
-	"head",
-	"header",
-	"hgroup",
-	"hr",
-	"html",
-	"i",
-	"iframe",
-	"img",
-	"input",
-	"ins",
-	"kbd",
-	"label",
-	"legend",
-	"li",
-	"link",
-	"main",
-	"map",
-	"mark",
-	"marquee",
-	"math",
-	"menu",
-	"meta",
-	"meter",
-	"nav",
-	"nobr",
-	"noscript",
-	"object",
-	"ol",
-	"optgroup",
-	"option",
-	"output",
-	"p",
-	"param",
-	"picture",
-	"pre",
-	"progress",
-	"q",
-	"rp",
-	"rt",
-	"ruby",
-	"s",
-	"samp",
-	"script",
-	"search",
-	"section",
-	"select",
-	"slot",
-	"small",
-	"source",
-	"span",
-	"strike",
-	"strong",
-	"style",
-	"sub",
-	"summary",
-	"sup",
-	"svg",
-	"table",
-	"tbody",
-	"td",
-	"template",
-	"textarea",
-	"tfoot",
-	"th",
-	"thead",
-	"time",
-	"title",
-	"tr",
-	"track",
-	"tt",
-	"u",
-	"ul",
-	"var",
-	"video",
-	"wbr"
-]);
-/** Elements whose tags separate lines of text. */
-var BLOCK_ELEMENTS = /* @__PURE__ */ new Set([
-	"address",
-	"article",
-	"aside",
-	"blockquote",
-	"br",
-	"center",
-	"dd",
-	"details",
-	"div",
-	"dl",
-	"dt",
-	"figcaption",
-	"figure",
-	"footer",
-	"h1",
-	"h2",
-	"h3",
-	"h4",
-	"h5",
-	"h6",
-	"header",
-	"hr",
-	"li",
-	"main",
-	"nav",
-	"ol",
-	"p",
-	"pre",
-	"section",
-	"summary",
-	"table",
-	"tr",
-	"ul"
-]);
-/**
-* True for a real HTML element name (any case), or a custom element (lower case with a hyphen — `<INTJ-U>` is a
-* BunnyMo tag, not an element).
-*/
-function isHtmlElementName(name) {
-	return HTML_ELEMENTS.has(name.toLowerCase()) || /^[a-z][a-z0-9]*-[a-z0-9-]+$/.test(name);
-}
-var TRACKER_KEYS = [
-	"quests",
-	"infoBox",
-	"infobox",
-	"characterThoughts",
-	"characters"
-];
-var TRACKER_KEY_RE$3 = /"(?:quests|infoBox|infobox|characterThoughts|characters)"\s*:/;
-/** A fence at the very start: ```json, ```markdown, ```md or a bare ```; the body runs to the closing fence. */
-var LEADING_FENCE_RE = /^\s*```(?:json|markdown|md)?[ \t]*\r?\n([\s\S]*?)\r?\n?[ \t]*```[ \t]*(?:\r?\n|$)/i;
-/** End index (exclusive) of the balanced `{…}` starting at `start`, strings respected; -1 when unbalanced. */
-function balancedObjectEnd(text, start) {
-	let depth = 0;
-	let inString = false;
-	let escaped = false;
-	for (let i = start; i < text.length; i++) {
-		const char = text[i];
-		if (escaped) escaped = false;
-		else if (char === "\\") escaped = inString;
-		else if (char === "\"") inString = !inString;
-		else if (!inString) {
-			if (char === "{") depth++;
-			else if (char === "}") {
-				depth--;
-				if (depth === 0) return i + 1;
-			}
-		}
-	}
-	return -1;
-}
-/** The JSON text is DES tracker data: an object with one of DES's sections (parsed or, if broken, by its keys). */
-function looksLikeTracker(json) {
-	const body = json.trim();
-	if (!body.startsWith("{")) return false;
-	try {
-		const parsed = JSON.parse(body);
-		return isDict$55(parsed) && TRACKER_KEYS.some((key) => key in parsed);
-	} catch {
-		return TRACKER_KEY_RE$3.test(body);
-	}
-}
-/**
-* Removes the DES tracker JSON that opens a reply in together mode: a leading ```json fence (or ```markdown / a
-* bare fence) whose body is tracker JSON, or an unfenced leading JSON object with tracker sections. Any other
-* code block or JSON is kept.
-*/
-function stripDesTrackerJson(text) {
-	if (typeof text !== "string" || !text) return typeof text === "string" ? text : "";
-	const fence = LEADING_FENCE_RE.exec(text);
-	if (fence) return looksLikeTracker(fence[1] ?? "") ? text.slice(fence[0].length).replace(/^\s+/, "") : text;
-	const start = text.search(/\S/);
-	if (start < 0 || text[start] !== "{") return text;
-	const end = balancedObjectEnd(text, start);
-	if (end < 0 || !looksLikeTracker(text.slice(start, end))) return text;
-	return text.slice(end).replace(/^\s+/, "");
-}
-var NAMED_ENTITIES = {
-	lt: "<",
-	gt: ">",
-	quot: "\"",
-	apos: "'",
-	nbsp: " ",
-	amp: "&"
-};
-function decodeEntities(text) {
-	if (!text.includes("&")) return text;
-	return text.replace(/&(#x[0-9a-f]{1,6}|#[0-9]{1,7}|[a-z]+);/gi, (whole, body) => {
-		if (body[0] === "#") {
-			const code = body[1] === "x" || body[1] === "X" ? parseInt(body.slice(2), 16) : parseInt(body.slice(1), 10);
-			return Number.isFinite(code) && code > 0 && code <= 1114111 ? String.fromCodePoint(code) : whole;
-		}
-		return NAMED_ENTITIES[body.toLowerCase()] ?? whole;
-	});
-}
-/**
-* Removes HTML: comments, `<style>`/`<script>` blocks with their content, and tags of real HTML elements (block
-* tags become line breaks); entities are decoded. Tags that are not HTML (`<SPECIES:ELF>`, `<PHYSICAL>`,
-* `<STYLE:GOTHIC>`) stay: a tag name must be followed by whitespace, `/` or `>` to count as HTML.
-*/
-function stripHtml(text) {
-	if (typeof text !== "string") return "";
-	if (!text.includes("<") && !text.includes("&")) return text;
-	return decodeEntities(text.replace(/<!--[\s\S]*?-->/g, "").replace(/<(style|script)(?=[\s>])[^>]*>[\s\S]*?<\/\1\s*>/gi, "").replace(/<\/?([A-Za-z][A-Za-z0-9-]*)(?=[\s/>])[^<>]*>/g, (whole, name) => {
-		if (!isHtmlElementName(name)) return whole;
-		return BLOCK_ELEMENTS.has(name.toLowerCase()) ? "\n" : "";
-	}));
-}
-/** The block CK appends in "thinking" display mode: `<BunnyMoTags>`, then "Name:" and "• CATEGORY: values" lines. */
-var DUMP_BLOCK_RE = /(\n[ \t]*)*<BunnyMoTags>\n?([\s\S]*?)<\/BunnyMoTags>/g;
-/**
-* The body is a CK dump: only "Name:" and "• CATEGORY: values" lines (categories may be missing — CK skips tags
-* saved as arrays), no `<KEY:VALUE>` tags. A BunnyMo sheet looks different and is kept.
-*/
-function isCkDumpBody(body) {
-	const lines = String(body ?? "").split("\n").map((line) => line.trim()).filter(Boolean);
-	if (!lines.length || /<[A-Za-z][A-Za-z0-9_]*:/.test(body)) return false;
-	return lines.every((line) => line.startsWith("•") || line.endsWith(":"));
-}
-/** Removes CarrotKernel's `<BunnyMoTags>` dumps (with the blank lines before them); sheets are kept. */
-function stripCkDumps(text) {
-	if (typeof text !== "string" || !text.includes("<BunnyMoTags>")) return typeof text === "string" ? text : "";
-	return text.replace(DUMP_BLOCK_RE, (whole, _spacing, body) => isCkDumpBody(body) ? "" : whole);
-}
-var NAI_PLACEHOLDER_RE$1 = /[ \t]*\[nai:img:[^\]\s]{1,80}\][ \t]*/g;
-/**
-* Removes NAI Studio's inline image placeholders `[nai:img:<id>]` with the spaces around them; inside a line one
-* space keeps the words apart.
-*/
-function stripNaiPlaceholders(text) {
-	if (typeof text !== "string") return "";
-	if (!text.includes("[nai:img:")) return text;
-	return text.replace(NAI_PLACEHOLDER_RE$1, (match, offset, whole) => {
-		const before = whole[offset - 1];
-		const after = whole[offset + match.length];
-		return before === void 0 || before === "\n" || after === void 0 || after === "\n" ? "" : " ";
-	});
-}
-/**
-* A picture post (NAI Studio `postToChat`): `extra.nai_studio` on the message, or a gallery whose every item carries
-* NAI metadata while the text is empty or just the image prompt. A story reply illustrated later (paintbrush) keeps
-* its own text and is not a picture post.
-*/
-function isImagePost(message) {
-	if (!isDict$55(message) || !isDict$55(message.extra)) return false;
-	const extra = message.extra;
-	if (isDict$55(extra.nai_studio)) return true;
-	const media = extra.media;
-	if (!Array.isArray(media) || !media.length || !media.every((item) => isDict$55(item) && isDict$55(item.nai_studio))) return false;
-	const text = typeof message.mes === "string" ? message.mes.trim() : "";
-	if (!text) return true;
-	return media.some((item) => {
-		const meta = item.nai_studio;
-		const title = item.title;
-		return typeof title === "string" && title.trim() === text || meta.prompt === text;
-	});
-}
-function normalizeWhitespace(text) {
-	return text.replace(/\r\n?/g, "\n").replace(/[ \t]+$/gm, "").replace(/\n{3,}/g, "\n\n").trim();
-}
-/**
-* Story text of a message (or of a raw string) for analysis: picture posts give '', otherwise the text without
-* the DES tracker JSON, CK dumps, NAI placeholders and HTML, with tidy whitespace.
-*/
-function cleanForAnalysis(message) {
-	if (typeof message !== "string" && isImagePost(message)) return "";
-	const raw = typeof message === "string" ? message : isDict$55(message) ? message.mes : void 0;
-	if (typeof raw !== "string" || !raw) return "";
-	let text = stripDesTrackerJson(raw);
-	text = stripCkDumps(text);
-	text = stripNaiPlaceholders(text);
-	text = stripHtml(text);
-	return normalizeWhitespace(text);
-}
-//#endregion
 //#region src/features/chronicle/settings.ts
 var CHRONICLE_KEY = "chronicle";
 var RECAP_TARGETS = [
@@ -21169,17 +25225,17 @@ var IDLE_DELAY_MS$2 = 500;
 /** Messages whose language decides whether the event's own words can be keys. */
 var LANGUAGE_MESSAGES$1 = 6;
 var MAX_ALIASES = 4;
-function isDict$54(value) {
+function isDict$57(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function isChapterPayload(value) {
-	return isDict$54(value) && typeof value.id === "string" && typeof value.content === "string" && Array.isArray(value.keys) && Array.isArray(value.dates) && isDict$54(value.chronicle);
+	return isDict$57(value) && typeof value.id === "string" && typeof value.content === "string" && Array.isArray(value.keys) && Array.isArray(value.dates) && isDict$57(value.chronicle);
 }
 function isMergePayload(value) {
-	return isDict$54(value) && typeof value.keep === "number" && typeof value.drop === "number" && typeof value.content === "string" && isDict$54(value.chronicle);
+	return isDict$57(value) && typeof value.keep === "number" && typeof value.drop === "number" && typeof value.content === "string" && isDict$57(value.chronicle);
 }
 function isArchivePayload$1(value) {
-	return isDict$54(value) && Array.isArray(value.uids) && value.uids.every((uid) => Number.isInteger(uid));
+	return isDict$57(value) && Array.isArray(value.uids) && value.uids.every((uid) => Number.isInteger(uid));
 }
 /** A canon item as a draft that recreates it (undo of a merge). */
 function draftOf$1(item) {
@@ -21195,7 +25251,7 @@ function draftOf$1(item) {
 	});
 }
 function isDraft(value) {
-	return isDict$54(value) && isDict$54(value.entry) && isDict$54(value.meta);
+	return isDict$57(value) && isDict$57(value.entry) && isDict$57(value.meta);
 }
 /** The canon draft of a chapter: a selective AND ANY addition, typed «chapter», origin 'chronicle'. */
 function chapterDraft(input) {
@@ -21791,13 +25847,13 @@ var ChapterService = class {
 		const canon = this.env.canon();
 		const keep = change.ref.keep;
 		const drop = change.ref.drop;
-		const before = isDict$54(change.before) ? change.before : {};
+		const before = isDict$57(change.before) ? change.before : {};
 		if (!canon || typeof keep !== "number" || typeof drop !== "number") return false;
 		if (!isDraft(before.keep) || !isDraft(before.drop)) return false;
 		await canon.put(structuredClone(before.keep), { uid: keep });
 		await canon.put(structuredClone(before.drop), { uid: drop });
 		const dropMeta = before.drop.meta;
-		const dropChronicle = isDict$54(dropMeta.chronicle) ? dropMeta.chronicle : {};
+		const dropChronicle = isDict$57(dropMeta.chronicle) ? dropMeta.chronicle : {};
 		const dropId = typeof change.ref.dropId === "string" ? change.ref.dropId : "";
 		const indexes = new Set((Array.isArray(dropChronicle.indexes) ? dropChronicle.indexes : []).map((index) => String(index)));
 		if (dropId) await this.env.store.mutate((doc) => {
@@ -21903,12 +25959,12 @@ function createChronicleEnv(app, log, store, settings) {
 }
 //#endregion
 //#region src/features/chronicle/qvink-flags.ts
-function isDict$53(value) {
+function isDict$56(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function flagsOf(extra) {
-	const record = isDict$53(extra) ? extra[QVINK_KEY] : void 0;
-	if (!isDict$53(record)) return null;
+	const record = isDict$56(extra) ? extra[QVINK_KEY] : void 0;
+	if (!isDict$56(record)) return null;
 	return {
 		remember: record.remember === true,
 		exclude: record.exclude === true
@@ -21923,7 +25979,7 @@ function currentSwipe(message) {
 function readRememberState(message) {
 	return {
 		live: flagsOf(message.extra),
-		swipes: swipeInfos(message).map((info) => isDict$53(info) ? flagsOf(info.extra) : null)
+		swipes: swipeInfos(message).map((info) => isDict$56(info) ? flagsOf(info.extra) : null)
 	};
 }
 function isRemembered(message) {
@@ -21931,12 +25987,12 @@ function isRemembered(message) {
 }
 function hasSummary(message) {
 	const record = message?.extra?.[QVINK_KEY];
-	return isDict$53(record) && typeof record.memory === "string" && record.memory.trim().length > 0;
+	return isDict$56(record) && typeof record.memory === "string" && record.memory.trim().length > 0;
 }
 /** The record of an `extra` object, created when missing. */
 function recordIn(holder) {
-	const extra = isDict$53(holder.extra) ? holder.extra : holder.extra = {};
-	return isDict$53(extra["qvink_memory"]) ? extra[QVINK_KEY] : extra[QVINK_KEY] = {};
+	const extra = isDict$56(holder.extra) ? holder.extra : holder.extra = {};
+	return isDict$56(extra["qvink_memory"]) ? extra[QVINK_KEY] : extra[QVINK_KEY] = {};
 }
 /** Sets or restores the flags of a record; `null` removes the flags (the record goes when nothing else is left). */
 function setFlags(holder, state) {
@@ -21946,8 +26002,8 @@ function setFlags(holder, state) {
 		record.exclude = state.exclude;
 		return;
 	}
-	const extra = isDict$53(holder.extra) ? holder.extra : null;
-	const record = extra && isDict$53(extra["qvink_memory"]) ? extra[QVINK_KEY] : null;
+	const extra = isDict$56(holder.extra) ? holder.extra : null;
+	const record = extra && isDict$56(extra["qvink_memory"]) ? extra[QVINK_KEY] : null;
 	if (!extra || !record) return;
 	delete record.remember;
 	delete record.exclude;
@@ -21965,9 +26021,9 @@ function writeRemember(message) {
 	const live = message.extra[QVINK_KEY];
 	const current = currentSwipe(message);
 	swipeInfos(message).forEach((info, index) => {
-		if (!isDict$53(info)) return;
+		if (!isDict$56(info)) return;
 		if (index === current) {
-			const extra = isDict$53(info.extra) ? info.extra : info.extra = {};
+			const extra = isDict$56(info.extra) ? info.extra : info.extra = {};
 			extra[QVINK_KEY] = structuredClone(live);
 			return;
 		}
@@ -21981,13 +26037,13 @@ function writeRemember(message) {
 function restoreRemember(message, before) {
 	setFlags(message, before.live);
 	swipeInfos(message).forEach((info, index) => {
-		if (isDict$53(info)) setFlags(info, before.swipes[index] ?? null);
+		if (isDict$56(info)) setFlags(info, before.swipes[index] ?? null);
 	});
 }
 /** A stored RememberState (journal JSON) or null. */
 function readStoredState(raw) {
-	if (!isDict$53(raw) || !Array.isArray(raw.swipes)) return null;
-	const flags = (value) => isDict$53(value) ? {
+	if (!isDict$56(raw) || !Array.isArray(raw.swipes)) return null;
+	const flags = (value) => isDict$56(value) ? {
 		remember: value.remember === true,
 		exclude: value.exclude === true
 	} : null;
@@ -22014,7 +26070,7 @@ function emptyChronicleDoc() {
 		recap: null
 	};
 }
-function isDict$52(value) {
+function isDict$55(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function isReasonCode(value) {
@@ -22024,7 +26080,7 @@ function readReasons(raw) {
 	if (!Array.isArray(raw)) return [];
 	const out = [];
 	for (const item of raw) {
-		if (!isDict$52(item) || !isReasonCode(item.code)) continue;
+		if (!isDict$55(item) || !isReasonCode(item.code)) continue;
 		const reason = { code: item.code };
 		if (typeof item.text === "string" && item.text.trim()) reason.text = item.text.trim();
 		out.push(reason);
@@ -22035,7 +26091,7 @@ function readRemembered(raw) {
 	if (!Array.isArray(raw)) return [];
 	const out = [];
 	for (const item of raw) {
-		if (!isDict$52(item) || !Number.isInteger(item.index) || typeof item.date !== "string") continue;
+		if (!isDict$55(item) || !Number.isInteger(item.index) || typeof item.date !== "string") continue;
 		out.push({
 			index: item.index,
 			date: item.date,
@@ -22046,7 +26102,7 @@ function readRemembered(raw) {
 	return out;
 }
 function readRecap(raw) {
-	if (!isDict$52(raw) || typeof raw.shownAt !== "number" || !Number.isFinite(raw.shownAt)) return null;
+	if (!isDict$55(raw) || typeof raw.shownAt !== "number" || !Number.isFinite(raw.shownAt)) return null;
 	const stamp = {
 		shownAt: raw.shownAt,
 		source: raw.source === "ai" ? "ai" : "memory"
@@ -22169,11 +26225,11 @@ var REMEMBER_KIND = "chronicle.remember";
 var REMEMBER_TARGET = "m9.remember";
 var FLUSH_DELAY_MS = 1500;
 var IDLE_DELAY_MS$1 = 300;
-function isDict$51(value) {
+function isDict$54(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function isRememberPayload(value) {
-	return isDict$51(value) && Number.isInteger(value.index) && typeof value.date === "string" && Array.isArray(value.reasons) && value.reasons.every((reason) => isDict$51(reason) && isReasonCode(reason.code));
+	return isDict$54(value) && Number.isInteger(value.index) && typeof value.date === "string" && Array.isArray(value.reasons) && value.reasons.every((reason) => isDict$54(reason) && isReasonCode(reason.code));
 }
 function text$4(value) {
 	return typeof value === "string" && value.trim() ? value.trim() : void 0;
@@ -22240,7 +26296,7 @@ var AutoMemory = class {
 	onSignal(signal) {
 		if (!this.env.settings().autoMemory) return;
 		if (signal.chatId && signal.chatId !== this.app.host.chatId()) return;
-		const data = isDict$51(signal.data) ? signal.data : {};
+		const data = isDict$54(signal.data) ? signal.data : {};
 		let index = signal.messageIndex;
 		let found;
 		switch (signal.kind) {
@@ -23207,7 +27263,7 @@ var chronicleModule = {
 //#endregion
 //#region src/features/doctor/files.ts
 var LORE_ENTRY_TARGET$1 = "lore-entry";
-function isDict$50(value) {
+function isDict$53(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function bookRoles(app) {
@@ -23281,7 +27337,7 @@ function patchChanges$1(book, patches) {
 async function undoLoreEntry$1(app, change) {
 	const book = change.ref.book;
 	const uid = Number(change.ref.uid);
-	if (typeof book !== "string" || !Number.isFinite(uid) || !isDict$50(change.before) || !isDict$50(change.after)) return false;
+	if (typeof book !== "string" || !Number.isFinite(uid) || !isDict$53(change.before) || !isDict$53(change.after)) return false;
 	return (await writePatches$1(app, book, [{
 		uid,
 		before: change.before,
@@ -23289,7 +27345,7 @@ async function undoLoreEntry$1(app, change) {
 	}], "revert")).ok;
 }
 function isEntryPatch$1(value) {
-	return isDict$50(value) && typeof value.uid === "number" && isDict$50(value.before) && isDict$50(value.after);
+	return isDict$53(value) && typeof value.uid === "number" && isDict$53(value.before) && isDict$53(value.after);
 }
 //#endregion
 //#region src/domain/doctor-types.ts
@@ -23822,7 +27878,7 @@ function findRegexIssues(scripts, context) {
 }
 //#endregion
 //#region src/features/doctor/sources.ts
-function isDict$49(value) {
+function isDict$52(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function extras(app) {
@@ -23851,10 +27907,10 @@ async function readLore(app, log) {
 			log.warn(`lorebook ${book} did not load`, error);
 			continue;
 		}
-		if (!isDict$49(data) || !isDict$49(data.entries)) continue;
+		if (!isDict$52(data) || !isDict$52(data.entries)) continue;
 		loaded.push(book);
 		for (const [uid, raw] of Object.entries(data.entries)) {
-			if (!isDict$49(raw)) continue;
+			if (!isDict$52(raw)) continue;
 			const marker = readLocalizerMarker(raw);
 			const added = marker ? Object.values(marker.languages).flatMap((state) => [...state.added.key, ...state.added.keysecondary]) : [];
 			entries.push(toDoctorEntry(book, raw, Number(uid) || 0, added));
@@ -23915,7 +27971,7 @@ async function readWorldInfoSettings(app, log) {
 		const module = await app.host.modules.worldInfo();
 		const getter = module.getWorldInfoSettings;
 		const raw = typeof getter === "function" ? getter() : module;
-		return isDict$49(raw) ? readWiSettings$1(raw) : null;
+		return isDict$52(raw) ? readWiSettings$1(raw) : null;
 	} catch (error) {
 		log.debug("world-info.js is not available", error);
 		return null;
@@ -23997,9 +28053,9 @@ function fallbackScripts(app) {
 	const scoped = character?.data?.extensions?.regex_scripts;
 	const allowedChars = settings.character_allowed_regex;
 	const preset = extras(app).chatCompletionSettings;
-	const presetScripts = isDict$49(preset?.extensions) ? preset.extensions.regex_scripts : void 0;
+	const presetScripts = isDict$52(preset?.extensions) ? preset.extensions.regex_scripts : void 0;
 	const presetName = preset?.preset_settings_openai;
-	const allowedPresets = isDict$49(settings.preset_allowed_regex) ? settings.preset_allowed_regex.openai : void 0;
+	const allowedPresets = isDict$52(settings.preset_allowed_regex) ? settings.preset_allowed_regex.openai : void 0;
 	return {
 		global: {
 			list: Array.isArray(settings.regex) ? settings.regex : [],
@@ -24019,7 +28075,7 @@ function fallbackScripts(app) {
 async function readRegexScripts(app, log) {
 	const engine = await regexEngine$1(app);
 	const byType = engine?.getScriptsByType;
-	const codes = isDict$49(engine?.SCRIPT_TYPES) ? engine.SCRIPT_TYPES : null;
+	const codes = isDict$52(engine?.SCRIPT_TYPES) ? engine.SCRIPT_TYPES : null;
 	let lists;
 	let viaEngine = false;
 	if (typeof byType === "function") {
@@ -24050,7 +28106,7 @@ async function readRegexScripts(app, log) {
 		list.forEach((item, index) => {
 			const script = normalizeScript(item, type, index, allowed);
 			scripts.push(script);
-			if (isDict$49(item)) raw.set(script.id, item);
+			if (isDict$52(item)) raw.set(script.id, item);
 		});
 	}
 	const disabled = app.host.ctx().extensionSettings.disabledExtensions;
@@ -24276,21 +28332,21 @@ var TYPES = [
 	"scoped",
 	"preset"
 ];
-function isDict$48(value) {
+function isDict$51(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function jsonCopy$1(value) {
 	return JSON.parse(JSON.stringify(value));
 }
 function isRegexFixPayload(value) {
-	if (!isDict$48(value)) return false;
+	if (!isDict$51(value)) return false;
 	return ACTIONS$1.includes(value.action) && TYPES.includes(value.type) && typeof value.scriptId === "string" && typeof value.index === "number" && typeof value.name === "string" && (value.owner === null || typeof value.owner === "string");
 }
 async function presetManager$1(app) {
 	try {
 		const get = (await app.host.modules.presetManager()).getPresetManager;
 		const manager = typeof get === "function" ? get() : null;
-		return isDict$48(manager) ? manager : null;
+		return isDict$51(manager) ? manager : null;
 	} catch {
 		return null;
 	}
@@ -24322,11 +28378,11 @@ async function scriptStore(app, type) {
 	const read = engine?.getScriptsByType;
 	const write = engine?.saveScriptsByType;
 	if (typeof read === "function" && typeof write === "function") {
-		const stored = (isDict$48(engine?.SCRIPT_TYPES) ? engine.SCRIPT_TYPES : {})[type.toUpperCase()];
+		const stored = (isDict$51(engine?.SCRIPT_TYPES) ? engine.SCRIPT_TYPES : {})[type.toUpperCase()];
 		const code = typeof stored === "number" ? stored : DEFAULT_CODES[type];
 		const list = read(code, { allowedOnly: false });
 		return {
-			list: Array.isArray(list) ? list.filter(isDict$48) : [],
+			list: Array.isArray(list) ? list.filter(isDict$51) : [],
 			owner,
 			save: async (next) => {
 				await write(next, code);
@@ -24337,7 +28393,7 @@ async function scriptStore(app, type) {
 	if (type === "global") {
 		const list = ctx.extensionSettings.regex;
 		return {
-			list: Array.isArray(list) ? list.filter(isDict$48) : [],
+			list: Array.isArray(list) ? list.filter(isDict$51) : [],
 			owner,
 			save: async (next) => {
 				app.host.ctx().extensionSettings.regex = next;
@@ -24350,7 +28406,7 @@ async function scriptStore(app, type) {
 		if (id === void 0 || id === "") return null;
 		const list = ctx.characters[Number(id)]?.data?.extensions?.regex_scripts;
 		return {
-			list: Array.isArray(list) ? list.filter(isDict$48) : [],
+			list: Array.isArray(list) ? list.filter(isDict$51) : [],
 			owner,
 			save: async (next) => {
 				await app.host.ctx().writeExtensionField(id, "regex_scripts", next);
@@ -24361,7 +28417,7 @@ async function scriptStore(app, type) {
 	if (!manager?.readPresetExtensionField || !manager.writePresetExtensionField) return null;
 	const list = manager.readPresetExtensionField({ path: "regex_scripts" });
 	return {
-		list: Array.isArray(list) ? list.filter(isDict$48) : [],
+		list: Array.isArray(list) ? list.filter(isDict$51) : [],
 		owner,
 		save: async (next) => {
 			await manager.writePresetExtensionField?.({
@@ -24429,7 +28485,7 @@ async function undoRegexFix(app, change) {
 		owner: typeof ref.owner === "string" ? ref.owner : null
 	};
 	const store = await openStore(app, payload);
-	if (!store || !isDict$48(change.before)) return false;
+	if (!store || !isDict$51(change.before)) return false;
 	if (change.after === null) {
 		if (payload.scriptId && store.list.some((script) => script.id === payload.scriptId)) return false;
 		const next = [...store.list];
@@ -24438,7 +28494,7 @@ async function undoRegexFix(app, change) {
 	} else {
 		const index = locate(store.list, payload);
 		const live = index >= 0 ? store.list[index] : void 0;
-		if (!live || live.disabled === true !== (isDict$48(change.after) && change.after.disabled === true)) return false;
+		if (!live || live.disabled === true !== (isDict$51(change.after) && change.after.disabled === true)) return false;
 		live.disabled = change.before.disabled === true;
 		await store.save(store.list);
 	}
@@ -26897,7 +30953,7 @@ function patchPassport(passport, patch) {
 	return next;
 }
 var ProtectedBookError = class extends Error {};
-function isDict$47(value) {
+function isDict$50(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function strings$10(value) {
@@ -26917,10 +30973,10 @@ function passportHas(passport, patch) {
 	return Object.entries(patch.slots ?? {}).every(([slot, value]) => (passport.slots[slot] ?? "") === value);
 }
 function isPayload(value) {
-	return isDict$47(value) && typeof value.op === "string";
+	return isDict$50(value) && typeof value.op === "string";
 }
 function isFixRequest(value) {
-	if (!isDict$47(value)) return false;
+	if (!isDict$50(value)) return false;
 	if (value.op === "addKeys") return typeof value.world === "string" && typeof value.uid === "number" && Array.isArray(value.keys);
 	if (value.op === "placeEntry") return typeof value.placeId === "string";
 	if (value.op === "desAlias") return typeof value.canonical === "string" && typeof value.alias === "string";
@@ -27010,7 +31066,7 @@ var DossierActions = class {
 	async effective(world, uid) {
 		const state = await this.sources.bookState(world);
 		const base = state.data?.entries[String(uid)];
-		const entry = isDict$47(base) ? base : null;
+		const entry = isDict$50(base) ? base : null;
 		const fields = {
 			key: strings$10(entry?.key),
 			content: str$9(entry?.content)
@@ -27153,7 +31209,7 @@ var DossierActions = class {
 				case "baseKeys": {
 					const state = await this.sources.bookState(payload.world);
 					const entry = state.data?.entries[String(payload.uid)];
-					return !state.protected && isDict$47(entry) && sameList$2(strings$10(entry.key), payload.before);
+					return !state.protected && isDict$50(entry) && sameList$2(strings$10(entry.key), payload.before);
 				}
 				case "canonOverride": {
 					const current = await this.effective(payload.world, payload.uid);
@@ -27187,7 +31243,7 @@ var DossierActions = class {
 		const world = change.ref.world;
 		const uid = Number(change.ref.uid);
 		const io = this.io();
-		if (typeof world !== "string" || !Number.isFinite(uid) || !io || !isDict$47(change.before) || !isDict$47(change.after)) return false;
+		if (typeof world !== "string" || !Number.isFinite(uid) || !io || !isDict$50(change.before) || !isDict$50(change.after)) return false;
 		return (await commitPatches(io, world, [{
 			uid,
 			before: change.before,
@@ -27200,7 +31256,7 @@ var DossierActions = class {
 	async undoCanon(change) {
 		const canon = this.canon();
 		const ref = change.ref;
-		if (!canon || !isDict$47(change.before)) return false;
+		if (!canon || !isDict$50(change.before)) return false;
 		const before = change.before;
 		if (typeof ref.itemUid === "number") {
 			await this.putItem(ref.itemUid, before);
@@ -27221,14 +31277,14 @@ var DossierActions = class {
 	async undoPassport(change) {
 		const id = change.ref.id;
 		const target = change.ref.target;
-		if (typeof id !== "string" || !isDict$47(change.before) || !this.sources.naiApi()) return false;
-		await this.savePassport(id, isDict$47(target) ? target : null, change.before);
+		if (typeof id !== "string" || !isDict$50(change.before) || !this.sources.naiApi()) return false;
+		await this.savePassport(id, isDict$50(target) ? target : null, change.before);
 		return true;
 	}
 	async undoPlace(change) {
 		const places = this.sources.places();
 		const id = change.ref.placeId;
-		if (!places || typeof id !== "string" || !isDict$47(change.before) || !places.get(id)) return false;
+		if (!places || typeof id !== "string" || !isDict$50(change.before) || !places.get(id)) return false;
 		await places.update(id, change.before);
 		return true;
 	}
@@ -27806,7 +31862,7 @@ function compareSheetTags(rawReply, archiveText) {
 }
 //#endregion
 //#region src/domain/dossier-data.ts
-function isDict$46(value) {
+function isDict$49(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function str$8(value) {
@@ -27866,7 +31922,7 @@ function passportFields(passport) {
 * per slot, other known fields replace. Returns the effective passport and the overridden field names.
 */
 function overridePassport(base, override) {
-	if (!isDict$46(override)) return {
+	if (!isDict$49(override)) return {
 		passport: base,
 		overridden: []
 	};
@@ -27878,7 +31934,7 @@ function overridePassport(base, override) {
 		states: base.states.map((state) => ({ ...state }))
 	};
 	const overridden = [];
-	if (isDict$46(override.slots)) for (const [slot, value] of Object.entries(override.slots)) {
+	if (isDict$49(override.slots)) for (const [slot, value] of Object.entries(override.slots)) {
 		if (typeof value !== "string" || passport.slots[slot] === value) continue;
 		passport.slots[slot] = value;
 		overridden.push(`slot.${slot}`);
@@ -27900,14 +31956,14 @@ function overridePassport(base, override) {
 		overridden.push("aliases");
 	}
 	if (Array.isArray(override.outfits)) {
-		passport.outfits = override.outfits.filter(isDict$46).map((outfit) => ({
+		passport.outfits = override.outfits.filter(isDict$49).map((outfit) => ({
 			name: str$8(outfit.name),
 			tags: str$8(outfit.tags)
 		}));
 		overridden.push("outfits");
 	}
 	if (Array.isArray(override.states)) {
-		passport.states = override.states.filter(isDict$46).map((state) => ({
+		passport.states = override.states.filter(isDict$49).map((state) => ({
 			id: str$8(state.id),
 			tags: str$8(state.tags),
 			enabled: state.enabled === true
@@ -27977,9 +32033,9 @@ function pickMemories(memories, limit) {
 }
 /** M31's mark `extra.maestro.sheet` of a message, when it is there. */
 function readSheetMark(extra) {
-	const maestro = isDict$46(extra) ? extra.maestro : void 0;
-	const sheet = isDict$46(maestro) ? maestro.sheet : void 0;
-	if (!isDict$46(sheet) || typeof sheet.command !== "string") return null;
+	const maestro = isDict$49(extra) ? extra.maestro : void 0;
+	const sheet = isDict$49(maestro) ? maestro.sheet : void 0;
+	if (!isDict$49(sheet) || typeof sheet.command !== "string") return null;
 	return {
 		command: sheet.command,
 		target: str$8(sheet.target),
@@ -28018,11 +32074,11 @@ function findLastSheet(messages, names) {
 }
 /** CK RAG collections of a character (`rag.collectionMetadata[id].characterName`) with their triggers. */
 function ragCollectionsFor(rag, names) {
-	const metadata = isDict$46(rag) ? rag.collectionMetadata : void 0;
-	if (!isDict$46(metadata)) return [];
+	const metadata = isDict$49(rag) ? rag.collectionMetadata : void 0;
+	if (!isDict$49(metadata)) return [];
 	const out = [];
 	for (const [id, raw] of Object.entries(metadata)) {
-		if (!isDict$46(raw) || !isFor(str$8(raw.characterName) || null, names)) continue;
+		if (!isDict$49(raw) || !isFor(str$8(raw.characterName) || null, names)) continue;
 		const keywords = Array.isArray(raw.keywords) ? raw.keywords.filter((item) => typeof item === "string" && item.trim() !== "") : [];
 		out.push({
 			id,
@@ -28209,7 +32265,7 @@ function newId$2() {
 	return `dc-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 /** Texts worth comparing, one per store, with the source each came from. */
-function compareSources$1(facts) {
+function compareSources(facts) {
 	const out = [];
 	const add = (store, label, text, source) => {
 		if (text && text.trim()) out.push(source ? {
@@ -28357,7 +32413,7 @@ var DossierCompare = class {
 	}
 	/** Snippets that would be sent and the size/cost estimate («≈ N токенов»). */
 	plan(facts) {
-		const snippets = buildCompareSnippets(compareSources$1(facts), this.settings().compareMaxChars);
+		const snippets = buildCompareSnippets(compareSources(facts), this.settings().compareMaxChars);
 		return {
 			snippets,
 			estimate: estimateCompare(snippets)
@@ -28464,7 +32520,7 @@ var DossierCompare = class {
 			fail("sources");
 			return;
 		}
-		const sources = compareSources$1(facts);
+		const sources = compareSources(facts);
 		const snippets = buildCompareSnippets(sources, this.settings().compareMaxChars);
 		if (snippets.length < 2) {
 			const result = {
@@ -29211,7 +33267,7 @@ var DossierService = class {
 };
 //#endregion
 //#region src/features/dossier/sources.ts
-function isDict$45(value) {
+function isDict$48(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function str$6(value) {
@@ -29547,7 +33603,7 @@ var DossierSources = class {
 			if (seen.has(id) || world === canonBook) return;
 			const data = await this.loadBook(world, cache);
 			const entry = data?.entries[String(uid)];
-			if (!data || !isDict$45(entry)) return;
+			if (!data || !isDict$48(entry)) return;
 			seen.add(id);
 			out.push({
 				...this.loreFact(world, uid, entry, data, items, canonBook),
@@ -29596,7 +33652,7 @@ var DossierSources = class {
 		for (const source of entity.sources) {
 			if (source.kind !== "ck.archive" || !source.world || typeof source.uid !== "number") continue;
 			const entry = (await this.loadBook(source.world, cache))?.entries[String(source.uid)];
-			if (isDict$45(entry)) add(source.world, source.uid, entry);
+			if (isDict$48(entry)) add(source.world, source.uid, entry);
 		}
 		const books = unique([...this.archiveBooks(), ...await this.activeBooks()]);
 		for (const book of books) {
@@ -29609,14 +33665,14 @@ var DossierSources = class {
 	/** The raw chat-level store (read directly: the API returns resolved copies, the dossier shows base and override). */
 	naiChatStore() {
 		const meta = this.app.host.ctx().chatMetadata.nai_studio;
-		const store = isDict$45(meta) ? meta.passports : void 0;
+		const store = isDict$48(meta) ? meta.passports : void 0;
 		const overrides = {};
-		if (isDict$45(store) && isDict$45(store.overrides)) {
-			for (const [id, value] of Object.entries(store.overrides)) if (isDict$45(value)) overrides[id] = value;
+		if (isDict$48(store) && isDict$48(store.overrides)) {
+			for (const [id, value] of Object.entries(store.overrides)) if (isDict$48(value)) overrides[id] = value;
 		}
 		return {
 			overrides,
-			extra: isDict$45(store) && Array.isArray(store.extra) ? store.extra.map(readPassport).filter((item) => item !== null) : []
+			extra: isDict$48(store) && Array.isArray(store.extra) ? store.extra.map(readPassport).filter((item) => item !== null) : []
 		};
 	}
 	/** The chat's override of a passport when it belongs to this owner (`owner` absent: any owner). */
@@ -29718,9 +33774,9 @@ var DossierSources = class {
 	}
 	personaPassport(avatar) {
 		const settings = this.safe(() => adaptersOf(this.app).nai.settings(), null);
-		const scene = isDict$45(settings) ? settings.scene : void 0;
-		const store = isDict$45(scene) ? scene.personaPassports : void 0;
-		if (!isDict$45(store)) return null;
+		const scene = isDict$48(settings) ? settings.scene : void 0;
+		const store = isDict$48(scene) ? scene.personaPassports : void 0;
+		if (!isDict$48(store)) return null;
 		return readPassport(store[avatar || "default"] ?? store.default);
 	}
 	desFact(entity, names) {
@@ -29755,20 +33811,20 @@ var DossierSources = class {
 			}
 		}
 		const meta = this.app.host.ctx().chatMetadata.dooms_tracker;
-		const known = isDict$45(meta) && isDict$45(meta.knownCharacters) ? meta.knownCharacters : {};
+		const known = isDict$48(meta) && isDict$48(meta.knownCharacters) ? meta.knownCharacters : {};
 		const rosterEntry = inRoster ? known[inRoster] : void 0;
-		if (isDict$45(rosterEntry) && typeof rosterEntry.emoji === "string") fact.rosterEmoji = rosterEntry.emoji;
+		if (isDict$48(rosterEntry) && typeof rosterEntry.emoji === "string") fact.rosterEmoji = rosterEntry.emoji;
 		const settings = this.safe(() => des.settings(), null) ?? {};
 		const key = fact.canonical;
-		const pick = (store) => isDict$45(store) ? store[key] : void 0;
+		const pick = (store) => isDict$48(store) ? store[key] : void 0;
 		const appearance = pick(settings.characterAppearance);
 		if (typeof appearance === "string" && appearance.trim()) fact.portraitPrompt = appearance.trim();
 		const injection = pick(settings.characterInjection);
-		if (isDict$45(injection) && typeof injection.description === "string" && injection.description.trim()) fact.workshopDescription = injection.description.trim();
+		if (isDict$48(injection) && typeof injection.description === "string" && injection.description.trim()) fact.workshopDescription = injection.description.trim();
 		const relationship = pick(settings.characterRelationships);
 		if (typeof relationship === "string" && relationship.trim()) fact.relationshipOverride = relationship.trim();
 		const user = pick(settings.userCharacters);
-		if (isDict$45(user)) fact.user = user;
+		if (isDict$48(user)) fact.user = user;
 		if (!fact.inRoster && !canonical && !fact.character && !fact.user) return null;
 		return fact;
 	}
@@ -31038,14 +35094,14 @@ var StaleBanner = class {
 };
 //#endregion
 //#region src/domain/settings-diff.ts
-function isDict$44(value) {
+function isDict$47(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /** JSON with sorted object keys; `undefined` (also nested) becomes null. Throws on cycles, like JSON. */
 function stableStringify(value) {
 	return JSON.stringify(value === void 0 ? null : value, (_key, item) => {
 		if (item === void 0) return null;
-		if (!isDict$44(item)) return item;
+		if (!isDict$47(item)) return item;
 		const sorted = {};
 		for (const key of Object.keys(item).sort()) sorted[key] = item[key];
 		return sorted;
@@ -31077,7 +35133,7 @@ function jsonCopy(value) {
 function getPath(source, path) {
 	let current = source;
 	for (const part of path.split(".")) {
-		if (!isDict$44(current)) return void 0;
+		if (!isDict$47(current)) return void 0;
 		current = current[part];
 	}
 	return current;
@@ -31090,7 +35146,7 @@ function setPath(target, path, value) {
 	let current = target;
 	for (const part of parts) {
 		const next = current[part];
-		if (isDict$44(next)) current = next;
+		if (isDict$47(next)) current = next;
 		else {
 			const created = {};
 			current[part] = created;
@@ -31105,7 +35161,7 @@ function pathMatches(path, patterns) {
 	return patterns.some((pattern) => path === pattern || path.startsWith(`${pattern}.`));
 }
 function omitKeys(value, omit) {
-	if (!omit?.length || !isDict$44(value)) return value;
+	if (!omit?.length || !isDict$47(value)) return value;
 	const copy = { ...value };
 	for (const key of omit) delete copy[key];
 	return copy;
@@ -31119,7 +35175,7 @@ function pickTracked(source, specs, prefix) {
 		values: {},
 		restore: {}
 	};
-	if (!isDict$44(source)) return part;
+	if (!isDict$47(source)) return part;
 	for (const spec of specs) {
 		const raw = getPath(source, spec.path);
 		if (raw === void 0) continue;
@@ -31139,7 +35195,7 @@ function pickTracked(source, specs, prefix) {
 }
 /** Every own key of `source` except `deny` (and keys starting with `_`), for neighbours without a fixed schema. */
 function keysExcept(source, deny) {
-	if (!isDict$44(source)) return [];
+	if (!isDict$47(source)) return [];
 	return Object.keys(source).filter((key) => !deny.includes(key) && !key.startsWith("_") && !key.includes(".")).sort().map((key) => ({ path: key }));
 }
 /** Merges tracked parts (later parts win on equal paths). */
@@ -31222,7 +35278,7 @@ function acknowledgePaths(baseline, current, patterns) {
 * tab would overwrite). Keys that cannot be serialised are skipped. Best effort by design.
 */
 function topLevelDiff(local, server, options) {
-	if (!isDict$44(local) || !isDict$44(server)) return [];
+	if (!isDict$47(local) || !isDict$47(server)) return [];
 	const keys = [.../* @__PURE__ */ new Set([...Object.keys(local), ...Object.keys(server)])].sort();
 	const result = [];
 	for (const key of keys) {
@@ -31239,7 +35295,7 @@ function topLevelDiff(local, server, options) {
 	return result;
 }
 function readStamp(value) {
-	if (!isDict$44(value)) return null;
+	if (!isDict$47(value)) return null;
 	const { tabId, seq, at } = value;
 	if (typeof tabId !== "string" || !tabId) return null;
 	if (typeof seq !== "number" || !Number.isFinite(seq)) return null;
@@ -31258,7 +35314,7 @@ function parseSettingsText(text) {
 	if (typeof text !== "string") return void 0;
 	try {
 		const parsed = JSON.parse(text);
-		return isDict$44(parsed) ? parsed : void 0;
+		return isDict$47(parsed) ? parsed : void 0;
 	} catch {
 		return;
 	}
@@ -31276,18 +35332,18 @@ function isTabFresh(known, server, myTabId) {
 //#region src/features/guardian/baseline.ts
 var BASELINE_FILE = "maestro-baseline.json";
 var DISMISSED_LIMIT = 20;
-function isDict$43(value) {
+function isDict$46(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /** Validates a stored file; null for anything that is not a baseline. */
 function readBaseline$2(raw) {
-	if (!isDict$43(raw) || raw.schema !== 1 || !isDict$43(raw.values)) return null;
+	if (!isDict$46(raw) || raw.schema !== 1 || !isDict$46(raw.values)) return null;
 	return {
 		schema: 1,
 		takenAt: typeof raw.takenAt === "number" ? raw.takenAt : 0,
 		reason: typeof raw.reason === "string" ? raw.reason : "",
 		values: raw.values,
-		restore: isDict$43(raw.restore) ? raw.restore : {},
+		restore: isDict$46(raw.restore) ? raw.restore : {},
 		dismissed: Array.isArray(raw.dismissed) ? raw.dismissed.filter((item) => typeof item === "string") : []
 	};
 }
@@ -31350,7 +35406,7 @@ var BaselineStore = class {
 };
 //#endregion
 //#region src/domain/medic-prefill.ts
-function isDict$42(value) {
+function isDict$45(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /**
@@ -31359,17 +35415,17 @@ function isDict$42(value) {
 */
 function activePromptOrder(promptOrder, characterId) {
 	if (!Array.isArray(promptOrder)) return [];
-	const lists = promptOrder.filter(isDict$42);
+	const lists = promptOrder.filter(isDict$45);
 	const find = (id) => id === void 0 ? void 0 : lists.find((item) => String(item.character_id) === String(id));
 	const chosen = find(100001) ?? find(characterId) ?? lists[0];
-	return (chosen && Array.isArray(chosen.order) ? chosen.order : []).filter(isDict$42).filter((item) => typeof item.identifier === "string").map((item) => ({
+	return (chosen && Array.isArray(chosen.order) ? chosen.order : []).filter(isDict$45).filter((item) => typeof item.identifier === "string").map((item) => ({
 		identifier: item.identifier,
 		enabled: item.enabled !== false
 	}));
 }
 /** Index of the prompt list entry with this identifier (oai_settings.prompts). */
 function promptIndex(prompts, identifier) {
-	return Array.isArray(prompts) ? prompts.findIndex((prompt) => isDict$42(prompt) && prompt.identifier === identifier) : -1;
+	return Array.isArray(prompts) ? prompts.findIndex((prompt) => isDict$45(prompt) && prompt.identifier === identifier) : -1;
 }
 function hasContent(prompt) {
 	return typeof prompt.content === "string" && prompt.content.trim() !== "";
@@ -31382,7 +35438,7 @@ function hasContent(prompt) {
 function findAssistantPrefill(prompts, order) {
 	if (!Array.isArray(prompts)) return null;
 	const byId = /* @__PURE__ */ new Map();
-	for (const prompt of prompts) if (isDict$42(prompt) && typeof prompt.identifier === "string") byId.set(prompt.identifier, prompt);
+	for (const prompt of prompts) if (isDict$45(prompt) && typeof prompt.identifier === "string") byId.set(prompt.identifier, prompt);
 	const name = (prompt, identifier) => typeof prompt.name === "string" && prompt.name ? prompt.name : identifier;
 	for (const entry of order) {
 		if (!entry.enabled) continue;
@@ -31416,7 +35472,7 @@ function findAssistantPrefill(prompts, order) {
 }
 //#endregion
 //#region src/features/guardian/tracked.ts
-function isDict$41(value) {
+function isDict$44(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /** Preset fields that hold addresses, keys or passwords: never stored, kept as they are on restore. */
@@ -31569,7 +35625,7 @@ function empty() {
 }
 function liveOai(app) {
 	const settings = app.host.ctx().chatCompletionSettings;
-	return isDict$41(settings) ? settings : null;
+	return isDict$44(settings) ? settings : null;
 }
 function withoutKeys$1(source, keys) {
 	const copy = { ...source };
@@ -31582,7 +35638,7 @@ async function livePresetBody(app, log) {
 	try {
 		const get = (await app.host.modules.openai()).getChatCompletionPreset;
 		const body = typeof get === "function" ? get() : null;
-		return isDict$41(body) ? jsonCopy(withoutKeys$1(body, PRESET_SECRET_KEYS)) : null;
+		return isDict$44(body) ? jsonCopy(withoutKeys$1(body, PRESET_SECRET_KEYS)) : null;
 	} catch (error) {
 		log.debug("preset body unavailable", error);
 		return null;
@@ -31597,7 +35653,7 @@ async function presetPart(app, log) {
 	const order = activePromptOrder(oai.prompt_order);
 	part.values["preset.order"] = order.map((entry) => entry.identifier);
 	part.values["preset.toggles"] = Object.fromEntries(order.map((entry) => [entry.identifier, entry.enabled]));
-	const ids = (Array.isArray(oai.prompts) ? oai.prompts.filter(isDict$41) : []).filter((prompt) => typeof prompt.identifier === "string");
+	const ids = (Array.isArray(oai.prompts) ? oai.prompts.filter(isDict$44) : []).filter((prompt) => typeof prompt.identifier === "string");
 	part.values["preset.roles"] = Object.fromEntries(ids.map((prompt) => [prompt.identifier, typeof prompt.role === "string" ? prompt.role : "system"]));
 	part.values["preset.contents"] = Object.fromEntries(ids.filter((prompt) => prompt.marker !== true).map((prompt) => [prompt.identifier, valueHash({
 		name: prompt.name ?? null,
@@ -31621,7 +35677,7 @@ function regexPart(app) {
 	const scripts = app.host.ctx().extensionSettings.regex;
 	if (!Array.isArray(scripts)) return part;
 	for (const script of scripts) {
-		if (!isDict$41(script) || typeof script.id !== "string" || !script.id) continue;
+		if (!isDict$44(script) || typeof script.id !== "string" || !script.id) continue;
 		const path = `regex.${script.id}`;
 		part.values[path] = {
 			name: typeof script.scriptName === "string" ? script.scriptName : "",
@@ -31643,7 +35699,7 @@ async function worldInfoPart(app, log) {
 		const wi = await app.host.modules.worldInfo();
 		const get = wi.getWorldInfoSettings;
 		const settings = typeof get === "function" ? get() : null;
-		if (isDict$41(settings)) {
+		if (isDict$44(settings)) {
 			for (const key of WI_KEYS) if (settings[key] !== void 0) part.values[`worldInfo.${key}`] = settings[key];
 		}
 		if (Array.isArray(wi.selected_world_info)) part.values["worldInfo.globalSelect"] = wi.selected_world_info.filter((item) => typeof item === "string").sort();
@@ -31656,7 +35712,7 @@ function profilesPart(app) {
 	const part = empty();
 	const profiles = getPath(app.host.ctx().extensionSettings, "connectionManager.profiles");
 	if (!Array.isArray(profiles)) return part;
-	part.values["profiles.list"] = profiles.filter(isDict$41).map((profile) => `${String(profile.name ?? "")}#${String(profile.id ?? "")}`).sort();
+	part.values["profiles.list"] = profiles.filter(isDict$44).map((profile) => `${String(profile.name ?? "")}#${String(profile.id ?? "")}`).sort();
 	return part;
 }
 function extensionsPart(app) {
@@ -31699,7 +35755,7 @@ function fullValue(part, path) {
 function isRestorable(entry, baseline) {
 	const group = groupOf(entry.path);
 	if (group === "preset") {
-		if (isPresetBodyPath(entry.path)) return isDict$41(baseline.restore["preset.body"]);
+		if (isPresetBodyPath(entry.path)) return isDict$44(baseline.restore["preset.body"]);
 		return entry.baseline !== void 0;
 	}
 	if (group === "worldInfo") return entry.path !== "worldInfo.globalSelect" && entry.baseline !== void 0;
@@ -31711,24 +35767,24 @@ async function presetManager(app) {
 	if (!app.host.caps.has("st.presetManager")) return null;
 	const get = (await app.host.modules.presetManager()).getPresetManager;
 	const manager = typeof get === "function" ? get("openai") : null;
-	return isDict$41(manager) ? manager : null;
+	return isDict$44(manager) ? manager : null;
 }
 async function rerenderPrompts(app, log) {
 	if (!app.host.caps.has("st.oai.promptManager")) return;
 	try {
 		const manager = (await app.host.modules.openai()).promptManager;
-		if (isDict$41(manager) && typeof manager.render === "function") manager.render.call(manager, false);
+		if (isDict$44(manager) && typeof manager.render === "function") manager.render.call(manager, false);
 	} catch (error) {
 		log.debug("prompt manager render failed", error);
 	}
 }
 function globalOrderEntry(oai) {
-	const lists = Array.isArray(oai.prompt_order) ? oai.prompt_order.filter(isDict$41) : [];
+	const lists = Array.isArray(oai.prompt_order) ? oai.prompt_order.filter(isDict$44) : [];
 	return lists.find((item) => String(item.character_id) === String(100001)) ?? lists[0] ?? null;
 }
 /** Saves the body into the preset file through ST's preset manager, which then selects and applies it. */
 async function writePresetBody(app, value) {
-	if (!isDict$41(value) || typeof value.name !== "string" || !value.name || !isDict$41(value.body)) return false;
+	if (!isDict$44(value) || typeof value.name !== "string" || !value.name || !isDict$44(value.body)) return false;
 	const manager = await presetManager(app);
 	if (!manager || typeof manager.savePreset !== "function") return false;
 	let secrets = {};
@@ -31736,10 +35792,10 @@ async function writePresetBody(app, value) {
 		const openai = await app.host.modules.openai();
 		const names = openai.openai_setting_names;
 		const list = openai.openai_settings;
-		const slot = isDict$41(names) ? names[value.name] : void 0;
+		const slot = isDict$44(names) ? names[value.name] : void 0;
 		const stored = Array.isArray(list) && typeof slot === "number" ? list[slot] : void 0;
-		const source = isDict$41(stored) ? stored : typeof openai.getChatCompletionPreset === "function" ? openai.getChatCompletionPreset() : null;
-		if (isDict$41(source)) {
+		const source = isDict$44(stored) ? stored : typeof openai.getChatCompletionPreset === "function" ? openai.getChatCompletionPreset() : null;
+		if (isDict$44(source)) {
 			for (const key of PRESET_SECRET_KEYS) if (source[key] !== void 0) secrets[key] = source[key];
 		}
 	}
@@ -31764,7 +35820,7 @@ async function writePreset(app, log, path, value) {
 	const oai = liveOai(app);
 	if (!oai) return false;
 	if (path === "preset.roles") {
-		if (!isDict$41(value) || !Array.isArray(oai.prompts)) return false;
+		if (!isDict$44(value) || !Array.isArray(oai.prompts)) return false;
 		for (const [identifier, role] of Object.entries(value)) {
 			const index = promptIndex(oai.prompts, identifier);
 			if (index >= 0 && typeof role === "string") oai.prompts[index].role = role;
@@ -31772,9 +35828,9 @@ async function writePreset(app, log, path, value) {
 	} else if (path === "preset.toggles" || path === "preset.order") {
 		const entry = globalOrderEntry(oai);
 		if (!entry || !Array.isArray(entry.order)) return false;
-		const items = entry.order.filter(isDict$41);
+		const items = entry.order.filter(isDict$44);
 		if (path === "preset.toggles") {
-			if (!isDict$41(value)) return false;
+			if (!isDict$44(value)) return false;
 			for (const item of items) {
 				const enabled = value[String(item.identifier)];
 				if (typeof enabled === "boolean") item.enabled = enabled;
@@ -31796,12 +35852,12 @@ function writeRegex(app, path, value) {
 	const settings = app.host.ctx().extensionSettings;
 	const scripts = Array.isArray(settings.regex) ? settings.regex : [];
 	settings.regex = scripts;
-	const index = scripts.findIndex((script) => isDict$41(script) && script.id === id);
+	const index = scripts.findIndex((script) => isDict$44(script) && script.id === id);
 	if (value === void 0 || value === null) {
 		if (index >= 0) scripts.splice(index, 1);
 		return true;
 	}
-	if (!isDict$41(value) || value.id !== id) return false;
+	if (!isDict$44(value) || value.id !== id) return false;
 	if (index >= 0) scripts[index] = jsonCopy(value);
 	else scripts.push(jsonCopy(value));
 	return true;
@@ -31850,11 +35906,11 @@ var SETTING_TARGET = "guardian-setting";
 var PULT_ONLY = ["extensions.versions"];
 var DESCRIBE_LIMIT = 12;
 var VALUE_CHARS = 40;
-function isDict$40(value) {
+function isDict$43(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function isDriftPayload(value) {
-	return isDict$40(value) && typeof value.hash === "string" && typeof value.baselineAt === "number" && Array.isArray(value.restore) && Array.isArray(value.adopt);
+	return isDict$43(value) && typeof value.hash === "string" && typeof value.baselineAt === "number" && Array.isArray(value.restore) && Array.isArray(value.adopt);
 }
 /** Restore order: the whole preset first (it reloads everything), then its name, then the rest. */
 function restoreRank(path) {
@@ -31961,7 +36017,7 @@ var GuardianService = class {
 		let entries = detail.entries.filter((entry) => paths.includes(entry.path) && isRestorable(entry, baseline));
 		if (confirmPreset && entries.some((entry) => isPresetBodyPath(entry.path))) {
 			const value = baseline.restore["preset.body"];
-			const name = isDict$40(value) && typeof value.name === "string" ? value.name : "";
+			const name = isDict$43(value) && typeof value.name === "string" ? value.name : "";
 			if (!await this.app.ui.confirm(this.t("m4.confirm.presetTitle"), this.t("m4.confirm.presetBody", { name }))) entries = entries.filter((entry) => !isPresetBodyPath(entry.path));
 		}
 		entries.sort((a, b) => restoreRank(a.path) - restoreRank(b.path) || a.path.localeCompare(b.path));
@@ -32070,7 +36126,7 @@ var GuardianService = class {
 		}
 	}
 	findCard(hash) {
-		return this.app.inbox.list().find((card) => card.kind === "guardian.drift" && isDict$40(card.payload) && card.payload.hash === hash)?.id;
+		return this.app.inbox.list().find((card) => card.kind === "guardian.drift" && isDict$43(card.payload) && card.payload.hash === hash)?.id;
 	}
 	/** Inbox applier: restores what can be restored and takes the rest as the new baseline. */
 	async applyCard(payload) {
@@ -32120,7 +36176,7 @@ var GuardianService = class {
 		const title = this.t(key);
 		let name = rest;
 		if (group === "regex") {
-			const value = isDict$40(entry.current) ? entry.current : isDict$40(entry.baseline) ? entry.baseline : null;
+			const value = isDict$43(entry.current) ? entry.current : isDict$43(entry.baseline) ? entry.baseline : null;
 			if (value && typeof value.name === "string" && value.name) name = value.name;
 		} else if (group === "preset") {
 			const known = this.t(`m4.preset.${rest}`);
@@ -32773,342 +36829,6 @@ var guardianModule = {
 	}
 };
 //#endregion
-//#region src/domain/lore-inspector.ts
-var OWNER_PATTERNS = [
-	[/^dooms[-_]/i, "des"],
-	[/^(?:carrot|script_inject_carrot)/i, "ck"],
-	[/^qvink_memory/i, "qvink"],
-	[/^nai_studio/i, "nai"],
-	[/^desru_/i, "desru"],
-	[/^maestro_/i, "maestro"],
-	[/^customWIOutlet_/, "wiOutlet"],
-	[/^customDepthWI/, "wiDepth"],
-	[/^1_memory$/, "summary"],
-	[/^2_floating_prompt$/, "authorsNote"],
-	[/^(?:DEPTH_PROMPT|PERSONA_DESCRIPTION)/, "card"]
-];
-function slotOwner(key) {
-	for (const [pattern, owner] of OWNER_PATTERNS) if (pattern.test(key)) return owner;
-	return "other";
-}
-/** Prompt Manager identifiers of the slots ST maps by name (openai.js:1388-1430); others use `key.replace(/\W/g,'_')`. */
-var KNOWN_SLOT_IDENTIFIERS = {
-	"1_memory": "summary",
-	"2_floating_prompt": "authorsNote",
-	"3_vectors": "vectorsMemory",
-	"4_vectors_data_bank": "vectorsDataBank",
-	chromadb: "smartContext"
-};
-function promptIdentifierOf(key) {
-	return KNOWN_SLOT_IDENTIFIERS[key] ?? key.replace(/\W/g, "_");
-}
-/** Card blocks of the Prompt Manager (markers filled from the character and persona). */
-var CARD_IDENTIFIERS = /* @__PURE__ */ new Set([
-	"charDescription",
-	"charPersonality",
-	"scenario",
-	"personaDescription"
-]);
-/** extension_prompt_types (script.js:484-489). */
-var SLOT_POSITION = {
-	NONE: -1,
-	IN_PROMPT: 0,
-	IN_CHAT: 1,
-	BEFORE_PROMPT: 2
-};
-/** world_info_position values of entries injected into blocks other than before/after. */
-var WI_POSITION$1 = {
-	before: 0,
-	after: 1,
-	ANTop: 2,
-	ANBottom: 3,
-	atDepth: 4,
-	EMTop: 5,
-	EMBottom: 6,
-	outlet: 7
-};
-/** Text of a Chat Completion message (string content or multimodal parts). */
-function messageText(message) {
-	if (typeof message !== "object" || message === null) return "";
-	const content = message.content;
-	if (typeof content === "string") return content;
-	if (!Array.isArray(content)) return "";
-	return content.map((part) => typeof part === "object" && part !== null && typeof part.text === "string" ? part.text : "").join("");
-}
-function messageRole(message) {
-	if (typeof message !== "object" || message === null) return "system";
-	const role = message.role;
-	return typeof role === "string" ? role : "system";
-}
-function charsByRole(messages) {
-	const chars = {
-		system: 0,
-		user: 0,
-		assistant: 0,
-		tool: 0
-	};
-	for (const message of messages) {
-		const role = messageRole(message);
-		const length = messageText(message).length;
-		if (role === "user" || role === "assistant" || role === "tool") chars[role] += length;
-		else chars.system += length;
-	}
-	return chars;
-}
-/**
-* Splits the prompt into sources. Slots with position NONE (outlets, `{{macro}}` reads) are left inside the block
-* that references them; depth lore lives in `customDepthWI_*` slots, so with M1 data it is shown per book.
-*/
-function reconstructSources(input) {
-	const sources = /* @__PURE__ */ new Map();
-	const add = (source) => {
-		if (!(source.tokens > 0)) return;
-		const existing = sources.get(source.id);
-		if (existing) existing.tokens += source.tokens;
-		else sources.set(source.id, { ...source });
-	};
-	const take = (id, tokens) => {
-		const source = sources.get(id);
-		if (source) source.tokens = Math.max(0, source.tokens - tokens);
-	};
-	const names = input.presetNames ?? {};
-	const inPromptSlots = /* @__PURE__ */ new Map();
-	for (const slot of input.slots) if (slot.position === SLOT_POSITION.IN_PROMPT || slot.position === SLOT_POSITION.BEFORE_PROMPT) inPromptSlots.set(promptIdentifierOf(slot.key), slot);
-	const extensionSource = (slot, tokens) => {
-		const owner = slotOwner(slot.key);
-		return owner === "card" ? {
-			id: `card:${slot.key}`,
-			kind: "card",
-			name: slot.key,
-			tokens
-		} : {
-			id: `ext:${owner}`,
-			kind: "extension",
-			owner,
-			tokens
-		};
-	};
-	let total = 0;
-	let history = 0;
-	let worldInfo = 0;
-	const exact = input.counts !== null;
-	if (input.counts) for (const [identifier, value] of Object.entries(input.counts)) {
-		const tokens = Number(value);
-		if (!Number.isFinite(tokens) || tokens <= 0) continue;
-		total += tokens;
-		if (identifier === "chatHistory") history += tokens;
-		else if (identifier === "worldInfoBefore" || identifier === "worldInfoAfter") worldInfo += tokens;
-		else if (identifier === "dialogueExamples" || CARD_IDENTIFIERS.has(identifier)) add({
-			id: `card:${identifier}`,
-			kind: "card",
-			name: identifier,
-			tokens
-		});
-		else {
-			const slot = inPromptSlots.get(identifier);
-			if (slot) {
-				add(extensionSource(slot, tokens));
-				inPromptSlots.delete(identifier);
-			} else add({
-				id: `preset:${identifier}`,
-				kind: "preset",
-				name: names[identifier] ?? identifier,
-				tokens
-			});
-		}
-	}
-	else {
-		total = Math.max(0, input.messageTokens ?? 0);
-		history = total;
-	}
-	for (const slot of input.slots) {
-		if (!(slot.tokens > 0)) continue;
-		const owner = slotOwner(slot.key);
-		if (slot.position === SLOT_POSITION.IN_CHAT) {
-			history -= slot.tokens;
-			if (owner === "wiDepth") {
-				if (input.lore === null) add({
-					id: "lore:",
-					kind: "lore",
-					tokens: slot.tokens
-				});
-			} else add(extensionSource(slot, slot.tokens));
-		} else if (!exact && inPromptSlots.has(promptIdentifierOf(slot.key))) {
-			history -= slot.tokens;
-			add(extensionSource(slot, slot.tokens));
-		}
-	}
-	for (const prompt of input.absolute ?? []) {
-		if (!(prompt.tokens > 0)) continue;
-		history -= prompt.tokens;
-		add({
-			id: `preset:${prompt.identifier}`,
-			kind: "preset",
-			name: prompt.name || prompt.identifier,
-			tokens: prompt.tokens
-		});
-	}
-	if (input.lore) {
-		const takeFrom = (id, tokens) => {
-			if (sources.has(id)) take(id, tokens);
-			else if (!exact) history -= tokens;
-		};
-		for (const item of input.lore) {
-			if (!(item.tokens > 0)) continue;
-			add({
-				id: `lore:${item.book}`,
-				kind: "lore",
-				name: item.book,
-				tokens: item.tokens
-			});
-			switch (item.position) {
-				case WI_POSITION$1.before:
-				case WI_POSITION$1.after:
-					if (exact) worldInfo -= item.tokens;
-					else history -= item.tokens;
-					break;
-				case WI_POSITION$1.ANTop:
-				case WI_POSITION$1.ANBottom:
-					takeFrom("ext:authorsNote", item.tokens);
-					break;
-				case WI_POSITION$1.EMTop:
-				case WI_POSITION$1.EMBottom:
-					takeFrom("card:dialogueExamples", item.tokens);
-					break;
-				case WI_POSITION$1.atDepth: break;
-				default: if (!exact) history -= item.tokens;
-			}
-		}
-		if (worldInfo > 0) add({
-			id: "preset:worldInfoFormat",
-			kind: "preset",
-			name: "worldInfoFormat",
-			tokens: worldInfo
-		});
-	} else if (worldInfo > 0) add({
-		id: "lore:",
-		kind: "lore",
-		tokens: worldInfo
-	});
-	add({
-		id: "history",
-		kind: "history",
-		tokens: Math.max(0, history)
-	});
-	const list = [...sources.values()].filter((source) => source.tokens > 0);
-	return {
-		total,
-		exact,
-		sources: list
-	};
-}
-/** Lore of a turn by book and placement (entries cut from the prompt are left out). */
-function loreMeasures(activations) {
-	const measures = /* @__PURE__ */ new Map();
-	for (const row of activations) {
-		if (row.cut) continue;
-		const key = `${row.world}\u0000${row.position}`;
-		const measure = measures.get(key) ?? {
-			book: row.world,
-			position: row.position,
-			tokens: 0
-		};
-		measure.tokens += row.tokens;
-		measures.set(key, measure);
-	}
-	return [...measures.values()];
-}
-/** Adds a turn to a rolling list: the same message replaces its earlier turn; at most `keep` are kept. */
-function pushTurn(list, record, keep) {
-	const next = list.filter((item) => item.messageIndex !== record.messageIndex);
-	next.push(record);
-	const limit = Math.max(1, Math.floor(keep));
-	return next.length > limit ? next.slice(next.length - limit) : next;
-}
-function compareSources(current, previous, all) {
-	const total = current.reduce((sum, source) => sum + source.tokens, 0);
-	const previousById = previous ? new Map(previous.map((source) => [source.id, source.tokens])) : null;
-	const sums = /* @__PURE__ */ new Map();
-	for (const turn of all) for (const source of turn) sums.set(source.id, (sums.get(source.id) ?? 0) + source.tokens);
-	return [...current].sort((a, b) => b.tokens - a.tokens).map((source) => {
-		const row = {
-			source,
-			share: total ? source.tokens / total : 0
-		};
-		if (previousById) row.deltaPrevious = source.tokens - (previousById.get(source.id) ?? 0);
-		if (all.length) row.deltaAverage = Math.round(source.tokens - (sums.get(source.id) ?? 0) / all.length);
-		return row;
-	});
-}
-/** Bar segments: presets, card, lore, history, and each extension owner on its own. */
-function barGroups(sources) {
-	const groups = /* @__PURE__ */ new Map();
-	for (const source of sources) {
-		const group = source.kind === "extension" ? source.owner ?? "other" : source.kind;
-		groups.set(group, (groups.get(group) ?? 0) + source.tokens);
-	}
-	return [...groups].map(([group, tokens]) => ({
-		group,
-		tokens
-	})).sort((a, b) => b.tokens - a.tokens);
-}
-var LIST_MARKER = /^(?:[-*•>]+|\d+[.)])\s+/;
-function splitSentences$1(text) {
-	return text.split(/(?<=[.!?…])\s+|\n+/).map((part) => part.replace(LIST_MARKER, "").replace(/\s+/g, " ").trim()).filter(Boolean);
-}
-/** Identical sentences of at least `minLength` characters found in two or more different sources. */
-function findRepeats(texts, minLength = 60, limit = 20) {
-	const seen = /* @__PURE__ */ new Map();
-	for (const { source, text } of texts) {
-		if (!text) continue;
-		for (const sentence of splitSentences$1(text)) {
-			if (sentence.length < minLength) continue;
-			const key = sentence.toLowerCase();
-			const item = seen.get(key) ?? {
-				sentence,
-				sources: /* @__PURE__ */ new Set()
-			};
-			item.sources.add(source);
-			seen.set(key, item);
-		}
-	}
-	return [...seen.values()].filter((item) => item.sources.size >= 2).sort((a, b) => b.sentence.length - a.sentence.length).slice(0, limit).map((item) => ({
-		sentence: item.sentence,
-		sources: [...item.sources]
-	}));
-}
-var SECRET_PATTERNS = [
-	/\bsk-(?:ant-|or-|proj-)?[A-Za-z0-9_-]{16,}/g,
-	/\bpst-[A-Za-z0-9_-]{16,}/g,
-	/\bBearer\s+[A-Za-z0-9._~+/-]{16,}=*/g,
-	/\bAIza[0-9A-Za-z_-]{30,}/g,
-	/\bgh[pousr]_[A-Za-z0-9]{30,}/g,
-	/\bxox[abprs]-[A-Za-z0-9-]{10,}/g
-];
-/** Replaces API-key-like strings (OpenAI/Anthropic/OpenRouter, NovelAI, bearer tokens, Google, GitHub, Slack). */
-function scrubSecrets(text) {
-	let result = text;
-	for (const pattern of SECRET_PATTERNS) result = result.replace(pattern, "[secret]");
-	return result;
-}
-/** Prompt messages for an export: secrets always scrubbed; with `redactChat`, user and assistant text dropped. */
-function exportMessages(messages, redactChat) {
-	return messages.map((message) => {
-		const role = messageRole(message);
-		const text = messageText(message);
-		if (redactChat && (role === "user" || role === "assistant")) return {
-			role,
-			chars: text.length,
-			redacted: true
-		};
-		return {
-			role,
-			chars: text.length,
-			content: scrubSecrets(text)
-		};
-	});
-}
-//#endregion
 //#region src/features/inspector/inspector.ts
 var INSPECTOR_DOC_KIND = "inspector";
 /** How long finalisation waits for M1's record of the same turn. */
@@ -33117,12 +36837,12 @@ var LORE_WAIT_MS = 5e3;
 var REPLY_GRACE_MS$1 = 6e4;
 var NOT_A_TURN$1 = /* @__PURE__ */ new Set(["quiet", "impersonate"]);
 var TOKEN_CACHE_LIMIT$2 = 2e3;
-function isDict$39(value) {
+function isDict$42(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /** Prompt Manager's "absolute" injection position (PromptManager.js INJECTION_POSITION). */
 var ABSOLUTE$1 = 1;
-function emptyDoc$1() {
+function emptyDoc$2() {
 	return {
 		v: 1,
 		records: []
@@ -33132,7 +36852,7 @@ function ensureDoc(doc) {
 	const raw = doc;
 	raw.v = 1;
 	if (!Array.isArray(raw.records)) raw.records = [];
-	raw.records = raw.records.filter((record) => isDict$39(record) && typeof record.messageIndex === "number" && Array.isArray(record.sources));
+	raw.records = raw.records.filter((record) => isDict$42(record) && typeof record.messageIndex === "number" && Array.isArray(record.sources));
 	return raw;
 }
 var Inspector = class {
@@ -33148,6 +36868,7 @@ var Inspector = class {
 	loading = null;
 	openai = null;
 	listeners = /* @__PURE__ */ new Set();
+	sections = /* @__PURE__ */ new Set();
 	tokenCache = /* @__PURE__ */ new Map();
 	disposed = false;
 	constructor(app, settings, log) {
@@ -33187,6 +36908,7 @@ var Inspector = class {
 		own(() => {
 			this.disposed = true;
 			this.listeners.clear();
+			this.sections.clear();
 			this.pending = null;
 			this.awaiting = null;
 		});
@@ -33211,7 +36933,7 @@ var Inspector = class {
 		this.awaiting = { type: info.type };
 	}
 	onPromptReady(data) {
-		if (!isDict$39(data) || data.dryRun !== false || !this.awaiting) return;
+		if (!isDict$42(data) || data.dryRun !== false || !this.awaiting) return;
 		const { type } = this.awaiting;
 		this.awaiting = null;
 		this.pendingEndedAt = null;
@@ -33228,12 +36950,12 @@ var Inspector = class {
 	promptManager() {
 		if (!this.app.host.caps.has("st.oai.promptManager")) return null;
 		const pm = this.openai?.promptManager;
-		return isDict$39(pm) ? pm : null;
+		return isDict$42(pm) ? pm : null;
 	}
 	snapshotCounts() {
 		try {
 			const counts = this.promptManager()?.tokenHandler?.getCounts?.();
-			if (!isDict$39(counts)) return null;
+			if (!isDict$42(counts)) return null;
 			const copy = {};
 			for (const [identifier, value] of Object.entries(counts)) if (typeof value === "number" && Number.isFinite(value)) copy[identifier] = value;
 			return copy;
@@ -33266,7 +36988,7 @@ var Inspector = class {
 			if (!Array.isArray(order)) return [];
 			const result = [];
 			for (const item of order) {
-				if (!isDict$39(item) || item.enabled === false || typeof item.identifier !== "string") continue;
+				if (!isDict$42(item) || item.enabled === false || typeof item.identifier !== "string") continue;
 				const prompt = pm.getPromptById(item.identifier);
 				if (!prompt || prompt.marker === true || Number(prompt.injection_position) !== ABSOLUTE$1) continue;
 				if (typeof prompt.content !== "string" || !prompt.content) continue;
@@ -33435,7 +37157,7 @@ var Inspector = class {
 		}
 		if (this.view?.chatId === chatId) return;
 		if (!this.loading) this.loading = (async () => {
-			const doc = ensureDoc(await this.app.chat.getFor(chatId, INSPECTOR_DOC_KIND, emptyDoc$1));
+			const doc = ensureDoc(await this.app.chat.getFor(chatId, INSPECTOR_DOC_KIND, emptyDoc$2));
 			if (this.app.host.chatId() === chatId) this.view = {
 				chatId,
 				doc
@@ -33448,7 +37170,7 @@ var Inspector = class {
 	}
 	async updateDoc(chatId, change) {
 		for (let attempt = 0; attempt < 2; attempt++) {
-			const doc = ensureDoc(await this.app.chat.getFor(chatId, INSPECTOR_DOC_KIND, emptyDoc$1));
+			const doc = ensureDoc(await this.app.chat.getFor(chatId, INSPECTOR_DOC_KIND, emptyDoc$2));
 			change(doc);
 			const saved = await this.app.chat.put(INSPECTOR_DOC_KIND, doc);
 			if (this.app.host.chatId() === chatId) this.view = {
@@ -33474,6 +37196,16 @@ var Inspector = class {
 		return () => {
 			this.listeners.delete(listener);
 		};
+	}
+	addSection(section) {
+		this.sections.add(section);
+		return () => {
+			this.sections.delete(section);
+		};
+	}
+	/** Sections other modules added, in their order. */
+	extraSections() {
+		return [...this.sections].sort((a, b) => a.order - b.order);
 	}
 	/** Prompt text and lore contents of a turn, when it is the last turn of this session. */
 	detailsFor(record) {
@@ -33931,7 +37663,7 @@ function promptTab(app, inspector, settings) {
 			const turnView = (records, record) => {
 				const index = records.indexOf(record);
 				const previous = index > 0 ? records[index - 1] : void 0;
-				const rows = compareSources(record.sources, previous?.sources, records.map((item) => item.sources));
+				const rows = compareSources$1(record.sources, previous?.sources, records.map((item) => item.sources));
 				const picker = records.length > 1 ? select({
 					label: t("m2.turn.pick"),
 					value: String(record.at),
@@ -33986,6 +37718,15 @@ function promptTab(app, inspector, settings) {
 					app.settings.save();
 				}
 			}))]);
+			const extraSections = (record) => inspector.extraSections().flatMap((item) => {
+				try {
+					const node = item.render(record);
+					return node ? [node] : [];
+				} catch (error) {
+					app.log.warn(`inspector section ${item.id} failed`, error);
+					return [];
+				}
+			});
 			const draw = () => {
 				if (!alive) return;
 				clear(container);
@@ -33999,6 +37740,7 @@ function promptTab(app, inspector, settings) {
 					app.host.isChatCompletion() ? null : banner(t("m2.ccOnly"), "info", "fa-circle-info"),
 					record ? turnView(records, record) : section$1(t("m2.turn.title"), emptyState(t("m2.turn.empty"), "fa-layer-group")),
 					record ? repeatsView(record) : null,
+					...record ? extraSections(record) : [],
 					record ? exportView(record) : null,
 					settingsView()
 				]));
@@ -34053,7 +37795,7 @@ var SCAN_STATE = {
 	RECURSION: 2,
 	MIN_ACTIVATIONS: 3
 };
-function isDict$38(value) {
+function isDict$41(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function num$4(value, fallback = 0) {
@@ -34074,13 +37816,13 @@ function entryId(world, uid) {
 }
 /** Our id of a raw scan entry; null when it has no world/uid. */
 function rawId(raw) {
-	if (!isDict$38(raw) || typeof raw.world !== "string") return null;
+	if (!isDict$41(raw) || typeof raw.world !== "string") return null;
 	const uid = Number(raw.uid);
 	return Number.isFinite(uid) ? entryId(raw.world, uid) : null;
 }
 /** Copies the fields M1 needs from a scan entry; null when it has no world/uid. */
 function captureEntry(raw, loop, recursionLevel) {
-	if (!isDict$38(raw)) return null;
+	if (!isDict$41(raw)) return null;
 	const uid = Number(raw.uid);
 	if (typeof raw.world !== "string" || !Number.isFinite(uid)) return null;
 	const entry = {
@@ -34157,15 +37899,15 @@ var ScanCollector = class {
 	}
 	/** One WORLDINFO_SCAN_DONE payload. Cheap: identity copies only. */
 	scanDone(args) {
-		if (this.complete || !isDict$38(args)) return;
-		const state = isDict$38(args.state) ? args.state : {};
+		if (this.complete || !isDict$41(args)) return;
+		const state = isDict$41(args.state) ? args.state : {};
 		const loop = num$4(state.loopCount, this.lastLoop + 1);
 		if (loop <= this.lastLoop) this.reset();
 		this.lastLoop = loop;
 		const current = num$4(state.current, SCAN_STATE.INITIAL);
 		if (current === SCAN_STATE.RECURSION) this.recursionSteps++;
 		const level = current === SCAN_STATE.RECURSION ? this.recursionSteps : 0;
-		const activated = isDict$38(args.activated) ? args.activated.entries : void 0;
+		const activated = isDict$41(args.activated) ? args.activated.entries : void 0;
 		if (isMapLike(activated)) for (const raw of activated.values()) {
 			const id = rawId(raw);
 			if (id === null) continue;
@@ -34174,9 +37916,9 @@ var ScanCollector = class {
 			const entry = captureEntry(raw, loop, level);
 			if (entry) this.activated.set(id, entry);
 		}
-		const budget = isDict$38(args.budget) ? args.budget : {};
+		const budget = isDict$41(args.budget) ? args.budget : {};
 		const reason = budget.overflowed === true ? "budget" : "other";
-		const fresh = isDict$38(args.new) && Array.isArray(args.new.successful) ? args.new.successful : [];
+		const fresh = isDict$41(args.new) && Array.isArray(args.new.successful) ? args.new.successful : [];
 		for (const raw of fresh) {
 			const id = rawId(raw);
 			if (id === null || this.activated.has(id) || this.cutEntries.has(id)) continue;
@@ -34414,7 +38156,7 @@ var STALE_COLLECTOR_MS = 9e5;
 var NOT_A_TURN = /* @__PURE__ */ new Set(["quiet", "impersonate"]);
 var TOKEN_CACHE_LIMIT$1 = 3e3;
 var TOKEN_WORKERS = 4;
-function isDict$37(value) {
+function isDict$40(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function strings$7(value) {
@@ -34502,7 +38244,7 @@ var LoreJournal = class {
 		this.ensureLoaded();
 	}
 	onEntriesLoaded(payload) {
-		if (!isDict$37(payload)) return;
+		if (!isDict$40(payload)) return;
 		if (this.sim) {
 			this.prepareSimulation(payload);
 			return;
@@ -34522,7 +38264,7 @@ var LoreJournal = class {
 		]) {
 			const list = lists[name];
 			if (!Array.isArray(list)) continue;
-			for (const entry of list) if (isDict$37(entry) && entry.useProbability) entry.useProbability = false;
+			for (const entry of list) if (isDict$40(entry) && entry.useProbability) entry.useProbability = false;
 		}
 		if (sim.transform) try {
 			sim.transform(lists);
@@ -34816,7 +38558,7 @@ var LoreJournal = class {
 	async whyActive() {
 		const ctx = this.app.host.ctx();
 		const wi = await loadWorldInfo(this.app);
-		const charLore = isDict$37(wi?.world_info) && Array.isArray(wi.world_info.charLore) ? wi.world_info.charLore : [];
+		const charLore = isDict$40(wi?.world_info) && Array.isArray(wi.world_info.charLore) ? wi.world_info.charLore : [];
 		const characters = ctx.characters ?? [];
 		const members = ctx.groupId ? ((ctx.groups ?? []).find((group) => group.id === ctx.groupId)?.members ?? []).map((avatar) => characters.find((character) => character.avatar === avatar)) : [ctx.characterId === void 0 ? void 0 : characters[Number(ctx.characterId)]];
 		const primary = [];
@@ -34826,7 +38568,7 @@ var LoreJournal = class {
 			const world = character.data?.extensions?.world;
 			if (typeof world === "string" && world) primary.push(world);
 			const key = avatarKey$1(character.avatar ?? "");
-			for (const lore of charLore) if (isDict$37(lore) && lore.name === key) extra.push(...strings$7(lore.extraBooks));
+			for (const lore of charLore) if (isDict$40(lore) && lore.name === key) extra.push(...strings$7(lore.extraBooks));
 		}
 		const chatBook = ctx.chatMetadata?.world_info;
 		const personaBook = ctx.powerUserSettings?.persona_description_lorebook;
@@ -34877,7 +38619,7 @@ var LoreJournal = class {
 		} finally {
 			this.sim = null;
 		}
-		const final = isDict$37(result) ? result.allActivatedEntries : void 0;
+		const final = isDict$40(result) ? result.allActivatedEntries : void 0;
 		if (final && typeof final[Symbol.iterator] === "function") sim.collector.activatedFinal([...final]);
 		return this.buildRecord(sim.collector.result(), {
 			messageIndex: -1,
@@ -34950,10 +38692,10 @@ var LoreJournal = class {
 				this.log.debug(`lorebook ${world} did not load`, error);
 				continue;
 			}
-			const entries = isDict$37(book) && isDict$37(book.entries) ? book.entries : {};
+			const entries = isDict$40(book) && isDict$40(book.entries) ? book.entries : {};
 			const wanted = new Map(record.activations.filter((row) => row.world === world).map((row) => [row.uid, row]));
 			for (const raw of Object.values(entries)) {
-				if (!isDict$37(raw)) continue;
+				if (!isDict$40(raw)) continue;
 				const row = wanted.get(Number(raw.uid));
 				if (!row) continue;
 				const entry = captureEntry({
@@ -38200,7 +41942,7 @@ function buildExtractMessages(input) {
 		content: user
 	}];
 }
-function isDict$36(value) {
+function isDict$39(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function text$1(value, max) {
@@ -38243,13 +41985,13 @@ function parsed(data) {
 */
 function parseExtraction(data, context) {
 	const value = parsed(data);
-	if (!isDict$36(value) || !Array.isArray(value.provisional) && !Array.isArray(value.facts)) return null;
+	if (!isDict$39(value) || !Array.isArray(value.provisional) && !Array.isArray(value.facts)) return null;
 	const rejected = [];
 	const updates = [];
 	const uids = new Set(context.uids);
 	const done = /* @__PURE__ */ new Set();
 	for (const item of Array.isArray(value.provisional) ? value.provisional : []) {
-		if (!isDict$36(item) || typeof item.uid !== "number" || !uids.has(item.uid) || done.has(item.uid)) {
+		if (!isDict$39(item) || typeof item.uid !== "number" || !uids.has(item.uid) || done.has(item.uid)) {
 			rejected.push({
 				item,
 				reason: "unknown uid"
@@ -38282,7 +42024,7 @@ function parseExtraction(data, context) {
 	const seen = /* @__PURE__ */ new Set();
 	for (const item of Array.isArray(value.facts) ? value.facts : []) {
 		if (facts.length >= Math.max(0, context.max)) break;
-		if (!isDict$36(item)) {
+		if (!isDict$39(item)) {
 			rejected.push({
 				item,
 				reason: "not an object"
@@ -38392,7 +42134,7 @@ function emptyLivingDoc() {
 		stats: emptyStats()
 	};
 }
-function isDict$35(value) {
+function isDict$38(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function str$5(value, fallback = "") {
@@ -38411,7 +42153,7 @@ function isLivingType(value) {
 	return typeof value === "string" && LIVING_TYPES.includes(value);
 }
 function draftOf(raw) {
-	if (!isDict$35(raw) || typeof raw.name !== "string" || !raw.name.trim()) return null;
+	if (!isDict$38(raw) || typeof raw.name !== "string" || !raw.name.trim()) return null;
 	const source = int(raw.sourceMessage, -1);
 	if (source < 0) return null;
 	const draft = {
@@ -38431,7 +42173,7 @@ function draftOf(raw) {
 	return draft;
 }
 function factOf(raw) {
-	if (!isDict$35(raw) || typeof raw.id !== "string" || typeof raw.name !== "string" || !raw.name.trim()) return null;
+	if (!isDict$38(raw) || typeof raw.id !== "string" || typeof raw.name !== "string" || !raw.name.trim()) return null;
 	const fact = {
 		id: raw.id,
 		name: raw.name.trim(),
@@ -38463,14 +42205,14 @@ function factOf(raw) {
 /** A stored document of any shape → a valid one (unknown entries dropped). */
 function normalizeLivingDoc(raw) {
 	const doc = emptyLivingDoc();
-	if (!isDict$35(raw)) return doc;
+	if (!isDict$38(raw)) return doc;
 	if (Array.isArray(raw.drafts)) doc.drafts = raw.drafts.map(draftOf).filter((item) => !!item);
 	if (Array.isArray(raw.facts)) doc.facts = raw.facts.map(factOf).filter((item) => !!item);
-	if (Array.isArray(raw.committed)) doc.committed = raw.committed.filter((item) => isDict$35(item) && typeof item.index === "number").map((item) => ({
+	if (Array.isArray(raw.committed)) doc.committed = raw.committed.filter((item) => isDict$38(item) && typeof item.index === "number").map((item) => ({
 		index: item.index,
 		stamp: str$5(item.stamp)
 	}));
-	if (isDict$35(raw.extract)) {
+	if (isDict$38(raw.extract)) {
 		const extract = raw.extract;
 		doc.extract = {
 			upTo: int(extract.upTo, -1),
@@ -38482,7 +42224,7 @@ function normalizeLivingDoc(raw) {
 		if (typeof extract.updated === "number") doc.extract.updated = extract.updated;
 	}
 	doc.started = raw.started === true;
-	if (isDict$35(raw.stats)) {
+	if (isDict$38(raw.stats)) {
 		const stats = raw.stats;
 		for (const key of STAT_KEYS) doc.stats[key] = Math.max(0, int(stats[key], 0));
 	}
@@ -38490,7 +42232,7 @@ function normalizeLivingDoc(raw) {
 }
 /** Fingerprint of a chat message: send date, swipe and text (a swipe, an edit or a regeneration changes it). */
 function messageStamp$1(message) {
-	if (!isDict$35(message)) return "";
+	if (!isDict$38(message)) return "";
 	const swipe = typeof message.swipe_id === "number" ? message.swipe_id : 0;
 	return `${str$5(message.send_date)}|${swipe}|${stableHash(str$5(message.mes))}`;
 }
@@ -52378,7 +56120,7 @@ function createLoreStudioModule(renderForm) {
 var loreStudioModule = createLoreStudioModule(renderEntryForm);
 //#endregion
 //#region src/domain/medic-des.ts
-function isDict$34(value) {
+function isDict$37(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /**
@@ -52396,7 +56138,7 @@ function emptyKeyFieldNames(fields) {
 	if (!Array.isArray(fields)) return [];
 	const names = [];
 	for (const field of fields) {
-		if (!isDict$34(field) || field.enabled === false) continue;
+		if (!isDict$37(field) || field.enabled === false) continue;
 		const name = typeof field.name === "string" ? field.name.trim() : "";
 		if (name && desFieldKey(name) === "") names.push(name);
 	}
@@ -52405,7 +56147,7 @@ function emptyKeyFieldNames(fields) {
 /** True when some character in `characterThoughts` has a `details` entry with the empty key `""`. */
 function hasEmptyDetailKeys(characterThoughts) {
 	const data = parseTrackerJson(characterThoughts);
-	return (Array.isArray(data) ? data : isDict$34(data) && Array.isArray(data.characters) ? data.characters : []).some((character) => isDict$34(character) && isDict$34(character.details) && Object.hasOwn(character.details, ""));
+	return (Array.isArray(data) ? data : isDict$37(data) && Array.isArray(data.characters) ? data.characters : []).some((character) => isDict$37(character) && isDict$37(character.details) && Object.hasOwn(character.details, ""));
 }
 function blank(value) {
 	return value === null || value === void 0 || typeof value === "string" && value.trim() === "";
@@ -52483,14 +56225,14 @@ function buildCompactRepairPrompt(input) {
 }
 //#endregion
 //#region src/domain/medic-lore.ts
-function isDict$33(value) {
+function isDict$36(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /** Entries of a book (`{entries: {uid: entry}}` or a list), as plain objects. */
 function bookEntries(book) {
-	const entries = isDict$33(book) ? book.entries : void 0;
-	if (Array.isArray(entries)) return entries.filter(isDict$33);
-	if (isDict$33(entries)) return Object.values(entries).filter(isDict$33);
+	const entries = isDict$36(book) ? book.entries : void 0;
+	if (Array.isArray(entries)) return entries.filter(isDict$36);
+	if (isDict$36(entries)) return Object.values(entries).filter(isDict$36);
 	return [];
 }
 function ref(entry) {
@@ -52554,13 +56296,13 @@ function findQvinkGaps(messages, options = QVINK_GAP_DEFAULTS) {
 //#region src/features/medic/prefill.ts
 var PREFILL_KIND = "medic.prefillRole";
 var PREFILL_TARGET = "preset-prompt-role";
-function isDict$32(value) {
+function isDict$35(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /** Live Chat Completion settings (oai_settings) or null. */
 function liveSettings(app) {
 	const settings = app.host.ctx().chatCompletionSettings;
-	return isDict$32(settings) ? settings : null;
+	return isDict$35(settings) ? settings : null;
 }
 /** The assistant prompt that ends the request with the active preset, if any. */
 function detectPrefill(app) {
@@ -52652,9 +56394,9 @@ var PrefillFix = class {
 		const openai = await this.app.host.modules.openai();
 		const names = openai.openai_setting_names;
 		const list = openai.openai_settings;
-		const slot = isDict$32(names) ? names[preset] : void 0;
+		const slot = isDict$35(names) ? names[preset] : void 0;
 		const stored = Array.isArray(list) && typeof slot === "number" ? list[slot] : void 0;
-		if (!isDict$32(stored)) {
+		if (!isDict$35(stored)) {
 			this.log.warn(`preset ${preset} is not in ST's preset list; only the live settings changed`);
 			return;
 		}
@@ -52664,7 +56406,7 @@ var PrefillFix = class {
 		body.prompts[index].role = role;
 		const getManager = (await this.app.host.modules.presetManager()).getPresetManager;
 		const manager = typeof getManager === "function" ? getManager("openai") : null;
-		const save = isDict$32(manager) ? manager.savePreset : void 0;
+		const save = isDict$35(manager) ? manager.savePreset : void 0;
 		if (typeof save !== "function") {
 			this.log.warn("preset manager has no savePreset; only the live settings changed");
 			return;
@@ -52676,7 +56418,7 @@ var PrefillFix = class {
 		if (!this.app.host.caps.has("st.oai.promptManager")) return;
 		try {
 			const manager = (await this.app.host.modules.openai()).promptManager;
-			const render = isDict$32(manager) ? manager.render : void 0;
+			const render = isDict$35(manager) ? manager.render : void 0;
 			if (typeof render === "function") render.call(manager, false);
 		} catch (error) {
 			this.log.debug("prompt manager render failed", error);
@@ -52685,7 +56427,7 @@ var PrefillFix = class {
 };
 //#endregion
 //#region src/features/medic/sources.ts
-function isDict$31(value) {
+function isDict$34(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /** Reply types that are not a model's story reply (first message, background calls, NAI picture posts). */
@@ -52697,7 +56439,7 @@ var SKIPPED_TYPES = /* @__PURE__ */ new Set([
 ]);
 /** NAI Studio picture post: `extra.nai_studio` with the image prompt as text (research/qvink-nai-studio.md §B5). */
 function isPicturePost(message) {
-	return isDict$31(message.extra?.nai_studio);
+	return isDict$34(message.extra?.nai_studio);
 }
 /** The last user message before `index` asked BunnyMo for a sheet (`!fullsheet`, …). */
 function answersSheetCommand(chat, index) {
@@ -52710,7 +56452,7 @@ function answersSheetCommand(chat, index) {
 /** A message M31 marked as a sheet (`extra.maestro.sheet`). */
 function isSheetMessage(message) {
 	const maestro = message.extra?.maestro;
-	return isDict$31(maestro) && maestro.sheet === true;
+	return isDict$34(maestro) && maestro.sheet === true;
 }
 /** The reply at `index` is a regular story reply the checks apply to. */
 function isStoryReply(chat, index, type = "normal") {
@@ -52739,7 +56481,7 @@ function qvinkViews(chat) {
 			isSystem: message.is_system,
 			textLength: typeof message.mes === "string" ? message.mes.trim().length : 0,
 			skip: isPicturePost(message),
-			record: isDict$31(raw) ? {
+			record: isDict$34(raw) ? {
 				memory: typeof raw.memory === "string" ? raw.memory : "",
 				exclude: raw.exclude === true,
 				remember: raw.remember === true,
@@ -52780,11 +56522,11 @@ async function activeBookNames(app) {
 		const wi = await app.host.modules.worldInfo();
 		if (Array.isArray(wi.selected_world_info)) for (const name of wi.selected_world_info) addName(names, name);
 		const character = ctx.characters[Number(ctx.characterId)];
-		const lore = isDict$31(wi.world_info) ? wi.world_info.charLore : void 0;
+		const lore = isDict$34(wi.world_info) ? wi.world_info.charLore : void 0;
 		const fileName = charaFilename(character?.avatar);
 		if (Array.isArray(lore) && fileName) {
-			const extra = lore.find((item) => isDict$31(item) && item.name === fileName);
-			if (isDict$31(extra) && Array.isArray(extra.extraBooks)) for (const name of extra.extraBooks) addName(names, name);
+			const extra = lore.find((item) => isDict$34(item) && item.name === fileName);
+			if (isDict$34(extra) && Array.isArray(extra.extraBooks)) for (const name of extra.extraBooks) addName(names, name);
 		}
 	} catch {}
 	if (!app.host.isGroupChat()) {
@@ -53075,7 +56817,7 @@ var QUIET_BLOCKS = [
 	"present",
 	"message"
 ];
-function isDict$30(value) {
+function isDict$33(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function swipeIdOf$2(message) {
@@ -53267,7 +57009,7 @@ var TrackerRepair = class {
 	/** The proposal handed to autonomy (also the source of the journal record). */
 	proposal(payload, kit) {
 		const swipes = this.app.host.ctx().chat[payload.messageIndex]?.extra?.dooms_tracker_swipes;
-		const raw = isDict$30(swipes) ? swipes[String(payload.swipeId)] : void 0;
+		const raw = isDict$33(swipes) ? swipes[String(payload.swipeId)] : void 0;
 		const before = {
 			record: raw === void 0 ? null : raw,
 			lastGenerated: sectionsOf(kit?.lastGenerated() ?? null)
@@ -53309,7 +57051,7 @@ var TrackerRepair = class {
 		const message = this.app.host.ctx().chat[payload.messageIndex];
 		const kit = await this.kit();
 		const extra = message.extra ??= {};
-		const swipes = isDict$30(extra.dooms_tracker_swipes) ? extra.dooms_tracker_swipes : {};
+		const swipes = isDict$33(extra.dooms_tracker_swipes) ? extra.dooms_tracker_swipes : {};
 		extra.dooms_tracker_swipes = swipes;
 		swipes[String(payload.swipeId)] = { ...payload.record };
 		if (kit && this.isLatestReply(payload.messageIndex)) kit.adopt(payload.record, String(message.mes ?? ""));
@@ -53318,14 +57060,14 @@ var TrackerRepair = class {
 	/** Undo handler of TRACKER_TARGET: puts the previous record (and DES's display state) back. */
 	async undo(change) {
 		const ref = change.ref;
-		const after = isDict$30(change.after) ? change.after.record : void 0;
-		const before = isDict$30(change.before) ? change.before : {};
+		const after = isDict$33(change.after) ? change.after.record : void 0;
+		const before = isDict$33(change.before) ? change.before : {};
 		if (typeof ref.messageIndex !== "number" || typeof ref.swipeId !== "number" || !after) return false;
 		if (this.app.host.chatId() !== ref.chatId) return false;
 		const message = this.app.host.ctx().chat[ref.messageIndex];
 		const swipes = message?.extra?.dooms_tracker_swipes;
 		const key = String(ref.swipeId);
-		if (!message || !isDict$30(swipes) || !sameTrackerRecord(swipes[key], after)) return false;
+		if (!message || !isDict$33(swipes) || !sameTrackerRecord(swipes[key], after)) return false;
 		if (before.record === null || before.record === void 0) delete swipes[key];
 		else swipes[key] = before.record;
 		const kit = await this.kit();
@@ -53388,8 +57130,8 @@ function expectsTracker$1(settings) {
 	return settings.showInfoBox !== false || settings.showCharacterThoughts !== false || settings.showQuests === true;
 }
 function isRepairPayload(value) {
-	if (!isDict$30(value)) return false;
-	return typeof value.chatId === "string" && typeof value.messageIndex === "number" && typeof value.swipeId === "number" && typeof value.mesHash === "string" && isDict$30(value.record);
+	if (!isDict$33(value)) return false;
+	return typeof value.chatId === "string" && typeof value.messageIndex === "number" && typeof value.swipeId === "number" && typeof value.mesHash === "string" && isDict$33(value.record);
 }
 //#endregion
 //#region src/features/medic/health.ts
@@ -53398,12 +57140,12 @@ var RULE_ASSISTANT_ROLE = "role.assistantToSystem";
 /** ST capabilities whose absence switches off parts of Maestro (reported separately: st.cm, st.chatCompletion). */
 var SEPARATE_CAPS = /* @__PURE__ */ new Set(["st.cm", "st.chatCompletion"]);
 var MAX_LISTED = 5;
-function isDict$29(value) {
+function isDict$32(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function nested(source, ...path) {
 	let current = source;
-	for (const key of path) current = isDict$29(current) ? current[key] : void 0;
+	for (const key of path) current = isDict$32(current) ? current[key] : void 0;
 	return current;
 }
 /** "Книга: 3, Другая: 1 …" */
@@ -54254,7 +57996,7 @@ var DOC_LIMITS = {
 	tabs: 20,
 	modules: 24
 };
-function isDict$28(value) {
+function isDict$31(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function num$3(value) {
@@ -54297,7 +58039,7 @@ var NUMBER_FIELDS = [
 	"dropped"
 ];
 function readModules(value) {
-	if (!isDict$28(value)) return void 0;
+	if (!isDict$31(value)) return void 0;
 	const out = {};
 	for (const [label, ms] of Object.entries(value).slice(0, DOC_LIMITS.modules)) {
 		const n = num$3(ms);
@@ -54307,7 +58049,7 @@ function readModules(value) {
 }
 /** A stored or incoming turn sample, validated; null when unusable. */
 function readTurn(value) {
-	if (!isDict$28(value) || typeof value.id !== "string" || !value.id) return null;
+	if (!isDict$31(value) || typeof value.id !== "string" || !value.id) return null;
 	const at = num$3(value.at);
 	if (at === void 0) return null;
 	const turn = {
@@ -54327,7 +58069,7 @@ function readTurn(value) {
 	return turn;
 }
 function readCost(value) {
-	if (!isDict$28(value) || typeof value.source !== "string") return null;
+	if (!isDict$31(value) || typeof value.source !== "string") return null;
 	const at = num$3(value.at);
 	const usd = num$3(value.usd);
 	if (at === void 0 || usd === void 0) return null;
@@ -54341,7 +58083,7 @@ function readCost(value) {
 	return cost;
 }
 function readBaseline$1(value) {
-	if (!isDict$28(value)) return void 0;
+	if (!isDict$31(value)) return void 0;
 	const avgChars = num$3(value.avgChars);
 	const turns = num$3(value.turns);
 	if (avgChars === void 0 || turns === void 0) return void 0;
@@ -54355,7 +58097,7 @@ function readBaseline$1(value) {
 	};
 }
 function readWhatIf(value) {
-	if (!isDict$28(value)) return void 0;
+	if (!isDict$31(value)) return void 0;
 	const before = num$3(value.before);
 	const after = num$3(value.after);
 	if (before === void 0 || after === void 0) return void 0;
@@ -54369,7 +58111,7 @@ function readWhatIf(value) {
 }
 function readNumberMap(value, limit) {
 	const out = {};
-	if (!isDict$28(value)) return out;
+	if (!isDict$31(value)) return out;
 	for (const [key, item] of Object.entries(value).slice(0, limit)) {
 		const n = num$3(item);
 		if (n !== void 0) out[key] = n;
@@ -54661,7 +58403,7 @@ var METRIC_COUNTERS = {
 };
 //#endregion
 //#region src/features/metrics/sources.ts
-function isDict$27(value) {
+function isDict$30(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /** ST `IGNORE_SYMBOL` (constants.js): Qvink sets it on prompt entries it drops from the prompt. */
@@ -54719,7 +58461,7 @@ function droppedInPrompt(app, chat) {
 			isSystem: entry.is_system === true,
 			textLength: typeof entry.mes === "string" ? entry.mes.trim().length : 0,
 			skip: isImagePost(entry),
-			record: isDict$27(raw) ? {
+			record: isDict$30(raw) ? {
 				memory: typeof raw.memory === "string" ? raw.memory : "",
 				exclude: raw.exclude === true,
 				remember: raw.remember === true
@@ -54751,7 +58493,7 @@ function recentCosts(app) {
 	try {
 		const recent = typeof meter.recent === "function" ? meter.recent() : meter.today().recent;
 		if (!Array.isArray(recent)) return null;
-		return recent.filter((row) => isDict$27(row) && typeof row.at === "number" && typeof row.source === "string" && typeof row.usd === "number");
+		return recent.filter((row) => isDict$30(row) && typeof row.at === "number" && typeof row.source === "string" && typeof row.usd === "number");
 	} catch {
 		return null;
 	}
@@ -54838,7 +58580,7 @@ function sheetViews(app) {
 	chat.forEach((message, index) => {
 		if (message?.is_user) lastUserIndex = index;
 		const maestro = message?.extra?.maestro;
-		const mark = isDict$27(maestro) && isDict$27(maestro.sheet) ? maestro.sheet : void 0;
+		const mark = isDict$30(maestro) && isDict$30(maestro.sheet) ? maestro.sheet : void 0;
 		if (!mark || mark.part === "command") return;
 		sheets.push({
 			index,
@@ -56624,7 +60366,7 @@ function emptyPlacesDoc() {
 		dismissed: []
 	};
 }
-function isDict$26(value) {
+function isDict$29(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function num$1(value, fallback) {
@@ -56634,7 +60376,7 @@ function strings$3(value) {
 	return Array.isArray(value) ? value.filter((item) => typeof item === "string") : [];
 }
 function readVisit(raw) {
-	if (!isDict$26(raw)) return null;
+	if (!isDict$29(raw)) return null;
 	const from = num$1(raw.from, NaN);
 	if (!Number.isFinite(from)) return null;
 	const visit = {
@@ -56647,7 +60389,7 @@ function readVisit(raw) {
 	return visit;
 }
 function readPlace(raw) {
-	if (!isDict$26(raw) || typeof raw.id !== "string" || !raw.id || typeof raw.name !== "string" || !raw.name.trim()) return null;
+	if (!isDict$29(raw) || typeof raw.id !== "string" || !raw.id || typeof raw.name !== "string" || !raw.name.trim()) return null;
 	const place = {
 		id: raw.id,
 		name: raw.name.trim(),
@@ -56659,12 +60401,12 @@ function readPlace(raw) {
 		lastSeen: num$1(raw.lastSeen, -1),
 		visits: (Array.isArray(raw.visits) ? raw.visits : []).map(readVisit).filter((visit) => visit !== null).sort((a, b) => a.from - b.from)
 	};
-	if (isDict$26(raw.entry) && typeof raw.entry.world === "string" && typeof raw.entry.uid === "number") place.entry = {
+	if (isDict$29(raw.entry) && typeof raw.entry.world === "string" && typeof raw.entry.uid === "number") place.entry = {
 		world: raw.entry.world,
 		uid: raw.entry.uid
 	};
 	if (typeof raw.passportId === "string" && raw.passportId) place.passportId = raw.passportId;
-	if (isDict$26(raw.state)) {
+	if (isDict$29(raw.state)) {
 		const state = {};
 		for (const [key, value] of Object.entries(raw.state)) if (typeof value === "string") state[key] = value;
 		place.state = state;
@@ -56673,7 +60415,7 @@ function readPlace(raw) {
 	return place;
 }
 function readCandidate(raw) {
-	if (!isDict$26(raw) || typeof raw.key !== "string" || !raw.key || typeof raw.name !== "string") return null;
+	if (!isDict$29(raw) || typeof raw.key !== "string" || !raw.key || typeof raw.name !== "string") return null;
 	const candidate = {
 		key: raw.key,
 		label: typeof raw.label === "string" ? raw.label : raw.name,
@@ -56688,7 +60430,7 @@ function readCandidate(raw) {
 	return candidate;
 }
 function readTrace$1(raw) {
-	if (!isDict$26(raw)) return null;
+	if (!isDict$29(raw)) return null;
 	return {
 		firstSeen: num$1(raw.firstSeen, -1),
 		lastSeen: num$1(raw.lastSeen, -1),
@@ -56696,12 +60438,12 @@ function readTrace$1(raw) {
 	};
 }
 function readRecord$1(raw) {
-	if (!isDict$26(raw) || typeof raw.index !== "number" || !isDict$26(raw.before)) return null;
+	if (!isDict$29(raw) || typeof raw.index !== "number" || !isDict$29(raw.before)) return null;
 	const before = raw.before;
 	const places = {};
-	if (isDict$26(before.places)) for (const [id, trace] of Object.entries(before.places)) places[id] = trace === null ? null : readTrace$1(trace);
+	if (isDict$29(before.places)) for (const [id, trace] of Object.entries(before.places)) places[id] = trace === null ? null : readTrace$1(trace);
 	const candidates = {};
-	if (isDict$26(before.candidates)) for (const [key, value] of Object.entries(before.candidates)) candidates[key] = value === null ? null : readCandidate(value);
+	if (isDict$29(before.candidates)) for (const [key, value] of Object.entries(before.candidates)) candidates[key] = value === null ? null : readCandidate(value);
 	const record = {
 		index: raw.index,
 		stamp: typeof raw.stamp === "string" ? raw.stamp : "",
@@ -56723,7 +60465,7 @@ function readRecord$1(raw) {
 * place's last visit left open. Never shares objects with `raw`.
 */
 function normalizePlacesDoc(raw) {
-	const source = isDict$26(raw) ? raw : {};
+	const source = isDict$29(raw) ? raw : {};
 	const places = [];
 	const ids = /* @__PURE__ */ new Set();
 	for (const item of Array.isArray(source.places) ? source.places : []) {
@@ -58992,8 +62734,8 @@ function isOverlapping(value, thresholds = DUPLICATE_THRESHOLDS) {
 }
 /** Same text after normalisation (case, ё, whitespace). */
 function sameText(a, b) {
-	const left = normalizeText$1(a);
-	return left !== "" && left === normalizeText$1(b);
+	const left = normalizeText(a);
+	return left !== "" && left === normalizeText(b);
 }
 var HEAVY_DEFAULTS = {
 	minTokens: 400,
@@ -59435,7 +63177,7 @@ var ROLE_RANK = {
 	user: 1,
 	system: 2
 };
-function isDict$25(value) {
+function isDict$28(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /** ST lower-cases and trims the generation type; empty means 'normal' (PM:1517). */
@@ -59454,9 +63196,9 @@ function shouldTrigger(prompt, type) {
 */
 function resolveOrder(promptOrder) {
 	if (!Array.isArray(promptOrder)) return [];
-	const lists = promptOrder.filter(isDict$25);
+	const lists = promptOrder.filter(isDict$28);
 	const chosen = lists.find((item) => String(item.character_id) === String(100001)) ?? lists[0];
-	return (chosen && Array.isArray(chosen.order) ? chosen.order : []).filter(isDict$25).filter((item) => typeof item.identifier === "string").map((item) => ({
+	return (chosen && Array.isArray(chosen.order) ? chosen.order : []).filter(isDict$28).filter((item) => typeof item.identifier === "string").map((item) => ({
 		identifier: item.identifier,
 		enabled: item.enabled
 	}));
@@ -59465,7 +63207,7 @@ function resolveOrder(promptOrder) {
 function promptsById(prompts) {
 	const result = /* @__PURE__ */ new Map();
 	if (!Array.isArray(prompts)) return result;
-	for (const prompt of prompts) if (isDict$25(prompt) && typeof prompt.identifier === "string" && !result.has(prompt.identifier)) result.set(prompt.identifier, prompt);
+	for (const prompt of prompts) if (isDict$28(prompt) && typeof prompt.identifier === "string" && !result.has(prompt.identifier)) result.set(prompt.identifier, prompt);
 	return result;
 }
 function isRole(value) {
@@ -60051,7 +63793,7 @@ var WARN_ISSUES = /* @__PURE__ */ new Set([
 	"depth",
 	"role"
 ]);
-function isDict$24(value) {
+function isDict$27(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function percent$1(share) {
@@ -60088,7 +63830,7 @@ var PresetAnalyzer = class {
 	/** ST's live Chat Completion settings (oai_settings). */
 	live() {
 		const settings = this.app.host.ctx().chatCompletionSettings;
-		return isDict$24(settings) ? settings : null;
+		return isDict$27(settings) ? settings : null;
 	}
 	workingBody() {
 		const store = this.storeOf();
@@ -60116,10 +63858,10 @@ var PresetAnalyzer = class {
 	/** `promptManager.tokenHandler` counts of the last assembly (dry runs included, P-008). */
 	async promptManagerCounts() {
 		const pm = (await this.loadOpenAi())?.promptManager;
-		if (!isDict$24(pm)) return null;
+		if (!isDict$27(pm)) return null;
 		try {
 			const counts = pm.tokenHandler?.getCounts?.();
-			if (!isDict$24(counts)) return null;
+			if (!isDict$27(counts)) return null;
 			const copy = {};
 			for (const [identifier, value] of Object.entries(counts)) if (typeof value === "number" && Number.isFinite(value)) copy[identifier] = value;
 			return copy;
@@ -60147,7 +63889,7 @@ var PresetAnalyzer = class {
 		const ctx = this.app.host.ctx();
 		if (this.app.host.isGroupChat() || ctx.characterId === void 0) return null;
 		const character = ctx.characters?.[Number(ctx.characterId)];
-		return isDict$24(character) ? character : null;
+		return isDict$27(character) ? character : null;
 	}
 	/** Marker texts Maestro can read itself (used when ST has no count for them). */
 	markerTexts() {
@@ -60181,7 +63923,7 @@ var PresetAnalyzer = class {
 		const result = /* @__PURE__ */ new Set();
 		const data = this.character()?.data;
 		const user = this.app.host.ctx().powerUserSettings ?? {};
-		if (!isDict$24(data)) return result;
+		if (!isDict$27(data)) return result;
 		if (user.prefer_character_prompt !== false && typeof data.system_prompt === "string" && data.system_prompt.trim()) result.add("main");
 		if (user.prefer_character_jailbreak !== false && typeof data.post_history_instructions === "string" && data.post_history_instructions.trim()) result.add("jailbreak");
 		return result;
@@ -60830,7 +64572,7 @@ var ASSEMBLY_FIELDS = [
 	"extension",
 	"position"
 ];
-function isDict$23(value) {
+function isDict$26(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /** Fingerprint of a block text (line endings normalised so a file edited on Windows keeps its hash). */
@@ -60838,14 +64580,14 @@ function textHash(text) {
 	return stableHash(text.replace(/\r\n/g, "\n"));
 }
 function contentOf$1(prompt) {
-	return isDict$23(prompt) && typeof prompt.content === "string" ? prompt.content : "";
+	return isDict$26(prompt) && typeof prompt.content === "string" ? prompt.content : "";
 }
 function isPrompt(value) {
-	return isDict$23(value) && typeof value.identifier === "string" && value.identifier !== "";
+	return isDict$26(value) && typeof value.identifier === "string" && value.identifier !== "";
 }
 /** The blocks of a body (entries without an identifier skipped). */
 function promptsOf$1(body) {
-	if (!isDict$23(body) || !Array.isArray(body.prompts)) return [];
+	if (!isDict$26(body) || !Array.isArray(body.prompts)) return [];
 	return body.prompts.filter(isPrompt);
 }
 function findPrompt(body, identifier) {
@@ -60853,13 +64595,13 @@ function findPrompt(body, identifier) {
 }
 function orderItems(raw) {
 	if (!Array.isArray(raw)) return [];
-	return raw.filter((item) => isDict$23(item) && typeof item.identifier === "string" && item.identifier !== "");
+	return raw.filter((item) => isDict$26(item) && typeof item.identifier === "string" && item.identifier !== "");
 }
 function orderLists(body) {
-	return isDict$23(body) && Array.isArray(body.prompt_order) ? body.prompt_order : [];
+	return isDict$26(body) && Array.isArray(body.prompt_order) ? body.prompt_order : [];
 }
 function listIndex(lists, characterId) {
-	return lists.findIndex((list) => isDict$23(list) && String(list.character_id) === String(characterId) && Array.isArray(list.order));
+	return lists.findIndex((list) => isDict$26(list) && String(list.character_id) === String(characterId) && Array.isArray(list.order));
 }
 /** The order the layer builds when the global list is missing: 100000 (non-empty), else ST's default. */
 function fallbackOrder(lists) {
@@ -60919,7 +64661,7 @@ function normalizeOwnBlock(prompt) {
 * identifier are never changed by the layer.
 */
 function normalizePatch(patch) {
-	const out = isDict$23(patch) ? jsonCopy({ ...patch }) : {};
+	const out = isDict$26(patch) ? jsonCopy({ ...patch }) : {};
 	for (const field of [
 		"identifier",
 		"system_prompt",
@@ -61323,7 +65065,7 @@ function opKey(op) {
 	}
 }
 function isValidAnchor(anchor) {
-	if (!isDict$23(anchor) || !ANCHOR_KINDS.includes(anchor.kind)) return false;
+	if (!isDict$26(anchor) || !ANCHOR_KINDS.includes(anchor.kind)) return false;
 	if (anchor.kind === "after" || anchor.kind === "before") return typeof anchor.identifier === "string" && anchor.identifier !== "";
 	if (anchor.kind === "afterText") return typeof anchor.text === "string" && anchor.text !== "";
 	return true;
@@ -61343,11 +65085,11 @@ function serialisable(value) {
 * identifier (the layer gives it one) and an edit op without a base hash (filled from the base body).
 */
 function validateOp(op) {
-	if (!isDict$23(op)) return "not an object";
+	if (!isDict$26(op)) return "not an object";
 	if (!OP_KINDS.includes(op.op)) return `unknown op ${String(op.op)}`;
 	switch (op.op) {
 		case "add":
-			if (!isDict$23(op.prompt)) return "add: prompt missing";
+			if (!isDict$26(op.prompt)) return "add: prompt missing";
 			if (op.prompt.identifier !== void 0 && typeof op.prompt.identifier !== "string") return "add: identifier must be a string";
 			if (MARKER_IDS$2.includes(String(op.prompt.identifier))) return "add: a marker cannot be added";
 			if (!isValidAnchor(op.anchor)) return "add: invalid anchor";
@@ -61355,7 +65097,7 @@ function validateOp(op) {
 			return null;
 		case "edit":
 			if (!nonEmpty(op.identifier)) return "edit: identifier missing";
-			if (!isDict$23(op.patch)) return "edit: patch missing";
+			if (!isDict$26(op.patch)) return "edit: patch missing";
 			if (op.patch.identifier !== void 0 && op.patch.identifier !== op.identifier) return "edit: the identifier cannot change";
 			if (typeof op.baseHash !== "string") return "edit: baseHash must be a string";
 			return null;
@@ -62035,9 +65777,9 @@ function transferOps(ops, from, to) {
 function foreignOrder(body) {
 	const global = globalOrder(body);
 	if (global) return global;
-	const lists = Array.isArray(body.prompt_order) ? body.prompt_order.filter(isDict$23) : [];
+	const lists = Array.isArray(body.prompt_order) ? body.prompt_order.filter(isDict$26) : [];
 	const legacy = lists.find((list) => String(list.character_id) === String(1e5)) ?? lists[0];
-	return (legacy && Array.isArray(legacy.order) ? legacy.order : []).filter((item) => isDict$23(item) && typeof item.identifier === "string" && item.identifier !== "");
+	return (legacy && Array.isArray(legacy.order) ? legacy.order : []).filter((item) => isDict$26(item) && typeof item.identifier === "string" && item.identifier !== "");
 }
 /**
 * Blocks of a foreign preset for picking into the layer (п.6): in the preset's order, then the blocks outside it;
@@ -62045,7 +65787,7 @@ function foreignOrder(body) {
 * types of an own block (P-132), so a picked block is sent by ST as it is.
 */
 function splitForeign(body) {
-	if (!isDict$23(body)) return [];
+	if (!isDict$26(body)) return [];
 	const prompts = promptsOf$1(body);
 	const byId = new Map(prompts.map((prompt) => [prompt.identifier, prompt]));
 	const sequence = [];
@@ -62064,7 +65806,7 @@ function splitForeign(body) {
 var LAYER_INDEX_FILE = "maestro-preset-layers.json";
 var LAYER_FILE_KIND = "preset-layer";
 var SAVE_DELAY_MS$1 = 400;
-function isDict$22(value) {
+function isDict$25(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function emptyLayer(base) {
@@ -62077,7 +65819,7 @@ function emptyLayer(base) {
 }
 /** Validates a stored file; null when it is not a layer of `base` (or another name with the same hash). */
 function readLayerFile(raw, base) {
-	if (!isDict$22(raw) || raw.schema !== 1 || raw.base !== base) return null;
+	if (!isDict$25(raw) || raw.schema !== 1 || raw.base !== base) return null;
 	const file = {
 		schema: 1,
 		base,
@@ -62085,7 +65827,7 @@ function readLayerFile(raw, base) {
 		updatedAt: typeof raw.updatedAt === "number" ? raw.updatedAt : 0
 	};
 	const applied = raw.applied;
-	if (isDict$22(applied) && typeof applied.fingerprint === "string" && typeof applied.baseFingerprint === "string" && typeof applied.at === "number") file.applied = {
+	if (isDict$25(applied) && typeof applied.fingerprint === "string" && typeof applied.baseFingerprint === "string" && typeof applied.at === "number") file.applied = {
 		fingerprint: applied.fingerprint,
 		baseFingerprint: applied.baseFingerprint,
 		at: applied.at
@@ -62093,7 +65835,7 @@ function readLayerFile(raw, base) {
 	return file;
 }
 function readIndex(raw) {
-	if (!isDict$22(raw) || raw.schema !== 1 || !Array.isArray(raw.bases)) return [];
+	if (!isDict$25(raw) || raw.schema !== 1 || !Array.isArray(raw.bases)) return [];
 	return raw.bases.filter((name) => typeof name === "string" && name !== "");
 }
 var LayerFiles = class {
@@ -62369,9 +66111,9 @@ function createPresetLayer(app, log, store) {
 		if (!openai) return null;
 		const names = openai.openai_setting_names;
 		const list = openai.openai_settings;
-		const slot = isDict$23(names) ? names[name] : void 0;
+		const slot = isDict$26(names) ? names[name] : void 0;
 		const body = Array.isArray(list) && typeof slot === "number" ? list[slot] : void 0;
-		return isDict$23(body) ? body : null;
+		return isDict$26(body) ? body : null;
 	};
 	const savedSync = (name) => {
 		if (store) try {
@@ -62391,7 +66133,7 @@ function createPresetLayer(app, log, store) {
 			if (store) return store.working();
 			const get = openai?.getChatCompletionPreset;
 			const body = typeof get === "function" ? get() : null;
-			return isDict$23(body) ? body : null;
+			return isDict$26(body) ? body : null;
 		} catch (error) {
 			log.debug("working copy unavailable", error);
 			return null;
@@ -62493,7 +66235,7 @@ function createPresetLayer(app, log, store) {
 		try {
 			const get = (await app.host.modules.presetManager()).getPresetManager;
 			const manager = typeof get === "function" ? get("openai") : null;
-			return isDict$23(manager) ? manager : null;
+			return isDict$26(manager) ? manager : null;
 		} catch (error) {
 			log.debug("preset manager unavailable", error);
 			return null;
@@ -62548,14 +66290,14 @@ function createPresetLayer(app, log, store) {
 	};
 	const handleBefore = (payload) => {
 		pending = null;
-		if (!installed || !isDict$23(payload)) return;
+		if (!installed || !isDict$26(payload)) return;
 		const name = typeof payload.presetName === "string" ? payload.presetName : "";
 		const preset = payload.preset;
 		if (renaming) {
 			log.debug(`preset rename in progress: no layer for ${name}`);
 			return;
 		}
-		if (!isDict$23(preset) || !Object.keys(preset).length) {
+		if (!isDict$26(preset) || !Object.keys(preset).length) {
 			log.debug(`empty preset ${name}: no layer`);
 			return;
 		}
@@ -62640,7 +66382,7 @@ function createPresetLayer(app, log, store) {
 		emit();
 	};
 	const onRenameBefore = (payload) => {
-		if (!isDict$23(payload) || payload.apiId !== "openai") return;
+		if (!isDict$26(payload) || payload.apiId !== "openai") return;
 		renaming = {
 			oldName: typeof payload.oldName === "string" ? payload.oldName : "",
 			newName: typeof payload.newName === "string" ? payload.newName : ""
@@ -62652,7 +66394,7 @@ function createPresetLayer(app, log, store) {
 		}, RENAME_TIMEOUT_MS);
 	};
 	const onRenamed = (payload) => {
-		if (!isDict$23(payload) || payload.apiId !== "openai") return;
+		if (!isDict$26(payload) || payload.apiId !== "openai") return;
 		renaming = null;
 		if (renameTimer) clearTimeout(renameTimer);
 		renameTimer = null;
@@ -63880,7 +67622,7 @@ var PmLauncher = class {
 };
 //#endregion
 //#region src/domain/preset-store-keys.ts
-function isDict$21(value) {
+function isDict$24(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /** Copy of ST 1.19 `settingsToUpdate` (openai.js:305-409), 103 keys. */
@@ -64529,7 +68271,7 @@ function isKeySpec(value) {
 }
 /** The live `settingsToUpdate` when it looks like ST's table (its entries win), otherwise the copy. */
 function readKeyTable(live) {
-	if (!isDict$21(live)) return PRESET_KEY_TABLE;
+	if (!isDict$24(live)) return PRESET_KEY_TABLE;
 	const table = {};
 	for (const [key, value] of Object.entries(live)) if (isKeySpec(value)) table[key] = [
 		value[0],
@@ -64735,7 +68477,7 @@ var TRIGGER_TYPES = [
 ];
 /** Keys that exist only while ST assembles a prompt (P-055); never stored. */
 var ASSEMBLY_ONLY_KEYS = ["extension", "position"];
-function isDict$20(value) {
+function isDict$23(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function isBuiltinPrompt(identifier) {
@@ -64851,12 +68593,12 @@ function applyPromptPatch(prompt, patch) {
 /** The order list of one character id (`String()` comparison like PM, PromptManager.js:1207-1209), or null. */
 function findOrderList(promptOrder, characterId = GLOBAL_ORDER_ID) {
 	if (!Array.isArray(promptOrder)) return null;
-	return promptOrder.filter(isDict$20).find((list) => String(list.character_id) === String(characterId)) ?? null;
+	return promptOrder.filter(isDict$23).find((list) => String(list.character_id) === String(characterId)) ?? null;
 }
 /** Entries of an order array (malformed items dropped, `enabled` strictly boolean). */
 function readOrder(order) {
 	if (!Array.isArray(order)) return [];
-	return order.filter(isDict$20).filter((item) => typeof item.identifier === "string" && item.identifier !== "").map((item) => ({
+	return order.filter(isDict$23).filter((item) => typeof item.identifier === "string" && item.identifier !== "").map((item) => ({
 		identifier: item.identifier,
 		enabled: item.enabled === true
 	}));
@@ -64898,11 +68640,11 @@ function expectedActiveOrder(body, promptIds) {
 /** Prompt identifiers of a prompts array. */
 function promptIds(prompts) {
 	if (!Array.isArray(prompts)) return [];
-	return prompts.filter(isDict$20).map((prompt) => prompt.identifier).filter((identifier) => typeof identifier === "string");
+	return prompts.filter(isDict$23).map((prompt) => prompt.identifier).filter((identifier) => typeof identifier === "string");
 }
 //#endregion
 //#region src/domain/preset-store-diff.ts
-function isDict$19(value) {
+function isDict$22(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function numericLike(value) {
@@ -64916,7 +68658,7 @@ function canonical(value) {
 	const number = numericLike(value);
 	if (number !== null) return number;
 	if (Array.isArray(value)) return value.map((item) => item === void 0 ? null : canonical(item));
-	if (isDict$19(value)) {
+	if (isDict$22(value)) {
 		const result = {};
 		for (const [key, item] of Object.entries(value)) if (item !== void 0) result[key] = canonical(item);
 		return result;
@@ -64953,7 +68695,7 @@ function promptsEqual(a, b) {
 function promptMap(prompts) {
 	const map = /* @__PURE__ */ new Map();
 	if (!Array.isArray(prompts)) return map;
-	for (const prompt of prompts) if (isDict$19(prompt) && typeof prompt.identifier === "string" && !map.has(prompt.identifier)) map.set(prompt.identifier, prompt);
+	for (const prompt of prompts) if (isDict$22(prompt) && typeof prompt.identifier === "string" && !map.has(prompt.identifier)) map.set(prompt.identifier, prompt);
 	return map;
 }
 function diffPrompts(working, saved, changed) {
@@ -64982,7 +68724,7 @@ function diffOrder(working, saved, changed, keys) {
 	const sequence = (list, other) => list.filter((entry) => other.has(entry.identifier)).map((entry) => entry.identifier);
 	if (sequence(live, before).join("\n") !== sequence(expected, now).join("\n")) keys.add("prompt_order");
 	if (Array.isArray(saved.prompt_order)) for (const list of saved.prompt_order) {
-		if (!isDict$19(list) || String(list.character_id) === String(100001)) continue;
+		if (!isDict$22(list) || String(list.character_id) === String(100001)) continue;
 		const mine = findOrderList(working.prompt_order, list.character_id);
 		if (!mine || !looseEqual(readOrder(mine.order), readOrder(list.order))) keys.add("prompt_order");
 	}
@@ -65003,8 +68745,8 @@ function diffDraft(working, saved, knownKeys) {
 		if (stored === void 0) continue;
 		if (!looseEqual(working[key], stored)) changedKeys.add(key);
 	}
-	const mine = isDict$19(working.extensions) ? working.extensions : {};
-	const theirs = isDict$19(saved.extensions) ? saved.extensions : {};
+	const mine = isDict$22(working.extensions) ? working.extensions : {};
+	const theirs = isDict$22(saved.extensions) ? saved.extensions : {};
 	if (Object.keys(mine).some((key) => !looseEqual(mine[key], theirs[key]))) changedKeys.add("extensions");
 	diffPrompts(working, saved, changedPrompts);
 	diffOrder(working, saved, changedPrompts, changedKeys);
@@ -65024,7 +68766,7 @@ function mergeBodies(cached, working) {
 		...base,
 		...working
 	};
-	if (isDict$19(base.extensions) && isDict$19(working.extensions)) merged.extensions = {
+	if (isDict$22(base.extensions) && isDict$22(working.extensions)) merged.extensions = {
 		...base.extensions,
 		...working.extensions
 	};
@@ -65044,13 +68786,13 @@ function withSecretsOf(body, source) {
 //#endregion
 //#region src/domain/preset-store-links.ts
 var REGEX_API_ID = "openai";
-function isDict$18(value) {
+function isDict$21(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /** The allow-list of preset names for regex scripts of an API (a live array, or null). */
 function regexAllowList(extensionSettings, apiId = REGEX_API_ID) {
 	const lists = extensionSettings.preset_allowed_regex;
-	if (!isDict$18(lists)) return null;
+	if (!isDict$21(lists)) return null;
 	const list = lists[apiId];
 	return Array.isArray(list) ? list : null;
 }
@@ -65060,7 +68802,7 @@ function isRegexAllowed(extensionSettings, name, apiId = REGEX_API_ID) {
 /** Adds `name` to the allow-list (creates it like allowPresetScripts does); true when something changed. */
 function allowRegex(extensionSettings, name, apiId = REGEX_API_ID) {
 	if (!name) return false;
-	if (!isDict$18(extensionSettings.preset_allowed_regex)) extensionSettings.preset_allowed_regex = {};
+	if (!isDict$21(extensionSettings.preset_allowed_regex)) extensionSettings.preset_allowed_regex = {};
 	const lists = extensionSettings.preset_allowed_regex;
 	if (!Array.isArray(lists[apiId])) lists[apiId] = [];
 	const list = lists[apiId];
@@ -65086,8 +68828,8 @@ function moveRegexPermission(extensionSettings, oldName, newName, apiId = REGEX_
 /** Live Connection Manager profiles (`extension_settings.connectionManager.profiles`). */
 function connectionProfiles(extensionSettings) {
 	const manager = extensionSettings.connectionManager;
-	if (!isDict$18(manager) || !Array.isArray(manager.profiles)) return [];
-	return manager.profiles.filter(isDict$18);
+	if (!isDict$21(manager) || !Array.isArray(manager.profiles)) return [];
+	return manager.profiles.filter(isDict$21);
 }
 /** Chat Completion profiles whose `preset` is `name` (Text Completion profiles name other presets). */
 function profilesUsing(extensionSettings, name) {
@@ -65136,7 +68878,7 @@ var CONNECTION_REFRESH_SELECTORS = [
 	"#openrouter_quantizations_chat",
 	"#nanogpt_provider"
 ];
-function isDict$17(value) {
+function isDict$20(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function jquery() {
@@ -65195,18 +68937,18 @@ var StPreset = class {
 	/** ST's live `oai_settings` (the working copy of the preset). */
 	oai() {
 		const live = this.app.host.ctx().chatCompletionSettings;
-		if (isDict$17(live)) return live;
+		if (isDict$20(live)) return live;
 		const fromModule = this.openaiNs?.oai_settings;
-		return isDict$17(fromModule) ? fromModule : null;
+		return isDict$20(fromModule) ? fromModule : null;
 	}
 	promptManager() {
 		const manager = this.openaiNs?.promptManager;
-		return isDict$17(manager) ? manager : null;
+		return isDict$20(manager) ? manager : null;
 	}
 	cache() {
 		const list = this.openaiNs?.openai_settings;
 		const names = this.openaiNs?.openai_setting_names;
-		if (!Array.isArray(list) || !isDict$17(names)) return null;
+		if (!Array.isArray(list) || !isDict$20(names)) return null;
 		return {
 			list,
 			names
@@ -65221,7 +68963,7 @@ var StPreset = class {
 		if (typeof get !== "function") return null;
 		try {
 			const body = get(settings);
-			return isDict$17(body) ? body : null;
+			return isDict$20(body) ? body : null;
 		} catch (error) {
 			this.log.warn("getChatCompletionPreset failed", error);
 			return null;
@@ -65285,7 +69027,7 @@ var StPreset = class {
 	async selectPreset(value) {
 		const getManager = this.managerNs?.getPresetManager;
 		const manager = typeof getManager === "function" ? getManager("openai") : null;
-		if (isDict$17(manager) && typeof manager.selectPreset === "function") {
+		if (isDict$20(manager) && typeof manager.selectPreset === "function") {
 			await manager.selectPreset?.(value);
 			await this.applicationPromise();
 			return;
@@ -65353,7 +69095,7 @@ var StPreset = class {
 		try {
 			data = await response.json();
 		} catch {}
-		return isDict$17(data) && typeof data.name === "string" && data.name ? data.name : name;
+		return isDict$20(data) && typeof data.name === "string" && data.name ? data.name : name;
 	}
 	/** POST /api/presets/delete (404 = there was no file). */
 	async deletePresetFile(name) {
@@ -65383,7 +69125,7 @@ var StPreset = class {
 			});
 			if (response.ok) {
 				const data = await response.json();
-				if (isDict$17(data) && typeof data.fileName === "string") return data.fileName;
+				if (isDict$20(data) && typeof data.fileName === "string") return data.fileName;
 			}
 		} catch (error) {
 			this.log.debug("sanitize-filename unavailable", error);
@@ -65472,7 +69214,7 @@ var PromptModel = class {
 	}
 	get(identifier) {
 		if (typeof this.pm?.getPromptById === "function") return this.pm.getPromptById(identifier);
-		return this.list().find((prompt) => isDict$17(prompt) && prompt.identifier === identifier) ?? null;
+		return this.list().find((prompt) => isDict$20(prompt) && prompt.identifier === identifier) ?? null;
 	}
 	/** The live order array of the active list ([] when there is none). */
 	order() {
@@ -65487,7 +69229,7 @@ var PromptModel = class {
 		return this.order();
 	}
 	entry(identifier) {
-		return this.order().find((item) => isDict$17(item) && item.identifier === identifier) ?? null;
+		return this.order().find((item) => isDict$20(item) && item.identifier === identifier) ?? null;
 	}
 	/** PM addPrompt: `{identifier, system_prompt:false, enabled:false, marker:false, ...prompt}` (PM:988-1000). */
 	add(prompt, identifier) {
@@ -65510,14 +69252,14 @@ var PromptModel = class {
 	}
 	remove(identifier) {
 		const list = this.list();
-		const index = list.findIndex((prompt) => isDict$17(prompt) && prompt.identifier === identifier);
+		const index = list.findIndex((prompt) => isDict$20(prompt) && prompt.identifier === identifier);
 		if (index >= 0) list.splice(index, 1);
 		return index;
 	}
 	/** Inserts an order entry (PM has only "unshift"; the live array is spliced like PM's own detach does). */
 	insert(identifier, enabled, index) {
 		const order = this.ensureOrder();
-		if (order.some((item) => isDict$17(item) && item.identifier === identifier)) return;
+		if (order.some((item) => isDict$20(item) && item.identifier === identifier)) return;
 		order.splice(Math.min(Math.max(0, index), order.length), 0, {
 			identifier,
 			enabled
@@ -65525,7 +69267,7 @@ var PromptModel = class {
 	}
 	detach(identifier) {
 		const order = this.order();
-		const index = order.findIndex((item) => isDict$17(item) && item.identifier === identifier);
+		const index = order.findIndex((item) => isDict$20(item) && item.identifier === identifier);
 		if (index < 0) return -1;
 		const prompt = this.get(identifier);
 		if (prompt && typeof this.pm?.detachPrompt === "function") this.pm.detachPrompt(prompt, this.character());
@@ -65546,7 +69288,7 @@ var PromptModel = class {
 		}
 		if (!Array.isArray(this.settings.prompt_order)) this.settings.prompt_order = [];
 		const lists = this.settings.prompt_order;
-		const index = lists.findIndex((list) => isDict$17(list) && String(list.character_id) === String(character.id));
+		const index = lists.findIndex((list) => isDict$20(list) && String(list.character_id) === String(character.id));
 		if (index >= 0) lists.splice(index, 1);
 		lists.push({
 			character_id: character.id,
@@ -65588,7 +69330,7 @@ var PromptModel = class {
 		return settleWithin(pending, SAVE_WAIT_MS);
 	}
 };
-function isDict$16(value) {
+function isDict$19(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function makeVersionId(at, salt) {
@@ -65648,7 +69390,7 @@ function packBody(body, blobs) {
 	return {
 		...body,
 		prompts: body.prompts.map((prompt) => {
-			if (!isDict$16(prompt) || typeof prompt.content !== "string" || prompt.content.length < 200) return prompt;
+			if (!isDict$19(prompt) || typeof prompt.content !== "string" || prompt.content.length < 200) return prompt;
 			const key = blobKey(prompt.content, blobs);
 			blobs[key] = prompt.content;
 			return {
@@ -65675,7 +69417,7 @@ function unpackBody(body, blobs) {
 	if (!Array.isArray(body.prompts)) return body;
 	let broken = false;
 	const prompts = body.prompts.map((prompt) => {
-		if (!isDict$16(prompt) || !isDict$16(prompt.content)) return prompt;
+		if (!isDict$19(prompt) || !isDict$19(prompt.content)) return prompt;
 		const key = prompt.content.$blob;
 		const text = typeof key === "string" ? blobs[key] : void 0;
 		if (text === void 0) broken = true;
@@ -65690,7 +69432,7 @@ function unpackBody(body, blobs) {
 	};
 }
 function readVersion(raw, blobs) {
-	if (!isDict$16(raw) || typeof raw.id !== "string" || !isDict$16(raw.body)) return null;
+	if (!isDict$19(raw) || typeof raw.id !== "string" || !isDict$19(raw.body)) return null;
 	const body = unpackBody(raw.body, blobs);
 	if (!body) return null;
 	return {
@@ -65704,9 +69446,9 @@ function readVersion(raw, blobs) {
 }
 /** Validates a stored file; versions that cannot be restored (missing blob, no body) are dropped. */
 function readVersionsDoc(raw) {
-	if (!isDict$16(raw) || raw.schema !== 1 || !Array.isArray(raw.versions)) return null;
+	if (!isDict$19(raw) || raw.schema !== 1 || !Array.isArray(raw.versions)) return null;
 	const blobs = {};
-	if (isDict$16(raw.blobs)) {
+	if (isDict$19(raw.blobs)) {
 		for (const [key, value] of Object.entries(raw.blobs)) if (typeof value === "string") blobs[key] = value;
 	}
 	const versions = raw.versions.map((item) => readVersion(item, blobs)).filter((item) => item !== null);
@@ -65913,7 +69655,7 @@ var PRESET_STORE_STRINGS = {
 		"m34.store.journal.remove": "Удалён пресет «{name}»"
 	}
 };
-function isDict$15(value) {
+function isDict$18(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function str$4(value) {
@@ -66270,7 +70012,7 @@ var PresetStoreService = class {
 			} catch {
 				throw new PresetStoreError("invalid", "the file is not JSON");
 			}
-			if (!isDict$15(body) || !name) throw new PresetStoreError("invalid", "the file is not a preset");
+			if (!isDict$18(body) || !name) throw new PresetStoreError("invalid", "the file is not a preset");
 			const sensitive = presentSensitiveKeys(body);
 			if (sensitive.length) {
 				const choice = await this.st.chooseSensitive(sensitive);
@@ -66280,7 +70022,7 @@ var PresetStoreService = class {
 			if (Object.hasOwn(cache.names, name)) {
 				if (!await this.app.ui.confirm(this.t("m34.store.import.overwriteTitle"), this.t("m34.store.import.overwriteBody", { name }))) throw new PresetStoreError("cancelled", "import cancelled");
 			}
-			if (Array.isArray(body.prompts)) body.prompts = body.prompts.map((prompt) => isDict$15(prompt) ? normalizePrompt(prompt) : prompt);
+			if (Array.isArray(body.prompts)) body.prompts = body.prompts.map((prompt) => isDict$18(prompt) ? normalizePrompt(prompt) : prompt);
 			await this.st.emit("OAI_PRESET_IMPORT_READY", {
 				data: body,
 				presetName: name
@@ -66528,7 +70270,7 @@ var PresetStoreService = class {
 		if (Object.hasOwn(cache.names, name)) {
 			const index = cache.names[name];
 			const entry = cache.list[index];
-			if (isDict$15(entry)) replaceContents(entry, copy);
+			if (isDict$18(entry)) replaceContents(entry, copy);
 			else cache.list[index] = copy;
 			return true;
 		}
@@ -66540,10 +70282,10 @@ var PresetStoreService = class {
 	}
 	/** Snaps the unsaved edits of the preset being left (P-073); synchronous and cheap (P-178). */
 	onPresetBefore(data) {
-		if (this.quietSwitch > 0 || !isDict$15(data)) return;
+		if (this.quietSwitch > 0 || !isDict$18(data)) return;
 		const name = str$4(data.presetNameBefore);
 		const settings = data.settings;
-		if (!name || !isDict$15(settings)) return;
+		if (!name || !isDict$18(settings)) return;
 		try {
 			const saved = this.savedRaw(name);
 			if (!saved) return;
@@ -66582,7 +70324,7 @@ var PresetStoreService = class {
 	}
 	/** ST's own rename (PRM:1048-1083): versions follow (P-181). */
 	onPresetRenamed(data) {
-		if (this.ownOps > 0 || !isDict$15(data) || data.apiId !== "openai") return;
+		if (this.ownOps > 0 || !isDict$18(data) || data.apiId !== "openai") return;
 		const oldName = str$4(data.oldName);
 		const newName = str$4(data.newName);
 		if (!oldName || !newName) return;
@@ -66590,7 +70332,7 @@ var PresetStoreService = class {
 		this.notify("list");
 	}
 	onPresetDeleted(data) {
-		if (this.ownOps > 0 || !isDict$15(data) || data.apiId !== "openai") return;
+		if (this.ownOps > 0 || !isDict$18(data) || data.apiId !== "openai") return;
 		this.notify("list");
 	}
 	scheduleDetect() {
@@ -66628,13 +70370,13 @@ var PresetStoreService = class {
 				const identifier = str$4(change.ref.identifier);
 				const live = model.get(identifier);
 				if (change.after === null) {
-					if (live || !isDict$15(change.before)) return false;
+					if (live || !isDict$18(change.before)) return false;
 					const index = typeof change.ref.index === "number" ? change.ref.index : model.list().length;
 					model.restore(jsonClean(change.before), index);
 				} else {
-					if (!live || !isDict$15(change.after) || !promptsEqual(live, change.after)) return false;
+					if (!live || !isDict$18(change.after) || !promptsEqual(live, change.after)) return false;
 					if (change.before === null) model.remove(identifier);
-					else if (isDict$15(change.before)) replaceContents(live, jsonClean(change.before));
+					else if (isDict$18(change.before)) replaceContents(live, jsonClean(change.before));
 					else return false;
 				}
 				model.quickEdit(identifier);
@@ -66646,7 +70388,7 @@ var PresetStoreService = class {
 	}
 	async undoKeys(change) {
 		await this.st.ensure();
-		if (str$4(change.ref.preset) !== this.current() || !isDict$15(change.before) || !isDict$15(change.after)) return false;
+		if (str$4(change.ref.preset) !== this.current() || !isDict$18(change.before) || !isDict$18(change.after)) return false;
 		const keys = Array.isArray(change.ref.keys) ? change.ref.keys.map(String) : [];
 		const absent = Array.isArray(change.ref.absent) ? change.ref.absent.map(String) : [];
 		const before = change.before;
@@ -66679,7 +70421,7 @@ var PresetStoreService = class {
 			}
 			if (op === "remove") {
 				const name = str$4(ref.name);
-				const versionId = isDict$15(change.before) ? str$4(change.before.version) : "";
+				const versionId = isDict$18(change.before) ? str$4(change.before.version) : "";
 				if (!name || !versionId || this.savedRaw(name)) return false;
 				const version = await this.history.get(name, versionId);
 				if (!version) return false;
@@ -66694,9 +70436,9 @@ var PresetStoreService = class {
 			}
 			const name = str$4(ref.name);
 			const cached = this.savedRaw(name);
-			const afterHash = isDict$15(change.after) ? str$4(change.after.hash) : "";
+			const afterHash = isDict$18(change.after) ? str$4(change.after.hash) : "";
 			if (!cached || !afterHash || bodyHash(cached) !== afterHash) return false;
-			const versionId = isDict$15(change.before) ? str$4(change.before.version) : "";
+			const versionId = isDict$18(change.before) ? str$4(change.before.version) : "";
 			if (!versionId) {
 				if (ref.created !== true) return false;
 				await this.removeFile(name, {
@@ -66721,7 +70463,7 @@ var PresetStoreService = class {
 		const cache = this.st.cache();
 		if (!cache || !name || !Object.hasOwn(cache.names, name)) return null;
 		const entry = cache.list[cache.names[name]];
-		return isDict$15(entry) ? entry : null;
+		return isDict$18(entry) ? entry : null;
 	}
 	requireOai() {
 		const oai = this.st.oai();
@@ -72790,12 +76532,12 @@ function buildJudgeMessages(input, items, ruleTitles) {
 		content: user
 	}];
 }
-function isDict$14(value) {
+function isDict$17(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /** Reads the judge's JSON; suspicions it did not mention stay unconfirmed (neither confirmed nor denied). */
 function parseJudge(data, items) {
-	if (!isDict$14(data) || !Array.isArray(data.verdicts)) return null;
+	if (!isDict$17(data) || !Array.isArray(data.verdicts)) return null;
 	const answer = {
 		confirmed: /* @__PURE__ */ new Map(),
 		denied: [],
@@ -72803,7 +76545,7 @@ function parseJudge(data, items) {
 	};
 	const seen = /* @__PURE__ */ new Set();
 	for (const raw of data.verdicts) {
-		if (!isDict$14(raw) || typeof raw.id !== "number" || seen.has(raw.id)) continue;
+		if (!isDict$17(raw) || typeof raw.id !== "number" || seen.has(raw.id)) continue;
 		const item = items.find((candidate) => candidate.id === raw.id);
 		if (!item) continue;
 		seen.add(raw.id);
@@ -74877,12 +78619,12 @@ function defaultQualitySettings() {
 		boundary: copyRules(DEFAULT_BOUNDARY_RULES)
 	};
 }
-function isDict$13(value) {
+function isDict$16(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /** A rule from stored or edited data; null for junk. Patterns are trimmed, empty ones dropped. */
 function readRule(value) {
-	if (!isDict$13(value) || typeof value.id !== "string" || !value.id.trim()) return null;
+	if (!isDict$16(value) || typeof value.id !== "string" || !value.id.trim()) return null;
 	const patterns = Array.isArray(value.patterns) ? value.patterns.filter((item) => typeof item === "string").map((item) => item.trim()) : [];
 	return {
 		id: value.id.trim(),
@@ -74892,12 +78634,12 @@ function readRule(value) {
 	};
 }
 function sameRule(rule, stored) {
-	if (!isDict$13(stored) || !Array.isArray(stored.patterns)) return false;
+	if (!isDict$16(stored) || !Array.isArray(stored.patterns)) return false;
 	return stored.id === rule.id && stored.title === rule.title && stored.enabled === rule.enabled && stored.patterns.length === rule.patterns.length && stored.patterns.every((pattern, i) => pattern === rule.patterns[i]);
 }
 /** The live slice, repaired in place (it is the object the pult edits). */
 function readQualitySettings(slice) {
-	if (!isDict$13(slice.actions)) slice.actions = { ...DEFAULT_ACTIONS };
+	if (!isDict$16(slice.actions)) slice.actions = { ...DEFAULT_ACTIONS };
 	const actions = slice.actions;
 	for (const kind of DEFECT_KINDS) if (!ACTIONS.includes(actions[kind])) actions[kind] = DEFAULT_ACTIONS[kind];
 	if (typeof slice.judge !== "boolean") slice.judge = true;
@@ -74930,19 +78672,19 @@ var QUALITY_DOC_KIND = "quality";
 var STATS_FILE_KIND = "quality-stats";
 var SAVE_DELAY_MS = 500;
 var STATS_SAVE_DELAY_MS = 2e3;
-function emptyDoc() {
+function emptyDoc$1() {
 	return {
 		version: 1,
 		verdicts: []
 	};
 }
-function isDict$12(value) {
+function isDict$15(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function readVerdict(value) {
-	if (!isDict$12(value)) return null;
+	if (!isDict$15(value)) return null;
 	if (typeof value.messageIndex !== "number" || typeof value.swipeId !== "number") return null;
-	const defects = Array.isArray(value.defects) ? value.defects.filter((item) => isDict$12(item) && typeof item.kind === "string") : [];
+	const defects = Array.isArray(value.defects) ? value.defects.filter((item) => isDict$15(item) && typeof item.kind === "string") : [];
 	return {
 		...value,
 		defects,
@@ -74953,7 +78695,7 @@ function readVerdict(value) {
 var VerdictStore = class {
 	app;
 	log;
-	doc = emptyDoc();
+	doc = emptyDoc$1();
 	chatId = null;
 	loading = null;
 	timer = null;
@@ -74966,12 +78708,12 @@ var VerdictStore = class {
 		const chatId = this.app.host.chatId();
 		this.flushTimer();
 		this.chatId = chatId;
-		this.doc = emptyDoc();
+		this.doc = emptyDoc$1();
 		if (!chatId || this.app.host.isGroupChat()) {
 			this.loading = null;
 			return Promise.resolve();
 		}
-		const pending = this.app.chat.get(QUALITY_DOC_KIND, emptyDoc).then((doc) => {
+		const pending = this.app.chat.get(QUALITY_DOC_KIND, emptyDoc$1).then((doc) => {
 			if (this.chatId !== chatId || this.loading !== pending) return;
 			const verdicts = Array.isArray(doc.verdicts) ? doc.verdicts.map(readVerdict) : [];
 			const early = this.doc.verdicts;
@@ -75054,7 +78796,7 @@ var VerdictStore = class {
 		}
 		try {
 			if (await this.app.chat.put("quality", doc)) return;
-			const fresh = await this.app.chat.getFor(chatId, QUALITY_DOC_KIND, emptyDoc);
+			const fresh = await this.app.chat.getFor(chatId, QUALITY_DOC_KIND, emptyDoc$1);
 			const theirs = Array.isArray(fresh.verdicts) ? fresh.verdicts.map(readVerdict) : [];
 			const merged = /* @__PURE__ */ new Map();
 			for (const verdict of [...theirs, ...doc.verdicts]) if (verdict) merged.set(`${verdict.messageIndex}:${verdict.swipeId}:${verdict.at}`, verdict);
@@ -75075,7 +78817,7 @@ function zero() {
 	};
 }
 function readCounters(value) {
-	const source = isDict$12(value) ? value : {};
+	const source = isDict$15(value) ? value : {};
 	const num = (key) => {
 		const raw = source[key];
 		return typeof raw === "number" && Number.isFinite(raw) && raw >= 0 ? Math.floor(raw) : 0;
@@ -75170,7 +78912,7 @@ var StatsStore = class {
 	async read() {
 		const file = await readFresh(this.app.files, this.fileName());
 		const stored = /* @__PURE__ */ new Map();
-		const stats = file && isDict$12(file.stats) ? file.stats : {};
+		const stats = file && isDict$15(file.stats) ? file.stats : {};
 		for (const kind of DEFECT_KINDS) if (stats[kind]) stored.set(kind, readCounters(stats[kind]));
 		return stored;
 	}
@@ -75301,7 +79043,7 @@ var DEFAULT_TIMINGS = {
 	fixTtlMs: 6e4,
 	naiSyncMs: 5e3
 };
-function isDict$11(value) {
+function isDict$14(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function withTimeout$1(promise, ms, fallback) {
@@ -75477,7 +79219,7 @@ var QualityService = class {
 	sheet(index) {
 		const chat = this.app.host.ctx().chat;
 		const maestro = chat[index]?.extra?.maestro;
-		if (isDict$11(maestro) && maestro.sheet) return true;
+		if (isDict$14(maestro) && maestro.sheet) return true;
 		try {
 			if (this.app.modules.api("sheets")?.isSheetMessage(index)) return true;
 		} catch {}
@@ -75531,8 +79273,8 @@ var QualityService = class {
 			const desru = adaptersOf(this.app).desru;
 			if (!desru.present() || !desru.moduleEnabled("bunnymo")) return false;
 			const modules = desru.settings()?.modules;
-			const bunnymo = isDict$11(modules) ? modules.bunnymo : void 0;
-			return !isDict$11(bunnymo) || bunnymo.languageLock !== false;
+			const bunnymo = isDict$14(modules) ? modules.bunnymo : void 0;
+			return !isDict$14(bunnymo) || bunnymo.languageLock !== false;
 		} catch {
 			return false;
 		}
@@ -75602,7 +79344,7 @@ var QualityService = class {
 			return [];
 		}
 		if (!Array.isArray(found)) return [];
-		return found.filter((defect) => isDict$11(defect) && DEFECT_KINDS.includes(defect.kind)).map((defect) => ({
+		return found.filter((defect) => isDict$14(defect) && DEFECT_KINDS.includes(defect.kind)).map((defect) => ({
 			...defect,
 			confidence: Number.isFinite(defect.confidence) ? Math.max(0, Math.min(1, defect.confidence)) : 0,
 			quote: shortQuote(typeof defect.quote === "string" ? defect.quote : ""),
@@ -75986,10 +79728,17 @@ var QualityService = class {
 				text: note,
 				expires: Date.now() + this.timings.fixTtlMs
 			} : null;
-			if (auto) try {
-				this.app.modules.api("metrics")?.noteAutoSwipe();
-			} catch (error) {
-				this.log.debug("metrics did not take the auto-swipe note", error);
+			if (auto) {
+				try {
+					this.app.modules.api("metrics")?.noteAutoSwipe();
+				} catch (error) {
+					this.log.debug("metrics did not take the auto-swipe note", error);
+				}
+				try {
+					this.app.modules.api("treasurer")?.noteAutoSwipe?.();
+				} catch (error) {
+					this.log.debug("treasurer did not take the auto-swipe note", error);
+				}
 			}
 		});
 	}
@@ -76194,7 +79943,7 @@ var QualityService = class {
 		this.changed();
 	}
 	undoRef(change) {
-		const ref = isDict$11(change.ref) ? change.ref : {};
+		const ref = isDict$14(change.ref) ? change.ref : {};
 		if (ref.chatId !== this.app.host.chatId()) return null;
 		if (typeof ref.messageIndex !== "number" || typeof ref.swipeId !== "number") return null;
 		const kinds = Array.isArray(ref.kinds) ? ref.kinds.filter((kind) => DEFECT_KINDS.includes(kind)) : [];
@@ -76209,8 +79958,8 @@ var QualityService = class {
 	}
 	async undoText(change) {
 		const ref = this.undoRef(change);
-		const before = isDict$11(change.before) ? change.before.text : void 0;
-		const after = isDict$11(change.after) ? change.after.text : void 0;
+		const before = isDict$14(change.before) ? change.before.text : void 0;
+		const after = isDict$14(change.after) ? change.after.text : void 0;
 		if (!ref || typeof before !== "string" || typeof after !== "string") return false;
 		this.ownEdit = {
 			index: ref.index,
@@ -76230,7 +79979,7 @@ var QualityService = class {
 	}
 	async undoContinue(change) {
 		const ref = this.undoRef(change);
-		const before = isDict$11(change.before) ? change.before.text : void 0;
+		const before = isDict$14(change.before) ? change.before.text : void 0;
 		if (!ref || typeof before !== "string") return false;
 		const message = this.app.host.ctx().chat[ref.index];
 		const current = typeof message?.mes === "string" ? message.mes : void 0;
@@ -77083,267 +80832,6 @@ var qualityModule = {
 		own(app.ui.addTab(qualityTab(app, service, settings)));
 	}
 };
-//#endregion
-//#region src/domain/world-facts.ts
-/** Per-character DES fields that describe looks (English snake_case keys and DES-RU's Russian ones). */
-var APPEARANCE_FIELD_RE$1 = /appear|look|outfit|cloth|wear|attire|внешн|облик|одежд|наряд/i;
-var DES_CONFIDENCE = .5;
-var CANON_CONFIDENCE = {
-	active: .9,
-	provisional: .5,
-	archived: .3
-};
-/** «date, time» (or «date, start–end») of a DES scene; undefined when DES has neither. */
-function storyTimeOf(info) {
-	if (!info) return void 0;
-	const time = info.time ? info.time.start && info.time.end && info.time.end !== info.time.start ? `${info.time.start}–${info.time.end}` : info.time.start ?? info.time.end : void 0;
-	const parts = [info.date, time].filter((part) => !!part && !!part.trim());
-	return parts.length ? parts.join(", ") : void 0;
-}
-/** Relationship and appearance fields of one DES character as provisional facts. */
-function desFacts(entity, character, messageIndex, storyTime) {
-	const source = {
-		kind: "des.character",
-		ref: `${messageIndex}#${character.name}`,
-		label: character.name,
-		messageIndex
-	};
-	const facts = [];
-	const push = (text) => {
-		const fact = {
-			entity,
-			text,
-			source: { ...source },
-			messageIndex,
-			confidence: DES_CONFIDENCE,
-			status: "provisional"
-		};
-		if (storyTime) fact.storyTime = storyTime;
-		facts.push(fact);
-	};
-	if (character.relationship) push(`relationship: ${character.relationship}`);
-	for (const [field, value] of Object.entries(character.details)) if (APPEARANCE_FIELD_RE$1.test(field) && value.trim()) push(`${field}: ${value.trim()}`);
-	return facts;
-}
-/** A canon item as a fact: active items are active facts, provisional ones provisional, archived ones stale. */
-function canonFact(entity, item, book) {
-	const content = typeof item.entry.content === "string" ? item.entry.content.trim() : "";
-	if (!content) return null;
-	const comment = typeof item.entry.comment === "string" ? item.entry.comment.trim() : "";
-	const status = item.meta.status === "active" ? "active" : item.meta.status === "archived" ? "stale" : "provisional";
-	return {
-		entity,
-		text: content,
-		source: {
-			kind: "canon.entry",
-			ref: `${book}#${item.uid}`,
-			label: comment || `#${item.uid}`,
-			world: book,
-			uid: item.uid
-		},
-		confidence: CANON_CONFIDENCE[item.meta.status] ?? CANON_CONFIDENCE.provisional ?? .5,
-		status
-	};
-}
-//#endregion
-//#region src/domain/relations-history.ts
-function isAssistantMessage(message) {
-	return !!message && !message.is_user && !message.is_system;
-}
-/** Index of the assistant message committed last: the one before the last user message (P14); -1 if none. */
-function lastCommittedIndex(chat) {
-	let user = -1;
-	for (let i = chat.length - 1; i >= 0; i--) if (chat[i]?.is_user) {
-		user = i;
-		break;
-	}
-	for (let i = user - 1; i >= 0; i--) if (isAssistantMessage(chat[i])) return i;
-	return -1;
-}
-/** An assistant message is committed once a user message follows it. */
-function isCommittedIndex(chat, index) {
-	if (!isAssistantMessage(chat[index])) return false;
-	for (let i = index + 1; i < chat.length; i++) if (chat[i]?.is_user) return true;
-	return false;
-}
-/** The next assistant message after `index`, -1 if none. */
-function nextAssistantIndex(chat, index) {
-	for (let i = index + 1; i < chat.length; i++) if (isAssistantMessage(chat[i])) return i;
-	return -1;
-}
-function relationKey(from, to) {
-	return `${normalizeName(from)}\u0000${normalizeName(to)}`;
-}
-/** Statuses compare without case and extra spaces («Friendly» = «friendly »). */
-function sameStatus(a, b) {
-	return normalizeName(a) === normalizeName(b);
-}
-/**
-* Sorted by message, one point per message and source (the later one in the list wins), consecutive equal statuses
-* collapsed onto the earliest. Returns a new array.
-*/
-function collapseHistory(history) {
-	const byMessage = /* @__PURE__ */ new Map();
-	for (const point of history) {
-		if (!point || typeof point.status !== "string" || !point.status.trim()) continue;
-		if (!Number.isInteger(point.messageIndex) || point.messageIndex < 0) continue;
-		byMessage.set(`${point.messageIndex}\u0000${point.source}`, { ...point });
-	}
-	const sorted = [...byMessage.values()].sort((a, b) => a.messageIndex - b.messageIndex);
-	const out = [];
-	for (const point of sorted) {
-		const last = out[out.length - 1];
-		if (last && sameStatus(last.status, point.status)) continue;
-		out.push(point);
-	}
-	return out;
-}
-/** Current status: the last point's, '' without history. */
-function currentStatus(history) {
-	return history[history.length - 1]?.status ?? "";
-}
-/** Observations of one message: every character with a relationship status toward the persona. */
-function observationsFrom(snapshot, persona, resolve = (name) => name) {
-	if (!snapshot || !persona.trim()) return [];
-	const storyTime = storyTimeOf(snapshot.infoBox);
-	const out = [];
-	for (const character of snapshot.characters) {
-		if (!character.relationship) continue;
-		const from = resolve(character.name) || character.name;
-		if (normalizeName(from) === normalizeName(persona)) continue;
-		const observation = {
-			from,
-			to: persona,
-			status: character.relationship
-		};
-		if (storyTime) observation.storyTime = storyTime;
-		out.push(observation);
-	}
-	return out;
-}
-/**
-* Applies what one message says: its earlier points of `source` are replaced by the observations; pairs left without
-* history are dropped. Returns new relations (inputs are not changed).
-*/
-function applyMessage(relations, messageIndex, observations, source = "des", sent) {
-	const map = /* @__PURE__ */ new Map();
-	for (const relation of relations) map.set(relationKey(relation.from, relation.to), {
-		from: relation.from,
-		to: relation.to,
-		history: relation.history.filter((point) => !(point.messageIndex === messageIndex && point.source === source))
-	});
-	for (const observation of observations) {
-		const key = relationKey(observation.from, observation.to);
-		const relation = map.get(key) ?? {
-			from: observation.from,
-			to: observation.to,
-			history: []
-		};
-		const point = {
-			messageIndex,
-			status: observation.status.trim(),
-			source
-		};
-		if (observation.storyTime) point.storyTime = observation.storyTime;
-		if (sent) point.sent = sent;
-		relation.history.push(point);
-		map.set(key, relation);
-	}
-	const out = [];
-	for (const relation of map.values()) {
-		const history = collapseHistory(relation.history);
-		if (history.length) out.push({
-			...relation,
-			history
-		});
-	}
-	return out;
-}
-/**
-* Drops points of a message that is no longer what it was: `at` (swipe, edit) drops the points of that message,
-* `from` (deletion) drops that message's points and every later one.
-*/
-function dropPoints(relations, messageIndex, mode) {
-	const out = [];
-	for (const relation of relations) {
-		const history = collapseHistory(relation.history.filter((point) => mode === "at" ? point.messageIndex !== messageIndex : point.messageIndex < messageIndex));
-		if (history.length) out.push({
-			...relation,
-			history
-		});
-	}
-	return out;
-}
-/**
-* True when some DES point no longer sits on the message it was read from (messages were deleted in the middle):
-* `valid` checks the message at the point's index (an assistant message, the same `send_date`).
-*/
-function needsRepair(relations, valid) {
-	return relations.some((relation) => relation.history.some((point) => point.source === "des" && !valid(point)));
-}
-/** A point as the API shows it (without the bookkeeping `sent`). */
-function publicPoint(point) {
-	const copy = { ...point };
-	delete copy.sent;
-	return copy;
-}
-/** Relations merged by canonical names (the world model may learn later that «Лиза» is «Elizabeth»). */
-function mergeByName(relations, canonical) {
-	const map = /* @__PURE__ */ new Map();
-	for (const relation of relations) {
-		const from = canonical(relation.from) || relation.from;
-		const to = canonical(relation.to) || relation.to;
-		const key = relationKey(from, to);
-		const known = map.get(key);
-		if (known) known.history.push(...relation.history);
-		else map.set(key, {
-			from,
-			to,
-			history: [...relation.history]
-		});
-	}
-	const out = [];
-	for (const relation of map.values()) {
-		const history = collapseHistory(relation.history);
-		if (history.length) out.push({
-			...relation,
-			history
-		});
-	}
-	return out;
-}
-/** A stored document's relations, with junk dropped (files may be edited by hand or come from an old version). */
-function readRelations(value) {
-	if (!Array.isArray(value)) return [];
-	const out = [];
-	for (const item of value) {
-		if (!item || typeof item !== "object") continue;
-		const raw = item;
-		if (typeof raw.from !== "string" || typeof raw.to !== "string" || !raw.from.trim() || !raw.to.trim()) continue;
-		const history = [];
-		for (const point of Array.isArray(raw.history) ? raw.history : []) {
-			if (!point || typeof point !== "object") continue;
-			const p = point;
-			if (typeof p.messageIndex !== "number" || typeof p.status !== "string") continue;
-			const source = p.source === "canon" || p.source === "user" ? p.source : "des";
-			const data = {
-				messageIndex: p.messageIndex,
-				status: p.status,
-				source
-			};
-			if (typeof p.storyTime === "string" && p.storyTime) data.storyTime = p.storyTime;
-			if (typeof p.sent === "string" && p.sent) data.sent = p.sent;
-			history.push(data);
-		}
-		const collapsed = collapseHistory(history);
-		if (collapsed.length) out.push({
-			from: raw.from,
-			to: raw.to,
-			history: collapsed
-		});
-	}
-	return out;
-}
 //#endregion
 //#region src/features/relations/service.ts
 var RELATIONS_KEY = "relations";
@@ -78213,7 +81701,7 @@ function readRevisionSettings(slice) {
 }
 //#endregion
 //#region src/features/revision/sources.ts
-function isDict$10(value) {
+function isDict$13(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function str$3(value) {
@@ -78356,7 +81844,7 @@ var RevisionSources = class {
 	async effective(world, uid) {
 		const data = await this.book(world);
 		const raw = data?.entries[String(uid)];
-		const entry = isDict$10(raw) ? raw : null;
+		const entry = isDict$13(raw) ? raw : null;
 		const result = {
 			entry,
 			content: str$3(entry?.content),
@@ -78495,7 +81983,7 @@ var RevisionSources = class {
 };
 //#endregion
 //#region src/features/revision/routes.ts
-function isDict$9(value) {
+function isDict$12(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function str$2(value) {
@@ -78539,7 +82027,7 @@ var TARGETS = {
 	event: "revision.event"
 };
 function isRevisionPayload(value) {
-	return isDict$9(value) && value.m8 === 1 && typeof value.op === "string" && typeof value.value === "string";
+	return isDict$12(value) && value.m8 === 1 && typeof value.op === "string" && typeof value.value === "string";
 }
 var RouteError = class extends Error {};
 var TYPE_OF_KIND = {
@@ -79441,7 +82929,7 @@ var RevisionRoutes = class {
 		const id = change.ref.id;
 		const slot = change.ref.slot;
 		if (typeof id !== "string" || typeof slot !== "string" || !this.sources.naiApi()) return false;
-		const owner = isDict$9(change.ref.owner) ? change.ref.owner : null;
+		const owner = isDict$12(change.ref.owner) ? change.ref.owner : null;
 		await this.savePassportSlot(id, owner, slot, typeof change.before === "string" ? change.before : "");
 		return true;
 	}
@@ -79717,7 +83205,7 @@ var MAX_NAME = 80;
 var MAX_VALUE = 800;
 var MAX_EVIDENCE = 400;
 var MAX_FIELD = 40;
-function isDict$8(value) {
+function isDict$11(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function str$1(value) {
@@ -79736,7 +83224,7 @@ function clip$1(text, max) {
 }
 /** One item of `changes`; null when it cannot be used. */
 function readChange(raw, range) {
-	if (!isDict$8(raw)) return null;
+	if (!isDict$11(raw)) return null;
 	const target = str$1(raw.target);
 	if (!isRevisionTarget(target)) return null;
 	const entityName = str$1(raw.entity ?? raw.entityName);
@@ -79763,7 +83251,7 @@ function readChange(raw, range) {
 }
 /** `{changes: [...]}` (or a bare array) → the readable changes; duplicates are folded. */
 function parseRevisionChanges(data, range) {
-	const list = Array.isArray(data) ? data : isDict$8(data) && Array.isArray(data.changes) ? data.changes : null;
+	const list = Array.isArray(data) ? data : isDict$11(data) && Array.isArray(data.changes) ? data.changes : null;
 	if (!list) return null;
 	const changes = [];
 	let invalid = 0;
@@ -81788,15 +85276,15 @@ function registerPackHandlers(env) {
 }
 //#endregion
 //#region src/domain/rules-qvink.ts
-function isDict$7(value) {
+function isDict$10(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /** `chat[i].extra.qvink_memory`. */
 var QVINK_MEMORY_KEY = "qvink_memory";
 function memoryRecord(message) {
-	if (!isDict$7(message) || !isDict$7(message.extra)) return null;
+	if (!isDict$10(message) || !isDict$10(message.extra)) return null;
 	const record = message.extra[QVINK_MEMORY_KEY];
-	return isDict$7(record) ? record : null;
+	return isDict$10(record) ? record : null;
 }
 /** The message already has a Qvink summary (non-empty `memory`). */
 function hasQvinkMemory(message) {
@@ -81810,7 +85298,7 @@ function hasQvinkMemory(message) {
 * threshold do not. Context budgets are not part of this check.
 */
 function qvinkWouldSummarize(message, settings, options) {
-	if (!isDict$7(message)) return false;
+	if (!isDict$10(message)) return false;
 	const record = memoryRecord(message);
 	if (record?.is_qvink_system_memory) return false;
 	if (record?.remember === true) return true;
@@ -81819,8 +85307,8 @@ function qvinkWouldSummarize(message, settings, options) {
 	if (message.is_user === true && s.include_user_messages !== true) return false;
 	if (message.is_thoughts === true) return false;
 	if (message.is_system === true && s.include_system_messages !== true) return false;
-	if ((isDict$7(message.extra) ? message.extra : {}).type === "narrator" && s.include_narrator_messages !== true) return false;
-	if (options.groupId && isDict$7(s.disabled_group_characters)) {
+	if ((isDict$10(message.extra) ? message.extra : {}).type === "narrator" && s.include_narrator_messages !== true) return false;
+	if (options.groupId && isDict$10(s.disabled_group_characters)) {
 		const disabled = s.disabled_group_characters[options.groupId];
 		if (Array.isArray(disabled) && disabled.includes(message.original_avatar)) return false;
 	}
@@ -81836,21 +85324,21 @@ function qvinkWouldSummarize(message, settings, options) {
 function promptChatIndexes(chat, canUseTools) {
 	const indexes = [];
 	chat.forEach((message, index) => {
-		if (!isDict$7(message)) return;
-		const tools = canUseTools && isDict$7(message.extra) && Array.isArray(message.extra.tool_invocations);
+		if (!isDict$10(message)) return;
+		const tools = canUseTools && isDict$10(message.extra) && Array.isArray(message.extra.tool_invocations);
 		if (message.is_system !== true || tools) indexes.push(index);
 	});
 	return indexes;
 }
 function sameMessage$1(entry, message) {
-	return isDict$7(message) && message.send_date === entry.send_date && message.name === entry.name && message.is_user === true === (entry.is_user === true);
+	return isDict$10(message) && message.send_date === entry.send_date && message.name === entry.name && message.is_user === true === (entry.is_user === true);
 }
 /**
 * Live chat index of one prompt entry: its `index` through the mapping when that message matches (send date, name,
 * author), otherwise the newest live message that matches; -1 when none does.
 */
 function liveIndexOf(entry, chat, mapping) {
-	if (!isDict$7(entry)) return -1;
+	if (!isDict$10(entry)) return -1;
 	const position = entry.index;
 	if (typeof position === "number" && Number.isInteger(position)) {
 		const candidate = mapping[position];
@@ -83426,7 +86914,7 @@ var ROLES$1 = /* @__PURE__ */ new Set([
 	"user",
 	"assistant"
 ]);
-function isDict$6(value) {
+function isDict$9(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function finite(value) {
@@ -83434,14 +86922,14 @@ function finite(value) {
 }
 /** Keeps only valid values (settings come from settings.json and may be edited by hand). */
 function sanitizeScenarioParams(raw) {
-	if (!isDict$6(raw)) return {};
+	if (!isDict$9(raw)) return {};
 	const values = {};
 	if (typeof raw.enabled === "boolean") values.enabled = raw.enabled;
 	if (finite(raw.max_tokens) && raw.max_tokens > 0) values.max_tokens = Math.floor(raw.max_tokens);
 	if (finite(raw.temperature) && raw.temperature >= 0 && raw.temperature <= 2) values.temperature = raw.temperature;
 	if (Array.isArray(raw.stop)) values.stop = raw.stop.filter((item) => typeof item === "string");
 	if (raw.reasoning === "keep" || raw.reasoning === "off") values.reasoning = raw.reasoning;
-	if (Array.isArray(raw.messages)) values.messages = raw.messages.filter(isDict$6).filter((message) => typeof message.content === "string" && ROLES$1.has(String(message.role))).map((message) => ({
+	if (Array.isArray(raw.messages)) values.messages = raw.messages.filter(isDict$9).filter((message) => typeof message.content === "string" && ROLES$1.has(String(message.role))).map((message) => ({
 		role: message.role,
 		content: message.content
 	}));
@@ -83554,7 +87042,7 @@ var BUILTIN_DESCRIPTORS = [{
 	},
 	fields: ALL_FIELDS
 }];
-function isDict$5(value) {
+function isDict$8(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 var ScenarioRegistry = class {
@@ -83596,7 +87084,7 @@ var ScenarioRegistry = class {
 		};
 	}
 	stored() {
-		if (!isDict$5(this.slice.scenarioParams)) this.slice.scenarioParams = {};
+		if (!isDict$8(this.slice.scenarioParams)) this.slice.scenarioParams = {};
 		return this.slice.scenarioParams;
 	}
 };
@@ -84066,14 +87554,14 @@ var scenariosModule = {
 };
 //#endregion
 //#region src/features/sheets/marks.ts
-function isDict$4(value) {
+function isDict$7(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /** The sheet mark of a message, validated; null when there is none. */
 function sheetMark(message) {
 	const maestro = message?.extra?.maestro;
-	const raw = isDict$4(maestro) ? maestro.sheet : void 0;
-	if (!isDict$4(raw)) return null;
+	const raw = isDict$7(maestro) ? maestro.sheet : void 0;
+	if (!isDict$7(raw)) return null;
 	const command = raw.command;
 	if (typeof command !== "string" || !SHEET_COMMANDS.includes(command)) return null;
 	const mark = {
@@ -84085,9 +87573,9 @@ function sheetMark(message) {
 	return mark;
 }
 function withMark(extra, mark) {
-	const base = isDict$4(extra) ? extra : {};
+	const base = isDict$7(extra) ? extra : {};
 	base.maestro = {
-		...isDict$4(base.maestro) ? base.maestro : {},
+		...isDict$7(base.maestro) ? base.maestro : {},
 		sheet: { ...mark }
 	};
 	return base;
@@ -84097,10 +87585,10 @@ function setSheetMark(message, mark) {
 	message.extra = withMark(message.extra, mark);
 	const swipeId = message.swipe_id;
 	const info = Array.isArray(message.swipe_info) && typeof swipeId === "number" ? message.swipe_info[swipeId] : null;
-	if (isDict$4(info)) info.extra = withMark(info.extra, mark);
+	if (isDict$7(info)) info.extra = withMark(info.extra, mark);
 }
 function withoutMark(extra) {
-	if (!isDict$4(extra) || !isDict$4(extra.maestro) || !("sheet" in extra.maestro)) return;
+	if (!isDict$7(extra) || !isDict$7(extra.maestro) || !("sheet" in extra.maestro)) return;
 	const rest = { ...extra.maestro };
 	delete rest.sheet;
 	if (Object.keys(rest).length) extra.maestro = rest;
@@ -84111,7 +87599,7 @@ function clearSheetMark(message) {
 	withoutMark(message.extra);
 	const swipeId = message.swipe_id;
 	const info = Array.isArray(message.swipe_info) && typeof swipeId === "number" ? message.swipe_info[swipeId] : null;
-	if (isDict$4(info)) withoutMark(info.extra);
+	if (isDict$7(info)) withoutMark(info.extra);
 }
 /** Index of the sheet command message a reply answers: the last user message before it with a command. */
 function commandIndexFor(chat, replyIndex) {
@@ -84262,7 +87750,7 @@ var SheetDecorator = class {
 };
 //#endregion
 //#region src/features/sheets/sources.ts
-function isDict$3(value) {
+function isDict$6(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /** How far back the DES tracker of the target is looked for. */
@@ -84435,8 +87923,8 @@ var SheetSources = class {
 		if (typeof load !== "function") return [];
 		try {
 			const data = await load(book);
-			if (!isDict$3(data) || !isDict$3(data.entries)) return [];
-			return Object.values(data.entries).filter((entry) => isDict$3(entry) && entry.disable !== true).map((entry) => ({
+			if (!isDict$6(data) || !isDict$6(data.entries)) return [];
+			return Object.values(data.entries).filter((entry) => isDict$6(entry) && entry.disable !== true).map((entry) => ({
 				key: entry.key,
 				keysecondary: entry.keysecondary,
 				comment: entry.comment,
@@ -84507,7 +87995,7 @@ var HIDDEN_TARGET = "sheets.hidden";
 function isSheetGeneration(info) {
 	return !info.dryRun && !info.quiet && !!info.sheetCommand && SCENARIO_TYPES.has(info.type);
 }
-function isDict$2(value) {
+function isDict$5(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function lastUserIndex(chat) {
@@ -84923,7 +88411,7 @@ var sheetsModule = {
 		own(app.inbox.registerApplier(SHEET_HIDE_KIND, (payload) => applyHide(payload)));
 		own(app.inbox.registerApplier(SHEET_CAPTURE_KIND, async (payload) => runCapture(payload)));
 		app.journal.registerUndo(TEXT_TARGET, async (change) => {
-			const ref = isDict$2(change.ref) ? change.ref : {};
+			const ref = isDict$5(change.ref) ? change.ref : {};
 			const index = Number(ref.index);
 			const message = ctx().chat[index];
 			if (!message || swipeIdOf(message) !== Number(ref.swipeId) || currentText(message) !== change.after) return false;
@@ -84933,7 +88421,7 @@ var sheetsModule = {
 			return true;
 		});
 		app.journal.registerUndo(HIDDEN_TARGET, async (change) => {
-			const ref = isDict$2(change.ref) ? change.ref : {};
+			const ref = isDict$5(change.ref) ? change.ref : {};
 			const start = Number(ref.start);
 			const end = Number(ref.end);
 			if (!Number.isInteger(start) || !Number.isInteger(end)) return false;
@@ -85011,7 +88499,7 @@ function observe(snapshot, canonical = (name) => name) {
 	const chars = /* @__PURE__ */ new Map();
 	for (const character of snapshot.characters) {
 		const name = canonical(character.name) || character.name;
-		const key = normalizeText$1(name);
+		const key = normalizeText(name);
 		if (!key) continue;
 		const existing = chars.get(key);
 		if (existing) {
@@ -85050,7 +88538,7 @@ function observe(snapshot, canonical = (name) => name) {
 function relationshipChanged(before, after) {
 	const a = tokenSet(before);
 	const b = tokenSet(after);
-	if (!a.size && !b.size) return normalizeText$1(before) !== normalizeText$1(after);
+	if (!a.size && !b.size) return normalizeText(before) !== normalizeText(after);
 	return !sameTokens(a, b);
 }
 /**
@@ -85069,7 +88557,7 @@ function compareLocations(base, next) {
 }
 /** One quest in two wordings: equal text, similar word sets, or one set inside the other (two words or more). */
 function sameQuest(a, b) {
-	if (normalizeText$1(a) === normalizeText$1(b)) return true;
+	if (normalizeText(a) === normalizeText(b)) return true;
 	const left = tokenSet(a);
 	const right = tokenSet(b);
 	if (jaccard(left, right) >= QUEST_SAME) return true;
@@ -85367,8 +88855,8 @@ function questSignals(ctx, current, previous) {
 function aliasSignals(ctx, aliases) {
 	const { baseline, tracer } = ctx;
 	const normalised = (canonical, list) => {
-		const own = normalizeText$1(canonical);
-		return [...new Set(list.map(normalizeText$1).filter((alias) => alias && alias !== own))].sort();
+		const own = normalizeText(canonical);
+		return [...new Set(list.map(normalizeText).filter((alias) => alias && alias !== own))].sort();
 	};
 	if (!baseline.aliases) {
 		tracer.touch("aliases");
@@ -85382,8 +88870,8 @@ function aliasSignals(ctx, aliases) {
 		const added = [];
 		const seen = /* @__PURE__ */ new Set();
 		for (const alias of list) {
-			const key = normalizeText$1(alias);
-			if (!key || had.has(key) || seen.has(key) || key === normalizeText$1(canonical)) continue;
+			const key = normalizeText(alias);
+			if (!key || had.has(key) || seen.has(key) || key === normalizeText(canonical)) continue;
 			seen.add(key);
 			added.push(alias.trim());
 		}
@@ -85506,8 +88994,8 @@ function step(baseline, input) {
 }
 /** Fold key: kind + subject (characters, places, quests by name or id) + the name of a new name. */
 function foldKey(signal) {
-	const subject = signal.subject ? `${signal.subject.type}:${signal.subject.id ?? normalizeText$1(signal.subject.name)}` : "";
-	const name = signal.kind === "name.new" ? normalizeText$1(String(signal.data.name ?? "")) : "";
+	const subject = signal.subject ? `${signal.subject.type}:${signal.subject.id ?? normalizeText(signal.subject.name)}` : "";
+	const name = signal.kind === "name.new" ? normalizeText(String(signal.data.name ?? "")) : "";
 	return `${signal.kind}|${subject}|${name}`;
 }
 function mergeData(target, source) {
@@ -86677,6 +90165,1924 @@ var signalsModule = {
 	}
 };
 //#endregion
+//#region src/domain/treasurer-spend.ts
+/** Display and summary order. */
+var SPEND_SOURCES = [
+	"main",
+	"regeneration",
+	"autoSwipe",
+	"qvink",
+	"maestro",
+	"nai",
+	"other"
+];
+/** Generation types that redo the last reply (ST swipe and regenerate); M12's auto-swipes are swipes too. */
+var REDO_TYPES = /* @__PURE__ */ new Set(["swipe", "regenerate"]);
+function isDict$4(value) {
+	return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+/** Finite positive number, else 0 (hand edits, NaN, negatives). */
+function positive(value) {
+	return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : 0;
+}
+/** Drops float dust left by subtractions. */
+function clean(value) {
+	return value > 1e-12 ? value : 0;
+}
+function isAnlasEntry(entry) {
+	return positive(entry.anlas) > 0;
+}
+/** A main generation by its type: normal / continue / impersonate → main, swipe / regenerate → redo, quiet → other. */
+function classifyGeneration(type, auto) {
+	if (type === "quiet") return "other";
+	if (type !== void 0 && REDO_TYPES.has(type)) return auto ? "autoSwipe" : "regeneration";
+	return "main";
+}
+/** Treasurer source of a core meter entry; `auto` = the generation it belongs to was M12's automatic swipe. */
+function classifyEntry(entry, auto = false) {
+	if (isAnlasEntry(entry)) return "nai";
+	switch (entry.source) {
+		case "main": return classifyGeneration(entry.task, auto);
+		case "qvink":
+		case "maestro":
+		case "nai": return entry.source;
+		default: return "other";
+	}
+}
+function emptyLine() {
+	return {
+		usd: 0,
+		anlas: 0,
+		requests: 0,
+		prompt: 0,
+		completion: 0,
+		cached: 0,
+		estimated: 0
+	};
+}
+/** Adds one entry to the line of `source` (Anlas entries add Anlas only, never a request). */
+function addToLines(lines, source, entry) {
+	const line = lines[source] ?? (lines[source] = emptyLine());
+	if (isAnlasEntry(entry)) {
+		line.anlas += positive(entry.anlas);
+		return;
+	}
+	line.usd += positive(entry.usd);
+	line.requests += 1;
+	line.prompt += positive(entry.tokens?.prompt);
+	line.completion += positive(entry.tokens?.completion);
+	line.cached += positive(entry.tokens?.cached);
+	if (entry.estimated) line.estimated += 1;
+}
+function lineEmpty(line) {
+	return !line || line.usd <= 0 && line.anlas <= 0 && line.requests <= 0;
+}
+function toSpendLine(source, line) {
+	const tokens = {
+		prompt: line.prompt,
+		completion: line.completion
+	};
+	if (line.cached > 0) tokens.cached = line.cached;
+	const result = {
+		source,
+		usd: line.usd,
+		requests: line.requests,
+		tokens,
+		estimated: line.estimated > 0
+	};
+	if (line.anlas > 0) result.anlas = line.anlas;
+	return result;
+}
+/** Non-empty lines in SPEND_SOURCES order. */
+function toSpendLines(lines) {
+	const result = [];
+	for (const source of SPEND_SOURCES) {
+		const line = lines[source];
+		if (line && !lineEmpty(line)) result.push(toSpendLine(source, line));
+	}
+	return result;
+}
+function totalsOf(lines) {
+	let usd = 0;
+	let anlas = 0;
+	for (const line of lines) {
+		usd += line.usd;
+		anlas += line.anlas ?? 0;
+	}
+	return {
+		usd,
+		anlas
+	};
+}
+function summaryOf(period, from, to, lines) {
+	const totals = totalsOf(lines);
+	return {
+		period,
+		from,
+		to,
+		totalUsd: totals.usd,
+		totalAnlas: totals.anlas,
+		lines
+	};
+}
+/** The line of one source in a list (absent sources read as an empty line). */
+function lineOf(lines, source) {
+	return lines.find((line) => line.source === source);
+}
+var ANLAS_KEY_CAP = 1e3;
+function emptyDoc() {
+	return {
+		version: 1,
+		turns: [],
+		anlasKeys: []
+	};
+}
+function readLine(raw) {
+	if (!isDict$4(raw)) return void 0;
+	return {
+		usd: positive(raw["usd"]),
+		anlas: positive(raw["anlas"]),
+		requests: positive(raw["requests"]),
+		prompt: positive(raw["prompt"]),
+		completion: positive(raw["completion"]),
+		cached: positive(raw["cached"]),
+		estimated: positive(raw["estimated"])
+	};
+}
+/** Repairs whatever the store returned (older versions, hand edits) in place and returns it. */
+function sanitizeDoc(raw) {
+	const doc = isDict$4(raw) ? raw : {};
+	doc.version = 1;
+	const turns = [];
+	for (const item of Array.isArray(doc.turns) ? doc.turns : []) {
+		if (!isDict$4(item) || typeof item["messageIndex"] !== "number" || !Number.isInteger(item["messageIndex"])) continue;
+		const lines = {};
+		const rawLines = isDict$4(item["lines"]) ? item["lines"] : {};
+		for (const source of SPEND_SOURCES) {
+			const line = readLine(rawLines[source]);
+			if (line) lines[source] = line;
+		}
+		const at = positive(item["at"]);
+		turns.push({
+			messageIndex: item["messageIndex"],
+			at,
+			last: Math.max(at, positive(item["last"])),
+			lines
+		});
+	}
+	turns.sort((a, b) => a.messageIndex - b.messageIndex);
+	doc.turns = turns.slice(-300);
+	doc.anlasKeys = (Array.isArray(doc.anlasKeys) ? doc.anlasKeys : []).filter((key) => typeof key === "string").slice(-1e3);
+	return doc;
+}
+function findTurn(turns, messageIndex) {
+	for (let i = turns.length - 1; i >= 0; i--) {
+		const turn = turns[i];
+		if (turn.messageIndex === messageIndex) return i;
+		if (turn.messageIndex < messageIndex) return -(i + 2);
+	}
+	return -1;
+}
+function applyOp(doc, op, caps = {
+	turns: 300,
+	keys: ANLAS_KEY_CAP
+}) {
+	if (op.kind === "anlasKey") {
+		if (!doc.anlasKeys.includes(op.key)) doc.anlasKeys.push(op.key);
+		if (doc.anlasKeys.length > caps.keys) doc.anlasKeys.splice(0, doc.anlasKeys.length - caps.keys);
+		return;
+	}
+	if (!Number.isInteger(op.turn) || op.turn < 0) return;
+	const found = findTurn(doc.turns, op.turn);
+	let turn;
+	if (found >= 0) turn = doc.turns[found];
+	else {
+		const insertAt = found === -1 ? 0 : -found - 1;
+		turn = {
+			messageIndex: op.turn,
+			at: op.entry.at,
+			last: op.entry.at,
+			lines: {}
+		};
+		doc.turns.splice(insertAt, 0, turn);
+	}
+	addToLines(turn.lines, op.source, op.entry);
+	if (op.entry.at < turn.at || turn.at <= 0) turn.at = op.entry.at;
+	if (op.entry.at > turn.last) turn.last = op.entry.at;
+	if (doc.turns.length > caps.turns) doc.turns.splice(0, doc.turns.length - caps.turns);
+}
+/** The last `limit` turns, oldest first. */
+function turnList(doc, limit) {
+	const count = Math.max(0, Math.floor(limit));
+	if (count === 0) return [];
+	return doc.turns.slice(-count).map((turn) => ({
+		messageIndex: turn.messageIndex,
+		at: turn.at,
+		lines: toSpendLines(turn.lines)
+	}));
+}
+/** Local date YYYY-MM-DD (the core meter's dateKey). */
+function dayKey(ms) {
+	const date = new Date(ms);
+	const pad = (n) => String(n).padStart(2, "0");
+	return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+/** Local midnight of a date key and the last millisecond of that day; null for a malformed key. */
+function dayRange(date) {
+	const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
+	if (!match) return null;
+	const [year, month, day] = [
+		Number(match[1]),
+		Number(match[2]) - 1,
+		Number(match[3])
+	];
+	return {
+		from: new Date(year, month, day).getTime(),
+		to: new Date(year, month, day + 1).getTime() - 1
+	};
+}
+/** The last `count` local dates ending with the day of `now`, oldest first (DST-safe). */
+function lastDays(now, count) {
+	const today = new Date(now);
+	const days = [];
+	for (let i = Math.max(1, Math.floor(count)) - 1; i >= 0; i--) days.push(dayKey(new Date(today.getFullYear(), today.getMonth(), today.getDate() - i).getTime()));
+	return days;
+}
+function numberMap(value) {
+	const out = {};
+	if (!isDict$4(value)) return out;
+	for (const [key, item] of Object.entries(value)) {
+		const n = positive(item);
+		if (n > 0) out[key] = n;
+	}
+	return out;
+}
+function readEntry(raw) {
+	if (!isDict$4(raw) || typeof raw["at"] !== "number" || typeof raw["source"] !== "string") return null;
+	const entry = {
+		source: raw["source"],
+		usd: positive(raw["usd"]),
+		at: raw["at"]
+	};
+	if (typeof raw["task"] === "string") entry.task = raw["task"];
+	if (raw["estimated"] === true) entry.estimated = true;
+	if (positive(raw["anlas"]) > 0) entry.anlas = positive(raw["anlas"]);
+	if (isDict$4(raw["tokens"])) {
+		const tokens = raw["tokens"];
+		entry.tokens = {
+			prompt: positive(tokens["prompt"]),
+			completion: positive(tokens["completion"])
+		};
+		if (positive(tokens["cached"]) > 0) entry.tokens.cached = positive(tokens["cached"]);
+	}
+	if (typeof raw["chatId"] === "string" || raw["chatId"] === null) entry.chatId = raw["chatId"];
+	return entry;
+}
+/** A day file as the core meter writes it (or its live totals); null when absent or for another date. */
+function readDay(raw, date) {
+	if (!isDict$4(raw) || raw["date"] !== date) return null;
+	const recent = Array.isArray(raw["recent"]) ? raw["recent"].map(readEntry).filter((entry) => entry !== null) : [];
+	return {
+		date,
+		totalUsd: positive(raw["totalUsd"]),
+		bySource: numberMap(raw["bySource"]),
+		byTask: numberMap(raw["byTask"]),
+		anlas: positive(raw["anlas"]),
+		recent
+	};
+}
+/**
+* Day summary: USD per source exactly from the core totals (main split by generation type through byTask:
+* swipe + regenerate → regeneration, quiet → other, the auto-swipe share from the treasurer's own day notes),
+* requests and tokens per source from the day's recent entries (complete for days with up to 200 responses).
+*/
+function daySummary(day, date, auto) {
+	const range = dayRange(date) ?? {
+		from: 0,
+		to: 0
+	};
+	if (!day) return summaryOf("day", range.from, range.to, []);
+	const by = day.bySource;
+	const task = day.byTask;
+	const mainTotal = by["main"] ?? 0;
+	const quiet = Math.min(mainTotal, task["quiet"] ?? 0);
+	const redo = Math.min(mainTotal - quiet, (task["swipe"] ?? 0) + (task["regenerate"] ?? 0));
+	const autoUsd = Math.min(redo, positive(auto?.usd));
+	let unknown = 0;
+	for (const [source, usd] of Object.entries(by)) if (![
+		"main",
+		"qvink",
+		"maestro",
+		"nai",
+		"other"
+	].includes(source)) unknown += usd;
+	const usd = {
+		main: clean(mainTotal - quiet - redo),
+		regeneration: clean(redo - autoUsd),
+		autoSwipe: clean(autoUsd),
+		qvink: by["qvink"] ?? 0,
+		maestro: by["maestro"] ?? 0,
+		nai: by["nai"] ?? 0,
+		other: (by["other"] ?? 0) + quiet + unknown
+	};
+	const counts = {};
+	for (const entry of day.recent) addToLines(counts, classifyEntry(entry), entry);
+	if (auto && positive(auto.requests) > 0) {
+		const regeneration = counts.regeneration ?? emptyLine();
+		const moved = Math.min(regeneration.requests, positive(auto.requests));
+		regeneration.requests -= moved;
+		regeneration.prompt = Math.max(0, regeneration.prompt - positive(auto.prompt));
+		regeneration.completion = Math.max(0, regeneration.completion - positive(auto.completion));
+		counts.regeneration = regeneration;
+		counts.autoSwipe = {
+			...emptyLine(),
+			requests: positive(auto.requests),
+			prompt: positive(auto.prompt),
+			completion: positive(auto.completion)
+		};
+	}
+	const lines = [];
+	for (const source of SPEND_SOURCES) {
+		const line = counts[source] ?? emptyLine();
+		line.usd = usd[source];
+		line.anlas = source === "nai" ? day.anlas : 0;
+		if (!lineEmpty(line)) lines.push(toSpendLine(source, line));
+	}
+	return {
+		period: "day",
+		from: range.from,
+		to: range.to,
+		totalUsd: day.totalUsd,
+		totalAnlas: day.anlas,
+		lines
+	};
+}
+function readAutoDays(raw) {
+	const doc = {
+		version: 1,
+		days: {}
+	};
+	const days = isDict$4(raw) && isDict$4(raw["days"]) ? raw["days"] : {};
+	for (const [date, value] of Object.entries(days)) {
+		if (!dayRange(date) || !isDict$4(value)) continue;
+		doc.days[date] = {
+			usd: positive(value["usd"]),
+			requests: positive(value["requests"]),
+			prompt: positive(value["prompt"]),
+			completion: positive(value["completion"])
+		};
+	}
+	return doc;
+}
+function addAutoDay(days, date, entry) {
+	const day = days[date] ?? (days[date] = {
+		usd: 0,
+		requests: 0,
+		prompt: 0,
+		completion: 0
+	});
+	day.usd += positive(entry.usd);
+	day.requests += 1;
+	day.prompt += positive(entry.tokens?.prompt);
+	day.completion += positive(entry.tokens?.completion);
+}
+/** Adds a delta of days to a base (both untouched) and keeps the newest `keep` days. */
+function mergeAutoDays(base, delta, keep = 62) {
+	const days = {};
+	for (const [date, day] of Object.entries(base.days)) days[date] = { ...day };
+	for (const [date, day] of Object.entries(delta)) {
+		const target = days[date] ?? (days[date] = {
+			usd: 0,
+			requests: 0,
+			prompt: 0,
+			completion: 0
+		});
+		target.usd += day.usd;
+		target.requests += day.requests;
+		target.prompt += day.prompt;
+		target.completion += day.completion;
+	}
+	const kept = Object.keys(days).sort().slice(-Math.max(1, keep));
+	return {
+		version: 1,
+		days: Object.fromEntries(kept.map((date) => [date, days[date]]))
+	};
+}
+//#endregion
+//#region src/domain/treasurer-ledger.ts
+var MAX_FLIGHTS = 20;
+var MAX_MARKS = 100;
+var MAX_HINTS = 50;
+/** The core records Anlas in its own reply:ready listener, which may run a little before the hint is given. */
+var HINT_EARLY_MS = 2e3;
+function entryKey(entry) {
+	return `${entry.at}|${entry.source}|${entry.usd}|${entry.task ?? ""}|${entry.anlas ?? ""}`;
+}
+var TurnLedger = class {
+	flights = [];
+	marks = [];
+	hints = [];
+	resolved = [];
+	chatId;
+	initialTurn;
+	cursorAt;
+	cursorSeen = /* @__PURE__ */ new Map();
+	seq = 0;
+	graceMs;
+	hintTtlMs;
+	constructor(options) {
+		this.chatId = options.chatId;
+		this.initialTurn = options.turn;
+		this.cursorAt = options.since;
+		this.graceMs = options.graceMs ?? 1500;
+		this.hintTtlMs = options.hintTtlMs ?? 6e4;
+	}
+	/** Another chat: generations still waiting fall back now and are returned for the previous chat. */
+	reset(chatId, turn, since) {
+		for (const flight of this.flights) if (flight.turn === void 0) this.fallback(flight);
+		const leftovers = this.takeResolved();
+		this.chatId = chatId;
+		this.initialTurn = turn;
+		this.flights = [];
+		this.marks = [];
+		this.hints = [];
+		if (since > this.cursorAt) {
+			this.cursorAt = since;
+			this.cursorSeen = /* @__PURE__ */ new Map();
+		}
+		return leftovers;
+	}
+	/** A non-quiet generation started (bus generation:before). */
+	begin(type, auto, at) {
+		for (const flight of this.flights) if (flight.turn === void 0) this.fallback(flight, at);
+		this.flights.push({
+			id: ++this.seq,
+			type,
+			auto,
+			startedAt: at,
+			pending: []
+		});
+		if (this.flights.length > MAX_FLIGHTS) this.flights.splice(0, this.flights.length - MAX_FLIGHTS);
+	}
+	/** A reply was rendered (bus reply:ready for an assistant message that is not a picture post). */
+	reply(turn, at) {
+		for (let i = this.flights.length - 1; i >= 0; i--) {
+			const flight = this.flights[i];
+			if (flight.turn === void 0 && flight.startedAt <= at) {
+				flight.closedAt ??= at;
+				this.resolve(flight, turn);
+				break;
+			}
+		}
+		this.marks.push({
+			at,
+			turn
+		});
+		if (this.marks.length > MAX_MARKS) this.marks.splice(0, this.marks.length - MAX_MARKS);
+	}
+	/** The generation in flight ended (bus generation:ended). */
+	end(at) {
+		const flight = this.flights[this.flights.length - 1];
+		if (!flight || flight.endedAt !== void 0) return;
+		flight.endedAt = at;
+		flight.closedAt ??= at;
+	}
+	/** Ended generations whose reply did not come within the grace fall back to the turn current at their end. */
+	settle(now) {
+		for (const flight of this.flights) if (flight.turn === void 0 && flight.endedAt !== void 0 && now - flight.endedAt >= this.graceMs) this.fallback(flight);
+	}
+	/** The next Anlas entry of this amount belongs to `turn` (NAI Studio records of a known message). */
+	hint(amount, turn, at) {
+		if (positive(amount) <= 0) return;
+		this.hints.push({
+			amount,
+			turn,
+			at
+		});
+		if (this.hints.length > MAX_HINTS) this.hints.splice(0, this.hints.length - MAX_HINTS);
+	}
+	/** Generations waiting for their reply (tests, debug). */
+	waiting() {
+		return this.flights.filter((flight) => flight.turn === void 0).length;
+	}
+	/** Processes entries not seen yet (the core meter's today list, any order); returns what can be applied now. */
+	ingest(entries, now) {
+		this.settle(now);
+		this.hints = this.hints.filter((hint) => now - hint.at <= this.hintTtlMs);
+		const fresh = [];
+		const sorted = entries.filter((entry) => typeof entry.at === "number" && Number.isFinite(entry.at)).slice().sort((a, b) => a.at - b.at);
+		let groupAt = NaN;
+		const group = /* @__PURE__ */ new Map();
+		for (const entry of sorted) {
+			if (entry.at < this.cursorAt) continue;
+			if (entry.at !== groupAt) {
+				groupAt = entry.at;
+				group.clear();
+			}
+			const key = entryKey(entry);
+			const occurrence = (group.get(key) ?? 0) + 1;
+			group.set(key, occurrence);
+			if (entry.at === this.cursorAt && occurrence <= (this.cursorSeen.get(key) ?? 0)) continue;
+			if (entry.at > this.cursorAt) {
+				this.cursorAt = entry.at;
+				this.cursorSeen = /* @__PURE__ */ new Map();
+			}
+			this.cursorSeen.set(key, occurrence);
+			const chat = entry.chatId === void 0 ? this.chatId : entry.chatId;
+			if (chat === null || chat !== this.chatId) continue;
+			fresh.push(this.place(entry));
+		}
+		return {
+			fresh,
+			assigned: this.takeResolved()
+		};
+	}
+	place(entry) {
+		if (isAnlasEntry(entry)) {
+			const index = this.hints.findIndex((hint) => Math.abs(hint.amount - positive(entry.anlas)) < 1e-9 && entry.at >= hint.at - HINT_EARLY_MS);
+			if (index >= 0) {
+				const [hint] = this.hints.splice(index, 1);
+				const item = {
+					entry,
+					source: "nai"
+				};
+				this.resolved.push({
+					...item,
+					turn: hint.turn
+				});
+				return item;
+			}
+		}
+		if (entry.source === "main" && entry.task !== "quiet") {
+			const flight = this.ownerOf(entry);
+			if (flight) {
+				const item = {
+					entry,
+					source: classifyEntry(entry, flight.auto)
+				};
+				this.attach(flight, item);
+				return item;
+			}
+		}
+		const item = {
+			entry,
+			source: classifyEntry(entry)
+		};
+		const running = this.runningAt(entry.at);
+		if (running) this.attach(running, item);
+		else this.resolved.push({
+			...item,
+			turn: this.turnAt(entry.at)
+		});
+		return item;
+	}
+	/** The generation a main entry answered: the newest of its type started before it. */
+	ownerOf(entry) {
+		for (let i = this.flights.length - 1; i >= 0; i--) {
+			const flight = this.flights[i];
+			if (flight.startedAt <= entry.at && (entry.task === void 0 || flight.type === entry.task)) return flight;
+		}
+	}
+	/** The generation running at a moment (started, not yet replied or ended). */
+	runningAt(at) {
+		for (let i = this.flights.length - 1; i >= 0; i--) {
+			const flight = this.flights[i];
+			if (flight.startedAt <= at && (flight.closedAt === void 0 || at <= flight.closedAt)) return flight;
+		}
+	}
+	turnAt(at) {
+		let turn = this.initialTurn;
+		for (const mark of this.marks) if (mark.at <= at) turn = mark.turn;
+		else break;
+		return turn;
+	}
+	attach(flight, item) {
+		if (flight.turn !== void 0) this.resolved.push({
+			...item,
+			turn: flight.turn
+		});
+		else flight.pending.push(item);
+	}
+	resolve(flight, turn) {
+		flight.turn = turn;
+		for (const item of flight.pending.splice(0)) this.resolved.push({
+			...item,
+			turn
+		});
+	}
+	fallback(flight, at) {
+		const end = flight.endedAt ?? at ?? flight.startedAt;
+		flight.closedAt ??= end;
+		this.resolve(flight, this.turnAt(end));
+	}
+	takeResolved() {
+		return this.resolved.splice(0);
+	}
+};
+//#endregion
+//#region src/domain/treasurer-anlas.ts
+function isDict$3(value) {
+	return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+function extrasOf(message) {
+	const list = [];
+	if (isDict$3(message["extra"])) list.push(message["extra"]);
+	const infos = message["swipe_info"];
+	if (Array.isArray(infos)) {
+		for (const info of infos) if (isDict$3(info) && isDict$3(info["extra"]) && !list.includes(info["extra"])) list.push(info["extra"]);
+	}
+	return list;
+}
+function mediaBatchKey(item, meta) {
+	if (typeof meta["correlationId"] === "string" && meta["correlationId"]) return `media|c|${meta["correlationId"]}`;
+	if (typeof item["url"] === "string" && item["url"]) return `media|u|${item["url"]}`;
+	return null;
+}
+function recordsOfExtra(extra, sendDate, out) {
+	const put = (record) => {
+		if (!out.has(record.key)) out.set(record.key, record);
+	};
+	const media = Array.isArray(extra["media"]) ? extra["media"].filter(isDict$3) : [];
+	const post = isDict$3(extra["nai_studio"]) ? extra["nai_studio"] : void 0;
+	const postCost = post ? positive(post["cost"]) : 0;
+	let covered = null;
+	if (postCost > 0) {
+		put({
+			key: `post|${sendDate}`,
+			kind: "post",
+			anlas: postCost
+		});
+		const first = media[0];
+		const meta = first && isDict$3(first["nai_studio"]) ? first["nai_studio"] : void 0;
+		covered = first && meta ? mediaBatchKey(first, meta) : null;
+	}
+	for (const item of media) {
+		const meta = isDict$3(item["nai_studio"]) ? item["nai_studio"] : void 0;
+		const cost = meta ? positive(meta["cost"]) : 0;
+		if (!meta || cost <= 0) continue;
+		const key = mediaBatchKey(item, meta);
+		if (key && key !== covered) put({
+			key,
+			kind: "media",
+			anlas: cost
+		});
+	}
+	const inline = Array.isArray(extra["nai_images"]) ? extra["nai_images"].filter(isDict$3) : [];
+	for (const entry of inline) {
+		if (typeof entry["id"] !== "string" || !Array.isArray(entry["swipes"])) continue;
+		entry["swipes"].forEach((swipe, index) => {
+			const meta = isDict$3(swipe) && isDict$3(swipe["meta"]) ? swipe["meta"] : void 0;
+			const cost = meta ? positive(meta["cost"]) : 0;
+			if (!meta || cost <= 0) return;
+			const created = typeof meta["createdAt"] === "string" ? meta["createdAt"] : "";
+			const at = created ? Date.parse(created) : NaN;
+			const record = {
+				key: `inline|${String(entry["id"])}|${created || `#${index}`}`,
+				kind: "inline",
+				anlas: cost
+			};
+			if (Number.isFinite(at)) record.at = at;
+			put(record);
+		});
+	}
+}
+/** Every NAI Studio cost record of a message (active swipe and stored swipes), one per batch. */
+function naiRecords(message) {
+	if (!isDict$3(message)) return [];
+	const out = /* @__PURE__ */ new Map();
+	const sendDate = typeof message["send_date"] === "string" ? message["send_date"] : "";
+	for (const extra of extrasOf(message)) recordsOfExtra(extra, sendDate, out);
+	return [...out.values()];
+}
+/** Records the treasurer must add now (the core meter does not count them). */
+function newAnlas(records, context) {
+	const result = [];
+	for (const record of records) {
+		if (context.counted.has(record.key)) continue;
+		if (record.kind === "inline") {
+			if (record.at !== void 0 && record.at >= context.countFrom) result.push(record);
+			continue;
+		}
+		if (context.baseline.has(record.key)) continue;
+		if (context.trigger === "swipe" || context.trigger === "tool") result.push(record);
+		else if (context.trigger === "message" && context.isUser) result.push(record);
+	}
+	return result;
+}
+/** An assistant reply that opens a turn: not the user's, not a system note, not a NAI Studio picture post. */
+function isReply(message) {
+	if (!isDict$3(message)) return false;
+	return message["is_user"] !== true && message["is_system"] !== true && !isImagePost(message);
+}
+/** The turn a message belongs to: the nearest reply at or before it; -1 when there is none. */
+function turnOfMessage(chat, index) {
+	for (let i = Math.min(index, chat.length - 1); i >= 0; i--) if (isReply(chat[i])) return i;
+	return -1;
+}
+/** The latest reply of a chat (-1 if none). */
+function lastReply(chat) {
+	return turnOfMessage(chat, chat.length - 1);
+}
+//#endregion
+//#region src/features/treasurer/service.ts
+var TREASURER_KEY = "treasurer";
+/** app.chat document kind of the per-turn spend. */
+var TREASURER_DOC_KIND = "treasurer";
+/** File kind of the auto-swipe share per day (`maestro-treasurer-days.json`). */
+var AUTO_DAYS_FILE_KIND = "treasurer-days";
+/** Journal target of the «Экономный» switch on the daily limit (undo puts the previous mode back). */
+var MODE_TARGET = "treasurer.mode";
+var ECONOMY_KIND = "treasurer.economy";
+function defaultTreasurerSettings() {
+	return {
+		tableTurns: 30,
+		chartDays: 14,
+		limitDate: "",
+		modeBeforeLimit: ""
+	};
+}
+/** Messages examined for new inline pictures after each reply when NAI Studio sends no events. */
+var SWEEP_MESSAGES = 6;
+function isDict$2(value) {
+	return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+function toLedgerEntry(raw) {
+	if (!isDict$2(raw) || typeof raw["at"] !== "number" || typeof raw["source"] !== "string") return null;
+	if (typeof raw["usd"] !== "number") return null;
+	return raw;
+}
+var TreasurerService = class {
+	app;
+	settings;
+	log;
+	now;
+	ingestDelay;
+	saveDelay;
+	daysSaveDelay;
+	autoTtl;
+	graceMs;
+	ledger;
+	startedAt;
+	state = null;
+	events = [];
+	autoArm = null;
+	sessionFrom;
+	sessionLines = {};
+	autoDays = {
+		version: 1,
+		days: {}
+	};
+	autoDelta = {};
+	autoLoaded = Promise.resolve();
+	autoTimer = null;
+	autoChain = Promise.resolve();
+	dayCache = /* @__PURE__ */ new Map();
+	dayCacheFor = "";
+	ingestTimer = null;
+	settleTimer = null;
+	scanTimer = null;
+	links = {};
+	listeners = /* @__PURE__ */ new Set();
+	disposed = false;
+	constructor(app, settings, log, deps = {}) {
+		this.app = app;
+		this.settings = settings;
+		this.log = log;
+		this.now = deps.now ?? Date.now;
+		this.ingestDelay = deps.ingestDelayMs ?? 300;
+		this.saveDelay = deps.saveDelayMs ?? 2e3;
+		this.daysSaveDelay = deps.daysSaveDelayMs ?? 5e3;
+		this.autoTtl = deps.autoTtlMs ?? 12e4;
+		this.graceMs = deps.graceMs ?? 1500;
+		this.startedAt = this.now();
+		this.sessionFrom = this.startedAt;
+		this.ledger = new TurnLedger({
+			chatId: this.safeChatId(),
+			turn: this.lastReplyIndex(),
+			since: this.startedAt,
+			graceMs: this.graceMs
+		});
+	}
+	install(own) {
+		const { app } = this;
+		own(app.bus.on("generation:before", (info) => this.onBefore(info)));
+		own(app.bus.on("reply:ready", ({ messageIndex }) => this.onReply(messageIndex)));
+		own(app.bus.on("generation:ended", () => this.onEnded()));
+		own(app.bus.on("chat:changed", ({ chatId }) => this.onChatChanged(chatId)));
+		if (typeof app.cost?.onChange === "function") own(app.cost.onChange(() => this.scheduleProcess()));
+		if (typeof app.cost?.onLimitReached === "function") own(app.cost.onLimitReached((info) => this.onLimit(info)));
+		try {
+			app.journal.registerUndo(MODE_TARGET, (change) => this.undoMode(change));
+		} catch (error) {
+			this.log.debug("journal undo for the mode switch not registered", error);
+		}
+		own(() => this.dispose());
+		this.link();
+		const chatId = this.safeChatId();
+		if (chatId) this.open(chatId);
+		this.autoLoaded = this.loadAutoDays();
+		this.restoreMode();
+	}
+	dispose() {
+		if (this.disposed) return;
+		this.disposed = true;
+		for (const timer of [
+			this.ingestTimer,
+			this.settleTimer,
+			this.scanTimer
+		]) if (timer) clearTimeout(timer);
+		this.ingestTimer = this.settleTimer = this.scanTimer = null;
+		this.links.quality?.off();
+		this.links.nai?.off();
+		this.links = {};
+		if (this.state) this.saveNow(this.state);
+		this.flushAutoDays();
+		this.listeners.clear();
+	}
+	/** Resolves when pending writes are done (tests). */
+	async flush() {
+		this.process();
+		if (this.state) await this.saveNow(this.state);
+		await this.flushAutoDays();
+	}
+	summary(period) {
+		const now = this.now();
+		if (period === "session") return summaryOf("session", this.sessionFrom, now, toSpendLines(this.sessionLines));
+		if (period === "turn") {
+			const turns = this.state?.doc?.turns ?? [];
+			const last = turns[turns.length - 1];
+			if (!last) return summaryOf("turn", now, now, []);
+			return summaryOf("turn", last.at, last.last, toSpendLines(last.lines));
+		}
+		const date = dayKey(now);
+		return daySummary(this.liveDay(date), date, this.autoDayOf(date));
+	}
+	turns(limit) {
+		const doc = this.state?.doc;
+		if (!doc) return [];
+		return turnList(doc, limit ?? this.settings.tableTurns ?? 30);
+	}
+	async days(limit) {
+		const count = Math.min(60, Math.max(1, Math.floor(limit ?? this.settings.chartDays ?? 14)));
+		const now = this.now();
+		const today = dayKey(now);
+		if (this.dayCacheFor !== today) {
+			this.dayCache.clear();
+			this.dayCacheFor = today;
+		}
+		await this.autoLoaded;
+		return Promise.all(lastDays(now, count).map(async (date) => {
+			if (date === today) return daySummary(this.liveDay(date), date, this.autoDayOf(date));
+			return daySummary(await this.storedDay(date), date, this.autoDayOf(date));
+		}));
+	}
+	onChange(listener) {
+		this.listeners.add(listener);
+		return () => {
+			this.listeners.delete(listener);
+		};
+	}
+	noteAutoSwipe() {
+		this.autoArm = {
+			at: this.now(),
+			via: "hook"
+		};
+	}
+	/** Session start (pult). */
+	sessionStart() {
+		return this.sessionFrom;
+	}
+	/** Overall daily limit enabled and reached (CostMeterImpl.dailyLimitReached, duck-typed). */
+	limitReached() {
+		try {
+			return this.app.cost.dailyLimitReached?.() === true;
+		} catch {
+			return false;
+		}
+	}
+	/** Send path: a clock read and a queued record, nothing else (P15). */
+	onBefore(info) {
+		if (info.dryRun || info.quiet) return;
+		const at = this.now();
+		const arm = this.autoArm;
+		this.autoArm = null;
+		const auto = arm !== null && REDO_TYPES.has(info.type) && at - arm.at <= this.autoTtl;
+		this.events.push({
+			kind: "begin",
+			type: info.type,
+			auto,
+			at
+		});
+	}
+	onReply(messageIndex) {
+		if (this.disposed) return;
+		const at = this.now();
+		const message = this.chat()[messageIndex];
+		if (isReply(message)) this.events.push({
+			kind: "reply",
+			turn: messageIndex,
+			at
+		});
+		this.examine(messageIndex, "reply");
+		this.sweep(messageIndex);
+		this.process();
+		this.link();
+	}
+	onEnded() {
+		if (this.disposed) return;
+		this.events.push({
+			kind: "end",
+			at: this.now()
+		});
+		this.process();
+		if (this.settleTimer) clearTimeout(this.settleTimer);
+		this.settleTimer = setTimeout(() => {
+			this.settleTimer = null;
+			this.process();
+		}, this.graceMs + 100);
+		this.link();
+		this.restoreMode();
+	}
+	onChatChanged(chatId) {
+		if (this.disposed) return;
+		this.process();
+		const previous = this.state;
+		const leftovers = this.ledger.reset(chatId, this.lastReplyIndex(), this.now());
+		if (previous) {
+			for (const item of leftovers) this.assign(previous, item);
+			this.saveNow(previous);
+		}
+		this.state = null;
+		this.sessionFrom = this.now();
+		this.sessionLines = {};
+		this.autoArm = null;
+		if (chatId) this.open(chatId);
+		this.link();
+		this.changed();
+	}
+	onImage(detail) {
+		if (this.disposed || !isDict$2(detail) || typeof detail.messageIndex !== "number") return;
+		const trigger = [
+			"message",
+			"swipe",
+			"tool",
+			"inline",
+			"marker"
+		].includes(detail.kind) ? detail.kind : "inline";
+		this.examine(detail.messageIndex, trigger);
+		this.process();
+	}
+	onVerdict(verdict) {
+		if (verdict.action === "swiped") this.autoArm = {
+			at: this.now(),
+			via: "verdict",
+			messageIndex: verdict.messageIndex
+		};
+		else if (this.autoArm?.via === "verdict" && this.autoArm.messageIndex === verdict.messageIndex) this.autoArm = null;
+	}
+	/** M12's verdicts and NAI Studio's events; modules and NAI Studio may appear after this one starts. */
+	link() {
+		if (this.disposed) return;
+		try {
+			const quality = this.app.modules.api("quality");
+			if (quality !== this.links.quality?.api) {
+				this.links.quality?.off();
+				this.links.quality = quality && typeof quality.onVerdict === "function" ? {
+					api: quality,
+					off: quality.onVerdict((verdict) => this.onVerdict(verdict))
+				} : void 0;
+			}
+		} catch (error) {
+			this.log.debug("quality verdicts unavailable", error);
+		}
+		try {
+			const nai = this.app.adapters?.nai;
+			const api = typeof nai?.api === "function" ? nai.api() : void 0;
+			if (api !== this.links.nai?.api) {
+				this.links.nai?.off();
+				this.links.nai = api && typeof nai?.on === "function" ? {
+					api,
+					off: nai.on("imageReady", (detail) => this.onImage(detail))
+				} : void 0;
+			}
+		} catch (error) {
+			this.log.debug("NAI Studio events unavailable", error);
+		}
+	}
+	scheduleProcess() {
+		if (this.ingestTimer || this.disposed) return;
+		this.ingestTimer = setTimeout(() => {
+			this.ingestTimer = null;
+			this.process();
+		}, this.ingestDelay);
+	}
+	/** Drains queued events into the ledger, then takes the meter's new entries. */
+	process() {
+		if (this.disposed) return;
+		for (const event of this.events.splice(0)) if (event.kind === "begin") this.ledger.begin(event.type, event.auto, event.at);
+		else if (event.kind === "reply") this.ledger.reply(event.turn, event.at);
+		else this.ledger.end(event.at);
+		const now = this.now();
+		this.ledger.settle(now);
+		const { fresh, assigned } = this.ledger.ingest(this.recentEntries(), now);
+		for (const item of fresh) this.count(item);
+		const state = this.state;
+		if (state) for (const item of assigned) this.assign(state, item);
+		if (fresh.length || assigned.length) this.changed();
+	}
+	recentEntries() {
+		const meter = this.app.cost;
+		let raw;
+		try {
+			if (typeof meter.recent === "function") raw = meter.recent();
+			else if (typeof meter.today === "function") raw = meter.today()?.recent;
+		} catch (error) {
+			this.log.debug("cost entries unavailable", error);
+		}
+		if (!Array.isArray(raw)) return [];
+		return raw.map(toLedgerEntry).filter((entry) => entry !== null);
+	}
+	/** Session totals and the auto-swipe day notes take every new entry of this chat. */
+	count(item) {
+		if (item.entry.at >= this.sessionFrom) addToLines(this.sessionLines, item.source, item.entry);
+		if (item.source === "autoSwipe") {
+			addAutoDay(this.autoDelta, dayKey(item.entry.at), item.entry);
+			this.scheduleAutoDays();
+		}
+	}
+	assign(state, item) {
+		if (item.turn < 0) return;
+		this.apply(state, {
+			kind: "spend",
+			turn: item.turn,
+			source: item.source,
+			entry: item.entry
+		});
+	}
+	/** Looks at one message's NAI Studio records: counts what the core meter cannot see, hints what it counted. */
+	examine(index, trigger) {
+		const state = this.state;
+		if (!state) return;
+		if (!state.doc) {
+			state.waiting.push({
+				index,
+				trigger
+			});
+			return;
+		}
+		const chat = this.chat();
+		const message = chat[index];
+		if (!isDict$2(message)) return;
+		const records = naiRecords(message);
+		if (!records.length) return;
+		const now = this.now();
+		const turn = turnOfMessage(chat, index);
+		const found = newAnlas(records, {
+			trigger,
+			isUser: message["is_user"] === true,
+			counted: state.counted,
+			baseline: state.baseline,
+			countFrom: this.startedAt
+		});
+		if (trigger === "reply") {
+			const unseen = records.filter((record) => record.kind !== "inline" && !state.baseline.has(record.key));
+			const post = unseen.find((record) => record.kind === "post");
+			for (const record of post ? [post] : unseen) this.ledger.hint(record.anlas, turn, now);
+		}
+		for (const record of records) state.baseline.add(record.key);
+		for (const record of found) {
+			state.counted.add(record.key);
+			this.apply(state, {
+				kind: "anlasKey",
+				key: record.key
+			});
+			this.ledger.hint(record.anlas, turn, now);
+			try {
+				this.app.cost.recordAnlas(record.anlas);
+			} catch (error) {
+				this.log.warn("could not record Anlas", error);
+			}
+		}
+	}
+	/** New inline pictures of the latest messages (NAI Studio without events, pictures finished between turns). */
+	sweep(index) {
+		const chat = this.chat();
+		for (let i = Math.max(0, chat.length - SWEEP_MESSAGES); i < chat.length; i++) if (i !== index) this.examine(i, "sweep");
+	}
+	/**
+	* The whole chat once its document is loaded: first the looks that waited for it (their pictures are new), then
+	* everything else is history (or already counted).
+	*/
+	scan(state) {
+		if (this.state !== state || !state.doc) return;
+		for (const look of state.waiting.splice(0)) this.examine(look.index, look.trigger);
+		const chat = this.chat();
+		for (let i = 0; i < chat.length; i++) this.examine(i, "scan");
+		this.process();
+	}
+	open(chatId) {
+		const state = {
+			chatId,
+			doc: null,
+			unsaved: [],
+			counted: /* @__PURE__ */ new Set(),
+			baseline: /* @__PURE__ */ new Set(),
+			waiting: [],
+			saveTimer: null,
+			saving: Promise.resolve()
+		};
+		this.state = state;
+		this.load(state);
+	}
+	async load(state) {
+		try {
+			const raw = await this.app.chat.getFor(state.chatId, TREASURER_DOC_KIND, emptyDoc);
+			this.adopt(state, raw);
+		} catch (error) {
+			this.log.warn("treasurer document could not be read; starting empty", error);
+			this.adopt(state, emptyDoc());
+		}
+		if (this.disposed || this.state !== state) return;
+		this.scanTimer = setTimeout(() => {
+			this.scanTimer = null;
+			this.scan(state);
+		}, 0);
+		this.changed();
+	}
+	/** Takes a document from the store and replays the changes made while it was loading. */
+	adopt(state, raw) {
+		const doc = sanitizeDoc(raw);
+		for (const op of state.unsaved) applyOp(doc, op);
+		for (const key of doc.anlasKeys) state.counted.add(key);
+		state.doc = doc;
+	}
+	apply(state, op) {
+		state.unsaved.push(op);
+		if (state.doc) applyOp(state.doc, op);
+		this.scheduleSave(state);
+	}
+	scheduleSave(state) {
+		if (state.saveTimer || this.disposed) return;
+		state.saveTimer = setTimeout(() => {
+			state.saveTimer = null;
+			this.saveNow(state);
+		}, this.saveDelay);
+	}
+	saveNow(state) {
+		if (state.saveTimer) {
+			clearTimeout(state.saveTimer);
+			state.saveTimer = null;
+		}
+		state.saving = state.saving.then(() => this.write(state)).catch((error) => {
+			this.log.warn("treasurer document not saved", error);
+		});
+		return state.saving;
+	}
+	async write(state) {
+		for (let attempt = 0; attempt < 2; attempt++) {
+			const doc = state.doc;
+			const sent = state.unsaved.length;
+			if (!doc || sent === 0) return;
+			if (await this.app.chat.put("treasurer", doc)) {
+				state.unsaved.splice(0, sent);
+				return;
+			}
+			const fresh = await this.app.chat.getFor(state.chatId, TREASURER_DOC_KIND, emptyDoc);
+			if (fresh === doc) return;
+			this.adopt(state, fresh);
+			this.changed();
+		}
+	}
+	liveDay(date) {
+		const meter = this.app.cost;
+		try {
+			const day = readDay(meter.today?.(), date);
+			if (day) return day;
+		} catch (error) {
+			this.log.debug("today totals unavailable", error);
+		}
+		const summary = this.app.cost.summary();
+		return {
+			date,
+			totalUsd: summary.todayUsd,
+			bySource: { ...summary.todayBySource },
+			byTask: {},
+			anlas: summary.anlasToday,
+			recent: this.recentEntries().filter((entry) => dayKey(entry.at) === date)
+		};
+	}
+	storedDay(date) {
+		let pending = this.dayCache.get(date);
+		if (!pending) {
+			pending = this.app.files.read(costFileName(date)).then((raw) => readDay(raw, date)).catch((error) => {
+				this.log.debug(`cost file of ${date} unreadable`, error);
+				this.dayCache.delete(date);
+				return null;
+			});
+			this.dayCache.set(date, pending);
+		}
+		return pending;
+	}
+	autoDayOf(date) {
+		const stored = this.autoDays.days[date];
+		const delta = this.autoDelta[date];
+		if (!stored && !delta) return void 0;
+		return mergeAutoDays({
+			version: 1,
+			days: stored ? { [date]: stored } : {}
+		}, delta ? { [date]: delta } : {}).days[date];
+	}
+	async loadAutoDays() {
+		try {
+			this.autoDays = readAutoDays(await this.app.files.read(this.autoDaysFile()));
+		} catch (error) {
+			this.log.debug("auto-swipe day notes unreadable", error);
+		}
+	}
+	autoDaysFile() {
+		return this.app.files.fileName(AUTO_DAYS_FILE_KIND);
+	}
+	scheduleAutoDays() {
+		if (this.autoTimer || this.disposed) return;
+		this.autoTimer = setTimeout(() => {
+			this.autoTimer = null;
+			this.flushAutoDays();
+		}, this.daysSaveDelay);
+	}
+	/** Merges this tab's delta into what is on disk (other tabs write the same file). */
+	flushAutoDays() {
+		if (this.autoTimer) {
+			clearTimeout(this.autoTimer);
+			this.autoTimer = null;
+		}
+		this.autoChain = this.autoChain.then(async () => {
+			const delta = this.autoDelta;
+			if (!Object.keys(delta).length) return;
+			this.autoDelta = {};
+			try {
+				const name = this.autoDaysFile();
+				const merged = mergeAutoDays(readAutoDays(await this.app.files.read(name, { fresh: true })), delta);
+				await this.app.files.write(name, merged);
+				this.autoDays = merged;
+			} catch (error) {
+				this.autoDelta = mergeAutoDays({
+					version: 1,
+					days: delta
+				}, this.autoDelta).days;
+				throw error;
+			}
+		}).catch((error) => this.log.warn("auto-swipe day notes not saved", error));
+		return this.autoChain;
+	}
+	onLimit(info) {
+		const today = dayKey(this.now());
+		if (this.settings.limitDate === today) return;
+		this.settings.limitDate = today;
+		const i18n = this.app.i18n;
+		const params = {
+			spent: formatUsd(info.usd, i18n),
+			limit: formatUsd(info.limit, i18n)
+		};
+		if (info.action === "economy") this.switchToEconomy(params, today);
+		else if (info.action === "stopBackground") this.app.ui.notice(i18n.t("m21.limit.stopBackground", params), {
+			urgent: true,
+			level: "warn"
+		});
+		else this.app.ui.notice(i18n.t("m21.limit.warn", params), {
+			urgent: true,
+			level: "warn"
+		});
+		this.saveSettings("limitDate");
+	}
+	switchToEconomy(params, today) {
+		const i18n = this.app.i18n;
+		const core = this.app.settings.core();
+		const previous = core.mode;
+		if (previous === "economy") {
+			this.app.ui.notice(i18n.t("m21.limit.economyAlready", params), {
+				urgent: true,
+				level: "warn"
+			});
+			return;
+		}
+		core.mode = "economy";
+		this.settings.modeBeforeLimit = previous;
+		this.app.settings.save();
+		this.app.settings.notify("core.mode");
+		this.app.ui.notice(i18n.t("m21.limit.economy", params), {
+			urgent: true,
+			level: "warn",
+			action: {
+				label: i18n.t("m21.limit.restore", { mode: this.modeName(previous) }),
+				run: () => this.putModeBack(previous)
+			}
+		});
+		try {
+			this.app.journal.record({
+				module: "M21",
+				kind: ECONOMY_KIND,
+				summary: i18n.t("m21.journal.economy", { limit: params.limit }),
+				changes: [{
+					target: MODE_TARGET,
+					ref: {
+						path: "core.mode",
+						date: today
+					},
+					before: previous,
+					after: "economy"
+				}]
+			}).catch((error) => this.log.warn("mode switch not journaled", error));
+		} catch (error) {
+			this.log.warn("mode switch not journaled", error);
+		}
+	}
+	/** Notice button and journal undo: the mode the limit switched away from, if the user kept «Экономный». */
+	putModeBack(previous) {
+		const core = this.app.settings.core();
+		this.settings.modeBeforeLimit = "";
+		if (core.mode !== "economy") {
+			this.saveSettings("modeBeforeLimit");
+			return core.mode === previous;
+		}
+		core.mode = previous;
+		this.app.settings.save();
+		this.app.settings.notify("core.mode");
+		this.saveSettings("modeBeforeLimit");
+		return true;
+	}
+	async undoMode(change) {
+		const before = change.before;
+		if (before !== "balanced" && before !== "cinema" && before !== "economy") return false;
+		return this.putModeBack(before);
+	}
+	/** A new day after the limit switched to «Экономный»: the previous mode comes back (unless the user chose one). */
+	restoreMode() {
+		const previous = this.settings.modeBeforeLimit;
+		if (!previous || this.settings.limitDate === dayKey(this.now())) return;
+		let core;
+		try {
+			core = this.app.settings.core();
+		} catch {
+			return;
+		}
+		const wasEconomy = core.mode === "economy";
+		if (this.putModeBack(previous) && wasEconomy) this.app.ui.notice(this.app.i18n.t("m21.limit.restored", { mode: this.modeName(previous) }), { level: "info" });
+	}
+	modeName(mode) {
+		return tOr(this.app.i18n, `m21.mode.${mode}`, mode);
+	}
+	saveSettings(field) {
+		try {
+			this.app.settings.save();
+			this.app.settings.notify(`modules.${TREASURER_KEY}.${field}`);
+		} catch (error) {
+			this.log.debug("settings not saved", error);
+		}
+	}
+	chat() {
+		try {
+			const chat = this.app.host.ctx().chat;
+			return Array.isArray(chat) ? chat : [];
+		} catch {
+			return [];
+		}
+	}
+	lastReplyIndex() {
+		return lastReply(this.chat());
+	}
+	safeChatId() {
+		try {
+			return this.app.host.chatId();
+		} catch {
+			return null;
+		}
+	}
+	changed() {
+		for (const listener of [...this.listeners]) try {
+			listener();
+		} catch (error) {
+			this.log.error("treasurer listener failed", error);
+		}
+	}
+};
+//#endregion
+//#region src/features/treasurer/strings.ts
+var M21_STRINGS = {
+	en: {
+		"m21.title": "Treasurer",
+		"m21.tab": "Spending",
+		"m21.view.intro": "What the game costs: each turn, this session and today, by source. The cost comes from the provider's answers; NovelAI pictures are counted in Anlas.",
+		"m21.view.noChat": "Open a chat to see the spend per turn.",
+		"m21.view.refresh": "Refresh",
+		"m21.section.totals": "Totals",
+		"m21.section.turns": "By turn",
+		"m21.section.days": "By day",
+		"m21.section.limits": "Caps and limits",
+		"m21.col.source": "Source",
+		"m21.col.turn": "Last turn",
+		"m21.col.session": "Session",
+		"m21.col.day": "Today",
+		"m21.col.message": "Turn",
+		"m21.col.total": "Total",
+		"m21.source.main": "Main model",
+		"m21.source.regeneration": "Regenerations",
+		"m21.source.autoSwipe": "Auto-swipes",
+		"m21.source.qvink": "Qvink",
+		"m21.source.maestro": "Maestro tasks",
+		"m21.source.nai": "NAI Studio (LLM)",
+		"m21.source.anlas": "NAI pictures, Anlas",
+		"m21.source.other": "Other",
+		"m21.source.mainShort": "Main",
+		"m21.source.regenerationShort": "Regen.",
+		"m21.source.autoSwipeShort": "Auto-swipe",
+		"m21.source.qvinkShort": "Qvink",
+		"m21.source.maestroShort": "Maestro",
+		"m21.source.naiShort": "NAI LLM",
+		"m21.source.anlasShort": "Anlas",
+		"m21.source.otherShort": "Other",
+		"m21.total": "Total",
+		"m21.estimated": "estimate",
+		"m21.estimatedHint": "Some answers had no cost in them: only their tokens are known.",
+		"m21.anlas": "{count} Anlas",
+		"m21.tokens": "{prompt} in / {completion} out",
+		"m21.sessionSince": "Session since {time}.",
+		"m21.turns.empty": "No spend recorded in this chat yet.",
+		"m21.turns.note": "The latest turns, newest first; the number is the message number in the chat.",
+		"m21.turn.number": "#{index}",
+		"m21.days.loading": "Loading the days…",
+		"m21.days.caption": "Over {count} days: {usd}",
+		"m21.days.captionAnlas": "Over {count} days: {usd} and {anlas} Anlas",
+		"m21.days.bar": "{date}: {usd}",
+		"m21.days.barAnlas": "{date}: {usd}, {anlas} Anlas",
+		"m21.days.aria": "Spend per day over the last {count} days",
+		"m21.days.failed": "Could not read the day files.",
+		"m21.limits.background": "Maestro's background today",
+		"m21.limits.backgroundOfCap": "{spent} of {cap}",
+		"m21.limits.backgroundNoCap": "{spent} (no cap)",
+		"m21.limits.capReached": "The background cap is reached: Maestro's own tasks wait until tomorrow.",
+		"m21.limits.limitReached": "The overall daily limit is reached: {spent} of {limit}.",
+		"m21.limits.backgroundCap": "Background cap per day, USD",
+		"m21.limits.backgroundCapHint": "Maestro's own background AI spend; 0 means no cap.",
+		"m21.limits.dailyLimit": "Overall daily limit",
+		"m21.limits.dailyLimitHint": "Counts the main chat too. Off by default. The main generation is never blocked.",
+		"m21.limits.dailyLimitUsd": "Limit per day, USD",
+		"m21.limits.dailyLimitAction": "When reached",
+		"m21.limits.action.warn": "Warn",
+		"m21.limits.action.economy": "Switch to Economy",
+		"m21.limits.action.stopBackground": "Stop background tasks",
+		"m21.limits.openSettings": "All settings",
+		"m21.mode.economy": "Economy",
+		"m21.mode.balanced": "Balanced",
+		"m21.mode.cinema": "Cinema",
+		"m21.limit.warn": "Today's spend reached the daily limit: {spent} of {limit}.",
+		"m21.limit.economy": "The daily limit is reached ({spent} of {limit}): Economy is on until tomorrow.",
+		"m21.limit.economyAlready": "The daily limit is reached ({spent} of {limit}); Economy is already on.",
+		"m21.limit.stopBackground": "The daily limit is reached ({spent} of {limit}): Maestro's background tasks stop until tomorrow. The chat works as usual.",
+		"m21.limit.restore": "Back to {mode}",
+		"m21.limit.restored": "A new day: the mode is back to {mode}.",
+		"m21.journal.economy": "Daily limit {limit} reached: Economy mode"
+	},
+	ru: {
+		"m21.title": "Казначей",
+		"m21.tab": "Расходы",
+		"m21.view.intro": "Сколько стоит игра: каждый ход, эта сессия и сегодняшний день — по источникам. Стоимость берётся из ответов провайдера, картинки NovelAI считаются в Anlas.",
+		"m21.view.noChat": "Открой чат, чтобы увидеть расходы по ходам.",
+		"m21.view.refresh": "Обновить",
+		"m21.section.totals": "Итоги",
+		"m21.section.turns": "По ходам",
+		"m21.section.days": "По дням",
+		"m21.section.limits": "Потолок и лимит",
+		"m21.col.source": "Источник",
+		"m21.col.turn": "Последний ход",
+		"m21.col.session": "Сессия",
+		"m21.col.day": "Сегодня",
+		"m21.col.message": "Ход",
+		"m21.col.total": "Всего",
+		"m21.source.main": "Основная модель",
+		"m21.source.regeneration": "Перегенерации",
+		"m21.source.autoSwipe": "Авто-свайпы",
+		"m21.source.qvink": "Qvink",
+		"m21.source.maestro": "Задачи Maestro",
+		"m21.source.nai": "NAI Studio (LLM)",
+		"m21.source.anlas": "Картинки NAI, Anlas",
+		"m21.source.other": "Прочее",
+		"m21.source.mainShort": "Основная",
+		"m21.source.regenerationShort": "Перегенер.",
+		"m21.source.autoSwipeShort": "Авто-свайп",
+		"m21.source.qvinkShort": "Qvink",
+		"m21.source.maestroShort": "Maestro",
+		"m21.source.naiShort": "NAI LLM",
+		"m21.source.anlasShort": "Anlas",
+		"m21.source.otherShort": "Прочее",
+		"m21.total": "Итого",
+		"m21.estimated": "оценка",
+		"m21.estimatedHint": "В части ответов не было стоимости: известны только их токены.",
+		"m21.anlas": "{count} Anlas",
+		"m21.tokens": "{prompt} на входе / {completion} на выходе",
+		"m21.sessionSince": "Сессия с {time}.",
+		"m21.turns.empty": "В этом чате расходов пока не было.",
+		"m21.turns.note": "Последние ходы, свежие сверху; номер — номер сообщения в чате.",
+		"m21.turn.number": "№ {index}",
+		"m21.days.loading": "Читаю дни…",
+		"m21.days.caption": "За {count} дн.: {usd}",
+		"m21.days.captionAnlas": "За {count} дн.: {usd} и {anlas} Anlas",
+		"m21.days.bar": "{date}: {usd}",
+		"m21.days.barAnlas": "{date}: {usd}, {anlas} Anlas",
+		"m21.days.aria": "Расходы по дням за последние {count} дн.",
+		"m21.days.failed": "Не удалось прочитать файлы дней.",
+		"m21.limits.background": "Фон Maestro сегодня",
+		"m21.limits.backgroundOfCap": "{spent} из {cap}",
+		"m21.limits.backgroundNoCap": "{spent} (без потолка)",
+		"m21.limits.capReached": "Потолок фона достигнут: собственные задачи Maestro ждут до завтра.",
+		"m21.limits.limitReached": "Общий дневной лимит достигнут: {spent} из {limit}.",
+		"m21.limits.backgroundCap": "Потолок фона в день, USD",
+		"m21.limits.backgroundCapHint": "Собственные фоновые запросы Maestro к ИИ; 0 — без потолка.",
+		"m21.limits.dailyLimit": "Общий дневной лимит",
+		"m21.limits.dailyLimitHint": "Учитывает и основной чат. По умолчанию выключен. Основную генерацию Maestro не блокирует.",
+		"m21.limits.dailyLimitUsd": "Лимит в день, USD",
+		"m21.limits.dailyLimitAction": "Когда достигнут",
+		"m21.limits.action.warn": "Предупредить",
+		"m21.limits.action.economy": "Перейти в «Экономный»",
+		"m21.limits.action.stopBackground": "Остановить фоновые задачи",
+		"m21.limits.openSettings": "Все настройки",
+		"m21.mode.economy": "Экономный",
+		"m21.mode.balanced": "Сбалансированный",
+		"m21.mode.cinema": "Кино",
+		"m21.limit.warn": "Расходы за сегодня достигли дневного лимита: {spent} из {limit}.",
+		"m21.limit.economy": "Дневной лимит достигнут ({spent} из {limit}): до завтра включён режим «Экономный».",
+		"m21.limit.economyAlready": "Дневной лимит достигнут ({spent} из {limit}); режим «Экономный» уже включён.",
+		"m21.limit.stopBackground": "Дневной лимит достигнут ({spent} из {limit}): фоновые задачи Maestro остановлены до завтра. Чат работает как обычно.",
+		"m21.limit.restore": "Вернуть «{mode}»",
+		"m21.limit.restored": "Новый день: режим снова «{mode}».",
+		"m21.journal.economy": "Дневной лимит {limit} достигнут: режим «Экономный»"
+	}
+};
+//#endregion
+//#region src/features/treasurer/view.ts
+var TREASURER_TAB = "treasurer";
+var SETTINGS_TAB = "settings";
+var LIMIT_ACTIONS = [
+	"warn",
+	"economy",
+	"stopBackground"
+];
+var COLUMNS = [
+	"main",
+	"regeneration",
+	"autoSwipe",
+	"qvink",
+	"maestro",
+	"nai",
+	"anlas",
+	"other"
+];
+var M21_CSS = `
+.maestro-m21-actions { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; align-items: center; }
+.maestro-m21-note { font-size: 0.85em; opacity: 0.8; margin: 4px 0; }
+.maestro-m21-est { display: inline-block; margin-left: 4px; padding: 0 4px; border-radius: 4px; font-size: 0.75em;
+    border: 1px dashed currentColor; opacity: 0.8; white-space: nowrap; }
+.maestro-m21-total td { font-weight: 600; }
+.maestro-m21-muted { opacity: 0.6; }
+.maestro-m21-chart { display: flex; align-items: flex-end; gap: 3px; height: 120px; padding: 4px 0; }
+.maestro-m21-day { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: stretch;
+    height: 100%; }
+.maestro-m21-track { flex: 1 1 auto; display: flex; align-items: flex-end; border-bottom: 1px solid
+    var(--SmartThemeBorderColor, rgba(128, 128, 128, 0.4)); }
+.maestro-m21-bar { width: 100%; min-height: 0; border-radius: 3px 3px 0 0;
+    background: var(--SmartThemeQuoteColor, #6b8fd6); opacity: 0.75; }
+.maestro-m21-today .maestro-m21-bar { opacity: 1; }
+.maestro-m21-anlas .maestro-m21-bar { box-shadow: inset 0 3px 0 var(--maestro-warn, #d08a2c); }
+.maestro-m21-day-label { text-align: center; font-size: 0.7em; opacity: 0.75; margin-top: 2px; overflow: hidden; }
+.maestro-m21-today .maestro-m21-day-label { font-weight: 700; opacity: 1; }
+`;
+function formatAnlas(value, app) {
+	const rounded = Math.round(value * 100) / 100;
+	try {
+		return new Intl.NumberFormat(app.i18n.locale() === "ru" ? "ru-RU" : "en-US").format(rounded);
+	} catch {
+		return String(rounded);
+	}
+}
+function formatDay(at, app) {
+	try {
+		return new Intl.DateTimeFormat(app.i18n.locale() === "ru" ? "ru-RU" : "en-US", {
+			day: "numeric",
+			month: "short"
+		}).format(new Date(at));
+	} catch {
+		return new Date(at).toDateString();
+	}
+}
+function treasurerTab(app, service) {
+	const i18n = app.i18n;
+	const t = i18n.t.bind(i18n);
+	const usd = (value) => formatUsd(value, i18n);
+	/** «оценка»: the core meter had no cost in some answers (usd 0); the tooltip gives the tokens known. */
+	const estimated = (line) => {
+		const tokens = line ? ` ${t("m21.tokens", {
+			prompt: line.tokens.prompt,
+			completion: line.tokens.completion
+		})}` : "";
+		return el("span", {
+			class: "maestro-m21-est",
+			text: t("m21.estimated"),
+			title: `${t("m21.estimatedHint")}${tokens}`
+		});
+	};
+	/** One cell: USD of a source (or Anlas of the NAI line), «оценка» when some answers had no cost. */
+	const cell = (lines, column) => {
+		if (column === "anlas") {
+			const anlas = lineOf(lines, "nai")?.anlas ?? 0;
+			return [anlas > 0 ? formatAnlas(anlas, app) : "—"];
+		}
+		const line = lineOf(lines, column);
+		if (!line || line.usd <= 0 && line.requests <= 0) return ["—"];
+		return [usd(line.usd), line.estimated ? estimated(line) : null];
+	};
+	const totalCell = (lines) => {
+		let total = 0;
+		let anyEstimated = false;
+		for (const line of lines) {
+			total += line.usd;
+			if (line.estimated) anyEstimated = true;
+		}
+		return [usd(total), anyEstimated ? estimated() : null];
+	};
+	const totalsView = () => {
+		const periods = [
+			{
+				key: "m21.col.turn",
+				summary: service.summary("turn")
+			},
+			{
+				key: "m21.col.session",
+				summary: service.summary("session")
+			},
+			{
+				key: "m21.col.day",
+				summary: service.summary("day")
+			}
+		];
+		const rows = [...COLUMNS.map((column) => ({ column })), { column: "total" }];
+		const node = table([{
+			key: "source",
+			label: t("m21.col.source"),
+			cell: (row) => row.column === "total" ? t("m21.total") : t(`m21.source.${row.column}`)
+		}, ...periods.map((period) => ({
+			key: period.key,
+			label: t(period.key),
+			numeric: true,
+			cell: (row) => row.column === "total" ? totalCell(period.summary.lines) : cell(period.summary.lines, row.column)
+		}))], rows, { caption: t("m21.section.totals") });
+		node.querySelector("tbody tr:last-child")?.classList.add("maestro-m21-total");
+		return section$1(t("m21.section.totals"), [node, el("div", {
+			class: "maestro-m21-note",
+			text: t("m21.sessionSince", { time: formatTime$1(service.sessionStart(), i18n) })
+		})]);
+	};
+	const turnsView = () => {
+		if (!app.host.chatId()) return section$1(t("m21.section.turns"), emptyState(t("m21.view.noChat"), "fa-comments"));
+		const turns = [...service.turns()].reverse();
+		return section$1(t("m21.section.turns"), [table([
+			{
+				key: "turn",
+				label: t("m21.col.message"),
+				numeric: true,
+				cell: (turn) => t("m21.turn.number", { index: turn.messageIndex })
+			},
+			...COLUMNS.map((column) => ({
+				key: column,
+				label: t(`m21.source.${column}Short`),
+				numeric: true,
+				cell: (turn) => cell(turn.lines, column)
+			})),
+			{
+				key: "total",
+				label: t("m21.col.total"),
+				numeric: true,
+				cell: (turn) => totalCell(turn.lines)
+			}
+		], turns, {
+			empty: t("m21.turns.empty"),
+			caption: t("m21.section.turns")
+		}), turns.length ? el("div", {
+			class: "maestro-m21-note",
+			text: t("m21.turns.note")
+		}) : null]);
+	};
+	const chartView = (days) => {
+		const max = days.reduce((top, day) => Math.max(top, day.totalUsd), 0);
+		const last = days[days.length - 1];
+		let total = 0;
+		let anlas = 0;
+		const bars = days.map((day) => {
+			total += day.totalUsd;
+			anlas += day.totalAnlas;
+			const share = max > 0 ? day.totalUsd / max : 0;
+			const percent = day.totalUsd > 0 ? Math.max(2, Math.round(share * 100)) : 0;
+			const params = {
+				date: formatDay(day.from, app),
+				usd: usd(day.totalUsd),
+				anlas: formatAnlas(day.totalAnlas, app)
+			};
+			const label = day.totalAnlas > 0 ? t("m21.days.barAnlas", params) : t("m21.days.bar", params);
+			const bar = el("div", { class: "maestro-m21-bar" });
+			bar.style.height = `${percent}%`;
+			return el("div", {
+				class: [
+					"maestro-m21-day",
+					day === last ? "maestro-m21-today" : null,
+					day.totalAnlas > 0 ? "maestro-m21-anlas" : null
+				],
+				title: label,
+				attrs: {
+					role: "listitem",
+					"aria-label": label
+				}
+			}, [el("div", { class: "maestro-m21-track" }, [bar]), el("div", {
+				class: "maestro-m21-day-label",
+				text: String(new Date(day.from).getDate())
+			})]);
+		});
+		const params = {
+			count: days.length,
+			usd: usd(total),
+			anlas: formatAnlas(anlas, app)
+		};
+		return el("div", {}, [el("div", {
+			class: "maestro-m21-chart",
+			attrs: {
+				role: "list",
+				"aria-label": t("m21.days.aria", { count: days.length })
+			}
+		}, bars), el("div", {
+			class: "maestro-m21-note",
+			text: anlas > 0 ? t("m21.days.captionAnlas", params) : t("m21.days.caption", params)
+		})]);
+	};
+	const limitsView = () => {
+		const settings = app.settings;
+		const core = () => settings.core();
+		const commit = (path) => {
+			settings.save();
+			settings.notify(path);
+		};
+		const summary = app.cost.summary();
+		const cap = core().backgroundDailyCapUsd;
+		const limit = core().dailyLimit;
+		return section$1(t("m21.section.limits"), [
+			el("div", { class: "maestro-kv" }, [el("span", { text: t("m21.limits.background") }), el("strong", { text: cap > 0 ? t("m21.limits.backgroundOfCap", {
+				spent: usd(summary.backgroundTodayUsd),
+				cap: usd(cap)
+			}) : t("m21.limits.backgroundNoCap", { spent: usd(summary.backgroundTodayUsd) }) })]),
+			app.cost.backgroundCapReached() ? banner(t("m21.limits.capReached"), "error", "fa-hand") : null,
+			service.limitReached() ? banner(t("m21.limits.limitReached", {
+				spent: usd(summary.todayUsd),
+				limit: usd(limit.usd)
+			}), "warn", "fa-scale-unbalanced") : null,
+			field$1(t("m21.limits.backgroundCap"), numberInput({
+				value: cap,
+				min: 0,
+				step: .05,
+				label: t("m21.limits.backgroundCap"),
+				onChange: (value) => {
+					core().backgroundDailyCapUsd = value;
+					commit("core.backgroundDailyCapUsd");
+				}
+			}), t("m21.limits.backgroundCapHint")),
+			toggle({
+				label: t("m21.limits.dailyLimit"),
+				hint: t("m21.limits.dailyLimitHint"),
+				checked: limit.enabled,
+				onChange: (checked) => {
+					core().dailyLimit.enabled = checked;
+					commit("core.dailyLimit.enabled");
+				}
+			}),
+			field$1(t("m21.limits.dailyLimitUsd"), numberInput({
+				value: limit.usd,
+				min: 0,
+				step: .5,
+				label: t("m21.limits.dailyLimitUsd"),
+				onChange: (value) => {
+					core().dailyLimit.usd = value;
+					commit("core.dailyLimit.usd");
+				}
+			})),
+			field$1(t("m21.limits.dailyLimitAction"), select({
+				value: limit.action,
+				label: t("m21.limits.dailyLimitAction"),
+				options: LIMIT_ACTIONS.map((value) => ({
+					value,
+					label: t(`m21.limits.action.${value}`)
+				})),
+				onChange: (value) => {
+					core().dailyLimit.action = value;
+					commit("core.dailyLimit.action");
+				}
+			})),
+			el("div", { class: "maestro-m21-actions" }, [button({
+				label: t("m21.limits.openSettings"),
+				icon: "fa-gear",
+				kind: "ghost",
+				onClick: () => app.ui.openPult(SETTINGS_TAB)
+			})])
+		]);
+	};
+	return {
+		id: TREASURER_TAB,
+		titleKey: "m21.tab",
+		icon: "fa-coins",
+		order: 54,
+		render(container) {
+			let alive = true;
+			let days = null;
+			let daysFailed = false;
+			let chartBox = null;
+			const fillChart = () => {
+				if (!chartBox) return;
+				clear(chartBox);
+				if (days) chartBox.append(chartView(days));
+				else if (daysFailed) chartBox.append(banner(t("m21.days.failed"), "warn"));
+				else chartBox.append(el("div", {
+					class: "maestro-m21-note",
+					text: t("m21.days.loading")
+				}));
+			};
+			const loadDays = async () => {
+				try {
+					days = await service.days();
+					daysFailed = false;
+				} catch (error) {
+					app.log.debug("treasurer days", error);
+					daysFailed = days === null;
+				}
+				if (alive) fillChart();
+			};
+			const draw = () => {
+				if (!alive) return;
+				clear(container);
+				chartBox = el("div", { class: "maestro-m21-days" });
+				container.append(el("div", { class: "maestro-view maestro-m21" }, [
+					el("div", {
+						class: "maestro-hint",
+						text: t("m21.view.intro")
+					}),
+					el("div", { class: "maestro-m21-actions" }, [button({
+						label: t("m21.view.refresh"),
+						icon: "fa-rotate",
+						onClick: () => {
+							service.process();
+							refresh();
+						}
+					})]),
+					totalsView(),
+					turnsView(),
+					section$1(t("m21.section.days"), chartBox),
+					limitsView()
+				]));
+				fillChart();
+			};
+			const refresh = coalesce(() => {
+				draw();
+				loadDays();
+			}, 300);
+			const offs = [
+				service.onChange(refresh),
+				app.cost.onChange(refresh),
+				app.settings.onChange((path) => {
+					if (path.startsWith("core.dailyLimit") || path === "core.backgroundDailyCapUsd") refresh();
+				})
+			];
+			draw();
+			loadDays();
+			return () => {
+				alive = false;
+				refresh.cancel();
+				for (const off of offs) off();
+			};
+		}
+	};
+}
+//#endregion
+//#region src/features/treasurer/index.ts
+var treasurerModule = {
+	id: "M21",
+	key: TREASURER_KEY,
+	stage: 7,
+	titleKey: "m21.title",
+	enabledByDefault: true,
+	defaults: defaultTreasurerSettings,
+	i18n: M21_STRINGS,
+	init({ app, settings, log, own }) {
+		const service = new TreasurerService(app, settings, log);
+		service.install(own);
+		app.modules.expose(TREASURER_KEY, service);
+		own(app.ui.style("maestro-m21", M21_CSS));
+		own(app.ui.addTab(treasurerTab(app, service)));
+	}
+};
+//#endregion
 //#region src/features/wizard/settings.ts
 function defaultWizardSettings() {
 	return {
@@ -87839,7 +93245,7 @@ function assembleWorld(input) {
 	for (const root of beings) {
 		const firsts = /* @__PURE__ */ new Set();
 		for (const name of groups.allNames(root)) {
-			const words = wordsOf$2(name);
+			const words = wordsOf$3(name);
 			if (words.length >= 2 && words[0]) firsts.add(words[0]);
 		}
 		fullNames.set(root, firsts);
@@ -89768,7 +95174,9 @@ var MODULES = [
 	chronicleModule,
 	metricsModule,
 	presetStudioModule,
-	qualityModule
+	qualityModule,
+	architectModule,
+	treasurerModule
 ];
 //#endregion
 //#region src/app/app.ts

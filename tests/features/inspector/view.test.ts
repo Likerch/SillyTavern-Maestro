@@ -66,6 +66,36 @@ describe('M2 tab «Промпт хода»', () => {
         expect(stand.styles.has('maestro-m2')).toBe(true);
     });
 
+    it('shows sections other modules add, in their order, and drops a failing one', async () => {
+        const offs = [
+            api.addSection!({
+                id: 'b',
+                order: 2,
+                render: () => Object.assign(document.createElement('div'), { textContent: 'Second block' }),
+            }),
+            api.addSection!({
+                id: 'a',
+                order: 1,
+                render: () => Object.assign(document.createElement('div'), { textContent: 'First block' }),
+            }),
+            api.addSection!({
+                id: 'broken',
+                order: 3,
+                render: () => {
+                    throw new Error('boom');
+                },
+            }),
+            api.addSection!({ id: 'hidden', order: 4, render: () => null }),
+        ];
+        const dispose = tab.render(container);
+        await playTurn(3);
+        const text = container.textContent ?? '';
+        expect(text.indexOf('First block')).toBeGreaterThan(-1);
+        expect(text.indexOf('First block')).toBeLessThan(text.indexOf('Second block'));
+        for (const off of offs) off();
+        dispose?.();
+    });
+
     it('shows the weights, deltas and repeated facts of the last turn', async () => {
         const dispose = tab.render(container);
         await settle(20);
