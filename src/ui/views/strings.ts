@@ -36,7 +36,8 @@ export const UI_STRINGS: I18nParts = {
         'ui.mode.economy': 'Economy',
         'ui.mode.balanced': 'Balanced',
         'ui.mode.cinema': 'Cinema',
-        'ui.mode.economyHint': 'Minimum background AI: cheap checks only, no director or backstage.',
+        'ui.mode.economyHint':
+            'Minimum background AI: cheap checks only; the director only sets scene flags (no notes), no backstage.',
         'ui.mode.balancedHint': 'Revisions on signals, AI judge only when in doubt. The default.',
         'ui.mode.cinemaHint': 'More director, backstage and pictures; costs more.',
 
@@ -269,7 +270,8 @@ export const UI_STRINGS: I18nParts = {
         'ui.mode.economy': 'Экономный',
         'ui.mode.balanced': 'Сбалансированный',
         'ui.mode.cinema': 'Кино',
-        'ui.mode.economyHint': 'Минимум фонового ИИ: только дешёвые проверки, без режиссёра и закулисья.',
+        'ui.mode.economyHint':
+            'Минимум фонового ИИ: только дешёвые проверки; режиссёр лишь ставит флаги сцены (без заметок), без закулисья.',
         'ui.mode.balancedHint': 'Ревизия по сигналам, ИИ-судья — только при подозрении. Режим по умолчанию.',
         'ui.mode.cinemaHint': 'Больше режиссёра, закулисья и картинок; дороже.',
 

@@ -107,6 +107,17 @@ describe('DesRuAdapter.api', () => {
         expect(api.maestroOwned()).toEqual([]);
     });
 
+    it('claim and release keep what other modules own', () => {
+        expect(adapters.desru.claim('ck.consistencyRebuild')).toBe(false);
+        const { api } = fakeDesRu();
+        globals[DESRU_API_GLOBAL] = api;
+        expect(adapters.desru.claim('bunnymo.scanTags')).toBe(true);
+        expect(adapters.desru.claim('ck.consistencyRebuild')).toBe(true);
+        expect(api.maestroOwned().sort()).toEqual(['bunnymo.scanTags', 'ck.consistencyRebuild']);
+        expect(adapters.desru.release('bunnymo.scanTags')).toBe(true);
+        expect(api.maestroOwned()).toEqual(['ck.consistencyRebuild']);
+    });
+
     it('setMaestroOwned survives a DES-RU that throws', () => {
         const { api } = fakeDesRu();
         globals[DESRU_API_GLOBAL] = {

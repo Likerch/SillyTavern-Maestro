@@ -81,7 +81,12 @@ describe('data actions', () => {
             presetLayer: { get: () => ({ ops: [{ op: 'toggle' }] }), prepareDisable: layerPrepare },
         };
         const merged = await prepareDisable(fakeApp({ apis }).app, true);
-        expect(merged).toEqual({ books: ['chat-1 — канон'], preset: 'Marinara (со слоем)', layer: true });
+        expect(merged).toEqual({
+            books: ['chat-1 — канон'],
+            preset: 'Marinara (со слоем)',
+            layer: true,
+            conditional: null,
+        });
         expect(layerPrepare).toHaveBeenLastCalledWith('saveMerged');
         const base = await prepareDisable(fakeApp({ apis }).app, false);
         expect(base.preset).toBe('Marinara');
@@ -90,7 +95,15 @@ describe('data actions', () => {
             fakeApp({ apis: { ...apis, presetLayer: { get: () => null, prepareDisable: layerPrepare } } }).app,
             true,
         );
-        expect(noLayer).toEqual({ books: ['chat-1 — канон'], preset: null, layer: false });
-        expect(await prepareDisable(fakeApp().app, true)).toEqual({ books: [], preset: null, layer: false });
+        expect(noLayer).toEqual({ books: ['chat-1 — канон'], preset: null, layer: false, conditional: null });
+        expect(await prepareDisable(fakeApp().app, true)).toEqual({
+            books: [],
+            preset: null,
+            layer: false,
+            conditional: null,
+        });
+        // Conditional blocks without the preset store: nothing to change, still reported.
+        const cond = await prepareDisable(fakeApp().app, false, 'keepText');
+        expect(cond.conditional).toMatchObject({ mode: 'keepText', preset: null, rewritten: [], disabled: [] });
     });
 });

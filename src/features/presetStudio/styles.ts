@@ -1,7 +1,8 @@
 // Stylesheet of the Preset Studio (M34). Includes the only rule that hides ST's Prompt Manager (P-013: hidden by a
 // body class, never removed — it keeps rendering), the launcher in ST's drawer, and the studio window: header, tabs,
-// the current tab and the block editor as a side panel. Phones and narrow windows (≤1000px, ST's breakpoint): a
-// full-screen dialog, the editor as an overlay, 44px tap targets, ↑/↓ instead of dragging (P-017, P10).
+// the current tab and the block editor as a side panel, the «Условия» tab and the «Условие» control. Phones and
+// narrow windows (≤1000px, ST's breakpoint): a full-screen dialog, the editor as an overlay, 44px tap targets, ↑/↓
+// instead of dragging (P-017, P10).
 export const M34_CSS = `
 body.maestro-pm-replaced #completion_prompt_manager { display: none !important; }
 .maestro-m34-launcher {
@@ -264,6 +265,35 @@ body.maestro-pm-replaced #completion_prompt_manager { display: none !important; 
 .maestro-m34-dialog-body h3 { margin-top: 0; }
 .maestro-m34-form-dialog { text-align: start; }
 .maestro-m34-custom-text { width: 100%; min-height: 240px; }
+/* Conditional blocks (M34 п.8): the «Условия» tab and the editor's «Условие» control. */
+.maestro-m34-cond-engine { font-weight: 600; }
+.maestro-m34-cond-howto { flex-basis: 100%; font-weight: normal; margin-top: 4px; }
+.maestro-m34-cond-flags { border: 1px solid var(--maestro-border); border-radius: var(--maestro-radius-sm); padding: 4px 8px; display: flex; flex-wrap: wrap; gap: 2px 14px; margin: 4px 0; }
+.maestro-m34-cond-flag { align-items: center; }
+.maestro-m34-cond-name { font-size: 0.8em; color: var(--maestro-muted); }
+.maestro-m34-cond-tools { justify-content: flex-start; }
+.maestro-m34-cond-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--maestro-gap-sm); }
+.maestro-m34-cond-row { border: 1px solid var(--maestro-border); border-left: 4px solid var(--maestro-ok); border-radius: var(--maestro-radius-sm); padding: 4px 8px; }
+.maestro-m34-cond-empty, .maestro-m34-cond-off { border-left-color: var(--maestro-muted); }
+.maestro-m34-cond-off { opacity: 0.7; }
+.maestro-m34-cond-whitespace { border-left-color: var(--maestro-warn); }
+.maestro-m34-cond-literal { border-left-color: var(--maestro-error); }
+.maestro-m34-cond-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.maestro-m34-cond-head .maestro-btn { margin: 0; font-weight: 600; }
+.maestro-m34-cond-whitespace .maestro-m34-cond-status { color: var(--maestro-warn); }
+.maestro-m34-cond-literal .maestro-m34-cond-status { color: var(--maestro-error); }
+.maestro-m34-cond-what { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; font-size: 0.9em; }
+.maestro-m34-cond-chip { padding: 0 6px; border-radius: 999px; background: color-mix(in srgb, var(--maestro-ok) 15%, transparent); color: var(--maestro-ok); font-size: 0.85em; }
+.maestro-m34-cond-issues { list-style: none; margin: 4px 0; padding: 0; font-size: 0.9em; }
+.maestro-m34-cond-issues li { display: flex; gap: 6px; align-items: flex-start; }
+.maestro-m34-cond-issues .maestro-m34-sev-warn > .fa-solid { color: var(--maestro-warn); }
+.maestro-m34-cond-preview > summary { cursor: pointer; min-height: 28px; }
+.maestro-m34-cond-control { border: 1px solid var(--maestro-border); border-radius: var(--maestro-radius-sm); padding: 4px 8px 8px; display: flex; flex-direction: column; gap: var(--maestro-gap-sm); }
+.maestro-m34-cond-control legend { padding: 0 4px; }
+.maestro-m34-cond-else { min-height: 60px; resize: vertical; font-family: var(--monoFontFamily, ui-monospace, monospace); }
+.maestro-m34-cond-error[hidden] { display: none; }
+.maestro-m34-cond-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.maestro-m34-cond-actions .maestro-btn { margin: 0; }
 @media screen and (max-width: 1000px) {
     .popup.maestro-m34-dialog,
     .popup.maestro-m34-dialog.large_dialogue_popup {
@@ -292,6 +322,7 @@ body.maestro-pm-replaced #completion_prompt_manager { display: none !important; 
     }
     .maestro-m34-handle { display: none; }
     .maestro-btn, .maestro-m34-block-name, .maestro-m34-slot-name, .maestro-m34-version-pick { min-height: var(--maestro-tap); }
+    .maestro-m34-cond-flag { min-height: var(--maestro-tap); }
     .maestro-m34-block-main { flex-wrap: wrap; }
     .maestro-m34-block-name { flex-basis: 50%; }
     .maestro-m34-conflict-cols { grid-template-columns: minmax(0, 1fr); }

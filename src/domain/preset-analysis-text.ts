@@ -7,6 +7,7 @@ import { normalizeText, textWords } from './signals-tokens';
 
 const IF_OPEN_RE = /^#?if\b/i;
 const IF_CLOSE_RE = /^\/if\s*$/i;
+const INLINE_IF_RE = /^#?if\s*::/i;
 const ANY_IF_RE = /\{\{\s*#?if\b/i;
 
 /** The text uses `{{if …}}` / `{{#if …}}` (the old regex macro engine sends it literally, P-133). */
@@ -65,7 +66,10 @@ export function stripConditionals(text: string): string {
         }
         const body = text.slice(open + 2, end - 2).trim();
         if (IF_OPEN_RE.test(body)) {
-            if (!hasTopLevelArgs(body)) depth++;
+            // Only `{{if::cond::text}}` is the inline two-argument form; `{{if cond::text}}` (with a space) is one
+            // argument and opens a scoped block (ST 1.19 MacroParser.js:136-185).
+            const inline = INLINE_IF_RE.test(body) && hasTopLevelArgs(body.replace(INLINE_IF_RE, ''));
+            if (!inline) depth++;
         } else if (IF_CLOSE_RE.test(body)) {
             depth = Math.max(0, depth - 1);
         } else if (depth === 0) result += text.slice(open, end);

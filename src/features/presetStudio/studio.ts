@@ -1,7 +1,7 @@
 // The Preset Studio window (M34, stage 5): one large ST Popup, full screen on phones (≤1000px). Header: the preset
 // select (a switch with unsaved edits asks «Сохранить / Отбросить / Отмена» first — ST would drop them silently,
 // P-073), Save (into the user's layer when there is one), «Сохранить базу», Save as, Rename, Delete, Import, Export,
-// «Классический редактор». Tabs: Карта, Блоки, Анализ, Слой, Версии, Параметры; the block editor is a side panel
+// «Классический редактор». Tabs: Карта, Блоки, Анализ, Условия, Слой, Версии, Параметры; the block editor is a side panel
 // (an overlay on phones) with a leave guard. Data: store-api.ts / layer-api.ts / analysis-api.ts, found at run time
 // (app.modules.api), so the window degrades when a part is missing.
 //
@@ -31,6 +31,7 @@ import {
     planPromptListImport,
     promptListFileName,
 } from '../../domain/preset-ui-io';
+import { isMaestroFlag } from '../../domain/preset-conditional-syntax';
 import { anchorFor, moveItem, moveOps, sameOrder } from '../../domain/preset-ui-order';
 import { stableHash } from '../../domain/hash';
 import { tabs } from '../../ui/components/tabs';
@@ -55,11 +56,33 @@ import { renderScenariosPanel } from './view-scenarios';
 import type { ScenariosModel } from './view-scenarios';
 import { renderVersionsPanel } from './view-versions';
 import type { ScenariosApi } from '../scenarios/api';
+import {
+    conditionalFindings,
+    conditionalRows,
+    directorCurrentFlags,
+    directorFlagsOn,
+    flagCatalogue,
+    flagHint,
+    knownFlags,
+    flagLabel,
+    macroEngineState,
+} from './conditional';
+import type { ConditionalRow } from './conditional';
+import { renderConditionalPanel } from './view-conditional';
+import type { FlagOption } from './view-conditional';
 
 /* ------------------------------------------------------------------ settings and services */
 
-export type StudioTab = 'map' | 'blocks' | 'analysis' | 'layer' | 'versions' | 'params';
-export const STUDIO_TABS: readonly StudioTab[] = ['map', 'blocks', 'analysis', 'layer', 'versions', 'params'];
+export type StudioTab = 'map' | 'blocks' | 'analysis' | 'conditional' | 'layer' | 'versions' | 'params';
+export const STUDIO_TABS: readonly StudioTab[] = [
+    'map',
+    'blocks',
+    'analysis',
+    'conditional',
+    'layer',
+    'versions',
+    'params',
+];
 
 export interface PresetStudioSettings {
     /** Hide ST's Prompt Manager behind the launcher (off until the parity table is green, like the Lore Studio). */
@@ -352,6 +375,8 @@ export class PresetStudio {
     private offs: Unsubscribe[] = [];
     private refreshTimer: ReturnType<typeof setTimeout> | null = null;
     private readonly blocksState = emptyBlocksState();
+    /** «Условия»: flags ticked in the simulator and rows with the preview open (kept across presets). */
+    private readonly condState = { on: new Set<string>(), expanded: new Set<string>() };
     private editor: EditorHandle | null = null;
     /** The block as it was when the editor opened (P-018: compared before writing). */
     private editorBase: PresetPrompt | null = null;
@@ -758,6 +783,9 @@ export class PresetStudio {
                 case 'analysis':
                     pane.replaceChildren(this.analysisPanel());
                     return;
+                case 'conditional':
+                    pane.replaceChildren(this.conditionalPanel());
+                    return;
                 case 'versions':
                     pane.replaceChildren(this.versionsPanel());
                     return;
@@ -936,12 +964,74 @@ export class PresetStudio {
                 unavailable: !analysis,
                 error: this.analysisError,
                 names: this.names(),
+                extra: conditionalFindings(this.app, this.condRows()),
             },
             {
                 open: (identifier) => void this.openEditor(identifier),
                 refresh: async () => {
                     this.invalidate('analysis');
                     await this.render();
+                },
+            },
+        );
+    }
+
+    /* ---------------------------------------------------------------- conditional blocks */
+
+    /**
+     * The flags the studio offers: the director's catalogue, the fallbacks, the preset's own. The editor offers only
+     * Maestro's (`forEditor`): a variable of the user's own is never set or cleared by Maestro.
+     */
+    flagOptions(forEditor = false): FlagOption[] {
+        const entries = flagCatalogue(this.app, this.store()?.working()).filter(
+            (entry) => !forEditor || entry.source !== 'preset' || isMaestroFlag(entry.name),
+        );
+        return entries.map((entry) => ({
+            name: entry.name,
+            label: flagLabel(this.app, entry),
+            hint: flagHint(this.app, entry),
+            source: entry.source,
+        }));
+    }
+
+    private condRows(): ConditionalRow[] {
+        const store = this.store();
+        if (!store) return [];
+        return conditionalRows(store, knownFlags(this.app), macroEngineState(this.app));
+    }
+
+    private conditionalPanel(): HTMLElement {
+        const state = this.condState;
+        const current = directorCurrentFlags(this.app);
+        return renderConditionalPanel(
+            this.app,
+            {
+                engine: macroEngineState(this.app),
+                flags: this.flagOptions(),
+                on: state.on,
+                rows: this.condRows(),
+                current,
+                expanded: state.expanded,
+            },
+            {
+                setFlag: (name, on) => {
+                    if (on) state.on.add(name);
+                    else state.on.delete(name);
+                    this.renderTab();
+                },
+                reset: () => {
+                    state.on.clear();
+                    this.renderTab();
+                },
+                useCurrent: () => {
+                    state.on.clear();
+                    for (const name of directorFlagsOn(this.app)) state.on.add(name);
+                    this.renderTab();
+                },
+                open: (identifier) => void this.openEditor(identifier),
+                expand: (identifier, open) => {
+                    if (open) state.expanded.add(identifier);
+                    else state.expanded.delete(identifier);
                 },
             },
         );
@@ -1301,6 +1391,7 @@ export class PresetStudio {
                 sourceKey: (EXTERNAL_MARKERS as readonly string[]).includes(prompt.identifier)
                     ? (SOURCE_KEYS[prompt.identifier] ?? null)
                     : null,
+                conditions: { flags: this.flagOptions(true), engine: macroEngineState(this.app) },
             },
             {
                 save: (fields) => this.saveEditor(fields),
@@ -1911,6 +2002,7 @@ const TAB_ICONS: Record<StudioTab, string> = {
     map: 'fa-diagram-project',
     blocks: 'fa-list-check',
     analysis: 'fa-stethoscope',
+    conditional: 'fa-code-branch',
     layer: 'fa-layer-group',
     versions: 'fa-clock-rotate-left',
     params: 'fa-sliders',

@@ -2,6 +2,8 @@
 // depth and order (in chat only), triggers, «forbid overrides» (main and jailbreak), the text with a token counter
 // and macro highlighting, the source of an external marker, «Сброс» for system blocks. A side panel on desktop, an
 // overlay on phones. Nothing is written until «Сохранить»; the studio asks before leaving unsaved edits (dirty()).
+// With `conditions` the form has the «Условие» control of conditional blocks (M34 п.8, view-conditional.ts): it
+// rewrites the text in the form, «Сохранить» writes it like any other edit.
 import {
     PROMPT_ROLES,
     PROMPT_TRIGGERS,
@@ -21,8 +23,11 @@ import { banner } from '../../ui/components/card';
 import { uid } from '../../ui/components/controls';
 import { button, el } from '../../ui/components/dom';
 import type { App } from '../../shared/contracts';
+import type { MacroEngineState } from './conditional';
 import type { PresetPrompt } from './store-api';
 import { highlighted } from './view-blocks';
+import { renderConditionControl } from './view-conditional';
+import type { FlagOption } from './view-conditional';
 
 export interface EditorModel {
     prompt: PresetPrompt;
@@ -31,6 +36,8 @@ export interface EditorModel {
     layerMode: boolean;
     /** i18n key of an external marker's source (P-051), or null. */
     sourceKey: string | null;
+    /** The «Условие» control (conditional blocks): the flag catalogue and the macro engine state. */
+    conditions?: { flags: FlagOption[]; engine: MacroEngineState };
 }
 
 export interface EditorActions {
@@ -116,6 +123,8 @@ export function renderBlockEditor(app: App, model: EditorModel, actions: EditorA
     });
     content.value = initial.content;
     const tokens = el('span', { class: 'maestro-m34-token-count', attrs: { 'aria-live': 'polite' } });
+    const condition =
+        textEditable && model.conditions ? renderConditionControl(app, { ...model.conditions, content }) : null;
     const highlight = el('details', { class: 'maestro-m34-highlight' });
     const stale = el('div', { class: 'maestro-m34-stale' });
     stale.hidden = true;
@@ -188,7 +197,10 @@ export function renderBlockEditor(app: App, model: EditorModel, actions: EditorA
         const defaults = SYSTEM_DEFAULTS[prompt.identifier];
         if (defaults) {
             name.value = defaults.name;
-            if (textEditable) content.value = defaults.content;
+            if (textEditable) {
+                content.value = defaults.content;
+                condition?.sync();
+            }
             if (defaults.forbidOverrides === false) forbid.checked = false;
         }
         role.value = 'system';
@@ -266,6 +278,7 @@ export function renderBlockEditor(app: App, model: EditorModel, actions: EditorA
                 ]),
                 content,
             ]),
+            condition?.element ?? null,
             highlight,
             el('div', { class: 'maestro-m34-editor-actions' }, [
                 editable

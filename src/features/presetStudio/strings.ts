@@ -16,6 +16,7 @@ const en: Record<string, string> = {
     'm34.tab.layer': 'Your layer',
     'm34.tab.versions': 'Versions',
     'm34.tab.params': 'Parameters',
+    'm34.tab.conditional': 'Conditions',
 
     'm34.error.generic': 'Preset Studio: {error}',
     'm34.error.noStore': 'The preset data layer is not running, so the Preset Studio cannot open. See Maestro’s log.',
@@ -522,6 +523,101 @@ const en: Record<string, string> = {
     'm34.scn.removeMessage': 'Remove the message',
     'm34.scn.role': 'Role of message {index}',
     'm34.scn.content': 'Text of message {index}',
+
+    // Conditional blocks (M34 п.8): the «Conditions» tab, the editor's «Condition» control, analysis findings.
+    'm34.cond.intro':
+        'Blocks whose text depends on Maestro’s flags. Maestro sets a flag just before a generation and removes it right after, so the preset never changes; with Maestro off no flag exists and these blocks stay silent.',
+    'm34.cond.engine.off':
+        'SillyTavern’s new macro engine is off. Without it conditional blocks reach the model as they are: with {{if}}, {{else}} and the text of every branch.',
+    'm34.cond.engine.howto':
+        'To turn it on: User Settings (the person icon) → “Chat/Message Handling” → tick “Experimental Macro Engine”. Maestro’s setup wizard has the same switch in its “Macro engine” step.',
+    'm34.cond.engine.unknown':
+        'This SillyTavern has no “Experimental Macro Engine” setting: {{if}} may not work here and conditional blocks may go to the model as they are.',
+    'm34.cond.simulator': 'Flags',
+    'm34.cond.simulatorHint':
+        'Tick flags to see what each block would send. Unticked means the flag does not exist — exactly what happens with Maestro off.',
+    'm34.cond.noCatalogue': 'No flags known yet.',
+    'm34.cond.reset': 'All off',
+    'm34.cond.resetHint': 'No flags — as without Maestro',
+    'm34.cond.current': 'As now',
+    'm34.cond.currentHint': 'The flags the director sets for the next generation',
+    'm34.cond.summary': 'Conditional blocks: {count}. Sent with these flags: {sent}',
+    'm34.cond.empty': 'This preset has no conditional blocks. Open a block and choose “Only when …” under “Condition”.',
+    'm34.cond.preview': 'What is sent',
+    'm34.cond.previewEmpty': 'Nothing: the message is dropped.',
+    'm34.cond.open': 'Open the block',
+    'm34.cond.inChat': 'In-chat',
+    'm34.cond.status.sent': 'Sent',
+    'm34.cond.status.empty': 'Not sent',
+    'm34.cond.status.whitespace': 'Sends whitespace',
+    'm34.cond.status.off': 'Switched off',
+    'm34.cond.status.literal': 'Sent as is',
+    'm34.cond.what.when': 'Only when {flag}.',
+    'm34.cond.what.unless': 'Except when {flag}.',
+    'm34.cond.what.else': 'Otherwise its own text.',
+    'm34.cond.what.mixed': 'Conditions inside the text:',
+    'm34.cond.noFlags': 'none',
+    'm34.cond.findingLabel': 'Conditional block',
+    'm34.cond.issue.unclosed': '“{name}”: {{if}} has no {{/if}}. The tag and all the text go to the model as they are.',
+    'm34.cond.issue.strayClose': '“{name}”: {{/if}} without its {{if}} — sent as plain text.',
+    'm34.cond.issue.strayElse':
+        '“{name}”: {{else}} outside a condition. SillyTavern removes it, and the text on both sides is always sent.',
+    'm34.cond.issue.extraElse':
+        '“{name}”: a second {{else}} in one condition. It vanishes and its text joins the “otherwise” part.',
+    'm34.cond.issue.emptyCondition':
+        '“{name}”: {{if}} without a condition. SillyTavern leaves both tags and the text as they are.',
+    'm34.cond.issue.outsideWhitespace':
+        '“{name}”: spaces or line breaks outside {{if}}…{{/if}}. When the condition is false the block sends a message of whitespace instead of dropping out. The whole text must be inside the tags.',
+    'm34.cond.issue.whitespaceResult':
+        '“{name}”: with these flags on ({flags}) only whitespace is left, and SillyTavern still sends it.',
+    'm34.cond.issue.neverSends': '“{name}”: every branch is empty — the block never sends anything.',
+    'm34.cond.issue.unknownFlag':
+        '“{name}”: .{flag} is neither a Maestro flag nor in the catalogue. Maestro never sets or clears it; a variable left in the chat would keep the block on.',
+    'm34.cond.issue.customFlag': '“{name}”: no Maestro module sets {flag} by itself (a free name).',
+    'm34.cond.issue.bareFlag':
+        '“{name}”: {flag} without the dot is plain text, which counts as true — without Maestro the block would always be sent. Write .{flag}.',
+    'm34.cond.issue.globalFlag':
+        '“{name}”: ${flag} is a global variable, one for every chat. Maestro’s flags are per chat: write .{flag}.',
+    'm34.cond.issue.macroEngineOff':
+        '“{name}”: the new macro engine is off, so this block goes to the model with its tags and every branch.',
+    'm34.cond.flag.scene_dialogue': 'Scene: dialogue',
+    'm34.cond.flag.scene_combat': 'Scene: combat and danger',
+    'm34.cond.flag.scene_intimate': 'Scene: intimate',
+    'm34.cond.flag.scene_exploration': 'Scene: exploration and travel',
+    'm34.cond.flag.scene_timeskip': 'Scene: time skip',
+    'm34.cond.flag.scene_social': 'Scene: social',
+    'm34.cond.flag.scene_drama': 'Scene: drama and conflict',
+    'm34.cond.flag.explicit': 'Explicit scene',
+    'm34.cond.flag.lang_ru': 'Story language: Russian',
+    'm34.cond.legend': 'Condition',
+    'm34.cond.modeLabel': 'Send this block',
+    'm34.cond.mode.always': 'Always',
+    'm34.cond.mode.when': 'Only when …',
+    'm34.cond.mode.unless': 'Except when …',
+    'm34.cond.flagLabel': 'Flag',
+    'm34.cond.customFlag': 'Your own flag…',
+    'm34.cond.customLabel': 'Flag name',
+    'm34.cond.customPlaceholder': 'maestro_…',
+    'm34.cond.customHint': 'Latin letters, digits and _; maestro_ is added when missing.',
+    'm34.cond.elseLabel': 'Otherwise',
+    'm34.cond.elseHint': 'Sent when the condition is false. Empty: nothing is sent then.',
+    'm34.cond.state.always': 'The block is always sent.',
+    'm34.cond.state.when': 'Now: only when {flag}.',
+    'm34.cond.state.unless': 'Now: except when {flag}.',
+    'm34.cond.state.mixed':
+        'The text has conditions inside. “Always” leaves them; a condition here wraps the whole text.',
+    'm34.cond.state.malformed': 'The text has broken {{if}} tags: fix them before adding a condition.',
+    'm34.cond.apply': 'Apply to the text',
+    'm34.cond.applyHint':
+        'Rewrites the text in the form with nothing outside the tags; Save writes it (into your layer in layer mode)',
+    'm34.cond.error.flag': 'Choose a flag or type a name of Latin letters, digits and _.',
+    'm34.cond.error.blocked': 'The text has stray tags ({tags}) that would pair with the new ones. Fix them first.',
+    'm34.cond.tag.strayElse': '{{else}} outside a condition',
+    'm34.cond.tag.strayClose': '{{/if}} without {{if}}',
+    'm34.cond.tag.unclosed': '{{if}} without {{/if}}',
+    'm34.cond.prepare.summary': 'Preparing to turn Maestro off: conditional blocks {mode}',
+    'm34.cond.prepare.keepText': 'kept as plain text',
+    'm34.cond.prepare.disable': 'switched off',
 };
 
 const ru: Record<string, string> = {
@@ -536,6 +632,7 @@ const ru: Record<string, string> = {
     'm34.tab.layer': 'Слой',
     'm34.tab.versions': 'Версии',
     'm34.tab.params': 'Параметры',
+    'm34.tab.conditional': 'Условия',
 
     'm34.error.generic': 'Пресет-студия: {error}',
     'm34.error.noStore':
@@ -1039,6 +1136,99 @@ const ru: Record<string, string> = {
     'm34.scn.removeMessage': 'Убрать сообщение',
     'm34.scn.role': 'Роль сообщения {index}',
     'm34.scn.content': 'Текст сообщения {index}',
+
+    // Условные блоки (M34 п.8): вкладка «Условия», «Условие» в редакторе блока, находки анализа.
+    'm34.cond.intro':
+        'Блоки, текст которых зависит от флагов Maestro. Maestro ставит флаг прямо перед генерацией и снимает сразу после — пресет не переписывается; без Maestro флагов нет, и эти блоки молчат.',
+    'm34.cond.engine.off':
+        'Новый движок макросов SillyTavern выключен. Без него условные блоки уходят в модель как есть: вместе с {{if}}, {{else}} и текстом всех веток.',
+    'm34.cond.engine.howto':
+        'Как включить: «Настройки пользователя» (значок с человечком) → «Обработка чата и сообщений» → флажок «Experimental Macro Engine». Тот же переключатель есть в мастере Maestro, на шаге «Движок макросов».',
+    'm34.cond.engine.unknown':
+        'В этой версии SillyTavern нет настройки «Experimental Macro Engine»: {{if}} здесь может не работать, и условные блоки уйдут в модель как есть.',
+    'm34.cond.simulator': 'Флаги',
+    'm34.cond.simulatorHint':
+        'Отметь флаги — увидишь, что отправит каждый блок. Без галочки флага просто нет: ровно так будет, когда Maestro выключен.',
+    'm34.cond.noCatalogue': 'Флагов пока нет.',
+    'm34.cond.reset': 'Все выключены',
+    'm34.cond.resetHint': 'Без флагов — как без Maestro',
+    'm34.cond.current': 'Как сейчас',
+    'm34.cond.currentHint': 'Флаги, которые режиссёр поставит перед следующей генерацией',
+    'm34.cond.summary': 'Условных блоков: {count}. С этими флагами уйдут: {sent}',
+    'm34.cond.empty': 'В этом пресете нет условных блоков. Открой блок и выбери «Только когда …» в разделе «Условие».',
+    'm34.cond.preview': 'Что уйдёт',
+    'm34.cond.previewEmpty': 'Ничего: сообщение выпадет.',
+    'm34.cond.open': 'Открыть блок',
+    'm34.cond.inChat': 'В чате',
+    'm34.cond.status.sent': 'Уйдёт',
+    'm34.cond.status.empty': 'Не уйдёт',
+    'm34.cond.status.whitespace': 'Уйдут пробелы',
+    'm34.cond.status.off': 'Выключен',
+    'm34.cond.status.literal': 'Уйдёт как есть',
+    'm34.cond.what.when': 'Только когда {flag}.',
+    'm34.cond.what.unless': 'Кроме когда {flag}.',
+    'm34.cond.what.else': 'Иначе — свой текст.',
+    'm34.cond.what.mixed': 'Условия внутри текста:',
+    'm34.cond.noFlags': 'ни одного',
+    'm34.cond.findingLabel': 'Условный блок',
+    'm34.cond.issue.unclosed': '«{name}»: у {{if}} нет {{/if}}. Тег и весь текст уйдут в модель как есть.',
+    'm34.cond.issue.strayClose': '«{name}»: {{/if}} без своего {{if}} — уйдёт обычным текстом.',
+    'm34.cond.issue.strayElse':
+        '«{name}»: {{else}} вне условия. SillyTavern его уберёт, а текст по обе стороны будет уходить всегда.',
+    'm34.cond.issue.extraElse':
+        '«{name}»: второй {{else}} в одном условии. Он пропадёт, а его текст приклеится к части «иначе».',
+    'm34.cond.issue.emptyCondition': '«{name}»: {{if}} без условия. SillyTavern оставит оба тега и текст как есть.',
+    'm34.cond.issue.outsideWhitespace':
+        '«{name}»: пробелы или переводы строк снаружи {{if}}…{{/if}}. Когда условие ложно, блок не выпадет, а отправит сообщение из пробелов. Весь текст должен быть внутри тегов.',
+    'm34.cond.issue.whitespaceResult':
+        '«{name}»: при включённых флагах ({flags}) остаются одни пробелы, и SillyTavern всё равно их отправит.',
+    'm34.cond.issue.neverSends': '«{name}»: все ветки пустые — блок никогда ничего не отправит.',
+    'm34.cond.issue.unknownFlag':
+        '«{name}»: .{flag} — не флаг Maestro и не из каталога. Maestro его не ставит и не убирает; переменная, оставшаяся в чате, будет держать блок включённым.',
+    'm34.cond.issue.customFlag': '«{name}»: флаг {flag} сам не ставит ни один модуль Maestro (своё имя).',
+    'm34.cond.issue.bareFlag':
+        '«{name}»: {flag} без точки — это просто текст, а непустой текст считается истиной: без Maestro блок будет уходить всегда. Пиши .{flag}.',
+    'm34.cond.issue.globalFlag':
+        '«{name}»: ${flag} — глобальная переменная, одна на все чаты. Флаги Maestro живут в чате: пиши .{flag}.',
+    'm34.cond.issue.macroEngineOff':
+        '«{name}»: новый движок макросов выключен, поэтому блок уйдёт в модель вместе с тегами и всеми ветками.',
+    'm34.cond.flag.scene_dialogue': 'Сцена: диалог',
+    'm34.cond.flag.scene_combat': 'Сцена: бой и опасность',
+    'm34.cond.flag.scene_intimate': 'Сцена: интимная',
+    'm34.cond.flag.scene_exploration': 'Сцена: исследование и путь',
+    'm34.cond.flag.scene_timeskip': 'Сцена: пропуск времени',
+    'm34.cond.flag.scene_social': 'Сцена: светская',
+    'm34.cond.flag.scene_drama': 'Сцена: драма и конфликт',
+    'm34.cond.flag.explicit': 'Откровенная сцена',
+    'm34.cond.flag.lang_ru': 'Язык истории: русский',
+    'm34.cond.legend': 'Условие',
+    'm34.cond.modeLabel': 'Отправлять блок',
+    'm34.cond.mode.always': 'Всегда',
+    'm34.cond.mode.when': 'Только когда …',
+    'm34.cond.mode.unless': 'Кроме когда …',
+    'm34.cond.flagLabel': 'Флаг',
+    'm34.cond.customFlag': 'Свой флаг…',
+    'm34.cond.customLabel': 'Имя флага',
+    'm34.cond.customPlaceholder': 'maestro_…',
+    'm34.cond.customHint': 'Латинские буквы, цифры и _; maestro_ добавится сам, если его нет.',
+    'm34.cond.elseLabel': 'Иначе',
+    'm34.cond.elseHint': 'Уйдёт, когда условие ложно. Пусто — тогда не уйдёт ничего.',
+    'm34.cond.state.always': 'Блок уходит всегда.',
+    'm34.cond.state.when': 'Сейчас: только когда {flag}.',
+    'm34.cond.state.unless': 'Сейчас: кроме когда {flag}.',
+    'm34.cond.state.mixed': 'В тексте есть условия внутри. «Всегда» их не трогает; условие здесь обернёт весь текст.',
+    'm34.cond.state.malformed': 'В тексте сломаны теги {{if}}: поправь их, прежде чем ставить условие.',
+    'm34.cond.apply': 'Применить к тексту',
+    'm34.cond.applyHint':
+        'Перепишет текст в форме, ничего не оставив снаружи тегов; запишется по «Сохранить» (в твой слой, если правки идут в слой)',
+    'm34.cond.error.flag': 'Выбери флаг или введи имя из латинских букв, цифр и _.',
+    'm34.cond.error.blocked': 'В тексте есть лишние теги ({tags}), они сцепятся с новыми. Сначала поправь их.',
+    'm34.cond.tag.strayElse': '{{else}} вне условия',
+    'm34.cond.tag.strayClose': '{{/if}} без {{if}}',
+    'm34.cond.tag.unclosed': '{{if}} без {{/if}}',
+    'm34.cond.prepare.summary': 'Подготовка к отключению Maestro: условные блоки {mode}',
+    'm34.cond.prepare.keepText': 'оставлены обычным текстом',
+    'm34.cond.prepare.disable': 'выключены',
 };
 
 export const M34_STRINGS: I18nParts = { en, ru };

@@ -21,7 +21,9 @@ describe('conditional macros', () => {
     it('strips conditional sections, nested ones, else branches and the short form', () => {
         expect(stripConditionals('A {{if .x}}B{{else}}C{{/if}} D')).toBe('A  D');
         expect(stripConditionals('{{if .a}}x{{if .b}}y{{/if}}z{{/if}}tail')).toBe('tail');
-        expect(stripConditionals('Hi {{if .x::text with {{char}}}} there')).toBe('Hi  there');
+        expect(stripConditionals('Hi {{if::.x::text with {{char}}}} there')).toBe('Hi  there');
+        // With a space it is one argument: a scoped opener, here never closed.
+        expect(stripConditionals('Hi {{if .x::text}} there')).toBe('Hi ');
         expect(stripConditionals('{{char}} {{if .x}}{{user}}{{/if}}!')).toBe('{{char}} !');
         expect(stripConditionals('no macros')).toBe('no macros');
         expect(stripConditionals('broken {{if .x')).toBe('broken {{if .x');

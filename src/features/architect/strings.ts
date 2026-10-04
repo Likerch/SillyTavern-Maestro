@@ -33,6 +33,8 @@ export const ARCHITECT_STRINGS: I18nParts = {
         'm20.source.des.hint':
             "Only DES's optional context block is shortened (oldest sentences first). Tracker instructions, the " +
             'format and the example tracker are never cut.',
+        'm20.source.voices.hint':
+            'Voice cards fit themselves to this budget (dropping goals, bonds, then speech details).',
         'm20.source.noSource': 'No source yet: the value is kept and works once the source arrives.',
         'm20.usage': '{used} of {limit}',
         'm20.usage.free': 'last turn: {used}',
@@ -170,6 +172,8 @@ export const ARCHITECT_STRINGS: I18nParts = {
         'm20.source.des.hint':
             'Сокращается только необязательный блок контекста DES (сначала старые предложения). Инструкции трекера, ' +
             'формат и пример трекера не трогаются никогда.',
+        'm20.source.voices.hint':
+            'Голосовые карточки сами укладываются в этот бюджет (сначала уходят цели, потом связи, потом детали речи).',
         'm20.source.noSource': 'Источника пока нет: значение сохранится и заработает, когда он появится.',
         'm20.usage': '{used} из {limit}',
         'm20.usage.free': 'в прошлом ходе: {used}',

@@ -128,6 +128,30 @@ export class DesRuAdapter extends NeighbourBase<'desru'> {
      * Tells DES-RU which of its functions Maestro runs now (replaces the previous set; `[]` gives every function
      * back). Ids this DES-RU does not offer are left out. False when the API is not there or refused the call.
      */
+    /** Takes one DES-RU function over, keeping what other Maestro modules already own (read-modify-write). */
+    claim(id: DesRuFunction): boolean {
+        const api = this.api();
+        if (!api) return false;
+        try {
+            return this.setMaestroOwned([...(api.maestroOwned() as DesRuFunction[]), id]);
+        } catch (error) {
+            this.log.warn('DES-RU refused maestroOwned', error);
+            return false;
+        }
+    }
+
+    /** Gives one function back to DES-RU, keeping the others Maestro owns. */
+    release(id: DesRuFunction): boolean {
+        const api = this.api();
+        if (!api) return false;
+        try {
+            return this.setMaestroOwned((api.maestroOwned() as DesRuFunction[]).filter((item) => item !== id));
+        } catch (error) {
+            this.log.warn('DES-RU refused maestroOwned', error);
+            return false;
+        }
+    }
+
     setMaestroOwned(ids: readonly DesRuFunction[]): boolean {
         const api = this.api();
         if (!api) return false;

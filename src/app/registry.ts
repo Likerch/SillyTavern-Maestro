@@ -5,6 +5,7 @@ import { bunnymoModeModule } from '../features/bunnymoMode';
 import { canonModule } from '../features/canon';
 import { contradictionsModule } from '../features/contradictions';
 import { chronicleModule } from '../features/chronicle';
+import { directorModule } from '../features/director';
 import { doctorModule } from '../features/doctor';
 import { dossierModule } from '../features/dossier';
 import { guardianModule } from '../features/guardian';
@@ -24,6 +25,7 @@ import { scenariosModule } from '../features/scenarios';
 import { sheetsModule } from '../features/sheets';
 import { signalsModule } from '../features/signals';
 import { treasurerModule } from '../features/treasurer';
+import { voicesModule } from '../features/voices';
 import { wizardModule } from '../features/wizard';
 import { worldModule } from '../features/world';
 import type { MaestroModule } from '../shared/contracts';
@@ -63,4 +65,7 @@ export const MODULES: MaestroModule[] = [
     // Stage 7: resources.
     architectModule,
     treasurerModule,
+    // Stage 8: direction.
+    directorModule,
+    voicesModule,
 ];

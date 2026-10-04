@@ -35,10 +35,14 @@ export const BUDGET_SLOTS: Partial<Record<BudgetSource, string>> = {
     ckRag: 'carrotkernel_rag',
     qvink: 'qvink_memory_short',
     des: 'dooms-tracker-context',
+    voices: 'maestro_voices',
 };
 
 /** Sources of later stages: the budget is stored, there is nothing to measure yet. */
-export const FUTURE_SOURCES: ReadonlySet<BudgetSource> = new Set(['voices', 'mechanics', 'director']);
+export const FUTURE_SOURCES: ReadonlySet<BudgetSource> = new Set(['mechanics', 'director']);
+
+/** Sources that fit themselves to the budget (M15 reads it): measured here, never shortened. */
+export const SELF_FITTING: ReadonlySet<BudgetSource> = new Set(['voices']);
 
 /** ST extension_prompt_types.NONE: never injected. */
 const POSITION_NONE = -1;
@@ -197,6 +201,10 @@ export class PromptStage {
             }
             if (before <= limit) {
                 budgets.push({ source, limit, used: before, cut: 0, status: 'ok' });
+                continue;
+            }
+            if (SELF_FITTING.has(source)) {
+                budgets.push({ source, limit, used: before, cut: 0, status: 'over' });
                 continue;
             }
             const found = this.locate(messages, value);

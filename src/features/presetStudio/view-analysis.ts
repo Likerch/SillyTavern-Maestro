@@ -1,10 +1,12 @@
 // «Анализ» tab of the Preset Studio (M34 п. 3, п. 9): findings of the analysis module (blocks that are never sent,
 // strict-type traps, contradictions, repeats with lore and injections, heavy blocks, unsaved toggles, the macro
-// engine, model quirks) and provider hints for the current connection. Read-only; a finding opens its block.
+// engine, model quirks) and provider hints for the current connection, plus the studio's own findings about
+// conditional blocks (`extra`, M34 п.8). Read-only; a finding opens its block.
 import { banner, emptyState } from '../../ui/components/card';
 import { button, el, icon } from '../../ui/components/dom';
 import type { App } from '../../shared/contracts';
 import type { PresetFinding, ProviderHint } from './analysis-api';
+import type { ExtraFinding } from './conditional';
 
 export interface AnalysisModel {
     /** null while loading. */
@@ -14,6 +16,8 @@ export interface AnalysisModel {
     unavailable: boolean;
     error: string | null;
     names: ReadonlyMap<string, string>;
+    /** Findings of other parts of the studio (conditional blocks), with their own labels. */
+    extra?: ExtraFinding[];
 }
 
 export interface AnalysisActions {
@@ -45,9 +49,10 @@ export function renderAnalysisPanel(app: App, model: AnalysisModel, actions: Ana
         root.append(el('div', { class: 'maestro-empty', text: t('m34.analysis.loading') }));
         return root;
     }
-    const findings = [...model.findings].sort((a, b) =>
-        a.severity === b.severity ? 0 : a.severity === 'warn' ? -1 : 1,
-    );
+    const findings: (ExtraFinding & { otherIdentifier?: string })[] = [
+        ...model.findings.map((finding) => ({ ...finding, label: t(`m34.finding.${finding.kind}`) })),
+        ...(model.extra ?? []),
+    ].sort((a, b) => (a.severity === b.severity ? 0 : a.severity === 'warn' ? -1 : 1));
     root.append(el('h4', { class: 'maestro-m34-h', text: t('m34.analysis.findings', { count: findings.length }) }));
     if (!findings.length) root.append(emptyState(t('m34.analysis.clean')));
     else {
@@ -62,7 +67,7 @@ export function renderAnalysisPanel(app: App, model: AnalysisModel, actions: Ana
                     return el('li', { class: ['maestro-m34-finding', `maestro-m34-sev-${finding.severity}`] }, [
                         icon(finding.severity === 'warn' ? 'fa-triangle-exclamation' : 'fa-circle-info'),
                         el('div', { class: 'maestro-m34-finding-body' }, [
-                            el('div', { class: 'maestro-m34-finding-kind', text: t(`m34.finding.${finding.kind}`) }),
+                            el('div', { class: 'maestro-m34-finding-kind', text: finding.label }),
                             el('div', { text: finding.text }),
                         ]),
                         el('div', { class: 'maestro-m34-finding-links' }, [

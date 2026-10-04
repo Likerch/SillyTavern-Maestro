@@ -6,6 +6,8 @@
 import { registerSettingsAction } from '../ui';
 import type { App, I18nParts, Unsubscribe } from '../shared/contracts';
 import type { CanonApi } from '../features/canon/api';
+import { maestroConditionalBlocks, prepareConditionalsForDisable } from '../features/presetStudio/conditional';
+import type { PrepareConditionalsMode, PrepareConditionalsReport } from '../features/presetStudio/conditional';
 import type { PresetLayerApi } from '../features/presetStudio/layer-api';
 
 export const EXPORT_FORMAT = 'maestro-export';
@@ -51,6 +53,14 @@ export const DATA_ACTION_STRINGS: I18nParts = {
         'app.prepare.noCanon': 'no canon',
         'app.prepare.noLayer': 'no layer',
         'app.prepare.failed': 'Preparing to turn off stopped: {error}',
+        'app.prepare.condKeep': 'Keep the conditional preset blocks as plain text?',
+        'app.prepare.condKeepBody':
+            'Blocks with Maestro conditions: {blocks}. Yes: the text of their “only when …” part stays and is always sent. No: you are asked whether to switch them off.',
+        'app.prepare.condOff': 'Switch the conditional preset blocks off?',
+        'app.prepare.condOffBody':
+            'Yes: these blocks are switched off (mixed blocks keep only their text without conditions). No: they stay as they are — without Maestro no flag is set, so they stay silent.',
+        'app.prepare.condReport': ' Conditional blocks changed: {changed}{unsaved}.',
+        'app.prepare.condUnsaved': '; the preset has unsaved changes, save it',
     },
     ru: {
         'app.data.exported': 'Данные Maestro сохранены в {file}.',
@@ -71,6 +81,14 @@ export const DATA_ACTION_STRINGS: I18nParts = {
         'app.prepare.noCanon': 'канона нет',
         'app.prepare.noLayer': 'слоя нет',
         'app.prepare.failed': 'Подготовка к отключению остановилась: {error}',
+        'app.prepare.condKeep': 'Оставить условные блоки пресета обычным текстом?',
+        'app.prepare.condKeepBody':
+            'Блоки с условиями Maestro: {blocks}. Да — текст их части «только когда …» останется и будет уходить всегда. Нет — следом спрошу, выключить ли их.',
+        'app.prepare.condOff': 'Выключить условные блоки пресета?',
+        'app.prepare.condOffBody':
+            'Да — эти блоки выключатся (у смешанных останется только текст без условий). Нет — останутся как есть: без Maestro флагов нет, и они молчат.',
+        'app.prepare.condReport': ' Условных блоков изменено: {changed}{unsaved}.',
+        'app.prepare.condUnsaved': '; в пресете есть несохранённые изменения — сохрани его',
     },
 };
 
@@ -159,18 +177,28 @@ export async function applyImport(app: App, bundle: ExportBundle): Promise<{ fil
 export async function prepareDisable(
     app: App,
     saveMerged: boolean,
-): Promise<{ books: string[]; preset: string | null; layer: boolean }> {
+    conditionals: PrepareConditionalsMode | null = null,
+): Promise<{ books: string[]; preset: string | null; layer: boolean; conditional: PrepareConditionalsReport | null }> {
     const canon = app.modules.api<CanonApi>('canon');
     const books = canon?.exportAll ? await canon.exportAll() : [];
     const layer = app.modules.api<PresetLayerApi>('presetLayer');
     let preset: string | null = null;
     let hasLayer = false;
+    let conditional: PrepareConditionalsReport | null = null;
     if (layer?.prepareDisable) {
         const current = app.host.ctx().chatCompletionSettings?.preset_settings_openai;
         hasLayer = typeof current === 'string' && (layer.get(current)?.ops.length ?? 0) > 0;
+        // Conditional blocks: before «база + слой» (the merged preset carries them), after the base is reselected.
+        if (conditionals && hasLayer && saveMerged) {
+            conditional = await prepareConditionalsForDisable(app, conditionals);
+        }
         if (hasLayer) preset = await layer.prepareDisable(saveMerged ? 'saveMerged' : 'reselectBase');
+        if (conditionals && hasLayer && !saveMerged) {
+            conditional = await prepareConditionalsForDisable(app, conditionals, { save: 'always' });
+        }
     }
-    return { books, preset, layer: hasLayer };
+    if (conditionals && !conditional) conditional = await prepareConditionalsForDisable(app, conditionals);
+    return { books, preset, layer: hasLayer, conditional };
 }
 
 export function installDataActions(app: App): Unsubscribe[] {
@@ -233,13 +261,32 @@ export function installDataActions(app: App): Unsubscribe[] {
                 const merged = layered
                     ? await app.ui.confirm(t('app.prepare.mergedQuestion'), t('app.prepare.mergedBody'))
                     : false;
+                const blocks = maestroConditionalBlocks(app);
+                let conditionals: PrepareConditionalsMode | null = null;
+                if (blocks.length) {
+                    const list = blocks.map((name) => `«${name}»`).join(', ');
+                    if (
+                        await app.ui.confirm(t('app.prepare.condKeep'), t('app.prepare.condKeepBody', { blocks: list }))
+                    ) {
+                        conditionals = 'keepText';
+                    } else if (await app.ui.confirm(t('app.prepare.condOff'), t('app.prepare.condOffBody'))) {
+                        conditionals = 'disable';
+                    }
+                }
                 try {
-                    const result = await prepareDisable(app, merged);
+                    const result = await prepareDisable(app, merged, conditionals);
+                    const cond = result.conditional;
+                    const condText = cond
+                        ? t('app.prepare.condReport', {
+                              changed: cond.rewritten.length + cond.disabled.length,
+                              unsaved: cond.unsaved && !(result.layer && merged) ? t('app.prepare.condUnsaved') : '',
+                          })
+                        : '';
                     app.ui.notice(
                         t('app.prepare.report', {
                             books: result.books.length ? result.books.join(', ') : t('app.prepare.noCanon'),
                             preset: result.layer ? (result.preset ?? '—') : t('app.prepare.noLayer'),
-                        }),
+                        }) + condText,
                         { urgent: true, level: 'info' },
                     );
                 } catch (error) {

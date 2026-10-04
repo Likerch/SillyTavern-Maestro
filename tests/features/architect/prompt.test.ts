@@ -159,7 +159,7 @@ describe('Qvink and DES budgets', () => {
             'mechanics',
             'director',
         ]);
-        expect(rows.find((row) => row.source === 'voices')?.status).toBe('noSource');
+        expect(rows.find((row) => row.source === 'voices')?.status).toBe('empty');
         expect(rows.find((row) => row.source === 'director')?.status).toBe('off');
         expect(rows.find((row) => row.source === 'ckRag')?.status).toBe('empty');
         expect(rows.find((row) => row.source === 'lore')?.status).toBe('off');
