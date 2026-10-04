@@ -20,6 +20,7 @@ import { createHost } from '../host';
 import type { App } from '../shared/contracts';
 import { createUi } from '../ui';
 import { Modules } from './module-manager';
+import { installDataActions } from './data-actions';
 import { MODULES } from './registry';
 
 export interface Runtime {
@@ -112,6 +113,7 @@ export async function startMaestro(): Promise<Runtime> {
     cost.install();
     ui.mount();
     ui.registerCoreViews({ inbox, journal, autonomy, cost, modules, settings, caps: host.caps, tasks, i18n });
+    const offDataActions = installDataActions(app);
     await modules.startAll(app);
     ui.runFirstRunWizardIfNeeded();
 
@@ -130,6 +132,7 @@ export async function startMaestro(): Promise<Runtime> {
         modules,
         async stop() {
             offAppReady();
+            for (const off of offDataActions) off();
             await modules.stopAll();
             ui.dispose();
             cost.dispose();

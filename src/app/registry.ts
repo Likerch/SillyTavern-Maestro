@@ -14,6 +14,7 @@ import { loreStudioModule } from '../features/loreStudio';
 import { medicModule } from '../features/medic';
 import { metricsModule } from '../features/metrics';
 import { placesModule } from '../features/places';
+import { presetStudioModule } from '../features/presetStudio';
 import { relationsModule } from '../features/relations';
 import { revisionModule } from '../features/revision';
 import { rulesModule } from '../features/rules';
@@ -52,4 +53,6 @@ export const MODULES: MaestroModule[] = [
     livingCanonModule,
     chronicleModule,
     metricsModule,
+    // Stage 5: Preset Studio.
+    presetStudioModule,
 ];

@@ -17,6 +17,12 @@ export interface ScenarioParams {
     stop?: string[];
     reasoning_effort?: string;
     include_reasoning?: boolean;
+    /**
+     * 'off' turns reasoning off for this request: `include_reasoning: false` everywhere (DeepSeek's own API: thinking
+     * disabled) and, through OpenRouter, `reasoning_effort: 'none'` — what ST itself sends for effort Minimum with
+     * «Request model reasoning» off (openai.js getReasoningEffort). Wins over the two keys above.
+     */
+    reasoning?: 'off';
 }
 
 const ROLES: ReadonlySet<string> = new Set(['system', 'user', 'assistant']);
@@ -82,7 +88,7 @@ export function applyScenarioParams(data: Record<string, unknown>, params: Scena
     const set = (key: string, value: unknown): void => {
         if (data[key] === value) return;
         data[key] = value;
-        changed.push(key);
+        if (!changed.includes(key)) changed.push(key);
     };
     if (finiteNumber(params.max_tokens) && params.max_tokens > 0) set('max_tokens', Math.floor(params.max_tokens));
     if (finiteNumber(params.temperature) && params.temperature >= 0) set('temperature', params.temperature);
@@ -98,5 +104,9 @@ export function applyScenarioParams(data: Record<string, unknown>, params: Scena
         set('reasoning_effort', params.reasoning_effort);
     }
     if (typeof params.include_reasoning === 'boolean') set('include_reasoning', params.include_reasoning);
+    if (params.reasoning === 'off') {
+        if (data.chat_completion_source === 'openrouter') set('reasoning_effort', 'none');
+        set('include_reasoning', false);
+    }
     return changed;
 }

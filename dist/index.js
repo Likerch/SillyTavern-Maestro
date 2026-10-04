@@ -1,5 +1,5 @@
 //#region src/adapters/base.ts
-function isDict$50(value) {
+function isDict$63(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function stringList$5(value) {
@@ -23,10 +23,10 @@ function extras$1(host) {
 /** `extension_settings[key]` when it is an object. */
 function extensionSettingsOf(host, key) {
 	const value = host.ctx().extensionSettings[key];
-	return isDict$50(value) ? value : null;
+	return isDict$63(value) ? value : null;
 }
 function toManifest(value) {
-	if (!isDict$50(value)) return null;
+	if (!isDict$63(value)) return null;
 	const manifest = {};
 	for (const key of [
 		"display_name",
@@ -429,7 +429,7 @@ var BunnyMoAdapter = class extends NeighbourBase {
 			const worldInfo = await this.host.modules.worldInfo();
 			for (const name of stringList$5(worldInfo.selected_world_info)) names.add(name);
 			const settings = worldInfo.world_info;
-			if (isDict$50(settings) && Array.isArray(settings.charLore)) charLore = settings.charLore;
+			if (isDict$63(settings) && Array.isArray(settings.charLore)) charLore = settings.charLore;
 		} catch (error) {
 			this.log.debug("world-info.js is not available; global books are skipped", error);
 		}
@@ -443,7 +443,7 @@ var BunnyMoAdapter = class extends NeighbourBase {
 			const primary = character.data?.extensions?.world;
 			if (typeof primary === "string" && primary) names.add(primary);
 			const key = avatarKey$2(character.avatar ?? "");
-			for (const lore of charLore) if (isDict$50(lore) && lore.name === key) for (const book of stringList$5(lore.extraBooks)) names.add(book);
+			for (const lore of charLore) if (isDict$63(lore) && lore.name === key) for (const book of stringList$5(lore.extraBooks)) names.add(book);
 		}
 		const known = extras$1(this.host).getWorldInfoNames?.() ?? [];
 		return known.length ? [...names].filter((name) => known.includes(name)) : [...names];
@@ -486,11 +486,11 @@ var BunnyMoAdapter = class extends NeighbourBase {
 			this.log.debug(`lorebook ${book} did not load`, error);
 			return null;
 		}
-		if (!isDict$50(data) || !isDict$50(data.entries)) return null;
+		if (!isDict$63(data) || !isDict$63(data.entries)) return null;
 		const entries = [];
 		const enabled = [];
 		for (const raw of Object.values(data.entries)) {
-			if (!isDict$50(raw)) continue;
+			if (!isDict$63(raw)) continue;
 			const entry = {
 				key: raw.key,
 				keysecondary: raw.keysecondary,
@@ -521,7 +521,7 @@ function isCkManifest(manifest) {
 }
 function globalObject(name) {
 	const value = globalThis[name];
-	return isDict$50(value) ? value : null;
+	return isDict$63(value) ? value : null;
 }
 var CkAdapter = class extends NeighbourBase {
 	id = "ck";
@@ -563,7 +563,7 @@ var CkAdapter = class extends NeighbourBase {
 	}
 	ragEnabled() {
 		const rag = this.settings()?.rag;
-		return isDict$50(rag) && rag.enabled === true;
+		return isDict$63(rag) && rag.enabled === true;
 	}
 };
 //#endregion
@@ -581,7 +581,7 @@ var KNOWN_INFO_KEYS = /* @__PURE__ */ new Set([
 	"temperature",
 	"recentEvents"
 ]);
-function isDict$49(value) {
+function isDict$62(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /** Trims and drops brackets that wrap the whole value (`[Friend]`), as DES's renderers do. */
@@ -591,21 +591,21 @@ function clean(value) {
 	return result;
 }
 /** Text of a scalar or of `{value}` / `{text}` / `{description}`; arrays joined with ", ". Empty → undefined. */
-function textOf(value) {
+function textOf$1(value) {
 	if (typeof value === "string") return clean(value) || void 0;
 	if (typeof value === "number" || typeof value === "boolean") return String(value);
 	if (Array.isArray(value)) {
-		const parts = value.map(textOf).filter((part) => !!part);
+		const parts = value.map(textOf$1).filter((part) => !!part);
 		return parts.length ? parts.join(", ") : void 0;
 	}
-	if (isDict$49(value)) for (const key of [
+	if (isDict$62(value)) for (const key of [
 		"value",
 		"text",
 		"description",
 		"content",
 		"title"
 	]) {
-		const inner = textOf(value[key]);
+		const inner = textOf$1(value[key]);
 		if (inner) return inner;
 	}
 }
@@ -640,15 +640,15 @@ function statsOf(raw) {
 		});
 	};
 	if (Array.isArray(raw)) {
-		for (const item of raw) if (isDict$49(item)) push(item.name, item.value);
-	} else if (isDict$49(raw)) for (const [name, value] of Object.entries(raw)) push(name, isDict$49(value) ? value.value : value);
+		for (const item of raw) if (isDict$62(item)) push(item.name, item.value);
+	} else if (isDict$62(raw)) for (const [name, value] of Object.entries(raw)) push(name, isDict$62(value) ? value.value : value);
 	return stats;
 }
 function detailsOf(raw) {
 	const details = {};
-	if (!isDict$49(raw)) return details;
+	if (!isDict$62(raw)) return details;
 	for (const [key, value] of Object.entries(raw)) {
-		const text = textOf(value);
+		const text = textOf$1(value);
 		if (key && text) details[key] = text;
 	}
 	return details;
@@ -656,16 +656,16 @@ function detailsOf(raw) {
 function relationshipOf(entry) {
 	if (typeof entry.Relationship === "string") return clean(entry.Relationship) || void 0;
 	const relationship = entry.relationship;
-	if (isDict$49(relationship)) return textOf(relationship.status) ?? textOf(relationship);
-	return textOf(relationship);
+	if (isDict$62(relationship)) return textOf$1(relationship.status) ?? textOf$1(relationship);
+	return textOf$1(relationship);
 }
 function thoughtsOf(entry) {
 	const thoughts = entry.thoughts;
-	if (isDict$49(thoughts)) return textOf(thoughts.content) ?? textOf(thoughts);
-	return textOf(thoughts);
+	if (isDict$62(thoughts)) return textOf$1(thoughts.content) ?? textOf$1(thoughts);
+	return textOf$1(thoughts);
 }
 function characterOf(raw) {
-	if (!isDict$49(raw) || typeof raw.name !== "string" || !raw.name.trim()) return null;
+	if (!isDict$62(raw) || typeof raw.name !== "string" || !raw.name.trim()) return null;
 	const thoughts = thoughtsOf(raw);
 	const character = {
 		name: raw.name.trim(),
@@ -683,7 +683,7 @@ function characterOf(raw) {
 /** Characters from `characterThoughts`: an array (DES 2.6 parse) or `{characters: [...]}` (legacy, defaults). */
 function parseDesCharacters(raw) {
 	const data = parseTrackerJson(raw);
-	const list = Array.isArray(data) ? data : isDict$49(data) && Array.isArray(data.characters) ? data.characters : [];
+	const list = Array.isArray(data) ? data : isDict$62(data) && Array.isArray(data.characters) ? data.characters : [];
 	const characters = [];
 	for (const item of list) {
 		const character = characterOf(item);
@@ -692,58 +692,58 @@ function parseDesCharacters(raw) {
 	return characters;
 }
 function timeOf(raw) {
-	if (isDict$49(raw)) {
-		const start = textOf(raw.start) ?? textOf(raw.value);
-		const end = textOf(raw.end);
+	if (isDict$62(raw)) {
+		const start = textOf$1(raw.start) ?? textOf$1(raw.value);
+		const end = textOf$1(raw.end);
 		if (!start && !end) return void 0;
 		const time = {};
 		if (start) time.start = start;
 		if (end) time.end = end;
 		return time;
 	}
-	const flat = textOf(raw);
+	const flat = textOf$1(raw);
 	return flat ? { start: flat } : void 0;
 }
 function weatherOf(raw) {
-	if (isDict$49(raw)) {
-		const emoji = textOf(raw.emoji);
-		const forecast = textOf(raw.forecast) ?? textOf(raw.value);
+	if (isDict$62(raw)) {
+		const emoji = textOf$1(raw.emoji);
+		const forecast = textOf$1(raw.forecast) ?? textOf$1(raw.value);
 		if (!emoji && !forecast) return void 0;
 		const weather = {};
 		if (emoji) weather.emoji = emoji;
 		if (forecast) weather.forecast = forecast;
 		return weather;
 	}
-	const flat = textOf(raw);
+	const flat = textOf$1(raw);
 	return flat ? { forecast: flat } : void 0;
 }
 function temperatureOf(raw) {
 	if (typeof raw === "number" && Number.isFinite(raw)) return { value: raw };
 	if (typeof raw === "string") return raw.trim() ? { value: raw.trim() } : void 0;
-	if (!isDict$49(raw)) return void 0;
+	if (!isDict$62(raw)) return void 0;
 	const value = raw.value;
 	const temperature = typeof value === "number" && Number.isFinite(value) ? { value } : typeof value === "string" && value.trim() ? { value: value.trim() } : void 0;
-	const unit = textOf(raw.unit);
+	const unit = textOf$1(raw.unit);
 	if (temperature && unit) temperature.unit = unit;
 	return temperature;
 }
 function eventsOf$1(raw) {
-	if (Array.isArray(raw)) return raw.map(textOf).filter((event) => !!event);
-	if (isDict$49(raw) && raw.events !== void 0 && raw.value === void 0) return eventsOf$1(raw.events);
-	const flat = textOf(raw);
+	if (Array.isArray(raw)) return raw.map(textOf$1).filter((event) => !!event);
+	if (isDict$62(raw) && raw.events !== void 0 && raw.value === void 0) return eventsOf$1(raw.events);
+	const flat = textOf$1(raw);
 	return flat ? [flat] : [];
 }
 /** Scene data from `infoBox`; null when the section is missing or not a JSON object. */
 function parseDesInfoBox(raw) {
 	const data = parseTrackerJson(raw);
-	if (!isDict$49(data)) return null;
+	if (!isDict$62(data)) return null;
 	const info = {
 		recentEvents: eventsOf$1(data.recentEvents),
 		fields: {}
 	};
-	const location = textOf(data.location);
+	const location = textOf$1(data.location);
 	if (location) info.location = location;
-	const date = textOf(data.date);
+	const date = textOf$1(data.date);
 	if (date) info.date = date;
 	const time = timeOf(data.time);
 	if (time) info.time = time;
@@ -753,7 +753,7 @@ function parseDesInfoBox(raw) {
 	if (temperature) info.temperature = temperature;
 	for (const [key, value] of Object.entries(data)) {
 		if (KNOWN_INFO_KEYS.has(key)) continue;
-		const text = textOf(value);
+		const text = textOf$1(value);
 		if (text) info.fields[key] = text;
 	}
 	return info;
@@ -761,14 +761,14 @@ function parseDesInfoBox(raw) {
 /** A quest title from a string, `{title}`, `{value}` (nested) or `{description}`; "None" → null. */
 function questOf(raw) {
 	let value = raw;
-	while (isDict$49(value) && value.value !== void 0) value = value.value;
-	const title = isDict$49(value) ? textOf(value.title) ?? textOf(value.description) : textOf(value);
+	while (isDict$62(value) && value.value !== void 0) value = value.value;
+	const title = isDict$62(value) ? textOf$1(value.title) ?? textOf$1(value.description) : textOf$1(value);
 	return title && !NO_QUEST_RE.test(title) ? title : null;
 }
 /** Quests from `quests`: `{main, optional[]}` with string or `{title}` items. Null when missing. */
 function parseDesQuests(raw) {
 	const data = parseTrackerJson(raw);
-	if (!isDict$49(data)) return null;
+	if (!isDict$62(data)) return null;
 	const optional = Array.isArray(data.optional) ? data.optional.map(questOf).filter((quest) => quest !== null) : [];
 	return {
 		main: questOf(data.main),
@@ -784,8 +784,8 @@ function parseDesTracker(strings) {
 	};
 }
 function swipeRecordOf(swipes, swipeId) {
-	const record = Array.isArray(swipes) ? swipes[swipeId] : isDict$49(swipes) ? swipes[String(swipeId)] : void 0;
-	if (!isDict$49(record)) return null;
+	const record = Array.isArray(swipes) ? swipes[swipeId] : isDict$62(swipes) ? swipes[String(swipeId)] : void 0;
+	if (!isDict$62(record)) return null;
 	const { quests = null, infoBox = null, characterThoughts = null } = record;
 	if (quests === null && infoBox === null && characterThoughts === null) return null;
 	return {
@@ -801,12 +801,12 @@ function swipeRecordOf(swipes, swipeId) {
 * stores an all-null record).
 */
 function desSwipeRecord(message) {
-	if (!isDict$49(message) || message.is_user === true) return null;
+	if (!isDict$62(message) || message.is_user === true) return null;
 	const swipeId = typeof message.swipe_id === "number" && message.swipe_id >= 0 ? message.swipe_id : 0;
-	const direct = swipeRecordOf((isDict$49(message.extra) ? message.extra : void 0)?.dooms_tracker_swipes, swipeId);
+	const direct = swipeRecordOf((isDict$62(message.extra) ? message.extra : void 0)?.dooms_tracker_swipes, swipeId);
 	if (direct) return direct;
 	const info = Array.isArray(message.swipe_info) ? message.swipe_info[swipeId] : void 0;
-	return swipeRecordOf((isDict$49(info) && isDict$49(info.extra) ? info.extra : void 0)?.dooms_tracker_swipes, swipeId);
+	return swipeRecordOf((isDict$62(info) && isDict$62(info.extra) ? info.extra : void 0)?.dooms_tracker_swipes, swipeId);
 }
 var DES_KNOWN_NAMES = ["third-party/Dooms-Enhancement-Suite"];
 var DES_VERIFIED_VERSIONS = ["2.6.0"];
@@ -887,9 +887,9 @@ var DesAdapter = class extends NeighbourBase {
 	*/
 	settings() {
 		const live = this.modules.state?.extensionSettings;
-		if (isDict$50(live)) return live;
+		if (isDict$63(live)) return live;
 		const saved = this.located ? this.host.ctx().extensionSettings[this.located.name] : void 0;
-		return isDict$50(saved) ? saved : null;
+		return isDict$63(saved) ? saved : null;
 	}
 	/** DES's own switch (on unless explicitly false). */
 	enabled() {
@@ -915,7 +915,7 @@ var DesAdapter = class extends NeighbourBase {
 	*/
 	knownCharacters() {
 		const roster = this.chatState()?.knownCharacters;
-		return isDict$50(roster) ? Object.keys(roster) : [];
+		return isDict$63(roster) ? Object.keys(roster) : [];
 	}
 	/** Names hidden from "Present Characters" in this chat (DES compares them case-insensitively). */
 	removedCharacters() {
@@ -925,7 +925,7 @@ var DesAdapter = class extends NeighbourBase {
 	aliases() {
 		const map = this.settings()?.characterAliases;
 		const copy = {};
-		if (!isDict$50(map)) return copy;
+		if (!isDict$63(map)) return copy;
 		for (const [canonical, list] of Object.entries(map)) if (Array.isArray(list)) copy[canonical] = list.map(String);
 		return copy;
 	}
@@ -948,7 +948,7 @@ var DesAdapter = class extends NeighbourBase {
 	}
 	chatState() {
 		const state = this.host.ctx().chatMetadata[DES_KEYS$1.chatMetadata];
-		return isDict$50(state) ? state : null;
+		return isDict$63(state) ? state : null;
 	}
 };
 var DESRU_KNOWN_NAMES = ["third-party/SillyTavern-DES-RU", "third-party/SillyTavern-Doom-Enhancement-Suite-RU"];
@@ -998,8 +998,8 @@ var DesRuAdapter = class extends NeighbourBase {
 	/** A DES-RU module switch; modules are on by default, as in DES-RU's DEFAULT_SETTINGS. */
 	moduleEnabled(module) {
 		const modules = this.settings()?.modules;
-		const slice = isDict$50(modules) ? modules[module] : void 0;
-		return !isDict$50(slice) || slice.enabled !== false;
+		const slice = isDict$63(modules) ? modules[module] : void 0;
+		return !isDict$63(slice) || slice.enabled !== false;
 	}
 	/** DES-RU's API (read live: it appears when DES-RU starts and goes when it is disabled); undefined before 0.8.0. */
 	api() {
@@ -1048,13 +1048,13 @@ function readLocalizerApi(value) {
 }
 /** Reads the Localizer marker of a World Info entry as a typed copy; null when the entry has none. */
 function readLocalizerMarker(entry) {
-	const extensions = isDict$50(entry) ? entry.extensions : void 0;
-	const marker = isDict$50(extensions) ? extensions[LOCALIZER_MARKER_KEY] : void 0;
-	if (!isDict$50(marker)) return null;
+	const extensions = isDict$63(entry) ? entry.extensions : void 0;
+	const marker = isDict$63(extensions) ? extensions[LOCALIZER_MARKER_KEY] : void 0;
+	if (!isDict$63(marker)) return null;
 	const languages = {};
-	if (isDict$50(marker.languages)) for (const [id, state] of Object.entries(marker.languages)) {
-		if (!isDict$50(state)) continue;
-		const added = isDict$50(state.added) ? state.added : {};
+	if (isDict$63(marker.languages)) for (const [id, state] of Object.entries(marker.languages)) {
+		if (!isDict$63(state)) continue;
+		const added = isDict$63(state.added) ? state.added : {};
 		languages[id] = {
 			language: typeof state.language === "string" ? state.language : id,
 			sources: stringList$5(state.sources),
@@ -1141,17 +1141,17 @@ function text$8(value) {
 }
 /** A typed deep copy of one stored passport; null for junk. Legacy passports without an id get 'main'. */
 function readPassport(raw) {
-	if (!isDict$50(raw)) return null;
+	if (!isDict$63(raw)) return null;
 	const copy = structuredClone(raw);
 	const slots = {};
-	if (isDict$50(copy.slots)) {
+	if (isDict$63(copy.slots)) {
 		for (const [slot, value] of Object.entries(copy.slots)) if (typeof value === "string") slots[slot] = value;
 	}
-	const outfits = Array.isArray(copy.outfits) ? copy.outfits.filter(isDict$50).map((outfit) => ({
+	const outfits = Array.isArray(copy.outfits) ? copy.outfits.filter(isDict$63).map((outfit) => ({
 		name: text$8(outfit.name),
 		tags: text$8(outfit.tags)
 	})) : [];
-	const states = Array.isArray(copy.states) ? copy.states.filter(isDict$50).map((state) => ({
+	const states = Array.isArray(copy.states) ? copy.states.filter(isDict$63).map((state) => ({
 		id: text$8(state.id),
 		tags: text$8(state.tags),
 		enabled: state.enabled === true
@@ -1220,8 +1220,8 @@ var NaiAdapter = class extends NeighbourBase {
 	*/
 	passportsOf(characterIndex) {
 		const field = this.host.ctx().characters[characterIndex]?.data?.extensions?.[NAI_KEY];
-		if (!isDict$50(field)) return [];
-		return (Array.isArray(field.passports) ? field.passports : isDict$50(field.passport) ? [field.passport] : []).map(readPassport).filter((passport) => passport !== null);
+		if (!isDict$63(field)) return [];
+		return (Array.isArray(field.passports) ? field.passports : isDict$63(field.passport) ? [field.passport] : []).map(readPassport).filter((passport) => passport !== null);
 	}
 };
 //#endregion
@@ -1247,7 +1247,7 @@ var PresetAdapter = class extends NeighbourBase {
 	/** ST's live Chat Completion settings (`oai_settings`); read-only for Maestro. */
 	settings() {
 		const settings = extras$1(this.host).chatCompletionSettings;
-		return isDict$50(settings) ? settings : null;
+		return isDict$63(settings) ? settings : null;
 	}
 	/** Name of the active Chat Completion preset. */
 	presetName() {
@@ -1258,7 +1258,7 @@ var PresetAdapter = class extends NeighbourBase {
 	prompts() {
 		const prompts = this.settings()?.prompts;
 		if (!Array.isArray(prompts)) return [];
-		return prompts.filter(isDict$50).map((prompt) => ({
+		return prompts.filter(isDict$63).map((prompt) => ({
 			identifier: typeof prompt.identifier === "string" ? prompt.identifier : "",
 			name: typeof prompt.name === "string" ? prompt.name : "",
 			role: typeof prompt.role === "string" ? prompt.role : "system",
@@ -1270,7 +1270,7 @@ var PresetAdapter = class extends NeighbourBase {
 		if (MARINARA_NAME_RE.test(this.presetName() ?? "")) return true;
 		const prompts = this.settings()?.prompts;
 		if (!Array.isArray(prompts)) return false;
-		const contents = prompts.filter(isDict$50).map((prompt) => typeof prompt.content === "string" ? prompt.content : "");
+		const contents = prompts.filter(isDict$63).map((prompt) => typeof prompt.content === "string" ? prompt.content : "");
 		return MARINARA_SECTION_TAGS.every((tag) => contents.some((content) => content.includes(tag)));
 	}
 };
@@ -1313,7 +1313,7 @@ var QvinkAdapter = class extends NeighbourBase {
 	chatEnabled() {
 		if (this.setting("use_global_toggle_state")) return this.setting("global_toggle_state");
 		const chatState = this.host.ctx().chatMetadata[QVINK_KEY];
-		const perChat = isDict$50(chatState) ? chatState.enabled : void 0;
+		const perChat = isDict$63(chatState) ? chatState.enabled : void 0;
 		return typeof perChat === "boolean" ? perChat : this.setting("default_chat_enabled");
 	}
 	/** "Remove Messages": every message older than the injection threshold leaves the prompt. */
@@ -1323,7 +1323,7 @@ var QvinkAdapter = class extends NeighbourBase {
 	/** Qvink's record of a message, as a typed copy; null when there is none. */
 	memoryOf(index) {
 		const raw = this.host.ctx().chat[index]?.extra?.[QVINK_KEY];
-		if (!isDict$50(raw)) return null;
+		if (!isDict$63(raw)) return null;
 		const memory = {
 			memory: typeof raw.memory === "string" ? raw.memory : "",
 			remember: raw.remember === true,
@@ -1586,7 +1586,7 @@ function createFileStore(host, log) {
 //#region src/core/autonomy.ts
 var STATS_KIND = "autonomy";
 var TRUST_STREAK = 5;
-var SAVE_DELAY_MS$1 = 2e3;
+var SAVE_DELAY_MS$2 = 2e3;
 function zero$1() {
 	return {
 		accepted: 0,
@@ -1628,7 +1628,7 @@ function applyDelta(base, delta) {
 function createAutonomy(deps, options = {}) {
 	const { settings, journal, log, files } = deps;
 	const trustStreak = options.trustStreak ?? TRUST_STREAK;
-	const saveDelay = options.saveDelayMs ?? SAVE_DELAY_MS$1;
+	const saveDelay = options.saveDelayMs ?? SAVE_DELAY_MS$2;
 	const never = /* @__PURE__ */ new Set();
 	/** Module default seen for each kind (trust growth needs the effective level outside decide()). */
 	const fallbacks = /* @__PURE__ */ new Map();
@@ -2445,7 +2445,7 @@ function createCostMeter(deps) {
 	function onReplyReady(messageIndex) {
 		const message = host.ctx().chat?.[messageIndex];
 		const extra = message?.extra;
-		if (!message || !isRecord$7(extra)) return;
+		if (!message || !isRecord$9(extra)) return;
 		const chatId = safeChatId() ?? "";
 		const remember = (key) => {
 			if (seenAnlas.has(key)) return false;
@@ -2453,17 +2453,17 @@ function createCostMeter(deps) {
 			if (seenAnlas.size > MAX_SEEN) for (const old of [...seenAnlas].slice(0, MAX_SEEN / 5)) seenAnlas.delete(old);
 			return true;
 		};
-		const post = isRecord$7(extra["nai_studio"]) ? extra["nai_studio"] : void 0;
+		const post = isRecord$9(extra["nai_studio"]) ? extra["nai_studio"] : void 0;
 		const postCost = post ? positiveNumber(post["cost"]) : void 0;
 		const mediaRaw = extra["media"];
-		const media = Array.isArray(mediaRaw) ? mediaRaw.filter(isRecord$7) : [];
+		const media = Array.isArray(mediaRaw) ? mediaRaw.filter(isRecord$9) : [];
 		if (postCost !== void 0) {
 			if (remember(`${chatId}|post|${messageIndex}|${String(message.send_date)}`)) meter.recordAnlas(postCost);
 			for (const item of media) if (typeof item["url"] === "string") seenAnlas.add(`${chatId}|media|${item["url"]}`);
 			return;
 		}
 		for (const item of media) {
-			const meta = isRecord$7(item["nai_studio"]) ? item["nai_studio"] : void 0;
+			const meta = isRecord$9(item["nai_studio"]) ? item["nai_studio"] : void 0;
 			const cost = meta ? positiveNumber(meta["cost"]) : void 0;
 			if (cost === void 0 || !meta) continue;
 			const batch = typeof meta["correlationId"] === "string" ? meta["correlationId"] : void 0;
@@ -2578,9 +2578,9 @@ function createCostMeter(deps) {
 * (usageMetadata).
 */
 function readUsage(raw) {
-	if (!isRecord$7(raw)) return void 0;
-	const nested = isRecord$7(raw["message"]) ? raw["message"] : void 0;
-	const usage = isRecord$7(raw["usage"]) ? raw["usage"] : isRecord$7(raw["usageMetadata"]) ? raw["usageMetadata"] : nested && isRecord$7(nested["usage"]) ? nested["usage"] : void 0;
+	if (!isRecord$9(raw)) return void 0;
+	const nested = isRecord$9(raw["message"]) ? raw["message"] : void 0;
+	const usage = isRecord$9(raw["usage"]) ? raw["usage"] : isRecord$9(raw["usageMetadata"]) ? raw["usageMetadata"] : nested && isRecord$9(nested["usage"]) ? nested["usage"] : void 0;
 	if (!usage) return void 0;
 	const prompt = firstNumber(usage["prompt_tokens"], usage["input_tokens"], usage["promptTokenCount"]) ?? 0;
 	const completion = firstNumber(usage["completion_tokens"], usage["output_tokens"], usage["candidatesTokenCount"]) ?? 0;
@@ -2687,11 +2687,11 @@ function addDays(a, b) {
 /** Accepts whatever is on disk (other versions, hand edits) and returns valid totals for that date. */
 function sanitizeDay(raw, date) {
 	const day = emptyDay(date);
-	if (!isRecord$7(raw) || raw["date"] !== date) return day;
+	if (!isRecord$9(raw) || raw["date"] !== date) return day;
 	day.totalUsd = nonNegative(raw["totalUsd"]);
 	day.bySource = numberMap(raw["bySource"]);
 	day.byTask = numberMap(raw["byTask"]);
-	const tokens = isRecord$7(raw["tokens"]) ? raw["tokens"] : {};
+	const tokens = isRecord$9(raw["tokens"]) ? raw["tokens"] : {};
 	day.tokens = {
 		prompt: nonNegative(tokens["prompt"]),
 		completion: nonNegative(tokens["completion"])
@@ -2699,7 +2699,7 @@ function sanitizeDay(raw, date) {
 	day.requests = nonNegative(raw["requests"]);
 	day.estimated = nonNegative(raw["estimated"]);
 	day.anlas = nonNegative(raw["anlas"]);
-	day.recent = Array.isArray(raw["recent"]) ? raw["recent"].filter((entry) => isRecord$7(entry) && typeof entry["at"] === "number" && typeof entry["source"] === "string").slice(-200) : [];
+	day.recent = Array.isArray(raw["recent"]) ? raw["recent"].filter((entry) => isRecord$9(entry) && typeof entry["at"] === "number" && typeof entry["source"] === "string").slice(-200) : [];
 	return day;
 }
 function limitReached(limit, totalUsd) {
@@ -2710,7 +2710,7 @@ var NAI_SCHEMA_RE = /"name"\s*:\s*"nai_/;
 function qvinkInstalled() {
 	return typeof globalThis["memory_intercept_messages"] === "function";
 }
-function isRecord$7(value) {
+function isRecord$9(value) {
 	return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 function firstNumber(...values) {
@@ -2725,7 +2725,7 @@ function positiveNumber(value) {
 }
 function numberMap(value) {
 	const out = {};
-	if (!isRecord$7(value)) return out;
+	if (!isRecord$9(value)) return out;
 	for (const [key, item] of Object.entries(value)) {
 		const n = nonNegative(item);
 		if (n > 0) out[key] = n;
@@ -3577,8 +3577,8 @@ function createLlmClient(deps) {
 	}
 	function candidates(task) {
 		const profiles = settings.core().profiles ?? {};
-		const primary = nonEmpty(profiles[task]) ?? nonEmpty(profiles["default"]);
-		const fallback = nonEmpty(profiles["fallback"]);
+		const primary = nonEmpty$1(profiles[task]) ?? nonEmpty$1(profiles["default"]);
+		const fallback = nonEmpty$1(profiles["fallback"]);
 		const list = [];
 		for (const id of [primary, fallback]) if (id && !list.includes(id)) list.push(id);
 		return list;
@@ -3887,11 +3887,11 @@ function extractReply(raw) {
 		reply.text = raw;
 		return reply;
 	}
-	if (!isRecord$6(raw)) return reply;
+	if (!isRecord$8(raw)) return reply;
 	const choices = raw["choices"];
-	const choice = Array.isArray(choices) && isRecord$6(choices[0]) ? choices[0] : void 0;
+	const choice = Array.isArray(choices) && isRecord$8(choices[0]) ? choices[0] : void 0;
 	if (choice) {
-		const message = isRecord$6(choice["message"]) ? choice["message"] : void 0;
+		const message = isRecord$8(choice["message"]) ? choice["message"] : void 0;
 		if (message) {
 			reply.text = contentText(message["content"]);
 			if (Array.isArray(message["tool_calls"])) reply.toolCalls = [...message["tool_calls"]];
@@ -3905,7 +3905,7 @@ function extractReply(raw) {
 		return reply;
 	}
 	if (Array.isArray(raw["content"])) {
-		const blocks = raw["content"].filter(isRecord$6);
+		const blocks = raw["content"].filter(isRecord$8);
 		reply.text = blocks.filter((block) => block["type"] === "text" && typeof block["text"] === "string").map((block) => String(block["text"])).join("\n\n");
 		for (const block of blocks) {
 			if (block["type"] !== "tool_use" || typeof block["name"] !== "string") continue;
@@ -3925,14 +3925,14 @@ function extractReply(raw) {
 		if (raw["stop_reason"] === "refusal") reply.refusal = true;
 		return reply;
 	}
-	const message = isRecord$6(raw["message"]) ? raw["message"] : void 0;
+	const message = isRecord$8(raw["message"]) ? raw["message"] : void 0;
 	if (message) {
 		reply.text = contentText(message["content"]);
 		return reply;
 	}
 	const candidates = raw["candidates"];
-	const candidate = Array.isArray(candidates) && isRecord$6(candidates[0]) ? candidates[0] : void 0;
-	const content = candidate && isRecord$6(candidate["content"]) ? candidate["content"] : void 0;
+	const candidate = Array.isArray(candidates) && isRecord$8(candidates[0]) ? candidates[0] : void 0;
+	const content = candidate && isRecord$8(candidate["content"]) ? candidate["content"] : void 0;
 	if (content) reply.text = contentText(content["parts"]);
 	if (typeof raw["text"] === "string" && !reply.text) reply.text = raw["text"];
 	return reply;
@@ -3940,7 +3940,7 @@ function extractReply(raw) {
 function contentText(content) {
 	if (typeof content === "string") return content;
 	if (!Array.isArray(content)) return "";
-	return content.filter(isRecord$6).filter((part) => typeof part["text"] === "string" && (part["type"] === void 0 || part["type"] === "text")).map((part) => String(part["text"])).join("");
+	return content.filter(isRecord$8).filter((part) => typeof part["text"] === "string" && (part["type"] === void 0 || part["type"] === "text")).map((part) => String(part["text"])).join("");
 }
 /** Removes reasoning blocks; text before a lone closing tag is reasoning too. */
 function stripThinking(text) {
@@ -3988,21 +3988,21 @@ function parseStructured(reply, schema) {
 * before a feature applies it. Unknown keywords are ignored.
 */
 function matchesSchema(value, schema, depth = 0) {
-	if (!isRecord$6(schema) || depth > 32) return true;
+	if (!isRecord$8(schema) || depth > 32) return true;
 	const enumValues = schema["enum"];
 	if (Array.isArray(enumValues) && !enumValues.some((item) => item === value)) return false;
 	const type = schema["type"];
 	if (typeof type === "string" && !matchesType(value, type)) return false;
 	if (Array.isArray(type) && !type.some((item) => typeof item === "string" && matchesType(value, item))) return false;
-	if (isRecord$6(value)) {
+	if (isRecord$8(value)) {
 		const required = schema["required"];
 		if (Array.isArray(required) && required.some((key) => typeof key === "string" && !(key in value))) return false;
 		const properties = schema["properties"];
-		if (isRecord$6(properties)) {
+		if (isRecord$8(properties)) {
 			for (const [key, sub] of Object.entries(properties)) if (key in value && !matchesSchema(value[key], sub, depth + 1)) return false;
 		}
 	}
-	if (Array.isArray(value) && isRecord$6(schema["items"])) {
+	if (Array.isArray(value) && isRecord$8(schema["items"])) {
 		const items = schema["items"];
 		if (!value.every((item) => matchesSchema(item, items, depth + 1))) return false;
 	}
@@ -4010,7 +4010,7 @@ function matchesSchema(value, schema, depth = 0) {
 }
 function matchesType(value, type) {
 	switch (type) {
-		case "object": return isRecord$6(value);
+		case "object": return isRecord$8(value);
 		case "array": return Array.isArray(value);
 		case "string": return typeof value === "string";
 		case "number": return typeof value === "number" && Number.isFinite(value);
@@ -4093,10 +4093,10 @@ function sleep(ms, signal) {
 		signal?.addEventListener("abort", onAbort, { once: true });
 	});
 }
-function nonEmpty(value) {
+function nonEmpty$1(value) {
 	return typeof value === "string" && value.trim() ? value : void 0;
 }
-function isRecord$6(value) {
+function isRecord$8(value) {
 	return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 function dropUndefined(value) {
@@ -5828,7 +5828,7 @@ function intlLocale(i18n) {
 	return i18n.locale() === "ru" ? "ru-RU" : "en-US";
 }
 /** "14:05" for today, "3 окт., 14:05" for other days. */
-function formatTime(at, i18n, now = Date.now()) {
+function formatTime$1(at, i18n, now = Date.now()) {
 	const date = new Date(at);
 	const today = new Date(now);
 	const options = date.toDateString() === today.toDateString() ? {
@@ -5986,7 +5986,7 @@ function healthTab(env) {
 				return el("ul", { class: "maestro-log" }, lines.map((line) => el("li", { class: ["maestro-log-line", `maestro-level-${line.level === "error" ? "error" : "warn"}`] }, [
 					el("span", {
 						class: "maestro-notice-time",
-						text: formatTime(line.at, i18n)
+						text: formatTime$1(line.at, i18n)
 					}),
 					el("span", {
 						class: "maestro-muted",
@@ -6358,12 +6358,12 @@ var INBOX_CSS = `
 .maestro-inbox-edit { display: flex; flex-direction: column; gap: 6px; }
 .maestro-inbox-edit textarea { width: 100%; min-height: 4em; box-sizing: border-box; resize: vertical; }
 `;
-function isDict$48(value) {
+function isDict$61(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /** What the payload says about the card (see the convention above). */
 function cardMeta(item) {
-	const payload = isDict$48(item.payload) ? item.payload : {};
+	const payload = isDict$61(item.payload) ? item.payload : {};
 	const meta = {
 		entityName: typeof payload.entityName === "string" ? payload.entityName.trim() : "",
 		editable: false
@@ -6413,7 +6413,7 @@ function inboxTab(env) {
 		return ok;
 	};
 	const acceptEdited = async (item, value) => {
-		const payload = isDict$48(item.payload) ? item.payload : {};
+		const payload = isDict$61(item.payload) ? item.payload : {};
 		if (await env.inbox.accept(item.id, {
 			...payload,
 			value
@@ -6498,11 +6498,11 @@ function inboxTab(env) {
 		const meta = cardMeta(item);
 		const subtitle = [el("span", {
 			class: "maestro-muted",
-			text: `${moduleTitle(env.modules, i18n, item.module)} · ${item.kind} · ${formatTime(item.createdAt, i18n)}`
+			text: `${moduleTitle(env.modules, i18n, item.module)} · ${item.kind} · ${formatTime$1(item.createdAt, i18n)}`
 		})];
 		if (meta.confidence !== void 0) subtitle.push(badge(tx("m8.inbox.confidence", { value: Math.round(meta.confidence * 100) }), "muted"));
 		if (item.deferred) subtitle.push(badge(t("ui.inbox.deferred"), "muted"));
-		if (item.expiresAt) subtitle.push(badge(t("ui.inbox.expires", { time: formatTime(item.expiresAt, i18n) }), "muted"));
+		if (item.expiresAt) subtitle.push(badge(t("ui.inbox.expires", { time: formatTime$1(item.expiresAt, i18n) }), "muted"));
 		const editing = drafts.has(item.id);
 		const editable = meta.editable && meta.value !== void 0 && !item.deferred;
 		return card({
@@ -6579,7 +6579,7 @@ function inboxTab(env) {
 		title: `${item.entityName}: ${tOr(i18n, `m8.target.${item.target}`, item.target)}`,
 		subtitle: [badge(tx("m8.inbox.deferred.stage", { stage: deferredStage(item.target) }), "muted"), el("span", {
 			class: "maestro-muted",
-			text: formatTime(item.at, i18n)
+			text: formatTime$1(item.at, i18n)
 		})],
 		className: "maestro-inbox-deferred",
 		level: "muted",
@@ -6795,7 +6795,7 @@ function journalTab(env) {
 		}),
 		el("div", {
 			class: "maestro-muted",
-			text: `${formatTime(record.at, i18n)} · ${moduleTitle(env.modules, i18n, record.module)} · ${record.kind}`
+			text: `${formatTime$1(record.at, i18n)} · ${moduleTitle(env.modules, i18n, record.module)} · ${record.kind}`
 		}),
 		record.changes.length ? el("details", { class: "maestro-journal-changes" }, [el("summary", { text: t("ui.journal.changes", { count: record.changes.length }) }), ...record.changes.map((change) => changeView(change, t))]) : null
 	]), button({
@@ -7183,7 +7183,7 @@ function overviewTab(env) {
 		] }, [
 			el("span", {
 				class: "maestro-notice-time",
-				text: formatTime(notice.at, i18n)
+				text: formatTime$1(notice.at, i18n)
 			}),
 			el("span", {
 				class: "maestro-notice-text",
@@ -7624,6 +7624,26 @@ function changed() {
 		console.error("[Maestro:ui] registry listener failed", error);
 	}
 }
+/**
+* Registers the handler of a Settings button. Built-in ids: 'export', 'import', 'prepareDisable'; any other id
+* adds a new button labelled with `labelKey`. Registering an id again replaces the handler.
+*/
+function registerSettingsAction(id, labelKey, run, options = {}) {
+	const entry = {
+		id,
+		labelKey,
+		run,
+		icon: options.icon,
+		danger: options.danger
+	};
+	actions.set(id, entry);
+	changed();
+	return () => {
+		if (actions.get(id) !== entry) return;
+		actions.delete(id);
+		changed();
+	};
+}
 function settingsAction(id) {
 	return actions.get(id);
 }
@@ -7660,7 +7680,7 @@ var AUTONOMY_LEVELS = [
 	"ask",
 	"off"
 ];
-var LANGUAGES = [
+var LANGUAGES$1 = [
 	"auto",
 	"ru",
 	"en"
@@ -7687,7 +7707,7 @@ function settingsTab(env) {
 		field$1(t("ui.settings.language"), select({
 			value: core().uiLanguage,
 			label: t("ui.settings.language"),
-			options: LANGUAGES.map((value) => ({
+			options: LANGUAGES$1.map((value) => ({
 				value,
 				label: t(`ui.settings.language.${value}`)
 			})),
@@ -8507,7 +8527,7 @@ function tasksTab(env) {
 					{
 						key: "created",
 						label: t("ui.tasks.created"),
-						cell: (task) => formatTime(task.createdAt, i18n)
+						cell: (task) => formatTime$1(task.createdAt, i18n)
 					},
 					{
 						key: "error",
@@ -9161,6 +9181,206 @@ var Modules = class {
 	}
 };
 //#endregion
+//#region src/app/data-actions.ts
+var EXPORT_FORMAT = "maestro-export";
+/** Global Maestro files worth carrying over (per-chat documents travel with the chat bundle). */
+var GLOBAL_FILES = [
+	"maestro-book-roles.json",
+	"maestro-entry-meta.json",
+	"maestro-autonomy.json",
+	"maestro-baseline.json",
+	"maestro-preset-layers.json",
+	"maestro-metrics-packs.json"
+];
+var DATA_ACTION_STRINGS = {
+	en: {
+		"app.data.exported": "Maestro data saved to {file}.",
+		"app.data.importTitle": "Import Maestro data?",
+		"app.data.importBody": "Settings, global Maestro files and, for this chat, its Maestro documents are replaced by the file from {at}. The page reloads the settings right away.",
+		"app.data.importChatOther": "The file holds the documents of another chat ({chat}); they are imported into the open chat.",
+		"app.data.imported": "Maestro data imported: settings, {files} files{chat}.",
+		"app.data.importedChat": ", this chat’s documents",
+		"app.data.badFile": "This is not a Maestro export file.",
+		"app.prepare.title": "Prepare to turn Maestro off?",
+		"app.prepare.body": "Every chat’s canon becomes a plain lorebook (overrides expanded, suppressed entries listed in a note). The preset layer is either removed from the working copy or saved as a separate preset. Rules, flags and button takeovers go away by themselves when Maestro is off.",
+		"app.prepare.mergedQuestion": "Save the preset with your layer as a separate preset?",
+		"app.prepare.mergedBody": "Yes: a new preset «base + layer» is saved and selected. No: the base preset is selected again without the layer.",
+		"app.prepare.report": "Ready to turn off. Canon exported: {books}. Preset: {preset}.",
+		"app.prepare.noCanon": "no canon",
+		"app.prepare.noLayer": "no layer",
+		"app.prepare.failed": "Preparing to turn off stopped: {error}"
+	},
+	ru: {
+		"app.data.exported": "Данные Maestro сохранены в {file}.",
+		"app.data.importTitle": "Импортировать данные Maestro?",
+		"app.data.importBody": "Настройки, общие файлы Maestro и документы Maestro этого чата заменятся данными из файла от {at}. Настройки перечитаются сразу.",
+		"app.data.importChatOther": "В файле документы другого чата ({chat}) — они импортируются в открытый чат.",
+		"app.data.imported": "Данные Maestro импортированы: настройки, файлов — {files}{chat}.",
+		"app.data.importedChat": ", документы этого чата",
+		"app.data.badFile": "Это не файл экспорта Maestro.",
+		"app.prepare.title": "Подготовить Maestro к отключению?",
+		"app.prepare.body": "Канон каждого чата станет обычным лорбуком (переопределения развёрнуты, подавленные записи перечислены в заметке). Слой пресета либо уберётся из рабочей копии, либо сохранится отдельным пресетом. Правила, флаги и перехваты кнопок исчезнут сами, когда Maestro выключен.",
+		"app.prepare.mergedQuestion": "Сохранить пресет вместе со слоем как отдельный пресет?",
+		"app.prepare.mergedBody": "Да — сохранится и выберется новый пресет «база + слой». Нет — снова выберется базовый пресет без слоя.",
+		"app.prepare.report": "Можно выключать. Канон выгружен: {books}. Пресет: {preset}.",
+		"app.prepare.noCanon": "канона нет",
+		"app.prepare.noLayer": "слоя нет",
+		"app.prepare.failed": "Подготовка к отключению остановилась: {error}"
+	}
+};
+function stamp(date) {
+	return date.toISOString().slice(0, 16).replace(/[-:T]/g, "");
+}
+async function download(app, text, file) {
+	try {
+		const fn = (await app.host.modules.utils()).download;
+		if (typeof fn === "function") {
+			fn(text, file, "application/json");
+			return;
+		}
+	} catch {}
+	const url = URL.createObjectURL(new Blob([text], { type: "application/json" }));
+	const link = document.createElement("a");
+	link.href = url;
+	link.download = file;
+	link.click();
+	setTimeout(() => URL.revokeObjectURL(url), 1e3);
+}
+function pickFile() {
+	return new Promise((resolve) => {
+		const input = document.createElement("input");
+		input.type = "file";
+		input.accept = ".json,application/json";
+		input.addEventListener("change", () => resolve(input.files?.[0] ?? null), { once: true });
+		input.click();
+	});
+}
+function isExportBundle(value) {
+	return typeof value === "object" && value !== null && value.format === "maestro-export" && value.version === 1;
+}
+async function buildExport(app, now = /* @__PURE__ */ new Date()) {
+	const chatId = app.host.chatId();
+	const files = {};
+	for (const name of GLOBAL_FILES) try {
+		const data = await app.files.read(name);
+		if (data !== null && data !== void 0) files[name] = data;
+	} catch {}
+	return {
+		format: EXPORT_FORMAT,
+		version: 1,
+		at: now.toISOString(),
+		settings: JSON.parse(JSON.stringify(app.host.ctx().extensionSettings.maestro ?? {})),
+		chatId,
+		chat: chatId ? await app.chat.exportChat(chatId) : null,
+		files
+	};
+}
+async function applyImport(app, bundle) {
+	const store = app.host.ctx().extensionSettings;
+	store.maestro = JSON.parse(JSON.stringify(bundle.settings ?? {}));
+	app.settings.reload?.();
+	app.settings.save();
+	let count = 0;
+	for (const [name, data] of Object.entries(bundle.files ?? {})) {
+		if (!GLOBAL_FILES.includes(name)) continue;
+		await app.files.write(name, data);
+		count++;
+	}
+	const chatId = app.host.chatId();
+	const chat = !!(chatId && bundle.chat);
+	if (chatId && bundle.chat) await app.chat.importChat(chatId, bundle.chat);
+	return {
+		files: count,
+		chat
+	};
+}
+/** «Подготовить к отключению»: canon of every chat → plain lorebooks; the preset layer → dropped or saved merged. */
+async function prepareDisable(app, saveMerged) {
+	const canon = app.modules.api("canon");
+	const books = canon?.exportAll ? await canon.exportAll() : [];
+	const layer = app.modules.api("presetLayer");
+	let preset = null;
+	let hasLayer = false;
+	if (layer?.prepareDisable) {
+		const current = app.host.ctx().chatCompletionSettings?.preset_settings_openai;
+		hasLayer = typeof current === "string" && (layer.get(current)?.ops.length ?? 0) > 0;
+		if (hasLayer) preset = await layer.prepareDisable(saveMerged ? "saveMerged" : "reselectBase");
+	}
+	return {
+		books,
+		preset,
+		layer: hasLayer
+	};
+}
+function installDataActions(app) {
+	app.i18n.register(DATA_ACTION_STRINGS);
+	const t = app.i18n.t.bind(app.i18n);
+	const offs = [];
+	offs.push(registerSettingsAction("export", "ui.settings.export", async () => {
+		const bundle = await buildExport(app);
+		const file = `maestro-export-${stamp(/* @__PURE__ */ new Date())}.json`;
+		await download(app, JSON.stringify(bundle, null, 2), file);
+		app.ui.notice(t("app.data.exported", { file }), {
+			urgent: true,
+			level: "info"
+		});
+	}));
+	offs.push(registerSettingsAction("import", "ui.settings.import", async () => {
+		const file = await pickFile();
+		if (!file) return;
+		let bundle;
+		try {
+			bundle = JSON.parse(await file.text());
+		} catch {
+			bundle = null;
+		}
+		if (!isExportBundle(bundle)) {
+			app.ui.notice(t("app.data.badFile"), {
+				urgent: true,
+				level: "error"
+			});
+			return;
+		}
+		const chatId = app.host.chatId();
+		const other = bundle.chat && bundle.chatId && chatId && bundle.chatId !== chatId;
+		const body = [t("app.data.importBody", { at: bundle.at.slice(0, 16).replace("T", " ") }), other ? t("app.data.importChatOther", { chat: bundle.chatId ?? "" }) : ""].filter(Boolean).join("\n\n");
+		if (!await app.ui.confirm(t("app.data.importTitle"), body)) return;
+		const result = await applyImport(app, bundle);
+		app.ui.notice(t("app.data.imported", {
+			files: result.files,
+			chat: result.chat ? t("app.data.importedChat") : ""
+		}), {
+			urgent: true,
+			level: "info"
+		});
+	}));
+	offs.push(registerSettingsAction("prepareDisable", "ui.settings.prepareDisable", async () => {
+		if (!await app.ui.confirm(t("app.prepare.title"), t("app.prepare.body"))) return;
+		const layer = app.modules.api("presetLayer");
+		const current = app.host.ctx().chatCompletionSettings?.preset_settings_openai;
+		const merged = typeof current === "string" && (layer?.get(current)?.ops.length ?? 0) > 0 ? await app.ui.confirm(t("app.prepare.mergedQuestion"), t("app.prepare.mergedBody")) : false;
+		try {
+			const result = await prepareDisable(app, merged);
+			app.ui.notice(t("app.prepare.report", {
+				books: result.books.length ? result.books.join(", ") : t("app.prepare.noCanon"),
+				preset: result.layer ? result.preset ?? "—" : t("app.prepare.noLayer")
+			}), {
+				urgent: true,
+				level: "info"
+			});
+		} catch (error) {
+			app.ui.notice(t("app.prepare.failed", { error: error instanceof Error ? error.message : String(error) }), {
+				urgent: true,
+				level: "error"
+			});
+		}
+	}, {
+		icon: "fa-power-off",
+		danger: true
+	}));
+	return offs;
+}
+//#endregion
 //#region src/domain/lore-journal.ts
 /** Canon books of M6: "Maestro · канон · <short id>" (src/features/canon/api.ts). */
 var CANON_BOOK_PREFIX = "Maestro · канон";
@@ -9175,7 +9395,7 @@ var LORE_TAG_ORDER = [
 	"maestro.book",
 	"constant"
 ];
-function isDict$47(value) {
+function isDict$60(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function strings$15(value) {
@@ -9183,7 +9403,7 @@ function strings$15(value) {
 }
 /** Canon items carry `extensions.maestro` with a `kind` (CanonMeta); overrides keep the base book's name. */
 function isCanonMeta$1(extensions) {
-	return isDict$47(extensions) && isDict$47(extensions.maestro) && typeof extensions.maestro.kind === "string";
+	return isDict$60(extensions) && isDict$60(extensions.maestro) && typeof extensions.maestro.kind === "string";
 }
 function tagsFor(entry, context, hasLocalizerMarker) {
 	const tags = [];
@@ -9214,20 +9434,20 @@ function desLinkedBooks(settings) {
 		autoLinked: [],
 		workshop: []
 	};
-	if (!isDict$47(settings)) return links;
-	const lorebook = isDict$47(settings.lorebook) ? settings.lorebook : {};
-	const campaigns = isDict$47(lorebook.campaigns) ? lorebook.campaigns : {};
+	if (!isDict$60(settings)) return links;
+	const lorebook = isDict$60(settings.lorebook) ? settings.lorebook : {};
+	const campaigns = isDict$60(lorebook.campaigns) ? lorebook.campaigns : {};
 	const all = /* @__PURE__ */ new Set();
-	for (const campaign of Object.values(campaigns)) if (isDict$47(campaign)) for (const book of strings$15(campaign.books)) all.add(book);
+	for (const campaign of Object.values(campaigns)) if (isDict$60(campaign)) for (const book of strings$15(campaign.books)) all.add(book);
 	const active = typeof lorebook.activeCampaignId === "string" ? campaigns[lorebook.activeCampaignId] : void 0;
 	const campaign = new Set(strings$15(lorebook.campaignActivated));
-	if (isDict$47(active)) for (const book of strings$15(active.books)) campaign.add(book);
+	if (isDict$60(active)) for (const book of strings$15(active.books)) campaign.add(book);
 	links.campaign = [...campaign];
 	links.campaignAll = [...all];
 	links.autoLinked = strings$15(lorebook.autoLinked);
-	const injections = isDict$47(settings.characterInjection) ? settings.characterInjection : {};
+	const injections = isDict$60(settings.characterInjection) ? settings.characterInjection : {};
 	const workshop = /* @__PURE__ */ new Set();
-	for (const injection of Object.values(injections)) if (isDict$47(injection) && typeof injection.lorebook === "string" && injection.lorebook) workshop.add(injection.lorebook);
+	for (const injection of Object.values(injections)) if (isDict$60(injection) && typeof injection.lorebook === "string" && injection.lorebook) workshop.add(injection.lorebook);
 	links.workshop = [...workshop];
 	return links;
 }
@@ -9281,16 +9501,16 @@ function ensureJournal(doc) {
 	const raw = doc;
 	raw.v = 1;
 	if (!Array.isArray(raw.worlds)) raw.worlds = [];
-	if (!isDict$47(raw.titles)) raw.titles = {};
+	if (!isDict$60(raw.titles)) raw.titles = {};
 	if (!Array.isArray(raw.records)) raw.records = [];
-	const stats = isDict$47(raw.stats) ? raw.stats : {};
+	const stats = isDict$60(raw.stats) ? raw.stats : {};
 	raw.stats = {
 		turns: typeof stats.turns === "number" ? stats.turns : 0,
 		chars: typeof stats.chars === "number" ? stats.chars : 0,
 		canon: typeof stats.canon === "number" ? stats.canon : 0,
-		entries: isDict$47(stats.entries) ? stats.entries : {}
+		entries: isDict$60(stats.entries) ? stats.entries : {}
 	};
-	raw.records = raw.records.filter((record) => isDict$47(record) && typeof record.i === "number" && Array.isArray(record.a));
+	raw.records = raw.records.filter((record) => isDict$60(record) && typeof record.i === "number" && Array.isArray(record.a));
 	return raw;
 }
 function worldIndex(doc, name) {
@@ -9460,7 +9680,7 @@ function setRecordKeys(doc, record) {
 }
 /** Entries of the ENTRIES_LOADED lists, de-duplicated by world and uid. */
 function catalogFromLists(lists) {
-	if (!isDict$47(lists)) return [];
+	if (!isDict$60(lists)) return [];
 	const seen = /* @__PURE__ */ new Set();
 	const entries = [];
 	for (const name of [
@@ -9472,7 +9692,7 @@ function catalogFromLists(lists) {
 		const list = lists[name];
 		if (!Array.isArray(list)) continue;
 		for (const raw of list) {
-			if (!isDict$47(raw) || typeof raw.world !== "string") continue;
+			if (!isDict$60(raw) || typeof raw.world !== "string") continue;
 			const uid = Number(raw.uid);
 			if (!Number.isFinite(uid)) continue;
 			const id = `${raw.world}\u0000${uid}`;
@@ -9747,7 +9967,7 @@ var ROLE_IDS = [
 var STICKY_ROLES = /* @__PURE__ */ new Set(["chat", "npc"]);
 /** Share of character archives that makes a book an archive book even outside CK's repo list. */
 var ARCHIVE_SHARE = .5;
-function isDict$46(value) {
+function isDict$59(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function isRoleId(value) {
@@ -9764,13 +9984,13 @@ function isBackupBookName(name) {
 	return /\(backup/i.test(name) || /\.carrot_backup$/i.test(name.trim());
 }
 function entriesOf$2(data) {
-	const entries = isDict$46(data) && isDict$46(data.entries) ? data.entries : {};
-	return Object.values(entries).filter(isDict$46);
+	const entries = isDict$59(data) && isDict$59(data.entries) ? data.entries : {};
+	return Object.values(entries).filter(isDict$59);
 }
 function maestroRoleOf(data) {
-	const extensions = isDict$46(data) ? data.extensions : void 0;
-	const maestro = isDict$46(extensions) ? extensions.maestro : void 0;
-	return isDict$46(maestro) && typeof maestro.role === "string" ? maestro.role : null;
+	const extensions = isDict$59(data) ? data.extensions : void 0;
+	const maestro = isDict$59(extensions) ? extensions.maestro : void 0;
+	return isDict$59(maestro) && typeof maestro.role === "string" ? maestro.role : null;
 }
 /** Classifies a loaded book (`{entries, extensions}`) with the BunnyMo heuristics. */
 function contentFacts(book, data) {
@@ -9800,11 +10020,11 @@ function joined(value) {
 * Settings such as order or position do not change the kind of a book and are left out.
 */
 function bookFingerprint(data) {
-	const entries = isDict$46(data) && isDict$46(data.entries) ? data.entries : {};
+	const entries = isDict$59(data) && isDict$59(data.entries) ? data.entries : {};
 	const parts = [];
 	for (const key of Object.keys(entries).sort((a, b) => Number(a) - Number(b) || (a < b ? -1 : a > b ? 1 : 0))) {
 		const entry = entries[key];
-		if (!isDict$46(entry)) continue;
+		if (!isDict$59(entry)) continue;
 		parts.push([
 			key,
 			joined(entry.key),
@@ -9869,7 +10089,7 @@ function emptyRegistry() {
 	};
 }
 function readFacts(value) {
-	if (!isDict$46(value)) return void 0;
+	if (!isDict$59(value)) return void 0;
 	const bunnymo = value.bunnymo === "core" || value.bunnymo === "pack" ? value.bunnymo : null;
 	const number = (field) => typeof field === "number" && Number.isFinite(field) && field >= 0 ? field : 0;
 	return {
@@ -9882,16 +10102,16 @@ function readFacts(value) {
 /** A stored registry with junk records dropped. */
 function readRegistry(raw) {
 	const registry = emptyRegistry();
-	const books = isDict$46(raw) && isDict$46(raw.books) ? raw.books : {};
+	const books = isDict$59(raw) && isDict$59(raw.books) ? raw.books : {};
 	for (const [book, record] of Object.entries(books)) {
-		if (!book || !isDict$46(record) || !isRoleId(record.role)) continue;
+		if (!book || !isDict$59(record) || !isRoleId(record.role)) continue;
 		const item = {
 			role: record.role,
 			source: record.source === "user" ? "user" : "auto",
 			fingerprint: typeof record.fingerprint === "string" ? record.fingerprint : "",
 			at: typeof record.at === "number" ? record.at : 0
 		};
-		if (isDict$46(record.pack) && typeof record.pack.name === "string") {
+		if (isDict$59(record.pack) && typeof record.pack.name === "string") {
 			item.pack = { name: record.pack.name };
 			if (typeof record.pack.version === "string") item.pack.version = record.pack.version;
 		}
@@ -9921,7 +10141,7 @@ function sameRecord(a, b) {
 }
 //#endregion
 //#region src/domain/roles-meta.ts
-function isDict$45(value) {
+function isDict$58(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function emptyEntryMetaFile() {
@@ -9947,15 +10167,15 @@ function parseEntryMetaKey(key) {
 }
 /** Hash of what the entry says: its content (keys and settings may change without invalidating a type/passport). */
 function entryContentHash(entry) {
-	const content = isDict$45(entry) ? entry.content : void 0;
+	const content = isDict$58(entry) ? entry.content : void 0;
 	return stableHash(typeof content === "string" ? content : "");
 }
 /** Content hashes of every entry of a book (`data.entries`), by uid. */
 function entryHashes(data) {
 	const hashes = /* @__PURE__ */ new Map();
-	const entries = isDict$45(data) && isDict$45(data.entries) ? data.entries : {};
+	const entries = isDict$58(data) && isDict$58(data.entries) ? data.entries : {};
 	for (const [key, entry] of Object.entries(entries)) {
-		if (!isDict$45(entry)) continue;
+		if (!isDict$58(entry)) continue;
 		const uid = typeof entry.uid === "number" && Number.isInteger(entry.uid) ? entry.uid : Number(key);
 		if (Number.isInteger(uid)) hashes.set(uid, entryContentHash(entry));
 	}
@@ -9964,9 +10184,9 @@ function entryHashes(data) {
 /** A stored sidecar file with junk records dropped. */
 function readEntryMetaFile(raw) {
 	const file = emptyEntryMetaFile();
-	const entries = isDict$45(raw) && isDict$45(raw.entries) ? raw.entries : {};
+	const entries = isDict$58(raw) && isDict$58(raw.entries) ? raw.entries : {};
 	for (const [key, record] of Object.entries(entries)) {
-		if (!parseEntryMetaKey(key) || !isDict$45(record) || !isDict$45(record.meta)) continue;
+		if (!parseEntryMetaKey(key) || !isDict$58(record) || !isDict$58(record.meta)) continue;
 		if (typeof record.contentHash !== "string") continue;
 		file.entries[key] = {
 			meta: record.meta,
@@ -10004,7 +10224,7 @@ function mergeEntryMeta(stored, local, dirty) {
 }
 //#endregion
 //#region src/features/bookRoles/context.ts
-function isDict$44(value) {
+function isDict$57(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function strings$14(value) {
@@ -10021,7 +10241,7 @@ async function loadBook$1(app, book, log) {
 	if (typeof load !== "function") return null;
 	try {
 		const data = await load(book);
-		return isDict$44(data) && isDict$44(data.entries) ? data : null;
+		return isDict$57(data) && isDict$57(data.entries) ? data : null;
 	} catch (error) {
 		log.debug(`lorebook ${book} did not load`, error);
 		return null;
@@ -10040,21 +10260,21 @@ async function readRoleContext(app, log) {
 	const context = emptyRoleContext();
 	const ctx = app.host.ctx();
 	const module = await worldInfoModule(app, log);
-	const settings = module && isDict$44(module.world_info) ? module.world_info : null;
+	const settings = module && isDict$57(module.world_info) ? module.world_info : null;
 	const cardBooks = /* @__PURE__ */ new Set();
 	for (const character of ctx.characters ?? []) {
 		const primary = character?.data?.extensions?.world;
 		if (typeof primary === "string" && primary) cardBooks.add(primary);
 	}
-	for (const lore of Array.isArray(settings?.charLore) ? settings.charLore : []) if (isDict$44(lore)) for (const book of strings$14(lore.extraBooks)) cardBooks.add(book);
+	for (const lore of Array.isArray(settings?.charLore) ? settings.charLore : []) if (isDict$57(lore)) for (const book of strings$14(lore.extraBooks)) cardBooks.add(book);
 	context.cardBooks = cardBooks;
 	const chatBook = ctx.chatMetadata?.world_info;
 	context.chatBook = typeof chatBook === "string" && chatBook ? chatBook : null;
 	const personaBooks = /* @__PURE__ */ new Set();
-	const power = isDict$44(ctx.powerUserSettings) ? ctx.powerUserSettings : {};
+	const power = isDict$57(ctx.powerUserSettings) ? ctx.powerUserSettings : {};
 	if (typeof power.persona_description_lorebook === "string" && power.persona_description_lorebook) personaBooks.add(power.persona_description_lorebook);
-	if (isDict$44(power.persona_descriptions)) {
-		for (const persona of Object.values(power.persona_descriptions)) if (isDict$44(persona) && typeof persona.lorebook === "string" && persona.lorebook) personaBooks.add(persona.lorebook);
+	if (isDict$57(power.persona_descriptions)) {
+		for (const persona of Object.values(power.persona_descriptions)) if (isDict$57(persona) && typeof persona.lorebook === "string" && persona.lorebook) personaBooks.add(persona.lorebook);
 	}
 	context.personaBooks = personaBooks;
 	context.globalBooks = new Set(strings$14(module?.selected_world_info));
@@ -10090,8 +10310,8 @@ var ROLES_FILE = "maestro-book-roles.json";
 var ENTRY_META_FILE = "maestro-entry-meta.json";
 /** Journal target of a manual role change (undo restores the previous record). */
 var ROLE_TARGET = "book-role";
-var SAVE_DELAY_MS = 1e3;
-var REFRESH_DELAY_MS$1 = 400;
+var SAVE_DELAY_MS$1 = 1e3;
+var REFRESH_DELAY_MS$3 = 400;
 /** Books detected between two yields to the event loop during a full refresh. */
 var BATCH = 4;
 function jsonCopy$2(value) {
@@ -10101,7 +10321,7 @@ function jsonCopy$2(value) {
 function sameFacts(a, b) {
 	return JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
 }
-function isRecord$5(value) {
+function isRecord$7(value) {
 	return typeof value === "object" && value !== null && typeof value.role === "string";
 }
 var BookRolesService = class {
@@ -10132,8 +10352,8 @@ var BookRolesService = class {
 	constructor(app, log, options = {}) {
 		this.app = app;
 		this.log = log;
-		this.saveDelay = options.saveDelayMs ?? SAVE_DELAY_MS;
-		this.refreshDelay = options.refreshDelayMs ?? REFRESH_DELAY_MS$1;
+		this.saveDelay = options.saveDelayMs ?? SAVE_DELAY_MS$1;
+		this.refreshDelay = options.refreshDelayMs ?? REFRESH_DELAY_MS$3;
 	}
 	/** Reads both files once (missing files mean empty registries). */
 	load() {
@@ -10284,7 +10504,7 @@ var BookRolesService = class {
 		const book = change.ref.book;
 		if (typeof book !== "string" || !book) return false;
 		await this.load();
-		const before = isRecord$5(change.before) ? readRegistry({ books: { [book]: change.before } }).books[book] : null;
+		const before = isRecord$7(change.before) ? readRegistry({ books: { [book]: change.before } }).books[book] : null;
 		this.put(book, before ?? null);
 		if (!before) this.queue(book);
 		return true;
@@ -10801,15 +11021,15 @@ var TEMPLATE_TAG_RE = /<([A-Za-z][A-Za-z0-9_-]*):[^<>\n]+>/g;
 function text$6(value) {
 	return typeof value === "string" ? value : value === void 0 || value === null ? "" : String(value);
 }
-function isDict$43(value) {
+function isDict$56(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /** Entries of book data (`{entries: {uid: entry}}`) with their uid; invalid entries are skipped. */
 function entriesWithUid(data) {
-	const entries = isDict$43(data) && isDict$43(data.entries) ? data.entries : {};
+	const entries = isDict$56(data) && isDict$56(data.entries) ? data.entries : {};
 	const result = [];
 	for (const [key, entry] of Object.entries(entries)) {
-		if (!isDict$43(entry)) continue;
+		if (!isDict$56(entry)) continue;
 		const uid = Number(entry.uid ?? key);
 		if (Number.isFinite(uid)) result.push({
 			uid,
@@ -11309,7 +11529,7 @@ var WI_ENTRY_TEMPLATE = Object.freeze({
 		tags: []
 	}
 });
-function isDict$42(value) {
+function isDict$55(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /** Canon book of a chat: "Maestro · канон · <8 chars of a stable hash of the chat id>". */
@@ -11322,7 +11542,7 @@ function canonBookName(chatId) {
 */
 function copyValue$1(value) {
 	if (Array.isArray(value)) return value.map((item) => copyValue$1(item));
-	if (isDict$42(value)) {
+	if (isDict$55(value)) {
 		const out = {};
 		for (const [key, item] of Object.entries(value)) out[key] = copyValue$1(item);
 		return out;
@@ -11398,7 +11618,7 @@ function oneOf$1(list, value, fallback) {
 }
 /** Validated meta of a stored canon entry; null when the entry is not a canon item. */
 function readCanonMeta(raw) {
-	if (!isDict$42(raw) || !CANON_KINDS.includes(String(raw.kind))) return null;
+	if (!isDict$55(raw) || !CANON_KINDS.includes(String(raw.kind))) return null;
 	const meta = {
 		kind: raw.kind,
 		status: oneOf$1(CANON_STATUSES, raw.status, "active"),
@@ -11407,7 +11627,7 @@ function readCanonMeta(raw) {
 		updatedAt: typeof raw.updatedAt === "number" ? raw.updatedAt : 0
 	};
 	if (typeof raw.type === "string") meta.type = raw.type;
-	if (isDict$42(raw.base) && typeof raw.base.world === "string" && Number.isInteger(raw.base.uid)) {
+	if (isDict$55(raw.base) && typeof raw.base.world === "string" && Number.isInteger(raw.base.uid)) {
 		meta.base = {
 			world: raw.base.world,
 			uid: raw.base.uid,
@@ -11428,12 +11648,12 @@ function readCanonMeta(raw) {
 * editor) is a user addition; one whose meta is broken (an override without a base) is not an item.
 */
 function canonItemsOf(data) {
-	const entries = isDict$42(data) && isDict$42(data.entries) ? data.entries : {};
+	const entries = isDict$55(data) && isDict$55(data.entries) ? data.entries : {};
 	const items = [];
 	for (const [key, entry] of Object.entries(entries)) {
-		if (!isDict$42(entry)) continue;
-		const raw = (isDict$42(entry.extensions) ? entry.extensions : {}).maestro;
-		const meta = isDict$42(raw) && raw.kind !== void 0 ? readCanonMeta(raw) : {
+		if (!isDict$55(entry)) continue;
+		const raw = (isDict$55(entry.extensions) ? entry.extensions : {}).maestro;
+		const meta = isDict$55(raw) && raw.kind !== void 0 ? readCanonMeta(raw) : {
 			kind: "addition",
 			status: "active",
 			origin: "user",
@@ -11452,15 +11672,15 @@ function canonItemsOf(data) {
 	return items.sort((a, b) => a.uid - b.uid);
 }
 /** The slot an item occupies on its base: an override and a suppression exclude each other, a pin is separate. */
-function baseSlot(kind) {
+function baseSlot$1(kind) {
 	if (kind === "override" || kind === "suppress") return "replace";
 	return kind === "pin" ? "pin" : null;
 }
 /** The existing item a new draft updates: same base and slot. */
 function findItemForBase(items, kind, base) {
-	const slot = baseSlot(kind);
+	const slot = baseSlot$1(kind);
 	if (!slot || !base) return void 0;
-	return items.find((item) => baseSlot(item.meta.kind) === slot && item.meta.base?.world === base.world && item.meta.base.uid === base.uid);
+	return items.find((item) => baseSlot$1(item.meta.kind) === slot && item.meta.base?.world === base.world && item.meta.base.uid === base.uid);
 }
 /**
 * A canon entry as stored in the canon book: the WI template, the draft's fields, `extensions.maestro` = meta.
@@ -11473,7 +11693,7 @@ function buildCanonEntry(uid, fields, meta, fallbackComment = "") {
 	if (!entry.comment && fallbackComment) entry.comment = fallbackComment;
 	if (meta.kind !== "addition") entry.disable = true;
 	entry.extensions = {
-		...isDict$42(fields.extensions) ? copyValue$1(fields.extensions) : {},
+		...isDict$55(fields.extensions) ? copyValue$1(fields.extensions) : {},
 		maestro: copyValue$1(meta)
 	};
 	delete entry.world;
@@ -11496,8 +11716,8 @@ function scanMarker(item) {
 function baseDriftOf(item, baseEntry) {
 	const base = item.meta.base;
 	if (!base) return null;
-	const now = isDict$42(baseEntry) && typeof baseEntry.content === "string" ? baseEntry.content : "";
-	if (isDict$42(baseEntry) && entryContentHash(baseEntry) === base.contentHash) return null;
+	const now = isDict$55(baseEntry) && typeof baseEntry.content === "string" ? baseEntry.content : "";
+	if (isDict$55(baseEntry) && entryContentHash(baseEntry) === base.contentHash) return null;
 	return {
 		then: base.content ?? "",
 		now
@@ -11505,7 +11725,7 @@ function baseDriftOf(item, baseEntry) {
 }
 function stripMaestro(entry) {
 	const out = { ...entry };
-	if (isDict$42(out.extensions)) {
+	if (isDict$55(out.extensions)) {
 		const extensions = { ...out.extensions };
 		delete extensions.maestro;
 		if (Object.keys(extensions).length) out.extensions = extensions;
@@ -11920,7 +12140,7 @@ function activationKey(world, uid) {
 }
 /** The four lists of a WORLDINFO_ENTRIES_LOADED payload; null when the payload does not look like one. */
 function listsOf(payload) {
-	if (!isDict$42(payload)) return null;
+	if (!isDict$55(payload)) return null;
 	const lists = {};
 	for (const name of LIST_NAMES) {
 		const list = payload[name];
@@ -11947,8 +12167,8 @@ function stripCanonBooks(lists) {
 	return [...found].sort();
 }
 function isOwnCopy(entry) {
-	const extensions = isDict$42(entry?.extensions) ? entry.extensions : void 0;
-	return typeof (isDict$42(extensions?.maestro) ? extensions.maestro : void 0)?.canonUid === "number";
+	const extensions = isDict$55(entry?.extensions) ? entry.extensions : void 0;
+	return typeof (isDict$55(extensions?.maestro) ? extensions.maestro : void 0)?.canonUid === "number";
 }
 function findBase(lists, world, uid) {
 	for (const name of LIST_NAMES) {
@@ -11962,13 +12182,13 @@ function findBase(lists, world, uid) {
 	return null;
 }
 function markerOf(entry) {
-	const extensions = isDict$42(entry.extensions) ? entry.extensions : void 0;
-	return isDict$42(extensions?.maestro) ? extensions.maestro : void 0;
+	const extensions = isDict$55(entry.extensions) ? entry.extensions : void 0;
+	return isDict$55(extensions?.maestro) ? extensions.maestro : void 0;
 }
 /** The scan copy of an addition: a fresh object with fresh arrays, in the canon book's name. */
 function additionCopy(item, canonBook) {
 	const copy = copyValue$1(item.entry);
-	const extensions = isDict$42(copy.extensions) ? copy.extensions : {};
+	const extensions = isDict$55(copy.extensions) ? copy.extensions : {};
 	return {
 		...copy,
 		uid: item.uid,
@@ -11983,7 +12203,7 @@ function additionCopy(item, canonBook) {
 function overrideCopy(base, item) {
 	const copy = materializeOverride(base, item.entry, itemOverrideFields(item.meta, item.entry));
 	copy.extensions = {
-		...isDict$42(base.extensions) ? base.extensions : {},
+		...isDict$55(base.extensions) ? base.extensions : {},
 		maestro: scanMarker(item)
 	};
 	return copy;
@@ -12063,7 +12283,7 @@ function recentText(messages, count) {
 	const parts = [];
 	for (let i = messages.length - 1; i >= 0 && parts.length < count; i--) {
 		const message = messages[i];
-		if (!isDict$42(message) || message.is_system === true) continue;
+		if (!isDict$55(message) || message.is_system === true) continue;
 		if (typeof message.mes === "string" && message.mes) parts.push(message.mes);
 	}
 	return parts.reverse().join("\n");
@@ -12095,7 +12315,7 @@ function itemKeys(item) {
 }
 /** Is an activated entry the canon's own (an addition copy or an override copy)? */
 function isCanonActivation(entry, canonBook) {
-	if (!isDict$42(entry)) return false;
+	if (!isDict$55(entry)) return false;
 	if (entry.world === canonBook) return true;
 	const marker = markerOf(entry);
 	return typeof marker?.canonUid === "number" && typeof marker.kind === "string";
@@ -13183,17 +13403,17 @@ function convertKeyList(value, caseSensitive) {
 }
 //#endregion
 //#region src/domain/doctor-fixes.ts
-function isDict$41(value) {
+function isDict$54(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function isBookData(value) {
-	return isDict$41(value) && isDict$41(value.entries);
+	return isDict$54(value) && isDict$54(value.entries);
 }
 /** JSON with sorted object keys; `undefined` and `null` are the same ("use the default"). */
 function stableStringify$1(value) {
 	if (value === void 0 || value === null) return "null";
 	if (Array.isArray(value)) return `[${value.map(stableStringify$1).join(",")}]`;
-	if (isDict$41(value)) return `{${Object.keys(value).filter((key) => value[key] !== void 0).sort().map((key) => `${JSON.stringify(key)}:${stableStringify$1(value[key])}`).join(",")}}`;
+	if (isDict$54(value)) return `{${Object.keys(value).filter((key) => value[key] !== void 0).sort().map((key) => `${JSON.stringify(key)}:${stableStringify$1(value[key])}`).join(",")}}`;
 	return JSON.stringify(value) ?? "null";
 }
 /** The entry holds exactly these field values. */
@@ -13203,8 +13423,8 @@ function entryHas(entry, values) {
 /** The stored key of an entry by uid (`entries[uid]`, or the entry whose `uid` field matches). */
 function entryKeyOf(data, uid) {
 	const direct = data.entries[String(uid)];
-	if (isDict$41(direct)) return String(uid);
-	for (const [key, entry] of Object.entries(data.entries)) if (isDict$41(entry) && Number(entry.uid) === uid) return key;
+	if (isDict$54(direct)) return String(uid);
+	for (const [key, entry] of Object.entries(data.entries)) if (isDict$54(entry) && Number(entry.uid) === uid) return key;
 	return null;
 }
 function copyValue(value) {
@@ -13287,7 +13507,7 @@ async function commitPatches(io, book, patches, options = {}) {
 }
 /** Entries of a stored book in the shape the BunnyMo heuristics read. */
 function likeScan(book, data) {
-	return Object.values(data.entries).filter(isDict$41).map((entry) => ({
+	return Object.values(data.entries).filter(isDict$54).map((entry) => ({
 		...entry,
 		world: book
 	}));
@@ -13299,13 +13519,13 @@ function isBunnyMoBook(book, data) {
 }
 /** The book holds at least one character archive. */
 function hasArchives(data) {
-	return Object.values(data.entries).some((entry) => isDict$41(entry) && isCharacterArchive(entry));
+	return Object.values(data.entries).some((entry) => isDict$54(entry) && isCharacterArchive(entry));
 }
 /** Enabled entries with their uid. */
 function enabledEntriesOf(data) {
 	const result = [];
 	for (const [key, entry] of Object.entries(data.entries)) {
-		if (!isDict$41(entry) || entry.disable === true) continue;
+		if (!isDict$54(entry) || entry.disable === true) continue;
 		const uid = Number(entry.uid ?? key);
 		if (Number.isFinite(uid)) result.push({
 			uid,
@@ -13352,13 +13572,13 @@ function repairBraces(key) {
 * the marker's `added` lists, so the marker keeps describing the entry.
 */
 function planLocalizerFix(uid, entry) {
-	const extensions = isDict$41(entry.extensions) ? entry.extensions : null;
-	const marker = extensions && isDict$41(extensions[LOCALIZER_MARKER]) ? extensions[LOCALIZER_MARKER] : null;
-	const languages = marker && isDict$41(marker.languages) ? marker.languages : null;
+	const extensions = isDict$54(entry.extensions) ? entry.extensions : null;
+	const marker = extensions && isDict$54(extensions[LOCALIZER_MARKER]) ? extensions[LOCALIZER_MARKER] : null;
+	const languages = marker && isDict$54(marker.languages) ? marker.languages : null;
 	if (!extensions || !marker || !languages) return null;
 	const replace = /* @__PURE__ */ new Map();
 	for (const state of Object.values(languages)) {
-		const added = isDict$41(state) && isDict$41(state.added) ? state.added : null;
+		const added = isDict$54(state) && isDict$54(state.added) ? state.added : null;
 		if (!added) continue;
 		for (const field of KEY_FIELDS) for (const key of stringKeys(added[field])) {
 			const problem = regexKeyProblem(key);
@@ -13373,7 +13593,7 @@ function planLocalizerFix(uid, entry) {
 		return next ? [next] : [];
 	}) : keys;
 	const nextLanguages = Object.fromEntries(Object.entries(languages).map(([lang, state]) => {
-		if (!isDict$41(state) || !isDict$41(state.added)) return [lang, state];
+		if (!isDict$54(state) || !isDict$54(state.added)) return [lang, state];
 		const added = { ...state.added };
 		for (const field of KEY_FIELDS) if (Array.isArray(added[field])) added[field] = fix(added[field]);
 		return [lang, {
@@ -13479,7 +13699,7 @@ var BUNNYMO_RULES = [
 	"wrapper.nsfwCollision",
 	"book.cap"
 ];
-function isDict$40(value) {
+function isDict$53(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function strings$13(value) {
@@ -13618,12 +13838,12 @@ var BunnyMoModeService = class {
 		try {
 			if (store) {
 				const data = await store.load(book);
-				return isDict$40(data) && isDict$40(data.entries) ? data : null;
+				return isDict$53(data) && isDict$53(data.entries) ? data : null;
 			}
 			const load = this.app.host.ctx().loadWorldInfo;
 			if (typeof load !== "function") return null;
 			const data = await load(book);
-			return isDict$40(data) && isDict$40(data.entries) ? copy(data) : null;
+			return isDict$53(data) && isDict$53(data.entries) ? copy(data) : null;
 		} catch (error) {
 			this.log.debug(`lorebook ${book} did not load`, error);
 			return null;
@@ -13885,7 +14105,7 @@ var BunnyMoModeService = class {
 		this.emit();
 	}
 	async undoSelection(change) {
-		const chatId = isDict$40(change.ref) ? change.ref.chatId : void 0;
+		const chatId = isDict$53(change.ref) ? change.ref.chatId : void 0;
 		if (!chatId || chatId !== this.app.host.chatId()) return false;
 		await this.app.chat.setPointer(SELECTION_POINTER, readPackSelection(change.before));
 		this.emit();
@@ -13915,7 +14135,7 @@ var BunnyMoModeService = class {
 		if (!lists) return 0;
 		this.classifyUnknown(lists);
 		const removed = suppressBooks(lists, (world) => isOffBySelection(selection, world) && this.kindOf(world) === "pack");
-		if (!simulating && isDict$40(payload)) {
+		if (!simulating && isDict$53(payload)) {
 			if (!this.seenPayloads.has(payload)) {
 				this.seenPayloads.add(payload);
 				this.suppressed = removed;
@@ -14059,7 +14279,7 @@ var BunnyMoModeService = class {
 	isBunnyMo(book, data) {
 		const kind = this.kindOf(book);
 		if (kind === "core" || kind === "pack") return true;
-		return !!data && isDict$40(data.entries) && isBunnyMoBook(book, data);
+		return !!data && isDict$53(data.entries) && isBunnyMoBook(book, data);
 	}
 	async saveSheet(sheet) {
 		const { book, uid } = sheet;
@@ -14158,7 +14378,7 @@ var BunnyMoModeService = class {
 		}
 	}
 	async undoSheet(change) {
-		const ref = isDict$40(change.ref) ? change.ref : {};
+		const ref = isDict$53(change.ref) ? change.ref : {};
 		const book = typeof ref.book === "string" ? ref.book : null;
 		const uid = Number(ref.uid);
 		if (!book || !Number.isFinite(uid) || typeof change.before !== "string") return false;
@@ -15786,11 +16006,11 @@ function emptyBook(chatId, chatName) {
 	};
 }
 function entriesOf$1(data) {
-	if (!isDict$42(data.entries)) data.entries = {};
+	if (!isDict$55(data.entries)) data.entries = {};
 	return data.entries;
 }
 function titleOf(entry, uid) {
-	if (isDict$42(entry)) {
+	if (isDict$55(entry)) {
 		if (typeof entry.comment === "string" && entry.comment.trim()) return entry.comment.trim();
 		const key = Array.isArray(entry.key) ? entry.key.find((item) => typeof item === "string" && item.trim()) : "";
 		if (typeof key === "string" && key) return key;
@@ -15826,7 +16046,7 @@ var CanonStore = class {
 		};
 		on("WORLDINFO_UPDATED", (name, data) => {
 			if (typeof name !== "string" || !isCanonBookName(name)) return;
-			if (isDict$42(data) && isDict$42(data.entries)) this.remember(name, jsonClone(data));
+			if (isDict$55(data) && isDict$55(data.entries)) this.remember(name, jsonClone(data));
 			else this.invalidate(name);
 			this.emit();
 		});
@@ -15912,7 +16132,7 @@ var CanonStore = class {
 		if (typeof ctx.loadWorldInfo !== "function") return null;
 		try {
 			const data = await ctx.loadWorldInfo(name);
-			return isDict$42(data) && isDict$42(data.entries) ? data : null;
+			return isDict$55(data) && isDict$55(data.entries) ? data : null;
 		} catch (error) {
 			this.log.debug(`lorebook ${name} did not load`, error);
 			return null;
@@ -15920,8 +16140,8 @@ var CanonStore = class {
 	}
 	async readEntry(book, uid) {
 		const data = await this.readBook(book);
-		const entry = data && isDict$42(data.entries) ? data.entries[String(uid)] : void 0;
-		return isDict$42(entry) ? entry : null;
+		const entry = data && isDict$55(data.entries) ? data.entries[String(uid)] : void 0;
+		return isDict$55(entry) ? entry : null;
 	}
 	async list(filter = {}) {
 		const name = this.bookName();
@@ -16026,8 +16246,8 @@ var CanonStore = class {
 			const existing = options.uid !== void 0 ? state.items.find((item) => item.uid === options.uid) : findItemForBase(state.items, kind, draft.meta.base);
 			const uid = options.uid ?? existing?.uid ?? freeUid$1(entries);
 			const previous = entries[String(uid)];
-			const before = isDict$42(previous) ? jsonClone(previous) : null;
-			const previousMeta = before && isDict$42(before.extensions) ? readCanonMeta(before.extensions.maestro) : null;
+			const before = isDict$55(previous) ? jsonClone(previous) : null;
+			const previousMeta = before && isDict$55(before.extensions) ? readCanonMeta(before.extensions.maestro) : null;
 			const now = Date.now();
 			const meta = {
 				...draft.meta,
@@ -16074,7 +16294,7 @@ var CanonStore = class {
 			const data = jsonClone(state.data);
 			const entries = entriesOf$1(data);
 			const before = entries[String(uid)];
-			if (!isDict$42(before)) return;
+			if (!isDict$55(before)) return;
 			delete entries[String(uid)];
 			await this.saveBook(name, data);
 			await this.journal("canon.remove", this.t("m6.journal.remove", { title: titleOf(before, uid) }), [{
@@ -16098,7 +16318,7 @@ var CanonStore = class {
 			const data = jsonClone(state.data);
 			const entries = entriesOf$1(data);
 			const current = entries[String(uid)];
-			if (!isDict$42(current) || !isDict$42(current.extensions) || !isDict$42(current.extensions.maestro)) return;
+			if (!isDict$55(current) || !isDict$55(current.extensions) || !isDict$55(current.extensions.maestro)) return;
 			const raw = current.extensions.maestro;
 			if (!readCanonMeta(raw) || raw.status === status) return;
 			const before = jsonClone(current);
@@ -16154,8 +16374,8 @@ var CanonStore = class {
 		const canonBook = this.bookName();
 		return this.enqueue(async () => {
 			const baseData = await this.readBook(base.world);
-			const current = baseData && isDict$42(baseData.entries) ? baseData.entries[String(base.uid)] : void 0;
-			if (!baseData || !isDict$42(current)) return false;
+			const current = baseData && isDict$55(baseData.entries) ? baseData.entries[String(base.uid)] : void 0;
+			if (!baseData || !isDict$55(current)) return false;
 			const data = jsonClone(baseData);
 			const before = jsonClone(current);
 			const after = item.meta.kind === "override" ? materializeOverride(current, item.entry, itemOverrideFields(item.meta, item.entry)) : {
@@ -16175,7 +16395,7 @@ var CanonStore = class {
 				before,
 				after
 			}];
-			if (state.data && isDict$42(entriesOf$1(state.data)[String(uid)])) {
+			if (state.data && isDict$55(entriesOf$1(state.data)[String(uid)])) {
 				const canonData = jsonClone(state.data);
 				const removed = entriesOf$1(canonData)[String(uid)];
 				delete entriesOf$1(canonData)[String(uid)];
@@ -16208,7 +16428,7 @@ var CanonStore = class {
 			if (!base) continue;
 			if (!books.has(base.world)) books.set(base.world, await this.readBook(base.world));
 			const data = books.get(base.world);
-			const changed = baseDriftOf(item, data && isDict$42(data.entries) ? data.entries[String(base.uid)] : void 0);
+			const changed = baseDriftOf(item, data && isDict$55(data.entries) ? data.entries[String(base.uid)] : void 0);
 			if (changed) drift.push({
 				item,
 				baseThen: changed.then,
@@ -16219,8 +16439,29 @@ var CanonStore = class {
 	}
 	/** «Экспорт канона» (plan §4.9, audit C1): a plain lorebook "<chat> — канон"; not bound anywhere. */
 	async exportPlain() {
-		if (!this.bookName()) throw new Error(this.t("m6.error.noChat"));
-		const items = await this.list();
+		const name = this.bookName();
+		if (!name) throw new Error(this.t("m6.error.noChat"));
+		const { chatName } = this.chatInfo();
+		return this.exportBook(name, chatName);
+	}
+	/**
+	* «Подготовить к отключению» (plan §4.9): every chat's canon book as a plain lorebook. Books without items are
+	* skipped. Returns the created book names.
+	*/
+	async exportAll() {
+		const created = [];
+		for (const name of (this.worldNames() ?? []).filter((book) => isCanonBookName(book))) {
+			const data = await this.readBook(name);
+			if (!data || !canonItemsOf(data).length) continue;
+			const extensions = isDict$55(data.extensions) ? data.extensions : {};
+			const meta = isDict$55(extensions.maestro) ? extensions.maestro : {};
+			const chatName = typeof meta.chatName === "string" && meta.chatName ? meta.chatName : name;
+			created.push(await this.exportBook(name, chatName));
+		}
+		return created;
+	}
+	async exportBook(name, chatName) {
+		const { items } = await this.state(name);
 		if (!items.length) throw new Error(this.t("m6.export.empty"));
 		const books = /* @__PURE__ */ new Map();
 		for (const item of items) {
@@ -16229,8 +16470,8 @@ var CanonStore = class {
 		}
 		const baseOf = (world, uid) => {
 			const data = books.get(world);
-			const entry = data && isDict$42(data.entries) ? data.entries[String(uid)] : void 0;
-			return isDict$42(entry) ? entry : null;
+			const entry = data && isDict$55(data.entries) ? data.entries[String(uid)] : void 0;
+			return isDict$55(entry) ? entry : null;
 		};
 		const book = buildExportBook(items, baseOf, {
 			noteTitle: this.t("m6.export.noteTitle"),
@@ -16243,7 +16484,6 @@ var CanonStore = class {
 				comment: comment || "—"
 			})
 		});
-		const { chatName } = this.chatInfo();
 		return this.enqueue(async () => {
 			const exportName = uniqueBookName(`${chatName} — канон`, this.worldNames() ?? []);
 			await this.saveBook(exportName, book, true);
@@ -16269,7 +16509,7 @@ var CanonStore = class {
 			if (!source) return false;
 			const data = jsonClone(source);
 			data.extensions = {
-				...isDict$42(data.extensions) ? data.extensions : {},
+				...isDict$55(data.extensions) ? data.extensions : {},
 				maestro: {
 					role: "canon",
 					chatId,
@@ -16295,9 +16535,9 @@ var CanonStore = class {
 				const data = jsonClone(current);
 				let changed = false;
 				for (const entry of Object.values(entriesOf$1(data))) {
-					if (!isDict$42(entry) || !isDict$42(entry.extensions)) continue;
+					if (!isDict$55(entry) || !isDict$55(entry.extensions)) continue;
 					const meta = entry.extensions.maestro;
-					if (!isDict$42(meta) || !isDict$42(meta.base) || meta.base.world !== oldName) continue;
+					if (!isDict$55(meta) || !isDict$55(meta.base) || meta.base.world !== oldName) continue;
 					entry.extensions = {
 						...entry.extensions,
 						maestro: {
@@ -16326,7 +16566,7 @@ var CanonStore = class {
 			if (!state.data && change.before === null) return true;
 			const data = state.data ? jsonClone(state.data) : { entries: {} };
 			const entries = entriesOf$1(data);
-			if (isDict$42(change.before)) entries[String(uid)] = jsonClone(change.before);
+			if (isDict$55(change.before)) entries[String(uid)] = jsonClone(change.before);
 			else delete entries[String(uid)];
 			await this.saveBook(book, data, !state.exists);
 			this.emit();
@@ -16342,7 +16582,7 @@ var CanonStore = class {
 			if (!current) return false;
 			const data = jsonClone(current);
 			const entries = entriesOf$1(data);
-			if (isDict$42(change.before)) entries[String(uid)] = jsonClone(change.before);
+			if (isDict$55(change.before)) entries[String(uid)] = jsonClone(change.before);
 			else delete entries[String(uid)];
 			await this.saveBook(book, data);
 			return true;
@@ -16507,7 +16747,7 @@ var CanonGlosses = class {
 	collectLocalizer(lists) {
 		const pairs = [];
 		for (const list of Object.values(lists)) for (const entry of list) {
-			if (!isDict$42(entry) || !isDict$42(entry.extensions) || !entry.extensions.lorebook_localizer) continue;
+			if (!isDict$55(entry) || !isDict$55(entry.extensions) || !entry.extensions.lorebook_localizer) continue;
 			const marker = readLocalizerMarker(entry);
 			if (!marker) continue;
 			for (const state of Object.values(marker.languages)) pairs.push(...pairsFromLocalizer(state.sources, [...state.added.key, ...state.added.keysecondary]));
@@ -16701,11 +16941,11 @@ var CanonScan = class {
 		}
 	}
 	onScanDone(args) {
-		if (!isDict$42(args)) return;
+		if (!isDict$55(args)) return;
 		const book = this.store.bookName();
-		const activated = isDict$42(args.activated) ? args.activated.entries : void 0;
+		const activated = isDict$55(args.activated) ? args.activated.entries : void 0;
 		if (!book || !(activated instanceof Map)) return;
-		const state = isDict$42(args.state) ? args.state : {};
+		const state = isDict$55(args.state) ? args.state : {};
 		const loop = typeof state.loopCount === "number" && state.loopCount > 0 ? state.loopCount : 1;
 		const sorted = Array.isArray(args.sortedEntries) ? args.sortedEntries : [];
 		let scan = this.scan;
@@ -16728,8 +16968,8 @@ var CanonScan = class {
 	forcePins(activated, sorted, scan) {
 		for (const key of this.pins) {
 			if (activated.has(key)) continue;
-			const entry = sorted.find((item) => isDict$42(item) && activationKey(item.world, item.uid) === key);
-			if (!isDict$42(entry)) continue;
+			const entry = sorted.find((item) => isDict$55(item) && activationKey(item.world, item.uid) === key);
+			if (!isDict$55(entry)) continue;
 			if (typeof entry.content === "string") try {
 				entry.content = this.app.host.ctx().substituteParams(entry.content);
 			} catch (error) {
@@ -16749,7 +16989,7 @@ var CanonScan = class {
 			const key = String(rawKey);
 			if (scan.accepted.has(key) || scan.pinned.has(key) || !isCanonActivation(entry, book)) continue;
 			const copy = entry;
-			const marker = isDict$42(copy.extensions) && isDict$42(copy.extensions.maestro) ? copy.extensions.maestro : {};
+			const marker = isDict$55(copy.extensions) && isDict$55(copy.extensions.maestro) ? copy.extensions.maestro : {};
 			const uid = copy.world === book ? Number(copy.uid) : Number(marker.canonUid);
 			byKey.set(key, copy);
 			candidates.push({
@@ -16770,8 +17010,8 @@ var CanonScan = class {
 			activated.delete(key);
 			entry.disable = true;
 			if (!sorted.includes(entry)) {
-				const twin = sorted.find((item) => isDict$42(item) && activationKey(item.world, item.uid) === key);
-				if (isDict$42(twin)) twin.disable = true;
+				const twin = sorted.find((item) => isDict$55(item) && activationKey(item.world, item.uid) === key);
+				if (isDict$55(twin)) twin.disable = true;
 			}
 			scan.cut++;
 			lore?.markCut?.(String(entry.world), Number(entry.uid));
@@ -17050,7 +17290,7 @@ function canonTab(app, store, scan) {
 					report ? el("div", {
 						class: "maestro-muted",
 						text: t("m6.scan.report", {
-							time: formatTime(report.at, app.i18n),
+							time: formatTime$1(report.at, app.i18n),
 							added: report.added,
 							replaced: report.replaced,
 							suppressed: report.suppressed,
@@ -17260,7 +17500,8 @@ var canonModule = {
 				return () => offs.forEach((off) => off());
 			},
 			lastScan: () => scan.lastScan(),
-			renameBase: (oldName, newName) => store.renameBase(oldName, newName)
+			renameBase: (oldName, newName) => store.renameBase(oldName, newName),
+			exportAll: () => store.exportAll()
 		});
 		own(app.ui.style("m6-view", CANON_CSS));
 		own(app.ui.addTab(canonTab(app, store, scan)));
@@ -18819,7 +19060,7 @@ function rolesOf(text) {
 	return out;
 }
 /** Content tokens without negations and copulas (the negation rule compares what is left). */
-function contentOf$2(text) {
+function contentOf$3(text) {
 	const out = /* @__PURE__ */ new Set();
 	for (const word of textWords(text)) {
 		if (NEGATION_WORDS.has(word) || STOP_WORDS$1.has(word) || word.length < 3 && !/^\d+$/.test(word)) continue;
@@ -18835,7 +19076,7 @@ function analyseText(text, limit, entities, inherit) {
 		const named = mentioned(words, entities);
 		const explicit = named.size > 0;
 		if (explicit) carried = named;
-		const content = contentOf$2(sentence);
+		const content = contentOf$3(sentence);
 		return {
 			text: sentence,
 			entities: explicit ? named : new Set(carried),
@@ -19691,7 +19932,7 @@ function withTypedMeta(extensions, meta) {
 }
 //#endregion
 //#region src/domain/chronicle-chapters.ts
-function isDict$39(value) {
+function isDict$52(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function strings$11(value) {
@@ -19721,9 +19962,9 @@ function memoryHash(text) {
 /** Stored tracking records, repaired (unknown fields and broken records dropped). */
 function readTracked(raw) {
 	const out = {};
-	if (!isDict$39(raw)) return out;
+	if (!isDict$52(raw)) return out;
 	for (const [key, value] of Object.entries(raw)) {
-		if (!/^\d+$/.test(key) || !isDict$39(value)) continue;
+		if (!/^\d+$/.test(key) || !isDict$52(value)) continue;
 		const state = MEMORY_STATES.includes(String(value.state)) ? value.state : null;
 		if (!state || typeof value.date !== "string" || typeof value.hash !== "string") continue;
 		const item = {
@@ -20063,7 +20304,7 @@ function chapterId(indexes, dates) {
 	return `ch-${stableHash(`${indexes.join(",")}|${dates.join("|")}`)}`;
 }
 function readChronicleMeta(raw) {
-	if (!isDict$39(raw) || typeof raw.id !== "string" || !raw.id) return null;
+	if (!isDict$52(raw) || typeof raw.id !== "string" || !raw.id) return null;
 	if (!Number.isInteger(raw.from) || !Number.isInteger(raw.to)) return null;
 	return {
 		id: raw.id,
@@ -20078,11 +20319,11 @@ function readChronicleMeta(raw) {
 }
 /** A canon item (uid, meta, entry) as a chronicle chapter; null for anything else. */
 function chapterInfoOf(item) {
-	const meta = isDict$39(item.meta) ? item.meta : {};
+	const meta = isDict$52(item.meta) ? item.meta : {};
 	if (meta.type !== "chapter" || meta.origin !== "chronicle") return null;
 	const chronicle = readChronicleMeta(meta.chronicle);
 	if (!chronicle) return null;
-	const fields = isDict$39(meta["typeFields"]) ? meta[TYPED_FIELDS_KEY] : {};
+	const fields = isDict$52(meta["typeFields"]) ? meta[TYPED_FIELDS_KEY] : {};
 	const content = typeof item.entry.content === "string" ? item.entry.content : "";
 	const comment = typeof item.entry.comment === "string" ? item.entry.comment.trim() : "";
 	return {
@@ -20510,7 +20751,7 @@ function findMentions(matcher, text) {
 }
 //#endregion
 //#region src/domain/text-clean.ts
-function isDict$38(value) {
+function isDict$51(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /** Names of real HTML elements (lower case). BunnyMo tags (`<SPECIES:ELF>`, `<PHYSICAL>`) are not among them. */
@@ -20719,7 +20960,7 @@ function looksLikeTracker(json) {
 	if (!body.startsWith("{")) return false;
 	try {
 		const parsed = JSON.parse(body);
-		return isDict$38(parsed) && TRACKER_KEYS.some((key) => key in parsed);
+		return isDict$51(parsed) && TRACKER_KEYS.some((key) => key in parsed);
 	} catch {
 		return TRACKER_KEY_RE$1.test(body);
 	}
@@ -20806,11 +21047,11 @@ function stripNaiPlaceholders(text) {
 * its own text and is not a picture post.
 */
 function isImagePost(message) {
-	if (!isDict$38(message) || !isDict$38(message.extra)) return false;
+	if (!isDict$51(message) || !isDict$51(message.extra)) return false;
 	const extra = message.extra;
-	if (isDict$38(extra.nai_studio)) return true;
+	if (isDict$51(extra.nai_studio)) return true;
 	const media = extra.media;
-	if (!Array.isArray(media) || !media.length || !media.every((item) => isDict$38(item) && isDict$38(item.nai_studio))) return false;
+	if (!Array.isArray(media) || !media.length || !media.every((item) => isDict$51(item) && isDict$51(item.nai_studio))) return false;
 	const text = typeof message.mes === "string" ? message.mes.trim() : "";
 	if (!text) return true;
 	return media.some((item) => {
@@ -20828,7 +21069,7 @@ function normalizeWhitespace(text) {
 */
 function cleanForAnalysis(message) {
 	if (typeof message !== "string" && isImagePost(message)) return "";
-	const raw = typeof message === "string" ? message : isDict$38(message) ? message.mes : void 0;
+	const raw = typeof message === "string" ? message : isDict$51(message) ? message.mes : void 0;
 	if (typeof raw !== "string" || !raw) return "";
 	let text = stripDesTrackerJson(raw);
 	text = stripCkDumps(text);
@@ -20891,17 +21132,17 @@ var IDLE_DELAY_MS$2 = 500;
 /** Messages whose language decides whether the event's own words can be keys. */
 var LANGUAGE_MESSAGES$1 = 6;
 var MAX_ALIASES = 4;
-function isDict$37(value) {
+function isDict$50(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function isChapterPayload(value) {
-	return isDict$37(value) && typeof value.id === "string" && typeof value.content === "string" && Array.isArray(value.keys) && Array.isArray(value.dates) && isDict$37(value.chronicle);
+	return isDict$50(value) && typeof value.id === "string" && typeof value.content === "string" && Array.isArray(value.keys) && Array.isArray(value.dates) && isDict$50(value.chronicle);
 }
 function isMergePayload(value) {
-	return isDict$37(value) && typeof value.keep === "number" && typeof value.drop === "number" && typeof value.content === "string" && isDict$37(value.chronicle);
+	return isDict$50(value) && typeof value.keep === "number" && typeof value.drop === "number" && typeof value.content === "string" && isDict$50(value.chronicle);
 }
 function isArchivePayload$1(value) {
-	return isDict$37(value) && Array.isArray(value.uids) && value.uids.every((uid) => Number.isInteger(uid));
+	return isDict$50(value) && Array.isArray(value.uids) && value.uids.every((uid) => Number.isInteger(uid));
 }
 /** A canon item as a draft that recreates it (undo of a merge). */
 function draftOf$1(item) {
@@ -20917,7 +21158,7 @@ function draftOf$1(item) {
 	});
 }
 function isDraft(value) {
-	return isDict$37(value) && isDict$37(value.entry) && isDict$37(value.meta);
+	return isDict$50(value) && isDict$50(value.entry) && isDict$50(value.meta);
 }
 /** The canon draft of a chapter: a selective AND ANY addition, typed «chapter», origin 'chronicle'. */
 function chapterDraft(input) {
@@ -21513,13 +21754,13 @@ var ChapterService = class {
 		const canon = this.env.canon();
 		const keep = change.ref.keep;
 		const drop = change.ref.drop;
-		const before = isDict$37(change.before) ? change.before : {};
+		const before = isDict$50(change.before) ? change.before : {};
 		if (!canon || typeof keep !== "number" || typeof drop !== "number") return false;
 		if (!isDraft(before.keep) || !isDraft(before.drop)) return false;
 		await canon.put(structuredClone(before.keep), { uid: keep });
 		await canon.put(structuredClone(before.drop), { uid: drop });
 		const dropMeta = before.drop.meta;
-		const dropChronicle = isDict$37(dropMeta.chronicle) ? dropMeta.chronicle : {};
+		const dropChronicle = isDict$50(dropMeta.chronicle) ? dropMeta.chronicle : {};
 		const dropId = typeof change.ref.dropId === "string" ? change.ref.dropId : "";
 		const indexes = new Set((Array.isArray(dropChronicle.indexes) ? dropChronicle.indexes : []).map((index) => String(index)));
 		if (dropId) await this.env.store.mutate((doc) => {
@@ -21625,12 +21866,12 @@ function createChronicleEnv(app, log, store, settings) {
 }
 //#endregion
 //#region src/features/chronicle/qvink-flags.ts
-function isDict$36(value) {
+function isDict$49(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function flagsOf(extra) {
-	const record = isDict$36(extra) ? extra[QVINK_KEY] : void 0;
-	if (!isDict$36(record)) return null;
+	const record = isDict$49(extra) ? extra[QVINK_KEY] : void 0;
+	if (!isDict$49(record)) return null;
 	return {
 		remember: record.remember === true,
 		exclude: record.exclude === true
@@ -21645,7 +21886,7 @@ function currentSwipe(message) {
 function readRememberState(message) {
 	return {
 		live: flagsOf(message.extra),
-		swipes: swipeInfos(message).map((info) => isDict$36(info) ? flagsOf(info.extra) : null)
+		swipes: swipeInfos(message).map((info) => isDict$49(info) ? flagsOf(info.extra) : null)
 	};
 }
 function isRemembered(message) {
@@ -21653,12 +21894,12 @@ function isRemembered(message) {
 }
 function hasSummary(message) {
 	const record = message?.extra?.[QVINK_KEY];
-	return isDict$36(record) && typeof record.memory === "string" && record.memory.trim().length > 0;
+	return isDict$49(record) && typeof record.memory === "string" && record.memory.trim().length > 0;
 }
 /** The record of an `extra` object, created when missing. */
 function recordIn(holder) {
-	const extra = isDict$36(holder.extra) ? holder.extra : holder.extra = {};
-	return isDict$36(extra["qvink_memory"]) ? extra[QVINK_KEY] : extra[QVINK_KEY] = {};
+	const extra = isDict$49(holder.extra) ? holder.extra : holder.extra = {};
+	return isDict$49(extra["qvink_memory"]) ? extra[QVINK_KEY] : extra[QVINK_KEY] = {};
 }
 /** Sets or restores the flags of a record; `null` removes the flags (the record goes when nothing else is left). */
 function setFlags(holder, state) {
@@ -21668,8 +21909,8 @@ function setFlags(holder, state) {
 		record.exclude = state.exclude;
 		return;
 	}
-	const extra = isDict$36(holder.extra) ? holder.extra : null;
-	const record = extra && isDict$36(extra["qvink_memory"]) ? extra[QVINK_KEY] : null;
+	const extra = isDict$49(holder.extra) ? holder.extra : null;
+	const record = extra && isDict$49(extra["qvink_memory"]) ? extra[QVINK_KEY] : null;
 	if (!extra || !record) return;
 	delete record.remember;
 	delete record.exclude;
@@ -21687,9 +21928,9 @@ function writeRemember(message) {
 	const live = message.extra[QVINK_KEY];
 	const current = currentSwipe(message);
 	swipeInfos(message).forEach((info, index) => {
-		if (!isDict$36(info)) return;
+		if (!isDict$49(info)) return;
 		if (index === current) {
-			const extra = isDict$36(info.extra) ? info.extra : info.extra = {};
+			const extra = isDict$49(info.extra) ? info.extra : info.extra = {};
 			extra[QVINK_KEY] = structuredClone(live);
 			return;
 		}
@@ -21703,13 +21944,13 @@ function writeRemember(message) {
 function restoreRemember(message, before) {
 	setFlags(message, before.live);
 	swipeInfos(message).forEach((info, index) => {
-		if (isDict$36(info)) setFlags(info, before.swipes[index] ?? null);
+		if (isDict$49(info)) setFlags(info, before.swipes[index] ?? null);
 	});
 }
 /** A stored RememberState (journal JSON) or null. */
 function readStoredState(raw) {
-	if (!isDict$36(raw) || !Array.isArray(raw.swipes)) return null;
-	const flags = (value) => isDict$36(value) ? {
+	if (!isDict$49(raw) || !Array.isArray(raw.swipes)) return null;
+	const flags = (value) => isDict$49(value) ? {
 		remember: value.remember === true,
 		exclude: value.exclude === true
 	} : null;
@@ -21736,7 +21977,7 @@ function emptyChronicleDoc() {
 		recap: null
 	};
 }
-function isDict$35(value) {
+function isDict$48(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function isReasonCode(value) {
@@ -21746,7 +21987,7 @@ function readReasons(raw) {
 	if (!Array.isArray(raw)) return [];
 	const out = [];
 	for (const item of raw) {
-		if (!isDict$35(item) || !isReasonCode(item.code)) continue;
+		if (!isDict$48(item) || !isReasonCode(item.code)) continue;
 		const reason = { code: item.code };
 		if (typeof item.text === "string" && item.text.trim()) reason.text = item.text.trim();
 		out.push(reason);
@@ -21757,7 +21998,7 @@ function readRemembered(raw) {
 	if (!Array.isArray(raw)) return [];
 	const out = [];
 	for (const item of raw) {
-		if (!isDict$35(item) || !Number.isInteger(item.index) || typeof item.date !== "string") continue;
+		if (!isDict$48(item) || !Number.isInteger(item.index) || typeof item.date !== "string") continue;
 		out.push({
 			index: item.index,
 			date: item.date,
@@ -21768,7 +22009,7 @@ function readRemembered(raw) {
 	return out;
 }
 function readRecap(raw) {
-	if (!isDict$35(raw) || typeof raw.shownAt !== "number" || !Number.isFinite(raw.shownAt)) return null;
+	if (!isDict$48(raw) || typeof raw.shownAt !== "number" || !Number.isFinite(raw.shownAt)) return null;
 	const stamp = {
 		shownAt: raw.shownAt,
 		source: raw.source === "ai" ? "ai" : "memory"
@@ -21891,11 +22132,11 @@ var REMEMBER_KIND = "chronicle.remember";
 var REMEMBER_TARGET = "m9.remember";
 var FLUSH_DELAY_MS = 1500;
 var IDLE_DELAY_MS$1 = 300;
-function isDict$34(value) {
+function isDict$47(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function isRememberPayload(value) {
-	return isDict$34(value) && Number.isInteger(value.index) && typeof value.date === "string" && Array.isArray(value.reasons) && value.reasons.every((reason) => isDict$34(reason) && isReasonCode(reason.code));
+	return isDict$47(value) && Number.isInteger(value.index) && typeof value.date === "string" && Array.isArray(value.reasons) && value.reasons.every((reason) => isDict$47(reason) && isReasonCode(reason.code));
 }
 function text$4(value) {
 	return typeof value === "string" && value.trim() ? value.trim() : void 0;
@@ -21962,7 +22203,7 @@ var AutoMemory = class {
 	onSignal(signal) {
 		if (!this.env.settings().autoMemory) return;
 		if (signal.chatId && signal.chatId !== this.app.host.chatId()) return;
-		const data = isDict$34(signal.data) ? signal.data : {};
+		const data = isDict$47(signal.data) ? signal.data : {};
 		let index = signal.messageIndex;
 		let found;
 		switch (signal.kind) {
@@ -22929,7 +23170,7 @@ var chronicleModule = {
 //#endregion
 //#region src/features/doctor/files.ts
 var LORE_ENTRY_TARGET$1 = "lore-entry";
-function isDict$33(value) {
+function isDict$46(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function bookRoles(app) {
@@ -23003,7 +23244,7 @@ function patchChanges$1(book, patches) {
 async function undoLoreEntry$1(app, change) {
 	const book = change.ref.book;
 	const uid = Number(change.ref.uid);
-	if (typeof book !== "string" || !Number.isFinite(uid) || !isDict$33(change.before) || !isDict$33(change.after)) return false;
+	if (typeof book !== "string" || !Number.isFinite(uid) || !isDict$46(change.before) || !isDict$46(change.after)) return false;
 	return (await writePatches$1(app, book, [{
 		uid,
 		before: change.before,
@@ -23011,7 +23252,7 @@ async function undoLoreEntry$1(app, change) {
 	}], "revert")).ok;
 }
 function isEntryPatch$1(value) {
-	return isDict$33(value) && typeof value.uid === "number" && isDict$33(value.before) && isDict$33(value.after);
+	return isDict$46(value) && typeof value.uid === "number" && isDict$46(value.before) && isDict$46(value.after);
 }
 //#endregion
 //#region src/domain/doctor-types.ts
@@ -23024,19 +23265,19 @@ var DOCTOR_RULES = {
 	packVersion: "pack.versionConflict",
 	nsfwCollision: "wrapper.nsfwCollision"
 };
-function str$10(value) {
+function str$11(value) {
 	return typeof value === "string" ? value : value === void 0 || value === null ? "" : String(value);
 }
 function keyList(value) {
-	return Array.isArray(value) ? value.map((key) => str$10(key).trim()).filter(Boolean) : [];
+	return Array.isArray(value) ? value.map((key) => str$11(key).trim()).filter(Boolean) : [];
 }
-function num$5(value, fallback) {
+function num$6(value, fallback) {
 	const parsed = typeof value === "number" ? value : typeof value === "string" && value !== "" ? Number(value) : NaN;
 	return Number.isFinite(parsed) ? parsed : fallback;
 }
 function nullableNum(value) {
 	if (value === null || value === void 0 || value === "") return null;
-	const parsed = num$5(value, NaN);
+	const parsed = num$6(value, NaN);
 	return Number.isFinite(parsed) ? parsed : null;
 }
 function nullableBool(value) {
@@ -23049,15 +23290,15 @@ function nullableBool(value) {
 function toDoctorEntry(book, raw, fallbackUid, localizerKeys = []) {
 	return {
 		book,
-		uid: num$5(raw.uid, fallbackUid),
-		comment: str$10(raw.comment),
-		content: str$10(raw.content),
+		uid: num$6(raw.uid, fallbackUid),
+		comment: str$11(raw.comment),
+		content: str$11(raw.content),
 		key: keyList(raw.key),
 		keysecondary: keyList(raw.keysecondary),
 		disable: raw.disable === true,
 		constant: raw.constant === true,
-		position: num$5(raw.position, 0),
-		depth: num$5(raw.depth, 4),
+		position: num$6(raw.position, 0),
+		depth: num$6(raw.depth, 4),
 		role: nullableNum(raw.role),
 		scanDepth: nullableNum(raw.scanDepth),
 		caseSensitive: nullableBool(raw.caseSensitive),
@@ -23086,7 +23327,7 @@ var STRATEGIES = [
 	"characterFirst",
 	"globalFirst"
 ];
-function num$4(value, fallback) {
+function num$5(value, fallback) {
 	return typeof value === "number" && Number.isFinite(value) ? value : fallback;
 }
 /**
@@ -23094,14 +23335,14 @@ function num$4(value, fallback) {
 * the `world_info_*` names). Missing values take ST's defaults.
 */
 function readWiSettings$1(raw) {
-	const strategy = num$4(raw.world_info_character_strategy, 1);
+	const strategy = num$5(raw.world_info_character_strategy, 1);
 	return {
-		depth: num$4(raw.world_info_depth, 2),
-		budgetPercent: num$4(raw.world_info_budget, 25),
-		budgetCap: num$4(raw.world_info_budget_cap, 0),
+		depth: num$5(raw.world_info_depth, 2),
+		budgetPercent: num$5(raw.world_info_budget, 25),
+		budgetCap: num$5(raw.world_info_budget_cap, 0),
 		recursive: raw.world_info_recursive === true,
-		maxRecursionSteps: num$4(raw.world_info_max_recursion_steps, 0),
-		minActivations: num$4(raw.world_info_min_activations, 0),
+		maxRecursionSteps: num$5(raw.world_info_max_recursion_steps, 0),
+		minActivations: num$5(raw.world_info_min_activations, 0),
 		caseSensitive: raw.world_info_case_sensitive === true,
 		wholeWords: raw.world_info_match_whole_words === true,
 		strategy: STRATEGIES[strategy] ?? "characterFirst",
@@ -23228,7 +23469,7 @@ var REGEX_PLACEMENT = {
 	WORLD_INFO: 5,
 	REASONING: 6
 };
-function str$9(value) {
+function str$10(value) {
 	return typeof value === "string" ? value : "";
 }
 function depth(value) {
@@ -23236,15 +23477,15 @@ function depth(value) {
 }
 function normalizeScript(raw, type, index, allowed) {
 	const script = raw && typeof raw === "object" ? raw : {};
-	const scriptId = str$9(script.id);
+	const scriptId = str$10(script.id);
 	return {
 		id: `${type}:${scriptId || index}`,
 		scriptId,
-		name: str$9(script.scriptName),
+		name: str$10(script.scriptName),
 		type,
 		index,
-		find: str$9(script.findRegex),
-		replace: str$9(script.replaceString),
+		find: str$10(script.findRegex),
+		replace: str$10(script.replaceString),
 		trimStrings: Array.isArray(script.trimStrings) ? script.trimStrings.filter((item) => typeof item === "string") : [],
 		placement: Array.isArray(script.placement) ? script.placement.filter((item) => typeof item === "number") : [],
 		disabled: script.disabled === true,
@@ -23544,7 +23785,7 @@ function findRegexIssues(scripts, context) {
 }
 //#endregion
 //#region src/features/doctor/sources.ts
-function isDict$32(value) {
+function isDict$45(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function extras(app) {
@@ -23573,10 +23814,10 @@ async function readLore(app, log) {
 			log.warn(`lorebook ${book} did not load`, error);
 			continue;
 		}
-		if (!isDict$32(data) || !isDict$32(data.entries)) continue;
+		if (!isDict$45(data) || !isDict$45(data.entries)) continue;
 		loaded.push(book);
 		for (const [uid, raw] of Object.entries(data.entries)) {
-			if (!isDict$32(raw)) continue;
+			if (!isDict$45(raw)) continue;
 			const marker = readLocalizerMarker(raw);
 			const added = marker ? Object.values(marker.languages).flatMap((state) => [...state.added.key, ...state.added.keysecondary]) : [];
 			entries.push(toDoctorEntry(book, raw, Number(uid) || 0, added));
@@ -23637,7 +23878,7 @@ async function readWorldInfoSettings(app, log) {
 		const module = await app.host.modules.worldInfo();
 		const getter = module.getWorldInfoSettings;
 		const raw = typeof getter === "function" ? getter() : module;
-		return isDict$32(raw) ? readWiSettings$1(raw) : null;
+		return isDict$45(raw) ? readWiSettings$1(raw) : null;
 	} catch (error) {
 		log.debug("world-info.js is not available", error);
 		return null;
@@ -23719,9 +23960,9 @@ function fallbackScripts(app) {
 	const scoped = character?.data?.extensions?.regex_scripts;
 	const allowedChars = settings.character_allowed_regex;
 	const preset = extras(app).chatCompletionSettings;
-	const presetScripts = isDict$32(preset?.extensions) ? preset.extensions.regex_scripts : void 0;
+	const presetScripts = isDict$45(preset?.extensions) ? preset.extensions.regex_scripts : void 0;
 	const presetName = preset?.preset_settings_openai;
-	const allowedPresets = isDict$32(settings.preset_allowed_regex) ? settings.preset_allowed_regex.openai : void 0;
+	const allowedPresets = isDict$45(settings.preset_allowed_regex) ? settings.preset_allowed_regex.openai : void 0;
 	return {
 		global: {
 			list: Array.isArray(settings.regex) ? settings.regex : [],
@@ -23741,7 +23982,7 @@ function fallbackScripts(app) {
 async function readRegexScripts(app, log) {
 	const engine = await regexEngine$1(app);
 	const byType = engine?.getScriptsByType;
-	const codes = isDict$32(engine?.SCRIPT_TYPES) ? engine.SCRIPT_TYPES : null;
+	const codes = isDict$45(engine?.SCRIPT_TYPES) ? engine.SCRIPT_TYPES : null;
 	let lists;
 	let viaEngine = false;
 	if (typeof byType === "function") {
@@ -23772,7 +24013,7 @@ async function readRegexScripts(app, log) {
 		list.forEach((item, index) => {
 			const script = normalizeScript(item, type, index, allowed);
 			scripts.push(script);
-			if (isDict$32(item)) raw.set(script.id, item);
+			if (isDict$45(item)) raw.set(script.id, item);
 		});
 	}
 	const disabled = app.host.ctx().extensionSettings.disabledExtensions;
@@ -23998,21 +24239,21 @@ var TYPES = [
 	"scoped",
 	"preset"
 ];
-function isDict$31(value) {
+function isDict$44(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function jsonCopy$1(value) {
 	return JSON.parse(JSON.stringify(value));
 }
 function isRegexFixPayload(value) {
-	if (!isDict$31(value)) return false;
+	if (!isDict$44(value)) return false;
 	return ACTIONS.includes(value.action) && TYPES.includes(value.type) && typeof value.scriptId === "string" && typeof value.index === "number" && typeof value.name === "string" && (value.owner === null || typeof value.owner === "string");
 }
 async function presetManager$1(app) {
 	try {
 		const get = (await app.host.modules.presetManager()).getPresetManager;
 		const manager = typeof get === "function" ? get() : null;
-		return isDict$31(manager) ? manager : null;
+		return isDict$44(manager) ? manager : null;
 	} catch {
 		return null;
 	}
@@ -24044,11 +24285,11 @@ async function scriptStore(app, type) {
 	const read = engine?.getScriptsByType;
 	const write = engine?.saveScriptsByType;
 	if (typeof read === "function" && typeof write === "function") {
-		const stored = (isDict$31(engine?.SCRIPT_TYPES) ? engine.SCRIPT_TYPES : {})[type.toUpperCase()];
+		const stored = (isDict$44(engine?.SCRIPT_TYPES) ? engine.SCRIPT_TYPES : {})[type.toUpperCase()];
 		const code = typeof stored === "number" ? stored : DEFAULT_CODES[type];
 		const list = read(code, { allowedOnly: false });
 		return {
-			list: Array.isArray(list) ? list.filter(isDict$31) : [],
+			list: Array.isArray(list) ? list.filter(isDict$44) : [],
 			owner,
 			save: async (next) => {
 				await write(next, code);
@@ -24059,7 +24300,7 @@ async function scriptStore(app, type) {
 	if (type === "global") {
 		const list = ctx.extensionSettings.regex;
 		return {
-			list: Array.isArray(list) ? list.filter(isDict$31) : [],
+			list: Array.isArray(list) ? list.filter(isDict$44) : [],
 			owner,
 			save: async (next) => {
 				app.host.ctx().extensionSettings.regex = next;
@@ -24072,7 +24313,7 @@ async function scriptStore(app, type) {
 		if (id === void 0 || id === "") return null;
 		const list = ctx.characters[Number(id)]?.data?.extensions?.regex_scripts;
 		return {
-			list: Array.isArray(list) ? list.filter(isDict$31) : [],
+			list: Array.isArray(list) ? list.filter(isDict$44) : [],
 			owner,
 			save: async (next) => {
 				await app.host.ctx().writeExtensionField(id, "regex_scripts", next);
@@ -24083,7 +24324,7 @@ async function scriptStore(app, type) {
 	if (!manager?.readPresetExtensionField || !manager.writePresetExtensionField) return null;
 	const list = manager.readPresetExtensionField({ path: "regex_scripts" });
 	return {
-		list: Array.isArray(list) ? list.filter(isDict$31) : [],
+		list: Array.isArray(list) ? list.filter(isDict$44) : [],
 		owner,
 		save: async (next) => {
 			await manager.writePresetExtensionField?.({
@@ -24151,7 +24392,7 @@ async function undoRegexFix(app, change) {
 		owner: typeof ref.owner === "string" ? ref.owner : null
 	};
 	const store = await openStore(app, payload);
-	if (!store || !isDict$31(change.before)) return false;
+	if (!store || !isDict$44(change.before)) return false;
 	if (change.after === null) {
 		if (payload.scriptId && store.list.some((script) => script.id === payload.scriptId)) return false;
 		const next = [...store.list];
@@ -24160,7 +24401,7 @@ async function undoRegexFix(app, change) {
 	} else {
 		const index = locate(store.list, payload);
 		const live = index >= 0 ? store.list[index] : void 0;
-		if (!live || live.disabled === true !== (isDict$31(change.after) && change.after.disabled === true)) return false;
+		if (!live || live.disabled === true !== (isDict$44(change.after) && change.after.disabled === true)) return false;
 		live.disabled = change.before.disabled === true;
 		await store.save(store.list);
 	}
@@ -25773,7 +26014,7 @@ function doctorTab(app, service) {
 				const result = service.last();
 				const scanning = service.isScanning();
 				const status = scanning ? t("m5.scanning") : result ? t("m5.lastScan", {
-					time: formatTime(result.at, app.i18n),
+					time: formatTime$1(result.at, app.i18n),
 					books: result.books.length,
 					entries: result.entries,
 					scripts: result.scripts.length
@@ -26577,15 +26818,15 @@ function defaultDossierSettings() {
 		compareMaxChars: 6e3
 	};
 }
-function clampInt$1(value, min, max, fallback) {
+function clampInt$3(value, min, max, fallback) {
 	return typeof value === "number" && Number.isFinite(value) ? Math.min(max, Math.max(min, Math.round(value))) : fallback;
 }
 /** Repairs a stored slice in place (hand-edited or older settings) and returns it. */
 function readDossierSettings(slice) {
 	const defaults = defaultDossierSettings();
-	slice.memories = clampInt$1(slice.memories, 0, 100, defaults.memories);
-	slice.trackerLookback = clampInt$1(slice.trackerLookback, 1, 500, defaults.trackerLookback);
-	slice.compareMaxChars = clampInt$1(slice.compareMaxChars, 1e3, 4e4, defaults.compareMaxChars);
+	slice.memories = clampInt$3(slice.memories, 0, 100, defaults.memories);
+	slice.trackerLookback = clampInt$3(slice.trackerLookback, 1, 500, defaults.trackerLookback);
+	slice.compareMaxChars = clampInt$3(slice.compareMaxChars, 1e3, 4e4, defaults.compareMaxChars);
 	return slice;
 }
 //#endregion
@@ -26619,30 +26860,30 @@ function patchPassport(passport, patch) {
 	return next;
 }
 var ProtectedBookError = class extends Error {};
-function isDict$30(value) {
+function isDict$43(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function strings$10(value) {
 	return Array.isArray(value) ? value.filter((item) => typeof item === "string") : [];
 }
-function str$8(value) {
+function str$9(value) {
 	return typeof value === "string" ? value : "";
 }
-function sameList$1(a, b) {
+function sameList$2(a, b) {
 	const left = a ?? [];
 	const right = b ?? [];
 	return left.length === right.length && left.every((item, index) => item === right[index]);
 }
 /** The passport holds exactly the patch's values. */
 function passportHas(passport, patch) {
-	if (patch.aliases && !sameList$1(passport.aliases, patch.aliases)) return false;
+	if (patch.aliases && !sameList$2(passport.aliases, patch.aliases)) return false;
 	return Object.entries(patch.slots ?? {}).every(([slot, value]) => (passport.slots[slot] ?? "") === value);
 }
 function isPayload(value) {
-	return isDict$30(value) && typeof value.op === "string";
+	return isDict$43(value) && typeof value.op === "string";
 }
 function isFixRequest(value) {
-	if (!isDict$30(value)) return false;
+	if (!isDict$43(value)) return false;
 	if (value.op === "addKeys") return typeof value.world === "string" && typeof value.uid === "number" && Array.isArray(value.keys);
 	if (value.op === "placeEntry") return typeof value.placeId === "string";
 	if (value.op === "desAlias") return typeof value.canonical === "string" && typeof value.alias === "string";
@@ -26732,16 +26973,16 @@ var DossierActions = class {
 	async effective(world, uid) {
 		const state = await this.sources.bookState(world);
 		const base = state.data?.entries[String(uid)];
-		const entry = isDict$30(base) ? base : null;
+		const entry = isDict$43(base) ? base : null;
 		const fields = {
 			key: strings$10(entry?.key),
-			content: str$8(entry?.content)
+			content: str$9(entry?.content)
 		};
 		const override = this.overrideOf(await this.canonItems(), world, uid);
 		if (override) {
 			const overridden = override.meta.fields ?? DEFAULT_OVERRIDE_FIELDS$1;
 			if (overridden.includes("key")) fields.key = strings$10(override.entry.key);
-			if (overridden.includes("content")) fields.content = str$8(override.entry.content);
+			if (overridden.includes("content")) fields.content = str$9(override.entry.content);
 		}
 		const result = {
 			base: entry,
@@ -26875,19 +27116,19 @@ var DossierActions = class {
 				case "baseKeys": {
 					const state = await this.sources.bookState(payload.world);
 					const entry = state.data?.entries[String(payload.uid)];
-					return !state.protected && isDict$30(entry) && sameList$1(strings$10(entry.key), payload.before);
+					return !state.protected && isDict$43(entry) && sameList$2(strings$10(entry.key), payload.before);
 				}
 				case "canonOverride": {
 					const current = await this.effective(payload.world, payload.uid);
 					if (current.protected || !current.base) return false;
-					if (payload.before.key && !sameList$1(current.fields.key, payload.before.key)) return false;
+					if (payload.before.key && !sameList$2(current.fields.key, payload.before.key)) return false;
 					return payload.before.content === void 0 || current.fields.content === payload.before.content;
 				}
 				case "canonItem": {
 					const item = (await this.canonItems()).find((candidate) => candidate.uid === payload.uid);
 					if (!item) return false;
-					if (payload.before.key && !sameList$1(strings$10(item.entry.key), payload.before.key)) return false;
-					return payload.before.content === void 0 || str$8(item.entry.content) === payload.before.content;
+					if (payload.before.key && !sameList$2(strings$10(item.entry.key), payload.before.key)) return false;
+					return payload.before.content === void 0 || str$9(item.entry.content) === payload.before.content;
 				}
 				case "passport": {
 					const current = this.sources.naiApi()?.getPassport(payload.id);
@@ -26909,7 +27150,7 @@ var DossierActions = class {
 		const world = change.ref.world;
 		const uid = Number(change.ref.uid);
 		const io = this.io();
-		if (typeof world !== "string" || !Number.isFinite(uid) || !io || !isDict$30(change.before) || !isDict$30(change.after)) return false;
+		if (typeof world !== "string" || !Number.isFinite(uid) || !io || !isDict$43(change.before) || !isDict$43(change.after)) return false;
 		return (await commitPatches(io, world, [{
 			uid,
 			before: change.before,
@@ -26922,7 +27163,7 @@ var DossierActions = class {
 	async undoCanon(change) {
 		const canon = this.canon();
 		const ref = change.ref;
-		if (!canon || !isDict$30(change.before)) return false;
+		if (!canon || !isDict$43(change.before)) return false;
 		const before = change.before;
 		if (typeof ref.itemUid === "number") {
 			await this.putItem(ref.itemUid, before);
@@ -26943,14 +27184,14 @@ var DossierActions = class {
 	async undoPassport(change) {
 		const id = change.ref.id;
 		const target = change.ref.target;
-		if (typeof id !== "string" || !isDict$30(change.before) || !this.sources.naiApi()) return false;
-		await this.savePassport(id, isDict$30(target) ? target : null, change.before);
+		if (typeof id !== "string" || !isDict$43(change.before) || !this.sources.naiApi()) return false;
+		await this.savePassport(id, isDict$43(target) ? target : null, change.before);
 		return true;
 	}
 	async undoPlace(change) {
 		const places = this.sources.places();
 		const id = change.ref.placeId;
-		if (!places || typeof id !== "string" || !isDict$30(change.before) || !places.get(id)) return false;
+		if (!places || typeof id !== "string" || !isDict$43(change.before) || !places.get(id)) return false;
 		await places.update(id, change.before);
 		return true;
 	}
@@ -27073,7 +27314,7 @@ var DossierActions = class {
 		const current = await this.effective(request.world, request.uid);
 		if (current.protected) throw new ProtectedBookError(this.t("m7.p13", { book: request.world }));
 		if (!current.base) return "skipped";
-		const title = str$8(current.base.comment).trim() || `#${request.uid}`;
+		const title = str$9(current.base.comment).trim() || `#${request.uid}`;
 		const before = current.fields.key ?? [];
 		const added = request.keys.filter((key) => !before.some((item) => normName(item) === normName(key)));
 		if (!added.length) return "skipped";
@@ -27150,7 +27391,7 @@ var DossierActions = class {
 		if (item.meta.kind !== "addition") return false;
 		const current = {
 			key: strings$10(item.entry.key),
-			content: str$8(item.entry.content)
+			content: str$9(item.entry.content)
 		};
 		const fields = this.textFields(edit.field, edit.value, current);
 		if (!fields) return false;
@@ -27528,10 +27769,10 @@ function compareSheetTags(rawReply, archiveText) {
 }
 //#endregion
 //#region src/domain/dossier-data.ts
-function isDict$29(value) {
+function isDict$42(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
-function str$7(value) {
+function str$8(value) {
 	return typeof value === "string" ? value : "";
 }
 /** Cuts a text to `max` characters at a word boundary when one is near, with an ellipsis. */
@@ -27588,7 +27829,7 @@ function passportFields(passport) {
 * per slot, other known fields replace. Returns the effective passport and the overridden field names.
 */
 function overridePassport(base, override) {
-	if (!isDict$29(override)) return {
+	if (!isDict$42(override)) return {
 		passport: base,
 		overridden: []
 	};
@@ -27600,7 +27841,7 @@ function overridePassport(base, override) {
 		states: base.states.map((state) => ({ ...state }))
 	};
 	const overridden = [];
-	if (isDict$29(override.slots)) for (const [slot, value] of Object.entries(override.slots)) {
+	if (isDict$42(override.slots)) for (const [slot, value] of Object.entries(override.slots)) {
 		if (typeof value !== "string" || passport.slots[slot] === value) continue;
 		passport.slots[slot] = value;
 		overridden.push(`slot.${slot}`);
@@ -27622,16 +27863,16 @@ function overridePassport(base, override) {
 		overridden.push("aliases");
 	}
 	if (Array.isArray(override.outfits)) {
-		passport.outfits = override.outfits.filter(isDict$29).map((outfit) => ({
-			name: str$7(outfit.name),
-			tags: str$7(outfit.tags)
+		passport.outfits = override.outfits.filter(isDict$42).map((outfit) => ({
+			name: str$8(outfit.name),
+			tags: str$8(outfit.tags)
 		}));
 		overridden.push("outfits");
 	}
 	if (Array.isArray(override.states)) {
-		passport.states = override.states.filter(isDict$29).map((state) => ({
-			id: str$7(state.id),
-			tags: str$7(state.tags),
+		passport.states = override.states.filter(isDict$42).map((state) => ({
+			id: str$8(state.id),
+			tags: str$8(state.tags),
 			enabled: state.enabled === true
 		}));
 		overridden.push("states");
@@ -27678,7 +27919,7 @@ function tagGroups(tags) {
 var TAG_BLOCK_RE = /<bunnymotags>[\s\S]*?<\/bunnymotags>/gi;
 /** Archive text outside its `<BunnymoTags>` blocks (Linguistics, prose sections), blank runs collapsed. */
 function archiveProse(content) {
-	return str$7(content).replace(TAG_BLOCK_RE, "").replace(/\n{3,}/g, "\n\n").trim();
+	return str$8(content).replace(TAG_BLOCK_RE, "").replace(/\n{3,}/g, "\n\n").trim();
 }
 function summarizeArchive(entry) {
 	const { name, tags } = archiveTags(entry);
@@ -27699,13 +27940,13 @@ function pickMemories(memories, limit) {
 }
 /** M31's mark `extra.maestro.sheet` of a message, when it is there. */
 function readSheetMark(extra) {
-	const maestro = isDict$29(extra) ? extra.maestro : void 0;
-	const sheet = isDict$29(maestro) ? maestro.sheet : void 0;
-	if (!isDict$29(sheet) || typeof sheet.command !== "string") return null;
+	const maestro = isDict$42(extra) ? extra.maestro : void 0;
+	const sheet = isDict$42(maestro) ? maestro.sheet : void 0;
+	if (!isDict$42(sheet) || typeof sheet.command !== "string") return null;
 	return {
 		command: sheet.command,
-		target: str$7(sheet.target),
-		part: str$7(sheet.part) || "reply"
+		target: str$8(sheet.target),
+		part: str$8(sheet.part) || "reply"
 	};
 }
 var NAME_TAG_RE = /<name:([^<>\n]+)>/i;
@@ -27740,11 +27981,11 @@ function findLastSheet(messages, names) {
 }
 /** CK RAG collections of a character (`rag.collectionMetadata[id].characterName`) with their triggers. */
 function ragCollectionsFor(rag, names) {
-	const metadata = isDict$29(rag) ? rag.collectionMetadata : void 0;
-	if (!isDict$29(metadata)) return [];
+	const metadata = isDict$42(rag) ? rag.collectionMetadata : void 0;
+	if (!isDict$42(metadata)) return [];
 	const out = [];
 	for (const [id, raw] of Object.entries(metadata)) {
-		if (!isDict$29(raw) || !isFor(str$7(raw.characterName) || null, names)) continue;
+		if (!isDict$42(raw) || !isFor(str$8(raw.characterName) || null, names)) continue;
 		const keywords = Array.isArray(raw.keywords) ? raw.keywords.filter((item) => typeof item === "string" && item.trim() !== "") : [];
 		out.push({
 			id,
@@ -28579,7 +28820,7 @@ function section(kind, title, text, fields, extra = {}) {
 	if (Object.keys(fields).length) result.fields = fields;
 	return result;
 }
-function str$6(value) {
+function str$7(value) {
 	return typeof value === "string" ? value : "";
 }
 function list(value) {
@@ -28666,14 +28907,14 @@ function loreSections(fact, facts, t) {
 	if (fact.protected) put(fields, "protected", t("m7.lore.protected"));
 	if (fact.suppressed) put(fields, "canon", t("m7.lore.suppressed"));
 	else if (fact.override) put(fields, "canon", t("m7.lore.overridden"));
-	const out = [section("lore", fact.description ? t("m7.section.placeEntry", { title: fact.title }) : t("m7.section.lore", { title: fact.title }), str$6(fact.entry.content), fields, { source: fact.source })];
+	const out = [section("lore", fact.description ? t("m7.section.placeEntry", { title: fact.title }) : t("m7.section.lore", { title: fact.title }), str$7(fact.entry.content), fields, { source: fact.source })];
 	const override = fact.override;
 	if (override && facts.canonBook) {
 		const canonFields = {};
 		put(canonFields, "keys", fact.keys.join(", "));
 		put(canonFields, "status", t(`m7.canon.status.${override.meta.status}`));
 		put(canonFields, "overrides", (override.meta.fields ?? []).join(", "));
-		out.push(section("canon", t("m7.section.override", { title: fact.title }), str$6(override.entry.content), canonFields, { source: {
+		out.push(section("canon", t("m7.section.override", { title: fact.title }), str$7(override.entry.content), canonFields, { source: {
 			kind: "canon.entry",
 			ref: `${facts.canonBook}#${override.uid}`,
 			label: fact.title,
@@ -28687,13 +28928,13 @@ function canonSections(facts, t) {
 	const book = facts.canonBook;
 	if (!book) return [];
 	return facts.canon.map((item) => {
-		const title = str$6(item.entry.comment).trim() || list(item.entry.key) || `#${item.uid}`;
+		const title = str$7(item.entry.comment).trim() || list(item.entry.key) || `#${item.uid}`;
 		const fields = {};
 		put(fields, "keys", list(item.entry.key));
 		put(fields, "status", t(`m7.canon.status.${item.meta.status}`));
 		put(fields, "origin", item.meta.origin);
 		put(fields, "type", item.meta.type ?? "");
-		return section("canon", t("m7.section.canonAddition", { title }), str$6(item.entry.content), fields, { source: {
+		return section("canon", t("m7.section.canonAddition", { title }), str$7(item.entry.content), fields, { source: {
 			kind: "canon.entry",
 			ref: `${book}#${item.uid}`,
 			label: title,
@@ -28933,10 +29174,10 @@ var DossierService = class {
 };
 //#endregion
 //#region src/features/dossier/sources.ts
-function isDict$28(value) {
+function isDict$41(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
-function str$5(value) {
+function str$6(value) {
 	return typeof value === "string" ? value : "";
 }
 function strings$9(value) {
@@ -29086,7 +29327,7 @@ var DossierSources = class {
 			if (kind === "character") entity.present = [name, ...list].some((item) => present.has(normName(item)));
 			return entity;
 		};
-		const personaName = str$5(ctx.name1).trim();
+		const personaName = str$6(ctx.name1).trim();
 		if (personaName) push(person("persona", personaName, {
 			kind: "persona",
 			ref: personaName,
@@ -29216,7 +29457,7 @@ var DossierSources = class {
 		const card = this.cardOf(entity);
 		if (card) {
 			facts.cardAvatar = card.avatar;
-			facts.cardDescription = str$5(card.description).trim() || null;
+			facts.cardDescription = str$6(card.description).trim() || null;
 		}
 		return facts;
 	}
@@ -29234,7 +29475,7 @@ var DossierSources = class {
 	}
 	loreFact(world, uid, entry, data, items, canonBook) {
 		const baseKeys = strings$9(entry.key);
-		const title = str$5(entry.comment).trim() || baseKeys[0] || `#${uid}`;
+		const title = str$6(entry.comment).trim() || baseKeys[0] || `#${uid}`;
 		const related = items.filter((item) => item.meta.base?.world === world && item.meta.base.uid === uid);
 		const override = related.find((item) => item.meta.kind === "override");
 		const fact = {
@@ -29269,7 +29510,7 @@ var DossierSources = class {
 			if (seen.has(id) || world === canonBook) return;
 			const data = await this.loadBook(world, cache);
 			const entry = data?.entries[String(uid)];
-			if (!data || !isDict$28(entry)) return;
+			if (!data || !isDict$41(entry)) return;
 			seen.add(id);
 			out.push({
 				...this.loreFact(world, uid, entry, data, items, canonBook),
@@ -29300,7 +29541,7 @@ var DossierSources = class {
 			if (seen.has(id)) return;
 			seen.add(id);
 			const summary = summarizeArchive(entry);
-			const label = summary.name ?? (str$5(entry.comment).trim() || `#${uid}`);
+			const label = summary.name ?? (str$6(entry.comment).trim() || `#${uid}`);
 			out.push({
 				world,
 				uid,
@@ -29318,7 +29559,7 @@ var DossierSources = class {
 		for (const source of entity.sources) {
 			if (source.kind !== "ck.archive" || !source.world || typeof source.uid !== "number") continue;
 			const entry = (await this.loadBook(source.world, cache))?.entries[String(source.uid)];
-			if (isDict$28(entry)) add(source.world, source.uid, entry);
+			if (isDict$41(entry)) add(source.world, source.uid, entry);
 		}
 		const books = unique([...this.archiveBooks(), ...await this.activeBooks()]);
 		for (const book of books) {
@@ -29331,14 +29572,14 @@ var DossierSources = class {
 	/** The raw chat-level store (read directly: the API returns resolved copies, the dossier shows base and override). */
 	naiChatStore() {
 		const meta = this.app.host.ctx().chatMetadata.nai_studio;
-		const store = isDict$28(meta) ? meta.passports : void 0;
+		const store = isDict$41(meta) ? meta.passports : void 0;
 		const overrides = {};
-		if (isDict$28(store) && isDict$28(store.overrides)) {
-			for (const [id, value] of Object.entries(store.overrides)) if (isDict$28(value)) overrides[id] = value;
+		if (isDict$41(store) && isDict$41(store.overrides)) {
+			for (const [id, value] of Object.entries(store.overrides)) if (isDict$41(value)) overrides[id] = value;
 		}
 		return {
 			overrides,
-			extra: isDict$28(store) && Array.isArray(store.extra) ? store.extra.map(readPassport).filter((item) => item !== null) : []
+			extra: isDict$41(store) && Array.isArray(store.extra) ? store.extra.map(readPassport).filter((item) => item !== null) : []
 		};
 	}
 	/** The chat's override of a passport when it belongs to this owner (`owner` absent: any owner). */
@@ -29440,9 +29681,9 @@ var DossierSources = class {
 	}
 	personaPassport(avatar) {
 		const settings = this.safe(() => adaptersOf(this.app).nai.settings(), null);
-		const scene = isDict$28(settings) ? settings.scene : void 0;
-		const store = isDict$28(scene) ? scene.personaPassports : void 0;
-		if (!isDict$28(store)) return null;
+		const scene = isDict$41(settings) ? settings.scene : void 0;
+		const store = isDict$41(scene) ? scene.personaPassports : void 0;
+		if (!isDict$41(store)) return null;
 		return readPassport(store[avatar || "default"] ?? store.default);
 	}
 	desFact(entity, names) {
@@ -29477,20 +29718,20 @@ var DossierSources = class {
 			}
 		}
 		const meta = this.app.host.ctx().chatMetadata.dooms_tracker;
-		const known = isDict$28(meta) && isDict$28(meta.knownCharacters) ? meta.knownCharacters : {};
+		const known = isDict$41(meta) && isDict$41(meta.knownCharacters) ? meta.knownCharacters : {};
 		const rosterEntry = inRoster ? known[inRoster] : void 0;
-		if (isDict$28(rosterEntry) && typeof rosterEntry.emoji === "string") fact.rosterEmoji = rosterEntry.emoji;
+		if (isDict$41(rosterEntry) && typeof rosterEntry.emoji === "string") fact.rosterEmoji = rosterEntry.emoji;
 		const settings = this.safe(() => des.settings(), null) ?? {};
 		const key = fact.canonical;
-		const pick = (store) => isDict$28(store) ? store[key] : void 0;
+		const pick = (store) => isDict$41(store) ? store[key] : void 0;
 		const appearance = pick(settings.characterAppearance);
 		if (typeof appearance === "string" && appearance.trim()) fact.portraitPrompt = appearance.trim();
 		const injection = pick(settings.characterInjection);
-		if (isDict$28(injection) && typeof injection.description === "string" && injection.description.trim()) fact.workshopDescription = injection.description.trim();
+		if (isDict$41(injection) && typeof injection.description === "string" && injection.description.trim()) fact.workshopDescription = injection.description.trim();
 		const relationship = pick(settings.characterRelationships);
 		if (typeof relationship === "string" && relationship.trim()) fact.relationshipOverride = relationship.trim();
 		const user = pick(settings.userCharacters);
-		if (isDict$28(user)) fact.user = user;
+		if (isDict$41(user)) fact.user = user;
 		if (!fact.inRoster && !canonical && !fact.character && !fact.user) return null;
 		return fact;
 	}
@@ -29531,13 +29772,13 @@ var DossierSources = class {
 			const message = best ? chat[best.index] : void 0;
 			if (best && message) return {
 				index: best.index,
-				text: stripDesTrackerJson(str$5(message.mes)).trim(),
+				text: stripDesTrackerJson(str$6(message.mes)).trim(),
 				command: best.command
 			};
 		}
 		return findLastSheet(chat.map((message, index) => ({
 			index,
-			text: str$5(message.mes),
+			text: str$6(message.mes),
 			isUser: message.is_user === true,
 			mark: readSheetMark(message.extra)
 		})), names);
@@ -29576,11 +29817,11 @@ var DossierSources = class {
 	async personaFact(entity, cache) {
 		const ctx = this.app.host.ctx();
 		const power = ctx.powerUserSettings ?? {};
-		const lorebook = str$5(power.persona_description_lorebook).trim() || null;
+		const lorebook = str$6(power.persona_description_lorebook).trim() || null;
 		const fact = {
-			name: str$5(ctx.name1).trim() || entity.name,
+			name: str$6(ctx.name1).trim() || entity.name,
 			avatar: await this.personaAvatar(),
-			description: str$5(power.persona_description).trim(),
+			description: str$6(power.persona_description).trim(),
 			lorebook,
 			lorebookEntries: []
 		};
@@ -29588,7 +29829,7 @@ var DossierSources = class {
 			const data = await this.loadBook(lorebook, cache);
 			if (data) fact.lorebookEntries = enabledEntriesOf(data).map(({ uid, entry }) => ({
 				uid,
-				title: str$5(entry.comment).trim() || entryKeys$1(entry)[0] || `#${uid}`
+				title: str$6(entry.comment).trim() || entryKeys$1(entry)[0] || `#${uid}`
 			}));
 		}
 		return fact;
@@ -30387,7 +30628,7 @@ function dossierTab(app, service, opener) {
 					last ? el("div", {
 						class: "maestro-muted",
 						text: t(last.costUsd !== void 0 ? "m7.compare.lastCost" : "m7.compare.last", {
-							time: formatTime(last.at, app.i18n),
+							time: formatTime$1(last.at, app.i18n),
 							count: last.findings.length,
 							usd: formatUsd(last.costUsd ?? 0, app.i18n)
 						})
@@ -30516,7 +30757,7 @@ function dossierTab(app, service, opener) {
 						facts.worldOn ? null : banner(t("m7.worldOff"), "info", "fa-circle-info"),
 						el("div", {
 							class: "maestro-muted",
-							text: t("m7.builtAt", { time: formatTime(dossier.builtAt, app.i18n) })
+							text: t("m7.builtAt", { time: formatTime$1(dossier.builtAt, app.i18n) })
 						})
 					], [button({
 						label: t("m7.back"),
@@ -30760,14 +31001,14 @@ var StaleBanner = class {
 };
 //#endregion
 //#region src/domain/settings-diff.ts
-function isDict$27(value) {
+function isDict$40(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /** JSON with sorted object keys; `undefined` (also nested) becomes null. Throws on cycles, like JSON. */
 function stableStringify(value) {
 	return JSON.stringify(value === void 0 ? null : value, (_key, item) => {
 		if (item === void 0) return null;
-		if (!isDict$27(item)) return item;
+		if (!isDict$40(item)) return item;
 		const sorted = {};
 		for (const key of Object.keys(item).sort()) sorted[key] = item[key];
 		return sorted;
@@ -30799,7 +31040,7 @@ function jsonCopy(value) {
 function getPath(source, path) {
 	let current = source;
 	for (const part of path.split(".")) {
-		if (!isDict$27(current)) return void 0;
+		if (!isDict$40(current)) return void 0;
 		current = current[part];
 	}
 	return current;
@@ -30812,7 +31053,7 @@ function setPath(target, path, value) {
 	let current = target;
 	for (const part of parts) {
 		const next = current[part];
-		if (isDict$27(next)) current = next;
+		if (isDict$40(next)) current = next;
 		else {
 			const created = {};
 			current[part] = created;
@@ -30827,7 +31068,7 @@ function pathMatches(path, patterns) {
 	return patterns.some((pattern) => path === pattern || path.startsWith(`${pattern}.`));
 }
 function omitKeys(value, omit) {
-	if (!omit?.length || !isDict$27(value)) return value;
+	if (!omit?.length || !isDict$40(value)) return value;
 	const copy = { ...value };
 	for (const key of omit) delete copy[key];
 	return copy;
@@ -30841,7 +31082,7 @@ function pickTracked(source, specs, prefix) {
 		values: {},
 		restore: {}
 	};
-	if (!isDict$27(source)) return part;
+	if (!isDict$40(source)) return part;
 	for (const spec of specs) {
 		const raw = getPath(source, spec.path);
 		if (raw === void 0) continue;
@@ -30861,7 +31102,7 @@ function pickTracked(source, specs, prefix) {
 }
 /** Every own key of `source` except `deny` (and keys starting with `_`), for neighbours without a fixed schema. */
 function keysExcept(source, deny) {
-	if (!isDict$27(source)) return [];
+	if (!isDict$40(source)) return [];
 	return Object.keys(source).filter((key) => !deny.includes(key) && !key.startsWith("_") && !key.includes(".")).sort().map((key) => ({ path: key }));
 }
 /** Merges tracked parts (later parts win on equal paths). */
@@ -30944,7 +31185,7 @@ function acknowledgePaths(baseline, current, patterns) {
 * tab would overwrite). Keys that cannot be serialised are skipped. Best effort by design.
 */
 function topLevelDiff(local, server, options) {
-	if (!isDict$27(local) || !isDict$27(server)) return [];
+	if (!isDict$40(local) || !isDict$40(server)) return [];
 	const keys = [.../* @__PURE__ */ new Set([...Object.keys(local), ...Object.keys(server)])].sort();
 	const result = [];
 	for (const key of keys) {
@@ -30961,7 +31202,7 @@ function topLevelDiff(local, server, options) {
 	return result;
 }
 function readStamp(value) {
-	if (!isDict$27(value)) return null;
+	if (!isDict$40(value)) return null;
 	const { tabId, seq, at } = value;
 	if (typeof tabId !== "string" || !tabId) return null;
 	if (typeof seq !== "number" || !Number.isFinite(seq)) return null;
@@ -30980,7 +31221,7 @@ function parseSettingsText(text) {
 	if (typeof text !== "string") return void 0;
 	try {
 		const parsed = JSON.parse(text);
-		return isDict$27(parsed) ? parsed : void 0;
+		return isDict$40(parsed) ? parsed : void 0;
 	} catch {
 		return;
 	}
@@ -30998,18 +31239,18 @@ function isTabFresh(known, server, myTabId) {
 //#region src/features/guardian/baseline.ts
 var BASELINE_FILE = "maestro-baseline.json";
 var DISMISSED_LIMIT = 20;
-function isDict$26(value) {
+function isDict$39(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /** Validates a stored file; null for anything that is not a baseline. */
 function readBaseline$2(raw) {
-	if (!isDict$26(raw) || raw.schema !== 1 || !isDict$26(raw.values)) return null;
+	if (!isDict$39(raw) || raw.schema !== 1 || !isDict$39(raw.values)) return null;
 	return {
 		schema: 1,
 		takenAt: typeof raw.takenAt === "number" ? raw.takenAt : 0,
 		reason: typeof raw.reason === "string" ? raw.reason : "",
 		values: raw.values,
-		restore: isDict$26(raw.restore) ? raw.restore : {},
+		restore: isDict$39(raw.restore) ? raw.restore : {},
 		dismissed: Array.isArray(raw.dismissed) ? raw.dismissed.filter((item) => typeof item === "string") : []
 	};
 }
@@ -31072,7 +31313,7 @@ var BaselineStore = class {
 };
 //#endregion
 //#region src/domain/medic-prefill.ts
-function isDict$25(value) {
+function isDict$38(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /**
@@ -31081,17 +31322,17 @@ function isDict$25(value) {
 */
 function activePromptOrder(promptOrder, characterId) {
 	if (!Array.isArray(promptOrder)) return [];
-	const lists = promptOrder.filter(isDict$25);
+	const lists = promptOrder.filter(isDict$38);
 	const find = (id) => id === void 0 ? void 0 : lists.find((item) => String(item.character_id) === String(id));
 	const chosen = find(100001) ?? find(characterId) ?? lists[0];
-	return (chosen && Array.isArray(chosen.order) ? chosen.order : []).filter(isDict$25).filter((item) => typeof item.identifier === "string").map((item) => ({
+	return (chosen && Array.isArray(chosen.order) ? chosen.order : []).filter(isDict$38).filter((item) => typeof item.identifier === "string").map((item) => ({
 		identifier: item.identifier,
 		enabled: item.enabled !== false
 	}));
 }
 /** Index of the prompt list entry with this identifier (oai_settings.prompts). */
 function promptIndex(prompts, identifier) {
-	return Array.isArray(prompts) ? prompts.findIndex((prompt) => isDict$25(prompt) && prompt.identifier === identifier) : -1;
+	return Array.isArray(prompts) ? prompts.findIndex((prompt) => isDict$38(prompt) && prompt.identifier === identifier) : -1;
 }
 function hasContent(prompt) {
 	return typeof prompt.content === "string" && prompt.content.trim() !== "";
@@ -31104,7 +31345,7 @@ function hasContent(prompt) {
 function findAssistantPrefill(prompts, order) {
 	if (!Array.isArray(prompts)) return null;
 	const byId = /* @__PURE__ */ new Map();
-	for (const prompt of prompts) if (isDict$25(prompt) && typeof prompt.identifier === "string") byId.set(prompt.identifier, prompt);
+	for (const prompt of prompts) if (isDict$38(prompt) && typeof prompt.identifier === "string") byId.set(prompt.identifier, prompt);
 	const name = (prompt, identifier) => typeof prompt.name === "string" && prompt.name ? prompt.name : identifier;
 	for (const entry of order) {
 		if (!entry.enabled) continue;
@@ -31138,7 +31379,7 @@ function findAssistantPrefill(prompts, order) {
 }
 //#endregion
 //#region src/features/guardian/tracked.ts
-function isDict$24(value) {
+function isDict$37(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /** Preset fields that hold addresses, keys or passwords: never stored, kept as they are on restore. */
@@ -31291,9 +31532,9 @@ function empty() {
 }
 function liveOai(app) {
 	const settings = app.host.ctx().chatCompletionSettings;
-	return isDict$24(settings) ? settings : null;
+	return isDict$37(settings) ? settings : null;
 }
-function withoutKeys(source, keys) {
+function withoutKeys$1(source, keys) {
 	const copy = { ...source };
 	for (const key of keys) delete copy[key];
 	return copy;
@@ -31304,7 +31545,7 @@ async function livePresetBody(app, log) {
 	try {
 		const get = (await app.host.modules.openai()).getChatCompletionPreset;
 		const body = typeof get === "function" ? get() : null;
-		return isDict$24(body) ? jsonCopy(withoutKeys(body, PRESET_SECRET_KEYS)) : null;
+		return isDict$37(body) ? jsonCopy(withoutKeys$1(body, PRESET_SECRET_KEYS)) : null;
 	} catch (error) {
 		log.debug("preset body unavailable", error);
 		return null;
@@ -31319,7 +31560,7 @@ async function presetPart(app, log) {
 	const order = activePromptOrder(oai.prompt_order);
 	part.values["preset.order"] = order.map((entry) => entry.identifier);
 	part.values["preset.toggles"] = Object.fromEntries(order.map((entry) => [entry.identifier, entry.enabled]));
-	const ids = (Array.isArray(oai.prompts) ? oai.prompts.filter(isDict$24) : []).filter((prompt) => typeof prompt.identifier === "string");
+	const ids = (Array.isArray(oai.prompts) ? oai.prompts.filter(isDict$37) : []).filter((prompt) => typeof prompt.identifier === "string");
 	part.values["preset.roles"] = Object.fromEntries(ids.map((prompt) => [prompt.identifier, typeof prompt.role === "string" ? prompt.role : "system"]));
 	part.values["preset.contents"] = Object.fromEntries(ids.filter((prompt) => prompt.marker !== true).map((prompt) => [prompt.identifier, valueHash({
 		name: prompt.name ?? null,
@@ -31330,7 +31571,7 @@ async function presetPart(app, log) {
 	})]));
 	const body = await livePresetBody(app, log);
 	if (body) {
-		part.values["preset.body"] = valueHash(withoutKeys(body, ["prompts", "prompt_order"]));
+		part.values["preset.body"] = valueHash(withoutKeys$1(body, ["prompts", "prompt_order"]));
 		part.restore["preset.body"] = {
 			name,
 			body
@@ -31343,7 +31584,7 @@ function regexPart(app) {
 	const scripts = app.host.ctx().extensionSettings.regex;
 	if (!Array.isArray(scripts)) return part;
 	for (const script of scripts) {
-		if (!isDict$24(script) || typeof script.id !== "string" || !script.id) continue;
+		if (!isDict$37(script) || typeof script.id !== "string" || !script.id) continue;
 		const path = `regex.${script.id}`;
 		part.values[path] = {
 			name: typeof script.scriptName === "string" ? script.scriptName : "",
@@ -31365,7 +31606,7 @@ async function worldInfoPart(app, log) {
 		const wi = await app.host.modules.worldInfo();
 		const get = wi.getWorldInfoSettings;
 		const settings = typeof get === "function" ? get() : null;
-		if (isDict$24(settings)) {
+		if (isDict$37(settings)) {
 			for (const key of WI_KEYS) if (settings[key] !== void 0) part.values[`worldInfo.${key}`] = settings[key];
 		}
 		if (Array.isArray(wi.selected_world_info)) part.values["worldInfo.globalSelect"] = wi.selected_world_info.filter((item) => typeof item === "string").sort();
@@ -31378,7 +31619,7 @@ function profilesPart(app) {
 	const part = empty();
 	const profiles = getPath(app.host.ctx().extensionSettings, "connectionManager.profiles");
 	if (!Array.isArray(profiles)) return part;
-	part.values["profiles.list"] = profiles.filter(isDict$24).map((profile) => `${String(profile.name ?? "")}#${String(profile.id ?? "")}`).sort();
+	part.values["profiles.list"] = profiles.filter(isDict$37).map((profile) => `${String(profile.name ?? "")}#${String(profile.id ?? "")}`).sort();
 	return part;
 }
 function extensionsPart(app) {
@@ -31421,7 +31662,7 @@ function fullValue(part, path) {
 function isRestorable(entry, baseline) {
 	const group = groupOf(entry.path);
 	if (group === "preset") {
-		if (isPresetBodyPath(entry.path)) return isDict$24(baseline.restore["preset.body"]);
+		if (isPresetBodyPath(entry.path)) return isDict$37(baseline.restore["preset.body"]);
 		return entry.baseline !== void 0;
 	}
 	if (group === "worldInfo") return entry.path !== "worldInfo.globalSelect" && entry.baseline !== void 0;
@@ -31433,24 +31674,24 @@ async function presetManager(app) {
 	if (!app.host.caps.has("st.presetManager")) return null;
 	const get = (await app.host.modules.presetManager()).getPresetManager;
 	const manager = typeof get === "function" ? get("openai") : null;
-	return isDict$24(manager) ? manager : null;
+	return isDict$37(manager) ? manager : null;
 }
 async function rerenderPrompts(app, log) {
 	if (!app.host.caps.has("st.oai.promptManager")) return;
 	try {
 		const manager = (await app.host.modules.openai()).promptManager;
-		if (isDict$24(manager) && typeof manager.render === "function") manager.render.call(manager, false);
+		if (isDict$37(manager) && typeof manager.render === "function") manager.render.call(manager, false);
 	} catch (error) {
 		log.debug("prompt manager render failed", error);
 	}
 }
 function globalOrderEntry(oai) {
-	const lists = Array.isArray(oai.prompt_order) ? oai.prompt_order.filter(isDict$24) : [];
+	const lists = Array.isArray(oai.prompt_order) ? oai.prompt_order.filter(isDict$37) : [];
 	return lists.find((item) => String(item.character_id) === String(100001)) ?? lists[0] ?? null;
 }
 /** Saves the body into the preset file through ST's preset manager, which then selects and applies it. */
 async function writePresetBody(app, value) {
-	if (!isDict$24(value) || typeof value.name !== "string" || !value.name || !isDict$24(value.body)) return false;
+	if (!isDict$37(value) || typeof value.name !== "string" || !value.name || !isDict$37(value.body)) return false;
 	const manager = await presetManager(app);
 	if (!manager || typeof manager.savePreset !== "function") return false;
 	let secrets = {};
@@ -31458,10 +31699,10 @@ async function writePresetBody(app, value) {
 		const openai = await app.host.modules.openai();
 		const names = openai.openai_setting_names;
 		const list = openai.openai_settings;
-		const slot = isDict$24(names) ? names[value.name] : void 0;
+		const slot = isDict$37(names) ? names[value.name] : void 0;
 		const stored = Array.isArray(list) && typeof slot === "number" ? list[slot] : void 0;
-		const source = isDict$24(stored) ? stored : typeof openai.getChatCompletionPreset === "function" ? openai.getChatCompletionPreset() : null;
-		if (isDict$24(source)) {
+		const source = isDict$37(stored) ? stored : typeof openai.getChatCompletionPreset === "function" ? openai.getChatCompletionPreset() : null;
+		if (isDict$37(source)) {
 			for (const key of PRESET_SECRET_KEYS) if (source[key] !== void 0) secrets[key] = source[key];
 		}
 	}
@@ -31486,7 +31727,7 @@ async function writePreset(app, log, path, value) {
 	const oai = liveOai(app);
 	if (!oai) return false;
 	if (path === "preset.roles") {
-		if (!isDict$24(value) || !Array.isArray(oai.prompts)) return false;
+		if (!isDict$37(value) || !Array.isArray(oai.prompts)) return false;
 		for (const [identifier, role] of Object.entries(value)) {
 			const index = promptIndex(oai.prompts, identifier);
 			if (index >= 0 && typeof role === "string") oai.prompts[index].role = role;
@@ -31494,9 +31735,9 @@ async function writePreset(app, log, path, value) {
 	} else if (path === "preset.toggles" || path === "preset.order") {
 		const entry = globalOrderEntry(oai);
 		if (!entry || !Array.isArray(entry.order)) return false;
-		const items = entry.order.filter(isDict$24);
+		const items = entry.order.filter(isDict$37);
 		if (path === "preset.toggles") {
-			if (!isDict$24(value)) return false;
+			if (!isDict$37(value)) return false;
 			for (const item of items) {
 				const enabled = value[String(item.identifier)];
 				if (typeof enabled === "boolean") item.enabled = enabled;
@@ -31518,12 +31759,12 @@ function writeRegex(app, path, value) {
 	const settings = app.host.ctx().extensionSettings;
 	const scripts = Array.isArray(settings.regex) ? settings.regex : [];
 	settings.regex = scripts;
-	const index = scripts.findIndex((script) => isDict$24(script) && script.id === id);
+	const index = scripts.findIndex((script) => isDict$37(script) && script.id === id);
 	if (value === void 0 || value === null) {
 		if (index >= 0) scripts.splice(index, 1);
 		return true;
 	}
-	if (!isDict$24(value) || value.id !== id) return false;
+	if (!isDict$37(value) || value.id !== id) return false;
 	if (index >= 0) scripts[index] = jsonCopy(value);
 	else scripts.push(jsonCopy(value));
 	return true;
@@ -31572,11 +31813,11 @@ var SETTING_TARGET = "guardian-setting";
 var PULT_ONLY = ["extensions.versions"];
 var DESCRIBE_LIMIT = 12;
 var VALUE_CHARS = 40;
-function isDict$23(value) {
+function isDict$36(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function isDriftPayload(value) {
-	return isDict$23(value) && typeof value.hash === "string" && typeof value.baselineAt === "number" && Array.isArray(value.restore) && Array.isArray(value.adopt);
+	return isDict$36(value) && typeof value.hash === "string" && typeof value.baselineAt === "number" && Array.isArray(value.restore) && Array.isArray(value.adopt);
 }
 /** Restore order: the whole preset first (it reloads everything), then its name, then the rest. */
 function restoreRank(path) {
@@ -31683,7 +31924,7 @@ var GuardianService = class {
 		let entries = detail.entries.filter((entry) => paths.includes(entry.path) && isRestorable(entry, baseline));
 		if (confirmPreset && entries.some((entry) => isPresetBodyPath(entry.path))) {
 			const value = baseline.restore["preset.body"];
-			const name = isDict$23(value) && typeof value.name === "string" ? value.name : "";
+			const name = isDict$36(value) && typeof value.name === "string" ? value.name : "";
 			if (!await this.app.ui.confirm(this.t("m4.confirm.presetTitle"), this.t("m4.confirm.presetBody", { name }))) entries = entries.filter((entry) => !isPresetBodyPath(entry.path));
 		}
 		entries.sort((a, b) => restoreRank(a.path) - restoreRank(b.path) || a.path.localeCompare(b.path));
@@ -31792,7 +32033,7 @@ var GuardianService = class {
 		}
 	}
 	findCard(hash) {
-		return this.app.inbox.list().find((card) => card.kind === "guardian.drift" && isDict$23(card.payload) && card.payload.hash === hash)?.id;
+		return this.app.inbox.list().find((card) => card.kind === "guardian.drift" && isDict$36(card.payload) && card.payload.hash === hash)?.id;
 	}
 	/** Inbox applier: restores what can be restored and takes the rest as the new baseline. */
 	async applyCard(payload) {
@@ -31842,7 +32083,7 @@ var GuardianService = class {
 		const title = this.t(key);
 		let name = rest;
 		if (group === "regex") {
-			const value = isDict$23(entry.current) ? entry.current : isDict$23(entry.baseline) ? entry.baseline : null;
+			const value = isDict$36(entry.current) ? entry.current : isDict$36(entry.baseline) ? entry.baseline : null;
 			if (value && typeof value.name === "string" && value.name) name = value.name;
 		} else if (group === "preset") {
 			const known = this.t(`m4.preset.${rest}`);
@@ -32307,7 +32548,7 @@ function guardianTab(app, service, t) {
 					el("span", { text: ` ${t(`m4.state.${state}`)}` }),
 					info?.lastCheckAt ? el("div", {
 						class: "maestro-muted",
-						text: t("m4.view.lastCheck", { time: formatTime(info.lastCheckAt, app.i18n) })
+						text: t("m4.view.lastCheck", { time: formatTime$1(info.lastCheckAt, app.i18n) })
 					}) : null
 				]), button({
 					label: t("m4.view.checkTab"),
@@ -32322,7 +32563,7 @@ function guardianTab(app, service, t) {
 				const reasonKey = baseline ? `m4.reason.${baseline.reason}` : "";
 				const reason = baseline ? t(reasonKey) : "";
 				return section$1(t("m4.view.baseline"), baseline ? el("div", { text: t("m4.view.baselineAt", {
-					time: formatTime(baseline.takenAt, app.i18n),
+					time: formatTime$1(baseline.takenAt, app.i18n),
 					reason: reason === reasonKey ? baseline.reason : reason
 				}) }) : emptyState(t("m4.view.noBaseline"), "fa-shield-halved"), button({
 					label: t("m4.view.take"),
@@ -32838,12 +33079,12 @@ var LORE_WAIT_MS = 5e3;
 /** A reply this long after the generation ended is not the one the captured prompt belongs to. */
 var REPLY_GRACE_MS$1 = 6e4;
 var NOT_A_TURN$1 = /* @__PURE__ */ new Set(["quiet", "impersonate"]);
-var TOKEN_CACHE_LIMIT$1 = 2e3;
-function isDict$22(value) {
+var TOKEN_CACHE_LIMIT$2 = 2e3;
+function isDict$35(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /** Prompt Manager's "absolute" injection position (PromptManager.js INJECTION_POSITION). */
-var ABSOLUTE = 1;
+var ABSOLUTE$1 = 1;
 function emptyDoc() {
 	return {
 		v: 1,
@@ -32854,7 +33095,7 @@ function ensureDoc(doc) {
 	const raw = doc;
 	raw.v = 1;
 	if (!Array.isArray(raw.records)) raw.records = [];
-	raw.records = raw.records.filter((record) => isDict$22(record) && typeof record.messageIndex === "number" && Array.isArray(record.sources));
+	raw.records = raw.records.filter((record) => isDict$35(record) && typeof record.messageIndex === "number" && Array.isArray(record.sources));
 	return raw;
 }
 var Inspector = class {
@@ -32933,7 +33174,7 @@ var Inspector = class {
 		this.awaiting = { type: info.type };
 	}
 	onPromptReady(data) {
-		if (!isDict$22(data) || data.dryRun !== false || !this.awaiting) return;
+		if (!isDict$35(data) || data.dryRun !== false || !this.awaiting) return;
 		const { type } = this.awaiting;
 		this.awaiting = null;
 		this.pendingEndedAt = null;
@@ -32950,12 +33191,12 @@ var Inspector = class {
 	promptManager() {
 		if (!this.app.host.caps.has("st.oai.promptManager")) return null;
 		const pm = this.openai?.promptManager;
-		return isDict$22(pm) ? pm : null;
+		return isDict$35(pm) ? pm : null;
 	}
 	snapshotCounts() {
 		try {
 			const counts = this.promptManager()?.tokenHandler?.getCounts?.();
-			if (!isDict$22(counts)) return null;
+			if (!isDict$35(counts)) return null;
 			const copy = {};
 			for (const [identifier, value] of Object.entries(counts)) if (typeof value === "number" && Number.isFinite(value)) copy[identifier] = value;
 			return copy;
@@ -32988,9 +33229,9 @@ var Inspector = class {
 			if (!Array.isArray(order)) return [];
 			const result = [];
 			for (const item of order) {
-				if (!isDict$22(item) || item.enabled === false || typeof item.identifier !== "string") continue;
+				if (!isDict$35(item) || item.enabled === false || typeof item.identifier !== "string") continue;
 				const prompt = pm.getPromptById(item.identifier);
-				if (!prompt || prompt.marker === true || Number(prompt.injection_position) !== ABSOLUTE) continue;
+				if (!prompt || prompt.marker === true || Number(prompt.injection_position) !== ABSOLUTE$1) continue;
 				if (typeof prompt.content !== "string" || !prompt.content) continue;
 				result.push({
 					identifier: item.identifier,
@@ -33142,7 +33383,7 @@ var Inspector = class {
 		} catch {
 			value = Math.ceil(text.length / 3.5);
 		}
-		if (this.tokenCache.size >= TOKEN_CACHE_LIMIT$1) {
+		if (this.tokenCache.size >= TOKEN_CACHE_LIMIT$2) {
 			const oldest = this.tokenCache.keys().next().value;
 			if (oldest !== void 0) this.tokenCache.delete(oldest);
 		}
@@ -33662,7 +33903,7 @@ function promptTab(app, inspector, settings) {
 						label: t("m2.turn.option", {
 							index: item.messageIndex,
 							type: item.generationType,
-							time: formatTime(item.at, i18n)
+							time: formatTime$1(item.at, i18n)
 						})
 					})),
 					onChange: (value) => {
@@ -33775,10 +34016,10 @@ var SCAN_STATE = {
 	RECURSION: 2,
 	MIN_ACTIVATIONS: 3
 };
-function isDict$21(value) {
+function isDict$34(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
-function num$3(value, fallback = 0) {
+function num$4(value, fallback = 0) {
 	return typeof value === "number" && Number.isFinite(value) ? value : fallback;
 }
 function optNum(value) {
@@ -33796,13 +34037,13 @@ function entryId(world, uid) {
 }
 /** Our id of a raw scan entry; null when it has no world/uid. */
 function rawId(raw) {
-	if (!isDict$21(raw) || typeof raw.world !== "string") return null;
+	if (!isDict$34(raw) || typeof raw.world !== "string") return null;
 	const uid = Number(raw.uid);
 	return Number.isFinite(uid) ? entryId(raw.world, uid) : null;
 }
 /** Copies the fields M1 needs from a scan entry; null when it has no world/uid. */
 function captureEntry(raw, loop, recursionLevel) {
-	if (!isDict$21(raw)) return null;
+	if (!isDict$34(raw)) return null;
 	const uid = Number(raw.uid);
 	if (typeof raw.world !== "string" || !Number.isFinite(uid)) return null;
 	const entry = {
@@ -33810,14 +34051,14 @@ function captureEntry(raw, loop, recursionLevel) {
 		uid,
 		comment: typeof raw.comment === "string" ? raw.comment : "",
 		content: typeof raw.content === "string" ? raw.content : "",
-		position: num$3(raw.position),
-		order: num$3(raw.order, 100),
+		position: num$4(raw.position),
+		order: num$4(raw.order, 100),
 		constant: raw.constant === true,
 		preventRecursion: raw.preventRecursion === true,
 		key: strings$8(raw.key),
 		keysecondary: strings$8(raw.keysecondary),
 		selective: raw.selective === true,
-		selectiveLogic: num$3(raw.selectiveLogic),
+		selectiveLogic: num$4(raw.selectiveLogic),
 		caseSensitive: optBool(raw.caseSensitive),
 		matchWholeWords: optBool(raw.matchWholeWords),
 		scanDepth: optNum(raw.scanDepth) ?? null,
@@ -33879,15 +34120,15 @@ var ScanCollector = class {
 	}
 	/** One WORLDINFO_SCAN_DONE payload. Cheap: identity copies only. */
 	scanDone(args) {
-		if (this.complete || !isDict$21(args)) return;
-		const state = isDict$21(args.state) ? args.state : {};
-		const loop = num$3(state.loopCount, this.lastLoop + 1);
+		if (this.complete || !isDict$34(args)) return;
+		const state = isDict$34(args.state) ? args.state : {};
+		const loop = num$4(state.loopCount, this.lastLoop + 1);
 		if (loop <= this.lastLoop) this.reset();
 		this.lastLoop = loop;
-		const current = num$3(state.current, SCAN_STATE.INITIAL);
+		const current = num$4(state.current, SCAN_STATE.INITIAL);
 		if (current === SCAN_STATE.RECURSION) this.recursionSteps++;
 		const level = current === SCAN_STATE.RECURSION ? this.recursionSteps : 0;
-		const activated = isDict$21(args.activated) ? args.activated.entries : void 0;
+		const activated = isDict$34(args.activated) ? args.activated.entries : void 0;
 		if (isMapLike(activated)) for (const raw of activated.values()) {
 			const id = rawId(raw);
 			if (id === null) continue;
@@ -33896,9 +34137,9 @@ var ScanCollector = class {
 			const entry = captureEntry(raw, loop, level);
 			if (entry) this.activated.set(id, entry);
 		}
-		const budget = isDict$21(args.budget) ? args.budget : {};
+		const budget = isDict$34(args.budget) ? args.budget : {};
 		const reason = budget.overflowed === true ? "budget" : "other";
-		const fresh = isDict$21(args.new) && Array.isArray(args.new.successful) ? args.new.successful : [];
+		const fresh = isDict$34(args.new) && Array.isArray(args.new.successful) ? args.new.successful : [];
 		for (const raw of fresh) {
 			const id = rawId(raw);
 			if (id === null || this.activated.has(id) || this.cutEntries.has(id)) continue;
@@ -33911,7 +34152,7 @@ var ScanCollector = class {
 		const budgetNow = optNum(budget.current);
 		if (budgetNow !== void 0) this.budgetTokens = budgetNow;
 		if (budget.overflowed === true) this.overflowed = true;
-		if (num$3(state.next, SCAN_STATE.NONE) === SCAN_STATE.NONE) this.complete = true;
+		if (num$4(state.next, SCAN_STATE.NONE) === SCAN_STATE.NONE) this.complete = true;
 	}
 	/** WORLD_INFO_ACTIVATED: the entries that really went into the prompt. */
 	activatedFinal(entries) {
@@ -34134,9 +34375,9 @@ var LORE_DOC_KIND = "lore-journal";
 var STALE_COLLECTOR_MS = 9e5;
 /** Generation types whose output is not an assistant message (the impersonated text goes to the input box). */
 var NOT_A_TURN = /* @__PURE__ */ new Set(["quiet", "impersonate"]);
-var TOKEN_CACHE_LIMIT = 3e3;
+var TOKEN_CACHE_LIMIT$1 = 3e3;
 var TOKEN_WORKERS = 4;
-function isDict$20(value) {
+function isDict$33(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function strings$7(value) {
@@ -34224,7 +34465,7 @@ var LoreJournal = class {
 		this.ensureLoaded();
 	}
 	onEntriesLoaded(payload) {
-		if (!isDict$20(payload)) return;
+		if (!isDict$33(payload)) return;
 		if (this.sim) {
 			this.prepareSimulation(payload);
 			return;
@@ -34244,7 +34485,7 @@ var LoreJournal = class {
 		]) {
 			const list = lists[name];
 			if (!Array.isArray(list)) continue;
-			for (const entry of list) if (isDict$20(entry) && entry.useProbability) entry.useProbability = false;
+			for (const entry of list) if (isDict$33(entry) && entry.useProbability) entry.useProbability = false;
 		}
 		if (sim.transform) try {
 			sim.transform(lists);
@@ -34372,7 +34613,7 @@ var LoreJournal = class {
 		} catch {
 			value = estimateTokens(text);
 		}
-		if (this.tokenCache.size >= TOKEN_CACHE_LIMIT) {
+		if (this.tokenCache.size >= TOKEN_CACHE_LIMIT$1) {
 			const oldest = this.tokenCache.keys().next().value;
 			if (oldest !== void 0) this.tokenCache.delete(oldest);
 		}
@@ -34538,7 +34779,7 @@ var LoreJournal = class {
 	async whyActive() {
 		const ctx = this.app.host.ctx();
 		const wi = await loadWorldInfo(this.app);
-		const charLore = isDict$20(wi?.world_info) && Array.isArray(wi.world_info.charLore) ? wi.world_info.charLore : [];
+		const charLore = isDict$33(wi?.world_info) && Array.isArray(wi.world_info.charLore) ? wi.world_info.charLore : [];
 		const characters = ctx.characters ?? [];
 		const members = ctx.groupId ? ((ctx.groups ?? []).find((group) => group.id === ctx.groupId)?.members ?? []).map((avatar) => characters.find((character) => character.avatar === avatar)) : [ctx.characterId === void 0 ? void 0 : characters[Number(ctx.characterId)]];
 		const primary = [];
@@ -34548,7 +34789,7 @@ var LoreJournal = class {
 			const world = character.data?.extensions?.world;
 			if (typeof world === "string" && world) primary.push(world);
 			const key = avatarKey$1(character.avatar ?? "");
-			for (const lore of charLore) if (isDict$20(lore) && lore.name === key) extra.push(...strings$7(lore.extraBooks));
+			for (const lore of charLore) if (isDict$33(lore) && lore.name === key) extra.push(...strings$7(lore.extraBooks));
 		}
 		const chatBook = ctx.chatMetadata?.world_info;
 		const personaBook = ctx.powerUserSettings?.persona_description_lorebook;
@@ -34599,7 +34840,7 @@ var LoreJournal = class {
 		} finally {
 			this.sim = null;
 		}
-		const final = isDict$20(result) ? result.allActivatedEntries : void 0;
+		const final = isDict$33(result) ? result.allActivatedEntries : void 0;
 		if (final && typeof final[Symbol.iterator] === "function") sim.collector.activatedFinal([...final]);
 		return this.buildRecord(sim.collector.result(), {
 			messageIndex: -1,
@@ -34672,10 +34913,10 @@ var LoreJournal = class {
 				this.log.debug(`lorebook ${world} did not load`, error);
 				continue;
 			}
-			const entries = isDict$20(book) && isDict$20(book.entries) ? book.entries : {};
+			const entries = isDict$33(book) && isDict$33(book.entries) ? book.entries : {};
 			const wanted = new Map(record.activations.filter((row) => row.world === world).map((row) => [row.uid, row]));
 			for (const raw of Object.values(entries)) {
-				if (!isDict$20(raw)) continue;
+				if (!isDict$33(raw)) continue;
 				const row = wanted.get(Number(raw.uid));
 				if (!row) continue;
 				const entry = captureEntry({
@@ -35158,7 +35399,7 @@ function turnTab(app, journal, settings) {
 						label: t("m1.turn.option", {
 							index: item.messageIndex,
 							type: item.generationType,
-							time: formatTime(item.at, i18n)
+							time: formatTime$1(item.at, i18n)
 						})
 					})),
 					onChange: (value) => {
@@ -36230,7 +36471,7 @@ function similarPlaces(places, name, parent) {
 	return places.filter((place) => !excluded.has(place.id) && sameBranch(place)).filter((place) => [place.name, ...place.aliases].some((text) => namesSimilar(text, name))).map((place) => place.id);
 }
 /** Among places with one name: the current one, then one on its branch, then a sibling, then the latest seen. */
-function pick(ids, byId, current) {
+function pick$1(ids, byId, current) {
 	if (ids.length === 1) return ids[0];
 	const score = (id) => {
 		if (current === null) return 0;
@@ -36263,7 +36504,7 @@ function resolvePlaceLabel(places, label, options = {}) {
 	const lookup = (text) => index.get(normalizePlaceName(text)) ?? [];
 	const whole = lookup(clean);
 	if (whole.length) {
-		const id = pick(whole, byId, current);
+		const id = pick$1(whole, byId, current);
 		return {
 			label: clean,
 			parts: [clean],
@@ -36288,7 +36529,7 @@ function resolvePlaceLabel(places, label, options = {}) {
 			return general.every((ids) => ids.some((other) => ancestors.includes(other)));
 		});
 		if (!consistent.length) continue;
-		const id = pick(consistent, byId, current);
+		const id = pick$1(consistent, byId, current);
 		return {
 			label: clean,
 			parts,
@@ -36418,7 +36659,7 @@ function stemRegexKey(name) {
 	if (words.length < 2 || !hasCyrillic$1(name) || name.includes("{{")) return null;
 	return `/(?:^|[^\\p{L}\\p{N}_])${words.map((word) => hasCyrillic$1(word) ? `${escapeForKey(stemWord(word))}\\p{L}{0,${KEY_TAIL}}` : escapeForKey(word)).join("\\s+")}/iu`;
 }
-var ru$1 = (stem, tail, type, base, extra = {}) => ({
+var ru$2 = (stem, tail, type, base, extra = {}) => ({
 	stem,
 	tail,
 	type,
@@ -36428,101 +36669,101 @@ var ru$1 = (stem, tail, type, base, extra = {}) => ({
 });
 /** Russian type words by stem (lower case, ё → е). */
 var RU_TYPE_STEMS = [
-	ru$1("праздник", 3, "tradition", "праздник"),
-	ru$1("фестивал", 3, "tradition", "фестиваль"),
-	ru$1("обряд", 3, "tradition", "обряд"),
-	ru$1("ритуал", 3, "tradition", "ритуал"),
-	ru$1("церемони", 3, "tradition", "церемония"),
-	ru$1("торжеств", 3, "tradition", "торжество"),
-	ru$1("карнавал", 3, "tradition", "карнавал"),
-	ru$1("ярмарк", 3, "tradition", "ярмарка"),
-	ru$1("обыча", 3, "tradition", "обычай"),
-	ru$1("традици", 3, "tradition", "традиция"),
-	ru$1("недел", 2, "tradition", "неделя", { capitalizedOnly: true }),
-	ru$1("битв", 3, "event", "битва"),
-	ru$1("войн", 3, "event", "война"),
-	ru$1("восстани", 3, "event", "восстание"),
-	ru$1("сражени", 3, "event", "сражение"),
-	ru$1("осад", 3, "event", "осада"),
-	ru$1("резн", 3, "event", "резня"),
-	ru$1("катастроф", 3, "event", "катастрофа"),
-	ru$1("турнир", 3, "event", "турнир"),
-	ru$1("переворот", 3, "event", "переворот"),
-	ru$1("мятеж", 3, "event", "мятеж"),
-	ru$1("бунт", 3, "event", "бунт"),
-	ru$1("коронаци", 3, "event", "коронация"),
-	ru$1("падени", 3, "event", "падение"),
-	ru$1("нашестви", 3, "event", "нашествие"),
-	ru$1("орден", 3, "faction", "орден"),
-	ru$1("гильди", 3, "faction", "гильдия"),
-	ru$1("братств", 3, "faction", "братство"),
-	ru$1("сестринств", 3, "faction", "сестринство"),
-	ru$1("клан", 3, "faction", "клан"),
-	ru$1("союз", 3, "faction", "союз"),
-	ru$1("легион", 3, "faction", "легион"),
-	ru$1("династи", 3, "faction", "династия"),
-	ru$1("таверн", 3, "place", "таверна"),
-	ru$1("трактир", 3, "place", "трактир"),
-	ru$1("корчм", 3, "place", "корчма"),
-	ru$1("харчевн", 3, "place", "харчевня"),
-	ru$1("гостиниц", 3, "place", "гостиница"),
-	ru$1("кабак", 3, "place", "кабак"),
-	ru$1("город", 3, "place", "город"),
-	ru$1("деревн", 3, "place", "деревня"),
-	ru$1("поселк", 3, "place", "посёлок"),
-	ru$1("замок", 3, "place", "замок"),
-	ru$1("замк", 3, "place", "замок"),
-	ru$1("крепост", 3, "place", "крепость"),
-	ru$1("башн", 3, "place", "башня"),
-	ru$1("храм", 3, "place", "храм"),
-	ru$1("монастыр", 3, "place", "монастырь"),
-	ru$1("королевств", 3, "place", "королевство"),
-	ru$1("импери", 3, "place", "империя"),
-	ru$1("княжеств", 3, "place", "княжество"),
-	ru$1("остров", 3, "place", "остров"),
-	ru$1("долин", 3, "place", "долина"),
-	ru$1("пещер", 3, "place", "пещера"),
-	ru$1("улиц", 3, "place", "улица"),
-	ru$1("площад", 3, "place", "площадь"),
-	ru$1("квартал", 3, "place", "квартал"),
-	ru$1("гаван", 3, "place", "гавань"),
-	ru$1("перевал", 3, "place", "перевал"),
-	ru$1("академи", 3, "place", "академия"),
-	ru$1("пустын", 3, "place", "пустыня"),
-	ru$1("провинци", 3, "place", "провинция"),
-	ru$1("озер", 2, "place", "озеро"),
-	ru$1("клинок", 3, "item", "клинок"),
-	ru$1("клинк", 3, "item", "клинок"),
-	ru$1("кинжал", 3, "item", "кинжал"),
-	ru$1("амулет", 3, "item", "амулет"),
-	ru$1("артефакт", 3, "item", "артефакт"),
-	ru$1("кольц", 3, "item", "кольцо"),
-	ru$1("книг", 3, "item", "книга"),
-	ru$1("свиток", 3, "item", "свиток"),
-	ru$1("свитк", 3, "item", "свиток"),
-	ru$1("корабл", 3, "item", "корабль"),
-	ru$1("посох", 3, "item", "посох"),
-	ru$1("доспех", 3, "item", "доспех"),
-	ru$1("талисман", 3, "item", "талисман"),
-	ru$1("реликви", 3, "item", "реликвия"),
-	ru$1("кристалл", 3, "item", "кристалл"),
-	ru$1("лорд", 3, "person", "лорд"),
-	ru$1("леди", 0, "person", "леди"),
-	ru$1("сэр", 0, "person", "сэр"),
-	ru$1("госпож", 3, "person", "госпожа"),
-	ru$1("господин", 3, "person", "господин"),
-	ru$1("мастер", 2, "person", "мастер"),
-	ru$1("капитан", 3, "person", "капитан"),
-	ru$1("корол", 3, "person", "король"),
-	ru$1("принц", 4, "person", "принц"),
-	ru$1("барон", 4, "person", "барон"),
-	ru$1("герцог", 4, "person", "герцог"),
-	ru$1("магистр", 3, "person", "магистр"),
-	ru$1("жрец", 3, "person", "жрец"),
-	ru$1("жриц", 3, "person", "жрица"),
-	ru$1("старейшин", 3, "person", "старейшина"),
-	ru$1("генерал", 3, "person", "генерал"),
-	ru$1("командир", 3, "person", "командир")
+	ru$2("праздник", 3, "tradition", "праздник"),
+	ru$2("фестивал", 3, "tradition", "фестиваль"),
+	ru$2("обряд", 3, "tradition", "обряд"),
+	ru$2("ритуал", 3, "tradition", "ритуал"),
+	ru$2("церемони", 3, "tradition", "церемония"),
+	ru$2("торжеств", 3, "tradition", "торжество"),
+	ru$2("карнавал", 3, "tradition", "карнавал"),
+	ru$2("ярмарк", 3, "tradition", "ярмарка"),
+	ru$2("обыча", 3, "tradition", "обычай"),
+	ru$2("традици", 3, "tradition", "традиция"),
+	ru$2("недел", 2, "tradition", "неделя", { capitalizedOnly: true }),
+	ru$2("битв", 3, "event", "битва"),
+	ru$2("войн", 3, "event", "война"),
+	ru$2("восстани", 3, "event", "восстание"),
+	ru$2("сражени", 3, "event", "сражение"),
+	ru$2("осад", 3, "event", "осада"),
+	ru$2("резн", 3, "event", "резня"),
+	ru$2("катастроф", 3, "event", "катастрофа"),
+	ru$2("турнир", 3, "event", "турнир"),
+	ru$2("переворот", 3, "event", "переворот"),
+	ru$2("мятеж", 3, "event", "мятеж"),
+	ru$2("бунт", 3, "event", "бунт"),
+	ru$2("коронаци", 3, "event", "коронация"),
+	ru$2("падени", 3, "event", "падение"),
+	ru$2("нашестви", 3, "event", "нашествие"),
+	ru$2("орден", 3, "faction", "орден"),
+	ru$2("гильди", 3, "faction", "гильдия"),
+	ru$2("братств", 3, "faction", "братство"),
+	ru$2("сестринств", 3, "faction", "сестринство"),
+	ru$2("клан", 3, "faction", "клан"),
+	ru$2("союз", 3, "faction", "союз"),
+	ru$2("легион", 3, "faction", "легион"),
+	ru$2("династи", 3, "faction", "династия"),
+	ru$2("таверн", 3, "place", "таверна"),
+	ru$2("трактир", 3, "place", "трактир"),
+	ru$2("корчм", 3, "place", "корчма"),
+	ru$2("харчевн", 3, "place", "харчевня"),
+	ru$2("гостиниц", 3, "place", "гостиница"),
+	ru$2("кабак", 3, "place", "кабак"),
+	ru$2("город", 3, "place", "город"),
+	ru$2("деревн", 3, "place", "деревня"),
+	ru$2("поселк", 3, "place", "посёлок"),
+	ru$2("замок", 3, "place", "замок"),
+	ru$2("замк", 3, "place", "замок"),
+	ru$2("крепост", 3, "place", "крепость"),
+	ru$2("башн", 3, "place", "башня"),
+	ru$2("храм", 3, "place", "храм"),
+	ru$2("монастыр", 3, "place", "монастырь"),
+	ru$2("королевств", 3, "place", "королевство"),
+	ru$2("импери", 3, "place", "империя"),
+	ru$2("княжеств", 3, "place", "княжество"),
+	ru$2("остров", 3, "place", "остров"),
+	ru$2("долин", 3, "place", "долина"),
+	ru$2("пещер", 3, "place", "пещера"),
+	ru$2("улиц", 3, "place", "улица"),
+	ru$2("площад", 3, "place", "площадь"),
+	ru$2("квартал", 3, "place", "квартал"),
+	ru$2("гаван", 3, "place", "гавань"),
+	ru$2("перевал", 3, "place", "перевал"),
+	ru$2("академи", 3, "place", "академия"),
+	ru$2("пустын", 3, "place", "пустыня"),
+	ru$2("провинци", 3, "place", "провинция"),
+	ru$2("озер", 2, "place", "озеро"),
+	ru$2("клинок", 3, "item", "клинок"),
+	ru$2("клинк", 3, "item", "клинок"),
+	ru$2("кинжал", 3, "item", "кинжал"),
+	ru$2("амулет", 3, "item", "амулет"),
+	ru$2("артефакт", 3, "item", "артефакт"),
+	ru$2("кольц", 3, "item", "кольцо"),
+	ru$2("книг", 3, "item", "книга"),
+	ru$2("свиток", 3, "item", "свиток"),
+	ru$2("свитк", 3, "item", "свиток"),
+	ru$2("корабл", 3, "item", "корабль"),
+	ru$2("посох", 3, "item", "посох"),
+	ru$2("доспех", 3, "item", "доспех"),
+	ru$2("талисман", 3, "item", "талисман"),
+	ru$2("реликви", 3, "item", "реликвия"),
+	ru$2("кристалл", 3, "item", "кристалл"),
+	ru$2("лорд", 3, "person", "лорд"),
+	ru$2("леди", 0, "person", "леди"),
+	ru$2("сэр", 0, "person", "сэр"),
+	ru$2("госпож", 3, "person", "госпожа"),
+	ru$2("господин", 3, "person", "господин"),
+	ru$2("мастер", 2, "person", "мастер"),
+	ru$2("капитан", 3, "person", "капитан"),
+	ru$2("корол", 3, "person", "король"),
+	ru$2("принц", 4, "person", "принц"),
+	ru$2("барон", 4, "person", "барон"),
+	ru$2("герцог", 4, "person", "герцог"),
+	ru$2("магистр", 3, "person", "магистр"),
+	ru$2("жрец", 3, "person", "жрец"),
+	ru$2("жриц", 3, "person", "жрица"),
+	ru$2("старейшин", 3, "person", "старейшина"),
+	ru$2("генерал", 3, "person", "генерал"),
+	ru$2("командир", 3, "person", "командир")
 ];
 var RU_TYPE_FORMS = new Map([
 	{
@@ -36728,7 +36969,7 @@ var RU_TYPE_FORMS = new Map([
 	partOfName: item.type === "tradition" || item.type === "event" || item.type === "faction",
 	...item.capitalizedOnly ? { capitalizedOnly: true } : {}
 }])));
-var en$1 = (type, words, extra = {}) => words.map((word) => [word, {
+var en$2 = (type, words, extra = {}) => words.map((word) => [word, {
 	type,
 	base: word,
 	partOfName: type === "tradition" || type === "event" || type === "faction",
@@ -36736,7 +36977,7 @@ var en$1 = (type, words, extra = {}) => words.map((word) => [word, {
 }]);
 /** English type words (lower case, singular). */
 var EN_TYPE_WORDS = new Map([
-	...en$1("tradition", [
+	...en$2("tradition", [
 		"festival",
 		"feast",
 		"holiday",
@@ -36746,14 +36987,14 @@ var EN_TYPE_WORDS = new Map([
 		"tradition",
 		"celebration"
 	]),
-	...en$1("tradition", ["carnival", "fair"]),
-	...en$1("tradition", [
+	...en$2("tradition", ["carnival", "fair"]),
+	...en$2("tradition", [
 		"day",
 		"night",
 		"eve",
 		"week"
 	], { capitalizedOnly: true }),
-	...en$1("event", [
+	...en$2("event", [
 		"battle",
 		"war",
 		"siege",
@@ -36763,12 +37004,12 @@ var EN_TYPE_WORDS = new Map([
 		"massacre",
 		"tournament"
 	]),
-	...en$1("event", [
+	...en$2("event", [
 		"coronation",
 		"plague",
 		"cataclysm"
 	]),
-	...en$1("faction", [
+	...en$2("faction", [
 		"order",
 		"guild",
 		"brotherhood",
@@ -36779,18 +37020,18 @@ var EN_TYPE_WORDS = new Map([
 		"council",
 		"league"
 	]),
-	...en$1("faction", [
+	...en$2("faction", [
 		"union",
 		"legion",
 		"covenant",
 		"dynasty"
 	]),
-	...en$1("faction", [
+	...en$2("faction", [
 		"house",
 		"company",
 		"circle"
 	], { capitalizedOnly: true }),
-	...en$1("place", [
+	...en$2("place", [
 		"tavern",
 		"inn",
 		"pub",
@@ -36802,7 +37043,7 @@ var EN_TYPE_WORDS = new Map([
 		"fortress",
 		"tower"
 	]),
-	...en$1("place", [
+	...en$2("place", [
 		"temple",
 		"monastery",
 		"forest",
@@ -36813,7 +37054,7 @@ var EN_TYPE_WORDS = new Map([
 		"river",
 		"island"
 	]),
-	...en$1("place", [
+	...en$2("place", [
 		"isle",
 		"valley",
 		"cave",
@@ -36825,7 +37066,7 @@ var EN_TYPE_WORDS = new Map([
 		"harbor",
 		"harbour"
 	]),
-	...en$1("place", [
+	...en$2("place", [
 		"market",
 		"bridge",
 		"pass",
@@ -36836,7 +37077,7 @@ var EN_TYPE_WORDS = new Map([
 		"swamp",
 		"province"
 	]),
-	...en$1("item", [
+	...en$2("item", [
 		"sword",
 		"blade",
 		"dagger",
@@ -36848,7 +37089,7 @@ var EN_TYPE_WORDS = new Map([
 		"tome",
 		"scroll"
 	]),
-	...en$1("item", [
+	...en$2("item", [
 		"ship",
 		"staff",
 		"crown",
@@ -36860,7 +37101,7 @@ var EN_TYPE_WORDS = new Map([
 		"talisman",
 		"relic"
 	]),
-	...en$1("person", [
+	...en$2("person", [
 		"lord",
 		"lady",
 		"sir",
@@ -36872,7 +37113,7 @@ var EN_TYPE_WORDS = new Map([
 		"princess",
 		"duke"
 	]),
-	...en$1("person", [
+	...en$2("person", [
 		"duchess",
 		"countess",
 		"baron",
@@ -36882,7 +37123,7 @@ var EN_TYPE_WORDS = new Map([
 		"elder",
 		"priest"
 	]),
-	...en$1("person", ["priestess"], {})
+	...en$2("person", ["priestess"], {})
 ]);
 /** The type word a token stands for (any case form), or null. */
 function typeWordOf(word) {
@@ -37922,7 +38163,7 @@ function buildExtractMessages(input) {
 		content: user
 	}];
 }
-function isDict$19(value) {
+function isDict$32(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function text$1(value, max) {
@@ -37965,13 +38206,13 @@ function parsed(data) {
 */
 function parseExtraction(data, context) {
 	const value = parsed(data);
-	if (!isDict$19(value) || !Array.isArray(value.provisional) && !Array.isArray(value.facts)) return null;
+	if (!isDict$32(value) || !Array.isArray(value.provisional) && !Array.isArray(value.facts)) return null;
 	const rejected = [];
 	const updates = [];
 	const uids = new Set(context.uids);
 	const done = /* @__PURE__ */ new Set();
 	for (const item of Array.isArray(value.provisional) ? value.provisional : []) {
-		if (!isDict$19(item) || typeof item.uid !== "number" || !uids.has(item.uid) || done.has(item.uid)) {
+		if (!isDict$32(item) || typeof item.uid !== "number" || !uids.has(item.uid) || done.has(item.uid)) {
 			rejected.push({
 				item,
 				reason: "unknown uid"
@@ -38004,7 +38245,7 @@ function parseExtraction(data, context) {
 	const seen = /* @__PURE__ */ new Set();
 	for (const item of Array.isArray(value.facts) ? value.facts : []) {
 		if (facts.length >= Math.max(0, context.max)) break;
-		if (!isDict$19(item)) {
+		if (!isDict$32(item)) {
 			rejected.push({
 				item,
 				reason: "not an object"
@@ -38114,10 +38355,10 @@ function emptyLivingDoc() {
 		stats: emptyStats()
 	};
 }
-function isDict$18(value) {
+function isDict$31(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
-function str$4(value, fallback = "") {
+function str$5(value, fallback = "") {
 	return typeof value === "string" ? value : fallback;
 }
 function int(value, fallback) {
@@ -38133,19 +38374,19 @@ function isLivingType(value) {
 	return typeof value === "string" && LIVING_TYPES.includes(value);
 }
 function draftOf(raw) {
-	if (!isDict$18(raw) || typeof raw.name !== "string" || !raw.name.trim()) return null;
+	if (!isDict$31(raw) || typeof raw.name !== "string" || !raw.name.trim()) return null;
 	const source = int(raw.sourceMessage, -1);
 	if (source < 0) return null;
 	const draft = {
 		name: raw.name.trim(),
 		type: isLivingType(raw.type) ? raw.type : "other",
 		pattern: oneOf(NAME_PATTERNS, raw.pattern, "single"),
-		quote: str$4(raw.quote),
+		quote: str$5(raw.quote),
 		count: Math.max(1, int(raw.count, 1)),
 		descriptive: raw.descriptive === true,
 		variants: strings$6(raw.variants),
 		sourceMessage: source,
-		stamp: str$4(raw.stamp),
+		stamp: str$5(raw.stamp),
 		score: int(raw.score, 0),
 		at: int(raw.at, 0)
 	};
@@ -38153,16 +38394,16 @@ function draftOf(raw) {
 	return draft;
 }
 function factOf(raw) {
-	if (!isDict$18(raw) || typeof raw.id !== "string" || typeof raw.name !== "string" || !raw.name.trim()) return null;
+	if (!isDict$31(raw) || typeof raw.id !== "string" || typeof raw.name !== "string" || !raw.name.trim()) return null;
 	const fact = {
 		id: raw.id,
 		name: raw.name.trim(),
 		type: isLivingType(raw.type) ? raw.type : "other",
-		quote: str$4(raw.quote),
+		quote: str$5(raw.quote),
 		quotes: strings$6(raw.quotes),
 		keys: strings$6(raw.keys),
 		sourceMessage: int(raw.sourceMessage, -1),
-		stamp: str$4(raw.stamp),
+		stamp: str$5(raw.stamp),
 		status: oneOf(STATUSES, raw.status, "provisional"),
 		survivedTurns: Math.max(0, int(raw.survivedTurns, 0)),
 		createdAt: int(raw.createdAt, 0),
@@ -38185,14 +38426,14 @@ function factOf(raw) {
 /** A stored document of any shape → a valid one (unknown entries dropped). */
 function normalizeLivingDoc(raw) {
 	const doc = emptyLivingDoc();
-	if (!isDict$18(raw)) return doc;
+	if (!isDict$31(raw)) return doc;
 	if (Array.isArray(raw.drafts)) doc.drafts = raw.drafts.map(draftOf).filter((item) => !!item);
 	if (Array.isArray(raw.facts)) doc.facts = raw.facts.map(factOf).filter((item) => !!item);
-	if (Array.isArray(raw.committed)) doc.committed = raw.committed.filter((item) => isDict$18(item) && typeof item.index === "number").map((item) => ({
+	if (Array.isArray(raw.committed)) doc.committed = raw.committed.filter((item) => isDict$31(item) && typeof item.index === "number").map((item) => ({
 		index: item.index,
-		stamp: str$4(item.stamp)
+		stamp: str$5(item.stamp)
 	}));
-	if (isDict$18(raw.extract)) {
+	if (isDict$31(raw.extract)) {
 		const extract = raw.extract;
 		doc.extract = {
 			upTo: int(extract.upTo, -1),
@@ -38204,7 +38445,7 @@ function normalizeLivingDoc(raw) {
 		if (typeof extract.updated === "number") doc.extract.updated = extract.updated;
 	}
 	doc.started = raw.started === true;
-	if (isDict$18(raw.stats)) {
+	if (isDict$31(raw.stats)) {
 		const stats = raw.stats;
 		for (const key of STAT_KEYS) doc.stats[key] = Math.max(0, int(stats[key], 0));
 	}
@@ -38212,9 +38453,9 @@ function normalizeLivingDoc(raw) {
 }
 /** Fingerprint of a chat message: send date, swipe and text (a swipe, an edit or a regeneration changes it). */
 function messageStamp$1(message) {
-	if (!isDict$18(message)) return "";
+	if (!isDict$31(message)) return "";
 	const swipe = typeof message.swipe_id === "number" ? message.swipe_id : 0;
-	return `${str$4(message.send_date)}|${swipe}|${stableHash(str$4(message.mes))}`;
+	return `${str$5(message.send_date)}|${swipe}|${stableHash(str$5(message.mes))}`;
 }
 /**
 * Records a committed reply. False when exactly this reply (index and fingerprint) was processed already — a
@@ -38521,14 +38762,14 @@ function defaultLivingSettings() {
 		extractEvery: 10
 	};
 }
-function isRecord$4(value) {
+function isRecord$6(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function strings$5(value) {
 	return Array.isArray(value) ? value.filter((item) => typeof item === "string") : [];
 }
 function readCandidate$1(value) {
-	if (!isRecord$4(value) || typeof value.id !== "string" || typeof value.name !== "string") return null;
+	if (!isRecord$6(value) || typeof value.id !== "string" || typeof value.name !== "string") return null;
 	if (typeof value.sourceMessage !== "number" || typeof value.quote !== "string") return null;
 	const candidate = {
 		id: value.id,
@@ -38546,7 +38787,7 @@ function readCandidate$1(value) {
 	return candidate;
 }
 function readDisputed(value) {
-	if (!isRecord$4(value) || typeof value.conflict !== "string") return null;
+	if (!isRecord$6(value) || typeof value.conflict !== "string") return null;
 	if (value.mode === "new") {
 		const candidate = readCandidate$1(value.candidate);
 		return candidate ? {
@@ -38593,7 +38834,7 @@ function livingIdOf(item) {
 	const id = item.meta.livingId;
 	return typeof id === "string" ? id : void 0;
 }
-function contentOf$1(item) {
+function contentOf$2(item) {
 	const content = item?.entry.content;
 	return typeof content === "string" ? content : "";
 }
@@ -39002,7 +39243,7 @@ var LivingCanonService = class {
 			for (const item of items) {
 				const id = livingIdOf(item);
 				if (claimed.has(item.uid) || id && doc.facts.some((fact) => fact.id === id)) continue;
-				const content = contentOf$1(item);
+				const content = contentOf$2(item);
 				doc.facts.push({
 					id: id ?? newId$1(),
 					uid: item.uid,
@@ -39374,8 +39615,8 @@ var LivingCanonService = class {
 			type: fact.type,
 			quote: next.quote,
 			quotes: next.quotes
-		}) : contentOf$1(item);
-		if (!(keys.length !== strings$5(item.entry.key).length) && content === contentOf$1(item)) {
+		}) : contentOf$2(item);
+		if (!(keys.length !== strings$5(item.entry.key).length) && content === contentOf$2(item)) {
 			if (!quoteAdded) return false;
 			await this.store.mutate((doc) => {
 				const live = doc.facts.find((candidate) => candidate.id === fact.id);
@@ -39437,7 +39678,7 @@ var LivingCanonService = class {
 		entities.push(...mentioned.map((entity) => entity.name));
 		for (const item of await this.canonItems()) {
 			if (item.uid === excludeUid || item.meta.status === "archived") continue;
-			const content = contentOf$1(item);
+			const content = contentOf$2(item);
 			if (!content.trim() || isSeedContent(content)) continue;
 			if (!mentionsAny(index, [...strings$5(item.entry.key), commentOf$1(item)]) && !similarNames(commentOf$1(item), name)) continue;
 			against.push({
@@ -39700,7 +39941,7 @@ var LivingCanonService = class {
 	async conflictWithConfirmed(fact, statement, sourceMessage) {
 		if (fact.uid === void 0 || fact.dispute || !statement.trim()) return;
 		const item = (await this.canonItems()).find((candidate) => candidate.uid === fact.uid);
-		const content = contentOf$1(item);
+		const content = contentOf$2(item);
 		if (!item || !content.trim()) return;
 		const input = {
 			statement,
@@ -40657,7 +40898,7 @@ function livingTab(app, service, settings) {
 				const state = service.extractState();
 				let text = t("m26.extract.never");
 				if (state?.lastRun) {
-					const when = formatTime(state.lastRun, app.i18n);
+					const when = formatTime$1(state.lastRun, app.i18n);
 					text = state.lastError ? t("m26.extract.failed", {
 						when,
 						error: state.lastError
@@ -42002,8 +42243,8 @@ function canonEntryView(env, canon, meta) {
 		}).catch((error) => env.app.log.debug("base load failed", error));
 	}
 	const times = [
-		meta.createdAt ? t("m23f.canon.created", { time: formatTime(meta.createdAt, env.app.i18n) }) : null,
-		meta.updatedAt ? t("m23f.canon.updated", { time: formatTime(meta.updatedAt, env.app.i18n) }) : null,
+		meta.createdAt ? t("m23f.canon.created", { time: formatTime$1(meta.createdAt, env.app.i18n) }) : null,
+		meta.updatedAt ? t("m23f.canon.updated", { time: formatTime$1(meta.updatedAt, env.app.i18n) }) : null,
 		typeof meta.sourceMessage === "number" ? t("m23f.canon.source", { index: meta.sourceMessage }) : null
 	].filter((item) => !!item);
 	if (times.length) nodes.push(el("div", {
@@ -42204,7 +42445,7 @@ function typedBlock(env) {
 //#endregion
 //#region src/features/loreStudio/form/content.ts
 /** ST counts tokens 1 s after the last edit (`debounce_timeout.relaxed`). */
-var TOKEN_DEBOUNCE_MS = 1e3;
+var TOKEN_DEBOUNCE_MS$1 = 1e3;
 function commentField(env) {
 	const t = env.t;
 	const id = uid("maestro-m23f-comment");
@@ -42292,7 +42533,7 @@ function contentField(env) {
 		timer = setTimeout(() => {
 			timer = null;
 			count();
-		}, TOKEN_DEBOUNCE_MS);
+		}, TOKEN_DEBOUNCE_MS$1);
 	};
 	const updateChars = () => {
 		chars.textContent = t("m23f.content.chars", { count: input.value.length });
@@ -43107,7 +43348,7 @@ async function restore(env, version) {
 		return;
 	}
 	if (env.isDirty() && !await env.app.ui.confirm(t("m23f.discard.title"), t("m23f.hist.discardBody"))) return;
-	const time = formatTime(version.at, env.app.i18n);
+	const time = formatTime$1(version.at, env.app.i18n);
 	await env.ctx.store.updateEntry(env.ctx.book, env.ctx.uid, patch, {
 		module: "M23",
 		summary: t("m23f.hist.restoreSummary", {
@@ -43138,7 +43379,7 @@ function versionRow(env, version) {
 		el("div", { class: "maestro-m23f-hist-head" }, [
 			el("span", {
 				class: "maestro-m23f-hist-time",
-				text: formatTime(version.at, env.app.i18n)
+				text: formatTime$1(version.at, env.app.i18n)
 			}),
 			el("span", {
 				class: "maestro-m23f-hist-by",
@@ -43237,7 +43478,7 @@ function findingTargetsEntry(target, book, uid) {
 }
 //#endregion
 //#region src/features/loreStudio/form/insights.ts
-function percent$1(value) {
+function percent$2(value) {
 	return `${Math.round(value * 100)}%`;
 }
 function analyticsBlock(env) {
@@ -43268,10 +43509,10 @@ function analyticsBlock(env) {
 	box.append(el("div", { class: "maestro-kv" }, [el("span", { text: t("m23f.stats.frequency") }), el("span", { text: t("m23f.stats.frequencyValue", {
 		count: stats.activations,
 		turns: stats.turns,
-		percent: percent$1(stats.frequency)
+		percent: percent$2(stats.frequency)
 	}) })]), el("div", { class: "maestro-kv" }, [el("span", { text: t("m23f.stats.last") }), el("span", { text: last ? t("m23f.stats.lastValue", {
 		index: last.messageIndex,
-		time: formatTime(last.at, env.app.i18n)
+		time: formatTime$1(last.at, env.app.i18n)
 	}) : t("m23f.stats.never") })]), el("div", { class: "maestro-kv" }, [el("span", { text: t("m23f.stats.avgChars") }), el("span", { text: stats.avgChars ? String(stats.avgChars) : "—" })]), keyLine);
 	if (stats.cut) box.append(el("div", {
 		class: "maestro-m23f-hint maestro-warn-text",
@@ -43285,7 +43526,7 @@ function analyticsBlock(env) {
 		text: [
 			t("m23f.stats.recentItem", {
 				index: item.messageIndex,
-				time: formatTime(item.at, env.app.i18n),
+				time: formatTime$1(item.at, env.app.i18n),
 				chars: item.chars
 			}),
 			item.key ? t("m23f.stats.recentKey", { key: item.key }) : null,
@@ -45615,7 +45856,7 @@ var ORIGINAL_DATA_KEY_MAP = Object.freeze({
 	triggers: "extensions.triggers",
 	ignoreBudget: "extensions.ignore_budget"
 });
-function isRecord$3(value) {
+function isRecord$5(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /** JSON-safe deep copy (book data is JSON on disk). */
@@ -45678,7 +45919,7 @@ function normalizedEntry(entry) {
 	for (const [key, value] of Object.entries(ENTRY_TEMPLATE)) if (!Object.prototype.hasOwnProperty.call(copy, key)) copy[key] = cloneJson(value);
 	if (!Array.isArray(copy.key)) copy.key = [];
 	if (!Array.isArray(copy.keysecondary)) copy.keysecondary = [];
-	if (!isRecord$3(copy.characterFilter)) copy.characterFilter = {
+	if (!isRecord$5(copy.characterFilter)) copy.characterFilter = {
 		isExclude: false,
 		names: [],
 		tags: []
@@ -45886,7 +46127,7 @@ function setByPath(target, path, value) {
 	for (let i = 0; i < parts.length - 1; i++) {
 		const part = parts[i];
 		const next = node[part];
-		if (!isRecord$3(next)) node[part] = {};
+		if (!isRecord$5(next)) node[part] = {};
 		node = node[part];
 	}
 	node[parts[parts.length - 1]] = cloneJson(value);
@@ -45894,8 +46135,8 @@ function setByPath(target, path, value) {
 /** The `originalData.entries` array of a card-embedded book, or null. */
 function originalEntries(book) {
 	const original = book.originalData;
-	if (!isRecord$3(original) || !Array.isArray(original.entries)) return null;
-	return original.entries.filter(isRecord$3);
+	if (!isRecord$5(original) || !Array.isArray(original.entries)) return null;
+	return original.entries.filter(isRecord$5);
 }
 /** `setWIOriginalDataValue` (WI:2756-2766) in pure form. */
 function setOriginalValue(book, uid, path, value) {
@@ -45907,8 +46148,8 @@ function setOriginalValue(book, uid, path, value) {
 /** `deleteWIOriginalDataValue` (WI:2774-2784): loose uid comparison like ST. */
 function removeOriginal(book, uid) {
 	const original = book.originalData;
-	if (!isRecord$3(original) || !Array.isArray(original.entries)) return false;
-	const index = original.entries.findIndex((item) => isRecord$3(item) && String(item.uid) === String(uid));
+	if (!isRecord$5(original) || !Array.isArray(original.entries)) return false;
+	const index = original.entries.findIndex((item) => isRecord$5(item) && String(item.uid) === String(uid));
 	if (index < 0) return false;
 	original.entries.splice(index, 1);
 	return true;
@@ -46097,19 +46338,19 @@ function safeIcon(icon) {
 }
 /** The library as DES draws it (L-186, L-187) from `extensionSettings.lorebook`. */
 function libraryView(lorebook, worldNames, activeBooks) {
-	const lb = isRecord$3(lorebook) ? lorebook : {};
-	const campaigns = isRecord$3(lb.campaigns) ? lb.campaigns : {};
+	const lb = isRecord$5(lorebook) ? lorebook : {};
+	const campaigns = isRecord$5(lb.campaigns) ? lb.campaigns : {};
 	const order = stringList$2(lb.campaignOrder);
-	const ids = [...order.filter((id) => isRecord$3(campaigns[id])), ...Object.keys(campaigns).filter((id) => !order.includes(id))];
+	const ids = [...order.filter((id) => isRecord$5(campaigns[id])), ...Object.keys(campaigns).filter((id) => !order.includes(id))];
 	const existing = new Set(worldNames);
 	const active = new Set(activeBooks);
 	const collapsed = new Set(stringList$2(lb.collapsedCampaigns));
-	const activeId = typeof lb.activeCampaignId === "string" && isRecord$3(campaigns[lb.activeCampaignId]) ? lb.activeCampaignId : null;
+	const activeId = typeof lb.activeCampaignId === "string" && isRecord$5(campaigns[lb.activeCampaignId]) ? lb.activeCampaignId : null;
 	const filed = /* @__PURE__ */ new Set();
 	const views = [];
 	for (const id of [...new Set(ids)]) {
 		const raw = campaigns[id];
-		if (!isRecord$3(raw)) continue;
+		if (!isRecord$5(raw)) continue;
 		const allBooks = stringList$2(raw.books);
 		for (const book of allBooks) filed.add(book);
 		const books = allBooks.filter((book) => existing.has(book));
@@ -46147,13 +46388,13 @@ function moveCampaign(order, id, delta) {
 }
 /** Workshop links `NPC → book` (characterInjection[name].lorebook and userCharacters[name].injection.lorebook). */
 function workshopLinks(desSettings) {
-	const settings = isRecord$3(desSettings) ? desSettings : {};
+	const settings = isRecord$5(desSettings) ? desSettings : {};
 	const links = {};
-	const injection = isRecord$3(settings.characterInjection) ? settings.characterInjection : {};
-	for (const [name, value] of Object.entries(injection)) if (isRecord$3(value) && typeof value.lorebook === "string" && value.lorebook) links[name] = value.lorebook;
-	const users = isRecord$3(settings.userCharacters) ? settings.userCharacters : {};
+	const injection = isRecord$5(settings.characterInjection) ? settings.characterInjection : {};
+	for (const [name, value] of Object.entries(injection)) if (isRecord$5(value) && typeof value.lorebook === "string" && value.lorebook) links[name] = value.lorebook;
+	const users = isRecord$5(settings.userCharacters) ? settings.userCharacters : {};
 	for (const [name, value] of Object.entries(users)) {
-		const own = isRecord$3(value) && isRecord$3(value.injection) ? value.injection.lorebook : void 0;
+		const own = isRecord$5(value) && isRecord$5(value.injection) ? value.injection.lorebook : void 0;
 		if (typeof own === "string" && own) links[name] = own;
 	}
 	return links;
@@ -46237,10 +46478,10 @@ function findSameName(name, books) {
 	const folded = foldName(name);
 	return books.find((book) => foldName(book) === folded);
 }
-var ILLEGAL_RE = /[/?<>\\:*|"]/g;
-var CONTROL_RE = /[\x00-\x1f\x80-\x9f]/g;
-var RESERVED_RE = /^\.+$/;
-var WINDOWS_RESERVED_RE = /^(con|prn|aux|nul|com[0-9]|lpt[0-9])(\..*)?$/i;
+var ILLEGAL_RE$1 = /[/?<>\\:*|"]/g;
+var CONTROL_RE$1 = /[\x00-\x1f\x80-\x9f]/g;
+var RESERVED_RE$1 = /^\.+$/;
+var WINDOWS_RESERVED_RE$1 = /^(con|prn|aux|nul|com[0-9]|lpt[0-9])(\..*)?$/i;
 var TRAILING_RE = /[. ]+$/;
 /**
 * `sanitize-filename` as the server applies it to book file names (SRV-WI:151): illegal and control characters
@@ -46248,9 +46489,9 @@ var TRAILING_RE = /[. ]+$/;
 * `/api/files/sanitize-filename` is unreachable.
 */
 function sanitizeBookName(name) {
-	let result = name.replace(ILLEGAL_RE, "").replace(CONTROL_RE, "");
-	if (RESERVED_RE.test(result)) result = "";
-	if (WINDOWS_RESERVED_RE.test(result)) result = "";
+	let result = name.replace(ILLEGAL_RE$1, "").replace(CONTROL_RE$1, "");
+	if (RESERVED_RE$1.test(result)) result = "";
+	if (WINDOWS_RESERVED_RE$1.test(result)) result = "";
 	result = result.replace(TRAILING_RE, "");
 	while (new TextEncoder().encode(result).length > 255) result = result.slice(0, -1);
 	return result;
@@ -46568,9 +46809,9 @@ var StLore = class {
 	async load(name) {
 		const ctx = this.ctx();
 		const data = typeof ctx.loadWorldInfo === "function" ? await ctx.loadWorldInfo(name) : await (fn(await this.module(), "loadWorldInfo") ?? missing("loadWorldInfo"))(name);
-		if (!isRecord$3(data)) return null;
+		if (!isRecord$5(data)) return null;
 		const copy = cloneJson(data);
-		if (!isRecord$3(copy.entries)) copy.entries = {};
+		if (!isRecord$5(copy.entries)) copy.entries = {};
 		return copy;
 	}
 	/** Immediate save only (sweeping rule 1): the shared 1 s debounce loses books saved within a second. */
@@ -46669,7 +46910,7 @@ var StLore = class {
 		return {
 			set: fn(wi, "setWIOriginalDataValue"),
 			remove: fn(wi, "deleteWIOriginalDataValue"),
-			keyMap: isRecord$3(keyMap) ? keyMap : null
+			keyMap: isRecord$5(keyMap) ? keyMap : null
 		};
 	}
 	/** `selected_world_info` read through the module namespace (a live `export let`, never cached). */
@@ -46705,7 +46946,7 @@ var StLore = class {
 		const wi = await this.module();
 		const getter = fn(wi, "getWorldInfoSettings");
 		const source = getter ? getter() : wi;
-		return readWiSettings(isRecord$3(source) ? source : null);
+		return readWiSettings(isRecord$5(source) ? source : null);
 	}
 	/**
 	* Applies a normalized patch through the classic panel's elements and the event ST listens to on each (so the
@@ -46747,7 +46988,7 @@ var StLore = class {
 	}
 	async charLore() {
 		const settings = (await this.module())?.world_info;
-		return (isRecord$3(settings) && Array.isArray(settings.charLore) ? settings.charLore : []).filter(isRecord$3).map((item) => ({
+		return (isRecord$5(settings) && Array.isArray(settings.charLore) ? settings.charLore : []).filter(isRecord$5).map((item) => ({
 			name: String(item.name ?? ""),
 			extraBooks: stringList$2(item.extraBooks)
 		}));
@@ -46777,7 +47018,7 @@ var StLore = class {
 	/** Edits `world_info.charLore` in place (the live object) and saves settings. */
 	async writeCharLore(edit) {
 		const settings = (await this.module())?.world_info;
-		if (!isRecord$3(settings)) throw new LoreStudioError("unavailable");
+		if (!isRecord$5(settings)) throw new LoreStudioError("unavailable");
 		const list = Array.isArray(settings.charLore) ? settings.charLore : [];
 		edit(list);
 		settings.charLore = list;
@@ -46819,11 +47060,11 @@ var StLore = class {
 	/** Persona descriptors: avatar → { name, lorebook }. */
 	personas() {
 		const power = this.ctx().powerUserSettings ?? {};
-		const names = isRecord$3(power.personas) ? power.personas : {};
-		const descriptors = isRecord$3(power.persona_descriptions) ? power.persona_descriptions : {};
+		const names = isRecord$5(power.personas) ? power.personas : {};
+		const descriptors = isRecord$5(power.persona_descriptions) ? power.persona_descriptions : {};
 		const result = {};
 		for (const [avatar, descriptor] of Object.entries(descriptors)) {
-			if (!isRecord$3(descriptor)) continue;
+			if (!isRecord$5(descriptor)) continue;
 			const name = names[avatar];
 			result[avatar] = {
 				name: typeof name === "string" ? name : void 0,
@@ -46838,12 +47079,12 @@ var StLore = class {
 		const power = ctx.powerUserSettings;
 		const personas = await this.optional("/scripts/personas.js");
 		const avatar = typeof personas?.user_avatar === "string" ? personas.user_avatar : "";
-		const names = isRecord$3(power?.personas) ? power.personas : {};
+		const names = isRecord$5(power?.personas) ? power.personas : {};
 		if (!power || !avatar || !names[avatar]) throw new LoreStudioError("personaName");
 		power.persona_description_lorebook = name ?? "";
 		const descriptor = fn(personas, "getOrCreatePersonaDescriptor")?.();
-		if (isRecord$3(descriptor)) descriptor.lorebook = name ?? "";
-		else if (isRecord$3(power.persona_descriptions) && isRecord$3(power.persona_descriptions[avatar])) power.persona_descriptions[avatar].lorebook = name ?? "";
+		if (isRecord$5(descriptor)) descriptor.lorebook = name ?? "";
+		else if (isRecord$5(power.persona_descriptions) && isRecord$5(power.persona_descriptions[avatar])) power.persona_descriptions[avatar].lorebook = name ?? "";
 		document.getElementById("persona_lore_button")?.classList.toggle("world_set", !!name);
 		ctx.saveSettingsDebounced();
 		const event = this.app.host.events.name("PERSONA_UPDATED");
@@ -46858,8 +47099,8 @@ var StLore = class {
 			power.persona_description_lorebook = newName;
 			changed++;
 		}
-		const descriptors = isRecord$3(power.persona_descriptions) ? power.persona_descriptions : {};
-		for (const descriptor of Object.values(descriptors)) if (isRecord$3(descriptor) && descriptor.lorebook === oldName) {
+		const descriptors = isRecord$5(power.persona_descriptions) ? power.persona_descriptions : {};
+		for (const descriptor of Object.values(descriptors)) if (isRecord$5(descriptor) && descriptor.lorebook === oldName) {
 			descriptor.lorebook = newName;
 			changed++;
 		}
@@ -46869,14 +47110,14 @@ var StLore = class {
 	/** The card's embedded book (`data.character_book`) of a character, if any. */
 	characterBook(characterId) {
 		const book = (this.ctx().characters?.[characterId])?.data?.character_book;
-		return isRecord$3(book) ? book : null;
+		return isRecord$5(book) ? book : null;
 	}
 	/** ST's `convertCharacterBook` (context, L-044): card book → World Info data with `originalData`. */
 	convertCharacterBook(book) {
 		const convert = this.ctx().convertCharacterBook;
 		if (typeof convert !== "function") throw new LoreStudioError("unavailable");
 		const data = convert(book);
-		if (!isRecord$3(data) || !isRecord$3(data.entries)) throw new LoreStudioError("unavailable");
+		if (!isRecord$5(data) || !isRecord$5(data.entries)) throw new LoreStudioError("unavailable");
 		return cloneJson(data);
 	}
 	/** Characters and their primary books. */
@@ -46969,7 +47210,7 @@ var DesLore = class {
 	/** `extensionSettings.lorebook`, read fresh every time (DES replaces the object on load). */
 	lorebook() {
 		const settings = this.adapter().settings();
-		return settings && isRecord$3(settings.lorebook) ? settings.lorebook : null;
+		return settings && isRecord$5(settings.lorebook) ? settings.lorebook : null;
 	}
 	view(worldNames, activeBooks) {
 		return libraryView(this.lorebook(), worldNames, activeBooks);
@@ -47075,11 +47316,11 @@ function emptyHistory(book) {
 }
 /** A stored document, repaired: unknown shapes become an empty history of `book`. */
 function readHistory(raw, book) {
-	if (!isRecord$3(raw) || !isRecord$3(raw.entries)) return emptyHistory(book);
+	if (!isRecord$5(raw) || !isRecord$5(raw.entries)) return emptyHistory(book);
 	const entries = {};
 	for (const [uid, list] of Object.entries(raw.entries)) {
 		if (!Array.isArray(list)) continue;
-		const versions = list.filter((item) => isRecord$3(item) && typeof item.at === "number" && isRecord$3(item.entry) && typeof item.by === "string");
+		const versions = list.filter((item) => isRecord$5(item) && typeof item.at === "number" && isRecord$5(item.entry) && typeof item.by === "string");
 		if (versions.length) entries[uid] = versions;
 	}
 	return {
@@ -47122,7 +47363,7 @@ var UNDO_SETTINGS = "lore-studio-settings";
 /** Books whose last known entries are kept to attribute external changes in the history. */
 var KNOWN_LIMIT = 8;
 function asEntries(value) {
-	return isRecord$3(value) ? value : {};
+	return isRecord$5(value) ? value : {};
 }
 var LoreStoreService = class {
 	app;
@@ -47191,7 +47432,7 @@ var LoreStoreService = class {
 		if (typeof name !== "string" || this.disposed) return;
 		if ((this.ownSaves.get(name) ?? 0) > 0) return;
 		const before = this.known.get(name);
-		if (before && isRecord$3(data)) {
+		if (before && isRecord$5(data)) {
 			const after = cloneJson(asEntries(data.entries));
 			this.remember(name, after);
 			this.enqueue(name, () => this.recordHistory(name, before, after, {
@@ -47338,7 +47579,7 @@ var LoreStoreService = class {
 		this.des.invalidate(book);
 	}
 	async mirror(previous, next) {
-		if (!isRecord$3(next.originalData)) return;
+		if (!isRecord$5(next.originalData)) return;
 		const { set, remove, keyMap } = await this.st.mirrorFunctions();
 		mirrorBook(previous, next, {
 			set: set ? (book, uid, path, value) => void set(book, uid, path, value) : void 0,
@@ -47492,7 +47733,7 @@ var LoreStoreService = class {
 	async save(name, data, reason) {
 		this.guardWritable(name);
 		const next = cloneJson(data);
-		if (!isRecord$3(next.entries)) next.entries = {};
+		if (!isRecord$5(next.entries)) next.entries = {};
 		await this.enqueue(name, async () => {
 			const previous = await this.st.load(name);
 			await this.write(name, next, previous, reason);
@@ -47963,13 +48204,13 @@ var LoreStoreService = class {
 			const data = await this.st.load(book);
 			if (!data) return false;
 			const current = data.entries[String(uid)];
-			const after = isRecord$3(change.after) ? change.after : null;
+			const after = isRecord$5(change.after) ? change.after : null;
 			if (after ? !current || !sameJson(current, after) : !!current) {
 				this.log.warn(`undo skipped: entry ${uid} of "${book}" changed since`);
 				return false;
 			}
 			const next = cloneJson(data);
-			if (isRecord$3(change.before)) next.entries[String(uid)] = {
+			if (isRecord$5(change.before)) next.entries[String(uid)] = {
 				...cloneJson(change.before),
 				uid
 			};
@@ -48062,7 +48303,7 @@ var LoreStoreService = class {
 		}
 	}
 	async undoSettings(change) {
-		if (this.disposed || !isRecord$3(change.before)) return false;
+		if (this.disposed || !isRecord$5(change.before)) return false;
 		await this.setGlobalSettings(change.before, false);
 		return true;
 	}
@@ -49040,7 +49281,7 @@ function reorderPage(newOrder, entries) {
 	return changes;
 }
 /** Moves one item of a list (drag and drop, up/down buttons). */
-function moveItem(list, from, to) {
+function moveItem$1(list, from, to) {
 	const copy = [...list];
 	if (from < 0 || from >= copy.length) return copy;
 	const target = Math.min(Math.max(0, to), copy.length - 1);
@@ -49395,8 +49636,8 @@ function moveTargetForm(app, targets) {
 //#endregion
 //#region src/features/loreStudio/dialogs.ts
 /** Values our custom buttons resolve with (ST's AFFIRMATIVE is 1, NEGATIVE 0, CANCELLED null). */
-var CUSTOM_RESULT_BASE = 100;
-var Dialogs = class {
+var CUSTOM_RESULT_BASE$1 = 100;
+var Dialogs$1 = class {
 	app;
 	constructor(app) {
 		this.app = app;
@@ -49441,12 +49682,12 @@ var Dialogs = class {
 			cancelButton: this.t("m23.dialog.cancel"),
 			customButtons: rest.map((action, index) => ({
 				text: action.label,
-				result: CUSTOM_RESULT_BASE + index,
+				result: CUSTOM_RESULT_BASE$1 + index,
 				classes: ["maestro-m23-choice"]
 			}))
 		});
 		if (result === ctx.POPUP_RESULT.AFFIRMATIVE) return first.value;
-		if (typeof result === "number" && result >= CUSTOM_RESULT_BASE) return rest[result - CUSTOM_RESULT_BASE]?.value ?? null;
+		if (typeof result === "number" && result >= CUSTOM_RESULT_BASE$1) return rest[result - CUSTOM_RESULT_BASE$1]?.value ?? null;
 		return null;
 	}
 	/** A form in a popup; the caller reads its inputs after `true`. */
@@ -50022,7 +50263,7 @@ var NEXT_STATUS = {
 	constant: "vectorized",
 	vectorized: "normal"
 };
-var SEARCH_DEBOUNCE_MS = 300;
+var SEARCH_DEBOUNCE_MS$1 = 300;
 /** Entries of the book in display order (search filter + sort), as normalized copies. */
 function visibleEntries(model, state) {
 	const all = Object.values(model.data?.entries ?? {}).map(normalizedEntry);
@@ -50117,7 +50358,7 @@ function renderEntriesPanel(app, model, state, actions) {
 		searchTimer = setTimeout(() => {
 			searchTimer = null;
 			actions.search(search.value);
-		}, SEARCH_DEBOUNCE_MS);
+		}, SEARCH_DEBOUNCE_MS$1);
 	});
 	const sort = el("select", {
 		class: "text_pole maestro-m23-sort",
@@ -50396,14 +50637,14 @@ function renderEntriesPanel(app, model, state, actions) {
 				kind: "ghost",
 				title: t("m23.entries.up"),
 				disabled: index === 0,
-				onClick: () => actions.reorder(moveItem(page, index, index - 1).map((item) => item.uid))
+				onClick: () => actions.reorder(moveItem$1(page, index, index - 1).map((item) => item.uid))
 			}) : null,
 			custom ? button({
 				icon: "fa-arrow-down",
 				kind: "ghost",
 				title: t("m23.entries.down"),
 				disabled: index === page.length - 1,
-				onClick: () => actions.reorder(moveItem(page, index, index + 1).map((item) => item.uid))
+				onClick: () => actions.reorder(moveItem$1(page, index, index + 1).map((item) => item.uid))
 			}) : null,
 			button({
 				icon: disabled ? "fa-toggle-off" : "fa-toggle-on",
@@ -50514,7 +50755,7 @@ function renderEntriesPanel(app, model, state, actions) {
 			const to = page.findIndex((item) => item.uid === uid);
 			dragged = null;
 			if (from < 0 || to < 0) return;
-			actions.reorder(moveItem(page, from, to).map((item) => item.uid));
+			actions.reorder(moveItem$1(page, from, to).map((item) => item.uid));
 		});
 	}
 	renderList();
@@ -50595,7 +50836,7 @@ function defaultStudioSettings() {
 		autoLinkAsked: false
 	};
 }
-var REFRESH_DELAY_MS = 30;
+var REFRESH_DELAY_MS$2 = 30;
 var FOCUS_CLASSES = ["maestro-m23-entry-search", "maestro-m23-book-search"];
 var LoreStudio = class {
 	deps;
@@ -50633,7 +50874,7 @@ var LoreStudio = class {
 	constructor(deps) {
 		this.deps = deps;
 		this.app = deps.app;
-		this.dialogs = new Dialogs(deps.app);
+		this.dialogs = new Dialogs$1(deps.app);
 		const sort = SORT_OPTIONS.some((option) => option.id === deps.settings.sort) ? deps.settings.sort : 0;
 		const size = PAGE_SIZES.includes(deps.settings.pageSize) ? deps.settings.pageSize : 25;
 		this.entriesState = {
@@ -50884,7 +51125,7 @@ var LoreStudio = class {
 		this.refreshTimer = setTimeout(() => {
 			this.refreshTimer = null;
 			if (this.isOpen()) this.render();
-		}, REFRESH_DELAY_MS);
+		}, REFRESH_DELAY_MS$2);
 	}
 	async loadBooksModel() {
 		const store = this.deps.store;
@@ -52005,7 +52246,7 @@ function loreStudioTab(app, deps) {
 //#endregion
 //#region src/features/loreStudio/module.ts
 var LORE_STUDIO_KEY = "loreStudio";
-var runtime$1 = null;
+var runtime$2 = null;
 function createLoreStudioModule(renderForm) {
 	return {
 		id: "M23",
@@ -52046,7 +52287,7 @@ function createLoreStudioModule(renderForm) {
 				openClassic: (book) => takeover.openClassic(book)
 			});
 			ref.studio = studio;
-			runtime$1 = {
+			runtime$2 = {
 				store,
 				studio,
 				takeover
@@ -52054,7 +52295,7 @@ function createLoreStudioModule(renderForm) {
 			app.modules.expose(LORE_STUDIO_KEY, { open: (book, uid) => studio.open(book, uid) });
 			own(() => {
 				studio.dispose();
-				if (runtime$1?.studio === studio) runtime$1 = null;
+				if (runtime$2?.studio === studio) runtime$2 = null;
 			});
 			own(app.ui.style("m23-lore-studio", M23_CSS));
 			const setTakeover = async (on) => {
@@ -52100,7 +52341,7 @@ function createLoreStudioModule(renderForm) {
 var loreStudioModule = createLoreStudioModule(renderEntryForm);
 //#endregion
 //#region src/domain/medic-des.ts
-function isDict$17(value) {
+function isDict$30(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /**
@@ -52118,7 +52359,7 @@ function emptyKeyFieldNames(fields) {
 	if (!Array.isArray(fields)) return [];
 	const names = [];
 	for (const field of fields) {
-		if (!isDict$17(field) || field.enabled === false) continue;
+		if (!isDict$30(field) || field.enabled === false) continue;
 		const name = typeof field.name === "string" ? field.name.trim() : "";
 		if (name && desFieldKey(name) === "") names.push(name);
 	}
@@ -52127,7 +52368,7 @@ function emptyKeyFieldNames(fields) {
 /** True when some character in `characterThoughts` has a `details` entry with the empty key `""`. */
 function hasEmptyDetailKeys(characterThoughts) {
 	const data = parseTrackerJson(characterThoughts);
-	return (Array.isArray(data) ? data : isDict$17(data) && Array.isArray(data.characters) ? data.characters : []).some((character) => isDict$17(character) && isDict$17(character.details) && Object.hasOwn(character.details, ""));
+	return (Array.isArray(data) ? data : isDict$30(data) && Array.isArray(data.characters) ? data.characters : []).some((character) => isDict$30(character) && isDict$30(character.details) && Object.hasOwn(character.details, ""));
 }
 function blank(value) {
 	return value === null || value === void 0 || typeof value === "string" && value.trim() === "";
@@ -52205,14 +52446,14 @@ function buildCompactRepairPrompt(input) {
 }
 //#endregion
 //#region src/domain/medic-lore.ts
-function isDict$16(value) {
+function isDict$29(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /** Entries of a book (`{entries: {uid: entry}}` or a list), as plain objects. */
 function bookEntries(book) {
-	const entries = isDict$16(book) ? book.entries : void 0;
-	if (Array.isArray(entries)) return entries.filter(isDict$16);
-	if (isDict$16(entries)) return Object.values(entries).filter(isDict$16);
+	const entries = isDict$29(book) ? book.entries : void 0;
+	if (Array.isArray(entries)) return entries.filter(isDict$29);
+	if (isDict$29(entries)) return Object.values(entries).filter(isDict$29);
 	return [];
 }
 function ref(entry) {
@@ -52276,13 +52517,13 @@ function findQvinkGaps(messages, options = QVINK_GAP_DEFAULTS) {
 //#region src/features/medic/prefill.ts
 var PREFILL_KIND = "medic.prefillRole";
 var PREFILL_TARGET = "preset-prompt-role";
-function isDict$15(value) {
+function isDict$28(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /** Live Chat Completion settings (oai_settings) or null. */
 function liveSettings(app) {
 	const settings = app.host.ctx().chatCompletionSettings;
-	return isDict$15(settings) ? settings : null;
+	return isDict$28(settings) ? settings : null;
 }
 /** The assistant prompt that ends the request with the active preset, if any. */
 function detectPrefill(app) {
@@ -52374,9 +52615,9 @@ var PrefillFix = class {
 		const openai = await this.app.host.modules.openai();
 		const names = openai.openai_setting_names;
 		const list = openai.openai_settings;
-		const slot = isDict$15(names) ? names[preset] : void 0;
+		const slot = isDict$28(names) ? names[preset] : void 0;
 		const stored = Array.isArray(list) && typeof slot === "number" ? list[slot] : void 0;
-		if (!isDict$15(stored)) {
+		if (!isDict$28(stored)) {
 			this.log.warn(`preset ${preset} is not in ST's preset list; only the live settings changed`);
 			return;
 		}
@@ -52386,7 +52627,7 @@ var PrefillFix = class {
 		body.prompts[index].role = role;
 		const getManager = (await this.app.host.modules.presetManager()).getPresetManager;
 		const manager = typeof getManager === "function" ? getManager("openai") : null;
-		const save = isDict$15(manager) ? manager.savePreset : void 0;
+		const save = isDict$28(manager) ? manager.savePreset : void 0;
 		if (typeof save !== "function") {
 			this.log.warn("preset manager has no savePreset; only the live settings changed");
 			return;
@@ -52398,7 +52639,7 @@ var PrefillFix = class {
 		if (!this.app.host.caps.has("st.oai.promptManager")) return;
 		try {
 			const manager = (await this.app.host.modules.openai()).promptManager;
-			const render = isDict$15(manager) ? manager.render : void 0;
+			const render = isDict$28(manager) ? manager.render : void 0;
 			if (typeof render === "function") render.call(manager, false);
 		} catch (error) {
 			this.log.debug("prompt manager render failed", error);
@@ -52407,7 +52648,7 @@ var PrefillFix = class {
 };
 //#endregion
 //#region src/features/medic/sources.ts
-function isDict$14(value) {
+function isDict$27(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /** Reply types that are not a model's story reply (first message, background calls, NAI picture posts). */
@@ -52419,7 +52660,7 @@ var SKIPPED_TYPES = /* @__PURE__ */ new Set([
 ]);
 /** NAI Studio picture post: `extra.nai_studio` with the image prompt as text (research/qvink-nai-studio.md §B5). */
 function isPicturePost(message) {
-	return isDict$14(message.extra?.nai_studio);
+	return isDict$27(message.extra?.nai_studio);
 }
 /** The last user message before `index` asked BunnyMo for a sheet (`!fullsheet`, …). */
 function answersSheetCommand(chat, index) {
@@ -52432,7 +52673,7 @@ function answersSheetCommand(chat, index) {
 /** A message M31 marked as a sheet (`extra.maestro.sheet`). */
 function isSheetMessage(message) {
 	const maestro = message.extra?.maestro;
-	return isDict$14(maestro) && maestro.sheet === true;
+	return isDict$27(maestro) && maestro.sheet === true;
 }
 /** The reply at `index` is a regular story reply the checks apply to. */
 function isStoryReply(chat, index, type = "normal") {
@@ -52461,7 +52702,7 @@ function qvinkViews(chat) {
 			isSystem: message.is_system,
 			textLength: typeof message.mes === "string" ? message.mes.trim().length : 0,
 			skip: isPicturePost(message),
-			record: isDict$14(raw) ? {
+			record: isDict$27(raw) ? {
 				memory: typeof raw.memory === "string" ? raw.memory : "",
 				exclude: raw.exclude === true,
 				remember: raw.remember === true,
@@ -52502,11 +52743,11 @@ async function activeBookNames(app) {
 		const wi = await app.host.modules.worldInfo();
 		if (Array.isArray(wi.selected_world_info)) for (const name of wi.selected_world_info) addName(names, name);
 		const character = ctx.characters[Number(ctx.characterId)];
-		const lore = isDict$14(wi.world_info) ? wi.world_info.charLore : void 0;
+		const lore = isDict$27(wi.world_info) ? wi.world_info.charLore : void 0;
 		const fileName = charaFilename(character?.avatar);
 		if (Array.isArray(lore) && fileName) {
-			const extra = lore.find((item) => isDict$14(item) && item.name === fileName);
-			if (isDict$14(extra) && Array.isArray(extra.extraBooks)) for (const name of extra.extraBooks) addName(names, name);
+			const extra = lore.find((item) => isDict$27(item) && item.name === fileName);
+			if (isDict$27(extra) && Array.isArray(extra.extraBooks)) for (const name of extra.extraBooks) addName(names, name);
 		}
 	} catch {}
 	if (!app.host.isGroupChat()) {
@@ -52797,7 +53038,7 @@ var QUIET_BLOCKS = [
 	"present",
 	"message"
 ];
-function isDict$13(value) {
+function isDict$26(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function swipeIdOf$1(message) {
@@ -52977,7 +53218,7 @@ var TrackerRepair = class {
 	/** The proposal handed to autonomy (also the source of the journal record). */
 	proposal(payload, kit) {
 		const swipes = this.app.host.ctx().chat[payload.messageIndex]?.extra?.dooms_tracker_swipes;
-		const raw = isDict$13(swipes) ? swipes[String(payload.swipeId)] : void 0;
+		const raw = isDict$26(swipes) ? swipes[String(payload.swipeId)] : void 0;
 		const before = {
 			record: raw === void 0 ? null : raw,
 			lastGenerated: sectionsOf(kit?.lastGenerated() ?? null)
@@ -53019,7 +53260,7 @@ var TrackerRepair = class {
 		const message = this.app.host.ctx().chat[payload.messageIndex];
 		const kit = await this.kit();
 		const extra = message.extra ??= {};
-		const swipes = isDict$13(extra.dooms_tracker_swipes) ? extra.dooms_tracker_swipes : {};
+		const swipes = isDict$26(extra.dooms_tracker_swipes) ? extra.dooms_tracker_swipes : {};
 		extra.dooms_tracker_swipes = swipes;
 		swipes[String(payload.swipeId)] = { ...payload.record };
 		if (kit && this.isLatestReply(payload.messageIndex)) kit.adopt(payload.record, String(message.mes ?? ""));
@@ -53028,14 +53269,14 @@ var TrackerRepair = class {
 	/** Undo handler of TRACKER_TARGET: puts the previous record (and DES's display state) back. */
 	async undo(change) {
 		const ref = change.ref;
-		const after = isDict$13(change.after) ? change.after.record : void 0;
-		const before = isDict$13(change.before) ? change.before : {};
+		const after = isDict$26(change.after) ? change.after.record : void 0;
+		const before = isDict$26(change.before) ? change.before : {};
 		if (typeof ref.messageIndex !== "number" || typeof ref.swipeId !== "number" || !after) return false;
 		if (this.app.host.chatId() !== ref.chatId) return false;
 		const message = this.app.host.ctx().chat[ref.messageIndex];
 		const swipes = message?.extra?.dooms_tracker_swipes;
 		const key = String(ref.swipeId);
-		if (!message || !isDict$13(swipes) || !sameTrackerRecord(swipes[key], after)) return false;
+		if (!message || !isDict$26(swipes) || !sameTrackerRecord(swipes[key], after)) return false;
 		if (before.record === null || before.record === void 0) delete swipes[key];
 		else swipes[key] = before.record;
 		const kit = await this.kit();
@@ -53098,8 +53339,8 @@ function expectsTracker(settings) {
 	return settings.showInfoBox !== false || settings.showCharacterThoughts !== false || settings.showQuests === true;
 }
 function isRepairPayload(value) {
-	if (!isDict$13(value)) return false;
-	return typeof value.chatId === "string" && typeof value.messageIndex === "number" && typeof value.swipeId === "number" && typeof value.mesHash === "string" && isDict$13(value.record);
+	if (!isDict$26(value)) return false;
+	return typeof value.chatId === "string" && typeof value.messageIndex === "number" && typeof value.swipeId === "number" && typeof value.mesHash === "string" && isDict$26(value.record);
 }
 //#endregion
 //#region src/features/medic/health.ts
@@ -53108,12 +53349,12 @@ var RULE_ASSISTANT_ROLE = "role.assistantToSystem";
 /** ST capabilities whose absence switches off parts of Maestro (reported separately: st.cm, st.chatCompletion). */
 var SEPARATE_CAPS = /* @__PURE__ */ new Set(["st.cm", "st.chatCompletion"]);
 var MAX_LISTED = 5;
-function isDict$12(value) {
+function isDict$25(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function nested(source, ...path) {
 	let current = source;
-	for (const key of path) current = isDict$12(current) ? current[key] : void 0;
+	for (const key of path) current = isDict$25(current) ? current[key] : void 0;
 	return current;
 }
 /** "Книга: 3, Другая: 1 …" */
@@ -53790,7 +54031,7 @@ function deviceClass(input) {
 	const width = input.width;
 	return typeof width === "number" && Number.isFinite(width) && width > 0 && width < 768 ? "phone" : "desktop";
 }
-function finite(values) {
+function finite$1(values) {
 	return values.filter((value) => typeof value === "number" && Number.isFinite(value));
 }
 /**
@@ -53798,13 +54039,13 @@ function finite(values) {
 * interpolates, so a p95 is always a latency that really happened (the conservative choice for a budget).
 */
 function percentile(values, p) {
-	const list = finite(values).sort((a, b) => a - b);
+	const list = finite$1(values).sort((a, b) => a - b);
 	if (!list.length) return void 0;
 	const rank = Math.ceil(Math.min(100, Math.max(0, Number.isFinite(p) ? p : 0)) / 100 * list.length);
 	return list[Math.max(0, rank - 1)];
 }
 function distribution(values) {
-	const list = finite(values);
+	const list = finite$1(values);
 	if (!list.length) return { n: 0 };
 	const sum = list.reduce((total, value) => total + value, 0);
 	return {
@@ -53963,10 +54204,10 @@ var DOC_LIMITS = {
 	tabs: 20,
 	modules: 24
 };
-function isDict$11(value) {
+function isDict$24(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
-function num$2(value) {
+function num$3(value) {
 	return typeof value === "number" && Number.isFinite(value) ? value : void 0;
 }
 function emptyMetricsDoc(now = 0) {
@@ -54006,18 +54247,18 @@ var NUMBER_FIELDS = [
 	"dropped"
 ];
 function readModules(value) {
-	if (!isDict$11(value)) return void 0;
+	if (!isDict$24(value)) return void 0;
 	const out = {};
 	for (const [label, ms] of Object.entries(value).slice(0, DOC_LIMITS.modules)) {
-		const n = num$2(ms);
+		const n = num$3(ms);
 		if (n !== void 0 && n >= 0) out[label] = n;
 	}
 	return Object.keys(out).length ? out : void 0;
 }
 /** A stored or incoming turn sample, validated; null when unusable. */
 function readTurn(value) {
-	if (!isDict$11(value) || typeof value.id !== "string" || !value.id) return null;
-	const at = num$2(value.at);
+	if (!isDict$24(value) || typeof value.id !== "string" || !value.id) return null;
+	const at = num$3(value.at);
 	if (at === void 0) return null;
 	const turn = {
 		id: value.id,
@@ -54028,7 +54269,7 @@ function readTurn(value) {
 	if (typeof value.mode === "string") turn.mode = value.mode;
 	if (value.auto === true) turn.auto = true;
 	for (const field of NUMBER_FIELDS) {
-		const n = num$2(value[field]);
+		const n = num$3(value[field]);
 		if (n !== void 0) turn[field] = n;
 	}
 	const modules = readModules(value.modules);
@@ -54036,9 +54277,9 @@ function readTurn(value) {
 	return turn;
 }
 function readCost(value) {
-	if (!isDict$11(value) || typeof value.source !== "string") return null;
-	const at = num$2(value.at);
-	const usd = num$2(value.usd);
+	if (!isDict$24(value) || typeof value.source !== "string") return null;
+	const at = num$3(value.at);
+	const usd = num$3(value.usd);
 	if (at === void 0 || usd === void 0) return null;
 	const cost = {
 		at,
@@ -54050,37 +54291,37 @@ function readCost(value) {
 	return cost;
 }
 function readBaseline$1(value) {
-	if (!isDict$11(value)) return void 0;
-	const avgChars = num$2(value.avgChars);
-	const turns = num$2(value.turns);
+	if (!isDict$24(value)) return void 0;
+	const avgChars = num$3(value.avgChars);
+	const turns = num$3(value.turns);
 	if (avgChars === void 0 || turns === void 0) return void 0;
 	return {
 		avgChars,
 		turns,
-		from: num$2(value.from) ?? 0,
-		to: num$2(value.to) ?? 0,
+		from: num$3(value.from) ?? 0,
+		to: num$3(value.to) ?? 0,
 		rulesOff: value.rulesOff === true,
-		at: num$2(value.at) ?? 0
+		at: num$3(value.at) ?? 0
 	};
 }
 function readWhatIf(value) {
-	if (!isDict$11(value)) return void 0;
-	const before = num$2(value.before);
-	const after = num$2(value.after);
+	if (!isDict$24(value)) return void 0;
+	const before = num$3(value.before);
+	const after = num$3(value.after);
 	if (before === void 0 || after === void 0) return void 0;
 	return {
-		at: num$2(value.at) ?? 0,
+		at: num$3(value.at) ?? 0,
 		before,
 		after,
 		ruleIds: Array.isArray(value.ruleIds) ? value.ruleIds.filter((id) => typeof id === "string") : [],
-		removed: num$2(value.removed) ?? 0
+		removed: num$3(value.removed) ?? 0
 	};
 }
 function readNumberMap(value, limit) {
 	const out = {};
-	if (!isDict$11(value)) return out;
+	if (!isDict$24(value)) return out;
 	for (const [key, item] of Object.entries(value).slice(0, limit)) {
-		const n = num$2(item);
+		const n = num$3(item);
 		if (n !== void 0) out[key] = n;
 	}
 	return out;
@@ -54119,7 +54360,7 @@ function normalizeMetricsDoc(doc, now = 0) {
 	}
 	const target = doc;
 	target.v = 1;
-	target.startedAt = num$2(doc.startedAt) ?? now;
+	target.startedAt = num$3(doc.startedAt) ?? now;
 	target.turns = capTurns(turns);
 	target.costs = capCosts(costs);
 	target.counters = readNumberMap(doc.counters, DOC_LIMITS.counters);
@@ -54127,7 +54368,7 @@ function normalizeMetricsDoc(doc, now = 0) {
 	const baseline = readBaseline$1(doc.baseline);
 	if (baseline) target.baseline = baseline;
 	else delete target.baseline;
-	const from = num$2(doc.baselineFrom);
+	const from = num$3(doc.baselineFrom);
 	if (from !== void 0) target.baselineFrom = from;
 	else delete target.baselineFrom;
 	const whatIf = readWhatIf(doc.whatIf);
@@ -54251,7 +54492,7 @@ var round = (value, digits = 0) => {
 	const factor = 10 ** digits;
 	return Math.round(value * factor) / factor;
 };
-var percent = (share) => share === void 0 ? void 0 : round(share * 100, 1);
+var percent$1 = (share) => share === void 0 ? void 0 : round(share * 100, 1);
 function row(key, status, values) {
 	return {
 		id: CRITERIA.indexOf(key) + 1,
@@ -54277,14 +54518,14 @@ function buildCriteria(input) {
 			phoneN: phone.n
 		}),
 		row("cost", costVerdict(cost), {
-			share: percent(cost.share),
+			share: percent$1(cost.share),
 			turns: cost.turns,
 			backgroundUsd: round(cost.backgroundUsd, 4),
 			mainUsd: round(cost.mainUsd, 4),
 			autoSwipes: cost.autoSwipes
 		}),
 		row("lore", loreVerdict(lore.ratio), {
-			ratio: percent(lore.ratio.ratio),
+			ratio: percent$1(lore.ratio.ratio),
 			source: lore.ratio.source,
 			current: round(lore.current.avg),
 			turns: lore.current.turns,
@@ -54302,13 +54543,13 @@ function buildCriteria(input) {
 			turns: tabs.observedTurns
 		}),
 		row("autonomy", autonomyVerdict(revision, undo), {
-			revisionShare: percent(revision.share),
+			revisionShare: percent$1(revision.share),
 			decisions: revision.decisions,
-			undoShare: percent(undo.share),
+			undoShare: percent$1(undo.share),
 			actions: undo.actions
 		}),
 		row("living", livingVerdict(living), {
-			dropShare: living && living.provisional > 0 ? percent(living.droppedByUser / living.provisional) : void 0,
+			dropShare: living && living.provisional > 0 ? percent$1(living.droppedByUser / living.provisional) : void 0,
 			provisional: living?.provisional,
 			contradicted: living?.contradictedAfterConfirm
 		}),
@@ -54370,7 +54611,7 @@ var METRIC_COUNTERS = {
 };
 //#endregion
 //#region src/features/metrics/sources.ts
-function isDict$10(value) {
+function isDict$23(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /** ST `IGNORE_SYMBOL` (constants.js): Qvink sets it on prompt entries it drops from the prompt. */
@@ -54428,7 +54669,7 @@ function droppedInPrompt(app, chat) {
 			isSystem: entry.is_system === true,
 			textLength: typeof entry.mes === "string" ? entry.mes.trim().length : 0,
 			skip: isImagePost(entry),
-			record: isDict$10(raw) ? {
+			record: isDict$23(raw) ? {
 				memory: typeof raw.memory === "string" ? raw.memory : "",
 				exclude: raw.exclude === true,
 				remember: raw.remember === true
@@ -54460,7 +54701,7 @@ function recentCosts(app) {
 	try {
 		const recent = typeof meter.recent === "function" ? meter.recent() : meter.today().recent;
 		if (!Array.isArray(recent)) return null;
-		return recent.filter((row) => isDict$10(row) && typeof row.at === "number" && typeof row.source === "string" && typeof row.usd === "number");
+		return recent.filter((row) => isDict$23(row) && typeof row.at === "number" && typeof row.source === "string" && typeof row.usd === "number");
 	} catch {
 		return null;
 	}
@@ -54547,7 +54788,7 @@ function sheetViews(app) {
 	chat.forEach((message, index) => {
 		if (message?.is_user) lastUserIndex = index;
 		const maestro = message?.extra?.maestro;
-		const mark = isDict$10(maestro) && isDict$10(maestro.sheet) ? maestro.sheet : void 0;
+		const mark = isDict$23(maestro) && isDict$23(maestro.sheet) ? maestro.sheet : void 0;
 		if (!mark || mark.part === "command") return;
 		sheets.push({
 			index,
@@ -54700,108 +54941,108 @@ function formatNumber(value, i18n, digits = 0) {
 		return value.toFixed(digits);
 	}
 }
-var num$1 = (values, key) => {
+var num$2 = (values, key) => {
 	const value = values[key];
 	return typeof value === "number" && Number.isFinite(value) ? value : void 0;
 };
 function latencyText(values, i18n) {
 	const t = i18n.t.bind(i18n);
 	return DEVICES.map((device) => {
-		const p95 = num$1(values, `${device}P95`);
+		const p95 = num$2(values, `${device}P95`);
 		const name = t(`m21m.device.${device}`);
 		if (p95 === void 0) return t("m21m.v.latencyNone", { device: name });
 		return t("m21m.v.latency", {
 			device: name,
 			p95: formatNumber(p95, i18n),
-			p50: formatNumber(num$1(values, `${device}P50`) ?? 0, i18n),
-			n: num$1(values, `${device}N`) ?? 0
+			p50: formatNumber(num$2(values, `${device}P50`) ?? 0, i18n),
+			n: num$2(values, `${device}N`) ?? 0
 		});
 	}).join("; ");
 }
 function currentText$1(row, i18n) {
 	const t = i18n.t.bind(i18n);
 	const v = row.values;
-	const pct = (key) => `${formatNumber(num$1(v, key) ?? 0, i18n, 1)} %`;
+	const pct = (key) => `${formatNumber(num$2(v, key) ?? 0, i18n, 1)} %`;
 	switch (row.key) {
 		case "latency": return latencyText(v, i18n);
 		case "cost": {
-			if (num$1(v, "share") === void 0) return t("m21m.v.costNone", { turns: num$1(v, "turns") ?? 0 });
+			if (num$2(v, "share") === void 0) return t("m21m.v.costNone", { turns: num$2(v, "turns") ?? 0 });
 			const text = t("m21m.v.cost", {
 				share: pct("share"),
-				background: formatUsd(num$1(v, "backgroundUsd") ?? 0, i18n),
-				main: formatUsd(num$1(v, "mainUsd") ?? 0, i18n),
-				turns: num$1(v, "turns") ?? 0
+				background: formatUsd(num$2(v, "backgroundUsd") ?? 0, i18n),
+				main: formatUsd(num$2(v, "mainUsd") ?? 0, i18n),
+				turns: num$2(v, "turns") ?? 0
 			});
-			const swipes = num$1(v, "autoSwipes") ?? 0;
+			const swipes = num$2(v, "autoSwipes") ?? 0;
 			return swipes ? `${text} ${t("m21m.v.costSwipes", { count: swipes })}` : text;
 		}
 		case "lore": {
-			const current = num$1(v, "current");
+			const current = num$2(v, "current");
 			if (v.source === "whatIf") return t("m21m.v.loreWhatIf", {
 				ratio: pct("ratio"),
-				before: formatNumber(num$1(v, "before") ?? 0, i18n),
-				after: formatNumber(num$1(v, "after") ?? 0, i18n)
+				before: formatNumber(num$2(v, "before") ?? 0, i18n),
+				after: formatNumber(num$2(v, "after") ?? 0, i18n)
 			});
 			if (v.source === "baseline") return t("m21m.v.loreBaseline", {
 				ratio: pct("ratio"),
 				current: formatNumber(current ?? 0, i18n),
-				baseline: formatNumber(num$1(v, "baseline") ?? 0, i18n)
+				baseline: formatNumber(num$2(v, "baseline") ?? 0, i18n)
 			});
 			if (current === void 0) return t("m21m.noData");
 			return t("m21m.v.loreCurrent", {
 				current: formatNumber(current, i18n),
-				turns: num$1(v, "turns") ?? 0
+				turns: num$2(v, "turns") ?? 0
 			});
 		}
 		case "dropped":
 		case "assistantDepth": {
-			const turns = num$1(v, "turns") ?? 0;
+			const turns = num$2(v, "turns") ?? 0;
 			if (!turns) return row.key === "dropped" ? t("m21m.v.droppedNone") : t("m21m.noData");
 			return t(`m21m.v.${row.key}`, {
-				with: num$1(v, "turnsWith") ?? 0,
+				with: num$2(v, "turnsWith") ?? 0,
 				turns,
-				max: num$1(v, "max") ?? 0
+				max: num$2(v, "max") ?? 0
 			});
 		}
 		case "tabs": {
 			const text = t("m21m.v.tabs", {
-				stale: num$1(v, "staleSaves") ?? 0,
-				losses: num$1(v, "dataLosses") ?? 0,
-				episodes: num$1(v, "staleEpisodes") ?? 0
+				stale: num$2(v, "staleSaves") ?? 0,
+				losses: num$2(v, "dataLosses") ?? 0,
+				episodes: num$2(v, "staleEpisodes") ?? 0
 			});
-			const blocked = num$1(v, "blocked");
+			const blocked = num$2(v, "blocked");
 			return blocked === void 0 ? text : `${text} ${t("m21m.v.tabsBlocked", { blocked })}`;
 		}
-		case "autonomy": return `${num$1(v, "revisionShare") === void 0 ? t("m21m.v.revisionNone") : t("m21m.v.revision", {
+		case "autonomy": return `${num$2(v, "revisionShare") === void 0 ? t("m21m.v.revisionNone") : t("m21m.v.revision", {
 			share: pct("revisionShare"),
-			decisions: num$1(v, "decisions") ?? 0
-		})}; ${num$1(v, "undoShare") === void 0 ? t("m21m.v.undoNone") : t("m21m.v.undo", {
+			decisions: num$2(v, "decisions") ?? 0
+		})}; ${num$2(v, "undoShare") === void 0 ? t("m21m.v.undoNone") : t("m21m.v.undo", {
 			share: pct("undoShare"),
-			actions: num$1(v, "actions") ?? 0
+			actions: num$2(v, "actions") ?? 0
 		})}`;
-		case "living": return num$1(v, "provisional") === void 0 ? t("m21m.v.livingNone") : t("m21m.v.living", {
-			share: num$1(v, "dropShare") === void 0 ? "—" : pct("dropShare"),
-			provisional: num$1(v, "provisional") ?? 0,
-			contradicted: num$1(v, "contradicted") ?? 0
+		case "living": return num$2(v, "provisional") === void 0 ? t("m21m.v.livingNone") : t("m21m.v.living", {
+			share: num$2(v, "dropShare") === void 0 ? "—" : pct("dropShare"),
+			provisional: num$2(v, "provisional") ?? 0,
+			contradicted: num$2(v, "contradicted") ?? 0
 		});
 		case "sheets": {
-			if (!num$1(v, "sheets")) return t("m21m.v.sheetsNone");
+			if (!num$2(v, "sheets")) return t("m21m.v.sheetsNone");
 			const text = t("m21m.v.sheets", {
-				sheets: num$1(v, "sheets") ?? 0,
-				defects: num$1(v, "defects") ?? 0
+				sheets: num$2(v, "sheets") ?? 0,
+				defects: num$2(v, "defects") ?? 0
 			});
 			const parts = [
 				"tail",
 				"tracker",
 				"notCollapsed",
 				"noTags"
-			].filter((key) => (num$1(v, key) ?? 0) > 0).map((key) => t(`m21m.v.sheet.${key}`, { count: num$1(v, key) ?? 0 }));
+			].filter((key) => (num$2(v, key) ?? 0) > 0).map((key) => t(`m21m.v.sheet.${key}`, { count: num$2(v, key) ?? 0 }));
 			return parts.length ? `${text} (${parts.join(", ")})` : text;
 		}
-		case "packs": return num$1(v, "checked") ? t("m21m.v.packs", {
-			checked: num$1(v, "checked") ?? 0,
-			changed: num$1(v, "changed") ?? 0,
-			missing: num$1(v, "missing") ?? 0
+		case "packs": return num$2(v, "checked") ? t("m21m.v.packs", {
+			checked: num$2(v, "checked") ?? 0,
+			changed: num$2(v, "changed") ?? 0,
+			missing: num$2(v, "missing") ?? 0
 		}) : t("m21m.v.packsNone");
 	}
 }
@@ -56121,7 +56362,7 @@ function metricsTab(app, service) {
 		if (packs && snapshot.packsCheckedAt !== void 0) {
 			lines.push(el("div", {
 				class: "maestro-m21m-note",
-				text: t("m21m.packs.checkedAt", { at: formatTime(snapshot.packsCheckedAt, i18n) })
+				text: t("m21m.packs.checkedAt", { at: formatTime$1(snapshot.packsCheckedAt, i18n) })
 			}));
 			const list = (key, names) => names.length ? el("div", {
 				class: "maestro-m21m-line",
@@ -56205,7 +56446,7 @@ function metricsTab(app, service) {
 					class: "maestro-m21m-line",
 					text: t("m21m.view.summary", {
 						turns: snapshot.report.turns,
-						since: formatTime(snapshot.report.startedAt, i18n),
+						since: formatTime$1(snapshot.report.startedAt, i18n),
 						device: t(`m21m.device.${snapshot.report.device}`)
 					})
 				}), banner(t(`m21m.view.overall.${overall}`), overall === "ok" ? "ok" : overall === "warn" ? "warn" : "info", overall === "ok" ? "fa-circle-check" : "fa-gauge-high"), el("div", { class: "maestro-m21m-actions" }, [
@@ -56333,18 +56574,18 @@ function emptyPlacesDoc() {
 		dismissed: []
 	};
 }
-function isDict$9(value) {
+function isDict$22(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
-function num(value, fallback) {
+function num$1(value, fallback) {
 	return typeof value === "number" && Number.isFinite(value) ? value : fallback;
 }
 function strings$3(value) {
 	return Array.isArray(value) ? value.filter((item) => typeof item === "string") : [];
 }
 function readVisit(raw) {
-	if (!isDict$9(raw)) return null;
-	const from = num(raw.from, NaN);
+	if (!isDict$22(raw)) return null;
+	const from = num$1(raw.from, NaN);
 	if (!Number.isFinite(from)) return null;
 	const visit = {
 		from,
@@ -56356,24 +56597,24 @@ function readVisit(raw) {
 	return visit;
 }
 function readPlace(raw) {
-	if (!isDict$9(raw) || typeof raw.id !== "string" || !raw.id || typeof raw.name !== "string" || !raw.name.trim()) return null;
+	if (!isDict$22(raw) || typeof raw.id !== "string" || !raw.id || typeof raw.name !== "string" || !raw.name.trim()) return null;
 	const place = {
 		id: raw.id,
 		name: raw.name.trim(),
 		aliases: strings$3(raw.aliases),
 		forms: strings$3(raw.forms),
 		parent: typeof raw.parent === "string" && raw.parent ? raw.parent : null,
-		createdAt: num(raw.createdAt, 0),
-		firstSeen: num(raw.firstSeen, -1),
-		lastSeen: num(raw.lastSeen, -1),
+		createdAt: num$1(raw.createdAt, 0),
+		firstSeen: num$1(raw.firstSeen, -1),
+		lastSeen: num$1(raw.lastSeen, -1),
 		visits: (Array.isArray(raw.visits) ? raw.visits : []).map(readVisit).filter((visit) => visit !== null).sort((a, b) => a.from - b.from)
 	};
-	if (isDict$9(raw.entry) && typeof raw.entry.world === "string" && typeof raw.entry.uid === "number") place.entry = {
+	if (isDict$22(raw.entry) && typeof raw.entry.world === "string" && typeof raw.entry.uid === "number") place.entry = {
 		world: raw.entry.world,
 		uid: raw.entry.uid
 	};
 	if (typeof raw.passportId === "string" && raw.passportId) place.passportId = raw.passportId;
-	if (isDict$9(raw.state)) {
+	if (isDict$22(raw.state)) {
 		const state = {};
 		for (const [key, value] of Object.entries(raw.state)) if (typeof value === "string") state[key] = value;
 		place.state = state;
@@ -56382,7 +56623,7 @@ function readPlace(raw) {
 	return place;
 }
 function readCandidate(raw) {
-	if (!isDict$9(raw) || typeof raw.key !== "string" || !raw.key || typeof raw.name !== "string") return null;
+	if (!isDict$22(raw) || typeof raw.key !== "string" || !raw.key || typeof raw.name !== "string") return null;
 	const candidate = {
 		key: raw.key,
 		label: typeof raw.label === "string" ? raw.label : raw.name,
@@ -56391,26 +56632,26 @@ function readCandidate(raw) {
 		similar: strings$3(raw.similar),
 		parent: typeof raw.parent === "string" && raw.parent ? raw.parent : null,
 		chain: strings$3(raw.chain),
-		createdAt: num(raw.createdAt, 0)
+		createdAt: num$1(raw.createdAt, 0)
 	};
 	if (raw.proposed === true) candidate.proposed = true;
 	return candidate;
 }
 function readTrace$1(raw) {
-	if (!isDict$9(raw)) return null;
+	if (!isDict$22(raw)) return null;
 	return {
-		firstSeen: num(raw.firstSeen, -1),
-		lastSeen: num(raw.lastSeen, -1),
+		firstSeen: num$1(raw.firstSeen, -1),
+		lastSeen: num$1(raw.lastSeen, -1),
 		tail: readVisit(raw.tail)
 	};
 }
 function readRecord$1(raw) {
-	if (!isDict$9(raw) || typeof raw.index !== "number" || !isDict$9(raw.before)) return null;
+	if (!isDict$22(raw) || typeof raw.index !== "number" || !isDict$22(raw.before)) return null;
 	const before = raw.before;
 	const places = {};
-	if (isDict$9(before.places)) for (const [id, trace] of Object.entries(before.places)) places[id] = trace === null ? null : readTrace$1(trace);
+	if (isDict$22(before.places)) for (const [id, trace] of Object.entries(before.places)) places[id] = trace === null ? null : readTrace$1(trace);
 	const candidates = {};
-	if (isDict$9(before.candidates)) for (const [key, value] of Object.entries(before.candidates)) candidates[key] = value === null ? null : readCandidate(value);
+	if (isDict$22(before.candidates)) for (const [key, value] of Object.entries(before.candidates)) candidates[key] = value === null ? null : readCandidate(value);
 	const record = {
 		index: raw.index,
 		stamp: typeof raw.stamp === "string" ? raw.stamp : "",
@@ -56432,7 +56673,7 @@ function readRecord$1(raw) {
 * place's last visit left open. Never shares objects with `raw`.
 */
 function normalizePlacesDoc(raw) {
-	const source = isDict$9(raw) ? raw : {};
+	const source = isDict$22(raw) ? raw : {};
 	const places = [];
 	const ids = /* @__PURE__ */ new Set();
 	for (const item of Array.isArray(source.places) ? source.places : []) {
@@ -57328,11 +57569,11 @@ var IDLE_WAIT_MS = 1500;
 function defaultPlacesSettings() {
 	return { bootstrapTurns: 20 };
 }
-function isRecord$2(value) {
+function isRecord$4(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function readMergePayload(value) {
-	if (!isRecord$2(value) || typeof value.key !== "string" || typeof value.target !== "string") return null;
+	if (!isRecord$4(value) || typeof value.key !== "string" || typeof value.target !== "string") return null;
 	return {
 		key: value.key,
 		label: typeof value.label === "string" ? value.label : value.key,
@@ -57910,11 +58151,11 @@ var PlacesService = class {
 	}
 	async undoPlace(change) {
 		if (this.disposed) return false;
-		const id = isRecord$2(change.ref) && typeof change.ref.id === "string" ? change.ref.id : null;
+		const id = isRecord$4(change.ref) && typeof change.ref.id === "string" ? change.ref.id : null;
 		if (!id) return false;
-		const moved = isRecord$2(change.ref) && Array.isArray(change.ref.movedVisits) ? change.ref.movedVisits.filter((value) => typeof value === "number") : [];
-		const before = isRecord$2(change.before) ? change.before : null;
-		const after = isRecord$2(change.after) ? change.after : null;
+		const moved = isRecord$4(change.ref) && Array.isArray(change.ref.movedVisits) ? change.ref.movedVisits.filter((value) => typeof value === "number") : [];
+		const before = isRecord$4(change.before) ? change.before : null;
+		const after = isRecord$4(change.after) ? change.after : null;
 		return await this.store.mutate((doc) => {
 			if (before === null) {
 				if (!doc.places.some((place) => place.id === id)) return {
@@ -57961,7 +58202,7 @@ var PlacesService = class {
 			const lore = this.app.modules.api("loreStore");
 			if (!lore) return true;
 			const book = await lore.load(entry.world);
-			return !!book && isRecord$2(book.entries) && String(entry.uid) in book.entries;
+			return !!book && isRecord$4(book.entries) && String(entry.uid) in book.entries;
 		} catch (error) {
 			this.log.debug("description entry check failed", error);
 			return true;
@@ -58191,7 +58432,7 @@ var PLACES_STRINGS = {
 //#endregion
 //#region src/features/places/view.ts
 var PLACES_TAB = "places";
-var MAX_DEPTH = 6;
+var MAX_DEPTH$1 = 6;
 var VISITS_SHOWN = 10;
 var PLACES_CSS = `
 .maestro-m24 { display: flex; flex-direction: column; gap: 8px; }
@@ -58434,7 +58675,7 @@ function placesTab(app, service) {
 				const details = el("details", {
 					class: ["maestro-m24-place", here ? "maestro-m24-current" : null],
 					data: { id: place.id },
-					attrs: { style: `--maestro-m24-depth: ${Math.min(depth, MAX_DEPTH)}` }
+					attrs: { style: `--maestro-m24-depth: ${Math.min(depth, MAX_DEPTH$1)}` }
 				});
 				if (open.has(place.id)) details.open = true;
 				details.addEventListener("toggle", () => {
@@ -58584,6 +58825,13613 @@ var placesModule = {
 		own(app.ui.addTab(placesTab(app, service)));
 	}
 };
+//#endregion
+//#region src/domain/preset-analysis-text.ts
+var IF_OPEN_RE = /^#?if\b/i;
+var IF_CLOSE_RE = /^\/if\s*$/i;
+var ANY_IF_RE = /\{\{\s*#?if\b/i;
+/** The text uses `{{if …}}` / `{{#if …}}` (the old regex macro engine sends it literally, P-133). */
+function hasIfMacro(text) {
+	return ANY_IF_RE.test(text);
+}
+/** End of the macro that starts at `start` (`{{`), nested macros included; -1 when it is not closed. */
+function macroEnd(text, start) {
+	let depth = 0;
+	for (let i = start; i < text.length - 1; i++) if (text[i] === "{" && text[i + 1] === "{") {
+		depth++;
+		i++;
+	} else if (text[i] === "}" && text[i + 1] === "}") {
+		depth--;
+		i++;
+		if (depth === 0) return i + 1;
+	}
+	return -1;
+}
+/** `::` outside nested macros: the short form `{{if cond::text}}` (P-134). */
+function hasTopLevelArgs(body) {
+	let depth = 0;
+	for (let i = 0; i < body.length - 1; i++) {
+		const pair = body.slice(i, i + 2);
+		if (pair === "{{") depth++;
+		else if (pair === "}}") depth--;
+		else if (pair === "::" && depth === 0) return true;
+		if (pair === "{{" || pair === "}}" || pair === "::") i++;
+	}
+	return false;
+}
+/**
+* The text outside conditional sections: `{{if …}}…{{/if}}` (nested, with `{{else}}`) and the short form
+* `{{if cond::text}}` are removed; everything else stays as written.
+*/
+function stripConditionals(text) {
+	let result = "";
+	let depth = 0;
+	let i = 0;
+	while (i < text.length) {
+		const open = text.indexOf("{{", i);
+		if (open < 0) {
+			if (depth === 0) result += text.slice(i);
+			break;
+		}
+		if (depth === 0) result += text.slice(i, open);
+		const end = macroEnd(text, open);
+		if (end < 0) {
+			if (depth === 0) result += text.slice(open);
+			break;
+		}
+		const body = text.slice(open + 2, end - 2).trim();
+		if (IF_OPEN_RE.test(body)) {
+			if (!hasTopLevelArgs(body)) depth++;
+		} else if (IF_CLOSE_RE.test(body)) depth = Math.max(0, depth - 1);
+		else if (depth === 0) result += text.slice(open, end);
+		i = end;
+	}
+	return result;
+}
+/**
+* A relative block that would send a message of whitespace only: ST drops empty messages but keeps whitespace
+* (P-117). 'outsideIf': the block is conditional but has whitespace outside its `{{if}}`, so with the condition
+* false it still sends "\n\n" (P-138, P-146). An empty block is not an issue here (ST drops it).
+*/
+function emptyMessageIssue(content) {
+	if (!content) return null;
+	if (!content.trim()) return "whitespace";
+	if (!hasIfMacro(content)) return null;
+	const outside = stripConditionals(content);
+	return outside.length > 0 && !outside.trim() ? "outsideIf" : null;
+}
+/** Macros are not words of the text. */
+function withoutMacros(text) {
+	return text.replace(/\{\{[^{}]*\}\}/g, " ");
+}
+/**
+* Word shingles of a text (normalised words, macros removed). A text shorter than `size` words but with at least
+* three words is one shingle; shorter texts have none.
+*/
+function shingleSet(text, size = 5) {
+	const words = textWords(withoutMacros(text));
+	const result = /* @__PURE__ */ new Set();
+	if (words.length < size) {
+		if (words.length >= 3) result.add(words.join(" "));
+		return result;
+	}
+	for (let i = 0; i + size <= words.length; i++) result.add(words.slice(i, i + size).join(" "));
+	return result;
+}
+function overlap(a, b) {
+	if (!a.size || !b.size) return {
+		shared: 0,
+		containment: 0
+	};
+	const [small, large] = a.size <= b.size ? [a, b] : [b, a];
+	let shared = 0;
+	for (const item of small) if (large.has(item)) shared++;
+	return {
+		shared,
+		containment: shared / small.size
+	};
+}
+var DUPLICATE_THRESHOLDS = {
+	minShared: 4,
+	minContainment: .5,
+	alwaysShared: 15
+};
+function isOverlapping(value, thresholds = DUPLICATE_THRESHOLDS) {
+	if (value.shared >= thresholds.alwaysShared) return true;
+	return value.shared >= thresholds.minShared && value.containment >= thresholds.minContainment;
+}
+/** Same text after normalisation (case, ё, whitespace). */
+function sameText(a, b) {
+	const left = normalizeText$1(a);
+	return left !== "" && left === normalizeText$1(b);
+}
+var HEAVY_DEFAULTS = {
+	minTokens: 400,
+	minShare: .15,
+	limit: 3
+};
+/** The heaviest blocks: at least `minTokens` and `minShare` of the total, the top `limit`. */
+function heavyBlocks(blocks, options = HEAVY_DEFAULTS) {
+	const total = blocks.reduce((sum, block) => sum + Math.max(0, block.tokens), 0);
+	if (total <= 0) return [];
+	return blocks.filter((block) => block.tokens >= options.minTokens && block.tokens / total >= options.minShare).map((block) => ({
+		...block,
+		share: block.tokens / total
+	})).sort((a, b) => b.tokens - a.tokens).slice(0, Math.max(0, options.limit));
+}
+//#endregion
+//#region src/domain/preset-analysis-contradictions.ts
+var L = "\\p{L}";
+/** Whole-word match that works for Cyrillic (`\b` is ASCII-only in JavaScript). */
+function word(pattern) {
+	return new RegExp(`(?<!${L})(?:${pattern})(?!${L})`, "iu");
+}
+var NEGATION = word("not|never|don't|dont|do not|avoid|no|without|instead of|не|никогда|нельзя|избегай|без|вместо");
+/** Length qualifiers that contain a negation word but are limits, not prohibitions. */
+var LIMIT_PHRASES = new RegExp(word("no more than|not more than|no less than|not less than|не более|не больше|не менее|не меньше").source, "giu");
+/** Clause separators: punctuation and "but" / «но» / «а». */
+var CLAUSE_SPLIT = /[.!?;,\n]+|\s(?:but|however|но|а|однако)\s/iu;
+var POV_PATTERNS = [
+	["first", word("first[- ]person|от первого лица|в первом лице|первого лица")],
+	["second", word("second[- ]person|от второго лица|во втором лице|второго лица")],
+	["third", word("third[- ]person|от третьего лица|в третьем лице|третьего лица")]
+];
+var TENSE_PATTERNS = [["past", word("past tense|прошедш\\p{L}* времен\\p{L}*")], ["present", word("present tense|настоящ\\p{L}* времен\\p{L}*")]];
+var LANGUAGES = {
+	english: "en",
+	russian: "ru",
+	japanese: "ja",
+	chinese: "zh",
+	german: "de",
+	french: "fr",
+	spanish: "es",
+	английском: "en",
+	русском: "ru",
+	японском: "ja",
+	китайском: "zh",
+	немецком: "de",
+	французском: "fr",
+	испанском: "es"
+};
+var LANGUAGE_WORDS = Object.keys(LANGUAGES).join("|");
+var LANGUAGE_PATTERNS = [
+	new RegExp(`(?<!${L})(?:respond|reply|write|answer|speak|output|narrate|use|translate)(?!${L})[^\\n]{0,40}?(?<!${L})(?:in|into)\\s+(${LANGUAGE_WORDS})(?!${L})`, "iu"),
+	new RegExp(`(?<!${L})(?:only\\s+in\\s+)(${LANGUAGE_WORDS})(?!${L})`, "iu"),
+	new RegExp(`(?<!${L})(${LANGUAGE_WORDS})\\s+only(?!${L})`, "iu"),
+	new RegExp(`(?<!${L})(?:отвечай|пиши|ответ\\p{L}*|говори|используй|повествуй|переводи|веди)(?!${L})[^\\n]{0,40}?(?<!${L})на\\s+(${LANGUAGE_WORDS})(?!${L})`, "iu")
+];
+var UNITS = [
+	["words", "words?|слов\\p{L}*"],
+	["paragraphs", "paragraphs?|абзац\\p{L}*|параграф\\p{L}*"],
+	["sentences", "sentences?|предложени\\p{L}*"],
+	["tokens", "tokens?|токен\\p{L}*"]
+];
+var UNIT_RE = UNITS.map(([, pattern]) => pattern).join("|");
+var NUMBER = "\\d{1,5}";
+var LENGTH_RE = new RegExp(`(?:(?<qualifier>up to|no more than|not more than|at most|maximum|max|under|fewer than|less than|at least|minimum|min|no less than|not less than|more than|over|не более|не больше|не менее|не меньше|максимум|минимум|до|от)\\s+)?(?<low>${NUMBER})(?:\\s*(?:-|–|—|to|до)\\s*(?<high>${NUMBER}))?\\s*(?<unit>${UNIT_RE})(?!${L})`, "giu");
+var MAX_QUALIFIERS = /* @__PURE__ */ new Set([
+	"up to",
+	"no more than",
+	"not more than",
+	"at most",
+	"maximum",
+	"max",
+	"under",
+	"fewer than",
+	"less than",
+	"не более",
+	"не больше",
+	"максимум",
+	"до"
+]);
+function unitOf(text) {
+	for (const [unit, pattern] of UNITS) if (new RegExp(`^(?:${pattern})$`, "iu").test(text)) return unit;
+	return "words";
+}
+function mark(map, key, negated) {
+	const value = map.get(key) ?? {
+		required: false,
+		forbidden: false
+	};
+	if (negated) value.forbidden = true;
+	else value.required = true;
+	map.set(key, value);
+}
+function lengthLimits(clause) {
+	const limits = [];
+	for (const match of clause.matchAll(LENGTH_RE)) {
+		const groups = match.groups ?? {};
+		const low = Number(groups.low);
+		const high = groups.high === void 0 ? void 0 : Number(groups.high);
+		const unit = unitOf(groups.unit ?? "");
+		const qualifier = (groups.qualifier ?? "").toLowerCase();
+		if (high !== void 0) limits.push({
+			unit,
+			min: Math.min(low, high),
+			max: Math.max(low, high)
+		});
+		else if (!qualifier) limits.push({
+			unit,
+			min: low,
+			max: low
+		});
+		else if (MAX_QUALIFIERS.has(qualifier)) limits.push({
+			unit,
+			min: 0,
+			max: low
+		});
+		else limits.push({
+			unit,
+			min: low,
+			max: Number.POSITIVE_INFINITY
+		});
+	}
+	return limits;
+}
+/** What a block asks for, by topic. */
+function instructionFacets(text) {
+	const facets = {
+		pov: /* @__PURE__ */ new Map(),
+		tense: /* @__PURE__ */ new Map(),
+		language: /* @__PURE__ */ new Map(),
+		lengths: []
+	};
+	for (const clause of stripConditionals(text).split(CLAUSE_SPLIT)) {
+		if (!clause.trim()) continue;
+		const negated = NEGATION.test(clause.replace(LIMIT_PHRASES, " "));
+		for (const [key, pattern] of POV_PATTERNS) if (pattern.test(clause)) mark(facets.pov, key, negated);
+		for (const [key, pattern] of TENSE_PATTERNS) if (pattern.test(clause)) mark(facets.tense, key, negated);
+		for (const pattern of LANGUAGE_PATTERNS) {
+			const found = pattern.exec(clause)?.[1]?.toLowerCase();
+			const code = found ? LANGUAGES[found] : void 0;
+			if (code) mark(facets.language, code, negated);
+		}
+		if (!negated) facets.lengths.push(...lengthLimits(clause));
+	}
+	return facets;
+}
+function polarityConflict(topic, a, left, b, right) {
+	for (const [key, value] of left) {
+		const other = right.get(key);
+		if (value.required && other?.forbidden) return {
+			topic,
+			a: a.identifier,
+			b: b.identifier,
+			left: key,
+			right: `!${key}`
+		};
+		if (value.forbidden && other?.required) return {
+			topic,
+			a: a.identifier,
+			b: b.identifier,
+			left: `!${key}`,
+			right: key
+		};
+	}
+	const required = (map) => [...map].filter(([, value]) => value.required).map(([key]) => key);
+	const mine = required(left);
+	const theirs = required(right);
+	if (mine.length === 1 && theirs.length === 1 && mine[0] !== theirs[0]) return {
+		topic,
+		a: a.identifier,
+		b: b.identifier,
+		left: mine[0],
+		right: theirs[0]
+	};
+	return null;
+}
+function formatLimit(limit) {
+	if (limit.max === Number.POSITIVE_INFINITY) return `≥${limit.min} ${limit.unit}`;
+	if (limit.min === 0) return `≤${limit.max} ${limit.unit}`;
+	return limit.min === limit.max ? `${limit.min} ${limit.unit}` : `${limit.min}-${limit.max} ${limit.unit}`;
+}
+function lengthConflict(a, left, b, right) {
+	for (const mine of left) for (const theirs of right) {
+		if (mine.unit !== theirs.unit) continue;
+		if (mine.max < theirs.min || theirs.max < mine.min) return {
+			topic: "length",
+			a: a.identifier,
+			b: b.identifier,
+			left: formatLimit(mine),
+			right: formatLimit(theirs)
+		};
+	}
+	return null;
+}
+/** Contradictions between different blocks (at most one per topic and pair). */
+function findContradictions(blocks) {
+	const facets = blocks.map((block) => instructionFacets(block.text));
+	const hits = [];
+	for (let i = 0; i < blocks.length; i++) for (let j = i + 1; j < blocks.length; j++) {
+		const a = blocks[i];
+		const b = blocks[j];
+		const left = facets[i];
+		const right = facets[j];
+		const found = [
+			polarityConflict("pov", a, left.pov, b, right.pov),
+			polarityConflict("tense", a, left.tense, b, right.tense),
+			polarityConflict("language", a, left.language, b, right.language),
+			lengthConflict(a, left.lengths, b, right.lengths)
+		];
+		for (const hit of found) if (hit) hits.push(hit);
+	}
+	return hits;
+}
+//#endregion
+//#region src/domain/preset-analysis-hints.ts
+var MODEL_PROFILES = [{
+	id: "deepseek-v4-pro",
+	label: "DeepSeek V4 Pro",
+	match: /deepseek[-_./]?v4[-_.]?pro/i,
+	quirks: {
+		openrouter: [
+			"prefillEos",
+			"systemMerge",
+			"assistantDepth"
+		],
+		"*": ["systemMerge", "assistantDepth"]
+	},
+	temperature: {
+		routed: [.6, 1],
+		direct: [1, 1.5]
+	},
+	reasoningOptional: true
+}, {
+	id: "deepseek-v4-flash",
+	label: "DeepSeek V4 Flash",
+	match: /deepseek[-_./]?v4(?![-_.]?pro)/i,
+	quirks: {
+		openrouter: [
+			"prefillEos",
+			"systemMerge",
+			"assistantDepth"
+		],
+		"*": ["systemMerge", "assistantDepth"]
+	},
+	temperature: {
+		routed: [.6, 1],
+		direct: [1, 1.5]
+	},
+	reasoningOptional: true
+}];
+/** oai_settings key of the model, by `chat_completion_source` (openai.js getChatCompletionModel). */
+var MODEL_KEYS = {
+	openai: "openai_model",
+	claude: "claude_model",
+	makersuite: "google_model",
+	vertexai: "vertexai_model",
+	openrouter: "openrouter_model",
+	ai21: "ai21_model",
+	mistralai: "mistralai_model",
+	custom: "custom_model",
+	cohere: "cohere_model",
+	perplexity: "perplexity_model",
+	groq: "groq_model",
+	siliconflow: "siliconflow_model",
+	minimax: "minimax_model",
+	electronhub: "electronhub_model",
+	chutes: "chutes_model",
+	nanogpt: "nanogpt_model",
+	deepseek: "deepseek_model",
+	aimlapi: "aimlapi_model",
+	xai: "xai_model",
+	pollinations: "pollinations_model",
+	cometapi: "cometapi_model",
+	moonshot: "moonshot_model",
+	fireworks: "fireworks_model",
+	azure_openai: "azure_openai_model",
+	zai: "zai_model",
+	workers_ai: "workers_ai_model"
+};
+/** OpenRouter's "use the website's model" placeholder. */
+var OPENROUTER_WEBSITE_MODEL = "OR_Website";
+/** The active Chat Completion connection from `oai_settings`; null when there is none. */
+function connectionFrom(settings) {
+	if (!settings || typeof settings.chat_completion_source !== "string" || !settings.chat_completion_source) return null;
+	const source = settings.chat_completion_source;
+	const key = MODEL_KEYS[source];
+	const raw = key ? settings[key] : void 0;
+	const model = typeof raw === "string" && raw !== OPENROUTER_WEBSITE_MODEL ? raw : "";
+	const temperature = Number(settings.temp_openai);
+	return {
+		source,
+		model,
+		reasoningEffort: typeof settings.reasoning_effort === "string" ? settings.reasoning_effort : "auto",
+		showThoughts: settings.show_thoughts === true,
+		temperature: settings.temp_openai === void 0 || !Number.isFinite(temperature) ? null : temperature,
+		providers: Array.isArray(settings.openrouter_providers) ? settings.openrouter_providers.filter((item) => typeof item === "string") : [],
+		continuePrefill: settings.continue_prefill === true
+	};
+}
+function modelProfile(model) {
+	if (!model) return null;
+	return MODEL_PROFILES.find((profile) => profile.match.test(model)) ?? null;
+}
+/** Quirks of the connection's model on its source. */
+function modelQuirks(connection) {
+	const profile = connection ? modelProfile(connection.model) : null;
+	if (!connection || !profile) return /* @__PURE__ */ new Set();
+	return /* @__PURE__ */ new Set([...profile.quirks["*"] ?? [], ...profile.quirks[connection.source] ?? []]);
+}
+function reasoningHint(connection, model) {
+	if (connection.source === "openrouter") {
+		if (connection.reasoningEffort === "min" && !connection.showThoughts) return {
+			model,
+			key: "reasoningOff"
+		};
+		if (connection.reasoningEffort === "auto") return {
+			model,
+			key: "reasoningAuto"
+		};
+		if (!connection.showThoughts) return {
+			model,
+			key: "reasoningHiddenOnly",
+			params: { effort: connection.reasoningEffort }
+		};
+		return {
+			model,
+			key: "reasoningOn",
+			params: { effort: connection.reasoningEffort }
+		};
+	}
+	if (connection.source === "deepseek") return {
+		model,
+		key: connection.showThoughts ? "thinkingOnDirect" : "thinkingOffDirect"
+	};
+	return {
+		model,
+		key: "reasoningOther"
+	};
+}
+/** Hints for the active connection, most important first. */
+function providerHints(connection) {
+	if (!connection) return [];
+	const lines = [];
+	const profile = modelProfile(connection.model);
+	const model = connection.model || connection.source;
+	if (profile) {
+		const quirks = modelQuirks(connection);
+		if (profile.reasoningOptional) lines.push(reasoningHint(connection, model));
+		if (quirks.has("prefillEos")) lines.push({
+			model,
+			key: connection.continuePrefill ? "prefillEosContinue" : "prefillEos"
+		});
+		else if (connection.source === "deepseek") lines.push({
+			model,
+			key: "prefillDirect"
+		});
+		if (quirks.has("systemMerge")) lines.push({
+			model,
+			key: "systemMerge"
+		});
+		if (quirks.has("assistantDepth")) lines.push({
+			model,
+			key: "assistantDepth"
+		});
+		const direct = connection.source === "deepseek";
+		const [min, max] = direct ? profile.temperature.direct : profile.temperature.routed;
+		const params = {
+			min,
+			max,
+			model: profile.label
+		};
+		if (connection.temperature !== null) params.current = connection.temperature;
+		const outside = connection.temperature !== null && (connection.temperature < min || connection.temperature > max);
+		lines.push({
+			model,
+			key: outside ? "temperatureOutside" : direct ? "temperatureDirect" : "temperature",
+			params
+		});
+	}
+	if (connection.source === "openrouter" && !connection.providers.length) lines.push({
+		model: "openrouter",
+		key: "openrouterProvider"
+	});
+	return lines;
+}
+//#endregion
+//#region src/domain/preset-analysis-map.ts
+/** Generation types a block trigger may name (constants.js:36-43). */
+var GENERATION_TYPES = [
+	"normal",
+	"continue",
+	"impersonate",
+	"swipe",
+	"regenerate",
+	"quiet"
+];
+/** Markers ST fills by name and moves to the end when they are not in the list or their trigger does not fit. */
+var EXTERNAL_MARKERS$1 = [
+	"worldInfoBefore",
+	"worldInfoAfter",
+	"charDescription",
+	"charPersonality",
+	"scenario",
+	"personaDescription"
+];
+/** All eight markers (PM:301-310): their text comes from ST, not from the block. */
+var MARKERS = /* @__PURE__ */ new Set([
+	...EXTERNAL_MARKERS$1,
+	"dialogueExamples",
+	"chatHistory"
+]);
+/** System blocks ST adds by name whatever their `system_prompt` (OAI:1213-1258). */
+var BY_NAME = /* @__PURE__ */ new Set([
+	"main",
+	"nsfw",
+	"jailbreak",
+	"enhanceDefinitions"
+]);
+/** PromptManager INJECTION_POSITION.ABSOLUTE. */
+var ABSOLUTE = 1;
+/** extension_prompt_types (script.js:484-489). */
+var EXT_IN_PROMPT = 0;
+var EXT_IN_CHAT = 1;
+var EXT_BEFORE_PROMPT = 2;
+/** Extension prompt keys ST never adds before/after main (OAI:1446-1455). */
+var NOT_RELATIVE_KEYS = /* @__PURE__ */ new Set([
+	"PERSONA_DESCRIPTION",
+	"QUIET_PROMPT",
+	"DEPTH_PROMPT"
+]);
+var ROLES$4 = [
+	"system",
+	"user",
+	"assistant"
+];
+/** Position inside one depth: assistant, user, system (populationInjectionPrompts, reversed). */
+var ROLE_RANK = {
+	assistant: 0,
+	user: 1,
+	system: 2
+};
+function isDict$21(value) {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+/** ST lower-cases and trims the generation type; empty means 'normal' (PM:1517). */
+function normalizeGenerationType(type) {
+	return String(type ?? "").toLowerCase().trim() || "normal";
+}
+/** PromptManager.shouldTrigger: no list or an empty one fits every type. */
+function shouldTrigger(prompt, type) {
+	const trigger = prompt.injection_trigger;
+	if (!Array.isArray(trigger) || !trigger.length) return true;
+	return trigger.includes(type);
+}
+/**
+* The order ST uses: the global list (character 100001) of Chat Completion; a body without it falls back to its
+* first list (P-034). `enabled` is kept as stored.
+*/
+function resolveOrder(promptOrder) {
+	if (!Array.isArray(promptOrder)) return [];
+	const lists = promptOrder.filter(isDict$21);
+	const chosen = lists.find((item) => String(item.character_id) === String(100001)) ?? lists[0];
+	return (chosen && Array.isArray(chosen.order) ? chosen.order : []).filter(isDict$21).filter((item) => typeof item.identifier === "string").map((item) => ({
+		identifier: item.identifier,
+		enabled: item.enabled
+	}));
+}
+/** `prompts[]` by identifier, first one wins (PM getPromptById uses find). */
+function promptsById(prompts) {
+	const result = /* @__PURE__ */ new Map();
+	if (!Array.isArray(prompts)) return result;
+	for (const prompt of prompts) if (isDict$21(prompt) && typeof prompt.identifier === "string" && !result.has(prompt.identifier)) result.set(prompt.identifier, prompt);
+	return result;
+}
+function isRole(value) {
+	return typeof value === "string" && ROLES$4.includes(value);
+}
+/** extension_prompt_roles → role name; anything else is system (getPromptRole). */
+function extensionRole(role) {
+	return role === 1 ? "user" : role === 2 ? "assistant" : "system";
+}
+function printable(value) {
+	if (value === void 0) return "undefined";
+	if (typeof value === "string") return JSON.stringify(value);
+	try {
+		return JSON.stringify(value) ?? String(value);
+	} catch {
+		return String(value);
+	}
+}
+function textOf(prompt) {
+	return typeof prompt.content === "string" ? prompt.content : "";
+}
+function nameOf(prompt, identifier) {
+	return prompt && typeof prompt.name === "string" && prompt.name ? prompt.name : identifier;
+}
+function validDepth(value) {
+	return typeof value === "number" && Number.isInteger(value) && value >= 0 && value <= 1e4;
+}
+/** `injection_order ?? 100` as ST groups it (object keys compared numerically). */
+function orderOf(prompt) {
+	const raw = prompt.injection_order ?? 100;
+	const value = Number(raw);
+	return Number.isFinite(value) ? value : 100;
+}
+function typeIssues(prompt, item, identifier, absolute) {
+	const issues = [];
+	const marker = MARKERS.has(identifier);
+	if (typeof item.enabled !== "boolean") issues.push({
+		code: "enabled",
+		value: printable(item.enabled)
+	});
+	const position = prompt.injection_position;
+	if (position !== void 0 && position !== 0 && position !== 1) issues.push({
+		code: "position",
+		value: printable(position)
+	});
+	if (!marker && !BY_NAME.has(identifier) && !absolute && prompt.system_prompt !== false) issues.push({
+		code: "systemPrompt",
+		value: printable(prompt.system_prompt)
+	});
+	if (absolute && !validDepth(prompt.injection_depth)) issues.push({
+		code: "depth",
+		value: printable(prompt.injection_depth)
+	});
+	const role = prompt.role;
+	if (role !== void 0 && role !== "" && !isRole(role) || absolute && !marker && !isRole(role)) issues.push({
+		code: "role",
+		value: printable(role)
+	});
+	if (absolute && prompt.injection_order !== void 0 && !Number.isFinite(Number(prompt.injection_order))) issues.push({
+		code: "order",
+		value: printable(prompt.injection_order)
+	});
+	const trigger = prompt.injection_trigger;
+	if (trigger !== void 0 && !Array.isArray(trigger)) issues.push({
+		code: "trigger",
+		value: printable(trigger)
+	});
+	else if (Array.isArray(trigger) && trigger.some((value) => !GENERATION_TYPES.includes(value))) issues.push({
+		code: "triggerValues",
+		value: printable(trigger)
+	});
+	return issues;
+}
+function triggerList(prompt) {
+	const trigger = prompt.injection_trigger;
+	if (!Array.isArray(trigger) || !trigger.length) return void 0;
+	return trigger.map((value) => String(value));
+}
+/** A non-empty trigger list that names no real generation type: the block is never sent. */
+function triggerNeverFits(prompt) {
+	const trigger = prompt.injection_trigger;
+	return Array.isArray(trigger) && trigger.length > 0 && !trigger.some((value) => GENERATION_TYPES.includes(value));
+}
+function addNote(slot, note) {
+	if (!slot.notes.includes(note)) slot.notes.push(note);
+}
+function baseSlot(identifier, prompt, enabled) {
+	const marker = MARKERS.has(identifier);
+	return {
+		identifier,
+		name: nameOf(prompt, identifier),
+		role: prompt && isRole(prompt.role) ? prompt.role : "system",
+		placement: "relative",
+		enabled,
+		marker,
+		content: prompt && !marker ? textOf(prompt) : "",
+		sent: false,
+		notes: [],
+		injections: [],
+		typeIssues: []
+	};
+}
+function relativeSlot(slot, prompt, triggered, moved) {
+	const id = slot.identifier;
+	if (prompt.injection_position === String(ABSOLUTE)) addNote(slot, "positionString");
+	if (!slot.enabled) return "keep";
+	if (MARKERS.has(id)) {
+		if (triggered) {
+			slot.sent = true;
+			return id === "chatHistory" ? "history" : "keep";
+		}
+		if (EXTERNAL_MARKERS$1.includes(id)) {
+			slot.sent = true;
+			addNote(slot, "movedToEnd");
+			moved.push(slot);
+			return "moved";
+		}
+		slot.dropped = triggerNeverFits(prompt) ? "triggerInvalid" : "trigger";
+		return "keep";
+	}
+	if (!triggered) {
+		slot.dropped = triggerNeverFits(prompt) ? "triggerInvalid" : "trigger";
+		if (id === "main") addNote(slot, "mainAnchor");
+		return "keep";
+	}
+	if (!BY_NAME.has(id) && prompt.system_prompt !== false) {
+		slot.dropped = "systemPrompt";
+		return "keep";
+	}
+	if (prompt.marker === true && !slot.content) {
+		slot.dropped = "unknownMarker";
+		return "keep";
+	}
+	if (!slot.content) {
+		slot.dropped = "empty";
+		if (id === "main") addNote(slot, "mainAnchor");
+		return "keep";
+	}
+	slot.sent = true;
+	return "keep";
+}
+function depthSlot(slot, prompt, triggered) {
+	slot.placement = "depth";
+	slot.depth = typeof prompt.injection_depth === "number" ? prompt.injection_depth : void 0;
+	slot.order = orderOf(prompt);
+	if (slot.marker && prompt.role === void 0) slot.role = "system";
+	if (!slot.enabled) return;
+	if (!triggered) {
+		slot.dropped = triggerNeverFits(prompt) ? "triggerInvalid" : "trigger";
+		if (slot.identifier === "main") addNote(slot, "mainAnchor");
+		return;
+	}
+	if (!(slot.marker ? prompt.role === void 0 || isRole(prompt.role) : isRole(prompt.role))) slot.dropped = "role";
+	else if (typeof prompt.injection_depth !== "number" || !Number.isInteger(prompt.injection_depth)) slot.dropped = "depthType";
+	else if (!validDepth(prompt.injection_depth)) slot.dropped = "depthRange";
+	else if (!slot.marker && !slot.content.trim()) slot.dropped = "empty";
+	else slot.sent = true;
+}
+/** Final prompt order of in-chat blocks: deeper first, then smaller order, then assistant → user → system. */
+function compareDepth(a, b) {
+	const depthA = a.depth ?? -1;
+	const depthB = b.depth ?? -1;
+	if (depthA !== depthB) return depthB - depthA;
+	const orderA = a.order ?? 100;
+	const orderB = b.order ?? 100;
+	if (orderA !== orderB) return orderA - orderB;
+	return ROLE_RANK[a.role] - ROLE_RANK[b.role];
+}
+function markGroups(depthSlots) {
+	const groups = /* @__PURE__ */ new Map();
+	for (const slot of depthSlots) {
+		if (!slot.sent) continue;
+		const key = `${slot.depth}|${slot.order}|${slot.role}`;
+		const group = groups.get(key) ?? [];
+		group.push(slot);
+		groups.set(key, group);
+	}
+	for (const group of groups.values()) {
+		if (group.length < 2) continue;
+		for (const slot of group) {
+			slot.mergedWith = group.filter((other) => other !== slot).map((other) => other.identifier);
+			addNote(slot, "merged");
+		}
+	}
+}
+function placeInjections(slots, main, history, depthSlots, lost) {
+	const ordered = [...slots].sort((a, b) => a.key < b.key ? -1 : a.key > b.key ? 1 : 0);
+	for (const slot of ordered) {
+		if (typeof slot.value !== "string" || !slot.value) continue;
+		const position = Number(slot.position);
+		const owner = slotOwner(slot.key);
+		if (position === EXT_IN_CHAT) {
+			const role = extensionRole(slot.role);
+			const injection = {
+				key: slot.key,
+				owner,
+				text: slot.value,
+				where: "chat",
+				role
+			};
+			if (validDepth(slot.depth)) injection.depth = slot.depth;
+			if (!history?.sent || !validDepth(slot.depth)) {
+				lost.push(injection);
+				continue;
+			}
+			const target = depthSlots.find((item) => item.sent && item.depth === slot.depth && item.role === role && item.order === 100);
+			if (target) {
+				target.injections.push(injection);
+				addNote(target, "merged");
+			} else history.injections.push(injection);
+		} else if (position === EXT_BEFORE_PROMPT || position === EXT_IN_PROMPT) {
+			if (NOT_RELATIVE_KEYS.has(slot.key)) continue;
+			const injection = {
+				key: slot.key,
+				owner,
+				text: slot.value,
+				where: position === EXT_BEFORE_PROMPT ? "start" : "end"
+			};
+			if (!main || main.placement === "depth" && !history?.sent) {
+				lost.push(injection);
+				continue;
+			}
+			if (main.placement === "depth") {
+				injection.depth = main.depth;
+				injection.role = main.role;
+			}
+			main.injections.push(injection);
+			if (!main.sent) addNote(main, "mainAnchor");
+		}
+	}
+}
+/**
+* Reconstructs the prompt layout of a preset body for one generation type. Pure: texts are not evaluated (macros
+* stay as written) and marker texts are not known here.
+*/
+function assemblePrompt(input) {
+	const type = normalizeGenerationType(input.type);
+	const byId = promptsById(input.prompts);
+	const relative = [];
+	const depthSlots = [];
+	const moved = [];
+	let main = null;
+	let history = null;
+	const listed = /* @__PURE__ */ new Set();
+	for (const item of input.order) {
+		listed.add(item.identifier);
+		const prompt = byId.get(item.identifier);
+		const enabled = !!item.enabled;
+		if (!prompt) {
+			if (!enabled) continue;
+			const slot = baseSlot(item.identifier, void 0, enabled);
+			slot.dropped = "missing";
+			relative.push(slot);
+			continue;
+		}
+		const slot = baseSlot(item.identifier, prompt, enabled);
+		const triggered = shouldTrigger(prompt, type);
+		const triggers = triggerList(prompt);
+		if (triggers) slot.triggers = triggers;
+		const absolute = prompt.injection_position === ABSOLUTE && item.identifier !== "chatHistory" && item.identifier !== "dialogueExamples";
+		slot.typeIssues = typeIssues(prompt, item, item.identifier, absolute);
+		if (input.overridden?.has(item.identifier) && enabled && triggered && prompt.forbid_overrides !== true) addNote(slot, "cardOverride");
+		if (item.identifier === "main") main = slot;
+		if (absolute) {
+			depthSlot(slot, prompt, triggered);
+			depthSlots.push(slot);
+			continue;
+		}
+		const kind = relativeSlot(slot, prompt, triggered, moved);
+		if (kind === "moved") continue;
+		if (kind === "history") history = slot;
+		else if (slot.identifier === "chatHistory" && !history) history = slot;
+		relative.push(slot);
+	}
+	for (const id of EXTERNAL_MARKERS$1) {
+		if (listed.has(id) || !input.markersWithText?.has(id)) continue;
+		const slot = baseSlot(id, byId.get(id), true);
+		slot.sent = true;
+		addNote(slot, "notInList");
+		moved.push(slot);
+	}
+	moved.sort((a, b) => EXTERNAL_MARKERS$1.indexOf(a.identifier) - EXTERNAL_MARKERS$1.indexOf(b.identifier));
+	const historyIncluded = !!history?.sent;
+	for (const slot of depthSlots) if (slot.sent && !historyIncluded) {
+		slot.sent = false;
+		slot.dropped = "noHistory";
+	}
+	depthSlots.sort(compareDepth);
+	markGroups(depthSlots);
+	const lost = [];
+	placeInjections(input.slots ?? [], main, history, depthSlots, lost);
+	const slots = [];
+	const historyAt = history ? relative.indexOf(history) : -1;
+	if (historyAt >= 0) slots.push(...relative.slice(0, historyAt + 1), ...depthSlots, ...relative.slice(historyAt + 1));
+	else slots.push(...relative, ...depthSlots);
+	slots.push(...moved);
+	return {
+		type,
+		slots,
+		history: historyIncluded,
+		lost
+	};
+}
+/**
+* Role of the last message ST would send (null: the last chat message, i.e. usually the user's). Used for the
+* "assistant at the end" check (prefill through OpenRouter, P-111).
+*/
+function promptTail(assembly, options = {}) {
+	const type = assembly.type;
+	if (type === "continue" && options.continuePrefill) return {
+		role: "assistant",
+		identifier: "continue",
+		via: "continue"
+	};
+	const hasText = (slot) => slot.sent && (slot.marker ? !!options.markersWithText?.has(slot.identifier) : slot.content.trim() !== "");
+	const historyAt = assembly.slots.findIndex((slot) => slot.identifier === "chatHistory" && slot.sent);
+	const sequence = [];
+	assembly.slots.forEach((slot, index) => {
+		if (slot.placement !== "relative" || index <= historyAt || !hasText(slot)) return;
+		if (slot.notes.includes("movedToEnd") || slot.notes.includes("notInList")) return;
+		sequence.push({
+			role: slot.role,
+			identifier: slot.identifier,
+			via: "block"
+		});
+	});
+	const moved = assembly.slots.filter((slot) => (slot.notes.includes("movedToEnd") || slot.notes.includes("notInList")) && hasText(slot));
+	for (const slot of moved.filter((item) => item.identifier !== "personaDescription")) sequence.push({
+		role: "system",
+		identifier: slot.identifier,
+		via: "block"
+	});
+	if (type !== "continue" && type !== "impersonate" && type !== "quiet" && options.bias?.trim()) sequence.push({
+		role: "assistant",
+		identifier: "bias",
+		via: "bias"
+	});
+	for (const slot of moved.filter((item) => item.identifier === "personaDescription")) sequence.push({
+		role: "system",
+		identifier: slot.identifier,
+		via: "block"
+	});
+	const last = sequence.at(-1);
+	if (last) return last;
+	if (historyAt < 0) return null;
+	const zero = [];
+	const injected = (injection, role) => {
+		zero.push({
+			role,
+			order: 100,
+			identifier: injection.key,
+			via: "injection"
+		});
+	};
+	for (const slot of assembly.slots) {
+		if (slot.placement !== "depth" || slot.depth !== 0 || !slot.sent) continue;
+		const order = slot.order ?? 100;
+		zero.push({
+			role: slot.role,
+			order,
+			identifier: slot.identifier,
+			via: "block"
+		});
+		for (const injection of slot.injections) injected(injection, injection.role ?? slot.role);
+	}
+	const history = assembly.slots[historyAt];
+	for (const injection of history?.injections ?? []) if (injection.where === "chat" && injection.depth === 0) injected(injection, injection.role ?? "system");
+	zero.sort((a, b) => a.order - b.order || ROLE_RANK[a.role] - ROLE_RANK[b.role]);
+	const final = zero.at(-1);
+	return final ? {
+		role: final.role,
+		identifier: final.identifier,
+		via: final.via
+	} : null;
+}
+//#endregion
+//#region src/features/presetStudio/analysis-strings.ts
+var ANALYSIS_STRINGS = {
+	en: {
+		"m34.an.drop.missing": "No such block: the list entry points to a block that does not exist.",
+		"m34.an.drop.systemPrompt": "Not sent: system_prompt is {value}, and ST sends its own blocks only when it is exactly false.",
+		"m34.an.drop.trigger": "Not sent for “{type}” generations: triggers {triggers}.",
+		"m34.an.drop.triggerInvalid": "Never sent: the triggers {triggers} name no generation type ST knows.",
+		"m34.an.drop.empty": "Empty text: ST drops empty messages.",
+		"m34.an.drop.depthType": "Not inserted: depth {value} is not an integer (ST compares it strictly).",
+		"m34.an.drop.depthRange": "Not inserted: depth {value} is outside 0…10000.",
+		"m34.an.drop.role": "Not inserted: role {value} is not system, user or assistant.",
+		"m34.an.drop.noHistory": "Not inserted: the chat history is off, and in-chat blocks live inside it.",
+		"m34.an.drop.unknownMarker": "A marker ST does not fill: nothing is sent.",
+		"m34.an.note.movedToEnd": "The trigger does not fit “{type}”: ST does not drop this marker but puts it at the very end, after the history.",
+		"m34.an.note.notInList": "The marker is not in the list: ST puts its text at the very end, after the history.",
+		"m34.an.note.positionString": "The position is the string \"1\": the block goes out as relative, not in the chat.",
+		"m34.an.note.merged": "Sent as one message together with: {others}.",
+		"m34.an.note.mergedInjections": "extension prompts",
+		"m34.an.note.mainAnchor": "Main’s own text is not sent, but the before/after-Main extension prompts still land here.",
+		"m34.an.note.cardOverride": "The character card replaces this block with its own text (card prompts are preferred).",
+		"m34.an.f.unsaved": "Unsaved changes in the working copy: blocks {prompts}, settings {keys}. Switching the preset drops them silently.",
+		"m34.an.f.macroEngineOff": "{{if}} is used in {blocks}, but the new macro engine is off: the conditions go to the model as plain text. Turn on “Experimental Macro Engine” in User Settings.",
+		"m34.an.f.history": "The chat history is not in the prompt ({reason}): the model sees no conversation, and in-chat blocks and extension prompts are lost too.",
+		"m34.an.f.history.disabled": "switched off",
+		"m34.an.f.history.missing": "not in the list",
+		"m34.an.f.history.trigger": "its trigger does not fit “{type}”",
+		"m34.an.f.dropped": "“{name}” is on but is not sent. {reason}",
+		"m34.an.f.moved": "“{name}”: {note}",
+		"m34.an.f.lostMain": "Extension prompts before/after Main ({keys}) land nowhere: the Main block is not in the list.",
+		"m34.an.f.lostChat": "In-chat extension prompts ({keys}) land nowhere: the chat history is not in the prompt.",
+		"m34.an.f.type.systemPrompt": "“{name}”: system_prompt is {value}. ST sends your own relative blocks only when it is exactly false.",
+		"m34.an.f.type.position": "“{name}”: position {value}; ST understands only the numbers 0 and 1.",
+		"m34.an.f.type.depth": "“{name}”: depth {value}; it must be an integer 0…10000.",
+		"m34.an.f.type.role": "“{name}”: role {value}; it must be system, user or assistant.",
+		"m34.an.f.type.order": "“{name}”: order {value} is not a number.",
+		"m34.an.f.type.trigger": "“{name}”: triggers {value} are not a list, ST ignores them.",
+		"m34.an.f.type.triggerValues": "“{name}”: the triggers {value} contain unknown types (normal, continue, impersonate, swipe, regenerate, quiet, lower case).",
+		"m34.an.f.type.enabled": "“{name}”: the switch is stored as {value}, not true/false; ST only checks truthiness.",
+		"m34.an.f.empty.whitespace": "“{name}” sends a message of spaces and line breaks only.",
+		"m34.an.f.empty.outsideIf": "“{name}” has spaces or line breaks outside its {{if}}: with the condition false an empty message still goes out. The block must consist of {{if}}…{{/if}} only.",
+		"m34.an.f.quirk.prefill": "{model}: the prompt ends with an assistant message ({source}). Through OpenRouter such a prefill is closed by EOS and the reply ends at once.",
+		"m34.an.f.quirk.systemMerge": "{model}: system messages inside the history ({list}) are merged into the neighbouring turns by the provider. Use the user role for in-chat instructions.",
+		"m34.an.f.quirk.assistantDepth": "{model}: assistant blocks at a depth ({list}) read as the model’s own earlier replies.",
+		"m34.an.f.contradiction": "“{a}” and “{b}” disagree on {topic}: {left} vs {right}.",
+		"m34.an.f.dupBlock.same": "“{a}” and “{b}” have the same text.",
+		"m34.an.f.dupBlock.near": "“{a}” largely repeats “{b}” ({percent}%).",
+		"m34.an.f.dupInjection": "“{name}” repeats the {owner} extension prompt {key} ({percent}% overlap).",
+		"m34.an.f.dupLore": "“{name}” repeats the lore entry “{entry}” of {book} ({percent}% overlap).",
+		"m34.an.f.heavy": "“{name}” takes {tokens} tokens, {percent}% of the preset.",
+		"m34.an.tail.bias": "“Start Reply With”",
+		"m34.an.tail.continue": "continue with prefill",
+		"m34.an.tail.block": "block “{name}”",
+		"m34.an.tail.injection": "extension prompt {key}",
+		"m34.an.topic.pov": "the narration person",
+		"m34.an.topic.tense": "the tense",
+		"m34.an.topic.language": "the reply language",
+		"m34.an.topic.length": "the reply length",
+		"m34.an.val.not": "not {value}",
+		"m34.an.val.first": "first person",
+		"m34.an.val.second": "second person",
+		"m34.an.val.third": "third person",
+		"m34.an.val.past": "past tense",
+		"m34.an.val.present": "present tense",
+		"m34.an.val.en": "English",
+		"m34.an.val.ru": "Russian",
+		"m34.an.val.ja": "Japanese",
+		"m34.an.val.zh": "Chinese",
+		"m34.an.val.de": "German",
+		"m34.an.val.fr": "French",
+		"m34.an.val.es": "Spanish",
+		"m34.an.hint.reasoningOff": "Reasoning is off: ST sends effort “none” (Minimum with “Request model reasoning” off).",
+		"m34.an.hint.reasoningAuto": "Reasoning Effort is Auto: ST sends no effort and the provider default decides. To turn reasoning off pick Minimum and untick “Request model reasoning” — ST then sends effort “none”.",
+		"m34.an.hint.reasoningHiddenOnly": "“Request model reasoning” is off, but through OpenRouter that only hides the reasoning: the model still thinks (effort {effort}) and you pay for it. Minimum with the box unticked turns it off.",
+		"m34.an.hint.reasoningOn": "Reasoning is on (effort {effort}): replies are slower and cost more. For roleplay V4 Flash is usually run without reasoning.",
+		"m34.an.hint.thinkingOnDirect": "DeepSeek API: “Request model reasoning” switches thinking itself (thinking: enabled) — it is on now.",
+		"m34.an.hint.thinkingOffDirect": "DeepSeek API: thinking is off (thinking: disabled).",
+		"m34.an.hint.reasoningOther": "Check how this source switches the model’s reasoning on and off.",
+		"m34.an.hint.prefillEos": "Through OpenRouter an assistant message at the end (prefill, “Start Reply With”) is closed by EOS — the reply ends at once. Keep a user or system message last.",
+		"m34.an.hint.prefillEosContinue": "Through OpenRouter an assistant message at the end is closed by EOS. “Continue prefill” is on: the continued text goes last as assistant and the continuation may end at once.",
+		"m34.an.hint.prefillDirect": "The DeepSeek API accepts a prefill: ST sends the last assistant message as the start of the reply (prefix).",
+		"m34.an.hint.systemMerge": "System messages inside the history are merged into the neighbouring turns: give in-chat instructions the user role and keep system blocks before the history.",
+		"m34.an.hint.assistantDepth": "Assistant messages at a depth read as the model’s own earlier replies — use user or system for instructions.",
+		"m34.an.hint.temperature": "{model}: a starting temperature range through OpenRouter is {min}–{max} (now {current}); verify live, providers may scale it differently.",
+		"m34.an.hint.temperatureDirect": "{model} on the DeepSeek API: DeepSeek rescales the temperature, so the working range is higher — {min}–{max} (now {current}).",
+		"m34.an.hint.temperatureOutside": "{model}: temperature {current} is outside the usual {min}–{max} — check that it is intended.",
+		"m34.an.hint.openrouterProvider": "OpenRouter picks the provider itself: it may change from turn to turn, and with it the quality and the prompt cache. Pin a provider in the connection settings."
+	},
+	ru: {
+		"m34.an.drop.missing": "Такого блока нет: запись в списке ссылается на несуществующий блок.",
+		"m34.an.drop.systemPrompt": "Не уходит: system_prompt равен {value}, а свои блоки ST отправляет, только когда там строго false.",
+		"m34.an.drop.trigger": "Не уходит при генерации «{type}»: триггеры {triggers}.",
+		"m34.an.drop.triggerInvalid": "Не уходит никогда: триггеры {triggers} не называют ни одного типа генерации.",
+		"m34.an.drop.empty": "Пустой текст: пустые сообщения ST выбрасывает.",
+		"m34.an.drop.depthType": "Не вставляется: глубина {value} — не целое число (ST сравнивает строго).",
+		"m34.an.drop.depthRange": "Не вставляется: глубина {value} вне диапазона 0…10000.",
+		"m34.an.drop.role": "Не вставляется: роль {value} — не system, user и не assistant.",
+		"m34.an.drop.noHistory": "Не вставляется: история чата выключена, а блоки «в чате» живут внутри неё.",
+		"m34.an.drop.unknownMarker": "Маркер, который ST не заполняет: ничего не уходит.",
+		"m34.an.note.movedToEnd": "Триггер не подходит к «{type}»: ST не убирает этот маркер, а ставит его в самый конец, после истории.",
+		"m34.an.note.notInList": "Маркера нет в списке: его текст ST ставит в самый конец, после истории.",
+		"m34.an.note.positionString": "Позиция записана строкой \"1\": блок уходит как относительный, а не «в чате».",
+		"m34.an.note.merged": "Уходит одним сообщением вместе с: {others}.",
+		"m34.an.note.mergedInjections": "вставками расширений",
+		"m34.an.note.mainAnchor": "Свой текст Main не уходит, но вставки расширений «до/после Main» остаются на его месте.",
+		"m34.an.note.cardOverride": "Карточка персонажа заменяет этот блок своим текстом (включён приоритет промптов карточки).",
+		"m34.an.f.unsaved": "В рабочей копии есть несохранённые правки: блоков — {prompts}, параметров — {keys}. Любое переключение пресета молча их сотрёт.",
+		"m34.an.f.macroEngineOff": "{{if}} есть в блоках {blocks}, а новый движок макросов выключен: условия уйдут в модель простым текстом. Включи «Experimental Macro Engine» в настройках пользователя.",
+		"m34.an.f.history": "Истории чата нет в промпте ({reason}): модель не видит переписку, а блоки и вставки «в чате» тоже пропадают.",
+		"m34.an.f.history.disabled": "выключена",
+		"m34.an.f.history.missing": "её нет в списке",
+		"m34.an.f.history.trigger": "триггер не подходит к «{type}»",
+		"m34.an.f.dropped": "«{name}» включён, но не уходит. {reason}",
+		"m34.an.f.moved": "«{name}»: {note}",
+		"m34.an.f.lostMain": "Вставки расширений «до/после Main» ({keys}) никуда не попадают: блока Main нет в списке.",
+		"m34.an.f.lostChat": "Вставки расширений «в чате» ({keys}) никуда не попадают: истории чата нет в промпте.",
+		"m34.an.f.type.systemPrompt": "«{name}»: system_prompt равен {value}. Свои относительные блоки ST отправляет, только когда там строго false.",
+		"m34.an.f.type.position": "«{name}»: позиция {value}, а ST понимает только числа 0 и 1.",
+		"m34.an.f.type.depth": "«{name}»: глубина {value}, а нужно целое число 0…10000.",
+		"m34.an.f.type.role": "«{name}»: роль {value}, а нужна system, user или assistant.",
+		"m34.an.f.type.order": "«{name}»: порядок {value} — не число.",
+		"m34.an.f.type.trigger": "«{name}»: триггеры {value} записаны не списком, ST их не учитывает.",
+		"m34.an.f.type.triggerValues": "«{name}»: в триггерах {value} есть неизвестные типы (нужны normal, continue, impersonate, swipe, regenerate, quiet в нижнем регистре).",
+		"m34.an.f.type.enabled": "«{name}»: включение записано как {value}, а не true/false — ST смотрит только на «истинность».",
+		"m34.an.f.empty.whitespace": "«{name}» отправит сообщение из одних пробелов и переводов строк.",
+		"m34.an.f.empty.outsideIf": "«{name}»: снаружи {{if}} остались пробелы или переводы строк — при ложном условии всё равно уйдёт пустое сообщение. Блок должен целиком состоять из {{if}}…{{/if}}.",
+		"m34.an.f.quirk.prefill": "{model}: промпт кончается сообщением assistant ({source}). Через OpenRouter такой префилл закрывается EOS, и ответ обрывается сразу.",
+		"m34.an.f.quirk.systemMerge": "{model}: системные сообщения посреди истории ({list}) провайдер склеивает с соседними репликами. Для указаний «в чате» лучше роль user.",
+		"m34.an.f.quirk.assistantDepth": "{model}: блоки с ролью assistant на глубине ({list}) выглядят как прошлые ответы самой модели.",
+		"m34.an.f.contradiction": "«{a}» и «{b}» расходятся: {topic} — {left} против {right}.",
+		"m34.an.f.dupBlock.same": "У «{a}» и «{b}» одинаковый текст.",
+		"m34.an.f.dupBlock.near": "«{a}» почти целиком повторяет «{b}» ({percent}%).",
+		"m34.an.f.dupInjection": "«{name}» повторяет вставку {owner} {key} (совпадение {percent}%).",
+		"m34.an.f.dupLore": "«{name}» повторяет запись лора «{entry}» из книги {book} (совпадение {percent}%).",
+		"m34.an.f.heavy": "«{name}» занимает {tokens} токенов — {percent}% пресета.",
+		"m34.an.tail.bias": "«Начинать ответ с»",
+		"m34.an.tail.continue": "продолжение с префиллом",
+		"m34.an.tail.block": "блок «{name}»",
+		"m34.an.tail.injection": "вставка {key}",
+		"m34.an.topic.pov": "лицо повествования",
+		"m34.an.topic.tense": "время повествования",
+		"m34.an.topic.language": "язык ответа",
+		"m34.an.topic.length": "длина ответа",
+		"m34.an.val.not": "не {value}",
+		"m34.an.val.first": "первое лицо",
+		"m34.an.val.second": "второе лицо",
+		"m34.an.val.third": "третье лицо",
+		"m34.an.val.past": "прошедшее время",
+		"m34.an.val.present": "настоящее время",
+		"m34.an.val.en": "английский",
+		"m34.an.val.ru": "русский",
+		"m34.an.val.ja": "японский",
+		"m34.an.val.zh": "китайский",
+		"m34.an.val.de": "немецкий",
+		"m34.an.val.fr": "французский",
+		"m34.an.val.es": "испанский",
+		"m34.an.hint.reasoningOff": "Рассуждения выключены: ST отправляет effort «none» («Минимум» при снятой галочке «Request model reasoning»).",
+		"m34.an.hint.reasoningAuto": "Reasoning Effort = Auto: ST не отправляет effort, решает умолчание провайдера. Чтобы выключить рассуждения, выбери «Минимум» и сними «Request model reasoning» — тогда ST отправит effort «none».",
+		"m34.an.hint.reasoningHiddenOnly": "Галочка «Request model reasoning» снята, но через OpenRouter это только прячет рассуждения: модель всё равно думает (effort {effort}), и это оплачивается. Выключает их «Минимум» при снятой галочке.",
+		"m34.an.hint.reasoningOn": "Рассуждения включены (effort {effort}): ответы медленнее и дороже. Для ролевой игры V4 Flash обычно запускают без рассуждений.",
+		"m34.an.hint.thinkingOnDirect": "API DeepSeek: галочка «Request model reasoning» включает само мышление (thinking: enabled) — сейчас оно включено.",
+		"m34.an.hint.thinkingOffDirect": "API DeepSeek: мышление выключено (thinking: disabled).",
+		"m34.an.hint.reasoningOther": "Проверь, как этот источник включает и выключает рассуждения модели.",
+		"m34.an.hint.prefillEos": "Через OpenRouter сообщение assistant в конце (префилл, «Начинать ответ с») закрывается EOS — ответ обрывается сразу. Последним должно идти сообщение user или system.",
+		"m34.an.hint.prefillEosContinue": "Через OpenRouter сообщение assistant в конце закрывается EOS. Включён «Continue prefill»: продолжаемый текст уходит последним сообщением assistant, и продолжение может оборваться сразу.",
+		"m34.an.hint.prefillDirect": "API DeepSeek принимает префилл: ST отправляет последнее сообщение assistant как начало ответа (prefix).",
+		"m34.an.hint.systemMerge": "Системные сообщения посреди истории провайдер склеивает с соседними репликами: указания «в чате» давай с ролью user, а системные блоки держи до истории.",
+		"m34.an.hint.assistantDepth": "Сообщения assistant на глубине модель принимает за свои прошлые ответы — для указаний бери user или system.",
+		"m34.an.hint.temperature": "{model}: начальный диапазон температуры через OpenRouter — {min}–{max} (сейчас {current}); проверь вживую, у провайдеров шкала может отличаться.",
+		"m34.an.hint.temperatureDirect": "{model} через API DeepSeek: DeepSeek пересчитывает температуру, поэтому рабочий диапазон выше — {min}–{max} (сейчас {current}).",
+		"m34.an.hint.temperatureOutside": "{model}: температура {current} вне обычного диапазона {min}–{max} — проверь, так ли задумано.",
+		"m34.an.hint.openrouterProvider": "OpenRouter сам выбирает провайдера: от хода к ходу он может смениться, а с ним качество и кэш промпта. Закрепи провайдера в настройках подключения."
+	}
+};
+//#endregion
+//#region src/features/presetStudio/analysis.ts
+var TOKEN_CACHE_LIMIT = 3e3;
+/** Marker identifiers whose tokens come from ST's counts or the card/lore fallback. */
+var MARKER_IDS$3 = [
+	...EXTERNAL_MARKERS$1,
+	"dialogueExamples",
+	"chatHistory"
+];
+/** Persona description goes through the marker only at this position (personas.js persona_description_positions). */
+var PERSONA_IN_PROMPT = 0;
+/** Lore positions of the world info markers (world_info_position.before / after). */
+var WI_BEFORE = 0;
+var WI_AFTER = 1;
+var MAX_PAIR_FINDINGS = 10;
+var NEAR_DUPLICATE = .8;
+var DROPS_AS_TYPE = /* @__PURE__ */ new Set([
+	"systemPrompt",
+	"triggerInvalid",
+	"depthType",
+	"depthRange",
+	"role"
+]);
+var DROP_ISSUE = {
+	systemPrompt: "systemPrompt",
+	triggerInvalid: "triggerValues",
+	depthType: "depth",
+	depthRange: "depth",
+	role: "role"
+};
+var WARN_ISSUES = /* @__PURE__ */ new Set([
+	"systemPrompt",
+	"position",
+	"depth",
+	"role"
+]);
+function isDict$20(value) {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function percent(share) {
+	return Math.round(share * 100);
+}
+var PresetAnalyzer = class {
+	app;
+	log;
+	store;
+	tokenCache = /* @__PURE__ */ new Map();
+	pending = /* @__PURE__ */ new Map();
+	openai = null;
+	constructor(app, log, store) {
+		this.app = app;
+		this.log = log;
+		this.store = store;
+	}
+	install() {
+		this.app.i18n.register(ANALYSIS_STRINGS);
+		this.loadOpenAi();
+		return [() => this.dispose()];
+	}
+	dispose() {
+		this.tokenCache.clear();
+		this.pending.clear();
+		this.openai = null;
+	}
+	t(key, params) {
+		return this.app.i18n.t(key, params);
+	}
+	storeOf() {
+		return this.store ?? this.app.modules.api("presetStore") ?? null;
+	}
+	/** ST's live Chat Completion settings (oai_settings). */
+	live() {
+		const settings = this.app.host.ctx().chatCompletionSettings;
+		return isDict$20(settings) ? settings : null;
+	}
+	workingBody() {
+		const store = this.storeOf();
+		if (store) try {
+			return store.working();
+		} catch (error) {
+			this.log.debug("preset store working copy", error);
+		}
+		const live = this.live();
+		return {
+			prompts: live?.prompts,
+			prompt_order: live?.prompt_order
+		};
+	}
+	async loadOpenAi() {
+		if (this.openai) return this.openai;
+		if (!this.app.host.caps.has("st.oai.promptManager")) return null;
+		try {
+			this.openai = await this.app.host.modules.openai();
+		} catch (error) {
+			this.log.debug("openai.js is not available; marker tokens are estimated", error);
+		}
+		return this.openai;
+	}
+	/** `promptManager.tokenHandler` counts of the last assembly (dry runs included, P-008). */
+	async promptManagerCounts() {
+		const pm = (await this.loadOpenAi())?.promptManager;
+		if (!isDict$20(pm)) return null;
+		try {
+			const counts = pm.tokenHandler?.getCounts?.();
+			if (!isDict$20(counts)) return null;
+			const copy = {};
+			for (const [identifier, value] of Object.entries(counts)) if (typeof value === "number" && Number.isFinite(value)) copy[identifier] = value;
+			return copy;
+		} catch (error) {
+			this.log.debug("Prompt Manager counts", error);
+			return null;
+		}
+	}
+	extensionSlots() {
+		const prompts = this.app.host.ctx().extensionPrompts ?? {};
+		const slots = [];
+		for (const [key, prompt] of Object.entries(prompts)) {
+			if (!prompt || typeof prompt.value !== "string" || !prompt.value) continue;
+			slots.push({
+				key,
+				value: prompt.value,
+				position: Number(prompt.position),
+				depth: Number(prompt.depth),
+				role: Number(prompt.role) || 0
+			});
+		}
+		return slots;
+	}
+	character() {
+		const ctx = this.app.host.ctx();
+		if (this.app.host.isGroupChat() || ctx.characterId === void 0) return null;
+		const character = ctx.characters?.[Number(ctx.characterId)];
+		return isDict$20(character) ? character : null;
+	}
+	/** Marker texts Maestro can read itself (used when ST has no count for them). */
+	markerTexts() {
+		const texts = /* @__PURE__ */ new Map();
+		const character = this.character();
+		const field = (key) => {
+			const value = character?.[key];
+			return typeof value === "string" ? value : "";
+		};
+		texts.set("charDescription", field("description"));
+		texts.set("charPersonality", field("personality"));
+		texts.set("scenario", field("scenario"));
+		texts.set("dialogueExamples", field("mes_example"));
+		const user = this.app.host.ctx().powerUserSettings ?? {};
+		if (Number(user.persona_description_position ?? PERSONA_IN_PROMPT) === PERSONA_IN_PROMPT) texts.set("personaDescription", typeof user.persona_description === "string" ? user.persona_description : "");
+		return texts;
+	}
+	/** Lore tokens of the last real turn by world info marker (M1). */
+	loreTokens() {
+		const result = /* @__PURE__ */ new Map();
+		const record = this.app.modules.api("loreJournal")?.last();
+		for (const activation of record?.activations ?? []) {
+			if (activation.cut) continue;
+			const id = activation.position === WI_BEFORE ? "worldInfoBefore" : activation.position === WI_AFTER ? "worldInfoAfter" : "";
+			if (id) result.set(id, (result.get(id) ?? 0) + Math.max(0, activation.tokens));
+		}
+		return result;
+	}
+	/** Main / jailbreak replaced by the character card (P-049). */
+	overridden() {
+		const result = /* @__PURE__ */ new Set();
+		const data = this.character()?.data;
+		const user = this.app.host.ctx().powerUserSettings ?? {};
+		if (!isDict$20(data)) return result;
+		if (user.prefer_character_prompt !== false && typeof data.system_prompt === "string" && data.system_prompt.trim()) result.add("main");
+		if (user.prefer_character_jailbreak !== false && typeof data.post_history_instructions === "string" && data.post_history_instructions.trim()) result.add("jailbreak");
+		return result;
+	}
+	/** ST's tokenizer for the current model, cached by model + text hash. */
+	async tokens(text) {
+		if (!text) return 0;
+		const key = `${connectionFrom(this.live())?.model ?? ""}|${stableHash(text)}`;
+		const cached = this.tokenCache.get(key);
+		if (cached !== void 0) return cached;
+		const running = this.pending.get(key);
+		if (running) return running;
+		const job = (async () => {
+			let value;
+			try {
+				const counted = Number(await this.app.host.ctx().getTokenCountAsync(text));
+				value = Number.isFinite(counted) && counted >= 0 ? counted : Math.ceil(text.length / 3.5);
+			} catch {
+				value = Math.ceil(text.length / 3.5);
+			}
+			if (this.tokenCache.size >= TOKEN_CACHE_LIMIT) {
+				const oldest = this.tokenCache.keys().next().value;
+				if (oldest !== void 0) this.tokenCache.delete(oldest);
+			}
+			this.tokenCache.set(key, value);
+			this.pending.delete(key);
+			return value;
+		})();
+		this.pending.set(key, job);
+		return job;
+	}
+	async prepare(body, options = {}) {
+		const working = body === void 0;
+		const source = body ?? this.workingBody();
+		const counts = await this.promptManagerCounts();
+		const texts = this.markerTexts();
+		const lore = this.loreTokens();
+		const markerTokens = /* @__PURE__ */ new Map();
+		for (const id of MARKER_IDS$3) {
+			const counted = counts?.[id];
+			if (typeof counted === "number" && counted > 0) {
+				markerTokens.set(id, {
+					tokens: counted,
+					from: "st"
+				});
+				continue;
+			}
+			const loreTokens = lore.get(id);
+			if (loreTokens) {
+				markerTokens.set(id, {
+					tokens: loreTokens,
+					from: "count"
+				});
+				continue;
+			}
+			const text = texts.get(id);
+			if (text) markerTokens.set(id, {
+				tokens: await this.tokens(text),
+				from: "count"
+			});
+		}
+		const markersWithText = new Set([...markerTokens].filter(([, value]) => value.tokens > 0).map(([id]) => id));
+		const slots = this.extensionSlots();
+		return {
+			body: source,
+			working,
+			assembly: assemblePrompt({
+				prompts: source.prompts,
+				order: resolveOrder(source.prompt_order),
+				type: options.type,
+				slots,
+				markersWithText,
+				overridden: this.overridden()
+			}),
+			counts,
+			markerTokens,
+			markersWithText,
+			slots,
+			connection: connectionFrom(this.live())
+		};
+	}
+	async slotTokens(prepared, slot) {
+		if (slot.marker) return prepared.markerTokens.get(slot.identifier) ?? {
+			tokens: 0,
+			from: "count"
+		};
+		const counted = prepared.counts?.[slot.identifier];
+		if (prepared.working && slot.identifier !== "main" && slot.placement === "relative" && typeof counted === "number" && counted > 0 && slot.content.includes("{{")) return {
+			tokens: counted,
+			from: "st"
+		};
+		return {
+			tokens: await this.tokens(slot.content),
+			from: "count"
+		};
+	}
+	droppedText(slot, type) {
+		const code = slot.dropped;
+		const issue = DROP_ISSUE[code];
+		const value = (issue && slot.typeIssues.find((item) => item.code === issue)?.value) ?? "";
+		return this.t(`m34.an.drop.${code}`, {
+			value,
+			type,
+			triggers: (slot.triggers ?? []).join(", ")
+		});
+	}
+	noteText(note, slot, assembly) {
+		if (note !== "merged") return this.t(`m34.an.note.${note}`, { type: assembly.type });
+		const names = (slot.mergedWith ?? []).map((id) => assembly.slots.find((other) => other.identifier === id)?.name ?? id);
+		if (slot.injections.some((injection) => injection.where === "chat")) names.push(this.t("m34.an.note.mergedInjections"));
+		return this.t("m34.an.note.merged", { others: names.join(", ") });
+	}
+	async mapInjection(injection) {
+		const result = {
+			owner: injection.owner,
+			key: injection.key,
+			tokens: await this.tokens(injection.text),
+			where: injection.where
+		};
+		if (injection.depth !== void 0) result.depth = injection.depth;
+		if (injection.role !== void 0) result.role = injection.role;
+		return result;
+	}
+	async toMap(prepared) {
+		const { assembly } = prepared;
+		const result = [];
+		for (const slot of assembly.slots) {
+			const { tokens, from } = await this.slotTokens(prepared, slot);
+			const item = {
+				identifier: slot.identifier,
+				name: slot.name,
+				role: slot.role,
+				placement: slot.placement,
+				tokens,
+				tokensFrom: from,
+				enabled: slot.enabled,
+				marker: slot.marker,
+				injections: []
+			};
+			if (slot.depth !== void 0) item.depth = slot.depth;
+			if (slot.order !== void 0) item.order = slot.order;
+			if (slot.triggers) item.triggers = [...slot.triggers];
+			for (const injection of slot.injections) item.injections.push(await this.mapInjection(injection));
+			if (slot.dropped && slot.enabled) {
+				item.dropped = this.droppedText(slot, assembly.type);
+				item.droppedCode = slot.dropped;
+			}
+			if (slot.notes.length) {
+				item.noteCodes = [...slot.notes];
+				item.note = slot.notes.map((note) => this.noteText(note, slot, assembly)).join(" ");
+			}
+			result.push(item);
+		}
+		return result;
+	}
+	async map(body, options) {
+		return this.toMap(await this.prepare(body, options));
+	}
+	async findings(body, options) {
+		const prepared = await this.prepare(body, options);
+		const map = await this.toMap(prepared);
+		const findings = [];
+		this.unsavedFindings(prepared, findings);
+		this.macroFindings(prepared, findings);
+		this.placementFindings(prepared, findings);
+		this.typeFindings(prepared, findings);
+		this.emptyFindings(prepared, findings);
+		this.quirkFindings(prepared, findings);
+		this.contradictionFindings(prepared, findings);
+		this.duplicateFindings(prepared, findings);
+		this.heavyFindings(prepared, map, findings);
+		return [...findings.filter((item) => item.severity === "warn"), ...findings.filter((item) => item.severity === "info")];
+	}
+	hints() {
+		if (!this.app.host.isChatCompletion()) return [];
+		return providerHints(connectionFrom(this.live())).map((line) => ({
+			model: line.model,
+			key: line.key,
+			text: this.t(`m34.an.hint.${line.key}`, {
+				current: "—",
+				...line.params
+			})
+		}));
+	}
+	/** Blocks the model really gets (texts of their own). */
+	sentBlocks(prepared) {
+		return prepared.assembly.slots.filter((slot) => slot.enabled && slot.sent && !slot.marker && slot.content.trim());
+	}
+	unsavedFindings(prepared, out) {
+		const store = this.storeOf();
+		if (!prepared.working || !store) return;
+		try {
+			const draft = store.draft();
+			if (!draft.dirty) return;
+			out.push({
+				kind: "unsaved",
+				severity: "warn",
+				text: this.t("m34.an.f.unsaved", {
+					prompts: draft.changedPrompts.length,
+					keys: draft.changedKeys.length
+				})
+			});
+		} catch (error) {
+			this.log.debug("preset draft state", error);
+		}
+	}
+	macroFindings(prepared, out) {
+		if (this.app.host.ctx().powerUserSettings?.experimental_macro_engine !== false) return;
+		const blocks = prepared.assembly.slots.filter((slot) => slot.enabled && hasIfMacro(slot.content));
+		if (!blocks.length) return;
+		out.push({
+			kind: "macroEngineOff",
+			severity: "warn",
+			identifier: blocks[0].identifier,
+			text: this.t("m34.an.f.macroEngineOff", { blocks: blocks.map((slot) => `«${slot.name}»`).join(", ") })
+		});
+	}
+	placementFindings(prepared, out) {
+		const { assembly } = prepared;
+		if (!assembly.history) {
+			const history = assembly.slots.find((slot) => slot.identifier === "chatHistory");
+			const reason = !history ? this.t("m34.an.f.history.missing") : !history.enabled ? this.t("m34.an.f.history.disabled") : this.t("m34.an.f.history.trigger", { type: assembly.type });
+			out.push({
+				kind: "neverIncluded",
+				severity: "warn",
+				identifier: "chatHistory",
+				text: this.t("m34.an.f.history", { reason })
+			});
+		}
+		for (const slot of assembly.slots) {
+			if (!slot.enabled) continue;
+			if (slot.dropped && !DROPS_AS_TYPE.has(slot.dropped) && slot.dropped !== "noHistory" && slot.dropped !== "trigger") out.push({
+				kind: "neverIncluded",
+				severity: "info",
+				identifier: slot.identifier,
+				text: this.t("m34.an.f.dropped", {
+					name: slot.name,
+					reason: this.droppedText(slot, assembly.type)
+				})
+			});
+			for (const note of slot.notes) {
+				if (note !== "movedToEnd" && note !== "notInList") continue;
+				out.push({
+					kind: "neverIncluded",
+					severity: "warn",
+					identifier: slot.identifier,
+					text: this.t("m34.an.f.moved", {
+						name: slot.name,
+						note: this.noteText(note, slot, assembly)
+					})
+				});
+			}
+		}
+		const lostMain = assembly.lost.filter((injection) => injection.where !== "chat");
+		if (lostMain.length) out.push({
+			kind: "neverIncluded",
+			severity: "warn",
+			identifier: "main",
+			text: this.t("m34.an.f.lostMain", { keys: lostMain.map((item) => item.key).join(", ") })
+		});
+		const lostChat = assembly.lost.filter((injection) => injection.where === "chat");
+		if (lostChat.length && assembly.history) out.push({
+			kind: "neverIncluded",
+			severity: "warn",
+			text: this.t("m34.an.f.lostChat", { keys: lostChat.map((item) => item.key).join(", ") })
+		});
+	}
+	typeFindings(prepared, out) {
+		const { assembly } = prepared;
+		for (const slot of assembly.slots) {
+			if (!slot.enabled) continue;
+			const reported = /* @__PURE__ */ new Set();
+			if (slot.dropped && DROPS_AS_TYPE.has(slot.dropped)) {
+				const issue = DROP_ISSUE[slot.dropped];
+				if (issue) reported.add(issue);
+				out.push({
+					kind: "typeMismatch",
+					severity: "warn",
+					identifier: slot.identifier,
+					text: this.t("m34.an.f.dropped", {
+						name: slot.name,
+						reason: this.droppedText(slot, assembly.type)
+					})
+				});
+			}
+			for (const issue of slot.typeIssues) {
+				if (reported.has(issue.code)) continue;
+				reported.add(issue.code);
+				out.push({
+					kind: "typeMismatch",
+					severity: WARN_ISSUES.has(issue.code) ? "warn" : "info",
+					identifier: slot.identifier,
+					text: this.t(`m34.an.f.type.${issue.code}`, {
+						name: slot.name,
+						value: issue.value
+					})
+				});
+			}
+		}
+	}
+	emptyFindings(prepared, out) {
+		for (const slot of prepared.assembly.slots) {
+			if (!slot.enabled || !slot.sent || slot.marker || slot.placement !== "relative") continue;
+			const issue = emptyMessageIssue(slot.content);
+			if (!issue) continue;
+			out.push({
+				kind: "emptyMessage",
+				severity: "warn",
+				identifier: slot.identifier,
+				text: this.t(`m34.an.f.empty.${issue}`, { name: slot.name })
+			});
+		}
+	}
+	tailSource(tail, assembly) {
+		if (tail.via === "bias") return this.t("m34.an.tail.bias");
+		if (tail.via === "continue") return this.t("m34.an.tail.continue");
+		if (tail.via === "injection") return this.t("m34.an.tail.injection", { key: tail.identifier });
+		const name = assembly.slots.find((slot) => slot.identifier === tail.identifier)?.name ?? tail.identifier;
+		return this.t("m34.an.tail.block", { name });
+	}
+	quirkFindings(prepared, out) {
+		const { assembly, connection } = prepared;
+		const profile = connection ? modelProfile(connection.model) : null;
+		const quirks = modelQuirks(connection);
+		if (!profile || !connection) return;
+		const model = profile.label;
+		if (quirks.has("prefillEos")) {
+			const user = this.app.host.ctx().powerUserSettings ?? {};
+			const tail = promptTail(assembly, {
+				bias: typeof user.user_prompt_bias === "string" ? user.user_prompt_bias : "",
+				continuePrefill: connection.continuePrefill,
+				markersWithText: prepared.markersWithText
+			});
+			if (tail?.role === "assistant") {
+				const finding = {
+					kind: "modelQuirk",
+					severity: "warn",
+					text: this.t("m34.an.f.quirk.prefill", {
+						model,
+						source: this.tailSource(tail, assembly)
+					})
+				};
+				if (tail.via === "block") finding.identifier = tail.identifier;
+				out.push(finding);
+			}
+		}
+		const depthSent = assembly.slots.filter((slot) => slot.placement === "depth" && slot.enabled && slot.sent);
+		if (quirks.has("systemMerge")) {
+			const blocks = depthSent.filter((slot) => slot.role === "system" && (slot.depth ?? 0) >= 1);
+			const owners = /* @__PURE__ */ new Map();
+			for (const slot of assembly.slots) for (const injection of slot.injections) {
+				if (injection.where !== "chat" || injection.role !== "system" || (injection.depth ?? 0) < 1) continue;
+				owners.set(injection.owner, (owners.get(injection.owner) ?? 0) + 1);
+			}
+			const list = [...blocks.map((slot) => `«${slot.name}» @${slot.depth}`), ...[...owners].map(([owner, count]) => `${owner} ×${count}`)];
+			if (list.length) {
+				const finding = {
+					kind: "modelQuirk",
+					severity: "info",
+					text: this.t("m34.an.f.quirk.systemMerge", {
+						model,
+						list: list.join(", ")
+					})
+				};
+				if (blocks[0]) finding.identifier = blocks[0].identifier;
+				out.push(finding);
+			}
+		}
+		if (quirks.has("assistantDepth")) {
+			const blocks = depthSent.filter((slot) => slot.role === "assistant" && !slot.marker);
+			if (blocks.length) out.push({
+				kind: "modelQuirk",
+				severity: "info",
+				identifier: blocks[0].identifier,
+				text: this.t("m34.an.f.quirk.assistantDepth", {
+					model,
+					list: blocks.map((slot) => `«${slot.name}» @${slot.depth}`).join(", ")
+				})
+			});
+		}
+	}
+	valueLabel(hit, value) {
+		if (hit.topic === "length") return value;
+		const negated = value.startsWith("!");
+		const label = this.t(`m34.an.val.${negated ? value.slice(1) : value}`);
+		return negated ? this.t("m34.an.val.not", { value: label }) : label;
+	}
+	contradictionFindings(prepared, out) {
+		const blocks = this.sentBlocks(prepared);
+		const names = new Map(blocks.map((slot) => [slot.identifier, slot.name]));
+		const hits = findContradictions(blocks.map((slot) => ({
+			identifier: slot.identifier,
+			text: slot.content
+		})));
+		for (const hit of hits.slice(0, MAX_PAIR_FINDINGS)) out.push({
+			kind: "contradiction",
+			severity: hit.topic === "length" ? "info" : "warn",
+			identifier: hit.a,
+			otherIdentifier: hit.b,
+			text: this.t("m34.an.f.contradiction", {
+				a: names.get(hit.a) ?? hit.a,
+				b: names.get(hit.b) ?? hit.b,
+				topic: this.t(`m34.an.topic.${hit.topic}`),
+				left: this.valueLabel(hit, hit.left),
+				right: this.valueLabel(hit, hit.right)
+			})
+		});
+	}
+	duplicateFindings(prepared, out) {
+		const blocks = this.sentBlocks(prepared);
+		const shingles = new Map(blocks.map((slot) => [slot.identifier, shingleSet(slot.content)]));
+		let pairs = 0;
+		for (let i = 0; i < blocks.length && pairs < MAX_PAIR_FINDINGS; i++) for (let j = i + 1; j < blocks.length && pairs < MAX_PAIR_FINDINGS; j++) {
+			const a = blocks[i];
+			const b = blocks[j];
+			if (sameText(a.content, b.content)) {
+				out.push({
+					kind: "duplicateBlock",
+					severity: "warn",
+					identifier: a.identifier,
+					otherIdentifier: b.identifier,
+					text: this.t("m34.an.f.dupBlock.same", {
+						a: a.name,
+						b: b.name
+					})
+				});
+				pairs++;
+				continue;
+			}
+			const left = shingles.get(a.identifier);
+			const right = shingles.get(b.identifier);
+			const value = overlap(left, right);
+			if (value.containment < NEAR_DUPLICATE || !isOverlapping(value)) continue;
+			const [small, large] = left.size <= right.size ? [a, b] : [b, a];
+			out.push({
+				kind: "duplicateBlock",
+				severity: "info",
+				identifier: small.identifier,
+				otherIdentifier: large.identifier,
+				text: this.t("m34.an.f.dupBlock.near", {
+					a: small.name,
+					b: large.name,
+					percent: percent(value.containment)
+				})
+			});
+			pairs++;
+		}
+		const injections = prepared.slots.filter((slot) => slot.position !== -1).map((slot) => ({
+			slot,
+			shingles: shingleSet(slot.value)
+		}));
+		for (const block of blocks) {
+			const own = shingles.get(block.identifier);
+			const best = /* @__PURE__ */ new Map();
+			for (const { slot, shingles: theirs } of injections) {
+				const value = overlap(own, theirs);
+				if (!isOverlapping(value)) continue;
+				const owner = slotOwner(slot.key);
+				const previous = best.get(owner);
+				if (!previous || previous.containment < value.containment) best.set(owner, {
+					key: slot.key,
+					containment: value.containment
+				});
+			}
+			for (const [owner, value] of best) out.push({
+				kind: "duplicateWithInjection",
+				severity: "info",
+				identifier: block.identifier,
+				text: this.t("m34.an.f.dupInjection", {
+					name: block.name,
+					owner,
+					key: value.key,
+					percent: percent(value.containment)
+				})
+			});
+		}
+		const lore = this.app.modules.api("loreJournal")?.lastContents?.() ?? [];
+		if (!lore.length) return;
+		const entries = lore.map((entry) => ({
+			entry,
+			shingles: shingleSet(entry.content)
+		}));
+		for (const block of blocks) {
+			const own = shingles.get(block.identifier);
+			const matches = entries.map(({ entry, shingles: theirs }) => ({
+				entry,
+				value: overlap(own, theirs)
+			})).filter(({ value }) => isOverlapping(value)).sort((a, b) => b.value.containment - a.value.containment).slice(0, 2);
+			for (const { entry, value } of matches) out.push({
+				kind: "duplicateWithLore",
+				severity: "info",
+				identifier: block.identifier,
+				text: this.t("m34.an.f.dupLore", {
+					name: block.name,
+					entry: entry.comment || String(entry.uid),
+					book: entry.world,
+					percent: percent(value.containment)
+				})
+			});
+		}
+	}
+	heavyFindings(prepared, map, out) {
+		const sent = new Set(this.sentBlocks(prepared).map((slot) => slot.identifier));
+		const weighted = map.filter((slot) => sent.has(slot.identifier)).map((slot) => ({
+			identifier: slot.identifier,
+			tokens: slot.tokens,
+			name: slot.name
+		}));
+		for (const block of heavyBlocks(weighted)) {
+			const name = weighted.find((item) => item.identifier === block.identifier)?.name ?? block.identifier;
+			out.push({
+				kind: "heavyBlock",
+				severity: "info",
+				identifier: block.identifier,
+				text: this.t("m34.an.f.heavy", {
+					name,
+					tokens: block.tokens,
+					percent: percent(block.share)
+				})
+			});
+		}
+	}
+};
+/**
+* The analysis service of the Preset Studio, exposed as 'presetAnalysis' (PRESET_ANALYSIS_KEY). The result is the API
+* itself (with `api` pointing to the same functions), `install()` registers the strings and returns the disposers,
+* `dispose()` drops the caches.
+*/
+function createPresetAnalysis(app, log, store) {
+	const analyzer = new PresetAnalyzer(app, log, store);
+	const api = {
+		map: (body, options) => analyzer.map(body, options),
+		findings: (body, options) => analyzer.findings(body, options),
+		hints: () => analyzer.hints()
+	};
+	return {
+		...api,
+		api,
+		install: () => analyzer.install(),
+		dispose: () => analyzer.dispose()
+	};
+}
+//#endregion
+//#region src/domain/preset-layer-apply.ts
+/** Prompt Manager's global order list in Chat Completion (OAI:696-699). */
+var GLOBAL_ORDER_ID$1 = 100001;
+/** The per-character dummy list found in old presets and Default.json (P-081). */
+var CHARACTER_ORDER_ID = 1e5;
+/** The eight places ST fills itself (PM:2001-2081, P-035). */
+var MARKER_IDS$2 = [
+	"worldInfoBefore",
+	"worldInfoAfter",
+	"charDescription",
+	"charPersonality",
+	"scenario",
+	"personaDescription",
+	"dialogueExamples",
+	"chatHistory"
+];
+/** Built-in system blocks (P-036). */
+var SYSTEM_PROMPT_IDS$1 = [
+	"main",
+	"nsfw",
+	"jailbreak",
+	"enhanceDefinitions"
+];
+/** Body keys a key op never touches. */
+var RESERVED_KEYS = [
+	"prompts",
+	"prompt_order",
+	"extensions"
+];
+/** Addresses, keys and passwords (OAI:287-299, P-096): never stored in Maestro files. */
+var SENSITIVE_KEYS$1 = [
+	"reverse_proxy",
+	"proxy_password",
+	"custom_url",
+	"custom_include_body",
+	"custom_exclude_body",
+	"custom_include_headers",
+	"vertexai_region",
+	"vertexai_express_project_id",
+	"azure_base_url",
+	"azure_deployment_name",
+	"workers_ai_account_id"
+];
+/** ST's default order (PromptManager.js promptManagerDefaultPromptOrder). */
+var DEFAULT_ORDER$2 = [
+	{
+		identifier: "main",
+		enabled: true
+	},
+	{
+		identifier: "worldInfoBefore",
+		enabled: true
+	},
+	{
+		identifier: "personaDescription",
+		enabled: true
+	},
+	{
+		identifier: "charDescription",
+		enabled: true
+	},
+	{
+		identifier: "charPersonality",
+		enabled: true
+	},
+	{
+		identifier: "scenario",
+		enabled: true
+	},
+	{
+		identifier: "enhanceDefinitions",
+		enabled: false
+	},
+	{
+		identifier: "nsfw",
+		enabled: true
+	},
+	{
+		identifier: "worldInfoAfter",
+		enabled: true
+	},
+	{
+		identifier: "dialogueExamples",
+		enabled: true
+	},
+	{
+		identifier: "chatHistory",
+		enabled: true
+	},
+	{
+		identifier: "jailbreak",
+		enabled: true
+	}
+];
+var ROLES$3 = [
+	"system",
+	"user",
+	"assistant"
+];
+/** Fields a block may carry only while ST assembles a prompt, or the legacy flag ST ignores (P-055). */
+var ASSEMBLY_FIELDS = [
+	"enabled",
+	"extension",
+	"position"
+];
+function isDict$19(value) {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+/** Fingerprint of a block text (line endings normalised so a file edited on Windows keeps its hash). */
+function textHash(text) {
+	return stableHash(text.replace(/\r\n/g, "\n"));
+}
+function contentOf$1(prompt) {
+	return isDict$19(prompt) && typeof prompt.content === "string" ? prompt.content : "";
+}
+function isPrompt(value) {
+	return isDict$19(value) && typeof value.identifier === "string" && value.identifier !== "";
+}
+/** The blocks of a body (entries without an identifier skipped). */
+function promptsOf$1(body) {
+	if (!isDict$19(body) || !Array.isArray(body.prompts)) return [];
+	return body.prompts.filter(isPrompt);
+}
+function findPrompt(body, identifier) {
+	return promptsOf$1(body).find((prompt) => prompt.identifier === identifier);
+}
+function orderItems(raw) {
+	if (!Array.isArray(raw)) return [];
+	return raw.filter((item) => isDict$19(item) && typeof item.identifier === "string" && item.identifier !== "");
+}
+function orderLists(body) {
+	return isDict$19(body) && Array.isArray(body.prompt_order) ? body.prompt_order : [];
+}
+function listIndex(lists, characterId) {
+	return lists.findIndex((list) => isDict$19(list) && String(list.character_id) === String(characterId) && Array.isArray(list.order));
+}
+/** The order the layer builds when the global list is missing: 100000 (non-empty), else ST's default. */
+function fallbackOrder(lists) {
+	const at = listIndex(lists, CHARACTER_ORDER_ID);
+	const legacy = at >= 0 ? orderItems(lists[at].order) : [];
+	return (legacy.length ? legacy : DEFAULT_ORDER$2).map((item) => ({
+		identifier: item.identifier,
+		enabled: item.enabled !== false
+	}));
+}
+/** The order the layer works on: the global list 100001, else what applyLayer would create. */
+function effectiveOrder(body) {
+	const lists = orderLists(body);
+	const at = listIndex(lists, GLOBAL_ORDER_ID$1);
+	return at >= 0 ? orderItems(lists[at].order) : fallbackOrder(lists);
+}
+/** The global list only (null when the body has none). */
+function globalOrder(body) {
+	const lists = orderLists(body);
+	const at = listIndex(lists, GLOBAL_ORDER_ID$1);
+	return at >= 0 ? orderItems(lists[at].order) : null;
+}
+function normalizeRole(role) {
+	return ROLES$3.includes(role) ? role : "system";
+}
+function finiteNumber$1(value) {
+	const number = typeof value === "string" && value.trim() !== "" ? Number(value) : value;
+	return typeof number === "number" && Number.isFinite(number) ? Math.trunc(number) : null;
+}
+function triggers(value) {
+	return Array.isArray(value) ? value.filter((item) => typeof item === "string") : [];
+}
+/** An own block with the strict types ST's assembly needs (P-039, P-044…P-047, P-132). */
+function normalizeOwnBlock(prompt) {
+	const rest = jsonCopy({ ...prompt });
+	for (const field of ASSEMBLY_FIELDS) delete rest[field];
+	const identifier = String(prompt.identifier);
+	const depth = finiteNumber$1(prompt.injection_depth);
+	const order = finiteNumber$1(prompt.injection_order);
+	return {
+		...rest,
+		identifier,
+		name: typeof prompt.name === "string" && prompt.name !== "" ? prompt.name : identifier,
+		role: normalizeRole(prompt.role),
+		content: typeof prompt.content === "string" ? prompt.content : "",
+		system_prompt: false,
+		marker: false,
+		injection_position: finiteNumber$1(prompt.injection_position) === 1 ? 1 : 0,
+		injection_depth: depth !== null && depth >= 0 ? depth : 4,
+		injection_order: order !== null ? order : 100,
+		injection_trigger: triggers(prompt.injection_trigger),
+		forbid_overrides: prompt.forbid_overrides === true
+	};
+}
+/**
+* A patch for a base block with strict types. The kind of a base block (`system_prompt`, `marker`) and its
+* identifier are never changed by the layer.
+*/
+function normalizePatch(patch) {
+	const out = isDict$19(patch) ? jsonCopy({ ...patch }) : {};
+	for (const field of [
+		"identifier",
+		"system_prompt",
+		"marker",
+		...ASSEMBLY_FIELDS
+	]) delete out[field];
+	if ("role" in out) out.role = normalizeRole(out.role);
+	if ("content" in out) out.content = typeof out.content === "string" ? out.content : String(out.content ?? "");
+	if ("injection_position" in out) out.injection_position = finiteNumber$1(out.injection_position) === 1 ? 1 : 0;
+	for (const field of ["injection_depth", "injection_order"]) {
+		if (!(field in out)) continue;
+		const number = finiteNumber$1(out[field]);
+		if (number === null) delete out[field];
+		else out[field] = number;
+	}
+	if ("injection_trigger" in out) out.injection_trigger = triggers(out.injection_trigger);
+	if ("forbid_overrides" in out) out.forbid_overrides = out.forbid_overrides === true;
+	return out;
+}
+/**
+* Insertion index for an anchor in an order list, -1 when the anchor is not there. `afterText` = after the first
+* block (in order) whose content contains the text.
+*/
+function anchorIndex(order, anchor, content) {
+	switch (anchor.kind) {
+		case "start": return 0;
+		case "end": return order.length;
+		case "after": {
+			const index = order.findIndex((item) => item.identifier === anchor.identifier);
+			return index < 0 ? -1 : index + 1;
+		}
+		case "before": return order.findIndex((item) => item.identifier === anchor.identifier);
+		case "afterText": {
+			if (!anchor.text) return -1;
+			const index = order.findIndex((item) => content(item.identifier).includes(anchor.text));
+			return index < 0 ? -1 : index + 1;
+		}
+		default: return -1;
+	}
+}
+/** A shallow copy of a body whose `prompts` and global order are copied on the first change only. */
+var Draft = class {
+	body;
+	prompts;
+	promptsDirty = false;
+	order = null;
+	/** Index of the global list in `prompt_order`; -1 = the list is created. */
+	orderListAt = -1;
+	orderDirty = false;
+	constructor(source) {
+		this.body = { ...source };
+		this.prompts = Array.isArray(source.prompts) ? [...source.prompts] : null;
+	}
+	hasPrompts() {
+		return this.prompts !== null;
+	}
+	indexOf(identifier) {
+		return this.prompts ? this.prompts.findIndex((prompt) => isPrompt(prompt) && prompt.identifier === identifier) : -1;
+	}
+	at(index) {
+		const prompt = this.prompts?.[index];
+		return isPrompt(prompt) ? prompt : void 0;
+	}
+	get(identifier) {
+		return this.at(this.indexOf(identifier));
+	}
+	content = (identifier) => contentOf$1(this.get(identifier));
+	put(index, prompt) {
+		if (!this.prompts) return;
+		this.prompts[index] = prompt;
+		this.promptsDirty = true;
+	}
+	push(prompt) {
+		if (!this.prompts) return;
+		this.prompts.push(prompt);
+		this.promptsDirty = true;
+	}
+	removeAt(index) {
+		if (!this.prompts || index < 0) return;
+		this.prompts.splice(index, 1);
+		this.promptsDirty = true;
+	}
+	/** The working global order; `create` builds it (from 100000 or the default) when the body has none. */
+	orderFor(create) {
+		if (this.order) return this.order;
+		const lists = orderLists(this.body);
+		const at = listIndex(lists, GLOBAL_ORDER_ID$1);
+		if (at >= 0) {
+			this.orderListAt = at;
+			this.order = [...orderItems(lists[at].order)];
+			return this.order;
+		}
+		if (!create) return null;
+		this.orderListAt = -1;
+		this.order = fallbackOrder(lists);
+		this.orderDirty = true;
+		return this.order;
+	}
+	setOrder(order) {
+		this.order = order;
+		this.orderDirty = true;
+	}
+	insert(index, item) {
+		const order = this.orderFor(true);
+		if (!order) return;
+		order.splice(Math.max(0, Math.min(index, order.length)), 0, item);
+		this.orderDirty = true;
+	}
+	replaceEntry(index, item) {
+		const order = this.orderFor(true);
+		if (!order || index < 0 || index >= order.length) return;
+		order[index] = item;
+		this.orderDirty = true;
+	}
+	finish() {
+		if (this.promptsDirty && this.prompts) this.body.prompts = this.prompts;
+		if (this.orderDirty && this.order) {
+			const lists = [...orderLists(this.body)];
+			const at = this.orderListAt;
+			const existing = at >= 0 ? lists[at] : void 0;
+			if (existing) lists[at] = {
+				...existing,
+				order: this.order
+			};
+			else lists.push({
+				character_id: GLOBAL_ORDER_ID$1,
+				order: this.order
+			});
+			this.body.prompt_order = lists;
+		}
+		return this.body;
+	}
+};
+function applyAdd(draft, op) {
+	if (!draft.hasPrompts() || !isPrompt(op.prompt)) return "orphaned";
+	const block = normalizeOwnBlock(op.prompt);
+	const id = block.identifier;
+	const index = draft.indexOf(id);
+	const existing = draft.at(index);
+	if (existing) {
+		if (contentOf$1(existing) !== contentOf$1(block)) return {
+			identifier: id,
+			oldBase: "",
+			newBase: contentOf$1(existing),
+			mine: contentOf$1(block)
+		};
+		if (existing.system_prompt === false && !valuesEqual(existing, block)) draft.put(index, block);
+	} else draft.push(block);
+	const order = draft.orderFor(true) ?? [];
+	if (order.some((item) => item.identifier === id)) return "applied";
+	const at = anchorIndex(order, op.anchor, draft.content);
+	if (at < 0) {
+		draft.insert(order.length, {
+			identifier: id,
+			enabled: false
+		});
+		return "orphaned";
+	}
+	draft.insert(at, {
+		identifier: id,
+		enabled: op.enabled === true
+	});
+	return "applied";
+}
+function applyEdit(draft, op) {
+	if (!draft.hasPrompts()) return "orphaned";
+	const index = draft.indexOf(op.identifier);
+	const current = draft.at(index);
+	if (!current) return "orphaned";
+	const patch = normalizePatch(op.patch);
+	if (current.marker === true) delete patch.content;
+	const next = {
+		...current,
+		...patch
+	};
+	let conflict = null;
+	if (typeof patch.content === "string") {
+		const text = contentOf$1(current);
+		if (text !== patch.content && textHash(text) !== op.baseHash) {
+			conflict = {
+				identifier: op.identifier,
+				oldBase: op.baseText ?? "",
+				newBase: text,
+				mine: patch.content
+			};
+			if (current.content === void 0) delete next.content;
+			else next.content = current.content;
+		}
+	}
+	if (!valuesEqual(next, current)) draft.put(index, next);
+	return conflict ?? "applied";
+}
+function applyToggle(draft, op) {
+	if (!draft.hasPrompts()) return "orphaned";
+	const order = draft.orderFor(true) ?? [];
+	const index = order.findIndex((item) => item.identifier === op.identifier);
+	const entry = order[index];
+	if (!entry) return "orphaned";
+	if (entry.enabled !== op.enabled) draft.replaceEntry(index, {
+		...entry,
+		enabled: op.enabled
+	});
+	return "applied";
+}
+function applyMove(draft, op) {
+	if (!draft.hasPrompts()) return "orphaned";
+	const order = draft.orderFor(true) ?? [];
+	const index = order.findIndex((item) => item.identifier === op.identifier);
+	const entry = order[index] ?? (draft.get(op.identifier) ? {
+		identifier: op.identifier,
+		enabled: false
+	} : null);
+	if (!entry) return "orphaned";
+	const rest = index >= 0 ? order.filter((_, position) => position !== index) : [...order];
+	const at = anchorIndex(rest, op.anchor, draft.content);
+	if (at < 0) return "orphaned";
+	if (at !== index) draft.setOrder([
+		...rest.slice(0, at),
+		entry,
+		...rest.slice(at)
+	]);
+	return "applied";
+}
+function applyKey(draft, op) {
+	if (typeof op.key !== "string" || !op.key || RESERVED_KEYS.includes(op.key)) return "orphaned";
+	if (!valuesEqual(draft.body[op.key], op.value)) draft.body[op.key] = jsonCopy(op.value);
+	return "applied";
+}
+function applyOne(draft, op) {
+	switch (op.op) {
+		case "add": return applyAdd(draft, op);
+		case "edit": return applyEdit(draft, op);
+		case "toggle": return applyToggle(draft, op);
+		case "move": return applyMove(draft, op);
+		case "key": return applyKey(draft, op);
+		default: return "orphaned";
+	}
+}
+function emptyReport() {
+	return {
+		applied: 0,
+		conflicts: [],
+		orphaned: []
+	};
+}
+/**
+* Lays the ops over a base body. The base is not changed: the result is a shallow copy whose `prompts` and
+* `prompt_order` are fresh arrays when (and only when) the layer changed them; changed blocks and order entries are
+* fresh objects too, the rest is shared with the base.
+*/
+function applyLayer(base, ops) {
+	const draft = new Draft(base);
+	const report = emptyReport();
+	for (const op of ops) {
+		const outcome = applyOne(draft, op);
+		if (outcome === "applied") report.applied++;
+		else if (outcome === "orphaned") report.orphaned.push(op);
+		else report.conflicts.push(outcome);
+	}
+	return {
+		body: draft.finish(),
+		report
+	};
+}
+function stripKey(draft, op) {
+	if (!valuesEqual(draft.body[op.key], op.value)) return;
+	if (op.baseUnset === true) delete draft.body[op.key];
+	else if (Object.hasOwn(op, "baseValue")) draft.body[op.key] = jsonCopy(op.baseValue);
+}
+function stripEdit(draft, op) {
+	const index = draft.indexOf(op.identifier);
+	const current = draft.at(index);
+	if (!current) return;
+	const next = { ...current };
+	let changed = false;
+	for (const [field, value] of Object.entries(normalizePatch(op.patch))) {
+		if (!valuesEqual(current[field], value)) continue;
+		if (field === "content") {
+			if (typeof op.baseText === "string") {
+				next.content = op.baseText;
+				changed = true;
+			}
+		} else if (op.baseFields && Object.hasOwn(op.baseFields, field)) {
+			next[field] = jsonCopy(op.baseFields[field]);
+			changed = true;
+		} else if (op.baseMissing?.includes(field)) {
+			delete next[field];
+			changed = true;
+		}
+	}
+	if (changed) draft.put(index, next);
+}
+function stripToggle(draft, op) {
+	if (typeof op.baseEnabled !== "boolean" || op.baseEnabled === op.enabled) return;
+	const order = draft.orderFor(false);
+	if (!order) return;
+	const index = order.findIndex((item) => item.identifier === op.identifier);
+	const entry = order[index];
+	if (entry && entry.enabled === op.enabled) draft.replaceEntry(index, {
+		...entry,
+		enabled: op.baseEnabled
+	});
+}
+function stripAdd(draft, op) {
+	if (!isPrompt(op.prompt)) return;
+	const index = draft.indexOf(op.prompt.identifier);
+	const existing = draft.at(index);
+	if (!existing || existing.system_prompt === true || contentOf$1(existing) !== contentOf$1(op.prompt)) return;
+	draft.removeAt(index);
+	const order = draft.orderFor(false);
+	if (order?.some((item) => item.identifier === op.prompt.identifier)) draft.setOrder(order.filter((item) => item.identifier !== op.prompt.identifier));
+}
+/**
+* Moved blocks go back to their base anchors. All of them are taken out first and put back while their anchors
+* resolve (base anchors point at base neighbours, which may be moved blocks themselves); a lost anchor keeps the
+* block at the end.
+*/
+function stripMoves(draft, moves) {
+	const tracked = moves.filter((op) => op.baseAnchor !== void 0);
+	const order = tracked.length ? draft.orderFor(false) : null;
+	if (!order) return;
+	const ids = new Set(tracked.map((op) => op.identifier));
+	const entries = new Map(order.filter((item) => ids.has(item.identifier)).map((item) => [item.identifier, item]));
+	if (!entries.size) return;
+	let next = order.filter((item) => !ids.has(item.identifier));
+	const waiting = tracked.filter((op) => op.baseAnchor && entries.has(op.identifier));
+	let progress = true;
+	while (waiting.length && progress) {
+		progress = false;
+		for (let k = 0; k < waiting.length; k++) {
+			const op = waiting[k];
+			const entry = op ? entries.get(op.identifier) : void 0;
+			const at = op?.baseAnchor && entry ? anchorIndex(next, op.baseAnchor, draft.content) : -1;
+			if (!entry || at < 0) continue;
+			next = [
+				...next.slice(0, at),
+				entry,
+				...next.slice(at)
+			];
+			waiting.splice(k, 1);
+			k--;
+			progress = true;
+		}
+	}
+	for (const op of waiting) {
+		const entry = entries.get(op.identifier);
+		if (entry) next.push(entry);
+	}
+	draft.setOrder(next);
+}
+/**
+* The base body without the layer («Сохранить базу»): own blocks removed, base texts and fields back, toggles,
+* moves and keys back to the base values stored in the ops. Only what still holds the layer's value is reverted —
+* a conflict that kept the new base text, or a later draft change, stays as it is.
+*/
+function stripLayer(body, ops) {
+	const draft = new Draft(body);
+	const reversed = [...ops].reverse();
+	for (const op of reversed) if (op.op === "key") stripKey(draft, op);
+	for (const op of reversed) if (op.op === "edit") stripEdit(draft, op);
+	for (const op of reversed) if (op.op === "toggle") stripToggle(draft, op);
+	for (const op of reversed) if (op.op === "add") stripAdd(draft, op);
+	stripMoves(draft, ops.filter((op) => op.op === "move"));
+	return draft.finish();
+}
+//#endregion
+//#region src/domain/preset-layer-ops.ts
+var OP_KINDS = [
+	"add",
+	"edit",
+	"toggle",
+	"move",
+	"key"
+];
+var ANCHOR_KINDS = [
+	"after",
+	"before",
+	"afterText",
+	"start",
+	"end"
+];
+/** Block fields compared by the fingerprints and by `baseMatches`. */
+var BLOCK_FIELDS = [
+	"name",
+	"role",
+	"content",
+	"injection_position",
+	"injection_depth",
+	"injection_order",
+	"injection_trigger",
+	"forbid_overrides",
+	"system_prompt",
+	"marker"
+];
+/** One op per block and kind (an own block's edits, toggles and moves live inside its add op). */
+function opKey(op) {
+	switch (op.op) {
+		case "add": return `add:${op.prompt.identifier}`;
+		case "key": return `key:${op.key}`;
+		default: return `${op.op}:${op.identifier}`;
+	}
+}
+function isValidAnchor(anchor) {
+	if (!isDict$19(anchor) || !ANCHOR_KINDS.includes(anchor.kind)) return false;
+	if (anchor.kind === "after" || anchor.kind === "before") return typeof anchor.identifier === "string" && anchor.identifier !== "";
+	if (anchor.kind === "afterText") return typeof anchor.text === "string" && anchor.text !== "";
+	return true;
+}
+function nonEmpty(value) {
+	return typeof value === "string" && value !== "";
+}
+function serialisable(value) {
+	try {
+		return value !== void 0 && JSON.stringify(value) !== void 0;
+	} catch {
+		return false;
+	}
+}
+/**
+* Checks the shape of an op; returns the reason it is rejected, or null. An add op may come without an
+* identifier (the layer gives it one) and an edit op without a base hash (filled from the base body).
+*/
+function validateOp(op) {
+	if (!isDict$19(op)) return "not an object";
+	if (!OP_KINDS.includes(op.op)) return `unknown op ${String(op.op)}`;
+	switch (op.op) {
+		case "add":
+			if (!isDict$19(op.prompt)) return "add: prompt missing";
+			if (op.prompt.identifier !== void 0 && typeof op.prompt.identifier !== "string") return "add: identifier must be a string";
+			if (MARKER_IDS$2.includes(String(op.prompt.identifier))) return "add: a marker cannot be added";
+			if (!isValidAnchor(op.anchor)) return "add: invalid anchor";
+			if (typeof op.enabled !== "boolean") return "add: enabled must be a boolean";
+			return null;
+		case "edit":
+			if (!nonEmpty(op.identifier)) return "edit: identifier missing";
+			if (!isDict$19(op.patch)) return "edit: patch missing";
+			if (op.patch.identifier !== void 0 && op.patch.identifier !== op.identifier) return "edit: the identifier cannot change";
+			if (typeof op.baseHash !== "string") return "edit: baseHash must be a string";
+			return null;
+		case "toggle":
+			if (!nonEmpty(op.identifier)) return "toggle: identifier missing";
+			if (typeof op.enabled !== "boolean") return "toggle: enabled must be a boolean";
+			if (op.identifier === "chatHistory" && op.enabled === false) return "toggle: chatHistory stays on";
+			return null;
+		case "move":
+			if (!nonEmpty(op.identifier)) return "move: identifier missing";
+			return isValidAnchor(op.anchor) ? null : "move: invalid anchor";
+		default:
+			if (!nonEmpty(op.key)) return "key: key missing";
+			if (RESERVED_KEYS.includes(op.key)) return `key: ${op.key} is not a key override`;
+			if (SENSITIVE_KEYS$1.includes(op.key)) return `key: ${op.key} is never stored`;
+			return serialisable(op.value) ? null : "key: value is not JSON";
+	}
+}
+/** Valid ops of a stored file (invalid ones dropped; a stored add op must have its identifier). */
+function sanitizeOps(raw) {
+	if (!Array.isArray(raw)) return [];
+	return raw.filter((op) => {
+		if (validateOp(op) !== null) return false;
+		const value = op;
+		return value.op !== "add" || nonEmpty(value.prompt.identifier);
+	});
+}
+/** Where a block stands in an order: after its predecessor, or at the start. */
+function anchorOf(order, identifier) {
+	const index = order.findIndex((item) => item.identifier === identifier);
+	if (index < 0) return null;
+	const previous = order[index - 1];
+	return previous ? {
+		kind: "after",
+		identifier: previous.identifier
+	} : { kind: "start" };
+}
+/**
+* The op with the base values it changes (for strip), read from the base body. Toggles, moves, keys and the
+* non-text fields of an edit always take the values of this base; the text fingerprint of an edit is filled only
+* when missing (it belongs to the base the user edited).
+*/
+function withOrigins(op, base) {
+	const copy = jsonCopy(op);
+	if (!base) return copy;
+	switch (copy.op) {
+		case "edit": {
+			const block = findPrompt(base, copy.identifier);
+			if (!block) return copy;
+			const text = typeof block.content === "string" ? block.content : "";
+			if (!copy.baseHash) {
+				copy.baseHash = textHash(text);
+				copy.baseText = text;
+			} else if (copy.baseText === void 0 && copy.baseHash === textHash(text)) copy.baseText = text;
+			const fields = {};
+			const missing = [];
+			for (const field of Object.keys(copy.patch)) {
+				if (field === "content" || field === "identifier") continue;
+				if (block[field] === void 0) missing.push(field);
+				else fields[field] = jsonCopy(block[field]);
+			}
+			copy.baseFields = fields;
+			if (missing.length) copy.baseMissing = missing;
+			else delete copy.baseMissing;
+			return copy;
+		}
+		case "toggle": {
+			const entry = effectiveOrder(base).find((item) => item.identifier === copy.identifier);
+			if (entry) copy.baseEnabled = entry.enabled;
+			return copy;
+		}
+		case "move": {
+			const anchor = anchorOf(effectiveOrder(base), copy.identifier);
+			if (anchor) copy.baseAnchor = anchor;
+			else if (findPrompt(base, copy.identifier)) copy.baseAnchor = null;
+			return copy;
+		}
+		case "key":
+			if (base[copy.key] !== void 0) {
+				copy.baseValue = jsonCopy(base[copy.key]);
+				delete copy.baseUnset;
+			} else {
+				copy.baseUnset = true;
+				delete copy.baseValue;
+			}
+			return copy;
+		default: return copy;
+	}
+}
+/** Drops patch fields that equal the base (an edit back to the original); null when nothing is left. */
+function pruneOp(op) {
+	switch (op.op) {
+		case "edit": {
+			const patch = { ...op.patch };
+			if (typeof op.baseText === "string" && patch.content === op.baseText) delete patch.content;
+			for (const field of Object.keys(patch)) {
+				if (field === "content") continue;
+				if (op.baseFields && Object.hasOwn(op.baseFields, field) && valuesEqual(op.baseFields[field], patch[field])) delete patch[field];
+			}
+			if (!Object.keys(patch).length) return null;
+			return {
+				...op,
+				patch
+			};
+		}
+		case "toggle": return typeof op.baseEnabled === "boolean" && op.baseEnabled === op.enabled ? null : op;
+		case "move": return op.baseAnchor && valuesEqual(op.baseAnchor, op.anchor) ? null : op;
+		case "key": return op.baseUnset !== true && Object.hasOwn(op, "baseValue") && valuesEqual(op.baseValue, op.value) ? null : op;
+		default: return op;
+	}
+}
+/** A later op of the same key on top of an earlier one: the first base values win. */
+function combine(existing, incoming) {
+	if (existing.op === "edit" && incoming.op === "edit") {
+		const patch = {
+			...existing.patch,
+			...incoming.patch
+		};
+		const baseFields = {};
+		const missing = [];
+		for (const field of Object.keys(patch)) {
+			if (field === "content") continue;
+			for (const source of [existing, incoming]) {
+				if (source.baseFields && Object.hasOwn(source.baseFields, field)) {
+					baseFields[field] = source.baseFields[field];
+					break;
+				}
+				if (source.baseMissing?.includes(field)) {
+					missing.push(field);
+					break;
+				}
+			}
+		}
+		const merged = {
+			op: "edit",
+			identifier: existing.identifier,
+			patch,
+			baseHash: existing.baseHash || incoming.baseHash,
+			baseFields
+		};
+		const baseText = existing.baseHash ? existing.baseText : incoming.baseText;
+		if (baseText !== void 0) merged.baseText = baseText;
+		if (missing.length) merged.baseMissing = missing;
+		return merged;
+	}
+	if (existing.op === "toggle" && incoming.op === "toggle") {
+		const baseEnabled = existing.baseEnabled ?? incoming.baseEnabled;
+		return baseEnabled === void 0 ? { ...incoming } : {
+			...incoming,
+			baseEnabled
+		};
+	}
+	if (existing.op === "move" && incoming.op === "move") {
+		const baseAnchor = existing.baseAnchor !== void 0 ? existing.baseAnchor : incoming.baseAnchor;
+		return baseAnchor === void 0 ? { ...incoming } : {
+			...incoming,
+			baseAnchor
+		};
+	}
+	if (existing.op === "key" && incoming.op === "key") {
+		const merged = {
+			op: "key",
+			key: incoming.key,
+			value: incoming.value
+		};
+		const source = Object.hasOwn(existing, "baseValue") || existing.baseUnset ? existing : incoming;
+		if (source.baseUnset) merged.baseUnset = true;
+		else if (Object.hasOwn(source, "baseValue")) merged.baseValue = source.baseValue;
+		return merged;
+	}
+	return incoming;
+}
+/**
+* Records a studio edit into the ops: an edit, toggle or move of an own block changes its add op; otherwise the op
+* replaces the one of the same key (keeping the first base values) or is appended. An op that brings everything
+* back to the base is dropped.
+*/
+function mergeOp(ops, incoming) {
+	const list = ops.map((op) => op);
+	if (incoming.op === "edit" || incoming.op === "toggle" || incoming.op === "move") {
+		const at = list.findIndex((op) => op.op === "add" && op.prompt.identifier === incoming.identifier);
+		const add = list[at];
+		if (add && add.op === "add") {
+			const next = jsonCopy(add);
+			if (incoming.op === "edit") next.prompt = normalizeOwnBlock({
+				...next.prompt,
+				...normalizePatch(incoming.patch),
+				identifier: add.prompt.identifier
+			});
+			else if (incoming.op === "toggle") next.enabled = incoming.enabled;
+			else next.anchor = jsonCopy(incoming.anchor);
+			list[at] = next;
+			return {
+				ops: list,
+				key: opKey(add),
+				index: at,
+				before: add,
+				after: next
+			};
+		}
+	}
+	const key = opKey(incoming);
+	const index = list.findIndex((op) => opKey(op) === key);
+	const existing = index >= 0 ? list[index] ?? null : null;
+	const merged = pruneOp(existing ? combine(existing, incoming) : jsonCopy(incoming));
+	if (existing) {
+		if (merged) list[index] = merged;
+		else list.splice(index, 1);
+		return {
+			ops: list,
+			key,
+			index,
+			before: existing,
+			after: merged
+		};
+	}
+	if (merged) list.push(merged);
+	return {
+		ops: list,
+		key,
+		index: merged ? list.length - 1 : list.length,
+		before: null,
+		after: merged
+	};
+}
+/** Puts `op` (or nothing) under `key`, at `index` when it was absent. */
+function setOpAt(ops, key, op, index) {
+	const list = ops.filter((item) => opKey(item) !== key);
+	if (!op) return list;
+	const at = ops.findIndex((item) => opKey(item) === key);
+	const position = at >= 0 ? at : index ?? list.length;
+	list.splice(Math.max(0, Math.min(position, list.length)), 0, jsonCopy(op));
+	return list;
+}
+/**
+* Resolves a text conflict of an op against the new base text: 'mine' rebases the edit (the patch stays, the base
+* fingerprint becomes the new base), 'newBase' drops the text change (and the op when nothing else is left), a
+* custom text replaces the patch text. An add op whose identifier the base now has becomes an edit of that block.
+*/
+function resolveOp(op, choice, newBase) {
+	const rebased = {
+		baseHash: textHash(newBase),
+		baseText: newBase
+	};
+	if (op.op === "add") {
+		if (choice === "newBase") return null;
+		const text = choice === "mine" ? op.prompt.content ?? "" : choice.text;
+		return pruneOp({
+			op: "edit",
+			identifier: op.prompt.identifier,
+			patch: { content: text },
+			...rebased
+		});
+	}
+	if (op.op !== "edit") return op;
+	const patch = { ...op.patch };
+	if (choice === "newBase") delete patch.content;
+	else if (choice !== "mine") patch.content = choice.text;
+	return pruneOp({
+		...op,
+		patch,
+		...rebased
+	});
+}
+function pick(prompt, fields) {
+	const out = {};
+	for (const field of fields) out[field] = prompt[field] ?? null;
+	return out;
+}
+/** What the layer decides in a body: one item per op (block fields, order place, key value). */
+function layerView(body, ops) {
+	const order = effectiveOrder(body);
+	const place = new Map(order.map((item, index) => [item.identifier, index]));
+	const previous = (identifier) => {
+		const index = place.get(identifier);
+		if (index === void 0) return null;
+		return index === 0 ? "^" : order[index - 1]?.identifier ?? null;
+	};
+	const enabled = (identifier) => {
+		const index = place.get(identifier);
+		return index === void 0 ? null : order[index]?.enabled ?? null;
+	};
+	return ops.map((op) => {
+		switch (op.op) {
+			case "add": {
+				const id = op.prompt.identifier;
+				const prompt = findPrompt(body, id);
+				return [
+					"add",
+					id,
+					prompt ? pick(prompt, BLOCK_FIELDS) : null,
+					enabled(id),
+					previous(id)
+				];
+			}
+			case "edit": {
+				const prompt = findPrompt(body, op.identifier);
+				return [
+					"edit",
+					op.identifier,
+					prompt ? pick(prompt, Object.keys(op.patch).sort()) : null
+				];
+			}
+			case "toggle": return [
+				"toggle",
+				op.identifier,
+				enabled(op.identifier)
+			];
+			case "move": return [
+				"move",
+				op.identifier,
+				previous(op.identifier)
+			];
+			default: return [
+				"key",
+				op.key,
+				body[op.key] ?? null
+			];
+		}
+	});
+}
+/** Fingerprint of the layer's part of a body: equal for the working copy and `applyLayer(base)` when it holds. */
+function layerFingerprint(body, ops) {
+	return valueHash(layerView(body, ops));
+}
+/** Fingerprint of a base body (blocks, order, keys; `extensions` left out — ST rewrites it for regexes, P-152). */
+function baseFingerprint(body) {
+	const keys = {};
+	for (const [key, value] of Object.entries(body)) if (!RESERVED_KEYS.includes(key)) keys[key] = value;
+	return valueHash({
+		prompts: promptsOf$1(body).map((prompt) => [prompt.identifier, pick(prompt, BLOCK_FIELDS)]).sort((a, b) => a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0),
+		order: globalOrder(body),
+		keys
+	});
+}
+/**
+* The candidate holds the saved base: every saved block with the same fields, the same global order (when the base
+* has one) and the same values for the base keys the candidate knows. Blocks ST adds itself (missing defaults) and
+* keys the file lacks do not count.
+*/
+function baseMatches(saved, candidate) {
+	for (const prompt of promptsOf$1(saved)) {
+		const other = findPrompt(candidate, prompt.identifier);
+		if (!other || !valuesEqual(pick(prompt, BLOCK_FIELDS), pick(other, BLOCK_FIELDS))) return false;
+	}
+	const order = globalOrder(saved);
+	if (order && !valuesEqual(order, globalOrder(candidate))) return false;
+	for (const [key, value] of Object.entries(saved)) {
+		if (RESERVED_KEYS.includes(key) || !Object.hasOwn(candidate, key)) continue;
+		if (!valuesEqual(value, candidate[key])) return false;
+	}
+	return true;
+}
+//#endregion
+//#region src/domain/preset-layer-migrate.ts
+/** Block fields a migration compares (the kind flags of a base block never change). */
+var EDIT_FIELDS = [
+	"name",
+	"role",
+	"content",
+	"injection_position",
+	"injection_depth",
+	"injection_order",
+	"injection_trigger",
+	"forbid_overrides"
+];
+/**
+* Values Prompt Manager's form writes for fields a file may omit (PM:182-195, PM:902-920): saving a block in the
+* classic editor adds them without changing anything.
+*/
+var FORM_DEFAULTS = {
+	role: "system",
+	injection_position: 0,
+	injection_depth: 4,
+	injection_order: 100,
+	injection_trigger: [],
+	forbid_overrides: false
+};
+/** Text anchors shorter than this match too much. */
+var MIN_TEXT_ANCHOR = 4;
+/** Longest common subsequence of two id lists: the blocks that keep their relative order. */
+function longestCommon(a, b) {
+	const width = b.length + 1;
+	const table = new Array((a.length + 1) * width).fill(0);
+	const cell = (i, j) => table[i * width + j] ?? 0;
+	for (let i = a.length - 1; i >= 0; i--) for (let j = b.length - 1; j >= 0; j--) table[i * width + j] = a[i] === b[j] ? cell(i + 1, j + 1) + 1 : Math.max(cell(i + 1, j), cell(i, j + 1));
+	const kept = /* @__PURE__ */ new Set();
+	let i = 0;
+	let j = 0;
+	while (i < a.length && j < b.length) {
+		const left = a[i];
+		if (left !== void 0 && left === b[j]) {
+			kept.add(left);
+			i++;
+			j++;
+		} else if (cell(i + 1, j) >= cell(i, j + 1)) i++;
+		else j++;
+	}
+	return kept;
+}
+function editOf(base, edited) {
+	const patch = {};
+	for (const field of EDIT_FIELDS) {
+		const value = edited[field];
+		if (value === void 0) continue;
+		const original = base[field];
+		if (original === void 0 && Object.hasOwn(FORM_DEFAULTS, field) && valuesEqual(value, FORM_DEFAULTS[field])) continue;
+		if (valuesEqual(original ?? null, value)) continue;
+		patch[field] = jsonCopy(value);
+	}
+	if (base.marker === true) delete patch.content;
+	if (!Object.keys(patch).length) return null;
+	const text = contentOf$1(base);
+	const fields = {};
+	const missing = [];
+	for (const field of Object.keys(patch)) {
+		if (field === "content") continue;
+		if (base[field] === void 0) missing.push(field);
+		else fields[field] = jsonCopy(base[field]);
+	}
+	const edit = {
+		op: "edit",
+		identifier: base.identifier,
+		patch,
+		baseHash: textHash(text),
+		baseText: text,
+		baseFields: fields
+	};
+	if (missing.length) edit.baseMissing = missing;
+	return edit;
+}
+/**
+* Differences between a reference base and the edited body as layer ops (Q23). The order is rebuilt by walking the
+* edited order: blocks that keep their place relative to each other (LCS) stay, every other block is added or moved
+* right after its edited predecessor — applied in sequence, this reproduces the edited order exactly. Then toggles,
+* text and field edits (fingerprinted against the reference) and base key changes. Keys the reference lacks are
+* left out (a body from ST has all 103 keys, mostly defaults); secrets are never stored. The layer cannot delete a
+* base block: one the edited order dropped is switched off and reported in `removed`. chatHistory is never switched
+* off (P-130).
+*/
+function planMigration(reference, edited) {
+	const basePrompts = new Map(promptsOf$1(reference).map((prompt) => [prompt.identifier, prompt]));
+	const editedPrompts = new Map(promptsOf$1(edited).map((prompt) => [prompt.identifier, prompt]));
+	const baseOrder = effectiveOrder(reference);
+	const editedOrder = effectiveOrder(edited);
+	const baseEntries = new Map(baseOrder.map((item) => [item.identifier, item]));
+	const editedIds = new Set(editedOrder.map((item) => item.identifier));
+	const kept = longestCommon(baseOrder.map((item) => item.identifier).filter((id) => editedIds.has(id)), editedOrder.map((item) => item.identifier).filter((id) => baseEntries.has(id)));
+	const ops = [];
+	const toggles = [];
+	const seen = /* @__PURE__ */ new Set();
+	let previous = null;
+	for (const entry of editedOrder) {
+		const id = entry.identifier;
+		if (seen.has(id)) continue;
+		seen.add(id);
+		const anchor = previous ? {
+			kind: "after",
+			identifier: previous
+		} : { kind: "start" };
+		const base = baseEntries.get(id);
+		if (base) {
+			if (!kept.has(id)) ops.push({
+				op: "move",
+				identifier: id,
+				anchor,
+				baseAnchor: anchorOf(baseOrder, id)
+			});
+			if (base.enabled !== entry.enabled && !(id === "chatHistory" && !entry.enabled)) toggles.push({
+				op: "toggle",
+				identifier: id,
+				enabled: entry.enabled,
+				baseEnabled: base.enabled
+			});
+		} else if (basePrompts.has(id)) {
+			ops.push({
+				op: "move",
+				identifier: id,
+				anchor,
+				baseAnchor: null
+			});
+			if (entry.enabled) toggles.push({
+				op: "toggle",
+				identifier: id,
+				enabled: true
+			});
+		} else {
+			const prompt = editedPrompts.get(id);
+			if (!prompt) continue;
+			ops.push({
+				op: "add",
+				prompt: normalizeOwnBlock(prompt),
+				anchor,
+				enabled: entry.enabled
+			});
+		}
+		previous = id;
+	}
+	for (const prompt of editedPrompts.values()) {
+		const id = prompt.identifier;
+		if (basePrompts.has(id) || editedIds.has(id) || MARKER_IDS$2.includes(id)) continue;
+		ops.push({
+			op: "add",
+			prompt: normalizeOwnBlock(prompt),
+			anchor: { kind: "end" },
+			enabled: false
+		});
+	}
+	ops.push(...toggles);
+	for (const [id, base] of basePrompts) {
+		const prompt = editedPrompts.get(id);
+		const edit = prompt ? editOf(base, prompt) : null;
+		if (edit) ops.push(edit);
+	}
+	for (const [key, original] of Object.entries(reference)) {
+		if (RESERVED_KEYS.includes(key) || SENSITIVE_KEYS$1.includes(key)) continue;
+		const value = edited[key];
+		if (value === void 0 || valuesEqual(original, value)) continue;
+		ops.push({
+			op: "key",
+			key,
+			value: jsonCopy(value),
+			baseValue: jsonCopy(original)
+		});
+	}
+	const removed = [];
+	for (const entry of baseOrder) {
+		const id = entry.identifier;
+		if (editedIds.has(id) || !basePrompts.has(id)) continue;
+		removed.push(id);
+		if (entry.enabled && id !== "chatHistory") ops.push({
+			op: "toggle",
+			identifier: id,
+			enabled: false,
+			baseEnabled: true
+		});
+	}
+	return {
+		ops,
+		removed
+	};
+}
+/** Lines of a block that can serve as a portable anchor: the last one first (`</task>`), then the first. */
+function textCandidates(text) {
+	const lines = text.split("\n").map((line) => line.trim()).filter((line) => line.length >= MIN_TEXT_ANCHOR);
+	const last = lines.at(-1);
+	const first = lines[0];
+	const out = [];
+	if (last) out.push(last);
+	if (first && first !== last) out.push(first);
+	return out;
+}
+/**
+* Copies ops of one base onto another. Anchors resolve by identifier (an own block of the layer, or a block of the
+* target order), then by the same block name, then by a text anchor taken from the source neighbour's content
+* (unique matches preferred); an add that still has no place goes to the end switched off and is reported. Edits,
+* toggles and moves need their block in the target (identifier or unique name); edits keep their base fingerprint,
+* so a different target text shows up as a conflict, never as a silent overwrite.
+*/
+function transferOps(ops, from, to) {
+	if (!to) return {
+		ops: ops.map((op) => jsonCopy(op)),
+		orphaned: []
+	};
+	const targetPrompts = promptsOf$1(to);
+	const targetIds = new Set(targetPrompts.map((prompt) => prompt.identifier));
+	const targetOrder = effectiveOrder(to);
+	const ordered = new Set(targetOrder.map((item) => item.identifier));
+	const own = new Set(ops.filter((op) => op.op === "add").map((op) => op.prompt.identifier));
+	const sourceOrder = from ? effectiveOrder(from) : [];
+	const content = (identifier) => contentOf$1(findPrompt(to, identifier));
+	const byName = (identifier) => {
+		const name = from ? findPrompt(from, identifier)?.name : void 0;
+		if (!name) return null;
+		const matches = targetPrompts.filter((prompt) => prompt.name === name);
+		return matches.length === 1 ? matches[0]?.identifier ?? null : null;
+	};
+	const blockIn = (identifier) => targetIds.has(identifier) ? identifier : byName(identifier);
+	const textAnchor = (identifier) => {
+		const candidates = textCandidates(contentOf$1(from ? findPrompt(from, identifier) : void 0));
+		const hits = (text) => targetOrder.filter((item) => content(item.identifier).includes(text)).length;
+		const any = candidates.find((text) => hits(text) === 1) ?? candidates.find((text) => hits(text) > 1);
+		return any ? {
+			kind: "afterText",
+			text: any
+		} : null;
+	};
+	const placeAfter = (identifier) => {
+		if (own.has(identifier) || ordered.has(identifier)) return {
+			kind: "after",
+			identifier
+		};
+		const named = byName(identifier);
+		if (named && ordered.has(named)) return {
+			kind: "after",
+			identifier: named
+		};
+		return textAnchor(identifier);
+	};
+	const resolve = (anchor) => {
+		switch (anchor.kind) {
+			case "after": return placeAfter(anchor.identifier);
+			case "before": {
+				if (own.has(anchor.identifier) || ordered.has(anchor.identifier)) return anchor;
+				const named = byName(anchor.identifier);
+				if (named && ordered.has(named)) return {
+					kind: "before",
+					identifier: named
+				};
+				const index = sourceOrder.findIndex((item) => item.identifier === anchor.identifier);
+				if (index === 0) return { kind: "start" };
+				const previous = sourceOrder[index - 1];
+				return previous ? placeAfter(previous.identifier) : null;
+			}
+			case "afterText": return targetOrder.some((item) => content(item.identifier).includes(anchor.text)) ? anchor : null;
+			default: return anchor;
+		}
+	};
+	const out = [];
+	const orphaned = [];
+	for (const source of ops) {
+		const op = jsonCopy(source);
+		switch (op.op) {
+			case "key":
+				out.push(op);
+				break;
+			case "add": {
+				const anchor = resolve(op.anchor);
+				const next = anchor ? {
+					...op,
+					anchor
+				} : {
+					...op,
+					anchor: { kind: "end" },
+					enabled: false
+				};
+				out.push(next);
+				if (!anchor) orphaned.push(next);
+				break;
+			}
+			case "edit": {
+				const id = blockIn(op.identifier);
+				if (id) out.push({
+					...op,
+					identifier: id
+				});
+				else orphaned.push(op);
+				break;
+			}
+			case "toggle": {
+				const id = blockIn(op.identifier);
+				if (id && ordered.has(id)) out.push({
+					...op,
+					identifier: id
+				});
+				else orphaned.push(op);
+				break;
+			}
+			default: {
+				const id = blockIn(op.identifier);
+				const anchor = id ? resolve(op.anchor) : null;
+				if (id && anchor) out.push({
+					...op,
+					identifier: id,
+					anchor
+				});
+				else orphaned.push(op);
+			}
+		}
+	}
+	return {
+		ops: out,
+		orphaned
+	};
+}
+/** The order a foreign preset shows: 100001, else 100000, else its first list. */
+function foreignOrder(body) {
+	const global = globalOrder(body);
+	if (global) return global;
+	const lists = Array.isArray(body.prompt_order) ? body.prompt_order.filter(isDict$19) : [];
+	const legacy = lists.find((list) => String(list.character_id) === String(1e5)) ?? lists[0];
+	return (legacy && Array.isArray(legacy.order) ? legacy.order : []).filter((item) => isDict$19(item) && typeof item.identifier === "string" && item.identifier !== "");
+}
+/**
+* Blocks of a foreign preset for picking into the layer (п.6): in the preset's order, then the blocks outside it;
+* markers and empty ST defaults (main, nsfw, jailbreak, enhanceDefinitions placeholders) skipped; names kept; strict
+* types of an own block (P-132), so a picked block is sent by ST as it is.
+*/
+function splitForeign(body) {
+	if (!isDict$19(body)) return [];
+	const prompts = promptsOf$1(body);
+	const byId = new Map(prompts.map((prompt) => [prompt.identifier, prompt]));
+	const sequence = [];
+	const seen = /* @__PURE__ */ new Set();
+	const take = (prompt) => {
+		if (!prompt || seen.has(prompt.identifier)) return;
+		seen.add(prompt.identifier);
+		sequence.push(prompt);
+	};
+	for (const item of foreignOrder(body)) take(byId.get(item.identifier));
+	for (const prompt of prompts) take(prompt);
+	return sequence.filter((prompt) => prompt.marker !== true && !MARKER_IDS$2.includes(prompt.identifier)).filter((prompt) => !(SYSTEM_PROMPT_IDS$1.includes(prompt.identifier) && !contentOf$1(prompt).trim())).map((prompt) => normalizeOwnBlock(prompt));
+}
+//#endregion
+//#region src/features/presetStudio/layer-files.ts
+var LAYER_INDEX_FILE = "maestro-preset-layers.json";
+var LAYER_FILE_KIND = "preset-layer";
+var SAVE_DELAY_MS = 400;
+function isDict$18(value) {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function emptyLayer(base) {
+	return {
+		schema: 1,
+		base,
+		ops: [],
+		updatedAt: 0
+	};
+}
+/** Validates a stored file; null when it is not a layer of `base` (or another name with the same hash). */
+function readLayerFile(raw, base) {
+	if (!isDict$18(raw) || raw.schema !== 1 || raw.base !== base) return null;
+	const file = {
+		schema: 1,
+		base,
+		ops: sanitizeOps(raw.ops),
+		updatedAt: typeof raw.updatedAt === "number" ? raw.updatedAt : 0
+	};
+	const applied = raw.applied;
+	if (isDict$18(applied) && typeof applied.fingerprint === "string" && typeof applied.baseFingerprint === "string" && typeof applied.at === "number") file.applied = {
+		fingerprint: applied.fingerprint,
+		baseFingerprint: applied.baseFingerprint,
+		at: applied.at
+	};
+	return file;
+}
+function readIndex(raw) {
+	if (!isDict$18(raw) || raw.schema !== 1 || !Array.isArray(raw.bases)) return [];
+	return raw.bases.filter((name) => typeof name === "string" && name !== "");
+}
+var LayerFiles = class {
+	files;
+	log;
+	options;
+	/** What the API sees: the disk state plus the queued changes. */
+	memory = /* @__PURE__ */ new Map();
+	/** Last state known to be on disk (fallback when a fresh read fails). */
+	synced = /* @__PURE__ */ new Map();
+	pending = /* @__PURE__ */ new Map();
+	indexed = /* @__PURE__ */ new Set();
+	timer = null;
+	chain = Promise.resolve();
+	delayMs;
+	constructor(files, log, options = {}) {
+		this.files = files;
+		this.log = log;
+		this.options = options;
+		this.delayMs = options.delayMs ?? SAVE_DELAY_MS;
+	}
+	fileName(base) {
+		return this.files.fileName(LAYER_FILE_KIND, base);
+	}
+	/** Reads the index and every listed layer (plus `extra` names, e.g. the current preset) in parallel. */
+	async load(extra = []) {
+		let names = [];
+		try {
+			names = readIndex(await readFresh(this.files, LAYER_INDEX_FILE));
+		} catch (error) {
+			this.log.warn("preset layer index could not be read", error);
+		}
+		this.indexed = new Set(names);
+		const all = [.../* @__PURE__ */ new Set([...names, ...extra.filter((name) => name !== "")])];
+		await Promise.all(all.map(async (base) => {
+			try {
+				const file = readLayerFile(await readFresh(this.files, this.fileName(base)), base);
+				if (!file) return;
+				this.synced.set(base, jsonCopy(file));
+				const memory = jsonCopy(file);
+				for (const change of this.pending.get(base) ?? []) change(memory);
+				this.memory.set(base, memory);
+				if (file.ops.length) this.indexed.add(base);
+			} catch (error) {
+				this.log.warn(`preset layer of ${base} could not be read`, error);
+			}
+		}));
+	}
+	get(base) {
+		return this.memory.get(base);
+	}
+	/** Names of bases whose layer has ops. */
+	bases() {
+		return [...this.memory.values()].filter((file) => file.ops.length > 0).map((file) => file.base);
+	}
+	/** Changes the layer now (memory) and queues the same change for the debounced write. */
+	mutate(base, change) {
+		const next = jsonCopy(this.memory.get(base) ?? emptyLayer(base));
+		change(next);
+		next.updatedAt = Date.now();
+		this.memory.set(base, next);
+		const list = this.pending.get(base) ?? [];
+		list.push(change);
+		this.pending.set(base, list);
+		this.schedule();
+		return next;
+	}
+	/** Moves a layer to a new base name (ST renamed the preset, P-181). */
+	rename(oldBase, newBase) {
+		const source = this.memory.get(oldBase);
+		if (!source?.ops.length || oldBase === newBase) return false;
+		const ops = jsonCopy(source.ops);
+		const applied = source.applied ? { ...source.applied } : void 0;
+		this.mutate(newBase, (file) => {
+			file.ops = jsonCopy(ops);
+			if (applied) file.applied = { ...applied };
+			else delete file.applied;
+		});
+		this.mutate(oldBase, (file) => {
+			file.ops = [];
+			delete file.applied;
+		});
+		return true;
+	}
+	hasPending() {
+		return this.pending.size > 0;
+	}
+	/** Writes every queued change now. */
+	flush() {
+		if (this.timer) {
+			clearTimeout(this.timer);
+			this.timer = null;
+		}
+		const job = () => this.writeAll();
+		const next = this.chain.then(job, job);
+		this.chain = next.catch(() => void 0);
+		return next;
+	}
+	/** Drops the timer (dispose); queued changes stay for an explicit flush(). */
+	stop() {
+		if (this.timer) clearTimeout(this.timer);
+		this.timer = null;
+	}
+	schedule() {
+		if (this.timer) clearTimeout(this.timer);
+		this.timer = setTimeout(() => {
+			this.timer = null;
+			this.flush().catch((error) => this.log.error("preset layer save failed", error));
+		}, this.delayMs);
+	}
+	async writeAll() {
+		const added = [];
+		const removed = [];
+		for (const base of [...this.pending.keys()]) {
+			const changes = this.pending.get(base) ?? [];
+			this.pending.delete(base);
+			if (!changes.length) continue;
+			const name = this.fileName(base);
+			let target;
+			try {
+				target = readLayerFile(await readFresh(this.files, name), base) ?? emptyLayer(base);
+			} catch (error) {
+				this.log.warn(`preset layer of ${base} could not be re-read; writing over the last known state`, error);
+				target = jsonCopy(this.synced.get(base) ?? emptyLayer(base));
+			}
+			for (const change of changes) change(target);
+			target.updatedAt = Date.now();
+			try {
+				if (target.ops.length) {
+					await this.files.write(name, target);
+					if (!this.indexed.has(base)) added.push(base);
+				} else if (this.synced.has(base) || this.indexed.has(base)) {
+					await this.files.remove(name);
+					removed.push(base);
+				}
+			} catch (error) {
+				this.pending.set(base, [...changes, ...this.pending.get(base) ?? []]);
+				this.log.error(`preset layer of ${base} could not be saved`, error);
+				this.options.onError?.(base, error);
+				continue;
+			}
+			if (target.ops.length) this.synced.set(base, jsonCopy(target));
+			else this.synced.delete(base);
+			const newer = this.pending.get(base) ?? [];
+			const memory = jsonCopy(target);
+			for (const change of newer) change(memory);
+			if (memory.ops.length || newer.length) this.memory.set(base, memory);
+			else this.memory.delete(base);
+		}
+		if (added.length || removed.length) await this.updateIndex(added, removed);
+	}
+	async updateIndex(added, removed) {
+		try {
+			const names = new Set(readIndex(await readFresh(this.files, LAYER_INDEX_FILE)));
+			for (const name of added) names.add(name);
+			for (const name of removed) names.delete(name);
+			await this.files.write(LAYER_INDEX_FILE, {
+				schema: 1,
+				bases: [...names].sort()
+			});
+			this.indexed = names;
+		} catch (error) {
+			this.log.warn("preset layer index could not be saved", error);
+		}
+	}
+};
+//#endregion
+//#region src/features/presetStudio/layer-strings.ts
+var LAYER_STRINGS = {
+	en: {
+		"m34.layerSvc.offer.layerMissing": "Your layer is not laid over the preset «{name}»: the working copy loaded without it. Reselect the preset to apply the layer? Unsaved changes of the working copy will be replaced.",
+		"m34.layerSvc.offer.baseChanged": "The base preset «{name}» changed on the server. Reselect it to load the new base with your layer on top? Unsaved changes of the working copy will be replaced.",
+		"m34.layerSvc.offer.action": "Reselect the preset with the layer",
+		"m34.layerSvc.dispose.notice": "Your layer stays in the working copy of the preset «{name}» until the next preset change.",
+		"m34.layerSvc.dispose.action": "Reselect without the layer",
+		"m34.layerSvc.mergedName": "{name} (with layer)",
+		"m34.layerSvc.saveFailed": "Your layer for «{name}» could not be saved; it will be retried with the next change.",
+		"m34.layerSvc.journal.record": "Your layer · {name}: edit",
+		"m34.layerSvc.journal.remove": "Your layer · {name}: operation removed",
+		"m34.layerSvc.journal.resolve": "Your layer · {name}: conflict resolved",
+		"m34.layerSvc.journal.migrate": "Your layer · {name}: {count} changes moved into the layer",
+		"m34.layerSvc.journal.transfer": "Your layer · {name}: {count} operations copied from «{from}»"
+	},
+	ru: {
+		"m34.layerSvc.offer.layerMissing": "«Твой слой» не наложен на пресет «{name}»: рабочая копия загрузилась без него. Перевыбрать пресет, чтобы наложить слой? Несохранённые правки рабочей копии будут заменены.",
+		"m34.layerSvc.offer.baseChanged": "Базовый пресет «{name}» изменился на сервере. Перевыбрать его, чтобы загрузить новую базу и наложить слой сверху? Несохранённые правки рабочей копии будут заменены.",
+		"m34.layerSvc.offer.action": "Перевыбрать пресет со слоем",
+		"m34.layerSvc.dispose.notice": "«Твой слой» остаётся в рабочей копии пресета «{name}» до следующей смены пресета.",
+		"m34.layerSvc.dispose.action": "Перевыбрать без слоя",
+		"m34.layerSvc.mergedName": "{name} (со слоем)",
+		"m34.layerSvc.saveFailed": "Не удалось сохранить «Твой слой» для «{name}»; попробую снова при следующей правке.",
+		"m34.layerSvc.journal.record": "Твой слой · {name}: правка",
+		"m34.layerSvc.journal.remove": "Твой слой · {name}: операция удалена",
+		"m34.layerSvc.journal.resolve": "Твой слой · {name}: конфликт решён",
+		"m34.layerSvc.journal.migrate": "Твой слой · {name}: правок перенесено в слой — {count}",
+		"m34.layerSvc.journal.transfer": "Твой слой · {name}: операций скопировано с «{from}» — {count}"
+	}
+};
+//#endregion
+//#region src/features/presetStudio/layer.ts
+/** Journal target of layer changes (undo puts the op back). */
+var LAYER_TARGET = "preset-layer";
+var LAYER_JOURNAL_KIND = "preset.layer";
+var MODULE_ID$1 = "M34";
+/** Longest wait of the BEFORE handler for layers still loading at start. */
+var LOAD_WAIT_MS = 2e3;
+/** A rename that never reports PRESET_RENAMED (an error in between) must not block the layer for good. */
+var RENAME_TIMEOUT_MS = 3e4;
+/** M4 baseline paths a layer application changes on purpose. */
+var PRESET_PATHS = [
+	"preset.order",
+	"preset.toggles",
+	"preset.roles",
+	"preset.contents",
+	"preset.body"
+];
+function delay(ms) {
+	return new Promise((resolve) => setTimeout(resolve, ms));
+}
+function createPresetLayer(app, log, store) {
+	app.i18n.register(LAYER_STRINGS);
+	const t = (key, params) => app.i18n.t(key, params);
+	const listeners = /* @__PURE__ */ new Set();
+	let saveErrorShown = false;
+	const files = new LayerFiles(app.files, log, { onError: (base) => {
+		if (saveErrorShown) return;
+		saveErrorShown = true;
+		app.ui.notice(t("m34.layerSvc.saveFailed", { name: base }), { level: "error" });
+	} });
+	let loading = null;
+	let loaded = false;
+	let installed = false;
+	let openai = null;
+	let renaming = null;
+	let renameTimer = null;
+	/** What BEFORE applied, for AFTER. */
+	let pending = null;
+	/** BEFORE changed the report: AFTER tells the listeners (the working copy is final by then). */
+	let reportDirty = false;
+	let last = null;
+	/** «Подготовить к отключению»: the next BEFORE of this name loads the base without the layer. */
+	let suppressOnce = null;
+	let checked = false;
+	const emit = () => {
+		for (const listener of [...listeners]) try {
+			listener();
+		} catch (error) {
+			log.error("preset layer listener failed", error);
+		}
+	};
+	const opsOf = (base) => files.get(base)?.ops ?? [];
+	const currentName = () => {
+		try {
+			const name = store?.current();
+			if (typeof name === "string" && name) return name;
+		} catch (error) {
+			log.debug("store.current failed", error);
+		}
+		const name = app.host.ctx().chatCompletionSettings?.preset_settings_openai;
+		return typeof name === "string" ? name : "";
+	};
+	const loadOpenai = async () => {
+		if (openai || !app.host.caps.has("st.oai.promptManager")) return openai;
+		try {
+			openai = await app.host.modules.openai();
+		} catch (error) {
+			log.debug("openai module unavailable", error);
+		}
+		return openai;
+	};
+	/** ST's cached body of a preset (openai.js openai_settings / openai_setting_names, P-075). */
+	const cachedBody = (name) => {
+		if (!openai) return null;
+		const names = openai.openai_setting_names;
+		const list = openai.openai_settings;
+		const slot = isDict$19(names) ? names[name] : void 0;
+		const body = Array.isArray(list) && typeof slot === "number" ? list[slot] : void 0;
+		return isDict$19(body) ? body : null;
+	};
+	const savedSync = (name) => {
+		if (store) try {
+			const body = store.saved(name);
+			if (body) return body;
+		} catch (error) {
+			log.debug("store.saved failed", error);
+		}
+		return cachedBody(name);
+	};
+	const savedBody = async (name) => {
+		await loadOpenai();
+		return savedSync(name);
+	};
+	const workingSync = () => {
+		try {
+			if (store) return store.working();
+			const get = openai?.getChatCompletionPreset;
+			const body = typeof get === "function" ? get() : null;
+			return isDict$19(body) ? body : null;
+		} catch (error) {
+			log.debug("working copy unavailable", error);
+			return null;
+		}
+	};
+	const workingBody = async () => {
+		await loadOpenai();
+		return workingSync();
+	};
+	const load = () => {
+		if (!loading) loading = (async () => {
+			await loadOpenai();
+			const current = currentName();
+			await files.load(current ? [current] : []);
+		})().catch((error) => log.warn("preset layers could not be loaded", error)).finally(() => {
+			loaded = true;
+		});
+		return loading;
+	};
+	const setLast = (name, report) => {
+		last = report ? {
+			name,
+			report
+		} : null;
+	};
+	/** Recomputes the report of the current preset against its saved base after a layer change. */
+	const refreshReport = (base) => {
+		if (base !== currentName()) return;
+		const ops = opsOf(base);
+		const saved = savedSync(base);
+		if (!ops.length) setLast(base, null);
+		else if (saved) setLast(base, applyLayer(saved, ops).report);
+	};
+	const newIdentifier = () => {
+		try {
+			const id = app.host.ctx().uuidv4();
+			if (typeof id === "string" && id) return id;
+		} catch {}
+		return typeof crypto !== "undefined" && typeof crypto.randomUUID === "function" ? crypto.randomUUID() : `maestro-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+	};
+	const journal = async (summary, base, changes) => {
+		if (!changes.length) return;
+		try {
+			await app.journal.record({
+				module: MODULE_ID$1,
+				kind: LAYER_JOURNAL_KIND,
+				summary,
+				changes: changes.map((change) => ({
+					target: LAYER_TARGET,
+					ref: {
+						base,
+						key: change.key,
+						index: change.index
+					},
+					before: change.before,
+					after: change.after
+				}))
+			});
+		} catch (error) {
+			log.warn("layer change was not journaled", error);
+		}
+	};
+	/** Journal undo: the op under the key goes back to `before`, if nobody changed it since. */
+	const undoChange = async (change) => {
+		await load();
+		const ref = change.ref;
+		const base = typeof ref.base === "string" ? ref.base : "";
+		const key = typeof ref.key === "string" ? ref.key : "";
+		if (!base || !key) return false;
+		if (!valuesEqual(opsOf(base).find((op) => opKey(op) === key) ?? null, change.after ?? null)) {
+			log.warn(`layer op ${key} of ${base} changed after this action; not undone`);
+			return false;
+		}
+		const before = change.before !== null && validateOp(change.before) === null ? change.before : null;
+		const index = typeof ref.index === "number" ? ref.index : void 0;
+		files.mutate(base, (file) => {
+			file.ops = setOpAt(file.ops, key, before, index);
+		});
+		refreshReport(base);
+		emit();
+		return true;
+	};
+	/** An add op gets an identifier of its own: none given, or one the base already uses (a picked foreign block). */
+	const ownIdentifier = (base, op, body) => {
+		const id = op.prompt.identifier;
+		if (id && opsOf(base).some((item) => item.op === "add" && item.prompt.identifier === id)) return op;
+		if (id && !(body && findPrompt(body, id))) return op;
+		return {
+			...op,
+			prompt: {
+				...op.prompt,
+				identifier: newIdentifier()
+			}
+		};
+	};
+	const ownBlock = (base, identifier) => opsOf(base).some((op) => op.op === "add" && op.prompt.identifier === identifier);
+	const presetManager = async () => {
+		if (!app.host.caps.has("st.presetManager")) return null;
+		try {
+			const get = (await app.host.modules.presetManager()).getPresetManager;
+			const manager = typeof get === "function" ? get("openai") : null;
+			return isDict$19(manager) ? manager : null;
+		} catch (error) {
+			log.debug("preset manager unavailable", error);
+			return null;
+		}
+	};
+	/** Selects a preset the way ST does (`change` of the list, then the application promise), so BEFORE runs. */
+	const reselect = async (name) => {
+		const target = name ?? currentName();
+		if (!target) return null;
+		const manager = await presetManager();
+		if (manager && typeof manager.findPreset === "function" && typeof manager.selectPreset === "function") {
+			const value = manager.findPreset.call(manager, target);
+			if (value !== void 0 && value !== null) {
+				await manager.selectPreset.call(manager, value);
+				return target;
+			}
+		}
+		if (store) {
+			await store.select(target);
+			return target;
+		}
+		log.warn(`preset ${target} could not be reselected`);
+		return null;
+	};
+	const prepareDisable = async (mode, name) => {
+		await files.flush().catch((error) => log.warn("layer flush failed", error));
+		const current = currentName();
+		if (!current) return null;
+		if (mode === "reselectBase") {
+			suppressOnce = current;
+			try {
+				return await reselect(current);
+			} finally {
+				suppressOnce = null;
+			}
+		}
+		const target = name?.trim() || t("m34.layerSvc.mergedName", { name: current });
+		if (store) {
+			const saved = await store.saveAs(target);
+			if (store.current() !== saved) await store.select(saved);
+			return saved;
+		}
+		const manager = await presetManager();
+		const working = await workingBody();
+		if (!manager || typeof manager.savePreset !== "function" || !working) throw new Error("preset layer: base + layer cannot be saved without the preset store");
+		const body = {
+			...cachedBody(current) ?? {},
+			...jsonCopy(working)
+		};
+		await manager.savePreset.call(manager, target, body);
+		return target;
+	};
+	const handleBefore = (payload) => {
+		pending = null;
+		if (!installed || !isDict$19(payload)) return;
+		const name = typeof payload.presetName === "string" ? payload.presetName : "";
+		const preset = payload.preset;
+		if (renaming) {
+			log.debug(`preset rename in progress: no layer for ${name}`);
+			return;
+		}
+		if (!isDict$19(preset) || !Object.keys(preset).length) {
+			log.debug(`empty preset ${name}: no layer`);
+			return;
+		}
+		if (suppressOnce !== null && suppressOnce === name) {
+			suppressOnce = null;
+			setLast(name, null);
+			reportDirty = true;
+			return;
+		}
+		const ops = opsOf(name);
+		if (!ops.length) {
+			if (last) reportDirty = true;
+			setLast(name, null);
+			return;
+		}
+		const base = { ...preset };
+		const { body, report } = applyLayer(base, ops);
+		for (const [key, value] of Object.entries(body)) if (preset[key] !== value) preset[key] = value;
+		pending = {
+			name,
+			base,
+			body
+		};
+		setLast(name, report);
+		reportDirty = true;
+		if (report.conflicts.length || report.orphaned.length) log.info(`layer of ${name}: ${report.applied} applied, ${report.conflicts.length} conflicts, ${report.orphaned.length} without a place`);
+	};
+	const onBefore = (payload) => {
+		if (loaded) {
+			handleBefore(payload);
+			return;
+		}
+		return Promise.race([load(), delay(LOAD_WAIT_MS)]).then(() => {
+			if (!loaded) log.warn("preset layers are still loading; the layer was not applied");
+			handleBefore(payload);
+		});
+	};
+	const remember = (name, fingerprint, base) => {
+		const mark = files.get(name)?.applied;
+		if (mark?.fingerprint === fingerprint && mark.baseFingerprint === base) return;
+		files.mutate(name, (file) => {
+			file.applied = {
+				fingerprint,
+				baseFingerprint: base,
+				at: Date.now()
+			};
+		});
+	};
+	const acknowledgeGuardian = async () => {
+		const guardian = app.modules.api("guardian");
+		if (!guardian?.hasBaseline()) return;
+		try {
+			const drift = await guardian.drift();
+			if (drift.some((item) => item.path === "preset.name")) return;
+			if (!drift.some((item) => item.group === "preset")) return;
+			await guardian.acknowledge(PRESET_PATHS);
+		} catch (error) {
+			log.debug("guardian acknowledge failed", error);
+		}
+	};
+	const onAfter = () => {
+		const done = pending;
+		pending = null;
+		if (reportDirty) {
+			reportDirty = false;
+			emit();
+		}
+		if (!done || !installed) return;
+		const ops = opsOf(done.name);
+		if (!ops.length) return;
+		const working = workingSync() ?? done.body;
+		remember(done.name, layerFingerprint(working, ops), baseFingerprint(savedSync(done.name) ?? done.base));
+		acknowledgeGuardian();
+	};
+	const renamed = (oldName, newName) => {
+		if (!files.rename(oldName, newName)) return;
+		log.info(`layer moved from ${oldName} to ${newName}`);
+		if (last?.name === oldName) last = {
+			name: newName,
+			report: last.report
+		};
+		emit();
+	};
+	const onRenameBefore = (payload) => {
+		if (!isDict$19(payload) || payload.apiId !== "openai") return;
+		renaming = {
+			oldName: typeof payload.oldName === "string" ? payload.oldName : "",
+			newName: typeof payload.newName === "string" ? payload.newName : ""
+		};
+		if (renameTimer) clearTimeout(renameTimer);
+		renameTimer = setTimeout(() => {
+			renaming = null;
+			renameTimer = null;
+		}, RENAME_TIMEOUT_MS);
+	};
+	const onRenamed = (payload) => {
+		if (!isDict$19(payload) || payload.apiId !== "openai") return;
+		renaming = null;
+		if (renameTimer) clearTimeout(renameTimer);
+		renameTimer = null;
+		const oldName = typeof payload.oldName === "string" ? payload.oldName : "";
+		const newName = typeof payload.newName === "string" ? payload.newName : "";
+		if (!oldName || !newName) return;
+		if (loaded) renamed(oldName, newName);
+		else load().then(() => renamed(oldName, newName));
+	};
+	const offer = (name, reason) => {
+		app.ui.notice(t(`m34.layerSvc.offer.${reason}`, { name }), {
+			urgent: true,
+			level: "warn",
+			action: {
+				label: t("m34.layerSvc.offer.action"),
+				run: () => {
+					reselect(name).catch((error) => log.warn("reselect failed", error));
+				}
+			}
+		});
+	};
+	/**
+	* Page load (no BEFORE): the working copy should hold apply(saved base). The layer is missing when its part of
+	* the working copy differs from that; the base changed on the server when the remembered base fingerprint
+	* differs and the working copy matches neither the new base nor the new base with the layer stripped (a base the
+	* studio saved itself, or ST's «Обновить пресет» baking the layer in, are not changes from elsewhere).
+	*/
+	const pageLoadCheck = async () => {
+		if (checked) return null;
+		checked = true;
+		await load();
+		if (!installed || !app.host.isChatCompletion()) return null;
+		const name = currentName();
+		const ops = opsOf(name);
+		if (!name || !ops.length) return null;
+		const saved = await savedBody(name);
+		const working = await workingBody();
+		if (!saved || !working) return null;
+		const { body: expected, report } = applyLayer(saved, ops);
+		setLast(name, report);
+		emit();
+		const workingPrint = layerFingerprint(working, ops);
+		const basePrint = baseFingerprint(saved);
+		const mark = files.get(name)?.applied;
+		const baseMoved = mark !== void 0 && mark.baseFingerprint !== basePrint;
+		let reason = null;
+		if (workingPrint !== layerFingerprint(expected, ops)) reason = baseMoved ? "baseChanged" : "layerMissing";
+		else if (baseMoved && !baseMatches(saved, working) && !baseMatches(saved, stripLayer(working, ops))) reason = "baseChanged";
+		if (!reason) {
+			remember(name, workingPrint, basePrint);
+			return null;
+		}
+		log.info(`layer of ${name}: ${reason}`);
+		offer(name, reason);
+		return reason;
+	};
+	const dispose = () => {
+		if (!installed) return;
+		installed = false;
+		if (renameTimer) clearTimeout(renameTimer);
+		renameTimer = null;
+		renaming = null;
+		pending = null;
+		files.stop();
+		if (files.hasPending()) files.flush().catch((error) => log.warn("layer flush failed", error));
+		const current = currentName();
+		if (!current || !opsOf(current).length) return;
+		try {
+			app.ui.notice(t("m34.layerSvc.dispose.notice", { name: current }), {
+				level: "info",
+				action: {
+					label: t("m34.layerSvc.dispose.action"),
+					run: () => {
+						prepareDisable("reselectBase").catch((error) => log.warn("reselect without the layer failed", error));
+					}
+				}
+			});
+		} catch (error) {
+			log.debug("dispose notice failed", error);
+		}
+	};
+	const api = {
+		get(base) {
+			const file = files.get(base);
+			if (!file || !file.ops.length) return null;
+			return {
+				base,
+				ops: jsonCopy(file.ops),
+				updatedAt: file.updatedAt
+			};
+		},
+		async record(base, op) {
+			await load();
+			const error = validateOp(op);
+			if (error) throw new Error(`preset layer: ${error}`);
+			const body = await savedBody(base);
+			let incoming = withOrigins(op, body);
+			if (incoming.op === "add") incoming = ownIdentifier(base, incoming, body);
+			else if (incoming.op !== "key") {
+				const own = ownBlock(base, incoming.identifier);
+				if (!own && body && !baseHas(body, incoming.identifier)) throw new Error(`preset layer: no block ${incoming.identifier} in ${base}`);
+				if (incoming.op === "edit" && !own && !incoming.baseHash) throw new Error(`preset layer: the base text of ${incoming.identifier} is unknown`);
+			}
+			const merged = mergeOp(opsOf(base), incoming);
+			if (!merged.before && !merged.after) return;
+			const change = incoming;
+			files.mutate(base, (file) => {
+				file.ops = mergeOp(file.ops, change).ops;
+			});
+			await journal(t("m34.layerSvc.journal.record", { name: base }), base, [{
+				key: merged.key,
+				index: merged.index,
+				before: merged.before,
+				after: merged.after
+			}]);
+			refreshReport(base);
+			emit();
+		},
+		async remove(base, index) {
+			await load();
+			const op = opsOf(base)[index];
+			if (!op) return;
+			const key = opKey(op);
+			files.mutate(base, (file) => {
+				file.ops = setOpAt(file.ops, key, null);
+			});
+			await journal(t("m34.layerSvc.journal.remove", { name: base }), base, [{
+				key,
+				index,
+				before: op,
+				after: null
+			}]);
+			refreshReport(base);
+			emit();
+		},
+		apply(base, body) {
+			const ops = opsOf(base);
+			if (!ops.length) return {
+				body,
+				report: emptyReport()
+			};
+			return applyLayer(body, ops);
+		},
+		strip(base, body) {
+			const ops = opsOf(base);
+			return ops.length ? stripLayer(body, ops) : body;
+		},
+		async resolveConflict(base, identifier, choice) {
+			await load();
+			const ops = opsOf(base);
+			const index = ops.findIndex((op) => op.op === "edit" && op.identifier === identifier || op.op === "add" && op.prompt.identifier === identifier);
+			const op = ops[index];
+			if (!op) throw new Error(`preset layer: no op for ${identifier} in ${base}`);
+			const body = await savedBody(base);
+			const block = body ? findPrompt(body, identifier) : void 0;
+			const known = last?.name === base ? last.report.conflicts.find((c) => c.identifier === identifier) : void 0;
+			const newBase = block ? contentOf$1(block) : known?.newBase;
+			if (newBase === void 0) throw new Error(`preset layer: the base text of ${identifier} is unknown`);
+			const next = resolveOp(op, choice, newBase);
+			const oldKey = opKey(op);
+			const nextKey = next ? opKey(next) : oldKey;
+			const changes = [];
+			if (next && nextKey === oldKey) changes.push({
+				key: oldKey,
+				index,
+				before: op,
+				after: next
+			});
+			else {
+				changes.push({
+					key: oldKey,
+					index,
+					before: op,
+					after: null
+				});
+				if (next) {
+					const existing = ops.find((item) => opKey(item) === nextKey) ?? null;
+					changes.push({
+						key: nextKey,
+						index,
+						before: existing,
+						after: next
+					});
+				}
+			}
+			files.mutate(base, (file) => {
+				if (next && nextKey === oldKey) {
+					file.ops = setOpAt(file.ops, oldKey, next);
+					return;
+				}
+				file.ops = setOpAt(file.ops, oldKey, null);
+				if (next) file.ops = setOpAt(file.ops, nextKey, next, index);
+			});
+			await journal(t("m34.layerSvc.journal.resolve", { name: base }), base, changes);
+			if (store && base === currentName()) {
+				const mine = op.op === "edit" ? op.patch.content ?? newBase : op.op === "add" ? op.prompt.content ?? "" : newBase;
+				const text = choice === "newBase" ? newBase : choice === "mine" ? mine : choice.text;
+				const current = findPrompt(workingSync(), identifier);
+				if (current && contentOf$1(current) !== text) try {
+					await store.updatePrompt(identifier, { content: text });
+				} catch (error) {
+					log.warn(`the working copy of ${identifier} was not updated`, error);
+				}
+			}
+			refreshReport(base);
+			emit();
+		},
+		async migrateFrom(base, reference, edited) {
+			await load();
+			const plan = planMigration(reference, edited);
+			let ops = opsOf(base);
+			const changes = [];
+			for (const op of plan.ops) {
+				const key = opKey(op);
+				const index = ops.findIndex((item) => opKey(item) === key);
+				const before = index >= 0 ? ops[index] ?? null : null;
+				changes.push({
+					key,
+					index: index >= 0 ? index : ops.length,
+					before,
+					after: op
+				});
+				ops = setOpAt(ops, key, op);
+			}
+			if (plan.ops.length) {
+				const planned = plan.ops;
+				files.mutate(base, (file) => {
+					for (const op of planned) file.ops = setOpAt(file.ops, opKey(op), op);
+				});
+				await journal(t("m34.layerSvc.journal.migrate", {
+					name: base,
+					count: plan.ops.length
+				}), base, changes);
+			}
+			refreshReport(base);
+			emit();
+			const { report } = applyLayer(reference, ops);
+			return {
+				...report,
+				removed: plan.removed
+			};
+		},
+		async transfer(fromBase, toBase) {
+			await load();
+			const source = opsOf(fromBase);
+			if (!source.length || fromBase === toBase) return emptyReport();
+			const [from, to] = await Promise.all([savedBody(fromBase), savedBody(toBase)]);
+			const moved = transferOps(source, from, to);
+			const prepared = moved.ops.map((op) => withOrigins(op, to));
+			let ops = opsOf(toBase);
+			const changes = [];
+			for (const op of prepared) {
+				const result = mergeOp(ops, op);
+				if (result.before || result.after) changes.push({
+					key: result.key,
+					index: result.index,
+					before: result.before,
+					after: result.after
+				});
+				ops = result.ops;
+			}
+			if (prepared.length) {
+				files.mutate(toBase, (file) => {
+					for (const op of prepared) file.ops = mergeOp(file.ops, op).ops;
+				});
+				await journal(t("m34.layerSvc.journal.transfer", {
+					name: toBase,
+					from: fromBase,
+					count: prepared.length
+				}), toBase, changes);
+			}
+			refreshReport(toBase);
+			emit();
+			const report = to ? applyLayer(to, ops).report : emptyReport();
+			const orphaned = [...moved.orphaned];
+			for (const op of report.orphaned) if (!orphaned.some((item) => opKey(item) === opKey(op))) orphaned.push(op);
+			return {
+				applied: prepared.length,
+				conflicts: report.conflicts,
+				orphaned
+			};
+		},
+		importForeign(body) {
+			return splitForeign(body);
+		},
+		lastReport() {
+			return last && last.name === currentName() ? jsonCopy(last.report) : null;
+		},
+		onChange(listener) {
+			listeners.add(listener);
+			return () => listeners.delete(listener);
+		},
+		ready: load,
+		flush: () => files.flush(),
+		planMigration(reference, edited) {
+			const plan = planMigration(reference, edited);
+			const { report } = applyLayer(reference, plan.ops);
+			return {
+				ops: plan.ops,
+				report: {
+					...report,
+					removed: plan.removed
+				}
+			};
+		},
+		reselect,
+		prepareDisable
+	};
+	let disposers = [];
+	return Object.assign(api, {
+		api,
+		install() {
+			if (installed) return [];
+			installed = true;
+			checked = false;
+			app.journal.registerUndo(LAYER_TARGET, undoChange);
+			load();
+			const events = app.host.events;
+			const on = (key, raw, handler) => events.on(events.name(key) ?? raw, handler);
+			const check = () => {
+				pageLoadCheck().catch((error) => log.warn("page-load layer check failed", error));
+			};
+			disposers = [
+				on("OAI_PRESET_CHANGED_BEFORE", "oai_preset_changed_before", onBefore),
+				on("OAI_PRESET_CHANGED_AFTER", "oai_preset_changed_after", onAfter),
+				on("PRESET_RENAMED_BEFORE", "preset_renamed_before", onRenameBefore),
+				on("PRESET_RENAMED", "preset_renamed", onRenamed),
+				on("APP_READY", "app_ready", check),
+				on("SETTINGS_LOADED", "settings_loaded", check),
+				dispose
+			];
+			return [...disposers];
+		},
+		dispose() {
+			for (const off of disposers.splice(0).reverse()) try {
+				off();
+			} catch (error) {
+				log.warn("preset layer dispose step failed", error);
+			}
+		}
+	});
+}
+/** The base has the block (in its prompts, or in the order the layer works on). */
+function baseHas(body, identifier) {
+	return findPrompt(body, identifier) !== void 0 || effectiveOrder(body).some((item) => item.identifier === identifier);
+}
+//#endregion
+//#region src/domain/preset-ui-blocks.ts
+var PROMPT_ROLES = [
+	"system",
+	"user",
+	"assistant"
+];
+/** Generation types a block can be limited to (constants.js:36-43); empty = every type. */
+var PROMPT_TRIGGERS = [
+	"normal",
+	"continue",
+	"impersonate",
+	"swipe",
+	"regenerate",
+	"quiet"
+];
+var MAX_DEPTH = 9999;
+var MAX_INJECTION_ORDER = 9999;
+/** The eight places ST fills itself (P-035). */
+var MARKER_IDS$1 = [
+	"worldInfoBefore",
+	"worldInfoAfter",
+	"charDescription",
+	"charPersonality",
+	"scenario",
+	"personaDescription",
+	"dialogueExamples",
+	"chatHistory"
+];
+/** Markers whose role, position, depth, order and triggers may be edited, but not the text (P-025, P-051). */
+var EXTERNAL_MARKERS = [
+	"charDescription",
+	"charPersonality",
+	"scenario",
+	"personaDescription",
+	"worldInfoBefore",
+	"worldInfoAfter"
+];
+/** Built-in system blocks (P-036) with the values «Сброс» puts back (PM:521-545, OAI:102-106). */
+var SYSTEM_DEFAULTS = {
+	main: {
+		name: "Main Prompt",
+		content: "Write {{char}}'s next reply in a fictional chat between {{charIfNotGroup}} and {{user}}.",
+		forbidOverrides: false
+	},
+	nsfw: {
+		name: "Nsfw Prompt",
+		content: ""
+	},
+	jailbreak: {
+		name: "Jailbreak Prompt",
+		content: "",
+		forbidOverrides: false
+	},
+	enhanceDefinitions: {
+		name: "Enhance Definitions",
+		content: "If you have more knowledge of {{char}}, add to the character's lore and personality to enhance them but keep the Character Sheet's definitions absolute."
+	}
+};
+/** Blocks a character card may override (PM:320-323): only they show «Запретить перезапись». */
+var OVERRIDABLE_IDS = ["main", "jailbreak"];
+/** «Сбросить текущего персонажа»: ST's default global order (PM:2087-2136). */
+var DEFAULT_PROMPT_ORDER$1 = [
+	{
+		identifier: "main",
+		enabled: true
+	},
+	{
+		identifier: "worldInfoBefore",
+		enabled: true
+	},
+	{
+		identifier: "personaDescription",
+		enabled: true
+	},
+	{
+		identifier: "charDescription",
+		enabled: true
+	},
+	{
+		identifier: "charPersonality",
+		enabled: true
+	},
+	{
+		identifier: "scenario",
+		enabled: true
+	},
+	{
+		identifier: "enhanceDefinitions",
+		enabled: false
+	},
+	{
+		identifier: "nsfw",
+		enabled: true
+	},
+	{
+		identifier: "worldInfoAfter",
+		enabled: true
+	},
+	{
+		identifier: "dialogueExamples",
+		enabled: true
+	},
+	{
+		identifier: "chatHistory",
+		enabled: true
+	},
+	{
+		identifier: "jailbreak",
+		enabled: true
+	}
+];
+var BUILTIN_IDS = /* @__PURE__ */ new Set([...Object.keys(SYSTEM_DEFAULTS), ...MARKER_IDS$1]);
+function isBuiltinId(identifier) {
+	return BUILTIN_IDS.has(identifier);
+}
+function isMarker(prompt) {
+	return prompt.marker === true;
+}
+/** «В чате» is strictly the number 1 (OAI:1198): a string "1" from a foreign file is a relative block. */
+function isInChat(prompt) {
+	return prompt.injection_position === 1;
+}
+/** The icon PM shows in the row (PM:1721-1751). */
+function blockKind(prompt) {
+	if (isInChat(prompt)) return "inChat";
+	if (isMarker(prompt)) return "marker";
+	if (prompt.system_prompt === true) return prompt.forbid_overrides === true ? "important" : "global";
+	return "user";
+}
+/** P-025: every non-marker and the six external markers; `chatHistory` and `dialogueExamples` never. */
+function canEditBlock(prompt) {
+	return !isMarker(prompt) || EXTERNAL_MARKERS.includes(prompt.identifier);
+}
+/** P-035, P-050: a marker's text is filled by ST. */
+function canEditText(prompt) {
+	return !isMarker(prompt);
+}
+/**
+* P-026, P-029: PM detaches and deletes only `system_prompt === false`. The studio also lets go of user blocks with
+* the key missing (imported files, P-039) — they are never built-in and never markers.
+*/
+function canRemoveBlock(prompt) {
+	return !isBuiltinId(prompt.identifier) && !isMarker(prompt) && prompt.system_prompt !== true;
+}
+/** P-049: the «forbid overrides» checkbox is shown for main and jailbreak only. */
+function canForbidOverrides(identifier) {
+	return OVERRIDABLE_IDS.includes(identifier);
+}
+/** P-053: «Сброс» exists for system blocks (markers included; only the four have values to reset to). */
+function canReset(prompt) {
+	return prompt.system_prompt === true;
+}
+function promptName$1(prompt) {
+	return typeof prompt.name === "string" && prompt.name.trim() ? prompt.name : prompt.identifier;
+}
+function promptText$1(prompt) {
+	return typeof prompt.content === "string" ? prompt.content : "";
+}
+function promptRole$1(prompt) {
+	return PROMPT_ROLES.includes(prompt.role) ? prompt.role : "system";
+}
+function clampInt$2(value, fallback, max) {
+	const number = typeof value === "number" ? value : typeof value === "string" && value.trim() ? Number(value) : NaN;
+	if (!Number.isFinite(number)) return fallback;
+	return Math.min(max, Math.max(0, Math.round(number)));
+}
+function promptDepth(prompt) {
+	return clampInt$2(prompt.injection_depth, 4, MAX_DEPTH);
+}
+function promptOrder(prompt) {
+	return clampInt$2(prompt.injection_order, 100, MAX_INJECTION_ORDER);
+}
+function promptTriggers(prompt) {
+	if (!Array.isArray(prompt.injection_trigger)) return [];
+	const known = PROMPT_TRIGGERS;
+	const list = prompt.injection_trigger.filter((item) => typeof item === "string").map((item) => item.toLowerCase()).filter((item) => known.includes(item));
+	return [...new Set(list)];
+}
+function blockFields(prompt) {
+	return {
+		name: typeof prompt.name === "string" ? prompt.name : "",
+		role: promptRole$1(prompt),
+		position: isInChat(prompt) ? 1 : 0,
+		depth: promptDepth(prompt),
+		order: promptOrder(prompt),
+		triggers: promptTriggers(prompt),
+		forbidOverrides: prompt.forbid_overrides === true,
+		content: promptText$1(prompt)
+	};
+}
+function sameFields(a, b) {
+	return a.name === b.name && a.role === b.role && a.position === b.position && a.depth === b.depth && a.order === b.order && a.forbidOverrides === b.forbidOverrides && a.content === b.content && a.triggers.length === b.triggers.length && a.triggers.every((trigger) => b.triggers.includes(trigger));
+}
+/**
+* The patch the form writes (P-052): fields the user changed plus fields stored with a foreign type (a string depth,
+* an unknown role — P-132), always with strict types; a marker's text is never written. Untouched missing keys
+* stay missing (P-056).
+*/
+function fieldsPatch(prompt, fields) {
+	const before = blockFields(prompt);
+	const patch = {};
+	const differs = (key, value, changed) => {
+		const stored = prompt[key];
+		if (changed || stored !== void 0 && JSON.stringify(stored) !== JSON.stringify(value)) patch[key] = value;
+	};
+	const name = fields.name.trim() ? fields.name : before.name || prompt.identifier;
+	if (name !== prompt.name) patch.name = name;
+	differs("role", fields.role, fields.role !== before.role);
+	differs("injection_position", fields.position, fields.position !== before.position);
+	const depth = clampInt$2(fields.depth, 4, MAX_DEPTH);
+	differs("injection_depth", depth, depth !== before.depth);
+	const order = clampInt$2(fields.order, 100, MAX_INJECTION_ORDER);
+	differs("injection_order", order, order !== before.order);
+	const triggers = promptTriggers({
+		identifier: prompt.identifier,
+		injection_trigger: fields.triggers
+	});
+	differs("injection_trigger", triggers, !sameList$1(triggers, before.triggers));
+	differs("forbid_overrides", fields.forbidOverrides, fields.forbidOverrides !== before.forbidOverrides);
+	if (canEditText(prompt) && fields.content !== before.content) patch.content = fields.content;
+	if (!isBuiltinId(prompt.identifier)) Object.assign(patch, userFlagsPatch(prompt));
+	return patch;
+}
+function sameList$1(a, b) {
+	return a.length === b.length && a.every((item) => b.includes(item));
+}
+/** P-039, P-132: a user block must carry `system_prompt: false` and `marker: false`, or ST silently skips it. */
+function userFlagsPatch(prompt) {
+	const patch = {};
+	if (prompt.system_prompt !== false) patch.system_prompt = false;
+	if (prompt.marker !== false) patch.marker = false;
+	return patch;
+}
+/**
+* A copy of a foreign or imported block with ST's strict types (P-132): numbers for position, depth and order, one
+* of the three roles, a string list of triggers, user flags for non-built-in blocks. Unknown fields are kept;
+* `extension`, `position` and the legacy `enabled` (runtime-only, P-055) are dropped.
+*/
+function normalizePrompt$1(prompt) {
+	const copy = { ...prompt };
+	delete copy.extension;
+	delete copy.position;
+	delete copy.enabled;
+	copy.name = typeof prompt.name === "string" && prompt.name.trim() ? prompt.name : prompt.identifier;
+	copy.role = promptRole$1(prompt);
+	if (prompt.content !== void 0 || !isMarker(prompt)) copy.content = promptText$1(prompt);
+	if (prompt.injection_position !== void 0) copy.injection_position = Number(prompt.injection_position) === 1 ? 1 : 0;
+	if (prompt.injection_depth !== void 0) copy.injection_depth = promptDepth(prompt);
+	if (prompt.injection_order !== void 0) copy.injection_order = promptOrder(prompt);
+	if (prompt.injection_trigger !== void 0) copy.injection_trigger = promptTriggers(prompt);
+	if (prompt.forbid_overrides !== void 0) copy.forbid_overrides = prompt.forbid_overrides === true;
+	if (!isBuiltinId(prompt.identifier)) Object.assign(copy, {
+		system_prompt: false,
+		marker: false
+	});
+	return copy;
+}
+/** True when the block's types would make ST drop or misplace it (P-039, P-044…P-047). */
+function typeProblems(prompt) {
+	const problems = [];
+	if (!isBuiltinId(prompt.identifier) && prompt.system_prompt !== false) problems.push("systemPrompt");
+	if (prompt.role !== void 0 && !PROMPT_ROLES.includes(prompt.role)) problems.push("role");
+	if (prompt.injection_position !== void 0 && typeof prompt.injection_position !== "number") problems.push("position");
+	if (prompt.injection_depth !== void 0 && typeof prompt.injection_depth !== "number") problems.push("depth");
+	if (prompt.injection_order !== void 0 && typeof prompt.injection_order !== "number") problems.push("order");
+	return problems;
+}
+function haystack(prompt, identifier) {
+	if (!prompt) return identifier.toLowerCase();
+	return `${promptName$1(prompt)}\n${identifier}\n${promptText$1(prompt)}`.toLowerCase();
+}
+/** Every word of the term must occur in the name, identifier or text (case-insensitive). */
+function matchesSearch(prompt, identifier, term) {
+	const words = term.toLowerCase().split(/\s+/).filter(Boolean);
+	if (!words.length) return true;
+	const text = haystack(prompt, identifier);
+	return words.every((word) => text.includes(word));
+}
+var MACRO = /\{\{[\s\S]*?\}\}/g;
+var COMMENT = /^\{\{\s*\/\//;
+var MAESTRO_FLAG = /^\{\{\s*#?if\s+!?\s*\.maestro_/i;
+var CONDITION = /^\{\{\s*(?:#?if\b|else\s*\}\}|\/if\s*\}\})/i;
+var VARIABLE = new RegExp(`^\\{\\{\\s*(?:(?:getvar|setvar|addvar|incvar|decvar|flushvar|hasvar|deletevar|getglobalvar|setglobalvar|addglobalvar|incglobalvar|decglobalvar|flushglobalvar|hasglobalvar|deleteglobalvar)\\b|[.$][a-zA-Z])`, "i");
+function macroKind(macro) {
+	if (COMMENT.test(macro)) return "comment";
+	if (MAESTRO_FLAG.test(macro)) return "flag";
+	if (CONDITION.test(macro)) return "condition";
+	if (VARIABLE.test(macro)) return "variable";
+	return "macro";
+}
+/** Splits a block's text into plain text and macros (`{{…}}`), classifying Maestro flags and conditions (P-134). */
+function highlightSegments(text) {
+	const segments = [];
+	let last = 0;
+	for (const match of text.matchAll(MACRO)) {
+		const start = match.index ?? 0;
+		if (start > last) segments.push({
+			kind: "text",
+			text: text.slice(last, start)
+		});
+		segments.push({
+			kind: macroKind(match[0]),
+			text: match[0]
+		});
+		last = start + match[0].length;
+	}
+	if (last < text.length) segments.push({
+		kind: "text",
+		text: text.slice(last)
+	});
+	return segments;
+}
+/** Names of Maestro flags a block reads (`{{if .maestro_scene_combat}}` → `maestro_scene_combat`). */
+function maestroFlags(text) {
+	const names = [...text.matchAll(/\{\{\s*#?if\s+!?\s*\.(maestro_[A-Za-z0-9_-]*[A-Za-z0-9_])/gi)].map((match) => match[1] ?? "");
+	return [...new Set(names.filter(Boolean))];
+}
+var SIDE_EFFECT_MACROS = [
+	"setvar",
+	"addvar",
+	"incvar",
+	"decvar",
+	"flushvar",
+	"deletevar",
+	"setglobalvar",
+	"addglobalvar",
+	"incglobalvar",
+	"decglobalvar",
+	"flushglobalvar",
+	"deleteglobalvar"
+];
+/** Macros that change chat or global variables when evaluated (P-145): a preview would run them too. */
+function sideEffectMacros(text) {
+	const found = /* @__PURE__ */ new Set();
+	for (const match of text.matchAll(/\{\{\s*([a-z]+)\s*(?:::|\s|\}\})/gi)) {
+		const name = (match[1] ?? "").toLowerCase();
+		if (SIDE_EFFECT_MACROS.includes(name)) found.add(name);
+	}
+	return [...found];
+}
+/** Enabled / listed blocks (rows without a block are not counted, PM skips them, P-019). */
+function enabledCount(rows) {
+	const listed = rows.filter((row) => row.prompt !== null);
+	return {
+		enabled: listed.filter((row) => row.item.enabled).length,
+		total: listed.length
+	};
+}
+/** Sum of known token counts of enabled rows. */
+function tokenTotal(rows, tokens) {
+	let total = 0;
+	for (const row of rows) {
+		if (!row.prompt || !row.item.enabled) continue;
+		const value = tokens.get(row.item.identifier);
+		if (typeof value === "number" && Number.isFinite(value)) total += value;
+	}
+	return total;
+}
+/** Blocks not in the active order: what «Вставить блок» offers (P-027: non-system, sorted by name). */
+function detachedPrompts(prompts, order) {
+	const listed = new Set(order);
+	return prompts.filter((prompt) => prompt.system_prompt !== true && !isMarker(prompt) && !listed.has(prompt.identifier)).sort((a, b) => promptName$1(a).localeCompare(promptName$1(b)));
+}
+/** A free name for a copy: «Name (copy)», «Name (copy 2)»… */
+function copyName(name, taken, suffix) {
+	const used = new Set(taken);
+	let candidate = `${name} (${suffix})`;
+	for (let index = 2; used.has(candidate); index++) candidate = `${name} (${suffix} ${index})`;
+	return candidate;
+}
+//#endregion
+//#region src/domain/preset-ui-order.ts
+/** A copy of the list with the item at `from` moved to `to` (indices clamped). */
+function moveItem(list, from, to) {
+	const copy = [...list];
+	if (from < 0 || from >= copy.length) return copy;
+	const target = Math.max(0, Math.min(copy.length - 1, to));
+	const [item] = copy.splice(from, 1);
+	copy.splice(target, 0, item);
+	return copy;
+}
+function sameOrder(a, b) {
+	return a.length === b.length && a.every((item, index) => item === b[index]);
+}
+/** Indices (into `values`) of one longest strictly increasing subsequence, O(n log n). */
+function longestIncreasing(values) {
+	const tails = [];
+	const previous = new Array(values.length).fill(-1);
+	for (let index = 0; index < values.length; index++) {
+		const value = values[index];
+		let low = 0;
+		let high = tails.length;
+		while (low < high) {
+			const middle = low + high >> 1;
+			if (values[tails[middle]] < value) low = middle + 1;
+			else high = middle;
+		}
+		if (low > 0) previous[index] = tails[low - 1];
+		tails[low] = index;
+	}
+	const kept = /* @__PURE__ */ new Set();
+	let cursor = tails.length ? tails[tails.length - 1] : -1;
+	while (cursor >= 0) {
+		kept.add(cursor);
+		cursor = previous[cursor];
+	}
+	return kept;
+}
+/**
+* The fewest moves that turn `before` into `after` (blocks off the longest common ordered run), each anchored after
+* the block that precedes it in `after` (or at the start). Applied left to right they rebuild `after`. Identifiers
+* only in one list are ignored (adds and removals are not moves). `moved` names the blocks the user moved: they are
+* the ones recorded as moves (a swap of neighbours could be told either way).
+*/
+function moveOps(before, after, moved = []) {
+	const position = new Map(before.map((identifier, index) => [identifier, index]));
+	const common = after.filter((identifier) => position.has(identifier));
+	const forced = new Set(moved);
+	const candidates = common.map((identifier, index) => ({
+		identifier,
+		index
+	})).filter((item) => !forced.has(item.identifier));
+	const run = longestIncreasing(candidates.map((item) => position.get(item.identifier)));
+	const kept = new Set([...run].map((at) => candidates[at].index));
+	const ops = [];
+	common.forEach((identifier, index) => {
+		if (kept.has(index)) return;
+		const at = after.indexOf(identifier);
+		const previous = at > 0 ? after[at - 1] : void 0;
+		ops.push({
+			identifier,
+			anchor: previous ? {
+				kind: "after",
+				identifier: previous
+			} : { kind: "start" }
+		});
+	});
+	return ops;
+}
+/**
+* ST's prompt-list import (P-031): `Object.assign(current, imported)` writes the imported entries over the current
+* ones by index without truncating, so older entries past the imported length stay at the end. The studio keeps
+* that rule but drops the duplicates it would create (first occurrence wins) and invalid entries.
+*/
+function mergeImportedOrder(current, imported) {
+	const valid = [];
+	for (const item of imported) {
+		if (!item || typeof item !== "object") continue;
+		const { identifier, enabled } = item;
+		if (typeof identifier !== "string" || !identifier) continue;
+		valid.push({
+			identifier,
+			enabled: enabled === true
+		});
+	}
+	const merged = [...valid, ...current.slice(valid.length)];
+	const seen = /* @__PURE__ */ new Set();
+	return merged.filter((entry) => {
+		if (seen.has(entry.identifier)) return false;
+		seen.add(entry.identifier);
+		return true;
+	});
+}
+/** The identifier a new block goes after: the given one when listed, otherwise the last block (or none). */
+function anchorFor(order, after) {
+	if (after && order.includes(after)) return after;
+	return order.length ? order[order.length - 1] : void 0;
+}
+//#endregion
+//#region src/domain/preset-ui-diff.ts
+/** P-096 (OAI:287-299). */
+var SENSITIVE_KEYS = [
+	"reverse_proxy",
+	"proxy_password",
+	"custom_url",
+	"custom_include_body",
+	"custom_exclude_body",
+	"custom_include_headers",
+	"vertexai_region",
+	"vertexai_express_project_id",
+	"azure_base_url",
+	"azure_deployment_name",
+	"workers_ai_account_id"
+];
+var MASK = "••••••";
+function isRecord$3(value) {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function same(a, b) {
+	return stable(a) === stable(b);
+}
+function stable(value) {
+	if (value === void 0) return "undefined";
+	return JSON.stringify(value, (_key, item) => isRecord$3(item) ? Object.fromEntries(Object.keys(item).sort().map((key) => [key, item[key]])) : item);
+}
+function promptsOf(body) {
+	const list = body?.prompts;
+	return Array.isArray(list) ? list.filter((item) => isRecord$3(item) && typeof item.identifier === "string") : [];
+}
+/** The active (100001) order of a body; the first list when 100001 is missing (Default.json has 100000, P-081). */
+function activeOrderOf(body) {
+	const lists = body?.prompt_order;
+	if (!Array.isArray(lists)) return [];
+	const records = lists.filter(isRecord$3);
+	const order = (records.find((item) => String(item.character_id) === String(100001)) ?? records[0])?.order;
+	if (!Array.isArray(order)) return [];
+	return order.filter(isRecord$3).filter((item) => typeof item.identifier === "string").map((item) => ({
+		identifier: item.identifier,
+		enabled: item.enabled === true
+	}));
+}
+function isSensitiveKey(key) {
+	return SENSITIVE_KEYS.includes(key);
+}
+/** The value as it may be shown: secrets masked. */
+function shownValue(key, value) {
+	if (!isSensitiveKey(key) || value === void 0 || value === null || value === "") return value;
+	return MASK;
+}
+function promptChanges(before, after) {
+	const old = new Map(before.map((prompt) => [prompt.identifier, prompt]));
+	const fresh = new Map(after.map((prompt) => [prompt.identifier, prompt]));
+	const changes = [];
+	for (const prompt of after) {
+		const previous = old.get(prompt.identifier);
+		if (!previous) {
+			changes.push({
+				identifier: prompt.identifier,
+				name: promptName$1(prompt),
+				kind: "added",
+				fields: []
+			});
+			continue;
+		}
+		const fields = [.../* @__PURE__ */ new Set([...Object.keys(previous), ...Object.keys(prompt)])].filter((key) => key !== "identifier").filter((key) => !same(previous[key], prompt[key])).map((key) => ({
+			field: key,
+			before: previous[key],
+			after: prompt[key]
+		}));
+		if (fields.length) changes.push({
+			identifier: prompt.identifier,
+			name: promptName$1(prompt),
+			kind: "changed",
+			fields
+		});
+	}
+	for (const prompt of before) if (!fresh.has(prompt.identifier)) changes.push({
+		identifier: prompt.identifier,
+		name: promptName$1(prompt),
+		kind: "removed",
+		fields: []
+	});
+	return changes;
+}
+function orderChange(before, after) {
+	const oldIds = before.map((entry) => entry.identifier);
+	const newIds = after.map((entry) => entry.identifier);
+	const oldEnabled = new Map(before.map((entry) => [entry.identifier, entry.enabled]));
+	const change = {
+		moved: moveOps(oldIds, newIds).map((op) => op.identifier),
+		enabled: [],
+		disabled: [],
+		added: newIds.filter((identifier) => !oldEnabled.has(identifier)),
+		removed: oldIds.filter((identifier) => !newIds.includes(identifier))
+	};
+	for (const entry of after) {
+		const previous = oldEnabled.get(entry.identifier);
+		if (previous === void 0 || previous === entry.enabled) continue;
+		(entry.enabled ? change.enabled : change.disabled).push(entry.identifier);
+	}
+	return change;
+}
+function keyChanges(before, after) {
+	return [.../* @__PURE__ */ new Set([...Object.keys(before), ...Object.keys(after)])].filter((key) => key !== "prompts" && key !== "prompt_order").filter((key) => !same(before[key], after[key])).map((key) => {
+		const sensitive = isSensitiveKey(key);
+		return {
+			key,
+			before: shownValue(key, before[key]),
+			after: shownValue(key, after[key]),
+			sensitive
+		};
+	});
+}
+/** Everything that differs between two bodies (either may be null: an empty body). */
+function presetDiff(before, after) {
+	const a = before ?? {};
+	const b = after ?? {};
+	const prompts = promptChanges(promptsOf(a), promptsOf(b));
+	const order = orderChange(activeOrderOf(a), activeOrderOf(b));
+	const keys = keyChanges(a, b);
+	const orderSame = !order.moved.length && !order.enabled.length && !order.disabled.length && !order.added.length && !order.removed.length;
+	return {
+		prompts,
+		order,
+		keys,
+		same: !prompts.length && orderSame && !keys.length
+	};
+}
+/** A short count line: blocks changed, order changes, keys changed. */
+function diffCounts(diff) {
+	const order = diff.order;
+	return {
+		prompts: diff.prompts.length,
+		order: order.moved.length + order.enabled.length + order.disabled.length + order.added.length + order.removed.length,
+		keys: diff.keys.length
+	};
+}
+//#endregion
+//#region src/features/presetStudio/launcher.ts
+var LAUNCHER_ID = "maestro-preset-launcher";
+var PM_CONTAINER_ID = "completion_prompt_manager";
+var REPLACED_CLASS = "maestro-pm-replaced";
+/** P-006: the summary's own reasons to refresh (counts are final at PROMPT_READY, OAI:1606). */
+var LAUNCHER_EVENTS = [
+	"CHAT_COMPLETION_PROMPT_READY",
+	"OAI_PRESET_CHANGED_AFTER",
+	"SETTINGS_UPDATED"
+];
+var REFRESH_DELAY_MS$1 = 250;
+/** Live read-outs of ST's promptManager (openai.js export, P-190): token usage, error, counts, overrides. */
+var PmInfo = class {
+	app;
+	log;
+	openai = null;
+	loading = null;
+	constructor(app, log) {
+		this.app = app;
+		this.log = log;
+	}
+	/** Imports openai.js once (the summary and the studio read it synchronously afterwards). */
+	load() {
+		this.loading ??= (async () => {
+			try {
+				if (!this.app.host.caps.has("st.oai.promptManager")) return;
+				this.openai = await this.app.host.modules.openai();
+			} catch (error) {
+				this.log.debug("openai.js is not available", error);
+			}
+		})();
+		return this.loading;
+	}
+	pm() {
+		const pm = this.openai?.promptManager;
+		return pm && typeof pm === "object" ? pm : null;
+	}
+	/** «Всего токенов» of PM's header (P-009), or null before the first assembly. */
+	tokenUsage() {
+		const value = this.pm()?.tokenUsage;
+		return typeof value === "number" && Number.isFinite(value) ? value : null;
+	}
+	/** The assembly error PM shows (P-010). */
+	error() {
+		const value = this.pm()?.error;
+		return typeof value === "string" && value ? value : null;
+	}
+	/** Per-block counts of the last assembly (P-008). */
+	counts() {
+		const map = /* @__PURE__ */ new Map();
+		try {
+			const counts = this.pm()?.tokenHandler?.getCounts?.();
+			if (counts && typeof counts === "object") {
+				for (const [identifier, value] of Object.entries(counts)) if (typeof value === "number" && Number.isFinite(value)) map.set(identifier, value);
+			}
+		} catch (error) {
+			this.log.debug("PM counts", error);
+		}
+		return map;
+	}
+	/** Blocks a character card replaced in the last assembly (P-040). */
+	overridden() {
+		const list = this.pm()?.overriddenPrompts;
+		return new Set(Array.isArray(list) ? list.filter((item) => typeof item === "string") : []);
+	}
+};
+var PmLauncher = class {
+	deps;
+	node = null;
+	parts = null;
+	offs = [];
+	timer = null;
+	installed = false;
+	/** «Классический редактор» pressed: PM is visible for this session (not saved). */
+	classic = false;
+	constructor(deps) {
+		this.deps = deps;
+	}
+	t(key, params) {
+		return this.deps.app.i18n.t(key, params);
+	}
+	/** Starts replacing PM; false while ST's PM container is not on the page yet (retried on every refresh). */
+	install() {
+		if (!this.installed) {
+			this.installed = true;
+			const events = this.deps.app.host.events;
+			for (const key of LAUNCHER_EVENTS) {
+				const name = events.name(key) ?? key;
+				this.offs.push(events.on(name, () => this.schedule()));
+			}
+			const store = this.deps.services.store();
+			if (store) this.offs.push(store.onChange(() => this.schedule()));
+			this.deps.pm.load().then(() => this.schedule());
+		}
+		const placed = this.place();
+		this.refreshNow();
+		return placed;
+	}
+	/** Puts PM back and removes the launcher and our listeners. Safe to call twice. */
+	restore() {
+		this.installed = false;
+		for (const off of this.offs.splice(0)) try {
+			off();
+		} catch (error) {
+			this.deps.log.debug("launcher listener", error);
+		}
+		if (this.timer) clearTimeout(this.timer);
+		this.timer = null;
+		this.node?.remove();
+		this.node = null;
+		this.parts = null;
+		document.body.classList.remove(REPLACED_CLASS);
+	}
+	active() {
+		return this.installed && this.node?.isConnected === true;
+	}
+	classicVisible() {
+		return !this.installed || this.classic;
+	}
+	/** «Классический редактор»: PM is shown again until the page reloads or the user hides it. */
+	showClassic() {
+		this.classic = true;
+		this.applyClass();
+		this.renderClassicButton();
+		document.getElementById(PM_CONTAINER_ID)?.scrollIntoView?.({
+			block: "start",
+			behavior: "smooth"
+		});
+	}
+	hideClassic() {
+		this.classic = false;
+		this.applyClass();
+		this.renderClassicButton();
+	}
+	place() {
+		if (!this.installed) return false;
+		if (this.node?.isConnected) return true;
+		const container = document.getElementById(PM_CONTAINER_ID);
+		const parent = container?.parentElement;
+		if (!container || !parent) {
+			this.applyClass();
+			return false;
+		}
+		this.node ??= this.build();
+		parent.insertBefore(this.node, container);
+		this.applyClass();
+		return true;
+	}
+	/** PM is hidden only while our launcher stands in its place (never a page without both). */
+	applyClass() {
+		const hide = this.installed && !this.classic && this.node?.isConnected === true;
+		document.body.classList.toggle(REPLACED_CLASS, hide);
+	}
+	build() {
+		const preset = el("span", { class: "maestro-m34-launcher-preset" });
+		const unsaved = el("span", {
+			class: "maestro-m34-badge maestro-m34-badge-warn maestro-m34-launcher-unsaved",
+			text: this.t("m34.launcher.unsaved"),
+			title: this.t("m34.launcher.unsavedHint")
+		});
+		unsaved.hidden = true;
+		const stats = el("div", {
+			class: "maestro-m34-launcher-stats",
+			attrs: { "aria-live": "polite" }
+		});
+		const error = el("div", {
+			class: "maestro-m34-launcher-error",
+			attrs: { role: "alert" }
+		});
+		error.hidden = true;
+		const classic = button({
+			icon: "fa-list-ul",
+			label: this.t("m34.classic"),
+			className: "maestro-m34-launcher-classic",
+			onClick: () => this.classic ? this.hideClassic() : this.showClassic()
+		});
+		this.parts = {
+			preset,
+			unsaved,
+			stats,
+			error,
+			classic
+		};
+		return el("div", {
+			class: "maestro-m34-launcher maestro-theme",
+			attrs: { id: LAUNCHER_ID }
+		}, [
+			el("div", { class: "maestro-m34-launcher-head" }, [
+				icon("fa-sliders"),
+				el("strong", { text: this.t("m34.title") }),
+				preset,
+				unsaved
+			]),
+			stats,
+			error,
+			el("div", { class: "maestro-m34-launcher-actions" }, [button({
+				icon: "fa-up-right-from-square",
+				label: this.t("m34.launcher.open"),
+				kind: "primary",
+				className: "maestro-m34-launcher-open",
+				onClick: () => this.deps.open()
+			}), classic])
+		]);
+	}
+	renderClassicButton() {
+		const classic = this.parts?.classic;
+		if (!classic) return;
+		const label = classic.querySelector("span");
+		if (label) label.textContent = this.classic ? this.t("m34.launcher.hideClassic") : this.t("m34.classic");
+		classic.setAttribute("aria-pressed", this.classic ? "true" : "false");
+	}
+	schedule() {
+		if (!this.installed || this.timer) return;
+		this.timer = setTimeout(() => {
+			this.timer = null;
+			this.refreshNow();
+		}, REFRESH_DELAY_MS$1);
+	}
+	/** The summary of the working copy (store), or of ST's live settings when the store is absent. */
+	summary() {
+		const pm = this.deps.pm;
+		const store = this.deps.services.store();
+		if (store) {
+			const counts = enabledCount(store.prompts());
+			return {
+				preset: store.current(),
+				...counts,
+				tokens: pm.tokenUsage(),
+				error: pm.error(),
+				dirty: store.draft().dirty
+			};
+		}
+		const settings = this.deps.app.host.ctx().chatCompletionSettings ?? {};
+		const prompts = new Map(promptsOf(settings).map((prompt) => [prompt.identifier, prompt]));
+		const rows = activeOrderOf(settings).map((item) => ({
+			item,
+			prompt: prompts.get(item.identifier) ?? null
+		}));
+		const name = settings.preset_settings_openai;
+		return {
+			preset: typeof name === "string" ? name : "",
+			...enabledCount(rows),
+			tokens: pm.tokenUsage(),
+			error: pm.error(),
+			dirty: false
+		};
+	}
+	refreshNow() {
+		if (!this.installed) return;
+		this.place();
+		const parts = this.parts;
+		if (!parts) return;
+		let summary;
+		try {
+			summary = this.summary();
+		} catch (error) {
+			this.deps.log.debug("launcher summary", error);
+			return;
+		}
+		parts.preset.textContent = summary.preset || this.t("m34.launcher.noPreset");
+		parts.unsaved.hidden = !summary.dirty;
+		parts.stats.textContent = [this.t("m34.launcher.blocks", {
+			enabled: summary.enabled,
+			total: summary.total
+		}), summary.tokens === null ? this.t("m34.launcher.noTokens") : this.t("m34.launcher.tokens", { count: summary.tokens.toLocaleString() })].join(" · ");
+		parts.error.hidden = !summary.error;
+		parts.error.replaceChildren(...summary.error ? [icon("fa-triangle-exclamation"), el("span", { text: summary.error })] : []);
+		this.renderClassicButton();
+	}
+};
+//#endregion
+//#region src/domain/preset-store-keys.ts
+function isDict$17(value) {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+/** Copy of ST 1.19 `settingsToUpdate` (openai.js:305-409), 103 keys. */
+var PRESET_KEY_TABLE = {
+	chat_completion_source: [
+		"#chat_completion_source",
+		"chat_completion_source",
+		false,
+		true
+	],
+	temperature: [
+		"#temp_openai",
+		"temp_openai",
+		false,
+		false
+	],
+	frequency_penalty: [
+		"#freq_pen_openai",
+		"freq_pen_openai",
+		false,
+		false
+	],
+	presence_penalty: [
+		"#pres_pen_openai",
+		"pres_pen_openai",
+		false,
+		false
+	],
+	top_p: [
+		"#top_p_openai",
+		"top_p_openai",
+		false,
+		false
+	],
+	top_k: [
+		"#top_k_openai",
+		"top_k_openai",
+		false,
+		false
+	],
+	top_a: [
+		"#top_a_openai",
+		"top_a_openai",
+		false,
+		false
+	],
+	min_p: [
+		"#min_p_openai",
+		"min_p_openai",
+		false,
+		false
+	],
+	repetition_penalty: [
+		"#repetition_penalty_openai",
+		"repetition_penalty_openai",
+		false,
+		false
+	],
+	max_context_unlocked: [
+		"#oai_max_context_unlocked",
+		"max_context_unlocked",
+		true,
+		false
+	],
+	group_models: [
+		"#cc_group_models",
+		"group_models",
+		true,
+		true
+	],
+	sort_models: [
+		"#cc_sort_models",
+		"sort_models",
+		false,
+		true
+	],
+	openai_model: [
+		"#model_openai_select",
+		"openai_model",
+		false,
+		true
+	],
+	claude_model: [
+		"#model_claude_select",
+		"claude_model",
+		false,
+		true
+	],
+	openrouter_model: [
+		"#model_openrouter_select",
+		"openrouter_model",
+		false,
+		true
+	],
+	openrouter_use_fallback: [
+		"#openrouter_use_fallback",
+		"openrouter_use_fallback",
+		true,
+		true
+	],
+	openrouter_providers: [
+		"#openrouter_providers_chat",
+		"openrouter_providers",
+		false,
+		true
+	],
+	openrouter_quantizations: [
+		"#openrouter_quantizations_chat",
+		"openrouter_quantizations",
+		false,
+		true
+	],
+	openrouter_allow_fallbacks: [
+		"#openrouter_allow_fallbacks",
+		"openrouter_allow_fallbacks",
+		true,
+		true
+	],
+	openrouter_middleout: [
+		"#openrouter_middleout",
+		"openrouter_middleout",
+		false,
+		true
+	],
+	tool_reasoning_mode: [
+		"#tool_reasoning_mode",
+		"tool_reasoning_mode",
+		false,
+		false
+	],
+	ai21_model: [
+		"#model_ai21_select",
+		"ai21_model",
+		false,
+		true
+	],
+	mistralai_model: [
+		"#model_mistralai_select",
+		"mistralai_model",
+		false,
+		true
+	],
+	cohere_model: [
+		"#model_cohere_select",
+		"cohere_model",
+		false,
+		true
+	],
+	perplexity_model: [
+		"#model_perplexity_select",
+		"perplexity_model",
+		false,
+		true
+	],
+	groq_model: [
+		"#model_groq_select",
+		"groq_model",
+		false,
+		true
+	],
+	chutes_model: [
+		"#model_chutes_select",
+		"chutes_model",
+		false,
+		true
+	],
+	siliconflow_model: [
+		"#model_siliconflow_select",
+		"siliconflow_model",
+		false,
+		true
+	],
+	siliconflow_endpoint: [
+		"#siliconflow_endpoint",
+		"siliconflow_endpoint",
+		false,
+		true
+	],
+	minimax_model: [
+		"#model_minimax_select",
+		"minimax_model",
+		false,
+		true
+	],
+	minimax_endpoint: [
+		"#minimax_endpoint",
+		"minimax_endpoint",
+		false,
+		true
+	],
+	electronhub_model: [
+		"#model_electronhub_select",
+		"electronhub_model",
+		false,
+		true
+	],
+	nanogpt_model: [
+		"#model_nanogpt_select",
+		"nanogpt_model",
+		false,
+		true
+	],
+	nanogpt_provider: [
+		"#nanogpt_provider",
+		"nanogpt_provider",
+		false,
+		true
+	],
+	nanogpt_payg_override: [
+		"#nanogpt_payg_override",
+		"nanogpt_payg_override",
+		true,
+		true
+	],
+	deepseek_model: [
+		"#model_deepseek_select",
+		"deepseek_model",
+		false,
+		true
+	],
+	aimlapi_model: [
+		"#model_aimlapi_select",
+		"aimlapi_model",
+		false,
+		true
+	],
+	xai_model: [
+		"#model_xai_select",
+		"xai_model",
+		false,
+		true
+	],
+	pollinations_model: [
+		"#model_pollinations_select",
+		"pollinations_model",
+		false,
+		true
+	],
+	pollinations_endpoint: [
+		"#pollinations_endpoint",
+		"pollinations_endpoint",
+		false,
+		true
+	],
+	moonshot_model: [
+		"#model_moonshot_select",
+		"moonshot_model",
+		false,
+		true
+	],
+	fireworks_model: [
+		"#model_fireworks_select",
+		"fireworks_model",
+		false,
+		true
+	],
+	cometapi_model: [
+		"#model_cometapi_select",
+		"cometapi_model",
+		false,
+		true
+	],
+	custom_model: [
+		"#custom_model_id",
+		"custom_model",
+		false,
+		true
+	],
+	custom_url: [
+		"#custom_api_url_text",
+		"custom_url",
+		false,
+		true
+	],
+	custom_include_body: [
+		"#custom_include_body",
+		"custom_include_body",
+		false,
+		true
+	],
+	custom_exclude_body: [
+		"#custom_exclude_body",
+		"custom_exclude_body",
+		false,
+		true
+	],
+	custom_include_headers: [
+		"#custom_include_headers",
+		"custom_include_headers",
+		false,
+		true
+	],
+	custom_prompt_post_processing: [
+		"#custom_prompt_post_processing",
+		"custom_prompt_post_processing",
+		false,
+		true
+	],
+	google_model: [
+		"#model_google_select",
+		"google_model",
+		false,
+		true
+	],
+	vertexai_model: [
+		"#model_vertexai_select",
+		"vertexai_model",
+		false,
+		true
+	],
+	zai_model: [
+		"#model_zai_select",
+		"zai_model",
+		false,
+		true
+	],
+	zai_endpoint: [
+		"#zai_endpoint",
+		"zai_endpoint",
+		false,
+		true
+	],
+	workers_ai_model: [
+		"#model_workers_ai_select",
+		"workers_ai_model",
+		false,
+		true
+	],
+	workers_ai_account_id: [
+		"#workers_ai_account_id",
+		"workers_ai_account_id",
+		false,
+		true
+	],
+	openai_max_context: [
+		"#openai_max_context",
+		"openai_max_context",
+		false,
+		false
+	],
+	openai_max_tokens: [
+		"#openai_max_tokens",
+		"openai_max_tokens",
+		false,
+		false
+	],
+	names_behavior: [
+		"#names_behavior",
+		"names_behavior",
+		false,
+		false
+	],
+	send_if_empty: [
+		"#send_if_empty_textarea",
+		"send_if_empty",
+		false,
+		false
+	],
+	impersonation_prompt: [
+		"#impersonation_prompt_textarea",
+		"impersonation_prompt",
+		false,
+		false
+	],
+	new_chat_prompt: [
+		"#newchat_prompt_textarea",
+		"new_chat_prompt",
+		false,
+		false
+	],
+	new_group_chat_prompt: [
+		"#newgroupchat_prompt_textarea",
+		"new_group_chat_prompt",
+		false,
+		false
+	],
+	new_example_chat_prompt: [
+		"#newexamplechat_prompt_textarea",
+		"new_example_chat_prompt",
+		false,
+		false
+	],
+	continue_nudge_prompt: [
+		"#continue_nudge_prompt_textarea",
+		"continue_nudge_prompt",
+		false,
+		false
+	],
+	bias_preset_selected: [
+		"#openai_logit_bias_preset",
+		"bias_preset_selected",
+		false,
+		false
+	],
+	reverse_proxy: [
+		"#openai_reverse_proxy",
+		"reverse_proxy",
+		false,
+		true
+	],
+	wi_format: [
+		"#wi_format_textarea",
+		"wi_format",
+		false,
+		false
+	],
+	scenario_format: [
+		"#scenario_format_textarea",
+		"scenario_format",
+		false,
+		false
+	],
+	personality_format: [
+		"#personality_format_textarea",
+		"personality_format",
+		false,
+		false
+	],
+	group_nudge_prompt: [
+		"#group_nudge_prompt_textarea",
+		"group_nudge_prompt",
+		false,
+		false
+	],
+	stream_openai: [
+		"#stream_toggle",
+		"stream_openai",
+		true,
+		false
+	],
+	prompts: [
+		"",
+		"prompts",
+		false,
+		false
+	],
+	prompt_order: [
+		"",
+		"prompt_order",
+		false,
+		false
+	],
+	show_external_models: [
+		"#openai_show_external_models",
+		"show_external_models",
+		true,
+		true
+	],
+	proxy_password: [
+		"#openai_proxy_access_key",
+		"proxy_password",
+		false,
+		true
+	],
+	assistant_prefill: [
+		"#claude_assistant_prefill",
+		"assistant_prefill",
+		false,
+		false
+	],
+	assistant_impersonation: [
+		"#claude_assistant_impersonation",
+		"assistant_impersonation",
+		false,
+		false
+	],
+	use_sysprompt: [
+		"#use_sysprompt",
+		"use_sysprompt",
+		true,
+		false
+	],
+	vertexai_auth_mode: [
+		"#vertexai_auth_mode",
+		"vertexai_auth_mode",
+		false,
+		true
+	],
+	vertexai_region: [
+		"#vertexai_region",
+		"vertexai_region",
+		false,
+		true
+	],
+	vertexai_express_project_id: [
+		"#vertexai_express_project_id",
+		"vertexai_express_project_id",
+		false,
+		true
+	],
+	squash_system_messages: [
+		"#squash_system_messages",
+		"squash_system_messages",
+		true,
+		false
+	],
+	media_inlining: [
+		"#openai_media_inlining",
+		"media_inlining",
+		true,
+		false
+	],
+	inline_image_quality: [
+		"#openai_inline_image_quality",
+		"inline_image_quality",
+		false,
+		false
+	],
+	continue_prefill: [
+		"#continue_prefill",
+		"continue_prefill",
+		true,
+		false
+	],
+	continue_postfix: [
+		"#continue_postfix",
+		"continue_postfix",
+		false,
+		false
+	],
+	function_calling: [
+		"#openai_function_calling",
+		"function_calling",
+		true,
+		false
+	],
+	tool_call_recurse_limit: [
+		"#tool_call_recurse_limit",
+		"tool_call_recurse_limit",
+		false,
+		false
+	],
+	show_thoughts: [
+		"#openai_show_thoughts",
+		"show_thoughts",
+		true,
+		false
+	],
+	reasoning_effort: [
+		"#openai_reasoning_effort",
+		"reasoning_effort",
+		false,
+		false
+	],
+	verbosity: [
+		"#openai_verbosity",
+		"verbosity",
+		false,
+		false
+	],
+	enable_web_search: [
+		"#openai_enable_web_search",
+		"enable_web_search",
+		true,
+		false
+	],
+	seed: [
+		"#seed_openai",
+		"seed",
+		false,
+		false
+	],
+	n: [
+		"#n_openai",
+		"n",
+		false,
+		false
+	],
+	bypass_status_check: [
+		"#openai_bypass_status_check",
+		"bypass_status_check",
+		true,
+		true
+	],
+	request_images: [
+		"#openai_request_images",
+		"request_images",
+		true,
+		false
+	],
+	request_image_aspect_ratio: [
+		"#request_image_aspect_ratio",
+		"request_image_aspect_ratio",
+		false,
+		false
+	],
+	request_image_resolution: [
+		"#request_image_resolution",
+		"request_image_resolution",
+		false,
+		false
+	],
+	azure_base_url: [
+		"#azure_base_url",
+		"azure_base_url",
+		false,
+		true
+	],
+	azure_deployment_name: [
+		"#azure_deployment_name",
+		"azure_deployment_name",
+		false,
+		true
+	],
+	azure_api_version: [
+		"#azure_api_version",
+		"azure_api_version",
+		false,
+		true
+	],
+	azure_openai_model: [
+		"#azure_openai_model",
+		"azure_openai_model",
+		false,
+		true
+	],
+	extensions: [
+		"#NULL_SELECTOR",
+		"extensions",
+		false,
+		false
+	]
+};
+/** Keys ST asks about before import and export (openai.js:287-299 `sensitiveFields`, P-096). */
+var SENSITIVE_PRESET_KEYS = [
+	"reverse_proxy",
+	"proxy_password",
+	"custom_url",
+	"custom_include_body",
+	"custom_exclude_body",
+	"custom_include_headers",
+	"vertexai_region",
+	"vertexai_express_project_id",
+	"azure_base_url",
+	"azure_deployment_name",
+	"workers_ai_account_id"
+];
+/** Keys the studio handles through Prompt Manager, never through setKeys(). */
+var PROMPT_KEYS = ["prompts", "prompt_order"];
+/** Selectors that are not real UI controls (`''` for prompts, `#NULL_SELECTOR` for extensions). */
+function hasControl(spec) {
+	return spec[0] !== "" && spec[0] !== "#NULL_SELECTOR";
+}
+function isKeySpec(value) {
+	return Array.isArray(value) && value.length >= 4 && typeof value[0] === "string" && typeof value[1] === "string" && value[1] !== "" && typeof value[2] === "boolean" && typeof value[3] === "boolean";
+}
+/** The live `settingsToUpdate` when it looks like ST's table (its entries win), otherwise the copy. */
+function readKeyTable(live) {
+	if (!isDict$17(live)) return PRESET_KEY_TABLE;
+	const table = {};
+	for (const [key, value] of Object.entries(live)) if (isKeySpec(value)) table[key] = [
+		value[0],
+		value[1],
+		value[2],
+		value[3]
+	];
+	return Object.keys(table).length ? table : PRESET_KEY_TABLE;
+}
+/** JSON copy without undefined values (what /api/presets/save would store). */
+function jsonClean(value) {
+	if (value === void 0) return value;
+	return JSON.parse(JSON.stringify(value));
+}
+/**
+* The preset body of a settings object, like openai.js getChatCompletionPreset (OAI:4582-4588), but as JSON:
+* keys whose setting is undefined are left out (a spread of such a body would otherwise erase cached values).
+*/
+function bodyFromSettings(settings, table = PRESET_KEY_TABLE) {
+	const body = {};
+	for (const [key, spec] of Object.entries(table)) {
+		const value = settings[spec[1]];
+		if (value !== void 0) body[key] = value;
+	}
+	return jsonClean(body);
+}
+/** A copy of `body` without `keys`. */
+function withoutKeys(body, keys) {
+	const copy = { ...body };
+	for (const key of keys) delete copy[key];
+	return copy;
+}
+/** The values of `keys` that `body` holds (undefined ones are skipped). */
+function pickKeys(body, keys) {
+	const picked = {};
+	if (!body) return picked;
+	for (const key of keys) if (body[key] !== void 0) picked[key] = body[key];
+	return picked;
+}
+/** Sensitive keys that carry a value (ST asks only about those). */
+function presentSensitiveKeys(body) {
+	return SENSITIVE_PRESET_KEYS.filter((key) => Boolean(body[key]));
+}
+function numeric(value) {
+	if (typeof value === "number") return Number.isFinite(value) ? value : null;
+	if (typeof value === "string" && value.trim() !== "") {
+		const parsed = Number(value);
+		return Number.isFinite(parsed) ? parsed : null;
+	}
+	return null;
+}
+/**
+* A value for a settings key, typed like ST's input handlers type it: checkboxes become booleans (`'false'` is
+* false), numeric settings stay numbers when the new value is numeric. Anything else is copied as JSON.
+*/
+function normalizeKeyValue(value, current, checkbox) {
+	if (checkbox) {
+		if (typeof value === "string") return ![
+			"",
+			"false",
+			"off",
+			"0"
+		].includes(value.trim().toLowerCase());
+		return Boolean(value);
+	}
+	if (typeof current === "number") {
+		const parsed = numeric(value);
+		if (parsed !== null) return parsed;
+	}
+	return jsonClean(value);
+}
+var ILLEGAL_RE = /[/?<>\\:*|"]/g;
+var CONTROL_RE = /[\x00-\x1f\x80-\x9f]/g;
+var RESERVED_RE = /^\.+$/;
+var WINDOWS_RESERVED_RE = /^(con|prn|aux|nul|com[0-9]|lpt[0-9])(\..*)?$/i;
+var WINDOWS_TRAILING_RE = /[. ]+$/;
+var MAX_NAME_BYTES = 255;
+function utf8Length(codePoint) {
+	if (codePoint < 128) return 1;
+	if (codePoint < 2048) return 2;
+	if (codePoint < 65536) return 3;
+	return 4;
+}
+/** What the server's sanitize-filename does to a preset name (src/endpoints/presets.js; the server answer wins). */
+function sanitizePresetName(name) {
+	const cleaned = name.replace(ILLEGAL_RE, "").replace(CONTROL_RE, "").replace(RESERVED_RE, "").replace(WINDOWS_RESERVED_RE, "").replace(WINDOWS_TRAILING_RE, "");
+	let bytes = 0;
+	let result = "";
+	for (const char of cleaned) {
+		bytes += utf8Length(char.codePointAt(0) ?? 0);
+		if (bytes > MAX_NAME_BYTES) break;
+		result += char;
+	}
+	return result;
+}
+function folded(text) {
+	return text.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+}
+/** ST's equalsIgnoreCaseAndAccents (utils.js:2243-2276): file names that collide on case-insensitive disks. */
+function sameNameLoosely(a, b) {
+	if (!a || !b) return a === b;
+	return folded(a) === folded(b);
+}
+/** The existing name that collides with `name` (exact match first, then case/accents), or null. */
+function collidingName(names, name, except) {
+	if (names.includes(name) && name !== except) return name;
+	return names.find((item) => item !== except && sameNameLoosely(item, name)) ?? null;
+}
+//#endregion
+//#region src/domain/preset-store-prompts.ts
+/** The global order list of Chat Completion (`promptOrder.dummyId`, openai.js:696-699). */
+var GLOBAL_ORDER_ID = 100001;
+/** Prompt Manager's built-in text blocks (`systemPrompts`, PromptManager.js:313-318). */
+var SYSTEM_PROMPT_IDS = [
+	"main",
+	"nsfw",
+	"jailbreak",
+	"enhanceDefinitions"
+];
+/** Places ST fills itself (PromptManager.js:2001-2081). */
+var MARKER_IDS = [
+	"dialogueExamples",
+	"chatHistory",
+	"worldInfoAfter",
+	"worldInfoBefore",
+	"charDescription",
+	"charPersonality",
+	"scenario",
+	"personaDescription"
+];
+/** Blocks Prompt Manager puts back when they are missing (checkForMissingPrompts, P-037). */
+var DEFAULT_PROMPT_IDS = [...SYSTEM_PROMPT_IDS, ...MARKER_IDS];
+/** Blocks whose text lives in the quick-edit fields of the drawer (P-012). */
+var QUICK_EDIT_IDS = [
+	"main",
+	"nsfw",
+	"jailbreak"
+];
+/** `promptManagerDefaultPromptOrder` (PromptManager.js:2087-2136): what PM creates when 100001 is missing. */
+var DEFAULT_PROMPT_ORDER = [
+	{
+		identifier: "main",
+		enabled: true
+	},
+	{
+		identifier: "worldInfoBefore",
+		enabled: true
+	},
+	{
+		identifier: "personaDescription",
+		enabled: true
+	},
+	{
+		identifier: "charDescription",
+		enabled: true
+	},
+	{
+		identifier: "charPersonality",
+		enabled: true
+	},
+	{
+		identifier: "scenario",
+		enabled: true
+	},
+	{
+		identifier: "enhanceDefinitions",
+		enabled: false
+	},
+	{
+		identifier: "nsfw",
+		enabled: true
+	},
+	{
+		identifier: "worldInfoAfter",
+		enabled: true
+	},
+	{
+		identifier: "dialogueExamples",
+		enabled: true
+	},
+	{
+		identifier: "chatHistory",
+		enabled: true
+	},
+	{
+		identifier: "jailbreak",
+		enabled: true
+	}
+];
+var MAX_INJECTION = 9999;
+var ROLES$2 = [
+	"system",
+	"user",
+	"assistant"
+];
+var TRIGGER_TYPES = [
+	"normal",
+	"continue",
+	"impersonate",
+	"swipe",
+	"regenerate",
+	"quiet"
+];
+/** Keys that exist only while ST assembles a prompt (P-055); never stored. */
+var ASSEMBLY_ONLY_KEYS = ["extension", "position"];
+function isDict$16(value) {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function isBuiltinPrompt(identifier) {
+	return DEFAULT_PROMPT_IDS.includes(identifier);
+}
+/**
+* Built-ins are never deleted (P-029, P-037: PM would put them back anyway). A foreign block that merely carries
+* `system_prompt: true` is not protected: ST never sends it as a relative block (P-039), the studio fixes it.
+*/
+function isProtectedPrompt(prompt) {
+	return typeof prompt.identifier === "string" && isBuiltinPrompt(prompt.identifier);
+}
+function clampInt$1(value, fallback) {
+	const parsed = typeof value === "number" ? value : typeof value === "string" ? Number(value.trim()) : NaN;
+	if (!Number.isFinite(parsed) || typeof value === "string" && value.trim() === "") return fallback;
+	return Math.min(MAX_INJECTION, Math.max(0, Math.round(parsed)));
+}
+function toPosition(value) {
+	return Number(value) === 1 ? 1 : 0;
+}
+function toRole(value) {
+	const role = typeof value === "string" ? value.trim().toLowerCase() : "";
+	return ROLES$2.includes(role) ? role : "system";
+}
+function toTriggers(value) {
+	const triggers = (Array.isArray(value) ? value : typeof value === "string" && value ? [value] : []).map((item) => String(item).trim().toLowerCase()).filter((item) => TRIGGER_TYPES.includes(item));
+	return [...new Set(triggers)];
+}
+function toFlag(value) {
+	if (typeof value === "string") return [
+		"true",
+		"1",
+		"on",
+		"yes"
+	].includes(value.trim().toLowerCase());
+	return value === true || value === 1;
+}
+/**
+* Types of the fields a patch sets, as ST's assembly compares them (P-132): position 0|1, depth and order as
+* integers 0…9999, a role from the three, triggers as a list of known generation types, boolean flags. The
+* identifier, assembly-only keys and the legacy `enabled` flag are dropped (the order entry holds the switch).
+*/
+function normalizePromptPatch(patch) {
+	const clean = {};
+	for (const [key, value] of Object.entries(patch)) {
+		if (key === "identifier" || key === "enabled" || ASSEMBLY_ONLY_KEYS.includes(key) || value === void 0) continue;
+		switch (key) {
+			case "injection_position":
+				clean[key] = toPosition(value);
+				break;
+			case "injection_depth":
+				clean[key] = clampInt$1(value, 4);
+				break;
+			case "injection_order":
+				clean[key] = clampInt$1(value, 100);
+				break;
+			case "role":
+				clean[key] = toRole(value);
+				break;
+			case "injection_trigger":
+				clean[key] = toTriggers(value);
+				break;
+			case "forbid_overrides":
+			case "system_prompt":
+			case "marker":
+				clean[key] = toFlag(value);
+				break;
+			case "name":
+			case "content":
+				clean[key] = value === null ? "" : String(value);
+				break;
+			default: clean[key] = JSON.parse(JSON.stringify(value));
+		}
+	}
+	return clean;
+}
+/**
+* A whole prompt with ST-strict types (import, studio edits). Blocks that are not built-ins are always
+* `system_prompt: false, marker: false` (P-039: otherwise a relative block is silently never sent); built-ins
+* keep their flags. Fields that were absent stay absent (ST's defaults apply to them).
+*/
+function normalizePrompt(prompt) {
+	const identifier = typeof prompt.identifier === "string" ? prompt.identifier : "";
+	const clean = normalizePromptPatch(prompt);
+	if (identifier) clean.identifier = identifier;
+	if (!isBuiltinPrompt(identifier)) {
+		clean.system_prompt = false;
+		clean.marker = false;
+	}
+	if (prompt.enabled !== void 0) clean.enabled = prompt.enabled === true;
+	return clean;
+}
+/**
+* The prompt after a patch, as the store writes it back into `oai_settings.prompts`: unknown fields kept, the
+* known ones of the whole block typed strictly (a string `"1"` position from a foreign file is fixed on any edit),
+* and blocks that are not built-ins marked `system_prompt: false, marker: false` (P-039).
+*/
+function applyPromptPatch(prompt, patch) {
+	const next = {
+		...prompt,
+		...normalizePromptPatch(patch)
+	};
+	if (!isBuiltinPrompt(typeof next.identifier === "string" ? next.identifier : "")) {
+		next.system_prompt = false;
+		next.marker = false;
+	}
+	if (next.injection_position !== void 0) next.injection_position = toPosition(next.injection_position);
+	if (next.injection_depth !== void 0) next.injection_depth = clampInt$1(next.injection_depth, 4);
+	if (next.injection_order !== void 0) next.injection_order = clampInt$1(next.injection_order, 100);
+	if (next.role !== void 0) next.role = toRole(next.role);
+	return next;
+}
+/** The order list of one character id (`String()` comparison like PM, PromptManager.js:1207-1209), or null. */
+function findOrderList(promptOrder, characterId = GLOBAL_ORDER_ID) {
+	if (!Array.isArray(promptOrder)) return null;
+	return promptOrder.filter(isDict$16).find((list) => String(list.character_id) === String(characterId)) ?? null;
+}
+/** Entries of an order array (malformed items dropped, `enabled` strictly boolean). */
+function readOrder(order) {
+	if (!Array.isArray(order)) return [];
+	return order.filter(isDict$16).filter((item) => typeof item.identifier === "string" && item.identifier !== "").map((item) => ({
+		identifier: item.identifier,
+		enabled: item.enabled === true
+	}));
+}
+/**
+* New order: the listed identifiers first, in the given sequence, then entries that were not listed (their
+* relative order kept). Identifiers that are not in the order are ignored; duplicates count once.
+*/
+function reorderEntries(entries, identifiers) {
+	const byId = new Map(entries.map((entry) => [entry.identifier, entry]));
+	const seen = /* @__PURE__ */ new Set();
+	const result = [];
+	for (const identifier of identifiers) {
+		const entry = byId.get(identifier);
+		if (!entry || seen.has(identifier)) continue;
+		seen.add(identifier);
+		result.push({ ...entry });
+	}
+	for (const entry of entries) if (!seen.has(entry.identifier)) result.push({ ...entry });
+	return result;
+}
+/** Index to insert a new entry at: right after `after`, else at the start (PM's appendPrompt unshifts, P-028). */
+function insertIndex(entries, after) {
+	if (after === void 0) return 0;
+	const index = entries.findIndex((entry) => entry.identifier === after);
+	return index < 0 ? 0 : index + 1;
+}
+/**
+* The global order ST will hold after applying a saved body: its 100001 list, or — when the body has an order
+* without it — PM's default order without references to missing prompts (sanitizeServiceSettings, P-037).
+* null when the body has no `prompt_order` at all (applying it keeps the previous order).
+*/
+function expectedActiveOrder(body, promptIds) {
+	if (!Array.isArray(body.prompt_order)) return null;
+	const list = findOrderList(body.prompt_order);
+	if (list) return readOrder(list.order).filter((entry) => promptIds.includes(entry.identifier));
+	return DEFAULT_PROMPT_ORDER.filter((entry) => promptIds.includes(entry.identifier)).map((entry) => ({ ...entry }));
+}
+/** Prompt identifiers of a prompts array. */
+function promptIds(prompts) {
+	if (!Array.isArray(prompts)) return [];
+	return prompts.filter(isDict$16).map((prompt) => prompt.identifier).filter((identifier) => typeof identifier === "string");
+}
+//#endregion
+//#region src/domain/preset-store-diff.ts
+function isDict$15(value) {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function numericLike(value) {
+	if (typeof value === "number") return Number.isFinite(value) ? value : null;
+	if (typeof value !== "string" || value.trim() === "") return null;
+	const parsed = Number(value);
+	return Number.isFinite(parsed) ? parsed : null;
+}
+/** A JSON value with numeric strings as numbers and undefined object members dropped (comparison form). */
+function canonical(value) {
+	const number = numericLike(value);
+	if (number !== null) return number;
+	if (Array.isArray(value)) return value.map((item) => item === void 0 ? null : canonical(item));
+	if (isDict$15(value)) {
+		const result = {};
+		for (const [key, item] of Object.entries(value)) if (item !== void 0) result[key] = canonical(item);
+		return result;
+	}
+	return value;
+}
+/** Equality the way a draft cares about it: `"0.7"` equals `0.7`, key order does not matter. */
+function looseEqual(a, b) {
+	if (a === b) return true;
+	try {
+		return stableStringify(canonical(a)) === stableStringify(canonical(b));
+	} catch {
+		return false;
+	}
+}
+/** A prompt in comparison form: ST's defaults filled in, the legacy `enabled` and assembly-only keys dropped. */
+function comparablePrompt(prompt) {
+	const copy = { ...prompt };
+	delete copy.enabled;
+	delete copy.extension;
+	delete copy.position;
+	copy.injection_position ??= 0;
+	copy.injection_depth ??= 4;
+	copy.injection_order ??= 100;
+	copy.injection_trigger ??= [];
+	copy.forbid_overrides ??= false;
+	copy.marker ??= false;
+	copy.content ??= "";
+	return copy;
+}
+function promptsEqual(a, b) {
+	return looseEqual(comparablePrompt(a), comparablePrompt(b));
+}
+function promptMap(prompts) {
+	const map = /* @__PURE__ */ new Map();
+	if (!Array.isArray(prompts)) return map;
+	for (const prompt of prompts) if (isDict$15(prompt) && typeof prompt.identifier === "string" && !map.has(prompt.identifier)) map.set(prompt.identifier, prompt);
+	return map;
+}
+function diffPrompts(working, saved, changed) {
+	if (!Array.isArray(saved.prompts)) return;
+	const mine = promptMap(working.prompts);
+	const theirs = promptMap(saved.prompts);
+	for (const [identifier, prompt] of mine) {
+		const stored = theirs.get(identifier);
+		if (!stored) {
+			if (!DEFAULT_PROMPT_IDS.includes(identifier)) changed.add(identifier);
+		} else if (!promptsEqual(prompt, stored)) changed.add(identifier);
+	}
+	for (const identifier of theirs.keys()) if (!mine.has(identifier)) changed.add(identifier);
+}
+function diffOrder(working, saved, changed, keys) {
+	const expected = expectedActiveOrder(saved, Array.isArray(saved.prompts) ? [.../* @__PURE__ */ new Set([...promptIds(saved.prompts), ...DEFAULT_PROMPT_IDS])] : promptIds(working.prompts));
+	if (!expected) return;
+	const live = readOrder(findOrderList(working.prompt_order)?.order);
+	const before = new Map(expected.map((entry) => [entry.identifier, entry]));
+	const now = new Map(live.map((entry) => [entry.identifier, entry]));
+	for (const entry of live) {
+		const old = before.get(entry.identifier);
+		if (!old || old.enabled !== entry.enabled) changed.add(entry.identifier);
+	}
+	for (const entry of expected) if (!now.has(entry.identifier)) changed.add(entry.identifier);
+	const sequence = (list, other) => list.filter((entry) => other.has(entry.identifier)).map((entry) => entry.identifier);
+	if (sequence(live, before).join("\n") !== sequence(expected, now).join("\n")) keys.add("prompt_order");
+	if (Array.isArray(saved.prompt_order)) for (const list of saved.prompt_order) {
+		if (!isDict$15(list) || String(list.character_id) === String(100001)) continue;
+		const mine = findOrderList(working.prompt_order, list.character_id);
+		if (!mine || !looseEqual(readOrder(mine.order), readOrder(list.order))) keys.add("prompt_order");
+	}
+}
+/**
+* The draft: what the working copy holds that applying `saved` would not give back. `saved` is the expected
+* working copy (the cached body, or the cached body with the user's layer applied). `knownKeys` are the keys ST
+* applies (settingsToUpdate): other keys of the file never reach the working copy (P-079) and are no draft — the
+* store keeps them on save. Without the list, keys the working copy lacks are skipped.
+*/
+function diffDraft(working, saved, knownKeys) {
+	const changedPrompts = /* @__PURE__ */ new Set();
+	const changedKeys = /* @__PURE__ */ new Set();
+	for (const key of Object.keys(saved)) {
+		if (PROMPT_KEYS.includes(key) || key === "extensions") continue;
+		if (knownKeys ? !knownKeys.includes(key) : !(key in working)) continue;
+		const stored = saved[key];
+		if (stored === void 0) continue;
+		if (!looseEqual(working[key], stored)) changedKeys.add(key);
+	}
+	const mine = isDict$15(working.extensions) ? working.extensions : {};
+	const theirs = isDict$15(saved.extensions) ? saved.extensions : {};
+	if (Object.keys(mine).some((key) => !looseEqual(mine[key], theirs[key]))) changedKeys.add("extensions");
+	diffPrompts(working, saved, changedPrompts);
+	diffOrder(working, saved, changedPrompts, changedKeys);
+	return {
+		dirty: changedPrompts.size > 0 || changedKeys.size > 0,
+		changedPrompts: [...changedPrompts],
+		changedKeys: [...changedKeys]
+	};
+}
+/**
+* The body to write: the cached body with the working copy over it (P-079, §10.4 в 2), so keys ST does not know
+* survive; `extensions` merged per sub-key, so data other extensions keep in the preset survives too (P-160).
+*/
+function mergeBodies(cached, working) {
+	const base = cached ?? {};
+	const merged = {
+		...base,
+		...working
+	};
+	if (isDict$15(base.extensions) && isDict$15(working.extensions)) merged.extensions = {
+		...base.extensions,
+		...working.extensions
+	};
+	return jsonClean(merged);
+}
+/** Hash of a body as versions see it: exact JSON (key order aside), sensitive keys left out. */
+function bodyHash(body) {
+	return valueHash(withoutKeys(body, SENSITIVE_PRESET_KEYS));
+}
+/** A stored body (sensitive keys stripped) with the sensitive values of `source` (the file now) put back. */
+function withSecretsOf(body, source) {
+	return {
+		...withoutKeys(body, SENSITIVE_PRESET_KEYS),
+		...pickKeys(source, SENSITIVE_PRESET_KEYS)
+	};
+}
+//#endregion
+//#region src/domain/preset-store-links.ts
+var REGEX_API_ID = "openai";
+function isDict$14(value) {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+/** The allow-list of preset names for regex scripts of an API (a live array, or null). */
+function regexAllowList(extensionSettings, apiId = REGEX_API_ID) {
+	const lists = extensionSettings.preset_allowed_regex;
+	if (!isDict$14(lists)) return null;
+	const list = lists[apiId];
+	return Array.isArray(list) ? list : null;
+}
+function isRegexAllowed(extensionSettings, name, apiId = REGEX_API_ID) {
+	return Boolean(name) && (regexAllowList(extensionSettings, apiId)?.includes(name) ?? false);
+}
+/** Adds `name` to the allow-list (creates it like allowPresetScripts does); true when something changed. */
+function allowRegex(extensionSettings, name, apiId = REGEX_API_ID) {
+	if (!name) return false;
+	if (!isDict$14(extensionSettings.preset_allowed_regex)) extensionSettings.preset_allowed_regex = {};
+	const lists = extensionSettings.preset_allowed_regex;
+	if (!Array.isArray(lists[apiId])) lists[apiId] = [];
+	const list = lists[apiId];
+	if (list.includes(name)) return false;
+	list.push(name);
+	return true;
+}
+/** Removes `name` from the allow-list; true when something changed. */
+function disallowRegex(extensionSettings, name, apiId = REGEX_API_ID) {
+	const list = regexAllowList(extensionSettings, apiId);
+	const index = list ? list.indexOf(name) : -1;
+	if (!list || index < 0) return false;
+	list.splice(index, 1);
+	return true;
+}
+/** Moves the permission from `oldName` to `newName` (what regex's onPresetRenamed does); true when moved. */
+function moveRegexPermission(extensionSettings, oldName, newName, apiId = REGEX_API_ID) {
+	if (!isRegexAllowed(extensionSettings, oldName, apiId)) return false;
+	disallowRegex(extensionSettings, oldName, apiId);
+	allowRegex(extensionSettings, newName, apiId);
+	return true;
+}
+/** Live Connection Manager profiles (`extension_settings.connectionManager.profiles`). */
+function connectionProfiles(extensionSettings) {
+	const manager = extensionSettings.connectionManager;
+	if (!isDict$14(manager) || !Array.isArray(manager.profiles)) return [];
+	return manager.profiles.filter(isDict$14);
+}
+/** Chat Completion profiles whose `preset` is `name` (Text Completion profiles name other presets). */
+function profilesUsing(extensionSettings, name) {
+	return connectionProfiles(extensionSettings).filter((profile) => profile.mode !== "tc" && typeof profile.preset === "string" && profile.preset === name);
+}
+function profileRef(profile) {
+	return {
+		id: typeof profile.id === "string" ? profile.id : String(profile.id ?? ""),
+		name: typeof profile.name === "string" ? profile.name : ""
+	};
+}
+/** Points the given profiles (by id) from `from` to `to`; returns the ids that were changed. */
+function repointProfiles(extensionSettings, ids, from, to) {
+	const changed = [];
+	for (const profile of connectionProfiles(extensionSettings)) {
+		const ref = profileRef(profile);
+		if (!ids.includes(ref.id) || profile.preset !== from) continue;
+		profile.preset = to;
+		changed.push(ref.id);
+	}
+	return changed;
+}
+//#endregion
+//#region src/features/presetStudio/st-preset.ts
+/** Errors of the store; `code` lets the studio pick a message (`message` is English, for logs). */
+var PresetStoreError = class extends Error {
+	code;
+	status;
+	constructor(code, message, status) {
+		super(message);
+		this.code = code;
+		this.status = status;
+		this.name = "PresetStoreError";
+	}
+};
+var PRESET_SELECT_ID = "settings_preset_openai";
+var SAVE_URL = "/api/presets/save";
+var DELETE_URL = "/api/presets/delete";
+var SANITIZE_URL = "/api/files/sanitize-filename";
+/** PM's saveServiceSettings waits for SETTINGS_UPDATED, which never comes when the settings save fails. */
+var SAVE_WAIT_MS = 1e4;
+/** Selectors whose `change` ST triggers after applying connection keys (OAI:5067-5073). */
+var CONNECTION_REFRESH_SELECTORS = [
+	"#chat_completion_source",
+	"#openrouter_providers_chat",
+	"#openrouter_quantizations_chat",
+	"#nanogpt_provider"
+];
+function isDict$13(value) {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function jquery() {
+	const candidate = globalThis.jQuery;
+	return typeof candidate === "function" ? candidate : null;
+}
+function hasDocument() {
+	return typeof document !== "undefined";
+}
+/** Resolves after `promise` or after `ms`, whichever comes first; never rejects. */
+function settleWithin(promise, ms) {
+	return new Promise((resolve) => {
+		const timer = setTimeout(resolve, ms);
+		Promise.resolve(promise).catch(() => void 0).finally(() => {
+			clearTimeout(timer);
+			resolve();
+		});
+	});
+}
+var StPreset = class {
+	app;
+	log;
+	t;
+	openaiNs = null;
+	managerNs = null;
+	loading = null;
+	constructor(app, log, t) {
+		this.app = app;
+		this.log = log;
+		this.t = t;
+	}
+	/** Imports openai.js and preset-manager.js (guarded by capabilities); retried while they are missing. */
+	ensure() {
+		if (this.openaiNs && this.managerNs) return Promise.resolve();
+		if (!this.loading) this.loading = this.importModules().finally(() => {
+			this.loading = null;
+		});
+		return this.loading;
+	}
+	loaded() {
+		return this.openaiNs !== null;
+	}
+	async importModules() {
+		const { caps, modules } = this.app.host;
+		if (!this.openaiNs && caps.has("st.oai.promptManager")) try {
+			this.openaiNs = await modules.openai();
+		} catch (error) {
+			this.log.warn("openai.js could not be loaded", error);
+		}
+		if (!this.managerNs && caps.has("st.presetManager")) try {
+			this.managerNs = await modules.presetManager();
+		} catch (error) {
+			this.log.warn("preset-manager.js could not be loaded", error);
+		}
+	}
+	/** ST's live `oai_settings` (the working copy of the preset). */
+	oai() {
+		const live = this.app.host.ctx().chatCompletionSettings;
+		if (isDict$13(live)) return live;
+		const fromModule = this.openaiNs?.oai_settings;
+		return isDict$13(fromModule) ? fromModule : null;
+	}
+	promptManager() {
+		const manager = this.openaiNs?.promptManager;
+		return isDict$13(manager) ? manager : null;
+	}
+	cache() {
+		const list = this.openaiNs?.openai_settings;
+		const names = this.openaiNs?.openai_setting_names;
+		if (!Array.isArray(list) || !isDict$13(names)) return null;
+		return {
+			list,
+			names
+		};
+	}
+	keyTable() {
+		return readKeyTable(this.openaiNs?.settingsToUpdate);
+	}
+	/** openai.js getChatCompletionPreset (all 103 keys, structuredClone), or null when it is missing. */
+	presetOf(settings) {
+		const get = this.openaiNs?.getChatCompletionPreset;
+		if (typeof get !== "function") return null;
+		try {
+			const body = get(settings);
+			return isDict$13(body) ? body : null;
+		} catch (error) {
+			this.log.warn("getChatCompletionPreset failed", error);
+			return null;
+		}
+	}
+	/** The promise of the preset application in progress (OAI:5002-5017, P-064). */
+	applicationPromise() {
+		const get = this.openaiNs?.getPresetApplicationPromise;
+		if (typeof get !== "function") return Promise.resolve();
+		try {
+			return Promise.resolve(get()).then(() => void 0, () => void 0);
+		} catch {
+			return Promise.resolve();
+		}
+	}
+	/** script.js `is_send_press` (live binding): a generation is running (P-084). */
+	async generating() {
+		try {
+			return (await this.app.host.modules.script()).is_send_press === true;
+		} catch {
+			return false;
+		}
+	}
+	select() {
+		if (!hasDocument()) return null;
+		const element = document.getElementById(PRESET_SELECT_ID);
+		return element instanceof HTMLSelectElement ? element : null;
+	}
+	/** Option texts in list order (PresetManager.getAllPresets reads the same), or null without the select. */
+	optionNames() {
+		const select = this.select();
+		return select ? [...select.options].map((option) => option.text) : null;
+	}
+	optionValue(name) {
+		const select = this.select();
+		if (!select) return null;
+		return [...select.options].find((option) => option.text === name)?.value ?? null;
+	}
+	addOption(index, name) {
+		const select = this.select();
+		if (!select || [...select.options].some((option) => option.value === String(index))) return;
+		const option = document.createElement("option");
+		option.value = String(index);
+		option.text = name;
+		select.append(option);
+	}
+	removeOption(index) {
+		const select = this.select();
+		if (!select) return;
+		for (const option of [...select.options]) if (option.value === String(index)) option.remove();
+	}
+	renameOption(index, name) {
+		const select = this.select();
+		if (!select) return;
+		for (const option of [...select.options]) if (option.value === String(index)) option.text = name;
+	}
+	/**
+	* Switches the preset the way ST does (P-060, P-198): PresetManager.selectPreset (jQuery `change`, then the
+	* application promise), or the same by hand. OAI_PRESET_CHANGED_BEFORE/AFTER and PRESET_CHANGED fire.
+	*/
+	async selectPreset(value) {
+		const getManager = this.managerNs?.getPresetManager;
+		const manager = typeof getManager === "function" ? getManager("openai") : null;
+		if (isDict$13(manager) && typeof manager.selectPreset === "function") {
+			await manager.selectPreset?.(value);
+			await this.applicationPromise();
+			return;
+		}
+		const select = this.select();
+		if (!select) throw new PresetStoreError("unavailable", "the preset list is not on the page");
+		for (const option of [...select.options]) option.selected = option.value === value;
+		select.value = value;
+		this.trigger(`#${PRESET_SELECT_ID}`, "change");
+		await this.applicationPromise();
+	}
+	/**
+	* Sets a drawer control and fires its `input` handler, as ST does when it applies a preset (OAI:5032-5033):
+	* the handler keeps ST's own state (counters, dependent controls) in step. The caller writes oai_settings after.
+	*/
+	setControl(selector, value, checkbox) {
+		const jq = jquery();
+		if (jq) {
+			const element = jq(selector);
+			if (!element.length) return;
+			if (checkbox) element.prop("checked", Boolean(value));
+			else element.val(value);
+			element.trigger("input");
+			return;
+		}
+		if (!hasDocument()) return;
+		const element = document.querySelector(selector);
+		if (!element) return;
+		if (element instanceof HTMLInputElement && checkbox) element.checked = Boolean(value);
+		else if (element instanceof HTMLSelectElement && element.multiple && Array.isArray(value)) {
+			const wanted = value.map(String);
+			for (const option of [...element.options]) option.selected = wanted.includes(option.value);
+		} else if (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement || element instanceof HTMLSelectElement) element.value = value === null || value === void 0 ? "" : String(value);
+		element.dispatchEvent(new Event("input", { bubbles: true }));
+	}
+	/** jQuery `trigger` (reaches ST's jQuery handlers, not native capture listeners), or a native event. */
+	trigger(selector, type) {
+		const jq = jquery();
+		if (jq) {
+			jq(selector).trigger(type);
+			return;
+		}
+		if (!hasDocument()) return;
+		document.querySelector(selector)?.dispatchEvent(new Event(type, { bubbles: true }));
+	}
+	headers() {
+		return this.app.host.ctx().getRequestHeaders();
+	}
+	/**
+	* Writes a preset file with an explicit body (§10.4 в 3). Goes through window.fetch, so the tab guard sees it;
+	* a held save waits, a vetoed one (409) throws. Returns the name the server used (sanitize-filename, P-076).
+	*/
+	async savePresetFile(name, preset) {
+		const response = await fetch(SAVE_URL, {
+			method: "POST",
+			headers: this.headers(),
+			body: JSON.stringify({
+				apiId: "openai",
+				name,
+				preset
+			})
+		});
+		if (!response.ok) throw new PresetStoreError("http", `preset save failed: HTTP ${response.status}`, response.status);
+		let data = null;
+		try {
+			data = await response.json();
+		} catch {}
+		return isDict$13(data) && typeof data.name === "string" && data.name ? data.name : name;
+	}
+	/** POST /api/presets/delete (404 = there was no file). */
+	async deletePresetFile(name) {
+		try {
+			const response = await fetch(DELETE_URL, {
+				method: "POST",
+				headers: this.headers(),
+				body: JSON.stringify({
+					apiId: "openai",
+					name
+				})
+			});
+			if (response.ok) return "deleted";
+			return response.status === 404 ? "missing" : "failed";
+		} catch (error) {
+			this.log.warn(`preset ${name} could not be deleted`, error);
+			return "failed";
+		}
+	}
+	/** The file name the server will use (ST's rename dialog asks the same endpoint); local rules as a fallback. */
+	async sanitizeName(name) {
+		try {
+			const response = await fetch(SANITIZE_URL, {
+				method: "POST",
+				headers: this.headers(),
+				body: JSON.stringify({ fileName: name })
+			});
+			if (response.ok) {
+				const data = await response.json();
+				if (isDict$13(data) && typeof data.fileName === "string") return data.fileName;
+			}
+		} catch (error) {
+			this.log.debug("sanitize-filename unavailable", error);
+		}
+		return sanitizePresetName(name);
+	}
+	/** ST's three-way question about proxy/endpoint fields on import (OAI:4785-4803). */
+	async chooseSensitive(fields) {
+		const ctx = this.app.host.ctx();
+		const list = fields.map((field) => `<b>${field}</b>`).join("<br>");
+		const body = `<h3>${this.t("m34.store.sensitive.title")}</h3><div>${list}</div>`;
+		if (typeof ctx.callGenericPopup === "function" && ctx.POPUP_TYPE && ctx.POPUP_RESULT) {
+			const results = ctx.POPUP_RESULT;
+			const result = await ctx.callGenericPopup(body, ctx.POPUP_TYPE.CONFIRM, "", {
+				okButton: this.t("m34.store.sensitive.remove"),
+				cancelButton: this.t("m34.store.sensitive.keep"),
+				customButtons: [{
+					text: this.t("m34.store.sensitive.cancel"),
+					result: results.CANCELLED,
+					appendAtEnd: true
+				}]
+			});
+			if (result === results.AFFIRMATIVE) return "remove";
+			if (result === results.NEGATIVE) return "keep";
+			return "cancel";
+		}
+		return await this.app.ui.confirm(this.t("m34.store.sensitive.title"), fields.join(", ")) ? "remove" : "keep";
+	}
+	/** utils.js download (Blob + <a download>), or the same by hand. */
+	async download(text, fileName) {
+		try {
+			const utils = await this.app.host.modules.utils();
+			if (typeof utils.download === "function") {
+				utils.download(text, fileName, "application/json");
+				return;
+			}
+		} catch (error) {
+			this.log.debug("utils.download unavailable", error);
+		}
+		if (!hasDocument()) throw new PresetStoreError("unavailable", "no document to download from");
+		const anchor = document.createElement("a");
+		anchor.href = URL.createObjectURL(new Blob([text], { type: "application/json" }));
+		anchor.download = fileName;
+		anchor.click();
+		URL.revokeObjectURL(anchor.href);
+	}
+	emit(event, ...args) {
+		return this.app.host.events.emit(event, ...args).catch((error) => {
+			this.log.warn(`${event} listeners failed`, error);
+		});
+	}
+	/** Moves the regex extension's "already asked" mark (`AlertRegex_openai_<name>`, RXI:1696-1702). */
+	moveRegexAlert(oldName, newName) {
+		const storage = this.app.host.ctx().accountStorage;
+		if (!storage || typeof storage.getItem !== "function") return;
+		const oldKey = `AlertRegex_openai_${oldName}`;
+		const value = storage.getItem(oldKey);
+		if (!value) return;
+		storage.setItem(`AlertRegex_openai_${newName}`, value);
+		storage.removeItem?.(oldKey);
+	}
+};
+/**
+* The prompts and the active order of the working copy, changed through Prompt Manager's own methods when it
+* exists (P-190) — so PM, slash commands and neighbours see the same objects — and directly in `oai_settings`
+* (the same data PM edits, P-004) when it does not (Chat Completion never opened this session).
+*/
+var PromptModel = class {
+	settings;
+	pm;
+	log;
+	saveSettings;
+	constructor(settings, pm, log, saveSettings) {
+		this.settings = settings;
+		this.pm = pm;
+		this.log = log;
+		this.saveSettings = saveSettings;
+	}
+	character() {
+		const active = this.pm?.activeCharacter;
+		return active && (typeof active.id === "number" || typeof active.id === "string") ? active : { id: GLOBAL_ORDER_ID };
+	}
+	list() {
+		if (!Array.isArray(this.settings.prompts)) this.settings.prompts = [];
+		return this.settings.prompts;
+	}
+	get(identifier) {
+		if (typeof this.pm?.getPromptById === "function") return this.pm.getPromptById(identifier);
+		return this.list().find((prompt) => isDict$13(prompt) && prompt.identifier === identifier) ?? null;
+	}
+	/** The live order array of the active list ([] when there is none). */
+	order() {
+		if (typeof this.pm?.getPromptOrderForCharacter === "function") return this.pm.getPromptOrderForCharacter(this.character());
+		const list = findOrderList(this.settings.prompt_order, this.character().id);
+		return list && Array.isArray(list.order) ? list.order : [];
+	}
+	/** Creates the active list when it is missing (PM does it in sanitizeServiceSettings). */
+	ensureOrder() {
+		if (findOrderList(this.settings.prompt_order, this.character().id)) return this.order();
+		this.setOrder([]);
+		return this.order();
+	}
+	entry(identifier) {
+		return this.order().find((item) => isDict$13(item) && item.identifier === identifier) ?? null;
+	}
+	/** PM addPrompt: `{identifier, system_prompt:false, enabled:false, marker:false, ...prompt}` (PM:988-1000). */
+	add(prompt, identifier) {
+		if (typeof this.pm?.addPrompt === "function") {
+			this.pm.addPrompt(prompt, identifier);
+			return;
+		}
+		this.list().push({
+			identifier,
+			system_prompt: false,
+			enabled: false,
+			marker: false,
+			...prompt
+		});
+	}
+	/** Puts a stored prompt object back at its old index (undo). */
+	restore(prompt, index) {
+		const list = this.list();
+		list.splice(Math.min(Math.max(0, index), list.length), 0, prompt);
+	}
+	remove(identifier) {
+		const list = this.list();
+		const index = list.findIndex((prompt) => isDict$13(prompt) && prompt.identifier === identifier);
+		if (index >= 0) list.splice(index, 1);
+		return index;
+	}
+	/** Inserts an order entry (PM has only "unshift"; the live array is spliced like PM's own detach does). */
+	insert(identifier, enabled, index) {
+		const order = this.ensureOrder();
+		if (order.some((item) => isDict$13(item) && item.identifier === identifier)) return;
+		order.splice(Math.min(Math.max(0, index), order.length), 0, {
+			identifier,
+			enabled
+		});
+	}
+	detach(identifier) {
+		const order = this.order();
+		const index = order.findIndex((item) => isDict$13(item) && item.identifier === identifier);
+		if (index < 0) return -1;
+		const prompt = this.get(identifier);
+		if (prompt && typeof this.pm?.detachPrompt === "function") this.pm.detachPrompt(prompt, this.character());
+		else order.splice(index, 1);
+		return index;
+	}
+	/** Replaces the active list like PM's drag-and-drop does (remove + add, PM:1929-1930). */
+	setOrder(entries) {
+		const order = entries.map((entry) => ({
+			identifier: entry.identifier,
+			enabled: entry.enabled
+		}));
+		const character = this.character();
+		if (typeof this.pm?.removePromptOrderForCharacter === "function" && typeof this.pm.addPromptOrderForCharacter === "function") {
+			this.pm.removePromptOrderForCharacter(character);
+			this.pm.addPromptOrderForCharacter(character, order);
+			return;
+		}
+		if (!Array.isArray(this.settings.prompt_order)) this.settings.prompt_order = [];
+		const lists = this.settings.prompt_order;
+		const index = lists.findIndex((list) => isDict$13(list) && String(list.character_id) === String(character.id));
+		if (index >= 0) lists.splice(index, 1);
+		lists.push({
+			character_id: character.id,
+			order
+		});
+	}
+	/** PM's toggle drops the stale token count of the block (PM:446-448). */
+	forgetCount(identifier) {
+		try {
+			const counts = this.pm?.tokenHandler?.getCounts?.();
+			if (counts && typeof counts === "object") counts[identifier] = null;
+		} catch {}
+	}
+	/** Main / Auxiliary / Post-History quick-edit fields must follow the block (P-012). */
+	quickEdit(identifier) {
+		if (!QUICK_EDIT_IDS.includes(identifier)) return;
+		const prompt = this.get(identifier);
+		if (!prompt || typeof this.pm?.updateQuickEdit !== "function") return;
+		try {
+			this.pm.updateQuickEdit(identifier, prompt);
+		} catch (error) {
+			this.log.debug(`quick edit of ${identifier} not updated`, error);
+		}
+	}
+	/** saveServiceSettings (settings.json) + render(false), like PM's own handlers; never writes the preset file. */
+	persist() {
+		let pending;
+		if (typeof this.pm?.saveServiceSettings === "function") try {
+			pending = this.pm.saveServiceSettings();
+		} catch (error) {
+			this.log.warn("saveServiceSettings failed", error);
+		}
+		else this.saveSettings();
+		try {
+			this.pm?.render?.(false);
+		} catch (error) {
+			this.log.debug("prompt manager render failed", error);
+		}
+		return settleWithin(pending, SAVE_WAIT_MS);
+	}
+};
+function isDict$12(value) {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function makeVersionId(at, salt) {
+	return `v-${at.toString(36)}-${stableHash(`${at}:${salt}`).slice(0, 6)}`;
+}
+/** A version entry for `body` (copied, sensitive keys stripped). */
+function makeVersion(body, meta) {
+	const clean = jsonClean(withoutKeys(body, SENSITIVE_PRESET_KEYS));
+	const hash = bodyHash(clean);
+	return {
+		id: makeVersionId(meta.at, `${meta.salt ?? ""}:${hash}`),
+		at: meta.at,
+		by: meta.by,
+		summary: meta.summary,
+		hash,
+		body: clean
+	};
+}
+/** The newest version that is a state of the file (not a draft snapshot), or null. */
+function newestFileState(versions) {
+	for (let i = versions.length - 1; i >= 0; i--) {
+		const version = versions[i];
+		if (version && version.by !== "draft") return version;
+	}
+	return null;
+}
+/**
+* Appends a version unless it repeats what is there: a file state equal to the newest file state, or a draft
+* equal to the newest version or to the file. Keeps the newest `limit`; versions are stored oldest first.
+* `holder` is the version that now holds the body (the new one, or the one it repeated).
+*/
+function appendVersion(versions, version, limit = 30) {
+	const file = newestFileState(versions);
+	const last = versions[versions.length - 1];
+	const repeated = (version.by === "draft" ? [last, file] : [file]).find((item) => item?.hash === version.hash);
+	if (repeated) return {
+		versions: [...versions],
+		added: false,
+		holder: repeated
+	};
+	const next = [...versions, version];
+	if (next.length > limit) next.splice(0, next.length - limit);
+	return {
+		versions: next,
+		added: true,
+		holder: version
+	};
+}
+function blobKey(text, blobs) {
+	const base = `${stableHash(text)}.${text.length}`;
+	let key = base;
+	for (let n = 1; blobs[key] !== void 0 && blobs[key] !== text; n++) key = `${base}-${n}`;
+	return key;
+}
+function packBody(body, blobs) {
+	if (!Array.isArray(body.prompts)) return body;
+	return {
+		...body,
+		prompts: body.prompts.map((prompt) => {
+			if (!isDict$12(prompt) || typeof prompt.content !== "string" || prompt.content.length < 200) return prompt;
+			const key = blobKey(prompt.content, blobs);
+			blobs[key] = prompt.content;
+			return {
+				...prompt,
+				content: { $blob: key }
+			};
+		})
+	};
+}
+/** The file content: versions with long prompt texts moved to `blobs` (only blobs still referenced are kept). */
+function packVersionsDoc(name, versions) {
+	const blobs = {};
+	return {
+		schema: 1,
+		name,
+		versions: versions.map((version) => ({
+			...version,
+			body: packBody(version.body, blobs)
+		})),
+		blobs
+	};
+}
+function unpackBody(body, blobs) {
+	if (!Array.isArray(body.prompts)) return body;
+	let broken = false;
+	const prompts = body.prompts.map((prompt) => {
+		if (!isDict$12(prompt) || !isDict$12(prompt.content)) return prompt;
+		const key = prompt.content.$blob;
+		const text = typeof key === "string" ? blobs[key] : void 0;
+		if (text === void 0) broken = true;
+		return {
+			...prompt,
+			content: text ?? ""
+		};
+	});
+	return broken ? null : {
+		...body,
+		prompts
+	};
+}
+function readVersion(raw, blobs) {
+	if (!isDict$12(raw) || typeof raw.id !== "string" || !isDict$12(raw.body)) return null;
+	const body = unpackBody(raw.body, blobs);
+	if (!body) return null;
+	return {
+		id: raw.id,
+		at: typeof raw.at === "number" ? raw.at : 0,
+		by: typeof raw.by === "string" ? raw.by : "st",
+		summary: typeof raw.summary === "string" ? raw.summary : "",
+		hash: typeof raw.hash === "string" && raw.hash ? raw.hash : bodyHash(body),
+		body
+	};
+}
+/** Validates a stored file; versions that cannot be restored (missing blob, no body) are dropped. */
+function readVersionsDoc(raw) {
+	if (!isDict$12(raw) || raw.schema !== 1 || !Array.isArray(raw.versions)) return null;
+	const blobs = {};
+	if (isDict$12(raw.blobs)) {
+		for (const [key, value] of Object.entries(raw.blobs)) if (typeof value === "string") blobs[key] = value;
+	}
+	const versions = raw.versions.map((item) => readVersion(item, blobs)).filter((item) => item !== null);
+	return {
+		name: typeof raw.name === "string" ? raw.name : "",
+		versions
+	};
+}
+//#endregion
+//#region src/features/presetStudio/versions.ts
+var VERSIONS_KIND = "preset-versions";
+var PresetVersions = class {
+	files;
+	log;
+	now;
+	chains = /* @__PURE__ */ new Map();
+	/** name → hash of its newest file state (null = none; drafts do not count); filled by reads and writes. */
+	fileHash = /* @__PURE__ */ new Map();
+	salt = 0;
+	constructor(files, log, now = () => Date.now()) {
+		this.files = files;
+		this.log = log;
+		this.now = now;
+	}
+	fileName(name) {
+		return this.files.fileName(VERSIONS_KIND, name);
+	}
+	/** Hash of the newest file state if it is already known in this tab (undefined = not read yet). */
+	knownHash(name) {
+		return this.fileHash.get(name);
+	}
+	/** Hash of the newest file state (reads the file when this tab does not know it yet). */
+	async newestFileHash(name) {
+		const known = this.fileHash.get(name);
+		if (known !== void 0) return known;
+		return newestFileState(await this.load(name))?.hash ?? null;
+	}
+	/** Versions of a preset, newest first. */
+	async list(name) {
+		return [...await this.load(name)].reverse().map(publicVersion);
+	}
+	async get(name, id) {
+		return (await this.load(name)).find((version) => version.id === id) ?? null;
+	}
+	async newest(name) {
+		const versions = await this.load(name);
+		return versions[versions.length - 1] ?? null;
+	}
+	/**
+	* Appends versions in order in one write; a body that repeats the newest file state (or, for a draft, the
+	* newest version) is not added again. Returns, for each input, the version that now holds its body; null
+	* inputs are skipped and give null.
+	*/
+	record(name, inputs) {
+		return this.serial(name, async () => {
+			let versions = await this.load(name);
+			const result = [];
+			let changed = false;
+			for (const input of inputs) {
+				if (!input) {
+					result.push(null);
+					continue;
+				}
+				const version = makeVersion(input.body, {
+					at: this.now(),
+					by: input.by,
+					summary: input.summary,
+					salt: String(this.salt++)
+				});
+				const next = appendVersion(versions, version, 30);
+				versions = next.versions;
+				changed ||= next.added;
+				result.push(next.holder);
+			}
+			if (changed) await this.files.write(this.fileName(name), packVersionsDoc(name, versions));
+			this.fileHash.set(name, newestFileState(versions)?.hash ?? null);
+			return result;
+		});
+	}
+	/** Versions follow a rename (P-181); they merge with versions an earlier preset of the new name left. */
+	rename(oldName, newName) {
+		return this.serial(oldName, () => this.serial(newName, async () => {
+			const moving = await this.load(oldName);
+			if (!moving.length) return;
+			const merged = [...await this.load(newName), ...moving].sort((a, b) => a.at - b.at).slice(-30);
+			await this.files.write(this.fileName(newName), packVersionsDoc(newName, merged));
+			await this.files.remove(this.fileName(oldName));
+			this.fileHash.set(newName, newestFileState(merged)?.hash ?? null);
+			this.fileHash.set(oldName, null);
+		}));
+	}
+	async load(name) {
+		const doc = readVersionsDoc(await readFresh(this.files, this.fileName(name)));
+		if (doc && doc.name && doc.name !== name) {
+			this.log.warn(`versions file of "${name}" belongs to "${doc.name}"`);
+			return [];
+		}
+		const versions = doc?.versions ?? [];
+		this.fileHash.set(name, newestFileState(versions)?.hash ?? null);
+		return versions;
+	}
+	serial(name, job) {
+		const key = this.fileName(name);
+		const next = (this.chains.get(key) ?? Promise.resolve()).then(job, job);
+		const settled = next.catch(() => void 0);
+		this.chains.set(key, settled);
+		settled.then(() => {
+			if (this.chains.get(key) === settled) this.chains.delete(key);
+		});
+		return next;
+	}
+};
+function publicVersion(version) {
+	return {
+		id: version.id,
+		at: version.at,
+		by: version.by,
+		summary: version.summary,
+		body: JSON.parse(JSON.stringify(version.body))
+	};
+}
+//#endregion
+//#region src/features/presetStudio/store.ts
+/** Key under which the layer module exposes PresetLayerApi (layer-api.ts). */
+var PRESET_LAYER_KEY$1 = "presetLayer";
+var PROMPT_TARGET = "preset-prompt";
+var KEYS_TARGET = "preset-keys";
+var FILE_TARGET = "preset-file";
+var MODULE_ID = "M34";
+var SIGNATURE_DELAY_MS = 250;
+var DETECT_DELAY_MS = 1500;
+var ACK_DELAY_MS = 1500;
+var PRESET_STORE_STRINGS = {
+	en: {
+		"m34.store.sensitive.title": "The preset contains proxy or custom endpoint settings",
+		"m34.store.sensitive.remove": "Remove them",
+		"m34.store.sensitive.keep": "Import as is",
+		"m34.store.sensitive.cancel": "Cancel import",
+		"m34.store.import.overwriteTitle": "Overwrite the preset?",
+		"m34.store.import.overwriteBody": "A preset named «{name}» already exists. Overwrite it with the file?",
+		"m34.store.rename.profilesTitle": "Connection profiles use this preset",
+		"m34.store.rename.profilesBody": "These connection profiles select the preset «{from}»: {profiles}. Point them to «{to}»?",
+		"m34.store.rename.profilesKept": "Connection profiles still select «{from}»: {profiles}.",
+		"m34.store.rename.oldFileKept": "The old preset file «{name}» could not be deleted.",
+		"m34.store.remove.failed": "The preset «{name}» was not deleted from the server.",
+		"m34.store.remove.profiles": "Connection profiles select the deleted preset «{name}»: {profiles}. Fix them in the Connection Manager.",
+		"m34.store.remove.regex": "Regex scripts of «{name}» were allowed; ST dropped that permission with the preset.",
+		"m34.store.version.save": "Saved in the studio",
+		"m34.store.version.saveAs": "Saved as a copy of «{from}»",
+		"m34.store.version.import": "Imported from a file",
+		"m34.store.version.restored": "Rolled back to the version of {date}",
+		"m34.store.version.outside": "Saved outside Maestro",
+		"m34.store.version.first": "First snapshot",
+		"m34.store.version.draft": "Unsaved edits before the preset was switched",
+		"m34.store.version.undo": "Undone from the journal",
+		"m34.store.journal.prompt": "Preset block «{name}» changed",
+		"m34.store.journal.promptAdd": "Preset block «{name}» added",
+		"m34.store.journal.promptRemove": "Preset block «{name}» deleted",
+		"m34.store.journal.detach": "Preset block «{name}» taken out of the order",
+		"m34.store.journal.toggle": "Preset blocks switched: {count}",
+		"m34.store.journal.reorder": "Preset block order changed",
+		"m34.store.journal.keys": "Preset settings changed: {keys}",
+		"m34.store.journal.save": "Preset «{name}» saved",
+		"m34.store.journal.saveAs": "Preset saved as «{name}»",
+		"m34.store.journal.import": "Preset «{name}» imported",
+		"m34.store.journal.restore": "Preset «{name}» rolled back to a version",
+		"m34.store.journal.rename": "Preset «{from}» renamed to «{to}»",
+		"m34.store.journal.remove": "Preset «{name}» deleted"
+	},
+	ru: {
+		"m34.store.sensitive.title": "В пресете есть настройки прокси или своего адреса",
+		"m34.store.sensitive.remove": "Убрать их",
+		"m34.store.sensitive.keep": "Импортировать как есть",
+		"m34.store.sensitive.cancel": "Отменить импорт",
+		"m34.store.import.overwriteTitle": "Перезаписать пресет?",
+		"m34.store.import.overwriteBody": "Пресет «{name}» уже есть. Заменить его содержимым файла?",
+		"m34.store.rename.profilesTitle": "Профили подключения ссылаются на этот пресет",
+		"m34.store.rename.profilesBody": "Эти профили подключения выбирают пресет «{from}»: {profiles}. Переключить их на «{to}»?",
+		"m34.store.rename.profilesKept": "Профили подключения по-прежнему выбирают «{from}»: {profiles}.",
+		"m34.store.rename.oldFileKept": "Не удалось удалить старый файл пресета «{name}».",
+		"m34.store.remove.failed": "Пресет «{name}» не удалён с сервера.",
+		"m34.store.remove.profiles": "Удалённый пресет «{name}» выбирают профили подключения: {profiles}. Поправь их в менеджере подключений.",
+		"m34.store.remove.regex": "Регексы пресета «{name}» были разрешены; ST снял это разрешение вместе с пресетом.",
+		"m34.store.version.save": "Сохранено в студии",
+		"m34.store.version.saveAs": "Сохранено как копия «{from}»",
+		"m34.store.version.import": "Импортировано из файла",
+		"m34.store.version.restored": "Откат к версии от {date}",
+		"m34.store.version.outside": "Сохранено вне Maestro",
+		"m34.store.version.first": "Первый снимок",
+		"m34.store.version.draft": "Несохранённые правки перед сменой пресета",
+		"m34.store.version.undo": "Отменено из журнала",
+		"m34.store.journal.prompt": "Изменён блок пресета «{name}»",
+		"m34.store.journal.promptAdd": "Добавлен блок пресета «{name}»",
+		"m34.store.journal.promptRemove": "Удалён блок пресета «{name}»",
+		"m34.store.journal.detach": "Блок пресета «{name}» убран из порядка",
+		"m34.store.journal.toggle": "Переключены блоки пресета: {count}",
+		"m34.store.journal.reorder": "Изменён порядок блоков пресета",
+		"m34.store.journal.keys": "Изменены параметры пресета: {keys}",
+		"m34.store.journal.save": "Сохранён пресет «{name}»",
+		"m34.store.journal.saveAs": "Пресет сохранён как «{name}»",
+		"m34.store.journal.import": "Импортирован пресет «{name}»",
+		"m34.store.journal.restore": "Пресет «{name}» откачен к версии",
+		"m34.store.journal.rename": "Пресет «{from}» переименован в «{to}»",
+		"m34.store.journal.remove": "Удалён пресет «{name}»"
+	}
+};
+function isDict$11(value) {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function str$4(value) {
+	return typeof value === "string" ? value : "";
+}
+function versionRef(version) {
+	return version ? {
+		version: version.id,
+		hash: version.hash
+	} : null;
+}
+var PresetStoreService = class {
+	app;
+	log;
+	st;
+	history;
+	t;
+	listeners = /* @__PURE__ */ new Set();
+	chain = Promise.resolve();
+	background = /* @__PURE__ */ new Set();
+	/** Store file operations in progress (outside-save detection and ST-event echoes are skipped meanwhile). */
+	ownOps = 0;
+	/** Preset switches of the store's own that must not snap a draft (save as, delete, restore of a clean copy). */
+	quietSwitch = 0;
+	signature = null;
+	timers = /* @__PURE__ */ new Map();
+	/** Sensitive values of presets deleted in this session, by version id (versions never store them). */
+	removedSecrets = /* @__PURE__ */ new Map();
+	disposed = false;
+	constructor(app, log) {
+		this.app = app;
+		this.log = log;
+		this.t = (key, params) => app.i18n.t(key, params);
+		this.st = new StPreset(app, log, this.t);
+		this.history = new PresetVersions(app.files, log.scope("versions"));
+	}
+	/** Registers strings, undo handlers and ST listeners; the shell owns the returned disposers. */
+	install() {
+		this.disposed = false;
+		this.app.i18n.register(PRESET_STORE_STRINGS);
+		this.app.journal.registerUndo(PROMPT_TARGET, (change) => this.undoPrompt(change));
+		this.app.journal.registerUndo(KEYS_TARGET, (change) => this.undoKeys(change));
+		this.app.journal.registerUndo(FILE_TARGET, (change) => this.undoFile(change));
+		const on = (event, handler) => this.app.host.events.on(event, handler);
+		const disposers = [
+			on("SETTINGS_UPDATED", () => this.later("signature", SIGNATURE_DELAY_MS, () => this.onSettingsUpdated())),
+			on("OAI_PRESET_CHANGED_BEFORE", (data) => this.onPresetBefore(data)),
+			on("OAI_PRESET_CHANGED_AFTER", () => this.onPresetAfter()),
+			on("PRESET_RENAMED", (data) => this.onPresetRenamed(data)),
+			on("PRESET_DELETED", (data) => this.onPresetDeleted(data)),
+			() => this.dispose()
+		];
+		this.track(this.st.ensure().then(() => {
+			if (this.disposed) return;
+			this.signature = this.computeSignature();
+			this.scheduleDetect();
+		}));
+		return disposers;
+	}
+	/** ST modules loaded (sync readers answer from what is loaded; writers wait for it themselves). */
+	ready() {
+		return this.st.ensure();
+	}
+	/** Resolves when queued writes and background version writes have settled (tests, «Подготовить к отключению»). */
+	async whenIdle() {
+		for (let round = 0; round < 10; round++) {
+			await this.chain.catch(() => void 0);
+			const pending = [...this.background];
+			if (!pending.length) return;
+			await Promise.allSettled(pending);
+		}
+	}
+	dispose() {
+		this.disposed = true;
+		for (const timer of this.timers.values()) clearTimeout(timer);
+		this.timers.clear();
+		this.listeners.clear();
+	}
+	names() {
+		const cache = this.st.cache();
+		const options = this.st.optionNames();
+		if (options) return cache ? options.filter((name) => Object.hasOwn(cache.names, name)) : options;
+		if (!cache) return [];
+		return Object.entries(cache.names).sort((a, b) => a[1] - b[1]).map(([name]) => name);
+	}
+	current() {
+		return str$4(this.st.oai()?.preset_settings_openai);
+	}
+	working() {
+		const oai = this.st.oai();
+		if (!oai) return {};
+		return jsonClean(this.st.presetOf(oai) ?? bodyFromSettings(oai, this.st.keyTable()));
+	}
+	saved(name) {
+		const body = this.savedRaw(name);
+		return body ? jsonClean(body) : null;
+	}
+	draft() {
+		const name = this.current();
+		const saved = this.savedRaw(name);
+		if (!saved) return {
+			dirty: false,
+			changedPrompts: [],
+			changedKeys: []
+		};
+		return diffDraft(this.working(), this.expectedWorking(name, saved), Object.keys(this.st.keyTable()));
+	}
+	prompts() {
+		const oai = this.st.oai();
+		if (!oai) return [];
+		const model = this.model(oai);
+		return readOrder(model.order()).map((item) => {
+			const prompt = model.get(item.identifier);
+			return {
+				item,
+				prompt: prompt ? jsonClean(prompt) : null
+			};
+		});
+	}
+	onChange(listener) {
+		this.listeners.add(listener);
+		return () => this.listeners.delete(listener);
+	}
+	async updatePrompt(identifier, patch) {
+		await this.st.ensure();
+		await this.serial(async () => {
+			const model = this.model();
+			const prompt = model.get(identifier);
+			if (!prompt) throw new PresetStoreError("not-found", `no prompt ${identifier}`);
+			const before = jsonClean(prompt);
+			replaceContents(prompt, applyPromptPatch(prompt, patch));
+			const after = jsonClean(prompt);
+			if (valueHash(before) === valueHash(after)) return;
+			model.quickEdit(identifier);
+			this.persist(model);
+			await this.record("presetStudio.prompt", this.t("m34.store.journal.prompt", { name: promptName(after) }), [this.promptChange(identifier, before, after)]);
+			this.changed("prompts");
+		});
+	}
+	async addPrompt(prompt, after) {
+		await this.st.ensure();
+		return this.serial(async () => {
+			const model = this.model();
+			const source = prompt;
+			const identifier = str$4(source.identifier).trim() || this.newIdentifier();
+			if (model.get(identifier)) throw new PresetStoreError("exists", `prompt ${identifier} exists`);
+			const clean = normalizePrompt({
+				...source,
+				identifier
+			});
+			delete clean.identifier;
+			delete clean.enabled;
+			const enabled = after === void 0 ? source.enabled === true : source.enabled !== false;
+			const orderBefore = readOrder(model.order());
+			model.add(clean, identifier);
+			model.insert(identifier, enabled, insertIndex(orderBefore, after));
+			const added = jsonClean(model.get(identifier) ?? {
+				identifier,
+				...clean
+			});
+			this.persist(model);
+			await this.record("presetStudio.promptAdd", this.t("m34.store.journal.promptAdd", { name: promptName(added) }), [this.promptChange(identifier, null, added), this.orderChange(orderBefore, readOrder(model.order()))]);
+			this.changed("prompts");
+			return identifier;
+		});
+	}
+	async removePrompt(identifier) {
+		await this.st.ensure();
+		await this.serial(async () => {
+			const model = this.model();
+			const prompt = model.get(identifier);
+			if (!prompt) throw new PresetStoreError("not-found", `no prompt ${identifier}`);
+			if (isProtectedPrompt(prompt)) throw new PresetStoreError("protected", `${identifier} is a built-in block`);
+			const before = jsonClean(prompt);
+			const orderBefore = readOrder(model.order());
+			model.detach(identifier);
+			const index = model.remove(identifier);
+			this.persist(model);
+			await this.record("presetStudio.promptRemove", this.t("m34.store.journal.promptRemove", { name: promptName(before) }), [this.promptChange(identifier, before, null, index), this.orderChange(orderBefore, readOrder(model.order()))]);
+			this.changed("prompts");
+		});
+	}
+	/** PM's «Remove» (broken chain, P-026): the block leaves the active order and stays in the preset. */
+	async detachPrompt(identifier) {
+		await this.st.ensure();
+		await this.serial(async () => {
+			const model = this.model();
+			const prompt = model.get(identifier);
+			if (!prompt) throw new PresetStoreError("not-found", `no prompt ${identifier}`);
+			if (isProtectedPrompt(prompt)) throw new PresetStoreError("protected", `${identifier} is a built-in block`);
+			const before = readOrder(model.order());
+			if (model.detach(identifier) < 0) return;
+			this.persist(model);
+			await this.record("presetStudio.detach", this.t("m34.store.journal.detach", { name: promptName(prompt) }), [this.orderChange(before, readOrder(model.order()))]);
+			this.changed("prompts");
+		});
+	}
+	async setEnabled(identifiers, enabled) {
+		await this.st.ensure();
+		await this.serial(async () => {
+			const model = this.model();
+			const before = readOrder(model.order());
+			let count = 0;
+			for (const identifier of new Set(identifiers)) {
+				const entry = model.entry(identifier);
+				if (entry) {
+					if (entry.enabled === enabled) continue;
+					entry.enabled = enabled;
+				} else {
+					if (!model.get(identifier)) continue;
+					model.insert(identifier, enabled, 0);
+				}
+				model.forgetCount(identifier);
+				count++;
+			}
+			if (!count) return;
+			this.persist(model);
+			await this.record("presetStudio.toggle", this.t("m34.store.journal.toggle", { count }), [this.orderChange(before, readOrder(model.order()))]);
+			this.changed("prompts");
+		});
+	}
+	async reorder(identifiers) {
+		await this.st.ensure();
+		await this.serial(async () => {
+			const model = this.model();
+			const before = readOrder(model.order());
+			const next = reorderEntries(before, identifiers);
+			if (next.map((entry) => entry.identifier).join("\n") === before.map((entry) => entry.identifier).join("\n")) return;
+			model.setOrder(next);
+			this.persist(model);
+			await this.record("presetStudio.reorder", this.t("m34.store.journal.reorder"), [this.orderChange(before, readOrder(model.order()))]);
+			this.changed("prompts");
+		});
+	}
+	async setKeys(patch) {
+		await this.st.ensure();
+		await this.serial(async () => {
+			const changes = this.applyKeys(patch);
+			if (!changes) return;
+			await this.record("presetStudio.keys", this.t("m34.store.journal.keys", { keys: changes.keys.join(", ") }), [{
+				target: KEYS_TARGET,
+				ref: {
+					preset: this.current(),
+					keys: changes.keys,
+					absent: changes.absent
+				},
+				before: changes.before,
+				after: changes.after
+			}]);
+			this.changed("keys");
+		});
+	}
+	/**
+	* Writes body keys into the working copy the way ST applies a preset (OAI:5046-5075): the control gets the
+	* value and its `input` handler runs, then `oai_settings[settingKey]` is set; connection keys refresh the source
+	* and provider lists; settings are saved. Returns what changed (null = nothing). `undefined` removes a key.
+	*/
+	applyKeys(patch, allowRemove = false) {
+		const oai = this.requireOai();
+		const table = this.st.keyTable();
+		for (const key of Object.keys(patch)) {
+			if (PROMPT_KEYS.includes(key)) throw new PresetStoreError("invalid", `${key} is edited through the prompt methods`);
+			if (!table[key]) throw new PresetStoreError("invalid", `unknown preset key ${key}`);
+		}
+		const keys = [];
+		const absent = [];
+		const before = {};
+		const after = {};
+		let connection = false;
+		for (const [key, value] of Object.entries(patch)) {
+			const spec = table[key];
+			if (!spec || value === void 0 && !allowRemove) continue;
+			const setting = spec[1];
+			const current = oai[setting];
+			const next = key === "extensions" ? jsonClean(value ?? {}) : normalizeKeyValue(value, current, spec[2]);
+			if (valueHash(current ?? null) === valueHash(next ?? null) && current === void 0 === (next === void 0)) continue;
+			if (next !== void 0 && hasControl(spec)) this.st.setControl(spec[0], next, spec[2]);
+			if (next === void 0) delete oai[setting];
+			else oai[setting] = next;
+			keys.push(key);
+			if (current === void 0) absent.push(key);
+			else before[key] = jsonClean(current);
+			if (next !== void 0) after[key] = jsonClean(next);
+			connection ||= spec[3];
+		}
+		if (!keys.length) return null;
+		if (connection) for (const selector of CONNECTION_REFRESH_SELECTORS) this.st.trigger(selector, "change");
+		if (keys.includes("bias_preset_selected")) this.st.trigger("#openai_logit_bias_preset", "change");
+		this.app.host.ctx().saveSettingsDebounced();
+		this.later("ack", ACK_DELAY_MS, () => void this.acknowledge());
+		return {
+			keys,
+			absent,
+			before,
+			after
+		};
+	}
+	async save(name, summary, by = "user") {
+		await this.st.ensure();
+		await this.serial(async () => {
+			await this.saveWorking(name ?? this.current(), {
+				op: "save",
+				by,
+				summary: summary ?? this.t("m34.store.version.save")
+			});
+		});
+	}
+	async saveAs(name) {
+		await this.st.ensure();
+		return this.serial(async () => {
+			const typed = name.trim();
+			const wanted = typed ? await this.st.sanitizeName(typed) : "";
+			if (!wanted) throw new PresetStoreError("invalid", "empty preset name");
+			const clash = collidingName(this.names(), wanted);
+			if (clash && clash !== wanted) throw new PresetStoreError("exists", `«${clash}» differs only by case`);
+			const source = this.current();
+			const saved = await this.saveWorking(wanted, {
+				op: "saveAs",
+				by: "user",
+				summary: this.t("m34.store.version.saveAs", { from: source }),
+				previous: source
+			});
+			if (saved !== source) await this.switchTo(saved, true);
+			return saved;
+		});
+	}
+	async rename(oldName, newName) {
+		await this.st.ensure();
+		await this.serial(async () => {
+			await this.renameFile(oldName, newName, {
+				ask: true,
+				journal: true
+			});
+		});
+	}
+	async remove(name) {
+		await this.st.ensure();
+		await this.serial(async () => {
+			await this.removeFile(name, { journal: true });
+		});
+	}
+	async select(name) {
+		await this.st.ensure();
+		await this.serial(() => this.switchTo(name, false));
+	}
+	async importFile(file) {
+		await this.st.ensure();
+		return this.serial(async () => {
+			const cache = this.requireCache();
+			const name = file.name.replace(/\.[^/.]+$/, "");
+			let body;
+			try {
+				body = JSON.parse(await file.text());
+			} catch {
+				throw new PresetStoreError("invalid", "the file is not JSON");
+			}
+			if (!isDict$11(body) || !name) throw new PresetStoreError("invalid", "the file is not a preset");
+			const sensitive = presentSensitiveKeys(body);
+			if (sensitive.length) {
+				const choice = await this.st.chooseSensitive(sensitive);
+				if (choice === "cancel") throw new PresetStoreError("cancelled", "import cancelled");
+				if (choice === "remove") for (const key of SENSITIVE_PRESET_KEYS) delete body[key];
+			}
+			if (Object.hasOwn(cache.names, name)) {
+				if (!await this.app.ui.confirm(this.t("m34.store.import.overwriteTitle"), this.t("m34.store.import.overwriteBody", { name }))) throw new PresetStoreError("cancelled", "import cancelled");
+			}
+			if (Array.isArray(body.prompts)) body.prompts = body.prompts.map((prompt) => isDict$11(prompt) ? normalizePrompt(prompt) : prompt);
+			await this.st.emit("OAI_PRESET_IMPORT_READY", {
+				data: body,
+				presetName: name
+			});
+			const previous = this.current();
+			const saved = await this.writeBody(name, body, {
+				op: "import",
+				by: "import",
+				summary: this.t("m34.store.version.import"),
+				previous
+			});
+			await this.switchTo(saved, false);
+			return saved;
+		});
+	}
+	async exportPreset(name, options = {}) {
+		await this.st.ensure();
+		const body = this.saved(name);
+		if (!body) throw new PresetStoreError("not-found", `no preset ${name}`);
+		let preset = body;
+		if (!options.withSensitive) preset = withoutKeys(preset, SENSITIVE_PRESET_KEYS);
+		if (!(options.withConnection ?? options.withSensitive === true)) preset = withoutKeys(preset, Object.entries(this.st.keyTable()).filter(([, spec]) => spec[3]).map(([key]) => key));
+		await this.st.emit("OAI_PRESET_EXPORT_READY", preset);
+		await this.st.download(JSON.stringify(preset, null, 4), `${name}.json`);
+	}
+	async versions(name) {
+		return this.history.list(name);
+	}
+	async restoreVersion(name, versionId) {
+		await this.st.ensure();
+		await this.serial(async () => {
+			const version = await this.history.get(name, versionId);
+			if (!version) throw new PresetStoreError("not-found", `no version ${versionId} of ${name}`);
+			const dirty = this.current() === name && this.draft().dirty;
+			const body = withSecretsOf(version.body, this.savedRaw(name) ?? this.removedSecrets.get(versionId));
+			const date = new Date(version.at).toLocaleString(this.app.i18n.locale());
+			const saved = await this.writeBody(name, body, {
+				op: "restore",
+				by: "user",
+				summary: this.t("m34.store.version.restored", { date })
+			});
+			if (saved === this.current()) await this.switchTo(saved, !dirty);
+		});
+	}
+	/** The working copy into `target`: the user's layer stripped when it is the current preset (§10.4 в 1). */
+	async saveWorking(target, meta) {
+		if (!target) throw new PresetStoreError("invalid", "no preset name");
+		this.requireCache();
+		const source = this.current();
+		let body = this.working();
+		if (target === source) body = this.baseOf(source, body);
+		return this.writeBody(target, mergeBodies(this.savedRaw(source), body), meta);
+	}
+	/**
+	* Writes a file with an explicit body and keeps ST in step: cache entry replaced (or appended with a new
+	* <option>), versions before/after, journal, M4 acknowledge. Returns the name the server used.
+	*/
+	async writeBody(name, body, meta) {
+		this.requireCache();
+		await this.assertIdle();
+		this.ownOps++;
+		try {
+			const previous = this.savedRaw(name);
+			const before = previous ? jsonClean(previous) : null;
+			const known = before ? await this.history.newestFileHash(name).catch(() => null) : null;
+			const savedName = await this.st.savePresetFile(name, body);
+			const existed = this.cacheWrite(savedName, body);
+			const [versionBefore, versionAfter] = await this.recordVersions(savedName, [before ? {
+				by: "st",
+				summary: this.t(known === null ? "m34.store.version.first" : "m34.store.version.outside"),
+				body: before
+			} : null, {
+				by: meta.by,
+				summary: meta.summary,
+				body
+			}]);
+			if (meta.journal !== false) {
+				const kind = meta.op === "saveAs" || meta.op === "import" || meta.op === "restore" ? meta.op : "save";
+				await this.record(`presetStudio.${kind}`, this.t(`m34.store.journal.${kind}`, { name: savedName }), [{
+					target: FILE_TARGET,
+					ref: {
+						op: meta.op,
+						name: savedName,
+						created: !existed,
+						previous: meta.previous ?? null
+					},
+					before: versionRef(versionBefore),
+					after: versionRef(versionAfter) ?? { hash: bodyHash(body) }
+				}]);
+			}
+			await this.acknowledge();
+			this.changed(existed ? "preset" : "list");
+			return savedName;
+		} finally {
+			this.ownOps--;
+		}
+	}
+	async renameFile(oldName, newName, options) {
+		const cache = this.requireCache();
+		const body = this.savedRaw(oldName);
+		if (!body || !Object.hasOwn(cache.names, oldName)) throw new PresetStoreError("not-found", `no preset ${oldName}`);
+		const typed = newName.trim();
+		const wanted = typed ? await this.st.sanitizeName(typed) : "";
+		if (!wanted) throw new PresetStoreError("invalid", "empty preset name");
+		if (sameNameLoosely(oldName, wanted)) throw new PresetStoreError("invalid", "the same name");
+		if (collidingName(this.names(), wanted, oldName)) throw new PresetStoreError("exists", `«${wanted}» exists`);
+		await this.assertIdle();
+		const ext = this.app.host.ctx().extensionSettings;
+		const using = profilesUsing(ext, oldName).map(profileRef);
+		let move = options.profileIds ? [...options.profileIds] : [];
+		if (!options.profileIds && using.length && options.ask) {
+			if (await this.app.ui.confirm(this.t("m34.store.rename.profilesTitle"), this.t("m34.store.rename.profilesBody", {
+				from: oldName,
+				to: wanted,
+				profiles: using.map((profile) => `«${profile.name}»`).join(", ")
+			}))) move = using.map((profile) => profile.id);
+		}
+		this.ownOps++;
+		try {
+			const savedName = await this.st.savePresetFile(wanted, jsonClean(body));
+			await this.st.emit("PRESET_RENAMED_BEFORE", {
+				apiId: "openai",
+				oldName,
+				newName: savedName
+			});
+			if (moveRegexPermission(ext, oldName, savedName)) this.st.moveRegexAlert(oldName, savedName);
+			const index = cache.names[oldName];
+			delete cache.names[oldName];
+			cache.names[savedName] = index;
+			this.st.renameOption(index, savedName);
+			const oai = this.st.oai();
+			const wasCurrent = str$4(oai?.preset_settings_openai) === oldName;
+			if (oai && wasCurrent) oai.preset_settings_openai = savedName;
+			const moved = repointProfiles(ext, move, oldName, savedName);
+			this.app.host.ctx().saveSettingsDebounced();
+			if (await this.st.deletePresetFile(oldName) === "failed") this.app.ui.notice(this.t("m34.store.rename.oldFileKept", { name: oldName }), { level: "warn" });
+			await this.history.rename(oldName, savedName).catch((error) => {
+				this.log.warn("versions did not follow the rename", error);
+			});
+			await this.st.emit("PRESET_RENAMED", {
+				apiId: "openai",
+				oldName,
+				newName: savedName
+			});
+			if (wasCurrent) await this.st.emit("PRESET_CHANGED", {
+				apiId: "openai",
+				name: savedName
+			});
+			const kept = using.filter((profile) => !moved.includes(profile.id));
+			if (kept.length && !options.profileIds) this.app.ui.notice(this.t("m34.store.rename.profilesKept", {
+				from: oldName,
+				profiles: kept.map((profile) => `«${profile.name}»`).join(", ")
+			}), { level: "warn" });
+			if (options.journal) await this.record("presetStudio.rename", this.t("m34.store.journal.rename", {
+				from: oldName,
+				to: savedName
+			}), [{
+				target: FILE_TARGET,
+				ref: {
+					op: "rename",
+					oldName,
+					newName: savedName,
+					profiles: moved
+				},
+				before: { name: oldName },
+				after: { name: savedName }
+			}]);
+			await this.acknowledge();
+			this.changed("list");
+			return savedName;
+		} finally {
+			this.ownOps--;
+		}
+	}
+	async removeFile(name, options) {
+		const cache = this.requireCache();
+		const body = this.savedRaw(name);
+		if (!body || !Object.hasOwn(cache.names, name)) throw new PresetStoreError("not-found", `no preset ${name}`);
+		await this.assertIdle();
+		const ext = this.app.host.ctx().extensionSettings;
+		const regexAllowed = isRegexAllowed(ext, name);
+		const profiles = profilesUsing(ext, name).map(profileRef);
+		this.ownOps++;
+		try {
+			const [version] = await this.recordVersions(name, [{
+				by: "st",
+				summary: this.t("m34.store.version.outside"),
+				body: jsonClean(body)
+			}]);
+			const secrets = pickKeys(body, SENSITIVE_PRESET_KEYS);
+			if (version && Object.keys(secrets).length) this.removedSecrets.set(version.id, secrets);
+			const index = cache.names[name];
+			this.st.removeOption(index);
+			delete cache.names[name];
+			const oai = this.st.oai();
+			if (oai && str$4(oai.preset_settings_openai) === name) {
+				oai.preset_settings_openai = null;
+				const next = options.next && Object.hasOwn(cache.names, options.next) ? options.next : Object.keys(cache.names)[0];
+				if (next !== void 0) await this.switchTo(next, true);
+			}
+			if (await this.st.deletePresetFile(name) === "failed") this.app.ui.notice(this.t("m34.store.remove.failed", { name }), { level: "warn" });
+			else await this.st.emit("PRESET_DELETED", {
+				apiId: "openai",
+				name
+			});
+			this.app.host.ctx().saveSettingsDebounced();
+			if (profiles.length) this.app.ui.notice(this.t("m34.store.remove.profiles", {
+				name,
+				profiles: profiles.map((profile) => `«${profile.name}»`).join(", ")
+			}), { level: "warn" });
+			if (regexAllowed) this.app.ui.notice(this.t("m34.store.remove.regex", { name }), { level: "info" });
+			if (options.journal) await this.record("presetStudio.remove", this.t("m34.store.journal.remove", { name }), [{
+				target: FILE_TARGET,
+				ref: {
+					op: "remove",
+					name,
+					regexAllowed,
+					profiles: profiles.map((profile) => profile.id)
+				},
+				before: versionRef(version),
+				after: null
+			}]);
+			await this.acknowledge();
+			this.changed("list");
+		} finally {
+			this.ownOps--;
+		}
+	}
+	/** Selects a preset through ST's own `change` (P-060/P-198); `quiet` skips the draft snapshot of the store. */
+	async switchTo(name, quiet) {
+		const cache = this.st.cache();
+		const value = this.st.optionValue(name) ?? (cache && Object.hasOwn(cache.names, name) ? String(cache.names[name]) : null);
+		if (value === null) throw new PresetStoreError("not-found", `no preset ${name}`);
+		if (quiet) this.quietSwitch++;
+		try {
+			await this.st.selectPreset(value);
+		} finally {
+			if (quiet) this.quietSwitch--;
+		}
+	}
+	/** Replaces (or appends) ST's cached body; true when the name existed (P-075, §10.4 в 4). */
+	cacheWrite(name, body) {
+		const cache = this.requireCache();
+		const copy = jsonClean(body);
+		if (Object.hasOwn(cache.names, name)) {
+			const index = cache.names[name];
+			const entry = cache.list[index];
+			if (isDict$11(entry)) replaceContents(entry, copy);
+			else cache.list[index] = copy;
+			return true;
+		}
+		cache.list.push(copy);
+		const index = cache.list.length - 1;
+		cache.names[name] = index;
+		this.st.addOption(index, name);
+		return false;
+	}
+	/** Snaps the unsaved edits of the preset being left (P-073); synchronous and cheap (P-178). */
+	onPresetBefore(data) {
+		if (this.quietSwitch > 0 || !isDict$11(data)) return;
+		const name = str$4(data.presetNameBefore);
+		const settings = data.settings;
+		if (!name || !isDict$11(settings)) return;
+		try {
+			const saved = this.savedRaw(name);
+			if (!saved) return;
+			const working = jsonClean(this.st.presetOf(settings) ?? bodyFromSettings(settings, this.st.keyTable()));
+			const keys = Object.keys(this.st.keyTable());
+			if (!diffDraft(working, this.expectedWorking(name, saved), keys).dirty) return;
+			const body = mergeBodies(saved, this.baseOf(name, working));
+			this.track(this.history.record(name, [{
+				by: "draft",
+				summary: this.t("m34.store.version.draft"),
+				body
+			}]));
+		} catch (error) {
+			this.log.warn("draft snapshot failed", error);
+		}
+	}
+	onPresetAfter() {
+		if (this.disposed) return;
+		this.signature = this.computeSignature();
+		this.notify("preset");
+		this.scheduleDetect();
+	}
+	onSettingsUpdated() {
+		if (this.disposed) return;
+		const next = this.computeSignature();
+		const previous = this.signature;
+		this.signature = next;
+		if (previous) {
+			if (previous.preset !== next.preset) this.notify("preset");
+			else {
+				if (previous.prompts !== next.prompts) this.notify("prompts");
+				if (previous.keys !== next.keys) this.notify("keys");
+			}
+		}
+		this.scheduleDetect();
+	}
+	/** ST's own rename (PRM:1048-1083): versions follow (P-181). */
+	onPresetRenamed(data) {
+		if (this.ownOps > 0 || !isDict$11(data) || data.apiId !== "openai") return;
+		const oldName = str$4(data.oldName);
+		const newName = str$4(data.newName);
+		if (!oldName || !newName) return;
+		this.track(this.history.rename(oldName, newName));
+		this.notify("list");
+	}
+	onPresetDeleted(data) {
+		if (this.ownOps > 0 || !isDict$11(data) || data.apiId !== "openai") return;
+		this.notify("list");
+	}
+	scheduleDetect() {
+		this.later("detect", DETECT_DELAY_MS, () => this.track(this.checkOutsideSave()));
+	}
+	/**
+	* A cached body of the current preset that is not its newest file version was saved outside Maestro (ST's
+	* «update preset», writePresetExtensionField, /regex-toggle, P-152/P-157) or is seen for the first time: it
+	* becomes a version by 'st'. Runs after OAI_PRESET_CHANGED_AFTER and SETTINGS_UPDATED (debounced).
+	*/
+	async checkOutsideSave() {
+		if (this.ownOps > 0 || this.disposed) return;
+		const name = this.current();
+		const cached = this.savedRaw(name);
+		if (!name || !cached) return;
+		const hash = bodyHash(cached);
+		if (this.history.knownHash(name) === hash) return;
+		const known = await this.history.newestFileHash(name);
+		if (known === hash || this.ownOps > 0) return;
+		await this.history.record(name, [{
+			by: "st",
+			summary: this.t(known === null ? "m34.store.version.first" : "m34.store.version.outside"),
+			body: jsonClean(cached)
+		}]);
+	}
+	async undoPrompt(change) {
+		await this.st.ensure();
+		if (str$4(change.ref.preset) !== this.current()) return false;
+		return this.serial(async () => {
+			const model = this.model();
+			if (change.ref.part === "order") {
+				if (!looseEqual(readOrder(model.order()), readOrder(change.after))) return false;
+				model.setOrder(readOrder(change.before));
+			} else {
+				const identifier = str$4(change.ref.identifier);
+				const live = model.get(identifier);
+				if (change.after === null) {
+					if (live || !isDict$11(change.before)) return false;
+					const index = typeof change.ref.index === "number" ? change.ref.index : model.list().length;
+					model.restore(jsonClean(change.before), index);
+				} else {
+					if (!live || !isDict$11(change.after) || !promptsEqual(live, change.after)) return false;
+					if (change.before === null) model.remove(identifier);
+					else if (isDict$11(change.before)) replaceContents(live, jsonClean(change.before));
+					else return false;
+				}
+				model.quickEdit(identifier);
+			}
+			this.persist(model);
+			this.changed("prompts");
+			return true;
+		});
+	}
+	async undoKeys(change) {
+		await this.st.ensure();
+		if (str$4(change.ref.preset) !== this.current() || !isDict$11(change.before) || !isDict$11(change.after)) return false;
+		const keys = Array.isArray(change.ref.keys) ? change.ref.keys.map(String) : [];
+		const absent = Array.isArray(change.ref.absent) ? change.ref.absent.map(String) : [];
+		const before = change.before;
+		const after = change.after;
+		return this.serial(async () => {
+			if (!looseEqual(pickKeys(this.working(), keys), after)) return false;
+			const patch = {};
+			for (const key of keys) patch[key] = absent.includes(key) ? void 0 : before[key];
+			this.applyKeys(patch, true);
+			this.changed("keys");
+			return true;
+		});
+	}
+	async undoFile(change) {
+		await this.st.ensure();
+		const ref = change.ref;
+		return this.serial(async () => {
+			const op = str$4(ref.op);
+			if (op === "rename") {
+				const oldName = str$4(ref.oldName);
+				const newName = str$4(ref.newName);
+				if (!this.savedRaw(newName) || this.savedRaw(oldName)) return false;
+				const profiles = Array.isArray(ref.profiles) ? ref.profiles.map(String) : [];
+				await this.renameFile(newName, oldName, {
+					ask: false,
+					journal: false,
+					profileIds: profiles
+				});
+				return true;
+			}
+			if (op === "remove") {
+				const name = str$4(ref.name);
+				const versionId = isDict$11(change.before) ? str$4(change.before.version) : "";
+				if (!name || !versionId || this.savedRaw(name)) return false;
+				const version = await this.history.get(name, versionId);
+				if (!version) return false;
+				await this.writeBody(name, withSecretsOf(version.body, this.removedSecrets.get(versionId)), {
+					op: "undo",
+					by: "user",
+					summary: this.t("m34.store.version.undo"),
+					journal: false
+				});
+				if (ref.regexAllowed === true && allowRegex(this.app.host.ctx().extensionSettings, name)) this.app.host.ctx().saveSettingsDebounced();
+				return true;
+			}
+			const name = str$4(ref.name);
+			const cached = this.savedRaw(name);
+			const afterHash = isDict$11(change.after) ? str$4(change.after.hash) : "";
+			if (!cached || !afterHash || bodyHash(cached) !== afterHash) return false;
+			const versionId = isDict$11(change.before) ? str$4(change.before.version) : "";
+			if (!versionId) {
+				if (ref.created !== true) return false;
+				await this.removeFile(name, {
+					journal: false,
+					next: str$4(ref.previous) || void 0
+				});
+				return true;
+			}
+			const version = await this.history.get(name, versionId);
+			if (!version) return false;
+			await this.writeBody(name, withSecretsOf(version.body, cached), {
+				op: "undo",
+				by: "user",
+				summary: this.t("m34.store.version.undo"),
+				journal: false
+			});
+			if ((op === "import" || op === "restore") && name === this.current()) await this.switchTo(name, true);
+			return true;
+		});
+	}
+	savedRaw(name) {
+		const cache = this.st.cache();
+		if (!cache || !name || !Object.hasOwn(cache.names, name)) return null;
+		const entry = cache.list[cache.names[name]];
+		return isDict$11(entry) ? entry : null;
+	}
+	requireOai() {
+		const oai = this.st.oai();
+		if (!oai) throw new PresetStoreError("unavailable", "Chat Completion settings are not available");
+		return oai;
+	}
+	requireCache() {
+		const cache = this.st.cache();
+		if (!cache) throw new PresetStoreError("unavailable", "the preset cache of openai.js is not available");
+		return cache;
+	}
+	model(oai = this.requireOai()) {
+		return new PromptModel(oai, this.st.promptManager(), this.log, () => this.app.host.ctx().saveSettingsDebounced());
+	}
+	persist(model) {
+		this.track(model.persist());
+		this.later("ack", ACK_DELAY_MS, () => void this.acknowledge());
+	}
+	layer() {
+		return this.app.modules.api(PRESET_LAYER_KEY$1);
+	}
+	hasLayer(name) {
+		const layer = this.layer();
+		try {
+			return layer && (layer.get(name)?.ops.length ?? 0) > 0 ? layer : null;
+		} catch (error) {
+			this.log.debug("layer unavailable", error);
+			return null;
+		}
+	}
+	/** What the working copy is when nothing is unsaved: the saved body, with the user's layer laid over it. */
+	expectedWorking(name, saved) {
+		const layer = this.hasLayer(name);
+		if (!layer) return saved;
+		try {
+			return layer.apply(name, jsonClean(saved)).body;
+		} catch (error) {
+			this.log.debug("layer apply failed", error);
+			return saved;
+		}
+	}
+	/** The working copy without the user's layer (the base file must not get it twice, §10.4 в 1). */
+	baseOf(name, body) {
+		const layer = this.hasLayer(name);
+		if (!layer) return body;
+		try {
+			return layer.strip(name, jsonClean(body));
+		} catch (error) {
+			this.log.warn("layer strip failed; the working copy is saved as it is", error);
+			return body;
+		}
+	}
+	async assertIdle() {
+		if (await this.st.generating()) throw new PresetStoreError("busy", "a generation is running");
+	}
+	async recordVersions(name, inputs) {
+		try {
+			return await this.history.record(name, inputs);
+		} catch (error) {
+			this.log.warn(`versions of ${name} could not be written`, error);
+			return inputs.map(() => null);
+		}
+	}
+	newIdentifier() {
+		const ctx = this.app.host.ctx();
+		if (typeof ctx.uuidv4 === "function") return ctx.uuidv4();
+		return typeof crypto !== "undefined" && typeof crypto.randomUUID === "function" ? crypto.randomUUID() : `maestro-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+	}
+	promptChange(identifier, before, after, index) {
+		const ref = {
+			preset: this.current(),
+			part: "prompt",
+			identifier
+		};
+		if (index !== void 0 && index >= 0) ref.index = index;
+		return {
+			target: PROMPT_TARGET,
+			ref,
+			before,
+			after
+		};
+	}
+	orderChange(before, after) {
+		return {
+			target: PROMPT_TARGET,
+			ref: {
+				preset: this.current(),
+				part: "order"
+			},
+			before,
+			after
+		};
+	}
+	async record(kind, summary, changes) {
+		try {
+			await this.app.journal.record({
+				module: MODULE_ID,
+				kind,
+				summary,
+				changes
+			});
+		} catch (error) {
+			this.log.warn("journal record failed", error);
+		}
+	}
+	/** M4 must not report the store's own changes as drift (A17). */
+	async acknowledge() {
+		const guardian = this.app.modules.api("guardian");
+		if (!guardian) return;
+		try {
+			await guardian.acknowledge(["preset"]);
+		} catch (error) {
+			this.log.warn("guardian acknowledge failed", error);
+		}
+	}
+	computeSignature() {
+		const { prompts, prompt_order: order, ...rest } = this.working();
+		return {
+			preset: this.current(),
+			prompts: valueHash([prompts ?? null, order ?? null]),
+			keys: valueHash(rest)
+		};
+	}
+	/** A change made by the store: listeners hear it now, the SETTINGS_UPDATED echo stays silent. */
+	changed(reason) {
+		try {
+			this.signature = this.computeSignature();
+		} catch (error) {
+			this.log.debug("signature failed", error);
+		}
+		this.notify(reason);
+	}
+	notify(reason) {
+		for (const listener of [...this.listeners]) try {
+			listener(reason);
+		} catch (error) {
+			this.log.error("preset store listener failed", error);
+		}
+	}
+	serial(job) {
+		const next = this.chain.then(job, job);
+		this.chain = next.catch(() => void 0);
+		return next;
+	}
+	track(promise) {
+		const tracked = promise.catch((error) => this.log.warn("preset store background task failed", error));
+		this.background.add(tracked);
+		tracked.finally(() => this.background.delete(tracked));
+	}
+	later(id, ms, run) {
+		if (this.disposed) return;
+		const previous = this.timers.get(id);
+		if (previous) clearTimeout(previous);
+		this.timers.set(id, setTimeout(() => {
+			this.timers.delete(id);
+			if (!this.disposed) run();
+		}, ms));
+	}
+};
+/** Replaces the contents of a live object (Prompt Manager and ST's cache keep references to it). */
+function replaceContents(target, source) {
+	for (const key of Object.keys(target)) if (!Object.hasOwn(source, key)) delete target[key];
+	Object.assign(target, source);
+}
+function promptName(prompt) {
+	return str$4(prompt.name) || str$4(prompt.identifier);
+}
+/** Builds the store; the shell calls install() and owns the disposers, then exposes it under PRESET_STORE_KEY. */
+function createPresetStore(app, log) {
+	return new PresetStoreService(app, log);
+}
+var M34_STRINGS = {
+	en: {
+		"m34.title": "Preset Studio",
+		"m34.close": "Close",
+		"m34.classic": "Classic editor",
+		"m34.classicHint": "Show ST’s own Prompt Manager in the AI Response Configuration panel (for this session)",
+		"m34.nav.label": "Preset Studio sections",
+		"m34.tab.map": "Map",
+		"m34.tab.blocks": "Blocks",
+		"m34.tab.analysis": "Analysis",
+		"m34.tab.layer": "Your layer",
+		"m34.tab.versions": "Versions",
+		"m34.tab.params": "Parameters",
+		"m34.error.generic": "Preset Studio: {error}",
+		"m34.error.noStore": "The preset data layer is not running, so the Preset Studio cannot open. See Maestro’s log.",
+		"m34.error.textCompletion": "The Preset Studio works with Chat Completion. With Text Completion use SillyTavern’s own preset panels.",
+		"m34.dialog.ok": "OK",
+		"m34.dialog.cancel": "Cancel",
+		"m34.dialog.apply": "Apply",
+		"m34.dialog.delete": "Delete",
+		"m34.dialog.save": "Save",
+		"m34.role.system": "System",
+		"m34.role.user": "User",
+		"m34.role.assistant": "AI Assistant",
+		"m34.kind.inChat": "In-chat injection",
+		"m34.kind.marker": "Marker (filled by SillyTavern)",
+		"m34.kind.important": "Important prompt (a card cannot override it)",
+		"m34.kind.global": "Global prompt",
+		"m34.kind.user": "Preset prompt",
+		"m34.trigger.normal": "Normal",
+		"m34.trigger.continue": "Continue",
+		"m34.trigger.impersonate": "Impersonate",
+		"m34.trigger.swipe": "Swipe",
+		"m34.trigger.regenerate": "Regenerate",
+		"m34.trigger.quiet": "Quiet",
+		"m34.source.charDescription": "Character Description",
+		"m34.source.charPersonality": "Character Personality",
+		"m34.source.scenario": "Character Scenario",
+		"m34.source.personaDescription": "Persona Description",
+		"m34.source.worldInfoBefore": "World Info (↑Char)",
+		"m34.source.worldInfoAfter": "World Info (↓Char)",
+		"m34.header.preset": "Preset",
+		"m34.header.actions": "Preset actions",
+		"m34.header.unsaved": "Unsaved",
+		"m34.header.pmError": "Assembly error",
+		"m34.header.unsavedHint": "The working copy differs from the saved preset: blocks {prompts}, keys {keys}. Switching presets in ST would drop it.",
+		"m34.header.modeLayer": "Edits → your layer",
+		"m34.header.modeLayerHint": "Edits made here go into your layer for «{base}» and into the working copy at once; the base file stays as it is.",
+		"m34.header.modeStore": "Edits → preset",
+		"m34.header.modeStoreHint": "Edits change the working copy; «Save» writes them into the preset file.",
+		"m34.header.save": "Save",
+		"m34.header.saveHint": "Write the working copy into the preset file (a version is kept)",
+		"m34.header.saveLayer": "Save",
+		"m34.header.saveLayerHint": "Your studio edits are already in the layer. Changes made elsewhere (classic editor, commands) go into the layer or the base — you choose.",
+		"m34.header.saveBase": "Save base",
+		"m34.header.saveBaseHint": "Write the working copy without your layer into the base preset file",
+		"m34.header.saveAs": "Save preset as…",
+		"m34.header.rename": "Rename preset",
+		"m34.header.import": "Import preset",
+		"m34.header.export": "Export preset",
+		"m34.header.delete": "Delete preset",
+		"m34.switch.title": "Unsaved changes",
+		"m34.switch.body": "The preset «{from}» has unsaved changes. SillyTavern drops them silently when switching to «{to}». Save them first?",
+		"m34.switch.bodyLayer": "The preset «{from}» has changes outside your layer. Switching to «{to}» drops them. Keep them in your layer, save them into the base, or drop them?",
+		"m34.switch.save": "Save",
+		"m34.switch.saveLayer": "Into the layer",
+		"m34.switch.saveBase": "Into the base",
+		"m34.switch.discard": "Drop",
+		"m34.leave.title": "Unsaved block",
+		"m34.leave.body": "The block «{name}» has unsaved edits.",
+		"m34.leave.save": "Save",
+		"m34.leave.discard": "Drop",
+		"m34.save.summary": "Saved in the Preset Studio",
+		"m34.save.done": "Preset «{name}» saved.",
+		"m34.save.inLayer": "Your edits are already in the layer of «{base}»; nothing else to save.",
+		"m34.save.layerTitle": "Save changes",
+		"m34.save.layerBody": "The working copy of «{base}» has changes that are not in your layer (classic editor, commands, neighbours). Keep them in your layer (they survive a base update) or write them into the base file?",
+		"m34.save.toLayer": "Changes moved into your layer of «{base}»: {applied}. Conflicts: {conflicts}.",
+		"m34.saveBase.title": "Save the base",
+		"m34.saveBase.body": "The working copy without your layer is written into the preset file «{base}». Your layer stays apart and is laid over the base again.",
+		"m34.saveBase.ok": "Save base",
+		"m34.saveAs.title": "Save preset as",
+		"m34.saveAs.hint": "Tip: name it after a character or group to bind the preset to their chats.",
+		"m34.saveAs.done": "Saved as «{name}».",
+		"m34.rename.title": "Rename «{name}»",
+		"m34.rename.hint": "Connection profiles that use the old name are offered a fix.",
+		"m34.rename.done": "«{from}» renamed to «{to}».",
+		"m34.delete.title": "Delete preset",
+		"m34.delete.body": "Delete the preset «{name}»? SillyTavern switches to the first preset left. Maestro keeps the versions of the deleted preset.",
+		"m34.delete.done": "Preset «{name}» deleted.",
+		"m34.import.title": "Import a preset",
+		"m34.import.dirty": "The current preset has unsaved changes; importing applies the new preset and drops them. Go on?",
+		"m34.import.done": "Preset «{name}» imported and selected.",
+		"m34.export.title": "Export «{name}»",
+		"m34.export.body": "The saved preset is exported. Connection data and secret keys (proxy, addresses) are left out unless you choose otherwise.",
+		"m34.export.safe": "Without connection data",
+		"m34.export.all": "With everything (secrets too)",
+		"m34.blocks.search": "Find a block…",
+		"m34.blocks.new": "New block",
+		"m34.blocks.newName": "New block",
+		"m34.blocks.copySuffix": "copy",
+		"m34.blocks.insert": "Insert the block (at the start, off)",
+		"m34.blocks.insertPick": "Blocks outside the list…",
+		"m34.blocks.importList": "Import a prompt list",
+		"m34.blocks.exportList": "Export this prompt list",
+		"m34.blocks.resetOrder": "Reset the order to SillyTavern’s default",
+		"m34.blocks.enabled": "On: {enabled} of {total}",
+		"m34.blocks.tokens": "Tokens: {count}",
+		"m34.blocks.tokensHint": "Tokens of the block (Maestro’s count, or Prompt Manager’s last assembly)",
+		"m34.blocks.toLayer": "edits go to your layer",
+		"m34.blocks.dragOff": "Reordering is off while searching.",
+		"m34.blocks.empty": "The prompt list is empty.",
+		"m34.blocks.noMatch": "No block matches.",
+		"m34.blocks.select": "Select «{name}»",
+		"m34.blocks.drag": "Drag to reorder (Alt+↑/↓ from the keyboard)",
+		"m34.blocks.up": "Move up",
+		"m34.blocks.down": "Move down",
+		"m34.blocks.enable": "Turn on",
+		"m34.blocks.disable": "Turn off",
+		"m34.blocks.openHint": "Edit the block",
+		"m34.blocks.viewHint": "Show the block (SillyTavern fills it)",
+		"m34.blocks.missing": "no such block (an order entry left behind)",
+		"m34.blocks.metaRelative": "{role} · in order",
+		"m34.blocks.metaInChat": "{role} · in chat at depth {depth}, order {order}",
+		"m34.blocks.preview": "Preview",
+		"m34.blocks.duplicate": "Duplicate",
+		"m34.blocks.detach": "Remove from the list (the block stays)",
+		"m34.blocks.delete": "Delete the block",
+		"m34.blocks.conflict": "conflict",
+		"m34.blocks.inLayer": "in layer",
+		"m34.blocks.overridden": "card",
+		"m34.blocks.overriddenHint": "The character card replaced this block in the last assembly",
+		"m34.blocks.types": "types",
+		"m34.blocks.typesHint": "Stored with types SillyTavern does not accept (a string depth, an unknown role, no system_prompt=false): the block may be dropped. Saving it in the editor fixes the types.",
+		"m34.blocks.markerPreview": "A marker: SillyTavern puts its text here when it assembles the prompt.",
+		"m34.blocks.emptyText": "The block is empty.",
+		"m34.blocks.substitute": "Substitute macros",
+		"m34.blocks.substituted": "With macros substituted (as now, for the current chat):",
+		"m34.blocks.effectsTitle": "Macros with side effects",
+		"m34.blocks.effectsBody": "The block uses {macros}: substituting runs them and changes chat variables, like a real generation would. Substitute anyway?",
+		"m34.blocks.deleteTitle": "Delete block",
+		"m34.blocks.deleteBody": "Delete the block «{name}»? It can be undone from Maestro’s journal.",
+		"m34.blocks.deleteLayerBody": "Delete the block «{name}»? A block you added in your layer is deleted with its operations. A block of the base cannot be deleted by the layer: it is switched off in your layer instead.",
+		"m34.blocks.disabledInLayer": "«{name}» belongs to the base preset: it is switched off in your layer.",
+		"m34.blocks.resetTitle": "Reset the order",
+		"m34.blocks.resetBody": "Put the list back to SillyTavern’s default order? Your blocks leave the list but are not deleted (insert them again from «Blocks outside the list»).",
+		"m34.blocks.resetBodyKeep": "Put the default blocks back into SillyTavern’s default order and states? Your own blocks stay after them.",
+		"m34.bulk.title": "Selected blocks",
+		"m34.bulk.selected": "Selected: {count}",
+		"m34.bulk.selectAll": "Select all shown",
+		"m34.bulk.clear": "Clear",
+		"m34.bulk.enable": "Turn on",
+		"m34.bulk.disable": "Turn off",
+		"m34.list.importTitle": "Import a prompt list",
+		"m34.list.importBody": "Existing prompts with the same ID will be overridden. Do you want to proceed?",
+		"m34.list.imported": "Prompt list imported: {updated} updated, {added} added.",
+		"m34.list.invalid.json": "«{file}» is not JSON.",
+		"m34.list.invalid.shape": "«{file}» is not a prompt list (version, type, data.prompts).",
+		"m34.editor.panel": "Block editor",
+		"m34.editor.title": "Block «{name}»",
+		"m34.editor.newTitle": "New block",
+		"m34.editor.identifier": "ID: {id}",
+		"m34.editor.close": "Close",
+		"m34.editor.save": "Save",
+		"m34.editor.reset": "Reset",
+		"m34.editor.resetHint": "Put SillyTavern’s default name and text into the form (nothing is written until Save)",
+		"m34.editor.name": "Name",
+		"m34.editor.role": "Role",
+		"m34.editor.roleHint": "Who the message is sent as.",
+		"m34.editor.position": "Injection position",
+		"m34.editor.relative": "Relative",
+		"m34.editor.inChat": "In-chat",
+		"m34.editor.depth": "Depth",
+		"m34.editor.depthHint": "0 = after the last message, 1 = before the last message, and so on.",
+		"m34.editor.order": "Order",
+		"m34.editor.orderHint": "Lower goes higher. Injections of other sources (lore, Author’s Note) have order 100 and are glued to blocks of order 100 at the same depth and role.",
+		"m34.editor.triggers": "Triggers",
+		"m34.editor.triggersHint": "None checked: every generation type.",
+		"m34.editor.forbid": "Forbid overrides (a character card cannot replace this prompt)",
+		"m34.editor.source": "Source: {source}",
+		"m34.editor.content": "Prompt",
+		"m34.editor.tokens": "≈ {count} tokens",
+		"m34.editor.highlight": "Macros and flags",
+		"m34.editor.flags": "Maestro flags: {flags}",
+		"m34.editor.sideEffects": "Changes variables when evaluated: {macros}",
+		"m34.editor.keys": "Ctrl+S saves",
+		"m34.editor.layerMode": "Saving puts the change into your layer and into the working copy.",
+		"m34.editor.readOnly": "SillyTavern fills this marker and keeps its settings: it cannot be edited.",
+		"m34.editor.markerText": "A marker: SillyTavern fills the text. Role, position, depth, order and triggers can be changed.",
+		"m34.editor.types": "Stored with foreign types ({fields}); saving writes the types SillyTavern accepts.",
+		"m34.editor.stale": "The preset changed while you were editing. Saving writes into the block of the preset now selected.",
+		"m34.editor.missing": "The block {id} is not in this preset any more.",
+		"m34.editor.added": "Block «{name}» added and switched on.",
+		"m34.editor.changedTitle": "The block changed meanwhile",
+		"m34.editor.changedBody": "«{name}» was changed outside the studio (classic editor, a command or an extension) while it was open. Write your fields over it?",
+		"m34.editor.overwrite": "Write my fields",
+		"m34.map.total": "Sent: ≈ {count} tokens",
+		"m34.map.hint": "How SillyTavern assembles the prompt from this preset, in order.",
+		"m34.map.type": "Generation",
+		"m34.map.refresh": "Recount",
+		"m34.map.reduced": "The analysis module is not running: the map shows the order and Prompt Manager’s last counts only.",
+		"m34.map.failed": "The map could not be built: {error}",
+		"m34.map.loading": "Building the map…",
+		"m34.map.empty": "Nothing to show.",
+		"m34.map.relative": "in order",
+		"m34.map.depth": "in chat, depth {depth}, order {order}",
+		"m34.map.marker": "marker",
+		"m34.map.off": "off",
+		"m34.map.open": "Open the block",
+		"m34.map.triggersHint": "Only for these generation types",
+		"m34.map.injections": "Extension injections here",
+		"m34.map.injection": "{owner}: {key} (≈ {count})",
+		"m34.map.where.start": "before the text",
+		"m34.map.where.end": "after the text",
+		"m34.map.where.chat": "in chat at depth {depth}",
+		"m34.map.dropped": "Not sent: {reason}",
+		"m34.analysis.hint": "What may go wrong with this preset: blocks that are never sent, traps, repeats, heavy blocks.",
+		"m34.analysis.refresh": "Check again",
+		"m34.analysis.unavailable": "The analysis module is not running.",
+		"m34.analysis.failed": "The analysis failed: {error}",
+		"m34.analysis.loading": "Checking…",
+		"m34.analysis.findings": "Findings: {count}",
+		"m34.analysis.clean": "Nothing found.",
+		"m34.analysis.hints": "Model and provider",
+		"m34.analysis.noHints": "No specifics for the current connection.",
+		"m34.analysis.open": "Open the block",
+		"m34.finding.neverIncluded": "Never sent",
+		"m34.finding.typeMismatch": "Wrong types",
+		"m34.finding.contradiction": "Contradiction",
+		"m34.finding.duplicateWithLore": "Repeats the lore",
+		"m34.finding.duplicateWithInjection": "Repeats an extension injection",
+		"m34.finding.duplicateBlock": "Repeated block",
+		"m34.finding.heavyBlock": "Heavy block",
+		"m34.finding.unsaved": "Unsaved changes",
+		"m34.finding.macroEngineOff": "Macro engine",
+		"m34.finding.modelQuirk": "Model specifics",
+		"m34.finding.emptyMessage": "Empty message",
+		"m34.layer.unavailable": "The layer module is not running: edits go straight into the preset.",
+		"m34.layer.modeLayer": "Edits made in the studio go into your layer for «{base}».",
+		"m34.layer.modeStore": "Edits made in the studio go straight into the preset «{base}».",
+		"m34.layer.editsToLayer": "Keep my edits in my layer",
+		"m34.layer.editsToLayerHint": "Your blocks and edits are kept apart from the base preset and laid over it, so a new version of the base (e.g. a Marinara update) does not wipe them.",
+		"m34.layer.start": "Start a layer for this preset",
+		"m34.layer.startHint": "From now on the studio’s edits go into the layer.",
+		"m34.layer.started": "Your edits to «{base}» now go into your layer.",
+		"m34.layer.conflicts": "Conflicts: {count}",
+		"m34.layer.conflictsHint": "The base changed under your edit. Compare the old base, the new base and yours, and choose.",
+		"m34.layer.oldBase": "Old base",
+		"m34.layer.newBase": "New base (changes)",
+		"m34.layer.mine": "Mine (changes)",
+		"m34.layer.keepMine": "Keep mine",
+		"m34.layer.takeNew": "Take the new base",
+		"m34.layer.custom": "My own text…",
+		"m34.layer.customTitle": "Your text for the block",
+		"m34.layer.customHint": "This text goes into your layer instead of both versions.",
+		"m34.layer.ops": "Operations of your layer for «{base}»: {count}",
+		"m34.layer.noOps": "The layer is empty.",
+		"m34.layer.openBlock": "Open the block",
+		"m34.layer.removeOp": "Remove the operation",
+		"m34.layer.removeTitle": "Remove the operation",
+		"m34.layer.removeBody": "Remove this operation from your layer? The working copy keeps the change until the preset is selected again.",
+		"m34.layer.orphaned": "Did not fit this base (block or anchor not found): {count}",
+		"m34.layer.anchor.after": "after «{name}»",
+		"m34.layer.anchor.before": "before «{name}»",
+		"m34.layer.anchor.afterText": "after the text «{text}»",
+		"m34.layer.anchor.start": "at the start",
+		"m34.layer.anchor.end": "at the end",
+		"m34.layer.op.add": "Your block «{name}» {anchor}",
+		"m34.layer.op.edit": "Edit of «{name}»: {fields}",
+		"m34.layer.op.on": "«{name}» on",
+		"m34.layer.op.off": "«{name}» off",
+		"m34.layer.op.move": "«{name}» moved {anchor}",
+		"m34.layer.op.key": "{key} = {value}",
+		"m34.layer.migrateTitle": "Move my edits into the layer",
+		"m34.layer.migrateHint": "Pick the original base (e.g. a freshly imported Marinara). Everything the working copy of «{base}» does differently becomes operations of your layer.",
+		"m34.layer.reference": "Original base",
+		"m34.layer.migrate": "Move my edits into the layer",
+		"m34.layer.migrateBody": "Compare the working copy of «{base}» with «{reference}» and keep the differences in your layer?",
+		"m34.layer.migratePreview": "Operations: {ops}, conflicts: {conflicts}, not fitting: {orphaned}.",
+		"m34.layer.noReference": "The preset «{name}» could not be read.",
+		"m34.layer.transferTitle": "Transfer to another preset",
+		"m34.layer.transferHint": "Your layer is copied onto another preset by anchors (e.g. «after </task>»).",
+		"m34.layer.target": "Target preset",
+		"m34.layer.transfer": "Transfer",
+		"m34.layer.transferBody": "Copy your layer of «{base}» onto «{target}»?",
+		"m34.layer.report.migrate": "Moved into the layer: {applied}. Conflicts: {conflicts}. Not fitting: {orphaned}.",
+		"m34.layer.report.transfer": "Transferred: {applied}. Conflicts: {conflicts}. Not fitting: {orphaned}.",
+		"m34.layer.report.removed": "Missing in your copy, switched off in the layer: {names}.",
+		"m34.layer.foreignTitle": "Blocks from another preset",
+		"m34.layer.foreignHint": "Open someone else’s preset (e.g. Yablochny), pick blocks — they are added to your layer switched off.",
+		"m34.layer.foreignPick": "Open a preset file",
+		"m34.layer.foreignFile": "«{file}»: blocks {count}",
+		"m34.layer.foreignAdd": "Add to my layer ({count})",
+		"m34.layer.foreignClear": "Close",
+		"m34.layer.foreignInvalid": "«{file}» is not a preset.",
+		"m34.layer.foreignAdded": "Blocks added to your layer of «{base}»: {count} (switched off).",
+		"m34.layer.workingTitle": "Working copy",
+		"m34.layer.reselect": "Reselect the preset with the layer",
+		"m34.layer.reselectHint": "Selects the preset again through SillyTavern, so your layer is laid over the saved base.",
+		"m34.layer.reselectBody": "Select the preset again with your layer on top?",
+		"m34.layer.reselectDirty": "The working copy has unsaved changes: selecting the preset again replaces them. Go on?",
+		"m34.layer.reselected": "Preset «{name}» selected again with your layer.",
+		"m34.layer.prepareHint": "Before disabling Maestro: the layer lives in the working copy only while Maestro lays it over. Either go back to the plain base, or save base + layer as an ordinary preset.",
+		"m34.layer.prepareBase": "Back to the clean base",
+		"m34.layer.prepareMerged": "Save base + layer as a separate preset",
+		"m34.layer.prepareTitle": "Prepare for disabling",
+		"m34.layer.prepareBaseBody": "Select «{base}» again without your layer? Your layer stays in Maestro’s files.",
+		"m34.layer.prepareMergedBody": "Save «{base}» with your layer as a separate ordinary preset and select it? It works without Maestro.",
+		"m34.layer.prepared": "Preset «{name}» selected.",
+		"m34.versions.hint": "Versions of «{name}»: every save, the drafts SillyTavern would have dropped, saves made outside Maestro.",
+		"m34.versions.refresh": "Reload",
+		"m34.versions.failed": "Versions could not be read: {error}",
+		"m34.versions.loading": "Reading versions…",
+		"m34.versions.empty": "No versions yet: they appear with the first save.",
+		"m34.versions.same": "same as now",
+		"m34.versions.counts": "blocks {prompts}, order {order}, keys {keys}",
+		"m34.versions.diffHint": "What a rollback changes in the working copy:",
+		"m34.versions.restore": "Roll back to this version",
+		"m34.versions.restoreTitle": "Roll back",
+		"m34.versions.restoreBody": "Write the version of {when} into «{name}» and load it? The current state stays as a version too.",
+		"m34.versions.restored": "«{name}» rolled back.",
+		"m34.versions.by.user": "studio",
+		"m34.versions.by.layer": "layer",
+		"m34.versions.by.import": "import",
+		"m34.versions.by.st": "outside Maestro",
+		"m34.versions.by.migration": "migration",
+		"m34.versions.by.draft": "unsaved draft",
+		"m34.versions.by.other": "other",
+		"m34.diff.same": "No differences.",
+		"m34.diff.blocks": "Blocks",
+		"m34.diff.added": "added",
+		"m34.diff.removed": "removed",
+		"m34.diff.changed": "changed",
+		"m34.diff.order": "Order",
+		"m34.diff.moved": "Moved: {names}",
+		"m34.diff.enabled": "On: {names}",
+		"m34.diff.disabled": "Off: {names}",
+		"m34.diff.orderAdded": "Into the list: {names}",
+		"m34.diff.orderRemoved": "Out of the list: {names}",
+		"m34.diff.keys": "Keys",
+		"m34.diff.sensitive": "changed (secret value hidden)",
+		"m34.params.hint": "Generation keys of this preset. Connection keys (source, model, proxy) stay in SillyTavern’s panel.",
+		"m34.params.layerMode": "Changes go into your layer too.",
+		"m34.params.unset": "not set",
+		"m34.params.error.notNumber": "{key}: a number is expected.",
+		"m34.params.error.range": "{key}: out of SillyTavern’s range.",
+		"m34.params.error.option": "{key}: unknown value.",
+		"m34.params.group.samplers": "Samplers",
+		"m34.params.group.context": "Context and response",
+		"m34.params.group.reasoning": "Reasoning and tools",
+		"m34.params.group.misc": "Prompt behaviour, formats and utility prompts",
+		"m34.params.key.temperature": "Temperature",
+		"m34.params.key.frequency_penalty": "Frequency Penalty",
+		"m34.params.key.presence_penalty": "Presence Penalty",
+		"m34.params.key.top_p": "Top P",
+		"m34.params.key.top_k": "Top K",
+		"m34.params.key.top_a": "Top A",
+		"m34.params.key.min_p": "Min P",
+		"m34.params.key.repetition_penalty": "Repetition Penalty",
+		"m34.params.key.seed": "Seed",
+		"m34.params.key.n": "Multiple swipes per generation",
+		"m34.params.key.openai_max_context": "Context Size (tokens)",
+		"m34.params.key.openai_max_tokens": "Max Response Length (tokens)",
+		"m34.params.key.max_context_unlocked": "Unlocked Context Size",
+		"m34.params.key.stream_openai": "Streaming",
+		"m34.params.key.show_thoughts": "Request model reasoning",
+		"m34.params.key.reasoning_effort": "Reasoning Effort",
+		"m34.params.key.verbosity": "Verbosity",
+		"m34.params.key.function_calling": "Enable function calling",
+		"m34.params.key.tool_call_recurse_limit": "Tool calls recursion limit",
+		"m34.params.key.enable_web_search": "Enable web search",
+		"m34.params.key.request_images": "Request inline images",
+		"m34.params.key.names_behavior": "Character Names Behavior",
+		"m34.params.key.squash_system_messages": "Squash system messages",
+		"m34.params.key.continue_prefill": "Continue prefill",
+		"m34.params.key.continue_postfix": "Continue Postfix",
+		"m34.params.key.use_sysprompt": "Use system prompt",
+		"m34.params.key.assistant_prefill": "Assistant Prefill",
+		"m34.params.key.assistant_impersonation": "Assistant Impersonation Prefill",
+		"m34.params.key.wi_format": "World Info format template",
+		"m34.params.key.scenario_format": "Scenario format template",
+		"m34.params.key.personality_format": "Personality format template",
+		"m34.params.key.impersonation_prompt": "Impersonation prompt",
+		"m34.params.key.new_chat_prompt": "New Chat",
+		"m34.params.key.new_group_chat_prompt": "New Group Chat",
+		"m34.params.key.new_example_chat_prompt": "New Example Chat",
+		"m34.params.key.continue_nudge_prompt": "Continue nudge",
+		"m34.params.key.group_nudge_prompt": "Group nudge",
+		"m34.params.key.send_if_empty": "Replace empty message",
+		"m34.params.opt.reasoning_effort.auto": "Auto",
+		"m34.params.opt.reasoning_effort.min": "Minimum",
+		"m34.params.opt.reasoning_effort.low": "Low",
+		"m34.params.opt.reasoning_effort.medium": "Medium",
+		"m34.params.opt.reasoning_effort.high": "High",
+		"m34.params.opt.reasoning_effort.max": "Maximum",
+		"m34.params.opt.verbosity.auto": "Auto",
+		"m34.params.opt.verbosity.low": "Low",
+		"m34.params.opt.verbosity.medium": "Medium",
+		"m34.params.opt.verbosity.high": "High",
+		"m34.params.opt.names_behavior.-1": "None",
+		"m34.params.opt.names_behavior.0": "Default",
+		"m34.params.opt.names_behavior.1": "Completion Object",
+		"m34.params.opt.names_behavior.2": "Message Content",
+		"m34.params.opt.continue_postfix.none": "None",
+		"m34.params.opt.continue_postfix.space": "Space",
+		"m34.params.opt.continue_postfix.newline": "Newline",
+		"m34.params.opt.continue_postfix.doubleNewline": "Double Newline",
+		"m34.launcher.open": "Open the Preset Studio",
+		"m34.launcher.hideClassic": "Hide the classic editor",
+		"m34.launcher.noPreset": "(no preset)",
+		"m34.launcher.unsaved": "unsaved",
+		"m34.launcher.unsavedHint": "The working copy differs from the saved preset; switching presets would drop it.",
+		"m34.launcher.blocks": "Blocks on: {enabled} of {total}",
+		"m34.launcher.tokens": "Total tokens: {count}",
+		"m34.launcher.noTokens": "tokens: after the first assembly",
+		"m34.tab.intro": "The Preset Studio replaces the Prompt Manager section: the prompt map, blocks with search and drag, analysis, versions, and your layer that survives preset updates.",
+		"m34.tab.preset": "Preset: {name}",
+		"m34.tab.settings": "Replacing the Prompt Manager",
+		"m34.tab.replace": "Replace the Prompt Manager section with the Preset Studio",
+		"m34.tab.replaceHint": "Prompt Manager is only hidden and keeps working for SillyTavern, commands and extensions; «Classic editor» shows it. Turn it on when the parity table is green.",
+		"m34.tab.replaceActive": "Prompt Manager is replaced by the Preset Studio button.",
+		"m34.tab.replaceWaiting": "Waiting for the Prompt Manager section to appear (open the AI Response Configuration once).",
+		"m34.tab.replaceInactive": "Prompt Manager is shown as usual.",
+		"m34.tab.replaceLater": "The Prompt Manager section is not on the page yet: it is replaced as soon as it appears.",
+		"m34.tab.textCompletion": "Text Completion is active: the Preset Studio is for Chat Completion.",
+		"m34.tab.slash": "Command: /maestro-preset [block] opens the studio (on a block, by ID or name).",
+		"m34.slash.help": "Opens Maestro’s Preset Studio, on a block when given (ID or name).",
+		"m34.slash.block": "block ID or name",
+		"m34.export.connection": "With connection data, without secrets",
+		"m34.map.estimated": "Maestro’s own estimate (no Prompt Manager count for this block)",
+		"m34.map.counted": "Prompt Manager’s count of the last assembly",
+		"m34.layer.migrateOk": "Move into the layer",
+		"m34.layer.previewBlocks": "Block operations: {count}",
+		"m34.layer.previewKeys": "Body keys: {count}",
+		"m34.layer.previewKeysHint": "Untick the keys that must not go into your layer. Connection keys (source, model, addresses) are unticked: a reference file should not pin your model.",
+		"m34.layer.previewNone": "none",
+		"m34.layer.connectionKey": "connection",
+		"m34.save.layerIntro": "The changes of the working copy of «{base}» that are not in your layer become its operations.",
+		"m34.scn.title": "Parameters by scenario",
+		"m34.scn.hint": "A scenario changes one kind of generation without switching the preset: response length, stop strings, reasoning and, if you want, its own message set.",
+		"m34.scn.unavailable": "The generation-scenario module is not running or offers no parameters.",
+		"m34.scn.empty": "No scenarios with parameters.",
+		"m34.scn.reset": "Defaults",
+		"m34.scn.field.enabled": "Take over this generation",
+		"m34.scn.field.max_tokens": "Max response length (tokens)",
+		"m34.scn.field.temperature": "Temperature",
+		"m34.scn.field.historyMessages": "Messages in {{history}}",
+		"m34.scn.field.stop": "Stop strings",
+		"m34.scn.field.reasoning": "Reasoning",
+		"m34.scn.field.messages": "Own message set",
+		"m34.scn.stopPlaceholder": "one per line",
+		"m34.scn.stopHint": "One per line; a line break inside a stop string is written as \\n. {{char}} and {{user}} become the names. Empty: no stop strings.",
+		"m34.scn.reasoning.keep": "As in the connection",
+		"m34.scn.reasoning.off": "Off for this request",
+		"m34.scn.messagesHint": "Empty: the preset’s prompt stays and only the parameters change. A message that is exactly {{history}} stands for the recent chat.",
+		"m34.scn.addMessage": "Add a message",
+		"m34.scn.addHistory": "Add {{history}}",
+		"m34.scn.removeMessage": "Remove the message",
+		"m34.scn.role": "Role of message {index}",
+		"m34.scn.content": "Text of message {index}"
+	},
+	ru: {
+		"m34.title": "Пресет-студия",
+		"m34.close": "Закрыть",
+		"m34.classic": "Классический редактор",
+		"m34.classicHint": "Показать штатный Prompt Manager в панели «Настройка ответа ИИ» (до перезагрузки страницы)",
+		"m34.nav.label": "Разделы Пресет-студии",
+		"m34.tab.map": "Карта",
+		"m34.tab.blocks": "Блоки",
+		"m34.tab.analysis": "Анализ",
+		"m34.tab.layer": "Слой",
+		"m34.tab.versions": "Версии",
+		"m34.tab.params": "Параметры",
+		"m34.error.generic": "Пресет-студия: {error}",
+		"m34.error.noStore": "Слой данных пресетов не запущен, поэтому Пресет-студия не открывается. Подробности — в журнале Maestro.",
+		"m34.error.textCompletion": "Пресет-студия работает с Chat Completion. Для Text Completion пользуйся штатными панелями пресетов SillyTavern.",
+		"m34.dialog.ok": "ОК",
+		"m34.dialog.cancel": "Отмена",
+		"m34.dialog.apply": "Применить",
+		"m34.dialog.delete": "Удалить",
+		"m34.dialog.save": "Сохранить",
+		"m34.role.system": "Система",
+		"m34.role.user": "Пользователь",
+		"m34.role.assistant": "ИИ-ассистент",
+		"m34.kind.inChat": "Вставка в чат",
+		"m34.kind.marker": "Маркер (текст подставляет SillyTavern)",
+		"m34.kind.important": "Важный промпт (карточка не перезапишет)",
+		"m34.kind.global": "Глобальный промпт",
+		"m34.kind.user": "Промпт пресета",
+		"m34.trigger.normal": "Обычный",
+		"m34.trigger.continue": "Продолжить",
+		"m34.trigger.impersonate": "Перевоплощение",
+		"m34.trigger.swipe": "Свайп",
+		"m34.trigger.regenerate": "Повторная генерация",
+		"m34.trigger.quiet": "Тихая",
+		"m34.source.charDescription": "Описание персонажа",
+		"m34.source.charPersonality": "Личность персонажа",
+		"m34.source.scenario": "Сценарий персонажа",
+		"m34.source.personaDescription": "Описание персоны",
+		"m34.source.worldInfoBefore": "Информация о мире (↑ перс.)",
+		"m34.source.worldInfoAfter": "Информация о мире (↓ перс.)",
+		"m34.header.preset": "Пресет",
+		"m34.header.actions": "Действия с пресетом",
+		"m34.header.unsaved": "Не сохранено",
+		"m34.header.pmError": "Ошибка сборки",
+		"m34.header.unsavedHint": "Рабочая копия отличается от сохранённого пресета: блоков — {prompts}, ключей — {keys}. При смене пресета SillyTavern это потеряет.",
+		"m34.header.modeLayer": "Правки → твой слой",
+		"m34.header.modeLayerHint": "Правки студии сразу идут в твой слой для «{base}» и в рабочую копию; файл базы не меняется.",
+		"m34.header.modeStore": "Правки → пресет",
+		"m34.header.modeStoreHint": "Правки меняют рабочую копию; «Сохранить» записывает их в файл пресета.",
+		"m34.header.save": "Сохранить",
+		"m34.header.saveHint": "Записать рабочую копию в файл пресета (прежнее состояние останется версией)",
+		"m34.header.saveLayer": "Сохранить",
+		"m34.header.saveLayerHint": "Правки студии уже в слое. Правки, сделанные в другом месте (классический редактор, команды), можно отправить в слой или в базу — на выбор.",
+		"m34.header.saveBase": "Сохранить базу",
+		"m34.header.saveBaseHint": "Записать рабочую копию без твоего слоя в файл базового пресета",
+		"m34.header.saveAs": "Сохранить пресет как…",
+		"m34.header.rename": "Переименовать пресет",
+		"m34.header.import": "Импортировать пресет",
+		"m34.header.export": "Экспортировать пресет",
+		"m34.header.delete": "Удалить пресет",
+		"m34.switch.title": "Есть несохранённые правки",
+		"m34.switch.body": "В пресете «{from}» есть несохранённые правки. При переходе на «{to}» SillyTavern молча их сотрёт. Сохранить сначала?",
+		"m34.switch.bodyLayer": "В пресете «{from}» есть правки вне твоего слоя. При переходе на «{to}» они пропадут. Перенести их в слой, сохранить в базу или отбросить?",
+		"m34.switch.save": "Сохранить",
+		"m34.switch.saveLayer": "В слой",
+		"m34.switch.saveBase": "В базу",
+		"m34.switch.discard": "Отбросить",
+		"m34.leave.title": "Блок не сохранён",
+		"m34.leave.body": "В блоке «{name}» есть несохранённые правки.",
+		"m34.leave.save": "Сохранить",
+		"m34.leave.discard": "Отбросить",
+		"m34.save.summary": "Сохранено в Пресет-студии",
+		"m34.save.done": "Пресет «{name}» сохранён.",
+		"m34.save.inLayer": "Твои правки уже в слое «{base}» — сохранять больше нечего.",
+		"m34.save.layerTitle": "Сохранить правки",
+		"m34.save.layerBody": "В рабочей копии «{base}» есть правки, которых нет в твоём слое (классический редактор, команды, соседи). Перенести их в слой (переживут обновление базы) или записать в файл базы?",
+		"m34.save.toLayer": "Перенесено в слой «{base}»: {applied}. Конфликтов: {conflicts}.",
+		"m34.saveBase.title": "Сохранить базу",
+		"m34.saveBase.body": "Рабочая копия без твоего слоя запишется в файл пресета «{base}». Слой останется отдельно и снова ляжет поверх базы.",
+		"m34.saveBase.ok": "Сохранить базу",
+		"m34.saveAs.title": "Сохранить пресет как",
+		"m34.saveAs.hint": "Совет: назови его как персонажа или группу, чтобы пресет привязался к их чатам.",
+		"m34.saveAs.done": "Сохранено как «{name}».",
+		"m34.rename.title": "Переименовать «{name}»",
+		"m34.rename.hint": "Профили подключения со старым именем студия предложит поправить.",
+		"m34.rename.done": "«{from}» переименован в «{to}».",
+		"m34.delete.title": "Удалить пресет",
+		"m34.delete.body": "Удалить пресет «{name}»? SillyTavern переключится на первый оставшийся. Версии удалённого пресета Maestro сохранит.",
+		"m34.delete.done": "Пресет «{name}» удалён.",
+		"m34.import.title": "Импорт пресета",
+		"m34.import.dirty": "В текущем пресете есть несохранённые правки: импорт применит новый пресет, и они пропадут. Продолжить?",
+		"m34.import.done": "Пресет «{name}» импортирован и выбран.",
+		"m34.export.title": "Экспорт «{name}»",
+		"m34.export.body": "Выгружается сохранённый пресет. Данные подключения и секретные ключи (прокси, адреса) по умолчанию не попадают в файл.",
+		"m34.export.safe": "Без данных подключения",
+		"m34.export.all": "Со всем (и с секретами)",
+		"m34.blocks.search": "Найти блок…",
+		"m34.blocks.new": "Новый блок",
+		"m34.blocks.newName": "Новый блок",
+		"m34.blocks.copySuffix": "копия",
+		"m34.blocks.insert": "Вставить блок (в начало, выключенным)",
+		"m34.blocks.insertPick": "Блоки вне списка…",
+		"m34.blocks.importList": "Импортировать список промптов",
+		"m34.blocks.exportList": "Экспортировать этот список промптов",
+		"m34.blocks.resetOrder": "Сбросить порядок к стандартному SillyTavern",
+		"m34.blocks.enabled": "Включено: {enabled} из {total}",
+		"m34.blocks.tokens": "Токенов: {count}",
+		"m34.blocks.tokensHint": "Токены блока (подсчёт Maestro или последняя сборка Prompt Manager)",
+		"m34.blocks.toLayer": "правки идут в твой слой",
+		"m34.blocks.dragOff": "Во время поиска порядок не меняется.",
+		"m34.blocks.empty": "Список промптов пуст.",
+		"m34.blocks.noMatch": "Ничего не найдено.",
+		"m34.blocks.select": "Выбрать «{name}»",
+		"m34.blocks.drag": "Перетащи, чтобы поменять порядок (с клавиатуры — Alt+↑/↓)",
+		"m34.blocks.up": "Выше",
+		"m34.blocks.down": "Ниже",
+		"m34.blocks.enable": "Включить",
+		"m34.blocks.disable": "Выключить",
+		"m34.blocks.openHint": "Править блок",
+		"m34.blocks.viewHint": "Показать блок (его заполняет SillyTavern)",
+		"m34.blocks.missing": "такого блока нет (осталась запись в порядке)",
+		"m34.blocks.metaRelative": "{role} · по порядку",
+		"m34.blocks.metaInChat": "{role} · в чате на глубине {depth}, порядок {order}",
+		"m34.blocks.preview": "Предпросмотр",
+		"m34.blocks.duplicate": "Дублировать",
+		"m34.blocks.detach": "Убрать из списка (блок останется)",
+		"m34.blocks.delete": "Удалить блок",
+		"m34.blocks.conflict": "конфликт",
+		"m34.blocks.inLayer": "в слое",
+		"m34.blocks.overridden": "карточка",
+		"m34.blocks.overriddenHint": "В последней сборке этот блок заменила карточка персонажа",
+		"m34.blocks.types": "типы",
+		"m34.blocks.typesHint": "Записан с типами, которые SillyTavern не принимает (глубина строкой, незнакомая роль, нет system_prompt=false): блок может не уйти в промпт. Сохранение в редакторе исправит типы.",
+		"m34.blocks.markerPreview": "Маркер: сюда SillyTavern подставит свой текст при сборке промпта.",
+		"m34.blocks.emptyText": "Блок пуст.",
+		"m34.blocks.substitute": "Подставить макросы",
+		"m34.blocks.substituted": "С подставленными макросами (как сейчас, для текущего чата):",
+		"m34.blocks.effectsTitle": "Макросы с побочными действиями",
+		"m34.blocks.effectsBody": "В блоке есть {macros}: подстановка выполнит их и изменит переменные чата, как при настоящей генерации. Всё равно подставить?",
+		"m34.blocks.deleteTitle": "Удалить блок",
+		"m34.blocks.deleteBody": "Удалить блок «{name}»? Отменить можно из журнала Maestro.",
+		"m34.blocks.deleteLayerBody": "Удалить блок «{name}»? Блок, добавленный в твоём слое, удалится вместе с его операциями. Блок базы слой удалить не может — он будет выключен в слое.",
+		"m34.blocks.disabledInLayer": "«{name}» — блок базового пресета: в слое он выключен.",
+		"m34.blocks.resetTitle": "Сбросить порядок",
+		"m34.blocks.resetBody": "Вернуть список к стандартному порядку SillyTavern? Твои блоки уйдут из списка, но не удалятся (их можно вставить снова из «Блоков вне списка»).",
+		"m34.blocks.resetBodyKeep": "Вернуть стандартные блоки к порядку и состоянию SillyTavern по умолчанию? Твои блоки останутся после них.",
+		"m34.bulk.title": "Выбранные блоки",
+		"m34.bulk.selected": "Выбрано: {count}",
+		"m34.bulk.selectAll": "Выбрать все показанные",
+		"m34.bulk.clear": "Снять выбор",
+		"m34.bulk.enable": "Включить",
+		"m34.bulk.disable": "Выключить",
+		"m34.list.importTitle": "Импорт списка промптов",
+		"m34.list.importBody": "Блоки с тем же ID будут перезаписаны. Продолжить?",
+		"m34.list.imported": "Список промптов импортирован: обновлено — {updated}, добавлено — {added}.",
+		"m34.list.invalid.json": "«{file}» — не JSON.",
+		"m34.list.invalid.shape": "«{file}» — не список промптов (нужны version, type, data.prompts).",
+		"m34.editor.panel": "Редактор блока",
+		"m34.editor.title": "Блок «{name}»",
+		"m34.editor.newTitle": "Новый блок",
+		"m34.editor.identifier": "ID: {id}",
+		"m34.editor.close": "Закрыть",
+		"m34.editor.save": "Сохранить",
+		"m34.editor.reset": "Сброс",
+		"m34.editor.resetHint": "Подставить в форму стандартные имя и текст SillyTavern (записывается только по «Сохранить»)",
+		"m34.editor.name": "Имя",
+		"m34.editor.role": "Роль",
+		"m34.editor.roleHint": "От чьего лица будет отправляться сообщение.",
+		"m34.editor.position": "Точка инжекта",
+		"m34.editor.relative": "Относительная",
+		"m34.editor.inChat": "На глубине в чате",
+		"m34.editor.depth": "Глубина",
+		"m34.editor.depthHint": "0 — после последнего сообщения, 1 — перед последним сообщением и т. д.",
+		"m34.editor.order": "Порядок",
+		"m34.editor.orderHint": "Меньше — выше. Вставки других источников (лор, заметка автора) имеют порядок 100 и склеиваются с блоками порядка 100 той же глубины и роли.",
+		"m34.editor.triggers": "Триггеры",
+		"m34.editor.triggersHint": "Ничего не отмечено — любой тип генерации.",
+		"m34.editor.forbid": "Запретить перезапись (карточка персонажа не сможет заменить этот промпт)",
+		"m34.editor.source": "Источник: {source}",
+		"m34.editor.content": "Промпт",
+		"m34.editor.tokens": "≈ {count} ток.",
+		"m34.editor.highlight": "Макросы и флаги",
+		"m34.editor.flags": "Флаги Maestro: {flags}",
+		"m34.editor.sideEffects": "При вычислении меняет переменные: {macros}",
+		"m34.editor.keys": "Ctrl+S — сохранить",
+		"m34.editor.layerMode": "Сохранение отправит правку в твой слой и в рабочую копию.",
+		"m34.editor.readOnly": "Этот маркер заполняет и настраивает сам SillyTavern: правке не подлежит.",
+		"m34.editor.markerText": "Маркер: текст подставляет SillyTavern. Менять можно роль, точку инжекта, глубину, порядок и триггеры.",
+		"m34.editor.types": "Записан с чужими типами ({fields}); при сохранении запишутся типы, которые понимает SillyTavern.",
+		"m34.editor.stale": "Пока ты правил блок, пресет сменился. Сохранение запишет в блок выбранного сейчас пресета.",
+		"m34.editor.missing": "Блока {id} в этом пресете больше нет.",
+		"m34.editor.added": "Блок «{name}» добавлен и включён.",
+		"m34.editor.changedTitle": "Блок изменили",
+		"m34.editor.changedBody": "Пока блок «{name}» был открыт, его изменили вне студии (классический редактор, команда или расширение). Записать твои поля поверх?",
+		"m34.editor.overwrite": "Записать мои поля",
+		"m34.map.total": "Уходит: ≈ {count} ток.",
+		"m34.map.hint": "Как SillyTavern соберёт промпт из этого пресета — по порядку.",
+		"m34.map.type": "Генерация",
+		"m34.map.refresh": "Пересчитать",
+		"m34.map.reduced": "Модуль анализа не запущен: карта показывает только порядок и последние счётчики Prompt Manager.",
+		"m34.map.failed": "Карту построить не удалось: {error}",
+		"m34.map.loading": "Строю карту…",
+		"m34.map.empty": "Показывать нечего.",
+		"m34.map.relative": "по порядку",
+		"m34.map.depth": "в чате, глубина {depth}, порядок {order}",
+		"m34.map.marker": "маркер",
+		"m34.map.off": "выкл.",
+		"m34.map.open": "Открыть блок",
+		"m34.map.triggersHint": "Только для этих типов генерации",
+		"m34.map.injections": "Вставки расширений здесь",
+		"m34.map.injection": "{owner}: {key} (≈ {count})",
+		"m34.map.where.start": "перед текстом",
+		"m34.map.where.end": "после текста",
+		"m34.map.where.chat": "в чате на глубине {depth}",
+		"m34.map.dropped": "Не уйдёт: {reason}",
+		"m34.analysis.hint": "Что может пойти не так: блоки, которые не уходят, ловушки, повторы, тяжёлые блоки.",
+		"m34.analysis.refresh": "Проверить заново",
+		"m34.analysis.unavailable": "Модуль анализа не запущен.",
+		"m34.analysis.failed": "Анализ не удался: {error}",
+		"m34.analysis.loading": "Проверяю…",
+		"m34.analysis.findings": "Находки: {count}",
+		"m34.analysis.clean": "Ничего не найдено.",
+		"m34.analysis.hints": "Модель и провайдер",
+		"m34.analysis.noHints": "Для текущего подключения особенностей нет.",
+		"m34.analysis.open": "Открыть блок",
+		"m34.finding.neverIncluded": "Не уходит в промпт",
+		"m34.finding.typeMismatch": "Неверные типы",
+		"m34.finding.contradiction": "Противоречие",
+		"m34.finding.duplicateWithLore": "Повтор с лором",
+		"m34.finding.duplicateWithInjection": "Повтор со вставкой расширения",
+		"m34.finding.duplicateBlock": "Повтор блока",
+		"m34.finding.heavyBlock": "Тяжёлый блок",
+		"m34.finding.unsaved": "Несохранённые правки",
+		"m34.finding.macroEngineOff": "Движок макросов",
+		"m34.finding.modelQuirk": "Особенность модели",
+		"m34.finding.emptyMessage": "Пустое сообщение",
+		"m34.layer.unavailable": "Модуль слоя не запущен: правки идут прямо в пресет.",
+		"m34.layer.modeLayer": "Правки студии идут в твой слой для «{base}».",
+		"m34.layer.modeStore": "Правки студии идут прямо в пресет «{base}».",
+		"m34.layer.editsToLayer": "Держать мои правки в моём слое",
+		"m34.layer.editsToLayerHint": "Твои блоки и правки хранятся отдельно от базового пресета и накладываются поверх, поэтому новая версия базы (например, обновление Marinara) их не сотрёт.",
+		"m34.layer.start": "Завести слой для этого пресета",
+		"m34.layer.startHint": "Дальше правки студии пойдут в слой.",
+		"m34.layer.started": "Теперь правки «{base}» идут в твой слой.",
+		"m34.layer.conflicts": "Конфликты: {count}",
+		"m34.layer.conflictsHint": "База изменилась под твоей правкой. Сравни старую базу, новую и свою — и выбери.",
+		"m34.layer.oldBase": "Старая база",
+		"m34.layer.newBase": "Новая база (изменения)",
+		"m34.layer.mine": "Моё (изменения)",
+		"m34.layer.keepMine": "Оставить моё",
+		"m34.layer.takeNew": "Взять новую базу",
+		"m34.layer.custom": "Своя версия…",
+		"m34.layer.customTitle": "Твой текст блока",
+		"m34.layer.customHint": "Этот текст ляжет в слой вместо обеих версий.",
+		"m34.layer.ops": "Операции слоя «{base}»: {count}",
+		"m34.layer.noOps": "Слой пуст.",
+		"m34.layer.openBlock": "Открыть блок",
+		"m34.layer.removeOp": "Убрать операцию",
+		"m34.layer.removeTitle": "Убрать операцию",
+		"m34.layer.removeBody": "Убрать эту операцию из слоя? Рабочая копия сохранит изменение, пока пресет не будет выбран заново.",
+		"m34.layer.orphaned": "Не легли на эту базу (нет блока или якоря): {count}",
+		"m34.layer.anchor.after": "после «{name}»",
+		"m34.layer.anchor.before": "перед «{name}»",
+		"m34.layer.anchor.afterText": "после текста «{text}»",
+		"m34.layer.anchor.start": "в начало",
+		"m34.layer.anchor.end": "в конец",
+		"m34.layer.op.add": "Свой блок «{name}» {anchor}",
+		"m34.layer.op.edit": "Правка «{name}»: {fields}",
+		"m34.layer.op.on": "«{name}» включён",
+		"m34.layer.op.off": "«{name}» выключен",
+		"m34.layer.op.move": "«{name}» перемещён {anchor}",
+		"m34.layer.op.key": "{key} = {value}",
+		"m34.layer.migrateTitle": "Перенести мои правки в слой",
+		"m34.layer.migrateHint": "Выбери исходную базу (например, только что импортированную Marinara). Всё, чем рабочая копия «{base}» от неё отличается, станет операциями твоего слоя.",
+		"m34.layer.reference": "Исходная база",
+		"m34.layer.migrate": "Перенести мои правки в слой",
+		"m34.layer.migrateBody": "Сравнить рабочую копию «{base}» с «{reference}» и сохранить различия в твоём слое?",
+		"m34.layer.migratePreview": "Операций: {ops}, конфликтов: {conflicts}, не ложится: {orphaned}.",
+		"m34.layer.noReference": "Пресет «{name}» прочитать не удалось.",
+		"m34.layer.transferTitle": "Перенос на другой пресет",
+		"m34.layer.transferHint": "Слой копируется на другой пресет по якорям (например, «после </task>»).",
+		"m34.layer.target": "Пресет, куда переносить",
+		"m34.layer.transfer": "Перенести",
+		"m34.layer.transferBody": "Скопировать твой слой «{base}» на «{target}»?",
+		"m34.layer.report.migrate": "Перенесено в слой: {applied}. Конфликтов: {conflicts}. Не легло: {orphaned}.",
+		"m34.layer.report.transfer": "Перенесено: {applied}. Конфликтов: {conflicts}. Не легло: {orphaned}.",
+		"m34.layer.report.removed": "В твоей копии их нет — в слое выключены: {names}.",
+		"m34.layer.foreignTitle": "Блоки из чужого пресета",
+		"m34.layer.foreignHint": "Открой чужой пресет (например, Yablochny) и отметь блоки — они добавятся в твой слой выключенными.",
+		"m34.layer.foreignPick": "Открыть файл пресета",
+		"m34.layer.foreignFile": "«{file}»: блоков — {count}",
+		"m34.layer.foreignAdd": "Добавить в мой слой ({count})",
+		"m34.layer.foreignClear": "Закрыть",
+		"m34.layer.foreignInvalid": "«{file}» — не пресет.",
+		"m34.layer.foreignAdded": "В слой «{base}» добавлено блоков: {count} (выключены).",
+		"m34.layer.workingTitle": "Рабочая копия",
+		"m34.layer.reselect": "Перевыбрать пресет со слоем",
+		"m34.layer.reselectHint": "Пресет выбирается заново через SillyTavern, и слой ложится поверх сохранённой базы.",
+		"m34.layer.reselectBody": "Выбрать пресет заново с твоим слоем сверху?",
+		"m34.layer.reselectDirty": "В рабочей копии есть несохранённые правки: повторный выбор пресета их заменит. Продолжить?",
+		"m34.layer.reselected": "Пресет «{name}» выбран заново со слоем.",
+		"m34.layer.prepareHint": "Перед отключением Maestro: слой живёт в рабочей копии, только пока Maestro его накладывает. Вернись к чистой базе или сохрани базу со слоем обычным пресетом.",
+		"m34.layer.prepareBase": "Вернуть чистую базу",
+		"m34.layer.prepareMerged": "Сохранить базу со слоем как отдельный пресет",
+		"m34.layer.prepareTitle": "Подготовить к отключению",
+		"m34.layer.prepareBaseBody": "Выбрать «{base}» заново без слоя? Сам слой останется в файлах Maestro.",
+		"m34.layer.prepareMergedBody": "Сохранить «{base}» вместе со слоем отдельным обычным пресетом и выбрать его? Он работает и без Maestro.",
+		"m34.layer.prepared": "Выбран пресет «{name}».",
+		"m34.versions.hint": "Версии «{name}»: каждое сохранение, черновики, которые SillyTavern стёр бы, и сохранения в обход Maestro.",
+		"m34.versions.refresh": "Обновить",
+		"m34.versions.failed": "Версии прочитать не удалось: {error}",
+		"m34.versions.loading": "Читаю версии…",
+		"m34.versions.empty": "Версий пока нет: они появятся с первым сохранением.",
+		"m34.versions.same": "как сейчас",
+		"m34.versions.counts": "блоки {prompts}, порядок {order}, ключи {keys}",
+		"m34.versions.diffHint": "Что изменится в рабочей копии при откате:",
+		"m34.versions.restore": "Откатить к этой версии",
+		"m34.versions.restoreTitle": "Откат",
+		"m34.versions.restoreBody": "Записать версию от {when} в «{name}» и загрузить её? Текущее состояние тоже останется версией.",
+		"m34.versions.restored": "«{name}» откачен.",
+		"m34.versions.by.user": "студия",
+		"m34.versions.by.layer": "слой",
+		"m34.versions.by.import": "импорт",
+		"m34.versions.by.st": "вне Maestro",
+		"m34.versions.by.migration": "перенос",
+		"m34.versions.by.draft": "несохранённый черновик",
+		"m34.versions.by.other": "другое",
+		"m34.diff.same": "Различий нет.",
+		"m34.diff.blocks": "Блоки",
+		"m34.diff.added": "добавлен",
+		"m34.diff.removed": "удалён",
+		"m34.diff.changed": "изменён",
+		"m34.diff.order": "Порядок",
+		"m34.diff.moved": "Перемещены: {names}",
+		"m34.diff.enabled": "Включены: {names}",
+		"m34.diff.disabled": "Выключены: {names}",
+		"m34.diff.orderAdded": "В списке: {names}",
+		"m34.diff.orderRemoved": "Вне списка: {names}",
+		"m34.diff.keys": "Ключи",
+		"m34.diff.sensitive": "изменён (секретное значение скрыто)",
+		"m34.params.hint": "Ключи генерации этого пресета. Ключи подключения (источник, модель, прокси) остаются в панели SillyTavern.",
+		"m34.params.layerMode": "Изменения пойдут и в твой слой.",
+		"m34.params.unset": "не задано",
+		"m34.params.error.notNumber": "{key}: нужно число.",
+		"m34.params.error.range": "{key}: вне допустимого в SillyTavern диапазона.",
+		"m34.params.error.option": "{key}: незнакомое значение.",
+		"m34.params.group.samplers": "Сэмплеры",
+		"m34.params.group.context": "Контекст и ответ",
+		"m34.params.group.reasoning": "Рассуждения и инструменты",
+		"m34.params.group.misc": "Поведение промпта, форматы и служебные промпты",
+		"m34.params.key.temperature": "Температура",
+		"m34.params.key.frequency_penalty": "Штраф за частоту",
+		"m34.params.key.presence_penalty": "Штраф за присутствие",
+		"m34.params.key.top_p": "Top P",
+		"m34.params.key.top_k": "Top K",
+		"m34.params.key.top_a": "Top A",
+		"m34.params.key.min_p": "Min P",
+		"m34.params.key.repetition_penalty": "Штраф за повторы",
+		"m34.params.key.seed": "Зерно",
+		"m34.params.key.n": "Несколько свайпов на генерацию",
+		"m34.params.key.openai_max_context": "Размер контекста (в токенах)",
+		"m34.params.key.openai_max_tokens": "Макс. длина ответа (в токенах)",
+		"m34.params.key.max_context_unlocked": "Неограниченный размер контекста",
+		"m34.params.key.stream_openai": "Стриминг текста",
+		"m34.params.key.show_thoughts": "Запрашивать рассуждения",
+		"m34.params.key.reasoning_effort": "Рассуждения",
+		"m34.params.key.verbosity": "Подробность ответа",
+		"m34.params.key.function_calling": "Включить функции",
+		"m34.params.key.tool_call_recurse_limit": "Предел цепочки вызовов инструментов",
+		"m34.params.key.enable_web_search": "Включить поиск в Интернете",
+		"m34.params.key.request_images": "Запрашивать inline-изображения",
+		"m34.params.key.names_behavior": "Вставка имени персонажа",
+		"m34.params.key.squash_system_messages": "Склеивать сообщения системы",
+		"m34.params.key.continue_prefill": "Префилл для продолжения",
+		"m34.params.key.continue_postfix": "Постфикс для продолжения",
+		"m34.params.key.use_sysprompt": "Включить системный промпт",
+		"m34.params.key.assistant_prefill": "Префилл для ассистента",
+		"m34.params.key.assistant_impersonation": "Префилл для ассистента при перевоплощении",
+		"m34.params.key.wi_format": "Шаблон информации о мире",
+		"m34.params.key.scenario_format": "Шаблон сценария",
+		"m34.params.key.personality_format": "Шаблон личности",
+		"m34.params.key.impersonation_prompt": "Промпт для перевоплощения",
+		"m34.params.key.new_chat_prompt": "Новый чат",
+		"m34.params.key.new_group_chat_prompt": "Новый групповой чат",
+		"m34.params.key.new_example_chat_prompt": "Новый образец чата",
+		"m34.params.key.continue_nudge_prompt": "Подсказка для продолжения",
+		"m34.params.key.group_nudge_prompt": "Подсказка для группы",
+		"m34.params.key.send_if_empty": "Заменять пустые сообщения",
+		"m34.params.opt.reasoning_effort.auto": "Авто",
+		"m34.params.opt.reasoning_effort.min": "Минимальные",
+		"m34.params.opt.reasoning_effort.low": "Низкие",
+		"m34.params.opt.reasoning_effort.medium": "Средние",
+		"m34.params.opt.reasoning_effort.high": "Высокие",
+		"m34.params.opt.reasoning_effort.max": "Максимальные",
+		"m34.params.opt.verbosity.auto": "Авто",
+		"m34.params.opt.verbosity.low": "Низкая",
+		"m34.params.opt.verbosity.medium": "Средняя",
+		"m34.params.opt.verbosity.high": "Высокая",
+		"m34.params.opt.names_behavior.-1": "Отсутствует",
+		"m34.params.opt.names_behavior.0": "По умолчанию",
+		"m34.params.opt.names_behavior.1": "Как часть Completion Object",
+		"m34.params.opt.names_behavior.2": "Внутри сообщения",
+		"m34.params.opt.continue_postfix.none": "Отсутствует",
+		"m34.params.opt.continue_postfix.space": "Пробел",
+		"m34.params.opt.continue_postfix.newline": "Новая строка",
+		"m34.params.opt.continue_postfix.doubleNewline": "Две новые строки",
+		"m34.launcher.open": "Открыть Пресет-студию",
+		"m34.launcher.hideClassic": "Скрыть классический редактор",
+		"m34.launcher.noPreset": "(пресет не выбран)",
+		"m34.launcher.unsaved": "не сохранено",
+		"m34.launcher.unsavedHint": "Рабочая копия отличается от сохранённого пресета; при смене пресета это пропадёт.",
+		"m34.launcher.blocks": "Включено блоков: {enabled} из {total}",
+		"m34.launcher.tokens": "Всего токенов: {count}",
+		"m34.launcher.noTokens": "токены — после первой сборки",
+		"m34.tab.intro": "Пресет-студия заменяет раздел Prompt Manager: карта промпта, блоки с поиском и перетаскиванием, анализ, версии и твой слой, который переживает обновления пресета.",
+		"m34.tab.preset": "Пресет: {name}",
+		"m34.tab.settings": "Замена Prompt Manager",
+		"m34.tab.replace": "Заменить раздел Prompt Manager Пресет-студией",
+		"m34.tab.replaceHint": "Prompt Manager только скрывается и продолжает работать для SillyTavern, команд и расширений; «Классический редактор» его показывает. Включай, когда таблица паритета зелёная.",
+		"m34.tab.replaceActive": "Вместо Prompt Manager — кнопка Пресет-студии.",
+		"m34.tab.replaceWaiting": "Жду, когда появится раздел Prompt Manager (открой «Настройка ответа ИИ» хотя бы раз).",
+		"m34.tab.replaceInactive": "Prompt Manager показывается как обычно.",
+		"m34.tab.replaceLater": "Раздела Prompt Manager на странице пока нет: замена произойдёт, как только он появится.",
+		"m34.tab.textCompletion": "Включён Text Completion: Пресет-студия рассчитана на Chat Completion.",
+		"m34.tab.slash": "Команда /maestro-preset [блок] открывает студию (на блоке — по ID или имени).",
+		"m34.slash.help": "Открывает Пресет-студию Maestro — на блоке, если он указан (ID или имя).",
+		"m34.slash.block": "ID или имя блока",
+		"m34.export.connection": "С данными подключения, без секретов",
+		"m34.map.estimated": "Оценка Maestro (для этого блока у Prompt Manager нет счётчика)",
+		"m34.map.counted": "Счётчик Prompt Manager по последней сборке",
+		"m34.layer.migrateOk": "Перенести в слой",
+		"m34.layer.previewBlocks": "Операции с блоками: {count}",
+		"m34.layer.previewKeys": "Ключи тела: {count}",
+		"m34.layer.previewKeysHint": "Сними галочки с ключей, которым не место в твоём слое. Ключи подключения (источник, модель, адреса) уже сняты: файл-образец не должен закреплять модель.",
+		"m34.layer.previewNone": "нет",
+		"m34.layer.connectionKey": "подключение",
+		"m34.save.layerIntro": "Правки рабочей копии «{base}», которых нет в твоём слое, станут его операциями.",
+		"m34.scn.title": "Параметры по сценариям",
+		"m34.scn.hint": "Сценарий меняет один вид генерации, не переключая пресет: длину ответа, стоп-строки, рассуждения и, если нужно, свой набор сообщений.",
+		"m34.scn.unavailable": "Модуль сценариев генерации не запущен или не даёт настроек.",
+		"m34.scn.empty": "Сценариев с параметрами нет.",
+		"m34.scn.reset": "По умолчанию",
+		"m34.scn.field.enabled": "Перехватывать эту генерацию",
+		"m34.scn.field.max_tokens": "Макс. длина ответа (в токенах)",
+		"m34.scn.field.temperature": "Температура",
+		"m34.scn.field.historyMessages": "Сообщений в {{history}}",
+		"m34.scn.field.stop": "Стоп-строки",
+		"m34.scn.field.reasoning": "Рассуждения",
+		"m34.scn.field.messages": "Свой набор сообщений",
+		"m34.scn.stopPlaceholder": "по одной на строку",
+		"m34.scn.stopHint": "По одной на строку; перевод строки внутри стоп-строки пиши как \\n. {{char}} и {{user}} заменятся именами. Пусто — без стоп-строк.",
+		"m34.scn.reasoning.keep": "Как в подключении",
+		"m34.scn.reasoning.off": "Выключить для этого запроса",
+		"m34.scn.messagesHint": "Пусто — промпт пресета остаётся, меняются только параметры. Сообщение ровно {{history}} заменяется последними сообщениями чата.",
+		"m34.scn.addMessage": "Добавить сообщение",
+		"m34.scn.addHistory": "Добавить {{history}}",
+		"m34.scn.removeMessage": "Убрать сообщение",
+		"m34.scn.role": "Роль сообщения {index}",
+		"m34.scn.content": "Текст сообщения {index}"
+	}
+};
+//#endregion
+//#region src/domain/preset-ui-io.ts
+function isRecord$2(value) {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+/**
+* PM's `validateObject` (PM:1877-1893): a number `version`, a string `type`, an object `data` with an object
+* `prompts` (an array in practice); `prompt_order` may be missing. Prompts without a string identifier are skipped.
+*/
+function parsePromptList(text) {
+	let json;
+	try {
+		json = JSON.parse(text);
+	} catch {
+		return {
+			ok: false,
+			reason: "json"
+		};
+	}
+	if (!isRecord$2(json) || typeof json.version !== "number" || typeof json.type !== "string") return {
+		ok: false,
+		reason: "shape"
+	};
+	const data = json.data;
+	if (!isRecord$2(data) || typeof data.prompts !== "object" || data.prompts === null) return {
+		ok: false,
+		reason: "shape"
+	};
+	const prompts = (Array.isArray(data.prompts) ? data.prompts : Object.values(data.prompts)).filter((item) => isRecord$2(item) && typeof item.identifier === "string" && item.identifier !== "");
+	return {
+		ok: true,
+		file: {
+			version: json.version,
+			type: json.type,
+			data: {
+				...data,
+				prompts
+			}
+		}
+	};
+}
+/** What importing the file changes (P-031); the imported block wins over the one with the same identifier. */
+function planPromptListImport(current, currentOrder, file) {
+	const byId = new Map(current.map((prompt) => [prompt.identifier, prompt]));
+	const plan = {
+		update: [],
+		add: [],
+		order: null
+	};
+	const seen = /* @__PURE__ */ new Set();
+	for (const prompt of file.data.prompts) {
+		if (seen.has(prompt.identifier)) continue;
+		seen.add(prompt.identifier);
+		const existing = byId.get(prompt.identifier);
+		const incoming = isBuiltinId(prompt.identifier) ? { ...prompt } : normalizePrompt$1(prompt);
+		if (!existing) {
+			plan.add.push(incoming);
+			continue;
+		}
+		const patch = {};
+		for (const [key, value] of Object.entries(incoming)) {
+			if (key === "identifier") continue;
+			if (JSON.stringify(existing[key]) !== JSON.stringify(value)) patch[key] = value;
+		}
+		if (Object.keys(patch).length) plan.update.push({
+			identifier: prompt.identifier,
+			patch
+		});
+	}
+	const order = file.data.prompt_order;
+	if (Array.isArray(order)) plan.order = mergeImportedOrder(currentOrder, order);
+	return plan;
+}
+/**
+* PM's «Экспортировать этот список промптов» (P-032): user blocks and the whole active order (markers included).
+* PM keeps only `system_prompt === false && marker === false`, so a user block without the `marker` key is lost; the
+* studio exports it too (normalized).
+*/
+function buildPromptListExport(prompts, order) {
+	return {
+		version: 1,
+		type: "full",
+		data: {
+			prompts: prompts.filter((prompt) => prompt.system_prompt === false && prompt.marker !== true).map((prompt) => normalizePrompt$1(prompt)),
+			prompt_order: order.map((entry) => ({
+				identifier: entry.identifier,
+				enabled: entry.enabled
+			}))
+		}
+	};
+}
+/** `st-prompts-MM_DD_YYYY.json` (PM:1900-1910). */
+function promptListFileName(date, base = "st-prompts") {
+	return `${base}-${String(date.getMonth() + 1).padStart(2, "0")}_${String(date.getDate()).padStart(2, "0")}_${date.getFullYear()}.json`;
+}
+/** A preset body from a foreign file (for «Импорт чужого пресета»): the object itself, or null. */
+function parsePresetBody(text) {
+	try {
+		const json = JSON.parse(text);
+		return isRecord$2(json) ? json : null;
+	} catch {
+		return null;
+	}
+}
+//#endregion
+//#region src/features/presetStudio/dialogs.ts
+/** Values our custom buttons resolve with (ST's AFFIRMATIVE is 1, NEGATIVE 0, CANCELLED null). */
+var CUSTOM_RESULT_BASE = 100;
+var Dialogs = class {
+	app;
+	constructor(app) {
+		this.app = app;
+	}
+	t(key, params) {
+		return this.app.i18n.t(key, params);
+	}
+	body(title, content, className = "") {
+		return el("div", { class: ["maestro-m34-dialog-body", className] }, [el("h3", { text: title }), content === null ? null : typeof content === "string" ? el("p", { text: content }) : content]);
+	}
+	/** Text input; null when cancelled or left empty. */
+	async input(title, value, hint) {
+		const ctx = this.app.host.ctx();
+		const result = await ctx.callGenericPopup(this.body(title, hint ?? null), ctx.POPUP_TYPE.INPUT, value, {
+			okButton: this.t("m34.dialog.ok"),
+			cancelButton: this.t("m34.dialog.cancel")
+		});
+		if (typeof result !== "string") return null;
+		const trimmed = result.trim();
+		return trimmed ? trimmed : null;
+	}
+	async confirm(title, body, okLabel) {
+		const ctx = this.app.host.ctx();
+		return await ctx.callGenericPopup(this.body(title, body), ctx.POPUP_TYPE.CONFIRM, "", {
+			okButton: okLabel ?? this.t("m34.dialog.ok"),
+			cancelButton: this.t("m34.dialog.cancel")
+		}) === ctx.POPUP_RESULT.AFFIRMATIVE;
+	}
+	/** Several actions: the first is the OK button, the others custom buttons; null when cancelled. */
+	async choose(title, body, actions) {
+		const ctx = this.app.host.ctx();
+		const [first, ...rest] = actions;
+		if (!first) return null;
+		const result = await ctx.callGenericPopup(this.body(title, body), ctx.POPUP_TYPE.CONFIRM, "", {
+			okButton: first.label,
+			cancelButton: this.t("m34.dialog.cancel"),
+			customButtons: rest.map((action, index) => ({
+				text: action.label,
+				result: CUSTOM_RESULT_BASE + index,
+				classes: ["maestro-m34-choice"]
+			}))
+		});
+		if (result === ctx.POPUP_RESULT.AFFIRMATIVE) return first.value;
+		if (typeof result === "number" && result >= CUSTOM_RESULT_BASE) return rest[result - CUSTOM_RESULT_BASE]?.value ?? null;
+		return null;
+	}
+	/** A form in a popup; the caller reads its inputs after `true`. */
+	async form(title, content, okLabel) {
+		const ctx = this.app.host.ctx();
+		return await ctx.callGenericPopup(this.body(title, content, "maestro-m34-form-dialog"), ctx.POPUP_TYPE.CONFIRM, "", {
+			okButton: okLabel ?? this.t("m34.dialog.apply"),
+			cancelButton: this.t("m34.dialog.cancel"),
+			wide: true,
+			allowVerticalScrolling: true
+		}) === ctx.POPUP_RESULT.AFFIRMATIVE;
+	}
+	/** Opens the file picker; resolves with the chosen file or null. */
+	pickFile(accept) {
+		return new Promise((resolve) => {
+			const input = el("input", {
+				class: "maestro-m34-hidden-file",
+				attrs: {
+					type: "file",
+					accept
+				}
+			});
+			input.addEventListener("change", () => {
+				resolve(input.files?.[0] ?? null);
+				input.remove();
+			});
+			input.addEventListener("cancel", () => {
+				resolve(null);
+				input.remove();
+			});
+			document.body.append(input);
+			input.click();
+		});
+	}
+	errorText(error) {
+		return this.t("m34.error.generic", { error: error instanceof Error ? error.message : String(error) });
+	}
+	/** Runs an action and reports a failure as an urgent notice instead of throwing into the button handler. */
+	async run(action) {
+		try {
+			return await action();
+		} catch (error) {
+			this.app.log.warn("preset studio action failed", error);
+			this.app.ui.notice(this.errorText(error), {
+				urgent: true,
+				level: "error"
+			});
+			return;
+		}
+	}
+};
+/** Saves a JSON file through the browser (the same way PM exports, PM:1793-1812). */
+function downloadJson(name, data) {
+	const blob = new Blob([JSON.stringify(data, null, 4)], { type: "application/json" });
+	const url = URL.createObjectURL(blob);
+	el("a", { attrs: {
+		href: url,
+		download: name
+	} }).click();
+	URL.revokeObjectURL(url);
+}
+//#endregion
+//#region src/features/presetStudio/view-analysis.ts
+function renderAnalysisPanel(app, model, actions) {
+	const t = app.i18n.t.bind(app.i18n);
+	const root = el("div", { class: "maestro-m34-analysis" });
+	root.append(el("div", { class: "maestro-m34-toolbar" }, [el("span", {
+		class: "maestro-muted",
+		text: t("m34.analysis.hint")
+	}), button({
+		icon: "fa-arrows-rotate",
+		title: t("m34.analysis.refresh"),
+		className: "maestro-m34-analysis-refresh",
+		disabled: model.unavailable,
+		onClick: () => actions.refresh()
+	})]));
+	if (model.unavailable) {
+		root.append(banner(t("m34.analysis.unavailable"), "info", "fa-circle-info"));
+		return root;
+	}
+	if (model.error) root.append(banner(t("m34.analysis.failed", { error: model.error }), "error"));
+	if (model.findings === null) {
+		root.append(el("div", {
+			class: "maestro-empty",
+			text: t("m34.analysis.loading")
+		}));
+		return root;
+	}
+	const findings = [...model.findings].sort((a, b) => a.severity === b.severity ? 0 : a.severity === "warn" ? -1 : 1);
+	root.append(el("h4", {
+		class: "maestro-m34-h",
+		text: t("m34.analysis.findings", { count: findings.length })
+	}));
+	if (!findings.length) root.append(emptyState(t("m34.analysis.clean")));
+	else root.append(el("ul", { class: "maestro-m34-findings" }, findings.map((finding) => {
+		const name = finding.identifier ? model.names.get(finding.identifier) ?? finding.identifier : null;
+		return el("li", { class: ["maestro-m34-finding", `maestro-m34-sev-${finding.severity}`] }, [
+			icon(finding.severity === "warn" ? "fa-triangle-exclamation" : "fa-circle-info"),
+			el("div", { class: "maestro-m34-finding-body" }, [el("div", {
+				class: "maestro-m34-finding-kind",
+				text: t(`m34.finding.${finding.kind}`)
+			}), el("div", { text: finding.text })]),
+			el("div", { class: "maestro-m34-finding-links" }, [finding.identifier && name ? openButton(finding.identifier, name) : null, finding.otherIdentifier ? openButton(finding.otherIdentifier, model.names.get(finding.otherIdentifier) ?? finding.otherIdentifier) : null])
+		]);
+	})));
+	root.append(el("h4", {
+		class: "maestro-m34-h",
+		text: t("m34.analysis.hints")
+	}));
+	if (!model.hints.length) root.append(el("div", {
+		class: "maestro-muted",
+		text: t("m34.analysis.noHints")
+	}));
+	else root.append(el("ul", { class: "maestro-m34-hints" }, model.hints.map((hint) => el("li", {}, [el("strong", { text: hint.model }), el("span", { text: ` — ${hint.text}` })]))));
+	return root;
+	function openButton(identifier, name) {
+		return button({
+			label: name,
+			icon: "fa-pen",
+			kind: "ghost",
+			title: t("m34.analysis.open"),
+			className: "maestro-m34-finding-open",
+			onClick: () => actions.open(identifier)
+		});
+	}
+}
+//#endregion
+//#region src/features/presetStudio/view-blocks.ts
+function emptyBlocksState() {
+	return {
+		search: "",
+		selected: /* @__PURE__ */ new Set(),
+		expanded: /* @__PURE__ */ new Set(),
+		substituted: /* @__PURE__ */ new Map(),
+		insertChoice: "",
+		focusId: null
+	};
+}
+var KIND_ICON = {
+	inChat: "fa-syringe",
+	marker: "fa-thumbtack",
+	important: "fa-star",
+	global: "fa-globe",
+	user: "fa-asterisk"
+};
+var SEARCH_DEBOUNCE_MS = 200;
+/** Renders a block's text with macros, conditions and Maestro flags marked (M34 п. 2). */
+function highlighted(text, className = "maestro-m34-text") {
+	return el("div", { class: className }, highlightSegments(text).map((segment) => segment.kind === "text" ? segment.text : el("span", {
+		class: `maestro-m34-hl maestro-m34-hl-${segment.kind}`,
+		text: segment.text
+	})));
+}
+/** A button the studio can give focus back to after a re-render (data-focus-key). */
+function keyed(key, options) {
+	const node = button(options);
+	node.dataset.focusKey = key;
+	return node;
+}
+function formatTokens(value) {
+	return typeof value === "number" && value > 0 ? value.toLocaleString() : "–";
+}
+function renderBlocksPanel(app, model, state, actions) {
+	const t = app.i18n.t.bind(app.i18n);
+	const root = el("div", { class: "maestro-m34-blocks" });
+	const searching = state.search.trim() !== "";
+	const visible = model.rows.map((row, index) => ({
+		row,
+		index
+	})).filter(({ row }) => matchesSearch(row.prompt, row.identifier, state.search));
+	const search = el("input", {
+		class: "text_pole maestro-m34-search",
+		attrs: {
+			type: "search",
+			placeholder: t("m34.blocks.search"),
+			"aria-label": t("m34.blocks.search")
+		},
+		data: { focusKey: "search" }
+	});
+	search.value = state.search;
+	let timer = null;
+	search.addEventListener("input", () => {
+		state.search = search.value;
+		if (timer) clearTimeout(timer);
+		timer = setTimeout(() => {
+			timer = null;
+			actions.changed();
+		}, SEARCH_DEBOUNCE_MS);
+	});
+	const insert = el("select", {
+		class: "text_pole maestro-m34-insert-select",
+		attrs: { "aria-label": t("m34.blocks.insertPick") }
+	});
+	insert.append(el("option", {
+		text: t("m34.blocks.insertPick"),
+		attrs: { value: "" }
+	}));
+	for (const prompt of model.detached) insert.append(el("option", {
+		text: promptName$1(prompt),
+		attrs: { value: prompt.identifier }
+	}));
+	insert.value = model.detached.some((prompt) => prompt.identifier === state.insertChoice) ? state.insertChoice : "";
+	insert.disabled = !model.detached.length;
+	insert.addEventListener("change", () => {
+		state.insertChoice = insert.value;
+	});
+	const orderRows = model.rows.map((row) => ({
+		item: {
+			identifier: row.identifier,
+			enabled: row.enabled
+		},
+		prompt: row.prompt
+	}));
+	const counts = enabledCount(orderRows);
+	const total = tokenTotal(orderRows, model.tokens);
+	root.append(el("div", { class: "maestro-m34-toolbar" }, [
+		search,
+		button({
+			icon: "fa-plus",
+			label: t("m34.blocks.new"),
+			kind: "primary",
+			className: "maestro-m34-new",
+			onClick: () => actions.add()
+		}),
+		el("span", { class: "maestro-m34-insert" }, [insert, button({
+			icon: "fa-link",
+			title: t("m34.blocks.insert"),
+			className: "maestro-m34-insert-btn",
+			disabled: !model.detached.length,
+			onClick: async () => {
+				if (insert.value) await actions.insert(insert.value);
+			}
+		})]),
+		button({
+			icon: "fa-file-import",
+			title: t("m34.blocks.importList"),
+			className: "maestro-m34-import-list",
+			onClick: () => actions.importList()
+		}),
+		button({
+			icon: "fa-file-export",
+			title: t("m34.blocks.exportList"),
+			className: "maestro-m34-export-list",
+			onClick: () => actions.exportList()
+		}),
+		button({
+			icon: "fa-arrow-rotate-left",
+			title: t("m34.blocks.resetOrder"),
+			className: "maestro-m34-reset-order",
+			onClick: () => actions.resetOrder()
+		})
+	]), el("div", { class: "maestro-m34-summary-line" }, [
+		el("span", {
+			class: "maestro-m34-count",
+			text: t("m34.blocks.enabled", {
+				enabled: counts.enabled,
+				total: counts.total
+			})
+		}),
+		el("span", {
+			class: "maestro-muted",
+			text: t("m34.blocks.tokens", { count: formatTokens(total) })
+		}),
+		model.layerMode ? el("span", {
+			class: "maestro-m34-badge maestro-m34-badge-layer",
+			text: t("m34.blocks.toLayer")
+		}) : null,
+		searching ? el("span", {
+			class: "maestro-muted",
+			text: t("m34.blocks.dragOff")
+		}) : null
+	]));
+	const selected = [...state.selected].filter((identifier) => model.rows.some((row) => row.identifier === identifier));
+	const bulk = el("div", {
+		class: "maestro-m34-bulk",
+		attrs: {
+			role: "toolbar",
+			"aria-label": t("m34.bulk.title")
+		}
+	});
+	bulk.hidden = !selected.length;
+	if (selected.length) bulk.append(el("span", {
+		class: "maestro-m34-bulk-count",
+		text: t("m34.bulk.selected", { count: selected.length })
+	}), button({
+		label: t("m34.bulk.selectAll"),
+		kind: "ghost",
+		onClick: () => {
+			for (const { row } of visible) state.selected.add(row.identifier);
+			actions.changed();
+		}
+	}), button({
+		label: t("m34.bulk.clear"),
+		kind: "ghost",
+		onClick: () => {
+			state.selected.clear();
+			actions.changed();
+		}
+	}), button({
+		icon: "fa-toggle-on",
+		label: t("m34.bulk.enable"),
+		className: "maestro-m34-bulk-on",
+		onClick: () => actions.toggle(selected, true)
+	}), button({
+		icon: "fa-toggle-off",
+		label: t("m34.bulk.disable"),
+		className: "maestro-m34-bulk-off",
+		onClick: () => actions.toggle(selected, false)
+	}));
+	root.append(bulk);
+	const list = el("div", {
+		class: "maestro-m34-block-list",
+		attrs: { role: "list" }
+	});
+	root.append(list);
+	if (!model.rows.length) {
+		list.append(el("div", {
+			class: "maestro-empty",
+			text: t("m34.blocks.empty")
+		}));
+		return root;
+	}
+	if (!visible.length) {
+		list.append(el("div", {
+			class: "maestro-empty",
+			text: t("m34.blocks.noMatch")
+		}));
+		return root;
+	}
+	const movable = !searching;
+	let dragged = null;
+	for (const { row, index } of visible) list.append(renderRow(row, index));
+	if (state.focusId) {
+		const focus = state.focusId;
+		const node = [...list.querySelectorAll(".maestro-m34-block")].find((item) => item.dataset.id === focus);
+		node?.classList.add("maestro-m34-flash");
+		node?.scrollIntoView?.({ block: "nearest" });
+		node?.querySelector(".maestro-m34-block-name")?.focus();
+		state.focusId = null;
+	}
+	return root;
+	function renderRow(row, index) {
+		const prompt = row.prompt;
+		const identifier = row.identifier;
+		const name = prompt ? promptName$1(prompt) : identifier;
+		const select = el("input", {
+			attrs: {
+				type: "checkbox",
+				"aria-label": t("m34.blocks.select", { name })
+			},
+			data: { focusKey: `select:${identifier}` }
+		});
+		select.checked = state.selected.has(identifier);
+		select.addEventListener("change", () => {
+			if (select.checked) state.selected.add(identifier);
+			else state.selected.delete(identifier);
+			actions.changed();
+		});
+		const last = model.rows.length - 1;
+		const node = el("div", {
+			class: [
+				"maestro-m34-block",
+				row.enabled ? null : "maestro-m34-off",
+				prompt ? null : "maestro-m34-missing",
+				model.openId === identifier ? "maestro-on" : null
+			],
+			data: { id: identifier },
+			attrs: {
+				role: "listitem",
+				draggable: movable && model.draggable ? "true" : void 0
+			}
+		}, [el("div", { class: "maestro-m34-block-main" }, [
+			select,
+			movable && model.draggable ? el("span", {
+				class: "maestro-m34-handle",
+				title: t("m34.blocks.drag"),
+				text: "☰"
+			}) : null,
+			movable ? keyed(`up:${identifier}`, {
+				icon: "fa-arrow-up",
+				kind: "ghost",
+				title: t("m34.blocks.up"),
+				className: "maestro-m34-up",
+				disabled: index === 0,
+				onClick: () => actions.move(identifier, index - 1)
+			}) : null,
+			movable ? keyed(`down:${identifier}`, {
+				icon: "fa-arrow-down",
+				kind: "ghost",
+				title: t("m34.blocks.down"),
+				className: "maestro-m34-down",
+				disabled: index === last,
+				onClick: () => actions.move(identifier, index + 1)
+			}) : null,
+			keyed(`toggle:${identifier}`, {
+				icon: row.enabled ? "fa-toggle-on" : "fa-toggle-off",
+				kind: "ghost",
+				title: row.enabled ? t("m34.blocks.disable") : t("m34.blocks.enable"),
+				className: "maestro-m34-toggle",
+				disabled: !prompt,
+				onClick: () => actions.toggle([identifier], !row.enabled)
+			}),
+			prompt ? kindIcon(prompt) : el("span", { class: "maestro-m34-kind" }, [icon("fa-link-slash")]),
+			el("button", {
+				class: "maestro-m34-block-name",
+				attrs: {
+					type: "button",
+					disabled: !prompt
+				},
+				data: { focusKey: `name:${identifier}` },
+				title: prompt && canEditBlock(prompt) ? t("m34.blocks.openHint") : t("m34.blocks.viewHint"),
+				on: { click: () => actions.open(identifier) }
+			}, [el("span", {
+				class: "maestro-m34-block-title",
+				text: name
+			}), el("span", {
+				class: "maestro-m34-block-meta",
+				text: prompt ? meta(prompt) : t("m34.blocks.missing")
+			})]),
+			el("span", { class: "maestro-m34-block-badges" }, prompt ? badges(prompt) : []),
+			el("span", {
+				class: "maestro-m34-tokens",
+				title: t("m34.blocks.tokensHint"),
+				text: formatTokens(model.tokens.get(identifier))
+			}),
+			prompt ? keyed(`expand:${identifier}`, {
+				icon: state.expanded.has(identifier) ? "fa-chevron-up" : "fa-chevron-down",
+				kind: "ghost",
+				title: t("m34.blocks.preview"),
+				className: "maestro-m34-expand",
+				onClick: () => {
+					if (state.expanded.has(identifier)) state.expanded.delete(identifier);
+					else state.expanded.add(identifier);
+					actions.changed();
+				}
+			}) : null,
+			el("span", { class: "maestro-m34-block-actions" }, [
+				prompt && !isMarker(prompt) ? button({
+					icon: "fa-paste",
+					kind: "ghost",
+					title: t("m34.blocks.duplicate"),
+					className: "maestro-m34-duplicate",
+					onClick: () => actions.duplicate(identifier)
+				}) : null,
+				model.canDetach && (!prompt || canRemoveBlock(prompt)) ? button({
+					icon: "fa-link-slash",
+					kind: "ghost",
+					title: t("m34.blocks.detach"),
+					className: "maestro-m34-detach",
+					onClick: () => actions.detach(identifier)
+				}) : null,
+				prompt && canRemoveBlock(prompt) ? button({
+					icon: "fa-trash-can",
+					kind: "ghost",
+					title: t("m34.blocks.delete"),
+					className: "maestro-m34-delete",
+					onClick: () => actions.remove(identifier)
+				}) : null
+			])
+		]), prompt && state.expanded.has(identifier) ? preview(prompt) : null]);
+		node.addEventListener("keydown", (event) => {
+			if (!movable || !event.altKey) return;
+			if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
+			event.preventDefault();
+			const target = event.key === "ArrowUp" ? index - 1 : index + 1;
+			if (target < 0 || target > last) return;
+			state.focusId = identifier;
+			actions.move(identifier, target);
+		});
+		if (movable && model.draggable) bindDrag(node, identifier);
+		return node;
+	}
+	function meta(prompt) {
+		const role = t(`m34.role.${promptRole$1(prompt)}`);
+		if (prompt.injection_position === 1) return t("m34.blocks.metaInChat", {
+			role,
+			depth: promptDepth(prompt),
+			order: promptOrder(prompt)
+		});
+		return t("m34.blocks.metaRelative", { role });
+	}
+	function kindIcon(prompt) {
+		const kind = blockKind(prompt);
+		const label = t(`m34.kind.${kind}`);
+		const role = promptRole$1(prompt);
+		return el("span", {
+			class: ["maestro-m34-kind", `maestro-m34-kind-${kind}`],
+			title: label
+		}, [
+			icon(KIND_ICON[kind]),
+			role === "assistant" ? icon("fa-robot") : role === "user" ? icon("fa-user") : null,
+			el("span", {
+				class: "maestro-sr-only",
+				text: label
+			})
+		]);
+	}
+	function badges(prompt) {
+		const list = [];
+		const identifier = prompt.identifier;
+		if (model.conflicts.has(identifier)) list.push(el("span", {
+			class: "maestro-m34-badge maestro-m34-badge-conflict",
+			text: t("m34.blocks.conflict")
+		}));
+		else if (model.layerIds.has(identifier)) list.push(el("span", {
+			class: "maestro-m34-badge maestro-m34-badge-layer",
+			text: t("m34.blocks.inLayer")
+		}));
+		if (model.overridden.has(identifier)) list.push(el("span", {
+			class: "maestro-m34-badge",
+			title: t("m34.blocks.overriddenHint"),
+			text: t("m34.blocks.overridden")
+		}));
+		if (typeProblems(prompt).length) list.push(el("span", {
+			class: "maestro-m34-badge maestro-m34-badge-warn",
+			title: t("m34.blocks.typesHint"),
+			text: t("m34.blocks.types")
+		}));
+		return list;
+	}
+	function preview(prompt) {
+		const identifier = prompt.identifier;
+		if (isMarker(prompt)) return el("div", { class: "maestro-m34-preview" }, [el("div", {
+			class: "maestro-muted",
+			text: t("m34.blocks.markerPreview")
+		})]);
+		const text = promptText$1(prompt);
+		const substituted = state.substituted.get(identifier);
+		return el("div", { class: "maestro-m34-preview" }, [
+			text ? highlighted(text) : el("div", {
+				class: "maestro-muted",
+				text: t("m34.blocks.emptyText")
+			}),
+			el("div", { class: "maestro-row" }, [button({
+				icon: "fa-wand-magic-sparkles",
+				label: t("m34.blocks.substitute"),
+				kind: "ghost",
+				className: "maestro-m34-substitute",
+				disabled: !text,
+				onClick: () => actions.substitute(identifier)
+			})]),
+			substituted !== void 0 ? el("div", { class: "maestro-m34-substituted" }, [el("div", {
+				class: "maestro-field-hint",
+				text: t("m34.blocks.substituted")
+			}), el("div", {
+				class: "maestro-m34-text",
+				text: substituted
+			})]) : null
+		]);
+	}
+	function bindDrag(node, identifier) {
+		node.addEventListener("dragstart", (event) => {
+			dragged = identifier;
+			event.dataTransfer?.setData("text/plain", identifier);
+			node.classList.add("maestro-m34-dragging");
+		});
+		node.addEventListener("dragend", () => {
+			dragged = null;
+			node.classList.remove("maestro-m34-dragging");
+		});
+		node.addEventListener("dragover", (event) => {
+			if (dragged === null || dragged === identifier) return;
+			event.preventDefault();
+		});
+		node.addEventListener("drop", (event) => {
+			event.preventDefault();
+			const from = dragged;
+			dragged = null;
+			if (from === null || from === identifier) return;
+			const to = model.rows.findIndex((row) => row.identifier === identifier);
+			if (to >= 0) actions.move(from, to);
+		});
+	}
+}
+//#endregion
+//#region src/features/presetStudio/view-editor.ts
+var TOKEN_DEBOUNCE_MS = 400;
+function renderBlockEditor(app, model, actions) {
+	const t = app.i18n.t.bind(app.i18n);
+	const prompt = model.prompt;
+	const editable = model.isNew || canEditBlock(prompt);
+	const textEditable = editable && canEditText(prompt);
+	const initial = blockFields(prompt);
+	let disposed = false;
+	const field = (label, control, hint, className) => {
+		const id = control.id || uid("maestro-m34-field");
+		control.id = id;
+		return el("div", { class: ["maestro-m34-field", className] }, [
+			el("label", {
+				class: "maestro-m34-label",
+				text: label,
+				attrs: { for: id }
+			}),
+			control,
+			hint ? el("div", {
+				class: "maestro-field-hint",
+				text: hint
+			}) : null
+		]);
+	};
+	const name = el("input", {
+		class: "text_pole maestro-m34-f-name",
+		attrs: {
+			type: "text",
+			disabled: !editable
+		}
+	});
+	name.value = initial.name;
+	const role = el("select", {
+		class: "text_pole maestro-m34-f-role",
+		attrs: { disabled: !editable }
+	});
+	for (const value of PROMPT_ROLES) role.append(el("option", {
+		text: t(`m34.role.${value}`),
+		attrs: { value }
+	}));
+	role.value = initial.role;
+	const position = el("select", {
+		class: "text_pole maestro-m34-f-position",
+		attrs: { disabled: !editable }
+	});
+	position.append(el("option", {
+		text: t("m34.editor.relative"),
+		attrs: { value: "0" }
+	}), el("option", {
+		text: t("m34.editor.inChat"),
+		attrs: { value: "1" }
+	}));
+	position.value = String(initial.position);
+	const depth = el("input", {
+		class: "text_pole maestro-m34-f-depth",
+		attrs: {
+			type: "number",
+			min: 0,
+			max: 9999,
+			step: 1,
+			inputmode: "numeric",
+			disabled: !editable
+		}
+	});
+	depth.value = String(initial.depth);
+	const order = el("input", {
+		class: "text_pole maestro-m34-f-order",
+		attrs: {
+			type: "number",
+			min: 0,
+			max: 9999,
+			step: 1,
+			inputmode: "numeric",
+			disabled: !editable
+		}
+	});
+	order.value = String(initial.order);
+	const triggerBoxes = PROMPT_TRIGGERS.map((trigger) => {
+		const box = el("input", {
+			attrs: {
+				type: "checkbox",
+				value: trigger,
+				disabled: !editable
+			},
+			class: "maestro-m34-f-trigger"
+		});
+		box.checked = initial.triggers.includes(trigger);
+		return {
+			trigger,
+			box
+		};
+	});
+	const triggers = el("fieldset", { class: "maestro-m34-triggers" }, [
+		el("legend", {
+			class: "maestro-m34-label",
+			text: t("m34.editor.triggers")
+		}),
+		...triggerBoxes.map(({ trigger, box }) => el("label", { class: "checkbox_label" }, [box, el("span", { text: t(`m34.trigger.${trigger}`) })])),
+		el("div", {
+			class: "maestro-field-hint",
+			text: t("m34.editor.triggersHint")
+		})
+	]);
+	const forbid = el("input", {
+		attrs: {
+			type: "checkbox",
+			disabled: !editable
+		},
+		class: "maestro-m34-f-forbid"
+	});
+	forbid.checked = initial.forbidOverrides;
+	const content = el("textarea", {
+		class: "text_pole maestro-m34-f-content",
+		attrs: {
+			rows: 14,
+			disabled: !textEditable,
+			spellcheck: "false"
+		}
+	});
+	content.value = initial.content;
+	const tokens = el("span", {
+		class: "maestro-m34-token-count",
+		attrs: { "aria-live": "polite" }
+	});
+	const highlight = el("details", { class: "maestro-m34-highlight" });
+	const stale = el("div", { class: "maestro-m34-stale" });
+	stale.hidden = true;
+	const read = () => ({
+		name: name.value,
+		role: PROMPT_ROLES.includes(role.value) ? role.value : "system",
+		position: position.value === "1" ? 1 : 0,
+		depth: Number(depth.value),
+		order: Number(order.value),
+		triggers: triggerBoxes.filter(({ box }) => box.checked).map(({ trigger }) => trigger),
+		forbidOverrides: forbid.checked,
+		content: content.value
+	});
+	const depthBlock = field(t("m34.editor.depth"), depth, t("m34.editor.depthHint"), "maestro-m34-depth");
+	const orderBlock = field(t("m34.editor.order"), order, t("m34.editor.orderHint"), "maestro-m34-order");
+	const syncPosition = () => {
+		const inChat = position.value === "1";
+		depthBlock.hidden = !inChat;
+		orderBlock.hidden = !inChat;
+	};
+	position.addEventListener("change", syncPosition);
+	syncPosition();
+	let tokenTimer = null;
+	let tokenRun = 0;
+	const countTokens = () => {
+		if (tokenTimer) clearTimeout(tokenTimer);
+		tokenTimer = setTimeout(() => {
+			tokenTimer = null;
+			const run = ++tokenRun;
+			const text = content.value;
+			actions.countTokens(text).then((value) => {
+				if (disposed || run !== tokenRun) return;
+				tokens.textContent = value === null ? "" : t("m34.editor.tokens", { count: value });
+			});
+		}, TOKEN_DEBOUNCE_MS);
+	};
+	const renderHighlight = () => {
+		const text = content.value;
+		const flags = maestroFlags(text);
+		const effects = sideEffectMacros(text);
+		highlight.replaceChildren(el("summary", { text: t("m34.editor.highlight") }), highlighted(text || " "));
+		if (flags.length) highlight.append(el("div", {
+			class: "maestro-field-hint",
+			text: t("m34.editor.flags", { flags: flags.join(", ") })
+		}));
+		if (effects.length) highlight.append(el("div", {
+			class: "maestro-warn-text",
+			text: t("m34.editor.sideEffects", { macros: effects.join(", ") })
+		}));
+	};
+	content.addEventListener("input", () => {
+		countTokens();
+		if (highlight.open) renderHighlight();
+	});
+	highlight.addEventListener("toggle", () => {
+		if (highlight.open) renderHighlight();
+	});
+	renderHighlight();
+	countTokens();
+	const reset = () => {
+		const defaults = SYSTEM_DEFAULTS[prompt.identifier];
+		if (defaults) {
+			name.value = defaults.name;
+			if (textEditable) content.value = defaults.content;
+			if (defaults.forbidOverrides === false) forbid.checked = false;
+		}
+		role.value = "system";
+		for (const { box } of triggerBoxes) box.checked = false;
+		countTokens();
+		if (highlight.open) renderHighlight();
+	};
+	const save = async () => {
+		if (!editable) return;
+		await actions.save(read());
+	};
+	const problems = typeProblems(prompt);
+	const element = el("form", {
+		class: "maestro-m34-editor",
+		attrs: { "aria-label": t("m34.editor.title", { name: initial.name || prompt.identifier }) },
+		on: { submit: (event) => event.preventDefault() }
+	}, [
+		el("div", { class: "maestro-m34-editor-head" }, [el("h4", { text: model.isNew ? t("m34.editor.newTitle") : t("m34.editor.title", { name: initial.name || prompt.identifier }) }), button({
+			icon: "fa-xmark",
+			kind: "ghost",
+			title: t("m34.editor.close"),
+			className: "maestro-m34-editor-close",
+			onClick: () => actions.close()
+		})]),
+		el("div", {
+			class: "maestro-muted maestro-m34-editor-id",
+			text: t("m34.editor.identifier", { id: prompt.identifier })
+		}),
+		model.layerMode ? banner(t("m34.editor.layerMode"), "info", "fa-layer-group") : null,
+		!editable ? banner(t("m34.editor.readOnly"), "info", "fa-lock") : null,
+		editable && !textEditable ? banner(t("m34.editor.markerText"), "info", "fa-thumbtack") : null,
+		problems.length ? banner(t("m34.editor.types", { fields: problems.join(", ") }), "warn") : null,
+		stale,
+		field(t("m34.editor.name"), name),
+		el("div", { class: "maestro-m34-grid" }, [
+			field(t("m34.editor.role"), role, t("m34.editor.roleHint")),
+			field(t("m34.editor.position"), position),
+			depthBlock,
+			orderBlock
+		]),
+		triggers,
+		canForbidOverrides(prompt.identifier) ? el("label", { class: "checkbox_label maestro-m34-forbid" }, [forbid, el("span", { text: t("m34.editor.forbid") })]) : null,
+		model.sourceKey ? el("div", {
+			class: "maestro-m34-source",
+			text: t("m34.editor.source", { source: t(model.sourceKey) })
+		}) : null,
+		el("div", { class: "maestro-m34-field" }, [el("div", { class: "maestro-m34-label-row" }, [el("label", {
+			class: "maestro-m34-label",
+			text: t("m34.editor.content"),
+			attrs: { for: content.id = uid("maestro-m34-content") }
+		}), tokens]), content]),
+		highlight,
+		el("div", { class: "maestro-m34-editor-actions" }, [
+			editable ? button({
+				icon: "fa-floppy-disk",
+				label: t("m34.editor.save"),
+				kind: "primary",
+				className: "maestro-m34-editor-save",
+				onClick: save
+			}) : null,
+			editable && canReset(prompt) ? button({
+				icon: "fa-arrow-rotate-left",
+				label: t("m34.editor.reset"),
+				title: t("m34.editor.resetHint"),
+				className: "maestro-m34-editor-reset",
+				onClick: reset
+			}) : null,
+			button({
+				label: t("m34.editor.close"),
+				kind: "ghost",
+				className: "maestro-m34-editor-cancel",
+				onClick: () => actions.close()
+			}),
+			el("span", {
+				class: "maestro-field-hint",
+				text: t("m34.editor.keys")
+			})
+		])
+	]);
+	element.addEventListener("keydown", (event) => {
+		if ((event.ctrlKey || event.metaKey) && (event.key === "s" || event.key === "S" || event.key === "Enter")) {
+			event.preventDefault();
+			save();
+		}
+	});
+	return {
+		element,
+		identifier: prompt.identifier,
+		dirty: () => editable && !sameFields(read(), initial),
+		read,
+		markStale() {
+			stale.replaceChildren(banner(t("m34.editor.stale"), "warn"));
+			stale.hidden = false;
+		},
+		focus() {
+			(editable ? name : content).focus();
+		},
+		dispose() {
+			disposed = true;
+			if (tokenTimer) clearTimeout(tokenTimer);
+		}
+	};
+}
+//#endregion
+//#region src/domain/preset-ui-params.ts
+var PARAM_GROUPS = [
+	"samplers",
+	"context",
+	"reasoning",
+	"misc"
+];
+var num = (key, group, min, max, step, integer = false) => ({
+	key,
+	group,
+	type: "number",
+	min,
+	max,
+	step,
+	integer
+});
+var PARAMS = [
+	num("temperature", "samplers", 0, 2, .01),
+	num("frequency_penalty", "samplers", -2, 2, .01),
+	num("presence_penalty", "samplers", -2, 2, .01),
+	num("top_p", "samplers", 0, 1, .01),
+	num("top_k", "samplers", 0, 500, 1, true),
+	num("top_a", "samplers", 0, 1, .001),
+	num("min_p", "samplers", 0, 1, .001),
+	num("repetition_penalty", "samplers", 1, 2, .01),
+	num("seed", "samplers", -1, 2147483647, 1, true),
+	num("n", "samplers", 1, 16, 1, true),
+	num("openai_max_context", "context", 512, 4e6, 1, true),
+	num("openai_max_tokens", "context", 1, 1e6, 1, true),
+	{
+		key: "max_context_unlocked",
+		group: "context",
+		type: "boolean"
+	},
+	{
+		key: "stream_openai",
+		group: "context",
+		type: "boolean"
+	},
+	{
+		key: "show_thoughts",
+		group: "reasoning",
+		type: "boolean"
+	},
+	{
+		key: "reasoning_effort",
+		group: "reasoning",
+		type: "select",
+		options: [
+			"auto",
+			"min",
+			"low",
+			"medium",
+			"high",
+			"max"
+		]
+	},
+	{
+		key: "verbosity",
+		group: "reasoning",
+		type: "select",
+		options: [
+			"auto",
+			"low",
+			"medium",
+			"high"
+		]
+	},
+	{
+		key: "function_calling",
+		group: "reasoning",
+		type: "boolean"
+	},
+	num("tool_call_recurse_limit", "reasoning", 1, 50, 1, true),
+	{
+		key: "enable_web_search",
+		group: "reasoning",
+		type: "boolean"
+	},
+	{
+		key: "request_images",
+		group: "reasoning",
+		type: "boolean"
+	},
+	{
+		key: "names_behavior",
+		group: "misc",
+		type: "select",
+		options: [
+			-1,
+			0,
+			1,
+			2
+		]
+	},
+	{
+		key: "squash_system_messages",
+		group: "misc",
+		type: "boolean"
+	},
+	{
+		key: "continue_prefill",
+		group: "misc",
+		type: "boolean"
+	},
+	{
+		key: "continue_postfix",
+		group: "misc",
+		type: "select",
+		options: [
+			"",
+			" ",
+			"\n",
+			"\n\n"
+		]
+	},
+	{
+		key: "use_sysprompt",
+		group: "misc",
+		type: "boolean"
+	},
+	{
+		key: "assistant_prefill",
+		group: "misc",
+		type: "textarea"
+	},
+	{
+		key: "assistant_impersonation",
+		group: "misc",
+		type: "textarea"
+	},
+	{
+		key: "wi_format",
+		group: "misc",
+		type: "text"
+	},
+	{
+		key: "scenario_format",
+		group: "misc",
+		type: "text"
+	},
+	{
+		key: "personality_format",
+		group: "misc",
+		type: "text"
+	},
+	{
+		key: "impersonation_prompt",
+		group: "misc",
+		type: "textarea"
+	},
+	{
+		key: "new_chat_prompt",
+		group: "misc",
+		type: "textarea"
+	},
+	{
+		key: "new_group_chat_prompt",
+		group: "misc",
+		type: "textarea"
+	},
+	{
+		key: "new_example_chat_prompt",
+		group: "misc",
+		type: "textarea"
+	},
+	{
+		key: "continue_nudge_prompt",
+		group: "misc",
+		type: "textarea"
+	},
+	{
+		key: "group_nudge_prompt",
+		group: "misc",
+		type: "textarea"
+	},
+	{
+		key: "send_if_empty",
+		group: "misc",
+		type: "textarea"
+	}
+];
+function paramsOf(group) {
+	return PARAMS.filter((spec) => spec.group === group);
+}
+/** A form value → the stored value with ST's type and limits. */
+function coerceParam(spec, raw) {
+	switch (spec.type) {
+		case "boolean": return {
+			ok: true,
+			value: raw === true || raw === "true"
+		};
+		case "number": {
+			const text = String(raw).trim().replace(",", ".");
+			const value = text === "" ? NaN : Number(text);
+			if (!Number.isFinite(value)) return {
+				ok: false,
+				error: "notNumber"
+			};
+			if (value < spec.min || value > spec.max) return {
+				ok: false,
+				error: "range"
+			};
+			return {
+				ok: true,
+				value: spec.integer ? Math.round(value) : value
+			};
+		}
+		case "select": {
+			const match = spec.options.find((option) => String(option) === String(raw));
+			return match === void 0 ? {
+				ok: false,
+				error: "option"
+			} : {
+				ok: true,
+				value: match
+			};
+		}
+		default: return {
+			ok: true,
+			value: String(raw)
+		};
+	}
+}
+/** How a select option is labelled when its value is whitespace (continue_postfix). */
+function optionKey(value) {
+	if (value === "") return "none";
+	if (value === " ") return "space";
+	if (value === "\n") return "newline";
+	if (value === "\n\n") return "doubleNewline";
+	return String(value);
+}
+/**
+* Connection keys of a Chat Completion preset (P-094, OAI:306-407 with the «connection» flag): source, models,
+* addresses, provider routing. A migration from a reference file may turn them into layer operations; the studio
+* shows them apart and unticked.
+*/
+var CONNECTION_KEYS = /* @__PURE__ */ new Set([
+	"chat_completion_source",
+	"openai_model",
+	"claude_model",
+	"openrouter_model",
+	"ai21_model",
+	"mistralai_model",
+	"cohere_model",
+	"perplexity_model",
+	"groq_model",
+	"chutes_model",
+	"siliconflow_model",
+	"minimax_model",
+	"electronhub_model",
+	"nanogpt_model",
+	"deepseek_model",
+	"aimlapi_model",
+	"xai_model",
+	"pollinations_model",
+	"moonshot_model",
+	"fireworks_model",
+	"cometapi_model",
+	"custom_model",
+	"google_model",
+	"vertexai_model",
+	"zai_model",
+	"workers_ai_model",
+	"azure_openai_model",
+	"custom_url",
+	"siliconflow_endpoint",
+	"minimax_endpoint",
+	"pollinations_endpoint",
+	"zai_endpoint",
+	"azure_base_url",
+	"azure_deployment_name",
+	"azure_api_version",
+	"vertexai_auth_mode",
+	"vertexai_region",
+	"vertexai_express_project_id",
+	"workers_ai_account_id",
+	"custom_include_body",
+	"custom_exclude_body",
+	"custom_include_headers",
+	"custom_prompt_post_processing",
+	"openrouter_use_fallback",
+	"openrouter_providers",
+	"openrouter_quantizations",
+	"openrouter_allow_fallbacks",
+	"openrouter_middleout",
+	"nanogpt_provider",
+	"nanogpt_payg_override",
+	"reverse_proxy",
+	"proxy_password",
+	"group_models",
+	"sort_models",
+	"show_external_models",
+	"bypass_status_check"
+]);
+function isConnectionKey(key) {
+	return CONNECTION_KEYS.has(key);
+}
+/** Stop strings as editable lines: one per line, a line break inside a stop written as `\n` (and `\` as `\\`). */
+function stopsToText(stops) {
+	return stops.map((stop) => stop.replace(/\\/g, "\\\\").replace(/\n/g, "\\n")).join("\n");
+}
+/** The inverse of stopsToText; empty lines are dropped. */
+function textToStops(text) {
+	return text.split("\n").map((line) => line.replace(/\r$/, "")).filter((line) => line !== "").map((line) => line.replace(/\\(\\|n)/g, (_match, escaped) => escaped === "n" ? "\n" : "\\"));
+}
+//#endregion
+//#region src/features/presetStudio/view-layer.ts
+/** One layer operation as a line («Своя правка блока „Main Prompt“: content»). */
+function describeOp(app, op, names) {
+	const t = app.i18n.t.bind(app.i18n);
+	const nameOf = (identifier) => names.get(identifier) ?? identifier;
+	const anchor = (value) => {
+		switch (value.kind) {
+			case "after": return t("m34.layer.anchor.after", { name: nameOf(value.identifier) });
+			case "before": return t("m34.layer.anchor.before", { name: nameOf(value.identifier) });
+			case "afterText": return t("m34.layer.anchor.afterText", { text: value.text });
+			case "start": return t("m34.layer.anchor.start");
+			default: return t("m34.layer.anchor.end");
+		}
+	};
+	switch (op.op) {
+		case "add": return t("m34.layer.op.add", {
+			name: promptName$1(op.prompt),
+			anchor: anchor(op.anchor)
+		});
+		case "edit": return t("m34.layer.op.edit", {
+			name: nameOf(op.identifier),
+			fields: Object.keys(op.patch).join(", ")
+		});
+		case "toggle": return t(op.enabled ? "m34.layer.op.on" : "m34.layer.op.off", { name: nameOf(op.identifier) });
+		case "move": return t("m34.layer.op.move", {
+			name: nameOf(op.identifier),
+			anchor: anchor(op.anchor)
+		});
+		default: return t("m34.layer.op.key", {
+			key: op.key,
+			value: isSensitiveKey(op.key) ? MASK : JSON.stringify(op.value) ?? ""
+		});
+	}
+}
+/**
+* The preview of a migration (layer.planMigration): block operations as a list, body keys apart with a checkbox each
+* — connection keys (source, model, addresses, P-094) unticked, so a reference file does not pin the model in the
+* layer by accident. `excluded()` gives the keys the user left out.
+*/
+function renderMigrationPreview(app, plan, names) {
+	const t = app.i18n.t.bind(app.i18n);
+	const blocks = plan.ops.filter((op) => op.op !== "key");
+	const keys = plan.ops.filter((op) => op.op === "key");
+	const boxes = [];
+	return {
+		content: el("div", { class: "maestro-m34-migration" }, [
+			el("p", { text: t("m34.layer.migratePreview", {
+				ops: plan.ops.length,
+				conflicts: plan.report.conflicts.length,
+				orphaned: plan.report.orphaned.length
+			}) }),
+			el("h5", { text: t("m34.layer.previewBlocks", { count: blocks.length }) }),
+			blocks.length ? el("ul", { class: "maestro-m34-migration-ops" }, blocks.map((op) => el("li", { text: describeOp(app, op, names) }))) : el("div", {
+				class: "maestro-muted",
+				text: t("m34.layer.previewNone")
+			}),
+			el("h5", { text: t("m34.layer.previewKeys", { count: keys.length }) }),
+			keys.length ? el("div", {
+				class: "maestro-field-hint",
+				text: t("m34.layer.previewKeysHint")
+			}) : el("div", {
+				class: "maestro-muted",
+				text: t("m34.layer.previewNone")
+			}),
+			el("ul", { class: "maestro-m34-migration-keys" }, keys.map((op) => {
+				const connection = isConnectionKey(op.key);
+				const box = el("input", {
+					attrs: { type: "checkbox" },
+					class: "maestro-m34-migration-key",
+					data: { key: op.key }
+				});
+				box.checked = !connection;
+				boxes.push({
+					key: op.key,
+					box
+				});
+				return el("li", {}, [el("label", { class: "checkbox_label" }, [
+					box,
+					el("code", { text: op.key }),
+					el("span", { text: ` = ${isSensitiveKey(op.key) ? MASK : JSON.stringify(op.value) ?? ""}` }),
+					connection ? el("span", {
+						class: "maestro-m34-badge maestro-m34-badge-warn",
+						text: t("m34.layer.connectionKey")
+					}) : null
+				])]);
+			}))
+		]),
+		excluded: () => new Set(boxes.filter(({ box }) => !box.checked).map(({ key }) => key))
+	};
+}
+function renderLayerPanel(app, model, actions) {
+	const t = app.i18n.t.bind(app.i18n);
+	const root = el("div", { class: "maestro-m34-layer" });
+	if (!model.available) {
+		root.append(banner(t("m34.layer.unavailable"), "info", "fa-circle-info"));
+		return root;
+	}
+	root.append(el("section", { class: "maestro-m34-layer-mode" }, [
+		el("div", {
+			class: "maestro-m34-count",
+			text: model.layerMode ? t("m34.layer.modeLayer", { base: model.base }) : t("m34.layer.modeStore", { base: model.base })
+		}),
+		toggle({
+			label: t("m34.layer.editsToLayer"),
+			checked: model.editsToLayer,
+			onChange: (on) => actions.setEditsToLayer(on)
+		}),
+		el("div", {
+			class: "maestro-field-hint",
+			text: t("m34.layer.editsToLayerHint")
+		}),
+		!model.layer && model.editsToLayer && !model.layerMode ? el("div", { class: "maestro-row" }, [button({
+			icon: "fa-layer-group",
+			label: t("m34.layer.start"),
+			kind: "primary",
+			className: "maestro-m34-layer-start",
+			onClick: () => actions.start()
+		}), el("span", {
+			class: "maestro-field-hint",
+			text: t("m34.layer.startHint")
+		})]) : null
+	]));
+	const conflicts = model.report?.conflicts ?? [];
+	if (conflicts.length) {
+		const section = el("section", { class: "maestro-m34-conflicts" }, [el("h4", {
+			class: "maestro-m34-h",
+			text: t("m34.layer.conflicts", { count: conflicts.length })
+		}), el("div", {
+			class: "maestro-field-hint",
+			text: t("m34.layer.conflictsHint")
+		})]);
+		for (const conflict of conflicts) section.append(renderConflict(conflict));
+		root.append(section);
+	}
+	const ops = model.layer?.ops ?? [];
+	const opsSection = el("section", { class: "maestro-m34-ops" }, [el("h4", {
+		class: "maestro-m34-h",
+		text: t("m34.layer.ops", {
+			count: ops.length,
+			base: model.base
+		})
+	})]);
+	if (!ops.length) opsSection.append(emptyState(t("m34.layer.noOps"), "fa-layer-group"));
+	else {
+		const list = el("ol", { class: "maestro-m34-op-list" });
+		ops.forEach((op, index) => {
+			const identifier = op.op === "add" ? op.prompt.identifier : op.op === "key" ? null : op.identifier;
+			list.append(el("li", {
+				class: "maestro-m34-op",
+				data: { index }
+			}, [
+				el("span", {
+					class: "maestro-m34-op-text",
+					text: describeOp(app, op, model.promptNames)
+				}),
+				identifier ? button({
+					icon: "fa-pen",
+					kind: "ghost",
+					title: t("m34.layer.openBlock"),
+					onClick: () => actions.open(identifier)
+				}) : null,
+				button({
+					icon: "fa-trash-can",
+					kind: "ghost",
+					title: t("m34.layer.removeOp"),
+					className: "maestro-m34-op-remove",
+					onClick: () => actions.removeOp(index)
+				})
+			]));
+		});
+		opsSection.append(list);
+	}
+	const orphaned = model.report?.orphaned ?? [];
+	if (orphaned.length) opsSection.append(el("div", {
+		class: "maestro-warn-text",
+		text: t("m34.layer.orphaned", { count: orphaned.length })
+	}), el("ul", { class: "maestro-m34-orphaned" }, orphaned.map((op) => el("li", { text: describeOp(app, op, model.promptNames) }))));
+	root.append(opsSection);
+	if (model.canReselect || model.canPrepare) root.append(el("section", { class: "maestro-m34-layer-working" }, [
+		el("h4", {
+			class: "maestro-m34-h",
+			text: t("m34.layer.workingTitle")
+		}),
+		model.canReselect && ops.length ? el("div", { class: "maestro-row" }, [button({
+			icon: "fa-rotate",
+			label: t("m34.layer.reselect"),
+			className: "maestro-m34-reselect",
+			onClick: () => actions.reselect()
+		}), el("span", {
+			class: "maestro-field-hint",
+			text: t("m34.layer.reselectHint")
+		})]) : null,
+		model.canPrepare && ops.length ? el("div", { class: "maestro-m34-prepare" }, [
+			el("h5", { text: t("m34.layer.prepareTitle") }),
+			el("div", {
+				class: "maestro-field-hint",
+				text: t("m34.layer.prepareHint")
+			}),
+			el("div", { class: "maestro-row" }, [button({
+				icon: "fa-power-off",
+				label: t("m34.layer.prepareBase"),
+				className: "maestro-m34-prepare-base",
+				onClick: () => actions.prepareDisable("reselectBase")
+			}), button({
+				icon: "fa-file-circle-plus",
+				label: t("m34.layer.prepareMerged"),
+				className: "maestro-m34-prepare-merged",
+				onClick: () => actions.prepareDisable("saveMerged")
+			})])
+		]) : null
+	]));
+	const others = model.names.filter((name) => name !== model.base);
+	const reference = presetSelect(others, t("m34.layer.reference"), "maestro-m34-reference");
+	const target = presetSelect(others, t("m34.layer.target"), "maestro-m34-target");
+	root.append(el("section", { class: "maestro-m34-layer-tools" }, [
+		el("h4", {
+			class: "maestro-m34-h",
+			text: t("m34.layer.migrateTitle")
+		}),
+		el("div", {
+			class: "maestro-field-hint",
+			text: t("m34.layer.migrateHint", { base: model.base })
+		}),
+		el("div", { class: "maestro-row" }, [reference, button({
+			icon: "fa-right-to-bracket",
+			label: t("m34.layer.migrate"),
+			className: "maestro-m34-migrate",
+			disabled: !others.length,
+			onClick: async () => {
+				if (reference.value) await actions.migrate(reference.value);
+			}
+		})]),
+		el("h4", {
+			class: "maestro-m34-h",
+			text: t("m34.layer.transferTitle")
+		}),
+		el("div", {
+			class: "maestro-field-hint",
+			text: t("m34.layer.transferHint")
+		}),
+		el("div", { class: "maestro-row" }, [target, button({
+			icon: "fa-share-from-square",
+			label: t("m34.layer.transfer"),
+			className: "maestro-m34-transfer",
+			disabled: !others.length || !ops.length,
+			onClick: async () => {
+				if (target.value) await actions.transfer(target.value);
+			}
+		})]),
+		model.result ? renderReport(model.result.kind, model.result.report) : null
+	]));
+	const foreign = model.foreign;
+	const foreignSection = el("section", { class: "maestro-m34-foreign" }, [
+		el("h4", {
+			class: "maestro-m34-h",
+			text: t("m34.layer.foreignTitle")
+		}),
+		el("div", {
+			class: "maestro-field-hint",
+			text: t("m34.layer.foreignHint")
+		}),
+		el("div", { class: "maestro-row" }, [button({
+			icon: "fa-file-import",
+			label: t("m34.layer.foreignPick"),
+			className: "maestro-m34-foreign-import",
+			onClick: () => actions.importForeign()
+		})])
+	]);
+	if (foreign) {
+		foreignSection.append(el("div", {
+			class: "maestro-m34-count",
+			text: t("m34.layer.foreignFile", {
+				file: foreign.file,
+				count: foreign.prompts.length
+			})
+		}));
+		const list = el("ul", { class: "maestro-m34-foreign-list" });
+		for (const prompt of foreign.prompts) {
+			const box = el("input", {
+				attrs: { type: "checkbox" },
+				class: "maestro-m34-foreign-box",
+				data: { focusKey: `foreign:${prompt.identifier}` }
+			});
+			box.checked = foreign.picked.has(prompt.identifier);
+			box.addEventListener("change", () => actions.pickForeign(prompt.identifier, box.checked));
+			const text = promptText$1(prompt);
+			list.append(el("li", {
+				class: "maestro-m34-foreign-item",
+				data: { id: prompt.identifier }
+			}, [el("label", { class: "checkbox_label" }, [box, el("strong", { text: promptName$1(prompt) })]), el("div", {
+				class: "maestro-muted maestro-m34-foreign-text",
+				text: text.length > 280 ? `${text.slice(0, 280)}…` : text
+			})]));
+		}
+		foreignSection.append(list, el("div", { class: "maestro-row" }, [button({
+			icon: "fa-plus",
+			label: t("m34.layer.foreignAdd", { count: foreign.picked.size }),
+			kind: "primary",
+			className: "maestro-m34-foreign-add",
+			disabled: !foreign.picked.size,
+			onClick: () => actions.addForeign()
+		}), button({
+			label: t("m34.layer.foreignClear"),
+			kind: "ghost",
+			onClick: () => actions.clearForeign()
+		})]));
+	}
+	root.append(foreignSection);
+	return root;
+	function presetSelect(names, label, className) {
+		const node = el("select", {
+			class: ["text_pole", className],
+			attrs: { "aria-label": label }
+		});
+		for (const name of names) node.append(el("option", {
+			text: name,
+			attrs: { value: name }
+		}));
+		node.disabled = !names.length;
+		return node;
+	}
+	function renderReport(kind, report) {
+		const removed = report.removed ?? [];
+		return el("div", { class: "maestro-m34-report" }, [
+			icon(report.conflicts.length || report.orphaned.length ? "fa-triangle-exclamation" : "fa-circle-check"),
+			el("span", { text: t(`m34.layer.report.${kind}`, {
+				applied: report.applied,
+				conflicts: report.conflicts.length,
+				orphaned: report.orphaned.length
+			}) }),
+			removed.length ? el("span", {
+				class: "maestro-muted",
+				text: t("m34.layer.report.removed", { names: removed.map((identifier) => model.promptNames.get(identifier) ?? identifier).join(", ") })
+			}) : null
+		]);
+	}
+	function renderConflict(conflict) {
+		const name = model.promptNames.get(conflict.identifier) ?? conflict.identifier;
+		const column = (title, content) => el("div", { class: "maestro-m34-conflict-col" }, [el("div", {
+			class: "maestro-m34-label",
+			text: title
+		}), content]);
+		return el("div", {
+			class: "maestro-m34-conflict",
+			data: { id: conflict.identifier }
+		}, [
+			el("div", { class: "maestro-m34-conflict-head" }, [el("strong", { text: name }), button({
+				icon: "fa-pen",
+				kind: "ghost",
+				title: t("m34.layer.openBlock"),
+				onClick: () => actions.open(conflict.identifier)
+			})]),
+			el("div", { class: "maestro-m34-conflict-cols" }, [
+				column(t("m34.layer.oldBase"), el("div", {
+					class: "maestro-m34-text",
+					text: conflict.oldBase
+				})),
+				column(t("m34.layer.newBase"), el("div", { class: "maestro-m34-text" }, [renderParts(wordDiff$1(conflict.oldBase, conflict.newBase), t)])),
+				column(t("m34.layer.mine"), el("div", { class: "maestro-m34-text" }, [renderParts(wordDiff$1(conflict.oldBase, conflict.mine), t)]))
+			]),
+			el("div", { class: "maestro-row" }, [
+				button({
+					label: t("m34.layer.keepMine"),
+					kind: "primary",
+					className: "maestro-m34-keep-mine",
+					onClick: () => actions.resolve(conflict, "mine")
+				}),
+				button({
+					label: t("m34.layer.takeNew"),
+					className: "maestro-m34-take-new",
+					onClick: () => actions.resolve(conflict, "newBase")
+				}),
+				button({
+					label: t("m34.layer.custom"),
+					className: "maestro-m34-custom",
+					onClick: () => actions.resolve(conflict, "custom")
+				})
+			])
+		]);
+	}
+}
+//#endregion
+//#region src/features/presetStudio/view-map.ts
+/** Generation types the map can be assembled for (triggers and the continue/impersonate tails depend on it). */
+var MAP_TYPES = [
+	"normal",
+	"continue",
+	"impersonate",
+	"quiet"
+];
+var ROLE_ICON = {
+	system: "fa-gear",
+	user: "fa-user",
+	assistant: "fa-robot"
+};
+function renderMapPanel(app, model, actions) {
+	const t = app.i18n.t.bind(app.i18n);
+	const root = el("div", { class: "maestro-m34-map" });
+	const slots = model.slots;
+	const enabled = (slots ?? []).filter((slot) => slot.enabled && !slot.dropped);
+	const total = enabled.reduce((sum, slot) => sum + (slot.tokens || 0), 0) + enabled.reduce((sum, slot) => sum + slot.injections.reduce((acc, item) => acc + (item.tokens || 0), 0), 0);
+	const type = el("select", {
+		class: "text_pole maestro-m34-map-type",
+		attrs: {
+			"aria-label": t("m34.map.type"),
+			disabled: model.reduced
+		},
+		data: { focusKey: "map-type" }
+	});
+	for (const trigger of MAP_TYPES) type.append(el("option", {
+		text: t(`m34.trigger.${trigger}`),
+		attrs: { value: trigger }
+	}));
+	type.value = model.type;
+	type.addEventListener("change", () => actions.setType(type.value));
+	root.append(el("div", { class: "maestro-m34-toolbar" }, [
+		el("span", {
+			class: "maestro-m34-count",
+			text: t("m34.map.total", { count: formatTokens(total) })
+		}),
+		el("label", { class: "maestro-m34-inline" }, [el("span", { text: t("m34.map.type") }), type]),
+		el("span", {
+			class: "maestro-muted",
+			text: t("m34.map.hint")
+		}),
+		button({
+			icon: "fa-arrows-rotate",
+			title: t("m34.map.refresh"),
+			className: "maestro-m34-map-refresh",
+			onClick: () => actions.refresh()
+		})
+	]));
+	if (model.reduced) root.append(banner(t("m34.map.reduced"), "info", "fa-circle-info"));
+	if (model.error) root.append(banner(t("m34.map.failed", { error: model.error }), "error"));
+	if (!slots) {
+		root.append(el("div", {
+			class: "maestro-empty",
+			text: t("m34.map.loading")
+		}));
+		return root;
+	}
+	if (!slots.length) {
+		root.append(el("div", {
+			class: "maestro-empty",
+			text: t("m34.map.empty")
+		}));
+		return root;
+	}
+	const max = Math.max(1, ...slots.map((slot) => slot.tokens || 0));
+	const list = el("ol", { class: "maestro-m34-slots" });
+	slots.forEach((slot, index) => list.append(renderSlot(slot, index)));
+	root.append(list);
+	return root;
+	function renderSlot(slot, index) {
+		const placement = slot.placement === "depth" ? t("m34.map.depth", {
+			depth: slot.depth ?? 0,
+			order: slot.order ?? 100
+		}) : t("m34.map.relative");
+		const width = Math.round((slot.tokens || 0) / max * 100);
+		return el("li", {
+			class: [
+				"maestro-m34-slot",
+				`maestro-m34-slot-${slot.placement}`,
+				slot.enabled ? null : "maestro-m34-off",
+				slot.dropped ? "maestro-m34-dropped" : null,
+				slot.marker ? "maestro-m34-slot-marker" : null
+			],
+			data: { id: slot.identifier }
+		}, [
+			el("span", {
+				class: "maestro-m34-slot-index",
+				text: String(index + 1)
+			}),
+			el("span", {
+				class: "maestro-m34-slot-role",
+				title: t(`m34.role.${slot.role}`)
+			}, [icon(ROLE_ICON[slot.role] ?? "fa-gear"), el("span", {
+				class: "maestro-sr-only",
+				text: t(`m34.role.${slot.role}`)
+			})]),
+			el("div", { class: "maestro-m34-slot-body" }, [
+				el("div", { class: "maestro-m34-slot-head" }, [
+					el("button", {
+						class: "maestro-m34-slot-name",
+						text: slot.name || slot.identifier,
+						attrs: { type: "button" },
+						title: t("m34.map.open"),
+						on: { click: () => actions.open(slot.identifier) }
+					}),
+					el("span", {
+						class: "maestro-m34-chip",
+						text: placement
+					}),
+					slot.marker ? el("span", {
+						class: "maestro-m34-chip",
+						text: t("m34.map.marker")
+					}) : null,
+					slot.enabled ? null : el("span", {
+						class: "maestro-m34-chip",
+						text: t("m34.map.off")
+					}),
+					slot.triggers?.length ? el("span", {
+						class: "maestro-m34-chip",
+						title: t("m34.map.triggersHint"),
+						text: slot.triggers.map((item) => t(`m34.trigger.${item}`)).join(", ")
+					}) : null,
+					el("span", {
+						class: ["maestro-m34-tokens", slot.tokensFrom === "count" ? "maestro-m34-estimated" : null],
+						title: slot.tokensFrom === "count" ? t("m34.map.estimated") : t("m34.map.counted"),
+						text: slot.tokensFrom === "count" ? `≈ ${formatTokens(slot.tokens)}` : formatTokens(slot.tokens)
+					})
+				]),
+				el("div", {
+					class: "maestro-m34-bar",
+					attrs: { "aria-hidden": "true" }
+				}, [el("span", {
+					class: "maestro-m34-bar-fill",
+					attrs: { style: `width: ${width}%` }
+				})]),
+				slot.injections.length ? el("ul", {
+					class: "maestro-m34-injections",
+					attrs: { "aria-label": t("m34.map.injections") }
+				}, slot.injections.map((item) => el("li", { text: [
+					t("m34.map.injection", {
+						owner: item.owner,
+						key: item.key,
+						count: formatTokens(item.tokens)
+					}),
+					item.where ? t(`m34.map.where.${item.where}`, { depth: item.depth ?? 0 }) : "",
+					item.role ? t(`m34.role.${item.role}`) : ""
+				].filter(Boolean).join(" · ") }))) : null,
+				slot.dropped ? el("div", {
+					class: "maestro-warn-text",
+					text: t("m34.map.dropped", { reason: slot.dropped })
+				}) : null,
+				slot.note ? el("div", {
+					class: "maestro-field-hint maestro-m34-slot-note",
+					text: slot.note
+				}) : null
+			])
+		]);
+	}
+}
+//#endregion
+//#region src/features/presetStudio/view-params.ts
+function renderParamsPanel(app, model, actions) {
+	const t = app.i18n.t.bind(app.i18n);
+	const root = el("div", { class: "maestro-m34-params" });
+	root.append(el("div", {
+		class: "maestro-field-hint",
+		text: t("m34.params.hint")
+	}));
+	if (model.layerMode) root.append(banner(t("m34.params.layerMode"), "info", "fa-layer-group"));
+	root.addEventListener("input", (event) => {
+		const target = event.target;
+		if (target instanceof HTMLInputElement && target.type === "checkbox") return;
+		if (target instanceof HTMLElement) target.classList.add("maestro-m34-typing");
+	});
+	root.addEventListener("focusout", (event) => {
+		if (event.target instanceof HTMLElement) event.target.classList.remove("maestro-m34-typing");
+	});
+	const commit = async (spec, raw, control) => {
+		control.classList.remove("maestro-m34-typing");
+		const result = coerceParam(spec, raw);
+		if (!result.ok) {
+			control.classList.add("maestro-m34-invalid");
+			control.setAttribute("aria-invalid", "true");
+			app.ui.notice(t(`m34.params.error.${result.error}`, { key: spec.key }), {
+				urgent: true,
+				level: "warn"
+			});
+			return;
+		}
+		control.classList.remove("maestro-m34-invalid");
+		control.removeAttribute("aria-invalid");
+		await actions.set(spec.key, result.value);
+	};
+	for (const group of PARAM_GROUPS) {
+		const fields = paramsOf(group).map((spec) => renderField(spec));
+		root.append(el("section", {
+			class: "maestro-m34-param-group",
+			data: { group }
+		}, [el("h4", {
+			class: "maestro-m34-h",
+			text: t(`m34.params.group.${group}`)
+		}), el("div", { class: "maestro-m34-param-grid" }, fields)]));
+	}
+	return root;
+	function renderField(spec) {
+		const id = uid("maestro-m34-param");
+		const value = model.body[spec.key];
+		const label = el("label", {
+			class: "maestro-m34-label",
+			attrs: { for: id }
+		}, [el("span", { text: t(`m34.params.key.${spec.key}`) }), el("code", {
+			class: "maestro-m34-param-key",
+			text: spec.key
+		})]);
+		let control;
+		switch (spec.type) {
+			case "boolean": {
+				const input = el("input", {
+					attrs: {
+						type: "checkbox",
+						id
+					},
+					data: {
+						key: spec.key,
+						focusKey: spec.key
+					}
+				});
+				input.checked = value === true;
+				input.addEventListener("change", () => void commit(spec, input.checked, input));
+				return el("div", { class: "maestro-m34-param maestro-m34-param-bool" }, [el("label", {
+					class: "checkbox_label",
+					attrs: { for: id }
+				}, [
+					input,
+					el("span", { text: t(`m34.params.key.${spec.key}`) }),
+					el("code", {
+						class: "maestro-m34-param-key",
+						text: spec.key
+					})
+				])]);
+			}
+			case "number": {
+				const input = el("input", {
+					class: "text_pole",
+					attrs: {
+						type: "number",
+						id,
+						min: spec.min,
+						max: spec.max,
+						step: spec.step,
+						inputmode: spec.integer ? "numeric" : "decimal",
+						placeholder: t("m34.params.unset")
+					},
+					data: {
+						key: spec.key,
+						focusKey: spec.key
+					}
+				});
+				input.value = typeof value === "number" ? String(value) : "";
+				input.addEventListener("change", () => void commit(spec, input.value, input));
+				control = input;
+				break;
+			}
+			case "select": {
+				const node = el("select", {
+					class: "text_pole",
+					attrs: { id },
+					data: {
+						key: spec.key,
+						focusKey: spec.key
+					}
+				});
+				const known = spec.options.some((option) => option === value);
+				if (!known && !spec.options.includes("")) node.append(el("option", {
+					text: t("m34.params.unset"),
+					attrs: { value: "" }
+				}));
+				for (const option of spec.options) node.append(el("option", {
+					text: t(`m34.params.opt.${spec.key}.${optionKey(option)}`),
+					attrs: { value: String(option) }
+				}));
+				node.value = known ? String(value) : "";
+				node.addEventListener("change", () => {
+					if (node.value === "" && !spec.options.includes("")) return;
+					commit(spec, node.value, node);
+				});
+				control = node;
+				break;
+			}
+			case "textarea": {
+				const node = el("textarea", {
+					class: "text_pole",
+					attrs: {
+						id,
+						rows: 3,
+						placeholder: t("m34.params.unset")
+					},
+					data: {
+						key: spec.key,
+						focusKey: spec.key
+					}
+				});
+				node.value = typeof value === "string" ? value : "";
+				node.addEventListener("change", () => void commit(spec, node.value, node));
+				control = node;
+				break;
+			}
+			default: {
+				const node = el("input", {
+					class: "text_pole",
+					attrs: {
+						type: "text",
+						id,
+						placeholder: t("m34.params.unset")
+					},
+					data: {
+						key: spec.key,
+						focusKey: spec.key
+					}
+				});
+				node.value = typeof value === "string" ? value : "";
+				node.addEventListener("change", () => void commit(spec, node.value, node));
+				control = node;
+			}
+		}
+		return el("div", { class: ["maestro-m34-param", `maestro-m34-param-${spec.type}`] }, [label, control]);
+	}
+}
+//#endregion
+//#region src/features/presetStudio/view-scenarios.ts
+var HISTORY = "{{history}}";
+var MESSAGE_ROLES = [
+	"system",
+	"user",
+	"assistant"
+];
+function renderScenariosPanel(app, model, actions) {
+	const t = app.i18n.t.bind(app.i18n);
+	const root = el("section", { class: "maestro-m34-scenarios" }, [el("h4", {
+		class: "maestro-m34-h",
+		text: t("m34.scn.title")
+	}), el("div", {
+		class: "maestro-field-hint",
+		text: t("m34.scn.hint")
+	})]);
+	root.addEventListener("input", (event) => {
+		const target = event.target;
+		if (target instanceof HTMLInputElement && target.type === "checkbox") return;
+		if (target instanceof HTMLElement) target.classList.add("maestro-m34-typing");
+	});
+	root.addEventListener("focusout", (event) => {
+		if (event.target instanceof HTMLElement) event.target.classList.remove("maestro-m34-typing");
+	});
+	root.addEventListener("change", (event) => {
+		if (event.target instanceof HTMLElement) event.target.classList.remove("maestro-m34-typing");
+	});
+	if (!model.available) {
+		root.append(banner(t("m34.scn.unavailable"), "info", "fa-circle-info"));
+		return root;
+	}
+	if (!model.items.length) {
+		root.append(el("div", {
+			class: "maestro-muted",
+			text: t("m34.scn.empty")
+		}));
+		return root;
+	}
+	for (const item of model.items) root.append(renderScenario(item.descriptor, item.values));
+	return root;
+	function labelled(text, control, hint) {
+		const id = uid("maestro-m34-scn");
+		control.id = id;
+		return el("div", { class: "maestro-m34-param" }, [
+			el("label", {
+				class: "maestro-m34-label",
+				text,
+				attrs: { for: id }
+			}),
+			control,
+			hint ? el("div", {
+				class: "maestro-field-hint",
+				text: hint
+			}) : null
+		]);
+	}
+	function numberField(descriptor, key, value, limits) {
+		const input = el("input", {
+			class: "text_pole",
+			attrs: {
+				type: "number",
+				...limits,
+				placeholder: t("m34.params.unset")
+			},
+			data: { focusKey: `scn:${descriptor.id}:${key}` }
+		});
+		input.value = value === void 0 ? "" : String(value);
+		input.addEventListener("change", () => {
+			const text = input.value.trim();
+			if (!text) {
+				actions.set(descriptor.id, { [key]: void 0 });
+				return;
+			}
+			const number = Number(text.replace(",", "."));
+			if (!Number.isFinite(number) || number < limits.min || number > limits.max) {
+				input.setAttribute("aria-invalid", "true");
+				app.ui.notice(t("m34.params.error.range", { key }), {
+					urgent: true,
+					level: "warn"
+				});
+				return;
+			}
+			input.removeAttribute("aria-invalid");
+			actions.set(descriptor.id, { [key]: key === "temperature" ? number : Math.round(number) });
+		});
+		return labelled(t(`m34.scn.field.${key}`), input);
+	}
+	function renderMessages(descriptor, messages) {
+		const list = el("ol", { class: "maestro-m34-scn-messages" });
+		const rows = [];
+		const commit = (next) => actions.set(descriptor.id, { messages: next });
+		const collect = () => rows.map((row) => ({
+			role: row.role.value,
+			content: row.content.value
+		}));
+		messages.forEach((message, index) => {
+			const role = el("select", {
+				class: "text_pole maestro-m34-scn-role",
+				attrs: { "aria-label": t("m34.scn.role", { index: index + 1 }) },
+				data: { focusKey: `scn:${descriptor.id}:role:${index}` }
+			});
+			for (const value of MESSAGE_ROLES) role.append(el("option", {
+				text: t(`m34.role.${value}`),
+				attrs: { value }
+			}));
+			role.value = message.role;
+			const content = el("textarea", {
+				class: "text_pole maestro-m34-scn-content",
+				attrs: {
+					rows: message.content === HISTORY ? 1 : 3,
+					"aria-label": t("m34.scn.content", { index: index + 1 })
+				},
+				data: { focusKey: `scn:${descriptor.id}:content:${index}` }
+			});
+			content.value = message.content;
+			const row = {
+				role,
+				content
+			};
+			rows.push(row);
+			role.addEventListener("change", () => commit(collect()));
+			content.addEventListener("change", () => commit(collect()));
+			list.append(el("li", { class: ["maestro-m34-scn-message", message.content === HISTORY ? "maestro-m34-scn-history" : null] }, [
+				role,
+				content,
+				button({
+					icon: "fa-trash-can",
+					kind: "ghost",
+					title: t("m34.scn.removeMessage"),
+					className: "maestro-m34-scn-remove",
+					onClick: () => commit(collect().filter((_item, at) => at !== index))
+				})
+			]));
+		});
+		return el("div", { class: "maestro-m34-param maestro-m34-param-textarea" }, [
+			el("div", {
+				class: "maestro-m34-label",
+				text: t("m34.scn.field.messages")
+			}),
+			el("div", {
+				class: "maestro-field-hint",
+				text: t("m34.scn.messagesHint")
+			}),
+			list,
+			el("div", { class: "maestro-row" }, [button({
+				icon: "fa-plus",
+				label: t("m34.scn.addMessage"),
+				className: "maestro-m34-scn-add",
+				onClick: () => commit([...collect(), {
+					role: "system",
+					content: ""
+				}])
+			}), button({
+				icon: "fa-clock-rotate-left",
+				label: t("m34.scn.addHistory"),
+				className: "maestro-m34-scn-add-history",
+				onClick: () => commit([...collect(), {
+					role: "user",
+					content: HISTORY
+				}])
+			})])
+		]);
+	}
+	function renderScenario(descriptor, values) {
+		const fields = [];
+		for (const field of descriptor.fields) switch (field) {
+			case "enabled": {
+				const box = el("input", {
+					attrs: { type: "checkbox" },
+					class: "maestro-m34-scn-enabled",
+					data: { focusKey: `scn:${descriptor.id}:enabled` }
+				});
+				box.checked = values.enabled === true;
+				box.addEventListener("change", () => actions.set(descriptor.id, { enabled: box.checked }));
+				fields.push(el("div", { class: "maestro-m34-param maestro-m34-param-bool" }, [el("label", { class: "checkbox_label" }, [box, el("span", { text: t("m34.scn.field.enabled") })])]));
+				break;
+			}
+			case "max_tokens":
+				fields.push(numberField(descriptor, "max_tokens", values.max_tokens, {
+					min: 1,
+					max: 1e6,
+					step: 1
+				}));
+				break;
+			case "temperature":
+				fields.push(numberField(descriptor, "temperature", values.temperature, {
+					min: 0,
+					max: 2,
+					step: .01
+				}));
+				break;
+			case "historyMessages":
+				fields.push(numberField(descriptor, "historyMessages", values.historyMessages, {
+					min: 0,
+					max: 200,
+					step: 1
+				}));
+				break;
+			case "stop": {
+				const area = el("textarea", {
+					class: "text_pole maestro-m34-scn-stop",
+					attrs: {
+						rows: 2,
+						placeholder: t("m34.scn.stopPlaceholder")
+					},
+					data: { focusKey: `scn:${descriptor.id}:stop` }
+				});
+				area.value = stopsToText(values.stop ?? []);
+				area.addEventListener("change", () => actions.set(descriptor.id, { stop: textToStops(area.value) }));
+				fields.push(labelled(t("m34.scn.field.stop"), area, t("m34.scn.stopHint")));
+				break;
+			}
+			case "reasoning": {
+				const select = el("select", {
+					class: "text_pole maestro-m34-scn-reasoning",
+					data: { focusKey: `scn:${descriptor.id}:reasoning` }
+				});
+				for (const value of ["keep", "off"]) select.append(el("option", {
+					text: t(`m34.scn.reasoning.${value}`),
+					attrs: { value }
+				}));
+				select.value = values.reasoning ?? "keep";
+				select.addEventListener("change", () => actions.set(descriptor.id, { reasoning: select.value === "off" ? "off" : "keep" }));
+				fields.push(labelled(t("m34.scn.field.reasoning"), select));
+				break;
+			}
+			case "messages": fields.push(renderMessages(descriptor, values.messages ?? []));
+		}
+		return el("div", {
+			class: "maestro-m34-scenario",
+			data: { id: descriptor.id }
+		}, [
+			el("div", { class: "maestro-m34-scenario-head" }, [
+				el("strong", { text: t(descriptor.titleKey) }),
+				...descriptor.types.map((type) => el("span", {
+					class: "maestro-m34-chip",
+					text: t(`m34.trigger.${type}`)
+				})),
+				button({
+					icon: "fa-arrow-rotate-left",
+					label: t("m34.scn.reset"),
+					kind: "ghost",
+					className: "maestro-m34-scn-reset",
+					onClick: () => actions.reset(descriptor.id)
+				})
+			]),
+			descriptor.descriptionKey ? el("div", {
+				class: "maestro-field-hint",
+				text: t(descriptor.descriptionKey)
+			}) : null,
+			el("div", { class: "maestro-m34-param-grid" }, fields)
+		]);
+	}
+}
+//#endregion
+//#region src/features/presetStudio/view-versions.ts
+/** Block, order and key changes of a diff as a readable list. */
+function renderDiff(app, diff, names) {
+	const t = app.i18n.t.bind(app.i18n);
+	if (diff.same) return el("div", {
+		class: "maestro-m34-diff maestro-diff-none",
+		text: t("m34.diff.same")
+	});
+	const nameOf = (identifier) => names.get(identifier) ?? identifier;
+	const root = el("div", { class: "maestro-m34-diff" });
+	if (diff.prompts.length) {
+		root.append(el("h5", { text: t("m34.diff.blocks") }));
+		for (const change of diff.prompts) {
+			const item = el("div", { class: ["maestro-m34-diff-block", `maestro-m34-diff-${change.kind}`] }, [el("div", { class: "maestro-m34-diff-title" }, [el("strong", { text: change.name }), el("span", {
+				class: "maestro-muted",
+				text: ` — ${t(`m34.diff.${change.kind}`)}`
+			})])]);
+			for (const field of change.fields) {
+				const value = typeof field.before === "string" && typeof field.after === "string" ? renderParts(wordDiff$1(field.before, field.after), t) : el("span", {
+					class: "maestro-diff-change",
+					text: `${formatValue(field.before)} → ${formatValue(field.after)}`
+				});
+				item.append(el("div", { class: "maestro-m34-diff-field" }, [el("span", {
+					class: "maestro-m34-diff-key",
+					text: field.field
+				}), value]));
+			}
+			root.append(item);
+		}
+	}
+	const order = diff.order;
+	const orderLines = [
+		["m34.diff.moved", order.moved],
+		["m34.diff.enabled", order.enabled],
+		["m34.diff.disabled", order.disabled],
+		["m34.diff.orderAdded", order.added],
+		["m34.diff.orderRemoved", order.removed]
+	];
+	if (orderLines.some(([, list]) => list.length)) {
+		root.append(el("h5", { text: t("m34.diff.order") }));
+		for (const [key, list] of orderLines) {
+			if (!list.length) continue;
+			root.append(el("div", {
+				class: "maestro-m34-diff-line",
+				text: t(key, { names: list.map(nameOf).join(", ") })
+			}));
+		}
+	}
+	if (diff.keys.length) {
+		root.append(el("h5", { text: t("m34.diff.keys") }));
+		for (const change of diff.keys) root.append(el("div", { class: "maestro-m34-diff-field" }, [el("span", {
+			class: "maestro-m34-diff-key",
+			text: change.key
+		}), change.sensitive ? el("span", {
+			class: "maestro-muted",
+			text: t("m34.diff.sensitive")
+		}) : typeof change.before === "string" && typeof change.after === "string" ? renderParts(wordDiff$1(change.before, change.after), t) : el("span", {
+			class: "maestro-diff-change",
+			text: `${formatValue(change.before)} → ${formatValue(change.after)}`
+		})]));
+	}
+	return root;
+}
+function renderVersionsPanel(app, model, names, actions) {
+	const t = app.i18n.t.bind(app.i18n);
+	const root = el("div", { class: "maestro-m34-versions" });
+	root.append(el("div", { class: "maestro-m34-toolbar" }, [el("span", {
+		class: "maestro-muted",
+		text: t("m34.versions.hint", { name: model.name })
+	}), button({
+		icon: "fa-arrows-rotate",
+		title: t("m34.versions.refresh"),
+		className: "maestro-m34-versions-refresh",
+		onClick: () => actions.refresh()
+	})]));
+	if (model.error) root.append(banner(t("m34.versions.failed", { error: model.error }), "error"));
+	if (model.versions === null) {
+		root.append(el("div", {
+			class: "maestro-empty",
+			text: t("m34.versions.loading")
+		}));
+		return root;
+	}
+	if (!model.versions.length) {
+		root.append(emptyState(t("m34.versions.empty"), "fa-clock-rotate-left"));
+		return root;
+	}
+	const versions = [...model.versions].sort((a, b) => b.at - a.at);
+	const list = el("ul", { class: "maestro-m34-version-list" });
+	for (const version of versions) {
+		const on = version.id === model.selected;
+		const diff = presetDiff(model.working, version.body);
+		const counts = diffCounts(diff);
+		list.append(el("li", {
+			class: ["maestro-m34-version", on ? "maestro-on" : null],
+			data: { id: version.id }
+		}, [el("button", {
+			class: "maestro-m34-version-pick",
+			attrs: {
+				type: "button",
+				"aria-expanded": on ? "true" : "false"
+			},
+			on: { click: () => actions.select(on ? null : version.id) }
+		}, [
+			el("span", {
+				class: "maestro-m34-version-time",
+				text: formatTime(version.at)
+			}),
+			el("span", {
+				class: "maestro-m34-chip",
+				text: t(`m34.versions.by.${byKey(version.by)}`)
+			}),
+			el("span", {
+				class: "maestro-m34-version-summary",
+				text: version.summary
+			}),
+			el("span", {
+				class: "maestro-muted",
+				text: diff.same ? t("m34.versions.same") : t("m34.versions.counts", counts)
+			})
+		]), on ? el("div", { class: "maestro-m34-version-detail" }, [
+			el("div", {
+				class: "maestro-field-hint",
+				text: t("m34.versions.diffHint")
+			}),
+			renderDiff(app, diff, names),
+			button({
+				icon: "fa-clock-rotate-left",
+				label: t("m34.versions.restore"),
+				kind: "primary",
+				className: "maestro-m34-version-restore",
+				disabled: diff.same,
+				onClick: () => actions.restore(version.id)
+			})
+		]) : null]));
+	}
+	root.append(list);
+	return root;
+}
+var KNOWN_BY = [
+	"user",
+	"layer",
+	"import",
+	"st",
+	"migration",
+	"draft"
+];
+function byKey(by) {
+	return KNOWN_BY.includes(by) ? by : "other";
+}
+function formatTime(at) {
+	try {
+		return new Date(at).toLocaleString();
+	} catch {
+		return String(at);
+	}
+}
+//#endregion
+//#region src/features/presetStudio/studio.ts
+var STUDIO_TABS = [
+	"map",
+	"blocks",
+	"analysis",
+	"layer",
+	"versions",
+	"params"
+];
+function defaultPresetStudioSettings() {
+	return {
+		replacePromptManager: false,
+		editsToLayer: true,
+		tab: "blocks"
+	};
+}
+function servicesOf(app) {
+	return {
+		store: () => app.modules.api("presetStore") ?? null,
+		layer: () => app.modules.api("presetLayer") ?? null,
+		analysis: () => app.modules.api("presetAnalysis") ?? null,
+		scenarios: () => app.modules.api("scenarios") ?? null
+	};
+}
+/** A new block identifier the way PM makes them (uuidv4, PM:620-630). */
+function newIdentifier(app) {
+	try {
+		const id = app.host.ctx().uuidv4?.();
+		if (typeof id === "string" && id) return id;
+	} catch {}
+	return globalThis.crypto?.randomUUID?.() ?? `maestro-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+}
+/** The layer's text fingerprint (preset-layer-apply.ts textHash: line ends normalized). */
+function baseHashOf(text) {
+	return stableHash(text.replace(/\r\n/g, "\n"));
+}
+/**
+* Where a studio edit goes. Layer mode (a layer for the current base, or one started in this session, and
+* `editsToLayer` on): the edit is recorded in the layer, then applied to the working copy through the store. A block
+* that is neither in the saved base nor added by the layer (made outside the studio and not saved yet) cannot be
+* recorded (the layer has nothing to anchor it to): its edits go to the working copy only.
+*/
+var EditRouter = class {
+	deps;
+	constructor(deps) {
+		this.deps = deps;
+	}
+	store() {
+		const store = this.deps.services.store();
+		if (!store) throw new Error("preset store is not available");
+		return store;
+	}
+	base() {
+		return this.store().current();
+	}
+	/** The layer, when edits go there now. */
+	layer() {
+		const layer = this.deps.services.layer();
+		if (!layer || !this.deps.settings.editsToLayer) return null;
+		const store = this.deps.services.store();
+		if (!store) return null;
+		const base = store.current();
+		return layer.get(base) !== null || this.deps.started.has(base) ? layer : null;
+	}
+	layerMode() {
+		return this.layer() !== null;
+	}
+	/** The saved base body (the layer stripped when the cache is missing). */
+	baseBody(layer) {
+		const store = this.store();
+		const base = store.current();
+		return store.saved(base) ?? layer.strip(base, store.working());
+	}
+	/** True when the layer added this block. */
+	ownBlock(identifier) {
+		const layer = this.deps.services.layer();
+		const store = this.deps.services.store();
+		if (!layer || !store) return false;
+		return (layer.get(store.current())?.ops ?? []).some((op) => op.op === "add" && op.prompt.identifier === identifier);
+	}
+	/** The layer when this block can be recorded in it (in the saved base, or a block of the layer). */
+	layerFor(identifier) {
+		const layer = this.layer();
+		if (!layer) return null;
+		if (this.ownBlock(identifier)) return layer;
+		return (this.baseBody(layer).prompts ?? []).some((prompt) => prompt.identifier === identifier) ? layer : null;
+	}
+	/** The base text a block edit is made on ('' for the layer's own blocks). */
+	baseText(identifier, layer) {
+		const prompt = (this.baseBody(layer).prompts ?? []).find((item) => item.identifier === identifier);
+		return prompt ? promptText$1(prompt) : "";
+	}
+	async record(layer, op) {
+		const base = this.base();
+		await layer.record(base, op);
+		this.deps.started.add(base);
+	}
+	async editPrompt(identifier, patch) {
+		if (!Object.keys(patch).length) return;
+		const layer = this.layerFor(identifier);
+		if (layer) {
+			const baseText = this.baseText(identifier, layer);
+			await this.record(layer, {
+				op: "edit",
+				identifier,
+				patch,
+				baseHash: baseHashOf(baseText),
+				baseText
+			});
+		}
+		await this.store().updatePrompt(identifier, patch);
+	}
+	async toggle(identifiers, enabled) {
+		if (!identifiers.length) return;
+		for (const identifier of identifiers) {
+			const layer = this.layerFor(identifier);
+			if (layer) await this.record(layer, {
+				op: "toggle",
+				identifier,
+				enabled
+			});
+		}
+		await this.store().setEnabled(identifiers, enabled);
+	}
+	/** A new order of the listed blocks (the store keeps unlisted entries at the end, it never detaches). */
+	async reorder(before, after, moved = []) {
+		if (sameOrder(before, after)) return;
+		for (const move of moveOps(before, after, moved)) {
+			const layer = this.layerFor(move.identifier);
+			if (layer) await this.record(layer, {
+				op: "move",
+				...move
+			});
+		}
+		await this.store().reorder(after);
+	}
+	/** Adds a user block after `after` (or at the start) and returns its identifier. */
+	async add(prompt, after, enabled) {
+		const store = this.store();
+		const block = normalizePrompt$1({
+			...prompt,
+			identifier: prompt.identifier || this.deps.newId()
+		});
+		const layer = this.layer();
+		if (layer) await this.record(layer, {
+			op: "add",
+			prompt: block,
+			anchor: after ? {
+				kind: "after",
+				identifier: after
+			} : { kind: "start" },
+			enabled
+		});
+		const identifier = await store.addPrompt({
+			...block,
+			enabled
+		}, after ?? void 0);
+		const row = store.prompts().find((item) => item.item.identifier === identifier);
+		if (row && row.item.enabled !== enabled) await store.setEnabled([identifier], enabled);
+		return identifier;
+	}
+	/**
+	* Deletes a user block. In layer mode a block the layer added loses its operations; a block of the base cannot be
+	* deleted by the layer (there is no such operation) — it is switched off in the layer instead ('disabled').
+	*/
+	async remove(identifier) {
+		const store = this.store();
+		const layer = this.layer();
+		if (layer) {
+			const base = this.base();
+			const ops = layer.get(base)?.ops ?? [];
+			if (!this.ownBlock(identifier)) {
+				if (this.layerFor(identifier)) {
+					await this.toggle([identifier], false);
+					return "disabled";
+				}
+			} else {
+				const indices = ops.map((op, index) => ({
+					op,
+					index
+				})).filter(({ op }) => opTarget(op) === identifier).map(({ index }) => index).sort((a, b) => b - a);
+				for (const index of indices) await layer.remove(base, index);
+			}
+		}
+		await store.removePrompt(identifier);
+		return "removed";
+	}
+	/** True when the store can take a block out of the order (P-026). */
+	canDetach() {
+		return typeof this.deps.services.store()?.detachPrompt === "function";
+	}
+	/** P-026: out of the order (in layer mode recorded as «off»: the layer has no detach operation). */
+	async detach(identifier) {
+		const store = this.store();
+		if (typeof store.detachPrompt !== "function") throw new Error("detach is not supported by the preset store");
+		const layer = this.layerFor(identifier);
+		if (layer) await this.record(layer, {
+			op: "toggle",
+			identifier,
+			enabled: false
+		});
+		await store.detachPrompt(identifier);
+	}
+	/** P-028: back into the order at the start, switched off (the store inserts a block it enables or disables). */
+	async insert(identifier) {
+		const layer = this.layerFor(identifier);
+		if (layer) {
+			await this.record(layer, {
+				op: "move",
+				identifier,
+				anchor: { kind: "start" }
+			});
+			await this.record(layer, {
+				op: "toggle",
+				identifier,
+				enabled: false
+			});
+		}
+		await this.store().setEnabled([identifier], false);
+	}
+	async setKeys(patch) {
+		const layer = this.layer();
+		if (layer) for (const [key, value] of Object.entries(patch)) await this.record(layer, {
+			op: "key",
+			key,
+			value
+		});
+		await this.store().setKeys(patch);
+	}
+};
+/** The block a layer operation is about (null for body keys). */
+function opTarget(op) {
+	if (op.op === "add") return op.prompt.identifier;
+	if (op.op === "key") return null;
+	return op.identifier;
+}
+var REFRESH_DELAY_MS = 40;
+var SOURCE_KEYS = {
+	charDescription: "m34.source.charDescription",
+	charPersonality: "m34.source.charPersonality",
+	scenario: "m34.source.scenario",
+	personaDescription: "m34.source.personaDescription",
+	worldInfoBefore: "m34.source.worldInfoBefore",
+	worldInfoAfter: "m34.source.worldInfoAfter"
+};
+var PresetStudio = class {
+	deps;
+	app;
+	dialogs;
+	router;
+	started = /* @__PURE__ */ new Set();
+	popup = null;
+	closing = null;
+	root = null;
+	header = null;
+	pane = null;
+	side = null;
+	layout = null;
+	nav = null;
+	tab;
+	offs = [];
+	refreshTimer = null;
+	blocksState = emptyBlocksState();
+	editor = null;
+	/** The block as it was when the editor opened (P-018: compared before writing). */
+	editorBase = null;
+	editorNew = false;
+	/** Loaded per preset; null = stale. */
+	mapSlots = null;
+	mapError = null;
+	/** Generation type of the map and the findings (triggers depend on it). */
+	mapType = "normal";
+	findings = null;
+	hints = [];
+	analysisError = null;
+	versions = null;
+	versionsError = null;
+	selectedVersion = null;
+	foreign = null;
+	layerResult = null;
+	loadedFor = null;
+	/** Loads in flight and invalidation counters: a load that an invalidation overtook is dropped. */
+	loading = /* @__PURE__ */ new Set();
+	epoch = {
+		map: 0,
+		analysis: 0,
+		versions: 0
+	};
+	constructor(deps) {
+		this.deps = deps;
+		this.app = deps.app;
+		this.dialogs = new Dialogs(deps.app);
+		this.router = new EditRouter({
+			services: deps.services,
+			settings: deps.settings,
+			started: this.started,
+			newId: () => newIdentifier(deps.app)
+		});
+		this.tab = STUDIO_TABS.includes(deps.settings.tab) ? deps.settings.tab : "blocks";
+	}
+	t(key, params) {
+		return this.app.i18n.t(key, params);
+	}
+	store() {
+		return this.deps.services.store();
+	}
+	isOpen() {
+		return this.popup !== null;
+	}
+	currentTab() {
+		return this.tab;
+	}
+	/** Opens the window (on a block when given: identifier or name); a second call just switches to it. */
+	open(identifier) {
+		if (!this.app.host.isChatCompletion()) {
+			this.app.ui.notice(this.t("m34.error.textCompletion"), {
+				urgent: true,
+				level: "warn"
+			});
+			return;
+		}
+		const store = this.store();
+		if (!store) {
+			this.app.ui.notice(this.t("m34.error.noStore"), {
+				urgent: true,
+				level: "error"
+			});
+			return;
+		}
+		if (!this.popup) {
+			const ctx = this.app.host.ctx();
+			if (typeof ctx.Popup !== "function") {
+				this.deps.log.error("ST Popup is not available; cannot open the Preset Studio");
+				return;
+			}
+			this.root = this.buildChrome();
+			const closing = { allowed: false };
+			this.closing = closing;
+			const popup = new ctx.Popup(this.root, ctx.POPUP_TYPE.DISPLAY, "", {
+				wide: true,
+				large: true,
+				allowVerticalScrolling: false,
+				animation: prefersReducedMotion() ? "none" : "fast",
+				onClosing: () => closing.allowed ? true : this.canLeave()
+			});
+			popup.dlg.classList.add("maestro-m34-dialog");
+			this.popup = popup;
+			this.offs.push(store.onChange((reason) => this.onStoreChange(reason)));
+			const layer = this.deps.services.layer();
+			if (layer) this.offs.push(layer.onChange(() => this.scheduleRefresh()));
+			popup.show().then(() => this.handleClosed(popup), () => this.handleClosed(popup));
+			this.deps.pm.load().then(() => this.scheduleRefresh());
+		}
+		const target = identifier ? this.resolveBlock(identifier) : null;
+		if (target) {
+			this.selectTab("blocks");
+			this.openEditor(target);
+			return;
+		}
+		this.render();
+	}
+	/** An identifier or a block name (the slash command takes either). */
+	resolveBlock(value) {
+		const rows = this.store()?.prompts() ?? [];
+		if (rows.find((row) => row.item.identifier === value)) return value;
+		const lower = value.trim().toLowerCase();
+		const byName = rows.find((row) => row.prompt && promptName$1(row.prompt).toLowerCase() === lower);
+		return byName ? byName.item.identifier : null;
+	}
+	/** True when nothing stops leaving the open block editor (no editor, not dirty, or the user decided). */
+	async canLeave() {
+		const editor = this.editor;
+		if (!editor || !editor.dirty()) return true;
+		const choice = await this.dialogs.choose(this.t("m34.leave.title"), this.t("m34.leave.body", { name: editor.read().name || editor.identifier }), [{
+			value: "save",
+			label: this.t("m34.leave.save")
+		}, {
+			value: "discard",
+			label: this.t("m34.leave.discard")
+		}]);
+		if (choice === "discard") return true;
+		if (choice === "save") return this.saveEditor(editor.read());
+		return false;
+	}
+	async requestClose() {
+		if (!this.popup) return true;
+		if (!await this.canLeave()) return false;
+		this.close();
+		return true;
+	}
+	/** Closes without asking (module disable, or after the guard agreed). */
+	close() {
+		const popup = this.popup;
+		if (!popup) return;
+		if (this.closing) this.closing.allowed = true;
+		this.handleClosed(popup);
+		popup.completeCancelled().catch((error) => this.deps.log.debug("preset studio close", error));
+	}
+	dispose() {
+		this.close();
+	}
+	handleClosed(popup) {
+		if (this.popup !== popup) return;
+		this.disposeEditor();
+		for (const off of this.offs.splice(0)) off();
+		if (this.refreshTimer) clearTimeout(this.refreshTimer);
+		this.refreshTimer = null;
+		this.popup = null;
+		this.root = null;
+		this.header = null;
+		this.pane = null;
+		this.side = null;
+		this.layout = null;
+		this.nav = null;
+	}
+	buildChrome() {
+		this.header = el("div", { class: "maestro-m34-header" });
+		this.nav = tabs({
+			label: this.t("m34.nav.label"),
+			active: this.tab,
+			items: STUDIO_TABS.map((id) => ({
+				id,
+				label: this.t(`m34.tab.${id}`),
+				icon: TAB_ICONS[id]
+			})),
+			onSelect: (id) => this.selectTab(id)
+		});
+		this.pane = el("div", {
+			class: "maestro-m34-pane",
+			attrs: { role: "tabpanel" }
+		});
+		this.side = el("aside", {
+			class: "maestro-m34-side",
+			attrs: { "aria-label": this.t("m34.editor.panel") }
+		});
+		this.side.hidden = true;
+		this.layout = el("div", { class: "maestro-m34-layout" }, [this.pane, this.side]);
+		return el("div", { class: "maestro-m34 maestro-theme" }, [
+			this.header,
+			el("div", { class: "maestro-m34-nav" }, [this.nav.list, this.nav.picker]),
+			this.layout
+		]);
+	}
+	selectTab(tab) {
+		if (!STUDIO_TABS.includes(tab)) return;
+		this.tab = tab;
+		this.nav?.setActive(tab);
+		if (this.deps.settings.tab !== tab) {
+			this.deps.settings.tab = tab;
+			this.deps.saveSettings();
+		}
+		this.render();
+	}
+	renderHeader() {
+		const header = this.header;
+		const store = this.store();
+		if (!header || !store) return;
+		const current = store.current();
+		const select = el("select", {
+			class: "text_pole maestro-m34-preset",
+			attrs: { "aria-label": this.t("m34.header.preset") }
+		});
+		const names = store.names();
+		for (const name of names) select.append(el("option", {
+			text: name,
+			attrs: { value: name }
+		}));
+		if (!names.includes(current)) select.append(el("option", {
+			text: current,
+			attrs: { value: current }
+		}));
+		select.value = current;
+		select.addEventListener("change", () => {
+			const name = select.value;
+			this.switchPreset(name).then((ok) => {
+				if (!ok && select.isConnected) select.value = this.store()?.current() ?? current;
+			});
+		});
+		const draft = store.draft();
+		const pmError = this.deps.pm.error();
+		const layerMode = this.router.layerMode();
+		const layer = this.deps.services.layer();
+		const hasLayer = !!layer && layer.get(current) !== null;
+		header.replaceChildren();
+		append(header, [
+			el("div", { class: "maestro-m34-brand" }, [icon("fa-sliders"), el("h3", { text: this.t("m34.title") })]),
+			select,
+			draft.dirty ? el("span", {
+				class: "maestro-m34-badge maestro-m34-badge-warn maestro-m34-unsaved",
+				text: this.t("m34.header.unsaved"),
+				title: this.t("m34.header.unsavedHint", {
+					prompts: draft.changedPrompts.length,
+					keys: draft.changedKeys.length
+				})
+			}) : null,
+			pmError ? el("span", {
+				class: "maestro-m34-badge maestro-m34-badge-conflict maestro-m34-pm-error",
+				text: this.t("m34.header.pmError"),
+				title: pmError,
+				attrs: { role: "status" }
+			}) : null,
+			el("span", {
+				class: [
+					"maestro-m34-badge",
+					layerMode ? "maestro-m34-badge-layer" : null,
+					"maestro-m34-mode"
+				],
+				text: layerMode ? this.t("m34.header.modeLayer") : this.t("m34.header.modeStore"),
+				title: layerMode ? this.t("m34.header.modeLayerHint", { base: current }) : this.t("m34.header.modeStoreHint")
+			}),
+			el("div", {
+				class: "maestro-m34-actions",
+				attrs: {
+					role: "toolbar",
+					"aria-label": this.t("m34.header.actions")
+				}
+			}, [
+				button({
+					icon: "fa-floppy-disk",
+					label: layerMode ? this.t("m34.header.saveLayer") : this.t("m34.header.save"),
+					title: layerMode ? this.t("m34.header.saveLayerHint") : this.t("m34.header.saveHint"),
+					kind: "primary",
+					className: "maestro-m34-save",
+					onClick: async () => {
+						await this.save();
+					}
+				}),
+				hasLayer ? button({
+					icon: "fa-database",
+					label: this.t("m34.header.saveBase"),
+					title: this.t("m34.header.saveBaseHint"),
+					className: "maestro-m34-save-base",
+					onClick: async () => {
+						await this.saveBase();
+					}
+				}) : null,
+				button({
+					icon: "fa-file-circle-plus",
+					title: this.t("m34.header.saveAs"),
+					className: "maestro-m34-save-as",
+					onClick: () => this.saveAs()
+				}),
+				button({
+					icon: "fa-pen",
+					title: this.t("m34.header.rename"),
+					className: "maestro-m34-rename",
+					onClick: () => this.rename()
+				}),
+				button({
+					icon: "fa-file-import",
+					title: this.t("m34.header.import"),
+					className: "maestro-m34-import",
+					onClick: () => this.importPreset()
+				}),
+				button({
+					icon: "fa-file-export",
+					title: this.t("m34.header.export"),
+					className: "maestro-m34-export",
+					onClick: () => this.exportPreset()
+				}),
+				button({
+					icon: "fa-trash-can",
+					kind: "danger",
+					title: this.t("m34.header.delete"),
+					className: "maestro-m34-delete-preset",
+					onClick: () => this.deletePreset()
+				}),
+				button({
+					icon: "fa-list-ul",
+					label: this.t("m34.classic"),
+					title: this.t("m34.classicHint"),
+					className: "maestro-m34-classic",
+					onClick: () => this.openClassic()
+				}),
+				button({
+					icon: "fa-xmark",
+					kind: "ghost",
+					title: this.t("m34.close"),
+					className: "maestro-m34-close",
+					onClick: async () => {
+						await this.requestClose();
+					}
+				})
+			])
+		]);
+	}
+	invalidate(...what) {
+		for (const item of what) {
+			this.epoch[item]++;
+			if (item === "map") this.mapSlots = null;
+			else if (item === "analysis") this.findings = null;
+			else this.versions = null;
+		}
+	}
+	onStoreChange(reason) {
+		if (reason === "preset") {
+			this.loadedFor = null;
+			this.selectedVersion = null;
+			this.blocksState.selected.clear();
+			this.invalidate("versions");
+			const editor = this.editor;
+			if (editor && !this.editorNew) {
+				if (editor.dirty()) editor.markStale();
+				else this.closeEditor();
+			}
+		}
+		if (reason === "prompts" || reason === "preset") {
+			this.invalidate("map", "analysis");
+			this.blocksState.substituted.clear();
+		}
+		if (reason === "keys") this.invalidate("analysis");
+		this.scheduleRefresh();
+	}
+	scheduleRefresh() {
+		if (this.refreshTimer || !this.popup) return;
+		this.refreshTimer = setTimeout(() => {
+			this.refreshTimer = null;
+			if (this.popup) this.render();
+		}, REFRESH_DELAY_MS);
+	}
+	/** Re-renders the header and the current tab (the map, findings and versions load in the background). */
+	async render() {
+		const pane = this.pane;
+		const store = this.store();
+		if (!pane || !store) return;
+		const current = store.current();
+		if (this.loadedFor !== current) {
+			this.loadedFor = current;
+			this.invalidate("map", "analysis", "versions");
+		}
+		if (this.tab === "params" && pane.querySelector(".maestro-m34-typing")) {
+			this.renderHeader();
+			pane.addEventListener("focusout", () => this.scheduleRefresh(), { once: true });
+			return;
+		}
+		this.renderHeader();
+		this.layout?.classList.toggle("maestro-m34-with-editor", this.editor !== null);
+		const loads = [];
+		if (this.mapSlots === null) loads.push(this.loadMap());
+		if (this.tab === "analysis" && this.findings === null) loads.push(this.loadAnalysis());
+		if (this.tab === "versions" && this.versions === null) loads.push(this.loadVersions());
+		this.renderTab();
+		await Promise.all(loads);
+	}
+	renderTab() {
+		const pane = this.pane;
+		const store = this.store();
+		if (!pane || !store) return;
+		keepFocus(pane, () => {
+			switch (this.tab) {
+				case "map":
+					pane.replaceChildren(this.mapPanel());
+					return;
+				case "analysis":
+					pane.replaceChildren(this.analysisPanel());
+					return;
+				case "versions":
+					pane.replaceChildren(this.versionsPanel());
+					return;
+				case "layer":
+					pane.replaceChildren(renderLayerPanel(this.app, this.layerModel(), this.layerActions()));
+					return;
+				case "params":
+					pane.replaceChildren(renderParamsPanel(this.app, {
+						body: store.working(),
+						layerMode: this.router.layerMode()
+					}, { set: async (key, value) => {
+						await this.run(() => this.router.setKeys({ [key]: value }));
+					} }), renderScenariosPanel(this.app, this.scenariosModel(), {
+						set: (id, values) => this.setScenario(id, values),
+						reset: (id) => this.setScenario(id, null)
+					}));
+					return;
+				default: pane.replaceChildren(renderBlocksPanel(this.app, this.blocksModel(), this.blocksState, this.blockActions()));
+			}
+		});
+	}
+	scenariosModel() {
+		const api = this.deps.services.scenarios();
+		if (!api || typeof api.list !== "function" || typeof api.params !== "function" || typeof api.setParams !== "function") return {
+			available: false,
+			items: []
+		};
+		const items = [];
+		for (const descriptor of api.list()) {
+			const values = api.params(descriptor.id);
+			if (values) items.push({
+				descriptor,
+				values
+			});
+		}
+		return {
+			available: true,
+			items
+		};
+	}
+	/** Stores a scenario's parameters (null: back to its defaults). */
+	setScenario(id, values) {
+		try {
+			this.deps.services.scenarios()?.setParams?.(id, values);
+		} catch (error) {
+			this.app.ui.notice(this.dialogs.errorText(error), {
+				urgent: true,
+				level: "error"
+			});
+		}
+		this.scheduleRefresh();
+	}
+	names() {
+		const prompts = this.store()?.working().prompts ?? [];
+		return new Map(prompts.map((prompt) => [prompt.identifier, promptName$1(prompt)]));
+	}
+	/** Token counts: the analysis map when loaded (ST's tokenizer), else PM's last assembly. */
+	tokens() {
+		if (this.mapSlots) return new Map(this.mapSlots.map((slot) => [slot.identifier, slot.tokens]));
+		return this.deps.pm.counts();
+	}
+	/** Runs one load at a time per kind; a result an invalidation overtook is dropped and loaded again. */
+	async load(kind, fetch) {
+		if (this.loading.has(kind)) return;
+		this.loading.add(kind);
+		const epoch = this.epoch[kind];
+		try {
+			await fetch();
+		} finally {
+			this.loading.delete(kind);
+		}
+		if (epoch !== this.epoch[kind]) {
+			this.invalidate(kind);
+			this.scheduleRefresh();
+			return;
+		}
+		if (!this.popup) return;
+		if (kind === this.tab || kind === "map" && this.tab === "blocks") this.renderTab();
+	}
+	reducedMap() {
+		const counts = this.deps.pm.counts();
+		return (this.store()?.prompts() ?? []).filter((row) => row.prompt !== null).map(({ item, prompt }) => {
+			const block = prompt;
+			const inChat = block.injection_position === 1;
+			return {
+				identifier: item.identifier,
+				name: promptName$1(block),
+				role: promptRole$1(block),
+				placement: inChat ? "depth" : "relative",
+				depth: inChat ? promptDepth(block) : void 0,
+				order: inChat ? promptOrder(block) : void 0,
+				tokens: counts.get(item.identifier) ?? 0,
+				enabled: item.enabled,
+				marker: block.marker === true,
+				injections: []
+			};
+		});
+	}
+	loadMap() {
+		return this.load("map", async () => {
+			const analysis = this.deps.services.analysis();
+			if (!analysis) {
+				this.mapSlots = this.reducedMap();
+				return;
+			}
+			try {
+				this.mapSlots = await analysis.map(void 0, { type: this.mapType });
+				this.mapError = null;
+			} catch (error) {
+				this.deps.log.warn("preset map failed", error);
+				this.mapError = error instanceof Error ? error.message : String(error);
+				this.mapSlots = this.reducedMap();
+			}
+		});
+	}
+	mapPanel() {
+		return renderMapPanel(this.app, {
+			slots: this.mapSlots,
+			reduced: !this.deps.services.analysis(),
+			error: this.mapError,
+			type: this.mapType
+		}, {
+			open: (identifier) => void this.openEditor(identifier),
+			refresh: async () => {
+				this.invalidate("map");
+				await this.render();
+			},
+			setType: (type) => {
+				this.mapType = type;
+				this.invalidate("map", "analysis");
+				this.rerender();
+			}
+		});
+	}
+	loadAnalysis() {
+		return this.load("analysis", async () => {
+			const analysis = this.deps.services.analysis();
+			if (!analysis) {
+				this.findings = [];
+				return;
+			}
+			try {
+				this.findings = await analysis.findings(void 0, { type: this.mapType });
+				this.hints = analysis.hints();
+				this.analysisError = null;
+			} catch (error) {
+				this.deps.log.warn("preset analysis failed", error);
+				this.analysisError = error instanceof Error ? error.message : String(error);
+				this.findings = [];
+			}
+		});
+	}
+	analysisPanel() {
+		const analysis = this.deps.services.analysis();
+		return renderAnalysisPanel(this.app, {
+			findings: analysis ? this.findings : [],
+			hints: this.hints,
+			unavailable: !analysis,
+			error: this.analysisError,
+			names: this.names()
+		}, {
+			open: (identifier) => void this.openEditor(identifier),
+			refresh: async () => {
+				this.invalidate("analysis");
+				await this.render();
+			}
+		});
+	}
+	loadVersions() {
+		return this.load("versions", async () => {
+			const store = this.store();
+			if (!store) return;
+			try {
+				this.versions = await store.versions(store.current());
+				this.versionsError = null;
+			} catch (error) {
+				this.deps.log.warn("preset versions failed", error);
+				this.versionsError = error instanceof Error ? error.message : String(error);
+				this.versions = [];
+			}
+		});
+	}
+	versionsPanel() {
+		const store = this.store();
+		return renderVersionsPanel(this.app, {
+			name: store.current(),
+			versions: this.versions,
+			selected: this.selectedVersion,
+			working: store.working(),
+			error: this.versionsError
+		}, this.names(), {
+			select: (id) => {
+				this.selectedVersion = id;
+				this.renderTab();
+			},
+			restore: (id) => this.restoreVersion(id),
+			refresh: async () => {
+				this.invalidate("versions");
+				await this.render();
+			}
+		});
+	}
+	async restoreVersion(id) {
+		const store = this.store();
+		if (!store) return;
+		const name = store.current();
+		const version = this.versions?.find((item) => item.id === id);
+		const when = version ? new Date(version.at).toLocaleString() : id;
+		if (!await this.dialogs.confirm(this.t("m34.versions.restoreTitle"), this.t("m34.versions.restoreBody", {
+			name,
+			when
+		}), this.t("m34.versions.restore"))) return;
+		if (!await this.run(async () => {
+			await store.restoreVersion(name, id);
+			return true;
+		})) return;
+		this.app.ui.notice(this.t("m34.versions.restored", { name }), { urgent: true });
+		this.selectedVersion = null;
+		this.invalidate("versions");
+		await this.render();
+	}
+	layerIds() {
+		const layer = this.deps.services.layer();
+		const store = this.store();
+		const touched = /* @__PURE__ */ new Set();
+		const conflicts = /* @__PURE__ */ new Set();
+		if (!layer || !store) return {
+			touched,
+			conflicts
+		};
+		for (const op of layer.get(store.current())?.ops ?? []) if (op.op === "add") touched.add(op.prompt.identifier);
+		else if (op.op !== "key") touched.add(op.identifier);
+		for (const conflict of layer.lastReport()?.conflicts ?? []) conflicts.add(conflict.identifier);
+		return {
+			touched,
+			conflicts
+		};
+	}
+	blocksModel() {
+		const store = this.store();
+		const rows = store.prompts().map(({ item, prompt }) => ({
+			identifier: item.identifier,
+			enabled: item.enabled,
+			prompt
+		}));
+		const ids = this.layerIds();
+		return {
+			rows,
+			detached: detachedPrompts(store.working().prompts ?? [], rows.map((row) => row.identifier)),
+			tokens: this.tokens(),
+			layerIds: ids.touched,
+			conflicts: ids.conflicts,
+			overridden: this.deps.pm.overridden(),
+			openId: this.editor && !this.editorNew ? this.editor.identifier : null,
+			layerMode: this.router.layerMode(),
+			canDetach: this.router.canDetach(),
+			draggable: !coarsePointer()
+		};
+	}
+	orderIds() {
+		return (this.store()?.prompts() ?? []).map((row) => row.item.identifier);
+	}
+	promptOf(identifier) {
+		return (this.store()?.working().prompts ?? []).find((prompt) => prompt.identifier === identifier) ?? null;
+	}
+	async run(action) {
+		return this.dialogs.run(action);
+	}
+	rerender() {
+		this.render();
+	}
+	blockActions() {
+		const state = this.blocksState;
+		return {
+			open: (identifier) => void this.openEditor(identifier),
+			toggle: async (identifiers, enabled) => {
+				await this.run(() => this.router.toggle(identifiers, enabled));
+				this.rerender();
+			},
+			move: async (identifier, toIndex) => {
+				const before = this.orderIds();
+				const from = before.indexOf(identifier);
+				if (from < 0) return;
+				const after = moveItem(before, from, toIndex);
+				state.focusId = identifier;
+				await this.run(() => this.router.reorder(before, after, [identifier]));
+				this.rerender();
+			},
+			add: () => this.newBlock(),
+			duplicate: async (identifier) => {
+				const prompt = this.promptOf(identifier);
+				if (!prompt) return;
+				const taken = (this.store()?.working().prompts ?? []).map((item) => promptName$1(item));
+				const copy = {
+					...structuredClone(prompt),
+					identifier: newIdentifier(this.app),
+					name: copyName(promptName$1(prompt), taken, this.t("m34.blocks.copySuffix")),
+					...userFlagsPatch({ identifier: "" })
+				};
+				const id = await this.run(() => this.router.add(copy, identifier, false));
+				if (id) state.focusId = id;
+				this.rerender();
+			},
+			remove: async (identifier) => {
+				const prompt = this.promptOf(identifier);
+				const name = prompt ? promptName$1(prompt) : identifier;
+				const body = this.router.layerMode() ? this.t("m34.blocks.deleteLayerBody", { name }) : this.t("m34.blocks.deleteBody", { name });
+				if (!await this.dialogs.confirm(this.t("m34.blocks.deleteTitle"), body, this.t("m34.dialog.delete"))) return;
+				if (await this.run(() => this.router.remove(identifier)) === "disabled") this.app.ui.notice(this.t("m34.blocks.disabledInLayer", { name }), { urgent: true });
+				state.selected.delete(identifier);
+				if (this.editor?.identifier === identifier) this.closeEditor();
+				this.rerender();
+			},
+			detach: async (identifier) => {
+				await this.run(() => this.router.detach(identifier));
+				state.selected.delete(identifier);
+				this.rerender();
+			},
+			insert: async (identifier) => {
+				await this.run(() => this.router.insert(identifier));
+				state.insertChoice = "";
+				state.focusId = identifier;
+				this.rerender();
+			},
+			importList: () => this.importPromptList(),
+			exportList: () => this.exportPromptList(),
+			resetOrder: () => this.resetOrder(),
+			substitute: (identifier) => this.substitute(identifier),
+			changed: () => this.rerender()
+		};
+	}
+	async newBlock() {
+		if (!await this.canLeave()) return;
+		const draft = {
+			identifier: newIdentifier(this.app),
+			name: "",
+			role: "system",
+			content: "",
+			system_prompt: false,
+			marker: false
+		};
+		this.showEditor(draft, true);
+	}
+	/** Preview with ST's substituteParams (P-145: macros with side effects run too — asked first). */
+	async substitute(identifier) {
+		const prompt = this.promptOf(identifier);
+		if (!prompt) return;
+		const text = promptText$1(prompt);
+		const effects = sideEffectMacros(text);
+		if (effects.length && !await this.dialogs.confirm(this.t("m34.blocks.effectsTitle"), this.t("m34.blocks.effectsBody", { macros: effects.join(", ") }))) return;
+		const ctx = this.app.host.ctx();
+		let result;
+		try {
+			result = typeof ctx.substituteParams === "function" ? ctx.substituteParams(text) : text;
+		} catch (error) {
+			this.app.ui.notice(this.dialogs.errorText(error), {
+				urgent: true,
+				level: "error"
+			});
+			return;
+		}
+		this.blocksState.substituted.set(identifier, result);
+		this.blocksState.expanded.add(identifier);
+		this.rerender();
+	}
+	async importPromptList() {
+		const store = this.store();
+		if (!store) return;
+		if (!await this.dialogs.confirm(this.t("m34.list.importTitle"), this.t("m34.list.importBody"))) return;
+		const file = await this.dialogs.pickFile(".json");
+		if (!file) return;
+		const parsed = parsePromptList(await file.text());
+		if (!parsed.ok) {
+			this.app.ui.notice(this.t(`m34.list.invalid.${parsed.reason}`, { file: file.name }), {
+				urgent: true,
+				level: "warn"
+			});
+			return;
+		}
+		const rows = store.prompts();
+		const plan = planPromptListImport(store.working().prompts ?? [], rows.map((row) => row.item), parsed.file);
+		if (await this.run(async () => {
+			for (const update of plan.update) await this.router.editPrompt(update.identifier, update.patch);
+			for (const prompt of plan.add) await this.router.add(prompt, anchorFor(this.orderIds(), null) ?? null, false);
+			if (plan.order) await this.applyOrder(plan.order);
+			return true;
+		})) this.app.ui.notice(this.t("m34.list.imported", {
+			updated: plan.update.length,
+			added: plan.add.length
+		}), { urgent: true });
+		this.rerender();
+	}
+	exportPromptList() {
+		const store = this.store();
+		if (!store) return;
+		const file = buildPromptListExport(store.working().prompts ?? [], store.prompts().map((row) => row.item));
+		downloadJson(promptListFileName(/* @__PURE__ */ new Date()), file);
+	}
+	/**
+	* Brings the active order to `wanted` (prompt-list import, «reset order»): blocks missing from the order are
+	* inserted with their state (the store inserts on enable/disable), the listed ones move first in that order
+	* (the store keeps unlisted entries after them, like PM's index-wise Object.assign), then on/off follow.
+	*/
+	async applyOrder(wanted) {
+		const known = new Set((this.store()?.working().prompts ?? []).map((prompt) => prompt.identifier));
+		const list = wanted.filter((entry) => known.has(entry.identifier));
+		const listed = new Set(this.orderIds());
+		for (const entry of list.filter((item) => !listed.has(item.identifier))) await this.router.toggle([entry.identifier], entry.enabled);
+		const before = this.orderIds();
+		const ids = list.map((entry) => entry.identifier);
+		await this.router.reorder(before, [...ids, ...before.filter((identifier) => !ids.includes(identifier))]);
+		const state = new Map(this.store()?.prompts().map((row) => [row.item.identifier, row.item.enabled]) ?? []);
+		const on = list.filter((entry) => entry.enabled && state.get(entry.identifier) === false);
+		const off = list.filter((entry) => !entry.enabled && state.get(entry.identifier) === true);
+		await this.router.toggle(on.map((entry) => entry.identifier), true);
+		await this.router.toggle(off.map((entry) => entry.identifier), false);
+	}
+	/** P-033: ST's default global order; the user's blocks leave the list (when the store can detach) but stay. */
+	async resetOrder() {
+		const detach = this.router.canDetach();
+		const body = this.t(detach ? "m34.blocks.resetBody" : "m34.blocks.resetBodyKeep");
+		if (!await this.dialogs.confirm(this.t("m34.blocks.resetTitle"), body)) return;
+		await this.run(async () => {
+			await this.applyOrder(DEFAULT_PROMPT_ORDER$1);
+			if (!detach) return;
+			const defaults = new Set(DEFAULT_PROMPT_ORDER$1.map((entry) => entry.identifier));
+			for (const identifier of this.orderIds().filter((item) => !defaults.has(item))) await this.router.detach(identifier);
+		});
+		this.rerender();
+	}
+	/** Opens a block in the side panel; false when the open editor asked to stay. */
+	async openEditor(identifier) {
+		if (this.editor?.identifier === identifier && !this.editorNew) {
+			this.editor.focus();
+			return true;
+		}
+		if (!await this.canLeave()) return false;
+		const prompt = this.promptOf(identifier);
+		if (!prompt) {
+			this.app.ui.notice(this.t("m34.editor.missing", { id: identifier }), {
+				urgent: true,
+				level: "warn"
+			});
+			return false;
+		}
+		this.showEditor(prompt, false);
+		return true;
+	}
+	showEditor(prompt, isNew) {
+		const side = this.side;
+		if (!side) return;
+		this.disposeEditor();
+		this.editorBase = structuredClone(prompt);
+		this.editorNew = isNew;
+		const handle = renderBlockEditor(this.app, {
+			prompt,
+			isNew,
+			layerMode: this.router.layerMode(),
+			sourceKey: EXTERNAL_MARKERS.includes(prompt.identifier) ? SOURCE_KEYS[prompt.identifier] ?? null : null
+		}, {
+			save: (fields) => this.saveEditor(fields),
+			close: () => void this.closeEditorAsked(),
+			countTokens: async (text) => {
+				try {
+					return await this.app.host.ctx().getTokenCountAsync(text);
+				} catch {
+					return null;
+				}
+			}
+		});
+		this.editor = handle;
+		side.replaceChildren(handle.element);
+		side.hidden = false;
+		this.layout?.classList.add("maestro-m34-with-editor");
+		for (const row of this.pane?.querySelectorAll(".maestro-m34-block") ?? []) row.classList.toggle("maestro-on", !isNew && row.dataset.id === prompt.identifier);
+		handle.focus();
+	}
+	disposeEditor() {
+		this.editor?.dispose();
+		this.editor = null;
+		this.editorBase = null;
+		this.editorNew = false;
+	}
+	closeEditor() {
+		this.disposeEditor();
+		if (this.side) {
+			this.side.replaceChildren();
+			this.side.hidden = true;
+		}
+		this.layout?.classList.remove("maestro-m34-with-editor");
+		for (const row of this.pane?.querySelectorAll(".maestro-m34-block.maestro-on") ?? []) row.classList.remove("maestro-on");
+	}
+	/** The editor's ×: asks about unsaved edits first. */
+	async closeEditorAsked() {
+		if (!await this.canLeave()) return false;
+		this.closeEditor();
+		return true;
+	}
+	editorOpen() {
+		return this.editor ? this.editor.identifier : null;
+	}
+	/** Writes the form (new block: added at the start; existing: only the fields the user changed). */
+	async saveEditor(fields) {
+		const base = this.editorBase;
+		const store = this.store();
+		if (!base || !store) return false;
+		if (this.editorNew) {
+			const draft = {
+				...base,
+				identifier: base.identifier
+			};
+			const patch = fieldsPatch(draft, fields);
+			const prompt = {
+				...draft,
+				...patch
+			};
+			if (!promptName$1(prompt).trim() || prompt.name === prompt.identifier) prompt.name = this.t("m34.blocks.newName");
+			const id = await this.run(() => this.router.add(prompt, null, true));
+			if (!id) return false;
+			this.closeEditor();
+			this.blocksState.focusId = id;
+			this.app.ui.notice(this.t("m34.editor.added", { name: promptName$1(prompt) }), { urgent: true });
+			this.rerender();
+			return true;
+		}
+		const current = this.promptOf(base.identifier);
+		if (!current) {
+			this.app.ui.notice(this.t("m34.editor.missing", { id: base.identifier }), {
+				urgent: true,
+				level: "warn"
+			});
+			return false;
+		}
+		if (JSON.stringify(current) !== JSON.stringify(base)) {
+			if (!await this.dialogs.confirm(this.t("m34.editor.changedTitle"), this.t("m34.editor.changedBody", { name: promptName$1(current) }), this.t("m34.editor.overwrite"))) return false;
+		}
+		const patch = fieldsPatch(base, fields);
+		if (!await this.run(async () => {
+			await this.router.editPrompt(base.identifier, patch);
+			return true;
+		})) return false;
+		this.closeEditor();
+		this.blocksState.focusId = base.identifier;
+		this.rerender();
+		return true;
+	}
+	/** Switches the preset; with unsaved edits asks «Сохранить / Отбросить / Отмена» first (P-073). */
+	async switchPreset(name) {
+		const store = this.store();
+		if (!store || name === store.current()) return false;
+		if (!await this.canLeave()) return false;
+		if (store.draft().dirty) {
+			const layerMode = this.router.layerMode();
+			const actions = layerMode ? [
+				{
+					value: "layer",
+					label: this.t("m34.switch.saveLayer")
+				},
+				{
+					value: "base",
+					label: this.t("m34.switch.saveBase")
+				},
+				{
+					value: "discard",
+					label: this.t("m34.switch.discard")
+				}
+			] : [{
+				value: "base",
+				label: this.t("m34.switch.save")
+			}, {
+				value: "discard",
+				label: this.t("m34.switch.discard")
+			}];
+			const choice = await this.dialogs.choose(this.t("m34.switch.title"), this.t(layerMode ? "m34.switch.bodyLayer" : "m34.switch.body", {
+				from: store.current(),
+				to: name
+			}), actions);
+			if (!choice) return false;
+			if (choice !== "discard" && !await this.saveTo(choice)) return false;
+		}
+		const done = await this.run(async () => {
+			await store.select(name);
+			return true;
+		});
+		this.closeEditor();
+		await this.render();
+		return done === true;
+	}
+	/**
+	* «Сохранить». Without a layer: the working copy into the preset file. In layer mode the studio's edits are in
+	* the layer already; what else the working copy holds (classic editor, commands) goes into the layer or the base,
+	* as the user chooses.
+	*/
+	async save() {
+		const store = this.store();
+		if (!store) return false;
+		if (!this.router.layerMode()) return this.saveTo("base");
+		const base = store.current();
+		if (!store.draft().dirty) {
+			this.app.ui.notice(this.t("m34.save.inLayer", { base }), { urgent: true });
+			return true;
+		}
+		const choice = await this.dialogs.choose(this.t("m34.save.layerTitle"), this.t("m34.save.layerBody", { base }), [{
+			value: "layer",
+			label: this.t("m34.switch.saveLayer")
+		}, {
+			value: "base",
+			label: this.t("m34.switch.saveBase")
+		}]);
+		return choice ? this.saveTo(choice) : false;
+	}
+	/**
+	* 'base': an explicit-body save of the working copy into the current preset (store.save strips the user's layer
+	* from the current preset itself, store.ts saveWorking). 'layer': the differences between the saved base and the
+	* working copy become layer operations (layer.migrateFrom merges them by block and key).
+	*/
+	async saveTo(target) {
+		const store = this.store();
+		if (!store) return false;
+		const base = store.current();
+		const layer = this.deps.services.layer();
+		if (target === "layer" && layer) {
+			const reference = store.saved(base) ?? layer.strip(base, store.working());
+			const report = await this.migrateInto(base, reference, store.working(), this.t("m34.save.layerIntro", { base }));
+			if (!report) return false;
+			this.app.ui.notice(this.t("m34.save.toLayer", {
+				base,
+				applied: report.applied,
+				conflicts: report.conflicts.length
+			}), {
+				urgent: true,
+				level: report.conflicts.length ? "warn" : "info"
+			});
+			this.rerender();
+			return true;
+		}
+		if (!await this.run(async () => {
+			await store.save(base, this.t("m34.save.summary"));
+			return true;
+		})) return false;
+		this.app.ui.notice(this.t("m34.save.done", { name: base }), { urgent: true });
+		this.invalidate("versions");
+		this.rerender();
+		return true;
+	}
+	/** «Сохранить базу»: the working copy without the user's layer into the base file. */
+	async saveBase() {
+		const store = this.store();
+		if (!store) return false;
+		const base = store.current();
+		return await this.dialogs.confirm(this.t("m34.saveBase.title"), this.t("m34.saveBase.body", { base }), this.t("m34.saveBase.ok")) ? this.saveTo("base") : false;
+	}
+	async saveAs() {
+		const store = this.store();
+		if (!store) return;
+		const name = await this.dialogs.input(this.t("m34.saveAs.title"), store.current(), this.t("m34.saveAs.hint"));
+		if (!name) return;
+		const saved = await this.run(() => store.saveAs(name));
+		if (saved) this.app.ui.notice(this.t("m34.saveAs.done", { name: saved }), { urgent: true });
+		this.rerender();
+	}
+	async rename() {
+		const store = this.store();
+		if (!store) return;
+		const current = store.current();
+		const name = await this.dialogs.input(this.t("m34.rename.title", { name: current }), current, this.t("m34.rename.hint"));
+		if (!name || name === current) return;
+		if (await this.run(async () => {
+			await store.rename(current, name);
+			return true;
+		})) this.app.ui.notice(this.t("m34.rename.done", {
+			from: current,
+			to: name
+		}), { urgent: true });
+		this.rerender();
+	}
+	async deletePreset() {
+		const store = this.store();
+		if (!store) return;
+		const current = store.current();
+		if (!await this.dialogs.confirm(this.t("m34.delete.title"), this.t("m34.delete.body", { name: current }), this.t("m34.dialog.delete"))) return;
+		if (await this.run(async () => {
+			await store.remove(current);
+			return true;
+		})) this.app.ui.notice(this.t("m34.delete.done", { name: current }), { urgent: true });
+		this.closeEditor();
+		this.rerender();
+	}
+	async importPreset() {
+		const store = this.store();
+		if (!store) return;
+		if (store.draft().dirty && !await this.dialogs.confirm(this.t("m34.import.title"), this.t("m34.import.dirty"))) return;
+		const file = await this.dialogs.pickFile(".json,.settings");
+		if (!file) return;
+		const name = await this.run(() => store.importFile(file));
+		if (name) this.app.ui.notice(this.t("m34.import.done", { name }), { urgent: true });
+		this.rerender();
+	}
+	async exportPreset() {
+		const store = this.store();
+		if (!store) return;
+		const current = store.current();
+		const choice = await this.dialogs.choose(this.t("m34.export.title", { name: current }), this.t("m34.export.body"), [
+			{
+				value: "safe",
+				label: this.t("m34.export.safe")
+			},
+			{
+				value: "connection",
+				label: this.t("m34.export.connection")
+			},
+			{
+				value: "all",
+				label: this.t("m34.export.all")
+			}
+		]);
+		if (!choice) return;
+		await this.run(() => store.exportPreset(current, {
+			withConnection: choice !== "safe",
+			withSensitive: choice === "all"
+		}));
+	}
+	async openClassic() {
+		if (!await this.requestClose()) return;
+		this.deps.showClassic();
+	}
+	layerModel() {
+		const store = this.store();
+		const layer = this.deps.services.layer();
+		const base = store.current();
+		return {
+			available: !!layer,
+			base,
+			layer: layer?.get(base) ?? null,
+			layerMode: this.router.layerMode(),
+			editsToLayer: this.deps.settings.editsToLayer,
+			report: layer?.lastReport() ?? null,
+			names: store.names(),
+			promptNames: this.names(),
+			foreign: this.foreign,
+			result: this.layerResult,
+			canReselect: typeof layer?.reselect === "function",
+			canPrepare: typeof layer?.prepareDisable === "function"
+		};
+	}
+	layerActions() {
+		const layer = () => this.deps.services.layer();
+		const base = () => this.store()?.current() ?? "";
+		return {
+			setEditsToLayer: (on) => {
+				this.deps.settings.editsToLayer = on;
+				this.deps.saveSettings();
+				this.rerender();
+			},
+			start: () => {
+				this.started.add(base());
+				this.app.ui.notice(this.t("m34.layer.started", { base: base() }), { urgent: true });
+				this.rerender();
+			},
+			removeOp: async (index) => {
+				const api = layer();
+				if (!api) return;
+				if (!await this.dialogs.confirm(this.t("m34.layer.removeTitle"), this.t("m34.layer.removeBody"), this.t("m34.dialog.delete"))) return;
+				await this.run(() => api.remove(base(), index));
+				this.rerender();
+			},
+			resolve: async (conflict, choice) => this.resolveConflict(conflict, choice),
+			migrate: async (reference) => {
+				const api = layer();
+				const store = this.store();
+				if (!api || !store) return;
+				const body = store.saved(reference);
+				if (!body) {
+					this.app.ui.notice(this.t("m34.layer.noReference", { name: reference }), {
+						urgent: true,
+						level: "warn"
+					});
+					return;
+				}
+				const intro = this.t("m34.layer.migrateBody", {
+					base: base(),
+					reference
+				});
+				const report = await this.migrateInto(base(), body, store.working(), intro);
+				if (report) this.layerResult = {
+					kind: "migrate",
+					report
+				};
+				this.rerender();
+			},
+			transfer: async (target) => {
+				const api = layer();
+				if (!api) return;
+				if (!await this.dialogs.confirm(this.t("m34.layer.transferTitle"), this.t("m34.layer.transferBody", {
+					base: base(),
+					target
+				}))) return;
+				const report = await this.run(() => api.transfer(base(), target));
+				if (report) this.layerResult = {
+					kind: "transfer",
+					report
+				};
+				this.rerender();
+			},
+			importForeign: async () => {
+				const api = layer();
+				if (!api) return;
+				const file = await this.dialogs.pickFile(".json,.settings");
+				if (!file) return;
+				const body = parsePresetBody(await file.text());
+				if (!body) {
+					this.app.ui.notice(this.t("m34.layer.foreignInvalid", { file: file.name }), {
+						urgent: true,
+						level: "warn"
+					});
+					return;
+				}
+				const prompts = api.importForeign(body);
+				this.foreign = {
+					file: file.name,
+					prompts,
+					picked: /* @__PURE__ */ new Set()
+				};
+				this.rerender();
+			},
+			pickForeign: (identifier, on) => {
+				if (!this.foreign) return;
+				if (on) this.foreign.picked.add(identifier);
+				else this.foreign.picked.delete(identifier);
+				this.rerender();
+			},
+			addForeign: async () => this.addForeign(),
+			clearForeign: () => {
+				this.foreign = null;
+				this.rerender();
+			},
+			open: (identifier) => void this.openEditor(identifier),
+			reselect: async () => {
+				const api = layer();
+				const store = this.store();
+				if (!api?.reselect || !store) return;
+				if (!await this.canLeave()) return;
+				const body = store.draft().dirty ? this.t("m34.layer.reselectDirty") : this.t("m34.layer.reselectBody");
+				if (!await this.dialogs.confirm(this.t("m34.layer.reselect"), body)) return;
+				const name = await this.run(() => api.reselect?.() ?? Promise.resolve(null));
+				if (name) this.app.ui.notice(this.t("m34.layer.reselected", { name }), { urgent: true });
+				this.closeEditor();
+				this.rerender();
+			},
+			prepareDisable: async (mode) => {
+				const api = layer();
+				if (!api?.prepareDisable) return;
+				if (!await this.canLeave()) return;
+				let merged;
+				if (mode === "saveMerged") {
+					const name = await this.dialogs.input(this.t("m34.layer.prepareMerged"), this.t("m34.layerSvc.mergedName", { name: base() }), this.t("m34.layer.prepareMergedBody", { base: base() }));
+					if (!name) return;
+					merged = name;
+				} else if (!await this.dialogs.confirm(this.t("m34.layer.prepareTitle"), this.t("m34.layer.prepareBaseBody", { base: base() }))) return;
+				const name = await this.run(() => api.prepareDisable?.(mode, merged) ?? Promise.resolve(null));
+				if (name) this.app.ui.notice(this.t("m34.layer.prepared", { name }), { urgent: true });
+				this.closeEditor();
+				this.rerender();
+			}
+		};
+	}
+	/**
+	* The differences between `reference` and `edited` become operations of the layer of `base`. With the layer's
+	* planMigration the user sees them first — block operations listed, body keys ticked one by one (connection keys
+	* unticked); keys left out are removed from the layer after migrateFrom (an operation it replaced comes back).
+	*/
+	async migrateInto(base, reference, edited, intro) {
+		const layer = this.deps.services.layer();
+		if (!layer) return null;
+		let excluded = /* @__PURE__ */ new Set();
+		let plan = null;
+		try {
+			plan = layer.planMigration?.(reference, edited) ?? null;
+		} catch (error) {
+			this.deps.log.debug("migration preview failed", error);
+		}
+		if (plan) {
+			const preview = renderMigrationPreview(this.app, plan, this.names());
+			const content = el("div", {}, [el("p", { text: intro }), preview.content]);
+			if (!await this.dialogs.form(this.t("m34.layer.migrateTitle"), content, this.t("m34.layer.migrateOk"))) return null;
+			excluded = preview.excluded();
+		} else if (!await this.dialogs.confirm(this.t("m34.layer.migrateTitle"), intro)) return null;
+		const keyOps = (ops) => new Map(ops.filter((op) => op.op === "key").map((op) => [op.key, op]));
+		const before = keyOps(layer.get(base)?.ops ?? []);
+		const report = await this.run(() => layer.migrateFrom(base, reference, edited));
+		if (!report) return null;
+		this.started.add(base);
+		if (excluded.size) await this.run(async () => {
+			const drop = (layer.get(base)?.ops ?? []).map((op, index) => ({
+				op,
+				index
+			})).filter(({ op }) => {
+				if (op.op !== "key" || !excluded.has(op.key)) return false;
+				const old = before.get(op.key);
+				return !old || JSON.stringify(old.value) !== JSON.stringify(op.value);
+			}).sort((a, b) => b.index - a.index);
+			for (const { op, index } of drop) {
+				await layer.remove(base, index);
+				const old = op.op === "key" ? before.get(op.key) : void 0;
+				if (old) await layer.record(base, {
+					op: "key",
+					key: old.key,
+					value: old.value
+				});
+			}
+		});
+		return report;
+	}
+	/** Picked blocks of a foreign preset go into the layer (a layer is started for this base if needed). */
+	async addForeign() {
+		const foreign = this.foreign;
+		const store = this.store();
+		if (!foreign || !store || !this.deps.services.layer()) return;
+		this.started.add(store.current());
+		const taken = new Set((store.working().prompts ?? []).map((prompt) => prompt.identifier));
+		const picked = foreign.prompts.filter((prompt) => foreign.picked.has(prompt.identifier));
+		const added = await this.run(async () => {
+			let count = 0;
+			for (const prompt of picked) {
+				const copy = {
+					...structuredClone(prompt),
+					...userFlagsPatch({ identifier: "" })
+				};
+				if (taken.has(copy.identifier)) copy.identifier = newIdentifier(this.app);
+				await this.router.add(copy, anchorFor(this.orderIds(), null) ?? null, false);
+				count++;
+			}
+			return count;
+		});
+		if (added) {
+			this.app.ui.notice(this.t("m34.layer.foreignAdded", {
+				count: added,
+				base: store.current()
+			}), { urgent: true });
+			this.foreign = null;
+		}
+		this.rerender();
+	}
+	async resolveConflict(conflict, choice) {
+		const layer = this.deps.services.layer();
+		const store = this.store();
+		if (!layer || !store) return;
+		let resolution = choice === "custom" ? "mine" : choice;
+		if (choice === "custom") {
+			const area = el("textarea", {
+				class: "text_pole maestro-m34-custom-text",
+				attrs: { rows: 14 }
+			});
+			area.value = conflict.mine;
+			const form = el("div", {}, [el("p", {
+				class: "maestro-field-hint",
+				text: this.t("m34.layer.customHint")
+			}), area]);
+			if (!await this.dialogs.form(this.t("m34.layer.customTitle"), form, this.t("m34.dialog.save"))) return;
+			resolution = { text: area.value };
+		}
+		await this.run(() => layer.resolveConflict(store.current(), conflict.identifier, resolution));
+		this.rerender();
+	}
+	/** Test helper: what the block list shows. */
+	listedBlocks() {
+		return [...this.pane?.querySelectorAll(".maestro-m34-block") ?? []].map((node) => node.dataset.id ?? "");
+	}
+};
+/** Touch screens: HTML5 drag would fight scrolling (P-017) — ↑/↓ only. */
+function coarsePointer() {
+	try {
+		return globalThis.matchMedia?.("(pointer: coarse)").matches === true;
+	} catch {
+		return false;
+	}
+}
+/** The caret of a text field (number inputs throw on selectionStart in some engines). */
+function selectionOf(input) {
+	try {
+		return input?.selectionStart ?? null;
+	} catch {
+		return null;
+	}
+}
+/** Re-rendering must not steal focus: the focused control (by data-focus-key) comes back with its caret. */
+function keepFocus(container, render) {
+	const active = document.activeElement;
+	const inside = active instanceof HTMLElement && container.contains(active);
+	const key = inside ? active.dataset.focusKey ?? null : null;
+	const start = selectionOf(inside && (active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement) ? active : null);
+	render();
+	if (!key) return;
+	const next = [...container.querySelectorAll("[data-focus-key]")].find((node) => node.dataset.focusKey === key);
+	if (!next) return;
+	next.focus();
+	if (start !== null && (next instanceof HTMLInputElement || next instanceof HTMLTextAreaElement)) try {
+		next.setSelectionRange(start, start);
+	} catch {}
+}
+var TAB_ICONS = {
+	map: "fa-diagram-project",
+	blocks: "fa-list-check",
+	analysis: "fa-stethoscope",
+	layer: "fa-layer-group",
+	versions: "fa-clock-rotate-left",
+	params: "fa-sliders"
+};
+//#endregion
+//#region src/features/presetStudio/styles.ts
+var M34_CSS = `
+body.maestro-pm-replaced #completion_prompt_manager { display: none !important; }
+.maestro-m34-launcher {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 8px 10px;
+    margin-bottom: 6px;
+    border: 1px solid var(--maestro-border);
+    border-radius: var(--maestro-radius-sm);
+    background: var(--maestro-raised);
+    color: var(--maestro-text);
+    text-align: start;
+}
+.maestro-m34-launcher-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.maestro-m34-launcher-head .fa-solid { color: var(--maestro-accent); }
+.maestro-m34-launcher-preset { font-weight: 600; overflow-wrap: anywhere; }
+.maestro-m34-launcher-stats { color: var(--maestro-muted); font-size: 0.9em; font-variant-numeric: tabular-nums; }
+.maestro-m34-launcher-error { color: var(--maestro-error); display: flex; gap: 6px; align-items: flex-start; }
+.maestro-m34-launcher-error[hidden], .maestro-m34-launcher-unsaved[hidden] { display: none; }
+.maestro-m34-launcher-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.maestro-m34-launcher-actions .maestro-btn { margin: 0; }
+
+.popup.maestro-m34-dialog {
+    width: min(1500px, 98dvw);
+    height: min(940px, 94dvh);
+    max-height: 94dvh;
+    padding: 0;
+    overflow: hidden;
+}
+.popup.maestro-m34-dialog .popup-content {
+    margin: 0;
+    padding: 0;
+    display: flex;
+    min-height: 0;
+    height: 100%;
+    text-align: start;
+}
+.popup.maestro-m34-dialog .popup-body { height: 100%; }
+.popup.maestro-m34-dialog .popup-button-close { display: none !important; }
+.maestro-m34 {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    color: var(--maestro-text);
+    font-size: var(--maestro-font-size);
+}
+.maestro-m34-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--maestro-gap-sm) var(--maestro-gap);
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--maestro-border);
+}
+.maestro-m34-brand { display: flex; align-items: center; gap: var(--maestro-gap-sm); color: var(--maestro-accent); }
+.maestro-m34-brand h3 { margin: 0; color: var(--maestro-text); font-size: 1.1em; }
+.maestro-m34-preset { width: auto; min-width: 180px; max-width: 360px; margin: 0; }
+.maestro-m34-actions { display: flex; flex-wrap: wrap; gap: 4px; margin-left: auto; }
+.maestro-m34-actions .maestro-btn { margin: 0; }
+.maestro-m34-nav { border-bottom: 1px solid var(--maestro-border); padding: 0 8px; }
+.maestro-m34-nav .maestro-tabs {
+    flex-direction: row;
+    width: auto;
+    padding: 0;
+    gap: 2px;
+    overflow-x: auto;
+}
+.maestro-m34-nav .maestro-tab { width: auto; white-space: nowrap; }
+.maestro-m34-nav .maestro-tab.maestro-on { box-shadow: inset 0 -3px 0 var(--maestro-accent); }
+.maestro-m34-layout {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    position: relative;
+}
+.maestro-m34-layout.maestro-m34-with-editor { grid-template-columns: minmax(0, 1fr) minmax(380px, 42%); }
+.maestro-m34-pane, .maestro-m34-side { min-height: 0; min-width: 0; overflow: auto; padding: var(--maestro-gap-sm) var(--maestro-gap); }
+.maestro-m34-side { border-left: 1px solid var(--maestro-border); }
+.maestro-m34-side[hidden] { display: none; }
+.maestro-m34-toolbar, .maestro-m34-summary-line {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--maestro-gap-sm);
+    margin-bottom: var(--maestro-gap-sm);
+}
+.maestro-m34-toolbar .maestro-btn { margin: 0; }
+.maestro-m34-search { flex: 1 1 200px; min-width: 0; margin: 0; }
+.maestro-m34-inline { display: inline-flex; align-items: center; gap: 6px; }
+.maestro-m34-map-type { width: auto; margin: 0; }
+.maestro-m34-finding-links { display: flex; flex-wrap: wrap; gap: 4px; }
+.maestro-m34-slot-note { margin-top: 2px; }
+.maestro-m34-insert { display: inline-flex; gap: 2px; align-items: center; }
+.maestro-m34-insert-select { width: auto; max-width: 220px; margin: 0; }
+.maestro-m34-count { font-weight: 600; font-variant-numeric: tabular-nums; }
+.maestro-m34-h { margin: var(--maestro-gap) 0 var(--maestro-gap-sm); }
+.maestro-m34-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 0 6px;
+    border-radius: 999px;
+    font-size: 0.78em;
+    background: var(--maestro-raised-strong);
+    color: var(--maestro-muted);
+    white-space: nowrap;
+}
+.maestro-m34-badge-layer { color: var(--maestro-accent); }
+.maestro-m34-badge-warn { color: var(--maestro-warn); }
+.maestro-m34-badge-conflict { color: var(--maestro-error); font-weight: 600; }
+.maestro-m34-chip {
+    padding: 0 6px;
+    border-radius: var(--maestro-radius-sm);
+    background: var(--maestro-raised);
+    color: var(--maestro-muted);
+    font-size: 0.82em;
+    white-space: nowrap;
+}
+.maestro-m34-bulk {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    align-items: center;
+    padding: 4px 6px;
+    margin-bottom: var(--maestro-gap-sm);
+    border-radius: var(--maestro-radius-sm);
+    background: var(--maestro-accent-soft);
+}
+.maestro-m34-bulk[hidden] { display: none; }
+.maestro-m34-bulk .maestro-btn { margin: 0; }
+.maestro-m34-bulk-count { font-weight: 600; margin-right: auto; }
+.maestro-m34-block { border-bottom: 1px solid var(--maestro-border); padding: 2px 0; }
+.maestro-m34-block.maestro-on { background: var(--maestro-accent-soft); }
+.maestro-m34-block.maestro-m34-off .maestro-m34-block-name { opacity: 0.5; }
+.maestro-m34-block.maestro-m34-missing .maestro-m34-block-title { text-decoration: line-through; }
+.maestro-m34-block.maestro-m34-dragging { opacity: 0.5; }
+.maestro-m34-block.maestro-m34-flash { outline: 2px solid var(--maestro-accent); outline-offset: -2px; }
+.maestro-m34-block-main { display: flex; align-items: center; gap: 4px; min-height: 36px; }
+.maestro-m34-block-main .maestro-btn { margin: 0; min-height: 30px; padding: 0 6px; }
+.maestro-m34-handle { cursor: grab; color: var(--maestro-muted); padding: 0 4px; user-select: none; }
+.maestro-m34-kind { display: inline-flex; gap: 1px; color: var(--maestro-muted); }
+.maestro-m34-kind-important { color: var(--maestro-warn); }
+.maestro-m34-kind-inChat { color: var(--maestro-accent); }
+.maestro-m34-block-name, .maestro-m34-slot-name, .maestro-m34-version-pick {
+    all: unset;
+    cursor: pointer;
+    min-width: 0;
+}
+.maestro-m34-block-name { flex: 1 1 auto; display: flex; flex-direction: column; }
+.maestro-m34-block-name:focus-visible, .maestro-m34-slot-name:focus-visible, .maestro-m34-version-pick:focus-visible {
+    outline: 2px solid var(--maestro-accent);
+}
+.maestro-m34-block-name[disabled] { cursor: default; }
+.maestro-m34-block-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.maestro-m34-block-meta { color: var(--maestro-muted); font-size: 0.8em; }
+.maestro-m34-block-badges { display: flex; gap: 3px; flex-wrap: wrap; justify-content: flex-end; }
+.maestro-m34-tokens { min-width: 3.5em; text-align: right; color: var(--maestro-muted); font-variant-numeric: tabular-nums; font-size: 0.85em; }
+.maestro-m34-block-actions { display: flex; }
+.maestro-m34-preview { padding: 4px 8px 8px 36px; font-size: 0.9em; }
+.maestro-m34-preview .maestro-btn { margin: 4px 0 0; }
+.maestro-m34-text {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    font-family: var(--monoFontFamily, ui-monospace, monospace);
+    font-size: 0.92em;
+    max-height: 360px;
+    overflow: auto;
+    padding: 4px 6px;
+    border-radius: var(--maestro-radius-sm);
+    background: var(--maestro-raised);
+}
+.maestro-m34-substituted { margin-top: 6px; }
+.maestro-m34-hl { border-radius: 3px; padding: 0 1px; }
+.maestro-m34-hl-macro { color: var(--maestro-accent); }
+.maestro-m34-hl-variable { color: var(--maestro-info); background: var(--maestro-accent-soft); }
+.maestro-m34-hl-condition { color: var(--maestro-warn); font-weight: 600; }
+.maestro-m34-hl-flag { color: var(--maestro-ok); font-weight: 600; background: color-mix(in srgb, var(--maestro-ok) 15%, transparent); }
+.maestro-m34-hl-comment { color: var(--maestro-muted); font-style: italic; }
+.maestro-m34-editor { display: flex; flex-direction: column; gap: var(--maestro-gap-sm); }
+.maestro-m34-editor-head { display: flex; align-items: center; gap: var(--maestro-gap-sm); }
+.maestro-m34-editor-head h4 { margin: 0; flex: 1 1 auto; overflow-wrap: anywhere; }
+.maestro-m34-editor-head .maestro-btn { margin: 0; }
+.maestro-m34-editor-id { font-size: 0.8em; overflow-wrap: anywhere; }
+.maestro-m34-field { display: flex; flex-direction: column; gap: 2px; }
+.maestro-m34-field[hidden] { display: none; }
+.maestro-m34-label { font-size: 0.85em; color: var(--maestro-muted); }
+.maestro-m34-label-row { display: flex; justify-content: space-between; gap: var(--maestro-gap-sm); }
+.maestro-m34-token-count { font-size: 0.85em; color: var(--maestro-muted); font-variant-numeric: tabular-nums; }
+.maestro-m34-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: var(--maestro-gap-sm); }
+.maestro-m34-grid .text_pole, .maestro-m34-field .text_pole { margin: 0; }
+.maestro-m34-triggers { border: 1px solid var(--maestro-border); border-radius: var(--maestro-radius-sm); padding: 4px 8px; display: flex; flex-wrap: wrap; gap: 2px 12px; }
+.maestro-m34-triggers legend { padding: 0 4px; }
+.maestro-m34-triggers .maestro-field-hint { flex-basis: 100%; }
+.maestro-m34-f-content { min-height: 200px; resize: vertical; font-family: var(--monoFontFamily, ui-monospace, monospace); }
+.maestro-m34-highlight > summary { cursor: pointer; min-height: 28px; }
+.maestro-m34-source { font-size: 0.9em; color: var(--maestro-muted); }
+.maestro-m34-editor-actions { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; position: sticky; bottom: 0; padding: 6px 0; background: var(--maestro-surface); }
+.maestro-m34-editor-actions .maestro-btn { margin: 0; }
+.maestro-m34-stale[hidden] { display: none; }
+.maestro-m34-slots { list-style: none; margin: 0; padding: 0; }
+.maestro-m34-slot { display: flex; gap: 8px; align-items: flex-start; padding: 6px 0; border-bottom: 1px solid var(--maestro-border); }
+.maestro-m34-slot.maestro-m34-off, .maestro-m34-slot.maestro-m34-dropped { opacity: 0.6; }
+.maestro-m34-slot-depth { border-left: 3px solid var(--maestro-accent); padding-left: 6px; }
+.maestro-m34-slot-marker .maestro-m34-slot-name { font-style: italic; }
+.maestro-m34-slot-index { min-width: 2em; text-align: right; color: var(--maestro-muted); font-variant-numeric: tabular-nums; }
+.maestro-m34-slot-role { color: var(--maestro-muted); }
+.maestro-m34-slot-body { flex: 1 1 auto; min-width: 0; }
+.maestro-m34-slot-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.maestro-m34-slot-head .maestro-m34-tokens { margin-left: auto; }
+.maestro-m34-bar { height: 4px; border-radius: 2px; background: var(--maestro-raised); margin-top: 4px; overflow: hidden; }
+.maestro-m34-bar-fill { display: block; height: 100%; background: var(--maestro-accent); }
+.maestro-m34-injections { margin: 4px 0 0; padding-left: 18px; font-size: 0.85em; color: var(--maestro-muted); }
+.maestro-m34-findings, .maestro-m34-hints, .maestro-m34-version-list, .maestro-m34-op-list, .maestro-m34-foreign-list, .maestro-m34-orphaned {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+.maestro-m34-finding { display: flex; gap: 8px; align-items: flex-start; padding: 6px 0; border-bottom: 1px solid var(--maestro-border); }
+.maestro-m34-sev-warn > .fa-solid { color: var(--maestro-warn); }
+.maestro-m34-sev-info > .fa-solid { color: var(--maestro-info); }
+.maestro-m34-finding-body { flex: 1 1 auto; min-width: 0; }
+.maestro-m34-finding-kind { font-weight: 600; }
+.maestro-m34-finding .maestro-btn { margin: 0; }
+.maestro-m34-hints li { padding: 4px 0; }
+.maestro-m34-version { border-bottom: 1px solid var(--maestro-border); padding: 4px 0; }
+.maestro-m34-version.maestro-on { background: var(--maestro-raised); }
+.maestro-m34-version-pick { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; width: 100%; min-height: 32px; }
+.maestro-m34-version-time { font-variant-numeric: tabular-nums; }
+.maestro-m34-version-summary { flex: 1 1 200px; min-width: 0; overflow-wrap: anywhere; }
+.maestro-m34-version-detail { padding: 6px 4px 8px 12px; }
+.maestro-m34-diff h5 { margin: 8px 0 4px; }
+.maestro-m34-diff-block { padding: 4px 0; border-bottom: 1px dashed var(--maestro-border); }
+.maestro-m34-diff-field { display: grid; grid-template-columns: minmax(120px, 200px) minmax(0, 1fr); gap: 6px; padding: 2px 0; }
+.maestro-m34-diff-key { color: var(--maestro-muted); font-family: var(--monoFontFamily, ui-monospace, monospace); font-size: 0.85em; overflow-wrap: anywhere; }
+.maestro-m34-diff-line { padding: 2px 0; }
+.maestro-m34-layer section { margin-bottom: var(--maestro-gap); }
+.maestro-m34-op { display: flex; align-items: center; gap: 6px; padding: 3px 0; border-bottom: 1px solid var(--maestro-border); }
+.maestro-m34-op-text { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+.maestro-m34-op .maestro-btn { margin: 0; }
+.maestro-m34-conflict { border: 1px solid var(--maestro-error); border-radius: var(--maestro-radius-sm); padding: 6px 8px; margin-bottom: var(--maestro-gap-sm); }
+.maestro-m34-conflict-head { display: flex; align-items: center; gap: 6px; }
+.maestro-m34-conflict-cols { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin: 6px 0; }
+.maestro-m34-conflict .maestro-btn, .maestro-m34-layer .maestro-row .maestro-btn { margin: 0; }
+.maestro-m34-reference, .maestro-m34-target { width: auto; max-width: 280px; margin: 0; }
+.maestro-m34-report { display: flex; gap: 6px; align-items: center; margin-top: 6px; }
+.maestro-m34-foreign-item { padding: 4px 0; border-bottom: 1px solid var(--maestro-border); }
+.maestro-m34-foreign-text { font-size: 0.85em; white-space: pre-wrap; overflow-wrap: anywhere; }
+.maestro-m34-param-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: var(--maestro-gap-sm) var(--maestro-gap); }
+.maestro-m34-param { display: flex; flex-direction: column; gap: 2px; }
+.maestro-m34-param-textarea { grid-column: 1 / -1; }
+.maestro-m34-param .text_pole { margin: 0; }
+.maestro-m34-param .maestro-m34-label { display: flex; gap: 6px; flex-wrap: wrap; align-items: baseline; }
+.maestro-m34-param-key { font-size: 0.75em; color: var(--maestro-muted); }
+.maestro-m34-invalid { outline: 2px solid var(--maestro-error); }
+.maestro-m34-hidden-file { display: none; }
+.maestro-m34-dialog-body h3 { margin-top: 0; }
+.maestro-m34-form-dialog { text-align: start; }
+.maestro-m34-custom-text { width: 100%; min-height: 240px; }
+@media screen and (max-width: 1000px) {
+    .popup.maestro-m34-dialog,
+    .popup.maestro-m34-dialog.large_dialogue_popup {
+        width: 100dvw !important;
+        min-width: 100dvw !important;
+        max-width: 100dvw !important;
+        height: 100dvh !important;
+        max-height: 100dvh !important;
+        margin: 0;
+        border: 0;
+        border-radius: 0;
+    }
+    .maestro-m34-header { padding: 6px; padding-top: max(6px, env(safe-area-inset-top)); gap: 6px; }
+    .maestro-m34-actions { margin-left: 0; }
+    .maestro-m34-actions .maestro-btn span, .maestro-m34-brand h3 { display: none; }
+    .maestro-m34-preset { flex: 1 1 140px; min-width: 0; max-width: none; }
+    .maestro-m34-nav { padding: 4px 6px; }
+    .maestro-m34-layout.maestro-m34-with-editor { grid-template-columns: minmax(0, 1fr); }
+    .maestro-m34-side {
+        position: absolute;
+        inset: 0;
+        z-index: 2;
+        border: 0;
+        background: var(--maestro-surface);
+        padding-bottom: max(8px, env(safe-area-inset-bottom));
+    }
+    .maestro-m34-handle { display: none; }
+    .maestro-btn, .maestro-m34-block-name, .maestro-m34-slot-name, .maestro-m34-version-pick { min-height: var(--maestro-tap); }
+    .maestro-m34-block-main { flex-wrap: wrap; }
+    .maestro-m34-block-name { flex-basis: 50%; }
+    .maestro-m34-conflict-cols { grid-template-columns: minmax(0, 1fr); }
+    .maestro-m34-diff-field { grid-template-columns: minmax(0, 1fr); }
+    .maestro-m34-text { max-height: 240px; }
+}
+`;
+//#endregion
+//#region src/features/presetStudio/view-tab.ts
+var PRESET_STUDIO_TAB = "presetStudio";
+function presetStudioTab(app, deps) {
+	const t = app.i18n.t.bind(app.i18n);
+	return {
+		id: PRESET_STUDIO_TAB,
+		titleKey: "m34.title",
+		icon: "fa-sliders",
+		order: 42,
+		render(container) {
+			const chatCompletion = app.host.isChatCompletion();
+			const summary = deps.summary();
+			const status = el("div", { class: "maestro-field-hint maestro-m34-tab-status" });
+			const renderStatus = () => {
+				status.textContent = deps.replaceActive() ? t("m34.tab.replaceActive") : deps.settings.replacePromptManager ? t("m34.tab.replaceWaiting") : t("m34.tab.replaceInactive");
+			};
+			renderStatus();
+			if (!chatCompletion) container.append(banner(t("m34.tab.textCompletion"), "warn"));
+			container.append(section$1(t("m34.title"), [
+				el("p", { text: t("m34.tab.intro") }),
+				summary ? el("p", {
+					class: "maestro-muted maestro-m34-tab-summary",
+					text: [
+						t("m34.tab.preset", { name: summary.preset || t("m34.launcher.noPreset") }),
+						t("m34.launcher.blocks", {
+							enabled: summary.enabled,
+							total: summary.total
+						}),
+						summary.tokens === null ? t("m34.launcher.noTokens") : t("m34.launcher.tokens", { count: summary.tokens.toLocaleString() }),
+						summary.dirty ? t("m34.launcher.unsaved") : null
+					].filter(Boolean).join(" · ")
+				}) : banner(t("m34.error.noStore"), "error"),
+				el("div", { class: "maestro-row" }, [button({
+					icon: "fa-sliders",
+					label: t("m34.launcher.open"),
+					kind: "primary",
+					className: "maestro-m34-tab-open",
+					disabled: !chatCompletion || !summary,
+					onClick: () => {
+						app.ui.closePult?.();
+						deps.open();
+					}
+				}), button({
+					icon: "fa-list-ul",
+					label: t("m34.classic"),
+					disabled: !chatCompletion,
+					onClick: () => {
+						app.ui.closePult?.();
+						deps.showClassic();
+					}
+				})])
+			]), section$1(t("m34.tab.settings"), [
+				toggle({
+					label: t("m34.tab.replace"),
+					checked: deps.settings.replacePromptManager,
+					onChange: (on) => {
+						const placed = deps.setReplace(on);
+						renderStatus();
+						if (on && !placed) app.ui.notice(t("m34.tab.replaceLater"), { level: "info" });
+					}
+				}),
+				el("div", {
+					class: "maestro-field-hint",
+					text: t("m34.tab.replaceHint")
+				}),
+				status,
+				toggle({
+					label: t("m34.layer.editsToLayer"),
+					checked: deps.settings.editsToLayer,
+					onChange: (on) => deps.setEditsToLayer(on)
+				}),
+				el("div", {
+					class: "maestro-field-hint",
+					text: t("m34.layer.editsToLayerHint")
+				}),
+				el("p", {
+					class: "maestro-muted",
+					text: t("m34.tab.slash")
+				})
+			]));
+		}
+	};
+}
+//#endregion
+//#region src/features/presetStudio/module.ts
+var PRESET_STUDIO_KEY = "presetStudio";
+var PRESET_STORE_KEY = "presetStore";
+var PRESET_LAYER_KEY = "presetLayer";
+var PRESET_ANALYSIS_KEY = "presetAnalysis";
+var runtime$1 = null;
+/** The shell's strings and those of the parts (they exist before any part's install() runs). */
+var PRESET_STUDIO_STRINGS = {
+	en: {
+		...M34_STRINGS.en,
+		...ANALYSIS_STRINGS.en,
+		...LAYER_STRINGS.en,
+		...PRESET_STORE_STRINGS.en
+	},
+	ru: {
+		...M34_STRINGS.ru,
+		...ANALYSIS_STRINGS.ru,
+		...LAYER_STRINGS.ru,
+		...PRESET_STORE_STRINGS.ru
+	}
+};
+/**
+* Starts a part and returns its API: `install()` (its disposer, or a list of them, is owned) and `dispose()` are
+* feature-detected; a handle's `api` is what gets exposed.
+*/
+function adopt(part, own, log) {
+	const life = part;
+	if (typeof life.install === "function") {
+		const result = life.install();
+		const offs = Array.isArray(result) ? result : [result];
+		for (const off of offs) if (typeof off === "function") own(off);
+	} else if (typeof life.dispose === "function") own(async () => {
+		try {
+			await life.dispose?.();
+		} catch (error) {
+			log.warn("preset part dispose failed", error);
+		}
+	});
+	return life.api && typeof life.api === "object" ? life.api : part;
+}
+async function build(name, log, make) {
+	try {
+		return await make();
+	} catch (error) {
+		log.error(`preset ${name} could not start`, error);
+		return null;
+	}
+}
+/** Opens ST's «AI Response Configuration» drawer (PM lives there, P-001) when it is closed. */
+function openAiDrawer() {
+	const panel = document.getElementById("left-nav-panel");
+	if (panel && !panel.classList.contains("openDrawer")) document.querySelector("#ai-config-button .drawer-toggle")?.click();
+	document.getElementById(PM_CONTAINER_ID)?.scrollIntoView?.({ block: "start" });
+}
+function createPresetStudioModule(factories) {
+	return {
+		id: "M34",
+		key: PRESET_STUDIO_KEY,
+		stage: 5,
+		titleKey: "m34.title",
+		enabledByDefault: true,
+		defaults: defaultPresetStudioSettings,
+		requires: ["st.oai.promptManager", "st.presetManager"],
+		i18n: PRESET_STUDIO_STRINGS,
+		async init({ app, settings, log, own }) {
+			const expose = (key, api) => {
+				app.modules.expose(key, api);
+				own(() => app.modules.expose(key, void 0));
+			};
+			const storePart = factories.store ? await build("store", log, () => factories.store(app, log)) : null;
+			const store = storePart ? adopt(storePart, own, log) : null;
+			if (store) {
+				expose(PRESET_STORE_KEY, store);
+				const layer = factories.layer ? await build("layer", log, () => factories.layer(app, log, store)) : null;
+				if (layer) expose(PRESET_LAYER_KEY, adopt(layer, own, log));
+				const analysis = factories.analysis ? await build("analysis", log, () => factories.analysis(app, log, store)) : null;
+				if (analysis) expose(PRESET_ANALYSIS_KEY, adopt(analysis, own, log));
+			} else log.warn("the preset store is not available: the Preset Studio stays closed");
+			const services = servicesOf(app);
+			const pm = new PmInfo(app, log);
+			pm.load();
+			const saveSettings = () => {
+				app.settings.notify(`modules.${PRESET_STUDIO_KEY}`);
+				app.settings.save();
+			};
+			const ref = { launcher: null };
+			const showClassic = () => {
+				ref.launcher?.showClassic();
+				openAiDrawer();
+			};
+			const studio = new PresetStudio({
+				app,
+				log,
+				services,
+				settings,
+				saveSettings,
+				pm,
+				showClassic
+			});
+			const launcher = new PmLauncher({
+				app,
+				log,
+				services,
+				pm,
+				open: () => studio.open()
+			});
+			ref.launcher = launcher;
+			runtime$1 = {
+				studio,
+				launcher,
+				pm
+			};
+			expose(PRESET_STUDIO_KEY, { open: (identifier) => studio.open(identifier) });
+			own(() => {
+				studio.dispose();
+				if (runtime$1?.studio === studio) runtime$1 = null;
+			});
+			own(app.ui.style("m34-preset-studio", M34_CSS));
+			own(() => launcher.restore());
+			if (settings.replacePromptManager) launcher.install();
+			own(app.ui.addTab(presetStudioTab(app, {
+				settings,
+				open: () => studio.open(),
+				showClassic,
+				setReplace: (on) => {
+					settings.replacePromptManager = on;
+					saveSettings();
+					if (!on) {
+						launcher.restore();
+						return false;
+					}
+					return launcher.install();
+				},
+				replaceActive: () => launcher.active(),
+				setEditsToLayer: (on) => {
+					settings.editsToLayer = on;
+					saveSettings();
+					if (studio.isOpen()) studio.scheduleRefresh();
+				},
+				summary: () => services.store() ? launcher.summary() : null
+			})));
+			own(app.ui.addSlashCommand({
+				name: "maestro-preset",
+				helpKey: "m34.slash.help",
+				args: [{
+					name: "value",
+					descriptionKey: "m34.slash.block",
+					optional: true
+				}],
+				callback: (_args, value) => {
+					const block = String(value ?? "").trim();
+					studio.open(block || void 0);
+					return "";
+				}
+			}));
+		}
+	};
+}
+//#endregion
+//#region src/features/presetStudio/index.ts
+var presetStudioModule = createPresetStudioModule({
+	store: createPresetStore,
+	layer: createPresetLayer,
+	analysis: createPresetAnalysis
+});
 //#endregion
 //#region src/domain/world-facts.ts
 /** Per-character DES fields that describe looks (English snake_case keys and DES-RU's Russian ones). */
@@ -59714,7 +73562,7 @@ function readRevisionSettings(slice) {
 }
 //#endregion
 //#region src/features/revision/sources.ts
-function isDict$8(value) {
+function isDict$10(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function str$3(value) {
@@ -59857,7 +73705,7 @@ var RevisionSources = class {
 	async effective(world, uid) {
 		const data = await this.book(world);
 		const raw = data?.entries[String(uid)];
-		const entry = isDict$8(raw) ? raw : null;
+		const entry = isDict$10(raw) ? raw : null;
 		const result = {
 			entry,
 			content: str$3(entry?.content),
@@ -59996,7 +73844,7 @@ var RevisionSources = class {
 };
 //#endregion
 //#region src/features/revision/routes.ts
-function isDict$7(value) {
+function isDict$9(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function str$2(value) {
@@ -60040,7 +73888,7 @@ var TARGETS = {
 	event: "revision.event"
 };
 function isRevisionPayload(value) {
-	return isDict$7(value) && value.m8 === 1 && typeof value.op === "string" && typeof value.value === "string";
+	return isDict$9(value) && value.m8 === 1 && typeof value.op === "string" && typeof value.value === "string";
 }
 var RouteError = class extends Error {};
 var TYPE_OF_KIND = {
@@ -60942,7 +74790,7 @@ var RevisionRoutes = class {
 		const id = change.ref.id;
 		const slot = change.ref.slot;
 		if (typeof id !== "string" || typeof slot !== "string" || !this.sources.naiApi()) return false;
-		const owner = isDict$7(change.ref.owner) ? change.ref.owner : null;
+		const owner = isDict$9(change.ref.owner) ? change.ref.owner : null;
 		await this.savePassportSlot(id, owner, slot, typeof change.before === "string" ? change.before : "");
 		return true;
 	}
@@ -61218,7 +75066,7 @@ var MAX_NAME = 80;
 var MAX_VALUE = 800;
 var MAX_EVIDENCE = 400;
 var MAX_FIELD = 40;
-function isDict$6(value) {
+function isDict$8(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function str$1(value) {
@@ -61237,7 +75085,7 @@ function clip$1(text, max) {
 }
 /** One item of `changes`; null when it cannot be used. */
 function readChange(raw, range) {
-	if (!isDict$6(raw)) return null;
+	if (!isDict$8(raw)) return null;
 	const target = str$1(raw.target);
 	if (!isRevisionTarget(target)) return null;
 	const entityName = str$1(raw.entity ?? raw.entityName);
@@ -61264,7 +75112,7 @@ function readChange(raw, range) {
 }
 /** `{changes: [...]}` (or a bare array) → the readable changes; duplicates are folded. */
 function parseRevisionChanges(data, range) {
-	const list = Array.isArray(data) ? data : isDict$6(data) && Array.isArray(data.changes) ? data.changes : null;
+	const list = Array.isArray(data) ? data : isDict$8(data) && Array.isArray(data.changes) ? data.changes : null;
 	if (!list) return null;
 	const changes = [];
 	let invalid = 0;
@@ -62231,7 +76079,7 @@ function revisionTab(app, service) {
 	};
 	const runView = (run) => el("div", { class: "maestro-m8-run" }, [
 		el("div", { class: "maestro-m8-run-head" }, [
-			el("strong", { text: formatTime(run.at, app.i18n) }),
+			el("strong", { text: formatTime$1(run.at, app.i18n) }),
 			badge(tOr(app.i18n, `m8.run.reason.${run.reason}`, run.reason), "muted"),
 			el("span", {
 				class: "maestro-muted",
@@ -63289,15 +77137,15 @@ function registerPackHandlers(env) {
 }
 //#endregion
 //#region src/domain/rules-qvink.ts
-function isDict$5(value) {
+function isDict$7(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /** `chat[i].extra.qvink_memory`. */
 var QVINK_MEMORY_KEY = "qvink_memory";
 function memoryRecord(message) {
-	if (!isDict$5(message) || !isDict$5(message.extra)) return null;
+	if (!isDict$7(message) || !isDict$7(message.extra)) return null;
 	const record = message.extra[QVINK_MEMORY_KEY];
-	return isDict$5(record) ? record : null;
+	return isDict$7(record) ? record : null;
 }
 /** The message already has a Qvink summary (non-empty `memory`). */
 function hasQvinkMemory(message) {
@@ -63311,7 +77159,7 @@ function hasQvinkMemory(message) {
 * threshold do not. Context budgets are not part of this check.
 */
 function qvinkWouldSummarize(message, settings, options) {
-	if (!isDict$5(message)) return false;
+	if (!isDict$7(message)) return false;
 	const record = memoryRecord(message);
 	if (record?.is_qvink_system_memory) return false;
 	if (record?.remember === true) return true;
@@ -63320,8 +77168,8 @@ function qvinkWouldSummarize(message, settings, options) {
 	if (message.is_user === true && s.include_user_messages !== true) return false;
 	if (message.is_thoughts === true) return false;
 	if (message.is_system === true && s.include_system_messages !== true) return false;
-	if ((isDict$5(message.extra) ? message.extra : {}).type === "narrator" && s.include_narrator_messages !== true) return false;
-	if (options.groupId && isDict$5(s.disabled_group_characters)) {
+	if ((isDict$7(message.extra) ? message.extra : {}).type === "narrator" && s.include_narrator_messages !== true) return false;
+	if (options.groupId && isDict$7(s.disabled_group_characters)) {
 		const disabled = s.disabled_group_characters[options.groupId];
 		if (Array.isArray(disabled) && disabled.includes(message.original_avatar)) return false;
 	}
@@ -63337,21 +77185,21 @@ function qvinkWouldSummarize(message, settings, options) {
 function promptChatIndexes(chat, canUseTools) {
 	const indexes = [];
 	chat.forEach((message, index) => {
-		if (!isDict$5(message)) return;
-		const tools = canUseTools && isDict$5(message.extra) && Array.isArray(message.extra.tool_invocations);
+		if (!isDict$7(message)) return;
+		const tools = canUseTools && isDict$7(message.extra) && Array.isArray(message.extra.tool_invocations);
 		if (message.is_system !== true || tools) indexes.push(index);
 	});
 	return indexes;
 }
 function sameMessage$1(entry, message) {
-	return isDict$5(message) && message.send_date === entry.send_date && message.name === entry.name && message.is_user === true === (entry.is_user === true);
+	return isDict$7(message) && message.send_date === entry.send_date && message.name === entry.name && message.is_user === true === (entry.is_user === true);
 }
 /**
 * Live chat index of one prompt entry: its `index` through the mapping when that message matches (send date, name,
 * author), otherwise the newest live message that matches; -1 when none does.
 */
 function liveIndexOf(entry, chat, mapping) {
-	if (!isDict$5(entry)) return -1;
+	if (!isDict$7(entry)) return -1;
 	const position = entry.index;
 	if (typeof position === "number" && Number.isInteger(position)) {
 		const candidate = mapping[position];
@@ -64921,6 +78769,255 @@ var rulesModule = {
 		engine.sync();
 	}
 };
+var MAX_HISTORY_MESSAGES = 200;
+var ROLES$1 = /* @__PURE__ */ new Set([
+	"system",
+	"user",
+	"assistant"
+]);
+function isDict$6(value) {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function finite(value) {
+	return typeof value === "number" && Number.isFinite(value);
+}
+/** Keeps only valid values (settings come from settings.json and may be edited by hand). */
+function sanitizeScenarioParams(raw) {
+	if (!isDict$6(raw)) return {};
+	const values = {};
+	if (typeof raw.enabled === "boolean") values.enabled = raw.enabled;
+	if (finite(raw.max_tokens) && raw.max_tokens > 0) values.max_tokens = Math.floor(raw.max_tokens);
+	if (finite(raw.temperature) && raw.temperature >= 0 && raw.temperature <= 2) values.temperature = raw.temperature;
+	if (Array.isArray(raw.stop)) values.stop = raw.stop.filter((item) => typeof item === "string");
+	if (raw.reasoning === "keep" || raw.reasoning === "off") values.reasoning = raw.reasoning;
+	if (Array.isArray(raw.messages)) values.messages = raw.messages.filter(isDict$6).filter((message) => typeof message.content === "string" && ROLES$1.has(String(message.role))).map((message) => ({
+		role: message.role,
+		content: message.content
+	}));
+	if (finite(raw.historyMessages) && raw.historyMessages >= 0) values.historyMessages = Math.min(MAX_HISTORY_MESSAGES, Math.floor(raw.historyMessages));
+	return values;
+}
+/** The user's values over the defaults (both sanitised). */
+function mergeScenarioParams(defaults, stored) {
+	return {
+		...sanitizeScenarioParams(defaults),
+		...sanitizeScenarioParams(stored)
+	};
+}
+/** `{{char}}` and `{{user}}` (any case) → the names; other macros stay. */
+function expandNames(text, names) {
+	return text.replace(/\{\{\s*(char|user)\s*\}\}/gi, (_match, which) => which.toLowerCase() === "char" ? names.char : names.user);
+}
+/** Request parameters of one generation; undefined when the scenario changes none. */
+function requestParams(values, names) {
+	const params = {};
+	if (values.max_tokens !== void 0) params.max_tokens = values.max_tokens;
+	if (values.temperature !== void 0) params.temperature = values.temperature;
+	if (values.stop !== void 0) params.stop = values.stop.map((item) => expandNames(item, names)).filter((item) => item.length > 0);
+	if (values.reasoning === "off") params.reasoning = "off";
+	return Object.keys(params).length ? params : void 0;
+}
+/** The scenario replaces the prompt with its own messages. */
+function hasCustomMessages(values) {
+	return !!values.messages?.some((message) => message.content.trim() !== "");
+}
+/** The last `limit` visible chat messages as prompt messages (hidden ones skipped), oldest first. */
+function chatExcerpt(chat, limit, options = {}) {
+	const end = options.skipLast ? chat.length - 1 : chat.length;
+	const result = [];
+	for (let i = end - 1; i >= 0 && result.length < limit; i--) {
+		const message = chat[i];
+		if (!message || message.is_system === true || typeof message.mes !== "string" || !message.mes.trim()) continue;
+		result.push({
+			role: message.is_user === true ? "user" : "assistant",
+			content: message.mes
+		});
+	}
+	return result.reverse();
+}
+/**
+* Index of the continued message in ST's prompt: the last message that contains the end of the continued text
+* (ST may prefix the name and append `continue_postfix`); -1 when it is not found.
+*/
+function continuedIndex(original, continued) {
+	const text = continued.trim();
+	if (!text) return -1;
+	const probe = text.slice(-Math.min(120, text.length));
+	for (let i = original.length - 1; i >= 0; i--) if (original[i]?.content.includes(probe)) return i;
+	return -1;
+}
+/** Expands `{{history}}` lines and applies `substitute` to the other messages; empty results are dropped. */
+function expandCustomMessages(template, history, substitute) {
+	const result = [];
+	for (const message of template) {
+		if (message.content.trim() === "{{history}}") {
+			result.push(...history.map((item) => ({ ...item })));
+			continue;
+		}
+		const content = substitute(message.content);
+		if (content.trim()) result.push({
+			role: message.role,
+			content
+		});
+	}
+	return result;
+}
+//#endregion
+//#region src/features/scenarios/builtins.ts
+var IMPERSONATE_SCENARIO = "impersonate";
+var CONTINUE_SCENARIO = "continue";
+var ALL_FIELDS = [
+	"enabled",
+	"max_tokens",
+	"temperature",
+	"stop",
+	"reasoning",
+	"messages",
+	"historyMessages"
+];
+var BUILTIN_DESCRIPTORS = [{
+	id: IMPERSONATE_SCENARIO,
+	titleKey: "scn.impersonate.title",
+	descriptionKey: "scn.impersonate.desc",
+	types: ["impersonate"],
+	defaults: {
+		enabled: false,
+		max_tokens: 300,
+		stop: ["\n{{char}}:"],
+		reasoning: "off",
+		messages: [],
+		historyMessages: 20
+	},
+	fields: ALL_FIELDS
+}, {
+	id: CONTINUE_SCENARIO,
+	titleKey: "scn.continue.title",
+	descriptionKey: "scn.continue.desc",
+	types: ["continue"],
+	defaults: {
+		enabled: false,
+		max_tokens: 400,
+		reasoning: "keep",
+		messages: [],
+		historyMessages: 20
+	},
+	fields: ALL_FIELDS
+}];
+function isDict$5(value) {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+var ScenarioRegistry = class {
+	slice;
+	persist;
+	descriptors = /* @__PURE__ */ new Map();
+	constructor(slice, persist) {
+		this.slice = slice;
+		this.persist = persist;
+		for (const descriptor of BUILTIN_DESCRIPTORS) this.descriptors.set(descriptor.id, descriptor);
+	}
+	list() {
+		return [...this.descriptors.values()].map((descriptor) => ({
+			...descriptor,
+			types: [...descriptor.types],
+			defaults: { ...descriptor.defaults },
+			fields: [...descriptor.fields]
+		}));
+	}
+	params(id) {
+		const descriptor = this.descriptors.get(id);
+		if (!descriptor) return null;
+		return mergeScenarioParams(descriptor.defaults, this.stored()[id]);
+	}
+	setParams(id, values) {
+		if (!this.descriptors.has(id)) return;
+		const stored = this.stored();
+		if (values === null) delete stored[id];
+		else stored[id] = {
+			...sanitizeScenarioParams(stored[id]),
+			...sanitizeScenarioParams(values)
+		};
+		this.persist();
+	}
+	describe(descriptor) {
+		this.descriptors.set(descriptor.id, descriptor);
+		return () => {
+			if (this.descriptors.get(descriptor.id) === descriptor) this.descriptors.delete(descriptor.id);
+		};
+	}
+	stored() {
+		if (!isDict$5(this.slice.scenarioParams)) this.slice.scenarioParams = {};
+		return this.slice.scenarioParams;
+	}
+};
+function namesOf(host) {
+	const context = host.ctx();
+	return {
+		char: String(context.name2 ?? ""),
+		user: String(context.name1 ?? "")
+	};
+}
+/** Full macro substitution of custom messages (ST's own), falling back to the two names. */
+function substituter(host, names) {
+	return (text) => {
+		try {
+			const context = host.ctx();
+			if (typeof context.substituteParams === "function") return context.substituteParams(text);
+		} catch {}
+		return expandNames(text, names);
+	};
+}
+/** Drops trailing assistant messages: the continued message already plays that part. */
+function withoutTrailingAssistant(messages) {
+	let end = messages.length;
+	while (end > 0 && messages[end - 1]?.role === "assistant") end--;
+	return messages.slice(0, end);
+}
+function builtinScenario(id, deps) {
+	const type = id === "impersonate" ? "impersonate" : "continue";
+	return {
+		id,
+		match(info) {
+			if (info.dryRun || info.quiet || info.type !== type) return false;
+			if (deps.params(id)?.enabled !== true) return false;
+			if (type === "continue") {
+				const last = deps.host.ctx().chat.length - 1;
+				if (last >= 0 && deps.isSheetMessage?.(last)) return false;
+			}
+			return true;
+		},
+		async build(context) {
+			const values = deps.params(id) ?? {};
+			const names = namesOf(deps.host);
+			const params = requestParams(values, names);
+			const keep = params ? {
+				messages: [],
+				keepPrompt: true,
+				params
+			} : null;
+			if (!hasCustomMessages(values)) return keep;
+			const limit = values.historyMessages ?? 20;
+			const substitute = substituter(deps.host, names);
+			const template = values.messages ?? [];
+			if (type === "impersonate") return {
+				messages: expandCustomMessages(template, chatExcerpt(context.chat, limit), substitute),
+				params
+			};
+			const last = context.chat.at(-1);
+			const at = continuedIndex(context.original, typeof last?.mes === "string" ? last.mes : "");
+			if (at < 0) {
+				deps.log.info(`scenario ${id}: the continued message is not in the prompt; ST's prompt is kept`);
+				return keep;
+			}
+			const tail = context.original.slice(at).map((message) => ({ ...message }));
+			let head = expandCustomMessages(template, chatExcerpt(context.chat, limit, { skipLast: true }), substitute);
+			if (tail[0]?.role === "assistant") head = withoutTrailingAssistant(head);
+			return {
+				messages: [...head, ...tail],
+				params
+			};
+		}
+	};
+}
 //#endregion
 //#region src/domain/scenario-params.ts
 var ROLES = /* @__PURE__ */ new Set([
@@ -64983,7 +79080,7 @@ function applyScenarioParams(data, params) {
 	const set = (key, value) => {
 		if (data[key] === value) return;
 		data[key] = value;
-		changed.push(key);
+		if (!changed.includes(key)) changed.push(key);
 	};
 	if (finiteNumber(params.max_tokens) && params.max_tokens > 0) set("max_tokens", Math.floor(params.max_tokens));
 	if (finiteNumber(params.temperature) && params.temperature >= 0) set("temperature", params.temperature);
@@ -64997,6 +79094,10 @@ function applyScenarioParams(data, params) {
 	}
 	if (typeof params.reasoning_effort === "string" && params.reasoning_effort) set("reasoning_effort", params.reasoning_effort);
 	if (typeof params.include_reasoning === "boolean") set("include_reasoning", params.include_reasoning);
+	if (params.reasoning === "off") {
+		if (data.chat_completion_source === "openrouter") set("reasoning_effort", "none");
+		set("include_reasoning", false);
+	}
 	return changed;
 }
 //#endregion
@@ -65071,6 +79172,7 @@ var ScenarioEngine = class {
 			phase: "armed",
 			plan: null,
 			messages: null,
+			kept: false,
 			inContext: this.readInContext(),
 			replied: false
 		};
@@ -65135,9 +79237,9 @@ var ScenarioEngine = class {
 		const armed = this.armed;
 		if (!armed || armed.phase !== "armed") return;
 		const chat = eventData.chat;
-		const messages = await this.buildMessages(armed, chat);
-		if (!messages || this.armed !== armed) return;
-		chat.splice(0, chat.length, ...messages);
+		const result = await this.buildMessages(armed, chat);
+		if (!result || this.armed !== armed) return;
+		if (result !== "keep") chat.splice(0, chat.length, ...result);
 		armed.phase = "replaced";
 	}
 	/** GENERATE_AFTER_DATA `(generate_data, dryRun)`. */
@@ -65145,11 +79247,15 @@ var ScenarioEngine = class {
 		const armed = this.armed;
 		if (dryRun || !armed || !isRecord$1(generateData) || !Array.isArray(generateData.prompt)) return;
 		if (armed.phase === "armed") {
-			const messages = await this.buildMessages(armed, generateData.prompt);
-			if (!messages || this.armed !== armed) return;
-			generateData.prompt = messages;
+			const result = await this.buildMessages(armed, generateData.prompt);
+			if (!result || this.armed !== armed) return;
 			armed.phase = "replaced";
+			if (result === "keep") return;
+			generateData.prompt = result;
 			this.deps.log.info(`scenario ${armed.scenario.id}: prompt replaced after data assembly`);
+		} else if (armed.phase === "replaced" && armed.kept) {
+			this.remember(generateData.prompt);
+			return;
 		} else if (armed.phase === "replaced" && armed.messages) {
 			const prompt = generateData.prompt;
 			if (!(prompt.length === armed.messages.length && prompt.every((m, i) => m === armed.messages?.[i]))) {
@@ -65164,11 +79270,17 @@ var ScenarioEngine = class {
 		const armed = this.armed;
 		if (!armed || armed.phase !== "replaced" || !isRecord$1(generateData)) return;
 		if (generateData.type === "quiet" || !Array.isArray(generateData.messages)) return;
+		if (armed.kept && typeof generateData.type === "string" && generateData.type !== armed.info.type) return;
 		if (!generateData.messages.some((message) => isRecord$1(message) && this.ours.has(message))) return;
 		armed.phase = "sent";
 		const changed = applyScenarioParams(generateData, armed.plan?.params);
 		if (changed.length) this.deps.log.debug(`scenario ${armed.scenario.id}: request ${changed.join(", ")} set`);
 	}
+	/** ST's message objects of a kept prompt identify our request in SETTINGS_READY. */
+	remember(chat) {
+		for (const message of chat) if (isRecord$1(message)) this.ours.add(message);
+	}
+	/** Our prompt messages, 'keep' for a params-only plan, null when there is no plan (ST's prompt goes out). */
 	async buildMessages(armed, chat) {
 		armed.phase = "building";
 		let plan = null;
@@ -65181,6 +79293,12 @@ var ScenarioEngine = class {
 		} catch (error) {
 			this.deps.log.error(`scenario ${armed.scenario.id}: build failed`, error);
 			this.deps.onFailure?.(armed.scenario.id, error);
+		}
+		if (plan?.keepPrompt && plan.params && Object.keys(plan.params).length) {
+			this.remember(chat);
+			armed.plan = plan;
+			armed.kept = true;
+			return "keep";
 		}
 		const messages = plan ? toPromptMessages(plan.messages) : [];
 		if (!plan || !messages.length) {
@@ -65215,30 +79333,42 @@ var ScenarioEngine = class {
 	}
 };
 //#endregion
+//#region src/features/scenarios/strings.ts
+var SCENARIO_STRINGS = {
+	en: {
+		"scn.title": "Generation scenarios",
+		"scn.failed": "Scenario “{id}” did not work out: the request went out with the regular prompt.",
+		"scn.impersonate.title": "Impersonate",
+		"scn.impersonate.desc": "Writing for you: a short reply, its own stop strings, no reasoning. The prompt stays unless you set your own messages.",
+		"scn.continue.title": "Continue",
+		"scn.continue.desc": "Continuing the last reply with its own length. The continued text goes out once, without a second prefill."
+	},
+	ru: {
+		"scn.title": "Сценарии генерации",
+		"scn.failed": "Сценарий «{id}» не сработал — запрос ушёл с обычным промптом.",
+		"scn.impersonate.title": "Перевоплощение",
+		"scn.impersonate.desc": "Ответ за тебя: короткий, со своими стоп-строками и без рассуждений. Промпт прежний, если не задать свои сообщения.",
+		"scn.continue.title": "Продолжение",
+		"scn.continue.desc": "Продолжение последнего ответа со своей длиной. Продолжаемый текст уходит один раз, без повторного префилла."
+	}
+};
+//#endregion
 //#region src/features/scenarios/index.ts
+var SCENARIOS_KEY = "scenarios";
 var scenariosModule = {
 	id: "M34s",
-	key: "scenarios",
+	key: SCENARIOS_KEY,
 	stage: 1,
 	titleKey: "scn.title",
 	enabledByDefault: true,
-	defaults: () => ({}),
+	defaults: () => ({ scenarioParams: {} }),
 	requires: [
 		"st.events.ccPromptReady",
 		"st.events.ccSettingsReady",
 		"st.chatCompletion"
 	],
-	i18n: {
-		en: {
-			"scn.title": "Generation scenarios",
-			"scn.failed": "Scenario “{id}” did not work out: the request went out with the regular prompt."
-		},
-		ru: {
-			"scn.title": "Сценарии генерации",
-			"scn.failed": "Сценарий «{id}» не сработал — запрос ушёл с обычным промптом."
-		}
-	},
-	init({ app, log, own }) {
+	i18n: SCENARIO_STRINGS,
+	init({ app, settings, log, own }) {
 		const engine = new ScenarioEngine({
 			host: app.host,
 			log,
@@ -65260,9 +79390,25 @@ var scenariosModule = {
 		on("GENERATE_AFTER_DATA", (data, dryRun) => engine.onAfterData(data, dryRun), true);
 		on("CHAT_COMPLETION_SETTINGS_READY", (data) => engine.onSettingsReady(data), true);
 		on("WORLDINFO_ENTRIES_LOADED", (payload) => engine.onEntriesLoaded(payload), true);
-		app.modules.expose("scenarios", {
+		const registry = new ScenarioRegistry(settings, () => {
+			app.settings.notify(`modules.${SCENARIOS_KEY}.scenarioParams`);
+			app.settings.save();
+		});
+		const builtinDeps = {
+			host: app.host,
+			log,
+			params: (id) => registry.params(id),
+			isSheetMessage: (index) => app.modules.api("sheets")?.isSheetMessage(index) === true
+		};
+		own(engine.register(builtinScenario(IMPERSONATE_SCENARIO, builtinDeps)));
+		own(engine.register(builtinScenario(CONTINUE_SCENARIO, builtinDeps)));
+		app.modules.expose(SCENARIOS_KEY, {
 			register: (scenario) => engine.register(scenario),
-			active: () => engine.active()
+			active: () => engine.active(),
+			list: () => registry.list(),
+			params: (id) => registry.params(id),
+			setParams: (id, values) => registry.setParams(id, values),
+			describe: (descriptor) => registry.describe(descriptor)
 		});
 		own(() => engine.reset());
 	}
@@ -70888,7 +85034,7 @@ function worldTab(app, model) {
 					el("div", { text: t("m7w.count", { count: entities.length }) }),
 					el("div", {
 						class: "maestro-muted",
-						text: readAt !== null ? t("m7w.lore.read", { time: formatTime(readAt, app.i18n) }) : t("m7w.lore.pending")
+						text: readAt !== null ? t("m7w.lore.read", { time: formatTime$1(readAt, app.i18n) }) : t("m7w.lore.pending")
 					}),
 					search
 				]), [button({
@@ -70969,7 +85115,8 @@ var MODULES = [
 	revisionModule,
 	livingCanonModule,
 	chronicleModule,
-	metricsModule
+	metricsModule,
+	presetStudioModule
 ];
 //#endregion
 //#region src/app/app.ts
@@ -71089,6 +85236,7 @@ async function startMaestro() {
 		tasks,
 		i18n
 	});
+	const offDataActions = installDataActions(app);
 	await modules.startAll(app);
 	ui.runFirstRunWizardIfNeeded();
 	const appReady = host.events.name("APP_READY");
@@ -71102,6 +85250,7 @@ async function startMaestro() {
 		modules,
 		async stop() {
 			offAppReady();
+			for (const off of offDataActions) off();
 			await modules.stopAll();
 			ui.dispose();
 			cost.dispose();

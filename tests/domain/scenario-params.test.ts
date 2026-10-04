@@ -110,4 +110,17 @@ describe('applyScenarioParams', () => {
         expect(applyScenarioParams(data, { max_tokens: 300, temperature: 1 })).toEqual([]);
         expect(data).toEqual(body());
     });
+
+    it('turns reasoning off: effort "none" through OpenRouter, include_reasoning false everywhere, stream untouched', () => {
+        const routed = { ...body(), chat_completion_source: 'openrouter', include_reasoning: true };
+        expect(applyScenarioParams(routed, { reasoning_effort: 'high', reasoning: 'off' })).toEqual([
+            'reasoning_effort',
+            'include_reasoning',
+        ]);
+        expect(routed).toMatchObject({ reasoning_effort: 'none', include_reasoning: false, stream: true });
+
+        const direct = { ...body(), chat_completion_source: 'deepseek', include_reasoning: true };
+        expect(applyScenarioParams(direct, { reasoning: 'off' })).toEqual(['include_reasoning']);
+        expect(direct).toMatchObject({ reasoning_effort: 'auto', include_reasoning: false, stream: true });
+    });
 });

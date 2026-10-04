@@ -58,6 +58,8 @@ export interface SettingsService {
     onChange(listener: (path: string) => void): Unsubscribe;
     /** Called by UI code after editing a value by path ("core.mode", "m1.keepTurns"). */
     notify(path: string): void;
+    /** Re-reads extensionSettings (after an import replaced Maestro's settings object). */
+    reload?(): void;
 }
 
 /* ------------------------------------------------------------------ host (SillyTavern) */

@@ -64,6 +64,7 @@ export const canonModule: MaestroModule<CanonSettings> = {
             },
             lastScan: () => scan.lastScan(),
             renameBase: (oldName, newName) => store.renameBase(oldName, newName),
+            exportAll: () => store.exportAll(),
         };
         app.modules.expose(CANON_KEY, api);
 

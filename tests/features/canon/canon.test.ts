@@ -382,6 +382,20 @@ describe('base book actions', () => {
     });
 });
 
+describe('prepare to turn off', () => {
+    it('exports the canon of every chat that has items, named after its chat', async () => {
+        await canon.put(addition({ comment: 'Tavern', key: ['tavern'], content: 'A tavern.' }));
+        const other = canonBookName('other-chat');
+        env.world.book(other, [wi(0, { comment: 'Bell', key: ['bell'], content: 'A bell.' })], {
+            maestro: { role: 'canon', chatId: 'other-chat', chatName: 'Other chat' },
+        });
+        env.world.book(canonBookName('empty-chat'), []);
+        const names = await canon.exportAll();
+        expect(names.sort()).toEqual([`${env.mock.chatId} — канон`, 'Other chat — канон'].sort());
+        expect(Object.values(env.world.entries('Other chat — канон')).map((entry) => entry.comment)).toContain('Bell');
+    });
+});
+
 describe('russian keys and glosses', () => {
     it('uses DES-RU forms, then its key, then the fallback', async () => {
         expect(await canon.russianKeys('Маша')).toEqual(['Маша', '/(?:^|[^\\p{L}\\p{N}_])Маш/iu']);

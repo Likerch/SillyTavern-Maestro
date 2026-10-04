@@ -13,6 +13,9 @@
 //    createGenerationParameters copies the array, not the messages): per-request parameters; `stream` untouched;
 // 6. `reply:ready` for the reply of that generation → `onReply`. GENERATION_ENDED may come before the reply events
 //    (streaming), so the scenario waits for its reply after the generation has ended.
+// A plan with `keepPrompt` (parameters only: impersonate, continue) leaves ST's prompt and the in-context marker as
+// they are; ST's own message objects of that prompt are remembered instead, so step 5 still finds its request and
+// only a request of the same generation type is changed.
 import { applyScenarioParams, snapshotPrompt, toPromptMessages } from '../../domain/scenario-params';
 import type { GenerationInfo, Host, Logger, Unsubscribe } from '../../shared/contracts';
 import type { Scenario, ScenarioPlan, ScenariosApi } from './api';
@@ -32,6 +35,8 @@ interface Armed {
     plan: ScenarioPlan | null;
     /** The message objects we put into ST's prompt. */
     messages: object[] | null;
+    /** The plan keeps ST's prompt (parameters only). */
+    kept: boolean;
     /** `chat_metadata.lastInContextMessageId` and the marked `.mes` before this generation. */
     inContext: { known: boolean; id: unknown; mesId: string | null };
     replied: boolean;
@@ -108,6 +113,7 @@ export class ScenarioEngine implements ScenariosApi {
             phase: 'armed',
             plan: null,
             messages: null,
+            kept: false,
             inContext: this.readInContext(),
             replied: false,
         };
@@ -177,9 +183,9 @@ export class ScenarioEngine implements ScenariosApi {
         const armed = this.armed;
         if (!armed || armed.phase !== 'armed') return;
         const chat = eventData.chat as unknown[];
-        const messages = await this.buildMessages(armed, chat);
-        if (!messages || this.armed !== armed) return;
-        chat.splice(0, chat.length, ...messages);
+        const result = await this.buildMessages(armed, chat);
+        if (!result || this.armed !== armed) return;
+        if (result !== 'keep') chat.splice(0, chat.length, ...result);
         armed.phase = 'replaced';
     }
 
@@ -189,11 +195,16 @@ export class ScenarioEngine implements ScenariosApi {
         if (dryRun || !armed || !isRecord(generateData) || !Array.isArray(generateData.prompt)) return;
         if (armed.phase === 'armed') {
             // PROMPT_READY never reached us: replace the request body instead (research/parity-preset.md P-124).
-            const messages = await this.buildMessages(armed, generateData.prompt as unknown[]);
-            if (!messages || this.armed !== armed) return;
-            generateData.prompt = messages;
+            const result = await this.buildMessages(armed, generateData.prompt as unknown[]);
+            if (!result || this.armed !== armed) return;
             armed.phase = 'replaced';
+            if (result === 'keep') return;
+            generateData.prompt = result;
             this.deps.log.info(`scenario ${armed.scenario.id}: prompt replaced after data assembly`);
+        } else if (armed.phase === 'replaced' && armed.kept) {
+            // ST's prompt stays; a listener after ours may have swapped message objects — remember the final ones.
+            this.remember(generateData.prompt as unknown[]);
+            return;
         } else if (armed.phase === 'replaced' && armed.messages) {
             const prompt = generateData.prompt as unknown[];
             const same = prompt.length === armed.messages.length && prompt.every((m, i) => m === armed.messages?.[i]);
@@ -210,6 +221,8 @@ export class ScenarioEngine implements ScenariosApi {
         const armed = this.armed;
         if (!armed || armed.phase !== 'replaced' || !isRecord(generateData)) return;
         if (generateData.type === 'quiet' || !Array.isArray(generateData.messages)) return;
+        // ST's own messages are shared by nothing else, but a params-only plan also checks the generation type.
+        if (armed.kept && typeof generateData.type === 'string' && generateData.type !== armed.info.type) return;
         if (!generateData.messages.some((message) => isRecord(message) && this.ours.has(message))) return;
         armed.phase = 'sent';
         const changed = applyScenarioParams(generateData, armed.plan?.params);
@@ -218,7 +231,13 @@ export class ScenarioEngine implements ScenariosApi {
 
     /* ------------------------------------------------------------------ internals */
 
-    private async buildMessages(armed: Armed, chat: readonly unknown[]): Promise<object[] | null> {
+    /** ST's message objects of a kept prompt identify our request in SETTINGS_READY. */
+    private remember(chat: readonly unknown[]): void {
+        for (const message of chat) if (isRecord(message)) this.ours.add(message);
+    }
+
+    /** Our prompt messages, 'keep' for a params-only plan, null when there is no plan (ST's prompt goes out). */
+    private async buildMessages(armed: Armed, chat: readonly unknown[]): Promise<object[] | 'keep' | null> {
         armed.phase = 'building';
         let plan: ScenarioPlan | null = null;
         try {
@@ -230,6 +249,12 @@ export class ScenarioEngine implements ScenariosApi {
         } catch (error) {
             this.deps.log.error(`scenario ${armed.scenario.id}: build failed`, error);
             this.deps.onFailure?.(armed.scenario.id, error);
+        }
+        if (plan?.keepPrompt && plan.params && Object.keys(plan.params).length) {
+            this.remember(chat);
+            armed.plan = plan;
+            armed.kept = true;
+            return 'keep';
         }
         const messages = plan ? toPromptMessages(plan.messages) : [];
         if (!plan || !messages.length) {

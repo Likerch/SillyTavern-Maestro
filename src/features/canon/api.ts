@@ -92,6 +92,8 @@ export interface CanonApi {
     lastScan?(): CanonScanReport | null;
     /** A base book was renamed (Lore Studio): items of every chat's canon follow it; returns how many moved. */
     renameBase?(oldName: string, newName: string): Promise<number>;
+    /** «Подготовить к отключению»: every chat's canon as a plain lorebook; returns the created names. */
+    exportAll?(): Promise<string[]>;
 }
 
 export interface CanonScanReport {

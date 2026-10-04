@@ -521,7 +521,29 @@ export class CanonStore {
     async exportPlain(): Promise<string> {
         const name = this.bookName();
         if (!name) throw new Error(this.t('m6.error.noChat'));
-        const items = await this.list();
+        const { chatName } = this.chatInfo();
+        return this.exportBook(name, chatName);
+    }
+
+    /**
+     * «Подготовить к отключению» (plan §4.9): every chat's canon book as a plain lorebook. Books without items are
+     * skipped. Returns the created book names.
+     */
+    async exportAll(): Promise<string[]> {
+        const created: string[] = [];
+        for (const name of (this.worldNames() ?? []).filter((book) => isCanonBookName(book))) {
+            const data = await this.readBook(name);
+            if (!data || !canonItemsOf(data).length) continue;
+            const extensions = isDict(data.extensions) ? data.extensions : {};
+            const meta = isDict(extensions.maestro) ? extensions.maestro : {};
+            const chatName = typeof meta.chatName === 'string' && meta.chatName ? meta.chatName : name;
+            created.push(await this.exportBook(name, chatName));
+        }
+        return created;
+    }
+
+    private async exportBook(name: string, chatName: string): Promise<string> {
+        const { items } = await this.state(name);
         if (!items.length) throw new Error(this.t('m6.export.empty'));
         const books = new Map<string, Dict | null>();
         for (const item of items) {
@@ -540,7 +562,6 @@ export class CanonStore {
             pinned: this.t('m6.export.pinned'),
             line: (world, uid, comment) => this.t('m6.export.line', { world, uid, comment: comment || '—' }),
         });
-        const { chatName } = this.chatInfo();
         return this.enqueue(async () => {
             const exportName = uniqueBookName(`${chatName} — канон`, this.worldNames() ?? []);
             await this.saveBook(exportName, book, true);
