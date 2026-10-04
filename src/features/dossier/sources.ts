@@ -30,7 +30,7 @@ import {
     normName,
     normSet,
 } from '../../domain/dossier-names';
-import { isArchiveOf } from '../../domain/sheet-context';
+import { archiveMatch } from '../../domain/sheet-context';
 import { stripDesTrackerJson } from '../../domain/text-clean';
 import type { App, Logger } from '../../shared/contracts';
 import type { BookRolesApi } from '../bookRoles/api';
@@ -589,7 +589,8 @@ export class DossierSources {
             const data = await this.loadBook(book, cache);
             if (!data || this.isProtected(book, data)) continue;
             for (const { uid, entry } of enabledEntriesOf(data)) {
-                if (names.some((name) => isArchiveOf(entry, name))) add(book, uid, entry);
+                // Canonical names: only the exact name counts (an inflected match would give Александр Александра's).
+                if (names.some((name) => archiveMatch(entry, name) === 'exact')) add(book, uid, entry);
             }
         }
         return out;

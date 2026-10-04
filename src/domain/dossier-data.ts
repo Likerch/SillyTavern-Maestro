@@ -3,7 +3,7 @@
 // Pure: callers pass plain copies of what they read from SillyTavern and the neighbours.
 import { archiveTags } from './bunnymo';
 import type { BunnyMoEntryLike } from './bunnymo';
-import { sameCharacter } from './sheet-context';
+import { exactName } from './sheet-context';
 import { sheetTagBlocks } from './sheet-reply';
 import { stripDesTrackerJson } from './text-clean';
 
@@ -273,8 +273,9 @@ function blockName(text: string): string | null {
     return null;
 }
 
+/** Exact names only: an inflected match would hand Александр the sheet of Александра. */
 function isFor(target: string | null, names: readonly string[]): boolean {
-    return !!target && names.some((name) => sameCharacter(target, name));
+    return !!target && names.some((name) => exactName(target, name));
 }
 
 /**

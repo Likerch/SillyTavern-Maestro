@@ -98,6 +98,36 @@ The report shows sizes per role, detected blocks (DES tracker and instructions, 
 memory, language lock, CK OOC, think, HTML, NAI markers, Maestro blocks, service garbage), how many entries of each
 lorebook are present in the prompt, parameter changes and the changed messages with the first differing line.
 
+## Measurements (R3 criteria)
+
+`measure.mjs` turns a bench session into a docs-ready Markdown report for plan §14 (dev-plan 4.6). It only reads:
+the recorded requests, Maestro's per-chat metrics documents (`user/files/maestro-chat-*-metrics.json`, written by
+the M21m module in the browser) and the installed BunnyMo files.
+
+```bash
+node tools/stand/measure.mjs                                   # report for everything recorded so far
+node tools/stand/measure.mjs --last 40 --out docs/reports/r3-bench.md
+node tools/stand/measure.mjs --baseline runtime-copy/requests  # criterion 3: compare with a run without the rules
+node tools/stand/measure.mjs --mock http://127.0.0.1:5199      # read the requests from the running mock
+node tools/stand/measure.mjs --json                            # the same numbers as JSON
+```
+
+| Criterion                        | Source on the bench                                                                     |
+| -------------------------------- | --------------------------------------------------------------------------------------- |
+| 1. send-path latency, p95        | metrics document (the browser measures it; a narrow window counts as a phone)           |
+| 2. background spend share        | `usage.cost` of the mock's replies by request kind (synthetic prices), and the document |
+| 3. lore characters per turn      | lorebook entries found in the prompts of two recorded runs (`--baseline` = rules off)   |
+| 4. dropped without a summary     | metrics document                                                                        |
+| 5. assistant-role lore at depth  | metrics document (lore journal per turn)                                                |
+| 10. BunnyMo files byte-identical | sha256 of `default-user/worlds/*` against the pinned BunnyMo export                     |
+| 6–9                              | by hand on the bench or only in real play: the pult tab «Замеры» shows them             |
+
+Request kinds come from the mock's scenario labels: `story`/`sheet`/`refusal`/`repeat` → main, `summary` → Qvink,
+`schema:maestro_*` and tool calls → Maestro, `schema:nai_*` → NAI Studio, the rest → other. A turn is a main request
+plus every request until the next main one. For criterion 3 record the reference turns twice: once with Maestro's
+lore rules off (copy `runtime/requests` aside, `POST /__reset`), once with them on, then pass the first folder as
+`--baseline`. Entries that reached the prompt only without the rules are listed for the "was it needed?" check.
+
 ## Notes
 
 - SillyTavern 1.19 discovers per-user extensions in `<dataRoot>/default-user/extensions` (`/api/extensions/discover`,

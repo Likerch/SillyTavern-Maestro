@@ -7,9 +7,12 @@
 import { adaptersOf } from '../../adapters';
 import type { BunnyMoEntryLike } from '../../domain/bunnymo';
 import {
+    archiveMatch,
     cleanExcerptText,
+    exactName,
+    findByName,
     formatExcerpt,
-    isArchiveOf,
+    preferExact,
     sameCharacter,
     sheetCommandOfEntry,
     stripDecorators,
@@ -36,7 +39,7 @@ export class SheetSources {
     private instructionLoaded: string | null = null;
     /** Command entry content seen in this generation's WI entries. */
     private instructionSeen: string | null = null;
-    private readonly archivesSeen = new Map<string, string>();
+    private readonly archivesSeen = new Map<string, { item: string; match: 'exact' | 'fuzzy' }>();
 
     constructor(
         private readonly app: App,
@@ -79,10 +82,11 @@ export class SheetSources {
             if (command === this.command && usable) this.instructionSeen = entry.content as string;
             return true;
         }
-        if (this.target && isArchiveOf(entry as BunnyMoEntryLike, this.target)) {
+        const match = this.target ? archiveMatch(entry as BunnyMoEntryLike, this.target) : null;
+        if (match) {
             if (usable) {
                 const key = `${String(entry.world ?? '')}::${String(entry.uid ?? '')}`;
-                this.archivesSeen.set(key, entry.content as string);
+                this.archivesSeen.set(key, { item: entry.content as string, match });
             }
             return true;
         }
@@ -113,16 +117,17 @@ export class SheetSources {
 
     /** Contents of the target's archive entries (seen in this generation's WI, else from CK repos). */
     async archives(target: string): Promise<string[]> {
-        if (target === this.target && this.archivesSeen.size) return [...this.archivesSeen.values()];
+        if (target === this.target && this.archivesSeen.size) return preferExact([...this.archivesSeen.values()]);
         const adapters = adaptersOf(this.app);
         const books = [...new Set([...adapters.ck.repoBooks(), ...adapters.bunnymo.books().archives])];
-        const found: string[] = [];
+        const found: { item: string; match: 'exact' | 'fuzzy' }[] = [];
         for (const book of books) {
             for (const entry of await this.entriesOf(book)) {
-                if (isArchiveOf(entry, target) && typeof entry.content === 'string') found.push(entry.content);
+                const match = archiveMatch(entry, target);
+                if (match && typeof entry.content === 'string') found.push({ item: entry.content, match });
             }
         }
-        return found;
+        return preferExact(found);
     }
 
     /** Card, persona and DES data of the target. */
@@ -131,9 +136,10 @@ export class SheetSources {
         const data: SheetCharacterData = { target, archives };
         const current = ctx.characterId === undefined ? undefined : ctx.characters[Number(ctx.characterId)];
         const card =
-            current && sameCharacter(current.name, target)
+            current && exactName(current.name, target)
                 ? current
-                : ctx.characters.find((character) => sameCharacter(character?.name, target));
+                : (findByName(ctx.characters, (character) => character?.name, target) ??
+                  (current && sameCharacter(current.name, target) ? current : undefined));
         if (card) {
             data.card = {
                 description: this.substitute(card.description ?? ''),

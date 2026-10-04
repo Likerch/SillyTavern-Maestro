@@ -234,6 +234,8 @@ export function createCostMeter(deps: CostMeterDeps): CostMeterImpl {
             generation = null;
             if (now() - armed.at <= ARM_TTL_MS) return { own: false, source: 'main', task: armed.type };
         }
+        // NAI Studio's background calls carry their own JSON schema names (nai_passports, nai_translate, …).
+        if (typeof init?.body === 'string' && NAI_SCHEMA_RE.test(init.body)) return { own: false, source: 'nai' };
         if (qvinkInstalled()) return { own: false, source: 'qvink' };
         return { own: false, source: 'other' };
     }
@@ -363,6 +365,11 @@ export function createCostMeter(deps: CostMeterDeps): CostMeterImpl {
         today(): Readonly<DayTotals> {
             rollIfNeeded();
             return doc;
+        },
+
+        recent(): readonly CostEntry[] {
+            rollIfNeeded();
+            return doc.recent.slice();
         },
 
         beginOwn(signal?: AbortSignal): void {
@@ -557,6 +564,9 @@ function sanitizeDay(raw: unknown, date: string): DayTotals {
 function limitReached(limit: CoreSettings['dailyLimit'] | undefined, totalUsd: number): boolean {
     return Boolean(limit?.enabled) && (limit?.usd ?? 0) > 0 && totalUsd >= (limit?.usd ?? 0);
 }
+
+/** A JSON schema named by NAI Studio in a request body. */
+const NAI_SCHEMA_RE = /"name"\s*:\s*"nai_/;
 
 function qvinkInstalled(): boolean {
     // Qvink Memory registers its generate interceptor as a global (docs/research/qvink-nai-studio.md §A).

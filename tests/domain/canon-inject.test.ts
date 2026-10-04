@@ -166,6 +166,16 @@ describe('applyCanon', () => {
         expect(applyCanon(lists(), items, { canonBook: CANON }).dormant).toBe(2);
     });
 
+    it('keeps provisional items of a silenced origin out (P11), but not confirmed ones', () => {
+        const items = [
+            item(0, { status: 'provisional', origin: 'living' }, { key: ['Lantern Festival'] }),
+            item(1, { status: 'active', origin: 'living' }, { key: ['Rusty Anchor'] }),
+            item(2, { status: 'provisional', origin: 'user' }, { key: ['Seal'] }),
+        ];
+        expect(applyCanon(lists(), items, { canonBook: CANON, silentProvisional: ['living'] }).added).toBe(2);
+        expect(applyCanon(lists(), items, { canonBook: CANON }).added).toBe(3);
+    });
+
     it('overrideCopy works without base extensions', () => {
         const result = overrideCopy(
             { uid: 1, world: 'W', content: 'a' },

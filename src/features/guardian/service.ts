@@ -126,6 +126,11 @@ export class GuardianService implements GuardianApi {
         return this.guard?.state() ?? 'unknown';
     }
 
+    guardInfo(): { held: Record<string, number>; vetoed: Record<string, number> } | undefined {
+        const info = this.guard?.info();
+        return info ? { held: { ...info.held }, vetoed: { ...info.vetoed } } : undefined;
+    }
+
     /* ---------------------------------------------------------------- views */
 
     onChange(listener: () => void): Unsubscribe {

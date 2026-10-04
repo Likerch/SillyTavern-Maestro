@@ -195,6 +195,7 @@ export function createAutonomy(deps: AutonomyDeps, options: AutonomyOptions = {}
             action: {
                 label: i18n.t('core.autonomy.promoteAction'),
                 run: () => {
+                    if (never.has(kind)) return;
                     settings.core().autonomy[kind] = 'auto';
                     settings.save();
                     settings.notify(`core.autonomy.${kind}`);
@@ -325,6 +326,18 @@ export function createAutonomy(deps: AutonomyDeps, options: AutonomyOptions = {}
 
         neverAuto(kind: string): void {
             never.add(kind);
+        },
+
+        isNeverAuto(kind: string): boolean {
+            return never.has(kind);
+        },
+
+        setLevel(kind: string, next: AutonomyLevel): boolean {
+            if (next === 'auto' && never.has(kind)) return false;
+            settings.core().autonomy[kind] = next;
+            settings.save();
+            settings.notify(`core.autonomy.${kind}`);
+            return true;
         },
 
         bind(next: { inbox: Inbox; ui: Ui; i18n: I18n }): void {

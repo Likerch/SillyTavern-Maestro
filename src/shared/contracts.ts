@@ -72,6 +72,8 @@ export interface HostEvents {
     emit(event: string, ...args: unknown[]): Promise<void>;
     /** Resolves an eventTypes key to the raw event name (undefined if this ST lacks it). */
     name(key: string): string | undefined;
+    /** Reports how long each Maestro listener ran (until its promise settled); null stops it (metrics, P15). */
+    setTimer?(sink: ((event: string, ms: number) => void) | null): void;
 }
 
 /** SillyTavern modules that are not in getContext(); loaded at runtime by URL. */
@@ -259,6 +261,8 @@ export interface CostMeter {
     recordAnlas(amount: number): void;
     summary(): CostSummary;
     backgroundCapReached(): boolean;
+    /** Today's recent cost entries, oldest first (metrics). */
+    recent?(): readonly CostEntry[];
     onChange(listener: () => void): Unsubscribe;
     /** Fired once per day when the overall daily limit (CoreSettings.dailyLimit) is reached. */
     onLimitReached?(
@@ -347,6 +351,8 @@ export interface Autonomy {
     neverAuto(kind: string): void;
     /** Kinds registered with neverAuto() (Settings hides "auto" for them). */
     isNeverAuto?(kind: string): boolean;
+    /** Sets the user's level for a kind (Inbox «Всегда так», trust offer); 'auto' is refused for never-auto kinds. */
+    setLevel?(kind: string, level: AutonomyLevel): boolean;
 }
 
 export interface InboxCard {
@@ -575,6 +581,8 @@ export interface TurnHooks {
     onIntercept(handler: (chat: STChatMessage[], info: GenerationInfo) => void | Promise<void>): Unsubscribe;
     /** Index of the last assistant message in the live chat, -1 if none. */
     lastAssistantIndex(): number;
+    /** performance.now() timing of the last run of Maestro's generate interceptor (metrics); null before the first. */
+    lastIntercept?(): { type: string; startedAt: number; endedAt: number } | null;
     /** Info about the generation in progress, if any. */
     current(): GenerationInfo | null;
 }

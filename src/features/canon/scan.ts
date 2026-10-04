@@ -141,6 +141,8 @@ export class CanonScan {
                 keysMentioned(itemKeys(item), text()) ||
                 (base ? keysMentioned([...strings(base.key), ...strings(base.keysecondary)], text()) : false),
             pinActive: (item) => !!item.meta.pinWhen && keysMentioned([item.meta.pinWhen], text()),
+            // Provisional facts of the living canon act only while M26 runs (P11: a disabled module leaves no trace).
+            silentProvisional: this.app.modules.api('livingCanon') ? [] : ['living'],
         });
         this.pins = result.pins;
         if (real) this.pending = result;

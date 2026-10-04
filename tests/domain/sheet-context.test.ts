@@ -1,8 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
+    archiveMatch,
     archiveName,
     buildSheetMessages,
     cleanExcerptText,
+    exactName,
+    findByName,
+    preferExact,
     formatCharacterData,
     formatExcerpt,
     isArchiveOf,
@@ -114,6 +118,29 @@ describe('lore entries', () => {
         ).toBe(true);
         expect(isArchiveOf({ key: ['Вера'], content: 'no tags here' }, 'Вера')).toBe(false);
         expect(isArchiveOf(null, 'Вера')).toBe(false);
+    });
+
+    it('prefers the exact name over an inflected one (Александр and Александра are two people)', () => {
+        const alexander = archive('Александр');
+        const alexandra = archive('Александра');
+        expect(archiveMatch(alexander, 'Александр')).toBe('exact');
+        expect(archiveMatch(alexandra, 'Александр')).toBe('fuzzy');
+        expect(archiveMatch(archive('Вера'), 'Веру')).toBe('fuzzy');
+        expect(archiveMatch(archive('Вера'), 'Мартин')).toBeNull();
+        expect(
+            preferExact([
+                { item: 'Александра', match: archiveMatch(alexandra, 'Александр')! },
+                { item: 'Александр', match: archiveMatch(alexander, 'Александр')! },
+            ]),
+        ).toEqual(['Александр']);
+        expect(preferExact([{ item: 'Вера', match: 'fuzzy' as const }])).toEqual(['Вера']);
+        expect(exactName('Элизабет_Арден', 'элизабет арден')).toBe(true);
+        expect(exactName('Ёлка', 'елка')).toBe(true);
+        expect(exactName('', '')).toBe(false);
+        const cards = [{ name: 'Александра' }, { name: 'Александр' }];
+        expect(findByName(cards, (card) => card.name, 'Александр')).toBe(cards[1]);
+        expect(findByName(cards, (card) => card.name, 'Александру')).toBe(cards[0]);
+        expect(findByName(cards, (card) => card.name, 'Никто')).toBeUndefined();
     });
 });
 

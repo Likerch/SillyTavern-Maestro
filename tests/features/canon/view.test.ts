@@ -71,6 +71,8 @@ describe('canon tab', () => {
                 base: { world: 'World', uid: 1, contentHash: '' },
             },
         });
+        // Provisional living facts act only while the living canon (M26) runs.
+        env.modules.expose('livingCanon', {});
         await runScan(env, listsFrom(env.world, { globalLore: ['World'] }), 'tavern dragon');
         render();
         await settle();

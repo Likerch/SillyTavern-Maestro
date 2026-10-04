@@ -86,20 +86,35 @@ export function createHostEvents(ctx: () => STContext, log: Logger): HostEventsI
         es.on(event, listener);
     }
 
+    let timer: ((event: string, ms: number) => void) | null = null;
+
     return {
+        setTimer(sink: ((event: string, ms: number) => void) | null): void {
+            timer = sink;
+        },
+
         on(event: string, handler: (...args: unknown[]) => unknown, options?: { order?: ListenerOrder }): Unsubscribe {
             const raw = resolve(event);
             const order = options?.order ?? 'normal';
             // A wrapper gives every subscription its own identity (the same handler may subscribe twice) and
             // reports failures under Maestro's logger; ST would only print them to the console.
             const listener: Listener = (...args: unknown[]) => {
+                const sink = timer;
+                const start = sink ? performance.now() : 0;
+                const done = () => {
+                    if (sink) sink(raw, performance.now() - start);
+                };
                 try {
                     const result = handler(...args);
                     if (result instanceof Promise) {
-                        return result.catch((error: unknown) => log.error(`listener for ${raw} failed`, error));
+                        return result
+                            .catch((error: unknown) => log.error(`listener for ${raw} failed`, error))
+                            .finally(done);
                     }
+                    done();
                     return result;
                 } catch (error) {
+                    done();
                     log.error(`listener for ${raw} failed`, error);
                     return undefined;
                 }

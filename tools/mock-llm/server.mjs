@@ -257,9 +257,12 @@ export function createMockServer(options = {}) {
     }
 
     async function handleChat(req, res) {
+        const receivedAt = Date.now();
+        let raw;
         let body;
         try {
-            body = JSON.parse((await readBody(req)) || '{}');
+            raw = await readBody(req);
+            body = JSON.parse(raw || '{}');
         } catch (error) {
             sendJson(res, 400, { error: { message: `Invalid JSON: ${error.message}`, code: 400 } });
             return;
@@ -290,6 +293,8 @@ export function createMockServer(options = {}) {
         record({
             n,
             time,
+            receivedAt,
+            bodyBytes: Buffer.byteLength(raw ?? ''),
             path: req.url,
             scenario: reply.scenario,
             flags: { ...flags, failing, dropStream },

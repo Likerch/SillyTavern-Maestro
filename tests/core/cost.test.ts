@@ -123,6 +123,11 @@ describe('cost meter: fetch-level capture', () => {
         answers.push(json(completion('summary', { prompt_tokens: 1, completion_tokens: 1, cost: 0.02 })));
         await generate();
         expect(meter.summary().todayBySource).toEqual({ other: 0.01, qvink: 0.02 });
+        // NAI Studio's background calls name their JSON schema `nai_*`: they are NAI Studio's, not Qvink's.
+        answers.push(json(completion('{}', { prompt_tokens: 1, completion_tokens: 1, cost: 0.03 })));
+        await generate({ stream: false, json_schema: { name: 'nai_passports', value: {} } });
+        expect(meter.summary().todayBySource).toEqual({ other: 0.01, qvink: 0.02, nai: 0.03 });
+        expect(meter.recent!().map((entry) => entry.source)).toEqual(['other', 'qvink', 'nai']);
     });
 
     it('a generation claims only its first request, decided when the request leaves', async () => {

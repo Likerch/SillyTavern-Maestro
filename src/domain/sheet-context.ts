@@ -107,9 +107,43 @@ export function archiveName(entry: BunnyMoEntryLike | null | undefined): string 
 
 /** A character archive (CK repo / BunnyMo example) of this character: by its name or by its keys. */
 export function isArchiveOf(entry: BunnyMoEntryLike | null | undefined, target: string): boolean {
-    if (!entry || !isCharacterArchive(entry)) return false;
-    if (sameCharacter(archiveName(entry), target)) return true;
-    return entryKeys(entry).some((key) => !key.startsWith('/') && sameCharacter(key, target));
+    return archiveMatch(entry, target) !== null;
+}
+
+/** Both names are the same words (case, ё, punctuation and `_` ignored) — no inflection allowed. */
+export function exactName(a: string | null | undefined, b: string | null | undefined): boolean {
+    const left = nameWords(a).join(' ');
+    return left !== '' && left === nameWords(b).join(' ');
+}
+
+/**
+ * How an archive answers a character name: 'exact' (its name or a plain key is that name), 'fuzzy' (only an
+ * inflected form matches: «Веры» → Вера — but also «Александр» → Александра), or null.
+ */
+export function archiveMatch(entry: BunnyMoEntryLike | null | undefined, target: string): 'exact' | 'fuzzy' | null {
+    if (!entry || !isCharacterArchive(entry)) return null;
+    const name = archiveName(entry);
+    const keys = entryKeys(entry).filter((key) => !key.startsWith('/'));
+    if (exactName(name, target) || keys.some((key) => exactName(key, target))) return 'exact';
+    if (sameCharacter(name, target) || keys.some((key) => sameCharacter(key, target))) return 'fuzzy';
+    return null;
+}
+
+/** Exact matches when there are any, else the fuzzy ones (two characters «Александр» and «Александра»). */
+export function preferExact<T>(matches: readonly { item: T; match: 'exact' | 'fuzzy' }[]): T[] {
+    const exact = matches.filter((entry) => entry.match === 'exact');
+    return (exact.length ? exact : matches).map((entry) => entry.item);
+}
+
+/** A card (or any named thing) by name: the exact one first, else the first inflected match. */
+export function findByName<T>(
+    items: readonly T[],
+    name: (item: T) => string | null | undefined,
+    target: string,
+): T | undefined {
+    return (
+        items.find((item) => exactName(name(item), target)) ?? items.find((item) => sameCharacter(name(item), target))
+    );
 }
 
 /* ------------------------------------------------------------------ chat excerpt */

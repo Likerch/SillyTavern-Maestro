@@ -21,6 +21,7 @@ type InterceptHandler = (chat: STChatMessage[], info: GenerationInfo) => void | 
  * - GENERATION_ENDED / STOPPED → ephemeral values cleared.
  */
 export class TurnPipeline implements TurnHooks {
+    private interceptTiming: { type: string; startedAt: number; endedAt: number } | null = null;
     private readonly handlers = new Set<InterceptHandler>();
     private readonly unsubscribers: Unsubscribe[] = [];
     private generation: GenerationInfo | null = null;
@@ -91,6 +92,7 @@ export class TurnPipeline implements TurnHooks {
 
     /** Body of the global generate_interceptor. */
     async intercept(chat: STChatMessage[], type: string): Promise<void> {
+        const startedAt = performance.now();
         const last = [...chat].reverse().find((message) => message.is_user);
         const info: GenerationInfo = {
             type: type || 'normal',
@@ -110,6 +112,11 @@ export class TurnPipeline implements TurnHooks {
                 this.log.error('intercept handler failed', error);
             }
         }
+        this.interceptTiming = { type: info.type, startedAt, endedAt: performance.now() };
+    }
+
+    lastIntercept(): { type: string; startedAt: number; endedAt: number } | null {
+        return this.interceptTiming;
     }
 
     onIntercept(handler: InterceptHandler): Unsubscribe {

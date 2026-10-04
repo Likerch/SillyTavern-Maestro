@@ -104,6 +104,16 @@ describe('levels', () => {
         expect(autonomy.level('lore.base', 'ask')).toBe('ask');
         expect(autonomy.level('lore.base', 'auto')).toBe('ask');
     });
+
+    it('sets a level for a kind, refusing auto for never-auto kinds', () => {
+        autonomy.neverAuto('lore.base');
+        expect(autonomy.isNeverAuto!('lore.base')).toBe(true);
+        expect(autonomy.isNeverAuto!('canon.fact')).toBe(false);
+        expect(autonomy.setLevel!('lore.base', 'auto')).toBe(false);
+        expect(settings.core().autonomy['lore.base']).toBeUndefined();
+        expect(autonomy.setLevel!('canon.fact', 'auto')).toBe(true);
+        expect(autonomy.level('canon.fact', 'inbox')).toBe('auto');
+    });
 });
 
 describe('decide', () => {

@@ -25,6 +25,8 @@ export interface InjectOptions {
     mentioned?(item: CanonItemLike, base?: Dict): boolean;
     /** Pins with a condition (`pinWhen` other than 'always') act only when this says so. */
     pinActive?(item: CanonItemLike): boolean;
+    /** Origins whose provisional items stay out (their owner module is off, P11: e.g. 'living' without M26). */
+    silentProvisional?: readonly string[];
 }
 
 export interface InjectResult {
@@ -116,6 +118,7 @@ export function overrideCopy(base: Dict, item: CanonItemLike): Dict {
 }
 
 function acts(item: CanonItemLike, options: InjectOptions, base?: Dict): boolean {
+    if (item.meta.status === 'provisional' && options.silentProvisional?.includes(item.meta.origin)) return false;
     if (item.meta.status !== 'archived') return true;
     return options.mentioned?.(item, base) === true;
 }

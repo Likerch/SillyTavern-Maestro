@@ -148,7 +148,11 @@ describe('run', () => {
             ephemeral.setInjection('director', { text: 'Slow down', position: 1, depth: 1 });
         });
         mock.chat.push(message('hi', { is_user: true }));
+        expect(turn.lastIntercept()).toBeNull();
         await turn.intercept(mock.chat, 'normal');
+        const timing = turn.lastIntercept()!;
+        expect(timing.type).toBe('normal');
+        expect(timing.endedAt).toBeGreaterThanOrEqual(timing.startedAt);
         expect(variables()).toEqual({ maestro_scene: 'calm' });
         expect(prompts.at(-1)).toEqual(['maestro_director', 'Slow down', 1, 1, false, 0]);
         await mock.eventSource.emit(EVENT_TYPES.GENERATION_ENDED!);

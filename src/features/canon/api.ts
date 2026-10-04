@@ -32,6 +32,8 @@ export interface CanonMeta {
     survivedTurns?: number;
     /** Pin condition: 'always' or an entity/place id that must be present. */
     pinWhen?: string;
+    /** Living canon (M26): id of the fact in the chat's living-canon document. */
+    livingId?: string;
     /**
      * Overrides: WI fields that replace the base (optional; put() fills it from the draft's fields, the default is
      * content, key, keysecondary and comment). Bookkeeping fields and `disable` never override.

@@ -36,6 +36,26 @@ describe('host events', () => {
         expect(events.name('toString')).toBeUndefined();
     });
 
+    it('reports how long each listener ran, async ones until they settle, and stops on null', async () => {
+        const { events } = makeEvents();
+        const timings: [string, number][] = [];
+        events.setTimer!((event, ms) => timings.push([event, ms]));
+        events.on('CHAT_CHANGED', () => {});
+        events.on('CHAT_CHANGED', async () => {
+            await Promise.resolve();
+        });
+        events.on('CHAT_CHANGED', () => {
+            throw new Error('boom');
+        });
+        await mock.eventSource.emit('chat_id_changed');
+        await Promise.resolve();
+        expect(timings.map(([event]) => event)).toEqual(['chat_id_changed', 'chat_id_changed', 'chat_id_changed']);
+        expect(timings.every(([, ms]) => ms >= 0)).toBe(true);
+        events.setTimer!(null);
+        await mock.eventSource.emit('chat_id_changed');
+        expect(timings).toHaveLength(3);
+    });
+
     it('subscribes by key or raw name and unsubscribes', async () => {
         const { events } = makeEvents();
         const seen: unknown[] = [];

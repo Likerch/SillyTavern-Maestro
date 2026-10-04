@@ -24,4 +24,6 @@ export interface GuardianApi {
     acknowledge(paths: string[]): Promise<void>;
     /** 'fresh' = this tab's settings match the server; 'stale' = another tab/device saved later. */
     tabState(): 'fresh' | 'stale' | 'checking' | 'unknown';
+    /** Saves the tab guard holds now and the ones it vetoed, by kind (metrics). */
+    guardInfo?(): { held: Record<string, number>; vetoed: Record<string, number> } | undefined;
 }
