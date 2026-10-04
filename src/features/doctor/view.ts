@@ -1,14 +1,19 @@
-// Pult tab «Доктор»: findings grouped by severity and kind (with target links and «Включить правило»), the active
-// books, the regex inventory and the test bench. Read-only apart from switching M22 rules on.
+// Pult tab «Доктор»: findings grouped by severity and kind (with target links, «Включить правило», «Исправить в
+// файле» and regex actions), the active books, the regex inventory with enable/disable/delete and the test bench.
+// A finding an enabled M22 rule already handles reads «исправляется правилом на лету».
 import { REGEX_PLACEMENT, regexMode } from '../../domain/doctor-regex';
-import type { App, PultTab, Ui } from '../../shared/contracts';
+import type { RegexScriptInfo } from '../../domain/doctor-regex';
+import { packGroupId } from '../../domain/rules-packs';
+import type { App, Decision, PultTab, Ui } from '../../shared/contracts';
 import { badge, banner, emptyState, section } from '../../ui/components/card';
 import { numberInput, segmented, select } from '../../ui/components/controls';
 import { button, clear, el, prefersReducedMotion } from '../../ui/components/dom';
 import { diffView } from '../../ui/components/diff';
 import { table } from '../../ui/components/table';
 import { formatTime } from '../../ui/views/format';
-import type { BookStat, Finding, FindingKind, FindingSeverity, RegexInfo } from './api';
+import type { BookStat, Finding, FindingKind, FindingSeverity, RegexAction, RegexInfo } from './api';
+import { fileFixOffered } from './fixes';
+import type { BookFacts, FileFixOutcome } from './fixes';
 import { enableRule, ruleState, rulesApi } from './rules';
 import type { DoctorService } from './service';
 import { chatSample, openBook } from './sources';
@@ -48,6 +53,28 @@ export function findingText(app: App, finding: Finding): string {
 function closePult(ui: Ui): void {
     // UiImpl has closePult(); the contract does not (yet).
     (ui as Ui & { closePult?: () => void }).closePult?.();
+}
+
+/** Which regex action a finding offers, for which of its scripts (dead scripts are only ever disabled). */
+export function regexFixFor(finding: Finding): { action: RegexAction; position: number; note?: string } | null {
+    switch (finding.kind) {
+        case 'regex.breaksJson':
+        case 'regex.breaksMarkers':
+        case 'regex.stripsTags':
+            return { action: 'disable', position: 0 };
+        case 'regex.conflict':
+            // The later script never finds anything: the first one already replaced it.
+            return { action: 'disable', position: 1 };
+        case 'regex.duplicate':
+            return { action: 'delete', position: 1 };
+        case 'regex.dead':
+            if (finding.messageKey === 'm5.f.regexDead')
+                return { action: 'disable', position: 0, note: 'm5.regexFix.deadNote' };
+            if (finding.messageKey === 'm5.f.regexInvalid') return { action: 'disable', position: 0 };
+            return null;
+        default:
+            return null;
+    }
 }
 
 function placementText(app: App, placement: number[]): string {
@@ -110,12 +137,41 @@ export function doctorTab(app: App, service: DoctorService): PultTab {
                 ]);
             };
 
+            /** The stored answer of rule 'pack.versionConflict' for the books of a finding. */
+            const packAnswer = (finding: Finding): string | undefined => {
+                const books = Array.isArray(finding.target.books)
+                    ? finding.target.books.filter((book): book is string => typeof book === 'string')
+                    : [];
+                let options: Record<string, unknown> | undefined;
+                try {
+                    options = finding.fixRule ? rulesApi(app)?.options?.(finding.fixRule) : undefined;
+                } catch {
+                    options = undefined;
+                }
+                const choices = options?.choices;
+                const value =
+                    typeof choices === 'object' && choices !== null
+                        ? (choices as Record<string, unknown>)[packGroupId(books)]
+                        : undefined;
+                return typeof value === 'string' ? value : undefined;
+            };
+
             const ruleControl = (finding: Finding): HTMLElement | null => {
                 if (!finding.fixRule) return null;
                 if (!rulesApi(app)) return null;
                 const state = ruleState(app, finding.fixRule);
                 if (!state) return el('span', { class: 'maestro-muted', text: t('m5.ruleLater') });
-                if (state.enabled) return badge(t('m5.ruleOn'), 'ok');
+                if (state.enabled && state.waiting) return badge(t('m5.ruleWaits'), 'muted');
+                if (state.enabled && state.available === false) {
+                    return badge(t('m5.ruleUnavailable', { missing: (state.missing ?? []).join(', ') }), 'warn');
+                }
+                if (state.enabled && finding.kind === 'pack.versionConflict') {
+                    // The rule suppresses nothing until the one question is answered.
+                    const answer = packAnswer(finding);
+                    if (answer === undefined) return badge(t('m5.rulePackPending'), 'muted');
+                    if (answer === '') return badge(t('m5.rulePackKeepsAll'), 'muted');
+                }
+                if (state.enabled) return badge(t('m5.ruleHandles'), 'ok');
                 return button({
                     label: t('m5.enableRule'),
                     icon: 'fa-wand-magic-sparkles',
@@ -128,6 +184,73 @@ export function doctorTab(app: App, service: DoctorService): PultTab {
                         if (alive) draw();
                     },
                 });
+            };
+
+            const fileFixNotice = (outcome: FileFixOutcome | null): void => {
+                if (!outcome) return;
+                const book = outcome.book;
+                if (outcome.status === 'decided') {
+                    if (outcome.decision === 'applied') {
+                        app.ui.notice(t('m5.fixFile.done', { book, count: outcome.count }));
+                    } else if (outcome.decision === 'queued') {
+                        app.ui.notice(t('m5.fixFile.queued', { book }));
+                    }
+                } else if (outcome.status === 'nothing') {
+                    app.ui.notice(t('m5.fixFile.none', { book }));
+                } else if (outcome.status === 'protected') {
+                    app.ui.notice(t('m5.bunnyBook'), { level: 'warn' });
+                } else {
+                    app.ui.notice(t('m5.fixFile.unavailable'), { level: 'warn' });
+                }
+            };
+
+            const fileFixControl = (finding: Finding, facts: BookFacts | undefined): HTMLElement | null => {
+                if (!facts || !fileFixOffered(finding, facts)) return null;
+                return button({
+                    label: t('m5.fixFile'),
+                    icon: 'fa-file-pen',
+                    title: t('m5.fixFile.hint'),
+                    onClick: async () => {
+                        fileFixNotice(await service.fixFinding(finding.id));
+                        if (alive) draw();
+                    },
+                });
+            };
+
+            const regexNotice = (decision: Decision, action: RegexAction, name: string): void => {
+                if (decision === 'applied') app.ui.notice(t(`m5.regexFix.done.${action}`, { name }));
+                else if (decision === 'queued') app.ui.notice(t('m5.regexFix.queued', { name }));
+            };
+
+            const runRegexAction = async (script: RegexScriptInfo, action: RegexAction, note?: string) => {
+                const name = script.name || t('m5.regex.unnamed');
+                regexNotice(await service.regexAction(script.id, action, note ? t(note) : undefined), action, name);
+                if (alive) draw();
+            };
+
+            const regexControl = (finding: Finding, scripts: RegexScriptInfo[]): HTMLElement[] => {
+                const fix = regexFixFor(finding);
+                const targets = Array.isArray(finding.target.scripts) ? finding.target.scripts : [];
+                const target = fix ? (targets[fix.position] as { id?: unknown } | undefined) : undefined;
+                const script = scripts.find((item) => item.id === target?.id);
+                if (!fix || !script || script.disabled) return [];
+                const name = script.name || t('m5.regex.unnamed');
+                const label =
+                    fix.action === 'delete'
+                        ? t('m5.regexFix.deleteCopy', { name })
+                        : fix.position > 0
+                          ? t('m5.regexFix.disableNamed', { name })
+                          : t('m5.regexFix.disable');
+                const controls: HTMLElement[] = [
+                    button({
+                        label,
+                        icon: fix.action === 'delete' ? 'fa-trash-can' : 'fa-toggle-off',
+                        kind: fix.action === 'delete' ? 'danger' : 'default',
+                        onClick: () => runRegexAction(script, fix.action, fix.note),
+                    }),
+                ];
+                if (fix.note) controls.push(el('span', { class: 'maestro-muted', text: t(fix.note) }));
+                return controls;
             };
 
             const showRegex = (id: string) => {
@@ -181,7 +304,12 @@ export function doctorTab(app: App, service: DoctorService): PultTab {
                     : null;
             };
 
-            const findingsView = (findings: Finding[], books: Map<string, BookStat>): HTMLElement => {
+            const findingsView = (
+                findings: Finding[],
+                books: Map<string, BookStat>,
+                facts: BookFacts | undefined,
+                scripts: RegexScriptInfo[],
+            ): HTMLElement => {
                 if (!findings.length) return emptyState(t('m5.noFindings'));
                 const blocks: HTMLElement[] = [];
                 for (const severity of SEVERITIES) {
@@ -205,6 +333,8 @@ export function doctorTab(app: App, service: DoctorService): PultTab {
                                             el('div', { class: 'maestro-actions' }, [
                                                 ...targetLinks(finding),
                                                 ruleControl(finding),
+                                                fileFixControl(finding, facts),
+                                                ...regexControl(finding, scripts),
                                                 bunnyNote(finding, books),
                                             ]),
                                         ]),
@@ -270,7 +400,30 @@ export function doctorTab(app: App, service: DoctorService): PultTab {
                     { empty: t('m5.notes.noBooks'), caption: t('m5.books.title') },
                 );
 
-            const regexView = (inventory: RegexInfo[], extensionOff: boolean): (HTMLElement | null)[] => [
+            const regexActions = (info: RegexInfo, scripts: RegexScriptInfo[]): HTMLElement => {
+                const script = scripts.find((item) => item.id === info.id);
+                if (!script) return el('span');
+                return el('div', { class: 'maestro-row maestro-m5-regex-actions' }, [
+                    button({
+                        label: info.disabled ? t('m5.regexFix.enable') : t('m5.regexFix.disable'),
+                        icon: info.disabled ? 'fa-toggle-on' : 'fa-toggle-off',
+                        kind: 'ghost',
+                        onClick: () => runRegexAction(script, info.disabled ? 'enable' : 'disable'),
+                    }),
+                    button({
+                        title: t('m5.regexFix.delete'),
+                        icon: 'fa-trash-can',
+                        kind: 'ghost',
+                        onClick: () => runRegexAction(script, 'delete'),
+                    }),
+                ]);
+            };
+
+            const regexView = (
+                inventory: RegexInfo[],
+                extensionOff: boolean,
+                scripts: RegexScriptInfo[],
+            ): (HTMLElement | null)[] => [
                 extensionOff ? banner(t('m5.regex.extensionOff'), 'warn') : null,
                 table(
                     [
@@ -310,6 +463,11 @@ export function doctorTab(app: App, service: DoctorService): PultTab {
                                     : info.allowed === false
                                       ? badge(t('m5.state.notAllowed'), 'warn')
                                       : badge(t('m5.state.on'), 'ok'),
+                        },
+                        {
+                            key: 'actions',
+                            label: t('m5.regex.actions'),
+                            cell: (info: RegexInfo) => regexActions(info, scripts),
                         },
                         {
                             key: 'test',
@@ -455,10 +613,10 @@ export function doctorTab(app: App, service: DoctorService): PultTab {
                         !rulesApi(app) && result.findings.some((finding) => finding.fixRule)
                             ? banner(t('m5.ruleMissing'), 'info', 'fa-circle-info')
                             : null,
-                        findingsView(result.findings, books),
+                        findingsView(result.findings, books, result.facts, result.scripts),
                     ]),
                     section(t('m5.books.title'), booksView(result.books)),
-                    section(t('m5.regex.title'), regexView(result.inventory, result.regexExtensionOff)),
+                    section(t('m5.regex.title'), regexView(result.inventory, result.regexExtensionOff, result.scripts)),
                     section(t('m5.bench.title'), benchView(result.inventory)),
                 );
             }
@@ -490,4 +648,5 @@ export const DOCTOR_CSS = `
 .maestro-m5-custom { width: 100%; min-height: 6em; }
 .maestro-m5-sample { margin-top: var(--maestro-gap-sm); }
 .maestro-m5-flash { outline: 2px solid var(--maestro-accent); outline-offset: -2px; }
+.maestro-m5-regex-actions { flex-wrap: nowrap; gap: 2px; }
 `;

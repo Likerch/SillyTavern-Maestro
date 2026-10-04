@@ -60,6 +60,9 @@ export interface RuleDefinition {
     applyScanDone?(args: Record<string, unknown>, scan: ScanInfo): void;
     /** Non-lore rules: start/stop side effects (CSS, formatter hooks, interceptor handlers). */
     start?(): void | Unsubscribe;
+    /** Rule parameters in a generic shape (RulesApi.options for rules the engine does not know by id). */
+    options?(): Record<string, unknown> | undefined;
+    setOptions?(options: Record<string, unknown>): void | Promise<void>;
 }
 
 export interface RuleState {
@@ -105,6 +108,15 @@ export interface RulesSettings {
     bookCaps: Record<string, BookCap>;
     /** Most messages the Qvink gap guard returns to one prompt. */
     gapGuardLimit: number;
+    /**
+     * Pack version conflicts (rule 'pack.versionConflict'): group id (sorted book names) → the book whose copies stay;
+     * '' keeps every version. A missing group has not been answered yet: nothing is suppressed.
+     */
+    packChoices: Record<string, string>;
+    /** Groups already asked about (ms): the question is asked once, even while its Inbox card waits. */
+    packAsked: Record<string, number>;
+    /** CK archive books proposed for a file fix (rule 'ck.archiveDepth'): book → uids proposed ("1,4,7"). */
+    archiveProposals: Record<string, string>;
 }
 
 /** An activation removed by a Maestro rule in the latest scan (M1 marks it `cut`, `cutBy: 'maestro'`). */
@@ -142,9 +154,25 @@ export interface RulesApi {
     setBookCap?(book: string, cap: BookCap | null): void;
     /**
      * Rule parameters in a generic shape (used by the first-run wizard): 'book.cap' → `{ caps: {book: maxTokens},
-     * recursion: {book: maxRecursionLevel} }`, 'qvink.gapGuard' → `{ limit }`; other rules → undefined.
+     * recursion: {book: maxRecursionLevel} }`, 'qvink.gapGuard' → `{ limit }`, 'pack.versionConflict' →
+     * `{ groups: PackGroupInfo[], choices: {groupId: book} }`; other rules → their own options() or undefined.
      */
     options?(id: string): Record<string, unknown> | undefined;
     /** Sets parameters in the shape of options(); for 'book.cap' the given `caps` replace every token cap. */
     setOptions?(id: string, options: Record<string, unknown>): void | Promise<void>;
+}
+
+/** A pack version conflict seen in the latest real scan (rule 'pack.versionConflict'). */
+export interface PackGroupInfo {
+    id: string;
+    books: string[];
+    /** The book offered by default (looks newest). */
+    newest: string;
+    /** Conflicting key sets. */
+    count: number;
+    sample: string[];
+    /** The stored answer: a book, '' (keep every version) or undefined (not answered). */
+    choice?: string;
+    /** Asked already (the answer may wait in the Inbox). */
+    asked: boolean;
 }

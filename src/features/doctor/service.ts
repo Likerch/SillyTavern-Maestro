@@ -1,7 +1,8 @@
 // The doctor's state: runs a scan on demand (never on the send path, P15), keeps the last result for the pult and
-// the wizard, and serves the regex bench. Stage 1 is read-only: findings point to M22 rules or to stage 2.
+// the wizard, and serves the regex bench. Findings point to M22 rules (fixes on the fly) or offer a file fix and regex
+// actions through autonomy (stage 2: fixes.ts, regex-fix.ts).
 import { adaptersOf } from '../../adapters';
-import { findArchiveIssues, findWrapperCollisions } from '../../domain/doctor-ck';
+import { findArchiveIssues, findWrapperCollisions, isArchive } from '../../domain/doctor-ck';
 import { findBudgetIssues } from '../../domain/doctor-budget';
 import { isRussianChat } from '../../domain/doctor-keys';
 import { findAssistantAtDepth, findKeyIssues, findPackDuplicates } from '../../domain/doctor-lore';
@@ -10,9 +11,13 @@ import { findRegexIssues, guessOwner } from '../../domain/doctor-regex';
 import type { RegexScriptInfo } from '../../domain/doctor-regex';
 import type { DoctorIssue } from '../../domain/doctor-types';
 import { stableHash } from '../../domain/hash';
-import type { App, Logger, Unsubscribe } from '../../shared/contracts';
-import type { BookStat, DoctorApi, Finding, FindingSeverity, RegexInfo } from './api';
+import type { App, Decision, Logger, Unsubscribe } from '../../shared/contracts';
+import type { BookStat, DoctorApi, Finding, FindingSeverity, RegexAction, RegexInfo } from './api';
+import { fileFixOffered, fixInFile } from './fixes';
+import type { BookFacts, FileFixOutcome } from './fixes';
+import { regexAction } from './regex-fix';
 import {
+    archiveBooksOf,
     chatSample,
     loreTurns,
     maxContext,
@@ -34,6 +39,8 @@ export interface ScanResult {
     /** i18n keys of notes about parts that could not be checked. */
     notes: string[];
     regexExtensionOff: boolean;
+    /** BunnyMo books (never fixed in files) and the user's archive books of this scan. */
+    facts: BookFacts;
 }
 
 const SEVERITY_ORDER: Record<FindingSeverity, number> = { error: 0, warn: 1, info: 2 };
@@ -75,7 +82,31 @@ export class DoctorService {
             lastScanAt: () => this.result?.at ?? 0,
             testRegex: (id, text) => this.testRegex(id, text),
             onChange: (listener) => this.onChange(listener),
+            fixInFile: async (id) => {
+                const outcome = await this.fixFinding(id);
+                return outcome?.status === 'decided' ? outcome.decision : 'skipped';
+            },
+            regexAction: (id, action) => this.regexAction(id, action),
         };
+    }
+
+    /** «Исправить в файле» for a finding of the last scan; rescans after an applied fix. Null: no file fix offered. */
+    async fixFinding(id: string): Promise<FileFixOutcome | null> {
+        const result = this.result;
+        const finding = result?.findings.find((item) => item.id === id);
+        if (!result || !finding || !fileFixOffered(finding, result.facts)) return null;
+        const outcome = await fixInFile(this.app, finding);
+        if (outcome.status === 'decided' && outcome.decision === 'applied') await this.scan();
+        return outcome;
+    }
+
+    /** Enables, disables or deletes one script of the last inventory; rescans after an applied change. */
+    async regexAction(id: string, action: RegexAction, note?: string): Promise<Decision> {
+        const script = this.result?.scripts.find((item) => item.id === id);
+        if (!script) return 'skipped';
+        const decision = await regexAction(this.app, script, action, note);
+        if (decision === 'applied') await this.scan();
+        return decision;
     }
 
     last(): ScanResult | null {
@@ -260,6 +291,7 @@ export class DoctorService {
             );
         }
 
+        const archiveBooks = new Set(archiveBooksOf(app, lore, isArchive));
         const books: BookStat[] = recursion.books.map((stats) => ({
             book: stats.book,
             entries: stats.entries,
@@ -269,6 +301,7 @@ export class DoctorService {
             maxDepth: stats.maxDepth,
             vacuums: stats.vacuums,
             bunnymo: lore.bunnyBooks.get(stats.book) ?? null,
+            archive: archiveBooks.has(stats.book),
         }));
         this.log.debug(`scan: ${issues.length} findings in ${Date.now() - started} ms`);
         return {
@@ -281,6 +314,7 @@ export class DoctorService {
             inventory: this.inventoryOf(regex.scripts),
             notes,
             regexExtensionOff: regex.extensionOff,
+            facts: { bunny: new Set(lore.bunnyBooks.keys()), archive: archiveBooks },
         };
     }
 }

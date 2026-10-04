@@ -1,8 +1,11 @@
-// M5 «Доктор», stage 1: inventory and findings, read-only (plan M5, dev-plan 1.5). Scans the lorebooks of the active
-// chat and every regex script on demand; fixes are M22 rules switched on from a finding («Включить правило») or
-// file edits at stage 2. BunnyMo packs never get a file fix (P13).
+// M5 «Доктор» (plan M5, dev-plan 1.5, 2.5): inventory and findings, and the treatment. Scans the lorebooks of the active
+// chat and every regex script on demand; fixes are M22 rules switched on from a finding («Включить правило»), file
+// fixes of the user's books («Исправить в файле», asked, journaled) and regex actions. BunnyMo packs never get a
+// file fix (P13).
 import type { MaestroModule } from '../../shared/contracts';
 import type { DoctorApi } from './api';
+import { registerFileFixes } from './fixes';
+import { registerRegexFixes } from './regex-fix';
 import { registerRuleActions } from './rules';
 import { DoctorService } from './service';
 import { DOCTOR_STRINGS } from './strings';
@@ -26,6 +29,8 @@ export const doctorModule: MaestroModule<DoctorSettings> = {
         app.modules.expose(DOCTOR_KEY, api);
         own(() => service.dispose());
         own(registerRuleActions(app));
+        own(registerFileFixes(app));
+        for (const off of registerRegexFixes(app)) own(off);
         own(app.ui.style('m5-doctor', DOCTOR_CSS));
         const tab = doctorTab(app, service);
         own(app.ui.addTab(tab));
@@ -46,4 +51,4 @@ export const doctorModule: MaestroModule<DoctorSettings> = {
     },
 };
 
-export type { BookStat, DoctorApi, Finding, FindingKind, FindingSeverity, RegexInfo } from './api';
+export type { BookStat, DoctorApi, Finding, FindingKind, FindingSeverity, RegexAction, RegexInfo } from './api';

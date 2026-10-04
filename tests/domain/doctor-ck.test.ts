@@ -110,4 +110,15 @@ describe('findWrapperCollisions', () => {
         expect(findWrapperCollisions(entries, { ...options, wholeWordsGlobal: true })).toEqual([]);
         expect(findWrapperCollisions(entries, options)).toHaveLength(1);
     });
+
+    it('points the CarrotCast <NSFW> collision to its rule and leaves the others without one (stage 2)', () => {
+        const nsfw = findWrapperCollisions([erotic, entry('Архив', archive('Анна', {}, '<NSFW>x</NSFW>'))], options);
+        expect(nsfw[0]).toMatchObject({ fixRule: 'wrapper.nsfwCollision', fileFix: false });
+        const other = entry('Genres', { key: ['<NSFW>'], comment: 'Adult', content: 'adult themes' });
+        const mixed = findWrapperCollisions([other, entry('Архив', archive('Анна', {}, '<NSFW>x</NSFW>'))], options);
+        expect(mixed[0]?.fixRule).toBeUndefined();
+        const dere = entry('Dere', { key: ['<DERE>'], comment: 'Deredere', content: 'sweet' });
+        const bare = findWrapperCollisions([dere, entry('Архив', archive('Галя', {}, 'mentions <DERE>'))], options);
+        expect(bare[0]?.fixRule).toBeUndefined();
+    });
 });

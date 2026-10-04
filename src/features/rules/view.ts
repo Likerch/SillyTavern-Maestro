@@ -8,8 +8,8 @@ import type { Child } from '../../ui/components/dom';
 import { table } from '../../ui/components/table';
 import { coalesce } from '../../ui/views/format';
 import type { LoreJournalApi, LoreSummary, LoreSummaryRow } from '../loreJournal/api';
-import type { BookCap, RuleChange, RuleImpact, RuleState } from './api';
-import { CAP_RULE_ID, GAP_RULE_ID } from './builtin';
+import type { BookCap, PackGroupInfo, RuleChange, RuleImpact, RuleState } from './api';
+import { CAP_RULE_ID, GAP_RULE_ID, PACK_VERSION_RULE_ID } from './builtin';
 import { LORE_JOURNAL_KEY } from './engine';
 import type { RulesEngine } from './engine';
 
@@ -31,6 +31,12 @@ export const RULES_VIEW_CSS = `
 .maestro-rules-impact {
     margin-top: 6px;
 }
+.maestro-rules-packs {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 6px;
+}
 .maestro-rules-caps {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -39,6 +45,20 @@ export const RULES_VIEW_CSS = `
 `;
 
 type Translate = (key: string, params?: Record<string, string | number>) => string;
+
+/** Scan-change values: key lists read as `a, b`, everything else as text. */
+function cellValue(value: unknown): string {
+    return Array.isArray(value) ? value.map(String).join(', ') : String(value);
+}
+
+function isPackGroup(value: unknown): value is PackGroupInfo {
+    return (
+        typeof value === 'object' &&
+        value !== null &&
+        typeof (value as PackGroupInfo).id === 'string' &&
+        Array.isArray((value as PackGroupInfo).books)
+    );
+}
 
 export function rulesTab(engine: RulesEngine, app: App): PultTab {
     const t: Translate = (key, params) => app.i18n.t(key, params);
@@ -83,9 +103,13 @@ export function rulesTab(engine: RulesEngine, app: App): PultTab {
                             {
                                 key: 'before',
                                 label: t('m22.col.before'),
-                                cell: (row: RuleChange) => String(row.before),
+                                cell: (row: RuleChange) => cellValue(row.before),
                             },
-                            { key: 'after', label: t('m22.col.after'), cell: (row: RuleChange) => String(row.after) },
+                            {
+                                key: 'after',
+                                label: t('m22.col.after'),
+                                cell: (row: RuleChange) => cellValue(row.after),
+                            },
                         ],
                         shown,
                     ),
@@ -170,6 +194,44 @@ export function rulesTab(engine: RulesEngine, app: App): PultTab {
                 draw();
             };
 
+            /** Version conflicts of the last scan with the stored answer of each group. */
+            const packChoices = (): HTMLElement => {
+                const options = engine.options(PACK_VERSION_RULE_ID);
+                const groups = Array.isArray(options?.groups) ? options.groups.filter(isPackGroup) : [];
+                if (!groups.length) return el('div', { class: 'maestro-muted', text: t('m22.pack.none') });
+                return el(
+                    'div',
+                    { class: 'maestro-rules-packs' },
+                    groups.map((group) => {
+                        const label = t('m22.pack.group', { books: group.books.join(' · '), count: group.count });
+                        const choices = [
+                            ...(group.choice === undefined ? [{ value: '?', label: t('m22.pack.unanswered') }] : []),
+                            ...group.books.map((book) => ({
+                                value: book,
+                                label:
+                                    book === group.newest
+                                        ? t('m22.pack.keepNewest', { book })
+                                        : t('m22.pack.keep', { book }),
+                            })),
+                            { value: '', label: t('m22.pack.keepAll') },
+                        ];
+                        return field(
+                            label,
+                            select({
+                                value: group.choice ?? '?',
+                                label,
+                                options: choices,
+                                onChange: async (value) => {
+                                    if (value === '?') return;
+                                    await engine.setOptions(PACK_VERSION_RULE_ID, { choices: { [group.id]: value } });
+                                    draw();
+                                },
+                            }),
+                        );
+                    }),
+                );
+            };
+
             const ruleCard = (state: RuleState): HTMLElement => {
                 const def = state.definition;
                 const isLore = !!(def.applyEntries || def.applyScanDone);
@@ -202,6 +264,9 @@ export function rulesTab(engine: RulesEngine, app: App): PultTab {
                             }),
                         ),
                     );
+                }
+                if (def.id === PACK_VERSION_RULE_ID && state.enabled) {
+                    body.push(el('div', { class: 'maestro-card-subtitle', text: t('m22.pack.title') }), packChoices());
                 }
                 const result = results.get(def.id);
                 if (result !== undefined) body.push(impactView(result));

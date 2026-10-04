@@ -14,6 +14,12 @@ export interface RuleEnv {
     /** Cuts made in the current scan loop (book caps), for M1 and the pult. */
     reportCuts(cuts: CutEntry[]): void;
     tokens: TokenCache;
+    /** A host or adapter capability is present now (adapter ones are probed live). */
+    capability(id: string): boolean;
+    /** The scan in progress is an M1 simulation (no questions, no state for the pult). */
+    simulating(): boolean;
+    /** Book names seen in the latest real scan. */
+    activeBooks(): string[];
 }
 
 /** Valid entry copies of every list, in ST's list order (global, character, chat, persona). */

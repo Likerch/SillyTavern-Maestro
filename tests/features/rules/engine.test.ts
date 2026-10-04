@@ -19,7 +19,7 @@ function listenerCount(event: string): number {
 }
 
 describe('module lifecycle', () => {
-    it('registers the nine stage-1 rules, the tab, the styles and exposes the API', async () => {
+    it('registers the stage-1 and stage-2 rules, the tab, the styles and exposes the API', async () => {
         const rules = await startRules(env);
         const ids = rules.api.list().map((state) => state.id);
         expect(ids).toEqual([
@@ -32,6 +32,10 @@ describe('module lifecycle', () => {
             'ui.ckVectorizeButton',
             'ui.desPortraitBarMobile',
             'prompt.ckDumpsIgnore',
+            'keys.cyrillicLeftBoundary',
+            'pack.versionConflict',
+            'wrapper.nsfwCollision',
+            'ck.archiveDepth',
         ]);
         const tab = env.ui.tabs.find((item) => item.id === 'rules');
         expect(tab).toMatchObject({ titleKey: 'm22.tab', order: 60 });
@@ -92,6 +96,10 @@ describe('enabled state', () => {
             'ui.ckVectorizeButton': false,
             'ui.desPortraitBarMobile': false,
             'prompt.ckDumpsIgnore': false,
+            'keys.cyrillicLeftBoundary': true,
+            'pack.versionConflict': true,
+            'wrapper.nsfwCollision': true,
+            'ck.archiveDepth': true,
         });
         expect(env.turn.handlers.size).toBe(0);
         const lists = listsOf([book('Pack', [entry(1, { position: 4, role: 2 })])]);
@@ -415,7 +423,14 @@ describe('book caps settings', () => {
         slice.bookCaps = [];
         slice.gapGuardLimit = 'many';
         const engine = new RulesEngine(env.app, env.log);
-        expect(engine.settings()).toEqual({ enabled: {}, bookCaps: {}, gapGuardLimit: 20 });
+        expect(engine.settings()).toEqual({
+            enabled: {},
+            bookCaps: {},
+            gapGuardLimit: 20,
+            packChoices: {},
+            packAsked: {},
+            archiveProposals: {},
+        });
         engine.setGapGuardLimit(1000);
         expect(engine.settings().gapGuardLimit).toBe(200);
         engine.setGapGuardLimit(Number.NaN);

@@ -101,6 +101,7 @@ declare global {
     interface STContext {
         chat: STChatMessage[];
         characters: STCharacter[];
+        tags?: { id: string; name: string }[];
         characterId: string | number | undefined;
         groupId: string | null;
         name1: string;

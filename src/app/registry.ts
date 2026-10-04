@@ -1,8 +1,11 @@
 // Every plan module, in stage order. Stages add their modules here.
+import { bookRolesModule } from '../features/bookRoles';
+import { canonModule } from '../features/canon';
 import { doctorModule } from '../features/doctor';
 import { guardianModule } from '../features/guardian';
 import { inspectorModule } from '../features/inspector';
 import { loreJournalModule } from '../features/loreJournal';
+import { loreStudioModule } from '../features/loreStudio';
 import { medicModule } from '../features/medic';
 import { rulesModule } from '../features/rules';
 import { scenariosModule } from '../features/scenarios';
@@ -21,4 +24,8 @@ export const MODULES: MaestroModule[] = [
     scenariosModule,
     sheetsModule,
     wizardModule,
+    // Stage 2: book roles, chat canon, Lore Studio.
+    bookRolesModule,
+    canonModule,
+    loreStudioModule,
 ];

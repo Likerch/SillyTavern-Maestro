@@ -1,5 +1,5 @@
 // Public API of M5 «Доктор» (app.modules.api<DoctorApi>('doctor')).
-import type { Unsubscribe } from '../../shared/contracts';
+import type { Decision, Unsubscribe } from '../../shared/contracts';
 
 export type FindingSeverity = 'info' | 'warn' | 'error';
 
@@ -43,6 +43,9 @@ export interface Finding {
     fileFix?: boolean;
 }
 
+/** Regex treatment: dead scripts are only ever disabled (other chats may need them). */
+export type RegexAction = 'enable' | 'disable' | 'delete';
+
 export interface RegexInfo {
     id: string;
     name: string;
@@ -79,6 +82,8 @@ export interface BookStat {
     vacuums: number;
     /** BunnyMo role of the book, if any (P13: never edited in files). */
     bunnymo: 'core' | 'pack' | null;
+    /** The user's archive book (M35 'ck.archive', or a non-BunnyMo book with CK archives). */
+    archive?: boolean;
 }
 
 export interface DoctorApi {
@@ -97,4 +102,11 @@ export interface DoctorApi {
     testRegex?(id: string, text: string): Promise<string | null>;
     /** Fires after every scan. */
     onChange?(listener: () => void): Unsubscribe;
+    /**
+     * «Исправить в файле» for a finding of the last scan (autonomy kind 'doctor.fileFix', default 'ask'); 'skipped'
+     * when the finding has no file fix (BunnyMo books never do) or nothing is left to fix.
+     */
+    fixInFile?(findingId: string): Promise<Decision>;
+    /** Enables, disables or deletes one regex script (RegexInfo id) through autonomy. */
+    regexAction?(id: string, action: RegexAction): Promise<Decision>;
 }

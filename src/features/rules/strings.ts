@@ -93,6 +93,39 @@ export const RULES_STRINGS: I18nParts = {
         'm22.rule.prompt.ckDumpsIgnore.title': 'CarrotKernel dumps in analysis',
         'm22.rule.prompt.ckDumpsIgnore.description':
             'Maestro’s analysis reads messages without CarrotKernel tag dumps, DES tracker JSON, HTML and NAI image placeholders, and skips picture posts. The chat and the prompt do not change.',
+        'm22.rule.keys.cyrillicLeftBoundary.title': 'Cyrillic keys and whole words',
+        'm22.rule.keys.cyrillicLeftBoundary.description':
+            'In SillyTavern “match whole words” does not work for Cyrillic, so “аня” fires inside “Таня”. Cyrillic one-word keys of such entries become regex keys with a word boundary on the left only: case endings keep working (“Иван” finds “Ивану”). Keys with macros and regex keys stay; CK archives are left to DES-RU when it adds case forms.',
+        'm22.rule.pack.versionConflict.title': 'Pack version conflicts',
+        'm22.rule.pack.versionConflict.description':
+            'When BunnyMo books have entries with the same keys but different text (MBTI v1 and V2 “Analysts”), one tag fires both texts. Maestro asks once which book to keep (the newest is offered); after the answer the copies of the other books are switched off in every scan. Until then nothing is suppressed; pack files stay as they are.',
+        'm22.rule.wrapper.nsfwCollision.title': '<NSFW> in archives → CarrotCast “Erotic”',
+        'm22.rule.wrapper.nsfwCollision.description':
+            'Archives wrap text in <NSFW>…</NSFW>, and through recursion this fires CarrotCast Limited’s “Erotic” entry keyed by the bare tag <NSFW>. The rule keeps recursion from firing it; a direct mention in the chat still works.',
+        'm22.rule.ck.archiveDepth.title': 'CK archives that fire only on the last message',
+        'm22.rule.ck.archiveDepth.description':
+            'Baby Bunny saves archives with scan depth 1, so a character fires only when the name is in the very last message. For each of your archive books the Inbox gets one proposal: switch them to the global scan depth and, with DES-RU, add Russian case forms to the name keys. BunnyMo packs are never touched.',
+        'm22.packVersion.title': 'Pack versions: keep “{book}”?',
+        'm22.packVersion.description':
+            '{books}: {count} entries with the same keys but different text (for example {sample}), so one tag fires both texts.\n\nYes: keep “{book}” (looks newest); the copies from {others} are switched off on the fly, the files do not change.\nNo: keep every version.\n\nYou can change the choice on the “Rules” tab at any time.',
+        'm22.pack.title': 'Pack versions',
+        'm22.pack.none': 'No version conflicts in the last scan.',
+        'm22.pack.group': '{books}: {count} entries',
+        'm22.pack.unanswered': 'not decided yet (both versions work)',
+        'm22.pack.keepAll': 'keep every version',
+        'm22.pack.keep': 'keep “{book}”',
+        'm22.pack.keepNewest': 'keep “{book}” (newest)',
+        'm22.archiveDepth.title': 'Archives in “{book}”: scan depth 1 → global ({count})',
+        'm22.archiveDepth.description':
+            'These archives in “{book}” fire only when the name is in the very last message. The fix sets their scan depth to the global setting; the book is saved right away, and the journal keeps the previous values.',
+        'm22.archiveDepth.forms': 'Name keys also get every Russian case form from DES-RU.',
+        'm22.archiveDepth.noForms': 'Name keys stay as they are (DES-RU is not available).',
+        'm22.archiveDepth.more': '…and {count} more',
+        'm22.archiveDepth.failed.missing': 'The book “{book}” or its entries are gone.',
+        'm22.archiveDepth.failed.stale': 'The archives in “{book}” changed after the proposal.',
+        'm22.archiveDepth.failed.protected': '“{book}” is a BunnyMo book: its file is never edited.',
+        'kind.rules.packVersion': 'Pack version choice',
+        'kind.rules.ckArchiveDepth': 'CK archive fixes',
     },
     ru: {
         'm22.title': 'Правила',
@@ -186,5 +219,38 @@ export const RULES_STRINGS: I18nParts = {
         'm22.rule.prompt.ckDumpsIgnore.title': 'Дампы CarrotKernel в анализе',
         'm22.rule.prompt.ckDumpsIgnore.description':
             'Анализ Maestro читает сообщения без дампов тегов CarrotKernel, JSON трекера DES, HTML и плейсхолдеров картинок NAI, а посты-картинки пропускает. Чат и промпт не меняются.',
+        'm22.rule.keys.cyrillicLeftBoundary.title': 'Кириллица и «целые слова»',
+        'm22.rule.keys.cyrillicLeftBoundary.description':
+            'В SillyTavern «только целые слова» не работает для кириллицы, и «аня» срабатывает внутри «Таня». Кириллические ключи из одного слова у таких записей становятся регулярками с границей слова только слева: падежи продолжают работать («Иван» находит «Ивану»). Ключи с макросами и регулярки не трогаются; архивы CK остаются DES-RU, когда он добавляет падежи.',
+        'm22.rule.pack.versionConflict.title': 'Конфликт версий паков',
+        'm22.rule.pack.versionConflict.description':
+            'Если в книгах BunnyMo есть записи с одинаковыми ключами и разным текстом (MBTI v1 и V2, «Аналитики»), на один тег срабатывают оба текста. Maestro один раз спрашивает, какую книгу оставить (предлагает самую новую), и после ответа выключает копии из остальных книг при каждом сканировании. До ответа ничего не подавляется; файлы паков не меняются.',
+        'm22.rule.wrapper.nsfwCollision.title': '<NSFW> в архивах → «Erotic» из CarrotCast',
+        'm22.rule.wrapper.nsfwCollision.description':
+            'Архивы оборачивают текст в <NSFW>…</NSFW>, а через рекурсию это включает запись «Erotic» из CarrotCast Limited с голым ключом <NSFW>. Правило не даёт рекурсии её включать; прямое упоминание в чате по-прежнему работает.',
+        'm22.rule.ck.archiveDepth.title': 'Архивы CK по последнему сообщению',
+        'm22.rule.ck.archiveDepth.description':
+            'Baby Bunny сохраняет архивы с глубиной сканирования 1 — персонаж срабатывает, только если имя есть в самом последнем сообщении. Для каждой твоей книги архивов во «Входящие» приходит одно предложение: перевести их на общую глубину сканирования, а с DES-RU — ещё и добавить ключам имён русские падежи. Паки BunnyMo не трогаются никогда.',
+        'm22.packVersion.title': 'Версии паков: оставить «{book}»?',
+        'm22.packVersion.description':
+            '{books}: записей с одинаковыми ключами, но разным текстом — {count} (например, {sample}), и на один тег срабатывают оба текста.\n\nДа — оставить «{book}» (похоже, самую новую): копии из {others} выключаются на лету, файлы не меняются.\nНет — оставить все версии.\n\nВыбор можно поменять в любой момент во вкладке «Правила».',
+        'm22.pack.title': 'Версии паков',
+        'm22.pack.none': 'На последнем сканировании конфликтов версий не было.',
+        'm22.pack.group': '{books}: записей — {count}',
+        'm22.pack.unanswered': 'ещё не решено (работают обе версии)',
+        'm22.pack.keepAll': 'оставить все версии',
+        'm22.pack.keep': 'оставить «{book}»',
+        'm22.pack.keepNewest': 'оставить «{book}» (новее)',
+        'm22.archiveDepth.title': 'Архивы в «{book}»: глубина сканирования 1 → общая ({count})',
+        'm22.archiveDepth.description':
+            'Эти архивы в «{book}» срабатывают, только если имя есть в самом последнем сообщении. Исправление ставит им общую глубину сканирования; книга сохраняется сразу, прежние значения остаются в журнале.',
+        'm22.archiveDepth.forms': 'Ключам имён добавляются все русские падежи из DES-RU.',
+        'm22.archiveDepth.noForms': 'Ключи имён остаются как есть (DES-RU недоступен).',
+        'm22.archiveDepth.more': '…и ещё {count}',
+        'm22.archiveDepth.failed.missing': 'Книги «{book}» или её записей больше нет.',
+        'm22.archiveDepth.failed.stale': 'Архивы в «{book}» изменились после предложения.',
+        'm22.archiveDepth.failed.protected': '«{book}» — книга BunnyMo, её файл не правится.',
+        'kind.rules.packVersion': 'Выбор версии пака',
+        'kind.rules.ckArchiveDepth': 'Исправление архивов CK',
     },
 };

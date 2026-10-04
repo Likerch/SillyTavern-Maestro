@@ -5,6 +5,8 @@ interface Entry {
     module: MaestroModule;
     running: boolean;
     disposers: (Unsubscribe | (() => void | Promise<void>))[];
+    /** API keys the module exposed while starting (besides its own key); dropped when it stops. */
+    exposed: Set<string>;
 }
 
 /**
@@ -15,6 +17,7 @@ export class Modules implements ModuleManager {
     private readonly entries = new Map<string, Entry>();
     private readonly apis = new Map<string, unknown>();
     private app: App | null = null;
+    private starting: Entry | null = null;
 
     constructor(
         private readonly settings: Settings,
@@ -24,7 +27,7 @@ export class Modules implements ModuleManager {
     register(modules: MaestroModule[], registerStrings: (module: MaestroModule) => void): void {
         for (const module of modules) {
             if (this.entries.has(module.key)) throw new Error(`duplicate module key ${module.key}`);
-            this.entries.set(module.key, { module, running: false, disposers: [] });
+            this.entries.set(module.key, { module, running: false, disposers: [], exposed: new Set() });
             this.settings.registerModule(module.key, module.defaults as () => object, module.enabledByDefault);
             registerStrings(module);
         }
@@ -72,7 +75,12 @@ export class Modules implements ModuleManager {
     }
 
     expose(key: string, api: unknown): void {
+        if (api === undefined) {
+            this.apis.delete(key);
+            return;
+        }
         this.apis.set(key, api);
+        this.starting?.exposed.add(key);
     }
 
     private missing(module: MaestroModule): string[] {
@@ -89,6 +97,7 @@ export class Modules implements ModuleManager {
             return;
         }
         const log = this.log.scope(entry.module.id);
+        this.starting = entry;
         try {
             await entry.module.init({
                 app,
@@ -101,7 +110,16 @@ export class Modules implements ModuleManager {
         } catch (error) {
             log.error('init failed', error);
             await this.release(entry);
+            this.unexpose(entry);
+        } finally {
+            if (this.starting === entry) this.starting = null;
         }
+    }
+
+    private unexpose(entry: Entry): void {
+        this.apis.delete(entry.module.key);
+        for (const key of entry.exposed) this.apis.delete(key);
+        entry.exposed.clear();
     }
 
     private async stop(entry: Entry): Promise<void> {
@@ -112,7 +130,7 @@ export class Modules implements ModuleManager {
             this.log.error(`dispose of ${entry.module.key} failed`, error);
         }
         await this.release(entry);
-        this.apis.delete(entry.module.key);
+        this.unexpose(entry);
         entry.running = false;
     }
 

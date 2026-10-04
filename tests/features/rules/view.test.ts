@@ -33,7 +33,7 @@ beforeEach(async () => {
 
 describe('rules tab', () => {
     it('lists every rule with its meta, description and switch', () => {
-        expect(container.querySelectorAll('.maestro-rules-card')).toHaveLength(9);
+        expect(container.querySelectorAll('.maestro-rules-card')).toHaveLength(13);
         const role = card('Assistant role → system');
         expect(role.textContent).toContain('Maestro · stage 1 · lore · default · waits for the first-run wizard');
         expect(role.textContent).toContain('BunnyMo #64');

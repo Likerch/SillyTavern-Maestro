@@ -11,6 +11,7 @@ import type { RegexScriptInfo, RegexType } from '../../domain/doctor-regex';
 import { toDoctorEntry } from '../../domain/doctor-types';
 import type { BunnyBookKind, DoctorEntry } from '../../domain/doctor-types';
 import type { App, Logger } from '../../shared/contracts';
+import type { BookRolesApi } from '../bookRoles/api';
 import type { LoreJournalApi } from '../loreJournal/api';
 
 type Dict = Record<string, unknown>;
@@ -96,7 +97,38 @@ export async function readLore(app: App, log: Logger): Promise<LoreSnapshot> {
     );
     for (const book of classified.packs) if (!bunnyBooks.has(book)) bunnyBooks.set(book, 'pack');
     for (const book of classified.core) bunnyBooks.set(book, 'core');
+    // M35 roles: read-only books are BunnyMo (P13), whatever the heuristics say.
+    try {
+        const roles = app.modules.api<BookRolesApi>('bookRoles');
+        for (const book of loaded) {
+            const role = roles?.roleOf(book);
+            if (role?.role === 'bunnymo.core') bunnyBooks.set(book, 'core');
+            else if (role?.readOnly || role?.role === 'bunnymo.pack')
+                bunnyBooks.set(book, bunnyBooks.get(book) ?? 'pack');
+        }
+    } catch (error) {
+        log.debug('book roles are not available', error);
+    }
     return { books: loaded, entries, bunnyBooks };
+}
+
+/** The user's archive books: M35 role 'ck.archive', or (without a role) books with archives that are not BunnyMo. */
+export function archiveBooksOf(app: App, lore: LoreSnapshot, isArchive: (entry: DoctorEntry) => boolean): string[] {
+    const roles = app.modules.api<BookRolesApi>('bookRoles');
+    const result: string[] = [];
+    for (const book of lore.books) {
+        if (lore.bunnyBooks.has(book)) continue;
+        let role;
+        try {
+            role = roles?.roleOf(book);
+        } catch {
+            role = undefined;
+        }
+        if (role ? role.role === 'ck.archive' : lore.entries.some((entry) => entry.book === book && isArchive(entry))) {
+            result.push(book);
+        }
+    }
+    return result;
 }
 
 /** Global World Info settings; null when world-info.js is not available. */

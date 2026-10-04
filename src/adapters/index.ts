@@ -21,9 +21,15 @@ export type { CarrotKernelGlobal } from './ck';
 export { DesAdapter } from './des';
 export type { DesGenerationMode } from './des';
 export { DesRuAdapter } from './desru';
-export type { DesRuModule } from './desru';
+export type { DesRuApi, DesRuFunction, DesRuModule } from './desru';
 export { LocalizerAdapter } from './localizer';
-export type { LocalizerLanguageState, LocalizerMarker } from './localizer';
+export type {
+    LocalizeEntriesOptions,
+    LocalizeEntriesResult,
+    LocalizerApi,
+    LocalizerLanguageState,
+    LocalizerMarker,
+} from './localizer';
 export { NaiAdapter } from './nai';
 export type { NaiPassport, NaiPassportKind } from './nai';
 export { PresetAdapter } from './preset';

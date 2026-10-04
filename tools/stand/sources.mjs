@@ -45,9 +45,9 @@ export const NEIGHBOURS = [
     {
         id: 'desru',
         folder: 'SillyTavern-Doom-Enhancement-Suite-RU',
-        version: '0.7.0',
+        version: '0.8.0',
         repo: 'SillyTavern-DES-RU',
-        ref: '212844116bdcd04bd163bc35b357912c9c9a0c44',
+        ref: 'f32b711578ba87d3c02ccf831ffdc01b563ad669',
         note: 'DES-RU add-on',
     },
     {
@@ -62,9 +62,9 @@ export const NEIGHBOURS = [
     {
         id: 'localizer',
         folder: 'SillyTavern-LorebookLocalizer',
-        version: '0.1.0',
+        version: '0.2.0',
         repo: 'SillyTavern-LorebookLocalizer',
-        ref: 'ae00f4b70ac8732736e168d6e6515da57bd466da',
+        ref: 'de3dec4d84bc1977d3351c2ff7c9f7a24d194470',
         note: 'Lorebook Localizer',
     },
 ];

@@ -122,7 +122,8 @@ export function findPackDuplicates(entries: readonly DoctorEntry[], bunnyBooks: 
                     continue;
                 }
                 // Version conflicts are a pack matter: in other books one key often opens different entries.
-                const packs = bunnyBooks.has(first) && bunnyBooks.has(second);
+                // Constants have no keys to collide on (every pack's read-me would "conflict").
+                const packs = bunnyBooks.has(first) && bunnyBooks.has(second) && !left[0]?.constant;
                 const intended = [...left, ...right].some((entry) => INTENDED_PAIR_RE.test(entry.comment));
                 if (packs && !intended && right[0]) bump(conflicts, first, second, right[0]);
             }
@@ -161,6 +162,7 @@ export function findPackDuplicates(entries: readonly DoctorEntry[], bunnyBooks: 
                 ...(newer ? { newer } : {}),
             },
             target: { books: [pair.first, pair.second], book: pair.second, uids: pair.uids.slice(0, 100) },
+            fixRule: DOCTOR_RULES.packVersion,
             fileFix: false,
         });
     }
@@ -256,7 +258,8 @@ export function findKeyIssues(entries: readonly DoctorEntry[], options: KeyCheck
             messageKey: 'm5.f.cyrillicWholeWord',
             params: { book, count: list.length, sample: sample(list.map((item) => item.key)) },
             target: { book, uids: [...new Set(list.map((item) => item.entry.uid))].slice(0, 100) },
-            fileFix: false,
+            fixRule: DOCTOR_RULES.cyrillicLeftBoundary,
+            fileFix: !options.bunnyBooks.has(book),
         });
     }
 

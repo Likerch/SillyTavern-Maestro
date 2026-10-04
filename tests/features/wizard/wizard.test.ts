@@ -73,7 +73,7 @@ const RULES = [
     { id: 'tags.show', kind: 'display' as const, enabledByDefault: true },
     { id: 'ck.button', kind: 'ui' as const, enabledByDefault: false },
     { id: 'neighbour.x', kind: 'neighbour' as const },
-    { id: 'later', stage: 2 },
+    { id: 'later', stage: 3 },
     { id: 'book.cap', kind: 'lore' as const, enabledByDefault: true },
 ];
 
@@ -279,7 +279,7 @@ describe('step 5: rules', () => {
         expect(container.textContent).toContain('«Правила» (M22) выключен');
     });
 
-    it('offers stage 1 rules with defaults, compares and applies on «Далее» with book caps', async () => {
+    it('offers stage 1–2 rules with defaults, compares and applies on «Далее» with book caps', async () => {
         const rules = new FakeRules(RULES);
         s.modules.expose('rules', rules);
         s.modules.expose(

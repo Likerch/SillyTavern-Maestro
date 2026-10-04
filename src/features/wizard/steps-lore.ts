@@ -236,7 +236,7 @@ export function rulesStep(app: App, settings: WizardSettings, alive: () => boole
             try {
                 offered = rules
                     .list()
-                    .filter((rule) => rule.definition.stage === 1 && OFFERED_KINDS.includes(rule.definition.kind));
+                    .filter((rule) => rule.definition.stage <= 2 && OFFERED_KINDS.includes(rule.definition.kind));
             } catch (error) {
                 app.log.warn('rules list failed', error);
             }

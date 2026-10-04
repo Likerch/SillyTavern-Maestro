@@ -6,6 +6,9 @@ export const DOCTOR_STRINGS: I18nParts = {
         'm5.title': 'Doctor',
         'm5.tab': 'Doctor',
         'kind.doctor.enableRule': 'Enabling rules from the Doctor',
+        'kind.doctor.fileFix': 'Lorebook file fixes from the Doctor',
+        'kind.doctor.regexFix': 'Regex changes from the Doctor',
+        'kind.doctor.presetRegexFix': 'Preset regex changes from the Doctor',
 
         'm5.scan': 'Check',
         'm5.rescan': 'Check again',
@@ -51,9 +54,9 @@ export const DOCTOR_STRINGS: I18nParts = {
         'm5.f.packDuplicate':
             '“{a}” and “{b}” share identical entries: {count} (about {chars} characters reach the prompt twice). For example: {sample}.',
         'm5.f.packVersionConflict':
-            '“{a}” and “{b}” have entries with the same keys but different text: {count} (for example {sample}). One tag fires both texts. “{newer}” looks newer. Stage 2 settles this with one question: which version to keep.',
+            '“{a}” and “{b}” have entries with the same keys but different text: {count} (for example {sample}). One tag fires both texts. “{newer}” looks newer. The rule “Pack version conflicts” asks once which version to keep.',
         'm5.f.packVersionConflictUnsure':
-            '“{a}” and “{b}” have entries with the same keys but different text: {count} (for example {sample}). One tag fires both texts. Stage 2 settles this with one question: which version to keep.',
+            '“{a}” and “{b}” have entries with the same keys but different text: {count} (for example {sample}). One tag fires both texts. The rule “Pack version conflicts” asks once which version to keep.',
         'm5.f.recursionChain':
             '“{book}”: recursion chains reach {depth} steps, for example {path}. Links: {links}; entries pulling in 5 or more others: {vacuums}; one entry can pull in up to {chars} characters.',
         'm5.f.recursionVacuum':
@@ -80,7 +83,7 @@ export const DOCTOR_STRINGS: I18nParts = {
         'm5.f.noRussian':
             '“{book}”: entries with English-only keys: {count} (for example {sample}). The chat is in Russian, so they fire only through tags or recursion.',
         'm5.f.cyrillicWholeWord':
-            '“{book}”: Cyrillic keys with “match whole words”: {count} (for example {sample}). In ST this option does not work for Cyrillic (\\W knows only Latin letters), so these keys match as substrings: “аня” fires inside “Таня”. A stage 2 rule adds a left-only boundary that keeps case endings working.',
+            '“{book}”: Cyrillic keys with “match whole words”: {count} (for example {sample}). In ST this option does not work for Cyrillic (\\W knows only Latin letters), so these keys match as substrings: “аня” fires inside “Таня”. The rule “Cyrillic keys and whole words” adds a left-only boundary that keeps case endings working; the same can be written to the file.',
         'm5.f.localizerBroken.flags':
             '“{entry}” ({book}): keys added by Lorebook Localizer have unknown regex flags and never fire ({count}), for example {key}.',
         'm5.f.localizerBroken.slash':
@@ -129,7 +132,11 @@ export const DOCTOR_STRINGS: I18nParts = {
             'Regex “{name}” ({type}) is set to World Info without “prompt only”: ST applies only prompt-only regexes to lore, so it does nothing there.',
 
         'm5.enableRule': 'Enable rule',
-        'm5.ruleOn': 'Rule is on',
+        'm5.ruleHandles': 'Fixed on the fly by a rule',
+        'm5.ruleWaits': 'The rule is on and starts after the first-run wizard',
+        'm5.ruleUnavailable': 'The rule is on but cannot work now: {missing}',
+        'm5.rulePackPending': 'The rule asks once which version to keep; until then both work',
+        'm5.rulePackKeepsAll': 'Both versions kept by your choice (change it on the Rules tab)',
         'm5.ruleTitle': 'Rule: {rule}',
         'm5.ruleMissing': 'The Rules module is off: rules cannot be switched on from findings.',
         'm5.ruleLater': 'The rule arrives in a later stage',
@@ -140,6 +147,45 @@ export const DOCTOR_STRINGS: I18nParts = {
         'm5.bunnyBook': 'BunnyMo book: its file is never edited',
         'm5.openBook': 'Open “{book}”',
         'm5.showRegex': 'Show in the list',
+        'm5.fixFile': 'Fix in the file',
+        'm5.fixFile.hint': 'Shows the changes and asks first; the previous values stay in the journal.',
+        'm5.fixFile.title.role': 'Assistant role → system in “{book}”',
+        'm5.fixFile.title.scanDepth': 'Global scan depth for an archive in “{book}”',
+        'm5.fixFile.title.localizer': 'Repair Localizer keys in “{book}”',
+        'm5.fixFile.title.cyrillic': 'Left-boundary Cyrillic keys in “{book}”',
+        'm5.fixFile.title.other': 'Fix “{book}”',
+        'm5.fixFile.description':
+            'Entries to change in “{book}”: {count}. The book is saved right away; the previous values stay in the journal, and undo puts them back.',
+        'm5.fixFile.more': '…and {count} more',
+        'm5.fixFile.globalDepth': 'global',
+        'm5.fixFile.marker': 'Localizer marker',
+        'm5.fixFile.done': 'Fixed in “{book}”: {count}.',
+        'm5.fixFile.queued': 'The fix of “{book}” is waiting in the Inbox.',
+        'm5.fixFile.none': 'Nothing is left to fix in “{book}”: check again.',
+        'm5.fixFile.unavailable': 'This SillyTavern cannot save lorebooks from extensions.',
+        'm5.fixFile.failed.missing': 'The book “{book}” or its entry is gone.',
+        'm5.fixFile.failed.stale': 'The entry in “{book}” changed after the check: check again.',
+        'm5.fixFile.failed.protected': '“{book}” is a BunnyMo book: its file is never edited.',
+        'm5.regexFix.enable': 'Enable',
+        'm5.regexFix.disable': 'Disable',
+        'm5.regexFix.delete': 'Delete',
+        'm5.regexFix.disableNamed': 'Disable “{name}”',
+        'm5.regexFix.deleteCopy': 'Delete the copy “{name}”',
+        'm5.regexFix.deadNote': 'Other chats may need it, so it is only disabled, never deleted.',
+        'm5.regexFix.title.enable': 'Enable regex “{name}” ({type})',
+        'm5.regexFix.title.disable': 'Disable regex “{name}” ({type})',
+        'm5.regexFix.title.delete': 'Delete regex “{name}” ({type})',
+        'm5.regexFix.description.enable': 'Regex “{name}” starts working again.',
+        'm5.regexFix.description.disable':
+            'Regex “{name}” stops working; it stays in the list and can be enabled again.',
+        'm5.regexFix.description.delete':
+            'Regex “{name}” is removed from the list. The journal keeps a copy, and undo puts it back in its place.',
+        'm5.regexFix.presetFile': 'This regex lives in the preset: the preset file is saved.',
+        'm5.regexFix.done.enable': 'Regex “{name}” is on.',
+        'm5.regexFix.done.disable': 'Regex “{name}” is off.',
+        'm5.regexFix.done.delete': 'Regex “{name}” is deleted.',
+        'm5.regexFix.queued': 'The change of regex “{name}” is waiting in the Inbox.',
+        'm5.regexFix.notFound': 'Regex “{name}” is not there any more (or belongs to another character or preset).',
 
         'm5.books.title': 'Active books',
         'm5.books.book': 'Book',
@@ -161,6 +207,7 @@ export const DOCTOR_STRINGS: I18nParts = {
         'm5.regex.mode': 'Mode',
         'm5.regex.depth': 'Depth',
         'm5.regex.state': 'State',
+        'm5.regex.actions': 'Actions',
         'm5.regex.unnamed': '(no name)',
         'm5.regexType.global': 'global',
         'm5.regexType.scoped': 'character',
@@ -210,6 +257,9 @@ export const DOCTOR_STRINGS: I18nParts = {
         'm5.title': 'Доктор',
         'm5.tab': 'Доктор',
         'kind.doctor.enableRule': 'Включение правил из «Доктора»',
+        'kind.doctor.fileFix': 'Исправления лорбуков из «Доктора»',
+        'kind.doctor.regexFix': 'Правка регексов из «Доктора»',
+        'kind.doctor.presetRegexFix': 'Правка регексов пресета из «Доктора»',
 
         'm5.scan': 'Проверить',
         'm5.rescan': 'Проверить заново',
@@ -254,9 +304,9 @@ export const DOCTOR_STRINGS: I18nParts = {
         'm5.f.packDuplicate':
             'В «{a}» и «{b}» есть одинаковые записи: {count} (около {chars} символов уходят в промпт дважды). Например: {sample}.',
         'm5.f.packVersionConflict':
-            'В «{a}» и «{b}» есть записи с одинаковыми ключами, но разным текстом: {count} (например, {sample}). На один тег срабатывают оба текста. Похоже, новее «{newer}». На этапе 2 это решится одним вопросом — какую версию оставить.',
+            'В «{a}» и «{b}» есть записи с одинаковыми ключами, но разным текстом: {count} (например, {sample}). На один тег срабатывают оба текста. Похоже, новее «{newer}». Правило «Конфликт версий паков» один раз спросит, какую версию оставить.',
         'm5.f.packVersionConflictUnsure':
-            'В «{a}» и «{b}» есть записи с одинаковыми ключами, но разным текстом: {count} (например, {sample}). На один тег срабатывают оба текста. На этапе 2 это решится одним вопросом — какую версию оставить.',
+            'В «{a}» и «{b}» есть записи с одинаковыми ключами, но разным текстом: {count} (например, {sample}). На один тег срабатывают оба текста. Правило «Конфликт версий паков» один раз спросит, какую версию оставить.',
         'm5.f.recursionChain':
             '«{book}»: цепочки рекурсии доходят до {depth} шагов, например {path}. Связей: {links}; записей, которые тянут за собой 5 и больше других: {vacuums}; одна запись может подтянуть до {chars} символов.',
         'm5.f.recursionVacuum':
@@ -283,7 +333,7 @@ export const DOCTOR_STRINGS: I18nParts = {
         'm5.f.noRussian':
             '«{book}»: записей с ключами только на английском — {count} (например, {sample}). Чат идёт на русском, поэтому они срабатывают разве что по тегам или через рекурсию.',
         'm5.f.cyrillicWholeWord':
-            '«{book}»: кириллических ключей с «только целыми словами» — {count} (например, {sample}). В ST эта опция не работает для кириллицы (\\W знает только латиницу), поэтому такие ключи ищутся как подстрока: «аня» срабатывает внутри «Таня». На этапе 2 появится правило с границей только слева — падежные окончания при этом продолжат работать.',
+            '«{book}»: кириллических ключей с «только целыми словами» — {count} (например, {sample}). В ST эта опция не работает для кириллицы (\\W знает только латиницу), поэтому такие ключи ищутся как подстрока: «аня» срабатывает внутри «Таня». Правило «Кириллица и «целые слова»» ставит границу только слева — падежные окончания при этом продолжают работать; то же можно записать и в файл.',
         'm5.f.localizerBroken.flags':
             '«{entry}» («{book}»): у ключей от Lorebook Localizer неверные флаги регулярки, они никогда не сработают ({count}), например {key}.',
         'm5.f.localizerBroken.slash':
@@ -333,7 +383,11 @@ export const DOCTOR_STRINGS: I18nParts = {
             'Регекс «{name}» ({type}) стоит на «лор», но без флажка «только промпт»: к лору ST применяет только такие регексы, так что там он ничего не делает.',
 
         'm5.enableRule': 'Включить правило',
-        'm5.ruleOn': 'Правило включено',
+        'm5.ruleHandles': 'Исправляется правилом на лету',
+        'm5.ruleWaits': 'Правило включено и заработает после мастера первого запуска',
+        'm5.ruleUnavailable': 'Правило включено, но сейчас не может работать: {missing}',
+        'm5.rulePackPending': 'Правило один раз спросит, какую версию оставить, а пока работают обе',
+        'm5.rulePackKeepsAll': 'По твоему выбору оставлены обе версии (поменять — во вкладке «Правила»)',
         'm5.ruleTitle': 'Правило: {rule}',
         'm5.ruleMissing': 'Модуль «Правила» выключен: включить правила из находок нельзя.',
         'm5.ruleLater': 'Правило появится на следующих этапах',
@@ -344,6 +398,45 @@ export const DOCTOR_STRINGS: I18nParts = {
         'm5.bunnyBook': 'Книга BunnyMo: её файл не правится',
         'm5.openBook': 'Открыть «{book}»',
         'm5.showRegex': 'Показать в списке',
+        'm5.fixFile': 'Исправить в файле',
+        'm5.fixFile.hint': 'Сначала покажет изменения и спросит; прежние значения остаются в журнале.',
+        'm5.fixFile.title.role': 'Роль assistant → system в «{book}»',
+        'm5.fixFile.title.scanDepth': 'Общая глубина сканирования для архива в «{book}»',
+        'm5.fixFile.title.localizer': 'Починить ключи Localizer в «{book}»',
+        'm5.fixFile.title.cyrillic': 'Кириллические ключи с границей слева в «{book}»',
+        'm5.fixFile.title.other': 'Исправить «{book}»',
+        'm5.fixFile.description':
+            'Записей к изменению в «{book}»: {count}. Книга сохраняется сразу; прежние значения остаются в журнале, и отмена возвращает их.',
+        'm5.fixFile.more': '…и ещё {count}',
+        'm5.fixFile.globalDepth': 'общая',
+        'm5.fixFile.marker': 'отметка Localizer',
+        'm5.fixFile.done': 'Исправлено в «{book}»: {count}.',
+        'm5.fixFile.queued': 'Исправление «{book}» ждёт во «Входящих».',
+        'm5.fixFile.none': 'В «{book}» уже нечего исправлять — проверь заново.',
+        'm5.fixFile.unavailable': 'Этот SillyTavern не даёт расширениям сохранять лорбуки.',
+        'm5.fixFile.failed.missing': 'Книги «{book}» или её записи больше нет.',
+        'm5.fixFile.failed.stale': 'Запись в «{book}» изменилась после проверки — проверь заново.',
+        'm5.fixFile.failed.protected': '«{book}» — книга BunnyMo, её файл не правится.',
+        'm5.regexFix.enable': 'Включить',
+        'm5.regexFix.disable': 'Выключить',
+        'm5.regexFix.delete': 'Удалить',
+        'm5.regexFix.disableNamed': 'Выключить «{name}»',
+        'm5.regexFix.deleteCopy': 'Удалить копию «{name}»',
+        'm5.regexFix.deadNote': 'В других чатах он может быть нужен — поэтому только выключение, без удаления.',
+        'm5.regexFix.title.enable': 'Включить регекс «{name}» ({type})',
+        'm5.regexFix.title.disable': 'Выключить регекс «{name}» ({type})',
+        'm5.regexFix.title.delete': 'Удалить регекс «{name}» ({type})',
+        'm5.regexFix.description.enable': 'Регекс «{name}» снова начнёт работать.',
+        'm5.regexFix.description.disable':
+            'Регекс «{name}» перестанет работать, но останется в списке — его можно включить снова.',
+        'm5.regexFix.description.delete':
+            'Регекс «{name}» уберётся из списка. В журнале остаётся копия, и отмена вернёт его на место.',
+        'm5.regexFix.presetFile': 'Этот регекс хранится в пресете — сохранится файл пресета.',
+        'm5.regexFix.done.enable': 'Регекс «{name}» включён.',
+        'm5.regexFix.done.disable': 'Регекс «{name}» выключен.',
+        'm5.regexFix.done.delete': 'Регекс «{name}» удалён.',
+        'm5.regexFix.queued': 'Изменение регекса «{name}» ждёт во «Входящих».',
+        'm5.regexFix.notFound': 'Регекса «{name}» больше нет (или он теперь у другого персонажа или пресета).',
 
         'm5.books.title': 'Активные книги',
         'm5.books.book': 'Книга',
@@ -365,6 +458,7 @@ export const DOCTOR_STRINGS: I18nParts = {
         'm5.regex.mode': 'Режим',
         'm5.regex.depth': 'Глубина',
         'm5.regex.state': 'Состояние',
+        'm5.regex.actions': 'Действия',
         'm5.regex.unnamed': '(без названия)',
         'm5.regexType.global': 'глобальный',
         'm5.regexType.scoped': 'персонажа',

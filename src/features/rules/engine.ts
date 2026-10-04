@@ -44,7 +44,14 @@ const CAP_OPTIONS_RULE = 'book.cap';
 const GAP_OPTIONS_RULE = 'qvink.gapGuard';
 
 export function defaultRulesSettings(): RulesSettings {
-    return { enabled: {}, bookCaps: {}, gapGuardLimit: DEFAULT_GAP_GUARD_LIMIT };
+    return {
+        enabled: {},
+        bookCaps: {},
+        gapGuardLimit: DEFAULT_GAP_GUARD_LIMIT,
+        packChoices: {},
+        packAsked: {},
+        archiveProposals: {},
+    };
 }
 
 interface TogglePayload {
@@ -109,6 +116,9 @@ export class RulesEngine implements RulesApi {
             isActive: (id) => this.isActive(id),
             reportCuts: (cuts) => this.reportCuts(cuts),
             tokens: this.tokens,
+            capability: (id) => this.capability(id),
+            simulating: () => this.lore()?.simulating() === true,
+            activeBooks: () => this.activeBooks(),
         };
     }
 
@@ -120,6 +130,9 @@ export class RulesEngine implements RulesApi {
         if (typeof slice.gapGuardLimit !== 'number' || !Number.isFinite(slice.gapGuardLimit)) {
             slice.gapGuardLimit = DEFAULT_GAP_GUARD_LIMIT;
         }
+        if (!isPlainObject(slice.packChoices)) slice.packChoices = {};
+        if (!isPlainObject(slice.packAsked)) slice.packAsked = {};
+        if (!isPlainObject(slice.archiveProposals)) slice.archiveProposals = {};
         return slice as RulesSettings;
     }
 
@@ -194,16 +207,26 @@ export class RulesEngine implements RulesApi {
             return { caps, recursion };
         }
         if (id === GAP_OPTIONS_RULE) return { limit: this.settings().gapGuardLimit };
-        return undefined;
+        const rule = this.rules.get(id);
+        try {
+            return rule?.options?.();
+        } catch (error) {
+            this.log.error(`rule ${id} options failed`, error);
+            return undefined;
+        }
     }
 
     /** Sets parameters in the shape of options(); 'book.cap' `caps` replace every token cap, `recursion` every limit. */
-    setOptions(id: string, options: Record<string, unknown>): void {
+    setOptions(id: string, options: Record<string, unknown>): void | Promise<void> {
         if (id === GAP_OPTIONS_RULE && typeof options.limit === 'number') {
             this.setGapGuardLimit(options.limit);
             return;
         }
-        if (id !== CAP_OPTIONS_RULE) return;
+        if (id !== CAP_OPTIONS_RULE) {
+            const result = this.rules.get(id)?.setOptions?.(options);
+            this.emit();
+            return result;
+        }
         const current = this.settings().bookCaps;
         const next: Record<string, BookCap> = Object.fromEntries(
             Object.entries(current).map(([book, cap]) => [book, { ...cap }]),
@@ -440,7 +463,7 @@ export class RulesEngine implements RulesApi {
         return (rule.requires ?? []).filter((id) => !this.capability(id));
     }
 
-    private capability(id: string): boolean {
+    capability(id: string): boolean {
         const prefix = id.split('.')[0] ?? '';
         const adapter = (this.app.adapters as Partial<Record<string, NeighbourAdapter>>)[prefix];
         if (adapter && prefix !== 'st') {

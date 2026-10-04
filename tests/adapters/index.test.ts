@@ -16,6 +16,7 @@ const ALL_CAPABILITIES = [
     'desru.names',
     'desru.bunnymo',
     'desru.carrotKernel',
+    'desru.api',
     'ck.present',
     'ck.repos',
     'ck.rag',
@@ -28,6 +29,7 @@ const ALL_CAPABILITIES = [
     'nai.present',
     'nai.api',
     'localizer.present',
+    'localizer.api',
     'preset.cc',
     'preset.marinara',
 ];

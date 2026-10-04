@@ -253,7 +253,7 @@ describe('M5 tab', () => {
         expect(s.journal.records[0]).toMatchObject({ module: 'M5', kind: 'doctor.enableRule' });
         expect(s.ui.notices.at(-1)?.text).toBe('Правило «Роль assistant → system» включено.');
         expect(container.querySelector(`[data-finding="${finding.dataset.finding}"]`)?.textContent).toContain(
-            'Правило включено',
+            'Исправляется правилом на лету',
         );
         expect(await s.journal.undo(s.journal.records[0]!.id)).toBe(true);
         expect(rules.isEnabled('role.assistantToSystem')).toBe(false);

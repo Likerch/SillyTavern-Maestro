@@ -1,8 +1,8 @@
 //#region src/adapters/base.ts
-function isDict$22(value) {
+function isDict$29(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
-function stringList$2(value) {
+function stringList$4(value) {
 	return Array.isArray(value) ? value.filter((item) => typeof item === "string") : [];
 }
 /** The page document, or null outside a browser (unit tests in the node environment). */
@@ -23,10 +23,10 @@ function extras$1(host) {
 /** `extension_settings[key]` when it is an object. */
 function extensionSettingsOf(host, key) {
 	const value = host.ctx().extensionSettings[key];
-	return isDict$22(value) ? value : null;
+	return isDict$29(value) ? value : null;
 }
 function toManifest(value) {
-	if (!isDict$22(value)) return null;
+	if (!isDict$29(value)) return null;
 	const manifest = {};
 	for (const key of [
 		"display_name",
@@ -126,7 +126,7 @@ var ExtensionLocator = class {
 		const names = /* @__PURE__ */ new Set();
 		try {
 			const module = await this.host.modules.load("extensions.js");
-			for (const name of stringList$2(module.extensionNames)) names.add(name);
+			for (const name of stringList$4(module.extensionNames)) names.add(name);
 		} catch (error) {
 			this.log.debug("ST extension list is not available; using page scripts and known folders", error);
 		}
@@ -272,13 +272,13 @@ var MBTI_TAG_RE$1 = /<([EI][NS][FT][JP]-[UH])>/gi;
 var PLACEHOLDER_RE$2 = /^(?:BLANK|NEW|VALUE|TARGET|NAME|NAME[\s_]HERE|PLACEHOLDER|TBD|X{3,})$/i;
 /** Entry wrapper `<BunnymoTags:Title>…</BunnymoTags:Title>`, used by the core and by some packs. */
 var WRAPPED_RE = /^<BunnymoTags:/i;
-function text$2(value) {
+function text$4(value) {
 	return value === void 0 || value === null ? "" : String(value);
 }
 /** Primary and secondary keys of an entry, trimmed, without empty ones. */
 function entryKeys(entry) {
 	const list = (value) => Array.isArray(value) ? value : [];
-	return [...list(entry?.key), ...list(entry?.keysecondary)].map((key) => text$2(key).trim()).filter(Boolean);
+	return [...list(entry?.key), ...list(entry?.keysecondary)].map((key) => text$4(key).trim()).filter(Boolean);
 }
 /**
 * Is this an entry of the BunnyMo core lorebook? By a sheet command in its keys or by a known entry title.
@@ -286,7 +286,7 @@ function entryKeys(entry) {
 */
 function isBunnyMoCoreEntry(entry) {
 	if (entryKeys(entry).some((key) => BUNNYMO_SHEET_COMMANDS.includes(key.toLowerCase()))) return true;
-	return CORE_COMMENT_RE.test(text$2(entry?.comment));
+	return CORE_COMMENT_RE.test(text$4(entry?.comment));
 }
 /**
 * Which books are BunnyMo: the core (3+ core entries) and packs ((3+ tag-keyed entries that are at least 60 %
@@ -295,7 +295,7 @@ function isBunnyMoCoreEntry(entry) {
 function classifyWorlds(entries) {
 	const stats = /* @__PURE__ */ new Map();
 	for (const entry of entries) {
-		const world = text$2(entry?.world);
+		const world = text$4(entry?.world);
 		if (!world) continue;
 		const item = stats.get(world) ?? {
 			core: 0,
@@ -304,7 +304,7 @@ function classifyWorlds(entries) {
 			wrapped: 0
 		};
 		if (isBunnyMoCoreEntry(entry)) item.core += 1;
-		if (WRAPPED_RE.test(text$2(entry?.content).trimStart())) item.wrapped += 1;
+		if (WRAPPED_RE.test(text$4(entry?.content).trimStart())) item.wrapped += 1;
 		const keys = entryKeys(entry);
 		if (keys.length) {
 			item.keyed += 1;
@@ -326,7 +326,7 @@ function classifyWorlds(entries) {
 * Template placeholders (`<GENRE:BLANK>`, `<Dere:NEW>`) are skipped.
 */
 function archiveTags(entry) {
-	const block = TAG_BLOCK_RE$1.exec(text$2(entry?.content));
+	const block = TAG_BLOCK_RE$1.exec(text$4(entry?.content));
 	if (!block?.[1]) return {
 		name: null,
 		tags: []
@@ -351,7 +351,7 @@ function archiveTags(entry) {
 * block whose name is a placeholder.
 */
 function isCharacterArchive(entry) {
-	if (!TAG_BLOCK_RE$1.test(text$2(entry?.content)) || isBunnyMoCoreEntry(entry)) return false;
+	if (!TAG_BLOCK_RE$1.test(text$4(entry?.content)) || isBunnyMoCoreEntry(entry)) return false;
 	const { name, tags } = archiveTags(entry);
 	return name !== null ? !PLACEHOLDER_RE$2.test(name) : tags.length > 0;
 }
@@ -359,7 +359,7 @@ function isCharacterArchive(entry) {
 function archiveWorlds(entries) {
 	const worlds = /* @__PURE__ */ new Set();
 	for (const entry of entries) {
-		const world = text$2(entry?.world);
+		const world = text$4(entry?.world);
 		if (world && !worlds.has(world) && isCharacterArchive(entry)) worlds.add(world);
 	}
 	return worlds;
@@ -367,7 +367,7 @@ function archiveWorlds(entries) {
 //#endregion
 //#region src/adapters/bunnymo/index.ts
 /** ST's `getCharaFilename`: the avatar file name without its extension (key of `world_info.charLore`). */
-function avatarKey$1(avatar) {
+function avatarKey$2(avatar) {
 	return avatar.replace(/\.[^/.]+$/, "");
 }
 var BunnyMoAdapter = class extends NeighbourBase {
@@ -427,9 +427,9 @@ var BunnyMoAdapter = class extends NeighbourBase {
 		let charLore = [];
 		try {
 			const worldInfo = await this.host.modules.worldInfo();
-			for (const name of stringList$2(worldInfo.selected_world_info)) names.add(name);
+			for (const name of stringList$4(worldInfo.selected_world_info)) names.add(name);
 			const settings = worldInfo.world_info;
-			if (isDict$22(settings) && Array.isArray(settings.charLore)) charLore = settings.charLore;
+			if (isDict$29(settings) && Array.isArray(settings.charLore)) charLore = settings.charLore;
 		} catch (error) {
 			this.log.debug("world-info.js is not available; global books are skipped", error);
 		}
@@ -442,8 +442,8 @@ var BunnyMoAdapter = class extends NeighbourBase {
 			if (!character) continue;
 			const primary = character.data?.extensions?.world;
 			if (typeof primary === "string" && primary) names.add(primary);
-			const key = avatarKey$1(character.avatar ?? "");
-			for (const lore of charLore) if (isDict$22(lore) && lore.name === key) for (const book of stringList$2(lore.extraBooks)) names.add(book);
+			const key = avatarKey$2(character.avatar ?? "");
+			for (const lore of charLore) if (isDict$29(lore) && lore.name === key) for (const book of stringList$4(lore.extraBooks)) names.add(book);
 		}
 		const known = extras$1(this.host).getWorldInfoNames?.() ?? [];
 		return known.length ? [...names].filter((name) => known.includes(name)) : [...names];
@@ -486,11 +486,11 @@ var BunnyMoAdapter = class extends NeighbourBase {
 			this.log.debug(`lorebook ${book} did not load`, error);
 			return null;
 		}
-		if (!isDict$22(data) || !isDict$22(data.entries)) return null;
+		if (!isDict$29(data) || !isDict$29(data.entries)) return null;
 		const entries = [];
 		const enabled = [];
 		for (const raw of Object.values(data.entries)) {
-			if (!isDict$22(raw)) continue;
+			if (!isDict$29(raw)) continue;
 			const entry = {
 				key: raw.key,
 				keysecondary: raw.keysecondary,
@@ -521,7 +521,7 @@ function isCkManifest(manifest) {
 }
 function globalObject(name) {
 	const value = globalThis[name];
-	return isDict$22(value) ? value : null;
+	return isDict$29(value) ? value : null;
 }
 var CkAdapter = class extends NeighbourBase {
 	id = "ck";
@@ -555,15 +555,15 @@ var CkAdapter = class extends NeighbourBase {
 	}
 	/** Lorebooks marked as Character Repos (archives CK scans for `<BunnymoTags>`). */
 	repoBooks() {
-		return stringList$2(this.settings()?.characterRepoBooks);
+		return stringList$4(this.settings()?.characterRepoBooks);
 	}
 	/** Lorebooks marked as Tag Libraries. */
 	tagLibraries() {
-		return stringList$2(this.settings()?.tagLibraries);
+		return stringList$4(this.settings()?.tagLibraries);
 	}
 	ragEnabled() {
 		const rag = this.settings()?.rag;
-		return isDict$22(rag) && rag.enabled === true;
+		return isDict$29(rag) && rag.enabled === true;
 	}
 };
 //#endregion
@@ -581,7 +581,7 @@ var KNOWN_INFO_KEYS = /* @__PURE__ */ new Set([
 	"temperature",
 	"recentEvents"
 ]);
-function isDict$21(value) {
+function isDict$28(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /** Trims and drops brackets that wrap the whole value (`[Friend]`), as DES's renderers do. */
@@ -598,7 +598,7 @@ function textOf(value) {
 		const parts = value.map(textOf).filter((part) => !!part);
 		return parts.length ? parts.join(", ") : void 0;
 	}
-	if (isDict$21(value)) for (const key of [
+	if (isDict$28(value)) for (const key of [
 		"value",
 		"text",
 		"description",
@@ -640,13 +640,13 @@ function statsOf(raw) {
 		});
 	};
 	if (Array.isArray(raw)) {
-		for (const item of raw) if (isDict$21(item)) push(item.name, item.value);
-	} else if (isDict$21(raw)) for (const [name, value] of Object.entries(raw)) push(name, isDict$21(value) ? value.value : value);
+		for (const item of raw) if (isDict$28(item)) push(item.name, item.value);
+	} else if (isDict$28(raw)) for (const [name, value] of Object.entries(raw)) push(name, isDict$28(value) ? value.value : value);
 	return stats;
 }
 function detailsOf(raw) {
 	const details = {};
-	if (!isDict$21(raw)) return details;
+	if (!isDict$28(raw)) return details;
 	for (const [key, value] of Object.entries(raw)) {
 		const text = textOf(value);
 		if (key && text) details[key] = text;
@@ -656,16 +656,16 @@ function detailsOf(raw) {
 function relationshipOf(entry) {
 	if (typeof entry.Relationship === "string") return clean(entry.Relationship) || void 0;
 	const relationship = entry.relationship;
-	if (isDict$21(relationship)) return textOf(relationship.status) ?? textOf(relationship);
+	if (isDict$28(relationship)) return textOf(relationship.status) ?? textOf(relationship);
 	return textOf(relationship);
 }
 function thoughtsOf(entry) {
 	const thoughts = entry.thoughts;
-	if (isDict$21(thoughts)) return textOf(thoughts.content) ?? textOf(thoughts);
+	if (isDict$28(thoughts)) return textOf(thoughts.content) ?? textOf(thoughts);
 	return textOf(thoughts);
 }
 function characterOf(raw) {
-	if (!isDict$21(raw) || typeof raw.name !== "string" || !raw.name.trim()) return null;
+	if (!isDict$28(raw) || typeof raw.name !== "string" || !raw.name.trim()) return null;
 	const thoughts = thoughtsOf(raw);
 	const character = {
 		name: raw.name.trim(),
@@ -683,7 +683,7 @@ function characterOf(raw) {
 /** Characters from `characterThoughts`: an array (DES 2.6 parse) or `{characters: [...]}` (legacy, defaults). */
 function parseDesCharacters(raw) {
 	const data = parseTrackerJson(raw);
-	const list = Array.isArray(data) ? data : isDict$21(data) && Array.isArray(data.characters) ? data.characters : [];
+	const list = Array.isArray(data) ? data : isDict$28(data) && Array.isArray(data.characters) ? data.characters : [];
 	const characters = [];
 	for (const item of list) {
 		const character = characterOf(item);
@@ -692,7 +692,7 @@ function parseDesCharacters(raw) {
 	return characters;
 }
 function timeOf(raw) {
-	if (isDict$21(raw)) {
+	if (isDict$28(raw)) {
 		const start = textOf(raw.start) ?? textOf(raw.value);
 		const end = textOf(raw.end);
 		if (!start && !end) return void 0;
@@ -705,7 +705,7 @@ function timeOf(raw) {
 	return flat ? { start: flat } : void 0;
 }
 function weatherOf(raw) {
-	if (isDict$21(raw)) {
+	if (isDict$28(raw)) {
 		const emoji = textOf(raw.emoji);
 		const forecast = textOf(raw.forecast) ?? textOf(raw.value);
 		if (!emoji && !forecast) return void 0;
@@ -720,7 +720,7 @@ function weatherOf(raw) {
 function temperatureOf(raw) {
 	if (typeof raw === "number" && Number.isFinite(raw)) return { value: raw };
 	if (typeof raw === "string") return raw.trim() ? { value: raw.trim() } : void 0;
-	if (!isDict$21(raw)) return void 0;
+	if (!isDict$28(raw)) return void 0;
 	const value = raw.value;
 	const temperature = typeof value === "number" && Number.isFinite(value) ? { value } : typeof value === "string" && value.trim() ? { value: value.trim() } : void 0;
 	const unit = textOf(raw.unit);
@@ -729,14 +729,14 @@ function temperatureOf(raw) {
 }
 function eventsOf(raw) {
 	if (Array.isArray(raw)) return raw.map(textOf).filter((event) => !!event);
-	if (isDict$21(raw) && raw.events !== void 0 && raw.value === void 0) return eventsOf(raw.events);
+	if (isDict$28(raw) && raw.events !== void 0 && raw.value === void 0) return eventsOf(raw.events);
 	const flat = textOf(raw);
 	return flat ? [flat] : [];
 }
 /** Scene data from `infoBox`; null when the section is missing or not a JSON object. */
 function parseDesInfoBox(raw) {
 	const data = parseTrackerJson(raw);
-	if (!isDict$21(data)) return null;
+	if (!isDict$28(data)) return null;
 	const info = {
 		recentEvents: eventsOf(data.recentEvents),
 		fields: {}
@@ -761,14 +761,14 @@ function parseDesInfoBox(raw) {
 /** A quest title from a string, `{title}`, `{value}` (nested) or `{description}`; "None" → null. */
 function questOf(raw) {
 	let value = raw;
-	while (isDict$21(value) && value.value !== void 0) value = value.value;
-	const title = isDict$21(value) ? textOf(value.title) ?? textOf(value.description) : textOf(value);
+	while (isDict$28(value) && value.value !== void 0) value = value.value;
+	const title = isDict$28(value) ? textOf(value.title) ?? textOf(value.description) : textOf(value);
 	return title && !NO_QUEST_RE.test(title) ? title : null;
 }
 /** Quests from `quests`: `{main, optional[]}` with string or `{title}` items. Null when missing. */
 function parseDesQuests(raw) {
 	const data = parseTrackerJson(raw);
-	if (!isDict$21(data)) return null;
+	if (!isDict$28(data)) return null;
 	const optional = Array.isArray(data.optional) ? data.optional.map(questOf).filter((quest) => quest !== null) : [];
 	return {
 		main: questOf(data.main),
@@ -784,8 +784,8 @@ function parseDesTracker(strings) {
 	};
 }
 function swipeRecordOf(swipes, swipeId) {
-	const record = Array.isArray(swipes) ? swipes[swipeId] : isDict$21(swipes) ? swipes[String(swipeId)] : void 0;
-	if (!isDict$21(record)) return null;
+	const record = Array.isArray(swipes) ? swipes[swipeId] : isDict$28(swipes) ? swipes[String(swipeId)] : void 0;
+	if (!isDict$28(record)) return null;
 	const { quests = null, infoBox = null, characterThoughts = null } = record;
 	if (quests === null && infoBox === null && characterThoughts === null) return null;
 	return {
@@ -801,12 +801,12 @@ function swipeRecordOf(swipes, swipeId) {
 * stores an all-null record).
 */
 function desSwipeRecord(message) {
-	if (!isDict$21(message) || message.is_user === true) return null;
+	if (!isDict$28(message) || message.is_user === true) return null;
 	const swipeId = typeof message.swipe_id === "number" && message.swipe_id >= 0 ? message.swipe_id : 0;
-	const direct = swipeRecordOf((isDict$21(message.extra) ? message.extra : void 0)?.dooms_tracker_swipes, swipeId);
+	const direct = swipeRecordOf((isDict$28(message.extra) ? message.extra : void 0)?.dooms_tracker_swipes, swipeId);
 	if (direct) return direct;
 	const info = Array.isArray(message.swipe_info) ? message.swipe_info[swipeId] : void 0;
-	return swipeRecordOf((isDict$21(info) && isDict$21(info.extra) ? info.extra : void 0)?.dooms_tracker_swipes, swipeId);
+	return swipeRecordOf((isDict$28(info) && isDict$28(info.extra) ? info.extra : void 0)?.dooms_tracker_swipes, swipeId);
 }
 var DES_KNOWN_NAMES = ["third-party/Dooms-Enhancement-Suite"];
 var DES_VERIFIED_VERSIONS = ["2.6.0"];
@@ -887,9 +887,9 @@ var DesAdapter = class extends NeighbourBase {
 	*/
 	settings() {
 		const live = this.modules.state?.extensionSettings;
-		if (isDict$22(live)) return live;
+		if (isDict$29(live)) return live;
 		const saved = this.located ? this.host.ctx().extensionSettings[this.located.name] : void 0;
-		return isDict$22(saved) ? saved : null;
+		return isDict$29(saved) ? saved : null;
 	}
 	/** DES's own switch (on unless explicitly false). */
 	enabled() {
@@ -915,17 +915,17 @@ var DesAdapter = class extends NeighbourBase {
 	*/
 	knownCharacters() {
 		const roster = this.chatState()?.knownCharacters;
-		return isDict$22(roster) ? Object.keys(roster) : [];
+		return isDict$29(roster) ? Object.keys(roster) : [];
 	}
 	/** Names hidden from "Present Characters" in this chat (DES compares them case-insensitively). */
 	removedCharacters() {
-		return stringList$2(this.chatState()?.removedCharacters);
+		return stringList$4(this.chatState()?.removedCharacters);
 	}
 	/** Canonical aliases `{card name: [aliases]}` (global DES setting), as a copy. */
 	aliases() {
 		const map = this.settings()?.characterAliases;
 		const copy = {};
-		if (!isDict$22(map)) return copy;
+		if (!isDict$29(map)) return copy;
 		for (const [canonical, list] of Object.entries(map)) if (Array.isArray(list)) copy[canonical] = list.map(String);
 		return copy;
 	}
@@ -948,13 +948,31 @@ var DesAdapter = class extends NeighbourBase {
 	}
 	chatState() {
 		const state = this.host.ctx().chatMetadata[DES_KEYS$1.chatMetadata];
-		return isDict$22(state) ? state : null;
+		return isDict$29(state) ? state : null;
 	}
 };
 var DESRU_KNOWN_NAMES = ["third-party/SillyTavern-DES-RU", "third-party/SillyTavern-Doom-Enhancement-Suite-RU"];
 var DESRU_SETTINGS_KEY = "desru";
+/** The global DES-RU publishes its API under. */
+var DESRU_API_GLOBAL = "DESRU_API";
+var API_METHODS$1 = [
+	"nameForms",
+	"nameFormsKey",
+	"aliases",
+	"onNamesChanged",
+	"functions",
+	"setMaestroOwned",
+	"maestroOwned"
+];
 function isDesRuManifest(manifest) {
 	return homePageHas(manifest, "likerch/sillytavern-doom-enhancement-suite-ru") || manifest.display_name === "SillyTavern - Doom's Enhancement Suite - RU";
+}
+/** The published DES-RU API when it is version 1 with every method; undefined otherwise. */
+function readDesRuApi(value) {
+	if (typeof value !== "object" || value === null) return void 0;
+	const api = value;
+	if (api.version !== 1) return void 0;
+	return API_METHODS$1.every((method) => typeof api[method] === "function") ? value : void 0;
 }
 var DesRuAdapter = class extends NeighbourBase {
 	id = "desru";
@@ -964,6 +982,7 @@ var DesRuAdapter = class extends NeighbourBase {
 		this.capability("desru.names", () => this.present() && this.moduleEnabled("names"));
 		this.capability("desru.bunnymo", () => this.present() && this.moduleEnabled("bunnymo"));
 		this.capability("desru.carrotKernel", () => this.present() && this.moduleEnabled("carrotKernel"));
+		this.capability("desru.api", () => this.present() && this.api() !== void 0);
 	}
 	present() {
 		return this.enabledInSt() && (this.scriptUrl() !== null || hasElement("#desru-settings"));
@@ -979,8 +998,28 @@ var DesRuAdapter = class extends NeighbourBase {
 	/** A DES-RU module switch; modules are on by default, as in DES-RU's DEFAULT_SETTINGS. */
 	moduleEnabled(module) {
 		const modules = this.settings()?.modules;
-		const slice = isDict$22(modules) ? modules[module] : void 0;
-		return !isDict$22(slice) || slice.enabled !== false;
+		const slice = isDict$29(modules) ? modules[module] : void 0;
+		return !isDict$29(slice) || slice.enabled !== false;
+	}
+	/** DES-RU's API (read live: it appears when DES-RU starts and goes when it is disabled); undefined before 0.8.0. */
+	api() {
+		return readDesRuApi(globalThis[DESRU_API_GLOBAL]);
+	}
+	/**
+	* Tells DES-RU which of its functions Maestro runs now (replaces the previous set; `[]` gives every function
+	* back). Ids this DES-RU does not offer are left out. False when the API is not there or refused the call.
+	*/
+	setMaestroOwned(ids) {
+		const api = this.api();
+		if (!api) return false;
+		try {
+			const offered = new Set(api.functions());
+			api.setMaestroOwned([...new Set(ids)].filter((id) => offered.has(id)));
+			return true;
+		} catch (error) {
+			this.log.warn("DES-RU refused setMaestroOwned", error);
+			return false;
+		}
 	}
 };
 //#endregion
@@ -988,24 +1027,40 @@ var DesRuAdapter = class extends NeighbourBase {
 var LOCALIZER_SETTINGS_KEY = "lorebookLocalizer";
 var LOCALIZER_MARKER_KEY = "lorebook_localizer";
 var LOCALIZER_KNOWN_NAMES = ["third-party/SillyTavern-LorebookLocalizer"];
+/** The global the Localizer publishes its API under. */
+var LOCALIZER_API_GLOBAL = "LOREBOOK_LOCALIZER_API";
+var API_METHODS = [
+	"buildKeyRegex",
+	"buildPlainKeys",
+	"cleanForms",
+	"localizeEntries",
+	"isProtectedBook"
+];
 function isLocalizerManifest(manifest) {
 	return manifest.display_name === "Lorebook Localizer" || homePageHas(manifest, "likerch/sillytavern-lorebooklocalizer");
 }
+/** The published Localizer API when it is version 1 with every method; undefined otherwise. */
+function readLocalizerApi(value) {
+	if (typeof value !== "object" || value === null) return void 0;
+	const api = value;
+	if (api.version !== 1) return void 0;
+	return API_METHODS.every((method) => typeof api[method] === "function") ? value : void 0;
+}
 /** Reads the Localizer marker of a World Info entry as a typed copy; null when the entry has none. */
 function readLocalizerMarker(entry) {
-	const extensions = isDict$22(entry) ? entry.extensions : void 0;
-	const marker = isDict$22(extensions) ? extensions[LOCALIZER_MARKER_KEY] : void 0;
-	if (!isDict$22(marker)) return null;
+	const extensions = isDict$29(entry) ? entry.extensions : void 0;
+	const marker = isDict$29(extensions) ? extensions[LOCALIZER_MARKER_KEY] : void 0;
+	if (!isDict$29(marker)) return null;
 	const languages = {};
-	if (isDict$22(marker.languages)) for (const [id, state] of Object.entries(marker.languages)) {
-		if (!isDict$22(state)) continue;
-		const added = isDict$22(state.added) ? state.added : {};
+	if (isDict$29(marker.languages)) for (const [id, state] of Object.entries(marker.languages)) {
+		if (!isDict$29(state)) continue;
+		const added = isDict$29(state.added) ? state.added : {};
 		languages[id] = {
 			language: typeof state.language === "string" ? state.language : id,
-			sources: stringList$2(state.sources),
+			sources: stringList$4(state.sources),
 			added: {
-				key: stringList$2(added.key),
-				keysecondary: stringList$2(added.keysecondary)
+				key: stringList$4(added.key),
+				keysecondary: stringList$4(added.keysecondary)
 			}
 		};
 	}
@@ -1019,6 +1074,7 @@ var LocalizerAdapter = class extends NeighbourBase {
 	constructor(deps) {
 		super(deps);
 		this.capability("localizer.present", () => this.present());
+		this.capability("localizer.api", () => this.present() && this.api() !== void 0);
 	}
 	present() {
 		if (!this.enabledInSt()) return false;
@@ -1027,6 +1083,10 @@ var LocalizerAdapter = class extends NeighbourBase {
 	async connect() {
 		await this.locate(isLocalizerManifest, LOCALIZER_KNOWN_NAMES);
 		return true;
+	}
+	/** The Localizer's API (read live); undefined before 0.2.0 or when it is not loaded. */
+	api() {
+		return readLocalizerApi(globalThis[LOCALIZER_API_GLOBAL]);
 	}
 	/** `extension_settings.lorebookLocalizer` (live object, read-only for Maestro). */
 	settings() {
@@ -1047,7 +1107,7 @@ var LocalizerAdapter = class extends NeighbourBase {
 //#region src/adapters/nai/index.ts
 var NAI_KEY = "nai_studio";
 var NAI_KNOWN_NAMES = ["third-party/SillyTavern-NAI-Studio", "third-party/ST-NAI-Studio"];
-var KINDS$1 = [
+var KINDS$2 = [
 	"character",
 	"world",
 	"location",
@@ -1057,39 +1117,39 @@ var KINDS$1 = [
 function isNaiManifest(manifest) {
 	return manifest.display_name === "NAI Studio" || manifest.generate_interceptor === "NAIST_ProcessTriggers" || homePageHas(manifest, "likerch/st-nai-studio");
 }
-function text$1(value) {
+function text$3(value) {
 	return typeof value === "string" ? value : "";
 }
 /** A typed deep copy of one stored passport; null for junk. Legacy passports without an id get 'main'. */
 function readPassport(raw) {
-	if (!isDict$22(raw)) return null;
+	if (!isDict$29(raw)) return null;
 	const copy = structuredClone(raw);
 	const slots = {};
-	if (isDict$22(copy.slots)) {
+	if (isDict$29(copy.slots)) {
 		for (const [slot, value] of Object.entries(copy.slots)) if (typeof value === "string") slots[slot] = value;
 	}
-	const outfits = Array.isArray(copy.outfits) ? copy.outfits.filter(isDict$22).map((outfit) => ({
-		name: text$1(outfit.name),
-		tags: text$1(outfit.tags)
+	const outfits = Array.isArray(copy.outfits) ? copy.outfits.filter(isDict$29).map((outfit) => ({
+		name: text$3(outfit.name),
+		tags: text$3(outfit.tags)
 	})) : [];
-	const states = Array.isArray(copy.states) ? copy.states.filter(isDict$22).map((state) => ({
-		id: text$1(state.id),
-		tags: text$1(state.tags),
+	const states = Array.isArray(copy.states) ? copy.states.filter(isDict$29).map((state) => ({
+		id: text$3(state.id),
+		tags: text$3(state.tags),
 		enabled: state.enabled === true
 	})) : [];
-	const kind = KINDS$1.find((candidate) => candidate === copy.kind) ?? "character";
+	const kind = KINDS$2.find((candidate) => candidate === copy.kind) ?? "character";
 	return {
 		...copy,
-		id: text$1(copy.id) || "main",
+		id: text$3(copy.id) || "main",
 		kind,
-		name: text$1(copy.name),
-		aliases: stringList$2(copy.aliases),
-		tags: text$1(copy.tags),
+		name: text$3(copy.name),
+		aliases: stringList$4(copy.aliases),
+		tags: text$3(copy.tags),
 		slots,
 		outfits,
-		activeOutfit: text$1(copy.activeOutfit),
+		activeOutfit: text$3(copy.activeOutfit),
 		states,
-		negative: text$1(copy.negative)
+		negative: text$3(copy.negative)
 	};
 }
 var NaiAdapter = class extends NeighbourBase {
@@ -1116,8 +1176,8 @@ var NaiAdapter = class extends NeighbourBase {
 	*/
 	passportsOf(characterIndex) {
 		const field = this.host.ctx().characters[characterIndex]?.data?.extensions?.[NAI_KEY];
-		if (!isDict$22(field)) return [];
-		return (Array.isArray(field.passports) ? field.passports : isDict$22(field.passport) ? [field.passport] : []).map(readPassport).filter((passport) => passport !== null);
+		if (!isDict$29(field)) return [];
+		return (Array.isArray(field.passports) ? field.passports : isDict$29(field.passport) ? [field.passport] : []).map(readPassport).filter((passport) => passport !== null);
 	}
 };
 //#endregion
@@ -1143,7 +1203,7 @@ var PresetAdapter = class extends NeighbourBase {
 	/** ST's live Chat Completion settings (`oai_settings`); read-only for Maestro. */
 	settings() {
 		const settings = extras$1(this.host).chatCompletionSettings;
-		return isDict$22(settings) ? settings : null;
+		return isDict$29(settings) ? settings : null;
 	}
 	/** Name of the active Chat Completion preset. */
 	presetName() {
@@ -1154,7 +1214,7 @@ var PresetAdapter = class extends NeighbourBase {
 	prompts() {
 		const prompts = this.settings()?.prompts;
 		if (!Array.isArray(prompts)) return [];
-		return prompts.filter(isDict$22).map((prompt) => ({
+		return prompts.filter(isDict$29).map((prompt) => ({
 			identifier: typeof prompt.identifier === "string" ? prompt.identifier : "",
 			name: typeof prompt.name === "string" ? prompt.name : "",
 			role: typeof prompt.role === "string" ? prompt.role : "system",
@@ -1166,7 +1226,7 @@ var PresetAdapter = class extends NeighbourBase {
 		if (MARINARA_NAME_RE.test(this.presetName() ?? "")) return true;
 		const prompts = this.settings()?.prompts;
 		if (!Array.isArray(prompts)) return false;
-		const contents = prompts.filter(isDict$22).map((prompt) => typeof prompt.content === "string" ? prompt.content : "");
+		const contents = prompts.filter(isDict$29).map((prompt) => typeof prompt.content === "string" ? prompt.content : "");
 		return MARINARA_SECTION_TAGS.every((tag) => contents.some((content) => content.includes(tag)));
 	}
 };
@@ -1209,7 +1269,7 @@ var QvinkAdapter = class extends NeighbourBase {
 	chatEnabled() {
 		if (this.setting("use_global_toggle_state")) return this.setting("global_toggle_state");
 		const chatState = this.host.ctx().chatMetadata[QVINK_KEY];
-		const perChat = isDict$22(chatState) ? chatState.enabled : void 0;
+		const perChat = isDict$29(chatState) ? chatState.enabled : void 0;
 		return typeof perChat === "boolean" ? perChat : this.setting("default_chat_enabled");
 	}
 	/** "Remove Messages": every message older than the injection threshold leaves the prompt. */
@@ -1219,7 +1279,7 @@ var QvinkAdapter = class extends NeighbourBase {
 	/** Qvink's record of a message, as a typed copy; null when there is none. */
 	memoryOf(index) {
 		const raw = this.host.ctx().chat[index]?.extra?.[QVINK_KEY];
-		if (!isDict$22(raw)) return null;
+		if (!isDict$29(raw)) return null;
 		const memory = {
 			memory: typeof raw.memory === "string" ? raw.memory : "",
 			remember: raw.remember === true,
@@ -1482,7 +1542,7 @@ function createFileStore(host, log) {
 //#region src/core/autonomy.ts
 var STATS_KIND = "autonomy";
 var TRUST_STREAK = 5;
-var SAVE_DELAY_MS = 2e3;
+var SAVE_DELAY_MS$1 = 2e3;
 function zero$1() {
 	return {
 		accepted: 0,
@@ -1524,7 +1584,7 @@ function applyDelta(base, delta) {
 function createAutonomy(deps, options = {}) {
 	const { settings, journal, log, files } = deps;
 	const trustStreak = options.trustStreak ?? TRUST_STREAK;
-	const saveDelay = options.saveDelayMs ?? SAVE_DELAY_MS;
+	const saveDelay = options.saveDelayMs ?? SAVE_DELAY_MS$1;
 	const never = /* @__PURE__ */ new Set();
 	/** Module default seen for each kind (trust growth needs the effective level outside decide()). */
 	const fallbacks = /* @__PURE__ */ new Map();
@@ -2326,7 +2386,7 @@ function createCostMeter(deps) {
 	function onReplyReady(messageIndex) {
 		const message = host.ctx().chat?.[messageIndex];
 		const extra = message?.extra;
-		if (!message || !isRecord$2(extra)) return;
+		if (!message || !isRecord$4(extra)) return;
 		const chatId = safeChatId() ?? "";
 		const remember = (key) => {
 			if (seenAnlas.has(key)) return false;
@@ -2334,17 +2394,17 @@ function createCostMeter(deps) {
 			if (seenAnlas.size > MAX_SEEN) for (const old of [...seenAnlas].slice(0, MAX_SEEN / 5)) seenAnlas.delete(old);
 			return true;
 		};
-		const post = isRecord$2(extra["nai_studio"]) ? extra["nai_studio"] : void 0;
+		const post = isRecord$4(extra["nai_studio"]) ? extra["nai_studio"] : void 0;
 		const postCost = post ? positiveNumber(post["cost"]) : void 0;
 		const mediaRaw = extra["media"];
-		const media = Array.isArray(mediaRaw) ? mediaRaw.filter(isRecord$2) : [];
+		const media = Array.isArray(mediaRaw) ? mediaRaw.filter(isRecord$4) : [];
 		if (postCost !== void 0) {
 			if (remember(`${chatId}|post|${messageIndex}|${String(message.send_date)}`)) meter.recordAnlas(postCost);
 			for (const item of media) if (typeof item["url"] === "string") seenAnlas.add(`${chatId}|media|${item["url"]}`);
 			return;
 		}
 		for (const item of media) {
-			const meta = isRecord$2(item["nai_studio"]) ? item["nai_studio"] : void 0;
+			const meta = isRecord$4(item["nai_studio"]) ? item["nai_studio"] : void 0;
 			const cost = meta ? positiveNumber(meta["cost"]) : void 0;
 			if (cost === void 0 || !meta) continue;
 			const batch = typeof meta["correlationId"] === "string" ? meta["correlationId"] : void 0;
@@ -2455,9 +2515,9 @@ function createCostMeter(deps) {
 * (usageMetadata).
 */
 function readUsage(raw) {
-	if (!isRecord$2(raw)) return void 0;
-	const nested = isRecord$2(raw["message"]) ? raw["message"] : void 0;
-	const usage = isRecord$2(raw["usage"]) ? raw["usage"] : isRecord$2(raw["usageMetadata"]) ? raw["usageMetadata"] : nested && isRecord$2(nested["usage"]) ? nested["usage"] : void 0;
+	if (!isRecord$4(raw)) return void 0;
+	const nested = isRecord$4(raw["message"]) ? raw["message"] : void 0;
+	const usage = isRecord$4(raw["usage"]) ? raw["usage"] : isRecord$4(raw["usageMetadata"]) ? raw["usageMetadata"] : nested && isRecord$4(nested["usage"]) ? nested["usage"] : void 0;
 	if (!usage) return void 0;
 	const prompt = firstNumber(usage["prompt_tokens"], usage["input_tokens"], usage["promptTokenCount"]) ?? 0;
 	const completion = firstNumber(usage["completion_tokens"], usage["output_tokens"], usage["candidatesTokenCount"]) ?? 0;
@@ -2564,11 +2624,11 @@ function addDays(a, b) {
 /** Accepts whatever is on disk (other versions, hand edits) and returns valid totals for that date. */
 function sanitizeDay(raw, date) {
 	const day = emptyDay(date);
-	if (!isRecord$2(raw) || raw["date"] !== date) return day;
+	if (!isRecord$4(raw) || raw["date"] !== date) return day;
 	day.totalUsd = nonNegative(raw["totalUsd"]);
 	day.bySource = numberMap(raw["bySource"]);
 	day.byTask = numberMap(raw["byTask"]);
-	const tokens = isRecord$2(raw["tokens"]) ? raw["tokens"] : {};
+	const tokens = isRecord$4(raw["tokens"]) ? raw["tokens"] : {};
 	day.tokens = {
 		prompt: nonNegative(tokens["prompt"]),
 		completion: nonNegative(tokens["completion"])
@@ -2576,7 +2636,7 @@ function sanitizeDay(raw, date) {
 	day.requests = nonNegative(raw["requests"]);
 	day.estimated = nonNegative(raw["estimated"]);
 	day.anlas = nonNegative(raw["anlas"]);
-	day.recent = Array.isArray(raw["recent"]) ? raw["recent"].filter((entry) => isRecord$2(entry) && typeof entry["at"] === "number" && typeof entry["source"] === "string").slice(-200) : [];
+	day.recent = Array.isArray(raw["recent"]) ? raw["recent"].filter((entry) => isRecord$4(entry) && typeof entry["at"] === "number" && typeof entry["source"] === "string").slice(-200) : [];
 	return day;
 }
 function limitReached(limit, totalUsd) {
@@ -2585,7 +2645,7 @@ function limitReached(limit, totalUsd) {
 function qvinkInstalled() {
 	return typeof globalThis["memory_intercept_messages"] === "function";
 }
-function isRecord$2(value) {
+function isRecord$4(value) {
 	return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 function firstNumber(...values) {
@@ -2600,7 +2660,7 @@ function positiveNumber(value) {
 }
 function numberMap(value) {
 	const out = {};
-	if (!isRecord$2(value)) return out;
+	if (!isRecord$4(value)) return out;
 	for (const [key, item] of Object.entries(value)) {
 		const n = nonNegative(item);
 		if (n > 0) out[key] = n;
@@ -2724,7 +2784,7 @@ var SNOOZE_GRACE_MS = 864e5;
 function newId$2() {
 	return `in-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
-function jsonCopy$2(value) {
+function jsonCopy$4(value) {
 	const text = JSON.stringify(value);
 	return text === void 0 ? value : JSON.parse(text);
 }
@@ -2887,8 +2947,8 @@ function createInbox(deps, options = {}) {
 				kind: proposal.kind,
 				title: proposal.title,
 				description: proposal.description,
-				changes: jsonCopy$2(proposal.changes),
-				payload: jsonCopy$2(proposal.payload),
+				changes: jsonCopy$4(proposal.changes),
+				payload: jsonCopy$4(proposal.payload),
 				createdAt: now,
 				sourceMessage: proposal.sourceMessage,
 				expiresAt: now + (addOptions?.ttlMs ?? defaultTtl)
@@ -3003,7 +3063,7 @@ function newId$1() {
 	return `j-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 /** JSON copy: the journal is stored as JSON, so what is kept in memory must look the same. */
-function jsonCopy$1(value) {
+function jsonCopy$3(value) {
 	const text = JSON.stringify(value);
 	return text === void 0 ? value : JSON.parse(text);
 }
@@ -3135,7 +3195,7 @@ function createJournal(deps, options = {}) {
 				}
 			}
 			await markUndone(record);
-			const copy = jsonCopy$1(record);
+			const copy = jsonCopy$3(record);
 			for (const listener of [...undoneListeners]) try {
 				listener(copy);
 			} catch (error) {
@@ -3156,7 +3216,7 @@ function createJournal(deps, options = {}) {
 		async record(action) {
 			const chatId = host.chatId();
 			const record = {
-				...jsonCopy$1(action),
+				...jsonCopy$3(action),
 				id: newId$1(),
 				at: Date.now(),
 				chatId
@@ -3755,11 +3815,11 @@ function extractReply(raw) {
 		reply.text = raw;
 		return reply;
 	}
-	if (!isRecord$1(raw)) return reply;
+	if (!isRecord$3(raw)) return reply;
 	const choices = raw["choices"];
-	const choice = Array.isArray(choices) && isRecord$1(choices[0]) ? choices[0] : void 0;
+	const choice = Array.isArray(choices) && isRecord$3(choices[0]) ? choices[0] : void 0;
 	if (choice) {
-		const message = isRecord$1(choice["message"]) ? choice["message"] : void 0;
+		const message = isRecord$3(choice["message"]) ? choice["message"] : void 0;
 		if (message) {
 			reply.text = contentText(message["content"]);
 			if (Array.isArray(message["tool_calls"])) reply.toolCalls = [...message["tool_calls"]];
@@ -3773,7 +3833,7 @@ function extractReply(raw) {
 		return reply;
 	}
 	if (Array.isArray(raw["content"])) {
-		const blocks = raw["content"].filter(isRecord$1);
+		const blocks = raw["content"].filter(isRecord$3);
 		reply.text = blocks.filter((block) => block["type"] === "text" && typeof block["text"] === "string").map((block) => String(block["text"])).join("\n\n");
 		for (const block of blocks) {
 			if (block["type"] !== "tool_use" || typeof block["name"] !== "string") continue;
@@ -3793,14 +3853,14 @@ function extractReply(raw) {
 		if (raw["stop_reason"] === "refusal") reply.refusal = true;
 		return reply;
 	}
-	const message = isRecord$1(raw["message"]) ? raw["message"] : void 0;
+	const message = isRecord$3(raw["message"]) ? raw["message"] : void 0;
 	if (message) {
 		reply.text = contentText(message["content"]);
 		return reply;
 	}
 	const candidates = raw["candidates"];
-	const candidate = Array.isArray(candidates) && isRecord$1(candidates[0]) ? candidates[0] : void 0;
-	const content = candidate && isRecord$1(candidate["content"]) ? candidate["content"] : void 0;
+	const candidate = Array.isArray(candidates) && isRecord$3(candidates[0]) ? candidates[0] : void 0;
+	const content = candidate && isRecord$3(candidate["content"]) ? candidate["content"] : void 0;
 	if (content) reply.text = contentText(content["parts"]);
 	if (typeof raw["text"] === "string" && !reply.text) reply.text = raw["text"];
 	return reply;
@@ -3808,7 +3868,7 @@ function extractReply(raw) {
 function contentText(content) {
 	if (typeof content === "string") return content;
 	if (!Array.isArray(content)) return "";
-	return content.filter(isRecord$1).filter((part) => typeof part["text"] === "string" && (part["type"] === void 0 || part["type"] === "text")).map((part) => String(part["text"])).join("");
+	return content.filter(isRecord$3).filter((part) => typeof part["text"] === "string" && (part["type"] === void 0 || part["type"] === "text")).map((part) => String(part["text"])).join("");
 }
 /** Removes reasoning blocks; text before a lone closing tag is reasoning too. */
 function stripThinking(text) {
@@ -3856,21 +3916,21 @@ function parseStructured(reply, schema) {
 * before a feature applies it. Unknown keywords are ignored.
 */
 function matchesSchema(value, schema, depth = 0) {
-	if (!isRecord$1(schema) || depth > 32) return true;
+	if (!isRecord$3(schema) || depth > 32) return true;
 	const enumValues = schema["enum"];
 	if (Array.isArray(enumValues) && !enumValues.some((item) => item === value)) return false;
 	const type = schema["type"];
 	if (typeof type === "string" && !matchesType(value, type)) return false;
 	if (Array.isArray(type) && !type.some((item) => typeof item === "string" && matchesType(value, item))) return false;
-	if (isRecord$1(value)) {
+	if (isRecord$3(value)) {
 		const required = schema["required"];
 		if (Array.isArray(required) && required.some((key) => typeof key === "string" && !(key in value))) return false;
 		const properties = schema["properties"];
-		if (isRecord$1(properties)) {
+		if (isRecord$3(properties)) {
 			for (const [key, sub] of Object.entries(properties)) if (key in value && !matchesSchema(value[key], sub, depth + 1)) return false;
 		}
 	}
-	if (Array.isArray(value) && isRecord$1(schema["items"])) {
+	if (Array.isArray(value) && isRecord$3(schema["items"])) {
 		const items = schema["items"];
 		if (!value.every((item) => matchesSchema(item, items, depth + 1))) return false;
 	}
@@ -3878,7 +3938,7 @@ function matchesSchema(value, schema, depth = 0) {
 }
 function matchesType(value, type) {
 	switch (type) {
-		case "object": return isRecord$1(value);
+		case "object": return isRecord$3(value);
 		case "array": return Array.isArray(value);
 		case "string": return typeof value === "string";
 		case "number": return typeof value === "number" && Number.isFinite(value);
@@ -3964,7 +4024,7 @@ function sleep(ms, signal) {
 function nonEmpty(value) {
 	return typeof value === "string" && value.trim() ? value : void 0;
 }
-function isRecord$1(value) {
+function isRecord$3(value) {
 	return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 function dropUndefined(value) {
@@ -4206,7 +4266,7 @@ var RETRY_DELAYS_MS = [
 	3e4
 ];
 var RUN_TIMEOUT_MS = 3e5;
-var HISTORY_LIMIT = 50;
+var HISTORY_LIMIT$1 = 50;
 /** A task left 'running' longer than this (tab closed mid-run) goes back to the queue. */
 var RUNNING_STALE_MS = 6e5;
 /** Pending tasks older than this expire even without a ttl (their chat may never be opened again). */
@@ -4249,7 +4309,7 @@ function createTaskQueue(deps, options = {}) {
 	const pollMs = options.pollMs ?? POLL_MS$1;
 	const retryDelays = options.retryDelaysMs ?? RETRY_DELAYS_MS;
 	const runTimeoutMs = options.runTimeoutMs ?? RUN_TIMEOUT_MS;
-	const historyLimit = options.historyLimit ?? HISTORY_LIMIT;
+	const historyLimit = options.historyLimit ?? HISTORY_LIMIT$1;
 	const fileName = files.fileName(FILE_KIND);
 	const tabId = currentTabId();
 	const runners = /* @__PURE__ */ new Map();
@@ -5874,7 +5934,7 @@ function healthTab(env) {
 //#region src/ui/components/diff.ts
 /** Words (letters/digits, any script), runs of whitespace and single punctuation marks. */
 var TOKEN = /\s+|[\p{L}\p{N}_]+|[^\s\p{L}\p{N}_]/gu;
-function tokenize(text) {
+function tokenize$1(text) {
 	return text.match(TOKEN) ?? [];
 }
 function push(parts, kind, text) {
@@ -5891,8 +5951,8 @@ function push(parts, kind, text) {
 * too large for the O(n·m) table, it is shown as one removed and one added block.
 */
 function wordDiff(before, after, maxCells = 25e4) {
-	const a = tokenize(before);
-	const b = tokenize(after);
+	const a = tokenize$1(before);
+	const b = tokenize$1(after);
 	let start = 0;
 	while (start < a.length && start < b.length && a[start] === b[start]) start++;
 	let endA = a.length;
@@ -5942,7 +6002,7 @@ function isPlainObject$1(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /** JSON with sorted keys, so field order does not count as a change. */
-function stableStringify$1(value) {
+function stableStringify$2(value) {
 	if (value === void 0) return "undefined";
 	return JSON.stringify(value, (_key, item) => {
 		if (!isPlainObject$1(item)) return item;
@@ -5964,7 +6024,7 @@ function jsonDiff(before, after, path = "") {
 	}];
 	return [{
 		path,
-		kind: stableStringify$1(before) === stableStringify$1(after) ? "same" : "changed",
+		kind: stableStringify$2(before) === stableStringify$2(after) ? "same" : "changed",
 		before,
 		after
 	}];
@@ -6034,14 +6094,14 @@ function diffView(before, after, t) {
 		return el("div", { class: "maestro-diff" }, [renderParts(wordDiff(a, b), t)]);
 	}
 	if (isPrimitiveArray(before) && isPrimitiveArray(after)) {
-		if (stableStringify$1(before) === stableStringify$1(after)) return el("div", {
+		if (stableStringify$2(before) === stableStringify$2(after)) return el("div", {
 			class: "maestro-diff maestro-diff-none",
 			text: t("ui.diff.noChanges")
 		});
 		return el("div", { class: "maestro-diff" }, [renderList(before, after)]);
 	}
 	if (isPlainObject$1(before) || isPlainObject$1(after)) return fieldTable(jsonDiff(isPlainObject$1(before) ? before : {}, isPlainObject$1(after) ? after : {}), t);
-	if (stableStringify$1(before) === stableStringify$1(after)) return el("div", {
+	if (stableStringify$2(before) === stableStringify$2(after)) return el("div", {
 		class: "maestro-diff maestro-diff-none",
 		text: t("ui.diff.noChanges")
 	});
@@ -8615,6 +8675,7 @@ var Modules = class {
 	entries = /* @__PURE__ */ new Map();
 	apis = /* @__PURE__ */ new Map();
 	app = null;
+	starting = null;
 	constructor(settings, log) {
 		this.settings = settings;
 		this.log = log;
@@ -8625,7 +8686,8 @@ var Modules = class {
 			this.entries.set(module.key, {
 				module,
 				running: false,
-				disposers: []
+				disposers: [],
+				exposed: /* @__PURE__ */ new Set()
 			});
 			this.settings.registerModule(module.key, module.defaults, module.enabledByDefault);
 			registerStrings(module);
@@ -8665,7 +8727,12 @@ var Modules = class {
 		return this.apis.get(key);
 	}
 	expose(key, api) {
+		if (api === void 0) {
+			this.apis.delete(key);
+			return;
+		}
 		this.apis.set(key, api);
+		this.starting?.exposed.add(key);
 	}
 	missing(module) {
 		if (!this.app) return [];
@@ -8680,6 +8747,7 @@ var Modules = class {
 			return;
 		}
 		const log = this.log.scope(entry.module.id);
+		this.starting = entry;
 		try {
 			await entry.module.init({
 				app,
@@ -8692,7 +8760,15 @@ var Modules = class {
 		} catch (error) {
 			log.error("init failed", error);
 			await this.release(entry);
+			this.unexpose(entry);
+		} finally {
+			if (this.starting === entry) this.starting = null;
 		}
+	}
+	unexpose(entry) {
+		this.apis.delete(entry.module.key);
+		for (const key of entry.exposed) this.apis.delete(key);
+		entry.exposed.clear();
 	}
 	async stop(entry) {
 		if (!entry.running) return;
@@ -8702,7 +8778,7 @@ var Modules = class {
 			this.log.error(`dispose of ${entry.module.key} failed`, error);
 		}
 		await this.release(entry);
-		this.apis.delete(entry.module.key);
+		this.unexpose(entry);
 		entry.running = false;
 	}
 	async release(entry) {
@@ -8714,84 +8790,3896 @@ var Modules = class {
 	}
 };
 //#endregion
-//#region src/features/doctor/rules.ts
-var ENABLE_RULE_KIND = "doctor.enableRule";
-/** Journal target of rule switches made by the doctor (undo handler below). */
-var RULE_TARGET$1 = "doctor-rule";
-function rulesApi(app) {
-	return app.modules.api("rules");
+//#region src/domain/lore-journal.ts
+/** Canon books of M6: "Maestro · канон · <short id>" (src/features/canon/api.ts). */
+var CANON_BOOK_PREFIX = "Maestro · канон";
+/** Tag order (also the bit order of the stored tag mask). */
+var LORE_TAG_ORDER = [
+	"bunnymo.core",
+	"bunnymo.pack",
+	"ck.archive",
+	"localizer",
+	"des.book",
+	"canon",
+	"maestro.book",
+	"constant"
+];
+function isDict$27(value) {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
-function ruleState(app, id) {
+function strings$5(value) {
+	return Array.isArray(value) ? value.filter((item) => typeof item === "string" && !!item) : [];
+}
+/** Canon items carry `extensions.maestro` with a `kind` (CanonMeta); overrides keep the base book's name. */
+function isCanonMeta$1(extensions) {
+	return isDict$27(extensions) && isDict$27(extensions.maestro) && typeof extensions.maestro.kind === "string";
+}
+function tagsFor(entry, context, hasLocalizerMarker) {
+	const tags = [];
+	if (context.bunnymoCore.has(entry.world)) tags.push("bunnymo.core");
+	else if (context.bunnymoPacks.has(entry.world)) tags.push("bunnymo.pack");
+	if (context.ckRepos.has(entry.world)) tags.push("ck.archive");
+	if (hasLocalizerMarker) tags.push("localizer");
+	if (context.desBooks.has(entry.world)) tags.push("des.book");
+	if (entry.world.startsWith("Maestro · канон") || isCanonMeta$1(entry.extensions)) tags.push("canon");
+	else if (entry.world.startsWith("Maestro · ")) tags.push("maestro.book");
+	if (entry.constant) tags.push("constant");
+	return tags;
+}
+function tagMask(tags) {
+	let mask = 0;
+	LORE_TAG_ORDER.forEach((tag, bit) => {
+		if (tags.includes(tag)) mask |= 1 << bit;
+	});
+	return mask;
+}
+function tagsOfMask(mask) {
+	return LORE_TAG_ORDER.filter((_, bit) => (mask & 1 << bit) !== 0);
+}
+function desLinkedBooks(settings) {
+	const links = {
+		campaign: [],
+		campaignAll: [],
+		autoLinked: [],
+		workshop: []
+	};
+	if (!isDict$27(settings)) return links;
+	const lorebook = isDict$27(settings.lorebook) ? settings.lorebook : {};
+	const campaigns = isDict$27(lorebook.campaigns) ? lorebook.campaigns : {};
+	const all = /* @__PURE__ */ new Set();
+	for (const campaign of Object.values(campaigns)) if (isDict$27(campaign)) for (const book of strings$5(campaign.books)) all.add(book);
+	const active = typeof lorebook.activeCampaignId === "string" ? campaigns[lorebook.activeCampaignId] : void 0;
+	const campaign = new Set(strings$5(lorebook.campaignActivated));
+	if (isDict$27(active)) for (const book of strings$5(active.books)) campaign.add(book);
+	links.campaign = [...campaign];
+	links.campaignAll = [...all];
+	links.autoLinked = strings$5(lorebook.autoLinked);
+	const injections = isDict$27(settings.characterInjection) ? settings.characterInjection : {};
+	const workshop = /* @__PURE__ */ new Set();
+	for (const injection of Object.values(injections)) if (isDict$27(injection) && typeof injection.lorebook === "string" && injection.lorebook) workshop.add(injection.lorebook);
+	links.workshop = [...workshop];
+	return links;
+}
+/** Every active book with the reasons it is active, in ST's scan priority: chat, persona, character, global. */
+function bookReasons(sources) {
+	const rows = /* @__PURE__ */ new Map();
+	const add = (book, reason) => {
+		if (!book) return;
+		const list = rows.get(book) ?? [];
+		if (!list.includes(reason)) list.push(reason);
+		rows.set(book, list);
+	};
+	if (sources.chat) {
+		add(sources.chat, "chat");
+		if (sources.ckChatBooks.includes(sources.chat)) add(sources.chat, "ckConnector");
+	}
+	add(sources.persona, "persona");
+	for (const book of sources.characterPrimary) add(book, "character");
+	for (const book of sources.characterExtra) add(book, "characterExtra");
+	for (const book of sources.global) {
+		add(book, "global");
+		if (sources.des.campaign.includes(book)) add(book, "desCampaign");
+		if (sources.des.autoLinked.includes(book)) add(book, "desAutoLink");
+		if (sources.des.workshop.includes(book)) add(book, "workshop");
+	}
+	for (const book of rows.keys()) if (book.startsWith("Maestro · канон")) add(book, "canon");
+	return [...rows].map(([book, reasons]) => ({
+		book,
+		reasons
+	}));
+}
+function emptyJournal() {
+	return {
+		v: 1,
+		worlds: [],
+		titles: {},
+		records: [],
+		stats: {
+			turns: 0,
+			chars: 0,
+			canon: 0,
+			entries: {}
+		}
+	};
+}
+/**
+* Repairs a loaded document in place (the chat store tracks the object identity, so it must not be replaced)
+* and returns it typed.
+*/
+function ensureJournal(doc) {
+	const raw = doc;
+	raw.v = 1;
+	if (!Array.isArray(raw.worlds)) raw.worlds = [];
+	if (!isDict$27(raw.titles)) raw.titles = {};
+	if (!Array.isArray(raw.records)) raw.records = [];
+	const stats = isDict$27(raw.stats) ? raw.stats : {};
+	raw.stats = {
+		turns: typeof stats.turns === "number" ? stats.turns : 0,
+		chars: typeof stats.chars === "number" ? stats.chars : 0,
+		canon: typeof stats.canon === "number" ? stats.canon : 0,
+		entries: isDict$27(stats.entries) ? stats.entries : {}
+	};
+	raw.records = raw.records.filter((record) => isDict$27(record) && typeof record.i === "number" && Array.isArray(record.a));
+	return raw;
+}
+function worldIndex(doc, name) {
+	let index = doc.worlds.indexOf(name);
+	if (index < 0) {
+		doc.worlds.push(name);
+		index = doc.worlds.length - 1;
+	}
+	return index;
+}
+var CUT_CODES = {
+	none: 0,
+	budget: 1,
+	maestro: 2,
+	other: 3
+};
+function cutCode(row) {
+	if (!row.cut) return CUT_CODES.none;
+	if (row.cutBy === "budget") return CUT_CODES.budget;
+	if (row.cutBy === "maestro") return CUT_CODES.maestro;
+	return CUT_CODES.other;
+}
+function encodeRecord(doc, record) {
+	const a = record.activations.map((row) => {
+		const w = worldIndex(doc, row.world);
+		if (row.comment) doc.titles[`${w}:${row.uid}`] = row.comment;
+		return [
+			w,
+			row.uid,
+			row.chars,
+			row.tokens,
+			row.position,
+			row.depth ?? null,
+			row.role ?? null,
+			row.order,
+			row.loop,
+			row.recursionLevel,
+			row.via ? worldIndex(doc, row.via.world) : null,
+			row.via ? row.via.uid : null,
+			cutCode(row),
+			tagMask(row.tags),
+			row.key ?? null
+		];
+	});
+	const stored = {
+		i: record.messageIndex,
+		at: record.at,
+		t: record.generationType,
+		a,
+		c: record.totalChars,
+		k: record.totalTokens,
+		o: record.overflow ? 1 : 0
+	};
+	if (record.budgetTokens !== void 0) stored.b = record.budgetTokens;
+	if (record.canonChars !== void 0) stored.cc = record.canonChars;
+	return stored;
+}
+function decodeRecord(doc, stored) {
+	const activations = stored.a.map((tuple) => {
+		const [w, uid, chars, tokens, position, depth, role, order, loop, level, viaW, viaUid, cut, mask, key] = tuple;
+		const row = {
+			world: doc.worlds[w] ?? "",
+			uid,
+			comment: doc.titles[`${w}:${uid}`] ?? "",
+			chars,
+			tokens,
+			position,
+			order,
+			loop,
+			recursionLevel: level,
+			tags: tagsOfMask(mask)
+		};
+		if (depth !== null) row.depth = depth;
+		if (role !== null) row.role = role;
+		if (viaW !== null && viaUid !== null) row.via = {
+			world: doc.worlds[viaW] ?? "",
+			uid: viaUid
+		};
+		if (key !== null) row.key = key;
+		if (cut !== CUT_CODES.none) {
+			row.cut = true;
+			if (cut === CUT_CODES.budget) row.cutBy = "budget";
+			else if (cut === CUT_CODES.maestro) row.cutBy = "maestro";
+		}
+		return row;
+	});
+	const record = {
+		messageIndex: stored.i,
+		at: stored.at,
+		generationType: stored.t,
+		activations,
+		totalChars: stored.c,
+		totalTokens: stored.k,
+		overflow: stored.o === 1
+	};
+	if (stored.b !== void 0) record.budgetTokens = stored.b;
+	if (stored.cc !== void 0) record.canonChars = stored.cc;
+	return record;
+}
+function decodeRecords(doc) {
+	return doc.records.map((stored) => decodeRecord(doc, stored));
+}
+function applyStats(doc, stored, sign) {
+	const stats = doc.stats;
+	stats.turns = Math.max(0, stats.turns + sign);
+	stats.chars = Math.max(0, stats.chars + sign * stored.c);
+	stats.canon = Math.max(0, stats.canon + sign * (stored.cc ?? 0));
+	for (const tuple of stored.a) {
+		if (tuple[12] !== CUT_CODES.none) continue;
+		const key = `${tuple[0]}:${tuple[1]}`;
+		const current = stats.entries[key] ?? [
+			0,
+			0,
+			stored.i
+		];
+		const activations = current[0] + sign;
+		if (activations <= 0) {
+			delete stats.entries[key];
+			continue;
+		}
+		stats.entries[key] = [
+			activations,
+			Math.max(0, current[1] + sign * tuple[2]),
+			sign > 0 ? Math.max(current[2], stored.i) : current[2]
+		];
+	}
+}
+/**
+* Adds a turn: a record for the same message (swipe, regenerate, continue) replaces the earlier one and its
+* counters; the oldest records beyond `keep` are dropped from the list but stay in the running counters.
+*/
+function addRecord(doc, record, keep) {
+	const stored = encodeRecord(doc, record);
+	const previous = doc.records.findIndex((item) => item.i === record.messageIndex);
+	if (previous >= 0) {
+		const [old] = doc.records.splice(previous, 1);
+		if (old) applyStats(doc, old, -1);
+	}
+	doc.records.push(stored);
+	applyStats(doc, stored, 1);
+	const limit = Math.max(1, Math.floor(keep));
+	if (doc.records.length > limit) doc.records.splice(0, doc.records.length - limit);
+	return stored;
+}
+/** Drops records of messages that no longer exist (index ≥ `fromIndex`), with their counters. */
+function removeRecordsFrom(doc, fromIndex) {
+	let removed = 0;
+	doc.records = doc.records.filter((stored) => {
+		if (stored.i < fromIndex) return true;
+		applyStats(doc, stored, -1);
+		removed++;
+		return false;
+	});
+	return removed;
+}
+/** Stores lazily attributed keys into the stored record of the same turn. Returns false when it is gone. */
+function setRecordKeys(doc, record) {
+	const stored = doc.records.find((item) => item.i === record.messageIndex && item.at === record.at);
+	if (!stored) return false;
+	for (const row of record.activations) {
+		if (row.key === void 0) continue;
+		const w = doc.worlds.indexOf(row.world);
+		const tuple = stored.a.find((item) => item[0] === w && item[1] === row.uid);
+		if (tuple) tuple[14] = row.key;
+	}
+	return true;
+}
+/** Entries of the ENTRIES_LOADED lists, de-duplicated by world and uid. */
+function catalogFromLists(lists) {
+	if (!isDict$27(lists)) return [];
+	const seen = /* @__PURE__ */ new Set();
+	const entries = [];
+	for (const name of [
+		"chatLore",
+		"personaLore",
+		"characterLore",
+		"globalLore"
+	]) {
+		const list = lists[name];
+		if (!Array.isArray(list)) continue;
+		for (const raw of list) {
+			if (!isDict$27(raw) || typeof raw.world !== "string") continue;
+			const uid = Number(raw.uid);
+			if (!Number.isFinite(uid)) continue;
+			const id = `${raw.world}\u0000${uid}`;
+			if (seen.has(id)) continue;
+			seen.add(id);
+			entries.push({
+				world: raw.world,
+				uid,
+				comment: typeof raw.comment === "string" ? raw.comment : "",
+				chars: typeof raw.content === "string" ? raw.content.length : 0,
+				constant: raw.constant === true,
+				disabled: raw.disable === true
+			});
+		}
+	}
+	return entries;
+}
+/**
+* Chat summary from the running counters. Book weight is chars per turn on average; entry weight is the total
+* contribution (activations × average size). "Always active" needs at least two turns; "never active" lists
+* enabled entries of the books scanned last that no recorded turn activated.
+*/
+function summarize(doc, catalog, limits = {}) {
+	const turns = doc.stats.turns;
+	const rows = [];
+	const books = /* @__PURE__ */ new Map();
+	for (const [key, [activations, chars, lastSeen]] of Object.entries(doc.stats.entries)) {
+		const separator = key.indexOf(":");
+		const w = Number(key.slice(0, separator));
+		const uid = Number(key.slice(separator + 1));
+		const world = doc.worlds[w];
+		if (world === void 0 || !Number.isFinite(uid) || activations <= 0) continue;
+		rows.push({
+			world,
+			uid,
+			comment: doc.titles[key] ?? "",
+			activations,
+			avgChars: Math.round(chars / activations),
+			lastSeenTurn: lastSeen,
+			total: chars
+		});
+		const book = books.get(world) ?? {
+			activations: 0,
+			total: 0
+		};
+		book.activations += activations;
+		book.total += chars;
+		books.set(world, book);
+	}
+	const strip = ({ total: _total, ...row }) => row;
+	const heaviestEntries = [...rows].sort((a, b) => b.total - a.total).slice(0, limits.entries ?? 15).map(strip);
+	const heaviestBooks = [...books].map(([world, book]) => ({
+		world,
+		activations: book.activations,
+		avgChars: turns ? Math.round(book.total / turns) : 0
+	})).sort((a, b) => b.avgChars - a.avgChars).slice(0, limits.books ?? 10);
+	const alwaysActive = turns >= 2 ? rows.filter((row) => row.activations >= turns).sort((a, b) => b.avgChars - a.avgChars).map(strip) : [];
+	const active = new Set(rows.map((row) => `${row.world}\u0000${row.uid}`));
+	return {
+		turns,
+		heaviestBooks,
+		heaviestEntries,
+		alwaysActive,
+		neverActive: turns ? catalog.filter((entry) => !entry.disabled && !active.has(`${entry.world}\u0000${entry.uid}`)).sort((a, b) => b.chars - a.chars).map((entry) => ({
+			world: entry.world,
+			uid: entry.uid,
+			comment: entry.comment,
+			activations: 0,
+			avgChars: entry.chars
+		})) : [],
+		avgTotalChars: turns ? Math.round(doc.stats.chars / turns) : 0,
+		avgCanonChars: turns ? Math.round(doc.stats.canon / turns) : 0
+	};
+}
+//#endregion
+//#region src/domain/rules-lore.ts
+/** Characters per token for the quick estimate (between English ~4 and Cyrillic ~3). */
+var CHARS_PER_TOKEN$1 = 3.6;
+function estimateTokens$1(chars) {
+	return chars > 0 ? Math.ceil(chars / CHARS_PER_TOKEN$1) : 0;
+}
+/** Keys as a canonical string: trimmed, lower case, unique, sorted; non-strings and empty keys are dropped. */
+function normalizeKeyList(value) {
+	if (!Array.isArray(value)) return "";
+	const keys = /* @__PURE__ */ new Set();
+	for (const item of value) {
+		if (typeof item !== "string") continue;
+		const key = item.trim().toLowerCase();
+		if (key) keys.add(key);
+	}
+	return [...keys].sort().join("");
+}
+/** Identity of an entry for "byte-identical duplicate": normalised keys plus the exact content; null when empty. */
+function duplicateSignature(entry) {
+	const content = typeof entry.content === "string" ? entry.content : "";
+	if (!content.trim()) return null;
+	return `${normalizeKeyList(entry.key)}\u0002${normalizeKeyList(entry.keysecondary)}\u0002${content}`;
+}
+var OLD_NAME_RE = /(?:^|[^\p{L}])(?:old|legacy|retired|deprecated|outdated|backup|copy|копия|стар\p{L}*)(?:[^\p{L}]|$)/iu;
+var VERSION_RE$1 = /(?:^|[^\p{L}])v(?:er(?:sion)?)?\.?\s*(\d+(?:\.\d+)*)/giu;
+var DOTTED_RE = /(?:^|[^\d.])(\d+(?:\.\d+)+)(?![\d.])/g;
+/** Version numbers in a book name: `MBTI V2` → [2], `BUNNYMO V3.0` → [3, 0], `Pack 1.2.1` → [1, 2, 1]; none → []. */
+function bookVersion(name) {
+	let last;
+	for (const match of name.matchAll(VERSION_RE$1)) last = match[1];
+	if (last === void 0) for (const match of name.matchAll(DOTTED_RE)) last = match[1];
+	return last === void 0 ? [] : last.split(".").map((part) => Number(part));
+}
+/** The name says the book is an old copy (`Old Versions`, `legacy`, `backup`, `копия`, `старый`…). */
+function isOldBookName(name) {
+	return OLD_NAME_RE.test(name);
+}
+function compareVersions$1(a, b) {
+	const length = Math.max(a.length, b.length);
+	for (let i = 0; i < length; i++) {
+		const diff = (a[i] ?? -1) - (b[i] ?? -1);
+		if (diff !== 0) return diff;
+	}
+	return 0;
+}
+/**
+* Positive when book `a` is "newer" than `b`: not marked old, then a higher version in the name, then more entries
+* in this scan (a merged edition over its split parts), then the name in code-point order. Always deterministic.
+*/
+function compareBookRecency(a, b, sizes = /* @__PURE__ */ new Map()) {
+	const oldA = isOldBookName(a);
+	if (oldA !== isOldBookName(b)) return oldA ? -1 : 1;
+	const version = compareVersions$1(bookVersion(a), bookVersion(b));
+	if (version !== 0) return version;
+	const size = (sizes.get(a) ?? 0) - (sizes.get(b) ?? 0);
+	if (size !== 0) return size;
+	if (a === b) return 0;
+	return a < b ? 1 : -1;
+}
+/**
+* Byte-identical entries present in two or more books (same normalised keys and content). Disabled entries do not
+* take part; copies inside one book are left alone. Groups come in first-seen order.
+*/
+function findCrossBookDuplicates(entries, sizes) {
+	const counts = /* @__PURE__ */ new Map();
+	const bySignature = /* @__PURE__ */ new Map();
+	for (const entry of entries) {
+		counts.set(entry.world, (counts.get(entry.world) ?? 0) + 1);
+		if (entry.disable === true) continue;
+		const signature = duplicateSignature(entry);
+		if (signature === null) continue;
+		const list = bySignature.get(signature);
+		if (list) list.push(entry);
+		else bySignature.set(signature, [entry]);
+	}
+	const bookSizes = sizes ?? counts;
+	const groups = [];
+	for (const list of bySignature.values()) {
+		const worlds = [...new Set(list.map((entry) => entry.world))];
+		if (worlds.length < 2) continue;
+		const newest = worlds.reduce((best, world) => compareBookRecency(world, best, bookSizes) > 0 ? world : best);
+		groups.push({
+			world: newest,
+			keep: list.filter((entry) => entry.world === newest),
+			drop: list.filter((entry) => entry.world !== newest)
+		});
+	}
+	return groups;
+}
+/** A usable limit: a finite number ≥ 0. */
+function isLimit(value) {
+	return typeof value === "number" && Number.isFinite(value) && value >= 0;
+}
+/**
+* Which activations a book cap removes after one scan loop (audit T4):
+* 1. entries of a book with `maxRecursionLevel` that were activated in this loop deeper than the limit;
+* 2. per book with `maxTokens > 0`: the remaining activations sorted by `order` (higher first, then ST's priority)
+*    are kept while they fit; the first one that does not fit and everything after it are cut (like ST's budget).
+*/
+function planBookCaps(activations, caps, recursionLevel) {
+	const cuts = [];
+	const cutKeys = /* @__PURE__ */ new Set();
+	for (const activation of activations) {
+		const limit = caps[activation.world]?.maxRecursionLevel;
+		if (activation.isNew && isLimit(limit) && recursionLevel > limit) {
+			cuts.push({
+				key: activation.key,
+				world: activation.world,
+				reason: "recursion"
+			});
+			cutKeys.add(activation.key);
+		}
+	}
+	const byBook = /* @__PURE__ */ new Map();
+	for (const activation of activations) {
+		if (cutKeys.has(activation.key)) continue;
+		const maxTokens = caps[activation.world]?.maxTokens;
+		if (!isLimit(maxTokens) || maxTokens <= 0) continue;
+		const list = byBook.get(activation.world);
+		if (list) list.push(activation);
+		else byBook.set(activation.world, [activation]);
+	}
+	for (const [world, list] of byBook) {
+		const maxTokens = caps[world]?.maxTokens ?? 0;
+		const sorted = [...list].sort((a, b) => b.order - a.order || a.priority - b.priority);
+		let used = 0;
+		let full = false;
+		for (const activation of sorted) {
+			if (!full && used + activation.tokens <= maxTokens) {
+				used += activation.tokens;
+				continue;
+			}
+			full = true;
+			cuts.push({
+				key: activation.key,
+				world,
+				reason: "tokens"
+			});
+		}
+	}
+	return cuts;
+}
+function activeMap(list) {
+	const map = /* @__PURE__ */ new Map();
+	for (const activation of list) {
+		if (activation.cut) continue;
+		map.set(`${activation.world}\u0000${activation.uid}`, activation);
+	}
+	return map;
+}
+function row$1(activation) {
+	return {
+		world: activation.world,
+		uid: activation.uid,
+		comment: activation.comment ?? "",
+		chars: Number.isFinite(activation.chars) ? activation.chars : 0
+	};
+}
+function byBookAndUid(a, b) {
+	if (a.world !== b.world) return a.world < b.world ? -1 : 1;
+	return a.uid - b.uid;
+}
+/** Entries active only before / only after (cut activations count as inactive) and the change in characters. */
+function diffActivations(before, after) {
+	const was = activeMap(before);
+	const now = activeMap(after);
+	const removed = [...was].filter(([key]) => !now.has(key)).map(([, activation]) => row$1(activation));
+	const added = [...now].filter(([key]) => !was.has(key)).map(([, activation]) => row$1(activation));
+	const sum = (map) => [...map.values()].reduce((total, item) => total + row$1(item).chars, 0);
+	return {
+		removed: removed.sort(byBookAndUid),
+		added: added.sort(byBookAndUid),
+		charsDelta: sum(now) - sum(was)
+	};
+}
+/** Plain-object check shared by the rules (scan payloads are untyped). */
+function isPlainObject(value) {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+//#endregion
+//#region src/domain/roles-detect.ts
+var ROLE_IDS = [
+	"bunnymo.core",
+	"bunnymo.pack",
+	"ck.archive",
+	"world",
+	"card",
+	"npc",
+	"canon",
+	"maestro",
+	"chat",
+	"persona",
+	"backup",
+	"unknown"
+];
+/** Roles that depend on the open chat and stick while the content is unchanged. */
+var STICKY_ROLES = /* @__PURE__ */ new Set(["chat", "npc"]);
+/** Share of character archives that makes a book an archive book even outside CK's repo list. */
+var ARCHIVE_SHARE = .5;
+function isDict$26(value) {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function isRoleId(value) {
+	return typeof value === "string" && ROLE_IDS.includes(value);
+}
+function isCanonBookName(name) {
+	return name.startsWith(CANON_BOOK_PREFIX);
+}
+function isMaestroBookName(name) {
+	return name.startsWith("Maestro · ") && !isCanonBookName(name);
+}
+/** "World (backup 2026-10-04 12-00)" from the Localizer, "World.carrot_backup" from CarrotKernel. */
+function isBackupBookName(name) {
+	return /\(backup/i.test(name) || /\.carrot_backup$/i.test(name.trim());
+}
+function entriesOf$2(data) {
+	const entries = isDict$26(data) && isDict$26(data.entries) ? data.entries : {};
+	return Object.values(entries).filter(isDict$26);
+}
+function maestroRoleOf(data) {
+	const extensions = isDict$26(data) ? data.extensions : void 0;
+	const maestro = isDict$26(extensions) ? extensions.maestro : void 0;
+	return isDict$26(maestro) && typeof maestro.role === "string" ? maestro.role : null;
+}
+/** Classifies a loaded book (`{entries, extensions}`) with the BunnyMo heuristics. */
+function contentFacts(book, data) {
+	const entries = entriesOf$2(data);
+	const light = entries.map((entry) => ({
+		key: entry.key,
+		keysecondary: entry.keysecondary,
+		comment: entry.comment,
+		content: entry.content,
+		world: book
+	}));
+	const { core, packs } = classifyWorlds(light);
+	const enabled = light.filter((_, index) => entries[index]?.disable !== true);
+	const archives = archiveWorlds(enabled).has(book) ? enabled.filter((entry) => isCharacterArchive(entry)).length : 0;
+	return {
+		bunnymo: core.has(book) ? "core" : packs.has(book) ? "pack" : null,
+		archives,
+		entries: entries.length,
+		maestroRole: maestroRoleOf(data)
+	};
+}
+function joined(value) {
+	return Array.isArray(value) ? value.map((item) => String(item)).join("") : "";
+}
+/**
+* Fingerprint of a book's content: uid, keys, title and text of every entry plus the book-level Maestro role.
+* Settings such as order or position do not change the kind of a book and are left out.
+*/
+function bookFingerprint(data) {
+	const entries = isDict$26(data) && isDict$26(data.entries) ? data.entries : {};
+	const parts = [];
+	for (const key of Object.keys(entries).sort((a, b) => Number(a) - Number(b) || (a < b ? -1 : a > b ? 1 : 0))) {
+		const entry = entries[key];
+		if (!isDict$26(entry)) continue;
+		parts.push([
+			key,
+			joined(entry.key),
+			joined(entry.keysecondary),
+			String(entry.comment ?? ""),
+			String(entry.content ?? "")
+		].join(""));
+	}
+	parts.push(maestroRoleOf(data) ?? "");
+	return `${parts.length - 1}:${hash53(parts.join("")).toString(36)}`;
+}
+function emptyRoleContext() {
+	return {
+		ckRepos: /* @__PURE__ */ new Set(),
+		cardBooks: /* @__PURE__ */ new Set(),
+		chatBook: null,
+		personaBooks: /* @__PURE__ */ new Set(),
+		npcNames: /* @__PURE__ */ new Set(),
+		globalBooks: /* @__PURE__ */ new Set()
+	};
+}
+/**
+* The automatic role of a book. `facts` is null when the book could not be read (then only names and bindings
+* decide, and 'unknown' is the fallback instead of 'world').
+*/
+function detectRole(book, facts, context, previous, fingerprint) {
+	if (isCanonBookName(book) || facts?.maestroRole === "canon") return "canon";
+	if (isMaestroBookName(book) || facts?.maestroRole === "maestro") return "maestro";
+	if (isBackupBookName(book)) return "backup";
+	if (facts?.bunnymo === "core") return "bunnymo.core";
+	if (facts?.bunnymo === "pack") return "bunnymo.pack";
+	if (context.ckRepos.has(book)) return "ck.archive";
+	if (facts && facts.archives > 0 && facts.archives / Math.max(facts.entries, 1) >= ARCHIVE_SHARE) return "ck.archive";
+	if (context.cardBooks.has(book)) return "card";
+	if (context.chatBook === book) return "chat";
+	if (context.personaBooks.has(book)) return "persona";
+	if (context.npcNames.has(book.trim().toLowerCase())) return "npc";
+	if (previous && previous.source === "auto" && STICKY_ROLES.has(previous.role) && fingerprint !== void 0 && previous.fingerprint === fingerprint && !context.globalBooks.has(book)) return previous.role;
+	return facts ? "world" : "unknown";
+}
+/** Lore Studio rules of a role: BunnyMo books are read-only and never localised (P13); backups are not localised. */
+function roleTraits(role) {
+	const bunnymo = role === "bunnymo.core" || role === "bunnymo.pack";
+	return {
+		readOnly: bunnymo,
+		localizable: !bunnymo && role !== "backup"
+	};
+}
+/** Pack name and version from a BunnyMo book name ("MBTI V2" → MBTI, 2). */
+function packInfo(book) {
+	const version = bookVersion(book);
+	const name = book.replace(/[\s_-]*[vV]\.?\s*\d+(?:\.\d+)*\s*$/, "").replace(/[\s_-]+$/, "").trim();
+	return version.length ? {
+		name: name || book,
+		version: version.join(".")
+	} : { name: book };
+}
+function emptyRegistry() {
+	return {
+		schema: 1,
+		books: {}
+	};
+}
+function readFacts(value) {
+	if (!isDict$26(value)) return void 0;
+	const bunnymo = value.bunnymo === "core" || value.bunnymo === "pack" ? value.bunnymo : null;
+	const number = (field) => typeof field === "number" && Number.isFinite(field) && field >= 0 ? field : 0;
+	return {
+		bunnymo,
+		archives: number(value.archives),
+		entries: number(value.entries),
+		maestroRole: typeof value.maestroRole === "string" ? value.maestroRole : null
+	};
+}
+/** A stored registry with junk records dropped. */
+function readRegistry(raw) {
+	const registry = emptyRegistry();
+	const books = isDict$26(raw) && isDict$26(raw.books) ? raw.books : {};
+	for (const [book, record] of Object.entries(books)) {
+		if (!book || !isDict$26(record) || !isRoleId(record.role)) continue;
+		const item = {
+			role: record.role,
+			source: record.source === "user" ? "user" : "auto",
+			fingerprint: typeof record.fingerprint === "string" ? record.fingerprint : "",
+			at: typeof record.at === "number" ? record.at : 0
+		};
+		if (isDict$26(record.pack) && typeof record.pack.name === "string") {
+			item.pack = { name: record.pack.name };
+			if (typeof record.pack.version === "string") item.pack.version = record.pack.version;
+		}
+		const facts = readFacts(record.facts);
+		if (facts) item.facts = facts;
+		registry.books[book] = item;
+	}
+	return registry;
+}
+/** Another tab's registry plus this tab's changes (`dirty` books take this tab's record; absent = removed here). */
+function mergeRegistry(stored, local, dirty) {
+	const merged = {
+		schema: 1,
+		books: { ...stored.books }
+	};
+	for (const book of dirty) {
+		const record = local.books[book];
+		if (record) merged.books[book] = record;
+		else delete merged.books[book];
+	}
+	return merged;
+}
+/** Records differ in what the API reports (role, source, fingerprint, pack). */
+function sameRecord(a, b) {
+	if (!a || !b) return a === b;
+	return a.role === b.role && a.source === b.source && a.fingerprint === b.fingerprint && a.pack?.name === b.pack?.name && a.pack?.version === b.pack?.version;
+}
+//#endregion
+//#region src/domain/roles-meta.ts
+function isDict$25(value) {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function emptyEntryMetaFile() {
+	return {
+		schema: 1,
+		entries: {}
+	};
+}
+/** Sidecar key of an entry: `${book}#${uid}`. */
+function entryMetaKey(book, uid) {
+	return `${book}#${uid}`;
+}
+/** Book and uid of a sidecar key (the book name may itself contain `#`). */
+function parseEntryMetaKey(key) {
+	const index = key.lastIndexOf("#");
+	if (index <= 0) return null;
+	const uid = Number(key.slice(index + 1));
+	if (!Number.isInteger(uid) || uid < 0) return null;
+	return {
+		book: key.slice(0, index),
+		uid
+	};
+}
+/** Hash of what the entry says: its content (keys and settings may change without invalidating a type/passport). */
+function entryContentHash(entry) {
+	const content = isDict$25(entry) ? entry.content : void 0;
+	return stableHash(typeof content === "string" ? content : "");
+}
+/** Content hashes of every entry of a book (`data.entries`), by uid. */
+function entryHashes(data) {
+	const hashes = /* @__PURE__ */ new Map();
+	const entries = isDict$25(data) && isDict$25(data.entries) ? data.entries : {};
+	for (const [key, entry] of Object.entries(entries)) {
+		if (!isDict$25(entry)) continue;
+		const uid = typeof entry.uid === "number" && Number.isInteger(entry.uid) ? entry.uid : Number(key);
+		if (Number.isInteger(uid)) hashes.set(uid, entryContentHash(entry));
+	}
+	return hashes;
+}
+/** A stored sidecar file with junk records dropped. */
+function readEntryMetaFile(raw) {
+	const file = emptyEntryMetaFile();
+	const entries = isDict$25(raw) && isDict$25(raw.entries) ? raw.entries : {};
+	for (const [key, record] of Object.entries(entries)) {
+		if (!parseEntryMetaKey(key) || !isDict$25(record) || !isDict$25(record.meta)) continue;
+		if (typeof record.contentHash !== "string") continue;
+		file.entries[key] = {
+			meta: record.meta,
+			contentHash: record.contentHash,
+			at: typeof record.at === "number" ? record.at : 0
+		};
+	}
+	return file;
+}
+/** The stored meta when it still belongs to the entry; `stale` when the content changed since it was written. */
+function checkEntryMeta(record, currentHash) {
+	if (!record) return { state: "none" };
+	if (currentHash === void 0) return { state: "unknown" };
+	if (record.contentHash !== currentHash) return { state: "stale" };
+	return {
+		state: "ok",
+		meta: record.meta
+	};
+}
+/**
+* Merges another tab's file with this tab's changes: keys changed here (`dirty`) take this tab's value (absent =
+* deleted here), every other key keeps the stored one.
+*/
+function mergeEntryMeta(stored, local, dirty) {
+	const merged = {
+		schema: 1,
+		entries: { ...stored.entries }
+	};
+	for (const key of dirty) {
+		const record = local.entries[key];
+		if (record) merged.entries[key] = record;
+		else delete merged.entries[key];
+	}
+	return merged;
+}
+//#endregion
+//#region src/features/bookRoles/context.ts
+function isDict$24(value) {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function strings$4(value) {
+	return Array.isArray(value) ? value.filter((item) => typeof item === "string" && !!item) : [];
+}
+/** Every lorebook ST knows (a copy), or null when this ST has no getWorldInfoNames. */
+function worldNames(app) {
+	const names = app.host.ctx().getWorldInfoNames?.();
+	return Array.isArray(names) ? strings$4(names) : null;
+}
+/** A deep copy of a book from ST's cache (loadWorldInfo clones on get); null when it is missing or unreadable. */
+async function loadBook$1(app, book, log) {
+	const load = app.host.ctx().loadWorldInfo;
+	if (typeof load !== "function") return null;
 	try {
-		return rulesApi(app)?.list().find((rule) => rule.id === id);
+		const data = await load(book);
+		return isDict$24(data) && isDict$24(data.entries) ? data : null;
 	} catch (error) {
-		app.log.debug("rules list failed", error);
+		log.debug(`lorebook ${book} did not load`, error);
+		return null;
+	}
+}
+async function worldInfoModule(app, log) {
+	try {
+		return await app.host.modules.worldInfo();
+	} catch (error) {
+		log.debug("world-info.js is not available", error);
+		return null;
+	}
+}
+/** Bindings and neighbour state for detectRole(). Missing pieces are left empty, never thrown. */
+async function readRoleContext(app, log) {
+	const context = emptyRoleContext();
+	const ctx = app.host.ctx();
+	const module = await worldInfoModule(app, log);
+	const settings = module && isDict$24(module.world_info) ? module.world_info : null;
+	const cardBooks = /* @__PURE__ */ new Set();
+	for (const character of ctx.characters ?? []) {
+		const primary = character?.data?.extensions?.world;
+		if (typeof primary === "string" && primary) cardBooks.add(primary);
+	}
+	for (const lore of Array.isArray(settings?.charLore) ? settings.charLore : []) if (isDict$24(lore)) for (const book of strings$4(lore.extraBooks)) cardBooks.add(book);
+	context.cardBooks = cardBooks;
+	const chatBook = ctx.chatMetadata?.world_info;
+	context.chatBook = typeof chatBook === "string" && chatBook ? chatBook : null;
+	const personaBooks = /* @__PURE__ */ new Set();
+	const power = isDict$24(ctx.powerUserSettings) ? ctx.powerUserSettings : {};
+	if (typeof power.persona_description_lorebook === "string" && power.persona_description_lorebook) personaBooks.add(power.persona_description_lorebook);
+	if (isDict$24(power.persona_descriptions)) {
+		for (const persona of Object.values(power.persona_descriptions)) if (isDict$24(persona) && typeof persona.lorebook === "string" && persona.lorebook) personaBooks.add(persona.lorebook);
+	}
+	context.personaBooks = personaBooks;
+	context.globalBooks = new Set(strings$4(module?.selected_world_info));
+	const adapters = adaptersOf(app);
+	try {
+		context.ckRepos = new Set(adapters.ck.repoBooks());
+	} catch (error) {
+		log.debug("CarrotKernel repos are not available", error);
+	}
+	try {
+		const names = [...adapters.des.knownCharacters(), ...Object.keys(adapters.des.aliases())];
+		context.npcNames = new Set(names.map((name) => name.trim().toLowerCase()).filter(Boolean));
+	} catch (error) {
+		log.debug("DES roster is not available", error);
+	}
+	return context;
+}
+/** Books ST scans in this chat (BunnyMo adapter's list: global, chat, persona, character books). */
+async function activeBooks(app, log) {
+	try {
+		return await adaptersOf(app).bunnymo.activeBooks();
+	} catch (error) {
+		log.debug("active books are not available", error);
+		const chatBook = app.host.ctx().chatMetadata?.world_info;
+		return typeof chatBook === "string" && chatBook ? [chatBook] : [];
+	}
+}
+//#endregion
+//#region src/features/bookRoles/service.ts
+var BOOK_ROLES_KEY$1 = "bookRoles";
+var BOOK_ROLES_ID = "M35r";
+var ROLES_FILE = "maestro-book-roles.json";
+var ENTRY_META_FILE = "maestro-entry-meta.json";
+/** Journal target of a manual role change (undo restores the previous record). */
+var ROLE_TARGET = "book-role";
+var SAVE_DELAY_MS = 1e3;
+var REFRESH_DELAY_MS$1 = 400;
+/** Books detected between two yields to the event loop during a full refresh. */
+var BATCH = 4;
+function jsonCopy$2(value) {
+	const text = JSON.stringify(value);
+	return text === void 0 ? value : JSON.parse(text);
+}
+function sameFacts(a, b) {
+	return JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+}
+function isRecord$2(value) {
+	return typeof value === "object" && value !== null && typeof value.role === "string";
+}
+var BookRolesService = class {
+	app;
+	log;
+	registry = emptyRegistry();
+	dirty = /* @__PURE__ */ new Set();
+	metaFile = emptyEntryMetaFile();
+	metaDirty = /* @__PURE__ */ new Set();
+	/** Content hashes per book and uid, from the last read of the book. */
+	hashes = /* @__PURE__ */ new Map();
+	/** Book data ST reported saved (read lazily for hashes; never mutated). */
+	latest = /* @__PURE__ */ new Map();
+	stale = /* @__PURE__ */ new Set();
+	listeners = /* @__PURE__ */ new Set();
+	pending = /* @__PURE__ */ new Set();
+	hashLoads = /* @__PURE__ */ new Map();
+	pendingActive = false;
+	refreshTimer = null;
+	saveTimer = null;
+	waitingForIdle = null;
+	loaded = null;
+	chain = Promise.resolve();
+	saving = Promise.resolve();
+	disposed = false;
+	saveDelay;
+	refreshDelay;
+	constructor(app, log, options = {}) {
+		this.app = app;
+		this.log = log;
+		this.saveDelay = options.saveDelayMs ?? SAVE_DELAY_MS;
+		this.refreshDelay = options.refreshDelayMs ?? REFRESH_DELAY_MS$1;
+	}
+	/** Reads both files once (missing files mean empty registries). */
+	load() {
+		this.loaded ??= (async () => {
+			try {
+				this.registry = readRegistry(await readFresh(this.app.files, ROLES_FILE));
+			} catch (error) {
+				this.log.warn("book roles file could not be read", error);
+			}
+			try {
+				this.metaFile = readEntryMetaFile(await readFresh(this.app.files, ENTRY_META_FILE));
+			} catch (error) {
+				this.log.warn("entry meta file could not be read", error);
+			}
+		})();
+		return this.loaded;
+	}
+	/** ST listeners and the undo handler; every disposer must be owned by the module. */
+	install() {
+		const { host } = this.app;
+		const offs = [];
+		const on = (key, handler) => {
+			const name = host.events.name(key);
+			if (name) offs.push(host.events.on(name, handler));
+		};
+		on("WORLDINFO_UPDATED", (name, data) => {
+			if (typeof name !== "string" || !name) return;
+			this.latest.set(name, data);
+			this.hashes.delete(name);
+			this.queue(name);
+		});
+		on("WORLDINFO_SETTINGS_UPDATED", () => this.queueActive());
+		on("CHAT_CHANGED", () => this.queueActive());
+		this.app.journal.registerUndo(ROLE_TARGET, (change) => this.undoRole(change));
+		return offs;
+	}
+	/** Starts the first detection of the active books (after the files are read). */
+	start() {
+		this.load().then(() => this.queueActive());
+	}
+	async dispose() {
+		this.disposed = true;
+		if (this.refreshTimer !== null) clearTimeout(this.refreshTimer);
+		this.refreshTimer = null;
+		this.waitingForIdle?.();
+		this.waitingForIdle = null;
+		this.listeners.clear();
+		if (this.saveTimer !== null) {
+			clearTimeout(this.saveTimer);
+			this.saveTimer = null;
+			await this.saveNow();
+		}
+		await this.saving;
+	}
+	onChange(listener) {
+		this.listeners.add(listener);
+		return () => this.listeners.delete(listener);
+	}
+	info(book, record) {
+		const info = {
+			book,
+			role: record.role,
+			source: record.source,
+			fingerprint: record.fingerprint,
+			...roleTraits(record.role)
+		};
+		if (record.pack) info.pack = { ...record.pack };
+		return info;
+	}
+	roleOf(book) {
+		const record = this.registry.books[book];
+		if (!record) {
+			if (book) this.queue(book);
+			return;
+		}
+		return this.info(book, record);
+	}
+	all() {
+		return Object.entries(this.registry.books).map(([book, record]) => this.info(book, record)).sort((a, b) => a.book < b.book ? -1 : a.book > b.book ? 1 : 0);
+	}
+	async setRole(book, role) {
+		if (!book) return;
+		if (role === "unknown") return this.resetRole(book);
+		await this.load();
+		const before = this.registry.books[book];
+		const after = {
+			role,
+			source: "user",
+			fingerprint: before?.fingerprint ?? "",
+			at: Date.now()
+		};
+		if (before?.facts) after.facts = before.facts;
+		if (role === "bunnymo.core" || role === "bunnymo.pack") after.pack = before?.pack ?? packInfo(book);
+		this.put(book, after);
+		await this.journal(book, before, after);
+	}
+	async resetRole(book) {
+		await this.load();
+		const before = this.registry.books[book];
+		if (!before || before.source !== "user") return;
+		const auto = {
+			...before,
+			source: "auto"
+		};
+		this.put(book, auto);
+		await this.detectBooks([book], true);
+		await this.journal(book, before, this.registry.books[book] ?? null);
+	}
+	/** Every lorebook (lazily: a full pass reads each book once; facts are reused while fingerprints match). */
+	async refresh() {
+		await this.load();
+		const names = worldNames(this.app);
+		const books = names ?? await activeBooks(this.app, this.log);
+		if (names) this.prune(new Set(names));
+		await this.detectBooks(books, true);
+	}
+	put(book, record) {
+		if (record) this.registry.books[book] = record;
+		else delete this.registry.books[book];
+		this.dirty.add(book);
+		this.scheduleSave();
+		this.emit();
+	}
+	async journal(book, before, after) {
+		if (sameRecord(before ?? void 0, after ?? void 0)) return;
+		const t = this.app.i18n.t.bind(this.app.i18n);
+		const role = after ? t(`m35r.role.${after.role}`) : t("m35r.role.unknown");
+		try {
+			await this.app.journal.record({
+				module: BOOK_ROLES_ID,
+				kind: "bookRoles.set",
+				summary: t(after?.source === "user" ? "m35r.journal.set" : "m35r.journal.reset", {
+					book,
+					role
+				}),
+				changes: [{
+					target: ROLE_TARGET,
+					ref: { book },
+					before: before ?? null,
+					after
+				}]
+			});
+		} catch (error) {
+			this.log.warn("role change was not journaled", error);
+		}
+	}
+	async undoRole(change) {
+		const book = change.ref.book;
+		if (typeof book !== "string" || !book) return false;
+		await this.load();
+		const before = isRecord$2(change.before) ? readRegistry({ books: { [book]: change.before } }).books[book] : null;
+		this.put(book, before ?? null);
+		if (!before) this.queue(book);
+		return true;
+	}
+	/** Auto records of books that no longer exist are dropped; the user's own records are kept. */
+	prune(existing) {
+		let changed = false;
+		for (const [book, record] of Object.entries(this.registry.books)) {
+			if (existing.has(book) || record.source === "user") continue;
+			delete this.registry.books[book];
+			this.dirty.add(book);
+			changed = true;
+		}
+		if (changed) {
+			this.scheduleSave();
+			this.emit();
+		}
+	}
+	/** Re-detects one book soon (debounced). */
+	queue(book) {
+		if (this.disposed) return;
+		this.pending.add(book);
+		this.scheduleRefresh();
+	}
+	/** Re-detects the active books soon (debounced). */
+	queueActive() {
+		if (this.disposed) return;
+		this.pendingActive = true;
+		this.scheduleRefresh();
+	}
+	scheduleRefresh() {
+		if (this.refreshTimer !== null || this.waitingForIdle) return;
+		this.refreshTimer = setTimeout(() => {
+			this.refreshTimer = null;
+			this.flushQueue();
+		}, this.refreshDelay);
+	}
+	/** Runs the queued detections, or waits for the generation in progress to end first (P15). */
+	async flushQueue() {
+		if (this.disposed) return;
+		if (this.app.turn.current() !== null) {
+			if (!this.waitingForIdle) {
+				const off = this.app.bus.on("generation:ended", () => {
+					off();
+					if (this.waitingForIdle === off) this.waitingForIdle = null;
+					this.scheduleRefresh();
+				});
+				this.waitingForIdle = off;
+			}
+			return;
+		}
+		const books = new Set(this.pending);
+		this.pending.clear();
+		if (this.pendingActive) {
+			this.pendingActive = false;
+			for (const book of await activeBooks(this.app, this.log)) books.add(book);
+		}
+		if (books.size) await this.detectBooks([...books], false);
+	}
+	/** Detects books one by one (serialised with other runs); emits once when anything changed. */
+	detectBooks(books, yieldBetween) {
+		const job = async () => {
+			await this.load();
+			let context = null;
+			let changed = false;
+			let count = 0;
+			for (const book of books) {
+				if (this.disposed) return;
+				context ??= await readRoleContext(this.app, this.log);
+				if (await this.detect(book, context)) changed = true;
+				if (yieldBetween && ++count % BATCH === 0) await new Promise((resolve) => setTimeout(resolve, 0));
+			}
+			if (this.dirty.size) this.scheduleSave();
+			if (changed) this.emit();
+		};
+		const next = this.chain.then(job, job);
+		this.chain = next.catch((error) => this.log.warn("role detection failed", error));
+		return next;
+	}
+	async detect(book, context) {
+		const data = await loadBook$1(this.app, book, this.log);
+		if (data) {
+			this.hashes.set(book, entryHashes(data));
+			this.latest.delete(book);
+		}
+		const previous = this.registry.books[book];
+		const fingerprint = data ? bookFingerprint(data) : previous?.fingerprint ?? "";
+		const facts = previous?.facts && previous.fingerprint === fingerprint && fingerprint ? previous.facts : data ? contentFacts(book, data) : previous?.facts ?? null;
+		const role = previous?.source === "user" ? previous.role : detectRole(book, facts, context, previous, data ? fingerprint : void 0);
+		const next = {
+			role,
+			source: previous?.source ?? "auto",
+			fingerprint,
+			at: Date.now()
+		};
+		if (facts) next.facts = facts;
+		if (role === "bunnymo.core" || role === "bunnymo.pack") next.pack = previous?.pack ?? packInfo(book);
+		const visible = !sameRecord(previous, next);
+		if (!visible && previous?.facts && sameFacts(previous.facts, next.facts)) return false;
+		this.registry.books[book] = next;
+		this.dirty.add(book);
+		return visible;
+	}
+	entryMeta(book, uid) {
+		const key = entryMetaKey(book, uid);
+		const record = this.metaFile.entries[key];
+		if (!record) return void 0;
+		const checked = checkEntryMeta(record, this.currentHash(book, uid));
+		if (checked.state === "unknown") {
+			this.loadHashes(book);
+			return;
+		}
+		if (checked.state === "stale") {
+			if (!this.stale.has(key)) {
+				this.stale.add(key);
+				queueMicrotask(() => this.emit());
+			}
+			return;
+		}
+		if (this.stale.delete(key)) queueMicrotask(() => this.emit());
+		return jsonCopy$2(checked.meta);
+	}
+	async loadEntryMeta(book, uid) {
+		await this.load();
+		if (this.currentHash(book, uid) === void 0) await this.loadHashes(book);
+		return this.entryMeta(book, uid);
+	}
+	async setEntryMeta(book, uid, meta) {
+		await this.load();
+		const key = entryMetaKey(book, uid);
+		if (meta === void 0) {
+			if (!this.metaFile.entries[key]) return;
+			delete this.metaFile.entries[key];
+		} else {
+			const data = await loadBook$1(this.app, book, this.log);
+			if (!data) throw new Error(this.app.i18n.t("m35r.error.noBook", { book }));
+			const hashes = entryHashes(data);
+			this.hashes.set(book, hashes);
+			const contentHash = hashes.get(uid);
+			if (contentHash === void 0) throw new Error(this.app.i18n.t("m35r.error.noEntry", {
+				book,
+				uid
+			}));
+			this.metaFile.entries[key] = {
+				meta: jsonCopy$2(meta),
+				contentHash,
+				at: Date.now()
+			};
+		}
+		this.stale.delete(key);
+		this.metaDirty.add(key);
+		this.scheduleSave();
+		this.emit();
+	}
+	/** A book was renamed (Lore Studio): its role record and entry metadata move to the new name. */
+	async renameBook(oldName, newName) {
+		await this.load();
+		const record = this.registry.books[oldName];
+		if (record) {
+			this.put(newName, { ...record });
+			this.put(oldName, null);
+		}
+		for (const [key, value] of Object.entries(this.metaFile.entries)) {
+			const parsed = parseEntryMetaKey(key);
+			if (!parsed || parsed.book !== oldName) continue;
+			const moved = entryMetaKey(newName, parsed.uid);
+			this.metaFile.entries[moved] = value;
+			delete this.metaFile.entries[key];
+			this.metaDirty.add(key);
+			this.metaDirty.add(moved);
+			if (this.stale.delete(key)) this.stale.add(moved);
+		}
+		const hashes = this.hashes.get(oldName);
+		if (hashes) {
+			this.hashes.set(newName, hashes);
+			this.hashes.delete(oldName);
+		}
+		this.scheduleSave();
+		this.emit();
+	}
+	staleEntryMeta() {
+		return [...this.stale].map((key) => parseEntryMetaKey(key)).filter((item) => item !== null);
+	}
+	/** Hash of an entry's content as last read; '' when the book is known and the entry is gone; undefined if unknown. */
+	currentHash(book, uid) {
+		let hashes = this.hashes.get(book);
+		if (!hashes && this.latest.has(book)) {
+			hashes = entryHashes(this.latest.get(book));
+			this.hashes.set(book, hashes);
+			this.latest.delete(book);
+		}
+		if (!hashes) return void 0;
+		return hashes.get(uid) ?? "";
+	}
+	loadHashes(book) {
+		let pending = this.hashLoads.get(book);
+		if (!pending) {
+			pending = (async () => {
+				const data = await loadBook$1(this.app, book, this.log);
+				this.hashes.set(book, data ? entryHashes(data) : /* @__PURE__ */ new Map());
+				this.emit();
+			})().finally(() => this.hashLoads.delete(book));
+			this.hashLoads.set(book, pending);
+		}
+		return pending;
+	}
+	scheduleSave() {
+		if (this.disposed && this.saveTimer === null) {
+			this.saveNow();
+			return;
+		}
+		if (this.saveTimer !== null) clearTimeout(this.saveTimer);
+		this.saveTimer = setTimeout(() => {
+			this.saveTimer = null;
+			this.saveNow();
+		}, this.saveDelay);
+	}
+	/** Writes pending changes of both files (read-merge-write). */
+	saveNow() {
+		const job = async () => {
+			const roles = new Set(this.dirty);
+			this.dirty.clear();
+			if (roles.size) try {
+				const merged = mergeRegistry(readRegistry(await readFresh(this.app.files, ROLES_FILE)), this.registry, roles);
+				await this.app.files.write(ROLES_FILE, merged);
+				this.registry = merged;
+			} catch (error) {
+				for (const book of roles) this.dirty.add(book);
+				this.log.warn("book roles were not saved", error);
+			}
+			const metas = new Set(this.metaDirty);
+			this.metaDirty.clear();
+			if (metas.size) try {
+				const merged = mergeEntryMeta(readEntryMetaFile(await readFresh(this.app.files, ENTRY_META_FILE)), this.metaFile, metas);
+				await this.app.files.write(ENTRY_META_FILE, merged);
+				this.metaFile = merged;
+			} catch (error) {
+				for (const key of metas) this.metaDirty.add(key);
+				this.log.warn("entry meta was not saved", error);
+			}
+		};
+		const next = this.saving.then(job, job);
+		this.saving = next.catch(() => void 0);
+		return next;
+	}
+	emit() {
+		for (const listener of [...this.listeners]) try {
+			listener();
+		} catch (error) {
+			this.log.error("book roles listener failed", error);
+		}
+	}
+	api() {
+		return {
+			roleOf: (book) => this.roleOf(book),
+			all: () => this.all(),
+			setRole: (book, role) => this.setRole(book, role),
+			refresh: () => this.refresh(),
+			entryMeta: (book, uid) => this.entryMeta(book, uid),
+			setEntryMeta: (book, uid, meta) => this.setEntryMeta(book, uid, meta),
+			onChange: (listener) => this.onChange(listener),
+			resetRole: (book) => this.resetRole(book),
+			loadEntryMeta: (book, uid) => this.loadEntryMeta(book, uid),
+			staleEntryMeta: () => this.staleEntryMeta(),
+			renameBook: (oldName, newName) => this.renameBook(oldName, newName)
+		};
+	}
+};
+//#endregion
+//#region src/features/bookRoles/index.ts
+var bookRolesModule = {
+	id: BOOK_ROLES_ID,
+	key: BOOK_ROLES_KEY$1,
+	stage: 2,
+	titleKey: "m35r.title",
+	enabledByDefault: true,
+	defaults: () => ({}),
+	i18n: {
+		en: {
+			"m35r.title": "Book roles",
+			"m35r.role.bunnymo.core": "BunnyMo core",
+			"m35r.role.bunnymo.pack": "BunnyMo pack",
+			"m35r.role.ck.archive": "Character archive",
+			"m35r.role.world": "World",
+			"m35r.role.card": "Card book",
+			"m35r.role.npc": "NPC book",
+			"m35r.role.canon": "Chat canon",
+			"m35r.role.maestro": "Maestro book",
+			"m35r.role.chat": "Chat book",
+			"m35r.role.persona": "Persona book",
+			"m35r.role.backup": "Backup copy",
+			"m35r.role.unknown": "Not recognised yet",
+			"m35r.source.auto": "detected",
+			"m35r.source.user": "set by you",
+			"m35r.readOnly": "Read-only: BunnyMo books are never edited",
+			"m35r.journal.set": "Role of «{book}»: {role}",
+			"m35r.journal.reset": "Role of «{book}» is detected again: {role}",
+			"m35r.error.noBook": "Lorebook «{book}» could not be read.",
+			"m35r.error.noEntry": "Lorebook «{book}» has no entry {uid}."
+		},
+		ru: {
+			"m35r.title": "Роли книг",
+			"m35r.role.bunnymo.core": "Ядро BunnyMo",
+			"m35r.role.bunnymo.pack": "Пак BunnyMo",
+			"m35r.role.ck.archive": "Архив персонажей",
+			"m35r.role.world": "Мир",
+			"m35r.role.card": "Книга карточки",
+			"m35r.role.npc": "Книга NPC",
+			"m35r.role.canon": "Канон чата",
+			"m35r.role.maestro": "Книга Maestro",
+			"m35r.role.chat": "Книга чата",
+			"m35r.role.persona": "Книга персоны",
+			"m35r.role.backup": "Резервная копия",
+			"m35r.role.unknown": "Ещё не распознана",
+			"m35r.source.auto": "определена сама",
+			"m35r.source.user": "задана тобой",
+			"m35r.readOnly": "Только чтение: книги BunnyMo не правятся",
+			"m35r.journal.set": "Роль книги «{book}»: {role}",
+			"m35r.journal.reset": "Роль книги «{book}» снова определяется сама: {role}",
+			"m35r.error.noBook": "Не удалось прочитать лорбук «{book}».",
+			"m35r.error.noEntry": "В лорбуке «{book}» нет записи {uid}."
+		}
+	},
+	init({ app, log, own }) {
+		const service = new BookRolesService(app, log);
+		for (const off of service.install()) own(off);
+		own(() => service.dispose());
+		app.modules.expose(BOOK_ROLES_KEY$1, service.api());
+		service.start();
+	}
+};
+//#endregion
+//#region src/domain/canon-book.ts
+var CANON_KINDS = [
+	"override",
+	"addition",
+	"suppress",
+	"pin"
+];
+var CANON_STATUSES = [
+	"active",
+	"provisional",
+	"archived"
+];
+var CANON_ORIGINS = [
+	"user",
+	"revision",
+	"living",
+	"chronicle",
+	"backstage",
+	"entity",
+	"import"
+];
+/** An override never switches its base on or off (that is what suppression is for). */
+var NEVER_OVERRIDE = [...[
+	"uid",
+	"world",
+	"displayIndex",
+	"extensions",
+	"hash",
+	"decorators"
+], "disable"];
+/** Override fields when the item does not list them (text and keys). */
+var DEFAULT_OVERRIDE_FIELDS = [
+	"content",
+	"key",
+	"keysecondary",
+	"comment"
+];
+/** ST 1.19 `newWorldInfoEntryTemplate` (world-info.js 4082-4130). */
+var WI_ENTRY_TEMPLATE = Object.freeze({
+	key: [],
+	keysecondary: [],
+	comment: "",
+	content: "",
+	constant: false,
+	vectorized: false,
+	selective: true,
+	selectiveLogic: 0,
+	addMemo: false,
+	order: 100,
+	position: 0,
+	disable: false,
+	ignoreBudget: false,
+	excludeRecursion: false,
+	preventRecursion: false,
+	matchPersonaDescription: false,
+	matchCharacterDescription: false,
+	matchCharacterPersonality: false,
+	matchCharacterDepthPrompt: false,
+	matchScenario: false,
+	matchCreatorNotes: false,
+	delayUntilRecursion: 0,
+	probability: 100,
+	useProbability: true,
+	depth: 4,
+	outletName: "",
+	group: "",
+	groupOverride: false,
+	groupWeight: 100,
+	scanDepth: null,
+	caseSensitive: null,
+	matchWholeWords: null,
+	useGroupScoring: null,
+	automationId: "",
+	role: 0,
+	sticky: null,
+	cooldown: null,
+	delay: null,
+	triggers: [],
+	characterFilter: {
+		isExclude: false,
+		names: [],
+		tags: []
+	}
+});
+function isDict$23(value) {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+/** Canon book of a chat: "Maestro · канон · <8 chars of a stable hash of the chat id>". */
+function canonBookName(chatId) {
+	return `${CANON_BOOK_PREFIX} · ${stableHash(chatId).padStart(8, "0").slice(0, 8)}`;
+}
+/**
+* A fresh copy of a value for an entry copy: arrays and plain objects are rebuilt (nested arrays of ST's cache must
+* never be shared with a copy someone may change), primitives pass through.
+*/
+function copyValue$1(value) {
+	if (Array.isArray(value)) return value.map((item) => copyValue$1(item));
+	if (isDict$23(value)) {
+		const out = {};
+		for (const [key, item] of Object.entries(value)) out[key] = copyValue$1(item);
+		return out;
+	}
+	return value;
+}
+/** JSON-safe deep copy (books are JSON). */
+function jsonClone(value) {
+	const text = JSON.stringify(value);
+	return text === void 0 ? value : JSON.parse(text);
+}
+/** Lowest free uid of a book (ST's getFreeWorldEntryUid). */
+function freeUid$1(entries) {
+	let uid = 0;
+	while (Object.prototype.hasOwnProperty.call(entries, String(uid))) uid++;
+	return uid;
+}
+/** Template fields missing from `entry`, filled with fresh defaults (arrays are never shared with the template). */
+function withTemplate(entry) {
+	const out = {};
+	for (const [key, value] of Object.entries(WI_ENTRY_TEMPLATE)) out[key] = Object.prototype.hasOwnProperty.call(entry, key) ? copyValue$1(entry[key]) : copyValue$1(value);
+	for (const [key, value] of Object.entries(entry)) if (!Object.prototype.hasOwnProperty.call(out, key)) out[key] = copyValue$1(value);
+	return out;
+}
+/** Fields an override replaces: the listed ones (or text and keys), never bookkeeping or `disable`. */
+function overrideFields(explicit, entry) {
+	const listed = Array.isArray(explicit) ? explicit.filter((item) => typeof item === "string") : null;
+	const base = listed && listed.length ? listed : entry ? Object.keys(entry) : [...DEFAULT_OVERRIDE_FIELDS];
+	return [...new Set(base)].filter((field) => !NEVER_OVERRIDE.includes(field));
+}
+function hasValue$1(value) {
+	if (Array.isArray(value)) return value.length > 0;
+	if (typeof value === "string") return value.trim() !== "";
+	return value !== void 0 && value !== null;
+}
+/**
+* Override fields of a stored item: its own list, or — for items made without one — the default fields that hold
+* a value (an empty template `key: []` must not wipe the base's keys).
+*/
+function itemOverrideFields(meta, entry) {
+	if (Array.isArray(meta.fields) && meta.fields.length) return overrideFields(meta.fields);
+	return DEFAULT_OVERRIDE_FIELDS.filter((field) => hasValue$1(entry[field]));
+}
+/**
+* The base entry with the override's fields (fresh arrays), keeping the base's world and uid. Works on a scan copy
+* (`{uid, world, ...}`) as well as on a stored entry.
+*/
+function materializeOverride(base, override, fields) {
+	const out = { ...base };
+	for (const field of fields) {
+		if (NEVER_OVERRIDE.includes(field) || !Object.prototype.hasOwnProperty.call(override, field)) continue;
+		out[field] = copyValue$1(override[field]);
+	}
+	if ("world" in base) out.world = base.world;
+	out.uid = base.uid;
+	return out;
+}
+var KNOWN_META_FIELDS = [
+	"kind",
+	"status",
+	"origin",
+	"type",
+	"base",
+	"sourceMessage",
+	"createdAt",
+	"updatedAt",
+	"survivedTurns",
+	"pinWhen",
+	"fields"
+];
+function oneOf(list, value, fallback) {
+	return typeof value === "string" && list.includes(value) ? value : fallback;
+}
+/** Validated meta of a stored canon entry; null when the entry is not a canon item. */
+function readCanonMeta(raw) {
+	if (!isDict$23(raw) || !CANON_KINDS.includes(String(raw.kind))) return null;
+	const meta = {
+		kind: raw.kind,
+		status: oneOf(CANON_STATUSES, raw.status, "active"),
+		origin: oneOf(CANON_ORIGINS, raw.origin, "user"),
+		createdAt: typeof raw.createdAt === "number" ? raw.createdAt : 0,
+		updatedAt: typeof raw.updatedAt === "number" ? raw.updatedAt : 0
+	};
+	if (typeof raw.type === "string") meta.type = raw.type;
+	if (isDict$23(raw.base) && typeof raw.base.world === "string" && Number.isInteger(raw.base.uid)) {
+		meta.base = {
+			world: raw.base.world,
+			uid: raw.base.uid,
+			contentHash: typeof raw.base.contentHash === "string" ? raw.base.contentHash : ""
+		};
+		if (typeof raw.base.content === "string") meta.base.content = raw.base.content;
+	}
+	if (typeof raw.sourceMessage === "number") meta.sourceMessage = raw.sourceMessage;
+	if (typeof raw.survivedTurns === "number") meta.survivedTurns = raw.survivedTurns;
+	if (typeof raw.pinWhen === "string") meta.pinWhen = raw.pinWhen;
+	if (Array.isArray(raw.fields)) meta.fields = raw.fields.filter((item) => typeof item === "string");
+	for (const [key, value] of Object.entries(raw)) if (!KNOWN_META_FIELDS.includes(key)) meta[key] = value;
+	if (meta.kind !== "addition" && !meta.base) return null;
+	return meta;
+}
+/**
+* Canon items of a loaded canon book, by uid. An entry without canon meta (made by hand in the Lore Studio or ST's
+* editor) is a user addition; one whose meta is broken (an override without a base) is not an item.
+*/
+function canonItemsOf(data) {
+	const entries = isDict$23(data) && isDict$23(data.entries) ? data.entries : {};
+	const items = [];
+	for (const [key, entry] of Object.entries(entries)) {
+		if (!isDict$23(entry)) continue;
+		const raw = (isDict$23(entry.extensions) ? entry.extensions : {}).maestro;
+		const meta = isDict$23(raw) && raw.kind !== void 0 ? readCanonMeta(raw) : {
+			kind: "addition",
+			status: "active",
+			origin: "user",
+			createdAt: 0,
+			updatedAt: 0
+		};
+		if (!meta) continue;
+		const uid = Number.isInteger(entry.uid) ? entry.uid : Number(key);
+		if (!Number.isInteger(uid)) continue;
+		items.push({
+			uid,
+			meta,
+			entry
+		});
+	}
+	return items.sort((a, b) => a.uid - b.uid);
+}
+/** The slot an item occupies on its base: an override and a suppression exclude each other, a pin is separate. */
+function baseSlot(kind) {
+	if (kind === "override" || kind === "suppress") return "replace";
+	return kind === "pin" ? "pin" : null;
+}
+/** The existing item a new draft updates: same base and slot. */
+function findItemForBase(items, kind, base) {
+	const slot = baseSlot(kind);
+	if (!slot || !base) return void 0;
+	return items.find((item) => baseSlot(item.meta.kind) === slot && item.meta.base?.world === base.world && item.meta.base.uid === base.uid);
+}
+/**
+* A canon entry as stored in the canon book: the WI template, the draft's fields, `extensions.maestro` = meta.
+* Items that are not additions are disabled in the book: alone they mean nothing (if the user ever activates the
+* canon book directly, only additions act).
+*/
+function buildCanonEntry(uid, fields, meta, fallbackComment = "") {
+	const entry = withTemplate(fields);
+	entry.uid = uid;
+	if (!entry.comment && fallbackComment) entry.comment = fallbackComment;
+	if (meta.kind !== "addition") entry.disable = true;
+	entry.extensions = {
+		...isDict$23(fields.extensions) ? copyValue$1(fields.extensions) : {},
+		maestro: copyValue$1(meta)
+	};
+	delete entry.world;
+	delete entry.hash;
+	delete entry.decorators;
+	return entry;
+}
+/** The marker a scan copy carries (stable between turns: no timestamps, so the entry hash stays the same). */
+function scanMarker(item) {
+	const marker = {
+		kind: item.meta.kind,
+		status: item.meta.status,
+		origin: item.meta.origin,
+		canonUid: item.uid
+	};
+	if (item.meta.type) marker.type = item.meta.type;
+	return marker;
+}
+/** Base text when the item was made vs now; null when the base did not change. A missing base counts as drift. */
+function baseDriftOf(item, baseEntry) {
+	const base = item.meta.base;
+	if (!base) return null;
+	const now = isDict$23(baseEntry) && typeof baseEntry.content === "string" ? baseEntry.content : "";
+	if (isDict$23(baseEntry) && entryContentHash(baseEntry) === base.contentHash) return null;
+	return {
+		then: base.content ?? "",
+		now
+	};
+}
+function stripMaestro(entry) {
+	const out = { ...entry };
+	if (isDict$23(out.extensions)) {
+		const extensions = { ...out.extensions };
+		delete extensions.maestro;
+		if (Object.keys(extensions).length) out.extensions = extensions;
+		else delete out.extensions;
+	}
+	delete out.world;
+	delete out.hash;
+	delete out.decorators;
+	return out;
+}
+/**
+* A plain lorebook from the canon (plan §4.9 «Экспорт канона»): additions as they are, overrides materialised over
+* their base (the base itself when the override is gone), and one disabled note entry listing the suppressed,
+* overridden and pinned base entries (they need the user's attention once Maestro no longer mixes the canon in).
+*/
+function buildExportBook(items, baseOf, labels) {
+	const entries = {};
+	let next = 0;
+	const add = (entry) => {
+		const uid = next++;
+		entries[String(uid)] = {
+			...withTemplate(stripMaestro(entry)),
+			uid,
+			displayIndex: uid
+		};
+	};
+	const notes = {
+		suppressed: [],
+		overridden: [],
+		pinned: []
+	};
+	const describe = (item) => {
+		const base = item.meta.base;
+		const entry = base ? baseOf(base.world, base.uid) : null;
+		const comment = entry && typeof entry.comment === "string" ? entry.comment : "";
+		return labels.line(base?.world ?? "", base?.uid ?? -1, comment);
+	};
+	for (const item of items) {
+		const base = item.meta.base;
+		if (item.meta.kind === "addition") add({
+			...item.entry,
+			disable: false
+		});
+		else if (item.meta.kind === "override" && base) {
+			const baseEntry = baseOf(base.world, base.uid);
+			const fields = itemOverrideFields(item.meta, item.entry);
+			add(baseEntry ? materializeOverride(baseEntry, item.entry, fields) : {
+				...item.entry,
+				disable: false
+			});
+			notes.overridden.push(describe(item));
+		} else if (item.meta.kind === "suppress") notes.suppressed.push(describe(item));
+		else if (item.meta.kind === "pin") notes.pinned.push(describe(item));
+	}
+	const sections = [];
+	if (notes.suppressed.length) sections.push(`${labels.suppressed}\n${notes.suppressed.join("\n")}`);
+	if (notes.overridden.length) sections.push(`${labels.overridden}\n${notes.overridden.join("\n")}`);
+	if (notes.pinned.length) sections.push(`${labels.pinned}\n${notes.pinned.join("\n")}`);
+	if (sections.length) add({
+		comment: labels.noteTitle,
+		content: sections.join("\n\n"),
+		disable: true,
+		key: []
+	});
+	return { entries };
+}
+/** `base`, or `base (2)`, `base (3)`… — the first name not taken (case-insensitive, like ST's world names). */
+function uniqueBookName(base, existing) {
+	const taken = new Set([...existing].map((name) => name.toLowerCase()));
+	if (!taken.has(base.toLowerCase())) return base;
+	for (let index = 2;; index++) {
+		const name = `${base} (${index})`;
+		if (!taken.has(name.toLowerCase())) return name;
+	}
+}
+//#endregion
+//#region src/features/canon/store.ts
+var CANON_KEY = "canon";
+/** Journal targets: an entry of a canon book, an entry of a base book (promote), a book Maestro created. */
+var CANON_ENTRY_TARGET = "canon-entry";
+var CANON_BASE_TARGET = "canon-base-entry";
+var CANON_BOOK_TARGET = "canon-book";
+var BOOK_ROLES_KEY = "bookRoles";
+/** How often a queued write re-checks for a generation that ended without `generation:ended`. */
+var IDLE_POLL_MS = 2e3;
+function emptyBook(chatId, chatName) {
+	return {
+		entries: {},
+		extensions: { maestro: {
+			role: "canon",
+			chatId,
+			chatName
+		} }
+	};
+}
+function entriesOf$1(data) {
+	if (!isDict$23(data.entries)) data.entries = {};
+	return data.entries;
+}
+function titleOf(entry, uid) {
+	if (isDict$23(entry)) {
+		if (typeof entry.comment === "string" && entry.comment.trim()) return entry.comment.trim();
+		const key = Array.isArray(entry.key) ? entry.key.find((item) => typeof item === "string" && item.trim()) : "";
+		if (typeof key === "string" && key) return key;
+	}
+	return `#${uid}`;
+}
+var CanonStore = class {
+	app;
+	log;
+	cache = /* @__PURE__ */ new Map();
+	loading = /* @__PURE__ */ new Map();
+	listeners = /* @__PURE__ */ new Set();
+	chain = Promise.resolve();
+	epoch = 0;
+	constructor(app, log) {
+		this.app = app;
+		this.log = log;
+	}
+	t(key, params) {
+		return this.app.i18n.t(key, params);
+	}
+	/** Canon book of a chat (the current one by default); '' without a chat. */
+	bookName(chatId) {
+		const id = chatId ?? this.app.host.chatId();
+		return id ? canonBookName(id) : "";
+	}
+	install() {
+		const offs = [];
+		const { host } = this.app;
+		const on = (key, handler) => {
+			const name = host.events.name(key);
+			if (name) offs.push(host.events.on(name, handler));
+		};
+		on("WORLDINFO_UPDATED", (name, data) => {
+			if (typeof name !== "string" || !isCanonBookName(name)) return;
+			if (isDict$23(data) && isDict$23(data.entries)) this.remember(name, jsonClone(data));
+			else this.invalidate(name);
+			this.emit();
+		});
+		on("CHAT_CHANGED", () => {
+			this.invalidate();
+			this.emit();
+		});
+		this.app.journal.registerUndo(CANON_ENTRY_TARGET, (change) => this.undoEntry(change));
+		this.app.journal.registerUndo(CANON_BASE_TARGET, (change) => this.undoBaseEntry(change));
+		this.app.journal.registerUndo(CANON_BOOK_TARGET, (change) => this.undoBook(change));
+		return offs;
+	}
+	onChange(listener) {
+		this.listeners.add(listener);
+		return () => this.listeners.delete(listener);
+	}
+	emit() {
+		for (const listener of [...this.listeners]) try {
+			listener();
+		} catch (error) {
+			this.log.error("canon listener failed", error);
+		}
+	}
+	invalidate(name) {
+		this.epoch++;
+		if (name === void 0) {
+			this.cache.clear();
+			this.loading.clear();
+		} else {
+			this.cache.delete(name);
+			this.loading.delete(name);
+		}
+	}
+	remember(name, data) {
+		const state = {
+			name,
+			exists: data !== null,
+			data,
+			items: data ? canonItemsOf(data) : []
+		};
+		this.cache.set(name, state);
+		this.loading.delete(name);
+		return state;
+	}
+	/** Cached state of a canon book without loading (scan listeners use it when warm). */
+	peek(name) {
+		return this.cache.get(name);
+	}
+	/** State of a canon book (cached until WORLDINFO_UPDATED of that book or a chat switch). */
+	state(name) {
+		const cached = this.cache.get(name);
+		if (cached) return Promise.resolve(cached);
+		const pending = this.loading.get(name);
+		if (pending) return pending;
+		const epoch = this.epoch;
+		const job = (async () => {
+			const data = await this.readBook(name);
+			const state = {
+				name,
+				exists: data !== null,
+				data,
+				items: data ? canonItemsOf(data) : []
+			};
+			if (epoch === this.epoch) {
+				this.cache.set(name, state);
+				this.loading.delete(name);
+			}
+			return state;
+		})();
+		this.loading.set(name, job);
+		return job;
+	}
+	/** Names of every lorebook, or null when this ST cannot list them. */
+	worldNames() {
+		const names = this.app.host.ctx().getWorldInfoNames?.();
+		return Array.isArray(names) ? names.filter((name) => typeof name === "string") : null;
+	}
+	/** A deep copy of any book; null when it is missing or unreadable. */
+	async readBook(name) {
+		const ctx = this.app.host.ctx();
+		const names = this.worldNames();
+		if (names && !names.includes(name)) return null;
+		if (typeof ctx.loadWorldInfo !== "function") return null;
+		try {
+			const data = await ctx.loadWorldInfo(name);
+			return isDict$23(data) && isDict$23(data.entries) ? data : null;
+		} catch (error) {
+			this.log.debug(`lorebook ${name} did not load`, error);
+			return null;
+		}
+	}
+	async readEntry(book, uid) {
+		const data = await this.readBook(book);
+		const entry = data && isDict$23(data.entries) ? data.entries[String(uid)] : void 0;
+		return isDict$23(entry) ? entry : null;
+	}
+	async list(filter = {}) {
+		const name = this.bookName();
+		if (!name) return [];
+		const { items } = await this.state(name);
+		return items.filter((item) => (!filter.kind || item.meta.kind === filter.kind) && (!filter.status || item.meta.status === filter.status) && (!filter.origin || item.meta.origin === filter.origin));
+	}
+	/** Resolves when no generation is running (P8); re-checks periodically in case the end event was lost. */
+	async idle() {
+		while (this.app.turn.current() !== null) await new Promise((resolve) => {
+			let timer = null;
+			const off = this.app.bus.on("generation:ended", () => {
+				off();
+				if (timer !== null) clearTimeout(timer);
+				resolve();
+			});
+			timer = setTimeout(() => {
+				off();
+				resolve();
+			}, IDLE_POLL_MS);
+		});
+	}
+	/** Runs writes one at a time, each after the generation in progress (if any) ended. */
+	enqueue(job) {
+		const run = async () => {
+			await this.idle();
+			return job();
+		};
+		const next = this.chain.then(run, run);
+		this.chain = next.catch(() => void 0);
+		return next;
+	}
+	/** Immediate save of any book, then ST's editor and DES's Lore Library caches are refreshed. */
+	async saveBook(name, data, created = false) {
+		const ctx = this.app.host.ctx();
+		if (typeof ctx.saveWorldInfo !== "function") throw new Error(this.t("m6.error.noWorldInfo"));
+		const snapshot = jsonClone(data);
+		await ctx.saveWorldInfo(name, data, true);
+		if (created) try {
+			await ctx.updateWorldInfoList?.();
+		} catch (error) {
+			this.log.warn("lorebook list was not refreshed", error);
+		}
+		try {
+			ctx.reloadWorldInfoEditor?.(name);
+		} catch (error) {
+			this.log.debug("lorebook editor was not reloaded", error);
+		}
+		try {
+			adaptersOf(this.app).des.invalidateLoreCache(name);
+		} catch (error) {
+			this.log.debug("DES Lore Library cache was not reset", error);
+		}
+		if (isCanonBookName(name)) this.remember(name, snapshot);
+	}
+	async journal(kind, summary, changes, sourceMessage) {
+		try {
+			await this.app.journal.record({
+				module: "M6",
+				kind,
+				summary,
+				changes,
+				...sourceMessage !== void 0 ? { sourceMessage } : {}
+			});
+		} catch (error) {
+			this.log.warn(`${kind} was not journaled`, error);
+		}
+	}
+	/** The chat a write belongs to: captured when the write is requested, not when the queue reaches it. */
+	chatInfo() {
+		const chatId = this.app.host.chatId();
+		if (!chatId) throw new Error(this.t("m6.error.noChat"));
+		return {
+			chatId,
+			chatName: chatId
+		};
+	}
+	ensureBook() {
+		const chat = this.chatInfo();
+		return this.enqueue(() => this.ensureBookNow(chat));
+	}
+	/** Creates the canon book of a chat when it is missing (call inside the write queue). */
+	async ensureBookNow({ chatId, chatName }) {
+		const name = canonBookName(chatId);
+		if ((await this.state(name)).exists) return name;
+		await this.saveBook(name, emptyBook(chatId, chatName), true);
+		this.log.info(`canon book ${name} created`);
+		this.emit();
+		return name;
+	}
+	async put(draft, options = {}) {
+		const kind = draft.meta.kind;
+		if (!CANON_KINDS.includes(kind)) throw new Error(this.t("m6.error.kind"));
+		if (kind !== "addition" && !draft.meta.base) throw new Error(this.t("m6.error.base"));
+		const chat = this.chatInfo();
+		const base = draft.meta.base ? await this.readEntry(draft.meta.base.world, draft.meta.base.uid) : null;
+		return this.enqueue(async () => {
+			const name = await this.ensureBookNow(chat);
+			const state = await this.state(name);
+			const data = state.data ? jsonClone(state.data) : emptyBook(chat.chatId, chat.chatName);
+			const entries = entriesOf$1(data);
+			const existing = options.uid !== void 0 ? state.items.find((item) => item.uid === options.uid) : findItemForBase(state.items, kind, draft.meta.base);
+			const uid = options.uid ?? existing?.uid ?? freeUid$1(entries);
+			const previous = entries[String(uid)];
+			const before = isDict$23(previous) ? jsonClone(previous) : null;
+			const previousMeta = before && isDict$23(before.extensions) ? readCanonMeta(before.extensions.maestro) : null;
+			const now = Date.now();
+			const meta = {
+				...draft.meta,
+				createdAt: previousMeta?.createdAt ?? now,
+				updatedAt: now
+			};
+			if (draft.meta.base) {
+				meta.base = {
+					world: draft.meta.base.world,
+					uid: draft.meta.base.uid,
+					contentHash: base ? entryContentHash(base) : draft.meta.base.contentHash
+				};
+				const content = base ? String(base.content ?? "") : draft.meta.base.content;
+				if (content !== void 0) meta.base.content = content;
+			}
+			if (kind === "override") {
+				const fields = overrideFields(draft.meta.fields, draft.entry);
+				meta.fields = fields.length ? fields : [...DEFAULT_OVERRIDE_FIELDS];
+			}
+			const fallback = kind === "addition" ? "" : `${this.t(`m6.kind.${kind}`)}: ${titleOf(base, meta.base?.uid ?? uid)}`;
+			const entry = buildCanonEntry(uid, draft.entry, meta, fallback);
+			entries[String(uid)] = entry;
+			await this.saveBook(name, data);
+			const title = titleOf(entry, uid);
+			await this.journal("canon.put", this.t(before ? "m6.journal.update" : "m6.journal.put", { title }), [{
+				target: CANON_ENTRY_TARGET,
+				ref: {
+					book: name,
+					uid
+				},
+				before,
+				after: entry
+			}], meta.sourceMessage);
+			this.emit();
+			return uid;
+		});
+	}
+	async remove(uid) {
+		const name = this.bookName();
+		if (!name) return;
+		await this.enqueue(async () => {
+			const state = await this.state(name);
+			if (!state.data) return;
+			const data = jsonClone(state.data);
+			const entries = entriesOf$1(data);
+			const before = entries[String(uid)];
+			if (!isDict$23(before)) return;
+			delete entries[String(uid)];
+			await this.saveBook(name, data);
+			await this.journal("canon.remove", this.t("m6.journal.remove", { title: titleOf(before, uid) }), [{
+				target: CANON_ENTRY_TARGET,
+				ref: {
+					book: name,
+					uid
+				},
+				before,
+				after: null
+			}]);
+			this.emit();
+		});
+	}
+	async setStatus(uid, status) {
+		const name = this.bookName();
+		if (!name) return;
+		await this.enqueue(async () => {
+			const state = await this.state(name);
+			if (!state.data) return;
+			const data = jsonClone(state.data);
+			const entries = entriesOf$1(data);
+			const current = entries[String(uid)];
+			if (!isDict$23(current) || !isDict$23(current.extensions) || !isDict$23(current.extensions.maestro)) return;
+			const raw = current.extensions.maestro;
+			if (!readCanonMeta(raw) || raw.status === status) return;
+			const before = jsonClone(current);
+			const entry = {
+				...current,
+				extensions: {
+					...current.extensions,
+					maestro: {
+						...raw,
+						status,
+						updatedAt: Date.now()
+					}
+				}
+			};
+			entries[String(uid)] = entry;
+			await this.saveBook(name, data);
+			await this.journal("canon.status", this.t("m6.journal.status", {
+				title: titleOf(entry, uid),
+				status: this.t(`m6.status.${status}`)
+			}), [{
+				target: CANON_ENTRY_TARGET,
+				ref: {
+					book: name,
+					uid
+				},
+				before,
+				after: entry
+			}]);
+			this.emit();
+		});
+	}
+	/**
+	* «Сделать каноном для всех чатов» (plan M6 п. 9, level 'ask'): writes an override's fields (or a suppression as
+	* `disable`) into the base book after the user confirms, then drops the item. Refused for read-only books.
+	*/
+	async promote(uid) {
+		const item = (await this.list()).find((candidate) => candidate.uid === uid);
+		const base = item?.meta.base;
+		if (!item || !base || item.meta.kind !== "override" && item.meta.kind !== "suppress") return false;
+		if (this.app.modules.api(BOOK_ROLES_KEY)?.roleOf(base.world)?.readOnly) {
+			this.app.ui.notice(this.t("m6.promote.readOnly", { book: base.world }), { level: "warn" });
+			return false;
+		}
+		const baseEntry = await this.readEntry(base.world, base.uid);
+		if (!baseEntry) {
+			this.app.ui.notice(this.t("m6.promote.missing", { book: base.world }), { level: "warn" });
+			return false;
+		}
+		if (!await this.app.ui.confirm(this.t("m6.promote.title"), this.t(item.meta.kind === "override" ? "m6.promote.body" : "m6.promote.bodySuppress", {
+			book: base.world,
+			entry: titleOf(baseEntry, base.uid)
+		}))) return false;
+		const canonBook = this.bookName();
+		return this.enqueue(async () => {
+			const baseData = await this.readBook(base.world);
+			const current = baseData && isDict$23(baseData.entries) ? baseData.entries[String(base.uid)] : void 0;
+			if (!baseData || !isDict$23(current)) return false;
+			const data = jsonClone(baseData);
+			const before = jsonClone(current);
+			const after = item.meta.kind === "override" ? materializeOverride(current, item.entry, itemOverrideFields(item.meta, item.entry)) : {
+				...current,
+				disable: true
+			};
+			delete after.world;
+			entriesOf$1(data)[String(base.uid)] = after;
+			await this.saveBook(base.world, data);
+			const state = await this.state(canonBook);
+			const changes = [{
+				target: CANON_BASE_TARGET,
+				ref: {
+					book: base.world,
+					uid: base.uid
+				},
+				before,
+				after
+			}];
+			if (state.data && isDict$23(entriesOf$1(state.data)[String(uid)])) {
+				const canonData = jsonClone(state.data);
+				const removed = entriesOf$1(canonData)[String(uid)];
+				delete entriesOf$1(canonData)[String(uid)];
+				await this.saveBook(canonBook, canonData);
+				changes.push({
+					target: CANON_ENTRY_TARGET,
+					ref: {
+						book: canonBook,
+						uid
+					},
+					before: removed,
+					after: null
+				});
+			}
+			await this.journal("canon.promote", this.t("m6.journal.promote", {
+				title: titleOf(after, base.uid),
+				book: base.world
+			}), changes);
+			this.emit();
+			return true;
+		});
+	}
+	/** Items whose base entry changed (or disappeared) since the item was made. */
+	async baseDrift() {
+		const items = (await this.list()).filter((item) => item.meta.base);
+		const books = /* @__PURE__ */ new Map();
+		const drift = [];
+		for (const item of items) {
+			const base = item.meta.base;
+			if (!base) continue;
+			if (!books.has(base.world)) books.set(base.world, await this.readBook(base.world));
+			const data = books.get(base.world);
+			const changed = baseDriftOf(item, data && isDict$23(data.entries) ? data.entries[String(base.uid)] : void 0);
+			if (changed) drift.push({
+				item,
+				baseThen: changed.then,
+				baseNow: changed.now
+			});
+		}
+		return drift;
+	}
+	/** «Экспорт канона» (plan §4.9, audit C1): a plain lorebook "<chat> — канон"; not bound anywhere. */
+	async exportPlain() {
+		if (!this.bookName()) throw new Error(this.t("m6.error.noChat"));
+		const items = await this.list();
+		if (!items.length) throw new Error(this.t("m6.export.empty"));
+		const books = /* @__PURE__ */ new Map();
+		for (const item of items) {
+			const world = item.meta.base?.world;
+			if (world && !books.has(world)) books.set(world, await this.readBook(world));
+		}
+		const baseOf = (world, uid) => {
+			const data = books.get(world);
+			const entry = data && isDict$23(data.entries) ? data.entries[String(uid)] : void 0;
+			return isDict$23(entry) ? entry : null;
+		};
+		const book = buildExportBook(items, baseOf, {
+			noteTitle: this.t("m6.export.noteTitle"),
+			suppressed: this.t("m6.export.suppressed"),
+			overridden: this.t("m6.export.overridden"),
+			pinned: this.t("m6.export.pinned"),
+			line: (world, uid, comment) => this.t("m6.export.line", {
+				world,
+				uid,
+				comment: comment || "—"
+			})
+		});
+		const { chatName } = this.chatInfo();
+		return this.enqueue(async () => {
+			const exportName = uniqueBookName(`${chatName} — канон`, this.worldNames() ?? []);
+			await this.saveBook(exportName, book, true);
+			await this.journal("canon.export", this.t("m6.journal.export", { book: exportName }), [{
+				target: CANON_BOOK_TARGET,
+				ref: { book: exportName },
+				before: null,
+				after: { created: true }
+			}]);
+			return exportName;
+		});
+	}
+	/**
+	* Copies another canon book into the canon of `chatId` (branches, audit C2). Not journaled here: it is applied
+	* through autonomy/Inbox, which journal the proposal's changes. False when the target already exists.
+	*/
+	async copyBook(fromBook, chatId) {
+		return this.enqueue(async () => {
+			const target = canonBookName(chatId);
+			const names = this.worldNames();
+			if (names && names.includes(target) || !names && await this.readBook(target)) return false;
+			const source = await this.readBook(fromBook);
+			if (!source) return false;
+			const data = jsonClone(source);
+			data.extensions = {
+				...isDict$23(data.extensions) ? data.extensions : {},
+				maestro: {
+					role: "canon",
+					chatId,
+					chatName: chatId,
+					copiedFrom: fromBook
+				}
+			};
+			await this.saveBook(target, data, true);
+			this.emit();
+			return true;
+		});
+	}
+	/**
+	* A base book was renamed (Lore Studio): items of every chat's canon that point at it follow the new name.
+	* Returns the number of items moved.
+	*/
+	renameBase(oldName, newName) {
+		return this.enqueue(async () => {
+			let moved = 0;
+			for (const name of (this.worldNames() ?? []).filter((book) => isCanonBookName(book))) {
+				const current = await this.readBook(name);
+				if (!current) continue;
+				const data = jsonClone(current);
+				let changed = false;
+				for (const entry of Object.values(entriesOf$1(data))) {
+					if (!isDict$23(entry) || !isDict$23(entry.extensions)) continue;
+					const meta = entry.extensions.maestro;
+					if (!isDict$23(meta) || !isDict$23(meta.base) || meta.base.world !== oldName) continue;
+					entry.extensions = {
+						...entry.extensions,
+						maestro: {
+							...meta,
+							base: {
+								...meta.base,
+								world: newName
+							}
+						}
+					};
+					changed = true;
+					moved++;
+				}
+				if (changed) await this.saveBook(name, data);
+			}
+			if (moved) this.emit();
+			return moved;
+		});
+	}
+	async undoEntry(change) {
+		const book = change.ref.book;
+		const uid = change.ref.uid;
+		if (typeof book !== "string" || !isCanonBookName(book) || typeof uid !== "number") return false;
+		return this.enqueue(async () => {
+			const state = await this.state(book);
+			if (!state.data && change.before === null) return true;
+			const data = state.data ? jsonClone(state.data) : { entries: {} };
+			const entries = entriesOf$1(data);
+			if (isDict$23(change.before)) entries[String(uid)] = jsonClone(change.before);
+			else delete entries[String(uid)];
+			await this.saveBook(book, data, !state.exists);
+			this.emit();
+			return true;
+		});
+	}
+	async undoBaseEntry(change) {
+		const book = change.ref.book;
+		const uid = change.ref.uid;
+		if (typeof book !== "string" || typeof uid !== "number") return false;
+		return this.enqueue(async () => {
+			const current = await this.readBook(book);
+			if (!current) return false;
+			const data = jsonClone(current);
+			const entries = entriesOf$1(data);
+			if (isDict$23(change.before)) entries[String(uid)] = jsonClone(change.before);
+			else delete entries[String(uid)];
+			await this.saveBook(book, data);
+			return true;
+		});
+	}
+	async undoBook(change) {
+		const book = change.ref.book;
+		if (typeof book !== "string" || !book) return false;
+		return this.enqueue(async () => {
+			try {
+				const remove = (await this.app.host.modules.worldInfo()).deleteWorldInfo;
+				if (typeof remove !== "function") return false;
+				if (await remove(book) === false) return false;
+			} catch (error) {
+				this.log.warn(`lorebook ${book} was not deleted`, error);
+				return false;
+			}
+			this.invalidate(book);
+			this.emit();
+			return true;
+		});
+	}
+};
+//#endregion
+//#region src/features/canon/branch.ts
+var BRANCH_KIND = "canon.branchCopy";
+var OFFER_POINTER = "canon.branchOffered";
+function isBranchPayload(value) {
+	if (!value || typeof value !== "object") return false;
+	const payload = value;
+	return typeof payload.parentBook === "string" && typeof payload.parentChat === "string" && typeof payload.chatId === "string" && !!payload.parentBook && !!payload.chatId;
+}
+var CanonBranches = class {
+	app;
+	store;
+	log;
+	constructor(app, store, log) {
+		this.app = app;
+		this.store = store;
+		this.log = log;
+	}
+	install() {
+		const offs = [];
+		offs.push(this.app.inbox.registerApplier(BRANCH_KIND, async (payload) => {
+			if (isBranchPayload(payload)) await this.apply(payload);
+		}, async (payload) => isBranchPayload(payload) && this.stillValid(payload)));
+		const chatChanged = this.app.host.events.name("CHAT_CHANGED");
+		if (chatChanged) offs.push(this.app.host.events.on(chatChanged, () => void this.check()));
+		offs.push(this.app.leader.onChange((leader) => leader && void this.check()));
+		return offs;
+	}
+	/** Offers the copy when this chat is a branch without a canon and its parent has one. */
+	async check() {
+		try {
+			const chatId = this.app.host.chatId();
+			const parent = this.app.host.ctx().chatMetadata?.main_chat;
+			if (!chatId || typeof parent !== "string" || !parent || parent === chatId) return false;
+			if (!this.app.leader.isLeader() || this.app.chat.pointer(OFFER_POINTER)) return false;
+			const payload = {
+				parentBook: this.store.bookName(parent),
+				parentChat: parent,
+				chatId
+			};
+			if (!await this.stillValid(payload)) return false;
+			await this.app.chat.setPointer(OFFER_POINTER, payload.parentBook);
+			const t = this.app.i18n.t.bind(this.app.i18n);
+			await this.app.autonomy.decide({
+				module: "M6",
+				kind: BRANCH_KIND,
+				title: t("m6.branch.title"),
+				description: t("m6.branch.description", { parent }),
+				changes: [{
+					target: CANON_BOOK_TARGET,
+					ref: { book: this.store.bookName(chatId) },
+					before: null,
+					after: { copiedFrom: payload.parentBook }
+				}],
+				payload,
+				apply: (value) => this.apply(value),
+				stillValid: () => this.stillValid(payload)
+			}, "inbox");
+			return true;
+		} catch (error) {
+			this.log.warn("branch canon offer failed", error);
+			return false;
+		}
+	}
+	/** The parent canon exists and the branch has none yet. */
+	async stillValid(payload) {
+		const own = this.store.bookName(payload.chatId);
+		const names = this.store.worldNames();
+		if (names) return names.includes(payload.parentBook) && !names.includes(own);
+		return !!await this.store.readBook(payload.parentBook) && !await this.store.readBook(own);
+	}
+	async apply(payload) {
+		if (!await this.store.copyBook(payload.parentBook, payload.chatId)) throw new Error(this.app.i18n.t("m6.branch.failed"));
+	}
+};
+//#endregion
+//#region src/domain/lore-match.ts
+/** World Info secondary-key logic (`world_info_logic`, WI:33). */
+var WI_LOGIC = {
+	AND_ANY: 0,
+	NOT_ALL: 1,
+	NOT_ANY: 2,
+	AND_ALL: 3
+};
+/** The separator ST puts before every scanned message (WI:290-292). */
+var MATCHER = "";
+var JOINER = `\n${MATCHER}`;
+/** Port of ST's `parseRegexFromString` (WI:2901): `/pattern/flags` → RegExp, anything else → null. */
+function parseRegexKey$1(input) {
+	const match = /^\/([\w\W]+?)\/([gimsuy]*)$/.exec(input);
+	if (!match) return null;
+	let pattern = match[1] ?? "";
+	const flags = match[2] ?? "";
+	if (/(^|[^\\])\//.test(pattern)) return null;
+	pattern = pattern.replace("\\/", "/");
+	try {
+		return new RegExp(pattern, flags);
+	} catch {
+		return null;
+	}
+}
+function escapeRegex(text) {
+	return text.replace(/[/\-\\^$*+?.()|[\]{}]/g, "\\$&");
+}
+/** Port of `WorldInfoBuffer.matchKeys` (WI:337-366). */
+function matchKey$1(haystack, needle, options) {
+	const regex = (options.parseRegex ?? parseRegexKey$1)(needle);
+	if (regex) return regex.test(haystack);
+	const text = options.caseSensitive ? haystack : haystack.toLowerCase();
+	const key = options.caseSensitive ? needle : needle.toLowerCase();
+	if (!options.matchWholeWords) return text.includes(key);
+	if (key.split(/\s+/).length > 1) return text.includes(key);
+	return new RegExp(`(?:^|\\W)(${escapeRegex(key)})(?:$|\\W)`).test(text);
+}
+function stringList$3(value) {
+	return Array.isArray(value) ? value.filter((item) => typeof item === "string") : [];
+}
+/** Per-entry options with ST's fallback to the global settings (`entry.caseSensitive ?? global`). */
+function entryMatchOptions(entry, globals, parseRegex) {
+	const caseSensitive = typeof entry.caseSensitive === "boolean" ? entry.caseSensitive : globals.caseSensitive;
+	const matchWholeWords = typeof entry.matchWholeWords === "boolean" ? entry.matchWholeWords : globals.matchWholeWords;
+	return parseRegex ? {
+		caseSensitive,
+		matchWholeWords,
+		parseRegex
+	} : {
+		caseSensitive,
+		matchWholeWords
+	};
+}
+var identity = (text) => text;
+function matchesAny(text, keys, options, substitute) {
+	for (const key of keys) {
+		const substituted = substitute(key);
+		if (substituted && matchKey$1(text, substituted.trim(), options)) return key;
+	}
+	return null;
+}
+/**
+* Which key activated the entry on `text`, as a short label: the primary key, plus the secondary keys that the
+* entry's logic needed (`Аня + лес`). Null when no primary key matches. When the secondary condition fails on
+* this text the primary key is still returned: the entry did activate, and the scan text is a reconstruction.
+*/
+function findTriggerKey(entry, text, globals, substitute = identity, parseRegex) {
+	const options = entryMatchOptions(entry, globals, parseRegex);
+	const primary = matchesAny(text, stringList$3(entry.key), options, substitute);
+	if (primary === null) return null;
+	const secondary = stringList$3(entry.keysecondary);
+	if (!entry.selective || secondary.length === 0) return primary;
+	const logic = typeof entry.selectiveLogic === "number" ? entry.selectiveLogic : WI_LOGIC.AND_ANY;
+	const matched = [];
+	const missed = [];
+	for (const key of secondary) {
+		const substituted = substitute(key);
+		if (substituted && matchKey$1(text, substituted.trim(), options)) matched.push(key);
+		else missed.push(key);
+	}
+	if (logic === WI_LOGIC.AND_ANY && matched.length) return `${primary} + ${matched[0]}`;
+	if (logic === WI_LOGIC.AND_ALL && !missed.length) return [primary, ...matched].join(" + ");
+	if (logic === WI_LOGIC.NOT_ALL && missed.length) return `${primary} + ¬${missed[0]}`;
+	if (logic === WI_LOGIC.NOT_ANY && !matched.length) return `${primary} + ¬(${secondary.join(", ")})`;
+	return primary;
+}
+/** Rebuilds `WorldInfoBuffer.get()` (WI:279-328) for one entry. */
+function buildScanText(input) {
+	const depth = Math.max(0, Math.floor(input.depth));
+	if (depth <= 0) return "";
+	let result = MATCHER + input.messages.slice(0, depth).map((message) => message.trim()).join(JOINER);
+	const global = input.global ?? {};
+	const flags = input.flags ?? {};
+	const pairs = [
+		[flags.matchPersonaDescription, global.personaDescription],
+		[flags.matchCharacterDescription, global.characterDescription],
+		[flags.matchCharacterPersonality, global.characterPersonality],
+		[flags.matchCharacterDepthPrompt, global.characterDepthPrompt],
+		[flags.matchScenario, global.scenario],
+		[flags.matchCreatorNotes, global.creatorNotes]
+	];
+	for (const [flag, value] of pairs) if (flag === true && value) result += JOINER + value;
+	if (input.injects?.length) result += JOINER + input.injects.join(JOINER);
+	if (input.recursion?.length) result += JOINER + input.recursion.join(JOINER);
+	return result;
+}
+/**
+* The first candidate whose content contains one of the entry's primary keys (candidates in priority order:
+* the caller lists the most recent scan loop first). Cheap: plain substring/regex tests, no secondary logic.
+*/
+function findVia(entry, candidates, globals, substitute = identity, parseRegex) {
+	const keys = stringList$3(entry.key);
+	if (!keys.length) return void 0;
+	const options = entryMatchOptions(entry, globals, parseRegex);
+	for (const candidate of candidates) {
+		if (!candidate.content) continue;
+		if (matchesAny(candidate.content, keys, options, substitute) !== null) return {
+			world: candidate.world,
+			uid: candidate.uid
+		};
+	}
+}
+//#endregion
+//#region src/domain/canon-keys.ts
+var CYRILLIC_RE$2 = /\p{Script=Cyrillic}/u;
+var LATIN_RE = /[A-Za-z]/;
+var WORD_CHAR_RE = /[\p{L}\p{N}_]/u;
+var REGEX_KEY_RE = /^\/[\s\S]+\/[gimsuy]*$/;
+/** Endings dropped from a Russian name to reach a stem that also matches the other case forms. */
+var STEM_ENDING_RE = /[аяоеёьйыиуюэ]$/i;
+var MIN_STEM = 3;
+function hasCyrillic$1(text) {
+	return CYRILLIC_RE$2.test(text);
+}
+function hasLatin(text) {
+	return LATIN_RE.test(text);
+}
+/** A `/pattern/flags` key (ST's regex key syntax). */
+function isRegexKey$1(key) {
+	return REGEX_KEY_RE.test(key.trim());
+}
+/** Lower case with ё folded to е: Russian texts mix both spellings. */
+function normalizeForMatch(text) {
+	return text.toLowerCase().replace(/ё/g, "е");
+}
+/**
+* Escapes a literal for a `/…/u` World Info key. Unlike ST's escapeRegex it leaves `-` alone (an escaped hyphen
+* outside a class is invalid with `u`), writes braces as classes (the macro engine eats `\{`), escapes `/` (ST
+* rejects an unescaped slash inside the pattern), matches any whitespace run between words and both е and ё.
+*/
+function escapeForKey(text) {
+	let out = "";
+	let space = false;
+	for (const char of text.trim()) {
+		if (/\s/.test(char)) {
+			if (!space) out += "\\s+";
+			space = true;
+			continue;
+		}
+		space = false;
+		if (char === "{") out += "[{]";
+		else if (char === "}") out += "[}]";
+		else if (char === "е" || char === "ё") out += "[её]";
+		else if (char === "Е" || char === "Ё") out += "[ЕЁ]";
+		else if ("\\^$.*+?()[]|/".includes(char)) out += `\\${char}`;
+		else out += char;
+	}
+	return out;
+}
+/** Drops one final vowel, soft sign or й when the rest keeps at least three letters (Маша → Маш, Анна → Анн). */
+function russianStem(word) {
+	const trimmed = word.trim();
+	if (!hasCyrillic$1(trimmed) || /\s/.test(trimmed)) return trimmed;
+	const stem = trimmed.replace(STEM_ENDING_RE, "");
+	return stem.length >= MIN_STEM ? stem : trimmed;
+}
+/**
+* A left-boundary regex key for a Russian term: `/(?:^|[^\p{L}\p{N}_])Маш/iu` matches «Маша», «Машей», «Маши» but
+* not «Ромашка». Null for terms without Cyrillic, with `{{` (macros) or empty.
+*/
+function leftBoundaryKey$1(term) {
+	const trimmed = term.trim();
+	if (!trimmed || !hasCyrillic$1(trimmed) || trimmed.includes("{{")) return null;
+	return `/(?:^|[^\\p{L}\\p{N}_])${escapeForKey(russianStem(trimmed))}/iu`;
+}
+/** Unique non-empty strings in first-seen order (case-sensitive). */
+function uniqueStrings(values) {
+	const seen = /* @__PURE__ */ new Set();
+	const out = [];
+	for (const value of values) {
+		if (typeof value !== "string") continue;
+		const text = value.trim();
+		if (!text || seen.has(text)) continue;
+		seen.add(text);
+		out.push(text);
+	}
+	return out;
+}
+/**
+* Russian keys for a term from what DES-RU offered: its plain case forms, else its single regex key, else the term
+* itself plus our left-boundary key (Cyrillic terms only).
+*/
+function russianKeysFrom(term, forms, formsKey) {
+	const plain = Array.isArray(forms) ? uniqueStrings(forms).filter((form) => !form.includes("{{")) : [];
+	if (plain.length) return plain;
+	if (typeof formsKey === "string" && formsKey.trim() && !formsKey.includes("{{")) return [formsKey.trim()];
+	const trimmed = term.trim();
+	if (!trimmed) return [];
+	const regex = leftBoundaryKey$1(trimmed);
+	return regex ? [trimmed, regex] : [trimmed];
+}
+/** English side of a pair: Latin, no Cyrillic, no regex, no macros. */
+function englishName(text) {
+	const trimmed = text.trim();
+	if (!trimmed || !hasLatin(trimmed) || hasCyrillic$1(trimmed) || isRegexKey$1(trimmed) || trimmed.includes("{{")) return null;
+	return trimmed;
+}
+/** Builds the matcher; pairs without a usable English or Russian side are skipped. Deterministic. */
+function buildGlossary(pairs) {
+	const byEnglish = /* @__PURE__ */ new Map();
+	for (const pair of pairs) {
+		const en = englishName(pair.en);
+		const ru = pair.ru.trim();
+		if (!en || !ru || ru.includes("{{")) continue;
+		const key = en.toLowerCase();
+		let row = byEnglish.get(key);
+		if (!row) {
+			row = {
+				en,
+				needles: [],
+				regexes: []
+			};
+			byEnglish.set(key, row);
+		}
+		if (isRegexKey$1(ru)) {
+			if (!hasCyrillic$1(ru)) continue;
+			const regex = parseRegexKey$1(ru);
+			if (regex && !row.regexes.some((item) => item.source === regex.source && item.flags === regex.flags)) row.regexes.push(regex);
+			continue;
+		}
+		if (!hasCyrillic$1(ru)) continue;
+		for (const form of [russianStem(ru), ...pair.forms ?? []]) {
+			if (typeof form !== "string" || !hasCyrillic$1(form)) continue;
+			const needle = normalizeForMatch(form.trim());
+			if (needle && !row.needles.includes(needle)) row.needles.push(needle);
+		}
+	}
+	const rows = [...byEnglish.values()].filter((row) => row.needles.length || row.regexes.length);
+	rows.sort((a, b) => a.en.toLowerCase() < b.en.toLowerCase() ? -1 : a.en.toLowerCase() > b.en.toLowerCase() ? 1 : 0);
+	return { rows };
+}
+/** `needle` occurs in `text` right after a non-word character (or at the start). */
+function containsWithLeftBoundary(text, needle) {
+	if (!needle) return false;
+	let from = 0;
+	for (;;) {
+		const index = text.indexOf(needle, from);
+		if (index < 0) return false;
+		const before = index > 0 ? text[index - 1] : void 0;
+		if (before === void 0 || !WORD_CHAR_RE.test(before)) return true;
+		from = index + 1;
+	}
+}
+/** English names whose Russian forms occur in `text`, sorted, at most `limit`. */
+function matchGlossary(glossary, text, limit = 40) {
+	if (!text || !glossary.rows.length) return [];
+	const normalized = normalizeForMatch(text);
+	const found = [];
+	for (const row of glossary.rows) {
+		if (found.length >= limit) break;
+		if (row.needles.some((needle) => containsWithLeftBoundary(normalized, needle)) || row.regexes.some((regex) => {
+			regex.lastIndex = 0;
+			return regex.test(text);
+		})) found.push(row.en);
+	}
+	return found;
+}
+/** Joins names into the scan text, cut to `maxChars` at a name boundary. */
+function formatGlosses(names, maxChars = 600) {
+	let out = "";
+	for (const name of names) {
+		const next = out ? `${out}, ${name}` : name;
+		if (next.length > maxChars) break;
+		out = next;
+	}
+	return out;
+}
+/** Pairs from one entry's keys: every Russian key stands for every English key of the same entry. */
+function pairsFromKeys(keys) {
+	const list = uniqueStrings(keys);
+	const english = list.filter((key) => englishName(key) !== null);
+	const russian = list.filter((key) => hasCyrillic$1(key) && !key.includes("{{"));
+	const pairs = [];
+	for (const en of english) for (const ru of russian) pairs.push({
+		ru,
+		en
+	});
+	return pairs;
+}
+/** DES canonical aliases `{name: [aliases]}`: whichever side is Russian maps to the English ones. */
+function pairsFromAliases(aliases) {
+	if (!aliases || typeof aliases !== "object" || Array.isArray(aliases)) return [];
+	const pairs = [];
+	for (const [canonical, list] of Object.entries(aliases)) {
+		const names = uniqueStrings([canonical, ...Array.isArray(list) ? list : []]);
+		pairs.push(...pairsFromKeys(names));
+	}
+	return pairs;
+}
+/** Localizer marker of one entry: the keys it appended (Russian) stand for the source keys it translated. */
+function pairsFromLocalizer(sources, added) {
+	const english = uniqueStrings(sources).filter((key) => englishName(key) !== null);
+	if (!english.length || english.length > 3) return [];
+	const pairs = [];
+	for (const ru of uniqueStrings(added)) {
+		if (!hasCyrillic$1(ru)) continue;
+		for (const en of english) pairs.push({
+			ru,
+			en
+		});
+	}
+	return pairs;
+}
+//#endregion
+//#region src/domain/canon-inject.ts
+var LIST_NAMES = [
+	"globalLore",
+	"characterLore",
+	"chatLore",
+	"personaLore"
+];
+/** Activation key ST uses in `activated.entries`. */
+function activationKey(world, uid) {
+	return `${String(world)}.${String(uid)}`;
+}
+/** The four lists of a WORLDINFO_ENTRIES_LOADED payload; null when the payload does not look like one. */
+function listsOf(payload) {
+	if (!isDict$23(payload)) return null;
+	const lists = {};
+	for (const name of LIST_NAMES) {
+		const list = payload[name];
+		if (!Array.isArray(list)) return null;
+		lists[name] = list;
+	}
+	return lists;
+}
+/**
+* Takes entries of canon books out of the lists (a canon book must never be active by itself: its overrides would
+* act as plain entries next to their bases). Returns the canon books that were found.
+*/
+function stripCanonBooks(lists) {
+	const found = /* @__PURE__ */ new Set();
+	for (const name of LIST_NAMES) {
+		const list = lists[name];
+		for (let i = list.length - 1; i >= 0; i--) {
+			const world = list[i]?.world;
+			if (typeof world !== "string" || !world.startsWith("Maestro · канон")) continue;
+			if (!isOwnCopy(list[i])) found.add(world);
+			list.splice(i, 1);
+		}
+	}
+	return [...found].sort();
+}
+function isOwnCopy(entry) {
+	const extensions = isDict$23(entry?.extensions) ? entry.extensions : void 0;
+	return typeof (isDict$23(extensions?.maestro) ? extensions.maestro : void 0)?.canonUid === "number";
+}
+function findBase(lists, world, uid) {
+	for (const name of LIST_NAMES) {
+		const list = lists[name];
+		const index = list.findIndex((entry) => entry?.world === world && Number(entry?.uid) === uid);
+		if (index >= 0) return {
+			list,
+			index
+		};
+	}
+	return null;
+}
+function markerOf(entry) {
+	const extensions = isDict$23(entry.extensions) ? entry.extensions : void 0;
+	return isDict$23(extensions?.maestro) ? extensions.maestro : void 0;
+}
+/** The scan copy of an addition: a fresh object with fresh arrays, in the canon book's name. */
+function additionCopy(item, canonBook) {
+	const copy = copyValue$1(item.entry);
+	const extensions = isDict$23(copy.extensions) ? copy.extensions : {};
+	return {
+		...copy,
+		uid: item.uid,
+		world: canonBook,
+		extensions: {
+			...extensions,
+			maestro: scanMarker(item)
+		}
+	};
+}
+/** The override of a base scan copy (world and uid of the base; base extensions kept, canon marker added). */
+function overrideCopy(base, item) {
+	const copy = materializeOverride(base, item.entry, itemOverrideFields(item.meta, item.entry));
+	copy.extensions = {
+		...isDict$23(base.extensions) ? base.extensions : {},
+		maestro: scanMarker(item)
+	};
+	return copy;
+}
+function acts(item, options, base) {
+	if (item.meta.status !== "archived") return true;
+	return options.mentioned?.(item, base) === true;
+}
+/**
+* Applies the canon to the scan copies in place (the lists themselves are per-scan arrays; nested values of the
+* entries are never mutated). Canon books are stripped first, so a second run over the same payload gives the same
+* result.
+*/
+function applyCanon(lists, items, options) {
+	const result = {
+		added: 0,
+		replaced: 0,
+		suppressed: 0,
+		pins: [],
+		dormant: 0,
+		missing: 0
+	};
+	stripCanonBooks(lists);
+	const ordered = [...items].sort((a, b) => kindRank(a) - kindRank(b) || a.uid - b.uid);
+	for (const item of ordered) {
+		const base = item.meta.base;
+		const found = base && item.meta.kind !== "addition" ? findBase(lists, base.world, base.uid) : null;
+		const current = found ? found.list[found.index] : void 0;
+		if (!acts(item, options, current)) {
+			result.dormant++;
+			continue;
+		}
+		switch (item.meta.kind) {
+			case "addition":
+				lists.chatLore.push(additionCopy(item, options.canonBook));
+				result.added++;
+				break;
+			case "override":
+				if (!found || !current) {
+					result.missing++;
+					break;
+				}
+				if (markerOf(current)?.canonUid !== item.uid) found.list[found.index] = overrideCopy(current, item);
+				result.replaced++;
+				break;
+			case "suppress":
+				if (!found) {
+					result.missing++;
+					break;
+				}
+				found.list.splice(found.index, 1);
+				result.suppressed++;
+				break;
+			case "pin": {
+				if (!base) break;
+				if (item.meta.pinWhen && item.meta.pinWhen !== "always" && options.pinActive?.(item) !== true) break;
+				const key = activationKey(base.world, base.uid);
+				if (!result.pins.includes(key)) result.pins.push(key);
+				break;
+			}
+		}
+	}
+	return result;
+}
+/** Overrides first, suppressions after them (a suppression wins over an override of the same base), then the rest. */
+function kindRank(item) {
+	switch (item.meta.kind) {
+		case "override": return 0;
+		case "suppress": return 1;
+		case "addition": return 2;
+		default: return 3;
+	}
+}
+/** The last `count` messages as one lower-case text (ё → е) for mention checks. */
+function recentText(messages, count) {
+	const parts = [];
+	for (let i = messages.length - 1; i >= 0 && parts.length < count; i--) {
+		const message = messages[i];
+		if (!isDict$23(message) || message.is_system === true) continue;
+		if (typeof message.mes === "string" && message.mes) parts.push(message.mes);
+	}
+	return parts.reverse().join("\n");
+}
+/**
+* Any of the keys occurs in the text: plain keys as case-insensitive substrings (Cyrillic keys behave like that in
+* ST anyway), regex keys with their own flags. `text` is the raw recent text.
+*/
+function keysMentioned(keys, text) {
+	if (!Array.isArray(keys) || !text) return false;
+	const normalized = normalizeForMatch(text);
+	for (const raw of keys) {
+		if (typeof raw !== "string") continue;
+		const key = raw.trim();
+		if (!key) continue;
+		const regex = parseRegexKey$1(key);
+		if (regex) {
+			if (regex.test(text)) return true;
+			continue;
+		}
+		if (normalized.includes(normalizeForMatch(key))) return true;
+	}
+	return false;
+}
+/** Keys of an item for the mention check: its own keys, primary and secondary. */
+function itemKeys(item) {
+	const list = (value) => Array.isArray(value) ? value.filter((key) => typeof key === "string") : [];
+	return [...list(item.entry.key), ...list(item.entry.keysecondary)];
+}
+/** Is an activated entry the canon's own (an addition copy or an override copy)? */
+function isCanonActivation(entry, canonBook) {
+	if (!isDict$23(entry)) return false;
+	if (entry.world === canonBook) return true;
+	const marker = markerOf(entry);
+	return typeof marker?.canonUid === "number" && typeof marker.kind === "string";
+}
+/**
+* Which new canon activations fit the canon budget (plan M6 п. 7, audit B4): highest `order` first, then the newest;
+* lower-order and older ones are cut first. `used` is what earlier loops of the same scan already keep.
+*/
+function planCanonBudget(used, candidates, limit) {
+	const keep = [];
+	const cut = [];
+	let total = used;
+	if (!(limit > 0)) return {
+		keep: candidates.map((item) => item.key),
+		cut,
+		used: total + sum(candidates)
+	};
+	const ordered = [...candidates].sort((a, b) => b.order - a.order || b.updatedAt - a.updatedAt || (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
+	for (const item of ordered) if (total + item.chars <= limit) {
+		keep.push(item.key);
+		total += item.chars;
+	} else cut.push(item.key);
+	return {
+		keep,
+		cut,
+		used: total
+	};
+}
+function sum(items) {
+	return items.reduce((total, item) => total + item.chars, 0);
+}
+//#endregion
+//#region src/features/canon/glosses.ts
+/** Ephemeral injection key (extension prompt `maestro_canonScan`). */
+var GLOSS_INJECTION = "canonScan";
+var MAX_NAMES = 40;
+var MAX_CHARS = 600;
+/** DES aliases and DES-RU names change without events Maestro can rely on: rebuild at most this often. */
+var GLOSSARY_TTL_MS = 6e4;
+/** DES-RU's API: from the adapter when it offers `api()`, else the global; null when absent. */
+function desruApi(app) {
+	try {
+		const adapter = adaptersOf(app).desru;
+		const api = (typeof adapter?.api === "function" ? adapter.api() : void 0) ?? globalThis.DESRU_API;
+		return api && typeof api === "object" ? api : null;
+	} catch {
+		return null;
+	}
+}
+function safeCall(call, log) {
+	try {
+		return call();
+	} catch (error) {
+		log.debug("DES-RU call failed", error);
 		return;
 	}
 }
-function rulePayload(value) {
-	if (!value || typeof value !== "object") return null;
-	const rule = value.rule;
-	return typeof rule === "string" && rule ? { rule } : null;
+var CanonGlosses = class {
+	app;
+	store;
+	settings;
+	log;
+	glossary = null;
+	builtAt = 0;
+	building = null;
+	localizer = [];
+	localizerSignature = "";
+	lastText = "";
+	constructor(app, store, settings, log) {
+		this.app = app;
+		this.store = store;
+		this.settings = settings;
+		this.log = log;
+	}
+	install() {
+		const offs = [];
+		offs.push(this.app.ephemeral.addProducer(GLOSS_INJECTION, () => this.produce()));
+		offs.push(this.store.onChange(() => this.invalidate()));
+		const chatChanged = this.app.host.events.name("CHAT_CHANGED");
+		if (chatChanged) offs.push(this.app.host.events.on(chatChanged, () => this.invalidate()));
+		const api = desruApi(this.app);
+		const off = api?.onNamesChanged ? safeCall(() => api.onNamesChanged?.(() => this.invalidate()), this.log) : null;
+		if (typeof off === "function") offs.push(off);
+		return offs;
+	}
+	invalidate() {
+		this.glossary = null;
+		this.building = null;
+	}
+	/** Text the last generation scanned (for the pult and tests). */
+	last() {
+		return this.lastText;
+	}
+	/** Localizer pairs of the entries ST just loaded (rebuilt only when they change). */
+	collectLocalizer(lists) {
+		const pairs = [];
+		for (const list of Object.values(lists)) for (const entry of list) {
+			if (!isDict$23(entry) || !isDict$23(entry.extensions) || !entry.extensions.lorebook_localizer) continue;
+			const marker = readLocalizerMarker(entry);
+			if (!marker) continue;
+			for (const state of Object.values(marker.languages)) pairs.push(...pairsFromLocalizer(state.sources, [...state.added.key, ...state.added.keysecondary]));
+		}
+		const signature = pairs.length ? stableHash(JSON.stringify(pairs)) : "";
+		if (signature === this.localizerSignature) return;
+		this.localizerSignature = signature;
+		this.localizer = pairs;
+		this.invalidate();
+	}
+	/** Builds (or returns) the glossary of the current chat. */
+	glossaryNow() {
+		if (this.glossary && Date.now() - this.builtAt < GLOSSARY_TTL_MS) return Promise.resolve(this.glossary);
+		if (!this.building) {
+			const building = this.build().then((glossary) => {
+				if (this.building === building) {
+					this.glossary = glossary;
+					this.builtAt = Date.now();
+					this.building = null;
+				}
+				return glossary;
+			});
+			this.building = building;
+		}
+		return this.building;
+	}
+	async build() {
+		const pairs = [];
+		const book = this.store.bookName();
+		if (book) {
+			const { items } = await this.store.state(book);
+			for (const item of items) {
+				if (item.meta.kind !== "addition" && item.meta.kind !== "override") continue;
+				const keys = [item.entry.key, item.entry.keysecondary].flatMap((list) => Array.isArray(list) ? list : []);
+				pairs.push(...pairsFromKeys(keys));
+			}
+		}
+		try {
+			pairs.push(...pairsFromAliases(adaptersOf(this.app).des.aliases()));
+		} catch (error) {
+			this.log.debug("DES aliases are not available", error);
+		}
+		const api = desruApi(this.app);
+		if (api?.aliases) pairs.push(...pairsFromAliases(safeCall(() => api.aliases?.(), this.log)));
+		pairs.push(...this.localizer);
+		const forms = /* @__PURE__ */ new Map();
+		if (api?.nameForms) for (const pair of pairs) {
+			if (forms.has(pair.ru) || isRegexKey$1(pair.ru) || !hasCyrillic$1(pair.ru)) continue;
+			const result = safeCall(() => api.nameForms?.(pair.ru), this.log);
+			forms.set(pair.ru, Array.isArray(result) ? uniqueStrings(result) : []);
+		}
+		return buildGlossary(pairs.map((pair) => ({
+			...pair,
+			forms: forms.get(pair.ru) ?? []
+		})));
+	}
+	/** Ephemeral producer: sets the scan-only injection for this generation. */
+	async produce() {
+		this.lastText = "";
+		if (!this.settings().scanGlosses) return;
+		const count = Math.max(1, Math.min(50, Math.floor(this.settings().glossMessages) || 6));
+		const text = recentText(this.app.host.ctx().chat ?? [], count);
+		if (!text) return;
+		const scan = formatGlosses(matchGlossary(await this.glossaryNow(), text, MAX_NAMES), MAX_CHARS);
+		if (!scan) return;
+		this.lastText = scan;
+		this.app.ephemeral.setInjection(GLOSS_INJECTION, {
+			text: scan,
+			position: -1,
+			depth: 0,
+			scan: true,
+			role: 0
+		});
+	}
+	/** Russian key forms of a term (CanonApi.russianKeys). */
+	russianKeys(term) {
+		const api = desruApi(this.app);
+		const forms = api?.nameForms ? safeCall(() => api.nameForms?.(term), this.log) : void 0;
+		const plain = Array.isArray(forms) ? uniqueStrings(forms) : [];
+		return russianKeysFrom(term, plain, !plain.length && api?.nameFormsKey ? safeCall(() => api.nameFormsKey?.(term), this.log) : void 0);
+	}
+};
+//#endregion
+//#region src/features/canon/scan.ts
+function defaultCanonSettings() {
+	return {
+		budgetChars: 8e3,
+		scanGlosses: true,
+		glossMessages: 6
+	};
 }
-async function applyRule(app, payload) {
-	const parsed = rulePayload(payload);
-	const rules = rulesApi(app);
-	if (!parsed || !rules) throw new Error("the rules module is not running");
-	await rules.setEnabled(parsed.rule, true);
+/** Archived items come back when their keys appear in this many last messages. */
+var MENTION_MESSAGES = 2;
+var LORE_JOURNAL_KEY$1 = "loreJournal";
+function strings$3(value) {
+	return Array.isArray(value) ? value.filter((item) => typeof item === "string") : [];
 }
-async function stillOff(app, payload) {
-	const parsed = rulePayload(payload);
-	const rules = rulesApi(app);
-	return !!parsed && !!rules && !rules.isEnabled(parsed.rule);
+var CanonScan = class {
+	app;
+	store;
+	settings;
+	glosses;
+	log;
+	pins = [];
+	scan = null;
+	pending = null;
+	report = null;
+	usedChars = 0;
+	warned = /* @__PURE__ */ new Set();
+	reportListeners = /* @__PURE__ */ new Set();
+	constructor(app, store, settings, glosses, log) {
+		this.app = app;
+		this.store = store;
+		this.settings = settings;
+		this.glosses = glosses;
+		this.log = log;
+	}
+	install() {
+		const offs = [];
+		const { host } = this.app;
+		const on = (key, handler) => {
+			const name = host.events.name(key);
+			if (!name) {
+				this.log.warn(`ST event ${key} is missing; the chat canon is not mixed in`);
+				return;
+			}
+			offs.push(host.events.on(name, handler, { order: "first" }));
+		};
+		on("WORLDINFO_ENTRIES_LOADED", (payload) => this.onEntriesLoaded(payload));
+		on("WORLDINFO_SCAN_DONE", (args) => this.onScanDone(args));
+		return offs;
+	}
+	budget() {
+		return {
+			limitChars: Math.max(0, this.settings().budgetChars || 0),
+			usedChars: this.usedChars
+		};
+	}
+	lastScan() {
+		return this.report ? { ...this.report } : null;
+	}
+	/** Called after every real scan (the pult redraws its budget bar). */
+	onReport(listener) {
+		this.reportListeners.add(listener);
+		return () => this.reportListeners.delete(listener);
+	}
+	lore() {
+		return this.app.modules.api(LORE_JOURNAL_KEY$1);
+	}
+	simulating() {
+		return this.lore()?.simulating() === true;
+	}
+	async onEntriesLoaded(payload) {
+		const lists = listsOf(payload);
+		if (!lists) return;
+		const real = !this.simulating();
+		if (this.glosses && this.settings().scanGlosses) this.glosses.collectLocalizer(lists);
+		const stray = stripCanonBooks(lists);
+		if (real) this.warnActive(stray);
+		const book = this.store.bookName();
+		if (!book) {
+			this.pins = [];
+			return;
+		}
+		const state = this.store.peek(book) ?? await this.store.state(book);
+		if (!state.items.length) {
+			this.pins = [];
+			if (real) this.pending = null;
+			return;
+		}
+		let recent = null;
+		const text = () => recent ??= recentText(this.app.host.ctx().chat ?? [], MENTION_MESSAGES);
+		const result = applyCanon(lists, state.items, {
+			canonBook: book,
+			mentioned: (item, base) => keysMentioned(itemKeys(item), text()) || (base ? keysMentioned([...strings$3(base.key), ...strings$3(base.keysecondary)], text()) : false),
+			pinActive: (item) => !!item.meta.pinWhen && keysMentioned([item.meta.pinWhen], text())
+		});
+		this.pins = result.pins;
+		if (real) this.pending = result;
+	}
+	warnActive(books) {
+		for (const book of books) {
+			if (this.warned.has(book)) continue;
+			this.warned.add(book);
+			this.log.warn(`canon book ${book} is active in ST; its entries are left out of the scan`);
+			this.app.ui.notice(this.app.i18n.t("m6.warn.active", { book }), {
+				urgent: true,
+				level: "warn"
+			});
+		}
+	}
+	onScanDone(args) {
+		if (!isDict$23(args)) return;
+		const book = this.store.bookName();
+		const activated = isDict$23(args.activated) ? args.activated.entries : void 0;
+		if (!book || !(activated instanceof Map)) return;
+		const state = isDict$23(args.state) ? args.state : {};
+		const loop = typeof state.loopCount === "number" && state.loopCount > 0 ? state.loopCount : 1;
+		const sorted = Array.isArray(args.sortedEntries) ? args.sortedEntries : [];
+		let scan = this.scan;
+		if (loop <= 1 || !scan || scan.sorted !== args.sortedEntries) {
+			scan = {
+				sorted: args.sortedEntries,
+				accepted: /* @__PURE__ */ new Set(),
+				pinned: /* @__PURE__ */ new Set(),
+				used: 0,
+				cut: 0
+			};
+			this.scan = scan;
+		}
+		const map = activated;
+		if (loop <= 1) this.forcePins(map, sorted, scan);
+		this.applyBudget(map, sorted, scan, book);
+		if (Number(state.next) === 0 && !this.simulating()) this.finish(scan);
+	}
+	/** Pinned base entries join the first loop's activations (the sortedEntries object, with macros resolved). */
+	forcePins(activated, sorted, scan) {
+		for (const key of this.pins) {
+			if (activated.has(key)) continue;
+			const entry = sorted.find((item) => isDict$23(item) && activationKey(item.world, item.uid) === key);
+			if (!isDict$23(entry)) continue;
+			if (typeof entry.content === "string") try {
+				entry.content = this.app.host.ctx().substituteParams(entry.content);
+			} catch (error) {
+				this.log.debug("macros of a pinned entry were not substituted", error);
+			}
+			activated.set(key, entry);
+			scan.pinned.add(key);
+		}
+	}
+	applyBudget(activated, sorted, scan, book) {
+		const limit = this.budget().limitChars;
+		const items = this.store.peek(book)?.items ?? [];
+		const updated = new Map(items.map((item) => [item.uid, item.meta.updatedAt]));
+		const candidates = [];
+		const byKey = /* @__PURE__ */ new Map();
+		for (const [rawKey, entry] of activated) {
+			const key = String(rawKey);
+			if (scan.accepted.has(key) || scan.pinned.has(key) || !isCanonActivation(entry, book)) continue;
+			const copy = entry;
+			const marker = isDict$23(copy.extensions) && isDict$23(copy.extensions.maestro) ? copy.extensions.maestro : {};
+			const uid = copy.world === book ? Number(copy.uid) : Number(marker.canonUid);
+			byKey.set(key, copy);
+			candidates.push({
+				key,
+				chars: typeof copy.content === "string" ? copy.content.length : 0,
+				order: Number(copy.order) || 0,
+				updatedAt: updated.get(uid) ?? 0
+			});
+		}
+		if (!candidates.length) return;
+		const plan = planCanonBudget(scan.used, candidates, limit);
+		for (const key of plan.keep) scan.accepted.add(key);
+		scan.used = plan.used;
+		const lore = this.lore();
+		for (const key of plan.cut) {
+			const entry = byKey.get(key);
+			if (!entry) continue;
+			activated.delete(key);
+			entry.disable = true;
+			if (!sorted.includes(entry)) {
+				const twin = sorted.find((item) => isDict$23(item) && activationKey(item.world, item.uid) === key);
+				if (isDict$23(twin)) twin.disable = true;
+			}
+			scan.cut++;
+			lore?.markCut?.(String(entry.world), Number(entry.uid));
+		}
+	}
+	finish(scan) {
+		this.usedChars = scan.used;
+		const pending = this.pending;
+		this.report = {
+			at: Date.now(),
+			added: pending?.added ?? 0,
+			replaced: pending?.replaced ?? 0,
+			suppressed: pending?.suppressed ?? 0,
+			pinned: scan.pinned.size,
+			dormant: pending?.dormant ?? 0,
+			missing: pending?.missing ?? 0,
+			cut: scan.cut
+		};
+		for (const listener of [...this.reportListeners]) try {
+			listener();
+		} catch (error) {
+			this.log.error("canon scan listener failed", error);
+		}
+	}
+};
+//#endregion
+//#region src/features/canon/strings.ts
+var CANON_STRINGS = {
+	en: {
+		"m6.title": "Chat canon",
+		"m6.tab": "Canon",
+		"kind.canon.branchCopy": "Copying the canon into a branch",
+		"m6.hint": "What the story changed lives here, not in your lorebooks: overrides replace a base entry for this chat only, additions are new entries, suppressions hide a base entry, pins force one in. Maestro mixes the canon into every scan; the book itself is never switched on.",
+		"m6.noChat": "No chat is open.",
+		"m6.noBook": "This chat has no canon yet.",
+		"m6.empty": "The canon of this chat is empty.",
+		"m6.group.override": "Overrides ({count})",
+		"m6.group.addition": "Additions ({count})",
+		"m6.group.suppress": "Suppressed ({count})",
+		"m6.group.pin": "Pinned ({count})",
+		"m6.kind.override": "Override",
+		"m6.kind.addition": "Addition",
+		"m6.kind.suppress": "Suppressed",
+		"m6.kind.pin": "Pinned",
+		"m6.status.active": "active",
+		"m6.status.provisional": "provisional",
+		"m6.status.archived": "archived",
+		"m6.origin.user": "by you",
+		"m6.origin.revision": "revision",
+		"m6.origin.living": "living canon",
+		"m6.origin.chronicle": "chronicle",
+		"m6.origin.backstage": "backstage",
+		"m6.origin.entity": "world model",
+		"m6.origin.import": "import",
+		"m6.base": "Base: {book}, entry {uid}",
+		"m6.base.open": "Open the base lorebook",
+		"m6.action.archive": "Archive",
+		"m6.action.activate": "Activate",
+		"m6.action.confirm": "Confirm",
+		"m6.action.promote": "Canon for all chats",
+		"m6.action.promoteHint": "Write this change into the base lorebook (asks first)",
+		"m6.action.remove": "Remove",
+		"m6.remove.title": "Remove from the canon?",
+		"m6.remove.body": "«{title}» leaves the canon of this chat. You can undo it from the journal.",
+		"m6.budget.line": "Canon on the last turn: {used} of {limit} characters",
+		"m6.budget.unlimited": "Canon on the last turn: {used} characters (no limit)",
+		"m6.scan.report": "Last scan ({time}): added {added}, replaced {replaced}, suppressed {suppressed}, pinned {pinned}, archived and silent {dormant}, cut by the budget {cut}.",
+		"m6.scan.none": "No generation has used the canon yet.",
+		"m6.scan.missing": "Base entries not found in the last scan: {count} (their book is not active or the entry is gone).",
+		"m6.drift.check": "Check the bases",
+		"m6.drift.title": "Base entries changed",
+		"m6.drift.none": "No base entry has changed since its canon item was made.",
+		"m6.drift.item": "«{title}»: the base entry in {book} has changed",
+		"m6.drift.base": "Base entry, then → now:",
+		"m6.drift.override": "The override:",
+		"m6.promote.title": "Make it canon for all chats?",
+		"m6.promote.body": "The override is written into «{entry}» of the lorebook {book} and leaves the chat canon. Every chat with this book will see it.",
+		"m6.promote.bodySuppress": "The entry «{entry}» of the lorebook {book} is switched off for every chat, and the suppression leaves the chat canon.",
+		"m6.promote.readOnly": "The lorebook {book} is read-only (BunnyMo): it is never edited.",
+		"m6.promote.missing": "The base entry is gone from {book}.",
+		"m6.export.action": "Export",
+		"m6.export.hint": "Save the canon as an ordinary lorebook (overrides expanded, suppressed entries listed in a note)",
+		"m6.export.done": "Canon exported to the lorebook «{book}». It is not attached to anything.",
+		"m6.export.empty": "The canon of this chat is empty: nothing to export.",
+		"m6.export.noteTitle": "Maestro canon: base entries to review",
+		"m6.export.suppressed": "Suppressed in this chat (switch them off by hand):",
+		"m6.export.overridden": "Replaced in this chat (the copies above take their place; switch the originals off):",
+		"m6.export.pinned": "Always active in this chat:",
+		"m6.export.line": "- {world} — {comment} (uid {uid})",
+		"m6.warn.active": "The canon lorebook {book} is switched on in SillyTavern. Maestro mixes the canon in by itself: switch the book off; until then its entries are left out of the scan.",
+		"m6.branch.title": "Copy the canon into this branch",
+		"m6.branch.description": "This chat is a branch of «{parent}», which has a canon. Copy it here? (The whole canon is copied; restoring it exactly as of the branch point comes later.)",
+		"m6.branch.failed": "The canon was not copied: the branch already has one or the parent canon is gone.",
+		"m6.journal.put": "Canon: added «{title}»",
+		"m6.journal.update": "Canon: changed «{title}»",
+		"m6.journal.remove": "Canon: removed «{title}»",
+		"m6.journal.status": "Canon: «{title}» is now {status}",
+		"m6.journal.promote": "Canon «{title}» written into {book}",
+		"m6.journal.export": "Canon exported to «{book}»",
+		"m6.error.noChat": "No chat is open.",
+		"m6.error.noWorldInfo": "This SillyTavern cannot save lorebooks from extensions.",
+		"m6.error.kind": "Unknown kind of canon item.",
+		"m6.error.base": "An override, suppression or pin needs a base entry.",
+		"m6.health.title": "Chat canon is not switched on directly",
+		"m6.health.ok": "No canon lorebook is active in SillyTavern.",
+		"m6.health.active": "Canon lorebooks active in SillyTavern: {books}. Switch them off: Maestro mixes the canon in."
+	},
+	ru: {
+		"m6.title": "Канон чата",
+		"m6.tab": "Канон",
+		"kind.canon.branchCopy": "Копия канона в ветку",
+		"m6.hint": "Здесь живёт то, что изменил сюжет, — не в твоих лорбуках: переопределение заменяет базовую запись только в этом чате, добавление — новая запись, подавление прячет базовую запись, закрепление включает её всегда. Maestro подмешивает канон при каждом сканировании; сама книга не включается никогда.",
+		"m6.noChat": "Чат не открыт.",
+		"m6.noBook": "У этого чата пока нет канона.",
+		"m6.empty": "Канон этого чата пуст.",
+		"m6.group.override": "Переопределения ({count})",
+		"m6.group.addition": "Добавления ({count})",
+		"m6.group.suppress": "Подавленные ({count})",
+		"m6.group.pin": "Закреплённые ({count})",
+		"m6.kind.override": "Переопределение",
+		"m6.kind.addition": "Добавление",
+		"m6.kind.suppress": "Подавление",
+		"m6.kind.pin": "Закрепление",
+		"m6.status.active": "действует",
+		"m6.status.provisional": "пробная",
+		"m6.status.archived": "в архиве",
+		"m6.origin.user": "ты",
+		"m6.origin.revision": "ревизия",
+		"m6.origin.living": "живой канон",
+		"m6.origin.chronicle": "летопись",
+		"m6.origin.backstage": "закулисье",
+		"m6.origin.entity": "модель мира",
+		"m6.origin.import": "импорт",
+		"m6.base": "База: {book}, запись {uid}",
+		"m6.base.open": "Открыть базовый лорбук",
+		"m6.action.archive": "В архив",
+		"m6.action.activate": "Вернуть",
+		"m6.action.confirm": "Подтвердить",
+		"m6.action.promote": "Канон для всех чатов",
+		"m6.action.promoteHint": "Записать изменение в базовый лорбук (сначала спросит)",
+		"m6.action.remove": "Убрать",
+		"m6.remove.title": "Убрать из канона?",
+		"m6.remove.body": "«{title}» уйдёт из канона этого чата. Отменить можно в журнале.",
+		"m6.budget.line": "Канон в прошлом ходе: {used} из {limit} символов",
+		"m6.budget.unlimited": "Канон в прошлом ходе: {used} символов (без потолка)",
+		"m6.scan.report": "Последнее сканирование ({time}): добавлено {added}, заменено {replaced}, подавлено {suppressed}, закреплено {pinned}, в архиве без упоминаний {dormant}, срезано бюджетом {cut}.",
+		"m6.scan.none": "Ни одна генерация ещё не использовала канон.",
+		"m6.scan.missing": "Базовых записей нет в последнем сканировании: {count} (их книга не активна или запись удалена).",
+		"m6.drift.check": "Проверить базу",
+		"m6.drift.title": "Базовые записи изменились",
+		"m6.drift.none": "Ни одна базовая запись не менялась с тех пор, как появилась запись канона.",
+		"m6.drift.item": "«{title}»: базовая запись в {book} изменилась",
+		"m6.drift.base": "Базовая запись, было → стало:",
+		"m6.drift.override": "Переопределение:",
+		"m6.promote.title": "Сделать каноном для всех чатов?",
+		"m6.promote.body": "Переопределение запишется в «{entry}» лорбука {book} и уйдёт из канона чата. Это увидят все чаты с этой книгой.",
+		"m6.promote.bodySuppress": "Запись «{entry}» лорбука {book} выключится во всех чатах, а подавление уйдёт из канона чата.",
+		"m6.promote.readOnly": "Лорбук {book} только для чтения (BunnyMo): его не правят.",
+		"m6.promote.missing": "Базовой записи больше нет в {book}.",
+		"m6.export.action": "Экспорт",
+		"m6.export.hint": "Сохранить канон обычным лорбуком (переопределения развёрнуты, подавленные записи перечислены в заметке)",
+		"m6.export.done": "Канон выгружен в лорбук «{book}». Он ни к чему не привязан.",
+		"m6.export.empty": "Канон этого чата пуст — выгружать нечего.",
+		"m6.export.noteTitle": "Канон Maestro: базовые записи, на которые стоит взглянуть",
+		"m6.export.suppressed": "Подавлены в этом чате (выключи их вручную):",
+		"m6.export.overridden": "Заменены в этом чате (их место заняли копии выше; оригиналы выключи):",
+		"m6.export.pinned": "Всегда включены в этом чате:",
+		"m6.export.line": "- {world} — {comment} (uid {uid})",
+		"m6.warn.active": "Лорбук канона {book} включён в SillyTavern. Maestro подмешивает канон сам: выключи книгу, а пока её записи в сканирование не попадают.",
+		"m6.branch.title": "Скопировать канон в эту ветку",
+		"m6.branch.description": "Этот чат — ветка «{parent}», у которого есть канон. Скопировать его сюда? (Копируется весь канон; точное восстановление на момент ветвления появится позже.)",
+		"m6.branch.failed": "Канон не скопирован: у ветки он уже есть или канона родителя больше нет.",
+		"m6.journal.put": "Канон: добавлено «{title}»",
+		"m6.journal.update": "Канон: изменено «{title}»",
+		"m6.journal.remove": "Канон: убрано «{title}»",
+		"m6.journal.status": "Канон: «{title}» теперь {status}",
+		"m6.journal.promote": "Канон «{title}» записан в {book}",
+		"m6.journal.export": "Канон выгружен в «{book}»",
+		"m6.error.noChat": "Чат не открыт.",
+		"m6.error.noWorldInfo": "Эта версия SillyTavern не даёт расширениям сохранять лорбуки.",
+		"m6.error.kind": "Неизвестный вид записи канона.",
+		"m6.error.base": "Переопределению, подавлению и закреплению нужна базовая запись.",
+		"m6.health.title": "Канон чата не включён напрямую",
+		"m6.health.ok": "Ни один лорбук канона не включён в SillyTavern.",
+		"m6.health.active": "В SillyTavern включены лорбуки канона: {books}. Выключи их — Maestro подмешивает канон сам."
+	}
+};
+//#endregion
+//#region src/features/canon/view.ts
+var CANON_TAB = "canon";
+var KINDS$1 = [
+	"override",
+	"addition",
+	"suppress",
+	"pin"
+];
+var STATUS_ORDER = {
+	active: 0,
+	provisional: 1,
+	archived: 2
+};
+var PREVIEW_CHARS = 220;
+var CANON_CSS = `
+.maestro-m6-head { display: flex; flex-direction: column; gap: 4px; }
+.maestro-m6-book { font-weight: 600; overflow-wrap: anywhere; }
+.maestro-m6-budget { height: 6px; border-radius: 3px; background: var(--maestro-raised-strong); overflow: hidden; }
+.maestro-m6-budget-bar { height: 100%; background: var(--maestro-accent); }
+.maestro-m6-budget-bar.maestro-m6-over { background: var(--maestro-warn); }
+.maestro-m6-items { display: flex; flex-direction: column; gap: 8px; }
+.maestro-m6-item { border: 1px solid var(--maestro-border); border-radius: var(--maestro-radius-sm); padding: 6px 8px; }
+.maestro-m6-item-head { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.maestro-m6-title { font-weight: 600; overflow-wrap: anywhere; }
+.maestro-m6-base { font-size: 0.9em; overflow-wrap: anywhere; }
+.maestro-m6-preview { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 0.9em; margin: 4px 0; opacity: 0.85; }
+.maestro-m6-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.maestro-m6-archived { opacity: 0.7; }
+.maestro-m6-drift { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+`;
+function preview(text) {
+	const value = typeof text === "string" ? text.trim() : "";
+	return value.length > PREVIEW_CHARS ? `${value.slice(0, PREVIEW_CHARS)}…` : value;
 }
-/** Inbox applier for cards that survive a reload, plus the undo handler of the journal target. */
-function registerRuleActions(app) {
-	app.journal.registerUndo(RULE_TARGET$1, async (change) => {
-		const rules = rulesApi(app);
-		const id = change.ref.rule;
-		if (!rules || typeof id !== "string") return false;
-		await rules.setEnabled(id, change.before === true);
-		return true;
-	});
-	return app.inbox.registerApplier(ENABLE_RULE_KIND, (payload) => applyRule(app, payload), (payload) => stillOff(app, payload));
+function itemTitle(item) {
+	const comment = typeof item.entry.comment === "string" ? item.entry.comment.trim() : "";
+	if (comment) return comment;
+	const key = Array.isArray(item.entry.key) ? item.entry.key.find((value) => typeof value === "string") : void 0;
+	return typeof key === "string" && key ? key : `#${item.uid}`;
 }
-/** Proposes switching the rule on; returns the autonomy decision. */
-async function enableRule(app, state, finding, message) {
+async function openBook$1(app, book) {
+	try {
+		const open = (await app.host.modules.worldInfo()).openWorldInfoEditor;
+		if (typeof open === "function") open(book);
+	} catch (error) {
+		app.log.debug("cannot open the lorebook editor", error);
+	}
+}
+function canonTab(app, store, scan) {
 	const t = app.i18n.t.bind(app.i18n);
-	const title = t("m5.enableRuleTitle", { rule: t(state.definition.titleKey) });
-	const payload = { rule: state.id };
-	return app.autonomy.decide({
-		module: "M5",
-		kind: ENABLE_RULE_KIND,
-		title,
-		description: t("m5.enableRuleDescription", { finding: message }),
-		changes: [{
-			target: RULE_TARGET$1,
-			ref: {
-				rule: state.id,
-				finding: finding.id
-			},
-			before: false,
-			after: true
-		}],
-		payload,
-		apply: (value) => applyRule(app, value),
-		stillValid: () => stillOff(app, payload)
-	}, "auto");
+	return {
+		id: CANON_TAB,
+		titleKey: "m6.tab",
+		icon: "fa-scroll",
+		order: 35,
+		render(container) {
+			let alive = true;
+			let drift = null;
+			let note = "";
+			const root = el("div", { class: "maestro-view maestro-m6" });
+			container.appendChild(root);
+			const run = async (job) => {
+				try {
+					await job();
+				} catch (error) {
+					note = error instanceof Error ? error.message : String(error);
+					app.ui.notice(note, { level: "error" });
+				}
+				if (alive) draw();
+			};
+			const budgetView = () => {
+				const budget = scan.budget();
+				const report = scan.lastScan();
+				const percent = budget.limitChars > 0 ? Math.min(100, Math.round(budget.usedChars / budget.limitChars * 100)) : 0;
+				const bar = el("div", {
+					class: "maestro-m6-budget",
+					attrs: { role: "presentation" }
+				}, [el("div", {
+					class: ["maestro-m6-budget-bar", report && report.cut > 0 ? "maestro-m6-over" : null],
+					attrs: { style: `width: ${percent}%` }
+				})]);
+				return el("div", { class: "maestro-m6-head" }, [
+					el("div", { text: budget.limitChars > 0 ? t("m6.budget.line", {
+						used: budget.usedChars,
+						limit: budget.limitChars
+					}) : t("m6.budget.unlimited", { used: budget.usedChars }) }),
+					budget.limitChars > 0 ? bar : null,
+					report ? el("div", {
+						class: "maestro-muted",
+						text: t("m6.scan.report", {
+							time: formatTime(report.at, app.i18n),
+							added: report.added,
+							replaced: report.replaced,
+							suppressed: report.suppressed,
+							pinned: report.pinned,
+							dormant: report.dormant,
+							cut: report.cut
+						})
+					}) : el("div", {
+						class: "maestro-muted",
+						text: t("m6.scan.none")
+					}),
+					report && report.missing > 0 ? el("div", {
+						class: "maestro-warn-text",
+						text: t("m6.scan.missing", { count: report.missing })
+					}) : null
+				]);
+			};
+			const driftView = () => {
+				if (!drift?.length) return null;
+				return el("div", { class: "maestro-m6-drift" }, drift.map((row) => el("details", {}, [
+					el("summary", {}, [banner(t("m6.drift.item", {
+						title: itemTitle(row.item),
+						book: row.item.meta.base?.world ?? ""
+					}), "warn")]),
+					el("div", {
+						class: "maestro-muted",
+						text: t("m6.drift.base")
+					}),
+					diffView(row.baseThen, row.baseNow, t),
+					row.item.meta.kind === "override" ? el("div", {
+						class: "maestro-muted",
+						text: t("m6.drift.override")
+					}) : null,
+					row.item.meta.kind === "override" ? el("div", {
+						class: "maestro-m6-preview",
+						text: preview(row.item.entry.content)
+					}) : null
+				])));
+			};
+			const itemView = (item) => {
+				const base = item.meta.base;
+				const archived = item.meta.status === "archived";
+				const actions = [button({
+					label: t(archived ? "m6.action.activate" : "m6.action.archive"),
+					icon: archived ? "fa-box-open" : "fa-box-archive",
+					onClick: () => run(() => store.setStatus(item.uid, archived ? "active" : "archived"))
+				})];
+				if (item.meta.status === "provisional") actions.push(button({
+					label: t("m6.action.confirm"),
+					icon: "fa-check",
+					onClick: () => run(() => store.setStatus(item.uid, "active"))
+				}));
+				if (item.meta.kind === "override" || item.meta.kind === "suppress") actions.push(button({
+					label: t("m6.action.promote"),
+					icon: "fa-arrow-up-from-bracket",
+					title: t("m6.action.promoteHint"),
+					onClick: () => run(() => store.promote(item.uid))
+				}));
+				actions.push(button({
+					label: t("m6.action.remove"),
+					icon: "fa-trash-can",
+					kind: "danger",
+					onClick: () => run(async () => {
+						if (await app.ui.confirm(t("m6.remove.title"), t("m6.remove.body", { title: itemTitle(item) }))) await store.remove(item.uid);
+					})
+				}));
+				return el("div", { class: ["maestro-m6-item", archived ? "maestro-m6-archived" : null] }, [
+					el("div", { class: "maestro-m6-item-head" }, [
+						el("span", {
+							class: "maestro-m6-title",
+							text: itemTitle(item)
+						}),
+						badge(t(`m6.status.${item.meta.status}`), archived ? "muted" : item.meta.status === "active" ? "ok" : "info"),
+						badge(t(`m6.origin.${item.meta.origin}`), "muted"),
+						item.meta.type ? badge(item.meta.type, "muted") : null
+					]),
+					base ? el("div", { class: "maestro-m6-base" }, [
+						el("span", {
+							class: "maestro-muted",
+							text: t("m6.base", {
+								book: base.world,
+								uid: base.uid
+							})
+						}),
+						" ",
+						button({
+							icon: "fa-book",
+							kind: "ghost",
+							title: t("m6.base.open"),
+							onClick: () => openBook$1(app, base.world)
+						})
+					]) : null,
+					item.meta.kind === "addition" || item.meta.kind === "override" ? el("div", {
+						class: "maestro-m6-preview",
+						text: preview(item.entry.content)
+					}) : null,
+					el("div", { class: "maestro-m6-actions" }, actions)
+				]);
+			};
+			const draw = async () => {
+				const name = store.bookName();
+				const items = name ? await store.list() : [];
+				if (!alive) return;
+				clear(root);
+				const exists = name ? store.peek(name)?.exists ?? false : false;
+				root.appendChild(section(t("m6.title"), [
+					el("div", {
+						class: "maestro-m6-book",
+						text: name || t("m6.noChat")
+					}),
+					name && !exists ? el("div", {
+						class: "maestro-muted",
+						text: t("m6.noBook")
+					}) : null,
+					el("div", {
+						class: "maestro-hint",
+						text: t("m6.hint")
+					}),
+					budgetView(),
+					note ? el("div", {
+						class: "maestro-error-text",
+						text: note
+					}) : null
+				], [button({
+					label: t("m6.drift.check"),
+					icon: "fa-code-compare",
+					disabled: !items.length,
+					onClick: () => run(async () => {
+						drift = await store.baseDrift();
+						if (!drift.length) app.ui.notice(t("m6.drift.none"));
+					})
+				}), button({
+					label: t("m6.export.action"),
+					icon: "fa-file-export",
+					disabled: !items.length,
+					title: t("m6.export.hint"),
+					onClick: () => run(async () => {
+						const exported = await store.exportPlain();
+						app.ui.notice(t("m6.export.done", { book: exported }), { urgent: true });
+					})
+				})]));
+				const driftBlock = driftView();
+				if (driftBlock) root.appendChild(section(t("m6.drift.title"), driftBlock));
+				if (!items.length) {
+					root.appendChild(emptyState(t("m6.empty"), "fa-scroll"));
+					return;
+				}
+				for (const kind of KINDS$1) {
+					const group = items.filter((item) => item.meta.kind === kind).sort((a, b) => STATUS_ORDER[a.meta.status] - STATUS_ORDER[b.meta.status] || b.meta.updatedAt - a.meta.updatedAt || a.uid - b.uid);
+					if (!group.length) continue;
+					root.appendChild(section(t(`m6.group.${kind}`, { count: group.length }), el("div", { class: "maestro-m6-items" }, group.map(itemView))));
+				}
+			};
+			const offStore = store.onChange(() => alive && void draw());
+			const offScan = scan.onReport(() => alive && void draw());
+			draw();
+			return () => {
+				alive = false;
+				offStore();
+				offScan();
+			};
+		}
+	};
 }
 //#endregion
+//#region src/features/canon/index.ts
+function readSettings(slice) {
+	const defaults = defaultCanonSettings();
+	if (typeof slice.budgetChars !== "number" || !Number.isFinite(slice.budgetChars) || slice.budgetChars < 0) slice.budgetChars = defaults.budgetChars;
+	if (typeof slice.scanGlosses !== "boolean") slice.scanGlosses = defaults.scanGlosses;
+	if (typeof slice.glossMessages !== "number" || !Number.isFinite(slice.glossMessages)) slice.glossMessages = defaults.glossMessages;
+	return slice;
+}
+var canonModule = {
+	id: "M6",
+	key: CANON_KEY,
+	stage: 2,
+	titleKey: "m6.title",
+	enabledByDefault: true,
+	defaults: defaultCanonSettings,
+	requires: ["st.events.entriesLoaded", "st.events.scanDone"],
+	i18n: CANON_STRINGS,
+	init({ app, log, own }) {
+		const settings = () => readSettings(app.settings.module(CANON_KEY));
+		const store = new CanonStore(app, log);
+		for (const off of store.install()) own(off);
+		const glosses = new CanonGlosses(app, store, settings, log);
+		for (const off of glosses.install()) own(off);
+		const scan = new CanonScan(app, store, settings, glosses, log);
+		for (const off of scan.install()) own(off);
+		const branches = new CanonBranches(app, store, log);
+		for (const off of branches.install()) own(off);
+		app.modules.expose(CANON_KEY, {
+			bookName: (chatId) => store.bookName(chatId),
+			ensureBook: () => store.ensureBook(),
+			list: (filter) => store.list(filter),
+			put: (draft, options) => store.put(draft, options),
+			remove: (uid) => store.remove(uid),
+			setStatus: (uid, status) => store.setStatus(uid, status),
+			promote: (uid) => store.promote(uid),
+			baseDrift: () => store.baseDrift(),
+			exportPlain: () => store.exportPlain(),
+			budget: () => scan.budget(),
+			russianKeys: async (term) => glosses.russianKeys(term),
+			onChange: (listener) => {
+				const offs = [store.onChange(listener), scan.onReport(listener)];
+				return () => offs.forEach((off) => off());
+			},
+			lastScan: () => scan.lastScan(),
+			renameBase: (oldName, newName) => store.renameBase(oldName, newName)
+		});
+		own(app.ui.style("m6-view", CANON_CSS));
+		own(app.ui.addTab(canonTab(app, store, scan)));
+		own(app.ui.addHealthCheck({
+			id: "m6.inactive",
+			module: "M6",
+			titleKey: "m6.health.title",
+			async run() {
+				let books;
+				try {
+					books = (await adaptersOf(app).bunnymo.activeBooks()).filter(isCanonBookName);
+				} catch {
+					return { status: "skip" };
+				}
+				return books.length ? {
+					status: "warn",
+					message: app.i18n.t("m6.health.active", { books: books.join(", ") })
+				} : {
+					status: "ok",
+					message: app.i18n.t("m6.health.ok")
+				};
+			}
+		}));
+		branches.check();
+	}
+};
+//#endregion
 //#region src/domain/doctor-keys.ts
-var CYRILLIC_RE = /\p{Script=Cyrillic}/u;
+var CYRILLIC_RE$1 = /\p{Script=Cyrillic}/u;
 var CYRILLIC_G = /\p{Script=Cyrillic}/gu;
 var LETTER_G = /\p{L}/gu;
 /** Anything written like `/…/flags` (ST tries to parse it as a regex key). */
-var REGEX_LIKE_RE = /^\/[\s\S]+\/[a-z]*$/i;
+var REGEX_LIKE_RE$2 = /^\/[\s\S]+\/[a-z]*$/i;
 var TAG_KEY_RE = /^<[^<>]+>$/;
 var BARE_TAG_RE = /^<[A-Za-z][A-Za-z0-9_-]*>$/;
 var MBTI_TAG_RE = /^<[EI][NS][FT][JP]-[UH]>$/i;
 function hasCyrillic(text) {
-	return CYRILLIC_RE.test(text);
+	return CYRILLIC_RE$1.test(text);
 }
 /** Share of Cyrillic letters among all letters of the texts (0 when there are no letters). */
 function cyrillicShare(texts) {
@@ -8812,13 +12700,13 @@ function isRussianChat(texts, minLetters = 200) {
 	return letters >= minLetters && share >= .3;
 }
 function looksLikeRegexKey(key) {
-	return REGEX_LIKE_RE.test(key.trim());
+	return REGEX_LIKE_RE$2.test(key.trim());
 }
 /**
 * ST's `parseRegexFromString` (world-info.js): `/pattern/flags` with flags from `gimsuy`, no unescaped `/` inside,
 * and a pattern the engine accepts. Null when the key is not a (valid) regex key — ST then matches it as text.
 */
-function parseRegexKey$1(key) {
+function parseRegexKey(key) {
 	const match = /^\/([\w\W]+?)\/([gimsuy]*)$/.exec(key);
 	if (!match) return null;
 	let pattern = match[1] ?? "";
@@ -8849,7 +12737,7 @@ function regexKeyProblem(key) {
 	}
 	const pattern = match[1] ?? "";
 	if (/(^|[^\\])\//.test(pattern)) return "slash";
-	if (!parseRegexKey$1(trimmed)) return "syntax";
+	if (!parseRegexKey(trimmed)) return "syntax";
 	return /\\[{}]/.test(pattern) ? "braces" : null;
 }
 /** `<KEY:VALUE>`, `<ELF>`, `<ESFP-H>`: tag keys (BunnyMo); they never come from prose. */
@@ -8872,10 +12760,10 @@ function isAsciiWordChar(char) {
 	return char !== void 0 && char !== "" && /\w/.test(char);
 }
 /** One key against a haystack, exactly like ST's `WorldInfoBuffer.matchKeys` (keys with macros are not expanded). */
-function matchKey$1(haystack, key, options) {
+function matchKey(haystack, key, options) {
 	const needle = key.trim();
 	if (!needle) return false;
-	const regex = parseRegexKey$1(needle);
+	const regex = parseRegexKey(needle);
 	if (regex) {
 		regex.lastIndex = 0;
 		return regex.test(haystack);
@@ -8900,12 +12788,423 @@ function normalizePackKey(key) {
 	return trimmed.toUpperCase().replace(/:\s+/g, ":");
 }
 //#endregion
+//#region src/domain/rules-keys.ts
+/** Not preceded by a letter or a digit of any script. */
+var LEFT_BOUNDARY = "(?<![\\p{L}\\p{N}])";
+var CYRILLIC_RE = /\p{Script=Cyrillic}/u;
+/** Anything written like `/…/flags` (ST tries to parse it as a regex key). */
+var REGEX_LIKE_RE$1 = /^\/[\s\S]+\/[a-z]*$/i;
+var SPECIAL_G = /[.*+?^$()[\]|\\/{}]/g;
+/**
+* Escapes a literal for a `u`-mode pattern inside an ST regex key: `. * + ? ^ $ ( ) [ ] | \ /` get a backslash,
+* `{` and `}` become `[{]` and `[}]`, and `-` stays as it is (`\-` is invalid outside a class with `u`).
+*/
+function escapeKeyRegex(text) {
+	return text.replace(SPECIAL_G, (char) => char === "{" ? "[{]" : char === "}" ? "[}]" : `\\${char}`);
+}
+/** ST's `entry.flag ?? global`. */
+function effectiveFlag(value, global) {
+	return value === null || value === void 0 ? global : value === true;
+}
+/**
+* A key the whole-word bug applies to and the left boundary can replace: one word (ST matches several words as a
+* plain substring anyway), with Cyrillic letters, not a regex key and without macros.
+*/
+function isLeftBoundaryCandidate(key) {
+	if (typeof key !== "string") return false;
+	const trimmed = key.trim();
+	if (!trimmed || trimmed.includes("{{") || REGEX_LIKE_RE$1.test(trimmed)) return false;
+	return CYRILLIC_RE.test(trimmed) && !/\s/.test(trimmed);
+}
+/** `/(?<![\p{L}\p{N}])<escaped key>/iu` (or `/u` for a case-sensitive entry). */
+function leftBoundaryKey(key, caseSensitive) {
+	return `/${LEFT_BOUNDARY}${escapeKeyRegex(key.trim())}/${caseSensitive ? "u" : "iu"}`;
+}
+/**
+* A new key list with every candidate replaced by its left-boundary regex, or null when nothing changes (the
+* input is never modified: on scan copies it aliases ST's cache).
+*/
+function convertKeyList(value, caseSensitive) {
+	if (!Array.isArray(value) || !value.some(isLeftBoundaryCandidate)) return null;
+	return value.map((key) => isLeftBoundaryCandidate(key) ? leftBoundaryKey(key, caseSensitive) : key);
+}
+//#endregion
+//#region src/domain/doctor-fixes.ts
+function isDict$22(value) {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function isBookData(value) {
+	return isDict$22(value) && isDict$22(value.entries);
+}
+/** JSON with sorted object keys; `undefined` and `null` are the same ("use the default"). */
+function stableStringify$1(value) {
+	if (value === void 0 || value === null) return "null";
+	if (Array.isArray(value)) return `[${value.map(stableStringify$1).join(",")}]`;
+	if (isDict$22(value)) return `{${Object.keys(value).filter((key) => value[key] !== void 0).sort().map((key) => `${JSON.stringify(key)}:${stableStringify$1(value[key])}`).join(",")}}`;
+	return JSON.stringify(value) ?? "null";
+}
+/** The entry holds exactly these field values. */
+function entryHas(entry, values) {
+	return Object.entries(values).every(([field, value]) => stableStringify$1(entry[field]) === stableStringify$1(value));
+}
+/** The stored key of an entry by uid (`entries[uid]`, or the entry whose `uid` field matches). */
+function entryKeyOf(data, uid) {
+	const direct = data.entries[String(uid)];
+	if (isDict$22(direct)) return String(uid);
+	for (const [key, entry] of Object.entries(data.entries)) if (isDict$22(entry) && Number(entry.uid) === uid) return key;
+	return null;
+}
+function copyValue(value) {
+	return value === void 0 ? value : JSON.parse(JSON.stringify(value));
+}
+/**
+* A new book object with the patches applied (or reverted); the input is not modified. All or nothing: any missing
+* or changed entry blocks the whole write.
+*/
+function patchBookData(data, patches, direction = "apply") {
+	const missing = [];
+	const stale = [];
+	const targets = [];
+	for (const patch of patches) {
+		const key = entryKeyOf(data, patch.uid);
+		const entry = key === null ? void 0 : data.entries[key];
+		if (key === null || !entry) {
+			missing.push(patch.uid);
+			continue;
+		}
+		const from = direction === "apply" ? patch.before : patch.after;
+		const to = direction === "apply" ? patch.after : patch.before;
+		if (!entryHas(entry, from)) stale.push(patch.uid);
+		else targets.push({
+			key,
+			entry,
+			values: to
+		});
+	}
+	if (missing.length) return {
+		ok: false,
+		reason: "missing",
+		uids: missing
+	};
+	if (stale.length) return {
+		ok: false,
+		reason: "stale",
+		uids: stale
+	};
+	const entries = { ...data.entries };
+	for (const { key, entry, values } of targets) {
+		const next = { ...entries[key] ?? entry };
+		for (const [field, value] of Object.entries(values)) if (value === void 0) delete next[field];
+		else next[field] = copyValue(value);
+		entries[key] = next;
+	}
+	return {
+		ok: true,
+		uids: [],
+		data: {
+			...data,
+			entries
+		}
+	};
+}
+/** Loads, checks (guard, then every patch) and saves the book in one go. */
+async function commitPatches(io, book, patches, options = {}) {
+	const data = await io.load(book);
+	if (!data) return {
+		ok: false,
+		reason: "missing",
+		uids: []
+	};
+	if (options.guard && !options.guard(data)) return {
+		ok: false,
+		reason: "protected",
+		uids: []
+	};
+	const result = patchBookData(data, patches, options.direction ?? "apply");
+	if (!result.ok || !result.data) return {
+		ok: false,
+		reason: result.reason,
+		uids: result.uids
+	};
+	await io.save(book, result.data);
+	return {
+		ok: true,
+		uids: patches.map((patch) => patch.uid)
+	};
+}
+/** Entries of a stored book in the shape the BunnyMo heuristics read. */
+function likeScan(book, data) {
+	return Object.values(data.entries).filter(isDict$22).map((entry) => ({
+		...entry,
+		world: book
+	}));
+}
+/** The book is the BunnyMo core or a pack by its content (P13: never edited). */
+function isBunnyMoBook(book, data) {
+	const classified = classifyWorlds(likeScan(book, data));
+	return classified.core.has(book) || classified.packs.has(book);
+}
+/** The book holds at least one character archive. */
+function hasArchives(data) {
+	return Object.values(data.entries).some((entry) => isDict$22(entry) && isCharacterArchive(entry));
+}
+/** Enabled entries with their uid. */
+function enabledEntriesOf(data) {
+	const result = [];
+	for (const [key, entry] of Object.entries(data.entries)) {
+		if (!isDict$22(entry) || entry.disable === true) continue;
+		const uid = Number(entry.uid ?? key);
+		if (Number.isFinite(uid)) result.push({
+			uid,
+			entry
+		});
+	}
+	return result;
+}
+var AT_DEPTH$1 = 4;
+var ROLE_ASSISTANT$1 = 2;
+var ROLE_SYSTEM$1 = 0;
+/** At-depth entry with the assistant role → system (audit A9: user-role entries stay). */
+function planRoleFix(uid, entry) {
+	if (Number(entry.position) !== AT_DEPTH$1 || entry.role === null || Number(entry.role) !== ROLE_ASSISTANT$1) return null;
+	return {
+		uid,
+		before: { role: entry.role },
+		after: { role: ROLE_SYSTEM$1 }
+	};
+}
+/** Scan depth 1 → the global setting (null). */
+function planScanDepthFix(uid, entry) {
+	if (entry.scanDepth === null || entry.scanDepth === void 0 || Number(entry.scanDepth) !== 1) return null;
+	return {
+		uid,
+		before: { scanDepth: entry.scanDepth },
+		after: { scanDepth: null }
+	};
+}
+/** Lorebook Localizer's provenance marker (`extensions.lorebook_localizer`). */
+var LOCALIZER_MARKER = "lorebook_localizer";
+var KEY_FIELDS = ["key", "keysecondary"];
+function stringKeys(value) {
+	return Array.isArray(value) ? value.filter((key) => typeof key === "string") : [];
+}
+/** `\{` / `\}` → `[{]` / `[}]`; null when the key is still broken afterwards. */
+function repairBraces(key) {
+	const repaired = key.replace(/\\([{}])/g, "[$1]");
+	return regexKeyProblem(repaired) === null ? repaired : null;
+}
+/**
+* Keys Lorebook Localizer added that do not work in ST (audit T2): `\{`/`\}` are respelled `[{]`/`[}]` when that
+* makes them valid, other broken ones (flags, unescaped `/`, `\-` with `u`) are removed — from the key lists and from
+* the marker's `added` lists, so the marker keeps describing the entry.
+*/
+function planLocalizerFix(uid, entry) {
+	const extensions = isDict$22(entry.extensions) ? entry.extensions : null;
+	const marker = extensions && isDict$22(extensions[LOCALIZER_MARKER]) ? extensions[LOCALIZER_MARKER] : null;
+	const languages = marker && isDict$22(marker.languages) ? marker.languages : null;
+	if (!extensions || !marker || !languages) return null;
+	const replace = /* @__PURE__ */ new Map();
+	for (const state of Object.values(languages)) {
+		const added = isDict$22(state) && isDict$22(state.added) ? state.added : null;
+		if (!added) continue;
+		for (const field of KEY_FIELDS) for (const key of stringKeys(added[field])) {
+			const problem = regexKeyProblem(key);
+			if (problem === null || replace.has(key)) continue;
+			replace.set(key, problem === "braces" ? repairBraces(key) : null);
+		}
+	}
+	if (!replace.size) return null;
+	const fix = (keys) => Array.isArray(keys) ? keys.flatMap((key) => {
+		if (typeof key !== "string" || !replace.has(key)) return [key];
+		const next = replace.get(key);
+		return next ? [next] : [];
+	}) : keys;
+	const nextLanguages = Object.fromEntries(Object.entries(languages).map(([lang, state]) => {
+		if (!isDict$22(state) || !isDict$22(state.added)) return [lang, state];
+		const added = { ...state.added };
+		for (const field of KEY_FIELDS) if (Array.isArray(added[field])) added[field] = fix(added[field]);
+		return [lang, {
+			...state,
+			added
+		}];
+	}));
+	const after = { extensions: {
+		...extensions,
+		[LOCALIZER_MARKER]: {
+			...marker,
+			languages: nextLanguages
+		}
+	} };
+	const before = { extensions };
+	for (const field of KEY_FIELDS) {
+		if (!Array.isArray(entry[field])) continue;
+		const next = fix(entry[field]);
+		if (stableStringify$1(next) === stableStringify$1(entry[field])) continue;
+		before[field] = entry[field];
+		after[field] = next;
+	}
+	return {
+		uid,
+		before,
+		after
+	};
+}
+/**
+* Plain Cyrillic keys of an enabled entry with effective whole-word matching → left-boundary regex keys (the same
+* conversion as rule `keys.cyrillicLeftBoundary`, written to the file).
+*/
+function planCyrillicFix(uid, entry, globals) {
+	if (entry.disable === true || !effectiveFlag(entry.matchWholeWords, globals.wholeWords)) return null;
+	const caseSensitive = effectiveFlag(entry.caseSensitive, globals.caseSensitive);
+	const before = {};
+	const after = {};
+	for (const field of KEY_FIELDS) {
+		const next = convertKeyList(entry[field], caseSensitive);
+		if (!next) continue;
+		before[field] = entry[field];
+		after[field] = next;
+	}
+	return Object.keys(after).length ? {
+		uid,
+		before,
+		after
+	} : null;
+}
+/**
+* A CK archive saved with scan depth 1 (Baby Bunny): scan depth → global and, when `formsKey` is given (DES-RU's
+* `nameFormsKey`), one regex key with every case form added after the plain Cyrillic name keys. The plain keys stay
+* first: CarrotKernel takes a character's name from `key[0]` when the entry has no comment.
+*/
+function planArchiveDepthFix(uid, entry, formsKey) {
+	const depth = planScanDepthFix(uid, entry);
+	if (!depth) return null;
+	const before = { ...depth.before };
+	const after = { ...depth.after };
+	if (formsKey && Array.isArray(entry.key)) {
+		const added = [];
+		for (const key of entry.key) {
+			if (!isLeftBoundaryCandidate(key) && !(typeof key === "string" && isMultiWordName(key))) continue;
+			let regex;
+			try {
+				regex = formsKey(key.trim());
+			} catch {
+				regex = null;
+			}
+			if (typeof regex === "string" && regex && !entry.key.includes(regex)) added.push(regex);
+		}
+		if (added.length) {
+			before.key = entry.key;
+			after.key = [.../* @__PURE__ */ new Set([...entry.key, ...added])];
+		}
+	}
+	return {
+		uid,
+		before,
+		after
+	};
+}
+/** «Аня Петрова»: a plain multi-word Cyrillic name (DES-RU forms every word). */
+function isMultiWordName(key) {
+	const trimmed = key.trim();
+	return /\s/.test(trimmed) && trimmed.split(/\s+/).every((word) => isLeftBoundaryCandidate(word));
+}
+//#endregion
+//#region src/features/doctor/files.ts
+var LORE_ENTRY_TARGET$1 = "lore-entry";
+function isDict$21(value) {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function bookRoles(app) {
+	return app.modules.api("bookRoles");
+}
+/** ST's lorebook functions from the context; null when this ST lacks them. */
+function bookIo$1(app) {
+	const ctx = app.host.ctx();
+	if (typeof ctx.loadWorldInfo !== "function" || typeof ctx.saveWorldInfo !== "function") return null;
+	return {
+		async load(book) {
+			const data = await app.host.ctx().loadWorldInfo?.(book);
+			return isBookData(data) ? data : null;
+		},
+		async save(book, data) {
+			const current = app.host.ctx();
+			await current.saveWorldInfo?.(book, data, true);
+			try {
+				current.reloadWorldInfoEditor?.(book);
+			} catch (error) {
+				app.log.debug("lorebook editor reload failed", error);
+			}
+			try {
+				adaptersOf(app).des.invalidateLoreCache(book);
+			} catch (error) {
+				app.log.debug("DES Lore Library cache reset failed", error);
+			}
+		}
+	};
+}
+/** BunnyMo core or pack (P13): by its M35 role, the BunnyMo adapter or the book's content. */
+function isProtectedBook$1(app, book, data) {
+	try {
+		const role = bookRoles(app)?.roleOf(book);
+		if (role && (role.readOnly || role.role === "bunnymo.core" || role.role === "bunnymo.pack")) return true;
+	} catch (error) {
+		app.log.debug("book roles are not available", error);
+	}
+	try {
+		const known = adaptersOf(app).bunnymo.books();
+		if (known.core.includes(book) || known.packs.includes(book)) return true;
+	} catch (error) {
+		app.log.debug("BunnyMo classification is not available", error);
+	}
+	return !!data && isBunnyMoBook(book, data);
+}
+/** Writes the patches unless the book is protected. */
+async function writePatches$1(app, book, patches, direction = "apply") {
+	const io = bookIo$1(app);
+	if (!io) return {
+		ok: false,
+		reason: "missing",
+		uids: []
+	};
+	return commitPatches(io, book, patches, {
+		direction,
+		guard: (data) => !isProtectedBook$1(app, book, data)
+	});
+}
+function patchChanges$1(book, patches) {
+	return patches.map((patch) => ({
+		target: LORE_ENTRY_TARGET$1,
+		ref: {
+			book,
+			uid: patch.uid
+		},
+		before: patch.before,
+		after: patch.after
+	}));
+}
+async function undoLoreEntry$1(app, change) {
+	const book = change.ref.book;
+	const uid = Number(change.ref.uid);
+	if (typeof book !== "string" || !Number.isFinite(uid) || !isDict$21(change.before) || !isDict$21(change.after)) return false;
+	return (await writePatches$1(app, book, [{
+		uid,
+		before: change.before,
+		after: change.after
+	}], "revert")).ok;
+}
+function isEntryPatch$1(value) {
+	return isDict$21(value) && typeof value.uid === "number" && isDict$21(value.before) && isDict$21(value.after);
+}
+//#endregion
 //#region src/domain/doctor-types.ts
-/** Rule ids of M22 the doctor points to (stage 1). */
+/** Rule ids of M22 the doctor points to (stages 1–2). */
 var DOCTOR_RULES = {
 	duplicates: "pack.duplicates",
 	bookCap: "book.cap",
-	assistantToSystem: "role.assistantToSystem"
+	assistantToSystem: "role.assistantToSystem",
+	cyrillicLeftBoundary: "keys.cyrillicLeftBoundary",
+	packVersion: "pack.versionConflict",
+	nsfwCollision: "wrapper.nsfwCollision"
 };
 function str$1(value) {
 	return typeof value === "string" ? value : value === void 0 || value === null ? "" : String(value);
@@ -8952,7 +13251,7 @@ function toDoctorEntry(book, raw, fallbackUid, localizerKeys = []) {
 	};
 }
 /** "Comment" or "#uid" for messages. */
-function entryLabel(entry) {
+function entryLabel$1(entry) {
 	const comment = entry.comment.trim();
 	return comment ? comment.length > 80 ? `${comment.slice(0, 77)}…` : comment : `#${entry.uid}`;
 }
@@ -8961,193 +13260,6 @@ function sample(items, limit = 3) {
 	const unique = [...new Set(items)];
 	const shown = unique.slice(0, limit).join(", ");
 	return unique.length > limit ? `${shown}, …` : shown;
-}
-//#endregion
-//#region src/domain/doctor-ck.ts
-var BLOCK_OPEN_G = /<(bunnymotags)>/gi;
-var BLOCK_RE$1 = /<bunnymotags>([\s\S]*?)(?:<\/bunnymotags>|$)/i;
-var TAG_G = /<([A-Za-z][A-Za-z0-9_-]*):([^<>\n]+)>/g;
-/** Template values of BunnyMo sheets (same list as domain/bunnymo.ts; NONE and OLD are real pack values). */
-var PLACEHOLDER_RE$1 = /^(?:BLANK|NEW|VALUE|TARGET|NAME|NAME[\s_]HERE|PLACEHOLDER|TBD|X{3,})$/i;
-/** The only spelling both CK parsers accept (scan-time and activation-time). */
-var CK_BLOCK = "BunnymoTags";
-function likeBunnyMo(entry) {
-	return {
-		key: entry.key,
-		keysecondary: entry.keysecondary,
-		comment: entry.comment,
-		content: entry.content
-	};
-}
-function isArchive(entry) {
-	return !entry.disable && isCharacterArchive(likeBunnyMo(entry));
-}
-/** Opening `<BunnymoTags>` tags as written (any case). */
-function archiveBlocks(content) {
-	return [...content.matchAll(BLOCK_OPEN_G)].map((match) => match[1] ?? "");
-}
-/** `<KEY:VALUE>` tags of the first block whose value is a template placeholder (`<GENRE:BLANK>`). */
-function placeholderTags(content) {
-	const block = BLOCK_RE$1.exec(content)?.[1] ?? "";
-	const found = [];
-	for (const match of block.matchAll(TAG_G)) {
-		const key = (match[1] ?? "").trim();
-		const value = (match[2] ?? "").trim();
-		if (key.toUpperCase() !== "NAME" && PLACEHOLDER_RE$1.test(value)) found.push(`<${key}:${value}>`);
-	}
-	return found;
-}
-/** Scan depth 1, several blocks, placeholders, wrong block spelling, book not marked as a Character Repo. */
-function findArchiveIssues(entries, options) {
-	const issues = [];
-	const perBook = /* @__PURE__ */ new Map();
-	for (const entry of entries) {
-		if (options.bunnyBooks.has(entry.book) || !isArchive(entry)) continue;
-		const list = perBook.get(entry.book) ?? [];
-		list.push(entry);
-		perBook.set(entry.book, list);
-		const where = {
-			entry: entryLabel(entry),
-			book: entry.book
-		};
-		const target = {
-			book: entry.book,
-			uid: entry.uid,
-			comment: entry.comment
-		};
-		if (entry.scanDepth === 1) issues.push({
-			kind: "ck.archiveScanDepth",
-			severity: "warn",
-			messageKey: "m5.f.archiveScanDepth",
-			params: where,
-			target,
-			fileFix: true
-		});
-		const blocks = archiveBlocks(entry.content);
-		if (blocks.length > 1) issues.push({
-			kind: "ck.archiveMultiBlock",
-			severity: "warn",
-			messageKey: "m5.f.archiveMultiBlock",
-			params: {
-				...where,
-				count: blocks.length
-			},
-			target,
-			fileFix: true
-		});
-		const wrong = blocks.filter((name) => name !== CK_BLOCK);
-		if (wrong[0] !== void 0) issues.push({
-			kind: "ck.archiveTagCase",
-			severity: "warn",
-			messageKey: "m5.f.archiveTagCase",
-			params: {
-				...where,
-				found: `<${wrong[0]}>`
-			},
-			target,
-			fileFix: true
-		});
-		const placeholders = placeholderTags(entry.content);
-		if (placeholders.length) issues.push({
-			kind: "ck.archivePlaceholder",
-			severity: "warn",
-			messageKey: "m5.f.archivePlaceholder",
-			params: {
-				...where,
-				tags: sample(placeholders, 4)
-			},
-			target,
-			fileFix: true
-		});
-	}
-	if (options.ckPresent) for (const [book, list] of perBook) {
-		if (options.repoBooks.includes(book)) continue;
-		issues.push({
-			kind: "ck.archiveNotRepo",
-			severity: "warn",
-			messageKey: "m5.f.archiveNotRepo",
-			params: {
-				book,
-				count: list.length,
-				sample: sample(list.map(entryLabel))
-			},
-			target: { book },
-			fileFix: false
-		});
-	}
-	return issues;
-}
-/**
-* Archives whose text contains a bare tag that is the key of another active entry (`<NSFW>` → "Erotic",
-* `<DERE>` → Deredere, `<ELF>`, `<ANXIETY>`). Used as a wrapper (`<NSFW>…</NSFW>`) it is almost surely accidental
-* (warn); a bare tag without a closing pair may be intended (info). MBTI archetypes are intended triggers.
-*/
-function findWrapperCollisions(entries, options) {
-	if (!options.recursive) return [];
-	const targets = entries.filter((entry) => !entry.disable && !entry.constant && !entry.excludeRecursion && entry.key.length > 0);
-	const byTag = /* @__PURE__ */ new Map();
-	for (const entry of targets) for (const key of entry.key) {
-		if (!isBareTagKey(key) || isMbtiTag(key)) continue;
-		const tag = key.trim().toUpperCase();
-		const slot = byTag.get(tag) ?? {
-			key: key.trim(),
-			entries: []
-		};
-		if (!slot.entries.includes(entry)) slot.entries.push(entry);
-		byTag.set(tag, slot);
-	}
-	if (!byTag.size) return [];
-	const collisions = /* @__PURE__ */ new Map();
-	for (const archive of entries) {
-		if (archive.preventRecursion || !isArchive(archive)) continue;
-		const lower = archive.content.toLowerCase();
-		for (const [tag, slot] of byTag) {
-			const fired = slot.entries.filter((target) => target !== archive && matchKey$1(archive.content, slot.key, {
-				caseSensitive: target.caseSensitive ?? options.caseSensitiveGlobal,
-				wholeWords: target.matchWholeWords ?? options.wholeWordsGlobal
-			}));
-			if (!fired.length) continue;
-			const wrapper = lower.includes(`</${tag.slice(1).toLowerCase()}`);
-			const id = `${tag}|${wrapper ? "w" : "b"}`;
-			const collision = collisions.get(id) ?? {
-				tag: slot.key,
-				wrapper,
-				archives: [],
-				targets: []
-			};
-			collision.archives.push(archive);
-			for (const target of fired) if (!collision.targets.includes(target)) collision.targets.push(target);
-			collisions.set(id, collision);
-		}
-	}
-	return [...collisions.values()].map((collision) => {
-		const first = collision.targets[0];
-		return {
-			kind: "wrapper.collision",
-			severity: collision.wrapper ? "warn" : "info",
-			messageKey: collision.wrapper ? "m5.f.wrapperCollision" : "m5.f.bareTagCollision",
-			params: {
-				tag: collision.tag,
-				closing: `</${collision.tag.slice(1)}`,
-				count: collision.archives.length,
-				archives: sample(collision.archives.map(entryLabel)),
-				target: entryLabel(first),
-				targetBook: first.book,
-				targets: collision.targets.length
-			},
-			target: {
-				tag: collision.tag,
-				book: first.book,
-				uid: first.uid,
-				comment: first.comment,
-				archives: collision.archives.slice(0, 50).map((entry) => ({
-					book: entry.book,
-					uid: entry.uid
-				}))
-			},
-			fileFix: false
-		};
-	});
 }
 //#endregion
 //#region src/domain/doctor-budget.ts
@@ -9163,7 +13275,7 @@ function num$1(value, fallback) {
 * Reads world-info.js settings: the object of `getWorldInfoSettings()` or the module namespace itself (both carry
 * the `world_info_*` names). Missing values take ST's defaults.
 */
-function readWiSettings(raw) {
+function readWiSettings$1(raw) {
 	const strategy = num$1(raw.world_info_character_strategy, 1);
 	return {
 		depth: num$1(raw.world_info_depth, 2),
@@ -9286,526 +13398,6 @@ function historyTokens(chars) {
 */
 function bootstrapCostUsd(tokens, usdPerMillion = .5) {
 	return tokens / 1e6 * usdPerMillion;
-}
-//#endregion
-//#region src/domain/doctor-lore.ts
-/** Comments of the intended BSM-5 + CoT Lenses pairing (same keys, different content by design). */
-var INTENDED_PAIR_RE = /^\s*CoT\s+LENS/i;
-var OLD_EDITION_RE = /retired|legacy|\bold\b|deprecated|устар/i;
-var VERSION_RE$1 = /(?:^|[^a-z])v(?:er(?:sion)?)?\.?\s?(\d+(?:\.\d+)*)/i;
-/** Version numbers found in a book name or comment (`MBTI V2` → [2], `V3.0` → [3, 0]); null when none. */
-function versionOf(text) {
-	const match = VERSION_RE$1.exec(text);
-	return match?.[1] ? match[1].split(".").map(Number) : null;
-}
-function compareVersions$1(a, b) {
-	for (let i = 0; i < Math.max(a.length, b.length); i++) {
-		const diff = (a[i] ?? 0) - (b[i] ?? 0);
-		if (diff !== 0) return diff;
-	}
-	return 0;
-}
-/** Which of two books looks newer: by "retired/old" in the name, then by version numbers. Null when unclear. */
-function newerBook(a, b) {
-	const oldA = OLD_EDITION_RE.test(a);
-	if (oldA !== OLD_EDITION_RE.test(b)) return oldA ? b : a;
-	const versionA = versionOf(a);
-	const versionB = versionOf(b);
-	if (!versionA || !versionB) return null;
-	const diff = compareVersions$1(versionA, versionB);
-	return diff === 0 ? null : diff > 0 ? a : b;
-}
-/** The activation signature of an entry: its normalised primary keys, or "constant". Null when it never fires. */
-function keySignature(entry) {
-	if (entry.constant) return "#constant";
-	const keys = [...new Set(entry.key.map(normalizePackKey))].sort();
-	return keys.length ? JSON.stringify(keys) : null;
-}
-/** Content compared up to whitespace (packs are re-saved by different editors). */
-function contentSignature(content) {
-	return content.replace(/\s+/g, " ").trim();
-}
-function pairKey(first, second) {
-	return JSON.stringify([first, second]);
-}
-function bump(map, first, second, entry) {
-	const id = pairKey(first, second);
-	const pair = map.get(id) ?? {
-		first,
-		second,
-		labels: [],
-		keys: [],
-		uids: [],
-		chars: 0,
-		count: 0
-	};
-	pair.count += 1;
-	pair.chars += entry.content.length;
-	pair.labels.push(entryLabel(entry));
-	if (entry.key[0]) pair.keys.push(entry.key[0]);
-	pair.uids.push(entry.uid);
-	map.set(id, pair);
-}
-/**
-* Duplicates across books: same activation signature and same text (`pack.duplicate`, suppressed on the fly by
-* rule `pack.duplicates`) or, between two BunnyMo books, same signature and different text
-* (`pack.versionConflict`, one question at stage 2). Results are aggregated per book pair; `first` is the book that
-* comes first in `entries` (the copy that stays).
-*/
-function findPackDuplicates(entries, bunnyBooks) {
-	const bookOrder = /* @__PURE__ */ new Map();
-	for (const entry of entries) if (!bookOrder.has(entry.book)) bookOrder.set(entry.book, bookOrder.size);
-	const groups = /* @__PURE__ */ new Map();
-	for (const entry of entries) {
-		if (entry.disable || !entry.content.trim()) continue;
-		const signature = keySignature(entry);
-		if (signature === null) continue;
-		const list = groups.get(signature) ?? [];
-		list.push(entry);
-		groups.set(signature, list);
-	}
-	const duplicates = /* @__PURE__ */ new Map();
-	const conflicts = /* @__PURE__ */ new Map();
-	const order = (book) => bookOrder.get(book) ?? 0;
-	for (const group of groups.values()) {
-		const books = [...new Set(group.map((entry) => entry.book))].sort((a, b) => order(a) - order(b));
-		if (books.length < 2) continue;
-		for (let i = 0; i < books.length; i++) for (let j = i + 1; j < books.length; j++) {
-			const first = books[i];
-			const second = books[j];
-			const left = group.filter((entry) => entry.book === first);
-			const right = group.filter((entry) => entry.book === second);
-			const leftTexts = new Set(left.map((entry) => contentSignature(entry.content)));
-			const same = right.filter((entry) => leftTexts.has(contentSignature(entry.content)));
-			if (same.length) {
-				for (const entry of same) bump(duplicates, first, second, entry);
-				continue;
-			}
-			const packs = bunnyBooks.has(first) && bunnyBooks.has(second);
-			const intended = [...left, ...right].some((entry) => INTENDED_PAIR_RE.test(entry.comment));
-			if (packs && !intended && right[0]) bump(conflicts, first, second, right[0]);
-		}
-	}
-	const isBunny = (pair) => bunnyBooks.has(pair.first) || bunnyBooks.has(pair.second);
-	const issues = [];
-	for (const pair of duplicates.values()) issues.push({
-		kind: "pack.duplicate",
-		severity: "warn",
-		messageKey: "m5.f.packDuplicate",
-		params: {
-			a: pair.first,
-			b: pair.second,
-			count: pair.count,
-			chars: pair.chars,
-			sample: sample(pair.labels)
-		},
-		target: {
-			books: [pair.first, pair.second],
-			book: pair.second,
-			uids: pair.uids.slice(0, 100)
-		},
-		fixRule: DOCTOR_RULES.duplicates,
-		fileFix: !isBunny(pair)
-	});
-	for (const pair of conflicts.values()) {
-		const newer = newerBook(pair.first, pair.second);
-		issues.push({
-			kind: "pack.versionConflict",
-			severity: "warn",
-			messageKey: newer ? "m5.f.packVersionConflict" : "m5.f.packVersionConflictUnsure",
-			params: {
-				a: pair.first,
-				b: pair.second,
-				count: pair.count,
-				sample: sample(pair.keys.length ? pair.keys : pair.labels),
-				...newer ? { newer } : {}
-			},
-			target: {
-				books: [pair.first, pair.second],
-				book: pair.second,
-				uids: pair.uids.slice(0, 100)
-			},
-			fileFix: false
-		});
-	}
-	return issues;
-}
-/** At-depth entries with the assistant role: fake model turns for DeepSeek V4. User-role entries are left alone (A9). */
-function findAssistantAtDepth(entries, bunnyBooks) {
-	return entries.filter((entry) => !entry.disable && entry.position === 4 && entry.role === 2).map((entry) => ({
-		kind: "role.assistantAtDepth",
-		severity: "warn",
-		messageKey: "m5.f.assistantAtDepth",
-		params: {
-			entry: entryLabel(entry),
-			book: entry.book,
-			depth: entry.depth
-		},
-		target: {
-			book: entry.book,
-			uid: entry.uid,
-			comment: entry.comment
-		},
-		fixRule: DOCTOR_RULES.assistantToSystem,
-		fileFix: !bunnyBooks.has(entry.book)
-	}));
-}
-/** Keys that never fire from prose and need no translation: tags, sheet commands, pure punctuation. */
-function proseKey(key) {
-	return !isTagKey(key) && !key.startsWith("!") && /\p{L}/u.test(key);
-}
-function russianReady(entry) {
-	return [...entry.key, ...entry.localizerKeys].some((key) => hasCyrillic(key) || looksLikeRegexKey(key));
-}
-function perBook(entries) {
-	const map = /* @__PURE__ */ new Map();
-	for (const entry of entries) {
-		const list = map.get(entry.book) ?? [];
-		list.push(entry);
-		map.set(entry.book, list);
-	}
-	return map;
-}
-/** English-only keys in a Russian chat, Cyrillic keys under whole-word matching, broken Localizer regexes. */
-function findKeyIssues(entries, options) {
-	const issues = [];
-	const enabled = entries.filter((entry) => !entry.disable);
-	if (options.russianChat) {
-		const english = enabled.filter((entry) => !options.bunnyBooks.has(entry.book) && !entry.constant && entry.key.some(proseKey) && !russianReady(entry));
-		for (const [book, list] of perBook(english)) issues.push({
-			kind: "keys.noRussian",
-			severity: "warn",
-			messageKey: "m5.f.noRussian",
-			params: {
-				book,
-				count: list.length,
-				sample: sample(list.map(entryLabel))
-			},
-			target: {
-				book,
-				uids: list.slice(0, 100).map((entry) => entry.uid)
-			},
-			fileFix: true
-		});
-	}
-	const wholeWord = enabled.flatMap((entry) => entry.matchWholeWords ?? options.wholeWordsGlobal ? [...entry.key, ...entry.keysecondary].filter(isCyrillicWholeWordKey).map((key) => ({
-		entry,
-		key
-	})) : []);
-	const wholeWordBooks = /* @__PURE__ */ new Map();
-	for (const item of wholeWord) {
-		const list = wholeWordBooks.get(item.entry.book) ?? [];
-		list.push(item);
-		wholeWordBooks.set(item.entry.book, list);
-	}
-	for (const [book, list] of wholeWordBooks) issues.push({
-		kind: "keys.cyrillicWholeWord",
-		severity: "info",
-		messageKey: "m5.f.cyrillicWholeWord",
-		params: {
-			book,
-			count: list.length,
-			sample: sample(list.map((item) => item.key))
-		},
-		target: {
-			book,
-			uids: [...new Set(list.map((item) => item.entry.uid))].slice(0, 100)
-		},
-		fileFix: false
-	});
-	for (const entry of enabled) {
-		const broken = entry.localizerKeys.map((key) => ({
-			key,
-			problem: regexKeyProblem(key)
-		})).filter((item) => item.problem !== null);
-		const first = broken[0];
-		if (!first?.problem) continue;
-		issues.push({
-			kind: "keys.localizerBroken",
-			severity: first.problem === "braces" ? "warn" : "error",
-			messageKey: `m5.f.localizerBroken.${first.problem}`,
-			params: {
-				entry: entryLabel(entry),
-				book: entry.book,
-				key: first.key,
-				count: broken.length
-			},
-			target: {
-				book: entry.book,
-				uid: entry.uid,
-				comment: entry.comment
-			},
-			fileFix: !options.bunnyBooks.has(entry.book)
-		});
-	}
-	return issues;
-}
-//#endregion
-//#region src/domain/doctor-recursion.ts
-var SEPARATOR = String.fromCharCode(0);
-function lowerBound(offsets, position) {
-	let low = 0;
-	let high = offsets.length - 1;
-	while (low < high) {
-		const mid = low + high + 1 >> 1;
-		if ((offsets[mid] ?? 0) <= position) low = mid;
-		else high = mid - 1;
-	}
-	return low;
-}
-function trigram(text, at) {
-	return text.charCodeAt(at) * 4294967296 + text.charCodeAt(at + 1) * 65536 + text.charCodeAt(at + 2);
-}
-/** Every 3-character window of a text, as numbers. */
-function trigrams(text) {
-	const set = /* @__PURE__ */ new Set();
-	for (let at = 0; at + 2 < text.length; at++) set.add(trigram(text, at));
-	return set;
-}
-/** False when some 3-character window of the needle occurs nowhere (then the needle cannot occur either). */
-function mayOccur(grams, needle) {
-	for (let at = 0; at + 2 < needle.length; at++) if (!grams.has(trigram(needle, at))) return false;
-	return true;
-}
-/** Builds the recursion graph over enabled entries. */
-function buildRecursionGraph(entries, settings) {
-	const nodes = entries.filter((entry) => !entry.disable);
-	const edges = nodes.map(() => /* @__PURE__ */ new Set());
-	if (!settings.recursive) return {
-		nodes,
-		out: edges.map(() => [])
-	};
-	const sources = [];
-	nodes.forEach((entry, index) => {
-		if (!entry.preventRecursion && entry.content) sources.push(index);
-	});
-	const offsets = [];
-	const rawParts = [];
-	let cursor = 0;
-	for (const index of sources) {
-		offsets.push(cursor);
-		const content = nodes[index].content;
-		rawParts.push(content);
-		cursor += content.length + 1;
-	}
-	const raw = rawParts.join(SEPARATOR);
-	const lower = raw.toLowerCase();
-	const aligned = lower.length === raw.length;
-	let lowerGrams = null;
-	let rawGrams = null;
-	nodes.forEach((target, targetIndex) => {
-		if (target.constant || target.excludeRecursion || !target.key.length) return;
-		const caseSensitive = target.caseSensitive ?? settings.caseSensitive;
-		const wholeWords = target.matchWholeWords ?? settings.wholeWords;
-		for (const rawKey of target.key) {
-			const key = rawKey.trim();
-			if (!key || key.includes("{{")) continue;
-			const regex = parseRegexKey$1(key);
-			if (regex) {
-				if (!/[\^$]/.test(regex.source)) {
-					regex.lastIndex = 0;
-					if (!regex.test(raw)) continue;
-				}
-				for (const source of sources) {
-					if (source === targetIndex) continue;
-					regex.lastIndex = 0;
-					if (regex.test(nodes[source].content)) edges[source]?.add(targetIndex);
-				}
-				continue;
-			}
-			const needle = caseSensitive ? key : key.toLowerCase();
-			if (!mayOccur(caseSensitive ? rawGrams ??= trigrams(raw) : lowerGrams ??= trigrams(lower), needle)) continue;
-			const single = !wholeWords || needle.split(/\s+/).length === 1;
-			const checkBoundary = wholeWords && single;
-			if (!aligned && !caseSensitive) {
-				const boundary = new RegExp(`(?:^|\\W)(${escapeRegexLikeSt(needle)})(?:$|\\W)`);
-				for (const source of sources) {
-					if (source === targetIndex) continue;
-					const hay = nodes[source].content.toLowerCase();
-					if (checkBoundary ? boundary.test(hay) : hay.includes(needle)) edges[source]?.add(targetIndex);
-				}
-				continue;
-			}
-			const hay = caseSensitive ? raw : lower;
-			let position = hay.indexOf(needle);
-			while (position >= 0) {
-				const slot = lowerBound(offsets, position);
-				const start = offsets[slot] ?? 0;
-				const end = start + nodes[sources[slot]].content.length;
-				const inside = position + needle.length <= end;
-				const before = position > start ? hay[position - 1] : void 0;
-				const after = position + needle.length < end ? hay[position + needle.length] : void 0;
-				const ok = inside && (!checkBoundary || !isAsciiWordChar(before) && !isAsciiWordChar(after));
-				const source = sources[slot];
-				if (ok && source !== targetIndex) {
-					edges[source]?.add(targetIndex);
-					const next = offsets[slot + 1];
-					if (next === void 0) break;
-					position = hay.indexOf(needle, next);
-				} else position = hay.indexOf(needle, position + 1);
-			}
-		}
-	});
-	return {
-		nodes,
-		out: edges.map((set) => [...set].sort((a, b) => a - b))
-	};
-}
-/** BFS from every entry. O(N·(N+E)); callers cap N (see findRecursionIssues). */
-function analyzeGraph(graph, starts) {
-	const count = graph.nodes.length;
-	const result = /* @__PURE__ */ new Map();
-	const distance = new Int32Array(count);
-	const parent = new Int32Array(count);
-	const queue = new Int32Array(count);
-	for (const start of starts ?? graph.nodes.map((_, index) => index)) {
-		distance.fill(-1);
-		distance[start] = 0;
-		parent[start] = -1;
-		let head = 0;
-		let tail = 0;
-		queue[tail++] = start;
-		let far = start;
-		let reachChars = 0;
-		while (head < tail) {
-			const node = queue[head++];
-			for (const next of graph.out[node] ?? []) {
-				if ((distance[next] ?? 0) !== -1) continue;
-				distance[next] = (distance[node] ?? 0) + 1;
-				parent[next] = node;
-				queue[tail++] = next;
-				reachChars += graph.nodes[next].content.length;
-				if ((distance[next] ?? 0) > (distance[far] ?? 0)) far = next;
-			}
-		}
-		const path = [];
-		for (let node = far; node !== -1; node = parent[node] ?? -1) path.unshift(node);
-		result.set(start, {
-			out: graph.out[start]?.length ?? 0,
-			depth: distance[far] ?? 0,
-			reach: tail - 1,
-			reachChars,
-			path
-		});
-	}
-	return result;
-}
-function chainText(graph, path) {
-	const labels = path.map((index) => entryLabel(graph.nodes[index]));
-	return labels.length > 6 ? `${labels.slice(0, 5).join(" → ")} → … → ${labels[labels.length - 1]}` : labels.join(" → ");
-}
-/** Per-book statistics plus `recursion.chain` / `recursion.vacuum` issues (fixed on the fly by rule `book.cap`). */
-function findRecursionIssues(entries, settings, options = {}) {
-	const vacuumThreshold = options.vacuumThreshold ?? 5;
-	const chainThreshold = options.chainThreshold ?? 3;
-	const vacuumsPerBook = options.vacuumsPerBook ?? 5;
-	const maxStarts = options.maxStarts ?? 1500;
-	const graph = buildRecursionGraph(entries, settings);
-	let starts;
-	if (graph.nodes.length > maxStarts) starts = graph.nodes.map((_, index) => index).filter((index) => (graph.out[index]?.length ?? 0) > 0).sort((a, b) => (graph.out[b]?.length ?? 0) - (graph.out[a]?.length ?? 0)).slice(0, maxStarts);
-	const stats = settings.recursive ? analyzeGraph(graph, starts) : /* @__PURE__ */ new Map();
-	const books = /* @__PURE__ */ new Map();
-	graph.nodes.forEach((entry, index) => {
-		const book = books.get(entry.book) ?? {
-			book: entry.book,
-			entries: 0,
-			chars: 0,
-			constantChars: 0,
-			links: 0,
-			maxDepth: 0,
-			vacuums: 0,
-			maxReachChars: 0,
-			best: -1,
-			vacuumNodes: []
-		};
-		book.entries += 1;
-		book.chars += entry.content.length;
-		if (entry.constant) book.constantChars += entry.content.length;
-		book.links += graph.out[index]?.length ?? 0;
-		const node = stats.get(index);
-		if (node) {
-			if (node.depth > book.maxDepth) {
-				book.maxDepth = node.depth;
-				book.best = index;
-			}
-			book.maxReachChars = Math.max(book.maxReachChars, node.reachChars);
-			if (node.out >= vacuumThreshold) {
-				book.vacuums += 1;
-				book.vacuumNodes.push(index);
-			}
-		}
-		books.set(entry.book, book);
-	});
-	const issues = [];
-	let maxDepth = 0;
-	for (const book of books.values()) {
-		maxDepth = Math.max(maxDepth, book.maxDepth);
-		if (book.maxDepth >= chainThreshold && book.best >= 0) {
-			const path = stats.get(book.best)?.path ?? [];
-			issues.push({
-				kind: "recursion.chain",
-				severity: book.maxDepth >= 5 ? "warn" : "info",
-				messageKey: "m5.f.recursionChain",
-				params: {
-					book: book.book,
-					depth: book.maxDepth,
-					path: chainText(graph, path),
-					links: book.links,
-					vacuums: book.vacuums,
-					chars: book.maxReachChars
-				},
-				target: {
-					book: book.book,
-					uid: graph.nodes[book.best].uid
-				},
-				fixRule: DOCTOR_RULES.bookCap
-			});
-		}
-		const top = [...book.vacuumNodes].sort((a, b) => (stats.get(b)?.out ?? 0) - (stats.get(a)?.out ?? 0)).slice(0, vacuumsPerBook);
-		for (const index of top) {
-			const entry = graph.nodes[index];
-			const node = stats.get(index);
-			issues.push({
-				kind: "recursion.vacuum",
-				severity: "warn",
-				messageKey: "m5.f.recursionVacuum",
-				params: {
-					entry: entryLabel(entry),
-					book: entry.book,
-					count: node.out,
-					reach: node.reach,
-					chars: node.reachChars,
-					sample: sample((graph.out[index] ?? []).map((next) => entryLabel(graph.nodes[next])))
-				},
-				target: {
-					book: entry.book,
-					uid: entry.uid,
-					comment: entry.comment
-				},
-				fixRule: DOCTOR_RULES.bookCap
-			});
-		}
-	}
-	if (settings.recursive && maxDepth >= chainThreshold) {
-		const limit = settings.maxSteps;
-		if (limit === 0 || limit > 3) issues.push({
-			kind: "recursion.chain",
-			severity: "warn",
-			messageKey: limit === 0 ? "m5.f.recursionNoLimit" : "m5.f.recursionHighLimit",
-			params: {
-				depth: maxDepth,
-				limit,
-				suggested: 3
-			},
-			target: { setting: "world_info_max_recursion_steps" },
-			fixRule: DOCTOR_RULES.bookCap
-		});
-	}
-	return {
-		issues,
-		books: [...books.values()].map(({ best: _best, vacuumNodes: _nodes, ...rest }) => rest),
-		maxDepth
-	};
 }
 //#endregion
 //#region src/domain/doctor-regex.ts
@@ -10189,11 +13781,37 @@ async function readLore(app, log) {
 	})));
 	for (const book of classified.packs) if (!bunnyBooks.has(book)) bunnyBooks.set(book, "pack");
 	for (const book of classified.core) bunnyBooks.set(book, "core");
+	try {
+		const roles = app.modules.api("bookRoles");
+		for (const book of loaded) {
+			const role = roles?.roleOf(book);
+			if (role?.role === "bunnymo.core") bunnyBooks.set(book, "core");
+			else if (role?.readOnly || role?.role === "bunnymo.pack") bunnyBooks.set(book, bunnyBooks.get(book) ?? "pack");
+		}
+	} catch (error) {
+		log.debug("book roles are not available", error);
+	}
 	return {
 		books: loaded,
 		entries,
 		bunnyBooks
 	};
+}
+/** The user's archive books: M35 role 'ck.archive', or (without a role) books with archives that are not BunnyMo. */
+function archiveBooksOf(app, lore, isArchive) {
+	const roles = app.modules.api("bookRoles");
+	const result = [];
+	for (const book of lore.books) {
+		if (lore.bunnyBooks.has(book)) continue;
+		let role;
+		try {
+			role = roles?.roleOf(book);
+		} catch {
+			role = void 0;
+		}
+		if (role ? role.role === "ck.archive" : lore.entries.some((entry) => entry.book === book && isArchive(entry))) result.push(book);
+	}
+	return result;
 }
 /** Global World Info settings; null when world-info.js is not available. */
 async function readWorldInfoSettings(app, log) {
@@ -10201,7 +13819,7 @@ async function readWorldInfoSettings(app, log) {
 		const module = await app.host.modules.worldInfo();
 		const getter = module.getWorldInfoSettings;
 		const raw = typeof getter === "function" ? getter() : module;
-		return isDict$20(raw) ? readWiSettings(raw) : null;
+		return isDict$20(raw) ? readWiSettings$1(raw) : null;
 	} catch (error) {
 		log.debug("world-info.js is not available", error);
 		return null;
@@ -10263,7 +13881,7 @@ var ORDER = [
 	"preset",
 	"scoped"
 ];
-var DEFAULT_CODES = {
+var DEFAULT_CODES$1 = {
 	global: 0,
 	preset: 2,
 	scoped: 1
@@ -10312,7 +13930,7 @@ async function readRegexScripts(app, log) {
 		const read = byType;
 		const code = (type) => {
 			const value = codes?.[type.toUpperCase()];
-			return typeof value === "number" ? value : DEFAULT_CODES[type];
+			return typeof value === "number" ? value : DEFAULT_CODES$1[type];
 		};
 		try {
 			lists = Object.fromEntries(ORDER.map((type) => {
@@ -10370,6 +13988,1312 @@ async function openBook(app, book) {
 	}
 }
 //#endregion
+//#region src/features/doctor/fixes.ts
+var FILE_FIX_KIND = "doctor.fileFix";
+/** Finding kinds with a file fix, and the short name used in strings. */
+var FIXERS = {
+	"role.assistantAtDepth": "role",
+	"ck.archiveScanDepth": "scanDepth",
+	"keys.localizerBroken": "localizer",
+	"keys.cyrillicWholeWord": "cyrillic"
+};
+var DESRU_BUNNYMO$1 = "desru.bunnymo";
+var PREVIEW_LINES$1 = 12;
+var ROLE_NAMES = {
+	0: "system",
+	1: "user",
+	2: "assistant"
+};
+function isFileFixPayload(value) {
+	if (typeof value !== "object" || value === null) return false;
+	const payload = value;
+	return typeof payload.book === "string" && typeof payload.kind === "string" && Array.isArray(payload.patches) && payload.patches.every(isEntryPatch$1);
+}
+function hasFileFixer(kind) {
+	return FIXERS[kind] !== void 0;
+}
+/** The finding gets «Исправить в файле»: it has a fixer, a file fix is allowed and the book is not BunnyMo. */
+function fileFixOffered(finding, facts) {
+	if (finding.fileFix !== true || !hasFileFixer(finding.kind)) return false;
+	const book = finding.target.book;
+	if (typeof book !== "string" || !book || facts.bunny.has(book)) return false;
+	return finding.kind !== "role.assistantAtDepth" || facts.archive.has(book);
+}
+function targetUid(finding) {
+	const uid = finding.target.uid;
+	return typeof uid === "number" && Number.isFinite(uid) ? uid : null;
+}
+/** The user's archive book: M35 role 'ck.archive', or (without a role) a book that holds archives. */
+function isArchiveBook(app, book, data) {
+	let role;
+	try {
+		role = bookRoles(app)?.roleOf(book);
+	} catch {
+		role = void 0;
+	}
+	return role ? role.role === "ck.archive" : hasArchives(data);
+}
+function desruWidensArchives(app) {
+	try {
+		return adaptersOf(app).desru.capabilities().includes(DESRU_BUNNYMO$1);
+	} catch {
+		return false;
+	}
+}
+async function planWithBook(app, finding) {
+	const book = finding.target.book;
+	const io = bookIo$1(app);
+	if (typeof book !== "string" || !io || !hasFileFixer(finding.kind)) return null;
+	const data = await io.load(book);
+	if (!data) return null;
+	if (isProtectedBook$1(app, book, data)) return "protected";
+	const entries = enabledEntriesOf(data);
+	const uid = targetUid(finding);
+	const one = (plan) => {
+		const item = uid === null ? void 0 : entries.find((candidate) => candidate.uid === uid);
+		const patch = item ? plan(item.uid, item.entry) : null;
+		return patch ? [patch] : [];
+	};
+	let patches;
+	switch (finding.kind) {
+		case "role.assistantAtDepth":
+			patches = isArchiveBook(app, book, data) ? one(planRoleFix) : [];
+			break;
+		case "ck.archiveScanDepth":
+			patches = one(planScanDepthFix);
+			break;
+		case "keys.localizerBroken":
+			patches = one(planLocalizerFix);
+			break;
+		case "keys.cyrillicWholeWord": {
+			const wi = await readWorldInfoSettings(app, app.log);
+			const globals = {
+				caseSensitive: wi?.caseSensitive ?? false,
+				wholeWords: wi?.wholeWords ?? false
+			};
+			const skipArchives = desruWidensArchives(app);
+			patches = entries.filter(({ entry }) => !(skipArchives && isCharacterArchive(entry))).map(({ uid: entryUid, entry }) => planCyrillicFix(entryUid, entry, globals)).filter((patch) => patch !== null);
+			break;
+		}
+		default: patches = [];
+	}
+	return patches.length ? {
+		payload: {
+			book,
+			kind: finding.kind,
+			patches
+		},
+		data
+	} : null;
+}
+function valueText(app, field, value) {
+	if (field === "scanDepth" && (value === null || value === void 0)) return app.i18n.t("m5.fixFile.globalDepth");
+	if (field === "role" && typeof value === "number") return ROLE_NAMES[value] ?? String(value);
+	if (Array.isArray(value)) return value.map(String).join(", ") || "—";
+	return value === null || value === void 0 ? "—" : String(value);
+}
+/** Text preview of the patches for the question (the Inbox shows the full changes). */
+function previewText(app, data, patches) {
+	const lines = patches.slice(0, PREVIEW_LINES$1).map((patch) => {
+		const entry = data?.[String(patch.uid)];
+		const comment = typeof entry?.comment === "string" && entry.comment.trim() ? ` «${entry.comment.trim()}»` : "";
+		const fields = Object.keys(patch.after).filter((field) => field !== "extensions").map((field) => `${field}: ${valueText(app, field, patch.before[field])} → ${valueText(app, field, patch.after[field])}`);
+		return `#${patch.uid}${comment}: ${fields.join("; ") || app.i18n.t("m5.fixFile.marker")}`;
+	});
+	if (patches.length > PREVIEW_LINES$1) lines.push(app.i18n.t("m5.fixFile.more", { count: patches.length - PREVIEW_LINES$1 }));
+	return lines.join("\n");
+}
+async function applyFileFix(app, payload) {
+	const result = await writePatches$1(app, payload.book, payload.patches);
+	if (!result.ok) throw new Error(app.i18n.t(`m5.fixFile.failed.${result.reason ?? "missing"}`, { book: payload.book }));
+}
+async function fileFixValid(app, payload) {
+	const io = bookIo$1(app);
+	const data = io ? await io.load(payload.book) : null;
+	if (!data || isProtectedBook$1(app, payload.book, data)) return false;
+	return patchBookData(data, payload.patches).ok;
+}
+/** Plans the fix and proposes it (default 'ask': the question shows the preview). */
+async function fixInFile(app, finding) {
+	const book = typeof finding.target.book === "string" ? finding.target.book : "";
+	if (!bookIo$1(app)) return {
+		status: "unavailable",
+		book
+	};
+	const planned = await planWithBook(app, finding);
+	if (planned === "protected") return {
+		status: "protected",
+		book
+	};
+	if (!planned) return {
+		status: "nothing",
+		book
+	};
+	const { payload: plan, data } = planned;
+	const t = app.i18n.t.bind(app.i18n);
+	const name = FIXERS[plan.kind] ?? "other";
+	return {
+		status: "decided",
+		decision: await app.autonomy.decide({
+			module: "M5",
+			kind: FILE_FIX_KIND,
+			title: t(`m5.fixFile.title.${name}`, { book }),
+			description: [t("m5.fixFile.description", {
+				book,
+				count: plan.patches.length
+			}), previewText(app, data.entries, plan.patches)].join("\n\n"),
+			changes: patchChanges$1(book, plan.patches),
+			payload: plan,
+			stillValid: () => fileFixValid(app, plan),
+			apply: (value) => applyFileFix(app, value)
+		}, "ask"),
+		book,
+		count: plan.patches.length
+	};
+}
+/** Undo of 'lore-entry' changes and the Inbox applier of file fixes; the module owns the returned disposer. */
+function registerFileFixes(app) {
+	app.journal.registerUndo(LORE_ENTRY_TARGET$1, (change) => undoLoreEntry$1(app, change));
+	app.autonomy.neverAuto(FILE_FIX_KIND);
+	return app.inbox.registerApplier(FILE_FIX_KIND, async (payload) => {
+		if (!isFileFixPayload(payload)) throw new Error("bad file fix card");
+		await applyFileFix(app, payload);
+	}, async (payload) => isFileFixPayload(payload) && fileFixValid(app, payload));
+}
+//#endregion
+//#region src/features/doctor/regex-fix.ts
+var REGEX_FIX_KIND = "doctor.regexFix";
+var PRESET_REGEX_KIND = "doctor.presetRegexFix";
+var REGEX_TARGET = "doctor-regex";
+var DEFAULT_CODES = {
+	global: 0,
+	scoped: 1,
+	preset: 2
+};
+var ACTIONS = [
+	"enable",
+	"disable",
+	"delete"
+];
+var TYPES = [
+	"global",
+	"scoped",
+	"preset"
+];
+function isDict$19(value) {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function jsonCopy$1(value) {
+	return JSON.parse(JSON.stringify(value));
+}
+function isRegexFixPayload(value) {
+	if (!isDict$19(value)) return false;
+	return ACTIONS.includes(value.action) && TYPES.includes(value.type) && typeof value.scriptId === "string" && typeof value.index === "number" && typeof value.name === "string" && (value.owner === null || typeof value.owner === "string");
+}
+async function presetManager$1(app) {
+	try {
+		const get = (await app.host.modules.presetManager()).getPresetManager;
+		const manager = typeof get === "function" ? get() : null;
+		return isDict$19(manager) ? manager : null;
+	} catch {
+		return null;
+	}
+}
+function currentAvatar(app) {
+	const ctx = app.host.ctx();
+	if (ctx.characterId === void 0 || ctx.characterId === "") return null;
+	const avatar = ctx.characters[Number(ctx.characterId)]?.avatar;
+	return typeof avatar === "string" ? avatar : null;
+}
+async function currentPresetName(app, engine) {
+	const fromEngine = engine?.getCurrentPresetName;
+	if (typeof fromEngine === "function") try {
+		const name = fromEngine();
+		if (typeof name === "string" && name) return name;
+	} catch {}
+	const name = app.host.ctx().chatCompletionSettings?.preset_settings_openai;
+	return typeof name === "string" && name ? name : null;
+}
+async function ownerOf(app, type, engine) {
+	if (type === "scoped") return currentAvatar(app);
+	if (type === "preset") return currentPresetName(app, engine);
+	return null;
+}
+/** The live scripts of one type and how to save them (ST's engine, or the same stores directly). */
+async function scriptStore(app, type) {
+	const engine = await regexEngine$1(app);
+	const owner = await ownerOf(app, type, engine);
+	const read = engine?.getScriptsByType;
+	const write = engine?.saveScriptsByType;
+	if (typeof read === "function" && typeof write === "function") {
+		const stored = (isDict$19(engine?.SCRIPT_TYPES) ? engine.SCRIPT_TYPES : {})[type.toUpperCase()];
+		const code = typeof stored === "number" ? stored : DEFAULT_CODES[type];
+		const list = read(code, { allowedOnly: false });
+		return {
+			list: Array.isArray(list) ? list.filter(isDict$19) : [],
+			owner,
+			save: async (next) => {
+				await write(next, code);
+			}
+		};
+	}
+	const ctx = app.host.ctx();
+	if (type === "global") {
+		const list = ctx.extensionSettings.regex;
+		return {
+			list: Array.isArray(list) ? list.filter(isDict$19) : [],
+			owner,
+			save: async (next) => {
+				app.host.ctx().extensionSettings.regex = next;
+				app.host.ctx().saveSettingsDebounced();
+			}
+		};
+	}
+	if (type === "scoped") {
+		const id = ctx.characterId;
+		if (id === void 0 || id === "") return null;
+		const list = ctx.characters[Number(id)]?.data?.extensions?.regex_scripts;
+		return {
+			list: Array.isArray(list) ? list.filter(isDict$19) : [],
+			owner,
+			save: async (next) => {
+				await app.host.ctx().writeExtensionField(id, "regex_scripts", next);
+			}
+		};
+	}
+	const manager = await presetManager$1(app);
+	if (!manager?.readPresetExtensionField || !manager.writePresetExtensionField) return null;
+	const list = manager.readPresetExtensionField({ path: "regex_scripts" });
+	return {
+		list: Array.isArray(list) ? list.filter(isDict$19) : [],
+		owner,
+		save: async (next) => {
+			await manager.writePresetExtensionField?.({
+				path: "regex_scripts",
+				value: next
+			});
+		}
+	};
+}
+/** Index of the script: by ST's id, else by position and name, else by name. */
+function locate(list, ref) {
+	if (ref.scriptId) return list.findIndex((script) => script.id === ref.scriptId);
+	const at = list[ref.index];
+	if (at && (at.scriptName ?? "") === ref.name) return ref.index;
+	return list.findIndex((script) => (script.scriptName ?? "") === ref.name);
+}
+async function acknowledge(app, type) {
+	const guardian = app.modules.api("guardian");
+	if (!guardian) return;
+	try {
+		await guardian.acknowledge(type === "preset" ? ["regex", "preset.body"] : ["regex"]);
+	} catch (error) {
+		app.log.warn("guardian acknowledge failed", error);
+	}
+}
+async function openStore(app, payload) {
+	const store = await scriptStore(app, payload.type);
+	if (!store) return null;
+	if (payload.type !== "global" && payload.owner !== null && store.owner !== payload.owner) return null;
+	return store;
+}
+/** Applies one action; throws when the script is gone or belongs to another character/preset now. */
+async function applyRegexFix(app, payload) {
+	const store = await openStore(app, payload);
+	const index = store ? locate(store.list, payload) : -1;
+	if (!store || index < 0) throw new Error(app.i18n.t("m5.regexFix.notFound", { name: payload.name }));
+	if (payload.action === "delete") await store.save(store.list.filter((_, position) => position !== index));
+	else {
+		const script = store.list[index];
+		script.disabled = payload.action === "disable";
+		await store.save(store.list);
+	}
+	await acknowledge(app, payload.type);
+}
+/** The script is still there and the action still changes something. */
+async function regexFixValid(app, payload) {
+	const store = await openStore(app, payload);
+	const index = store ? locate(store.list, payload) : -1;
+	if (!store || index < 0) return false;
+	const disabled = store.list[index]?.disabled === true;
+	if (payload.action === "enable") return disabled;
+	if (payload.action === "disable") return !disabled;
+	return true;
+}
+/** Undo: a deleted script goes back to its place, a toggled one gets its previous state. */
+async function undoRegexFix(app, change) {
+	const ref = change.ref;
+	const type = ref.type;
+	if (!TYPES.includes(type) || typeof ref.name !== "string" || typeof ref.index !== "number") return false;
+	const payload = {
+		type,
+		scriptId: typeof ref.scriptId === "string" ? ref.scriptId : "",
+		index: ref.index,
+		name: ref.name,
+		owner: typeof ref.owner === "string" ? ref.owner : null
+	};
+	const store = await openStore(app, payload);
+	if (!store || !isDict$19(change.before)) return false;
+	if (change.after === null) {
+		if (payload.scriptId && store.list.some((script) => script.id === payload.scriptId)) return false;
+		const next = [...store.list];
+		next.splice(Math.min(Math.max(0, payload.index), next.length), 0, jsonCopy$1(change.before));
+		await store.save(next);
+	} else {
+		const index = locate(store.list, payload);
+		const live = index >= 0 ? store.list[index] : void 0;
+		if (!live || live.disabled === true !== (isDict$19(change.after) && change.after.disabled === true)) return false;
+		live.disabled = change.before.disabled === true;
+		await store.save(store.list);
+	}
+	await acknowledge(app, type);
+	return true;
+}
+/** Proposes the action for one script of the inventory; `note` is added to the question (e.g. «only disabled»). */
+async function regexAction(app, script, action, note) {
+	const t = app.i18n.t.bind(app.i18n);
+	const store = await scriptStore(app, script.type);
+	const payload = {
+		action,
+		type: script.type,
+		scriptId: script.scriptId,
+		index: script.index,
+		name: script.name,
+		owner: store?.owner ?? null
+	};
+	const index = store ? locate(store.list, payload) : -1;
+	const live = store && index >= 0 ? store.list[index] : void 0;
+	if (!live) {
+		app.ui.notice(t("m5.regexFix.notFound", { name: script.name || script.id }), { level: "warn" });
+		return "skipped";
+	}
+	const before = jsonCopy$1(live);
+	const after = action === "delete" ? null : {
+		...before,
+		disabled: action === "disable"
+	};
+	const preset = script.type === "preset";
+	const fallback = preset || action === "delete" ? "ask" : "auto";
+	const name = script.name || t("m5.regex.unnamed");
+	const description = [
+		t(`m5.regexFix.description.${action}`, {
+			name,
+			type: t(`m5.regexType.${script.type}`)
+		}),
+		preset ? t("m5.regexFix.presetFile") : "",
+		note ?? ""
+	].filter(Boolean).join("\n\n");
+	return app.autonomy.decide({
+		module: "M5",
+		kind: preset ? PRESET_REGEX_KIND : REGEX_FIX_KIND,
+		title: t(`m5.regexFix.title.${action}`, {
+			name,
+			type: t(`m5.regexType.${script.type}`)
+		}),
+		description,
+		changes: [{
+			target: REGEX_TARGET,
+			ref: {
+				type: payload.type,
+				scriptId: payload.scriptId,
+				index: payload.index,
+				name: payload.name,
+				owner: payload.owner
+			},
+			before,
+			after
+		}],
+		payload,
+		stillValid: () => regexFixValid(app, payload),
+		apply: (value) => applyRegexFix(app, value)
+	}, fallback);
+}
+/** Undo handler and Inbox appliers; the module owns the returned disposers. */
+function registerRegexFixes(app) {
+	app.journal.registerUndo(REGEX_TARGET, (change) => undoRegexFix(app, change));
+	app.autonomy.neverAuto(PRESET_REGEX_KIND);
+	const apply = async (payload) => {
+		if (!isRegexFixPayload(payload)) throw new Error("bad regex card");
+		await applyRegexFix(app, payload);
+	};
+	const valid = async (payload) => isRegexFixPayload(payload) && regexFixValid(app, payload);
+	return [app.inbox.registerApplier(REGEX_FIX_KIND, apply, valid), app.inbox.registerApplier(PRESET_REGEX_KIND, apply, valid)];
+}
+//#endregion
+//#region src/features/doctor/rules.ts
+var ENABLE_RULE_KIND = "doctor.enableRule";
+/** Journal target of rule switches made by the doctor (undo handler below). */
+var RULE_TARGET$1 = "doctor-rule";
+function rulesApi$1(app) {
+	return app.modules.api("rules");
+}
+function ruleState(app, id) {
+	try {
+		return rulesApi$1(app)?.list().find((rule) => rule.id === id);
+	} catch (error) {
+		app.log.debug("rules list failed", error);
+		return;
+	}
+}
+function rulePayload(value) {
+	if (!value || typeof value !== "object") return null;
+	const rule = value.rule;
+	return typeof rule === "string" && rule ? { rule } : null;
+}
+async function applyRule(app, payload) {
+	const parsed = rulePayload(payload);
+	const rules = rulesApi$1(app);
+	if (!parsed || !rules) throw new Error("the rules module is not running");
+	await rules.setEnabled(parsed.rule, true);
+}
+async function stillOff(app, payload) {
+	const parsed = rulePayload(payload);
+	const rules = rulesApi$1(app);
+	return !!parsed && !!rules && !rules.isEnabled(parsed.rule);
+}
+/** Inbox applier for cards that survive a reload, plus the undo handler of the journal target. */
+function registerRuleActions(app) {
+	app.journal.registerUndo(RULE_TARGET$1, async (change) => {
+		const rules = rulesApi$1(app);
+		const id = change.ref.rule;
+		if (!rules || typeof id !== "string") return false;
+		await rules.setEnabled(id, change.before === true);
+		return true;
+	});
+	return app.inbox.registerApplier(ENABLE_RULE_KIND, (payload) => applyRule(app, payload), (payload) => stillOff(app, payload));
+}
+/** Proposes switching the rule on; returns the autonomy decision. */
+async function enableRule(app, state, finding, message) {
+	const t = app.i18n.t.bind(app.i18n);
+	const title = t("m5.enableRuleTitle", { rule: t(state.definition.titleKey) });
+	const payload = { rule: state.id };
+	return app.autonomy.decide({
+		module: "M5",
+		kind: ENABLE_RULE_KIND,
+		title,
+		description: t("m5.enableRuleDescription", { finding: message }),
+		changes: [{
+			target: RULE_TARGET$1,
+			ref: {
+				rule: state.id,
+				finding: finding.id
+			},
+			before: false,
+			after: true
+		}],
+		payload,
+		apply: (value) => applyRule(app, value),
+		stillValid: () => stillOff(app, payload)
+	}, "auto");
+}
+//#endregion
+//#region src/domain/rules-packs.ts
+var INTENDED_PAIR_RE$1 = /^\s*CoT\s+LENS/i;
+var REGEX_LIKE_RE = /^\/[\s\S]+\/[a-z]*$/i;
+var CARROTCAST_RE = /carrot\s*-?\s*cast/i;
+var BUNNYFLIX_RE = /bunnyflix/i;
+/** CarrotCast entries name their streaming service near the top; the whole text is never scanned (P15). */
+var MARKER_SPAN = 600;
+function text$2(value) {
+	return typeof value === "string" ? value : "";
+}
+/** Pack key normalisation (research §1.6): trim, upper case, no spaces after `:`; regex keys stay verbatim. */
+function normalizePackKeyOf(key) {
+	const trimmed = key.trim();
+	if (REGEX_LIKE_RE.test(trimmed)) return trimmed;
+	return trimmed.toUpperCase().replace(/:\s+/g, ":");
+}
+/** Normalised primary keys as one string; null for constants and entries without keys (they never conflict). */
+function packKeySignature(entry) {
+	if (entry.constant === true || !Array.isArray(entry.key)) return null;
+	const keys = /* @__PURE__ */ new Set();
+	for (const key of entry.key) {
+		if (typeof key !== "string") continue;
+		const normalised = normalizePackKeyOf(key);
+		if (normalised) keys.add(normalised);
+	}
+	return keys.size ? JSON.stringify([...keys].sort()) : null;
+}
+/** Content compared up to whitespace (packs are re-saved by different editors). */
+function packContentSignature(content) {
+	return text$2(content).replace(/\s+/g, " ").trim();
+}
+/** Stable id of a conflict group: its books in code-point order. */
+function packGroupId(books) {
+	return JSON.stringify([...new Set(books)].sort());
+}
+/**
+* Groups of books with version conflicts. Only enabled, keyed, non-constant entries with text take part; a key set
+* conflicts when it is present in two or more pack books with at least two different texts. Key sets with the same
+* books form one group (one question). Key sets of the intended BSM-5 + CoT Lenses pairing are skipped.
+*/
+function findVersionConflicts(entries, isPack) {
+	const sizes = /* @__PURE__ */ new Map();
+	const order = /* @__PURE__ */ new Map();
+	const bySignature = /* @__PURE__ */ new Map();
+	for (const entry of entries) {
+		sizes.set(entry.world, (sizes.get(entry.world) ?? 0) + 1);
+		if (!order.has(entry.world)) order.set(entry.world, order.size);
+		if (entry.disable === true || !packContentSignature(entry.content) || !isPack(entry.world)) continue;
+		const signature = packKeySignature(entry);
+		if (signature === null) continue;
+		const list = bySignature.get(signature);
+		if (list) list.push(entry);
+		else bySignature.set(signature, [entry]);
+	}
+	const groups = /* @__PURE__ */ new Map();
+	for (const list of bySignature.values()) {
+		const books = [...new Set(list.map((entry) => entry.world))];
+		if (books.length < 2) continue;
+		if (list.some((entry) => INTENDED_PAIR_RE$1.test(text$2(entry.comment)))) continue;
+		if (new Set(list.map((entry) => packContentSignature(entry.content))).size < 2) continue;
+		books.sort((a, b) => (order.get(a) ?? 0) - (order.get(b) ?? 0));
+		const id = packGroupId(books);
+		let group = groups.get(id);
+		if (!group) {
+			group = {
+				id,
+				books,
+				newest: books.reduce((best, book) => compareBookRecency(book, best, sizes) > 0 ? book : best),
+				entries: [],
+				count: 0,
+				sample: []
+			};
+			groups.set(id, group);
+		}
+		group.entries.push(...list);
+		group.count += 1;
+		const first = Array.isArray(list[0]?.key) ? list[0].key.find((key) => typeof key === "string") : void 0;
+		if (typeof first === "string" && group.sample.length < 3) group.sample.push(first.trim());
+	}
+	return [...groups.values()];
+}
+/** Entries of the group that leave the prompt when `winner` stays. */
+function losersOf(group, winner) {
+	return group.books.includes(winner) ? group.entries.filter((entry) => entry.world !== winner) : [];
+}
+/** The key list holds the bare tag `<NSFW>` (ST matches keys case-insensitively by default). */
+function hasNsfwKey(keys) {
+	return Array.isArray(keys) && keys.some((key) => typeof key === "string" && key.trim().toUpperCase() === "<NSFW>");
+}
+/** An entry of a CarrotCast pack: by its book name or the BunnyFlix header near the top of the text. */
+function isCarrotCastEntry(entry) {
+	const book = text$2(entry.world) || text$2(entry.book);
+	if (CARROTCAST_RE.test(book)) return true;
+	return BUNNYFLIX_RE.test(text$2(entry.content).slice(0, MARKER_SPAN));
+}
+//#endregion
+//#region src/domain/doctor-ck.ts
+var BLOCK_OPEN_G = /<(bunnymotags)>/gi;
+var BLOCK_RE$1 = /<bunnymotags>([\s\S]*?)(?:<\/bunnymotags>|$)/i;
+var TAG_G = /<([A-Za-z][A-Za-z0-9_-]*):([^<>\n]+)>/g;
+/** Template values of BunnyMo sheets (same list as domain/bunnymo.ts; NONE and OLD are real pack values). */
+var PLACEHOLDER_RE$1 = /^(?:BLANK|NEW|VALUE|TARGET|NAME|NAME[\s_]HERE|PLACEHOLDER|TBD|X{3,})$/i;
+/** The only spelling both CK parsers accept (scan-time and activation-time). */
+var CK_BLOCK = "BunnymoTags";
+function likeBunnyMo(entry) {
+	return {
+		key: entry.key,
+		keysecondary: entry.keysecondary,
+		comment: entry.comment,
+		content: entry.content
+	};
+}
+function isArchive(entry) {
+	return !entry.disable && isCharacterArchive(likeBunnyMo(entry));
+}
+/** Opening `<BunnymoTags>` tags as written (any case). */
+function archiveBlocks(content) {
+	return [...content.matchAll(BLOCK_OPEN_G)].map((match) => match[1] ?? "");
+}
+/** `<KEY:VALUE>` tags of the first block whose value is a template placeholder (`<GENRE:BLANK>`). */
+function placeholderTags(content) {
+	const block = BLOCK_RE$1.exec(content)?.[1] ?? "";
+	const found = [];
+	for (const match of block.matchAll(TAG_G)) {
+		const key = (match[1] ?? "").trim();
+		const value = (match[2] ?? "").trim();
+		if (key.toUpperCase() !== "NAME" && PLACEHOLDER_RE$1.test(value)) found.push(`<${key}:${value}>`);
+	}
+	return found;
+}
+/** Scan depth 1, several blocks, placeholders, wrong block spelling, book not marked as a Character Repo. */
+function findArchiveIssues(entries, options) {
+	const issues = [];
+	const perBook = /* @__PURE__ */ new Map();
+	for (const entry of entries) {
+		if (options.bunnyBooks.has(entry.book) || !isArchive(entry)) continue;
+		const list = perBook.get(entry.book) ?? [];
+		list.push(entry);
+		perBook.set(entry.book, list);
+		const where = {
+			entry: entryLabel$1(entry),
+			book: entry.book
+		};
+		const target = {
+			book: entry.book,
+			uid: entry.uid,
+			comment: entry.comment
+		};
+		if (entry.scanDepth === 1) issues.push({
+			kind: "ck.archiveScanDepth",
+			severity: "warn",
+			messageKey: "m5.f.archiveScanDepth",
+			params: where,
+			target,
+			fileFix: true
+		});
+		const blocks = archiveBlocks(entry.content);
+		if (blocks.length > 1) issues.push({
+			kind: "ck.archiveMultiBlock",
+			severity: "warn",
+			messageKey: "m5.f.archiveMultiBlock",
+			params: {
+				...where,
+				count: blocks.length
+			},
+			target,
+			fileFix: true
+		});
+		const wrong = blocks.filter((name) => name !== CK_BLOCK);
+		if (wrong[0] !== void 0) issues.push({
+			kind: "ck.archiveTagCase",
+			severity: "warn",
+			messageKey: "m5.f.archiveTagCase",
+			params: {
+				...where,
+				found: `<${wrong[0]}>`
+			},
+			target,
+			fileFix: true
+		});
+		const placeholders = placeholderTags(entry.content);
+		if (placeholders.length) issues.push({
+			kind: "ck.archivePlaceholder",
+			severity: "warn",
+			messageKey: "m5.f.archivePlaceholder",
+			params: {
+				...where,
+				tags: sample(placeholders, 4)
+			},
+			target,
+			fileFix: true
+		});
+	}
+	if (options.ckPresent) for (const [book, list] of perBook) {
+		if (options.repoBooks.includes(book)) continue;
+		issues.push({
+			kind: "ck.archiveNotRepo",
+			severity: "warn",
+			messageKey: "m5.f.archiveNotRepo",
+			params: {
+				book,
+				count: list.length,
+				sample: sample(list.map(entryLabel$1))
+			},
+			target: { book },
+			fileFix: false
+		});
+	}
+	return issues;
+}
+/**
+* Archives whose text contains a bare tag that is the key of another active entry (`<NSFW>` → "Erotic",
+* `<DERE>` → Deredere, `<ELF>`, `<ANXIETY>`). Used as a wrapper (`<NSFW>…</NSFW>`) it is almost surely accidental
+* (warn); a bare tag without a closing pair may be intended (info). MBTI archetypes are intended triggers.
+*/
+function findWrapperCollisions(entries, options) {
+	if (!options.recursive) return [];
+	const targets = entries.filter((entry) => !entry.disable && !entry.constant && !entry.excludeRecursion && entry.key.length > 0);
+	const byTag = /* @__PURE__ */ new Map();
+	for (const entry of targets) for (const key of entry.key) {
+		if (!isBareTagKey(key) || isMbtiTag(key)) continue;
+		const tag = key.trim().toUpperCase();
+		const slot = byTag.get(tag) ?? {
+			key: key.trim(),
+			entries: []
+		};
+		if (!slot.entries.includes(entry)) slot.entries.push(entry);
+		byTag.set(tag, slot);
+	}
+	if (!byTag.size) return [];
+	const collisions = /* @__PURE__ */ new Map();
+	for (const archive of entries) {
+		if (archive.preventRecursion || !isArchive(archive)) continue;
+		const lower = archive.content.toLowerCase();
+		for (const [tag, slot] of byTag) {
+			const fired = slot.entries.filter((target) => target !== archive && matchKey(archive.content, slot.key, {
+				caseSensitive: target.caseSensitive ?? options.caseSensitiveGlobal,
+				wholeWords: target.matchWholeWords ?? options.wholeWordsGlobal
+			}));
+			if (!fired.length) continue;
+			const wrapper = lower.includes(`</${tag.slice(1).toLowerCase()}`);
+			const id = `${tag}|${wrapper ? "w" : "b"}`;
+			const collision = collisions.get(id) ?? {
+				tag: slot.key,
+				wrapper,
+				archives: [],
+				targets: []
+			};
+			collision.archives.push(archive);
+			for (const target of fired) if (!collision.targets.includes(target)) collision.targets.push(target);
+			collisions.set(id, collision);
+		}
+	}
+	return [...collisions.values()].map((collision) => {
+		const first = collision.targets[0];
+		const handled = collision.tag.toUpperCase() === "<NSFW>" && collision.targets.every((target) => isCarrotCastEntry(target));
+		return {
+			kind: "wrapper.collision",
+			severity: collision.wrapper ? "warn" : "info",
+			messageKey: collision.wrapper ? "m5.f.wrapperCollision" : "m5.f.bareTagCollision",
+			params: {
+				tag: collision.tag,
+				closing: `</${collision.tag.slice(1)}`,
+				count: collision.archives.length,
+				archives: sample(collision.archives.map(entryLabel$1)),
+				target: entryLabel$1(first),
+				targetBook: first.book,
+				targets: collision.targets.length
+			},
+			target: {
+				tag: collision.tag,
+				book: first.book,
+				uid: first.uid,
+				comment: first.comment,
+				archives: collision.archives.slice(0, 50).map((entry) => ({
+					book: entry.book,
+					uid: entry.uid
+				}))
+			},
+			...handled ? { fixRule: DOCTOR_RULES.nsfwCollision } : {},
+			fileFix: false
+		};
+	});
+}
+//#endregion
+//#region src/domain/doctor-lore.ts
+/** Comments of the intended BSM-5 + CoT Lenses pairing (same keys, different content by design). */
+var INTENDED_PAIR_RE = /^\s*CoT\s+LENS/i;
+var OLD_EDITION_RE = /retired|legacy|\bold\b|deprecated|устар/i;
+var VERSION_RE = /(?:^|[^a-z])v(?:er(?:sion)?)?\.?\s?(\d+(?:\.\d+)*)/i;
+/** Version numbers found in a book name or comment (`MBTI V2` → [2], `V3.0` → [3, 0]); null when none. */
+function versionOf(text) {
+	const match = VERSION_RE.exec(text);
+	return match?.[1] ? match[1].split(".").map(Number) : null;
+}
+function compareVersions(a, b) {
+	for (let i = 0; i < Math.max(a.length, b.length); i++) {
+		const diff = (a[i] ?? 0) - (b[i] ?? 0);
+		if (diff !== 0) return diff;
+	}
+	return 0;
+}
+/** Which of two books looks newer: by "retired/old" in the name, then by version numbers. Null when unclear. */
+function newerBook(a, b) {
+	const oldA = OLD_EDITION_RE.test(a);
+	if (oldA !== OLD_EDITION_RE.test(b)) return oldA ? b : a;
+	const versionA = versionOf(a);
+	const versionB = versionOf(b);
+	if (!versionA || !versionB) return null;
+	const diff = compareVersions(versionA, versionB);
+	return diff === 0 ? null : diff > 0 ? a : b;
+}
+/** The activation signature of an entry: its normalised primary keys, or "constant". Null when it never fires. */
+function keySignature(entry) {
+	if (entry.constant) return "#constant";
+	const keys = [...new Set(entry.key.map(normalizePackKey))].sort();
+	return keys.length ? JSON.stringify(keys) : null;
+}
+/** Content compared up to whitespace (packs are re-saved by different editors). */
+function contentSignature(content) {
+	return content.replace(/\s+/g, " ").trim();
+}
+function pairKey(first, second) {
+	return JSON.stringify([first, second]);
+}
+function bump(map, first, second, entry) {
+	const id = pairKey(first, second);
+	const pair = map.get(id) ?? {
+		first,
+		second,
+		labels: [],
+		keys: [],
+		uids: [],
+		chars: 0,
+		count: 0
+	};
+	pair.count += 1;
+	pair.chars += entry.content.length;
+	pair.labels.push(entryLabel$1(entry));
+	if (entry.key[0]) pair.keys.push(entry.key[0]);
+	pair.uids.push(entry.uid);
+	map.set(id, pair);
+}
+/**
+* Duplicates across books: same activation signature and same text (`pack.duplicate`, suppressed on the fly by
+* rule `pack.duplicates`) or, between two BunnyMo books, same signature and different text
+* (`pack.versionConflict`, one question at stage 2). Results are aggregated per book pair; `first` is the book that
+* comes first in `entries` (the copy that stays).
+*/
+function findPackDuplicates(entries, bunnyBooks) {
+	const bookOrder = /* @__PURE__ */ new Map();
+	for (const entry of entries) if (!bookOrder.has(entry.book)) bookOrder.set(entry.book, bookOrder.size);
+	const groups = /* @__PURE__ */ new Map();
+	for (const entry of entries) {
+		if (entry.disable || !entry.content.trim()) continue;
+		const signature = keySignature(entry);
+		if (signature === null) continue;
+		const list = groups.get(signature) ?? [];
+		list.push(entry);
+		groups.set(signature, list);
+	}
+	const duplicates = /* @__PURE__ */ new Map();
+	const conflicts = /* @__PURE__ */ new Map();
+	const order = (book) => bookOrder.get(book) ?? 0;
+	for (const group of groups.values()) {
+		const books = [...new Set(group.map((entry) => entry.book))].sort((a, b) => order(a) - order(b));
+		if (books.length < 2) continue;
+		for (let i = 0; i < books.length; i++) for (let j = i + 1; j < books.length; j++) {
+			const first = books[i];
+			const second = books[j];
+			const left = group.filter((entry) => entry.book === first);
+			const right = group.filter((entry) => entry.book === second);
+			const leftTexts = new Set(left.map((entry) => contentSignature(entry.content)));
+			const same = right.filter((entry) => leftTexts.has(contentSignature(entry.content)));
+			if (same.length) {
+				for (const entry of same) bump(duplicates, first, second, entry);
+				continue;
+			}
+			const packs = bunnyBooks.has(first) && bunnyBooks.has(second) && !left[0]?.constant;
+			const intended = [...left, ...right].some((entry) => INTENDED_PAIR_RE.test(entry.comment));
+			if (packs && !intended && right[0]) bump(conflicts, first, second, right[0]);
+		}
+	}
+	const isBunny = (pair) => bunnyBooks.has(pair.first) || bunnyBooks.has(pair.second);
+	const issues = [];
+	for (const pair of duplicates.values()) issues.push({
+		kind: "pack.duplicate",
+		severity: "warn",
+		messageKey: "m5.f.packDuplicate",
+		params: {
+			a: pair.first,
+			b: pair.second,
+			count: pair.count,
+			chars: pair.chars,
+			sample: sample(pair.labels)
+		},
+		target: {
+			books: [pair.first, pair.second],
+			book: pair.second,
+			uids: pair.uids.slice(0, 100)
+		},
+		fixRule: DOCTOR_RULES.duplicates,
+		fileFix: !isBunny(pair)
+	});
+	for (const pair of conflicts.values()) {
+		const newer = newerBook(pair.first, pair.second);
+		issues.push({
+			kind: "pack.versionConflict",
+			severity: "warn",
+			messageKey: newer ? "m5.f.packVersionConflict" : "m5.f.packVersionConflictUnsure",
+			params: {
+				a: pair.first,
+				b: pair.second,
+				count: pair.count,
+				sample: sample(pair.keys.length ? pair.keys : pair.labels),
+				...newer ? { newer } : {}
+			},
+			target: {
+				books: [pair.first, pair.second],
+				book: pair.second,
+				uids: pair.uids.slice(0, 100)
+			},
+			fixRule: DOCTOR_RULES.packVersion,
+			fileFix: false
+		});
+	}
+	return issues;
+}
+/** At-depth entries with the assistant role: fake model turns for DeepSeek V4. User-role entries are left alone (A9). */
+function findAssistantAtDepth(entries, bunnyBooks) {
+	return entries.filter((entry) => !entry.disable && entry.position === 4 && entry.role === 2).map((entry) => ({
+		kind: "role.assistantAtDepth",
+		severity: "warn",
+		messageKey: "m5.f.assistantAtDepth",
+		params: {
+			entry: entryLabel$1(entry),
+			book: entry.book,
+			depth: entry.depth
+		},
+		target: {
+			book: entry.book,
+			uid: entry.uid,
+			comment: entry.comment
+		},
+		fixRule: DOCTOR_RULES.assistantToSystem,
+		fileFix: !bunnyBooks.has(entry.book)
+	}));
+}
+/** Keys that never fire from prose and need no translation: tags, sheet commands, pure punctuation. */
+function proseKey(key) {
+	return !isTagKey(key) && !key.startsWith("!") && /\p{L}/u.test(key);
+}
+function russianReady(entry) {
+	return [...entry.key, ...entry.localizerKeys].some((key) => hasCyrillic(key) || looksLikeRegexKey(key));
+}
+function perBook(entries) {
+	const map = /* @__PURE__ */ new Map();
+	for (const entry of entries) {
+		const list = map.get(entry.book) ?? [];
+		list.push(entry);
+		map.set(entry.book, list);
+	}
+	return map;
+}
+/** English-only keys in a Russian chat, Cyrillic keys under whole-word matching, broken Localizer regexes. */
+function findKeyIssues(entries, options) {
+	const issues = [];
+	const enabled = entries.filter((entry) => !entry.disable);
+	if (options.russianChat) {
+		const english = enabled.filter((entry) => !options.bunnyBooks.has(entry.book) && !entry.constant && entry.key.some(proseKey) && !russianReady(entry));
+		for (const [book, list] of perBook(english)) issues.push({
+			kind: "keys.noRussian",
+			severity: "warn",
+			messageKey: "m5.f.noRussian",
+			params: {
+				book,
+				count: list.length,
+				sample: sample(list.map(entryLabel$1))
+			},
+			target: {
+				book,
+				uids: list.slice(0, 100).map((entry) => entry.uid)
+			},
+			fileFix: true
+		});
+	}
+	const wholeWord = enabled.flatMap((entry) => entry.matchWholeWords ?? options.wholeWordsGlobal ? [...entry.key, ...entry.keysecondary].filter(isCyrillicWholeWordKey).map((key) => ({
+		entry,
+		key
+	})) : []);
+	const wholeWordBooks = /* @__PURE__ */ new Map();
+	for (const item of wholeWord) {
+		const list = wholeWordBooks.get(item.entry.book) ?? [];
+		list.push(item);
+		wholeWordBooks.set(item.entry.book, list);
+	}
+	for (const [book, list] of wholeWordBooks) issues.push({
+		kind: "keys.cyrillicWholeWord",
+		severity: "info",
+		messageKey: "m5.f.cyrillicWholeWord",
+		params: {
+			book,
+			count: list.length,
+			sample: sample(list.map((item) => item.key))
+		},
+		target: {
+			book,
+			uids: [...new Set(list.map((item) => item.entry.uid))].slice(0, 100)
+		},
+		fixRule: DOCTOR_RULES.cyrillicLeftBoundary,
+		fileFix: !options.bunnyBooks.has(book)
+	});
+	for (const entry of enabled) {
+		const broken = entry.localizerKeys.map((key) => ({
+			key,
+			problem: regexKeyProblem(key)
+		})).filter((item) => item.problem !== null);
+		const first = broken[0];
+		if (!first?.problem) continue;
+		issues.push({
+			kind: "keys.localizerBroken",
+			severity: first.problem === "braces" ? "warn" : "error",
+			messageKey: `m5.f.localizerBroken.${first.problem}`,
+			params: {
+				entry: entryLabel$1(entry),
+				book: entry.book,
+				key: first.key,
+				count: broken.length
+			},
+			target: {
+				book: entry.book,
+				uid: entry.uid,
+				comment: entry.comment
+			},
+			fileFix: !options.bunnyBooks.has(entry.book)
+		});
+	}
+	return issues;
+}
+//#endregion
+//#region src/domain/doctor-recursion.ts
+var SEPARATOR = String.fromCharCode(0);
+function lowerBound(offsets, position) {
+	let low = 0;
+	let high = offsets.length - 1;
+	while (low < high) {
+		const mid = low + high + 1 >> 1;
+		if ((offsets[mid] ?? 0) <= position) low = mid;
+		else high = mid - 1;
+	}
+	return low;
+}
+function trigram(text, at) {
+	return text.charCodeAt(at) * 4294967296 + text.charCodeAt(at + 1) * 65536 + text.charCodeAt(at + 2);
+}
+/** Every 3-character window of a text, as numbers. */
+function trigrams(text) {
+	const set = /* @__PURE__ */ new Set();
+	for (let at = 0; at + 2 < text.length; at++) set.add(trigram(text, at));
+	return set;
+}
+/** False when some 3-character window of the needle occurs nowhere (then the needle cannot occur either). */
+function mayOccur(grams, needle) {
+	for (let at = 0; at + 2 < needle.length; at++) if (!grams.has(trigram(needle, at))) return false;
+	return true;
+}
+/** Builds the recursion graph over enabled entries. */
+function buildRecursionGraph(entries, settings) {
+	const nodes = entries.filter((entry) => !entry.disable);
+	const edges = nodes.map(() => /* @__PURE__ */ new Set());
+	if (!settings.recursive) return {
+		nodes,
+		out: edges.map(() => [])
+	};
+	const sources = [];
+	nodes.forEach((entry, index) => {
+		if (!entry.preventRecursion && entry.content) sources.push(index);
+	});
+	const offsets = [];
+	const rawParts = [];
+	let cursor = 0;
+	for (const index of sources) {
+		offsets.push(cursor);
+		const content = nodes[index].content;
+		rawParts.push(content);
+		cursor += content.length + 1;
+	}
+	const raw = rawParts.join(SEPARATOR);
+	const lower = raw.toLowerCase();
+	const aligned = lower.length === raw.length;
+	let lowerGrams = null;
+	let rawGrams = null;
+	nodes.forEach((target, targetIndex) => {
+		if (target.constant || target.excludeRecursion || !target.key.length) return;
+		const caseSensitive = target.caseSensitive ?? settings.caseSensitive;
+		const wholeWords = target.matchWholeWords ?? settings.wholeWords;
+		for (const rawKey of target.key) {
+			const key = rawKey.trim();
+			if (!key || key.includes("{{")) continue;
+			const regex = parseRegexKey(key);
+			if (regex) {
+				if (!/[\^$]/.test(regex.source)) {
+					regex.lastIndex = 0;
+					if (!regex.test(raw)) continue;
+				}
+				for (const source of sources) {
+					if (source === targetIndex) continue;
+					regex.lastIndex = 0;
+					if (regex.test(nodes[source].content)) edges[source]?.add(targetIndex);
+				}
+				continue;
+			}
+			const needle = caseSensitive ? key : key.toLowerCase();
+			if (!mayOccur(caseSensitive ? rawGrams ??= trigrams(raw) : lowerGrams ??= trigrams(lower), needle)) continue;
+			const single = !wholeWords || needle.split(/\s+/).length === 1;
+			const checkBoundary = wholeWords && single;
+			if (!aligned && !caseSensitive) {
+				const boundary = new RegExp(`(?:^|\\W)(${escapeRegexLikeSt(needle)})(?:$|\\W)`);
+				for (const source of sources) {
+					if (source === targetIndex) continue;
+					const hay = nodes[source].content.toLowerCase();
+					if (checkBoundary ? boundary.test(hay) : hay.includes(needle)) edges[source]?.add(targetIndex);
+				}
+				continue;
+			}
+			const hay = caseSensitive ? raw : lower;
+			let position = hay.indexOf(needle);
+			while (position >= 0) {
+				const slot = lowerBound(offsets, position);
+				const start = offsets[slot] ?? 0;
+				const end = start + nodes[sources[slot]].content.length;
+				const inside = position + needle.length <= end;
+				const before = position > start ? hay[position - 1] : void 0;
+				const after = position + needle.length < end ? hay[position + needle.length] : void 0;
+				const ok = inside && (!checkBoundary || !isAsciiWordChar(before) && !isAsciiWordChar(after));
+				const source = sources[slot];
+				if (ok && source !== targetIndex) {
+					edges[source]?.add(targetIndex);
+					const next = offsets[slot + 1];
+					if (next === void 0) break;
+					position = hay.indexOf(needle, next);
+				} else position = hay.indexOf(needle, position + 1);
+			}
+		}
+	});
+	return {
+		nodes,
+		out: edges.map((set) => [...set].sort((a, b) => a - b))
+	};
+}
+/** BFS from every entry. O(N·(N+E)); callers cap N (see findRecursionIssues). */
+function analyzeGraph(graph, starts) {
+	const count = graph.nodes.length;
+	const result = /* @__PURE__ */ new Map();
+	const distance = new Int32Array(count);
+	const parent = new Int32Array(count);
+	const queue = new Int32Array(count);
+	for (const start of starts ?? graph.nodes.map((_, index) => index)) {
+		distance.fill(-1);
+		distance[start] = 0;
+		parent[start] = -1;
+		let head = 0;
+		let tail = 0;
+		queue[tail++] = start;
+		let far = start;
+		let reachChars = 0;
+		while (head < tail) {
+			const node = queue[head++];
+			for (const next of graph.out[node] ?? []) {
+				if ((distance[next] ?? 0) !== -1) continue;
+				distance[next] = (distance[node] ?? 0) + 1;
+				parent[next] = node;
+				queue[tail++] = next;
+				reachChars += graph.nodes[next].content.length;
+				if ((distance[next] ?? 0) > (distance[far] ?? 0)) far = next;
+			}
+		}
+		const path = [];
+		for (let node = far; node !== -1; node = parent[node] ?? -1) path.unshift(node);
+		result.set(start, {
+			out: graph.out[start]?.length ?? 0,
+			depth: distance[far] ?? 0,
+			reach: tail - 1,
+			reachChars,
+			path
+		});
+	}
+	return result;
+}
+function chainText(graph, path) {
+	const labels = path.map((index) => entryLabel$1(graph.nodes[index]));
+	return labels.length > 6 ? `${labels.slice(0, 5).join(" → ")} → … → ${labels[labels.length - 1]}` : labels.join(" → ");
+}
+/** Per-book statistics plus `recursion.chain` / `recursion.vacuum` issues (fixed on the fly by rule `book.cap`). */
+function findRecursionIssues(entries, settings, options = {}) {
+	const vacuumThreshold = options.vacuumThreshold ?? 5;
+	const chainThreshold = options.chainThreshold ?? 3;
+	const vacuumsPerBook = options.vacuumsPerBook ?? 5;
+	const maxStarts = options.maxStarts ?? 1500;
+	const graph = buildRecursionGraph(entries, settings);
+	let starts;
+	if (graph.nodes.length > maxStarts) starts = graph.nodes.map((_, index) => index).filter((index) => (graph.out[index]?.length ?? 0) > 0).sort((a, b) => (graph.out[b]?.length ?? 0) - (graph.out[a]?.length ?? 0)).slice(0, maxStarts);
+	const stats = settings.recursive ? analyzeGraph(graph, starts) : /* @__PURE__ */ new Map();
+	const books = /* @__PURE__ */ new Map();
+	graph.nodes.forEach((entry, index) => {
+		const book = books.get(entry.book) ?? {
+			book: entry.book,
+			entries: 0,
+			chars: 0,
+			constantChars: 0,
+			links: 0,
+			maxDepth: 0,
+			vacuums: 0,
+			maxReachChars: 0,
+			best: -1,
+			vacuumNodes: []
+		};
+		book.entries += 1;
+		book.chars += entry.content.length;
+		if (entry.constant) book.constantChars += entry.content.length;
+		book.links += graph.out[index]?.length ?? 0;
+		const node = stats.get(index);
+		if (node) {
+			if (node.depth > book.maxDepth) {
+				book.maxDepth = node.depth;
+				book.best = index;
+			}
+			book.maxReachChars = Math.max(book.maxReachChars, node.reachChars);
+			if (node.out >= vacuumThreshold) {
+				book.vacuums += 1;
+				book.vacuumNodes.push(index);
+			}
+		}
+		books.set(entry.book, book);
+	});
+	const issues = [];
+	let maxDepth = 0;
+	for (const book of books.values()) {
+		maxDepth = Math.max(maxDepth, book.maxDepth);
+		if (book.maxDepth >= chainThreshold && book.best >= 0) {
+			const path = stats.get(book.best)?.path ?? [];
+			issues.push({
+				kind: "recursion.chain",
+				severity: book.maxDepth >= 5 ? "warn" : "info",
+				messageKey: "m5.f.recursionChain",
+				params: {
+					book: book.book,
+					depth: book.maxDepth,
+					path: chainText(graph, path),
+					links: book.links,
+					vacuums: book.vacuums,
+					chars: book.maxReachChars
+				},
+				target: {
+					book: book.book,
+					uid: graph.nodes[book.best].uid
+				},
+				fixRule: DOCTOR_RULES.bookCap
+			});
+		}
+		const top = [...book.vacuumNodes].sort((a, b) => (stats.get(b)?.out ?? 0) - (stats.get(a)?.out ?? 0)).slice(0, vacuumsPerBook);
+		for (const index of top) {
+			const entry = graph.nodes[index];
+			const node = stats.get(index);
+			issues.push({
+				kind: "recursion.vacuum",
+				severity: "warn",
+				messageKey: "m5.f.recursionVacuum",
+				params: {
+					entry: entryLabel$1(entry),
+					book: entry.book,
+					count: node.out,
+					reach: node.reach,
+					chars: node.reachChars,
+					sample: sample((graph.out[index] ?? []).map((next) => entryLabel$1(graph.nodes[next])))
+				},
+				target: {
+					book: entry.book,
+					uid: entry.uid,
+					comment: entry.comment
+				},
+				fixRule: DOCTOR_RULES.bookCap
+			});
+		}
+	}
+	if (settings.recursive && maxDepth >= chainThreshold) {
+		const limit = settings.maxSteps;
+		if (limit === 0 || limit > 3) issues.push({
+			kind: "recursion.chain",
+			severity: "warn",
+			messageKey: limit === 0 ? "m5.f.recursionNoLimit" : "m5.f.recursionHighLimit",
+			params: {
+				depth: maxDepth,
+				limit,
+				suggested: 3
+			},
+			target: { setting: "world_info_max_recursion_steps" },
+			fixRule: DOCTOR_RULES.bookCap
+		});
+	}
+	return {
+		issues,
+		books: [...books.values()].map(({ best: _best, vacuumNodes: _nodes, ...rest }) => rest),
+		maxDepth
+	};
+}
+//#endregion
 //#region src/features/doctor/service.ts
 var SEVERITY_ORDER = {
 	error: 0,
@@ -10408,8 +15332,30 @@ var DoctorService = class {
 			bookStats: () => this.result?.books ?? [],
 			lastScanAt: () => this.result?.at ?? 0,
 			testRegex: (id, text) => this.testRegex(id, text),
-			onChange: (listener) => this.onChange(listener)
+			onChange: (listener) => this.onChange(listener),
+			fixInFile: async (id) => {
+				const outcome = await this.fixFinding(id);
+				return outcome?.status === "decided" ? outcome.decision : "skipped";
+			},
+			regexAction: (id, action) => this.regexAction(id, action)
 		};
+	}
+	/** «Исправить в файле» for a finding of the last scan; rescans after an applied fix. Null: no file fix offered. */
+	async fixFinding(id) {
+		const result = this.result;
+		const finding = result?.findings.find((item) => item.id === id);
+		if (!result || !finding || !fileFixOffered(finding, result.facts)) return null;
+		const outcome = await fixInFile(this.app, finding);
+		if (outcome.status === "decided" && outcome.decision === "applied") await this.scan();
+		return outcome;
+	}
+	/** Enables, disables or deletes one script of the last inventory; rescans after an applied change. */
+	async regexAction(id, action, note) {
+		const script = this.result?.scripts.find((item) => item.id === id);
+		if (!script) return "skipped";
+		const decision = await regexAction(this.app, script, action, note);
+		if (decision === "applied") await this.scan();
+		return decision;
 	}
 	last() {
 		return this.result;
@@ -10571,6 +15517,7 @@ var DoctorService = class {
 				lore: lore.entries.filter((entry) => !entry.disable).map((entry) => entry.content)
 			}));
 		}
+		const archiveBooks = new Set(archiveBooksOf(app, lore, isArchive));
 		const books = recursion.books.map((stats) => ({
 			book: stats.book,
 			entries: stats.entries,
@@ -10579,7 +15526,8 @@ var DoctorService = class {
 			links: stats.links,
 			maxDepth: stats.maxDepth,
 			vacuums: stats.vacuums,
-			bunnymo: lore.bunnyBooks.get(stats.book) ?? null
+			bunnymo: lore.bunnyBooks.get(stats.book) ?? null,
+			archive: archiveBooks.has(stats.book)
 		}));
 		this.log.debug(`scan: ${issues.length} findings in ${Date.now() - started} ms`);
 		return {
@@ -10591,7 +15539,11 @@ var DoctorService = class {
 			scripts: regex.scripts,
 			inventory: this.inventoryOf(regex.scripts),
 			notes,
-			regexExtensionOff: regex.extensionOff
+			regexExtensionOff: regex.extensionOff,
+			facts: {
+				bunny: new Set(lore.bunnyBooks.keys()),
+				archive: archiveBooks
+			}
 		};
 	}
 };
@@ -10602,6 +15554,9 @@ var DOCTOR_STRINGS = {
 		"m5.title": "Doctor",
 		"m5.tab": "Doctor",
 		"kind.doctor.enableRule": "Enabling rules from the Doctor",
+		"kind.doctor.fileFix": "Lorebook file fixes from the Doctor",
+		"kind.doctor.regexFix": "Regex changes from the Doctor",
+		"kind.doctor.presetRegexFix": "Preset regex changes from the Doctor",
 		"m5.scan": "Check",
 		"m5.rescan": "Check again",
 		"m5.scanning": "Checking lorebooks and regexes…",
@@ -10641,8 +15596,8 @@ var DOCTOR_STRINGS = {
 		"m5.kind.regex.dead": "Regexes with nothing to do",
 		"m5.kind.regex.conflict": "Conflicting regexes",
 		"m5.f.packDuplicate": "“{a}” and “{b}” share identical entries: {count} (about {chars} characters reach the prompt twice). For example: {sample}.",
-		"m5.f.packVersionConflict": "“{a}” and “{b}” have entries with the same keys but different text: {count} (for example {sample}). One tag fires both texts. “{newer}” looks newer. Stage 2 settles this with one question: which version to keep.",
-		"m5.f.packVersionConflictUnsure": "“{a}” and “{b}” have entries with the same keys but different text: {count} (for example {sample}). One tag fires both texts. Stage 2 settles this with one question: which version to keep.",
+		"m5.f.packVersionConflict": "“{a}” and “{b}” have entries with the same keys but different text: {count} (for example {sample}). One tag fires both texts. “{newer}” looks newer. The rule “Pack version conflicts” asks once which version to keep.",
+		"m5.f.packVersionConflictUnsure": "“{a}” and “{b}” have entries with the same keys but different text: {count} (for example {sample}). One tag fires both texts. The rule “Pack version conflicts” asks once which version to keep.",
 		"m5.f.recursionChain": "“{book}”: recursion chains reach {depth} steps, for example {path}. Links: {links}; entries pulling in 5 or more others: {vacuums}; one entry can pull in up to {chars} characters.",
 		"m5.f.recursionVacuum": "“{entry}” ({book}) pulls in {count} entries directly and {reach} in total through recursion (about {chars} characters). For example: {sample}.",
 		"m5.f.recursionNoLimit": "Recursion is on with no step limit, and chains reach {depth} steps. A limit of {suggested} steps keeps the entries that fired and their nearest links.",
@@ -10656,7 +15611,7 @@ var DOCTOR_STRINGS = {
 		"m5.f.wrapperCollision": "Archives wrap text in {tag}…{closing} ({count}: {archives}); through recursion this fires “{target}” from “{targetBook}”.",
 		"m5.f.bareTagCollision": "Archives contain the bare tag {tag} ({count}: {archives}); it fires “{target}” from “{targetBook}”. Fine if intended.",
 		"m5.f.noRussian": "“{book}”: entries with English-only keys: {count} (for example {sample}). The chat is in Russian, so they fire only through tags or recursion.",
-		"m5.f.cyrillicWholeWord": "“{book}”: Cyrillic keys with “match whole words”: {count} (for example {sample}). In ST this option does not work for Cyrillic (\\W knows only Latin letters), so these keys match as substrings: “аня” fires inside “Таня”. A stage 2 rule adds a left-only boundary that keeps case endings working.",
+		"m5.f.cyrillicWholeWord": "“{book}”: Cyrillic keys with “match whole words”: {count} (for example {sample}). In ST this option does not work for Cyrillic (\\W knows only Latin letters), so these keys match as substrings: “аня” fires inside “Таня”. The rule “Cyrillic keys and whole words” adds a left-only boundary that keeps case endings working; the same can be written to the file.",
 		"m5.f.localizerBroken.flags": "“{entry}” ({book}): keys added by Lorebook Localizer have unknown regex flags and never fire ({count}), for example {key}.",
 		"m5.f.localizerBroken.slash": "“{entry}” ({book}): keys added by Lorebook Localizer have an unescaped “/” inside and never fire ({count}), for example {key}.",
 		"m5.f.localizerBroken.syntax": "“{entry}” ({book}): keys added by Lorebook Localizer are invalid regexes (e.g. “\\-” in u mode) and never fire ({count}), for example {key}.",
@@ -10683,7 +15638,11 @@ var DOCTOR_STRINGS = {
 		"m5.f.regexNotAllowed.global": "Global regexes do not run ({count}: {sample}).",
 		"m5.f.regexWorldInfoNotPrompt": "Regex “{name}” ({type}) is set to World Info without “prompt only”: ST applies only prompt-only regexes to lore, so it does nothing there.",
 		"m5.enableRule": "Enable rule",
-		"m5.ruleOn": "Rule is on",
+		"m5.ruleHandles": "Fixed on the fly by a rule",
+		"m5.ruleWaits": "The rule is on and starts after the first-run wizard",
+		"m5.ruleUnavailable": "The rule is on but cannot work now: {missing}",
+		"m5.rulePackPending": "The rule asks once which version to keep; until then both work",
+		"m5.rulePackKeepsAll": "Both versions kept by your choice (change it on the Rules tab)",
 		"m5.ruleTitle": "Rule: {rule}",
 		"m5.ruleMissing": "The Rules module is off: rules cannot be switched on from findings.",
 		"m5.ruleLater": "The rule arrives in a later stage",
@@ -10694,6 +15653,42 @@ var DOCTOR_STRINGS = {
 		"m5.bunnyBook": "BunnyMo book: its file is never edited",
 		"m5.openBook": "Open “{book}”",
 		"m5.showRegex": "Show in the list",
+		"m5.fixFile": "Fix in the file",
+		"m5.fixFile.hint": "Shows the changes and asks first; the previous values stay in the journal.",
+		"m5.fixFile.title.role": "Assistant role → system in “{book}”",
+		"m5.fixFile.title.scanDepth": "Global scan depth for an archive in “{book}”",
+		"m5.fixFile.title.localizer": "Repair Localizer keys in “{book}”",
+		"m5.fixFile.title.cyrillic": "Left-boundary Cyrillic keys in “{book}”",
+		"m5.fixFile.title.other": "Fix “{book}”",
+		"m5.fixFile.description": "Entries to change in “{book}”: {count}. The book is saved right away; the previous values stay in the journal, and undo puts them back.",
+		"m5.fixFile.more": "…and {count} more",
+		"m5.fixFile.globalDepth": "global",
+		"m5.fixFile.marker": "Localizer marker",
+		"m5.fixFile.done": "Fixed in “{book}”: {count}.",
+		"m5.fixFile.queued": "The fix of “{book}” is waiting in the Inbox.",
+		"m5.fixFile.none": "Nothing is left to fix in “{book}”: check again.",
+		"m5.fixFile.unavailable": "This SillyTavern cannot save lorebooks from extensions.",
+		"m5.fixFile.failed.missing": "The book “{book}” or its entry is gone.",
+		"m5.fixFile.failed.stale": "The entry in “{book}” changed after the check: check again.",
+		"m5.fixFile.failed.protected": "“{book}” is a BunnyMo book: its file is never edited.",
+		"m5.regexFix.enable": "Enable",
+		"m5.regexFix.disable": "Disable",
+		"m5.regexFix.delete": "Delete",
+		"m5.regexFix.disableNamed": "Disable “{name}”",
+		"m5.regexFix.deleteCopy": "Delete the copy “{name}”",
+		"m5.regexFix.deadNote": "Other chats may need it, so it is only disabled, never deleted.",
+		"m5.regexFix.title.enable": "Enable regex “{name}” ({type})",
+		"m5.regexFix.title.disable": "Disable regex “{name}” ({type})",
+		"m5.regexFix.title.delete": "Delete regex “{name}” ({type})",
+		"m5.regexFix.description.enable": "Regex “{name}” starts working again.",
+		"m5.regexFix.description.disable": "Regex “{name}” stops working; it stays in the list and can be enabled again.",
+		"m5.regexFix.description.delete": "Regex “{name}” is removed from the list. The journal keeps a copy, and undo puts it back in its place.",
+		"m5.regexFix.presetFile": "This regex lives in the preset: the preset file is saved.",
+		"m5.regexFix.done.enable": "Regex “{name}” is on.",
+		"m5.regexFix.done.disable": "Regex “{name}” is off.",
+		"m5.regexFix.done.delete": "Regex “{name}” is deleted.",
+		"m5.regexFix.queued": "The change of regex “{name}” is waiting in the Inbox.",
+		"m5.regexFix.notFound": "Regex “{name}” is not there any more (or belongs to another character or preset).",
 		"m5.books.title": "Active books",
 		"m5.books.book": "Book",
 		"m5.books.entries": "Entries",
@@ -10713,6 +15708,7 @@ var DOCTOR_STRINGS = {
 		"m5.regex.mode": "Mode",
 		"m5.regex.depth": "Depth",
 		"m5.regex.state": "State",
+		"m5.regex.actions": "Actions",
 		"m5.regex.unnamed": "(no name)",
 		"m5.regexType.global": "global",
 		"m5.regexType.scoped": "character",
@@ -10760,6 +15756,9 @@ var DOCTOR_STRINGS = {
 		"m5.title": "Доктор",
 		"m5.tab": "Доктор",
 		"kind.doctor.enableRule": "Включение правил из «Доктора»",
+		"kind.doctor.fileFix": "Исправления лорбуков из «Доктора»",
+		"kind.doctor.regexFix": "Правка регексов из «Доктора»",
+		"kind.doctor.presetRegexFix": "Правка регексов пресета из «Доктора»",
 		"m5.scan": "Проверить",
 		"m5.rescan": "Проверить заново",
 		"m5.scanning": "Проверяю лорбуки и регексы…",
@@ -10799,8 +15798,8 @@ var DOCTOR_STRINGS = {
 		"m5.kind.regex.dead": "Регексы без дела",
 		"m5.kind.regex.conflict": "Конфликтующие регексы",
 		"m5.f.packDuplicate": "В «{a}» и «{b}» есть одинаковые записи: {count} (около {chars} символов уходят в промпт дважды). Например: {sample}.",
-		"m5.f.packVersionConflict": "В «{a}» и «{b}» есть записи с одинаковыми ключами, но разным текстом: {count} (например, {sample}). На один тег срабатывают оба текста. Похоже, новее «{newer}». На этапе 2 это решится одним вопросом — какую версию оставить.",
-		"m5.f.packVersionConflictUnsure": "В «{a}» и «{b}» есть записи с одинаковыми ключами, но разным текстом: {count} (например, {sample}). На один тег срабатывают оба текста. На этапе 2 это решится одним вопросом — какую версию оставить.",
+		"m5.f.packVersionConflict": "В «{a}» и «{b}» есть записи с одинаковыми ключами, но разным текстом: {count} (например, {sample}). На один тег срабатывают оба текста. Похоже, новее «{newer}». Правило «Конфликт версий паков» один раз спросит, какую версию оставить.",
+		"m5.f.packVersionConflictUnsure": "В «{a}» и «{b}» есть записи с одинаковыми ключами, но разным текстом: {count} (например, {sample}). На один тег срабатывают оба текста. Правило «Конфликт версий паков» один раз спросит, какую версию оставить.",
 		"m5.f.recursionChain": "«{book}»: цепочки рекурсии доходят до {depth} шагов, например {path}. Связей: {links}; записей, которые тянут за собой 5 и больше других: {vacuums}; одна запись может подтянуть до {chars} символов.",
 		"m5.f.recursionVacuum": "Запись «{entry}» («{book}») напрямую тянет за собой записей: {count}, а через рекурсию всего — {reach} (около {chars} символов). Например: {sample}.",
 		"m5.f.recursionNoLimit": "Рекурсия включена без лимита шагов, а цепочки доходят до {depth} шагов. Лимит {suggested} оставит сработавшие записи и их ближайшие связи.",
@@ -10814,7 +15813,7 @@ var DOCTOR_STRINGS = {
 		"m5.f.wrapperCollision": "Архивы оборачивают текст в {tag}…{closing} ({count}: {archives}) — через рекурсию это включает «{target}» из «{targetBook}».",
 		"m5.f.bareTagCollision": "В архивах есть голый тег {tag} ({count}: {archives}) — он включает «{target}» из «{targetBook}». Если так и задумано, всё в порядке.",
 		"m5.f.noRussian": "«{book}»: записей с ключами только на английском — {count} (например, {sample}). Чат идёт на русском, поэтому они срабатывают разве что по тегам или через рекурсию.",
-		"m5.f.cyrillicWholeWord": "«{book}»: кириллических ключей с «только целыми словами» — {count} (например, {sample}). В ST эта опция не работает для кириллицы (\\W знает только латиницу), поэтому такие ключи ищутся как подстрока: «аня» срабатывает внутри «Таня». На этапе 2 появится правило с границей только слева — падежные окончания при этом продолжат работать.",
+		"m5.f.cyrillicWholeWord": "«{book}»: кириллических ключей с «только целыми словами» — {count} (например, {sample}). В ST эта опция не работает для кириллицы (\\W знает только латиницу), поэтому такие ключи ищутся как подстрока: «аня» срабатывает внутри «Таня». Правило «Кириллица и «целые слова»» ставит границу только слева — падежные окончания при этом продолжают работать; то же можно записать и в файл.",
 		"m5.f.localizerBroken.flags": "«{entry}» («{book}»): у ключей от Lorebook Localizer неверные флаги регулярки, они никогда не сработают ({count}), например {key}.",
 		"m5.f.localizerBroken.slash": "«{entry}» («{book}»): в ключах от Lorebook Localizer неэкранированный «/», они никогда не сработают ({count}), например {key}.",
 		"m5.f.localizerBroken.syntax": "«{entry}» («{book}»): ключи от Lorebook Localizer — неверные регулярки (например, «\\-» в режиме u), они никогда не сработают ({count}), например {key}.",
@@ -10841,7 +15840,11 @@ var DOCTOR_STRINGS = {
 		"m5.f.regexNotAllowed.global": "Глобальные регексы не работают ({count}: {sample}).",
 		"m5.f.regexWorldInfoNotPrompt": "Регекс «{name}» ({type}) стоит на «лор», но без флажка «только промпт»: к лору ST применяет только такие регексы, так что там он ничего не делает.",
 		"m5.enableRule": "Включить правило",
-		"m5.ruleOn": "Правило включено",
+		"m5.ruleHandles": "Исправляется правилом на лету",
+		"m5.ruleWaits": "Правило включено и заработает после мастера первого запуска",
+		"m5.ruleUnavailable": "Правило включено, но сейчас не может работать: {missing}",
+		"m5.rulePackPending": "Правило один раз спросит, какую версию оставить, а пока работают обе",
+		"m5.rulePackKeepsAll": "По твоему выбору оставлены обе версии (поменять — во вкладке «Правила»)",
 		"m5.ruleTitle": "Правило: {rule}",
 		"m5.ruleMissing": "Модуль «Правила» выключен: включить правила из находок нельзя.",
 		"m5.ruleLater": "Правило появится на следующих этапах",
@@ -10852,6 +15855,42 @@ var DOCTOR_STRINGS = {
 		"m5.bunnyBook": "Книга BunnyMo: её файл не правится",
 		"m5.openBook": "Открыть «{book}»",
 		"m5.showRegex": "Показать в списке",
+		"m5.fixFile": "Исправить в файле",
+		"m5.fixFile.hint": "Сначала покажет изменения и спросит; прежние значения остаются в журнале.",
+		"m5.fixFile.title.role": "Роль assistant → system в «{book}»",
+		"m5.fixFile.title.scanDepth": "Общая глубина сканирования для архива в «{book}»",
+		"m5.fixFile.title.localizer": "Починить ключи Localizer в «{book}»",
+		"m5.fixFile.title.cyrillic": "Кириллические ключи с границей слева в «{book}»",
+		"m5.fixFile.title.other": "Исправить «{book}»",
+		"m5.fixFile.description": "Записей к изменению в «{book}»: {count}. Книга сохраняется сразу; прежние значения остаются в журнале, и отмена возвращает их.",
+		"m5.fixFile.more": "…и ещё {count}",
+		"m5.fixFile.globalDepth": "общая",
+		"m5.fixFile.marker": "отметка Localizer",
+		"m5.fixFile.done": "Исправлено в «{book}»: {count}.",
+		"m5.fixFile.queued": "Исправление «{book}» ждёт во «Входящих».",
+		"m5.fixFile.none": "В «{book}» уже нечего исправлять — проверь заново.",
+		"m5.fixFile.unavailable": "Этот SillyTavern не даёт расширениям сохранять лорбуки.",
+		"m5.fixFile.failed.missing": "Книги «{book}» или её записи больше нет.",
+		"m5.fixFile.failed.stale": "Запись в «{book}» изменилась после проверки — проверь заново.",
+		"m5.fixFile.failed.protected": "«{book}» — книга BunnyMo, её файл не правится.",
+		"m5.regexFix.enable": "Включить",
+		"m5.regexFix.disable": "Выключить",
+		"m5.regexFix.delete": "Удалить",
+		"m5.regexFix.disableNamed": "Выключить «{name}»",
+		"m5.regexFix.deleteCopy": "Удалить копию «{name}»",
+		"m5.regexFix.deadNote": "В других чатах он может быть нужен — поэтому только выключение, без удаления.",
+		"m5.regexFix.title.enable": "Включить регекс «{name}» ({type})",
+		"m5.regexFix.title.disable": "Выключить регекс «{name}» ({type})",
+		"m5.regexFix.title.delete": "Удалить регекс «{name}» ({type})",
+		"m5.regexFix.description.enable": "Регекс «{name}» снова начнёт работать.",
+		"m5.regexFix.description.disable": "Регекс «{name}» перестанет работать, но останется в списке — его можно включить снова.",
+		"m5.regexFix.description.delete": "Регекс «{name}» уберётся из списка. В журнале остаётся копия, и отмена вернёт его на место.",
+		"m5.regexFix.presetFile": "Этот регекс хранится в пресете — сохранится файл пресета.",
+		"m5.regexFix.done.enable": "Регекс «{name}» включён.",
+		"m5.regexFix.done.disable": "Регекс «{name}» выключен.",
+		"m5.regexFix.done.delete": "Регекс «{name}» удалён.",
+		"m5.regexFix.queued": "Изменение регекса «{name}» ждёт во «Входящих».",
+		"m5.regexFix.notFound": "Регекса «{name}» больше нет (или он теперь у другого персонажа или пресета).",
 		"m5.books.title": "Активные книги",
 		"m5.books.book": "Книга",
 		"m5.books.entries": "Записей",
@@ -10871,6 +15910,7 @@ var DOCTOR_STRINGS = {
 		"m5.regex.mode": "Режим",
 		"m5.regex.depth": "Глубина",
 		"m5.regex.state": "Состояние",
+		"m5.regex.actions": "Действия",
 		"m5.regex.unnamed": "(без названия)",
 		"m5.regexType.global": "глобальный",
 		"m5.regexType.scoped": "персонажа",
@@ -10938,11 +15978,42 @@ function localizeParams(app, params) {
 	else result[key] = value;
 	return result;
 }
-function findingText(app, finding) {
+function findingText$1(app, finding) {
 	return app.i18n.t(finding.messageKey, localizeParams(app, finding.params));
 }
 function closePult(ui) {
 	ui.closePult?.();
+}
+/** Which regex action a finding offers, for which of its scripts (dead scripts are only ever disabled). */
+function regexFixFor(finding) {
+	switch (finding.kind) {
+		case "regex.breaksJson":
+		case "regex.breaksMarkers":
+		case "regex.stripsTags": return {
+			action: "disable",
+			position: 0
+		};
+		case "regex.conflict": return {
+			action: "disable",
+			position: 1
+		};
+		case "regex.duplicate": return {
+			action: "delete",
+			position: 1
+		};
+		case "regex.dead":
+			if (finding.messageKey === "m5.f.regexDead") return {
+				action: "disable",
+				position: 0,
+				note: "m5.regexFix.deadNote"
+			};
+			if (finding.messageKey === "m5.f.regexInvalid") return {
+				action: "disable",
+				position: 0
+			};
+			return null;
+		default: return null;
+	}
 }
 function placementText(app, placement) {
 	return placement.map((place) => app.i18n.t(`m5.place.${place}`)).join(", ") || "—";
@@ -10999,27 +16070,100 @@ function doctorTab(app, service) {
 					...(result?.notes ?? []).map((note) => banner(t(note), "info", "fa-circle-info"))
 				]);
 			};
+			/** The stored answer of rule 'pack.versionConflict' for the books of a finding. */
+			const packAnswer = (finding) => {
+				const books = Array.isArray(finding.target.books) ? finding.target.books.filter((book) => typeof book === "string") : [];
+				let options;
+				try {
+					options = finding.fixRule ? rulesApi$1(app)?.options?.(finding.fixRule) : void 0;
+				} catch {
+					options = void 0;
+				}
+				const choices = options?.choices;
+				const value = typeof choices === "object" && choices !== null ? choices[packGroupId(books)] : void 0;
+				return typeof value === "string" ? value : void 0;
+			};
 			const ruleControl = (finding) => {
 				if (!finding.fixRule) return null;
-				if (!rulesApi(app)) return null;
+				if (!rulesApi$1(app)) return null;
 				const state = ruleState(app, finding.fixRule);
 				if (!state) return el("span", {
 					class: "maestro-muted",
 					text: t("m5.ruleLater")
 				});
-				if (state.enabled) return badge(t("m5.ruleOn"), "ok");
+				if (state.enabled && state.waiting) return badge(t("m5.ruleWaits"), "muted");
+				if (state.enabled && state.available === false) return badge(t("m5.ruleUnavailable", { missing: (state.missing ?? []).join(", ") }), "warn");
+				if (state.enabled && finding.kind === "pack.versionConflict") {
+					const answer = packAnswer(finding);
+					if (answer === void 0) return badge(t("m5.rulePackPending"), "muted");
+					if (answer === "") return badge(t("m5.rulePackKeepsAll"), "muted");
+				}
+				if (state.enabled) return badge(t("m5.ruleHandles"), "ok");
 				return button({
 					label: t("m5.enableRule"),
 					icon: "fa-wand-magic-sparkles",
 					title: t("m5.ruleTitle", { rule: t(state.definition.titleKey) }),
 					onClick: async () => {
 						const rule = t(state.definition.titleKey);
-						const decision = await enableRule(app, state, finding, findingText(app, finding));
+						const decision = await enableRule(app, state, finding, findingText$1(app, finding));
 						if (decision === "applied") app.ui.notice(t("m5.enableRuleDone", { rule }));
 						else if (decision === "queued") app.ui.notice(t("m5.enableRuleQueued", { rule }));
 						if (alive) draw();
 					}
 				});
+			};
+			const fileFixNotice = (outcome) => {
+				if (!outcome) return;
+				const book = outcome.book;
+				if (outcome.status === "decided") {
+					if (outcome.decision === "applied") app.ui.notice(t("m5.fixFile.done", {
+						book,
+						count: outcome.count
+					}));
+					else if (outcome.decision === "queued") app.ui.notice(t("m5.fixFile.queued", { book }));
+				} else if (outcome.status === "nothing") app.ui.notice(t("m5.fixFile.none", { book }));
+				else if (outcome.status === "protected") app.ui.notice(t("m5.bunnyBook"), { level: "warn" });
+				else app.ui.notice(t("m5.fixFile.unavailable"), { level: "warn" });
+			};
+			const fileFixControl = (finding, facts) => {
+				if (!facts || !fileFixOffered(finding, facts)) return null;
+				return button({
+					label: t("m5.fixFile"),
+					icon: "fa-file-pen",
+					title: t("m5.fixFile.hint"),
+					onClick: async () => {
+						fileFixNotice(await service.fixFinding(finding.id));
+						if (alive) draw();
+					}
+				});
+			};
+			const regexNotice = (decision, action, name) => {
+				if (decision === "applied") app.ui.notice(t(`m5.regexFix.done.${action}`, { name }));
+				else if (decision === "queued") app.ui.notice(t("m5.regexFix.queued", { name }));
+			};
+			const runRegexAction = async (script, action, note) => {
+				const name = script.name || t("m5.regex.unnamed");
+				regexNotice(await service.regexAction(script.id, action, note ? t(note) : void 0), action, name);
+				if (alive) draw();
+			};
+			const regexControl = (finding, scripts) => {
+				const fix = regexFixFor(finding);
+				const targets = Array.isArray(finding.target.scripts) ? finding.target.scripts : [];
+				const target = fix ? targets[fix.position] : void 0;
+				const script = scripts.find((item) => item.id === target?.id);
+				if (!fix || !script || script.disabled) return [];
+				const name = script.name || t("m5.regex.unnamed");
+				const controls = [button({
+					label: fix.action === "delete" ? t("m5.regexFix.deleteCopy", { name }) : fix.position > 0 ? t("m5.regexFix.disableNamed", { name }) : t("m5.regexFix.disable"),
+					icon: fix.action === "delete" ? "fa-trash-can" : "fa-toggle-off",
+					kind: fix.action === "delete" ? "danger" : "default",
+					onClick: () => runRegexAction(script, fix.action, fix.note)
+				})];
+				if (fix.note) controls.push(el("span", {
+					class: "maestro-muted",
+					text: t(fix.note)
+				}));
+				return controls;
 			};
 			const showRegex = (id) => {
 				const cell = [...root.querySelectorAll("[data-regex-id]")].find((node) => node.dataset.regexId === id);
@@ -11061,7 +16205,7 @@ function doctorTab(app, service) {
 					text: t("m5.bunnyBook")
 				}) : null;
 			};
-			const findingsView = (findings, books) => {
+			const findingsView = (findings, books, facts, scripts) => {
 				if (!findings.length) return emptyState(t("m5.noFindings"));
 				const blocks = [];
 				for (const severity of SEVERITIES) {
@@ -11084,10 +16228,12 @@ function doctorTab(app, service) {
 						data: { finding: finding.id }
 					}, [el("div", {
 						class: "maestro-m5-message",
-						text: findingText(app, finding)
+						text: findingText$1(app, finding)
 					}), el("div", { class: "maestro-actions" }, [
 						...targetLinks(finding),
 						ruleControl(finding),
+						fileFixControl(finding, facts),
+						...regexControl(finding, scripts),
 						bunnyNote(finding, books)
 					])]))]))]));
 				}
@@ -11133,7 +16279,22 @@ function doctorTab(app, service) {
 				empty: t("m5.notes.noBooks"),
 				caption: t("m5.books.title")
 			});
-			const regexView = (inventory, extensionOff) => [extensionOff ? banner(t("m5.regex.extensionOff"), "warn") : null, table([
+			const regexActions = (info, scripts) => {
+				const script = scripts.find((item) => item.id === info.id);
+				if (!script) return el("span");
+				return el("div", { class: "maestro-row maestro-m5-regex-actions" }, [button({
+					label: info.disabled ? t("m5.regexFix.enable") : t("m5.regexFix.disable"),
+					icon: info.disabled ? "fa-toggle-on" : "fa-toggle-off",
+					kind: "ghost",
+					onClick: () => runRegexAction(script, info.disabled ? "enable" : "disable")
+				}), button({
+					title: t("m5.regexFix.delete"),
+					icon: "fa-trash-can",
+					kind: "ghost",
+					onClick: () => runRegexAction(script, "delete")
+				})]);
+			};
+			const regexView = (inventory, extensionOff, scripts) => [extensionOff ? banner(t("m5.regex.extensionOff"), "warn") : null, table([
 				{
 					key: "name",
 					label: t("m5.regex.name"),
@@ -11171,6 +16332,11 @@ function doctorTab(app, service) {
 					key: "state",
 					label: t("m5.regex.state"),
 					cell: (info) => info.disabled ? badge(t("m5.state.off"), "muted") : info.allowed === false ? badge(t("m5.state.notAllowed"), "warn") : badge(t("m5.state.on"), "ok")
+				},
+				{
+					key: "actions",
+					label: t("m5.regex.actions"),
+					cell: (info) => regexActions(info, scripts)
 				},
 				{
 					key: "test",
@@ -11321,9 +16487,9 @@ function doctorTab(app, service) {
 				if (!result) return;
 				root.append(section(t("m5.findings"), [
 					summary(result.findings),
-					!rulesApi(app) && result.findings.some((finding) => finding.fixRule) ? banner(t("m5.ruleMissing"), "info", "fa-circle-info") : null,
-					findingsView(result.findings, books)
-				]), section(t("m5.books.title"), booksView(result.books)), section(t("m5.regex.title"), regexView(result.inventory, result.regexExtensionOff)), section(t("m5.bench.title"), benchView(result.inventory)));
+					!rulesApi$1(app) && result.findings.some((finding) => finding.fixRule) ? banner(t("m5.ruleMissing"), "info", "fa-circle-info") : null,
+					findingsView(result.findings, books, result.facts, result.scripts)
+				]), section(t("m5.books.title"), booksView(result.books)), section(t("m5.regex.title"), regexView(result.inventory, result.regexExtensionOff, result.scripts)), section(t("m5.bench.title"), benchView(result.inventory)));
 			}
 			const off = service.onChange(() => draw());
 			draw();
@@ -11349,6 +16515,7 @@ var DOCTOR_CSS = `
 .maestro-m5-custom { width: 100%; min-height: 6em; }
 .maestro-m5-sample { margin-top: var(--maestro-gap-sm); }
 .maestro-m5-flash { outline: 2px solid var(--maestro-accent); outline-offset: -2px; }
+.maestro-m5-regex-actions { flex-wrap: nowrap; gap: 2px; }
 `;
 //#endregion
 //#region src/features/doctor/index.ts
@@ -11367,6 +16534,8 @@ var doctorModule = {
 		app.modules.expose(DOCTOR_KEY, api);
 		own(() => service.dispose());
 		own(registerRuleActions(app));
+		own(registerFileFixes(app));
+		for (const off of registerRegexFixes(app)) own(off);
 		own(app.ui.style("m5-doctor", DOCTOR_CSS));
 		const tab = doctorTab(app, service);
 		own(app.ui.addTab(tab));
@@ -11481,14 +16650,14 @@ var StaleBanner = class {
 };
 //#endregion
 //#region src/domain/settings-diff.ts
-function isDict$19(value) {
+function isDict$18(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /** JSON with sorted object keys; `undefined` (also nested) becomes null. Throws on cycles, like JSON. */
 function stableStringify(value) {
 	return JSON.stringify(value === void 0 ? null : value, (_key, item) => {
 		if (item === void 0) return null;
-		if (!isDict$19(item)) return item;
+		if (!isDict$18(item)) return item;
 		const sorted = {};
 		for (const key of Object.keys(item).sort()) sorted[key] = item[key];
 		return sorted;
@@ -11520,7 +16689,7 @@ function jsonCopy(value) {
 function getPath(source, path) {
 	let current = source;
 	for (const part of path.split(".")) {
-		if (!isDict$19(current)) return void 0;
+		if (!isDict$18(current)) return void 0;
 		current = current[part];
 	}
 	return current;
@@ -11533,7 +16702,7 @@ function setPath(target, path, value) {
 	let current = target;
 	for (const part of parts) {
 		const next = current[part];
-		if (isDict$19(next)) current = next;
+		if (isDict$18(next)) current = next;
 		else {
 			const created = {};
 			current[part] = created;
@@ -11548,7 +16717,7 @@ function pathMatches(path, patterns) {
 	return patterns.some((pattern) => path === pattern || path.startsWith(`${pattern}.`));
 }
 function omitKeys(value, omit) {
-	if (!omit?.length || !isDict$19(value)) return value;
+	if (!omit?.length || !isDict$18(value)) return value;
 	const copy = { ...value };
 	for (const key of omit) delete copy[key];
 	return copy;
@@ -11562,7 +16731,7 @@ function pickTracked(source, specs, prefix) {
 		values: {},
 		restore: {}
 	};
-	if (!isDict$19(source)) return part;
+	if (!isDict$18(source)) return part;
 	for (const spec of specs) {
 		const raw = getPath(source, spec.path);
 		if (raw === void 0) continue;
@@ -11582,7 +16751,7 @@ function pickTracked(source, specs, prefix) {
 }
 /** Every own key of `source` except `deny` (and keys starting with `_`), for neighbours without a fixed schema. */
 function keysExcept(source, deny) {
-	if (!isDict$19(source)) return [];
+	if (!isDict$18(source)) return [];
 	return Object.keys(source).filter((key) => !deny.includes(key) && !key.startsWith("_") && !key.includes(".")).sort().map((key) => ({ path: key }));
 }
 /** Merges tracked parts (later parts win on equal paths). */
@@ -11665,7 +16834,7 @@ function acknowledgePaths(baseline, current, patterns) {
 * tab would overwrite). Keys that cannot be serialised are skipped. Best effort by design.
 */
 function topLevelDiff(local, server, options) {
-	if (!isDict$19(local) || !isDict$19(server)) return [];
+	if (!isDict$18(local) || !isDict$18(server)) return [];
 	const keys = [.../* @__PURE__ */ new Set([...Object.keys(local), ...Object.keys(server)])].sort();
 	const result = [];
 	for (const key of keys) {
@@ -11682,7 +16851,7 @@ function topLevelDiff(local, server, options) {
 	return result;
 }
 function readStamp(value) {
-	if (!isDict$19(value)) return null;
+	if (!isDict$18(value)) return null;
 	const { tabId, seq, at } = value;
 	if (typeof tabId !== "string" || !tabId) return null;
 	if (typeof seq !== "number" || !Number.isFinite(seq)) return null;
@@ -11701,7 +16870,7 @@ function parseSettingsText(text) {
 	if (typeof text !== "string") return void 0;
 	try {
 		const parsed = JSON.parse(text);
-		return isDict$19(parsed) ? parsed : void 0;
+		return isDict$18(parsed) ? parsed : void 0;
 	} catch {
 		return;
 	}
@@ -11719,18 +16888,18 @@ function isTabFresh(known, server, myTabId) {
 //#region src/features/guardian/baseline.ts
 var BASELINE_FILE = "maestro-baseline.json";
 var DISMISSED_LIMIT = 20;
-function isDict$18(value) {
+function isDict$17(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /** Validates a stored file; null for anything that is not a baseline. */
 function readBaseline(raw) {
-	if (!isDict$18(raw) || raw.schema !== 1 || !isDict$18(raw.values)) return null;
+	if (!isDict$17(raw) || raw.schema !== 1 || !isDict$17(raw.values)) return null;
 	return {
 		schema: 1,
 		takenAt: typeof raw.takenAt === "number" ? raw.takenAt : 0,
 		reason: typeof raw.reason === "string" ? raw.reason : "",
 		values: raw.values,
-		restore: isDict$18(raw.restore) ? raw.restore : {},
+		restore: isDict$17(raw.restore) ? raw.restore : {},
 		dismissed: Array.isArray(raw.dismissed) ? raw.dismissed.filter((item) => typeof item === "string") : []
 	};
 }
@@ -11793,7 +16962,7 @@ var BaselineStore = class {
 };
 //#endregion
 //#region src/domain/medic-prefill.ts
-function isDict$17(value) {
+function isDict$16(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /**
@@ -11802,17 +16971,17 @@ function isDict$17(value) {
 */
 function activePromptOrder(promptOrder, characterId) {
 	if (!Array.isArray(promptOrder)) return [];
-	const lists = promptOrder.filter(isDict$17);
+	const lists = promptOrder.filter(isDict$16);
 	const find = (id) => id === void 0 ? void 0 : lists.find((item) => String(item.character_id) === String(id));
 	const chosen = find(100001) ?? find(characterId) ?? lists[0];
-	return (chosen && Array.isArray(chosen.order) ? chosen.order : []).filter(isDict$17).filter((item) => typeof item.identifier === "string").map((item) => ({
+	return (chosen && Array.isArray(chosen.order) ? chosen.order : []).filter(isDict$16).filter((item) => typeof item.identifier === "string").map((item) => ({
 		identifier: item.identifier,
 		enabled: item.enabled !== false
 	}));
 }
 /** Index of the prompt list entry with this identifier (oai_settings.prompts). */
 function promptIndex(prompts, identifier) {
-	return Array.isArray(prompts) ? prompts.findIndex((prompt) => isDict$17(prompt) && prompt.identifier === identifier) : -1;
+	return Array.isArray(prompts) ? prompts.findIndex((prompt) => isDict$16(prompt) && prompt.identifier === identifier) : -1;
 }
 function hasContent(prompt) {
 	return typeof prompt.content === "string" && prompt.content.trim() !== "";
@@ -11825,7 +16994,7 @@ function hasContent(prompt) {
 function findAssistantPrefill(prompts, order) {
 	if (!Array.isArray(prompts)) return null;
 	const byId = /* @__PURE__ */ new Map();
-	for (const prompt of prompts) if (isDict$17(prompt) && typeof prompt.identifier === "string") byId.set(prompt.identifier, prompt);
+	for (const prompt of prompts) if (isDict$16(prompt) && typeof prompt.identifier === "string") byId.set(prompt.identifier, prompt);
 	const name = (prompt, identifier) => typeof prompt.name === "string" && prompt.name ? prompt.name : identifier;
 	for (const entry of order) {
 		if (!entry.enabled) continue;
@@ -11859,7 +17028,7 @@ function findAssistantPrefill(prompts, order) {
 }
 //#endregion
 //#region src/features/guardian/tracked.ts
-function isDict$16(value) {
+function isDict$15(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /** Preset fields that hold addresses, keys or passwords: never stored, kept as they are on restore. */
@@ -12012,7 +17181,7 @@ function empty() {
 }
 function liveOai(app) {
 	const settings = app.host.ctx().chatCompletionSettings;
-	return isDict$16(settings) ? settings : null;
+	return isDict$15(settings) ? settings : null;
 }
 function withoutKeys(source, keys) {
 	const copy = { ...source };
@@ -12025,7 +17194,7 @@ async function livePresetBody(app, log) {
 	try {
 		const get = (await app.host.modules.openai()).getChatCompletionPreset;
 		const body = typeof get === "function" ? get() : null;
-		return isDict$16(body) ? jsonCopy(withoutKeys(body, PRESET_SECRET_KEYS)) : null;
+		return isDict$15(body) ? jsonCopy(withoutKeys(body, PRESET_SECRET_KEYS)) : null;
 	} catch (error) {
 		log.debug("preset body unavailable", error);
 		return null;
@@ -12040,7 +17209,7 @@ async function presetPart(app, log) {
 	const order = activePromptOrder(oai.prompt_order);
 	part.values["preset.order"] = order.map((entry) => entry.identifier);
 	part.values["preset.toggles"] = Object.fromEntries(order.map((entry) => [entry.identifier, entry.enabled]));
-	const ids = (Array.isArray(oai.prompts) ? oai.prompts.filter(isDict$16) : []).filter((prompt) => typeof prompt.identifier === "string");
+	const ids = (Array.isArray(oai.prompts) ? oai.prompts.filter(isDict$15) : []).filter((prompt) => typeof prompt.identifier === "string");
 	part.values["preset.roles"] = Object.fromEntries(ids.map((prompt) => [prompt.identifier, typeof prompt.role === "string" ? prompt.role : "system"]));
 	part.values["preset.contents"] = Object.fromEntries(ids.filter((prompt) => prompt.marker !== true).map((prompt) => [prompt.identifier, valueHash({
 		name: prompt.name ?? null,
@@ -12064,7 +17233,7 @@ function regexPart(app) {
 	const scripts = app.host.ctx().extensionSettings.regex;
 	if (!Array.isArray(scripts)) return part;
 	for (const script of scripts) {
-		if (!isDict$16(script) || typeof script.id !== "string" || !script.id) continue;
+		if (!isDict$15(script) || typeof script.id !== "string" || !script.id) continue;
 		const path = `regex.${script.id}`;
 		part.values[path] = {
 			name: typeof script.scriptName === "string" ? script.scriptName : "",
@@ -12086,7 +17255,7 @@ async function worldInfoPart(app, log) {
 		const wi = await app.host.modules.worldInfo();
 		const get = wi.getWorldInfoSettings;
 		const settings = typeof get === "function" ? get() : null;
-		if (isDict$16(settings)) {
+		if (isDict$15(settings)) {
 			for (const key of WI_KEYS) if (settings[key] !== void 0) part.values[`worldInfo.${key}`] = settings[key];
 		}
 		if (Array.isArray(wi.selected_world_info)) part.values["worldInfo.globalSelect"] = wi.selected_world_info.filter((item) => typeof item === "string").sort();
@@ -12099,7 +17268,7 @@ function profilesPart(app) {
 	const part = empty();
 	const profiles = getPath(app.host.ctx().extensionSettings, "connectionManager.profiles");
 	if (!Array.isArray(profiles)) return part;
-	part.values["profiles.list"] = profiles.filter(isDict$16).map((profile) => `${String(profile.name ?? "")}#${String(profile.id ?? "")}`).sort();
+	part.values["profiles.list"] = profiles.filter(isDict$15).map((profile) => `${String(profile.name ?? "")}#${String(profile.id ?? "")}`).sort();
 	return part;
 }
 function extensionsPart(app) {
@@ -12142,7 +17311,7 @@ function fullValue(part, path) {
 function isRestorable(entry, baseline) {
 	const group = groupOf(entry.path);
 	if (group === "preset") {
-		if (isPresetBodyPath(entry.path)) return isDict$16(baseline.restore["preset.body"]);
+		if (isPresetBodyPath(entry.path)) return isDict$15(baseline.restore["preset.body"]);
 		return entry.baseline !== void 0;
 	}
 	if (group === "worldInfo") return entry.path !== "worldInfo.globalSelect" && entry.baseline !== void 0;
@@ -12154,24 +17323,24 @@ async function presetManager(app) {
 	if (!app.host.caps.has("st.presetManager")) return null;
 	const get = (await app.host.modules.presetManager()).getPresetManager;
 	const manager = typeof get === "function" ? get("openai") : null;
-	return isDict$16(manager) ? manager : null;
+	return isDict$15(manager) ? manager : null;
 }
 async function rerenderPrompts(app, log) {
 	if (!app.host.caps.has("st.oai.promptManager")) return;
 	try {
 		const manager = (await app.host.modules.openai()).promptManager;
-		if (isDict$16(manager) && typeof manager.render === "function") manager.render.call(manager, false);
+		if (isDict$15(manager) && typeof manager.render === "function") manager.render.call(manager, false);
 	} catch (error) {
 		log.debug("prompt manager render failed", error);
 	}
 }
 function globalOrderEntry(oai) {
-	const lists = Array.isArray(oai.prompt_order) ? oai.prompt_order.filter(isDict$16) : [];
+	const lists = Array.isArray(oai.prompt_order) ? oai.prompt_order.filter(isDict$15) : [];
 	return lists.find((item) => String(item.character_id) === String(100001)) ?? lists[0] ?? null;
 }
 /** Saves the body into the preset file through ST's preset manager, which then selects and applies it. */
 async function writePresetBody(app, value) {
-	if (!isDict$16(value) || typeof value.name !== "string" || !value.name || !isDict$16(value.body)) return false;
+	if (!isDict$15(value) || typeof value.name !== "string" || !value.name || !isDict$15(value.body)) return false;
 	const manager = await presetManager(app);
 	if (!manager || typeof manager.savePreset !== "function") return false;
 	let secrets = {};
@@ -12179,10 +17348,10 @@ async function writePresetBody(app, value) {
 		const openai = await app.host.modules.openai();
 		const names = openai.openai_setting_names;
 		const list = openai.openai_settings;
-		const slot = isDict$16(names) ? names[value.name] : void 0;
+		const slot = isDict$15(names) ? names[value.name] : void 0;
 		const stored = Array.isArray(list) && typeof slot === "number" ? list[slot] : void 0;
-		const source = isDict$16(stored) ? stored : typeof openai.getChatCompletionPreset === "function" ? openai.getChatCompletionPreset() : null;
-		if (isDict$16(source)) {
+		const source = isDict$15(stored) ? stored : typeof openai.getChatCompletionPreset === "function" ? openai.getChatCompletionPreset() : null;
+		if (isDict$15(source)) {
 			for (const key of PRESET_SECRET_KEYS) if (source[key] !== void 0) secrets[key] = source[key];
 		}
 	}
@@ -12207,7 +17376,7 @@ async function writePreset(app, log, path, value) {
 	const oai = liveOai(app);
 	if (!oai) return false;
 	if (path === "preset.roles") {
-		if (!isDict$16(value) || !Array.isArray(oai.prompts)) return false;
+		if (!isDict$15(value) || !Array.isArray(oai.prompts)) return false;
 		for (const [identifier, role] of Object.entries(value)) {
 			const index = promptIndex(oai.prompts, identifier);
 			if (index >= 0 && typeof role === "string") oai.prompts[index].role = role;
@@ -12215,9 +17384,9 @@ async function writePreset(app, log, path, value) {
 	} else if (path === "preset.toggles" || path === "preset.order") {
 		const entry = globalOrderEntry(oai);
 		if (!entry || !Array.isArray(entry.order)) return false;
-		const items = entry.order.filter(isDict$16);
+		const items = entry.order.filter(isDict$15);
 		if (path === "preset.toggles") {
-			if (!isDict$16(value)) return false;
+			if (!isDict$15(value)) return false;
 			for (const item of items) {
 				const enabled = value[String(item.identifier)];
 				if (typeof enabled === "boolean") item.enabled = enabled;
@@ -12239,12 +17408,12 @@ function writeRegex(app, path, value) {
 	const settings = app.host.ctx().extensionSettings;
 	const scripts = Array.isArray(settings.regex) ? settings.regex : [];
 	settings.regex = scripts;
-	const index = scripts.findIndex((script) => isDict$16(script) && script.id === id);
+	const index = scripts.findIndex((script) => isDict$15(script) && script.id === id);
 	if (value === void 0 || value === null) {
 		if (index >= 0) scripts.splice(index, 1);
 		return true;
 	}
-	if (!isDict$16(value) || value.id !== id) return false;
+	if (!isDict$15(value) || value.id !== id) return false;
 	if (index >= 0) scripts[index] = jsonCopy(value);
 	else scripts.push(jsonCopy(value));
 	return true;
@@ -12293,11 +17462,11 @@ var SETTING_TARGET = "guardian-setting";
 var PULT_ONLY = ["extensions.versions"];
 var DESCRIBE_LIMIT = 12;
 var VALUE_CHARS = 40;
-function isDict$15(value) {
+function isDict$14(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function isDriftPayload(value) {
-	return isDict$15(value) && typeof value.hash === "string" && typeof value.baselineAt === "number" && Array.isArray(value.restore) && Array.isArray(value.adopt);
+	return isDict$14(value) && typeof value.hash === "string" && typeof value.baselineAt === "number" && Array.isArray(value.restore) && Array.isArray(value.adopt);
 }
 /** Restore order: the whole preset first (it reloads everything), then its name, then the rest. */
 function restoreRank(path) {
@@ -12397,7 +17566,7 @@ var GuardianService = class {
 		let entries = detail.entries.filter((entry) => paths.includes(entry.path) && isRestorable(entry, baseline));
 		if (confirmPreset && entries.some((entry) => isPresetBodyPath(entry.path))) {
 			const value = baseline.restore["preset.body"];
-			const name = isDict$15(value) && typeof value.name === "string" ? value.name : "";
+			const name = isDict$14(value) && typeof value.name === "string" ? value.name : "";
 			if (!await this.app.ui.confirm(this.t("m4.confirm.presetTitle"), this.t("m4.confirm.presetBody", { name }))) entries = entries.filter((entry) => !isPresetBodyPath(entry.path));
 		}
 		entries.sort((a, b) => restoreRank(a.path) - restoreRank(b.path) || a.path.localeCompare(b.path));
@@ -12506,7 +17675,7 @@ var GuardianService = class {
 		}
 	}
 	findCard(hash) {
-		return this.app.inbox.list().find((card) => card.kind === "guardian.drift" && isDict$15(card.payload) && card.payload.hash === hash)?.id;
+		return this.app.inbox.list().find((card) => card.kind === "guardian.drift" && isDict$14(card.payload) && card.payload.hash === hash)?.id;
 	}
 	/** Inbox applier: restores what can be restored and takes the rest as the new baseline. */
 	async applyCard(payload) {
@@ -12556,7 +17725,7 @@ var GuardianService = class {
 		const title = this.t(key);
 		let name = rest;
 		if (group === "regex") {
-			const value = isDict$15(entry.current) ? entry.current : isDict$15(entry.baseline) ? entry.baseline : null;
+			const value = isDict$14(entry.current) ? entry.current : isDict$14(entry.baseline) ? entry.baseline : null;
 			if (value && typeof value.name === "string" && value.name) name = value.name;
 		} else if (group === "preset") {
 			const known = this.t(`m4.preset.${rest}`);
@@ -13253,7 +18422,7 @@ var SLOT_POSITION = {
 	BEFORE_PROMPT: 2
 };
 /** world_info_position values of entries injected into blocks other than before/after. */
-var WI_POSITION = {
+var WI_POSITION$1 = {
 	before: 0,
 	after: 1,
 	ANTop: 2,
@@ -13398,20 +18567,20 @@ function reconstructSources(input) {
 				tokens: item.tokens
 			});
 			switch (item.position) {
-				case WI_POSITION.before:
-				case WI_POSITION.after:
+				case WI_POSITION$1.before:
+				case WI_POSITION$1.after:
 					if (exact) worldInfo -= item.tokens;
 					else history -= item.tokens;
 					break;
-				case WI_POSITION.ANTop:
-				case WI_POSITION.ANBottom:
+				case WI_POSITION$1.ANTop:
+				case WI_POSITION$1.ANBottom:
 					takeFrom("ext:authorsNote", item.tokens);
 					break;
-				case WI_POSITION.EMTop:
-				case WI_POSITION.EMBottom:
+				case WI_POSITION$1.EMTop:
+				case WI_POSITION$1.EMBottom:
 					takeFrom("card:dialogueExamples", item.tokens);
 					break;
-				case WI_POSITION.atDepth: break;
+				case WI_POSITION$1.atDepth: break;
 				default: if (!exact) history -= item.tokens;
 			}
 		}
@@ -13553,7 +18722,7 @@ var LORE_WAIT_MS = 5e3;
 var REPLY_GRACE_MS$1 = 6e4;
 var NOT_A_TURN$1 = /* @__PURE__ */ new Set(["quiet", "impersonate"]);
 var TOKEN_CACHE_LIMIT$1 = 2e3;
-function isDict$14(value) {
+function isDict$13(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /** Prompt Manager's "absolute" injection position (PromptManager.js INJECTION_POSITION). */
@@ -13568,7 +18737,7 @@ function ensureDoc(doc) {
 	const raw = doc;
 	raw.v = 1;
 	if (!Array.isArray(raw.records)) raw.records = [];
-	raw.records = raw.records.filter((record) => isDict$14(record) && typeof record.messageIndex === "number" && Array.isArray(record.sources));
+	raw.records = raw.records.filter((record) => isDict$13(record) && typeof record.messageIndex === "number" && Array.isArray(record.sources));
 	return raw;
 }
 var Inspector = class {
@@ -13647,7 +18816,7 @@ var Inspector = class {
 		this.awaiting = { type: info.type };
 	}
 	onPromptReady(data) {
-		if (!isDict$14(data) || data.dryRun !== false || !this.awaiting) return;
+		if (!isDict$13(data) || data.dryRun !== false || !this.awaiting) return;
 		const { type } = this.awaiting;
 		this.awaiting = null;
 		this.pendingEndedAt = null;
@@ -13664,12 +18833,12 @@ var Inspector = class {
 	promptManager() {
 		if (!this.app.host.caps.has("st.oai.promptManager")) return null;
 		const pm = this.openai?.promptManager;
-		return isDict$14(pm) ? pm : null;
+		return isDict$13(pm) ? pm : null;
 	}
 	snapshotCounts() {
 		try {
 			const counts = this.promptManager()?.tokenHandler?.getCounts?.();
-			if (!isDict$14(counts)) return null;
+			if (!isDict$13(counts)) return null;
 			const copy = {};
 			for (const [identifier, value] of Object.entries(counts)) if (typeof value === "number" && Number.isFinite(value)) copy[identifier] = value;
 			return copy;
@@ -13702,7 +18871,7 @@ var Inspector = class {
 			if (!Array.isArray(order)) return [];
 			const result = [];
 			for (const item of order) {
-				if (!isDict$14(item) || item.enabled === false || typeof item.identifier !== "string") continue;
+				if (!isDict$13(item) || item.enabled === false || typeof item.identifier !== "string") continue;
 				const prompt = pm.getPromptById(item.identifier);
 				if (!prompt || prompt.marker === true || Number(prompt.injection_position) !== ABSOLUTE) continue;
 				if (typeof prompt.content !== "string" || !prompt.content) continue;
@@ -14472,513 +19641,6 @@ var inspectorModule = {
 		own(app.ui.addTab(promptTab(app, inspector, settings)));
 	}
 };
-/** Tag order (also the bit order of the stored tag mask). */
-var LORE_TAG_ORDER = [
-	"bunnymo.core",
-	"bunnymo.pack",
-	"ck.archive",
-	"localizer",
-	"des.book",
-	"canon",
-	"maestro.book",
-	"constant"
-];
-function isDict$13(value) {
-	return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-function strings$2(value) {
-	return Array.isArray(value) ? value.filter((item) => typeof item === "string" && !!item) : [];
-}
-/** Canon items carry `extensions.maestro` with a `kind` (CanonMeta); overrides keep the base book's name. */
-function isCanonMeta(extensions) {
-	return isDict$13(extensions) && isDict$13(extensions.maestro) && typeof extensions.maestro.kind === "string";
-}
-function tagsFor(entry, context, hasLocalizerMarker) {
-	const tags = [];
-	if (context.bunnymoCore.has(entry.world)) tags.push("bunnymo.core");
-	else if (context.bunnymoPacks.has(entry.world)) tags.push("bunnymo.pack");
-	if (context.ckRepos.has(entry.world)) tags.push("ck.archive");
-	if (hasLocalizerMarker) tags.push("localizer");
-	if (context.desBooks.has(entry.world)) tags.push("des.book");
-	if (entry.world.startsWith("Maestro · канон") || isCanonMeta(entry.extensions)) tags.push("canon");
-	else if (entry.world.startsWith("Maestro · ")) tags.push("maestro.book");
-	if (entry.constant) tags.push("constant");
-	return tags;
-}
-function tagMask(tags) {
-	let mask = 0;
-	LORE_TAG_ORDER.forEach((tag, bit) => {
-		if (tags.includes(tag)) mask |= 1 << bit;
-	});
-	return mask;
-}
-function tagsOfMask(mask) {
-	return LORE_TAG_ORDER.filter((_, bit) => (mask & 1 << bit) !== 0);
-}
-function desLinkedBooks(settings) {
-	const links = {
-		campaign: [],
-		campaignAll: [],
-		autoLinked: [],
-		workshop: []
-	};
-	if (!isDict$13(settings)) return links;
-	const lorebook = isDict$13(settings.lorebook) ? settings.lorebook : {};
-	const campaigns = isDict$13(lorebook.campaigns) ? lorebook.campaigns : {};
-	const all = /* @__PURE__ */ new Set();
-	for (const campaign of Object.values(campaigns)) if (isDict$13(campaign)) for (const book of strings$2(campaign.books)) all.add(book);
-	const active = typeof lorebook.activeCampaignId === "string" ? campaigns[lorebook.activeCampaignId] : void 0;
-	const campaign = new Set(strings$2(lorebook.campaignActivated));
-	if (isDict$13(active)) for (const book of strings$2(active.books)) campaign.add(book);
-	links.campaign = [...campaign];
-	links.campaignAll = [...all];
-	links.autoLinked = strings$2(lorebook.autoLinked);
-	const injections = isDict$13(settings.characterInjection) ? settings.characterInjection : {};
-	const workshop = /* @__PURE__ */ new Set();
-	for (const injection of Object.values(injections)) if (isDict$13(injection) && typeof injection.lorebook === "string" && injection.lorebook) workshop.add(injection.lorebook);
-	links.workshop = [...workshop];
-	return links;
-}
-/** Every active book with the reasons it is active, in ST's scan priority: chat, persona, character, global. */
-function bookReasons(sources) {
-	const rows = /* @__PURE__ */ new Map();
-	const add = (book, reason) => {
-		if (!book) return;
-		const list = rows.get(book) ?? [];
-		if (!list.includes(reason)) list.push(reason);
-		rows.set(book, list);
-	};
-	if (sources.chat) {
-		add(sources.chat, "chat");
-		if (sources.ckChatBooks.includes(sources.chat)) add(sources.chat, "ckConnector");
-	}
-	add(sources.persona, "persona");
-	for (const book of sources.characterPrimary) add(book, "character");
-	for (const book of sources.characterExtra) add(book, "characterExtra");
-	for (const book of sources.global) {
-		add(book, "global");
-		if (sources.des.campaign.includes(book)) add(book, "desCampaign");
-		if (sources.des.autoLinked.includes(book)) add(book, "desAutoLink");
-		if (sources.des.workshop.includes(book)) add(book, "workshop");
-	}
-	for (const book of rows.keys()) if (book.startsWith("Maestro · канон")) add(book, "canon");
-	return [...rows].map(([book, reasons]) => ({
-		book,
-		reasons
-	}));
-}
-function emptyJournal() {
-	return {
-		v: 1,
-		worlds: [],
-		titles: {},
-		records: [],
-		stats: {
-			turns: 0,
-			chars: 0,
-			canon: 0,
-			entries: {}
-		}
-	};
-}
-/**
-* Repairs a loaded document in place (the chat store tracks the object identity, so it must not be replaced)
-* and returns it typed.
-*/
-function ensureJournal(doc) {
-	const raw = doc;
-	raw.v = 1;
-	if (!Array.isArray(raw.worlds)) raw.worlds = [];
-	if (!isDict$13(raw.titles)) raw.titles = {};
-	if (!Array.isArray(raw.records)) raw.records = [];
-	const stats = isDict$13(raw.stats) ? raw.stats : {};
-	raw.stats = {
-		turns: typeof stats.turns === "number" ? stats.turns : 0,
-		chars: typeof stats.chars === "number" ? stats.chars : 0,
-		canon: typeof stats.canon === "number" ? stats.canon : 0,
-		entries: isDict$13(stats.entries) ? stats.entries : {}
-	};
-	raw.records = raw.records.filter((record) => isDict$13(record) && typeof record.i === "number" && Array.isArray(record.a));
-	return raw;
-}
-function worldIndex(doc, name) {
-	let index = doc.worlds.indexOf(name);
-	if (index < 0) {
-		doc.worlds.push(name);
-		index = doc.worlds.length - 1;
-	}
-	return index;
-}
-var CUT_CODES = {
-	none: 0,
-	budget: 1,
-	maestro: 2,
-	other: 3
-};
-function cutCode(row) {
-	if (!row.cut) return CUT_CODES.none;
-	if (row.cutBy === "budget") return CUT_CODES.budget;
-	if (row.cutBy === "maestro") return CUT_CODES.maestro;
-	return CUT_CODES.other;
-}
-function encodeRecord(doc, record) {
-	const a = record.activations.map((row) => {
-		const w = worldIndex(doc, row.world);
-		if (row.comment) doc.titles[`${w}:${row.uid}`] = row.comment;
-		return [
-			w,
-			row.uid,
-			row.chars,
-			row.tokens,
-			row.position,
-			row.depth ?? null,
-			row.role ?? null,
-			row.order,
-			row.loop,
-			row.recursionLevel,
-			row.via ? worldIndex(doc, row.via.world) : null,
-			row.via ? row.via.uid : null,
-			cutCode(row),
-			tagMask(row.tags),
-			row.key ?? null
-		];
-	});
-	const stored = {
-		i: record.messageIndex,
-		at: record.at,
-		t: record.generationType,
-		a,
-		c: record.totalChars,
-		k: record.totalTokens,
-		o: record.overflow ? 1 : 0
-	};
-	if (record.budgetTokens !== void 0) stored.b = record.budgetTokens;
-	if (record.canonChars !== void 0) stored.cc = record.canonChars;
-	return stored;
-}
-function decodeRecord(doc, stored) {
-	const activations = stored.a.map((tuple) => {
-		const [w, uid, chars, tokens, position, depth, role, order, loop, level, viaW, viaUid, cut, mask, key] = tuple;
-		const row = {
-			world: doc.worlds[w] ?? "",
-			uid,
-			comment: doc.titles[`${w}:${uid}`] ?? "",
-			chars,
-			tokens,
-			position,
-			order,
-			loop,
-			recursionLevel: level,
-			tags: tagsOfMask(mask)
-		};
-		if (depth !== null) row.depth = depth;
-		if (role !== null) row.role = role;
-		if (viaW !== null && viaUid !== null) row.via = {
-			world: doc.worlds[viaW] ?? "",
-			uid: viaUid
-		};
-		if (key !== null) row.key = key;
-		if (cut !== CUT_CODES.none) {
-			row.cut = true;
-			if (cut === CUT_CODES.budget) row.cutBy = "budget";
-			else if (cut === CUT_CODES.maestro) row.cutBy = "maestro";
-		}
-		return row;
-	});
-	const record = {
-		messageIndex: stored.i,
-		at: stored.at,
-		generationType: stored.t,
-		activations,
-		totalChars: stored.c,
-		totalTokens: stored.k,
-		overflow: stored.o === 1
-	};
-	if (stored.b !== void 0) record.budgetTokens = stored.b;
-	if (stored.cc !== void 0) record.canonChars = stored.cc;
-	return record;
-}
-function decodeRecords(doc) {
-	return doc.records.map((stored) => decodeRecord(doc, stored));
-}
-function applyStats(doc, stored, sign) {
-	const stats = doc.stats;
-	stats.turns = Math.max(0, stats.turns + sign);
-	stats.chars = Math.max(0, stats.chars + sign * stored.c);
-	stats.canon = Math.max(0, stats.canon + sign * (stored.cc ?? 0));
-	for (const tuple of stored.a) {
-		if (tuple[12] !== CUT_CODES.none) continue;
-		const key = `${tuple[0]}:${tuple[1]}`;
-		const current = stats.entries[key] ?? [
-			0,
-			0,
-			stored.i
-		];
-		const activations = current[0] + sign;
-		if (activations <= 0) {
-			delete stats.entries[key];
-			continue;
-		}
-		stats.entries[key] = [
-			activations,
-			Math.max(0, current[1] + sign * tuple[2]),
-			sign > 0 ? Math.max(current[2], stored.i) : current[2]
-		];
-	}
-}
-/**
-* Adds a turn: a record for the same message (swipe, regenerate, continue) replaces the earlier one and its
-* counters; the oldest records beyond `keep` are dropped from the list but stay in the running counters.
-*/
-function addRecord(doc, record, keep) {
-	const stored = encodeRecord(doc, record);
-	const previous = doc.records.findIndex((item) => item.i === record.messageIndex);
-	if (previous >= 0) {
-		const [old] = doc.records.splice(previous, 1);
-		if (old) applyStats(doc, old, -1);
-	}
-	doc.records.push(stored);
-	applyStats(doc, stored, 1);
-	const limit = Math.max(1, Math.floor(keep));
-	if (doc.records.length > limit) doc.records.splice(0, doc.records.length - limit);
-	return stored;
-}
-/** Drops records of messages that no longer exist (index ≥ `fromIndex`), with their counters. */
-function removeRecordsFrom(doc, fromIndex) {
-	let removed = 0;
-	doc.records = doc.records.filter((stored) => {
-		if (stored.i < fromIndex) return true;
-		applyStats(doc, stored, -1);
-		removed++;
-		return false;
-	});
-	return removed;
-}
-/** Stores lazily attributed keys into the stored record of the same turn. Returns false when it is gone. */
-function setRecordKeys(doc, record) {
-	const stored = doc.records.find((item) => item.i === record.messageIndex && item.at === record.at);
-	if (!stored) return false;
-	for (const row of record.activations) {
-		if (row.key === void 0) continue;
-		const w = doc.worlds.indexOf(row.world);
-		const tuple = stored.a.find((item) => item[0] === w && item[1] === row.uid);
-		if (tuple) tuple[14] = row.key;
-	}
-	return true;
-}
-/** Entries of the ENTRIES_LOADED lists, de-duplicated by world and uid. */
-function catalogFromLists(lists) {
-	if (!isDict$13(lists)) return [];
-	const seen = /* @__PURE__ */ new Set();
-	const entries = [];
-	for (const name of [
-		"chatLore",
-		"personaLore",
-		"characterLore",
-		"globalLore"
-	]) {
-		const list = lists[name];
-		if (!Array.isArray(list)) continue;
-		for (const raw of list) {
-			if (!isDict$13(raw) || typeof raw.world !== "string") continue;
-			const uid = Number(raw.uid);
-			if (!Number.isFinite(uid)) continue;
-			const id = `${raw.world}\u0000${uid}`;
-			if (seen.has(id)) continue;
-			seen.add(id);
-			entries.push({
-				world: raw.world,
-				uid,
-				comment: typeof raw.comment === "string" ? raw.comment : "",
-				chars: typeof raw.content === "string" ? raw.content.length : 0,
-				constant: raw.constant === true,
-				disabled: raw.disable === true
-			});
-		}
-	}
-	return entries;
-}
-/**
-* Chat summary from the running counters. Book weight is chars per turn on average; entry weight is the total
-* contribution (activations × average size). "Always active" needs at least two turns; "never active" lists
-* enabled entries of the books scanned last that no recorded turn activated.
-*/
-function summarize(doc, catalog, limits = {}) {
-	const turns = doc.stats.turns;
-	const rows = [];
-	const books = /* @__PURE__ */ new Map();
-	for (const [key, [activations, chars, lastSeen]] of Object.entries(doc.stats.entries)) {
-		const separator = key.indexOf(":");
-		const w = Number(key.slice(0, separator));
-		const uid = Number(key.slice(separator + 1));
-		const world = doc.worlds[w];
-		if (world === void 0 || !Number.isFinite(uid) || activations <= 0) continue;
-		rows.push({
-			world,
-			uid,
-			comment: doc.titles[key] ?? "",
-			activations,
-			avgChars: Math.round(chars / activations),
-			lastSeenTurn: lastSeen,
-			total: chars
-		});
-		const book = books.get(world) ?? {
-			activations: 0,
-			total: 0
-		};
-		book.activations += activations;
-		book.total += chars;
-		books.set(world, book);
-	}
-	const strip = ({ total: _total, ...row }) => row;
-	const heaviestEntries = [...rows].sort((a, b) => b.total - a.total).slice(0, limits.entries ?? 15).map(strip);
-	const heaviestBooks = [...books].map(([world, book]) => ({
-		world,
-		activations: book.activations,
-		avgChars: turns ? Math.round(book.total / turns) : 0
-	})).sort((a, b) => b.avgChars - a.avgChars).slice(0, limits.books ?? 10);
-	const alwaysActive = turns >= 2 ? rows.filter((row) => row.activations >= turns).sort((a, b) => b.avgChars - a.avgChars).map(strip) : [];
-	const active = new Set(rows.map((row) => `${row.world}\u0000${row.uid}`));
-	return {
-		turns,
-		heaviestBooks,
-		heaviestEntries,
-		alwaysActive,
-		neverActive: turns ? catalog.filter((entry) => !entry.disabled && !active.has(`${entry.world}\u0000${entry.uid}`)).sort((a, b) => b.chars - a.chars).map((entry) => ({
-			world: entry.world,
-			uid: entry.uid,
-			comment: entry.comment,
-			activations: 0,
-			avgChars: entry.chars
-		})) : [],
-		avgTotalChars: turns ? Math.round(doc.stats.chars / turns) : 0,
-		avgCanonChars: turns ? Math.round(doc.stats.canon / turns) : 0
-	};
-}
-//#endregion
-//#region src/domain/lore-match.ts
-/** World Info secondary-key logic (`world_info_logic`, WI:33). */
-var WI_LOGIC = {
-	AND_ANY: 0,
-	NOT_ALL: 1,
-	NOT_ANY: 2,
-	AND_ALL: 3
-};
-/** The separator ST puts before every scanned message (WI:290-292). */
-var MATCHER = "";
-var JOINER = `\n${MATCHER}`;
-/** Port of ST's `parseRegexFromString` (WI:2901): `/pattern/flags` → RegExp, anything else → null. */
-function parseRegexKey(input) {
-	const match = /^\/([\w\W]+?)\/([gimsuy]*)$/.exec(input);
-	if (!match) return null;
-	let pattern = match[1] ?? "";
-	const flags = match[2] ?? "";
-	if (/(^|[^\\])\//.test(pattern)) return null;
-	pattern = pattern.replace("\\/", "/");
-	try {
-		return new RegExp(pattern, flags);
-	} catch {
-		return null;
-	}
-}
-function escapeRegex(text) {
-	return text.replace(/[/\-\\^$*+?.()|[\]{}]/g, "\\$&");
-}
-/** Port of `WorldInfoBuffer.matchKeys` (WI:337-366). */
-function matchKey(haystack, needle, options) {
-	const regex = (options.parseRegex ?? parseRegexKey)(needle);
-	if (regex) return regex.test(haystack);
-	const text = options.caseSensitive ? haystack : haystack.toLowerCase();
-	const key = options.caseSensitive ? needle : needle.toLowerCase();
-	if (!options.matchWholeWords) return text.includes(key);
-	if (key.split(/\s+/).length > 1) return text.includes(key);
-	return new RegExp(`(?:^|\\W)(${escapeRegex(key)})(?:$|\\W)`).test(text);
-}
-function stringList$1(value) {
-	return Array.isArray(value) ? value.filter((item) => typeof item === "string") : [];
-}
-/** Per-entry options with ST's fallback to the global settings (`entry.caseSensitive ?? global`). */
-function entryMatchOptions(entry, globals, parseRegex) {
-	const caseSensitive = typeof entry.caseSensitive === "boolean" ? entry.caseSensitive : globals.caseSensitive;
-	const matchWholeWords = typeof entry.matchWholeWords === "boolean" ? entry.matchWholeWords : globals.matchWholeWords;
-	return parseRegex ? {
-		caseSensitive,
-		matchWholeWords,
-		parseRegex
-	} : {
-		caseSensitive,
-		matchWholeWords
-	};
-}
-var identity = (text) => text;
-function matchesAny(text, keys, options, substitute) {
-	for (const key of keys) {
-		const substituted = substitute(key);
-		if (substituted && matchKey(text, substituted.trim(), options)) return key;
-	}
-	return null;
-}
-/**
-* Which key activated the entry on `text`, as a short label: the primary key, plus the secondary keys that the
-* entry's logic needed (`Аня + лес`). Null when no primary key matches. When the secondary condition fails on
-* this text the primary key is still returned: the entry did activate, and the scan text is a reconstruction.
-*/
-function findTriggerKey(entry, text, globals, substitute = identity, parseRegex) {
-	const options = entryMatchOptions(entry, globals, parseRegex);
-	const primary = matchesAny(text, stringList$1(entry.key), options, substitute);
-	if (primary === null) return null;
-	const secondary = stringList$1(entry.keysecondary);
-	if (!entry.selective || secondary.length === 0) return primary;
-	const logic = typeof entry.selectiveLogic === "number" ? entry.selectiveLogic : WI_LOGIC.AND_ANY;
-	const matched = [];
-	const missed = [];
-	for (const key of secondary) {
-		const substituted = substitute(key);
-		if (substituted && matchKey(text, substituted.trim(), options)) matched.push(key);
-		else missed.push(key);
-	}
-	if (logic === WI_LOGIC.AND_ANY && matched.length) return `${primary} + ${matched[0]}`;
-	if (logic === WI_LOGIC.AND_ALL && !missed.length) return [primary, ...matched].join(" + ");
-	if (logic === WI_LOGIC.NOT_ALL && missed.length) return `${primary} + ¬${missed[0]}`;
-	if (logic === WI_LOGIC.NOT_ANY && !matched.length) return `${primary} + ¬(${secondary.join(", ")})`;
-	return primary;
-}
-/** Rebuilds `WorldInfoBuffer.get()` (WI:279-328) for one entry. */
-function buildScanText(input) {
-	const depth = Math.max(0, Math.floor(input.depth));
-	if (depth <= 0) return "";
-	let result = MATCHER + input.messages.slice(0, depth).map((message) => message.trim()).join(JOINER);
-	const global = input.global ?? {};
-	const flags = input.flags ?? {};
-	const pairs = [
-		[flags.matchPersonaDescription, global.personaDescription],
-		[flags.matchCharacterDescription, global.characterDescription],
-		[flags.matchCharacterPersonality, global.characterPersonality],
-		[flags.matchCharacterDepthPrompt, global.characterDepthPrompt],
-		[flags.matchScenario, global.scenario],
-		[flags.matchCreatorNotes, global.creatorNotes]
-	];
-	for (const [flag, value] of pairs) if (flag === true && value) result += JOINER + value;
-	if (input.injects?.length) result += JOINER + input.injects.join(JOINER);
-	if (input.recursion?.length) result += JOINER + input.recursion.join(JOINER);
-	return result;
-}
-/**
-* The first candidate whose content contains one of the entry's primary keys (candidates in priority order:
-* the caller lists the most recent scan loop first). Cheap: plain substring/regex tests, no secondary logic.
-*/
-function findVia(entry, candidates, globals, substitute = identity, parseRegex) {
-	const keys = stringList$1(entry.key);
-	if (!keys.length) return void 0;
-	const options = entryMatchOptions(entry, globals, parseRegex);
-	for (const candidate of candidates) {
-		if (!candidate.content) continue;
-		if (matchesAny(candidate.content, keys, options, substitute) !== null) return {
-			world: candidate.world,
-			uid: candidate.uid
-		};
-	}
-}
 //#endregion
 //#region src/domain/lore-scan.ts
 var SCAN_FLAG_NAMES = [
@@ -15005,7 +19667,7 @@ function num(value, fallback = 0) {
 function optNum(value) {
 	return typeof value === "number" && Number.isFinite(value) ? value : void 0;
 }
-function strings$1(value) {
+function strings$2(value) {
 	return Array.isArray(value) ? value.filter((item) => typeof item === "string") : [];
 }
 function optBool(value) {
@@ -15035,8 +19697,8 @@ function captureEntry(raw, loop, recursionLevel) {
 		order: num(raw.order, 100),
 		constant: raw.constant === true,
 		preventRecursion: raw.preventRecursion === true,
-		key: strings$1(raw.key),
-		keysecondary: strings$1(raw.keysecondary),
+		key: strings$2(raw.key),
+		keysecondary: strings$2(raw.keysecondary),
 		selective: raw.selective === true,
 		selectiveLogic: num(raw.selectiveLogic),
 		caseSensitive: optBool(raw.caseSensitive),
@@ -15262,7 +19924,7 @@ var PLACEMENT = {
 	USER_INPUT: 1,
 	AI_OUTPUT: 2
 };
-function text(value) {
+function text$1(value) {
 	return typeof value === "string" ? value : "";
 }
 async function loadWorldInfo(app) {
@@ -15302,14 +19964,14 @@ async function chatForWI(app, wi, end) {
 	const regex = await regexEngine(app);
 	const includeNames = wi?.world_info_include_names !== false;
 	return core.map((message, index) => {
-		let mes = text(message.mes);
+		let mes = text$1(message.mes);
 		if (regex) try {
 			mes = regex(mes, message.is_user ? PLACEMENT.USER_INPUT : PLACEMENT.AI_OUTPUT, {
 				isPrompt: true,
 				depth: core.length - index - 1
 			});
 		} catch {}
-		return includeNames ? `${text(message.name)}: ${mes}` : mes;
+		return includeNames ? `${text$1(message.name)}: ${mes}` : mes;
 	}).reverse();
 }
 /** `globalScanData` of Generate (script.js:4626-4634). */
@@ -15322,12 +19984,12 @@ function cardFields(app, trigger = "normal") {
 		fields = {};
 	}
 	return {
-		personaDescription: text(fields.persona),
-		characterDescription: text(fields.description),
-		characterPersonality: text(fields.personality),
-		characterDepthPrompt: text(fields.charDepthPrompt),
-		scenario: text(fields.scenario),
-		creatorNotes: text(fields.creatorNotes),
+		personaDescription: text$1(fields.persona),
+		characterDescription: text$1(fields.description),
+		characterPersonality: text$1(fields.personality),
+		characterDepthPrompt: text$1(fields.charDepthPrompt),
+		scenario: text$1(fields.scenario),
+		creatorNotes: text$1(fields.creatorNotes),
 		trigger
 	};
 }
@@ -15360,11 +20022,11 @@ var TOKEN_WORKERS = 4;
 function isDict$11(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
-function strings(value) {
+function strings$1(value) {
 	return Array.isArray(value) ? value.filter((item) => typeof item === "string" && !!item) : [];
 }
 /** Rough tokens when the tokenizer is unavailable (≈3.5 chars per token for mixed RU/EN text). */
-function estimateTokens$1(text) {
+function estimateTokens(text) {
 	return Math.ceil(text.length / 3.5);
 }
 function emptySummary() {
@@ -15379,7 +20041,7 @@ function emptySummary() {
 	};
 }
 /** ST's `getCharaFilename`: the avatar file name without its extension (key of `world_info.charLore`). */
-function avatarKey(avatar) {
+function avatarKey$1(avatar) {
 	return avatar.replace(/\.[^/.]+$/, "");
 }
 var LoreJournal = class {
@@ -15566,7 +20228,7 @@ var LoreJournal = class {
 			budgetTokens: meta.budgetTokens,
 			overflow: meta.overflow,
 			simulated: meta.simulated,
-			tokens: (entry) => tokens.get(entryId(entry.world, entry.uid)) ?? estimateTokens$1(entry.content),
+			tokens: (entry) => tokens.get(entryId(entry.world, entry.uid)) ?? estimateTokens(entry.content),
 			tags: (entry) => tagsFor(entry, context, this.hasLocalizer(entry)),
 			via
 		});
@@ -15589,9 +20251,9 @@ var LoreJournal = class {
 		let value;
 		try {
 			const counted = Number(await this.app.host.ctx().getTokenCountAsync(text));
-			value = Number.isFinite(counted) && counted >= 0 ? counted : estimateTokens$1(text);
+			value = Number.isFinite(counted) && counted >= 0 ? counted : estimateTokens(text);
 		} catch {
-			value = estimateTokens$1(text);
+			value = estimateTokens(text);
 		}
 		if (this.tokenCache.size >= TOKEN_CACHE_LIMIT) {
 			const oldest = this.tokenCache.keys().next().value;
@@ -15768,18 +20430,18 @@ var LoreJournal = class {
 			if (!character) continue;
 			const world = character.data?.extensions?.world;
 			if (typeof world === "string" && world) primary.push(world);
-			const key = avatarKey(character.avatar ?? "");
-			for (const lore of charLore) if (isDict$11(lore) && lore.name === key) extra.push(...strings(lore.extraBooks));
+			const key = avatarKey$1(character.avatar ?? "");
+			for (const lore of charLore) if (isDict$11(lore) && lore.name === key) extra.push(...strings$1(lore.extraBooks));
 		}
 		const chatBook = ctx.chatMetadata?.world_info;
 		const personaBook = ctx.powerUserSettings?.persona_description_lorebook;
 		const rows = bookReasons({
-			global: strings(wi?.selected_world_info),
+			global: strings$1(wi?.selected_world_info),
 			characterPrimary: primary,
 			characterExtra: extra,
 			chat: typeof chatBook === "string" && chatBook ? chatBook : void 0,
 			persona: typeof personaBook === "string" && personaBook ? personaBook : void 0,
-			ckChatBooks: strings(ctx.chatMetadata?.carrot_chat_books),
+			ckChatBooks: strings$1(ctx.chatMetadata?.carrot_chat_books),
 			des: this.desLinks()
 		});
 		let known = [];
@@ -16521,6 +21183,11558 @@ var loreJournalModule = {
 	}
 };
 //#endregion
+//#region src/domain/entry-types.ts
+/** Same ids as `EntryType` of the canon API (src/features/canon/api.ts). */
+var ENTRY_TYPE_IDS = [
+	"character",
+	"place",
+	"item",
+	"faction",
+	"event",
+	"tradition",
+	"mechanic",
+	"rule",
+	"chapter",
+	"note"
+];
+var line = (id, label) => ({
+	id,
+	label
+});
+var text = (id, label) => ({
+	id,
+	label,
+	multiline: true
+});
+var ENTRY_TYPES = {
+	character: {
+		id: "character",
+		label: "Character",
+		fields: [
+			line("name", "Name"),
+			line("aliases", "Aliases"),
+			line("role", "Role"),
+			line("age", "Age"),
+			text("appearance", "Appearance"),
+			text("personality", "Personality"),
+			text("background", "Background"),
+			text("relationships", "Relationships"),
+			text("speech", "Speech"),
+			text("goals", "Goals")
+		]
+	},
+	place: {
+		id: "place",
+		label: "Place",
+		fields: [
+			line("name", "Name"),
+			line("aliases", "Aliases"),
+			line("kind", "Kind"),
+			line("location", "Location"),
+			text("description", "Description"),
+			text("atmosphere", "Atmosphere"),
+			text("inhabitants", "Inhabitants"),
+			text("features", "Notable features"),
+			text("secrets", "Secrets")
+		]
+	},
+	item: {
+		id: "item",
+		label: "Item",
+		fields: [
+			line("name", "Name"),
+			line("aliases", "Aliases"),
+			line("kind", "Kind"),
+			text("appearance", "Appearance"),
+			text("properties", "Properties"),
+			line("owner", "Owner"),
+			text("origin", "Origin"),
+			line("whereabouts", "Whereabouts")
+		]
+	},
+	faction: {
+		id: "faction",
+		label: "Faction",
+		fields: [
+			line("name", "Name"),
+			line("aliases", "Aliases"),
+			line("kind", "Kind"),
+			line("leader", "Leader"),
+			text("members", "Members"),
+			text("goals", "Goals"),
+			line("territory", "Territory"),
+			line("allies", "Allies"),
+			line("enemies", "Enemies"),
+			text("symbols", "Symbols and customs")
+		]
+	},
+	event: {
+		id: "event",
+		label: "Event",
+		fields: [
+			line("name", "Name"),
+			line("when", "When"),
+			line("where", "Where"),
+			line("participants", "Participants"),
+			text("description", "What happened"),
+			text("consequences", "Consequences")
+		]
+	},
+	tradition: {
+		id: "tradition",
+		label: "Tradition",
+		fields: [
+			line("name", "Name"),
+			line("culture", "Culture"),
+			line("when", "When"),
+			text("practice", "Practice"),
+			text("meaning", "Meaning"),
+			text("taboos", "Taboos")
+		]
+	},
+	mechanic: {
+		id: "mechanic",
+		label: "Mechanic",
+		fields: [
+			line("name", "Name"),
+			text("summary", "Summary"),
+			text("rules", "Rules"),
+			text("limits", "Costs and limits"),
+			text("examples", "Examples")
+		]
+	},
+	rule: {
+		id: "rule",
+		label: "Rule",
+		fields: [
+			line("name", "Name"),
+			text("statement", "Rule"),
+			line("scope", "Scope"),
+			text("exceptions", "Exceptions")
+		]
+	},
+	chapter: {
+		id: "chapter",
+		label: "Chapter",
+		fields: [
+			line("name", "Title"),
+			line("period", "Period"),
+			text("summary", "Summary"),
+			text("events", "Key events"),
+			line("characters", "Characters"),
+			text("threads", "Open threads")
+		]
+	},
+	note: {
+		id: "note",
+		label: "Note",
+		fields: [line("name", "Title"), text("text", "Text")]
+	}
+};
+/**
+* Stored key of the field values next to `type` (in `extensions.maestro` or the sidecar record). Not `fields`:
+* canon items use `extensions.maestro.fields` for the list of WI fields an override replaces.
+*/
+var TYPED_FIELDS_KEY = "typeFields";
+function isEntryType(value) {
+	return typeof value === "string" && ENTRY_TYPE_IDS.includes(value);
+}
+/** Typed meta from `extensions.maestro` or a sidecar record; null when there is no valid type. */
+function readTypedMeta(value) {
+	if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
+	const record = value;
+	if (!isEntryType(record.type)) return null;
+	const fields = {};
+	const stored = record[TYPED_FIELDS_KEY];
+	if (typeof stored === "object" && stored !== null && !Array.isArray(stored)) {
+		for (const [key, item] of Object.entries(stored)) if (typeof item === "string") fields[key] = item;
+	}
+	return {
+		type: record.type,
+		fields
+	};
+}
+function emptyFields(type) {
+	return Object.fromEntries(ENTRY_TYPES[type].fields.map((field) => [field.id, ""]));
+}
+/** Field values of a meta for its type (template order), missing ones as ''. */
+function templateValues(meta) {
+	return {
+		...emptyFields(meta.type),
+		...meta.fields
+	};
+}
+/** Same type and the same non-empty field values. */
+function sameTypedMeta(a, b) {
+	if (!a || !b) return a === b;
+	if (a.type !== b.type) return false;
+	const keys = /* @__PURE__ */ new Set([...Object.keys(a.fields), ...Object.keys(b.fields)]);
+	for (const key of keys) if ((a.fields[key] ?? "").trim() !== (b.fields[key] ?? "").trim()) return false;
+	return true;
+}
+/**
+* Content from the fields: «Character: Anna» first (the name field), then «Label: value» per filled field;
+* multi-line values go under «Label:». Values are written as typed (trimmed); empty fields are skipped.
+*/
+function composeContent(meta) {
+	const template = ENTRY_TYPES[meta.type];
+	const lines = [];
+	const [first, ...rest] = template.fields;
+	const name = first ? (meta.fields[first.id] ?? "").trim() : "";
+	if (name) lines.push(`${template.label}: ${name}`);
+	for (const field of rest) {
+		const value = (meta.fields[field.id] ?? "").trim();
+		if (!value) continue;
+		lines.push(value.includes("\n") ? `${field.label}:\n${value}` : `${field.label}: ${value}`);
+	}
+	return lines.join("\n");
+}
+/**
+* Best-effort reverse of composeContent: fills the fields of `type` from content written in the «Label: value»
+* form (lines that start with a known label). Unrecognised text is left out; used to pre-fill a newly typed entry.
+*/
+function fieldsFromContent(type, content) {
+	const template = ENTRY_TYPES[type];
+	const fields = emptyFields(type);
+	const [first, ...rest] = template.fields;
+	const byLabel = new Map(rest.map((field) => [field.label.toLowerCase(), field.id]));
+	let current = null;
+	for (const raw of content.split("\n")) {
+		const match = /^([^:\n]{1,40}):\s?(.*)$/.exec(raw);
+		const label = match?.[1]?.trim().toLowerCase();
+		if (match && first && label === template.label.toLowerCase()) {
+			fields[first.id] = (match[2] ?? "").trim();
+			current = null;
+			continue;
+		}
+		const id = label ? byLabel.get(label) : void 0;
+		if (match && id) {
+			fields[id] = (match[2] ?? "").trim();
+			current = id;
+			continue;
+		}
+		if (current !== null) fields[current] = fields[current] ? `${fields[current]}\n${raw}` : raw;
+	}
+	for (const key of Object.keys(fields)) fields[key] = (fields[key] ?? "").trim();
+	return fields;
+}
+/**
+* `extensions` with the typed meta merged into `extensions.maestro` (other keys of both objects kept — canon
+* books keep their CanonMeta there). `meta = null` removes `type`/`typeFields`; `maestro` emptied that way is dropped.
+* Returns a new object (or undefined when nothing is left of an absent `extensions`).
+*/
+function withTypedMeta(extensions, meta) {
+	const hadExtensions = typeof extensions === "object" && extensions !== null && !Array.isArray(extensions);
+	const next = hadExtensions ? { ...extensions } : {};
+	const previous = next.maestro;
+	const hadMaestro = typeof previous === "object" && previous !== null && !Array.isArray(previous);
+	const maestro = hadMaestro ? { ...previous } : {};
+	if (meta) {
+		maestro.type = meta.type;
+		maestro[TYPED_FIELDS_KEY] = { ...meta.fields };
+	} else {
+		delete maestro.type;
+		delete maestro[TYPED_FIELDS_KEY];
+	}
+	const wasEmpty = hadMaestro && Object.keys(previous).length === 0;
+	if (Object.keys(maestro).length || wasEmpty) next.maestro = maestro;
+	else delete next.maestro;
+	if (!hadExtensions && !Object.keys(next).length) return void 0;
+	return next;
+}
+//#endregion
+//#region src/domain/lore-form-fields.ts
+var WI_POSITION = {
+	before: 0,
+	after: 1,
+	ANTop: 2,
+	ANBottom: 3,
+	atDepth: 4,
+	EMTop: 5,
+	EMBottom: 6,
+	outlet: 7
+};
+var MAX_SCAN_DEPTH = 1e3;
+/** `GENERATION_TYPE_TRIGGERS`; an empty list means «all types». */
+var GENERATION_TRIGGERS = [
+	"normal",
+	"continue",
+	"impersonate",
+	"swipe",
+	"regenerate",
+	"quiet"
+];
+/** Order of «Логика» in ST's list: AND ANY, AND ALL, NOT ALL, NOT ANY. */
+var LOGIC_ORDER = [
+	0,
+	3,
+	1,
+	2
+];
+/** Scan-source flags (L-097…L-102), in ST's order. */
+var MATCH_FLAGS = [
+	"matchPersonaDescription",
+	"matchCharacterDescription",
+	"matchCharacterPersonality",
+	"matchCharacterDepthPrompt",
+	"matchScenario",
+	"matchCreatorNotes"
+];
+var POSITION_OPTIONS = [
+	{
+		id: "0",
+		position: 0,
+		role: null,
+		name: "before"
+	},
+	{
+		id: "1",
+		position: 1,
+		role: null,
+		name: "after"
+	},
+	{
+		id: "5",
+		position: 5,
+		role: null,
+		name: "emTop"
+	},
+	{
+		id: "6",
+		position: 6,
+		role: null,
+		name: "emBottom"
+	},
+	{
+		id: "2",
+		position: 2,
+		role: null,
+		name: "anTop"
+	},
+	{
+		id: "3",
+		position: 3,
+		role: null,
+		name: "anBottom"
+	},
+	{
+		id: "4:0",
+		position: 4,
+		role: 0,
+		name: "depthSystem"
+	},
+	{
+		id: "4:1",
+		position: 4,
+		role: 1,
+		name: "depthUser"
+	},
+	{
+		id: "4:2",
+		position: 4,
+		role: 2,
+		name: "depthAssistant"
+	},
+	{
+		id: "7",
+		position: 7,
+		role: null,
+		name: "outlet"
+	}
+];
+/**
+* Option id of the stored position. ST shows a missing position as 0 and «at depth» with `role ?? 0`. Values ST's
+* list does not know (other extensions, newer ST) get their own id so the form can show and keep them.
+*/
+function positionOptionId(position, role) {
+	const value = typeof position === "number" ? position : 0;
+	if (value === WI_POSITION.atDepth) return `4:${typeof role === "number" ? role : 0}`;
+	return String(value);
+}
+function isKnownPosition(id) {
+	return POSITION_OPTIONS.some((option) => option.id === id);
+}
+/** Position and role written when the user picks an option: role only for «at depth», `null` otherwise (ST). */
+function applyPosition(id) {
+	const option = POSITION_OPTIONS.find((item) => item.id === id);
+	if (option) return {
+		position: option.position,
+		role: option.role
+	};
+	const [rawPosition, rawRole] = id.split(":");
+	const position = Number(rawPosition);
+	const safe = Number.isFinite(position) ? position : 0;
+	if (safe === WI_POSITION.atDepth) {
+		const role = Number(rawRole);
+		return {
+			position: safe,
+			role: Number.isFinite(role) ? role : 0
+		};
+	}
+	return {
+		position: safe,
+		role: null
+	};
+}
+/** ST: `constant` wins over `vectorized`. */
+function entryState(entry) {
+	if (entry.constant === true) return "constant";
+	if (entry.vectorized === true) return "vectorized";
+	return "normal";
+}
+function applyEntryState(state) {
+	return {
+		constant: state === "constant",
+		vectorized: state === "vectorized"
+	};
+}
+/** ST's `handleBooleanSelectHelper` display: null/undefined → global, truthy → yes, falsy → no. */
+function triStateOf(value) {
+	if (value === null || value === void 0) return "null";
+	return value ? "true" : "false";
+}
+function parseTriState(value) {
+	if (value === "null") return null;
+	return value === "true";
+}
+/** ST's limits per numeric field; validation is stricter than ST where ST would store junk (`Number('')` = 0). */
+var NUMBER_FIELDS = {
+	order: { integer: false },
+	depth: { min: 0 },
+	probability: {
+		min: 0,
+		max: 100,
+		clamp: true
+	},
+	scanDepth: {
+		nullable: true,
+		min: 0,
+		max: MAX_SCAN_DEPTH,
+		clamp: true,
+		floor: true
+	},
+	groupWeight: {
+		min: 1,
+		max: 1e4,
+		clamp: true
+	},
+	sticky: {
+		nullable: true,
+		min: 0,
+		integer: true
+	},
+	cooldown: {
+		nullable: true,
+		min: 0,
+		integer: true
+	},
+	delay: {
+		nullable: true,
+		min: 0,
+		integer: true
+	}
+};
+function parseNumber(text, spec) {
+	const trimmed = text.trim();
+	if (trimmed === "") return spec.nullable ? {
+		ok: true,
+		value: null
+	} : {
+		ok: false,
+		error: "required"
+	};
+	let value = Number(trimmed);
+	if (!Number.isFinite(value)) return {
+		ok: false,
+		error: "notNumber"
+	};
+	let adjusted;
+	if (spec.min !== void 0 && value < spec.min) {
+		if (!spec.clamp) return {
+			ok: false,
+			error: "negative"
+		};
+		value = spec.min;
+		adjusted = "min";
+	}
+	if (spec.max !== void 0 && value > spec.max) {
+		if (spec.clamp) {
+			value = spec.max;
+			adjusted = "max";
+		}
+	}
+	if (!Number.isInteger(value)) {
+		if (spec.floor) {
+			value = Math.floor(value);
+			adjusted = "floor";
+		} else if (spec.integer) return {
+			ok: false,
+			error: "notInteger"
+		};
+	}
+	return adjusted ? {
+		ok: true,
+		value,
+		adjusted
+	} : {
+		ok: true,
+		value
+	};
+}
+/** Text of a number field: the stored value, empty for null/undefined/non-numbers. */
+function numberText(value) {
+	return typeof value === "number" && Number.isFinite(value) ? String(value) : "";
+}
+/** Checkbox and level text of `delayUntilRecursion` (boolean, level number, or ST's default 0). */
+function recursionDelayView(value) {
+	const on = !!value;
+	if (typeof value === "number" && value > 0) return {
+		on,
+		level: String(value)
+	};
+	if (typeof value === "string") return {
+		on,
+		level: value
+	};
+	return {
+		on,
+		level: ""
+	};
+}
+/** ST's checkbox: on keeps an existing level (`value || true`), off writes `false`. */
+function toggleRecursionDelay(current, on) {
+	if (!on) return false;
+	if (typeof current === "number" && current > 0) return current;
+	return true;
+}
+/**
+* ST's level field: empty keeps a boolean (or `true` when a level was set), a number becomes the level (so «1» is
+* stored as 1, not `true` — same for the engine). Text that is not a number is rejected here; ST would store false.
+*/
+function recursionDelayFromLevel(current, text) {
+	const trimmed = text.trim();
+	if (trimmed === "") return {
+		ok: true,
+		value: typeof current === "boolean" ? current : true
+	};
+	const value = Number(trimmed);
+	if (!Number.isFinite(value) || value < 0) return { ok: false };
+	return {
+		ok: true,
+		value
+	};
+}
+/** ST stores the trimmed text; the engine splits it with `/,\s*\/` (WI:5391), so «a ,b» names the group «a ». */
+function groupNames(group) {
+	if (typeof group !== "string") return [];
+	return group.split(/,\s*/).filter(Boolean);
+}
+/** Values used by other entries of the book (suggestions for group, outlet and automation id). */
+function bookSuggestions(entries, field, exceptUid) {
+	const values = /* @__PURE__ */ new Map();
+	for (const entry of entries) {
+		if (exceptUid !== void 0 && entry.uid === exceptUid) continue;
+		if (field === "outletName" && entry.position !== WI_POSITION.outlet) continue;
+		const raw = entry[field];
+		const names = field === "group" ? groupNames(raw) : [typeof raw === "string" ? raw : ""];
+		for (const item of names) {
+			const name = item.trim();
+			if (name) values.set(name, (values.get(name) ?? 0) + 1);
+		}
+	}
+	return [...values.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([name]) => name);
+}
+function strings(value) {
+	return Array.isArray(value) ? value.filter((item) => typeof item === "string") : [];
+}
+function readCharacterFilter(value) {
+	if (typeof value !== "object" || value === null || Array.isArray(value)) return {
+		isExclude: false,
+		names: [],
+		tags: []
+	};
+	const filter = value;
+	return {
+		isExclude: filter.isExclude === true,
+		names: strings(filter.names),
+		tags: strings(filter.tags)
+	};
+}
+/** ST removes the field when nothing is selected and the exclude mode is off. */
+function buildCharacterFilter(filter) {
+	if (!filter.isExclude && !filter.names.length && !filter.tags.length) return void 0;
+	return {
+		isExclude: filter.isExclude,
+		names: [...filter.names],
+		tags: [...filter.tags]
+	};
+}
+/** Character name as ST's filter stores it: the avatar file without its extension. */
+function avatarName(avatar) {
+	return avatar.replace(/\.[^/.]+$/, "");
+}
+function readTriggers(value) {
+	const list = strings(value);
+	const known = list.filter((item) => GENERATION_TRIGGERS.includes(item));
+	return {
+		known,
+		unknown: list.filter((item) => !known.includes(item))
+	};
+}
+function commentPlaceholder(keys) {
+	return keys.join(", ").slice(0, 100);
+}
+function sortedClone(value) {
+	if (Array.isArray(value)) return value.map(sortedClone);
+	if (typeof value === "object" && value !== null) {
+		const record = value;
+		return Object.fromEntries(Object.keys(record).sort().filter((key) => record[key] !== void 0).map((key) => [key, sortedClone(record[key])]));
+	}
+	return value;
+}
+/** JSON with sorted keys and without `undefined` members (what a saved file would hold). */
+function canonicalJson(value) {
+	return value === void 0 ? "undefined" : JSON.stringify(sortedClone(value));
+}
+function sameValue(a, b) {
+	return canonicalJson(a) === canonicalJson(b);
+}
+/** Deep copy of JSON data (lorebook entries are plain JSON). */
+function cloneJson$1(value) {
+	return value === void 0 ? value : JSON.parse(JSON.stringify(value));
+}
+/**
+* Fields of `draft` that differ from `stored` (`uid` never). A field missing from the draft is reported as
+* `undefined` (the store drops it on save). Unknown fields of other extensions are compared like any other.
+*/
+function entryPatch(stored, draft) {
+	const patch = {};
+	const keys = /* @__PURE__ */ new Set([...Object.keys(stored), ...Object.keys(draft)]);
+	for (const key of keys) {
+		if (key === "uid") continue;
+		if (!sameValue(stored[key], draft[key])) patch[key] = draft[key];
+	}
+	return patch;
+}
+/** Patch that turns `current` back into `version` (history restore). */
+function restorePatch(current, version) {
+	return entryPatch(current, version);
+}
+/** Hash of entry content used for canon override bases (`CanonMeta.base.contentHash`). */
+function contentHash(content) {
+	return stableHash(typeof content === "string" ? content : "");
+}
+/**
+* What ST's classic editor silently changes when it shows/opens this entry (written to the file with the next
+* save of anything in the book). Maestro keeps the stored values and shows this list instead.
+*/
+function stEditorDifferences(entry) {
+	const result = [];
+	const secondary = strings(entry.keysecondary);
+	if (entry.selective !== true) result.push({
+		field: "selective",
+		stored: entry.selective,
+		st: true,
+		engine: secondary.length > 0
+	});
+	const probability = entry.probability;
+	const stProbability = typeof probability === "number" && Number.isFinite(probability) ? Math.min(100, Math.max(0, probability)) : 0;
+	if (entry.useProbability !== true) result.push({
+		field: "useProbability",
+		stored: entry.useProbability,
+		st: true,
+		engine: stProbability !== 100
+	});
+	if (stProbability !== probability) result.push({
+		field: "probability",
+		stored: probability,
+		st: stProbability,
+		engine: false
+	});
+	if (entry.addMemo !== true) result.push({
+		field: "addMemo",
+		stored: entry.addMemo,
+		st: true,
+		engine: false
+	});
+	if (entry.position === void 0) result.push({
+		field: "position",
+		stored: void 0,
+		st: 0,
+		engine: true
+	});
+	for (const field of [
+		"sticky",
+		"cooldown",
+		"delay"
+	]) {
+		const value = entry[field];
+		if (value === null || value === void 0) result.push({
+			field,
+			stored: value,
+			st: 0,
+			engine: false
+		});
+	}
+	const depth = entry.depth;
+	if (typeof depth !== "number") result.push({
+		field: "depth",
+		stored: depth,
+		st: 0,
+		engine: entry.position === WI_POSITION.atDepth
+	});
+	const weight = entry.groupWeight;
+	const stWeight = typeof weight === "number" && Number.isFinite(weight) ? Math.min(1e4, Math.max(1, weight)) : 1;
+	if (stWeight !== weight) result.push({
+		field: "groupWeight",
+		stored: weight,
+		st: stWeight,
+		engine: groupNames(entry.group).length > 0
+	});
+	if (entry.characterFilter !== void 0 && buildCharacterFilter(readCharacterFilter(entry.characterFilter)) === void 0) result.push({
+		field: "characterFilter",
+		stored: entry.characterFilter,
+		st: void 0,
+		engine: false
+	});
+	const triggers = readTriggers(entry.triggers);
+	if (triggers.unknown.length) result.push({
+		field: "triggers",
+		stored: entry.triggers,
+		st: triggers.known,
+		engine: true
+	});
+	return result;
+}
+//#endregion
+//#region src/domain/lore-form-keys.ts
+/** True when ST would treat the key as a regular expression (`/pattern/flags` that `parseRegexFromString` accepts). */
+function isRegexKey(key) {
+	return parseRegexKey$1(key) !== null;
+}
+/**
+* Port of ST's `customTokenizer` in text mode: a comma separates keys unless it sits inside a regex whose closing
+* slash has not been seen yet; a finished token that starts with `/` but is not a valid regex is cut at every comma.
+* ST quirk kept on purpose: after a separator the loop restarts at index 1 of the rest, so a slash right after a
+* comma (`a,/b,c/`) does not open a regex — `a, /b,c/` (with the space ST itself writes) does.
+*/
+function tokenize(input, add) {
+	let current = input;
+	let insideRegex = false;
+	let regexClosed = false;
+	for (let i = 0; i < current.length; i++) {
+		const char = current[i];
+		if (char === "/" && (i === 0 || current[i - 1] !== "\\")) {
+			if (!insideRegex) insideRegex = true;
+			else if (!regexClosed) regexClosed = true;
+		}
+		if (char !== ",") continue;
+		if (insideRegex && !regexClosed) continue;
+		const token = current.slice(0, i).trim();
+		if (token) {
+			if (token.startsWith("/") && !isRegexKey(token)) for (const part of token.split(",").map((item) => item.trim())) add(part);
+			else add(token);
+		}
+		current = current.slice(i + 1);
+		insideRegex = false;
+		regexClosed = false;
+		i = 0;
+	}
+	return current;
+}
+/** Exact port of ST's `splitKeywordsAndRegexes` (may return empty strings for `/a,,b` like ST does). */
+function splitKeywordsAndRegexes(input) {
+	const keys = [];
+	const rest = tokenize(input, (token) => keys.push(token)).trim();
+	if (rest) keys.push(rest);
+	return keys;
+}
+/** Keys from the text field of the form: ST's split without the empty keys it can leave behind. */
+function parseKeyInput(input) {
+	return splitKeywordsAndRegexes(input).filter((key) => key.length > 0);
+}
+/** Keys as ST shows them in its text field (`join(', ')`); round-trips through parseKeyInput. */
+function formatKeys(keys) {
+	return keys.join(", ");
+}
+function stringList$2(value) {
+	return Array.isArray(value) ? value.filter((item) => typeof item === "string") : [];
+}
+var CYRILLIC = /[Ѐ-ӿ]/;
+var LATIN = /[A-Za-z]/;
+/** Shaped like `/…/flags` (what users mean as a regex), whether or not ST can parse it. */
+var REGEX_SHAPED = /^\/.+\/[A-Za-z]*$/s;
+function keyKind(key) {
+	if (isRegexKey(key)) return "regex";
+	return REGEX_SHAPED.test(key) ? "badRegex" : "plain";
+}
+/** Per-key diagnostics for the chips under a key field. */
+function analyzeKeys(keys, options) {
+	const seen = /* @__PURE__ */ new Set();
+	return keys.map((key) => {
+		const kind = keyKind(key);
+		const cyrillic = CYRILLIC.test(key);
+		const issues = [];
+		if (kind === "badRegex") issues.push("badRegex");
+		if (kind !== "regex" && key.includes(",")) issues.push("comma");
+		if (kind === "regex" && key.includes("\\{")) issues.push("macroBrace");
+		if (key.includes("{{")) issues.push("macro");
+		if (kind !== "regex" && cyrillic && options.matchWholeWords && key.trim().split(/\s+/).length === 1) issues.push("cyrillicWholeWord");
+		const norm = options.caseSensitive ? key : key.toLowerCase();
+		if (seen.has(norm)) issues.push("duplicate");
+		seen.add(norm);
+		return {
+			key,
+			kind,
+			cyrillic,
+			issues
+		};
+	});
+}
+/** Plain English terms among the keys (no regex, Latin letters, no Cyrillic): candidates for Russian forms. */
+function englishTerms(keys) {
+	return keys.filter((key) => keyKind(key) === "plain" && LATIN.test(key) && !CYRILLIC.test(key));
+}
+/** New array: `existing` plus the additions it lacks (case-insensitive unless `caseSensitive`), order kept. */
+function mergeKeys(existing, additions, caseSensitive = false) {
+	const norm = (key) => caseSensitive ? key.trim() : key.trim().toLowerCase();
+	const seen = new Set(existing.map(norm));
+	const result = [...existing];
+	for (const key of additions) {
+		const trimmed = key.trim();
+		if (!trimmed || seen.has(norm(trimmed))) continue;
+		seen.add(norm(trimmed));
+		result.push(trimmed);
+	}
+	return result;
+}
+var KNOWN_DECORATORS = ["@@activate", "@@dont_activate"];
+function isKnownDecorator(line) {
+	const data = line.startsWith("@@@") ? line.substring(1) : line;
+	return KNOWN_DECORATORS.some((known) => data.startsWith(known));
+}
+/** Port of ST's `parseDecorators`, plus the unknown lines it drops. */
+function analyzeDecorators(content) {
+	if (!content.startsWith("@@")) return {
+		known: [],
+		unknown: [],
+		content
+	};
+	const lines = content.split("\n");
+	const known = [];
+	const unknown = [];
+	let fallbacked = false;
+	let rest = content;
+	for (let i = 0; i < lines.length; i++) {
+		const line = lines[i] ?? "";
+		if (!line.startsWith("@@")) {
+			rest = lines.slice(i).join("\n");
+			break;
+		}
+		if (line.startsWith("@@@") && !fallbacked) continue;
+		if (isKnownDecorator(line)) {
+			known.push(line.startsWith("@@@") ? line.substring(1) : line);
+			fallbacked = false;
+		} else {
+			unknown.push(line);
+			fallbacked = true;
+		}
+	}
+	return {
+		known,
+		unknown,
+		content: rest
+	};
+}
+function secondaryPasses(logic, hits) {
+	const any = hits.some((hit) => hit.matched);
+	const all = hits.every((hit) => hit.matched);
+	if (logic === WI_LOGIC.AND_ANY) return any;
+	if (logic === WI_LOGIC.NOT_ALL) return !all;
+	if (logic === WI_LOGIC.NOT_ANY) return !any;
+	if (logic === WI_LOGIC.AND_ALL) return all;
+	return false;
+}
+/**
+* Which keys of the entry match `text`, and whether ST's key logic would activate it. Order of checks as in
+* `checkWorldInfo`: disabled → @@activate → @@dont_activate → constant → keys (probability, timers, filters,
+* groups and the budget are out of scope of the tester).
+*/
+function testEntry(entry, text, globals, substitute = (value) => value) {
+	const options = entryMatchOptions(entry, globals);
+	const hit = (key) => {
+		const substituted = substitute(key);
+		return {
+			key,
+			kind: keyKind(key),
+			matched: !!substituted && matchKey$1(text, substituted.trim(), options)
+		};
+	};
+	const primary = stringList$2(entry.key).map(hit);
+	const secondaryKeys = stringList$2(entry.keysecondary);
+	const secondary = secondaryKeys.map(hit);
+	const logic = typeof entry.selectiveLogic === "number" ? entry.selectiveLogic : WI_LOGIC.AND_ANY;
+	const secondaryUsed = !!entry.selective && secondaryKeys.length > 0;
+	const primaryMatched = primary.some((item) => item.matched);
+	const secondaryPassed = !secondaryUsed || secondaryPasses(logic, secondary);
+	const decorators = analyzeDecorators(typeof entry.content === "string" ? entry.content : "").known;
+	let outcome;
+	if (entry.disable === true) outcome = "disabled";
+	else if (decorators.includes("@@activate")) outcome = "activateDecorator";
+	else if (decorators.includes("@@dont_activate")) outcome = "dontActivate";
+	else if (entry.constant === true) outcome = "constant";
+	else if (!primary.length) outcome = "noKeys";
+	else if (!primaryMatched) outcome = "noPrimary";
+	else if (!secondaryPassed) outcome = "secondaryFailed";
+	else outcome = "activated";
+	return {
+		primary,
+		secondary,
+		secondaryUsed,
+		logic,
+		primaryMatched,
+		secondaryPassed,
+		outcome,
+		activates: outcome === "activateDecorator" || outcome === "constant" || outcome === "activated"
+	};
+}
+//#endregion
+//#region src/features/loreStudio/form/controls.ts
+/** Label, control, hint and an error line (bound to `field`). Stacked on phones, two columns on wide screens. */
+function row(env, options) {
+	const error = el("div", {
+		class: "maestro-m23f-error",
+		attrs: { role: "alert" }
+	});
+	error.hidden = true;
+	if (options.field) env.own(bindError(env, options.field, error));
+	return el("div", { class: ["maestro-m23f-row", options.className] }, [
+		el("label", {
+			class: "maestro-m23f-label",
+			text: options.label,
+			attrs: { for: options.for }
+		}),
+		el("div", { class: "maestro-m23f-control" }, [options.control]),
+		options.hint !== void 0 ? el("div", { class: "maestro-m23f-hint" }, options.hint) : null,
+		error
+	]);
+}
+var errorSlots = /* @__PURE__ */ new WeakMap();
+function bindError(env, field, node) {
+	let slots = errorSlots.get(env);
+	if (!slots) {
+		slots = /* @__PURE__ */ new Map();
+		errorSlots.set(env, slots);
+	}
+	slots.set(field, node);
+	return () => {
+		if (slots.get(field) === node) slots.delete(field);
+	};
+}
+/** Shows (or clears) the validation message of a field; called by the form's setError. */
+function showFieldError(env, field, message) {
+	const node = errorSlots.get(env)?.get(field);
+	if (!node) return;
+	node.textContent = message ?? "";
+	node.hidden = !message;
+	(node.parentElement?.querySelector("input, select, textarea"))?.setAttribute("aria-invalid", message ? "true" : "false");
+}
+/** A note under a field (ST differences, warnings). */
+function note(text, level = "info", action) {
+	return el("div", { class: ["maestro-m23f-note", `maestro-level-${level}`] }, [
+		icon(level === "warn" ? "fa-triangle-exclamation" : "fa-circle-info"),
+		el("span", { text }),
+		action ?? null
+	]);
+}
+/** A string field of the draft. */
+function textField(env, field, options) {
+	const id = uid("maestro-m23f");
+	const value = env.state.draft[field];
+	const listId = options.suggestions?.length ? uid("maestro-m23f-list") : void 0;
+	const input = options.multiline ? el("textarea", {
+		class: "text_pole maestro-m23f-textarea",
+		attrs: {
+			id,
+			rows: options.rows ?? 3,
+			placeholder: options.placeholder,
+			name: field
+		}
+	}) : el("input", {
+		class: "text_pole",
+		attrs: {
+			id,
+			type: "text",
+			placeholder: options.placeholder,
+			list: listId,
+			name: field,
+			autocomplete: "off"
+		}
+	});
+	input.value = typeof value === "string" ? value : "";
+	input.addEventListener("input", () => {
+		const next = options.trim ? input.value.trim() : input.value;
+		if (next === "" && env.state.stored[field] === void 0) delete env.state.draft[field];
+		else env.state.draft[field] = next;
+		env.changed();
+	});
+	const datalist = listId ? el("datalist", { attrs: { id: listId } }, (options.suggestions ?? []).map((item) => el("option", { attrs: { value: item } }))) : null;
+	return {
+		node: row(env, {
+			label: options.label,
+			control: datalist ? el("div", {}, [input, datalist]) : input,
+			for: id,
+			hint: options.hint,
+			field,
+			className: options.className
+		}),
+		input
+	};
+}
+/** A boolean field of the draft (ST's `!!value` display; writes true/false). */
+function checkField(env, field, options) {
+	const id = uid("maestro-m23f-check");
+	const input = el("input", { attrs: {
+		type: "checkbox",
+		id,
+		name: field
+	} });
+	const stored = !!env.state.draft[field];
+	input.checked = options.invert ? !stored : stored;
+	input.addEventListener("change", () => {
+		const value = options.invert ? !input.checked : input.checked;
+		if (!value && env.state.stored[field] === void 0) delete env.state.draft[field];
+		else env.state.draft[field] = value;
+		options.onChange?.(input.checked);
+		env.changed();
+	});
+	return {
+		node: el("div", { class: "maestro-m23f-check" }, [el("label", {
+			class: "checkbox_label",
+			attrs: { for: id }
+		}, [input, el("span", { text: options.label })]), options.hint ? el("div", {
+			class: "maestro-m23f-hint",
+			text: options.hint
+		}) : null]),
+		input
+	};
+}
+/** «Global / Yes / No» select of a `boolean?` field; the global option shows the current global value. */
+function triField(env, field, label, global, hint) {
+	const t = env.t;
+	const id = uid("maestro-m23f-tri");
+	const globalLabel = global === void 0 ? t("m23f.tri.global") : t("m23f.tri.globalNow", { value: global ? t("m23f.tri.yes") : t("m23f.tri.no") });
+	const node = el("select", {
+		class: "text_pole",
+		attrs: {
+			id,
+			name: field
+		}
+	}, [
+		el("option", {
+			text: globalLabel,
+			attrs: { value: "null" }
+		}),
+		el("option", {
+			text: t("m23f.tri.yes"),
+			attrs: { value: "true" }
+		}),
+		el("option", {
+			text: t("m23f.tri.no"),
+			attrs: { value: "false" }
+		})
+	]);
+	node.value = triStateOf(env.state.draft[field]);
+	node.addEventListener("change", () => {
+		const value = parseTriState(node.value);
+		if (value === null && env.state.stored[field] === void 0) delete env.state.draft[field];
+		else env.state.draft[field] = value;
+		env.changed();
+	});
+	return row(env, {
+		label,
+		control: node,
+		for: id,
+		hint,
+		field
+	});
+}
+function numberMessage(env, result, spec) {
+	if (result.ok) {
+		if (result.adjusted === "min") return env.t("m23f.num.clampedMin", { value: spec.min ?? 0 });
+		if (result.adjusted === "max") return env.t("m23f.num.clampedMax", { value: spec.max ?? 0 });
+		if (result.adjusted === "floor") return env.t("m23f.num.floored", { value: result.value ?? "" });
+		return null;
+	}
+	return env.t(`m23f.num.${result.error}`, { min: spec.min ?? 0 });
+}
+/**
+* A number field with ST's limits (NUMBER_FIELDS). Valid input goes into the draft at once (clamped like ST);
+* invalid input shows an error and blocks saving. An empty input of a missing non-nullable field keeps it missing.
+*/
+function numberField(env, field, options) {
+	const spec = NUMBER_FIELDS[field];
+	const id = uid("maestro-m23f-num");
+	const input = el("input", {
+		class: "text_pole maestro-m23f-number",
+		attrs: {
+			id,
+			type: "text",
+			inputmode: "numeric",
+			placeholder: options.placeholder,
+			name: field,
+			autocomplete: "off"
+		}
+	});
+	input.value = numberText(env.state.draft[field]);
+	const apply = (commit) => {
+		const text = input.value;
+		const stored = env.state.stored[field];
+		const draft = env.state.draft;
+		if (text.trim() === "" && !spec.nullable && (stored === void 0 || stored === null)) {
+			draft[field] = stored;
+			if (stored === void 0) delete draft[field];
+			env.setError(field, null);
+			env.changed();
+			return;
+		}
+		const result = parseNumber(text, NUMBER_FIELDS[field]);
+		if (!result.ok) {
+			env.setError(field, numberMessage(env, result, spec));
+			env.changed();
+			return;
+		}
+		env.setError(field, null);
+		if (result.value === null && stored === void 0) delete draft[field];
+		else draft[field] = result.value;
+		if (commit && result.adjusted) {
+			input.value = numberText(result.value);
+			env.status(numberMessage(env, result, spec) ?? "", "warn");
+		}
+		env.changed();
+	};
+	input.addEventListener("input", () => apply(false));
+	input.addEventListener("change", () => apply(true));
+	return {
+		node: row(env, {
+			label: options.label,
+			control: input,
+			for: id,
+			hint: options.hint,
+			field
+		}),
+		input
+	};
+}
+/** Clickable suggestion chips (groups, outlets): `pick` receives the chosen value. */
+function suggestionChips(values, label, pick) {
+	if (!values.length) return null;
+	return el("div", {
+		class: "maestro-m23f-suggest",
+		attrs: {
+			role: "group",
+			"aria-label": label
+		}
+	}, values.map((value) => el("button", {
+		class: "maestro-m23f-chip maestro-m23f-chip-btn",
+		text: value,
+		attrs: { type: "button" },
+		on: { click: () => pick(value) }
+	})));
+}
+/** A collapsible section of the form (<details>), open when `open`. */
+function formSection(title, children, options = {}) {
+	const node = el("details", {
+		class: [
+			"maestro-section",
+			"maestro-m23f-section",
+			options.className
+		],
+		data: options.id ? { section: options.id } : void 0
+	}, [el("summary", { class: "maestro-m23f-summary" }, [el("span", {
+		class: "maestro-section-title",
+		text: title
+	})]), el("div", { class: "maestro-section-body maestro-m23f-body" }, children)]);
+	node.open = options.open !== false;
+	return node;
+}
+/** Disables every control inside `root` (read-only mode; the fieldset alone is not enough for custom widgets). */
+function disableAll(root) {
+	for (const node of root.querySelectorAll("input, select, textarea, button")) node.disabled = true;
+}
+//#endregion
+//#region src/features/loreStudio/form/env.ts
+function safeApi(app, key) {
+	try {
+		return app.modules.api(key);
+	} catch {
+		return;
+	}
+}
+var canonApi = (app) => safeApi(app, "canon");
+var bookRolesApi = (app) => safeApi(app, "bookRoles");
+var doctorApi = (app) => safeApi(app, "doctor");
+var loreJournalApi = (app) => safeApi(app, "loreJournal");
+var rulesApi = (app) => safeApi(app, "rules");
+/** Pult tab id of M22 «Правила» (src/features/rules/view.ts RULES_TAB; features do not import each other). */
+var RULES_TAB_ID = "rules";
+/** Lorebook Localizer's programmatic API (0.2.0+) through the adapter; undefined when absent or incomplete. */
+function localizerApi(app) {
+	try {
+		const adapter = adaptersOf(app).localizer;
+		if (typeof adapter?.api !== "function") return void 0;
+		const api = adapter.api();
+		return api && typeof api.localizeEntries === "function" ? api : void 0;
+	} catch {
+		return;
+	}
+}
+/** Keys the Localizer appended to this entry (shown with a badge; never treated as the author's keys). */
+function localizerKeys(app, entry) {
+	try {
+		const adapter = adaptersOf(app).localizer;
+		return typeof adapter?.addedKeysOf === "function" ? adapter.addedKeysOf(entry) : /* @__PURE__ */ new Set();
+	} catch {
+		return /* @__PURE__ */ new Set();
+	}
+}
+/** Global settings value by any of its names (ST's `world_info_*` or a short alias), when it has the right type. */
+function globalValue(globals, names, type) {
+	for (const name of names) {
+		const value = globals[name];
+		if (typeof value === type) return value;
+	}
+}
+var GLOBAL_NAMES = {
+	caseSensitive: ["world_info_case_sensitive", "caseSensitive"],
+	matchWholeWords: ["world_info_match_whole_words", "matchWholeWords"],
+	useGroupScoring: ["world_info_use_group_scoring", "useGroupScoring"],
+	scanDepth: [
+		"world_info_depth",
+		"depth",
+		"scanDepth"
+	]
+};
+/** Label of an entry for titles and summaries: comment, else the first keys, else «#uid». */
+function entryLabel(entry) {
+	const comment = typeof entry.comment === "string" ? entry.comment.trim() : "";
+	if (comment) return comment.split("\n")[0].slice(0, 80);
+	const keys = Array.isArray(entry.key) ? entry.key.filter((key) => typeof key === "string").join(", ") : "";
+	return keys ? keys.slice(0, 80) : `#${entry.uid}`;
+}
+//#endregion
+//#region src/features/loreStudio/form/canon-panel.ts
+function isCanonMeta(value) {
+	if (typeof value !== "object" || value === null) return false;
+	const meta = value;
+	return typeof meta.kind === "string" && typeof meta.status === "string";
+}
+/** CanonMeta of a canon entry (kept in `extensions.maestro`). */
+function canonMetaOf(entry) {
+	const extensions = entry.extensions;
+	if (typeof extensions !== "object" || extensions === null) return null;
+	const meta = extensions.maestro;
+	return isCanonMeta(meta) ? meta : null;
+}
+async function itemsFor(canon, book, uid) {
+	const list = await canon.list();
+	const result = {};
+	for (const item of list) {
+		const base = item.meta.base;
+		if (!base || base.world !== book || base.uid !== uid) continue;
+		if (item.meta.status === "archived") continue;
+		if (item.meta.kind === "override" || item.meta.kind === "suppress" || item.meta.kind === "pin") result[item.meta.kind] ??= item;
+	}
+	return result;
+}
+function statusBadge(env, meta) {
+	const level = meta.status === "provisional" ? "warn" : meta.status === "archived" ? "muted" : "ok";
+	return badge(meta.status === "provisional" && typeof meta.survivedTurns === "number" ? env.t("m23f.canon.provisionalTurns", { count: meta.survivedTurns }) : env.t(`m23f.canon.status.${meta.status}`), level);
+}
+function side(title, content, keys, env) {
+	return el("div", { class: "maestro-m23f-side" }, [
+		el("div", {
+			class: "maestro-m23f-side-title",
+			text: title
+		}),
+		el("div", {
+			class: "maestro-m23f-side-keys",
+			text: keys.length ? keys.join(", ") : env.t("m23f.canon.noKeys")
+		}),
+		el("pre", {
+			class: "maestro-m23f-side-text",
+			text: content || env.t("m23f.canon.emptyContent")
+		})
+	]);
+}
+async function act(env, run, done) {
+	try {
+		await run();
+		env.status(done, "ok");
+	} catch (error) {
+		env.status(env.t("m23f.canon.failed", { error: error instanceof Error ? error.message : String(error) }), "error");
+	}
+}
+function baseActions(env, canon, items, refresh) {
+	const t = env.t;
+	const { book, uid } = env.ctx;
+	const stored = env.state.stored;
+	const baseContent = typeof stored.content === "string" ? stored.content : "";
+	const baseRef = {
+		world: book,
+		uid,
+		contentHash: contentHash(baseContent),
+		content: baseContent
+	};
+	const put = (kind, entry = {}, extra = {}) => canon.put({
+		entry,
+		meta: {
+			kind,
+			status: "active",
+			origin: "user",
+			base: baseRef,
+			...extra
+		}
+	});
+	const buttons = [];
+	if (!items.override) buttons.push(button({
+		label: t("m23f.canon.override"),
+		icon: "fa-code-branch",
+		kind: "primary",
+		title: t("m23f.canon.overrideHint"),
+		onClick: async () => {
+			if (env.isDirty()) {
+				env.status(t("m23f.canon.saveFirst"), "warn");
+				return;
+			}
+			const copy = { ...stored };
+			delete copy.uid;
+			const type = env.state.typed?.type;
+			try {
+				const book = await canon.ensureBook();
+				const created = await put("override", copy, type ? { type } : {});
+				env.status(t("m23f.canon.overrideDone"), "ok");
+				env.navigate(book || canon.bookName(), created);
+			} catch (error) {
+				env.status(t("m23f.canon.failed", { error: error instanceof Error ? error.message : String(error) }), "error");
+			}
+		}
+	}));
+	else {
+		const override = items.override;
+		buttons.push(button({
+			label: t("m23f.canon.editOverride"),
+			icon: "fa-pen",
+			kind: "primary",
+			onClick: () => env.navigate(canon.bookName(), override.uid)
+		}), button({
+			label: t("m23f.canon.promote"),
+			icon: "fa-arrow-up-from-bracket",
+			title: t("m23f.canon.promoteHint"),
+			onClick: async () => {
+				const applied = await canon.promote(override.uid).catch((error) => {
+					env.status(t("m23f.canon.failed", { error: String(error) }), "error");
+					return null;
+				});
+				if (applied === true) {
+					env.status(t("m23f.canon.promoted"), "ok");
+					await env.reload();
+				} else if (applied === false) env.status(t("m23f.canon.promoteDeclined"), "info");
+			}
+		}), button({
+			label: t("m23f.canon.removeOverride"),
+			icon: "fa-trash-can",
+			kind: "danger",
+			onClick: async () => {
+				if (!await env.app.ui.confirm(t("m23f.canon.removeTitle"), t("m23f.canon.removeBody"))) return;
+				await act(env, () => canon.remove(override.uid), t("m23f.canon.removed"));
+				await refresh();
+			}
+		}));
+	}
+	const suppress = items.suppress;
+	buttons.push(suppress ? button({
+		label: t("m23f.canon.unsuppress"),
+		icon: "fa-eye",
+		onClick: async () => {
+			await act(env, () => canon.remove(suppress.uid), t("m23f.canon.unsuppressed"));
+			await refresh();
+		}
+	}) : button({
+		label: t("m23f.canon.suppress"),
+		icon: "fa-eye-slash",
+		title: t("m23f.canon.suppressHint"),
+		onClick: async () => {
+			await act(env, () => put("suppress"), t("m23f.canon.suppressed"));
+			await refresh();
+		}
+	}));
+	const pin = items.pin;
+	buttons.push(pin ? button({
+		label: t("m23f.canon.unpin"),
+		icon: "fa-thumbtack",
+		onClick: async () => {
+			await act(env, () => canon.remove(pin.uid), t("m23f.canon.unpinned"));
+			await refresh();
+		}
+	}) : button({
+		label: t("m23f.canon.pin"),
+		icon: "fa-thumbtack",
+		title: t("m23f.canon.pinHint"),
+		onClick: async () => {
+			await act(env, () => put("pin", {}, { pinWhen: "always" }), t("m23f.canon.pinned"));
+			await refresh();
+		}
+	}));
+	return el("div", { class: "maestro-m23f-actions" }, buttons);
+}
+function baseView(env, canon, items, refresh) {
+	const t = env.t;
+	const stored = env.state.stored;
+	const baseContent = typeof stored.content === "string" ? stored.content : "";
+	const baseKeys = stringList$2(stored.key);
+	const nodes = [];
+	if (items.suppress) nodes.push(banner(t("m23f.canon.isSuppressed"), "warn", "fa-eye-slash"));
+	if (items.pin) nodes.push(banner(t("m23f.canon.isPinned"), "info", "fa-thumbtack"));
+	const override = items.override;
+	if (override) {
+		const content = typeof override.entry.content === "string" ? override.entry.content : "";
+		const keys = stringList$2(override.entry.key);
+		if (override.meta.base && override.meta.base.contentHash !== contentHash(baseContent)) nodes.push(banner(t("m23f.canon.drift"), "warn", "fa-code-compare"));
+		nodes.push(el("div", { class: "maestro-m23f-row-inline" }, [statusBadge(env, override.meta)]), el("div", { class: "maestro-m23f-sides" }, [side(t("m23f.canon.base"), baseContent, baseKeys, env), side(t("m23f.canon.override.title"), content, keys, env)]), el("div", {
+			class: "maestro-m23f-label",
+			text: t("m23f.canon.diff")
+		}), diffView(baseContent, content, t));
+		if (baseKeys.join("\0") !== keys.join("\0")) nodes.push(el("div", {
+			class: "maestro-m23f-label",
+			text: t("m23f.canon.keysDiff")
+		}), diffView(baseKeys, keys, t));
+	} else nodes.push(el("div", {
+		class: "maestro-m23f-hint",
+		text: t("m23f.canon.noOverride")
+	}));
+	nodes.push(baseActions(env, canon, items, refresh));
+	return nodes;
+}
+function canonEntryView(env, canon, meta) {
+	const t = env.t;
+	const nodes = [el("div", { class: "maestro-m23f-row-inline" }, [
+		badge(t(`m23f.canon.kind.${meta.kind}`), "info"),
+		statusBadge(env, meta),
+		badge(t(`m23f.canon.origin.${meta.origin}`), "muted")
+	])];
+	if (meta.status === "provisional") nodes.push(banner(t("m23f.canon.provisionalNote"), "warn", "fa-hourglass-half"));
+	const base = meta.base;
+	if (base) {
+		nodes.push(el("div", { class: "maestro-m23f-row-inline" }, [el("span", { text: t("m23f.canon.baseLink", {
+			book: base.world,
+			uid: base.uid
+		}) }), button({
+			label: t("m23f.canon.openBase"),
+			icon: "fa-book-atlas",
+			kind: "ghost",
+			onClick: () => env.navigate(base.world, base.uid)
+		})]));
+		const drift = el("div");
+		nodes.push(drift);
+		env.ctx.store.load(base.world).then((data) => {
+			const entry = data?.entries[String(base.uid)];
+			if (!entry) {
+				drift.replaceChildren(banner(t("m23f.canon.baseGone"), "warn"));
+				return;
+			}
+			const now = typeof entry.content === "string" ? entry.content : "";
+			if (contentHash(now) !== base.contentHash) drift.replaceChildren(banner(t("m23f.canon.drift"), "warn", "fa-code-compare"), el("div", {
+				class: "maestro-m23f-label",
+				text: t("m23f.canon.diffBaseNow")
+			}), diffView(now, String(env.state.stored.content ?? ""), t));
+		}).catch((error) => env.app.log.debug("base load failed", error));
+	}
+	const times = [
+		meta.createdAt ? t("m23f.canon.created", { time: formatTime(meta.createdAt, env.app.i18n) }) : null,
+		meta.updatedAt ? t("m23f.canon.updated", { time: formatTime(meta.updatedAt, env.app.i18n) }) : null,
+		typeof meta.sourceMessage === "number" ? t("m23f.canon.source", { index: meta.sourceMessage }) : null
+	].filter((item) => !!item);
+	if (times.length) nodes.push(el("div", {
+		class: "maestro-m23f-hint",
+		text: times.join(" · ")
+	}));
+	if (canon && meta.kind === "override" && !env.readOnly) nodes.push(el("div", { class: "maestro-m23f-actions" }, [button({
+		label: t("m23f.canon.promote"),
+		icon: "fa-arrow-up-from-bracket",
+		title: t("m23f.canon.promoteHint"),
+		onClick: async () => {
+			const applied = await canon.promote(env.ctx.uid);
+			env.status(t(applied ? "m23f.canon.promoted" : "m23f.canon.promoteDeclined"), applied ? "ok" : "info");
+		}
+	})]));
+	return nodes;
+}
+/** The canon block, or null when it does not apply (no canon module / chat, read-only book). */
+function canonSection(env) {
+	const t = env.t;
+	const canon = canonApi(env.app);
+	if (env.state.isCanonEntry) {
+		const meta = canonMetaOf(env.state.stored);
+		if (!meta) return null;
+		return formSection(t("m23f.section.canonEntry"), canonEntryView(env, canon, meta), { id: "canon" });
+	}
+	if (!canon || env.readOnly || !env.state.canonBook) return null;
+	const body = el("div", { class: "maestro-m23f-canon" }, [el("div", {
+		class: "maestro-m23f-hint",
+		text: t("m23f.loading")
+	})]);
+	let alive = true;
+	env.own(() => {
+		alive = false;
+	});
+	const refresh = async () => {
+		try {
+			const items = await itemsFor(canon, env.ctx.book, env.ctx.uid);
+			if (alive) body.replaceChildren(...baseView(env, canon, items, refresh));
+		} catch (error) {
+			if (alive) body.replaceChildren(banner(t("m23f.canon.loadFailed"), "error"));
+			env.app.log.debug("canon list failed", error);
+		}
+	};
+	refresh();
+	try {
+		env.own(canon.onChange(() => void refresh()));
+	} catch (error) {
+		env.app.log.debug("canon onChange failed", error);
+	}
+	return formSection(t("m23f.section.canon", { book: env.state.canonBook }), [body], { id: "canon" });
+}
+//#endregion
+//#region src/features/loreStudio/form/typed.ts
+/** Writes the working typed meta into the draft when the entry itself stores it. */
+function applyTyped(env) {
+	if (env.state.typedStorage === "entry") {
+		const next = withTypedMeta(env.state.draft.extensions, env.state.typed);
+		if (next === void 0) delete env.state.draft.extensions;
+		else env.state.draft.extensions = next;
+	}
+	env.changed();
+}
+async function compose(env, meta) {
+	const t = env.t;
+	const composed = composeContent(meta);
+	if (!composed) {
+		env.status(t("m23f.typed.emptyFields"), "info");
+		return;
+	}
+	const current = typeof env.state.draft.content === "string" ? env.state.draft.content : "";
+	if (current === composed) {
+		env.status(t("m23f.typed.same"), "info");
+		return;
+	}
+	if (current.trim()) {
+		const body = el("div", { class: "maestro-m23f-confirm" }, [el("p", { text: t("m23f.typed.replaceBody") }), diffView(current, composed, t)]);
+		if (!await env.app.ui.confirm(t("m23f.typed.replaceTitle"), body)) return;
+	}
+	env.state.draft.content = composed;
+	env.changed();
+	env.status(t("m23f.typed.composed"), "ok");
+}
+function typedBlock(env) {
+	const t = env.t;
+	const storage = env.state.typedStorage;
+	const box = el("div", {
+		class: "maestro-m23f-typed",
+		data: { block: "typed" }
+	});
+	if (storage === "none" && !env.state.typed) {
+		box.append(el("div", {
+			class: "maestro-m23f-hint",
+			text: t("m23f.typed.unavailable")
+		}));
+		return box;
+	}
+	const id = uid("maestro-m23f-type");
+	const picker = el("select", {
+		class: "text_pole",
+		attrs: {
+			id,
+			name: "entryType"
+		}
+	}, [el("option", {
+		text: t("m23f.typed.none"),
+		attrs: { value: "" }
+	}), ...ENTRY_TYPE_IDS.map((type) => el("option", {
+		text: t(`m23f.type.${type}`),
+		attrs: { value: type }
+	}))]);
+	picker.value = env.state.typed?.type ?? "";
+	const fields = el("div", { class: "maestro-m23f-typed-fields" });
+	const composeButton = button({
+		label: t("m23f.typed.compose"),
+		icon: "fa-wand-magic-sparkles",
+		title: t("m23f.typed.composeHint"),
+		onClick: async () => {
+			if (env.state.typed) await compose(env, env.state.typed);
+		}
+	});
+	const renderFields = () => {
+		const meta = env.state.typed;
+		composeButton.hidden = !meta;
+		if (!meta) {
+			fields.replaceChildren();
+			return;
+		}
+		const values = templateValues(meta);
+		fields.replaceChildren(...ENTRY_TYPES[meta.type].fields.map((field) => {
+			const fieldId = uid("maestro-m23f-tf");
+			const input = field.multiline ? el("textarea", {
+				class: "text_pole maestro-m23f-textarea",
+				attrs: {
+					id: fieldId,
+					rows: 2
+				}
+			}) : el("input", {
+				class: "text_pole",
+				attrs: {
+					id: fieldId,
+					type: "text",
+					autocomplete: "off"
+				}
+			});
+			input.value = values[field.id] ?? "";
+			input.dataset.typedField = field.id;
+			input.addEventListener("input", () => {
+				const current = env.state.typed;
+				if (!current) return;
+				env.state.typed = {
+					type: current.type,
+					fields: {
+						...current.fields,
+						[field.id]: input.value
+					}
+				};
+				applyTyped(env);
+			});
+			return row(env, {
+				label: t(`m23f.tf.${field.id}`),
+				control: input,
+				for: fieldId
+			});
+		}));
+	};
+	picker.addEventListener("change", () => {
+		const value = picker.value;
+		const previous = env.state.typed;
+		if (!isEntryType(value)) env.state.typed = null;
+		else if (previous?.type === value) return;
+		else {
+			const content = typeof env.state.draft.content === "string" ? env.state.draft.content : "";
+			env.state.typed = {
+				type: value,
+				fields: content.trim() ? fieldsFromContent(value, content) : emptyFields(value)
+			};
+		}
+		renderFields();
+		applyTyped(env);
+	});
+	renderFields();
+	box.append(row(env, {
+		label: t("m23f.typed.label"),
+		control: picker,
+		for: id,
+		hint: t(storage === "sidecar" ? "m23f.typed.whereSidecar" : "m23f.typed.whereEntry")
+	}), fields, el("div", { class: "maestro-m23f-actions" }, [composeButton]));
+	if (storage === "none") {
+		disableAll(box);
+		box.append(el("div", {
+			class: "maestro-m23f-hint",
+			text: t("m23f.typed.unavailable")
+		}));
+	}
+	return box;
+}
+//#endregion
+//#region src/features/loreStudio/form/content.ts
+/** ST counts tokens 1 s after the last edit (`debounce_timeout.relaxed`). */
+var TOKEN_DEBOUNCE_MS = 1e3;
+function commentField(env) {
+	const t = env.t;
+	const id = uid("maestro-m23f-comment");
+	const input = el("textarea", {
+		class: "text_pole maestro-m23f-textarea",
+		attrs: {
+			id,
+			rows: 1,
+			name: "comment"
+		}
+	});
+	input.value = typeof env.state.draft.comment === "string" ? env.state.draft.comment : "";
+	input.addEventListener("input", () => {
+		const draft = env.state.draft;
+		if (input.value === "" && env.state.stored.comment === void 0) delete draft.comment;
+		else draft.comment = input.value;
+		env.changed();
+	});
+	const placeholder = () => {
+		input.placeholder = commentPlaceholder(stringList$2(env.state.draft.key)) || t("m23f.comment.placeholder");
+	};
+	placeholder();
+	env.sync(placeholder);
+	return row(env, {
+		label: t("m23f.comment.label"),
+		control: input,
+		for: id,
+		hint: t("m23f.comment.hint")
+	});
+}
+function decoratorNotes(env) {
+	const t = env.t;
+	const holder = el("div", { class: "maestro-m23f-notes" });
+	const render = () => {
+		const info = analyzeDecorators(typeof env.state.draft.content === "string" ? env.state.draft.content : "");
+		const notes = [];
+		if (info.known.includes("@@activate")) notes.push(note(t("m23f.deco.activate")));
+		if (info.known.includes("@@dont_activate")) notes.push(note(t("m23f.deco.dontActivate"), "warn"));
+		if (info.unknown.length) notes.push(note(t("m23f.deco.unknown", { lines: info.unknown.join(" · ") }), "warn"));
+		holder.replaceChildren(...notes);
+	};
+	render();
+	env.sync(render);
+	return holder;
+}
+function contentField(env) {
+	const t = env.t;
+	const id = uid("maestro-m23f-content");
+	const input = el("textarea", {
+		class: "text_pole maestro-m23f-textarea maestro-m23f-content",
+		attrs: {
+			id,
+			rows: 8,
+			name: "content",
+			placeholder: t("m23f.content.placeholder")
+		}
+	});
+	input.value = typeof env.state.draft.content === "string" ? env.state.draft.content : "";
+	const tokens = el("span", {
+		class: "maestro-m23f-tokens",
+		text: t("m23f.content.tokens", { count: "…" })
+	});
+	const chars = el("span", { class: "maestro-m23f-chars" });
+	let timer = null;
+	let generation = 0;
+	let alive = true;
+	env.own(() => {
+		alive = false;
+		if (timer !== null) clearTimeout(timer);
+		timer = null;
+	});
+	const count = async () => {
+		const text = input.value;
+		const mine = ++generation;
+		try {
+			const value = await env.app.host.ctx().getTokenCountAsync(text);
+			if (alive && mine === generation) tokens.textContent = t("m23f.content.tokens", { count: value });
+		} catch (error) {
+			env.app.log.debug("token count failed", error);
+			if (alive && mine === generation) tokens.textContent = t("m23f.content.tokens", { count: "?" });
+		}
+	};
+	const schedule = () => {
+		if (timer !== null) clearTimeout(timer);
+		timer = setTimeout(() => {
+			timer = null;
+			count();
+		}, TOKEN_DEBOUNCE_MS);
+	};
+	const updateChars = () => {
+		chars.textContent = t("m23f.content.chars", { count: input.value.length });
+	};
+	updateChars();
+	count();
+	input.addEventListener("input", () => {
+		const draft = env.state.draft;
+		if (input.value === "" && env.state.stored.content === void 0) delete draft.content;
+		else draft.content = input.value;
+		updateChars();
+		schedule();
+		env.changed();
+	});
+	env.sync(() => {
+		const value = typeof env.state.draft.content === "string" ? env.state.draft.content : "";
+		if (value !== input.value) {
+			input.value = value;
+			updateChars();
+			schedule();
+		}
+	});
+	const expand = button({
+		icon: "fa-maximize",
+		kind: "ghost",
+		title: t("m23f.content.expand"),
+		className: "maestro-m23f-expand",
+		onClick: () => {
+			const big = input.classList.toggle("maestro-m23f-content-big");
+			expand.setAttribute("aria-pressed", big ? "true" : "false");
+			input.focus();
+		}
+	});
+	expand.setAttribute("aria-pressed", "false");
+	return row(env, {
+		label: t("m23f.content.label"),
+		control: input,
+		for: id,
+		field: "content",
+		hint: [
+			el("div", { class: "maestro-m23f-counter" }, [
+				tokens,
+				chars,
+				expand
+			]),
+			decoratorNotes(env),
+			el("details", { class: "maestro-m23f-help" }, [el("summary", { text: t("m23f.deco.helpTitle") }), el("div", {
+				class: "maestro-m23f-hint",
+				text: t("m23f.deco.help")
+			})])
+		]
+	});
+}
+function contentSection(env) {
+	return formSection(env.t("m23f.section.content"), [
+		commentField(env),
+		contentField(env),
+		typedBlock(env)
+	], { id: "content" });
+}
+//#endregion
+//#region src/features/loreStudio/form/fields.ts
+function entries(env) {
+	return Object.values(env.state.data.entries ?? {});
+}
+/** Shows `node` only while `visible()` holds (re-checked after every change). */
+function showWhen(env, node, visible) {
+	const apply = () => {
+		node.hidden = !visible();
+	};
+	apply();
+	env.sync(apply);
+	return node;
+}
+/** A note that appears while `text()` returns a string. */
+function liveNote(env, text, level = "warn") {
+	const holder = el("div");
+	const apply = () => {
+		const value = text();
+		holder.replaceChildren(...value ? [note(value, level)] : []);
+	};
+	apply();
+	env.sync(apply);
+	return holder;
+}
+function statusSelect(env) {
+	const t = env.t;
+	const id = uid("maestro-m23f-state");
+	const node = el("select", {
+		class: "text_pole",
+		attrs: {
+			id,
+			name: "entryState"
+		}
+	}, [
+		"constant",
+		"normal",
+		"vectorized"
+	].map((state) => el("option", {
+		text: t(`m23f.state.${state}`),
+		attrs: { value: state }
+	})));
+	node.value = entryState(env.state.draft);
+	node.addEventListener("change", () => {
+		Object.assign(env.state.draft, applyEntryState(node.value));
+		env.changed();
+	});
+	return row(env, {
+		label: t("m23f.state.label"),
+		control: node,
+		for: id,
+		hint: t("m23f.state.hint")
+	});
+}
+function positionSelect(env) {
+	const t = env.t;
+	const id = uid("maestro-m23f-position");
+	const current = positionOptionId(env.state.draft.position, env.state.draft.role);
+	const options = POSITION_OPTIONS.map((option) => el("option", {
+		text: t(`m23f.pos.${option.name}`),
+		attrs: { value: option.id }
+	}));
+	if (!isKnownPosition(current)) options.push(el("option", {
+		text: t("m23f.pos.other", { value: current }),
+		attrs: { value: current }
+	}));
+	const node = el("select", {
+		class: "text_pole",
+		attrs: {
+			id,
+			name: "position"
+		}
+	}, options);
+	node.value = current;
+	node.addEventListener("change", () => {
+		Object.assign(env.state.draft, applyPosition(node.value));
+		env.changed();
+	});
+	return row(env, {
+		label: t("m23f.pos.label"),
+		control: node,
+		for: id,
+		hint: [liveNote(env, () => env.state.draft.position === void 0 ? t("m23f.pos.missing") : null, "warn"), liveNote(env, () => {
+			const position = env.state.draft.position;
+			return position === WI_POSITION.ANTop || position === WI_POSITION.ANBottom ? t("m23f.pos.anHint") : null;
+		}, "info")]
+	});
+}
+function outletRow(env) {
+	const t = env.t;
+	const suggestions = bookSuggestions(entries(env), "outletName", env.ctx.uid);
+	const { node } = textField(env, "outletName", {
+		label: t("m23f.outlet.label"),
+		placeholder: t("m23f.outlet.placeholder"),
+		suggestions,
+		hint: [el("span", { text: t("m23f.outlet.hint") }), liveNote(env, () => env.state.draft.position === WI_POSITION.outlet && !String(env.state.draft.outletName ?? "").trim() ? t("m23f.outlet.empty") : null)]
+	});
+	return showWhen(env, node, () => env.state.draft.position === WI_POSITION.outlet || String(env.state.draft.outletName ?? "").trim() !== "");
+}
+function placementSection(env) {
+	const t = env.t;
+	const depth = numberField(env, "depth", {
+		label: t("m23f.depth.label"),
+		placeholder: String(4),
+		hint: t("m23f.depth.hint")
+	}).node;
+	return formSection(t("m23f.section.placement"), [
+		statusSelect(env),
+		positionSelect(env),
+		showWhen(env, depth, () => env.state.draft.position === WI_POSITION.atDepth),
+		outletRow(env),
+		numberField(env, "order", {
+			label: t("m23f.order.label"),
+			placeholder: String(100),
+			hint: t("m23f.order.hint")
+		}).node
+	], { id: "placement" });
+}
+function probabilityRows(env) {
+	const t = env.t;
+	const probability = numberField(env, "probability", {
+		label: t("m23f.prob.label"),
+		placeholder: String(100),
+		hint: [liveNote(env, () => {
+			const draft = env.state.draft;
+			if (draft.useProbability === true && typeof draft.probability !== "number") return t("m23f.prob.empty");
+			return null;
+		}), liveNote(env, () => {
+			const draft = env.state.draft;
+			if (draft.useProbability === true) return null;
+			const value = typeof draft.probability === "number" ? draft.probability : null;
+			return value !== null && value < 100 ? t("m23f.prob.notRolled", { value }) : null;
+		})]
+	});
+	const use = checkField(env, "useProbability", {
+		label: t("m23f.prob.use"),
+		hint: t("m23f.prob.useHint")
+	});
+	return [probability.node, use.node];
+}
+function recursionRows(env) {
+	const t = env.t;
+	const view = recursionDelayView(env.state.draft.delayUntilRecursion);
+	const levelId = uid("maestro-m23f-level");
+	const level = el("input", {
+		class: "text_pole maestro-m23f-number",
+		attrs: {
+			id: levelId,
+			type: "text",
+			inputmode: "numeric",
+			name: "delayUntilRecursionLevel",
+			autocomplete: "off"
+		}
+	});
+	level.value = view.level;
+	level.placeholder = t("m23f.rec.levelPlaceholder");
+	level.addEventListener("input", () => {
+		const result = recursionDelayFromLevel(env.state.draft.delayUntilRecursion, level.value);
+		if (!result.ok) {
+			env.setError("delayUntilRecursion", t("m23f.rec.levelInvalid"));
+			env.changed();
+			return;
+		}
+		env.setError("delayUntilRecursion", null);
+		env.state.draft.delayUntilRecursion = result.value;
+		env.changed();
+	});
+	const delayId = uid("maestro-m23f-delay-rec");
+	const delay = el("input", { attrs: {
+		type: "checkbox",
+		id: delayId,
+		name: "delayUntilRecursion"
+	} });
+	delay.checked = view.on;
+	delay.addEventListener("change", () => {
+		env.state.draft.delayUntilRecursion = toggleRecursionDelay(env.state.draft.delayUntilRecursion, delay.checked);
+		if (!delay.checked) {
+			level.value = "";
+			env.setError("delayUntilRecursion", null);
+		}
+		env.changed();
+	});
+	const levelRow = row(env, {
+		label: t("m23f.rec.level"),
+		control: level,
+		for: levelId,
+		hint: t("m23f.rec.levelHint"),
+		field: "delayUntilRecursion"
+	});
+	return [
+		checkField(env, "excludeRecursion", {
+			label: t("m23f.rec.exclude"),
+			hint: t("m23f.rec.excludeHint")
+		}).node,
+		checkField(env, "preventRecursion", {
+			label: t("m23f.rec.prevent"),
+			hint: t("m23f.rec.preventHint")
+		}).node,
+		el("div", { class: "maestro-m23f-check" }, [el("label", {
+			class: "checkbox_label",
+			attrs: { for: delayId }
+		}, [delay, el("span", { text: t("m23f.rec.delay") })]), el("div", {
+			class: "maestro-m23f-hint",
+			text: t("m23f.rec.delayHint")
+		})]),
+		showWhen(env, levelRow, () => !!env.state.draft.delayUntilRecursion || level.value !== "")
+	];
+}
+function activationSection(env) {
+	const t = env.t;
+	const globals = env.state.globals;
+	const scanGlobal = globalValue(globals, [...GLOBAL_NAMES.scanDepth], "number");
+	return formSection(t("m23f.section.activation"), [
+		...probabilityRows(env),
+		numberField(env, "scanDepth", {
+			label: t("m23f.scan.label"),
+			placeholder: scanGlobal === void 0 ? t("m23f.scan.global") : t("m23f.scan.globalNow", { value: scanGlobal }),
+			hint: t("m23f.scan.hint")
+		}).node,
+		triField(env, "caseSensitive", t("m23f.case.label"), globalValue(globals, [...GLOBAL_NAMES.caseSensitive], "boolean"), t("m23f.case.hint")),
+		triField(env, "matchWholeWords", t("m23f.whole.label"), globalValue(globals, [...GLOBAL_NAMES.matchWholeWords], "boolean"), t("m23f.whole.hint")),
+		...recursionRows(env),
+		checkField(env, "ignoreBudget", {
+			label: t("m23f.budget.ignore"),
+			hint: t("m23f.budget.ignoreHint")
+		}).node
+	], { id: "activation" });
+}
+function hasValue(value) {
+	return typeof value === "number" && value !== 0;
+}
+function timersSection(env) {
+	const t = env.t;
+	const draft = env.state.draft;
+	return formSection(t("m23f.section.timers"), [
+		numberField(env, "sticky", {
+			label: t("m23f.timer.sticky"),
+			placeholder: t("m23f.timer.none"),
+			hint: t("m23f.timer.stickyHint")
+		}).node,
+		numberField(env, "cooldown", {
+			label: t("m23f.timer.cooldown"),
+			placeholder: t("m23f.timer.none"),
+			hint: t("m23f.timer.cooldownHint")
+		}).node,
+		numberField(env, "delay", {
+			label: t("m23f.timer.delay"),
+			placeholder: t("m23f.timer.none"),
+			hint: t("m23f.timer.delayHint")
+		}).node,
+		liveNote(env, () => hasValue(env.state.stored.sticky) || hasValue(env.state.stored.cooldown) ? t("m23f.timer.hashReset") : null, "info")
+	], {
+		id: "timers",
+		open: hasValue(draft.sticky) || hasValue(draft.cooldown) || hasValue(draft.delay)
+	});
+}
+function groupsSection(env) {
+	const t = env.t;
+	const suggestions = bookSuggestions(entries(env), "group", env.ctx.uid);
+	const group = textField(env, "group", {
+		label: t("m23f.group.label"),
+		placeholder: t("m23f.group.placeholder"),
+		trim: true,
+		hint: t("m23f.group.hint")
+	});
+	const chipsHolder = el("div");
+	const renderChips = () => {
+		const present = new Set(groupNames(env.state.draft.group).map((name) => name.trim()));
+		const free = suggestions.filter((name) => !present.has(name)).slice(0, 12);
+		const chips = env.readOnly ? null : suggestionChips(free, t("m23f.group.suggest"), (name) => {
+			const current = String(env.state.draft.group ?? "").trim();
+			const next = current ? `${current},${name}` : name;
+			group.input.value = next;
+			env.state.draft.group = next;
+			env.changed();
+		});
+		chipsHolder.replaceChildren(...chips ? [chips] : []);
+	};
+	renderChips();
+	env.sync(renderChips);
+	const draft = env.state.draft;
+	return formSection(t("m23f.section.groups"), [
+		group.node,
+		chipsHolder,
+		checkField(env, "groupOverride", {
+			label: t("m23f.group.override"),
+			hint: t("m23f.group.overrideHint")
+		}).node,
+		numberField(env, "groupWeight", {
+			label: t("m23f.group.weight"),
+			placeholder: String(100),
+			hint: t("m23f.group.weightHint")
+		}).node,
+		triField(env, "useGroupScoring", t("m23f.group.scoring"), globalValue(env.state.globals, [...GLOBAL_NAMES.useGroupScoring], "boolean"), t("m23f.group.scoringHint"))
+	], {
+		id: "groups",
+		open: groupNames(draft.group).length > 0
+	});
+}
+function sourcesSection(env) {
+	const t = env.t;
+	const draft = env.state.draft;
+	return formSection(t("m23f.section.sources"), [el("div", {
+		class: "maestro-m23f-hint",
+		text: t("m23f.src.hint")
+	}), ...MATCH_FLAGS.map((flag) => checkField(env, flag, { label: t(`m23f.src.${flag}`) }).node)], {
+		id: "sources",
+		open: MATCH_FLAGS.some((flag) => draft[flag] === true)
+	});
+}
+/** Fields ST's editor knows (anything else belongs to other extensions and is kept as is). */
+var KNOWN_FIELDS = /* @__PURE__ */ new Set([
+	"uid",
+	"key",
+	"keysecondary",
+	"comment",
+	"content",
+	"constant",
+	"vectorized",
+	"selective",
+	"selectiveLogic",
+	"addMemo",
+	"order",
+	"position",
+	"disable",
+	"ignoreBudget",
+	"excludeRecursion",
+	"preventRecursion",
+	"matchPersonaDescription",
+	"matchCharacterDescription",
+	"matchCharacterPersonality",
+	"matchCharacterDepthPrompt",
+	"matchScenario",
+	"matchCreatorNotes",
+	"delayUntilRecursion",
+	"probability",
+	"useProbability",
+	"depth",
+	"outletName",
+	"group",
+	"groupOverride",
+	"groupWeight",
+	"scanDepth",
+	"caseSensitive",
+	"matchWholeWords",
+	"useGroupScoring",
+	"automationId",
+	"role",
+	"sticky",
+	"cooldown",
+	"delay",
+	"triggers",
+	"characterFilter",
+	"displayIndex",
+	"extensions"
+]);
+function differencesBlock(env) {
+	const t = env.t;
+	const holder = el("div", { class: "maestro-m23f-diffs" });
+	const render = () => {
+		const list = stEditorDifferences(env.state.draft);
+		if (!list.length) {
+			holder.replaceChildren(el("div", {
+				class: "maestro-m23f-hint",
+				text: t("m23f.st.none")
+			}));
+			return;
+		}
+		holder.replaceChildren(el("div", {
+			class: "maestro-m23f-hint",
+			text: t("m23f.st.intro")
+		}), el("ul", { class: "maestro-m23f-list" }, list.map((item) => el("li", { class: item.engine ? "maestro-warn-text" : void 0 }, [
+			el("code", { text: item.field }),
+			el("span", { text: ` ${formatValue(item.stored)} → ${formatValue(item.st)}` }),
+			item.engine ? el("span", {
+				class: "maestro-m23f-tag",
+				text: t("m23f.st.engine")
+			}) : null
+		]))));
+	};
+	render();
+	env.sync(render);
+	return holder;
+}
+function serviceSection(env) {
+	const t = env.t;
+	const draft = env.state.draft;
+	const unknown = Object.keys(draft).filter((key) => !KNOWN_FIELDS.has(key));
+	const automation = textField(env, "automationId", {
+		label: t("m23f.svc.automation"),
+		placeholder: t("m23f.svc.automationNone"),
+		suggestions: bookSuggestions(entries(env), "automationId", env.ctx.uid),
+		hint: t("m23f.svc.automationHint")
+	});
+	const selective = checkField(env, "selective", {
+		label: t("m23f.svc.selective"),
+		hint: t("m23f.svc.selectiveHint")
+	});
+	const addMemo = checkField(env, "addMemo", {
+		label: t("m23f.svc.addMemo"),
+		hint: t("m23f.svc.addMemoHint")
+	});
+	const card = env.state.data.originalData !== void 0;
+	return formSection(t("m23f.section.service"), [
+		el("div", { class: "maestro-kv" }, [el("span", { text: t("m23f.svc.uid") }), el("code", {
+			class: "maestro-m23f-uid",
+			text: String(env.ctx.uid)
+		})]),
+		automation.node,
+		selective.node,
+		addMemo.node,
+		card ? note(t("m23f.svc.cardBook")) : null,
+		el("details", {
+			class: "maestro-m23f-help",
+			attrs: { open: stEditorDifferences(draft).some((d) => d.engine) }
+		}, [el("summary", { text: t("m23f.st.title") }), differencesBlock(env)]),
+		unknown.length ? el("div", {
+			class: "maestro-m23f-hint",
+			text: t("m23f.svc.unknown", { fields: unknown.join(", ") })
+		}) : null,
+		el("div", {
+			class: "maestro-m23f-hint",
+			text: t("m23f.svc.unknownKept")
+		})
+	].filter((node) => node !== null), {
+		id: "service",
+		open: false
+	});
+}
+/** Quick row at the top: enabled toggle. */
+function enabledToggle(env) {
+	return checkField(env, "disable", {
+		label: env.t("m23f.enabled"),
+		invert: true
+	}).node;
+}
+/** Placeholder for the passport (M28, stage 10): present in the DOM, hidden until that stage. */
+function passportSection(env) {
+	const node = formSection(env.t("m23f.section.passport"), [el("div", {
+		class: "maestro-m23f-hint",
+		text: env.t("m23f.passport.later")
+	})], {
+		id: "passport",
+		open: false
+	});
+	node.hidden = true;
+	return node;
+}
+/** «Сделать как в ST» shortcut for the engine-relevant hidden switches (selective / useProbability). */
+function stFixButton(env) {
+	if (env.readOnly) return null;
+	return button({
+		label: env.t("m23f.st.apply"),
+		kind: "ghost",
+		title: env.t("m23f.st.applyHint"),
+		onClick: () => {
+			const draft = env.state.draft;
+			draft.selective = true;
+			draft.useProbability = true;
+			if (typeof draft.probability !== "number") draft.probability = 100;
+			env.changed();
+		}
+	});
+}
+function choices(env) {
+	const ctx = env.app.host.ctx();
+	const list = [];
+	for (const character of Array.isArray(ctx.characters) ? ctx.characters : []) {
+		if (typeof character?.avatar !== "string") continue;
+		const value = avatarName(character.avatar);
+		const name = typeof character.name === "string" && character.name ? character.name : value;
+		list.push({
+			kind: "character",
+			value,
+			label: name,
+			...name !== value ? { detail: value } : {}
+		});
+	}
+	const tags = ctx.tags;
+	for (const tag of Array.isArray(tags) ? tags : []) {
+		const record = tag;
+		if (typeof record?.id !== "string") continue;
+		const name = typeof record.name === "string" ? record.name : record.id;
+		list.push({
+			kind: "tag",
+			value: record.id,
+			label: env.t("m23f.filter.tag", { name })
+		});
+	}
+	return list;
+}
+function characterFilterBlock(env) {
+	const t = env.t;
+	const all = choices(env);
+	let filter = readCharacterFilter(env.state.draft.characterFilter);
+	const known = new Set(all.filter((item) => item.kind === "character").map((item) => item.value));
+	const commit = () => {
+		const built = buildCharacterFilter(filter);
+		if (built === void 0) delete env.state.draft.characterFilter;
+		else {
+			const previous = env.state.draft.characterFilter;
+			const extra = typeof previous === "object" && previous !== null && !Array.isArray(previous) ? previous : {};
+			env.state.draft.characterFilter = {
+				...extra,
+				...built
+			};
+		}
+		env.changed();
+	};
+	const excludeId = uid("maestro-m23f-exclude");
+	const exclude = el("input", { attrs: {
+		type: "checkbox",
+		id: excludeId,
+		name: "characterFilterExclude"
+	} });
+	exclude.checked = filter.isExclude;
+	exclude.addEventListener("change", () => {
+		filter = {
+			...filter,
+			isExclude: exclude.checked
+		};
+		commit();
+	});
+	const searchId = uid("maestro-m23f-search");
+	const search = el("input", {
+		class: "text_pole",
+		attrs: {
+			id: searchId,
+			type: "search",
+			placeholder: t("m23f.filter.search"),
+			autocomplete: "off"
+		}
+	});
+	const selected = el("div", { class: "maestro-m23f-chips" });
+	const list = el("div", {
+		class: "maestro-m23f-picker",
+		attrs: {
+			role: "group",
+			"aria-label": t("m23f.filter.label")
+		}
+	});
+	const isOn = (choice) => choice.kind === "character" ? filter.names.includes(choice.value) : filter.tags.includes(choice.value);
+	const toggle = (choice, on) => {
+		const key = choice.kind === "character" ? "names" : "tags";
+		const current = filter[key].filter((value) => value !== choice.value);
+		filter = {
+			...filter,
+			[key]: on ? [...current, choice.value] : current
+		};
+		commit();
+		renderSelected();
+	};
+	const renderSelected = () => {
+		const chips = [];
+		for (const name of filter.names) {
+			const choice = all.find((item) => item.kind === "character" && item.value === name);
+			chips.push(el("span", { class: ["maestro-m23f-chip", known.has(name) ? null : "maestro-m23f-chip-warn"] }, [
+				el("span", { text: choice?.label ?? name }),
+				known.has(name) ? null : el("span", {
+					class: "maestro-m23f-chip-badge",
+					text: t("m23f.filter.missing")
+				}),
+				env.readOnly ? null : el("button", {
+					class: "maestro-m23f-chip-x",
+					text: "×",
+					attrs: {
+						type: "button",
+						"aria-label": t("m23f.filter.remove", { name })
+					},
+					on: { click: () => toggle({
+						kind: "character",
+						value: name,
+						label: name
+					}, false) }
+				})
+			]));
+		}
+		for (const id of filter.tags) {
+			const choice = all.find((item) => item.kind === "tag" && item.value === id);
+			chips.push(el("span", { class: "maestro-m23f-chip" }, [el("span", { text: choice?.label ?? t("m23f.filter.tag", { name: id }) }), env.readOnly ? null : el("button", {
+				class: "maestro-m23f-chip-x",
+				text: "×",
+				attrs: {
+					type: "button",
+					"aria-label": t("m23f.filter.remove", { name: choice?.label ?? id })
+				},
+				on: { click: () => toggle({
+					kind: "tag",
+					value: id,
+					label: id
+				}, false) }
+			})]));
+		}
+		selected.replaceChildren(...chips.length ? chips : [el("span", {
+			class: "maestro-m23f-hint",
+			text: t("m23f.filter.nobody")
+		})]);
+	};
+	const renderList = () => {
+		const query = search.value.trim().toLowerCase();
+		const matching = all.filter((item) => !query || item.label.toLowerCase().includes(query) || (item.detail ?? "").toLowerCase().includes(query) || item.value.toLowerCase().includes(query));
+		const shown = matching.slice(0, 60);
+		const nodes = [
+			...shown.map((choice) => {
+				const id = uid("maestro-m23f-pick");
+				const box = el("input", {
+					attrs: {
+						type: "checkbox",
+						id,
+						disabled: env.readOnly
+					},
+					data: {
+						kind: choice.kind,
+						value: choice.value
+					}
+				});
+				box.checked = isOn(choice);
+				box.addEventListener("change", () => toggle(choice, box.checked));
+				return el("label", {
+					class: "checkbox_label maestro-m23f-pick",
+					attrs: { for: id }
+				}, [
+					box,
+					el("span", { text: choice.label }),
+					choice.detail ? el("small", {
+						class: "maestro-muted",
+						text: choice.detail
+					}) : null
+				]);
+			}),
+			matching.length > shown.length ? el("div", {
+				class: "maestro-m23f-hint",
+				text: t("m23f.filter.more", { count: matching.length - shown.length })
+			}) : null,
+			all.length ? null : el("div", {
+				class: "maestro-m23f-hint",
+				text: t("m23f.filter.empty")
+			})
+		];
+		list.replaceChildren(...nodes.filter((node) => node !== null));
+	};
+	search.addEventListener("input", renderList);
+	renderSelected();
+	renderList();
+	const missing = () => filter.names.filter((name) => !known.has(name));
+	const cleanup = env.readOnly ? null : button({
+		label: t("m23f.filter.dropMissing"),
+		kind: "ghost",
+		onClick: () => {
+			filter = {
+				...filter,
+				names: filter.names.filter((name) => known.has(name))
+			};
+			commit();
+			renderSelected();
+			renderList();
+		}
+	});
+	const cleanupHolder = el("div");
+	const renderCleanup = () => {
+		cleanupHolder.replaceChildren(...missing().length && all.length ? [note(t("m23f.filter.missingNote"), "warn", cleanup)] : []);
+	};
+	renderCleanup();
+	env.sync(renderCleanup);
+	return el("div", { class: "maestro-m23f-filter" }, [
+		el("div", { class: "maestro-m23f-check" }, [el("label", {
+			class: "checkbox_label",
+			attrs: { for: excludeId }
+		}, [exclude, el("span", { text: t("m23f.filter.exclude") })]), el("div", {
+			class: "maestro-m23f-hint",
+			text: t("m23f.filter.excludeHint")
+		})]),
+		row(env, {
+			label: t("m23f.filter.label"),
+			control: search,
+			for: searchId,
+			hint: t("m23f.filter.hint")
+		}),
+		selected,
+		cleanupHolder,
+		list
+	]);
+}
+function triggersBlock(env) {
+	const t = env.t;
+	const initial = readTriggers(env.state.draft.triggers);
+	const chosen = new Set(initial.known);
+	const commit = () => {
+		const next = [...GENERATION_TRIGGERS.filter((item) => chosen.has(item)), ...initial.unknown];
+		if (!next.length && env.state.stored.triggers === void 0) delete env.state.draft.triggers;
+		else env.state.draft.triggers = next;
+		env.changed();
+	};
+	const boxes = GENERATION_TRIGGERS.map((trigger) => {
+		const id = uid("maestro-m23f-trigger");
+		const box = el("input", {
+			attrs: {
+				type: "checkbox",
+				id,
+				name: "triggers"
+			},
+			data: { trigger }
+		});
+		box.checked = chosen.has(trigger);
+		box.addEventListener("change", () => {
+			if (box.checked) chosen.add(trigger);
+			else chosen.delete(trigger);
+			commit();
+		});
+		return el("label", {
+			class: "checkbox_label maestro-m23f-pick",
+			attrs: { for: id }
+		}, [box, el("span", { text: t(`m23f.trigger.${trigger}`) })]);
+	});
+	return el("div", { class: "maestro-m23f-triggers" }, [
+		el("div", {
+			class: "maestro-m23f-label",
+			text: t("m23f.trigger.label")
+		}),
+		el("div", { class: "maestro-m23f-picker maestro-m23f-picker-inline" }, boxes),
+		el("div", {
+			class: "maestro-m23f-hint",
+			text: t("m23f.trigger.hint")
+		}),
+		initial.unknown.length ? note(t("m23f.trigger.unknown", { values: initial.unknown.join(", ") }), "warn") : null
+	]);
+}
+function filtersSection(env) {
+	const draft = env.state.draft;
+	const filter = readCharacterFilter(draft.characterFilter);
+	const open = filter.isExclude || filter.names.length > 0 || filter.tags.length > 0 || readTriggers(draft.triggers).known.length > 0;
+	return formSection(env.t("m23f.section.filters"), [characterFilterBlock(env), triggersBlock(env)], {
+		id: "filters",
+		open
+	});
+}
+var AUTHORS = /* @__PURE__ */ new Set([
+	"user",
+	"localizer",
+	"ck",
+	"st"
+]);
+function authorText(env, by) {
+	if (AUTHORS.has(by)) return env.t(`m23f.hist.by.${by}`);
+	return moduleTitle(env.app.modules, env.app.i18n, by);
+}
+async function restore(env, version) {
+	const t = env.t;
+	const patch = restorePatch(env.state.stored, version.entry);
+	if (!Object.keys(patch).length) {
+		env.status(t("m23f.hist.same"), "info");
+		return;
+	}
+	if (env.isDirty() && !await env.app.ui.confirm(t("m23f.discard.title"), t("m23f.hist.discardBody"))) return;
+	const time = formatTime(version.at, env.app.i18n);
+	await env.ctx.store.updateEntry(env.ctx.book, env.ctx.uid, patch, {
+		module: "M23",
+		summary: t("m23f.hist.restoreSummary", {
+			time,
+			entry: String(env.ctx.uid)
+		})
+	});
+	await env.reload();
+	env.ctx.onSaved();
+	env.status(t("m23f.hist.restored", { time }), "ok");
+}
+function versionRow(env, version) {
+	const t = env.t;
+	const diff = el("div", { class: "maestro-m23f-hist-diff" });
+	diff.hidden = true;
+	const toggle = button({
+		label: t("m23f.hist.diff"),
+		kind: "ghost",
+		icon: "fa-code-compare",
+		onClick: () => {
+			if (diff.hidden && !diff.firstChild) diff.append(diffView(version.entry, env.state.stored, t));
+			diff.hidden = !diff.hidden;
+			toggle.setAttribute("aria-expanded", diff.hidden ? "false" : "true");
+		}
+	});
+	toggle.setAttribute("aria-expanded", "false");
+	return el("li", { class: "maestro-m23f-hist-item" }, [
+		el("div", { class: "maestro-m23f-hist-head" }, [
+			el("span", {
+				class: "maestro-m23f-hist-time",
+				text: formatTime(version.at, env.app.i18n)
+			}),
+			el("span", {
+				class: "maestro-m23f-hist-by",
+				text: authorText(env, version.by)
+			}),
+			version.summary ? el("span", {
+				class: "maestro-m23f-hist-summary",
+				text: version.summary
+			}) : null
+		]),
+		el("div", { class: "maestro-m23f-actions" }, [toggle, env.readOnly ? null : button({
+			label: t("m23f.hist.restore"),
+			icon: "fa-clock-rotate-left",
+			onClick: () => restore(env, version)
+		})]),
+		diff
+	]);
+}
+function historySection(env) {
+	const t = env.t;
+	const body = el("div", { class: "maestro-m23f-hist" }, [el("div", {
+		class: "maestro-m23f-hint",
+		text: t("m23f.loading")
+	})]);
+	let alive = true;
+	env.own(() => {
+		alive = false;
+	});
+	env.ctx.store.history(env.ctx.book, env.ctx.uid).then((versions) => {
+		if (!alive) return;
+		if (!versions.length) {
+			body.replaceChildren(emptyState(t("m23f.hist.empty"), "fa-clock-rotate-left"));
+			return;
+		}
+		const list = el("ul", { class: "maestro-m23f-list maestro-m23f-hist-list" });
+		const show = (count) => list.replaceChildren(...versions.slice(0, count).map((v) => versionRow(env, v)));
+		show(10);
+		const more = versions.length > 10 ? button({
+			label: t("m23f.hist.all", { count: versions.length }),
+			kind: "ghost",
+			onClick: () => {
+				show(versions.length);
+				more?.remove();
+			}
+		}) : null;
+		body.replaceChildren(list, ...more ? [more] : []);
+	}).catch((error) => {
+		env.app.log.debug("history failed", error);
+		if (alive) body.replaceChildren(banner(t("m23f.hist.failed"), "error"));
+	});
+	return formSection(t("m23f.section.history"), [body], {
+		id: "history",
+		open: false
+	});
+}
+//#endregion
+//#region src/domain/lore-form-stats.ts
+/** Statistics of one entry over the journal turns (oldest first, as M1 returns them). */
+function entryActivationStats(turns, book, uid, recent = 5) {
+	const real = turns.filter((turn) => !turn.simulated);
+	const hits = [];
+	for (const turn of real) {
+		const activation = turn.activations.find((item) => item.world === book && item.uid === uid);
+		if (!activation) continue;
+		hits.push({
+			messageIndex: turn.messageIndex,
+			at: turn.at,
+			chars: activation.chars,
+			...activation.key ? { key: activation.key } : {},
+			cut: activation.cut === true,
+			recursionLevel: activation.recursionLevel ?? 0
+		});
+	}
+	const delivered = hits.filter((hit) => !hit.cut);
+	const avgChars = delivered.length ? Math.round(delivered.reduce((sum, hit) => sum + hit.chars, 0) / delivered.length) : 0;
+	const newest = [...hits].reverse();
+	const lastKey = newest.find((hit) => hit.key)?.key;
+	return {
+		turns: real.length,
+		activations: hits.length,
+		frequency: real.length ? hits.length / real.length : 0,
+		cut: hits.length - delivered.length,
+		avgChars,
+		recent: newest.slice(0, recent),
+		...lastKey ? { lastKey } : {}
+	};
+}
+/** True when a doctor finding's locator points at this entry (`{book, uid}`, `{book, uids}`, CK `archives`). */
+function findingTargetsEntry(target, book, uid) {
+	if (target.book === book) {
+		if (target.uid === uid) return true;
+		if (Array.isArray(target.uids) && target.uids.includes(uid)) return true;
+	}
+	if (Array.isArray(target.archives)) return target.archives.some((item) => typeof item === "object" && item !== null && item.book === book && item.uid === uid);
+	return false;
+}
+//#endregion
+//#region src/features/loreStudio/form/insights.ts
+function percent(value) {
+	return `${Math.round(value * 100)}%`;
+}
+function analyticsBlock(env) {
+	const t = env.t;
+	const journal = loreJournalApi(env.app);
+	const box = el("div", { class: "maestro-m23f-stats" });
+	if (!journal) {
+		box.append(el("div", {
+			class: "maestro-m23f-hint",
+			text: t("m23f.stats.noJournal")
+		}));
+		return box;
+	}
+	let turns;
+	try {
+		turns = journal.turns();
+	} catch (error) {
+		env.app.log.debug("journal turns failed", error);
+		turns = [];
+	}
+	const stats = entryActivationStats(turns, env.ctx.book, env.ctx.uid);
+	if (!stats.turns) {
+		box.append(emptyState(t("m23f.stats.noTurns"), "fa-scroll"));
+		return box;
+	}
+	const last = stats.recent[0];
+	const keyLine = el("div", { class: "maestro-kv" }, [el("span", { text: t("m23f.stats.lastKey") }), el("span", { text: stats.lastKey ?? "—" })]);
+	box.append(el("div", { class: "maestro-kv" }, [el("span", { text: t("m23f.stats.frequency") }), el("span", { text: t("m23f.stats.frequencyValue", {
+		count: stats.activations,
+		turns: stats.turns,
+		percent: percent(stats.frequency)
+	}) })]), el("div", { class: "maestro-kv" }, [el("span", { text: t("m23f.stats.last") }), el("span", { text: last ? t("m23f.stats.lastValue", {
+		index: last.messageIndex,
+		time: formatTime(last.at, env.app.i18n)
+	}) : t("m23f.stats.never") })]), el("div", { class: "maestro-kv" }, [el("span", { text: t("m23f.stats.avgChars") }), el("span", { text: stats.avgChars ? String(stats.avgChars) : "—" })]), keyLine);
+	if (stats.cut) box.append(el("div", {
+		class: "maestro-m23f-hint maestro-warn-text",
+		text: t("m23f.stats.cut", { count: stats.cut })
+	}));
+	if (stats.recent.length) box.append(el("div", {
+		class: "maestro-m23f-label",
+		text: t("m23f.stats.recent")
+	}), el("ul", { class: "maestro-m23f-list maestro-m23f-recent" }, stats.recent.map((item) => el("li", {
+		class: item.cut ? "maestro-warn-text" : void 0,
+		text: [
+			t("m23f.stats.recentItem", {
+				index: item.messageIndex,
+				time: formatTime(item.at, env.app.i18n),
+				chars: item.chars
+			}),
+			item.key ? t("m23f.stats.recentKey", { key: item.key }) : null,
+			item.recursionLevel ? t("m23f.stats.recentRecursion", { level: item.recursionLevel }) : null,
+			item.cut ? t("m23f.stats.recentCut") : null
+		].filter(Boolean).join(" · ")
+	}))));
+	if (last && !stats.lastKey) {
+		const record = turns.find((turn) => turn.messageIndex === last.messageIndex && !turn.simulated);
+		if (record) keyLine.append(button({
+			label: t("m23f.stats.findKey"),
+			kind: "ghost",
+			onClick: async () => {
+				const hit = (await journal.attributeKeys(record)).activations.find((item) => item.world === env.ctx.book && item.uid === env.ctx.uid);
+				keyLine.replaceChildren(el("span", { text: t("m23f.stats.lastKey") }), el("span", { text: hit?.key || t("m23f.stats.noKey") }));
+			}
+		}));
+	}
+	return box;
+}
+function findingText(env, finding) {
+	return env.app.i18n.t(finding.messageKey, finding.params);
+}
+function doctorBlock(env) {
+	const t = env.t;
+	const doctor = doctorApi(env.app);
+	const box = el("div", { class: "maestro-m23f-findings" });
+	if (!doctor) {
+		box.append(el("div", {
+			class: "maestro-m23f-hint",
+			text: t("m23f.doctor.off")
+		}));
+		return box;
+	}
+	let findings;
+	try {
+		findings = doctor.findings().filter((finding) => findingTargetsEntry(finding.target, env.ctx.book, env.ctx.uid));
+	} catch (error) {
+		env.app.log.debug("doctor findings failed", error);
+		findings = [];
+	}
+	if (!findings.length) {
+		box.append(el("div", {
+			class: "maestro-m23f-hint",
+			text: t("m23f.doctor.none")
+		}));
+		return box;
+	}
+	const rules = rulesApi(env.app);
+	box.append(el("ul", { class: "maestro-m23f-list" }, findings.map((finding) => {
+		const rule = finding.fixRule ? rules?.list().find((item) => item.id === finding.fixRule) : void 0;
+		return el("li", { class: "maestro-m23f-finding" }, [
+			badge(t(`m23f.doctor.sev.${finding.severity}`), finding.severity),
+			el("span", { text: ` ${findingText(env, finding)}` }),
+			finding.fixRule ? el("div", { class: "maestro-m23f-row-inline" }, [el("span", {
+				class: "maestro-m23f-hint",
+				text: rule ? t(rule.enabled ? "m23f.doctor.ruleOn" : "m23f.doctor.ruleOff", { rule: env.app.i18n.t(rule.definition.titleKey) }) : t("m23f.doctor.ruleUnknown", { rule: finding.fixRule })
+			}), button({
+				label: t("m23f.doctor.openRules"),
+				icon: "fa-wand-magic-sparkles",
+				kind: "ghost",
+				onClick: () => env.app.ui.openPult(RULES_TAB_ID)
+			})]) : null
+		]);
+	})));
+	return box;
+}
+function insightsSection(env) {
+	const t = env.t;
+	return formSection(t("m23f.section.insights"), [
+		el("div", {
+			class: "maestro-m23f-label",
+			text: t("m23f.stats.title")
+		}),
+		analyticsBlock(env),
+		el("div", {
+			class: "maestro-m23f-label",
+			text: t("m23f.doctor.title")
+		}),
+		doctorBlock(env)
+	], {
+		id: "insights",
+		open: false
+	});
+}
+function hitList(env, title, hits) {
+	if (!hits.length) return null;
+	return el("div", { class: "maestro-m23f-test-keys" }, [el("div", {
+		class: "maestro-m23f-label",
+		text: title
+	}), el("div", { class: "maestro-m23f-chips" }, hits.map((hit) => el("span", {
+		class: ["maestro-m23f-chip", hit.matched ? "maestro-m23f-chip-hit" : "maestro-m23f-chip-miss"],
+		title: hit.matched ? env.t("m23f.test.hit") : env.t("m23f.test.miss")
+	}, [el("span", { text: hit.matched ? "✓ " : "✗ " }), el("span", { text: hit.key })])))]);
+}
+function outcomeText(env, result) {
+	const t = env.t;
+	if (result.outcome === "secondaryFailed") return t("m23f.test.secondaryFailed", { logic: t(`m23f.logic.${result.logic}`) });
+	return t(`m23f.test.outcome.${result.outcome}`);
+}
+function testerSection(env) {
+	const t = env.t;
+	const id = uid("maestro-m23f-test");
+	const input = el("textarea", {
+		class: "text_pole maestro-m23f-textarea",
+		attrs: {
+			id,
+			rows: 3,
+			placeholder: t("m23f.test.placeholder")
+		}
+	});
+	const output = el("div", {
+		class: "maestro-m23f-test-out",
+		attrs: { "aria-live": "polite" }
+	});
+	const run = () => {
+		const text = input.value;
+		if (!text.trim()) {
+			output.replaceChildren(el("div", {
+				class: "maestro-m23f-hint",
+				text: t("m23f.test.enterText")
+			}));
+			return;
+		}
+		const globals = {
+			caseSensitive: globalValue(env.state.globals, [...GLOBAL_NAMES.caseSensitive], "boolean") ?? false,
+			matchWholeWords: globalValue(env.state.globals, [...GLOBAL_NAMES.matchWholeWords], "boolean") ?? false
+		};
+		let substitute = (value) => value;
+		try {
+			const ctx = env.app.host.ctx();
+			if (typeof ctx.substituteParams === "function") substitute = (value) => ctx.substituteParams(value);
+		} catch {}
+		const result = testEntry(env.state.draft, text, globals, substitute);
+		const nodes = [
+			el("div", { class: ["maestro-m23f-test-result", result.activates ? "maestro-level-ok" : "maestro-level-warn"] }, [el("strong", { text: result.activates ? t("m23f.test.yes") : t("m23f.test.no") }), el("span", { text: ` ${outcomeText(env, result)}` })]),
+			hitList(env, t("m23f.test.primary"), result.primary),
+			result.secondary.length ? hitList(env, result.secondaryUsed ? t("m23f.test.secondary", { logic: t(`m23f.logic.${result.logic}`) }) : t("m23f.test.secondaryIgnored"), result.secondary) : null,
+			el("div", {
+				class: "maestro-m23f-hint",
+				text: t("m23f.test.scope")
+			})
+		];
+		output.replaceChildren(...nodes.filter((node) => node !== null));
+	};
+	input.addEventListener("keydown", (event) => {
+		if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
+			event.preventDefault();
+			event.stopPropagation();
+			run();
+		}
+	});
+	env.sync(() => {
+		if (output.firstChild && input.value.trim()) run();
+	});
+	return formSection(t("m23f.section.tester"), [
+		row(env, {
+			label: t("m23f.test.label"),
+			control: input,
+			for: id,
+			hint: t("m23f.test.hint")
+		}),
+		el("div", { class: "maestro-m23f-actions" }, [button({
+			label: t("m23f.test.run"),
+			icon: "fa-vial",
+			kind: "primary",
+			onClick: run
+		})]),
+		output
+	], {
+		id: "tester",
+		open: false
+	});
+}
+//#endregion
+//#region src/features/loreStudio/form/russian-keys.ts
+function localizable(env) {
+	const role = env.role;
+	if (!role) return true;
+	if (role.role === "bunnymo.core" || role.role === "bunnymo.pack") return false;
+	return role.localizable !== false;
+}
+function russianKeysButton(env) {
+	if (env.readOnly || !localizable(env)) return null;
+	const t = env.t;
+	const localizer = localizerApi(env.app);
+	const canon = canonApi(env.app);
+	if (localizer) return el("div", { class: "maestro-m23f-actions" }, [button({
+		label: t("m23f.ru.localizer"),
+		icon: "fa-language",
+		title: t("m23f.ru.localizerHint"),
+		onClick: async () => {
+			if (env.isDirty()) {
+				env.status(t("m23f.ru.saveFirst"), "warn");
+				return;
+			}
+			env.status(t("m23f.ru.working"));
+			let result;
+			try {
+				result = await localizer.localizeEntries(env.ctx.book, [env.ctx.uid]);
+			} catch (error) {
+				env.status(t("m23f.ru.failed", { error: error instanceof Error ? error.message : String(error) }), "error");
+				return;
+			}
+			await env.reload();
+			const added = typeof result?.added === "number" ? result.added : 0;
+			const failures = typeof result?.failures === "number" ? result.failures : 0;
+			if (failures) env.status(t("m23f.ru.localizerFailed", {
+				added,
+				failures
+			}), "warn");
+			else if (added) env.status(t("m23f.ru.localizerDone", { added }), "ok");
+			else env.status(t("m23f.ru.nothingNew"), "info");
+		}
+	})]);
+	if (canon) return el("div", { class: "maestro-m23f-actions" }, [button({
+		label: t("m23f.ru.forms"),
+		icon: "fa-language",
+		title: t("m23f.ru.formsHint"),
+		onClick: async () => {
+			const keys = stringList$2(env.state.draft.key);
+			const terms = englishTerms(keys);
+			if (!terms.length) {
+				env.status(t("m23f.ru.noTerms"), "info");
+				return;
+			}
+			env.status(t("m23f.ru.working"));
+			const forms = [];
+			for (const term of terms) try {
+				forms.push(...await canon.russianKeys(term));
+			} catch (error) {
+				env.app.log.debug("russianKeys failed", term, error);
+			}
+			const merged = mergeKeys(keys, forms);
+			const added = merged.length - keys.length;
+			if (!added) {
+				env.status(t("m23f.ru.nothingNew"), "info");
+				return;
+			}
+			env.state.draft.key = merged;
+			env.changed();
+			env.status(t("m23f.ru.added", { count: added }), "ok");
+		}
+	})]);
+	return el("div", { class: "maestro-m23f-actions" }, [button({
+		label: t("m23f.ru.forms"),
+		icon: "fa-language",
+		disabled: true,
+		title: t("m23f.ru.unavailable")
+	}), el("span", {
+		class: "maestro-m23f-hint",
+		text: t("m23f.ru.unavailable")
+	})]);
+}
+//#endregion
+//#region src/features/loreStudio/form/keys.ts
+var ISSUE_ORDER = [
+	"badRegex",
+	"macroBrace",
+	"cyrillicWholeWord",
+	"comma",
+	"duplicate",
+	"macro"
+];
+function effective(env, field) {
+	const own = env.state.draft[field];
+	if (typeof own === "boolean") return own;
+	return globalValue(env.state.globals, [...GLOBAL_NAMES[field]], "boolean") ?? false;
+}
+function chip(env, info, fromLocalizer) {
+	const t = env.t;
+	const title = [
+		info.kind === "regex" ? t("m23f.keys.chipRegex") : null,
+		info.kind === "badRegex" ? t("m23f.keys.issue.badRegex") : null,
+		fromLocalizer ? t("m23f.keys.chipLocalizer") : null
+	].filter(Boolean).join("\n");
+	return el("span", {
+		class: [
+			"maestro-m23f-chip",
+			info.kind === "regex" ? "maestro-m23f-chip-regex" : null,
+			info.issues.length ? "maestro-m23f-chip-warn" : null,
+			fromLocalizer ? "maestro-m23f-chip-ll" : null
+		],
+		title: title || void 0
+	}, [
+		info.kind === "regex" ? el("span", {
+			class: "maestro-m23f-chip-icon",
+			text: "•*"
+		}) : null,
+		el("span", { text: info.key }),
+		fromLocalizer ? el("span", {
+			class: "maestro-m23f-chip-badge",
+			text: t("m23f.keys.badgeLocalizer")
+		}) : null
+	]);
+}
+function issueLines(env, infos) {
+	const byIssue = /* @__PURE__ */ new Map();
+	for (const info of infos) for (const issue of info.issues) byIssue.set(issue, [...byIssue.get(issue) ?? [], info.key]);
+	return ISSUE_ORDER.filter((issue) => byIssue.has(issue)).map((issue) => note(env.t(`m23f.keys.issue.${issue}`, { keys: (byIssue.get(issue) ?? []).join(", ") }), issue === "macro" ? "info" : "warn"));
+}
+/** A key list editor of the draft (`key` or `keysecondary`). */
+function keysEditor(env, field, label) {
+	const t = env.t;
+	const id = uid("maestro-m23f-keys");
+	const input = el("textarea", {
+		class: "text_pole maestro-m23f-keys",
+		attrs: {
+			id,
+			rows: 2,
+			name: field,
+			placeholder: t("m23f.keys.placeholder"),
+			spellcheck: "false",
+			autocomplete: "off"
+		}
+	});
+	input.value = formatKeys(stringList$2(env.state.draft[field]));
+	const chips = el("div", {
+		class: "maestro-m23f-chips",
+		attrs: { "aria-live": "polite" }
+	});
+	const issues = el("div", { class: "maestro-m23f-notes" });
+	input.addEventListener("input", () => {
+		env.state.draft[field] = parseKeyInput(input.value);
+		env.changed();
+	});
+	const render = () => {
+		const keys = stringList$2(env.state.draft[field]);
+		if (formatKeys(parseKeyInput(input.value)) !== formatKeys(keys)) input.value = formatKeys(keys);
+		const infos = analyzeKeys(keys, {
+			matchWholeWords: effective(env, "matchWholeWords"),
+			caseSensitive: effective(env, "caseSensitive")
+		});
+		const added = localizerKeys(env.app, env.state.draft);
+		chips.replaceChildren(...infos.map((info) => chip(env, info, added.has(info.key))));
+		chips.hidden = !infos.length;
+		issues.replaceChildren(...issueLines(env, infos));
+	};
+	render();
+	env.sync(render);
+	return row(env, {
+		label,
+		control: input,
+		for: id,
+		field,
+		hint: [chips, issues]
+	});
+}
+function logicSelect(env) {
+	const t = env.t;
+	const id = uid("maestro-m23f-logic");
+	const current = typeof env.state.draft.selectiveLogic === "number" ? env.state.draft.selectiveLogic : 0;
+	const values = [...LOGIC_ORDER];
+	if (!values.includes(current)) values.push(current);
+	const node = el("select", {
+		class: "text_pole",
+		attrs: {
+			id,
+			name: "selectiveLogic"
+		}
+	}, values.map((value) => el("option", {
+		text: LOGIC_ORDER.includes(value) ? t(`m23f.logic.${value}`) : t("m23f.logic.other", { value }),
+		attrs: { value: String(value) }
+	})));
+	node.value = String(current);
+	node.addEventListener("change", () => {
+		env.state.draft.selectiveLogic = Number(node.value);
+		env.changed();
+	});
+	return row(env, {
+		label: t("m23f.logic.label"),
+		control: node,
+		for: id,
+		hint: t("m23f.logic.hint")
+	});
+}
+/** Note when ST's engine ignores the secondary keys now (`selective` false) — ST's editor would switch it on. */
+function selectiveNote(env) {
+	const holder = el("div");
+	const render = () => {
+		const draft = env.state.draft;
+		const show = draft.selective !== true && stringList$2(draft.keysecondary).length > 0;
+		holder.replaceChildren(...show ? [note(env.t("m23f.keys.selectiveOff"), "warn", env.readOnly ? null : button({
+			label: env.t("m23f.keys.selectiveFix"),
+			kind: "ghost",
+			onClick: () => {
+				env.state.draft.selective = true;
+				env.changed();
+			}
+		}))] : []);
+	};
+	render();
+	env.sync(render);
+	return holder;
+}
+function noKeysNote(env) {
+	const holder = el("div");
+	const render = () => {
+		const draft = env.state.draft;
+		const empty = !stringList$2(draft.key).length && draft.constant !== true;
+		holder.replaceChildren(...empty ? [note(env.t("m23f.keys.noKeys"), "info")] : []);
+	};
+	render();
+	env.sync(render);
+	return holder;
+}
+function keysSection(env) {
+	const t = env.t;
+	return formSection(t("m23f.section.keys"), [
+		keysEditor(env, "key", t("m23f.keys.primary")),
+		noKeysNote(env),
+		russianKeysButton(env),
+		logicSelect(env),
+		keysEditor(env, "keysecondary", t("m23f.keys.secondary")),
+		selectiveNote(env),
+		el("div", {
+			class: "maestro-m23f-hint",
+			text: t("m23f.keys.help")
+		})
+	], { id: "keys" });
+}
+//#endregion
+//#region src/features/loreStudio/form/style.ts
+var ENTRY_FORM_CSS = `
+.maestro-m23f {
+    display: flex;
+    flex-direction: column;
+    gap: var(--maestro-gap, 12px);
+    color: var(--maestro-text);
+    min-width: 0;
+}
+.maestro-m23f [hidden] {
+    display: none !important;
+}
+.maestro-m23f-head {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 6px 0;
+    background: var(--maestro-surface);
+    border-bottom: 1px solid var(--maestro-border);
+}
+.maestro-m23f-is-dirty .maestro-m23f-head {
+    box-shadow: inset 0 -2px 0 var(--maestro-warn);
+}
+.maestro-m23f-head-row,
+.maestro-m23f-toolbar,
+.maestro-m23f-actions,
+.maestro-m23f-row-inline,
+.maestro-m23f-quick {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+}
+.maestro-m23f-title {
+    flex: 1;
+    min-width: 0;
+    margin: 0;
+    font-size: 1.1em;
+    overflow-wrap: anywhere;
+}
+.maestro-m23f-dirty {
+    color: var(--maestro-warn);
+    font-size: 0.85em;
+}
+.maestro-m23f-head-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    color: var(--maestro-muted);
+    font-size: 0.9em;
+}
+.maestro-m23f-book {
+    overflow-wrap: anywhere;
+}
+.maestro-m23f-badges,
+.maestro-m23f-chips,
+.maestro-m23f-suggest {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+.maestro-m23f-status {
+    font-size: 0.9em;
+}
+.maestro-m23f-status-ok {
+    color: var(--maestro-ok);
+}
+.maestro-m23f-status-warn {
+    color: var(--maestro-warn);
+}
+.maestro-m23f-status-error {
+    color: var(--maestro-error);
+}
+.maestro-m23f-edit {
+    display: flex;
+    flex-direction: column;
+    gap: var(--maestro-gap, 12px);
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+}
+.maestro-m23f-section > .maestro-m23f-summary {
+    display: flex;
+    align-items: center;
+    min-height: var(--maestro-tap, 44px);
+    cursor: pointer;
+}
+.maestro-m23f-section > .maestro-m23f-summary::before {
+    content: '▸';
+    margin-right: 8px;
+    transition: transform var(--maestro-duration, 125ms);
+}
+.maestro-m23f-section[open] > .maestro-m23f-summary::before {
+    transform: rotate(90deg);
+}
+.maestro-m23f-section > .maestro-m23f-summary::-webkit-details-marker {
+    display: none;
+}
+.maestro-m23f-body {
+    gap: 10px;
+}
+.maestro-m23f-row {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+.maestro-m23f-label {
+    font-weight: 600;
+}
+.maestro-m23f-control {
+    min-width: 0;
+}
+.maestro-m23f-control > .text_pole,
+.maestro-m23f-control > div > .text_pole,
+.maestro-m23f-control > textarea,
+.maestro-m23f-control > select {
+    width: 100%;
+    margin: 0;
+    box-sizing: border-box;
+}
+.maestro-m23f-control > .maestro-m23f-number {
+    max-width: 12em;
+}
+.maestro-m23f-textarea {
+    resize: vertical;
+}
+.maestro-m23f-content {
+    min-height: 10em;
+}
+.maestro-m23f-content-big {
+    min-height: 60vh;
+}
+.maestro-m23f-keys {
+    font-family: var(--monoFontFamily, monospace);
+}
+.maestro-m23f-hint {
+    color: var(--maestro-muted);
+    font-size: 0.88em;
+}
+.maestro-m23f-error {
+    color: var(--maestro-error);
+    font-size: 0.88em;
+}
+.maestro-m23f-notes {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.maestro-m23f-note {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+    font-size: 0.9em;
+    border-left: 3px solid var(--maestro-level, var(--maestro-accent));
+    border-radius: var(--maestro-radius-sm, 6px);
+    background: color-mix(in srgb, var(--maestro-level, var(--maestro-accent)) 10%, transparent);
+}
+.maestro-m23f-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    max-width: 100%;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: var(--maestro-raised-strong);
+    font-size: 0.9em;
+    overflow-wrap: anywhere;
+}
+.maestro-m23f-chip-regex {
+    font-family: var(--monoFontFamily, monospace);
+}
+.maestro-m23f-chip-icon {
+    color: var(--maestro-accent);
+}
+.maestro-m23f-chip-warn {
+    outline: 1px solid var(--maestro-warn);
+}
+.maestro-m23f-chip-badge,
+.maestro-m23f-tag {
+    padding: 0 4px;
+    border-radius: 4px;
+    font-size: 0.75em;
+    background: var(--maestro-accent-soft);
+}
+.maestro-m23f-tag {
+    margin-left: 6px;
+    background: color-mix(in srgb, var(--maestro-warn) 25%, transparent);
+}
+.maestro-m23f-chip-hit {
+    background: color-mix(in srgb, var(--maestro-ok) 22%, transparent);
+}
+.maestro-m23f-chip-miss {
+    opacity: 0.7;
+}
+.maestro-m23f-chip-btn {
+    min-height: 32px;
+    border: 1px dashed var(--maestro-border);
+    color: inherit;
+    cursor: pointer;
+}
+.maestro-m23f-chip-x {
+    min-width: 28px;
+    min-height: 28px;
+    border: 0;
+    background: none;
+    color: inherit;
+    cursor: pointer;
+}
+.maestro-m23f-counter {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    color: var(--maestro-muted);
+    font-size: 0.9em;
+}
+.maestro-m23f-check .checkbox_label,
+.maestro-m23f-pick {
+    min-height: 36px;
+    margin: 0;
+}
+.maestro-m23f-picker {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    max-height: 16em;
+    overflow: auto;
+    padding: 4px 8px;
+    border: 1px solid var(--maestro-border);
+    border-radius: var(--maestro-radius-sm, 6px);
+}
+.maestro-m23f-picker-inline {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 4px 14px;
+    max-height: none;
+    padding: 0;
+    border: 0;
+}
+.maestro-m23f-filter,
+.maestro-m23f-triggers,
+.maestro-m23f-typed,
+.maestro-m23f-typed-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.maestro-m23f-sides {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+}
+.maestro-m23f-side {
+    min-width: 0;
+    padding: 6px 8px;
+    border: 1px solid var(--maestro-border);
+    border-radius: var(--maestro-radius-sm, 6px);
+}
+.maestro-m23f-side-title {
+    font-weight: 600;
+}
+.maestro-m23f-side-keys {
+    color: var(--maestro-muted);
+    font-size: 0.88em;
+    overflow-wrap: anywhere;
+}
+.maestro-m23f-side-text {
+    max-height: 20em;
+    margin: 0;
+    overflow: auto;
+    font-family: inherit;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+.maestro-m23f-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin: 0;
+    padding-left: 1.2em;
+}
+.maestro-m23f-hist-list {
+    padding: 0;
+    list-style: none;
+}
+.maestro-m23f-hist-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--maestro-border);
+}
+.maestro-m23f-hist-head {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.maestro-m23f-hist-by {
+    color: var(--maestro-muted);
+}
+.maestro-m23f-test-result {
+    padding: 6px 10px;
+    border-left: 3px solid var(--maestro-level, var(--maestro-accent));
+    border-radius: var(--maestro-radius-sm, 6px);
+    background: color-mix(in srgb, var(--maestro-level, var(--maestro-accent)) 12%, transparent);
+}
+.maestro-m23f-test-out,
+.maestro-m23f-stats,
+.maestro-m23f-findings,
+.maestro-m23f-canon,
+.maestro-m23f-hist {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.maestro-m23f-help > summary {
+    cursor: pointer;
+    color: var(--maestro-muted);
+    font-size: 0.9em;
+}
+.maestro-m23f-readonly .maestro-m23f-edit {
+    opacity: 0.85;
+}
+@media (min-width: 700px) {
+    .maestro-m23f-row {
+        display: grid;
+        grid-template-columns: minmax(150px, 1fr) minmax(220px, 2fr);
+        align-items: start;
+        column-gap: var(--maestro-gap, 12px);
+    }
+    .maestro-m23f-row > .maestro-m23f-label {
+        padding-top: 6px;
+    }
+    .maestro-m23f-row > .maestro-m23f-hint,
+    .maestro-m23f-row > .maestro-m23f-error {
+        grid-column: 2;
+    }
+    .maestro-m23f-sides {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+`;
+//#endregion
+//#region src/features/loreStudio/form/strings.ts
+var ENTRY_FORM_STRINGS = {
+	en: {
+		"m23f.loading": "Loading…",
+		"m23f.loadFailed": "Could not load the entry: {error}",
+		"m23f.notFound": "Entry #{uid} is not in «{book}» (deleted or moved).",
+		"m23f.legend": "Entry fields",
+		"m23f.back": "Back",
+		"m23f.close": "Close",
+		"m23f.uid": "UID {uid}",
+		"m23f.dirty": "● unsaved",
+		"m23f.save": "Save",
+		"m23f.saveHint": "Save the changed fields (Ctrl+S)",
+		"m23f.revert": "Undo edits",
+		"m23f.reverted": "Edits dropped: the entry is as stored.",
+		"m23f.enabled": "Enabled",
+		"m23f.badge.disabled": "disabled",
+		"m23f.badge.readOnly": "read only",
+		"m23f.save.saving": "Saving…",
+		"m23f.save.done": "Saved.",
+		"m23f.save.nothing": "Nothing changed.",
+		"m23f.save.failed": "Not saved: {error}",
+		"m23f.save.blocked": "Fix the marked fields first.",
+		"m23f.save.fixErrors": "Fields with errors: {fields}",
+		"m23f.save.summary": "Lore Studio: «{entry}» in «{book}» — {fields}",
+		"m23f.discard.title": "Unsaved edits",
+		"m23f.discard.body": "The entry has edits that are not saved. Leave without saving?",
+		"m23f.external.changed": "The entry was changed outside the studio while you were editing it.",
+		"m23f.external.reload": "Show the new version (drop my edits)",
+		"m23f.external.reloaded": "The entry was changed outside the studio: the form shows the new version.",
+		"m23f.external.gone": "The entry is gone from the book.",
+		"m23f.ro.bunnymo": "BunnyMo packs are never edited: not the text, not the keys, no translations (P13). Technical fixes (role, recursion, duplicates) happen on the fly in «Rules», each one can be switched off.",
+		"m23f.ro.generic": "This book is open read-only.",
+		"m23f.ro.openRules": "Open «Rules»",
+		"m23f.section.keys": "Keys and conditions",
+		"m23f.section.content": "Content",
+		"m23f.section.placement": "Placement",
+		"m23f.section.activation": "Activation and recursion",
+		"m23f.section.timers": "Timers",
+		"m23f.section.groups": "Groups",
+		"m23f.section.filters": "Filters and triggers",
+		"m23f.section.sources": "Scan sources",
+		"m23f.section.service": "Service",
+		"m23f.section.passport": "Passport",
+		"m23f.section.canon": "Chat canon · {book}",
+		"m23f.section.canonEntry": "Canon entry",
+		"m23f.section.insights": "Analytics and doctor",
+		"m23f.section.tester": "Check activation",
+		"m23f.section.history": "Version history",
+		"m23f.passport.later": "The passport of the entry comes with stage 10 (M28).",
+		"m23f.keys.primary": "Primary keywords",
+		"m23f.keys.secondary": "Optional filter (secondary keys)",
+		"m23f.keys.placeholder": "Comma-separated: Anna, Annie, /Ann(a|ie)/i",
+		"m23f.keys.help": "Commas separate keys, except inside a regex /…/flags. A regex ignores the case and whole-word settings (use the i flag). Macros like {{char}} work in keys.",
+		"m23f.keys.chipRegex": "Regular expression",
+		"m23f.keys.chipLocalizer": "Added by Lorebook Localizer",
+		"m23f.keys.badgeLocalizer": "LL",
+		"m23f.keys.noKeys": "Without primary keys the entry fires only as constant, by @@activate or through other extensions.",
+		"m23f.keys.issue.badRegex": "Looks like a regex, but ST cannot parse it, so it is matched as plain text: {keys}",
+		"m23f.keys.issue.comma": "A comma inside a key (an unpaired slash kept it): ST keeps it as one key — {keys}",
+		"m23f.keys.issue.macroBrace": "ST’s macro engine turns \\{ into { before matching; write [{] instead: {keys}",
+		"m23f.keys.issue.macro": "Macros are substituted in these keys before matching: {keys}",
+		"m23f.keys.issue.cyrillicWholeWord": "«Whole words» does not know Cyrillic in ST (JS \\W): these keys also match inside other words — {keys}. The M22 rule or a /…/iu regex fixes it.",
+		"m23f.keys.issue.duplicate": "Repeated keys: {keys}",
+		"m23f.keys.selectiveOff": "The secondary keys are ignored now: «selective» is off. ST’s own editor switches it on when the entry is opened there.",
+		"m23f.keys.selectiveFix": "Use secondary keys",
+		"m23f.logic.label": "Logic",
+		"m23f.logic.hint": "How the secondary keys combine with a primary match.",
+		"m23f.logic.0": "AND ANY",
+		"m23f.logic.3": "AND ALL",
+		"m23f.logic.1": "NOT ALL",
+		"m23f.logic.2": "NOT ANY",
+		"m23f.logic.other": "Unknown ({value})",
+		"m23f.ru.localizer": "Russian keys",
+		"m23f.ru.localizerHint": "Lorebook Localizer translates the keys of this entry and adds Russian forms (writes the book).",
+		"m23f.ru.forms": "Russian keys",
+		"m23f.ru.formsHint": "Adds Russian forms of the English keys (DES-RU declensions through the canon module).",
+		"m23f.ru.saveFirst": "Save or undo the edits first: the Localizer writes the book itself.",
+		"m23f.ru.working": "Looking for Russian forms…",
+		"m23f.ru.localizerDone": "Localizer added {added} keys.",
+		"m23f.ru.localizerFailed": "Localizer added {added} keys; {failures} entries were not translated.",
+		"m23f.ru.failed": "Localizer failed: {error}",
+		"m23f.ru.noTerms": "No plain English keys to translate.",
+		"m23f.ru.nothingNew": "No new forms.",
+		"m23f.ru.added": "Added {count} keys — check them and save.",
+		"m23f.ru.unavailable": "Needs Lorebook Localizer or the chat canon with DES-RU.",
+		"m23f.comment.label": "Title / memo",
+		"m23f.comment.placeholder": "Entry title or memo",
+		"m23f.comment.hint": "For you only: it never goes into the prompt.",
+		"m23f.content.label": "Content",
+		"m23f.content.placeholder": "What the AI should know about this keyword",
+		"m23f.content.tokens": "Tokens: {count}",
+		"m23f.content.chars": "Chars: {count}",
+		"m23f.content.expand": "Expand the editor",
+		"m23f.deco.activate": "@@activate: the entry fires without keys (after filters, timers and recursion checks).",
+		"m23f.deco.dontActivate": "@@dont_activate: the entry never fires — not as constant, sticky, by keys or from outside.",
+		"m23f.deco.unknown": "Unknown decorators are cut from the prompt without a word: {lines}",
+		"m23f.deco.helpTitle": "Decorators",
+		"m23f.deco.help": "Lines at the very start of the content: @@activate fires the entry without keys, @@dont_activate switches it off. Every @@ line there is removed from the prompt; @@@x is read as @@x only after an unknown decorator. If the content is nothing but @@ lines, nothing is removed.",
+		"m23f.typed.label": "Entry type",
+		"m23f.typed.none": "— no type —",
+		"m23f.typed.compose": "Compose content from fields",
+		"m23f.typed.composeHint": "Writes «Label: value» lines (English labels, values as typed). Existing text is replaced only after you confirm.",
+		"m23f.typed.composed": "Content composed from the fields — check it and save.",
+		"m23f.typed.emptyFields": "The fields are empty.",
+		"m23f.typed.same": "The content already matches the fields.",
+		"m23f.typed.replaceTitle": "Replace the content?",
+		"m23f.typed.replaceBody": "The entry already has text. It will be replaced with the text composed from the fields:",
+		"m23f.typed.whereEntry": "Stored in the entry (extensions.maestro); other extensions see only the content.",
+		"m23f.typed.whereSidecar": "Stored in Maestro’s registry: the book file stays as its author made it (P2).",
+		"m23f.typed.unavailable": "Entry types of base books need the book roles module (M35).",
+		"m23f.type.character": "Character",
+		"m23f.type.place": "Place",
+		"m23f.type.item": "Item",
+		"m23f.type.faction": "Faction",
+		"m23f.type.event": "Event",
+		"m23f.type.tradition": "Tradition",
+		"m23f.type.mechanic": "Mechanic",
+		"m23f.type.rule": "Rule",
+		"m23f.type.chapter": "Chronicle chapter",
+		"m23f.type.note": "Note",
+		"m23f.tf.name": "Name / title",
+		"m23f.tf.aliases": "Aliases",
+		"m23f.tf.role": "Role",
+		"m23f.tf.age": "Age",
+		"m23f.tf.appearance": "Appearance",
+		"m23f.tf.personality": "Personality",
+		"m23f.tf.background": "Background",
+		"m23f.tf.relationships": "Relationships",
+		"m23f.tf.speech": "Speech",
+		"m23f.tf.goals": "Goals",
+		"m23f.tf.kind": "Kind",
+		"m23f.tf.location": "Location",
+		"m23f.tf.description": "Description",
+		"m23f.tf.atmosphere": "Atmosphere",
+		"m23f.tf.inhabitants": "Inhabitants",
+		"m23f.tf.features": "Notable features",
+		"m23f.tf.secrets": "Secrets",
+		"m23f.tf.properties": "Properties",
+		"m23f.tf.owner": "Owner",
+		"m23f.tf.origin": "Origin",
+		"m23f.tf.whereabouts": "Whereabouts",
+		"m23f.tf.leader": "Leader",
+		"m23f.tf.members": "Members",
+		"m23f.tf.territory": "Territory",
+		"m23f.tf.allies": "Allies",
+		"m23f.tf.enemies": "Enemies",
+		"m23f.tf.symbols": "Symbols and customs",
+		"m23f.tf.when": "When",
+		"m23f.tf.where": "Where",
+		"m23f.tf.participants": "Participants",
+		"m23f.tf.consequences": "Consequences",
+		"m23f.tf.culture": "Culture",
+		"m23f.tf.practice": "Practice",
+		"m23f.tf.meaning": "Meaning",
+		"m23f.tf.taboos": "Taboos",
+		"m23f.tf.summary": "Summary",
+		"m23f.tf.rules": "Rules",
+		"m23f.tf.limits": "Costs and limits",
+		"m23f.tf.examples": "Examples",
+		"m23f.tf.statement": "Rule",
+		"m23f.tf.scope": "Scope",
+		"m23f.tf.exceptions": "Exceptions",
+		"m23f.tf.period": "Period",
+		"m23f.tf.events": "Key events",
+		"m23f.tf.characters": "Characters",
+		"m23f.tf.threads": "Open threads",
+		"m23f.tf.text": "Text",
+		"m23f.state.label": "Status",
+		"m23f.state.hint": "Constant fires without keys. Vectorized still fires by keys; Vector Storage may also activate it.",
+		"m23f.state.constant": "Constant",
+		"m23f.state.normal": "Normal (by keys)",
+		"m23f.state.vectorized": "Vectorized",
+		"m23f.pos.label": "Position",
+		"m23f.pos.before": "↑Char — before the character description",
+		"m23f.pos.after": "↓Char — after the character description",
+		"m23f.pos.emTop": "↑EM — before the example messages",
+		"m23f.pos.emBottom": "↓EM — after the example messages",
+		"m23f.pos.anTop": "↑AN — before the Author’s Note",
+		"m23f.pos.anBottom": "↓AN — after the Author’s Note",
+		"m23f.pos.depthSystem": "@D ⚙️ — at depth, as system",
+		"m23f.pos.depthUser": "@D 👤 — at depth, as user",
+		"m23f.pos.depthAssistant": "@D 🤖 — at depth, as assistant",
+		"m23f.pos.outlet": "➡️ Outlet — only through {{outlet::name}}",
+		"m23f.pos.other": "Other ({value}) — kept as is",
+		"m23f.pos.missing": "No position is stored: the engine puts the entry nowhere. ST’s editor would make it «↑Char».",
+		"m23f.pos.anHint": "Author’s Note positions reach the prompt only on turns when the Author’s Note itself is inserted.",
+		"m23f.depth.label": "Depth",
+		"m23f.depth.hint": "Messages from the end of the chat. Entries with the same depth and role are joined into one block.",
+		"m23f.outlet.label": "Outlet name",
+		"m23f.outlet.placeholder": "e.g. scene",
+		"m23f.outlet.hint": "The content goes into the prompt only where {{outlet::name}} stands (several names: comma-separated).",
+		"m23f.outlet.empty": "Outlet without a name: ST skips the entry.",
+		"m23f.order.label": "Order",
+		"m23f.order.hint": "A higher order goes closer to the end of its block (outlets: the other way round).",
+		"m23f.prob.label": "Trigger %",
+		"m23f.prob.use": "Roll the probability",
+		"m23f.prob.useHint": "ST hides this flag and switches it on when the entry is opened in its editor.",
+		"m23f.prob.empty": "No probability is stored: ST rolls against an empty value and the entry almost never fires.",
+		"m23f.prob.notRolled": "The roll is off now, so {value}% does not apply. ST’s editor switches the roll on when the entry is opened there.",
+		"m23f.scan.label": "Scan depth",
+		"m23f.scan.global": "Global setting",
+		"m23f.scan.globalNow": "Global ({value})",
+		"m23f.scan.hint": "Empty — the global setting. 0…1000 messages.",
+		"m23f.case.label": "Case-sensitive",
+		"m23f.case.hint": "Does not apply to regex keys (use the i flag).",
+		"m23f.whole.label": "Whole words",
+		"m23f.whole.hint": "Keys of several words are always matched as substrings; Cyrillic needs the M22 rule.",
+		"m23f.tri.global": "Global setting",
+		"m23f.tri.globalNow": "Global (now: {value})",
+		"m23f.tri.yes": "Yes",
+		"m23f.tri.no": "No",
+		"m23f.rec.exclude": "Non-recursable",
+		"m23f.rec.excludeHint": "Not activated by the content of other entries (recursion steps).",
+		"m23f.rec.prevent": "Prevent further recursion",
+		"m23f.rec.preventHint": "Its content does not activate other entries.",
+		"m23f.rec.delay": "Delay until recursion",
+		"m23f.rec.delayHint": "Activated only on recursion steps.",
+		"m23f.rec.level": "Recursion level",
+		"m23f.rec.levelHint": "Empty — level 1. Levels open in ascending order: the next one starts when nothing more fires on the current one.",
+		"m23f.rec.levelPlaceholder": "1",
+		"m23f.rec.levelInvalid": "A level is a number (1, 2, …).",
+		"m23f.budget.ignore": "Ignore budget",
+		"m23f.budget.ignoreHint": "Inserted even after the World Info budget overflows.",
+		"m23f.timer.sticky": "Sticky",
+		"m23f.timer.stickyHint": "Stays active this many messages after firing.",
+		"m23f.timer.cooldown": "Cooldown",
+		"m23f.timer.cooldownHint": "Cannot fire again for this many messages.",
+		"m23f.timer.delay": "Delay",
+		"m23f.timer.delayHint": "Cannot fire while the chat has fewer messages.",
+		"m23f.timer.none": "None",
+		"m23f.timer.hashReset": "Any edit of the entry changes its hash and ends a running sticky or cooldown in open chats.",
+		"m23f.group.label": "Inclusion group",
+		"m23f.group.placeholder": "group, another group",
+		"m23f.group.hint": "Only one entry with the same label fires per scan. Several groups — comma-separated.",
+		"m23f.group.suggest": "Groups used in this book",
+		"m23f.group.override": "Prioritize",
+		"m23f.group.overrideHint": "Among the group’s activated entries the prioritized one with the highest order wins.",
+		"m23f.group.weight": "Group weight",
+		"m23f.group.weightHint": "Relative chance to win the group (1…10000).",
+		"m23f.group.scoring": "Group scoring",
+		"m23f.group.scoringHint": "Entries with fewer matched keys drop out of the group.",
+		"m23f.filter.label": "Characters and tags",
+		"m23f.filter.hint": "Tie the entry to characters (by avatar file) or to characters with tags.",
+		"m23f.filter.search": "Search characters and tags",
+		"m23f.filter.exclude": "Exclude mode",
+		"m23f.filter.excludeHint": "The listed characters and tags are excluded instead.",
+		"m23f.filter.tag": "[Tag] {name}",
+		"m23f.filter.missing": "not found",
+		"m23f.filter.missingNote": "Some names do not match any character (renamed or deleted). They are kept until you remove them.",
+		"m23f.filter.dropMissing": "Remove missing",
+		"m23f.filter.remove": "Remove {name}",
+		"m23f.filter.nobody": "Nothing selected: the entry works for every character.",
+		"m23f.filter.more": "{count} more — refine the search.",
+		"m23f.filter.empty": "No characters or tags in this SillyTavern.",
+		"m23f.trigger.label": "Generation types",
+		"m23f.trigger.hint": "Nothing selected — all types.",
+		"m23f.trigger.unknown": "Unknown types are kept as stored (ST’s editor would drop them): {values}",
+		"m23f.trigger.normal": "Normal",
+		"m23f.trigger.continue": "Continue",
+		"m23f.trigger.impersonate": "Impersonate",
+		"m23f.trigger.swipe": "Swipe",
+		"m23f.trigger.regenerate": "Regenerate",
+		"m23f.trigger.quiet": "Quiet",
+		"m23f.src.hint": "Besides the chat, look for the keys in:",
+		"m23f.src.matchPersonaDescription": "Persona description",
+		"m23f.src.matchCharacterDescription": "Character description",
+		"m23f.src.matchCharacterPersonality": "Character personality",
+		"m23f.src.matchCharacterDepthPrompt": "Character’s note",
+		"m23f.src.matchScenario": "Scenario",
+		"m23f.src.matchCreatorNotes": "Creator’s notes",
+		"m23f.svc.uid": "UID (for /getentryfield and other commands)",
+		"m23f.svc.automation": "Automation ID",
+		"m23f.svc.automationNone": "(none)",
+		"m23f.svc.automationHint": "Quick Reply scripts with this id run when the entry fires.",
+		"m23f.svc.selective": "Selective (use secondary keys)",
+		"m23f.svc.selectiveHint": "Hidden in ST: its editor always switches it on.",
+		"m23f.svc.addMemo": "Add memo",
+		"m23f.svc.addMemoHint": "Hidden in ST and unused by the engine; kept as stored.",
+		"m23f.svc.cardBook": "A book from a character card: the store mirrors changes into its originalData.",
+		"m23f.svc.unknown": "Fields of other extensions: {fields}",
+		"m23f.svc.unknownKept": "Fields the studio does not know are kept as they are.",
+		"m23f.st.title": "What ST’s own editor would change",
+		"m23f.st.intro": "ST’s World Info window silently changes these values when it shows or opens the entry (written with the next save of the book). The studio keeps them as stored:",
+		"m23f.st.none": "Nothing: ST’s editor would keep this entry as it is.",
+		"m23f.st.engine": "changes how it fires",
+		"m23f.st.banner": "Opening this entry in ST’s window would change how it fires: {fields}. The studio keeps the stored values.",
+		"m23f.st.apply": "Turn on «selective» and the roll",
+		"m23f.st.applyHint": "Sets selective and useProbability like ST’s editor does (as an edit you save).",
+		"m23f.num.notNumber": "Not a number.",
+		"m23f.num.required": "Enter a number.",
+		"m23f.num.negative": "Not less than {min}.",
+		"m23f.num.notInteger": "A whole number.",
+		"m23f.num.clampedMin": "Raised to {value} (the minimum).",
+		"m23f.num.clampedMax": "Lowered to {value} (the maximum).",
+		"m23f.num.floored": "Rounded down to {value}.",
+		"m23f.canon.base": "Base",
+		"m23f.canon.override.title": "Canon override",
+		"m23f.canon.noKeys": "no keys",
+		"m23f.canon.emptyContent": "(empty)",
+		"m23f.canon.diff": "Base → canon",
+		"m23f.canon.keysDiff": "Keys: base → canon",
+		"m23f.canon.noOverride": "No override: this chat uses the base entry as it is.",
+		"m23f.canon.drift": "The base changed after the override was made: compare and update the override if needed.",
+		"m23f.canon.override": "Override in canon",
+		"m23f.canon.overrideHint": "Copies the entry into this chat’s canon and opens the copy; the base book is not changed.",
+		"m23f.canon.overrideDone": "Override created.",
+		"m23f.canon.editOverride": "Edit the override",
+		"m23f.canon.saveFirst": "Save or undo the edits of the base entry first.",
+		"m23f.canon.promote": "Promote to the base",
+		"m23f.canon.promoteHint": "Writes the override into the base book for every chat (asks first).",
+		"m23f.canon.promoted": "The override is now in the base book.",
+		"m23f.canon.promoteDeclined": "Not promoted (declined or queued in the Inbox).",
+		"m23f.canon.removeOverride": "Remove the override",
+		"m23f.canon.removeTitle": "Remove the override?",
+		"m23f.canon.removeBody": "This chat goes back to the base entry. The change is journaled and can be undone.",
+		"m23f.canon.removed": "Override removed.",
+		"m23f.canon.suppress": "Suppress in this chat",
+		"m23f.canon.suppressHint": "The entry does not reach the prompt in this chat; the book is not changed.",
+		"m23f.canon.suppressed": "Suppressed in this chat.",
+		"m23f.canon.unsuppress": "Stop suppressing",
+		"m23f.canon.unsuppressed": "No longer suppressed.",
+		"m23f.canon.isSuppressed": "Suppressed in this chat.",
+		"m23f.canon.pin": "Pin",
+		"m23f.canon.pinHint": "The entry fires on every turn of this chat.",
+		"m23f.canon.pinned": "Pinned in this chat.",
+		"m23f.canon.unpin": "Unpin",
+		"m23f.canon.unpinned": "Unpinned.",
+		"m23f.canon.isPinned": "Pinned in this chat: fires on every turn.",
+		"m23f.canon.failed": "Canon action failed: {error}",
+		"m23f.canon.loadFailed": "Could not read the canon of this chat.",
+		"m23f.canon.status.active": "active",
+		"m23f.canon.status.provisional": "provisional",
+		"m23f.canon.status.archived": "archived",
+		"m23f.canon.provisionalTurns": "provisional · {count} turns without contradiction",
+		"m23f.canon.provisionalNote": "A provisional fact: it becomes canon after a few turns without contradiction (M26).",
+		"m23f.canon.kind.override": "override",
+		"m23f.canon.kind.addition": "addition",
+		"m23f.canon.kind.suppress": "suppression",
+		"m23f.canon.kind.pin": "pin",
+		"m23f.canon.origin.user": "by you",
+		"m23f.canon.origin.revision": "from revision",
+		"m23f.canon.origin.living": "living canon",
+		"m23f.canon.origin.chronicle": "chronicle",
+		"m23f.canon.origin.backstage": "backstage",
+		"m23f.canon.origin.entity": "world model",
+		"m23f.canon.origin.import": "imported",
+		"m23f.canon.baseLink": "Base: «{book}» #{uid}",
+		"m23f.canon.openBase": "Open the base",
+		"m23f.canon.baseGone": "The base entry is gone.",
+		"m23f.canon.diffBaseNow": "Base now → this override",
+		"m23f.canon.created": "created {time}",
+		"m23f.canon.updated": "changed {time}",
+		"m23f.canon.source": "from message #{index}",
+		"m23f.stats.title": "Activations in this chat",
+		"m23f.stats.noJournal": "The lore journal (M1) is off: no activation statistics.",
+		"m23f.stats.noTurns": "No turns recorded in this chat yet.",
+		"m23f.stats.frequency": "Fired",
+		"m23f.stats.frequencyValue": "{count} of {turns} turns ({percent})",
+		"m23f.stats.last": "Last time",
+		"m23f.stats.lastValue": "message #{index}, {time}",
+		"m23f.stats.never": "never",
+		"m23f.stats.avgChars": "Average size, chars",
+		"m23f.stats.lastKey": "Last key",
+		"m23f.stats.findKey": "Find the key",
+		"m23f.stats.noKey": "no key (constant, sticky or forced)",
+		"m23f.stats.cut": "Cut by the budget or a rule: {count} times.",
+		"m23f.stats.recent": "Recent activations",
+		"m23f.stats.recentItem": "message #{index}, {time}, {chars} chars",
+		"m23f.stats.recentKey": "key: {key}",
+		"m23f.stats.recentRecursion": "recursion {level}",
+		"m23f.stats.recentCut": "cut",
+		"m23f.doctor.title": "Doctor findings",
+		"m23f.doctor.off": "The doctor (M5) is off.",
+		"m23f.doctor.none": "No findings for this entry in the last check.",
+		"m23f.doctor.sev.error": "error",
+		"m23f.doctor.sev.warn": "warning",
+		"m23f.doctor.sev.info": "note",
+		"m23f.doctor.ruleOn": "Fixed on the fly by «{rule}» (on).",
+		"m23f.doctor.ruleOff": "Rule «{rule}» fixes it on the fly (off).",
+		"m23f.doctor.ruleUnknown": "Fixing rule: {rule}",
+		"m23f.doctor.openRules": "Open «Rules»",
+		"m23f.test.label": "Text",
+		"m23f.test.placeholder": "Paste a message or a few lines of the chat",
+		"m23f.test.hint": "Checked against the keys as they are in the form now (unsaved edits included). Ctrl+Enter runs it.",
+		"m23f.test.run": "Check",
+		"m23f.test.enterText": "Enter some text first.",
+		"m23f.test.yes": "Fires.",
+		"m23f.test.no": "Does not fire.",
+		"m23f.test.primary": "Primary keys",
+		"m23f.test.secondary": "Secondary keys ({logic})",
+		"m23f.test.secondaryIgnored": "Secondary keys (ignored: «selective» is off)",
+		"m23f.test.hit": "found",
+		"m23f.test.miss": "not found",
+		"m23f.test.secondaryFailed": "A primary key matched, but the secondary keys do not satisfy «{logic}».",
+		"m23f.test.outcome.disabled": "The entry is disabled.",
+		"m23f.test.outcome.dontActivate": "@@dont_activate switches it off.",
+		"m23f.test.outcome.activateDecorator": "@@activate fires it without keys.",
+		"m23f.test.outcome.constant": "A constant entry fires without keys.",
+		"m23f.test.outcome.noKeys": "The entry has no primary keys.",
+		"m23f.test.outcome.noPrimary": "No primary key matched.",
+		"m23f.test.outcome.activated": "Matched by its keys.",
+		"m23f.test.scope": "Probability, timers, filters, groups and the budget are not part of this check.",
+		"m23f.hist.empty": "No earlier versions saved through Maestro yet.",
+		"m23f.hist.failed": "Could not read the history.",
+		"m23f.hist.diff": "Compare with now",
+		"m23f.hist.restore": "Restore this version",
+		"m23f.hist.restored": "The version of {time} is restored.",
+		"m23f.hist.restoreSummary": "Lore Studio: entry #{entry} restored to the version of {time}",
+		"m23f.hist.same": "This version matches the current entry.",
+		"m23f.hist.discardBody": "Restoring drops your unsaved edits. Continue?",
+		"m23f.hist.all": "Show all ({count})",
+		"m23f.hist.by.user": "you (Lore Studio)",
+		"m23f.hist.by.localizer": "Lorebook Localizer",
+		"m23f.hist.by.ck": "CarrotKernel",
+		"m23f.hist.by.st": "outside Maestro",
+		"m23f.role.bunnymo.core": "BunnyMo core",
+		"m23f.role.bunnymo.pack": "BunnyMo pack",
+		"m23f.role.ck.archive": "CK archive",
+		"m23f.role.world": "world",
+		"m23f.role.card": "card book",
+		"m23f.role.npc": "NPC book",
+		"m23f.role.canon": "chat canon",
+		"m23f.role.maestro": "Maestro book",
+		"m23f.role.chat": "chat book",
+		"m23f.role.persona": "persona book",
+		"m23f.role.backup": "backup",
+		"m23f.role.unknown": "unknown role"
+	},
+	ru: {
+		"m23f.loading": "Загрузка…",
+		"m23f.loadFailed": "Не удалось загрузить запись: {error}",
+		"m23f.notFound": "В книге «{book}» нет записи №{uid} (удалена или перенесена).",
+		"m23f.legend": "Поля записи",
+		"m23f.back": "Назад",
+		"m23f.close": "Закрыть",
+		"m23f.uid": "UID {uid}",
+		"m23f.dirty": "● не сохранено",
+		"m23f.save": "Сохранить",
+		"m23f.saveHint": "Сохранить изменённые поля (Ctrl+S)",
+		"m23f.revert": "Отменить правки",
+		"m23f.reverted": "Правки отменены: запись такая, как сохранена.",
+		"m23f.enabled": "Включена",
+		"m23f.badge.disabled": "выключена",
+		"m23f.badge.readOnly": "только чтение",
+		"m23f.save.saving": "Сохраняю…",
+		"m23f.save.done": "Сохранено.",
+		"m23f.save.nothing": "Ничего не изменилось.",
+		"m23f.save.failed": "Не сохранено: {error}",
+		"m23f.save.blocked": "Сначала исправь отмеченные поля.",
+		"m23f.save.fixErrors": "Поля с ошибками: {fields}",
+		"m23f.save.summary": "Лор-студия: «{entry}» в «{book}» — {fields}",
+		"m23f.discard.title": "Несохранённые правки",
+		"m23f.discard.body": "В записи есть несохранённые правки. Уйти без сохранения?",
+		"m23f.external.changed": "Пока ты редактировал запись, её изменили вне студии.",
+		"m23f.external.reload": "Показать новую версию (мои правки пропадут)",
+		"m23f.external.reloaded": "Запись изменили вне студии — в форме уже новая версия.",
+		"m23f.external.gone": "Записи больше нет в книге.",
+		"m23f.ro.bunnymo": "Паки BunnyMo никогда не редактируются: ни текст, ни ключи, ни переводы (P13). Технические исправления (роль, рекурсия, дубли) Maestro делает на лету во вкладке «Правила» — каждое можно выключить.",
+		"m23f.ro.generic": "Книга открыта только для чтения.",
+		"m23f.ro.openRules": "Открыть «Правила»",
+		"m23f.section.keys": "Ключи и условия",
+		"m23f.section.content": "Содержимое",
+		"m23f.section.placement": "Размещение",
+		"m23f.section.activation": "Активация и рекурсия",
+		"m23f.section.timers": "Таймеры",
+		"m23f.section.groups": "Группы",
+		"m23f.section.filters": "Фильтры и триггеры",
+		"m23f.section.sources": "Источники сканирования",
+		"m23f.section.service": "Служебное",
+		"m23f.section.passport": "Паспорт",
+		"m23f.section.canon": "Канон чата · {book}",
+		"m23f.section.canonEntry": "Запись канона",
+		"m23f.section.insights": "Аналитика и доктор",
+		"m23f.section.tester": "Проверить срабатывание",
+		"m23f.section.history": "История версий",
+		"m23f.passport.later": "Паспорт записи появится на этапе 10 (M28).",
+		"m23f.keys.primary": "Основные ключевые слова",
+		"m23f.keys.secondary": "Дополнительный фильтр (вторичные ключи)",
+		"m23f.keys.placeholder": "Через запятую: Аня, Анечка, /Ан(я|ечк)/i",
+		"m23f.keys.help": "Запятая разделяет ключи, кроме запятых внутри регулярки /…/флаги. Регулярка не смотрит на настройки регистра и целых слов (регистр — флаг i). Макросы вроде {{char}} в ключах работают.",
+		"m23f.keys.chipRegex": "Регулярное выражение",
+		"m23f.keys.chipLocalizer": "Добавлен Lorebook Localizer",
+		"m23f.keys.badgeLocalizer": "LL",
+		"m23f.keys.noKeys": "Без основных ключей запись срабатывает только как постоянная, по @@activate или через другие расширения.",
+		"m23f.keys.issue.badRegex": "Похоже на регулярку, но ST её не разберёт и будет искать как обычный текст: {keys}",
+		"m23f.keys.issue.comma": "Запятая внутри ключа (её удержал непарный слеш): ST хранит это как один ключ — {keys}",
+		"m23f.keys.issue.macroBrace": "Движок макросов ST превращает \\{ в { ещё до поиска; пиши [{]: {keys}",
+		"m23f.keys.issue.macro": "В этих ключах перед поиском подставляются макросы: {keys}",
+		"m23f.keys.issue.cyrillicWholeWord": "«Целые слова» в ST не знают кириллицы (\\W в JS): эти ключи сработают и внутри других слов — {keys}. Поможет правило M22 или регулярка /…/iu.",
+		"m23f.keys.issue.duplicate": "Повторяются ключи: {keys}",
+		"m23f.keys.selectiveOff": "Вторичные ключи сейчас не работают: «Выборочно» (selective) выключено. Окно ST включит его, как только запись откроют там.",
+		"m23f.keys.selectiveFix": "Учитывать вторичные ключи",
+		"m23f.logic.label": "Логика",
+		"m23f.logic.hint": "Как вторичные ключи сочетаются с найденным основным.",
+		"m23f.logic.0": "И ЛЮБОЙ",
+		"m23f.logic.3": "И ВСЕ",
+		"m23f.logic.1": "НЕ ВСЕ",
+		"m23f.logic.2": "НЕ ЛЮБОЙ",
+		"m23f.logic.other": "Неизвестная ({value})",
+		"m23f.ru.localizer": "Русские ключи",
+		"m23f.ru.localizerHint": "Lorebook Localizer переведёт ключи этой записи и добавит русские формы (сам запишет книгу).",
+		"m23f.ru.forms": "Русские ключи",
+		"m23f.ru.formsHint": "Добавить русские формы английских ключей (склонения DES-RU через модуль канона).",
+		"m23f.ru.saveFirst": "Сначала сохрани или отмени правки: Localizer сам записывает книгу.",
+		"m23f.ru.working": "Ищу русские формы…",
+		"m23f.ru.localizerDone": "Localizer добавил ключей: {added}.",
+		"m23f.ru.localizerFailed": "Localizer добавил ключей: {added}; не переведено записей: {failures}.",
+		"m23f.ru.failed": "Localizer не справился: {error}",
+		"m23f.ru.noTerms": "Нет простых английских ключей для перевода.",
+		"m23f.ru.nothingNew": "Новых форм нет.",
+		"m23f.ru.added": "Добавлено ключей: {count} — проверь и сохрани.",
+		"m23f.ru.unavailable": "Нужен Lorebook Localizer или канон чата с DES-RU.",
+		"m23f.comment.label": "Название / заметка",
+		"m23f.comment.placeholder": "Название или заметка о записи",
+		"m23f.comment.hint": "Только для тебя: в промпт не попадает.",
+		"m23f.content.label": "Содержимое",
+		"m23f.content.placeholder": "Что ИИ должен знать об этом ключевом слове",
+		"m23f.content.tokens": "Токенов: {count}",
+		"m23f.content.chars": "Символов: {count}",
+		"m23f.content.expand": "Развернуть редактор",
+		"m23f.deco.activate": "@@activate: запись срабатывает без ключей (после фильтров, таймеров и проверок рекурсии).",
+		"m23f.deco.dontActivate": "@@dont_activate: запись не срабатывает никогда — ни постоянной, ни липкой, ни по ключам, ни извне.",
+		"m23f.deco.unknown": "Неизвестные декораторы молча вырезаются из промпта: {lines}",
+		"m23f.deco.helpTitle": "Декораторы",
+		"m23f.deco.help": "Строки в самом начале содержимого: @@activate включает запись без ключей, @@dont_activate выключает её. Все строки @@ в начале вырезаются из промпта; @@@x читается как @@x только после неизвестного декоратора. Если содержимое состоит из одних строк @@, ничего не вырезается.",
+		"m23f.typed.label": "Тип записи",
+		"m23f.typed.none": "— без типа —",
+		"m23f.typed.compose": "Собрать содержимое из полей",
+		"m23f.typed.composeHint": "Пишет строки «Label: значение» (подписи по-английски, значения как введены). Готовый текст заменяется только после подтверждения.",
+		"m23f.typed.composed": "Содержимое собрано из полей — проверь и сохрани.",
+		"m23f.typed.emptyFields": "Поля пустые.",
+		"m23f.typed.same": "Содержимое уже совпадает с полями.",
+		"m23f.typed.replaceTitle": "Заменить содержимое?",
+		"m23f.typed.replaceBody": "В записи уже есть текст. Он будет заменён текстом, собранным из полей:",
+		"m23f.typed.whereEntry": "Хранится в самой записи (extensions.maestro); другие расширения видят только содержимое.",
+		"m23f.typed.whereSidecar": "Хранится в реестре Maestro: файл книги остаётся таким, как его сделал автор (P2).",
+		"m23f.typed.unavailable": "Типам записей базовых книг нужен модуль ролей книг (M35).",
+		"m23f.type.character": "Персонаж",
+		"m23f.type.place": "Место",
+		"m23f.type.item": "Предмет",
+		"m23f.type.faction": "Фракция",
+		"m23f.type.event": "Событие",
+		"m23f.type.tradition": "Традиция",
+		"m23f.type.mechanic": "Механика",
+		"m23f.type.rule": "Правило",
+		"m23f.type.chapter": "Глава летописи",
+		"m23f.type.note": "Заметка",
+		"m23f.tf.name": "Имя / название",
+		"m23f.tf.aliases": "Другие имена",
+		"m23f.tf.role": "Роль",
+		"m23f.tf.age": "Возраст",
+		"m23f.tf.appearance": "Внешность",
+		"m23f.tf.personality": "Характер",
+		"m23f.tf.background": "Предыстория",
+		"m23f.tf.relationships": "Отношения",
+		"m23f.tf.speech": "Манера речи",
+		"m23f.tf.goals": "Цели",
+		"m23f.tf.kind": "Вид",
+		"m23f.tf.location": "Где находится",
+		"m23f.tf.description": "Описание",
+		"m23f.tf.atmosphere": "Атмосфера",
+		"m23f.tf.inhabitants": "Обитатели",
+		"m23f.tf.features": "Приметы",
+		"m23f.tf.secrets": "Тайны",
+		"m23f.tf.properties": "Свойства",
+		"m23f.tf.owner": "Владелец",
+		"m23f.tf.origin": "Происхождение",
+		"m23f.tf.whereabouts": "Где сейчас",
+		"m23f.tf.leader": "Лидер",
+		"m23f.tf.members": "Состав",
+		"m23f.tf.territory": "Территория",
+		"m23f.tf.allies": "Союзники",
+		"m23f.tf.enemies": "Враги",
+		"m23f.tf.symbols": "Символы и обычаи",
+		"m23f.tf.when": "Когда",
+		"m23f.tf.where": "Где",
+		"m23f.tf.participants": "Участники",
+		"m23f.tf.consequences": "Последствия",
+		"m23f.tf.culture": "Чья традиция",
+		"m23f.tf.practice": "Как проходит",
+		"m23f.tf.meaning": "Смысл",
+		"m23f.tf.taboos": "Запреты",
+		"m23f.tf.summary": "Кратко",
+		"m23f.tf.rules": "Правила",
+		"m23f.tf.limits": "Цена и ограничения",
+		"m23f.tf.examples": "Примеры",
+		"m23f.tf.statement": "Правило",
+		"m23f.tf.scope": "Где действует",
+		"m23f.tf.exceptions": "Исключения",
+		"m23f.tf.period": "Период",
+		"m23f.tf.events": "Главные события",
+		"m23f.tf.characters": "Персонажи",
+		"m23f.tf.threads": "Незакрытые линии",
+		"m23f.tf.text": "Текст",
+		"m23f.state.label": "Статус",
+		"m23f.state.hint": "Постоянная срабатывает без ключей. Векторизованная по-прежнему срабатывает по ключам, её может включить и Vector Storage.",
+		"m23f.state.constant": "Постоянная",
+		"m23f.state.normal": "Обычная (по ключам)",
+		"m23f.state.vectorized": "Векторизованная",
+		"m23f.pos.label": "Положение",
+		"m23f.pos.before": "↑Перс. — перед описанием персонажа",
+		"m23f.pos.after": "↓Перс. — после описания персонажа",
+		"m23f.pos.emTop": "↑ПС — перед примерами сообщений",
+		"m23f.pos.emBottom": "↓ПС — после примеров сообщений",
+		"m23f.pos.anTop": "↑АЗ — перед заметками автора",
+		"m23f.pos.anBottom": "↓АЗ — после заметок автора",
+		"m23f.pos.depthSystem": "На глуб. ⚙️ — на глубине, от системы",
+		"m23f.pos.depthUser": "На глуб. 👤 — на глубине, от пользователя",
+		"m23f.pos.depthAssistant": "На глуб. 🤖 — на глубине, от ассистента",
+		"m23f.pos.outlet": "➡️ Outlet — только через {{outlet::имя}}",
+		"m23f.pos.other": "Другое ({value}) — сохраняется как есть",
+		"m23f.pos.missing": "Положение не записано: движок никуда не вставит запись. Окно ST сделало бы его «↑Перс.».",
+		"m23f.pos.anHint": "Положения у заметок автора попадают в промпт только в те ходы, когда вставляется сама заметка автора.",
+		"m23f.depth.label": "Глубина",
+		"m23f.depth.hint": "Сообщений от конца чата. Записи с одинаковыми глубиной и ролью склеиваются в один блок.",
+		"m23f.outlet.label": "Имя outlet",
+		"m23f.outlet.placeholder": "например, scene",
+		"m23f.outlet.hint": "Содержимое попадёт в промпт только туда, где стоит {{outlet::имя}} (несколько имён — через запятую).",
+		"m23f.outlet.empty": "Outlet без имени: ST пропустит запись.",
+		"m23f.order.label": "Приоритет",
+		"m23f.order.hint": "Чем больше приоритет, тем ближе к концу своего блока (у outlet — наоборот).",
+		"m23f.prob.label": "% срабатывания",
+		"m23f.prob.use": "Бросать кубик вероятности",
+		"m23f.prob.useHint": "ST прячет этот флажок и включает его, когда запись открывают в его окне.",
+		"m23f.prob.empty": "Вероятность не записана: ST бросает кубик против пустого значения, и запись почти никогда не срабатывает.",
+		"m23f.prob.notRolled": "Бросок сейчас выключен, поэтому {value}% не действует. Окно ST включит бросок, как только запись откроют там.",
+		"m23f.scan.label": "Глубина сканирования",
+		"m23f.scan.global": "Глобальная настройка",
+		"m23f.scan.globalNow": "Глобальная ({value})",
+		"m23f.scan.hint": "Пусто — глобальная настройка. 0…1000 сообщений.",
+		"m23f.case.label": "С учётом регистра",
+		"m23f.case.hint": "На ключи-регулярки не влияет (для них — флаг i).",
+		"m23f.whole.label": "Целые слова",
+		"m23f.whole.hint": "Ключ из нескольких слов всегда ищется подстрокой; для кириллицы нужно правило M22.",
+		"m23f.tri.global": "Глобальная настройка",
+		"m23f.tri.globalNow": "Глобальная (сейчас: {value})",
+		"m23f.tri.yes": "Да",
+		"m23f.tri.no": "Нет",
+		"m23f.rec.exclude": "Не рекурсивная",
+		"m23f.rec.excludeHint": "Не активируется текстом других записей (на шагах рекурсии).",
+		"m23f.rec.prevent": "Пресечь дальнейшую рекурсию",
+		"m23f.rec.preventHint": "Её содержимое не активирует другие записи.",
+		"m23f.rec.delay": "Только при рекурсии",
+		"m23f.rec.delayHint": "Активируется только на шагах рекурсии.",
+		"m23f.rec.level": "Уровень рекурсии",
+		"m23f.rec.levelHint": "Пусто — уровень 1. Уровни открываются по возрастанию: следующий — когда на текущем больше нечего активировать.",
+		"m23f.rec.levelPlaceholder": "1",
+		"m23f.rec.levelInvalid": "Уровень — это число (1, 2, …).",
+		"m23f.budget.ignore": "Игнорировать бюджет",
+		"m23f.budget.ignoreHint": "Вставляется даже после переполнения бюджета лора.",
+		"m23f.timer.sticky": "Липучка",
+		"m23f.timer.stickyHint": "Сколько сообщений запись остаётся активной после срабатывания.",
+		"m23f.timer.cooldown": "Перезарядка",
+		"m23f.timer.cooldownHint": "Сколько сообщений после срабатывания запись не может сработать снова.",
+		"m23f.timer.delay": "Задержка",
+		"m23f.timer.delayHint": "Не срабатывает, пока в чате меньше сообщений.",
+		"m23f.timer.none": "Нет",
+		"m23f.timer.hashReset": "Любая правка записи меняет её хеш и обрывает идущие липучку и перезарядку в открытых чатах.",
+		"m23f.group.label": "Группа включения",
+		"m23f.group.placeholder": "группа, другая группа",
+		"m23f.group.hint": "Из записей с одной меткой за сканирование срабатывает только одна. Несколько групп — через запятую.",
+		"m23f.group.suggest": "Группы этой книги",
+		"m23f.group.override": "Важная",
+		"m23f.group.overrideHint": "Среди сработавших записей группы побеждает важная с наибольшим приоритетом.",
+		"m23f.group.weight": "Вес в группе",
+		"m23f.group.weightHint": "Относительный шанс выиграть в группе (1…10000).",
+		"m23f.group.scoring": "Групповой подсчёт",
+		"m23f.group.scoringHint": "Записи, у которых совпало меньше ключей, выбывают из группы.",
+		"m23f.filter.label": "Персонажи и теги",
+		"m23f.filter.hint": "Привязать запись к персонажам (по файлу аватара) или к персонажам с тегами.",
+		"m23f.filter.search": "Поиск персонажей и тегов",
+		"m23f.filter.exclude": "Режим исключения",
+		"m23f.filter.excludeHint": "Отмеченные персонажи и теги, наоборот, исключаются.",
+		"m23f.filter.tag": "[Тег] {name}",
+		"m23f.filter.missing": "не найден",
+		"m23f.filter.missingNote": "Часть имён не совпадает ни с одним персонажем (переименован или удалён). Они остаются, пока ты их не уберёшь.",
+		"m23f.filter.dropMissing": "Убрать отсутствующих",
+		"m23f.filter.remove": "Убрать {name}",
+		"m23f.filter.nobody": "Ничего не выбрано: запись работает для всех персонажей.",
+		"m23f.filter.more": "Ещё {count} — уточни поиск.",
+		"m23f.filter.empty": "В этом SillyTavern нет персонажей и тегов.",
+		"m23f.trigger.label": "Типы генерации",
+		"m23f.trigger.hint": "Ничего не выбрано — все типы.",
+		"m23f.trigger.unknown": "Неизвестные типы сохраняются как есть (окно ST их выбросило бы): {values}",
+		"m23f.trigger.normal": "Обычная",
+		"m23f.trigger.continue": "Продолжение",
+		"m23f.trigger.impersonate": "Перевоплощение",
+		"m23f.trigger.swipe": "Свайп",
+		"m23f.trigger.regenerate": "Повторная генерация",
+		"m23f.trigger.quiet": "Тихая",
+		"m23f.src.hint": "Кроме чата, искать ключи ещё и в:",
+		"m23f.src.matchPersonaDescription": "Описание персоны",
+		"m23f.src.matchCharacterDescription": "Описание персонажа",
+		"m23f.src.matchCharacterPersonality": "Характер персонажа",
+		"m23f.src.matchCharacterDepthPrompt": "Заметка о персонаже",
+		"m23f.src.matchScenario": "Сценарий",
+		"m23f.src.matchCreatorNotes": "Заметки создателя",
+		"m23f.svc.uid": "UID (для /getentryfield и других команд)",
+		"m23f.svc.automation": "Automation ID",
+		"m23f.svc.automationNone": "(нет)",
+		"m23f.svc.automationHint": "Скрипты Quick Reply с этим id запускаются, когда запись срабатывает.",
+		"m23f.svc.selective": "Выборочно (учитывать вторичные ключи)",
+		"m23f.svc.selectiveHint": "В ST этот флажок спрятан: его окно всегда его включает.",
+		"m23f.svc.addMemo": "Add Memo",
+		"m23f.svc.addMemoHint": "В ST спрятан, движком не используется; хранится как есть.",
+		"m23f.svc.cardBook": "Книга из карточки персонажа: хранилище дублирует изменения в её originalData.",
+		"m23f.svc.unknown": "Поля других расширений: {fields}",
+		"m23f.svc.unknownKept": "Незнакомые студии поля сохраняются как есть.",
+		"m23f.st.title": "Что поменяло бы окно ST",
+		"m23f.st.intro": "Окно «Миры и лорбуки» молча меняет эти значения, когда показывает или открывает запись (в файл они попадут со следующим сохранением книги). Студия хранит их как есть:",
+		"m23f.st.none": "Ничего: окно ST оставило бы запись как есть.",
+		"m23f.st.engine": "меняет срабатывание",
+		"m23f.st.banner": "Если открыть эту запись в окне ST, изменится её срабатывание: {fields}. Студия хранит значения как есть.",
+		"m23f.st.apply": "Включить «Выборочно» и бросок",
+		"m23f.st.applyHint": "Включает selective и useProbability, как это делает окно ST (как обычная правка, которую ты сохранишь).",
+		"m23f.num.notNumber": "Это не число.",
+		"m23f.num.required": "Введи число.",
+		"m23f.num.negative": "Не меньше {min}.",
+		"m23f.num.notInteger": "Нужно целое число.",
+		"m23f.num.clampedMin": "Поднято до {value} (минимум).",
+		"m23f.num.clampedMax": "Снижено до {value} (максимум).",
+		"m23f.num.floored": "Округлено вниз до {value}.",
+		"m23f.canon.base": "База",
+		"m23f.canon.override.title": "Переопределение в каноне",
+		"m23f.canon.noKeys": "ключей нет",
+		"m23f.canon.emptyContent": "(пусто)",
+		"m23f.canon.diff": "База → канон",
+		"m23f.canon.keysDiff": "Ключи: база → канон",
+		"m23f.canon.noOverride": "Переопределения нет: в этом чате действует базовая запись как есть.",
+		"m23f.canon.drift": "База изменилась после того, как сделали переопределение: сравни и при необходимости обнови его.",
+		"m23f.canon.override": "Переопределить в каноне",
+		"m23f.canon.overrideHint": "Копирует запись в канон этого чата и открывает копию; базовая книга не меняется.",
+		"m23f.canon.overrideDone": "Переопределение создано.",
+		"m23f.canon.editOverride": "Изменить переопределение",
+		"m23f.canon.saveFirst": "Сначала сохрани или отмени правки базовой записи.",
+		"m23f.canon.promote": "Повысить до базы",
+		"m23f.canon.promoteHint": "Записать переопределение в базовую книгу для всех чатов (сначала спросит).",
+		"m23f.canon.promoted": "Переопределение перенесено в базовую книгу.",
+		"m23f.canon.promoteDeclined": "Не перенесено (отказ или карточка во «Входящих»).",
+		"m23f.canon.removeOverride": "Убрать переопределение",
+		"m23f.canon.removeTitle": "Убрать переопределение?",
+		"m23f.canon.removeBody": "Чат вернётся к базовой записи. Изменение попадёт в журнал, его можно откатить.",
+		"m23f.canon.removed": "Переопределение убрано.",
+		"m23f.canon.suppress": "Подавить в этом чате",
+		"m23f.canon.suppressHint": "Запись не попадёт в промпт этого чата; книга не меняется.",
+		"m23f.canon.suppressed": "Подавлена в этом чате.",
+		"m23f.canon.unsuppress": "Снять подавление",
+		"m23f.canon.unsuppressed": "Подавление снято.",
+		"m23f.canon.isSuppressed": "Подавлена в этом чате.",
+		"m23f.canon.pin": "Закрепить",
+		"m23f.canon.pinHint": "Запись срабатывает в каждом ходе этого чата.",
+		"m23f.canon.pinned": "Закреплена в этом чате.",
+		"m23f.canon.unpin": "Открепить",
+		"m23f.canon.unpinned": "Откреплена.",
+		"m23f.canon.isPinned": "Закреплена в этом чате: срабатывает в каждом ходе.",
+		"m23f.canon.failed": "Действие с каноном не удалось: {error}",
+		"m23f.canon.loadFailed": "Не удалось прочитать канон этого чата.",
+		"m23f.canon.status.active": "действует",
+		"m23f.canon.status.provisional": "пробная",
+		"m23f.canon.status.archived": "в архиве",
+		"m23f.canon.provisionalTurns": "пробная · ходов без противоречий: {count}",
+		"m23f.canon.provisionalNote": "Пробный факт: станет каноном после нескольких ходов без противоречий (M26).",
+		"m23f.canon.kind.override": "переопределение",
+		"m23f.canon.kind.addition": "дополнение",
+		"m23f.canon.kind.suppress": "подавление",
+		"m23f.canon.kind.pin": "закрепление",
+		"m23f.canon.origin.user": "от тебя",
+		"m23f.canon.origin.revision": "из ревизии",
+		"m23f.canon.origin.living": "живой канон",
+		"m23f.canon.origin.chronicle": "летопись",
+		"m23f.canon.origin.backstage": "закулисье",
+		"m23f.canon.origin.entity": "модель мира",
+		"m23f.canon.origin.import": "импорт",
+		"m23f.canon.baseLink": "База: «{book}» №{uid}",
+		"m23f.canon.openBase": "Открыть базу",
+		"m23f.canon.baseGone": "Базовой записи больше нет.",
+		"m23f.canon.diffBaseNow": "База сейчас → это переопределение",
+		"m23f.canon.created": "создана {time}",
+		"m23f.canon.updated": "изменена {time}",
+		"m23f.canon.source": "из сообщения №{index}",
+		"m23f.stats.title": "Срабатывания в этом чате",
+		"m23f.stats.noJournal": "Журнал лора (M1) выключен: статистики срабатываний нет.",
+		"m23f.stats.noTurns": "В этом чате ходов ещё нет.",
+		"m23f.stats.frequency": "Срабатывала",
+		"m23f.stats.frequencyValue": "в {count} из {turns} ходов ({percent})",
+		"m23f.stats.last": "Последний раз",
+		"m23f.stats.lastValue": "сообщение №{index}, {time}",
+		"m23f.stats.never": "ни разу",
+		"m23f.stats.avgChars": "Средний размер, симв.",
+		"m23f.stats.lastKey": "Последний ключ",
+		"m23f.stats.findKey": "Найти ключ",
+		"m23f.stats.noKey": "без ключа (постоянная, липучка или принудительно)",
+		"m23f.stats.cut": "Отрезана бюджетом или правилом: {count} раз.",
+		"m23f.stats.recent": "Последние срабатывания",
+		"m23f.stats.recentItem": "сообщение №{index}, {time}, {chars} симв.",
+		"m23f.stats.recentKey": "ключ: {key}",
+		"m23f.stats.recentRecursion": "рекурсия {level}",
+		"m23f.stats.recentCut": "отрезана",
+		"m23f.doctor.title": "Находки доктора",
+		"m23f.doctor.off": "Доктор (M5) выключен.",
+		"m23f.doctor.none": "В последней проверке находок по этой записи нет.",
+		"m23f.doctor.sev.error": "ошибка",
+		"m23f.doctor.sev.warn": "предупреждение",
+		"m23f.doctor.sev.info": "заметка",
+		"m23f.doctor.ruleOn": "Исправляется на лету правилом «{rule}» (включено).",
+		"m23f.doctor.ruleOff": "Правило «{rule}» исправляет это на лету (выключено).",
+		"m23f.doctor.ruleUnknown": "Исправляющее правило: {rule}",
+		"m23f.doctor.openRules": "Открыть «Правила»",
+		"m23f.test.label": "Текст",
+		"m23f.test.placeholder": "Вставь сообщение или несколько строк чата",
+		"m23f.test.hint": "Проверяются ключи в том виде, в каком они сейчас в форме (с несохранёнными правками). Ctrl+Enter — проверить.",
+		"m23f.test.run": "Проверить",
+		"m23f.test.enterText": "Сначала введи текст.",
+		"m23f.test.yes": "Сработает.",
+		"m23f.test.no": "Не сработает.",
+		"m23f.test.primary": "Основные ключи",
+		"m23f.test.secondary": "Вторичные ключи ({logic})",
+		"m23f.test.secondaryIgnored": "Вторичные ключи (не учитываются: «Выборочно» выключено)",
+		"m23f.test.hit": "найден",
+		"m23f.test.miss": "не найден",
+		"m23f.test.secondaryFailed": "Основной ключ найден, но вторичные не выполняют условие «{logic}».",
+		"m23f.test.outcome.disabled": "Запись выключена.",
+		"m23f.test.outcome.dontActivate": "@@dont_activate её выключает.",
+		"m23f.test.outcome.activateDecorator": "@@activate включает её без ключей.",
+		"m23f.test.outcome.constant": "Постоянная запись срабатывает без ключей.",
+		"m23f.test.outcome.noKeys": "У записи нет основных ключей.",
+		"m23f.test.outcome.noPrimary": "Ни один основной ключ не найден.",
+		"m23f.test.outcome.activated": "Найдена по ключам.",
+		"m23f.test.scope": "Вероятность, таймеры, фильтры, группы и бюджет в этой проверке не учитываются.",
+		"m23f.hist.empty": "Прежних версий, сохранённых через Maestro, пока нет.",
+		"m23f.hist.failed": "Не удалось прочитать историю.",
+		"m23f.hist.diff": "Сравнить с текущей",
+		"m23f.hist.restore": "Вернуть эту версию",
+		"m23f.hist.restored": "Версия от {time} возвращена.",
+		"m23f.hist.restoreSummary": "Лор-студия: запись №{entry} возвращена к версии от {time}",
+		"m23f.hist.same": "Эта версия совпадает с текущей записью.",
+		"m23f.hist.discardBody": "Возврат версии сбросит несохранённые правки. Продолжить?",
+		"m23f.hist.all": "Показать все ({count})",
+		"m23f.hist.by.user": "ты (Лор-студия)",
+		"m23f.hist.by.localizer": "Lorebook Localizer",
+		"m23f.hist.by.ck": "CarrotKernel",
+		"m23f.hist.by.st": "вне Maestro",
+		"m23f.role.bunnymo.core": "ядро BunnyMo",
+		"m23f.role.bunnymo.pack": "пак BunnyMo",
+		"m23f.role.ck.archive": "архив CK",
+		"m23f.role.world": "мир",
+		"m23f.role.card": "книга карточки",
+		"m23f.role.npc": "книга NPC",
+		"m23f.role.canon": "канон чата",
+		"m23f.role.maestro": "книга Maestro",
+		"m23f.role.chat": "книга чата",
+		"m23f.role.persona": "книга персоны",
+		"m23f.role.backup": "резервная копия",
+		"m23f.role.unknown": "роль не определена"
+	}
+};
+//#endregion
+//#region src/features/loreStudio/form/form.ts
+var styleUsers = /* @__PURE__ */ new WeakMap();
+/** One stylesheet per App while at least one form is open (forms can be nested or shown side by side). */
+function acquireStyle(app) {
+	let slot = styleUsers.get(app);
+	if (!slot) {
+		slot = {
+			users: 0,
+			remove: null
+		};
+		styleUsers.set(app, slot);
+	}
+	if (slot.users++ === 0) try {
+		slot.remove = app.ui.style("maestro-m23f", ENTRY_FORM_CSS);
+	} catch {
+		slot.remove = null;
+	}
+	const owned = slot;
+	let released = false;
+	return () => {
+		if (released) return;
+		released = true;
+		owned.users -= 1;
+		if (owned.users === 0) {
+			owned.remove?.();
+			owned.remove = null;
+		}
+	};
+}
+var EntryForm = class {
+	ctx;
+	nav;
+	root;
+	env;
+	state = null;
+	role;
+	readOnly;
+	scope = [];
+	life = [];
+	syncs = [];
+	errors = /* @__PURE__ */ new Map();
+	saving = false;
+	reloading = false;
+	alive = true;
+	loaded = false;
+	statusText = "";
+	statusLevel = "info";
+	chrome = null;
+	constructor(container, ctx, nav) {
+		this.ctx = ctx;
+		this.nav = nav;
+		this.role = ctx.role ?? bookRolesApi(ctx.app)?.roleOf(ctx.book);
+		this.readOnly = ctx.readOnly || this.role?.readOnly === true;
+		this.root = el("div", {
+			class: ["maestro-m23f", this.readOnly ? "maestro-m23f-readonly" : null],
+			data: {
+				book: ctx.book,
+				uid: ctx.uid
+			}
+		});
+		this.root.addEventListener("keydown", (event) => this.onKey(event));
+		container.appendChild(this.root);
+		const currentState = () => {
+			if (!this.state) throw new Error("entry form: no state");
+			return this.state;
+		};
+		this.env = {
+			app: ctx.app,
+			ctx,
+			t: (key, params) => ctx.app.i18n.t(key, params),
+			readOnly: this.readOnly,
+			role: this.role,
+			get state() {
+				return currentState();
+			},
+			own: (dispose) => {
+				this.scope.push(dispose);
+			},
+			changed: () => this.onChanged(),
+			sync: (run) => {
+				this.syncs.push(run);
+			},
+			setError: (field, message) => this.setError(field, message),
+			navigate: (book, uid) => nav.navigate(book, uid),
+			reload: () => this.reload(),
+			isDirty: () => this.isDirty(),
+			status: (text, level) => this.setStatus(text, level ?? "info")
+		};
+		try {
+			this.life.push(ctx.store.onChange((book) => {
+				if (book === null || book === ctx.book) this.onExternalChange();
+			}));
+		} catch (error) {
+			ctx.app.log.debug("store onChange failed", error);
+		}
+	}
+	t(key, params) {
+		return this.ctx.app.i18n.t(key, params);
+	}
+	async start() {
+		this.root.replaceChildren(el("div", {
+			class: "maestro-m23f-hint",
+			text: this.t("m23f.loading")
+		}));
+		await this.reload();
+	}
+	async load() {
+		const { store, book, uid, app } = this.ctx;
+		const data = await store.load(book);
+		const entry = data?.entries?.[String(uid)];
+		if (!data || !entry) return null;
+		let globals = {};
+		try {
+			globals = await store.globalSettings();
+		} catch (error) {
+			app.log.debug("global WI settings unavailable", error);
+		}
+		const canon = canonApi(app);
+		let canonBook = null;
+		if (canon) try {
+			canonBook = app.host.chatId() ? canon.bookName() : null;
+		} catch {
+			canonBook = null;
+		}
+		const isCanonEntry = this.role?.role === "canon" || canonBook !== null && book === canonBook || canonMetaOf(entry) !== null;
+		const roles = bookRolesApi(app);
+		const extensions = entry.extensions;
+		let typedStorage;
+		let typedStored;
+		let sidecar;
+		if (isCanonEntry || this.role?.role === "maestro") {
+			typedStorage = "entry";
+			typedStored = readTypedMeta(extensions?.maestro);
+		} else if (roles) {
+			typedStorage = "sidecar";
+			try {
+				sidecar = roles.loadEntryMeta ? await roles.loadEntryMeta(book, uid) : roles.entryMeta(book, uid);
+			} catch {
+				sidecar = void 0;
+			}
+			typedStored = readTypedMeta(sidecar);
+		} else {
+			typedStorage = "none";
+			typedStored = readTypedMeta(extensions?.maestro);
+		}
+		return {
+			data,
+			stored: cloneJson$1(entry),
+			draft: cloneJson$1(entry),
+			globals,
+			typedStorage,
+			typedStored,
+			typed: typedStored ? cloneJson$1(typedStored) : null,
+			sidecar,
+			canonBook,
+			isCanonEntry
+		};
+	}
+	async reload() {
+		this.reloading = true;
+		let state = null;
+		let failed = null;
+		try {
+			state = await this.load();
+		} catch (error) {
+			failed = error;
+		} finally {
+			this.reloading = false;
+		}
+		if (!this.alive) return;
+		if (failed) {
+			this.ctx.app.log.warn("entry form load failed", failed);
+			this.state = null;
+			this.buildMessage(this.t("m23f.loadFailed", { error: failed instanceof Error ? failed.message : String(failed) }));
+			return;
+		}
+		this.state = state;
+		this.loaded = true;
+		this.build();
+	}
+	isDirty() {
+		const state = this.state;
+		if (!state || this.readOnly) return false;
+		if (!sameValue(state.stored, state.draft)) return true;
+		return state.typedStorage === "sidecar" && !sameTypedMeta(state.typed, state.typedStored);
+	}
+	hasErrors() {
+		return this.errors.size > 0;
+	}
+	disposeScope() {
+		for (const dispose of this.scope.splice(0)) try {
+			dispose();
+		} catch (error) {
+			this.ctx.app.log.debug("entry form dispose", error);
+		}
+		this.syncs = [];
+		this.chrome = null;
+	}
+	buildMessage(text) {
+		this.disposeScope();
+		this.root.replaceChildren(emptyState(text, "fa-circle-question"), el("div", { class: "maestro-m23f-actions" }, [this.closeButton()]));
+	}
+	closeButton() {
+		const back = this.nav.back;
+		return button({
+			label: back ? this.t("m23f.back") : this.t("m23f.close"),
+			icon: back ? "fa-arrow-left" : "fa-xmark",
+			kind: "ghost",
+			onClick: () => this.close()
+		});
+	}
+	build() {
+		this.disposeScope();
+		this.errors.clear();
+		const state = this.state;
+		if (!state) {
+			this.buildMessage(this.t("m23f.notFound", {
+				book: this.ctx.book,
+				uid: this.ctx.uid
+			}));
+			return;
+		}
+		const env = this.env;
+		const header = this.header();
+		const banners = this.banners(state);
+		const edit = el("fieldset", { class: "maestro-m23f-edit" }, [
+			el("legend", {
+				class: "maestro-sr-only",
+				text: this.t("m23f.legend")
+			}),
+			el("div", { class: "maestro-m23f-quick" }, [enabledToggle(env)]),
+			keysSection(env),
+			contentSection(env),
+			placementSection(env),
+			activationSection(env),
+			timersSection(env),
+			groupsSection(env),
+			filtersSection(env),
+			sourcesSection(env),
+			serviceSection(env),
+			passportSection(env)
+		]);
+		if (this.readOnly) {
+			edit.disabled = true;
+			disableAll(edit);
+		}
+		const extra = [
+			canonSection(env),
+			insightsSection(env),
+			testerSection(env),
+			historySection(env)
+		].filter((node) => node !== null);
+		this.root.replaceChildren(header, ...banners, edit, ...extra);
+		this.refreshChrome();
+	}
+	header() {
+		const t = this.t.bind(this);
+		const title = el("h3", { class: "maestro-m23f-title" });
+		const dirty = el("span", {
+			class: "maestro-m23f-dirty",
+			text: t("m23f.dirty"),
+			attrs: { role: "status" }
+		});
+		const status = el("span", {
+			class: "maestro-m23f-status",
+			attrs: { "aria-live": "polite" }
+		});
+		const badges = el("div", { class: "maestro-m23f-badges" });
+		const save = this.readOnly ? null : button({
+			label: t("m23f.save"),
+			icon: "fa-floppy-disk",
+			kind: "primary",
+			title: t("m23f.saveHint"),
+			onClick: async () => {
+				await this.save();
+			}
+		});
+		const revert = this.readOnly ? null : button({
+			label: t("m23f.revert"),
+			icon: "fa-rotate-left",
+			kind: "ghost",
+			onClick: () => this.revert()
+		});
+		const errors = el("div", { class: "maestro-m23f-errors" });
+		const external = el("div", { class: "maestro-m23f-external" });
+		this.chrome = {
+			title,
+			dirty,
+			status,
+			save,
+			revert,
+			errors,
+			external,
+			badges
+		};
+		return el("header", { class: "maestro-m23f-head" }, [
+			el("div", { class: "maestro-m23f-head-row" }, [
+				this.closeButton(),
+				title,
+				dirty
+			]),
+			el("div", { class: "maestro-m23f-head-meta" }, [
+				el("span", {
+					class: "maestro-m23f-book",
+					text: this.ctx.book
+				}),
+				el("span", {
+					class: "maestro-m23f-uid",
+					text: t("m23f.uid", { uid: this.ctx.uid })
+				}),
+				badges
+			]),
+			el("div", { class: "maestro-m23f-toolbar" }, [
+				save,
+				revert,
+				status
+			]),
+			errors,
+			external
+		]);
+	}
+	banners(state) {
+		const t = this.t.bind(this);
+		const list = [];
+		const role = this.role?.role;
+		if (this.readOnly) {
+			const bunny = role === "bunnymo.core" || role === "bunnymo.pack";
+			const node = banner(t(bunny ? "m23f.ro.bunnymo" : "m23f.ro.generic"), "info", "fa-lock");
+			node.classList.add("maestro-m23f-ro");
+			if (bunny) node.append(button({
+				label: t("m23f.ro.openRules"),
+				icon: "fa-wand-magic-sparkles",
+				kind: "ghost",
+				onClick: () => this.ctx.app.ui.openPult(RULES_TAB_ID)
+			}));
+			list.push(node);
+		}
+		const engine = stEditorDifferences(state.stored).filter((item) => item.engine);
+		if (engine.length) {
+			const node = banner(t("m23f.st.banner", { fields: engine.map((item) => item.field).join(", ") }), "warn");
+			const fix = engine.some((item) => item.field === "selective" || item.field === "useProbability") ? stFixButton(this.env) : null;
+			if (fix) node.append(fix);
+			list.push(node);
+		}
+		return list;
+	}
+	refreshChrome() {
+		const chrome = this.chrome;
+		const state = this.state;
+		if (!chrome || !state) return;
+		const t = this.t.bind(this);
+		chrome.title.textContent = entryLabel(state.draft);
+		const dirty = this.isDirty();
+		chrome.dirty.hidden = !dirty;
+		this.root.classList.toggle("maestro-m23f-is-dirty", dirty);
+		if (chrome.save) chrome.save.disabled = !dirty || this.errors.size > 0 || this.saving;
+		if (chrome.revert) chrome.revert.disabled = !dirty || this.saving;
+		chrome.status.textContent = this.statusText;
+		chrome.status.className = `maestro-m23f-status maestro-m23f-status-${this.statusLevel}`;
+		const draft = state.draft;
+		const badges = [];
+		if (draft.disable === true) badges.push(badge(t("m23f.badge.disabled"), "muted"));
+		if (draft.constant === true) badges.push(badge(t("m23f.state.constant"), "info"));
+		else if (draft.vectorized === true) badges.push(badge(t("m23f.state.vectorized"), "info"));
+		if (this.role) badges.push(badge(t(`m23f.role.${this.role.role}`), "muted"));
+		if (state.isCanonEntry) {
+			if (canonMetaOf(state.stored)?.status === "provisional") badges.push(badge(t("m23f.canon.status.provisional"), "warn"));
+		}
+		if (this.readOnly) badges.push(badge(t("m23f.badge.readOnly"), "muted"));
+		chrome.badges.replaceChildren(...badges);
+		if (this.errors.size) chrome.errors.replaceChildren(banner(t("m23f.save.fixErrors", { fields: [...this.errors.keys()].join(", ") }), "error"));
+		else chrome.errors.replaceChildren();
+	}
+	onChanged() {
+		for (const run of [...this.syncs]) try {
+			run();
+		} catch (error) {
+			this.ctx.app.log.debug("entry form sync", error);
+		}
+		if (this.statusLevel === "ok") this.statusText = "";
+		this.refreshChrome();
+	}
+	setError(field, message) {
+		if (message) this.errors.set(field, message);
+		else this.errors.delete(field);
+		showFieldError(this.env, field, message);
+		this.refreshChrome();
+	}
+	setStatus(text, level) {
+		this.statusText = text;
+		this.statusLevel = level;
+		this.refreshChrome();
+	}
+	revert() {
+		const state = this.state;
+		if (!state) return;
+		state.draft = cloneJson$1(state.stored);
+		state.typed = state.typedStored ? cloneJson$1(state.typedStored) : null;
+		this.build();
+		this.setStatus(this.t("m23f.reverted"), "info");
+	}
+	sidecarRecord(state) {
+		const record = { ...state.sidecar ?? {} };
+		if (state.typed) {
+			record.type = state.typed.type;
+			record[TYPED_FIELDS_KEY] = { ...state.typed.fields };
+		} else {
+			delete record.type;
+			delete record[TYPED_FIELDS_KEY];
+		}
+		return Object.keys(record).length ? record : void 0;
+	}
+	async save() {
+		const state = this.state;
+		if (this.readOnly || this.saving || !state) return false;
+		const t = this.t.bind(this);
+		if (this.errors.size) {
+			this.setStatus(t("m23f.save.blocked"), "error");
+			this.root.querySelector("[aria-invalid=\"true\"]")?.focus();
+			return false;
+		}
+		const { store, book, uid, app } = this.ctx;
+		const patch = entryPatch(state.stored, state.draft);
+		const fields = Object.keys(patch);
+		const sidecarChanged = state.typedStorage === "sidecar" && !sameTypedMeta(state.typed, state.typedStored);
+		if (!fields.length && !sidecarChanged) {
+			this.setStatus(t("m23f.save.nothing"), "info");
+			return true;
+		}
+		this.saving = true;
+		this.setStatus(t("m23f.save.saving"), "info");
+		try {
+			if (fields.length) await store.updateEntry(book, uid, patch, {
+				module: "M23",
+				summary: t("m23f.save.summary", {
+					entry: entryLabel(state.draft),
+					book,
+					fields: fields.join(", ")
+				})
+			});
+			const rebind = state.typedStorage === "sidecar" && state.typedStored !== null && "content" in patch;
+			if (sidecarChanged || rebind) {
+				const roles = bookRolesApi(app);
+				if (!roles) throw new Error(t("m23f.typed.unavailable"));
+				await roles.setEntryMeta(book, uid, this.sidecarRecord(state));
+			}
+			await this.reload();
+		} catch (error) {
+			this.saving = false;
+			this.setStatus(t("m23f.save.failed", { error: error instanceof Error ? error.message : String(error) }), "error");
+			return false;
+		}
+		this.saving = false;
+		if (!this.alive) return true;
+		this.setStatus(t("m23f.save.done"), "ok");
+		try {
+			this.ctx.onSaved();
+		} catch (error) {
+			app.log.debug("onSaved failed", error);
+		}
+		return true;
+	}
+	async onExternalChange() {
+		if (this.saving || this.reloading || !this.alive || !this.loaded) return;
+		const { store, book, uid } = this.ctx;
+		let entry;
+		try {
+			entry = (await store.load(book))?.entries?.[String(uid)];
+		} catch {
+			return;
+		}
+		if (!this.alive || this.saving || this.reloading) return;
+		const state = this.state;
+		if (state && entry && sameValue(entry, state.stored)) return;
+		if (!this.isDirty()) {
+			await this.reload();
+			this.setStatus(this.t(entry ? "m23f.external.reloaded" : "m23f.external.gone"), "info");
+			return;
+		}
+		const chrome = this.chrome;
+		if (!chrome) return;
+		const node = banner(this.t("m23f.external.changed"), "warn", "fa-arrows-rotate");
+		node.append(button({
+			label: this.t("m23f.external.reload"),
+			kind: "ghost",
+			onClick: async () => {
+				await this.reload();
+			}
+		}));
+		chrome.external.replaceChildren(node);
+	}
+	async confirmLeave() {
+		if (!this.isDirty()) return true;
+		return this.ctx.app.ui.confirm(this.t("m23f.discard.title"), this.t("m23f.discard.body"));
+	}
+	async close() {
+		if (!await this.confirmLeave()) return;
+		if (this.nav.back) this.nav.back();
+		else this.ctx.onClose();
+	}
+	onKey(event) {
+		if (!(event.ctrlKey || event.metaKey)) return;
+		if (event.key.toLowerCase() === "s" || event.key === "Enter") {
+			event.preventDefault();
+			event.stopPropagation();
+			if (!this.readOnly) this.save();
+		}
+	}
+	dispose() {
+		if (!this.alive) return;
+		this.alive = false;
+		this.disposeScope();
+		for (const dispose of this.life.splice(0)) try {
+			dispose();
+		} catch (error) {
+			this.ctx.app.log.debug("entry form dispose", error);
+		}
+		this.root.remove();
+	}
+};
+var FormHost = class {
+	container;
+	rootCtx;
+	stack;
+	current = null;
+	disposed = false;
+	releaseStyle;
+	constructor(container, rootCtx) {
+		this.container = container;
+		this.rootCtx = rootCtx;
+		this.stack = [rootCtx];
+		this.releaseStyle = acquireStyle(rootCtx.app);
+	}
+	form() {
+		return this.current;
+	}
+	mount() {
+		if (this.disposed) return;
+		const ctx = this.stack[this.stack.length - 1] ?? this.rootCtx;
+		const nested = this.stack.length > 1;
+		this.current = new EntryForm(this.container, ctx, {
+			navigate: (book, uid) => void this.navigate(book, uid),
+			back: nested ? () => this.back() : null
+		});
+		this.current.start();
+	}
+	async navigate(book, uid) {
+		if (this.disposed) return;
+		if (this.current && !await this.current.confirmLeave()) return;
+		if (this.disposed) return;
+		let role;
+		try {
+			role = bookRolesApi(this.rootCtx.app)?.roleOf(book);
+		} catch {
+			role = void 0;
+		}
+		const ctx = {
+			...this.rootCtx,
+			book,
+			uid,
+			role,
+			readOnly: role?.readOnly === true,
+			onClose: () => this.back()
+		};
+		this.current?.dispose();
+		this.stack.push(ctx);
+		this.mount();
+	}
+	back() {
+		if (this.disposed) return;
+		if (this.stack.length <= 1) {
+			this.rootCtx.onClose();
+			return;
+		}
+		this.current?.dispose();
+		this.stack.pop();
+		this.mount();
+	}
+	dispose() {
+		if (this.disposed) return;
+		this.disposed = true;
+		this.current?.dispose();
+		this.current = null;
+		this.releaseStyle();
+	}
+};
+function mountEntryForm(container, ctx) {
+	ctx.app.i18n.register(ENTRY_FORM_STRINGS);
+	const host = new FormHost(container, ctx);
+	host.mount();
+	const confirmLeave = async () => await host.form()?.confirmLeave() ?? true;
+	const guarded = ctx;
+	try {
+		guarded.setLeaveGuard?.(confirmLeave);
+	} catch (error) {
+		ctx.app.log.debug("setLeaveGuard failed", error);
+	}
+	return {
+		dispose: () => {
+			try {
+				guarded.setLeaveGuard?.(null);
+			} catch {}
+			host.dispose();
+		},
+		form: () => host.form(),
+		confirmLeave
+	};
+}
+//#endregion
+//#region src/features/loreStudio/form/index.ts
+/**
+* Renders the full entry editor into `container` and returns its disposer (removes the DOM, the stylesheet when no
+* other form uses it, the store/canon subscriptions and every timer). Registers its i18n strings on first use.
+*/
+var renderEntryForm = (container, ctx) => mountEntryForm(container, ctx).dispose;
+//#endregion
+//#region src/domain/lore-studio-entries.ts
+/** `newWorldInfoEntryTemplate` of ST 1.19 (WI:4082-4129, fields without `excludeFromTemplate`). */
+var ENTRY_TEMPLATE = Object.freeze({
+	key: [],
+	keysecondary: [],
+	comment: "",
+	content: "",
+	constant: false,
+	vectorized: false,
+	selective: true,
+	selectiveLogic: 0,
+	addMemo: false,
+	order: 100,
+	position: 0,
+	disable: false,
+	ignoreBudget: false,
+	excludeRecursion: false,
+	preventRecursion: false,
+	matchPersonaDescription: false,
+	matchCharacterDescription: false,
+	matchCharacterPersonality: false,
+	matchCharacterDepthPrompt: false,
+	matchScenario: false,
+	matchCreatorNotes: false,
+	delayUntilRecursion: 0,
+	probability: 100,
+	useProbability: true,
+	depth: 4,
+	outletName: "",
+	group: "",
+	groupOverride: false,
+	groupWeight: 100,
+	scanDepth: null,
+	caseSensitive: null,
+	matchWholeWords: null,
+	useGroupScoring: null,
+	automationId: "",
+	role: 0,
+	sticky: null,
+	cooldown: null,
+	delay: null,
+	triggers: []
+});
+/** `originalWIDataKeyMap` of ST 1.19 (WI:2687-2724): entry field → path inside `originalData.entries[i]`. */
+var ORIGINAL_DATA_KEY_MAP = Object.freeze({
+	displayIndex: "extensions.display_index",
+	excludeRecursion: "extensions.exclude_recursion",
+	preventRecursion: "extensions.prevent_recursion",
+	delayUntilRecursion: "extensions.delay_until_recursion",
+	selectiveLogic: "selectiveLogic",
+	comment: "comment",
+	constant: "constant",
+	order: "insertion_order",
+	depth: "extensions.depth",
+	probability: "extensions.probability",
+	position: "extensions.position",
+	role: "extensions.role",
+	content: "content",
+	enabled: "enabled",
+	key: "keys",
+	keysecondary: "secondary_keys",
+	selective: "selective",
+	matchWholeWords: "extensions.match_whole_words",
+	useGroupScoring: "extensions.use_group_scoring",
+	caseSensitive: "extensions.case_sensitive",
+	matchPersonaDescription: "extensions.match_persona_description",
+	matchCharacterDescription: "extensions.match_character_description",
+	matchCharacterPersonality: "extensions.match_character_personality",
+	matchCharacterDepthPrompt: "extensions.match_character_depth_prompt",
+	matchScenario: "extensions.match_scenario",
+	matchCreatorNotes: "extensions.match_creator_notes",
+	scanDepth: "extensions.scan_depth",
+	automationId: "extensions.automation_id",
+	vectorized: "extensions.vectorized",
+	groupOverride: "extensions.group_override",
+	groupWeight: "extensions.group_weight",
+	sticky: "extensions.sticky",
+	cooldown: "extensions.cooldown",
+	delay: "extensions.delay",
+	triggers: "extensions.triggers",
+	ignoreBudget: "extensions.ignore_budget"
+});
+function isRecord$1(value) {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+/** JSON-safe deep copy (book data is JSON on disk). */
+function cloneJson(value) {
+	if (value === void 0) return value;
+	return JSON.parse(JSON.stringify(value));
+}
+/** Structural equality of JSON values (key order does not matter). */
+function sameJson(a, b) {
+	if (a === b) return true;
+	if (typeof a !== typeof b || a === null || b === null || typeof a !== "object") return false;
+	if (Array.isArray(a) !== Array.isArray(b)) return false;
+	if (Array.isArray(a) && Array.isArray(b)) {
+		if (a.length !== b.length) return false;
+		return a.every((item, index) => sameJson(item, b[index]));
+	}
+	const left = a;
+	const right = b;
+	const keys = /* @__PURE__ */ new Set([...Object.keys(left), ...Object.keys(right)]);
+	for (const key of keys) {
+		if (left[key] === void 0 && right[key] === void 0) continue;
+		if (!sameJson(left[key], right[key])) return false;
+	}
+	return true;
+}
+/** A fresh entry from the template (`createWorldInfoEntry`). */
+function templateEntry(uid, partial = {}) {
+	return {
+		...cloneJson({ ...ENTRY_TEMPLATE }),
+		...cloneJson(partial),
+		uid
+	};
+}
+/** Smallest unused uid (`getFreeWorldEntryUid`: 0, 1, 2…). */
+function freeUid(entries) {
+	let uid = 0;
+	while (Object.prototype.hasOwnProperty.call(entries, String(uid))) uid++;
+	return uid;
+}
+/** Highest `displayIndex` (missing counts as the uid, like ST's list normalization). */
+function maxDisplayIndex(entries) {
+	let max = -1;
+	for (const entry of Object.values(entries)) {
+		const value = displayIndexOf(entry);
+		if (value > max) max = value;
+	}
+	return max;
+}
+function displayIndexOf(entry) {
+	const value = entry.displayIndex;
+	return typeof value === "number" && Number.isFinite(value) ? value : Number(entry.uid);
+}
+/**
+* The entry as ST's list shows it (`addMissingWorldInfoFields` + `displayIndex` backfill, WI:2104-2136,
+* 2358-2381): a copy with template fields added, `key`/`keysecondary` as arrays and `characterFilter` as an
+* object. Unknown fields are kept. Never written back by itself (every change of a field resets sticky/cooldown).
+*/
+function normalizedEntry(entry) {
+	const copy = { ...cloneJson(entry) };
+	for (const [key, value] of Object.entries(ENTRY_TEMPLATE)) if (!Object.prototype.hasOwnProperty.call(copy, key)) copy[key] = cloneJson(value);
+	if (!Array.isArray(copy.key)) copy.key = [];
+	if (!Array.isArray(copy.keysecondary)) copy.keysecondary = [];
+	if (!isRecord$1(copy.characterFilter)) copy.characterFilter = {
+		isExclude: false,
+		names: [],
+		tags: []
+	};
+	if (typeof copy.displayIndex !== "number") copy.displayIndex = Number(copy.uid);
+	return copy;
+}
+function stringList$1(value) {
+	return Array.isArray(value) ? value.filter((item) => typeof item === "string") : [];
+}
+/** Title shown in lists: the memo, else the primary keys, else ''. */
+function entryTitle(entry) {
+	const comment = typeof entry.comment === "string" ? entry.comment.trim() : "";
+	if (comment) return comment;
+	return stringList$1(entry.key).join(", ");
+}
+/** ST's status selector: constant wins over vectorized (WI:3284-3316). */
+function entryStatus(entry) {
+	if (entry.constant === true) return "constant";
+	if (entry.vectorized === true) return "vectorized";
+	return "normal";
+}
+/** The pair of fields ST writes for a status choice. */
+function statusPatch(status) {
+	return {
+		constant: status === "constant",
+		vectorized: status === "vectorized"
+	};
+}
+/** «Положение» of ST: one list of position + role (WI:3413-3440). */
+var POSITION_CHOICES = [
+	"before",
+	"after",
+	"emTop",
+	"emBottom",
+	"anTop",
+	"anBottom",
+	"depthSystem",
+	"depthUser",
+	"depthAssistant",
+	"outlet"
+];
+var POSITION_BY_CHOICE = {
+	before: {
+		position: 0,
+		role: null
+	},
+	after: {
+		position: 1,
+		role: null
+	},
+	anTop: {
+		position: 2,
+		role: null
+	},
+	anBottom: {
+		position: 3,
+		role: null
+	},
+	depthSystem: {
+		position: 4,
+		role: 0
+	},
+	depthUser: {
+		position: 4,
+		role: 1
+	},
+	depthAssistant: {
+		position: 4,
+		role: 2
+	},
+	emTop: {
+		position: 5,
+		role: null
+	},
+	emBottom: {
+		position: 6,
+		role: null
+	},
+	outlet: {
+		position: 7,
+		role: null
+	}
+};
+function positionChoice(entry) {
+	const position = Number(entry.position ?? 0);
+	if (position === 4) {
+		const role = Number(entry.role ?? 0);
+		return role === 1 ? "depthUser" : role === 2 ? "depthAssistant" : "depthSystem";
+	}
+	const found = Object.entries(POSITION_BY_CHOICE).find(([, spec]) => spec.position === position);
+	return found ? found[0] : "before";
+}
+/** Fields ST writes for a position choice (role only kept for «at depth», else null). */
+function positionPatch(choice) {
+	return { ...POSITION_BY_CHOICE[choice] };
+}
+/** Short label of a position for list rows (DES-style `↑Char ↓Char ↑AN ↓AN @D ↑EM ↓EM Outlet`). */
+function positionLabel(entry) {
+	const choice = positionChoice(entry);
+	const depth = Number(entry.depth ?? 4);
+	switch (choice) {
+		case "before": return "↑Char";
+		case "after": return "↓Char";
+		case "anTop": return "↑AN";
+		case "anBottom": return "↓AN";
+		case "emTop": return "↑EM";
+		case "emBottom": return "↓EM";
+		case "outlet": return "Outlet";
+		case "depthUser": return `@D👤${depth}`;
+		case "depthAssistant": return `@D🤖${depth}`;
+		default: return `@D⚙${depth}`;
+	}
+}
+/** «Заполнить пустые названия» (WI:2479-2494): entries without a memo but with keys get the keys as memo. */
+function backfillComments(entries) {
+	const result = [];
+	for (const entry of Object.values(entries)) {
+		const keys = stringList$1(entry.key);
+		if (!entry.comment && keys.length > 0) result.push({
+			uid: entry.uid,
+			comment: keys.join(", ").slice(0, 100)
+		});
+	}
+	return result;
+}
+/** Top-level fields that differ between two versions of an entry. */
+function changedFields(before, after) {
+	const left = before ?? {};
+	const right = after ?? {};
+	return [.../* @__PURE__ */ new Set([...Object.keys(left), ...Object.keys(right)])].filter((key) => !sameJson(left[key], right[key]));
+}
+/** Which entries a save adds, removes or changes (by uid key). */
+function diffEntries(before, after) {
+	const diff = {
+		added: [],
+		removed: [],
+		changed: []
+	};
+	for (const [key, entry] of Object.entries(after)) {
+		const previous = before[key];
+		if (!previous) {
+			diff.added.push(uidOf(key, entry));
+			continue;
+		}
+		const fields = changedFields(previous, entry);
+		if (fields.length) diff.changed.push({
+			uid: uidOf(key, entry),
+			fields
+		});
+	}
+	for (const [key, entry] of Object.entries(before)) if (!Object.prototype.hasOwnProperty.call(after, key)) diff.removed.push(uidOf(key, entry));
+	return diff;
+}
+function uidOf(key, entry) {
+	return typeof entry.uid === "number" ? entry.uid : Number(key);
+}
+function diffSize(diff) {
+	return diff.added.length + diff.removed.length + diff.changed.length;
+}
+/**
+* Paths in `originalData.entries[i]` that mirror a change of one entry field, exactly as the classic editor
+* writes them (sweeping rule 2): the key map plus the manual paths (`enabled`, `position` as before/after_char,
+* outlet, group, character filter) and `extensions.<snake_case>` for the remaining scalar fields.
+*/
+function mirrorPaths(field, value, keyMap = ORIGINAL_DATA_KEY_MAP) {
+	switch (field) {
+		case "uid": return [];
+		case "disable": return [{
+			path: "enabled",
+			value: !value
+		}];
+		case "position": return [{
+			path: "position",
+			value: Number(value) === 0 ? "before_char" : "after_char"
+		}, {
+			path: "extensions.position",
+			value
+		}];
+		case "outletName": return [{
+			path: "extensions.outlet_name",
+			value
+		}];
+		case "group": return [{
+			path: "extensions.group",
+			value
+		}];
+		case "characterFilter": return [{
+			path: "character_filter",
+			value
+		}];
+		default: {
+			const mapped = keyMap[field];
+			return mapped ? [{
+				path: mapped,
+				value
+			}] : [];
+		}
+	}
+}
+/** `setValueByPath` of ST utils (creates intermediate objects). */
+function setByPath(target, path, value) {
+	const parts = path.split(".");
+	let node = target;
+	for (let i = 0; i < parts.length - 1; i++) {
+		const part = parts[i];
+		const next = node[part];
+		if (!isRecord$1(next)) node[part] = {};
+		node = node[part];
+	}
+	node[parts[parts.length - 1]] = cloneJson(value);
+}
+/** The `originalData.entries` array of a card-embedded book, or null. */
+function originalEntries(book) {
+	const original = book.originalData;
+	if (!isRecord$1(original) || !Array.isArray(original.entries)) return null;
+	return original.entries.filter(isRecord$1);
+}
+/** `setWIOriginalDataValue` (WI:2756-2766) in pure form. */
+function setOriginalValue(book, uid, path, value) {
+	const target = originalEntries(book)?.find((item) => item.uid === uid);
+	if (!target) return false;
+	setByPath(target, path, value);
+	return true;
+}
+/** `deleteWIOriginalDataValue` (WI:2774-2784): loose uid comparison like ST. */
+function removeOriginal(book, uid) {
+	const original = book.originalData;
+	if (!isRecord$1(original) || !Array.isArray(original.entries)) return false;
+	const index = original.entries.findIndex((item) => isRecord$1(item) && String(item.uid) === String(uid));
+	if (index < 0) return false;
+	original.entries.splice(index, 1);
+	return true;
+}
+var EMPTY_FILTER = {
+	isExclude: false,
+	names: [],
+	tags: []
+};
+/** A field that normalizedEntry() added (absent before, now the default it fills in). */
+function isNormalizationFill(field, before, after, uid) {
+	if (before !== void 0) return false;
+	if (field === "displayIndex") return after === uid;
+	if (field === "characterFilter") return sameJson(after, EMPTY_FILTER);
+	return Object.prototype.hasOwnProperty.call(ENTRY_TEMPLATE, field) && sameJson(after, ENTRY_TEMPLATE[field]);
+}
+/**
+* Keeps `originalData` of a card-embedded book in line with a save: every changed field of every changed entry is
+* mirrored, removed entries are dropped. Added entries are not mirrored (ST does not add them either). Mutates
+* `next` (call before handing it to saveWorldInfo). Returns the number of mirrored writes.
+*/
+function mirrorBook(previous, next, options = {}) {
+	if (!originalEntries(next)) return 0;
+	const set = options.set ?? ((book, uid, path, value) => void setOriginalValue(book, uid, path, value));
+	const remove = options.remove ?? ((book, uid) => void removeOriginal(book, uid));
+	const diff = diffEntries(previous.entries ?? {}, next.entries ?? {});
+	let writes = 0;
+	for (const change of diff.changed) {
+		const entry = next.entries[String(change.uid)];
+		if (!entry) continue;
+		const before = previous.entries?.[String(change.uid)];
+		for (const field of change.fields) {
+			if (isNormalizationFill(field, before?.[field], entry[field], change.uid)) continue;
+			for (const { path, value } of mirrorPaths(field, entry[field], options.keyMap)) {
+				set(next, change.uid, path, value);
+				writes++;
+			}
+		}
+	}
+	for (const uid of diff.removed) {
+		remove(next, uid);
+		writes++;
+	}
+	return writes;
+}
+/** Fields the bulk editor may set on many entries at once (common scalar fields of ST's entry form). */
+var BULK_FIELDS = [
+	"disable",
+	"status",
+	"positionChoice",
+	"depth",
+	"order",
+	"probability",
+	"useProbability",
+	"selectiveLogic",
+	"group",
+	"groupOverride",
+	"groupWeight",
+	"scanDepth",
+	"caseSensitive",
+	"matchWholeWords",
+	"useGroupScoring",
+	"excludeRecursion",
+	"preventRecursion",
+	"delayUntilRecursion",
+	"ignoreBudget",
+	"sticky",
+	"cooldown",
+	"delay",
+	"automationId",
+	"outletName",
+	"matchPersonaDescription",
+	"matchCharacterDescription",
+	"matchCharacterPersonality",
+	"matchCharacterDepthPrompt",
+	"matchScenario",
+	"matchCreatorNotes"
+];
+/** Marker for «values differ» in commonValues(). */
+var MIXED = Symbol("mixed");
+/** A bulk field's value on one entry (virtual fields `status` and `positionChoice` are derived). */
+function bulkValue(entry, field) {
+	const view = normalizedEntry(entry);
+	if (field === "status") return entryStatus(view);
+	if (field === "positionChoice") return positionChoice(view);
+	return view[field];
+}
+/** Value shared by every entry for each field, or MIXED. */
+function commonValues(entries, fields = BULK_FIELDS) {
+	const result = {};
+	for (const field of fields) {
+		let value = MIXED;
+		let first = true;
+		for (const entry of entries) {
+			const current = bulkValue(entry, field);
+			if (first) {
+				value = current;
+				first = false;
+			} else if (!sameJson(value, current)) {
+				value = MIXED;
+				break;
+			}
+		}
+		result[field] = value;
+	}
+	return result;
+}
+/** Real entry fields for a bulk patch (expands `status` and `positionChoice`). */
+function expandBulkPatch(patch) {
+	const result = {};
+	for (const [field, value] of Object.entries(patch)) {
+		if (value === MIXED || value === void 0) continue;
+		if (field === "status") Object.assign(result, statusPatch(value));
+		else if (field === "positionChoice") Object.assign(result, positionPatch(value));
+		else result[field] = cloneJson(value);
+	}
+	return result;
+}
+/** Applies a patch to an entry copy; `uid` never changes. */
+function patchEntry(entry, patch) {
+	const next = { ...cloneJson(entry) };
+	for (const [key, value] of Object.entries(patch)) {
+		if (key === "uid") continue;
+		if (value === void 0) delete next[key];
+		else next[key] = cloneJson(value);
+	}
+	return next;
+}
+//#endregion
+//#region src/domain/lore-studio-campaigns.ts
+/** DES's icon palette (rendering/lorebook.js CAMPAIGN_ICONS). */
+var CAMPAIGN_ICONS = [
+	"fa-dragon",
+	"fa-hat-wizard",
+	"fa-wand-sparkles",
+	"fa-shield-halved",
+	"fa-skull-crossbones",
+	"fa-crown",
+	"fa-dungeon",
+	"fa-rocket",
+	"fa-robot",
+	"fa-atom",
+	"fa-satellite",
+	"fa-meteor",
+	"fa-user-astronaut",
+	"fa-mountain-sun",
+	"fa-tree",
+	"fa-water",
+	"fa-globe",
+	"fa-seedling",
+	"fa-ghost",
+	"fa-heart",
+	"fa-masks-theater",
+	"fa-gun",
+	"fa-car",
+	"fa-city",
+	"fa-house",
+	"fa-scroll",
+	"fa-folder",
+	"fa-book",
+	"fa-star",
+	"fa-fire",
+	"fa-bolt",
+	"fa-gem"
+];
+/** DES's colour palette; '' is «default». */
+var CAMPAIGN_COLORS = [
+	"#e94560",
+	"#e07b39",
+	"#f0c040",
+	"#2ecc71",
+	"#1abc9c",
+	"#4a7ba7",
+	"#9b59b6",
+	"#e84393",
+	"#95a5a6",
+	""
+];
+var COLOR_RE = /^#(?:[0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6}|[0-9a-f]{8})$/i;
+/** DES writes the colour into `style` unchecked: only hex colours (or '') are passed on and shown. */
+function safeColor(color) {
+	return typeof color === "string" && COLOR_RE.test(color) ? color : "";
+}
+function safeIcon(icon) {
+	return typeof icon === "string" && /^fa-[a-z0-9-]+$/.test(icon) ? icon : "fa-folder";
+}
+/** The library as DES draws it (L-186, L-187) from `extensionSettings.lorebook`. */
+function libraryView(lorebook, worldNames, activeBooks) {
+	const lb = isRecord$1(lorebook) ? lorebook : {};
+	const campaigns = isRecord$1(lb.campaigns) ? lb.campaigns : {};
+	const order = stringList$1(lb.campaignOrder);
+	const ids = [...order.filter((id) => isRecord$1(campaigns[id])), ...Object.keys(campaigns).filter((id) => !order.includes(id))];
+	const existing = new Set(worldNames);
+	const active = new Set(activeBooks);
+	const collapsed = new Set(stringList$1(lb.collapsedCampaigns));
+	const activeId = typeof lb.activeCampaignId === "string" && isRecord$1(campaigns[lb.activeCampaignId]) ? lb.activeCampaignId : null;
+	const filed = /* @__PURE__ */ new Set();
+	const views = [];
+	for (const id of [...new Set(ids)]) {
+		const raw = campaigns[id];
+		if (!isRecord$1(raw)) continue;
+		const allBooks = stringList$1(raw.books);
+		for (const book of allBooks) filed.add(book);
+		const books = allBooks.filter((book) => existing.has(book));
+		views.push({
+			id,
+			name: typeof raw.name === "string" ? raw.name : id,
+			icon: safeIcon(raw.icon),
+			color: safeColor(raw.color),
+			books,
+			activeCount: books.filter((book) => active.has(book)).length,
+			active: id === activeId,
+			collapsed: collapsed.has(id)
+		});
+	}
+	return {
+		campaigns: views,
+		unfiled: worldNames.filter((book) => !filed.has(book)),
+		activeId,
+		globalBooks: stringList$1(lb.globalBooks),
+		autoLinked: stringList$1(lb.autoLinked),
+		campaignActivated: stringList$1(lb.campaignActivated),
+		autoLink: lb.autoLinkByName !== false,
+		interceptEnabled: lb.enabled === true
+	};
+}
+/** Campaign order after moving one id by `delta` places (full, validated list for `reorderCampaigns`). */
+function moveCampaign(order, id, delta) {
+	const list = [...order];
+	const from = list.indexOf(id);
+	if (from < 0) return list;
+	const to = Math.min(Math.max(0, from + delta), list.length - 1);
+	list.splice(from, 1);
+	list.splice(to, 0, id);
+	return list;
+}
+/** Workshop links `NPC → book` (characterInjection[name].lorebook and userCharacters[name].injection.lorebook). */
+function workshopLinks(desSettings) {
+	const settings = isRecord$1(desSettings) ? desSettings : {};
+	const links = {};
+	const injection = isRecord$1(settings.characterInjection) ? settings.characterInjection : {};
+	for (const [name, value] of Object.entries(injection)) if (isRecord$1(value) && typeof value.lorebook === "string" && value.lorebook) links[name] = value.lorebook;
+	const users = isRecord$1(settings.userCharacters) ? settings.userCharacters : {};
+	for (const [name, value] of Object.entries(users)) {
+		const own = isRecord$1(value) && isRecord$1(value.injection) ? value.injection.lorebook : void 0;
+		if (typeof own === "string" && own) links[name] = own;
+	}
+	return links;
+}
+//#endregion
+//#region src/domain/lore-studio-books.ts
+/** Section display order (M35 п. 3: «Этот чат», «Карточка», «Мир», «Персонажи», «Система», «Maestro», «Копии»). */
+var SECTION_ORDER = [
+	"chat",
+	"card",
+	"world",
+	"characters",
+	"system",
+	"maestro",
+	"backup"
+];
+function sectionOfRole(role) {
+	switch (role) {
+		case "bunnymo.core":
+		case "bunnymo.pack": return "system";
+		case "ck.archive":
+		case "npc": return "characters";
+		case "card": return "card";
+		case "canon":
+		case "maestro": return "maestro";
+		case "backup": return "backup";
+		default: return "world";
+	}
+}
+/**
+* Section of a book: bindings of the current chat come first (its canon, chat and persona books), then the
+* current character's books (unless they are system books), then the role.
+*/
+function sectionOf(book, role, context) {
+	if (role === "bunnymo.core" || role === "bunnymo.pack") return "system";
+	if (role === "backup") return "backup";
+	if (book === context.canonBook || book === context.chatBook || book === context.personaBook) return "chat";
+	if (context.characterBooks?.includes(book)) return "card";
+	return sectionOfRole(role);
+}
+/** Books grouped by section in SECTION_ORDER; books keep their input order inside a section; empty sections dropped. */
+function groupBooks(books, roleOf, context) {
+	const map = /* @__PURE__ */ new Map();
+	for (const book of books) {
+		const id = sectionOf(book, roleOf(book), context);
+		const list = map.get(id) ?? [];
+		list.push(book);
+		map.set(id, list);
+	}
+	return SECTION_ORDER.filter((id) => map.has(id)).map((id) => ({
+		id,
+		books: map.get(id)
+	}));
+}
+var BACKUP_RE = /\(backup\b|\.carrot_backup|\bbackup\s*\d{4}/i;
+var CANON_RE = /^Maestro · канон · /;
+/** Role guess used when M35 (bookRoles) is not running: neighbour adapters' lists and name patterns. */
+function fallbackRole(book, hints = {}) {
+	if (hints.bunnyCore?.includes(book)) return "bunnymo.core";
+	if (hints.bunnyPacks?.includes(book)) return "bunnymo.pack";
+	if (BACKUP_RE.test(book)) return "backup";
+	if (hints.canonBooks?.includes(book) || CANON_RE.test(book)) return "canon";
+	if (hints.ckArchives?.includes(book)) return "ck.archive";
+	if (hints.cardBooks?.includes(book)) return "card";
+	if (hints.rosterNames?.includes(book)) return "npc";
+	return "world";
+}
+/** BunnyMo core and packs are read-only in the studio (P13). */
+function isReadOnlyRole(role) {
+	return role === "bunnymo.core" || role === "bunnymo.pack";
+}
+/** ST's `equalsIgnoreCaseAndAccents` (utils.js): NFD, no combining marks, lower case. */
+function foldName(name) {
+	return name.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+}
+function sameName(a, b) {
+	return foldName(a) === foldName(b);
+}
+/** Existing book whose name equals `name` ignoring case and accents. */
+function findSameName(name, books) {
+	const folded = foldName(name);
+	return books.find((book) => foldName(book) === folded);
+}
+var ILLEGAL_RE = /[/?<>\\:*|"]/g;
+var CONTROL_RE = /[\x00-\x1f\x80-\x9f]/g;
+var RESERVED_RE = /^\.+$/;
+var WINDOWS_RESERVED_RE = /^(con|prn|aux|nul|com[0-9]|lpt[0-9])(\..*)?$/i;
+var TRAILING_RE = /[. ]+$/;
+/**
+* `sanitize-filename` as the server applies it to book file names (SRV-WI:151): illegal and control characters
+* removed, reserved names and trailing dots/spaces dropped, at most 255 UTF-8 bytes. Used when ST's
+* `/api/files/sanitize-filename` is unreachable.
+*/
+function sanitizeBookName(name) {
+	let result = name.replace(ILLEGAL_RE, "").replace(CONTROL_RE, "");
+	if (RESERVED_RE.test(result)) result = "";
+	if (WINDOWS_RESERVED_RE.test(result)) result = "";
+	result = result.replace(TRAILING_RE, "");
+	while (new TextEncoder().encode(result).length > 255) result = result.slice(0, -1);
+	return result;
+}
+/** `getFreeWorldName` (WI:4422-4446): `<name> (N)` with the first free N, after stripping a trailing `(N)`. */
+function freeBookName(base, books, stripIndex = true) {
+	const stem = stripIndex ? base.replace(/\s*\(\d+\)$/, "") : base;
+	for (let index = 1; index < 1e5; index++) {
+		const candidate = `${stem} (${index})`;
+		if (!books.includes(candidate)) return candidate;
+	}
+	return `${stem} (${Date.now()})`;
+}
+function bookLinks(state, book) {
+	const nameOfAvatar = (avatar) => state.characters.find((item) => item.avatar === avatar)?.name ?? avatar;
+	return {
+		global: state.global.includes(book),
+		primaryOf: state.characters.filter((item) => item.world === book).map((item) => item.name),
+		extraOf: state.charLore.filter((item) => item.extraBooks.includes(book)).map((item) => nameOfAvatar(item.name)),
+		personas: Object.entries(state.personas).filter(([, persona]) => persona.lorebook === book).map(([avatar, persona]) => persona.name || avatar),
+		currentPersona: !!book && state.personaBook === book,
+		chat: !!book && state.chatBook === book,
+		campaigns: (state.campaigns ?? []).filter((item) => item.books.includes(book)).map((item) => item.name),
+		workshop: Object.entries(state.workshop ?? {}).filter(([, attached]) => attached === book).map(([npc]) => npc)
+	};
+}
+function linkCount(links) {
+	return (links.global ? 1 : 0) + links.primaryOf.length + links.extraOf.length + links.personas.length + (links.currentPersona && !links.personas.length ? 1 : 0) + (links.chat ? 1 : 0) + links.campaigns.length + links.workshop.length;
+}
+/** `charLore` with `oldName` replaced by `newName` (WI:4232-4241); also returns how many items changed. */
+function renameInCharLore(charLore, oldName, newName) {
+	let changed = 0;
+	return {
+		charLore: charLore.map((item) => {
+			if (!item.extraBooks.includes(oldName)) return {
+				...item,
+				extraBooks: [...item.extraBooks]
+			};
+			changed++;
+			const books = item.extraBooks.filter((book) => book !== oldName);
+			if (!books.includes(newName)) books.push(newName);
+			return {
+				...item,
+				extraBooks: books
+			};
+		}),
+		changed
+	};
+}
+/** `charLore` without a deleted book; items left without books are dropped (ST's `charSetAuxWorlds` rule). */
+function removeFromCharLore(charLore, book) {
+	return charLore.map((item) => ({
+		...item,
+		extraBooks: item.extraBooks.filter((name) => name !== book)
+	})).filter((item) => item.extraBooks.length > 0);
+}
+/** Avatar key of a character (`getCharaFilename`): the avatar file name without its extension. */
+function avatarKey(avatar) {
+	return avatar.replace(/\.[^/.]+$/, "");
+}
+//#endregion
+//#region src/domain/lore-studio-settings.ts
+var WI_SETTINGS = [
+	{
+		key: "world_info_depth",
+		kind: "number",
+		min: 0,
+		max: 1e3,
+		defaultValue: 2,
+		element: "world_info_depth",
+		event: "input",
+		emits: true,
+		labelKey: "m23.wi.depth",
+		hintKey: "m23.wi.depthHint"
+	},
+	{
+		key: "world_info_budget",
+		kind: "number",
+		min: 1,
+		max: 100,
+		defaultValue: 25,
+		element: "world_info_budget",
+		event: "input",
+		emits: true,
+		labelKey: "m23.wi.budget",
+		hintKey: "m23.wi.budgetHint"
+	},
+	{
+		key: "world_info_budget_cap",
+		kind: "number",
+		min: 0,
+		max: 65536,
+		defaultValue: 0,
+		element: "world_info_budget_cap",
+		event: "input",
+		emits: true,
+		labelKey: "m23.wi.budgetCap",
+		hintKey: "m23.wi.budgetCapHint"
+	},
+	{
+		key: "world_info_min_activations",
+		kind: "number",
+		min: 0,
+		max: 100,
+		defaultValue: 0,
+		element: "world_info_min_activations",
+		event: "input",
+		emits: true,
+		labelKey: "m23.wi.minActivations",
+		hintKey: "m23.wi.minActivationsHint"
+	},
+	{
+		key: "world_info_min_activations_depth_max",
+		kind: "number",
+		min: 0,
+		max: 100,
+		defaultValue: 0,
+		element: "world_info_min_activations_depth_max",
+		event: "input",
+		emits: true,
+		labelKey: "m23.wi.minActivationsDepth",
+		hintKey: "m23.wi.minActivationsDepthHint"
+	},
+	{
+		key: "world_info_max_recursion_steps",
+		kind: "number",
+		min: 0,
+		max: 10,
+		defaultValue: 0,
+		element: "world_info_max_recursion_steps",
+		event: "input",
+		emits: true,
+		labelKey: "m23.wi.maxRecursion",
+		hintKey: "m23.wi.maxRecursionHint"
+	},
+	{
+		key: "world_info_character_strategy",
+		kind: "select",
+		defaultValue: 1,
+		options: [
+			0,
+			1,
+			2
+		],
+		element: "world_info_character_strategy",
+		event: "change",
+		emits: true,
+		labelKey: "m23.wi.strategy",
+		hintKey: "m23.wi.strategyHint"
+	},
+	{
+		key: "world_info_include_names",
+		kind: "boolean",
+		defaultValue: true,
+		element: "world_info_include_names",
+		event: "input",
+		emits: true,
+		labelKey: "m23.wi.includeNames",
+		hintKey: "m23.wi.includeNamesHint"
+	},
+	{
+		key: "world_info_recursive",
+		kind: "boolean",
+		defaultValue: false,
+		element: "world_info_recursive",
+		event: "input",
+		emits: true,
+		labelKey: "m23.wi.recursive",
+		hintKey: "m23.wi.recursiveHint"
+	},
+	{
+		key: "world_info_case_sensitive",
+		kind: "boolean",
+		defaultValue: false,
+		element: "world_info_case_sensitive",
+		event: "input",
+		emits: true,
+		labelKey: "m23.wi.caseSensitive",
+		hintKey: "m23.wi.caseSensitiveHint"
+	},
+	{
+		key: "world_info_match_whole_words",
+		kind: "boolean",
+		defaultValue: false,
+		element: "world_info_match_whole_words",
+		event: "input",
+		emits: true,
+		labelKey: "m23.wi.wholeWords",
+		hintKey: "m23.wi.wholeWordsHint"
+	},
+	{
+		key: "world_info_use_group_scoring",
+		kind: "boolean",
+		defaultValue: false,
+		element: "world_info_use_group_scoring",
+		event: "change",
+		emits: false,
+		labelKey: "m23.wi.groupScoring",
+		hintKey: "m23.wi.groupScoringHint"
+	},
+	{
+		key: "world_info_overflow_alert",
+		kind: "boolean",
+		defaultValue: false,
+		element: "world_info_overflow_alert",
+		event: "change",
+		emits: false,
+		labelKey: "m23.wi.overflowAlert",
+		hintKey: "m23.wi.overflowAlertHint"
+	}
+];
+function settingSpec(key) {
+	return WI_SETTINGS.find((spec) => spec.key === key);
+}
+/** A value coerced like ST does (`Number(...)`, `Boolean(...)`) and clamped to the control's range. */
+function coerceSetting(spec, value) {
+	if (spec.kind === "boolean") return typeof value === "string" ? value === "true" : Boolean(value);
+	let number = Number(value);
+	if (!Number.isFinite(number)) number = Number(spec.defaultValue);
+	if (spec.kind === "select") return spec.options?.includes(number) ? number : Number(spec.defaultValue);
+	number = Math.round(number);
+	if (spec.min !== void 0) number = Math.max(spec.min, number);
+	if (spec.max !== void 0) number = Math.min(spec.max, number);
+	return number;
+}
+/** Current values from ST's `getWorldInfoSettings()` (missing ones take ST's defaults). */
+function readWiSettings(source) {
+	const values = {};
+	for (const spec of WI_SETTINGS) {
+		const raw = source?.[spec.key];
+		values[spec.key] = raw === void 0 || raw === null ? spec.defaultValue : coerceSetting(spec, raw);
+	}
+	return values;
+}
+var MIN_ACTIVATIONS = "world_info_min_activations";
+var MAX_RECURSION = "world_info_max_recursion_steps";
+/**
+* Normalizes a patch: unknown keys dropped, values coerced and clamped, and the mutual exclusion applied in
+* patch order (a non-zero «min activations» zeroes «max recursion steps» and vice versa, WI:6237-6248, 6303-6313).
+* Returns only the keys whose value changes.
+*/
+function normalizeWiPatch(current, patch) {
+	const next = { ...current };
+	for (const [key, raw] of Object.entries(patch)) {
+		const spec = settingSpec(key);
+		if (!spec) continue;
+		const value = coerceSetting(spec, raw);
+		next[key] = value;
+		if (key === MIN_ACTIVATIONS && value !== 0 && next[MAX_RECURSION] !== 0) next[MAX_RECURSION] = 0;
+		if (key === MAX_RECURSION && value !== 0 && next[MIN_ACTIVATIONS] !== 0) next[MIN_ACTIVATIONS] = 0;
+	}
+	const changed = {};
+	for (const spec of WI_SETTINGS) {
+		const value = next[spec.key];
+		if (value !== void 0 && value !== current[spec.key]) changed[spec.key] = value;
+	}
+	return changed;
+}
+/** True when any key of a patch makes ST emit WORLDINFO_SETTINGS_UPDATED. */
+function patchEmits(patch) {
+	return Object.keys(patch).some((key) => settingSpec(key)?.emits === true);
+}
+//#endregion
+//#region src/features/loreStudio/st-lore.ts
+function fn(namespace, name) {
+	const value = namespace?.[name];
+	return typeof value === "function" ? value : null;
+}
+function missing(name) {
+	throw new Error(`${name} is not available`);
+}
+/** Thrown for user-facing refusals; `code` maps to `m23.error.<code>`. */
+var LoreStudioError = class extends Error {
+	code;
+	params;
+	constructor(code, params = {}) {
+		super(code);
+		this.code = code;
+		this.params = params;
+		this.name = "LoreStudioError";
+	}
+};
+var StLore = class {
+	app;
+	log;
+	constructor(app, log) {
+		this.app = app;
+		this.log = log;
+	}
+	ctx() {
+		return this.app.host.ctx();
+	}
+	async module() {
+		try {
+			return await this.app.host.modules.worldInfo();
+		} catch (error) {
+			this.log.warn("world-info.js is not available", error);
+			return null;
+		}
+	}
+	async optional(path) {
+		try {
+			return await this.app.host.modules.load(path);
+		} catch (error) {
+			this.log.debug(`${path} is not available`, error);
+			return null;
+		}
+	}
+	/** Book names as ST lists them (`world_names`, file names without extension). */
+	names() {
+		const list = this.ctx().getWorldInfoNames?.();
+		return Array.isArray(list) ? list.filter((item) => typeof item === "string") : [];
+	}
+	/** A deep copy: `loadWorldInfo` hands out the cache object itself on its first fetch (WI:2052-2056). */
+	async load(name) {
+		const ctx = this.ctx();
+		const data = typeof ctx.loadWorldInfo === "function" ? await ctx.loadWorldInfo(name) : await (fn(await this.module(), "loadWorldInfo") ?? missing("loadWorldInfo"))(name);
+		if (!isRecord$1(data)) return null;
+		const copy = cloneJson(data);
+		if (!isRecord$1(copy.entries)) copy.entries = {};
+		return copy;
+	}
+	/** Immediate save only (sweeping rule 1): the shared 1 s debounce loses books saved within a second. */
+	async save(name, data) {
+		const ctx = this.ctx();
+		if (typeof ctx.saveWorldInfo === "function") {
+			await ctx.saveWorldInfo(name, data, true);
+			return;
+		}
+		const save = fn(await this.module(), "saveWorldInfo");
+		if (!save) throw new Error("saveWorldInfo is not available");
+		await save(name, data, true);
+	}
+	/** The classic editor keeps its own copy of the open book: reload it after our write (L-164). */
+	reloadEditor(name) {
+		try {
+			this.ctx().reloadWorldInfoEditor?.(name);
+		} catch (error) {
+			this.log.debug("reloadWorldInfoEditor failed", error);
+		}
+	}
+	/** Rebuilds `world_names` and the classic selects after create/delete/rename/import (sweeping rule 4). */
+	async updateList() {
+		const ctx = this.ctx();
+		if (typeof ctx.updateWorldInfoList === "function") {
+			await ctx.updateWorldInfoList();
+			return;
+		}
+		await fn(await this.module(), "updateWorldInfoList")?.();
+	}
+	/** Drops a book from ST's cache (import over an existing book leaves the old copy cached, L-029). */
+	async dropCache(name) {
+		const cache = (await this.module())?.worldInfoCache;
+		if (cache && typeof cache.delete === "function") cache.delete(name);
+	}
+	/** ST's `deleteWorldInfo` (cache, global list, open character and persona links); POST fallback. */
+	async deleteBook(name) {
+		const remove = fn(await this.module(), "deleteWorldInfo");
+		if (remove) return await remove(name) === true;
+		if (!(await fetch("/api/worldinfo/delete", {
+			method: "POST",
+			headers: this.ctx().getRequestHeaders(),
+			body: JSON.stringify({ name })
+		})).ok) return false;
+		await this.dropCache(name);
+		await this.updateList();
+		return true;
+	}
+	/**
+	* ST's own import (all five formats, overwrite question, toasts). Returns the imported book name, or '' when
+	* ST did not import (cancelled overwrite or invalid file).
+	*/
+	async importFile(file) {
+		const importer = fn(await this.module(), "importWorldInfo");
+		if (!importer) throw new LoreStudioError("unavailable");
+		const before = new Set(this.names());
+		if (await importer(file) === false) return "";
+		const after = this.names();
+		const stem = file.name.includes(".") ? file.name.slice(0, file.name.lastIndexOf(".")) : file.name;
+		const name = after.find((name) => !before.has(name)) ?? (after.includes(stem) ? stem : "");
+		if (name) await this.dropCache(name);
+		return name;
+	}
+	/** `download` of ST utils (same as the classic Export button), else a temporary link. */
+	async download(text, fileName) {
+		const download = fn(await this.optional("/scripts/utils.js"), "download");
+		if (download) {
+			download(text, fileName, "application/json");
+			return;
+		}
+		const url = URL.createObjectURL(new Blob([text], { type: "application/json" }));
+		const link = document.createElement("a");
+		link.href = url;
+		link.download = fileName;
+		document.body.appendChild(link);
+		link.click();
+		link.remove();
+		setTimeout(() => URL.revokeObjectURL(url), 1e3);
+	}
+	/** Server-side name sanitizing (`/api/files/sanitize-filename`) through ST utils, if available. */
+	async sanitize(name) {
+		const sanitize = fn(await this.optional("/scripts/utils.js"), "getSanitizedFilename");
+		if (!sanitize) return null;
+		try {
+			const result = await sanitize(name);
+			return typeof result === "string" ? result : null;
+		} catch (error) {
+			this.log.debug("sanitize-filename failed", error);
+			return null;
+		}
+	}
+	/** `setWIOriginalDataValue` / `deleteWIOriginalDataValue` / `originalWIDataKeyMap` when exported. */
+	async mirrorFunctions() {
+		const wi = await this.module();
+		const keyMap = wi?.originalWIDataKeyMap;
+		return {
+			set: fn(wi, "setWIOriginalDataValue"),
+			remove: fn(wi, "deleteWIOriginalDataValue"),
+			keyMap: isRecord$1(keyMap) ? keyMap : null
+		};
+	}
+	/** `selected_world_info` read through the module namespace (a live `export let`, never cached). */
+	async globalBooks() {
+		return [...stringList$1((await this.module())?.selected_world_info)];
+	}
+	/**
+	* Sets the global selection through ST's own handler (L-020, L-203): the options of `#world_info` are marked
+	* and a `change` event runs ST's `onWorldInfoChange('__notSlashCommand__')`, which rebuilds the selection from
+	* the DOM, syncs `globalSelect`, saves and emits WORLDINFO_SETTINGS_UPDATED; select2 repaints on the same
+	* event. Without the classic panel: `updateWorldInfoSettings({}, list)` and the event by hand.
+	*/
+	async setGlobalBooks(next) {
+		const wanted = [...new Set(next)];
+		const select = document.getElementById("world_info");
+		if (select instanceof HTMLSelectElement && this.names().length > 0) {
+			const options = () => [...select.options].filter((option) => option.value !== "");
+			if (wanted.some((name) => !options().some((option) => option.text === name)) || options().length !== this.names().length) await this.updateList();
+			for (const option of options()) option.selected = wanted.includes(option.text);
+			select.dispatchEvent(new Event("change", { bubbles: true }));
+			return;
+		}
+		const update = fn(await this.module(), "updateWorldInfoSettings");
+		if (!update) throw new LoreStudioError("unavailable");
+		update({}, [...wanted]);
+		await this.emitSettingsUpdated();
+	}
+	async emitSettingsUpdated() {
+		const name = this.app.host.events.name("WORLDINFO_SETTINGS_UPDATED");
+		if (name) await this.app.host.events.emit(name);
+	}
+	async settings() {
+		const wi = await this.module();
+		const getter = fn(wi, "getWorldInfoSettings");
+		const source = getter ? getter() : wi;
+		return readWiSettings(isRecord$1(source) ? source : null);
+	}
+	/**
+	* Applies a normalized patch through the classic panel's elements and the event ST listens to on each (so the
+	* value, its counter, the save and WORLDINFO_SETTINGS_UPDATED all happen as in ST; DES sends the wrong event
+	* for four checkboxes — we do not, L-228). Keys without an element go through `updateWorldInfoSettings`.
+	*/
+	async applySettings(patch) {
+		const fallback = {};
+		for (const spec of WI_SETTINGS) {
+			if (!(spec.key in patch)) continue;
+			const value = patch[spec.key];
+			const element = document.getElementById(spec.element);
+			if (element instanceof HTMLInputElement || element instanceof HTMLSelectElement) {
+				if (element instanceof HTMLInputElement && element.type === "checkbox") element.checked = value === true;
+				else element.value = String(Number(value));
+				element.dispatchEvent(new Event(spec.event, { bubbles: true }));
+			} else fallback[spec.key] = value;
+		}
+		if (!Object.keys(fallback).filter((key) => settingSpec(key)).length) return;
+		const update = fn(await this.module(), "updateWorldInfoSettings");
+		if (!update) throw new LoreStudioError("unavailable");
+		update({ ...fallback });
+		if (patchEmits(fallback)) await this.emitSettingsUpdated();
+	}
+	/** The character of a one-on-one chat (group chats have no single character binding). */
+	currentCharacter() {
+		const ctx = this.ctx();
+		if (ctx.groupId) return null;
+		const id = ctx.characterId === void 0 || ctx.characterId === null ? NaN : Number(ctx.characterId);
+		const character = Number.isInteger(id) ? ctx.characters?.[id] : void 0;
+		if (!character) return null;
+		const world = character.data?.extensions?.world;
+		return {
+			id,
+			name: character.name,
+			avatar: character.avatar,
+			primary: typeof world === "string" && world ? world : null
+		};
+	}
+	async charLore() {
+		const settings = (await this.module())?.world_info;
+		return (isRecord$1(settings) && Array.isArray(settings.charLore) ? settings.charLore : []).filter(isRecord$1).map((item) => ({
+			name: String(item.name ?? ""),
+			extraBooks: stringList$1(item.extraBooks)
+		}));
+	}
+	/** Additional books of a character through `charSetAuxWorlds` (saves with ST's WI settings wrapper). */
+	async setExtraBooks(avatar, books) {
+		const setter = fn(await this.module(), "charSetAuxWorlds");
+		if (setter) {
+			setter(avatarKey(avatar), [...books]);
+			return;
+		}
+		await this.writeCharLore((list) => {
+			const key = avatarKey(avatar);
+			const index = list.findIndex((item) => item.name === key);
+			if (!books.length) {
+				if (index >= 0) list.splice(index, 1);
+			} else if (index < 0) list.push({
+				name: key,
+				extraBooks: [...books]
+			});
+			else list[index] = {
+				name: key,
+				extraBooks: [...books]
+			};
+		});
+	}
+	/** Edits `world_info.charLore` in place (the live object) and saves settings. */
+	async writeCharLore(edit) {
+		const settings = (await this.module())?.world_info;
+		if (!isRecord$1(settings)) throw new LoreStudioError("unavailable");
+		const list = Array.isArray(settings.charLore) ? settings.charLore : [];
+		edit(list);
+		settings.charLore = list;
+		this.ctx().saveSettingsDebounced();
+	}
+	/**
+	* Primary book of a character (`data.extensions.world`). The character open in ST's form goes through ST's
+	* `charUpdatePrimaryWorld` (the form's hidden field would otherwise overwrite our value on its next save,
+	* L-039); any other character through `writeExtensionField` (merge-attributes).
+	*/
+	async setPrimaryBook(characterId, name) {
+		const ctx = this.ctx();
+		const wi = await this.module();
+		const isOpen = Number(ctx.characterId) === characterId && ctx.menuType !== "create";
+		const update = fn(wi, "charUpdatePrimaryWorld");
+		if (isOpen && update && document.getElementById("character_world")) await update(name ?? "");
+		else if (typeof ctx.writeExtensionField === "function") {
+			await ctx.writeExtensionField(characterId, "world", name ?? "");
+			if (isOpen) fn(wi, "setWorldInfoButtonClass")?.(characterId, !!name);
+		} else throw new LoreStudioError("unavailable");
+	}
+	chatBook() {
+		const value = this.ctx().chatMetadata?.world_info;
+		return typeof value === "string" && value ? value : null;
+	}
+	/** `chat_metadata.world_info` + saveMetadata + the button highlight (L-047, L-048). */
+	async setChatBook(name) {
+		const ctx = this.ctx();
+		if (!ctx.getCurrentChatId()) throw new LoreStudioError("noChat");
+		if (name) ctx.chatMetadata.world_info = name;
+		else delete ctx.chatMetadata.world_info;
+		await ctx.saveMetadata();
+		for (const button of document.querySelectorAll(".chat_lorebook_button")) button.classList.toggle("world_set", !!name);
+	}
+	personaBook() {
+		const value = this.ctx().powerUserSettings?.persona_description_lorebook;
+		return typeof value === "string" && value ? value : null;
+	}
+	/** Persona descriptors: avatar → { name, lorebook }. */
+	personas() {
+		const power = this.ctx().powerUserSettings ?? {};
+		const names = isRecord$1(power.personas) ? power.personas : {};
+		const descriptors = isRecord$1(power.persona_descriptions) ? power.persona_descriptions : {};
+		const result = {};
+		for (const [avatar, descriptor] of Object.entries(descriptors)) {
+			if (!isRecord$1(descriptor)) continue;
+			const name = names[avatar];
+			result[avatar] = {
+				name: typeof name === "string" ? name : void 0,
+				lorebook: typeof descriptor.lorebook === "string" ? descriptor.lorebook : null
+			};
+		}
+		return result;
+	}
+	/** Persona book exactly as ST's persona popup writes it (PERS:1270-1312). */
+	async setPersonaBook(name) {
+		const ctx = this.ctx();
+		const power = ctx.powerUserSettings;
+		const personas = await this.optional("/scripts/personas.js");
+		const avatar = typeof personas?.user_avatar === "string" ? personas.user_avatar : "";
+		const names = isRecord$1(power?.personas) ? power.personas : {};
+		if (!power || !avatar || !names[avatar]) throw new LoreStudioError("personaName");
+		power.persona_description_lorebook = name ?? "";
+		const descriptor = fn(personas, "getOrCreatePersonaDescriptor")?.();
+		if (isRecord$1(descriptor)) descriptor.lorebook = name ?? "";
+		else if (isRecord$1(power.persona_descriptions) && isRecord$1(power.persona_descriptions[avatar])) power.persona_descriptions[avatar].lorebook = name ?? "";
+		document.getElementById("persona_lore_button")?.classList.toggle("world_set", !!name);
+		ctx.saveSettingsDebounced();
+		const event = this.app.host.events.name("PERSONA_UPDATED");
+		if (event) await this.app.host.events.emit(event, avatar);
+	}
+	/** Persona links of a renamed book, other personas included (WI:4243-4265). */
+	renamePersonaLinks(oldName, newName) {
+		const power = this.ctx().powerUserSettings;
+		if (!power) return 0;
+		let changed = 0;
+		if (power.persona_description_lorebook === oldName) {
+			power.persona_description_lorebook = newName;
+			changed++;
+		}
+		const descriptors = isRecord$1(power.persona_descriptions) ? power.persona_descriptions : {};
+		for (const descriptor of Object.values(descriptors)) if (isRecord$1(descriptor) && descriptor.lorebook === oldName) {
+			descriptor.lorebook = newName;
+			changed++;
+		}
+		if (changed) this.ctx().saveSettingsDebounced();
+		return changed;
+	}
+	/** The card's embedded book (`data.character_book`) of a character, if any. */
+	characterBook(characterId) {
+		const book = (this.ctx().characters?.[characterId])?.data?.character_book;
+		return isRecord$1(book) ? book : null;
+	}
+	/** ST's `convertCharacterBook` (context, L-044): card book → World Info data with `originalData`. */
+	convertCharacterBook(book) {
+		const convert = this.ctx().convertCharacterBook;
+		if (typeof convert !== "function") throw new LoreStudioError("unavailable");
+		const data = convert(book);
+		if (!isRecord$1(data) || !isRecord$1(data.entries)) throw new LoreStudioError("unavailable");
+		return cloneJson(data);
+	}
+	/** Characters and their primary books. */
+	characters() {
+		return (this.ctx().characters ?? []).map((character, id) => {
+			const world = character?.data?.extensions?.world;
+			return {
+				id,
+				name: character?.name ?? "",
+				avatar: character?.avatar ?? "",
+				world: typeof world === "string" && world ? world : null
+			};
+		});
+	}
+};
+//#endregion
+//#region src/features/loreStudio/des-lore.ts
+var DES_LORE_MODULES = {
+	campaigns: "src/systems/lorebook/campaignManager.js",
+	api: "src/systems/lorebook/lorebookAPI.js",
+	autoLink: "src/systems/lorebook/autoLink.js",
+	persistence: "src/core/persistence.js"
+};
+/** DES puts this toggle on the page once its settings are loaded (adapters/des DES_SELECTORS.drawerToggle). */
+var DES_LOADED_SELECTOR = "#rpg-extension-enabled";
+var DesLore = class {
+	app;
+	log;
+	modules = {};
+	loading = null;
+	constructor(app, log) {
+		this.app = app;
+		this.log = log;
+	}
+	adapter() {
+		return adaptersOf(this.app).des;
+	}
+	present() {
+		try {
+			return this.adapter().present();
+		} catch {
+			return false;
+		}
+	}
+	/** DES finished loading its settings (safe to call its mutators). */
+	loaded() {
+		return this.present() && !!document.querySelector(DES_LOADED_SELECTOR);
+	}
+	/** Imports DES's lorebook modules once; false when DES is absent, not loaded yet or the modules moved. */
+	ready() {
+		if (this.modules.campaigns) return Promise.resolve(true);
+		if (!this.loaded()) return Promise.resolve(false);
+		this.loading ??= this.importAll().finally(() => {
+			this.loading = null;
+		});
+		return this.loading;
+	}
+	scriptBase() {
+		const name = this.adapter().extensionName?.();
+		if (!name) return null;
+		const marker = `/scripts/extensions/${name}/`;
+		for (const script of document.querySelectorAll("script[type=\"module\"][src]")) {
+			const raw = script.getAttribute("src");
+			if (!raw) continue;
+			try {
+				const url = new URL(raw, document.baseURI || "http://localhost/");
+				if (decodeURIComponent(url.pathname).includes(marker)) return new URL("./", url).pathname;
+			} catch {}
+		}
+		return null;
+	}
+	async importAll() {
+		const base = this.scriptBase();
+		if (!base) return false;
+		for (const [key, path] of Object.entries(DES_LORE_MODULES)) try {
+			this.modules[key] = await this.app.host.modules.load(`${base}${path}`);
+		} catch (error) {
+			this.log.warn(`DES ${path} did not load`, error);
+		}
+		return typeof this.modules.campaigns?.createCampaign === "function";
+	}
+	call(module, name, ...args) {
+		const target = this.modules[module]?.[name];
+		if (typeof target !== "function") throw new LoreStudioError("desUnavailable");
+		return target(...args);
+	}
+	has(module, name) {
+		return typeof this.modules[module]?.[name] === "function";
+	}
+	/** `extensionSettings.lorebook`, read fresh every time (DES replaces the object on load). */
+	lorebook() {
+		const settings = this.adapter().settings();
+		return settings && isRecord$1(settings.lorebook) ? settings.lorebook : null;
+	}
+	view(worldNames, activeBooks) {
+		return libraryView(this.lorebook(), worldNames, activeBooks);
+	}
+	workshop() {
+		return workshopLinks(this.adapter().settings());
+	}
+	isSwitching() {
+		return this.has("campaigns", "isSwitching") && this.call("campaigns", "isSwitching") === true;
+	}
+	/** Campaign switches and deletions rewrite Workshop stores: never while the Workshop is open (plan §10.8). */
+	guardWorkshop() {
+		if (this.adapter().isWorkshopOpen()) throw new LoreStudioError("workshopOpen");
+	}
+	createCampaign(name) {
+		return String(this.call("campaigns", "createCampaign", name, "fa-folder", ""));
+	}
+	renameCampaign(id, name) {
+		this.call("campaigns", "renameCampaign", id, name);
+	}
+	async deleteCampaign(id) {
+		this.guardWorkshop();
+		return await this.call("campaigns", "deleteCampaign", id) === true;
+	}
+	setIcon(id, icon) {
+		this.call("campaigns", "updateCampaignIcon", id, icon);
+	}
+	setColor(id, color) {
+		this.call("campaigns", "updateCampaignColor", id, color);
+	}
+	reorder(ids) {
+		this.call("campaigns", "reorderCampaigns", [...ids]);
+	}
+	toggleCollapsed(id) {
+		this.call("campaigns", "toggleCampaignCollapsed", id);
+	}
+	async setActive(id) {
+		this.guardWorkshop();
+		return await this.call("campaigns", "setActiveCampaign", id, {}) === true;
+	}
+	/** Files a book under a campaign (null = unfiled) and reconciles the active campaign (L-200). */
+	async moveBook(book, toId) {
+		const fromId = this.call("campaigns", "getCampaignForBook", book)?.id ?? null;
+		if (fromId === toId) return;
+		if (toId) this.call("campaigns", "moveBookBetweenCampaigns", fromId, toId, book);
+		else if (fromId) this.call("campaigns", "removeBookFromCampaign", fromId, book);
+		await this.reconcile();
+	}
+	/** DES's 🌐 flag: never switched off by campaign switches or auto-link (L-205). */
+	toggleGlobal(book) {
+		return this.call("campaigns", "toggleGlobalBook", book) === true;
+	}
+	async setAutoLink(on) {
+		const lorebook = this.lorebook();
+		if (!lorebook) throw new LoreStudioError("desUnavailable");
+		lorebook.autoLinkByName = on;
+		this.call("persistence", "saveSettings");
+		if (on && this.has("autoLink", "syncAutoLinkedLorebooks")) await this.call("autoLink", "syncAutoLinkedLorebooks", {});
+	}
+	/** Runs a global-activation change after any campaign switch in flight (never from inside a DES task). */
+	async queueBookTask(task) {
+		if (!this.has("campaigns", "queueBookTask")) return task();
+		return await this.call("campaigns", "queueBookTask", task);
+	}
+	async reconcile() {
+		if ((this.has("campaigns", "getActiveCampaignId") ? this.call("campaigns", "getActiveCampaignId") : null) && this.has("campaigns", "queueReconcile")) await this.call("campaigns", "queueReconcile");
+	}
+	/** A book renamed outside DES: campaigns, global flags and journals follow (L-215). */
+	async onWorldRenamed(oldName, newName) {
+		if (!await this.ready()) {
+			this.adapter().invalidateLoreCache(oldName);
+			return;
+		}
+		if (this.has("campaigns", "onWorldRenamed")) this.call("campaigns", "onWorldRenamed", oldName, newName);
+		this.adapter().invalidateLoreCache(oldName);
+		this.adapter().invalidateLoreCache(newName);
+		await this.reconcile();
+	}
+	/** A book deleted outside DES: every DES reference dropped (L-216). */
+	async onWorldDeleted(name) {
+		if (!await this.ready()) {
+			this.adapter().invalidateLoreCache(name);
+			return;
+		}
+		if (this.has("campaigns", "onWorldDeleted")) this.call("campaigns", "onWorldDeleted", name);
+		this.adapter().invalidateLoreCache(name);
+		await this.reconcile();
+	}
+	invalidate(name) {
+		try {
+			this.adapter().invalidateLoreCache(name);
+		} catch (error) {
+			this.log.debug("DES cache reset failed", error);
+		}
+	}
+};
+function emptyHistory(book) {
+	return {
+		version: 1,
+		book,
+		entries: {}
+	};
+}
+/** A stored document, repaired: unknown shapes become an empty history of `book`. */
+function readHistory(raw, book) {
+	if (!isRecord$1(raw) || !isRecord$1(raw.entries)) return emptyHistory(book);
+	const entries = {};
+	for (const [uid, list] of Object.entries(raw.entries)) {
+		if (!Array.isArray(list)) continue;
+		const versions = list.filter((item) => isRecord$1(item) && typeof item.at === "number" && isRecord$1(item.entry) && typeof item.by === "string");
+		if (versions.length) entries[uid] = versions;
+	}
+	return {
+		version: 1,
+		book,
+		entries
+	};
+}
+/**
+* Adds previous versions (one per entry). A version equal to the newest stored one is skipped (two saves with the
+* same "before" do not duplicate). Keeps the newest `limit` per entry. Returns a new document.
+*/
+function pushVersions(doc, versions, limit = 20) {
+	const next = {
+		...doc,
+		entries: { ...doc.entries }
+	};
+	for (const { uid, version } of versions) {
+		const key = String(uid);
+		const list = [...next.entries[key] ?? []];
+		const newest = list[list.length - 1];
+		if (newest && sameJson(newest.entry, version.entry)) continue;
+		list.push(cloneJson(version));
+		while (list.length > limit) list.shift();
+		next.entries[key] = list;
+	}
+	return next;
+}
+/** Versions of one entry, newest first. */
+function versionsOf(doc, uid) {
+	return [...doc.entries[String(uid)] ?? []].reverse().map((version) => cloneJson(version));
+}
+//#endregion
+//#region src/features/loreStudio/store.ts
+var STORE_KEY = "loreStore";
+var UNDO_ENTRY = "lore-studio-entry";
+var UNDO_BOOK = "lore-studio-book";
+var UNDO_BINDING = "lore-studio-binding";
+var UNDO_SETTINGS = "lore-studio-settings";
+/** Books whose last known entries are kept to attribute external changes in the history. */
+var KNOWN_LIMIT = 8;
+function asEntries(value) {
+	return isRecord$1(value) ? value : {};
+}
+var LoreStoreService = class {
+	app;
+	log;
+	st;
+	des;
+	queues = /* @__PURE__ */ new Map();
+	ownSaves = /* @__PURE__ */ new Map();
+	listeners = /* @__PURE__ */ new Set();
+	known = /* @__PURE__ */ new Map();
+	disposers = [];
+	pending = /* @__PURE__ */ new Set();
+	flushScheduled = false;
+	disposed = false;
+	constructor(deps) {
+		this.app = deps.app;
+		this.log = deps.log;
+		this.st = deps.st;
+		this.des = deps.des;
+	}
+	install() {
+		const on = (key, handler) => {
+			const name = this.app.host.events.name(key);
+			if (name) this.disposers.push(this.app.host.events.on(name, handler));
+		};
+		on("WORLDINFO_UPDATED", (name, data) => this.onExternalUpdate(name, data));
+		on("WORLDINFO_SETTINGS_UPDATED", () => this.emit(null));
+		on("CHAT_CHANGED", () => this.emit(null));
+		on("PERSONA_UPDATED", () => this.emit(null));
+		const journal = this.app.journal;
+		journal.registerUndo(UNDO_ENTRY, (change) => this.undoEntry(change));
+		journal.registerUndo(UNDO_BOOK, (change) => this.undoBook(change));
+		journal.registerUndo(UNDO_BINDING, (change) => this.undoBinding(change));
+		journal.registerUndo(UNDO_SETTINGS, (change) => this.undoSettings(change));
+		return () => this.dispose();
+	}
+	dispose() {
+		if (this.disposed) return;
+		this.disposed = true;
+		for (const dispose of this.disposers.splice(0)) dispose();
+		this.listeners.clear();
+		this.known.clear();
+	}
+	onChange(listener) {
+		this.listeners.add(listener);
+		return () => this.listeners.delete(listener);
+	}
+	/** Coalesced per microtask: one change of many entries (or a settings event right after ours) fires once. */
+	emit(book) {
+		if (this.disposed) return;
+		this.pending.add(book);
+		if (this.flushScheduled) return;
+		this.flushScheduled = true;
+		queueMicrotask(() => {
+			this.flushScheduled = false;
+			const books = [...this.pending];
+			this.pending.clear();
+			for (const item of books) for (const listener of [...this.listeners]) try {
+				listener(item);
+			} catch (error) {
+				this.log.error("lore store listener failed", error);
+			}
+		});
+	}
+	onExternalUpdate(name, data) {
+		if (typeof name !== "string" || this.disposed) return;
+		if ((this.ownSaves.get(name) ?? 0) > 0) return;
+		const before = this.known.get(name);
+		if (before && isRecord$1(data)) {
+			const after = cloneJson(asEntries(data.entries));
+			this.remember(name, after);
+			this.enqueue(name, () => this.recordHistory(name, before, after, {
+				module: "st",
+				summary: this.app.i18n.t("m23.history.external")
+			}));
+		}
+		this.emit(name);
+	}
+	remember(book, entries) {
+		this.known.delete(book);
+		this.known.set(book, cloneJson(entries));
+		while (this.known.size > KNOWN_LIMIT) {
+			const oldest = this.known.keys().next().value;
+			if (oldest === void 0) break;
+			this.known.delete(oldest);
+		}
+	}
+	enqueue(book, job) {
+		const next = (this.queues.get(book) ?? Promise.resolve()).then(job, job);
+		const settled = next.then(() => void 0, () => void 0);
+		this.queues.set(book, settled);
+		settled.then(() => {
+			if (this.queues.get(book) === settled) this.queues.delete(book);
+		});
+		return next;
+	}
+	/** Locks several books in a fixed (sorted) order so two cross-book operations never wait on each other. */
+	lock(books, job) {
+		const order = [...new Set(books)].sort();
+		const run = (index) => index >= order.length ? job() : this.enqueue(order[index], () => run(index + 1));
+		return run(0);
+	}
+	/** Resolves when every queued write of a book has finished (tests, UI refresh after a burst). */
+	async idle(book) {
+		const pending = book ? [this.queues.get(book)] : [...this.queues.values()];
+		await Promise.all(pending.filter(Boolean));
+	}
+	books() {
+		return this.st.names();
+	}
+	async load(name) {
+		const data = await this.st.load(name);
+		if (data) this.remember(name, asEntries(data.entries));
+		return data;
+	}
+	async history(book, uid) {
+		return versionsOf(readHistory(await this.app.files.read(this.historyFile(book)), book), uid);
+	}
+	/** Role of a book: M35 when it runs, else a guess from the neighbour adapters (P13: BunnyMo is read-only). */
+	roleOf(book, hints) {
+		const roles = this.app.modules.api("bookRoles");
+		const info = roles?.roleOf(book);
+		if (info) return {
+			role: info.role,
+			readOnly: info.readOnly,
+			info
+		};
+		const role = fallbackRole(book, hints ?? this.roleHints());
+		if (roles) return {
+			role,
+			readOnly: true,
+			pending: true
+		};
+		return {
+			role,
+			readOnly: isReadOnlyRole(role)
+		};
+	}
+	/** Adapter facts for fallbackRole() (computed once per render). */
+	roleHints() {
+		const hints = {};
+		const adapters = adaptersOf(this.app);
+		try {
+			const bunny = adapters.bunnymo.books();
+			hints.bunnyCore = bunny.core;
+			hints.bunnyPacks = bunny.packs;
+		} catch {}
+		try {
+			hints.ckArchives = adapters.ck.repoBooks();
+		} catch {}
+		try {
+			hints.rosterNames = adapters.des.knownCharacters();
+		} catch {}
+		const canon = this.app.modules.api("canon");
+		if (canon) try {
+			hints.canonBooks = [canon.bookName()];
+		} catch {}
+		const character = this.st.currentCharacter();
+		if (character?.primary) hints.cardBooks = [character.primary];
+		return hints;
+	}
+	isReadOnly(book) {
+		return this.roleOf(book).readOnly;
+	}
+	guardWritable(book) {
+		if (this.isReadOnly(book)) throw new LoreStudioError("readOnly", { book });
+	}
+	/** Everything that points at books, for link reports and rename (L-025, M35 п. 9). */
+	async linkState() {
+		const library = await this.des.ready() || this.des.present() ? this.des.view(this.books(), []) : null;
+		return {
+			global: await this.st.globalBooks(),
+			charLore: await this.st.charLore(),
+			characters: this.st.characters().map((item) => ({
+				name: item.name,
+				avatar: avatarKey(item.avatar),
+				world: item.world
+			})),
+			personaBook: this.st.personaBook(),
+			personas: this.st.personas(),
+			chatBook: this.st.chatBook(),
+			campaigns: library?.campaigns.map((campaign) => ({
+				id: campaign.id,
+				name: campaign.name,
+				books: campaign.books
+			})),
+			workshop: this.des.present() ? this.des.workshop() : {}
+		};
+	}
+	/** The one place where a book is written (inside its queue). */
+	async write(book, next, previous, reason, options = {}) {
+		const before = previous ?? { entries: {} };
+		await this.mirror(before, next);
+		await this.writeRaw(book, next);
+		const beforeEntries = asEntries(before.entries);
+		const afterEntries = asEntries(next.entries);
+		this.remember(book, afterEntries);
+		await this.recordHistory(book, beforeEntries, afterEntries, reason);
+		if (options.journal !== false) await this.journalSave(book, beforeEntries, afterEntries, reason);
+		this.emit(book);
+	}
+	/** Immediate save + classic editor reload + DES cache reset; our own WORLDINFO_UPDATED is not "external". */
+	async writeRaw(book, data) {
+		this.ownSaves.set(book, (this.ownSaves.get(book) ?? 0) + 1);
+		try {
+			await this.st.save(book, data);
+		} finally {
+			const left = (this.ownSaves.get(book) ?? 1) - 1;
+			if (left > 0) this.ownSaves.set(book, left);
+			else this.ownSaves.delete(book);
+		}
+		this.st.reloadEditor(book);
+		this.des.invalidate(book);
+	}
+	async mirror(previous, next) {
+		if (!isRecord$1(next.originalData)) return;
+		const { set, remove, keyMap } = await this.st.mirrorFunctions();
+		mirrorBook(previous, next, {
+			set: set ? (book, uid, path, value) => void set(book, uid, path, value) : void 0,
+			remove: remove ? (book, uid) => void remove(book, uid) : void 0,
+			keyMap: keyMap ?? void 0
+		});
+	}
+	historyFile(book) {
+		return this.app.files.fileName("lore-history", book);
+	}
+	async recordHistory(book, before, after, reason) {
+		const diff = diffEntries(before, after);
+		const at = Date.now();
+		const versions = [...diff.changed.map((change) => change.uid), ...diff.removed].map((uid) => ({
+			uid,
+			entry: before[String(uid)]
+		})).filter((item) => !!item.entry).map(({ uid, entry }) => ({
+			uid,
+			version: {
+				at,
+				by: reason.module,
+				summary: reason.summary,
+				entry
+			}
+		}));
+		if (!versions.length) return;
+		try {
+			const name = this.historyFile(book);
+			const doc = readHistory(await this.app.files.read(name), book);
+			await this.app.files.write(name, pushVersions(doc, versions));
+		} catch (error) {
+			this.log.warn(`entry history of "${book}" was not saved`, error);
+		}
+	}
+	async moveHistory(from, to) {
+		try {
+			const raw = await this.app.files.read(this.historyFile(from));
+			if (raw === null) return;
+			const doc = readHistory(raw, to);
+			await this.app.files.write(this.historyFile(to), doc);
+			await this.app.files.remove(this.historyFile(from));
+		} catch (error) {
+			this.log.warn("entry history was not moved", error);
+		}
+	}
+	journalModule(reason) {
+		return reason.module === "user" ? "M23" : reason.module;
+	}
+	async journalSave(book, before, after, reason) {
+		const diff = diffEntries(before, after);
+		const size = diffSize(diff);
+		if (!size) return;
+		try {
+			let changes;
+			if (size <= 10) changes = [
+				...diff.added,
+				...diff.changed.map((change) => change.uid),
+				...diff.removed
+			].map((uid) => ({
+				target: UNDO_ENTRY,
+				ref: {
+					book,
+					uid
+				},
+				before: before[String(uid)] ?? null,
+				after: after[String(uid)] ?? null
+			}));
+			else changes = [{
+				target: UNDO_BOOK,
+				ref: {
+					op: "restore",
+					book,
+					file: await this.stash("lore-snapshot", book, {
+						book,
+						entries: before
+					})
+				},
+				before: { entries: Object.keys(before).length },
+				after: { entries: Object.keys(after).length }
+			}];
+			await this.app.journal.record({
+				module: this.journalModule(reason),
+				kind: "lore.save",
+				summary: reason.summary,
+				changes
+			});
+		} catch (error) {
+			this.log.warn("lore change was not journaled", error);
+		}
+	}
+	async journalBook(ref, summary) {
+		try {
+			await this.app.journal.record({
+				module: "M23",
+				kind: `lore.book.${ref.op}`,
+				summary,
+				changes: [{
+					target: UNDO_BOOK,
+					ref: { ...ref },
+					before: null,
+					after: null
+				}]
+			});
+		} catch (error) {
+			this.log.warn("book action was not journaled", error);
+		}
+	}
+	async journalBinding(kind, ref, before, after) {
+		try {
+			await this.app.journal.record({
+				module: "M23",
+				kind: `lore.binding.${kind}`,
+				summary: this.app.i18n.t(`m23.journal.binding.${kind}`),
+				changes: [{
+					target: UNDO_BINDING,
+					ref: {
+						kind,
+						...ref
+					},
+					before,
+					after
+				}]
+			});
+		} catch (error) {
+			this.log.warn("binding change was not journaled", error);
+		}
+	}
+	/** A Maestro file with a copy of book data (snapshots for undo, the trash of deleted books). */
+	async stash(kind, book, data) {
+		const name = this.app.files.fileName(kind, `${book}\u0000${Date.now()}\u0000${Math.random()}`);
+		await this.app.files.write(name, data);
+		return name;
+	}
+	userReason(key, params = {}) {
+		return {
+			module: "user",
+			summary: this.app.i18n.t(key, params)
+		};
+	}
+	async cleanName(name) {
+		const trimmed = name.trim();
+		if (!trimmed) throw new LoreStudioError("emptyName");
+		const clean = (await this.st.sanitize(trimmed) ?? sanitizeBookName(trimmed)).trim();
+		if (!clean) throw new LoreStudioError("emptyName");
+		return clean;
+	}
+	assertFree(name, except) {
+		const clash = findSameName(name, this.books().filter((book) => book !== except));
+		if (clash) throw new LoreStudioError("exists", { name: clash });
+	}
+	async save(name, data, reason) {
+		this.guardWritable(name);
+		const next = cloneJson(data);
+		if (!isRecord$1(next.entries)) next.entries = {};
+		await this.enqueue(name, async () => {
+			const previous = await this.st.load(name);
+			await this.write(name, next, previous, reason);
+		});
+	}
+	async createBook(name) {
+		const clean = await this.cleanName(name);
+		this.assertFree(clean);
+		return this.enqueue(clean, async () => {
+			await this.writeRaw(clean, { entries: {} });
+			await this.st.updateList();
+			await this.journalBook({
+				op: "create",
+				book: clean
+			}, this.app.i18n.t("m23.journal.createBook", { book: clean }));
+			this.emit(null);
+			return clean;
+		});
+	}
+	async duplicateBook(name, newName) {
+		const clean = await this.cleanName(newName);
+		this.assertFree(clean);
+		await this.lock([name, clean], async () => {
+			const data = await this.st.load(name);
+			if (!data) throw new LoreStudioError("missing", { book: name });
+			await this.writeRaw(clean, cloneJson(data));
+			await this.st.updateList();
+			await this.journalBook({
+				op: "create",
+				book: clean
+			}, this.app.i18n.t("m23.journal.duplicateBook", {
+				book: name,
+				copy: clean
+			}));
+			this.emit(null);
+		});
+	}
+	async renameBook(oldName, newName) {
+		if (!this.books().includes(oldName)) throw new LoreStudioError("missing", { book: oldName });
+		this.guardWritable(oldName);
+		const clean = await this.cleanName(newName);
+		if (sameName(oldName, clean)) throw new LoreStudioError("sameName");
+		this.assertFree(clean, oldName);
+		await this.lock([oldName, clean], () => this.renameNow(oldName, clean, true));
+	}
+	/**
+	* ST's `renameWorldInfo` + `updateWorldInfoLinks` (not exported, WI:4192-4338), all links moved without the
+	* per-character question (the studio's rename dialog lists them first), plus what ST forgets: DES campaigns,
+	* global flags and journals, the entry history and M35's registry.
+	*/
+	async renameNow(oldName, newName, journal) {
+		const data = await this.st.load(oldName) ?? { entries: {} };
+		const wasGlobal = (await this.st.globalBooks()).includes(oldName);
+		await this.writeRaw(newName, data);
+		await this.st.updateList();
+		for (const character of this.st.characters()) {
+			if (character.world !== oldName) continue;
+			try {
+				await this.st.setPrimaryBook(character.id, newName);
+			} catch (error) {
+				this.log.warn(`primary book of ${character.name} was not moved`, error);
+			}
+		}
+		if ((await this.st.charLore()).some((item) => item.extraBooks.includes(oldName))) await this.st.writeCharLore((list) => {
+			const renamed = renameInCharLore(list, oldName, newName).charLore;
+			list.splice(0, list.length, ...renamed);
+		});
+		this.st.renamePersonaLinks(oldName, newName);
+		if (this.st.chatBook() === oldName) await this.st.setChatBook(newName);
+		await this.st.deleteBook(oldName);
+		if (wasGlobal) await this.applyGlobal(newName, true);
+		await this.des.onWorldRenamed(oldName, newName);
+		await this.moveHistory(oldName, newName);
+		this.known.delete(oldName);
+		await this.followRename(oldName, newName);
+		await this.refreshRoles();
+		if (journal) await this.journalBook({
+			op: "rename",
+			book: oldName,
+			to: newName
+		}, this.app.i18n.t("m23.journal.renameBook", {
+			book: oldName,
+			to: newName
+		}));
+		this.emit(null);
+	}
+	async deleteBook(name) {
+		await this.enqueue(name, () => this.deleteNow(name, true));
+	}
+	/** ST's delete button: additional-book links dropped, then `deleteWorldInfo` (WI:2330-2353), then DES. */
+	async deleteNow(name, journal) {
+		const data = await this.st.load(name);
+		const wasGlobal = (await this.st.globalBooks()).includes(name);
+		const file = data ? await this.stash("lore-trash", name, {
+			book: name,
+			data
+		}) : void 0;
+		if ((await this.st.charLore()).some((item) => item.extraBooks.includes(name))) await this.st.writeCharLore((list) => {
+			const rest = removeFromCharLore(list, name);
+			list.splice(0, list.length, ...rest);
+		});
+		if (!await this.st.deleteBook(name)) throw new LoreStudioError("deleteFailed", { book: name });
+		await this.des.onWorldDeleted(name);
+		this.known.delete(name);
+		await this.refreshRoles();
+		if (journal) await this.journalBook({
+			op: "delete",
+			book: name,
+			file,
+			wasGlobal
+		}, this.app.i18n.t("m23.journal.deleteBook", { book: name }));
+		this.emit(null);
+	}
+	async importBook(file) {
+		const existing = findSameName(file.name.includes(".") ? file.name.slice(0, file.name.lastIndexOf(".")) : file.name, this.books());
+		const before = existing ? await this.st.load(existing) : null;
+		const snapshot = existing && before ? await this.stash("lore-snapshot", existing, {
+			book: existing,
+			entries: before.entries,
+			data: before
+		}) : void 0;
+		const name = await this.st.importFile(file);
+		if (!name) return "";
+		this.known.delete(name);
+		const ref = snapshot && name === existing ? {
+			op: "restore",
+			book: name,
+			file: snapshot
+		} : {
+			op: "import",
+			book: name
+		};
+		await this.journalBook(ref, this.app.i18n.t("m23.journal.importBook", { book: name }));
+		await this.refreshRoles();
+		this.emit(null);
+		return name;
+	}
+	/** Name the current card's embedded book would be imported under, or null without one (L-042, L-046). */
+	cardBookName() {
+		const character = this.st.currentCharacter();
+		const book = character ? this.st.characterBook(character.id) : null;
+		if (!character || !book) return null;
+		return typeof book.name === "string" && book.name.trim() ? book.name.trim() : `${character.name}'s Lorebook`;
+	}
+	/**
+	* «Import Card Lore» (L-043) for the current character: ST's `convertCharacterBook`, an immediate save, the list
+	* update and the book bound as the character's primary book. Overwriting a book of that name is journaled with
+	* a snapshot, so it can be undone.
+	*/
+	async importCardBook() {
+		const character = this.st.currentCharacter();
+		if (!character) throw new LoreStudioError("noCharacter");
+		const raw = this.st.characterBook(character.id);
+		if (!raw) throw new LoreStudioError("noCardBook");
+		const name = await this.cleanName(this.cardBookName() ?? `${character.name}'s Lorebook`);
+		const data = this.st.convertCharacterBook(raw);
+		const target = findSameName(name, this.books()) ?? name;
+		return this.enqueue(target, async () => {
+			const previous = this.books().includes(target) ? await this.st.load(target) : null;
+			const file = previous ? await this.stash("lore-snapshot", target, {
+				book: target,
+				entries: previous.entries,
+				data: previous
+			}) : void 0;
+			await this.writeRaw(target, data);
+			await this.st.updateList();
+			await this.st.setPrimaryBook(character.id, target);
+			this.known.delete(target);
+			await this.journalBook(file ? {
+				op: "restore",
+				book: target,
+				file
+			} : {
+				op: "create",
+				book: target
+			}, this.app.i18n.t("m23.journal.importCardBook", {
+				book: target,
+				name: character.name
+			}));
+			await this.refreshRoles();
+			this.emit(null);
+			return target;
+		});
+	}
+	async exportBook(name) {
+		const data = await this.st.load(name);
+		if (!data) throw new LoreStudioError("missing", { book: name });
+		await this.st.download(JSON.stringify(data), `${name}.json`);
+	}
+	/** M35 roles and entry metadata, and canon items pointing at the book, follow a rename. */
+	async followRename(oldName, newName) {
+		try {
+			await this.app.modules.api("bookRoles")?.renameBook?.(oldName, newName);
+		} catch (error) {
+			this.log.warn("book roles did not follow the rename", error);
+		}
+		try {
+			await this.app.modules.api("canon")?.renameBase?.(oldName, newName);
+		} catch (error) {
+			this.log.warn("canon did not follow the rename", error);
+		}
+	}
+	async refreshRoles() {
+		try {
+			await this.app.modules.api("bookRoles")?.refresh();
+		} catch (error) {
+			this.log.debug("book roles refresh failed", error);
+		}
+	}
+	async createEntry(book, partial = {}, reason) {
+		this.guardWritable(book);
+		return this.enqueue(book, async () => {
+			const data = await this.st.load(book) ?? { entries: {} };
+			const next = cloneJson(data);
+			const uid = freeUid(next.entries);
+			next.entries[String(uid)] = normalizedEntry(templateEntry(uid, {
+				displayIndex: maxDisplayIndex(next.entries) + 1,
+				...partial
+			}));
+			await this.write(book, next, data, reason ?? this.userReason("m23.journal.createEntry", { book }));
+			return uid;
+		});
+	}
+	async updateEntry(book, uid, patch, reason) {
+		await this.patchEntries(book, [{
+			uid,
+			patch
+		}], reason);
+	}
+	/** One save for many entry patches (bulk edit, apply sorting as order, backfill, drag reorder). */
+	async patchEntries(book, patches, reason) {
+		this.guardWritable(book);
+		if (!patches.length) return 0;
+		return this.enqueue(book, async () => {
+			const data = await this.st.load(book);
+			if (!data) throw new LoreStudioError("missing", { book });
+			const next = cloneJson(data);
+			let changed = 0;
+			for (const { uid, patch } of patches) {
+				const entry = next.entries[String(uid)];
+				if (!entry) throw new LoreStudioError("missingEntry", {
+					book,
+					uid
+				});
+				const updated = normalizedEntry(patchEntry(entry, patch));
+				if (!sameJson(updated, entry)) changed++;
+				next.entries[String(uid)] = updated;
+			}
+			if (changed) await this.write(book, next, data, reason);
+			return changed;
+		});
+	}
+	/** Replaces an entry with a stored version (history «restore»); the uid stays. */
+	async restoreVersion(book, uid, version) {
+		this.guardWritable(book);
+		await this.enqueue(book, async () => {
+			const data = await this.st.load(book);
+			if (!data) throw new LoreStudioError("missing", { book });
+			const next = cloneJson(data);
+			next.entries[String(uid)] = {
+				...cloneJson(version.entry),
+				uid
+			};
+			await this.write(book, next, data, this.userReason("m23.journal.restoreVersion", {
+				book,
+				uid
+			}));
+		});
+	}
+	async deleteEntry(book, uid, reason) {
+		await this.deleteEntries(book, [uid], reason);
+	}
+	async deleteEntries(book, uids, reason) {
+		this.guardWritable(book);
+		return this.enqueue(book, async () => {
+			const data = await this.st.load(book);
+			if (!data) return 0;
+			const next = cloneJson(data);
+			let removed = 0;
+			for (const uid of uids) {
+				if (!next.entries[String(uid)]) continue;
+				delete next.entries[String(uid)];
+				removed++;
+			}
+			if (removed) await this.write(book, next, data, reason ?? this.userReason("m23.journal.deleteEntries", {
+				book,
+				count: removed
+			}));
+			return removed;
+		});
+	}
+	/** ST's duplicate (WI:4019-4033): every field copied under the smallest free uid, same displayIndex. */
+	async duplicateEntry(book, uid, reason) {
+		this.guardWritable(book);
+		return this.enqueue(book, async () => {
+			const data = await this.st.load(book);
+			const source = data?.entries[String(uid)];
+			if (!data || !source) throw new LoreStudioError("missingEntry", {
+				book,
+				uid
+			});
+			const next = cloneJson(data);
+			const copyUid = freeUid(next.entries);
+			next.entries[String(copyUid)] = normalizedEntry({
+				...cloneJson(source),
+				uid: copyUid
+			});
+			await this.write(book, next, data, reason ?? this.userReason("m23.journal.duplicateEntry", {
+				book,
+				uid
+			}));
+			return copyUid;
+		});
+	}
+	async moveEntry(fromBook, uid, toBook, copy, reason) {
+		const [result] = await this.moveEntries(fromBook, [uid], toBook, copy, reason);
+		if (result === void 0) throw new LoreStudioError("missingEntry", {
+			book: fromBook,
+			uid
+		});
+		return result;
+	}
+	/**
+	* ST's `moveWorldInfoEntry` (WI:6000-6089) for many entries: copies get the smallest free uid in the target and
+	* `displayIndex` at its end; a move also deletes the source entries (and their originalData). Both books are
+	* saved immediately, in a fixed lock order.
+	*/
+	async moveEntries(fromBook, uids, toBook, copy, reason) {
+		if (fromBook === toBook) return [...uids];
+		this.guardWritable(toBook);
+		if (!copy) this.guardWritable(fromBook);
+		return this.lock([fromBook, toBook], async () => {
+			const source = await this.st.load(fromBook);
+			if (!source) throw new LoreStudioError("missing", { book: fromBook });
+			const target = await this.st.load(toBook) ?? { entries: {} };
+			const nextTarget = cloneJson(target);
+			const nextSource = cloneJson(source);
+			const created = [];
+			for (const uid of uids) {
+				const entry = source.entries[String(uid)];
+				if (!entry) continue;
+				const newUid = freeUid(nextTarget.entries);
+				nextTarget.entries[String(newUid)] = normalizedEntry({
+					...cloneJson(entry),
+					uid: newUid,
+					displayIndex: maxDisplayIndex(nextTarget.entries) + 1
+				});
+				created.push(newUid);
+				if (!copy) delete nextSource.entries[String(uid)];
+			}
+			if (!created.length) return created;
+			const why = reason ?? this.userReason(copy ? "m23.journal.copyEntries" : "m23.journal.moveEntries", {
+				from: fromBook,
+				to: toBook,
+				count: created.length
+			});
+			await this.write(toBook, nextTarget, target, why);
+			if (!copy) await this.write(fromBook, nextSource, source, why);
+			return created;
+		});
+	}
+	async bindings() {
+		const character = this.st.currentCharacter();
+		const charLore = await this.st.charLore();
+		const extra = character ? charLore.find((item) => item.name === avatarKey(character.avatar))?.extraBooks ?? [] : [];
+		return {
+			global: await this.st.globalBooks(),
+			character: {
+				primary: character?.primary ?? null,
+				extra: [...extra]
+			},
+			chat: this.st.chatBook(),
+			persona: this.st.personaBook()
+		};
+	}
+	async setGlobal(name, active) {
+		const before = await this.st.globalBooks();
+		if (before.includes(name) === active) return;
+		await this.applyGlobal(name, active);
+		await this.journalBinding("global", { book: name }, before.includes(name), active);
+		this.emit(null);
+	}
+	/** Global activation queued behind DES campaign switches (L-198, L-203). */
+	async applyGlobal(name, active) {
+		await this.des.ready();
+		await this.des.queueBookTask(async () => {
+			const rest = (await this.st.globalBooks()).filter((book) => book !== name);
+			await this.st.setGlobalBooks(active ? [...rest, name] : rest);
+		});
+	}
+	/** Replaces the whole global selection (bulk activation, undo). */
+	async setGlobalList(names) {
+		await this.des.ready();
+		await this.des.queueBookTask(() => this.st.setGlobalBooks(names));
+		this.emit(null);
+	}
+	async setCharacterPrimary(name) {
+		const character = this.st.currentCharacter();
+		if (!character) throw new LoreStudioError("noCharacter");
+		if (character.primary === name) return;
+		await this.st.setPrimaryBook(character.id, name);
+		await this.journalBinding("primary", {
+			characterId: character.id,
+			avatar: character.avatar
+		}, character.primary, name);
+		this.emit(null);
+	}
+	async setCharacterExtra(names) {
+		const character = this.st.currentCharacter();
+		if (!character) throw new LoreStudioError("noCharacter");
+		const before = (await this.bindings()).character.extra;
+		await this.st.setExtraBooks(character.avatar, names);
+		await this.journalBinding("extra", {
+			characterId: character.id,
+			avatar: character.avatar
+		}, before, [...names]);
+		this.emit(null);
+	}
+	async setChatBook(name) {
+		const before = this.st.chatBook();
+		if (before === name) return;
+		await this.st.setChatBook(name);
+		await this.journalBinding("chat", { chatId: this.app.host.chatId() }, before, name);
+		this.emit(null);
+	}
+	async setPersonaBook(name) {
+		const before = this.st.personaBook();
+		if (before === name) return;
+		await this.st.setPersonaBook(name);
+		await this.journalBinding("persona", {}, before, name);
+		this.emit(null);
+	}
+	async globalSettings() {
+		return this.st.settings();
+	}
+	async setGlobalSettings(patch, journal = true) {
+		const current = await this.st.settings();
+		const changed = normalizeWiPatch(current, patch);
+		const keys = Object.keys(changed);
+		if (!keys.length) return;
+		await this.st.applySettings(changed);
+		if (journal) {
+			const before = Object.fromEntries(keys.map((key) => [key, current[key]]));
+			try {
+				await this.app.journal.record({
+					module: "M23",
+					kind: "lore.settings",
+					summary: this.app.i18n.t("m23.journal.settings", { count: keys.length }),
+					changes: [{
+						target: UNDO_SETTINGS,
+						ref: {},
+						before,
+						after: changed
+					}]
+				});
+			} catch (error) {
+				this.log.warn("settings change was not journaled", error);
+			}
+		}
+		this.emit(null);
+	}
+	async undoEntry(change) {
+		if (this.disposed) return false;
+		const book = typeof change.ref.book === "string" ? change.ref.book : "";
+		const uid = Number(change.ref.uid);
+		if (!book || !Number.isInteger(uid)) return false;
+		return this.enqueue(book, async () => {
+			const data = await this.st.load(book);
+			if (!data) return false;
+			const current = data.entries[String(uid)];
+			const after = isRecord$1(change.after) ? change.after : null;
+			if (after ? !current || !sameJson(current, after) : !!current) {
+				this.log.warn(`undo skipped: entry ${uid} of "${book}" changed since`);
+				return false;
+			}
+			const next = cloneJson(data);
+			if (isRecord$1(change.before)) next.entries[String(uid)] = {
+				...cloneJson(change.before),
+				uid
+			};
+			else delete next.entries[String(uid)];
+			await this.write(book, next, data, this.userReason("m23.journal.undo", { book }), { journal: false });
+			return true;
+		});
+	}
+	async undoBook(change) {
+		if (this.disposed) return false;
+		const ref = change.ref;
+		if (typeof ref.book !== "string" || !ref.book) return false;
+		switch (ref.op) {
+			case "create":
+			case "import":
+				if (!this.books().includes(ref.book)) return true;
+				await this.enqueue(ref.book, () => this.deleteNow(ref.book, false));
+				return true;
+			case "delete": {
+				if (!ref.file || this.books().includes(ref.book)) return false;
+				const stored = await this.app.files.read(ref.file);
+				if (!stored?.data) return false;
+				await this.enqueue(ref.book, async () => {
+					await this.writeRaw(ref.book, stored.data);
+					await this.st.updateList();
+					if (ref.wasGlobal) await this.applyGlobal(ref.book, true);
+				});
+				this.emit(null);
+				return true;
+			}
+			case "rename":
+				if (!ref.to || !this.books().includes(ref.to) || this.books().includes(ref.book)) return false;
+				await this.lock([ref.to, ref.book], () => this.renameNow(ref.to, ref.book, false));
+				return true;
+			case "restore": {
+				if (!ref.file) return false;
+				const stored = await this.app.files.read(ref.file);
+				if (!stored) return false;
+				await this.enqueue(ref.book, async () => {
+					const current = await this.st.load(ref.book);
+					const base = current ?? { entries: {} };
+					const next = stored.data ? cloneJson(stored.data) : {
+						...cloneJson(base),
+						entries: cloneJson(asEntries(stored.entries))
+					};
+					await this.write(ref.book, next, current, this.userReason("m23.journal.undo", { book: ref.book }), { journal: false });
+					if (!current) await this.st.updateList();
+				});
+				return true;
+			}
+			default: return false;
+		}
+	}
+	async undoBinding(change) {
+		if (this.disposed) return false;
+		const kind = change.ref.kind;
+		const before = change.before;
+		switch (kind) {
+			case "global": {
+				const book = typeof change.ref.book === "string" ? change.ref.book : "";
+				if (!book) return false;
+				await this.applyGlobal(book, before === true);
+				this.emit(null);
+				return true;
+			}
+			case "primary": {
+				const character = this.st.currentCharacter();
+				if (!character || character.avatar !== change.ref.avatar) return false;
+				await this.st.setPrimaryBook(character.id, typeof before === "string" ? before : null);
+				this.emit(null);
+				return true;
+			}
+			case "extra": {
+				const avatar = typeof change.ref.avatar === "string" ? change.ref.avatar : "";
+				if (!avatar) return false;
+				await this.st.setExtraBooks(avatar, Array.isArray(before) ? before.map(String) : []);
+				this.emit(null);
+				return true;
+			}
+			case "chat":
+				if (change.ref.chatId !== this.app.host.chatId()) return false;
+				await this.st.setChatBook(typeof before === "string" ? before : null);
+				this.emit(null);
+				return true;
+			case "persona":
+				await this.st.setPersonaBook(typeof before === "string" ? before : null);
+				this.emit(null);
+				return true;
+			default: return false;
+		}
+	}
+	async undoSettings(change) {
+		if (this.disposed || !isRecord$1(change.before)) return false;
+		await this.setGlobalSettings(change.before, false);
+		return true;
+	}
+};
+var M23_STRINGS = {
+	en: {
+		"m23.title": "Lore Studio",
+		"m23.close": "Close",
+		"m23.classic": "Classic editor",
+		"m23.classicHint": "Open SillyTavern's own Worlds/Lorebooks window",
+		"m23.nav.label": "Lore Studio sections",
+		"m23.nav.library": "Books",
+		"m23.nav.settings": "WI settings",
+		"m23.nav.campaigns": "DES campaigns",
+		"m23.nav.books": "Back to books",
+		"m23.section.chat": "This chat",
+		"m23.section.card": "Card",
+		"m23.section.world": "World",
+		"m23.section.characters": "Characters",
+		"m23.section.system": "System",
+		"m23.section.maestro": "Maestro",
+		"m23.section.backup": "Copies",
+		"m23.role.bunnymoCore": "BunnyMo core",
+		"m23.role.bunnymoPack": "BunnyMo pack",
+		"m23.role.ckArchive": "CK archive",
+		"m23.role.world": "world",
+		"m23.role.card": "card",
+		"m23.role.npc": "NPC",
+		"m23.role.canon": "canon",
+		"m23.role.maestro": "Maestro",
+		"m23.role.chat": "chat",
+		"m23.role.persona": "persona",
+		"m23.role.backup": "copy",
+		"m23.role.unknown": "book",
+		"m23.reason.global": "global",
+		"m23.reason.character": "character",
+		"m23.reason.characterExtra": "character (additional)",
+		"m23.reason.chat": "chat book",
+		"m23.reason.persona": "persona",
+		"m23.reason.desCampaign": "DES campaign",
+		"m23.reason.desAutoLink": "DES auto-link",
+		"m23.reason.ckConnector": "CarrotKernel",
+		"m23.reason.workshop": "DES Workshop",
+		"m23.reason.canon": "chat canon",
+		"m23.books.search": "Find a book…",
+		"m23.books.create": "New",
+		"m23.books.createTitle": "New lorebook",
+		"m23.books.newName": "New World",
+		"m23.books.import": "Import",
+		"m23.books.importHint": "SillyTavern JSON, NovelAI (.lorebook, .png), Agnai and RisuAI — the same import as SillyTavern",
+		"m23.books.onlyActive": "Active in this chat",
+		"m23.books.onlyActiveHint": "Only books the next scan will read, with the reason",
+		"m23.books.none": "No books match.",
+		"m23.books.readOnly": "Read only: BunnyMo books are never edited (P13)",
+		"m23.books.globalToggle": "Active for all chats: {book}",
+		"m23.books.globalHint": "Active for all chats (global)",
+		"m23.books.activeBecause": "Active: {reasons}",
+		"m23.books.notImported": "{file} was not imported.",
+		"m23.bindings.title": "Bindings of this chat",
+		"m23.bindings.global": "Active for all chats",
+		"m23.bindings.noGlobal": "No global books.",
+		"m23.bindings.addGlobal": "Add a global book…",
+		"m23.bindings.removeGlobal": "Remove {book} from the global books",
+		"m23.bindings.character": "Character: {name}",
+		"m23.bindings.primary": "Primary lorebook (stored in the card)",
+		"m23.bindings.extra": "Additional lorebooks ({count})",
+		"m23.bindings.chat": "Chat lorebook",
+		"m23.bindings.persona": "Persona lorebook",
+		"m23.bindings.none": "— none —",
+		"m23.bindings.missing": "{book} (missing)",
+		"m23.bindings.group": "Group chat: character lorebooks are set in each member card.",
+		"m23.bindings.noCharacter": "No character is selected.",
+		"m23.book.rename": "Rename book",
+		"m23.book.renameTitle": "Rename «{book}»",
+		"m23.book.renameLinks": "Links will move to the new name: {links}.",
+		"m23.book.duplicate": "Duplicate book",
+		"m23.book.duplicateTitle": "Copy of «{book}»",
+		"m23.book.export": "Export (download JSON)",
+		"m23.book.localize": "Russian keys for the book (Lorebook Localizer)",
+		"m23.book.localizeBody": "Lorebook Localizer will translate the keys of all {count} entries of «{book}» and add Russian forms. It uses your Localizer settings and connection. The change can be undone from the journal of each entry.",
+		"m23.book.localizeRun": "Add keys",
+		"m23.book.localizeProtected": "Lorebook Localizer does not touch this book (BunnyMo).",
+		"m23.book.localizeDone": "Keys added: {added} in {entries} entries; not translated: {failures}.",
+		"m23.book.classic": "Open in the classic editor",
+		"m23.book.delete": "Delete book",
+		"m23.book.deleteTitle": "Delete the lorebook",
+		"m23.book.deleteBody": "Delete «{book}» and all its entries?",
+		"m23.book.deleteLinks": "It is still linked: {links}. These links will point to a missing book.",
+		"m23.book.deleteUndo": "A copy is kept: the deletion can be undone from the Maestro journal.",
+		"m23.links.global": "active for all chats",
+		"m23.links.primary": "primary book of {names}",
+		"m23.links.extra": "additional book of {names}",
+		"m23.links.personas": "persona book of {names}",
+		"m23.links.persona": "current persona",
+		"m23.links.chat": "book of this chat",
+		"m23.links.campaigns": "DES campaign {names}",
+		"m23.links.workshop": "Workshop: {names}",
+		"m23.entries.pickBook": "Pick a book on the left.",
+		"m23.entries.loading": "Loading…",
+		"m23.entries.empty": "No entries yet.",
+		"m23.entries.noMatch": "Nothing found.",
+		"m23.entries.readOnly": "read only",
+		"m23.entries.inactive": "Not active in this chat",
+		"m23.entries.workshop": "Workshop: {names}",
+		"m23.entries.search": "Search entries…",
+		"m23.entries.sort": "Sort",
+		"m23.entries.pageSize": "Entries per page",
+		"m23.entries.perPage": "{count} per page",
+		"m23.entries.new": "New entry",
+		"m23.entries.applyOrder": "Apply current sorting as Order",
+		"m23.entries.backfill": "Fill empty titles with keywords",
+		"m23.entries.expandAll": "Open all previews on this page",
+		"m23.entries.collapseAll": "Close all previews on this page",
+		"m23.entries.refresh": "Reload from disk",
+		"m23.entries.prevPage": "Previous page",
+		"m23.entries.nextPage": "Next page",
+		"m23.entries.range": "{from}–{to} of {total}",
+		"m23.entries.untitled": "Entry {uid}",
+		"m23.entries.select": "Select {title}",
+		"m23.entries.drag": "Drag to reorder",
+		"m23.entries.up": "Move up",
+		"m23.entries.down": "Move down",
+		"m23.entries.enable": "Enable entry",
+		"m23.entries.disable": "Disable entry",
+		"m23.entries.openHint": "Open the entry",
+		"m23.entries.order": "order {value}",
+		"m23.entries.preview": "Preview",
+		"m23.entries.duplicate": "Duplicate entry",
+		"m23.entries.moveCopy": "Move or copy to another book",
+		"m23.entries.delete": "Delete entry",
+		"m23.entries.deleteTitle": "Delete entries",
+		"m23.entries.deleteOne": "Delete «{title}» (UID {uid})? It can be undone from the Maestro journal.",
+		"m23.entries.deleteMany": "Delete {count} entries? It can be undone from the Maestro journal.",
+		"m23.entries.findings": "Doctor findings: {count}",
+		"m23.entries.lastSeen": "msg {index}",
+		"m23.entries.lastSeenHint": "Last turn this entry reached the prompt (lore journal)",
+		"m23.entries.keys": "Keys: {keys}",
+		"m23.entries.secondary": "Secondary: {keys}",
+		"m23.status.constant": "Constant",
+		"m23.status.normal": "Normal",
+		"m23.status.vectorized": "Vectorized",
+		"m23.canon.override": "Chat canon overrides this entry",
+		"m23.canon.suppress": "Chat canon suppresses this entry",
+		"m23.canon.pin": "Chat canon pins this entry",
+		"m23.canon.addition": "Chat canon adds to this entry",
+		"m23.sort.search": "Search",
+		"m23.sort.priority": "Priority",
+		"m23.sort.custom": "Custom",
+		"m23.sort.titleAsc": "Title A-Z",
+		"m23.sort.titleDesc": "Title Z-A",
+		"m23.sort.tokensAsc": "Tokens ↗",
+		"m23.sort.tokensDesc": "Tokens ↘",
+		"m23.sort.depthAsc": "Depth ↗",
+		"m23.sort.depthDesc": "Depth ↘",
+		"m23.sort.orderAsc": "Order ↗",
+		"m23.sort.orderDesc": "Order ↘",
+		"m23.sort.uidAsc": "UID ↗",
+		"m23.sort.uidDesc": "UID ↘",
+		"m23.sort.probabilityAsc": "Trigger% ↗",
+		"m23.sort.probabilityDesc": "Trigger% ↘",
+		"m23.bulk.title": "Selected entries",
+		"m23.bulk.selected": "Selected: {count}",
+		"m23.bulk.selectPage": "Whole page",
+		"m23.bulk.selectAll": "All found",
+		"m23.bulk.clear": "Clear",
+		"m23.bulk.edit": "Change fields…",
+		"m23.bulk.enable": "Enable selected",
+		"m23.bulk.disable": "Disable selected",
+		"m23.bulk.moveCopy": "Move or copy selected",
+		"m23.bulk.delete": "Delete selected",
+		"m23.bulkEdit.title": "Change {count} entries",
+		"m23.bulkEdit.intro": "Ticked fields are set on all {count} entries; the rest stay as they are.",
+		"m23.bulkEdit.change": "Change {field}",
+		"m23.bulkEdit.mixed": "differs",
+		"m23.bulkEdit.global": "Use global setting",
+		"m23.bulkEdit.yes": "Yes",
+		"m23.bulkEdit.no": "No",
+		"m23.bulkEdit.emptyGlobal": "empty = off / global",
+		"m23.field.disable": "Disabled",
+		"m23.field.status": "Status",
+		"m23.field.positionChoice": "Position",
+		"m23.field.depth": "Depth",
+		"m23.field.order": "Order",
+		"m23.field.probability": "Trigger %",
+		"m23.field.useProbability": "Use probability",
+		"m23.field.selectiveLogic": "Logic",
+		"m23.field.group": "Inclusion group",
+		"m23.field.groupOverride": "Prioritize in group",
+		"m23.field.groupWeight": "Group weight",
+		"m23.field.scanDepth": "Scan depth",
+		"m23.field.caseSensitive": "Case-sensitive",
+		"m23.field.matchWholeWords": "Whole words",
+		"m23.field.useGroupScoring": "Group scoring",
+		"m23.field.excludeRecursion": "Non-recursable",
+		"m23.field.preventRecursion": "Prevent further recursion",
+		"m23.field.delayUntilRecursion": "Delay until recursion (level)",
+		"m23.field.ignoreBudget": "Ignore budget",
+		"m23.field.sticky": "Sticky",
+		"m23.field.cooldown": "Cooldown",
+		"m23.field.delay": "Delay",
+		"m23.field.automationId": "Automation ID",
+		"m23.field.outletName": "Outlet name",
+		"m23.field.matchPersonaDescription": "Match persona description",
+		"m23.field.matchCharacterDescription": "Match character description",
+		"m23.field.matchCharacterPersonality": "Match character personality",
+		"m23.field.matchCharacterDepthPrompt": "Match character's note",
+		"m23.field.matchScenario": "Match scenario",
+		"m23.field.matchCreatorNotes": "Match creator's notes",
+		"m23.position.before": "↑Char (before character)",
+		"m23.position.after": "↓Char (after character)",
+		"m23.position.emTop": "↑EM (before examples)",
+		"m23.position.emBottom": "↓EM (after examples)",
+		"m23.position.anTop": "↑AN (before author's note)",
+		"m23.position.anBottom": "↓AN (after author's note)",
+		"m23.position.depthSystem": "@D ⚙️ (at depth, system)",
+		"m23.position.depthUser": "@D 👤 (at depth, user)",
+		"m23.position.depthAssistant": "@D 🤖 (at depth, assistant)",
+		"m23.position.outlet": "➡️ Outlet",
+		"m23.logic.0": "AND ANY",
+		"m23.logic.3": "AND ALL",
+		"m23.logic.1": "NOT ALL",
+		"m23.logic.2": "NOT ANY",
+		"m23.order.title": "Apply current sorting as Order",
+		"m23.order.intro": "Assigns Order values to all entries of the book in the current sort order. Descending by default: the first entry gets the highest value.",
+		"m23.order.count": "{count} entries in the book",
+		"m23.order.start": "Starting value",
+		"m23.order.step": "Step",
+		"m23.order.ascending": "Ascending order",
+		"m23.order.clamped": "Some entries will be clamped to Order 0: the last one would reach {value} ({count} entries, step {step}).",
+		"m23.order.invalid.start": "The starting value must be 0 or more.",
+		"m23.order.invalid.step": "The step must be 1 or more.",
+		"m23.order.upToDate": "All Order values are already up to date.",
+		"m23.order.updated": "Updated {count} Order values.",
+		"m23.backfill.none": "No entries without a title have keywords.",
+		"m23.backfill.done": "Filled {count} titles.",
+		"m23.move.target": "Target book",
+		"m23.move.titleOne": "Move or copy «{title}»",
+		"m23.move.titleMany": "Move or copy {count} entries",
+		"m23.move.move": "Move",
+		"m23.move.copy": "Copy",
+		"m23.move.noTargets": "There are no other lorebooks to move to.",
+		"m23.move.moved": "Moved {count} entries to «{book}».",
+		"m23.move.copied": "Copied {count} entries to «{book}».",
+		"m23.form.unavailable": "The entry form is not available in this build.",
+		"m23.form.failed": "The entry form failed to open (see the log).",
+		"m23.wi.title": "Global World Info activation settings",
+		"m23.wi.intro": "The same settings as in SillyTavern’s Worlds/Lorebooks window; changes go through SillyTavern’s own handlers.",
+		"m23.wi.related": "Related settings outside this window: «Lorebook Import Dialog» in User Settings, the World Info format for Chat Completion, «Allow WI scan» in Author’s Note and Vector Storage.",
+		"m23.wi.depth": "Scan depth",
+		"m23.wi.depthHint": "How many recent messages are scanned ({min}–{max}).",
+		"m23.wi.budget": "Context %",
+		"m23.wi.budgetHint": "World Info budget as a share of the context ({min}–{max}).",
+		"m23.wi.budgetCap": "Budget cap",
+		"m23.wi.budgetCapHint": "Upper limit of the budget in tokens, 0 = no limit ({min}–{max}).",
+		"m23.wi.minActivations": "Min activations",
+		"m23.wi.minActivationsHint": "If fewer entries activate, scanning goes further back in the history. Resets max recursion steps ({min}–{max}).",
+		"m23.wi.minActivationsDepth": "Max depth",
+		"m23.wi.minActivationsDepthHint": "How far min activations may go back, 0 = to the start of the chat ({min}–{max}).",
+		"m23.wi.maxRecursion": "Max recursion steps",
+		"m23.wi.maxRecursionHint": "0 = no limit, 1 = initial scan only. Disabled while min activations is set; resets it ({min}–{max}).",
+		"m23.wi.strategy": "Insertion strategy",
+		"m23.wi.strategyHint": "Chat and persona books always go first.",
+		"m23.wi.strategyEven": "Sorted evenly",
+		"m23.wi.strategyCharacter": "Character lore first",
+		"m23.wi.strategyGlobal": "Global lore first",
+		"m23.wi.includeNames": "Include names",
+		"m23.wi.includeNamesHint": "Messages are scanned as «Name: text».",
+		"m23.wi.recursive": "Recursive scan",
+		"m23.wi.recursiveHint": "Activated entries are scanned for keys of other entries.",
+		"m23.wi.caseSensitive": "Case-sensitive",
+		"m23.wi.caseSensitiveHint": "Default for entries set to «use global».",
+		"m23.wi.wholeWords": "Match whole words",
+		"m23.wi.wholeWordsHint": "Default for entries set to «use global». Cyrillic needs Maestro’s rule (M22).",
+		"m23.wi.groupScoring": "Use group scoring",
+		"m23.wi.groupScoringHint": "Default for entries set to «use global».",
+		"m23.wi.overflowAlert": "Alert on overflow",
+		"m23.wi.overflowAlertHint": "A toast when the budget is reached.",
+		"m23.des.absent": "Doom's Enhancement Suite is not installed or is turned off.",
+		"m23.des.loading": "DES has not finished loading yet. Try again in a moment.",
+		"m23.des.intro": "Campaigns belong to DES: the studio shows them and asks DES to change them (switching a campaign also swaps Workshop character versions).",
+		"m23.des.activeIs": "Active campaign: {name}",
+		"m23.des.noActive": "No active campaign.",
+		"m23.des.create": "New campaign",
+		"m23.des.createTitle": "New campaign",
+		"m23.des.rename": "Rename",
+		"m23.des.renameTitle": "Rename the campaign",
+		"m23.des.delete": "Delete campaign",
+		"m23.des.deleteTitle": "Delete the campaign",
+		"m23.des.deleteBody": "Delete «{name}»? Its books become unfiled; its character versions are deleted.",
+		"m23.des.deleteActive": "«{name}» is active: it will be switched off first (its books turned off, characters back to base), then deleted with its character versions.",
+		"m23.des.activate": "Make active",
+		"m23.des.deactivate": "Switch off the active campaign",
+		"m23.des.active": "ACTIVE",
+		"m23.des.countHint": "Active / all books",
+		"m23.des.up": "Move up",
+		"m23.des.down": "Move down",
+		"m23.des.icon": "Icon and colour",
+		"m23.des.defaultColor": "Default colour",
+		"m23.des.emptyCampaign": "No books in this campaign.",
+		"m23.des.noCampaigns": "No campaigns yet.",
+		"m23.des.unfiled": "Unfiled",
+		"m23.des.unfiledCount": "Unfiled books ({count})",
+		"m23.des.moveBook": "Campaign of {book}",
+		"m23.des.openBook": "Open in the studio",
+		"m23.des.autoLinked": "auto-linked",
+		"m23.des.globalOn": "DES global book: never switched off by campaigns or auto-link",
+		"m23.des.globalOff": "Mark as a DES global book",
+		"m23.des.autoLink": "Auto-link books by character name (DES)",
+		"m23.des.autoLinkHint": "A book named exactly like a character of the chat roster is switched on by DES.",
+		"m23.des.autoLinkTitle": "Auto-link is a DES setting",
+		"m23.des.autoLinkExplain": "This switch changes the DES setting itself: DES will keep turning on books named after characters of the chat. Change it?",
+		"m23.des.interceptOn": "DES Lore Library takes over the Worlds/Lorebooks button (DES setting).",
+		"m23.des.interceptOff": "DES Lore Library does not take over the Worlds/Lorebooks button.",
+		"m23.des.switching": "DES is switching campaigns…",
+		"m23.des.manualOffHint": "«{book}» belongs to the active campaign or was auto-linked: DES may switch it on again on its next sync.",
+		"m23.des.workshop": "Workshop book links ({count})",
+		"m23.des.workshopHint": "Read only: change them in the DES Workshop.",
+		"m23.tab.intro": "A lorebook editor that knows about roles, the chat canon and Russian keys. It works next to SillyTavern’s own window.",
+		"m23.tab.books": "Books: {count}",
+		"m23.tab.open": "Open the Lore Studio",
+		"m23.tab.takeoverTitle": "The Worlds/Lorebooks button",
+		"m23.tab.takeover": "Open the Lore Studio from the Worlds/Lorebooks button",
+		"m23.tab.takeoverHint": "SillyTavern’s handler and DES Lore Library’s interception are put aside and restored when this is turned off or Maestro is disabled. The classic window stays one click away.",
+		"m23.tab.takeoverActive": "The button opens the Lore Studio now.",
+		"m23.tab.takeoverInactive": "The button opens SillyTavern’s window (or DES Lore Library).",
+		"m23.tab.takeoverFailed": "The button could not be taken over: SillyTavern’s handler or the button was not found.",
+		"m23.tab.slash": "Command: /maestro-lore [book] opens the studio.",
+		"m23.slash.help": "Opens the Maestro Lore Studio, optionally on a book.",
+		"m23.slash.book": "Book name",
+		"m23.dialog.ok": "OK",
+		"m23.dialog.cancel": "Cancel",
+		"m23.dialog.apply": "Apply",
+		"m23.dialog.delete": "Delete",
+		"m23.history.external": "Changed outside Maestro",
+		"m23.journal.createBook": "Created the lorebook «{book}»",
+		"m23.journal.duplicateBook": "Copied «{book}» to «{copy}»",
+		"m23.journal.renameBook": "Renamed «{book}» to «{to}»",
+		"m23.journal.deleteBook": "Deleted the lorebook «{book}»",
+		"m23.journal.importBook": "Imported the lorebook «{book}»",
+		"m23.journal.createEntry": "New entry in «{book}»",
+		"m23.journal.duplicateEntry": "Duplicated entry {uid} in «{book}»",
+		"m23.journal.deleteEntries": "Deleted {count} entries in «{book}»",
+		"m23.journal.moveEntries": "Moved {count} entries from «{from}» to «{to}»",
+		"m23.journal.copyEntries": "Copied {count} entries from «{from}» to «{to}»",
+		"m23.journal.enable": "Enabled {count} entries in «{book}»",
+		"m23.journal.disable": "Disabled {count} entries in «{book}»",
+		"m23.journal.status": "Changed the status of entry {uid} in «{book}»",
+		"m23.journal.reorder": "Changed the manual order in «{book}»",
+		"m23.journal.applyOrder": "Set Order of {count} entries in «{book}»",
+		"m23.journal.backfill": "Filled {count} titles in «{book}»",
+		"m23.journal.bulkEdit": "Changed {count} entries in «{book}»",
+		"m23.journal.restoreVersion": "Restored a version of entry {uid} in «{book}»",
+		"m23.journal.undo": "Undo in «{book}»",
+		"m23.journal.settings": "Changed {count} World Info settings",
+		"m23.journal.binding.global": "Changed the global books",
+		"m23.journal.binding.primary": "Changed the primary lorebook of the character",
+		"m23.journal.binding.extra": "Changed the additional lorebooks of the character",
+		"m23.journal.binding.chat": "Changed the chat lorebook",
+		"m23.journal.binding.persona": "Changed the persona lorebook",
+		"m23.card.embedded": "The card has an embedded lorebook «{book}».",
+		"m23.card.import": "Import card lore",
+		"m23.card.importTitle": "Import «{book}»?",
+		"m23.card.importBody": "The embedded book is saved as a lorebook and becomes the character’s primary lorebook.",
+		"m23.card.overwrite": "A lorebook with this name exists and will be overwritten (the old content can be restored from the Maestro journal).",
+		"m23.journal.importCardBook": "Imported the card lore «{book}» of {name}",
+		"m23.error.noCardBook": "This character has no embedded lorebook.",
+		"m23.error.generic": "Lore Studio: {error}",
+		"m23.error.readOnly": "«{book}» is read-only (BunnyMo books are never edited).",
+		"m23.error.missing": "The book «{book}» was not found.",
+		"m23.error.missingEntry": "Entry {uid} was not found in «{book}».",
+		"m23.error.exists": "A book named «{name}» already exists.",
+		"m23.error.sameName": "The new name is the same as the old one (ignoring case and accents).",
+		"m23.error.emptyName": "The name is empty or has no allowed characters.",
+		"m23.error.deleteFailed": "SillyTavern did not delete «{book}».",
+		"m23.error.unavailable": "This SillyTavern does not offer what the studio needs here.",
+		"m23.error.noChat": "Open a chat first.",
+		"m23.error.noCharacter": "Select a character first (group chats bind books in each member card).",
+		"m23.error.personaName": "Bind a name to this persona before setting its lorebook.",
+		"m23.error.desUnavailable": "DES is not available.",
+		"m23.error.workshopOpen": "Close the DES Workshop first: switching campaigns rewrites its characters.",
+		"m23.error.classicUnavailable": "The classic Worlds/Lorebooks window could not be opened."
+	},
+	ru: {
+		"m23.title": "Лор-студия",
+		"m23.close": "Закрыть",
+		"m23.classic": "Классический редактор",
+		"m23.classicHint": "Открыть штатное окно «Миры и лорбуки» SillyTavern",
+		"m23.nav.label": "Разделы Лор-студии",
+		"m23.nav.library": "Книги",
+		"m23.nav.settings": "Настройки WI",
+		"m23.nav.campaigns": "Кампании DES",
+		"m23.nav.books": "К списку книг",
+		"m23.section.chat": "Этот чат",
+		"m23.section.card": "Карточка",
+		"m23.section.world": "Мир",
+		"m23.section.characters": "Персонажи",
+		"m23.section.system": "Система",
+		"m23.section.maestro": "Maestro",
+		"m23.section.backup": "Копии",
+		"m23.role.bunnymoCore": "ядро BunnyMo",
+		"m23.role.bunnymoPack": "пак BunnyMo",
+		"m23.role.ckArchive": "архив CK",
+		"m23.role.world": "мир",
+		"m23.role.card": "карточка",
+		"m23.role.npc": "NPC",
+		"m23.role.canon": "канон",
+		"m23.role.maestro": "Maestro",
+		"m23.role.chat": "чат",
+		"m23.role.persona": "персона",
+		"m23.role.backup": "копия",
+		"m23.role.unknown": "книга",
+		"m23.reason.global": "глобально",
+		"m23.reason.character": "персонаж",
+		"m23.reason.characterExtra": "персонаж (дополнительная)",
+		"m23.reason.chat": "книга чата",
+		"m23.reason.persona": "персона",
+		"m23.reason.desCampaign": "кампания DES",
+		"m23.reason.desAutoLink": "автопривязка DES",
+		"m23.reason.ckConnector": "CarrotKernel",
+		"m23.reason.workshop": "Workshop DES",
+		"m23.reason.canon": "канон чата",
+		"m23.books.search": "Найти книгу…",
+		"m23.books.create": "Создать",
+		"m23.books.createTitle": "Новый лорбук",
+		"m23.books.newName": "Новый мир",
+		"m23.books.import": "Импорт",
+		"m23.books.importHint": "JSON SillyTavern, NovelAI (.lorebook, .png), Agnai и RisuAI — тот же импорт, что в SillyTavern",
+		"m23.books.onlyActive": "Активные в этом чате",
+		"m23.books.onlyActiveHint": "Только книги, которые прочитает следующее сканирование, с причиной",
+		"m23.books.none": "Подходящих книг нет.",
+		"m23.books.readOnly": "Только чтение: книги BunnyMo не правятся (P13)",
+		"m23.books.globalToggle": "Активна во всех чатах: {book}",
+		"m23.books.globalHint": "Активна во всех чатах (глобально)",
+		"m23.books.activeBecause": "Активна: {reasons}",
+		"m23.books.notImported": "{file} не импортирован.",
+		"m23.bindings.title": "Привязки этого чата",
+		"m23.bindings.global": "Активные во всех чатах",
+		"m23.bindings.noGlobal": "Глобальных книг нет.",
+		"m23.bindings.addGlobal": "Добавить глобальную книгу…",
+		"m23.bindings.removeGlobal": "Убрать {book} из глобальных",
+		"m23.bindings.character": "Персонаж: {name}",
+		"m23.bindings.primary": "Основной лорбук (хранится в карточке)",
+		"m23.bindings.extra": "Вспомогательные лорбуки ({count})",
+		"m23.bindings.chat": "Лорбук чата",
+		"m23.bindings.persona": "Лорбук персоны",
+		"m23.bindings.none": "— нет —",
+		"m23.bindings.missing": "{book} (нет такой книги)",
+		"m23.bindings.group": "Групповой чат: книги персонажей задаются в карточке каждого участника.",
+		"m23.bindings.noCharacter": "Персонаж не выбран.",
+		"m23.book.rename": "Переименовать книгу",
+		"m23.book.renameTitle": "Переименовать «{book}»",
+		"m23.book.renameLinks": "Ссылки перейдут на новое имя: {links}.",
+		"m23.book.duplicate": "Копия книги",
+		"m23.book.duplicateTitle": "Копия «{book}»",
+		"m23.book.export": "Экспорт (скачать JSON)",
+		"m23.book.localize": "Русские ключи для книги (Lorebook Localizer)",
+		"m23.book.localizeBody": "Lorebook Localizer переведёт ключи всех записей книги «{book}» ({count}) и добавит русские формы. Используются твои настройки и подключение Localizer.",
+		"m23.book.localizeRun": "Добавить ключи",
+		"m23.book.localizeProtected": "Эту книгу Lorebook Localizer не трогает (BunnyMo).",
+		"m23.book.localizeDone": "Добавлено ключей: {added} в {entries} записях; без перевода: {failures}.",
+		"m23.book.classic": "Открыть в классическом редакторе",
+		"m23.book.delete": "Удалить книгу",
+		"m23.book.deleteTitle": "Удаление лорбука",
+		"m23.book.deleteBody": "Удалить «{book}» вместе со всеми записями?",
+		"m23.book.deleteLinks": "На неё ещё ссылаются: {links}. Эти ссылки будут вести в пустоту.",
+		"m23.book.deleteUndo": "Копия сохранится: удаление можно отменить в журнале Maestro.",
+		"m23.links.global": "активна во всех чатах",
+		"m23.links.primary": "основная книга: {names}",
+		"m23.links.extra": "вспомогательная книга: {names}",
+		"m23.links.personas": "книга персоны: {names}",
+		"m23.links.persona": "текущая персона",
+		"m23.links.chat": "книга этого чата",
+		"m23.links.campaigns": "кампания DES {names}",
+		"m23.links.workshop": "Workshop: {names}",
+		"m23.entries.pickBook": "Выбери книгу слева.",
+		"m23.entries.loading": "Загрузка…",
+		"m23.entries.empty": "Записей пока нет.",
+		"m23.entries.noMatch": "Ничего не найдено.",
+		"m23.entries.readOnly": "только чтение",
+		"m23.entries.inactive": "В этом чате не активна",
+		"m23.entries.workshop": "Workshop: {names}",
+		"m23.entries.search": "Поиск по записям…",
+		"m23.entries.sort": "Сортировка",
+		"m23.entries.pageSize": "Записей на странице",
+		"m23.entries.perPage": "по {count}",
+		"m23.entries.new": "Новая запись",
+		"m23.entries.applyOrder": "Выставить приоритеты по текущей сортировке",
+		"m23.entries.backfill": "Заполнить пустые названия ключевыми словами",
+		"m23.entries.expandAll": "Раскрыть все превью на странице",
+		"m23.entries.collapseAll": "Свернуть все превью на странице",
+		"m23.entries.refresh": "Перечитать с диска",
+		"m23.entries.prevPage": "Предыдущая страница",
+		"m23.entries.nextPage": "Следующая страница",
+		"m23.entries.range": "{from}–{to} из {total}",
+		"m23.entries.untitled": "Запись {uid}",
+		"m23.entries.select": "Выбрать: {title}",
+		"m23.entries.drag": "Перетащи, чтобы поменять порядок",
+		"m23.entries.up": "Выше",
+		"m23.entries.down": "Ниже",
+		"m23.entries.enable": "Включить запись",
+		"m23.entries.disable": "Выключить запись",
+		"m23.entries.openHint": "Открыть запись",
+		"m23.entries.order": "приоритет {value}",
+		"m23.entries.preview": "Превью",
+		"m23.entries.duplicate": "Дублировать запись",
+		"m23.entries.moveCopy": "Переместить или скопировать в другую книгу",
+		"m23.entries.delete": "Удалить запись",
+		"m23.entries.deleteTitle": "Удаление записей",
+		"m23.entries.deleteOne": "Удалить «{title}» (UID {uid})? Отменить можно в журнале Maestro.",
+		"m23.entries.deleteMany": "Удалить записей: {count}? Отменить можно в журнале Maestro.",
+		"m23.entries.findings": "Находок доктора: {count}",
+		"m23.entries.lastSeen": "сообщ. {index}",
+		"m23.entries.lastSeenHint": "Последний ход, когда запись попала в промпт (журнал лора)",
+		"m23.entries.keys": "Ключи: {keys}",
+		"m23.entries.secondary": "Дополнительный фильтр: {keys}",
+		"m23.status.constant": "Постоянная",
+		"m23.status.normal": "Обычная",
+		"m23.status.vectorized": "Векторизованная",
+		"m23.canon.override": "Канон чата переопределяет эту запись",
+		"m23.canon.suppress": "Канон чата подавляет эту запись",
+		"m23.canon.pin": "Канон чата закрепляет эту запись",
+		"m23.canon.addition": "Канон чата дополняет эту запись",
+		"m23.sort.search": "Поиск",
+		"m23.sort.priority": "Приоритет",
+		"m23.sort.custom": "Пользовательский",
+		"m23.sort.titleAsc": "Название от A до Z",
+		"m23.sort.titleDesc": "Название от Z до A",
+		"m23.sort.tokensAsc": "Токены ↗",
+		"m23.sort.tokensDesc": "Токены ↘",
+		"m23.sort.depthAsc": "Глубина ↗",
+		"m23.sort.depthDesc": "Глубина ↘",
+		"m23.sort.orderAsc": "Порядок ↗",
+		"m23.sort.orderDesc": "Порядок ↘",
+		"m23.sort.uidAsc": "UID ↗",
+		"m23.sort.uidDesc": "UID ↘",
+		"m23.sort.probabilityAsc": "% срабатываний ↗",
+		"m23.sort.probabilityDesc": "% срабатываний ↘",
+		"m23.bulk.title": "Выбранные записи",
+		"m23.bulk.selected": "Выбрано: {count}",
+		"m23.bulk.selectPage": "Всю страницу",
+		"m23.bulk.selectAll": "Все найденные",
+		"m23.bulk.clear": "Снять выбор",
+		"m23.bulk.edit": "Изменить поля…",
+		"m23.bulk.enable": "Включить выбранные",
+		"m23.bulk.disable": "Выключить выбранные",
+		"m23.bulk.moveCopy": "Переместить или скопировать выбранные",
+		"m23.bulk.delete": "Удалить выбранные",
+		"m23.bulkEdit.title": "Изменить записи: {count}",
+		"m23.bulkEdit.intro": "Отмеченные поля получат одно значение во всех записях ({count}); остальные останутся как есть.",
+		"m23.bulkEdit.change": "Изменить: {field}",
+		"m23.bulkEdit.mixed": "разные",
+		"m23.bulkEdit.global": "Глоб. настройка",
+		"m23.bulkEdit.yes": "Да",
+		"m23.bulkEdit.no": "Нет",
+		"m23.bulkEdit.emptyGlobal": "пусто = выкл. / глобально",
+		"m23.field.disable": "Выключена",
+		"m23.field.status": "Статус",
+		"m23.field.positionChoice": "Положение",
+		"m23.field.depth": "Глубина",
+		"m23.field.order": "Приоритет",
+		"m23.field.probability": "Вероятность, %",
+		"m23.field.useProbability": "Использовать вероятность",
+		"m23.field.selectiveLogic": "Логика",
+		"m23.field.group": "Группа записей",
+		"m23.field.groupOverride": "Важная в группе",
+		"m23.field.groupWeight": "Вес в группе",
+		"m23.field.scanDepth": "Глубина сканирования",
+		"m23.field.caseSensitive": "С учётом регистра",
+		"m23.field.matchWholeWords": "Целые слова",
+		"m23.field.useGroupScoring": "Group Scoring",
+		"m23.field.excludeRecursion": "Не рекурсивная",
+		"m23.field.preventRecursion": "Пресечь дальнейшую рекурсию",
+		"m23.field.delayUntilRecursion": "Рекурсивная (уровень)",
+		"m23.field.ignoreBudget": "Игнорировать бюджет",
+		"m23.field.sticky": "Липучка",
+		"m23.field.cooldown": "Кулдаун",
+		"m23.field.delay": "Задержка",
+		"m23.field.automationId": "Automation ID",
+		"m23.field.outletName": "Outlet",
+		"m23.field.matchPersonaDescription": "Искать в описании персоны",
+		"m23.field.matchCharacterDescription": "Искать в описании персонажа",
+		"m23.field.matchCharacterPersonality": "Искать в характере персонажа",
+		"m23.field.matchCharacterDepthPrompt": "Искать в заметке о персонаже",
+		"m23.field.matchScenario": "Искать в сценарии",
+		"m23.field.matchCreatorNotes": "Искать в примечании от создателя",
+		"m23.position.before": "↑Перс. (перед описанием персонажа)",
+		"m23.position.after": "↓Перс. (после описания персонажа)",
+		"m23.position.emTop": "↑ПС (перед примерами сообщений)",
+		"m23.position.emBottom": "↓ПС (после примеров сообщений)",
+		"m23.position.anTop": "↑АЗ (перед заметками автора)",
+		"m23.position.anBottom": "↓АЗ (после заметок автора)",
+		"m23.position.depthSystem": "На глуб. ⚙️ (система)",
+		"m23.position.depthUser": "На глуб. 👤 (пользователь)",
+		"m23.position.depthAssistant": "На глуб. 🤖 (ассистент)",
+		"m23.position.outlet": "➡️ Outlet",
+		"m23.logic.0": "И ЛЮБОЙ",
+		"m23.logic.3": "И ВСЕ",
+		"m23.logic.1": "НЕ ВСЕ",
+		"m23.logic.2": "НЕ ЛЮБОЙ",
+		"m23.order.title": "Приоритеты по текущей сортировке",
+		"m23.order.intro": "Всем записям книги выставляется «Приоритет» в порядке текущей сортировки. По умолчанию по убыванию: первая запись получает наибольшее значение.",
+		"m23.order.count": "Записей в книге: {count}",
+		"m23.order.start": "Начальное значение",
+		"m23.order.step": "Шаг",
+		"m23.order.ascending": "По возрастанию",
+		"m23.order.clamped": "Часть записей упрётся в 0 и получит одинаковый приоритет: последняя дошла бы до {value} (записей {count}, шаг {step}).",
+		"m23.order.invalid.start": "Начальное значение должно быть не меньше 0.",
+		"m23.order.invalid.step": "Шаг должен быть не меньше 1.",
+		"m23.order.upToDate": "Все приоритеты уже такие.",
+		"m23.order.updated": "Обновлено приоритетов: {count}.",
+		"m23.backfill.none": "Нет записей без названия, у которых есть ключи.",
+		"m23.backfill.done": "Заполнено названий: {count}.",
+		"m23.move.target": "Куда",
+		"m23.move.titleOne": "Переместить или скопировать «{title}»",
+		"m23.move.titleMany": "Переместить или скопировать записи: {count}",
+		"m23.move.move": "Переместить",
+		"m23.move.copy": "Скопировать",
+		"m23.move.noTargets": "Других лорбуков, куда можно перенести, нет.",
+		"m23.move.moved": "Перемещено в «{book}»: {count}.",
+		"m23.move.copied": "Скопировано в «{book}»: {count}.",
+		"m23.form.unavailable": "Форма записи в этой сборке недоступна.",
+		"m23.form.failed": "Форма записи не открылась (подробности в логе).",
+		"m23.wi.title": "Глобальные настройки активации лорбуков",
+		"m23.wi.intro": "Те же настройки, что в окне «Миры и лорбуки» SillyTavern; изменения проходят через обработчики самого SillyTavern.",
+		"m23.wi.related": "Смежные настройки вне этого окна: «Показывать окно импорта лорбука» в настройках пользователя, формат World Info для Chat Completion, «Allow WI scan» в заметках автора и Vector Storage.",
+		"m23.wi.depth": "Глубина сканирования",
+		"m23.wi.depthHint": "Сколько последних сообщений сканировать ({min}–{max}).",
+		"m23.wi.budget": "Процент контекста",
+		"m23.wi.budgetHint": "Бюджет World Info в процентах от контекста ({min}–{max}).",
+		"m23.wi.budgetCap": "Лимит бюджета",
+		"m23.wi.budgetCapHint": "Верхний предел бюджета в токенах, 0 — без предела ({min}–{max}).",
+		"m23.wi.minActivations": "Мин. число активаций",
+		"m23.wi.minActivationsHint": "Если сработало меньше записей, сканирование уходит глубже в историю. Обнуляет «Макс. глубину рекурсии» ({min}–{max}).",
+		"m23.wi.minActivationsDepth": "Макс. глубина",
+		"m23.wi.minActivationsDepthHint": "Насколько глубоко может уйти «Мин. число активаций», 0 — до начала чата ({min}–{max}).",
+		"m23.wi.maxRecursion": "Макс. глубина рекурсии",
+		"m23.wi.maxRecursionHint": "0 — без предела, 1 — только начальный проход. Не действует при заданном мин. числе активаций и обнуляет его ({min}–{max}).",
+		"m23.wi.strategy": "Как инжектить",
+		"m23.wi.strategyHint": "Книги чата и персоны всегда идут первыми.",
+		"m23.wi.strategyEven": "Равномерная сортировка",
+		"m23.wi.strategyCharacter": "Сначала лор персонажа",
+		"m23.wi.strategyGlobal": "Сначала глобальный лор",
+		"m23.wi.includeNames": "Добавлять имена",
+		"m23.wi.includeNamesHint": "Сообщения сканируются в виде «Имя: текст».",
+		"m23.wi.recursive": "Рекурсивное сканирование",
+		"m23.wi.recursiveHint": "Текст сработавших записей проверяется на ключи других записей.",
+		"m23.wi.caseSensitive": "Учитывать регистр",
+		"m23.wi.caseSensitiveHint": "Значение для записей с «глоб. настройкой».",
+		"m23.wi.wholeWords": "Только полное совпадение",
+		"m23.wi.wholeWordsHint": "Значение для записей с «глоб. настройкой». Для кириллицы нужно правило Maestro (M22).",
+		"m23.wi.groupScoring": "Использовать Group Scoring",
+		"m23.wi.groupScoringHint": "Значение для записей с «глоб. настройкой».",
+		"m23.wi.overflowAlert": "Оповещение о превышении бюджета",
+		"m23.wi.overflowAlertHint": "Всплывающее сообщение, когда бюджет исчерпан.",
+		"m23.des.absent": "Doom's Enhancement Suite не установлен или выключен.",
+		"m23.des.loading": "DES ещё не загрузился. Попробуй чуть позже.",
+		"m23.des.intro": "Кампании принадлежат DES: студия их показывает и просит DES их менять (переключение кампании ещё и меняет версии персонажей в Workshop).",
+		"m23.des.activeIs": "Активная кампания: {name}",
+		"m23.des.noActive": "Активной кампании нет.",
+		"m23.des.create": "Новая кампания",
+		"m23.des.createTitle": "Новая кампания",
+		"m23.des.rename": "Переименовать",
+		"m23.des.renameTitle": "Новое имя кампании",
+		"m23.des.delete": "Удалить кампанию",
+		"m23.des.deleteTitle": "Удаление кампании",
+		"m23.des.deleteBody": "Удалить «{name}»? Книги останутся без кампании, версии персонажей этой кампании удалятся.",
+		"m23.des.deleteActive": "«{name}» сейчас активна: сначала она будет снята (её книги выключатся, персонажи вернутся к базовым версиям), затем удалена вместе с версиями персонажей.",
+		"m23.des.activate": "Сделать активной",
+		"m23.des.deactivate": "Снять активную кампанию",
+		"m23.des.active": "АКТИВНА",
+		"m23.des.countHint": "Активных книг / всего",
+		"m23.des.up": "Выше",
+		"m23.des.down": "Ниже",
+		"m23.des.icon": "Значок и цвет",
+		"m23.des.defaultColor": "Цвет по умолчанию",
+		"m23.des.emptyCampaign": "В кампании нет книг.",
+		"m23.des.noCampaigns": "Кампаний пока нет.",
+		"m23.des.unfiled": "Без кампании",
+		"m23.des.unfiledCount": "Книги без кампании ({count})",
+		"m23.des.moveBook": "Кампания книги {book}",
+		"m23.des.openBook": "Открыть в студии",
+		"m23.des.autoLinked": "автопривязка",
+		"m23.des.globalOn": "Глобальная книга DES: ни кампании, ни автопривязка её не выключают",
+		"m23.des.globalOff": "Отметить как глобальную книгу DES",
+		"m23.des.autoLink": "Автопривязка книг по имени персонажа (DES)",
+		"m23.des.autoLinkHint": "Книгу, названную точно как персонаж из состава чата, DES включает сам.",
+		"m23.des.autoLinkTitle": "Автопривязка — настройка DES",
+		"m23.des.autoLinkExplain": "Переключатель меняет настройку самого DES: он будет включать книги, названные по именам персонажей чата. Изменить?",
+		"m23.des.interceptOn": "Lore Library DES перехватывает кнопку «Миры и лорбуки» (настройка DES).",
+		"m23.des.interceptOff": "Lore Library DES не перехватывает кнопку «Миры и лорбуки».",
+		"m23.des.switching": "DES переключает кампанию…",
+		"m23.des.manualOffHint": "«{book}» входит в активную кампанию или включена автопривязкой: при следующей сверке DES может включить её снова.",
+		"m23.des.workshop": "Книги в Workshop ({count})",
+		"m23.des.workshopHint": "Только просмотр: менять — в Workshop DES.",
+		"m23.tab.intro": "Редактор лорбуков, который знает про роли книг, канон чата и русские ключи. Работает рядом со штатным окном SillyTavern.",
+		"m23.tab.books": "Книг: {count}",
+		"m23.tab.open": "Открыть Лор-студию",
+		"m23.tab.takeoverTitle": "Кнопка «Миры и лорбуки»",
+		"m23.tab.takeover": "Открывать Лор-студию кнопкой «Миры и лорбуки»",
+		"m23.tab.takeoverHint": "Обработчик SillyTavern и перехват Lore Library DES откладываются в сторону и возвращаются, когда выключишь это или Maestro. Классическое окно остаётся в один клик.",
+		"m23.tab.takeoverActive": "Сейчас кнопка открывает Лор-студию.",
+		"m23.tab.takeoverInactive": "Сейчас кнопка открывает окно SillyTavern (или Lore Library DES).",
+		"m23.tab.takeoverFailed": "Перехватить кнопку не удалось: не нашлись кнопка или обработчик SillyTavern.",
+		"m23.tab.slash": "Команда /maestro-lore [книга] открывает студию.",
+		"m23.slash.help": "Открывает Лор-студию Maestro, можно сразу на книге.",
+		"m23.slash.book": "Название книги",
+		"m23.dialog.ok": "ОК",
+		"m23.dialog.cancel": "Отмена",
+		"m23.dialog.apply": "Применить",
+		"m23.dialog.delete": "Удалить",
+		"m23.history.external": "Изменено вне Maestro",
+		"m23.journal.createBook": "Создан лорбук «{book}»",
+		"m23.journal.duplicateBook": "«{book}» скопирован в «{copy}»",
+		"m23.journal.renameBook": "«{book}» переименован в «{to}»",
+		"m23.journal.deleteBook": "Удалён лорбук «{book}»",
+		"m23.journal.importBook": "Импортирован лорбук «{book}»",
+		"m23.journal.createEntry": "Новая запись в «{book}»",
+		"m23.journal.duplicateEntry": "Копия записи {uid} в «{book}»",
+		"m23.journal.deleteEntries": "Удалено записей в «{book}»: {count}",
+		"m23.journal.moveEntries": "Перенесено записей из «{from}» в «{to}»: {count}",
+		"m23.journal.copyEntries": "Скопировано записей из «{from}» в «{to}»: {count}",
+		"m23.journal.enable": "Включено записей в «{book}»: {count}",
+		"m23.journal.disable": "Выключено записей в «{book}»: {count}",
+		"m23.journal.status": "Статус записи {uid} в «{book}»",
+		"m23.journal.reorder": "Ручной порядок в «{book}»",
+		"m23.journal.applyOrder": "Приоритеты записей в «{book}»: {count}",
+		"m23.journal.backfill": "Заполнено названий в «{book}»: {count}",
+		"m23.journal.bulkEdit": "Изменено записей в «{book}»: {count}",
+		"m23.journal.restoreVersion": "Возвращена версия записи {uid} в «{book}»",
+		"m23.journal.undo": "Отмена в «{book}»",
+		"m23.journal.settings": "Изменено настроек World Info: {count}",
+		"m23.journal.binding.global": "Изменены глобальные книги",
+		"m23.journal.binding.primary": "Изменён основной лорбук персонажа",
+		"m23.journal.binding.extra": "Изменены вспомогательные лорбуки персонажа",
+		"m23.journal.binding.chat": "Изменён лорбук чата",
+		"m23.journal.binding.persona": "Изменён лорбук персоны",
+		"m23.card.embedded": "В карточке есть встроенный лорбук «{book}».",
+		"m23.card.import": "Импортировать лор карточки",
+		"m23.card.importTitle": "Импортировать «{book}»?",
+		"m23.card.importBody": "Встроенная книга сохранится как лорбук и станет основным лорбуком персонажа.",
+		"m23.card.overwrite": "Лорбук с таким именем уже есть и будет перезаписан (прежнее содержимое можно вернуть из журнала Maestro).",
+		"m23.journal.importCardBook": "Импортирован лор карточки «{book}» ({name})",
+		"m23.error.noCardBook": "У этого персонажа нет встроенного лорбука.",
+		"m23.error.generic": "Лор-студия: {error}",
+		"m23.error.readOnly": "«{book}» — только для чтения (книги BunnyMo не правятся).",
+		"m23.error.missing": "Книга «{book}» не найдена.",
+		"m23.error.missingEntry": "В «{book}» нет записи {uid}.",
+		"m23.error.exists": "Книга «{name}» уже есть.",
+		"m23.error.sameName": "Новое имя совпадает со старым (без учёта регистра и диакритики).",
+		"m23.error.emptyName": "Имя пустое или состоит из недопустимых символов.",
+		"m23.error.deleteFailed": "SillyTavern не удалил «{book}».",
+		"m23.error.unavailable": "В этой версии SillyTavern нет того, что здесь нужно студии.",
+		"m23.error.noChat": "Сначала открой чат.",
+		"m23.error.noCharacter": "Сначала выбери персонажа (в групповом чате книги задаются в карточке каждого участника).",
+		"m23.error.personaName": "Сначала дай этой персоне имя — без него лорбук не привязать.",
+		"m23.error.desUnavailable": "DES недоступен.",
+		"m23.error.workshopOpen": "Сначала закрой Workshop DES: переключение кампаний переписывает его персонажей.",
+		"m23.error.classicUnavailable": "Не удалось открыть классическое окно «Миры и лорбуки»."
+	}
+};
+//#endregion
+//#region src/domain/lore-studio-sort.ts
+/** ST 1.19 `#world_info_sort_order` (index.html 4852-4868), in its display order. */
+var SORT_OPTIONS = [
+	{
+		id: 14,
+		rule: "search",
+		labelKey: "m23.sort.search"
+	},
+	{
+		id: 0,
+		rule: "priority",
+		labelKey: "m23.sort.priority"
+	},
+	{
+		id: 13,
+		rule: "custom",
+		labelKey: "m23.sort.custom"
+	},
+	{
+		id: 1,
+		rule: "field",
+		field: "comment",
+		order: "asc",
+		labelKey: "m23.sort.titleAsc"
+	},
+	{
+		id: 2,
+		rule: "field",
+		field: "comment",
+		order: "desc",
+		labelKey: "m23.sort.titleDesc"
+	},
+	{
+		id: 3,
+		rule: "length",
+		field: "content",
+		order: "asc",
+		labelKey: "m23.sort.tokensAsc"
+	},
+	{
+		id: 4,
+		rule: "length",
+		field: "content",
+		order: "desc",
+		labelKey: "m23.sort.tokensDesc"
+	},
+	{
+		id: 5,
+		rule: "field",
+		field: "depth",
+		order: "asc",
+		labelKey: "m23.sort.depthAsc"
+	},
+	{
+		id: 6,
+		rule: "field",
+		field: "depth",
+		order: "desc",
+		labelKey: "m23.sort.depthDesc"
+	},
+	{
+		id: 7,
+		rule: "field",
+		field: "order",
+		order: "asc",
+		labelKey: "m23.sort.orderAsc"
+	},
+	{
+		id: 8,
+		rule: "field",
+		field: "order",
+		order: "desc",
+		labelKey: "m23.sort.orderDesc"
+	},
+	{
+		id: 9,
+		rule: "field",
+		field: "uid",
+		order: "asc",
+		labelKey: "m23.sort.uidAsc"
+	},
+	{
+		id: 10,
+		rule: "field",
+		field: "uid",
+		order: "desc",
+		labelKey: "m23.sort.uidDesc"
+	},
+	{
+		id: 11,
+		rule: "field",
+		field: "probability",
+		order: "asc",
+		labelKey: "m23.sort.probabilityAsc"
+	},
+	{
+		id: 12,
+		rule: "field",
+		field: "probability",
+		order: "desc",
+		labelKey: "m23.sort.probabilityDesc"
+	}
+];
+function sortOption(id) {
+	return SORT_OPTIONS.find((option) => option.id === id) ?? SORT_OPTIONS[1];
+}
+/**
+* `sortWorldInfoEntries` (WI:2146-2210) on a copy: primary key by the option, then `order` descending, then `uid`
+* ascending. `scores` (lower is better) drive the «Search» sort; entries without a score keep their place by order.
+*/
+function sortEntries(entries, id, scores) {
+	const option = sortOption(id);
+	const sign = option.order === "asc" ? 1 : -1;
+	const secondary = (a, b) => Number(b.order) - Number(a.order);
+	const tertiary = (a, b) => Number(a.uid) - Number(b.uid);
+	let primary;
+	switch (option.rule) {
+		case "search":
+			primary = (a, b) => (scores?.get(a.uid) ?? NaN) - (scores?.get(b.uid) ?? NaN);
+			break;
+		case "custom":
+			primary = (a, b) => displayIndexOf(a) - displayIndexOf(b);
+			break;
+		case "priority":
+			primary = (a, b) => rank(a) - rank(b);
+			break;
+		default: primary = (a, b) => {
+			const left = a[option.field];
+			const right = b[option.field];
+			if (typeof left === "string" && typeof right === "string") {
+				if (option.rule === "length") return sign * (left.length - right.length);
+				return sign * left.localeCompare(right);
+			}
+			return sign * (Number(left) - Number(right));
+		};
+	}
+	const pick = (value) => Number.isNaN(value) ? 0 : value;
+	return [...entries].sort((a, b) => pick(primary(a, b)) || pick(secondary(a, b)) || pick(tertiary(a, b)));
+}
+/** Constant first, then normal, then disabled. */
+function rank(entry) {
+	if (entry.disable) return 2;
+	return entry.constant ? 0 : 1;
+}
+/** Validation of «Apply current sorting as Order» (start ≥ 0, step ≥ 1). */
+function validateApplyOrder(options) {
+	if (!Number.isFinite(options.start) || options.start < 0) return "start";
+	if (!Number.isFinite(options.step) || options.step < 1) return "step";
+	return null;
+}
+/** The value of the last entry when descending values would go below 0 (ST's live warning), else null. */
+function clampedTail(count, options) {
+	if (options.ascending || count === 0) return null;
+	const last = options.start - (count - 1) * options.step;
+	return last < 0 ? last : null;
+}
+/** New `order` values for the sorted list (WI:2600-2610): only entries whose value changes. */
+function applyOrder(sorted, options) {
+	const changes = [];
+	sorted.forEach((entry, index) => {
+		const order = options.ascending ? options.start + index * options.step : Math.max(options.start - index * options.step, 0);
+		if (entry.order === order) return;
+		changes.push({
+			uid: entry.uid,
+			order
+		});
+	});
+	return changes;
+}
+var PAGE_SIZES = [
+	10,
+	25,
+	50,
+	100,
+	500,
+	1e3
+];
+function paginate(total, page, size) {
+	const perPage = Math.max(1, Math.floor(size) || 25);
+	const pages = Math.max(1, Math.ceil(total / perPage));
+	const current = Math.min(Math.max(0, Math.floor(page) || 0), pages - 1);
+	const start = current * perPage;
+	return {
+		page: current,
+		pages,
+		start,
+		end: Math.min(total, start + perPage)
+	};
+}
+/** Page holding the item at `index`. */
+function pageOfIndex(index, size) {
+	return index < 0 ? 0 : Math.floor(index / Math.max(1, size));
+}
+/**
+* Manual order after a drag on one page (WI:2650-2682): the page's entries get consecutive `displayIndex` values
+* in their new order. ST starts from the displayIndex of whichever entry ends up first; we start from the smallest
+* displayIndex the page had, so dragging an entry up never pushes the whole page past the next page.
+*/
+function reorderPage(newOrder, entries) {
+	const present = newOrder.filter((uid) => entries[String(uid)]);
+	if (!present.length) return [];
+	const base = Math.min(...present.map((uid) => displayIndexOf(entries[String(uid)])));
+	const changes = [];
+	present.forEach((uid, index) => {
+		const entry = entries[String(uid)];
+		const displayIndex = base + index;
+		if (entry.displayIndex !== displayIndex) changes.push({
+			uid,
+			displayIndex
+		});
+	});
+	return changes;
+}
+/** Moves one item of a list (drag and drop, up/down buttons). */
+function moveItem(list, from, to) {
+	const copy = [...list];
+	if (from < 0 || from >= copy.length) return copy;
+	const target = Math.min(Math.max(0, to), copy.length - 1);
+	const [item] = copy.splice(from, 1);
+	copy.splice(target, 0, item);
+	return copy;
+}
+/** Fields and weights of ST's World Info search (power-user.js fuzzySearchWorldInfo). */
+var SEARCH_KEYS = [
+	{
+		name: "key",
+		weight: 20
+	},
+	{
+		name: "group",
+		weight: 15
+	},
+	{
+		name: "comment",
+		weight: 10
+	},
+	{
+		name: "keysecondary",
+		weight: 10
+	},
+	{
+		name: "content",
+		weight: 3
+	},
+	{
+		name: "uid",
+		weight: 1
+	},
+	{
+		name: "automationId",
+		weight: 1
+	}
+];
+function fieldTexts(entry, name) {
+	const value = entry[name];
+	if (Array.isArray(value)) return stringList$1(value).map((item) => item.toLowerCase());
+	if (value === void 0 || value === null) return [];
+	return [String(value).toLowerCase()];
+}
+/** Fuse extended-search operators: `'exact`, `^prefix`, `suffix$`, `=equal`, `!not` (and `!^`, `!…$`). */
+function parseTerms(query) {
+	const terms = [];
+	for (const raw of query.trim().toLowerCase().split(/\s+/)) {
+		if (!raw) continue;
+		let text = raw;
+		let negate = false;
+		if (text.startsWith("!")) {
+			negate = true;
+			text = text.slice(1);
+		}
+		let mode = "include";
+		if (text.startsWith("=")) {
+			mode = "equal";
+			text = text.slice(1);
+		} else if (text.startsWith("'")) {
+			mode = "exact";
+			text = text.slice(1);
+		} else if (text.startsWith("^")) {
+			mode = "prefix";
+			text = text.slice(1);
+		} else if (text.endsWith("$") && text.length > 1) {
+			mode = "suffix";
+			text = text.slice(0, -1);
+		}
+		if (text) terms.push({
+			text,
+			mode,
+			negate
+		});
+	}
+	return terms;
+}
+function termMatches(term, value) {
+	switch (term.mode) {
+		case "equal": return value === term.text;
+		case "prefix": return value.startsWith(term.text);
+		case "suffix": return value.endsWith(term.text);
+		default: return value.includes(term.text);
+	}
+}
+/**
+* Substring search with Fuse's weights and extended operators, used when ST's own fuzzy search is unavailable.
+* Every term must match some field (negated terms must match none). Returns uid → score (0 best … 1 worst) for
+* matching entries only.
+*/
+function plainSearch(entries, query) {
+	const result = /* @__PURE__ */ new Map();
+	const terms = parseTerms(query);
+	if (!terms.length) return result;
+	const total = SEARCH_KEYS.reduce((sum, key) => sum + key.weight, 0);
+	for (const entry of entries) {
+		let weight = 0;
+		let ok = true;
+		for (const term of terms) {
+			let best = 0;
+			for (const key of SEARCH_KEYS) if (fieldTexts(entry, key.name).some((value) => termMatches(term, value))) best = Math.max(best, key.weight);
+			if (term.negate ? best > 0 : best === 0) {
+				ok = false;
+				break;
+			}
+			if (!term.negate) weight += best;
+		}
+		if (!ok) continue;
+		const positive = terms.filter((term) => !term.negate).length;
+		const score = positive ? 1 - weight / (total * positive) : .5;
+		result.set(entry.uid, Math.max(0, Math.min(1, score)));
+	}
+	return result;
+}
+//#endregion
+//#region src/features/loreStudio/dialog-forms.ts
+function applyOrderForm(app, count) {
+	const t = app.i18n.t.bind(app.i18n);
+	const start = el("input", {
+		class: "text_pole",
+		attrs: {
+			type: "number",
+			min: 0,
+			step: 1,
+			"aria-label": t("m23.order.start")
+		}
+	});
+	start.value = "100";
+	const step = el("input", {
+		class: "text_pole",
+		attrs: {
+			type: "number",
+			min: 1,
+			step: 1,
+			"aria-label": t("m23.order.step")
+		}
+	});
+	step.value = "1";
+	const ascending = el("input", { attrs: { type: "checkbox" } });
+	const warning = el("div", {
+		class: "maestro-warn-text",
+		attrs: { role: "status" }
+	});
+	const read = () => {
+		const options = {
+			start: Number(start.value),
+			step: Number(step.value),
+			ascending: ascending.checked
+		};
+		return {
+			...options,
+			error: validateApplyOrder(options)
+		};
+	};
+	const update = () => {
+		const options = read();
+		const tail = options.error ? null : clampedTail(count, options);
+		warning.textContent = tail === null ? "" : t("m23.order.clamped", {
+			value: tail,
+			count,
+			step: options.step
+		});
+	};
+	for (const input of [start, step]) input.addEventListener("input", update);
+	ascending.addEventListener("change", update);
+	update();
+	return {
+		content: el("div", { class: "maestro-m23-order-form" }, [
+			el("p", { text: t("m23.order.intro") }),
+			el("p", {
+				class: "maestro-muted",
+				text: t("m23.order.count", { count })
+			}),
+			el("label", { class: "maestro-m23-binding" }, [el("span", { text: t("m23.order.start") }), start]),
+			el("label", { class: "maestro-m23-binding" }, [el("span", { text: t("m23.order.step") }), step]),
+			el("label", { class: "checkbox_label" }, [ascending, el("span", { text: t("m23.order.ascending") })]),
+			warning
+		]),
+		read
+	};
+}
+var SELECT_OPTIONS = {
+	status: [
+		"normal",
+		"constant",
+		"vectorized"
+	],
+	positionChoice: POSITION_CHOICES,
+	selectiveLogic: [
+		"0",
+		"3",
+		"1",
+		"2"
+	]
+};
+var TRISTATE = [
+	"caseSensitive",
+	"matchWholeWords",
+	"useGroupScoring"
+];
+var NULLABLE_NUMBERS = [
+	"scanDepth",
+	"sticky",
+	"cooldown",
+	"delay"
+];
+var TEXT = [
+	"group",
+	"automationId",
+	"outletName"
+];
+function optionLabel(app, field, value) {
+	if (field === "status") return app.i18n.t(`m23.status.${value}`);
+	if (field === "positionChoice") return app.i18n.t(`m23.position.${value}`);
+	if (field === "selectiveLogic") return app.i18n.t(`m23.logic.${value}`);
+	return value;
+}
+/** Bulk editor: one row per field with a «change» tick; the control starts at the common value (blank when mixed). */
+function bulkEditForm(app, entries) {
+	const t = app.i18n.t.bind(app.i18n);
+	const common = commonValues([...entries]);
+	const rows = [];
+	const grid = el("div", { class: "maestro-m23-bulk-grid" });
+	for (const field of BULK_FIELDS) {
+		const current = common[field];
+		const mixed = current === MIXED;
+		const tick = el("input", { attrs: {
+			type: "checkbox",
+			"aria-label": t("m23.bulkEdit.change", { field: t(`m23.field.${field}`) })
+		} });
+		let control;
+		let value;
+		const options = SELECT_OPTIONS[field];
+		if (options) {
+			const select = el("select", { class: "text_pole" });
+			for (const option of options) select.append(el("option", {
+				text: optionLabel(app, field, option),
+				attrs: { value: option }
+			}));
+			if (mixed) select.selectedIndex = -1;
+			else select.value = String(current);
+			control = select;
+			value = () => field === "selectiveLogic" ? Number(select.value) : select.value;
+		} else if (TRISTATE.includes(field)) {
+			const select = el("select", { class: "text_pole" });
+			for (const [key, label] of [
+				["null", t("m23.bulkEdit.global")],
+				["true", t("m23.bulkEdit.yes")],
+				["false", t("m23.bulkEdit.no")]
+			]) select.append(el("option", {
+				text: label,
+				attrs: { value: key }
+			}));
+			if (mixed) select.selectedIndex = -1;
+			else select.value = String(current ?? "null");
+			control = select;
+			value = () => select.value === "null" ? null : select.value === "true";
+		} else if (TEXT.includes(field)) {
+			const input = el("input", {
+				class: "text_pole",
+				attrs: { type: "text" }
+			});
+			input.value = mixed ? "" : String(current ?? "");
+			control = input;
+			value = () => input.value.trim();
+		} else if (typeof current === "boolean" || mixed && isBooleanField(field)) {
+			const box = el("input", { attrs: { type: "checkbox" } });
+			box.checked = current === true;
+			box.indeterminate = mixed;
+			control = box;
+			value = () => box.checked;
+		} else {
+			const input = el("input", {
+				class: "text_pole",
+				attrs: {
+					type: "number",
+					step: 1
+				}
+			});
+			input.value = mixed || current === null || current === void 0 ? "" : String(current);
+			if (NULLABLE_NUMBERS.includes(field)) input.placeholder = t("m23.bulkEdit.emptyGlobal");
+			control = input;
+			value = () => input.value.trim() === "" ? NULLABLE_NUMBERS.includes(field) ? null : 0 : Number(input.value);
+		}
+		const autoTick = () => {
+			tick.checked = true;
+		};
+		control.addEventListener("change", autoTick);
+		control.addEventListener("input", autoTick);
+		rows.push({
+			field,
+			tick,
+			value
+		});
+		grid.append(el("label", { class: "maestro-m23-bulk-row" }, [
+			tick,
+			el("span", {
+				class: "maestro-m23-bulk-label",
+				text: t(`m23.field.${field}`)
+			}),
+			mixed ? el("span", {
+				class: "maestro-muted",
+				text: t("m23.bulkEdit.mixed")
+			}) : el("span"),
+			control
+		]));
+	}
+	return {
+		content: el("div", { class: "maestro-m23-bulk-form" }, [el("p", {
+			class: "maestro-muted",
+			text: t("m23.bulkEdit.intro", { count: entries.length })
+		}), grid]),
+		read: () => {
+			const patch = {};
+			for (const row of rows) if (row.tick.checked) patch[row.field] = row.value();
+			return expandBulkPatch(patch);
+		}
+	};
+}
+var BOOLEAN_FIELDS = [
+	"disable",
+	"useProbability",
+	"groupOverride",
+	"excludeRecursion",
+	"preventRecursion",
+	"ignoreBudget",
+	"matchPersonaDescription",
+	"matchCharacterDescription",
+	"matchCharacterPersonality",
+	"matchCharacterDepthPrompt",
+	"matchScenario",
+	"matchCreatorNotes"
+];
+function isBooleanField(field) {
+	return BOOLEAN_FIELDS.includes(field);
+}
+function moveTargetForm(app, targets) {
+	const t = app.i18n.t.bind(app.i18n);
+	const select = el("select", {
+		class: "text_pole",
+		attrs: { "aria-label": t("m23.move.target") }
+	});
+	for (const book of targets) select.append(el("option", {
+		text: book,
+		attrs: { value: book }
+	}));
+	return {
+		content: el("label", { class: "maestro-m23-binding" }, [el("span", { text: t("m23.move.target") }), select]),
+		read: () => select.value
+	};
+}
+//#endregion
+//#region src/features/loreStudio/dialogs.ts
+/** Values our custom buttons resolve with (ST's AFFIRMATIVE is 1, NEGATIVE 0, CANCELLED null). */
+var CUSTOM_RESULT_BASE = 100;
+var Dialogs = class {
+	app;
+	constructor(app) {
+		this.app = app;
+	}
+	t(key, params) {
+		return this.app.i18n.t(key, params);
+	}
+	/** Text input; null when cancelled or left empty. */
+	async input(title, value, hint) {
+		const ctx = this.app.host.ctx();
+		const body = el("div", { class: "maestro-m23-dialog-body" }, [el("h3", { text: title }), hint ? el("p", {
+			class: "maestro-muted",
+			text: hint
+		}) : null]);
+		const result = await ctx.callGenericPopup(body, ctx.POPUP_TYPE.INPUT, value, {
+			okButton: this.t("m23.dialog.ok"),
+			cancelButton: this.t("m23.dialog.cancel")
+		});
+		if (typeof result !== "string") return null;
+		const trimmed = result.trim();
+		return trimmed ? trimmed : null;
+	}
+	async confirm(title, body, okLabel) {
+		const ctx = this.app.host.ctx();
+		const content = el("div", { class: "maestro-m23-dialog-body" }, [el("h3", { text: title }), typeof body === "string" ? el("p", { text: body }) : body]);
+		return await ctx.callGenericPopup(content, ctx.POPUP_TYPE.CONFIRM, "", {
+			okButton: okLabel ?? this.t("m23.dialog.ok"),
+			cancelButton: this.t("m23.dialog.cancel")
+		}) === ctx.POPUP_RESULT.AFFIRMATIVE;
+	}
+	/**
+	* Several actions: the first is the OK button, the others are custom buttons. Resolves with the chosen value or
+	* null when cancelled.
+	*/
+	async choose(title, body, actions) {
+		const ctx = this.app.host.ctx();
+		const [first, ...rest] = actions;
+		if (!first) return null;
+		const content = el("div", { class: "maestro-m23-dialog-body" }, [el("h3", { text: title }), typeof body === "string" ? el("p", { text: body }) : body]);
+		const result = await ctx.callGenericPopup(content, ctx.POPUP_TYPE.CONFIRM, "", {
+			okButton: first.label,
+			cancelButton: this.t("m23.dialog.cancel"),
+			customButtons: rest.map((action, index) => ({
+				text: action.label,
+				result: CUSTOM_RESULT_BASE + index,
+				classes: ["maestro-m23-choice"]
+			}))
+		});
+		if (result === ctx.POPUP_RESULT.AFFIRMATIVE) return first.value;
+		if (typeof result === "number" && result >= CUSTOM_RESULT_BASE) return rest[result - CUSTOM_RESULT_BASE]?.value ?? null;
+		return null;
+	}
+	/** A form in a popup; the caller reads its inputs after `true`. */
+	async form(title, content, okLabel) {
+		const ctx = this.app.host.ctx();
+		const body = el("div", { class: "maestro-m23-dialog-body maestro-m23-form-dialog" }, [el("h3", { text: title }), content]);
+		return await ctx.callGenericPopup(body, ctx.POPUP_TYPE.CONFIRM, "", {
+			okButton: okLabel ?? this.t("m23.dialog.apply"),
+			cancelButton: this.t("m23.dialog.cancel"),
+			wide: true,
+			allowVerticalScrolling: true
+		}) === ctx.POPUP_RESULT.AFFIRMATIVE;
+	}
+	/** User-facing text of an error (LoreStudioError codes are translated). */
+	errorText(error) {
+		if (error instanceof LoreStudioError) return this.t(`m23.error.${error.code}`, error.params);
+		return this.t("m23.error.generic", { error: error instanceof Error ? error.message : String(error) });
+	}
+	/** Runs an action and reports a failure as an urgent notice instead of throwing into the button handler. */
+	async run(action) {
+		try {
+			return await action();
+		} catch (error) {
+			this.app.log.warn("lore studio action failed", error);
+			this.app.ui.notice(this.errorText(error), {
+				urgent: true,
+				level: "error"
+			});
+			return;
+		}
+	}
+};
+//#endregion
+//#region src/features/loreStudio/view-books.ts
+var SECTION_ICONS = {
+	chat: "fa-comments",
+	card: "fa-id-card",
+	world: "fa-earth-europe",
+	characters: "fa-users",
+	system: "fa-gears",
+	maestro: "fa-wand-magic-sparkles",
+	backup: "fa-box-archive"
+};
+/** `m23.role.*` key of a role ('bunnymo.core' → 'bunnymoCore'). */
+function roleKey(role) {
+	return `m23.role.${role.replace(/\.(\w)/g, (_, letter) => letter.toUpperCase())}`;
+}
+function reasonText(app, reasons) {
+	return reasons.map((reason) => app.i18n.t(`m23.reason.${reason}`)).join(", ");
+}
+function renderBooksPanel(app, model, state, actions) {
+	const t = app.i18n.t.bind(app.i18n);
+	const root = el("div", { class: "maestro-m23-books-panel" });
+	const search = el("input", {
+		class: "text_pole maestro-m23-book-search",
+		attrs: {
+			type: "search",
+			placeholder: t("m23.books.search"),
+			"aria-label": t("m23.books.search")
+		}
+	});
+	search.value = state.search;
+	search.addEventListener("input", () => {
+		state.search = search.value;
+		renderList();
+	});
+	const onlyActive = el("input", { attrs: { type: "checkbox" } });
+	onlyActive.checked = state.onlyActive;
+	onlyActive.addEventListener("change", () => {
+		state.onlyActive = onlyActive.checked;
+		renderList();
+	});
+	const fileInput = el("input", {
+		class: "maestro-m23-hidden-file",
+		attrs: {
+			type: "file",
+			accept: ".json,.lorebook,.png",
+			"aria-hidden": "true",
+			tabindex: "-1"
+		}
+	});
+	fileInput.addEventListener("change", () => {
+		const file = fileInput.files?.[0];
+		fileInput.value = "";
+		if (file) actions.importFile(file);
+	});
+	root.append(el("div", { class: "maestro-m23-books-tools" }, [
+		search,
+		el("div", { class: "maestro-row" }, [
+			button({
+				icon: "fa-plus",
+				label: t("m23.books.create"),
+				onClick: () => actions.create()
+			}),
+			button({
+				icon: "fa-file-import",
+				label: t("m23.books.import"),
+				title: t("m23.books.importHint"),
+				onClick: () => fileInput.click()
+			}),
+			fileInput
+		]),
+		el("label", {
+			class: "checkbox_label maestro-m23-only-active",
+			title: t("m23.books.onlyActiveHint")
+		}, [onlyActive, el("span", { text: t("m23.books.onlyActive") })])
+	]));
+	const list = el("div", {
+		class: "maestro-m23-book-list",
+		attrs: { role: "list" }
+	});
+	root.append(list, renderBindings(app, model, state, actions));
+	function visibleBooks() {
+		const query = state.search.trim().toLowerCase();
+		return model.books.filter((book) => {
+			if (query && !book.toLowerCase().includes(query)) return false;
+			if (state.onlyActive && !(model.reasons.get(book)?.length ?? 0)) return false;
+			return true;
+		});
+	}
+	function renderList() {
+		list.replaceChildren();
+		const books = visibleBooks();
+		if (!books.length) {
+			list.append(el("div", {
+				class: "maestro-empty",
+				text: t("m23.books.none")
+			}));
+			return;
+		}
+		const extra = model.bindings.character.extra;
+		const sections = groupBooks(books, (book) => model.roleOf(book).role, {
+			chatBook: model.bindings.chat,
+			personaBook: model.bindings.persona,
+			canonBook: model.canonBook,
+			characterBooks: [model.bindings.character.primary ?? "", ...extra].filter(Boolean)
+		});
+		for (const section of sections) {
+			const details = el("details", {
+				class: "maestro-m23-section",
+				data: { section: section.id }
+			});
+			details.open = state.search.trim() !== "" || !state.collapsed.has(section.id);
+			details.addEventListener("toggle", () => {
+				if (state.search.trim()) return;
+				if (details.open) state.collapsed.delete(section.id);
+				else state.collapsed.add(section.id);
+			});
+			details.append(el("summary", { class: "maestro-m23-section-title" }, [
+				icon(SECTION_ICONS[section.id]),
+				el("span", { text: t(`m23.section.${section.id}`) }),
+				el("span", {
+					class: "maestro-m23-count",
+					text: String(section.books.length)
+				})
+			]));
+			for (const book of section.books) details.append(bookRow(book));
+			list.append(details);
+		}
+	}
+	function bookRow(book) {
+		const role = model.roleOf(book);
+		const reasons = model.reasons.get(book) ?? [];
+		const global = model.bindings.global.includes(book);
+		const toggle = el("input", { attrs: {
+			type: "checkbox",
+			"aria-label": t("m23.books.globalToggle", { book })
+		} });
+		toggle.checked = global;
+		toggle.addEventListener("change", () => {
+			actions.toggleGlobal(book, toggle.checked);
+		});
+		const campaign = model.campaignOf.get(book);
+		return el("div", {
+			class: [
+				"maestro-m23-book",
+				state.selected === book ? "maestro-on" : null,
+				reasons.length ? "maestro-m23-active" : null
+			],
+			data: { book },
+			attrs: { role: "listitem" }
+		}, [
+			el("button", {
+				class: "maestro-m23-book-name",
+				title: reasons.length ? t("m23.books.activeBecause", { reasons: reasonText(app, reasons) }) : book,
+				attrs: { type: "button" },
+				on: { click: () => actions.select(book) }
+			}, [el("span", {
+				class: ["maestro-m23-dot", reasons.length ? "maestro-m23-dot-on" : null],
+				attrs: { "aria-hidden": "true" }
+			}), el("span", {
+				class: "maestro-m23-book-title",
+				text: book
+			})]),
+			el("span", { class: "maestro-m23-book-badges" }, [
+				role.readOnly ? el("span", {
+					class: "maestro-m23-badge maestro-m23-badge-lock",
+					title: t("m23.books.readOnly")
+				}, [icon("fa-lock")]) : null,
+				el("span", {
+					class: "maestro-m23-badge",
+					text: t(roleKey(role.role))
+				}),
+				campaign ? el("span", {
+					class: "maestro-m23-badge maestro-m23-badge-campaign",
+					text: campaign
+				}) : null
+			]),
+			el("label", {
+				class: "maestro-m23-global",
+				title: t("m23.books.globalHint")
+			}, [toggle, icon("fa-globe")])
+		]);
+	}
+	renderList();
+	return root;
+}
+function bookOptions(app, books, current) {
+	const options = [el("option", {
+		text: app.i18n.t("m23.bindings.none"),
+		attrs: { value: "" }
+	})];
+	for (const book of books) options.push(el("option", {
+		text: book,
+		attrs: { value: book }
+	}));
+	if (current && !books.includes(current)) options.push(el("option", {
+		text: app.i18n.t("m23.bindings.missing", { book: current }),
+		attrs: { value: current }
+	}));
+	for (const option of options) option.selected = option.value === (current ?? "");
+	return options;
+}
+function bookSelect(app, label, books, current, onChange, disabled = false) {
+	const select = el("select", {
+		class: "text_pole maestro-m23-binding-select",
+		attrs: {
+			"aria-label": label,
+			disabled
+		}
+	});
+	select.append(...bookOptions(app, books, current));
+	select.addEventListener("change", () => {
+		onChange(select.value || null);
+	});
+	return el("label", { class: "maestro-m23-binding" }, [el("span", {
+		class: "maestro-m23-binding-label",
+		text: label
+	}), select]);
+}
+function renderBindings(app, model, state, actions) {
+	const t = app.i18n.t.bind(app.i18n);
+	const details = el("details", { class: "maestro-m23-bindings" });
+	details.open = state.bindingsOpen;
+	details.addEventListener("toggle", () => {
+		state.bindingsOpen = details.open;
+	});
+	details.append(el("summary", {}, [icon("fa-link"), el("span", { text: t("m23.bindings.title") })]));
+	const chips = el("div", { class: "maestro-m23-chips" });
+	for (const book of model.bindings.global) chips.append(el("span", { class: "maestro-m23-chip" }, [el("span", { text: book }), button({
+		icon: "fa-xmark",
+		kind: "ghost",
+		title: t("m23.bindings.removeGlobal", { book }),
+		onClick: () => actions.toggleGlobal(book, false)
+	})]));
+	if (!model.bindings.global.length) chips.append(el("span", {
+		class: "maestro-muted",
+		text: t("m23.bindings.noGlobal")
+	}));
+	const add = el("select", {
+		class: "text_pole",
+		attrs: { "aria-label": t("m23.bindings.addGlobal") }
+	});
+	add.append(el("option", {
+		text: t("m23.bindings.addGlobal"),
+		attrs: { value: "" }
+	}));
+	for (const book of model.books.filter((name) => !model.bindings.global.includes(name))) add.append(el("option", {
+		text: book,
+		attrs: { value: book }
+	}));
+	add.addEventListener("change", () => {
+		if (add.value) actions.toggleGlobal(add.value, true);
+	});
+	details.append(el("div", { class: "maestro-m23-binding-group" }, [
+		el("div", {
+			class: "maestro-m23-binding-label",
+			text: t("m23.bindings.global")
+		}),
+		chips,
+		add
+	]));
+	if (model.groupChat) details.append(el("p", {
+		class: "maestro-muted",
+		text: t("m23.bindings.group")
+	}));
+	else if (model.character) {
+		const character = model.character;
+		const extraList = el("div", { class: "maestro-m23-extra-list" });
+		const chosen = new Set(model.bindings.character.extra);
+		for (const book of model.books) {
+			const box = el("input", { attrs: { type: "checkbox" } });
+			box.checked = chosen.has(book);
+			box.addEventListener("change", () => {
+				if (box.checked) chosen.add(book);
+				else chosen.delete(book);
+				actions.setExtra(model.books.filter((name) => chosen.has(name)));
+			});
+			extraList.append(el("label", { class: "checkbox_label" }, [box, el("span", { text: book })]));
+		}
+		const extra = el("details", { class: "maestro-m23-extra" }, [el("summary", { text: t("m23.bindings.extra", { count: model.bindings.character.extra.length }) }), extraList]);
+		details.append(el("div", { class: "maestro-m23-binding-group" }, [
+			el("div", {
+				class: "maestro-m23-binding-label",
+				text: t("m23.bindings.character", { name: character.name })
+			}),
+			bookSelect(app, t("m23.bindings.primary"), model.books, model.bindings.character.primary, (value) => actions.setPrimary(value)),
+			extra,
+			model.cardBook ? el("div", { class: "maestro-m23-card-book" }, [el("span", {
+				class: "maestro-muted",
+				text: t("m23.card.embedded", { book: model.cardBook })
+			}), button({
+				icon: "fa-file-import",
+				label: t("m23.card.import"),
+				onClick: () => actions.importCardBook()
+			})]) : null
+		]));
+	} else details.append(el("p", {
+		class: "maestro-muted",
+		text: t("m23.bindings.noCharacter")
+	}));
+	details.append(bookSelect(app, t("m23.bindings.chat"), model.books, model.bindings.chat, (value) => actions.setChat(value), !model.hasChat), bookSelect(app, t("m23.bindings.persona"), model.books, model.bindings.persona, (value) => actions.setPersona(value)));
+	return details;
+}
+//#endregion
+//#region src/features/loreStudio/view-campaigns.ts
+function renderCampaignsPanel(app, model, actions) {
+	const t = app.i18n.t.bind(app.i18n);
+	if (model.unavailable) return el("div", { class: "maestro-m23-campaigns" }, [emptyState(t(model.unavailable === "absent" ? "m23.des.absent" : "m23.des.loading"), "fa-folder-tree")]);
+	const { view } = model;
+	const active = view.campaigns.find((campaign) => campaign.active) ?? null;
+	const root = el("div", { class: "maestro-m23-campaigns" });
+	root.append(el("div", { class: "maestro-m23-campaigns-head" }, [
+		el("p", {
+			class: "maestro-muted",
+			text: t("m23.des.intro")
+		}),
+		el("div", {
+			class: "maestro-m23-active-campaign",
+			text: active ? t("m23.des.activeIs", { name: active.name }) : t("m23.des.noActive")
+		}),
+		el("div", { class: "maestro-row" }, [button({
+			icon: "fa-folder-plus",
+			label: t("m23.des.create"),
+			onClick: () => actions.create()
+		}), active ? button({
+			icon: "fa-circle-stop",
+			label: t("m23.des.deactivate"),
+			disabled: model.switching,
+			onClick: () => actions.activate(null)
+		}) : null]),
+		toggle({
+			label: t("m23.des.autoLink"),
+			checked: view.autoLink,
+			onChange: (on) => actions.setAutoLink(on)
+		}),
+		el("div", {
+			class: "maestro-field-hint",
+			text: t("m23.des.autoLinkHint")
+		}),
+		el("div", {
+			class: "maestro-field-hint",
+			text: view.interceptEnabled ? t("m23.des.interceptOn") : t("m23.des.interceptOff")
+		}),
+		model.switching ? el("div", {
+			class: "maestro-warn-text",
+			text: t("m23.des.switching")
+		}) : null
+	]));
+	const targets = [{
+		value: "",
+		label: t("m23.des.unfiled")
+	}, ...view.campaigns.map((campaign) => ({
+		value: campaign.id,
+		label: campaign.name
+	}))];
+	const bookRow = (book, campaignId) => {
+		const move = el("select", {
+			class: "text_pole maestro-m23-move-book",
+			attrs: { "aria-label": t("m23.des.moveBook", { book }) }
+		});
+		for (const target of targets) move.append(el("option", {
+			text: target.label,
+			attrs: { value: target.value }
+		}));
+		move.value = campaignId ?? "";
+		move.addEventListener("change", () => {
+			actions.moveBook(book, move.value || null);
+		});
+		const isActive = model.active.includes(book);
+		const isDesGlobal = view.globalBooks.includes(book);
+		const autoLinked = view.autoLinked.includes(book);
+		const activeBox = el("input", { attrs: {
+			type: "checkbox",
+			"aria-label": t("m23.books.globalToggle", { book })
+		} });
+		activeBox.checked = isActive;
+		activeBox.addEventListener("change", () => {
+			actions.setActive(book, activeBox.checked);
+		});
+		return el("div", {
+			class: "maestro-m23-campaign-book",
+			data: { book }
+		}, [
+			el("label", {
+				class: "maestro-m23-global",
+				title: t("m23.books.globalHint")
+			}, [activeBox, icon("fa-power-off")]),
+			el("button", {
+				class: "maestro-m23-book-link",
+				text: book,
+				attrs: { type: "button" },
+				title: t("m23.des.openBook"),
+				on: { click: () => actions.openBook(book) }
+			}),
+			autoLinked ? el("span", {
+				class: "maestro-m23-badge",
+				text: t("m23.des.autoLinked")
+			}) : null,
+			button({
+				icon: "fa-earth-americas",
+				kind: isDesGlobal ? "primary" : "ghost",
+				title: isDesGlobal ? t("m23.des.globalOn") : t("m23.des.globalOff"),
+				onClick: () => actions.toggleDesGlobal(book)
+			}),
+			move
+		]);
+	};
+	const campaignCard = (campaign, index) => {
+		const card = el("div", {
+			class: ["maestro-m23-campaign", campaign.active ? "maestro-on" : null],
+			data: { campaign: campaign.id }
+		});
+		if (campaign.color) card.style.setProperty("--maestro-m23-campaign-color", campaign.color);
+		const picker = el("details", { class: "maestro-m23-icon-picker" }, [
+			el("summary", { title: t("m23.des.icon") }, [icon(campaign.icon)]),
+			el("div", { class: "maestro-m23-icon-grid" }, CAMPAIGN_ICONS.map((name) => button({
+				icon: name,
+				kind: name === campaign.icon ? "primary" : "ghost",
+				title: name.replace("fa-", ""),
+				onClick: () => actions.setIcon(campaign.id, name)
+			}))),
+			el("div", { class: "maestro-m23-color-row" }, CAMPAIGN_COLORS.map((color) => {
+				const swatch = button({
+					icon: color ? void 0 : "fa-xmark",
+					title: color || t("m23.des.defaultColor"),
+					kind: color === campaign.color ? "primary" : "ghost",
+					className: "maestro-m23-swatch",
+					onClick: () => actions.setColor(campaign.id, color)
+				});
+				if (color) swatch.style.setProperty("--maestro-m23-swatch", color);
+				return swatch;
+			}))
+		]);
+		card.append(el("div", { class: "maestro-m23-campaign-head" }, [
+			picker,
+			el("button", {
+				class: "maestro-m23-campaign-name",
+				text: campaign.name,
+				attrs: {
+					type: "button",
+					"aria-expanded": campaign.collapsed ? "false" : "true"
+				},
+				on: { click: () => void actions.toggleCollapsed(campaign.id) }
+			}),
+			campaign.active ? el("span", {
+				class: "maestro-m23-badge maestro-m23-badge-active",
+				text: t("m23.des.active")
+			}) : null,
+			el("span", {
+				class: "maestro-m23-count",
+				title: t("m23.des.countHint"),
+				text: `${campaign.activeCount}/${campaign.books.length}`
+			}),
+			button({
+				icon: campaign.active ? "fa-circle-check" : "fa-play",
+				title: campaign.active ? t("m23.des.deactivate") : t("m23.des.activate"),
+				disabled: model.switching,
+				kind: campaign.active ? "primary" : "default",
+				onClick: () => actions.activate(campaign.active ? null : campaign.id)
+			}),
+			button({
+				icon: "fa-pen",
+				kind: "ghost",
+				title: t("m23.des.rename"),
+				onClick: () => actions.rename(campaign.id)
+			}),
+			button({
+				icon: "fa-arrow-up",
+				kind: "ghost",
+				title: t("m23.des.up"),
+				disabled: index === 0,
+				onClick: () => actions.move(campaign.id, -1)
+			}),
+			button({
+				icon: "fa-arrow-down",
+				kind: "ghost",
+				title: t("m23.des.down"),
+				disabled: index === view.campaigns.length - 1,
+				onClick: () => actions.move(campaign.id, 1)
+			}),
+			button({
+				icon: "fa-trash-can",
+				kind: "ghost",
+				title: t("m23.des.delete"),
+				disabled: model.switching,
+				onClick: () => actions.remove(campaign.id)
+			})
+		]));
+		if (!campaign.collapsed) {
+			const books = el("div", { class: "maestro-m23-campaign-books" });
+			if (!campaign.books.length) books.append(el("div", {
+				class: "maestro-muted",
+				text: t("m23.des.emptyCampaign")
+			}));
+			for (const book of campaign.books) books.append(bookRow(book, campaign.id));
+			card.append(books);
+		}
+		return card;
+	};
+	const list = el("div", { class: "maestro-m23-campaign-list" });
+	view.campaigns.forEach((campaign, index) => list.append(campaignCard(campaign, index)));
+	if (!view.campaigns.length) list.append(el("div", {
+		class: "maestro-muted",
+		text: t("m23.des.noCampaigns")
+	}));
+	root.append(list);
+	const unfiled = el("details", { class: "maestro-m23-unfiled" }, [el("summary", { text: t("m23.des.unfiledCount", { count: view.unfiled.length }) }), ...view.unfiled.map((book) => bookRow(book, null))]);
+	root.append(unfiled);
+	const workshop = Object.entries(model.workshop);
+	if (workshop.length) root.append(el("details", { class: "maestro-m23-workshop" }, [
+		el("summary", { text: t("m23.des.workshop", { count: workshop.length }) }),
+		el("p", {
+			class: "maestro-muted",
+			text: t("m23.des.workshopHint")
+		}),
+		...workshop.map(([npc, book]) => el("div", {
+			class: "maestro-m23-workshop-row",
+			text: `${npc} → ${book}`
+		}))
+	]));
+	return root;
+}
+//#endregion
+//#region src/features/loreStudio/view-entries.ts
+var STATUS_ICON = {
+	constant: "🔵",
+	normal: "🟢",
+	vectorized: "🔗"
+};
+var NEXT_STATUS = {
+	normal: "constant",
+	constant: "vectorized",
+	vectorized: "normal"
+};
+var SEARCH_DEBOUNCE_MS = 300;
+/** Entries of the book in display order (search filter + sort), as normalized copies. */
+function visibleEntries(model, state) {
+	const all = Object.values(model.data?.entries ?? {}).map(normalizedEntry);
+	const searching = state.search.trim() !== "" && state.scores !== null;
+	return sortEntries(searching ? all.filter((entry) => state.scores?.has(entry.uid)) : all, searching ? 14 : state.sort, state.scores ?? void 0);
+}
+function renderEntriesPanel(app, model, state, actions) {
+	const t = app.i18n.t.bind(app.i18n);
+	const readOnly = model.role.readOnly;
+	const root = el("div", { class: "maestro-m23-entries-panel" });
+	const header = el("div", { class: "maestro-m23-entries-head" }, [
+		button({
+			icon: "fa-arrow-left",
+			kind: "ghost",
+			title: t("m23.nav.books"),
+			className: "maestro-m23-back",
+			onClick: () => actions.back()
+		}),
+		el("div", { class: "maestro-m23-book-heading" }, [el("h3", {
+			class: "maestro-m23-book-heading-title",
+			text: model.book
+		}), el("div", { class: "maestro-m23-book-heading-meta" }, [
+			el("span", {
+				class: "maestro-m23-badge",
+				text: t(roleKey(model.role.role))
+			}),
+			readOnly ? el("span", {
+				class: "maestro-m23-badge maestro-m23-badge-lock",
+				text: t("m23.entries.readOnly")
+			}) : null,
+			el("span", {
+				class: "maestro-muted",
+				text: model.reasons.length ? t("m23.books.activeBecause", { reasons: reasonText(app, model.reasons) }) : t("m23.entries.inactive")
+			}),
+			model.campaign ? el("span", {
+				class: "maestro-m23-badge maestro-m23-badge-campaign",
+				text: model.campaign
+			}) : null,
+			model.workshop.length ? el("span", {
+				class: "maestro-muted",
+				text: t("m23.entries.workshop", { names: model.workshop.join(", ") })
+			}) : null
+		])]),
+		el("div", { class: "maestro-m23-book-actions" }, [
+			button({
+				icon: "fa-pen",
+				title: t("m23.book.rename"),
+				disabled: readOnly,
+				onClick: () => actions.renameBook()
+			}),
+			button({
+				icon: "fa-paste",
+				title: t("m23.book.duplicate"),
+				onClick: () => actions.duplicateBook()
+			}),
+			button({
+				icon: "fa-file-export",
+				title: t("m23.book.export"),
+				onClick: () => actions.exportBook()
+			}),
+			model.localizer && !readOnly && model.role.info?.localizable !== false ? button({
+				icon: "fa-language",
+				title: t("m23.book.localize"),
+				onClick: () => actions.localizeBook()
+			}) : null,
+			button({
+				icon: "fa-book-atlas",
+				title: t("m23.book.classic"),
+				onClick: () => actions.openClassic()
+			}),
+			button({
+				icon: "fa-trash-can",
+				kind: "danger",
+				title: t("m23.book.delete"),
+				onClick: () => actions.deleteBook()
+			})
+		])
+	]);
+	const search = el("input", {
+		class: "text_pole maestro-m23-entry-search",
+		attrs: {
+			type: "search",
+			placeholder: t("m23.entries.search"),
+			"aria-label": t("m23.entries.search")
+		}
+	});
+	search.value = state.search;
+	let searchTimer = null;
+	search.addEventListener("input", () => {
+		state.search = search.value;
+		if (searchTimer) clearTimeout(searchTimer);
+		searchTimer = setTimeout(() => {
+			searchTimer = null;
+			actions.search(search.value);
+		}, SEARCH_DEBOUNCE_MS);
+	});
+	const sort = el("select", {
+		class: "text_pole maestro-m23-sort",
+		attrs: { "aria-label": t("m23.entries.sort") }
+	});
+	const searching = state.search.trim() !== "";
+	for (const option of SORT_OPTIONS) {
+		if (option.id === 14 && !searching) continue;
+		sort.append(el("option", {
+			text: t(option.labelKey),
+			attrs: { value: String(option.id) }
+		}));
+	}
+	sort.value = String(searching ? 14 : state.sort);
+	sort.disabled = searching;
+	sort.addEventListener("change", () => actions.setSort(Number(sort.value)));
+	const size = el("select", {
+		class: "text_pole maestro-m23-page-size",
+		attrs: { "aria-label": t("m23.entries.pageSize") }
+	});
+	for (const value of PAGE_SIZES) size.append(el("option", {
+		text: t("m23.entries.perPage", { count: value }),
+		attrs: { value: String(value) }
+	}));
+	size.value = String(state.pageSize);
+	size.addEventListener("change", () => actions.setPageSize(Number(size.value)));
+	const entries = visibleEntries(model, state);
+	const toolbar = el("div", { class: "maestro-m23-entries-tools" }, [
+		search,
+		sort,
+		size,
+		el("div", { class: "maestro-row" }, [
+			button({
+				icon: "fa-plus",
+				label: t("m23.entries.new"),
+				kind: "primary",
+				disabled: readOnly,
+				onClick: () => actions.create()
+			}),
+			button({
+				icon: "fa-arrow-down-9-1",
+				title: t("m23.entries.applyOrder"),
+				disabled: readOnly || !entries.length,
+				onClick: () => actions.applyOrder(sortForApply())
+			}),
+			button({
+				icon: "fa-pencil",
+				title: t("m23.entries.backfill"),
+				disabled: readOnly,
+				onClick: () => actions.backfill()
+			}),
+			button({
+				icon: "fa-angles-down",
+				title: t("m23.entries.expandAll"),
+				onClick: () => {
+					for (const entry of pageEntries()) state.expanded.add(entry.uid);
+					renderList();
+				}
+			}),
+			button({
+				icon: "fa-angles-up",
+				title: t("m23.entries.collapseAll"),
+				onClick: () => {
+					for (const entry of pageEntries()) state.expanded.delete(entry.uid);
+					renderList();
+				}
+			}),
+			button({
+				icon: "fa-arrows-rotate",
+				title: t("m23.entries.refresh"),
+				onClick: () => actions.refresh()
+			})
+		])
+	]);
+	const bulk = el("div", {
+		class: "maestro-m23-bulk",
+		attrs: {
+			role: "toolbar",
+			"aria-label": t("m23.bulk.title")
+		}
+	});
+	const pager = el("div", { class: "maestro-m23-pager" });
+	const list = el("div", {
+		class: "maestro-m23-entry-list",
+		attrs: { role: "list" }
+	});
+	root.append(header, toolbar, bulk, pager, list);
+	/** «Apply current sorting as Order» works on the whole book in the current order (L-114). */
+	function sortForApply() {
+		const all = Object.values(model.data?.entries ?? {}).map(normalizedEntry);
+		const scores = searching ? state.scores ?? void 0 : void 0;
+		return sortEntries(all, searching ? 14 : state.sort, scores);
+	}
+	function pageEntries() {
+		const info = paginate(entries.length, state.page, state.pageSize);
+		return entries.slice(info.start, info.end);
+	}
+	function renderBulk() {
+		bulk.replaceChildren();
+		const selected = [...state.selected].filter((uid) => model.data?.entries[String(uid)]);
+		bulk.hidden = selected.length === 0;
+		if (!selected.length) return;
+		bulk.append(el("span", {
+			class: "maestro-m23-bulk-count",
+			text: t("m23.bulk.selected", { count: selected.length })
+		}), button({
+			label: t("m23.bulk.selectPage"),
+			kind: "ghost",
+			onClick: () => {
+				for (const entry of pageEntries()) state.selected.add(entry.uid);
+				renderList();
+			}
+		}), button({
+			label: t("m23.bulk.selectAll"),
+			kind: "ghost",
+			onClick: () => {
+				for (const entry of entries) state.selected.add(entry.uid);
+				renderList();
+			}
+		}), button({
+			label: t("m23.bulk.clear"),
+			kind: "ghost",
+			onClick: () => {
+				state.selected.clear();
+				renderList();
+			}
+		}), button({
+			icon: "fa-sliders",
+			label: t("m23.bulk.edit"),
+			disabled: readOnly,
+			onClick: () => actions.bulkEdit(selected)
+		}), button({
+			icon: "fa-toggle-on",
+			title: t("m23.bulk.enable"),
+			disabled: readOnly,
+			onClick: () => actions.setDisabled(selected, false)
+		}), button({
+			icon: "fa-toggle-off",
+			title: t("m23.bulk.disable"),
+			disabled: readOnly,
+			onClick: () => actions.setDisabled(selected, true)
+		}), button({
+			icon: "fa-right-left",
+			title: t("m23.bulk.moveCopy"),
+			onClick: () => actions.moveCopy(selected)
+		}), button({
+			icon: "fa-trash-can",
+			kind: "danger",
+			title: t("m23.bulk.delete"),
+			disabled: readOnly,
+			onClick: () => actions.remove(selected)
+		}));
+	}
+	function renderPager(info) {
+		pager.replaceChildren();
+		if (!entries.length) return;
+		pager.append(button({
+			icon: "fa-chevron-left",
+			kind: "ghost",
+			title: t("m23.entries.prevPage"),
+			disabled: info.page === 0,
+			onClick: () => {
+				state.page = info.page - 1;
+				renderList();
+			}
+		}), el("span", {
+			class: "maestro-m23-pager-text",
+			text: t("m23.entries.range", {
+				from: info.start + 1,
+				to: info.end,
+				total: entries.length
+			})
+		}), button({
+			icon: "fa-chevron-right",
+			kind: "ghost",
+			title: t("m23.entries.nextPage"),
+			disabled: info.page >= info.pages - 1,
+			onClick: () => {
+				state.page = info.page + 1;
+				renderList();
+			}
+		}));
+	}
+	function renderList() {
+		if (state.focusUid !== null) {
+			const index = entries.findIndex((entry) => entry.uid === state.focusUid);
+			if (index >= 0) state.page = pageOfIndex(index, state.pageSize);
+		}
+		const info = paginate(entries.length, state.page, state.pageSize);
+		state.page = info.page;
+		renderPager(info);
+		renderBulk();
+		list.replaceChildren();
+		if (!model.data) {
+			list.append(el("div", {
+				class: "maestro-empty",
+				text: t("m23.entries.loading")
+			}));
+			return;
+		}
+		if (!entries.length) {
+			list.append(el("div", {
+				class: "maestro-empty",
+				text: searching ? t("m23.entries.noMatch") : t("m23.entries.empty")
+			}));
+			return;
+		}
+		const page = entries.slice(info.start, info.end);
+		const custom = !searching && state.sort === 13 && !readOnly;
+		page.forEach((entry, index) => list.append(row(entry, index, page, custom)));
+		if (state.focusUid !== null) {
+			const node = list.querySelector(`[data-uid="${state.focusUid}"]`);
+			node?.classList.add("maestro-m23-flash");
+			node?.scrollIntoView?.({ block: "nearest" });
+			state.focusUid = null;
+		}
+	}
+	function row(entry, index, page, custom) {
+		const uid = entry.uid;
+		const status = entryStatus(entry);
+		const disabled = entry.disable === true;
+		const title = entryTitle(entry) || t("m23.entries.untitled", { uid });
+		const select = el("input", { attrs: {
+			type: "checkbox",
+			"aria-label": t("m23.entries.select", { title })
+		} });
+		select.checked = state.selected.has(uid);
+		select.addEventListener("change", () => {
+			if (select.checked) state.selected.add(uid);
+			else state.selected.delete(uid);
+			renderBulk();
+		});
+		const badges = [];
+		for (const kind of model.canon.get(uid) ?? []) badges.push(el("span", {
+			class: "maestro-m23-badge maestro-m23-badge-canon",
+			title: t(`m23.canon.${kind}`)
+		}, [icon("fa-scroll")]));
+		const findings = model.findings.get(uid) ?? 0;
+		if (findings) badges.push(el("span", {
+			class: "maestro-m23-badge maestro-m23-badge-doctor",
+			title: t("m23.entries.findings", { count: findings })
+		}, [icon("fa-stethoscope"), el("span", { text: String(findings) })]));
+		const seen = model.lastSeen.get(uid);
+		if (seen !== void 0) badges.push(el("span", {
+			class: "maestro-m23-badge",
+			title: t("m23.entries.lastSeenHint"),
+			text: t("m23.entries.lastSeen", { index: seen })
+		}));
+		const probability = Number(entry.probability ?? 100);
+		const meta = [
+			positionLabel(entry),
+			t("m23.entries.order", { value: Number(entry.order ?? 0) }),
+			entry.useProbability !== false && probability < 100 ? `${probability}%` : "",
+			`#${uid}`
+		].filter(Boolean);
+		const node = el("div", {
+			class: [
+				"maestro-m23-entry",
+				disabled ? "maestro-m23-disabled" : null,
+				state.openUid === uid ? "maestro-on" : null
+			],
+			data: { uid },
+			attrs: {
+				role: "listitem",
+				draggable: custom ? "true" : void 0
+			}
+		}, [el("div", { class: "maestro-m23-entry-main" }, [
+			select,
+			custom ? el("span", {
+				class: "maestro-m23-handle",
+				title: t("m23.entries.drag"),
+				text: "☰"
+			}) : null,
+			custom ? button({
+				icon: "fa-arrow-up",
+				kind: "ghost",
+				title: t("m23.entries.up"),
+				disabled: index === 0,
+				onClick: () => actions.reorder(moveItem(page, index, index - 1).map((item) => item.uid))
+			}) : null,
+			custom ? button({
+				icon: "fa-arrow-down",
+				kind: "ghost",
+				title: t("m23.entries.down"),
+				disabled: index === page.length - 1,
+				onClick: () => actions.reorder(moveItem(page, index, index + 1).map((item) => item.uid))
+			}) : null,
+			button({
+				icon: disabled ? "fa-toggle-off" : "fa-toggle-on",
+				kind: "ghost",
+				title: disabled ? t("m23.entries.enable") : t("m23.entries.disable"),
+				disabled: readOnly,
+				className: "maestro-m23-toggle",
+				onClick: () => actions.setDisabled([uid], !disabled)
+			}),
+			el("button", {
+				class: "maestro-m23-status",
+				text: STATUS_ICON[status],
+				title: t(`m23.status.${status}`),
+				attrs: {
+					type: "button",
+					disabled: readOnly,
+					"aria-label": t(`m23.status.${status}`)
+				},
+				on: { click: () => void actions.setStatus(uid, NEXT_STATUS[status]) }
+			}),
+			el("button", {
+				class: "maestro-m23-entry-title",
+				attrs: { type: "button" },
+				title: t("m23.entries.openHint"),
+				on: { click: () => actions.open(uid) }
+			}, [el("span", {
+				class: "maestro-m23-entry-name",
+				text: title
+			}), el("span", {
+				class: "maestro-m23-entry-meta",
+				text: meta.join(" · ")
+			})]),
+			el("span", { class: "maestro-m23-entry-badges" }, badges),
+			button({
+				icon: state.expanded.has(uid) ? "fa-chevron-up" : "fa-chevron-down",
+				kind: "ghost",
+				title: t("m23.entries.preview"),
+				onClick: () => {
+					if (state.expanded.has(uid)) state.expanded.delete(uid);
+					else state.expanded.add(uid);
+					renderList();
+				}
+			}),
+			el("span", { class: "maestro-m23-entry-actions" }, [
+				button({
+					icon: "fa-paste",
+					kind: "ghost",
+					title: t("m23.entries.duplicate"),
+					disabled: readOnly,
+					onClick: () => actions.duplicate(uid)
+				}),
+				button({
+					icon: "fa-right-left",
+					kind: "ghost",
+					title: t("m23.entries.moveCopy"),
+					onClick: () => actions.moveCopy([uid])
+				}),
+				button({
+					icon: "fa-trash-can",
+					kind: "ghost",
+					title: t("m23.entries.delete"),
+					disabled: readOnly,
+					onClick: () => actions.remove([uid])
+				})
+			])
+		]), state.expanded.has(uid) ? preview(entry) : null]);
+		if (custom) bindDrag(node, uid, page);
+		return node;
+	}
+	function preview(entry) {
+		const keys = stringList$1(entry.key);
+		const secondary = stringList$1(entry.keysecondary);
+		const content = typeof entry.content === "string" ? entry.content : "";
+		return el("div", { class: "maestro-m23-entry-preview" }, [
+			el("div", {
+				class: "maestro-m23-preview-keys",
+				text: t("m23.entries.keys", { keys: keys.join(", ") || "—" })
+			}),
+			secondary.length ? el("div", {
+				class: "maestro-m23-preview-keys",
+				text: t("m23.entries.secondary", { keys: secondary.join(", ") })
+			}) : null,
+			el("div", {
+				class: "maestro-m23-preview-content",
+				text: content.length > 600 ? `${content.slice(0, 600)}…` : content
+			})
+		]);
+	}
+	let dragged = null;
+	function bindDrag(node, uid, page) {
+		node.addEventListener("dragstart", (event) => {
+			dragged = uid;
+			event.dataTransfer?.setData("text/plain", String(uid));
+			node.classList.add("maestro-m23-dragging");
+		});
+		node.addEventListener("dragend", () => {
+			dragged = null;
+			node.classList.remove("maestro-m23-dragging");
+		});
+		node.addEventListener("dragover", (event) => {
+			if (dragged === null || dragged === uid) return;
+			event.preventDefault();
+		});
+		node.addEventListener("drop", (event) => {
+			event.preventDefault();
+			if (dragged === null || dragged === uid) return;
+			const from = page.findIndex((item) => item.uid === dragged);
+			const to = page.findIndex((item) => item.uid === uid);
+			dragged = null;
+			if (from < 0 || to < 0) return;
+			actions.reorder(moveItem(page, from, to).map((item) => item.uid));
+		});
+	}
+	renderList();
+	return root;
+}
+//#endregion
+//#region src/features/loreStudio/view-settings.ts
+var STRATEGY_KEYS = {
+	0: "m23.wi.strategyEven",
+	1: "m23.wi.strategyCharacter",
+	2: "m23.wi.strategyGlobal"
+};
+function control(app, spec, value, actions) {
+	const t = app.i18n.t.bind(app.i18n);
+	if (spec.kind === "boolean") return el("div", {
+		class: "maestro-m23-setting",
+		data: { key: spec.key }
+	}, [toggle({
+		label: t(spec.labelKey),
+		checked: value === true,
+		onChange: (checked) => actions.change(spec.key, checked)
+	}), el("div", {
+		class: "maestro-field-hint",
+		text: t(spec.hintKey)
+	})]);
+	if (spec.kind === "select") {
+		const options = (spec.options ?? []).map((option) => ({
+			value: String(option),
+			label: t(STRATEGY_KEYS[option] ?? "")
+		}));
+		return el("div", {
+			class: "maestro-m23-setting",
+			data: { key: spec.key }
+		}, [field$1(t(spec.labelKey), select({
+			value: String(value),
+			options,
+			label: t(spec.labelKey),
+			onChange: (next) => actions.change(spec.key, Number(next))
+		}), t(spec.hintKey))]);
+	}
+	return el("div", {
+		class: "maestro-m23-setting",
+		data: { key: spec.key }
+	}, [field$1(t(spec.labelKey), numberInput({
+		value: Number(value),
+		min: spec.min,
+		max: spec.max,
+		step: 1,
+		label: t(spec.labelKey),
+		onChange: (next) => actions.change(spec.key, next)
+	}), t(spec.hintKey, {
+		min: spec.min ?? 0,
+		max: spec.max ?? 0
+	}))]);
+}
+function renderSettingsPanel(app, values, actions) {
+	const t = app.i18n.t.bind(app.i18n);
+	return el("div", { class: "maestro-m23-settings" }, [
+		el("h3", { text: t("m23.wi.title") }),
+		el("p", {
+			class: "maestro-muted",
+			text: t("m23.wi.intro")
+		}),
+		el("div", { class: "maestro-m23-settings-grid" }, WI_SETTINGS.map((spec) => control(app, spec, values[spec.key] ?? spec.defaultValue, actions))),
+		el("p", {
+			class: "maestro-muted",
+			text: t("m23.wi.related")
+		})
+	]);
+}
+//#endregion
+//#region src/features/loreStudio/studio.ts
+function defaultStudioSettings() {
+	return {
+		takeoverButton: false,
+		sort: 0,
+		pageSize: 25,
+		autoLinkAsked: false
+	};
+}
+var REFRESH_DELAY_MS = 30;
+var FOCUS_CLASSES = ["maestro-m23-entry-search", "maestro-m23-book-search"];
+var LoreStudio = class {
+	deps;
+	app;
+	dialogs;
+	popup = null;
+	root = null;
+	main = null;
+	columns = null;
+	view = "library";
+	pane = "books";
+	book = null;
+	bookData = null;
+	booksModel = null;
+	formCleanup = null;
+	storeOff = null;
+	rolesOff = null;
+	refreshTimer = null;
+	dirtyAll = false;
+	dirtyBook = false;
+	renderToken = 0;
+	/** The open form's «may I leave?» (unsaved edits); set through EntryFormContext.setLeaveGuard. */
+	leaveGuard = null;
+	formToken = 0;
+	/** Per popup: a close we already allowed (or forced) skips the guard in ST's onClosing. */
+	closing = null;
+	booksState = {
+		search: "",
+		onlyActive: false,
+		collapsed: /* @__PURE__ */ new Set(["backup"]),
+		selected: null,
+		bindingsOpen: false
+	};
+	entriesState;
+	constructor(deps) {
+		this.deps = deps;
+		this.app = deps.app;
+		this.dialogs = new Dialogs(deps.app);
+		const sort = SORT_OPTIONS.some((option) => option.id === deps.settings.sort) ? deps.settings.sort : 0;
+		const size = PAGE_SIZES.includes(deps.settings.pageSize) ? deps.settings.pageSize : 25;
+		this.entriesState = {
+			search: "",
+			sort,
+			pageSize: size,
+			page: 0,
+			selected: /* @__PURE__ */ new Set(),
+			expanded: /* @__PURE__ */ new Set(),
+			scores: null,
+			focusUid: null,
+			openUid: null
+		};
+	}
+	t(key, params) {
+		return this.app.i18n.t(key, params);
+	}
+	isOpen() {
+		return this.popup !== null;
+	}
+	currentBook() {
+		return this.book;
+	}
+	/** Opens the window (on a book and entry when given); a second call just switches to them. */
+	open(book, uid) {
+		if (!this.popup) {
+			const ctx = this.app.host.ctx();
+			if (typeof ctx.Popup !== "function") {
+				this.deps.log.error("ST Popup is not available; cannot open the Lore Studio");
+				return;
+			}
+			this.root = this.buildChrome();
+			const closing = { allowed: false };
+			this.closing = closing;
+			const popup = new ctx.Popup(this.root, ctx.POPUP_TYPE.DISPLAY, "", {
+				wide: true,
+				large: true,
+				allowVerticalScrolling: false,
+				animation: prefersReducedMotion() ? "none" : "fast",
+				onClosing: () => closing.allowed ? true : this.canLeave()
+			});
+			popup.dlg.classList.add("maestro-m23-dialog");
+			this.popup = popup;
+			this.storeOff = this.deps.store.onChange((changed) => this.scheduleRefresh(changed));
+			const roles = this.app.modules.api("bookRoles");
+			if (roles) {
+				this.rolesOff = roles.onChange(() => this.scheduleRefresh(null));
+				roles.refresh().catch((error) => this.deps.log.warn("book roles refresh failed", error));
+			}
+			popup.show().then(() => this.handleClosed(popup), () => this.handleClosed(popup));
+			this.dirtyAll = true;
+		}
+		if (book && this.deps.store.books().includes(book)) {
+			this.view = "library";
+			this.selectBook(book).then((selected) => {
+				if (selected && uid !== void 0) this.openEntry(uid);
+			});
+			return;
+		}
+		this.render();
+	}
+	/** True when nothing stops leaving the open entry (no form, no guard, or the form agreed). */
+	async canLeave() {
+		const guard = this.leaveGuard;
+		if (!guard || this.entriesState.openUid === null) return true;
+		try {
+			return await guard();
+		} catch (error) {
+			this.deps.log.warn("entry form leave guard failed", error);
+			return false;
+		}
+	}
+	/** A close the user asked for (× button, «Классический редактор»): the form is asked first. */
+	async requestClose() {
+		if (!this.popup) return true;
+		if (!await this.canLeave()) return false;
+		this.close();
+		return true;
+	}
+	/** Closes without asking (module disable, or after the guard agreed). */
+	close() {
+		const popup = this.popup;
+		if (!popup) return;
+		if (this.closing) this.closing.allowed = true;
+		this.handleClosed(popup);
+		popup.completeCancelled().catch((error) => this.deps.log.debug("lore studio close", error));
+	}
+	dispose() {
+		this.close();
+	}
+	handleClosed(popup) {
+		if (this.popup !== popup) return;
+		this.closeForm(false);
+		this.storeOff?.();
+		this.storeOff = null;
+		this.rolesOff?.();
+		this.rolesOff = null;
+		if (this.refreshTimer) clearTimeout(this.refreshTimer);
+		this.refreshTimer = null;
+		this.popup = null;
+		this.root = null;
+		this.main = null;
+		this.columns = null;
+	}
+	buildChrome() {
+		this.main = el("div", { class: "maestro-m23-main" });
+		const nav = segmented({
+			value: this.view,
+			label: this.t("m23.nav.label"),
+			options: [
+				{
+					value: "library",
+					label: this.t("m23.nav.library")
+				},
+				{
+					value: "settings",
+					label: this.t("m23.nav.settings")
+				},
+				{
+					value: "campaigns",
+					label: this.t("m23.nav.campaigns")
+				}
+			],
+			onChange: async (view) => {
+				if (view !== "library" && this.view === "library" && !await this.canLeave()) {
+					this.markNav();
+					return;
+				}
+				this.view = view;
+				this.render();
+			}
+		});
+		return el("div", { class: "maestro-m23 maestro-theme" }, [el("div", { class: "maestro-m23-header" }, [
+			el("div", { class: "maestro-m23-brand" }, [icon("fa-book-atlas"), el("h3", { text: this.t("m23.title") })]),
+			nav,
+			button({
+				icon: "fa-book-open",
+				label: this.t("m23.classic"),
+				title: this.t("m23.classicHint"),
+				className: "maestro-m23-classic",
+				onClick: () => this.openClassic(this.book ?? void 0)
+			}),
+			button({
+				icon: "fa-xmark",
+				kind: "ghost",
+				title: this.t("m23.close"),
+				className: "maestro-m23-close",
+				onClick: async () => {
+					await this.requestClose();
+				}
+			})
+		]), this.main]);
+	}
+	/** The view switch follows programmatic view changes (a book opened from the campaigns view). */
+	markNav() {
+		for (const node of this.root?.querySelectorAll(".maestro-m23-header .maestro-segment") ?? []) {
+			const on = node.dataset.value === this.view;
+			node.classList.toggle("maestro-on", on);
+			node.setAttribute("aria-checked", on ? "true" : "false");
+		}
+	}
+	async render() {
+		const main = this.main;
+		if (!main) return;
+		this.markNav();
+		const token = ++this.renderToken;
+		if (this.view !== "library") this.closeForm(false);
+		if (this.view === "settings") {
+			const values = await this.deps.store.globalSettings();
+			if (token !== this.renderToken || !this.main) return;
+			this.columns = null;
+			this.preserveFocus(main, () => main.replaceChildren(renderSettingsPanel(this.app, readWiSettings(values), { change: async (key, value) => {
+				await this.dialogs.run(() => this.deps.store.setGlobalSettings({ [key]: value }));
+				this.render();
+			} })));
+			return;
+		}
+		if (this.view === "campaigns") {
+			const model = await this.campaignsModel();
+			if (token !== this.renderToken || !this.main) return;
+			this.columns = null;
+			main.replaceChildren(renderCampaignsPanel(this.app, model, this.campaignActions()));
+			return;
+		}
+		await this.renderLibrary(token);
+	}
+	async renderLibrary(token) {
+		const main = this.main;
+		if (!main) return;
+		if (this.dirtyAll || !this.booksModel) {
+			this.dirtyAll = false;
+			this.booksModel = await this.loadBooksModel();
+			if (this.book && !this.booksModel.books.includes(this.book)) this.clearBook();
+		}
+		if (this.dirtyBook && this.book) {
+			this.dirtyBook = false;
+			this.bookData = await this.deps.store.load(this.book);
+		}
+		const entriesModel = this.book ? await this.loadEntriesModel(this.book) : null;
+		if (token !== this.renderToken || !this.main || !this.booksModel) return;
+		if (!this.columns) {
+			this.columns = {
+				books: el("div", { class: "maestro-m23-col maestro-m23-col-books" }),
+				entries: el("div", { class: "maestro-m23-col maestro-m23-col-entries" }),
+				form: el("div", { class: "maestro-m23-col maestro-m23-col-form" })
+			};
+			main.replaceChildren(el("div", { class: "maestro-m23-layout" }, [
+				this.columns.books,
+				this.columns.entries,
+				this.columns.form
+			]));
+		}
+		const { books, entries, form } = this.columns;
+		const layout = books.parentElement;
+		if (layout) {
+			layout.dataset.pane = this.pane;
+			layout.classList.toggle("maestro-m23-with-form", this.entriesState.openUid !== null);
+		}
+		this.booksState.selected = this.book;
+		const model = this.booksModel;
+		this.preserveFocus(books, () => books.replaceChildren(renderBooksPanel(this.app, model, this.booksState, this.bookActions())));
+		this.preserveFocus(entries, () => entries.replaceChildren(entriesModel ? renderEntriesPanel(this.app, entriesModel, this.entriesState, this.entryActions()) : el("div", {
+			class: "maestro-empty maestro-m23-pick",
+			text: this.t("m23.entries.pickBook")
+		})));
+		form.hidden = this.entriesState.openUid === null;
+	}
+	/** Re-rendering must not steal the cursor from a search box (refreshes arrive while typing). */
+	preserveFocus(container, render) {
+		const active = document.activeElement;
+		const key = active instanceof HTMLInputElement && container.contains(active) ? FOCUS_CLASSES.find((name) => active.classList.contains(name)) : void 0;
+		const start = key && active instanceof HTMLInputElement ? active.selectionStart : null;
+		const end = key && active instanceof HTMLInputElement ? active.selectionEnd : null;
+		render();
+		if (!key) return;
+		const next = container.querySelector(`.${key}`);
+		if (!next) return;
+		next.focus();
+		if (start !== null && end !== null) try {
+			next.setSelectionRange(start, end);
+		} catch {}
+	}
+	scheduleRefresh(book) {
+		if (book === null) this.dirtyAll = true;
+		else if (book === this.book) this.dirtyBook = true;
+		else return;
+		if (this.refreshTimer) return;
+		this.refreshTimer = setTimeout(() => {
+			this.refreshTimer = null;
+			if (this.isOpen()) this.render();
+		}, REFRESH_DELAY_MS);
+	}
+	async loadBooksModel() {
+		const store = this.deps.store;
+		const books = store.books();
+		const hints = store.roleHints();
+		const roles = /* @__PURE__ */ new Map();
+		const roleOf = (book) => {
+			let role = roles.get(book);
+			if (!role) {
+				role = store.roleOf(book, hints);
+				roles.set(book, role);
+			}
+			return role;
+		};
+		const bindings = await store.bindings();
+		const reasons = await this.reasons(bindings);
+		let canonBook = null;
+		const canon = this.app.modules.api("canon");
+		if (canon && this.app.host.chatId()) try {
+			canonBook = canon.bookName();
+		} catch {
+			canonBook = null;
+		}
+		const campaignOf = /* @__PURE__ */ new Map();
+		if (store.des.present()) for (const campaign of store.des.view(books, bindings.global).campaigns) for (const book of campaign.books) campaignOf.set(book, campaign.name);
+		return {
+			books,
+			roleOf,
+			bindings,
+			reasons,
+			character: store.st.currentCharacter(),
+			canonBook,
+			campaignOf,
+			groupChat: this.app.host.isGroupChat(),
+			hasChat: !!this.app.host.chatId(),
+			cardBook: store.cardBookName()
+		};
+	}
+	/** Why each book is active in this chat: M1's whyActive (DES, CK, canon included), else from the bindings. */
+	async reasons(bindings) {
+		const map = /* @__PURE__ */ new Map();
+		const journal = this.app.modules.api("loreJournal");
+		if (journal) try {
+			for (const row of await journal.whyActive()) map.set(row.book, [...row.reasons]);
+			return map;
+		} catch (error) {
+			this.deps.log.debug("whyActive failed", error);
+		}
+		const add = (book, reason) => {
+			if (!book) return;
+			const list = map.get(book) ?? [];
+			if (!list.includes(reason)) list.push(reason);
+			map.set(book, list);
+		};
+		for (const book of bindings.global) add(book, "global");
+		add(bindings.character.primary, "character");
+		for (const book of bindings.character.extra) add(book, "characterExtra");
+		add(bindings.chat, "chat");
+		add(bindings.persona, "persona");
+		return map;
+	}
+	async loadEntriesModel(book) {
+		const store = this.deps.store;
+		if (!this.bookData) this.bookData = await store.load(book);
+		const model = this.booksModel;
+		const canon = /* @__PURE__ */ new Map();
+		const canonApi = this.app.modules.api("canon");
+		if (canonApi && this.app.host.chatId()) try {
+			for (const item of await canonApi.list()) {
+				const base = item.meta.base;
+				if (!base || base.world !== book) continue;
+				const list = canon.get(base.uid) ?? [];
+				if (!list.includes(item.meta.kind)) list.push(item.meta.kind);
+				canon.set(base.uid, list);
+			}
+		} catch (error) {
+			this.deps.log.debug("canon list failed", error);
+		}
+		const findings = /* @__PURE__ */ new Map();
+		for (const finding of this.app.modules.api("doctor")?.findings() ?? []) {
+			if (finding.target.book !== book) continue;
+			const uids = Array.isArray(finding.target.uids) ? finding.target.uids : [finding.target.uid];
+			for (const uid of uids) if (typeof uid === "number") findings.set(uid, (findings.get(uid) ?? 0) + 1);
+		}
+		const lastSeen = /* @__PURE__ */ new Map();
+		const turns = this.app.modules.api("loreJournal")?.turns() ?? [];
+		for (let index = turns.length - 1; index >= 0; index--) {
+			const turn = turns[index];
+			if (!turn || turn.simulated || turn.messageIndex < 0) continue;
+			for (const activation of turn.activations) if (activation.world === book && !lastSeen.has(activation.uid)) lastSeen.set(activation.uid, turn.messageIndex);
+		}
+		const workshop = store.des.present() ? Object.entries(store.des.workshop()).filter(([, linked]) => linked === book).map(([npc]) => npc) : [];
+		return {
+			book,
+			data: this.bookData,
+			role: store.roleOf(book),
+			canon,
+			findings,
+			lastSeen,
+			reasons: model?.reasons.get(book) ?? [],
+			campaign: model?.campaignOf.get(book) ?? null,
+			workshop,
+			targets: (model?.books ?? store.books()).filter((name) => name !== book && !(model?.roleOf(name).readOnly ?? false)),
+			localizer: this.localizerApi() !== void 0
+		};
+	}
+	async campaignsModel() {
+		const store = this.deps.store;
+		const des = store.des;
+		const active = (await store.bindings()).global;
+		const view = des.view(store.books(), active);
+		let unavailable = null;
+		if (!des.present()) unavailable = "absent";
+		else if (!await des.ready()) unavailable = "loading";
+		return {
+			unavailable,
+			view,
+			switching: des.isSwitching(),
+			workshop: des.present() ? des.workshop() : {},
+			active
+		};
+	}
+	clearBook() {
+		this.closeForm(false);
+		this.book = null;
+		this.bookData = null;
+		this.pane = "books";
+	}
+	/** Shows a book; false when the open entry form asked to stay (unsaved edits). */
+	async selectBook(book) {
+		if (book !== this.book) {
+			if (!await this.canLeave()) return false;
+			this.closeForm(false);
+			this.book = book;
+			this.bookData = null;
+			const state = this.entriesState;
+			state.search = "";
+			state.scores = null;
+			state.page = 0;
+			state.selected.clear();
+			state.expanded.clear();
+		}
+		this.pane = book ? "entries" : "books";
+		if (book) this.bookData = await this.deps.store.load(book);
+		await this.render();
+		return true;
+	}
+	/** Opens an entry in the form; false when the entry open now asked to stay. */
+	async openEntry(uid) {
+		if (!this.book || !this.columns) return false;
+		if (this.entriesState.openUid !== null && !await this.canLeave()) return false;
+		if (!this.book || !this.columns) return false;
+		this.closeForm(false);
+		const form = this.columns.form;
+		const role = this.deps.store.roleOf(this.book);
+		this.entriesState.openUid = uid;
+		this.pane = "form";
+		form.hidden = false;
+		form.replaceChildren();
+		const layout = form.parentElement;
+		if (layout) {
+			layout.dataset.pane = "form";
+			layout.classList.add("maestro-m23-with-form");
+		}
+		for (const row of this.columns.entries.querySelectorAll(".maestro-m23-entry")) row.classList.toggle("maestro-on", row.dataset.uid === String(uid));
+		const render = this.deps.renderForm;
+		if (!render) {
+			form.append(el("div", {
+				class: "maestro-empty",
+				text: this.t("m23.form.unavailable")
+			}));
+			return true;
+		}
+		const token = ++this.formToken;
+		try {
+			this.formCleanup = render(form, {
+				app: this.app,
+				store: this.deps.store,
+				book: this.book,
+				uid,
+				role: role.info,
+				readOnly: role.readOnly,
+				onSaved: () => this.scheduleRefresh(this.book),
+				onClose: () => this.closeForm(true),
+				setLeaveGuard: (guard) => {
+					if (token === this.formToken) this.leaveGuard = guard;
+				}
+			});
+		} catch (error) {
+			this.deps.log.error("entry form failed", error);
+			form.replaceChildren(el("div", {
+				class: "maestro-empty",
+				text: this.t("m23.form.failed")
+			}));
+		}
+		return true;
+	}
+	closeForm(render) {
+		const cleanup = this.formCleanup;
+		this.formCleanup = null;
+		if (cleanup) try {
+			cleanup();
+		} catch (error) {
+			this.deps.log.warn("entry form cleanup failed", error);
+		}
+		this.leaveGuard = null;
+		if (this.entriesState.openUid === null) return;
+		this.entriesState.openUid = null;
+		if (this.pane === "form") this.pane = this.book ? "entries" : "books";
+		if (this.columns) {
+			this.columns.form.replaceChildren();
+			this.columns.form.hidden = true;
+		}
+		if (render) this.render();
+	}
+	async openClassic(book) {
+		if (!await this.requestClose()) return;
+		if (!await this.deps.openClassic(book)) this.app.ui.notice(this.t("m23.error.classicUnavailable"), {
+			urgent: true,
+			level: "warn"
+		});
+	}
+	reason(key, params = {}) {
+		return {
+			module: "user",
+			summary: this.t(key, params)
+		};
+	}
+	async linksOf(book) {
+		return bookLinks(await this.deps.store.linkState(), book);
+	}
+	linksText(links) {
+		const parts = [];
+		if (links.global) parts.push(this.t("m23.links.global"));
+		if (links.primaryOf.length) parts.push(this.t("m23.links.primary", { names: links.primaryOf.join(", ") }));
+		if (links.extraOf.length) parts.push(this.t("m23.links.extra", { names: links.extraOf.join(", ") }));
+		if (links.personas.length) parts.push(this.t("m23.links.personas", { names: links.personas.join(", ") }));
+		else if (links.currentPersona) parts.push(this.t("m23.links.persona"));
+		if (links.chat) parts.push(this.t("m23.links.chat"));
+		if (links.campaigns.length) parts.push(this.t("m23.links.campaigns", { names: links.campaigns.join(", ") }));
+		if (links.workshop.length) parts.push(this.t("m23.links.workshop", { names: links.workshop.join(", ") }));
+		return parts.join("; ");
+	}
+	bookActions() {
+		const store = this.deps.store;
+		return {
+			select: (book) => void this.selectBook(book),
+			toggleGlobal: async (book, on) => {
+				await this.dialogs.run(() => store.setGlobal(book, on));
+			},
+			create: async () => {
+				const name = await this.dialogs.input(this.t("m23.books.createTitle"), freeBookName(this.t("m23.books.newName"), store.books()));
+				if (!name) return;
+				const created = await this.dialogs.run(() => store.createBook(name));
+				if (created) await this.selectBook(created);
+			},
+			importFile: async (file) => {
+				const name = await this.dialogs.run(() => store.importBook(file));
+				if (name) await this.selectBook(name);
+				else if (name === "") this.app.ui.notice(this.t("m23.books.notImported", { file: file.name }), { level: "warn" });
+			},
+			setPrimary: async (name) => {
+				await this.dialogs.run(() => store.setCharacterPrimary(name));
+			},
+			setExtra: async (names) => {
+				await this.dialogs.run(() => store.setCharacterExtra(names));
+			},
+			setChat: async (name) => {
+				await this.dialogs.run(() => store.setChatBook(name));
+			},
+			setPersona: async (name) => {
+				await this.dialogs.run(() => store.setPersonaBook(name));
+			},
+			importCardBook: async () => {
+				const name = store.cardBookName();
+				if (!name) return;
+				const body = store.books().some((book) => book.toLowerCase() === name.toLowerCase()) ? this.t("m23.card.overwrite") : this.t("m23.card.importBody");
+				if (!await this.dialogs.confirm(this.t("m23.card.importTitle", { book: name }), body)) return;
+				const imported = await this.dialogs.run(() => store.importCardBook());
+				if (imported) {
+					this.dirtyAll = true;
+					await this.selectBook(imported);
+				}
+			},
+			changed: () => void this.render()
+		};
+	}
+	entries() {
+		return this.bookData?.entries ?? {};
+	}
+	entryActions() {
+		const store = this.deps.store;
+		const state = this.entriesState;
+		const book = () => this.book ?? "";
+		const titleOf = (uid) => {
+			const entry = this.entries()[String(uid)];
+			return (typeof entry?.comment === "string" ? entry.comment.trim() : "") || this.t("m23.entries.untitled", { uid });
+		};
+		return {
+			open: (uid) => void this.openEntry(uid),
+			create: async () => {
+				const uid = await this.dialogs.run(() => store.createEntry(book()));
+				if (uid === void 0) return;
+				state.focusUid = uid;
+				this.bookData = await store.load(book());
+				await this.render();
+				await this.openEntry(uid);
+			},
+			duplicate: async (uid) => {
+				const copy = await this.dialogs.run(() => store.duplicateEntry(book(), uid));
+				if (copy === void 0) return;
+				state.focusUid = copy;
+				this.dirtyBook = true;
+				await this.render();
+			},
+			remove: async (uids) => {
+				const body = uids.length === 1 ? this.t("m23.entries.deleteOne", {
+					title: titleOf(uids[0]),
+					uid: uids[0]
+				}) : this.t("m23.entries.deleteMany", { count: uids.length });
+				if (!await this.dialogs.confirm(this.t("m23.entries.deleteTitle"), body, this.t("m23.dialog.delete"))) return;
+				if (!await this.dialogs.run(() => store.deleteEntries(book(), uids))) return;
+				for (const uid of uids) state.selected.delete(uid);
+				if (state.openUid !== null && uids.includes(state.openUid)) this.closeForm(false);
+				this.dirtyBook = true;
+				await this.render();
+			},
+			moveCopy: async (uids) => {
+				const model = this.booksModel;
+				const targets = (model?.books ?? store.books()).filter((name) => name !== book() && !(model?.roleOf(name).readOnly ?? false));
+				if (!targets.length) {
+					this.app.ui.notice(this.t("m23.move.noTargets"), {
+						urgent: true,
+						level: "warn"
+					});
+					return;
+				}
+				const form = moveTargetForm(this.app, targets);
+				const title = uids.length === 1 ? this.t("m23.move.titleOne", { title: titleOf(uids[0]) }) : this.t("m23.move.titleMany", { count: uids.length });
+				const readOnly = store.isReadOnly(book());
+				const choice = await this.dialogs.choose(title, form.content, readOnly ? [{
+					value: "copy",
+					label: this.t("m23.move.copy")
+				}] : [{
+					value: "move",
+					label: this.t("m23.move.move")
+				}, {
+					value: "copy",
+					label: this.t("m23.move.copy")
+				}]);
+				if (!choice) return;
+				const target = form.read();
+				const created = await this.dialogs.run(() => store.moveEntries(book(), uids, target, choice === "copy"));
+				if (!created?.length) return;
+				if (choice === "move") {
+					for (const uid of uids) state.selected.delete(uid);
+					if (state.openUid !== null && uids.includes(state.openUid)) this.closeForm(false);
+				}
+				this.app.ui.notice(this.t(choice === "copy" ? "m23.move.copied" : "m23.move.moved", {
+					count: created.length,
+					book: target
+				}), { urgent: true });
+				this.dirtyBook = true;
+				await this.render();
+			},
+			setDisabled: async (uids, disabled) => {
+				await this.dialogs.run(() => store.patchEntries(book(), uids.map((uid) => ({
+					uid,
+					patch: { disable: disabled }
+				})), this.reason(disabled ? "m23.journal.disable" : "m23.journal.enable", {
+					count: uids.length,
+					book: book()
+				})));
+			},
+			setStatus: async (uid, status) => {
+				await this.dialogs.run(() => store.patchEntries(book(), [{
+					uid,
+					patch: statusPatch(status)
+				}], this.reason("m23.journal.status", {
+					uid,
+					book: book()
+				})));
+			},
+			reorder: async (pageOrder) => {
+				const changes = reorderPage(pageOrder, this.entries());
+				if (!changes.length) return;
+				await this.dialogs.run(() => store.patchEntries(book(), changes.map((change) => ({
+					uid: change.uid,
+					patch: { displayIndex: change.displayIndex }
+				})), this.reason("m23.journal.reorder", { book: book() })));
+				this.dirtyBook = true;
+				await this.render();
+			},
+			applyOrder: async (sorted) => {
+				const form = applyOrderForm(this.app, sorted.length);
+				if (!await this.dialogs.form(this.t("m23.order.title"), form.content)) return;
+				const options = form.read();
+				if (options.error) {
+					this.app.ui.notice(this.t(`m23.order.invalid.${options.error}`), {
+						urgent: true,
+						level: "error"
+					});
+					return;
+				}
+				const changes = applyOrder(sorted, options);
+				if (!changes.length) {
+					this.app.ui.notice(this.t("m23.order.upToDate"), { urgent: true });
+					return;
+				}
+				if (await this.dialogs.run(() => store.patchEntries(book(), changes.map((change) => ({
+					uid: change.uid,
+					patch: { order: change.order }
+				})), this.reason("m23.journal.applyOrder", {
+					count: changes.length,
+					book: book()
+				}))) !== void 0) this.app.ui.notice(this.t("m23.order.updated", { count: changes.length }), { urgent: true });
+			},
+			backfill: async () => {
+				const changes = backfillComments(this.entries());
+				if (!changes.length) {
+					this.app.ui.notice(this.t("m23.backfill.none"), { urgent: true });
+					return;
+				}
+				if (await this.dialogs.run(() => store.patchEntries(book(), changes.map((change) => ({
+					uid: change.uid,
+					patch: { comment: change.comment }
+				})), this.reason("m23.journal.backfill", {
+					count: changes.length,
+					book: book()
+				}))) !== void 0) this.app.ui.notice(this.t("m23.backfill.done", { count: changes.length }), { urgent: true });
+			},
+			bulkEdit: async (uids) => {
+				const list = uids.map((uid) => this.entries()[String(uid)]).filter((entry) => !!entry);
+				if (!list.length) return;
+				const form = bulkEditForm(this.app, list);
+				if (!await this.dialogs.form(this.t("m23.bulkEdit.title", { count: list.length }), form.content)) return;
+				const patch = form.read();
+				if (!Object.keys(patch).length) return;
+				await this.dialogs.run(() => store.patchEntries(book(), list.map((entry) => ({
+					uid: entry.uid,
+					patch
+				})), this.reason("m23.journal.bulkEdit", {
+					count: list.length,
+					book: book()
+				})));
+			},
+			search: (term) => void this.search(term),
+			setSort: (id) => {
+				state.sort = id;
+				state.page = 0;
+				this.deps.settings.sort = id;
+				this.deps.saveSettings();
+				this.render();
+			},
+			setPageSize: (size) => {
+				state.pageSize = size;
+				state.page = 0;
+				this.deps.settings.pageSize = size;
+				this.deps.saveSettings();
+				this.render();
+			},
+			refresh: async () => {
+				if (!this.book) return;
+				await store.st.dropCache(this.book);
+				this.bookData = await store.load(this.book);
+				this.dirtyAll = true;
+				await this.render();
+			},
+			renameBook: async () => {
+				const current = book();
+				const links = await this.linksOf(current);
+				const hint = linkCount(links) ? this.t("m23.book.renameLinks", { links: this.linksText(links) }) : void 0;
+				const name = await this.dialogs.input(this.t("m23.book.renameTitle", { book: current }), current, hint);
+				if (!name || name === current) return;
+				const before = store.books();
+				if (!await this.dialogs.run(async () => {
+					await store.renameBook(current, name);
+					return true;
+				})) return;
+				const renamed = store.books().find((item) => !before.includes(item)) ?? null;
+				this.dirtyAll = true;
+				await this.selectBook(renamed);
+			},
+			duplicateBook: async () => {
+				const current = book();
+				const name = await this.dialogs.input(this.t("m23.book.duplicateTitle", { book: current }), freeBookName(current, store.books()));
+				if (!name) return;
+				const before = store.books();
+				if (!await this.dialogs.run(async () => {
+					await store.duplicateBook(current, name);
+					return true;
+				})) return;
+				this.dirtyAll = true;
+				const copy = store.books().find((item) => !before.includes(item));
+				await this.selectBook(copy ?? current);
+			},
+			exportBook: async () => {
+				await this.dialogs.run(() => store.exportBook(book()));
+			},
+			localizeBook: async () => {
+				const current = book();
+				const api = this.localizerApi();
+				if (!api) return;
+				const uids = Object.values(this.bookData?.entries ?? {}).map((entry) => Number(entry.uid)).filter((uid) => Number.isInteger(uid));
+				if (!uids.length) return;
+				const body = el("p", { text: this.t("m23.book.localizeBody", {
+					book: current,
+					count: uids.length
+				}) });
+				if (!await this.dialogs.confirm(this.t("m23.book.localize"), body, this.t("m23.book.localizeRun"))) return;
+				const result = await this.dialogs.run(async () => {
+					if (await api.isProtectedBook(current)) throw new Error(this.t("m23.book.localizeProtected"));
+					return api.localizeEntries(current, uids);
+				});
+				if (!result) return;
+				this.deps.app.ui.notice(this.t("m23.book.localizeDone", { ...result }), {
+					urgent: true,
+					level: "info"
+				});
+				await store.st.dropCache(current);
+				this.bookData = await store.load(current);
+				this.dirtyAll = true;
+				await this.render();
+			},
+			deleteBook: async () => {
+				const current = book();
+				const links = await this.linksOf(current);
+				const body = el("div", {}, [
+					el("p", { text: this.t("m23.book.deleteBody", { book: current }) }),
+					linkCount(links) ? el("p", {
+						class: "maestro-warn-text",
+						text: this.t("m23.book.deleteLinks", { links: this.linksText(links) })
+					}) : null,
+					el("p", {
+						class: "maestro-muted",
+						text: this.t("m23.book.deleteUndo")
+					})
+				]);
+				if (!await this.dialogs.confirm(this.t("m23.book.deleteTitle"), body, this.t("m23.dialog.delete"))) return;
+				if (!await this.dialogs.run(async () => {
+					await store.deleteBook(current);
+					return true;
+				})) return;
+				this.clearBook();
+				this.dirtyAll = true;
+				await this.render();
+			},
+			openClassic: () => void this.openClassic(book()),
+			back: () => {
+				this.pane = "books";
+				this.render();
+			}
+		};
+	}
+	/** ST's own fuzzy search (power-user.js) for exact parity; a plain search with Fuse's operators otherwise. */
+	async search(term) {
+		const state = this.entriesState;
+		state.search = term;
+		state.page = 0;
+		if (!term.trim()) {
+			state.scores = null;
+			await this.render();
+			return;
+		}
+		const entries = Object.values(this.entries());
+		let scores = null;
+		try {
+			const fuzzy = (await this.app.host.modules.load("/scripts/power-user.js")).fuzzySearchWorldInfo;
+			if (typeof fuzzy === "function") {
+				const results = fuzzy(entries, term);
+				scores = /* @__PURE__ */ new Map();
+				for (const result of results) {
+					const uid = Number(result.item?.uid);
+					if (Number.isFinite(uid)) scores.set(uid, typeof result.score === "number" ? result.score : 0);
+				}
+			}
+		} catch (error) {
+			this.deps.log.debug("ST fuzzy search unavailable", error);
+		}
+		if (state.search !== term) return;
+		state.scores = scores ?? plainSearch(entries, term);
+		await this.render();
+	}
+	campaignActions() {
+		const des = this.deps.store.des;
+		const rerender = async () => {
+			this.dirtyAll = true;
+			await this.render();
+		};
+		const run = async (action) => {
+			await this.dialogs.run(async () => {
+				await action();
+			});
+			await rerender();
+		};
+		const view = () => des.view(this.deps.store.books(), this.booksModel?.bindings.global ?? []);
+		return {
+			create: async () => {
+				const name = await this.dialogs.input(this.t("m23.des.createTitle"), "");
+				if (name) await run(() => des.createCampaign(name));
+			},
+			rename: async (id) => {
+				const campaign = view().campaigns.find((item) => item.id === id);
+				const name = await this.dialogs.input(this.t("m23.des.renameTitle"), campaign?.name ?? "");
+				if (name) await run(() => des.renameCampaign(id, name));
+			},
+			remove: async (id) => {
+				const campaign = view().campaigns.find((item) => item.id === id);
+				if (!campaign) return;
+				const body = campaign.active ? this.t("m23.des.deleteActive", { name: campaign.name }) : this.t("m23.des.deleteBody", { name: campaign.name });
+				if (!await this.dialogs.confirm(this.t("m23.des.deleteTitle"), body, this.t("m23.dialog.delete"))) return;
+				await run(() => des.deleteCampaign(id));
+			},
+			setIcon: (id, name) => run(() => des.setIcon(id, name)),
+			setColor: (id, color) => run(() => des.setColor(id, color)),
+			move: (id, delta) => run(() => des.reorder(moveCampaign(view().campaigns.map((item) => item.id), id, delta))),
+			activate: (id) => run(() => des.setActive(id)),
+			toggleCollapsed: (id) => run(() => des.toggleCollapsed(id)),
+			moveBook: (book, toId) => run(() => des.moveBook(book, toId)),
+			toggleDesGlobal: (book) => run(() => des.toggleGlobal(book)),
+			setActive: async (book, on) => {
+				const library = view();
+				const inActive = library.campaigns.some((campaign) => campaign.active && campaign.books.includes(book));
+				if (!on && (inActive || library.autoLinked.includes(book))) this.app.ui.notice(this.t("m23.des.manualOffHint", { book }), {
+					urgent: true,
+					level: "warn"
+				});
+				await run(() => this.deps.store.setGlobal(book, on));
+			},
+			setAutoLink: async (on) => {
+				if (!this.deps.settings.autoLinkAsked) {
+					const ok = await this.dialogs.confirm(this.t("m23.des.autoLinkTitle"), this.t("m23.des.autoLinkExplain"));
+					this.deps.settings.autoLinkAsked = true;
+					this.deps.saveSettings();
+					if (!ok) {
+						await rerender();
+						return;
+					}
+				}
+				await run(() => des.setAutoLink(on));
+			},
+			openBook: (book) => {
+				this.view = "library";
+				this.selectBook(book);
+			}
+		};
+	}
+	/** Lorebook Localizer's API (0.2+), when the adapter is there and sees it. */
+	localizerApi() {
+		try {
+			return adaptersOf(this.deps.app)?.localizer?.api();
+		} catch {
+			return;
+		}
+	}
+	/** Test helper: the entries currently listed (filtered and sorted). */
+	listedEntries() {
+		if (!this.book || !this.bookData) return [];
+		return visibleEntries({
+			book: this.book,
+			data: this.bookData,
+			role: this.deps.store.roleOf(this.book),
+			canon: /* @__PURE__ */ new Map(),
+			findings: /* @__PURE__ */ new Map(),
+			lastSeen: /* @__PURE__ */ new Map(),
+			reasons: [],
+			campaign: null,
+			workshop: [],
+			targets: []
+		}, this.entriesState);
+	}
+};
+//#endregion
+//#region src/features/loreStudio/styles.ts
+var M23_CSS = `
+.popup.maestro-m23-dialog {
+    width: min(1500px, 98dvw);
+    height: min(940px, 94dvh);
+    max-height: 94dvh;
+    padding: 0;
+    overflow: hidden;
+}
+.popup.maestro-m23-dialog .popup-content {
+    margin: 0;
+    padding: 0;
+    display: flex;
+    min-height: 0;
+    height: 100%;
+    text-align: start;
+}
+.popup.maestro-m23-dialog .popup-body { height: 100%; }
+.popup.maestro-m23-dialog .popup-button-close { display: none !important; }
+.maestro-m23 {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    color: var(--maestro-text);
+    font-size: var(--maestro-font-size);
+}
+.maestro-m23-header {
+    display: flex;
+    align-items: center;
+    gap: var(--maestro-gap);
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--maestro-border);
+    flex-wrap: wrap;
+}
+.maestro-m23-brand { display: flex; align-items: center; gap: var(--maestro-gap-sm); color: var(--maestro-accent); }
+.maestro-m23-brand h3 { margin: 0; color: var(--maestro-text); font-size: 1.1em; }
+.maestro-m23-header .maestro-segmented { flex: 1 1 auto; }
+.maestro-m23-main { flex: 1 1 auto; min-height: 0; overflow: auto; }
+.maestro-m23-layout {
+    display: grid;
+    grid-template-columns: minmax(240px, 300px) minmax(0, 1fr);
+    height: 100%;
+    min-height: 0;
+}
+.maestro-m23-layout.maestro-m23-with-form {
+    grid-template-columns: minmax(220px, 280px) minmax(0, 1fr) minmax(360px, 44%);
+}
+/* Not enough room for three columns: the open form hides the book list (the entry list keeps its width). */
+@media screen and (min-width: 1001px) and (max-width: 1599px) {
+    .maestro-m23-layout.maestro-m23-with-form { grid-template-columns: minmax(0, 1fr) minmax(400px, 55%); }
+    .maestro-m23-layout.maestro-m23-with-form .maestro-m23-col-books { display: none; }
+}
+.maestro-m23-col { min-height: 0; min-width: 0; overflow: auto; padding: var(--maestro-gap-sm) var(--maestro-gap); }
+.maestro-m23-col-books { border-right: 1px solid var(--maestro-border); }
+.maestro-m23-col-form { border-left: 1px solid var(--maestro-border); }
+.maestro-m23-col[hidden] { display: none; }
+.maestro-m23-books-tools, .maestro-m23-entries-tools {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--maestro-gap-sm);
+    align-items: center;
+    margin-bottom: var(--maestro-gap-sm);
+}
+.maestro-m23-book-search, .maestro-m23-entry-search { flex: 1 1 180px; min-width: 0; margin: 0; }
+.maestro-m23-hidden-file { display: none; }
+.maestro-m23-section { margin-bottom: var(--maestro-gap-sm); }
+.maestro-m23-section-title {
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: var(--maestro-gap-sm);
+    min-height: 32px;
+    font-weight: 600;
+}
+.maestro-m23-count {
+    margin-left: auto;
+    color: var(--maestro-muted);
+    font-size: 0.85em;
+    font-variant-numeric: tabular-nums;
+}
+.maestro-m23-book {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 2px var(--maestro-gap-sm);
+    padding: 4px 6px;
+    border-radius: var(--maestro-radius-sm);
+}
+.maestro-m23-book:hover { background: var(--maestro-raised); }
+.maestro-m23-book.maestro-on { background: var(--maestro-accent-soft); }
+.maestro-m23-book-name {
+    all: unset;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    min-height: 28px;
+}
+.maestro-m23-book-name:focus-visible, .maestro-m23-entry-title:focus-visible, .maestro-m23-campaign-name:focus-visible,
+.maestro-m23-book-link:focus-visible, .maestro-m23-status:focus-visible { outline: 2px solid var(--maestro-accent); }
+.maestro-m23-book-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.maestro-m23-book-badges { grid-column: 1 / 2; display: flex; flex-wrap: wrap; gap: 4px; }
+.maestro-m23-global { grid-column: 2 / 3; grid-row: 1 / 3; display: flex; align-items: center; gap: 4px; cursor: pointer; }
+.maestro-m23-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--maestro-border); }
+.maestro-m23-dot-on { background: var(--maestro-ok); }
+.maestro-m23-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 0 6px;
+    border-radius: 999px;
+    font-size: 0.78em;
+    background: var(--maestro-raised-strong);
+    color: var(--maestro-muted);
+    white-space: nowrap;
+}
+.maestro-m23-badge-lock { color: var(--maestro-warn); }
+.maestro-m23-badge-campaign { color: var(--maestro-accent); }
+.maestro-m23-badge-canon { color: var(--maestro-accent); }
+.maestro-m23-badge-doctor { color: var(--maestro-warn); }
+.maestro-m23-badge-active { color: var(--maestro-ok); font-weight: 600; }
+.maestro-m23-bindings { margin-top: var(--maestro-gap); border-top: 1px solid var(--maestro-border); padding-top: var(--maestro-gap-sm); }
+.maestro-m23-bindings > summary { cursor: pointer; display: flex; gap: var(--maestro-gap-sm); align-items: center; min-height: 32px; font-weight: 600; }
+.maestro-m23-binding-group { margin: var(--maestro-gap-sm) 0; display: flex; flex-direction: column; gap: 4px; }
+.maestro-m23-binding { display: flex; flex-direction: column; gap: 2px; margin: var(--maestro-gap-sm) 0; }
+.maestro-m23-binding-label { font-size: 0.85em; color: var(--maestro-muted); }
+.maestro-m23-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.maestro-m23-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding: 0 0 0 8px;
+    border-radius: 999px;
+    background: var(--maestro-raised-strong);
+}
+.maestro-m23-chip .maestro-btn { min-height: 24px; padding: 0 6px; margin: 0; }
+.maestro-m23-extra-list { max-height: 240px; overflow: auto; }
+.maestro-m23-entries-head { display: flex; align-items: flex-start; gap: var(--maestro-gap-sm); margin-bottom: var(--maestro-gap-sm); }
+.maestro-m23-back { display: none; }
+.maestro-m23-book-heading { flex: 1 1 auto; min-width: 0; }
+.maestro-m23-book-heading-title { margin: 0; overflow-wrap: anywhere; }
+.maestro-m23-book-heading-meta { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 0.85em; }
+.maestro-m23-book-actions { display: flex; flex-wrap: wrap; gap: 4px; }
+.maestro-m23-sort, .maestro-m23-page-size { width: auto; margin: 0; }
+.maestro-m23-bulk {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    align-items: center;
+    padding: 4px 6px;
+    margin-bottom: var(--maestro-gap-sm);
+    border-radius: var(--maestro-radius-sm);
+    background: var(--maestro-accent-soft);
+}
+.maestro-m23-bulk[hidden] { display: none; }
+.maestro-m23-bulk-count { font-weight: 600; margin-right: auto; }
+.maestro-m23-pager { display: flex; align-items: center; gap: var(--maestro-gap-sm); justify-content: flex-end; }
+.maestro-m23-pager-text { font-variant-numeric: tabular-nums; color: var(--maestro-muted); }
+.maestro-m23-entry { border-bottom: 1px solid var(--maestro-border); padding: 2px 0; }
+.maestro-m23-entry.maestro-on { background: var(--maestro-accent-soft); }
+.maestro-m23-entry.maestro-m23-disabled .maestro-m23-entry-title { opacity: 0.55; }
+.maestro-m23-entry.maestro-m23-dragging { opacity: 0.5; }
+.maestro-m23-entry.maestro-m23-flash { outline: 2px solid var(--maestro-accent); outline-offset: -2px; }
+.maestro-m23-entry-main { display: flex; align-items: center; gap: 4px; min-height: 36px; }
+.maestro-m23-entry-main .maestro-btn { margin: 0; min-height: 30px; padding: 0 6px; }
+.maestro-m23-handle { cursor: grab; color: var(--maestro-muted); padding: 0 4px; user-select: none; }
+.maestro-m23-status { all: unset; cursor: pointer; padding: 0 2px; line-height: 1; }
+.maestro-m23-entry-title {
+    all: unset;
+    cursor: pointer;
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+.maestro-m23-entry-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.maestro-m23-entry-meta { color: var(--maestro-muted); font-size: 0.8em; font-variant-numeric: tabular-nums; }
+.maestro-m23-entry-badges { display: flex; gap: 3px; flex-wrap: wrap; justify-content: flex-end; }
+.maestro-m23-entry-actions { display: flex; gap: 0; }
+.maestro-m23-entry-preview { padding: 4px 8px 8px 32px; font-size: 0.9em; }
+.maestro-m23-preview-keys { color: var(--maestro-muted); overflow-wrap: anywhere; }
+.maestro-m23-preview-content { white-space: pre-wrap; overflow-wrap: anywhere; margin-top: 4px; }
+.maestro-m23-pick { margin-top: 20%; }
+.maestro-m23-settings { padding: var(--maestro-gap); max-width: 980px; }
+.maestro-m23-settings-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: var(--maestro-gap); }
+.maestro-m23-setting { padding: var(--maestro-gap-sm); border: 1px solid var(--maestro-border); border-radius: var(--maestro-radius-sm); }
+.maestro-m23-campaigns { padding: var(--maestro-gap); max-width: 1100px; }
+.maestro-m23-campaigns-head { display: flex; flex-direction: column; gap: var(--maestro-gap-sm); margin-bottom: var(--maestro-gap); }
+.maestro-m23-active-campaign { font-weight: 600; }
+.maestro-m23-campaign {
+    --maestro-m23-campaign-color: var(--maestro-accent);
+    border: 1px solid var(--maestro-border);
+    border-left: 4px solid var(--maestro-m23-campaign-color);
+    border-radius: var(--maestro-radius-sm);
+    padding: 4px 8px;
+    margin-bottom: var(--maestro-gap-sm);
+}
+.maestro-m23-campaign.maestro-on { background: var(--maestro-accent-soft); }
+.maestro-m23-campaign-head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.maestro-m23-campaign-head .maestro-btn { margin: 0; }
+.maestro-m23-campaign-name { all: unset; cursor: pointer; font-weight: 600; flex: 1 1 auto; min-height: 32px; display: flex; align-items: center; }
+.maestro-m23-icon-picker > summary { cursor: pointer; list-style: none; color: var(--maestro-m23-campaign-color); padding: 4px; }
+.maestro-m23-icon-grid { display: grid; grid-template-columns: repeat(8, 36px); gap: 2px; margin: 4px 0; }
+.maestro-m23-icon-grid .maestro-btn { margin: 0; min-width: 0; padding: 0; }
+.maestro-m23-color-row { display: flex; flex-wrap: wrap; gap: 4px; }
+.maestro-m23-swatch { --maestro-m23-swatch: transparent; background: var(--maestro-m23-swatch) !important; min-width: 28px; }
+.maestro-m23-campaign-books, .maestro-m23-unfiled { padding-left: 8px; }
+.maestro-m23-campaign-book { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 2px 0; }
+.maestro-m23-campaign-book .maestro-btn { margin: 0; }
+.maestro-m23-book-link { all: unset; cursor: pointer; flex: 1 1 160px; min-width: 0; overflow-wrap: anywhere; }
+.maestro-m23-move-book { width: auto; max-width: 200px; margin: 0; }
+.maestro-m23-unfiled > summary, .maestro-m23-workshop > summary { cursor: pointer; min-height: 32px; font-weight: 600; }
+.maestro-m23-dialog-body h3 { margin-top: 0; }
+.maestro-m23-form-dialog { text-align: start; }
+.maestro-m23-bulk-grid { display: grid; grid-template-columns: 1fr; gap: 2px; max-height: 60dvh; overflow: auto; }
+.maestro-m23-bulk-row {
+    display: grid;
+    grid-template-columns: auto minmax(140px, 1fr) auto minmax(120px, 1fr);
+    align-items: center;
+    gap: 6px;
+}
+.maestro-m23-bulk-row .text_pole { margin: 0; }
+.maestro-m23-order-form { display: flex; flex-direction: column; gap: 4px; }
+@media screen and (max-width: 1000px) {
+    .popup.maestro-m23-dialog,
+    .popup.maestro-m23-dialog.large_dialogue_popup {
+        width: 100dvw !important;
+        min-width: 100dvw !important;
+        max-width: 100dvw !important;
+        height: 100dvh !important;
+        max-height: 100dvh !important;
+        margin: 0;
+        border: 0;
+        border-radius: 0;
+    }
+    .maestro-m23-header { padding: 6px; padding-top: max(6px, env(safe-area-inset-top)); gap: 6px; }
+    .maestro-m23-classic span { display: none; }
+    .maestro-m23-layout, .maestro-m23-layout.maestro-m23-with-form { grid-template-columns: minmax(0, 1fr); }
+    .maestro-m23-layout .maestro-m23-col { display: none; border: 0; }
+    .maestro-m23-layout[data-pane='books'] .maestro-m23-col-books,
+    .maestro-m23-layout[data-pane='entries'] .maestro-m23-col-entries,
+    .maestro-m23-layout[data-pane='form'] .maestro-m23-col-form { display: block; }
+    .maestro-m23-back { display: inline-flex; }
+    .maestro-btn, .maestro-m23-book-name, .maestro-m23-entry-title, .maestro-m23-campaign-name { min-height: var(--maestro-tap); }
+    .maestro-m23-entry-main { flex-wrap: wrap; }
+    .maestro-m23-entry-title { flex-basis: 60%; }
+    .maestro-m23-bulk-row { grid-template-columns: auto 1fr; }
+    .maestro-m23-bulk-row > :nth-child(3) { display: none; }
+    .maestro-m23-bulk-row > :nth-child(4) { grid-column: 1 / -1; }
+}
+`;
+//#endregion
+//#region src/features/loreStudio/takeover.ts
+var WI_TOGGLE_SELECTOR = "#WI-SP-button .drawer-toggle";
+var DES_NAMESPACE = "rpgLorebook";
+var OUR_NAMESPACE = "maestroLore";
+function jq() {
+	const value = globalThis.jQuery;
+	return typeof value === "function" ? value : null;
+}
+var ButtonTakeover = class {
+	deps;
+	installed = null;
+	/** The latest request: a restore() while install() awaits ST's module cancels that install. */
+	wanted = false;
+	armed = false;
+	pendingBook;
+	classicOpening = false;
+	constructor(deps) {
+		this.deps = deps;
+	}
+	active() {
+		return this.installed !== null;
+	}
+	async stHandler() {
+		try {
+			const handler = (await this.deps.app.host.modules.script()).doNavbarIconClick;
+			return typeof handler === "function" ? handler : null;
+		} catch (error) {
+			this.deps.log.warn("script.js is not available", error);
+			return null;
+		}
+	}
+	/** True when installed. False (and nothing changed) without jQuery, the toggle or ST's exported handler. */
+	async install() {
+		this.wanted = true;
+		if (this.installed) return true;
+		const $ = jq();
+		const element = document.querySelector(WI_TOGGLE_SELECTOR);
+		const st = await this.stHandler();
+		if (!this.wanted) return false;
+		if (!$ || !element || !st || this.installed) return this.installed !== null;
+		const des = this.desHandlers(element);
+		$(element).off("click", st);
+		$(element).off(`click.${DES_NAMESPACE}`);
+		const ours = (event) => this.onClick(event, st, element);
+		const editorHook = () => this.onEditorChange();
+		$(element).on(`click.${OUR_NAMESPACE}`, ours);
+		$("#world_editor_select").on(`change.${OUR_NAMESPACE}`, editorHook);
+		this.installed = {
+			element,
+			st,
+			des,
+			ours,
+			editorHook
+		};
+		this.deps.log.info("World Info button taken over");
+		return true;
+	}
+	/** Puts ST's and DES's handlers back; ours removed. Safe to call twice. */
+	restore() {
+		this.wanted = false;
+		const installed = this.installed;
+		if (!installed) return;
+		this.installed = null;
+		const $ = jq();
+		if (!$) return;
+		const { element } = installed;
+		$(element).off(`click.${OUR_NAMESPACE}`, installed.ours);
+		$("#world_editor_select").off(`change.${OUR_NAMESPACE}`, installed.editorHook);
+		$(element).on("click", installed.st);
+		if (!this.desHandlers(element).length) for (const handler of installed.des) $(element).on(`click.${DES_NAMESPACE}`, handler);
+		this.deps.log.info("World Info button restored");
+	}
+	desHandlers(element) {
+		return ((jq()?._data?.(element, "events"))?.click ?? []).filter((record) => (record.namespace ?? "").split(".").includes(DES_NAMESPACE)).map((record) => record.handler).filter((handler) => typeof handler === "function");
+	}
+	classicIsOpen() {
+		return document.getElementById("WorldInfo")?.classList.contains("openDrawer") === true;
+	}
+	onClick(event, st, element) {
+		event.preventDefault();
+		event.stopImmediatePropagation();
+		if (this.classicIsOpen()) {
+			Promise.resolve(st.call(element, event)).catch((error) => this.deps.log.warn("classic drawer toggle failed", error));
+			return;
+		}
+		if (this.armed) return;
+		this.armed = true;
+		this.pendingBook = void 0;
+		setTimeout(() => {
+			const book = this.pendingBook;
+			this.armed = false;
+			this.pendingBook = void 0;
+			this.deps.open(book);
+		}, 0);
+	}
+	onEditorChange() {
+		if (!this.armed || this.classicOpening) return;
+		const select = document.getElementById("world_editor_select");
+		if (!(select instanceof HTMLSelectElement)) return;
+		const option = select.options[select.selectedIndex];
+		if (option && option.value !== "") this.pendingBook = option.text;
+	}
+	/**
+	* Opens ST's own drawer (and a book in it). Calls ST's handler directly, so neither our takeover nor DES's
+	* interception is involved (DES's mobile «Edit in ST» bug is not repeated: the editor select, not #world_info).
+	*/
+	async openClassic(book) {
+		const element = document.querySelector(WI_TOGGLE_SELECTOR);
+		const st = this.installed?.st ?? await this.stHandler();
+		if (!element || !st) return false;
+		if (!this.classicIsOpen()) await Promise.resolve(st.call(element, new Event("click")));
+		if (book) {
+			const index = (this.deps.app.host.ctx().getWorldInfoNames?.() ?? []).indexOf(book);
+			const $ = jq();
+			if (index >= 0 && $) {
+				this.classicOpening = true;
+				try {
+					$("#world_editor_select").val(index).trigger("change");
+				} finally {
+					this.classicOpening = false;
+				}
+			}
+		}
+		return true;
+	}
+};
+//#endregion
+//#region src/features/loreStudio/view-tab.ts
+var LORE_STUDIO_TAB = "loreStudio";
+function loreStudioTab(app, deps) {
+	const t = app.i18n.t.bind(app.i18n);
+	return {
+		id: LORE_STUDIO_TAB,
+		titleKey: "m23.title",
+		icon: "fa-book-atlas",
+		order: 40,
+		render(container) {
+			const status = el("div", {
+				class: "maestro-field-hint",
+				text: deps.takeoverActive() ? t("m23.tab.takeoverActive") : t("m23.tab.takeoverInactive")
+			});
+			container.append(section(t("m23.title"), [
+				el("p", { text: t("m23.tab.intro") }),
+				el("p", {
+					class: "maestro-muted",
+					text: t("m23.tab.books", { count: deps.bookCount() })
+				}),
+				el("div", { class: "maestro-row" }, [button({
+					icon: "fa-book-atlas",
+					label: t("m23.tab.open"),
+					kind: "primary",
+					onClick: () => {
+						app.ui.closePult?.();
+						deps.open();
+					}
+				}), button({
+					icon: "fa-book-open",
+					label: t("m23.classic"),
+					onClick: () => {
+						app.ui.closePult?.();
+						deps.openClassic();
+					}
+				})])
+			]), section(t("m23.tab.takeoverTitle"), [
+				toggle({
+					label: t("m23.tab.takeover"),
+					checked: deps.settings.takeoverButton,
+					onChange: async (on) => {
+						const ok = await deps.setTakeover(on);
+						status.textContent = deps.takeoverActive() ? t("m23.tab.takeoverActive") : t("m23.tab.takeoverInactive");
+						if (on && !ok) app.ui.notice(t("m23.tab.takeoverFailed"), {
+							urgent: true,
+							level: "warn"
+						});
+					}
+				}),
+				el("div", {
+					class: "maestro-field-hint",
+					text: t("m23.tab.takeoverHint")
+				}),
+				status,
+				el("p", {
+					class: "maestro-muted",
+					text: t("m23.tab.slash")
+				})
+			]));
+		}
+	};
+}
+//#endregion
+//#region src/features/loreStudio/module.ts
+var LORE_STUDIO_KEY = "loreStudio";
+var runtime$1 = null;
+function createLoreStudioModule(renderForm) {
+	return {
+		id: "M23",
+		key: LORE_STUDIO_KEY,
+		stage: 2,
+		titleKey: "m23.title",
+		enabledByDefault: true,
+		defaults: defaultStudioSettings,
+		requires: ["st.wi.module"],
+		i18n: M23_STRINGS,
+		init({ app, settings, log, own }) {
+			const store = new LoreStoreService({
+				app,
+				log,
+				st: new StLore(app, log),
+				des: new DesLore(app, log)
+			});
+			own(store.install());
+			app.modules.expose(STORE_KEY, store);
+			own(() => app.modules.expose(STORE_KEY, void 0));
+			const saveSettings = () => {
+				app.settings.notify(`modules.${LORE_STUDIO_KEY}`);
+				app.settings.save();
+			};
+			const ref = { studio: null };
+			const takeover = new ButtonTakeover({
+				app,
+				log,
+				open: (book) => ref.studio?.open(book)
+			});
+			const studio = new LoreStudio({
+				app,
+				log,
+				store,
+				renderForm,
+				settings,
+				saveSettings,
+				openClassic: (book) => takeover.openClassic(book)
+			});
+			ref.studio = studio;
+			runtime$1 = {
+				store,
+				studio,
+				takeover
+			};
+			own(() => {
+				studio.dispose();
+				if (runtime$1?.studio === studio) runtime$1 = null;
+			});
+			own(app.ui.style("m23-lore-studio", M23_CSS));
+			const setTakeover = async (on) => {
+				settings.takeoverButton = on;
+				saveSettings();
+				if (!on) {
+					takeover.restore();
+					return true;
+				}
+				return takeover.install();
+			};
+			own(app.ui.addTab(loreStudioTab(app, {
+				settings,
+				open: () => studio.open(),
+				openClassic: () => void takeover.openClassic(),
+				setTakeover,
+				takeoverActive: () => takeover.active(),
+				bookCount: () => store.books().length
+			})));
+			own(app.ui.addSlashCommand({
+				name: "maestro-lore",
+				helpKey: "m23.slash.help",
+				args: [{
+					name: "value",
+					descriptionKey: "m23.slash.book",
+					optional: true
+				}],
+				callback: (_args, value) => {
+					const book = value.trim();
+					studio.open(book || void 0);
+					return "";
+				}
+			}));
+			own(() => takeover.restore());
+			if (settings.takeoverButton) takeover.install().then((ok) => {
+				if (!ok) log.warn("the World Info button could not be taken over (no jQuery, toggle or handler)");
+			});
+		}
+	};
+}
+//#endregion
+//#region src/features/loreStudio/index.ts
+var loreStudioModule = createLoreStudioModule(renderEntryForm);
+//#endregion
 //#region src/domain/medic-des.ts
 function isDict$10(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -16667,7 +32881,7 @@ var QVINK_GAP_DEFAULTS = {
 	includeSystem: false,
 	minTokens: 10
 };
-var CHARS_PER_TOKEN$1 = 3;
+var CHARS_PER_TOKEN = 3;
 /**
 * Last index Qvink already dropped from the prompt: the newest message marked `lagging: false`. Qvink computes
 * lagging as `index < threshold`, so everything up to it is outside the prompt. -1 when nothing is.
@@ -16680,7 +32894,7 @@ function qvinkRemovalBoundary(messages) {
 function findQvinkGaps(messages, options = QVINK_GAP_DEFAULTS) {
 	const boundary = qvinkRemovalBoundary(messages);
 	const gaps = [];
-	const minChars = Math.max(0, options.minTokens) * CHARS_PER_TOKEN$1;
+	const minChars = Math.max(0, options.minTokens) * CHARS_PER_TOKEN;
 	for (let i = 0; i <= boundary; i++) {
 		const message = messages[i];
 		if (!message || message.skip) continue;
@@ -18012,6 +34226,263 @@ var medicModule = {
 	}
 };
 //#endregion
+//#region src/features/rules/lore-write.ts
+var LORE_ENTRY_TARGET = "lore-entry";
+/** ST's lorebook functions from the context; null when this ST lacks them. */
+function bookIo(app) {
+	const ctx = app.host.ctx();
+	if (typeof ctx.loadWorldInfo !== "function" || typeof ctx.saveWorldInfo !== "function") return null;
+	return {
+		async load(book) {
+			const data = await app.host.ctx().loadWorldInfo?.(book);
+			return isBookData(data) ? data : null;
+		},
+		async save(book, data) {
+			const current = app.host.ctx();
+			await current.saveWorldInfo?.(book, data, true);
+			try {
+				current.reloadWorldInfoEditor?.(book);
+			} catch (error) {
+				app.log.debug("lorebook editor reload failed", error);
+			}
+			try {
+				adaptersOf(app).des.invalidateLoreCache(book);
+			} catch (error) {
+				app.log.debug("DES Lore Library cache reset failed", error);
+			}
+		}
+	};
+}
+/** BunnyMo core or pack: by its M35 role, the BunnyMo adapter's classification or the book's content. */
+function isProtectedBook(app, book, data) {
+	try {
+		const role = app.modules.api("bookRoles")?.roleOf(book);
+		if (role && (role.readOnly || role.role === "bunnymo.core" || role.role === "bunnymo.pack")) return true;
+	} catch (error) {
+		app.log.debug("book roles are not available", error);
+	}
+	try {
+		const known = adaptersOf(app).bunnymo.books();
+		if (known.core.includes(book) || known.packs.includes(book)) return true;
+	} catch {}
+	return !!data && isBunnyMoBook(book, data);
+}
+/** Writes the patches unless the book is protected; returns the commit result. */
+async function writePatches(app, book, patches, direction = "apply") {
+	const io = bookIo(app);
+	if (!io) return {
+		ok: false,
+		reason: "missing",
+		uids: []
+	};
+	return commitPatches(io, book, patches, {
+		direction,
+		guard: (data) => !isProtectedBook(app, book, data)
+	});
+}
+/** Journal changes of the patches (one per entry). */
+function patchChanges(book, patches) {
+	return patches.map((patch) => ({
+		target: LORE_ENTRY_TARGET,
+		ref: {
+			book,
+			uid: patch.uid
+		},
+		before: patch.before,
+		after: patch.after
+	}));
+}
+/** Undo of a 'lore-entry' change: the entry gets its `before` fields back if it still holds `after`. */
+async function undoLoreEntry(app, change) {
+	const book = change.ref.book;
+	const uid = Number(change.ref.uid);
+	if (typeof book !== "string" || !Number.isFinite(uid)) return false;
+	if (!isPlainObject(change.before) || !isPlainObject(change.after)) return false;
+	return (await writePatches(app, book, [{
+		uid,
+		before: change.before,
+		after: change.after
+	}], "revert")).ok;
+}
+function isEntryPatch(value) {
+	return isPlainObject(value) && typeof value.uid === "number" && isPlainObject(value.before) && isPlainObject(value.after);
+}
+//#endregion
+//#region src/features/rules/builtin/archives.ts
+var ARCHIVE_DEPTH_RULE_ID = "ck.archiveDepth";
+var ARCHIVE_DEPTH_KIND = "rules.ckArchiveDepth";
+/** Lets a chat finish loading before the books are read. */
+var CHECK_DELAY_MS = 1500;
+var PREVIEW_LINES = 8;
+function isArchivePayload(value) {
+	return isPlainObject(value) && typeof value.book === "string" && Array.isArray(value.patches) && value.patches.every(isEntryPatch);
+}
+/** DES-RU's `nameFormsKey` (adapter `api()` → `globalThis.DESRU_API`), when available. */
+function desruFormsKey(env) {
+	let api;
+	try {
+		const adapter = adaptersOf(env.app).desru;
+		api = typeof adapter.api === "function" ? adapter.api() : void 0;
+	} catch (error) {
+		env.log.debug("DES-RU API is not available", error);
+		return null;
+	}
+	const formsKey = isPlainObject(api) ? api.nameFormsKey : void 0;
+	if (typeof formsKey !== "function") return null;
+	return (name) => {
+		const result = formsKey(name);
+		return typeof result === "string" && result ? result : null;
+	};
+}
+/** Active books: the latest real scan plus the BunnyMo adapter's list of active books. */
+async function candidateBooks(env) {
+	const books = new Set(env.activeBooks());
+	try {
+		const bunnymo = adaptersOf(env.app).bunnymo;
+		if (typeof bunnymo.activeBooks === "function") for (const book of await bunnymo.activeBooks()) books.add(book);
+	} catch (error) {
+		env.log.debug("active books are not available", error);
+	}
+	return [...books];
+}
+/**
+* Books worth loading (the check runs after every generation): with the BunnyMo adapter's classification, only the
+* active books that hold archives; without it, every candidate (its content decides).
+*/
+function archiveCandidates(env, books) {
+	try {
+		const known = adaptersOf(env.app).bunnymo.books?.();
+		if (known && Array.isArray(known.archives)) return books.filter((book) => known.archives.includes(book));
+	} catch (error) {
+		env.log.debug("BunnyMo classification is not available", error);
+	}
+	return books;
+}
+/**
+* One proposal per archive book with scan-depth-1 archives (not proposed before for the same entries). Returns how
+* many proposals were made.
+*/
+async function proposeArchiveFixes(env) {
+	if (!env.isActive("ck.archiveDepth")) return 0;
+	const io = bookIo(env.app);
+	if (!io) return 0;
+	const roles = env.app.modules.api("bookRoles");
+	const formsKey = desruFormsKey(env);
+	let proposed = 0;
+	const books = await candidateBooks(env);
+	const withArchives = new Set(archiveCandidates(env, books));
+	for (const book of books) {
+		const role = roles?.roleOf(book);
+		if (role ? role.role !== "ck.archive" : !withArchives.has(book)) continue;
+		const data = await io.load(book);
+		if (!data || isProtectedBook(env.app, book, data) || !role && !hasArchives(data)) continue;
+		const patches = enabledEntriesOf(data).filter(({ entry }) => isCharacterArchive(entry)).map(({ uid, entry }) => planArchiveDepthFix(uid, entry, formsKey ?? void 0)).filter((patch) => patch !== null);
+		const settings = env.settings();
+		if (!patches.length) {
+			if (settings.archiveProposals[book] !== void 0) {
+				delete settings.archiveProposals[book];
+				env.app.settings.save();
+			}
+			continue;
+		}
+		const signature = patches.map((patch) => patch.uid).sort((a, b) => a - b).join(",");
+		if (settings.archiveProposals[book] === signature) continue;
+		const payload = {
+			book,
+			patches
+		};
+		const withForms = patches.some((patch) => "key" in patch.after);
+		const preview = patches.slice(0, PREVIEW_LINES).map((patch) => {
+			const entry = data.entries[String(patch.uid)];
+			const comment = isPlainObject(entry) && typeof entry.comment === "string" ? entry.comment : "";
+			return `#${patch.uid} ${comment}`.trim();
+		});
+		if (patches.length > PREVIEW_LINES) preview.push(env.t("m22.archiveDepth.more", { count: patches.length - PREVIEW_LINES }));
+		if (await env.app.autonomy.decide({
+			module: "M22",
+			kind: "rules.ckArchiveDepth",
+			title: env.t("m22.archiveDepth.title", {
+				book,
+				count: patches.length
+			}),
+			description: [
+				env.t("m22.archiveDepth.description", { book }),
+				withForms ? env.t("m22.archiveDepth.forms") : formsKey ? "" : env.t("m22.archiveDepth.noForms"),
+				preview.join("\n")
+			].filter(Boolean).join("\n\n"),
+			changes: patchChanges(book, patches),
+			payload,
+			stillValid: () => archiveFixValid(env, payload),
+			apply: (value) => applyArchiveFix(env, value)
+		}, "inbox") === "skipped") continue;
+		settings.archiveProposals[book] = signature;
+		env.app.settings.save();
+		proposed += 1;
+	}
+	return proposed;
+}
+async function applyArchiveFix(env, payload) {
+	const result = await writePatches(env.app, payload.book, payload.patches);
+	if (!result.ok) throw new Error(env.t(`m22.archiveDepth.failed.${result.reason ?? "missing"}`, { book: payload.book }));
+}
+/** Every entry still holds the values the proposal was made for. */
+async function archiveFixValid(env, payload) {
+	const io = bookIo(env.app);
+	const data = io ? await io.load(payload.book) : null;
+	if (!data || isProtectedBook(env.app, payload.book, data)) return false;
+	return patchBookData(data, payload.patches).ok;
+}
+function archiveDepthRule(env) {
+	return {
+		id: ARCHIVE_DEPTH_RULE_ID,
+		titleKey: "m22.rule.ck.archiveDepth.title",
+		descriptionKey: "m22.rule.ck.archiveDepth.description",
+		owner: "maestro",
+		stage: 2,
+		kind: "lore",
+		defaultLevel: "auto",
+		enabledByDefault: true,
+		start() {
+			let timer = null;
+			let running = false;
+			const run = async () => {
+				if (running) return;
+				running = true;
+				try {
+					await proposeArchiveFixes(env);
+				} catch (error) {
+					env.log.warn("CK archive check failed", error);
+				} finally {
+					running = false;
+				}
+			};
+			const schedule = () => {
+				if (timer !== null) clearTimeout(timer);
+				timer = setTimeout(() => {
+					timer = null;
+					run();
+				}, CHECK_DELAY_MS);
+			};
+			const offs = [env.app.bus.on("generation:ended", schedule)];
+			const chatChanged = env.app.host.events.name("CHAT_CHANGED");
+			if (chatChanged) offs.push(env.app.host.events.on(chatChanged, schedule));
+			schedule();
+			return () => {
+				for (const off of offs) off();
+				if (timer !== null) clearTimeout(timer);
+				timer = null;
+			};
+		}
+	};
+}
+/** Inbox applier (cards survive reloads); the module owns the returned disposer. */
+function registerArchiveHandlers(env) {
+	return [env.app.inbox.registerApplier(ARCHIVE_DEPTH_KIND, async (payload) => {
+		if (!isArchivePayload(payload)) throw new Error("bad CK archive card");
+		await applyArchiveFix(env, payload);
+	}, async (payload) => isArchivePayload(payload) && archiveFixValid(env, payload))];
+}
+//#endregion
 //#region src/domain/text-clean.ts
 function isDict$4(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -18422,186 +34893,6 @@ function ckDumpsRule() {
 	};
 }
 //#endregion
-//#region src/domain/rules-lore.ts
-/** Characters per token for the quick estimate (between English ~4 and Cyrillic ~3). */
-var CHARS_PER_TOKEN = 3.6;
-function estimateTokens(chars) {
-	return chars > 0 ? Math.ceil(chars / CHARS_PER_TOKEN) : 0;
-}
-/** Keys as a canonical string: trimmed, lower case, unique, sorted; non-strings and empty keys are dropped. */
-function normalizeKeyList(value) {
-	if (!Array.isArray(value)) return "";
-	const keys = /* @__PURE__ */ new Set();
-	for (const item of value) {
-		if (typeof item !== "string") continue;
-		const key = item.trim().toLowerCase();
-		if (key) keys.add(key);
-	}
-	return [...keys].sort().join("");
-}
-/** Identity of an entry for "byte-identical duplicate": normalised keys plus the exact content; null when empty. */
-function duplicateSignature(entry) {
-	const content = typeof entry.content === "string" ? entry.content : "";
-	if (!content.trim()) return null;
-	return `${normalizeKeyList(entry.key)}\u0002${normalizeKeyList(entry.keysecondary)}\u0002${content}`;
-}
-var OLD_NAME_RE = /(?:^|[^\p{L}])(?:old|legacy|retired|deprecated|outdated|backup|copy|копия|стар\p{L}*)(?:[^\p{L}]|$)/iu;
-var VERSION_RE = /(?:^|[^\p{L}])v(?:er(?:sion)?)?\.?\s*(\d+(?:\.\d+)*)/giu;
-var DOTTED_RE = /(?:^|[^\d.])(\d+(?:\.\d+)+)(?![\d.])/g;
-/** Version numbers in a book name: `MBTI V2` → [2], `BUNNYMO V3.0` → [3, 0], `Pack 1.2.1` → [1, 2, 1]; none → []. */
-function bookVersion(name) {
-	let last;
-	for (const match of name.matchAll(VERSION_RE)) last = match[1];
-	if (last === void 0) for (const match of name.matchAll(DOTTED_RE)) last = match[1];
-	return last === void 0 ? [] : last.split(".").map((part) => Number(part));
-}
-/** The name says the book is an old copy (`Old Versions`, `legacy`, `backup`, `копия`, `старый`…). */
-function isOldBookName(name) {
-	return OLD_NAME_RE.test(name);
-}
-function compareVersions(a, b) {
-	const length = Math.max(a.length, b.length);
-	for (let i = 0; i < length; i++) {
-		const diff = (a[i] ?? -1) - (b[i] ?? -1);
-		if (diff !== 0) return diff;
-	}
-	return 0;
-}
-/**
-* Positive when book `a` is "newer" than `b`: not marked old, then a higher version in the name, then more entries
-* in this scan (a merged edition over its split parts), then the name in code-point order. Always deterministic.
-*/
-function compareBookRecency(a, b, sizes = /* @__PURE__ */ new Map()) {
-	const oldA = isOldBookName(a);
-	if (oldA !== isOldBookName(b)) return oldA ? -1 : 1;
-	const version = compareVersions(bookVersion(a), bookVersion(b));
-	if (version !== 0) return version;
-	const size = (sizes.get(a) ?? 0) - (sizes.get(b) ?? 0);
-	if (size !== 0) return size;
-	if (a === b) return 0;
-	return a < b ? 1 : -1;
-}
-/**
-* Byte-identical entries present in two or more books (same normalised keys and content). Disabled entries do not
-* take part; copies inside one book are left alone. Groups come in first-seen order.
-*/
-function findCrossBookDuplicates(entries, sizes) {
-	const counts = /* @__PURE__ */ new Map();
-	const bySignature = /* @__PURE__ */ new Map();
-	for (const entry of entries) {
-		counts.set(entry.world, (counts.get(entry.world) ?? 0) + 1);
-		if (entry.disable === true) continue;
-		const signature = duplicateSignature(entry);
-		if (signature === null) continue;
-		const list = bySignature.get(signature);
-		if (list) list.push(entry);
-		else bySignature.set(signature, [entry]);
-	}
-	const bookSizes = sizes ?? counts;
-	const groups = [];
-	for (const list of bySignature.values()) {
-		const worlds = [...new Set(list.map((entry) => entry.world))];
-		if (worlds.length < 2) continue;
-		const newest = worlds.reduce((best, world) => compareBookRecency(world, best, bookSizes) > 0 ? world : best);
-		groups.push({
-			world: newest,
-			keep: list.filter((entry) => entry.world === newest),
-			drop: list.filter((entry) => entry.world !== newest)
-		});
-	}
-	return groups;
-}
-/** A usable limit: a finite number ≥ 0. */
-function isLimit(value) {
-	return typeof value === "number" && Number.isFinite(value) && value >= 0;
-}
-/**
-* Which activations a book cap removes after one scan loop (audit T4):
-* 1. entries of a book with `maxRecursionLevel` that were activated in this loop deeper than the limit;
-* 2. per book with `maxTokens > 0`: the remaining activations sorted by `order` (higher first, then ST's priority)
-*    are kept while they fit; the first one that does not fit and everything after it are cut (like ST's budget).
-*/
-function planBookCaps(activations, caps, recursionLevel) {
-	const cuts = [];
-	const cutKeys = /* @__PURE__ */ new Set();
-	for (const activation of activations) {
-		const limit = caps[activation.world]?.maxRecursionLevel;
-		if (activation.isNew && isLimit(limit) && recursionLevel > limit) {
-			cuts.push({
-				key: activation.key,
-				world: activation.world,
-				reason: "recursion"
-			});
-			cutKeys.add(activation.key);
-		}
-	}
-	const byBook = /* @__PURE__ */ new Map();
-	for (const activation of activations) {
-		if (cutKeys.has(activation.key)) continue;
-		const maxTokens = caps[activation.world]?.maxTokens;
-		if (!isLimit(maxTokens) || maxTokens <= 0) continue;
-		const list = byBook.get(activation.world);
-		if (list) list.push(activation);
-		else byBook.set(activation.world, [activation]);
-	}
-	for (const [world, list] of byBook) {
-		const maxTokens = caps[world]?.maxTokens ?? 0;
-		const sorted = [...list].sort((a, b) => b.order - a.order || a.priority - b.priority);
-		let used = 0;
-		let full = false;
-		for (const activation of sorted) {
-			if (!full && used + activation.tokens <= maxTokens) {
-				used += activation.tokens;
-				continue;
-			}
-			full = true;
-			cuts.push({
-				key: activation.key,
-				world,
-				reason: "tokens"
-			});
-		}
-	}
-	return cuts;
-}
-function activeMap(list) {
-	const map = /* @__PURE__ */ new Map();
-	for (const activation of list) {
-		if (activation.cut) continue;
-		map.set(`${activation.world}\u0000${activation.uid}`, activation);
-	}
-	return map;
-}
-function row(activation) {
-	return {
-		world: activation.world,
-		uid: activation.uid,
-		comment: activation.comment ?? "",
-		chars: Number.isFinite(activation.chars) ? activation.chars : 0
-	};
-}
-function byBookAndUid(a, b) {
-	if (a.world !== b.world) return a.world < b.world ? -1 : 1;
-	return a.uid - b.uid;
-}
-/** Entries active only before / only after (cut activations count as inactive) and the change in characters. */
-function diffActivations(before, after) {
-	const was = activeMap(before);
-	const now = activeMap(after);
-	const removed = [...was].filter(([key]) => !now.has(key)).map(([, activation]) => row(activation));
-	const added = [...now].filter(([key]) => !was.has(key)).map(([, activation]) => row(activation));
-	const sum = (map) => [...map.values()].reduce((total, item) => total + row(item).chars, 0);
-	return {
-		removed: removed.sort(byBookAndUid),
-		added: added.sort(byBookAndUid),
-		charsDelta: sum(now) - sum(was)
-	};
-}
-/** Plain-object check shared by the rules (scan payloads are untyped). */
-function isPlainObject(value) {
-	return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-//#endregion
 //#region src/features/rules/env.ts
 /** Valid entry copies of every list, in ST's list order (global, character, chat, persona). */
 function entriesOf(lists) {
@@ -18645,7 +34936,7 @@ var TokenCache = class {
 		return this.counts.has(this.key(entry));
 	}
 	get(entry) {
-		return this.counts.get(this.key(entry)) ?? estimateTokens(contentOf(entry).length);
+		return this.counts.get(this.key(entry)) ?? estimateTokens$1(contentOf(entry).length);
 	}
 	set(entry, tokens) {
 		this.remember(this.key(entry), tokens);
@@ -18684,6 +34975,74 @@ var TokenCache = class {
 		this.counts.set(key, tokens);
 	}
 };
+//#endregion
+//#region src/features/rules/builtin/keys.ts
+var CYRILLIC_RULE_ID = "keys.cyrillicLeftBoundary";
+/** DES-RU's BunnyMo module widens archive keys (adapters/desru). */
+var DESRU_BUNNYMO = "desru.bunnymo";
+function cyrillicRule(env) {
+	let globals = null;
+	let loading = null;
+	const load = () => {
+		loading ??= env.app.host.modules.worldInfo().then((namespace) => {
+			globals = namespace;
+		}).catch((error) => {
+			env.log.debug("world-info.js is not available", error);
+			loading = null;
+		});
+		return loading;
+	};
+	return {
+		id: CYRILLIC_RULE_ID,
+		titleKey: "m22.rule.keys.cyrillicLeftBoundary.title",
+		descriptionKey: "m22.rule.keys.cyrillicLeftBoundary.description",
+		owner: "maestro",
+		stage: 2,
+		kind: "lore",
+		defaultLevel: "auto",
+		enabledByDefault: true,
+		requires: ["st.events.entriesLoaded"],
+		order: 12,
+		start() {
+			load();
+		},
+		applyEntries(lists, changes) {
+			if (!globals) load();
+			const wholeWords = globals?.world_info_match_whole_words === true;
+			const caseSensitiveGlobal = globals?.world_info_case_sensitive === true;
+			let skipArchives = null;
+			for (const entry of entriesOf(lists)) {
+				if (entry.disable === true || !effectiveFlag(entry.matchWholeWords, wholeWords)) continue;
+				const caseSensitive = effectiveFlag(entry.caseSensitive, caseSensitiveGlobal);
+				const key = convertKeyList(entry.key, caseSensitive);
+				const secondary = convertKeyList(entry.keysecondary, caseSensitive);
+				if (!key && !secondary) continue;
+				skipArchives ??= env.capability(DESRU_BUNNYMO);
+				if (skipArchives && isCharacterArchive(entry)) continue;
+				if (key) {
+					changes.push({
+						world: entry.world,
+						uid: entry.uid,
+						field: "key",
+						before: entry.key,
+						after: key
+					});
+					entry.key = key;
+				}
+				if (secondary) {
+					changes.push({
+						world: entry.world,
+						uid: entry.uid,
+						field: "keysecondary",
+						before: entry.keysecondary,
+						after: secondary
+					});
+					entry.keysecondary = secondary;
+				}
+			}
+		}
+	};
+}
 //#endregion
 //#region src/features/rules/builtin/lore.ts
 var ROLE_RULE_ID = "role.assistantToSystem";
@@ -18853,6 +35212,230 @@ function applyCaps(env, args, scan) {
 	return reported;
 }
 //#endregion
+//#region src/features/rules/builtin/packs.ts
+var PACK_VERSION_RULE_ID = "pack.versionConflict";
+var PACK_VERSION_KIND = "rules.packVersion";
+/** Journal target of a stored answer; undo returns the group to "keep every version" (no new question). */
+var PACK_CHOICE_TARGET = "m22.packChoice";
+var NSFW_RULE_ID = "wrapper.nsfwCollision";
+function isChoicePayload(value) {
+	return isPlainObject(value) && typeof value.group === "string" && typeof value.book === "string";
+}
+/** Stores an answer ('' = keep every version) and forgets the pending question. */
+function setPackChoice(env, group, book) {
+	const settings = env.settings();
+	if (book === null) delete settings.packChoices[group];
+	else settings.packChoices[group] = book;
+	settings.packAsked[group] = settings.packAsked[group] ?? Date.now();
+	env.app.settings.save();
+	env.app.settings.notify("m22.packChoices");
+}
+/** Pack test for one scan: M35 roles, the BunnyMo adapter's classification, then the content heuristics. */
+function packTester(env, entries) {
+	const packs = /* @__PURE__ */ new Set();
+	try {
+		const roles = env.app.modules.api("bookRoles");
+		for (const info of roles?.all() ?? []) if (info.role === "bunnymo.pack" || info.role === "bunnymo.core") packs.add(info.book);
+	} catch (error) {
+		env.log.debug("book roles are not available", error);
+	}
+	try {
+		const known = adaptersOf(env.app).bunnymo.books();
+		for (const book of [...known.packs, ...known.core]) packs.add(book);
+	} catch {}
+	let classified = null;
+	return (world) => {
+		if (packs.has(world)) return true;
+		if (!classified) {
+			const result = classifyWorlds(entries);
+			classified = /* @__PURE__ */ new Set([...result.packs, ...result.core]);
+		}
+		return classified.has(world);
+	};
+}
+function packVersionRule(env) {
+	/** Groups of the latest real scan, for the pult. */
+	let groups = [];
+	/** Groups waiting for the question, and groups asked in this session. */
+	const pending = /* @__PURE__ */ new Map();
+	const asked = /* @__PURE__ */ new Set();
+	let timer = null;
+	let running = false;
+	const t = env.t;
+	const ask = async (group) => {
+		const settings = env.settings();
+		if (asked.has(group.id) || settings.packChoices[group.id] !== void 0 || settings.packAsked[group.id]) return;
+		asked.add(group.id);
+		const others = group.books.filter((book) => book !== group.newest);
+		const payload = {
+			group: group.id,
+			book: group.newest
+		};
+		const decision = await env.app.autonomy.decide({
+			module: "M22",
+			kind: PACK_VERSION_KIND,
+			title: t("m22.packVersion.title", { book: group.newest }),
+			description: t("m22.packVersion.description", {
+				books: group.books.join(" · "),
+				count: group.count,
+				sample: group.sample.join(", "),
+				book: group.newest,
+				others: others.join(", ")
+			}),
+			changes: [{
+				target: PACK_CHOICE_TARGET,
+				ref: { group: group.id },
+				before: null,
+				after: group.newest
+			}],
+			payload,
+			stillValid: async () => env.settings().packChoices[group.id] === void 0,
+			apply: async (value) => setPackChoice(env, value.group, value.book)
+		}, "ask");
+		if (decision === "rejected") setPackChoice(env, group.id, "");
+		else if (decision === "queued" || decision === "notified") {
+			env.settings().packAsked[group.id] = Date.now();
+			env.app.settings.save();
+			env.app.settings.notify("m22.packAsked");
+		} else if (decision === "skipped") env.log.debug(`pack version question for ${group.id} skipped`);
+	};
+	const flush = async () => {
+		if (running) return;
+		running = true;
+		try {
+			while (pending.size) {
+				const [id, group] = pending.entries().next().value;
+				pending.delete(id);
+				if (!env.isActive("pack.versionConflict")) continue;
+				try {
+					await ask(group);
+				} catch (error) {
+					env.log.warn("pack version question failed", error);
+				}
+			}
+		} finally {
+			running = false;
+		}
+	};
+	/** Asks after the current generation, or on the next tick when none runs (P15: never on the send path). */
+	const schedule = () => {
+		if (timer !== null || env.app.turn.current()) return;
+		timer = setTimeout(() => {
+			timer = null;
+			flush();
+		}, 0);
+	};
+	return {
+		id: PACK_VERSION_RULE_ID,
+		titleKey: "m22.rule.pack.versionConflict.title",
+		descriptionKey: "m22.rule.pack.versionConflict.description",
+		owner: "maestro",
+		stage: 2,
+		kind: "lore",
+		defaultLevel: "auto",
+		enabledByDefault: true,
+		requires: ["st.events.entriesLoaded"],
+		order: 25,
+		applyEntries(lists, changes) {
+			const entries = entriesOf(lists);
+			const conflicts = findVersionConflicts(entries, packTester(env, entries));
+			const simulated = env.simulating();
+			if (!simulated) groups = conflicts;
+			const settings = env.settings();
+			for (const group of conflicts) {
+				const choice = settings.packChoices[group.id];
+				if (choice === void 0) {
+					if (!simulated && !settings.packAsked[group.id] && !asked.has(group.id)) pending.set(group.id, group);
+					continue;
+				}
+				for (const entry of losersOf(group, choice)) {
+					if (entry.disable === true) continue;
+					changes.push({
+						world: entry.world,
+						uid: entry.uid,
+						field: "disable",
+						before: false,
+						after: true
+					});
+					entry.disable = true;
+				}
+			}
+			if (pending.size) schedule();
+		},
+		start() {
+			const off = env.app.bus.on("generation:ended", () => {
+				if (pending.size) schedule();
+			});
+			return () => {
+				off();
+				if (timer !== null) clearTimeout(timer);
+				timer = null;
+				pending.clear();
+			};
+		},
+		options() {
+			const settings = env.settings();
+			return {
+				groups: groups.map((group) => ({
+					id: group.id,
+					books: [...group.books],
+					newest: group.newest,
+					count: group.count,
+					sample: [...group.sample],
+					...settings.packChoices[group.id] !== void 0 ? { choice: settings.packChoices[group.id] } : {},
+					asked: settings.packAsked[group.id] !== void 0 || asked.has(group.id)
+				})),
+				choices: { ...settings.packChoices }
+			};
+		},
+		setOptions(options) {
+			if (!isPlainObject(options.choices)) return;
+			for (const [group, book] of Object.entries(options.choices)) if (typeof book === "string") setPackChoice(env, group, book);
+			else if (book === null) setPackChoice(env, group, null);
+		}
+	};
+}
+function nsfwRule() {
+	return {
+		id: NSFW_RULE_ID,
+		titleKey: "m22.rule.wrapper.nsfwCollision.title",
+		descriptionKey: "m22.rule.wrapper.nsfwCollision.description",
+		owner: "maestro",
+		stage: 2,
+		kind: "lore",
+		defaultLevel: "auto",
+		enabledByDefault: true,
+		requires: ["st.events.entriesLoaded"],
+		order: 40,
+		applyEntries(lists, changes) {
+			for (const entry of entriesOf(lists)) {
+				if (entry.disable === true || entry.excludeRecursion === true) continue;
+				if (!hasNsfwKey(entry.key) || !isCarrotCastEntry(entry)) continue;
+				changes.push({
+					world: entry.world,
+					uid: entry.uid,
+					field: "excludeRecursion",
+					before: entry.excludeRecursion ?? false,
+					after: true
+				});
+				entry.excludeRecursion = true;
+			}
+		}
+	};
+}
+/** Inbox applier of the question and the undo of an answer; the module owns the returned disposers. */
+function registerPackHandlers(env) {
+	env.app.journal.registerUndo(PACK_CHOICE_TARGET, async (change) => {
+		const group = isPlainObject(change.ref) ? change.ref.group : void 0;
+		if (typeof group !== "string") return false;
+		setPackChoice(env, group, typeof change.before === "string" ? change.before : "");
+		return true;
+	});
+	return [env.app.inbox.registerApplier(PACK_VERSION_KIND, async (payload) => {
+		if (isChoicePayload(payload)) setPackChoice(env, payload.group, payload.book);
+	}, async (payload) => isChoicePayload(payload) && env.settings().packChoices[payload.group] === void 0)];
+}
+//#endregion
 //#region src/domain/rules-qvink.ts
 function isDict$3(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -18976,7 +35559,7 @@ function toolsSupported(ctx) {
 }
 /** Estimate only: ST's synchronous counter may block on a server tokenizer, and this runs on the send path (P15). */
 function tokenCount(text) {
-	return estimateTokens(text.length);
+	return estimateTokens$1(text.length);
 }
 function sameMessage(ctx, index, sendDate) {
 	const message = ctx.chat[index];
@@ -19375,8 +35958,17 @@ function builtinRules(env) {
 		bunnymoTagsRule(env),
 		ckButtonRule(env),
 		desPortraitBarRule(env),
-		ckDumpsRule()
+		ckDumpsRule(),
+		cyrillicRule(env),
+		packVersionRule(env),
+		nsfwRule(),
+		archiveDepthRule(env)
 	];
+}
+/** Undo handlers and Inbox appliers of the stage-2 lore rules; the module owns the returned disposers. */
+function registerLoreHandlers(env) {
+	env.app.journal.registerUndo(LORE_ENTRY_TARGET, (change) => undoLoreEntry(env.app, change));
+	return [...registerPackHandlers(env), ...registerArchiveHandlers(env)];
 }
 //#endregion
 //#region src/features/rules/engine.ts
@@ -19396,7 +35988,10 @@ function defaultRulesSettings() {
 	return {
 		enabled: {},
 		bookCaps: {},
-		gapGuardLimit: 20
+		gapGuardLimit: 20,
+		packChoices: {},
+		packAsked: {},
+		archiveProposals: {}
 	};
 }
 function isTogglePayload(value) {
@@ -19441,7 +36036,10 @@ var RulesEngine = class {
 			settings: () => this.settings(),
 			isActive: (id) => this.isActive(id),
 			reportCuts: (cuts) => this.reportCuts(cuts),
-			tokens: this.tokens
+			tokens: this.tokens,
+			capability: (id) => this.capability(id),
+			simulating: () => this.lore()?.simulating() === true,
+			activeBooks: () => this.activeBooks()
 		};
 	}
 	/** The settings slice, repaired in place when a stored value has the wrong shape. */
@@ -19450,6 +36048,9 @@ var RulesEngine = class {
 		if (!isPlainObject(slice.enabled)) slice.enabled = {};
 		if (!isPlainObject(slice.bookCaps)) slice.bookCaps = {};
 		if (typeof slice.gapGuardLimit !== "number" || !Number.isFinite(slice.gapGuardLimit)) slice.gapGuardLimit = 20;
+		if (!isPlainObject(slice.packChoices)) slice.packChoices = {};
+		if (!isPlainObject(slice.packAsked)) slice.packAsked = {};
+		if (!isPlainObject(slice.archiveProposals)) slice.archiveProposals = {};
 		return slice;
 	}
 	/** ST and Maestro listeners; every returned disposer must be owned by the module. */
@@ -19518,6 +36119,13 @@ var RulesEngine = class {
 			};
 		}
 		if (id === GAP_OPTIONS_RULE) return { limit: this.settings().gapGuardLimit };
+		const rule = this.rules.get(id);
+		try {
+			return rule?.options?.();
+		} catch (error) {
+			this.log.error(`rule ${id} options failed`, error);
+			return;
+		}
 	}
 	/** Sets parameters in the shape of options(); 'book.cap' `caps` replace every token cap, `recursion` every limit. */
 	setOptions(id, options) {
@@ -19525,7 +36133,11 @@ var RulesEngine = class {
 			this.setGapGuardLimit(options.limit);
 			return;
 		}
-		if (id !== CAP_OPTIONS_RULE) return;
+		if (id !== CAP_OPTIONS_RULE) {
+			const result = this.rules.get(id)?.setOptions?.(options);
+			this.emit();
+			return result;
+		}
 		const current = this.settings().bookCaps;
 		const next = Object.fromEntries(Object.entries(current).map(([book, cap]) => [book, { ...cap }]));
 		const replace = (field, value) => {
@@ -19937,7 +36549,34 @@ var RULES_STRINGS = {
 		"m22.rule.ui.desPortraitBarMobile.title": "DES portrait bar on phones",
 		"m22.rule.ui.desPortraitBarMobile.description": "On narrow screens the side portrait bar becomes a bottom panel of limited height. Once per page load it is collapsed with DES’s own button, so DES knows its state.",
 		"m22.rule.prompt.ckDumpsIgnore.title": "CarrotKernel dumps in analysis",
-		"m22.rule.prompt.ckDumpsIgnore.description": "Maestro’s analysis reads messages without CarrotKernel tag dumps, DES tracker JSON, HTML and NAI image placeholders, and skips picture posts. The chat and the prompt do not change."
+		"m22.rule.prompt.ckDumpsIgnore.description": "Maestro’s analysis reads messages without CarrotKernel tag dumps, DES tracker JSON, HTML and NAI image placeholders, and skips picture posts. The chat and the prompt do not change.",
+		"m22.rule.keys.cyrillicLeftBoundary.title": "Cyrillic keys and whole words",
+		"m22.rule.keys.cyrillicLeftBoundary.description": "In SillyTavern “match whole words” does not work for Cyrillic, so “аня” fires inside “Таня”. Cyrillic one-word keys of such entries become regex keys with a word boundary on the left only: case endings keep working (“Иван” finds “Ивану”). Keys with macros and regex keys stay; CK archives are left to DES-RU when it adds case forms.",
+		"m22.rule.pack.versionConflict.title": "Pack version conflicts",
+		"m22.rule.pack.versionConflict.description": "When BunnyMo books have entries with the same keys but different text (MBTI v1 and V2 “Analysts”), one tag fires both texts. Maestro asks once which book to keep (the newest is offered); after the answer the copies of the other books are switched off in every scan. Until then nothing is suppressed; pack files stay as they are.",
+		"m22.rule.wrapper.nsfwCollision.title": "<NSFW> in archives → CarrotCast “Erotic”",
+		"m22.rule.wrapper.nsfwCollision.description": "Archives wrap text in <NSFW>…</NSFW>, and through recursion this fires CarrotCast Limited’s “Erotic” entry keyed by the bare tag <NSFW>. The rule keeps recursion from firing it; a direct mention in the chat still works.",
+		"m22.rule.ck.archiveDepth.title": "CK archives that fire only on the last message",
+		"m22.rule.ck.archiveDepth.description": "Baby Bunny saves archives with scan depth 1, so a character fires only when the name is in the very last message. For each of your archive books the Inbox gets one proposal: switch them to the global scan depth and, with DES-RU, add Russian case forms to the name keys. BunnyMo packs are never touched.",
+		"m22.packVersion.title": "Pack versions: keep “{book}”?",
+		"m22.packVersion.description": "{books}: {count} entries with the same keys but different text (for example {sample}), so one tag fires both texts.\n\nYes: keep “{book}” (looks newest); the copies from {others} are switched off on the fly, the files do not change.\nNo: keep every version.\n\nYou can change the choice on the “Rules” tab at any time.",
+		"m22.pack.title": "Pack versions",
+		"m22.pack.none": "No version conflicts in the last scan.",
+		"m22.pack.group": "{books}: {count} entries",
+		"m22.pack.unanswered": "not decided yet (both versions work)",
+		"m22.pack.keepAll": "keep every version",
+		"m22.pack.keep": "keep “{book}”",
+		"m22.pack.keepNewest": "keep “{book}” (newest)",
+		"m22.archiveDepth.title": "Archives in “{book}”: scan depth 1 → global ({count})",
+		"m22.archiveDepth.description": "These archives in “{book}” fire only when the name is in the very last message. The fix sets their scan depth to the global setting; the book is saved right away, and the journal keeps the previous values.",
+		"m22.archiveDepth.forms": "Name keys also get every Russian case form from DES-RU.",
+		"m22.archiveDepth.noForms": "Name keys stay as they are (DES-RU is not available).",
+		"m22.archiveDepth.more": "…and {count} more",
+		"m22.archiveDepth.failed.missing": "The book “{book}” or its entries are gone.",
+		"m22.archiveDepth.failed.stale": "The archives in “{book}” changed after the proposal.",
+		"m22.archiveDepth.failed.protected": "“{book}” is a BunnyMo book: its file is never edited.",
+		"kind.rules.packVersion": "Pack version choice",
+		"kind.rules.ckArchiveDepth": "CK archive fixes"
 	},
 	ru: {
 		"m22.title": "Правила",
@@ -20015,7 +36654,34 @@ var RULES_STRINGS = {
 		"m22.rule.ui.desPortraitBarMobile.title": "Полоса портретов DES на телефоне",
 		"m22.rule.ui.desPortraitBarMobile.description": "На узком экране боковая полоса портретов становится нижней панелью ограниченной высоты. При загрузке страницы она один раз сворачивается кнопкой самого DES, чтобы DES знал о состоянии.",
 		"m22.rule.prompt.ckDumpsIgnore.title": "Дампы CarrotKernel в анализе",
-		"m22.rule.prompt.ckDumpsIgnore.description": "Анализ Maestro читает сообщения без дампов тегов CarrotKernel, JSON трекера DES, HTML и плейсхолдеров картинок NAI, а посты-картинки пропускает. Чат и промпт не меняются."
+		"m22.rule.prompt.ckDumpsIgnore.description": "Анализ Maestro читает сообщения без дампов тегов CarrotKernel, JSON трекера DES, HTML и плейсхолдеров картинок NAI, а посты-картинки пропускает. Чат и промпт не меняются.",
+		"m22.rule.keys.cyrillicLeftBoundary.title": "Кириллица и «целые слова»",
+		"m22.rule.keys.cyrillicLeftBoundary.description": "В SillyTavern «только целые слова» не работает для кириллицы, и «аня» срабатывает внутри «Таня». Кириллические ключи из одного слова у таких записей становятся регулярками с границей слова только слева: падежи продолжают работать («Иван» находит «Ивану»). Ключи с макросами и регулярки не трогаются; архивы CK остаются DES-RU, когда он добавляет падежи.",
+		"m22.rule.pack.versionConflict.title": "Конфликт версий паков",
+		"m22.rule.pack.versionConflict.description": "Если в книгах BunnyMo есть записи с одинаковыми ключами и разным текстом (MBTI v1 и V2, «Аналитики»), на один тег срабатывают оба текста. Maestro один раз спрашивает, какую книгу оставить (предлагает самую новую), и после ответа выключает копии из остальных книг при каждом сканировании. До ответа ничего не подавляется; файлы паков не меняются.",
+		"m22.rule.wrapper.nsfwCollision.title": "<NSFW> в архивах → «Erotic» из CarrotCast",
+		"m22.rule.wrapper.nsfwCollision.description": "Архивы оборачивают текст в <NSFW>…</NSFW>, а через рекурсию это включает запись «Erotic» из CarrotCast Limited с голым ключом <NSFW>. Правило не даёт рекурсии её включать; прямое упоминание в чате по-прежнему работает.",
+		"m22.rule.ck.archiveDepth.title": "Архивы CK по последнему сообщению",
+		"m22.rule.ck.archiveDepth.description": "Baby Bunny сохраняет архивы с глубиной сканирования 1 — персонаж срабатывает, только если имя есть в самом последнем сообщении. Для каждой твоей книги архивов во «Входящие» приходит одно предложение: перевести их на общую глубину сканирования, а с DES-RU — ещё и добавить ключам имён русские падежи. Паки BunnyMo не трогаются никогда.",
+		"m22.packVersion.title": "Версии паков: оставить «{book}»?",
+		"m22.packVersion.description": "{books}: записей с одинаковыми ключами, но разным текстом — {count} (например, {sample}), и на один тег срабатывают оба текста.\n\nДа — оставить «{book}» (похоже, самую новую): копии из {others} выключаются на лету, файлы не меняются.\nНет — оставить все версии.\n\nВыбор можно поменять в любой момент во вкладке «Правила».",
+		"m22.pack.title": "Версии паков",
+		"m22.pack.none": "На последнем сканировании конфликтов версий не было.",
+		"m22.pack.group": "{books}: записей — {count}",
+		"m22.pack.unanswered": "ещё не решено (работают обе версии)",
+		"m22.pack.keepAll": "оставить все версии",
+		"m22.pack.keep": "оставить «{book}»",
+		"m22.pack.keepNewest": "оставить «{book}» (новее)",
+		"m22.archiveDepth.title": "Архивы в «{book}»: глубина сканирования 1 → общая ({count})",
+		"m22.archiveDepth.description": "Эти архивы в «{book}» срабатывают, только если имя есть в самом последнем сообщении. Исправление ставит им общую глубину сканирования; книга сохраняется сразу, прежние значения остаются в журнале.",
+		"m22.archiveDepth.forms": "Ключам имён добавляются все русские падежи из DES-RU.",
+		"m22.archiveDepth.noForms": "Ключи имён остаются как есть (DES-RU недоступен).",
+		"m22.archiveDepth.more": "…и ещё {count}",
+		"m22.archiveDepth.failed.missing": "Книги «{book}» или её записей больше нет.",
+		"m22.archiveDepth.failed.stale": "Архивы в «{book}» изменились после предложения.",
+		"m22.archiveDepth.failed.protected": "«{book}» — книга BunnyMo, её файл не правится.",
+		"kind.rules.packVersion": "Выбор версии пака",
+		"kind.rules.ckArchiveDepth": "Исправление архивов CK"
 	}
 };
 //#endregion
@@ -20037,12 +36703,25 @@ var RULES_VIEW_CSS = `
 .maestro-rules-impact {
     margin-top: 6px;
 }
+.maestro-rules-packs {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 6px;
+}
 .maestro-rules-caps {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
     gap: 8px;
 }
 `;
+/** Scan-change values: key lists read as `a, b`, everything else as text. */
+function cellValue(value) {
+	return Array.isArray(value) ? value.map(String).join(", ") : String(value);
+}
+function isPackGroup(value) {
+	return typeof value === "object" && value !== null && typeof value.id === "string" && Array.isArray(value.books);
+}
 function rulesTab(engine, app) {
 	const t = (key, params) => app.i18n.t(key, params);
 	const lore = () => app.modules.api(LORE_JOURNAL_KEY);
@@ -20095,12 +36774,12 @@ function rulesTab(engine, app) {
 						{
 							key: "before",
 							label: t("m22.col.before"),
-							cell: (row) => String(row.before)
+							cell: (row) => cellValue(row.before)
 						},
 						{
 							key: "after",
 							label: t("m22.col.after"),
-							cell: (row) => String(row.after)
+							cell: (row) => cellValue(row.after)
 						}
 					], shown),
 					changes.length > shown.length ? el("div", {
@@ -20162,6 +36841,45 @@ function rulesTab(engine, app) {
 				}
 				draw();
 			};
+			/** Version conflicts of the last scan with the stored answer of each group. */
+			const packChoices = () => {
+				const options = engine.options(PACK_VERSION_RULE_ID);
+				const groups = Array.isArray(options?.groups) ? options.groups.filter(isPackGroup) : [];
+				if (!groups.length) return el("div", {
+					class: "maestro-muted",
+					text: t("m22.pack.none")
+				});
+				return el("div", { class: "maestro-rules-packs" }, groups.map((group) => {
+					const label = t("m22.pack.group", {
+						books: group.books.join(" · "),
+						count: group.count
+					});
+					const choices = [
+						...group.choice === void 0 ? [{
+							value: "?",
+							label: t("m22.pack.unanswered")
+						}] : [],
+						...group.books.map((book) => ({
+							value: book,
+							label: book === group.newest ? t("m22.pack.keepNewest", { book }) : t("m22.pack.keep", { book })
+						})),
+						{
+							value: "",
+							label: t("m22.pack.keepAll")
+						}
+					];
+					return field$1(label, select({
+						value: group.choice ?? "?",
+						label,
+						options: choices,
+						onChange: async (value) => {
+							if (value === "?") return;
+							await engine.setOptions(PACK_VERSION_RULE_ID, { choices: { [group.id]: value } });
+							draw();
+						}
+					}));
+				}));
+			};
 			const ruleCard = (state) => {
 				const def = state.definition;
 				const isLore = !!(def.applyEntries || def.applyScanDone);
@@ -20187,6 +36905,10 @@ function rulesTab(engine, app) {
 					label: t("m22.gap.limit"),
 					onChange: (value) => engine.setGapGuardLimit(value)
 				})));
+				if (def.id === "pack.versionConflict" && state.enabled) body.push(el("div", {
+					class: "maestro-card-subtitle",
+					text: t("m22.pack.title")
+				}), packChoices());
 				const result = results.get(def.id);
 				if (result !== void 0) body.push(impactView(result));
 				const actions = [toggle({
@@ -20332,6 +37054,9 @@ var rulesModule = {
 		for (const off of engine.install()) own(off);
 		const env = engine.env();
 		for (const off of registerQvinkHandlers(env)) own(off);
+		for (const off of registerLoreHandlers(env)) own(off);
+		app.autonomy.neverAuto(ARCHIVE_DEPTH_KIND);
+		app.autonomy.neverAuto(PACK_VERSION_KIND);
 		for (const rule of builtinRules(env)) own(engine.register(rule));
 		app.modules.expose(RULES_KEY, engine.api());
 		own(app.ui.style("m22-view", RULES_VIEW_CSS));
@@ -22322,7 +39047,7 @@ function rulesStep(app, settings, alive) {
 			}
 			let offered = [];
 			try {
-				offered = rules.list().filter((rule) => rule.definition.stage === 1 && OFFERED_KINDS.includes(rule.definition.kind));
+				offered = rules.list().filter((rule) => rule.definition.stage <= 2 && OFFERED_KINDS.includes(rule.definition.kind));
 			} catch (error) {
 				app.log.warn("rules list failed", error);
 			}
@@ -22843,7 +39568,10 @@ var MODULES = [
 				oldChatsStep(app, settings)
 			]) own(app.ui.addWizardStep(step));
 		}
-	}
+	},
+	bookRolesModule,
+	canonModule,
+	loreStudioModule
 ];
 //#endregion
 //#region src/app/app.ts

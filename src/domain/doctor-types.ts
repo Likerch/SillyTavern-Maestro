@@ -38,15 +38,18 @@ export interface DoctorIssue {
     target: Record<string, unknown>;
     /** Rule id (M22) that fixes it on the fly. */
     fixRule?: string;
-    /** A file-level fix is possible ("Спросить", stage 2). Never for BunnyMo books (P13). */
+    /** A file-level fix is possible ("Спросить"). Never for BunnyMo books (P13). */
     fileFix?: boolean;
 }
 
-/** Rule ids of M22 the doctor points to (stage 1). */
+/** Rule ids of M22 the doctor points to (stages 1–2). */
 export const DOCTOR_RULES = {
     duplicates: 'pack.duplicates',
     bookCap: 'book.cap',
     assistantToSystem: 'role.assistantToSystem',
+    cyrillicLeftBoundary: 'keys.cyrillicLeftBoundary',
+    packVersion: 'pack.versionConflict',
+    nsfwCollision: 'wrapper.nsfwCollision',
 } as const;
 
 /** A World Info entry as the doctor reads it: a light, normalised copy (never ST's object). */

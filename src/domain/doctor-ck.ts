@@ -6,7 +6,8 @@
 import { isCharacterArchive } from './bunnymo';
 import type { BunnyMoEntryLike } from './bunnymo';
 import { isBareTagKey, isMbtiTag, matchKey } from './doctor-keys';
-import { entryLabel, sample } from './doctor-types';
+import { DOCTOR_RULES, entryLabel, sample } from './doctor-types';
+import { isCarrotCastEntry } from './rules-packs';
 import type { BunnyBookKind, DoctorEntry, DoctorIssue } from './doctor-types';
 
 const BLOCK_OPEN_G = /<(bunnymotags)>/gi;
@@ -180,6 +181,9 @@ export function findWrapperCollisions(entries: readonly DoctorEntry[], options: 
     }
     return [...collisions.values()].map((collision) => {
         const first = collision.targets[0] as DoctorEntry;
+        // CarrotCast's `<NSFW>` entries are handled on the fly by rule `wrapper.nsfwCollision`.
+        const handled =
+            collision.tag.toUpperCase() === '<NSFW>' && collision.targets.every((target) => isCarrotCastEntry(target));
         return {
             kind: 'wrapper.collision' as const,
             severity: collision.wrapper ? ('warn' as const) : ('info' as const),
@@ -200,6 +204,7 @@ export function findWrapperCollisions(entries: readonly DoctorEntry[], options: 
                 comment: first.comment,
                 archives: collision.archives.slice(0, 50).map((entry) => ({ book: entry.book, uid: entry.uid })),
             },
+            ...(handled ? { fixRule: DOCTOR_RULES.nsfwCollision } : {}),
             fileFix: false,
         };
     });

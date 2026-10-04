@@ -107,6 +107,25 @@ describe('findPackDuplicates', () => {
         expect(issues).toHaveLength(1);
         expect(issues[0]).toMatchObject({ kind: 'pack.duplicate', fileFix: true, params: { count: 1 } });
     });
+
+    it('points version conflicts to their stage-2 rule and ignores pack constants (stage 2)', () => {
+        const issues = findPackDuplicates(
+            [
+                entry('MBTI v1', { key: ['<INTJ-U>'], content: 'Schemer' }),
+                entry('MBTI V2', { key: ['<INTJ-U>'], content: 'Cynic' }),
+                entry('MBTI v1', { constant: true, content: 'Read me v1' }),
+                entry('MBTI V2', { constant: true, content: 'Read me V2' }),
+            ],
+            packs('MBTI v1', 'MBTI V2'),
+        );
+        expect(issues).toHaveLength(1);
+        expect(issues[0]).toMatchObject({
+            kind: 'pack.versionConflict',
+            fixRule: 'pack.versionConflict',
+            fileFix: false,
+            params: { count: 1 },
+        });
+    });
 });
 
 describe('findAssistantAtDepth', () => {
@@ -176,5 +195,17 @@ describe('findKeyIssues', () => {
             ['m5.f.localizerBroken.braces', 'warn'],
         ]);
         expect(issues[0]?.params).toMatchObject({ key: '/Ан\\-на/iu', count: 1, entry: 'Anna' });
+    });
+
+    it('points Cyrillic whole-word keys to the left-boundary rule, with a file fix outside BunnyMo (stage 2)', () => {
+        const entries = [
+            entry('Archive', { key: ['Аня'], matchWholeWords: true }),
+            entry('Species', { key: ['Эльф'], matchWholeWords: true }),
+        ];
+        const issues = findKeyIssues(entries, { ...base, russianChat: false });
+        expect(issues.map((issue) => [issue.params?.book, issue.fixRule, issue.fileFix])).toEqual([
+            ['Archive', 'keys.cyrillicLeftBoundary', true],
+            ['Species', 'keys.cyrillicLeftBoundary', false],
+        ]);
     });
 });
