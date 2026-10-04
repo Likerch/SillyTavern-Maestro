@@ -281,6 +281,34 @@ describe('change handling', () => {
         expect(api.deferred()).toEqual([]);
     });
 
+    it('routes promises and secrets to their owners when they run, else parks them', async () => {
+        const intake = vi.fn(async () => 'p1');
+        const intakeSecret = vi.fn(async () => null);
+        env.modules.apis.set('calendar', { intake });
+        env.modules.apis.set('knowledge', { intakeSecret });
+        const promise = change({
+            target: 'deferred.promise',
+            value: 'Anna promised to return by dawn.',
+            sourceMessage: 3,
+        });
+        const secret = change({
+            target: 'deferred.secret',
+            value: 'Anna is a spy; Kai does not know.',
+            sourceMessage: 3,
+        });
+        env.llm.script = [answer(promise, secret)];
+        await parts.service.execute('manual');
+        expect(intake).toHaveBeenCalledWith(expect.objectContaining({ value: 'Anna promised to return by dawn.' }));
+        expect(intakeSecret).toHaveBeenCalledTimes(1);
+        // The calendar took the promise; the knowledge module refused the secret, which waits as a card.
+        expect(
+            parts.service
+                .api()
+                .deferred()
+                .map((card) => card.target),
+        ).toEqual(['deferred.secret']);
+    });
+
     it('rejects unsure changes and unknown entities, with the reason', async () => {
         seedAnna(env);
         env.llm.script = [answer(change({ confidence: 0.3 }), change({ entity: 'Zed', value: 'Zed is tall.' }))];

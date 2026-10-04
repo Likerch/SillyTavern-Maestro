@@ -2,6 +2,7 @@
 import { architectModule } from '../features/architect';
 import { bookRolesModule } from '../features/bookRoles';
 import { bunnymoModeModule } from '../features/bunnymoMode';
+import { calendarModule } from '../features/calendar';
 import { canonModule } from '../features/canon';
 import { contradictionsModule } from '../features/contradictions';
 import { chronicleModule } from '../features/chronicle';
@@ -10,11 +11,13 @@ import { doctorModule } from '../features/doctor';
 import { dossierModule } from '../features/dossier';
 import { guardianModule } from '../features/guardian';
 import { inspectorModule } from '../features/inspector';
+import { knowledgeModule } from '../features/knowledge';
 import { loreJournalModule } from '../features/loreJournal';
 import { livingCanonModule } from '../features/livingCanon';
 import { loreStudioModule } from '../features/loreStudio';
 import { medicModule } from '../features/medic';
 import { metricsModule } from '../features/metrics';
+import { offscreenModule } from '../features/offscreen';
 import { placesModule } from '../features/places';
 import { presetStudioModule } from '../features/presetStudio';
 import { qualityModule } from '../features/quality';
@@ -68,4 +71,8 @@ export const MODULES: MaestroModule[] = [
     // Stage 8: direction.
     directorModule,
     voicesModule,
+    // Stage 9: living world.
+    offscreenModule,
+    calendarModule,
+    knowledgeModule,
 ];

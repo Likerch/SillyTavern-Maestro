@@ -2,7 +2,9 @@
 // injection for real generations only, CarrotKernel's quiet mode on the assembled prompt and DES-RU's ownership.
 import { afterEach, describe, expect, it } from 'vitest';
 import { estimateText } from '../../../src/domain/architect-text';
+import { unknownFacts } from '../../../src/domain/knowledge-match';
 import { VOICES_HEADER } from '../../../src/domain/voices-cards';
+import type { KnowledgeApi, KnowledgeFact } from '../../../src/features/knowledge/api';
 import { voicesModule } from '../../../src/features/voices';
 import type { VoicesApi } from '../../../src/features/voices/api';
 import { CK_FUNCTION } from '../../../src/features/voices/service';
@@ -384,5 +386,83 @@ describe('module', () => {
         await generate(started, prompt(), { ck: CK });
         expect(started.prompts().maestro_voices?.value ?? '').toBe('');
         expect(api?.cards()).toEqual([]);
+    });
+});
+
+/* ------------------------------------------------------------------ stage 9: M18 */
+
+class FakeKnowledge implements KnowledgeApi {
+    readonly calls: string[] = [];
+    private readonly listeners = new Set<() => void>();
+    constructor(public list: KnowledgeFact[]) {}
+    set(list: KnowledgeFact[]): void {
+        this.list = list;
+        for (const listener of [...this.listeners]) listener();
+    }
+    facts(): KnowledgeFact[] {
+        return this.list;
+    }
+    unknownFor(character: string, recentText: string): KnowledgeFact[] {
+        this.calls.push(character);
+        return unknownFacts(this.list, character, recentText);
+    }
+    async markKnown(): Promise<void> {}
+    async addSecret(): Promise<string> {
+        return 'id';
+    }
+    onChange(listener: () => void): Unsubscribe {
+        this.listeners.add(listener);
+        return () => this.listeners.delete(listener);
+    }
+}
+
+function knowledgeFact(id: string, text: string, topics: string[], knownBy: string[], secret = false): KnowledgeFact {
+    return { id, text, topics, knownBy, secret, sourceMessage: 1, at: 1 };
+}
+
+describe('what a present character does not know (M18)', () => {
+    const facts = () => [
+        knowledgeFact('map', 'Quest begun: Find the map', ['the map'], ['Anna', 'Kai']),
+        knowledgeFact('gold', 'Bob stole the gold', ['gold'], ['Kai']),
+    ];
+
+    it('adds «Unaware of» only when the topic came up and the character does not know it', async () => {
+        const knowledge = new FakeKnowledge(facts());
+        const started = await start({ before: (test) => test.env.modules.expose('knowledge', knowledge) });
+        expect(card(started, 'Corvin')?.unknown).toBe('Quest begun: Find the map');
+        expect(card(started, 'Corvin')?.text).toBe(
+            '[Voice: Corvin] Speech: commanding | MBTI: ENTJ-U (unhealthy; now: cold) | Toward Kai: Enemy | ' +
+                'Unaware of: Quest begun: Find the map',
+        );
+        expect(card(started, 'Stranger')?.text).toBe(
+            '[Voice: Stranger] Now: nervous | Unaware of: Quest begun: Find the map',
+        );
+        expect(card(started, 'Anna')?.unknown).toBeUndefined();
+        expect(card(started, 'Anna')?.text).not.toContain('Unaware of');
+
+        // A secret noted after the commit: the cards are rebuilt in the background, the producer only takes them.
+        knowledge.set([...facts(), knowledgeFact('spy', 'Anna is a spy', ['Anna'], ['Anna'], true)]);
+        await tick();
+        expect(card(started, 'Corvin')?.unknown).toBe('Anna is a spy; Quest begun: Find the map');
+        const calls = knowledge.calls.length;
+        await generate(started, prompt());
+        expect(knowledge.calls.length).toBe(calls);
+        expect(started.prompts().maestro_voices?.value).toContain('| Unaware of: Anna is a spy; Quest begun: Find');
+    });
+
+    it('follows the user’s answer: when the topic is gone, so is the line', async () => {
+        const knowledge = new FakeKnowledge(facts());
+        const started = await start({ before: (test) => test.env.modules.expose('knowledge', knowledge) });
+        expect(card(started, 'Corvin')?.unknown).toBe('Quest begun: Find the map');
+        started.env.mock.chat[2] = userMessage('Corvin, leave us.');
+        await started.env.app.bus.emit('message:invalidated', { messageIndex: 2, reason: 'edited' });
+        expect(card(started, 'Corvin')?.unknown).toBeUndefined();
+    });
+
+    it('leaves the cards as they were without M18', async () => {
+        const started = await start();
+        expect(started.api.cards().some((item) => item.unknown !== undefined || item.text.includes('Unaware'))).toBe(
+            false,
+        );
     });
 });

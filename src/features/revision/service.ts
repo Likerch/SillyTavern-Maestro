@@ -16,6 +16,8 @@ import type { Rejection } from '../../domain/revision-checks';
 import { committedEnd, decideTrigger, pushCapped, revisionRange, sameDeferred } from '../../domain/revision-plan';
 import type { TriggerReason } from '../../domain/revision-plan';
 import type { App, Logger, Proposal, Signal, Unsubscribe } from '../../shared/contracts';
+import type { CalendarApi } from '../calendar/api';
+import type { KnowledgeApi } from '../knowledge/api';
 import type { SignalBatch, SignalsApi } from '../signals/api';
 import type { Entity } from '../world/api';
 import type { DeferredCard, RevisionApi, RevisionChange, RevisionRun, RevisionStatus } from './api';
@@ -208,7 +210,8 @@ export class RevisionService {
     }
 
     private onSignal(signal: Signal): void {
-        if (signal.data?.source === OWN_SIGNAL_SOURCE) return;
+        // Signals other modules emit (revision, calendar, …) carry a source; only the observations of the turn count.
+        if (signal.data?.source !== undefined) return;
         const chatId = this.app.host.chatId();
         if (signal.chatId !== null && signal.chatId !== chatId) return;
         if (signal.kind === 'scene.ended') this.sceneEnded = true;
@@ -429,6 +432,12 @@ export class RevisionService {
             return;
         }
         if (change.target.startsWith('deferred.')) {
+            // Stage 9: promises go to the calendar (M17), secrets to «кто что знает» (M18) when they run; otherwise the
+            // change waits as a deferred card, which those modules pick up when they are turned on.
+            if (await this.routeDeferred(change)) {
+                run.changes.push(change);
+                return;
+            }
             const card: DeferredCard = {
                 id: newId('def'),
                 target: change.target as DeferredCard['target'],
@@ -476,6 +485,31 @@ export class RevisionService {
     }
 
     /** M26 owns new things: its intake when it has one, else a 'fact.new' signal on the bus. */
+    /** The owner's intake of a later-stage change (optional in their contracts); false when it is off or refused. */
+    private async routeDeferred(change: RevisionChange): Promise<boolean> {
+        const statement = {
+            entityName: change.entityName,
+            value: change.value,
+            evidence: change.evidence,
+            sourceMessage: change.sourceMessage,
+        };
+        try {
+            if (change.target === 'deferred.promise') {
+                const calendar = this.app.modules.api<CalendarApi>('calendar');
+                if (typeof calendar?.intake !== 'function') return false;
+                return (await calendar.intake(statement)) !== null;
+            }
+            if (change.target === 'deferred.secret') {
+                const knowledge = this.app.modules.api<KnowledgeApi>('knowledge');
+                if (typeof knowledge?.intakeSecret !== 'function') return false;
+                return (await knowledge.intakeSecret(statement)) !== null;
+            }
+        } catch (error) {
+            this.log.warn(`revision: ${change.target} was not taken; it waits as a deferred card`, error);
+        }
+        return false;
+    }
+
     private async handToLivingCanon(change: RevisionChange): Promise<void> {
         const fact = {
             name: change.entityName,

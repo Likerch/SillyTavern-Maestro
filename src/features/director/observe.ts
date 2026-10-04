@@ -382,10 +382,17 @@ export async function collectTwistSources(
     await guard('calendar', () => {
         const calendar = app.modules.api<CalendarApi>('calendar');
         if (!calendar) return;
-        for (const promise of calendar.due().slice(0, MAX_PER_KIND)) {
+        const fresh = calendar.due().slice(0, MAX_PER_KIND);
+        for (const promise of fresh) {
             sources.push(
                 source('deadline', promise.who.length ? `${promise.who.join(', ')}: ${promise.what}` : promise.what, 4),
             );
+        }
+        // Still due during the grace window (not only on the turn it became due), a little weaker.
+        const freshIds = new Set(fresh.map((promise) => promise.id));
+        for (const promise of calendar.promises({ status: 'due' }).filter((item) => !freshIds.has(item.id))) {
+            if (sources.filter((item) => item.kind === 'deadline').length >= MAX_PER_KIND * 2) break;
+            sources.push(source('deadline', promise.what, 3));
         }
         for (const promise of calendar.promises({ status: 'overdue' }).slice(0, MAX_PER_KIND)) {
             sources.push(source('deadline', promise.what, 3.5));

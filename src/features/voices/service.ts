@@ -9,6 +9,8 @@
 //   history for «was …» and for attitudes between present characters.
 // - Send path (P15): everything is assembled at `turn:committed` / `chat:changed` (and when a source changes); archives
 //   load in the background and are warmed at `reply:ready`. The ephemeral producer only takes the cached cards.
+// - Stage 9 (M18, when it runs): «Unaware of: …» — what a present character does not know among the topics of the last
+//   four messages (up to the user's answer); rebuilt in the background when M18's facts change.
 // - Quiet mode (§2.2): while cards go out, CK's «Character Consistency» text is taken out of the assembled prompt at
 //   CHAT_COMPLETION_PROMPT_READY (CK's slot and settings are never touched), and DES-RU is told to stop rebuilding it
 //   (`ck.consistencyRebuild`, given back when the module stops — P11).
@@ -17,6 +19,7 @@ import type { DesRuAdapter, DesRuApi, DesRuFunction } from '../../adapters';
 import { estimateTokens } from '../../domain/rules-lore';
 import { desSwipeRecord, parseDesCharacters } from '../../domain/des-tracker';
 import type { DesCharacter, DesQuests } from '../../domain/des-tracker';
+import { lastUserIndex, recentStoryText, unknownLine } from '../../domain/knowledge-match';
 import { lastCommittedIndex } from '../../domain/relations-history';
 import {
     attitudeNow,
@@ -37,6 +40,7 @@ import { normalizeName } from '../../domain/world-names';
 import type { App, GenerationInfo, Logger, Unsubscribe } from '../../shared/contracts';
 import type { ArchitectApi } from '../architect/api';
 import type { BunnyMoModeApi } from '../bunnymoMode/api';
+import type { KnowledgeApi } from '../knowledge/api';
 import type { RelationsApi } from '../relations/api';
 import type { Entity, WorldModelApi } from '../world/api';
 import type { CkInsertOutcome, VoiceCard, VoicesApi, VoicesInjection, VoicesQuietState } from './api';
@@ -71,6 +75,8 @@ interface Scene {
     persona: string;
     members: SceneMember[];
     quests: DesQuests | null;
+    /** Story text of the last messages (M18 topics); '' while M18 is off. */
+    recent: string;
 }
 
 interface Built {
@@ -97,9 +103,10 @@ export class VoicesService {
     /** Load generation per archive ref: a newer load (the book was saved) wins over an older one still running. */
     private readonly loads = new Map<string, number>();
     private readonly running = new Set<string>();
-    private readonly versions = { world: 0, relations: 0, archives: 0 };
+    private readonly versions = { world: 0, relations: 0, archives: 0, knowledge: 0 };
     private readonly world: Bound<WorldModelApi> = { api: undefined, off: null };
     private readonly relations: Bound<RelationsApi> = { api: undefined, off: null };
+    private readonly knowledge: Bound<KnowledgeApi> = { api: undefined, off: null };
     private armed = false;
     private lastCk: VoicesQuietState['ck'] = null;
     private readonly listeners = new Set<() => void>();
@@ -163,7 +170,7 @@ export class VoicesService {
         this.armed = false;
         for (const timer of this.timers) clearTimeout(timer);
         this.timers.clear();
-        for (const bound of [this.world, this.relations] as Bound<unknown>[]) {
+        for (const bound of [this.world, this.relations, this.knowledge] as Bound<unknown>[]) {
             bound.off?.();
             bound.off = null;
             bound.api = undefined;
@@ -247,6 +254,23 @@ export class VoicesService {
         this.bind(this.relations, 'relations', () => {
             this.versions.relations++;
         });
+        // M18's facts change a moment after a commit: the cards are rebuilt then, not in the next send.
+        this.bind(this.knowledge, 'knowledge', () => {
+            this.versions.knowledge++;
+            this.later(() => this.ensureFresh(), 0);
+        });
+    }
+
+    /** «Unaware of: …» from M18 (feature-detected; '' while it is off or nothing came up). */
+    private unknownOf(name: string, recent: string): string {
+        const api = this.knowledge.api;
+        if (!api || !recent) return '';
+        try {
+            return unknownLine(api.unknownFor(name, recent));
+        } catch (error) {
+            this.log.debug('M18 knowledge is not available', error);
+            return '';
+        }
     }
 
     private resolve(name: string): Entity | undefined {
@@ -402,6 +426,10 @@ export class VoicesService {
         const message = chat[committed];
         const hidden = this.hiddenNames();
         const persona = this.personaName();
+        // M18 reads the user's answer too: an edit of it changes the topics.
+        const knowing = !!this.knowledge.api;
+        const user = knowing ? lastUserIndex(chat) : -1;
+        const answer = chat[user];
         const key = [
             chatId ?? '',
             committed,
@@ -410,6 +438,7 @@ export class VoicesService {
             persona,
             hidden.join('\u0001'),
             this.versions.world,
+            knowing ? `${user}:${isDict(answer) && typeof answer.mes === 'string' ? answer.mes.length : 0}` : '',
         ].join('|');
         if (this.scene?.key === key) return this.scene;
 
@@ -435,6 +464,7 @@ export class VoicesService {
             persona,
             members,
             quests: tracker?.snapshot.quests ?? null,
+            recent: knowing && members.length ? recentStoryText(chat) : '',
         };
         return this.scene;
     }
@@ -461,6 +491,8 @@ export class VoicesService {
             if (entity) input.entityId = entity.id;
             const state = detailState(member.character.details);
             if (state) input.state = state;
+            const unknown = this.unknownOf(member.name, scene.recent);
+            if (unknown) input.unknown = unknown;
             return input;
         });
     }
@@ -478,6 +510,7 @@ export class VoicesService {
             settings.npcAttitudes,
             this.versions.archives,
             this.versions.relations,
+            this.versions.knowledge,
         ].join('|');
         if (this.built?.key === key) return this.built;
         const relations = scene.members.length ? this.relationList() : [];
