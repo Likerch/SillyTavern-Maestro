@@ -5,6 +5,7 @@ import { groupBooks } from '../../domain/lore-studio-books';
 import type { SectionId, StudioRole } from '../../domain/lore-studio-books';
 import { button, el, icon } from '../../ui/components/dom';
 import type { App } from '../../shared/contracts';
+import type { BunnyMoModeApi } from '../bunnymoMode/api';
 import type { CurrentCharacter } from './st-lore';
 import type { RoleView } from './store';
 import type { WiBindings } from './store-api';
@@ -213,6 +214,15 @@ export function renderBooksPanel(app: App, model: BooksModel, state: BooksState,
                           )
                         : null,
                     el('span', { class: 'maestro-m23-badge', text: t(roleKey(role.role)) }),
+                    ['bunnymo.core', 'bunnymo.pack', 'ck.archive'].includes(role.role) &&
+                    app.modules.api<BunnyMoModeApi>('bunnymoMode')
+                        ? button({
+                              icon: 'fa-carrot',
+                              kind: 'ghost',
+                              title: t('m23.books.bunnymoMode'),
+                              onClick: () => app.modules.api<BunnyMoModeApi>('bunnymoMode')?.open({ book }),
+                          })
+                        : null,
                     campaign
                         ? el('span', { class: 'maestro-m23-badge maestro-m23-badge-campaign', text: campaign })
                         : null,

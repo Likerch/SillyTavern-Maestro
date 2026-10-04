@@ -1,0 +1,49 @@
+// Strings of M19 «Граф отношений» (`m19.*`). Russian is the primary UI language; the user is addressed as «ты» (male).
+import type { I18nParts } from '../../shared/contracts';
+
+export const RELATIONS_STRINGS: I18nParts = {
+    en: {
+        'm19.title': 'Relationships',
+        'm19.tab': 'Relationships',
+        'm19.hint':
+            'How characters feel about your persona, as DES records it in the tracker, turn by turn. A change is recorded only when you send your next message, so swiped replies leave nothing behind.',
+        'm19.noChat': 'No chat is open.',
+        'm19.loading': 'Loading…',
+        'm19.empty': 'No relationships yet: DES has not recorded any status in this chat.',
+        'm19.rebuild': 'Read the tracker again',
+        'm19.rebuild.hint': 'Read the relationship status of every committed reply of this chat',
+        'm19.rebuild.done': 'The relationship history was read again.',
+        'm19.count': 'Pairs: {count}',
+        'm19.col.pair': 'Who → whom',
+        'm19.col.current': 'Now',
+        'm19.col.history': 'History',
+        'm19.pair': '{from} → {to}',
+        'm19.point': 'Message #{index}',
+        'm19.pointTime': 'Message #{index}, {time}',
+        'm19.earlier': '+{count} earlier',
+        'm19.source.canon': 'canon',
+        'm19.source.user': 'by you',
+    },
+    ru: {
+        'm19.title': 'Граф отношений',
+        'm19.tab': 'Отношения',
+        'm19.hint':
+            'Как персонажи относятся к твоей персоне — по трекеру DES, ход за ходом. Перемена записывается, только когда ты отправляешь следующее сообщение, поэтому свайпнутые ответы ничего не оставляют.',
+        'm19.noChat': 'Чат не открыт.',
+        'm19.loading': 'Загрузка…',
+        'm19.empty': 'Отношений пока нет: DES ещё не отметил в этом чате ни одного статуса.',
+        'm19.rebuild': 'Перечитать трекер',
+        'm19.rebuild.hint': 'Заново прочитать статус отношений во всех зафиксированных ответах чата',
+        'm19.rebuild.done': 'История отношений перечитана.',
+        'm19.count': 'Пар: {count}',
+        'm19.col.pair': 'Кто → к кому',
+        'm19.col.current': 'Сейчас',
+        'm19.col.history': 'История',
+        'm19.pair': '{from} → {to}',
+        'm19.point': 'Сообщение №{index}',
+        'm19.pointTime': 'Сообщение №{index}, {time}',
+        'm19.earlier': 'ещё раньше: {count}',
+        'm19.source.canon': 'канон',
+        'm19.source.user': 'вручную',
+    },
+};

@@ -45,7 +45,6 @@ export function createLoreStudioModule(renderForm: RenderEntryForm | null): Maes
             const store = new LoreStoreService({ app, log, st, des });
             own(store.install());
             app.modules.expose(STORE_KEY, store satisfies LoreStore);
-            // The module manager only drops the API under the module's own key ('loreStudio').
             own(() => app.modules.expose(STORE_KEY, undefined));
 
             const saveSettings = () => {
@@ -65,6 +64,8 @@ export function createLoreStudioModule(renderForm: RenderEntryForm | null): Maes
             });
             ref.studio = studio;
             runtime = { store, studio, takeover };
+            // Other modules (dossier, places, BunnyMo mode) open the studio on a book and entry.
+            app.modules.expose(LORE_STUDIO_KEY, { open: (book?: string, uid?: number) => studio.open(book, uid) });
             own(() => {
                 studio.dispose();
                 if (runtime?.studio === studio) runtime = null;

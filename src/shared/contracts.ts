@@ -374,6 +374,8 @@ export interface Inbox {
         kind: string,
         apply: (payload: unknown) => Promise<void>,
         stillValid?: (payload: unknown) => Promise<boolean>,
+        /** Called after the user rejected a card of this kind (e.g. world.merge → «these are different»). */
+        onReject?: (payload: unknown) => Promise<void>,
     ): Unsubscribe;
     add(proposal: Proposal, options?: { deferred?: boolean; ttlMs?: number }): Promise<string>;
     list(): InboxCard[];

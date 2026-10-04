@@ -45,6 +45,7 @@ interface InboxDoc {
 interface Applier {
     apply: (payload: unknown) => Promise<void>;
     stillValid?: (payload: unknown) => Promise<boolean>;
+    onReject?: (payload: unknown) => Promise<void>;
 }
 
 export const INBOX_KIND = 'inbox';
@@ -222,8 +223,9 @@ export function createInbox(deps: InboxDeps, options: InboxOptions = {}): InboxS
             kind: string,
             apply: (payload: unknown) => Promise<void>,
             stillValid?: (payload: unknown) => Promise<boolean>,
+            onReject?: (payload: unknown) => Promise<void>,
         ): Unsubscribe {
-            const entry: Applier = { apply, stillValid };
+            const entry: Applier = { apply, stillValid, onReject };
             appliers.set(kind, entry);
             return () => {
                 if (appliers.get(kind) === entry) appliers.delete(kind);
@@ -313,7 +315,13 @@ export function createInbox(deps: InboxDeps, options: InboxOptions = {}): InboxS
 
         async reject(id: string): Promise<void> {
             const removed = await removeCard(id);
-            if (removed) autonomy.record(removed.kind, 'rejected');
+            if (!removed) return;
+            autonomy.record(removed.kind, 'rejected');
+            try {
+                await appliers.get(removed.kind)?.onReject?.(removed.payload);
+            } catch (error) {
+                log.warn(`${removed.kind}: reject handler failed`, error);
+            }
         },
 
         async snooze(id: string, ms: number): Promise<void> {

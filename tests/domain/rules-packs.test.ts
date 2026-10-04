@@ -71,6 +71,8 @@ describe('findVersionConflicts', () => {
         const entries = [
             e('BSM-5', { key: ['<BSM:PTSD>'], content: 'Diagnosis' }),
             e('CoT Lenses', { key: ['<BSM:PTSD>'], content: 'Lens', comment: 'CoT LENS — PTSD' }),
+            e('BSM-5', { key: ['<BSM:MDD>'], content: 'Diagnosis' }),
+            e('CoT Lenses', { key: ['<BSM:MDD>'], content: 'Lens', comment: '💊 CoT LENS — DEPRESSION' }),
             e('A', { key: ['<R>'], content: 'read me A', constant: true }),
             e('B', { key: ['<R>'], content: 'read me B', constant: true }),
             e('A', { key: ['<D>'], content: 'one', disable: true }),

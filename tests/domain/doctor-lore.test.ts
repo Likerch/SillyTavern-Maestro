@@ -86,6 +86,8 @@ describe('findPackDuplicates', () => {
         const entries = [
             entry('BSM-5', { key: ['<PTSD>'], content: 'clinical' }),
             entry('CoT Lenses', { key: ['<PTSD>'], content: 'lens', comment: 'CoT LENS: PTSD' }),
+            entry('BSM-5', { key: ['<MDD>'], content: 'clinical' }),
+            entry('CoT Lenses', { key: ['<MDD>'], content: 'lens', comment: '💊 CoT LENS — DEPRESSION' }),
             entry('A', { key: ['x'], content: 'dup', disable: true }),
             entry('B', { key: ['x'], content: 'dup' }),
             entry('A', { key: ['y'], content: '   ' }),

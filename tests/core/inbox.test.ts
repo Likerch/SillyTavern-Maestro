@@ -190,6 +190,24 @@ describe('inbox', () => {
         expect(autonomy.stats()[0]).toMatchObject({ rejected: 1 });
     });
 
+    it('tells the kind’s handler about a rejection, and survives its failure', async () => {
+        const rejected: unknown[] = [];
+        const off = inbox.registerApplier(
+            'canon.fact',
+            async () => {},
+            undefined,
+            async (payload) => {
+                rejected.push(payload);
+                throw new Error('boom');
+            },
+        );
+        const id = await inbox.add(proposal());
+        await inbox.reject(id);
+        expect(rejected).toEqual([{ v: 1 }]);
+        expect(storedCards()).toEqual([]);
+        off();
+    });
+
     it('hides snoozed cards until the time passes', async () => {
         vi.useFakeTimers();
         const id = await inbox.add(proposal(), { ttlMs: 1_000 });

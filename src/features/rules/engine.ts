@@ -11,6 +11,7 @@
 //   safe to mark `disable`); the event also fires for M1's dry runs.
 import { diffActivations, isPlainObject } from '../../domain/rules-lore';
 import type { App, Decision, JournalChange, Logger, NeighbourAdapter, Unsubscribe } from '../../shared/contracts';
+import type { BunnyMoModeApi } from '../bunnymoMode/api';
 import type { LoreJournalApi } from '../loreJournal/api';
 import type {
     BookCap,
@@ -502,6 +503,12 @@ export class RulesEngine implements RulesApi {
 
     onEntriesLoaded(payload: unknown): void {
         if (!isPlainObject(payload)) return;
+        // M35 per-chat pack selection first (idempotent): pack rules never pair a suppressed pack with a kept one.
+        try {
+            this.app.modules.api<BunnyMoModeApi>('bunnymoMode')?.applySelection?.(payload);
+        } catch (error) {
+            this.log.warn('BunnyMo pack selection failed', error);
+        }
         const lists: EntryLists = {
             globalLore: arrayOf(payload.globalLore),
             characterLore: arrayOf(payload.characterLore),

@@ -18,7 +18,8 @@ export interface PackEntryLike {
     disable?: unknown;
 }
 
-const INTENDED_PAIR_RE = /^\s*CoT\s+LENS/i;
+/** CoT Lenses pair with BSM-5 on purpose; real titles start with an emoji («💊 CoT LENS — DEPRESSION»). */
+const INTENDED_PAIR_RE = /^\s*[^\sA-Za-z0-9]*\s*CoT\s+LENS/i;
 const REGEX_LIKE_RE = /^\/[\s\S]+\/[a-z]*$/i;
 const CARROTCAST_RE = /carrot\s*-?\s*cast/i;
 const BUNNYFLIX_RE = /bunnyflix/i;

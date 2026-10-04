@@ -18,7 +18,8 @@ export type BunnyBooks = ReadonlyMap<string, BunnyBookKind>;
 /* ------------------------------------------------------------------ duplicates and version conflicts */
 
 /** Comments of the intended BSM-5 + CoT Lenses pairing (same keys, different content by design). */
-const INTENDED_PAIR_RE = /^\s*CoT\s+LENS/i;
+/** CoT Lenses pair with BSM-5 on purpose; real titles start with an emoji («💊 CoT LENS — DEPRESSION»). */
+const INTENDED_PAIR_RE = /^\s*[^\sA-Za-z0-9]*\s*CoT\s+LENS/i;
 const OLD_EDITION_RE = /retired|legacy|\bold\b|deprecated|устар/i;
 const VERSION_RE = /(?:^|[^a-z])v(?:er(?:sion)?)?\.?\s?(\d+(?:\.\d+)*)/i;
 

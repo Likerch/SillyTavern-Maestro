@@ -53,11 +53,11 @@ export const NEIGHBOURS = [
     {
         id: 'nai',
         folder: 'SillyTavern-NAI-Studio',
-        version: null,
+        version: '0.10.0',
         repo: 'SillyTavern-NAI-Studio',
-        ref: 'HEAD',
+        ref: '8cbd6b2554011b87fe24766a926cf76ec4848a70',
         requires: ['manifest.json', 'dist/index.js'],
-        note: 'NAI Studio, current commit (dist/ is committed); the server plugin is not installed',
+        note: 'NAI Studio 0.10.0 (dist/ is committed); the server plugin is not installed',
     },
     {
         id: 'localizer',

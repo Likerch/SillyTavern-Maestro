@@ -31,7 +31,22 @@ export type {
     LocalizerMarker,
 } from './localizer';
 export { NaiAdapter } from './nai';
-export type { NaiPassport, NaiPassportKind } from './nai';
+export type {
+    NaiImageReadyDetail,
+    NaiImageReadyKind,
+    NaiPassport,
+    NaiPassportKind,
+    NaiPassportScope,
+    NaiPassportTarget,
+    NaiPassportsSavedDetail,
+    NaiSaveScope,
+    NaiSceneHint,
+    NaiSceneHintContext,
+    NaiSceneProvider,
+    NaiStudioApi,
+    NaiStudioEvent,
+    NaiStudioEvents,
+} from './nai';
 export { PresetAdapter } from './preset';
 export type { PresetPromptInfo } from './preset';
 export { QvinkAdapter } from './qvink';

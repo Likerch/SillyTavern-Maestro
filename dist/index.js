@@ -1,8 +1,8 @@
 //#region src/adapters/base.ts
-function isDict$29(value) {
+function isDict$37(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
-function stringList$4(value) {
+function stringList$5(value) {
 	return Array.isArray(value) ? value.filter((item) => typeof item === "string") : [];
 }
 /** The page document, or null outside a browser (unit tests in the node environment). */
@@ -23,10 +23,10 @@ function extras$1(host) {
 /** `extension_settings[key]` when it is an object. */
 function extensionSettingsOf(host, key) {
 	const value = host.ctx().extensionSettings[key];
-	return isDict$29(value) ? value : null;
+	return isDict$37(value) ? value : null;
 }
 function toManifest(value) {
-	if (!isDict$29(value)) return null;
+	if (!isDict$37(value)) return null;
 	const manifest = {};
 	for (const key of [
 		"display_name",
@@ -126,7 +126,7 @@ var ExtensionLocator = class {
 		const names = /* @__PURE__ */ new Set();
 		try {
 			const module = await this.host.modules.load("extensions.js");
-			for (const name of stringList$4(module.extensionNames)) names.add(name);
+			for (const name of stringList$5(module.extensionNames)) names.add(name);
 		} catch (error) {
 			this.log.debug("ST extension list is not available; using page scripts and known folders", error);
 		}
@@ -261,8 +261,8 @@ var CORE_COMMENT_RE = /Master - |AUTO-TRIGGER:|AUTO-FILTRATION:|ANTI[\s-]*CLANKE
 /** A pack key: `<SPECIES:ELF>`, `<DEPRESSION>`, `<ENFJ-U>`. */
 var PACK_KEY_RE = /^<([A-Za-z][A-Za-z0-9_-]*)(?::([^<>]+))?>$/;
 /** A character tag block: `<BunnymoTags>…</BunnymoTags>` (with a colon it is an entry wrapper instead). */
-var TAG_BLOCK_RE$1 = /<bunnymotags>([\s\S]*?)<\/bunnymotags>/i;
-var TAG_RE$2 = /<([A-Za-z][A-Za-z0-9_-]*):([^<>\n]+)>/g;
+var TAG_BLOCK_RE$2 = /<bunnymotags>([\s\S]*?)<\/bunnymotags>/i;
+var TAG_RE$3 = /<([A-Za-z][A-Za-z0-9_-]*):([^<>\n]+)>/g;
 /** Bare MBTI archetype without a colon: `<ESFP-H>`, `<INTJ-U>`. MBTI pack entries fire on it. */
 var MBTI_TAG_RE$1 = /<([EI][NS][FT][JP]-[UH])>/gi;
 /**
@@ -272,21 +272,21 @@ var MBTI_TAG_RE$1 = /<([EI][NS][FT][JP]-[UH])>/gi;
 var PLACEHOLDER_RE$2 = /^(?:BLANK|NEW|VALUE|TARGET|NAME|NAME[\s_]HERE|PLACEHOLDER|TBD|X{3,})$/i;
 /** Entry wrapper `<BunnymoTags:Title>…</BunnymoTags:Title>`, used by the core and by some packs. */
 var WRAPPED_RE = /^<BunnymoTags:/i;
-function text$4(value) {
+function text$7(value) {
 	return value === void 0 || value === null ? "" : String(value);
 }
 /** Primary and secondary keys of an entry, trimmed, without empty ones. */
-function entryKeys(entry) {
+function entryKeys$1(entry) {
 	const list = (value) => Array.isArray(value) ? value : [];
-	return [...list(entry?.key), ...list(entry?.keysecondary)].map((key) => text$4(key).trim()).filter(Boolean);
+	return [...list(entry?.key), ...list(entry?.keysecondary)].map((key) => text$7(key).trim()).filter(Boolean);
 }
 /**
 * Is this an entry of the BunnyMo core lorebook? By a sheet command in its keys or by a known entry title.
 * The `<BunnymoTags:…>` wrapper is no sign: pack entries (CarrotCast, Linguistics, lenses) use it too.
 */
 function isBunnyMoCoreEntry(entry) {
-	if (entryKeys(entry).some((key) => BUNNYMO_SHEET_COMMANDS.includes(key.toLowerCase()))) return true;
-	return CORE_COMMENT_RE.test(text$4(entry?.comment));
+	if (entryKeys$1(entry).some((key) => BUNNYMO_SHEET_COMMANDS.includes(key.toLowerCase()))) return true;
+	return CORE_COMMENT_RE.test(text$7(entry?.comment));
 }
 /**
 * Which books are BunnyMo: the core (3+ core entries) and packs ((3+ tag-keyed entries that are at least 60 %
@@ -295,7 +295,7 @@ function isBunnyMoCoreEntry(entry) {
 function classifyWorlds(entries) {
 	const stats = /* @__PURE__ */ new Map();
 	for (const entry of entries) {
-		const world = text$4(entry?.world);
+		const world = text$7(entry?.world);
 		if (!world) continue;
 		const item = stats.get(world) ?? {
 			core: 0,
@@ -304,8 +304,8 @@ function classifyWorlds(entries) {
 			wrapped: 0
 		};
 		if (isBunnyMoCoreEntry(entry)) item.core += 1;
-		if (WRAPPED_RE.test(text$4(entry?.content).trimStart())) item.wrapped += 1;
-		const keys = entryKeys(entry);
+		if (WRAPPED_RE.test(text$7(entry?.content).trimStart())) item.wrapped += 1;
+		const keys = entryKeys$1(entry);
 		if (keys.length) {
 			item.keyed += 1;
 			if (keys.some((key) => PACK_KEY_RE.test(key))) item.tagged += 1;
@@ -326,14 +326,14 @@ function classifyWorlds(entries) {
 * Template placeholders (`<GENRE:BLANK>`, `<Dere:NEW>`) are skipped.
 */
 function archiveTags(entry) {
-	const block = TAG_BLOCK_RE$1.exec(text$4(entry?.content));
+	const block = TAG_BLOCK_RE$2.exec(text$7(entry?.content));
 	if (!block?.[1]) return {
 		name: null,
 		tags: []
 	};
 	let name = null;
 	const tags = /* @__PURE__ */ new Set();
-	for (const match of block[1].matchAll(TAG_RE$2)) {
+	for (const match of block[1].matchAll(TAG_RE$3)) {
 		const key = (match[1] ?? "").trim();
 		const value = (match[2] ?? "").trim();
 		if (key.toUpperCase() === "NAME") name = value;
@@ -351,7 +351,7 @@ function archiveTags(entry) {
 * block whose name is a placeholder.
 */
 function isCharacterArchive(entry) {
-	if (!TAG_BLOCK_RE$1.test(text$4(entry?.content)) || isBunnyMoCoreEntry(entry)) return false;
+	if (!TAG_BLOCK_RE$2.test(text$7(entry?.content)) || isBunnyMoCoreEntry(entry)) return false;
 	const { name, tags } = archiveTags(entry);
 	return name !== null ? !PLACEHOLDER_RE$2.test(name) : tags.length > 0;
 }
@@ -359,7 +359,7 @@ function isCharacterArchive(entry) {
 function archiveWorlds(entries) {
 	const worlds = /* @__PURE__ */ new Set();
 	for (const entry of entries) {
-		const world = text$4(entry?.world);
+		const world = text$7(entry?.world);
 		if (world && !worlds.has(world) && isCharacterArchive(entry)) worlds.add(world);
 	}
 	return worlds;
@@ -427,9 +427,9 @@ var BunnyMoAdapter = class extends NeighbourBase {
 		let charLore = [];
 		try {
 			const worldInfo = await this.host.modules.worldInfo();
-			for (const name of stringList$4(worldInfo.selected_world_info)) names.add(name);
+			for (const name of stringList$5(worldInfo.selected_world_info)) names.add(name);
 			const settings = worldInfo.world_info;
-			if (isDict$29(settings) && Array.isArray(settings.charLore)) charLore = settings.charLore;
+			if (isDict$37(settings) && Array.isArray(settings.charLore)) charLore = settings.charLore;
 		} catch (error) {
 			this.log.debug("world-info.js is not available; global books are skipped", error);
 		}
@@ -443,7 +443,7 @@ var BunnyMoAdapter = class extends NeighbourBase {
 			const primary = character.data?.extensions?.world;
 			if (typeof primary === "string" && primary) names.add(primary);
 			const key = avatarKey$2(character.avatar ?? "");
-			for (const lore of charLore) if (isDict$29(lore) && lore.name === key) for (const book of stringList$4(lore.extraBooks)) names.add(book);
+			for (const lore of charLore) if (isDict$37(lore) && lore.name === key) for (const book of stringList$5(lore.extraBooks)) names.add(book);
 		}
 		const known = extras$1(this.host).getWorldInfoNames?.() ?? [];
 		return known.length ? [...names].filter((name) => known.includes(name)) : [...names];
@@ -486,11 +486,11 @@ var BunnyMoAdapter = class extends NeighbourBase {
 			this.log.debug(`lorebook ${book} did not load`, error);
 			return null;
 		}
-		if (!isDict$29(data) || !isDict$29(data.entries)) return null;
+		if (!isDict$37(data) || !isDict$37(data.entries)) return null;
 		const entries = [];
 		const enabled = [];
 		for (const raw of Object.values(data.entries)) {
-			if (!isDict$29(raw)) continue;
+			if (!isDict$37(raw)) continue;
 			const entry = {
 				key: raw.key,
 				keysecondary: raw.keysecondary,
@@ -521,7 +521,7 @@ function isCkManifest(manifest) {
 }
 function globalObject(name) {
 	const value = globalThis[name];
-	return isDict$29(value) ? value : null;
+	return isDict$37(value) ? value : null;
 }
 var CkAdapter = class extends NeighbourBase {
 	id = "ck";
@@ -555,15 +555,15 @@ var CkAdapter = class extends NeighbourBase {
 	}
 	/** Lorebooks marked as Character Repos (archives CK scans for `<BunnymoTags>`). */
 	repoBooks() {
-		return stringList$4(this.settings()?.characterRepoBooks);
+		return stringList$5(this.settings()?.characterRepoBooks);
 	}
 	/** Lorebooks marked as Tag Libraries. */
 	tagLibraries() {
-		return stringList$4(this.settings()?.tagLibraries);
+		return stringList$5(this.settings()?.tagLibraries);
 	}
 	ragEnabled() {
 		const rag = this.settings()?.rag;
-		return isDict$29(rag) && rag.enabled === true;
+		return isDict$37(rag) && rag.enabled === true;
 	}
 };
 //#endregion
@@ -581,7 +581,7 @@ var KNOWN_INFO_KEYS = /* @__PURE__ */ new Set([
 	"temperature",
 	"recentEvents"
 ]);
-function isDict$28(value) {
+function isDict$36(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /** Trims and drops brackets that wrap the whole value (`[Friend]`), as DES's renderers do. */
@@ -598,7 +598,7 @@ function textOf(value) {
 		const parts = value.map(textOf).filter((part) => !!part);
 		return parts.length ? parts.join(", ") : void 0;
 	}
-	if (isDict$28(value)) for (const key of [
+	if (isDict$36(value)) for (const key of [
 		"value",
 		"text",
 		"description",
@@ -640,13 +640,13 @@ function statsOf(raw) {
 		});
 	};
 	if (Array.isArray(raw)) {
-		for (const item of raw) if (isDict$28(item)) push(item.name, item.value);
-	} else if (isDict$28(raw)) for (const [name, value] of Object.entries(raw)) push(name, isDict$28(value) ? value.value : value);
+		for (const item of raw) if (isDict$36(item)) push(item.name, item.value);
+	} else if (isDict$36(raw)) for (const [name, value] of Object.entries(raw)) push(name, isDict$36(value) ? value.value : value);
 	return stats;
 }
 function detailsOf(raw) {
 	const details = {};
-	if (!isDict$28(raw)) return details;
+	if (!isDict$36(raw)) return details;
 	for (const [key, value] of Object.entries(raw)) {
 		const text = textOf(value);
 		if (key && text) details[key] = text;
@@ -656,16 +656,16 @@ function detailsOf(raw) {
 function relationshipOf(entry) {
 	if (typeof entry.Relationship === "string") return clean(entry.Relationship) || void 0;
 	const relationship = entry.relationship;
-	if (isDict$28(relationship)) return textOf(relationship.status) ?? textOf(relationship);
+	if (isDict$36(relationship)) return textOf(relationship.status) ?? textOf(relationship);
 	return textOf(relationship);
 }
 function thoughtsOf(entry) {
 	const thoughts = entry.thoughts;
-	if (isDict$28(thoughts)) return textOf(thoughts.content) ?? textOf(thoughts);
+	if (isDict$36(thoughts)) return textOf(thoughts.content) ?? textOf(thoughts);
 	return textOf(thoughts);
 }
 function characterOf(raw) {
-	if (!isDict$28(raw) || typeof raw.name !== "string" || !raw.name.trim()) return null;
+	if (!isDict$36(raw) || typeof raw.name !== "string" || !raw.name.trim()) return null;
 	const thoughts = thoughtsOf(raw);
 	const character = {
 		name: raw.name.trim(),
@@ -683,7 +683,7 @@ function characterOf(raw) {
 /** Characters from `characterThoughts`: an array (DES 2.6 parse) or `{characters: [...]}` (legacy, defaults). */
 function parseDesCharacters(raw) {
 	const data = parseTrackerJson(raw);
-	const list = Array.isArray(data) ? data : isDict$28(data) && Array.isArray(data.characters) ? data.characters : [];
+	const list = Array.isArray(data) ? data : isDict$36(data) && Array.isArray(data.characters) ? data.characters : [];
 	const characters = [];
 	for (const item of list) {
 		const character = characterOf(item);
@@ -692,7 +692,7 @@ function parseDesCharacters(raw) {
 	return characters;
 }
 function timeOf(raw) {
-	if (isDict$28(raw)) {
+	if (isDict$36(raw)) {
 		const start = textOf(raw.start) ?? textOf(raw.value);
 		const end = textOf(raw.end);
 		if (!start && !end) return void 0;
@@ -705,7 +705,7 @@ function timeOf(raw) {
 	return flat ? { start: flat } : void 0;
 }
 function weatherOf(raw) {
-	if (isDict$28(raw)) {
+	if (isDict$36(raw)) {
 		const emoji = textOf(raw.emoji);
 		const forecast = textOf(raw.forecast) ?? textOf(raw.value);
 		if (!emoji && !forecast) return void 0;
@@ -720,7 +720,7 @@ function weatherOf(raw) {
 function temperatureOf(raw) {
 	if (typeof raw === "number" && Number.isFinite(raw)) return { value: raw };
 	if (typeof raw === "string") return raw.trim() ? { value: raw.trim() } : void 0;
-	if (!isDict$28(raw)) return void 0;
+	if (!isDict$36(raw)) return void 0;
 	const value = raw.value;
 	const temperature = typeof value === "number" && Number.isFinite(value) ? { value } : typeof value === "string" && value.trim() ? { value: value.trim() } : void 0;
 	const unit = textOf(raw.unit);
@@ -729,14 +729,14 @@ function temperatureOf(raw) {
 }
 function eventsOf(raw) {
 	if (Array.isArray(raw)) return raw.map(textOf).filter((event) => !!event);
-	if (isDict$28(raw) && raw.events !== void 0 && raw.value === void 0) return eventsOf(raw.events);
+	if (isDict$36(raw) && raw.events !== void 0 && raw.value === void 0) return eventsOf(raw.events);
 	const flat = textOf(raw);
 	return flat ? [flat] : [];
 }
 /** Scene data from `infoBox`; null when the section is missing or not a JSON object. */
 function parseDesInfoBox(raw) {
 	const data = parseTrackerJson(raw);
-	if (!isDict$28(data)) return null;
+	if (!isDict$36(data)) return null;
 	const info = {
 		recentEvents: eventsOf(data.recentEvents),
 		fields: {}
@@ -761,14 +761,14 @@ function parseDesInfoBox(raw) {
 /** A quest title from a string, `{title}`, `{value}` (nested) or `{description}`; "None" → null. */
 function questOf(raw) {
 	let value = raw;
-	while (isDict$28(value) && value.value !== void 0) value = value.value;
-	const title = isDict$28(value) ? textOf(value.title) ?? textOf(value.description) : textOf(value);
+	while (isDict$36(value) && value.value !== void 0) value = value.value;
+	const title = isDict$36(value) ? textOf(value.title) ?? textOf(value.description) : textOf(value);
 	return title && !NO_QUEST_RE.test(title) ? title : null;
 }
 /** Quests from `quests`: `{main, optional[]}` with string or `{title}` items. Null when missing. */
 function parseDesQuests(raw) {
 	const data = parseTrackerJson(raw);
-	if (!isDict$28(data)) return null;
+	if (!isDict$36(data)) return null;
 	const optional = Array.isArray(data.optional) ? data.optional.map(questOf).filter((quest) => quest !== null) : [];
 	return {
 		main: questOf(data.main),
@@ -784,8 +784,8 @@ function parseDesTracker(strings) {
 	};
 }
 function swipeRecordOf(swipes, swipeId) {
-	const record = Array.isArray(swipes) ? swipes[swipeId] : isDict$28(swipes) ? swipes[String(swipeId)] : void 0;
-	if (!isDict$28(record)) return null;
+	const record = Array.isArray(swipes) ? swipes[swipeId] : isDict$36(swipes) ? swipes[String(swipeId)] : void 0;
+	if (!isDict$36(record)) return null;
 	const { quests = null, infoBox = null, characterThoughts = null } = record;
 	if (quests === null && infoBox === null && characterThoughts === null) return null;
 	return {
@@ -801,12 +801,12 @@ function swipeRecordOf(swipes, swipeId) {
 * stores an all-null record).
 */
 function desSwipeRecord(message) {
-	if (!isDict$28(message) || message.is_user === true) return null;
+	if (!isDict$36(message) || message.is_user === true) return null;
 	const swipeId = typeof message.swipe_id === "number" && message.swipe_id >= 0 ? message.swipe_id : 0;
-	const direct = swipeRecordOf((isDict$28(message.extra) ? message.extra : void 0)?.dooms_tracker_swipes, swipeId);
+	const direct = swipeRecordOf((isDict$36(message.extra) ? message.extra : void 0)?.dooms_tracker_swipes, swipeId);
 	if (direct) return direct;
 	const info = Array.isArray(message.swipe_info) ? message.swipe_info[swipeId] : void 0;
-	return swipeRecordOf((isDict$28(info) && isDict$28(info.extra) ? info.extra : void 0)?.dooms_tracker_swipes, swipeId);
+	return swipeRecordOf((isDict$36(info) && isDict$36(info.extra) ? info.extra : void 0)?.dooms_tracker_swipes, swipeId);
 }
 var DES_KNOWN_NAMES = ["third-party/Dooms-Enhancement-Suite"];
 var DES_VERIFIED_VERSIONS = ["2.6.0"];
@@ -887,9 +887,9 @@ var DesAdapter = class extends NeighbourBase {
 	*/
 	settings() {
 		const live = this.modules.state?.extensionSettings;
-		if (isDict$29(live)) return live;
+		if (isDict$37(live)) return live;
 		const saved = this.located ? this.host.ctx().extensionSettings[this.located.name] : void 0;
-		return isDict$29(saved) ? saved : null;
+		return isDict$37(saved) ? saved : null;
 	}
 	/** DES's own switch (on unless explicitly false). */
 	enabled() {
@@ -915,17 +915,17 @@ var DesAdapter = class extends NeighbourBase {
 	*/
 	knownCharacters() {
 		const roster = this.chatState()?.knownCharacters;
-		return isDict$29(roster) ? Object.keys(roster) : [];
+		return isDict$37(roster) ? Object.keys(roster) : [];
 	}
 	/** Names hidden from "Present Characters" in this chat (DES compares them case-insensitively). */
 	removedCharacters() {
-		return stringList$4(this.chatState()?.removedCharacters);
+		return stringList$5(this.chatState()?.removedCharacters);
 	}
 	/** Canonical aliases `{card name: [aliases]}` (global DES setting), as a copy. */
 	aliases() {
 		const map = this.settings()?.characterAliases;
 		const copy = {};
-		if (!isDict$29(map)) return copy;
+		if (!isDict$37(map)) return copy;
 		for (const [canonical, list] of Object.entries(map)) if (Array.isArray(list)) copy[canonical] = list.map(String);
 		return copy;
 	}
@@ -948,14 +948,14 @@ var DesAdapter = class extends NeighbourBase {
 	}
 	chatState() {
 		const state = this.host.ctx().chatMetadata[DES_KEYS$1.chatMetadata];
-		return isDict$29(state) ? state : null;
+		return isDict$37(state) ? state : null;
 	}
 };
 var DESRU_KNOWN_NAMES = ["third-party/SillyTavern-DES-RU", "third-party/SillyTavern-Doom-Enhancement-Suite-RU"];
 var DESRU_SETTINGS_KEY = "desru";
 /** The global DES-RU publishes its API under. */
 var DESRU_API_GLOBAL = "DESRU_API";
-var API_METHODS$1 = [
+var API_METHODS$2 = [
 	"nameForms",
 	"nameFormsKey",
 	"aliases",
@@ -972,7 +972,7 @@ function readDesRuApi(value) {
 	if (typeof value !== "object" || value === null) return void 0;
 	const api = value;
 	if (api.version !== 1) return void 0;
-	return API_METHODS$1.every((method) => typeof api[method] === "function") ? value : void 0;
+	return API_METHODS$2.every((method) => typeof api[method] === "function") ? value : void 0;
 }
 var DesRuAdapter = class extends NeighbourBase {
 	id = "desru";
@@ -998,8 +998,8 @@ var DesRuAdapter = class extends NeighbourBase {
 	/** A DES-RU module switch; modules are on by default, as in DES-RU's DEFAULT_SETTINGS. */
 	moduleEnabled(module) {
 		const modules = this.settings()?.modules;
-		const slice = isDict$29(modules) ? modules[module] : void 0;
-		return !isDict$29(slice) || slice.enabled !== false;
+		const slice = isDict$37(modules) ? modules[module] : void 0;
+		return !isDict$37(slice) || slice.enabled !== false;
 	}
 	/** DES-RU's API (read live: it appears when DES-RU starts and goes when it is disabled); undefined before 0.8.0. */
 	api() {
@@ -1029,7 +1029,7 @@ var LOCALIZER_MARKER_KEY = "lorebook_localizer";
 var LOCALIZER_KNOWN_NAMES = ["third-party/SillyTavern-LorebookLocalizer"];
 /** The global the Localizer publishes its API under. */
 var LOCALIZER_API_GLOBAL = "LOREBOOK_LOCALIZER_API";
-var API_METHODS = [
+var API_METHODS$1 = [
 	"buildKeyRegex",
 	"buildPlainKeys",
 	"cleanForms",
@@ -1044,23 +1044,23 @@ function readLocalizerApi(value) {
 	if (typeof value !== "object" || value === null) return void 0;
 	const api = value;
 	if (api.version !== 1) return void 0;
-	return API_METHODS.every((method) => typeof api[method] === "function") ? value : void 0;
+	return API_METHODS$1.every((method) => typeof api[method] === "function") ? value : void 0;
 }
 /** Reads the Localizer marker of a World Info entry as a typed copy; null when the entry has none. */
 function readLocalizerMarker(entry) {
-	const extensions = isDict$29(entry) ? entry.extensions : void 0;
-	const marker = isDict$29(extensions) ? extensions[LOCALIZER_MARKER_KEY] : void 0;
-	if (!isDict$29(marker)) return null;
+	const extensions = isDict$37(entry) ? entry.extensions : void 0;
+	const marker = isDict$37(extensions) ? extensions[LOCALIZER_MARKER_KEY] : void 0;
+	if (!isDict$37(marker)) return null;
 	const languages = {};
-	if (isDict$29(marker.languages)) for (const [id, state] of Object.entries(marker.languages)) {
-		if (!isDict$29(state)) continue;
-		const added = isDict$29(state.added) ? state.added : {};
+	if (isDict$37(marker.languages)) for (const [id, state] of Object.entries(marker.languages)) {
+		if (!isDict$37(state)) continue;
+		const added = isDict$37(state.added) ? state.added : {};
 		languages[id] = {
 			language: typeof state.language === "string" ? state.language : id,
-			sources: stringList$4(state.sources),
+			sources: stringList$5(state.sources),
 			added: {
-				key: stringList$4(added.key),
-				keysecondary: stringList$4(added.keysecondary)
+				key: stringList$5(added.key),
+				keysecondary: stringList$5(added.keysecondary)
 			}
 		};
 	}
@@ -1114,42 +1114,61 @@ var KINDS$2 = [
 	"scenario",
 	"object"
 ];
+/** The global NAI Studio publishes its API under. */
+var NAI_API_GLOBAL = "NAI_STUDIO_API";
+var API_METHODS = [
+	"passports",
+	"getPassport",
+	"savePassport",
+	"setOutfit",
+	"setState",
+	"clearChatOverride",
+	"on",
+	"registerSceneProvider"
+];
+/** The published NAI Studio API when it is version 1 with every method; undefined otherwise. */
+function readNaiApi(value) {
+	if (typeof value !== "object" || value === null) return void 0;
+	const api = value;
+	if (api.version !== 1) return void 0;
+	return API_METHODS.every((method) => typeof api[method] === "function") ? value : void 0;
+}
 function isNaiManifest(manifest) {
 	return manifest.display_name === "NAI Studio" || manifest.generate_interceptor === "NAIST_ProcessTriggers" || homePageHas(manifest, "likerch/st-nai-studio");
 }
-function text$3(value) {
+function text$6(value) {
 	return typeof value === "string" ? value : "";
 }
 /** A typed deep copy of one stored passport; null for junk. Legacy passports without an id get 'main'. */
 function readPassport(raw) {
-	if (!isDict$29(raw)) return null;
+	if (!isDict$37(raw)) return null;
 	const copy = structuredClone(raw);
 	const slots = {};
-	if (isDict$29(copy.slots)) {
+	if (isDict$37(copy.slots)) {
 		for (const [slot, value] of Object.entries(copy.slots)) if (typeof value === "string") slots[slot] = value;
 	}
-	const outfits = Array.isArray(copy.outfits) ? copy.outfits.filter(isDict$29).map((outfit) => ({
-		name: text$3(outfit.name),
-		tags: text$3(outfit.tags)
+	const outfits = Array.isArray(copy.outfits) ? copy.outfits.filter(isDict$37).map((outfit) => ({
+		name: text$6(outfit.name),
+		tags: text$6(outfit.tags)
 	})) : [];
-	const states = Array.isArray(copy.states) ? copy.states.filter(isDict$29).map((state) => ({
-		id: text$3(state.id),
-		tags: text$3(state.tags),
+	const states = Array.isArray(copy.states) ? copy.states.filter(isDict$37).map((state) => ({
+		id: text$6(state.id),
+		tags: text$6(state.tags),
 		enabled: state.enabled === true
 	})) : [];
 	const kind = KINDS$2.find((candidate) => candidate === copy.kind) ?? "character";
 	return {
 		...copy,
-		id: text$3(copy.id) || "main",
+		id: text$6(copy.id) || "main",
 		kind,
-		name: text$3(copy.name),
-		aliases: stringList$4(copy.aliases),
-		tags: text$3(copy.tags),
+		name: text$6(copy.name),
+		aliases: stringList$5(copy.aliases),
+		tags: text$6(copy.tags),
 		slots,
 		outfits,
-		activeOutfit: text$3(copy.activeOutfit),
+		activeOutfit: text$6(copy.activeOutfit),
 		states,
-		negative: text$3(copy.negative)
+		negative: text$6(copy.negative)
 	};
 }
 var NaiAdapter = class extends NeighbourBase {
@@ -1157,7 +1176,7 @@ var NaiAdapter = class extends NeighbourBase {
 	constructor(deps) {
 		super(deps);
 		this.capability("nai.present", () => this.present());
-		this.capability("nai.api", () => false);
+		this.capability("nai.api", () => this.present() && this.api() !== void 0);
 	}
 	present() {
 		return !(this.located !== null && this.deps.locator.isDisabled(this.located.name)) && typeof globalThis["NAIST_ProcessTriggers"] === "function";
@@ -1165,6 +1184,31 @@ var NaiAdapter = class extends NeighbourBase {
 	async connect() {
 		await this.locate(isNaiManifest, NAI_KNOWN_NAMES);
 		return true;
+	}
+	/** NAI Studio's API (read live); undefined before 0.10.0, while it is disabled or not loaded yet. */
+	api() {
+		return readNaiApi(globalThis[NAI_API_GLOBAL]);
+	}
+	/**
+	* Passports of the current chat as NAI Studio resolves them (chat overrides applied): its cards, the persona and
+	* the chat's own; `scope` narrows like `NaiStudioApi.passports`. Typed copies; [] without the API.
+	*/
+	chatPassports(scope) {
+		const api = this.api();
+		if (!api) return [];
+		try {
+			const list = api.passports(scope);
+			return Array.isArray(list) ? list.map(readPassport).filter((passport) => passport !== null) : [];
+		} catch (error) {
+			this.log.warn("NAI_STUDIO_API.passports failed", error);
+			return [];
+		}
+	}
+	/** Subscribes through the API; without it nothing is subscribed and the returned unsubscription does nothing. */
+	on(event, listener) {
+		const api = this.api();
+		if (!api) return () => {};
+		return api.on(event, listener);
 	}
 	/** `extension_settings.nai_studio` (live object, read-only for Maestro). */
 	settings() {
@@ -1176,8 +1220,8 @@ var NaiAdapter = class extends NeighbourBase {
 	*/
 	passportsOf(characterIndex) {
 		const field = this.host.ctx().characters[characterIndex]?.data?.extensions?.[NAI_KEY];
-		if (!isDict$29(field)) return [];
-		return (Array.isArray(field.passports) ? field.passports : isDict$29(field.passport) ? [field.passport] : []).map(readPassport).filter((passport) => passport !== null);
+		if (!isDict$37(field)) return [];
+		return (Array.isArray(field.passports) ? field.passports : isDict$37(field.passport) ? [field.passport] : []).map(readPassport).filter((passport) => passport !== null);
 	}
 };
 //#endregion
@@ -1203,7 +1247,7 @@ var PresetAdapter = class extends NeighbourBase {
 	/** ST's live Chat Completion settings (`oai_settings`); read-only for Maestro. */
 	settings() {
 		const settings = extras$1(this.host).chatCompletionSettings;
-		return isDict$29(settings) ? settings : null;
+		return isDict$37(settings) ? settings : null;
 	}
 	/** Name of the active Chat Completion preset. */
 	presetName() {
@@ -1214,7 +1258,7 @@ var PresetAdapter = class extends NeighbourBase {
 	prompts() {
 		const prompts = this.settings()?.prompts;
 		if (!Array.isArray(prompts)) return [];
-		return prompts.filter(isDict$29).map((prompt) => ({
+		return prompts.filter(isDict$37).map((prompt) => ({
 			identifier: typeof prompt.identifier === "string" ? prompt.identifier : "",
 			name: typeof prompt.name === "string" ? prompt.name : "",
 			role: typeof prompt.role === "string" ? prompt.role : "system",
@@ -1226,7 +1270,7 @@ var PresetAdapter = class extends NeighbourBase {
 		if (MARINARA_NAME_RE.test(this.presetName() ?? "")) return true;
 		const prompts = this.settings()?.prompts;
 		if (!Array.isArray(prompts)) return false;
-		const contents = prompts.filter(isDict$29).map((prompt) => typeof prompt.content === "string" ? prompt.content : "");
+		const contents = prompts.filter(isDict$37).map((prompt) => typeof prompt.content === "string" ? prompt.content : "");
 		return MARINARA_SECTION_TAGS.every((tag) => contents.some((content) => content.includes(tag)));
 	}
 };
@@ -1269,7 +1313,7 @@ var QvinkAdapter = class extends NeighbourBase {
 	chatEnabled() {
 		if (this.setting("use_global_toggle_state")) return this.setting("global_toggle_state");
 		const chatState = this.host.ctx().chatMetadata[QVINK_KEY];
-		const perChat = isDict$29(chatState) ? chatState.enabled : void 0;
+		const perChat = isDict$37(chatState) ? chatState.enabled : void 0;
 		return typeof perChat === "boolean" ? perChat : this.setting("default_chat_enabled");
 	}
 	/** "Remove Messages": every message older than the injection threshold leaves the prompt. */
@@ -1279,7 +1323,7 @@ var QvinkAdapter = class extends NeighbourBase {
 	/** Qvink's record of a message, as a typed copy; null when there is none. */
 	memoryOf(index) {
 		const raw = this.host.ctx().chat[index]?.extra?.[QVINK_KEY];
-		if (!isDict$29(raw)) return null;
+		if (!isDict$37(raw)) return null;
 		const memory = {
 			memory: typeof raw.memory === "string" ? raw.memory : "",
 			remember: raw.remember === true,
@@ -2386,7 +2430,7 @@ function createCostMeter(deps) {
 	function onReplyReady(messageIndex) {
 		const message = host.ctx().chat?.[messageIndex];
 		const extra = message?.extra;
-		if (!message || !isRecord$4(extra)) return;
+		if (!message || !isRecord$5(extra)) return;
 		const chatId = safeChatId() ?? "";
 		const remember = (key) => {
 			if (seenAnlas.has(key)) return false;
@@ -2394,17 +2438,17 @@ function createCostMeter(deps) {
 			if (seenAnlas.size > MAX_SEEN) for (const old of [...seenAnlas].slice(0, MAX_SEEN / 5)) seenAnlas.delete(old);
 			return true;
 		};
-		const post = isRecord$4(extra["nai_studio"]) ? extra["nai_studio"] : void 0;
+		const post = isRecord$5(extra["nai_studio"]) ? extra["nai_studio"] : void 0;
 		const postCost = post ? positiveNumber(post["cost"]) : void 0;
 		const mediaRaw = extra["media"];
-		const media = Array.isArray(mediaRaw) ? mediaRaw.filter(isRecord$4) : [];
+		const media = Array.isArray(mediaRaw) ? mediaRaw.filter(isRecord$5) : [];
 		if (postCost !== void 0) {
 			if (remember(`${chatId}|post|${messageIndex}|${String(message.send_date)}`)) meter.recordAnlas(postCost);
 			for (const item of media) if (typeof item["url"] === "string") seenAnlas.add(`${chatId}|media|${item["url"]}`);
 			return;
 		}
 		for (const item of media) {
-			const meta = isRecord$4(item["nai_studio"]) ? item["nai_studio"] : void 0;
+			const meta = isRecord$5(item["nai_studio"]) ? item["nai_studio"] : void 0;
 			const cost = meta ? positiveNumber(meta["cost"]) : void 0;
 			if (cost === void 0 || !meta) continue;
 			const batch = typeof meta["correlationId"] === "string" ? meta["correlationId"] : void 0;
@@ -2515,9 +2559,9 @@ function createCostMeter(deps) {
 * (usageMetadata).
 */
 function readUsage(raw) {
-	if (!isRecord$4(raw)) return void 0;
-	const nested = isRecord$4(raw["message"]) ? raw["message"] : void 0;
-	const usage = isRecord$4(raw["usage"]) ? raw["usage"] : isRecord$4(raw["usageMetadata"]) ? raw["usageMetadata"] : nested && isRecord$4(nested["usage"]) ? nested["usage"] : void 0;
+	if (!isRecord$5(raw)) return void 0;
+	const nested = isRecord$5(raw["message"]) ? raw["message"] : void 0;
+	const usage = isRecord$5(raw["usage"]) ? raw["usage"] : isRecord$5(raw["usageMetadata"]) ? raw["usageMetadata"] : nested && isRecord$5(nested["usage"]) ? nested["usage"] : void 0;
 	if (!usage) return void 0;
 	const prompt = firstNumber(usage["prompt_tokens"], usage["input_tokens"], usage["promptTokenCount"]) ?? 0;
 	const completion = firstNumber(usage["completion_tokens"], usage["output_tokens"], usage["candidatesTokenCount"]) ?? 0;
@@ -2624,11 +2668,11 @@ function addDays(a, b) {
 /** Accepts whatever is on disk (other versions, hand edits) and returns valid totals for that date. */
 function sanitizeDay(raw, date) {
 	const day = emptyDay(date);
-	if (!isRecord$4(raw) || raw["date"] !== date) return day;
+	if (!isRecord$5(raw) || raw["date"] !== date) return day;
 	day.totalUsd = nonNegative(raw["totalUsd"]);
 	day.bySource = numberMap(raw["bySource"]);
 	day.byTask = numberMap(raw["byTask"]);
-	const tokens = isRecord$4(raw["tokens"]) ? raw["tokens"] : {};
+	const tokens = isRecord$5(raw["tokens"]) ? raw["tokens"] : {};
 	day.tokens = {
 		prompt: nonNegative(tokens["prompt"]),
 		completion: nonNegative(tokens["completion"])
@@ -2636,7 +2680,7 @@ function sanitizeDay(raw, date) {
 	day.requests = nonNegative(raw["requests"]);
 	day.estimated = nonNegative(raw["estimated"]);
 	day.anlas = nonNegative(raw["anlas"]);
-	day.recent = Array.isArray(raw["recent"]) ? raw["recent"].filter((entry) => isRecord$4(entry) && typeof entry["at"] === "number" && typeof entry["source"] === "string").slice(-200) : [];
+	day.recent = Array.isArray(raw["recent"]) ? raw["recent"].filter((entry) => isRecord$5(entry) && typeof entry["at"] === "number" && typeof entry["source"] === "string").slice(-200) : [];
 	return day;
 }
 function limitReached(limit, totalUsd) {
@@ -2645,7 +2689,7 @@ function limitReached(limit, totalUsd) {
 function qvinkInstalled() {
 	return typeof globalThis["memory_intercept_messages"] === "function";
 }
-function isRecord$4(value) {
+function isRecord$5(value) {
 	return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 function firstNumber(...values) {
@@ -2660,7 +2704,7 @@ function positiveNumber(value) {
 }
 function numberMap(value) {
 	const out = {};
-	if (!isRecord$4(value)) return out;
+	if (!isRecord$5(value)) return out;
 	for (const [key, item] of Object.entries(value)) {
 		const n = nonNegative(item);
 		if (n > 0) out[key] = n;
@@ -2779,9 +2823,9 @@ function createI18n(resolveLocale) {
 var INBOX_KIND = "inbox";
 var DEFAULT_TTL_MS = 12096e5;
 var CAP = 200;
-var PUT_ATTEMPTS$1 = 3;
+var PUT_ATTEMPTS$4 = 3;
 var SNOOZE_GRACE_MS = 864e5;
-function newId$2() {
+function newId$3() {
 	return `in-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 function jsonCopy$4(value) {
@@ -2830,7 +2874,7 @@ function createInbox(deps, options = {}) {
 	const mutate = (change) => {
 		const job = async () => {
 			const startedIn = generation;
-			for (let attempt = 0; attempt < PUT_ATTEMPTS$1; attempt++) {
+			for (let attempt = 0; attempt < PUT_ATTEMPTS$4; attempt++) {
 				if (generation !== startedIn) {
 					log.warn("chat changed during an inbox update; the update was dropped");
 					return;
@@ -2850,7 +2894,7 @@ function createInbox(deps, options = {}) {
 					return result;
 				}
 			}
-			log.error(`inbox could not be saved after ${PUT_ATTEMPTS$1} attempts`);
+			log.error(`inbox could not be saved after ${PUT_ATTEMPTS$4} attempts`);
 		};
 		const next = chain.then(job, job);
 		chain = next.catch(() => void 0);
@@ -2929,10 +2973,11 @@ function createInbox(deps, options = {}) {
 		return cards.filter((card) => !expired(card, now) && !(card.snoozedUntil !== void 0 && card.snoozedUntil > now));
 	};
 	return {
-		registerApplier(kind, apply, stillValid) {
+		registerApplier(kind, apply, stillValid, onReject) {
 			const entry = {
 				apply,
-				stillValid
+				stillValid,
+				onReject
 			};
 			appliers.set(kind, entry);
 			return () => {
@@ -2942,7 +2987,7 @@ function createInbox(deps, options = {}) {
 		async add(proposal, addOptions) {
 			const now = Date.now();
 			const card = {
-				id: newId$2(),
+				id: newId$3(),
 				module: proposal.module,
 				kind: proposal.kind,
 				title: proposal.title,
@@ -3021,7 +3066,13 @@ function createInbox(deps, options = {}) {
 		},
 		async reject(id) {
 			const removed = await removeCard(id);
-			if (removed) autonomy.record(removed.kind, "rejected");
+			if (!removed) return;
+			autonomy.record(removed.kind, "rejected");
+			try {
+				await appliers.get(removed.kind)?.onReject?.(removed.payload);
+			} catch (error) {
+				log.warn(`${removed.kind}: reject handler failed`, error);
+			}
 		},
 		async snooze(id, ms) {
 			await mutate((list, now) => {
@@ -3058,8 +3109,8 @@ function createInbox(deps, options = {}) {
 var JOURNAL_KIND = "journal";
 var RETENTION_MS = 2592e6;
 var MAX_RECORDS = 2e3;
-var PUT_ATTEMPTS = 3;
-function newId$1() {
+var PUT_ATTEMPTS$3 = 3;
+function newId$2() {
 	return `j-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 /** JSON copy: the journal is stored as JSON, so what is kept in memory must look the same. */
@@ -3104,7 +3155,7 @@ function createJournal(deps, options = {}) {
 	/** Read-modify-write of one chat's journal with retries when another tab wrote first. */
 	const mutate = (chatId, change) => {
 		const job = async () => {
-			for (let attempt = 0; attempt < PUT_ATTEMPTS; attempt++) {
+			for (let attempt = 0; attempt < PUT_ATTEMPTS$3; attempt++) {
 				const doc = await readDoc(chatId);
 				if (!change(doc.records)) return true;
 				trim(doc.records, Date.now());
@@ -3119,7 +3170,7 @@ function createJournal(deps, options = {}) {
 					return true;
 				}
 			}
-			log.error(`journal of this chat could not be saved after ${PUT_ATTEMPTS} attempts`);
+			log.error(`journal of this chat could not be saved after ${PUT_ATTEMPTS$3} attempts`);
 			return false;
 		};
 		const next = chain.then(job, job);
@@ -3217,7 +3268,7 @@ function createJournal(deps, options = {}) {
 			const chatId = host.chatId();
 			const record = {
 				...jsonCopy$3(action),
-				id: newId$1(),
+				id: newId$2(),
 				at: Date.now(),
 				chatId
 			};
@@ -3586,7 +3637,7 @@ function createLlmClient(deps) {
 			if (outcome.kind !== "error") return outcome;
 			const delay = backoff[attempt];
 			if (delay === void 0 || !retryable(outcome.error, useSchema)) return outcome;
-			log.debug(`request ${request.task} via ${profileId} failed, retry ${attempt + 1}`, errorText$3(outcome.error));
+			log.debug(`request ${request.task} via ${profileId} failed, retry ${attempt + 1}`, errorText$4(outcome.error));
 			if (!await sleep(delay, request.signal)) return { kind: "aborted" };
 		}
 	}
@@ -3609,12 +3660,12 @@ function createLlmClient(deps) {
 					continue;
 				}
 				failed(profileId);
-				log.warn(`request ${request.task} via ${profileId} failed`, errorText$3(sent.error));
+				log.warn(`request ${request.task} via ${profileId} failed`, errorText$4(sent.error));
 				return {
 					final: false,
 					result: {
 						ok: false,
-						error: `transport: ${errorText$3(sent.error)}`
+						error: `transport: ${errorText$4(sent.error)}`
 					}
 				};
 			}
@@ -3815,11 +3866,11 @@ function extractReply(raw) {
 		reply.text = raw;
 		return reply;
 	}
-	if (!isRecord$3(raw)) return reply;
+	if (!isRecord$4(raw)) return reply;
 	const choices = raw["choices"];
-	const choice = Array.isArray(choices) && isRecord$3(choices[0]) ? choices[0] : void 0;
+	const choice = Array.isArray(choices) && isRecord$4(choices[0]) ? choices[0] : void 0;
 	if (choice) {
-		const message = isRecord$3(choice["message"]) ? choice["message"] : void 0;
+		const message = isRecord$4(choice["message"]) ? choice["message"] : void 0;
 		if (message) {
 			reply.text = contentText(message["content"]);
 			if (Array.isArray(message["tool_calls"])) reply.toolCalls = [...message["tool_calls"]];
@@ -3833,7 +3884,7 @@ function extractReply(raw) {
 		return reply;
 	}
 	if (Array.isArray(raw["content"])) {
-		const blocks = raw["content"].filter(isRecord$3);
+		const blocks = raw["content"].filter(isRecord$4);
 		reply.text = blocks.filter((block) => block["type"] === "text" && typeof block["text"] === "string").map((block) => String(block["text"])).join("\n\n");
 		for (const block of blocks) {
 			if (block["type"] !== "tool_use" || typeof block["name"] !== "string") continue;
@@ -3853,14 +3904,14 @@ function extractReply(raw) {
 		if (raw["stop_reason"] === "refusal") reply.refusal = true;
 		return reply;
 	}
-	const message = isRecord$3(raw["message"]) ? raw["message"] : void 0;
+	const message = isRecord$4(raw["message"]) ? raw["message"] : void 0;
 	if (message) {
 		reply.text = contentText(message["content"]);
 		return reply;
 	}
 	const candidates = raw["candidates"];
-	const candidate = Array.isArray(candidates) && isRecord$3(candidates[0]) ? candidates[0] : void 0;
-	const content = candidate && isRecord$3(candidate["content"]) ? candidate["content"] : void 0;
+	const candidate = Array.isArray(candidates) && isRecord$4(candidates[0]) ? candidates[0] : void 0;
+	const content = candidate && isRecord$4(candidate["content"]) ? candidate["content"] : void 0;
 	if (content) reply.text = contentText(content["parts"]);
 	if (typeof raw["text"] === "string" && !reply.text) reply.text = raw["text"];
 	return reply;
@@ -3868,7 +3919,7 @@ function extractReply(raw) {
 function contentText(content) {
 	if (typeof content === "string") return content;
 	if (!Array.isArray(content)) return "";
-	return content.filter(isRecord$3).filter((part) => typeof part["text"] === "string" && (part["type"] === void 0 || part["type"] === "text")).map((part) => String(part["text"])).join("");
+	return content.filter(isRecord$4).filter((part) => typeof part["text"] === "string" && (part["type"] === void 0 || part["type"] === "text")).map((part) => String(part["text"])).join("");
 }
 /** Removes reasoning blocks; text before a lone closing tag is reasoning too. */
 function stripThinking(text) {
@@ -3916,21 +3967,21 @@ function parseStructured(reply, schema) {
 * before a feature applies it. Unknown keywords are ignored.
 */
 function matchesSchema(value, schema, depth = 0) {
-	if (!isRecord$3(schema) || depth > 32) return true;
+	if (!isRecord$4(schema) || depth > 32) return true;
 	const enumValues = schema["enum"];
 	if (Array.isArray(enumValues) && !enumValues.some((item) => item === value)) return false;
 	const type = schema["type"];
 	if (typeof type === "string" && !matchesType(value, type)) return false;
 	if (Array.isArray(type) && !type.some((item) => typeof item === "string" && matchesType(value, item))) return false;
-	if (isRecord$3(value)) {
+	if (isRecord$4(value)) {
 		const required = schema["required"];
 		if (Array.isArray(required) && required.some((key) => typeof key === "string" && !(key in value))) return false;
 		const properties = schema["properties"];
-		if (isRecord$3(properties)) {
+		if (isRecord$4(properties)) {
 			for (const [key, sub] of Object.entries(properties)) if (key in value && !matchesSchema(value[key], sub, depth + 1)) return false;
 		}
 	}
-	if (Array.isArray(value) && isRecord$3(schema["items"])) {
+	if (Array.isArray(value) && isRecord$4(schema["items"])) {
 		const items = schema["items"];
 		if (!value.every((item) => matchesSchema(item, items, depth + 1))) return false;
 	}
@@ -3938,7 +3989,7 @@ function matchesSchema(value, schema, depth = 0) {
 }
 function matchesType(value, type) {
 	switch (type) {
-		case "object": return isRecord$3(value);
+		case "object": return isRecord$4(value);
 		case "array": return Array.isArray(value);
 		case "string": return typeof value === "string";
 		case "number": return typeof value === "number" && Number.isFinite(value);
@@ -3975,7 +4026,7 @@ function looksLikeRefusal(text) {
 	});
 }
 /** Messages of an error and its causes (ST wraps failures as Error('API request failed', { cause })). */
-function errorText$3(error) {
+function errorText$4(error) {
 	const parts = [];
 	let current = error;
 	for (let depth = 0; current !== void 0 && current !== null && depth < 5; depth++) if (current instanceof Error) {
@@ -3997,12 +4048,12 @@ function isAbortError(error) {
 }
 /** Configuration errors do not get better with retries. */
 function retryable(error, useSchema) {
-	const text = errorText$3(error);
+	const text = errorText$4(error);
 	if (/Profile not found|Connection Manager is not available|does not support|Unknown API type/i.test(text)) return false;
 	return !(useSchema && schemaRejected(error));
 }
 function schemaRejected(error) {
-	return /json_schema|response_format|structured output|schema/i.test(errorText$3(error));
+	return /json_schema|response_format|structured output|schema/i.test(errorText$4(error));
 }
 function sleep(ms, signal) {
 	return new Promise((resolve) => {
@@ -4024,7 +4075,7 @@ function sleep(ms, signal) {
 function nonEmpty(value) {
 	return typeof value === "string" && value.trim() ? value : void 0;
 }
-function isRecord$3(value) {
+function isRecord$4(value) {
 	return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 function dropUndefined(value) {
@@ -4297,11 +4348,11 @@ function isTask(value) {
 	const task = value;
 	return typeof task.id === "string" && typeof task.kind === "string" && typeof task.state === "string";
 }
-function errorText$2(error) {
+function errorText$3(error) {
 	if (error instanceof Error) return error.message;
 	return typeof error === "string" ? error : JSON.stringify(error);
 }
-function newId() {
+function newId$1() {
 	return `task-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 function createTaskQueue(deps, options = {}) {
@@ -4402,7 +4453,7 @@ function createTaskQueue(deps, options = {}) {
 			resolve(value);
 		}, (error) => {
 			clearTimeout(timer);
-			reject(error instanceof Error ? error : new Error(errorText$2(error)));
+			reject(error instanceof Error ? error : new Error(errorText$3(error)));
 		});
 	});
 	const scheduleRetry = (ms) => {
@@ -4461,7 +4512,7 @@ function createTaskQueue(deps, options = {}) {
 			});
 			log.debug(`task ${task.kind} done`);
 		} catch (error) {
-			const message = errorText$2(error);
+			const message = errorText$3(error);
 			log.warn(`task ${task.kind} failed (attempt ${task.attempts})`, error);
 			const retryIn = await mutate((file, now) => {
 				const live = file.tasks.find((item) => item.id === task.id);
@@ -4565,7 +4616,7 @@ function createTaskQueue(deps, options = {}) {
 					}
 				}
 				const task = {
-					id: newId(),
+					id: newId$1(),
 					kind: spec.kind,
 					dedupeKey: spec.dedupeKey,
 					payload,
@@ -4780,7 +4831,7 @@ function createCapabilities(log) {
 		} catch (error) {
 			result = {
 				ok: false,
-				detail: errorText$1(error)
+				detail: errorText$2(error)
 			};
 		}
 		if (entries.get(id) !== entry || entry.generation !== generation) return;
@@ -4845,7 +4896,7 @@ function normalize(outcome, fallbackDetail) {
 		detail: "probe returned no result"
 	};
 }
-function errorText$1(error) {
+function errorText$2(error) {
 	if (error instanceof Error) return error.message || error.name;
 	return String(error);
 }
@@ -5125,7 +5176,7 @@ function createFetchGate(log, target = globalThis) {
 		if (passThrough) return base.call(globalThis, input, init);
 		const url = requestUrl(input);
 		for (const hook of [...before]) {
-			if (!matches(hook.match, url)) continue;
+			if (!matches$2(hook.match, url)) continue;
 			try {
 				const result = await hook.fn(url, init);
 				if (result instanceof Response) return result;
@@ -5135,7 +5186,7 @@ function createFetchGate(log, target = globalThis) {
 		}
 		const response = await base.call(globalThis, input, init);
 		if (passThrough) return response;
-		const hooks = [...after].filter((hook) => matches(hook.match, url));
+		const hooks = [...after].filter((hook) => matches$2(hook.match, url));
 		if (hooks.length === 0) return response;
 		return deliver(response, url, init, hooks);
 	}
@@ -5231,7 +5282,7 @@ function requestUrl(input) {
 	if (input instanceof URL) return input.href;
 	return input.url;
 }
-function matches(pattern, url) {
+function matches$2(pattern, url) {
 	pattern.lastIndex = 0;
 	return pattern.test(url);
 }
@@ -5674,7 +5725,7 @@ function card(options) {
 	]);
 }
 /** A titled block inside a tab, with optional header actions. */
-function section(title, children, actions) {
+function section$1(title, children, actions) {
 	return el("section", { class: "maestro-section" }, [el("div", { class: "maestro-section-head" }, [el("h4", {
 		class: "maestro-section-title",
 		text: title
@@ -5906,12 +5957,12 @@ function healthTab(env) {
 				if (!alive) return;
 				clear(container);
 				container.append(el("div", { class: "maestro-view maestro-health" }, [
-					section(t("ui.health.checks"), checksView(), button({
+					section$1(t("ui.health.checks"), checksView(), button({
 						label: t("ui.health.runAll"),
 						icon: "fa-play",
 						onClick: runAll
 					})),
-					section(t("ui.health.capabilities"), capsView(), button({
+					section$1(t("ui.health.capabilities"), capsView(), button({
 						label: t("ui.health.recheck"),
 						icon: "fa-arrows-rotate",
 						onClick: async () => {
@@ -5919,7 +5970,7 @@ function healthTab(env) {
 							draw();
 						}
 					})),
-					section(t("ui.health.log"), logView())
+					section$1(t("ui.health.log"), logView())
 				]));
 			}
 			draw();
@@ -6098,7 +6149,7 @@ function diffView(before, after, t) {
 			class: "maestro-diff maestro-diff-none",
 			text: t("ui.diff.noChanges")
 		});
-		return el("div", { class: "maestro-diff" }, [renderList(before, after)]);
+		return el("div", { class: "maestro-diff" }, [renderList$1(before, after)]);
 	}
 	if (isPlainObject$1(before) || isPlainObject$1(after)) return fieldTable(jsonDiff(isPlainObject$1(before) ? before : {}, isPlainObject$1(after) ? after : {}), t);
 	if (stableStringify$2(before) === stableStringify$2(after)) return el("div", {
@@ -6126,7 +6177,7 @@ function fieldCell(field, t) {
 		text: formatValue(field.before)
 	});
 	if (typeof field.before === "string" && typeof field.after === "string") return renderParts(wordDiff(field.before, field.after), t);
-	if (isPrimitiveArray(field.before) && isPrimitiveArray(field.after)) return renderList(field.before, field.after);
+	if (isPrimitiveArray(field.before) && isPrimitiveArray(field.after)) return renderList$1(field.before, field.after);
 	return el("span", { class: "maestro-diff-change" }, [
 		el("del", {
 			class: "maestro-diff-del",
@@ -6142,7 +6193,7 @@ function fieldCell(field, t) {
 		})
 	]);
 }
-function renderList(before, after) {
+function renderList$1(before, after) {
 	const items = listDiff(before, after);
 	const nodes = [];
 	items.forEach((item, index) => {
@@ -6278,7 +6329,7 @@ function inboxTab(env) {
 						}) : t("ui.inbox.acceptAllDone", { accepted }), { level: failed ? "warn" : "info" });
 					}
 				});
-				container.append(el("div", { class: "maestro-view maestro-inbox" }, [section(t("ui.inbox.title"), cards.length ? el("div", { class: "maestro-cards" }, cards.map(cardView)) : emptyState(t("ui.inbox.empty")), cards.length ? acceptAll : void 0)]));
+				container.append(el("div", { class: "maestro-view maestro-inbox" }, [section$1(t("ui.inbox.title"), cards.length ? el("div", { class: "maestro-cards" }, cards.map(cardView)) : emptyState(t("ui.inbox.empty")), cards.length ? acceptAll : void 0)]));
 			};
 			draw();
 			const later = coalesce(draw, 50);
@@ -6439,7 +6490,7 @@ function journalTab(env) {
 	})]);
 	const statsView = () => {
 		const stats = [...env.autonomy.stats()].sort((a, b) => a.kind.localeCompare(b.kind));
-		return section(t("ui.journal.stats"), table([
+		return section$1(t("ui.journal.stats"), table([
 			{
 				key: "kind",
 				label: t("ui.journal.kind"),
@@ -6506,7 +6557,7 @@ function journalTab(env) {
 						draw();
 					}
 				});
-				container.append(el("div", { class: "maestro-view maestro-journal" }, [section(t("ui.journal.title"), records.length ? el("div", { class: "maestro-journal-list" }, records.map((record) => recordView(record, draw))) : emptyState(t("ui.journal.empty"), "fa-feather"), [filterSelect, button({
+				container.append(el("div", { class: "maestro-view maestro-journal" }, [section$1(t("ui.journal.title"), records.length ? el("div", { class: "maestro-journal-list" }, records.map((record) => recordView(record, draw))) : emptyState(t("ui.journal.empty"), "fa-feather"), [filterSelect, button({
 					icon: "fa-arrows-rotate",
 					title: t("ui.refresh"),
 					kind: "ghost",
@@ -6689,7 +6740,7 @@ function overviewTab(env) {
 	};
 	const inboxBlock = () => {
 		const count = env.inbox.count();
-		return section(t("ui.overview.inbox"), count ? el("div", { class: "maestro-row" }, [el("span", { text: t("ui.overview.inboxCount", { count }) }), button({
+		return section$1(t("ui.overview.inbox"), count ? el("div", { class: "maestro-row" }, [el("span", { text: t("ui.overview.inboxCount", { count }) }), button({
 			label: t("ui.overview.openInbox"),
 			icon: "fa-inbox",
 			onClick: () => shell.openPult("inbox")
@@ -6697,7 +6748,7 @@ function overviewTab(env) {
 	};
 	const modeBlock = () => {
 		const core = env.settings.core();
-		return section(t("ui.overview.mode"), [segmented({
+		return section$1(t("ui.overview.mode"), [segmented({
 			value: core.mode,
 			label: t("ui.overview.mode"),
 			options: MODES.map((mode) => ({
@@ -6737,11 +6788,11 @@ function overviewTab(env) {
 				cell: ([, usd]) => formatUsd(usd, i18n)
 			}], sources, { caption: t("ui.cost.bySource") }) : null
 		];
-		return section(t("ui.overview.cost"), children);
+		return section$1(t("ui.overview.cost"), children);
 	};
 	const stackBlock = () => {
 		const groups = groupCapabilities(env.caps.report());
-		if (!groups.size) return section(t("ui.overview.stack"), emptyState(t("ui.overview.stackEmpty"), "fa-plug"));
+		if (!groups.size) return section$1(t("ui.overview.stack"), emptyState(t("ui.overview.stackEmpty"), "fa-plug"));
 		const rows = [...groups.entries()].map(([prefix, items]) => {
 			const ok = items.filter((item) => item.ok).length;
 			const state = ok === items.length ? "ok" : ok === 0 ? "error" : "warn";
@@ -6763,7 +6814,7 @@ function overviewTab(env) {
 				failing.length ? el("details", { class: "maestro-stack-missing" }, [el("summary", { text: t("ui.overview.capsMissing", { count: failing.length }) }), el("ul", {}, failing.map((item) => el("li", { text: item.detail ? `${item.id} — ${item.detail}` : item.id })))]) : null
 			]);
 		});
-		return section(t("ui.overview.stack"), el("div", { class: "maestro-stack" }, rows));
+		return section$1(t("ui.overview.stack"), el("div", { class: "maestro-stack" }, rows));
 	};
 	const modulesBlock = () => {
 		const list = env.modules.list().sort((a, b) => a.module.stage - b.module.stage || a.module.id.localeCompare(b.module.id));
@@ -6773,7 +6824,7 @@ function overviewTab(env) {
 			if (item.missing.length) return badge(t("ui.modules.blocked"), "warn");
 			return badge(t("ui.modules.stopped"), "warn");
 		};
-		return section(t("ui.overview.modules"), table([
+		return section$1(t("ui.overview.modules"), table([
 			{
 				key: "stage",
 				label: t("ui.modules.stage"),
@@ -6824,7 +6875,7 @@ function overviewTab(env) {
 				onClick: () => notice.action?.run()
 			}) : null
 		]))) : emptyState(t("ui.overview.noticesEmpty"), "fa-bell-slash");
-		return section(t("ui.overview.notices"), list, notices.length ? button({
+		return section$1(t("ui.overview.notices"), list, notices.length ? button({
 			label: t("ui.overview.clearNotices"),
 			icon: "fa-broom",
 			kind: "ghost",
@@ -7312,7 +7363,7 @@ function settingsTab(env) {
 		settings.save();
 		settings.notify(path);
 	};
-	const generalBlock = () => section(t("ui.settings.general"), [
+	const generalBlock = () => section$1(t("ui.settings.general"), [
 		field$1(t("ui.settings.language"), select({
 			value: core().uiLanguage,
 			label: t("ui.settings.language"),
@@ -7351,7 +7402,7 @@ function settingsTab(env) {
 	]);
 	const budgetBlock = () => {
 		const limit = core().dailyLimit;
-		return section(t("ui.settings.budget"), [
+		return section$1(t("ui.settings.budget"), [
 			field$1(t("ui.settings.backgroundCap"), numberInput({
 				value: core().backgroundDailyCapUsd,
 				min: 0,
@@ -7407,7 +7458,7 @@ function settingsTab(env) {
 	};
 	const profilesBlock = () => {
 		const profiles = supportedProfiles();
-		if (!profiles) return section(t("ui.settings.profiles"), banner(t("ui.settings.noConnectionManager"), "warn", "fa-plug-circle-xmark"));
+		if (!profiles) return section$1(t("ui.settings.profiles"), banner(t("ui.settings.noConnectionManager"), "warn", "fa-plug-circle-xmark"));
 		const stored = core().profiles;
 		const tasks = [...BUILTIN_PROFILE_TASKS, ...profileTasks().filter((task) => !BUILTIN_PROFILE_TASKS.some((builtin) => builtin.id === task.id))];
 		for (const id of Object.keys(stored)) if (!tasks.some((task) => task.id === id)) tasks.push({
@@ -7439,7 +7490,7 @@ function settingsTab(env) {
 				}
 			}));
 		});
-		return section(t("ui.settings.profiles"), [el("div", {
+		return section$1(t("ui.settings.profiles"), [el("div", {
 			class: "maestro-hint",
 			text: t("ui.settings.profilesHint")
 		}), ...rows]);
@@ -7447,7 +7498,7 @@ function settingsTab(env) {
 	const autonomyBlock = () => {
 		const stored = core().autonomy;
 		const kinds = [.../* @__PURE__ */ new Set([...env.autonomy.stats().map((stat) => stat.kind), ...Object.keys(stored)])].sort();
-		if (!kinds.length) return section(t("ui.settings.autonomy"), emptyState(t("ui.settings.autonomyEmpty"), "fa-scale-balanced"));
+		if (!kinds.length) return section$1(t("ui.settings.autonomy"), emptyState(t("ui.settings.autonomyEmpty"), "fa-scale-balanced"));
 		const options = [{
 			value: "",
 			label: t("ui.settings.autonomyDefault")
@@ -7455,7 +7506,7 @@ function settingsTab(env) {
 			value: level,
 			label: t(`ui.autonomy.${level}`)
 		}))];
-		return section(t("ui.settings.autonomy"), [el("div", {
+		return section$1(t("ui.settings.autonomy"), [el("div", {
 			class: "maestro-hint",
 			text: t("ui.settings.autonomyHint")
 		}), ...kinds.map((kind) => field$1(kind, select({
@@ -7471,8 +7522,8 @@ function settingsTab(env) {
 	};
 	const modulesBlock = (redraw) => {
 		const list = env.modules.list().sort((a, b) => a.module.stage - b.module.stage || a.module.id.localeCompare(b.module.id));
-		if (!list.length) return section(t("ui.settings.modules"), emptyState(t("ui.modules.none"), "fa-puzzle-piece"));
-		return section(t("ui.settings.modules"), list.map((item) => el("div", { class: "maestro-module-row" }, [toggle({
+		if (!list.length) return section$1(t("ui.settings.modules"), emptyState(t("ui.modules.none"), "fa-puzzle-piece"));
+		return section$1(t("ui.settings.modules"), list.map((item) => el("div", { class: "maestro-module-row" }, [toggle({
 			label: `${t(item.module.titleKey)} (${item.module.id})`,
 			checked: item.enabled,
 			onChange: async (checked) => {
@@ -7515,7 +7566,7 @@ function settingsTab(env) {
 			kind: action.danger ? "danger" : "default",
 			onClick: () => runAction(action.id)
 		}));
-		return section(t("ui.settings.data"), [
+		return section$1(t("ui.settings.data"), [
 			el("div", { class: "maestro-actions" }, [...builtin, ...extra]),
 			el("div", {
 				class: "maestro-hint",
@@ -8116,7 +8167,7 @@ function tasksTab(env) {
 			const draw = () => {
 				clear(container);
 				const list = [...env.tasks.list()].sort((a, b) => STATE_ORDER[a.state] - STATE_ORDER[b.state] || b.createdAt - a.createdAt);
-				container.append(el("div", { class: "maestro-view maestro-tasks" }, [section(t("ui.tasks.title"), table([
+				container.append(el("div", { class: "maestro-view maestro-tasks" }, [section$1(t("ui.tasks.title"), table([
 					{
 						key: "kind",
 						label: t("ui.tasks.kind"),
@@ -8804,15 +8855,15 @@ var LORE_TAG_ORDER = [
 	"maestro.book",
 	"constant"
 ];
-function isDict$27(value) {
+function isDict$35(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
-function strings$5(value) {
+function strings$10(value) {
 	return Array.isArray(value) ? value.filter((item) => typeof item === "string" && !!item) : [];
 }
 /** Canon items carry `extensions.maestro` with a `kind` (CanonMeta); overrides keep the base book's name. */
 function isCanonMeta$1(extensions) {
-	return isDict$27(extensions) && isDict$27(extensions.maestro) && typeof extensions.maestro.kind === "string";
+	return isDict$35(extensions) && isDict$35(extensions.maestro) && typeof extensions.maestro.kind === "string";
 }
 function tagsFor(entry, context, hasLocalizerMarker) {
 	const tags = [];
@@ -8843,20 +8894,20 @@ function desLinkedBooks(settings) {
 		autoLinked: [],
 		workshop: []
 	};
-	if (!isDict$27(settings)) return links;
-	const lorebook = isDict$27(settings.lorebook) ? settings.lorebook : {};
-	const campaigns = isDict$27(lorebook.campaigns) ? lorebook.campaigns : {};
+	if (!isDict$35(settings)) return links;
+	const lorebook = isDict$35(settings.lorebook) ? settings.lorebook : {};
+	const campaigns = isDict$35(lorebook.campaigns) ? lorebook.campaigns : {};
 	const all = /* @__PURE__ */ new Set();
-	for (const campaign of Object.values(campaigns)) if (isDict$27(campaign)) for (const book of strings$5(campaign.books)) all.add(book);
+	for (const campaign of Object.values(campaigns)) if (isDict$35(campaign)) for (const book of strings$10(campaign.books)) all.add(book);
 	const active = typeof lorebook.activeCampaignId === "string" ? campaigns[lorebook.activeCampaignId] : void 0;
-	const campaign = new Set(strings$5(lorebook.campaignActivated));
-	if (isDict$27(active)) for (const book of strings$5(active.books)) campaign.add(book);
+	const campaign = new Set(strings$10(lorebook.campaignActivated));
+	if (isDict$35(active)) for (const book of strings$10(active.books)) campaign.add(book);
 	links.campaign = [...campaign];
 	links.campaignAll = [...all];
-	links.autoLinked = strings$5(lorebook.autoLinked);
-	const injections = isDict$27(settings.characterInjection) ? settings.characterInjection : {};
+	links.autoLinked = strings$10(lorebook.autoLinked);
+	const injections = isDict$35(settings.characterInjection) ? settings.characterInjection : {};
 	const workshop = /* @__PURE__ */ new Set();
-	for (const injection of Object.values(injections)) if (isDict$27(injection) && typeof injection.lorebook === "string" && injection.lorebook) workshop.add(injection.lorebook);
+	for (const injection of Object.values(injections)) if (isDict$35(injection) && typeof injection.lorebook === "string" && injection.lorebook) workshop.add(injection.lorebook);
 	links.workshop = [...workshop];
 	return links;
 }
@@ -8910,16 +8961,16 @@ function ensureJournal(doc) {
 	const raw = doc;
 	raw.v = 1;
 	if (!Array.isArray(raw.worlds)) raw.worlds = [];
-	if (!isDict$27(raw.titles)) raw.titles = {};
+	if (!isDict$35(raw.titles)) raw.titles = {};
 	if (!Array.isArray(raw.records)) raw.records = [];
-	const stats = isDict$27(raw.stats) ? raw.stats : {};
+	const stats = isDict$35(raw.stats) ? raw.stats : {};
 	raw.stats = {
 		turns: typeof stats.turns === "number" ? stats.turns : 0,
 		chars: typeof stats.chars === "number" ? stats.chars : 0,
 		canon: typeof stats.canon === "number" ? stats.canon : 0,
-		entries: isDict$27(stats.entries) ? stats.entries : {}
+		entries: isDict$35(stats.entries) ? stats.entries : {}
 	};
-	raw.records = raw.records.filter((record) => isDict$27(record) && typeof record.i === "number" && Array.isArray(record.a));
+	raw.records = raw.records.filter((record) => isDict$35(record) && typeof record.i === "number" && Array.isArray(record.a));
 	return raw;
 }
 function worldIndex(doc, name) {
@@ -9089,7 +9140,7 @@ function setRecordKeys(doc, record) {
 }
 /** Entries of the ENTRIES_LOADED lists, de-duplicated by world and uid. */
 function catalogFromLists(lists) {
-	if (!isDict$27(lists)) return [];
+	if (!isDict$35(lists)) return [];
 	const seen = /* @__PURE__ */ new Set();
 	const entries = [];
 	for (const name of [
@@ -9101,7 +9152,7 @@ function catalogFromLists(lists) {
 		const list = lists[name];
 		if (!Array.isArray(list)) continue;
 		for (const raw of list) {
-			if (!isDict$27(raw) || typeof raw.world !== "string") continue;
+			if (!isDict$35(raw) || typeof raw.world !== "string") continue;
 			const uid = Number(raw.uid);
 			if (!Number.isFinite(uid)) continue;
 			const id = `${raw.world}\u0000${uid}`;
@@ -9214,7 +9265,7 @@ function bookVersion(name) {
 function isOldBookName(name) {
 	return OLD_NAME_RE.test(name);
 }
-function compareVersions$1(a, b) {
+function compareVersions$2(a, b) {
 	const length = Math.max(a.length, b.length);
 	for (let i = 0; i < length; i++) {
 		const diff = (a[i] ?? -1) - (b[i] ?? -1);
@@ -9229,7 +9280,7 @@ function compareVersions$1(a, b) {
 function compareBookRecency(a, b, sizes = /* @__PURE__ */ new Map()) {
 	const oldA = isOldBookName(a);
 	if (oldA !== isOldBookName(b)) return oldA ? -1 : 1;
-	const version = compareVersions$1(bookVersion(a), bookVersion(b));
+	const version = compareVersions$2(bookVersion(a), bookVersion(b));
 	if (version !== 0) return version;
 	const size = (sizes.get(a) ?? 0) - (sizes.get(b) ?? 0);
 	if (size !== 0) return size;
@@ -9376,7 +9427,7 @@ var ROLE_IDS = [
 var STICKY_ROLES = /* @__PURE__ */ new Set(["chat", "npc"]);
 /** Share of character archives that makes a book an archive book even outside CK's repo list. */
 var ARCHIVE_SHARE = .5;
-function isDict$26(value) {
+function isDict$34(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function isRoleId(value) {
@@ -9393,13 +9444,13 @@ function isBackupBookName(name) {
 	return /\(backup/i.test(name) || /\.carrot_backup$/i.test(name.trim());
 }
 function entriesOf$2(data) {
-	const entries = isDict$26(data) && isDict$26(data.entries) ? data.entries : {};
-	return Object.values(entries).filter(isDict$26);
+	const entries = isDict$34(data) && isDict$34(data.entries) ? data.entries : {};
+	return Object.values(entries).filter(isDict$34);
 }
 function maestroRoleOf(data) {
-	const extensions = isDict$26(data) ? data.extensions : void 0;
-	const maestro = isDict$26(extensions) ? extensions.maestro : void 0;
-	return isDict$26(maestro) && typeof maestro.role === "string" ? maestro.role : null;
+	const extensions = isDict$34(data) ? data.extensions : void 0;
+	const maestro = isDict$34(extensions) ? extensions.maestro : void 0;
+	return isDict$34(maestro) && typeof maestro.role === "string" ? maestro.role : null;
 }
 /** Classifies a loaded book (`{entries, extensions}`) with the BunnyMo heuristics. */
 function contentFacts(book, data) {
@@ -9429,11 +9480,11 @@ function joined(value) {
 * Settings such as order or position do not change the kind of a book and are left out.
 */
 function bookFingerprint(data) {
-	const entries = isDict$26(data) && isDict$26(data.entries) ? data.entries : {};
+	const entries = isDict$34(data) && isDict$34(data.entries) ? data.entries : {};
 	const parts = [];
 	for (const key of Object.keys(entries).sort((a, b) => Number(a) - Number(b) || (a < b ? -1 : a > b ? 1 : 0))) {
 		const entry = entries[key];
-		if (!isDict$26(entry)) continue;
+		if (!isDict$34(entry)) continue;
 		parts.push([
 			key,
 			joined(entry.key),
@@ -9498,7 +9549,7 @@ function emptyRegistry() {
 	};
 }
 function readFacts(value) {
-	if (!isDict$26(value)) return void 0;
+	if (!isDict$34(value)) return void 0;
 	const bunnymo = value.bunnymo === "core" || value.bunnymo === "pack" ? value.bunnymo : null;
 	const number = (field) => typeof field === "number" && Number.isFinite(field) && field >= 0 ? field : 0;
 	return {
@@ -9511,16 +9562,16 @@ function readFacts(value) {
 /** A stored registry with junk records dropped. */
 function readRegistry(raw) {
 	const registry = emptyRegistry();
-	const books = isDict$26(raw) && isDict$26(raw.books) ? raw.books : {};
+	const books = isDict$34(raw) && isDict$34(raw.books) ? raw.books : {};
 	for (const [book, record] of Object.entries(books)) {
-		if (!book || !isDict$26(record) || !isRoleId(record.role)) continue;
+		if (!book || !isDict$34(record) || !isRoleId(record.role)) continue;
 		const item = {
 			role: record.role,
 			source: record.source === "user" ? "user" : "auto",
 			fingerprint: typeof record.fingerprint === "string" ? record.fingerprint : "",
 			at: typeof record.at === "number" ? record.at : 0
 		};
-		if (isDict$26(record.pack) && typeof record.pack.name === "string") {
+		if (isDict$34(record.pack) && typeof record.pack.name === "string") {
 			item.pack = { name: record.pack.name };
 			if (typeof record.pack.version === "string") item.pack.version = record.pack.version;
 		}
@@ -9550,7 +9601,7 @@ function sameRecord(a, b) {
 }
 //#endregion
 //#region src/domain/roles-meta.ts
-function isDict$25(value) {
+function isDict$33(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function emptyEntryMetaFile() {
@@ -9576,15 +9627,15 @@ function parseEntryMetaKey(key) {
 }
 /** Hash of what the entry says: its content (keys and settings may change without invalidating a type/passport). */
 function entryContentHash(entry) {
-	const content = isDict$25(entry) ? entry.content : void 0;
+	const content = isDict$33(entry) ? entry.content : void 0;
 	return stableHash(typeof content === "string" ? content : "");
 }
 /** Content hashes of every entry of a book (`data.entries`), by uid. */
 function entryHashes(data) {
 	const hashes = /* @__PURE__ */ new Map();
-	const entries = isDict$25(data) && isDict$25(data.entries) ? data.entries : {};
+	const entries = isDict$33(data) && isDict$33(data.entries) ? data.entries : {};
 	for (const [key, entry] of Object.entries(entries)) {
-		if (!isDict$25(entry)) continue;
+		if (!isDict$33(entry)) continue;
 		const uid = typeof entry.uid === "number" && Number.isInteger(entry.uid) ? entry.uid : Number(key);
 		if (Number.isInteger(uid)) hashes.set(uid, entryContentHash(entry));
 	}
@@ -9593,9 +9644,9 @@ function entryHashes(data) {
 /** A stored sidecar file with junk records dropped. */
 function readEntryMetaFile(raw) {
 	const file = emptyEntryMetaFile();
-	const entries = isDict$25(raw) && isDict$25(raw.entries) ? raw.entries : {};
+	const entries = isDict$33(raw) && isDict$33(raw.entries) ? raw.entries : {};
 	for (const [key, record] of Object.entries(entries)) {
-		if (!parseEntryMetaKey(key) || !isDict$25(record) || !isDict$25(record.meta)) continue;
+		if (!parseEntryMetaKey(key) || !isDict$33(record) || !isDict$33(record.meta)) continue;
 		if (typeof record.contentHash !== "string") continue;
 		file.entries[key] = {
 			meta: record.meta,
@@ -9633,16 +9684,16 @@ function mergeEntryMeta(stored, local, dirty) {
 }
 //#endregion
 //#region src/features/bookRoles/context.ts
-function isDict$24(value) {
+function isDict$32(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
-function strings$4(value) {
+function strings$9(value) {
 	return Array.isArray(value) ? value.filter((item) => typeof item === "string" && !!item) : [];
 }
 /** Every lorebook ST knows (a copy), or null when this ST has no getWorldInfoNames. */
 function worldNames(app) {
 	const names = app.host.ctx().getWorldInfoNames?.();
-	return Array.isArray(names) ? strings$4(names) : null;
+	return Array.isArray(names) ? strings$9(names) : null;
 }
 /** A deep copy of a book from ST's cache (loadWorldInfo clones on get); null when it is missing or unreadable. */
 async function loadBook$1(app, book, log) {
@@ -9650,7 +9701,7 @@ async function loadBook$1(app, book, log) {
 	if (typeof load !== "function") return null;
 	try {
 		const data = await load(book);
-		return isDict$24(data) && isDict$24(data.entries) ? data : null;
+		return isDict$32(data) && isDict$32(data.entries) ? data : null;
 	} catch (error) {
 		log.debug(`lorebook ${book} did not load`, error);
 		return null;
@@ -9669,24 +9720,24 @@ async function readRoleContext(app, log) {
 	const context = emptyRoleContext();
 	const ctx = app.host.ctx();
 	const module = await worldInfoModule(app, log);
-	const settings = module && isDict$24(module.world_info) ? module.world_info : null;
+	const settings = module && isDict$32(module.world_info) ? module.world_info : null;
 	const cardBooks = /* @__PURE__ */ new Set();
 	for (const character of ctx.characters ?? []) {
 		const primary = character?.data?.extensions?.world;
 		if (typeof primary === "string" && primary) cardBooks.add(primary);
 	}
-	for (const lore of Array.isArray(settings?.charLore) ? settings.charLore : []) if (isDict$24(lore)) for (const book of strings$4(lore.extraBooks)) cardBooks.add(book);
+	for (const lore of Array.isArray(settings?.charLore) ? settings.charLore : []) if (isDict$32(lore)) for (const book of strings$9(lore.extraBooks)) cardBooks.add(book);
 	context.cardBooks = cardBooks;
 	const chatBook = ctx.chatMetadata?.world_info;
 	context.chatBook = typeof chatBook === "string" && chatBook ? chatBook : null;
 	const personaBooks = /* @__PURE__ */ new Set();
-	const power = isDict$24(ctx.powerUserSettings) ? ctx.powerUserSettings : {};
+	const power = isDict$32(ctx.powerUserSettings) ? ctx.powerUserSettings : {};
 	if (typeof power.persona_description_lorebook === "string" && power.persona_description_lorebook) personaBooks.add(power.persona_description_lorebook);
-	if (isDict$24(power.persona_descriptions)) {
-		for (const persona of Object.values(power.persona_descriptions)) if (isDict$24(persona) && typeof persona.lorebook === "string" && persona.lorebook) personaBooks.add(persona.lorebook);
+	if (isDict$32(power.persona_descriptions)) {
+		for (const persona of Object.values(power.persona_descriptions)) if (isDict$32(persona) && typeof persona.lorebook === "string" && persona.lorebook) personaBooks.add(persona.lorebook);
 	}
 	context.personaBooks = personaBooks;
-	context.globalBooks = new Set(strings$4(module?.selected_world_info));
+	context.globalBooks = new Set(strings$9(module?.selected_world_info));
 	const adapters = adaptersOf(app);
 	try {
 		context.ckRepos = new Set(adapters.ck.repoBooks());
@@ -9730,7 +9781,7 @@ function jsonCopy$2(value) {
 function sameFacts(a, b) {
 	return JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
 }
-function isRecord$2(value) {
+function isRecord$3(value) {
 	return typeof value === "object" && value !== null && typeof value.role === "string";
 }
 var BookRolesService = class {
@@ -9913,7 +9964,7 @@ var BookRolesService = class {
 		const book = change.ref.book;
 		if (typeof book !== "string" || !book) return false;
 		await this.load();
-		const before = isRecord$2(change.before) ? readRegistry({ books: { [book]: change.before } }).books[book] : null;
+		const before = isRecord$3(change.before) ? readRegistry({ books: { [book]: change.before } }).books[book] : null;
 		this.put(book, before ?? null);
 		if (!before) this.queue(book);
 		return true;
@@ -10246,6 +10297,614 @@ var bookRolesModule = {
 	}
 };
 //#endregion
+//#region src/domain/rules-packs.ts
+/** CoT Lenses pair with BSM-5 on purpose; real titles start with an emoji («💊 CoT LENS — DEPRESSION»). */
+var INTENDED_PAIR_RE$2 = /^\s*[^\sA-Za-z0-9]*\s*CoT\s+LENS/i;
+var REGEX_LIKE_RE$2 = /^\/[\s\S]+\/[a-z]*$/i;
+var CARROTCAST_RE = /carrot\s*-?\s*cast/i;
+var BUNNYFLIX_RE = /bunnyflix/i;
+/** CarrotCast entries name their streaming service near the top; the whole text is never scanned (P15). */
+var MARKER_SPAN = 600;
+function text$5(value) {
+	return typeof value === "string" ? value : "";
+}
+/** Pack key normalisation (research §1.6): trim, upper case, no spaces after `:`; regex keys stay verbatim. */
+function normalizePackKeyOf(key) {
+	const trimmed = key.trim();
+	if (REGEX_LIKE_RE$2.test(trimmed)) return trimmed;
+	return trimmed.toUpperCase().replace(/:\s+/g, ":");
+}
+/** Normalised primary keys as one string; null for constants and entries without keys (they never conflict). */
+function packKeySignature(entry) {
+	if (entry.constant === true || !Array.isArray(entry.key)) return null;
+	const keys = /* @__PURE__ */ new Set();
+	for (const key of entry.key) {
+		if (typeof key !== "string") continue;
+		const normalised = normalizePackKeyOf(key);
+		if (normalised) keys.add(normalised);
+	}
+	return keys.size ? JSON.stringify([...keys].sort()) : null;
+}
+/** Content compared up to whitespace (packs are re-saved by different editors). */
+function packContentSignature(content) {
+	return text$5(content).replace(/\s+/g, " ").trim();
+}
+/** Stable id of a conflict group: its books in code-point order. */
+function packGroupId(books) {
+	return JSON.stringify([...new Set(books)].sort());
+}
+/**
+* Groups of books with version conflicts. Only enabled, keyed, non-constant entries with text take part; a key set
+* conflicts when it is present in two or more pack books with at least two different texts. Key sets with the same
+* books form one group (one question). Key sets of the intended BSM-5 + CoT Lenses pairing are skipped.
+*/
+function findVersionConflicts(entries, isPack) {
+	const sizes = /* @__PURE__ */ new Map();
+	const order = /* @__PURE__ */ new Map();
+	const bySignature = /* @__PURE__ */ new Map();
+	for (const entry of entries) {
+		sizes.set(entry.world, (sizes.get(entry.world) ?? 0) + 1);
+		if (!order.has(entry.world)) order.set(entry.world, order.size);
+		if (entry.disable === true || !packContentSignature(entry.content) || !isPack(entry.world)) continue;
+		const signature = packKeySignature(entry);
+		if (signature === null) continue;
+		const list = bySignature.get(signature);
+		if (list) list.push(entry);
+		else bySignature.set(signature, [entry]);
+	}
+	const groups = /* @__PURE__ */ new Map();
+	for (const list of bySignature.values()) {
+		const books = [...new Set(list.map((entry) => entry.world))];
+		if (books.length < 2) continue;
+		if (list.some((entry) => INTENDED_PAIR_RE$2.test(text$5(entry.comment)))) continue;
+		if (new Set(list.map((entry) => packContentSignature(entry.content))).size < 2) continue;
+		books.sort((a, b) => (order.get(a) ?? 0) - (order.get(b) ?? 0));
+		const id = packGroupId(books);
+		let group = groups.get(id);
+		if (!group) {
+			group = {
+				id,
+				books,
+				newest: books.reduce((best, book) => compareBookRecency(book, best, sizes) > 0 ? book : best),
+				entries: [],
+				count: 0,
+				sample: []
+			};
+			groups.set(id, group);
+		}
+		group.entries.push(...list);
+		group.count += 1;
+		const first = Array.isArray(list[0]?.key) ? list[0].key.find((key) => typeof key === "string") : void 0;
+		if (typeof first === "string" && group.sample.length < 3) group.sample.push(first.trim());
+	}
+	return [...groups.values()];
+}
+/** Entries of the group that leave the prompt when `winner` stays. */
+function losersOf(group, winner) {
+	return group.books.includes(winner) ? group.entries.filter((entry) => entry.world !== winner) : [];
+}
+/** The key list holds the bare tag `<NSFW>` (ST matches keys case-insensitively by default). */
+function hasNsfwKey(keys) {
+	return Array.isArray(keys) && keys.some((key) => typeof key === "string" && key.trim().toUpperCase() === "<NSFW>");
+}
+/** An entry of a CarrotCast pack: by its book name or the BunnyFlix header near the top of the text. */
+function isCarrotCastEntry(entry) {
+	const book = text$5(entry.world) || text$5(entry.book);
+	if (CARROTCAST_RE.test(book)) return true;
+	return BUNNYFLIX_RE.test(text$5(entry.content).slice(0, MARKER_SPAN));
+}
+//#endregion
+//#region src/domain/bunnymo-mode-tags.ts
+var MBTI_CATEGORY = "MBTI";
+/**
+* Categories that pull pack entries when their pack is loaded (research §1.2, «trigger-bearing»). A tag of such a
+* category without a loaded entry pulls nothing.
+*/
+var TRIGGER_CATEGORIES = /* @__PURE__ */ new Set([
+	"SPECIES",
+	"DERE",
+	"GENRE",
+	"TRAIT",
+	"LING",
+	"BSM",
+	"MENTAL",
+	"MOOD",
+	"ANXIETY",
+	"TRAUMA",
+	"PERSONALITY",
+	"EATING",
+	"DISSOCIATIVE",
+	"ADDICTION",
+	"SLEEP",
+	"MED",
+	"REC",
+	"BENZO",
+	"SSRI",
+	"STIMULANT",
+	"CONDITION",
+	"MOBILITY",
+	"SENSORY",
+	"DOMAIN",
+	"DIVINE",
+	"BENDER",
+	MBTI_CATEGORY
+]);
+/** Categories only the model and CK read: no pack has entries keyed on them (research §1.2, core #2 and #44). */
+var INFO_CATEGORIES = /* @__PURE__ */ new Set([
+	"NAME",
+	"ATTACHMENT",
+	"CONFLICT",
+	"BOUNDARIES",
+	"FLIRTING",
+	"KINK",
+	"POWER",
+	"ORIENTATION",
+	"CHEMISTRY",
+	"AROUSAL",
+	"JEALOUSY",
+	"DECISION",
+	"COMFORT",
+	"VICE",
+	"LOYALTY",
+	"TRUST",
+	"MASK",
+	"GENDER",
+	"BUILD",
+	"HAIR",
+	"HAIRCOLOR",
+	"EYECOLOR",
+	"SKIN",
+	"SKINCOLOR",
+	"SKINTONE",
+	"STYLE",
+	"AGE",
+	"FONT",
+	"ARCHETYPE"
+]);
+/** A pack key: `<SPECIES:ELF>`, `<DEPRESSION>`, `<ENFJ-U>` (the same shape src/domain/bunnymo.ts accepts). */
+var TAG_KEY_RE$1 = /^<([A-Za-z][A-Za-z0-9_-]*)(?::([^<>]+))?>$/;
+var MBTI_VALUE_RE = /^[EI][NS][FT][JP]-[UH]$/i;
+/** Section headers and guide notes of the packs (`<SECTION:…>`, `<GENRE_GUIDE_NOTE>`, `<BENDER_PRIMER>`). */
+var META_CATEGORY_RE = /^(?:SECTION(?:_HEADER)?|[A-Z0-9_]+_(?:GUIDE(?:_NOTE)?|PRIMER|SECTION|HEADER))$/;
+/**
+* BSM-5 + CoT Lenses: the same keys on purpose. Real titles start with an emoji (`💊 CoT LENS — DEPRESSION`), so a
+* leading symbol is allowed.
+*/
+var INTENDED_PAIR_RE$1 = /^\s*[^\sA-Za-z0-9]*\s*CoT\s+LENS/i;
+/** Template categories of the core that are not tag categories. */
+var NOT_CATEGORIES = /* @__PURE__ */ new Set([
+	"BUNNYMOTAGS",
+	"TAG",
+	"SECTION"
+]);
+var TEMPLATE_TAG_RE = /<([A-Za-z][A-Za-z0-9_-]*):[^<>\n]+>/g;
+function text$4(value) {
+	return typeof value === "string" ? value : value === void 0 || value === null ? "" : String(value);
+}
+function isDict$31(value) {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+/** Entries of book data (`{entries: {uid: entry}}`) with their uid; invalid entries are skipped. */
+function entriesWithUid(data) {
+	const entries = isDict$31(data) && isDict$31(data.entries) ? data.entries : {};
+	const result = [];
+	for (const [key, entry] of Object.entries(entries)) {
+		if (!isDict$31(entry)) continue;
+		const uid = Number(entry.uid ?? key);
+		if (Number.isFinite(uid)) result.push({
+			uid,
+			entry
+		});
+	}
+	return result;
+}
+/** A pack key as a tag (upper case, value trimmed, spaces after `:` dropped); null when the key is not a tag. */
+function parseTagKey(key) {
+	const match = TAG_KEY_RE$1.exec(key.trim());
+	if (!match?.[1]) return null;
+	const name = match[1].toUpperCase();
+	if (match[2] !== void 0) {
+		const value = match[2].trim().toUpperCase();
+		if (!value) return null;
+		return {
+			tag: `<${name}:${value}>`,
+			category: name,
+			value
+		};
+	}
+	if (MBTI_VALUE_RE.test(name)) return {
+		tag: `<${name}>`,
+		category: MBTI_CATEGORY,
+		value: name
+	};
+	return {
+		tag: `<${name}>`,
+		category: name,
+		value: null
+	};
+}
+function keyList$1(entry) {
+	const list = (value) => Array.isArray(value) ? value : [];
+	return [...list(entry.key), ...list(entry.keysecondary)].filter((key) => typeof key === "string");
+}
+/** Tags of an entry's primary and secondary keys (each tag once). */
+function entryTags(entry) {
+	const seen = /* @__PURE__ */ new Set();
+	const tags = [];
+	for (const key of keyList$1(entry)) {
+		const parsed = parseTagKey(key);
+		if (!parsed || seen.has(parsed.tag)) continue;
+		seen.add(parsed.tag);
+		tags.push(parsed);
+	}
+	return tags;
+}
+/** Section headers and guide notes (`<SECTION:…>`, `<…_GUIDE_NOTE>`) are informational. */
+function isMetaTag(tag) {
+	return META_CATEGORY_RE.test(tag.category);
+}
+/** Pull or info: the core's entries, constants and entries keyed by a section/guide tag only inform. */
+function entryKind(entry, core, tags = entryTags(entry)) {
+	if (core || entry.constant === true) return "info";
+	return tags.some(isMetaTag) ? "info" : "pull";
+}
+/** Categories the core's sheet templates use (`<KEY:VALUE>` in entry text), upper case. */
+function templateCategories(entries) {
+	const categories = /* @__PURE__ */ new Set();
+	for (const { entry } of entries) for (const match of text$4(entry.content).matchAll(TEMPLATE_TAG_RE)) {
+		const name = (match[1] ?? "").toUpperCase();
+		if (name && !NOT_CATEGORIES.has(name)) categories.add(name);
+	}
+	return categories;
+}
+/** Character name of an archive entry: `<Name:…>`, else its title, else the first key. */
+function archiveNameOf(entry) {
+	const { name } = archiveTags(entry);
+	if (name) return name;
+	const comment = text$4(entry.comment).trim();
+	if (comment) return comment;
+	return keyList$1(entry)[0]?.trim() ?? "";
+}
+function compareTags(a, b) {
+	if (a.category !== b.category) return a.category < b.category ? -1 : 1;
+	return a.tag < b.tag ? -1 : a.tag > b.tag ? 1 : 0;
+}
+/**
+* The tag dictionary: every tag key of the BunnyMo books (enabled entries) with the entries it pulls, the archives
+* using it, duplicates, version conflicts and orphans.
+*/
+function buildTagDictionary(input) {
+	const tags = /* @__PURE__ */ new Map();
+	const ensure = (parsed) => {
+		let item = tags.get(parsed.tag);
+		if (!item) {
+			item = {
+				tag: {
+					tag: parsed.tag,
+					category: parsed.category,
+					value: parsed.value,
+					entries: [],
+					usedBy: [],
+					conflict: false,
+					orphan: false,
+					duplicate: false
+				},
+				texts: /* @__PURE__ */ new Map()
+			};
+			tags.set(parsed.tag, item);
+		}
+		return item;
+	};
+	for (const book of input.books) for (const { uid, entry } of book.entries) {
+		if (entry.disable === true) continue;
+		const parsed = entryTags(entry);
+		if (!parsed.length) continue;
+		const kind = entryKind(entry, book.core, parsed);
+		const content = text$4(entry.content);
+		const comment = text$4(entry.comment).trim();
+		for (const tag of parsed) {
+			const item = ensure(tag);
+			item.tag.entries.push({
+				book: book.name,
+				uid,
+				kind,
+				comment,
+				chars: content.length
+			});
+			if (kind !== "pull" || INTENDED_PAIR_RE$1.test(comment)) continue;
+			let set = item.texts.get(book.name);
+			if (!set) {
+				set = /* @__PURE__ */ new Set();
+				item.texts.set(book.name, set);
+			}
+			set.add(packContentSignature(content));
+		}
+	}
+	for (const book of input.archives) for (const { uid, entry } of book.entries) {
+		if (entry.disable === true || !isCharacterArchive(entry)) continue;
+		const name = archiveNameOf(entry);
+		const seen = /* @__PURE__ */ new Set();
+		for (const raw of archiveTags(entry).tags) {
+			const parsed = parseTagKey(raw);
+			if (!parsed || seen.has(parsed.tag)) continue;
+			seen.add(parsed.tag);
+			ensure(parsed).tag.usedBy.push({
+				book: book.name,
+				uid,
+				name
+			});
+		}
+	}
+	const info = /* @__PURE__ */ new Set([...INFO_CATEGORIES, ...input.infoCategories ?? []]);
+	for (const category of TRIGGER_CATEGORIES) info.delete(category);
+	const result = [];
+	for (const { tag, texts } of tags.values()) {
+		const books = [...texts.values()];
+		if (books.length >= 2) {
+			const first = [...books[0] ?? []].sort().join("");
+			const same = books.every((set) => [...set].sort().join("") === first);
+			tag.duplicate = same;
+			tag.conflict = !same;
+		}
+		tag.orphan = tag.usedBy.length > 0 && tag.entries.length === 0 && !info.has(tag.category);
+		result.push(tag);
+	}
+	result.sort(compareTags);
+	const categories = /* @__PURE__ */ new Map();
+	for (const tag of result) {
+		let category = categories.get(tag.category);
+		if (!category) {
+			category = {
+				id: tag.category,
+				tags: 0,
+				info: true,
+				flag: true
+			};
+			categories.set(tag.category, category);
+		}
+		category.tags += 1;
+		if (tag.entries.some((entry) => entry.kind === "pull")) category.info = false;
+		if (tag.value !== null) category.flag = false;
+	}
+	return {
+		builtAt: input.builtAt,
+		categories: [...categories.values()],
+		tags: result
+	};
+}
+/** Vocabulary of a dictionary: tags with at least one loaded entry; informational categories per INFO_CATEGORIES. */
+function tagVocabulary(dictionary, infoCategories = []) {
+	const values = /* @__PURE__ */ new Map();
+	const flags = /* @__PURE__ */ new Set();
+	for (const tag of dictionary.tags) {
+		if (!tag.entries.length) continue;
+		if (tag.value === null) {
+			flags.add(tag.tag);
+			continue;
+		}
+		let set = values.get(tag.category);
+		if (!set) {
+			set = /* @__PURE__ */ new Set();
+			values.set(tag.category, set);
+		}
+		set.add(tag.value);
+	}
+	const info = /* @__PURE__ */ new Set([...INFO_CATEGORIES, ...infoCategories]);
+	for (const category of TRIGGER_CATEGORIES) info.delete(category);
+	return {
+		values,
+		flags,
+		info
+	};
+}
+var WRITTEN_TAG_RE = /^<([^<>:\n]+)(?::([^<>\n]*))?>$/;
+var NAME_TAG_RE$1 = /^<\s*name\s*:([^<>\n]*)>$/i;
+var CYRILLIC_RE$5 = /\p{Script=Cyrillic}/u;
+var KEY_RE$1 = /^[A-Za-z][A-Za-z0-9_-]*$/;
+/** `!updatesheet` transitional markup that must never be written into a block (research §5). */
+var TRANSITIONAL_RE = /→|->|↔|\d\s*%|\b(?:FADING|STRENGTHENING|WEAKENING|EMERGING|CONVERTING)\b/i;
+var MBTI_PLACEHOLDER_RE = /^X{4}(?:-|$)/i;
+var MBTI_BARE_RE = /^[EI][NS][FT][JP]$/i;
+/** Levenshtein distance (small strings: tag values and categories). */
+function editDistance$1(a, b) {
+	if (a === b) return 0;
+	if (!a.length) return b.length;
+	if (!b.length) return a.length;
+	let previous = Array.from({ length: b.length + 1 }, (_, index) => index);
+	for (let i = 1; i <= a.length; i++) {
+		const current = [i];
+		for (let j = 1; j <= b.length; j++) {
+			const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+			current[j] = Math.min((previous[j] ?? 0) + 1, (current[j - 1] ?? 0) + 1, (previous[j - 1] ?? 0) + cost);
+		}
+		previous = current;
+	}
+	return previous[b.length] ?? 0;
+}
+/** Closest candidates (edit distance within a third of the length, or containment), best first, at most `limit`. */
+function closest(target, candidates, limit = 3) {
+	const scored = [];
+	const threshold = Math.max(2, Math.floor(target.length / 3));
+	for (const candidate of candidates) {
+		if (candidate === target) continue;
+		let score = editDistance$1(target, candidate);
+		if (score > threshold) {
+			if (!(target.length >= 3 && candidate.length >= 3 && (candidate.includes(target) || target.includes(candidate)))) continue;
+			score = threshold + Math.abs(candidate.length - target.length) / 100;
+		}
+		scored.push({
+			value: candidate,
+			score
+		});
+	}
+	scored.sort((a, b) => a.score - b.score || (a.value < b.value ? -1 : a.value > b.value ? 1 : 0));
+	return scored.slice(0, limit).map((item) => item.value);
+}
+/** A value the archive parser treats as a template placeholder (BLANK, NEW, NAME…), decided by bunnymo.ts itself. */
+function isPlaceholderValue(value) {
+	if (!value.trim() || /[<>\n]/.test(value)) return false;
+	return archiveTags({ content: `<BunnymoTags><X:${value}></BunnymoTags>` }).tags.length === 0;
+}
+/** A `<Name:…>` value that is a placeholder (`NAME`, `NAME HERE`). */
+function isPlaceholderName(value) {
+	if (!value.trim() || /[<>\n]/.test(value)) return true;
+	return !isCharacterArchive({ content: `<BunnymoTags><Name:${value}></BunnymoTags>` });
+}
+/** Writes a tag from a category and a value (`<SPECIES:ELF>`, bare MBTI and flags without a colon). */
+function formatTag(category, value) {
+	if (value === null || category === "MBTI") return `<${(value ?? category).toUpperCase()}>`;
+	return `<${category}:${value}>`;
+}
+function checkOne(raw, vocabulary, seen, mbti) {
+	const trimmed = raw.trim();
+	const written = trimmed.startsWith("<") ? trimmed : `<${trimmed}>`;
+	const name = NAME_TAG_RE$1.exec(written);
+	if (name) return isPlaceholderName((name[1] ?? "").trim()) ? {
+		tag: written,
+		ok: false,
+		reason: "placeholder"
+	} : {
+		tag: written,
+		ok: true
+	};
+	if (CYRILLIC_RE$5.test(written)) return {
+		tag: written,
+		ok: false,
+		reason: "cyrillic"
+	};
+	const match = WRITTEN_TAG_RE.exec(written);
+	const key = match?.[1]?.trim() ?? "";
+	if (!match || !KEY_RE$1.test(key)) {
+		if (MBTI_PLACEHOLDER_RE.test(written.slice(1))) return {
+			tag: written,
+			ok: false,
+			reason: "placeholder"
+		};
+		const repaired = /^<([A-Za-z][A-Za-z0-9_-]*)\s*[,;=]\s*([^<>\n]+)>$/.exec(written);
+		const suggestions = repaired?.[1] && repaired[2] ? [`<${repaired[1].toUpperCase()}:${repaired[2].trim()}>`] : [];
+		return {
+			tag: written,
+			ok: false,
+			reason: "malformed",
+			...suggestions.length ? { suggestions } : {}
+		};
+	}
+	const rawValue = match[2];
+	if (rawValue !== void 0 && (!rawValue.trim() || /[()]/.test(rawValue))) {
+		const cleaned = rawValue.replace(/\([^)]*\)?/g, "").trim();
+		const suggestions = cleaned ? [`<${key.toUpperCase()}:${cleaned.toUpperCase()}>`] : [];
+		return {
+			tag: written,
+			ok: false,
+			reason: "malformed",
+			...suggestions.length ? { suggestions } : {}
+		};
+	}
+	const parsed = parseTagKey(written);
+	if (!parsed) return {
+		tag: written,
+		ok: false,
+		reason: "malformed"
+	};
+	const { tag, category, value } = parsed;
+	if (value === null && MBTI_PLACEHOLDER_RE.test(category)) return {
+		tag,
+		ok: false,
+		reason: "placeholder"
+	};
+	if (rawValue !== void 0 && isPlaceholderValue(rawValue.trim())) return {
+		tag,
+		ok: false,
+		reason: "placeholder"
+	};
+	if (rawValue !== void 0 && TRANSITIONAL_RE.test(rawValue)) return {
+		tag,
+		ok: false,
+		reason: "transitional"
+	};
+	if (seen.has(tag)) return {
+		tag,
+		ok: false,
+		reason: "duplicate"
+	};
+	seen.add(tag);
+	if (category === "MBTI") {
+		mbti.count += 1;
+		if (mbti.count > 1) return {
+			tag,
+			ok: false,
+			reason: "duplicate"
+		};
+	}
+	if (value === null) {
+		if (vocabulary.flags.has(tag)) return {
+			tag,
+			ok: true
+		};
+		if (MBTI_BARE_RE.test(category)) return {
+			tag,
+			ok: false,
+			reason: "malformed",
+			suggestions: [`<${category}-H>`, `<${category}-U>`]
+		};
+		const suggestions = closest(tag, vocabulary.flags);
+		return {
+			tag,
+			ok: false,
+			reason: "unknownValue",
+			...suggestions.length ? { suggestions } : {}
+		};
+	}
+	const known = vocabulary.values.get(category);
+	if (known) {
+		if (known.has(value)) return {
+			tag,
+			ok: true
+		};
+		const suggestions = closest(value, known).map((item) => formatTag(category, item));
+		for (const [other, values] of vocabulary.values) if (other !== category && values.has(value) && suggestions.length < 3) suggestions.push(formatTag(other, value));
+		return {
+			tag,
+			ok: false,
+			reason: "unknownValue",
+			...suggestions.length ? { suggestions } : {}
+		};
+	}
+	if (TRIGGER_CATEGORIES.has(category)) return {
+		tag,
+		ok: false,
+		reason: "noPack"
+	};
+	if (vocabulary.info.has(category)) return {
+		tag,
+		ok: true
+	};
+	const categories = /* @__PURE__ */ new Set([
+		...vocabulary.values.keys(),
+		...vocabulary.info,
+		...TRIGGER_CATEGORIES
+	]);
+	categories.delete(MBTI_CATEGORY);
+	categories.delete("NAME");
+	const suggestions = closest(category, categories).map((item) => formatTag(item, value));
+	return {
+		tag,
+		ok: false,
+		reason: "unknownCategory",
+		...suggestions.length ? { suggestions } : {}
+	};
+}
+/**
+* Checks tags as a sheet would carry them: well-formed (CK reads only `<KEY:VALUE>`), English, no placeholder, no
+* `!updatesheet` transitional markup, no repeats (one MBTI archetype), and a loaded pack entry for every category that
+* pulls lore. Suggestions come from the vocabulary by edit distance.
+*/
+function checkTags(tags, vocabulary) {
+	const seen = /* @__PURE__ */ new Set();
+	const mbti = { count: 0 };
+	return tags.map((tag) => checkOne(tag, vocabulary, seen, mbti));
+}
+//#endregion
 //#region src/domain/canon-book.ts
 var CANON_KINDS = [
 	"override",
@@ -10277,7 +10936,7 @@ var NEVER_OVERRIDE = [...[
 	"decorators"
 ], "disable"];
 /** Override fields when the item does not list them (text and keys). */
-var DEFAULT_OVERRIDE_FIELDS = [
+var DEFAULT_OVERRIDE_FIELDS$1 = [
 	"content",
 	"key",
 	"keysecondary",
@@ -10330,7 +10989,7 @@ var WI_ENTRY_TEMPLATE = Object.freeze({
 		tags: []
 	}
 });
-function isDict$23(value) {
+function isDict$30(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /** Canon book of a chat: "Maestro · канон · <8 chars of a stable hash of the chat id>". */
@@ -10343,7 +11002,7 @@ function canonBookName(chatId) {
 */
 function copyValue$1(value) {
 	if (Array.isArray(value)) return value.map((item) => copyValue$1(item));
-	if (isDict$23(value)) {
+	if (isDict$30(value)) {
 		const out = {};
 		for (const [key, item] of Object.entries(value)) out[key] = copyValue$1(item);
 		return out;
@@ -10371,7 +11030,7 @@ function withTemplate(entry) {
 /** Fields an override replaces: the listed ones (or text and keys), never bookkeeping or `disable`. */
 function overrideFields(explicit, entry) {
 	const listed = Array.isArray(explicit) ? explicit.filter((item) => typeof item === "string") : null;
-	const base = listed && listed.length ? listed : entry ? Object.keys(entry) : [...DEFAULT_OVERRIDE_FIELDS];
+	const base = listed && listed.length ? listed : entry ? Object.keys(entry) : [...DEFAULT_OVERRIDE_FIELDS$1];
 	return [...new Set(base)].filter((field) => !NEVER_OVERRIDE.includes(field));
 }
 function hasValue$1(value) {
@@ -10385,7 +11044,7 @@ function hasValue$1(value) {
 */
 function itemOverrideFields(meta, entry) {
 	if (Array.isArray(meta.fields) && meta.fields.length) return overrideFields(meta.fields);
-	return DEFAULT_OVERRIDE_FIELDS.filter((field) => hasValue$1(entry[field]));
+	return DEFAULT_OVERRIDE_FIELDS$1.filter((field) => hasValue$1(entry[field]));
 }
 /**
 * The base entry with the override's fields (fresh arrays), keeping the base's world and uid. Works on a scan copy
@@ -10419,7 +11078,7 @@ function oneOf(list, value, fallback) {
 }
 /** Validated meta of a stored canon entry; null when the entry is not a canon item. */
 function readCanonMeta(raw) {
-	if (!isDict$23(raw) || !CANON_KINDS.includes(String(raw.kind))) return null;
+	if (!isDict$30(raw) || !CANON_KINDS.includes(String(raw.kind))) return null;
 	const meta = {
 		kind: raw.kind,
 		status: oneOf(CANON_STATUSES, raw.status, "active"),
@@ -10428,7 +11087,7 @@ function readCanonMeta(raw) {
 		updatedAt: typeof raw.updatedAt === "number" ? raw.updatedAt : 0
 	};
 	if (typeof raw.type === "string") meta.type = raw.type;
-	if (isDict$23(raw.base) && typeof raw.base.world === "string" && Number.isInteger(raw.base.uid)) {
+	if (isDict$30(raw.base) && typeof raw.base.world === "string" && Number.isInteger(raw.base.uid)) {
 		meta.base = {
 			world: raw.base.world,
 			uid: raw.base.uid,
@@ -10449,12 +11108,12 @@ function readCanonMeta(raw) {
 * editor) is a user addition; one whose meta is broken (an override without a base) is not an item.
 */
 function canonItemsOf(data) {
-	const entries = isDict$23(data) && isDict$23(data.entries) ? data.entries : {};
+	const entries = isDict$30(data) && isDict$30(data.entries) ? data.entries : {};
 	const items = [];
 	for (const [key, entry] of Object.entries(entries)) {
-		if (!isDict$23(entry)) continue;
-		const raw = (isDict$23(entry.extensions) ? entry.extensions : {}).maestro;
-		const meta = isDict$23(raw) && raw.kind !== void 0 ? readCanonMeta(raw) : {
+		if (!isDict$30(entry)) continue;
+		const raw = (isDict$30(entry.extensions) ? entry.extensions : {}).maestro;
+		const meta = isDict$30(raw) && raw.kind !== void 0 ? readCanonMeta(raw) : {
 			kind: "addition",
 			status: "active",
 			origin: "user",
@@ -10494,7 +11153,7 @@ function buildCanonEntry(uid, fields, meta, fallbackComment = "") {
 	if (!entry.comment && fallbackComment) entry.comment = fallbackComment;
 	if (meta.kind !== "addition") entry.disable = true;
 	entry.extensions = {
-		...isDict$23(fields.extensions) ? copyValue$1(fields.extensions) : {},
+		...isDict$30(fields.extensions) ? copyValue$1(fields.extensions) : {},
 		maestro: copyValue$1(meta)
 	};
 	delete entry.world;
@@ -10517,8 +11176,8 @@ function scanMarker(item) {
 function baseDriftOf(item, baseEntry) {
 	const base = item.meta.base;
 	if (!base) return null;
-	const now = isDict$23(baseEntry) && typeof baseEntry.content === "string" ? baseEntry.content : "";
-	if (isDict$23(baseEntry) && entryContentHash(baseEntry) === base.contentHash) return null;
+	const now = isDict$30(baseEntry) && typeof baseEntry.content === "string" ? baseEntry.content : "";
+	if (isDict$30(baseEntry) && entryContentHash(baseEntry) === base.contentHash) return null;
 	return {
 		then: base.content ?? "",
 		now
@@ -10526,7 +11185,7 @@ function baseDriftOf(item, baseEntry) {
 }
 function stripMaestro(entry) {
 	const out = { ...entry };
-	if (isDict$23(out.extensions)) {
+	if (isDict$30(out.extensions)) {
 		const extensions = { ...out.extensions };
 		delete extensions.maestro;
 		if (Object.keys(extensions).length) out.extensions = extensions;
@@ -10603,6 +11262,4189 @@ function uniqueBookName(base, existing) {
 	}
 }
 //#endregion
+//#region src/domain/lore-match.ts
+/** World Info secondary-key logic (`world_info_logic`, WI:33). */
+var WI_LOGIC = {
+	AND_ANY: 0,
+	NOT_ALL: 1,
+	NOT_ANY: 2,
+	AND_ALL: 3
+};
+/** The separator ST puts before every scanned message (WI:290-292). */
+var MATCHER = "";
+var JOINER = `\n${MATCHER}`;
+/** Port of ST's `parseRegexFromString` (WI:2901): `/pattern/flags` → RegExp, anything else → null. */
+function parseRegexKey$1(input) {
+	const match = /^\/([\w\W]+?)\/([gimsuy]*)$/.exec(input);
+	if (!match) return null;
+	let pattern = match[1] ?? "";
+	const flags = match[2] ?? "";
+	if (/(^|[^\\])\//.test(pattern)) return null;
+	pattern = pattern.replace("\\/", "/");
+	try {
+		return new RegExp(pattern, flags);
+	} catch {
+		return null;
+	}
+}
+function escapeRegex(text) {
+	return text.replace(/[/\-\\^$*+?.()|[\]{}]/g, "\\$&");
+}
+/** Port of `WorldInfoBuffer.matchKeys` (WI:337-366). */
+function matchKey$1(haystack, needle, options) {
+	const regex = (options.parseRegex ?? parseRegexKey$1)(needle);
+	if (regex) return regex.test(haystack);
+	const text = options.caseSensitive ? haystack : haystack.toLowerCase();
+	const key = options.caseSensitive ? needle : needle.toLowerCase();
+	if (!options.matchWholeWords) return text.includes(key);
+	if (key.split(/\s+/).length > 1) return text.includes(key);
+	return new RegExp(`(?:^|\\W)(${escapeRegex(key)})(?:$|\\W)`).test(text);
+}
+function stringList$4(value) {
+	return Array.isArray(value) ? value.filter((item) => typeof item === "string") : [];
+}
+/** Per-entry options with ST's fallback to the global settings (`entry.caseSensitive ?? global`). */
+function entryMatchOptions(entry, globals, parseRegex) {
+	const caseSensitive = typeof entry.caseSensitive === "boolean" ? entry.caseSensitive : globals.caseSensitive;
+	const matchWholeWords = typeof entry.matchWholeWords === "boolean" ? entry.matchWholeWords : globals.matchWholeWords;
+	return parseRegex ? {
+		caseSensitive,
+		matchWholeWords,
+		parseRegex
+	} : {
+		caseSensitive,
+		matchWholeWords
+	};
+}
+var identity = (text) => text;
+function matchesAny(text, keys, options, substitute) {
+	for (const key of keys) {
+		const substituted = substitute(key);
+		if (substituted && matchKey$1(text, substituted.trim(), options)) return key;
+	}
+	return null;
+}
+/**
+* Which key activated the entry on `text`, as a short label: the primary key, plus the secondary keys that the
+* entry's logic needed (`Аня + лес`). Null when no primary key matches. When the secondary condition fails on
+* this text the primary key is still returned: the entry did activate, and the scan text is a reconstruction.
+*/
+function findTriggerKey(entry, text, globals, substitute = identity, parseRegex) {
+	const options = entryMatchOptions(entry, globals, parseRegex);
+	const primary = matchesAny(text, stringList$4(entry.key), options, substitute);
+	if (primary === null) return null;
+	const secondary = stringList$4(entry.keysecondary);
+	if (!entry.selective || secondary.length === 0) return primary;
+	const logic = typeof entry.selectiveLogic === "number" ? entry.selectiveLogic : WI_LOGIC.AND_ANY;
+	const matched = [];
+	const missed = [];
+	for (const key of secondary) {
+		const substituted = substitute(key);
+		if (substituted && matchKey$1(text, substituted.trim(), options)) matched.push(key);
+		else missed.push(key);
+	}
+	if (logic === WI_LOGIC.AND_ANY && matched.length) return `${primary} + ${matched[0]}`;
+	if (logic === WI_LOGIC.AND_ALL && !missed.length) return [primary, ...matched].join(" + ");
+	if (logic === WI_LOGIC.NOT_ALL && missed.length) return `${primary} + ¬${missed[0]}`;
+	if (logic === WI_LOGIC.NOT_ANY && !matched.length) return `${primary} + ¬(${secondary.join(", ")})`;
+	return primary;
+}
+/** Rebuilds `WorldInfoBuffer.get()` (WI:279-328) for one entry. */
+function buildScanText(input) {
+	const depth = Math.max(0, Math.floor(input.depth));
+	if (depth <= 0) return "";
+	let result = MATCHER + input.messages.slice(0, depth).map((message) => message.trim()).join(JOINER);
+	const global = input.global ?? {};
+	const flags = input.flags ?? {};
+	const pairs = [
+		[flags.matchPersonaDescription, global.personaDescription],
+		[flags.matchCharacterDescription, global.characterDescription],
+		[flags.matchCharacterPersonality, global.characterPersonality],
+		[flags.matchCharacterDepthPrompt, global.characterDepthPrompt],
+		[flags.matchScenario, global.scenario],
+		[flags.matchCreatorNotes, global.creatorNotes]
+	];
+	for (const [flag, value] of pairs) if (flag === true && value) result += JOINER + value;
+	if (input.injects?.length) result += JOINER + input.injects.join(JOINER);
+	if (input.recursion?.length) result += JOINER + input.recursion.join(JOINER);
+	return result;
+}
+/**
+* The first candidate whose content contains one of the entry's primary keys (candidates in priority order:
+* the caller lists the most recent scan loop first). Cheap: plain substring/regex tests, no secondary logic.
+*/
+function findVia(entry, candidates, globals, substitute = identity, parseRegex) {
+	const keys = stringList$4(entry.key);
+	if (!keys.length) return void 0;
+	const options = entryMatchOptions(entry, globals, parseRegex);
+	for (const candidate of candidates) {
+		if (!candidate.content) continue;
+		if (matchesAny(candidate.content, keys, options, substitute) !== null) return {
+			world: candidate.world,
+			uid: candidate.uid
+		};
+	}
+}
+//#endregion
+//#region src/domain/canon-keys.ts
+var CYRILLIC_RE$4 = /\p{Script=Cyrillic}/u;
+var LATIN_RE = /[A-Za-z]/;
+var WORD_CHAR_RE$2 = /[\p{L}\p{N}_]/u;
+var REGEX_KEY_RE = /^\/[\s\S]+\/[gimsuy]*$/;
+/** Endings dropped from a Russian name to reach a stem that also matches the other case forms. */
+var STEM_ENDING_RE = /[аяоеёьйыиуюэ]$/i;
+var MIN_STEM$1 = 3;
+function hasCyrillic$1(text) {
+	return CYRILLIC_RE$4.test(text);
+}
+function hasLatin(text) {
+	return LATIN_RE.test(text);
+}
+/** A `/pattern/flags` key (ST's regex key syntax). */
+function isRegexKey$1(key) {
+	return REGEX_KEY_RE.test(key.trim());
+}
+/** Lower case with ё folded to е: Russian texts mix both spellings. */
+function normalizeForMatch(text) {
+	return text.toLowerCase().replace(/ё/g, "е");
+}
+/**
+* Escapes a literal for a `/…/u` World Info key. Unlike ST's escapeRegex it leaves `-` alone (an escaped hyphen
+* outside a class is invalid with `u`), writes braces as classes (the macro engine eats `\{`), escapes `/` (ST
+* rejects an unescaped slash inside the pattern), matches any whitespace run between words and both е and ё.
+*/
+function escapeForKey(text) {
+	let out = "";
+	let space = false;
+	for (const char of text.trim()) {
+		if (/\s/.test(char)) {
+			if (!space) out += "\\s+";
+			space = true;
+			continue;
+		}
+		space = false;
+		if (char === "{") out += "[{]";
+		else if (char === "}") out += "[}]";
+		else if (char === "е" || char === "ё") out += "[её]";
+		else if (char === "Е" || char === "Ё") out += "[ЕЁ]";
+		else if ("\\^$.*+?()[]|/".includes(char)) out += `\\${char}`;
+		else out += char;
+	}
+	return out;
+}
+/** Drops one final vowel, soft sign or й when the rest keeps at least three letters (Маша → Маш, Анна → Анн). */
+function russianStem(word) {
+	const trimmed = word.trim();
+	if (!hasCyrillic$1(trimmed) || /\s/.test(trimmed)) return trimmed;
+	const stem = trimmed.replace(STEM_ENDING_RE, "");
+	return stem.length >= MIN_STEM$1 ? stem : trimmed;
+}
+/**
+* A left-boundary regex key for a Russian term: `/(?:^|[^\p{L}\p{N}_])Маш/iu` matches «Маша», «Машей», «Маши» but
+* not «Ромашка». Null for terms without Cyrillic, with `{{` (macros) or empty.
+*/
+function leftBoundaryKey$1(term) {
+	const trimmed = term.trim();
+	if (!trimmed || !hasCyrillic$1(trimmed) || trimmed.includes("{{")) return null;
+	return `/(?:^|[^\\p{L}\\p{N}_])${escapeForKey(russianStem(trimmed))}/iu`;
+}
+/** Unique non-empty strings in first-seen order (case-sensitive). */
+function uniqueStrings(values) {
+	const seen = /* @__PURE__ */ new Set();
+	const out = [];
+	for (const value of values) {
+		if (typeof value !== "string") continue;
+		const text = value.trim();
+		if (!text || seen.has(text)) continue;
+		seen.add(text);
+		out.push(text);
+	}
+	return out;
+}
+/**
+* Russian keys for a term from what DES-RU offered: its plain case forms, else its single regex key, else the term
+* itself plus our left-boundary key (Cyrillic terms only).
+*/
+function russianKeysFrom(term, forms, formsKey) {
+	const plain = Array.isArray(forms) ? uniqueStrings(forms).filter((form) => !form.includes("{{")) : [];
+	if (plain.length) return plain;
+	if (typeof formsKey === "string" && formsKey.trim() && !formsKey.includes("{{")) return [formsKey.trim()];
+	const trimmed = term.trim();
+	if (!trimmed) return [];
+	const regex = leftBoundaryKey$1(trimmed);
+	return regex ? [trimmed, regex] : [trimmed];
+}
+/** English side of a pair: Latin, no Cyrillic, no regex, no macros. */
+function englishName(text) {
+	const trimmed = text.trim();
+	if (!trimmed || !hasLatin(trimmed) || hasCyrillic$1(trimmed) || isRegexKey$1(trimmed) || trimmed.includes("{{")) return null;
+	return trimmed;
+}
+/** Builds the matcher; pairs without a usable English or Russian side are skipped. Deterministic. */
+function buildGlossary(pairs) {
+	const byEnglish = /* @__PURE__ */ new Map();
+	for (const pair of pairs) {
+		const en = englishName(pair.en);
+		const ru = pair.ru.trim();
+		if (!en || !ru || ru.includes("{{")) continue;
+		const key = en.toLowerCase();
+		let row = byEnglish.get(key);
+		if (!row) {
+			row = {
+				en,
+				needles: [],
+				regexes: []
+			};
+			byEnglish.set(key, row);
+		}
+		if (isRegexKey$1(ru)) {
+			if (!hasCyrillic$1(ru)) continue;
+			const regex = parseRegexKey$1(ru);
+			if (regex && !row.regexes.some((item) => item.source === regex.source && item.flags === regex.flags)) row.regexes.push(regex);
+			continue;
+		}
+		if (!hasCyrillic$1(ru)) continue;
+		for (const form of [russianStem(ru), ...pair.forms ?? []]) {
+			if (typeof form !== "string" || !hasCyrillic$1(form)) continue;
+			const needle = normalizeForMatch(form.trim());
+			if (needle && !row.needles.includes(needle)) row.needles.push(needle);
+		}
+	}
+	const rows = [...byEnglish.values()].filter((row) => row.needles.length || row.regexes.length);
+	rows.sort((a, b) => a.en.toLowerCase() < b.en.toLowerCase() ? -1 : a.en.toLowerCase() > b.en.toLowerCase() ? 1 : 0);
+	return { rows };
+}
+/** `needle` occurs in `text` right after a non-word character (or at the start). */
+function containsWithLeftBoundary(text, needle) {
+	if (!needle) return false;
+	let from = 0;
+	for (;;) {
+		const index = text.indexOf(needle, from);
+		if (index < 0) return false;
+		const before = index > 0 ? text[index - 1] : void 0;
+		if (before === void 0 || !WORD_CHAR_RE$2.test(before)) return true;
+		from = index + 1;
+	}
+}
+/** English names whose Russian forms occur in `text`, sorted, at most `limit`. */
+function matchGlossary(glossary, text, limit = 40) {
+	if (!text || !glossary.rows.length) return [];
+	const normalized = normalizeForMatch(text);
+	const found = [];
+	for (const row of glossary.rows) {
+		if (found.length >= limit) break;
+		if (row.needles.some((needle) => containsWithLeftBoundary(normalized, needle)) || row.regexes.some((regex) => {
+			regex.lastIndex = 0;
+			return regex.test(text);
+		})) found.push(row.en);
+	}
+	return found;
+}
+/** Joins names into the scan text, cut to `maxChars` at a name boundary. */
+function formatGlosses(names, maxChars = 600) {
+	let out = "";
+	for (const name of names) {
+		const next = out ? `${out}, ${name}` : name;
+		if (next.length > maxChars) break;
+		out = next;
+	}
+	return out;
+}
+/** Pairs from one entry's keys: every Russian key stands for every English key of the same entry. */
+function pairsFromKeys(keys) {
+	const list = uniqueStrings(keys);
+	const english = list.filter((key) => englishName(key) !== null);
+	const russian = list.filter((key) => hasCyrillic$1(key) && !key.includes("{{"));
+	const pairs = [];
+	for (const en of english) for (const ru of russian) pairs.push({
+		ru,
+		en
+	});
+	return pairs;
+}
+/** DES canonical aliases `{name: [aliases]}`: whichever side is Russian maps to the English ones. */
+function pairsFromAliases(aliases) {
+	if (!aliases || typeof aliases !== "object" || Array.isArray(aliases)) return [];
+	const pairs = [];
+	for (const [canonical, list] of Object.entries(aliases)) {
+		const names = uniqueStrings([canonical, ...Array.isArray(list) ? list : []]);
+		pairs.push(...pairsFromKeys(names));
+	}
+	return pairs;
+}
+/** Localizer marker of one entry: the keys it appended (Russian) stand for the source keys it translated. */
+function pairsFromLocalizer(sources, added) {
+	const english = uniqueStrings(sources).filter((key) => englishName(key) !== null);
+	if (!english.length || english.length > 3) return [];
+	const pairs = [];
+	for (const ru of uniqueStrings(added)) {
+		if (!hasCyrillic$1(ru)) continue;
+		for (const en of english) pairs.push({
+			ru,
+			en
+		});
+	}
+	return pairs;
+}
+//#endregion
+//#region src/domain/canon-inject.ts
+var LIST_NAMES = [
+	"globalLore",
+	"characterLore",
+	"chatLore",
+	"personaLore"
+];
+/** Activation key ST uses in `activated.entries`. */
+function activationKey(world, uid) {
+	return `${String(world)}.${String(uid)}`;
+}
+/** The four lists of a WORLDINFO_ENTRIES_LOADED payload; null when the payload does not look like one. */
+function listsOf(payload) {
+	if (!isDict$30(payload)) return null;
+	const lists = {};
+	for (const name of LIST_NAMES) {
+		const list = payload[name];
+		if (!Array.isArray(list)) return null;
+		lists[name] = list;
+	}
+	return lists;
+}
+/**
+* Takes entries of canon books out of the lists (a canon book must never be active by itself: its overrides would
+* act as plain entries next to their bases). Returns the canon books that were found.
+*/
+function stripCanonBooks(lists) {
+	const found = /* @__PURE__ */ new Set();
+	for (const name of LIST_NAMES) {
+		const list = lists[name];
+		for (let i = list.length - 1; i >= 0; i--) {
+			const world = list[i]?.world;
+			if (typeof world !== "string" || !world.startsWith("Maestro · канон")) continue;
+			if (!isOwnCopy(list[i])) found.add(world);
+			list.splice(i, 1);
+		}
+	}
+	return [...found].sort();
+}
+function isOwnCopy(entry) {
+	const extensions = isDict$30(entry?.extensions) ? entry.extensions : void 0;
+	return typeof (isDict$30(extensions?.maestro) ? extensions.maestro : void 0)?.canonUid === "number";
+}
+function findBase(lists, world, uid) {
+	for (const name of LIST_NAMES) {
+		const list = lists[name];
+		const index = list.findIndex((entry) => entry?.world === world && Number(entry?.uid) === uid);
+		if (index >= 0) return {
+			list,
+			index
+		};
+	}
+	return null;
+}
+function markerOf(entry) {
+	const extensions = isDict$30(entry.extensions) ? entry.extensions : void 0;
+	return isDict$30(extensions?.maestro) ? extensions.maestro : void 0;
+}
+/** The scan copy of an addition: a fresh object with fresh arrays, in the canon book's name. */
+function additionCopy(item, canonBook) {
+	const copy = copyValue$1(item.entry);
+	const extensions = isDict$30(copy.extensions) ? copy.extensions : {};
+	return {
+		...copy,
+		uid: item.uid,
+		world: canonBook,
+		extensions: {
+			...extensions,
+			maestro: scanMarker(item)
+		}
+	};
+}
+/** The override of a base scan copy (world and uid of the base; base extensions kept, canon marker added). */
+function overrideCopy(base, item) {
+	const copy = materializeOverride(base, item.entry, itemOverrideFields(item.meta, item.entry));
+	copy.extensions = {
+		...isDict$30(base.extensions) ? base.extensions : {},
+		maestro: scanMarker(item)
+	};
+	return copy;
+}
+function acts(item, options, base) {
+	if (item.meta.status !== "archived") return true;
+	return options.mentioned?.(item, base) === true;
+}
+/**
+* Applies the canon to the scan copies in place (the lists themselves are per-scan arrays; nested values of the
+* entries are never mutated). Canon books are stripped first, so a second run over the same payload gives the same
+* result.
+*/
+function applyCanon(lists, items, options) {
+	const result = {
+		added: 0,
+		replaced: 0,
+		suppressed: 0,
+		pins: [],
+		dormant: 0,
+		missing: 0
+	};
+	stripCanonBooks(lists);
+	const ordered = [...items].sort((a, b) => kindRank(a) - kindRank(b) || a.uid - b.uid);
+	for (const item of ordered) {
+		const base = item.meta.base;
+		const found = base && item.meta.kind !== "addition" ? findBase(lists, base.world, base.uid) : null;
+		const current = found ? found.list[found.index] : void 0;
+		if (!acts(item, options, current)) {
+			result.dormant++;
+			continue;
+		}
+		switch (item.meta.kind) {
+			case "addition":
+				lists.chatLore.push(additionCopy(item, options.canonBook));
+				result.added++;
+				break;
+			case "override":
+				if (!found || !current) {
+					result.missing++;
+					break;
+				}
+				if (markerOf(current)?.canonUid !== item.uid) found.list[found.index] = overrideCopy(current, item);
+				result.replaced++;
+				break;
+			case "suppress":
+				if (!found) {
+					result.missing++;
+					break;
+				}
+				found.list.splice(found.index, 1);
+				result.suppressed++;
+				break;
+			case "pin": {
+				if (!base) break;
+				if (item.meta.pinWhen && item.meta.pinWhen !== "always" && options.pinActive?.(item) !== true) break;
+				const key = activationKey(base.world, base.uid);
+				if (!result.pins.includes(key)) result.pins.push(key);
+				break;
+			}
+		}
+	}
+	return result;
+}
+/** Overrides first, suppressions after them (a suppression wins over an override of the same base), then the rest. */
+function kindRank(item) {
+	switch (item.meta.kind) {
+		case "override": return 0;
+		case "suppress": return 1;
+		case "addition": return 2;
+		default: return 3;
+	}
+}
+/** The last `count` messages as one lower-case text (ё → е) for mention checks. */
+function recentText(messages, count) {
+	const parts = [];
+	for (let i = messages.length - 1; i >= 0 && parts.length < count; i--) {
+		const message = messages[i];
+		if (!isDict$30(message) || message.is_system === true) continue;
+		if (typeof message.mes === "string" && message.mes) parts.push(message.mes);
+	}
+	return parts.reverse().join("\n");
+}
+/**
+* Any of the keys occurs in the text: plain keys as case-insensitive substrings (Cyrillic keys behave like that in
+* ST anyway), regex keys with their own flags. `text` is the raw recent text.
+*/
+function keysMentioned(keys, text) {
+	if (!Array.isArray(keys) || !text) return false;
+	const normalized = normalizeForMatch(text);
+	for (const raw of keys) {
+		if (typeof raw !== "string") continue;
+		const key = raw.trim();
+		if (!key) continue;
+		const regex = parseRegexKey$1(key);
+		if (regex) {
+			if (regex.test(text)) return true;
+			continue;
+		}
+		if (normalized.includes(normalizeForMatch(key))) return true;
+	}
+	return false;
+}
+/** Keys of an item for the mention check: its own keys, primary and secondary. */
+function itemKeys(item) {
+	const list = (value) => Array.isArray(value) ? value.filter((key) => typeof key === "string") : [];
+	return [...list(item.entry.key), ...list(item.entry.keysecondary)];
+}
+/** Is an activated entry the canon's own (an addition copy or an override copy)? */
+function isCanonActivation(entry, canonBook) {
+	if (!isDict$30(entry)) return false;
+	if (entry.world === canonBook) return true;
+	const marker = markerOf(entry);
+	return typeof marker?.canonUid === "number" && typeof marker.kind === "string";
+}
+/**
+* Which new canon activations fit the canon budget (plan M6 п. 7, audit B4): highest `order` first, then the newest;
+* lower-order and older ones are cut first. `used` is what earlier loops of the same scan already keep.
+*/
+function planCanonBudget(used, candidates, limit) {
+	const keep = [];
+	const cut = [];
+	let total = used;
+	if (!(limit > 0)) return {
+		keep: candidates.map((item) => item.key),
+		cut,
+		used: total + sum(candidates)
+	};
+	const ordered = [...candidates].sort((a, b) => b.order - a.order || b.updatedAt - a.updatedAt || (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
+	for (const item of ordered) if (total + item.chars <= limit) {
+		keep.push(item.key);
+		total += item.chars;
+	} else cut.push(item.key);
+	return {
+		keep,
+		cut,
+		used: total
+	};
+}
+function sum(items) {
+	return items.reduce((total, item) => total + item.chars, 0);
+}
+//#endregion
+//#region src/domain/bunnymo-mode-packs.ts
+/** A stored selection (chat metadata pointer) or 'all' when it is missing or damaged; books deduplicated and sorted. */
+function readPackSelection(value) {
+	if (typeof value !== "object" || value === null) return { mode: "all" };
+	const record = value;
+	if (record.mode !== "only" || !Array.isArray(record.books)) return { mode: "all" };
+	return {
+		mode: "only",
+		books: [...new Set(record.books.filter((book) => typeof book === "string" && !!book))].sort()
+	};
+}
+function samePackSelection(a, b) {
+	if (a.mode !== b.mode) return false;
+	if (a.mode === "all" || b.mode === "all") return true;
+	return a.books.length === b.books.length && a.books.every((book, index) => book === b.books[index]);
+}
+/** The book is left out of this chat by the selection (only meaningful for pack books). */
+function isOffBySelection(selection, book) {
+	return selection.mode === "only" && !selection.books.includes(book);
+}
+/**
+* Takes the entries of dropped books out of the four per-scan lists of WORLDINFO_ENTRIES_LOADED (the list arrays
+* are ST's per-scan arrays; entry objects and their nested arrays are not touched). Idempotent. Returns the number of
+* entries removed per book.
+*/
+function suppressBooks(lists, drop) {
+	const removed = /* @__PURE__ */ new Map();
+	const decided = /* @__PURE__ */ new Map();
+	for (const name of LIST_NAMES) {
+		const list = lists[name];
+		for (let index = list.length - 1; index >= 0; index--) {
+			const world = list[index]?.world;
+			if (typeof world !== "string") continue;
+			let off = decided.get(world);
+			if (off === void 0) {
+				off = drop(world);
+				decided.set(world, off);
+			}
+			if (!off) continue;
+			list.splice(index, 1);
+			removed.set(world, (removed.get(world) ?? 0) + 1);
+		}
+	}
+	return removed;
+}
+/** World names of the four lists (each once, in list order). */
+function worldsOf(lists) {
+	const worlds = /* @__PURE__ */ new Set();
+	for (const name of LIST_NAMES) for (const entry of lists[name]) if (typeof entry?.world === "string") worlds.add(entry.world);
+	return [...worlds];
+}
+/** Pack families by the category their entries pull (research §1.1 table). */
+var FAMILY_BY_CATEGORY = {
+	[MBTI_CATEGORY]: "MBTI",
+	SPECIES: "Species",
+	DOMAIN: "Species",
+	DIVINE: "Species",
+	BENDER: "Species",
+	DERE: "Dere",
+	TRAIT: "Traits",
+	GENRE: "CarrotCast",
+	LING: "Linguistics",
+	BSM: "BSM-5",
+	MENTAL: "BSM-5",
+	MED: "BunnyRX",
+	REC: "BunnyRX",
+	CONDITION: "HopSpital",
+	MOBILITY: "HopSpital",
+	SENSORY: "HopSpital"
+};
+var COT_LENS_RE = /^\s*\S*\s*CoT\s+LENS/i;
+var FILTER_RE = /\bfilter\s+(?:start|end)\b/i;
+/** The pack family («MBTI», «Species», «BSM-5 CoT Lenses»…) by its entries; null when nothing tells. */
+function packFamily(entries) {
+	const votes = /* @__PURE__ */ new Map();
+	let lenses = 0;
+	let filters = 0;
+	let keyed = 0;
+	for (const { entry } of entries) {
+		const comment = typeof entry.comment === "string" ? entry.comment : "";
+		if (FILTER_RE.test(comment)) filters++;
+		const tags = entryTags(entry);
+		if (!tags.length) continue;
+		keyed++;
+		if (COT_LENS_RE.test(comment)) lenses++;
+		const families = new Set(tags.map((tag) => FAMILY_BY_CATEGORY[tag.category]).filter(Boolean));
+		for (const family of families) votes.set(family, (votes.get(family) ?? 0) + 1);
+	}
+	let best = null;
+	let top = 0;
+	for (const [family, count] of votes) if (count > top) {
+		best = family;
+		top = count;
+	}
+	if (best === "BSM-5" && lenses * 2 > keyed) return "BSM-5 CoT Lenses";
+	if (!best && filters >= 2) return "Tell Tail Lenses";
+	return best;
+}
+/** Book name without the decorations packs ship with (`--BunnMBTI-Pack V2` → name `BunnMBTI-Pack`, version `2`). */
+function packTitle(book) {
+	const info = packInfo(book.replace(/\.(?:json|bny)$/i, ""));
+	const name = info.name.replace(/^[\s\-–—_.]+/, "").trim() || book;
+	return info.version ? {
+		name,
+		version: info.version
+	} : { name };
+}
+/** Normalised keys + text of an entry (null for entries without keys): equal signatures are the same entry. */
+function entrySignature(entry) {
+	const keys = packKeySignature({ key: entry.key });
+	return keys === null ? null : `${keys}\u0001${packContentSignature(entry.content)}`;
+}
+/** Signatures of the enabled keyed entries of a book. */
+function bookSignatures(entries) {
+	const signatures = /* @__PURE__ */ new Set();
+	for (const { entry } of entries) {
+		if (entry.disable === true) continue;
+		const signature = entrySignature(entry);
+		if (signature !== null) signatures.add(signature);
+	}
+	return signatures;
+}
+var SPLIT_NAME_RE = /^\s*-{3}\s*[A-Za-z0-9]\b|separat|seperat/i;
+/** Share of a book's entries found in a larger pack that makes it a part of that pack (a split edition). */
+var SPLIT_SHARE = .8;
+/**
+* 'split' — a pack per file (the «Seperated» editions, `---A …` files, or a book whose entries are mostly a copy of a
+* larger loaded pack); 'shared' — one file holding several packs or sections.
+*/
+function packEdition(book, own, others) {
+	if (SPLIT_NAME_RE.test(book)) return "split";
+	if (!own.size) return "shared";
+	for (const other of others) {
+		if (other.book === book || other.signatures.size <= own.size) continue;
+		let found = 0;
+		for (const signature of own) if (other.signatures.has(signature)) found++;
+		if (found / own.size >= SPLIT_SHARE) return "split";
+	}
+	return "shared";
+}
+var CORE_MARKERS = [
+	{
+		version: "3.0",
+		test: (_entry, comment) => /HawThorne Link|Medicine Check/i.test(comment)
+	},
+	{
+		version: "2.9",
+		test: (_entry, _comment, keys) => keys.includes("!physheet") || keys.includes("!updatesheet")
+	},
+	{
+		version: "2.7",
+		test: (_entry, comment) => /AUTO-FILTRATION:\s*LINGUISTICS/i.test(comment)
+	},
+	{
+		version: "2.1",
+		test: (_entry, comment) => /ANTI[\s-]*CLANKER/i.test(comment)
+	}
+];
+/** Version of a core book: the name's and the one its content shows (the oldest known when no marker matches). */
+function coreVersionOf(book, entries) {
+	const named = bookVersion(book);
+	let detected = "2.0";
+	for (const marker of CORE_MARKERS) if (entries.some(({ entry }) => {
+		const comment = typeof entry.comment === "string" ? entry.comment : "";
+		const keys = Array.isArray(entry.key) ? entry.key.filter((key) => typeof key === "string").map((key) => key.trim().toLowerCase()) : [];
+		return marker.test(entry, comment, keys);
+	})) {
+		detected = marker.version;
+		break;
+	}
+	return {
+		named: named.length ? named.join(".") : null,
+		detected
+	};
+}
+/** Compares dotted versions numerically ('2.10' > '2.9'). */
+function compareVersions$1(a, b) {
+	const left = a.split(".").map(Number);
+	const right = b.split(".").map(Number);
+	for (let i = 0; i < Math.max(left.length, right.length); i++) {
+		const diff = (left[i] ?? 0) - (right[i] ?? 0);
+		if (diff) return diff;
+	}
+	return 0;
+}
+/**
+* Entries of a lorebook file: ST's world format (`{entries: {uid: entry}}`, or an array of entries). Null when the text
+* is not JSON or holds no entries object.
+*/
+function parseWorldFile(text) {
+	let data;
+	try {
+		data = JSON.parse(text);
+	} catch {
+		return null;
+	}
+	if (typeof data !== "object" || data === null) return null;
+	const entries = data.entries;
+	if (Array.isArray(entries)) return entries.filter((entry) => typeof entry === "object" && entry !== null && !Array.isArray(entry)).map((entry, index) => ({
+		uid: Number.isFinite(Number(entry.uid)) ? Number(entry.uid) : index,
+		entry
+	}));
+	if (typeof entries !== "object" || entries === null) return null;
+	return entriesWithUid(data);
+}
+function keysOf(entry) {
+	return Array.isArray(entry.key) ? entry.key.filter((key) => typeof key === "string").map((key) => key.trim()) : [];
+}
+function commentOf$1(entry) {
+	return typeof entry.comment === "string" ? entry.comment.trim() : "";
+}
+function keyIdentity(entry) {
+	return packKeySignature({ key: entry.key }) ?? "";
+}
+function describe(entry, withKeys) {
+	const content = typeof entry.content === "string" ? entry.content : "";
+	return withKeys ? `${keysOf(entry).join(", ")}\n\n${content}` : content;
+}
+/**
+* Diff of a pack book against a new pack file, entry by entry: matched by keys and title, then by keys alone, then by
+* title alone (each match used once). Matched entries whose text or keys differ are «changed».
+*/
+function diffPackEntries(before, after) {
+	const left = before.map(({ entry }) => entry);
+	const right = after.map(({ entry }) => entry);
+	const used = /* @__PURE__ */ new Set();
+	const pairs = [];
+	const unmatched = [];
+	const passes = [
+		(entry) => `${keyIdentity(entry)}\u0001${commentOf$1(entry)}`,
+		(entry) => keyIdentity(entry),
+		(entry) => commentOf$1(entry)
+	];
+	let pending = left;
+	for (const identity of passes) {
+		const index = /* @__PURE__ */ new Map();
+		for (const entry of right) {
+			if (used.has(entry)) continue;
+			const id = identity(entry);
+			if (!id || id === "") continue;
+			const list = index.get(id);
+			if (list) list.push(entry);
+			else index.set(id, [entry]);
+		}
+		const rest = [];
+		for (const entry of pending) {
+			const id = identity(entry);
+			const match = id && id !== "" ? index.get(id)?.shift() : void 0;
+			if (match) {
+				used.add(match);
+				pairs.push([entry, match]);
+			} else rest.push(entry);
+		}
+		pending = rest;
+	}
+	unmatched.push(...pending);
+	const label = (entry) => ({
+		key: keysOf(entry)[0] ?? "",
+		comment: commentOf$1(entry)
+	});
+	const changed = [];
+	for (const [old, next] of pairs) {
+		const keysDiffer = keyIdentity(old) !== keyIdentity(next);
+		if (!keysDiffer && packContentSignature(old.content) === packContentSignature(next.content)) continue;
+		changed.push({
+			...label(next),
+			before: describe(old, keysDiffer),
+			after: describe(next, keysDiffer)
+		});
+	}
+	return {
+		added: right.filter((entry) => !used.has(entry)).map(label),
+		removed: unmatched.map(label),
+		changed
+	};
+}
+//#endregion
+//#region src/domain/bunnymo-mode-integrity.ts
+var CK_BACKUP_SUFFIX = ".carrot_backup";
+var WRAP_OPEN_RE = /^<BunnymoTags:([^>\n]*)>\n?/i;
+var NESTED_RE = /^<BunnymoTags:[^>\n]*>\s*<BunnymoTags:[^>\n]*>/i;
+/** CK's wrapper title of an entry: its title, else its first key, else «Entry», without `<` and `>`. */
+function ckWrapperName(entry) {
+	const comment = typeof entry.comment === "string" ? entry.comment : "";
+	const first = Array.isArray(entry.key) && typeof entry.key[0] === "string" ? entry.key[0] : "";
+	return (comment || first || "Entry").replace(/[<>]/g, "");
+}
+/** CK's own test: the trimmed content starts with this entry's wrapper. */
+function isCkWrapped(entry) {
+	return (typeof entry.content === "string" ? entry.content : "").trim().startsWith(`<BunnymoTags:${ckWrapperName(entry)}>`);
+}
+/** The text with every outer `<BunnymoTags:X>…</BunnymoTags:X>` wrapper removed (whitespace-trimmed). */
+function stripCkWrappers(content) {
+	let text = content.trim();
+	for (let guard = 0; guard < 8; guard++) {
+		const open = WRAP_OPEN_RE.exec(text);
+		if (!open) break;
+		const close = `</BunnymoTags:${open[1] ?? ""}>`;
+		if (!text.toLowerCase().endsWith(close.toLowerCase())) break;
+		text = text.slice(open[0].length, text.length - close.length).trim();
+	}
+	return text;
+}
+/** Two CK wrappers one inside the other (CK wrapped again after the entry title changed). */
+function hasNestedWrapper(content) {
+	return typeof content === "string" && NESTED_RE.test(content.trim());
+}
+/**
+* Wrap facts of one book: compared with its `.carrot_backup` copy when there is one; `pending` when CK will wrap it on
+* its next load (the book is a Tag Library and CK's wrapping is on).
+*/
+function wrapFacts(book, entries, backup, options) {
+	const copies = new Map(backup?.map(({ uid, entry }) => [uid, entry]) ?? []);
+	let rewritten = 0;
+	let nested = 0;
+	let unwrapped = false;
+	for (const { uid, entry } of entries) {
+		const content = typeof entry.content === "string" ? entry.content : "";
+		if (hasNestedWrapper(content)) nested++;
+		if (content.trim() && !isCkWrapped(entry)) unwrapped = true;
+		const copy = copies.get(uid);
+		if (!copy) continue;
+		const before = typeof copy.content === "string" ? copy.content : "";
+		if (before !== content && stripCkWrappers(before) === stripCkWrappers(content)) rewritten++;
+	}
+	return {
+		book,
+		rewritten,
+		nested,
+		pending: options.tagLibrary && options.wrapping && unwrapped,
+		bunnymo: options.bunnymo
+	};
+}
+/** Findings in a stable order: core, repos, CK rewrites and copies, global books. */
+function integrityFindings(facts) {
+	const items = [];
+	const activeCores = facts.cores.filter((core) => core.active);
+	const activePacks = facts.packs.filter((pack) => pack.active);
+	if (activePacks.length && !activeCores.length) {
+		const idle = facts.cores[0];
+		items.push(idle ? {
+			kind: "coreMissing",
+			variant: "inactive",
+			book: idle.book,
+			params: {
+				book: idle.book,
+				count: activePacks.length
+			}
+		} : {
+			kind: "coreMissing",
+			variant: "absent",
+			params: { count: activePacks.length }
+		});
+	}
+	if (activeCores.length > 1) items.push({
+		kind: "coreVersion",
+		variant: "several",
+		params: { books: activeCores.map((core) => core.book).join(", ") }
+	});
+	for (const core of activeCores) {
+		if (compareVersions$1(core.detected, "3.0") >= 0) continue;
+		items.push({
+			kind: "coreVersion",
+			variant: "old",
+			book: core.book,
+			params: {
+				book: core.book,
+				version: core.detected,
+				expected: "3.0"
+			}
+		});
+	}
+	const system = /* @__PURE__ */ new Set([...facts.cores.map((core) => core.book), ...facts.packs.map((pack) => pack.book)]);
+	for (const book of facts.ckRepos) if (system.has(book)) items.push({
+		kind: "packAsRepo",
+		variant: "repo",
+		book,
+		params: { book }
+	});
+	for (const wrap of facts.wraps) {
+		const variant = (base) => wrap.bunnymo ? `${base}Pack` : base;
+		if (wrap.rewritten) items.push({
+			kind: "ckWrapRewrite",
+			variant: variant("backup"),
+			book: wrap.book,
+			params: {
+				book: wrap.book,
+				count: wrap.rewritten
+			}
+		});
+		if (wrap.nested) items.push({
+			kind: "ckWrapRewrite",
+			variant: variant("nested"),
+			book: wrap.book,
+			params: {
+				book: wrap.book,
+				count: wrap.nested
+			}
+		});
+		if (wrap.pending) items.push({
+			kind: "ckWrapRewrite",
+			variant: variant("pending"),
+			book: wrap.book,
+			params: { book: wrap.book }
+		});
+	}
+	const names = new Set(facts.books);
+	for (const book of facts.books) {
+		if (!book.toLowerCase().endsWith(".carrot_backup")) continue;
+		const original = book.slice(0, book.length - 14);
+		items.push({
+			kind: "ckBackup",
+			variant: names.has(original) ? "copy" : "orphan",
+			book,
+			params: {
+				book,
+				original
+			}
+		});
+	}
+	const chatBooks = new Set(facts.chatBooks);
+	for (const book of facts.global) if (facts.isCanon(book)) items.push({
+		kind: "canonGlobal",
+		variant: "global",
+		book,
+		params: { book }
+	});
+	else if (chatBooks.has(book)) items.push({
+		kind: "chatBookGlobal",
+		variant: "global",
+		book,
+		params: { book }
+	});
+	return items;
+}
+//#endregion
+//#region src/domain/bunnymo-mode-sheet.ts
+var BLOCK_RE$2 = /<bunnymotags>([\s\S]*?)<\/bunnymotags>/gi;
+var SECTION_RE$1 = /<([A-Za-z][A-Za-z_]*)>([\s\S]*?)<\/\1\s*>/gi;
+var TAG_RE$2 = /<([A-Za-z][A-Za-z0-9_-]*):([^<>\n]+)>/g;
+var MBTI_RE$2 = /<([EI][NS][FT][JP])-([UH])>/gi;
+var GROUP_RE = /<(\/?)(PHYSICAL|PERSONALITY|NSFW|HEALTH)>/gi;
+var WRAPPER_RE = /<\/?BunnymoTags:[^>\n]*>/gi;
+var STRUCTURAL = /* @__PURE__ */ new Set([
+	"bunnymotags",
+	"physical",
+	"personality",
+	"nsfw",
+	"health"
+]);
+var KEY_RE = /^[A-Za-z][A-Za-z0-9_-]*$/;
+var MBTI_TYPE_RE = /^[EI][NS][FT][JP]$/i;
+/** The 16 MBTI types in the usual order. */
+var MBTI_TYPES = [
+	"ISTJ",
+	"ISFJ",
+	"INFJ",
+	"INTJ",
+	"ISTP",
+	"ISFP",
+	"INFP",
+	"INTP",
+	"ESTP",
+	"ESFP",
+	"ENFP",
+	"ENTP",
+	"ESTJ",
+	"ESFJ",
+	"ENFJ",
+	"ENTJ"
+];
+/** Group wrapper of a tag category (BunnyMo's TAG SYNTHESIS template, core #2). */
+var GROUP_OF = (() => {
+	const groups = {
+		PHYSICAL: [
+			"SPECIES",
+			"GENDER",
+			"AGE",
+			"BUILD",
+			"SKIN",
+			"SKINCOLOR",
+			"SKINTONE",
+			"HAIR",
+			"HAIRCOLOR",
+			"EYECOLOR",
+			"STYLE",
+			"FONT"
+		],
+		PERSONALITY: [
+			"DERE",
+			"MBTI",
+			"TRAIT",
+			"ATTACHMENT",
+			"CONFLICT",
+			"BOUNDARIES",
+			"FLIRTING",
+			"DECISION",
+			"COMFORT",
+			"VICE",
+			"LOYALTY",
+			"TRUST",
+			"MASK",
+			"ARCHETYPE"
+		],
+		NSFW: [
+			"ORIENTATION",
+			"POWER",
+			"KINK",
+			"CHEMISTRY",
+			"AROUSAL",
+			"TRAUMA",
+			"JEALOUSY"
+		],
+		HEALTH: [
+			"BSM",
+			"MENTAL",
+			"MOOD",
+			"ANXIETY",
+			"EATING",
+			"DISSOCIATIVE",
+			"ADDICTION",
+			"SLEEP",
+			"MED",
+			"REC",
+			"BENZO",
+			"SSRI",
+			"STIMULANT",
+			"CONDITION",
+			"MOBILITY",
+			"SENSORY"
+		]
+	};
+	const map = {};
+	for (const [group, categories] of Object.entries(groups)) for (const category of categories) map[category] = group;
+	return map;
+})();
+/** The group wrapper (PHYSICAL…) a category belongs to, if any. */
+function groupOfCategory(category) {
+	return GROUP_OF[category.toUpperCase()];
+}
+function inside(span, position) {
+	return position >= span.start && position < span.end;
+}
+function trimmedSpan(content, start, end) {
+	let from = start;
+	let to = end;
+	while (from < to && /\s/.test(content[from] ?? "")) from++;
+	while (to > from && /\s/.test(content[to - 1] ?? "")) to--;
+	return from < to ? {
+		start: from,
+		end: to
+	} : null;
+}
+/** Reads an archive entry's text (never throws; `block` is null when there is no `<BunnymoTags>` block). */
+function parseSheet(content) {
+	const blocks = [];
+	for (const match of content.matchAll(BLOCK_RE$2)) {
+		const start = match.index ?? 0;
+		const whole = match[0];
+		blocks.push({
+			outer: {
+				start,
+				end: start + whole.length
+			},
+			inner: {
+				start: start + whole.indexOf(">") + 1,
+				end: start + whole.lastIndexOf("</")
+			}
+		});
+	}
+	const block = blocks[0] ?? null;
+	const found = [];
+	SECTION_RE$1.lastIndex = 0;
+	for (let match = SECTION_RE$1.exec(content); match; match = SECTION_RE$1.exec(content)) {
+		const title = match[1] ?? "";
+		const start = match.index;
+		const openLength = title.length + 2;
+		if (STRUCTURAL.has(title.toLowerCase())) {
+			SECTION_RE$1.lastIndex = start + openLength;
+			continue;
+		}
+		const end = start + match[0].length;
+		const innerStart = start + openLength;
+		const innerEnd = innerStart + (match[2] ?? "").length;
+		found.push({
+			title,
+			text: match[2] ?? "",
+			outer: {
+				start,
+				end
+			},
+			inner: {
+				start: innerStart,
+				end: innerEnd
+			},
+			inBlock: block !== null && inside(block.inner, start)
+		});
+	}
+	const linguistics = found.find((section) => section.title.toLowerCase() === "linguistics") ?? null;
+	const titled = found.filter((section) => section !== linguistics);
+	let name = null;
+	const tags = [];
+	const mbti = [];
+	const groups = [];
+	if (block) {
+		const prose = found.filter((section) => section.inBlock).map((section) => section.outer);
+		const free = (position) => !prose.some((span) => inside(span, position));
+		const area = content.slice(block.inner.start, block.inner.end);
+		for (const match of area.matchAll(TAG_RE$2)) {
+			const start = block.inner.start + (match.index ?? 0);
+			if (!free(start)) continue;
+			const key = match[1] ?? "";
+			const value = (match[2] ?? "").trim();
+			if (key.toUpperCase() === "NAME") {
+				name ??= value;
+				continue;
+			}
+			tags.push({
+				key,
+				value,
+				start,
+				end: start + match[0].length
+			});
+		}
+		for (const match of area.matchAll(MBTI_RE$2)) {
+			const start = block.inner.start + (match.index ?? 0);
+			if (!free(start)) continue;
+			mbti.push({
+				type: (match[1] ?? "").toUpperCase(),
+				variant: (match[2] ?? "").toUpperCase() === "H" ? "H" : "U",
+				start,
+				end: start + match[0].length
+			});
+		}
+		for (const match of area.matchAll(GROUP_RE)) {
+			const start = block.inner.start + (match.index ?? 0);
+			if (!free(start)) continue;
+			const group = (match[2] ?? "").toUpperCase();
+			const span = {
+				start,
+				end: start + match[0].length
+			};
+			if (match[1] !== "/") groups.push({
+				name: group,
+				open: span,
+				close: null
+			});
+			else {
+				const open = [...groups].reverse().find((item) => item.name === group && item.close === null);
+				if (open) open.close = span;
+			}
+		}
+	}
+	const covered = [...blocks.map((item) => item.outer), ...found.filter((s) => !s.inBlock).map((s) => s.outer)];
+	for (const match of content.matchAll(WRAPPER_RE)) {
+		const start = match.index ?? 0;
+		if (!blocks.some((item) => inside(item.outer, start))) covered.push({
+			start,
+			end: start + match[0].length
+		});
+	}
+	covered.sort((a, b) => a.start - b.start);
+	const loose = [];
+	let cursor = 0;
+	const addLoose = (from, to) => {
+		const span = trimmedSpan(content, from, to);
+		if (!span) return;
+		const text = content.slice(span.start, span.end);
+		loose.push({
+			title: "",
+			text,
+			outer: span,
+			inner: span,
+			inBlock: false
+		});
+	};
+	for (const span of covered) {
+		if (span.start > cursor) addLoose(cursor, span.start);
+		cursor = Math.max(cursor, span.end);
+	}
+	if (cursor < content.length) addLoose(cursor, content.length);
+	const sections = [...titled, ...loose].sort((a, b) => a.outer.start - b.outer.start);
+	return {
+		name,
+		block,
+		blocks: blocks.length,
+		tags,
+		mbti,
+		groups,
+		linguistics,
+		sections
+	};
+}
+/** The editable view of a parsed sheet (what the editor shows and sends back). */
+function sheetDraftOf(parsed) {
+	const first = parsed.mbti[0];
+	return {
+		name: parsed.name ?? "",
+		tags: parsed.tags.map(({ key, value }) => ({
+			key,
+			value
+		})),
+		...first ? { mbti: {
+			type: first.type,
+			variant: first.variant
+		} } : {},
+		...parsed.linguistics ? { linguistics: parsed.linguistics.text } : {},
+		sections: parsed.sections.map(({ title, text }) => ({
+			title,
+			text
+		}))
+	};
+}
+/** Weighted alignment of old and new tags: same key and value 3, same key 1; returns new index → old index. */
+function alignTags(old, next) {
+	const n = old.length;
+	const m = next.length;
+	const score = (i, j) => {
+		const a = old[i];
+		const b = next[j];
+		if (!a || !b || a.key.toUpperCase() !== b.key.toUpperCase()) return -1;
+		return a.value === b.value ? 3 : 1;
+	};
+	const table = Array.from({ length: n + 1 }, () => new Array(m + 1).fill(0));
+	for (let i = n - 1; i >= 0; i--) {
+		const row = table[i];
+		const below = table[i + 1];
+		for (let j = m - 1; j >= 0; j--) {
+			let best = Math.max(below[j] ?? 0, row[j + 1] ?? 0);
+			const pair = score(i, j);
+			if (pair > 0) best = Math.max(best, pair + (below[j + 1] ?? 0));
+			row[j] = best;
+		}
+	}
+	const result = /* @__PURE__ */ new Map();
+	let i = 0;
+	let j = 0;
+	while (i < n && j < m) {
+		const here = table[i]?.[j] ?? 0;
+		const pair = score(i, j);
+		if (pair > 0 && here === pair + (table[i + 1]?.[j + 1] ?? 0)) {
+			result.set(j, i);
+			i++;
+			j++;
+		} else if (here === (table[i + 1]?.[j] ?? 0)) i++;
+		else j++;
+	}
+	return result;
+}
+/** The end of a removed token with its trailing separator (`, ` or spaces). */
+function cutEnd(content, end) {
+	const rest = content.slice(end);
+	return end + ((/^[ \t]*,[ \t]*/.exec(rest) ?? /^[ \t]+/.exec(rest))?.[0].length ?? 0);
+}
+/** Insertion text before a closing wrapper, matching the separator style around it. */
+function beforeClose(content, position, tag) {
+	const before = content.slice(0, position);
+	if (/,\s*$/.test(before)) return `${tag}, `;
+	if (/\s$/.test(before)) return `${tag} `;
+	return `, ${tag}`;
+}
+function sectionText(title, text) {
+	return title ? `<${title}>${text}</${title}>` : text;
+}
+/** A start including one newline (and the spaces around it) right before the span, for removed sections. */
+function withLeadingBreak(content, start) {
+	const before = /\r?\n[ \t]*$/.exec(content.slice(Math.max(0, start - 8), start));
+	return before ? start - before[0].length : start;
+}
+function validDraftTag(tag) {
+	return KEY_RE.test(tag.key) && !!tag.value.trim() && !/[<>\n]/.test(tag.value);
+}
+/**
+* Writes an edited sheet into the archive text. Refuses a text without a block, an entry with several blocks (one
+* entry, one character), a changed `<Name:…>` and tags that cannot be written. Untouched parts stay byte-identical.
+*/
+function rebuildSheet(content, draft) {
+	const parsed = parseSheet(content);
+	const block = parsed.block;
+	if (!block) return {
+		ok: false,
+		error: "noBlock"
+	};
+	if (parsed.blocks > 1) return {
+		ok: false,
+		error: "multiBlock"
+	};
+	if (draft.name !== (parsed.name ?? "")) return {
+		ok: false,
+		error: "name"
+	};
+	if (!draft.tags.every(validDraftTag)) return {
+		ok: false,
+		error: "tag"
+	};
+	if (draft.mbti && !MBTI_TYPE_RE.test(draft.mbti.type)) return {
+		ok: false,
+		error: "tag"
+	};
+	const edits = [];
+	let seq = 0;
+	const edit = (start, end, text) => edits.push({
+		start,
+		end,
+		text,
+		seq: seq++
+	});
+	const matched = alignTags(parsed.tags, draft.tags);
+	const kept = new Set(matched.values());
+	draft.tags.forEach((tag, index) => {
+		const oldIndex = matched.get(index);
+		const old = oldIndex === void 0 ? void 0 : parsed.tags[oldIndex];
+		if (old && (old.key !== tag.key || old.value !== tag.value)) edit(old.start, old.end, `<${tag.key}:${tag.value}>`);
+	});
+	parsed.tags.forEach((old, index) => {
+		if (!kept.has(index)) edit(old.start, cutEnd(content, old.end), "");
+	});
+	const keptTags = parsed.tags.filter((_, index) => kept.has(index));
+	const insertTag = (category, text, predecessor) => {
+		const upper = category.toUpperCase();
+		const same = keptTags.filter((tag) => tag.key.toUpperCase() === upper).pop();
+		if (same) return edit(same.end, same.end, `, ${text}`);
+		const group = groupOfCategory(upper);
+		const wrapper = group ? parsed.groups.find((item) => item.name === group && item.close) : void 0;
+		if (wrapper?.close) return edit(wrapper.close.start, wrapper.close.start, beforeClose(content, wrapper.close.start, text));
+		if (predecessor) return edit(predecessor.end, predecessor.end, `, ${text}`);
+		return edit(block.inner.end, block.inner.end, beforeClose(content, block.inner.end, text));
+	};
+	let predecessor;
+	draft.tags.forEach((tag, index) => {
+		const oldIndex = matched.get(index);
+		if (oldIndex !== void 0) {
+			predecessor = parsed.tags[oldIndex];
+			return;
+		}
+		insertTag(tag.key, `<${tag.key}:${tag.value}>`, predecessor);
+	});
+	const oldMbti = parsed.mbti[0];
+	const nextMbti = draft.mbti ? `<${draft.mbti.type.toUpperCase()}-${draft.mbti.variant}>` : null;
+	if (oldMbti && nextMbti) {
+		if (content.slice(oldMbti.start, oldMbti.end) !== nextMbti) edit(oldMbti.start, oldMbti.end, nextMbti);
+	} else if (oldMbti) edit(oldMbti.start, cutEnd(content, oldMbti.end), "");
+	else if (nextMbti) insertTag("MBTI", nextMbti, keptTags.filter((tag) => tag.key.toUpperCase() === "DERE").pop() ?? keptTags[keptTags.length - 1]);
+	const lingOld = parsed.linguistics;
+	const lingNew = draft.linguistics;
+	if (lingOld) {
+		if (lingNew !== lingOld.text) {
+			if (lingNew === void 0 || !lingNew.trim()) edit(withLeadingBreak(content, lingOld.outer.start), lingOld.outer.end, "");
+			else edit(lingOld.inner.start, lingOld.inner.end, lingNew);
+		}
+	} else if (lingNew?.trim()) edit(block.outer.end, block.outer.end, `\n${sectionText("Linguistics", lingNew)}`);
+	const byTitle = /* @__PURE__ */ new Map();
+	for (const section of parsed.sections) {
+		const key = section.title.toLowerCase();
+		const list = byTitle.get(key);
+		if (list) list.push(section);
+		else byTitle.set(key, [section]);
+	}
+	const used = /* @__PURE__ */ new Set();
+	const additions = [];
+	for (const section of draft.sections) {
+		const old = byTitle.get(section.title.toLowerCase())?.shift();
+		if (!old) {
+			if (section.text.trim()) additions.push(sectionText(section.title, section.text));
+			continue;
+		}
+		used.add(old);
+		if (section.text === old.text) continue;
+		if (!section.text.trim()) edit(withLeadingBreak(content, old.outer.start), old.outer.end, "");
+		else edit(old.inner.start, old.inner.end, section.text);
+	}
+	for (const section of parsed.sections) if (!used.has(section)) edit(withLeadingBreak(content, section.outer.start), section.outer.end, "");
+	if (additions.length) {
+		const ends = parsed.sections.map((s) => s.outer.end);
+		if (parsed.linguistics) ends.push(parsed.linguistics.outer.end);
+		const anchor = ends.length ? Math.max(...ends) : block.outer.end;
+		edit(anchor, anchor, additions.map((text) => `\n${text}`).join(""));
+	}
+	edits.sort((a, b) => a.start - b.start || (a.end - a.start === 0 ? 0 : 1) - (b.end - b.start === 0 ? 0 : 1) || a.seq - b.seq);
+	let result = "";
+	let cursor = 0;
+	for (const item of edits) {
+		const start = Math.max(item.start, cursor);
+		result += content.slice(cursor, start) + item.text;
+		cursor = Math.max(cursor, item.end);
+	}
+	result += content.slice(cursor);
+	return {
+		ok: true,
+		content: result,
+		changed: result !== content
+	};
+}
+//#endregion
+//#region src/domain/doctor-keys.ts
+var CYRILLIC_RE$3 = /\p{Script=Cyrillic}/u;
+var CYRILLIC_G = /\p{Script=Cyrillic}/gu;
+var LETTER_G = /\p{L}/gu;
+/** Anything written like `/…/flags` (ST tries to parse it as a regex key). */
+var REGEX_LIKE_RE$1 = /^\/[\s\S]+\/[a-z]*$/i;
+var TAG_KEY_RE = /^<[^<>]+>$/;
+var BARE_TAG_RE = /^<[A-Za-z][A-Za-z0-9_-]*>$/;
+var MBTI_TAG_RE = /^<[EI][NS][FT][JP]-[UH]>$/i;
+function hasCyrillic(text) {
+	return CYRILLIC_RE$3.test(text);
+}
+/** Share of Cyrillic letters among all letters of the texts (0 when there are no letters). */
+function cyrillicShare(texts) {
+	let letters = 0;
+	let cyrillic = 0;
+	for (const text of texts) {
+		letters += text.match(LETTER_G)?.length ?? 0;
+		cyrillic += text.match(CYRILLIC_G)?.length ?? 0;
+	}
+	return {
+		share: letters ? cyrillic / letters : 0,
+		letters
+	};
+}
+/** The chat is Russian: enough letters and at least 30 % of them Cyrillic (English names and tags are common). */
+function isRussianChat(texts, minLetters = 200) {
+	const { share, letters } = cyrillicShare(texts);
+	return letters >= minLetters && share >= .3;
+}
+function looksLikeRegexKey(key) {
+	return REGEX_LIKE_RE$1.test(key.trim());
+}
+/**
+* ST's `parseRegexFromString` (world-info.js): `/pattern/flags` with flags from `gimsuy`, no unescaped `/` inside,
+* and a pattern the engine accepts. Null when the key is not a (valid) regex key — ST then matches it as text.
+*/
+function parseRegexKey(key) {
+	const match = /^\/([\w\W]+?)\/([gimsuy]*)$/.exec(key);
+	if (!match) return null;
+	let pattern = match[1] ?? "";
+	const flags = match[2] ?? "";
+	if (/(^|[^\\])\//.test(pattern)) return null;
+	pattern = pattern.replace("\\/", "/");
+	try {
+		return new RegExp(pattern, flags);
+	} catch {
+		return null;
+	}
+}
+/**
+* Why a key written like a regex does not work in ST:
+* - 'flags' (unknown flags), 'slash' (unescaped `/` inside), 'syntax' (the engine rejects the pattern, e.g. `\-` in
+*   `u` mode): ST silently treats the key as plain text, which never matches;
+* - 'braces': `\{` / `\}` — the macro engine turns them into bare braces before matching (audit T2), so the
+*   pattern changes meaning; `[{]` is the safe spelling.
+* Null for valid regex keys and for keys that do not look like regexes.
+*/
+function regexKeyProblem(key) {
+	const trimmed = key.trim();
+	if (!looksLikeRegexKey(trimmed)) return null;
+	const match = /^\/([\w\W]+?)\/([gimsuy]*)$/.exec(trimmed);
+	if (!match) {
+		const greedy = /^\/([\w\W]+)\/([a-z]*)$/i.exec(trimmed);
+		return greedy && /[^gimsuy]/.test(greedy[2] ?? "") ? "flags" : "slash";
+	}
+	const pattern = match[1] ?? "";
+	if (/(^|[^\\])\//.test(pattern)) return "slash";
+	if (!parseRegexKey(trimmed)) return "syntax";
+	return /\\[{}]/.test(pattern) ? "braces" : null;
+}
+/** `<KEY:VALUE>`, `<ELF>`, `<ESFP-H>`: tag keys (BunnyMo); they never come from prose. */
+function isTagKey(key) {
+	return TAG_KEY_RE.test(key.trim());
+}
+/** A bare tag without a colon (`<NSFW>`, `<DERE>`); MBTI archetypes included. */
+function isBareTagKey(key) {
+	return BARE_TAG_RE.test(key.trim());
+}
+function isMbtiTag(key) {
+	return MBTI_TAG_RE.test(key.trim());
+}
+/** ST's `escapeRegex` (utils.js). */
+function escapeRegexLikeSt(text) {
+	return text.replace(/[/\-\\^$*+?.()|[\]{}]/g, "\\$&");
+}
+/** ASCII word character: what `\w` means without the `u` flag (and what ST's boundary is built from). */
+function isAsciiWordChar(char) {
+	return char !== void 0 && char !== "" && /\w/.test(char);
+}
+/** One key against a haystack, exactly like ST's `WorldInfoBuffer.matchKeys` (keys with macros are not expanded). */
+function matchKey(haystack, key, options) {
+	const needle = key.trim();
+	if (!needle) return false;
+	const regex = parseRegexKey(needle);
+	if (regex) {
+		regex.lastIndex = 0;
+		return regex.test(haystack);
+	}
+	const hay = options.caseSensitive ? haystack : haystack.toLowerCase();
+	const word = options.caseSensitive ? needle : needle.toLowerCase();
+	if (!options.wholeWords || word.split(/\s+/).length > 1) return hay.includes(word);
+	return new RegExp(`(?:^|\\W)(${escapeRegexLikeSt(word)})(?:$|\\W)`).test(hay);
+}
+/** True when the whole-word bug applies: a plain single-word key that contains Cyrillic letters. */
+function isCyrillicWholeWordKey(key) {
+	const trimmed = key.trim();
+	return hasCyrillic(trimmed) && !looksLikeRegexKey(trimmed) && trimmed.split(/\s+/).length === 1;
+}
+/**
+* Pack key normalisation (research/bunnymo-carrotkernel.md §1.6): trim, upper case, no spaces after `:` (packs
+* contain `<LING: HORNY>`). Regex keys stay verbatim.
+*/
+function normalizePackKey(key) {
+	const trimmed = key.trim();
+	if (looksLikeRegexKey(trimmed)) return trimmed;
+	return trimmed.toUpperCase().replace(/:\s+/g, ":");
+}
+//#endregion
+//#region src/domain/rules-keys.ts
+/** Not preceded by a letter or a digit of any script. */
+var LEFT_BOUNDARY = "(?<![\\p{L}\\p{N}])";
+var CYRILLIC_RE$2 = /\p{Script=Cyrillic}/u;
+/** Anything written like `/…/flags` (ST tries to parse it as a regex key). */
+var REGEX_LIKE_RE = /^\/[\s\S]+\/[a-z]*$/i;
+var SPECIAL_G = /[.*+?^$()[\]|\\/{}]/g;
+/**
+* Escapes a literal for a `u`-mode pattern inside an ST regex key: `. * + ? ^ $ ( ) [ ] | \ /` get a backslash,
+* `{` and `}` become `[{]` and `[}]`, and `-` stays as it is (`\-` is invalid outside a class with `u`).
+*/
+function escapeKeyRegex(text) {
+	return text.replace(SPECIAL_G, (char) => char === "{" ? "[{]" : char === "}" ? "[}]" : `\\${char}`);
+}
+/** ST's `entry.flag ?? global`. */
+function effectiveFlag(value, global) {
+	return value === null || value === void 0 ? global : value === true;
+}
+/**
+* A key the whole-word bug applies to and the left boundary can replace: one word (ST matches several words as a
+* plain substring anyway), with Cyrillic letters, not a regex key and without macros.
+*/
+function isLeftBoundaryCandidate(key) {
+	if (typeof key !== "string") return false;
+	const trimmed = key.trim();
+	if (!trimmed || trimmed.includes("{{") || REGEX_LIKE_RE.test(trimmed)) return false;
+	return CYRILLIC_RE$2.test(trimmed) && !/\s/.test(trimmed);
+}
+/** `/(?<![\p{L}\p{N}])<escaped key>/iu` (or `/u` for a case-sensitive entry). */
+function leftBoundaryKey(key, caseSensitive) {
+	return `/${LEFT_BOUNDARY}${escapeKeyRegex(key.trim())}/${caseSensitive ? "u" : "iu"}`;
+}
+/**
+* A new key list with every candidate replaced by its left-boundary regex, or null when nothing changes (the
+* input is never modified: on scan copies it aliases ST's cache).
+*/
+function convertKeyList(value, caseSensitive) {
+	if (!Array.isArray(value) || !value.some(isLeftBoundaryCandidate)) return null;
+	return value.map((key) => isLeftBoundaryCandidate(key) ? leftBoundaryKey(key, caseSensitive) : key);
+}
+//#endregion
+//#region src/domain/doctor-fixes.ts
+function isDict$29(value) {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function isBookData(value) {
+	return isDict$29(value) && isDict$29(value.entries);
+}
+/** JSON with sorted object keys; `undefined` and `null` are the same ("use the default"). */
+function stableStringify$1(value) {
+	if (value === void 0 || value === null) return "null";
+	if (Array.isArray(value)) return `[${value.map(stableStringify$1).join(",")}]`;
+	if (isDict$29(value)) return `{${Object.keys(value).filter((key) => value[key] !== void 0).sort().map((key) => `${JSON.stringify(key)}:${stableStringify$1(value[key])}`).join(",")}}`;
+	return JSON.stringify(value) ?? "null";
+}
+/** The entry holds exactly these field values. */
+function entryHas(entry, values) {
+	return Object.entries(values).every(([field, value]) => stableStringify$1(entry[field]) === stableStringify$1(value));
+}
+/** The stored key of an entry by uid (`entries[uid]`, or the entry whose `uid` field matches). */
+function entryKeyOf(data, uid) {
+	const direct = data.entries[String(uid)];
+	if (isDict$29(direct)) return String(uid);
+	for (const [key, entry] of Object.entries(data.entries)) if (isDict$29(entry) && Number(entry.uid) === uid) return key;
+	return null;
+}
+function copyValue(value) {
+	return value === void 0 ? value : JSON.parse(JSON.stringify(value));
+}
+/**
+* A new book object with the patches applied (or reverted); the input is not modified. All or nothing: any missing
+* or changed entry blocks the whole write.
+*/
+function patchBookData(data, patches, direction = "apply") {
+	const missing = [];
+	const stale = [];
+	const targets = [];
+	for (const patch of patches) {
+		const key = entryKeyOf(data, patch.uid);
+		const entry = key === null ? void 0 : data.entries[key];
+		if (key === null || !entry) {
+			missing.push(patch.uid);
+			continue;
+		}
+		const from = direction === "apply" ? patch.before : patch.after;
+		const to = direction === "apply" ? patch.after : patch.before;
+		if (!entryHas(entry, from)) stale.push(patch.uid);
+		else targets.push({
+			key,
+			entry,
+			values: to
+		});
+	}
+	if (missing.length) return {
+		ok: false,
+		reason: "missing",
+		uids: missing
+	};
+	if (stale.length) return {
+		ok: false,
+		reason: "stale",
+		uids: stale
+	};
+	const entries = { ...data.entries };
+	for (const { key, entry, values } of targets) {
+		const next = { ...entries[key] ?? entry };
+		for (const [field, value] of Object.entries(values)) if (value === void 0) delete next[field];
+		else next[field] = copyValue(value);
+		entries[key] = next;
+	}
+	return {
+		ok: true,
+		uids: [],
+		data: {
+			...data,
+			entries
+		}
+	};
+}
+/** Loads, checks (guard, then every patch) and saves the book in one go. */
+async function commitPatches(io, book, patches, options = {}) {
+	const data = await io.load(book);
+	if (!data) return {
+		ok: false,
+		reason: "missing",
+		uids: []
+	};
+	if (options.guard && !options.guard(data)) return {
+		ok: false,
+		reason: "protected",
+		uids: []
+	};
+	const result = patchBookData(data, patches, options.direction ?? "apply");
+	if (!result.ok || !result.data) return {
+		ok: false,
+		reason: result.reason,
+		uids: result.uids
+	};
+	await io.save(book, result.data);
+	return {
+		ok: true,
+		uids: patches.map((patch) => patch.uid)
+	};
+}
+/** Entries of a stored book in the shape the BunnyMo heuristics read. */
+function likeScan(book, data) {
+	return Object.values(data.entries).filter(isDict$29).map((entry) => ({
+		...entry,
+		world: book
+	}));
+}
+/** The book is the BunnyMo core or a pack by its content (P13: never edited). */
+function isBunnyMoBook(book, data) {
+	const classified = classifyWorlds(likeScan(book, data));
+	return classified.core.has(book) || classified.packs.has(book);
+}
+/** The book holds at least one character archive. */
+function hasArchives(data) {
+	return Object.values(data.entries).some((entry) => isDict$29(entry) && isCharacterArchive(entry));
+}
+/** Enabled entries with their uid. */
+function enabledEntriesOf(data) {
+	const result = [];
+	for (const [key, entry] of Object.entries(data.entries)) {
+		if (!isDict$29(entry) || entry.disable === true) continue;
+		const uid = Number(entry.uid ?? key);
+		if (Number.isFinite(uid)) result.push({
+			uid,
+			entry
+		});
+	}
+	return result;
+}
+var AT_DEPTH$1 = 4;
+var ROLE_ASSISTANT$1 = 2;
+var ROLE_SYSTEM$1 = 0;
+/** At-depth entry with the assistant role → system (audit A9: user-role entries stay). */
+function planRoleFix(uid, entry) {
+	if (Number(entry.position) !== AT_DEPTH$1 || entry.role === null || Number(entry.role) !== ROLE_ASSISTANT$1) return null;
+	return {
+		uid,
+		before: { role: entry.role },
+		after: { role: ROLE_SYSTEM$1 }
+	};
+}
+/** Scan depth 1 → the global setting (null). */
+function planScanDepthFix(uid, entry) {
+	if (entry.scanDepth === null || entry.scanDepth === void 0 || Number(entry.scanDepth) !== 1) return null;
+	return {
+		uid,
+		before: { scanDepth: entry.scanDepth },
+		after: { scanDepth: null }
+	};
+}
+/** Lorebook Localizer's provenance marker (`extensions.lorebook_localizer`). */
+var LOCALIZER_MARKER = "lorebook_localizer";
+var KEY_FIELDS = ["key", "keysecondary"];
+function stringKeys(value) {
+	return Array.isArray(value) ? value.filter((key) => typeof key === "string") : [];
+}
+/** `\{` / `\}` → `[{]` / `[}]`; null when the key is still broken afterwards. */
+function repairBraces(key) {
+	const repaired = key.replace(/\\([{}])/g, "[$1]");
+	return regexKeyProblem(repaired) === null ? repaired : null;
+}
+/**
+* Keys Lorebook Localizer added that do not work in ST (audit T2): `\{`/`\}` are respelled `[{]`/`[}]` when that
+* makes them valid, other broken ones (flags, unescaped `/`, `\-` with `u`) are removed — from the key lists and from
+* the marker's `added` lists, so the marker keeps describing the entry.
+*/
+function planLocalizerFix(uid, entry) {
+	const extensions = isDict$29(entry.extensions) ? entry.extensions : null;
+	const marker = extensions && isDict$29(extensions[LOCALIZER_MARKER]) ? extensions[LOCALIZER_MARKER] : null;
+	const languages = marker && isDict$29(marker.languages) ? marker.languages : null;
+	if (!extensions || !marker || !languages) return null;
+	const replace = /* @__PURE__ */ new Map();
+	for (const state of Object.values(languages)) {
+		const added = isDict$29(state) && isDict$29(state.added) ? state.added : null;
+		if (!added) continue;
+		for (const field of KEY_FIELDS) for (const key of stringKeys(added[field])) {
+			const problem = regexKeyProblem(key);
+			if (problem === null || replace.has(key)) continue;
+			replace.set(key, problem === "braces" ? repairBraces(key) : null);
+		}
+	}
+	if (!replace.size) return null;
+	const fix = (keys) => Array.isArray(keys) ? keys.flatMap((key) => {
+		if (typeof key !== "string" || !replace.has(key)) return [key];
+		const next = replace.get(key);
+		return next ? [next] : [];
+	}) : keys;
+	const nextLanguages = Object.fromEntries(Object.entries(languages).map(([lang, state]) => {
+		if (!isDict$29(state) || !isDict$29(state.added)) return [lang, state];
+		const added = { ...state.added };
+		for (const field of KEY_FIELDS) if (Array.isArray(added[field])) added[field] = fix(added[field]);
+		return [lang, {
+			...state,
+			added
+		}];
+	}));
+	const after = { extensions: {
+		...extensions,
+		[LOCALIZER_MARKER]: {
+			...marker,
+			languages: nextLanguages
+		}
+	} };
+	const before = { extensions };
+	for (const field of KEY_FIELDS) {
+		if (!Array.isArray(entry[field])) continue;
+		const next = fix(entry[field]);
+		if (stableStringify$1(next) === stableStringify$1(entry[field])) continue;
+		before[field] = entry[field];
+		after[field] = next;
+	}
+	return {
+		uid,
+		before,
+		after
+	};
+}
+/**
+* Plain Cyrillic keys of an enabled entry with effective whole-word matching → left-boundary regex keys (the same
+* conversion as rule `keys.cyrillicLeftBoundary`, written to the file).
+*/
+function planCyrillicFix(uid, entry, globals) {
+	if (entry.disable === true || !effectiveFlag(entry.matchWholeWords, globals.wholeWords)) return null;
+	const caseSensitive = effectiveFlag(entry.caseSensitive, globals.caseSensitive);
+	const before = {};
+	const after = {};
+	for (const field of KEY_FIELDS) {
+		const next = convertKeyList(entry[field], caseSensitive);
+		if (!next) continue;
+		before[field] = entry[field];
+		after[field] = next;
+	}
+	return Object.keys(after).length ? {
+		uid,
+		before,
+		after
+	} : null;
+}
+/**
+* A CK archive saved with scan depth 1 (Baby Bunny): scan depth → global and, when `formsKey` is given (DES-RU's
+* `nameFormsKey`), one regex key with every case form added after the plain Cyrillic name keys. The plain keys stay
+* first: CarrotKernel takes a character's name from `key[0]` when the entry has no comment.
+*/
+function planArchiveDepthFix(uid, entry, formsKey) {
+	const depth = planScanDepthFix(uid, entry);
+	if (!depth) return null;
+	const before = { ...depth.before };
+	const after = { ...depth.after };
+	if (formsKey && Array.isArray(entry.key)) {
+		const added = [];
+		for (const key of entry.key) {
+			if (!isLeftBoundaryCandidate(key) && !(typeof key === "string" && isMultiWordName(key))) continue;
+			let regex;
+			try {
+				regex = formsKey(key.trim());
+			} catch {
+				regex = null;
+			}
+			if (typeof regex === "string" && regex && !entry.key.includes(regex)) added.push(regex);
+		}
+		if (added.length) {
+			before.key = entry.key;
+			after.key = [.../* @__PURE__ */ new Set([...entry.key, ...added])];
+		}
+	}
+	return {
+		uid,
+		before,
+		after
+	};
+}
+/** «Аня Петрова»: a plain multi-word Cyrillic name (DES-RU forms every word). */
+function isMultiWordName(key) {
+	const trimmed = key.trim();
+	return /\s/.test(trimmed) && trimmed.split(/\s+/).every((word) => isLeftBoundaryCandidate(word));
+}
+//#endregion
+//#region src/features/bunnymoMode/service.ts
+var BUNNYMO_MODE_KEY = "bunnymoMode";
+var BUNNYMO_MODE_ID = "M35b";
+/** Chat metadata pointer of the per-chat pack selection. */
+var SELECTION_POINTER = "bunnymoPacks";
+/** Journal targets (undo of a selection change; undo of a sheet saved without the Lore Studio store). */
+var SELECTION_TARGET = "m35b.packSelection";
+var SHEET_TARGET = "m35b.sheet";
+var LORE_STORE_KEY = "loreStore";
+/** Rules that act on BunnyMo books; listed in «Правки на лету» even without changes in the last scan. */
+var BUNNYMO_RULES = [
+	"role.assistantToSystem",
+	"pack.duplicates",
+	"pack.versionConflict",
+	"wrapper.nsfwCollision",
+	"book.cap"
+];
+function isDict$28(value) {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function strings$8(value) {
+	return Array.isArray(value) ? value.filter((item) => typeof item === "string" && !!item) : [];
+}
+function copy(value) {
+	return JSON.parse(JSON.stringify(value));
+}
+/** Code-point order: the same in every locale. */
+function byText(a, b) {
+	return a < b ? -1 : a > b ? 1 : 0;
+}
+function sortNames(list) {
+	return [...new Set(list)].sort(byText);
+}
+/** Name compare for commands: case, `_` and extra spaces do not matter. */
+function sameName$1(a, b) {
+	const norm = (value) => value.replace(/_/g, " ").replace(/\s+/g, " ").trim().toLowerCase();
+	return norm(a) === norm(b);
+}
+var BunnyMoModeService = class {
+	app;
+	log;
+	cache = /* @__PURE__ */ new Map();
+	/** Content classification of books M35 roles and the adapter do not know (scan time and lazy reads). */
+	kinds = /* @__PURE__ */ new Map();
+	/** Payloads of scans already reported (M22 may apply the selection before our own listener does). */
+	seenPayloads = /* @__PURE__ */ new WeakSet();
+	dictionaryCache = null;
+	rolesReady = null;
+	rolesOff = null;
+	listeners = /* @__PURE__ */ new Set();
+	suppressed = /* @__PURE__ */ new Map();
+	disposed = false;
+	/** Where the pult tab opens next (set by open(), taken by the view on its next render). */
+	target = null;
+	constructor(app, log) {
+		this.app = app;
+		this.log = log;
+	}
+	t(key, params) {
+		return this.app.i18n.t(key, params);
+	}
+	install() {
+		const offs = [];
+		const on = (key, handler) => {
+			const name = this.app.host.events.name(key);
+			if (name) offs.push(this.app.host.events.on(name, handler));
+			else this.log.debug(`ST event ${key} is missing`);
+		};
+		on("WORLDINFO_ENTRIES_LOADED", (payload) => {
+			this.applySelection(payload);
+		});
+		on("WORLDINFO_UPDATED", (name) => this.invalidate(typeof name === "string" ? name : null));
+		on("WORLDINFO_SETTINGS_UPDATED", () => this.emit());
+		on("CHAT_CHANGED", () => {
+			this.suppressed = /* @__PURE__ */ new Map();
+			this.emit();
+		});
+		this.app.journal.registerUndo(SELECTION_TARGET, (change) => this.undoSelection(change));
+		this.app.journal.registerUndo(SHEET_TARGET, (change) => this.undoSheet(change));
+		this.watchRoles();
+		offs.push(() => this.dispose());
+		return offs;
+	}
+	dispose() {
+		this.disposed = true;
+		this.rolesOff?.();
+		this.rolesOff = null;
+		this.listeners.clear();
+		this.cache.clear();
+		this.dictionaryCache = null;
+	}
+	onChange(listener) {
+		this.listeners.add(listener);
+		return () => this.listeners.delete(listener);
+	}
+	emit() {
+		if (this.disposed) return;
+		for (const listener of [...this.listeners]) try {
+			listener();
+		} catch (error) {
+			this.log.error("bunnymo mode listener failed", error);
+		}
+	}
+	/** A book was saved: drop what was read from it. The dictionary itself is keyed by content fingerprints. */
+	invalidate(book) {
+		if (book === null) {
+			this.cache.clear();
+			this.kinds.clear();
+			this.dictionaryCache = null;
+			this.emit();
+			return;
+		}
+		const known = this.cache.delete(book);
+		const classified = this.kinds.delete(book);
+		if (known || classified) this.emit();
+	}
+	roles() {
+		return this.app.modules.api("bookRoles");
+	}
+	watchRoles() {
+		if (this.rolesOff) return;
+		const roles = this.roles();
+		if (!roles) return;
+		this.rolesOff = roles.onChange(() => {
+			this.dictionaryCache = null;
+			this.emit();
+		});
+	}
+	/** M35 roles detect every book once per session (lazily, the first time the BunnyMo mode needs the list). */
+	async ensureRoles() {
+		const roles = this.roles();
+		if (!roles) return;
+		this.watchRoles();
+		this.rolesReady ??= roles.refresh().catch((error) => this.log.warn("book roles refresh failed", error));
+		await this.rolesReady;
+	}
+	store() {
+		const store = this.app.modules.api(LORE_STORE_KEY);
+		return store && typeof store.load === "function" ? store : void 0;
+	}
+	/** Every lorebook name ST knows (empty when this ST has no list). */
+	worldNames() {
+		try {
+			const names = this.app.host.ctx().getWorldInfoNames?.();
+			if (Array.isArray(names)) return strings$8(names);
+		} catch (error) {
+			this.log.debug("getWorldInfoNames failed", error);
+		}
+		return strings$8(this.store()?.books?.());
+	}
+	/** A fresh copy of a book (never the cache object of ST). */
+	async readBook(book) {
+		const store = this.store();
+		try {
+			if (store) {
+				const data = await store.load(book);
+				return isDict$28(data) && isDict$28(data.entries) ? data : null;
+			}
+			const load = this.app.host.ctx().loadWorldInfo;
+			if (typeof load !== "function") return null;
+			const data = await load(book);
+			return isDict$28(data) && isDict$28(data.entries) ? copy(data) : null;
+		} catch (error) {
+			this.log.debug(`lorebook ${book} did not load`, error);
+			return null;
+		}
+	}
+	async book(book) {
+		const cached = this.cache.get(book);
+		if (cached) return cached;
+		const data = await this.readBook(book);
+		if (!data) return null;
+		const item = {
+			entries: entriesWithUid(data),
+			fingerprint: bookFingerprint(data)
+		};
+		this.cache.set(book, item);
+		return item;
+	}
+	light(book, entries, enabledOnly = false) {
+		return entries.filter(({ entry }) => !enabledOnly || entry.disable !== true).map(({ entry }) => ({
+			key: entry.key,
+			keysecondary: entry.keysecondary,
+			comment: entry.comment,
+			content: entry.content,
+			world: book
+		}));
+	}
+	/** Content classification of a loaded book (cached until the book is saved). */
+	async classify(book) {
+		const known = this.kinds.get(book);
+		if (known?.archives !== void 0) return {
+			kind: known.kind,
+			archives: known.archives
+		};
+		const item = await this.book(book);
+		if (!item) return {
+			kind: null,
+			archives: false
+		};
+		const { core, packs } = classifyWorlds(this.light(book, item.entries));
+		const kind = core.has(book) ? "core" : packs.has(book) ? "pack" : null;
+		const archives = archiveWorlds(this.light(book, item.entries, true)).has(book);
+		this.kinds.set(book, {
+			kind,
+			archives
+		});
+		return {
+			kind,
+			archives
+		};
+	}
+	adapterBooks() {
+		try {
+			return adaptersOf(this.app).bunnymo.books();
+		} catch {
+			return {
+				core: [],
+				packs: [],
+				archives: []
+			};
+		}
+	}
+	ckRepos() {
+		try {
+			return adaptersOf(this.app).ck.repoBooks();
+		} catch {
+			return [];
+		}
+	}
+	/** BunnyMo core and pack books (existing ones), by roles → adapter → content. */
+	async bunnyBooks() {
+		await this.ensureRoles();
+		const names = this.worldNames();
+		const exists = (book) => !names.length || names.includes(book);
+		const core = /* @__PURE__ */ new Set();
+		const packs = /* @__PURE__ */ new Set();
+		const roles = this.roles();
+		const adapter = this.adapterBooks();
+		if (roles) {
+			for (const info of roles.all()) if (info.role === "bunnymo.core") core.add(info.book);
+			else if (info.role === "bunnymo.pack") packs.add(info.book);
+			for (const book of adapter.core) if (!roles.roleOf(book)) core.add(book);
+			for (const book of adapter.packs) if (!roles.roleOf(book)) packs.add(book);
+		} else {
+			for (const book of adapter.core) core.add(book);
+			for (const book of adapter.packs) packs.add(book);
+			for (const book of names) {
+				if (core.has(book) || packs.has(book) || isBackupBookName(book)) continue;
+				const { kind } = await this.classify(book);
+				if (kind === "core") core.add(book);
+				else if (kind === "pack") packs.add(book);
+			}
+		}
+		return {
+			core: sortNames([...core].filter(exists)),
+			packs: sortNames([...packs].filter(exists))
+		};
+	}
+	/** Books holding character archives: role 'ck.archive', CK repos and active books with archives. */
+	async archiveBooks() {
+		const { core, packs } = await this.bunnyBooks();
+		const bunny = /* @__PURE__ */ new Set([...core, ...packs]);
+		const names = this.worldNames();
+		const books = /* @__PURE__ */ new Set([...this.ckRepos(), ...this.adapterBooks().archives]);
+		const roles = this.roles();
+		if (roles) {
+			for (const info of roles.all()) if (info.role === "ck.archive") books.add(info.book);
+		} else for (const book of names) {
+			if (bunny.has(book) || isBackupBookName(book)) continue;
+			if ((await this.classify(book)).archives) books.add(book);
+		}
+		return sortNames([...books].filter((book) => !bunny.has(book) && (!names.length || names.includes(book))));
+	}
+	async activeBooks() {
+		try {
+			return new Set(await adaptersOf(this.app).bunnymo.activeBooks());
+		} catch {
+			return /* @__PURE__ */ new Set();
+		}
+	}
+	async dictionaryState() {
+		const { core, packs } = await this.bunnyBooks();
+		const archives = await this.archiveBooks();
+		const load = async (names) => {
+			const result = [];
+			for (const name of names) {
+				const item = await this.book(name);
+				if (item) result.push({
+					name,
+					item
+				});
+			}
+			return result;
+		};
+		const cores = await load(core);
+		const packBooks = await load(packs);
+		const archiveBooks = await load(archives);
+		const part = (list) => list.map(({ name, item }) => `${name}#${item.fingerprint}`).join("");
+		const key = [
+			part(cores),
+			part(packBooks),
+			part(archiveBooks)
+		].join("");
+		if (this.dictionaryCache?.key === key) return this.dictionaryCache;
+		const infoCategories = /* @__PURE__ */ new Set();
+		for (const { item } of cores) for (const category of templateCategories(item.entries)) infoCategories.add(category);
+		const dictionary = buildTagDictionary({
+			books: [...cores.map(({ name, item }) => ({
+				name,
+				core: true,
+				entries: item.entries
+			})), ...packBooks.map(({ name, item }) => ({
+				name,
+				core: false,
+				entries: item.entries
+			}))],
+			archives: archiveBooks.map(({ name, item }) => ({
+				name,
+				entries: item.entries
+			})),
+			builtAt: Date.now(),
+			infoCategories
+		});
+		const state = {
+			key,
+			dictionary,
+			vocabulary: tagVocabulary(dictionary, infoCategories)
+		};
+		this.dictionaryCache = state;
+		return state;
+	}
+	async dictionary() {
+		return (await this.dictionaryState()).dictionary;
+	}
+	async validateTags(tags) {
+		const { vocabulary } = await this.dictionaryState();
+		return checkTags(tags, vocabulary).map((check) => ({
+			...check,
+			...check.reason ? { message: this.t(`m35b.reason.${check.reason}`) } : {}
+		}));
+	}
+	selection() {
+		try {
+			return readPackSelection(this.app.chat.pointer(SELECTION_POINTER));
+		} catch {
+			return { mode: "all" };
+		}
+	}
+	async packs() {
+		const { packs } = await this.bunnyBooks();
+		const active = await this.activeBooks();
+		const selection = this.selection();
+		const roles = this.roles();
+		const loaded = [];
+		for (const book of packs) {
+			const item = await this.book(book);
+			if (item) loaded.push({
+				book,
+				item,
+				signatures: bookSignatures(item.entries)
+			});
+		}
+		const others = loaded.map(({ book, signatures }) => ({
+			book,
+			signatures
+		}));
+		return loaded.map(({ book, item, signatures }) => {
+			const title = packTitle(book);
+			const family = packFamily(item.entries);
+			const version = roles?.roleOf(book)?.pack?.version ?? title.version;
+			return {
+				book,
+				name: family ?? title.name,
+				...version ? { version } : {},
+				...family ? { family } : {},
+				edition: packEdition(book, signatures, others),
+				entries: item.entries.length,
+				active: active.has(book),
+				offInChat: isOffBySelection(selection, book)
+			};
+		}).sort((a, b) => Number(b.active) - Number(a.active) || byText(a.name, b.name) || byText(a.book, b.book));
+	}
+	/** Core books with their versions (integrity, packs view). */
+	async cores() {
+		const { core } = await this.bunnyBooks();
+		const active = await this.activeBooks();
+		const result = [];
+		for (const book of core) {
+			const item = await this.book(book);
+			if (!item) continue;
+			result.push({
+				book,
+				active: active.has(book),
+				...coreVersionOf(book, item.entries)
+			});
+		}
+		return result;
+	}
+	async setSelection(selection) {
+		const next = readPackSelection(selection);
+		if (!this.app.host.chatId()) throw new Error(this.t("m35b.error.noChat"));
+		const before = this.selection();
+		if (samePackSelection(before, next)) return;
+		await this.app.chat.setPointer(SELECTION_POINTER, next);
+		try {
+			await this.app.journal.record({
+				module: BUNNYMO_MODE_ID,
+				kind: "bunnymo.packSelection",
+				summary: next.mode === "all" ? this.t("m35b.journal.selectionAll") : this.t("m35b.journal.selectionOnly", { count: next.books.length }),
+				changes: [{
+					target: SELECTION_TARGET,
+					ref: { chatId: this.app.host.chatId() },
+					before,
+					after: next
+				}]
+			});
+		} catch (error) {
+			this.log.warn("pack selection was not journaled", error);
+		}
+		this.emit();
+	}
+	async undoSelection(change) {
+		const chatId = isDict$28(change.ref) ? change.ref.chatId : void 0;
+		if (!chatId || chatId !== this.app.host.chatId()) return false;
+		await this.app.chat.setPointer(SELECTION_POINTER, readPackSelection(change.before));
+		this.emit();
+		return true;
+	}
+	/** Sync kind of a book for the scan: roles → adapter → cached content classification. */
+	kindOf(book) {
+		const info = this.roles()?.roleOf(book);
+		if (info) return info.role === "bunnymo.core" ? "core" : info.role === "bunnymo.pack" ? "pack" : null;
+		const adapter = this.adapterBooks();
+		if (adapter.core.includes(book)) return "core";
+		if (adapter.packs.includes(book)) return "pack";
+		return this.kinds.get(book)?.kind;
+	}
+	isOffInChat(book) {
+		return isOffBySelection(this.selection(), book) && this.kindOf(book) === "pack";
+	}
+	/** Splices the entries of packs not selected for this chat out of a WORLDINFO_ENTRIES_LOADED payload. */
+	applySelection(payload) {
+		const selection = this.selection();
+		const simulating = this.app.modules.api("loreJournal")?.simulating() === true;
+		if (selection.mode === "all") {
+			if (!simulating && this.suppressed.size) this.suppressed = /* @__PURE__ */ new Map();
+			return 0;
+		}
+		const lists = listsOf(payload);
+		if (!lists) return 0;
+		this.classifyUnknown(lists);
+		const removed = suppressBooks(lists, (world) => isOffBySelection(selection, world) && this.kindOf(world) === "pack");
+		if (!simulating && isDict$28(payload)) {
+			if (!this.seenPayloads.has(payload)) {
+				this.seenPayloads.add(payload);
+				this.suppressed = removed;
+			} else for (const [book, value] of removed) this.suppressed.set(book, (this.suppressed.get(book) ?? 0) + value);
+		}
+		let count = 0;
+		for (const value of removed.values()) count += value;
+		return count;
+	}
+	/** Books in the scan that neither roles nor the adapter know: one classification pass over their entries. */
+	classifyUnknown(lists) {
+		const unknown = worldsOf(lists).filter((world) => this.kindOf(world) === void 0);
+		if (!unknown.length) return;
+		const wanted = new Set(unknown);
+		const entries = [];
+		for (const list of Object.values(lists)) for (const entry of list) if (typeof entry?.world === "string" && wanted.has(entry.world)) entries.push(entry);
+		const { core, packs } = classifyWorlds(entries);
+		for (const world of unknown) this.kinds.set(world, { kind: core.has(world) ? "core" : packs.has(world) ? "pack" : null });
+	}
+	async diffWithFile(book, file) {
+		const entries = parseWorldFile(await file.text());
+		if (!entries) throw new Error(this.t("m35b.error.file", { file: file.name }));
+		const current = await this.book(book);
+		if (!current) throw new Error(this.t("m35b.error.noBook", { book }));
+		return diffPackEntries(current.entries, entries);
+	}
+	async integrity() {
+		const names = this.worldNames();
+		const { core, packs } = await this.bunnyBooks();
+		const active = await this.activeBooks();
+		const cores = await this.cores();
+		const archives = await this.archiveBooks();
+		let global = [];
+		try {
+			global = strings$8((await this.app.host.modules.worldInfo()).selected_world_info);
+		} catch (error) {
+			this.log.debug("world-info.js is not available", error);
+		}
+		let tagLibraries = [];
+		let wrapping = false;
+		try {
+			const ck = adaptersOf(this.app).ck;
+			tagLibraries = ck.tagLibraries();
+			wrapping = ck.settings()?.bunnymoTagWrapping === true;
+		} catch {}
+		const bunny = /* @__PURE__ */ new Set([...core, ...packs]);
+		const wraps = [];
+		for (const book of sortNames([
+			...core,
+			...packs,
+			...archives,
+			...tagLibraries
+		])) {
+			if (names.length && !names.includes(book)) continue;
+			const item = await this.book(book);
+			if (!item) continue;
+			const backupName = `${book}${CK_BACKUP_SUFFIX}`;
+			const backup = names.includes(backupName) ? await this.book(backupName) : null;
+			const facts = wrapFacts(book, item.entries, backup?.entries ?? null, {
+				tagLibrary: tagLibraries.includes(book),
+				wrapping,
+				bunnymo: bunny.has(book)
+			});
+			if (facts.rewritten || facts.nested || facts.pending) wraps.push(facts);
+		}
+		const chatBooks = /* @__PURE__ */ new Set();
+		const chatBook = this.app.host.ctx().chatMetadata?.world_info;
+		if (typeof chatBook === "string" && chatBook) chatBooks.add(chatBook);
+		for (const info of this.roles()?.all() ?? []) if (info.role === "chat") chatBooks.add(info.book);
+		return integrityFindings({
+			books: names,
+			global,
+			cores,
+			packs: packs.map((book) => ({
+				book,
+				active: active.has(book)
+			})),
+			ckRepos: this.ckRepos(),
+			wraps,
+			isCanon: isCanonBookName,
+			chatBooks: [...chatBooks]
+		}).map((item) => ({
+			kind: item.kind,
+			text: this.t(`m35b.integrity.${item.kind}.${item.variant}`, item.params),
+			...item.book ? { book: item.book } : {}
+		}));
+	}
+	/** Archives by book for the sheet list. */
+	async archives() {
+		const result = [];
+		for (const book of await this.archiveBooks()) {
+			const item = await this.book(book);
+			if (!item) continue;
+			const items = item.entries.filter(({ entry }) => isCharacterArchive(entry)).map(({ uid, entry }) => ({
+				uid,
+				name: archiveNameOf(entry),
+				title: typeof entry.comment === "string" ? entry.comment : "",
+				tags: parseSheet(typeof entry.content === "string" ? entry.content : "").tags.length
+			})).sort((a, b) => a.uid - b.uid);
+			if (items.length) result.push({
+				book,
+				items
+			});
+		}
+		return result;
+	}
+	/** An archive by character name (`<Name:…>`, the title or a key), for the command. */
+	async findArchive(name) {
+		for (const book of await this.archiveBooks()) {
+			const item = await this.book(book);
+			for (const { uid, entry } of item?.entries ?? []) {
+				if (!isCharacterArchive(entry)) continue;
+				const keys = strings$8(entry.key);
+				if (sameName$1(archiveNameOf(entry), name) || keys.some((key) => sameName$1(key, name))) return {
+					book,
+					uid
+				};
+			}
+		}
+		return null;
+	}
+	async readSheet(book, uid) {
+		const entry = (await this.book(book))?.entries.find((candidate) => candidate.uid === uid)?.entry;
+		if (!entry || !isCharacterArchive(entry)) return null;
+		const parsed = parseSheet(typeof entry.content === "string" ? entry.content : "");
+		if (!parsed.block) return null;
+		const draft = sheetDraftOf(parsed);
+		return {
+			book,
+			uid,
+			name: draft.name,
+			tags: [...draft.tags],
+			...draft.mbti ? { mbti: draft.mbti } : {},
+			...draft.linguistics !== void 0 ? { linguistics: draft.linguistics } : {},
+			sections: [...draft.sections],
+			title: typeof entry.comment === "string" ? entry.comment : "",
+			blocks: parsed.blocks
+		};
+	}
+	/** BunnyMo books are never written (P13): by role, by the adapter and by content. */
+	isBunnyMo(book, data) {
+		const kind = this.kindOf(book);
+		if (kind === "core" || kind === "pack") return true;
+		return !!data && isDict$28(data.entries) && isBunnyMoBook(book, data);
+	}
+	async saveSheet(sheet) {
+		const { book, uid } = sheet;
+		await this.ensureRoles();
+		if (this.isBunnyMo(book, null)) throw new Error(this.t("m35b.error.bunnymoBook", { book }));
+		const data = await this.readBook(book);
+		if (!data) throw new Error(this.t("m35b.error.noBook", { book }));
+		if (this.isBunnyMo(book, data)) throw new Error(this.t("m35b.error.bunnymoBook", { book }));
+		const key = entryKeyOf(data, uid);
+		const entry = key === null ? void 0 : data.entries[key];
+		if (key === null || !entry) throw new Error(this.t("m35b.error.noEntry", {
+			book,
+			uid
+		}));
+		const before = typeof entry.content === "string" ? entry.content : "";
+		const result = rebuildSheet(before, {
+			name: sheet.name,
+			tags: sheet.tags,
+			...sheet.mbti ? { mbti: sheet.mbti } : {},
+			...sheet.linguistics !== void 0 ? { linguistics: sheet.linguistics } : {},
+			sections: sheet.sections
+		});
+		if (!result.ok) throw new Error(this.t(`m35b.error.sheet.${result.error}`, {
+			book,
+			uid
+		}));
+		if (!result.changed) return;
+		const summary = this.t("m35b.journal.sheet", {
+			name: sheet.name || `#${uid}`,
+			book
+		});
+		await this.writeContent(book, uid, data, key, result.content, before, summary);
+		this.cache.delete(book);
+		this.dictionaryCache = null;
+		this.refreshCk(book);
+		this.emit();
+	}
+	async writeContent(book, uid, data, key, content, before, summary) {
+		const store = this.store();
+		if (store) {
+			await store.updateEntry(book, uid, { content }, {
+				module: BUNNYMO_MODE_ID,
+				summary
+			});
+			return;
+		}
+		await this.writeDirect(book, data, key, content);
+		try {
+			await this.app.journal.record({
+				module: BUNNYMO_MODE_ID,
+				kind: "bunnymo.sheet",
+				summary,
+				changes: [{
+					target: SHEET_TARGET,
+					ref: {
+						book,
+						uid
+					},
+					before,
+					after: content
+				}]
+			});
+		} catch (error) {
+			this.log.warn("sheet save was not journaled", error);
+		}
+	}
+	/** Immediate save of a copy, editor reload and DES Lore Library reset (ARCHITECTURE «Lorebook writes»). */
+	async writeDirect(book, data, key, content) {
+		const ctx = this.app.host.ctx();
+		if (typeof ctx.saveWorldInfo !== "function") throw new Error(this.t("m35b.error.noSave"));
+		const next = copy(data);
+		const entries = next.entries;
+		entries[key] = {
+			...entries[key],
+			content
+		};
+		await ctx.saveWorldInfo(book, next, true);
+		try {
+			ctx.reloadWorldInfoEditor?.(book);
+		} catch (error) {
+			this.log.debug("lorebook editor reload failed", error);
+		}
+		try {
+			adaptersOf(this.app).des.invalidateLoreCache(book);
+		} catch {}
+	}
+	/** CK keeps parsed archives in memory: re-scan every repo after an archive changed (research §5 step 3). */
+	refreshCk(book) {
+		try {
+			const ck = adaptersOf(this.app).ck;
+			const repos = ck.repoBooks();
+			if (!repos.includes(book)) return;
+			Promise.resolve(ck.kernel()?.scanSelectedLorebooks?.(repos)).catch((error) => this.log.debug("CK rescan failed", error));
+		} catch (error) {
+			this.log.debug("CK rescan is not available", error);
+		}
+	}
+	async undoSheet(change) {
+		const ref = isDict$28(change.ref) ? change.ref : {};
+		const book = typeof ref.book === "string" ? ref.book : null;
+		const uid = Number(ref.uid);
+		if (!book || !Number.isFinite(uid) || typeof change.before !== "string") return false;
+		const data = await this.readBook(book);
+		if (!data || this.isBunnyMo(book, data)) return false;
+		const key = entryKeyOf(data, uid);
+		const entry = key === null ? void 0 : data.entries[key];
+		if (key === null || !entry || entry.content !== change.after) return false;
+		await this.writeDirect(book, data, key, change.before);
+		this.cache.delete(book);
+		this.dictionaryCache = null;
+		this.refreshCk(book);
+		this.emit();
+		return true;
+	}
+	async ruleEdits() {
+		const rules = this.app.modules.api("rules");
+		if (!rules) return null;
+		const { core, packs } = await this.bunnyBooks();
+		const bunny = /* @__PURE__ */ new Set([...core, ...packs]);
+		const cuts = rules.cutEntries?.() ?? [];
+		return {
+			rules: rules.list().map((state) => ({
+				id: state.id,
+				titleKey: state.definition.titleKey,
+				owner: state.definition.owner,
+				enabled: state.enabled,
+				waiting: state.waiting === true,
+				changes: state.lastChanges.filter((change) => bunny.has(change.world)),
+				cuts: cuts.filter((cut) => cut.ruleId === state.id && bunny.has(cut.world)).length
+			})).filter((rule) => rule.changes.length || rule.cuts || BUNNYMO_RULES.includes(rule.id)),
+			suppressed: [...this.suppressed].map(([book, count]) => ({
+				book,
+				count
+			}))
+		};
+	}
+	async setRuleEnabled(id, enabled) {
+		const rules = this.app.modules.api("rules");
+		if (!rules) return;
+		await rules.setEnabled(id, enabled);
+		this.emit();
+	}
+	open(target = {}) {
+		this.target = { ...target };
+		this.app.ui.openPult("bunnymo");
+	}
+	/** The public API (app.modules.api<BunnyMoModeApi>('bunnymoMode')). */
+	api() {
+		return {
+			dictionary: () => this.dictionary(),
+			packs: () => this.packs(),
+			selection: () => this.selection(),
+			setSelection: (selection) => this.setSelection(selection),
+			diffWithFile: (book, file) => this.diffWithFile(book, file),
+			integrity: () => this.integrity(),
+			readSheet: (book, uid) => this.readSheet(book, uid),
+			validateTags: (tags) => this.validateTags(tags),
+			saveSheet: (sheet) => this.saveSheet(sheet),
+			open: (target) => this.open(target),
+			onChange: (listener) => this.onChange(listener),
+			isOffInChat: (book) => this.isOffInChat(book),
+			applySelection: (payload) => this.applySelection(payload)
+		};
+	}
+};
+//#endregion
+//#region src/features/bunnymoMode/strings.ts
+var BUNNYMO_MODE_STRINGS = {
+	en: {
+		"m35b.title": "BunnyMo mode",
+		"m35b.tab": "BunnyMo",
+		"m35b.nav": "BunnyMo mode sections",
+		"m35b.view.dictionary": "Tag dictionary",
+		"m35b.view.packs": "Packs",
+		"m35b.view.integrity": "Integrity",
+		"m35b.view.sheets": "Sheets",
+		"m35b.view.edits": "Runtime fixes",
+		"m35b.loading": "Reading lorebooks…",
+		"m35b.refresh": "Refresh",
+		"m35b.health.title": "BunnyMo integrity",
+		"m35b.health.ok": "BunnyMo books are in order.",
+		"m35b.health.found": "Problems: {count}. {first}",
+		"m35b.slash.help": "Opens the BunnyMo mode: a tag (<SPECIES:ELF>) opens the dictionary, a character name opens the sheet editor.",
+		"m35b.slash.value": "tag or character name",
+		"m35b.dict.search": "Search tags, entries and characters",
+		"m35b.dict.category": "Category",
+		"m35b.dict.allCategories": "All categories",
+		"m35b.dict.flags": "Flags without a category",
+		"m35b.dict.summary": "{tags} tags in {categories} categories · conflicts: {conflicts} · without a pack: {orphans}",
+		"m35b.dict.none": "Nothing found.",
+		"m35b.dict.empty": "No BunnyMo books found: the dictionary is empty.",
+		"m35b.dict.more": "Show {count} more",
+		"m35b.dict.pulls": "Pack entries",
+		"m35b.dict.noEntries": "No loaded pack has an entry for this tag.",
+		"m35b.dict.infoTag": "Informational tag: only the model and CarrotKernel read it, no pack entry is needed.",
+		"m35b.dict.usedBy": "Archives using it",
+		"m35b.dict.unused": "No archive uses this tag.",
+		"m35b.dict.entry": "«{book}» · #{uid}",
+		"m35b.dict.chars": "{chars} chars",
+		"m35b.dict.kind.pull": "pulls",
+		"m35b.dict.kind.info": "info",
+		"m35b.dict.badge.conflict": "version conflict",
+		"m35b.dict.badge.duplicate": "duplicate",
+		"m35b.dict.badge.orphan": "no pack",
+		"m35b.dict.badge.info": "informational",
+		"m35b.dict.conflictHint": "This tag has different texts in several packs. Which version stays is decided by the rule «Pack version conflicts».",
+		"m35b.dict.duplicateHint": "The same text in several packs: the rule «Byte-identical pack duplicates» keeps one copy.",
+		"m35b.dict.openSheet": "Open the sheet of {name}",
+		"m35b.packs.allInChat": "All packs in this chat",
+		"m35b.packs.allHint": "Off: only the checked packs work in this chat, the others are left out of the scan. Files and global switches stay as they are.",
+		"m35b.packs.noChat": "Open a chat to choose packs for it.",
+		"m35b.packs.inChat": "In this chat",
+		"m35b.packs.active": "active",
+		"m35b.packs.inactive": "not active",
+		"m35b.packs.edition.shared": "one file",
+		"m35b.packs.edition.split": "separate edition",
+		"m35b.packs.entries": "entries: {count}",
+		"m35b.packs.version": "v{version}",
+		"m35b.packs.none": "No BunnyMo packs found.",
+		"m35b.packs.core": "Core «{book}» · V{version}",
+		"m35b.packs.coreInactive": "not active",
+		"m35b.packs.compare": "Compare with a file",
+		"m35b.packs.conflicts": "Version conflicts",
+		"m35b.packs.conflict.chosen": "{books}: «{choice}» stays",
+		"m35b.packs.conflict.every": "{books}: every version stays",
+		"m35b.packs.conflict.open": "{books}: not decided yet",
+		"m35b.packs.diff.title": "«{book}» compared with «{file}»",
+		"m35b.packs.diff.added": "New in the file ({count})",
+		"m35b.packs.diff.removed": "Only in the book ({count})",
+		"m35b.packs.diff.changed": "Changed ({count})",
+		"m35b.packs.diff.same": "The file holds the same entries.",
+		"m35b.packs.diff.note": "Nothing has been written. To move to the new version, import the file as a new book in the Lore Studio and choose it for the chat here.",
+		"m35b.packs.diff.close": "Close the comparison",
+		"m35b.integrity.ok": "Everything is in order.",
+		"m35b.integrity.coreMissing.inactive": "Active packs: {count}, but the core «{book}» is not active: sheet commands and Master entries do not work.",
+		"m35b.integrity.coreMissing.absent": "Active packs: {count}, but there is no BunnyMo core.",
+		"m35b.integrity.coreVersion.several": "Several BunnyMo cores are active at once: {books}. Keep one.",
+		"m35b.integrity.coreVersion.old": "The core «{book}» looks like version {version}; Maestro is checked against V{expected}.",
+		"m35b.integrity.packAsRepo.repo": "«{book}» is a BunnyMo book marked as a CarrotKernel Character Repo: CK reads its templates as characters. Unmark it in CarrotKernel.",
+		"m35b.integrity.ckWrapRewrite.backup": "Entries of «{book}» rewritten with the CarrotKernel tag wrapper: {count} (compared with the .carrot_backup copy).",
+		"m35b.integrity.ckWrapRewrite.backupPack": "Entries of the BunnyMo pack «{book}» rewritten with the CarrotKernel tag wrapper: {count}. Pack files must stay as shipped: import the original file again.",
+		"m35b.integrity.ckWrapRewrite.nested": "Entries of «{book}» wrapped by CarrotKernel twice: {count}.",
+		"m35b.integrity.ckWrapRewrite.nestedPack": "Entries of the BunnyMo pack «{book}» wrapped by CarrotKernel twice: {count}. Import the original file again.",
+		"m35b.integrity.ckWrapRewrite.pending": "«{book}» is a CarrotKernel Tag Library and «BunnyMo tag wrapping» is on: CK will rewrite this file on its next load.",
+		"m35b.integrity.ckWrapRewrite.pendingPack": "CarrotKernel will rewrite the BunnyMo pack «{book}» on its next load (Tag Library with «BunnyMo tag wrapping» on). Turn the wrapping off in CarrotKernel.",
+		"m35b.integrity.ckBackup.copy": "CarrotKernel backup «{book}» (a copy of «{original}»).",
+		"m35b.integrity.ckBackup.orphan": "CarrotKernel backup «{book}»: its original «{original}» is gone.",
+		"m35b.integrity.canonGlobal.global": "The chat canon «{book}» is switched on globally; it must work only through Maestro.",
+		"m35b.integrity.chatBookGlobal.global": "The chat book «{book}» is also switched on globally: it works in every chat.",
+		"m35b.sheets.none": "No character archives found (CarrotKernel repositories or books with <BunnymoTags>).",
+		"m35b.sheets.tags": "tags: {count}",
+		"m35b.sheets.back": "Back to the list",
+		"m35b.sheets.noName": "(no name)",
+		"m35b.sheets.nameLocked": "<Name:…> never changes: CarrotKernel, RAG and DES find the character by it.",
+		"m35b.sheets.tagsTitle": "Tags",
+		"m35b.sheets.noTags": "The block has no tags yet.",
+		"m35b.sheets.category": "Category",
+		"m35b.sheets.value": "Value",
+		"m35b.sheets.add": "Add",
+		"m35b.sheets.replace": "Replace",
+		"m35b.sheets.cancelEdit": "Cancel",
+		"m35b.sheets.remove": "Remove {tag}",
+		"m35b.sheets.edit": "Edit {tag}",
+		"m35b.sheets.mbti": "MBTI",
+		"m35b.sheets.mbtiNone": "none",
+		"m35b.sheets.healthy": "H — healthy",
+		"m35b.sheets.unhealthy": "U — unhealthy",
+		"m35b.sheets.linguistics": "Linguistics",
+		"m35b.sheets.sections": "Prose sections",
+		"m35b.sheets.untitled": "Text without a title",
+		"m35b.sheets.inText": "Tags in the text",
+		"m35b.sheets.check": "Tag check",
+		"m35b.sheets.checkOk": "Every tag is fine.",
+		"m35b.sheets.suggest": "Use {tag}",
+		"m35b.sheets.save": "Save",
+		"m35b.sheets.reset": "Discard changes",
+		"m35b.sheets.saved": "Sheet of {name} saved.",
+		"m35b.sheets.unchanged": "Nothing has changed.",
+		"m35b.sheets.multiBlock": "This entry holds {count} <BunnymoTags> blocks and CarrotKernel reads only the first. Split it into one entry per character before editing.",
+		"m35b.sheets.notFound": "This archive is gone.",
+		"m35b.sheets.chatSheets": "Sheets of this character in the chat",
+		"m35b.sheets.chatSheet": "message #{index} · !{command}",
+		"m35b.sheets.commands": "Sheet commands (!fullsheet, !updatesheet…) go through the sheet scenario: type the command with the name in the chat.",
+		"m35b.edits.intro": "Technical fixes Maestro applies to BunnyMo books on the fly: only scan copies change, the files stay as shipped. Each rule can be switched off.",
+		"m35b.edits.noRules": "The «Rules» module is off: no runtime fixes are made.",
+		"m35b.edits.changes": "changes in the last scan: {count}",
+		"m35b.edits.none": "no changes in the last scan",
+		"m35b.edits.cuts": "activations cut: {count}",
+		"m35b.edits.waiting": "waits for the first-run wizard",
+		"m35b.edits.owner.desru": "owner: DES-RU",
+		"m35b.edits.change": "«{book}» · #{uid} · {field}: {before} → {after}",
+		"m35b.edits.selection": "Packs off in this chat",
+		"m35b.edits.selectionItem": "«{book}»: entries left out of the scan: {count}",
+		"m35b.edits.selectionNone": "The per-chat pack choice took nothing out of the last scan.",
+		"m35b.edits.selectionAll": "Use every pack again",
+		"m35b.edits.desru": "DES-RU (module 5) also patches BunnyMo entries on the fly: Russian detector keys and recursion flags. It is switched in the DES-RU settings.",
+		"m35b.reason.malformed": "malformed: CarrotKernel reads only <KEY:VALUE>",
+		"m35b.reason.cyrillic": "Russian letters: tags stay in English",
+		"m35b.reason.placeholder": "template placeholder",
+		"m35b.reason.transitional": "transition markup (→, %, FADING): write the final value",
+		"m35b.reason.duplicate": "repeated",
+		"m35b.reason.unknownCategory": "unknown category",
+		"m35b.reason.unknownValue": "no pack entry for this value",
+		"m35b.reason.noPack": "the pack of this category is not loaded: the tag pulls nothing",
+		"m35b.journal.selectionAll": "BunnyMo: every pack works in this chat",
+		"m35b.journal.selectionOnly": "BunnyMo: only {count} packs work in this chat",
+		"m35b.journal.sheet": "Sheet of {name} («{book}»)",
+		"m35b.error.noChat": "Open a chat first.",
+		"m35b.error.file": "«{file}» is not a lorebook file (JSON with entries).",
+		"m35b.error.noBook": "Lorebook «{book}» could not be read.",
+		"m35b.error.noEntry": "Lorebook «{book}» has no entry {uid}.",
+		"m35b.error.bunnymoBook": "«{book}» is a BunnyMo book: its files are never edited.",
+		"m35b.error.noSave": "This SillyTavern cannot save lorebooks.",
+		"m35b.error.sheet.noBlock": "Entry {uid} of «{book}» has no <BunnymoTags> block.",
+		"m35b.error.sheet.multiBlock": "Entry {uid} of «{book}» holds several characters: one entry must hold one.",
+		"m35b.error.sheet.name": "The name in <Name:…> cannot change.",
+		"m35b.error.sheet.tag": "A tag cannot be written: the key takes Latin letters, digits, _ and -, the value has no < > or line breaks."
+	},
+	ru: {
+		"m35b.title": "Режим BunnyMo",
+		"m35b.tab": "BunnyMo",
+		"m35b.nav": "Разделы режима BunnyMo",
+		"m35b.view.dictionary": "Словарь тегов",
+		"m35b.view.packs": "Паки",
+		"m35b.view.integrity": "Целостность",
+		"m35b.view.sheets": "Листы",
+		"m35b.view.edits": "Правки на лету",
+		"m35b.loading": "Читаю лорбуки…",
+		"m35b.refresh": "Обновить",
+		"m35b.health.title": "Целостность BunnyMo",
+		"m35b.health.ok": "С книгами BunnyMo всё в порядке.",
+		"m35b.health.found": "Проблем: {count}. {first}",
+		"m35b.slash.help": "Открывает режим BunnyMo: тег (<SPECIES:ELF>) — словарь на этом теге, имя персонажа — редактор его листа.",
+		"m35b.slash.value": "тег или имя персонажа",
+		"m35b.dict.search": "Поиск по тегам, записям и персонажам",
+		"m35b.dict.category": "Категория",
+		"m35b.dict.allCategories": "Все категории",
+		"m35b.dict.flags": "Флаги без категории",
+		"m35b.dict.summary": "Тегов: {tags}, категорий: {categories} · конфликтов: {conflicts} · без пака: {orphans}",
+		"m35b.dict.none": "Ничего не нашлось.",
+		"m35b.dict.empty": "Книг BunnyMo не нашлось — словарь пуст.",
+		"m35b.dict.more": "Показать ещё {count}",
+		"m35b.dict.pulls": "Записи паков",
+		"m35b.dict.noEntries": "Ни в одном загруженном паке нет записи на этот тег.",
+		"m35b.dict.infoTag": "Информационный тег: его читают только модель и CarrotKernel, запись в паке не нужна.",
+		"m35b.dict.usedBy": "Где используется",
+		"m35b.dict.unused": "Ни один архив этот тег не использует.",
+		"m35b.dict.entry": "«{book}» · #{uid}",
+		"m35b.dict.chars": "{chars} симв.",
+		"m35b.dict.kind.pull": "подтягивает",
+		"m35b.dict.kind.info": "справка",
+		"m35b.dict.badge.conflict": "конфликт версий",
+		"m35b.dict.badge.duplicate": "дубль",
+		"m35b.dict.badge.orphan": "нет пака",
+		"m35b.dict.badge.info": "информационный",
+		"m35b.dict.conflictHint": "У этого тега разные тексты в нескольких паках. Какая версия остаётся, решает правило «Конфликт версий паков».",
+		"m35b.dict.duplicateHint": "Один и тот же текст в нескольких паках: правило «Побайтные дубли паков» оставляет одну копию.",
+		"m35b.dict.openSheet": "Открыть лист: {name}",
+		"m35b.packs.allInChat": "Все паки в этом чате",
+		"m35b.packs.allHint": "Если выключить, в этом чате работают только отмеченные паки, остальные убираются из сканирования. Файлы и глобальные включения не меняются.",
+		"m35b.packs.noChat": "Открой чат, чтобы выбрать для него паки.",
+		"m35b.packs.inChat": "В этом чате",
+		"m35b.packs.active": "включён",
+		"m35b.packs.inactive": "не включён",
+		"m35b.packs.edition.shared": "общий файл",
+		"m35b.packs.edition.split": "раздельное издание",
+		"m35b.packs.entries": "записей: {count}",
+		"m35b.packs.version": "v{version}",
+		"m35b.packs.none": "Паков BunnyMo не нашлось.",
+		"m35b.packs.core": "Ядро «{book}» · V{version}",
+		"m35b.packs.coreInactive": "не включено",
+		"m35b.packs.compare": "Сравнить с файлом",
+		"m35b.packs.conflicts": "Конфликты версий",
+		"m35b.packs.conflict.chosen": "{books}: остаётся «{choice}»",
+		"m35b.packs.conflict.every": "{books}: остаются все версии",
+		"m35b.packs.conflict.open": "{books}: ещё не решено",
+		"m35b.packs.diff.title": "«{book}» в сравнении с «{file}»",
+		"m35b.packs.diff.added": "Новое в файле ({count})",
+		"m35b.packs.diff.removed": "Есть только в книге ({count})",
+		"m35b.packs.diff.changed": "Изменилось ({count})",
+		"m35b.packs.diff.same": "В файле те же записи.",
+		"m35b.packs.diff.note": "Ничего не записано. Чтобы перейти на новую версию, импортируй файл новой книгой в Лор-студии и выбери её для чата здесь.",
+		"m35b.packs.diff.close": "Закрыть сравнение",
+		"m35b.integrity.ok": "Всё в порядке.",
+		"m35b.integrity.coreMissing.inactive": "Включено паков: {count}, а ядро «{book}» не включено — команды листов и записи Master не работают.",
+		"m35b.integrity.coreMissing.absent": "Включено паков: {count}, а ядра BunnyMo нет.",
+		"m35b.integrity.coreVersion.several": "Включено сразу несколько ядер BunnyMo: {books}. Оставь одно.",
+		"m35b.integrity.coreVersion.old": "Ядро «{book}» похоже на версию {version}, а Maestro проверен с V{expected}.",
+		"m35b.integrity.packAsRepo.repo": "«{book}» — книга BunnyMo, отмеченная в CarrotKernel как репозиторий персонажей: CK примет её шаблоны за персонажей. Сними отметку в CarrotKernel.",
+		"m35b.integrity.ckWrapRewrite.backup": "Записей «{book}», переписанных обёрткой тегов CarrotKernel: {count} (видно по копии .carrot_backup).",
+		"m35b.integrity.ckWrapRewrite.backupPack": "Записей пака BunnyMo «{book}», переписанных обёрткой тегов CarrotKernel: {count}. Файлы паков должны оставаться как есть — импортируй исходный файл заново.",
+		"m35b.integrity.ckWrapRewrite.nested": "Записей «{book}» с двойной обёрткой CarrotKernel: {count}.",
+		"m35b.integrity.ckWrapRewrite.nestedPack": "Записей пака BunnyMo «{book}» с двойной обёрткой CarrotKernel: {count}. Импортируй исходный файл заново.",
+		"m35b.integrity.ckWrapRewrite.pending": "«{book}» — библиотека тегов CarrotKernel, а «обёртка тегов BunnyMo» включена: при следующей загрузке CK перепишет этот файл.",
+		"m35b.integrity.ckWrapRewrite.pendingPack": "При следующей загрузке CarrotKernel перепишет пак BunnyMo «{book}» (библиотека тегов при включённой «обёртке тегов BunnyMo»). Выключи обёртку в CarrotKernel.",
+		"m35b.integrity.ckBackup.copy": "Копия CarrotKernel «{book}» (копия «{original}»).",
+		"m35b.integrity.ckBackup.orphan": "Копия CarrotKernel «{book}»: исходной книги «{original}» уже нет.",
+		"m35b.integrity.canonGlobal.global": "Канон чата «{book}» включён глобально, а должен работать только через Maestro.",
+		"m35b.integrity.chatBookGlobal.global": "Книга чата «{book}» включена ещё и глобально — она работает во всех чатах.",
+		"m35b.sheets.none": "Архивов персонажей не нашлось (репозитории CarrotKernel или книги с <BunnymoTags>).",
+		"m35b.sheets.tags": "тегов: {count}",
+		"m35b.sheets.back": "К списку",
+		"m35b.sheets.noName": "(без имени)",
+		"m35b.sheets.nameLocked": "<Name:…> не меняется: по нему персонажа находят CarrotKernel, RAG и DES.",
+		"m35b.sheets.tagsTitle": "Теги",
+		"m35b.sheets.noTags": "В блоке пока нет тегов.",
+		"m35b.sheets.category": "Категория",
+		"m35b.sheets.value": "Значение",
+		"m35b.sheets.add": "Добавить",
+		"m35b.sheets.replace": "Заменить",
+		"m35b.sheets.cancelEdit": "Отмена",
+		"m35b.sheets.remove": "Убрать {tag}",
+		"m35b.sheets.edit": "Изменить {tag}",
+		"m35b.sheets.mbti": "MBTI",
+		"m35b.sheets.mbtiNone": "нет",
+		"m35b.sheets.healthy": "H — здоровый",
+		"m35b.sheets.unhealthy": "U — нездоровый",
+		"m35b.sheets.linguistics": "Linguistics",
+		"m35b.sheets.sections": "Прозаические разделы",
+		"m35b.sheets.untitled": "Текст без заголовка",
+		"m35b.sheets.inText": "Теги в тексте",
+		"m35b.sheets.check": "Проверка тегов",
+		"m35b.sheets.checkOk": "Все теги в порядке.",
+		"m35b.sheets.suggest": "Взять {tag}",
+		"m35b.sheets.save": "Сохранить",
+		"m35b.sheets.reset": "Отменить правки",
+		"m35b.sheets.saved": "Лист «{name}» сохранён.",
+		"m35b.sheets.unchanged": "Ничего не изменилось.",
+		"m35b.sheets.multiBlock": "В этой записи блоков <BunnymoTags>: {count}, а CarrotKernel читает только первый. Перед правкой раздели её — одна запись на персонажа.",
+		"m35b.sheets.notFound": "Этого архива больше нет.",
+		"m35b.sheets.chatSheets": "Листы этого персонажа в чате",
+		"m35b.sheets.chatSheet": "сообщение №{index} · !{command}",
+		"m35b.sheets.commands": "Команды листов (!fullsheet, !updatesheet…) идут через сценарий листов: напиши команду с именем в чате.",
+		"m35b.edits.intro": "Технические правки, которые Maestro делает в книгах BunnyMo на лету: меняются только копии для сканирования, файлы остаются как есть. Любое правило можно выключить.",
+		"m35b.edits.noRules": "Модуль «Правила» выключен — правок на лету нет.",
+		"m35b.edits.changes": "изменений в последнем сканировании: {count}",
+		"m35b.edits.none": "в последнем сканировании ничего не изменило",
+		"m35b.edits.cuts": "срезано срабатываний: {count}",
+		"m35b.edits.waiting": "ждёт мастера первого запуска",
+		"m35b.edits.owner.desru": "владелец: DES-RU",
+		"m35b.edits.change": "«{book}» · #{uid} · {field}: {before} → {after}",
+		"m35b.edits.selection": "Паки, выключенные в этом чате",
+		"m35b.edits.selectionItem": "«{book}»: из сканирования убрано записей: {count}",
+		"m35b.edits.selectionNone": "Выбор паков для чата ничего не убрал из последнего сканирования.",
+		"m35b.edits.selectionAll": "Снова все паки",
+		"m35b.edits.desru": "DES-RU (модуль 5) тоже правит записи BunnyMo на лету: русские ключи детекторов и флаги рекурсии. Это переключается в настройках DES-RU.",
+		"m35b.reason.malformed": "неверная запись: CarrotKernel читает только <KEY:VALUE>",
+		"m35b.reason.cyrillic": "русские буквы: теги пишутся по-английски",
+		"m35b.reason.placeholder": "заглушка из шаблона",
+		"m35b.reason.transitional": "разметка перехода (→, %, FADING): впиши итоговое значение",
+		"m35b.reason.duplicate": "повтор",
+		"m35b.reason.unknownCategory": "неизвестная категория",
+		"m35b.reason.unknownValue": "в паке нет записи с таким значением",
+		"m35b.reason.noPack": "пак этой категории не загружен — тег ничего не подтянет",
+		"m35b.journal.selectionAll": "BunnyMo: в этом чате работают все паки",
+		"m35b.journal.selectionOnly": "BunnyMo: в этом чате работают только выбранные паки ({count})",
+		"m35b.journal.sheet": "Лист «{name}» («{book}»)",
+		"m35b.error.noChat": "Сначала открой чат.",
+		"m35b.error.file": "«{file}» — не файл лорбука (JSON с записями).",
+		"m35b.error.noBook": "Не удалось прочитать лорбук «{book}».",
+		"m35b.error.noEntry": "В лорбуке «{book}» нет записи {uid}.",
+		"m35b.error.bunnymoBook": "«{book}» — книга BunnyMo, её файлы не правятся.",
+		"m35b.error.noSave": "Эта версия SillyTavern не умеет сохранять лорбуки.",
+		"m35b.error.sheet.noBlock": "В записи {uid} книги «{book}» нет блока <BunnymoTags>.",
+		"m35b.error.sheet.multiBlock": "В записи {uid} книги «{book}» несколько персонажей, а должен быть один.",
+		"m35b.error.sheet.name": "Имя в <Name:…> менять нельзя.",
+		"m35b.error.sheet.tag": "Тег нельзя записать: в ключе только латиница, цифры, _ и -, в значении не должно быть < > и переводов строки."
+	}
+};
+//#endregion
+//#region src/features/bunnymoMode/styles.ts
+var BUNNYMO_MODE_CSS = `
+.maestro-m35b { display: flex; flex-direction: column; gap: var(--maestro-gap); min-width: 0; }
+.maestro-m35b-nav .maestro-segment { flex: 1 1 auto; min-width: 7em; }
+.maestro-m35b-body { display: flex; flex-direction: column; gap: var(--maestro-gap-sm); min-width: 0; }
+.maestro-m35b-controls { display: flex; flex-wrap: wrap; gap: var(--maestro-gap-sm); }
+.maestro-m35b-controls .maestro-m35b-search { flex: 2 1 12em; min-width: 0; }
+.maestro-m35b-controls .maestro-select { flex: 1 1 10em; min-width: 0; }
+.maestro-m35b-tags { display: flex; flex-direction: column; gap: 4px; }
+.maestro-m35b-tag { border: 1px solid var(--maestro-border); border-radius: var(--maestro-radius-sm); padding: 4px 8px; }
+.maestro-m35b-tag > summary { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; cursor: pointer; min-height: 32px; }
+.maestro-m35b-code { font-family: var(--monoFontFamily, monospace); overflow-wrap: anywhere; }
+.maestro-m35b-counts { margin-left: auto; font-size: 0.85em; }
+.maestro-m35b-card { display: flex; flex-direction: column; gap: 4px; padding: 6px 0 2px; }
+.maestro-m35b-label { font-weight: 600; font-size: 0.9em; margin-top: 4px; }
+.maestro-m35b-strong { font-weight: 600; overflow-wrap: anywhere; }
+.maestro-m35b-list { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column; gap: 2px; overflow-wrap: anywhere; }
+.maestro-m35b-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.maestro-m35b-chip { display: inline-flex; align-items: stretch; border: 1px solid var(--maestro-border); border-radius: 999px; background: var(--maestro-raised); overflow: hidden; max-width: 100%; }
+.maestro-m35b-chip.maestro-on { border-color: var(--maestro-accent); background: var(--maestro-accent-soft); }
+.maestro-m35b-chip-warn { border-color: var(--maestro-warn); }
+.maestro-m35b-chip-bad { border-color: var(--maestro-error); }
+.maestro-m35b-chip button { background: none; border: 0; color: inherit; cursor: pointer; padding: 4px 8px; min-height: 32px; font: inherit; }
+.maestro-m35b-chip-text { font-family: var(--monoFontFamily, monospace); overflow-wrap: anywhere; text-align: left; }
+.maestro-m35b-chip-remove { border-left: 1px solid var(--maestro-border) !important; padding: 4px 10px !important; }
+.maestro-m35b-addrow, .maestro-m35b-mbti, .maestro-m35b-actions, .maestro-m35b-toolbar { display: flex; flex-wrap: wrap; gap: var(--maestro-gap-sm); align-items: center; margin-top: var(--maestro-gap-sm); }
+.maestro-m35b-addrow .maestro-select { flex: 1 1 9em; min-width: 0; }
+.maestro-m35b-value { flex: 2 1 10em; min-width: 0; }
+.maestro-m35b-variant { flex: 1 1 14em; }
+.maestro-m35b-problems { display: flex; flex-direction: column; gap: 4px; }
+.maestro-m35b-problem { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.maestro-m35b-text { width: 100%; min-height: 5em; resize: vertical; box-sizing: border-box; }
+.maestro-m35b-field { display: flex; flex-direction: column; gap: 2px; margin-bottom: var(--maestro-gap-sm); }
+.maestro-m35b-sheet-head { display: flex; flex-direction: column; gap: 2px; }
+.maestro-m35b-name { font-size: 1.15em; font-weight: 600; overflow-wrap: anywhere; }
+.maestro-m35b-archives { display: flex; flex-wrap: wrap; gap: 6px; }
+.maestro-m35b-archive { max-width: 100%; }
+.maestro-m35b-packs { display: flex; flex-direction: column; gap: var(--maestro-gap-sm); }
+.maestro-m35b-pack { border: 1px solid var(--maestro-border); border-radius: var(--maestro-radius-sm); padding: 6px 8px; display: flex; flex-direction: column; gap: 2px; }
+.maestro-m35b-pack.maestro-m35b-focus { border-color: var(--maestro-accent); }
+.maestro-m35b-pack-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.maestro-m35b-book { font-size: 0.85em; overflow-wrap: anywhere; }
+.maestro-m35b-file { position: relative; }
+.maestro-m35b-core { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.maestro-m35b-selection { display: flex; flex-direction: column; gap: 4px; }
+.maestro-m35b-diff-item { margin: 4px 0 4px 1em; }
+.maestro-m35b-findings, .maestro-m35b-rules { display: flex; flex-direction: column; gap: var(--maestro-gap-sm); }
+.maestro-m35b-rule { border: 1px solid var(--maestro-border); border-radius: var(--maestro-radius-sm); padding: 6px 8px; }
+.maestro-m35b-rule-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.maestro-m35b-save { position: sticky; bottom: 0; background: var(--maestro-surface); padding: var(--maestro-gap-sm) 0; }
+@media (min-width: 1000px) {
+    .maestro-m35b-packs { display: grid; grid-template-columns: repeat(auto-fill, minmax(22em, 1fr)); }
+}
+`;
+//#endregion
+//#region src/features/bunnymoMode/view-common.ts
+var SECTIONS = [
+	"dictionary",
+	"packs",
+	"integrity",
+	"sheets",
+	"edits"
+];
+/** Category filter value for bare flags (`<DEPRESSION>`), which are one category each. */
+var FLAGS_FILTER = "\0flags";
+function initialViewState() {
+	return {
+		section: "dictionary",
+		dict: {
+			search: "",
+			category: "",
+			open: null,
+			limit: 120
+		},
+		packs: {
+			diff: null,
+			focus: null
+		},
+		sheets: {
+			editor: null,
+			pending: null
+		}
+	};
+}
+function loading(t) {
+	return el("div", {
+		class: "maestro-muted maestro-m35b-loading",
+		text: t("m35b.loading")
+	});
+}
+function errorText$1(error) {
+	return error instanceof Error ? error.message : String(error);
+}
+/** Deep copy of a sheet (the editor never edits what it read). */
+function copySheet(sheet) {
+	return JSON.parse(JSON.stringify(sheet));
+}
+function tagText(tag) {
+	return `<${tag.key}:${tag.value}>`;
+}
+//#endregion
+//#region src/features/bunnymoMode/view-dictionary.ts
+function matches$1(tag, query) {
+	if (!query) return true;
+	if (tag.tag.toLowerCase().includes(query)) return true;
+	if (tag.entries.some((entry) => entry.comment.toLowerCase().includes(query))) return true;
+	return tag.usedBy.some((use) => use.name.toLowerCase().includes(query));
+}
+function filtered(dictionary, query, category) {
+	const flags = new Set(dictionary.categories.filter((item) => item.flag).map((item) => item.id));
+	const needle = query.trim().toLowerCase();
+	return dictionary.tags.filter((tag) => {
+		if (category === "\0flags" ? !flags.has(tag.category) : category && tag.category !== category) return false;
+		return matches$1(tag, needle);
+	});
+}
+function tagCard(ctx, tag, info) {
+	const { t } = ctx;
+	const entries = tag.entries.length ? el("ul", { class: "maestro-m35b-list" }, tag.entries.map((entry) => el("li", {}, [
+		el("span", {
+			class: "maestro-m35b-strong",
+			text: entry.comment || `#${entry.uid}`
+		}),
+		" ",
+		el("span", {
+			class: "maestro-muted",
+			text: `${t("m35b.dict.entry", {
+				book: entry.book,
+				uid: entry.uid
+			})} · ${t("m35b.dict.chars", { chars: entry.chars })}`
+		}),
+		" ",
+		badge(t(`m35b.dict.kind.${entry.kind}`), entry.kind === "pull" ? "ok" : "muted")
+	]))) : el("div", {
+		class: "maestro-muted",
+		text: t(info ? "m35b.dict.infoTag" : "m35b.dict.noEntries")
+	});
+	const used = tag.usedBy.length ? el("div", { class: "maestro-m35b-chips" }, tag.usedBy.map((use) => button({
+		label: use.name || `#${use.uid}`,
+		icon: "fa-id-card",
+		kind: "ghost",
+		title: t("m35b.dict.openSheet", { name: use.name || `#${use.uid}` }),
+		onClick: () => {
+			ctx.state.sheets.pending = {
+				book: use.book,
+				uid: use.uid
+			};
+			ctx.state.sheets.editor = null;
+			ctx.go("sheets");
+		}
+	}))) : el("div", {
+		class: "maestro-muted",
+		text: t("m35b.dict.unused")
+	});
+	return el("div", { class: "maestro-m35b-card" }, [
+		tag.conflict ? el("div", {
+			class: "maestro-warn-text",
+			text: t("m35b.dict.conflictHint")
+		}) : null,
+		tag.duplicate ? el("div", {
+			class: "maestro-muted",
+			text: t("m35b.dict.duplicateHint")
+		}) : null,
+		el("div", {
+			class: "maestro-m35b-label",
+			text: t("m35b.dict.pulls")
+		}),
+		entries,
+		el("div", {
+			class: "maestro-m35b-label",
+			text: t("m35b.dict.usedBy")
+		}),
+		used
+	]);
+}
+function tagRow(ctx, tag, info) {
+	const { t, state } = ctx;
+	const details = el("details", {
+		class: "maestro-m35b-tag",
+		data: { tag: tag.tag }
+	}, [el("summary", {}, [
+		el("code", {
+			class: "maestro-m35b-code",
+			text: tag.tag
+		}),
+		tag.conflict ? badge(t("m35b.dict.badge.conflict"), "warn") : null,
+		tag.duplicate ? badge(t("m35b.dict.badge.duplicate"), "muted") : null,
+		tag.orphan ? badge(t("m35b.dict.badge.orphan"), "error") : null,
+		!tag.entries.length && info ? badge(t("m35b.dict.badge.info"), "muted") : null,
+		el("span", {
+			class: "maestro-muted maestro-m35b-counts",
+			text: `${tag.entries.length} · ${tag.usedBy.length}`
+		})
+	])]);
+	let filled = false;
+	const fill = () => {
+		if (filled) return;
+		filled = true;
+		details.appendChild(tagCard(ctx, tag, info));
+	};
+	if (state.dict.open === tag.tag) {
+		details.open = true;
+		fill();
+	}
+	details.addEventListener("toggle", () => {
+		if (details.open) {
+			state.dict.open = tag.tag;
+			fill();
+		} else if (state.dict.open === tag.tag) state.dict.open = null;
+	});
+	return details;
+}
+async function renderDictionary(ctx, body) {
+	const { t, state } = ctx;
+	body.appendChild(loading(t));
+	let dictionary;
+	try {
+		dictionary = await ctx.service.dictionary();
+	} catch (error) {
+		clear(body);
+		body.appendChild(el("div", {
+			class: "maestro-error-text",
+			text: errorText$1(error)
+		}));
+		return;
+	}
+	clear(body);
+	if (!dictionary.tags.length) {
+		body.appendChild(emptyState(t("m35b.dict.empty"), "fa-carrot"));
+		return;
+	}
+	const infoCategories = new Set(dictionary.categories.filter((item) => item.info).map((item) => item.id));
+	const search = el("input", {
+		class: "text_pole maestro-m35b-search",
+		attrs: {
+			type: "search",
+			placeholder: t("m35b.dict.search"),
+			"aria-label": t("m35b.dict.search")
+		}
+	});
+	search.value = state.dict.search;
+	const category = el("select", {
+		class: "text_pole maestro-select",
+		attrs: { "aria-label": t("m35b.dict.category") }
+	});
+	category.appendChild(el("option", {
+		text: t("m35b.dict.allCategories"),
+		attrs: { value: "" }
+	}));
+	category.appendChild(el("option", {
+		text: t("m35b.dict.flags"),
+		attrs: { value: FLAGS_FILTER }
+	}));
+	for (const item of [...dictionary.categories].filter((entry) => !entry.flag).sort((a, b) => a.id.localeCompare(b.id))) category.appendChild(el("option", {
+		text: `${item.id} (${item.tags})`,
+		attrs: { value: item.id }
+	}));
+	category.value = state.dict.category;
+	const conflicts = dictionary.tags.filter((tag) => tag.conflict).length;
+	const orphans = dictionary.tags.filter((tag) => tag.orphan).length;
+	const summary = el("div", {
+		class: "maestro-muted",
+		text: t("m35b.dict.summary", {
+			tags: dictionary.tags.length,
+			categories: dictionary.categories.filter((item) => !item.flag).length,
+			conflicts,
+			orphans
+		})
+	});
+	const list = el("div", { class: "maestro-m35b-tags" });
+	const drawList = () => {
+		clear(list);
+		const rows = filtered(dictionary, state.dict.search, state.dict.category);
+		if (!rows.length) {
+			list.appendChild(emptyState(t("m35b.dict.none"), "fa-magnifying-glass"));
+			return;
+		}
+		for (const tag of rows.slice(0, state.dict.limit)) list.appendChild(tagRow(ctx, tag, infoCategories.has(tag.category)));
+		const rest = rows.length - state.dict.limit;
+		if (rest > 0) list.appendChild(button({
+			label: t("m35b.dict.more", { count: Math.min(rest, 120) }),
+			kind: "ghost",
+			onClick: () => {
+				state.dict.limit += 120;
+				drawList();
+			}
+		}));
+	};
+	search.addEventListener("input", () => {
+		state.dict.search = search.value;
+		state.dict.limit = 120;
+		drawList();
+	});
+	category.addEventListener("change", () => {
+		state.dict.category = category.value;
+		state.dict.limit = 120;
+		drawList();
+	});
+	body.append(el("div", { class: "maestro-m35b-controls" }, [search, category]), summary, list);
+	drawList();
+	if (state.dict.open) {
+		const open = [...list.querySelectorAll(".maestro-m35b-tag")].find((node) => node.dataset.tag === state.dict.open);
+		if (typeof open?.scrollIntoView === "function") open.scrollIntoView({ block: "nearest" });
+	}
+}
+//#endregion
+//#region src/features/bunnymoMode/view-packs.ts
+var PACK_VERSION_RULE = "pack.versionConflict";
+function diffSection(ctx, current) {
+	const { t } = ctx;
+	const { diff } = current;
+	const list = (items) => el("ul", { class: "maestro-m35b-list" }, items.map((item) => el("li", { text: [item.key, item.comment].filter(Boolean).join(" · ") })));
+	const same = !diff.added.length && !diff.removed.length && !diff.changed.length;
+	return section$1(t("m35b.packs.diff.title", {
+		book: current.book,
+		file: current.file
+	}), [
+		same ? el("div", {
+			class: "maestro-muted",
+			text: t("m35b.packs.diff.same")
+		}) : null,
+		diff.added.length ? el("details", { class: "maestro-m35b-diff" }, [el("summary", { text: t("m35b.packs.diff.added", { count: diff.added.length }) }), list(diff.added)]) : null,
+		diff.removed.length ? el("details", { class: "maestro-m35b-diff" }, [el("summary", { text: t("m35b.packs.diff.removed", { count: diff.removed.length }) }), list(diff.removed)]) : null,
+		diff.changed.length ? el("details", {
+			class: "maestro-m35b-diff",
+			attrs: { open: true }
+		}, [el("summary", { text: t("m35b.packs.diff.changed", { count: diff.changed.length }) }), ...diff.changed.map((item) => el("details", { class: "maestro-m35b-diff-item" }, [el("summary", { text: [item.key, item.comment].filter(Boolean).join(" · ") }), diffView(item.before, item.after, ctx.t)]))]) : null,
+		el("div", {
+			class: "maestro-hint",
+			text: t("m35b.packs.diff.note")
+		})
+	], button({
+		label: t("m35b.packs.diff.close"),
+		icon: "fa-xmark",
+		kind: "ghost",
+		onClick: () => {
+			ctx.state.packs.diff = null;
+			ctx.redraw();
+		}
+	}));
+}
+function fileButton(ctx, pack) {
+	const input = el("input", {
+		class: "maestro-sr-only",
+		attrs: {
+			type: "file",
+			accept: ".json,.bny,application/json",
+			"aria-label": ctx.t("m35b.packs.compare")
+		}
+	});
+	input.addEventListener("change", () => {
+		const file = input.files?.[0];
+		if (!file) return;
+		ctx.run(async () => {
+			const diff = await ctx.service.diffWithFile(pack.book, file);
+			ctx.state.packs.diff = {
+				book: pack.book,
+				file: file.name,
+				diff
+			};
+			ctx.redraw();
+		});
+	});
+	return el("label", { class: "menu_button maestro-btn maestro-btn-ghost maestro-m35b-file" }, [
+		icon("fa-code-compare"),
+		el("span", { text: ctx.t("m35b.packs.compare") }),
+		input
+	]);
+}
+function packCard(ctx, pack, onlyBooks, chat) {
+	const { t } = ctx;
+	const inChat = toggle({
+		label: t("m35b.packs.inChat"),
+		checked: !pack.offInChat,
+		disabled: !chat || onlyBooks === null,
+		onChange: (checked) => ctx.run(async () => {
+			const books = new Set(onlyBooks ?? []);
+			if (checked) books.add(pack.book);
+			else books.delete(pack.book);
+			await ctx.service.setSelection({
+				mode: "only",
+				books: [...books]
+			});
+			ctx.redraw();
+		})
+	});
+	return el("div", {
+		class: ["maestro-m35b-pack", ctx.state.packs.focus === pack.book ? "maestro-m35b-focus" : null],
+		data: { book: pack.book }
+	}, [
+		el("div", { class: "maestro-m35b-pack-head" }, [
+			el("span", {
+				class: "maestro-m35b-strong",
+				text: pack.name
+			}),
+			pack.version ? el("span", {
+				class: "maestro-muted",
+				text: t("m35b.packs.version", { version: pack.version })
+			}) : null,
+			badge(t(pack.active ? "m35b.packs.active" : "m35b.packs.inactive"), pack.active ? "ok" : "muted"),
+			badge(t(`m35b.packs.edition.${pack.edition}`), "info")
+		]),
+		el("div", {
+			class: "maestro-muted maestro-m35b-book",
+			text: pack.book
+		}),
+		el("div", {
+			class: "maestro-muted",
+			text: t("m35b.packs.entries", { count: pack.entries })
+		}),
+		el("div", { class: "maestro-m35b-actions" }, [inChat, fileButton(ctx, pack)])
+	]);
+}
+function conflictsSection(ctx) {
+	const options = ctx.app.modules.api("rules")?.options?.(PACK_VERSION_RULE);
+	const groups = Array.isArray(options?.groups) ? options.groups : [];
+	if (!groups.length) return null;
+	return section$1(ctx.t("m35b.packs.conflicts"), el("ul", { class: "maestro-m35b-list" }, groups.map((group) => {
+		const books = group.books.join(" · ");
+		return el("li", { text: group.choice === void 0 ? ctx.t("m35b.packs.conflict.open", { books }) : group.choice === "" ? ctx.t("m35b.packs.conflict.every", { books }) : ctx.t("m35b.packs.conflict.chosen", {
+			books,
+			choice: group.choice
+		}) });
+	})));
+}
+async function renderPacks(ctx, body) {
+	const { t, service, state } = ctx;
+	body.appendChild(loading(t));
+	let packs;
+	let cores;
+	try {
+		[packs, cores] = await Promise.all([service.packs(), service.cores()]);
+	} catch (error) {
+		clear(body);
+		body.appendChild(el("div", {
+			class: "maestro-error-text",
+			text: errorText$1(error)
+		}));
+		return;
+	}
+	clear(body);
+	if (state.packs.diff) body.appendChild(diffSection(ctx, state.packs.diff));
+	for (const core of cores) body.appendChild(el("div", { class: "maestro-m35b-core" }, [
+		icon("fa-carrot"),
+		el("span", { text: t("m35b.packs.core", {
+			book: core.book,
+			version: core.detected
+		}) }),
+		core.active ? null : badge(t("m35b.packs.coreInactive"), "muted")
+	]));
+	if (!packs.length) {
+		body.appendChild(emptyState(t("m35b.packs.none"), "fa-box-open"));
+		return;
+	}
+	const chat = !!ctx.app.host.chatId();
+	const selection = service.selection();
+	const onlyBooks = selection.mode === "only" ? selection.books : null;
+	body.appendChild(el("div", { class: "maestro-m35b-selection" }, [
+		toggle({
+			label: t("m35b.packs.allInChat"),
+			checked: selection.mode === "all",
+			disabled: !chat,
+			onChange: (checked) => ctx.run(async () => {
+				await service.setSelection(checked ? { mode: "all" } : {
+					mode: "only",
+					books: packs.filter((pack) => pack.active).map((pack) => pack.book)
+				});
+				ctx.redraw();
+			})
+		}),
+		el("div", {
+			class: "maestro-hint",
+			text: t("m35b.packs.allHint")
+		}),
+		chat ? null : banner(t("m35b.packs.noChat"), "info", "fa-circle-info")
+	]));
+	body.appendChild(el("div", { class: "maestro-m35b-packs" }, packs.map((pack) => packCard(ctx, pack, onlyBooks, chat))));
+	const conflicts = conflictsSection(ctx);
+	if (conflicts) body.appendChild(conflicts);
+	if (state.packs.focus) {
+		const node = [...body.querySelectorAll(".maestro-m35b-pack")].find((item) => item.dataset.book === state.packs.focus);
+		if (typeof node?.scrollIntoView === "function") node.scrollIntoView({ block: "nearest" });
+	}
+}
+//#endregion
+//#region src/features/bunnymoMode/view-sheets.ts
+var TEXT_TAG_RE = /<([A-Za-z][A-Za-z0-9_-]*):([^<>\n]+)>/g;
+function sameSheet(a, b) {
+	const pick = (sheet) => ({
+		tags: sheet.tags,
+		mbti: sheet.mbti ?? null,
+		linguistics: sheet.linguistics ?? null,
+		sections: sheet.sections
+	});
+	return JSON.stringify(pick(a)) === JSON.stringify(pick(b));
+}
+/** Tags written in the prose (Linguistics, sections): they pull packs through recursion too. */
+function textTags(sheet) {
+	const found = /* @__PURE__ */ new Set();
+	for (const text of [sheet.linguistics ?? "", ...sheet.sections.map((item) => item.text)]) for (const match of text.matchAll(TEXT_TAG_RE)) found.add(`<${match[1]}:${(match[2] ?? "").trim()}>`);
+	return [...found];
+}
+async function openEditor(ctx, book, uid) {
+	const sheet = await ctx.service.readSheet(book, uid);
+	if (!sheet) return null;
+	return {
+		book,
+		uid,
+		original: sheet,
+		draft: copySheet(sheet),
+		editIndex: null,
+		category: "",
+		value: ""
+	};
+}
+async function renderList(ctx, body) {
+	const { t } = ctx;
+	const archives = await ctx.service.archives();
+	clear(body);
+	if (!archives.length) {
+		body.appendChild(emptyState(t("m35b.sheets.none"), "fa-id-card"));
+		return;
+	}
+	for (const group of archives) body.appendChild(section$1(group.book, el("div", { class: "maestro-m35b-archives" }, group.items.map((item) => button({
+		label: `${item.name || t("m35b.sheets.noName")} · ${t("m35b.sheets.tags", { count: item.tags })}`,
+		icon: "fa-id-card",
+		kind: "ghost",
+		className: "maestro-m35b-archive",
+		title: item.title,
+		onClick: () => ctx.run(async () => {
+			const editor = await openEditor(ctx, group.book, item.uid);
+			if (!editor) throw new Error(t("m35b.sheets.notFound"));
+			ctx.state.sheets.editor = editor;
+			ctx.redraw();
+		})
+	})))));
+}
+function categoriesOf(dictionary) {
+	const set = new Set(INFO_CATEGORIES);
+	for (const category of dictionary.categories) if (!category.flag) set.add(category.id);
+	for (const skip of [
+		"NAME",
+		MBTI_CATEGORY,
+		"SECTION"
+	]) set.delete(skip);
+	return [...set].sort();
+}
+function valuesOf(dictionary, category) {
+	return dictionary.tags.filter((tag) => tag.category === category && tag.value !== null && tag.entries.length > 0).map((tag) => tag.value);
+}
+function renderEditor(ctx, body, editor, dictionary) {
+	const { t, state } = ctx;
+	const draft = editor.draft;
+	const blocked = (editor.original.blocks ?? 1) > 1;
+	const chips = el("div", {
+		class: "maestro-m35b-chips",
+		attrs: { role: "list" }
+	});
+	const problems = el("div", {
+		class: "maestro-m35b-problems",
+		attrs: { "aria-live": "polite" }
+	});
+	let validations = /* @__PURE__ */ new Map();
+	let checkToken = 0;
+	const validate = async () => {
+		const token = ++checkToken;
+		const own = draft.tags.map(tagText);
+		const mbti = draft.mbti ? [`<${draft.mbti.type}-${draft.mbti.variant}>`] : [];
+		const inText = textTags(draft).filter((tag) => !own.includes(tag));
+		const list = [
+			`<Name:${draft.name}>`,
+			...own,
+			...mbti,
+			...inText
+		].filter((tag) => tag !== "<Name:>");
+		let results;
+		try {
+			results = await ctx.service.validateTags(list);
+		} catch (error) {
+			ctx.app.log.warn("tag check failed", error);
+			return;
+		}
+		if (token !== checkToken || !ctx.alive()) return;
+		validations = new Map(list.map((tag, index) => [tag, results[index]]));
+		drawChips();
+		clear(problems);
+		if (!results.filter((result) => !result.ok).length) {
+			problems.appendChild(el("div", {
+				class: "maestro-muted",
+				text: t("m35b.sheets.checkOk")
+			}));
+			return;
+		}
+		for (const [index, result] of results.entries()) {
+			if (result.ok) continue;
+			const written = list[index] ?? result.tag;
+			const ownIndex = own.indexOf(written);
+			problems.appendChild(el("div", { class: "maestro-m35b-problem" }, [
+				el("code", {
+					class: "maestro-m35b-code",
+					text: written
+				}),
+				el("span", { text: ` — ${result.message ?? result.reason ?? ""}` }),
+				...ownIndex >= 0 ? (result.suggestions ?? []).map((suggestion) => button({
+					label: t("m35b.sheets.suggest", { tag: suggestion }),
+					kind: "ghost",
+					onClick: () => {
+						const match = /^<([^:<>]+):([^<>]+)>$/.exec(suggestion);
+						if (!match?.[1] || !match[2]) return;
+						draft.tags[ownIndex] = {
+							key: match[1],
+							value: match[2]
+						};
+						drawChips();
+						validate();
+					}
+				})) : []
+			]));
+		}
+	};
+	const drawChips = () => {
+		clear(chips);
+		if (!draft.tags.length) chips.appendChild(el("div", {
+			class: "maestro-muted",
+			text: t("m35b.sheets.noTags")
+		}));
+		draft.tags.forEach((tag, index) => {
+			const text = tagText(tag);
+			const check = validations.get(text);
+			chips.appendChild(el("span", {
+				class: [
+					"maestro-m35b-chip",
+					check && !check.ok ? check.reason === "noPack" || check.reason === "unknownValue" ? "maestro-m35b-chip-warn" : "maestro-m35b-chip-bad" : null,
+					editor.editIndex === index ? "maestro-on" : null
+				],
+				attrs: { role: "listitem" }
+			}, [el("button", {
+				class: "maestro-m35b-chip-text",
+				text,
+				attrs: {
+					type: "button",
+					"aria-label": t("m35b.sheets.edit", { tag: text })
+				},
+				on: { click: () => {
+					editor.editIndex = index;
+					editor.category = tag.key.toUpperCase();
+					editor.value = tag.value;
+					drawAddRow();
+					drawChips();
+				} }
+			}), el("button", {
+				class: "maestro-m35b-chip-remove",
+				text: "×",
+				attrs: {
+					type: "button",
+					"aria-label": t("m35b.sheets.remove", { tag: text })
+				},
+				on: { click: () => {
+					draft.tags.splice(index, 1);
+					if (editor.editIndex === index) editor.editIndex = null;
+					else if (editor.editIndex !== null && editor.editIndex > index) editor.editIndex--;
+					drawAddRow();
+					drawChips();
+					validate();
+				} }
+			})]));
+		});
+	};
+	const addRow = el("div", { class: "maestro-m35b-addrow" });
+	const categories = categoriesOf(dictionary);
+	const drawAddRow = () => {
+		clear(addRow);
+		const listId = uid("maestro-m35b-values");
+		const category = el("select", {
+			class: "text_pole maestro-select",
+			attrs: { "aria-label": t("m35b.sheets.category") }
+		});
+		for (const item of categories) category.appendChild(el("option", {
+			text: item,
+			attrs: { value: item }
+		}));
+		if (!editor.category || !categories.includes(editor.category)) {
+			if (editor.category) category.appendChild(el("option", {
+				text: editor.category,
+				attrs: { value: editor.category }
+			}));
+			else editor.category = categories[0] ?? "TRAIT";
+		}
+		category.value = editor.category;
+		const datalist = el("datalist", { attrs: { id: listId } });
+		const fillValues = () => {
+			clear(datalist);
+			for (const value of valuesOf(dictionary, editor.category)) datalist.appendChild(el("option", { attrs: { value } }));
+		};
+		fillValues();
+		const value = el("input", {
+			class: "text_pole maestro-m35b-value",
+			attrs: {
+				type: "text",
+				list: listId,
+				placeholder: t("m35b.sheets.value"),
+				"aria-label": t("m35b.sheets.value")
+			}
+		});
+		value.value = editor.value;
+		category.addEventListener("change", () => {
+			editor.category = category.value;
+			fillValues();
+		});
+		value.addEventListener("input", () => {
+			editor.value = value.value;
+		});
+		const commit = () => {
+			const text = value.value.trim().toUpperCase().replace(/\s+/g, "_");
+			if (!text) return;
+			const original = editor.editIndex !== null ? draft.tags[editor.editIndex] : void 0;
+			const tag = {
+				key: original && original.key.toUpperCase() === editor.category ? original.key : editor.category,
+				value: original && original.value.toUpperCase() === text ? original.value : text
+			};
+			if (editor.editIndex !== null && original) draft.tags[editor.editIndex] = tag;
+			else draft.tags.push(tag);
+			editor.editIndex = null;
+			editor.value = "";
+			drawAddRow();
+			drawChips();
+			validate();
+		};
+		value.addEventListener("keydown", (event) => {
+			if (event.key === "Enter") {
+				event.preventDefault();
+				commit();
+			}
+		});
+		append(addRow, [
+			category,
+			value,
+			datalist,
+			button({
+				label: t(editor.editIndex !== null ? "m35b.sheets.replace" : "m35b.sheets.add"),
+				icon: editor.editIndex !== null ? "fa-pen" : "fa-plus",
+				onClick: commit
+			}),
+			editor.editIndex !== null ? button({
+				label: t("m35b.sheets.cancelEdit"),
+				kind: "ghost",
+				onClick: () => {
+					editor.editIndex = null;
+					editor.value = "";
+					drawAddRow();
+					drawChips();
+				}
+			}) : null
+		]);
+	};
+	const mbtiType = el("select", {
+		class: "text_pole maestro-select",
+		attrs: { "aria-label": t("m35b.sheets.mbti") }
+	});
+	mbtiType.appendChild(el("option", {
+		text: t("m35b.sheets.mbtiNone"),
+		attrs: { value: "" }
+	}));
+	for (const type of MBTI_TYPES) mbtiType.appendChild(el("option", {
+		text: type,
+		attrs: { value: type }
+	}));
+	mbtiType.value = draft.mbti?.type ?? "";
+	const variantHolder = el("span", { class: "maestro-m35b-variant" });
+	const drawVariant = () => {
+		clear(variantHolder);
+		if (!draft.mbti) return;
+		variantHolder.appendChild(segmented({
+			value: draft.mbti.variant,
+			label: t("m35b.sheets.mbti"),
+			options: [{
+				value: "H",
+				label: t("m35b.sheets.healthy")
+			}, {
+				value: "U",
+				label: t("m35b.sheets.unhealthy")
+			}],
+			onChange: (variant) => {
+				if (draft.mbti) draft.mbti = {
+					...draft.mbti,
+					variant
+				};
+				validate();
+			}
+		}));
+	};
+	mbtiType.addEventListener("change", () => {
+		if (!mbtiType.value) delete draft.mbti;
+		else draft.mbti = {
+			type: mbtiType.value,
+			variant: draft.mbti?.variant ?? "U"
+		};
+		drawVariant();
+		validate();
+	});
+	const textArea = (value, label, onInput) => {
+		const area = el("textarea", {
+			class: "text_pole maestro-m35b-text",
+			attrs: {
+				rows: 4,
+				"aria-label": label
+			}
+		});
+		area.value = value;
+		area.addEventListener("input", () => onInput(area.value));
+		area.addEventListener("change", () => void validate());
+		return area;
+	};
+	const linguistics = textArea(draft.linguistics ?? "", t("m35b.sheets.linguistics"), (text) => {
+		if (text || editor.original.linguistics !== void 0) draft.linguistics = text;
+		else delete draft.linguistics;
+	});
+	const sections = draft.sections.map((item, index) => el("label", { class: "maestro-m35b-field" }, [el("span", {
+		class: "maestro-m35b-label",
+		text: item.title || t("m35b.sheets.untitled")
+	}), textArea(item.text, item.title || t("m35b.sheets.untitled"), (text) => {
+		const target = draft.sections[index];
+		if (target) target.text = text;
+	})]));
+	const sheetsApi = ctx.app.modules.api("sheets");
+	const chatSheets = draft.name && sheetsApi ? sheetsApi.sheetsFor(draft.name) : [];
+	const save = button({
+		label: t("m35b.sheets.save"),
+		icon: "fa-floppy-disk",
+		kind: "primary",
+		disabled: blocked,
+		onClick: () => ctx.run(async () => {
+			if (sameSheet(draft, editor.original)) {
+				ctx.app.ui.notice(t("m35b.sheets.unchanged"));
+				return;
+			}
+			await ctx.service.saveSheet(draft);
+			const fresh = await ctx.service.readSheet(editor.book, editor.uid);
+			if (fresh) {
+				editor.original = fresh;
+				editor.draft = copySheet(fresh);
+			}
+			ctx.app.ui.notice(t("m35b.sheets.saved", { name: draft.name || `#${editor.uid}` }), { level: "info" });
+			ctx.redraw();
+		})
+	});
+	append(body, [
+		el("div", { class: "maestro-m35b-toolbar" }, [button({
+			label: t("m35b.sheets.back"),
+			icon: "fa-arrow-left",
+			kind: "ghost",
+			onClick: () => {
+				state.sheets.editor = null;
+				ctx.redraw();
+			}
+		})]),
+		el("div", { class: "maestro-m35b-sheet-head" }, [
+			el("div", {
+				class: "maestro-m35b-name",
+				text: draft.name || t("m35b.sheets.noName")
+			}),
+			el("div", {
+				class: "maestro-muted",
+				text: `${editor.book} · #${editor.uid}`
+			}),
+			el("div", {
+				class: "maestro-hint",
+				text: t("m35b.sheets.nameLocked")
+			})
+		]),
+		blocked ? banner(t("m35b.sheets.multiBlock", { count: editor.original.blocks ?? 2 }), "error") : null,
+		section$1(t("m35b.sheets.tagsTitle"), [chips, addRow]),
+		section$1(t("m35b.sheets.mbti"), el("div", { class: "maestro-m35b-mbti" }, [mbtiType, variantHolder])),
+		section$1(t("m35b.sheets.check"), problems),
+		section$1(t("m35b.sheets.linguistics"), linguistics),
+		sections.length ? section$1(t("m35b.sheets.sections"), sections) : null,
+		chatSheets.length ? section$1(t("m35b.sheets.chatSheets"), el("ul", { class: "maestro-m35b-list" }, chatSheets.map((item) => el("li", { text: t("m35b.sheets.chatSheet", item) })))) : null,
+		el("div", {
+			class: "maestro-hint",
+			text: t("m35b.sheets.commands")
+		}),
+		el("div", { class: "maestro-m35b-actions maestro-m35b-save" }, [save, button({
+			label: t("m35b.sheets.reset"),
+			kind: "ghost",
+			onClick: () => {
+				editor.draft = copySheet(editor.original);
+				editor.editIndex = null;
+				editor.value = "";
+				ctx.redraw();
+			}
+		})])
+	]);
+	drawAddRow();
+	drawChips();
+	drawVariant();
+	validate();
+}
+async function renderSheets(ctx, body) {
+	const { t, state } = ctx;
+	body.appendChild(loading(t));
+	try {
+		const pending = state.sheets.pending;
+		if (pending) {
+			state.sheets.pending = null;
+			state.sheets.editor = await openEditor(ctx, pending.book, pending.uid);
+			if (!state.sheets.editor) ctx.app.ui.notice(t("m35b.sheets.notFound"), { level: "warn" });
+		}
+		const editor = state.sheets.editor;
+		if (!editor) {
+			await renderList(ctx, body);
+			return;
+		}
+		const dictionary = await ctx.service.dictionary();
+		clear(body);
+		renderEditor(ctx, body, editor, dictionary);
+	} catch (error) {
+		clear(body);
+		body.appendChild(el("div", {
+			class: "maestro-error-text",
+			text: errorText$1(error)
+		}));
+	}
+}
+//#endregion
+//#region src/features/bunnymoMode/view-status.ts
+var MAX_CHANGES$1 = 50;
+function refreshButton(ctx) {
+	return button({
+		label: ctx.t("m35b.refresh"),
+		icon: "fa-rotate",
+		kind: "ghost",
+		onClick: () => ctx.redraw()
+	});
+}
+async function renderIntegrity(ctx, body) {
+	const { t } = ctx;
+	body.appendChild(loading(t));
+	let findings;
+	try {
+		findings = await ctx.service.integrity();
+	} catch (error) {
+		clear(body);
+		body.appendChild(el("div", {
+			class: "maestro-error-text",
+			text: errorText$1(error)
+		}));
+		return;
+	}
+	clear(body);
+	body.appendChild(el("div", { class: "maestro-m35b-toolbar" }, [refreshButton(ctx)]));
+	if (!findings.length) {
+		body.appendChild(emptyState(t("m35b.integrity.ok")));
+		return;
+	}
+	body.appendChild(el("div", { class: "maestro-m35b-findings" }, findings.map((finding) => el("div", {
+		class: "maestro-m35b-finding",
+		data: { kind: finding.kind }
+	}, [banner(finding.text, finding.kind === "ckBackup" ? "info" : "warn")]))));
+}
+function short(value) {
+	const text = formatValue(value);
+	return text.length > 60 ? `${text.slice(0, 60)}…` : text;
+}
+function ruleRow(ctx, rule) {
+	const { t } = ctx;
+	const title = tOr(ctx.app.i18n, rule.titleKey, rule.id);
+	const meta = [rule.changes.length ? t("m35b.edits.changes", { count: rule.changes.length }) : t("m35b.edits.none")];
+	if (rule.cuts) meta.push(t("m35b.edits.cuts", { count: rule.cuts }));
+	return el("div", {
+		class: "maestro-m35b-rule",
+		data: { rule: rule.id }
+	}, [
+		el("div", { class: "maestro-m35b-rule-head" }, [
+			toggle({
+				label: title,
+				checked: rule.enabled,
+				onChange: (checked) => ctx.run(async () => {
+					await ctx.service.setRuleEnabled(rule.id, checked);
+					ctx.redraw();
+				})
+			}),
+			rule.waiting ? badge(t("m35b.edits.waiting"), "muted") : null,
+			rule.owner === "desru" ? badge(t("m35b.edits.owner.desru"), "info") : null
+		]),
+		el("div", {
+			class: "maestro-muted",
+			text: meta.join(" · ")
+		}),
+		rule.changes.length ? el("details", {}, [el("summary", { text: t("m35b.edits.changes", { count: rule.changes.length }) }), el("ul", { class: "maestro-m35b-list" }, rule.changes.slice(0, MAX_CHANGES$1).map((change) => el("li", { text: t("m35b.edits.change", {
+			book: change.world,
+			uid: change.uid,
+			field: change.field,
+			before: short(change.before),
+			after: short(change.after)
+		}) })))]) : null
+	]);
+}
+function desruEnabled(ctx) {
+	try {
+		return adaptersOf(ctx.app).desru.present() && adaptersOf(ctx.app).desru.moduleEnabled("bunnymo");
+	} catch {
+		return false;
+	}
+}
+async function renderEdits(ctx, body) {
+	const { t, service } = ctx;
+	body.appendChild(loading(t));
+	let view;
+	try {
+		view = await service.ruleEdits();
+	} catch (error) {
+		clear(body);
+		body.appendChild(el("div", {
+			class: "maestro-error-text",
+			text: errorText$1(error)
+		}));
+		return;
+	}
+	clear(body);
+	body.appendChild(el("div", { class: "maestro-m35b-toolbar" }, [refreshButton(ctx)]));
+	body.appendChild(el("div", {
+		class: "maestro-hint",
+		text: t("m35b.edits.intro")
+	}));
+	if (!view) body.appendChild(banner(t("m35b.edits.noRules"), "info", "fa-circle-info"));
+	else body.appendChild(el("div", { class: "maestro-m35b-rules" }, view.rules.map((rule) => ruleRow(ctx, rule))));
+	const suppressed = view?.suppressed ?? [];
+	const selection = service.selection();
+	body.appendChild(section$1(t("m35b.edits.selection"), suppressed.length ? el("ul", { class: "maestro-m35b-list" }, suppressed.map((item) => el("li", { text: t("m35b.edits.selectionItem", item) }))) : el("div", {
+		class: "maestro-muted",
+		text: t("m35b.edits.selectionNone")
+	}), selection.mode === "only" ? button({
+		label: t("m35b.edits.selectionAll"),
+		kind: "ghost",
+		onClick: () => ctx.run(async () => {
+			await service.setSelection({ mode: "all" });
+			ctx.redraw();
+		})
+	}) : void 0));
+	if (desruEnabled(ctx)) body.appendChild(el("div", {
+		class: "maestro-hint",
+		text: t("m35b.edits.desru")
+	}));
+}
+//#endregion
+//#region src/features/bunnymoMode/view.ts
+var BUNNYMO_TAB = "bunnymo";
+var RENDERERS = {
+	dictionary: renderDictionary,
+	packs: renderPacks,
+	integrity: renderIntegrity,
+	sheets: renderSheets,
+	edits: renderEdits
+};
+/** Moves the view to what open() asked for (async: the kind of a book is looked up). */
+async function applyTarget(service, state, target) {
+	if (target.section) state.section = target.section;
+	if (target.tag) {
+		const raw = target.tag.trim();
+		const tag = parseTagKey(raw.startsWith("<") ? raw : `<${raw}>`)?.tag ?? raw;
+		state.section = "dictionary";
+		state.dict.search = tag;
+		state.dict.category = "";
+		state.dict.open = tag;
+		return;
+	}
+	if (!target.book) return;
+	if ((await service.archiveBooks()).includes(target.book)) {
+		state.section = "sheets";
+		state.sheets.editor = null;
+		state.sheets.pending = target.uid !== void 0 ? {
+			book: target.book,
+			uid: target.uid
+		} : null;
+		return;
+	}
+	const { core, packs } = await service.bunnyBooks();
+	if (packs.includes(target.book) || core.includes(target.book)) {
+		state.section = "packs";
+		state.packs.focus = target.book;
+	}
+}
+function bunnymoTab(app, service, state) {
+	const t = (key, params) => app.i18n.t(key, params);
+	return {
+		id: BUNNYMO_TAB,
+		titleKey: "m35b.tab",
+		icon: "fa-carrot",
+		order: 41,
+		render(container) {
+			let alive = true;
+			const root = el("div", { class: "maestro-view maestro-m35b" });
+			const nav = el("div", { class: "maestro-m35b-nav" });
+			let body = el("div", { class: "maestro-m35b-body" });
+			root.append(nav, body);
+			container.appendChild(root);
+			const drawNav = () => {
+				nav.replaceChildren(segmented({
+					value: state.section,
+					label: t("m35b.nav"),
+					options: SECTIONS.map((id) => ({
+						value: id,
+						label: t(`m35b.view.${id}`)
+					})),
+					onChange: (section) => ctx.go(section)
+				}));
+			};
+			const draw = () => {
+				if (!alive) return;
+				drawNav();
+				const next = el("div", {
+					class: "maestro-m35b-body",
+					data: { section: state.section }
+				});
+				body.replaceWith(next);
+				body = next;
+				RENDERERS[state.section](ctx, next).catch((error) => {
+					app.log.error("BunnyMo view failed", error);
+				});
+			};
+			const ctx = {
+				app,
+				service,
+				state,
+				t,
+				redraw: () => draw(),
+				go: (section) => {
+					state.section = section;
+					draw();
+				},
+				run: async (job) => {
+					try {
+						await job();
+					} catch (error) {
+						app.ui.notice(errorText$1(error), { level: "error" });
+						if (alive) draw();
+					}
+				},
+				alive: () => alive
+			};
+			const later = coalesce(() => {
+				if (state.section === "sheets" && state.sheets.editor) return;
+				const focused = document.activeElement;
+				if (focused instanceof HTMLElement && root.contains(focused) && focused.matches("input, textarea")) return;
+				draw();
+			}, 150);
+			const off = service.onChange(() => later());
+			const target = service.target;
+			service.target = null;
+			if (target) {
+				drawNav();
+				body.appendChild(loading(t));
+				applyTarget(service, state, target).catch((error) => app.log.warn("BunnyMo target failed", error)).then(() => draw());
+			} else draw();
+			return () => {
+				alive = false;
+				later.cancel();
+				off();
+			};
+		}
+	};
+}
+//#endregion
+//#region src/features/bunnymoMode/index.ts
+/** How many findings the health check names. */
+var HEALTH_SAMPLE = 1;
+/** `SPECIES:ELF` typed without brackets, or a bare MBTI archetype (`ENTJ-U`). */
+var TAG_LIKE_RE = /^(?:[A-Za-z][A-Za-z0-9_-]*:[^<>:\n]+|[EI][NS][FT][JP]-[UH])$/i;
+var bunnymoModeModule = {
+	id: BUNNYMO_MODE_ID,
+	key: BUNNYMO_MODE_KEY,
+	stage: 3,
+	titleKey: "m35b.title",
+	enabledByDefault: true,
+	defaults: () => ({}),
+	i18n: BUNNYMO_MODE_STRINGS,
+	init({ app, log, own }) {
+		const service = new BunnyMoModeService(app, log);
+		for (const off of service.install()) own(off);
+		app.modules.expose(BUNNYMO_MODE_KEY, service.api());
+		const state = initialViewState();
+		own(app.ui.style("m35b-view", BUNNYMO_MODE_CSS));
+		own(app.ui.addTab(bunnymoTab(app, service, state)));
+		own(app.ui.addHealthCheck({
+			id: "m35b.integrity",
+			module: BUNNYMO_MODE_ID,
+			titleKey: "m35b.health.title",
+			async run() {
+				const findings = await service.integrity();
+				if (!findings.length) return {
+					status: "ok",
+					message: app.i18n.t("m35b.health.ok")
+				};
+				return {
+					status: "warn",
+					message: app.i18n.t("m35b.health.found", {
+						count: findings.length,
+						first: findings.slice(0, HEALTH_SAMPLE).map((finding) => finding.text).join(" ")
+					})
+				};
+			}
+		}));
+		own(app.ui.addSlashCommand({
+			name: "maestro-bunnymo",
+			helpKey: "m35b.slash.help",
+			args: [{
+				name: "value",
+				descriptionKey: "m35b.slash.value",
+				optional: true
+			}],
+			callback: async (_args, value) => {
+				const text = value.trim();
+				if (!text) {
+					service.open();
+					return "";
+				}
+				if (text.startsWith("<") || TAG_LIKE_RE.test(text)) {
+					service.open({ tag: text.startsWith("<") ? text : `<${text}>` });
+					return "";
+				}
+				const archive = await service.findArchive(text);
+				if (archive) {
+					service.open(archive);
+					return "";
+				}
+				if (service.worldNames().includes(text)) {
+					service.open({ book: text });
+					return "";
+				}
+				service.open({ tag: text });
+				return "";
+			}
+		}));
+	}
+};
+//#endregion
 //#region src/features/canon/store.ts
 var CANON_KEY = "canon";
 /** Journal targets: an entry of a canon book, an entry of a base book (promote), a book Maestro created. */
@@ -10623,11 +15465,11 @@ function emptyBook(chatId, chatName) {
 	};
 }
 function entriesOf$1(data) {
-	if (!isDict$23(data.entries)) data.entries = {};
+	if (!isDict$30(data.entries)) data.entries = {};
 	return data.entries;
 }
 function titleOf(entry, uid) {
-	if (isDict$23(entry)) {
+	if (isDict$30(entry)) {
 		if (typeof entry.comment === "string" && entry.comment.trim()) return entry.comment.trim();
 		const key = Array.isArray(entry.key) ? entry.key.find((item) => typeof item === "string" && item.trim()) : "";
 		if (typeof key === "string" && key) return key;
@@ -10663,7 +15505,7 @@ var CanonStore = class {
 		};
 		on("WORLDINFO_UPDATED", (name, data) => {
 			if (typeof name !== "string" || !isCanonBookName(name)) return;
-			if (isDict$23(data) && isDict$23(data.entries)) this.remember(name, jsonClone(data));
+			if (isDict$30(data) && isDict$30(data.entries)) this.remember(name, jsonClone(data));
 			else this.invalidate(name);
 			this.emit();
 		});
@@ -10749,7 +15591,7 @@ var CanonStore = class {
 		if (typeof ctx.loadWorldInfo !== "function") return null;
 		try {
 			const data = await ctx.loadWorldInfo(name);
-			return isDict$23(data) && isDict$23(data.entries) ? data : null;
+			return isDict$30(data) && isDict$30(data.entries) ? data : null;
 		} catch (error) {
 			this.log.debug(`lorebook ${name} did not load`, error);
 			return null;
@@ -10757,8 +15599,8 @@ var CanonStore = class {
 	}
 	async readEntry(book, uid) {
 		const data = await this.readBook(book);
-		const entry = data && isDict$23(data.entries) ? data.entries[String(uid)] : void 0;
-		return isDict$23(entry) ? entry : null;
+		const entry = data && isDict$30(data.entries) ? data.entries[String(uid)] : void 0;
+		return isDict$30(entry) ? entry : null;
 	}
 	async list(filter = {}) {
 		const name = this.bookName();
@@ -10863,8 +15705,8 @@ var CanonStore = class {
 			const existing = options.uid !== void 0 ? state.items.find((item) => item.uid === options.uid) : findItemForBase(state.items, kind, draft.meta.base);
 			const uid = options.uid ?? existing?.uid ?? freeUid$1(entries);
 			const previous = entries[String(uid)];
-			const before = isDict$23(previous) ? jsonClone(previous) : null;
-			const previousMeta = before && isDict$23(before.extensions) ? readCanonMeta(before.extensions.maestro) : null;
+			const before = isDict$30(previous) ? jsonClone(previous) : null;
+			const previousMeta = before && isDict$30(before.extensions) ? readCanonMeta(before.extensions.maestro) : null;
 			const now = Date.now();
 			const meta = {
 				...draft.meta,
@@ -10882,7 +15724,7 @@ var CanonStore = class {
 			}
 			if (kind === "override") {
 				const fields = overrideFields(draft.meta.fields, draft.entry);
-				meta.fields = fields.length ? fields : [...DEFAULT_OVERRIDE_FIELDS];
+				meta.fields = fields.length ? fields : [...DEFAULT_OVERRIDE_FIELDS$1];
 			}
 			const fallback = kind === "addition" ? "" : `${this.t(`m6.kind.${kind}`)}: ${titleOf(base, meta.base?.uid ?? uid)}`;
 			const entry = buildCanonEntry(uid, draft.entry, meta, fallback);
@@ -10911,7 +15753,7 @@ var CanonStore = class {
 			const data = jsonClone(state.data);
 			const entries = entriesOf$1(data);
 			const before = entries[String(uid)];
-			if (!isDict$23(before)) return;
+			if (!isDict$30(before)) return;
 			delete entries[String(uid)];
 			await this.saveBook(name, data);
 			await this.journal("canon.remove", this.t("m6.journal.remove", { title: titleOf(before, uid) }), [{
@@ -10935,7 +15777,7 @@ var CanonStore = class {
 			const data = jsonClone(state.data);
 			const entries = entriesOf$1(data);
 			const current = entries[String(uid)];
-			if (!isDict$23(current) || !isDict$23(current.extensions) || !isDict$23(current.extensions.maestro)) return;
+			if (!isDict$30(current) || !isDict$30(current.extensions) || !isDict$30(current.extensions.maestro)) return;
 			const raw = current.extensions.maestro;
 			if (!readCanonMeta(raw) || raw.status === status) return;
 			const before = jsonClone(current);
@@ -10991,8 +15833,8 @@ var CanonStore = class {
 		const canonBook = this.bookName();
 		return this.enqueue(async () => {
 			const baseData = await this.readBook(base.world);
-			const current = baseData && isDict$23(baseData.entries) ? baseData.entries[String(base.uid)] : void 0;
-			if (!baseData || !isDict$23(current)) return false;
+			const current = baseData && isDict$30(baseData.entries) ? baseData.entries[String(base.uid)] : void 0;
+			if (!baseData || !isDict$30(current)) return false;
 			const data = jsonClone(baseData);
 			const before = jsonClone(current);
 			const after = item.meta.kind === "override" ? materializeOverride(current, item.entry, itemOverrideFields(item.meta, item.entry)) : {
@@ -11012,7 +15854,7 @@ var CanonStore = class {
 				before,
 				after
 			}];
-			if (state.data && isDict$23(entriesOf$1(state.data)[String(uid)])) {
+			if (state.data && isDict$30(entriesOf$1(state.data)[String(uid)])) {
 				const canonData = jsonClone(state.data);
 				const removed = entriesOf$1(canonData)[String(uid)];
 				delete entriesOf$1(canonData)[String(uid)];
@@ -11045,7 +15887,7 @@ var CanonStore = class {
 			if (!base) continue;
 			if (!books.has(base.world)) books.set(base.world, await this.readBook(base.world));
 			const data = books.get(base.world);
-			const changed = baseDriftOf(item, data && isDict$23(data.entries) ? data.entries[String(base.uid)] : void 0);
+			const changed = baseDriftOf(item, data && isDict$30(data.entries) ? data.entries[String(base.uid)] : void 0);
 			if (changed) drift.push({
 				item,
 				baseThen: changed.then,
@@ -11066,8 +15908,8 @@ var CanonStore = class {
 		}
 		const baseOf = (world, uid) => {
 			const data = books.get(world);
-			const entry = data && isDict$23(data.entries) ? data.entries[String(uid)] : void 0;
-			return isDict$23(entry) ? entry : null;
+			const entry = data && isDict$30(data.entries) ? data.entries[String(uid)] : void 0;
+			return isDict$30(entry) ? entry : null;
 		};
 		const book = buildExportBook(items, baseOf, {
 			noteTitle: this.t("m6.export.noteTitle"),
@@ -11106,7 +15948,7 @@ var CanonStore = class {
 			if (!source) return false;
 			const data = jsonClone(source);
 			data.extensions = {
-				...isDict$23(data.extensions) ? data.extensions : {},
+				...isDict$30(data.extensions) ? data.extensions : {},
 				maestro: {
 					role: "canon",
 					chatId,
@@ -11132,9 +15974,9 @@ var CanonStore = class {
 				const data = jsonClone(current);
 				let changed = false;
 				for (const entry of Object.values(entriesOf$1(data))) {
-					if (!isDict$23(entry) || !isDict$23(entry.extensions)) continue;
+					if (!isDict$30(entry) || !isDict$30(entry.extensions)) continue;
 					const meta = entry.extensions.maestro;
-					if (!isDict$23(meta) || !isDict$23(meta.base) || meta.base.world !== oldName) continue;
+					if (!isDict$30(meta) || !isDict$30(meta.base) || meta.base.world !== oldName) continue;
 					entry.extensions = {
 						...entry.extensions,
 						maestro: {
@@ -11163,7 +16005,7 @@ var CanonStore = class {
 			if (!state.data && change.before === null) return true;
 			const data = state.data ? jsonClone(state.data) : { entries: {} };
 			const entries = entriesOf$1(data);
-			if (isDict$23(change.before)) entries[String(uid)] = jsonClone(change.before);
+			if (isDict$30(change.before)) entries[String(uid)] = jsonClone(change.before);
 			else delete entries[String(uid)];
 			await this.saveBook(book, data, !state.exists);
 			this.emit();
@@ -11179,7 +16021,7 @@ var CanonStore = class {
 			if (!current) return false;
 			const data = jsonClone(current);
 			const entries = entriesOf$1(data);
-			if (isDict$23(change.before)) entries[String(uid)] = jsonClone(change.before);
+			if (isDict$30(change.before)) entries[String(uid)] = jsonClone(change.before);
 			else delete entries[String(uid)];
 			await this.saveBook(book, data);
 			return true;
@@ -11279,551 +16121,6 @@ var CanonBranches = class {
 	}
 };
 //#endregion
-//#region src/domain/lore-match.ts
-/** World Info secondary-key logic (`world_info_logic`, WI:33). */
-var WI_LOGIC = {
-	AND_ANY: 0,
-	NOT_ALL: 1,
-	NOT_ANY: 2,
-	AND_ALL: 3
-};
-/** The separator ST puts before every scanned message (WI:290-292). */
-var MATCHER = "";
-var JOINER = `\n${MATCHER}`;
-/** Port of ST's `parseRegexFromString` (WI:2901): `/pattern/flags` → RegExp, anything else → null. */
-function parseRegexKey$1(input) {
-	const match = /^\/([\w\W]+?)\/([gimsuy]*)$/.exec(input);
-	if (!match) return null;
-	let pattern = match[1] ?? "";
-	const flags = match[2] ?? "";
-	if (/(^|[^\\])\//.test(pattern)) return null;
-	pattern = pattern.replace("\\/", "/");
-	try {
-		return new RegExp(pattern, flags);
-	} catch {
-		return null;
-	}
-}
-function escapeRegex(text) {
-	return text.replace(/[/\-\\^$*+?.()|[\]{}]/g, "\\$&");
-}
-/** Port of `WorldInfoBuffer.matchKeys` (WI:337-366). */
-function matchKey$1(haystack, needle, options) {
-	const regex = (options.parseRegex ?? parseRegexKey$1)(needle);
-	if (regex) return regex.test(haystack);
-	const text = options.caseSensitive ? haystack : haystack.toLowerCase();
-	const key = options.caseSensitive ? needle : needle.toLowerCase();
-	if (!options.matchWholeWords) return text.includes(key);
-	if (key.split(/\s+/).length > 1) return text.includes(key);
-	return new RegExp(`(?:^|\\W)(${escapeRegex(key)})(?:$|\\W)`).test(text);
-}
-function stringList$3(value) {
-	return Array.isArray(value) ? value.filter((item) => typeof item === "string") : [];
-}
-/** Per-entry options with ST's fallback to the global settings (`entry.caseSensitive ?? global`). */
-function entryMatchOptions(entry, globals, parseRegex) {
-	const caseSensitive = typeof entry.caseSensitive === "boolean" ? entry.caseSensitive : globals.caseSensitive;
-	const matchWholeWords = typeof entry.matchWholeWords === "boolean" ? entry.matchWholeWords : globals.matchWholeWords;
-	return parseRegex ? {
-		caseSensitive,
-		matchWholeWords,
-		parseRegex
-	} : {
-		caseSensitive,
-		matchWholeWords
-	};
-}
-var identity = (text) => text;
-function matchesAny(text, keys, options, substitute) {
-	for (const key of keys) {
-		const substituted = substitute(key);
-		if (substituted && matchKey$1(text, substituted.trim(), options)) return key;
-	}
-	return null;
-}
-/**
-* Which key activated the entry on `text`, as a short label: the primary key, plus the secondary keys that the
-* entry's logic needed (`Аня + лес`). Null when no primary key matches. When the secondary condition fails on
-* this text the primary key is still returned: the entry did activate, and the scan text is a reconstruction.
-*/
-function findTriggerKey(entry, text, globals, substitute = identity, parseRegex) {
-	const options = entryMatchOptions(entry, globals, parseRegex);
-	const primary = matchesAny(text, stringList$3(entry.key), options, substitute);
-	if (primary === null) return null;
-	const secondary = stringList$3(entry.keysecondary);
-	if (!entry.selective || secondary.length === 0) return primary;
-	const logic = typeof entry.selectiveLogic === "number" ? entry.selectiveLogic : WI_LOGIC.AND_ANY;
-	const matched = [];
-	const missed = [];
-	for (const key of secondary) {
-		const substituted = substitute(key);
-		if (substituted && matchKey$1(text, substituted.trim(), options)) matched.push(key);
-		else missed.push(key);
-	}
-	if (logic === WI_LOGIC.AND_ANY && matched.length) return `${primary} + ${matched[0]}`;
-	if (logic === WI_LOGIC.AND_ALL && !missed.length) return [primary, ...matched].join(" + ");
-	if (logic === WI_LOGIC.NOT_ALL && missed.length) return `${primary} + ¬${missed[0]}`;
-	if (logic === WI_LOGIC.NOT_ANY && !matched.length) return `${primary} + ¬(${secondary.join(", ")})`;
-	return primary;
-}
-/** Rebuilds `WorldInfoBuffer.get()` (WI:279-328) for one entry. */
-function buildScanText(input) {
-	const depth = Math.max(0, Math.floor(input.depth));
-	if (depth <= 0) return "";
-	let result = MATCHER + input.messages.slice(0, depth).map((message) => message.trim()).join(JOINER);
-	const global = input.global ?? {};
-	const flags = input.flags ?? {};
-	const pairs = [
-		[flags.matchPersonaDescription, global.personaDescription],
-		[flags.matchCharacterDescription, global.characterDescription],
-		[flags.matchCharacterPersonality, global.characterPersonality],
-		[flags.matchCharacterDepthPrompt, global.characterDepthPrompt],
-		[flags.matchScenario, global.scenario],
-		[flags.matchCreatorNotes, global.creatorNotes]
-	];
-	for (const [flag, value] of pairs) if (flag === true && value) result += JOINER + value;
-	if (input.injects?.length) result += JOINER + input.injects.join(JOINER);
-	if (input.recursion?.length) result += JOINER + input.recursion.join(JOINER);
-	return result;
-}
-/**
-* The first candidate whose content contains one of the entry's primary keys (candidates in priority order:
-* the caller lists the most recent scan loop first). Cheap: plain substring/regex tests, no secondary logic.
-*/
-function findVia(entry, candidates, globals, substitute = identity, parseRegex) {
-	const keys = stringList$3(entry.key);
-	if (!keys.length) return void 0;
-	const options = entryMatchOptions(entry, globals, parseRegex);
-	for (const candidate of candidates) {
-		if (!candidate.content) continue;
-		if (matchesAny(candidate.content, keys, options, substitute) !== null) return {
-			world: candidate.world,
-			uid: candidate.uid
-		};
-	}
-}
-//#endregion
-//#region src/domain/canon-keys.ts
-var CYRILLIC_RE$2 = /\p{Script=Cyrillic}/u;
-var LATIN_RE = /[A-Za-z]/;
-var WORD_CHAR_RE = /[\p{L}\p{N}_]/u;
-var REGEX_KEY_RE = /^\/[\s\S]+\/[gimsuy]*$/;
-/** Endings dropped from a Russian name to reach a stem that also matches the other case forms. */
-var STEM_ENDING_RE = /[аяоеёьйыиуюэ]$/i;
-var MIN_STEM = 3;
-function hasCyrillic$1(text) {
-	return CYRILLIC_RE$2.test(text);
-}
-function hasLatin(text) {
-	return LATIN_RE.test(text);
-}
-/** A `/pattern/flags` key (ST's regex key syntax). */
-function isRegexKey$1(key) {
-	return REGEX_KEY_RE.test(key.trim());
-}
-/** Lower case with ё folded to е: Russian texts mix both spellings. */
-function normalizeForMatch(text) {
-	return text.toLowerCase().replace(/ё/g, "е");
-}
-/**
-* Escapes a literal for a `/…/u` World Info key. Unlike ST's escapeRegex it leaves `-` alone (an escaped hyphen
-* outside a class is invalid with `u`), writes braces as classes (the macro engine eats `\{`), escapes `/` (ST
-* rejects an unescaped slash inside the pattern), matches any whitespace run between words and both е and ё.
-*/
-function escapeForKey(text) {
-	let out = "";
-	let space = false;
-	for (const char of text.trim()) {
-		if (/\s/.test(char)) {
-			if (!space) out += "\\s+";
-			space = true;
-			continue;
-		}
-		space = false;
-		if (char === "{") out += "[{]";
-		else if (char === "}") out += "[}]";
-		else if (char === "е" || char === "ё") out += "[её]";
-		else if (char === "Е" || char === "Ё") out += "[ЕЁ]";
-		else if ("\\^$.*+?()[]|/".includes(char)) out += `\\${char}`;
-		else out += char;
-	}
-	return out;
-}
-/** Drops one final vowel, soft sign or й when the rest keeps at least three letters (Маша → Маш, Анна → Анн). */
-function russianStem(word) {
-	const trimmed = word.trim();
-	if (!hasCyrillic$1(trimmed) || /\s/.test(trimmed)) return trimmed;
-	const stem = trimmed.replace(STEM_ENDING_RE, "");
-	return stem.length >= MIN_STEM ? stem : trimmed;
-}
-/**
-* A left-boundary regex key for a Russian term: `/(?:^|[^\p{L}\p{N}_])Маш/iu` matches «Маша», «Машей», «Маши» but
-* not «Ромашка». Null for terms without Cyrillic, with `{{` (macros) or empty.
-*/
-function leftBoundaryKey$1(term) {
-	const trimmed = term.trim();
-	if (!trimmed || !hasCyrillic$1(trimmed) || trimmed.includes("{{")) return null;
-	return `/(?:^|[^\\p{L}\\p{N}_])${escapeForKey(russianStem(trimmed))}/iu`;
-}
-/** Unique non-empty strings in first-seen order (case-sensitive). */
-function uniqueStrings(values) {
-	const seen = /* @__PURE__ */ new Set();
-	const out = [];
-	for (const value of values) {
-		if (typeof value !== "string") continue;
-		const text = value.trim();
-		if (!text || seen.has(text)) continue;
-		seen.add(text);
-		out.push(text);
-	}
-	return out;
-}
-/**
-* Russian keys for a term from what DES-RU offered: its plain case forms, else its single regex key, else the term
-* itself plus our left-boundary key (Cyrillic terms only).
-*/
-function russianKeysFrom(term, forms, formsKey) {
-	const plain = Array.isArray(forms) ? uniqueStrings(forms).filter((form) => !form.includes("{{")) : [];
-	if (plain.length) return plain;
-	if (typeof formsKey === "string" && formsKey.trim() && !formsKey.includes("{{")) return [formsKey.trim()];
-	const trimmed = term.trim();
-	if (!trimmed) return [];
-	const regex = leftBoundaryKey$1(trimmed);
-	return regex ? [trimmed, regex] : [trimmed];
-}
-/** English side of a pair: Latin, no Cyrillic, no regex, no macros. */
-function englishName(text) {
-	const trimmed = text.trim();
-	if (!trimmed || !hasLatin(trimmed) || hasCyrillic$1(trimmed) || isRegexKey$1(trimmed) || trimmed.includes("{{")) return null;
-	return trimmed;
-}
-/** Builds the matcher; pairs without a usable English or Russian side are skipped. Deterministic. */
-function buildGlossary(pairs) {
-	const byEnglish = /* @__PURE__ */ new Map();
-	for (const pair of pairs) {
-		const en = englishName(pair.en);
-		const ru = pair.ru.trim();
-		if (!en || !ru || ru.includes("{{")) continue;
-		const key = en.toLowerCase();
-		let row = byEnglish.get(key);
-		if (!row) {
-			row = {
-				en,
-				needles: [],
-				regexes: []
-			};
-			byEnglish.set(key, row);
-		}
-		if (isRegexKey$1(ru)) {
-			if (!hasCyrillic$1(ru)) continue;
-			const regex = parseRegexKey$1(ru);
-			if (regex && !row.regexes.some((item) => item.source === regex.source && item.flags === regex.flags)) row.regexes.push(regex);
-			continue;
-		}
-		if (!hasCyrillic$1(ru)) continue;
-		for (const form of [russianStem(ru), ...pair.forms ?? []]) {
-			if (typeof form !== "string" || !hasCyrillic$1(form)) continue;
-			const needle = normalizeForMatch(form.trim());
-			if (needle && !row.needles.includes(needle)) row.needles.push(needle);
-		}
-	}
-	const rows = [...byEnglish.values()].filter((row) => row.needles.length || row.regexes.length);
-	rows.sort((a, b) => a.en.toLowerCase() < b.en.toLowerCase() ? -1 : a.en.toLowerCase() > b.en.toLowerCase() ? 1 : 0);
-	return { rows };
-}
-/** `needle` occurs in `text` right after a non-word character (or at the start). */
-function containsWithLeftBoundary(text, needle) {
-	if (!needle) return false;
-	let from = 0;
-	for (;;) {
-		const index = text.indexOf(needle, from);
-		if (index < 0) return false;
-		const before = index > 0 ? text[index - 1] : void 0;
-		if (before === void 0 || !WORD_CHAR_RE.test(before)) return true;
-		from = index + 1;
-	}
-}
-/** English names whose Russian forms occur in `text`, sorted, at most `limit`. */
-function matchGlossary(glossary, text, limit = 40) {
-	if (!text || !glossary.rows.length) return [];
-	const normalized = normalizeForMatch(text);
-	const found = [];
-	for (const row of glossary.rows) {
-		if (found.length >= limit) break;
-		if (row.needles.some((needle) => containsWithLeftBoundary(normalized, needle)) || row.regexes.some((regex) => {
-			regex.lastIndex = 0;
-			return regex.test(text);
-		})) found.push(row.en);
-	}
-	return found;
-}
-/** Joins names into the scan text, cut to `maxChars` at a name boundary. */
-function formatGlosses(names, maxChars = 600) {
-	let out = "";
-	for (const name of names) {
-		const next = out ? `${out}, ${name}` : name;
-		if (next.length > maxChars) break;
-		out = next;
-	}
-	return out;
-}
-/** Pairs from one entry's keys: every Russian key stands for every English key of the same entry. */
-function pairsFromKeys(keys) {
-	const list = uniqueStrings(keys);
-	const english = list.filter((key) => englishName(key) !== null);
-	const russian = list.filter((key) => hasCyrillic$1(key) && !key.includes("{{"));
-	const pairs = [];
-	for (const en of english) for (const ru of russian) pairs.push({
-		ru,
-		en
-	});
-	return pairs;
-}
-/** DES canonical aliases `{name: [aliases]}`: whichever side is Russian maps to the English ones. */
-function pairsFromAliases(aliases) {
-	if (!aliases || typeof aliases !== "object" || Array.isArray(aliases)) return [];
-	const pairs = [];
-	for (const [canonical, list] of Object.entries(aliases)) {
-		const names = uniqueStrings([canonical, ...Array.isArray(list) ? list : []]);
-		pairs.push(...pairsFromKeys(names));
-	}
-	return pairs;
-}
-/** Localizer marker of one entry: the keys it appended (Russian) stand for the source keys it translated. */
-function pairsFromLocalizer(sources, added) {
-	const english = uniqueStrings(sources).filter((key) => englishName(key) !== null);
-	if (!english.length || english.length > 3) return [];
-	const pairs = [];
-	for (const ru of uniqueStrings(added)) {
-		if (!hasCyrillic$1(ru)) continue;
-		for (const en of english) pairs.push({
-			ru,
-			en
-		});
-	}
-	return pairs;
-}
-//#endregion
-//#region src/domain/canon-inject.ts
-var LIST_NAMES = [
-	"globalLore",
-	"characterLore",
-	"chatLore",
-	"personaLore"
-];
-/** Activation key ST uses in `activated.entries`. */
-function activationKey(world, uid) {
-	return `${String(world)}.${String(uid)}`;
-}
-/** The four lists of a WORLDINFO_ENTRIES_LOADED payload; null when the payload does not look like one. */
-function listsOf(payload) {
-	if (!isDict$23(payload)) return null;
-	const lists = {};
-	for (const name of LIST_NAMES) {
-		const list = payload[name];
-		if (!Array.isArray(list)) return null;
-		lists[name] = list;
-	}
-	return lists;
-}
-/**
-* Takes entries of canon books out of the lists (a canon book must never be active by itself: its overrides would
-* act as plain entries next to their bases). Returns the canon books that were found.
-*/
-function stripCanonBooks(lists) {
-	const found = /* @__PURE__ */ new Set();
-	for (const name of LIST_NAMES) {
-		const list = lists[name];
-		for (let i = list.length - 1; i >= 0; i--) {
-			const world = list[i]?.world;
-			if (typeof world !== "string" || !world.startsWith("Maestro · канон")) continue;
-			if (!isOwnCopy(list[i])) found.add(world);
-			list.splice(i, 1);
-		}
-	}
-	return [...found].sort();
-}
-function isOwnCopy(entry) {
-	const extensions = isDict$23(entry?.extensions) ? entry.extensions : void 0;
-	return typeof (isDict$23(extensions?.maestro) ? extensions.maestro : void 0)?.canonUid === "number";
-}
-function findBase(lists, world, uid) {
-	for (const name of LIST_NAMES) {
-		const list = lists[name];
-		const index = list.findIndex((entry) => entry?.world === world && Number(entry?.uid) === uid);
-		if (index >= 0) return {
-			list,
-			index
-		};
-	}
-	return null;
-}
-function markerOf(entry) {
-	const extensions = isDict$23(entry.extensions) ? entry.extensions : void 0;
-	return isDict$23(extensions?.maestro) ? extensions.maestro : void 0;
-}
-/** The scan copy of an addition: a fresh object with fresh arrays, in the canon book's name. */
-function additionCopy(item, canonBook) {
-	const copy = copyValue$1(item.entry);
-	const extensions = isDict$23(copy.extensions) ? copy.extensions : {};
-	return {
-		...copy,
-		uid: item.uid,
-		world: canonBook,
-		extensions: {
-			...extensions,
-			maestro: scanMarker(item)
-		}
-	};
-}
-/** The override of a base scan copy (world and uid of the base; base extensions kept, canon marker added). */
-function overrideCopy(base, item) {
-	const copy = materializeOverride(base, item.entry, itemOverrideFields(item.meta, item.entry));
-	copy.extensions = {
-		...isDict$23(base.extensions) ? base.extensions : {},
-		maestro: scanMarker(item)
-	};
-	return copy;
-}
-function acts(item, options, base) {
-	if (item.meta.status !== "archived") return true;
-	return options.mentioned?.(item, base) === true;
-}
-/**
-* Applies the canon to the scan copies in place (the lists themselves are per-scan arrays; nested values of the
-* entries are never mutated). Canon books are stripped first, so a second run over the same payload gives the same
-* result.
-*/
-function applyCanon(lists, items, options) {
-	const result = {
-		added: 0,
-		replaced: 0,
-		suppressed: 0,
-		pins: [],
-		dormant: 0,
-		missing: 0
-	};
-	stripCanonBooks(lists);
-	const ordered = [...items].sort((a, b) => kindRank(a) - kindRank(b) || a.uid - b.uid);
-	for (const item of ordered) {
-		const base = item.meta.base;
-		const found = base && item.meta.kind !== "addition" ? findBase(lists, base.world, base.uid) : null;
-		const current = found ? found.list[found.index] : void 0;
-		if (!acts(item, options, current)) {
-			result.dormant++;
-			continue;
-		}
-		switch (item.meta.kind) {
-			case "addition":
-				lists.chatLore.push(additionCopy(item, options.canonBook));
-				result.added++;
-				break;
-			case "override":
-				if (!found || !current) {
-					result.missing++;
-					break;
-				}
-				if (markerOf(current)?.canonUid !== item.uid) found.list[found.index] = overrideCopy(current, item);
-				result.replaced++;
-				break;
-			case "suppress":
-				if (!found) {
-					result.missing++;
-					break;
-				}
-				found.list.splice(found.index, 1);
-				result.suppressed++;
-				break;
-			case "pin": {
-				if (!base) break;
-				if (item.meta.pinWhen && item.meta.pinWhen !== "always" && options.pinActive?.(item) !== true) break;
-				const key = activationKey(base.world, base.uid);
-				if (!result.pins.includes(key)) result.pins.push(key);
-				break;
-			}
-		}
-	}
-	return result;
-}
-/** Overrides first, suppressions after them (a suppression wins over an override of the same base), then the rest. */
-function kindRank(item) {
-	switch (item.meta.kind) {
-		case "override": return 0;
-		case "suppress": return 1;
-		case "addition": return 2;
-		default: return 3;
-	}
-}
-/** The last `count` messages as one lower-case text (ё → е) for mention checks. */
-function recentText(messages, count) {
-	const parts = [];
-	for (let i = messages.length - 1; i >= 0 && parts.length < count; i--) {
-		const message = messages[i];
-		if (!isDict$23(message) || message.is_system === true) continue;
-		if (typeof message.mes === "string" && message.mes) parts.push(message.mes);
-	}
-	return parts.reverse().join("\n");
-}
-/**
-* Any of the keys occurs in the text: plain keys as case-insensitive substrings (Cyrillic keys behave like that in
-* ST anyway), regex keys with their own flags. `text` is the raw recent text.
-*/
-function keysMentioned(keys, text) {
-	if (!Array.isArray(keys) || !text) return false;
-	const normalized = normalizeForMatch(text);
-	for (const raw of keys) {
-		if (typeof raw !== "string") continue;
-		const key = raw.trim();
-		if (!key) continue;
-		const regex = parseRegexKey$1(key);
-		if (regex) {
-			if (regex.test(text)) return true;
-			continue;
-		}
-		if (normalized.includes(normalizeForMatch(key))) return true;
-	}
-	return false;
-}
-/** Keys of an item for the mention check: its own keys, primary and secondary. */
-function itemKeys(item) {
-	const list = (value) => Array.isArray(value) ? value.filter((key) => typeof key === "string") : [];
-	return [...list(item.entry.key), ...list(item.entry.keysecondary)];
-}
-/** Is an activated entry the canon's own (an addition copy or an override copy)? */
-function isCanonActivation(entry, canonBook) {
-	if (!isDict$23(entry)) return false;
-	if (entry.world === canonBook) return true;
-	const marker = markerOf(entry);
-	return typeof marker?.canonUid === "number" && typeof marker.kind === "string";
-}
-/**
-* Which new canon activations fit the canon budget (plan M6 п. 7, audit B4): highest `order` first, then the newest;
-* lower-order and older ones are cut first. `used` is what earlier loops of the same scan already keep.
-*/
-function planCanonBudget(used, candidates, limit) {
-	const keep = [];
-	const cut = [];
-	let total = used;
-	if (!(limit > 0)) return {
-		keep: candidates.map((item) => item.key),
-		cut,
-		used: total + sum(candidates)
-	};
-	const ordered = [...candidates].sort((a, b) => b.order - a.order || b.updatedAt - a.updatedAt || (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
-	for (const item of ordered) if (total + item.chars <= limit) {
-		keep.push(item.key);
-		total += item.chars;
-	} else cut.push(item.key);
-	return {
-		keep,
-		cut,
-		used: total
-	};
-}
-function sum(items) {
-	return items.reduce((total, item) => total + item.chars, 0);
-}
-//#endregion
 //#region src/features/canon/glosses.ts
 /** Ephemeral injection key (extension prompt `maestro_canonScan`). */
 var GLOSS_INJECTION = "canonScan";
@@ -11889,7 +16186,7 @@ var CanonGlosses = class {
 	collectLocalizer(lists) {
 		const pairs = [];
 		for (const list of Object.values(lists)) for (const entry of list) {
-			if (!isDict$23(entry) || !isDict$23(entry.extensions) || !entry.extensions.lorebook_localizer) continue;
+			if (!isDict$30(entry) || !isDict$30(entry.extensions) || !entry.extensions.lorebook_localizer) continue;
 			const marker = readLocalizerMarker(entry);
 			if (!marker) continue;
 			for (const state of Object.values(marker.languages)) pairs.push(...pairsFromLocalizer(state.sources, [...state.added.key, ...state.added.keysecondary]));
@@ -11984,7 +16281,7 @@ function defaultCanonSettings() {
 /** Archived items come back when their keys appear in this many last messages. */
 var MENTION_MESSAGES = 2;
 var LORE_JOURNAL_KEY$1 = "loreJournal";
-function strings$3(value) {
+function strings$7(value) {
 	return Array.isArray(value) ? value.filter((item) => typeof item === "string") : [];
 }
 var CanonScan = class {
@@ -12064,7 +16361,7 @@ var CanonScan = class {
 		const text = () => recent ??= recentText(this.app.host.ctx().chat ?? [], MENTION_MESSAGES);
 		const result = applyCanon(lists, state.items, {
 			canonBook: book,
-			mentioned: (item, base) => keysMentioned(itemKeys(item), text()) || (base ? keysMentioned([...strings$3(base.key), ...strings$3(base.keysecondary)], text()) : false),
+			mentioned: (item, base) => keysMentioned(itemKeys(item), text()) || (base ? keysMentioned([...strings$7(base.key), ...strings$7(base.keysecondary)], text()) : false),
 			pinActive: (item) => !!item.meta.pinWhen && keysMentioned([item.meta.pinWhen], text())
 		});
 		this.pins = result.pins;
@@ -12082,11 +16379,11 @@ var CanonScan = class {
 		}
 	}
 	onScanDone(args) {
-		if (!isDict$23(args)) return;
+		if (!isDict$30(args)) return;
 		const book = this.store.bookName();
-		const activated = isDict$23(args.activated) ? args.activated.entries : void 0;
+		const activated = isDict$30(args.activated) ? args.activated.entries : void 0;
 		if (!book || !(activated instanceof Map)) return;
-		const state = isDict$23(args.state) ? args.state : {};
+		const state = isDict$30(args.state) ? args.state : {};
 		const loop = typeof state.loopCount === "number" && state.loopCount > 0 ? state.loopCount : 1;
 		const sorted = Array.isArray(args.sortedEntries) ? args.sortedEntries : [];
 		let scan = this.scan;
@@ -12109,8 +16406,8 @@ var CanonScan = class {
 	forcePins(activated, sorted, scan) {
 		for (const key of this.pins) {
 			if (activated.has(key)) continue;
-			const entry = sorted.find((item) => isDict$23(item) && activationKey(item.world, item.uid) === key);
-			if (!isDict$23(entry)) continue;
+			const entry = sorted.find((item) => isDict$30(item) && activationKey(item.world, item.uid) === key);
+			if (!isDict$30(entry)) continue;
 			if (typeof entry.content === "string") try {
 				entry.content = this.app.host.ctx().substituteParams(entry.content);
 			} catch (error) {
@@ -12130,7 +16427,7 @@ var CanonScan = class {
 			const key = String(rawKey);
 			if (scan.accepted.has(key) || scan.pinned.has(key) || !isCanonActivation(entry, book)) continue;
 			const copy = entry;
-			const marker = isDict$23(copy.extensions) && isDict$23(copy.extensions.maestro) ? copy.extensions.maestro : {};
+			const marker = isDict$30(copy.extensions) && isDict$30(copy.extensions.maestro) ? copy.extensions.maestro : {};
 			const uid = copy.world === book ? Number(copy.uid) : Number(marker.canonUid);
 			byKey.set(key, copy);
 			candidates.push({
@@ -12151,8 +16448,8 @@ var CanonScan = class {
 			activated.delete(key);
 			entry.disable = true;
 			if (!sorted.includes(entry)) {
-				const twin = sorted.find((item) => isDict$23(item) && activationKey(item.world, item.uid) === key);
-				if (isDict$23(twin)) twin.disable = true;
+				const twin = sorted.find((item) => isDict$30(item) && activationKey(item.world, item.uid) === key);
+				if (isDict$30(twin)) twin.disable = true;
 			}
 			scan.cut++;
 			lore?.markCut?.(String(entry.world), Number(entry.uid));
@@ -12371,7 +16668,7 @@ var CANON_CSS = `
 .maestro-m6-archived { opacity: 0.7; }
 .maestro-m6-drift { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
 `;
-function preview(text) {
+function preview$1(text) {
 	const value = typeof text === "string" ? text.trim() : "";
 	return value.length > PREVIEW_CHARS ? `${value.slice(0, PREVIEW_CHARS)}…` : value;
 }
@@ -12467,7 +16764,7 @@ function canonTab(app, store, scan) {
 					}) : null,
 					row.item.meta.kind === "override" ? el("div", {
 						class: "maestro-m6-preview",
-						text: preview(row.item.entry.content)
+						text: preview$1(row.item.entry.content)
 					}) : null
 				])));
 			};
@@ -12526,7 +16823,7 @@ function canonTab(app, store, scan) {
 					]) : null,
 					item.meta.kind === "addition" || item.meta.kind === "override" ? el("div", {
 						class: "maestro-m6-preview",
-						text: preview(item.entry.content)
+						text: preview$1(item.entry.content)
 					}) : null,
 					el("div", { class: "maestro-m6-actions" }, actions)
 				]);
@@ -12537,7 +16834,7 @@ function canonTab(app, store, scan) {
 				if (!alive) return;
 				clear(root);
 				const exists = name ? store.peek(name)?.exists ?? false : false;
-				root.appendChild(section(t("m6.title"), [
+				root.appendChild(section$1(t("m6.title"), [
 					el("div", {
 						class: "maestro-m6-book",
 						text: name || t("m6.noChat")
@@ -12574,7 +16871,7 @@ function canonTab(app, store, scan) {
 					})
 				})]));
 				const driftBlock = driftView();
-				if (driftBlock) root.appendChild(section(t("m6.drift.title"), driftBlock));
+				if (driftBlock) root.appendChild(section$1(t("m6.drift.title"), driftBlock));
 				if (!items.length) {
 					root.appendChild(emptyState(t("m6.empty"), "fa-scroll"));
 					return;
@@ -12582,7 +16879,7 @@ function canonTab(app, store, scan) {
 				for (const kind of KINDS$1) {
 					const group = items.filter((item) => item.meta.kind === kind).sort((a, b) => STATUS_ORDER[a.meta.status] - STATUS_ORDER[b.meta.status] || b.meta.updatedAt - a.meta.updatedAt || a.uid - b.uid);
 					if (!group.length) continue;
-					root.appendChild(section(t(`m6.group.${kind}`, { count: group.length }), el("div", { class: "maestro-m6-items" }, group.map(itemView))));
+					root.appendChild(section$1(t(`m6.group.${kind}`, { count: group.length }), el("div", { class: "maestro-m6-items" }, group.map(itemView))));
 				}
 			};
 			const offStore = store.onChange(() => alive && void draw());
@@ -12598,7 +16895,7 @@ function canonTab(app, store, scan) {
 }
 //#endregion
 //#region src/features/canon/index.ts
-function readSettings(slice) {
+function readSettings$1(slice) {
 	const defaults = defaultCanonSettings();
 	if (typeof slice.budgetChars !== "number" || !Number.isFinite(slice.budgetChars) || slice.budgetChars < 0) slice.budgetChars = defaults.budgetChars;
 	if (typeof slice.scanGlosses !== "boolean") slice.scanGlosses = defaults.scanGlosses;
@@ -12615,7 +16912,7 @@ var canonModule = {
 	requires: ["st.events.entriesLoaded", "st.events.scanDone"],
 	i18n: CANON_STRINGS,
 	init({ app, log, own }) {
-		const settings = () => readSettings(app.settings.module(CANON_KEY));
+		const settings = () => readSettings$1(app.settings.module(CANON_KEY));
 		const store = new CanonStore(app, log);
 		for (const off of store.install()) own(off);
 		const glosses = new CanonGlosses(app, store, settings, log);
@@ -12669,449 +16966,9 @@ var canonModule = {
 	}
 };
 //#endregion
-//#region src/domain/doctor-keys.ts
-var CYRILLIC_RE$1 = /\p{Script=Cyrillic}/u;
-var CYRILLIC_G = /\p{Script=Cyrillic}/gu;
-var LETTER_G = /\p{L}/gu;
-/** Anything written like `/…/flags` (ST tries to parse it as a regex key). */
-var REGEX_LIKE_RE$2 = /^\/[\s\S]+\/[a-z]*$/i;
-var TAG_KEY_RE = /^<[^<>]+>$/;
-var BARE_TAG_RE = /^<[A-Za-z][A-Za-z0-9_-]*>$/;
-var MBTI_TAG_RE = /^<[EI][NS][FT][JP]-[UH]>$/i;
-function hasCyrillic(text) {
-	return CYRILLIC_RE$1.test(text);
-}
-/** Share of Cyrillic letters among all letters of the texts (0 when there are no letters). */
-function cyrillicShare(texts) {
-	let letters = 0;
-	let cyrillic = 0;
-	for (const text of texts) {
-		letters += text.match(LETTER_G)?.length ?? 0;
-		cyrillic += text.match(CYRILLIC_G)?.length ?? 0;
-	}
-	return {
-		share: letters ? cyrillic / letters : 0,
-		letters
-	};
-}
-/** The chat is Russian: enough letters and at least 30 % of them Cyrillic (English names and tags are common). */
-function isRussianChat(texts, minLetters = 200) {
-	const { share, letters } = cyrillicShare(texts);
-	return letters >= minLetters && share >= .3;
-}
-function looksLikeRegexKey(key) {
-	return REGEX_LIKE_RE$2.test(key.trim());
-}
-/**
-* ST's `parseRegexFromString` (world-info.js): `/pattern/flags` with flags from `gimsuy`, no unescaped `/` inside,
-* and a pattern the engine accepts. Null when the key is not a (valid) regex key — ST then matches it as text.
-*/
-function parseRegexKey(key) {
-	const match = /^\/([\w\W]+?)\/([gimsuy]*)$/.exec(key);
-	if (!match) return null;
-	let pattern = match[1] ?? "";
-	const flags = match[2] ?? "";
-	if (/(^|[^\\])\//.test(pattern)) return null;
-	pattern = pattern.replace("\\/", "/");
-	try {
-		return new RegExp(pattern, flags);
-	} catch {
-		return null;
-	}
-}
-/**
-* Why a key written like a regex does not work in ST:
-* - 'flags' (unknown flags), 'slash' (unescaped `/` inside), 'syntax' (the engine rejects the pattern, e.g. `\-` in
-*   `u` mode): ST silently treats the key as plain text, which never matches;
-* - 'braces': `\{` / `\}` — the macro engine turns them into bare braces before matching (audit T2), so the
-*   pattern changes meaning; `[{]` is the safe spelling.
-* Null for valid regex keys and for keys that do not look like regexes.
-*/
-function regexKeyProblem(key) {
-	const trimmed = key.trim();
-	if (!looksLikeRegexKey(trimmed)) return null;
-	const match = /^\/([\w\W]+?)\/([gimsuy]*)$/.exec(trimmed);
-	if (!match) {
-		const greedy = /^\/([\w\W]+)\/([a-z]*)$/i.exec(trimmed);
-		return greedy && /[^gimsuy]/.test(greedy[2] ?? "") ? "flags" : "slash";
-	}
-	const pattern = match[1] ?? "";
-	if (/(^|[^\\])\//.test(pattern)) return "slash";
-	if (!parseRegexKey(trimmed)) return "syntax";
-	return /\\[{}]/.test(pattern) ? "braces" : null;
-}
-/** `<KEY:VALUE>`, `<ELF>`, `<ESFP-H>`: tag keys (BunnyMo); they never come from prose. */
-function isTagKey(key) {
-	return TAG_KEY_RE.test(key.trim());
-}
-/** A bare tag without a colon (`<NSFW>`, `<DERE>`); MBTI archetypes included. */
-function isBareTagKey(key) {
-	return BARE_TAG_RE.test(key.trim());
-}
-function isMbtiTag(key) {
-	return MBTI_TAG_RE.test(key.trim());
-}
-/** ST's `escapeRegex` (utils.js). */
-function escapeRegexLikeSt(text) {
-	return text.replace(/[/\-\\^$*+?.()|[\]{}]/g, "\\$&");
-}
-/** ASCII word character: what `\w` means without the `u` flag (and what ST's boundary is built from). */
-function isAsciiWordChar(char) {
-	return char !== void 0 && char !== "" && /\w/.test(char);
-}
-/** One key against a haystack, exactly like ST's `WorldInfoBuffer.matchKeys` (keys with macros are not expanded). */
-function matchKey(haystack, key, options) {
-	const needle = key.trim();
-	if (!needle) return false;
-	const regex = parseRegexKey(needle);
-	if (regex) {
-		regex.lastIndex = 0;
-		return regex.test(haystack);
-	}
-	const hay = options.caseSensitive ? haystack : haystack.toLowerCase();
-	const word = options.caseSensitive ? needle : needle.toLowerCase();
-	if (!options.wholeWords || word.split(/\s+/).length > 1) return hay.includes(word);
-	return new RegExp(`(?:^|\\W)(${escapeRegexLikeSt(word)})(?:$|\\W)`).test(hay);
-}
-/** True when the whole-word bug applies: a plain single-word key that contains Cyrillic letters. */
-function isCyrillicWholeWordKey(key) {
-	const trimmed = key.trim();
-	return hasCyrillic(trimmed) && !looksLikeRegexKey(trimmed) && trimmed.split(/\s+/).length === 1;
-}
-/**
-* Pack key normalisation (research/bunnymo-carrotkernel.md §1.6): trim, upper case, no spaces after `:` (packs
-* contain `<LING: HORNY>`). Regex keys stay verbatim.
-*/
-function normalizePackKey(key) {
-	const trimmed = key.trim();
-	if (looksLikeRegexKey(trimmed)) return trimmed;
-	return trimmed.toUpperCase().replace(/:\s+/g, ":");
-}
-//#endregion
-//#region src/domain/rules-keys.ts
-/** Not preceded by a letter or a digit of any script. */
-var LEFT_BOUNDARY = "(?<![\\p{L}\\p{N}])";
-var CYRILLIC_RE = /\p{Script=Cyrillic}/u;
-/** Anything written like `/…/flags` (ST tries to parse it as a regex key). */
-var REGEX_LIKE_RE$1 = /^\/[\s\S]+\/[a-z]*$/i;
-var SPECIAL_G = /[.*+?^$()[\]|\\/{}]/g;
-/**
-* Escapes a literal for a `u`-mode pattern inside an ST regex key: `. * + ? ^ $ ( ) [ ] | \ /` get a backslash,
-* `{` and `}` become `[{]` and `[}]`, and `-` stays as it is (`\-` is invalid outside a class with `u`).
-*/
-function escapeKeyRegex(text) {
-	return text.replace(SPECIAL_G, (char) => char === "{" ? "[{]" : char === "}" ? "[}]" : `\\${char}`);
-}
-/** ST's `entry.flag ?? global`. */
-function effectiveFlag(value, global) {
-	return value === null || value === void 0 ? global : value === true;
-}
-/**
-* A key the whole-word bug applies to and the left boundary can replace: one word (ST matches several words as a
-* plain substring anyway), with Cyrillic letters, not a regex key and without macros.
-*/
-function isLeftBoundaryCandidate(key) {
-	if (typeof key !== "string") return false;
-	const trimmed = key.trim();
-	if (!trimmed || trimmed.includes("{{") || REGEX_LIKE_RE$1.test(trimmed)) return false;
-	return CYRILLIC_RE.test(trimmed) && !/\s/.test(trimmed);
-}
-/** `/(?<![\p{L}\p{N}])<escaped key>/iu` (or `/u` for a case-sensitive entry). */
-function leftBoundaryKey(key, caseSensitive) {
-	return `/${LEFT_BOUNDARY}${escapeKeyRegex(key.trim())}/${caseSensitive ? "u" : "iu"}`;
-}
-/**
-* A new key list with every candidate replaced by its left-boundary regex, or null when nothing changes (the
-* input is never modified: on scan copies it aliases ST's cache).
-*/
-function convertKeyList(value, caseSensitive) {
-	if (!Array.isArray(value) || !value.some(isLeftBoundaryCandidate)) return null;
-	return value.map((key) => isLeftBoundaryCandidate(key) ? leftBoundaryKey(key, caseSensitive) : key);
-}
-//#endregion
-//#region src/domain/doctor-fixes.ts
-function isDict$22(value) {
-	return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-function isBookData(value) {
-	return isDict$22(value) && isDict$22(value.entries);
-}
-/** JSON with sorted object keys; `undefined` and `null` are the same ("use the default"). */
-function stableStringify$1(value) {
-	if (value === void 0 || value === null) return "null";
-	if (Array.isArray(value)) return `[${value.map(stableStringify$1).join(",")}]`;
-	if (isDict$22(value)) return `{${Object.keys(value).filter((key) => value[key] !== void 0).sort().map((key) => `${JSON.stringify(key)}:${stableStringify$1(value[key])}`).join(",")}}`;
-	return JSON.stringify(value) ?? "null";
-}
-/** The entry holds exactly these field values. */
-function entryHas(entry, values) {
-	return Object.entries(values).every(([field, value]) => stableStringify$1(entry[field]) === stableStringify$1(value));
-}
-/** The stored key of an entry by uid (`entries[uid]`, or the entry whose `uid` field matches). */
-function entryKeyOf(data, uid) {
-	const direct = data.entries[String(uid)];
-	if (isDict$22(direct)) return String(uid);
-	for (const [key, entry] of Object.entries(data.entries)) if (isDict$22(entry) && Number(entry.uid) === uid) return key;
-	return null;
-}
-function copyValue(value) {
-	return value === void 0 ? value : JSON.parse(JSON.stringify(value));
-}
-/**
-* A new book object with the patches applied (or reverted); the input is not modified. All or nothing: any missing
-* or changed entry blocks the whole write.
-*/
-function patchBookData(data, patches, direction = "apply") {
-	const missing = [];
-	const stale = [];
-	const targets = [];
-	for (const patch of patches) {
-		const key = entryKeyOf(data, patch.uid);
-		const entry = key === null ? void 0 : data.entries[key];
-		if (key === null || !entry) {
-			missing.push(patch.uid);
-			continue;
-		}
-		const from = direction === "apply" ? patch.before : patch.after;
-		const to = direction === "apply" ? patch.after : patch.before;
-		if (!entryHas(entry, from)) stale.push(patch.uid);
-		else targets.push({
-			key,
-			entry,
-			values: to
-		});
-	}
-	if (missing.length) return {
-		ok: false,
-		reason: "missing",
-		uids: missing
-	};
-	if (stale.length) return {
-		ok: false,
-		reason: "stale",
-		uids: stale
-	};
-	const entries = { ...data.entries };
-	for (const { key, entry, values } of targets) {
-		const next = { ...entries[key] ?? entry };
-		for (const [field, value] of Object.entries(values)) if (value === void 0) delete next[field];
-		else next[field] = copyValue(value);
-		entries[key] = next;
-	}
-	return {
-		ok: true,
-		uids: [],
-		data: {
-			...data,
-			entries
-		}
-	};
-}
-/** Loads, checks (guard, then every patch) and saves the book in one go. */
-async function commitPatches(io, book, patches, options = {}) {
-	const data = await io.load(book);
-	if (!data) return {
-		ok: false,
-		reason: "missing",
-		uids: []
-	};
-	if (options.guard && !options.guard(data)) return {
-		ok: false,
-		reason: "protected",
-		uids: []
-	};
-	const result = patchBookData(data, patches, options.direction ?? "apply");
-	if (!result.ok || !result.data) return {
-		ok: false,
-		reason: result.reason,
-		uids: result.uids
-	};
-	await io.save(book, result.data);
-	return {
-		ok: true,
-		uids: patches.map((patch) => patch.uid)
-	};
-}
-/** Entries of a stored book in the shape the BunnyMo heuristics read. */
-function likeScan(book, data) {
-	return Object.values(data.entries).filter(isDict$22).map((entry) => ({
-		...entry,
-		world: book
-	}));
-}
-/** The book is the BunnyMo core or a pack by its content (P13: never edited). */
-function isBunnyMoBook(book, data) {
-	const classified = classifyWorlds(likeScan(book, data));
-	return classified.core.has(book) || classified.packs.has(book);
-}
-/** The book holds at least one character archive. */
-function hasArchives(data) {
-	return Object.values(data.entries).some((entry) => isDict$22(entry) && isCharacterArchive(entry));
-}
-/** Enabled entries with their uid. */
-function enabledEntriesOf(data) {
-	const result = [];
-	for (const [key, entry] of Object.entries(data.entries)) {
-		if (!isDict$22(entry) || entry.disable === true) continue;
-		const uid = Number(entry.uid ?? key);
-		if (Number.isFinite(uid)) result.push({
-			uid,
-			entry
-		});
-	}
-	return result;
-}
-var AT_DEPTH$1 = 4;
-var ROLE_ASSISTANT$1 = 2;
-var ROLE_SYSTEM$1 = 0;
-/** At-depth entry with the assistant role → system (audit A9: user-role entries stay). */
-function planRoleFix(uid, entry) {
-	if (Number(entry.position) !== AT_DEPTH$1 || entry.role === null || Number(entry.role) !== ROLE_ASSISTANT$1) return null;
-	return {
-		uid,
-		before: { role: entry.role },
-		after: { role: ROLE_SYSTEM$1 }
-	};
-}
-/** Scan depth 1 → the global setting (null). */
-function planScanDepthFix(uid, entry) {
-	if (entry.scanDepth === null || entry.scanDepth === void 0 || Number(entry.scanDepth) !== 1) return null;
-	return {
-		uid,
-		before: { scanDepth: entry.scanDepth },
-		after: { scanDepth: null }
-	};
-}
-/** Lorebook Localizer's provenance marker (`extensions.lorebook_localizer`). */
-var LOCALIZER_MARKER = "lorebook_localizer";
-var KEY_FIELDS = ["key", "keysecondary"];
-function stringKeys(value) {
-	return Array.isArray(value) ? value.filter((key) => typeof key === "string") : [];
-}
-/** `\{` / `\}` → `[{]` / `[}]`; null when the key is still broken afterwards. */
-function repairBraces(key) {
-	const repaired = key.replace(/\\([{}])/g, "[$1]");
-	return regexKeyProblem(repaired) === null ? repaired : null;
-}
-/**
-* Keys Lorebook Localizer added that do not work in ST (audit T2): `\{`/`\}` are respelled `[{]`/`[}]` when that
-* makes them valid, other broken ones (flags, unescaped `/`, `\-` with `u`) are removed — from the key lists and from
-* the marker's `added` lists, so the marker keeps describing the entry.
-*/
-function planLocalizerFix(uid, entry) {
-	const extensions = isDict$22(entry.extensions) ? entry.extensions : null;
-	const marker = extensions && isDict$22(extensions[LOCALIZER_MARKER]) ? extensions[LOCALIZER_MARKER] : null;
-	const languages = marker && isDict$22(marker.languages) ? marker.languages : null;
-	if (!extensions || !marker || !languages) return null;
-	const replace = /* @__PURE__ */ new Map();
-	for (const state of Object.values(languages)) {
-		const added = isDict$22(state) && isDict$22(state.added) ? state.added : null;
-		if (!added) continue;
-		for (const field of KEY_FIELDS) for (const key of stringKeys(added[field])) {
-			const problem = regexKeyProblem(key);
-			if (problem === null || replace.has(key)) continue;
-			replace.set(key, problem === "braces" ? repairBraces(key) : null);
-		}
-	}
-	if (!replace.size) return null;
-	const fix = (keys) => Array.isArray(keys) ? keys.flatMap((key) => {
-		if (typeof key !== "string" || !replace.has(key)) return [key];
-		const next = replace.get(key);
-		return next ? [next] : [];
-	}) : keys;
-	const nextLanguages = Object.fromEntries(Object.entries(languages).map(([lang, state]) => {
-		if (!isDict$22(state) || !isDict$22(state.added)) return [lang, state];
-		const added = { ...state.added };
-		for (const field of KEY_FIELDS) if (Array.isArray(added[field])) added[field] = fix(added[field]);
-		return [lang, {
-			...state,
-			added
-		}];
-	}));
-	const after = { extensions: {
-		...extensions,
-		[LOCALIZER_MARKER]: {
-			...marker,
-			languages: nextLanguages
-		}
-	} };
-	const before = { extensions };
-	for (const field of KEY_FIELDS) {
-		if (!Array.isArray(entry[field])) continue;
-		const next = fix(entry[field]);
-		if (stableStringify$1(next) === stableStringify$1(entry[field])) continue;
-		before[field] = entry[field];
-		after[field] = next;
-	}
-	return {
-		uid,
-		before,
-		after
-	};
-}
-/**
-* Plain Cyrillic keys of an enabled entry with effective whole-word matching → left-boundary regex keys (the same
-* conversion as rule `keys.cyrillicLeftBoundary`, written to the file).
-*/
-function planCyrillicFix(uid, entry, globals) {
-	if (entry.disable === true || !effectiveFlag(entry.matchWholeWords, globals.wholeWords)) return null;
-	const caseSensitive = effectiveFlag(entry.caseSensitive, globals.caseSensitive);
-	const before = {};
-	const after = {};
-	for (const field of KEY_FIELDS) {
-		const next = convertKeyList(entry[field], caseSensitive);
-		if (!next) continue;
-		before[field] = entry[field];
-		after[field] = next;
-	}
-	return Object.keys(after).length ? {
-		uid,
-		before,
-		after
-	} : null;
-}
-/**
-* A CK archive saved with scan depth 1 (Baby Bunny): scan depth → global and, when `formsKey` is given (DES-RU's
-* `nameFormsKey`), one regex key with every case form added after the plain Cyrillic name keys. The plain keys stay
-* first: CarrotKernel takes a character's name from `key[0]` when the entry has no comment.
-*/
-function planArchiveDepthFix(uid, entry, formsKey) {
-	const depth = planScanDepthFix(uid, entry);
-	if (!depth) return null;
-	const before = { ...depth.before };
-	const after = { ...depth.after };
-	if (formsKey && Array.isArray(entry.key)) {
-		const added = [];
-		for (const key of entry.key) {
-			if (!isLeftBoundaryCandidate(key) && !(typeof key === "string" && isMultiWordName(key))) continue;
-			let regex;
-			try {
-				regex = formsKey(key.trim());
-			} catch {
-				regex = null;
-			}
-			if (typeof regex === "string" && regex && !entry.key.includes(regex)) added.push(regex);
-		}
-		if (added.length) {
-			before.key = entry.key;
-			after.key = [.../* @__PURE__ */ new Set([...entry.key, ...added])];
-		}
-	}
-	return {
-		uid,
-		before,
-		after
-	};
-}
-/** «Аня Петрова»: a plain multi-word Cyrillic name (DES-RU forms every word). */
-function isMultiWordName(key) {
-	const trimmed = key.trim();
-	return /\s/.test(trimmed) && trimmed.split(/\s+/).every((word) => isLeftBoundaryCandidate(word));
-}
-//#endregion
 //#region src/features/doctor/files.ts
 var LORE_ENTRY_TARGET$1 = "lore-entry";
-function isDict$21(value) {
+function isDict$27(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function bookRoles(app) {
@@ -13185,7 +17042,7 @@ function patchChanges$1(book, patches) {
 async function undoLoreEntry$1(app, change) {
 	const book = change.ref.book;
 	const uid = Number(change.ref.uid);
-	if (typeof book !== "string" || !Number.isFinite(uid) || !isDict$21(change.before) || !isDict$21(change.after)) return false;
+	if (typeof book !== "string" || !Number.isFinite(uid) || !isDict$27(change.before) || !isDict$27(change.after)) return false;
 	return (await writePatches$1(app, book, [{
 		uid,
 		before: change.before,
@@ -13193,7 +17050,7 @@ async function undoLoreEntry$1(app, change) {
 	}], "revert")).ok;
 }
 function isEntryPatch$1(value) {
-	return isDict$21(value) && typeof value.uid === "number" && isDict$21(value.before) && isDict$21(value.after);
+	return isDict$27(value) && typeof value.uid === "number" && isDict$27(value.before) && isDict$27(value.after);
 }
 //#endregion
 //#region src/domain/doctor-types.ts
@@ -13206,19 +17063,19 @@ var DOCTOR_RULES = {
 	packVersion: "pack.versionConflict",
 	nsfwCollision: "wrapper.nsfwCollision"
 };
-function str$1(value) {
+function str$5(value) {
 	return typeof value === "string" ? value : value === void 0 || value === null ? "" : String(value);
 }
 function keyList(value) {
-	return Array.isArray(value) ? value.map((key) => str$1(key).trim()).filter(Boolean) : [];
+	return Array.isArray(value) ? value.map((key) => str$5(key).trim()).filter(Boolean) : [];
 }
-function num$2(value, fallback) {
+function num$3(value, fallback) {
 	const parsed = typeof value === "number" ? value : typeof value === "string" && value !== "" ? Number(value) : NaN;
 	return Number.isFinite(parsed) ? parsed : fallback;
 }
 function nullableNum(value) {
 	if (value === null || value === void 0 || value === "") return null;
-	const parsed = num$2(value, NaN);
+	const parsed = num$3(value, NaN);
 	return Number.isFinite(parsed) ? parsed : null;
 }
 function nullableBool(value) {
@@ -13231,15 +17088,15 @@ function nullableBool(value) {
 function toDoctorEntry(book, raw, fallbackUid, localizerKeys = []) {
 	return {
 		book,
-		uid: num$2(raw.uid, fallbackUid),
-		comment: str$1(raw.comment),
-		content: str$1(raw.content),
+		uid: num$3(raw.uid, fallbackUid),
+		comment: str$5(raw.comment),
+		content: str$5(raw.content),
 		key: keyList(raw.key),
 		keysecondary: keyList(raw.keysecondary),
 		disable: raw.disable === true,
 		constant: raw.constant === true,
-		position: num$2(raw.position, 0),
-		depth: num$2(raw.depth, 4),
+		position: num$3(raw.position, 0),
+		depth: num$3(raw.depth, 4),
 		role: nullableNum(raw.role),
 		scanDepth: nullableNum(raw.scanDepth),
 		caseSensitive: nullableBool(raw.caseSensitive),
@@ -13251,7 +17108,7 @@ function toDoctorEntry(book, raw, fallbackUid, localizerKeys = []) {
 	};
 }
 /** "Comment" or "#uid" for messages. */
-function entryLabel$1(entry) {
+function entryLabel$2(entry) {
 	const comment = entry.comment.trim();
 	return comment ? comment.length > 80 ? `${comment.slice(0, 77)}…` : comment : `#${entry.uid}`;
 }
@@ -13268,7 +17125,7 @@ var STRATEGIES = [
 	"characterFirst",
 	"globalFirst"
 ];
-function num$1(value, fallback) {
+function num$2(value, fallback) {
 	return typeof value === "number" && Number.isFinite(value) ? value : fallback;
 }
 /**
@@ -13276,14 +17133,14 @@ function num$1(value, fallback) {
 * the `world_info_*` names). Missing values take ST's defaults.
 */
 function readWiSettings$1(raw) {
-	const strategy = num$1(raw.world_info_character_strategy, 1);
+	const strategy = num$2(raw.world_info_character_strategy, 1);
 	return {
-		depth: num$1(raw.world_info_depth, 2),
-		budgetPercent: num$1(raw.world_info_budget, 25),
-		budgetCap: num$1(raw.world_info_budget_cap, 0),
+		depth: num$2(raw.world_info_depth, 2),
+		budgetPercent: num$2(raw.world_info_budget, 25),
+		budgetCap: num$2(raw.world_info_budget_cap, 0),
 		recursive: raw.world_info_recursive === true,
-		maxRecursionSteps: num$1(raw.world_info_max_recursion_steps, 0),
-		minActivations: num$1(raw.world_info_min_activations, 0),
+		maxRecursionSteps: num$2(raw.world_info_max_recursion_steps, 0),
+		minActivations: num$2(raw.world_info_min_activations, 0),
 		caseSensitive: raw.world_info_case_sensitive === true,
 		wholeWords: raw.world_info_match_whole_words === true,
 		strategy: STRATEGIES[strategy] ?? "characterFirst",
@@ -13410,7 +17267,7 @@ var REGEX_PLACEMENT = {
 	WORLD_INFO: 5,
 	REASONING: 6
 };
-function str(value) {
+function str$4(value) {
 	return typeof value === "string" ? value : "";
 }
 function depth(value) {
@@ -13418,15 +17275,15 @@ function depth(value) {
 }
 function normalizeScript(raw, type, index, allowed) {
 	const script = raw && typeof raw === "object" ? raw : {};
-	const scriptId = str(script.id);
+	const scriptId = str$4(script.id);
 	return {
 		id: `${type}:${scriptId || index}`,
 		scriptId,
-		name: str(script.scriptName),
+		name: str$4(script.scriptName),
 		type,
 		index,
-		find: str(script.findRegex),
-		replace: str(script.replaceString),
+		find: str$4(script.findRegex),
+		replace: str$4(script.replaceString),
 		trimStrings: Array.isArray(script.trimStrings) ? script.trimStrings.filter((item) => typeof item === "string") : [],
 		placement: Array.isArray(script.placement) ? script.placement.filter((item) => typeof item === "number") : [],
 		disabled: script.disabled === true,
@@ -13726,7 +17583,7 @@ function findRegexIssues(scripts, context) {
 }
 //#endregion
 //#region src/features/doctor/sources.ts
-function isDict$20(value) {
+function isDict$26(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function extras(app) {
@@ -13755,10 +17612,10 @@ async function readLore(app, log) {
 			log.warn(`lorebook ${book} did not load`, error);
 			continue;
 		}
-		if (!isDict$20(data) || !isDict$20(data.entries)) continue;
+		if (!isDict$26(data) || !isDict$26(data.entries)) continue;
 		loaded.push(book);
 		for (const [uid, raw] of Object.entries(data.entries)) {
-			if (!isDict$20(raw)) continue;
+			if (!isDict$26(raw)) continue;
 			const marker = readLocalizerMarker(raw);
 			const added = marker ? Object.values(marker.languages).flatMap((state) => [...state.added.key, ...state.added.keysecondary]) : [];
 			entries.push(toDoctorEntry(book, raw, Number(uid) || 0, added));
@@ -13819,7 +17676,7 @@ async function readWorldInfoSettings(app, log) {
 		const module = await app.host.modules.worldInfo();
 		const getter = module.getWorldInfoSettings;
 		const raw = typeof getter === "function" ? getter() : module;
-		return isDict$20(raw) ? readWiSettings$1(raw) : null;
+		return isDict$26(raw) ? readWiSettings$1(raw) : null;
 	} catch (error) {
 		log.debug("world-info.js is not available", error);
 		return null;
@@ -13901,9 +17758,9 @@ function fallbackScripts(app) {
 	const scoped = character?.data?.extensions?.regex_scripts;
 	const allowedChars = settings.character_allowed_regex;
 	const preset = extras(app).chatCompletionSettings;
-	const presetScripts = isDict$20(preset?.extensions) ? preset.extensions.regex_scripts : void 0;
+	const presetScripts = isDict$26(preset?.extensions) ? preset.extensions.regex_scripts : void 0;
 	const presetName = preset?.preset_settings_openai;
-	const allowedPresets = isDict$20(settings.preset_allowed_regex) ? settings.preset_allowed_regex.openai : void 0;
+	const allowedPresets = isDict$26(settings.preset_allowed_regex) ? settings.preset_allowed_regex.openai : void 0;
 	return {
 		global: {
 			list: Array.isArray(settings.regex) ? settings.regex : [],
@@ -13923,7 +17780,7 @@ function fallbackScripts(app) {
 async function readRegexScripts(app, log) {
 	const engine = await regexEngine$1(app);
 	const byType = engine?.getScriptsByType;
-	const codes = isDict$20(engine?.SCRIPT_TYPES) ? engine.SCRIPT_TYPES : null;
+	const codes = isDict$26(engine?.SCRIPT_TYPES) ? engine.SCRIPT_TYPES : null;
 	let lists;
 	let viaEngine = false;
 	if (typeof byType === "function") {
@@ -13954,7 +17811,7 @@ async function readRegexScripts(app, log) {
 		list.forEach((item, index) => {
 			const script = normalizeScript(item, type, index, allowed);
 			scripts.push(script);
-			if (isDict$20(item)) raw.set(script.id, item);
+			if (isDict$26(item)) raw.set(script.id, item);
 		});
 	}
 	const disabled = app.host.ctx().extensionSettings.disabledExtensions;
@@ -14180,21 +18037,21 @@ var TYPES = [
 	"scoped",
 	"preset"
 ];
-function isDict$19(value) {
+function isDict$25(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function jsonCopy$1(value) {
 	return JSON.parse(JSON.stringify(value));
 }
 function isRegexFixPayload(value) {
-	if (!isDict$19(value)) return false;
+	if (!isDict$25(value)) return false;
 	return ACTIONS.includes(value.action) && TYPES.includes(value.type) && typeof value.scriptId === "string" && typeof value.index === "number" && typeof value.name === "string" && (value.owner === null || typeof value.owner === "string");
 }
 async function presetManager$1(app) {
 	try {
 		const get = (await app.host.modules.presetManager()).getPresetManager;
 		const manager = typeof get === "function" ? get() : null;
-		return isDict$19(manager) ? manager : null;
+		return isDict$25(manager) ? manager : null;
 	} catch {
 		return null;
 	}
@@ -14226,11 +18083,11 @@ async function scriptStore(app, type) {
 	const read = engine?.getScriptsByType;
 	const write = engine?.saveScriptsByType;
 	if (typeof read === "function" && typeof write === "function") {
-		const stored = (isDict$19(engine?.SCRIPT_TYPES) ? engine.SCRIPT_TYPES : {})[type.toUpperCase()];
+		const stored = (isDict$25(engine?.SCRIPT_TYPES) ? engine.SCRIPT_TYPES : {})[type.toUpperCase()];
 		const code = typeof stored === "number" ? stored : DEFAULT_CODES[type];
 		const list = read(code, { allowedOnly: false });
 		return {
-			list: Array.isArray(list) ? list.filter(isDict$19) : [],
+			list: Array.isArray(list) ? list.filter(isDict$25) : [],
 			owner,
 			save: async (next) => {
 				await write(next, code);
@@ -14241,7 +18098,7 @@ async function scriptStore(app, type) {
 	if (type === "global") {
 		const list = ctx.extensionSettings.regex;
 		return {
-			list: Array.isArray(list) ? list.filter(isDict$19) : [],
+			list: Array.isArray(list) ? list.filter(isDict$25) : [],
 			owner,
 			save: async (next) => {
 				app.host.ctx().extensionSettings.regex = next;
@@ -14254,7 +18111,7 @@ async function scriptStore(app, type) {
 		if (id === void 0 || id === "") return null;
 		const list = ctx.characters[Number(id)]?.data?.extensions?.regex_scripts;
 		return {
-			list: Array.isArray(list) ? list.filter(isDict$19) : [],
+			list: Array.isArray(list) ? list.filter(isDict$25) : [],
 			owner,
 			save: async (next) => {
 				await app.host.ctx().writeExtensionField(id, "regex_scripts", next);
@@ -14265,7 +18122,7 @@ async function scriptStore(app, type) {
 	if (!manager?.readPresetExtensionField || !manager.writePresetExtensionField) return null;
 	const list = manager.readPresetExtensionField({ path: "regex_scripts" });
 	return {
-		list: Array.isArray(list) ? list.filter(isDict$19) : [],
+		list: Array.isArray(list) ? list.filter(isDict$25) : [],
 		owner,
 		save: async (next) => {
 			await manager.writePresetExtensionField?.({
@@ -14333,7 +18190,7 @@ async function undoRegexFix(app, change) {
 		owner: typeof ref.owner === "string" ? ref.owner : null
 	};
 	const store = await openStore(app, payload);
-	if (!store || !isDict$19(change.before)) return false;
+	if (!store || !isDict$25(change.before)) return false;
 	if (change.after === null) {
 		if (payload.scriptId && store.list.some((script) => script.id === payload.scriptId)) return false;
 		const next = [...store.list];
@@ -14342,7 +18199,7 @@ async function undoRegexFix(app, change) {
 	} else {
 		const index = locate(store.list, payload);
 		const live = index >= 0 ? store.list[index] : void 0;
-		if (!live || live.disabled === true !== (isDict$19(change.after) && change.after.disabled === true)) return false;
+		if (!live || live.disabled === true !== (isDict$25(change.after) && change.after.disabled === true)) return false;
 		live.disabled = change.before.disabled === true;
 		await store.save(store.list);
 	}
@@ -14487,102 +18344,6 @@ async function enableRule(app, state, finding, message) {
 	}, "auto");
 }
 //#endregion
-//#region src/domain/rules-packs.ts
-var INTENDED_PAIR_RE$1 = /^\s*CoT\s+LENS/i;
-var REGEX_LIKE_RE = /^\/[\s\S]+\/[a-z]*$/i;
-var CARROTCAST_RE = /carrot\s*-?\s*cast/i;
-var BUNNYFLIX_RE = /bunnyflix/i;
-/** CarrotCast entries name their streaming service near the top; the whole text is never scanned (P15). */
-var MARKER_SPAN = 600;
-function text$2(value) {
-	return typeof value === "string" ? value : "";
-}
-/** Pack key normalisation (research §1.6): trim, upper case, no spaces after `:`; regex keys stay verbatim. */
-function normalizePackKeyOf(key) {
-	const trimmed = key.trim();
-	if (REGEX_LIKE_RE.test(trimmed)) return trimmed;
-	return trimmed.toUpperCase().replace(/:\s+/g, ":");
-}
-/** Normalised primary keys as one string; null for constants and entries without keys (they never conflict). */
-function packKeySignature(entry) {
-	if (entry.constant === true || !Array.isArray(entry.key)) return null;
-	const keys = /* @__PURE__ */ new Set();
-	for (const key of entry.key) {
-		if (typeof key !== "string") continue;
-		const normalised = normalizePackKeyOf(key);
-		if (normalised) keys.add(normalised);
-	}
-	return keys.size ? JSON.stringify([...keys].sort()) : null;
-}
-/** Content compared up to whitespace (packs are re-saved by different editors). */
-function packContentSignature(content) {
-	return text$2(content).replace(/\s+/g, " ").trim();
-}
-/** Stable id of a conflict group: its books in code-point order. */
-function packGroupId(books) {
-	return JSON.stringify([...new Set(books)].sort());
-}
-/**
-* Groups of books with version conflicts. Only enabled, keyed, non-constant entries with text take part; a key set
-* conflicts when it is present in two or more pack books with at least two different texts. Key sets with the same
-* books form one group (one question). Key sets of the intended BSM-5 + CoT Lenses pairing are skipped.
-*/
-function findVersionConflicts(entries, isPack) {
-	const sizes = /* @__PURE__ */ new Map();
-	const order = /* @__PURE__ */ new Map();
-	const bySignature = /* @__PURE__ */ new Map();
-	for (const entry of entries) {
-		sizes.set(entry.world, (sizes.get(entry.world) ?? 0) + 1);
-		if (!order.has(entry.world)) order.set(entry.world, order.size);
-		if (entry.disable === true || !packContentSignature(entry.content) || !isPack(entry.world)) continue;
-		const signature = packKeySignature(entry);
-		if (signature === null) continue;
-		const list = bySignature.get(signature);
-		if (list) list.push(entry);
-		else bySignature.set(signature, [entry]);
-	}
-	const groups = /* @__PURE__ */ new Map();
-	for (const list of bySignature.values()) {
-		const books = [...new Set(list.map((entry) => entry.world))];
-		if (books.length < 2) continue;
-		if (list.some((entry) => INTENDED_PAIR_RE$1.test(text$2(entry.comment)))) continue;
-		if (new Set(list.map((entry) => packContentSignature(entry.content))).size < 2) continue;
-		books.sort((a, b) => (order.get(a) ?? 0) - (order.get(b) ?? 0));
-		const id = packGroupId(books);
-		let group = groups.get(id);
-		if (!group) {
-			group = {
-				id,
-				books,
-				newest: books.reduce((best, book) => compareBookRecency(book, best, sizes) > 0 ? book : best),
-				entries: [],
-				count: 0,
-				sample: []
-			};
-			groups.set(id, group);
-		}
-		group.entries.push(...list);
-		group.count += 1;
-		const first = Array.isArray(list[0]?.key) ? list[0].key.find((key) => typeof key === "string") : void 0;
-		if (typeof first === "string" && group.sample.length < 3) group.sample.push(first.trim());
-	}
-	return [...groups.values()];
-}
-/** Entries of the group that leave the prompt when `winner` stays. */
-function losersOf(group, winner) {
-	return group.books.includes(winner) ? group.entries.filter((entry) => entry.world !== winner) : [];
-}
-/** The key list holds the bare tag `<NSFW>` (ST matches keys case-insensitively by default). */
-function hasNsfwKey(keys) {
-	return Array.isArray(keys) && keys.some((key) => typeof key === "string" && key.trim().toUpperCase() === "<NSFW>");
-}
-/** An entry of a CarrotCast pack: by its book name or the BunnyFlix header near the top of the text. */
-function isCarrotCastEntry(entry) {
-	const book = text$2(entry.world) || text$2(entry.book);
-	if (CARROTCAST_RE.test(book)) return true;
-	return BUNNYFLIX_RE.test(text$2(entry.content).slice(0, MARKER_SPAN));
-}
-//#endregion
 //#region src/domain/doctor-ck.ts
 var BLOCK_OPEN_G = /<(bunnymotags)>/gi;
 var BLOCK_RE$1 = /<bunnymotags>([\s\S]*?)(?:<\/bunnymotags>|$)/i;
@@ -14627,7 +18388,7 @@ function findArchiveIssues(entries, options) {
 		list.push(entry);
 		perBook.set(entry.book, list);
 		const where = {
-			entry: entryLabel$1(entry),
+			entry: entryLabel$2(entry),
 			book: entry.book
 		};
 		const target = {
@@ -14689,7 +18450,7 @@ function findArchiveIssues(entries, options) {
 			params: {
 				book,
 				count: list.length,
-				sample: sample(list.map(entryLabel$1))
+				sample: sample(list.map(entryLabel$2))
 			},
 			target: { book },
 			fileFix: false
@@ -14751,8 +18512,8 @@ function findWrapperCollisions(entries, options) {
 				tag: collision.tag,
 				closing: `</${collision.tag.slice(1)}`,
 				count: collision.archives.length,
-				archives: sample(collision.archives.map(entryLabel$1)),
-				target: entryLabel$1(first),
+				archives: sample(collision.archives.map(entryLabel$2)),
+				target: entryLabel$2(first),
 				targetBook: first.book,
 				targets: collision.targets.length
 			},
@@ -14774,7 +18535,8 @@ function findWrapperCollisions(entries, options) {
 //#endregion
 //#region src/domain/doctor-lore.ts
 /** Comments of the intended BSM-5 + CoT Lenses pairing (same keys, different content by design). */
-var INTENDED_PAIR_RE = /^\s*CoT\s+LENS/i;
+/** CoT Lenses pair with BSM-5 on purpose; real titles start with an emoji («💊 CoT LENS — DEPRESSION»). */
+var INTENDED_PAIR_RE = /^\s*[^\sA-Za-z0-9]*\s*CoT\s+LENS/i;
 var OLD_EDITION_RE = /retired|legacy|\bold\b|deprecated|устар/i;
 var VERSION_RE = /(?:^|[^a-z])v(?:er(?:sion)?)?\.?\s?(\d+(?:\.\d+)*)/i;
 /** Version numbers found in a book name or comment (`MBTI V2` → [2], `V3.0` → [3, 0]); null when none. */
@@ -14809,11 +18571,11 @@ function keySignature(entry) {
 function contentSignature(content) {
 	return content.replace(/\s+/g, " ").trim();
 }
-function pairKey(first, second) {
+function pairKey$1(first, second) {
 	return JSON.stringify([first, second]);
 }
 function bump(map, first, second, entry) {
-	const id = pairKey(first, second);
+	const id = pairKey$1(first, second);
 	const pair = map.get(id) ?? {
 		first,
 		second,
@@ -14825,7 +18587,7 @@ function bump(map, first, second, entry) {
 	};
 	pair.count += 1;
 	pair.chars += entry.content.length;
-	pair.labels.push(entryLabel$1(entry));
+	pair.labels.push(entryLabel$2(entry));
 	if (entry.key[0]) pair.keys.push(entry.key[0]);
 	pair.uids.push(entry.uid);
 	map.set(id, pair);
@@ -14922,7 +18684,7 @@ function findAssistantAtDepth(entries, bunnyBooks) {
 		severity: "warn",
 		messageKey: "m5.f.assistantAtDepth",
 		params: {
-			entry: entryLabel$1(entry),
+			entry: entryLabel$2(entry),
 			book: entry.book,
 			depth: entry.depth
 		},
@@ -14964,7 +18726,7 @@ function findKeyIssues(entries, options) {
 			params: {
 				book,
 				count: list.length,
-				sample: sample(list.map(entryLabel$1))
+				sample: sample(list.map(entryLabel$2))
 			},
 			target: {
 				book,
@@ -15011,7 +18773,7 @@ function findKeyIssues(entries, options) {
 			severity: first.problem === "braces" ? "warn" : "error",
 			messageKey: `m5.f.localizerBroken.${first.problem}`,
 			params: {
-				entry: entryLabel$1(entry),
+				entry: entryLabel$2(entry),
 				book: entry.book,
 				key: first.key,
 				count: broken.length
@@ -15177,7 +18939,7 @@ function analyzeGraph(graph, starts) {
 	return result;
 }
 function chainText(graph, path) {
-	const labels = path.map((index) => entryLabel$1(graph.nodes[index]));
+	const labels = path.map((index) => entryLabel$2(graph.nodes[index]));
 	return labels.length > 6 ? `${labels.slice(0, 5).join(" → ")} → … → ${labels[labels.length - 1]}` : labels.join(" → ");
 }
 /** Per-book statistics plus `recursion.chain` / `recursion.vacuum` issues (fixed on the fly by rule `book.cap`). */
@@ -15256,12 +19018,12 @@ function findRecursionIssues(entries, settings, options = {}) {
 				severity: "warn",
 				messageKey: "m5.f.recursionVacuum",
 				params: {
-					entry: entryLabel$1(entry),
+					entry: entryLabel$2(entry),
 					book: entry.book,
 					count: node.out,
 					reach: node.reach,
 					chars: node.reachChars,
-					sample: sample((graph.out[index] ?? []).map((next) => entryLabel$1(graph.nodes[next])))
+					sample: sample((graph.out[index] ?? []).map((next) => entryLabel$2(graph.nodes[next])))
 				},
 				target: {
 					book: entry.book,
@@ -15301,7 +19063,7 @@ var SEVERITY_ORDER = {
 	info: 2
 };
 /** Lets the page paint between heavy steps (big books take a few hundred milliseconds). */
-var pause = () => new Promise((resolve) => setTimeout(resolve, 0));
+var pause$1 = () => new Promise((resolve) => setTimeout(resolve, 0));
 /** Finding = issue + a stable id (same problem → same id across scans). */
 function toFinding(issue) {
 	return {
@@ -15470,7 +19232,7 @@ var DoctorService = class {
 			repoBooks,
 			bunnyBooks: lore.bunnyBooks
 		}));
-		await pause();
+		await pause$1();
 		const recursion = findRecursionIssues(lore.entries, {
 			recursive: wi?.recursive ?? false,
 			caseSensitive: wi?.caseSensitive ?? false,
@@ -15491,7 +19253,7 @@ var DoctorService = class {
 				journal: loreTurns(app)
 			}));
 		}
-		await pause();
+		await pause$1();
 		const regex = await readRegexScripts(app, this.log);
 		this.regex = regex;
 		if (!regex.extensionOff) {
@@ -16485,11 +20247,11 @@ function doctorTab(app, service) {
 				clear(root);
 				root.append(header());
 				if (!result) return;
-				root.append(section(t("m5.findings"), [
+				root.append(section$1(t("m5.findings"), [
 					summary(result.findings),
 					!rulesApi$1(app) && result.findings.some((finding) => finding.fixRule) ? banner(t("m5.ruleMissing"), "info", "fa-circle-info") : null,
 					findingsView(result.findings, books, result.facts, result.scripts)
-				]), section(t("m5.books.title"), booksView(result.books)), section(t("m5.regex.title"), regexView(result.inventory, result.regexExtensionOff, result.scripts)), section(t("m5.bench.title"), benchView(result.inventory)));
+				]), section$1(t("m5.books.title"), booksView(result.books)), section$1(t("m5.regex.title"), regexView(result.inventory, result.regexExtensionOff, result.scripts)), section$1(t("m5.bench.title"), benchView(result.inventory)));
 			}
 			const off = service.onChange(() => draw());
 			draw();
@@ -16547,6 +20309,4700 @@ var doctorModule = {
 			if (next === badge) return;
 			badge = next;
 			app.ui.refresh();
+		}));
+	}
+};
+//#endregion
+//#region src/domain/text-clean.ts
+function isDict$24(value) {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+/** Names of real HTML elements (lower case). BunnyMo tags (`<SPECIES:ELF>`, `<PHYSICAL>`) are not among them. */
+var HTML_ELEMENTS = /* @__PURE__ */ new Set([
+	"a",
+	"abbr",
+	"address",
+	"area",
+	"article",
+	"aside",
+	"audio",
+	"b",
+	"base",
+	"bdi",
+	"bdo",
+	"big",
+	"blink",
+	"blockquote",
+	"body",
+	"br",
+	"button",
+	"canvas",
+	"caption",
+	"center",
+	"cite",
+	"code",
+	"col",
+	"colgroup",
+	"data",
+	"datalist",
+	"dd",
+	"del",
+	"details",
+	"dfn",
+	"dialog",
+	"dir",
+	"div",
+	"dl",
+	"dt",
+	"em",
+	"embed",
+	"fieldset",
+	"figcaption",
+	"figure",
+	"font",
+	"footer",
+	"form",
+	"h1",
+	"h2",
+	"h3",
+	"h4",
+	"h5",
+	"h6",
+	"head",
+	"header",
+	"hgroup",
+	"hr",
+	"html",
+	"i",
+	"iframe",
+	"img",
+	"input",
+	"ins",
+	"kbd",
+	"label",
+	"legend",
+	"li",
+	"link",
+	"main",
+	"map",
+	"mark",
+	"marquee",
+	"math",
+	"menu",
+	"meta",
+	"meter",
+	"nav",
+	"nobr",
+	"noscript",
+	"object",
+	"ol",
+	"optgroup",
+	"option",
+	"output",
+	"p",
+	"param",
+	"picture",
+	"pre",
+	"progress",
+	"q",
+	"rp",
+	"rt",
+	"ruby",
+	"s",
+	"samp",
+	"script",
+	"search",
+	"section",
+	"select",
+	"slot",
+	"small",
+	"source",
+	"span",
+	"strike",
+	"strong",
+	"style",
+	"sub",
+	"summary",
+	"sup",
+	"svg",
+	"table",
+	"tbody",
+	"td",
+	"template",
+	"textarea",
+	"tfoot",
+	"th",
+	"thead",
+	"time",
+	"title",
+	"tr",
+	"track",
+	"tt",
+	"u",
+	"ul",
+	"var",
+	"video",
+	"wbr"
+]);
+/** Elements whose tags separate lines of text. */
+var BLOCK_ELEMENTS = /* @__PURE__ */ new Set([
+	"address",
+	"article",
+	"aside",
+	"blockquote",
+	"br",
+	"center",
+	"dd",
+	"details",
+	"div",
+	"dl",
+	"dt",
+	"figcaption",
+	"figure",
+	"footer",
+	"h1",
+	"h2",
+	"h3",
+	"h4",
+	"h5",
+	"h6",
+	"header",
+	"hr",
+	"li",
+	"main",
+	"nav",
+	"ol",
+	"p",
+	"pre",
+	"section",
+	"summary",
+	"table",
+	"tr",
+	"ul"
+]);
+/**
+* True for a real HTML element name (any case), or a custom element (lower case with a hyphen — `<INTJ-U>` is a
+* BunnyMo tag, not an element).
+*/
+function isHtmlElementName(name) {
+	return HTML_ELEMENTS.has(name.toLowerCase()) || /^[a-z][a-z0-9]*-[a-z0-9-]+$/.test(name);
+}
+var TRACKER_KEYS = [
+	"quests",
+	"infoBox",
+	"infobox",
+	"characterThoughts",
+	"characters"
+];
+var TRACKER_KEY_RE$1 = /"(?:quests|infoBox|infobox|characterThoughts|characters)"\s*:/;
+/** A fence at the very start: ```json, ```markdown, ```md or a bare ```; the body runs to the closing fence. */
+var LEADING_FENCE_RE = /^\s*```(?:json|markdown|md)?[ \t]*\r?\n([\s\S]*?)\r?\n?[ \t]*```[ \t]*(?:\r?\n|$)/i;
+/** End index (exclusive) of the balanced `{…}` starting at `start`, strings respected; -1 when unbalanced. */
+function balancedObjectEnd(text, start) {
+	let depth = 0;
+	let inString = false;
+	let escaped = false;
+	for (let i = start; i < text.length; i++) {
+		const char = text[i];
+		if (escaped) escaped = false;
+		else if (char === "\\") escaped = inString;
+		else if (char === "\"") inString = !inString;
+		else if (!inString) {
+			if (char === "{") depth++;
+			else if (char === "}") {
+				depth--;
+				if (depth === 0) return i + 1;
+			}
+		}
+	}
+	return -1;
+}
+/** The JSON text is DES tracker data: an object with one of DES's sections (parsed or, if broken, by its keys). */
+function looksLikeTracker(json) {
+	const body = json.trim();
+	if (!body.startsWith("{")) return false;
+	try {
+		const parsed = JSON.parse(body);
+		return isDict$24(parsed) && TRACKER_KEYS.some((key) => key in parsed);
+	} catch {
+		return TRACKER_KEY_RE$1.test(body);
+	}
+}
+/**
+* Removes the DES tracker JSON that opens a reply in together mode: a leading ```json fence (or ```markdown / a
+* bare fence) whose body is tracker JSON, or an unfenced leading JSON object with tracker sections. Any other
+* code block or JSON is kept.
+*/
+function stripDesTrackerJson(text) {
+	if (typeof text !== "string" || !text) return typeof text === "string" ? text : "";
+	const fence = LEADING_FENCE_RE.exec(text);
+	if (fence) return looksLikeTracker(fence[1] ?? "") ? text.slice(fence[0].length).replace(/^\s+/, "") : text;
+	const start = text.search(/\S/);
+	if (start < 0 || text[start] !== "{") return text;
+	const end = balancedObjectEnd(text, start);
+	if (end < 0 || !looksLikeTracker(text.slice(start, end))) return text;
+	return text.slice(end).replace(/^\s+/, "");
+}
+var NAMED_ENTITIES = {
+	lt: "<",
+	gt: ">",
+	quot: "\"",
+	apos: "'",
+	nbsp: " ",
+	amp: "&"
+};
+function decodeEntities(text) {
+	if (!text.includes("&")) return text;
+	return text.replace(/&(#x[0-9a-f]{1,6}|#[0-9]{1,7}|[a-z]+);/gi, (whole, body) => {
+		if (body[0] === "#") {
+			const code = body[1] === "x" || body[1] === "X" ? parseInt(body.slice(2), 16) : parseInt(body.slice(1), 10);
+			return Number.isFinite(code) && code > 0 && code <= 1114111 ? String.fromCodePoint(code) : whole;
+		}
+		return NAMED_ENTITIES[body.toLowerCase()] ?? whole;
+	});
+}
+/**
+* Removes HTML: comments, `<style>`/`<script>` blocks with their content, and tags of real HTML elements (block
+* tags become line breaks); entities are decoded. Tags that are not HTML (`<SPECIES:ELF>`, `<PHYSICAL>`,
+* `<STYLE:GOTHIC>`) stay: a tag name must be followed by whitespace, `/` or `>` to count as HTML.
+*/
+function stripHtml(text) {
+	if (typeof text !== "string") return "";
+	if (!text.includes("<") && !text.includes("&")) return text;
+	return decodeEntities(text.replace(/<!--[\s\S]*?-->/g, "").replace(/<(style|script)(?=[\s>])[^>]*>[\s\S]*?<\/\1\s*>/gi, "").replace(/<\/?([A-Za-z][A-Za-z0-9-]*)(?=[\s/>])[^<>]*>/g, (whole, name) => {
+		if (!isHtmlElementName(name)) return whole;
+		return BLOCK_ELEMENTS.has(name.toLowerCase()) ? "\n" : "";
+	}));
+}
+/** The block CK appends in "thinking" display mode: `<BunnyMoTags>`, then "Name:" and "• CATEGORY: values" lines. */
+var DUMP_BLOCK_RE = /(\n[ \t]*)*<BunnyMoTags>\n?([\s\S]*?)<\/BunnyMoTags>/g;
+/**
+* The body is a CK dump: only "Name:" and "• CATEGORY: values" lines (categories may be missing — CK skips tags
+* saved as arrays), no `<KEY:VALUE>` tags. A BunnyMo sheet looks different and is kept.
+*/
+function isCkDumpBody(body) {
+	const lines = String(body ?? "").split("\n").map((line) => line.trim()).filter(Boolean);
+	if (!lines.length || /<[A-Za-z][A-Za-z0-9_]*:/.test(body)) return false;
+	return lines.every((line) => line.startsWith("•") || line.endsWith(":"));
+}
+/** Removes CarrotKernel's `<BunnyMoTags>` dumps (with the blank lines before them); sheets are kept. */
+function stripCkDumps(text) {
+	if (typeof text !== "string" || !text.includes("<BunnyMoTags>")) return typeof text === "string" ? text : "";
+	return text.replace(DUMP_BLOCK_RE, (whole, _spacing, body) => isCkDumpBody(body) ? "" : whole);
+}
+var NAI_PLACEHOLDER_RE$1 = /[ \t]*\[nai:img:[^\]\s]{1,80}\][ \t]*/g;
+/**
+* Removes NAI Studio's inline image placeholders `[nai:img:<id>]` with the spaces around them; inside a line one
+* space keeps the words apart.
+*/
+function stripNaiPlaceholders(text) {
+	if (typeof text !== "string") return "";
+	if (!text.includes("[nai:img:")) return text;
+	return text.replace(NAI_PLACEHOLDER_RE$1, (match, offset, whole) => {
+		const before = whole[offset - 1];
+		const after = whole[offset + match.length];
+		return before === void 0 || before === "\n" || after === void 0 || after === "\n" ? "" : " ";
+	});
+}
+/**
+* A picture post (NAI Studio `postToChat`): `extra.nai_studio` on the message, or a gallery whose every item carries
+* NAI metadata while the text is empty or just the image prompt. A story reply illustrated later (paintbrush) keeps
+* its own text and is not a picture post.
+*/
+function isImagePost(message) {
+	if (!isDict$24(message) || !isDict$24(message.extra)) return false;
+	const extra = message.extra;
+	if (isDict$24(extra.nai_studio)) return true;
+	const media = extra.media;
+	if (!Array.isArray(media) || !media.length || !media.every((item) => isDict$24(item) && isDict$24(item.nai_studio))) return false;
+	const text = typeof message.mes === "string" ? message.mes.trim() : "";
+	if (!text) return true;
+	return media.some((item) => {
+		const meta = item.nai_studio;
+		const title = item.title;
+		return typeof title === "string" && title.trim() === text || meta.prompt === text;
+	});
+}
+function normalizeWhitespace(text) {
+	return text.replace(/\r\n?/g, "\n").replace(/[ \t]+$/gm, "").replace(/\n{3,}/g, "\n\n").trim();
+}
+/**
+* Story text of a message (or of a raw string) for analysis: picture posts give '', otherwise the text without
+* the DES tracker JSON, CK dumps, NAI placeholders and HTML, with tidy whitespace.
+*/
+function cleanForAnalysis(message) {
+	if (typeof message !== "string" && isImagePost(message)) return "";
+	const raw = typeof message === "string" ? message : isDict$24(message) ? message.mes : void 0;
+	if (typeof raw !== "string" || !raw) return "";
+	let text = stripDesTrackerJson(raw);
+	text = stripCkDumps(text);
+	text = stripNaiPlaceholders(text);
+	text = stripHtml(text);
+	return normalizeWhitespace(text);
+}
+//#endregion
+//#region src/domain/sheet-context.ts
+var COMMAND_TARGET_RE = new RegExp(`(?:^|[^\\p{L}\\p{N}])!(${SHEET_COMMANDS.join("|")})(?![\\p{L}\\p{N}])([^\\n]*)`, "iu");
+/** Leading words that introduce the name ("!fullsheet for Vera", "!fullsheet на Веру"). */
+var TARGET_LEAD_RE = /^(?:for|on|about|of|на|для|про|о|об)\s+/iu;
+var WRAP_CHARS = `"'«»“”„()[]{}<>*_\``;
+var MAX_TARGET_LENGTH = 60;
+/**
+* The character a sheet command asks for: the text after the command up to the end of the line or a sentence
+* mark, without quotes and lead words. Null when the command has no argument.
+*/
+function parseSheetTarget(text, command) {
+	const match = COMMAND_TARGET_RE.exec(String(text ?? ""));
+	if (!match) return null;
+	if (command && match[1]?.toLowerCase() !== command) return null;
+	let target = (match[2] ?? "").split(/[,.!?;:\n]/)[0] ?? "";
+	target = target.trim().replace(TARGET_LEAD_RE, "");
+	let start = 0;
+	let end = target.length;
+	while (start < end && WRAP_CHARS.includes(target[start])) start++;
+	while (end > start && WRAP_CHARS.includes(target[end - 1])) end--;
+	target = target.slice(start, end).trim().replace(/\s+/g, " ");
+	if (!target || target.length > MAX_TARGET_LENGTH) return null;
+	return target;
+}
+/**
+* Entry content without World Info decorators (`@@activate`, `@@dont_activate`, …): ST strips the leading `@@`
+* lines before sending (world-info.js parseDecorators); `@@@` escapes a literal `@@` line.
+*/
+function stripDecorators(content) {
+	const text = String(content ?? "");
+	if (!text.startsWith("@@")) return text;
+	const lines = text.split("\n");
+	let index = 0;
+	while (index < lines.length && lines[index].startsWith("@@")) index++;
+	return lines.slice(index).join("\n");
+}
+/** Lower case, ё → е, `_` and punctuation → spaces, words split. */
+function nameWords(name) {
+	return String(name ?? "").toLowerCase().replace(/ё/g, "е").replace(/[^\p{L}\p{N}]+/gu, " ").split(" ").filter(Boolean);
+}
+function commonPrefix(a, b) {
+	let i = 0;
+	while (i < a.length && i < b.length && a[i] === b[i]) i++;
+	return i;
+}
+/** Same word, allowing a short inflected ending ("Вера" / "Веру" / "Веры", "Мартин" / "Мартина"). */
+function sameWord(a, b) {
+	if (a === b) return true;
+	const longest = Math.max(a.length, b.length);
+	const shortest = Math.min(a.length, b.length);
+	if (shortest < 3 || longest - shortest > 2) return false;
+	return commonPrefix(a, b) >= Math.max(3, longest - 2);
+}
+/** True when both names point to one character: every word of the shorter name is in the longer one. */
+function sameCharacter(a, b) {
+	const left = nameWords(a);
+	const right = nameWords(b);
+	if (!left.length || !right.length) return false;
+	const [short, long] = left.length <= right.length ? [left, right] : [right, left];
+	return short.every((word) => long.some((other) => sameWord(word, other)));
+}
+/** The sheet command an entry answers (BunnyMo core #2-#7), by its keys. */
+function sheetCommandOfEntry(entry) {
+	if (!entry || !isBunnyMoCoreEntry(entry)) return null;
+	for (const key of entryKeys$1(entry)) {
+		const command = key.toLowerCase().replace(/^!/, "");
+		if (key.trim().startsWith("!") && SHEET_COMMANDS.includes(command)) return command;
+	}
+	return null;
+}
+var ARCHIVE_COMMENT_RE = /^(.+?)\s+Character Archive\b/i;
+/** Character name of an archive entry: `<Name:…>`, else Baby Bunny's comment "<Name> Character Archive …". */
+function archiveName(entry) {
+	const name = archiveTags(entry).name;
+	if (name) return name.replace(/_/g, " ").trim();
+	const comment = typeof entry?.comment === "string" ? entry.comment : "";
+	return ARCHIVE_COMMENT_RE.exec(comment)?.[1]?.trim() || null;
+}
+/** A character archive (CK repo / BunnyMo example) of this character: by its name or by its keys. */
+function isArchiveOf(entry, target) {
+	if (!entry || !isCharacterArchive(entry)) return false;
+	if (sameCharacter(archiveName(entry), target)) return true;
+	return entryKeys$1(entry).some((key) => !key.startsWith("/") && sameCharacter(key, target));
+}
+var FENCED_JSON_RE = /```[ \t]*json[^\n]*\n[\s\S]*?```/gi;
+var DETAILS_RE = /<details\b[\s\S]*?<\/details>/gi;
+var TAG_BLOCK_RE$1 = /<bunnymotags>[\s\S]*?<\/bunnymotags>/gi;
+/**
+* Message text for an excerpt: text-clean's story text (no DES tracker, CK dumps, NAI images, HTML; picture posts
+* give '') and, on top of it, no JSON blocks anywhere, no folded `<details>` (thoughts, trackers) and no
+* `<BunnymoTags>` blocks. BunnyMo `<KEY:VALUE>` tags typed in the chat stay.
+*/
+function cleanExcerptText(message) {
+	if (typeof message !== "string" && isImagePost(message)) return "";
+	return cleanForAnalysis((typeof message === "string" ? message : message && typeof message === "object" && typeof message.mes === "string" ? message.mes : "").replace(FENCED_JSON_RE, "\n").replace(DETAILS_RE, "\n").replace(TAG_BLOCK_RE$1, "\n")).replace(/[ \t]{2,}/g, " ").replace(/\n{3,}/g, "\n\n").trim();
+}
+/** "Name: text" lines, oldest first, each message capped. */
+function formatExcerpt(lines, maxPerMessage = 1500) {
+	return lines.map(({ name, text }) => {
+		const body = text.length > maxPerMessage ? `${text.slice(0, maxPerMessage).trimEnd()}…` : text;
+		return name ? `${name}: ${body}` : body;
+	}).join("\n\n");
+}
+var MAX_FIELD = 8e3;
+function field(label, value) {
+	const text = String(value ?? "").trim();
+	if (!text) return null;
+	return `${label}:\n${text.length > MAX_FIELD ? `${text.slice(0, MAX_FIELD).trimEnd()}…` : text}`;
+}
+/** The character data message (English labels: it is read by the model, not shown to the user). */
+function formatCharacterData(data) {
+	const parts = [`[Character data for the sheet: ${data.target}]`];
+	const add = (part) => {
+		if (part) parts.push(part);
+	};
+	add(field("Character card — description", data.card?.description));
+	add(field("Character card — personality", data.card?.personality));
+	add(field("Character card — scenario", data.card?.scenario));
+	add(field("Persona description", data.persona));
+	for (const archive of data.archives ?? []) add(field("Existing archive entry (CarrotKernel)", archive));
+	const tracker = data.tracker;
+	if (tracker) {
+		const lines = Object.entries(tracker.details ?? {}).filter(([, value]) => value.trim()).map(([key, value]) => `- ${key}: ${value.trim()}`);
+		if (tracker.relationship) lines.push(`- relationship: ${tracker.relationship}`);
+		if (tracker.thoughts) lines.push(`- current thoughts: ${tracker.thoughts}`);
+		if (lines.length) parts.push(`Current scene tracker (DES):\n${lines.join("\n")}`);
+	}
+	if (parts.length === 1) parts.push("No stored data for this character: rely on the chat excerpt.");
+	return parts.join("\n\n");
+}
+/** Maestro's own rules for the sheet generation, appended to the BunnyMo command instruction. */
+function sheetDirective(command, target) {
+	return [
+		`[Maestro — sheet mode: !${command}]`,
+		`Output ONLY the !${command} sheet for ${target}, in the format above.`,
+		"Do not continue the story or the scene: no narration, no dialogue, no actions after the sheet.",
+		"Do not output tracker JSON, code blocks, image prompts or any commentary before or after the sheet.",
+		"Write the descriptive text in the language of the roleplay (as in the chat excerpt); keep the tags in English,",
+		"exactly as the format requires, with no parentheses inside tags. End the reply right after the sheet."
+	].join("\n");
+}
+/** The message list that replaces ST's prompt for a sheet generation. */
+function buildSheetMessages(input) {
+	const messages = [{
+		role: "system",
+		content: `${input.instruction.trim()}\n\n${input.directive}`
+	}, {
+		role: "system",
+		content: input.characterData
+	}];
+	if (input.excerpt.trim()) messages.push({
+		role: "user",
+		content: `[Recent roleplay, oldest first]\n\n${input.excerpt}`
+	});
+	messages.push({
+		role: "user",
+		content: input.command.trim()
+	});
+	return messages;
+}
+//#endregion
+//#region src/domain/dossier-names.ts
+var MIN_STEM = 3;
+var WORD_CHAR_RE$1 = /[\p{L}\p{N}_]/u;
+/** Lower case, ё → е, `_` → space, whitespace collapsed, trimmed. Non-strings give ''. */
+function normName(name) {
+	if (typeof name !== "string") return "";
+	return normalizeForMatch(name).replace(/_/g, " ").replace(/\s+/g, " ").trim();
+}
+/** `${kind}:${normalised name}` (the world model's id scheme for named entities). */
+function entityIdFor(kind, name) {
+	return `${kind}:${normName(name)}`;
+}
+/** Does this key make an entry fire on a text holding `name`? */
+function keyCovers(key, name) {
+	const trimmed = key.trim();
+	const target = name.trim();
+	if (!trimmed || !target || trimmed.includes("{{")) return false;
+	if (isRegexKey$1(trimmed)) {
+		const regex = parseRegexKey$1(trimmed);
+		if (!regex) return false;
+		regex.lastIndex = 0;
+		if (regex.test(target)) return true;
+		regex.lastIndex = 0;
+		return regex.test(normName(target));
+	}
+	const k = normName(trimmed);
+	const n = normName(target);
+	if (!k || !n) return false;
+	if (k === n) return true;
+	if (hasCyrillic$1(k)) return k.length >= MIN_STEM && containsWithLeftBoundary(n, k);
+	return n.startsWith(`${k} `) || n.endsWith(` ${k}`) || n.includes(` ${k} `);
+}
+/** Some key of the list covers the name. */
+function keysCover(keys, name) {
+	return keys.some((key) => keyCovers(key, name));
+}
+/** Forms (in order, unique) that no key covers. */
+function uncoveredForms(keys, forms) {
+	return uniqueStrings(forms).filter((form) => !keysCover(keys, form));
+}
+/** A plain (not regex, no macros) key with Cyrillic letters. */
+function isCyrillicPlainKey(key) {
+	const trimmed = key.trim();
+	return hasCyrillic$1(trimmed) && !isRegexKey$1(trimmed) && !trimmed.includes("{{");
+}
+/**
+* A name agrees with the canonical one: same after normalisation, one of the known names (aliases, forms), or the same
+* person by words («Elizabeth_Smith» vs «Elizabeth», «Веру» vs «Вера»). Empty names agree.
+*/
+function nameAgrees(name, canonical, known = []) {
+	const n = normName(name);
+	if (!n || !normName(canonical)) return true;
+	if (n === normName(canonical)) return true;
+	for (const other of known) if (normName(other) === n) return true;
+	return sameCharacter(name, canonical);
+}
+/** Normalised names of a set (unique, non-empty). */
+function normSet(names) {
+	const set = /* @__PURE__ */ new Set();
+	for (const name of names) {
+		const value = normName(name);
+		if (value) set.add(value);
+	}
+	return set;
+}
+/** Two name lists share a name after normalisation. */
+function namesOverlap(a, b) {
+	const left = normSet(a);
+	for (const name of normSet(b)) if (left.has(name)) return true;
+	return false;
+}
+/** Needles for the names of one entity: the names themselves plus the stem of one-word Russian names. */
+function mentionMatcher(names) {
+	const open = /* @__PURE__ */ new Set();
+	const closed = /* @__PURE__ */ new Set();
+	for (const raw of names) {
+		const name = normName(raw);
+		if (name.length < 2) continue;
+		if (!hasCyrillic$1(name)) {
+			closed.add(name);
+			continue;
+		}
+		open.add(name);
+		if (!name.includes(" ")) {
+			const stem = normName(russianStem(name));
+			if (stem.length >= MIN_STEM) open.add(stem);
+		}
+	}
+	return {
+		open: [...open],
+		closed: [...closed]
+	};
+}
+function closedHit(text, needle) {
+	let from = 0;
+	for (;;) {
+		const index = text.indexOf(needle, from);
+		if (index < 0) return false;
+		const before = index > 0 ? text[index - 1] : void 0;
+		const after = text[index + needle.length];
+		const leftOk = before === void 0 || !WORD_CHAR_RE$1.test(before);
+		const rightOk = after === void 0 || !WORD_CHAR_RE$1.test(after);
+		if (leftOk && rightOk) return true;
+		from = index + 1;
+	}
+}
+/** The text mentions the entity (case-insensitive, ё = е). */
+function mentionsAny(matcher, text) {
+	if (!text || !matcher.open.length && !matcher.closed.length) return false;
+	const haystack = normalizeForMatch(text).replace(/_/g, " ");
+	return matcher.open.some((needle) => containsWithLeftBoundary(haystack, needle)) || matcher.closed.some((needle) => closedHit(haystack, needle));
+}
+//#endregion
+//#region src/features/dossier/settings.ts
+var DOSSIER_KEY = "dossier";
+function defaultDossierSettings() {
+	return {
+		memories: 10,
+		trackerLookback: 40,
+		compareMaxChars: 6e3
+	};
+}
+function clampInt(value, min, max, fallback) {
+	return typeof value === "number" && Number.isFinite(value) ? Math.min(max, Math.max(min, Math.round(value))) : fallback;
+}
+/** Repairs a stored slice in place (hand-edited or older settings) and returns it. */
+function readDossierSettings(slice) {
+	const defaults = defaultDossierSettings();
+	slice.memories = clampInt(slice.memories, 0, 100, defaults.memories);
+	slice.trackerLookback = clampInt(slice.trackerLookback, 1, 500, defaults.trackerLookback);
+	slice.compareMaxChars = clampInt(slice.compareMaxChars, 1e3, 4e4, defaults.compareMaxChars);
+	return slice;
+}
+//#endregion
+//#region src/features/dossier/actions.ts
+var FIX_KIND = "dossier.fix";
+var FIX_FILE_KIND = "dossier.fixFile";
+var SPREAD_KIND = "dossier.spread";
+var NOTE_KIND = "dossier.note";
+var ENTRY_TARGET = "dossier-entry";
+var CANON_TARGET = "dossier-canon";
+var PASSPORT_TARGET = "dossier-passport";
+var PLACE_TARGET$1 = "dossier-place";
+var ALIAS_TARGET$1 = "dossier-chat-alias";
+var NOTE_TARGET = "dossier-note";
+/** The canon's default override fields (M6 store DEFAULT_OVERRIDE_FIELDS). */
+var DEFAULT_OVERRIDE_FIELDS = [
+	"content",
+	"key",
+	"keysecondary",
+	"comment"
+];
+/** The passport with a patch applied (a copy). */
+function patchPassport(passport, patch) {
+	const next = {
+		...passport,
+		aliases: [...passport.aliases],
+		slots: { ...passport.slots }
+	};
+	if (patch.aliases) next.aliases = [...patch.aliases];
+	if (patch.slots) Object.assign(next.slots, patch.slots);
+	return next;
+}
+var ProtectedBookError = class extends Error {};
+function isDict$23(value) {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function strings$6(value) {
+	return Array.isArray(value) ? value.filter((item) => typeof item === "string") : [];
+}
+function str$3(value) {
+	return typeof value === "string" ? value : "";
+}
+function sameList(a, b) {
+	const left = a ?? [];
+	const right = b ?? [];
+	return left.length === right.length && left.every((item, index) => item === right[index]);
+}
+/** The passport holds exactly the patch's values. */
+function passportHas(passport, patch) {
+	if (patch.aliases && !sameList(passport.aliases, patch.aliases)) return false;
+	return Object.entries(patch.slots ?? {}).every(([slot, value]) => (passport.slots[slot] ?? "") === value);
+}
+function isPayload(value) {
+	return isDict$23(value) && typeof value.op === "string";
+}
+function isFixRequest(value) {
+	if (!isDict$23(value)) return false;
+	if (value.op === "addKeys") return typeof value.world === "string" && typeof value.uid === "number" && Array.isArray(value.keys);
+	if (value.op === "placeEntry") return typeof value.placeId === "string";
+	if (value.op === "desAlias") return typeof value.canonical === "string" && typeof value.alias === "string";
+	return false;
+}
+/** Labels written into English canon content by «Разнести» (canon entries are English, P6). */
+var CONTENT_LABEL = {
+	appearance: "Appearance",
+	relationship: "Relationship",
+	custom: "Note"
+};
+var DossierActions = class {
+	app;
+	sources;
+	log;
+	t;
+	constructor(app, sources, log) {
+		this.app = app;
+		this.sources = sources;
+		this.log = log;
+		this.t = app.i18n.t.bind(app.i18n);
+	}
+	/** Undo handlers (permanent, like every journal target) and Inbox appliers (owned by the module). */
+	install() {
+		const journal = this.app.journal;
+		journal.registerUndo(ENTRY_TARGET, (change) => this.undoEntry(change));
+		journal.registerUndo(CANON_TARGET, (change) => this.undoCanon(change));
+		journal.registerUndo(PASSPORT_TARGET, (change) => this.undoPassport(change));
+		journal.registerUndo(PLACE_TARGET$1, (change) => this.undoPlace(change));
+		journal.registerUndo(ALIAS_TARGET$1, (change) => this.undoAlias(change));
+		journal.registerUndo(NOTE_TARGET, async () => true);
+		this.app.autonomy.neverAuto(FIX_FILE_KIND);
+		this.app.autonomy.neverAuto(NOTE_KIND);
+		const applier = async (payload) => {
+			if (!isPayload(payload)) throw new Error("bad dossier card");
+			await this.apply(payload);
+		};
+		const valid = async (payload) => isPayload(payload) && await this.stillValid(payload);
+		return [
+			FIX_KIND,
+			FIX_FILE_KIND,
+			SPREAD_KIND,
+			NOTE_KIND
+		].map((kind) => this.app.inbox.registerApplier(kind, applier, valid));
+	}
+	canon() {
+		return this.sources.canon();
+	}
+	io() {
+		const ctx = this.app.host.ctx();
+		if (typeof ctx.loadWorldInfo !== "function" || typeof ctx.saveWorldInfo !== "function") return null;
+		return {
+			load: async (book) => {
+				const data = await this.app.host.ctx().loadWorldInfo?.(book);
+				return isBookData(data) ? data : null;
+			},
+			save: async (book, data) => {
+				const current = this.app.host.ctx();
+				await current.saveWorldInfo?.(book, data, true);
+				try {
+					current.reloadWorldInfoEditor?.(book);
+				} catch (error) {
+					this.log.debug("lorebook editor reload failed", error);
+				}
+				try {
+					adaptersOf(this.app).des.invalidateLoreCache(book);
+				} catch (error) {
+					this.log.debug("DES Lore Library cache reset failed", error);
+				}
+			}
+		};
+	}
+	async canonItems() {
+		const canon = this.canon();
+		if (!canon || !this.app.host.chatId()) return [];
+		try {
+			return await canon.list();
+		} catch (error) {
+			this.log.debug("canon list failed", error);
+			return [];
+		}
+	}
+	overrideOf(items, world, uid) {
+		return items.find((item) => item.meta.kind === "override" && item.meta.base?.world === world && item.meta.base.uid === uid);
+	}
+	/** Effective key and content of a base entry (the override's fields when it overrides them). */
+	async effective(world, uid) {
+		const state = await this.sources.bookState(world);
+		const base = state.data?.entries[String(uid)];
+		const entry = isDict$23(base) ? base : null;
+		const fields = {
+			key: strings$6(entry?.key),
+			content: str$3(entry?.content)
+		};
+		const override = this.overrideOf(await this.canonItems(), world, uid);
+		if (override) {
+			const overridden = override.meta.fields ?? DEFAULT_OVERRIDE_FIELDS;
+			if (overridden.includes("key")) fields.key = strings$6(override.entry.key);
+			if (overridden.includes("content")) fields.content = str$3(override.entry.content);
+		}
+		const result = {
+			base: entry,
+			fields,
+			protected: state.protected
+		};
+		if (override) result.override = override;
+		return result;
+	}
+	async apply(payload) {
+		switch (payload.op) {
+			case "baseKeys": {
+				const io = this.io();
+				if (!io) throw new Error(this.t("m7.error.noWorldInfo"));
+				const result = await commitPatches(io, payload.world, [{
+					uid: payload.uid,
+					before: { key: payload.before },
+					after: { key: payload.after }
+				}], { guard: (data) => !this.sources.isProtected(payload.world, data) });
+				if (result.reason === "protected") throw new ProtectedBookError(this.t("m7.p13", { book: payload.world }));
+				if (!result.ok) throw new Error(this.t("m7.error.stale", { book: payload.world }));
+				return;
+			}
+			case "canonOverride":
+				await this.putOverride(payload.world, payload.uid, payload.fields);
+				return;
+			case "canonItem":
+				await this.putItem(payload.uid, payload.fields);
+				return;
+			case "passport":
+				await this.savePassport(payload.id, payload.target, payload.patch);
+				return;
+			case "place": {
+				const places = this.sources.places();
+				if (!places) throw new Error(this.t("m7.error.noPlaces"));
+				await places.update(payload.placeId, payload.patch);
+				return;
+			}
+			case "placeEntry": {
+				const places = this.sources.places();
+				if (!places) throw new Error(this.t("m7.error.noPlaces"));
+				await places.ensureEntry(payload.placeId);
+				return;
+			}
+			case "chatAlias": {
+				const world = this.sources.world();
+				if (!world) throw new Error(this.t("m7.error.noWorld"));
+				await world.setChatAlias(payload.alias, payload.entityId);
+				return;
+			}
+			case "note":
+				this.app.ui.notice(payload.text, { level: "info" });
+				return;
+		}
+	}
+	/** Writes a passport change for this chat only, through NAI Studio's API (it merges and keeps ids). */
+	async savePassport(id, target, patch) {
+		const api = this.sources.naiApi();
+		if (!api) throw new Error(this.t("m7.error.noNaiApi"));
+		const current = api.getPassport(id);
+		if (!current) throw new Error(this.t("m7.error.gone"));
+		await api.savePassport(patchPassport(current, patch), "chat", target ?? void 0);
+	}
+	async putOverride(world, uid, fields) {
+		const canon = this.canon();
+		if (!canon) throw new Error(this.t("m7.error.noCanon"));
+		if ((await this.sources.bookState(world)).protected) throw new ProtectedBookError(this.t("m7.p13", { book: world }));
+		const existing = this.overrideOf(await this.canonItems(), world, uid);
+		const changed = Object.keys(fields);
+		if (existing) {
+			const all = uniqueStrings([...existing.meta.fields ?? DEFAULT_OVERRIDE_FIELDS, ...changed]);
+			const entry = {};
+			for (const field of all) if (field in existing.entry) entry[field] = existing.entry[field];
+			const meta = {
+				...existing.meta,
+				fields: all
+			};
+			delete meta.createdAt;
+			delete meta.updatedAt;
+			await canon.put({
+				entry: {
+					...entry,
+					...fields
+				},
+				meta
+			}, { uid: existing.uid });
+			return;
+		}
+		await canon.put({
+			entry: { ...fields },
+			meta: {
+				kind: "override",
+				status: "active",
+				origin: "user",
+				base: {
+					world,
+					uid,
+					contentHash: ""
+				},
+				fields: changed
+			}
+		});
+	}
+	async putItem(uid, fields) {
+		const canon = this.canon();
+		if (!canon) throw new Error(this.t("m7.error.noCanon"));
+		const item = (await this.canonItems()).find((candidate) => candidate.uid === uid);
+		if (!item) throw new Error(this.t("m7.error.gone"));
+		const meta = { ...item.meta };
+		delete meta.createdAt;
+		delete meta.updatedAt;
+		const entry = {};
+		for (const field of [
+			"key",
+			"keysecondary",
+			"comment",
+			"content"
+		]) if (field in item.entry) entry[field] = item.entry[field];
+		await canon.put({
+			entry: {
+				...entry,
+				...fields
+			},
+			meta
+		}, { uid });
+	}
+	/** "Before" still matches the live data (plan §4.6). */
+	async stillValid(payload) {
+		try {
+			switch (payload.op) {
+				case "baseKeys": {
+					const state = await this.sources.bookState(payload.world);
+					const entry = state.data?.entries[String(payload.uid)];
+					return !state.protected && isDict$23(entry) && sameList(strings$6(entry.key), payload.before);
+				}
+				case "canonOverride": {
+					const current = await this.effective(payload.world, payload.uid);
+					if (current.protected || !current.base) return false;
+					if (payload.before.key && !sameList(current.fields.key, payload.before.key)) return false;
+					return payload.before.content === void 0 || current.fields.content === payload.before.content;
+				}
+				case "canonItem": {
+					const item = (await this.canonItems()).find((candidate) => candidate.uid === payload.uid);
+					if (!item) return false;
+					if (payload.before.key && !sameList(strings$6(item.entry.key), payload.before.key)) return false;
+					return payload.before.content === void 0 || str$3(item.entry.content) === payload.before.content;
+				}
+				case "passport": {
+					const current = this.sources.naiApi()?.getPassport(payload.id);
+					return !!current && passportHas(current, payload.before);
+				}
+				case "place": return !!this.sources.places()?.get(payload.placeId);
+				case "placeEntry": {
+					const place = this.sources.places()?.get(payload.placeId);
+					return !!place && !place.entry;
+				}
+				default: return true;
+			}
+		} catch (error) {
+			this.log.debug("dossier proposal check failed", error);
+			return false;
+		}
+	}
+	async undoEntry(change) {
+		const world = change.ref.world;
+		const uid = Number(change.ref.uid);
+		const io = this.io();
+		if (typeof world !== "string" || !Number.isFinite(uid) || !io || !isDict$23(change.before) || !isDict$23(change.after)) return false;
+		return (await commitPatches(io, world, [{
+			uid,
+			before: change.before,
+			after: change.after
+		}], {
+			direction: "revert",
+			guard: (data) => !this.sources.isProtected(world, data)
+		})).ok;
+	}
+	async undoCanon(change) {
+		const canon = this.canon();
+		const ref = change.ref;
+		if (!canon || !isDict$23(change.before)) return false;
+		const before = change.before;
+		if (typeof ref.itemUid === "number") {
+			await this.putItem(ref.itemUid, before);
+			return true;
+		}
+		const world = ref.world;
+		const uid = Number(ref.uid);
+		if (typeof world !== "string" || !Number.isFinite(uid)) return false;
+		const existing = this.overrideOf(await this.canonItems(), world, uid);
+		if (!existing) return true;
+		if (ref.created === true) {
+			await canon.remove(existing.uid);
+			return true;
+		}
+		await this.putOverride(world, uid, before);
+		return true;
+	}
+	async undoPassport(change) {
+		const id = change.ref.id;
+		const target = change.ref.target;
+		if (typeof id !== "string" || !isDict$23(change.before) || !this.sources.naiApi()) return false;
+		await this.savePassport(id, isDict$23(target) ? target : null, change.before);
+		return true;
+	}
+	async undoPlace(change) {
+		const places = this.sources.places();
+		const id = change.ref.placeId;
+		if (!places || typeof id !== "string" || !isDict$23(change.before) || !places.get(id)) return false;
+		await places.update(id, change.before);
+		return true;
+	}
+	async undoAlias(change) {
+		const world = this.sources.world();
+		const alias = change.ref.alias;
+		if (!world || typeof alias !== "string") return false;
+		await world.setChatAlias(alias, null);
+		return true;
+	}
+	changesOf(payload) {
+		switch (payload.op) {
+			case "baseKeys": return [{
+				target: ENTRY_TARGET,
+				ref: {
+					world: payload.world,
+					uid: payload.uid
+				},
+				before: { key: payload.before },
+				after: { key: payload.after }
+			}];
+			case "canonOverride": return [{
+				target: CANON_TARGET,
+				ref: {
+					world: payload.world,
+					uid: payload.uid,
+					created: payload.created
+				},
+				before: payload.before,
+				after: payload.fields
+			}];
+			case "canonItem": return [{
+				target: CANON_TARGET,
+				ref: { itemUid: payload.uid },
+				before: payload.before,
+				after: payload.fields
+			}];
+			case "passport": return [{
+				target: PASSPORT_TARGET,
+				ref: {
+					id: payload.id,
+					target: payload.target
+				},
+				before: payload.before,
+				after: payload.patch
+			}];
+			case "place": return [{
+				target: PLACE_TARGET$1,
+				ref: { placeId: payload.placeId },
+				before: payload.before,
+				after: payload.patch
+			}];
+			case "placeEntry": return [{
+				target: NOTE_TARGET,
+				ref: { placeId: payload.placeId },
+				before: null,
+				after: payload.placeId
+			}];
+			case "chatAlias": return [{
+				target: ALIAS_TARGET$1,
+				ref: { alias: payload.alias },
+				before: null,
+				after: {
+					alias: payload.alias,
+					entity: payload.entityId
+				}
+			}];
+			case "note": return [{
+				target: NOTE_TARGET,
+				ref: {},
+				before: null,
+				after: payload.text
+			}];
+		}
+	}
+	proposal(kind, title, description, payload) {
+		return {
+			module: "M7",
+			kind,
+			title,
+			description,
+			changes: this.changesOf(payload),
+			payload,
+			apply: (value) => this.apply(value),
+			stillValid: () => this.stillValid(payload)
+		};
+	}
+	async decide(kind, title, description, payload) {
+		return this.app.autonomy.decide(this.proposal(kind, title, description, payload), "inbox");
+	}
+	/** DES owns aliases: an Inbox card that tells what to add in the DES Workshop (never applied by Maestro). */
+	async note(title, text) {
+		await this.app.inbox.add(this.proposal(NOTE_KIND, title, text, {
+			op: "note",
+			text
+		}));
+	}
+	/** Plans a finding's fix on fresh data and proposes it. 'skipped' when there is nothing left to change. */
+	async fix(finding) {
+		const request = finding.fix?.payload;
+		if (!isFixRequest(request)) return "skipped";
+		if (request.op === "placeEntry") {
+			const place = this.sources.places()?.get(request.placeId);
+			if (!place || place.entry) return "skipped";
+			return this.decide(FIX_KIND, this.t("m7.fix.placeEntry.title", { name: place.name }), this.t("m7.fix.placeEntry.body", { name: place.name }), {
+				op: "placeEntry",
+				placeId: place.id
+			});
+		}
+		if (request.op === "desAlias") {
+			await this.note(this.t("m7.note.alias.title", {
+				alias: request.alias,
+				name: request.canonical
+			}), this.t("m7.note.alias.body", {
+				alias: request.alias,
+				name: request.canonical
+			}));
+			return "queued";
+		}
+		const current = await this.effective(request.world, request.uid);
+		if (current.protected) throw new ProtectedBookError(this.t("m7.p13", { book: request.world }));
+		if (!current.base) return "skipped";
+		const title = str$3(current.base.comment).trim() || `#${request.uid}`;
+		const before = current.fields.key ?? [];
+		const added = request.keys.filter((key) => !before.some((item) => normName(item) === normName(key)));
+		if (!added.length) return "skipped";
+		const after = [...before, ...added];
+		const params = {
+			keys: added.join(", "),
+			entry: title,
+			book: request.world
+		};
+		if (this.canon() && this.app.host.chatId()) return this.decide(FIX_KIND, this.t("m7.fix.keys.title", params), this.t("m7.fix.keys.canon", params), {
+			op: "canonOverride",
+			world: request.world,
+			uid: request.uid,
+			fields: { key: after },
+			before: { key: before },
+			created: !current.override
+		});
+		return this.decide(FIX_FILE_KIND, this.t("m7.fix.keys.title", params), this.t("m7.fix.keys.file", params), {
+			op: "baseKeys",
+			world: request.world,
+			uid: request.uid,
+			before: strings$6(current.base.key),
+			after: [...strings$6(current.base.key), ...added]
+		});
+	}
+	textFields(field, value, current) {
+		if (field === "alias" || field === "name") {
+			const keys = current.key ?? [];
+			if (keys.some((key) => normName(key) === normName(value))) return null;
+			return { key: [...keys, value] };
+		}
+		if (field === "description") return current.content === value ? null : { content: value };
+		const line = `${CONTENT_LABEL[field] ?? "Note"}: ${value}`;
+		const content = current.content ?? "";
+		if (content.includes(line)) return null;
+		return { content: content.trim() ? `${content.trimEnd()}\n\n${line}` : line };
+	}
+	beforeOf(fields, current) {
+		const before = {};
+		if (fields.key) before.key = current.key ?? [];
+		if (fields.content !== void 0) before.content = current.content ?? "";
+		return before;
+	}
+	async spreadLore(edit, world, uid, label) {
+		if (!this.canon() || !this.app.host.chatId()) return false;
+		const current = await this.effective(world, uid);
+		if (current.protected) {
+			this.log.info(`dossier: ${world} is a BunnyMo book; «spread» skips it (P13)`);
+			return false;
+		}
+		if (!current.base) return false;
+		const fields = this.textFields(edit.field, edit.value, current.fields);
+		if (!fields) return false;
+		const params = {
+			entry: label,
+			value: edit.value,
+			field: this.t(`m7.spread.field.${edit.field}`)
+		};
+		await this.decide(SPREAD_KIND, this.t("m7.spread.lore.title", params), this.t("m7.spread.lore.body", params), {
+			op: "canonOverride",
+			world,
+			uid,
+			fields,
+			before: this.beforeOf(fields, current.fields),
+			created: !current.override
+		});
+		return true;
+	}
+	async spreadCanon(edit, uid, label) {
+		const item = (await this.canonItems()).find((candidate) => candidate.uid === uid);
+		if (!item) return false;
+		const base = item.meta.base;
+		if (item.meta.kind === "override" && base) return this.spreadLore(edit, base.world, base.uid, label);
+		if (item.meta.kind !== "addition") return false;
+		const current = {
+			key: strings$6(item.entry.key),
+			content: str$3(item.entry.content)
+		};
+		const fields = this.textFields(edit.field, edit.value, current);
+		if (!fields) return false;
+		const params = {
+			entry: label,
+			value: edit.value,
+			field: this.t(`m7.spread.field.${edit.field}`)
+		};
+		await this.decide(SPREAD_KIND, this.t("m7.spread.lore.title", params), this.t("m7.spread.canon.body", params), {
+			op: "canonItem",
+			uid,
+			fields,
+			before: this.beforeOf(fields, current)
+		});
+		return true;
+	}
+	async spreadPassport(edit, source) {
+		const api = this.sources.naiApi();
+		const id = source.passportId;
+		if (!api || !id) return false;
+		const passport = api.getPassport(id);
+		if (!passport) return false;
+		let patch;
+		let before;
+		if (edit.field === "alias" || edit.field === "name") {
+			if (passport.aliases.some((alias) => normName(alias) === normName(edit.value))) return false;
+			patch = { aliases: [...passport.aliases, edit.value] };
+			before = { aliases: [...passport.aliases] };
+		} else if (edit.field === "appearance") {
+			const body = passport.slots.body ?? "";
+			patch = { slots: { body: body.trim() ? `${body.trim()}, ${edit.value}` : edit.value } };
+			before = { slots: { body } };
+		} else return false;
+		const target = source.ref.startsWith("persona#") ? { persona: true } : source.avatar ? { avatar: source.avatar } : null;
+		const params = {
+			name: source.label,
+			value: edit.value,
+			field: this.t(`m7.spread.field.${edit.field}`)
+		};
+		await this.decide(SPREAD_KIND, this.t("m7.spread.nai.title", params), this.t("m7.spread.nai.body", params), {
+			op: "passport",
+			id,
+			target,
+			patch,
+			before
+		});
+		return true;
+	}
+	async spreadPlace(edit, placeId) {
+		const place = this.sources.places()?.get(placeId);
+		if (!place) return false;
+		let payload;
+		if (edit.field === "name") {
+			if (place.name === edit.value) return false;
+			payload = {
+				op: "place",
+				placeId,
+				patch: { name: edit.value },
+				before: { name: place.name }
+			};
+		} else if (edit.field === "alias") {
+			if (place.aliases.some((alias) => normName(alias) === normName(edit.value))) return false;
+			payload = {
+				op: "place",
+				placeId,
+				patch: { aliases: [...place.aliases, edit.value] },
+				before: { aliases: [...place.aliases] }
+			};
+		} else return false;
+		const params = {
+			name: place.name,
+			value: edit.value,
+			field: this.t(`m7.spread.field.${edit.field}`)
+		};
+		await this.decide(SPREAD_KIND, this.t("m7.spread.place.title", params), this.t("m7.spread.place.body", params), payload);
+		return true;
+	}
+	async spreadDes(edit, source) {
+		if (edit.field !== "alias" && edit.field !== "name" && edit.field !== "relationship") return false;
+		const params = {
+			name: source.ref || source.label,
+			value: edit.value,
+			alias: edit.value
+		};
+		if (edit.field === "relationship") await this.note(this.t("m7.note.relationship.title", params), this.t("m7.note.relationship.body", params));
+		else await this.note(this.t("m7.note.alias.title", params), this.t("m7.note.alias.body", params));
+		return true;
+	}
+	async spreadAlias(edit) {
+		if (edit.field !== "alias" || !this.sources.world()) return false;
+		const params = {
+			alias: edit.value,
+			name: this.sources.entity(edit.entityId)?.name ?? edit.entityId
+		};
+		await this.decide(SPREAD_KIND, this.t("m7.spread.alias.title", params), this.t("m7.spread.alias.body", params), {
+			op: "chatAlias",
+			alias: edit.value,
+			entityId: edit.entityId
+		});
+		return true;
+	}
+	/** One proposal per target that can take this edit; returns how many were made. */
+	async spread(edit) {
+		const value = edit.value.trim();
+		if (!value) return 0;
+		const clean = {
+			...edit,
+			value
+		};
+		let count = 0;
+		const seen = /* @__PURE__ */ new Set();
+		for (const target of edit.targets) {
+			const id = `${target.kind}:${target.ref}`;
+			if (seen.has(id)) continue;
+			seen.add(id);
+			let made = false;
+			try {
+				switch (target.kind) {
+					case "lore.entry":
+						if (target.world && typeof target.uid === "number") made = await this.spreadLore(clean, target.world, target.uid, target.label);
+						break;
+					case "canon.entry":
+						if (typeof target.uid === "number") made = await this.spreadCanon(clean, target.uid, target.label);
+						break;
+					case "nai.passport":
+						made = await this.spreadPassport(clean, target);
+						break;
+					case "place":
+						made = await this.spreadPlace(clean, target.ref);
+						break;
+					case "des.character":
+					case "des.alias":
+						made = await this.spreadDes(clean, target);
+						break;
+					case "chat.alias":
+						made = await this.spreadAlias(clean);
+						break;
+					default: made = false;
+				}
+			} catch (error) {
+				this.log.warn(`dossier: «spread» to ${id} failed`, error);
+				made = false;
+			}
+			if (made) count++;
+		}
+		return count;
+	}
+};
+//#endregion
+//#region src/domain/sheet-reply.ts
+/** `<BunnymoTags>…</BunnymoTags>` in any case; the `<BunnymoTags:Title>` entry wrapper does not match. */
+var BLOCK_RE = /<bunnymotags>([\s\S]*?)<\/bunnymotags>/gi;
+var TAG_RE$1 = /<([A-Za-z][A-Za-z0-9_-]*):([^<>\n]+)>/g;
+var HAS_TAG_RE = /<[A-Za-z][A-Za-z0-9_-]*:[^<>\n]+>/;
+var MBTI_RE$1 = /<([EI][NS][FT][JP]-[UH])>/gi;
+var PLACEHOLDER_RE = /^(?:BLANK|NEW|VALUE|TARGET|NAME|NAME[\s_]HERE|PLACEHOLDER|TBD|X{3,})$/i;
+/** A fenced block: opening fence with an optional language, body, closing fence on its own line. */
+var FENCE_RE = /(^|\n)[ \t]*```[ \t]*([A-Za-z]*)[ \t]*\n([\s\S]*?)\n[ \t]*```[ \t]*(?=\n|$)/g;
+var TRACKER_KEY_RE = /"(?:infoBox|characters|quests|characterThoughts)"\s*:/;
+/** CK's "thinking" dump at the end of a message (DES-RU src/lib/carrot-data.js). */
+var TRAILING_DUMP_RE = /\s*<BunnyMoTags>\n?([\s\S]*?)<\/BunnyMoTags>\s*$/;
+var NAI_PLACEHOLDER_RE = /\[nai:img:[^\]\n]*\]/g;
+/** Marks where a tracker block was removed, so only the whitespace around it is normalised. */
+var CUT_MARK = "";
+var CUT_MARK_RE = /\s*(?:\s*)+/g;
+var SECTION_RE = /^#{0,6}\s*\S+\s+\d+\s*\/\s*\d+/gim;
+/** Completion banners of the BunnyMo templates ("✨ ANALYSIS COMPLETE ✨", "✓ MEMORY CATALOGUED") and their Russian forms. */
+var BANNER_RE = /[✓✔✅✨][^\n]*?(?:\b(?:COMPLETE|COMPLETED|CATALOGUED|CATALOGED|ARCHIVED)\b|ЗАВЕРШ[ЁЕ]Н|ЗАВЕРШЕНО|ГОТОВ|СОСТАВЛЕН)/u;
+var HEADING_RE = /^\s{0,3}#{1,6}\s/;
+var RULE_RE = /^\s*(?:-{3,}|\*{3,}|_{3,}|[═━─=]{3,})\s*$/;
+var LIST_RE = /^\s*(?:[-+•]|\*(?=\s)|\d{1,3}[.)])\s+/;
+var BOLD_LEAD_RE = /^\s*\*\*[^*\n]+\*\*/;
+var TABLE_RE = /^\s*\|.*\|\s*$/;
+var TAG_LINE_RE = /^\s*<\/?[A-Za-z][\w-]*(?:[\s:>/]|$)/;
+var ITALIC_LINE_RE = /^\s*[*_][^*_\s][\s\S]*[*_]\s*$/;
+var OPEN_BLOCK_RE = /^\s*<([A-Za-z][\w-]*)(?:\s[^<>]*)?>/;
+function hasSheetTags(body) {
+	HAS_TAG_RE.lastIndex = 0;
+	MBTI_RE$1.lastIndex = 0;
+	return HAS_TAG_RE.test(body) || MBTI_RE$1.test(body);
+}
+/** Bodies of the `<BunnymoTags>` blocks that carry tags (CK dumps excluded). */
+function sheetTagBlocks(text) {
+	const blocks = [];
+	for (const match of String(text ?? "").matchAll(BLOCK_RE)) {
+		const body = match[1] ?? "";
+		if (hasSheetTags(body) && !isCkDumpBody(body)) blocks.push(body);
+	}
+	return blocks;
+}
+/** End offset of the last tag-carrying `<BunnymoTags>` block, -1 when there is none. */
+function lastBlockEnd(text) {
+	let end = -1;
+	for (const match of text.matchAll(BLOCK_RE)) {
+		const body = match[1] ?? "";
+		if (hasSheetTags(body) && !isCkDumpBody(body)) end = (match.index ?? 0) + match[0].length;
+	}
+	return end;
+}
+/** Does this text look like a BunnyMo sheet (a tag block, a completion banner, numbered sections or many tags)? */
+function looksLikeSheet(text) {
+	const value = String(text ?? "");
+	if (lastBlockEnd(value) >= 0) return true;
+	if (value.split("\n").some((line) => BANNER_RE.test(line))) return true;
+	if ((value.match(SECTION_RE) ?? []).length >= 2) return true;
+	return (value.match(new RegExp(TAG_RE$1.source, "g")) ?? []).length >= 3;
+}
+/**
+* Removes DES tracker JSON: fenced blocks with tracker keys anywhere (a sheet reply may end with one) and an
+* unfenced tracker object at the start (text-clean's rule for together mode).
+*/
+function stripTrackerBlocks(text) {
+	let removed = 0;
+	const source = String(text ?? "");
+	const result = source.replace(FENCE_RE, (whole, lead, lang, body) => {
+		const language = lang.toLowerCase();
+		if (language && language !== "json" || !body.trim().startsWith("{") || !TRACKER_KEY_RE.test(body)) return whole;
+		removed++;
+		return `${lead}${CUT_MARK}`;
+	});
+	let cleaned = removed ? result.replace(CUT_MARK_RE, "\n\n").trim() : source;
+	const leading = stripDesTrackerJson(cleaned);
+	if (leading !== cleaned) {
+		removed++;
+		cleaned = leading;
+	}
+	return {
+		text: cleaned,
+		removed
+	};
+}
+/** Splits into blank-line separated paragraphs and marks those with markdown structure, tags or open blocks. */
+function paragraphs(text) {
+	const result = [];
+	const lines = text.split("\n");
+	const open = [];
+	let offset = 0;
+	let current = null;
+	for (const line of lines) {
+		const lineStart = offset;
+		offset += line.length + 1;
+		if (!line.trim()) {
+			if (current) result.push(current);
+			current = null;
+			continue;
+		}
+		const structural = open.length > 0 || HEADING_RE.test(line) || RULE_RE.test(line) || LIST_RE.test(line) || BOLD_LEAD_RE.test(line) || TABLE_RE.test(line) || TAG_LINE_RE.test(line) || HAS_TAG_RE.test(line);
+		trackBlocks(line, open);
+		const italic = ITALIC_LINE_RE.test(line) && !LIST_RE.test(line);
+		const banner = BANNER_RE.test(line) || BOLD_LEAD_RE.test(line) && /\*\*\s*$/.test(line);
+		if (!current) current = {
+			start: lineStart,
+			end: lineStart + line.length,
+			structural,
+			italic,
+			banner
+		};
+		else {
+			current.end = lineStart + line.length;
+			current.structural ||= structural;
+			current.italic &&= italic;
+			current.banner ||= banner;
+		}
+	}
+	if (current) result.push(current);
+	return result;
+}
+/** Keeps a stack of XML-like blocks (`<Linguistics>`, `<details>`) opened on a line and not closed on it. */
+function trackBlocks(line, open) {
+	const lower = line.toLowerCase();
+	for (let i = open.length - 1; i >= 0; i--) if (lower.includes(`</${open[i]}`)) open.splice(i, 1);
+	const name = OPEN_BLOCK_RE.exec(line)?.[1]?.toLowerCase();
+	if (!name || name.includes(":") || lower.includes(`</${name}`)) return;
+	if (/^(?:br|hr|img|input|meta|link)$/.test(name)) return;
+	open.push(name);
+}
+/**
+* Cleans a sheet reply: drops DES tracker blocks anywhere and cuts the plain prose that follows the sheet.
+* CK dumps at the end and NAI Studio image placeholders found in the cut part are kept.
+*/
+function trimSheetReply(text) {
+	const original = String(text ?? "");
+	const stripped = stripTrackerBlocks(original);
+	let body = stripped.text;
+	const dumps = [];
+	for (let match = TRAILING_DUMP_RE.exec(body); match; match = TRAILING_DUMP_RE.exec(body)) {
+		if (!isCkDumpBody(match[1] ?? "")) break;
+		dumps.unshift(match[0].trim());
+		body = body.slice(0, match.index).trimEnd();
+	}
+	let tail = "";
+	const list = paragraphs(body);
+	let cutIndex = list.length;
+	for (let i = list.length - 1; i >= 0; i--) {
+		const paragraph = list[i];
+		if (paragraph.structural) break;
+		if (paragraph.italic && i > 0 && list[i - 1].banner) break;
+		cutIndex = i;
+	}
+	if (cutIndex < list.length && cutIndex > 0) {
+		const start = list[cutIndex].start;
+		const head = body.slice(0, start).trimEnd();
+		if (looksLikeSheet(head)) {
+			tail = body.slice(start).trim();
+			body = head;
+		}
+	}
+	const keep = [...tail.match(NAI_PLACEHOLDER_RE) ?? [], ...dumps];
+	const result = keep.length ? `${body}\n\n${keep.join("\n\n")}` : body;
+	const changed = stripped.removed > 0 || tail.length > 0;
+	return {
+		text: changed ? result : original,
+		changed,
+		isSheet: looksLikeSheet(body),
+		trackerBlocks: stripped.removed,
+		tail
+	};
+}
+/** `KEY:VALUE` with the key upper-cased and the value upper-cased, `_` → space, spaces collapsed. */
+function normalizeTag(key, value) {
+	const clean = (part) => part.trim().replace(/_/g, " ").replace(/\s+/g, " ").toUpperCase();
+	return `${clean(key)}:${clean(value)}`;
+}
+function collectTags(bodies) {
+	let name = null;
+	const tags = /* @__PURE__ */ new Set();
+	for (const body of bodies) {
+		for (const match of body.matchAll(TAG_RE$1)) {
+			const key = (match[1] ?? "").trim();
+			const value = (match[2] ?? "").trim();
+			if (key.toUpperCase() === "NAME") {
+				name ??= value;
+				continue;
+			}
+			if (PLACEHOLDER_RE.test(value)) continue;
+			tags.add(normalizeTag(key, value));
+		}
+		for (const match of body.matchAll(MBTI_RE$1)) tags.add((match[1] ?? "").toUpperCase());
+	}
+	return {
+		name,
+		tags: [...tags]
+	};
+}
+function malformedTags(bodies) {
+	const found = /* @__PURE__ */ new Set();
+	for (const body of bodies) for (const match of body.matchAll(/<[A-Za-z][A-Za-z0-9_-]*(?:,[^<>\n]*|:[^<>\n]*\([^<>\n]*)>/g)) found.add(match[0]);
+	return [...found];
+}
+/**
+* Tag-loss check (M31 п. 9): which tags of the generated sheet did not make it into the stored archive.
+* `rawReply` is the model's reply as received, `archiveText` the archive entry content (CK repo / Baby Bunny).
+*/
+function compareSheetTags(rawReply, archiveText) {
+	const replyBlocks = sheetTagBlocks(rawReply);
+	const archiveBlocks = sheetTagBlocks(archiveText);
+	const reply = collectTags(replyBlocks);
+	const archive = collectTags(archiveBlocks);
+	const archiveSet = new Set(archive.tags);
+	const replySet = new Set(reply.tags);
+	let outsideText = String(rawReply ?? "");
+	for (const body of replyBlocks) outsideText = outsideText.replace(body, " ");
+	const outsideTags = collectTags([outsideText]).tags.filter((tag) => !replySet.has(tag));
+	return {
+		name: reply.name,
+		archiveName: archive.name,
+		reply: reply.tags,
+		archive: archive.tags,
+		missing: reply.tags.filter((tag) => !archiveSet.has(tag)),
+		added: archive.tags.filter((tag) => !replySet.has(tag)),
+		outside: outsideTags,
+		malformed: malformedTags(replyBlocks),
+		ckInvisible: archive.tags.filter((tag) => !tag.includes(":"))
+	};
+}
+//#endregion
+//#region src/domain/dossier-data.ts
+function isDict$22(value) {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function str$2(value) {
+	return typeof value === "string" ? value : "";
+}
+/** Cuts a text to `max` characters at a word boundary when one is near, with an ellipsis. */
+function truncate(text, max) {
+	const value = text.trim();
+	if (max <= 0 || value.length <= max) return value;
+	const cut = value.slice(0, max);
+	const space = cut.lastIndexOf(" ");
+	return `${(space > max * .6 ? cut.slice(0, space) : cut).trimEnd()}…`;
+}
+/** NAI Studio's slot order (passportTags, N:domain/passport.ts:240-263). */
+var PASSPORT_SLOTS = [
+	"base",
+	"hair",
+	"eyes",
+	"body",
+	"skin",
+	"clothing",
+	"accessories",
+	"style"
+];
+function joinTags(parts) {
+	return parts.map((part) => part.trim()).filter(Boolean).join(", ");
+}
+/** The prompt tags a passport gives: slots in order (the active outfit replaces clothing) and enabled states. */
+function passportTagLine(passport) {
+	if (passport.kind !== "character") return joinTags([passport.tags]);
+	const outfit = passport.activeOutfit ? passport.outfits.find((item) => item.name === passport.activeOutfit) : void 0;
+	const parts = PASSPORT_SLOTS.map((slot) => slot === "clothing" && outfit ? outfit.tags : passport.slots[slot] ?? "");
+	for (const state of passport.states) if (state.enabled) parts.push(state.tags);
+	return joinTags(parts);
+}
+/** Rows for the dossier: identity, slots, outfits, states. Empty values are left out. */
+function passportFields(passport) {
+	const fields = {};
+	const set = (key, value) => {
+		if (value.trim()) fields[key] = value.trim();
+	};
+	set("id", passport.id);
+	set("kind", passport.kind);
+	set("name", passport.name);
+	set("aliases", passport.aliases.join(", "));
+	set("tags", passport.tags);
+	for (const slot of PASSPORT_SLOTS) set(`slot.${slot}`, passport.slots[slot] ?? "");
+	for (const [slot, value] of Object.entries(passport.slots)) if (!PASSPORT_SLOTS.includes(slot)) set(`slot.${slot}`, value);
+	set("outfits", passport.outfits.map((outfit) => `${outfit.name}: ${outfit.tags}`).join("; "));
+	set("activeOutfit", passport.activeOutfit);
+	set("states", passport.states.filter((state) => state.enabled).map((state) => state.id).join(", "));
+	set("negative", passport.negative);
+	return fields;
+}
+/**
+* Applies a chat-level override (fields of the same passport stored for one chat) on a card passport: slots merge
+* per slot, other known fields replace. Returns the effective passport and the overridden field names.
+*/
+function overridePassport(base, override) {
+	if (!isDict$22(override)) return {
+		passport: base,
+		overridden: []
+	};
+	const passport = {
+		...base,
+		aliases: [...base.aliases],
+		slots: { ...base.slots },
+		outfits: base.outfits.map((outfit) => ({ ...outfit })),
+		states: base.states.map((state) => ({ ...state }))
+	};
+	const overridden = [];
+	if (isDict$22(override.slots)) for (const [slot, value] of Object.entries(override.slots)) {
+		if (typeof value !== "string" || passport.slots[slot] === value) continue;
+		passport.slots[slot] = value;
+		overridden.push(`slot.${slot}`);
+	}
+	for (const field of [
+		"tags",
+		"activeOutfit",
+		"negative",
+		"name"
+	]) {
+		const value = override[field];
+		if (typeof value === "string" && value !== passport[field]) {
+			passport[field] = value;
+			overridden.push(field);
+		}
+	}
+	if (Array.isArray(override.aliases)) {
+		passport.aliases = override.aliases.filter((item) => typeof item === "string");
+		overridden.push("aliases");
+	}
+	if (Array.isArray(override.outfits)) {
+		passport.outfits = override.outfits.filter(isDict$22).map((outfit) => ({
+			name: str$2(outfit.name),
+			tags: str$2(outfit.tags)
+		}));
+		overridden.push("outfits");
+	}
+	if (Array.isArray(override.states)) {
+		passport.states = override.states.filter(isDict$22).map((state) => ({
+			id: str$2(state.id),
+			tags: str$2(state.tags),
+			enabled: state.enabled === true
+		}));
+		overridden.push("states");
+	}
+	return {
+		passport,
+		overridden
+	};
+}
+var MBTI_RE = /^<(?:MBTI:)?\s*([EI][NS][FT][JP])(?:-([HU]))?\s*>$/i;
+/** The MBTI archetype among archive tags: bare `<ESFP-H>` or `<MBTI:ESFP-H>`. */
+function mbtiOf(tags) {
+	for (const tag of tags) {
+		const match = MBTI_RE.exec(tag.trim());
+		if (match?.[1]) {
+			const variant = match[2]?.toUpperCase();
+			return {
+				type: match[1].toUpperCase(),
+				variant: variant === "H" || variant === "U" ? variant : null
+			};
+		}
+	}
+	return null;
+}
+var TAG_PARTS_RE = /^<([^:<>]+)(?::([^<>]*))?>$/;
+/** Tags grouped by category (`SPECIES` → `ELF, HUMAN`); bare tags go under `MBTI` or `OTHER`. */
+function tagGroups(tags) {
+	const groups = /* @__PURE__ */ new Map();
+	for (const tag of tags) {
+		const match = TAG_PARTS_RE.exec(tag.trim());
+		if (!match?.[1]) continue;
+		const bare = match[2] === void 0;
+		const category = bare ? MBTI_RE.test(tag.trim()) ? "MBTI" : "OTHER" : match[1].trim().toUpperCase();
+		const value = bare ? match[1].trim() : (match[2] ?? "").trim();
+		if (!value) continue;
+		const list = groups.get(category) ?? [];
+		if (!list.includes(value)) list.push(value);
+		groups.set(category, list);
+	}
+	const out = {};
+	for (const [category, values] of groups) out[category] = values.join(", ");
+	return out;
+}
+var TAG_BLOCK_RE = /<bunnymotags>[\s\S]*?<\/bunnymotags>/gi;
+/** Archive text outside its `<BunnymoTags>` blocks (Linguistics, prose sections), blank runs collapsed. */
+function archiveProse(content) {
+	return str$2(content).replace(TAG_BLOCK_RE, "").replace(/\n{3,}/g, "\n\n").trim();
+}
+function summarizeArchive(entry) {
+	const { name, tags } = archiveTags(entry);
+	return {
+		name,
+		tags,
+		mbti: mbtiOf(tags),
+		groups: tagGroups(tags),
+		prose: archiveProse(entry.content)
+	};
+}
+/** Every long-term memory plus the last `limit` others, oldest first. */
+function pickMemories(memories, limit) {
+	const sorted = [...memories].filter((memory) => memory.text.trim()).sort((a, b) => a.index - b.index);
+	const others = sorted.filter((memory) => !memory.longTerm);
+	const recent = new Set((limit > 0 ? others.slice(-limit) : []).map((memory) => memory.index));
+	return sorted.filter((memory) => memory.longTerm || recent.has(memory.index));
+}
+/** M31's mark `extra.maestro.sheet` of a message, when it is there. */
+function readSheetMark(extra) {
+	const maestro = isDict$22(extra) ? extra.maestro : void 0;
+	const sheet = isDict$22(maestro) ? maestro.sheet : void 0;
+	if (!isDict$22(sheet) || typeof sheet.command !== "string") return null;
+	return {
+		command: sheet.command,
+		target: str$2(sheet.target),
+		part: str$2(sheet.part) || "reply"
+	};
+}
+var NAME_TAG_RE = /<name:([^<>\n]+)>/i;
+function blockName(text) {
+	for (const body of sheetTagBlocks(text)) {
+		const name = NAME_TAG_RE.exec(body)?.[1]?.trim();
+		if (name) return name;
+	}
+	return null;
+}
+function isFor(target, names) {
+	return !!target && names.some((name) => sameCharacter(target, name));
+}
+/**
+* The newest sheet of a character: a `!fullsheet` reply marked by M31 first, then any marked sheet reply, then an
+* unmarked reply whose `<BunnymoTags>` block names the character. Text without DES tracker JSON.
+*/
+function findLastSheet(messages, names) {
+	const newest = [...messages].filter((message) => !message.isUser).sort((a, b) => b.index - a.index);
+	const found = (message) => ({
+		index: message.index,
+		text: stripDesTrackerJson(message.text).trim(),
+		command: message.mark?.command ?? null
+	});
+	const marked = newest.filter((message) => message.mark?.part === "reply" && isFor(message.mark.target, names));
+	const full = marked.find((message) => message.mark?.command === "fullsheet");
+	if (full) return found(full);
+	if (marked[0]) return found(marked[0]);
+	const tagged = newest.find((message) => isFor(blockName(message.text), names));
+	return tagged ? found(tagged) : null;
+}
+/** CK RAG collections of a character (`rag.collectionMetadata[id].characterName`) with their triggers. */
+function ragCollectionsFor(rag, names) {
+	const metadata = isDict$22(rag) ? rag.collectionMetadata : void 0;
+	if (!isDict$22(metadata)) return [];
+	const out = [];
+	for (const [id, raw] of Object.entries(metadata)) {
+		if (!isDict$22(raw) || !isFor(str$2(raw.characterName) || null, names)) continue;
+		const keywords = Array.isArray(raw.keywords) ? raw.keywords.filter((item) => typeof item === "string" && item.trim() !== "") : [];
+		out.push({
+			id,
+			keywords,
+			alwaysActive: raw.alwaysActive === true
+		});
+	}
+	return out.sort((a, b) => a.id.localeCompare(b.id));
+}
+//#endregion
+//#region src/domain/dossier-compare.ts
+var MIN_SNIPPET = 300;
+var QUOTE_MAX = 160;
+var SUMMARY_MAX = 300;
+var MAX_ISSUES = 12;
+/** Prompt overhead (instructions, labels) in tokens. */
+var OVERHEAD_TOKENS = 450;
+/** Expected answer size in tokens. */
+var OUTPUT_TOKENS = 600;
+var COMPARE_SCHEMA = {
+	type: "object",
+	additionalProperties: false,
+	required: ["findings"],
+	properties: { findings: {
+		type: "array",
+		items: {
+			type: "object",
+			additionalProperties: false,
+			required: [
+				"kind",
+				"a",
+				"b",
+				"quoteA",
+				"quoteB",
+				"summary"
+			],
+			properties: {
+				kind: {
+					type: "string",
+					enum: ["appearance", "description"]
+				},
+				a: {
+					type: "string",
+					description: "Id of the first snippet, e.g. S1"
+				},
+				b: {
+					type: "string",
+					description: "Id of the second snippet, e.g. S3"
+				},
+				quoteA: {
+					type: "string",
+					description: "Short verbatim quote from snippet a"
+				},
+				quoteB: {
+					type: "string",
+					description: "Short verbatim quote from snippet b"
+				},
+				summary: {
+					type: "string",
+					description: "One short English sentence: what contradicts what"
+				}
+			}
+		}
+	} }
+};
+var SYSTEM_PROMPT = [
+	"You check one entity of a role-play for contradictions between the places its facts are stored in.",
+	"Snippets come from different stores and languages: English lorebook prose, Russian prose, Danbooru-style image tags, tracker fields. Compare meaning, not wording or language.",
+	"Report only statements that cannot both be true:",
+	"- appearance: hair, eyes, skin, body, height, age, species, scars, permanent clothing or accessories;",
+	"- description: personality, background, role, occupation, family, relationships.",
+	"Missing information is not a contradiction. Temporary states (current outfit, mood, wet, injured, location) are not contradictions unless a snippet states them as permanent.",
+	"Quote each side briefly (at most 12 words) exactly as written in its snippet, in its original language.",
+	"Reply with JSON only. If nothing contradicts, reply {\"findings\": []}."
+].join("\n");
+/** Ids S1…Sn; texts trimmed, empty ones dropped, each cut to its share of `maxChars`. */
+function buildCompareSnippets(sources, maxChars) {
+	const usable = sources.filter((source) => source.text.trim());
+	if (!usable.length) return [];
+	const share = Math.max(MIN_SNIPPET, Math.floor(maxChars / usable.length));
+	return usable.map((source, index) => ({
+		id: `S${index + 1}`,
+		store: source.store,
+		label: source.label.trim(),
+		text: truncate(source.text, share)
+	}));
+}
+function buildCompareMessages(name, aliases, snippets) {
+	const names = aliases.filter((alias) => alias.trim() && alias.trim() !== name.trim());
+	const header = names.length ? `Entity: ${name} (also known as: ${names.join(", ")})` : `Entity: ${name}`;
+	const body = snippets.map((snippet) => `[${snippet.id}] ${snippet.store}: ${snippet.label}\n${snippet.text}`);
+	return [{
+		role: "system",
+		content: SYSTEM_PROMPT
+	}, {
+		role: "user",
+		content: [
+			header,
+			"",
+			...body.flatMap((part) => [part, ""])
+		].join("\n").trim()
+	}];
+}
+function text$3(value, max) {
+	return typeof value === "string" ? truncate(value.replace(/\s+/g, " "), max) : "";
+}
+function kindOf(value) {
+	if (typeof value !== "string") return null;
+	const kind = value.trim().toLowerCase();
+	if (kind.startsWith("appearance")) return "appearance";
+	if (kind.startsWith("description")) return "description";
+	return null;
+}
+function idOf(value, ids) {
+	if (typeof value !== "string") return null;
+	const match = /S?\s*(\d+)/i.exec(value.trim());
+	const id = match?.[1] ? `S${match[1]}` : "";
+	return ids.has(id) ? id : null;
+}
+/**
+* Issues from the model's answer (parsed JSON or a JSON string). Null when the answer has no findings list at all
+* (malformed); items with an unknown kind, unknown snippet ids or the same snippet twice are dropped.
+*/
+function parseCompareResult(data, snippetIds) {
+	let value = data;
+	if (typeof value === "string") try {
+		value = JSON.parse(value);
+	} catch {
+		return null;
+	}
+	const list = Array.isArray(value) ? value : typeof value === "object" && value !== null && Array.isArray(value.findings) ? value.findings : null;
+	if (!list) return null;
+	const ids = new Set(snippetIds);
+	const issues = [];
+	const seen = /* @__PURE__ */ new Set();
+	for (const raw of list) {
+		if (typeof raw !== "object" || raw === null) continue;
+		const item = raw;
+		const kind = kindOf(item.kind);
+		const a = idOf(item.a, ids);
+		const b = idOf(item.b, ids);
+		if (!kind || !a || !b || a === b) continue;
+		const key = `${kind}:${[a, b].sort().join("-")}:${text$3(item.summary, 60)}`;
+		if (seen.has(key)) continue;
+		seen.add(key);
+		issues.push({
+			kind,
+			a,
+			b,
+			quoteA: text$3(item.quoteA, QUOTE_MAX),
+			quoteB: text$3(item.quoteB, QUOTE_MAX),
+			summary: text$3(item.summary, SUMMARY_MAX)
+		});
+		if (issues.length >= MAX_ISSUES) break;
+	}
+	return issues;
+}
+/** Rough size of the request: ~4 characters per token plus the instructions; the answer is a guess. */
+function estimateCompare(snippets) {
+	const chars = snippets.reduce((sum, snippet) => sum + snippet.text.length + snippet.label.length + 16, 0);
+	const input = Math.ceil(chars / 4) + OVERHEAD_TOKENS;
+	return {
+		input,
+		output: OUTPUT_TOKENS,
+		usd: bootstrapCostUsd(input + OUTPUT_TOKENS)
+	};
+}
+//#endregion
+//#region src/features/dossier/compare.ts
+var COMPARE_TASK = "dossier.compare";
+var DOC_KIND = "dossier";
+var MAX_TOKENS$1 = 1200;
+var WAIT_MS = 24e4;
+var TASK_TTL_MS = 6e5;
+var KEEP_RESULTS = 30;
+var CompareError = class extends Error {
+	code;
+	constructor(message, code) {
+		super(message);
+		this.code = code;
+	}
+};
+function newId() {
+	return `dc-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+/** Texts worth comparing, one per store, with the source each came from. */
+function compareSources$1(facts) {
+	const out = [];
+	const add = (store, label, text, source) => {
+		if (text && text.trim()) out.push(source ? {
+			store,
+			label,
+			text,
+			source
+		} : {
+			store,
+			label,
+			text
+		});
+	};
+	if (facts.persona) add("persona description", facts.persona.name, facts.persona.description);
+	add("character card", facts.entity.name, facts.cardDescription, facts.cardAvatar ? {
+		kind: "card",
+		ref: facts.cardAvatar,
+		label: facts.entity.name,
+		avatar: facts.cardAvatar
+	} : void 0);
+	for (const lore of facts.lore) {
+		const content = typeof lore.entry.content === "string" ? lore.entry.content : "";
+		add("lorebook entry", lore.title, content, lore.source);
+		if (lore.override && facts.canonBook && typeof lore.override.entry.content === "string") add("chat canon override", lore.title, lore.override.entry.content, {
+			kind: "canon.entry",
+			ref: `${facts.canonBook}#${lore.override.uid}`,
+			label: lore.title,
+			world: facts.canonBook,
+			uid: lore.override.uid
+		});
+	}
+	for (const item of facts.canon) {
+		const title = typeof item.entry.comment === "string" && item.entry.comment.trim() ? item.entry.comment : `#${item.uid}`;
+		add("chat canon", title, typeof item.entry.content === "string" ? item.entry.content : "", facts.canonBook ? {
+			kind: "canon.entry",
+			ref: `${facts.canonBook}#${item.uid}`,
+			label: title,
+			world: facts.canonBook,
+			uid: item.uid
+		} : void 0);
+	}
+	for (const archive of facts.archives) {
+		const tags = archive.summary.tags.join(" ");
+		add("CarrotKernel archive", archive.source.label, [tags, archive.summary.prose].filter(Boolean).join("\n"), archive.source);
+	}
+	for (const fact of facts.passports) {
+		const { passport } = overridePassport(fact.passport, fact.chat);
+		add("NAI image passport (tags)", passport.name || fact.owner, passportTagLine(passport), fact.source);
+	}
+	const des = facts.des;
+	if (des) {
+		const source = {
+			kind: "des.character",
+			ref: des.canonical,
+			label: des.canonical
+		};
+		if (des.messageIndex !== void 0) source.messageIndex = des.messageIndex;
+		const details = Object.entries(des.character?.details ?? {}).map(([key, value]) => `${key}: ${value}`);
+		add("scene tracker (current scene)", des.canonical, details.join("\n"), source);
+		add("portrait prompt", des.canonical, des.portraitPrompt, source);
+		add("workshop description", des.canonical, des.workshopDescription, source);
+	}
+	return out;
+}
+var DossierCompare = class {
+	app;
+	sources;
+	settings;
+	log;
+	pending = /* @__PURE__ */ new Map();
+	inflight = /* @__PURE__ */ new Map();
+	results = /* @__PURE__ */ new Map();
+	listeners = /* @__PURE__ */ new Set();
+	loadedFor = null;
+	constructor(app, sources, settings, log) {
+		this.app = app;
+		this.sources = sources;
+		this.settings = settings;
+		this.log = log;
+	}
+	install() {
+		return [
+			this.app.tasks.register(COMPARE_TASK, (payload) => this.run(payload)),
+			this.app.bus.on("chat:changed", () => {
+				this.results.clear();
+				this.loadedFor = null;
+			}),
+			() => {
+				for (const [id, pending] of this.pending) {
+					clearTimeout(pending.timer);
+					pending.resolve({
+						entityId: "",
+						at: Date.now(),
+						findings: [],
+						error: "disabled"
+					});
+					this.pending.delete(id);
+				}
+			}
+		];
+	}
+	onResult(listener) {
+		this.listeners.add(listener);
+		return () => this.listeners.delete(listener);
+	}
+	/** The last comparison of an entity in this chat (memory, then the chat document). */
+	async last(entityId) {
+		await this.load();
+		return this.results.get(entityId) ?? null;
+	}
+	lastCached(entityId) {
+		return this.results.get(entityId) ?? null;
+	}
+	async load() {
+		const chatId = this.app.host.chatId();
+		if (!chatId || this.loadedFor === chatId) return;
+		this.loadedFor = chatId;
+		try {
+			const doc = await this.app.chat.get(DOC_KIND, () => ({ ai: {} }));
+			for (const [id, result] of Object.entries(doc.ai ?? {})) if (!this.results.has(id) && Array.isArray(result?.findings)) this.results.set(id, result);
+		} catch (error) {
+			this.log.debug("dossier document did not load", error);
+		}
+	}
+	async store(result) {
+		this.results.set(result.entityId, result);
+		if (!this.app.host.chatId()) return;
+		try {
+			for (let attempt = 0; attempt < 2; attempt++) {
+				const doc = await this.app.chat.get(DOC_KIND, () => ({ ai: {} }));
+				const ai = {
+					...doc.ai ?? {},
+					[result.entityId]: result
+				};
+				const ids = Object.keys(ai).sort((a, b) => (ai[b]?.at ?? 0) - (ai[a]?.at ?? 0));
+				for (const id of ids.slice(KEEP_RESULTS)) delete ai[id];
+				if (await this.app.chat.put(DOC_KIND, {
+					...doc,
+					ai
+				})) return;
+			}
+		} catch (error) {
+			this.log.debug("dossier document was not saved", error);
+		}
+	}
+	/** Snippets that would be sent and the size/cost estimate («≈ N токенов»). */
+	plan(facts) {
+		const snippets = buildCompareSnippets(compareSources$1(facts), this.settings().compareMaxChars);
+		return {
+			snippets,
+			estimate: estimateCompare(snippets)
+		};
+	}
+	/** Why the comparison cannot run in this tab now (null when it can). */
+	blocker() {
+		if (!this.app.host.chatId()) return "noChat";
+		if (!this.app.leader.isLeader()) return "notLeader";
+		if (!this.app.llm.available("dossier.compare")) return "noProfile";
+		if (this.app.cost.backgroundCapReached()) return "cap";
+		return null;
+	}
+	/** Enqueues the comparison and waits for it. Throws CompareError when it cannot run. */
+	async request(entityId) {
+		const blocker = this.blocker();
+		if (blocker) throw new CompareError(this.app.i18n.t(`m7.compare.${blocker}`), blocker);
+		const running = this.inflight.get(entityId);
+		if (running) return running;
+		const request = this.enqueueAndWait(entityId).finally(() => this.inflight.delete(entityId));
+		this.inflight.set(entityId, request);
+		return request;
+	}
+	async enqueueAndWait(entityId) {
+		const requestId = newId();
+		const done = new Promise((resolve) => {
+			const timer = setTimeout(() => {
+				this.pending.delete(requestId);
+				resolve({
+					entityId,
+					at: Date.now(),
+					findings: [],
+					error: "timeout"
+				});
+			}, WAIT_MS);
+			this.pending.set(requestId, {
+				resolve,
+				timer
+			});
+		});
+		try {
+			await this.app.tasks.enqueue({
+				kind: COMPARE_TASK,
+				dedupeKey: entityId,
+				payload: {
+					entityId,
+					requestId
+				},
+				ttlMs: TASK_TTL_MS,
+				priority: 1
+			});
+		} catch (error) {
+			const pending = this.pending.get(requestId);
+			if (pending) clearTimeout(pending.timer);
+			this.pending.delete(requestId);
+			throw new CompareError(error instanceof Error ? error.message : String(error), "enqueue");
+		}
+		this.app.tasks.kick();
+		const result = await done;
+		if (result.error && result.error !== "empty") {
+			const key = `m7.compare.error.${result.error}`;
+			const text = this.app.i18n.t(key);
+			throw new CompareError(text === key ? this.app.i18n.t("m7.compare.error.other", { error: result.error }) : text, result.error);
+		}
+		return result;
+	}
+	settle(requestId, result) {
+		if (typeof requestId !== "string") return;
+		const pending = this.pending.get(requestId);
+		if (!pending) return;
+		clearTimeout(pending.timer);
+		this.pending.delete(requestId);
+		pending.resolve(result);
+	}
+	emit(entityId) {
+		for (const listener of [...this.listeners]) try {
+			listener(entityId);
+		} catch (error) {
+			this.log.error("dossier listener failed", error);
+		}
+	}
+	/** Task runner: never throws (a bad answer is not worth the queue's retries; transport retries are the client's). */
+	async run(payload) {
+		const entityId = typeof payload.entityId === "string" ? payload.entityId : "";
+		const fail = (error) => {
+			const result = {
+				entityId,
+				at: Date.now(),
+				findings: [],
+				error
+			};
+			this.settle(payload.requestId, result);
+		};
+		const entity = entityId ? this.sources.entity(entityId) : void 0;
+		if (!entity) {
+			fail("gone");
+			return;
+		}
+		let facts;
+		try {
+			facts = await this.sources.facts(entity);
+		} catch (error) {
+			this.log.warn("dossier comparison: sources failed", error);
+			fail("sources");
+			return;
+		}
+		const sources = compareSources$1(facts);
+		const snippets = buildCompareSnippets(sources, this.settings().compareMaxChars);
+		if (snippets.length < 2) {
+			const result = {
+				entityId,
+				at: Date.now(),
+				findings: [],
+				error: "empty"
+			};
+			await this.store(result);
+			this.settle(payload.requestId, result);
+			this.emit(entityId);
+			return;
+		}
+		const response = await this.app.llm.request({
+			task: COMPARE_TASK,
+			messages: buildCompareMessages(entity.name, entity.aliases, snippets),
+			maxTokens: MAX_TOKENS$1,
+			temperature: 0,
+			schema: {
+				name: "dossier_compare",
+				schema: COMPARE_SCHEMA
+			}
+		});
+		if (!response.ok) {
+			fail(response.refusal ? "refusal" : response.error ?? "failed");
+			return;
+		}
+		const issues = parseCompareResult(response.data ?? response.text, snippets.map((snippet) => snippet.id));
+		if (!issues) {
+			fail("parse");
+			return;
+		}
+		const usable = sources.filter((item) => item.text.trim());
+		const byId = new Map(snippets.map((snippet, index) => [snippet.id, {
+			snippet,
+			source: usable[index]?.source
+		}]));
+		const t = this.app.i18n.t.bind(this.app.i18n);
+		const findings = issues.map((issue) => {
+			const a = byId.get(issue.a);
+			const b = byId.get(issue.b);
+			return {
+				kind: issue.kind === "appearance" ? "appearanceMismatch" : "descriptionMismatch",
+				severity: "warn",
+				text: t("m7.ai.finding", {
+					summary: issue.summary || t(`m7.ai.kind.${issue.kind}`),
+					a: a?.snippet.label ?? issue.a,
+					b: b?.snippet.label ?? issue.b,
+					quoteA: issue.quoteA || "—",
+					quoteB: issue.quoteB || "—"
+				}),
+				sources: [a?.source, b?.source].filter((source) => !!source)
+			};
+		});
+		const result = {
+			entityId,
+			at: Date.now(),
+			findings
+		};
+		if (response.costUsd !== void 0) result.costUsd = response.costUsd;
+		await this.store(result);
+		this.settle(payload.requestId, result);
+		this.emit(entityId);
+	}
+};
+//#endregion
+//#region src/features/dossier/opener.ts
+var PLACES_TAB$1 = "places";
+function bookOf(source) {
+	return source?.world && [
+		"lore.entry",
+		"canon.entry",
+		"ck.archive",
+		"persona"
+	].includes(source.kind) ? source.world : null;
+}
+var DossierOpener = class {
+	app;
+	log;
+	constructor(app, log) {
+		this.app = app;
+		this.log = log;
+	}
+	/** The section can be opened somewhere. */
+	canOpen(section) {
+		const source = section.source;
+		if (section.messageIndex !== void 0 || source?.messageIndex !== void 0) return true;
+		if (bookOf(source)) return true;
+		return source?.kind === "place";
+	}
+	async open(section) {
+		const source = section.source;
+		const book = bookOf(source);
+		if (book) {
+			await this.openEntry(book, typeof source?.uid === "number" ? source.uid : void 0);
+			return;
+		}
+		const message = section.messageIndex ?? source?.messageIndex;
+		if (message !== void 0) {
+			await this.jump(message);
+			return;
+		}
+		if (source?.kind === "place") this.app.ui.openPult(PLACES_TAB$1);
+	}
+	async openEntry(book, uid) {
+		const studio = this.app.modules.api("loreStudio");
+		if (typeof studio?.open === "function") {
+			this.app.ui.closePult?.();
+			studio.open(book, uid);
+			return;
+		}
+		const ctx = this.app.host.ctx();
+		if (this.app.modules.api("loreStore") && typeof ctx.executeSlashCommandsWithOptions === "function") {
+			this.app.ui.closePult?.();
+			await ctx.executeSlashCommandsWithOptions(`/maestro-lore ${book}`, { handleExecutionErrors: true });
+			return;
+		}
+		try {
+			const open = (await this.app.host.modules.worldInfo()).openWorldInfoEditor;
+			if (typeof open === "function") {
+				this.app.ui.closePult?.();
+				open(book);
+			}
+		} catch (error) {
+			this.log.debug("cannot open the lorebook editor", error);
+		}
+	}
+	async jump(index) {
+		this.app.ui.closePult?.();
+		const ctx = this.app.host.ctx();
+		if (typeof ctx.executeSlashCommandsWithOptions !== "function") return;
+		try {
+			await ctx.executeSlashCommandsWithOptions(`/chat-jump ${index}`, { handleExecutionErrors: true });
+		} catch (error) {
+			this.log.debug("chat-jump failed", error);
+		}
+	}
+};
+//#endregion
+//#region src/domain/dossier-check.ts
+var PERSONLIKE = /* @__PURE__ */ new Set(["character", "persona"]);
+/** The entry a key fix goes to: the first one outside BunnyMo books. */
+function fixTarget(entries) {
+	return entries.find((entry) => !entry.protected);
+}
+function aliasIssues(input) {
+	if (!input.entries.length) return [];
+	const issues = [];
+	const target = fixTarget(input.entries);
+	const seen = /* @__PURE__ */ new Set();
+	for (const alias of input.desAliases) {
+		const norm = normName(alias);
+		if (!norm || seen.has(norm) || norm === normName(input.name)) continue;
+		seen.add(norm);
+		if (input.entries.some((entry) => keysCover(entry.keys, alias))) continue;
+		const issue = {
+			kind: "aliasNotKey",
+			severity: "warn",
+			params: {
+				alias: alias.trim(),
+				entry: (target ?? input.entries[0])?.title ?? ""
+			}
+		};
+		if (target) {
+			issue.entry = {
+				world: target.world,
+				uid: target.uid
+			};
+			issue.addKeys = [alias.trim()];
+		}
+		issues.push(issue);
+	}
+	return issues;
+}
+function nameIssues(input) {
+	const canonical = input.desCanonical ?? input.name;
+	const known = [
+		input.name,
+		...input.known,
+		...input.desAliases
+	];
+	const odd = [];
+	const add = (name) => {
+		if (!name || !name.trim() || nameAgrees(name, canonical, known)) return;
+		if (!odd.some((item) => normName(item) === normName(name))) odd.push(name.trim());
+	};
+	for (const name of input.archiveNames) add(name);
+	for (const name of input.passportNames) add(name);
+	if (!odd.length) return [];
+	return [{
+		kind: "nameMismatch",
+		severity: "warn",
+		params: {
+			name: canonical,
+			names: odd.join(", ")
+		}
+	}];
+}
+function formIssues(input) {
+	if (!input.formsOf) return [];
+	const names = /* @__PURE__ */ new Set([
+		normName(input.name),
+		...input.known.map(normName),
+		...input.desAliases.map(normName)
+	]);
+	const issues = [];
+	for (const entry of input.entries) {
+		if (entry.protected) continue;
+		for (const key of entry.keys) {
+			if (!isCyrillicPlainKey(key) || !names.has(normName(key))) continue;
+			const forms = input.formsOf(key.trim()) ?? [];
+			const missing = uncoveredForms(entry.keys, forms);
+			if (!missing.length) continue;
+			const regex = input.formsKeyOf?.(key.trim()) ?? null;
+			issues.push({
+				kind: "formsMissing",
+				severity: "info",
+				params: {
+					key: key.trim(),
+					entry: entry.title,
+					forms: missing.join(", "),
+					count: missing.length
+				},
+				entry: {
+					world: entry.world,
+					uid: entry.uid
+				},
+				addKeys: regex ? [regex] : missing
+			});
+		}
+	}
+	return issues;
+}
+/** Structural issues of one entity, in a stable order. */
+function structuralIssues(input) {
+	const issues = [];
+	const personlike = PERSONLIKE.has(input.kind);
+	if (input.kind === "character" && input.inDes && !input.entries.length && input.canonItems === 0) issues.push({
+		kind: "missingEntry",
+		severity: "warn",
+		params: { name: input.name }
+	});
+	if (personlike && input.naiPresent && !input.passportNames.length && (input.inDes || input.kind === "persona")) issues.push({
+		kind: "missingPassport",
+		severity: "info",
+		params: { name: input.name }
+	});
+	if (input.kind === "character" && input.ckPresent && !input.archiveNames.length) issues.push({
+		kind: "missingArchive",
+		severity: "info",
+		params: { name: input.name }
+	});
+	if (personlike) issues.push(...aliasIssues(input), ...nameIssues(input));
+	issues.push(...formIssues(input));
+	return issues;
+}
+//#endregion
+//#region src/features/dossier/findings.ts
+function desSource(facts) {
+	const des = facts.des;
+	if (!des) return void 0;
+	const source = {
+		kind: "des.character",
+		ref: des.canonical,
+		label: des.canonical
+	};
+	if (des.messageIndex !== void 0) source.messageIndex = des.messageIndex;
+	return source;
+}
+function sourcesOf(issue, facts) {
+	const des = desSource(facts);
+	const entry = issue.entry ? facts.lore.find((fact) => fact.world === issue.entry?.world && fact.uid === issue.entry.uid)?.source : void 0;
+	const list = [];
+	switch (issue.kind) {
+		case "missingEntry":
+		case "missingPassport":
+		case "missingArchive":
+			list.push(des);
+			break;
+		case "aliasNotKey":
+			list.push(entry, des);
+			break;
+		case "nameMismatch":
+			list.push(...facts.archives.map((archive) => archive.source), ...facts.passports.map((passport) => passport.source), des);
+			break;
+		case "formsMissing": list.push(entry);
+	}
+	return list.filter((source) => !!source);
+}
+function fixOf(issue, facts, t) {
+	if (issue.addKeys?.length && issue.entry) {
+		const request = {
+			op: "addKeys",
+			world: issue.entry.world,
+			uid: issue.entry.uid,
+			keys: issue.addKeys
+		};
+		return {
+			label: issue.kind === "formsMissing" ? t("m7.fix.forms") : t("m7.fix.alias", { alias: issue.addKeys.join(", ") }),
+			payload: request
+		};
+	}
+	if (issue.kind === "nameMismatch" && facts.des?.canonical && facts.desPresent) {
+		const odd = String(issue.params.names ?? "").split(", ").find((name) => name.trim());
+		if (odd) {
+			const request = {
+				op: "desAlias",
+				canonical: facts.des.canonical,
+				alias: odd
+			};
+			return {
+				label: t("m7.fix.desAlias", { alias: odd }),
+				payload: request
+			};
+		}
+	}
+}
+function structuralFindings(facts, sources, t) {
+	const { entity } = facts;
+	const des = facts.des;
+	const findings = structuralIssues({
+		kind: entity.kind,
+		name: entity.name,
+		known: [...entity.aliases, ...facts.forms],
+		inDes: !!des && (des.inRoster || !!des.character || des.aliases.length > 0),
+		desCanonical: des?.canonical ?? null,
+		desAliases: des?.aliases ?? [],
+		entries: facts.lore.filter((fact) => !fact.description).map((fact) => ({
+			world: fact.world,
+			uid: fact.uid,
+			title: fact.title,
+			keys: fact.keys,
+			protected: fact.protected
+		})),
+		canonItems: facts.canon.length,
+		naiPresent: facts.naiPresent,
+		passportNames: facts.passports.map((fact) => fact.passport.name || fact.owner),
+		ckPresent: facts.ckPresent,
+		archiveNames: facts.archives.map((archive) => archive.summary.name),
+		formsOf: facts.desruPresent ? (name) => sources.formsOf(name) : null,
+		formsKeyOf: facts.desruPresent ? (name) => sources.formsKeyOf(name) : null
+	}).map((issue) => {
+		const finding = {
+			kind: issue.kind,
+			severity: issue.severity,
+			text: t(`m7.finding.${issue.kind}`, issue.params),
+			sources: sourcesOf(issue, facts)
+		};
+		const fix = fixOf(issue, facts, t);
+		if (fix) finding.fix = fix;
+		else if (issue.entry === void 0 && issue.kind === "aliasNotKey") finding.text += ` ${t("m7.finding.p13")}`;
+		return finding;
+	});
+	const place = facts.place?.place;
+	if (place && !place.entry) {
+		const request = {
+			op: "placeEntry",
+			placeId: place.id
+		};
+		findings.unshift({
+			kind: "missingEntry",
+			severity: "info",
+			text: t("m7.finding.placeEntry", { name: place.name }),
+			sources: [{
+				kind: "place",
+				ref: place.id,
+				label: place.name
+			}],
+			fix: {
+				label: t("m7.fix.placeEntry"),
+				payload: request
+			}
+		});
+	}
+	return findings;
+}
+//#endregion
+//#region src/features/dossier/sections.ts
+function put(fields, key, value) {
+	if (typeof value === "number" && Number.isFinite(value)) fields[key] = String(value);
+	else if (typeof value === "string" && value.trim()) fields[key] = value.trim();
+}
+function section(kind, title, text, fields, extra = {}) {
+	const result = {
+		kind,
+		title,
+		text: text.trim(),
+		...extra
+	};
+	if (Object.keys(fields).length) result.fields = fields;
+	return result;
+}
+function str$1(value) {
+	return typeof value === "string" ? value : "";
+}
+function list(value) {
+	return Array.isArray(value) ? value.filter((item) => typeof item === "string" && item.trim()).join(", ") : "";
+}
+function personaSection(facts, t) {
+	const persona = facts.persona;
+	if (!persona) return null;
+	const fields = {};
+	put(fields, "avatar", persona.avatar);
+	put(fields, "lorebook", persona.lorebook ?? "");
+	if (persona.lorebookEntries.length) put(fields, "lorebookEntries", persona.lorebookEntries.map((entry) => entry.title).join("; "));
+	const user = facts.des?.user;
+	if (user) {
+		put(fields, "color", user.color);
+		put(fields, "pronouns", user.pronouns);
+	}
+	put(fields, "relationship", facts.relation ?? "");
+	const extra = { source: {
+		kind: "persona",
+		ref: persona.avatar || persona.name,
+		label: persona.name,
+		...persona.lorebook ? { world: persona.lorebook } : {}
+	} };
+	const text = persona.description || t("m7.persona.noDescription");
+	return section("persona", t("m7.section.persona", { name: persona.name }), text, fields, extra);
+}
+function placeSections(facts, t) {
+	const fact = facts.place;
+	if (!fact) return [];
+	const { place, parents, children } = fact;
+	const fields = {};
+	put(fields, "aliases", place.aliases.join(", "));
+	put(fields, "forms", place.forms.join(", "));
+	put(fields, "path", [...parents].reverse().map((item) => item.name).concat(place.name).join(" → "));
+	put(fields, "children", children.map((item) => item.name).join(", "));
+	put(fields, "firstSeen", place.firstSeen >= 0 ? `#${place.firstSeen}` : "");
+	put(fields, "lastSeen", place.lastSeen >= 0 ? `#${place.lastSeen}` : "");
+	put(fields, "visits", place.visits.length);
+	for (const [key, value] of Object.entries(place.state ?? {})) put(fields, `state.${key}`, value);
+	put(fields, "passport", place.passportId ?? "");
+	const visits = place.visits.slice(-5).map((visit) => {
+		const range = visit.to === null ? `#${visit.from}…` : `#${visit.from}–#${visit.to}`;
+		const people = visit.present.length ? visit.present.join(", ") : t("m7.place.nobody");
+		return `${range}${visit.storyDate ? ` (${visit.storyDate})` : ""}: ${people}${visit.events.length ? ` — ${visit.events.join("; ")}` : ""}`;
+	});
+	const text = [place.background ?? "", visits.length ? `${t("m7.place.visits")}\n${visits.join("\n")}` : ""].filter((part) => part.trim()).join("\n\n");
+	return [section("place", t("m7.section.place", { name: place.name }), text, fields, { source: {
+		kind: "place",
+		ref: place.id,
+		label: place.name
+	} })];
+}
+function desSection(facts, t) {
+	const des = facts.des;
+	if (!des || facts.entity.kind === "persona") return null;
+	const fields = {};
+	const character = des.character;
+	put(fields, "emoji", character?.emoji ?? des.rosterEmoji ?? "");
+	put(fields, "color", character?.color ?? "");
+	put(fields, "aliases", des.aliases.join(", "));
+	put(fields, "relationship", character?.relationship ?? facts.relation ?? "");
+	put(fields, "relationshipOverride", des.relationshipOverride ?? "");
+	put(fields, "portraitPrompt", des.portraitPrompt ?? "");
+	if (character) {
+		for (const stat of character.stats) put(fields, `stat.${stat.name}`, stat.value);
+		for (const [key, value] of Object.entries(character.details)) put(fields, `detail.${key}`, value);
+		if (character.offScene) put(fields, "offScene", t("m7.des.offScene"));
+	}
+	const extra = { source: {
+		kind: "des.character",
+		ref: des.canonical,
+		label: des.canonical,
+		...des.messageIndex !== void 0 ? { messageIndex: des.messageIndex } : {}
+	} };
+	if (des.messageIndex !== void 0) extra.messageIndex = des.messageIndex;
+	const text = des.workshopDescription ?? (character ? "" : t("m7.des.noTracker"));
+	return section("des", t("m7.section.des", { name: des.canonical }), text, fields, extra);
+}
+function loreSections(fact, facts, t) {
+	const fields = {};
+	put(fields, "book", fact.world);
+	put(fields, "keys", fact.baseKeys.join(", "));
+	if (fact.protected) put(fields, "protected", t("m7.lore.protected"));
+	if (fact.suppressed) put(fields, "canon", t("m7.lore.suppressed"));
+	else if (fact.override) put(fields, "canon", t("m7.lore.overridden"));
+	const out = [section("lore", fact.description ? t("m7.section.placeEntry", { title: fact.title }) : t("m7.section.lore", { title: fact.title }), str$1(fact.entry.content), fields, { source: fact.source })];
+	const override = fact.override;
+	if (override && facts.canonBook) {
+		const canonFields = {};
+		put(canonFields, "keys", fact.keys.join(", "));
+		put(canonFields, "status", t(`m7.canon.status.${override.meta.status}`));
+		put(canonFields, "overrides", (override.meta.fields ?? []).join(", "));
+		out.push(section("canon", t("m7.section.override", { title: fact.title }), str$1(override.entry.content), canonFields, { source: {
+			kind: "canon.entry",
+			ref: `${facts.canonBook}#${override.uid}`,
+			label: fact.title,
+			world: facts.canonBook,
+			uid: override.uid
+		} }));
+	}
+	return out;
+}
+function canonSections(facts, t) {
+	const book = facts.canonBook;
+	if (!book) return [];
+	return facts.canon.map((item) => {
+		const title = str$1(item.entry.comment).trim() || list(item.entry.key) || `#${item.uid}`;
+		const fields = {};
+		put(fields, "keys", list(item.entry.key));
+		put(fields, "status", t(`m7.canon.status.${item.meta.status}`));
+		put(fields, "origin", item.meta.origin);
+		put(fields, "type", item.meta.type ?? "");
+		return section("canon", t("m7.section.canonAddition", { title }), str$1(item.entry.content), fields, { source: {
+			kind: "canon.entry",
+			ref: `${book}#${item.uid}`,
+			label: title,
+			world: book,
+			uid: item.uid
+		} });
+	});
+}
+function archiveSections(facts, t) {
+	const out = [];
+	for (const archive of facts.archives) {
+		const { summary } = archive;
+		const fields = {};
+		put(fields, "name", summary.name ?? "");
+		put(fields, "book", archive.world);
+		if (summary.mbti) {
+			const variant = summary.mbti.variant ? ` · ${t(`m7.mbti.${summary.mbti.variant}`)}` : "";
+			put(fields, "mbti", `${summary.mbti.type}${variant}`);
+		}
+		put(fields, "tagCount", summary.tags.length);
+		out.push(section("ck", t("m7.section.archive", { name: archive.source.label }), summary.prose, fields, { source: archive.source }));
+	}
+	const first = facts.archives[0];
+	const tags = [...new Set(facts.archives.flatMap((archive) => archive.summary.tags))];
+	if (first && tags.length) {
+		const groups = {};
+		for (const archive of facts.archives) for (const [category, values] of Object.entries(archive.summary.groups)) {
+			const previous = groups[`tag.${category}`];
+			groups[`tag.${category}`] = previous && previous !== values ? `${previous}, ${values}` : values;
+		}
+		out.push(section("tags", t("m7.section.tags"), tags.join(" "), groups, { source: first.source }));
+	}
+	return out;
+}
+/** A passport as this chat sees it, with the card values of the fields the chat overrides (base and override). */
+function passportSection$1(fact, t) {
+	const { passport, overridden } = overridePassport(fact.passport, fact.chat);
+	const fields = passportFields(passport);
+	fields.level = t(`m7.passport.level.${fact.level}`);
+	if (fact.level === "card") fields.owner = fact.owner;
+	const effective = passportTagLine(passport);
+	const lines = [effective];
+	if (fact.chat) {
+		fields.chatOverride = overridden.length ? overridden.map((field) => field.replace(/^slot\./, "")).join(", ") : t("m7.passport.chatSame");
+		const base = passportFields(fact.passport);
+		for (const field of overridden) fields[`base.${field}`] = base[field] ?? "—";
+		const card = passportTagLine(fact.passport);
+		if (card !== effective) lines.push(t("m7.passport.cardLine", { tags: card || "—" }));
+	}
+	fields.edit = t("m7.passport.where");
+	return section("nai", t("m7.section.passport", { name: passport.name || fact.owner }), lines.join("\n"), fields, { source: fact.source });
+}
+function formsSection(facts, t) {
+	if (!facts.forms.length && !facts.formsKey) return null;
+	const fields = {};
+	put(fields, "formsKey", facts.formsKey ?? "");
+	if (!facts.desruPresent) put(fields, "desru", t("m7.forms.noDesru"));
+	return section("forms", t("m7.section.forms"), facts.forms.join(", "), fields);
+}
+function memorySection(facts, t) {
+	if (!facts.memories.length) return null;
+	const lines = facts.memories.map((memory) => `#${memory.index}${memory.longTerm ? " ★" : ""} ${memory.text}`);
+	const newest = facts.memories[facts.memories.length - 1];
+	const longTerm = facts.memories.filter((memory) => memory.longTerm).length;
+	const fields = {};
+	put(fields, "longTerm", longTerm);
+	put(fields, "recent", facts.memories.length - longTerm);
+	const extra = {};
+	if (newest) {
+		extra.messageIndex = newest.index;
+		extra.source = {
+			kind: "qvink.memory",
+			ref: String(newest.index),
+			label: `#${newest.index}`,
+			messageIndex: newest.index
+		};
+	}
+	return section("qvink", t("m7.section.qvink", { count: facts.memories.length }), lines.join("\n"), fields, extra);
+}
+function ragSection(facts, t) {
+	if (!facts.ckPresent || facts.entity.kind === "place") return null;
+	const fields = {};
+	for (const collection of facts.rag) {
+		const triggers = collection.keywords.join(", ") || t("m7.rag.noTriggers");
+		put(fields, `rag.${collection.id}`, collection.alwaysActive ? `${triggers} (${t("m7.rag.always")})` : triggers);
+	}
+	const text = facts.ragEnabled ? facts.rag.length ? t("m7.rag.on") : t("m7.rag.onNone") : t("m7.rag.off");
+	return section("rag", t("m7.section.rag"), text, fields);
+}
+function sheetSection(facts, t) {
+	const sheet = facts.sheet;
+	if (!sheet) return null;
+	const fields = {};
+	put(fields, "command", sheet.command ? `!${sheet.command}` : "");
+	put(fields, "message", `#${sheet.index}`);
+	return section("sheet", t("m7.section.sheet"), sheet.text, fields, { messageIndex: sheet.index });
+}
+/** Every section of the dossier, in page order. */
+function buildSections(facts, t) {
+	const out = [];
+	const push = (item) => {
+		if (item) out.push(item);
+	};
+	push(personaSection(facts, t));
+	out.push(...placeSections(facts, t));
+	push(desSection(facts, t));
+	const lore = [...facts.lore].sort((a, b) => Number(b.description === true) - Number(a.description === true));
+	for (const fact of lore) out.push(...loreSections(fact, facts, t));
+	out.push(...canonSections(facts, t));
+	out.push(...archiveSections(facts, t));
+	for (const passport of facts.passports) out.push(passportSection$1(passport, t));
+	push(formsSection(facts, t));
+	push(memorySection(facts, t));
+	push(ragSection(facts, t));
+	push(sheetSection(facts, t));
+	return out;
+}
+//#endregion
+//#region src/features/dossier/service.ts
+var DOSSIER_TAB = "dossier";
+var KIND_ORDER = {
+	persona: 0,
+	character: 1,
+	place: 2
+};
+/** Picker order: the persona first, then characters on scene, then the rest by kind and name. */
+function orderEntities(entities) {
+	const rank = (entity) => entity.kind === "persona" ? 0 : entity.kind === "character" && entity.present ? 1 : 2;
+	return [...entities].sort((a, b) => rank(a) - rank(b) || (KIND_ORDER[a.kind] ?? 9) - (KIND_ORDER[b.kind] ?? 9) || a.name.localeCompare(b.name));
+}
+/** Entities whose name, aliases or forms contain the query (normalised). */
+function searchEntities(entities, query) {
+	const wanted = normName(query);
+	if (!wanted) return [...entities];
+	return entities.filter((entity) => [
+		entity.name,
+		...entity.aliases,
+		...entity.forms
+	].some((name) => normName(name).includes(wanted)));
+}
+var DossierService = class {
+	app;
+	sources;
+	actions;
+	compare;
+	current = null;
+	listeners = /* @__PURE__ */ new Set();
+	constructor(app, sources, actions, compare) {
+		this.app = app;
+		this.sources = sources;
+		this.actions = actions;
+		this.compare = compare;
+	}
+	t(key, params) {
+		return this.app.i18n.t(key, params);
+	}
+	entityOrThrow(entityId) {
+		const entity = this.sources.entity(entityId);
+		if (!entity) throw new Error(this.t("m7.error.unknown", { id: entityId }));
+		return entity;
+	}
+	/** Dossier and the facts it was built from (the view needs both). */
+	async load(entityId) {
+		const entity = this.entityOrThrow(entityId);
+		const facts = await this.sources.facts(entity);
+		const t = this.t.bind(this);
+		const ai = await this.compare.last(entityId);
+		return {
+			dossier: {
+				entityId: entity.id,
+				name: entity.name,
+				kind: entity.kind,
+				builtAt: Date.now(),
+				sections: buildSections(facts, t),
+				findings: [...structuralFindings(facts, this.sources, t), ...ai?.findings ?? []]
+			},
+			facts
+		};
+	}
+	async build(entityId) {
+		return (await this.load(entityId)).dossier;
+	}
+	async check(entityId) {
+		return structuralFindings(await this.sources.facts(this.entityOrThrow(entityId)), this.sources, this.t.bind(this));
+	}
+	async compareWithAi(entityId) {
+		this.entityOrThrow(entityId);
+		return (await this.compare.request(entityId)).findings;
+	}
+	spread(edit) {
+		return this.actions.spread(edit);
+	}
+	open(entityId) {
+		this.current = entityId || null;
+		this.app.ui.openPult(DOSSIER_TAB);
+		this.emit(this.current);
+	}
+	/** The entity the dossier tab shows (null: the picker). */
+	currentId() {
+		return this.current;
+	}
+	select(entityId) {
+		this.current = entityId;
+		this.emit(entityId);
+	}
+	onChange(listener) {
+		this.listeners.add(listener);
+		return () => this.listeners.delete(listener);
+	}
+	emit(entityId) {
+		for (const listener of [...this.listeners]) try {
+			listener(entityId);
+		} catch (error) {
+			this.app.log.error("dossier listener failed", error);
+		}
+	}
+	/** Entities for the picker, ordered, and whether they come from the world model. */
+	entities(query = "") {
+		const { entities, worldOn } = this.sources.entities();
+		return {
+			entities: orderEntities(searchEntities(entities, query)),
+			worldOn
+		};
+	}
+	/** `/maestro-dossier [name]`: resolves the name (world model, else the fallback set) and opens the dossier. */
+	openByName(name) {
+		const trimmed = name.trim();
+		if (!trimmed) {
+			this.app.ui.openPult(DOSSIER_TAB);
+			return null;
+		}
+		const entity = this.sources.resolve(trimmed) ?? searchEntities(this.sources.entities().entities, trimmed)[0];
+		if (!entity) return null;
+		this.open(entity.id);
+		return entity;
+	}
+};
+//#endregion
+//#region src/features/dossier/sources.ts
+function isDict$21(value) {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function str(value) {
+	return typeof value === "string" ? value : "";
+}
+function strings$5(value) {
+	return Array.isArray(value) ? value.filter((item) => typeof item === "string") : [];
+}
+function unique(values) {
+	return [...new Set([...values].filter(Boolean))];
+}
+var PLACE_PREFIX = "place:";
+var DossierSources = class {
+	app;
+	settings;
+	log;
+	constructor(app, settings, log) {
+		this.app = app;
+		this.settings = settings;
+		this.log = log;
+	}
+	world() {
+		return this.app.modules.api("world");
+	}
+	places() {
+		return this.app.modules.api("places");
+	}
+	canon() {
+		return this.app.modules.api("canon");
+	}
+	roles() {
+		return this.app.modules.api("bookRoles");
+	}
+	/** NAI Studio's public API (0.10.0+): writes go only through it; undefined before that (read-only). */
+	naiApi() {
+		try {
+			return adaptersOf(this.app).nai.api();
+		} catch {
+			return;
+		}
+	}
+	safe(read, fallback) {
+		try {
+			return read();
+		} catch (error) {
+			this.log.debug("dossier source failed", error);
+			return fallback;
+		}
+	}
+	/** Entities to pick from: the world model's, or the fallback set without it. */
+	entities() {
+		const world = this.world();
+		if (world) try {
+			return {
+				entities: world.entities(),
+				worldOn: true
+			};
+		} catch (error) {
+			this.log.warn("world model entities failed", error);
+		}
+		return {
+			entities: this.fallbackEntities(),
+			worldOn: false
+		};
+	}
+	entity(id) {
+		const world = this.world();
+		if (world) {
+			const found = this.safe(() => world.get(id), void 0);
+			if (found) return found;
+		}
+		return this.fallbackEntities().find((entity) => entity.id === id);
+	}
+	resolve(name) {
+		const wanted = normName(name);
+		if (!wanted) return void 0;
+		const world = this.world();
+		if (world) {
+			const found = this.safe(() => world.resolve(name), void 0);
+			if (found) return found;
+		}
+		return this.entities().entities.find((entity) => normSet([
+			entity.name,
+			...entity.aliases,
+			...entity.forms
+		]).has(wanted));
+	}
+	desAliases() {
+		return this.safe(() => adaptersOf(this.app).des.aliases(), {});
+	}
+	/** Russian case forms of a name (DES-RU), empty without its API. */
+	formsOf(name) {
+		const api = this.safe(() => adaptersOf(this.app).desru.api(), void 0);
+		if (!api) return null;
+		return this.safe(() => api.nameForms(name), []);
+	}
+	formsKeyOf(name) {
+		const api = this.safe(() => adaptersOf(this.app).desru.api(), void 0);
+		if (!api) return null;
+		return this.safe(() => api.nameFormsKey(name), null);
+	}
+	/** Names in the newest DES tracker (on scene). */
+	presentNames() {
+		const des = adaptersOf(this.app).des;
+		const chat = this.app.host.ctx().chat;
+		const lookback = this.settings().trackerLookback;
+		let seen = 0;
+		for (let index = chat.length - 1; index >= 0 && seen < lookback; index--) {
+			if (chat[index]?.is_user) continue;
+			seen++;
+			const snapshot = this.safe(() => des.trackerFor(index), null);
+			if (snapshot?.characters.length) return normSet(snapshot.characters.filter((item) => !item.offScene).map((item) => item.name));
+		}
+		return /* @__PURE__ */ new Set();
+	}
+	cardCharacters() {
+		const ctx = this.app.host.ctx();
+		if (ctx.groupId) return (ctx.groups.find((item) => item.id === ctx.groupId)?.members ?? []).map((avatar) => ctx.characters.find((character) => character.avatar === avatar)).filter((character) => !!character);
+		const character = ctx.characterId === void 0 ? void 0 : ctx.characters[Number(ctx.characterId)];
+		return character ? [character] : [];
+	}
+	/** Card character(s), persona, DES roster and places, without the world model. */
+	fallbackEntities() {
+		const ctx = this.app.host.ctx();
+		const aliases = this.desAliases();
+		const present = this.safe(() => this.presentNames(), /* @__PURE__ */ new Set());
+		const out = [];
+		const known = /* @__PURE__ */ new Set();
+		const aliasesOf = (name) => {
+			const norm = normName(name);
+			for (const [canonical, list] of Object.entries(aliases)) if (normName(canonical) === norm) return unique(list);
+			return [];
+		};
+		const push = (entity) => {
+			const names = [entity.name, ...entity.aliases];
+			if (names.some((name) => known.has(`${entity.kind}:${normName(name)}`))) return;
+			for (const name of names) known.add(`${entity.kind}:${normName(name)}`);
+			out.push(entity);
+		};
+		const person = (kind, name, source) => {
+			const list = aliasesOf(name);
+			const entity = {
+				id: entityIdFor(kind, name),
+				kind,
+				name,
+				aliases: list,
+				forms: unique([name, ...list].flatMap((item) => this.formsOf(item) ?? [])),
+				sources: [source]
+			};
+			if (kind === "character") entity.present = [name, ...list].some((item) => present.has(normName(item)));
+			return entity;
+		};
+		const personaName = str(ctx.name1).trim();
+		if (personaName) push(person("persona", personaName, {
+			kind: "persona",
+			ref: personaName,
+			label: personaName
+		}));
+		for (const character of this.cardCharacters()) push(person("character", character.name, {
+			kind: "card",
+			ref: character.avatar,
+			label: character.name,
+			avatar: character.avatar
+		}));
+		const roster = this.safe(() => adaptersOf(this.app).des.knownCharacters(), []);
+		for (const name of roster) {
+			if (normName(name) === normName(personaName)) continue;
+			push(person("character", name, {
+				kind: "des.character",
+				ref: name,
+				label: name
+			}));
+		}
+		for (const place of this.safe(() => this.places()?.list() ?? [], [])) push({
+			id: `${PLACE_PREFIX}${place.id}`,
+			kind: "place",
+			name: place.name,
+			aliases: [...place.aliases],
+			forms: [...place.forms],
+			sources: [{
+				kind: "place",
+				ref: place.id,
+				label: place.name
+			}]
+		});
+		return out;
+	}
+	async loadBook(name, cache) {
+		if (cache.has(name)) return cache.get(name) ?? null;
+		let data = null;
+		try {
+			const raw = await this.app.host.ctx().loadWorldInfo?.(name);
+			data = isBookData(raw) ? raw : null;
+		} catch (error) {
+			this.log.debug(`lorebook ${name} did not load`, error);
+		}
+		cache.set(name, data);
+		return data;
+	}
+	/** BunnyMo core or pack (P13): by its M35 role, the BunnyMo adapter or the book's content. */
+	isProtected(book, data) {
+		const role = this.safe(() => this.roles()?.roleOf(book), void 0);
+		if (role && (role.readOnly || role.role === "bunnymo.core" || role.role === "bunnymo.pack")) return true;
+		const books = this.safe(() => adaptersOf(this.app).bunnymo.books(), {
+			core: [],
+			packs: [],
+			archives: []
+		});
+		if (books.core.includes(book) || books.packs.includes(book)) return true;
+		return !!data && isBunnyMoBook(book, data);
+	}
+	/** Loads a book for a write check (fresh) and tells whether it is protected. */
+	async bookState(book) {
+		const data = await this.loadBook(book, /* @__PURE__ */ new Map());
+		return {
+			data,
+			protected: this.isProtected(book, data)
+		};
+	}
+	async activeBooks() {
+		try {
+			return await adaptersOf(this.app).bunnymo.activeBooks();
+		} catch (error) {
+			this.log.debug("active books are not available", error);
+			return [];
+		}
+	}
+	archiveBooks() {
+		const adapters = adaptersOf(this.app);
+		return unique([...this.safe(() => adapters.ck.repoBooks(), []), ...this.safe(() => adapters.bunnymo.books().archives, [])]);
+	}
+	async facts(entity) {
+		const adapters = adaptersOf(this.app);
+		const worldOn = !!this.world();
+		const personlike = entity.kind === "character" || entity.kind === "persona";
+		const names = unique([entity.name, ...entity.aliases]);
+		const allNames = unique([...names, ...entity.forms]);
+		const cache = /* @__PURE__ */ new Map();
+		const canon = this.canon();
+		const canonBook = canon && this.app.host.chatId() ? this.safe(() => canon.bookName() || null, null) : null;
+		const items = canon && canonBook ? await this.canonItems(canon) : [];
+		const place = entity.kind === "place" ? this.placeFact(entity) : null;
+		const lore = await this.loreFacts(entity, names, items, canonBook, cache, place);
+		const archives = personlike ? await this.archiveFacts(entity, names, cache) : [];
+		const ck = adapters.ck;
+		const ckPresent = this.safe(() => ck.present(), false);
+		const ragEnabled = ckPresent && this.safe(() => ck.ragEnabled(), false);
+		const desPresent = this.safe(() => adapters.des.present(), false);
+		const desruApi = this.safe(() => adapters.desru.api(), void 0);
+		const persona = entity.kind === "persona" ? await this.personaFact(entity, cache) : null;
+		const facts = {
+			entity,
+			worldOn,
+			names: allNames,
+			lore,
+			canonBook,
+			canonOn: !!canon,
+			canon: this.canonAdditions(entity, names, items),
+			archives,
+			ckPresent,
+			ragEnabled,
+			rag: personlike && ckPresent ? ragCollectionsFor(this.safe(() => ck.settings()?.rag, void 0), names) : [],
+			passports: await this.passportFacts(entity, names, place, persona),
+			naiPresent: this.safe(() => adapters.nai.present(), false),
+			naiApi: !!this.naiApi(),
+			desPresent,
+			des: personlike && desPresent ? this.desFact(entity, names) : null,
+			desruPresent: !!desruApi,
+			forms: entity.forms.length ? unique(entity.forms) : unique(names.flatMap((name) => this.formsOf(name) ?? [])),
+			formsKey: desruApi ? this.formsKeyOf(entity.name) : null,
+			memories: this.memories(entity, allNames),
+			qvinkPresent: this.safe(() => adapters.qvink.present(), false),
+			sheet: personlike ? this.sheet(names) : null,
+			place,
+			persona,
+			relation: personlike ? this.relation(entity) : null,
+			cardDescription: null,
+			cardAvatar: null
+		};
+		const card = this.cardOf(entity);
+		if (card) {
+			facts.cardAvatar = card.avatar;
+			facts.cardDescription = str(card.description).trim() || null;
+		}
+		return facts;
+	}
+	async canonItems(canon) {
+		try {
+			return await canon.list();
+		} catch (error) {
+			this.log.debug("canon list failed", error);
+			return [];
+		}
+	}
+	canonAdditions(entity, names, items) {
+		const fromWorld = new Set(entity.sources.filter((source) => source.kind === "canon.entry").map((source) => source.uid));
+		return items.filter((item) => item.meta.kind === "addition" && (fromWorld.has(item.uid) || names.some((name) => keysCover(strings$5(item.entry.key), name))));
+	}
+	loreFact(world, uid, entry, data, items, canonBook) {
+		const baseKeys = strings$5(entry.key);
+		const title = str(entry.comment).trim() || baseKeys[0] || `#${uid}`;
+		const related = items.filter((item) => item.meta.base?.world === world && item.meta.base.uid === uid);
+		const override = related.find((item) => item.meta.kind === "override");
+		const fact = {
+			world,
+			uid,
+			entry,
+			title,
+			baseKeys,
+			keys: override && (!override.meta.fields || override.meta.fields.includes("key")) ? strings$5(override.entry.key) : baseKeys,
+			protected: this.isProtected(world, data),
+			source: {
+				kind: "lore.entry",
+				ref: `${world}#${uid}`,
+				label: title,
+				world,
+				uid
+			}
+		};
+		if (override) fact.override = override;
+		if (related.some((item) => item.meta.kind === "suppress")) fact.suppressed = true;
+		if (canonBook && world === canonBook) fact.source = {
+			...fact.source,
+			kind: "canon.entry"
+		};
+		return fact;
+	}
+	async loreFacts(entity, names, items, canonBook, cache, place) {
+		const out = [];
+		const seen = /* @__PURE__ */ new Set();
+		const add = async (world, uid, extra = {}) => {
+			const id = `${world}#${uid}`;
+			if (seen.has(id) || world === canonBook) return;
+			const data = await this.loadBook(world, cache);
+			const entry = data?.entries[String(uid)];
+			if (!data || !isDict$21(entry)) return;
+			seen.add(id);
+			out.push({
+				...this.loreFact(world, uid, entry, data, items, canonBook),
+				...extra
+			});
+		};
+		const description = place?.place.entry;
+		if (description) await add(description.world, description.uid, { description: true });
+		for (const source of entity.sources) if (source.kind === "lore.entry" && source.world && typeof source.uid === "number") await add(source.world, source.uid);
+		const archiveBooks = new Set(this.archiveBooks());
+		for (const book of await this.activeBooks()) {
+			if (book === canonBook || archiveBooks.has(book)) continue;
+			const data = await this.loadBook(book, cache);
+			if (!data || this.isProtected(book, data)) continue;
+			for (const { uid, entry } of enabledEntriesOf(data)) {
+				if (isCharacterArchive(entry)) continue;
+				const keys = strings$5(entry.key);
+				if (names.some((name) => keysCover(keys, name))) await add(book, uid);
+			}
+		}
+		return out;
+	}
+	async archiveFacts(entity, names, cache) {
+		const out = [];
+		const seen = /* @__PURE__ */ new Set();
+		const add = (world, uid, entry) => {
+			const id = `${world}#${uid}`;
+			if (seen.has(id)) return;
+			seen.add(id);
+			const summary = summarizeArchive(entry);
+			const label = summary.name ?? (str(entry.comment).trim() || `#${uid}`);
+			out.push({
+				world,
+				uid,
+				entry,
+				summary,
+				source: {
+					kind: "ck.archive",
+					ref: id,
+					label,
+					world,
+					uid
+				}
+			});
+		};
+		for (const source of entity.sources) {
+			if (source.kind !== "ck.archive" || !source.world || typeof source.uid !== "number") continue;
+			const entry = (await this.loadBook(source.world, cache))?.entries[String(source.uid)];
+			if (isDict$21(entry)) add(source.world, source.uid, entry);
+		}
+		const books = unique([...this.archiveBooks(), ...await this.activeBooks()]);
+		for (const book of books) {
+			const data = await this.loadBook(book, cache);
+			if (!data || this.isProtected(book, data)) continue;
+			for (const { uid, entry } of enabledEntriesOf(data)) if (names.some((name) => isArchiveOf(entry, name))) add(book, uid, entry);
+		}
+		return out;
+	}
+	/** The raw chat-level store (read directly: the API returns resolved copies, the dossier shows base and override). */
+	naiChatStore() {
+		const meta = this.app.host.ctx().chatMetadata.nai_studio;
+		const store = isDict$21(meta) ? meta.passports : void 0;
+		const overrides = {};
+		if (isDict$21(store) && isDict$21(store.overrides)) {
+			for (const [id, value] of Object.entries(store.overrides)) if (isDict$21(value)) overrides[id] = value;
+		}
+		return {
+			overrides,
+			extra: isDict$21(store) && Array.isArray(store.extra) ? store.extra.map(readPassport).filter((item) => item !== null) : []
+		};
+	}
+	/** The chat's override of a passport when it belongs to this owner (`owner` absent: any owner). */
+	chatOverride(store, id, owner) {
+		const raw = store.overrides[id];
+		if (!raw) return null;
+		if (typeof raw.owner === "string" && raw.owner && raw.owner !== owner) return null;
+		const fields = { ...raw };
+		delete fields.owner;
+		return fields;
+	}
+	cardIndexes(entity) {
+		const ctx = this.app.host.ctx();
+		const avatars = new Set(this.cardCharacters().map((character) => character.avatar));
+		for (const source of entity.sources) if (source.avatar) avatars.add(source.avatar);
+		const indexes = [];
+		ctx.characters.forEach((character, index) => {
+			if (avatars.has(character.avatar)) indexes.push(index);
+		});
+		return indexes;
+	}
+	cardOf(entity) {
+		if (entity.kind !== "character") return void 0;
+		const ctx = this.app.host.ctx();
+		const avatar = entity.sources.find((source) => source.kind === "card")?.avatar;
+		if (avatar) return ctx.characters.find((character) => character.avatar === avatar);
+		const names = normSet([entity.name, ...entity.aliases]);
+		return this.cardCharacters().find((character) => names.has(normName(character.name)));
+	}
+	async passportFacts(entity, names, place, persona) {
+		const ctx = this.app.host.ctx();
+		const nai = adaptersOf(this.app).nai;
+		const out = [];
+		const store = this.naiChatStore();
+		if (persona) {
+			const stored = this.personaPassport(persona.avatar);
+			if (stored) out.push({
+				passport: stored,
+				avatar: "",
+				owner: persona.name,
+				level: "persona",
+				chat: this.chatOverride(store, stored.id, `persona:${persona.avatar}`),
+				source: {
+					kind: "nai.passport",
+					ref: `persona#${stored.id}`,
+					label: persona.name,
+					passportId: stored.id
+				}
+			});
+			return out;
+		}
+		const wanted = new Set(entity.sources.filter((source) => source.kind === "nai.passport" && source.passportId).map((source) => `${source.avatar ?? ""}#${source.passportId ?? ""}`));
+		const matches = (passport, ref, cardName) => {
+			if (wanted.has(ref)) return true;
+			if (entity.kind === "place") return passport.id === place?.place.passportId || passport.kind === "location" && namesOverlap([passport.name, ...passport.aliases], names);
+			return passport.kind === "character" && namesOverlap([passport.name || cardName, ...passport.aliases], names);
+		};
+		for (const index of this.cardIndexes(entity)) {
+			const character = ctx.characters[index];
+			if (!character) continue;
+			for (const passport of this.safe(() => nai.passportsOf(index), [])) {
+				const ref = `${character.avatar}#${passport.id}`;
+				if (!matches(passport, ref, character.name)) continue;
+				out.push({
+					passport,
+					avatar: character.avatar,
+					owner: character.name,
+					level: "card",
+					chat: this.chatOverride(store, passport.id, character.avatar),
+					source: {
+						kind: "nai.passport",
+						ref,
+						label: passport.name || character.name,
+						passportId: passport.id,
+						avatar: character.avatar
+					}
+				});
+			}
+		}
+		const own = this.naiApi() ? this.safe(() => nai.chatPassports({ chat: true }), []) : store.extra;
+		for (const passport of own) {
+			const ref = `#${passport.id}`;
+			if (!passport.name || !matches(passport, ref, "")) continue;
+			out.push({
+				passport,
+				avatar: "",
+				owner: "",
+				level: "chat",
+				chat: null,
+				source: {
+					kind: "nai.passport",
+					ref: `chat${ref}`,
+					label: passport.name,
+					passportId: passport.id
+				}
+			});
+		}
+		return out;
+	}
+	personaPassport(avatar) {
+		const settings = this.safe(() => adaptersOf(this.app).nai.settings(), null);
+		const scene = isDict$21(settings) ? settings.scene : void 0;
+		const store = isDict$21(scene) ? scene.personaPassports : void 0;
+		if (!isDict$21(store)) return null;
+		return readPassport(store[avatar || "default"] ?? store.default);
+	}
+	desFact(entity, names) {
+		const des = adaptersOf(this.app).des;
+		const wanted = normSet(names);
+		const aliases = this.desAliases();
+		let canonical = null;
+		let aliasList = [];
+		for (const [name, list] of Object.entries(aliases)) if (wanted.has(normName(name)) || list.some((alias) => wanted.has(normName(alias)))) {
+			canonical = name;
+			aliasList = unique(list);
+			break;
+		}
+		const inRoster = this.safe(() => des.knownCharacters(), []).find((name) => wanted.has(normName(name)));
+		canonical ??= inRoster ?? null;
+		const fact = {
+			canonical: canonical ?? entity.name,
+			aliases: aliasList,
+			inRoster: !!inRoster
+		};
+		const chat = this.app.host.ctx().chat;
+		const lookback = this.settings().trackerLookback;
+		let seen = 0;
+		for (let index = chat.length - 1; index >= 0 && seen < lookback; index--) {
+			if (chat[index]?.is_user) continue;
+			seen++;
+			const character = this.safe(() => des.trackerFor(index), null)?.characters.find((item) => wanted.has(normName(item.name)));
+			if (character) {
+				fact.character = character;
+				fact.messageIndex = index;
+				break;
+			}
+		}
+		const meta = this.app.host.ctx().chatMetadata.dooms_tracker;
+		const known = isDict$21(meta) && isDict$21(meta.knownCharacters) ? meta.knownCharacters : {};
+		const rosterEntry = inRoster ? known[inRoster] : void 0;
+		if (isDict$21(rosterEntry) && typeof rosterEntry.emoji === "string") fact.rosterEmoji = rosterEntry.emoji;
+		const settings = this.safe(() => des.settings(), null) ?? {};
+		const key = fact.canonical;
+		const pick = (store) => isDict$21(store) ? store[key] : void 0;
+		const appearance = pick(settings.characterAppearance);
+		if (typeof appearance === "string" && appearance.trim()) fact.portraitPrompt = appearance.trim();
+		const injection = pick(settings.characterInjection);
+		if (isDict$21(injection) && typeof injection.description === "string" && injection.description.trim()) fact.workshopDescription = injection.description.trim();
+		const relationship = pick(settings.characterRelationships);
+		if (typeof relationship === "string" && relationship.trim()) fact.relationshipOverride = relationship.trim();
+		const user = pick(settings.userCharacters);
+		if (isDict$21(user)) fact.user = user;
+		if (!fact.inRoster && !canonical && !fact.character && !fact.user) return null;
+		return fact;
+	}
+	relation(entity) {
+		const relations = this.app.modules.api("relations");
+		if (!relations) return null;
+		const user = normName(this.app.host.ctx().name1);
+		const names = normSet([entity.name, ...entity.aliases]);
+		const list = this.safe(() => relations.of(entity.name), []);
+		return list.find((relation) => names.has(normName(relation.from)) && normName(relation.to) === user || names.has(normName(relation.to)) && normName(relation.from) === user)?.current ?? list[0]?.current ?? null;
+	}
+	memories(entity, names) {
+		const qvink = adaptersOf(this.app).qvink;
+		if (!this.safe(() => qvink.present(), false)) return [];
+		const world = this.world();
+		const matcher = mentionMatcher(names);
+		const chat = this.app.host.ctx().chat;
+		const found = [];
+		for (let index = 0; index < chat.length; index++) {
+			const memory = this.safe(() => qvink.memoryOf(index), null);
+			const text = memory?.memory.trim();
+			if (!memory || !text) continue;
+			if (mentionsAny(matcher, text) || (world ? this.safe(() => world.mentions(text).some((item) => item.id === entity.id), false) : false)) found.push({
+				index,
+				text,
+				longTerm: memory.remember || memory.include === "long"
+			});
+		}
+		return pickMemories(found, this.settings().memories);
+	}
+	sheet(names) {
+		const chat = this.app.host.ctx().chat;
+		const sheets = this.app.modules.api("sheets");
+		if (sheets) {
+			const list = names.flatMap((name) => this.safe(() => sheets.sheetsFor(name), []));
+			const full = list.filter((item) => item.command === "fullsheet");
+			const best = (full.length ? full : list).sort((a, b) => b.index - a.index)[0];
+			const message = best ? chat[best.index] : void 0;
+			if (best && message) return {
+				index: best.index,
+				text: stripDesTrackerJson(str(message.mes)).trim(),
+				command: best.command
+			};
+		}
+		return findLastSheet(chat.map((message, index) => ({
+			index,
+			text: str(message.mes),
+			isUser: message.is_user === true,
+			mark: readSheetMark(message.extra)
+		})), names);
+	}
+	placeFact(entity) {
+		const places = this.places();
+		if (!places) return null;
+		const id = entity.id.startsWith("place:") ? entity.id.slice(6) : entity.sources.find((source) => source.kind === "place")?.ref ?? "";
+		const place = this.safe(() => places.get(id), void 0);
+		if (!place) return null;
+		const parents = [];
+		const guard = /* @__PURE__ */ new Set([place.id]);
+		let parentId = place.parent;
+		while (parentId && !guard.has(parentId)) {
+			guard.add(parentId);
+			const parent = this.safe(() => places.get(parentId ?? ""), void 0);
+			if (!parent) break;
+			parents.push(parent);
+			parentId = parent.parent;
+		}
+		return {
+			place,
+			parents,
+			children: this.safe(() => places.list(), []).filter((item) => item.parent === place.id)
+		};
+	}
+	async personaAvatar() {
+		try {
+			const module = await this.app.host.modules.load("personas.js");
+			return typeof module.user_avatar === "string" ? module.user_avatar : "";
+		} catch (error) {
+			this.log.debug("personas.js is not available", error);
+			return "";
+		}
+	}
+	async personaFact(entity, cache) {
+		const ctx = this.app.host.ctx();
+		const power = ctx.powerUserSettings ?? {};
+		const lorebook = str(power.persona_description_lorebook).trim() || null;
+		const fact = {
+			name: str(ctx.name1).trim() || entity.name,
+			avatar: await this.personaAvatar(),
+			description: str(power.persona_description).trim(),
+			lorebook,
+			lorebookEntries: []
+		};
+		if (lorebook) {
+			const data = await this.loadBook(lorebook, cache);
+			if (data) fact.lorebookEntries = enabledEntriesOf(data).map(({ uid, entry }) => ({
+				uid,
+				title: str(entry.comment).trim() || entryKeys$1(entry)[0] || `#${uid}`
+			}));
+		}
+		return fact;
+	}
+};
+//#endregion
+//#region src/features/dossier/strings.ts
+var DOSSIER_STRINGS = {
+	en: {
+		"m7.title": "Dossier",
+		"m7.tab": "Dossier",
+		"kind.dossier.fix": "Dossier fixes (keys through the chat canon, place descriptions)",
+		"kind.dossier.fixFile": "Dossier fixes written into lorebook files",
+		"kind.dossier.spread": "«Spread» from the dossier",
+		"kind.dossier.note": "Dossier notes about DES",
+		"m7.worldOff": "The world model is off: only the card character, your persona, DES characters and registered places are listed.",
+		"m7.picker.search": "Search by name, alias or case form",
+		"m7.picker.hint": "Everything the stack knows about a character, a place or your persona on one page.",
+		"m7.picker.noMatch": "Nobody matches this search.",
+		"m7.picker.empty": "No characters known yet: open a chat.",
+		"m7.picker.more": "Showing {shown} of {total}: narrow the search.",
+		"m7.entity.persona": "persona",
+		"m7.entity.character": "character",
+		"m7.entity.place": "place",
+		"m7.entity.item": "item",
+		"m7.entity.faction": "faction",
+		"m7.entity.event": "event",
+		"m7.entity.tradition": "tradition",
+		"m7.entity.promise": "promise",
+		"m7.entity.secret": "secret",
+		"m7.entity.quest": "quest",
+		"m7.entity.mechanic": "mechanic",
+		"m7.present": "on scene",
+		"m7.aliases": "Also: {list}",
+		"m7.builtAt": "Built at {time}",
+		"m7.back": "All",
+		"m7.refresh": "Refresh",
+		"m7.loading": "Collecting the dossier…",
+		"m7.open": "Open",
+		"m7.findings.title": "Checks ({count})",
+		"m7.findings.none": "No structural problems found.",
+		"m7.sections.title": "What the stack knows ({count})",
+		"m7.sections.none": "Nothing is stored about this entity yet.",
+		"m7.text.more": "Show all",
+		"m7.text.less": "Collapse",
+		"m7.kind.lore": "Lore",
+		"m7.kind.canon": "Canon",
+		"m7.kind.ck": "CK archive",
+		"m7.kind.tags": "Tags",
+		"m7.kind.nai": "NAI",
+		"m7.kind.des": "DES",
+		"m7.kind.forms": "Forms",
+		"m7.kind.qvink": "Qvink",
+		"m7.kind.rag": "RAG",
+		"m7.kind.sheet": "Sheet",
+		"m7.kind.place": "Place",
+		"m7.kind.persona": "Persona",
+		"m7.source.card": "card",
+		"m7.source.persona": "persona",
+		"m7.source.des.character": "DES",
+		"m7.source.des.alias": "DES alias",
+		"m7.source.chat.alias": "chat nickname",
+		"m7.source.lore.entry": "lore",
+		"m7.source.canon.entry": "canon",
+		"m7.source.ck.archive": "CK archive",
+		"m7.source.nai.passport": "NAI passport",
+		"m7.source.qvink.memory": "Qvink",
+		"m7.source.place": "place",
+		"m7.findingKind.missingEntry": "no entry",
+		"m7.findingKind.missingPassport": "no passport",
+		"m7.findingKind.missingArchive": "no archive",
+		"m7.findingKind.aliasNotKey": "alias is not a key",
+		"m7.findingKind.nameMismatch": "names differ",
+		"m7.findingKind.formsMissing": "no case forms",
+		"m7.findingKind.appearanceMismatch": "appearance (AI)",
+		"m7.findingKind.descriptionMismatch": "description (AI)",
+		"m7.finding.missingEntry": "{name} has a DES card but no lorebook entry and nothing in the chat canon: the model learns about them only from the scene.",
+		"m7.finding.missingPassport": "{name} has no NAI Studio passport: pictures will guess the appearance.",
+		"m7.finding.missingArchive": "{name} has no CarrotKernel archive (BunnyMo tags).",
+		"m7.finding.aliasNotKey": "The DES alias «{alias}» is not a key of «{entry}»: the entry stays silent when only this name is used.",
+		"m7.finding.nameMismatch": "Stores name {name} differently: {names}.",
+		"m7.finding.formsMissing": "The key «{key}» of «{entry}» has no case forms ({count}): {forms}.",
+		"m7.finding.placeEntry": "{name} has no description entry yet.",
+		"m7.finding.p13": "The only entries are in BunnyMo books: they are never changed (P13).",
+		"m7.fix.alias": "Add «{alias}» as a key",
+		"m7.fix.forms": "Add the case forms",
+		"m7.fix.desAlias": "Note: add «{alias}» to DES aliases",
+		"m7.fix.placeEntry": "Create the description entry",
+		"m7.fix.keys.title": "Keys for «{entry}»: {keys}",
+		"m7.fix.keys.canon": "The chat canon overrides the keys of «{entry}» ({book}) with {keys} added. The book itself does not change.",
+		"m7.fix.keys.file": "Adds {keys} to the keys of «{entry}» right in the book {book} (there is no chat canon).",
+		"m7.fix.placeEntry.title": "Description entry for {name}",
+		"m7.fix.placeEntry.body": "Creates the place entry for {name} in the chat canon.",
+		"m7.decision.applied": "Done.",
+		"m7.decision.queued": "Sent to the Inbox.",
+		"m7.decision.notified": "Proposed: confirm it from the notice.",
+		"m7.decision.rejected": "Cancelled.",
+		"m7.decision.skipped": "Nothing to change.",
+		"m7.note.alias.title": "DES alias «{alias}» for {name}",
+		"m7.note.alias.body": "DES owns aliases, so Maestro does not write them. Open the DES Workshop for {name} and add «{alias}» to the aliases.",
+		"m7.note.relationship.title": "Relationship of {name} in DES: {value}",
+		"m7.note.relationship.body": "DES owns the relationship. If it should stay, set «{value}» for {name} in the DES Workshop.",
+		"m7.spread.title": "Spread",
+		"m7.spread.hint": "One edit, proposed to every chosen store by its owner’s rules: lore through the chat canon, passports through NAI Studio, DES only as a note.",
+		"m7.spread.field": "What changes",
+		"m7.spread.value": "New value",
+		"m7.spread.action": "Spread",
+		"m7.spread.empty": "Enter a value and pick at least one store.",
+		"m7.spread.done": "Proposals made: {count}.",
+		"m7.spread.nothing": "No store needs this change.",
+		"m7.spread.noTargets": "No store can take this field.",
+		"m7.spread.chatAlias": "nickname in this chat",
+		"m7.spread.field.alias": "Alias",
+		"m7.spread.field.name": "Name",
+		"m7.spread.field.appearance": "Appearance",
+		"m7.spread.field.description": "Description",
+		"m7.spread.field.relationship": "Relationship",
+		"m7.spread.field.custom": "Note",
+		"m7.spread.lore.title": "{field} → «{entry}»: {value}",
+		"m7.spread.lore.body": "The chat canon overrides «{entry}» for this chat; the base book does not change.",
+		"m7.spread.canon.body": "Updates the canon entry «{entry}» of this chat.",
+		"m7.spread.nai.title": "{field} → passport {name}: {value}",
+		"m7.spread.nai.body": "Changes the passport of {name} for this chat only, through NAI Studio (the card stays as it is).",
+		"m7.spread.place.title": "{field} → place {name}: {value}",
+		"m7.spread.place.body": "Updates the place registry of this chat.",
+		"m7.spread.alias.title": "Nickname «{alias}» → {name}",
+		"m7.spread.alias.body": "In this chat «{alias}» will mean {name}.",
+		"m7.compare.action": "Compare with AI",
+		"m7.compare.hint": "The background model looks for contradictions in appearance and descriptions between the stores. Runs in the background, never while a reply is generated.",
+		"m7.compare.estimate": "{stores} stores, ≈ {tokens} tokens, ≈ {usd}.",
+		"m7.compare.tooFew": "Fewer than two stores describe this entity: nothing to compare.",
+		"m7.compare.noChat": "Open a chat to compare.",
+		"m7.compare.notLeader": "Background work runs in another tab: compare there.",
+		"m7.compare.noProfile": "No connection profile for background tasks (Settings → profiles).",
+		"m7.compare.cap": "The daily cap for background tasks is reached.",
+		"m7.compare.last": "Last comparison at {time}: {count} found.",
+		"m7.compare.lastCost": "Last comparison at {time}: {count} found, cost {usd}.",
+		"m7.compare.today": "Background spend today: {usd}.",
+		"m7.compare.found": "AI found contradictions: {count}.",
+		"m7.compare.none": "AI found no contradictions.",
+		"m7.compare.error.timeout": "The comparison did not finish in time; it may still arrive later.",
+		"m7.compare.error.refusal": "The model refused to compare.",
+		"m7.compare.error.parse": "The model answered with something that is not the expected JSON.",
+		"m7.compare.error.cap": "The daily cap for background tasks is reached.",
+		"m7.compare.error.gone": "This entity is gone.",
+		"m7.compare.error.sources": "The stores could not be read.",
+		"m7.compare.error.disabled": "The dossier was switched off.",
+		"m7.compare.error.no-cm": "Connection Manager is off.",
+		"m7.compare.error.no-profile": "No connection profile for background tasks.",
+		"m7.compare.error.breaker-open": "The background profile keeps failing; paused for a few minutes.",
+		"m7.compare.error.other": "The comparison failed: {error}.",
+		"m7.ai.finding": "{summary}\n«{quoteA}» ({a}) vs «{quoteB}» ({b})",
+		"m7.ai.kind.appearance": "Appearance differs",
+		"m7.ai.kind.description": "Description differs",
+		"m7.p13": "«{book}» is a BunnyMo book: Maestro never changes it (P13).",
+		"m7.error.noWorldInfo": "This SillyTavern cannot load or save lorebooks.",
+		"m7.error.stale": "The entry in «{book}» changed since the proposal; nothing was written.",
+		"m7.error.noNaiApi": "NAI Studio 0.10 or newer is needed to change passports.",
+		"m7.error.noPlaces": "The places module is off.",
+		"m7.error.noWorld": "The world model is off.",
+		"m7.error.noCanon": "The chat canon is off.",
+		"m7.error.gone": "The canon entry is gone.",
+		"m7.error.unknown": "Unknown entity: {id}.",
+		"m7.persona.noDescription": "The persona has no description.",
+		"m7.place.nobody": "nobody",
+		"m7.place.visits": "Visits:",
+		"m7.des.offScene": "off scene",
+		"m7.des.noTracker": "Not in the recent DES trackers.",
+		"m7.lore.protected": "BunnyMo book (read-only)",
+		"m7.lore.suppressed": "hidden in this chat",
+		"m7.lore.overridden": "overridden in this chat",
+		"m7.canon.status.active": "active",
+		"m7.canon.status.provisional": "provisional",
+		"m7.canon.status.archived": "archived",
+		"m7.mbti.H": "healthy",
+		"m7.mbti.U": "unhealthy",
+		"m7.passport.level.card": "card",
+		"m7.passport.level.persona": "persona",
+		"m7.passport.chatSame": "same as the card",
+		"m7.passport.level.chat": "this chat only",
+		"m7.passport.cardLine": "On the card: {tags}",
+		"m7.passport.where": "NAI Studio → passport manager",
+		"m7.field.base": "{field} on the card",
+		"m7.field.edit": "Edit in",
+		"m7.forms.noDesru": "DES-RU is off",
+		"m7.rag.on": "CarrotKernel RAG is on.",
+		"m7.rag.onNone": "CarrotKernel RAG is on, but this character has no collection.",
+		"m7.rag.off": "CarrotKernel RAG is off.",
+		"m7.rag.noTriggers": "no triggers",
+		"m7.rag.always": "always",
+		"m7.section.persona": "Persona: {name}",
+		"m7.section.place": "Place: {name}",
+		"m7.section.des": "DES: {name}",
+		"m7.section.lore": "{title}",
+		"m7.section.placeEntry": "Description: {title}",
+		"m7.section.override": "Canon of this chat: {title}",
+		"m7.section.canonAddition": "Canon: {title}",
+		"m7.section.archive": "Archive: {name}",
+		"m7.section.tags": "BunnyMo tags",
+		"m7.section.passport": "Passport: {name}",
+		"m7.section.forms": "Russian case forms",
+		"m7.section.qvink": "Memories ({count})",
+		"m7.section.rag": "CarrotKernel RAG",
+		"m7.section.sheet": "Last BunnyMo sheet",
+		"m7.field.avatar": "Avatar",
+		"m7.field.lorebook": "Lorebook",
+		"m7.field.lorebookEntries": "Entries",
+		"m7.field.color": "Colour",
+		"m7.field.pronouns": "Pronouns",
+		"m7.field.relationship": "Relationship now",
+		"m7.field.aliases": "Aliases",
+		"m7.field.forms": "Case forms",
+		"m7.field.path": "Where",
+		"m7.field.children": "Inside",
+		"m7.field.firstSeen": "First seen",
+		"m7.field.lastSeen": "Last seen",
+		"m7.field.visits": "Visits",
+		"m7.field.passport": "Passport",
+		"m7.field.emoji": "Emoji",
+		"m7.field.relationshipOverride": "Relationship (Workshop)",
+		"m7.field.portraitPrompt": "Portrait prompt",
+		"m7.field.offScene": "Scene",
+		"m7.field.book": "Book",
+		"m7.field.keys": "Keys",
+		"m7.field.protected": "Protection",
+		"m7.field.canon": "Canon",
+		"m7.field.status": "Status",
+		"m7.field.overrides": "Overridden fields",
+		"m7.field.origin": "Origin",
+		"m7.field.type": "Type",
+		"m7.field.name": "Name",
+		"m7.field.mbti": "MBTI",
+		"m7.field.tagCount": "Tags",
+		"m7.field.id": "Id",
+		"m7.field.kind": "Kind",
+		"m7.field.tags": "Tags",
+		"m7.field.outfits": "Outfits",
+		"m7.field.activeOutfit": "Outfit now",
+		"m7.field.states": "States on",
+		"m7.field.negative": "Never draw",
+		"m7.field.level": "Level",
+		"m7.field.owner": "Card",
+		"m7.field.chatOverride": "Changed in this chat",
+		"m7.field.formsKey": "Regex key",
+		"m7.field.desru": "DES-RU",
+		"m7.field.longTerm": "Long-term",
+		"m7.field.recent": "Recent",
+		"m7.field.command": "Command",
+		"m7.field.message": "Message",
+		"m7.field.slot.base": "Base",
+		"m7.field.slot.hair": "Hair",
+		"m7.field.slot.eyes": "Eyes",
+		"m7.field.slot.body": "Body",
+		"m7.field.slot.skin": "Skin",
+		"m7.field.slot.clothing": "Clothing",
+		"m7.field.slot.accessories": "Accessories",
+		"m7.field.slot.style": "Style",
+		"m7.slash.help": "Opens the dossier of a character, place or your persona: /maestro-dossier [name].",
+		"m7.slash.name": "Name, alias or case form (empty: the list)",
+		"m7.slash.notFound": "Nobody named «{name}» is known."
+	},
+	ru: {
+		"m7.title": "Досье",
+		"m7.tab": "Досье",
+		"kind.dossier.fix": "Исправления из досье (ключи через канон чата, описания мест)",
+		"kind.dossier.fixFile": "Исправления из досье прямо в файлах лорбуков",
+		"kind.dossier.spread": "«Разнести» из досье",
+		"kind.dossier.note": "Заметки досье для DES",
+		"m7.worldOff": "Модель мира выключена: в списке только персонаж карточки, твоя персона, персонажи DES и известные места.",
+		"m7.picker.search": "Поиск по имени, алиасу или падежной форме",
+		"m7.picker.hint": "Всё, что стек знает о персонаже, месте или твоей персоне, — на одной странице.",
+		"m7.picker.noMatch": "Никого не нашлось.",
+		"m7.picker.empty": "Пока никого нет: открой чат.",
+		"m7.picker.more": "Показано {shown} из {total} — уточни поиск.",
+		"m7.entity.persona": "персона",
+		"m7.entity.character": "персонаж",
+		"m7.entity.place": "место",
+		"m7.entity.item": "предмет",
+		"m7.entity.faction": "фракция",
+		"m7.entity.event": "событие",
+		"m7.entity.tradition": "традиция",
+		"m7.entity.promise": "обещание",
+		"m7.entity.secret": "секрет",
+		"m7.entity.quest": "квест",
+		"m7.entity.mechanic": "механика",
+		"m7.present": "в сцене",
+		"m7.aliases": "Также: {list}",
+		"m7.builtAt": "Собрано в {time}",
+		"m7.back": "Все",
+		"m7.refresh": "Обновить",
+		"m7.loading": "Собираю досье…",
+		"m7.open": "Открыть",
+		"m7.findings.title": "Сверка ({count})",
+		"m7.findings.none": "Структурных проблем нет.",
+		"m7.sections.title": "Что знает стек ({count})",
+		"m7.sections.none": "Об этом пока ничего не записано.",
+		"m7.text.more": "Показать всё",
+		"m7.text.less": "Свернуть",
+		"m7.kind.lore": "Лор",
+		"m7.kind.canon": "Канон",
+		"m7.kind.ck": "Архив CK",
+		"m7.kind.tags": "Теги",
+		"m7.kind.nai": "NAI",
+		"m7.kind.des": "DES",
+		"m7.kind.forms": "Падежи",
+		"m7.kind.qvink": "Qvink",
+		"m7.kind.rag": "RAG",
+		"m7.kind.sheet": "Лист",
+		"m7.kind.place": "Место",
+		"m7.kind.persona": "Персона",
+		"m7.source.card": "карточка",
+		"m7.source.persona": "персона",
+		"m7.source.des.character": "DES",
+		"m7.source.des.alias": "алиас DES",
+		"m7.source.chat.alias": "прозвище в чате",
+		"m7.source.lore.entry": "лор",
+		"m7.source.canon.entry": "канон",
+		"m7.source.ck.archive": "архив CK",
+		"m7.source.nai.passport": "паспорт NAI",
+		"m7.source.qvink.memory": "Qvink",
+		"m7.source.place": "место",
+		"m7.findingKind.missingEntry": "нет записи",
+		"m7.findingKind.missingPassport": "нет паспорта",
+		"m7.findingKind.missingArchive": "нет архива",
+		"m7.findingKind.aliasNotKey": "алиас не ключ",
+		"m7.findingKind.nameMismatch": "имена расходятся",
+		"m7.findingKind.formsMissing": "нет падежей",
+		"m7.findingKind.appearanceMismatch": "внешность (ИИ)",
+		"m7.findingKind.descriptionMismatch": "описание (ИИ)",
+		"m7.finding.missingEntry": "{name}: есть карточка DES, но нет ни записи в лорбуках, ни канона чата — модель знает о персонаже только из сцены.",
+		"m7.finding.missingPassport": "{name}: нет паспорта NAI Studio — внешность на картинках будет угадываться.",
+		"m7.finding.missingArchive": "{name}: нет архива CarrotKernel (тегов BunnyMo).",
+		"m7.finding.aliasNotKey": "Алиас DES «{alias}» — не ключ записи «{entry}»: если звать персонажа только так, запись молчит.",
+		"m7.finding.nameMismatch": "Имя «{name}» в хранилищах записано по-разному: {names}.",
+		"m7.finding.formsMissing": "У ключа «{key}» записи «{entry}» нет падежных форм ({count}): {forms}.",
+		"m7.finding.placeEntry": "У места «{name}» ещё нет записи с описанием.",
+		"m7.finding.p13": "Записи есть только в книгах BunnyMo, а их Maestro не меняет (P13).",
+		"m7.fix.alias": "Добавить «{alias}» в ключи",
+		"m7.fix.forms": "Добавить падежные формы",
+		"m7.fix.desAlias": "Заметка: добавить «{alias}» в алиасы DES",
+		"m7.fix.placeEntry": "Создать запись с описанием",
+		"m7.fix.keys.title": "Ключи для «{entry}»: {keys}",
+		"m7.fix.keys.canon": "Канон чата переопределит ключи записи «{entry}» ({book}), добавив {keys}. Сама книга не меняется.",
+		"m7.fix.keys.file": "Добавит {keys} в ключи записи «{entry}» прямо в книге {book} (канона чата нет).",
+		"m7.fix.placeEntry.title": "Запись с описанием места «{name}»",
+		"m7.fix.placeEntry.body": "Создаёт в каноне чата запись о месте «{name}».",
+		"m7.decision.applied": "Готово.",
+		"m7.decision.queued": "Отправлено во «Входящие».",
+		"m7.decision.notified": "Предложено: подтверди в уведомлении.",
+		"m7.decision.rejected": "Отменено.",
+		"m7.decision.skipped": "Менять нечего.",
+		"m7.note.alias.title": "Алиас DES «{alias}» → {name}",
+		"m7.note.alias.body": "Алиасами владеет DES, Maestro их не пишет. Открой Workshop DES на персонаже «{name}» и добавь «{alias}» в алиасы.",
+		"m7.note.relationship.title": "Отношение в DES: {name} — {value}",
+		"m7.note.relationship.body": "Отношениями владеет DES. Если отношение должно закрепиться, задай «{value}» персонажу «{name}» в Workshop DES.",
+		"m7.spread.title": "Разнести",
+		"m7.spread.hint": "Одна правка — предложения во все выбранные хранилища по правилам их владельцев: лор через канон чата, паспорта через NAI Studio, DES только заметкой.",
+		"m7.spread.field": "Что меняется",
+		"m7.spread.value": "Новое значение",
+		"m7.spread.action": "Разнести",
+		"m7.spread.empty": "Введи значение и отметь хотя бы одно хранилище.",
+		"m7.spread.done": "Предложений: {count}.",
+		"m7.spread.nothing": "Ни одному хранилищу эта правка не нужна.",
+		"m7.spread.noTargets": "Это поле некуда разнести.",
+		"m7.spread.chatAlias": "прозвище в этом чате",
+		"m7.spread.field.alias": "Алиас",
+		"m7.spread.field.name": "Имя",
+		"m7.spread.field.appearance": "Внешность",
+		"m7.spread.field.description": "Описание",
+		"m7.spread.field.relationship": "Отношение",
+		"m7.spread.field.custom": "Заметка",
+		"m7.spread.lore.title": "{field} → «{entry}»: {value}",
+		"m7.spread.lore.body": "Канон чата переопределит запись «{entry}» в этом чате; базовая книга не меняется.",
+		"m7.spread.canon.body": "Обновляет запись канона «{entry}» в этом чате.",
+		"m7.spread.nai.title": "{field} → паспорт «{name}»: {value}",
+		"m7.spread.nai.body": "Меняет паспорт «{name}» только в этом чате, через NAI Studio (карточка остаётся как есть).",
+		"m7.spread.place.title": "{field} → место «{name}»: {value}",
+		"m7.spread.place.body": "Обновляет реестр мест этого чата.",
+		"m7.spread.alias.title": "Прозвище «{alias}» → {name}",
+		"m7.spread.alias.body": "В этом чате «{alias}» будет означать «{name}».",
+		"m7.compare.action": "Сверить с ИИ",
+		"m7.compare.hint": "Фоновая модель ищет противоречия во внешности и описаниях между хранилищами. Работает в фоне и никогда — во время генерации ответа.",
+		"m7.compare.estimate": "Хранилищ: {stores}, ≈ {tokens} токенов, ≈ {usd}.",
+		"m7.compare.tooFew": "Описаний меньше двух — сверять нечего.",
+		"m7.compare.noChat": "Чтобы сверить, открой чат.",
+		"m7.compare.notLeader": "Фоновая работа идёт в другой вкладке — сверяй там.",
+		"m7.compare.noProfile": "Нет профиля подключения для фоновых задач (Настройки → профили).",
+		"m7.compare.cap": "Дневной лимит фоновых задач исчерпан.",
+		"m7.compare.last": "Последняя сверка в {time}: найдено {count}.",
+		"m7.compare.lastCost": "Последняя сверка в {time}: найдено {count}, стоила {usd}.",
+		"m7.compare.today": "Фоновые расходы сегодня: {usd}.",
+		"m7.compare.found": "ИИ нашёл противоречия: {count}.",
+		"m7.compare.none": "ИИ противоречий не нашёл.",
+		"m7.compare.error.timeout": "Сверка не успела завершиться; результат может прийти позже.",
+		"m7.compare.error.refusal": "Модель отказалась сверять.",
+		"m7.compare.error.parse": "Модель ответила не тем JSON, который ожидался.",
+		"m7.compare.error.cap": "Дневной лимит фоновых задач исчерпан.",
+		"m7.compare.error.gone": "Этой сущности больше нет.",
+		"m7.compare.error.sources": "Не удалось прочитать хранилища.",
+		"m7.compare.error.disabled": "Досье выключено.",
+		"m7.compare.error.no-cm": "Connection Manager выключен.",
+		"m7.compare.error.no-profile": "Нет профиля подключения для фоновых задач.",
+		"m7.compare.error.breaker-open": "Фоновый профиль раз за разом падает; пауза на несколько минут.",
+		"m7.compare.error.other": "Сверка не удалась: {error}.",
+		"m7.ai.finding": "{summary}\n«{quoteA}» ({a}) против «{quoteB}» ({b})",
+		"m7.ai.kind.appearance": "Внешность расходится",
+		"m7.ai.kind.description": "Описание расходится",
+		"m7.p13": "«{book}» — книга BunnyMo: Maestro её не меняет (P13).",
+		"m7.error.noWorldInfo": "Этот SillyTavern не умеет загружать или сохранять лорбуки.",
+		"m7.error.stale": "Запись в «{book}» изменилась после предложения; ничего не записано.",
+		"m7.error.noNaiApi": "Чтобы менять паспорта, нужен NAI Studio 0.10 или новее.",
+		"m7.error.noPlaces": "Модуль мест выключен.",
+		"m7.error.noWorld": "Модель мира выключена.",
+		"m7.error.noCanon": "Канон чата выключен.",
+		"m7.error.gone": "Записи канона больше нет.",
+		"m7.error.unknown": "Неизвестная сущность: {id}.",
+		"m7.persona.noDescription": "У персоны нет описания.",
+		"m7.place.nobody": "никого",
+		"m7.place.visits": "Визиты:",
+		"m7.des.offScene": "вне сцены",
+		"m7.des.noTracker": "В последних трекерах DES не встречается.",
+		"m7.lore.protected": "книга BunnyMo (только чтение)",
+		"m7.lore.suppressed": "скрыта в этом чате",
+		"m7.lore.overridden": "переопределена в этом чате",
+		"m7.canon.status.active": "действует",
+		"m7.canon.status.provisional": "пробная",
+		"m7.canon.status.archived": "в архиве",
+		"m7.mbti.H": "здоровый",
+		"m7.mbti.U": "нездоровый",
+		"m7.passport.level.card": "карточка",
+		"m7.passport.level.persona": "персона",
+		"m7.passport.chatSame": "как в карточке",
+		"m7.passport.level.chat": "только этот чат",
+		"m7.passport.cardLine": "В карточке: {tags}",
+		"m7.passport.where": "NAI Studio → менеджер паспортов",
+		"m7.field.base": "{field} в карточке",
+		"m7.field.edit": "Где править",
+		"m7.forms.noDesru": "DES-RU выключен",
+		"m7.rag.on": "RAG CarrotKernel включён.",
+		"m7.rag.onNone": "RAG CarrotKernel включён, но у персонажа нет коллекции.",
+		"m7.rag.off": "RAG CarrotKernel выключен.",
+		"m7.rag.noTriggers": "без триггеров",
+		"m7.rag.always": "всегда",
+		"m7.section.persona": "Персона: {name}",
+		"m7.section.place": "Место: {name}",
+		"m7.section.des": "DES: {name}",
+		"m7.section.lore": "{title}",
+		"m7.section.placeEntry": "Описание: {title}",
+		"m7.section.override": "Канон этого чата: {title}",
+		"m7.section.canonAddition": "Канон: {title}",
+		"m7.section.archive": "Архив: {name}",
+		"m7.section.tags": "Теги BunnyMo",
+		"m7.section.passport": "Паспорт: {name}",
+		"m7.section.forms": "Падежные формы",
+		"m7.section.qvink": "Воспоминания ({count})",
+		"m7.section.rag": "RAG CarrotKernel",
+		"m7.section.sheet": "Последний лист BunnyMo",
+		"m7.field.avatar": "Аватар",
+		"m7.field.lorebook": "Лорбук",
+		"m7.field.lorebookEntries": "Записи",
+		"m7.field.color": "Цвет",
+		"m7.field.pronouns": "Местоимения",
+		"m7.field.relationship": "Отношение сейчас",
+		"m7.field.aliases": "Алиасы",
+		"m7.field.forms": "Падежные формы",
+		"m7.field.path": "Где",
+		"m7.field.children": "Внутри",
+		"m7.field.firstSeen": "Впервые",
+		"m7.field.lastSeen": "Последний раз",
+		"m7.field.visits": "Визитов",
+		"m7.field.passport": "Паспорт",
+		"m7.field.emoji": "Эмодзи",
+		"m7.field.relationshipOverride": "Отношение (Workshop)",
+		"m7.field.portraitPrompt": "Промпт портрета",
+		"m7.field.offScene": "Сцена",
+		"m7.field.book": "Книга",
+		"m7.field.keys": "Ключи",
+		"m7.field.protected": "Защита",
+		"m7.field.canon": "Канон",
+		"m7.field.status": "Статус",
+		"m7.field.overrides": "Переопределённые поля",
+		"m7.field.origin": "Откуда",
+		"m7.field.type": "Тип",
+		"m7.field.name": "Имя",
+		"m7.field.mbti": "MBTI",
+		"m7.field.tagCount": "Тегов",
+		"m7.field.id": "Id",
+		"m7.field.kind": "Вид",
+		"m7.field.tags": "Теги",
+		"m7.field.outfits": "Наряды",
+		"m7.field.activeOutfit": "Наряд сейчас",
+		"m7.field.states": "Состояния",
+		"m7.field.negative": "Никогда не рисовать",
+		"m7.field.level": "Уровень",
+		"m7.field.owner": "Карточка",
+		"m7.field.chatOverride": "Изменено в этом чате",
+		"m7.field.formsKey": "Ключ-регулярка",
+		"m7.field.desru": "DES-RU",
+		"m7.field.longTerm": "Долгих",
+		"m7.field.recent": "Недавних",
+		"m7.field.command": "Команда",
+		"m7.field.message": "Сообщение",
+		"m7.field.slot.base": "Основа",
+		"m7.field.slot.hair": "Волосы",
+		"m7.field.slot.eyes": "Глаза",
+		"m7.field.slot.body": "Тело",
+		"m7.field.slot.skin": "Кожа",
+		"m7.field.slot.clothing": "Одежда",
+		"m7.field.slot.accessories": "Аксессуары",
+		"m7.field.slot.style": "Стиль",
+		"m7.slash.help": "Открывает досье персонажа, места или твоей персоны: /maestro-dossier [имя].",
+		"m7.slash.name": "Имя, алиас или падежная форма (пусто — список)",
+		"m7.slash.notFound": "Никого по имени «{name}» не знаю."
+	}
+};
+//#endregion
+//#region src/features/dossier/view.ts
+var PICKER_LIMIT$1 = 60;
+var TEXT_PREVIEW = 1200;
+var OPEN_SECTIONS = 3;
+var DOSSIER_CSS = `
+.maestro-m7 { display: flex; flex-direction: column; gap: var(--maestro-gap); }
+.maestro-m7-search { width: 100%; box-sizing: border-box; }
+.maestro-m7-picker { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.maestro-m7-chip { display: inline-flex; align-items: center; gap: 4px; max-width: 100%; }
+.maestro-m7-chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.maestro-m7-chip.maestro-m7-present { border-color: var(--maestro-accent); }
+.maestro-m7-head { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.maestro-m7-name { font-weight: 600; font-size: 1.1em; overflow-wrap: anywhere; }
+.maestro-m7-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.maestro-m7-findings { display: flex; flex-direction: column; gap: 6px; }
+.maestro-m7-finding { border: 1px solid var(--maestro-border); border-radius: var(--maestro-radius-sm); padding: 6px 8px; display: flex; flex-direction: column; gap: 4px; }
+.maestro-m7-finding-head { display: flex; flex-wrap: wrap; gap: 6px; align-items: baseline; }
+.maestro-m7-finding-text { overflow-wrap: anywhere; white-space: pre-wrap; }
+.maestro-m7-sources { display: flex; flex-wrap: wrap; gap: 4px; font-size: 0.85em; }
+.maestro-m7-sections { display: flex; flex-direction: column; gap: 6px; }
+.maestro-m7-section { border: 1px solid var(--maestro-border); border-radius: var(--maestro-radius-sm); padding: 4px 8px; }
+.maestro-m7-section > summary { cursor: pointer; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; min-height: 32px; }
+.maestro-m7-section-title { font-weight: 600; overflow-wrap: anywhere; }
+.maestro-m7-fields { display: grid; grid-template-columns: minmax(0, 1fr); gap: 2px 10px; margin: 6px 0; }
+.maestro-m7-field { display: flex; flex-direction: column; }
+.maestro-m7-field dt { color: var(--maestro-muted); font-size: 0.85em; }
+.maestro-m7-field dd { margin: 0; overflow-wrap: anywhere; }
+@media (min-width: 700px) {
+  .maestro-m7-fields { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+}
+.maestro-m7-text { white-space: pre-wrap; overflow-wrap: anywhere; margin: 4px 0; font-size: 0.95em; }
+.maestro-m7-spread { display: flex; flex-direction: column; gap: 6px; }
+.maestro-m7-spread-value { width: 100%; box-sizing: border-box; min-height: 2.5em; }
+.maestro-m7-targets { display: flex; flex-direction: column; gap: 2px; }
+`;
+var FIELDS = [
+	"alias",
+	"name",
+	"appearance",
+	"description",
+	"relationship",
+	"custom"
+];
+var TARGET_KINDS = {
+	alias: [
+		"lore.entry",
+		"canon.entry",
+		"nai.passport",
+		"place",
+		"des.character",
+		"chat.alias"
+	],
+	name: [
+		"lore.entry",
+		"canon.entry",
+		"nai.passport",
+		"place",
+		"des.character"
+	],
+	appearance: [
+		"lore.entry",
+		"canon.entry",
+		"nai.passport"
+	],
+	description: ["lore.entry", "canon.entry"],
+	relationship: [
+		"lore.entry",
+		"canon.entry",
+		"des.character"
+	],
+	custom: ["lore.entry", "canon.entry"]
+};
+/** Targets of «Разнести» for a field: the dossier's sources that can take it (plus the chat alias map). */
+function spreadTargets(dossier, field, options) {
+	const allowed = TARGET_KINDS[field];
+	const out = [];
+	const seen = /* @__PURE__ */ new Set();
+	for (const item of dossier.sections) {
+		const source = item.source;
+		if (!source || !allowed.includes(source.kind)) continue;
+		if (source.kind === "nai.passport" && (!options.naiWrites || !source.avatar)) continue;
+		if (item.fields?.protected) continue;
+		const id = `${source.kind}:${source.ref}`;
+		if (seen.has(id)) continue;
+		seen.add(id);
+		out.push(source);
+	}
+	if (field === "alias" && options.worldOn && dossier.kind !== "place") out.push({
+		kind: "chat.alias",
+		ref: dossier.entityId,
+		label: options.chatAliasLabel
+	});
+	return out;
+}
+var KIND_ICONS = {
+	persona: "fa-user",
+	character: "fa-user-group",
+	place: "fa-location-dot"
+};
+function dossierTab(app, service, opener) {
+	const t = app.i18n.t.bind(app.i18n);
+	const fieldLabel = (key) => {
+		if (key.startsWith("base.")) return t("m7.field.base", { field: fieldLabel(key.slice(5)) });
+		const dot = key.indexOf(".");
+		const head = dot > 0 ? key.slice(0, dot) : key;
+		const rest = dot > 0 ? key.slice(dot + 1) : "";
+		if ([
+			"stat",
+			"tag",
+			"state",
+			"rag"
+		].includes(head) && rest) return rest;
+		if (head === "detail" && rest) return rest.replace(/_/g, " ");
+		if (head === "slot" && rest) return tOr(app.i18n, `m7.field.slot.${rest}`, rest);
+		return tOr(app.i18n, `m7.field.${key}`, key);
+	};
+	const notifyError = (error) => {
+		const text = error instanceof Error ? error.message : String(error);
+		app.ui.notice(text, { level: error instanceof ProtectedBookError ? "warn" : "error" });
+	};
+	return {
+		id: DOSSIER_TAB,
+		titleKey: "m7.tab",
+		icon: "fa-address-card",
+		order: 44,
+		render(container) {
+			let alive = true;
+			let query = "";
+			let loaded = null;
+			let loadingId = null;
+			let error = "";
+			let spreadField = "alias";
+			const root = el("div", { class: "maestro-view maestro-m7" });
+			container.appendChild(root);
+			const chip = (entity) => button({
+				label: entity.name,
+				icon: KIND_ICONS[entity.kind] ?? "fa-circle",
+				title: [tOr(app.i18n, `m7.entity.${entity.kind}`, entity.kind), ...entity.aliases].join(" · "),
+				className: ["maestro-m7-chip", entity.present ? "maestro-m7-present" : ""].filter(Boolean).join(" "),
+				onClick: () => service.select(entity.id)
+			});
+			const pickerList = el("div", { class: "maestro-m7-picker" });
+			const fillPicker = () => {
+				clear(pickerList);
+				const { entities } = service.entities(query);
+				if (!entities.length) {
+					pickerList.appendChild(emptyState(t(query ? "m7.picker.noMatch" : "m7.picker.empty"), "fa-user-slash"));
+					return;
+				}
+				for (const entity of entities.slice(0, PICKER_LIMIT$1)) pickerList.appendChild(chip(entity));
+				if (entities.length > PICKER_LIMIT$1) pickerList.appendChild(el("div", {
+					class: "maestro-muted",
+					text: t("m7.picker.more", {
+						shown: PICKER_LIMIT$1,
+						total: entities.length
+					})
+				}));
+			};
+			const pickerView = () => {
+				const { worldOn } = service.entities();
+				const search = el("input", {
+					class: "text_pole maestro-m7-search",
+					attrs: {
+						type: "search",
+						placeholder: t("m7.picker.search"),
+						"aria-label": t("m7.picker.search")
+					}
+				});
+				search.value = query;
+				search.addEventListener("input", () => {
+					query = search.value;
+					fillPicker();
+				});
+				fillPicker();
+				return section$1(t("m7.title"), [
+					worldOn ? null : banner(t("m7.worldOff"), "info", "fa-circle-info"),
+					el("div", {
+						class: "maestro-hint",
+						text: t("m7.picker.hint")
+					}),
+					search,
+					pickerList
+				]);
+			};
+			const decisionText = (decision) => t(`m7.decision.${decision}`);
+			const sourceChip = (source) => el("span", {
+				class: "maestro-badge-pill maestro-level-muted",
+				text: `${t(`m7.source.${source.kind}`)}: ${source.label}`
+			});
+			const findingView = (finding) => {
+				const fix = finding.fix;
+				return el("div", {
+					class: "maestro-m7-finding",
+					data: { kind: finding.kind }
+				}, [
+					el("div", { class: "maestro-m7-finding-head" }, [badge(t(`m7.findingKind.${finding.kind}`), finding.severity === "warn" ? "warn" : "info")]),
+					el("div", {
+						class: "maestro-m7-finding-text",
+						text: finding.text
+					}),
+					finding.sources.length ? el("div", { class: "maestro-m7-sources" }, finding.sources.map(sourceChip)) : null,
+					fix ? el("div", { class: "maestro-m7-actions" }, [button({
+						label: fix.label,
+						icon: "fa-wrench",
+						onClick: async () => {
+							try {
+								const decision = await service.actions.fix(finding);
+								app.ui.notice(decisionText(decision));
+							} catch (problem) {
+								notifyError(problem);
+							}
+							if (alive) reload();
+						}
+					})]) : null
+				]);
+			};
+			const textView = (text) => {
+				if (!text) return null;
+				const node = el("div", { class: "maestro-m7-text" });
+				if (text.length <= TEXT_PREVIEW) {
+					node.textContent = text;
+					return node;
+				}
+				let full = false;
+				const body = el("span", { text: `${text.slice(0, TEXT_PREVIEW)}…` });
+				const toggle = button({
+					label: t("m7.text.more"),
+					kind: "ghost",
+					onClick: () => {
+						full = !full;
+						body.textContent = full ? text : `${text.slice(0, TEXT_PREVIEW)}…`;
+						const label = toggle.querySelector("span");
+						if (label) label.textContent = t(full ? "m7.text.less" : "m7.text.more");
+					}
+				});
+				node.append(body, el("div", {}, [toggle]));
+				return node;
+			};
+			const sectionView = (item, index) => {
+				const details = el("details", {
+					class: "maestro-m7-section",
+					data: { kind: item.kind }
+				});
+				if (index < OPEN_SECTIONS) details.open = true;
+				const fields = Object.entries(item.fields ?? {});
+				append(details, [
+					el("summary", {}, [badge(t(`m7.kind.${item.kind}`), "muted"), el("span", {
+						class: "maestro-m7-section-title",
+						text: item.title
+					})]),
+					fields.length ? el("dl", { class: "maestro-m7-fields" }, fields.map(([key, value]) => el("div", { class: "maestro-m7-field" }, [el("dt", { text: fieldLabel(key) }), el("dd", { text: value })]))) : null,
+					textView(item.text),
+					opener.canOpen(item) ? el("div", { class: "maestro-m7-actions" }, [button({
+						label: t("m7.open"),
+						icon: "fa-arrow-up-right-from-square",
+						kind: "ghost",
+						onClick: () => opener.open(item)
+					})]) : null
+				]);
+				return details;
+			};
+			const compareView = (data) => {
+				const { estimate, snippets } = service.compare.plan(data.facts);
+				const blocker = service.compare.blocker();
+				const last = service.compare.lastCached(data.dossier.entityId);
+				const summary = app.cost.summary();
+				const lines = [
+					el("div", {
+						class: "maestro-muted",
+						text: snippets.length >= 2 ? t("m7.compare.estimate", {
+							stores: snippets.length,
+							tokens: estimate.input + estimate.output,
+							usd: formatUsd(estimate.usd, app.i18n)
+						}) : t("m7.compare.tooFew")
+					}),
+					blocker ? el("div", {
+						class: "maestro-warn-text",
+						text: t(`m7.compare.${blocker}`)
+					}) : null,
+					last ? el("div", {
+						class: "maestro-muted",
+						text: t(last.costUsd !== void 0 ? "m7.compare.lastCost" : "m7.compare.last", {
+							time: formatTime(last.at, app.i18n),
+							count: last.findings.length,
+							usd: formatUsd(last.costUsd ?? 0, app.i18n)
+						})
+					}) : null,
+					el("div", {
+						class: "maestro-muted",
+						text: t("m7.compare.today", { usd: formatUsd(summary.backgroundTodayUsd, app.i18n) })
+					})
+				];
+				return el("div", { class: "maestro-m7-compare" }, [el("div", { class: "maestro-m7-actions" }, [button({
+					label: t("m7.compare.action"),
+					icon: "fa-wand-magic-sparkles",
+					disabled: !!blocker || snippets.length < 2,
+					title: t("m7.compare.hint"),
+					onClick: async () => {
+						try {
+							const findings = await service.compareWithAi(data.dossier.entityId);
+							app.ui.notice(findings.length ? t("m7.compare.found", { count: findings.length }) : t("m7.compare.none"));
+						} catch (problem) {
+							notifyError(problem instanceof CompareError ? new Error(problem.message) : problem);
+						}
+						if (alive) reload();
+					}
+				})]), ...lines]);
+			};
+			const spreadView = (data) => {
+				const naiWrites = !!service.sources.naiApi();
+				const box = el("div", { class: "maestro-m7-spread" });
+				const targetsBox = el("div", { class: "maestro-m7-targets" });
+				const value = el("textarea", {
+					class: "text_pole maestro-m7-spread-value",
+					attrs: {
+						rows: 2,
+						placeholder: t("m7.spread.value"),
+						"aria-label": t("m7.spread.value")
+					}
+				});
+				let checked = /* @__PURE__ */ new Map();
+				const fillTargets = () => {
+					clear(targetsBox);
+					checked = /* @__PURE__ */ new Map();
+					const targets = spreadTargets(data.dossier, spreadField, {
+						naiWrites,
+						worldOn: data.facts.worldOn,
+						chatAliasLabel: t("m7.spread.chatAlias")
+					});
+					if (!targets.length) {
+						targetsBox.appendChild(el("div", {
+							class: "maestro-muted",
+							text: t("m7.spread.noTargets")
+						}));
+						return;
+					}
+					for (const source of targets) {
+						const input = el("input", { attrs: { type: "checkbox" } });
+						input.checked = true;
+						checked.set(`${source.kind}:${source.ref}`, {
+							source,
+							input
+						});
+						targetsBox.appendChild(el("label", { class: "checkbox_label" }, [input, el("span", { text: `${t(`m7.source.${source.kind}`)}: ${source.label}` })]));
+					}
+				};
+				fillTargets();
+				box.append(el("div", {
+					class: "maestro-hint",
+					text: t("m7.spread.hint")
+				}), select({
+					value: spreadField,
+					label: t("m7.spread.field"),
+					options: FIELDS.map((field) => ({
+						value: field,
+						label: t(`m7.spread.field.${field}`)
+					})),
+					onChange: (field) => {
+						spreadField = field;
+						fillTargets();
+					}
+				}), value, targetsBox, el("div", { class: "maestro-m7-actions" }, [button({
+					label: t("m7.spread.action"),
+					icon: "fa-share-nodes",
+					kind: "primary",
+					onClick: async () => {
+						const text = value.value.trim();
+						const targets = [...checked.values()].filter((item) => item.input.checked).map((item) => item.source);
+						if (!text || !targets.length) {
+							app.ui.notice(t("m7.spread.empty"), { level: "warn" });
+							return;
+						}
+						try {
+							const count = await service.spread({
+								entityId: data.dossier.entityId,
+								field: spreadField,
+								value: text,
+								targets
+							});
+							app.ui.notice(count ? t("m7.spread.done", { count }) : t("m7.spread.nothing"));
+							if (count) value.value = "";
+						} catch (problem) {
+							notifyError(problem);
+						}
+					}
+				})]));
+				return box;
+			};
+			const dossierView = (data) => {
+				const { dossier, facts } = data;
+				const entity = facts.entity;
+				const structural = dossier.findings.filter((finding) => finding.kind !== "appearanceMismatch" && finding.kind !== "descriptionMismatch");
+				const ai = dossier.findings.filter((finding) => !structural.includes(finding));
+				return [
+					section$1(t("m7.title"), [
+						el("div", { class: "maestro-m7-head" }, [
+							icon(KIND_ICONS[entity.kind] ?? "fa-circle"),
+							el("span", {
+								class: "maestro-m7-name",
+								text: dossier.name
+							}),
+							badge(tOr(app.i18n, `m7.entity.${entity.kind}`, entity.kind), "muted"),
+							entity.present ? badge(t("m7.present"), "ok") : null
+						]),
+						entity.aliases.length ? el("div", {
+							class: "maestro-muted",
+							text: t("m7.aliases", { list: entity.aliases.join(", ") })
+						}) : null,
+						facts.worldOn ? null : banner(t("m7.worldOff"), "info", "fa-circle-info"),
+						el("div", {
+							class: "maestro-muted",
+							text: t("m7.builtAt", { time: formatTime(dossier.builtAt, app.i18n) })
+						})
+					], [button({
+						label: t("m7.back"),
+						icon: "fa-arrow-left",
+						kind: "ghost",
+						onClick: () => service.select(null)
+					}), button({
+						label: t("m7.refresh"),
+						icon: "fa-rotate",
+						onClick: () => reload()
+					})]),
+					section$1(t("m7.findings.title", { count: dossier.findings.length }), [
+						structural.length ? el("div", { class: "maestro-m7-findings" }, structural.map(findingView)) : emptyState(t("m7.findings.none")),
+						ai.length ? el("div", { class: "maestro-m7-findings" }, ai.map(findingView)) : null,
+						compareView(data)
+					]),
+					section$1(t("m7.sections.title", { count: dossier.sections.length }), dossier.sections.length ? el("div", { class: "maestro-m7-sections" }, dossier.sections.map(sectionView)) : emptyState(t("m7.sections.none"), "fa-folder-open")),
+					section$1(t("m7.spread.title"), spreadView(data))
+				];
+			};
+			const draw = () => {
+				if (!alive) return;
+				clear(root);
+				const current = service.currentId();
+				if (!current) {
+					root.appendChild(pickerView());
+					return;
+				}
+				if (error) {
+					root.append(banner(error, "error"), button({
+						label: t("m7.back"),
+						icon: "fa-arrow-left",
+						onClick: () => service.select(null)
+					}));
+					return;
+				}
+				if (!loaded || loaded.dossier.entityId !== current) {
+					root.appendChild(el("div", {
+						class: "maestro-muted",
+						text: t("m7.loading")
+					}));
+					return;
+				}
+				root.append(...dossierView(loaded));
+			};
+			const reload = async () => {
+				const current = service.currentId();
+				if (!current) {
+					loaded = null;
+					error = "";
+					draw();
+					return;
+				}
+				loadingId = current;
+				error = "";
+				draw();
+				try {
+					const result = await service.load(current);
+					if (!alive || loadingId !== current) return;
+					loaded = result;
+				} catch (problem) {
+					if (!alive || loadingId !== current) return;
+					loaded = null;
+					error = problem instanceof Error ? problem.message : String(problem);
+				}
+				loadingId = null;
+				draw();
+			};
+			const offChange = service.onChange((entityId) => {
+				if (!alive) return;
+				if (entityId === null || entityId !== service.currentId()) {
+					reload();
+					return;
+				}
+				if (loadingId === entityId) return;
+				reload();
+			});
+			const offWorld = service.sources.world()?.onChange(() => {
+				if (alive && !service.currentId()) fillPicker();
+			});
+			reload();
+			return () => {
+				alive = false;
+				offChange();
+				offWorld?.();
+			};
+		}
+	};
+}
+//#endregion
+//#region src/features/dossier/index.ts
+var dossierModule = {
+	id: "M7",
+	key: DOSSIER_KEY,
+	stage: 3,
+	titleKey: "m7.title",
+	enabledByDefault: true,
+	defaults: defaultDossierSettings,
+	i18n: DOSSIER_STRINGS,
+	init({ app, log, own }) {
+		const settings = () => readDossierSettings(app.settings.module(DOSSIER_KEY));
+		const sources = new DossierSources(app, settings, log);
+		const actions = new DossierActions(app, sources, log);
+		for (const off of actions.install()) own(off);
+		const compare = new DossierCompare(app, sources, settings, log);
+		for (const off of compare.install()) own(off);
+		const service = new DossierService(app, sources, actions, compare);
+		own(compare.onResult((entityId) => service.emit(entityId)));
+		try {
+			own(adaptersOf(app).nai.on("passportsSaved", () => service.emit(service.currentId())));
+		} catch (error) {
+			log.debug("NAI Studio events are not available", error);
+		}
+		const opener = new DossierOpener(app, log);
+		app.modules.expose(DOSSIER_KEY, {
+			build: (entityId) => service.build(entityId),
+			check: (entityId) => service.check(entityId),
+			compareWithAi: (entityId) => service.compareWithAi(entityId),
+			spread: (edit) => service.spread(edit),
+			open: (entityId) => service.open(entityId),
+			onChange: (listener) => service.onChange(listener)
+		});
+		own(app.ui.style("m7-dossier", DOSSIER_CSS));
+		own(app.ui.addTab(dossierTab(app, service, opener)));
+		own(app.ui.addSlashCommand({
+			name: "maestro-dossier",
+			helpKey: "m7.slash.help",
+			args: [{
+				name: "value",
+				descriptionKey: "m7.slash.name",
+				optional: true
+			}],
+			callback: (_args, value) => {
+				const name = String(value ?? "").trim();
+				if (!name) {
+					service.openByName("");
+					return "";
+				}
+				return service.openByName(name) ? "" : app.i18n.t("m7.slash.notFound", { name });
+			}
 		}));
 	}
 };
@@ -16650,14 +25106,14 @@ var StaleBanner = class {
 };
 //#endregion
 //#region src/domain/settings-diff.ts
-function isDict$18(value) {
+function isDict$20(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /** JSON with sorted object keys; `undefined` (also nested) becomes null. Throws on cycles, like JSON. */
 function stableStringify(value) {
 	return JSON.stringify(value === void 0 ? null : value, (_key, item) => {
 		if (item === void 0) return null;
-		if (!isDict$18(item)) return item;
+		if (!isDict$20(item)) return item;
 		const sorted = {};
 		for (const key of Object.keys(item).sort()) sorted[key] = item[key];
 		return sorted;
@@ -16689,7 +25145,7 @@ function jsonCopy(value) {
 function getPath(source, path) {
 	let current = source;
 	for (const part of path.split(".")) {
-		if (!isDict$18(current)) return void 0;
+		if (!isDict$20(current)) return void 0;
 		current = current[part];
 	}
 	return current;
@@ -16702,7 +25158,7 @@ function setPath(target, path, value) {
 	let current = target;
 	for (const part of parts) {
 		const next = current[part];
-		if (isDict$18(next)) current = next;
+		if (isDict$20(next)) current = next;
 		else {
 			const created = {};
 			current[part] = created;
@@ -16717,7 +25173,7 @@ function pathMatches(path, patterns) {
 	return patterns.some((pattern) => path === pattern || path.startsWith(`${pattern}.`));
 }
 function omitKeys(value, omit) {
-	if (!omit?.length || !isDict$18(value)) return value;
+	if (!omit?.length || !isDict$20(value)) return value;
 	const copy = { ...value };
 	for (const key of omit) delete copy[key];
 	return copy;
@@ -16731,7 +25187,7 @@ function pickTracked(source, specs, prefix) {
 		values: {},
 		restore: {}
 	};
-	if (!isDict$18(source)) return part;
+	if (!isDict$20(source)) return part;
 	for (const spec of specs) {
 		const raw = getPath(source, spec.path);
 		if (raw === void 0) continue;
@@ -16751,7 +25207,7 @@ function pickTracked(source, specs, prefix) {
 }
 /** Every own key of `source` except `deny` (and keys starting with `_`), for neighbours without a fixed schema. */
 function keysExcept(source, deny) {
-	if (!isDict$18(source)) return [];
+	if (!isDict$20(source)) return [];
 	return Object.keys(source).filter((key) => !deny.includes(key) && !key.startsWith("_") && !key.includes(".")).sort().map((key) => ({ path: key }));
 }
 /** Merges tracked parts (later parts win on equal paths). */
@@ -16834,7 +25290,7 @@ function acknowledgePaths(baseline, current, patterns) {
 * tab would overwrite). Keys that cannot be serialised are skipped. Best effort by design.
 */
 function topLevelDiff(local, server, options) {
-	if (!isDict$18(local) || !isDict$18(server)) return [];
+	if (!isDict$20(local) || !isDict$20(server)) return [];
 	const keys = [.../* @__PURE__ */ new Set([...Object.keys(local), ...Object.keys(server)])].sort();
 	const result = [];
 	for (const key of keys) {
@@ -16851,7 +25307,7 @@ function topLevelDiff(local, server, options) {
 	return result;
 }
 function readStamp(value) {
-	if (!isDict$18(value)) return null;
+	if (!isDict$20(value)) return null;
 	const { tabId, seq, at } = value;
 	if (typeof tabId !== "string" || !tabId) return null;
 	if (typeof seq !== "number" || !Number.isFinite(seq)) return null;
@@ -16870,7 +25326,7 @@ function parseSettingsText(text) {
 	if (typeof text !== "string") return void 0;
 	try {
 		const parsed = JSON.parse(text);
-		return isDict$18(parsed) ? parsed : void 0;
+		return isDict$20(parsed) ? parsed : void 0;
 	} catch {
 		return;
 	}
@@ -16888,18 +25344,18 @@ function isTabFresh(known, server, myTabId) {
 //#region src/features/guardian/baseline.ts
 var BASELINE_FILE = "maestro-baseline.json";
 var DISMISSED_LIMIT = 20;
-function isDict$17(value) {
+function isDict$19(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /** Validates a stored file; null for anything that is not a baseline. */
 function readBaseline(raw) {
-	if (!isDict$17(raw) || raw.schema !== 1 || !isDict$17(raw.values)) return null;
+	if (!isDict$19(raw) || raw.schema !== 1 || !isDict$19(raw.values)) return null;
 	return {
 		schema: 1,
 		takenAt: typeof raw.takenAt === "number" ? raw.takenAt : 0,
 		reason: typeof raw.reason === "string" ? raw.reason : "",
 		values: raw.values,
-		restore: isDict$17(raw.restore) ? raw.restore : {},
+		restore: isDict$19(raw.restore) ? raw.restore : {},
 		dismissed: Array.isArray(raw.dismissed) ? raw.dismissed.filter((item) => typeof item === "string") : []
 	};
 }
@@ -16962,7 +25418,7 @@ var BaselineStore = class {
 };
 //#endregion
 //#region src/domain/medic-prefill.ts
-function isDict$16(value) {
+function isDict$18(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /**
@@ -16971,17 +25427,17 @@ function isDict$16(value) {
 */
 function activePromptOrder(promptOrder, characterId) {
 	if (!Array.isArray(promptOrder)) return [];
-	const lists = promptOrder.filter(isDict$16);
+	const lists = promptOrder.filter(isDict$18);
 	const find = (id) => id === void 0 ? void 0 : lists.find((item) => String(item.character_id) === String(id));
 	const chosen = find(100001) ?? find(characterId) ?? lists[0];
-	return (chosen && Array.isArray(chosen.order) ? chosen.order : []).filter(isDict$16).filter((item) => typeof item.identifier === "string").map((item) => ({
+	return (chosen && Array.isArray(chosen.order) ? chosen.order : []).filter(isDict$18).filter((item) => typeof item.identifier === "string").map((item) => ({
 		identifier: item.identifier,
 		enabled: item.enabled !== false
 	}));
 }
 /** Index of the prompt list entry with this identifier (oai_settings.prompts). */
 function promptIndex(prompts, identifier) {
-	return Array.isArray(prompts) ? prompts.findIndex((prompt) => isDict$16(prompt) && prompt.identifier === identifier) : -1;
+	return Array.isArray(prompts) ? prompts.findIndex((prompt) => isDict$18(prompt) && prompt.identifier === identifier) : -1;
 }
 function hasContent(prompt) {
 	return typeof prompt.content === "string" && prompt.content.trim() !== "";
@@ -16994,7 +25450,7 @@ function hasContent(prompt) {
 function findAssistantPrefill(prompts, order) {
 	if (!Array.isArray(prompts)) return null;
 	const byId = /* @__PURE__ */ new Map();
-	for (const prompt of prompts) if (isDict$16(prompt) && typeof prompt.identifier === "string") byId.set(prompt.identifier, prompt);
+	for (const prompt of prompts) if (isDict$18(prompt) && typeof prompt.identifier === "string") byId.set(prompt.identifier, prompt);
 	const name = (prompt, identifier) => typeof prompt.name === "string" && prompt.name ? prompt.name : identifier;
 	for (const entry of order) {
 		if (!entry.enabled) continue;
@@ -17028,7 +25484,7 @@ function findAssistantPrefill(prompts, order) {
 }
 //#endregion
 //#region src/features/guardian/tracked.ts
-function isDict$15(value) {
+function isDict$17(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /** Preset fields that hold addresses, keys or passwords: never stored, kept as they are on restore. */
@@ -17181,7 +25637,7 @@ function empty() {
 }
 function liveOai(app) {
 	const settings = app.host.ctx().chatCompletionSettings;
-	return isDict$15(settings) ? settings : null;
+	return isDict$17(settings) ? settings : null;
 }
 function withoutKeys(source, keys) {
 	const copy = { ...source };
@@ -17194,7 +25650,7 @@ async function livePresetBody(app, log) {
 	try {
 		const get = (await app.host.modules.openai()).getChatCompletionPreset;
 		const body = typeof get === "function" ? get() : null;
-		return isDict$15(body) ? jsonCopy(withoutKeys(body, PRESET_SECRET_KEYS)) : null;
+		return isDict$17(body) ? jsonCopy(withoutKeys(body, PRESET_SECRET_KEYS)) : null;
 	} catch (error) {
 		log.debug("preset body unavailable", error);
 		return null;
@@ -17209,7 +25665,7 @@ async function presetPart(app, log) {
 	const order = activePromptOrder(oai.prompt_order);
 	part.values["preset.order"] = order.map((entry) => entry.identifier);
 	part.values["preset.toggles"] = Object.fromEntries(order.map((entry) => [entry.identifier, entry.enabled]));
-	const ids = (Array.isArray(oai.prompts) ? oai.prompts.filter(isDict$15) : []).filter((prompt) => typeof prompt.identifier === "string");
+	const ids = (Array.isArray(oai.prompts) ? oai.prompts.filter(isDict$17) : []).filter((prompt) => typeof prompt.identifier === "string");
 	part.values["preset.roles"] = Object.fromEntries(ids.map((prompt) => [prompt.identifier, typeof prompt.role === "string" ? prompt.role : "system"]));
 	part.values["preset.contents"] = Object.fromEntries(ids.filter((prompt) => prompt.marker !== true).map((prompt) => [prompt.identifier, valueHash({
 		name: prompt.name ?? null,
@@ -17233,7 +25689,7 @@ function regexPart(app) {
 	const scripts = app.host.ctx().extensionSettings.regex;
 	if (!Array.isArray(scripts)) return part;
 	for (const script of scripts) {
-		if (!isDict$15(script) || typeof script.id !== "string" || !script.id) continue;
+		if (!isDict$17(script) || typeof script.id !== "string" || !script.id) continue;
 		const path = `regex.${script.id}`;
 		part.values[path] = {
 			name: typeof script.scriptName === "string" ? script.scriptName : "",
@@ -17255,7 +25711,7 @@ async function worldInfoPart(app, log) {
 		const wi = await app.host.modules.worldInfo();
 		const get = wi.getWorldInfoSettings;
 		const settings = typeof get === "function" ? get() : null;
-		if (isDict$15(settings)) {
+		if (isDict$17(settings)) {
 			for (const key of WI_KEYS) if (settings[key] !== void 0) part.values[`worldInfo.${key}`] = settings[key];
 		}
 		if (Array.isArray(wi.selected_world_info)) part.values["worldInfo.globalSelect"] = wi.selected_world_info.filter((item) => typeof item === "string").sort();
@@ -17268,7 +25724,7 @@ function profilesPart(app) {
 	const part = empty();
 	const profiles = getPath(app.host.ctx().extensionSettings, "connectionManager.profiles");
 	if (!Array.isArray(profiles)) return part;
-	part.values["profiles.list"] = profiles.filter(isDict$15).map((profile) => `${String(profile.name ?? "")}#${String(profile.id ?? "")}`).sort();
+	part.values["profiles.list"] = profiles.filter(isDict$17).map((profile) => `${String(profile.name ?? "")}#${String(profile.id ?? "")}`).sort();
 	return part;
 }
 function extensionsPart(app) {
@@ -17311,7 +25767,7 @@ function fullValue(part, path) {
 function isRestorable(entry, baseline) {
 	const group = groupOf(entry.path);
 	if (group === "preset") {
-		if (isPresetBodyPath(entry.path)) return isDict$15(baseline.restore["preset.body"]);
+		if (isPresetBodyPath(entry.path)) return isDict$17(baseline.restore["preset.body"]);
 		return entry.baseline !== void 0;
 	}
 	if (group === "worldInfo") return entry.path !== "worldInfo.globalSelect" && entry.baseline !== void 0;
@@ -17323,24 +25779,24 @@ async function presetManager(app) {
 	if (!app.host.caps.has("st.presetManager")) return null;
 	const get = (await app.host.modules.presetManager()).getPresetManager;
 	const manager = typeof get === "function" ? get("openai") : null;
-	return isDict$15(manager) ? manager : null;
+	return isDict$17(manager) ? manager : null;
 }
 async function rerenderPrompts(app, log) {
 	if (!app.host.caps.has("st.oai.promptManager")) return;
 	try {
 		const manager = (await app.host.modules.openai()).promptManager;
-		if (isDict$15(manager) && typeof manager.render === "function") manager.render.call(manager, false);
+		if (isDict$17(manager) && typeof manager.render === "function") manager.render.call(manager, false);
 	} catch (error) {
 		log.debug("prompt manager render failed", error);
 	}
 }
 function globalOrderEntry(oai) {
-	const lists = Array.isArray(oai.prompt_order) ? oai.prompt_order.filter(isDict$15) : [];
+	const lists = Array.isArray(oai.prompt_order) ? oai.prompt_order.filter(isDict$17) : [];
 	return lists.find((item) => String(item.character_id) === String(100001)) ?? lists[0] ?? null;
 }
 /** Saves the body into the preset file through ST's preset manager, which then selects and applies it. */
 async function writePresetBody(app, value) {
-	if (!isDict$15(value) || typeof value.name !== "string" || !value.name || !isDict$15(value.body)) return false;
+	if (!isDict$17(value) || typeof value.name !== "string" || !value.name || !isDict$17(value.body)) return false;
 	const manager = await presetManager(app);
 	if (!manager || typeof manager.savePreset !== "function") return false;
 	let secrets = {};
@@ -17348,10 +25804,10 @@ async function writePresetBody(app, value) {
 		const openai = await app.host.modules.openai();
 		const names = openai.openai_setting_names;
 		const list = openai.openai_settings;
-		const slot = isDict$15(names) ? names[value.name] : void 0;
+		const slot = isDict$17(names) ? names[value.name] : void 0;
 		const stored = Array.isArray(list) && typeof slot === "number" ? list[slot] : void 0;
-		const source = isDict$15(stored) ? stored : typeof openai.getChatCompletionPreset === "function" ? openai.getChatCompletionPreset() : null;
-		if (isDict$15(source)) {
+		const source = isDict$17(stored) ? stored : typeof openai.getChatCompletionPreset === "function" ? openai.getChatCompletionPreset() : null;
+		if (isDict$17(source)) {
 			for (const key of PRESET_SECRET_KEYS) if (source[key] !== void 0) secrets[key] = source[key];
 		}
 	}
@@ -17376,7 +25832,7 @@ async function writePreset(app, log, path, value) {
 	const oai = liveOai(app);
 	if (!oai) return false;
 	if (path === "preset.roles") {
-		if (!isDict$15(value) || !Array.isArray(oai.prompts)) return false;
+		if (!isDict$17(value) || !Array.isArray(oai.prompts)) return false;
 		for (const [identifier, role] of Object.entries(value)) {
 			const index = promptIndex(oai.prompts, identifier);
 			if (index >= 0 && typeof role === "string") oai.prompts[index].role = role;
@@ -17384,9 +25840,9 @@ async function writePreset(app, log, path, value) {
 	} else if (path === "preset.toggles" || path === "preset.order") {
 		const entry = globalOrderEntry(oai);
 		if (!entry || !Array.isArray(entry.order)) return false;
-		const items = entry.order.filter(isDict$15);
+		const items = entry.order.filter(isDict$17);
 		if (path === "preset.toggles") {
-			if (!isDict$15(value)) return false;
+			if (!isDict$17(value)) return false;
 			for (const item of items) {
 				const enabled = value[String(item.identifier)];
 				if (typeof enabled === "boolean") item.enabled = enabled;
@@ -17408,12 +25864,12 @@ function writeRegex(app, path, value) {
 	const settings = app.host.ctx().extensionSettings;
 	const scripts = Array.isArray(settings.regex) ? settings.regex : [];
 	settings.regex = scripts;
-	const index = scripts.findIndex((script) => isDict$15(script) && script.id === id);
+	const index = scripts.findIndex((script) => isDict$17(script) && script.id === id);
 	if (value === void 0 || value === null) {
 		if (index >= 0) scripts.splice(index, 1);
 		return true;
 	}
-	if (!isDict$15(value) || value.id !== id) return false;
+	if (!isDict$17(value) || value.id !== id) return false;
 	if (index >= 0) scripts[index] = jsonCopy(value);
 	else scripts.push(jsonCopy(value));
 	return true;
@@ -17462,11 +25918,11 @@ var SETTING_TARGET = "guardian-setting";
 var PULT_ONLY = ["extensions.versions"];
 var DESCRIBE_LIMIT = 12;
 var VALUE_CHARS = 40;
-function isDict$14(value) {
+function isDict$16(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function isDriftPayload(value) {
-	return isDict$14(value) && typeof value.hash === "string" && typeof value.baselineAt === "number" && Array.isArray(value.restore) && Array.isArray(value.adopt);
+	return isDict$16(value) && typeof value.hash === "string" && typeof value.baselineAt === "number" && Array.isArray(value.restore) && Array.isArray(value.adopt);
 }
 /** Restore order: the whole preset first (it reloads everything), then its name, then the rest. */
 function restoreRank(path) {
@@ -17566,7 +26022,7 @@ var GuardianService = class {
 		let entries = detail.entries.filter((entry) => paths.includes(entry.path) && isRestorable(entry, baseline));
 		if (confirmPreset && entries.some((entry) => isPresetBodyPath(entry.path))) {
 			const value = baseline.restore["preset.body"];
-			const name = isDict$14(value) && typeof value.name === "string" ? value.name : "";
+			const name = isDict$16(value) && typeof value.name === "string" ? value.name : "";
 			if (!await this.app.ui.confirm(this.t("m4.confirm.presetTitle"), this.t("m4.confirm.presetBody", { name }))) entries = entries.filter((entry) => !isPresetBodyPath(entry.path));
 		}
 		entries.sort((a, b) => restoreRank(a.path) - restoreRank(b.path) || a.path.localeCompare(b.path));
@@ -17675,7 +26131,7 @@ var GuardianService = class {
 		}
 	}
 	findCard(hash) {
-		return this.app.inbox.list().find((card) => card.kind === "guardian.drift" && isDict$14(card.payload) && card.payload.hash === hash)?.id;
+		return this.app.inbox.list().find((card) => card.kind === "guardian.drift" && isDict$16(card.payload) && card.payload.hash === hash)?.id;
 	}
 	/** Inbox applier: restores what can be restored and takes the rest as the new baseline. */
 	async applyCard(payload) {
@@ -17725,7 +26181,7 @@ var GuardianService = class {
 		const title = this.t(key);
 		let name = rest;
 		if (group === "regex") {
-			const value = isDict$14(entry.current) ? entry.current : isDict$14(entry.baseline) ? entry.baseline : null;
+			const value = isDict$16(entry.current) ? entry.current : isDict$16(entry.baseline) ? entry.baseline : null;
 			if (value && typeof value.name === "string" && value.name) name = value.name;
 		} else if (group === "preset") {
 			const known = this.t(`m4.preset.${rest}`);
@@ -18185,7 +26641,7 @@ function guardianTab(app, service, t) {
 			const tabSection = () => {
 				const state = service.tabState();
 				const info = service.guard?.info();
-				return section(t("m4.view.tab"), el("div", { class: "maestro-guardian-state" }, [
+				return section$1(t("m4.view.tab"), el("div", { class: "maestro-guardian-state" }, [
 					lamp(LAMP[state], t(`m4.state.${state}`)),
 					el("span", { text: ` ${t(`m4.state.${state}`)}` }),
 					info?.lastCheckAt ? el("div", {
@@ -18204,7 +26660,7 @@ function guardianTab(app, service, t) {
 				const baseline = service.store.current();
 				const reasonKey = baseline ? `m4.reason.${baseline.reason}` : "";
 				const reason = baseline ? t(reasonKey) : "";
-				return section(t("m4.view.baseline"), baseline ? el("div", { text: t("m4.view.baselineAt", {
+				return section$1(t("m4.view.baseline"), baseline ? el("div", { text: t("m4.view.baselineAt", {
 					time: formatTime(baseline.takenAt, app.i18n),
 					reason: reason === reasonKey ? baseline.reason : reason
 				}) }) : emptyState(t("m4.view.noBaseline"), "fa-shield-halved"), button({
@@ -18218,14 +26674,14 @@ function guardianTab(app, service, t) {
 				}));
 			};
 			const driftSection = (items) => {
-				if (items === null) return section(t("m4.view.drift"), emptyState(t("m4.view.loading"), "fa-hourglass"));
-				if (!items.length) return section(t("m4.view.drift"), emptyState(t("m4.view.noDrift")));
+				if (items === null) return section$1(t("m4.view.drift"), emptyState(t("m4.view.loading"), "fa-hourglass"));
+				if (!items.length) return section$1(t("m4.view.drift"), emptyState(t("m4.view.noDrift")));
 				const restorable = items.filter((item) => item.restorable).map((item) => item.path);
 				const restore = async (paths) => {
 					const count = await service.restoreNow(paths);
 					app.ui.notice(t("m4.notice.restored", { count }), { level: count ? "info" : "warn" });
 				};
-				return section(t("m4.view.drift"), table([
+				return section$1(t("m4.view.drift"), table([
 					{
 						key: "what",
 						label: t("m4.view.what"),
@@ -18722,7 +27178,7 @@ var LORE_WAIT_MS = 5e3;
 var REPLY_GRACE_MS$1 = 6e4;
 var NOT_A_TURN$1 = /* @__PURE__ */ new Set(["quiet", "impersonate"]);
 var TOKEN_CACHE_LIMIT$1 = 2e3;
-function isDict$13(value) {
+function isDict$15(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /** Prompt Manager's "absolute" injection position (PromptManager.js INJECTION_POSITION). */
@@ -18737,7 +27193,7 @@ function ensureDoc(doc) {
 	const raw = doc;
 	raw.v = 1;
 	if (!Array.isArray(raw.records)) raw.records = [];
-	raw.records = raw.records.filter((record) => isDict$13(record) && typeof record.messageIndex === "number" && Array.isArray(record.sources));
+	raw.records = raw.records.filter((record) => isDict$15(record) && typeof record.messageIndex === "number" && Array.isArray(record.sources));
 	return raw;
 }
 var Inspector = class {
@@ -18816,7 +27272,7 @@ var Inspector = class {
 		this.awaiting = { type: info.type };
 	}
 	onPromptReady(data) {
-		if (!isDict$13(data) || data.dryRun !== false || !this.awaiting) return;
+		if (!isDict$15(data) || data.dryRun !== false || !this.awaiting) return;
 		const { type } = this.awaiting;
 		this.awaiting = null;
 		this.pendingEndedAt = null;
@@ -18833,12 +27289,12 @@ var Inspector = class {
 	promptManager() {
 		if (!this.app.host.caps.has("st.oai.promptManager")) return null;
 		const pm = this.openai?.promptManager;
-		return isDict$13(pm) ? pm : null;
+		return isDict$15(pm) ? pm : null;
 	}
 	snapshotCounts() {
 		try {
 			const counts = this.promptManager()?.tokenHandler?.getCounts?.();
-			if (!isDict$13(counts)) return null;
+			if (!isDict$15(counts)) return null;
 			const copy = {};
 			for (const [identifier, value] of Object.entries(counts)) if (typeof value === "number" && Number.isFinite(value)) copy[identifier] = value;
 			return copy;
@@ -18871,7 +27327,7 @@ var Inspector = class {
 			if (!Array.isArray(order)) return [];
 			const result = [];
 			for (const item of order) {
-				if (!isDict$13(item) || item.enabled === false || typeof item.identifier !== "string") continue;
+				if (!isDict$15(item) || item.enabled === false || typeof item.identifier !== "string") continue;
 				const prompt = pm.getPromptById(item.identifier);
 				if (!prompt || prompt.marker === true || Number(prompt.injection_position) !== ABSOLUTE) continue;
 				if (typeof prompt.content !== "string" || !prompt.content) continue;
@@ -19407,12 +27863,12 @@ function promptTab(app, inspector, settings) {
 	};
 	const repeatsView = (record) => {
 		const details = inspector.detailsFor(record);
-		if (!details) return section(t("m2.repeats.title"), el("div", {
+		if (!details) return section$1(t("m2.repeats.title"), el("div", {
 			class: "maestro-muted",
 			text: t("m2.repeats.unavailable")
 		}));
 		const repeats = findRepeats(sourceTexts(details));
-		return section(t("m2.repeats.title"), [el("div", {
+		return section$1(t("m2.repeats.title"), [el("div", {
 			class: "maestro-hint",
 			text: t("m2.repeats.hint")
 		}), repeats.length ? el("div", { class: "maestro-m2-repeats" }, repeats.map((repeat) => el("div", { class: "maestro-m2-repeat" }, [el("div", {
@@ -19494,7 +27950,7 @@ function promptTab(app, inspector, settings) {
 			let exportNote = "";
 			const exportView = (record) => {
 				const details = inspector.detailsFor(record);
-				return section(t("m2.export.title"), [
+				return section$1(t("m2.export.title"), [
 					toggle({
 						label: t("m2.export.redact"),
 						checked: redact,
@@ -19554,7 +28010,7 @@ function promptTab(app, inspector, settings) {
 						draw();
 					}
 				}) : void 0;
-				return section(t("m2.turn.title"), [
+				return section$1(t("m2.turn.title"), [
 					el("div", {
 						class: "maestro-m2-line",
 						text: t("m2.turn.summary", {
@@ -19602,7 +28058,7 @@ function promptTab(app, inspector, settings) {
 				const record = (selectedAt !== null ? records.find((item) => item.at === selectedAt) : void 0) ?? records[records.length - 1];
 				container.append(el("div", { class: "maestro-view maestro-m2" }, [
 					app.host.isChatCompletion() ? null : banner(t("m2.ccOnly"), "info", "fa-circle-info"),
-					record ? turnView(records, record) : section(t("m2.turn.title"), emptyState(t("m2.turn.empty"), "fa-layer-group")),
+					record ? turnView(records, record) : section$1(t("m2.turn.title"), emptyState(t("m2.turn.empty"), "fa-layer-group")),
 					record ? repeatsView(record) : null,
 					record ? exportView(record) : null,
 					settingsView()
@@ -19658,16 +28114,16 @@ var SCAN_STATE = {
 	RECURSION: 2,
 	MIN_ACTIVATIONS: 3
 };
-function isDict$12(value) {
+function isDict$14(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
-function num(value, fallback = 0) {
+function num$1(value, fallback = 0) {
 	return typeof value === "number" && Number.isFinite(value) ? value : fallback;
 }
 function optNum(value) {
 	return typeof value === "number" && Number.isFinite(value) ? value : void 0;
 }
-function strings$2(value) {
+function strings$4(value) {
 	return Array.isArray(value) ? value.filter((item) => typeof item === "string") : [];
 }
 function optBool(value) {
@@ -19679,13 +28135,13 @@ function entryId(world, uid) {
 }
 /** Our id of a raw scan entry; null when it has no world/uid. */
 function rawId(raw) {
-	if (!isDict$12(raw) || typeof raw.world !== "string") return null;
+	if (!isDict$14(raw) || typeof raw.world !== "string") return null;
 	const uid = Number(raw.uid);
 	return Number.isFinite(uid) ? entryId(raw.world, uid) : null;
 }
 /** Copies the fields M1 needs from a scan entry; null when it has no world/uid. */
 function captureEntry(raw, loop, recursionLevel) {
-	if (!isDict$12(raw)) return null;
+	if (!isDict$14(raw)) return null;
 	const uid = Number(raw.uid);
 	if (typeof raw.world !== "string" || !Number.isFinite(uid)) return null;
 	const entry = {
@@ -19693,14 +28149,14 @@ function captureEntry(raw, loop, recursionLevel) {
 		uid,
 		comment: typeof raw.comment === "string" ? raw.comment : "",
 		content: typeof raw.content === "string" ? raw.content : "",
-		position: num(raw.position),
-		order: num(raw.order, 100),
+		position: num$1(raw.position),
+		order: num$1(raw.order, 100),
 		constant: raw.constant === true,
 		preventRecursion: raw.preventRecursion === true,
-		key: strings$2(raw.key),
-		keysecondary: strings$2(raw.keysecondary),
+		key: strings$4(raw.key),
+		keysecondary: strings$4(raw.keysecondary),
 		selective: raw.selective === true,
-		selectiveLogic: num(raw.selectiveLogic),
+		selectiveLogic: num$1(raw.selectiveLogic),
 		caseSensitive: optBool(raw.caseSensitive),
 		matchWholeWords: optBool(raw.matchWholeWords),
 		scanDepth: optNum(raw.scanDepth) ?? null,
@@ -19762,15 +28218,15 @@ var ScanCollector = class {
 	}
 	/** One WORLDINFO_SCAN_DONE payload. Cheap: identity copies only. */
 	scanDone(args) {
-		if (this.complete || !isDict$12(args)) return;
-		const state = isDict$12(args.state) ? args.state : {};
-		const loop = num(state.loopCount, this.lastLoop + 1);
+		if (this.complete || !isDict$14(args)) return;
+		const state = isDict$14(args.state) ? args.state : {};
+		const loop = num$1(state.loopCount, this.lastLoop + 1);
 		if (loop <= this.lastLoop) this.reset();
 		this.lastLoop = loop;
-		const current = num(state.current, SCAN_STATE.INITIAL);
+		const current = num$1(state.current, SCAN_STATE.INITIAL);
 		if (current === SCAN_STATE.RECURSION) this.recursionSteps++;
 		const level = current === SCAN_STATE.RECURSION ? this.recursionSteps : 0;
-		const activated = isDict$12(args.activated) ? args.activated.entries : void 0;
+		const activated = isDict$14(args.activated) ? args.activated.entries : void 0;
 		if (isMapLike(activated)) for (const raw of activated.values()) {
 			const id = rawId(raw);
 			if (id === null) continue;
@@ -19779,9 +28235,9 @@ var ScanCollector = class {
 			const entry = captureEntry(raw, loop, level);
 			if (entry) this.activated.set(id, entry);
 		}
-		const budget = isDict$12(args.budget) ? args.budget : {};
+		const budget = isDict$14(args.budget) ? args.budget : {};
 		const reason = budget.overflowed === true ? "budget" : "other";
-		const fresh = isDict$12(args.new) && Array.isArray(args.new.successful) ? args.new.successful : [];
+		const fresh = isDict$14(args.new) && Array.isArray(args.new.successful) ? args.new.successful : [];
 		for (const raw of fresh) {
 			const id = rawId(raw);
 			if (id === null || this.activated.has(id) || this.cutEntries.has(id)) continue;
@@ -19794,7 +28250,7 @@ var ScanCollector = class {
 		const budgetNow = optNum(budget.current);
 		if (budgetNow !== void 0) this.budgetTokens = budgetNow;
 		if (budget.overflowed === true) this.overflowed = true;
-		if (num(state.next, SCAN_STATE.NONE) === SCAN_STATE.NONE) this.complete = true;
+		if (num$1(state.next, SCAN_STATE.NONE) === SCAN_STATE.NONE) this.complete = true;
 	}
 	/** WORLD_INFO_ACTIVATED: the entries that really went into the prompt. */
 	activatedFinal(entries) {
@@ -19924,7 +28380,7 @@ var PLACEMENT = {
 	USER_INPUT: 1,
 	AI_OUTPUT: 2
 };
-function text$1(value) {
+function text$2(value) {
 	return typeof value === "string" ? value : "";
 }
 async function loadWorldInfo(app) {
@@ -19964,14 +28420,14 @@ async function chatForWI(app, wi, end) {
 	const regex = await regexEngine(app);
 	const includeNames = wi?.world_info_include_names !== false;
 	return core.map((message, index) => {
-		let mes = text$1(message.mes);
+		let mes = text$2(message.mes);
 		if (regex) try {
 			mes = regex(mes, message.is_user ? PLACEMENT.USER_INPUT : PLACEMENT.AI_OUTPUT, {
 				isPrompt: true,
 				depth: core.length - index - 1
 			});
 		} catch {}
-		return includeNames ? `${text$1(message.name)}: ${mes}` : mes;
+		return includeNames ? `${text$2(message.name)}: ${mes}` : mes;
 	}).reverse();
 }
 /** `globalScanData` of Generate (script.js:4626-4634). */
@@ -19984,12 +28440,12 @@ function cardFields(app, trigger = "normal") {
 		fields = {};
 	}
 	return {
-		personaDescription: text$1(fields.persona),
-		characterDescription: text$1(fields.description),
-		characterPersonality: text$1(fields.personality),
-		characterDepthPrompt: text$1(fields.charDepthPrompt),
-		scenario: text$1(fields.scenario),
-		creatorNotes: text$1(fields.creatorNotes),
+		personaDescription: text$2(fields.persona),
+		characterDescription: text$2(fields.description),
+		characterPersonality: text$2(fields.personality),
+		characterDepthPrompt: text$2(fields.charDepthPrompt),
+		scenario: text$2(fields.scenario),
+		creatorNotes: text$2(fields.creatorNotes),
 		trigger
 	};
 }
@@ -20019,10 +28475,10 @@ var STALE_COLLECTOR_MS = 9e5;
 var NOT_A_TURN = /* @__PURE__ */ new Set(["quiet", "impersonate"]);
 var TOKEN_CACHE_LIMIT = 3e3;
 var TOKEN_WORKERS = 4;
-function isDict$11(value) {
+function isDict$13(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
-function strings$1(value) {
+function strings$3(value) {
 	return Array.isArray(value) ? value.filter((item) => typeof item === "string" && !!item) : [];
 }
 /** Rough tokens when the tokenizer is unavailable (≈3.5 chars per token for mixed RU/EN text). */
@@ -20107,7 +28563,7 @@ var LoreJournal = class {
 		this.ensureLoaded();
 	}
 	onEntriesLoaded(payload) {
-		if (!isDict$11(payload)) return;
+		if (!isDict$13(payload)) return;
 		if (this.sim) {
 			this.prepareSimulation(payload);
 			return;
@@ -20127,7 +28583,7 @@ var LoreJournal = class {
 		]) {
 			const list = lists[name];
 			if (!Array.isArray(list)) continue;
-			for (const entry of list) if (isDict$11(entry) && entry.useProbability) entry.useProbability = false;
+			for (const entry of list) if (isDict$13(entry) && entry.useProbability) entry.useProbability = false;
 		}
 		if (sim.transform) try {
 			sim.transform(lists);
@@ -20421,7 +28877,7 @@ var LoreJournal = class {
 	async whyActive() {
 		const ctx = this.app.host.ctx();
 		const wi = await loadWorldInfo(this.app);
-		const charLore = isDict$11(wi?.world_info) && Array.isArray(wi.world_info.charLore) ? wi.world_info.charLore : [];
+		const charLore = isDict$13(wi?.world_info) && Array.isArray(wi.world_info.charLore) ? wi.world_info.charLore : [];
 		const characters = ctx.characters ?? [];
 		const members = ctx.groupId ? ((ctx.groups ?? []).find((group) => group.id === ctx.groupId)?.members ?? []).map((avatar) => characters.find((character) => character.avatar === avatar)) : [ctx.characterId === void 0 ? void 0 : characters[Number(ctx.characterId)]];
 		const primary = [];
@@ -20431,17 +28887,17 @@ var LoreJournal = class {
 			const world = character.data?.extensions?.world;
 			if (typeof world === "string" && world) primary.push(world);
 			const key = avatarKey$1(character.avatar ?? "");
-			for (const lore of charLore) if (isDict$11(lore) && lore.name === key) extra.push(...strings$1(lore.extraBooks));
+			for (const lore of charLore) if (isDict$13(lore) && lore.name === key) extra.push(...strings$3(lore.extraBooks));
 		}
 		const chatBook = ctx.chatMetadata?.world_info;
 		const personaBook = ctx.powerUserSettings?.persona_description_lorebook;
 		const rows = bookReasons({
-			global: strings$1(wi?.selected_world_info),
+			global: strings$3(wi?.selected_world_info),
 			characterPrimary: primary,
 			characterExtra: extra,
 			chat: typeof chatBook === "string" && chatBook ? chatBook : void 0,
 			persona: typeof personaBook === "string" && personaBook ? personaBook : void 0,
-			ckChatBooks: strings$1(ctx.chatMetadata?.carrot_chat_books),
+			ckChatBooks: strings$3(ctx.chatMetadata?.carrot_chat_books),
 			des: this.desLinks()
 		});
 		let known = [];
@@ -20482,7 +28938,7 @@ var LoreJournal = class {
 		} finally {
 			this.sim = null;
 		}
-		const final = isDict$11(result) ? result.allActivatedEntries : void 0;
+		const final = isDict$13(result) ? result.allActivatedEntries : void 0;
 		if (final && typeof final[Symbol.iterator] === "function") sim.collector.activatedFinal([...final]);
 		return this.buildRecord(sim.collector.result(), {
 			messageIndex: -1,
@@ -20555,10 +29011,10 @@ var LoreJournal = class {
 				this.log.debug(`lorebook ${world} did not load`, error);
 				continue;
 			}
-			const entries = isDict$11(book) && isDict$11(book.entries) ? book.entries : {};
+			const entries = isDict$13(book) && isDict$13(book.entries) ? book.entries : {};
 			const wanted = new Map(record.activations.filter((row) => row.world === world).map((row) => [row.uid, row]));
 			for (const raw of Object.values(entries)) {
-				if (!isDict$11(raw)) continue;
+				if (!isDict$13(raw)) continue;
 				const row = wanted.get(Number(raw.uid));
 				if (!row) continue;
 				const entry = captureEntry({
@@ -20912,9 +29368,9 @@ function turnTab(app, journal, settings) {
 	};
 	const summaryView = () => {
 		const summary = journal.summary();
-		if (!summary.turns) return section(t("m1.summary.title"), emptyState(t("m1.summary.empty"), "fa-chart-simple"));
+		if (!summary.turns) return section$1(t("m1.summary.title"), emptyState(t("m1.summary.empty"), "fa-chart-simple"));
 		const never = summary.neverActive;
-		return section(t("m1.summary.title"), [
+		return section$1(t("m1.summary.title"), [
 			el("div", {
 				class: "maestro-m1-line",
 				text: t("m1.summary.turns", { turns: summary.turns })
@@ -20996,7 +29452,7 @@ function turnTab(app, journal, settings) {
 			])
 		]);
 	};
-	const reasonsView = (reasons) => section(t("m1.why.title"), reasons === null ? el("div", {
+	const reasonsView = (reasons) => section$1(t("m1.why.title"), reasons === null ? el("div", {
 		class: "maestro-muted",
 		text: t("m1.why.loading")
 	}) : reasons.length ? el("div", { class: "maestro-m1-why" }, reasons.map((row) => el("div", { class: "maestro-m1-why-row" }, [el("span", {
@@ -21050,8 +29506,8 @@ function turnTab(app, journal, settings) {
 						draw();
 					}
 				}) : null;
-				if (!record) return section(t("m1.turn.title"), emptyState(t("m1.turn.empty"), "fa-book-open"));
-				return section(t("m1.turn.title"), [
+				if (!record) return section$1(t("m1.turn.title"), emptyState(t("m1.turn.empty"), "fa-book-open"));
+				return section$1(t("m1.turn.title"), [
 					...recordHead(record, "m1.turn.summary"),
 					el("div", { class: "maestro-m1-actions" }, [keysButton(record, () => void 0), keysNote ? el("span", {
 						class: "maestro-muted",
@@ -21112,7 +29568,7 @@ function turnTab(app, journal, settings) {
 						simulation = updated;
 					})]), activationTable(sim));
 				}
-				return section(t("m1.sim.title"), body);
+				return section$1(t("m1.sim.title"), body);
 			};
 			const settingsView = () => el("details", { class: "maestro-m1-details" }, [el("summary", { text: t("m1.settings.title") }), field$1(t("m1.settings.keepTurns"), numberInput({
 				value: settings.keepTurns,
@@ -21201,7 +29657,7 @@ var line = (id, label) => ({
 	id,
 	label
 });
-var text = (id, label) => ({
+var text$1 = (id, label) => ({
 	id,
 	label,
 	multiline: true
@@ -21215,12 +29671,12 @@ var ENTRY_TYPES = {
 			line("aliases", "Aliases"),
 			line("role", "Role"),
 			line("age", "Age"),
-			text("appearance", "Appearance"),
-			text("personality", "Personality"),
-			text("background", "Background"),
-			text("relationships", "Relationships"),
-			text("speech", "Speech"),
-			text("goals", "Goals")
+			text$1("appearance", "Appearance"),
+			text$1("personality", "Personality"),
+			text$1("background", "Background"),
+			text$1("relationships", "Relationships"),
+			text$1("speech", "Speech"),
+			text$1("goals", "Goals")
 		]
 	},
 	place: {
@@ -21231,11 +29687,11 @@ var ENTRY_TYPES = {
 			line("aliases", "Aliases"),
 			line("kind", "Kind"),
 			line("location", "Location"),
-			text("description", "Description"),
-			text("atmosphere", "Atmosphere"),
-			text("inhabitants", "Inhabitants"),
-			text("features", "Notable features"),
-			text("secrets", "Secrets")
+			text$1("description", "Description"),
+			text$1("atmosphere", "Atmosphere"),
+			text$1("inhabitants", "Inhabitants"),
+			text$1("features", "Notable features"),
+			text$1("secrets", "Secrets")
 		]
 	},
 	item: {
@@ -21245,10 +29701,10 @@ var ENTRY_TYPES = {
 			line("name", "Name"),
 			line("aliases", "Aliases"),
 			line("kind", "Kind"),
-			text("appearance", "Appearance"),
-			text("properties", "Properties"),
+			text$1("appearance", "Appearance"),
+			text$1("properties", "Properties"),
 			line("owner", "Owner"),
-			text("origin", "Origin"),
+			text$1("origin", "Origin"),
 			line("whereabouts", "Whereabouts")
 		]
 	},
@@ -21260,12 +29716,12 @@ var ENTRY_TYPES = {
 			line("aliases", "Aliases"),
 			line("kind", "Kind"),
 			line("leader", "Leader"),
-			text("members", "Members"),
-			text("goals", "Goals"),
+			text$1("members", "Members"),
+			text$1("goals", "Goals"),
 			line("territory", "Territory"),
 			line("allies", "Allies"),
 			line("enemies", "Enemies"),
-			text("symbols", "Symbols and customs")
+			text$1("symbols", "Symbols and customs")
 		]
 	},
 	event: {
@@ -21276,8 +29732,8 @@ var ENTRY_TYPES = {
 			line("when", "When"),
 			line("where", "Where"),
 			line("participants", "Participants"),
-			text("description", "What happened"),
-			text("consequences", "Consequences")
+			text$1("description", "What happened"),
+			text$1("consequences", "Consequences")
 		]
 	},
 	tradition: {
@@ -21287,9 +29743,9 @@ var ENTRY_TYPES = {
 			line("name", "Name"),
 			line("culture", "Culture"),
 			line("when", "When"),
-			text("practice", "Practice"),
-			text("meaning", "Meaning"),
-			text("taboos", "Taboos")
+			text$1("practice", "Practice"),
+			text$1("meaning", "Meaning"),
+			text$1("taboos", "Taboos")
 		]
 	},
 	mechanic: {
@@ -21297,10 +29753,10 @@ var ENTRY_TYPES = {
 		label: "Mechanic",
 		fields: [
 			line("name", "Name"),
-			text("summary", "Summary"),
-			text("rules", "Rules"),
-			text("limits", "Costs and limits"),
-			text("examples", "Examples")
+			text$1("summary", "Summary"),
+			text$1("rules", "Rules"),
+			text$1("limits", "Costs and limits"),
+			text$1("examples", "Examples")
 		]
 	},
 	rule: {
@@ -21308,9 +29764,9 @@ var ENTRY_TYPES = {
 		label: "Rule",
 		fields: [
 			line("name", "Name"),
-			text("statement", "Rule"),
+			text$1("statement", "Rule"),
 			line("scope", "Scope"),
-			text("exceptions", "Exceptions")
+			text$1("exceptions", "Exceptions")
 		]
 	},
 	chapter: {
@@ -21319,16 +29775,16 @@ var ENTRY_TYPES = {
 		fields: [
 			line("name", "Title"),
 			line("period", "Period"),
-			text("summary", "Summary"),
-			text("events", "Key events"),
+			text$1("summary", "Summary"),
+			text$1("events", "Key events"),
 			line("characters", "Characters"),
-			text("threads", "Open threads")
+			text$1("threads", "Open threads")
 		]
 	},
 	note: {
 		id: "note",
 		label: "Note",
-		fields: [line("name", "Title"), text("text", "Text")]
+		fields: [line("name", "Title"), text$1("text", "Text")]
 	}
 };
 /**
@@ -21744,7 +30200,7 @@ function bookSuggestions(entries, field, exceptUid) {
 	}
 	return [...values.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([name]) => name);
 }
-function strings(value) {
+function strings$2(value) {
 	return Array.isArray(value) ? value.filter((item) => typeof item === "string") : [];
 }
 function readCharacterFilter(value) {
@@ -21756,8 +30212,8 @@ function readCharacterFilter(value) {
 	const filter = value;
 	return {
 		isExclude: filter.isExclude === true,
-		names: strings(filter.names),
-		tags: strings(filter.tags)
+		names: strings$2(filter.names),
+		tags: strings$2(filter.tags)
 	};
 }
 /** ST removes the field when nothing is selected and the exclude mode is off. */
@@ -21774,7 +30230,7 @@ function avatarName(avatar) {
 	return avatar.replace(/\.[^/.]+$/, "");
 }
 function readTriggers(value) {
-	const list = strings(value);
+	const list = strings$2(value);
 	const known = list.filter((item) => GENERATION_TRIGGERS.includes(item));
 	return {
 		known,
@@ -21830,7 +30286,7 @@ function contentHash(content) {
 */
 function stEditorDifferences(entry) {
 	const result = [];
-	const secondary = strings(entry.keysecondary);
+	const secondary = strings$2(entry.keysecondary);
 	if (entry.selective !== true) result.push({
 		field: "selective",
 		stored: entry.selective,
@@ -21957,7 +30413,7 @@ function parseKeyInput(input) {
 function formatKeys(keys) {
 	return keys.join(", ");
 }
-function stringList$2(value) {
+function stringList$3(value) {
 	return Array.isArray(value) ? value.filter((item) => typeof item === "string") : [];
 }
 var CYRILLIC = /[Ѐ-ӿ]/;
@@ -22070,8 +30526,8 @@ function testEntry(entry, text, globals, substitute = (value) => value) {
 			matched: !!substituted && matchKey$1(text, substituted.trim(), options)
 		};
 	};
-	const primary = stringList$2(entry.key).map(hit);
-	const secondaryKeys = stringList$2(entry.keysecondary);
+	const primary = stringList$3(entry.key).map(hit);
+	const secondaryKeys = stringList$3(entry.keysecondary);
 	const secondary = secondaryKeys.map(hit);
 	const logic = typeof entry.selectiveLogic === "number" ? entry.selectiveLogic : WI_LOGIC.AND_ANY;
 	const secondaryUsed = !!entry.selective && secondaryKeys.length > 0;
@@ -22416,7 +30872,7 @@ var GLOBAL_NAMES = {
 	]
 };
 /** Label of an entry for titles and summaries: comment, else the first keys, else «#uid». */
-function entryLabel(entry) {
+function entryLabel$1(entry) {
 	const comment = typeof entry.comment === "string" ? entry.comment.trim() : "";
 	if (comment) return comment.split("\n")[0].slice(0, 80);
 	const keys = Array.isArray(entry.key) ? entry.key.filter((key) => typeof key === "string").join(", ") : "";
@@ -22592,14 +31048,14 @@ function baseView(env, canon, items, refresh) {
 	const t = env.t;
 	const stored = env.state.stored;
 	const baseContent = typeof stored.content === "string" ? stored.content : "";
-	const baseKeys = stringList$2(stored.key);
+	const baseKeys = stringList$3(stored.key);
 	const nodes = [];
 	if (items.suppress) nodes.push(banner(t("m23f.canon.isSuppressed"), "warn", "fa-eye-slash"));
 	if (items.pin) nodes.push(banner(t("m23f.canon.isPinned"), "info", "fa-thumbtack"));
 	const override = items.override;
 	if (override) {
 		const content = typeof override.entry.content === "string" ? override.entry.content : "";
-		const keys = stringList$2(override.entry.key);
+		const keys = stringList$3(override.entry.key);
 		if (override.meta.base && override.meta.base.contentHash !== contentHash(baseContent)) nodes.push(banner(t("m23f.canon.drift"), "warn", "fa-code-compare"));
 		nodes.push(el("div", { class: "maestro-m23f-row-inline" }, [statusBadge(env, override.meta)]), el("div", { class: "maestro-m23f-sides" }, [side(t("m23f.canon.base"), baseContent, baseKeys, env), side(t("m23f.canon.override.title"), content, keys, env)]), el("div", {
 			class: "maestro-m23f-label",
@@ -22873,7 +31329,7 @@ function commentField(env) {
 		env.changed();
 	});
 	const placeholder = () => {
-		input.placeholder = commentPlaceholder(stringList$2(env.state.draft.key)) || t("m23f.comment.placeholder");
+		input.placeholder = commentPlaceholder(stringList$3(env.state.draft.key)) || t("m23f.comment.placeholder");
 	};
 	placeholder();
 	env.sync(placeholder);
@@ -24155,7 +32611,7 @@ function russianKeysButton(env) {
 		icon: "fa-language",
 		title: t("m23f.ru.formsHint"),
 		onClick: async () => {
-			const keys = stringList$2(env.state.draft.key);
+			const keys = stringList$3(env.state.draft.key);
 			const terms = englishTerms(keys);
 			if (!terms.length) {
 				env.status(t("m23f.ru.noTerms"), "info");
@@ -24251,7 +32707,7 @@ function keysEditor(env, field, label) {
 			autocomplete: "off"
 		}
 	});
-	input.value = formatKeys(stringList$2(env.state.draft[field]));
+	input.value = formatKeys(stringList$3(env.state.draft[field]));
 	const chips = el("div", {
 		class: "maestro-m23f-chips",
 		attrs: { "aria-live": "polite" }
@@ -24262,7 +32718,7 @@ function keysEditor(env, field, label) {
 		env.changed();
 	});
 	const render = () => {
-		const keys = stringList$2(env.state.draft[field]);
+		const keys = stringList$3(env.state.draft[field]);
 		if (formatKeys(parseKeyInput(input.value)) !== formatKeys(keys)) input.value = formatKeys(keys);
 		const infos = analyzeKeys(keys, {
 			matchWholeWords: effective(env, "matchWholeWords"),
@@ -24316,7 +32772,7 @@ function selectiveNote(env) {
 	const holder = el("div");
 	const render = () => {
 		const draft = env.state.draft;
-		const show = draft.selective !== true && stringList$2(draft.keysecondary).length > 0;
+		const show = draft.selective !== true && stringList$3(draft.keysecondary).length > 0;
 		holder.replaceChildren(...show ? [note(env.t("m23f.keys.selectiveOff"), "warn", env.readOnly ? null : button({
 			label: env.t("m23f.keys.selectiveFix"),
 			kind: "ghost",
@@ -24334,7 +32790,7 @@ function noKeysNote(env) {
 	const holder = el("div");
 	const render = () => {
 		const draft = env.state.draft;
-		const empty = !stringList$2(draft.key).length && draft.constant !== true;
+		const empty = !stringList$3(draft.key).length && draft.constant !== true;
 		holder.replaceChildren(...empty ? [note(env.t("m23f.keys.noKeys"), "info")] : []);
 	};
 	render();
@@ -25917,7 +34373,7 @@ var EntryForm = class {
 		const state = this.state;
 		if (!chrome || !state) return;
 		const t = this.t.bind(this);
-		chrome.title.textContent = entryLabel(state.draft);
+		chrome.title.textContent = entryLabel$1(state.draft);
 		const dirty = this.isDirty();
 		chrome.dirty.hidden = !dirty;
 		this.root.classList.toggle("maestro-m23f-is-dirty", dirty);
@@ -26001,7 +34457,7 @@ var EntryForm = class {
 			if (fields.length) await store.updateEntry(book, uid, patch, {
 				module: "M23",
 				summary: t("m23f.save.summary", {
-					entry: entryLabel(state.draft),
+					entry: entryLabel$1(state.draft),
 					book,
 					fields: fields.join(", ")
 				})
@@ -26264,7 +34720,7 @@ var ORIGINAL_DATA_KEY_MAP = Object.freeze({
 	triggers: "extensions.triggers",
 	ignoreBudget: "extensions.ignore_budget"
 });
-function isRecord$1(value) {
+function isRecord$2(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /** JSON-safe deep copy (book data is JSON on disk). */
@@ -26327,7 +34783,7 @@ function normalizedEntry(entry) {
 	for (const [key, value] of Object.entries(ENTRY_TEMPLATE)) if (!Object.prototype.hasOwnProperty.call(copy, key)) copy[key] = cloneJson(value);
 	if (!Array.isArray(copy.key)) copy.key = [];
 	if (!Array.isArray(copy.keysecondary)) copy.keysecondary = [];
-	if (!isRecord$1(copy.characterFilter)) copy.characterFilter = {
+	if (!isRecord$2(copy.characterFilter)) copy.characterFilter = {
 		isExclude: false,
 		names: [],
 		tags: []
@@ -26335,14 +34791,14 @@ function normalizedEntry(entry) {
 	if (typeof copy.displayIndex !== "number") copy.displayIndex = Number(copy.uid);
 	return copy;
 }
-function stringList$1(value) {
+function stringList$2(value) {
 	return Array.isArray(value) ? value.filter((item) => typeof item === "string") : [];
 }
 /** Title shown in lists: the memo, else the primary keys, else ''. */
 function entryTitle(entry) {
 	const comment = typeof entry.comment === "string" ? entry.comment.trim() : "";
 	if (comment) return comment;
-	return stringList$1(entry.key).join(", ");
+	return stringList$2(entry.key).join(", ");
 }
 /** ST's status selector: constant wins over vectorized (WI:3284-3316). */
 function entryStatus(entry) {
@@ -26446,7 +34902,7 @@ function positionLabel(entry) {
 function backfillComments(entries) {
 	const result = [];
 	for (const entry of Object.values(entries)) {
-		const keys = stringList$1(entry.key);
+		const keys = stringList$2(entry.key);
 		if (!entry.comment && keys.length > 0) result.push({
 			uid: entry.uid,
 			comment: keys.join(", ").slice(0, 100)
@@ -26535,7 +34991,7 @@ function setByPath(target, path, value) {
 	for (let i = 0; i < parts.length - 1; i++) {
 		const part = parts[i];
 		const next = node[part];
-		if (!isRecord$1(next)) node[part] = {};
+		if (!isRecord$2(next)) node[part] = {};
 		node = node[part];
 	}
 	node[parts[parts.length - 1]] = cloneJson(value);
@@ -26543,8 +34999,8 @@ function setByPath(target, path, value) {
 /** The `originalData.entries` array of a card-embedded book, or null. */
 function originalEntries(book) {
 	const original = book.originalData;
-	if (!isRecord$1(original) || !Array.isArray(original.entries)) return null;
-	return original.entries.filter(isRecord$1);
+	if (!isRecord$2(original) || !Array.isArray(original.entries)) return null;
+	return original.entries.filter(isRecord$2);
 }
 /** `setWIOriginalDataValue` (WI:2756-2766) in pure form. */
 function setOriginalValue(book, uid, path, value) {
@@ -26556,8 +35012,8 @@ function setOriginalValue(book, uid, path, value) {
 /** `deleteWIOriginalDataValue` (WI:2774-2784): loose uid comparison like ST. */
 function removeOriginal(book, uid) {
 	const original = book.originalData;
-	if (!isRecord$1(original) || !Array.isArray(original.entries)) return false;
-	const index = original.entries.findIndex((item) => isRecord$1(item) && String(item.uid) === String(uid));
+	if (!isRecord$2(original) || !Array.isArray(original.entries)) return false;
+	const index = original.entries.findIndex((item) => isRecord$2(item) && String(item.uid) === String(uid));
 	if (index < 0) return false;
 	original.entries.splice(index, 1);
 	return true;
@@ -26746,20 +35202,20 @@ function safeIcon(icon) {
 }
 /** The library as DES draws it (L-186, L-187) from `extensionSettings.lorebook`. */
 function libraryView(lorebook, worldNames, activeBooks) {
-	const lb = isRecord$1(lorebook) ? lorebook : {};
-	const campaigns = isRecord$1(lb.campaigns) ? lb.campaigns : {};
-	const order = stringList$1(lb.campaignOrder);
-	const ids = [...order.filter((id) => isRecord$1(campaigns[id])), ...Object.keys(campaigns).filter((id) => !order.includes(id))];
+	const lb = isRecord$2(lorebook) ? lorebook : {};
+	const campaigns = isRecord$2(lb.campaigns) ? lb.campaigns : {};
+	const order = stringList$2(lb.campaignOrder);
+	const ids = [...order.filter((id) => isRecord$2(campaigns[id])), ...Object.keys(campaigns).filter((id) => !order.includes(id))];
 	const existing = new Set(worldNames);
 	const active = new Set(activeBooks);
-	const collapsed = new Set(stringList$1(lb.collapsedCampaigns));
-	const activeId = typeof lb.activeCampaignId === "string" && isRecord$1(campaigns[lb.activeCampaignId]) ? lb.activeCampaignId : null;
+	const collapsed = new Set(stringList$2(lb.collapsedCampaigns));
+	const activeId = typeof lb.activeCampaignId === "string" && isRecord$2(campaigns[lb.activeCampaignId]) ? lb.activeCampaignId : null;
 	const filed = /* @__PURE__ */ new Set();
 	const views = [];
 	for (const id of [...new Set(ids)]) {
 		const raw = campaigns[id];
-		if (!isRecord$1(raw)) continue;
-		const allBooks = stringList$1(raw.books);
+		if (!isRecord$2(raw)) continue;
+		const allBooks = stringList$2(raw.books);
 		for (const book of allBooks) filed.add(book);
 		const books = allBooks.filter((book) => existing.has(book));
 		views.push({
@@ -26777,9 +35233,9 @@ function libraryView(lorebook, worldNames, activeBooks) {
 		campaigns: views,
 		unfiled: worldNames.filter((book) => !filed.has(book)),
 		activeId,
-		globalBooks: stringList$1(lb.globalBooks),
-		autoLinked: stringList$1(lb.autoLinked),
-		campaignActivated: stringList$1(lb.campaignActivated),
+		globalBooks: stringList$2(lb.globalBooks),
+		autoLinked: stringList$2(lb.autoLinked),
+		campaignActivated: stringList$2(lb.campaignActivated),
 		autoLink: lb.autoLinkByName !== false,
 		interceptEnabled: lb.enabled === true
 	};
@@ -26796,13 +35252,13 @@ function moveCampaign(order, id, delta) {
 }
 /** Workshop links `NPC → book` (characterInjection[name].lorebook and userCharacters[name].injection.lorebook). */
 function workshopLinks(desSettings) {
-	const settings = isRecord$1(desSettings) ? desSettings : {};
+	const settings = isRecord$2(desSettings) ? desSettings : {};
 	const links = {};
-	const injection = isRecord$1(settings.characterInjection) ? settings.characterInjection : {};
-	for (const [name, value] of Object.entries(injection)) if (isRecord$1(value) && typeof value.lorebook === "string" && value.lorebook) links[name] = value.lorebook;
-	const users = isRecord$1(settings.userCharacters) ? settings.userCharacters : {};
+	const injection = isRecord$2(settings.characterInjection) ? settings.characterInjection : {};
+	for (const [name, value] of Object.entries(injection)) if (isRecord$2(value) && typeof value.lorebook === "string" && value.lorebook) links[name] = value.lorebook;
+	const users = isRecord$2(settings.userCharacters) ? settings.userCharacters : {};
 	for (const [name, value] of Object.entries(users)) {
-		const own = isRecord$1(value) && isRecord$1(value.injection) ? value.injection.lorebook : void 0;
+		const own = isRecord$2(value) && isRecord$2(value.injection) ? value.injection.lorebook : void 0;
 		if (typeof own === "string" && own) links[name] = own;
 	}
 	return links;
@@ -27217,9 +35673,9 @@ var StLore = class {
 	async load(name) {
 		const ctx = this.ctx();
 		const data = typeof ctx.loadWorldInfo === "function" ? await ctx.loadWorldInfo(name) : await (fn(await this.module(), "loadWorldInfo") ?? missing("loadWorldInfo"))(name);
-		if (!isRecord$1(data)) return null;
+		if (!isRecord$2(data)) return null;
 		const copy = cloneJson(data);
-		if (!isRecord$1(copy.entries)) copy.entries = {};
+		if (!isRecord$2(copy.entries)) copy.entries = {};
 		return copy;
 	}
 	/** Immediate save only (sweeping rule 1): the shared 1 s debounce loses books saved within a second. */
@@ -27318,12 +35774,12 @@ var StLore = class {
 		return {
 			set: fn(wi, "setWIOriginalDataValue"),
 			remove: fn(wi, "deleteWIOriginalDataValue"),
-			keyMap: isRecord$1(keyMap) ? keyMap : null
+			keyMap: isRecord$2(keyMap) ? keyMap : null
 		};
 	}
 	/** `selected_world_info` read through the module namespace (a live `export let`, never cached). */
 	async globalBooks() {
-		return [...stringList$1((await this.module())?.selected_world_info)];
+		return [...stringList$2((await this.module())?.selected_world_info)];
 	}
 	/**
 	* Sets the global selection through ST's own handler (L-020, L-203): the options of `#world_info` are marked
@@ -27354,7 +35810,7 @@ var StLore = class {
 		const wi = await this.module();
 		const getter = fn(wi, "getWorldInfoSettings");
 		const source = getter ? getter() : wi;
-		return readWiSettings(isRecord$1(source) ? source : null);
+		return readWiSettings(isRecord$2(source) ? source : null);
 	}
 	/**
 	* Applies a normalized patch through the classic panel's elements and the event ST listens to on each (so the
@@ -27396,9 +35852,9 @@ var StLore = class {
 	}
 	async charLore() {
 		const settings = (await this.module())?.world_info;
-		return (isRecord$1(settings) && Array.isArray(settings.charLore) ? settings.charLore : []).filter(isRecord$1).map((item) => ({
+		return (isRecord$2(settings) && Array.isArray(settings.charLore) ? settings.charLore : []).filter(isRecord$2).map((item) => ({
 			name: String(item.name ?? ""),
-			extraBooks: stringList$1(item.extraBooks)
+			extraBooks: stringList$2(item.extraBooks)
 		}));
 	}
 	/** Additional books of a character through `charSetAuxWorlds` (saves with ST's WI settings wrapper). */
@@ -27426,7 +35882,7 @@ var StLore = class {
 	/** Edits `world_info.charLore` in place (the live object) and saves settings. */
 	async writeCharLore(edit) {
 		const settings = (await this.module())?.world_info;
-		if (!isRecord$1(settings)) throw new LoreStudioError("unavailable");
+		if (!isRecord$2(settings)) throw new LoreStudioError("unavailable");
 		const list = Array.isArray(settings.charLore) ? settings.charLore : [];
 		edit(list);
 		settings.charLore = list;
@@ -27468,11 +35924,11 @@ var StLore = class {
 	/** Persona descriptors: avatar → { name, lorebook }. */
 	personas() {
 		const power = this.ctx().powerUserSettings ?? {};
-		const names = isRecord$1(power.personas) ? power.personas : {};
-		const descriptors = isRecord$1(power.persona_descriptions) ? power.persona_descriptions : {};
+		const names = isRecord$2(power.personas) ? power.personas : {};
+		const descriptors = isRecord$2(power.persona_descriptions) ? power.persona_descriptions : {};
 		const result = {};
 		for (const [avatar, descriptor] of Object.entries(descriptors)) {
-			if (!isRecord$1(descriptor)) continue;
+			if (!isRecord$2(descriptor)) continue;
 			const name = names[avatar];
 			result[avatar] = {
 				name: typeof name === "string" ? name : void 0,
@@ -27487,12 +35943,12 @@ var StLore = class {
 		const power = ctx.powerUserSettings;
 		const personas = await this.optional("/scripts/personas.js");
 		const avatar = typeof personas?.user_avatar === "string" ? personas.user_avatar : "";
-		const names = isRecord$1(power?.personas) ? power.personas : {};
+		const names = isRecord$2(power?.personas) ? power.personas : {};
 		if (!power || !avatar || !names[avatar]) throw new LoreStudioError("personaName");
 		power.persona_description_lorebook = name ?? "";
 		const descriptor = fn(personas, "getOrCreatePersonaDescriptor")?.();
-		if (isRecord$1(descriptor)) descriptor.lorebook = name ?? "";
-		else if (isRecord$1(power.persona_descriptions) && isRecord$1(power.persona_descriptions[avatar])) power.persona_descriptions[avatar].lorebook = name ?? "";
+		if (isRecord$2(descriptor)) descriptor.lorebook = name ?? "";
+		else if (isRecord$2(power.persona_descriptions) && isRecord$2(power.persona_descriptions[avatar])) power.persona_descriptions[avatar].lorebook = name ?? "";
 		document.getElementById("persona_lore_button")?.classList.toggle("world_set", !!name);
 		ctx.saveSettingsDebounced();
 		const event = this.app.host.events.name("PERSONA_UPDATED");
@@ -27507,8 +35963,8 @@ var StLore = class {
 			power.persona_description_lorebook = newName;
 			changed++;
 		}
-		const descriptors = isRecord$1(power.persona_descriptions) ? power.persona_descriptions : {};
-		for (const descriptor of Object.values(descriptors)) if (isRecord$1(descriptor) && descriptor.lorebook === oldName) {
+		const descriptors = isRecord$2(power.persona_descriptions) ? power.persona_descriptions : {};
+		for (const descriptor of Object.values(descriptors)) if (isRecord$2(descriptor) && descriptor.lorebook === oldName) {
 			descriptor.lorebook = newName;
 			changed++;
 		}
@@ -27518,14 +35974,14 @@ var StLore = class {
 	/** The card's embedded book (`data.character_book`) of a character, if any. */
 	characterBook(characterId) {
 		const book = (this.ctx().characters?.[characterId])?.data?.character_book;
-		return isRecord$1(book) ? book : null;
+		return isRecord$2(book) ? book : null;
 	}
 	/** ST's `convertCharacterBook` (context, L-044): card book → World Info data with `originalData`. */
 	convertCharacterBook(book) {
 		const convert = this.ctx().convertCharacterBook;
 		if (typeof convert !== "function") throw new LoreStudioError("unavailable");
 		const data = convert(book);
-		if (!isRecord$1(data) || !isRecord$1(data.entries)) throw new LoreStudioError("unavailable");
+		if (!isRecord$2(data) || !isRecord$2(data.entries)) throw new LoreStudioError("unavailable");
 		return cloneJson(data);
 	}
 	/** Characters and their primary books. */
@@ -27618,7 +36074,7 @@ var DesLore = class {
 	/** `extensionSettings.lorebook`, read fresh every time (DES replaces the object on load). */
 	lorebook() {
 		const settings = this.adapter().settings();
-		return settings && isRecord$1(settings.lorebook) ? settings.lorebook : null;
+		return settings && isRecord$2(settings.lorebook) ? settings.lorebook : null;
 	}
 	view(worldNames, activeBooks) {
 		return libraryView(this.lorebook(), worldNames, activeBooks);
@@ -27724,11 +36180,11 @@ function emptyHistory(book) {
 }
 /** A stored document, repaired: unknown shapes become an empty history of `book`. */
 function readHistory(raw, book) {
-	if (!isRecord$1(raw) || !isRecord$1(raw.entries)) return emptyHistory(book);
+	if (!isRecord$2(raw) || !isRecord$2(raw.entries)) return emptyHistory(book);
 	const entries = {};
 	for (const [uid, list] of Object.entries(raw.entries)) {
 		if (!Array.isArray(list)) continue;
-		const versions = list.filter((item) => isRecord$1(item) && typeof item.at === "number" && isRecord$1(item.entry) && typeof item.by === "string");
+		const versions = list.filter((item) => isRecord$2(item) && typeof item.at === "number" && isRecord$2(item.entry) && typeof item.by === "string");
 		if (versions.length) entries[uid] = versions;
 	}
 	return {
@@ -27771,7 +36227,7 @@ var UNDO_SETTINGS = "lore-studio-settings";
 /** Books whose last known entries are kept to attribute external changes in the history. */
 var KNOWN_LIMIT = 8;
 function asEntries(value) {
-	return isRecord$1(value) ? value : {};
+	return isRecord$2(value) ? value : {};
 }
 var LoreStoreService = class {
 	app;
@@ -27840,7 +36296,7 @@ var LoreStoreService = class {
 		if (typeof name !== "string" || this.disposed) return;
 		if ((this.ownSaves.get(name) ?? 0) > 0) return;
 		const before = this.known.get(name);
-		if (before && isRecord$1(data)) {
+		if (before && isRecord$2(data)) {
 			const after = cloneJson(asEntries(data.entries));
 			this.remember(name, after);
 			this.enqueue(name, () => this.recordHistory(name, before, after, {
@@ -27987,7 +36443,7 @@ var LoreStoreService = class {
 		this.des.invalidate(book);
 	}
 	async mirror(previous, next) {
-		if (!isRecord$1(next.originalData)) return;
+		if (!isRecord$2(next.originalData)) return;
 		const { set, remove, keyMap } = await this.st.mirrorFunctions();
 		mirrorBook(previous, next, {
 			set: set ? (book, uid, path, value) => void set(book, uid, path, value) : void 0,
@@ -28141,7 +36597,7 @@ var LoreStoreService = class {
 	async save(name, data, reason) {
 		this.guardWritable(name);
 		const next = cloneJson(data);
-		if (!isRecord$1(next.entries)) next.entries = {};
+		if (!isRecord$2(next.entries)) next.entries = {};
 		await this.enqueue(name, async () => {
 			const previous = await this.st.load(name);
 			await this.write(name, next, previous, reason);
@@ -28612,13 +37068,13 @@ var LoreStoreService = class {
 			const data = await this.st.load(book);
 			if (!data) return false;
 			const current = data.entries[String(uid)];
-			const after = isRecord$1(change.after) ? change.after : null;
+			const after = isRecord$2(change.after) ? change.after : null;
 			if (after ? !current || !sameJson(current, after) : !!current) {
 				this.log.warn(`undo skipped: entry ${uid} of "${book}" changed since`);
 				return false;
 			}
 			const next = cloneJson(data);
-			if (isRecord$1(change.before)) next.entries[String(uid)] = {
+			if (isRecord$2(change.before)) next.entries[String(uid)] = {
 				...cloneJson(change.before),
 				uid
 			};
@@ -28711,7 +37167,7 @@ var LoreStoreService = class {
 		}
 	}
 	async undoSettings(change) {
-		if (this.disposed || !isRecord$1(change.before)) return false;
+		if (this.disposed || !isRecord$2(change.before)) return false;
 		await this.setGlobalSettings(change.before, false);
 		return true;
 	}
@@ -28766,6 +37222,7 @@ var M23_STRINGS = {
 		"m23.books.onlyActiveHint": "Only books the next scan will read, with the reason",
 		"m23.books.none": "No books match.",
 		"m23.books.readOnly": "Read only: BunnyMo books are never edited (P13)",
+		"m23.books.bunnymoMode": "Open in BunnyMo mode",
 		"m23.books.globalToggle": "Active for all chats: {book}",
 		"m23.books.globalHint": "Active for all chats (global)",
 		"m23.books.activeBecause": "Active: {reasons}",
@@ -29143,6 +37600,7 @@ var M23_STRINGS = {
 		"m23.books.onlyActiveHint": "Только книги, которые прочитает следующее сканирование, с причиной",
 		"m23.books.none": "Подходящих книг нет.",
 		"m23.books.readOnly": "Только чтение: книги BunnyMo не правятся (P13)",
+		"m23.books.bunnymoMode": "Открыть в режиме BunnyMo",
 		"m23.books.globalToggle": "Активна во всех чатах: {book}",
 		"m23.books.globalHint": "Активна во всех чатах (глобально)",
 		"m23.books.activeBecause": "Активна: {reasons}",
@@ -29728,7 +38186,7 @@ var SEARCH_KEYS = [
 ];
 function fieldTexts(entry, name) {
 	const value = entry[name];
-	if (Array.isArray(value)) return stringList$1(value).map((item) => item.toLowerCase());
+	if (Array.isArray(value)) return stringList$2(value).map((item) => item.toLowerCase());
 	if (value === void 0 || value === null) return [];
 	return [String(value).toLowerCase()];
 }
@@ -30297,6 +38755,16 @@ function renderBooksPanel(app, model, state, actions) {
 					class: "maestro-m23-badge",
 					text: t(roleKey(role.role))
 				}),
+				[
+					"bunnymo.core",
+					"bunnymo.pack",
+					"ck.archive"
+				].includes(role.role) && app.modules.api("bunnymoMode") ? button({
+					icon: "fa-carrot",
+					kind: "ghost",
+					title: t("m23.books.bunnymoMode"),
+					onClick: () => app.modules.api("bunnymoMode")?.open({ book })
+				}) : null,
 				campaign ? el("span", {
 					class: "maestro-m23-badge maestro-m23-badge-campaign",
 					text: campaign
@@ -31111,8 +39579,8 @@ function renderEntriesPanel(app, model, state, actions) {
 		return node;
 	}
 	function preview(entry) {
-		const keys = stringList$1(entry.key);
-		const secondary = stringList$1(entry.keysecondary);
+		const keys = stringList$2(entry.key);
+		const secondary = stringList$2(entry.keysecondary);
 		const content = typeof entry.content === "string" ? entry.content : "";
 		return el("div", { class: "maestro-m23-entry-preview" }, [
 			el("div", {
@@ -32591,7 +41059,7 @@ function loreStudioTab(app, deps) {
 				class: "maestro-field-hint",
 				text: deps.takeoverActive() ? t("m23.tab.takeoverActive") : t("m23.tab.takeoverInactive")
 			});
-			container.append(section(t("m23.title"), [
+			container.append(section$1(t("m23.title"), [
 				el("p", { text: t("m23.tab.intro") }),
 				el("p", {
 					class: "maestro-muted",
@@ -32613,7 +41081,7 @@ function loreStudioTab(app, deps) {
 						deps.openClassic();
 					}
 				})])
-			]), section(t("m23.tab.takeoverTitle"), [
+			]), section$1(t("m23.tab.takeoverTitle"), [
 				toggle({
 					label: t("m23.tab.takeover"),
 					checked: deps.settings.takeoverButton,
@@ -32688,6 +41156,7 @@ function createLoreStudioModule(renderForm) {
 				studio,
 				takeover
 			};
+			app.modules.expose(LORE_STUDIO_KEY, { open: (book, uid) => studio.open(book, uid) });
 			own(() => {
 				studio.dispose();
 				if (runtime$1?.studio === studio) runtime$1 = null;
@@ -32736,7 +41205,7 @@ function createLoreStudioModule(renderForm) {
 var loreStudioModule = createLoreStudioModule(renderEntryForm);
 //#endregion
 //#region src/domain/medic-des.ts
-function isDict$10(value) {
+function isDict$12(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /**
@@ -32754,7 +41223,7 @@ function emptyKeyFieldNames(fields) {
 	if (!Array.isArray(fields)) return [];
 	const names = [];
 	for (const field of fields) {
-		if (!isDict$10(field) || field.enabled === false) continue;
+		if (!isDict$12(field) || field.enabled === false) continue;
 		const name = typeof field.name === "string" ? field.name.trim() : "";
 		if (name && desFieldKey(name) === "") names.push(name);
 	}
@@ -32763,7 +41232,7 @@ function emptyKeyFieldNames(fields) {
 /** True when some character in `characterThoughts` has a `details` entry with the empty key `""`. */
 function hasEmptyDetailKeys(characterThoughts) {
 	const data = parseTrackerJson(characterThoughts);
-	return (Array.isArray(data) ? data : isDict$10(data) && Array.isArray(data.characters) ? data.characters : []).some((character) => isDict$10(character) && isDict$10(character.details) && Object.hasOwn(character.details, ""));
+	return (Array.isArray(data) ? data : isDict$12(data) && Array.isArray(data.characters) ? data.characters : []).some((character) => isDict$12(character) && isDict$12(character.details) && Object.hasOwn(character.details, ""));
 }
 function blank(value) {
 	return value === null || value === void 0 || typeof value === "string" && value.trim() === "";
@@ -32841,14 +41310,14 @@ function buildCompactRepairPrompt(input) {
 }
 //#endregion
 //#region src/domain/medic-lore.ts
-function isDict$9(value) {
+function isDict$11(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /** Entries of a book (`{entries: {uid: entry}}` or a list), as plain objects. */
 function bookEntries(book) {
-	const entries = isDict$9(book) ? book.entries : void 0;
-	if (Array.isArray(entries)) return entries.filter(isDict$9);
-	if (isDict$9(entries)) return Object.values(entries).filter(isDict$9);
+	const entries = isDict$11(book) ? book.entries : void 0;
+	if (Array.isArray(entries)) return entries.filter(isDict$11);
+	if (isDict$11(entries)) return Object.values(entries).filter(isDict$11);
 	return [];
 }
 function ref(entry) {
@@ -32862,13 +41331,13 @@ function ref(entry) {
 function assistantDepthEntries(entries) {
 	return entries.filter((entry) => entry.disable !== true && Number(entry.position) === 4 && Number(entry.role) === 2).map(ref);
 }
-function stringList(value) {
+function stringList$1(value) {
 	return Array.isArray(value) ? value.filter((item) => typeof item === "string") : [];
 }
 /** Keys the Localizer marker lists as appended (`added.key` / `added.keysecondary`) that the entry no longer has. */
 function missingAddedKeys(entry, added) {
-	const primary = new Set(stringList(entry.key));
-	const secondary = new Set(stringList(entry.keysecondary));
+	const primary = new Set(stringList$1(entry.key));
+	const secondary = new Set(stringList$1(entry.keysecondary));
 	const missing = [];
 	for (const key of added.key) if (!primary.has(key)) missing.push(key);
 	for (const key of added.keysecondary) if (!secondary.has(key)) missing.push(key);
@@ -32912,13 +41381,13 @@ function findQvinkGaps(messages, options = QVINK_GAP_DEFAULTS) {
 //#region src/features/medic/prefill.ts
 var PREFILL_KIND = "medic.prefillRole";
 var PREFILL_TARGET = "preset-prompt-role";
-function isDict$8(value) {
+function isDict$10(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /** Live Chat Completion settings (oai_settings) or null. */
 function liveSettings(app) {
 	const settings = app.host.ctx().chatCompletionSettings;
-	return isDict$8(settings) ? settings : null;
+	return isDict$10(settings) ? settings : null;
 }
 /** The assistant prompt that ends the request with the active preset, if any. */
 function detectPrefill(app) {
@@ -33010,9 +41479,9 @@ var PrefillFix = class {
 		const openai = await this.app.host.modules.openai();
 		const names = openai.openai_setting_names;
 		const list = openai.openai_settings;
-		const slot = isDict$8(names) ? names[preset] : void 0;
+		const slot = isDict$10(names) ? names[preset] : void 0;
 		const stored = Array.isArray(list) && typeof slot === "number" ? list[slot] : void 0;
-		if (!isDict$8(stored)) {
+		if (!isDict$10(stored)) {
 			this.log.warn(`preset ${preset} is not in ST's preset list; only the live settings changed`);
 			return;
 		}
@@ -33022,7 +41491,7 @@ var PrefillFix = class {
 		body.prompts[index].role = role;
 		const getManager = (await this.app.host.modules.presetManager()).getPresetManager;
 		const manager = typeof getManager === "function" ? getManager("openai") : null;
-		const save = isDict$8(manager) ? manager.savePreset : void 0;
+		const save = isDict$10(manager) ? manager.savePreset : void 0;
 		if (typeof save !== "function") {
 			this.log.warn("preset manager has no savePreset; only the live settings changed");
 			return;
@@ -33034,7 +41503,7 @@ var PrefillFix = class {
 		if (!this.app.host.caps.has("st.oai.promptManager")) return;
 		try {
 			const manager = (await this.app.host.modules.openai()).promptManager;
-			const render = isDict$8(manager) ? manager.render : void 0;
+			const render = isDict$10(manager) ? manager.render : void 0;
 			if (typeof render === "function") render.call(manager, false);
 		} catch (error) {
 			this.log.debug("prompt manager render failed", error);
@@ -33043,7 +41512,7 @@ var PrefillFix = class {
 };
 //#endregion
 //#region src/features/medic/sources.ts
-function isDict$7(value) {
+function isDict$9(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /** Reply types that are not a model's story reply (first message, background calls, NAI picture posts). */
@@ -33055,7 +41524,7 @@ var SKIPPED_TYPES = /* @__PURE__ */ new Set([
 ]);
 /** NAI Studio picture post: `extra.nai_studio` with the image prompt as text (research/qvink-nai-studio.md §B5). */
 function isPicturePost(message) {
-	return isDict$7(message.extra?.nai_studio);
+	return isDict$9(message.extra?.nai_studio);
 }
 /** The last user message before `index` asked BunnyMo for a sheet (`!fullsheet`, …). */
 function answersSheetCommand(chat, index) {
@@ -33068,7 +41537,7 @@ function answersSheetCommand(chat, index) {
 /** A message M31 marked as a sheet (`extra.maestro.sheet`). */
 function isSheetMessage(message) {
 	const maestro = message.extra?.maestro;
-	return isDict$7(maestro) && maestro.sheet === true;
+	return isDict$9(maestro) && maestro.sheet === true;
 }
 /** The reply at `index` is a regular story reply the checks apply to. */
 function isStoryReply(chat, index, type = "normal") {
@@ -33097,7 +41566,7 @@ function qvinkViews(chat) {
 			isSystem: message.is_system,
 			textLength: typeof message.mes === "string" ? message.mes.trim().length : 0,
 			skip: isPicturePost(message),
-			record: isDict$7(raw) ? {
+			record: isDict$9(raw) ? {
 				memory: typeof raw.memory === "string" ? raw.memory : "",
 				exclude: raw.exclude === true,
 				remember: raw.remember === true,
@@ -33138,11 +41607,11 @@ async function activeBookNames(app) {
 		const wi = await app.host.modules.worldInfo();
 		if (Array.isArray(wi.selected_world_info)) for (const name of wi.selected_world_info) addName(names, name);
 		const character = ctx.characters[Number(ctx.characterId)];
-		const lore = isDict$7(wi.world_info) ? wi.world_info.charLore : void 0;
+		const lore = isDict$9(wi.world_info) ? wi.world_info.charLore : void 0;
 		const fileName = charaFilename(character?.avatar);
 		if (Array.isArray(lore) && fileName) {
-			const extra = lore.find((item) => isDict$7(item) && item.name === fileName);
-			if (isDict$7(extra) && Array.isArray(extra.extraBooks)) for (const name of extra.extraBooks) addName(names, name);
+			const extra = lore.find((item) => isDict$9(item) && item.name === fileName);
+			if (isDict$9(extra) && Array.isArray(extra.extraBooks)) for (const name of extra.extraBooks) addName(names, name);
 		}
 	} catch {}
 	if (!app.host.isGroupChat()) {
@@ -33433,7 +41902,7 @@ var QUIET_BLOCKS = [
 	"present",
 	"message"
 ];
-function isDict$6(value) {
+function isDict$8(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function swipeIdOf$1(message) {
@@ -33613,7 +42082,7 @@ var TrackerRepair = class {
 	/** The proposal handed to autonomy (also the source of the journal record). */
 	proposal(payload, kit) {
 		const swipes = this.app.host.ctx().chat[payload.messageIndex]?.extra?.dooms_tracker_swipes;
-		const raw = isDict$6(swipes) ? swipes[String(payload.swipeId)] : void 0;
+		const raw = isDict$8(swipes) ? swipes[String(payload.swipeId)] : void 0;
 		const before = {
 			record: raw === void 0 ? null : raw,
 			lastGenerated: sectionsOf(kit?.lastGenerated() ?? null)
@@ -33655,7 +42124,7 @@ var TrackerRepair = class {
 		const message = this.app.host.ctx().chat[payload.messageIndex];
 		const kit = await this.kit();
 		const extra = message.extra ??= {};
-		const swipes = isDict$6(extra.dooms_tracker_swipes) ? extra.dooms_tracker_swipes : {};
+		const swipes = isDict$8(extra.dooms_tracker_swipes) ? extra.dooms_tracker_swipes : {};
 		extra.dooms_tracker_swipes = swipes;
 		swipes[String(payload.swipeId)] = { ...payload.record };
 		if (kit && this.isLatestReply(payload.messageIndex)) kit.adopt(payload.record, String(message.mes ?? ""));
@@ -33664,14 +42133,14 @@ var TrackerRepair = class {
 	/** Undo handler of TRACKER_TARGET: puts the previous record (and DES's display state) back. */
 	async undo(change) {
 		const ref = change.ref;
-		const after = isDict$6(change.after) ? change.after.record : void 0;
-		const before = isDict$6(change.before) ? change.before : {};
+		const after = isDict$8(change.after) ? change.after.record : void 0;
+		const before = isDict$8(change.before) ? change.before : {};
 		if (typeof ref.messageIndex !== "number" || typeof ref.swipeId !== "number" || !after) return false;
 		if (this.app.host.chatId() !== ref.chatId) return false;
 		const message = this.app.host.ctx().chat[ref.messageIndex];
 		const swipes = message?.extra?.dooms_tracker_swipes;
 		const key = String(ref.swipeId);
-		if (!message || !isDict$6(swipes) || !sameTrackerRecord(swipes[key], after)) return false;
+		if (!message || !isDict$8(swipes) || !sameTrackerRecord(swipes[key], after)) return false;
 		if (before.record === null || before.record === void 0) delete swipes[key];
 		else swipes[key] = before.record;
 		const kit = await this.kit();
@@ -33734,8 +42203,8 @@ function expectsTracker(settings) {
 	return settings.showInfoBox !== false || settings.showCharacterThoughts !== false || settings.showQuests === true;
 }
 function isRepairPayload(value) {
-	if (!isDict$6(value)) return false;
-	return typeof value.chatId === "string" && typeof value.messageIndex === "number" && typeof value.swipeId === "number" && typeof value.mesHash === "string" && isDict$6(value.record);
+	if (!isDict$8(value)) return false;
+	return typeof value.chatId === "string" && typeof value.messageIndex === "number" && typeof value.swipeId === "number" && typeof value.mesHash === "string" && isDict$8(value.record);
 }
 //#endregion
 //#region src/features/medic/health.ts
@@ -33744,12 +42213,12 @@ var RULE_ASSISTANT_ROLE = "role.assistantToSystem";
 /** ST capabilities whose absence switches off parts of Maestro (reported separately: st.cm, st.chatCompletion). */
 var SEPARATE_CAPS = /* @__PURE__ */ new Set(["st.cm", "st.chatCompletion"]);
 var MAX_LISTED = 5;
-function isDict$5(value) {
+function isDict$7(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function nested(source, ...path) {
 	let current = source;
-	for (const key of path) current = isDict$5(current) ? current[key] : void 0;
+	for (const key of path) current = isDict$7(current) ? current[key] : void 0;
 	return current;
 }
 /** "Книга: 3, Другая: 1 …" */
@@ -34226,6 +42695,4275 @@ var medicModule = {
 	}
 };
 //#endregion
+//#region src/features/places/bridge.ts
+var PLACES_GLOBAL = "MAESTRO_PLACES";
+/** Fired on window when the bridge appears (an extension that loaded first can subscribe then). */
+var PLACES_READY_EVENT = "maestro-places-ready";
+function view(place) {
+	if (!place) return null;
+	return {
+		id: place.id,
+		name: place.name,
+		aliases: [...place.aliases],
+		parent: place.parent
+	};
+}
+function createPlacesBridge(api, track = (off) => off) {
+	return Object.freeze({
+		version: 1,
+		current: () => view(api.current()),
+		resolve: (label) => typeof label === "string" && label.trim() ? view(api.resolve(label)) : null,
+		list: () => api.list().map((place) => view(place)),
+		onEnter: (listener) => {
+			if (typeof listener !== "function") return () => {};
+			return track(api.onEnter((place, previous) => listener(view(place), view(previous))));
+		}
+	});
+}
+/** Publishes the bridge; the returned disposer removes it and every listener registered through it. */
+function installPlacesBridge(api) {
+	const listeners = /* @__PURE__ */ new Set();
+	const bridge = createPlacesBridge(api, (off) => {
+		listeners.add(off);
+		return () => {
+			listeners.delete(off);
+			off();
+		};
+	});
+	const scope = globalThis;
+	scope[PLACES_GLOBAL] = bridge;
+	try {
+		if (typeof globalThis.dispatchEvent === "function" && typeof CustomEvent === "function") globalThis.dispatchEvent(new CustomEvent(PLACES_READY_EVENT, { detail: { version: 1 } }));
+	} catch {}
+	return () => {
+		for (const off of [...listeners]) off();
+		listeners.clear();
+		if (scope["MAESTRO_PLACES"] === bridge) delete scope[PLACES_GLOBAL];
+	};
+}
+var MAX_PART_CHARS = 100;
+/** Labels that name no place: DES fillers and model hedges. */
+var NOISE_RE = /^(?:unknown|none|n\/a|na|null|undefined|not specified|unspecified|same|same place|same location|same as before|various|elsewhere|неизвестно|неизвестное место|не указано|нет|то же|то же место|там же|прежнее место|где-то)$/;
+var CYRILLIC_RE$1 = /\p{Script=Cyrillic}/u;
+var QUOTES_RE = /[«»"“”„‟]/g;
+var APOSTROPHES_RE = /[’‘`´]/g;
+var EDGE_PUNCT_RE = /^[\s'.,:;!?()[\]{}\-–—]+|[\s'.,:;!?()[\]{}\-–—]+$/g;
+var ARTICLE_RE = /^(?:the|a|an)\s+/;
+var WORD_SPLIT_RE = /[^\p{L}\p{N}']+/u;
+/**
+* Normalised form of a place name for matching: lower case, ё → е, quotes dropped, whitespace collapsed, edge
+* punctuation and a leading English article removed. «Таверна «Ржавый якорь»» → «таверна ржавый якорь».
+*/
+function normalizePlaceName(text) {
+	let value = text.normalize("NFC").toLowerCase().replace(/ё/g, "е");
+	value = value.replace(APOSTROPHES_RE, "'").replace(QUOTES_RE, " ").replace(/\s+/g, " ").trim();
+	value = value.replace(EDGE_PUNCT_RE, "").replace(ARTICLE_RE, "");
+	return value.trim();
+}
+/** Words of a normalised name (letters, digits and apostrophes). */
+function placeWords(name) {
+	return normalizePlaceName(name).split(WORD_SPLIT_RE).map((word) => word.replace(/^'+|'+$/g, "")).filter(Boolean);
+}
+/** The label trimmed, or null when it is empty, a filler («Unknown», «Там же») or too long to be a name. */
+function cleanLabel(label) {
+	if (typeof label !== "string") return null;
+	const trimmed = label.replace(/\s+/g, " ").trim();
+	if (!trimmed || trimmed.length > 200) return null;
+	const normalized = normalizePlaceName(trimmed);
+	if (!normalized || NOISE_RE.test(normalized)) return null;
+	return trimmed;
+}
+var OPENERS = {
+	"«": "»",
+	"“": "”",
+	"„": "“"
+};
+var STRENGTH = {
+	comma: 1,
+	dash: 2,
+	paren: 3
+};
+/**
+* Splits a label on commas, semicolons, dashes (em and en dash anywhere, a hyphen only with spaces around it — never
+* inside «Нью-Йорк»), arrows, bars and spaced slashes, and on parentheses. Quoted text («…», “…”, "…") is never split.
+*/
+function splitLabel(label) {
+	const parts = [];
+	const kinds = [];
+	let current = "";
+	/** The strongest boundary since the last kept part (a parenthesis beats a dash next to it, a dash a comma). */
+	let pending = null;
+	const closers = [];
+	let straight = false;
+	const boundary = (kind) => {
+		const text = current.replace(/\s+/g, " ").replace(/^[\s\-–—]+|[\s\-–—]+$/g, "");
+		current = "";
+		if (text && /[\p{L}\p{N}]/u.test(text) && text.length <= MAX_PART_CHARS) {
+			const key = normalizePlaceName(text);
+			if (key && !parts.some((part) => normalizePlaceName(part) === key)) {
+				parts.push(text);
+				kinds.push(parts.length === 1 ? null : pending);
+				pending = null;
+			}
+		}
+		if (kind !== null && (pending === null || STRENGTH[kind] > STRENGTH[pending])) pending = kind;
+	};
+	const chars = [...label];
+	for (let i = 0; i < chars.length; i++) {
+		const char = chars[i];
+		const prev = chars[i - 1];
+		const next = chars[i + 1];
+		if (char === "\"") {
+			straight = !straight;
+			current += char;
+			continue;
+		}
+		const opener = OPENERS[char];
+		if (opener !== void 0 && !(char === "“" && closers.at(-1) === "“")) {
+			closers.push(opener);
+			current += char;
+			continue;
+		}
+		if (closers.length && char === closers.at(-1)) {
+			closers.pop();
+			current += char;
+			continue;
+		}
+		if (closers.length > 0 || straight) {
+			current += char;
+			continue;
+		}
+		const spacedBefore = prev === void 0 || /\s/.test(prev);
+		const spacedAfter = next === void 0 || /\s/.test(next) || next === "-";
+		if (char === "," || char === ";" || char === "，" || char === "\n") boundary("comma");
+		else if (char === "—" || char === "–" || char === "→" || char === "›" || char === ">" || char === "|") boundary("dash");
+		else if ((char === "-" || char === "/" || char === "·" || char === "•") && spacedBefore && spacedAfter) boundary("dash");
+		else if (char === "-" && prev === "-") {} else if (char === "(" || char === "[" || char === ")" || char === "]") boundary("paren");
+		else current += char;
+	}
+	boundary(null);
+	return {
+		parts,
+		kinds
+	};
+}
+/**
+* Levels of place words: 0 realm/region, 1 settlement, 2 district or open area, 3 building or site, 4 room or part
+* of a building. Latin words match whole words (with a plural s/es); Cyrillic entries are stems matched at the start
+* of a word, so every case form counts («таверн» — «таверна», «таверне», «таверной»).
+*/
+var LATIN_LEVELS = [
+	[
+		"kingdom",
+		"empire",
+		"realm",
+		"country",
+		"land",
+		"province",
+		"region",
+		"continent",
+		"world",
+		"planet",
+		"duchy",
+		"principality",
+		"county",
+		"territory",
+		"republic",
+		"nation",
+		"state"
+	],
+	[
+		"city",
+		"town",
+		"village",
+		"capital",
+		"settlement",
+		"hamlet",
+		"metropolis",
+		"township",
+		"megacity",
+		"colony",
+		"stronghold",
+		"outpost"
+	],
+	[
+		"district",
+		"quarter",
+		"ward",
+		"borough",
+		"street",
+		"avenue",
+		"road",
+		"square",
+		"market",
+		"marketplace",
+		"harbor",
+		"harbour",
+		"port",
+		"docks",
+		"dock",
+		"slums",
+		"outskirts",
+		"park",
+		"forest",
+		"woods",
+		"beach",
+		"shore",
+		"valley",
+		"mountains",
+		"plaza",
+		"alley",
+		"bazaar",
+		"neighborhood",
+		"neighbourhood",
+		"suburb",
+		"suburbs",
+		"downtown",
+		"uptown",
+		"riverside",
+		"waterfront",
+		"countryside",
+		"wilds",
+		"swamp",
+		"desert",
+		"jungle",
+		"meadow",
+		"fields",
+		"field",
+		"highway",
+		"lane",
+		"boulevard",
+		"campus",
+		"grounds"
+	],
+	[
+		"tavern",
+		"inn",
+		"house",
+		"home",
+		"mansion",
+		"manor",
+		"castle",
+		"palace",
+		"keep",
+		"fortress",
+		"fort",
+		"tower",
+		"temple",
+		"church",
+		"cathedral",
+		"chapel",
+		"shrine",
+		"monastery",
+		"abbey",
+		"academy",
+		"school",
+		"university",
+		"shop",
+		"store",
+		"bakery",
+		"smithy",
+		"forge",
+		"guild",
+		"guildhall",
+		"hospital",
+		"clinic",
+		"apartment",
+		"apartments",
+		"flat",
+		"cottage",
+		"cabin",
+		"hut",
+		"barracks",
+		"prison",
+		"jail",
+		"dungeon",
+		"warehouse",
+		"mill",
+		"farm",
+		"farmhouse",
+		"estate",
+		"villa",
+		"lighthouse",
+		"station",
+		"bar",
+		"pub",
+		"cafe",
+		"café",
+		"restaurant",
+		"hotel",
+		"motel",
+		"club",
+		"theater",
+		"theatre",
+		"museum",
+		"arena",
+		"stadium",
+		"embassy",
+		"bank",
+		"mall",
+		"building",
+		"ship",
+		"brothel",
+		"dormitory",
+		"dorm",
+		"office",
+		"headquarters",
+		"lab",
+		"laboratory",
+		"workshop",
+		"stable",
+		"stables",
+		"cave",
+		"cavern",
+		"ruins",
+		"camp",
+		"encampment"
+	],
+	[
+		"room",
+		"bedroom",
+		"chamber",
+		"chambers",
+		"hall",
+		"hallway",
+		"corridor",
+		"kitchen",
+		"cellar",
+		"basement",
+		"attic",
+		"study",
+		"library",
+		"bathroom",
+		"bath",
+		"balcony",
+		"terrace",
+		"courtyard",
+		"garden",
+		"lobby",
+		"foyer",
+		"parlor",
+		"parlour",
+		"lounge",
+		"stairs",
+		"staircase",
+		"stairwell",
+		"floor",
+		"roof",
+		"rooftop",
+		"vault",
+		"cell",
+		"quarters",
+		"suite",
+		"closet",
+		"pantry",
+		"nursery",
+		"gallery",
+		"ballroom",
+		"throne",
+		"deck",
+		"booth",
+		"backroom",
+		"storeroom",
+		"washroom",
+		"restroom",
+		"loft",
+		"porch",
+		"veranda",
+		"greenhouse",
+		"conservatory",
+		"infirmary",
+		"armory",
+		"armoury",
+		"kitchens"
+	]
+];
+var CYRILLIC_LEVELS = [
+	[
+		"королевств",
+		"импери",
+		"стран",
+		"провинци",
+		"област",
+		"регион",
+		"континент",
+		"планет",
+		"княжеств",
+		"графств",
+		"земл",
+		"республик",
+		"государств",
+		"герцогств"
+	],
+	[
+		"город",
+		"деревн",
+		"сел",
+		"посел",
+		"столиц",
+		"хутор",
+		"станиц",
+		"град",
+		"колони",
+		"аванпост",
+		"мегаполис"
+	],
+	[
+		"район",
+		"квартал",
+		"улиц",
+		"переул",
+		"проспект",
+		"площад",
+		"рынок",
+		"рынк",
+		"базар",
+		"гаван",
+		"порт",
+		"пристан",
+		"окраин",
+		"предмест",
+		"парк",
+		"лес",
+		"пляж",
+		"берег",
+		"долин",
+		"набережн",
+		"трущоб",
+		"бульвар",
+		"шоссе",
+		"пустын",
+		"болот",
+		"джунгл",
+		"луг",
+		"поле",
+		"кампус",
+		"горы"
+	],
+	[
+		"таверн",
+		"трактир",
+		"корчм",
+		"гостиниц",
+		"отел",
+		"дом",
+		"особняк",
+		"усадьб",
+		"поместь",
+		"замк",
+		"замок",
+		"дворц",
+		"дворец",
+		"крепост",
+		"башн",
+		"храм",
+		"церк",
+		"собор",
+		"часовн",
+		"монастыр",
+		"академи",
+		"школ",
+		"университет",
+		"лавк",
+		"магазин",
+		"кузниц",
+		"гильди",
+		"больниц",
+		"лечебниц",
+		"клиник",
+		"офис",
+		"квартир",
+		"хижин",
+		"избушк",
+		"изб",
+		"казарм",
+		"тюрьм",
+		"темниц",
+		"подземель",
+		"склад",
+		"мельниц",
+		"ферм",
+		"вилл",
+		"маяк",
+		"станци",
+		"вокзал",
+		"бар",
+		"кафе",
+		"ресторан",
+		"клуб",
+		"театр",
+		"музе",
+		"арен",
+		"стадион",
+		"посольств",
+		"банк",
+		"здани",
+		"корабл",
+		"общежити",
+		"бордел",
+		"лаборатори",
+		"мастерск",
+		"конюшн",
+		"пещер",
+		"руин",
+		"лагер",
+		"штаб",
+		"святилищ"
+	],
+	[
+		"комнат",
+		"спальн",
+		"поко",
+		"зал",
+		"холл",
+		"коридор",
+		"кухн",
+		"подвал",
+		"погреб",
+		"чердак",
+		"кабинет",
+		"библиотек",
+		"ванн",
+		"купальн",
+		"балкон",
+		"террас",
+		"двор",
+		"сад",
+		"вестибюл",
+		"прихож",
+		"гостин",
+		"столов",
+		"лестниц",
+		"этаж",
+		"крыш",
+		"хранилищ",
+		"камер",
+		"кель",
+		"мансард",
+		"будуар",
+		"оранжере",
+		"кладов",
+		"палат",
+		"кают",
+		"трюм",
+		"палуб",
+		"приемн",
+		"гардероб",
+		"чулан",
+		"лазарет",
+		"оружейн"
+	]
+];
+var LATIN_INDEX = /* @__PURE__ */ new Map();
+LATIN_LEVELS.forEach((words, level) => {
+	for (const word of words) if (!LATIN_INDEX.has(word)) LATIN_INDEX.set(word, level);
+});
+function latinLevel(word) {
+	const direct = LATIN_INDEX.get(word);
+	if (direct !== void 0) return direct;
+	if (word.endsWith("es")) {
+		const stem = LATIN_INDEX.get(word.slice(0, -2));
+		if (stem !== void 0) return stem;
+	}
+	if (word.endsWith("s")) {
+		const stem = LATIN_INDEX.get(word.slice(0, -1));
+		if (stem !== void 0) return stem;
+	}
+	return null;
+}
+/** Stems that begin unrelated longer words («странный», «дворянский», «портной», «паркет»). */
+var TIGHT_STEMS = /* @__PURE__ */ new Set([
+	"стран",
+	"земл",
+	"поко",
+	"камер",
+	"палат",
+	"двор",
+	"порт",
+	"парк",
+	"град",
+	"поле"
+]);
+/**
+* The longest stem at the start of the word wins. Stems of three letters or less and the tight ones match only words
+* at most two letters longer: «дом», «дома», «домик» — not «доминион»; «двором» — not «дворянский».
+*/
+function cyrillicLevel(word) {
+	let level = null;
+	let length = 0;
+	for (let i = 0; i < CYRILLIC_LEVELS.length; i++) for (const stem of CYRILLIC_LEVELS[i]) {
+		if (!word.startsWith(stem) || stem.length <= length) continue;
+		if ((stem.length <= 3 || TIGHT_STEMS.has(stem)) && word.length > stem.length + 2) continue;
+		level = i;
+		length = stem.length;
+	}
+	return level;
+}
+/** Level of one normalised word (a place-type word like «tavern», «комнатой»), null for any other word. */
+function wordLevel(word) {
+	return CYRILLIC_RE$1.test(word) ? cyrillicLevel(word) : latinLevel(word);
+}
+/**
+* Level of a label part from its head word: in English the last place word before «of/in/at/on» («Castle Kitchen»,
+* «Throne Room of the Castle» → room), in Russian the first place word («Кухня замка» → кухня). Null when no word of
+* the lexicon occurs.
+*/
+function placeLevel(part) {
+	const words = placeWords(part);
+	if (!words.length) return null;
+	if (CYRILLIC_RE$1.test(part)) {
+		for (const word of words) {
+			const level = wordLevel(word);
+			if (level !== null) return level;
+		}
+		return null;
+	}
+	const cut = words.findIndex((word) => word === "of" || word === "in" || word === "at" || word === "on");
+	const head = cut > 0 ? words.slice(0, cut) : words;
+	for (const list of [head, words]) for (let i = list.length - 1; i >= 0; i--) {
+		const level = latinLevel(list[i]);
+		if (level !== null) return level;
+	}
+	return null;
+}
+/**
+* Direction from the lexicon: +1 general first, -1 specific first, 0 unknown. Two parts with levels compare the first
+* and the last of them; a single part with a level decides only at an end of the label (a room or building last means
+* general first; a city or region first means general first).
+*/
+function lexiconDirection(parts) {
+	const known = parts.map(placeLevel).map((level, index) => ({
+		level,
+		index
+	})).filter((item) => item.level !== null);
+	if (known.length >= 2) {
+		const first = known[0].level;
+		const last = known[known.length - 1].level;
+		if (first < last) return 1;
+		if (first > last) return -1;
+		return 0;
+	}
+	if (known.length === 1) {
+		const { level, index } = known[0];
+		const lastIndex = parts.length - 1;
+		if (level >= 3) return index === lastIndex ? 1 : index === 0 ? -1 : 0;
+		if (level <= 1) return index === 0 ? 1 : index === lastIndex ? -1 : 0;
+	}
+	return 0;
+}
+/**
+* Direction from the separators when nothing else tells: a parenthetical holds the container («Hall (Inn)»), dashes and
+* arrows go from general to specific («Город — район», «Castle > Throne Room»), commas follow the address style of
+* the label's script (Russian: from general, English: from specific).
+*/
+function separatorDirection(label, kinds) {
+	const used = kinds.filter((kind) => kind !== null);
+	if (used.length && used.every((kind) => kind === "paren")) return -1;
+	if (used.includes("dash")) return 1;
+	return CYRILLIC_RE$1.test(label) ? 1 : -1;
+}
+/**
+* Orders the parts most specific first. `registryVote` comes from the place registry (+1 general first, -1 specific
+* first, 0 no evidence) and wins over the lexicon, which wins over the separators.
+*/
+function orderLabelParts(label, split, registryVote = 0) {
+	const { parts, kinds } = split;
+	if (parts.length <= 1) return {
+		parts: [...parts],
+		order: "single"
+	};
+	let direction = Math.sign(registryVote);
+	let order = "registry";
+	if (direction === 0) {
+		direction = lexiconDirection(parts);
+		order = "lexicon";
+	}
+	if (direction === 0) {
+		direction = separatorDirection(label, kinds);
+		order = "separator";
+	}
+	return {
+		parts: direction > 0 ? [...parts].reverse() : [...parts],
+		order
+	};
+}
+//#endregion
+//#region src/domain/places-match.ts
+/** Normalised names a place answers to: its name, aliases and their case forms. */
+function placeKeys(place) {
+	const keys = /* @__PURE__ */ new Set();
+	for (const text of [
+		place.name,
+		...place.aliases,
+		...place.forms
+	]) {
+		if (typeof text !== "string") continue;
+		const key = normalizePlaceName(text);
+		if (key) keys.add(key);
+	}
+	return [...keys];
+}
+/** Normalised name → ids of the places that answer to it. */
+function placeKeyIndex(places) {
+	const index = /* @__PURE__ */ new Map();
+	for (const place of places) for (const key of placeKeys(place)) {
+		const ids = index.get(key);
+		if (!ids) index.set(key, [place.id]);
+		else if (!ids.includes(place.id)) ids.push(place.id);
+	}
+	return index;
+}
+function placeMap(places) {
+	return new Map(places.map((place) => [place.id, place]));
+}
+/** Ancestors of a place, nearest first; stops at a missing parent or a cycle. */
+function ancestorIds(byId, id) {
+	const out = [];
+	const seen = /* @__PURE__ */ new Set([id]);
+	let parent = byId.get(id)?.parent ?? null;
+	while (parent !== null && !seen.has(parent) && byId.has(parent)) {
+		out.push(parent);
+		seen.add(parent);
+		parent = byId.get(parent)?.parent ?? null;
+	}
+	return out;
+}
+/** True when `ancestor` is a strict ancestor of `id`. */
+function isAncestor(byId, ancestor, id) {
+	return ancestor !== id && ancestorIds(byId, id).includes(ancestor);
+}
+/** Every place under `id` (children, grandchildren, …). */
+function descendantIds(places, id) {
+	const byId = placeMap(places);
+	return places.filter((place) => isAncestor(byId, id, place.id)).map((place) => place.id);
+}
+/** Path names from the top place down to this one («Город › Таверна › Зал»). */
+function placePath(byId, id) {
+	const place = byId.get(id);
+	if (!place) return [];
+	return [...ancestorIds(byId, id).reverse().map((ancestor) => byId.get(ancestor)?.name ?? ""), place.name].filter(Boolean);
+}
+/** A parent for `id` that keeps the tree a tree: null, or an existing place that is neither `id` nor under it. */
+function canSetParent(places, id, parent) {
+	if (parent === null) return true;
+	if (parent === id) return false;
+	const byId = placeMap(places);
+	if (!byId.has(parent)) return false;
+	return !isAncestor(byId, id, parent);
+}
+/** Russian endings dropped by the stemmer, longest first. */
+var RU_ENDINGS = [
+	"иями",
+	"ями",
+	"ами",
+	"ого",
+	"его",
+	"ому",
+	"ему",
+	"ыми",
+	"ими",
+	"ией",
+	"ой",
+	"ей",
+	"ий",
+	"ый",
+	"ая",
+	"яя",
+	"ое",
+	"ее",
+	"ые",
+	"ие",
+	"ую",
+	"юю",
+	"ам",
+	"ям",
+	"ах",
+	"ях",
+	"ом",
+	"ем",
+	"ов",
+	"ев",
+	"ью",
+	"а",
+	"я",
+	"о",
+	"е",
+	"ы",
+	"и",
+	"у",
+	"ю",
+	"ь",
+	"й"
+];
+var CYRILLIC_RE = /\p{Script=Cyrillic}/u;
+var DIGIT_RE = /\d/;
+/** Words that do not tell places apart: prepositions, articles and plain descriptive adjectives. */
+var STOP_WORDS = /* @__PURE__ */ new Set([
+	"the",
+	"of",
+	"in",
+	"at",
+	"on",
+	"and",
+	"a",
+	"an",
+	"to",
+	"by",
+	"near",
+	"off",
+	"main",
+	"old",
+	"new",
+	"great",
+	"grand",
+	"little",
+	"small",
+	"big",
+	"upper",
+	"lower",
+	"north",
+	"northern",
+	"south",
+	"southern",
+	"east",
+	"eastern",
+	"west",
+	"western",
+	"central",
+	"inner",
+	"outer",
+	"back",
+	"front",
+	"royal",
+	"private",
+	"public",
+	"first",
+	"second",
+	"third",
+	"top",
+	"ground",
+	"у",
+	"в",
+	"во",
+	"на",
+	"при",
+	"под",
+	"над",
+	"за",
+	"и",
+	"около",
+	"возле",
+	"близ",
+	"к",
+	"ко",
+	"с",
+	"со",
+	"из",
+	"от",
+	"до",
+	"для",
+	"главн",
+	"стар",
+	"нов",
+	"больш",
+	"мал",
+	"маленьк",
+	"верхн",
+	"нижн",
+	"северн",
+	"южн",
+	"восточн",
+	"западн",
+	"центральн",
+	"внутрен",
+	"внешн",
+	"задн",
+	"передн",
+	"королевск",
+	"перв",
+	"втор",
+	"трет",
+	"частн",
+	"общ"
+]);
+/** A crude stem: Russian words lose one ending (keeping three letters), English ones a possessive or plural s. */
+function wordStem(word) {
+	const lower = normalizePlaceName(word);
+	if (CYRILLIC_RE.test(lower)) {
+		for (const ending of RU_ENDINGS) if (lower.endsWith(ending) && lower.length - ending.length >= 3) return lower.slice(0, -ending.length);
+		return lower;
+	}
+	if (lower.endsWith("'s")) return lower.slice(0, -2);
+	if (lower.length > 3 && lower.endsWith("s") && !lower.endsWith("ss")) return lower.slice(0, -1);
+	return lower;
+}
+/** Stems of the distinctive words of a name (no place-type words, prepositions or plain adjectives). */
+function significantStems(name) {
+	const stems = [];
+	for (const word of placeWords(name)) {
+		if (wordLevel(word) !== null) continue;
+		const stem = wordStem(word);
+		if (!stem || STOP_WORDS.has(word) || STOP_WORDS.has(stem)) continue;
+		if (!stems.includes(stem)) stems.push(stem);
+	}
+	return stems;
+}
+function stemsMatch(a, b) {
+	if (a === b) return true;
+	return Math.min(a.length, b.length) >= 4 && (a.startsWith(b) || b.startsWith(a));
+}
+/** Levenshtein distance (names are short: a plain two-row table). */
+function editDistance(a, b) {
+	const x = [...a];
+	const y = [...b];
+	if (!x.length) return y.length;
+	if (!y.length) return x.length;
+	let previous = Array.from({ length: y.length + 1 }, (_, index) => index);
+	for (let i = 1; i <= x.length; i++) {
+		const row = [i];
+		for (let j = 1; j <= y.length; j++) {
+			const cost = x[i - 1] === y[j - 1] ? 0 : 1;
+			row.push(Math.min(previous[j] + 1, row[j - 1] + 1, previous[j - 1] + cost));
+		}
+		previous = row;
+	}
+	return previous[y.length];
+}
+/** Words with digits («3», «4b»): rooms and flats with different numbers are different places. */
+function numberTokens(name) {
+	return placeWords(name).filter((word) => DIGIT_RE.test(word)).sort().join(" ");
+}
+/**
+* Two names that may be one place: equal after normalisation, one contained in the other as whole words («Rusty
+* Anchor» — «Rusty Anchor Tavern», «Таверна» — «Таверна «Якорь»»), the distinctive stems of one inside the other's
+* («Ржавый якорь» — «у Ржавого якоря»), or a typo (edit distance 1, or 2 for long names). Different numbers never
+* match.
+*/
+function namesSimilar(a, b) {
+	const x = normalizePlaceName(a);
+	const y = normalizePlaceName(b);
+	if (!x || !y) return false;
+	if (x === y) return true;
+	if (numberTokens(x) !== numberTokens(y)) return false;
+	const [shorter, longer] = x.length <= y.length ? [x, y] : [y, x];
+	if (shorter.length >= 3 && ` ${longer} `.includes(` ${shorter} `)) return true;
+	const stemsX = significantStems(x);
+	const stemsY = significantStems(y);
+	if (stemsX.length && stemsY.length) {
+		const [small, big] = stemsX.length <= stemsY.length ? [stemsX, stemsY] : [stemsY, stemsX];
+		if (small.every((stem) => big.some((other) => stemsMatch(stem, other)))) return true;
+	}
+	const longest = Math.max([...x].length, [...y].length);
+	if (longest < 5) return false;
+	return editDistance(x, y) <= (longest >= 12 ? 2 : 1);
+}
+/**
+* Places that may be the same as a new place called `name` under `parent`: similar by name or alias, on the same
+* branch of the tree (no parent on either side, or one parent at or above the other). The parent and its ancestors
+* themselves are left out («Tavern, Tavern Hall» does not offer the tavern).
+*/
+function similarPlaces(places, name, parent) {
+	const byId = placeMap(places);
+	const excluded = new Set(parent ? [parent, ...ancestorIds(byId, parent)] : []);
+	const sameBranch = (place) => {
+		if (parent === null || place.parent === null || place.parent === parent) return true;
+		return isAncestor(byId, parent, place.parent) || isAncestor(byId, place.parent, parent);
+	};
+	return places.filter((place) => !excluded.has(place.id) && sameBranch(place)).filter((place) => [place.name, ...place.aliases].some((text) => namesSimilar(text, name))).map((place) => place.id);
+}
+/** Among places with one name: the current one, then one on its branch, then a sibling, then the latest seen. */
+function pick(ids, byId, current) {
+	if (ids.length === 1) return ids[0];
+	const score = (id) => {
+		if (current === null) return 0;
+		if (id === current) return 3;
+		if (isAncestor(byId, id, current) || isAncestor(byId, current, id)) return 2;
+		const parent = byId.get(id)?.parent ?? null;
+		return parent !== null && parent === (byId.get(current)?.parent ?? null) ? 1 : 0;
+	};
+	return [...ids].sort((a, b) => score(b) - score(a) || (byId.get(b)?.lastSeen ?? -1) - (byId.get(a)?.lastSeen ?? -1))[0];
+}
+/**
+* Resolves a DES location label. The whole label is tried first (a place may be called «Rusty Anchor, Main Hall»);
+* then the parts: the registry votes on their order (a known part that is an ancestor of another known part is the
+* more general one), and the most specific part whose place agrees with every known more general part wins. A place
+* without a parent agrees with anything.
+*/
+function resolvePlaceLabel(places, label, options = {}) {
+	const clean = cleanLabel(label);
+	if (!clean) return {
+		label: "",
+		parts: [],
+		order: "single",
+		match: null,
+		deepest: null,
+		unknown: []
+	};
+	const current = options.current ?? null;
+	const byId = placeMap(places);
+	const index = placeKeyIndex(places);
+	const lookup = (text) => index.get(normalizePlaceName(text)) ?? [];
+	const whole = lookup(clean);
+	if (whole.length) {
+		const id = pick(whole, byId, current);
+		return {
+			label: clean,
+			parts: [clean],
+			order: "single",
+			match: id,
+			deepest: id,
+			unknown: []
+		};
+	}
+	const split = splitLabel(clean);
+	const written = split.parts.map(lookup);
+	let vote = 0;
+	for (let i = 0; i < written.length; i++) for (let j = i + 1; j < written.length; j++) for (const a of written[i]) for (const b of written[j]) if (isAncestor(byId, a, b)) vote++;
+	else if (isAncestor(byId, b, a)) vote--;
+	const { parts, order } = orderLabelParts(clean, split, vote);
+	const matches = parts.map(lookup);
+	for (let k = 0; k < parts.length; k++) {
+		const general = matches.slice(k + 1).filter((ids) => ids.length > 0);
+		const consistent = matches[k].filter((id) => {
+			const ancestors = ancestorIds(byId, id);
+			if (!ancestors.length) return true;
+			return general.every((ids) => ids.some((other) => ancestors.includes(other)));
+		});
+		if (!consistent.length) continue;
+		const id = pick(consistent, byId, current);
+		return {
+			label: clean,
+			parts,
+			order,
+			match: k === 0 ? id : null,
+			deepest: id,
+			unknown: parts.slice(0, k)
+		};
+	}
+	return {
+		label: clean,
+		parts,
+		order,
+		match: null,
+		deepest: null,
+		unknown: [...parts]
+	};
+}
+//#endregion
+//#region src/domain/places-registry.ts
+var PLACES_LIMITS = {
+	log: 100,
+	candidates: 30,
+	seen: 10,
+	events: 8,
+	eventChars: 200,
+	present: 30,
+	visits: 150,
+	dismissed: 100
+};
+/** Errors of registry edits; the feature translates the code. */
+var PlacesError = class extends Error {
+	code;
+	constructor(code) {
+		super(code);
+		this.code = code;
+		this.name = "PlacesError";
+	}
+};
+function emptyPlacesDoc() {
+	return {
+		places: [],
+		candidates: [],
+		current: null,
+		log: [],
+		dismissed: []
+	};
+}
+function isDict$6(value) {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function num(value, fallback) {
+	return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+}
+function strings$1(value) {
+	return Array.isArray(value) ? value.filter((item) => typeof item === "string") : [];
+}
+function readVisit(raw) {
+	if (!isDict$6(raw)) return null;
+	const from = num(raw.from, NaN);
+	if (!Number.isFinite(from)) return null;
+	const visit = {
+		from,
+		to: typeof raw.to === "number" && Number.isFinite(raw.to) ? raw.to : null,
+		present: strings$1(raw.present),
+		events: strings$1(raw.events)
+	};
+	if (typeof raw.storyDate === "string" && raw.storyDate) visit.storyDate = raw.storyDate;
+	return visit;
+}
+function readPlace(raw) {
+	if (!isDict$6(raw) || typeof raw.id !== "string" || !raw.id || typeof raw.name !== "string" || !raw.name.trim()) return null;
+	const place = {
+		id: raw.id,
+		name: raw.name.trim(),
+		aliases: strings$1(raw.aliases),
+		forms: strings$1(raw.forms),
+		parent: typeof raw.parent === "string" && raw.parent ? raw.parent : null,
+		createdAt: num(raw.createdAt, 0),
+		firstSeen: num(raw.firstSeen, -1),
+		lastSeen: num(raw.lastSeen, -1),
+		visits: (Array.isArray(raw.visits) ? raw.visits : []).map(readVisit).filter((visit) => visit !== null).sort((a, b) => a.from - b.from)
+	};
+	if (isDict$6(raw.entry) && typeof raw.entry.world === "string" && typeof raw.entry.uid === "number") place.entry = {
+		world: raw.entry.world,
+		uid: raw.entry.uid
+	};
+	if (typeof raw.passportId === "string" && raw.passportId) place.passportId = raw.passportId;
+	if (isDict$6(raw.state)) {
+		const state = {};
+		for (const [key, value] of Object.entries(raw.state)) if (typeof value === "string") state[key] = value;
+		place.state = state;
+	}
+	if (typeof raw.background === "string" && raw.background) place.background = raw.background;
+	return place;
+}
+function readCandidate(raw) {
+	if (!isDict$6(raw) || typeof raw.key !== "string" || !raw.key || typeof raw.name !== "string") return null;
+	const candidate = {
+		key: raw.key,
+		label: typeof raw.label === "string" ? raw.label : raw.name,
+		name: raw.name,
+		seen: (Array.isArray(raw.seen) ? raw.seen : []).filter((item) => typeof item === "number" && Number.isFinite(item)),
+		similar: strings$1(raw.similar),
+		parent: typeof raw.parent === "string" && raw.parent ? raw.parent : null,
+		chain: strings$1(raw.chain),
+		createdAt: num(raw.createdAt, 0)
+	};
+	if (raw.proposed === true) candidate.proposed = true;
+	return candidate;
+}
+function readTrace(raw) {
+	if (!isDict$6(raw)) return null;
+	return {
+		firstSeen: num(raw.firstSeen, -1),
+		lastSeen: num(raw.lastSeen, -1),
+		tail: readVisit(raw.tail)
+	};
+}
+function readRecord(raw) {
+	if (!isDict$6(raw) || typeof raw.index !== "number" || !isDict$6(raw.before)) return null;
+	const before = raw.before;
+	const places = {};
+	if (isDict$6(before.places)) for (const [id, trace] of Object.entries(before.places)) places[id] = trace === null ? null : readTrace(trace);
+	const candidates = {};
+	if (isDict$6(before.candidates)) for (const [key, value] of Object.entries(before.candidates)) candidates[key] = value === null ? null : readCandidate(value);
+	const record = {
+		index: raw.index,
+		stamp: typeof raw.stamp === "string" ? raw.stamp : "",
+		label: typeof raw.label === "string" ? raw.label : null,
+		current: typeof raw.current === "string" ? raw.current : null,
+		before: {
+			current: typeof before.current === "string" ? before.current : null,
+			places,
+			candidates
+		}
+	};
+	if (typeof raw.candidate === "string" && raw.candidate) record.candidate = raw.candidate;
+	if (Array.isArray(raw.present)) record.present = strings$1(raw.present);
+	if (typeof raw.storyDate === "string" && raw.storyDate) record.storyDate = raw.storyDate;
+	return record;
+}
+/**
+* A clean copy of a stored document: unknown shapes dropped, missing parents cleared, cycles broken, only the current
+* place's last visit left open. Never shares objects with `raw`.
+*/
+function normalizePlacesDoc(raw) {
+	const source = isDict$6(raw) ? raw : {};
+	const places = [];
+	const ids = /* @__PURE__ */ new Set();
+	for (const item of Array.isArray(source.places) ? source.places : []) {
+		const place = readPlace(item);
+		if (place && !ids.has(place.id)) {
+			ids.add(place.id);
+			places.push(place);
+		}
+	}
+	for (const place of places) if (place.parent !== null && !ids.has(place.parent)) place.parent = null;
+	for (const place of places) {
+		const seen = /* @__PURE__ */ new Set([place.id]);
+		let cursor = place;
+		while (cursor?.parent) {
+			if (seen.has(cursor.parent)) {
+				cursor.parent = null;
+				break;
+			}
+			seen.add(cursor.parent);
+			cursor = places.find((item) => item.id === cursor?.parent);
+		}
+	}
+	const current = typeof source.current === "string" && ids.has(source.current) ? source.current : null;
+	for (const place of places) place.visits.forEach((visit, index) => {
+		const last = index === place.visits.length - 1;
+		if (visit.to === null && (!last || place.id !== current)) visit.to = Math.max(visit.from, place.lastSeen);
+	});
+	const candidates = [];
+	for (const item of Array.isArray(source.candidates) ? source.candidates : []) {
+		const candidate = readCandidate(item);
+		if (candidate && !candidates.some((other) => other.key === candidate.key)) candidates.push(candidate);
+	}
+	return {
+		places,
+		candidates,
+		current,
+		log: (Array.isArray(source.log) ? source.log : []).map(readRecord).filter((record) => record !== null).sort((a, b) => a.index - b.index),
+		dismissed: strings$1(source.dismissed)
+	};
+}
+/** Aliases without blanks, repeats and the name itself (compared normalised). */
+function cleanAliases(name, aliases) {
+	const seen = /* @__PURE__ */ new Set([normalizePlaceName(name)]);
+	const out = [];
+	for (const alias of aliases) {
+		const text = alias.replace(/\s+/g, " ").trim();
+		const key = normalizePlaceName(text);
+		if (!key || seen.has(key)) continue;
+		seen.add(key);
+		out.push(text);
+	}
+	return out;
+}
+/** Case forms of the name and aliases (from `forms`), plus `keep`, without repeats and without the names themselves. */
+function collectForms(name, aliases, forms, keep = []) {
+	const names = new Set([name, ...aliases].map(normalizePlaceName));
+	const seen = /* @__PURE__ */ new Set();
+	const out = [];
+	const add = (form) => {
+		if (typeof form !== "string") return;
+		const text = form.trim();
+		const key = normalizePlaceName(text);
+		if (!key || names.has(key) || seen.has(key)) return;
+		seen.add(key);
+		out.push(text);
+	};
+	for (const source of [name, ...aliases]) {
+		let list;
+		try {
+			list = forms(source);
+		} catch {
+			list = [];
+		}
+		for (const form of Array.isArray(list) ? list : []) add(form);
+	}
+	for (const form of keep) add(form);
+	return out;
+}
+/** The places as a forest, each level sorted by name. */
+function placeTree(places) {
+	const byParent = /* @__PURE__ */ new Map();
+	const ids = new Set(places.map((place) => place.id));
+	for (const place of places) {
+		const parent = place.parent !== null && ids.has(place.parent) ? place.parent : null;
+		const list = byParent.get(parent) ?? [];
+		list.push(place);
+		byParent.set(parent, list);
+	}
+	const seen = /* @__PURE__ */ new Set();
+	const build = (parent, depth) => (byParent.get(parent) ?? []).filter((place) => !seen.has(place.id)).sort((a, b) => a.name.localeCompare(b.name)).map((place) => {
+		seen.add(place.id);
+		return {
+			place,
+			depth,
+			children: build(place.id, depth + 1)
+		};
+	});
+	return build(null, 0);
+}
+/** The forest in display order (parents before children). */
+function flattenTree(nodes) {
+	const out = [];
+	const walk = (list) => {
+		for (const node of list) {
+			out.push(node);
+			walk(node.children);
+		}
+	};
+	walk(nodes);
+	return out;
+}
+/**
+* Committed assistant replies (P14): for every user message, the last assistant message before it — exactly what the
+* turn pipeline reports as `turn:committed` when that user message is sent. Hidden user messages still count.
+*/
+function committedIndices(chat) {
+	const out = [];
+	let lastAssistant = -1;
+	chat.forEach((message, index) => {
+		if (!message) return;
+		if (message.is_user) {
+			if (lastAssistant >= 0 && out[out.length - 1] !== lastAssistant) out.push(lastAssistant);
+		} else if (!message.is_system) lastAssistant = index;
+	});
+	return out;
+}
+function copyVisit(visit) {
+	const copy = {
+		from: visit.from,
+		to: visit.to,
+		present: [...visit.present],
+		events: [...visit.events]
+	};
+	if (visit.storyDate !== void 0) copy.storyDate = visit.storyDate;
+	return copy;
+}
+function copyCandidate(candidate) {
+	return {
+		...candidate,
+		seen: [...candidate.seen],
+		similar: [...candidate.similar],
+		chain: [...candidate.chain]
+	};
+}
+function traceOf(place) {
+	const tail = place.visits[place.visits.length - 1];
+	return {
+		firstSeen: place.firstSeen,
+		lastSeen: place.lastSeen,
+		tail: tail ? copyVisit(tail) : null
+	};
+}
+function clip(text) {
+	const value = text.replace(/\s+/g, " ").trim();
+	return value.length > PLACES_LIMITS.eventChars ? `${value.slice(0, PLACES_LIMITS.eventChars - 1)}…` : value;
+}
+function mergeUnique(target, items, cap, keepLatest) {
+	const out = [...target];
+	for (const item of items) {
+		const text = clip(item);
+		if (text && !out.includes(text)) out.push(text);
+	}
+	if (out.length <= cap) return out;
+	return keepLatest ? out.slice(out.length - cap) : out.slice(0, cap);
+}
+function openVisit(place, from, input) {
+	const visit = {
+		from,
+		to: null,
+		present: mergeUnique([], input.present, PLACES_LIMITS.present, false),
+		events: mergeUnique([], input.events, PLACES_LIMITS.events, true)
+	};
+	if (input.storyDate) visit.storyDate = input.storyDate;
+	place.visits.push(visit);
+	if (place.visits.length > PLACES_LIMITS.visits) place.visits.splice(0, place.visits.length - PLACES_LIMITS.visits);
+}
+function extendVisit(place, index, input) {
+	const visit = place.visits[place.visits.length - 1];
+	if (!visit || visit.to !== null) {
+		openVisit(place, index, input);
+		return;
+	}
+	visit.present = mergeUnique(visit.present, input.present, PLACES_LIMITS.present, false);
+	visit.events = mergeUnique(visit.events, input.events, PLACES_LIMITS.events, true);
+	if (!visit.storyDate && input.storyDate) visit.storyDate = input.storyDate;
+}
+function closeVisit(place) {
+	const visit = place.visits[place.visits.length - 1];
+	if (visit && visit.to === null) visit.to = Math.max(visit.from, place.lastSeen);
+}
+/** Touch-tracking for one record: the first touch keeps what to restore. */
+var Touches = class {
+	record;
+	constructor(record) {
+		this.record = record;
+	}
+	place(place) {
+		if (!(place.id in this.record.before.places)) this.record.before.places[place.id] = traceOf(place);
+	}
+	created(id) {
+		if (!(id in this.record.before.places)) this.record.before.places[id] = null;
+	}
+	candidate(key, current) {
+		if (!(key in this.record.before.candidates)) this.record.before.candidates[key] = current ? copyCandidate(current) : null;
+	}
+};
+/** Moves the current place to `target` at `index` (closing the stay at the previous place), or extends the stay. */
+function enter(doc, target, index, from, input, touch) {
+	const previous = doc.current ? doc.places.find((place) => place.id === doc.current) : void 0;
+	if (previous && target && previous.id === target.id) {
+		touch.place(target);
+		extendVisit(target, index, input);
+		target.lastSeen = Math.max(target.lastSeen, index);
+		return;
+	}
+	if (previous) {
+		touch.place(previous);
+		closeVisit(previous);
+	}
+	doc.current = target?.id ?? null;
+	if (!target) return;
+	touch.place(target);
+	closeVisit(target);
+	openVisit(target, from, input);
+	target.lastSeen = Math.max(target.lastSeen, index);
+	if (target.firstSeen < 0) target.firstSeen = from;
+}
+function newPlace(doc, name, parent, deps, now, seen) {
+	const place = {
+		id: uniqueId(doc, deps),
+		name: name.replace(/\s+/g, " ").trim(),
+		aliases: [],
+		forms: [],
+		parent,
+		createdAt: now,
+		firstSeen: seen.first,
+		lastSeen: seen.last,
+		visits: []
+	};
+	place.forms = collectForms(place.name, [], deps.forms);
+	doc.places.push(place);
+	return place;
+}
+function uniqueId(doc, deps) {
+	for (let attempt = 0; attempt < 20; attempt++) {
+		const id = deps.newId();
+		if (id && !doc.places.some((place) => place.id === id)) return id;
+	}
+	let n = doc.places.length + 1;
+	while (doc.places.some((place) => place.id === `p${n}`)) n++;
+	return `p${n}`;
+}
+/**
+* Creates the candidate's containers (general first; a container that resembles a known place is skipped rather than
+* duplicated) and the place itself; drops the candidate. Returns the new place and every created id.
+*/
+function createFromCandidate(doc, candidate, deps, now, lastSeen, touch) {
+	const created = [];
+	const first = candidate.seen.length ? Math.min(...candidate.seen) : lastSeen;
+	let parent = candidate.parent !== null && doc.places.some((place) => place.id === candidate.parent) ? candidate.parent : null;
+	for (const part of [...candidate.chain].reverse()) {
+		const key = normalizePlaceName(part);
+		const existing = doc.places.find((place) => place.parent === parent && placeKeys(place).includes(key));
+		if (existing) {
+			parent = existing.id;
+			continue;
+		}
+		if (!key || similarPlaces(doc.places, part, parent).length) continue;
+		const container = newPlace(doc, part, parent, deps, now, {
+			first,
+			last: lastSeen
+		});
+		touch?.created(container.id);
+		created.push(container.id);
+		parent = container.id;
+	}
+	const place = newPlace(doc, candidate.name, parent, deps, now, {
+		first,
+		last: lastSeen
+	});
+	touch?.created(place.id);
+	created.push(place.id);
+	removeCandidate(doc, candidate.key, touch);
+	return {
+		place,
+		created
+	};
+}
+function removeCandidate(doc, key, touch) {
+	const index = doc.candidates.findIndex((candidate) => candidate.key === key);
+	if (index < 0) return;
+	touch?.candidate(key, doc.candidates[index]);
+	doc.candidates.splice(index, 1);
+}
+/** The latest record that carried a label (records without one are transparent for the two-turn rule). */
+function lastLabeled(doc) {
+	for (let i = doc.log.length - 1; i >= 0; i--) {
+		const record = doc.log[i];
+		if (record.label !== null) return record;
+	}
+}
+function recordChanged(doc, record) {
+	return Object.keys(record.before.places).length > 0 || Object.keys(record.before.candidates).length > 0 || record.before.current !== doc.current;
+}
+/**
+* Applies one committed reply to the registry (mutates `doc`). Records at or after `input.index` are rolled back first,
+* so a message is never counted twice. Without a label the current place just goes on (its visit gains the present
+* characters and events). A resolved label moves the current place; an unresolved one makes or advances a candidate
+* and puts the current place at the most specific known container (null when none).
+*/
+function applyCapture(doc, input, deps) {
+	if (doc.log.some((record) => record.index >= input.index)) rollbackFrom(doc, input.index);
+	const label = cleanLabel(input.label);
+	const previous = lastLabeled(doc);
+	const record = {
+		index: input.index,
+		stamp: input.stamp,
+		label,
+		current: doc.current,
+		before: {
+			current: doc.current,
+			places: {},
+			candidates: {}
+		}
+	};
+	if (input.present.length) record.present = [...input.present];
+	if (input.storyDate) record.storyDate = input.storyDate;
+	const touch = new Touches(record);
+	const result = {
+		changed: false,
+		created: [],
+		proposals: []
+	};
+	const byId = (id) => id ? doc.places.find((place) => place.id === id) : void 0;
+	if (label === null) {
+		const current = byId(doc.current);
+		if (current) enter(doc, current, input.index, input.index, input, touch);
+	} else {
+		const resolution = resolvePlaceLabel(doc.places, label, { current: doc.current });
+		let target;
+		let from = input.index;
+		if (resolution.match) {
+			target = byId(resolution.match) ?? null;
+			if (target && doc.current && isAncestor(placeMap(doc.places), target.id, doc.current)) target = byId(doc.current) ?? target;
+			removeCandidate(doc, normalizePlaceName(resolution.parts[0] ?? label), touch);
+		} else {
+			target = byId(resolution.deepest) ?? null;
+			const name = resolution.unknown[0] ?? label;
+			const key = normalizePlaceName(name);
+			if (key && !doc.dismissed.includes(key)) {
+				record.candidate = key;
+				let candidate = doc.candidates.find((item) => item.key === key);
+				touch.candidate(key, candidate);
+				if (!candidate) {
+					candidate = {
+						key,
+						label,
+						name,
+						seen: [],
+						similar: [],
+						parent: null,
+						chain: [],
+						createdAt: input.now
+					};
+					doc.candidates.push(candidate);
+				}
+				candidate.label = label;
+				candidate.name = name;
+				candidate.parent = resolution.deepest;
+				candidate.chain = resolution.unknown.slice(1);
+				candidate.seen = [...candidate.seen.filter((index) => index < input.index), input.index].slice(-PLACES_LIMITS.seen);
+				if (previous !== void 0 && previous.candidate === key && !candidate.proposed) {
+					const similar = similarPlaces(doc.places, name, resolution.deepest);
+					if (similar.length) {
+						candidate.similar = similar;
+						candidate.proposed = true;
+						result.proposals.push({
+							key,
+							label,
+							name,
+							parent: resolution.deepest,
+							similar,
+							index: input.index
+						});
+					} else {
+						const promoted = createFromCandidate(doc, candidate, deps, input.now, input.index, touch);
+						result.created.push(...promoted.created);
+						target = promoted.place;
+						from = previous.index;
+					}
+				}
+				pruneCandidates(doc, touch);
+			}
+		}
+		enter(doc, target, input.index, from, input, touch);
+	}
+	record.current = doc.current;
+	result.changed = recordChanged(doc, record);
+	if (result.changed) {
+		doc.log.push(record);
+		if (doc.log.length > PLACES_LIMITS.log) doc.log.splice(0, doc.log.length - PLACES_LIMITS.log);
+	}
+	return result;
+}
+/** Keeps at most PLACES_LIMITS.candidates, dropping the ones seen longest ago (never one sent to the Inbox first). */
+function pruneCandidates(doc, touch) {
+	while (doc.candidates.length > PLACES_LIMITS.candidates) {
+		const lastSeen = (candidate) => candidate.seen[candidate.seen.length - 1] ?? -1;
+		const pool = doc.candidates.filter((candidate) => !candidate.proposed);
+		const victim = [...pool.length ? pool : doc.candidates].sort((a, b) => lastSeen(a) - lastSeen(b))[0];
+		if (!victim) return;
+		removeCandidate(doc, victim.key, touch);
+	}
+}
+/**
+* Undoes every record at or after `index`, newest first: places it created disappear, touched places get their
+* first/last seen and last visit back (visits opened by it go), candidates and the current place are restored.
+* A created place the user has invested in since (renamed, other names, a description entry, a passport, state or
+* background) stays, unvisited: undoing a turn must not throw away the user's work or an id NAI Studio is bound to.
+*/
+function rollbackFrom(doc, index) {
+	let count = 0;
+	let earliest = null;
+	while (doc.log.length && doc.log[doc.log.length - 1].index >= index) {
+		const record = doc.log.pop();
+		count++;
+		earliest = record.index;
+		const kept = [];
+		for (const [id, trace] of Object.entries(record.before.places)) {
+			if (trace === null) {
+				const created = doc.places.find((item) => item.id === id);
+				if (created && invested(created)) {
+					created.visits = [];
+					created.firstSeen = -1;
+					created.lastSeen = -1;
+					kept.push(created);
+				} else dropPlace(doc, id);
+				continue;
+			}
+			const place = doc.places.find((item) => item.id === id);
+			if (!place) continue;
+			place.firstSeen = trace.firstSeen;
+			place.lastSeen = trace.lastSeen;
+			place.visits = place.visits.filter((visit) => visit.from < record.index);
+			if (trace.tail) {
+				const tail = trace.tail;
+				const at = place.visits.findIndex((visit) => visit.from === tail.from);
+				if (at >= 0) place.visits[at] = copyVisit(tail);
+			}
+		}
+		for (const [key, candidate] of Object.entries(record.before.candidates)) {
+			const at = doc.candidates.findIndex((item) => item.key === key);
+			if (candidate === null) {
+				if (at >= 0) doc.candidates.splice(at, 1);
+			} else if (at >= 0) doc.candidates[at] = copyCandidate(candidate);
+			else doc.candidates.push(copyCandidate(candidate));
+		}
+		for (const place of kept) {
+			const keys = placeKeys(place);
+			doc.candidates = doc.candidates.filter((candidate) => !keys.includes(candidate.key));
+		}
+		const restored = record.before.current;
+		doc.current = restored !== null && doc.places.some((place) => place.id === restored) ? restored : null;
+	}
+	return {
+		count,
+		earliest
+	};
+}
+/** The user (or another module) put something into this place beyond what capture made. */
+function invested(place) {
+	return !!(place.entry || place.passportId || place.aliases.length || place.state || place.background);
+}
+/** Removes a place without journal bookkeeping (rollback of a capture that created it). */
+function dropPlace(doc, id) {
+	const index = doc.places.findIndex((place) => place.id === id);
+	if (index < 0) return;
+	const [removed] = doc.places.splice(index, 1);
+	for (const place of doc.places) if (place.parent === id) place.parent = removed?.parent ?? null;
+	if (doc.current === id) doc.current = null;
+}
+/** The earliest record whose message changed (stamp differs or the message is gone), or null. */
+function firstStaleRecord(doc, stampAt, recent = Infinity) {
+	const start = Math.max(0, doc.log.length - recent);
+	for (let i = start; i < doc.log.length; i++) {
+		const record = doc.log[i];
+		if (stampAt(record.index) !== record.stamp) return record.index;
+	}
+	return null;
+}
+/** Index of the latest capture record, -1 when none. */
+function lastRecordIndex(doc) {
+	return doc.log.length ? doc.log[doc.log.length - 1].index : -1;
+}
+/** Adds a place by hand (not seen yet: first and last seen are -1). */
+function addPlace(doc, fields, deps, now) {
+	const name = fields.name.replace(/\s+/g, " ").trim();
+	if (!name) throw new PlacesError("empty-name");
+	const parent = fields.parent ?? null;
+	if (parent !== null && !doc.places.some((place) => place.id === parent)) throw new PlacesError("bad-parent");
+	const place = newPlace(doc, name, parent, deps, now, {
+		first: -1,
+		last: -1
+	});
+	if (fields.aliases?.length) {
+		place.aliases = cleanAliases(name, fields.aliases);
+		place.forms = collectForms(name, place.aliases, deps.forms);
+	}
+	return place;
+}
+function copyPlace(place) {
+	const copy = {
+		...place,
+		aliases: [...place.aliases],
+		forms: [...place.forms],
+		visits: place.visits.map(copyVisit)
+	};
+	if (place.entry) copy.entry = { ...place.entry };
+	if (place.state) copy.state = { ...place.state };
+	return copy;
+}
+/**
+* Changes a place. A new name or aliases recompute the case forms (unless `forms` is given); the old name of a renamed
+* place stays as an alias, so DES labels that still use it resolve.
+*/
+function updatePlace(doc, id, patch, deps) {
+	const place = doc.places.find((item) => item.id === id);
+	if (!place) throw new PlacesError("missing");
+	const before = copyPlace(place);
+	if (patch.parent !== void 0 && patch.parent !== place.parent) {
+		if (!canSetParent(doc.places, id, patch.parent)) throw new PlacesError("bad-parent");
+		place.parent = patch.parent;
+	}
+	let names = false;
+	if (patch.name !== void 0) {
+		const name = patch.name.replace(/\s+/g, " ").trim();
+		if (!name) throw new PlacesError("empty-name");
+		if (name !== place.name) {
+			const old = place.name;
+			place.name = name;
+			place.aliases = cleanAliases(name, [...patch.aliases ?? place.aliases, old]);
+			names = true;
+		}
+	}
+	if (patch.aliases !== void 0 && !names) {
+		place.aliases = cleanAliases(place.name, patch.aliases);
+		names = true;
+	}
+	if (patch.forms !== void 0) place.forms = collectForms(place.name, place.aliases, () => [], patch.forms);
+	else if (names) place.forms = collectForms(place.name, place.aliases, deps.forms);
+	for (const key of [
+		"createdAt",
+		"firstSeen",
+		"lastSeen"
+	]) {
+		const value = patch[key];
+		if (typeof value === "number" && Number.isFinite(value)) place[key] = value;
+	}
+	if ("entry" in patch) {
+		if (patch.entry) place.entry = {
+			world: patch.entry.world,
+			uid: patch.entry.uid
+		};
+		else delete place.entry;
+	}
+	if ("passportId" in patch) {
+		if (patch.passportId) place.passportId = patch.passportId;
+		else delete place.passportId;
+	}
+	if ("state" in patch) {
+		if (patch.state) place.state = { ...patch.state };
+		else delete place.state;
+	}
+	if ("background" in patch) {
+		if (patch.background) place.background = patch.background;
+		else delete place.background;
+	}
+	return {
+		before,
+		after: copyPlace(place)
+	};
+}
+/** Removes a place: its children move up to its parent, candidates and records forget it. */
+function removePlace(doc, id) {
+	const index = doc.places.findIndex((place) => place.id === id);
+	if (index < 0) throw new PlacesError("missing");
+	const removed = copyPlace(doc.places[index]);
+	const currentBefore = doc.current;
+	const reparented = [];
+	doc.places.splice(index, 1);
+	for (const place of doc.places) {
+		if (place.parent !== id) continue;
+		reparented.push(copyPlace(place));
+		place.parent = removed.parent;
+	}
+	for (const candidate of doc.candidates) {
+		if (candidate.parent === id) candidate.parent = removed.parent;
+		candidate.similar = candidate.similar.filter((other) => other !== id);
+	}
+	forgetInLog(doc, id, null);
+	if (doc.current === id) doc.current = null;
+	return {
+		removed,
+		reparented,
+		currentBefore
+	};
+}
+/** Records stop restoring `id`; references to it as the current place point to `replacement`. */
+function forgetInLog(doc, id, replacement) {
+	for (const record of doc.log) {
+		delete record.before.places[id];
+		if (record.before.current === id) record.before.current = replacement;
+		if (record.current === id) record.current = replacement;
+		for (const candidate of Object.values(record.before.candidates)) {
+			if (!candidate) continue;
+			if (candidate.parent === id) candidate.parent = replacement;
+			candidate.similar = [...new Set(candidate.similar.map((other) => other === id ? replacement : other))].filter((other) => other !== null);
+		}
+	}
+}
+/**
+* Merges `mergeId` into `keepId`: names become aliases, visits join (sorted), seen ranges widen, the description entry
+* and passport are kept from `keep` when it has them, children move over, the current place follows.
+*/
+function mergePlaces(doc, keepId, mergeId, deps) {
+	if (keepId === mergeId) throw new PlacesError("same");
+	const keep = doc.places.find((place) => place.id === keepId);
+	const merge = doc.places.find((place) => place.id === mergeId);
+	if (!keep || !merge) throw new PlacesError("missing");
+	const keepBefore = copyPlace(keep);
+	const merged = copyPlace(merge);
+	const currentBefore = doc.current;
+	const reparented = [];
+	const byId = placeMap(doc.places);
+	let walker = keep.parent;
+	const guard = /* @__PURE__ */ new Set();
+	while (walker !== null && !guard.has(walker)) {
+		guard.add(walker);
+		if (walker === mergeId) {
+			keep.parent = merge.parent === keepId ? null : merge.parent;
+			break;
+		}
+		walker = byId.get(walker)?.parent ?? null;
+	}
+	for (const place of doc.places) {
+		if (place.parent !== mergeId || place.id === keepId) continue;
+		reparented.push(copyPlace(place));
+		place.parent = keepId;
+	}
+	keep.aliases = cleanAliases(keep.name, [
+		...keep.aliases,
+		merge.name,
+		...merge.aliases
+	]);
+	keep.forms = collectForms(keep.name, keep.aliases, deps.forms, [...keep.forms, ...merge.forms]);
+	const mergeWasCurrent = doc.current === mergeId;
+	if (mergeWasCurrent) closeVisit(keep);
+	else closeVisit(merge);
+	keep.visits = [...keep.visits, ...merge.visits.map(copyVisit)].sort((a, b) => a.from - b.from);
+	for (let i = 0; i < keep.visits.length - 1; i++) {
+		const visit = keep.visits[i];
+		if (visit.to === null) visit.to = Math.max(visit.from, keep.visits[i + 1].from);
+	}
+	const seen = [keep.firstSeen, merge.firstSeen].filter((value) => value >= 0);
+	keep.firstSeen = seen.length ? Math.min(...seen) : -1;
+	keep.lastSeen = Math.max(keep.lastSeen, merge.lastSeen);
+	const created = [keep.createdAt, merge.createdAt].filter((value) => value > 0);
+	keep.createdAt = created.length ? Math.min(...created) : 0;
+	if (!keep.entry && merge.entry) keep.entry = { ...merge.entry };
+	if (!keep.passportId && merge.passportId) keep.passportId = merge.passportId;
+	if (!keep.state && merge.state) keep.state = { ...merge.state };
+	if (!keep.background && merge.background) keep.background = merge.background;
+	doc.places.splice(doc.places.indexOf(merge), 1);
+	for (const candidate of doc.candidates) {
+		if (candidate.parent === mergeId) candidate.parent = keepId;
+		if (candidate.similar.includes(mergeId)) candidate.similar = [...new Set(candidate.similar.map((other) => other === mergeId ? keepId : other))];
+	}
+	forgetInLog(doc, mergeId, keepId);
+	if (mergeWasCurrent) doc.current = keepId;
+	return {
+		keepBefore,
+		keepAfter: copyPlace(keep),
+		merged,
+		reparented,
+		currentBefore,
+		movedVisits: merged.visits.map((visit) => visit.from)
+	};
+}
+/**
+* The latest record that named this candidate, while it is still the latest labeled one and its fallback is still
+* current: resolving the candidate then also moves the current place (and the record learns how to undo it).
+*/
+function liveRecord(doc, key) {
+	const record = lastLabeled(doc);
+	if (!record || record.candidate !== key || record.current !== doc.current) return void 0;
+	return record;
+}
+function enterAtRecord(doc, place, record) {
+	const touch = new Touches(record);
+	enter(doc, place, record.index, record.index, {
+		present: record.present ?? [],
+		storyDate: record.storyDate,
+		events: []
+	}, touch);
+	record.current = doc.current;
+}
+/** Creates the candidate as a new place (the user's «Create»): containers too; it becomes current if DES is there. */
+function createCandidatePlace(doc, key, deps, now) {
+	const candidate = doc.candidates.find((item) => item.key === key);
+	if (!candidate) throw new PlacesError("missing");
+	const record = liveRecord(doc, key);
+	const outcome = createFromCandidate(doc, candidate, deps, now, candidate.seen[candidate.seen.length - 1] ?? -1, null);
+	if (record) enterAtRecord(doc, outcome.place, record);
+	return outcome;
+}
+/** The candidate is another name of a known place (the Inbox «merge» or the user's choice): its name becomes an alias. */
+function mergeCandidate(doc, key, targetId, deps) {
+	const candidate = doc.candidates.find((item) => item.key === key);
+	const target = doc.places.find((place) => place.id === targetId);
+	if (!candidate || !target) throw new PlacesError("missing");
+	const before = copyPlace(target);
+	target.aliases = cleanAliases(target.name, [...target.aliases, candidate.name]);
+	target.forms = collectForms(target.name, target.aliases, deps.forms, target.forms);
+	const seen = candidate.seen.filter((index) => index >= 0);
+	if (seen.length && (target.firstSeen < 0 || Math.min(...seen) < target.firstSeen)) target.firstSeen = Math.min(...seen);
+	const record = liveRecord(doc, key);
+	removeCandidate(doc, key, null);
+	if (record) enterAtRecord(doc, target, record);
+	return {
+		before,
+		after: copyPlace(target)
+	};
+}
+/** «Not a place»: the candidate goes and its name is never collected again. */
+function dismissCandidate(doc, key) {
+	const index = doc.candidates.findIndex((item) => item.key === key);
+	if (index < 0) return false;
+	doc.candidates.splice(index, 1);
+	if (!doc.dismissed.includes(key)) doc.dismissed.push(key);
+	if (doc.dismissed.length > PLACES_LIMITS.dismissed) doc.dismissed.splice(0, doc.dismissed.length - PLACES_LIMITS.dismissed);
+	return true;
+}
+/** Puts back the user-editable fields of a place from a journal snapshot; visits moved in by a merge go out again. */
+function restorePlaceFields(doc, snapshot, movedVisits = []) {
+	const place = doc.places.find((item) => item.id === snapshot.id);
+	if (!place) return false;
+	place.name = snapshot.name;
+	place.aliases = [...snapshot.aliases];
+	place.forms = [...snapshot.forms];
+	place.parent = canSetParent(doc.places, place.id, snapshot.parent) ? snapshot.parent : null;
+	if (snapshot.entry) place.entry = { ...snapshot.entry };
+	else delete place.entry;
+	if (snapshot.passportId) place.passportId = snapshot.passportId;
+	else delete place.passportId;
+	if (snapshot.state) place.state = { ...snapshot.state };
+	else delete place.state;
+	if (snapshot.background) place.background = snapshot.background;
+	else delete place.background;
+	if (movedVisits.length) {
+		const moved = new Set(movedVisits);
+		place.visits = place.visits.filter((visit) => !moved.has(visit.from));
+		place.firstSeen = snapshot.firstSeen;
+		place.lastSeen = Math.max(snapshot.lastSeen, place.visits[place.visits.length - 1]?.to ?? -1);
+	}
+	return true;
+}
+/** Brings back a removed or merged place from its snapshot (no-op when the id is taken again). */
+function reinsertPlace(doc, snapshot) {
+	if (doc.places.some((place) => place.id === snapshot.id)) return false;
+	const place = copyPlace(snapshot);
+	if (place.parent !== null && !doc.places.some((item) => item.id === place.parent)) place.parent = null;
+	for (const visit of place.visits) if (visit.to === null) visit.to = Math.max(visit.from, place.lastSeen);
+	doc.places.push(place);
+	return true;
+}
+//#endregion
+//#region src/features/places/store.ts
+var PLACES_KIND = "places";
+var PUT_ATTEMPTS$2 = 2;
+var PlacesStore = class {
+	app;
+	log;
+	doc = null;
+	docChat = null;
+	loading = null;
+	chain = Promise.resolve();
+	listeners = /* @__PURE__ */ new Set();
+	constructor(app, log) {
+		this.app = app;
+		this.log = log;
+	}
+	/** The loaded document of the open chat; null until loaded (or without a chat). Never edit it in place. */
+	peek() {
+		const chatId = this.app.host.chatId();
+		return chatId !== null && chatId === this.docChat ? this.doc : null;
+	}
+	/** Loads the open chat's document (cached until the chat changes). */
+	load() {
+		const chatId = this.app.host.chatId();
+		if (!chatId) return Promise.resolve(null);
+		const ready = this.peek();
+		if (ready) return Promise.resolve(ready);
+		if (this.loading?.chatId === chatId) return this.loading.promise;
+		const promise = this.app.chat.get(PLACES_KIND, emptyPlacesDoc).then((raw) => {
+			if (this.app.host.chatId() !== chatId) return null;
+			if (this.docChat !== chatId || !this.doc) {
+				this.doc = normalizePlacesDoc(raw);
+				this.docChat = chatId;
+				this.emit();
+			}
+			return this.doc;
+		}).catch((error) => {
+			this.log.warn("could not load the places of this chat", error);
+			return null;
+		}).finally(() => {
+			if (this.loading?.promise === promise) this.loading = null;
+		});
+		this.loading = {
+			chatId,
+			promise
+		};
+		return promise;
+	}
+	/** Forgets the loaded document (chat switch). */
+	reset() {
+		this.doc = null;
+		this.docChat = null;
+		this.loading = null;
+		this.emit();
+	}
+	/**
+	* Applies `change` to a fresh copy of the open chat's document and saves it when it says it changed. Errors thrown
+	* by `change` reach the caller. Resolves undefined when there is no chat, the chat switched, or saving failed twice.
+	*/
+	mutate(change) {
+		const job = async () => {
+			const chatId = this.app.host.chatId();
+			if (!chatId) return void 0;
+			for (let attempt = 0; attempt < PUT_ATTEMPTS$2; attempt++) {
+				const live = await this.app.chat.get(PLACES_KIND, emptyPlacesDoc);
+				if (this.app.host.chatId() !== chatId) return void 0;
+				const doc = normalizePlacesDoc(live);
+				const outcome = change(doc);
+				if (!outcome.changed) {
+					this.adopt(chatId, doc);
+					return outcome.result;
+				}
+				if (this.app.host.chatId() !== chatId) return void 0;
+				if (await this.app.chat.put("places", doc)) {
+					this.adopt(chatId, doc, true);
+					return outcome.result;
+				}
+				this.log.info("places were changed in another tab; retrying on the fresh copy");
+			}
+			this.log.error("places could not be saved");
+		};
+		const next = this.chain.then(job, job);
+		this.chain = next.catch(() => void 0);
+		return next;
+	}
+	onChange(listener) {
+		this.listeners.add(listener);
+		return () => this.listeners.delete(listener);
+	}
+	adopt(chatId, doc, changed = false) {
+		if (this.app.host.chatId() !== chatId) return;
+		const fresh = this.docChat !== chatId || !this.doc;
+		this.doc = doc;
+		this.docChat = chatId;
+		if (changed || fresh) this.emit();
+	}
+	emit() {
+		for (const listener of [...this.listeners]) try {
+			listener();
+		} catch (error) {
+			this.log.error("places listener failed", error);
+		}
+	}
+};
+//#endregion
+//#region src/features/places/service.ts
+var PLACES_KEY = "places";
+var MERGE_KIND$1 = "places.merge";
+var PLACE_TARGET = "places.place";
+var CURRENT_TARGET = "places.current";
+/** Records checked against the chat on every commit (a full check runs on invalidation and chat load). */
+var RECENT_CHECK = 20;
+/** Committed replies replayed at most in one pass (after a long gap or in another tab). */
+var CATCH_UP = 100;
+var QVINK_NOTE_CHARS = 200;
+/** Longest wait for an idle moment after a commit. */
+var IDLE_WAIT_MS = 1500;
+function defaultPlacesSettings() {
+	return { bootstrapTurns: 20 };
+}
+function isRecord$1(value) {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function readMergePayload(value) {
+	if (!isRecord$1(value) || typeof value.key !== "string" || typeof value.target !== "string") return null;
+	return {
+		key: value.key,
+		label: typeof value.label === "string" ? value.label : value.key,
+		name: typeof value.name === "string" ? value.name : value.key,
+		target: value.target,
+		similar: Array.isArray(value.similar) ? value.similar.filter((id) => typeof id === "string") : [],
+		index: typeof value.index === "number" ? value.index : -1
+	};
+}
+function randomId() {
+	return `p-${Math.random().toString(36).slice(2, 8).padEnd(6, "0")}`;
+}
+function candidateView(candidate) {
+	const view = {
+		label: candidate.label,
+		seen: [...candidate.seen],
+		similar: [...candidate.similar],
+		key: candidate.key,
+		name: candidate.name,
+		parent: candidate.parent
+	};
+	if (candidate.proposed) view.proposed = true;
+	return view;
+}
+var PlacesService = class {
+	app;
+	log;
+	settings;
+	store;
+	changeListeners = /* @__PURE__ */ new Set();
+	enterListeners = /* @__PURE__ */ new Set();
+	timers = /* @__PURE__ */ new Set();
+	idles = /* @__PURE__ */ new Set();
+	formsCache = /* @__PURE__ */ new Map();
+	emitted = {
+		chatId: null,
+		current: null,
+		place: null
+	};
+	disposed = false;
+	constructor(app, log, settings) {
+		this.app = app;
+		this.log = log;
+		this.settings = settings;
+		this.store = new PlacesStore(app, log);
+	}
+	t(key, params) {
+		return this.app.i18n.t(key, params);
+	}
+	install() {
+		const { app } = this;
+		const offs = [
+			this.store.onChange(() => this.changed()),
+			app.bus.on("turn:committed", ({ messageIndex }) => {
+				this.later(() => this.sync({
+					upTo: messageIndex,
+					check: RECENT_CHECK
+				}), true);
+			}),
+			app.bus.on("message:invalidated", ({ messageIndex, reason }) => {
+				this.later(() => this.invalidate(messageIndex, reason));
+			}),
+			app.bus.on("chat:changed", () => {
+				this.store.reset();
+				this.later(() => this.open());
+			}),
+			app.leader.onChange((leader) => {
+				if (leader) this.later(() => this.sync({ check: Infinity }));
+			}),
+			app.inbox.registerApplier(MERGE_KIND$1, (payload) => this.applyMerge(payload), (payload) => this.mergeStillValid(payload), (payload) => this.rejectMerge(payload))
+		];
+		app.journal.registerUndo(PLACE_TARGET, (change) => this.undoPlace(change));
+		app.journal.registerUndo(CURRENT_TARGET, (change) => this.undoCurrent(change));
+		this.later(() => this.open());
+		return offs;
+	}
+	dispose() {
+		this.disposed = true;
+		for (const timer of this.timers) clearTimeout(timer);
+		this.timers.clear();
+		const cancel = globalThis.cancelIdleCallback;
+		for (const handle of this.idles) cancel?.(handle);
+		this.idles.clear();
+		this.changeListeners.clear();
+		this.enterListeners.clear();
+	}
+	/**
+	* Runs a job after the current event handlers; `idle` waits for an idle moment of the page (at most IDLE_WAIT_MS)
+	* where the browser offers one, so nothing runs inside ST's send path (P15).
+	*/
+	later(job, idle = false) {
+		if (this.disposed) return;
+		const run = () => {
+			if (this.disposed) return;
+			job().catch((error) => this.log.error("places update failed", error));
+		};
+		const request = globalThis.requestIdleCallback;
+		if (idle && typeof request === "function") {
+			const handle = request(() => {
+				this.idles.delete(handle);
+				run();
+			}, { timeout: IDLE_WAIT_MS });
+			this.idles.add(handle);
+			return;
+		}
+		const timer = setTimeout(() => {
+			this.timers.delete(timer);
+			run();
+		}, 0);
+		this.timers.add(timer);
+	}
+	/** Loads the open chat's places and catches up (chat open, module start). */
+	async open() {
+		await this.store.load();
+		this.changed();
+		await this.sync({ check: Infinity });
+	}
+	captureDeps() {
+		return {
+			newId: randomId,
+			forms: (name) => this.formsOf(name)
+		};
+	}
+	/** DES-RU case forms of a name (cached while DES-RU's API is there; [] without it). */
+	formsOf(name) {
+		const cached = this.formsCache.get(name);
+		if (cached) return cached;
+		let api;
+		try {
+			api = adaptersOf(this.app).desru.api?.();
+		} catch {
+			api = void 0;
+		}
+		if (!api) return [];
+		let forms = [];
+		try {
+			const list = api.nameForms(name);
+			forms = Array.isArray(list) ? list.filter((form) => typeof form === "string") : [];
+		} catch (error) {
+			this.log.debug("DES-RU nameForms failed", error);
+		}
+		this.formsCache.set(name, forms);
+		return forms;
+	}
+	chat() {
+		const chat = this.app.host.ctx().chat;
+		return Array.isArray(chat) ? chat : [];
+	}
+	labelOf(message) {
+		const record = desSwipeRecord(message);
+		return record ? parseDesInfoBox(record.infoBox)?.location ?? null : null;
+	}
+	stampOf(message, label) {
+		const swipe = typeof message.swipe_id === "number" ? message.swipe_id : 0;
+		return `${String(message.send_date ?? "")}|${swipe}|${stableHash(cleanLabel(label) ?? "")}`;
+	}
+	/** Fingerprint of a committed assistant message now; null when it is gone or not an assistant reply. */
+	stampAt(index) {
+		const message = this.chat()[index];
+		if (!message || message.is_user || message.is_system) return null;
+		return this.stampOf(message, this.labelOf(message));
+	}
+	/** DES canonical names by normalised alias (the world model's identity resolution first). */
+	nameResolver() {
+		const world = this.app.modules.api("world");
+		const byAlias = /* @__PURE__ */ new Map();
+		try {
+			const aliases = adaptersOf(this.app).des.aliases?.() ?? {};
+			for (const [canonical, list] of Object.entries(aliases)) for (const alias of [canonical, ...list]) byAlias.set(normalizePlaceName(alias), canonical);
+		} catch (error) {
+			this.log.debug("DES aliases unavailable", error);
+		}
+		return (name) => {
+			try {
+				const entity = world?.resolve(name, "character") ?? world?.resolve(name, "persona");
+				if (entity?.name) return entity.name;
+			} catch (error) {
+				this.log.debug("world model resolve failed", error);
+			}
+			return byAlias.get(normalizePlaceName(name)) ?? name;
+		};
+	}
+	qvinkNote(index) {
+		try {
+			const memory = adaptersOf(this.app).qvink.memoryOf?.(index);
+			if (!memory || !memory.memory.trim() || !memory.remember && memory.include !== "long") return null;
+			const text = memory.memory.replace(/\s+/g, " ").trim();
+			return text.length > QVINK_NOTE_CHARS ? `${text.slice(0, 199)}…` : text;
+		} catch {
+			return null;
+		}
+	}
+	/** What a committed reply says: DES location, present characters, story date, recent events, a long Qvink memory. */
+	inputAt(index, canonical) {
+		const message = this.chat()[index];
+		const record = desSwipeRecord(message);
+		const info = record ? parseDesInfoBox(record.infoBox) : null;
+		const label = info?.location ?? null;
+		const present = record ? uniqueStrings(parseDesCharacters(record.characterThoughts).filter((character) => !character.offScene).map((character) => canonical(character.name))) : [];
+		const storyDate = [info?.date, info?.time?.start].filter((part) => !!part).join(", ");
+		const events = [...info?.recentEvents ?? []];
+		const note = this.qvinkNote(index);
+		if (note) events.push(note);
+		const input = {
+			index,
+			stamp: message ? this.stampOf(message, label) : "",
+			label,
+			present,
+			events,
+			now: Date.now()
+		};
+		if (storyDate) input.storyDate = storyDate;
+		return input;
+	}
+	/** Case forms for Cyrillic places that have none yet (DES-RU appeared after they were made). */
+	refreshForms(doc) {
+		let changed = false;
+		for (const place of doc.places) {
+			const names = [place.name, ...place.aliases];
+			if (place.forms.length || !names.some((name) => /\p{Script=Cyrillic}/u.test(name))) continue;
+			const forms = collectForms(place.name, place.aliases, (name) => this.formsOf(name));
+			if (forms.length) {
+				place.forms = forms;
+				changed = true;
+			}
+		}
+		return changed;
+	}
+	/**
+	* One capture pass (leader only): rolls back from the first record whose message changed or vanished (among the
+	* last `check` records), then applies the committed replies after the last record (up to `upTo`).
+	*/
+	async sync(options) {
+		if (this.disposed || !this.app.leader.isLeader() || !this.app.host.chatId()) return;
+		const chat = this.chat();
+		const canonical = this.nameResolver();
+		const deps = this.captureDeps();
+		const proposals = await this.store.mutate((doc) => {
+			let changed = false;
+			const stale = firstStaleRecord(doc, (index) => this.stampAt(index), options.check);
+			if (stale !== null) changed = rollbackFrom(doc, stale).count > 0;
+			const last = lastRecordIndex(doc);
+			const limit = !doc.log.length && !doc.places.length && !doc.candidates.length ? Math.max(0, Math.floor(this.settings().bootstrapTurns)) : CATCH_UP;
+			const pending = committedIndices(chat).filter((index) => index > last && (options.upTo === void 0 || index <= options.upTo));
+			const found = [];
+			for (const index of limit > 0 ? pending.slice(-limit) : []) {
+				const result = applyCapture(doc, this.inputAt(index, canonical), deps);
+				changed = changed || result.changed;
+				found.push(...result.proposals);
+			}
+			changed = this.refreshForms(doc) || changed;
+			return {
+				changed,
+				result: found
+			};
+		});
+		for (const proposal of proposals ?? []) await this.propose(proposal);
+	}
+	/**
+	* A swipe, deletion or edit: every record is checked against its message (date, swipe, DES label). A swiped or
+	* deleted reply no longer matches and is rolled back with everything after it; ST reports a deletion with the new
+	* chat length, and a deletion in the middle shifts the messages after it, so a full check catches both. An edit
+	* that kept the location changes nothing, so place ids stay stable.
+	*/
+	async invalidate(index, reason) {
+		if (reason === "edited" && this.chat()[index]?.is_user) return;
+		await this.store.load();
+		await this.sync({ check: Infinity });
+	}
+	async propose(data) {
+		const target = data.similar.map((id) => this.get(id)).find((place) => !!place);
+		if (!target) return;
+		const payload = {
+			key: data.key,
+			label: data.label,
+			name: data.name,
+			target: target.id,
+			similar: data.similar,
+			index: data.index
+		};
+		const after = copyPlace(target);
+		after.aliases = cleanAliases(target.name, [...target.aliases, data.name]);
+		const others = data.similar.filter((id) => id !== target.id).map((id) => this.get(id)?.name).filter((name) => !!name);
+		const proposal = {
+			module: "M24",
+			kind: MERGE_KIND$1,
+			title: this.t("m24.merge.title", {
+				name: data.name,
+				place: target.name
+			}),
+			description: [this.t("m24.merge.description", {
+				label: data.label,
+				place: this.path(target.id).join(" › ")
+			}), others.length ? this.t("m24.merge.others", { places: others.join(", ") }) : ""].filter(Boolean).join(" "),
+			changes: [{
+				target: PLACE_TARGET,
+				ref: { id: target.id },
+				before: copyPlace(target),
+				after
+			}],
+			payload,
+			sourceMessage: data.index,
+			apply: (value) => this.applyMerge(value),
+			stillValid: () => this.mergeStillValid(payload)
+		};
+		try {
+			await this.app.autonomy.decide(proposal, "inbox");
+		} catch (error) {
+			this.log.warn("places merge proposal failed", error);
+		}
+	}
+	async mergeStillValid(value) {
+		const payload = readMergePayload(value);
+		if (!payload) return false;
+		const doc = await this.store.load();
+		return !!doc && doc.candidates.some((candidate) => candidate.key === payload.key) && doc.places.some((place) => place.id === payload.target);
+	}
+	async applyMerge(value) {
+		const payload = readMergePayload(value);
+		if (!payload) throw new Error(this.t("m24.error.missing"));
+		await this.mergeCandidateInto(payload.key, payload.target, false);
+	}
+	/** «These are different»: the candidate held for two turns, so it becomes a place of its own. */
+	async rejectMerge(value) {
+		const payload = readMergePayload(value);
+		if (!payload) return;
+		if (!(await this.store.load())?.candidates.some((candidate) => candidate.key === payload.key)) return;
+		await this.createCandidate(payload.key);
+	}
+	changed() {
+		for (const listener of [...this.changeListeners]) try {
+			listener();
+		} catch (error) {
+			this.log.error("places change listener failed", error);
+		}
+		const doc = this.store.peek();
+		if (!doc) return;
+		const chatId = this.app.host.chatId();
+		const current = doc.current;
+		if (chatId === this.emitted.chatId && current === this.emitted.current) return;
+		const previous = chatId === this.emitted.chatId ? this.emitted.place : null;
+		const place = current ? this.get(current) ?? null : null;
+		this.emitted = {
+			chatId,
+			current,
+			place
+		};
+		if (!place && !previous) return;
+		for (const listener of [...this.enterListeners]) try {
+			listener(place, previous);
+		} catch (error) {
+			this.log.error("places enter listener failed", error);
+		}
+	}
+	doc() {
+		const doc = this.store.peek();
+		if (!doc) this.store.load();
+		return doc;
+	}
+	list() {
+		return (this.doc()?.places ?? []).map(copyPlace);
+	}
+	get(id) {
+		const place = this.doc()?.places.find((item) => item.id === id);
+		return place ? copyPlace(place) : void 0;
+	}
+	current() {
+		const doc = this.doc();
+		const current = doc?.current;
+		if (!doc || !current) return null;
+		const place = doc.places.find((item) => item.id === current);
+		return place ? copyPlace(place) : null;
+	}
+	resolve(label) {
+		const doc = this.doc();
+		if (!doc || typeof label !== "string") return void 0;
+		const { match } = resolvePlaceLabel(doc.places, label, { current: doc.current });
+		return match ? this.get(match) : void 0;
+	}
+	candidates() {
+		return (this.doc()?.candidates ?? []).map(candidateView);
+	}
+	path(id) {
+		return placePath(placeMap(this.doc()?.places ?? []), id);
+	}
+	onChange(listener) {
+		this.changeListeners.add(listener);
+		return () => this.changeListeners.delete(listener);
+	}
+	onEnter(listener) {
+		this.enterListeners.add(listener);
+		return () => this.enterListeners.delete(listener);
+	}
+	errorText(error) {
+		if (error instanceof PlacesError) return new Error(this.t(`m24.error.${error.code}`));
+		return error instanceof Error ? error : new Error(String(error));
+	}
+	/** A user edit: applied to the document (errors translated), then journaled. */
+	async edit(change) {
+		let result;
+		try {
+			result = await this.store.mutate(change);
+		} catch (error) {
+			throw this.errorText(error);
+		}
+		if (result === void 0) throw new Error(this.t("m24.error.save"));
+		return result;
+	}
+	async journal(kind, summary, changes) {
+		if (!changes.length) return;
+		try {
+			await this.app.journal.record({
+				module: "M24",
+				kind,
+				summary,
+				changes
+			});
+		} catch (error) {
+			this.log.warn("places change not journaled", error);
+		}
+	}
+	async create(name, parent = null) {
+		const deps = this.captureDeps();
+		const place = await this.edit((doc) => ({
+			changed: true,
+			result: copyPlace(addPlace(doc, {
+				name,
+				parent
+			}, deps, Date.now()))
+		}));
+		await this.journal("places.create", this.t("m24.journal.create", { name: place.name }), [{
+			target: PLACE_TARGET,
+			ref: { id: place.id },
+			before: null,
+			after: place
+		}]);
+		return place;
+	}
+	async update(id, patch) {
+		const deps = this.captureDeps();
+		const { before, after } = await this.edit((doc) => ({
+			changed: true,
+			result: updatePlace(doc, id, patch, deps)
+		}));
+		const summary = before.name !== after.name ? this.t("m24.journal.rename", {
+			from: before.name,
+			to: after.name
+		}) : this.t("m24.journal.update", { name: after.name });
+		await this.journal("places.update", summary, [{
+			target: PLACE_TARGET,
+			ref: { id },
+			before,
+			after
+		}]);
+	}
+	async merge(keepId, mergeId) {
+		const deps = this.captureDeps();
+		const outcome = await this.edit((doc) => ({
+			changed: true,
+			result: mergePlaces(doc, keepId, mergeId, deps)
+		}));
+		const changes = [];
+		if (outcome.currentBefore === mergeId) changes.push({
+			target: CURRENT_TARGET,
+			ref: {},
+			before: mergeId,
+			after: keepId
+		});
+		changes.push({
+			target: PLACE_TARGET,
+			ref: {
+				id: keepId,
+				movedVisits: outcome.movedVisits
+			},
+			before: outcome.keepBefore,
+			after: outcome.keepAfter
+		});
+		for (const child of outcome.reparented) changes.push({
+			target: PLACE_TARGET,
+			ref: { id: child.id },
+			before: child,
+			after: {
+				...child,
+				parent: keepId
+			}
+		});
+		changes.push({
+			target: PLACE_TARGET,
+			ref: { id: mergeId },
+			before: outcome.merged,
+			after: null
+		});
+		await this.journal("places.merge", this.t("m24.journal.merge", {
+			from: outcome.merged.name,
+			to: outcome.keepAfter.name
+		}), changes);
+	}
+	async remove(id) {
+		const outcome = await this.edit((doc) => ({
+			changed: true,
+			result: removePlace(doc, id)
+		}));
+		const changes = [];
+		if (outcome.currentBefore === id) changes.push({
+			target: CURRENT_TARGET,
+			ref: {},
+			before: id,
+			after: null
+		});
+		for (const child of outcome.reparented) changes.push({
+			target: PLACE_TARGET,
+			ref: { id: child.id },
+			before: child,
+			after: {
+				...child,
+				parent: outcome.removed.parent
+			}
+		});
+		changes.push({
+			target: PLACE_TARGET,
+			ref: { id },
+			before: outcome.removed,
+			after: null
+		});
+		await this.journal("places.remove", this.t("m24.journal.remove", { name: outcome.removed.name }), changes);
+	}
+	async createCandidate(key) {
+		const deps = this.captureDeps();
+		const outcome = await this.edit((doc) => {
+			const result = createCandidatePlace(doc, key, deps, Date.now());
+			return {
+				changed: true,
+				result: {
+					place: copyPlace(result.place),
+					created: result.created
+				}
+			};
+		});
+		const created = outcome.created.map((id) => this.get(id)).filter((place) => !!place);
+		await this.journal("places.create", this.t("m24.journal.create", { name: outcome.place.name }), created.map((place) => ({
+			target: PLACE_TARGET,
+			ref: { id: place.id },
+			before: null,
+			after: place
+		})));
+		return this.get(outcome.place.id) ?? outcome.place;
+	}
+	async mergeCandidate(key, placeId) {
+		await this.mergeCandidateInto(key, placeId, true);
+	}
+	/** The Inbox journals its own card, so its path skips the journal here. */
+	async mergeCandidateInto(key, placeId, journal) {
+		const deps = this.captureDeps();
+		const { before, after } = await this.edit((doc) => ({
+			changed: true,
+			result: mergeCandidate(doc, key, placeId, deps)
+		}));
+		if (!journal) return;
+		const alias = after.aliases.find((name) => !before.aliases.includes(name)) ?? key;
+		await this.journal("places.alias", this.t("m24.journal.alias", {
+			alias,
+			name: after.name
+		}), [{
+			target: PLACE_TARGET,
+			ref: { id: placeId },
+			before,
+			after
+		}]);
+	}
+	async dismissCandidate(key) {
+		await this.edit((doc) => ({
+			changed: dismissCandidate(doc, key),
+			result: true
+		}));
+	}
+	async undoPlace(change) {
+		if (this.disposed) return false;
+		const id = isRecord$1(change.ref) && typeof change.ref.id === "string" ? change.ref.id : null;
+		if (!id) return false;
+		const moved = isRecord$1(change.ref) && Array.isArray(change.ref.movedVisits) ? change.ref.movedVisits.filter((value) => typeof value === "number") : [];
+		const before = isRecord$1(change.before) ? change.before : null;
+		const after = isRecord$1(change.after) ? change.after : null;
+		return await this.store.mutate((doc) => {
+			if (before === null) {
+				if (!doc.places.some((place) => place.id === id)) return {
+					changed: false,
+					result: true
+				};
+				removePlace(doc, id);
+				return {
+					changed: true,
+					result: true
+				};
+			}
+			if (after === null) return {
+				changed: reinsertPlace(doc, before),
+				result: true
+			};
+			const ok = restorePlaceFields(doc, before, moved);
+			return {
+				changed: ok,
+				result: ok
+			};
+		}) === true;
+	}
+	async undoCurrent(change) {
+		if (this.disposed) return false;
+		const before = typeof change.before === "string" ? change.before : null;
+		const after = typeof change.after === "string" ? change.after : null;
+		return await this.store.mutate((doc) => {
+			if (doc.current !== after) return {
+				changed: false,
+				result: true
+			};
+			doc.current = before !== null && doc.places.some((place) => place.id === before) ? before : null;
+			return {
+				changed: doc.current !== after,
+				result: true
+			};
+		}) === true;
+	}
+	/** Checks that a stored description entry still exists (canon book through the canon, other books via loreStore). */
+	async entryExists(entry, canon) {
+		try {
+			if (canon && entry.world === canon.bookName()) return (await canon.list()).some((item) => item.uid === entry.uid);
+			const lore = this.app.modules.api("loreStore");
+			if (!lore) return true;
+			const book = await lore.load(entry.world);
+			return !!book && isRecord$1(book.entries) && String(entry.uid) in book.entries;
+		} catch (error) {
+			this.log.debug("description entry check failed", error);
+			return true;
+		}
+	}
+	async ensureEntry(id) {
+		await this.store.load();
+		const place = this.get(id);
+		if (!place) throw new Error(this.t("m24.error.missing"));
+		const canon = this.app.modules.api("canon");
+		if (place.entry && await this.entryExists(place.entry, canon)) return { ...place.entry };
+		if (!canon) throw new Error(this.t("m24.error.noCanon"));
+		const book = canon.bookName();
+		if (!book) throw new Error(this.t("m24.error.noChat"));
+		const names = new Set([place.name, ...place.aliases].map(normalizePlaceName).filter(Boolean));
+		const existing = (await canon.list({ kind: "addition" })).find((item) => {
+			if (item.meta.type !== "place") return false;
+			const keys = Array.isArray(item.entry.key) ? item.entry.key : [];
+			return [typeof item.entry.comment === "string" ? item.entry.comment : "", ...keys].some((key) => typeof key === "string" && names.has(normalizePlaceName(key)));
+		});
+		let uid;
+		if (existing) uid = existing.uid;
+		else {
+			const parent = place.parent ? this.get(place.parent) : void 0;
+			const russian = [];
+			for (const name of [place.name, ...place.aliases]) try {
+				russian.push(...await canon.russianKeys(name));
+			} catch (error) {
+				this.log.debug("russianKeys failed", error);
+			}
+			const content = [
+				`Place: ${place.name}`,
+				parent ? `Part of: ${parent.name}` : null,
+				"Description: "
+			].filter((line) => line !== null).join("\n");
+			uid = await canon.put({
+				entry: {
+					comment: place.name,
+					key: uniqueStrings([
+						place.name,
+						...place.aliases,
+						...russian
+					]),
+					content
+				},
+				meta: {
+					kind: "addition",
+					status: "active",
+					origin: "entity",
+					type: "place"
+				}
+			});
+		}
+		const entry = {
+			world: book,
+			uid
+		};
+		await this.store.mutate((doc) => {
+			const target = doc.places.find((item) => item.id === id);
+			if (!target) return {
+				changed: false,
+				result: void 0
+			};
+			target.entry = { ...entry };
+			return {
+				changed: true,
+				result: void 0
+			};
+		});
+		return entry;
+	}
+};
+//#endregion
+//#region src/features/places/strings.ts
+var PLACES_STRINGS = {
+	en: {
+		"m24.title": "Places",
+		"m24.tab": "Places",
+		"kind.places.merge": "Places: the same place under another name",
+		"m24.hint": "Places come from the location DES writes into its tracker. A new name becomes a place once it holds for two turns in a row; a name that looks like a known place waits for your decision in the Inbox. Swiping or deleting a reply takes back what it changed here.",
+		"m24.noChat": "No chat is open.",
+		"m24.now": "Now: {path}",
+		"m24.now.unknown": "The current place is unknown.",
+		"m24.add.name": "New place",
+		"m24.add.placeholder": "Name of a place",
+		"m24.add.action": "Add",
+		"m24.places": "Places ({count})",
+		"m24.empty": "No places yet: they appear as the story moves.",
+		"m24.here": "here",
+		"m24.described": "described",
+		"m24.lastSeen": "last seen: message #{at}",
+		"m24.notSeen": "not visited yet",
+		"m24.name": "Name",
+		"m24.rename": "Rename",
+		"m24.aliases": "Other names",
+		"m24.aliases.none": "No other names.",
+		"m24.alias.add": "Add a name",
+		"m24.alias.placeholder": "Another name",
+		"m24.alias.remove": "Remove «{alias}»",
+		"m24.forms": "Case forms: {forms}",
+		"m24.parent": "Part of",
+		"m24.parent.none": "— top level —",
+		"m24.inside": "Inside: {names}",
+		"m24.merge.into": "Merge into another place",
+		"m24.merge.pick": "— choose a place —",
+		"m24.merge.action": "Merge",
+		"m24.merge.confirmTitle": "Merge the places?",
+		"m24.merge.confirmBody": "«{from}» becomes another name of «{to}»: its visits, inner places and description move over. You can undo it from the journal.",
+		"m24.entry.action": "Description",
+		"m24.entry.hint": "Open the description entry of this place (made in the chat canon when there is none)",
+		"m24.entry.ready": "The description is entry {uid} of the lorebook {book}.",
+		"m24.remove": "Remove",
+		"m24.remove.title": "Remove the place?",
+		"m24.remove.body": "«{name}» leaves the registry; the places inside it move one level up. You can undo it from the journal.",
+		"m24.visits": "Visits ({count})",
+		"m24.visits.none": "No visits recorded yet.",
+		"m24.visits.more": "Earlier visits: {count}",
+		"m24.visit.now": "Since message #{from}, now",
+		"m24.visit.one": "Message #{at}",
+		"m24.visit.range": "Messages #{from}–#{to}",
+		"m24.visit.present": "There: {names}",
+		"m24.candidates": "New names ({count})",
+		"m24.candidates.hint": "Locations DES named that are not places yet. Create a place now, tie the name to a known place, or tell Maestro it is not a place.",
+		"m24.candidate.seen": "seen {count}×",
+		"m24.candidate.inbox": "in the Inbox",
+		"m24.candidate.label": "DES: {label}",
+		"m24.candidate.in": "Inside: {place}",
+		"m24.candidate.similar": "Looks like: {places}",
+		"m24.candidate.create": "Create a place",
+		"m24.candidate.pick": "Known place",
+		"m24.candidate.same": "It is this place",
+		"m24.candidate.dismiss": "Not a place",
+		"m24.candidate.dismissHint": "Forget this name in this chat; DES writing it again will not bring it back",
+		"m24.merge.title": "«{name}» may be «{place}»",
+		"m24.merge.description": "DES wrote «{label}» on two turns in a row; it looks like the known place {place}. Accept to make it another name of that place; reject to make it a place of its own.",
+		"m24.merge.others": "Also similar: {places}.",
+		"m24.journal.create": "Places: added «{name}»",
+		"m24.journal.rename": "Places: «{from}» renamed to «{to}»",
+		"m24.journal.update": "Places: changed «{name}»",
+		"m24.journal.merge": "Places: «{from}» merged into «{to}»",
+		"m24.journal.remove": "Places: removed «{name}»",
+		"m24.journal.alias": "Places: «{alias}» is another name of «{name}»",
+		"m24.error.missing": "This place (or name) is gone.",
+		"m24.error.empty-name": "A place needs a name.",
+		"m24.error.bad-parent": "The chosen place cannot contain this one: it is the place itself or lies inside it.",
+		"m24.error.same": "A place cannot be merged into itself.",
+		"m24.error.save": "The places could not be saved. Try again.",
+		"m24.error.noCanon": "The chat canon module is off: there is nowhere to keep the description.",
+		"m24.error.noChat": "No chat is open."
+	},
+	ru: {
+		"m24.title": "Места",
+		"m24.tab": "Места",
+		"kind.places.merge": "Места: то же место под другим названием",
+		"m24.hint": "Места берутся из локации, которую DES пишет в трекер. Новое название становится местом, если продержалось два хода подряд; название, похожее на уже известное место, ждёт твоего решения во «Входящих». Свайп или удаление ответа отменяет всё, что он здесь изменил.",
+		"m24.noChat": "Чат не открыт.",
+		"m24.now": "Сейчас: {path}",
+		"m24.now.unknown": "Где сейчас — неизвестно.",
+		"m24.add.name": "Новое место",
+		"m24.add.placeholder": "Название места",
+		"m24.add.action": "Добавить",
+		"m24.places": "Места ({count})",
+		"m24.empty": "Мест пока нет — они появятся по ходу истории.",
+		"m24.here": "здесь",
+		"m24.described": "есть описание",
+		"m24.lastSeen": "последний раз: сообщение #{at}",
+		"m24.notSeen": "здесь ещё не были",
+		"m24.name": "Название",
+		"m24.rename": "Переименовать",
+		"m24.aliases": "Другие названия",
+		"m24.aliases.none": "Других названий нет.",
+		"m24.alias.add": "Добавить название",
+		"m24.alias.placeholder": "Другое название",
+		"m24.alias.remove": "Убрать «{alias}»",
+		"m24.forms": "Падежные формы: {forms}",
+		"m24.parent": "Входит в",
+		"m24.parent.none": "— верхний уровень —",
+		"m24.inside": "Внутри: {names}",
+		"m24.merge.into": "Слить с другим местом",
+		"m24.merge.pick": "— выбери место —",
+		"m24.merge.action": "Слить",
+		"m24.merge.confirmTitle": "Слить места?",
+		"m24.merge.confirmBody": "«{from}» станет другим названием «{to}»: визиты, вложенные места и описание перейдут к нему. Отменить можно в журнале.",
+		"m24.entry.action": "Описание",
+		"m24.entry.hint": "Открыть запись с описанием места (если её нет, она появится в каноне чата)",
+		"m24.entry.ready": "Описание — запись {uid} в лорбуке {book}.",
+		"m24.remove": "Удалить",
+		"m24.remove.title": "Удалить место?",
+		"m24.remove.body": "«{name}» уйдёт из реестра, вложенные места поднимутся на уровень выше. Отменить можно в журнале.",
+		"m24.visits": "Визиты ({count})",
+		"m24.visits.none": "Визитов пока нет.",
+		"m24.visits.more": "Более ранних визитов: {count}",
+		"m24.visit.now": "С сообщения #{from} и по сей момент",
+		"m24.visit.one": "Сообщение #{at}",
+		"m24.visit.range": "Сообщения #{from}–#{to}",
+		"m24.visit.present": "Были здесь: {names}",
+		"m24.candidates": "Новые названия ({count})",
+		"m24.candidates.hint": "Локации, которые назвал DES, но которых ещё нет среди мест. Создай место сразу, привяжи название к известному месту или скажи Maestro, что это не место.",
+		"m24.candidate.seen": "встречалось: {count}",
+		"m24.candidate.inbox": "во «Входящих»",
+		"m24.candidate.label": "DES: {label}",
+		"m24.candidate.in": "Внутри: {place}",
+		"m24.candidate.similar": "Похоже на: {places}",
+		"m24.candidate.create": "Создать место",
+		"m24.candidate.pick": "Известное место",
+		"m24.candidate.same": "Это то же место",
+		"m24.candidate.dismiss": "Не место",
+		"m24.candidate.dismissHint": "Забыть это название в этом чате: если DES напишет его снова, оно не вернётся",
+		"m24.merge.title": "«{name}» — это «{place}»?",
+		"m24.merge.description": "DES два хода подряд писал «{label}» — похоже на известное место {place}. Прими — и это станет его другим названием; отклони — и появится отдельное место.",
+		"m24.merge.others": "Похожи также: {places}.",
+		"m24.journal.create": "Места: добавлено «{name}»",
+		"m24.journal.rename": "Места: «{from}» теперь называется «{to}»",
+		"m24.journal.update": "Места: изменено «{name}»",
+		"m24.journal.merge": "Места: «{from}» слито с «{to}»",
+		"m24.journal.remove": "Места: удалено «{name}»",
+		"m24.journal.alias": "Места: «{alias}» — другое название «{name}»",
+		"m24.error.missing": "Этого места (или названия) больше нет.",
+		"m24.error.empty-name": "У места должно быть название.",
+		"m24.error.bad-parent": "Выбранное место не может содержать это: это оно само или место внутри него.",
+		"m24.error.same": "Место нельзя слить с самим собой.",
+		"m24.error.save": "Не удалось сохранить места. Попробуй ещё раз.",
+		"m24.error.noCanon": "Модуль «Канон чата» выключен — описанию негде жить.",
+		"m24.error.noChat": "Чат не открыт."
+	}
+};
+//#endregion
+//#region src/features/places/view.ts
+var PLACES_TAB = "places";
+var MAX_DEPTH = 6;
+var VISITS_SHOWN = 10;
+var PLACES_CSS = `
+.maestro-m24 { display: flex; flex-direction: column; gap: 8px; }
+.maestro-m24-now { font-weight: 600; overflow-wrap: anywhere; }
+.maestro-m24-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.maestro-m24-row > input, .maestro-m24-row > select { flex: 1 1 160px; min-width: 0; margin: 0; }
+.maestro-m24-tree { display: flex; flex-direction: column; gap: 4px; }
+.maestro-m24-place { border: 1px solid var(--maestro-border); border-radius: var(--maestro-radius-sm);
+    margin-left: calc(var(--maestro-m24-depth, 0) * 12px); }
+.maestro-m24-place > summary { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 6px 8px;
+    cursor: pointer; min-height: 36px; }
+.maestro-m24-current { border-color: var(--maestro-accent); box-shadow: inset 3px 0 0 var(--maestro-accent); }
+.maestro-m24-name { font-weight: 600; overflow-wrap: anywhere; }
+.maestro-m24-body { display: flex; flex-direction: column; gap: 8px; padding: 0 8px 8px; }
+.maestro-m24-label { font-size: 0.9em; opacity: 0.85; }
+.maestro-m24-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.maestro-m24-chip { display: inline-flex; align-items: center; gap: 2px; padding: 0 0 0 8px; border-radius: 999px;
+    background: var(--maestro-raised-strong); overflow-wrap: anywhere; }
+.maestro-m24-visits { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.maestro-m24-visit { border-left: 2px solid var(--maestro-border); padding-left: 6px; overflow-wrap: anywhere; }
+.maestro-m24-visit-head { display: flex; flex-wrap: wrap; gap: 6px; }
+.maestro-m24-events { margin: 2px 0 0; padding-left: 16px; font-size: 0.9em; opacity: 0.85; }
+.maestro-m24-candidates { display: flex; flex-direction: column; gap: 6px; }
+.maestro-m24-candidate { border: 1px dashed var(--maestro-border); border-radius: var(--maestro-radius-sm);
+    padding: 6px 8px; display: flex; flex-direction: column; gap: 4px; overflow-wrap: anywhere; }
+@media (max-width: 600px) { .maestro-m24-place { margin-left: calc(var(--maestro-m24-depth, 0) * 8px); } }
+`;
+function textInput(value, label, placeholder) {
+	const input = el("input", {
+		class: "text_pole maestro-m24-input",
+		attrs: {
+			type: "text",
+			"aria-label": label,
+			placeholder
+		}
+	});
+	input.value = value;
+	return input;
+}
+/** Opens a description entry: the Lore Studio API when it exposes one, else `/maestro-lore <book>`. */
+async function openEntry(app, entry) {
+	const studio = app.modules.api("loreStudio");
+	if (typeof studio?.open === "function") {
+		app.ui.closePult?.();
+		studio.open(entry.world, entry.uid);
+		return true;
+	}
+	const ctx = app.host.ctx();
+	if (typeof ctx.executeSlashCommandsWithOptions !== "function") return false;
+	app.ui.closePult?.();
+	await ctx.executeSlashCommandsWithOptions(`/maestro-lore ${entry.world.replace(/\|/g, "\\|")}`, {
+		handleExecutionErrors: true,
+		source: "maestro"
+	});
+	return true;
+}
+function placesTab(app, service) {
+	const t = app.i18n.t.bind(app.i18n);
+	return {
+		id: PLACES_TAB,
+		titleKey: "m24.tab",
+		icon: "fa-map-location-dot",
+		order: 47,
+		render(container) {
+			let alive = true;
+			const open = /* @__PURE__ */ new Set();
+			const root = el("div", { class: "maestro-view maestro-m24" });
+			container.appendChild(root);
+			const run = async (job) => {
+				try {
+					await job();
+				} catch (error) {
+					app.ui.notice(error instanceof Error ? error.message : String(error), { level: "error" });
+				}
+				if (alive) draw();
+			};
+			const range = (visit) => {
+				if (visit.to === null) return t("m24.visit.now", { from: visit.from });
+				if (visit.to === visit.from) return t("m24.visit.one", { at: visit.from });
+				return t("m24.visit.range", {
+					from: visit.from,
+					to: visit.to
+				});
+			};
+			const visitsView = (place) => {
+				if (!place.visits.length) return el("div", {
+					class: "maestro-muted",
+					text: t("m24.visits.none")
+				});
+				const shown = [...place.visits].reverse().slice(0, VISITS_SHOWN);
+				const hidden = place.visits.length - shown.length;
+				return el("div", {}, [
+					el("div", {
+						class: "maestro-m24-label",
+						text: t("m24.visits", { count: place.visits.length })
+					}),
+					el("ul", { class: "maestro-m24-visits" }, shown.map((visit) => el("li", { class: "maestro-m24-visit" }, [
+						el("div", { class: "maestro-m24-visit-head" }, [el("span", { text: range(visit) }), visit.storyDate ? el("span", {
+							class: "maestro-muted",
+							text: visit.storyDate
+						}) : null]),
+						visit.present.length ? el("div", { text: t("m24.visit.present", { names: visit.present.join(", ") }) }) : null,
+						visit.events.length ? el("ul", { class: "maestro-m24-events" }, visit.events.map((event) => el("li", { text: event }))) : null
+					]))),
+					hidden > 0 ? el("div", {
+						class: "maestro-muted",
+						text: t("m24.visits.more", { count: hidden })
+					}) : null
+				]);
+			};
+			const placeBody = (place, all) => {
+				const byId = new Map(all.map((item) => [item.id, item]));
+				const name = textInput(place.name, t("m24.name"));
+				const alias = textInput("", t("m24.alias.add"), t("m24.alias.placeholder"));
+				const below = new Set(descendantIds(all, place.id));
+				const parent = el("select", {
+					class: "text_pole maestro-select",
+					attrs: { "aria-label": t("m24.parent") }
+				});
+				parent.appendChild(el("option", {
+					text: t("m24.parent.none"),
+					attrs: { value: "" }
+				}));
+				for (const other of all) {
+					if (other.id === place.id || below.has(other.id)) continue;
+					parent.appendChild(el("option", {
+						text: service.path(other.id).join(" › "),
+						attrs: { value: other.id }
+					}));
+				}
+				parent.value = place.parent ?? "";
+				parent.addEventListener("change", () => {
+					run(() => service.update(place.id, { parent: parent.value || null }));
+				});
+				const mergeTarget = el("select", {
+					class: "text_pole maestro-select",
+					attrs: { "aria-label": t("m24.merge.into") }
+				});
+				mergeTarget.appendChild(el("option", {
+					text: t("m24.merge.pick"),
+					attrs: { value: "" }
+				}));
+				for (const other of all) {
+					if (other.id === place.id) continue;
+					mergeTarget.appendChild(el("option", {
+						text: service.path(other.id).join(" › "),
+						attrs: { value: other.id }
+					}));
+				}
+				const children = all.filter((item) => item.parent === place.id).map((item) => item.name);
+				const path = service.path(place.id);
+				return el("div", { class: "maestro-m24-body" }, [
+					path.length > 1 ? el("div", {
+						class: "maestro-muted",
+						text: path.join(" › ")
+					}) : null,
+					el("div", {
+						class: "maestro-m24-label",
+						text: t("m24.name")
+					}),
+					el("div", { class: "maestro-m24-row" }, [name, button({
+						label: t("m24.rename"),
+						icon: "fa-pen",
+						onClick: () => run(() => service.update(place.id, { name: name.value }))
+					})]),
+					el("div", {
+						class: "maestro-m24-label",
+						text: t("m24.aliases")
+					}),
+					place.aliases.length ? el("div", { class: "maestro-m24-chips" }, place.aliases.map((item) => el("span", { class: "maestro-m24-chip" }, [el("span", { text: item }), button({
+						icon: "fa-xmark",
+						kind: "ghost",
+						title: t("m24.alias.remove", { alias: item }),
+						onClick: () => run(() => service.update(place.id, { aliases: place.aliases.filter((other) => other !== item) }))
+					})]))) : el("div", {
+						class: "maestro-muted",
+						text: t("m24.aliases.none")
+					}),
+					el("div", { class: "maestro-m24-row" }, [alias, button({
+						label: t("m24.alias.add"),
+						icon: "fa-plus",
+						onClick: () => run(async () => {
+							const value = alias.value.trim();
+							if (value) await service.update(place.id, { aliases: [...place.aliases, value] });
+						})
+					})]),
+					place.forms.length ? el("div", {
+						class: "maestro-muted",
+						text: t("m24.forms", { forms: place.forms.join(", ") })
+					}) : null,
+					el("div", {
+						class: "maestro-m24-label",
+						text: t("m24.parent")
+					}),
+					el("div", { class: "maestro-m24-row" }, [parent]),
+					children.length ? el("div", {
+						class: "maestro-muted",
+						text: t("m24.inside", { names: children.join(", ") })
+					}) : null,
+					el("div", {
+						class: "maestro-m24-label",
+						text: t("m24.merge.into")
+					}),
+					el("div", { class: "maestro-m24-row" }, [mergeTarget, button({
+						label: t("m24.merge.action"),
+						icon: "fa-code-merge",
+						onClick: () => run(async () => {
+							const target = byId.get(mergeTarget.value);
+							if (!target) return;
+							if (await app.ui.confirm(t("m24.merge.confirmTitle"), t("m24.merge.confirmBody", {
+								from: place.name,
+								to: target.name
+							}))) await service.merge(target.id, place.id);
+						})
+					})]),
+					el("div", { class: "maestro-m24-row" }, [button({
+						label: t("m24.entry.action"),
+						icon: "fa-book-open",
+						title: t("m24.entry.hint"),
+						onClick: () => run(async () => {
+							const entry = await service.ensureEntry(place.id);
+							if (!await openEntry(app, entry)) app.ui.notice(t("m24.entry.ready", {
+								book: entry.world,
+								uid: entry.uid
+							}));
+						})
+					}), button({
+						label: t("m24.remove"),
+						icon: "fa-trash-can",
+						kind: "danger",
+						onClick: () => run(async () => {
+							if (await app.ui.confirm(t("m24.remove.title"), t("m24.remove.body", { name: place.name }))) await service.remove(place.id);
+						})
+					})]),
+					visitsView(place)
+				]);
+			};
+			const placeView = (place, depth, all, currentId) => {
+				const here = place.id === currentId;
+				const details = el("details", {
+					class: ["maestro-m24-place", here ? "maestro-m24-current" : null],
+					data: { id: place.id },
+					attrs: { style: `--maestro-m24-depth: ${Math.min(depth, MAX_DEPTH)}` }
+				});
+				if (open.has(place.id)) details.open = true;
+				details.addEventListener("toggle", () => {
+					if (details.open) open.add(place.id);
+					else open.delete(place.id);
+				});
+				details.appendChild(el("summary", {}, [
+					icon(here ? "fa-location-dot" : "fa-map-pin"),
+					el("span", {
+						class: "maestro-m24-name",
+						text: place.name
+					}),
+					here ? badge(t("m24.here"), "ok") : null,
+					place.entry ? badge(t("m24.described"), "muted") : null,
+					el("span", {
+						class: "maestro-muted",
+						text: place.lastSeen >= 0 ? t("m24.lastSeen", { at: place.lastSeen }) : t("m24.notSeen")
+					})
+				]));
+				details.appendChild(placeBody(place, all));
+				return details;
+			};
+			const candidateView = (candidate, all) => {
+				const key = candidate.key ?? candidate.label;
+				const pick = el("select", {
+					class: "text_pole maestro-select",
+					attrs: { "aria-label": t("m24.candidate.pick") }
+				});
+				const similar = candidate.similar.filter((id) => all.some((place) => place.id === id));
+				const others = all.filter((place) => !similar.includes(place.id));
+				for (const id of [...similar, ...others.map((place) => place.id)]) pick.appendChild(el("option", {
+					text: service.path(id).join(" › "),
+					attrs: { value: id }
+				}));
+				const parentPath = candidate.parent ? service.path(candidate.parent).join(" › ") : "";
+				const name = candidate.name ?? candidate.label;
+				return el("div", {
+					class: "maestro-m24-candidate",
+					data: { key }
+				}, [
+					el("div", { class: "maestro-m24-row" }, [
+						el("span", {
+							class: "maestro-m24-name",
+							text: name
+						}),
+						badge(t("m24.candidate.seen", { count: candidate.seen.length }), "muted"),
+						candidate.proposed ? badge(t("m24.candidate.inbox"), "info") : null
+					]),
+					candidate.label !== name ? el("div", {
+						class: "maestro-muted",
+						text: t("m24.candidate.label", { label: candidate.label })
+					}) : null,
+					parentPath ? el("div", {
+						class: "maestro-muted",
+						text: t("m24.candidate.in", { place: parentPath })
+					}) : null,
+					similar.length ? el("div", { text: t("m24.candidate.similar", { places: similar.map((id) => service.path(id).join(" › ")).join("; ") }) }) : null,
+					el("div", { class: "maestro-m24-row" }, [button({
+						label: t("m24.candidate.create"),
+						icon: "fa-plus",
+						kind: "primary",
+						onClick: () => run(() => service.createCandidate(key))
+					}), button({
+						label: t("m24.candidate.dismiss"),
+						icon: "fa-ban",
+						kind: "ghost",
+						title: t("m24.candidate.dismissHint"),
+						onClick: () => run(() => service.dismissCandidate(key))
+					})]),
+					all.length ? el("div", { class: "maestro-m24-row" }, [pick, button({
+						label: t("m24.candidate.same"),
+						icon: "fa-link",
+						onClick: () => run(() => service.mergeCandidate(key, pick.value))
+					})]) : null
+				]);
+			};
+			const draw = () => {
+				if (!alive) return;
+				clear(root);
+				if (!app.host.chatId()) {
+					root.appendChild(emptyState(t("m24.noChat"), "fa-map"));
+					return;
+				}
+				const all = service.list();
+				const current = service.current();
+				const candidates = service.candidates();
+				const newName = textInput("", t("m24.add.name"), t("m24.add.placeholder"));
+				root.appendChild(section$1(t("m24.title"), [
+					el("div", {
+						class: "maestro-m24-now",
+						text: current ? t("m24.now", { path: service.path(current.id).join(" › ") }) : t("m24.now.unknown")
+					}),
+					el("div", {
+						class: "maestro-hint",
+						text: t("m24.hint")
+					}),
+					el("div", { class: "maestro-m24-row" }, [newName, button({
+						label: t("m24.add.action"),
+						icon: "fa-plus",
+						onClick: () => run(async () => {
+							const value = newName.value.trim();
+							if (value) open.add((await service.create(value)).id);
+						})
+					})])
+				]));
+				root.appendChild(section$1(t("m24.places", { count: all.length }), all.length ? el("div", { class: "maestro-m24-tree" }, flattenTree(placeTree(all)).map((node) => placeView(node.place, node.depth, all, current?.id ?? null))) : emptyState(t("m24.empty"), "fa-map")));
+				if (candidates.length) root.appendChild(section$1(t("m24.candidates", { count: candidates.length }), [el("div", {
+					class: "maestro-hint",
+					text: t("m24.candidates.hint")
+				}), el("div", { class: "maestro-m24-candidates" }, candidates.map((candidate) => candidateView(candidate, all)))]));
+			};
+			const later = coalesce(draw, 50);
+			const off = service.onChange(later);
+			draw();
+			return () => {
+				alive = false;
+				later.cancel();
+				off();
+			};
+		}
+	};
+}
+//#endregion
+//#region src/features/places/index.ts
+function readSettings(slice) {
+	const defaults = defaultPlacesSettings();
+	const turns = slice.bootstrapTurns;
+	if (typeof turns !== "number" || !Number.isFinite(turns) || turns < 0) slice.bootstrapTurns = defaults.bootstrapTurns;
+	return slice;
+}
+var placesModule = {
+	id: "M24",
+	key: PLACES_KEY,
+	stage: 3,
+	titleKey: "m24.title",
+	enabledByDefault: true,
+	defaults: defaultPlacesSettings,
+	i18n: PLACES_STRINGS,
+	init({ app, log, own }) {
+		const settings = () => readSettings(app.settings.module(PLACES_KEY));
+		const service = new PlacesService(app, log.scope("places"), settings);
+		for (const off of service.install()) own(off);
+		own(() => service.dispose());
+		app.modules.expose(PLACES_KEY, service);
+		own(installPlacesBridge(service));
+		own(app.ui.style("m24-places", PLACES_CSS));
+		own(app.ui.addTab(placesTab(app, service)));
+	}
+};
+//#endregion
+//#region src/domain/world-facts.ts
+/** Per-character DES fields that describe looks (English snake_case keys and DES-RU's Russian ones). */
+var APPEARANCE_FIELD_RE = /appear|look|outfit|cloth|wear|attire|внешн|облик|одежд|наряд/i;
+var DES_CONFIDENCE = .5;
+var CANON_CONFIDENCE = {
+	active: .9,
+	provisional: .5,
+	archived: .3
+};
+/** «date, time» (or «date, start–end») of a DES scene; undefined when DES has neither. */
+function storyTimeOf(info) {
+	if (!info) return void 0;
+	const time = info.time ? info.time.start && info.time.end && info.time.end !== info.time.start ? `${info.time.start}–${info.time.end}` : info.time.start ?? info.time.end : void 0;
+	const parts = [info.date, time].filter((part) => !!part && !!part.trim());
+	return parts.length ? parts.join(", ") : void 0;
+}
+/** Relationship and appearance fields of one DES character as provisional facts. */
+function desFacts(entity, character, messageIndex, storyTime) {
+	const source = {
+		kind: "des.character",
+		ref: `${messageIndex}#${character.name}`,
+		label: character.name,
+		messageIndex
+	};
+	const facts = [];
+	const push = (text) => {
+		const fact = {
+			entity,
+			text,
+			source: { ...source },
+			messageIndex,
+			confidence: DES_CONFIDENCE,
+			status: "provisional"
+		};
+		if (storyTime) fact.storyTime = storyTime;
+		facts.push(fact);
+	};
+	if (character.relationship) push(`relationship: ${character.relationship}`);
+	for (const [field, value] of Object.entries(character.details)) if (APPEARANCE_FIELD_RE.test(field) && value.trim()) push(`${field}: ${value.trim()}`);
+	return facts;
+}
+/** A canon item as a fact: active items are active facts, provisional ones provisional, archived ones stale. */
+function canonFact(entity, item, book) {
+	const content = typeof item.entry.content === "string" ? item.entry.content.trim() : "";
+	if (!content) return null;
+	const comment = typeof item.entry.comment === "string" ? item.entry.comment.trim() : "";
+	const status = item.meta.status === "active" ? "active" : item.meta.status === "archived" ? "stale" : "provisional";
+	return {
+		entity,
+		text: content,
+		source: {
+			kind: "canon.entry",
+			ref: `${book}#${item.uid}`,
+			label: comment || `#${item.uid}`,
+			world: book,
+			uid: item.uid
+		},
+		confidence: CANON_CONFIDENCE[item.meta.status] ?? CANON_CONFIDENCE.provisional ?? .5,
+		status
+	};
+}
+//#endregion
+//#region src/domain/world-names.ts
+/** Entity kinds of the world model (same ids as `EntityKind` in src/features/world/api.ts). */
+var WORLD_KINDS = [
+	"persona",
+	"character",
+	"place",
+	"item",
+	"faction",
+	"event",
+	"tradition",
+	"promise",
+	"secret",
+	"quest",
+	"mechanic"
+];
+var WORD_CHAR_RE = /[\p{L}\p{N}_]/u;
+var LETTER_RE = /\p{L}/u;
+var MAX_NAME_CHARS = 60;
+var MAX_NAME_WORDS = 4;
+/** Letters a Cyrillic name may be followed by (a case ending the forms did not list: «Анн|ой»). */
+var NAME_TAIL = 2;
+/** Letters after a stem («Маш» + «енька» is too much, «Маш» + «ей» is fine). */
+var STEM_TAIL = 3;
+var MIN_NEEDLE = 2;
+/** Order of kinds in lists (persona first, then people, places, things). */
+function kindOrder(kind) {
+	const index = WORLD_KINDS.indexOf(kind);
+	return index < 0 ? WORLD_KINDS.length : index;
+}
+/** People share one namespace: a DES roster name equal to the persona's name is the persona. */
+function kindFamily(kind) {
+	return kind === "character" || kind === "persona" ? "being" : kind;
+}
+/** NFC, lower case, ё → е, whitespace runs → one space, trimmed. */
+function normalizeName(text) {
+	return text.normalize("NFC").toLowerCase().replace(/ё/g, "е").replace(/\s+/g, " ").trim();
+}
+/** Same as normalizeName but keeps the length of leading/trailing text (used on whole messages). */
+function normalizeText(text) {
+	return text.normalize("NFC").toLowerCase().replace(/ё/g, "е").replace(/\s+/g, " ");
+}
+/** `${kind}:${normalised name}` (places use their registry id instead). */
+function entityIdOf(kind, name) {
+	return `${kind}:${normalizeName(name)}`;
+}
+/** Order-independent key of two ids (separated pairs, proposed merges). */
+function pairKey(a, b) {
+	return a < b ? `${a}\u0000${b}` : `${b}\u0000${a}`;
+}
+function wordsOf(normalized) {
+	return normalized.split(" ").filter(Boolean);
+}
+/**
+* A lorebook key or alias that can stand for a name: not a regex, no macros, not a BunnyMo tag or sheet command,
+* one line of at most four words and 60 characters, with at least one letter.
+*/
+function looksLikeName(value) {
+	if (typeof value !== "string") return false;
+	const text = value.trim();
+	if (text.length < MIN_NEEDLE || text.length > MAX_NAME_CHARS) return false;
+	if (isRegexKey$1(text) || text.includes("{{") || /[\n\r<>]/.test(text) || /^[!@#/]/.test(text)) return false;
+	if (!LETTER_RE.test(text)) return false;
+	return wordsOf(normalizeName(text)).length <= MAX_NAME_WORDS;
+}
+/** Name-like values, trimmed, unique by normalised form, first spelling kept. */
+function nameList(values) {
+	const seen = /* @__PURE__ */ new Set();
+	const out = [];
+	for (const value of values) {
+		if (!looksLikeName(value)) continue;
+		const text = value.trim();
+		const key = normalizeName(text);
+		if (seen.has(key)) continue;
+		seen.add(key);
+		out.push(text);
+	}
+	return out;
+}
+/** «Лиз, Лиза; Liz» → names (typed entries keep aliases in one comma-separated field). */
+function splitAliases(text) {
+	return typeof text === "string" ? nameList(text.split(/[,;\n]/)) : [];
+}
+/**
+* Needles of one entity: every name, alias and form (Cyrillic ones may take a short ending, Latin ones need a right
+* boundary). With `stems` (no DES-RU forms known), single Cyrillic words also give their stem («Маша» → «Маш»).
+*/
+function mentionNeedles(names, forms, stems) {
+	const out = /* @__PURE__ */ new Map();
+	const add = (needle, tail) => {
+		if (needle.length < MIN_NEEDLE) return;
+		const known = out.get(needle);
+		if (known === void 0 || known < tail) out.set(needle, tail);
+	};
+	for (const raw of [...names, ...forms]) {
+		if (typeof raw !== "string") continue;
+		const needle = normalizeName(raw);
+		if (!needle) continue;
+		const cyrillic = hasCyrillic$1(needle);
+		add(needle, cyrillic ? NAME_TAIL : 0);
+		if (stems && cyrillic && !needle.includes(" ")) {
+			const stem = normalizeName(russianStem(raw));
+			if (stem !== needle) add(stem, STEM_TAIL);
+		}
+	}
+	return [...out].map(([needle, tail]) => ({
+		needle,
+		tail
+	}));
+}
+function buildMentionMatcher(rows) {
+	return { rows: [...rows].filter((row) => row.needles.length > 0) };
+}
+/** Position of the first occurrence with a left boundary and at most `tail` word characters after it; -1 if none. */
+function findNeedle(text, needle, tail) {
+	if (!needle) return -1;
+	let from = 0;
+	for (;;) {
+		const index = text.indexOf(needle, from);
+		if (index < 0) return -1;
+		from = index + 1;
+		const before = index > 0 ? text[index - 1] : void 0;
+		if (before !== void 0 && WORD_CHAR_RE.test(before)) continue;
+		const end = index + needle.length;
+		let extra = 0;
+		while (end + extra < text.length && WORD_CHAR_RE.test(text[end + extra] ?? "") && extra <= tail) extra++;
+		if (extra <= tail) return index;
+	}
+}
+/** Ids of the rows mentioned in `text`, in order of their first mention. */
+function findMentions(matcher, text) {
+	if (!text || !matcher.rows.length) return [];
+	const haystack = normalizeText(text);
+	const hits = [];
+	for (const row of matcher.rows) {
+		let best = -1;
+		for (const { needle, tail } of row.needles) {
+			const at = findNeedle(haystack, needle, tail);
+			if (at >= 0 && (best < 0 || at < best)) best = at;
+		}
+		if (best >= 0) hits.push({
+			id: row.id,
+			at: best
+		});
+	}
+	hits.sort((a, b) => a.at - b.at);
+	return hits.map((hit) => hit.id);
+}
+//#endregion
+//#region src/domain/relations-history.ts
+function isAssistantMessage(message) {
+	return !!message && !message.is_user && !message.is_system;
+}
+/** Index of the assistant message committed last: the one before the last user message (P14); -1 if none. */
+function lastCommittedIndex(chat) {
+	let user = -1;
+	for (let i = chat.length - 1; i >= 0; i--) if (chat[i]?.is_user) {
+		user = i;
+		break;
+	}
+	for (let i = user - 1; i >= 0; i--) if (isAssistantMessage(chat[i])) return i;
+	return -1;
+}
+/** An assistant message is committed once a user message follows it. */
+function isCommittedIndex(chat, index) {
+	if (!isAssistantMessage(chat[index])) return false;
+	for (let i = index + 1; i < chat.length; i++) if (chat[i]?.is_user) return true;
+	return false;
+}
+/** The next assistant message after `index`, -1 if none. */
+function nextAssistantIndex(chat, index) {
+	for (let i = index + 1; i < chat.length; i++) if (isAssistantMessage(chat[i])) return i;
+	return -1;
+}
+function relationKey(from, to) {
+	return `${normalizeName(from)}\u0000${normalizeName(to)}`;
+}
+/** Statuses compare without case and extra spaces («Friendly» = «friendly »). */
+function sameStatus(a, b) {
+	return normalizeName(a) === normalizeName(b);
+}
+/**
+* Sorted by message, one point per message and source (the later one in the list wins), consecutive equal statuses
+* collapsed onto the earliest. Returns a new array.
+*/
+function collapseHistory(history) {
+	const byMessage = /* @__PURE__ */ new Map();
+	for (const point of history) {
+		if (!point || typeof point.status !== "string" || !point.status.trim()) continue;
+		if (!Number.isInteger(point.messageIndex) || point.messageIndex < 0) continue;
+		byMessage.set(`${point.messageIndex}\u0000${point.source}`, { ...point });
+	}
+	const sorted = [...byMessage.values()].sort((a, b) => a.messageIndex - b.messageIndex);
+	const out = [];
+	for (const point of sorted) {
+		const last = out[out.length - 1];
+		if (last && sameStatus(last.status, point.status)) continue;
+		out.push(point);
+	}
+	return out;
+}
+/** Current status: the last point's, '' without history. */
+function currentStatus(history) {
+	return history[history.length - 1]?.status ?? "";
+}
+/** Observations of one message: every character with a relationship status toward the persona. */
+function observationsFrom(snapshot, persona, resolve = (name) => name) {
+	if (!snapshot || !persona.trim()) return [];
+	const storyTime = storyTimeOf(snapshot.infoBox);
+	const out = [];
+	for (const character of snapshot.characters) {
+		if (!character.relationship) continue;
+		const from = resolve(character.name) || character.name;
+		if (normalizeName(from) === normalizeName(persona)) continue;
+		const observation = {
+			from,
+			to: persona,
+			status: character.relationship
+		};
+		if (storyTime) observation.storyTime = storyTime;
+		out.push(observation);
+	}
+	return out;
+}
+/**
+* Applies what one message says: its earlier points of `source` are replaced by the observations; pairs left without
+* history are dropped. Returns new relations (inputs are not changed).
+*/
+function applyMessage(relations, messageIndex, observations, source = "des", sent) {
+	const map = /* @__PURE__ */ new Map();
+	for (const relation of relations) map.set(relationKey(relation.from, relation.to), {
+		from: relation.from,
+		to: relation.to,
+		history: relation.history.filter((point) => !(point.messageIndex === messageIndex && point.source === source))
+	});
+	for (const observation of observations) {
+		const key = relationKey(observation.from, observation.to);
+		const relation = map.get(key) ?? {
+			from: observation.from,
+			to: observation.to,
+			history: []
+		};
+		const point = {
+			messageIndex,
+			status: observation.status.trim(),
+			source
+		};
+		if (observation.storyTime) point.storyTime = observation.storyTime;
+		if (sent) point.sent = sent;
+		relation.history.push(point);
+		map.set(key, relation);
+	}
+	const out = [];
+	for (const relation of map.values()) {
+		const history = collapseHistory(relation.history);
+		if (history.length) out.push({
+			...relation,
+			history
+		});
+	}
+	return out;
+}
+/**
+* Drops points of a message that is no longer what it was: `at` (swipe, edit) drops the points of that message,
+* `from` (deletion) drops that message's points and every later one.
+*/
+function dropPoints(relations, messageIndex, mode) {
+	const out = [];
+	for (const relation of relations) {
+		const history = collapseHistory(relation.history.filter((point) => mode === "at" ? point.messageIndex !== messageIndex : point.messageIndex < messageIndex));
+		if (history.length) out.push({
+			...relation,
+			history
+		});
+	}
+	return out;
+}
+/**
+* True when some DES point no longer sits on the message it was read from (messages were deleted in the middle):
+* `valid` checks the message at the point's index (an assistant message, the same `send_date`).
+*/
+function needsRepair(relations, valid) {
+	return relations.some((relation) => relation.history.some((point) => point.source === "des" && !valid(point)));
+}
+/** A point as the API shows it (without the bookkeeping `sent`). */
+function publicPoint(point) {
+	const copy = { ...point };
+	delete copy.sent;
+	return copy;
+}
+/** Relations merged by canonical names (the world model may learn later that «Лиза» is «Elizabeth»). */
+function mergeByName(relations, canonical) {
+	const map = /* @__PURE__ */ new Map();
+	for (const relation of relations) {
+		const from = canonical(relation.from) || relation.from;
+		const to = canonical(relation.to) || relation.to;
+		const key = relationKey(from, to);
+		const known = map.get(key);
+		if (known) known.history.push(...relation.history);
+		else map.set(key, {
+			from,
+			to,
+			history: [...relation.history]
+		});
+	}
+	const out = [];
+	for (const relation of map.values()) {
+		const history = collapseHistory(relation.history);
+		if (history.length) out.push({
+			...relation,
+			history
+		});
+	}
+	return out;
+}
+/** A stored document's relations, with junk dropped (files may be edited by hand or come from an old version). */
+function readRelations(value) {
+	if (!Array.isArray(value)) return [];
+	const out = [];
+	for (const item of value) {
+		if (!item || typeof item !== "object") continue;
+		const raw = item;
+		if (typeof raw.from !== "string" || typeof raw.to !== "string" || !raw.from.trim() || !raw.to.trim()) continue;
+		const history = [];
+		for (const point of Array.isArray(raw.history) ? raw.history : []) {
+			if (!point || typeof point !== "object") continue;
+			const p = point;
+			if (typeof p.messageIndex !== "number" || typeof p.status !== "string") continue;
+			const source = p.source === "canon" || p.source === "user" ? p.source : "des";
+			const data = {
+				messageIndex: p.messageIndex,
+				status: p.status,
+				source
+			};
+			if (typeof p.storyTime === "string" && p.storyTime) data.storyTime = p.storyTime;
+			if (typeof p.sent === "string" && p.sent) data.sent = p.sent;
+			history.push(data);
+		}
+		const collapsed = collapseHistory(history);
+		if (collapsed.length) out.push({
+			from: raw.from,
+			to: raw.to,
+			history: collapsed
+		});
+	}
+	return out;
+}
+//#endregion
+//#region src/features/relations/service.ts
+var RELATIONS_KEY = "relations";
+var RELATIONS_DOC = "relations";
+var COMMIT_DELAY_MS$1 = 1500;
+var OPEN_DELAY_MS = 2e3;
+var IDLE_DELAY_MS = 300;
+var YIELD_EVERY = 50;
+var PUT_ATTEMPTS$1 = 2;
+function emptyRelationsDoc() {
+	return {
+		relations: [],
+		builtAt: 0
+	};
+}
+/** Repairs a stored document in place. */
+function readDoc(raw) {
+	raw.relations = readRelations(raw.relations);
+	raw.builtAt = typeof raw.builtAt === "number" && Number.isFinite(raw.builtAt) ? raw.builtAt : 0;
+	return raw;
+}
+var pause = () => new Promise((resolve) => setTimeout(resolve, 0));
+var RelationsService = class {
+	app;
+	log;
+	doc = null;
+	loading = null;
+	generation = 0;
+	listeners = /* @__PURE__ */ new Set();
+	pendingReads = /* @__PURE__ */ new Set();
+	rebuildWanted = false;
+	rebuilding = null;
+	timer = null;
+	waitingForIdle = false;
+	disposed = false;
+	world = null;
+	constructor(app, log) {
+		this.app = app;
+		this.log = log;
+	}
+	install() {
+		const { app } = this;
+		return [
+			app.bus.on("chat:changed", () => {
+				this.generation++;
+				this.doc = null;
+				this.loading = null;
+				this.pendingReads.clear();
+				this.rebuildWanted = false;
+				this.emit();
+				this.open();
+			}),
+			app.bus.on("turn:committed", ({ messageIndex }) => {
+				this.pendingReads.add(messageIndex);
+				this.arm(COMMIT_DELAY_MS$1);
+			}),
+			app.bus.on("message:invalidated", ({ messageIndex, reason }) => this.invalidate(messageIndex, reason)),
+			app.bus.on("generation:ended", () => {
+				if (!this.waitingForIdle) return;
+				this.waitingForIdle = false;
+				this.arm(IDLE_DELAY_MS);
+			}),
+			app.leader.onChange((leader) => {
+				if (leader) this.open();
+			}),
+			() => this.dispose()
+		];
+	}
+	start() {
+		this.open();
+	}
+	dispose() {
+		this.disposed = true;
+		if (this.timer !== null) clearTimeout(this.timer);
+		this.timer = null;
+		this.world?.off();
+		this.world = null;
+		this.listeners.clear();
+	}
+	onChange(listener) {
+		this.listeners.add(listener);
+		return () => this.listeners.delete(listener);
+	}
+	emit() {
+		for (const listener of [...this.listeners]) try {
+			listener();
+		} catch (error) {
+			this.log.error("relations listener failed", error);
+		}
+	}
+	worldApi() {
+		const api = this.app.modules.api("world");
+		if (api !== this.world?.api) {
+			this.world?.off();
+			this.world = null;
+			if (api) try {
+				this.world = {
+					api,
+					off: api.onChange(() => this.emit())
+				};
+			} catch (error) {
+				this.log.debug("cannot listen to the world model", error);
+			}
+		}
+		return api;
+	}
+	/** The world model's canonical name (DES alias, card name), or the name as DES wrote it. */
+	canonical(name) {
+		try {
+			return this.worldApi()?.resolve(name)?.name ?? name;
+		} catch {
+			return name;
+		}
+	}
+	persona() {
+		const name = (this.app.host.ctx().name1 ?? "").trim();
+		if (!name) return "";
+		try {
+			return this.worldApi()?.resolve(name, "persona")?.name ?? name;
+		} catch {
+			return name;
+		}
+	}
+	chat() {
+		return this.app.host.ctx().chat ?? [];
+	}
+	observationsAt(index) {
+		const message = this.chat()[index];
+		if (!message || message.is_user || message.is_system) return [];
+		let snapshot = null;
+		try {
+			snapshot = adaptersOf(this.app).des.trackerFor(index);
+		} catch (error) {
+			this.log.debug("DES tracker is not available", error);
+		}
+		return observationsFrom(snapshot, this.persona(), (name) => this.canonical(name));
+	}
+	/** What one message says, with its send_date as the point fingerprint. */
+	readMessage(relations, index) {
+		const sent = this.chat()[index]?.send_date;
+		return applyMessage(relations, index, this.observationsAt(index), "des", typeof sent === "string" && sent ? sent : void 0);
+	}
+	load() {
+		if (!this.app.host.chatId()) return Promise.resolve(null);
+		if (this.doc) return Promise.resolve(this.doc);
+		if (this.loading) return this.loading;
+		const startedIn = this.generation;
+		const loading = this.app.chat.get(RELATIONS_DOC, () => emptyRelationsDoc()).then((raw) => {
+			const doc = readDoc(raw);
+			if (startedIn !== this.generation) return null;
+			this.doc = doc;
+			this.emit();
+			return doc;
+		}).catch((error) => {
+			this.log.warn("relations could not be read", error);
+			return null;
+		}).finally(() => {
+			if (this.loading === loading) this.loading = null;
+		});
+		this.loading = loading;
+		return loading;
+	}
+	/** Read-modify-write; on a version conflict the newer document is re-read and the change applied once more. */
+	async mutate(change) {
+		const startedIn = this.generation;
+		for (let attempt = 0; attempt < PUT_ATTEMPTS$1; attempt++) {
+			if (startedIn !== this.generation || !this.app.host.chatId()) return false;
+			const raw = await this.app.chat.get(RELATIONS_DOC, () => emptyRelationsDoc());
+			if (startedIn !== this.generation) return false;
+			const doc = readDoc(structuredClone(raw));
+			if (!change(doc)) {
+				this.doc = readDoc(raw);
+				return false;
+			}
+			if (await this.app.chat.put("relations", doc)) {
+				if (startedIn === this.generation) {
+					this.doc = doc;
+					this.emit();
+				}
+				return true;
+			}
+		}
+		this.log.warn(`relations could not be saved after ${PUT_ATTEMPTS$1} attempts`);
+		return false;
+	}
+	setRelations(doc, next) {
+		if (JSON.stringify(next) === JSON.stringify(doc.relations)) return false;
+		doc.relations = next;
+		return true;
+	}
+	/** On chat open: a chat without a document is read in full in the background. */
+	async open() {
+		const doc = await this.load();
+		if (!doc || doc.builtAt > 0) return;
+		if (lastCommittedIndex(this.chat()) < 0) return;
+		this.rebuildWanted = true;
+		this.arm(OPEN_DELAY_MS);
+	}
+	arm(delay) {
+		if (this.disposed) return;
+		if (this.timer !== null) clearTimeout(this.timer);
+		this.timer = setTimeout(() => {
+			this.timer = null;
+			this.flush();
+		}, delay);
+	}
+	async flush() {
+		if (this.disposed) return;
+		if (this.app.turn.current() !== null) {
+			this.waitingForIdle = true;
+			return;
+		}
+		if (!this.app.leader.isLeader()) {
+			this.pendingReads.clear();
+			return;
+		}
+		if (this.rebuildWanted) {
+			this.rebuildWanted = false;
+			this.pendingReads.clear();
+			await this.rebuild();
+			return;
+		}
+		if (!this.pendingReads.size) return;
+		const chat = this.chat();
+		const reads = [...this.pendingReads].sort((a, b) => a - b).filter((index) => isCommittedIndex(chat, index));
+		this.pendingReads.clear();
+		if (!reads.length) return;
+		await this.load();
+		await this.mutate((doc) => {
+			let relations = doc.relations;
+			for (const index of reads) relations = this.readMessage(relations, index);
+			return this.setRelations(doc, relations);
+		});
+	}
+	async invalidate(messageIndex, reason) {
+		if (reason === "deleted") {
+			for (const index of [...this.pendingReads]) if (index >= messageIndex) this.pendingReads.delete(index);
+		} else this.pendingReads.delete(messageIndex);
+		if (!this.app.leader.isLeader() || !this.app.host.chatId()) return;
+		if (!await this.load()) return;
+		const chat = this.chat();
+		let repair = false;
+		await this.mutate((current) => {
+			const next = dropPoints(current.relations, messageIndex, reason === "deleted" ? "from" : "at");
+			if (reason === "deleted") repair = needsRepair(next, (point) => {
+				const message = chat[point.messageIndex];
+				if (!message || message.is_user || message.is_system) return false;
+				return !point.sent || message.send_date === point.sent;
+			});
+			return this.setRelations(current, next);
+		});
+		if (repair) {
+			this.rebuildWanted = true;
+			this.arm(COMMIT_DELAY_MS$1);
+			return;
+		}
+		if (reason === "edited" && isCommittedIndex(chat, messageIndex)) {
+			this.pendingReads.add(messageIndex);
+			const next = nextAssistantIndex(chat, messageIndex);
+			if (next >= 0 && isCommittedIndex(chat, next)) this.pendingReads.add(next);
+			this.arm(COMMIT_DELAY_MS$1);
+		}
+	}
+	/** Reads every committed assistant message (yields every 50); keeps points that did not come from DES. */
+	rebuild() {
+		this.rebuilding ??= this.rebuildAll().finally(() => {
+			this.rebuilding = null;
+		});
+		return this.rebuilding;
+	}
+	async rebuildAll() {
+		if (!this.app.host.chatId()) return;
+		const startedIn = this.generation;
+		const current = await this.load();
+		const chat = this.chat();
+		const last = lastCommittedIndex(chat);
+		let relations = (current?.relations ?? []).map((relation) => ({
+			...relation,
+			history: relation.history.filter((point) => point.source !== "des")
+		})).filter((relation) => relation.history.length > 0);
+		let read = 0;
+		for (let index = 0; index <= last; index++) {
+			const message = chat[index];
+			if (!message || message.is_user || message.is_system) continue;
+			relations = this.readMessage(relations, index);
+			if (++read % YIELD_EVERY === 0) {
+				await pause();
+				if (startedIn !== this.generation || this.disposed) return;
+			}
+		}
+		if (startedIn !== this.generation) return;
+		await this.mutate((doc) => {
+			doc.relations = relations;
+			doc.builtAt = Date.now();
+			return true;
+		});
+	}
+	loaded() {
+		return this.doc !== null;
+	}
+	all() {
+		if (!this.doc) {
+			this.load();
+			return [];
+		}
+		return mergeByName(this.doc.relations, (name) => this.canonical(name)).map((relation) => ({
+			from: relation.from,
+			to: relation.to,
+			current: currentStatus(relation.history),
+			history: relation.history.map(publicPoint)
+		})).sort((a, b) => a.from.localeCompare(b.from, "ru") || a.to.localeCompare(b.to, "ru"));
+	}
+	of(name) {
+		const key = normalizeName(this.canonical(name));
+		return this.all().filter((relation) => normalizeName(relation.from) === key || normalizeName(relation.to) === key);
+	}
+	between(from, to) {
+		const a = normalizeName(this.canonical(from));
+		const b = normalizeName(this.canonical(to));
+		return this.all().find((relation) => normalizeName(relation.from) === a && normalizeName(relation.to) === b);
+	}
+	api() {
+		return {
+			all: () => this.all(),
+			of: (name) => this.of(name),
+			between: (from, to) => this.between(from, to),
+			rebuild: () => this.rebuild(),
+			onChange: (listener) => this.onChange(listener)
+		};
+	}
+};
+//#endregion
+//#region src/features/relations/strings.ts
+var RELATIONS_STRINGS = {
+	en: {
+		"m19.title": "Relationships",
+		"m19.tab": "Relationships",
+		"m19.hint": "How characters feel about your persona, as DES records it in the tracker, turn by turn. A change is recorded only when you send your next message, so swiped replies leave nothing behind.",
+		"m19.noChat": "No chat is open.",
+		"m19.loading": "Loading…",
+		"m19.empty": "No relationships yet: DES has not recorded any status in this chat.",
+		"m19.rebuild": "Read the tracker again",
+		"m19.rebuild.hint": "Read the relationship status of every committed reply of this chat",
+		"m19.rebuild.done": "The relationship history was read again.",
+		"m19.count": "Pairs: {count}",
+		"m19.col.pair": "Who → whom",
+		"m19.col.current": "Now",
+		"m19.col.history": "History",
+		"m19.pair": "{from} → {to}",
+		"m19.point": "Message #{index}",
+		"m19.pointTime": "Message #{index}, {time}",
+		"m19.earlier": "+{count} earlier",
+		"m19.source.canon": "canon",
+		"m19.source.user": "by you"
+	},
+	ru: {
+		"m19.title": "Граф отношений",
+		"m19.tab": "Отношения",
+		"m19.hint": "Как персонажи относятся к твоей персоне — по трекеру DES, ход за ходом. Перемена записывается, только когда ты отправляешь следующее сообщение, поэтому свайпнутые ответы ничего не оставляют.",
+		"m19.noChat": "Чат не открыт.",
+		"m19.loading": "Загрузка…",
+		"m19.empty": "Отношений пока нет: DES ещё не отметил в этом чате ни одного статуса.",
+		"m19.rebuild": "Перечитать трекер",
+		"m19.rebuild.hint": "Заново прочитать статус отношений во всех зафиксированных ответах чата",
+		"m19.rebuild.done": "История отношений перечитана.",
+		"m19.count": "Пар: {count}",
+		"m19.col.pair": "Кто → к кому",
+		"m19.col.current": "Сейчас",
+		"m19.col.history": "История",
+		"m19.pair": "{from} → {to}",
+		"m19.point": "Сообщение №{index}",
+		"m19.pointTime": "Сообщение №{index}, {time}",
+		"m19.earlier": "ещё раньше: {count}",
+		"m19.source.canon": "канон",
+		"m19.source.user": "вручную"
+	}
+};
+//#endregion
+//#region src/features/relations/view.ts
+var RELATIONS_TAB = "relations";
+var RELATIONS_CSS = `
+.maestro-m19-head { display: flex; flex-direction: column; gap: 6px; }
+.maestro-m19-pair { font-weight: 600; overflow-wrap: anywhere; }
+.maestro-m19-timeline { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.maestro-m19-point { display: inline-flex; gap: 4px; align-items: baseline; border: 1px solid var(--maestro-border);
+    border-radius: var(--maestro-radius-sm); padding: 1px 6px; overflow-wrap: anywhere; }
+.maestro-m19-point-index { font-size: 0.8em; opacity: 0.7; }
+.maestro-m19-arrow { opacity: 0.6; }
+.maestro-m19-last { border-color: var(--maestro-accent); }
+`;
+function relationsTab(app, service) {
+	const t = app.i18n.t.bind(app.i18n);
+	const pointView = (point, last) => el("span", {
+		class: ["maestro-m19-point", last ? "maestro-m19-last" : null],
+		title: point.storyTime ? t("m19.pointTime", {
+			index: point.messageIndex,
+			time: point.storyTime
+		}) : t("m19.point", { index: point.messageIndex })
+	}, [
+		el("span", { text: point.status }),
+		el("span", {
+			class: "maestro-m19-point-index",
+			text: `#${point.messageIndex}`
+		}),
+		point.source !== "des" ? el("span", {
+			class: "maestro-muted",
+			text: t(`m19.source.${point.source}`)
+		}) : null
+	]);
+	const timeline = (relation) => {
+		const points = relation.history.slice(-12);
+		const hidden = relation.history.length - points.length;
+		const children = [hidden > 0 ? el("span", {
+			class: "maestro-muted",
+			text: t("m19.earlier", { count: hidden })
+		}) : null];
+		points.forEach((point, index) => {
+			if (index > 0 || hidden > 0) children.push(el("span", {
+				class: "maestro-m19-arrow",
+				text: "→"
+			}));
+			children.push(pointView(point, index === points.length - 1));
+		});
+		return el("div", { class: "maestro-m19-timeline" }, children);
+	};
+	return {
+		id: RELATIONS_TAB,
+		titleKey: "m19.tab",
+		icon: "fa-people-arrows",
+		order: 46,
+		render(container) {
+			let alive = true;
+			const root = el("div", { class: "maestro-view maestro-m19" });
+			container.appendChild(root);
+			const draw = () => {
+				if (!alive) return;
+				clear(root);
+				if (!app.host.chatId()) {
+					root.appendChild(emptyState(t("m19.noChat"), "fa-comment-slash"));
+					return;
+				}
+				const relations = service.all();
+				const head = el("div", { class: "maestro-m19-head" }, [el("div", {
+					class: "maestro-hint",
+					text: t("m19.hint")
+				}), service.loaded() ? el("div", { text: t("m19.count", { count: relations.length }) }) : null]);
+				root.appendChild(section$1(t("m19.title"), head, [button({
+					label: t("m19.rebuild"),
+					icon: "fa-rotate",
+					title: t("m19.rebuild.hint"),
+					onClick: async () => {
+						try {
+							await service.rebuild();
+							app.ui.notice(t("m19.rebuild.done"));
+						} catch (error) {
+							app.ui.notice(error instanceof Error ? error.message : String(error), { level: "error" });
+						}
+					}
+				})]));
+				if (!service.loaded()) {
+					root.appendChild(el("div", {
+						class: "maestro-muted",
+						text: t("m19.loading")
+					}));
+					return;
+				}
+				if (!relations.length) {
+					root.appendChild(emptyState(t("m19.empty"), "fa-people-arrows"));
+					return;
+				}
+				root.appendChild(table([
+					{
+						key: "pair",
+						label: t("m19.col.pair"),
+						cell: (relation) => el("span", {
+							class: "maestro-m19-pair",
+							text: t("m19.pair", {
+								from: relation.from,
+								to: relation.to
+							})
+						})
+					},
+					{
+						key: "current",
+						label: t("m19.col.current"),
+						cell: (relation) => badge(relation.current, "info")
+					},
+					{
+						key: "history",
+						label: t("m19.col.history"),
+						cell: (relation) => timeline(relation)
+					}
+				], relations, { caption: t("m19.title") }));
+			};
+			const redraw = coalesce(draw, 100);
+			const off = service.onChange(() => alive && redraw());
+			draw();
+			return () => {
+				alive = false;
+				redraw.cancel();
+				off();
+			};
+		}
+	};
+}
+//#endregion
+//#region src/features/relations/index.ts
+var relationsModule = {
+	id: "M19",
+	key: RELATIONS_KEY,
+	stage: 3,
+	titleKey: "m19.title",
+	enabledByDefault: true,
+	defaults: () => ({}),
+	i18n: RELATIONS_STRINGS,
+	init({ app, log, own }) {
+		const service = new RelationsService(app, log);
+		for (const off of service.install()) own(off);
+		app.modules.expose(RELATIONS_KEY, service.api());
+		own(app.ui.style("m19-view", RELATIONS_CSS));
+		own(app.ui.addTab(relationsTab(app, service)));
+		service.start();
+	}
+};
+//#endregion
 //#region src/features/rules/lore-write.ts
 var LORE_ENTRY_TARGET = "lore-entry";
 /** ST's lorebook functions from the context; null when this ST lacks them. */
@@ -34483,334 +47221,6 @@ function registerArchiveHandlers(env) {
 	}, async (payload) => isArchivePayload(payload) && archiveFixValid(env, payload))];
 }
 //#endregion
-//#region src/domain/text-clean.ts
-function isDict$4(value) {
-	return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-/** Names of real HTML elements (lower case). BunnyMo tags (`<SPECIES:ELF>`, `<PHYSICAL>`) are not among them. */
-var HTML_ELEMENTS = /* @__PURE__ */ new Set([
-	"a",
-	"abbr",
-	"address",
-	"area",
-	"article",
-	"aside",
-	"audio",
-	"b",
-	"base",
-	"bdi",
-	"bdo",
-	"big",
-	"blink",
-	"blockquote",
-	"body",
-	"br",
-	"button",
-	"canvas",
-	"caption",
-	"center",
-	"cite",
-	"code",
-	"col",
-	"colgroup",
-	"data",
-	"datalist",
-	"dd",
-	"del",
-	"details",
-	"dfn",
-	"dialog",
-	"dir",
-	"div",
-	"dl",
-	"dt",
-	"em",
-	"embed",
-	"fieldset",
-	"figcaption",
-	"figure",
-	"font",
-	"footer",
-	"form",
-	"h1",
-	"h2",
-	"h3",
-	"h4",
-	"h5",
-	"h6",
-	"head",
-	"header",
-	"hgroup",
-	"hr",
-	"html",
-	"i",
-	"iframe",
-	"img",
-	"input",
-	"ins",
-	"kbd",
-	"label",
-	"legend",
-	"li",
-	"link",
-	"main",
-	"map",
-	"mark",
-	"marquee",
-	"math",
-	"menu",
-	"meta",
-	"meter",
-	"nav",
-	"nobr",
-	"noscript",
-	"object",
-	"ol",
-	"optgroup",
-	"option",
-	"output",
-	"p",
-	"param",
-	"picture",
-	"pre",
-	"progress",
-	"q",
-	"rp",
-	"rt",
-	"ruby",
-	"s",
-	"samp",
-	"script",
-	"search",
-	"section",
-	"select",
-	"slot",
-	"small",
-	"source",
-	"span",
-	"strike",
-	"strong",
-	"style",
-	"sub",
-	"summary",
-	"sup",
-	"svg",
-	"table",
-	"tbody",
-	"td",
-	"template",
-	"textarea",
-	"tfoot",
-	"th",
-	"thead",
-	"time",
-	"title",
-	"tr",
-	"track",
-	"tt",
-	"u",
-	"ul",
-	"var",
-	"video",
-	"wbr"
-]);
-/** Elements whose tags separate lines of text. */
-var BLOCK_ELEMENTS = /* @__PURE__ */ new Set([
-	"address",
-	"article",
-	"aside",
-	"blockquote",
-	"br",
-	"center",
-	"dd",
-	"details",
-	"div",
-	"dl",
-	"dt",
-	"figcaption",
-	"figure",
-	"footer",
-	"h1",
-	"h2",
-	"h3",
-	"h4",
-	"h5",
-	"h6",
-	"header",
-	"hr",
-	"li",
-	"main",
-	"nav",
-	"ol",
-	"p",
-	"pre",
-	"section",
-	"summary",
-	"table",
-	"tr",
-	"ul"
-]);
-/**
-* True for a real HTML element name (any case), or a custom element (lower case with a hyphen — `<INTJ-U>` is a
-* BunnyMo tag, not an element).
-*/
-function isHtmlElementName(name) {
-	return HTML_ELEMENTS.has(name.toLowerCase()) || /^[a-z][a-z0-9]*-[a-z0-9-]+$/.test(name);
-}
-var TRACKER_KEYS = [
-	"quests",
-	"infoBox",
-	"infobox",
-	"characterThoughts",
-	"characters"
-];
-var TRACKER_KEY_RE$1 = /"(?:quests|infoBox|infobox|characterThoughts|characters)"\s*:/;
-/** A fence at the very start: ```json, ```markdown, ```md or a bare ```; the body runs to the closing fence. */
-var LEADING_FENCE_RE = /^\s*```(?:json|markdown|md)?[ \t]*\r?\n([\s\S]*?)\r?\n?[ \t]*```[ \t]*(?:\r?\n|$)/i;
-/** End index (exclusive) of the balanced `{…}` starting at `start`, strings respected; -1 when unbalanced. */
-function balancedObjectEnd(text, start) {
-	let depth = 0;
-	let inString = false;
-	let escaped = false;
-	for (let i = start; i < text.length; i++) {
-		const char = text[i];
-		if (escaped) escaped = false;
-		else if (char === "\\") escaped = inString;
-		else if (char === "\"") inString = !inString;
-		else if (!inString) {
-			if (char === "{") depth++;
-			else if (char === "}") {
-				depth--;
-				if (depth === 0) return i + 1;
-			}
-		}
-	}
-	return -1;
-}
-/** The JSON text is DES tracker data: an object with one of DES's sections (parsed or, if broken, by its keys). */
-function looksLikeTracker(json) {
-	const body = json.trim();
-	if (!body.startsWith("{")) return false;
-	try {
-		const parsed = JSON.parse(body);
-		return isDict$4(parsed) && TRACKER_KEYS.some((key) => key in parsed);
-	} catch {
-		return TRACKER_KEY_RE$1.test(body);
-	}
-}
-/**
-* Removes the DES tracker JSON that opens a reply in together mode: a leading ```json fence (or ```markdown / a
-* bare fence) whose body is tracker JSON, or an unfenced leading JSON object with tracker sections. Any other
-* code block or JSON is kept.
-*/
-function stripDesTrackerJson(text) {
-	if (typeof text !== "string" || !text) return typeof text === "string" ? text : "";
-	const fence = LEADING_FENCE_RE.exec(text);
-	if (fence) return looksLikeTracker(fence[1] ?? "") ? text.slice(fence[0].length).replace(/^\s+/, "") : text;
-	const start = text.search(/\S/);
-	if (start < 0 || text[start] !== "{") return text;
-	const end = balancedObjectEnd(text, start);
-	if (end < 0 || !looksLikeTracker(text.slice(start, end))) return text;
-	return text.slice(end).replace(/^\s+/, "");
-}
-var NAMED_ENTITIES = {
-	lt: "<",
-	gt: ">",
-	quot: "\"",
-	apos: "'",
-	nbsp: " ",
-	amp: "&"
-};
-function decodeEntities(text) {
-	if (!text.includes("&")) return text;
-	return text.replace(/&(#x[0-9a-f]{1,6}|#[0-9]{1,7}|[a-z]+);/gi, (whole, body) => {
-		if (body[0] === "#") {
-			const code = body[1] === "x" || body[1] === "X" ? parseInt(body.slice(2), 16) : parseInt(body.slice(1), 10);
-			return Number.isFinite(code) && code > 0 && code <= 1114111 ? String.fromCodePoint(code) : whole;
-		}
-		return NAMED_ENTITIES[body.toLowerCase()] ?? whole;
-	});
-}
-/**
-* Removes HTML: comments, `<style>`/`<script>` blocks with their content, and tags of real HTML elements (block
-* tags become line breaks); entities are decoded. Tags that are not HTML (`<SPECIES:ELF>`, `<PHYSICAL>`,
-* `<STYLE:GOTHIC>`) stay: a tag name must be followed by whitespace, `/` or `>` to count as HTML.
-*/
-function stripHtml(text) {
-	if (typeof text !== "string") return "";
-	if (!text.includes("<") && !text.includes("&")) return text;
-	return decodeEntities(text.replace(/<!--[\s\S]*?-->/g, "").replace(/<(style|script)(?=[\s>])[^>]*>[\s\S]*?<\/\1\s*>/gi, "").replace(/<\/?([A-Za-z][A-Za-z0-9-]*)(?=[\s/>])[^<>]*>/g, (whole, name) => {
-		if (!isHtmlElementName(name)) return whole;
-		return BLOCK_ELEMENTS.has(name.toLowerCase()) ? "\n" : "";
-	}));
-}
-/** The block CK appends in "thinking" display mode: `<BunnyMoTags>`, then "Name:" and "• CATEGORY: values" lines. */
-var DUMP_BLOCK_RE = /(\n[ \t]*)*<BunnyMoTags>\n?([\s\S]*?)<\/BunnyMoTags>/g;
-/**
-* The body is a CK dump: only "Name:" and "• CATEGORY: values" lines (categories may be missing — CK skips tags
-* saved as arrays), no `<KEY:VALUE>` tags. A BunnyMo sheet looks different and is kept.
-*/
-function isCkDumpBody(body) {
-	const lines = String(body ?? "").split("\n").map((line) => line.trim()).filter(Boolean);
-	if (!lines.length || /<[A-Za-z][A-Za-z0-9_]*:/.test(body)) return false;
-	return lines.every((line) => line.startsWith("•") || line.endsWith(":"));
-}
-/** Removes CarrotKernel's `<BunnyMoTags>` dumps (with the blank lines before them); sheets are kept. */
-function stripCkDumps(text) {
-	if (typeof text !== "string" || !text.includes("<BunnyMoTags>")) return typeof text === "string" ? text : "";
-	return text.replace(DUMP_BLOCK_RE, (whole, _spacing, body) => isCkDumpBody(body) ? "" : whole);
-}
-var NAI_PLACEHOLDER_RE$1 = /[ \t]*\[nai:img:[^\]\s]{1,80}\][ \t]*/g;
-/**
-* Removes NAI Studio's inline image placeholders `[nai:img:<id>]` with the spaces around them; inside a line one
-* space keeps the words apart.
-*/
-function stripNaiPlaceholders(text) {
-	if (typeof text !== "string") return "";
-	if (!text.includes("[nai:img:")) return text;
-	return text.replace(NAI_PLACEHOLDER_RE$1, (match, offset, whole) => {
-		const before = whole[offset - 1];
-		const after = whole[offset + match.length];
-		return before === void 0 || before === "\n" || after === void 0 || after === "\n" ? "" : " ";
-	});
-}
-/**
-* A picture post (NAI Studio `postToChat`): `extra.nai_studio` on the message, or a gallery whose every item carries
-* NAI metadata while the text is empty or just the image prompt. A story reply illustrated later (paintbrush) keeps
-* its own text and is not a picture post.
-*/
-function isImagePost(message) {
-	if (!isDict$4(message) || !isDict$4(message.extra)) return false;
-	const extra = message.extra;
-	if (isDict$4(extra.nai_studio)) return true;
-	const media = extra.media;
-	if (!Array.isArray(media) || !media.length || !media.every((item) => isDict$4(item) && isDict$4(item.nai_studio))) return false;
-	const text = typeof message.mes === "string" ? message.mes.trim() : "";
-	if (!text) return true;
-	return media.some((item) => {
-		const meta = item.nai_studio;
-		const title = item.title;
-		return typeof title === "string" && title.trim() === text || meta.prompt === text;
-	});
-}
-function normalizeWhitespace(text) {
-	return text.replace(/\r\n?/g, "\n").replace(/[ \t]+$/gm, "").replace(/\n{3,}/g, "\n\n").trim();
-}
-/**
-* Story text of a message (or of a raw string) for analysis: picture posts give '', otherwise the text without
-* the DES tracker JSON, CK dumps, NAI placeholders and HTML, with tidy whitespace.
-*/
-function cleanForAnalysis(message) {
-	if (typeof message !== "string" && isImagePost(message)) return "";
-	const raw = typeof message === "string" ? message : isDict$4(message) ? message.mes : void 0;
-	if (typeof raw !== "string" || !raw) return "";
-	let text = stripDesTrackerJson(raw);
-	text = stripCkDumps(text);
-	text = stripNaiPlaceholders(text);
-	text = stripHtml(text);
-	return normalizeWhitespace(text);
-}
-//#endregion
 //#region src/domain/rules-display.ts
 /**
 * One pass over the text, alternatives in priority order:
@@ -34821,7 +47231,7 @@ function cleanForAnalysis(message) {
 * 3. bare MBTI `<INTJ-U>` / `<ENFP-H>`;
 * 4. other bare upper-case tags (`<PHYSICAL>`, `</NSFW>`, `<PTSD>`) unless the name is an HTML element (`<BR>`).
 */
-var TAG_RE$1 = /<\/?(?:bunnymotags|linguistics|genre|mentalhealth|physicalconditions|medications)>|<[A-Z][A-Za-z0-9_]*:(?!\/\/)[^<>\n]{1,200}>|<[A-Z]{4}-[HU]>|<\/?([A-Z][A-Z0-9_]{1,40})>/gi;
+var TAG_RE = /<\/?(?:bunnymotags|linguistics|genre|mentalhealth|physicalconditions|medications)>|<[A-Z][A-Za-z0-9_]*:(?!\/\/)[^<>\n]{1,200}>|<[A-Z]{4}-[HU]>|<\/?([A-Z][A-Z0-9_]{1,40})>/gi;
 /** Case-insensitive flag is needed for the wrappers only; the other alternatives re-check case here. */
 function isBunnyMoTag(match, bareName) {
 	const inner = match.replace(/^<\/?|>$/g, "");
@@ -34833,7 +47243,7 @@ function isBunnyMoTag(match, bareName) {
 /** Escapes BunnyMo tags so they are displayed as text. Idempotent; text without `<` is returned as is. */
 function escapeBunnyMoTags(text) {
 	if (typeof text !== "string" || !text.includes("<")) return text;
-	return text.replace(TAG_RE$1, (match, bareName) => isBunnyMoTag(match, bareName) ? `&lt;${match.slice(1, -1)}&gt;` : match);
+	return text.replace(TAG_RE, (match, bareName) => isBunnyMoTag(match, bareName) ? `&lt;${match.slice(1, -1)}&gt;` : match);
 }
 //#endregion
 //#region src/features/rules/builtin/display.ts
@@ -35437,15 +47847,15 @@ function registerPackHandlers(env) {
 }
 //#endregion
 //#region src/domain/rules-qvink.ts
-function isDict$3(value) {
+function isDict$5(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /** `chat[i].extra.qvink_memory`. */
 var QVINK_MEMORY_KEY = "qvink_memory";
 function memoryRecord(message) {
-	if (!isDict$3(message) || !isDict$3(message.extra)) return null;
+	if (!isDict$5(message) || !isDict$5(message.extra)) return null;
 	const record = message.extra[QVINK_MEMORY_KEY];
-	return isDict$3(record) ? record : null;
+	return isDict$5(record) ? record : null;
 }
 /** The message already has a Qvink summary (non-empty `memory`). */
 function hasQvinkMemory(message) {
@@ -35459,7 +47869,7 @@ function hasQvinkMemory(message) {
 * threshold do not. Context budgets are not part of this check.
 */
 function qvinkWouldSummarize(message, settings, options) {
-	if (!isDict$3(message)) return false;
+	if (!isDict$5(message)) return false;
 	const record = memoryRecord(message);
 	if (record?.is_qvink_system_memory) return false;
 	if (record?.remember === true) return true;
@@ -35468,8 +47878,8 @@ function qvinkWouldSummarize(message, settings, options) {
 	if (message.is_user === true && s.include_user_messages !== true) return false;
 	if (message.is_thoughts === true) return false;
 	if (message.is_system === true && s.include_system_messages !== true) return false;
-	if ((isDict$3(message.extra) ? message.extra : {}).type === "narrator" && s.include_narrator_messages !== true) return false;
-	if (options.groupId && isDict$3(s.disabled_group_characters)) {
+	if ((isDict$5(message.extra) ? message.extra : {}).type === "narrator" && s.include_narrator_messages !== true) return false;
+	if (options.groupId && isDict$5(s.disabled_group_characters)) {
 		const disabled = s.disabled_group_characters[options.groupId];
 		if (Array.isArray(disabled) && disabled.includes(message.original_avatar)) return false;
 	}
@@ -35485,21 +47895,21 @@ function qvinkWouldSummarize(message, settings, options) {
 function promptChatIndexes(chat, canUseTools) {
 	const indexes = [];
 	chat.forEach((message, index) => {
-		if (!isDict$3(message)) return;
-		const tools = canUseTools && isDict$3(message.extra) && Array.isArray(message.extra.tool_invocations);
+		if (!isDict$5(message)) return;
+		const tools = canUseTools && isDict$5(message.extra) && Array.isArray(message.extra.tool_invocations);
 		if (message.is_system !== true || tools) indexes.push(index);
 	});
 	return indexes;
 }
 function sameMessage$1(entry, message) {
-	return isDict$3(message) && message.send_date === entry.send_date && message.name === entry.name && message.is_user === true === (entry.is_user === true);
+	return isDict$5(message) && message.send_date === entry.send_date && message.name === entry.name && message.is_user === true === (entry.is_user === true);
 }
 /**
 * Live chat index of one prompt entry: its `index` through the mapping when that message matches (send date, name,
 * author), otherwise the newest live message that matches; -1 when none does.
 */
 function liveIndexOf(entry, chat, mapping) {
-	if (!isDict$3(entry)) return -1;
+	if (!isDict$5(entry)) return -1;
 	const position = entry.index;
 	if (typeof position === "number" && Number.isInteger(position)) {
 		const candidate = mapping[position];
@@ -36386,6 +48796,11 @@ var RulesEngine = class {
 	}
 	onEntriesLoaded(payload) {
 		if (!isPlainObject(payload)) return;
+		try {
+			this.app.modules.api("bunnymoMode")?.applySelection?.(payload);
+		} catch (error) {
+			this.log.warn("BunnyMo pack selection failed", error);
+		}
 		const lists = {
 			globalLore: arrayOf(payload.globalLore),
 			characterLore: arrayOf(payload.characterLore),
@@ -36944,7 +49359,7 @@ function rulesTab(engine, app) {
 				})];
 				if (!app.settings.core().firstRunDone) children.push(banner(t("m22.firstRun"), "info", "fa-circle-info"));
 				children.push(el("div", { class: "maestro-cards" }, engine.list().map(ruleCard)));
-				return section(t("m22.section.rules"), children, button({
+				return section$1(t("m22.section.rules"), children, button({
 					icon: "fa-rotate",
 					title: t("m22.refresh"),
 					onClick: () => draw()
@@ -37024,7 +49439,7 @@ function rulesTab(engine, app) {
 				}));
 				if (!books.length) children.push(emptyState(t("m22.caps.none"), "fa-book"));
 				for (const book of books) children.push(bookCard(book, caps[book] ?? {}, heavy.get(book), active.includes(book)));
-				return section(t("m22.caps.title"), children);
+				return section$1(t("m22.caps.title"), children);
 			};
 			draw();
 			const offSettings = app.settings.onChange((path) => {
@@ -37411,403 +49826,15 @@ var scenariosModule = {
 	}
 };
 //#endregion
-//#region src/domain/sheet-context.ts
-var COMMAND_TARGET_RE = new RegExp(`(?:^|[^\\p{L}\\p{N}])!(${SHEET_COMMANDS.join("|")})(?![\\p{L}\\p{N}])([^\\n]*)`, "iu");
-/** Leading words that introduce the name ("!fullsheet for Vera", "!fullsheet на Веру"). */
-var TARGET_LEAD_RE = /^(?:for|on|about|of|на|для|про|о|об)\s+/iu;
-var WRAP_CHARS = `"'«»“”„()[]{}<>*_\``;
-var MAX_TARGET_LENGTH = 60;
-/**
-* The character a sheet command asks for: the text after the command up to the end of the line or a sentence
-* mark, without quotes and lead words. Null when the command has no argument.
-*/
-function parseSheetTarget(text, command) {
-	const match = COMMAND_TARGET_RE.exec(String(text ?? ""));
-	if (!match) return null;
-	if (command && match[1]?.toLowerCase() !== command) return null;
-	let target = (match[2] ?? "").split(/[,.!?;:\n]/)[0] ?? "";
-	target = target.trim().replace(TARGET_LEAD_RE, "");
-	let start = 0;
-	let end = target.length;
-	while (start < end && WRAP_CHARS.includes(target[start])) start++;
-	while (end > start && WRAP_CHARS.includes(target[end - 1])) end--;
-	target = target.slice(start, end).trim().replace(/\s+/g, " ");
-	if (!target || target.length > MAX_TARGET_LENGTH) return null;
-	return target;
-}
-/**
-* Entry content without World Info decorators (`@@activate`, `@@dont_activate`, …): ST strips the leading `@@`
-* lines before sending (world-info.js parseDecorators); `@@@` escapes a literal `@@` line.
-*/
-function stripDecorators(content) {
-	const text = String(content ?? "");
-	if (!text.startsWith("@@")) return text;
-	const lines = text.split("\n");
-	let index = 0;
-	while (index < lines.length && lines[index].startsWith("@@")) index++;
-	return lines.slice(index).join("\n");
-}
-/** Lower case, ё → е, `_` and punctuation → spaces, words split. */
-function nameWords(name) {
-	return String(name ?? "").toLowerCase().replace(/ё/g, "е").replace(/[^\p{L}\p{N}]+/gu, " ").split(" ").filter(Boolean);
-}
-function commonPrefix(a, b) {
-	let i = 0;
-	while (i < a.length && i < b.length && a[i] === b[i]) i++;
-	return i;
-}
-/** Same word, allowing a short inflected ending ("Вера" / "Веру" / "Веры", "Мартин" / "Мартина"). */
-function sameWord(a, b) {
-	if (a === b) return true;
-	const longest = Math.max(a.length, b.length);
-	const shortest = Math.min(a.length, b.length);
-	if (shortest < 3 || longest - shortest > 2) return false;
-	return commonPrefix(a, b) >= Math.max(3, longest - 2);
-}
-/** True when both names point to one character: every word of the shorter name is in the longer one. */
-function sameCharacter(a, b) {
-	const left = nameWords(a);
-	const right = nameWords(b);
-	if (!left.length || !right.length) return false;
-	const [short, long] = left.length <= right.length ? [left, right] : [right, left];
-	return short.every((word) => long.some((other) => sameWord(word, other)));
-}
-/** The sheet command an entry answers (BunnyMo core #2-#7), by its keys. */
-function sheetCommandOfEntry(entry) {
-	if (!entry || !isBunnyMoCoreEntry(entry)) return null;
-	for (const key of entryKeys(entry)) {
-		const command = key.toLowerCase().replace(/^!/, "");
-		if (key.trim().startsWith("!") && SHEET_COMMANDS.includes(command)) return command;
-	}
-	return null;
-}
-var ARCHIVE_COMMENT_RE = /^(.+?)\s+Character Archive\b/i;
-/** Character name of an archive entry: `<Name:…>`, else Baby Bunny's comment "<Name> Character Archive …". */
-function archiveName(entry) {
-	const name = archiveTags(entry).name;
-	if (name) return name.replace(/_/g, " ").trim();
-	const comment = typeof entry?.comment === "string" ? entry.comment : "";
-	return ARCHIVE_COMMENT_RE.exec(comment)?.[1]?.trim() || null;
-}
-/** A character archive (CK repo / BunnyMo example) of this character: by its name or by its keys. */
-function isArchiveOf(entry, target) {
-	if (!entry || !isCharacterArchive(entry)) return false;
-	if (sameCharacter(archiveName(entry), target)) return true;
-	return entryKeys(entry).some((key) => !key.startsWith("/") && sameCharacter(key, target));
-}
-var FENCED_JSON_RE = /```[ \t]*json[^\n]*\n[\s\S]*?```/gi;
-var DETAILS_RE = /<details\b[\s\S]*?<\/details>/gi;
-var TAG_BLOCK_RE = /<bunnymotags>[\s\S]*?<\/bunnymotags>/gi;
-/**
-* Message text for an excerpt: text-clean's story text (no DES tracker, CK dumps, NAI images, HTML; picture posts
-* give '') and, on top of it, no JSON blocks anywhere, no folded `<details>` (thoughts, trackers) and no
-* `<BunnymoTags>` blocks. BunnyMo `<KEY:VALUE>` tags typed in the chat stay.
-*/
-function cleanExcerptText(message) {
-	if (typeof message !== "string" && isImagePost(message)) return "";
-	return cleanForAnalysis((typeof message === "string" ? message : message && typeof message === "object" && typeof message.mes === "string" ? message.mes : "").replace(FENCED_JSON_RE, "\n").replace(DETAILS_RE, "\n").replace(TAG_BLOCK_RE, "\n")).replace(/[ \t]{2,}/g, " ").replace(/\n{3,}/g, "\n\n").trim();
-}
-/** "Name: text" lines, oldest first, each message capped. */
-function formatExcerpt(lines, maxPerMessage = 1500) {
-	return lines.map(({ name, text }) => {
-		const body = text.length > maxPerMessage ? `${text.slice(0, maxPerMessage).trimEnd()}…` : text;
-		return name ? `${name}: ${body}` : body;
-	}).join("\n\n");
-}
-var MAX_FIELD = 8e3;
-function field(label, value) {
-	const text = String(value ?? "").trim();
-	if (!text) return null;
-	return `${label}:\n${text.length > MAX_FIELD ? `${text.slice(0, MAX_FIELD).trimEnd()}…` : text}`;
-}
-/** The character data message (English labels: it is read by the model, not shown to the user). */
-function formatCharacterData(data) {
-	const parts = [`[Character data for the sheet: ${data.target}]`];
-	const add = (part) => {
-		if (part) parts.push(part);
-	};
-	add(field("Character card — description", data.card?.description));
-	add(field("Character card — personality", data.card?.personality));
-	add(field("Character card — scenario", data.card?.scenario));
-	add(field("Persona description", data.persona));
-	for (const archive of data.archives ?? []) add(field("Existing archive entry (CarrotKernel)", archive));
-	const tracker = data.tracker;
-	if (tracker) {
-		const lines = Object.entries(tracker.details ?? {}).filter(([, value]) => value.trim()).map(([key, value]) => `- ${key}: ${value.trim()}`);
-		if (tracker.relationship) lines.push(`- relationship: ${tracker.relationship}`);
-		if (tracker.thoughts) lines.push(`- current thoughts: ${tracker.thoughts}`);
-		if (lines.length) parts.push(`Current scene tracker (DES):\n${lines.join("\n")}`);
-	}
-	if (parts.length === 1) parts.push("No stored data for this character: rely on the chat excerpt.");
-	return parts.join("\n\n");
-}
-/** Maestro's own rules for the sheet generation, appended to the BunnyMo command instruction. */
-function sheetDirective(command, target) {
-	return [
-		`[Maestro — sheet mode: !${command}]`,
-		`Output ONLY the !${command} sheet for ${target}, in the format above.`,
-		"Do not continue the story or the scene: no narration, no dialogue, no actions after the sheet.",
-		"Do not output tracker JSON, code blocks, image prompts or any commentary before or after the sheet.",
-		"Write the descriptive text in the language of the roleplay (as in the chat excerpt); keep the tags in English,",
-		"exactly as the format requires, with no parentheses inside tags. End the reply right after the sheet."
-	].join("\n");
-}
-/** The message list that replaces ST's prompt for a sheet generation. */
-function buildSheetMessages(input) {
-	const messages = [{
-		role: "system",
-		content: `${input.instruction.trim()}\n\n${input.directive}`
-	}, {
-		role: "system",
-		content: input.characterData
-	}];
-	if (input.excerpt.trim()) messages.push({
-		role: "user",
-		content: `[Recent roleplay, oldest first]\n\n${input.excerpt}`
-	});
-	messages.push({
-		role: "user",
-		content: input.command.trim()
-	});
-	return messages;
-}
-//#endregion
-//#region src/domain/sheet-reply.ts
-/** `<BunnymoTags>…</BunnymoTags>` in any case; the `<BunnymoTags:Title>` entry wrapper does not match. */
-var BLOCK_RE = /<bunnymotags>([\s\S]*?)<\/bunnymotags>/gi;
-var TAG_RE = /<([A-Za-z][A-Za-z0-9_-]*):([^<>\n]+)>/g;
-var HAS_TAG_RE = /<[A-Za-z][A-Za-z0-9_-]*:[^<>\n]+>/;
-var MBTI_RE = /<([EI][NS][FT][JP]-[UH])>/gi;
-var PLACEHOLDER_RE = /^(?:BLANK|NEW|VALUE|TARGET|NAME|NAME[\s_]HERE|PLACEHOLDER|TBD|X{3,})$/i;
-/** A fenced block: opening fence with an optional language, body, closing fence on its own line. */
-var FENCE_RE = /(^|\n)[ \t]*```[ \t]*([A-Za-z]*)[ \t]*\n([\s\S]*?)\n[ \t]*```[ \t]*(?=\n|$)/g;
-var TRACKER_KEY_RE = /"(?:infoBox|characters|quests|characterThoughts)"\s*:/;
-/** CK's "thinking" dump at the end of a message (DES-RU src/lib/carrot-data.js). */
-var TRAILING_DUMP_RE = /\s*<BunnyMoTags>\n?([\s\S]*?)<\/BunnyMoTags>\s*$/;
-var NAI_PLACEHOLDER_RE = /\[nai:img:[^\]\n]*\]/g;
-/** Marks where a tracker block was removed, so only the whitespace around it is normalised. */
-var CUT_MARK = "";
-var CUT_MARK_RE = /\s*(?:\s*)+/g;
-var SECTION_RE = /^#{0,6}\s*\S+\s+\d+\s*\/\s*\d+/gim;
-/** Completion banners of the BunnyMo templates ("✨ ANALYSIS COMPLETE ✨", "✓ MEMORY CATALOGUED") and their Russian forms. */
-var BANNER_RE = /[✓✔✅✨][^\n]*?(?:\b(?:COMPLETE|COMPLETED|CATALOGUED|CATALOGED|ARCHIVED)\b|ЗАВЕРШ[ЁЕ]Н|ЗАВЕРШЕНО|ГОТОВ|СОСТАВЛЕН)/u;
-var HEADING_RE = /^\s{0,3}#{1,6}\s/;
-var RULE_RE = /^\s*(?:-{3,}|\*{3,}|_{3,}|[═━─=]{3,})\s*$/;
-var LIST_RE = /^\s*(?:[-+•]|\*(?=\s)|\d{1,3}[.)])\s+/;
-var BOLD_LEAD_RE = /^\s*\*\*[^*\n]+\*\*/;
-var TABLE_RE = /^\s*\|.*\|\s*$/;
-var TAG_LINE_RE = /^\s*<\/?[A-Za-z][\w-]*(?:[\s:>/]|$)/;
-var ITALIC_LINE_RE = /^\s*[*_][^*_\s][\s\S]*[*_]\s*$/;
-var OPEN_BLOCK_RE = /^\s*<([A-Za-z][\w-]*)(?:\s[^<>]*)?>/;
-function hasSheetTags(body) {
-	HAS_TAG_RE.lastIndex = 0;
-	MBTI_RE.lastIndex = 0;
-	return HAS_TAG_RE.test(body) || MBTI_RE.test(body);
-}
-/** Bodies of the `<BunnymoTags>` blocks that carry tags (CK dumps excluded). */
-function sheetTagBlocks(text) {
-	const blocks = [];
-	for (const match of String(text ?? "").matchAll(BLOCK_RE)) {
-		const body = match[1] ?? "";
-		if (hasSheetTags(body) && !isCkDumpBody(body)) blocks.push(body);
-	}
-	return blocks;
-}
-/** End offset of the last tag-carrying `<BunnymoTags>` block, -1 when there is none. */
-function lastBlockEnd(text) {
-	let end = -1;
-	for (const match of text.matchAll(BLOCK_RE)) {
-		const body = match[1] ?? "";
-		if (hasSheetTags(body) && !isCkDumpBody(body)) end = (match.index ?? 0) + match[0].length;
-	}
-	return end;
-}
-/** Does this text look like a BunnyMo sheet (a tag block, a completion banner, numbered sections or many tags)? */
-function looksLikeSheet(text) {
-	const value = String(text ?? "");
-	if (lastBlockEnd(value) >= 0) return true;
-	if (value.split("\n").some((line) => BANNER_RE.test(line))) return true;
-	if ((value.match(SECTION_RE) ?? []).length >= 2) return true;
-	return (value.match(new RegExp(TAG_RE.source, "g")) ?? []).length >= 3;
-}
-/**
-* Removes DES tracker JSON: fenced blocks with tracker keys anywhere (a sheet reply may end with one) and an
-* unfenced tracker object at the start (text-clean's rule for together mode).
-*/
-function stripTrackerBlocks(text) {
-	let removed = 0;
-	const source = String(text ?? "");
-	const result = source.replace(FENCE_RE, (whole, lead, lang, body) => {
-		const language = lang.toLowerCase();
-		if (language && language !== "json" || !body.trim().startsWith("{") || !TRACKER_KEY_RE.test(body)) return whole;
-		removed++;
-		return `${lead}${CUT_MARK}`;
-	});
-	let cleaned = removed ? result.replace(CUT_MARK_RE, "\n\n").trim() : source;
-	const leading = stripDesTrackerJson(cleaned);
-	if (leading !== cleaned) {
-		removed++;
-		cleaned = leading;
-	}
-	return {
-		text: cleaned,
-		removed
-	};
-}
-/** Splits into blank-line separated paragraphs and marks those with markdown structure, tags or open blocks. */
-function paragraphs(text) {
-	const result = [];
-	const lines = text.split("\n");
-	const open = [];
-	let offset = 0;
-	let current = null;
-	for (const line of lines) {
-		const lineStart = offset;
-		offset += line.length + 1;
-		if (!line.trim()) {
-			if (current) result.push(current);
-			current = null;
-			continue;
-		}
-		const structural = open.length > 0 || HEADING_RE.test(line) || RULE_RE.test(line) || LIST_RE.test(line) || BOLD_LEAD_RE.test(line) || TABLE_RE.test(line) || TAG_LINE_RE.test(line) || HAS_TAG_RE.test(line);
-		trackBlocks(line, open);
-		const italic = ITALIC_LINE_RE.test(line) && !LIST_RE.test(line);
-		const banner = BANNER_RE.test(line) || BOLD_LEAD_RE.test(line) && /\*\*\s*$/.test(line);
-		if (!current) current = {
-			start: lineStart,
-			end: lineStart + line.length,
-			structural,
-			italic,
-			banner
-		};
-		else {
-			current.end = lineStart + line.length;
-			current.structural ||= structural;
-			current.italic &&= italic;
-			current.banner ||= banner;
-		}
-	}
-	if (current) result.push(current);
-	return result;
-}
-/** Keeps a stack of XML-like blocks (`<Linguistics>`, `<details>`) opened on a line and not closed on it. */
-function trackBlocks(line, open) {
-	const lower = line.toLowerCase();
-	for (let i = open.length - 1; i >= 0; i--) if (lower.includes(`</${open[i]}`)) open.splice(i, 1);
-	const name = OPEN_BLOCK_RE.exec(line)?.[1]?.toLowerCase();
-	if (!name || name.includes(":") || lower.includes(`</${name}`)) return;
-	if (/^(?:br|hr|img|input|meta|link)$/.test(name)) return;
-	open.push(name);
-}
-/**
-* Cleans a sheet reply: drops DES tracker blocks anywhere and cuts the plain prose that follows the sheet.
-* CK dumps at the end and NAI Studio image placeholders found in the cut part are kept.
-*/
-function trimSheetReply(text) {
-	const original = String(text ?? "");
-	const stripped = stripTrackerBlocks(original);
-	let body = stripped.text;
-	const dumps = [];
-	for (let match = TRAILING_DUMP_RE.exec(body); match; match = TRAILING_DUMP_RE.exec(body)) {
-		if (!isCkDumpBody(match[1] ?? "")) break;
-		dumps.unshift(match[0].trim());
-		body = body.slice(0, match.index).trimEnd();
-	}
-	let tail = "";
-	const list = paragraphs(body);
-	let cutIndex = list.length;
-	for (let i = list.length - 1; i >= 0; i--) {
-		const paragraph = list[i];
-		if (paragraph.structural) break;
-		if (paragraph.italic && i > 0 && list[i - 1].banner) break;
-		cutIndex = i;
-	}
-	if (cutIndex < list.length && cutIndex > 0) {
-		const start = list[cutIndex].start;
-		const head = body.slice(0, start).trimEnd();
-		if (looksLikeSheet(head)) {
-			tail = body.slice(start).trim();
-			body = head;
-		}
-	}
-	const keep = [...tail.match(NAI_PLACEHOLDER_RE) ?? [], ...dumps];
-	const result = keep.length ? `${body}\n\n${keep.join("\n\n")}` : body;
-	const changed = stripped.removed > 0 || tail.length > 0;
-	return {
-		text: changed ? result : original,
-		changed,
-		isSheet: looksLikeSheet(body),
-		trackerBlocks: stripped.removed,
-		tail
-	};
-}
-/** `KEY:VALUE` with the key upper-cased and the value upper-cased, `_` → space, spaces collapsed. */
-function normalizeTag(key, value) {
-	const clean = (part) => part.trim().replace(/_/g, " ").replace(/\s+/g, " ").toUpperCase();
-	return `${clean(key)}:${clean(value)}`;
-}
-function collectTags(bodies) {
-	let name = null;
-	const tags = /* @__PURE__ */ new Set();
-	for (const body of bodies) {
-		for (const match of body.matchAll(TAG_RE)) {
-			const key = (match[1] ?? "").trim();
-			const value = (match[2] ?? "").trim();
-			if (key.toUpperCase() === "NAME") {
-				name ??= value;
-				continue;
-			}
-			if (PLACEHOLDER_RE.test(value)) continue;
-			tags.add(normalizeTag(key, value));
-		}
-		for (const match of body.matchAll(MBTI_RE)) tags.add((match[1] ?? "").toUpperCase());
-	}
-	return {
-		name,
-		tags: [...tags]
-	};
-}
-function malformedTags(bodies) {
-	const found = /* @__PURE__ */ new Set();
-	for (const body of bodies) for (const match of body.matchAll(/<[A-Za-z][A-Za-z0-9_-]*(?:,[^<>\n]*|:[^<>\n]*\([^<>\n]*)>/g)) found.add(match[0]);
-	return [...found];
-}
-/**
-* Tag-loss check (M31 п. 9): which tags of the generated sheet did not make it into the stored archive.
-* `rawReply` is the model's reply as received, `archiveText` the archive entry content (CK repo / Baby Bunny).
-*/
-function compareSheetTags(rawReply, archiveText) {
-	const replyBlocks = sheetTagBlocks(rawReply);
-	const archiveBlocks = sheetTagBlocks(archiveText);
-	const reply = collectTags(replyBlocks);
-	const archive = collectTags(archiveBlocks);
-	const archiveSet = new Set(archive.tags);
-	const replySet = new Set(reply.tags);
-	let outsideText = String(rawReply ?? "");
-	for (const body of replyBlocks) outsideText = outsideText.replace(body, " ");
-	const outsideTags = collectTags([outsideText]).tags.filter((tag) => !replySet.has(tag));
-	return {
-		name: reply.name,
-		archiveName: archive.name,
-		reply: reply.tags,
-		archive: archive.tags,
-		missing: reply.tags.filter((tag) => !archiveSet.has(tag)),
-		added: archive.tags.filter((tag) => !replySet.has(tag)),
-		outside: outsideTags,
-		malformed: malformedTags(replyBlocks),
-		ckInvisible: archive.tags.filter((tag) => !tag.includes(":"))
-	};
-}
-//#endregion
 //#region src/features/sheets/marks.ts
-function isDict$2(value) {
+function isDict$4(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /** The sheet mark of a message, validated; null when there is none. */
 function sheetMark(message) {
 	const maestro = message?.extra?.maestro;
-	const raw = isDict$2(maestro) ? maestro.sheet : void 0;
-	if (!isDict$2(raw)) return null;
+	const raw = isDict$4(maestro) ? maestro.sheet : void 0;
+	if (!isDict$4(raw)) return null;
 	const command = raw.command;
 	if (typeof command !== "string" || !SHEET_COMMANDS.includes(command)) return null;
 	const mark = {
@@ -37819,9 +49846,9 @@ function sheetMark(message) {
 	return mark;
 }
 function withMark(extra, mark) {
-	const base = isDict$2(extra) ? extra : {};
+	const base = isDict$4(extra) ? extra : {};
 	base.maestro = {
-		...isDict$2(base.maestro) ? base.maestro : {},
+		...isDict$4(base.maestro) ? base.maestro : {},
 		sheet: { ...mark }
 	};
 	return base;
@@ -37831,10 +49858,10 @@ function setSheetMark(message, mark) {
 	message.extra = withMark(message.extra, mark);
 	const swipeId = message.swipe_id;
 	const info = Array.isArray(message.swipe_info) && typeof swipeId === "number" ? message.swipe_info[swipeId] : null;
-	if (isDict$2(info)) info.extra = withMark(info.extra, mark);
+	if (isDict$4(info)) info.extra = withMark(info.extra, mark);
 }
 function withoutMark(extra) {
-	if (!isDict$2(extra) || !isDict$2(extra.maestro) || !("sheet" in extra.maestro)) return;
+	if (!isDict$4(extra) || !isDict$4(extra.maestro) || !("sheet" in extra.maestro)) return;
 	const rest = { ...extra.maestro };
 	delete rest.sheet;
 	if (Object.keys(rest).length) extra.maestro = rest;
@@ -37845,7 +49872,7 @@ function clearSheetMark(message) {
 	withoutMark(message.extra);
 	const swipeId = message.swipe_id;
 	const info = Array.isArray(message.swipe_info) && typeof swipeId === "number" ? message.swipe_info[swipeId] : null;
-	if (isDict$2(info)) withoutMark(info.extra);
+	if (isDict$4(info)) withoutMark(info.extra);
 }
 /** Index of the sheet command message a reply answers: the last user message before it with a command. */
 function commandIndexFor(chat, replyIndex) {
@@ -37996,7 +50023,7 @@ var SheetDecorator = class {
 };
 //#endregion
 //#region src/features/sheets/sources.ts
-function isDict$1(value) {
+function isDict$3(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /** How far back the DES tracker of the target is looked for. */
@@ -38159,8 +50186,8 @@ var SheetSources = class {
 		if (typeof load !== "function") return [];
 		try {
 			const data = await load(book);
-			if (!isDict$1(data) || !isDict$1(data.entries)) return [];
-			return Object.values(data.entries).filter((entry) => isDict$1(entry) && entry.disable !== true).map((entry) => ({
+			if (!isDict$3(data) || !isDict$3(data.entries)) return [];
+			return Object.values(data.entries).filter((entry) => isDict$3(entry) && entry.disable !== true).map((entry) => ({
 				key: entry.key,
 				keysecondary: entry.keysecondary,
 				comment: entry.comment,
@@ -38231,7 +50258,7 @@ var HIDDEN_TARGET = "sheets.hidden";
 function isSheetGeneration(info) {
 	return !info.dryRun && !info.quiet && !!info.sheetCommand && SCENARIO_TYPES.has(info.type);
 }
-function isDict(value) {
+function isDict$2(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function lastUserIndex(chat) {
@@ -38647,7 +50674,7 @@ var sheetsModule = {
 		own(app.inbox.registerApplier(SHEET_HIDE_KIND, (payload) => applyHide(payload)));
 		own(app.inbox.registerApplier(SHEET_CAPTURE_KIND, async (payload) => runCapture(payload)));
 		app.journal.registerUndo(TEXT_TARGET, async (change) => {
-			const ref = isDict(change.ref) ? change.ref : {};
+			const ref = isDict$2(change.ref) ? change.ref : {};
 			const index = Number(ref.index);
 			const message = ctx().chat[index];
 			if (!message || swipeIdOf(message) !== Number(ref.swipeId) || currentText(message) !== change.after) return false;
@@ -38657,7 +50684,7 @@ var sheetsModule = {
 			return true;
 		});
 		app.journal.registerUndo(HIDDEN_TARGET, async (change) => {
-			const ref = isDict(change.ref) ? change.ref : {};
+			const ref = isDict$2(change.ref) ? change.ref : {};
 			const start = Number(ref.start);
 			const end = Number(ref.end);
 			if (!Number.isInteger(start) || !Number.isInteger(end)) return false;
@@ -39517,6 +51544,2245 @@ var WIZARD_CSS = `
 .maestro-w1-top { margin: var(--maestro-gap-sm) 0; padding-left: 1.2em; }
 .maestro-w1-top li { margin-bottom: var(--maestro-gap-sm); overflow-wrap: anywhere; }
 `;
+var wizardModule = {
+	id: "W1",
+	key: WIZARD_KEY,
+	stage: 1,
+	titleKey: "w1.title",
+	enabledByDefault: true,
+	defaults: defaultWizardSettings,
+	i18n: WIZARD_STRINGS,
+	init({ app, settings, own }) {
+		let running = true;
+		own(() => {
+			running = false;
+		});
+		const alive = () => running;
+		app.journal.registerUndo(POWER_TARGET, (change) => undoPowerFlag(app, change));
+		app.journal.registerUndo(RULE_TARGET, async (change) => {
+			const rules = app.modules.api("rules");
+			const id = change.ref.rule;
+			if (!rules || typeof id !== "string") return false;
+			await rules.setEnabled(id, change.before === true);
+			return true;
+		});
+		app.journal.registerUndo(CAPS_TARGET, async (change) => {
+			const before = change.before && typeof change.before === "object" ? change.before : {};
+			const caps = {};
+			for (const [book, value] of Object.entries(before)) if (typeof value === "number") caps[book] = value;
+			await writeCaps(app, settings, caps);
+			return true;
+		});
+		own(app.ui.style("w1-wizard", WIZARD_CSS));
+		for (const step of [
+			stackStep(app),
+			macroStep(app),
+			baselineStep(app),
+			findingsStep(app),
+			rulesStep(app, settings, alive),
+			backgroundStep(app),
+			oldChatsStep(app, settings)
+		]) own(app.ui.addWizardStep(step));
+	}
+};
+//#endregion
+//#region src/domain/world-identity.ts
+var DEFAULT_RANK = 9;
+var SCORE = {
+	sharedName: .6,
+	sharedAlias: .5,
+	firstNameUnique: .7,
+	firstNameMany: .4,
+	anchors: .5
+};
+/** Sources that make an entity distinct by themselves: two of them never merge without the user. */
+var ANCHOR_SOURCES = /* @__PURE__ */ new Set([
+	"card",
+	"persona",
+	"place"
+]);
+var Groups = class {
+	records;
+	separated;
+	parent;
+	data = /* @__PURE__ */ new Map();
+	constructor(records, separated) {
+		this.records = records;
+		this.separated = separated;
+		this.parent = records.map((_, index) => index);
+		records.forEach((_, index) => this.data.set(index, {
+			members: [index],
+			extraAliases: [],
+			extraSources: []
+		}));
+	}
+	find(index) {
+		let root = index;
+		while (this.parent[root] !== root) root = this.parent[root] ?? root;
+		let node = index;
+		while (this.parent[node] !== root) {
+			const next = this.parent[node] ?? root;
+			this.parent[node] = root;
+			node = next;
+		}
+		return root;
+	}
+	group(index) {
+		return this.data.get(this.find(index));
+	}
+	roots() {
+		return [...this.data.keys()].sort((a, b) => a - b);
+	}
+	union(a, b) {
+		const ra = this.find(a);
+		const rb = this.find(b);
+		if (ra === rb) return ra;
+		const [keep, drop] = ra < rb ? [ra, rb] : [rb, ra];
+		const kept = this.data.get(keep);
+		const dropped = this.data.get(drop);
+		kept.members.push(...dropped.members);
+		kept.extraAliases.push(...dropped.extraAliases);
+		kept.extraSources.push(...dropped.extraSources);
+		kept.desCanonical ??= dropped.desCanonical;
+		kept.forcedId ??= dropped.forcedId;
+		this.parent[drop] = keep;
+		this.data.delete(drop);
+		return keep;
+	}
+	/** The member that names the group: lowest rank, then first seen. */
+	lead(root) {
+		const group = this.group(root);
+		let best = group.members[0];
+		for (const member of group.members) {
+			const rank = this.records[member]?.rank ?? DEFAULT_RANK;
+			const bestRank = this.records[best]?.rank ?? DEFAULT_RANK;
+			if (rank < bestRank || rank === bestRank && member < best) best = member;
+		}
+		return this.records[best];
+	}
+	rank(root) {
+		return this.lead(root).rank ?? DEFAULT_RANK;
+	}
+	kind(root) {
+		if (this.group(root).members.some((member) => this.records[member]?.kind === "persona")) return "persona";
+		return this.lead(root).kind;
+	}
+	name(root) {
+		return this.group(root).desCanonical ?? this.lead(root).name.trim();
+	}
+	id(root) {
+		const group = this.group(root);
+		if (group.forcedId) return group.forcedId;
+		const fixed = group.members.map((member) => this.records[member]).filter((record) => !!record?.id).sort((a, b) => (a.rank ?? DEFAULT_RANK) - (b.rank ?? DEFAULT_RANK))[0];
+		if (fixed?.id) return fixed.id;
+		return entityIdOf(this.kind(root), this.name(root));
+	}
+	/** Normalised primary names of the members. */
+	primaryNames(root) {
+		const names = /* @__PURE__ */ new Set();
+		for (const member of this.group(root).members) {
+			const name = normalizeName(this.records[member]?.name ?? "");
+			if (name) names.add(name);
+		}
+		const canonical = this.group(root).desCanonical;
+		if (canonical) names.add(normalizeName(canonical));
+		return names;
+	}
+	/** Every normalised name: primary names, own aliases, DES group names and chat aliases. */
+	allNames(root) {
+		const names = this.primaryNames(root);
+		const group = this.group(root);
+		for (const member of group.members) for (const alias of this.records[member]?.aliases ?? []) {
+			const name = normalizeName(alias);
+			if (name) names.add(name);
+		}
+		for (const alias of group.extraAliases) {
+			const name = normalizeName(alias);
+			if (name) names.add(name);
+		}
+		return names;
+	}
+	anchors(root) {
+		const refs = /* @__PURE__ */ new Set();
+		for (const member of this.group(root).members) {
+			const source = this.records[member]?.source;
+			if (source && ANCHOR_SOURCES.has(source.kind)) refs.add(`${source.kind}\u0000${source.ref}`);
+		}
+		return refs.size;
+	}
+	isSeparated(a, b) {
+		return this.separated.has(pairKey(this.id(a), this.id(b)));
+	}
+};
+function family(kind) {
+	return kindFamily(kind);
+}
+/** Drops optional records none of whose names is known from the other records (or DES groups linked to them). */
+function keepKnown(input) {
+	const base = input.records.filter((record) => !record.optional);
+	const optional = input.records.filter((record) => record.optional);
+	if (!optional.length) return [...base];
+	const known = /* @__PURE__ */ new Set();
+	for (const record of base) for (const name of [record.name, ...record.aliases ?? []]) known.add(normalizeName(name));
+	for (const groups of input.aliasGroups ?? []) for (const [canonical, list] of Object.entries(groups)) {
+		const names = [canonical, ...list].map(normalizeName);
+		if (names.some((name) => known.has(name))) for (const name of names) known.add(name);
+	}
+	known.delete("");
+	const kept = optional.filter((record) => [record.name, ...record.aliases ?? []].some((name) => known.has(normalizeName(name))));
+	return [...base, ...kept];
+}
+function addCandidate(out, groups, x, y, reason, score, name) {
+	const rx = groups.find(x);
+	const ry = groups.find(y);
+	if (rx === ry || groups.isSeparated(rx, ry)) return;
+	const [a, b] = groups.rank(rx) <= groups.rank(ry) ? [rx, ry] : [ry, rx];
+	const key = pairKey(String(a), String(b));
+	const known = out.get(key);
+	if (!known || known.score < score) out.set(key, {
+		a,
+		b,
+		reason,
+		score,
+		name
+	});
+}
+/** Builds the entities, the name index and the merge candidates. Deterministic for the same input. */
+function assembleWorld(input) {
+	const records = keepKnown(input).filter((record) => normalizeName(record.name));
+	const decisions = input.decisions ?? {
+		aliases: {},
+		merged: {},
+		separated: []
+	};
+	const groups = new Groups(records, new Set(decisions.separated));
+	const byName = /* @__PURE__ */ new Map();
+	const byId = /* @__PURE__ */ new Map();
+	records.forEach((record, index) => {
+		const key = `${family(record.kind)}\u0000${normalizeName(record.name)}`;
+		const first = byName.get(key);
+		if (first === void 0) byName.set(key, index);
+		else groups.union(first, index);
+		if (record.id) {
+			const same = byId.get(record.id);
+			if (same === void 0) byId.set(record.id, index);
+			else groups.union(same, index);
+		}
+	});
+	const beingNames = /* @__PURE__ */ new Map();
+	records.forEach((record, index) => {
+		if (family(record.kind) !== "being") return;
+		for (const name of [record.name, ...record.aliases ?? []]) {
+			const key = normalizeName(name);
+			if (!key) continue;
+			const list = beingNames.get(key) ?? [];
+			if (!list.includes(index)) list.push(index);
+			beingNames.set(key, list);
+		}
+	});
+	for (const aliasGroups of input.aliasGroups ?? []) for (const [canonical, list] of Object.entries(aliasGroups)) {
+		const names = [canonical, ...list].filter((name) => typeof name === "string" && name.trim());
+		const members = /* @__PURE__ */ new Set();
+		for (const name of names) for (const index of beingNames.get(normalizeName(name)) ?? []) members.add(index);
+		if (!members.size) continue;
+		const [first, ...rest] = [...members];
+		let root = first;
+		for (const other of rest) root = groups.union(root, other);
+		const group = groups.group(root);
+		group.desCanonical ??= canonical.trim();
+		group.extraAliases.push(...names.map((name) => name.trim()));
+		group.extraSources.push({
+			kind: "des.alias",
+			ref: canonical.trim(),
+			label: canonical.trim()
+		});
+	}
+	const lookup = () => {
+		const map = /* @__PURE__ */ new Map();
+		for (const root of groups.roots()) map.set(groups.id(root), root);
+		records.forEach((record, index) => {
+			const own = record.id ?? entityIdOf(record.kind, record.name);
+			if (!map.has(own)) map.set(own, groups.find(index));
+		});
+		return map;
+	};
+	let ids = lookup();
+	for (const [mergeId, keepId] of Object.entries(decisions.merged)) {
+		const merge = ids.get(mergeId);
+		const keep = ids.get(keepId);
+		if (merge === void 0 || keep === void 0) continue;
+		const rm = groups.find(merge);
+		const rk = groups.find(keep);
+		if (rm === rk) continue;
+		const kept = groups.id(rk);
+		groups.group(groups.union(rk, rm)).forcedId = kept;
+		ids = lookup();
+	}
+	for (const [alias, targetId] of Object.entries(decisions.aliases)) {
+		const target = ids.get(targetId);
+		const name = normalizeName(alias);
+		if (target === void 0 || !name) continue;
+		let root = groups.find(target);
+		const targetFamily = family(groups.kind(root));
+		const kept = groups.id(root);
+		let merged = false;
+		for (const other of groups.roots()) {
+			if (other === root || family(groups.kind(other)) !== targetFamily) continue;
+			if (!groups.allNames(other).has(name)) continue;
+			root = groups.union(root, other);
+			merged = true;
+		}
+		const group = groups.group(root);
+		if (merged) group.forcedId = kept;
+		group.extraAliases.push(alias.trim());
+		group.extraSources.push({
+			kind: "chat.alias",
+			ref: alias.trim(),
+			label: alias.trim()
+		});
+		if (merged) ids = lookup();
+	}
+	const candidates = /* @__PURE__ */ new Map();
+	const claims = /* @__PURE__ */ new Map();
+	records.forEach((record, index) => {
+		for (const alias of record.aliases ?? []) {
+			const name = normalizeName(alias);
+			if (!name) continue;
+			const key = `${family(record.kind)}\u0000${name}`;
+			const claim = claims.get(key) ?? {
+				raw: alias.trim(),
+				claimants: /* @__PURE__ */ new Set()
+			};
+			claim.claimants.add(index);
+			claims.set(key, claim);
+		}
+	});
+	const primaryIndex = /* @__PURE__ */ new Map();
+	const addPrimary = (key, index) => {
+		const list = primaryIndex.get(key) ?? [];
+		list.push(index);
+		primaryIndex.set(key, list);
+	};
+	records.forEach((record, index) => addPrimary(`${family(record.kind)}\u0000${normalizeName(record.name)}`, index));
+	for (const root of groups.roots()) {
+		const canonical = groups.group(root).desCanonical;
+		if (canonical) addPrimary(`${family(groups.kind(root))}\u0000${normalizeName(canonical)}`, root);
+	}
+	for (const [key, claim] of claims) {
+		const owners = new Set((primaryIndex.get(key) ?? []).map((index) => groups.find(index)));
+		const claimants = /* @__PURE__ */ new Set();
+		for (const index of claim.claimants) {
+			const root = groups.find(index);
+			if (!owners.has(root)) claimants.add(root);
+		}
+		if (owners.size === 1) {
+			const owner = [...owners][0];
+			if (claimants.size === 1) {
+				const other = [...claimants][0];
+				if (groups.anchors(owner) > 0 && groups.anchors(other) > 0) addCandidate(candidates, groups, owner, other, "anchors", SCORE.anchors, claim.raw);
+				else if (!groups.isSeparated(owner, other)) groups.union(owner, other);
+			} else for (const other of claimants) addCandidate(candidates, groups, owner, other, "sharedAlias", SCORE.sharedAlias, claim.raw);
+		} else if (owners.size === 0 && claimants.size >= 2) {
+			const list = [...claimants];
+			for (let i = 0; i < list.length; i++) for (let j = i + 1; j < list.length; j++) {
+				const x = list[i];
+				const y = list[j];
+				if (groups.kind(groups.find(x)) !== groups.kind(groups.find(y))) continue;
+				addCandidate(candidates, groups, x, y, "sharedName", SCORE.sharedName, claim.raw);
+			}
+		}
+	}
+	const beings = groups.roots().filter((root) => family(groups.kind(root)) === "being");
+	const fullNames = /* @__PURE__ */ new Map();
+	for (const root of beings) {
+		const firsts = /* @__PURE__ */ new Set();
+		for (const name of groups.allNames(root)) {
+			const words = wordsOf(name);
+			if (words.length >= 2 && words[0]) firsts.add(words[0]);
+		}
+		fullNames.set(root, firsts);
+	}
+	for (const root of beings) for (const name of groups.primaryNames(root)) {
+		if (name.includes(" ") || fullNames.get(root)?.has(name)) continue;
+		const hits = beings.filter((other) => other !== root && fullNames.get(other)?.has(name));
+		const score = hits.length === 1 ? SCORE.firstNameUnique : SCORE.firstNameMany;
+		const raw = records.find((record) => normalizeName(record.name) === name)?.name.trim() ?? name;
+		for (const other of hits) addCandidate(candidates, groups, other, root, "firstName", score, raw);
+	}
+	const forms = input.forms ?? (() => []);
+	const entities = [];
+	const entityOfRoot = /* @__PURE__ */ new Map();
+	const usedIds = /* @__PURE__ */ new Set();
+	const redirects = /* @__PURE__ */ new Map();
+	for (const root of groups.roots()) {
+		const group = groups.group(root);
+		const members = group.members.map((member) => records[member]);
+		let id = groups.id(root);
+		if (usedIds.has(id)) {
+			let n = 2;
+			while (usedIds.has(`${id}~${n}`)) n++;
+			id = `${id}~${n}`;
+		}
+		usedIds.add(id);
+		const name = groups.name(root);
+		const nameKey = normalizeName(name);
+		const aliases = [];
+		const seen = /* @__PURE__ */ new Set([nameKey]);
+		const addAlias = (value) => {
+			const key = normalizeName(value);
+			if (!key || seen.has(key)) return;
+			seen.add(key);
+			aliases.push(value.trim());
+		};
+		for (const record of members) addAlias(record.name);
+		for (const record of members) for (const alias of record.aliases ?? []) addAlias(alias);
+		for (const alias of group.extraAliases) addAlias(alias);
+		const formList = [];
+		const addForm = (value) => {
+			if (typeof value !== "string") return;
+			const key = normalizeName(value);
+			if (!key || seen.has(key)) return;
+			seen.add(key);
+			formList.push(value.trim());
+		};
+		for (const value of [name, ...aliases]) for (const form of forms(value)) addForm(form);
+		for (const record of members) for (const form of record.forms ?? []) addForm(form);
+		const sources = [];
+		const sourceKeys = /* @__PURE__ */ new Set();
+		for (const source of [...members.map((record) => record.source), ...group.extraSources]) {
+			const key = `${source.kind}\u0000${source.ref}`;
+			if (sourceKeys.has(key)) continue;
+			sourceKeys.add(key);
+			sources.push({ ...source });
+		}
+		const entity = {
+			id,
+			kind: groups.kind(root),
+			name,
+			aliases,
+			forms: formList,
+			sources
+		};
+		if (members.some((record) => record.present === true)) entity.present = true;
+		else if (members.some((record) => record.present === false)) entity.present = false;
+		entities.push(entity);
+		entityOfRoot.set(root, entity);
+		for (const record of members) {
+			const own = record.id ?? entityIdOf(record.kind, record.name);
+			if (own !== id && !redirects.has(own)) redirects.set(own, id);
+		}
+	}
+	for (const [mergeId, keepId] of Object.entries(decisions.merged)) {
+		const target = redirects.get(keepId) ?? keepId;
+		if (!usedIds.has(mergeId) && usedIds.has(target)) redirects.set(mergeId, target);
+	}
+	const index = /* @__PURE__ */ new Map();
+	const indexAdd = (value, id, strength) => {
+		const key = normalizeName(value);
+		if (!key) return;
+		const list = index.get(key) ?? [];
+		const known = list.find((hit) => hit.id === id);
+		if (known) {
+			if (strength < known.strength) known.strength = strength;
+		} else list.push({
+			id,
+			strength
+		});
+		index.set(key, list);
+	};
+	for (const root of groups.roots()) {
+		const entity = entityOfRoot.get(root);
+		indexAdd(entity.name, entity.id, 0);
+		for (const name of groups.primaryNames(root)) indexAdd(name, entity.id, 0);
+		for (const alias of entity.aliases) indexAdd(alias, entity.id, 1);
+		for (const form of entity.forms) indexAdd(form, entity.id, 2);
+	}
+	for (const item of input.attach ?? []) {
+		const ids = /* @__PURE__ */ new Set();
+		for (const name of item.names) for (const hit of index.get(normalizeName(name)) ?? []) if (hit.strength < 2) ids.add(hit.id);
+		if (ids.size !== 1) continue;
+		const entity = entities.find((candidate) => candidate.id === [...ids][0]);
+		if (!entity) continue;
+		if (entity.sources.some((source) => source.kind === item.source.kind && source.ref === item.source.ref)) continue;
+		entity.sources.push({ ...item.source });
+	}
+	entities.sort((a, b) => kindOrder(a.kind) - kindOrder(b.kind) || a.name.localeCompare(b.name, "ru") || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+	const byEntityId = new Map(entities.map((entity) => [entity.id, entity]));
+	const separated = new Set(decisions.separated);
+	const finalCandidates = [];
+	const seenPairs = /* @__PURE__ */ new Set();
+	for (const candidate of candidates.values()) {
+		const a = entityOfRoot.get(groups.find(candidate.a));
+		const b = entityOfRoot.get(groups.find(candidate.b));
+		if (!a || !b || a === b) continue;
+		const key = pairKey(a.id, b.id);
+		if (separated.has(key) || seenPairs.has(key)) continue;
+		seenPairs.add(key);
+		const item = {
+			a: a.id,
+			b: b.id,
+			reason: candidate.reason,
+			score: candidate.score
+		};
+		if (candidate.name) item.name = candidate.name;
+		finalCandidates.push(item);
+	}
+	finalCandidates.sort((x, y) => y.score - x.score || (x.a + x.b).localeCompare(y.a + y.b, "ru"));
+	return {
+		entities,
+		byId: byEntityId,
+		index,
+		candidates: finalCandidates,
+		redirects
+	};
+}
+/** The entity a stale or merged id now belongs to. */
+function entityById(build, id) {
+	return build.byId.get(id) ?? build.byId.get(build.redirects.get(id) ?? "");
+}
+/**
+* Exact normalised lookup: names first, then aliases, then forms. Several entities on one level → the person among
+* them when there is exactly one (without a kind filter), else nothing (ambiguous).
+*/
+function resolveName(build, name, kind) {
+	const key = normalizeName(name);
+	if (!key) return void 0;
+	const hits = (build.index.get(key) ?? []).filter((hit) => !kind || build.byId.get(hit.id)?.kind === kind);
+	for (const strength of [
+		0,
+		1,
+		2
+	]) {
+		const ids = [...new Set(hits.filter((hit) => hit.strength === strength).map((hit) => hit.id))];
+		if (ids.length === 1) return build.byId.get(ids[0]);
+		if (ids.length > 1) {
+			if (kind) return void 0;
+			const people = ids.filter((id) => family(build.byId.get(id)?.kind ?? "") === "being");
+			return people.length === 1 ? build.byId.get(people[0]) : void 0;
+		}
+	}
+}
+//#endregion
+//#region src/features/world/sources.ts
+/** Canonical-name priority of each store (lower wins; DES canonical aliases override them all). */
+var RANK = {
+	card: 1,
+	persona: 1,
+	place: 1,
+	entry: 2,
+	archive: 3,
+	passport: 4,
+	roster: 5
+};
+/** Entry types that are world entities (rules, chapters and notes are not). */
+var ENTRY_KINDS = /* @__PURE__ */ new Set([
+	"character",
+	"place",
+	"item",
+	"faction",
+	"event",
+	"tradition",
+	"mechanic"
+]);
+/** Book roles whose entries never describe the story's world (P13: BunnyMo is a vocabulary, not a cast). */
+var SKIPPED_ROLES = /* @__PURE__ */ new Set([
+	"bunnymo.core",
+	"bunnymo.pack",
+	"backup"
+]);
+var PASSPORT_KINDS = {
+	character: "character",
+	location: "place",
+	object: "item"
+};
+function isDict$1(value) {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function text(value) {
+	return typeof value === "string" ? value.trim() : "";
+}
+function strings(value) {
+	return Array.isArray(value) ? value.filter((item) => typeof item === "string") : [];
+}
+/** A copy of a DES alias map with only string lists. */
+function aliasMap(value) {
+	const out = {};
+	if (!isDict$1(value)) return out;
+	for (const [canonical, list] of Object.entries(value)) if (canonical.trim() && Array.isArray(list)) out[canonical] = strings(list);
+	return out;
+}
+/** Name of an entry: typed name field, else the first name-like key, else a name-like comment. */
+function entryName(entry, typedName) {
+	if (typedName && typedName.trim()) return typedName.trim();
+	const key = strings(entry.key).find((item) => looksLikeName(item));
+	if (key) return key.trim();
+	const comment = text(entry.comment);
+	return looksLikeName(comment) ? comment : "";
+}
+function entryLabel(entry, uid) {
+	return text(entry.comment) || strings(entry.key)[0]?.trim() || `#${uid}`;
+}
+function entryKeys(entry) {
+	return [...strings(entry.key), ...strings(entry.keysecondary)];
+}
+function passportView(raw) {
+	if (!isDict$1(raw)) return null;
+	return {
+		id: text(raw.id) || "main",
+		kind: text(raw.kind) || "character",
+		name: text(raw.name),
+		aliases: strings(raw.aliases)
+	};
+}
+function passportList(value) {
+	return (Array.isArray(value) ? value : isDict$1(value) && Array.isArray(value.passports) ? value.passports : [value]).map(passportView).filter((item) => item !== null);
+}
+/** The chat's character cards with their index in ctx.characters (every member in a group chat). */
+function chatCards(ctx) {
+	const out = [];
+	const characters = Array.isArray(ctx.characters) ? ctx.characters : [];
+	if (ctx.groupId) {
+		const group = (ctx.groups ?? []).find((item) => item.id === ctx.groupId);
+		for (const avatar of group?.members ?? []) {
+			const index = characters.findIndex((character) => character?.avatar === avatar);
+			if (index >= 0) out.push({
+				index,
+				character: characters[index]
+			});
+		}
+		return out;
+	}
+	if (ctx.characterId === void 0 || ctx.characterId === null || ctx.characterId === "") return out;
+	const index = Number(ctx.characterId);
+	const character = Number.isInteger(index) ? characters[index] : void 0;
+	if (character?.name) out.push({
+		index,
+		character
+	});
+	return out;
+}
+var WorldSources = class {
+	app;
+	log;
+	constructor(app, log) {
+		this.app = app;
+		this.log = log;
+	}
+	cheap(snapshot) {
+		const records = [];
+		const ctx = this.app.host.ctx();
+		const cards = chatCards(ctx);
+		for (const { character } of cards) records.push({
+			kind: "character",
+			name: character.name,
+			source: {
+				kind: "card",
+				ref: character.avatar,
+				label: character.name,
+				avatar: character.avatar
+			},
+			rank: RANK.card
+		});
+		const persona = text(ctx.name1);
+		if (persona) records.push({
+			kind: "persona",
+			name: persona,
+			source: {
+				kind: "persona",
+				ref: this.personaAvatars(persona)[0] ?? persona,
+				label: persona
+			},
+			rank: RANK.persona
+		});
+		records.push(...this.roster(snapshot));
+		records.push(...this.passports(cards, persona));
+		records.push(...this.places());
+		return {
+			records,
+			aliasGroups: this.aliasGroups()
+		};
+	}
+	/** DES canonical aliases and DES-RU's view of them (DES-RU 0.8.0+). */
+	aliasGroups() {
+		const groups = [];
+		const adapters = adaptersOf(this.app);
+		try {
+			groups.push(aliasMap(adapters.des.aliases()));
+		} catch (error) {
+			this.log.debug("DES aliases are not available", error);
+		}
+		try {
+			const api = adapters.desru.api();
+			if (api) groups.push(aliasMap(api.aliases()));
+		} catch (error) {
+			this.log.debug("DES-RU aliases are not available", error);
+		}
+		return groups;
+	}
+	/** DES roster minus hidden names, plus whoever the committed tracker shows; presence from that tracker. */
+	roster(snapshot) {
+		const des = adaptersOf(this.app).des;
+		let known = [];
+		let removed = /* @__PURE__ */ new Set();
+		try {
+			known = des.knownCharacters();
+			removed = new Set(des.removedCharacters().map(normalizeName));
+		} catch (error) {
+			this.log.debug("DES roster is not available", error);
+		}
+		const inScene = /* @__PURE__ */ new Map();
+		for (const character of snapshot?.characters ?? []) {
+			const key = normalizeName(character.name);
+			inScene.set(key, (inScene.get(key) ?? false) || !character.offScene);
+		}
+		const names = /* @__PURE__ */ new Map();
+		for (const name of [...known, ...(snapshot?.characters ?? []).map((character) => character.name)]) {
+			const key = normalizeName(name);
+			if (key && !removed.has(key) && !names.has(key)) names.set(key, name.trim());
+		}
+		const out = [];
+		for (const [key, name] of names) {
+			const record = {
+				kind: "character",
+				name,
+				source: {
+					kind: "des.character",
+					ref: name,
+					label: name
+				},
+				rank: RANK.roster
+			};
+			if (snapshot) record.present = inScene.get(key) ?? false;
+			out.push(record);
+		}
+		return out;
+	}
+	personaAvatars(persona) {
+		const personas = this.app.host.ctx().powerUserSettings?.personas;
+		if (!isDict$1(personas)) return [];
+		const key = normalizeName(persona);
+		return Object.entries(personas).filter(([, name]) => typeof name === "string" && normalizeName(name) === key).map(([avatar]) => avatar);
+	}
+	/**
+	* NAI passports. With NAI Studio's API (0.10.0+) they are read as the chat sees them (chat overrides applied):
+	* per card, the persona's and the chat's own. Without it: the card field, and the persona passport from NAI's
+	* settings; chat-level passports need the API.
+	*/
+	passports(cards, persona) {
+		const nai = adaptersOf(this.app).nai;
+		const out = [];
+		const push = (passport, owner, ownerKind, avatar) => {
+			const kind = PASSPORT_KINDS[passport.kind];
+			if (!kind) return;
+			const name = passport.name || (kind === "character" ? owner : "");
+			if (!name) return;
+			const source = {
+				kind: "nai.passport",
+				ref: `${avatar ?? ownerKind}#${passport.id}`,
+				label: name,
+				passportId: passport.id
+			};
+			if (avatar) source.avatar = avatar;
+			out.push({
+				kind: !passport.name && ownerKind === "persona" ? "persona" : kind,
+				name,
+				aliases: nameList(passport.aliases),
+				source,
+				rank: RANK.passport
+			});
+		};
+		const views = (list) => list.map(passportView).filter((item) => item !== null);
+		let api;
+		try {
+			api = nai.api() !== void 0;
+		} catch {
+			api = false;
+		}
+		for (const { index, character } of cards) try {
+			const list = api ? nai.chatPassports({ avatar: character.avatar }) : nai.passportsOf(index);
+			for (const passport of views(list)) push(passport, character.name, "character", character.avatar);
+		} catch (error) {
+			this.log.debug("NAI passports are not available", error);
+		}
+		if (persona) {
+			let list = [];
+			try {
+				list = api ? views(nai.chatPassports({ persona: true })) : this.personaPassportsFromSettings(persona);
+			} catch (error) {
+				this.log.debug("NAI persona passport is not available", error);
+			}
+			for (const passport of list) push(passport, persona, "persona");
+		}
+		if (api) try {
+			for (const passport of views(nai.chatPassports({ chat: true }))) push(passport, "", "chat");
+		} catch (error) {
+			this.log.debug("NAI chat passports are not available", error);
+		}
+		return out;
+	}
+	/** `extension_settings.nai_studio.scene.personaPassports[<persona avatar>]` (NAI falls back to 'default'). */
+	personaPassportsFromSettings(persona) {
+		let settings;
+		try {
+			settings = adaptersOf(this.app).nai.settings();
+		} catch {
+			settings = null;
+		}
+		const scene = isDict$1(settings?.scene) ? settings.scene : null;
+		const stored = isDict$1(scene?.personaPassports) ? scene.personaPassports : null;
+		if (!stored) return [];
+		const avatars = this.personaAvatars(persona).filter((avatar) => stored[avatar] !== void 0);
+		return (avatars.length ? avatars : stored.default !== void 0 ? ["default"] : []).flatMap((key) => passportList(stored[key]));
+	}
+	places() {
+		const places = this.app.modules.api("places");
+		if (!places) return [];
+		try {
+			return places.list().map((place) => ({
+				kind: "place",
+				id: `place:${place.id}`,
+				name: place.name,
+				aliases: nameList(place.aliases),
+				forms: strings(place.forms),
+				source: {
+					kind: "place",
+					ref: place.id,
+					label: place.name
+				},
+				rank: RANK.place
+			}));
+		} catch (error) {
+			this.log.debug("places are not available", error);
+			return [];
+		}
+	}
+	async lore(isCurrent) {
+		const adapters = adaptersOf(this.app);
+		const result = {
+			records: [],
+			attach: [],
+			books: /* @__PURE__ */ new Set(),
+			canonBook: "",
+			canonItems: [],
+			at: Date.now()
+		};
+		let active = [];
+		try {
+			active = await adapters.bunnymo.activeBooks();
+		} catch (error) {
+			this.log.debug("active books are not available", error);
+		}
+		let repos = [];
+		try {
+			repos = adapters.ck.repoBooks();
+		} catch (error) {
+			this.log.debug("CarrotKernel repos are not available", error);
+		}
+		const roles = this.app.modules.api("bookRoles");
+		const canon = this.app.modules.api("canon");
+		result.canonBook = canon ? canon.bookName() : "";
+		const activeSet = new Set(active);
+		const repoSet = new Set(repos);
+		for (const book of [.../* @__PURE__ */ new Set([...active, ...repos])]) {
+			if (!isCurrent()) return null;
+			const role = roles?.roleOf(book)?.role;
+			if (role && SKIPPED_ROLES.has(role)) continue;
+			if (book === result.canonBook || role === "canon" && canon) continue;
+			result.books.add(book);
+			await this.readBook(book, role, activeSet.has(book), repoSet.has(book) || role === "ck.archive", roles, result);
+		}
+		if (canon && result.canonBook) {
+			try {
+				result.canonItems = await canon.list();
+			} catch (error) {
+				this.log.debug("canon items are not available", error);
+			}
+			result.books.add(result.canonBook);
+			for (const item of result.canonItems) this.canonItem(item, result);
+		}
+		return isCurrent() ? result : null;
+	}
+	async readBook(book, role, active, archives, roles, result) {
+		const load = this.app.host.ctx().loadWorldInfo;
+		if (typeof load !== "function") return;
+		let data;
+		try {
+			data = await load(book);
+		} catch (error) {
+			this.log.debug(`lorebook ${book} did not load`, error);
+			return;
+		}
+		if (!isDict$1(data) || !isDict$1(data.entries)) return;
+		const entries = Object.values(data.entries).filter(isDict$1);
+		const sidecar = roles && role !== "maestro" && role !== "canon";
+		const first = entries.find((entry) => typeof entry.uid === "number");
+		if (sidecar && roles.loadEntryMeta && first) try {
+			await roles.loadEntryMeta(book, first.uid);
+		} catch (error) {
+			this.log.debug(`entry types of ${book} are not available`, error);
+		}
+		for (const entry of entries) {
+			const uid = typeof entry.uid === "number" ? entry.uid : Number(entry.uid);
+			if (entry.disable === true || !Number.isFinite(uid)) continue;
+			const source = {
+				kind: "lore.entry",
+				ref: `${book}#${uid}`,
+				label: entryLabel(entry, uid),
+				world: book,
+				uid
+			};
+			if (archives && isCharacterArchive(entry)) {
+				const name = archiveTags(entry).name ?? entryName(entry);
+				if (!name) continue;
+				result.records.push({
+					kind: "character",
+					name,
+					aliases: nameList(entryKeys(entry)),
+					source: {
+						...source,
+						kind: "ck.archive"
+					},
+					rank: RANK.archive,
+					optional: !active
+				});
+				continue;
+			}
+			if (!active) continue;
+			let typed = readTypedMeta(isDict$1(entry.extensions) ? entry.extensions.maestro : void 0);
+			if (!typed && sidecar) try {
+				typed = readTypedMeta(roles.entryMeta(book, uid));
+			} catch {
+				typed = null;
+			}
+			this.entry(entry, typed, source, result);
+		}
+	}
+	entry(entry, typed, source, result) {
+		if (typed && ENTRY_KINDS.has(typed.type)) {
+			const name = entryName(entry, typed.fields.name);
+			if (!name) return;
+			result.records.push({
+				kind: typed.type,
+				name,
+				aliases: nameList([...entryKeys(entry), ...splitAliases(typed.fields.aliases)]),
+				source,
+				rank: RANK.entry
+			});
+			return;
+		}
+		const names = nameList([text(entry.comment), strings(entry.key)[0] ?? ""]);
+		if (names.length) result.attach.push({
+			names,
+			source
+		});
+	}
+	canonItem(item, result) {
+		const entry = item.entry;
+		const source = {
+			kind: "canon.entry",
+			ref: `${result.canonBook}#${item.uid}`,
+			label: entryLabel(entry, item.uid),
+			world: result.canonBook,
+			uid: item.uid
+		};
+		const typed = readTypedMeta(isDict$1(entry.extensions) ? entry.extensions.maestro : void 0);
+		const type = item.meta.type ?? typed?.type;
+		this.entry(entry, type ? {
+			type,
+			fields: typed?.fields ?? {}
+		} : null, source, result);
+	}
+};
+//#endregion
+//#region src/features/world/store.ts
+var WORLD_DOC = "world";
+var PUT_ATTEMPTS = 3;
+function emptyWorldDoc() {
+	return {
+		aliases: {},
+		separated: [],
+		merged: {},
+		proposed: []
+	};
+}
+function isDict(value) {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function stringMap(value) {
+	const out = {};
+	if (!isDict(value)) return out;
+	for (const [key, item] of Object.entries(value)) if (key.trim() && typeof item === "string" && item) out[key] = item;
+	return out;
+}
+function stringList(value) {
+	return Array.isArray(value) ? [...new Set(value.filter((item) => typeof item === "string"))] : [];
+}
+/** Repairs a stored document in place (missing or junk fields) and returns it. */
+function readWorldDoc(doc) {
+	doc.aliases = stringMap(doc.aliases);
+	doc.separated = stringList(doc.separated);
+	doc.merged = stringMap(doc.merged);
+	doc.proposed = stringList(doc.proposed);
+	return doc;
+}
+/** Sets or removes one alias; other spellings of the same alias (case, ё) are replaced. */
+function putAlias(doc, alias, entityId) {
+	const key = normalizeName(alias);
+	if (!key) return false;
+	let changed = false;
+	for (const existing of Object.keys(doc.aliases)) if (normalizeName(existing) === key && (existing !== alias.trim() || entityId === null)) {
+		delete doc.aliases[existing];
+		changed = true;
+	}
+	if (entityId !== null && doc.aliases[alias.trim()] !== entityId) {
+		doc.aliases[alias.trim()] = entityId;
+		changed = true;
+	}
+	return changed;
+}
+/** The alias (any spelling) → entity id, if set. */
+function aliasTarget(doc, alias) {
+	const key = normalizeName(alias);
+	for (const [existing, target] of Object.entries(doc.aliases)) if (normalizeName(existing) === key) return target;
+	return null;
+}
+function addPair(list, a, b) {
+	const key = pairKey(a, b);
+	if (list.includes(key)) return false;
+	list.push(key);
+	return true;
+}
+/** Loads and writes the decisions document of the current chat. */
+var WorldStore = class {
+	app;
+	log;
+	doc = null;
+	loading = null;
+	generation = 0;
+	constructor(app, log) {
+		this.app = app;
+		this.log = log;
+	}
+	/** What is loaded for the current chat (empty until load() finished). */
+	current() {
+		return this.doc ?? emptyWorldDoc();
+	}
+	loaded() {
+		return this.doc !== null;
+	}
+	/** Forgets the loaded document (chat switch). */
+	reset() {
+		this.generation++;
+		this.doc = null;
+		this.loading = null;
+	}
+	load() {
+		if (this.doc) return Promise.resolve(this.doc);
+		if (this.loading) return this.loading;
+		const startedIn = this.generation;
+		const loading = this.app.chat.get(WORLD_DOC, () => emptyWorldDoc()).then((raw) => {
+			const doc = readWorldDoc(raw);
+			if (startedIn === this.generation) this.doc = doc;
+			return doc;
+		}).catch((error) => {
+			this.log.warn("world decisions could not be read", error);
+			return emptyWorldDoc();
+		}).finally(() => {
+			if (this.loading === loading) this.loading = null;
+		});
+		this.loading = loading;
+		return loading;
+	}
+	/**
+	* Read-modify-write with retries: on a version conflict the chat store reloads the newer document and the change
+	* is applied again. Returns false when nothing changed, the chat changed meanwhile or every attempt lost.
+	*/
+	async mutate(change) {
+		const startedIn = this.generation;
+		for (let attempt = 0; attempt < PUT_ATTEMPTS; attempt++) {
+			if (startedIn !== this.generation || !this.app.host.chatId()) return false;
+			const raw = await this.app.chat.get(WORLD_DOC, () => emptyWorldDoc());
+			if (startedIn !== this.generation) return false;
+			const doc = readWorldDoc(structuredClone(raw));
+			if (!change(doc)) {
+				this.doc = readWorldDoc(raw);
+				return false;
+			}
+			if (await this.app.chat.put("world", doc)) {
+				if (startedIn === this.generation) this.doc = doc;
+				return true;
+			}
+		}
+		this.log.warn(`world decisions could not be saved after ${PUT_ATTEMPTS} attempts`);
+		return false;
+	}
+};
+var WORLD_KEY = "world";
+var MERGE_KIND = "world.merge";
+var ALIAS_TARGET = "world-alias";
+var MERGE_TARGET = "world-merge";
+var SEPARATE_TARGET = "world-separate";
+/** Delay of the cheap rebuild after a committed turn (the send continues meanwhile). */
+var COMMIT_DELAY_MS = 1500;
+var CHANGE_DELAY_MS = 300;
+/** How far back the DES tracker is read for each character's latest data. */
+var DES_LOOKBACK = 150;
+/** New Inbox cards per build (the rest wait for the next build or the World tab). */
+var MAX_NEW_CARDS = 3;
+var EMPTY_BUILD = {
+	entities: [],
+	byId: /* @__PURE__ */ new Map(),
+	index: /* @__PURE__ */ new Map(),
+	candidates: [],
+	redirects: /* @__PURE__ */ new Map()
+};
+function mergePayload(value) {
+	if (!value || typeof value !== "object") return null;
+	const { a, b } = value;
+	return typeof a === "string" && typeof b === "string" && a && b ? {
+		a,
+		b
+	} : null;
+}
+function copyEntity(entity) {
+	return {
+		...entity,
+		aliases: [...entity.aliases],
+		forms: [...entity.forms],
+		sources: entity.sources.map((source) => ({ ...source }))
+	};
+}
+/** Index of the assistant message committed last (P14), -1 if none. */
+function committedIndex(chat) {
+	return lastCommittedIndex(chat);
+}
+var WorldModel = class {
+	app;
+	store;
+	log;
+	build = EMPTY_BUILD;
+	built = false;
+	lore = null;
+	loreStale = true;
+	loreWanted = false;
+	loreLoading = null;
+	matcher = null;
+	generation = 0;
+	committed = -1;
+	snapshot = null;
+	desLatest = /* @__PURE__ */ new Map();
+	desFresh = false;
+	formsCache = /* @__PURE__ */ new Map();
+	formsApi;
+	listeners = /* @__PURE__ */ new Set();
+	timer = null;
+	pending = {
+		cheap: false,
+		lore: false
+	};
+	waitingForIdle = false;
+	proposing = false;
+	disposed = false;
+	subscriptions = /* @__PURE__ */ new Map();
+	/** Inbox cards of kind world.merge seen last time (id → pair), to notice rejections. */
+	knownCards = /* @__PURE__ */ new Map();
+	rejectedSeen = 0;
+	appliedPairs = /* @__PURE__ */ new Set();
+	sources;
+	constructor(app, store, log) {
+		this.app = app;
+		this.store = store;
+		this.log = log;
+		this.sources = new WorldSources(app, log);
+	}
+	install() {
+		const { app } = this;
+		const offs = [];
+		const on = (key, handler) => {
+			const name = app.host.events.name(key);
+			if (name) offs.push(app.host.events.on(name, handler));
+		};
+		offs.push(app.bus.on("chat:changed", () => this.chatChanged()));
+		offs.push(app.bus.on("turn:committed", ({ messageIndex }) => {
+			this.committed = Math.max(this.committed, messageIndex);
+			this.desFresh = false;
+			this.request({ cheap: true }, COMMIT_DELAY_MS);
+		}));
+		offs.push(app.bus.on("message:invalidated", ({ messageIndex }) => {
+			const previous = this.committed;
+			this.committed = committedIndex(app.host.ctx().chat ?? []);
+			if (messageIndex > previous && previous === this.committed) return;
+			this.desFresh = false;
+			this.request({ cheap: true }, COMMIT_DELAY_MS);
+		}));
+		offs.push(app.bus.on("generation:ended", () => {
+			if (!this.waitingForIdle) return;
+			this.waitingForIdle = false;
+			this.arm(CHANGE_DELAY_MS);
+		}));
+		on("WORLDINFO_UPDATED", (name) => {
+			if (typeof name !== "string" || !this.lore) return;
+			if (this.lore.books.has(name) || name === this.lore.canonBook) this.loreChanged();
+		});
+		on("WORLDINFO_SETTINGS_UPDATED", () => this.loreChanged());
+		offs.push(app.inbox.onChange(() => {
+			setTimeout(() => this.checkRejections(), 0);
+		}));
+		offs.push(this.registerApplier());
+		app.journal.registerUndo(ALIAS_TARGET, (change) => this.undoAlias(change));
+		app.journal.registerUndo(MERGE_TARGET, (change) => this.undoMerge(change));
+		app.journal.registerUndo(SEPARATE_TARGET, (change) => this.undoSeparate(change));
+		offs.push(() => this.dispose());
+		return offs;
+	}
+	/** First load for the chat open when the module starts. */
+	start() {
+		this.committed = committedIndex(this.app.host.ctx().chat ?? []);
+		this.rejectedSeen = this.rejectedCount();
+		setTimeout(() => this.checkRejections(), 0);
+		this.store.load().then(() => {
+			if (this.built) this.request({ cheap: true }, 0);
+		});
+	}
+	dispose() {
+		this.disposed = true;
+		if (this.timer !== null) clearTimeout(this.timer);
+		this.timer = null;
+		for (const { off } of this.subscriptions.values()) off();
+		this.subscriptions.clear();
+		this.listeners.clear();
+	}
+	chatChanged() {
+		this.generation++;
+		this.build = EMPTY_BUILD;
+		this.built = false;
+		this.lore = null;
+		this.loreStale = true;
+		this.loreWanted = false;
+		this.loreLoading = null;
+		this.matcher = null;
+		this.snapshot = null;
+		this.desLatest = /* @__PURE__ */ new Map();
+		this.desFresh = false;
+		this.pending = {
+			cheap: false,
+			lore: false
+		};
+		this.knownCards = /* @__PURE__ */ new Map();
+		this.appliedPairs.clear();
+		this.committed = committedIndex(this.app.host.ctx().chat ?? []);
+		this.store.reset();
+		this.emit();
+		this.store.load().then(() => {
+			if (this.built) this.request({ cheap: true }, 0);
+		});
+	}
+	loreChanged() {
+		this.loreStale = true;
+		if (this.loreWanted) this.request({ lore: true }, CHANGE_DELAY_MS);
+	}
+	request(what, delay) {
+		if (this.disposed) return;
+		if (what.cheap) this.pending.cheap = true;
+		if (what.lore) this.pending.lore = true;
+		this.arm(delay);
+	}
+	arm(delay) {
+		if (this.timer !== null) clearTimeout(this.timer);
+		this.timer = setTimeout(() => {
+			this.timer = null;
+			this.flush();
+		}, delay);
+	}
+	generating() {
+		return this.app.turn.current() !== null;
+	}
+	async flush() {
+		if (this.disposed) return;
+		if (this.generating()) {
+			this.waitingForIdle = true;
+			return;
+		}
+		const { cheap, lore } = this.pending;
+		this.pending = {
+			cheap: false,
+			lore: false
+		};
+		if (lore && this.loreWanted) {
+			await this.loadLore();
+			return;
+		}
+		if (cheap && this.built) this.rebuildNow();
+	}
+	forms = (name) => {
+		let api;
+		try {
+			api = adaptersOf(this.app).desru.api();
+		} catch {
+			api = void 0;
+		}
+		if (api !== this.formsApi) {
+			this.formsApi = api;
+			this.formsCache.clear();
+		}
+		if (!api) return [];
+		const key = name.trim();
+		const cached = this.formsCache.get(key);
+		if (cached) return cached;
+		let forms = [];
+		try {
+			const raw = api.nameForms(key);
+			forms = Array.isArray(raw) ? raw.filter((form) => typeof form === "string") : [];
+		} catch (error) {
+			this.log.debug("DES-RU nameForms failed", error);
+		}
+		this.formsCache.set(key, forms);
+		return forms;
+	};
+	/** Keeps one subscription per neighbour API instance (APIs appear late or are replaced on re-enable). */
+	subscribe(key, api, attach) {
+		const known = this.subscriptions.get(key);
+		if (known?.api === api) return;
+		known?.off();
+		this.subscriptions.delete(key);
+		if (!api) return;
+		try {
+			this.subscriptions.set(key, {
+				api,
+				off: attach()
+			});
+		} catch (error) {
+			this.log.debug(`cannot listen to ${key}`, error);
+		}
+	}
+	syncSubscriptions() {
+		let desru;
+		try {
+			desru = adaptersOf(this.app).desru.api();
+		} catch {
+			desru = void 0;
+		}
+		this.subscribe("desru", desru, () => {
+			const off = desru.onNamesChanged(() => this.request({ cheap: true }, CHANGE_DELAY_MS));
+			return typeof off === "function" ? off : () => {};
+		});
+		const nai = adaptersOf(this.app).nai;
+		let naiApi;
+		try {
+			naiApi = nai.api();
+		} catch {
+			naiApi = void 0;
+		}
+		this.subscribe("nai", naiApi, () => nai.on("passportsSaved", () => this.request({ cheap: true }, CHANGE_DELAY_MS)));
+		const places = this.app.modules.api("places");
+		this.subscribe("places", places, () => places.onChange(() => this.request({ cheap: true }, CHANGE_DELAY_MS)));
+		const roles = this.app.modules.api("bookRoles");
+		this.subscribe("bookRoles", roles, () => roles.onChange(() => this.loreChanged()));
+		const canon = this.app.modules.api("canon");
+		this.subscribe("canon", canon, () => canon.onChange(() => this.loreChanged()));
+	}
+	/**
+	* Reads the committed tracker and each character's latest DES data (up to DES_LOOKBACK assistant messages). During
+	* a generation (a first build asked for on the send path) only the committed tracker is read; the rest follows.
+	*/
+	readDes(full) {
+		const des = adaptersOf(this.app).des;
+		const chat = this.app.host.ctx().chat ?? [];
+		if (this.committed >= chat.length) this.committed = committedIndex(chat);
+		this.desLatest = /* @__PURE__ */ new Map();
+		this.snapshot = null;
+		const lookback = full ? DES_LOOKBACK : 1;
+		let seen = 0;
+		for (let i = Math.min(this.committed, chat.length - 1); i >= 0 && seen < lookback; i--) {
+			const message = chat[i];
+			if (!message || message.is_user || message.is_system) continue;
+			seen++;
+			let snapshot;
+			try {
+				snapshot = des.trackerFor(i);
+			} catch (error) {
+				this.log.debug("DES tracker is not available", error);
+				break;
+			}
+			if (i === this.committed) this.snapshot = snapshot;
+			if (!snapshot) continue;
+			const storyTime = storyTimeOf(snapshot.infoBox);
+			for (const character of snapshot.characters) {
+				const key = normalizeName(character.name);
+				if (!key || this.desLatest.has(key)) continue;
+				const latest = {
+					character,
+					messageIndex: i
+				};
+				if (storyTime) latest.storyTime = storyTime;
+				this.desLatest.set(key, latest);
+			}
+		}
+		this.desFresh = full;
+		if (!full) this.request({ cheap: true }, CHANGE_DELAY_MS);
+	}
+	/** Synchronous cheap rebuild over the loaded lore (or none). */
+	rebuildNow() {
+		if (this.disposed) return;
+		this.syncSubscriptions();
+		if (!this.desFresh) this.readDes(!this.generating());
+		const cheap = this.sources.cheap(this.snapshot);
+		const doc = this.store.current();
+		const lore = this.lore;
+		this.build = assembleWorld({
+			records: [...cheap.records, ...lore?.records ?? []],
+			attach: lore?.attach ?? [],
+			aliasGroups: cheap.aliasGroups,
+			decisions: {
+				aliases: doc.aliases,
+				merged: doc.merged,
+				separated: doc.separated
+			},
+			forms: this.forms
+		});
+		this.matcher = null;
+		this.built = true;
+		this.emit();
+		if (lore && !this.loreStale) this.proposeCandidates();
+	}
+	/** Builds the cheap part now if nothing is built yet; asks for the lorebooks (read later, off the send path). */
+	ensureBuilt() {
+		if (!this.built) this.rebuildNow();
+		this.loreWanted = true;
+		if (this.loreStale && !this.loreLoading && !this.pending.lore) this.request({ lore: true }, 0);
+	}
+	loadLore() {
+		if (this.loreLoading) return this.loreLoading;
+		const startedIn = this.generation;
+		const isCurrent = () => startedIn === this.generation && !this.disposed;
+		this.loreStale = false;
+		const loading = this.sources.lore(isCurrent).then((lore) => {
+			if (!lore || !isCurrent()) return;
+			this.lore = lore;
+			this.rebuildNow();
+		}).catch((error) => {
+			this.loreStale = true;
+			this.log.warn("lorebooks could not be read for the world model", error);
+		}).finally(() => {
+			if (this.loreLoading === loading) this.loreLoading = null;
+		});
+		this.loreLoading = loading;
+		return loading;
+	}
+	/** Resolves when no generation runs (P15: explicit rebuilds wait for the reply to finish). */
+	async idle() {
+		while (this.generating() && !this.disposed) await new Promise((resolve) => {
+			const off = this.app.bus.on("generation:ended", () => {
+				off();
+				resolve();
+			});
+			setTimeout(() => {
+				off();
+				resolve();
+			}, 5e3);
+		});
+	}
+	emit() {
+		for (const listener of [...this.listeners]) try {
+			listener();
+		} catch (error) {
+			this.log.error("world listener failed", error);
+		}
+	}
+	entities(kind) {
+		this.ensureBuilt();
+		return this.build.entities.filter((entity) => !kind || entity.kind === kind).map(copyEntity);
+	}
+	get(id) {
+		this.ensureBuilt();
+		const entity = entityById(this.build, id);
+		return entity ? copyEntity(entity) : void 0;
+	}
+	resolve(name, kind) {
+		this.ensureBuilt();
+		const entity = resolveName(this.build, name, kind);
+		return entity ? copyEntity(entity) : void 0;
+	}
+	mentions(text) {
+		this.ensureBuilt();
+		if (!this.matcher) {
+			const stems = !this.formsApi;
+			this.matcher = buildMentionMatcher(this.build.entities.map((entity) => ({
+				id: entity.id,
+				needles: mentionNeedles([entity.name, ...entity.aliases], entity.forms, stems)
+			})));
+		}
+		return findMentions(this.matcher, text).map((id) => this.build.byId.get(id)).filter((entity) => !!entity).map(copyEntity);
+	}
+	facts(id) {
+		this.ensureBuilt();
+		const entity = entityById(this.build, id);
+		if (!entity) return [];
+		const facts = [];
+		for (const latest of this.desLatest.values()) {
+			if (resolveName(this.build, latest.character.name)?.id !== entity.id) continue;
+			facts.push(...desFacts(entity.id, latest.character, latest.messageIndex, latest.storyTime));
+		}
+		const canonRefs = new Set(entity.sources.filter((source) => source.kind === "canon.entry").map((source) => source.ref));
+		for (const item of this.lore?.canonItems ?? []) {
+			if (!canonRefs.has(`${this.lore?.canonBook}#${item.uid}`)) continue;
+			const fact = canonFact(entity.id, item, this.lore?.canonBook ?? "");
+			if (fact) facts.push(fact);
+		}
+		return facts;
+	}
+	mergeCandidates() {
+		this.ensureBuilt();
+		return this.build.candidates.map((candidate) => ({ ...candidate }));
+	}
+	/** Candidates of the current build without building anything (tab badge). */
+	candidateCount() {
+		return this.build.candidates.length;
+	}
+	chatAliases() {
+		return { ...this.store.current().aliases };
+	}
+	/** When the lorebooks were read for this chat (null: not yet). */
+	loreReadAt() {
+		return this.lore && !this.loreStale ? this.lore.at : null;
+	}
+	onChange(listener) {
+		this.listeners.add(listener);
+		return () => this.listeners.delete(listener);
+	}
+	async rebuild() {
+		await this.idle();
+		await this.store.load();
+		this.loreWanted = true;
+		this.loreStale = true;
+		this.desFresh = false;
+		await this.loadLore();
+		if (!this.lore) this.rebuildNow();
+	}
+	async setChatAlias(alias, entityId) {
+		const name = alias.trim();
+		if (!name) throw new Error(this.app.i18n.t("m7w.error.emptyAlias"));
+		let target = null;
+		if (entityId !== null) {
+			const entity = this.get(entityId);
+			if (!entity) throw new Error(this.app.i18n.t("m7w.error.noEntity"));
+			target = entity.id;
+		}
+		await this.store.load();
+		if (await this.store.mutate((doc) => putAlias(doc, name, target))) this.rebuildNow();
+	}
+	async merge(keepId, mergeId) {
+		const keep = this.get(keepId);
+		const merged = this.get(mergeId);
+		if (!keep || !merged) throw new Error(this.app.i18n.t("m7w.error.noEntity"));
+		if (keep.id === merged.id) return;
+		await this.store.load();
+		if (await this.store.mutate((doc) => {
+			let dirty = false;
+			if (doc.merged[merged.id] !== keep.id) {
+				doc.merged[merged.id] = keep.id;
+				dirty = true;
+			}
+			if (aliasTarget(doc, merged.name) !== keep.id) dirty = putAlias(doc, merged.name, keep.id) || dirty;
+			const key = pairKey(keep.id, merged.id);
+			const index = doc.separated.indexOf(key);
+			if (index >= 0) {
+				doc.separated.splice(index, 1);
+				dirty = true;
+			}
+			return dirty;
+		})) this.rebuildNow();
+	}
+	async separate(aId, bId) {
+		if (!aId || !bId || aId === bId) return;
+		const a = this.build.byId.get(aId);
+		const b = this.build.byId.get(bId);
+		await this.store.load();
+		if (await this.store.mutate((doc) => this.applySeparation(doc, aId, bId, a?.name, b?.name))) this.rebuildNow();
+	}
+	/** Separation: the pair is remembered, and a merge between the two (and its alias) is taken back. */
+	applySeparation(doc, aId, bId, aName, bName) {
+		let dirty = addPair(doc.separated, aId, bId);
+		for (const [from, to] of [[aId, bId], [bId, aId]]) if (doc.merged[from] === to) {
+			delete doc.merged[from];
+			dirty = true;
+		}
+		const nameOf = (id, name) => name ?? id.slice(id.indexOf(":") + 1);
+		for (const [name, target] of [[nameOf(aId, aName), bId], [nameOf(bId, bName), aId]]) if (aliasTarget(doc, name) === target) dirty = putAlias(doc, name, null) || dirty;
+		return dirty;
+	}
+	async mergeAndRecord(keepId, mergeId) {
+		const keep = this.get(keepId);
+		const merged = this.get(mergeId);
+		if (!keep || !merged || keep.id === merged.id) return;
+		await this.merge(keep.id, merged.id);
+		await this.app.journal.record({
+			module: "M7w",
+			kind: MERGE_KIND,
+			summary: this.app.i18n.t("m7w.journal.merge", {
+				a: keep.name,
+				b: merged.name
+			}),
+			changes: [this.mergeChange(keep, merged)]
+		});
+	}
+	async separateAndRecord(aId, bId) {
+		const a = this.get(aId);
+		const b = this.get(bId);
+		await this.separate(aId, bId);
+		await this.app.journal.record({
+			module: "M7w",
+			kind: "world.separate",
+			summary: this.app.i18n.t("m7w.journal.separate", {
+				a: a?.name ?? aId,
+				b: b?.name ?? bId
+			}),
+			changes: [{
+				target: SEPARATE_TARGET,
+				ref: {
+					a: aId,
+					b: bId
+				},
+				before: false,
+				after: true
+			}]
+		});
+	}
+	async setAliasAndRecord(alias, entityId) {
+		const before = aliasTarget(this.store.current(), alias);
+		await this.setChatAlias(alias, entityId);
+		const after = aliasTarget(this.store.current(), alias);
+		if (before === after) return;
+		const target = entityId ? this.get(entityId) : void 0;
+		await this.app.journal.record({
+			module: "M7w",
+			kind: "world.alias",
+			summary: target ? this.app.i18n.t("m7w.journal.alias", {
+				alias: alias.trim(),
+				name: target.name
+			}) : this.app.i18n.t("m7w.journal.aliasRemoved", { alias: alias.trim() }),
+			changes: [{
+				target: ALIAS_TARGET,
+				ref: { alias: alias.trim() },
+				before,
+				after
+			}]
+		});
+	}
+	mergeChange(keep, merged) {
+		return {
+			target: MERGE_TARGET,
+			ref: {
+				keep: keep.id,
+				merge: merged.id,
+				alias: merged.name
+			},
+			before: null,
+			after: keep.id
+		};
+	}
+	async undoAlias(change) {
+		const alias = typeof change.ref.alias === "string" ? change.ref.alias : "";
+		if (!alias) return false;
+		const before = typeof change.before === "string" ? change.before : null;
+		await this.store.load();
+		await this.store.mutate((doc) => putAlias(doc, alias, before));
+		this.rebuildNow();
+		return true;
+	}
+	async undoMerge(change) {
+		const keep = typeof change.ref.keep === "string" ? change.ref.keep : "";
+		const merged = typeof change.ref.merge === "string" ? change.ref.merge : "";
+		const alias = typeof change.ref.alias === "string" ? change.ref.alias : "";
+		if (!keep || !merged) return false;
+		await this.store.load();
+		await this.store.mutate((doc) => {
+			let dirty = false;
+			if (doc.merged[merged] === keep) {
+				delete doc.merged[merged];
+				dirty = true;
+			}
+			if (alias && aliasTarget(doc, alias) === keep) dirty = putAlias(doc, alias, null) || dirty;
+			return dirty;
+		});
+		this.rebuildNow();
+		return true;
+	}
+	async undoSeparate(change) {
+		const a = typeof change.ref.a === "string" ? change.ref.a : "";
+		const b = typeof change.ref.b === "string" ? change.ref.b : "";
+		if (!a || !b) return false;
+		await this.store.load();
+		await this.store.mutate((doc) => {
+			const index = doc.separated.indexOf(pairKey(a, b));
+			if (index < 0) return false;
+			doc.separated.splice(index, 1);
+			return true;
+		});
+		this.rebuildNow();
+		return true;
+	}
+	proposal(candidate) {
+		const a = this.build.byId.get(candidate.a);
+		const b = this.build.byId.get(candidate.b);
+		if (!a || !b) return null;
+		const t = this.app.i18n.t.bind(this.app.i18n);
+		return {
+			module: "M7w",
+			kind: MERGE_KIND,
+			title: t("m7w.merge.title", {
+				a: a.name,
+				b: b.name
+			}),
+			description: t(`m7w.reason.${candidate.reason}`, {
+				name: candidate.name ?? b.name,
+				a: a.name,
+				b: b.name
+			}),
+			changes: [this.mergeChange(a, b)],
+			payload: {
+				a: a.id,
+				b: b.id
+			},
+			apply: (payload) => this.applyCard(payload),
+			stillValid: async () => this.cardValid({
+				a: a.id,
+				b: b.id
+			})
+		};
+	}
+	async applyCard(payload) {
+		const pair = mergePayload(payload);
+		if (!pair) throw new Error(this.app.i18n.t("m7w.error.noEntity"));
+		this.appliedPairs.add(pairKey(pair.a, pair.b));
+		await this.merge(pair.a, pair.b);
+	}
+	cardValid(payload) {
+		const pair = mergePayload(payload);
+		if (!pair) return false;
+		const a = entityById(this.build, pair.a);
+		const b = entityById(this.build, pair.b);
+		return !!a && !!b && a.id !== b.id;
+	}
+	registerApplier() {
+		return this.app.inbox.registerApplier.call(this.app.inbox, MERGE_KIND, (payload) => this.applyCard(payload), async (payload) => this.cardValid(payload), async (payload) => {
+			const pair = mergePayload(payload);
+			if (pair) await this.separate(pair.a, pair.b);
+		});
+	}
+	rejectedCount() {
+		try {
+			return this.app.autonomy.stats().find((stat) => stat.kind === "world.merge")?.rejected ?? 0;
+		} catch {
+			return 0;
+		}
+	}
+	/**
+	* The Inbox reports no rejections to modules: a world.merge card that vanished while the autonomy statistics
+	* counted as many new rejections of this kind was rejected (snoozed and expired cards add no rejection).
+	*/
+	checkRejections() {
+		if (this.disposed) return;
+		const cards = /* @__PURE__ */ new Map();
+		for (const card of this.app.inbox.list()) {
+			if (card.kind !== "world.merge") continue;
+			const pair = mergePayload(card.payload);
+			if (pair) cards.set(card.id, pair);
+		}
+		const rejected = this.rejectedCount();
+		const delta = rejected - this.rejectedSeen;
+		this.rejectedSeen = rejected;
+		if (delta > 0) {
+			const vanished = [...this.knownCards].filter(([id, pair]) => !cards.has(id) && !this.appliedPairs.has(pairKey(pair.a, pair.b))).map(([, pair]) => pair);
+			if (vanished.length && vanished.length <= delta) for (const pair of vanished) this.separate(pair.a, pair.b);
+		}
+		this.knownCards = cards;
+	}
+	/** Leader only: one Inbox card per new candidate (at most MAX_NEW_CARDS per build). */
+	async proposeCandidates() {
+		if (this.proposing || !this.app.leader.isLeader() || !this.app.host.chatId()) return;
+		this.proposing = true;
+		const startedIn = this.generation;
+		try {
+			const doc = await this.store.load();
+			const fresh = this.build.candidates.filter((candidate) => {
+				const key = pairKey(candidate.a, candidate.b);
+				return !doc.proposed.includes(key) && !doc.separated.includes(key);
+			}).slice(0, MAX_NEW_CARDS);
+			if (!fresh.length || startedIn !== this.generation) return;
+			if (!await this.store.mutate((next) => {
+				let dirty = false;
+				for (const candidate of fresh) dirty = addPair(next.proposed, candidate.a, candidate.b) || dirty;
+				return dirty;
+			}) || startedIn !== this.generation) return;
+			for (const candidate of fresh) {
+				const proposal = this.proposal(candidate);
+				if (!proposal) continue;
+				try {
+					await this.app.autonomy.decide(proposal, "inbox");
+				} catch (error) {
+					this.log.warn("merge proposal failed", error);
+				}
+			}
+		} finally {
+			this.proposing = false;
+		}
+	}
+	api() {
+		return {
+			entities: (kind) => this.entities(kind),
+			get: (id) => this.get(id),
+			resolve: (name, kind) => this.resolve(name, kind),
+			mentions: (text) => this.mentions(text),
+			facts: (id) => this.facts(id),
+			rebuild: () => this.rebuild(),
+			chatAliases: () => this.chatAliases(),
+			setChatAlias: (alias, entityId) => this.setChatAlias(alias, entityId),
+			merge: (keepId, mergeId) => this.merge(keepId, mergeId),
+			separate: (aId, bId) => this.separate(aId, bId),
+			mergeCandidates: () => this.mergeCandidates(),
+			onChange: (listener) => this.onChange(listener)
+		};
+	}
+};
+//#endregion
+//#region src/features/world/strings.ts
+var WORLD_STRINGS = {
+	en: {
+		"m7w.title": "World model",
+		"m7w.tab": "World",
+		"kind.world.merge": "Merging names into one entity",
+		"m7w.hint": "Everyone and everything the stack knows about in this chat: cards, your persona, the DES cast, NAI passports, CK archives, typed lorebook entries, the canon and places. One person under several names is merged by DES aliases, chat aliases and passport aliases; doubtful matches wait for your decision.",
+		"m7w.noChat": "No chat is open.",
+		"m7w.count": "Entities: {count}",
+		"m7w.lore.read": "Lorebooks read {time}",
+		"m7w.lore.pending": "Lorebooks are not read yet: only cards, DES, passports and places so far.",
+		"m7w.rebuild": "Rebuild",
+		"m7w.rebuild.hint": "Read every source again, lorebooks included",
+		"m7w.search": "Search by name, alias or form",
+		"m7w.empty": "Nothing is known about this chat yet.",
+		"m7w.nothingFound": "Nothing matches the search.",
+		"m7w.kind.persona": "Persona ({count})",
+		"m7w.kind.character": "Characters ({count})",
+		"m7w.kind.place": "Places ({count})",
+		"m7w.kind.item": "Items ({count})",
+		"m7w.kind.faction": "Factions ({count})",
+		"m7w.kind.event": "Events ({count})",
+		"m7w.kind.tradition": "Traditions ({count})",
+		"m7w.kind.promise": "Promises ({count})",
+		"m7w.kind.secret": "Secrets ({count})",
+		"m7w.kind.quest": "Quests ({count})",
+		"m7w.kind.mechanic": "Mechanics ({count})",
+		"m7w.present": "in the scene",
+		"m7w.absent": "off scene",
+		"m7w.sources": "Sources: {count}",
+		"m7w.aliasList": "Also: {list}",
+		"m7w.formList": "Forms: {list}",
+		"m7w.details": "Details",
+		"m7w.source.card": "card",
+		"m7w.source.persona": "persona",
+		"m7w.source.des.character": "DES cast",
+		"m7w.source.des.alias": "DES alias",
+		"m7w.source.chat.alias": "chat alias",
+		"m7w.source.lore.entry": "lorebook entry",
+		"m7w.source.canon.entry": "chat canon",
+		"m7w.source.ck.archive": "CK archive",
+		"m7w.source.nai.passport": "NAI passport",
+		"m7w.source.qvink.memory": "Qvink memory",
+		"m7w.source.place": "place registry",
+		"m7w.candidates.title": "Maybe the same ({count})",
+		"m7w.candidates.hint": "Merging writes a chat alias: the second name starts meaning the first one in this chat only. To make it global, add the alias in the DES Workshop.",
+		"m7w.candidates.none": "No doubtful matches.",
+		"m7w.candidate.pair": "«{a}» and «{b}»",
+		"m7w.candidate.merge": "Merge",
+		"m7w.candidate.mergeHint": "Keep «{a}» and treat «{b}» as the same",
+		"m7w.candidate.separate": "Different",
+		"m7w.candidate.separateHint": "Stop proposing this pair",
+		"m7w.reason.sharedName": "Both answer to «{name}».",
+		"m7w.reason.sharedAlias": "«{name}» is also an alias of several others.",
+		"m7w.reason.firstName": "«{name}» may be the short name of «{a}».",
+		"m7w.reason.anchors": "An alias «{name}» joins two separate cards, personas or places.",
+		"m7w.merge.title": "Same entity: «{a}» and «{b}»?",
+		"m7w.merge.done": "Merged for this chat (chat alias «{alias}»). DES aliases are not changed: add the alias in the DES Workshop if every chat should know it.",
+		"m7w.separate.done": "Marked as different.",
+		"m7w.aliases.title": "Chat aliases",
+		"m7w.aliases.hint": "Nicknames that work in this chat only, for example «Рыжая» for Elizabeth.",
+		"m7w.aliases.none": "No chat aliases yet.",
+		"m7w.alias.input": "Alias",
+		"m7w.alias.entity": "Who or what it is",
+		"m7w.alias.add": "Add",
+		"m7w.alias.remove": "Remove",
+		"m7w.alias.missing": "{id} (not in the model now)",
+		"m7w.error.emptyAlias": "Enter an alias.",
+		"m7w.error.noEntity": "This entity is not in the world model.",
+		"m7w.journal.merge": "World model: «{b}» merged into «{a}»",
+		"m7w.journal.separate": "World model: «{a}» and «{b}» marked as different",
+		"m7w.journal.alias": "World model: chat alias «{alias}» → «{name}»",
+		"m7w.journal.aliasRemoved": "World model: chat alias «{alias}» removed"
+	},
+	ru: {
+		"m7w.title": "Модель мира",
+		"m7w.tab": "Мир",
+		"kind.world.merge": "Склейка имён в одну сущность",
+		"m7w.hint": "Все, кого и что знает стек в этом чате: карточки, твоя персона, состав DES, паспорта NAI, архивы CK, записи лорбуков с типом, канон и места. Одно лицо под разными именами склеивается по алиасам DES, алиасам чата и паспортов; сомнительные совпадения ждут твоего решения.",
+		"m7w.noChat": "Чат не открыт.",
+		"m7w.count": "Сущностей: {count}",
+		"m7w.lore.read": "Лорбуки прочитаны {time}",
+		"m7w.lore.pending": "Лорбуки ещё не прочитаны: пока только карточки, DES, паспорта и места.",
+		"m7w.rebuild": "Пересобрать",
+		"m7w.rebuild.hint": "Заново прочитать все источники, включая лорбуки",
+		"m7w.search": "Поиск по имени, алиасу или падежной форме",
+		"m7w.empty": "Об этом чате пока ничего не известно.",
+		"m7w.nothingFound": "По запросу ничего не нашлось.",
+		"m7w.kind.persona": "Персона ({count})",
+		"m7w.kind.character": "Персонажи ({count})",
+		"m7w.kind.place": "Места ({count})",
+		"m7w.kind.item": "Предметы ({count})",
+		"m7w.kind.faction": "Фракции ({count})",
+		"m7w.kind.event": "События ({count})",
+		"m7w.kind.tradition": "Традиции ({count})",
+		"m7w.kind.promise": "Обещания ({count})",
+		"m7w.kind.secret": "Тайны ({count})",
+		"m7w.kind.quest": "Квесты ({count})",
+		"m7w.kind.mechanic": "Механики ({count})",
+		"m7w.present": "в сцене",
+		"m7w.absent": "вне сцены",
+		"m7w.sources": "Источников: {count}",
+		"m7w.aliasList": "Ещё: {list}",
+		"m7w.formList": "Формы: {list}",
+		"m7w.details": "Подробнее",
+		"m7w.source.card": "карточка",
+		"m7w.source.persona": "персона",
+		"m7w.source.des.character": "состав DES",
+		"m7w.source.des.alias": "алиас DES",
+		"m7w.source.chat.alias": "алиас чата",
+		"m7w.source.lore.entry": "запись лорбука",
+		"m7w.source.canon.entry": "канон чата",
+		"m7w.source.ck.archive": "архив CK",
+		"m7w.source.nai.passport": "паспорт NAI",
+		"m7w.source.qvink.memory": "память Qvink",
+		"m7w.source.place": "реестр мест",
+		"m7w.candidates.title": "Возможно, одно и то же ({count})",
+		"m7w.candidates.hint": "Объединение записывает алиас чата: второе имя начинает означать первое только в этом чате. Чтобы алиас знали все чаты, добавь его в Workshop DES.",
+		"m7w.candidates.none": "Сомнительных совпадений нет.",
+		"m7w.candidate.pair": "«{a}» и «{b}»",
+		"m7w.candidate.merge": "Объединить",
+		"m7w.candidate.mergeHint": "Оставить «{a}» и считать «{b}» тем же самым",
+		"m7w.candidate.separate": "Это разные",
+		"m7w.candidate.separateHint": "Больше не предлагать эту пару",
+		"m7w.reason.sharedName": "Оба отзываются на «{name}».",
+		"m7w.reason.sharedAlias": "«{name}» — алиас сразу у нескольких.",
+		"m7w.reason.firstName": "«{name}» может быть коротким именем «{a}».",
+		"m7w.reason.anchors": "Алиас «{name}» связывает две разные карточки, персоны или места.",
+		"m7w.merge.title": "Одно и то же: «{a}» и «{b}»?",
+		"m7w.merge.done": "Объединено в этом чате (алиас чата «{alias}»). Алиасы DES не меняются: если имя должны знать все чаты, добавь алиас в Workshop DES.",
+		"m7w.separate.done": "Отмечено как разные.",
+		"m7w.aliases.title": "Алиасы чата",
+		"m7w.aliases.hint": "Прозвища, которые действуют только в этом чате, — например «Рыжая» для Элизабет.",
+		"m7w.aliases.none": "Алиасов чата пока нет.",
+		"m7w.alias.input": "Алиас",
+		"m7w.alias.entity": "Кто или что это",
+		"m7w.alias.add": "Добавить",
+		"m7w.alias.remove": "Убрать",
+		"m7w.alias.missing": "{id} (сейчас нет в модели)",
+		"m7w.error.emptyAlias": "Введи алиас.",
+		"m7w.error.noEntity": "Такой сущности нет в модели мира.",
+		"m7w.journal.merge": "Модель мира: «{b}» присоединено к «{a}»",
+		"m7w.journal.separate": "Модель мира: «{a}» и «{b}» отмечены как разные",
+		"m7w.journal.alias": "Модель мира: алиас чата «{alias}» → «{name}»",
+		"m7w.journal.aliasRemoved": "Модель мира: алиас чата «{alias}» убран"
+	}
+};
+//#endregion
+//#region src/features/world/view.ts
+var WORLD_TAB = "world";
+var LIST_PREVIEW = 6;
+var WORLD_CSS = `
+.maestro-m7w-head { display: flex; flex-direction: column; gap: 6px; }
+.maestro-m7w-search { width: 100%; box-sizing: border-box; }
+.maestro-m7w-list { display: flex; flex-direction: column; gap: 6px; }
+.maestro-m7w-entity { border: 1px solid var(--maestro-border); border-radius: var(--maestro-radius-sm); padding: 6px 8px; }
+.maestro-m7w-entity-head { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.maestro-m7w-name { font-weight: 600; overflow-wrap: anywhere; }
+.maestro-m7w-line { font-size: 0.9em; overflow-wrap: anywhere; }
+.maestro-m7w-sources { margin: 4px 0 0; padding-left: 18px; font-size: 0.9em; }
+.maestro-m7w-sources li { overflow-wrap: anywhere; }
+.maestro-m7w-pair { display: flex; flex-direction: column; gap: 4px; border: 1px solid var(--maestro-border);
+    border-radius: var(--maestro-radius-sm); padding: 6px 8px; }
+.maestro-m7w-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.maestro-m7w-alias { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.maestro-m7w-alias-form { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 6px; }
+.maestro-m7w-alias-form input, .maestro-m7w-alias-form select { flex: 1 1 160px; min-width: 0; }
+`;
+function matches(entity, query) {
+	if (!query) return true;
+	return [
+		entity.name,
+		...entity.aliases,
+		...entity.forms
+	].some((name) => normalizeName(name).includes(query));
+}
+function preview(list) {
+	return list.length > LIST_PREVIEW ? `${list.slice(0, LIST_PREVIEW).join(", ")}, …` : list.join(", ");
+}
+function worldTab(app, model) {
+	const t = app.i18n.t.bind(app.i18n);
+	return {
+		id: WORLD_TAB,
+		titleKey: "m7w.tab",
+		icon: "fa-earth-europe",
+		order: 45,
+		badge: () => app.host.chatId() ? model.candidateCount() : 0,
+		render(container) {
+			let alive = true;
+			let query = "";
+			let aliasDraft = "";
+			let aliasTarget = "";
+			const root = el("div", { class: "maestro-view maestro-m7w" });
+			container.appendChild(root);
+			const listBox = el("div", { class: "maestro-m7w-body" });
+			const run = async (job) => {
+				try {
+					await job();
+				} catch (error) {
+					app.ui.notice(error instanceof Error ? error.message : String(error), { level: "error" });
+				}
+			};
+			const entityView = (entity) => {
+				const sourceItems = entity.sources.map((source) => el("li", {}, [el("span", {
+					class: "maestro-muted",
+					text: `${tOr(app.i18n, `m7w.source.${source.kind}`, source.kind)}: `
+				}), el("span", { text: source.world ? `${source.label} (${source.world})` : source.label })]));
+				return el("div", {
+					class: "maestro-m7w-entity",
+					data: { id: entity.id }
+				}, [
+					el("div", { class: "maestro-m7w-entity-head" }, [
+						el("span", {
+							class: "maestro-m7w-name",
+							text: entity.name
+						}),
+						entity.present === true ? badge(t("m7w.present"), "ok") : null,
+						entity.present === false ? badge(t("m7w.absent"), "muted") : null,
+						badge(t("m7w.sources", { count: entity.sources.length }), "muted")
+					]),
+					entity.aliases.length ? el("div", {
+						class: "maestro-m7w-line maestro-muted",
+						text: t("m7w.aliasList", { list: preview(entity.aliases) })
+					}) : null,
+					el("details", {}, [
+						el("summary", { text: t("m7w.details") }),
+						el("ul", { class: "maestro-m7w-sources" }, sourceItems),
+						entity.forms.length ? el("div", {
+							class: "maestro-m7w-line maestro-muted",
+							text: t("m7w.formList", { list: entity.forms.join(", ") })
+						}) : null
+					])
+				]);
+			};
+			const drawList = () => {
+				clear(listBox);
+				const entities = model.entities();
+				if (!entities.length) {
+					listBox.appendChild(emptyState(t("m7w.empty"), "fa-earth-europe"));
+					return;
+				}
+				const q = normalizeName(query);
+				const shown = entities.filter((entity) => matches(entity, q));
+				if (!shown.length) {
+					listBox.appendChild(emptyState(t("m7w.nothingFound"), "fa-magnifying-glass"));
+					return;
+				}
+				for (const kind of WORLD_KINDS) {
+					const group = shown.filter((entity) => entity.kind === kind);
+					if (!group.length) continue;
+					listBox.appendChild(section$1(t(`m7w.kind.${kind}`, { count: group.length }), el("div", { class: "maestro-m7w-list" }, group.map(entityView))));
+				}
+			};
+			const candidateView = (candidate) => {
+				const a = model.get(candidate.a);
+				const b = model.get(candidate.b);
+				if (!a || !b) return null;
+				return el("div", { class: "maestro-m7w-pair" }, [
+					el("div", {
+						class: "maestro-m7w-name",
+						text: t("m7w.candidate.pair", {
+							a: a.name,
+							b: b.name
+						})
+					}),
+					el("div", {
+						class: "maestro-m7w-line maestro-muted",
+						text: t(`m7w.reason.${candidate.reason}`, {
+							name: candidate.name ?? b.name,
+							a: a.name,
+							b: b.name
+						})
+					}),
+					el("div", { class: "maestro-m7w-actions" }, [button({
+						label: t("m7w.candidate.merge"),
+						icon: "fa-link",
+						kind: "primary",
+						title: t("m7w.candidate.mergeHint", {
+							a: a.name,
+							b: b.name
+						}),
+						onClick: () => run(async () => {
+							await model.mergeAndRecord(a.id, b.id);
+							app.ui.notice(t("m7w.merge.done", { alias: b.name }));
+						})
+					}), button({
+						label: t("m7w.candidate.separate"),
+						icon: "fa-link-slash",
+						title: t("m7w.candidate.separateHint"),
+						onClick: () => run(async () => {
+							await model.separateAndRecord(a.id, b.id);
+							app.ui.notice(t("m7w.separate.done"));
+						})
+					})])
+				]);
+			};
+			const aliasesView = () => {
+				const aliases = Object.entries(model.chatAliases()).sort(([x], [y]) => x.localeCompare(y));
+				const entities = model.entities();
+				const rows = aliases.map(([alias, id]) => {
+					const target = model.get(id);
+					return el("div", { class: "maestro-m7w-alias" }, [
+						el("span", {
+							class: "maestro-m7w-name",
+							text: alias
+						}),
+						el("span", {
+							class: "maestro-muted",
+							text: "→"
+						}),
+						el("span", { text: target ? target.name : t("m7w.alias.missing", { id }) }),
+						button({
+							icon: "fa-xmark",
+							kind: "ghost",
+							title: t("m7w.alias.remove"),
+							onClick: () => run(() => model.setAliasAndRecord(alias, null))
+						})
+					]);
+				});
+				const input = el("input", {
+					class: "text_pole",
+					attrs: {
+						type: "text",
+						"aria-label": t("m7w.alias.input"),
+						placeholder: t("m7w.alias.input")
+					}
+				});
+				input.value = aliasDraft;
+				input.addEventListener("input", () => {
+					aliasDraft = input.value;
+				});
+				if (!entities.some((entity) => entity.id === aliasTarget)) aliasTarget = entities[0]?.id ?? "";
+				const form = el("div", { class: "maestro-m7w-alias-form" }, [
+					input,
+					select({
+						value: aliasTarget,
+						label: t("m7w.alias.entity"),
+						options: entities.map((entity) => ({
+							value: entity.id,
+							label: entity.name
+						})),
+						onChange: (value) => {
+							aliasTarget = value;
+						}
+					}),
+					button({
+						label: t("m7w.alias.add"),
+						icon: "fa-plus",
+						disabled: !entities.length,
+						onClick: () => run(async () => {
+							await model.setAliasAndRecord(aliasDraft, aliasTarget || null);
+							aliasDraft = "";
+						})
+					})
+				]);
+				return section$1(t("m7w.aliases.title"), [
+					el("div", {
+						class: "maestro-hint",
+						text: t("m7w.aliases.hint")
+					}),
+					rows.length ? el("div", { class: "maestro-m7w-list" }, rows) : el("div", {
+						class: "maestro-muted",
+						text: t("m7w.aliases.none")
+					}),
+					form
+				]);
+			};
+			const draw = () => {
+				if (!alive) return;
+				clear(root);
+				if (!app.host.chatId()) {
+					root.appendChild(emptyState(t("m7w.noChat"), "fa-comment-slash"));
+					return;
+				}
+				const entities = model.entities();
+				const readAt = model.loreReadAt();
+				const search = el("input", {
+					class: "text_pole maestro-m7w-search",
+					attrs: {
+						type: "search",
+						"aria-label": t("m7w.search"),
+						placeholder: t("m7w.search")
+					}
+				});
+				search.value = query;
+				search.addEventListener("input", () => {
+					query = search.value;
+					drawList();
+				});
+				root.appendChild(section$1(t("m7w.title"), el("div", { class: "maestro-m7w-head" }, [
+					el("div", {
+						class: "maestro-hint",
+						text: t("m7w.hint")
+					}),
+					el("div", { text: t("m7w.count", { count: entities.length }) }),
+					el("div", {
+						class: "maestro-muted",
+						text: readAt !== null ? t("m7w.lore.read", { time: formatTime(readAt, app.i18n) }) : t("m7w.lore.pending")
+					}),
+					search
+				]), [button({
+					label: t("m7w.rebuild"),
+					icon: "fa-rotate",
+					title: t("m7w.rebuild.hint"),
+					onClick: () => run(() => model.rebuild())
+				})]));
+				const candidates = model.mergeCandidates().map(candidateView).filter((node) => node !== null);
+				root.appendChild(section$1(t("m7w.candidates.title", { count: candidates.length }), [el("div", {
+					class: "maestro-hint",
+					text: t("m7w.candidates.hint")
+				}), candidates.length ? el("div", { class: "maestro-m7w-list" }, candidates) : el("div", {
+					class: "maestro-muted",
+					text: t("m7w.candidates.none")
+				})]));
+				root.appendChild(listBox);
+				drawList();
+				root.appendChild(aliasesView());
+			};
+			const redraw = coalesce(() => {
+				const active = typeof document !== "undefined" ? document.activeElement : null;
+				if (active && root.contains(active) && active.tagName === "INPUT") {
+					drawList();
+					return;
+				}
+				draw();
+				app.ui.refresh();
+			}, 100);
+			const off = model.onChange(() => alive && redraw());
+			draw();
+			return () => {
+				alive = false;
+				redraw.cancel();
+				off();
+			};
+		}
+	};
+}
 //#endregion
 //#region src/app/registry.ts
 var MODULES = [
@@ -39528,50 +53794,31 @@ var MODULES = [
 	rulesModule,
 	scenariosModule,
 	sheetsModule,
-	{
-		id: "W1",
-		key: WIZARD_KEY,
-		stage: 1,
-		titleKey: "w1.title",
-		enabledByDefault: true,
-		defaults: defaultWizardSettings,
-		i18n: WIZARD_STRINGS,
-		init({ app, settings, own }) {
-			let running = true;
-			own(() => {
-				running = false;
-			});
-			const alive = () => running;
-			app.journal.registerUndo(POWER_TARGET, (change) => undoPowerFlag(app, change));
-			app.journal.registerUndo(RULE_TARGET, async (change) => {
-				const rules = app.modules.api("rules");
-				const id = change.ref.rule;
-				if (!rules || typeof id !== "string") return false;
-				await rules.setEnabled(id, change.before === true);
-				return true;
-			});
-			app.journal.registerUndo(CAPS_TARGET, async (change) => {
-				const before = change.before && typeof change.before === "object" ? change.before : {};
-				const caps = {};
-				for (const [book, value] of Object.entries(before)) if (typeof value === "number") caps[book] = value;
-				await writeCaps(app, settings, caps);
-				return true;
-			});
-			own(app.ui.style("w1-wizard", WIZARD_CSS));
-			for (const step of [
-				stackStep(app),
-				macroStep(app),
-				baselineStep(app),
-				findingsStep(app),
-				rulesStep(app, settings, alive),
-				backgroundStep(app),
-				oldChatsStep(app, settings)
-			]) own(app.ui.addWizardStep(step));
-		}
-	},
+	wizardModule,
 	bookRolesModule,
 	canonModule,
-	loreStudioModule
+	loreStudioModule,
+	placesModule,
+	{
+		id: "M7w",
+		key: WORLD_KEY,
+		stage: 3,
+		titleKey: "m7w.title",
+		enabledByDefault: true,
+		defaults: () => ({}),
+		i18n: WORLD_STRINGS,
+		init({ app, log, own }) {
+			const model = new WorldModel(app, new WorldStore(app, log), log);
+			for (const off of model.install()) own(off);
+			app.modules.expose(WORLD_KEY, model.api());
+			own(app.ui.style("m7w-view", WORLD_CSS));
+			own(app.ui.addTab(worldTab(app, model)));
+			model.start();
+		}
+	},
+	relationsModule,
+	dossierModule,
+	bunnymoModeModule
 ];
 //#endregion
 //#region src/app/app.ts
