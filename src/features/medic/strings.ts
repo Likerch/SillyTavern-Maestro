@@ -1,0 +1,175 @@
+// M3 «Медик» strings. Russian is the primary language; the user is addressed with masculine or neutral forms.
+import type { I18nParts } from '../../shared/contracts';
+
+export const MEDIC_STRINGS: I18nParts = {
+    en: {
+        'm3.title': 'Medic',
+        'm3.profileTask': 'Medic: tracker repair',
+        'kind.medic.trackerRepair': 'DES tracker repair',
+        'kind.medic.prefillRole': 'Preset: assistant prefill → user',
+
+        'm3.check.deps': 'Maestro dependencies',
+        'm3.check.desTracker': 'DES tracker of the last reply',
+        'm3.check.regexDamage': 'Regexes vs the DES tracker',
+        'm3.check.desFieldKeys': 'DES field names (Cyrillic)',
+        'm3.check.naiMarkers': 'NAI Studio markers',
+        'm3.check.qvinkGaps': 'Qvink: messages dropped without a summary',
+        'm3.check.assistantDepth': 'Lore entries with the assistant role at depth',
+        'm3.check.localizerKeys': 'Lorebook Localizer keys',
+        'm3.check.prefill': 'Assistant prefill at the end of the preset',
+
+        'm3.noReply': 'No model reply in this chat yet.',
+        'm3.deps.group': 'Group chat: Maestro sleeps here.',
+        'm3.deps.textCompletion': 'Text Completion is active: studios and scenarios need Chat Completion.',
+        'm3.deps.cm': 'Connection Manager is off: background tasks cannot run.',
+        'm3.deps.caps': 'SillyTavern features missing ({count}): {list}.',
+        'm3.deps.ok': 'Everything Maestro needs is in place ({ok} of {total} capabilities).',
+
+        'm3.des.absent': "Doom's Enhancement Suite is not active.",
+        'm3.tracker.notTogether': 'DES does not write the tracker together with the reply.',
+        'm3.tracker.ok': 'DES read the tracker of the last reply.',
+        'm3.tracker.missing': 'Reply #{index} has no DES tracker. The fix asks the model for it in the background.',
+        'm3.regex.ok': 'No sign of a damaged tracker.',
+        'm3.regex.damage':
+            'Reply #{index} has a JSON block, but DES could not read it: the JSON is broken or a regex damages it. The Doctor (M5) shows which regexes touch it.',
+        'm3.regex.reply':
+            'Reply #{index}: DES could not read the tracker JSON. A regex may be damaging it — see the Doctor.',
+        'm3.fieldKeys.ok': 'Field names are fine.',
+        'm3.fieldKeys.fixed': 'Cyrillic field names ({names}) are restored by DES-RU.',
+        'm3.fieldKeys.noFix':
+            'DES turns the field names {names} into empty keys "" and DES-RU\'s "Cyrillic field names" fix is off or missing.',
+        'm3.fieldKeys.broken':
+            'The last tracker has empty field keys "" although DES-RU should restore them ({names}). Check DES-RU.',
+        'm3.fieldKeys.reply': 'The DES tracker has empty field keys "": DES-RU did not restore the field names.',
+        'm3.nai.absent': 'NAI Studio is not active.',
+        'm3.nai.ok': 'NAI Studio finished its markers.',
+        'm3.nai.raw': 'Reply #{index} still has raw NAI markers <img data-nai=…>: NAI Studio did not process them.',
+        'm3.nai.reply': 'Reply #{index}: NAI Studio left raw <img data-nai=…> markers.',
+        'm3.qvink.absent': 'Qvink Memory is not active.',
+        'm3.qvink.off': 'Qvink is off for this chat.',
+        'm3.qvink.keeps': '"Remove Messages" is off: Qvink drops nothing from the prompt.',
+        'm3.qvink.ok': 'Every message Qvink dropped from the prompt has a summary.',
+        'm3.qvink.guarded': 'Messages without a summary that the "Qvink gaps" rule returns to the prompt: {count}.',
+        'm3.qvink.gaps':
+            'Messages that left the prompt without a summary: {count} (first: #{first}). The fix switches on the "Qvink gaps" rule.',
+        'm3.lore.assistantOk': 'No entries with the assistant role at depth in the active books.',
+        'm3.lore.assistantFixed': 'Entries with the assistant role at depth: {count}; the rule sends them as system.',
+        'm3.lore.assistant':
+            'Entries injected at depth with the assistant role: {count} ({list}). The fix switches on the rule "assistant → system".',
+        'm3.localizer.absent': 'Lorebook Localizer is not active.',
+        'm3.localizer.ok': 'Every key the Localizer added is in place.',
+        'm3.localizer.missing':
+            'Entries that lost keys the Localizer added: {count} ({list}). Run the Localizer again for them.',
+        'm3.prefill.ok': 'The preset does not end with an assistant message.',
+        'm3.prefill.found':
+            'The prompt "{name}" with the assistant role ends the request (prefill). Through OpenRouter this gives garbage. The fix switches its role to user (asks first).',
+        'm3.prefill.foundDepth':
+            'The prompt "{name}" is injected at depth 0 with the assistant role (prefill). The fix switches its role to user (asks first).',
+        'm3.prefill.title': 'Switch "{name}" in preset "{preset}" to the user role',
+        'm3.prefill.description':
+            'The prompt "{name}" is sent as an assistant message at the very end. Its role becomes user in the live settings and in the saved preset.',
+
+        'm3.repair.title': 'Restore the DES tracker of reply #{index}',
+        'm3.repair.description':
+            "DES did not get a tracker with this reply. Maestro asked the model for it with DES's own update prompt and parsed it with DES.",
+        'm3.repair.done': 'DES tracker of reply #{index} restored.',
+        'm3.repair.failed': 'The DES tracker of reply #{index} is missing and was not restored: {reason}',
+        'm3.repair.fix': 'Fix',
+        'm3.repair.block.disabled': 'DES is off.',
+        'm3.repair.block.mode': 'DES is not in together mode.',
+        'm3.repair.block.present': 'the tracker is already there.',
+        'm3.repair.block.message': 'the reply changed or is not the last one.',
+        'm3.repair.block.workshop': 'the DES Workshop is open — close it and press "Fix".',
+        'm3.repair.block.busy': 'a generation is running — press "Fix" when it ends.',
+        'm3.repair.block.noKit': "DES's modules could not be loaded.",
+        'm3.repair.block.noLlm': 'no connection profile for background tasks (Settings → Profiles).',
+        'm3.repair.block.llm': 'the model request failed.',
+        'm3.repair.block.cap': "today's limit for background tasks is reached.",
+        'm3.repair.block.parse': "DES could not read the model's answer.",
+    },
+    ru: {
+        'm3.title': 'Медик',
+        'm3.profileTask': 'Медик: ремонт трекера',
+        'kind.medic.trackerRepair': 'Ремонт трекера DES',
+        'kind.medic.prefillRole': 'Пресет: prefill assistant → user',
+
+        'm3.check.deps': 'Что нужно Maestro',
+        'm3.check.desTracker': 'Трекер DES в последнем ответе',
+        'm3.check.regexDamage': 'Регексы и трекер DES',
+        'm3.check.desFieldKeys': 'Названия полей DES на кириллице',
+        'm3.check.naiMarkers': 'Маркеры NAI Studio',
+        'm3.check.qvinkGaps': 'Qvink: сообщения выпали без пересказа',
+        'm3.check.assistantDepth': 'Записи лора с ролью assistant на глубине',
+        'm3.check.localizerKeys': 'Ключи Lorebook Localizer',
+        'm3.check.prefill': 'Prefill с ролью assistant в конце пресета',
+
+        'm3.noReply': 'В этом чате ещё нет ответа модели.',
+        'm3.deps.group': 'Групповой чат: здесь Maestro спит.',
+        'm3.deps.textCompletion': 'Включён Text Completion: студиям и сценариям нужен Chat Completion.',
+        'm3.deps.cm': 'Connection Manager выключен: фоновые задачи не запустятся.',
+        'm3.deps.caps': 'Не хватает возможностей SillyTavern ({count}): {list}.',
+        'm3.deps.ok': 'Всё, что нужно Maestro, на месте ({ok} из {total} возможностей).',
+
+        'm3.des.absent': "Doom's Enhancement Suite не активен.",
+        'm3.tracker.notTogether': 'DES пишет трекер не вместе с ответом.',
+        'm3.tracker.ok': 'DES разобрал трекер последнего ответа.',
+        'm3.tracker.missing': 'В ответе №{index} нет трекера DES. Исправление попросит модель восстановить его в фоне.',
+        'm3.regex.ok': 'Признаков испорченного трекера нет.',
+        'm3.regex.damage':
+            'В ответе №{index} есть блок JSON, но DES его не прочитал: JSON битый или его портит регекс. Какие регексы его трогают, покажет Доктор (M5).',
+        'm3.regex.reply':
+            'Ответ №{index}: DES не прочитал JSON трекера. Возможно, его портит регекс — загляни в Доктора.',
+        'm3.fieldKeys.ok': 'С названиями полей всё в порядке.',
+        'm3.fieldKeys.fixed': 'Кириллические названия полей ({names}) восстанавливает DES-RU.',
+        'm3.fieldKeys.noFix':
+            'DES превращает названия полей {names} в пустые ключи "", а исправление DES-RU «Кириллические названия полей» выключено или DES-RU нет.',
+        'm3.fieldKeys.broken':
+            'В последнем трекере пустые ключи полей "", хотя DES-RU должен их восстанавливать ({names}). Проверь DES-RU.',
+        'm3.fieldKeys.reply': 'В трекере DES пустые ключи полей "": DES-RU не вернул названия.',
+        'm3.nai.absent': 'NAI Studio не активен.',
+        'm3.nai.ok': 'NAI Studio доделал маркеры.',
+        'm3.nai.raw': 'В ответе №{index} остались сырые маркеры NAI <img data-nai=…>: NAI Studio их не обработал.',
+        'm3.nai.reply': 'Ответ №{index}: NAI Studio оставил сырые маркеры <img data-nai=…>.',
+        'm3.qvink.absent': 'Qvink Memory не активен.',
+        'm3.qvink.off': 'В этом чате Qvink выключен.',
+        'm3.qvink.keeps': '«Remove Messages» выключено: Qvink ничего не убирает из промпта.',
+        'm3.qvink.ok': 'У всех сообщений, которые Qvink убрал из промпта, есть пересказ.',
+        'm3.qvink.guarded': 'Сообщений без пересказа, которые правило «Дыры Qvink» возвращает в промпт: {count}.',
+        'm3.qvink.gaps':
+            'Сообщений, выпавших из промпта без пересказа: {count} (первое — №{first}). Исправление включит правило «Дыры Qvink».',
+        'm3.lore.assistantOk': 'В активных книгах нет записей с ролью assistant на глубине.',
+        'm3.lore.assistantFixed': 'Записей с ролью assistant на глубине: {count} — правило отправляет их как system.',
+        'm3.lore.assistant':
+            'Записей, которые вставляются на глубину с ролью assistant: {count} ({list}). Исправление включит правило «Роль assistant → system».',
+        'm3.localizer.absent': 'Lorebook Localizer не активен.',
+        'm3.localizer.ok': 'Все ключи, добавленные Localizer, на месте.',
+        'm3.localizer.missing':
+            'Записей, у которых пропали ключи, добавленные Localizer: {count} ({list}). Прогони для них Localizer ещё раз.',
+        'm3.prefill.ok': 'Пресет не заканчивается сообщением assistant.',
+        'm3.prefill.found':
+            'Запрос заканчивается блоком «{name}» с ролью assistant (prefill). Через OpenRouter это даёт мусор. Исправление переведёт его в роль user (сначала спросит).',
+        'm3.prefill.foundDepth':
+            'Блок «{name}» вставляется на глубину 0 с ролью assistant (prefill). Исправление переведёт его в роль user (сначала спросит).',
+        'm3.prefill.title': 'Перевести «{name}» в пресете «{preset}» в роль user',
+        'm3.prefill.description':
+            'Блок «{name}» уходит модели последним сообщением от assistant. Его роль станет user — в текущих настройках и в сохранённом пресете.',
+
+        'm3.repair.title': 'Восстановить трекер DES для ответа №{index}',
+        'm3.repair.description':
+            'DES не получил трекер вместе с этим ответом. Maestro попросил модель восстановить его собственным запросом обновления DES и разобрал ответ парсером DES.',
+        'm3.repair.done': 'Трекер DES для ответа №{index} восстановлен.',
+        'm3.repair.failed': 'В ответе №{index} нет трекера DES, восстановить не вышло: {reason}',
+        'm3.repair.fix': 'Починить',
+        'm3.repair.block.disabled': 'DES выключен.',
+        'm3.repair.block.mode': 'DES работает не в режиме «вместе с ответом».',
+        'm3.repair.block.present': 'трекер уже на месте.',
+        'm3.repair.block.message': 'ответ изменился или он уже не последний.',
+        'm3.repair.block.workshop': 'открыта Мастерская DES — закрой её и нажми «Починить».',
+        'm3.repair.block.busy': 'идёт генерация — нажми «Починить», когда она закончится.',
+        'm3.repair.block.noKit': 'не удалось подключить модули DES.',
+        'm3.repair.block.noLlm': 'нет профиля подключения для фоновых задач (Настройки → Профили).',
+        'm3.repair.block.llm': 'запрос к модели не удался.',
+        'm3.repair.block.cap': 'на сегодня исчерпан лимит фоновых задач.',
+        'm3.repair.block.parse': 'DES не смог прочитать ответ модели.',
+    },
+};

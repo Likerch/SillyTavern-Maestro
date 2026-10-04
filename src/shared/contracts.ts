@@ -318,6 +318,8 @@ export interface Proposal<T = unknown> {
     changes: JournalChange[];
     payload: T;
     sourceMessage?: number;
+    /** Lifetime of the Inbox card when the proposal is queued. */
+    ttlMs?: number;
     /** Apply the proposal (called when allowed or accepted). */
     apply(payload: T): Promise<void>;
     /** Optional check that "before" still matches the live data. */
@@ -382,6 +384,8 @@ export interface Inbox {
     invalidateMessage(messageIndex: number): Promise<number>;
     onChange(listener: () => void): Unsubscribe;
     count(): number;
+    /** Loads the cards of the current chat (called lazily by readers that need them before the first change). */
+    load?(): Promise<void>;
 }
 
 /* ------------------------------------------------------------------ ephemeral flags and injections */
@@ -473,6 +477,8 @@ export interface WizardStep {
     order: number;
     titleKey: string;
     render(container: HTMLElement, done: () => void): void;
+    /** Called when the user leaves the step with the forward/back button (before the next step renders). */
+    leave?(direction: 'next' | 'back'): void | Promise<void>;
 }
 
 export interface SlashCommandSpec {
@@ -489,6 +495,7 @@ export interface Ui {
     /** ST cannot unregister: the remover makes the command answer "module is off" (own() it). */
     addSlashCommand(command: SlashCommandSpec): Unsubscribe;
     openPult(tabId?: string): void;
+    closePult?(): void;
     /** Badge refresh after state changes. */
     refresh(): void;
     /** Non-blocking notice; `urgent` uses a toast, otherwise only the badge/log. */

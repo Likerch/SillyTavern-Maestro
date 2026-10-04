@@ -26,7 +26,7 @@ Every plan module is a `MaestroModule` (see `src/shared/contracts.ts`) in `src/f
 export const loreJournal: MaestroModule<LoreJournalSettings> = {
     id: 'M1', key: 'loreJournal', stage: 1, titleKey: 'm1.title', enabledByDefault: true,
     defaults: () => ({ keepTurns: 200 }),
-    requires: ['st.wi.scanDone'],
+    requires: ['st.events.scanDone'],
     i18n: { en: {...}, ru: {...} },
     init({ app, settings, log, own }) { own(app.host.events.on('...', handler)); },
 };
