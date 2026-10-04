@@ -39,6 +39,8 @@ export type {
     NaiPassportScope,
     NaiPassportTarget,
     NaiPassportsSavedDetail,
+    NaiQualityGate,
+    NaiQualityGateDetail,
     NaiSaveScope,
     NaiSceneHint,
     NaiSceneHintContext,

@@ -146,6 +146,21 @@ export class TrackerRepair {
         }
     }
 
+    /**
+     * For M12 «Качество»: repairs now, or waits (up to a minute) for a repair of this message already running;
+     * true when the tracker is present afterwards.
+     */
+    async repairOrWait(index: number): Promise<boolean> {
+        const key = this.runKey(index);
+        if (!key) return false;
+        const deadline = Date.now() + 60_000;
+        while (this.running.has(key) && Date.now() < deadline) {
+            await new Promise((resolve) => setTimeout(resolve, 200));
+        }
+        if (this.running.has(key)) return false;
+        return this.manual(index);
+    }
+
     /** "Починить": the user asked, so the result is applied at once (and journaled). */
     async manual(index: number): Promise<boolean> {
         const key = this.runKey(index);

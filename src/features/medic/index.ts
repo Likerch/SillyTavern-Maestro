@@ -44,6 +44,8 @@ export const medicModule: MaestroModule<MedicSettings> = {
         );
         own(registerProfileTask(REPAIR_KIND, 'm3.profileTask'));
         own(app.bus.on('reply:ready', ({ messageIndex, type }) => replies.onReply(messageIndex, type)));
+        // M12 «Качество»: tracker repair on request (true = the tracker is there now).
+        app.modules.expose('medic', { repairTracker: (index: number) => repair.repairOrWait(index) });
         for (const check of medicHealthChecks({ app, t, repair, prefill })) own(app.ui.addHealthCheck(check));
     },
 };

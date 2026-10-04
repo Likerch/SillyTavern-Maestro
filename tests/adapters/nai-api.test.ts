@@ -1,9 +1,17 @@
 // @vitest-environment happy-dom
 // NAI Studio 0.10.0 `NAI_STUDIO_API` (plan §16, stage 3) as the NaiAdapter exposes it: read live, only version 1
 // with every method, `nai.api` only while NAI Studio is present; chat passports as typed copies; events passed through.
+// NAI Studio 0.11.0 quality gates: `nai.qualityGate` with the optional member, setQualityGate() by message index.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createAdapters } from '../../src/adapters';
-import type { Adapters, NaiPassport, NaiSceneProvider, NaiStudioApi, NaiStudioEvents } from '../../src/adapters';
+import type {
+    Adapters,
+    NaiPassport,
+    NaiQualityGate,
+    NaiSceneProvider,
+    NaiStudioApi,
+    NaiStudioEvents,
+} from '../../src/adapters';
 import { NAI_API_GLOBAL, NAI_INTERCEPTOR, readNaiApi } from '../../src/adapters/nai';
 import { clearScripts, createStand, silentLog } from '../helpers/adapters-host';
 import type { AdapterStand } from '../helpers/adapters-host';
@@ -212,5 +220,100 @@ describe('NaiAdapter.api', () => {
         expect(adapters.nai.chatPassports()).toEqual([]);
         globals[NAI_API_GLOBAL] = { ...api, passports: () => [passport('x', 'X'), 'junk'] };
         expect(adapters.nai.chatPassports().map((p) => p.id)).toEqual(['x']);
+    });
+});
+
+describe('NaiAdapter.setQualityGate (NAI Studio 0.11.0)', () => {
+    /** The 0.10.0 double plus registerQualityGate with NAI Studio's calling convention. */
+    function fakeNaiWithGates() {
+        const fake = fakeNai();
+        const gates = new Set<NaiQualityGate>();
+        const api: NaiStudioApi = {
+            ...fake.api,
+            registerQualityGate: (gate) => {
+                gates.add(gate);
+                return () => void gates.delete(gate);
+            },
+        };
+        const ask = (messageIndex: number, swipeId = 0) =>
+            Promise.all([...gates].map((gate) => gate({ messageIndex, swipeId })));
+        return { api, gates, ask };
+    }
+
+    it('reports nai.qualityGate only with the 0.11.0 member while NAI Studio is present', async () => {
+        stand.install(NAME, { ...MANIFEST, version: '0.11.0' }, { loaded: true });
+        await adapters.nai.ready();
+        globals[NAI_INTERCEPTOR] = () => {};
+        // 0.10.0: version 1 without the member is still the API, without the capability.
+        globals[NAI_API_GLOBAL] = fakeNai().api;
+        await stand.caps.refresh();
+        expect(stand.caps.has('nai.api')).toBe(true);
+        expect(stand.caps.has('nai.qualityGate')).toBe(false);
+        expect(adapters.nai.capabilities()).toEqual(['nai.present', 'nai.api']);
+
+        globals[NAI_API_GLOBAL] = fakeNaiWithGates().api;
+        await stand.caps.refresh();
+        expect(stand.caps.has('nai.qualityGate')).toBe(true);
+        expect(adapters.nai.capabilities()).toEqual(['nai.present', 'nai.api', 'nai.qualityGate']);
+
+        delete globals[NAI_INTERCEPTOR];
+        await stand.caps.refresh();
+        expect(stand.caps.has('nai.qualityGate')).toBe(false);
+    });
+
+    it('readNaiApi accepts version 1 with or without registerQualityGate', () => {
+        const old = fakeNai().api;
+        const current = fakeNaiWithGates().api;
+        expect(readNaiApi(old)).toBe(old);
+        expect(readNaiApi(current)).toBe(current);
+        expect(readNaiApi({ ...current, version: 2 })).toBeUndefined();
+        expect(readNaiApi({ ...current, on: undefined })).toBeUndefined();
+    });
+
+    it('registers the gate by message index, replaces it on a second call and unregisters', async () => {
+        stand.install(NAME, MANIFEST, { loaded: true });
+        await adapters.nai.ready();
+        const fake = fakeNaiWithGates();
+        globals[NAI_API_GLOBAL] = fake.api;
+
+        const first = vi.fn(async (index: number) => index !== 3);
+        const off = adapters.nai.setQualityGate(first);
+        expect(fake.gates.size).toBe(1);
+        expect(await fake.ask(3, 1)).toEqual([false]);
+        expect(await fake.ask(4)).toEqual([true]);
+        expect(first.mock.calls).toEqual([[3], [4]]);
+
+        const second = vi.fn(async () => true);
+        const offSecond = adapters.nai.setQualityGate(second);
+        expect(fake.gates.size).toBe(1);
+        expect(await fake.ask(5)).toEqual([true]);
+        expect(first).toHaveBeenCalledTimes(2);
+        // The replaced gate's unregistration no longer touches the current one.
+        off();
+        expect(fake.gates.size).toBe(1);
+        offSecond();
+        expect(fake.gates.size).toBe(0);
+        offSecond();
+    });
+
+    it('is a no-op without the API or the member, and survives a throwing registration', async () => {
+        stand.install(NAME, MANIFEST, { loaded: true });
+        await adapters.nai.ready();
+        const gate = vi.fn(async () => true);
+        const none = adapters.nai.setQualityGate(gate);
+        expect(none).toBeTypeOf('function');
+        none();
+        globals[NAI_API_GLOBAL] = fakeNai().api;
+        adapters.nai.setQualityGate(gate)();
+        globals[NAI_API_GLOBAL] = {
+            ...fakeNai().api,
+            registerQualityGate: () => {
+                throw new Error('NAI Studio API: gate must be a function');
+            },
+        };
+        const off = adapters.nai.setQualityGate(gate);
+        expect(off).toBeTypeOf('function');
+        off();
+        expect(gate).not.toHaveBeenCalled();
     });
 });

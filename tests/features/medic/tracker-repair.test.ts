@@ -62,6 +62,15 @@ describe('tracker repair after a reply (together mode)', () => {
         expect(env.ui.notices.some((notice) => notice.text.includes('restored'))).toBe(true);
     });
 
+    it('repairs on request for M12 and reports a tracker that is already there', async () => {
+        const api = env.app.modules.api<{ repairTracker(index: number): Promise<boolean> }>('medic')!;
+        expect(await api.repairTracker(1)).toBe(true);
+        expect(env.llm.request).toHaveBeenCalledTimes(1);
+        expect(lastSwipe()?.infoBox).toBe('{"location":{"value":"Tavern"}}');
+        expect(await api.repairTracker(1)).toBe(true);
+        expect(env.llm.request).toHaveBeenCalledTimes(1);
+    });
+
     it('commits the first tracker of a chat, as updateRPGData does', async () => {
         env.des.state.committedTrackerData = { quests: null, infoBox: null, characterThoughts: null };
         await reply();

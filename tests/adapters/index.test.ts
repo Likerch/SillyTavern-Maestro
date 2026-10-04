@@ -28,6 +28,7 @@ const ALL_CAPABILITIES = [
     'qvink.removeMessages',
     'nai.present',
     'nai.api',
+    'nai.qualityGate',
     'localizer.present',
     'localizer.api',
     'preset.cc',

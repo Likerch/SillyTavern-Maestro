@@ -4,11 +4,13 @@
 // `globalThis.NAI_STUDIO_API` (plan §16, stage 3; NAI src/integration/public-api.ts): passports as the current
 // chat sees them (chat-level overrides in `chat_metadata.nai_studio.passports`), writes into the card or the chat,
 // outfits and states, the events "passportsSaved" / "imageReady" and scene providers. Writes go through the API
-// only (it merges the card field and keeps passport ids, plan §10.12).
+// only (it merges the card field and keeps passport ids, plan §10.12). NAI Studio 0.11.0 adds quality gates to the
+// same version 1 (plan §16, stage 6): its automatic drawings for a reply wait for Maestro's verdict on it.
 //
 // Capabilities:
-// - `nai.present` installed, enabled in ST and its interceptor is registered;
-// - `nai.api`     NAI Studio's public API version 1 is published (NAI Studio 0.10.0+) while it is present.
+// - `nai.present`     installed, enabled in ST and its interceptor is registered;
+// - `nai.api`         NAI Studio's public API version 1 is published (NAI Studio 0.10.0+) while it is present;
+// - `nai.qualityGate` that API takes quality gates (`registerQualityGate`, NAI Studio 0.11.0+).
 import { NeighbourBase, extensionSettingsOf, homePageHas, isDict, stringList } from '../base';
 import type { AdapterDeps, Dict, ExtensionManifest } from '../base';
 
@@ -110,6 +112,18 @@ export interface NaiStudioEvents {
     imageReady: NaiImageReadyDetail;
 }
 
+/** What NAI Studio asks a quality gate about: one assistant reply, the swipe its drawings are for. */
+export interface NaiQualityGateDetail {
+    messageIndex: number;
+    swipeId: number;
+}
+
+/**
+ * A quality gate as NAI Studio calls it (N:features/quality/quality-gate.ts): false = the reply is being redone,
+ * draw nothing for that swipe; true = draw. A gate that throws counts as true.
+ */
+export type NaiQualityGate = (detail: NaiQualityGateDetail) => Promise<boolean> | boolean;
+
 export type NaiStudioEvent = keyof NaiStudioEvents;
 
 /** `globalThis.NAI_STUDIO_API`, version 1 (NAI Studio 0.10.0+). Rejections carry `NAI Studio API: …` messages. */
@@ -133,6 +147,15 @@ export interface NaiStudioApi {
     clearChatOverride(passportId: string): Promise<void>;
     on<K extends NaiStudioEvent>(event: K, listener: (detail: NaiStudioEvents[K]) => void): () => void;
     registerSceneProvider(provider: NaiSceneProvider): () => void;
+    /**
+     * NAI Studio 0.11.0+ (absent in 0.10.0, same version 1). Before NAI Studio draws on its own for an assistant
+     * reply — image markers (also those found while it streams), automatic illustrations and generation, DES
+     * portraits — it awaits every gate in parallel once the reply is complete, once per reply swipe, at most
+     * `quality.gateTimeoutMs` (20 s) from the end of the reply. Any false: nothing is drawn for that swipe (marker
+     * placeholders stay for "Try again" or a new swipe); all true or no answer in time: drawn as before. A swipe
+     * swiped away or deleted while waiting is not drawn. Manual generation never waits. Returns the unregistration.
+     */
+    registerQualityGate?(gate: NaiQualityGate): () => void;
 }
 
 const API_METHODS = [
@@ -146,7 +169,10 @@ const API_METHODS = [
     'registerSceneProvider',
 ] as const;
 
-/** The published NAI Studio API when it is version 1 with every method; undefined otherwise. */
+/**
+ * The published NAI Studio API when it is version 1 with every method of 0.10.0; undefined otherwise. Members added
+ * later within version 1 (`registerQualityGate`, 0.11.0) are optional: check them before use.
+ */
 export function readNaiApi(value: unknown): NaiStudioApi | undefined {
     if (typeof value !== 'object' || value === null) return undefined;
     const api = value as Record<string, unknown>;
@@ -200,11 +226,17 @@ export function readPassport(raw: unknown): NaiPassport | null {
 
 export class NaiAdapter extends NeighbourBase<'nai'> {
     readonly id = 'nai' as const;
+    /** The unregistration of the gate set by setQualityGate(), while it is registered. */
+    private qualityGateOff: (() => void) | null = null;
 
     constructor(deps: AdapterDeps) {
         super(deps);
         this.capability('nai.present', () => this.present());
         this.capability('nai.api', () => this.present() && this.api() !== undefined);
+        this.capability(
+            'nai.qualityGate',
+            () => this.present() && typeof this.api()?.registerQualityGate === 'function',
+        );
     }
 
     present(): boolean {
@@ -245,6 +277,38 @@ export class NaiAdapter extends NeighbourBase<'nai'> {
         const api = this.api();
         if (!api) return () => {};
         return api.on(event, listener);
+    }
+
+    /**
+     * Makes `gate` NAI Studio's quality gate for Maestro (NAI Studio 0.11.0+): its automatic drawings for a reply
+     * wait for `gate(messageIndex)` — false means the reply is redone and nothing is drawn for its current swipe.
+     * One gate at a time: a new one replaces the previous. Returns the unregistration; without the API member (older
+     * NAI Studio, disabled, not loaded) nothing is registered and the returned function does nothing. NAI Studio
+     * drops its registrations when it is disabled: set the gate again when `nai.qualityGate` comes back.
+     */
+    setQualityGate(gate: (messageIndex: number) => Promise<boolean>): () => void {
+        this.qualityGateOff?.();
+        this.qualityGateOff = null;
+        const api = this.api();
+        if (typeof api?.registerQualityGate !== 'function') return () => {};
+        let off: () => void;
+        try {
+            const result = api.registerQualityGate((detail) => gate(detail.messageIndex));
+            off = typeof result === 'function' ? result : () => {};
+        } catch (error) {
+            this.log.warn('NAI_STUDIO_API.registerQualityGate failed', error);
+            return () => {};
+        }
+        const unregister = () => {
+            if (this.qualityGateOff === unregister) this.qualityGateOff = null;
+            try {
+                off();
+            } catch (error) {
+                this.log.warn('quality gate unregistration failed', error);
+            }
+        };
+        this.qualityGateOff = unregister;
+        return unregister;
     }
 
     /** `extension_settings.nai_studio` (live object, read-only for Maestro). */
