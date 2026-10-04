@@ -1,0 +1,180 @@
+// Doom's Enhancement Suite 2.6.0 (research/des.md). Found by its manifest; its ES modules are imported from the
+// URL of DES's own module script, exactly like DES-RU and NAI Studio do, so we get DES's live module instances.
+// `export let` values (extensionSettings, lastGeneratedData, …) are reassigned by DES on chat load: always read
+// them through the module namespace, never cache them.
+//
+// Capabilities:
+// - `des.present`  DES is installed, enabled in ST and its module script is on the page;
+// - `des.state`    core/state.js imported with `extensionSettings` (live settings, roster, aliases);
+// - `des.enabled`  DES's own on/off switch is on (`extensionSettings.enabled`);
+// - `des.together` tracker generation mode is `together` (JSON at the start of the main reply);
+// - `des.lore`     the Lore Library API module (lorebookAPI.js) is loaded, so its cache can be reset.
+import { desSwipeRecord, parseDesTracker } from '../../domain/des-tracker';
+import type { DesTrackerSnapshot } from '../../domain/des-tracker';
+import { NeighbourBase, hasElement, homePageHas, isDict, stringList } from '../base';
+import type { AdapterDeps, Dict, ExtensionManifest, ModuleNamespace } from '../base';
+
+export const DES_REPO = 'dangerdaza/dooms-enhancement-suite';
+export const DES_DISPLAY_NAME = "Doom's Enhancement Suite";
+export const DES_KNOWN_NAMES = ['third-party/Dooms-Enhancement-Suite'] as const;
+export const DES_VERIFIED_VERSIONS = ['2.6.0'] as const;
+
+/** DES modules relative to its script; `required` exports are checked by type. */
+export const DES_MODULES = {
+    state: { path: 'src/core/state.js', required: { extensionSettings: 'object' } },
+    persistence: { path: 'src/core/persistence.js', required: { saveSettings: 'function', saveChatData: 'function' } },
+    // Statically reachable from DES only through lazy modules; its top level just creates a cache Map, so importing
+    // it early is harmless and gives the instance the Lore Library will use.
+    lorebookApi: { path: 'src/systems/lorebook/lorebookAPI.js', required: { invalidateWICache: 'function' } },
+} as const;
+
+export const DES_KEYS = {
+    chatMetadata: 'dooms_tracker',
+    swipeData: 'dooms_tracker_swipes',
+    updateCompleteEvent: 'dooms_tracker_update_complete',
+} as const;
+
+export const DES_SELECTORS = {
+    /** DES's drawer toggle in the Extensions panel: present once DES has loaded its settings. */
+    drawerToggle: '#rpg-extension-enabled',
+    /** While open, the Workshop overwrites aliases, injection, appearance and relationship on save (research §8.10). */
+    workshopOpen: '#character-workshop-popup.is-open',
+} as const;
+
+export type DesGenerationMode = 'together' | 'separate' | 'external';
+
+export function isDesManifest(manifest: ExtensionManifest): boolean {
+    return homePageHas(manifest, DES_REPO) || manifest.display_name === DES_DISPLAY_NAME;
+}
+
+function hasExports(namespace: ModuleNamespace, required: Record<string, string>): boolean {
+    return Object.entries(required).every(
+        ([name, type]) => typeof namespace[name] === type && namespace[name] !== null,
+    );
+}
+
+export class DesAdapter extends NeighbourBase<'des'> {
+    readonly id = 'des' as const;
+    private modules: Partial<Record<keyof typeof DES_MODULES, ModuleNamespace>> = {};
+
+    constructor(deps: AdapterDeps) {
+        super(deps);
+        this.capability('des.present', () => this.present());
+        this.capability('des.state', () => this.present() && !!this.modules.state);
+        this.capability('des.enabled', () => this.present() && this.enabled());
+        this.capability('des.together', () => this.present() && this.generationMode() === 'together');
+        this.capability('des.lore', () => this.present() && !!this.modules.lorebookApi);
+    }
+
+    present(): boolean {
+        return this.enabledInSt() && (this.scriptUrl() !== null || hasElement(DES_SELECTORS.drawerToggle));
+    }
+
+    /** True when the installed version is one Maestro was checked against. */
+    verified(): boolean {
+        const version = this.version();
+        return version !== undefined && (DES_VERIFIED_VERSIONS as readonly string[]).includes(version);
+    }
+
+    protected async connect(): Promise<boolean> {
+        await this.locate(isDesManifest, DES_KNOWN_NAMES);
+        if (!this.located || !this.enabledInSt()) return true;
+        const script = this.scriptUrl();
+        if (!script) return false; // ST has not put DES on the page yet: retry on the next ready()
+        for (const [key, spec] of Object.entries(DES_MODULES) as [
+            keyof typeof DES_MODULES,
+            (typeof DES_MODULES)[keyof typeof DES_MODULES],
+        ][]) {
+            if (this.modules[key]) continue;
+            try {
+                const namespace = await this.deps.importModule(new URL(spec.path, script).href);
+                if (hasExports(namespace, spec.required)) this.modules[key] = namespace;
+                else this.log.warn(`${spec.path} lacks ${Object.keys(spec.required).join(', ')}`);
+            } catch (error) {
+                this.log.warn(`${spec.path} did not load`, error);
+            }
+        }
+        return true;
+    }
+
+    /**
+     * DES's live settings object (state.js), or the saved blob `extension_settings[<name>]` when state.js is not
+     * imported. Read-only for Maestro in stage 0.
+     */
+    settings(): Dict | null {
+        const live = this.modules.state?.extensionSettings;
+        if (isDict(live)) return live;
+        const saved = this.located ? this.host.ctx().extensionSettings[this.located.name] : undefined;
+        return isDict(saved) ? saved : null;
+    }
+
+    /** DES's own switch (on unless explicitly false). */
+    enabled(): boolean {
+        return this.settings()?.enabled !== false;
+    }
+
+    generationMode(): DesGenerationMode {
+        const mode = this.settings()?.generationMode;
+        return mode === 'separate' || mode === 'external' ? mode : 'together';
+    }
+
+    /**
+     * Parsed tracker of a chat message for its current swipe: `extra.dooms_tracker_swipes[swipe_id]`, falling back
+     * to `swipe_info[swipe_id].extra…` like DES does. Null for user messages, out-of-range indexes and messages
+     * without tracker data. The result is a fresh object, never shared with DES.
+     */
+    trackerFor(messageIndex: number): DesTrackerSnapshot | null {
+        const message = this.host.ctx().chat[messageIndex];
+        const record = desSwipeRecord(message);
+        return record ? parseDesTracker(record) : null;
+    }
+
+    /**
+     * Names in this chat's DES roster (`chat_metadata.dooms_tracker.knownCharacters`; DES forces per-chat roster
+     * tracking). Includes absent and hidden characters; see `removedCharacters()`.
+     */
+    knownCharacters(): string[] {
+        const roster = this.chatState()?.knownCharacters;
+        return isDict(roster) ? Object.keys(roster) : [];
+    }
+
+    /** Names hidden from "Present Characters" in this chat (DES compares them case-insensitively). */
+    removedCharacters(): string[] {
+        return stringList(this.chatState()?.removedCharacters);
+    }
+
+    /** Canonical aliases `{card name: [aliases]}` (global DES setting), as a copy. */
+    aliases(): Record<string, string[]> {
+        const map = this.settings()?.characterAliases;
+        const copy: Record<string, string[]> = {};
+        if (!isDict(map)) return copy;
+        for (const [canonical, list] of Object.entries(map)) {
+            if (Array.isArray(list)) copy[canonical] = list.map(String);
+        }
+        return copy;
+    }
+
+    /** The Workshop is open: Maestro must not write DES stores until it closes (plan §10.8). */
+    isWorkshopOpen(): boolean {
+        return hasElement(DES_SELECTORS.workshopOpen);
+    }
+
+    /**
+     * Drops one book from the Lore Library cache after Maestro saved it (DES ignores WORLDINFO_UPDATED and would
+     * otherwise save its stale copy over ours). No-op when the module is not loaded.
+     */
+    invalidateLoreCache(bookName: string): void {
+        const invalidate = this.modules.lorebookApi?.invalidateWICache;
+        if (typeof invalidate !== 'function') return;
+        try {
+            (invalidate as (name: string) => void)(bookName);
+        } catch (error) {
+            this.log.warn('Lore Library cache reset failed', error);
+        }
+    }
+
+    private chatState(): Dict | null {
+        const state = this.host.ctx().chatMetadata[DES_KEYS.chatMetadata];
+        return isDict(state) ? state : null;
+    }
+}

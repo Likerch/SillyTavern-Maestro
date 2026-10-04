@@ -1,0 +1,44 @@
+{
+  "name": "sillytavern-maestro",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Conductor extension for SillyTavern: one canon, one prompt, one UI over the whole extension stack",
+  "license": "AGPL-3.0-only",
+  "author": "Likerchik",
+  "type": "module",
+  "engines": {
+    "node": ">=20.19"
+  },
+  "scripts": {
+    "build": "tsc --noEmit && vite build",
+    "dev": "vite build --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "coverage": "vitest run --coverage",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "check": "npm run typecheck && npm run lint && npm run test",
+    "deploy:local": "node tools/deploy-local.mjs",
+    "stand": "node tools/stand/stand.mjs",
+    "mock-llm": "node tools/mock-llm/server.mjs"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/lodash": "^4.17.20",
+    "@types/node": "^24.0.0",
+    "@vitest/coverage-v8": "^5.0.3",
+    "eslint": "^10.11.0",
+    "eslint-import-resolver-typescript": "^4.4.5",
+    "eslint-plugin-import-x": "^4.17.1",
+    "globals": "^17.13.0",
+    "happy-dom": "^20.0.0",
+    "lodash": "^4.17.21",
+    "prettier": "^3.6.0",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.71.0",
+    "vite": "^8.3.2",
+    "vitest": "^5.0.3"
+  }
+}

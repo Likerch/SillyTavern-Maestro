@@ -1,0 +1,91 @@
+# Maestro — architecture and code conventions
+
+This file is the contract for everyone writing Maestro code (humans and agents). The functional plan is
+[`plan.md`](plan.md), the build order is [`dev-plan.md`](dev-plan.md), host facts are in [`research/`](research/).
+
+## Layers
+
+| Folder | Role | May import |
+|---|---|---|
+| `src/shared/` | `contracts.ts` (all service interfaces, `App`, `MaestroModule`) and constants | nothing |
+| `src/domain/` | pure logic: no DOM, network, `SillyTavern`, `console` | `shared` |
+| `src/host/` | the only door to SillyTavern: context, events with ordering, runtime imports of ST modules, capabilities, fetch gate | `shared`, `domain` |
+| `src/core/` | services: settings, i18n, logger, files, chat store, leader, tasks, LLM client, cost, journal, autonomy, inbox, ephemeral, bus, turn pipeline | `shared`, `domain`, `host` |
+| `src/adapters/<id>/` | one neighbour extension each (des, desru, ck, bunnymo, qvink, nai, localizer, preset) | `shared`, `domain`, `host`, `core` |
+| `src/ui/` | generic components, pult shell, styles | `shared`, `domain`, `host`, `core` |
+| `src/features/<key>/` | modules M1–M35 | everything except `app` |
+| `src/app/` | wiring: builds the `App`, registers modules, lifecycle | everything |
+
+ESLint enforces these zones (`npm run lint`).
+
+## Modules
+
+Every plan module is a `MaestroModule` (see `src/shared/contracts.ts`) in `src/features/<key>/index.ts`:
+
+```ts
+export const loreJournal: MaestroModule<LoreJournalSettings> = {
+    id: 'M1', key: 'loreJournal', stage: 1, titleKey: 'm1.title', enabledByDefault: true,
+    defaults: () => ({ keepTurns: 200 }),
+    requires: ['st.wi.scanDone'],
+    i18n: { en: {...}, ru: {...} },
+    init({ app, settings, log, own }) { own(app.host.events.on('...', handler)); },
+};
+```
+
+Rules:
+- **Everything a module registers must be released when it is disabled.** Wrap every listener, tab, style,
+  slash command, injection producer and timer with `own(...)`. A disabled module leaves no trace (P11).
+- Modules talk to each other only through `app.modules.expose(key, api)` / `app.modules.api<T>(key)` or the
+  Maestro bus (`app.bus`). No imports of another feature's internals; a feature may import another feature's
+  `api.ts` *types* only.
+- Settings slice: `defaults()` returns the full slice; stored at `extensionSettings.maestro.modules[key]`.
+  Never store large data in settings — use `app.chat` (per-chat documents) or `app.files`.
+- Strings: every user-visible string goes through `app.i18n.t('m1.something')`. Keys are prefixed by module id
+  in lower case (`m1.`, `m22.`), core uses `core.`, ui uses `ui.`. Provide both `en` and `ru` (Russian is the
+  primary UI language; write natural Russian, no calques). The user is male: address him with masculine or
+  neutral forms.
+- No direct `SillyTavern.getContext()` outside `src/host`; use `app.host.ctx()`. Never cache the context
+  object (it is rebuilt on every call; `chatMetadata` is reassigned on chat load).
+- ST modules not exposed in the context are loaded through `app.host.modules.*` and must be guarded by a
+  capability (`app.host.caps.register(id, probe)`), so a different ST version degrades instead of crashing.
+- Autonomy: any change to user-visible data goes through `app.autonomy.decide(proposal, defaultLevel)` and is
+  recorded in `app.journal` with an undo handler for its target type.
+- Ephemeral prompt changes (flags, injections) go through `app.ephemeral`; they are cleared after every
+  generation.
+- Performance: nothing heavy on the send path (P15). Listeners on `WORLDINFO_ENTRIES_LOADED` /
+  `WORLDINFO_SCAN_DONE` must be idempotent and cheap; cache by entry hash.
+
+## Neighbour rules (from plan §10, summarised)
+
+- Interceptor: never `structuredClone` prompt entries, never mutate shared `extra` in place — copy
+  (`{...entry, extra: {...entry.extra}}`) and keep symbol keys.
+- Do not take first place on `MESSAGE_RECEIVED`; Maestro's reply handling runs after DES, DES-RU and NAI Studio
+  (use `app.bus` event `reply:ready`).
+- WI copies in scan events: assign new values, never mutate nested arrays (`key`, `keysecondary`,
+  `characterFilter`, `triggers`) — they alias ST's cache.
+- Lorebook writes: `saveWorldInfo(name, data, true)` only, then `reloadWorldInfoEditor(name)` and reset DES
+  Lore Library cache (adapter `des.invalidateLoreCache(name)`).
+- Never call CarrotKernel `initializeSheetGenerator`. Never rename `<Name:…>` in archives.
+- Never write DES stores while `#character-workshop-popup.is-open`.
+- `nai_studio` card field: merge only, keep passport ids.
+- Never use `/bg`; never toggle neighbour settings for quiet modes — suppress at prompt assembly instead.
+- BunnyMo packs: never edit files, never add Russian keys, only technical runtime fixes (P13).
+- Style neighbour DOM only with stylesheets (never inline styles on DES nodes).
+
+## Tests
+
+- `tests/domain/**` — unit tests for `src/domain` (coverage ≥ 90 %).
+- `tests/core/**`, `tests/features/**` — integration with the ST mock in `tests/helpers/st-mock.ts`
+  (happy-dom when DOM is needed: `// @vitest-environment happy-dom`).
+- `tools/mock-llm` + `tools/stand` — live checks on a local SillyTavern 1.19 (see dev-plan §2).
+
+## Style
+
+TypeScript strict, 4 spaces, single quotes, 120 columns (Prettier). Comments explain *why* (host quirks,
+ordering constraints) with references to `docs/research/*.md` where useful. File names kebab-case.
+CSS classes prefixed `maestro-`; CSS custom properties `--maestro-*`.
+
+## Commits
+
+Authored by the repository owner only (git config), short English messages, no AI attribution lines.
+One commit per stage at minimum (`Stage N: …`), tag `stage-N`.

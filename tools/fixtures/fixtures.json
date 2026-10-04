@@ -1,0 +1,145 @@
+{
+    "generatedBy": "tools/fixtures/make-fixtures.mjs",
+    "user": {
+        "name": "Кай"
+    },
+    "characters": [
+        {
+            "card": "characters/silver-harbor.json",
+            "avatar": "Silver_Harbor_Chronicles.png",
+            "colors": {
+                "top": [
+                    38,
+                    62,
+                    96
+                ],
+                "bottom": [
+                    196,
+                    160,
+                    110
+                ]
+            },
+            "activeChat": "reference-320",
+            "chats": [
+                {
+                    "file": "chats/reference-320.jsonl",
+                    "name": "reference-320",
+                    "messages": 648,
+                    "turns": 320
+                },
+                {
+                    "file": "chats/short-sheet.jsonl",
+                    "name": "short-sheet",
+                    "messages": 11,
+                    "turns": 5
+                }
+            ]
+        }
+    ],
+    "worlds": [
+        {
+            "file": "worlds/Velmar Reaches.json",
+            "name": "Velmar Reaches",
+            "global": false,
+            "note": "linked to the card"
+        },
+        {
+            "file": "worlds/Архив персонажей (стенд).json",
+            "name": "Архив персонажей (стенд)",
+            "global": true,
+            "ckRepo": true
+        }
+    ],
+    "images": [
+        {
+            "path": "user/images/Хроники Серебряной Гавани/maestro-fixture-1.png",
+            "width": 64,
+            "height": 96,
+            "top": [
+                50,
+                60,
+                110
+            ],
+            "bottom": [
+                220,
+                175,
+                140
+            ]
+        },
+        {
+            "path": "user/images/Хроники Серебряной Гавани/maestro-fixture-2.png",
+            "width": 64,
+            "height": 96,
+            "top": [
+                70,
+                60,
+                110
+            ],
+            "bottom": [
+                220,
+                160,
+                140
+            ]
+        },
+        {
+            "path": "user/images/Хроники Серебряной Гавани/maestro-fixture-3.png",
+            "width": 64,
+            "height": 96,
+            "top": [
+                90,
+                60,
+                110
+            ],
+            "bottom": [
+                220,
+                145,
+                140
+            ]
+        },
+        {
+            "path": "user/images/Хроники Серебряной Гавани/maestro-fixture-4.png",
+            "width": 64,
+            "height": 96,
+            "top": [
+                110,
+                60,
+                110
+            ],
+            "bottom": [
+                220,
+                130,
+                140
+            ]
+        },
+        {
+            "path": "user/images/Хроники Серебряной Гавани/maestro-fixture-5.png",
+            "width": 64,
+            "height": 96,
+            "top": [
+                130,
+                60,
+                110
+            ],
+            "bottom": [
+                220,
+                115,
+                140
+            ]
+        },
+        {
+            "path": "user/images/Хроники Серебряной Гавани/maestro-fixture-6.png",
+            "width": 64,
+            "height": 96,
+            "top": [
+                150,
+                60,
+                110
+            ],
+            "bottom": [
+                220,
+                100,
+                140
+            ]
+        }
+    ]
+}

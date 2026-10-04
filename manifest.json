@@ -1,0 +1,23 @@
+{
+  "display_name": "Maestro",
+  "loading_order": 200,
+  "requires": [],
+  "optional": [],
+  "js": "dist/index.js",
+  "css": "dist/style.css",
+  "generate_interceptor": "MAESTRO_Intercept",
+  "author": "Likerchik",
+  "version": "0.0.0",
+  "homePage": "https://github.com/Likerch/SillyTavern-Maestro",
+  "auto_update": true,
+  "minimum_client_version": "1.19.0",
+  "hooks": {
+    "activate": "onActivate",
+    "install": "onInstall",
+    "update": "onUpdate",
+    "delete": "onDelete",
+    "clean": "onClean",
+    "enable": "onEnable",
+    "disable": "onDisable"
+  }
+}

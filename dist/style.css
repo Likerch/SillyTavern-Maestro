@@ -1,0 +1,1111 @@
+/*
+ * Maestro UI. Every class is prefixed `maestro-`; custom properties are `--maestro-*`.
+ * Colours, blur, shadow and font scale come from the ST theme (SmartTheme variables); radii, spacing and
+ * icons are Maestro's own (plan M32). Phones: ST's breakpoint, max-width 1000px.
+ */
+
+:root {
+    --maestro-text: var(--SmartThemeBodyColor, rgb(220, 220, 210));
+    --maestro-muted: var(--SmartThemeEmColor, rgb(145, 145, 145));
+    --maestro-accent: var(--SmartThemeQuoteColor, rgb(225, 138, 36));
+    --maestro-border: var(--SmartThemeBorderColor, rgba(0, 0, 0, 0.5));
+    --maestro-surface: var(--SmartThemeBlurTintColor, rgb(23, 23, 23));
+    --maestro-shadow: var(--SmartThemeShadowColor, rgba(0, 0, 0, 0.5));
+    --maestro-raised: color-mix(in srgb, var(--maestro-text) 6%, transparent);
+    --maestro-raised-strong: color-mix(in srgb, var(--maestro-text) 12%, transparent);
+    --maestro-accent-soft: color-mix(in srgb, var(--maestro-accent) 18%, transparent);
+    --maestro-ok: rgb(88, 182, 0);
+    --maestro-warn: rgb(230, 170, 40);
+    --maestro-error: rgb(225, 80, 80);
+    --maestro-info: var(--maestro-accent);
+    --maestro-font-size: var(--mainFontSize, 15px);
+    --maestro-radius: 10px;
+    --maestro-radius-sm: 6px;
+    --maestro-gap: 12px;
+    --maestro-gap-sm: 6px;
+    --maestro-tap: 44px;
+    --maestro-duration: var(--animation-duration, 125ms);
+}
+
+/* `hidden` must win over the display rules below. */
+.maestro-theme [hidden],
+.maestro-topbar-badge[hidden],
+.maestro-tab-badge[hidden] {
+    display: none !important;
+}
+
+.maestro-sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+}
+
+.maestro-muted {
+    color: var(--maestro-muted);
+    font-size: 0.9em;
+}
+
+.maestro-hint,
+.maestro-field-hint {
+    color: var(--maestro-muted);
+    font-size: 0.85em;
+}
+
+.maestro-warn-text {
+    color: var(--maestro-warn);
+}
+
+.maestro-error-text {
+    color: var(--maestro-error);
+    overflow-wrap: anywhere;
+}
+
+.maestro-grow {
+    flex: 1;
+}
+
+.maestro-row,
+.maestro-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--maestro-gap-sm);
+}
+
+/* ------------------------------------------------------------------ entry points */
+
+.maestro-topbar-toggle {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--maestro-radius-sm);
+}
+
+.maestro-topbar-toggle:focus-visible {
+    outline: 2px solid var(--maestro-accent);
+    outline-offset: 2px;
+}
+
+.maestro-topbar:has(.maestro-topbar-badge:not([hidden])) .drawer-icon {
+    opacity: 0.85;
+}
+
+.maestro-topbar-badge {
+    position: absolute;
+    top: -2px;
+    right: -6px;
+    min-width: 1.35em;
+    height: 1.35em;
+    padding: 0 0.35em;
+    border-radius: 999px;
+    background: var(--maestro-accent);
+    color: var(--maestro-surface);
+    font-size: calc(var(--maestro-font-size) * 0.7);
+    font-weight: 700;
+    line-height: 1.35em;
+    text-align: center;
+    pointer-events: none;
+    box-shadow: 0 0 4px var(--maestro-shadow);
+}
+
+.maestro-topbar-badge.maestro-urgent {
+    background: var(--maestro-error);
+    color: #fff;
+}
+
+.maestro-ext-content {
+    display: flex;
+    flex-direction: column;
+    gap: var(--maestro-gap-sm);
+    padding: var(--maestro-gap-sm) 0;
+}
+
+.maestro-ext-text {
+    font-size: 0.9em;
+    opacity: 0.85;
+}
+
+.maestro-ext-open {
+    align-self: flex-start;
+}
+
+/* ------------------------------------------------------------------ pult and wizard dialogs */
+
+.popup.maestro-pult-dialog {
+    width: min(1120px, 94dvw);
+    padding: 0;
+    overflow: hidden;
+}
+
+.popup.maestro-wizard-dialog {
+    width: min(720px, 94dvw);
+    padding: 0;
+}
+
+.popup.maestro-pult-dialog .popup-content,
+.popup.maestro-wizard-dialog .popup-content {
+    margin: 0;
+    padding: 0;
+    display: flex;
+    min-height: 0;
+    text-align: start;
+}
+
+/* ST shows its close button with an inline style for DISPLAY popups; ours is in the header. */
+.popup.maestro-pult-dialog .popup-button-close,
+.popup.maestro-wizard-dialog .popup-button-close {
+    display: none !important;
+}
+
+.maestro-pult {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    color: var(--maestro-text);
+    font-size: var(--maestro-font-size);
+}
+
+.maestro-pult-header {
+    display: flex;
+    align-items: center;
+    gap: var(--maestro-gap);
+    padding: 8px 10px 8px 16px;
+    border-bottom: 1px solid var(--maestro-border);
+}
+
+.maestro-pult-brand {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+    min-width: 0;
+    color: var(--maestro-accent);
+}
+
+.maestro-pult-title {
+    margin: 0;
+    padding: 0;
+    font-size: 1.15em;
+    color: var(--maestro-text);
+}
+
+.maestro-pult-main {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+}
+
+.maestro-tabs {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    width: 210px;
+    flex-shrink: 0;
+    padding: 10px 8px;
+    overflow-y: auto;
+    border-right: 1px solid var(--maestro-border);
+}
+
+.maestro-tab {
+    appearance: none;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 8px 10px;
+    border: 0;
+    border-radius: var(--maestro-radius-sm);
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: start;
+    cursor: pointer;
+    opacity: 0.8;
+    transition:
+        background-color var(--maestro-duration),
+        opacity var(--maestro-duration);
+}
+
+.maestro-tab:hover {
+    background: var(--maestro-raised);
+    opacity: 1;
+}
+
+.maestro-tab.maestro-on {
+    background: var(--maestro-accent-soft);
+    box-shadow: inset 3px 0 0 var(--maestro-accent);
+    opacity: 1;
+}
+
+.maestro-tab:focus-visible {
+    outline: 2px solid var(--maestro-accent);
+    outline-offset: -2px;
+}
+
+.maestro-tab-label {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.maestro-tab-badge {
+    min-width: 1.6em;
+    padding: 0 6px;
+    border-radius: 999px;
+    background: var(--maestro-accent);
+    color: var(--maestro-surface);
+    font-size: 0.8em;
+    font-weight: 700;
+    text-align: center;
+}
+
+.maestro-tabs-picker {
+    display: none;
+}
+
+.maestro-pult-body {
+    flex: 1;
+    min-width: 0;
+    padding: 14px 18px 24px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+
+.maestro-pult-body:focus {
+    outline: none;
+}
+
+/* ------------------------------------------------------------------ buttons and controls */
+
+.maestro-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    width: auto;
+    margin: 0;
+    font: inherit;
+    font-size: 0.95em;
+    white-space: nowrap;
+}
+
+.maestro-btn-primary {
+    background-color: color-mix(in srgb, var(--maestro-accent) 32%, transparent);
+    border-color: color-mix(in srgb, var(--maestro-accent) 60%, transparent);
+}
+
+.maestro-btn-danger:hover {
+    background-color: color-mix(in srgb, var(--maestro-error) 30%, transparent);
+}
+
+.maestro-btn-ghost {
+    background-color: transparent;
+    border-color: transparent;
+}
+
+.maestro-btn-ghost:hover {
+    background-color: var(--maestro-raised-strong);
+}
+
+.maestro-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    filter: none;
+}
+
+.maestro-btn.maestro-busy {
+    cursor: progress;
+}
+
+.maestro-field {
+    display: grid;
+    grid-template-columns: minmax(160px, 1fr) minmax(180px, 1.4fr);
+    align-items: center;
+    column-gap: var(--maestro-gap);
+    row-gap: 2px;
+}
+
+.maestro-field-label {
+    overflow-wrap: anywhere;
+}
+
+.maestro-field-control > .text_pole {
+    width: 100%;
+    margin: 0;
+}
+
+.maestro-field-hint {
+    grid-column: 1 / -1;
+}
+
+.maestro-toggle {
+    margin: 0;
+}
+
+.maestro-segmented {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.maestro-segment {
+    flex: 1;
+}
+
+.maestro-segment.maestro-on {
+    background-color: var(--maestro-accent-soft);
+    border-color: var(--maestro-accent);
+}
+
+/* ------------------------------------------------------------------ layout blocks */
+
+.maestro-view {
+    display: flex;
+    flex-direction: column;
+    gap: var(--maestro-gap);
+}
+
+.maestro-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: var(--maestro-gap);
+}
+
+.maestro-section {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px 12px;
+    border: 1px solid var(--maestro-border);
+    border-radius: var(--maestro-radius);
+    background: var(--maestro-raised);
+}
+
+.maestro-section-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--maestro-gap-sm);
+}
+
+.maestro-section-title {
+    margin: 0;
+    font-size: 1em;
+    font-weight: 600;
+}
+
+.maestro-section-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--maestro-gap-sm);
+}
+
+.maestro-section-actions .text_pole {
+    width: auto;
+    margin: 0;
+}
+
+.maestro-section-body {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.maestro-kv {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--maestro-gap);
+}
+
+.maestro-empty {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 4px;
+    color: var(--maestro-muted);
+}
+
+.maestro-banner {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    border-radius: var(--maestro-radius-sm);
+    border-left: 3px solid var(--maestro-level, var(--maestro-accent));
+    background: color-mix(in srgb, var(--maestro-level, var(--maestro-accent)) 12%, transparent);
+}
+
+.maestro-level-ok {
+    --maestro-level: var(--maestro-ok);
+}
+
+.maestro-level-info {
+    --maestro-level: var(--maestro-info);
+}
+
+.maestro-level-warn {
+    --maestro-level: var(--maestro-warn);
+}
+
+.maestro-level-error {
+    --maestro-level: var(--maestro-error);
+}
+
+.maestro-level-muted {
+    --maestro-level: var(--maestro-muted);
+}
+
+.maestro-badge-pill {
+    display: inline-block;
+    padding: 1px 8px;
+    border-radius: 999px;
+    border: 1px solid var(--maestro-level, var(--maestro-border));
+    color: var(--maestro-level, inherit);
+    font-size: 0.82em;
+    white-space: nowrap;
+}
+
+.maestro-lamp {
+    display: inline-block;
+    flex-shrink: 0;
+    width: 0.7em;
+    height: 0.7em;
+    border-radius: 50%;
+    background: var(--maestro-muted);
+}
+
+.maestro-lamp-ok {
+    background: var(--maestro-ok);
+    box-shadow: 0 0 6px color-mix(in srgb, var(--maestro-ok) 60%, transparent);
+}
+
+.maestro-lamp-warn {
+    background: var(--maestro-warn);
+}
+
+.maestro-lamp-error {
+    background: var(--maestro-error);
+}
+
+.maestro-lamp-off {
+    background: transparent;
+    border: 1px solid var(--maestro-muted);
+}
+
+/* ------------------------------------------------------------------ cards (Inbox) */
+
+.maestro-cards {
+    display: flex;
+    flex-direction: column;
+    gap: var(--maestro-gap);
+}
+
+.maestro-card {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px 12px;
+    border: 1px solid var(--maestro-border);
+    border-left: 3px solid var(--maestro-level, var(--maestro-accent));
+    border-radius: var(--maestro-radius);
+    background: var(--maestro-surface);
+}
+
+.maestro-card-head {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.maestro-card-title {
+    font-weight: 600;
+}
+
+.maestro-card-subtitle {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--maestro-gap-sm);
+}
+
+.maestro-card-body {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.maestro-card-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--maestro-gap-sm);
+}
+
+/* ------------------------------------------------------------------ diff */
+
+.maestro-change {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.maestro-change-head {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    font-size: 0.85em;
+    color: var(--maestro-muted);
+}
+
+.maestro-change-target {
+    font-weight: 600;
+}
+
+.maestro-diff {
+    padding: 6px 8px;
+    border-radius: var(--maestro-radius-sm);
+    background: var(--maestro-raised);
+    font-size: 0.92em;
+    overflow-wrap: anywhere;
+}
+
+.maestro-diff-text {
+    white-space: pre-wrap;
+}
+
+.maestro-diff-add {
+    background: color-mix(in srgb, var(--maestro-ok) 22%, transparent);
+    text-decoration: none;
+    border-radius: 3px;
+}
+
+.maestro-diff-del {
+    background: color-mix(in srgb, var(--maestro-error) 22%, transparent);
+    text-decoration: line-through;
+    text-decoration-color: color-mix(in srgb, var(--maestro-error) 70%, transparent);
+    border-radius: 3px;
+}
+
+/* "RomeParis" → "Rome Paris": a visual gap between a removed and the added replacement (no text change). */
+.maestro-diff-del + .maestro-diff-add {
+    margin-inline-start: 0.3em;
+}
+
+.maestro-diff-none {
+    color: var(--maestro-muted);
+}
+
+.maestro-diff-pair {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+
+.maestro-diff-label {
+    font-size: 0.8em;
+    color: var(--maestro-muted);
+}
+
+.maestro-diff-value {
+    margin: 0;
+    padding: 4px 6px;
+    white-space: pre-wrap;
+    font-family: var(--monoFontFamily, monospace);
+    font-size: 0.9em;
+}
+
+.maestro-diff-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.maestro-diff-row {
+    display: grid;
+    grid-template-columns: minmax(90px, 0.35fr) 1fr;
+    gap: 8px;
+}
+
+.maestro-diff-path {
+    font-family: var(--monoFontFamily, monospace);
+    font-size: 0.85em;
+    color: var(--maestro-muted);
+    overflow-wrap: anywhere;
+}
+
+.maestro-diff-cell {
+    white-space: pre-wrap;
+    min-width: 0;
+}
+
+.maestro-diff-same > summary {
+    cursor: pointer;
+    color: var(--maestro-muted);
+    font-size: 0.85em;
+}
+
+/* ------------------------------------------------------------------ tables */
+
+.maestro-table-wrap {
+    overflow-x: auto;
+}
+
+.maestro-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.92em;
+}
+
+.maestro-table th,
+.maestro-table td {
+    padding: 5px 8px;
+    border-bottom: 1px solid var(--maestro-border);
+    text-align: start;
+    vertical-align: top;
+}
+
+.maestro-table th {
+    color: var(--maestro-muted);
+    font-weight: 600;
+}
+
+.maestro-table .maestro-num {
+    text-align: end;
+    font-variant-numeric: tabular-nums;
+}
+
+/* ------------------------------------------------------------------ overview */
+
+.maestro-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.maestro-stack-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+}
+
+.maestro-stack-name {
+    flex: 1;
+}
+
+.maestro-stack-missing {
+    flex-basis: 100%;
+    font-size: 0.85em;
+}
+
+.maestro-stack-missing summary {
+    cursor: pointer;
+    color: var(--maestro-warn);
+}
+
+.maestro-notices,
+.maestro-log {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.maestro-notice,
+.maestro-log-line {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 8px;
+    border-left: 3px solid var(--maestro-level, var(--maestro-border));
+    border-radius: var(--maestro-radius-sm);
+}
+
+.maestro-notice.maestro-urgent {
+    background: color-mix(in srgb, var(--maestro-level, var(--maestro-accent)) 10%, transparent);
+}
+
+.maestro-notice-time {
+    color: var(--maestro-muted);
+    font-size: 0.85em;
+    font-variant-numeric: tabular-nums;
+}
+
+.maestro-notice-text {
+    flex: 1;
+    min-width: 12em;
+    overflow-wrap: anywhere;
+}
+
+/* ------------------------------------------------------------------ journal, health */
+
+.maestro-journal-list,
+.maestro-checks {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.maestro-journal-row,
+.maestro-check {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 8px 10px;
+    border: 1px solid var(--maestro-border);
+    border-radius: var(--maestro-radius-sm);
+    background: var(--maestro-surface);
+}
+
+.maestro-journal-row.maestro-undone {
+    opacity: 0.6;
+}
+
+.maestro-journal-main,
+.maestro-check-main {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    flex: 1;
+    min-width: 0;
+}
+
+.maestro-journal-changes > summary {
+    cursor: pointer;
+    color: var(--maestro-muted);
+    font-size: 0.85em;
+}
+
+.maestro-check .maestro-lamp {
+    margin-top: 0.45em;
+}
+
+.maestro-check-title {
+    font-weight: 600;
+}
+
+.maestro-check-message {
+    overflow-wrap: anywhere;
+}
+
+.maestro-module-row {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+/* ------------------------------------------------------------------ confirm */
+
+.maestro-confirm {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    text-align: start;
+}
+
+.maestro-confirm-title {
+    margin: 0;
+}
+
+.maestro-confirm-body {
+    white-space: pre-wrap;
+}
+
+/* ------------------------------------------------------------------ wizard */
+
+.maestro-wizard {
+    display: flex;
+    flex-direction: column;
+    gap: var(--maestro-gap);
+    width: 100%;
+    min-height: 0;
+    padding: 14px 18px;
+    color: var(--maestro-text);
+}
+
+.maestro-wizard-head {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.maestro-wizard-title {
+    margin: 0;
+}
+
+.maestro-wizard-progress {
+    height: 4px;
+    border-radius: 2px;
+    background: var(--maestro-raised-strong);
+    overflow: hidden;
+}
+
+.maestro-wizard-progress-bar {
+    height: 100%;
+    width: 0;
+    background: var(--maestro-accent);
+    transition: width var(--maestro-duration) ease;
+}
+
+.maestro-wizard-body {
+    flex: 1;
+    min-height: 160px;
+    overflow-y: auto;
+}
+
+.maestro-wizard-hero {
+    font-size: 2.6em;
+    color: var(--maestro-accent);
+    text-align: center;
+}
+
+.maestro-wizard-foot {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--maestro-gap-sm);
+    padding-top: 10px;
+    border-top: 1px solid var(--maestro-border);
+}
+
+/* ------------------------------------------------------------------ message badges (in the chat) */
+
+.maestro-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    max-width: 22em;
+    padding: 1px 4px 1px 7px;
+    border: 1px solid color-mix(in srgb, var(--maestro-accent) 55%, transparent);
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--maestro-accent) 12%, transparent);
+    color: var(--maestro-accent);
+    font-size: 0.8em;
+    line-height: 1.5;
+    white-space: nowrap;
+}
+
+.maestro-badge-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.maestro-badge-action {
+    appearance: none;
+    flex-shrink: 0;
+    padding: 0 8px;
+    border: 0;
+    border-radius: 999px;
+    background: var(--maestro-accent);
+    color: var(--maestro-surface);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.maestro-badge-action:focus-visible {
+    outline: 2px solid var(--maestro-text);
+    outline-offset: 1px;
+}
+
+#chat .mes.maestro-flash {
+    animation: maestro-flash 1.5s ease-out;
+}
+
+@keyframes maestro-flash {
+    0%,
+    30% {
+        box-shadow: inset 0 0 0 2px var(--maestro-accent);
+        background-color: var(--maestro-accent-soft);
+    }
+
+    100% {
+        box-shadow: inset 0 0 0 2px transparent;
+    }
+}
+
+/* ------------------------------------------------------------------ phones (ST breakpoint) */
+
+@media screen and (max-width: 1000px) {
+    .popup.maestro-pult-dialog,
+    .popup.maestro-pult-dialog.large_dialogue_popup,
+    .popup.maestro-wizard-dialog {
+        width: 100dvw !important;
+        min-width: 100dvw !important;
+        max-width: 100dvw !important;
+        height: 100dvh !important;
+        max-height: 100dvh !important;
+        margin: 0;
+        border: 0;
+        border-radius: 0;
+    }
+
+    .popup.maestro-pult-dialog .popup-body,
+    .popup.maestro-wizard-dialog .popup-body {
+        max-height: 100dvh;
+    }
+
+    .maestro-pult-header {
+        gap: 8px;
+        padding: 6px 6px 6px 10px;
+        padding-top: max(6px, env(safe-area-inset-top));
+    }
+
+    .maestro-pult-brand {
+        flex: 0 0 auto;
+    }
+
+    .maestro-pult-title {
+        display: none;
+    }
+
+    .maestro-tabs {
+        display: none;
+    }
+
+    .maestro-tabs-picker {
+        display: block;
+        flex: 1;
+        min-width: 0;
+        min-height: var(--maestro-tap);
+        margin: 0;
+        font-size: 1em;
+    }
+
+    .maestro-pult-body {
+        padding: 10px 10px calc(24px + env(safe-area-inset-bottom));
+    }
+
+    .maestro-btn,
+    .maestro-tab,
+    .maestro-segment,
+    .maestro-pult .text_pole,
+    .maestro-wizard .text_pole {
+        min-height: var(--maestro-tap);
+    }
+
+    .maestro-pult-close {
+        min-width: var(--maestro-tap);
+        font-size: 1.2em;
+    }
+
+    .maestro-grid,
+    .maestro-field,
+    .maestro-diff-pair,
+    .maestro-diff-row {
+        grid-template-columns: 1fr;
+    }
+
+    .maestro-card-actions .maestro-btn {
+        flex: 1 1 auto;
+    }
+
+    .maestro-journal-row,
+    .maestro-check {
+        flex-wrap: wrap;
+    }
+
+    .maestro-journal-row > .maestro-btn,
+    .maestro-check > .maestro-btn {
+        flex: 1 1 100%;
+    }
+
+    .maestro-table thead {
+        display: none;
+    }
+
+    .maestro-table,
+    .maestro-table tbody,
+    .maestro-table tr,
+    .maestro-table td {
+        display: block;
+        width: 100%;
+    }
+
+    .maestro-table tr {
+        margin-bottom: 6px;
+        padding: 4px 8px;
+        border: 1px solid var(--maestro-border);
+        border-radius: var(--maestro-radius-sm);
+    }
+
+    .maestro-table td {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 3px 0;
+        border: 0;
+        text-align: end;
+    }
+
+    .maestro-table td::before {
+        content: attr(data-label);
+        color: var(--maestro-muted);
+        text-align: start;
+    }
+
+    .maestro-wizard {
+        padding: 10px;
+        padding-top: max(10px, env(safe-area-inset-top));
+        padding-bottom: max(10px, env(safe-area-inset-bottom));
+    }
+
+    .maestro-wizard-foot .maestro-btn {
+        flex: 1 1 auto;
+    }
+
+    .maestro-section,
+    .maestro-card {
+        padding: 8px;
+    }
+
+    .maestro-badge {
+        max-width: 18em;
+    }
+
+    .maestro-badge-action {
+        padding: 4px 10px;
+    }
+}
+
+@media (hover: none) {
+    .maestro-tab:hover {
+        background: transparent;
+    }
+
+    .maestro-tab.maestro-on:hover {
+        background: var(--maestro-accent-soft);
+    }
+}
+
+/* ------------------------------------------------------------------ reduced motion */
+
+@media (prefers-reduced-motion: reduce) {
+    .maestro-theme *,
+    .maestro-theme,
+    .maestro-badge,
+    .maestro-topbar *,
+    #chat .mes.maestro-flash {
+        animation: none !important;
+        transition: none !important;
+        scroll-behavior: auto !important;
+    }
+
+    #chat .mes.maestro-flash {
+        box-shadow: inset 0 0 0 2px var(--maestro-accent);
+    }
+}
+/*$vite$:1*/
