@@ -44,6 +44,10 @@ export const PROMPT_TOOLS = [
         '…» → `lore_turn` with `name` (then `dossier`, `knowledge_who`); «why was this turn expensive» → ' +
         '`cost_turn`; «what does this regex do» → `regex_explain`, then `regex_test` on a sample; what went into ' +
         'the prompt → `turn_prompt`.',
+    '- The story itself: what happens in the chat → `chat_read` (latest messages or a range) or `chat_search`; the ' +
+        'character card and its starting scenes (first message, alternate greetings) → `card_read`; the persona → ' +
+        '`persona_read`. «Propose mechanics for this chat/card» → `scenario_overview`, then one `mechanic_save` per ' +
+        'proposal (each is shown to the user as a card to confirm).',
     '- Use a write tool only when the user asked for that change or agreed to your suggestion. Every change is ' +
         'shown to the user as a before/after card and is applied only after the user confirms it. If the user ' +
         'declines, do not propose the same change again unless asked.',

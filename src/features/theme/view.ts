@@ -41,11 +41,14 @@ export function partLabel(app: App, part: ThemePart, skins: readonly NeighbourSk
     return app.i18n.t(own);
 }
 
-/** What a neighbour part restyles (`<titleKey>.hint` of its skin), if the skin has such a string. */
+/**
+ * What a part restyles: `<titleKey>.hint` of a neighbour's skin, or Maestro's `m32.theme.part.<part>.hint` (ST and
+ * the chat), if there is such a string.
+ */
 export function partHint(app: App, part: ThemePart, skins: readonly NeighbourSkin[]): string | undefined {
     const skin = skins.find((item) => item.id === part);
-    if (!skin?.titleKey) return undefined;
-    const key = `${skin.titleKey}.hint`;
+    const key = skin?.titleKey ? `${skin.titleKey}.hint` : skin ? '' : `m32.theme.part.${part}.hint`;
+    if (!key) return undefined;
     const hint = app.i18n.t(key);
     return hint && hint !== key ? hint : undefined;
 }

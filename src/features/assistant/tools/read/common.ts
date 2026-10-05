@@ -123,6 +123,21 @@ export function when(at: unknown): string | undefined {
     return typeof at === 'number' && Number.isFinite(at) && at > 0 ? new Date(at).toISOString() : undefined;
 }
 
+/**
+ * Builds an output at full size, then smaller (the scale × 0.75 per step) until its JSON fits `max` characters or the
+ * scale reaches `floor`; the last build is returned with the scale it used. For tools whose answer is mostly long
+ * texts (chat messages, card fields) and must fit the core's result cap whole.
+ */
+export function fitToSize<T>(build: (scale: number) => T, max: number, floor = 0.1): { data: T; scale: number } {
+    let scale = 1;
+    let data = build(scale);
+    while (JSON.stringify(data).length > max && scale > floor) {
+        scale = Math.max(floor, scale * 0.75);
+        data = build(scale);
+    }
+    return { data, scale };
+}
+
 /** Drops undefined members (smaller JSON). */
 export function compact<T extends Dict>(object: T): T {
     for (const key of Object.keys(object)) if (object[key] === undefined) delete object[key];

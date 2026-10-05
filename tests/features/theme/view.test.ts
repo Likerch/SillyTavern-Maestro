@@ -64,6 +64,11 @@ describe('settings section «Оформление»', () => {
         expect(container.querySelector('label[data-part="des"]')?.getAttribute('title')).toBe(
             'Scene headers and windows',
         );
+        // ST and the chat explain themselves with Maestro's own hints (the clean previews included).
+        expect(container.querySelector('label[data-part="st"]')?.getAttribute('title')).toContain('DES tracker');
+        expect(container.querySelector('label[data-part="chat"]')?.getAttribute('title')).toContain('message box');
+        // A neighbour without a hint has none.
+        expect(container.querySelector('label[data-part="qvink"]')?.hasAttribute('title')).toBe(false);
         expect(container.textContent).toContain('Show the original look');
         expect(env.styleIds()).toContain('maestro-m32-view');
     });

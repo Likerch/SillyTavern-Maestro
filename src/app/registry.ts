@@ -21,6 +21,7 @@ import { lorePassportsModule } from '../features/lorePassports';
 import { loreStudioModule } from '../features/loreStudio';
 import { mechanicsModule } from '../features/mechanics';
 import { medicModule } from '../features/medic';
+import { messageStyleModule } from '../features/messageStyle';
 import { metricsModule } from '../features/metrics';
 import { offscreenModule } from '../features/offscreen';
 import { placesModule } from '../features/places';
@@ -91,6 +92,7 @@ export const MODULES: MaestroModule[] = [
     // Stage 12: unified look and the dock.
     themeModule,
     dockModule,
+    messageStyleModule,
     // Stage 13: the assistant.
     assistantModule,
 ];

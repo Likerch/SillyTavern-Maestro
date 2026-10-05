@@ -12,6 +12,11 @@ const READ_NAMES = [
     'inbox_list',
     'docs_search',
     'docs_read',
+    'chat_read',
+    'chat_search',
+    'card_read',
+    'persona_read',
+    'scenario_overview',
     'turn_prompt',
     'lore_turn',
     'cost_turn',
@@ -86,6 +91,15 @@ describe('read tools registry', () => {
             expect(tool.available?.(off.app), `${name} off`).toBe(false);
             const on = fakeApp({ apis: Object.fromEntries(keys.map((key) => [key, {}])) });
             expect(tool.available?.(on.app), `${name} on`).toBe(true);
+        }
+    });
+
+    it('offers the chat, card and persona tools only while a chat is open', () => {
+        const chatNames = ['chat_read', 'chat_search', 'card_read', 'persona_read', 'scenario_overview'];
+        const closed = fakeApp({ chatId: null });
+        for (const name of chatNames) {
+            expect(toolNamed(tools, name).available?.(closed.app), `${name} closed`).toBe(false);
+            expect(toolNamed(tools, name).available?.(fake.app), `${name} open`).toBe(true);
         }
     });
 

@@ -243,3 +243,62 @@ export function cleanForAnalysis(message: unknown): string {
     text = stripHtml(text);
     return normalizeWhitespace(text);
 }
+
+/* ------------------------------------------------------------------ chat list previews */
+
+/** ST's «Manage chat files» preview is `...` + the last 400 characters (src/endpoints/chats.js getPreviewMessage). */
+const LEADING_ELLIPSIS_RE = /^\s*(\.{3}|…)/;
+/** The first bare fence line (the closing fence of a block whose opening was cut off). */
+const FIRST_BARE_FENCE_RE = /^([\s\S]*?)(?:\r?\n|^)[ \t]*```[ \t]*(?:\r?\n|$)/;
+const FIRST_BLANK_LINE_RE = /^([\s\S]*?)\r?\n[ \t]*\r?\n/;
+
+/** The segment is the end of a JSON object cut from the front: quoted keys, more closers than openers, ends closed. */
+function looksLikeJsonTail(segment: string): boolean {
+    const body = segment.trim();
+    if (!body || !/[}\]]$/.test(body) || !/"\s*:/.test(body)) return false;
+    const opened = (body.match(/[{[]/g) ?? []).length;
+    const closed = (body.match(/[}\]]/g) ?? []).length;
+    return closed > opened;
+}
+
+/**
+ * Removes what is left of a DES tracker block when a preview was cut from the front (`...": "Lyra"}]}` + a closing
+ * fence, or an unfenced JSON tail up to the first blank line). Text that does not start inside JSON is kept.
+ */
+export function stripTrackerTail(text: string): string {
+    if (typeof text !== 'string' || !text) return typeof text === 'string' ? text : '';
+    const fence = FIRST_BARE_FENCE_RE.exec(text);
+    const before = fence?.[1] ?? '';
+    // Cut right at the closing fence, the segment is empty or just closing brackets.
+    if (fence && !before.includes('```') && (/^[\s}\]]*$/.test(before) || looksLikeJsonTail(before))) {
+        return text.slice(fence[0].length).replace(/^\s+/, '');
+    }
+    const blank = FIRST_BLANK_LINE_RE.exec(text);
+    if (blank && looksLikeJsonTail(blank[1]!)) return text.slice(blank[0].length).replace(/^\s+/, '');
+    return text;
+}
+
+/**
+ * The text of a last-message preview in a chat list (ST's recent chats, «Manage chat files», chat side bars) without
+ * the service noise cleanForAnalysis removes. HTML is stripped twice: the first pass decodes what ST or a regex
+ * escaped into text (`&lt;font color=…&gt;`), the second removes those tags too. Whitespace collapses to single
+ * spaces (`keepLines`: paragraphs are kept, for tooltips); a leading `...` of a cut preview stays. Empty when nothing
+ * but noise was there.
+ */
+export function cleanPreviewText(text: string, options: { keepLines?: boolean } = {}): string {
+    if (typeof text !== 'string' || !text.trim()) return '';
+    let body = text;
+    let lead = '';
+    const ellipsis = LEADING_ELLIPSIS_RE.exec(body);
+    if (ellipsis) {
+        lead = ellipsis[1]!;
+        body = stripTrackerTail(body.slice(ellipsis[0].length).replace(/^[ \t]+/, ''));
+    }
+    body = stripDesTrackerJson(body);
+    body = stripCkDumps(body);
+    body = stripNaiPlaceholders(body);
+    body = stripBlock(body);
+    body = stripHtml(stripHtml(body));
+    body = options.keepLines ? normalizeWhitespace(body) : body.replace(/\s+/g, ' ').trim();
+    return body ? `${lead}${body}` : '';
+}

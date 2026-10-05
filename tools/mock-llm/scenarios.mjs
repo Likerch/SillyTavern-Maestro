@@ -925,7 +925,7 @@ function toolCallFor(ctx, rng, n) {
     if (tools.length === 0) return null;
     // [mock:tool:name] or [mock:tool:name={"json":"args"}] (the given arguments are used as they are).
     const [askedName, askedArgs] = (ctx.markers.get('tool') ?? '').split(/=(.*)/s);
-    let given = null;
+    let given;
     try {
         given = askedArgs ? JSON.parse(askedArgs) : null;
     } catch {

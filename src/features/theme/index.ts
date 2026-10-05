@@ -30,6 +30,8 @@ export { ST_THEME_VARS, THEME_TOKENS, TOKENS_STYLE_ID, buildTokensCss, readStThe
 export { ThemeWatcher, WATCH_DEBOUNCE_MS, WATCH_EVENTS } from './watcher';
 export { CHAT_GATE, chatCss } from './css-chat';
 export { ST_GATE, stCss } from './css-st';
+export { PREVIEW_TARGETS, PREVIEW_TEXT_ATTR, PREVIEW_TITLE_ATTR, PreviewCleaner } from './previews';
+export type { PreviewCleanerDeps, PreviewTarget } from './previews';
 export {
     THEME_CSS,
     THEME_SECTION_ORDER,

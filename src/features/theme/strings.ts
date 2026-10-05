@@ -16,7 +16,10 @@ export const THEME_STRINGS: I18nParts = {
         'm32.theme.parts': 'What to restyle',
         'm32.theme.partsHint': 'Extensions appear here when they are installed and enabled.',
         'm32.theme.part.st': 'SillyTavern interface',
+        'm32.theme.part.st.hint':
+            'Top bar, panels and popups, the start page with recent chats, chat files, personas and the character list. Chat lists show the last message without service blocks (DES tracker, HTML); the chats themselves are not changed.',
         'm32.theme.part.chat': 'Chat messages',
+        'm32.theme.part.chat.hint': 'Messages in all three ST chat styles and the message box under the chat.',
         'm32.theme.part.des': 'DES (scene headers, windows)',
         'm32.theme.part.ck': 'CarrotKernel',
         'm32.theme.part.nai': 'NAI Studio',
@@ -49,7 +52,10 @@ export const THEME_STRINGS: I18nParts = {
         'm32.theme.parts': 'Что оформлять',
         'm32.theme.partsHint': 'Расширения появятся в списке, когда они установлены и включены.',
         'm32.theme.part.st': 'Интерфейс SillyTavern',
+        'm32.theme.part.st.hint':
+            'Верхняя панель, панели и окна, стартовая страница с недавними чатами, список чатов, персоны и список персонажей. В списках чатов последнее сообщение показано без служебных блоков (трекер DES, HTML), сами чаты не меняются.',
         'm32.theme.part.chat': 'Сообщения чата',
+        'm32.theme.part.chat.hint': 'Сообщения во всех трёх стилях чата ST и поле ввода под чатом.',
         'm32.theme.part.des': 'DES (шапки сцен, окна)',
         'm32.theme.part.ck': 'CarrotKernel',
         'm32.theme.part.nai': 'NAI Studio',

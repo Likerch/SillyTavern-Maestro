@@ -1,5 +1,5 @@
 //#region src/adapters/base.ts
-function isDict$109(value) {
+function isDict$111(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function stringList$6(value) {
@@ -23,10 +23,10 @@ function extras$1(host) {
 /** `extension_settings[key]` when it is an object. */
 function extensionSettingsOf(host, key) {
 	const value = host.ctx().extensionSettings[key];
-	return isDict$109(value) ? value : null;
+	return isDict$111(value) ? value : null;
 }
 function toManifest(value) {
-	if (!isDict$109(value)) return null;
+	if (!isDict$111(value)) return null;
 	const manifest = {};
 	for (const key of [
 		"display_name",
@@ -262,7 +262,7 @@ var CORE_COMMENT_RE = /Master - |AUTO-TRIGGER:|AUTO-FILTRATION:|ANTI[\s-]*CLANKE
 var PACK_KEY_RE = /^<([A-Za-z][A-Za-z0-9_-]*)(?::([^<>]+))?>$/;
 /** A character tag block: `<BunnymoTags>…</BunnymoTags>` (with a colon it is an entry wrapper instead). */
 var TAG_BLOCK_RE$2 = /<bunnymotags>([\s\S]*?)<\/bunnymotags>/i;
-var TAG_RE$5 = /<([A-Za-z][A-Za-z0-9_-]*):([^<>\n]+)>/g;
+var TAG_RE$6 = /<([A-Za-z][A-Za-z0-9_-]*):([^<>\n]+)>/g;
 /** Bare MBTI archetype without a colon: `<ESFP-H>`, `<INTJ-U>`. MBTI pack entries fire on it. */
 var MBTI_TAG_RE$1 = /<([EI][NS][FT][JP]-[UH])>/gi;
 /**
@@ -333,7 +333,7 @@ function archiveTags(entry) {
 	};
 	let name = null;
 	const tags = /* @__PURE__ */ new Set();
-	for (const match of block[1].matchAll(TAG_RE$5)) {
+	for (const match of block[1].matchAll(TAG_RE$6)) {
 		const key = (match[1] ?? "").trim();
 		const value = (match[2] ?? "").trim();
 		if (key.toUpperCase() === "NAME") name = value;
@@ -429,7 +429,7 @@ var BunnyMoAdapter = class extends NeighbourBase {
 			const worldInfo = await this.host.modules.worldInfo();
 			for (const name of stringList$6(worldInfo.selected_world_info)) names.add(name);
 			const settings = worldInfo.world_info;
-			if (isDict$109(settings) && Array.isArray(settings.charLore)) charLore = settings.charLore;
+			if (isDict$111(settings) && Array.isArray(settings.charLore)) charLore = settings.charLore;
 		} catch (error) {
 			this.log.debug("world-info.js is not available; global books are skipped", error);
 		}
@@ -443,7 +443,7 @@ var BunnyMoAdapter = class extends NeighbourBase {
 			const primary = character.data?.extensions?.world;
 			if (typeof primary === "string" && primary) names.add(primary);
 			const key = avatarKey$2(character.avatar ?? "");
-			for (const lore of charLore) if (isDict$109(lore) && lore.name === key) for (const book of stringList$6(lore.extraBooks)) names.add(book);
+			for (const lore of charLore) if (isDict$111(lore) && lore.name === key) for (const book of stringList$6(lore.extraBooks)) names.add(book);
 		}
 		const known = extras$1(this.host).getWorldInfoNames?.() ?? [];
 		return known.length ? [...names].filter((name) => known.includes(name)) : [...names];
@@ -486,11 +486,11 @@ var BunnyMoAdapter = class extends NeighbourBase {
 			this.log.debug(`lorebook ${book} did not load`, error);
 			return null;
 		}
-		if (!isDict$109(data) || !isDict$109(data.entries)) return null;
+		if (!isDict$111(data) || !isDict$111(data.entries)) return null;
 		const entries = [];
 		const enabled = [];
 		for (const raw of Object.values(data.entries)) {
-			if (!isDict$109(raw)) continue;
+			if (!isDict$111(raw)) continue;
 			const entry = {
 				key: raw.key,
 				keysecondary: raw.keysecondary,
@@ -521,7 +521,7 @@ function isCkManifest(manifest) {
 }
 function globalObject(name) {
 	const value = globalThis[name];
-	return isDict$109(value) ? value : null;
+	return isDict$111(value) ? value : null;
 }
 var CkAdapter = class extends NeighbourBase {
 	id = "ck";
@@ -563,7 +563,7 @@ var CkAdapter = class extends NeighbourBase {
 	}
 	ragEnabled() {
 		const rag = this.settings()?.rag;
-		return isDict$109(rag) && rag.enabled === true;
+		return isDict$111(rag) && rag.enabled === true;
 	}
 };
 //#endregion
@@ -581,7 +581,7 @@ var KNOWN_INFO_KEYS = /* @__PURE__ */ new Set([
 	"temperature",
 	"recentEvents"
 ]);
-function isDict$108(value) {
+function isDict$110(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /** Trims and drops brackets that wrap the whole value (`[Friend]`), as DES's renderers do. */
@@ -598,7 +598,7 @@ function textOf$1(value) {
 		const parts = value.map(textOf$1).filter((part) => !!part);
 		return parts.length ? parts.join(", ") : void 0;
 	}
-	if (isDict$108(value)) for (const key of [
+	if (isDict$110(value)) for (const key of [
 		"value",
 		"text",
 		"description",
@@ -640,13 +640,13 @@ function statsOf$1(raw) {
 		});
 	};
 	if (Array.isArray(raw)) {
-		for (const item of raw) if (isDict$108(item)) push(item.name, item.value);
-	} else if (isDict$108(raw)) for (const [name, value] of Object.entries(raw)) push(name, isDict$108(value) ? value.value : value);
+		for (const item of raw) if (isDict$110(item)) push(item.name, item.value);
+	} else if (isDict$110(raw)) for (const [name, value] of Object.entries(raw)) push(name, isDict$110(value) ? value.value : value);
 	return stats;
 }
 function detailsOf(raw) {
 	const details = {};
-	if (!isDict$108(raw)) return details;
+	if (!isDict$110(raw)) return details;
 	for (const [key, value] of Object.entries(raw)) {
 		const text = textOf$1(value);
 		if (key && text) details[key] = text;
@@ -656,16 +656,16 @@ function detailsOf(raw) {
 function relationshipOf(entry) {
 	if (typeof entry.Relationship === "string") return clean$3(entry.Relationship) || void 0;
 	const relationship = entry.relationship;
-	if (isDict$108(relationship)) return textOf$1(relationship.status) ?? textOf$1(relationship);
+	if (isDict$110(relationship)) return textOf$1(relationship.status) ?? textOf$1(relationship);
 	return textOf$1(relationship);
 }
 function thoughtsOf(entry) {
 	const thoughts = entry.thoughts;
-	if (isDict$108(thoughts)) return textOf$1(thoughts.content) ?? textOf$1(thoughts);
+	if (isDict$110(thoughts)) return textOf$1(thoughts.content) ?? textOf$1(thoughts);
 	return textOf$1(thoughts);
 }
 function characterOf(raw) {
-	if (!isDict$108(raw) || typeof raw.name !== "string" || !raw.name.trim()) return null;
+	if (!isDict$110(raw) || typeof raw.name !== "string" || !raw.name.trim()) return null;
 	const thoughts = thoughtsOf(raw);
 	const character = {
 		name: raw.name.trim(),
@@ -683,7 +683,7 @@ function characterOf(raw) {
 /** Characters from `characterThoughts`: an array (DES 2.6 parse) or `{characters: [...]}` (legacy, defaults). */
 function parseDesCharacters(raw) {
 	const data = parseTrackerJson(raw);
-	const list = Array.isArray(data) ? data : isDict$108(data) && Array.isArray(data.characters) ? data.characters : [];
+	const list = Array.isArray(data) ? data : isDict$110(data) && Array.isArray(data.characters) ? data.characters : [];
 	const characters = [];
 	for (const item of list) {
 		const character = characterOf(item);
@@ -692,7 +692,7 @@ function parseDesCharacters(raw) {
 	return characters;
 }
 function timeOf(raw) {
-	if (isDict$108(raw)) {
+	if (isDict$110(raw)) {
 		const start = textOf$1(raw.start) ?? textOf$1(raw.value);
 		const end = textOf$1(raw.end);
 		if (!start && !end) return void 0;
@@ -705,7 +705,7 @@ function timeOf(raw) {
 	return flat ? { start: flat } : void 0;
 }
 function weatherOf(raw) {
-	if (isDict$108(raw)) {
+	if (isDict$110(raw)) {
 		const emoji = textOf$1(raw.emoji);
 		const forecast = textOf$1(raw.forecast) ?? textOf$1(raw.value);
 		if (!emoji && !forecast) return void 0;
@@ -720,7 +720,7 @@ function weatherOf(raw) {
 function temperatureOf(raw) {
 	if (typeof raw === "number" && Number.isFinite(raw)) return { value: raw };
 	if (typeof raw === "string") return raw.trim() ? { value: raw.trim() } : void 0;
-	if (!isDict$108(raw)) return void 0;
+	if (!isDict$110(raw)) return void 0;
 	const value = raw.value;
 	const temperature = typeof value === "number" && Number.isFinite(value) ? { value } : typeof value === "string" && value.trim() ? { value: value.trim() } : void 0;
 	const unit = textOf$1(raw.unit);
@@ -729,14 +729,14 @@ function temperatureOf(raw) {
 }
 function eventsOf$1(raw) {
 	if (Array.isArray(raw)) return raw.map(textOf$1).filter((event) => !!event);
-	if (isDict$108(raw) && raw.events !== void 0 && raw.value === void 0) return eventsOf$1(raw.events);
+	if (isDict$110(raw) && raw.events !== void 0 && raw.value === void 0) return eventsOf$1(raw.events);
 	const flat = textOf$1(raw);
 	return flat ? [flat] : [];
 }
 /** Scene data from `infoBox`; null when the section is missing or not a JSON object. */
 function parseDesInfoBox(raw) {
 	const data = parseTrackerJson(raw);
-	if (!isDict$108(data)) return null;
+	if (!isDict$110(data)) return null;
 	const info = {
 		recentEvents: eventsOf$1(data.recentEvents),
 		fields: {}
@@ -761,14 +761,14 @@ function parseDesInfoBox(raw) {
 /** A quest title from a string, `{title}`, `{value}` (nested) or `{description}`; "None" → null. */
 function questOf(raw) {
 	let value = raw;
-	while (isDict$108(value) && value.value !== void 0) value = value.value;
-	const title = isDict$108(value) ? textOf$1(value.title) ?? textOf$1(value.description) : textOf$1(value);
+	while (isDict$110(value) && value.value !== void 0) value = value.value;
+	const title = isDict$110(value) ? textOf$1(value.title) ?? textOf$1(value.description) : textOf$1(value);
 	return title && !NO_QUEST_RE.test(title) ? title : null;
 }
 /** Quests from `quests`: `{main, optional[]}` with string or `{title}` items. Null when missing. */
 function parseDesQuests(raw) {
 	const data = parseTrackerJson(raw);
-	if (!isDict$108(data)) return null;
+	if (!isDict$110(data)) return null;
 	const optional = Array.isArray(data.optional) ? data.optional.map(questOf).filter((quest) => quest !== null) : [];
 	return {
 		main: questOf(data.main),
@@ -784,8 +784,8 @@ function parseDesTracker(strings) {
 	};
 }
 function swipeRecordOf(swipes, swipeId) {
-	const record = Array.isArray(swipes) ? swipes[swipeId] : isDict$108(swipes) ? swipes[String(swipeId)] : void 0;
-	if (!isDict$108(record)) return null;
+	const record = Array.isArray(swipes) ? swipes[swipeId] : isDict$110(swipes) ? swipes[String(swipeId)] : void 0;
+	if (!isDict$110(record)) return null;
 	const { quests = null, infoBox = null, characterThoughts = null } = record;
 	if (quests === null && infoBox === null && characterThoughts === null) return null;
 	return {
@@ -801,12 +801,16 @@ function swipeRecordOf(swipes, swipeId) {
 * stores an all-null record).
 */
 function desSwipeRecord(message) {
-	if (!isDict$108(message) || message.is_user === true) return null;
+	if (!isDict$110(message) || message.is_user === true) return null;
 	const swipeId = typeof message.swipe_id === "number" && message.swipe_id >= 0 ? message.swipe_id : 0;
-	const direct = swipeRecordOf((isDict$108(message.extra) ? message.extra : void 0)?.dooms_tracker_swipes, swipeId);
+	const direct = swipeRecordOf((isDict$110(message.extra) ? message.extra : void 0)?.dooms_tracker_swipes, swipeId);
 	if (direct) return direct;
 	const info = Array.isArray(message.swipe_info) ? message.swipe_info[swipeId] : void 0;
-	return swipeRecordOf((isDict$108(info) && isDict$108(info.extra) ? info.extra : void 0)?.dooms_tracker_swipes, swipeId);
+	return swipeRecordOf((isDict$110(info) && isDict$110(info.extra) ? info.extra : void 0)?.dooms_tracker_swipes, swipeId);
+}
+/** True when the snapshot holds nothing at all. */
+function isEmptySnapshot(snapshot) {
+	return !snapshot.characters.length && snapshot.infoBox === null && snapshot.quests === null;
 }
 var DES_KNOWN_NAMES = ["third-party/Dooms-Enhancement-Suite"];
 var DES_VERIFIED_VERSIONS = ["2.6.0"];
@@ -887,9 +891,9 @@ var DesAdapter = class extends NeighbourBase {
 	*/
 	settings() {
 		const live = this.modules.state?.extensionSettings;
-		if (isDict$109(live)) return live;
+		if (isDict$111(live)) return live;
 		const saved = this.located ? this.host.ctx().extensionSettings[this.located.name] : void 0;
-		return isDict$109(saved) ? saved : null;
+		return isDict$111(saved) ? saved : null;
 	}
 	/** DES's own switch (on unless explicitly false). */
 	enabled() {
@@ -915,7 +919,7 @@ var DesAdapter = class extends NeighbourBase {
 	*/
 	knownCharacters() {
 		const roster = this.chatState()?.knownCharacters;
-		return isDict$109(roster) ? Object.keys(roster) : [];
+		return isDict$111(roster) ? Object.keys(roster) : [];
 	}
 	/** Names hidden from "Present Characters" in this chat (DES compares them case-insensitively). */
 	removedCharacters() {
@@ -925,7 +929,7 @@ var DesAdapter = class extends NeighbourBase {
 	aliases() {
 		const map = this.settings()?.characterAliases;
 		const copy = {};
-		if (!isDict$109(map)) return copy;
+		if (!isDict$111(map)) return copy;
 		for (const [canonical, list] of Object.entries(map)) if (Array.isArray(list)) copy[canonical] = list.map(String);
 		return copy;
 	}
@@ -941,11 +945,11 @@ var DesAdapter = class extends NeighbourBase {
 	*/
 	setCharacterStats(next, options = {}) {
 		const live = this.modules.state?.extensionSettings;
-		if (!this.present() || !isDict$109(live)) return false;
-		const tracker = isDict$109(live.trackerConfig) ? live.trackerConfig : live.trackerConfig = {};
-		const present = isDict$109(tracker.presentCharacters) ? tracker.presentCharacters : tracker.presentCharacters = {};
-		const previous = isDict$109(present.characterStats) ? present.characterStats : {};
-		const before = Array.isArray(previous.customStats) ? previous.customStats.filter(isDict$109) : [];
+		if (!this.present() || !isDict$111(live)) return false;
+		const tracker = isDict$111(live.trackerConfig) ? live.trackerConfig : live.trackerConfig = {};
+		const present = isDict$111(tracker.presentCharacters) ? tracker.presentCharacters : tracker.presentCharacters = {};
+		const previous = isDict$111(present.characterStats) ? present.characterStats : {};
+		const before = Array.isArray(previous.customStats) ? previous.customStats.filter(isDict$111) : [];
 		const customStats = next.filter((stat) => stat && typeof stat.name === "string" && stat.name.trim()).map((stat) => {
 			const id = String(stat.id ?? "").trim() || stat.name.trim();
 			return {
@@ -961,12 +965,12 @@ var DesAdapter = class extends NeighbourBase {
 			customStats
 		};
 		present.characterStats = stats;
-		const manager = isDict$109(live.presetManager) ? live.presetManager : null;
+		const manager = isDict$111(live.presetManager) ? live.presetManager : null;
 		const activeId = typeof manager?.activePresetId === "string" ? manager.activePresetId : null;
-		const presets = isDict$109(manager?.presets) ? manager.presets : null;
-		const preset = activeId && presets && isDict$109(presets[activeId]) ? presets[activeId] : null;
-		if (preset && isDict$109(preset.trackerConfig)) {
-			const presetChars = isDict$109(preset.trackerConfig.presentCharacters) ? preset.trackerConfig.presentCharacters : preset.trackerConfig.presentCharacters = {};
+		const presets = isDict$111(manager?.presets) ? manager.presets : null;
+		const preset = activeId && presets && isDict$111(presets[activeId]) ? presets[activeId] : null;
+		if (preset && isDict$111(preset.trackerConfig)) {
+			const presetChars = isDict$111(preset.trackerConfig.presentCharacters) ? preset.trackerConfig.presentCharacters : preset.trackerConfig.presentCharacters = {};
 			presetChars.characterStats = JSON.parse(JSON.stringify(stats));
 		}
 		this.persistSettings(live);
@@ -1005,7 +1009,7 @@ var DesAdapter = class extends NeighbourBase {
 	}
 	chatState() {
 		const state = this.host.ctx().chatMetadata[DES_KEYS$1.chatMetadata];
-		return isDict$109(state) ? state : null;
+		return isDict$111(state) ? state : null;
 	}
 };
 var DESRU_KNOWN_NAMES = ["third-party/SillyTavern-DES-RU", "third-party/SillyTavern-Doom-Enhancement-Suite-RU"];
@@ -1055,8 +1059,8 @@ var DesRuAdapter = class extends NeighbourBase {
 	/** A DES-RU module switch; modules are on by default, as in DES-RU's DEFAULT_SETTINGS. */
 	moduleEnabled(module) {
 		const modules = this.settings()?.modules;
-		const slice = isDict$109(modules) ? modules[module] : void 0;
-		return !isDict$109(slice) || slice.enabled !== false;
+		const slice = isDict$111(modules) ? modules[module] : void 0;
+		return !isDict$111(slice) || slice.enabled !== false;
 	}
 	/** DES-RU's API (read live: it appears when DES-RU starts and goes when it is disabled); undefined before 0.8.0. */
 	api() {
@@ -1127,13 +1131,13 @@ function readLocalizerApi(value) {
 }
 /** Reads the Localizer marker of a World Info entry as a typed copy; null when the entry has none. */
 function readLocalizerMarker(entry) {
-	const extensions = isDict$109(entry) ? entry.extensions : void 0;
-	const marker = isDict$109(extensions) ? extensions[LOCALIZER_MARKER_KEY] : void 0;
-	if (!isDict$109(marker)) return null;
+	const extensions = isDict$111(entry) ? entry.extensions : void 0;
+	const marker = isDict$111(extensions) ? extensions[LOCALIZER_MARKER_KEY] : void 0;
+	if (!isDict$111(marker)) return null;
 	const languages = {};
-	if (isDict$109(marker.languages)) for (const [id, state] of Object.entries(marker.languages)) {
-		if (!isDict$109(state)) continue;
-		const added = isDict$109(state.added) ? state.added : {};
+	if (isDict$111(marker.languages)) for (const [id, state] of Object.entries(marker.languages)) {
+		if (!isDict$111(state)) continue;
+		const added = isDict$111(state.added) ? state.added : {};
 		languages[id] = {
 			language: typeof state.language === "string" ? state.language : id,
 			sources: stringList$6(state.sources),
@@ -1224,13 +1228,13 @@ function text$15(value) {
 }
 /** A typed deep copy of one stored passport; null for junk. Legacy passports without an id get 'main'. */
 function readPassport(raw) {
-	if (!isDict$109(raw)) return null;
+	if (!isDict$111(raw)) return null;
 	const copy = structuredClone(raw);
 	const slots = {};
-	if (isDict$109(copy.slots)) {
+	if (isDict$111(copy.slots)) {
 		for (const [slot, value] of Object.entries(copy.slots)) if (typeof value === "string") slots[slot] = value;
 	}
-	const outfits = Array.isArray(copy.outfits) ? copy.outfits.filter(isDict$109).map((outfit) => {
+	const outfits = Array.isArray(copy.outfits) ? copy.outfits.filter(isDict$111).map((outfit) => {
 		const looks = stringList$6(outfit.looks);
 		return {
 			name: text$15(outfit.name),
@@ -1238,7 +1242,7 @@ function readPassport(raw) {
 			...looks.length ? { looks } : {}
 		};
 	}) : [];
-	const states = Array.isArray(copy.states) ? copy.states.filter(isDict$109).map((state) => ({
+	const states = Array.isArray(copy.states) ? copy.states.filter(isDict$111).map((state) => ({
 		id: text$15(state.id),
 		tags: text$15(state.tags),
 		enabled: state.enabled === true
@@ -1363,7 +1367,7 @@ var NaiAdapter = class extends NeighbourBase {
 		if (typeof api?.generateBackground !== "function") return null;
 		try {
 			const result = await api.generateBackground(input);
-			const file = isDict$109(result) && typeof result.file === "string" ? result.file.trim() : "";
+			const file = isDict$111(result) && typeof result.file === "string" ? result.file.trim() : "";
 			return file ? { file } : null;
 		} catch (error) {
 			this.log.warn("NAI_STUDIO_API.generateBackground failed", error);
@@ -1411,8 +1415,8 @@ var NaiAdapter = class extends NeighbourBase {
 	*/
 	passportsOf(characterIndex) {
 		const field = this.host.ctx().characters[characterIndex]?.data?.extensions?.[NAI_KEY];
-		if (!isDict$109(field)) return [];
-		return (Array.isArray(field.passports) ? field.passports : isDict$109(field.passport) ? [field.passport] : []).map(readPassport).filter((passport) => passport !== null);
+		if (!isDict$111(field)) return [];
+		return (Array.isArray(field.passports) ? field.passports : isDict$111(field.passport) ? [field.passport] : []).map(readPassport).filter((passport) => passport !== null);
 	}
 };
 //#endregion
@@ -1438,7 +1442,7 @@ var PresetAdapter = class extends NeighbourBase {
 	/** ST's live Chat Completion settings (`oai_settings`); read-only for Maestro. */
 	settings() {
 		const settings = extras$1(this.host).chatCompletionSettings;
-		return isDict$109(settings) ? settings : null;
+		return isDict$111(settings) ? settings : null;
 	}
 	/** Name of the active Chat Completion preset. */
 	presetName() {
@@ -1449,7 +1453,7 @@ var PresetAdapter = class extends NeighbourBase {
 	prompts() {
 		const prompts = this.settings()?.prompts;
 		if (!Array.isArray(prompts)) return [];
-		return prompts.filter(isDict$109).map((prompt) => ({
+		return prompts.filter(isDict$111).map((prompt) => ({
 			identifier: typeof prompt.identifier === "string" ? prompt.identifier : "",
 			name: typeof prompt.name === "string" ? prompt.name : "",
 			role: typeof prompt.role === "string" ? prompt.role : "system",
@@ -1461,7 +1465,7 @@ var PresetAdapter = class extends NeighbourBase {
 		if (MARINARA_NAME_RE.test(this.presetName() ?? "")) return true;
 		const prompts = this.settings()?.prompts;
 		if (!Array.isArray(prompts)) return false;
-		const contents = prompts.filter(isDict$109).map((prompt) => typeof prompt.content === "string" ? prompt.content : "");
+		const contents = prompts.filter(isDict$111).map((prompt) => typeof prompt.content === "string" ? prompt.content : "");
 		return MARINARA_SECTION_TAGS.every((tag) => contents.some((content) => content.includes(tag)));
 	}
 };
@@ -1504,7 +1508,7 @@ var QvinkAdapter = class extends NeighbourBase {
 	chatEnabled() {
 		if (this.setting("use_global_toggle_state")) return this.setting("global_toggle_state");
 		const chatState = this.host.ctx().chatMetadata[QVINK_KEY];
-		const perChat = isDict$109(chatState) ? chatState.enabled : void 0;
+		const perChat = isDict$111(chatState) ? chatState.enabled : void 0;
 		return typeof perChat === "boolean" ? perChat : this.setting("default_chat_enabled");
 	}
 	/** "Remove Messages": every message older than the injection threshold leaves the prompt. */
@@ -1514,7 +1518,7 @@ var QvinkAdapter = class extends NeighbourBase {
 	/** Qvink's record of a message, as a typed copy; null when there is none. */
 	memoryOf(index) {
 		const raw = this.host.ctx().chat[index]?.extra?.[QVINK_KEY];
-		if (!isDict$109(raw)) return null;
+		if (!isDict$111(raw)) return null;
 		const memory = {
 			memory: typeof raw.memory === "string" ? raw.memory : "",
 			remember: raw.remember === true,
@@ -6567,12 +6571,12 @@ var INBOX_CSS = `
 .maestro-inbox-edit { display: flex; flex-direction: column; gap: 6px; }
 .maestro-inbox-edit textarea { width: 100%; min-height: 4em; box-sizing: border-box; resize: vertical; }
 `;
-function isDict$107(value) {
+function isDict$109(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /** What the payload says about the card (see the convention above). */
 function cardMeta(item) {
-	const payload = isDict$107(item.payload) ? item.payload : {};
+	const payload = isDict$109(item.payload) ? item.payload : {};
 	const meta = {
 		entityName: typeof payload.entityName === "string" ? payload.entityName.trim() : "",
 		editable: false
@@ -6622,7 +6626,7 @@ function inboxTab(env) {
 		return ok;
 	};
 	const acceptEdited = async (item, value) => {
-		const payload = isDict$107(item.payload) ? item.payload : {};
+		const payload = isDict$109(item.payload) ? item.payload : {};
 		if (await env.inbox.accept(item.id, {
 			...payload,
 			value
@@ -7774,7 +7778,7 @@ var TAB_GROUPS = {
 	theme: "settings"
 };
 /** The group a tab is shown in: its own `group` when known, then the central map, then «Ещё». */
-function groupOf$1(tab) {
+function groupOf$2(tab) {
 	if (tab.group && PULT_GROUPS.includes(tab.group)) return tab.group;
 	return TAB_GROUPS[tab.id] ?? "more";
 }
@@ -7784,7 +7788,7 @@ function groupLabelKey(group) {
 }
 /** Tabs in sidebar order: by group, then by the tab's own order (then id, for a stable order). */
 function sortTabs(tabs) {
-	const rank = (tab) => PULT_GROUPS.indexOf(groupOf$1(tab));
+	const rank = (tab) => PULT_GROUPS.indexOf(groupOf$2(tab));
 	return [...tabs].sort((a, b) => rank(a) - rank(b) || a.order - b.order || a.id.localeCompare(b.id));
 }
 //#endregion
@@ -7968,7 +7972,7 @@ var Pult = class {
 	syncTabs() {
 		if (!this.nav) return;
 		this.nav.setItems(this.tabs().map((tab) => {
-			const group = groupOf$1(tab);
+			const group = groupOf$2(tab);
 			const labelKey = groupLabelKey(group);
 			return {
 				id: tab.id,
@@ -10422,7 +10426,7 @@ function wrapBlockers(text) {
 * The block text inside `{{if .flag}}…{{/if}}` with nothing outside the tags (§10.4 д). Multi-line texts get the
 * tags on their own lines (ST trims the branch, so the message is the same). Throws on a name `.name` cannot take.
 */
-function wrap(text, flag, options = {}) {
+function wrap$1(text, flag, options = {}) {
 	if (!isFlagName(flag)) throw new Error(`not a variable name for {{if .name}}: ${flag}`);
 	const body = text.trim();
 	const alt = options.elseText?.trim() ?? "";
@@ -10766,7 +10770,7 @@ function applyCondition(content, choice) {
 	};
 	return {
 		ok: true,
-		text: wrap(body, choice.flag, {
+		text: wrap$1(body, choice.flag, {
 			negate: choice.mode === "unless",
 			elseText: choice.elseText
 		})
@@ -10774,7 +10778,7 @@ function applyCondition(content, choice) {
 }
 //#endregion
 //#region src/domain/preset-ui-blocks.ts
-var PROMPT_ROLES = [
+var PROMPT_ROLES$1 = [
 	"system",
 	"user",
 	"assistant"
@@ -10932,7 +10936,7 @@ function promptText$1(prompt) {
 	return typeof prompt.content === "string" ? prompt.content : "";
 }
 function promptRole$1(prompt) {
-	return PROMPT_ROLES.includes(prompt.role) ? prompt.role : "system";
+	return PROMPT_ROLES$1.includes(prompt.role) ? prompt.role : "system";
 }
 function clampInt$4(value, fallback, max) {
 	const number = typeof value === "number" ? value : typeof value === "string" && value.trim() ? Number(value) : NaN;
@@ -11034,7 +11038,7 @@ function normalizePrompt$1(prompt) {
 function typeProblems(prompt) {
 	const problems = [];
 	if (!isBuiltinId(prompt.identifier) && prompt.system_prompt !== false) problems.push("systemPrompt");
-	if (prompt.role !== void 0 && !PROMPT_ROLES.includes(prompt.role)) problems.push("role");
+	if (prompt.role !== void 0 && !PROMPT_ROLES$1.includes(prompt.role)) problems.push("role");
 	if (prompt.injection_position !== void 0 && typeof prompt.injection_position !== "number") problems.push("position");
 	if (prompt.injection_depth !== void 0 && typeof prompt.injection_depth !== "number") problems.push("depth");
 	if (prompt.injection_order !== void 0 && typeof prompt.injection_order !== "number") problems.push("order");
@@ -11943,7 +11947,7 @@ var TERMINATORS = /* @__PURE__ */ new Set([
 	"?",
 	"…"
 ]);
-var CLOSERS = /* @__PURE__ */ new Set([
+var CLOSERS$1 = /* @__PURE__ */ new Set([
 	"\"",
 	"'",
 	"»",
@@ -11954,7 +11958,7 @@ var CLOSERS = /* @__PURE__ */ new Set([
 	"*",
 	"_"
 ]);
-function isSpace(char) {
+function isSpace$1(char) {
 	return char === " " || char === "	" || char === "\n" || char === "\r" || char === "\xA0";
 }
 /**
@@ -11968,7 +11972,7 @@ function splitSentenceSegments(text) {
 	let i = 0;
 	const cut = (end) => {
 		let stop = end;
-		while (stop < text.length && isSpace(text[stop])) stop++;
+		while (stop < text.length && isSpace$1(text[stop])) stop++;
 		if (stop > start) segments.push(text.slice(start, stop));
 		start = stop;
 		return stop;
@@ -11991,8 +11995,8 @@ function splitSentenceSegments(text) {
 		}
 		if (TERMINATORS.has(char)) {
 			let end = i + 1;
-			while (end < text.length && (TERMINATORS.has(text[end]) || CLOSERS.has(text[end]))) end++;
-			if (end >= text.length || isSpace(text[end])) {
+			while (end < text.length && (TERMINATORS.has(text[end]) || CLOSERS$1.has(text[end]))) end++;
+			if (end >= text.length || isSpace$1(text[end])) {
 				i = cut(end);
 				continue;
 			}
@@ -12018,7 +12022,7 @@ function splitParagraphs$1(text) {
 	if (start < text.length) segments.push(text.slice(start));
 	return segments;
 }
-var TAG_RE$4 = /<\/?[A-Za-z][\w:.-]*(?:\s[^<>]*)?\/?>/;
+var TAG_RE$5 = /<\/?[A-Za-z][\w:.-]*(?:\s[^<>]*)?\/?>/;
 var HEADER_RE$1 = /^\s*(?:#{1,6}\s|(?:Tags|Reason):)/;
 /**
 * Segments that trimming and duplicate removal never drop: empty ones, markdown headers, CK chunk metadata lines,
@@ -12026,7 +12030,7 @@ var HEADER_RE$1 = /^\s*(?:#{1,6}\s|(?:Tags|Reason):)/;
 */
 function isProtectedSegment(segment) {
 	if (!segment.trim()) return true;
-	return HEADER_RE$1.test(segment) || TAG_RE$4.test(segment);
+	return HEADER_RE$1.test(segment) || TAG_RE$5.test(segment);
 }
 /** Lower case, ё → е, only letters and digits separated by single spaces. */
 function normalizeSentence(text) {
@@ -12331,16 +12335,16 @@ function findDuplicateFacts(sources, options = {}) {
 }
 //#endregion
 //#region src/domain/architect-prompt.ts
-function isDict$106(value) {
+function isDict$108(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /** Text parts of a message: [content] for string content, the `text` of each text part for multimodal content. */
 function messageTextParts(message) {
-	if (!isDict$106(message)) return [];
+	if (!isDict$108(message)) return [];
 	const content = message.content;
 	if (typeof content === "string") return [content];
 	if (!Array.isArray(content)) return [];
-	return content.map((part) => isDict$106(part) && typeof part.text === "string" ? part.text : "");
+	return content.map((part) => isDict$108(part) && typeof part.text === "string" ? part.text : "");
 }
 /**
 * Forms an extension prompt can take in the final prompt, most exact first: as set, trimmed (ST trims in-chat
@@ -12379,16 +12383,16 @@ function spliceText(text, start, length, replacement) {
 function qvinkShortMemories(chat) {
 	const result = [];
 	for (const message of chat) {
-		if (!isDict$106(message) || !isDict$106(message.extra)) continue;
+		if (!isDict$108(message) || !isDict$108(message.extra)) continue;
 		const record = message.extra.qvink_memory;
-		if (!isDict$106(record) || record.include !== "short" || record.lagging === true) continue;
+		if (!isDict$108(record) || record.include !== "short" || record.lagging === true) continue;
 		if (typeof record.memory === "string" && record.memory.trim()) result.push(record.memory);
 	}
 	return result;
 }
 //#endregion
 //#region src/domain/architect-cache.ts
-function isDict$105(value) {
+function isDict$107(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function num$11(value) {
@@ -12396,11 +12400,11 @@ function num$11(value) {
 }
 /** Cache numbers of one parsed response object (or stream chunk); null without a usable `usage`. */
 function readCacheUsage(raw) {
-	if (!isDict$105(raw)) return null;
-	const message = isDict$105(raw.message) ? raw.message : void 0;
-	const usage = isDict$105(raw.usage) ? raw.usage : isDict$105(raw.usageMetadata) ? raw.usageMetadata : message && isDict$105(message.usage) ? message.usage : void 0;
+	if (!isDict$107(raw)) return null;
+	const message = isDict$107(raw.message) ? raw.message : void 0;
+	const usage = isDict$107(raw.usage) ? raw.usage : isDict$107(raw.usageMetadata) ? raw.usageMetadata : message && isDict$107(message.usage) ? message.usage : void 0;
 	if (!usage) return null;
-	const details = isDict$105(usage.prompt_tokens_details) ? usage.prompt_tokens_details : void 0;
+	const details = isDict$107(usage.prompt_tokens_details) ? usage.prompt_tokens_details : void 0;
 	const hit = num$11(usage.prompt_cache_hit_tokens);
 	const miss = num$11(usage.prompt_cache_miss_tokens);
 	const claudeRead = num$11(usage.cache_read_input_tokens);
@@ -12461,16 +12465,16 @@ function quickHash(text) {
 }
 /** Text of a chat-completion message: string content, or the text parts of multimodal content. */
 function messageContentText(message) {
-	if (!isDict$105(message)) return "";
+	if (!isDict$107(message)) return "";
 	const content = message.content;
 	if (typeof content === "string") return content;
 	if (!Array.isArray(content)) return "";
-	return content.map((part) => isDict$105(part) && typeof part.text === "string" ? part.text : "").filter(Boolean).join("\n");
+	return content.map((part) => isDict$107(part) && typeof part.text === "string" ? part.text : "").filter(Boolean).join("\n");
 }
 /** One hash per message: role, name and text. */
 function hashMessages(messages) {
 	return messages.map((message) => {
-		return quickHash(`${isDict$105(message) && typeof message.role === "string" ? message.role : ""}\u0001${isDict$105(message) && typeof message.name === "string" ? message.name : ""}\u0001${messageContentText(message)}`);
+		return quickHash(`${isDict$107(message) && typeof message.role === "string" ? message.role : ""}\u0001${isDict$107(message) && typeof message.name === "string" ? message.name : ""}\u0001${messageContentText(message)}`);
 	});
 }
 /** Message hashes of an outgoing chat-completion request body; null for other bodies (text completion). */
@@ -12478,7 +12482,7 @@ function requestMessageHashes(body) {
 	if (typeof body !== "string" || !body.includes("\"messages\"")) return null;
 	try {
 		const parsed = JSON.parse(body);
-		return isDict$105(parsed) && Array.isArray(parsed.messages) ? hashMessages(parsed.messages) : null;
+		return isDict$107(parsed) && Array.isArray(parsed.messages) ? hashMessages(parsed.messages) : null;
 	} catch {
 		return null;
 	}
@@ -12607,7 +12611,7 @@ function messageText(message) {
 	if (!Array.isArray(content)) return "";
 	return content.map((part) => typeof part === "object" && part !== null && typeof part.text === "string" ? part.text : "").join("");
 }
-function messageRole(message) {
+function messageRole$1(message) {
 	if (typeof message !== "object" || message === null) return "system";
 	const role = message.role;
 	return typeof role === "string" ? role : "system";
@@ -12620,7 +12624,7 @@ function charsByRole(messages) {
 		tool: 0
 	};
 	for (const message of messages) {
-		const role = messageRole(message);
+		const role = messageRole$1(message);
 		const length = messageText(message).length;
 		if (role === "user" || role === "assistant" || role === "tool") chars[role] += length;
 		else chars.system += length;
@@ -12866,7 +12870,7 @@ function scrubSecrets(text) {
 /** Prompt messages for an export: secrets always scrubbed; with `redactChat`, user and assistant text dropped. */
 function exportMessages(messages, redactChat) {
 	return messages.map((message) => {
-		const role = messageRole(message);
+		const role = messageRole$1(message);
 		const text = messageText(message);
 		if (redactChat && (role === "user" || role === "assistant")) return {
 			role,
@@ -13010,7 +13014,7 @@ var LORE_OWNERS = /* @__PURE__ */ new Set([
 	"canon",
 	"ckArchive"
 ]);
-function isDict$104(value) {
+function isDict$106(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function emptyDoc$4() {
@@ -13020,7 +13024,7 @@ function emptyDoc$4() {
 	};
 }
 function isConsent(value) {
-	return isDict$104(value) && typeof value.id === "string" && typeof value.keep === "string" && Array.isArray(value.keys) && Array.isArray(value.sources);
+	return isDict$106(value) && typeof value.id === "string" && typeof value.keep === "string" && Array.isArray(value.keys) && Array.isArray(value.sources);
 }
 function ensureDoc$1(doc) {
 	const raw = doc;
@@ -13398,7 +13402,7 @@ function withTypedMeta(extensions, meta) {
 }
 //#endregion
 //#region src/domain/architect-presence.ts
-function isDict$103(value) {
+function isDict$105(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /** Ids of the current place, its ancestors, descendants and siblings; empty without a current place. */
@@ -13483,7 +13487,7 @@ function firstPlainKey(entry) {
 }
 /** Typed metadata of an entry: `extensions.maestro` (Maestro and canon books) or the given sidecar record. */
 function typedMetaOf$1(entry, sidecar) {
-	return readTypedMeta((isDict$103(entry.extensions) ? entry.extensions : void 0)?.maestro) ?? readTypedMeta(sidecar);
+	return readTypedMeta((isDict$105(entry.extensions) ? entry.extensions : void 0)?.maestro) ?? readTypedMeta(sidecar);
 }
 /**
 * Names an entry may be about, best first: the typed name (with the kind its type gives), then the comment, then the
@@ -13528,8 +13532,8 @@ function dedupe(names) {
 }
 /** Cache key of an entry's subject: everything the resolution reads (identity, comment, first key, type marker). */
 function subjectCacheKey(entry) {
-	const extensions = isDict$103(entry.extensions) ? entry.extensions : void 0;
-	const maestro = isDict$103(extensions?.maestro) ? extensions.maestro : void 0;
+	const extensions = isDict$105(entry.extensions) ? entry.extensions : void 0;
+	const maestro = isDict$105(extensions?.maestro) ? extensions.maestro : void 0;
 	const typed = maestro ? `${String(maestro.type ?? "")}:${JSON.stringify(maestro.typeFields ?? "")}` : "";
 	return `${String(entry.world)}#${String(entry.uid)}#${text$13(entry.comment)}#${firstPlainKey(entry)}#${typed}`;
 }
@@ -13542,7 +13546,7 @@ function isPinnable(entry) {
 	if (entry.disable === true || entry.constant === true) return false;
 	if (typeof entry.content !== "string" || !entry.content.trim()) return false;
 	if (Array.isArray(entry.triggers) && entry.triggers.length) return false;
-	const filter = isDict$103(entry.characterFilter) ? entry.characterFilter : void 0;
+	const filter = isDict$105(entry.characterFilter) ? entry.characterFilter : void 0;
 	if (filter) {
 		const names = Array.isArray(filter.names) ? filter.names.length : 0;
 		const tags = Array.isArray(filter.tags) ? filter.tags.length : 0;
@@ -13567,15 +13571,15 @@ var LORE_TAG_ORDER = [
 	"maestro.book",
 	"constant"
 ];
-function isDict$102(value) {
+function isDict$104(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
-function strings$22(value) {
+function strings$23(value) {
 	return Array.isArray(value) ? value.filter((item) => typeof item === "string" && !!item) : [];
 }
 /** Canon items carry `extensions.maestro` with a `kind` (CanonMeta); overrides keep the base book's name. */
 function isCanonMeta$1(extensions) {
-	return isDict$102(extensions) && isDict$102(extensions.maestro) && typeof extensions.maestro.kind === "string";
+	return isDict$104(extensions) && isDict$104(extensions.maestro) && typeof extensions.maestro.kind === "string";
 }
 function tagsFor(entry, context, hasLocalizerMarker) {
 	const tags = [];
@@ -13606,20 +13610,20 @@ function desLinkedBooks(settings) {
 		autoLinked: [],
 		workshop: []
 	};
-	if (!isDict$102(settings)) return links;
-	const lorebook = isDict$102(settings.lorebook) ? settings.lorebook : {};
-	const campaigns = isDict$102(lorebook.campaigns) ? lorebook.campaigns : {};
+	if (!isDict$104(settings)) return links;
+	const lorebook = isDict$104(settings.lorebook) ? settings.lorebook : {};
+	const campaigns = isDict$104(lorebook.campaigns) ? lorebook.campaigns : {};
 	const all = /* @__PURE__ */ new Set();
-	for (const campaign of Object.values(campaigns)) if (isDict$102(campaign)) for (const book of strings$22(campaign.books)) all.add(book);
+	for (const campaign of Object.values(campaigns)) if (isDict$104(campaign)) for (const book of strings$23(campaign.books)) all.add(book);
 	const active = typeof lorebook.activeCampaignId === "string" ? campaigns[lorebook.activeCampaignId] : void 0;
-	const campaign = new Set(strings$22(lorebook.campaignActivated));
-	if (isDict$102(active)) for (const book of strings$22(active.books)) campaign.add(book);
+	const campaign = new Set(strings$23(lorebook.campaignActivated));
+	if (isDict$104(active)) for (const book of strings$23(active.books)) campaign.add(book);
 	links.campaign = [...campaign];
 	links.campaignAll = [...all];
-	links.autoLinked = strings$22(lorebook.autoLinked);
-	const injections = isDict$102(settings.characterInjection) ? settings.characterInjection : {};
+	links.autoLinked = strings$23(lorebook.autoLinked);
+	const injections = isDict$104(settings.characterInjection) ? settings.characterInjection : {};
 	const workshop = /* @__PURE__ */ new Set();
-	for (const injection of Object.values(injections)) if (isDict$102(injection) && typeof injection.lorebook === "string" && injection.lorebook) workshop.add(injection.lorebook);
+	for (const injection of Object.values(injections)) if (isDict$104(injection) && typeof injection.lorebook === "string" && injection.lorebook) workshop.add(injection.lorebook);
 	links.workshop = [...workshop];
 	return links;
 }
@@ -13673,16 +13677,16 @@ function ensureJournal(doc) {
 	const raw = doc;
 	raw.v = 1;
 	if (!Array.isArray(raw.worlds)) raw.worlds = [];
-	if (!isDict$102(raw.titles)) raw.titles = {};
+	if (!isDict$104(raw.titles)) raw.titles = {};
 	if (!Array.isArray(raw.records)) raw.records = [];
-	const stats = isDict$102(raw.stats) ? raw.stats : {};
+	const stats = isDict$104(raw.stats) ? raw.stats : {};
 	raw.stats = {
 		turns: typeof stats.turns === "number" ? stats.turns : 0,
 		chars: typeof stats.chars === "number" ? stats.chars : 0,
 		canon: typeof stats.canon === "number" ? stats.canon : 0,
-		entries: isDict$102(stats.entries) ? stats.entries : {}
+		entries: isDict$104(stats.entries) ? stats.entries : {}
 	};
-	raw.records = raw.records.filter((record) => isDict$102(record) && typeof record.i === "number" && Array.isArray(record.a));
+	raw.records = raw.records.filter((record) => isDict$104(record) && typeof record.i === "number" && Array.isArray(record.a));
 	return raw;
 }
 function worldIndex(doc, name) {
@@ -13852,7 +13856,7 @@ function setRecordKeys(doc, record) {
 }
 /** Entries of the ENTRIES_LOADED lists, de-duplicated by world and uid. */
 function catalogFromLists(lists) {
-	if (!isDict$102(lists)) return [];
+	if (!isDict$104(lists)) return [];
 	const seen = /* @__PURE__ */ new Set();
 	const entries = [];
 	for (const name of [
@@ -13864,7 +13868,7 @@ function catalogFromLists(lists) {
 		const list = lists[name];
 		if (!Array.isArray(list)) continue;
 		for (const raw of list) {
-			if (!isDict$102(raw) || typeof raw.world !== "string") continue;
+			if (!isDict$104(raw) || typeof raw.world !== "string") continue;
 			const uid = Number(raw.uid);
 			if (!Number.isFinite(uid)) continue;
 			const id = `${raw.world}\u0000${uid}`;
@@ -13941,7 +13945,7 @@ function summarize(doc, catalog, limits = {}) {
 }
 //#endregion
 //#region src/domain/roles-meta.ts
-function isDict$101(value) {
+function isDict$103(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function emptyEntryMetaFile() {
@@ -13967,15 +13971,15 @@ function parseEntryMetaKey(key) {
 }
 /** Hash of what the entry says: its content (keys and settings may change without invalidating a type/passport). */
 function entryContentHash(entry) {
-	const content = isDict$101(entry) ? entry.content : void 0;
+	const content = isDict$103(entry) ? entry.content : void 0;
 	return stableHash(typeof content === "string" ? content : "");
 }
 /** Content hashes of every entry of a book (`data.entries`), by uid. */
 function entryHashes(data) {
 	const hashes = /* @__PURE__ */ new Map();
-	const entries = isDict$101(data) && isDict$101(data.entries) ? data.entries : {};
+	const entries = isDict$103(data) && isDict$103(data.entries) ? data.entries : {};
 	for (const [key, entry] of Object.entries(entries)) {
-		if (!isDict$101(entry)) continue;
+		if (!isDict$103(entry)) continue;
 		const uid = typeof entry.uid === "number" && Number.isInteger(entry.uid) ? entry.uid : Number(key);
 		if (Number.isInteger(uid)) hashes.set(uid, entryContentHash(entry));
 	}
@@ -13984,9 +13988,9 @@ function entryHashes(data) {
 /** A stored sidecar file with junk records dropped. */
 function readEntryMetaFile(raw) {
 	const file = emptyEntryMetaFile();
-	const entries = isDict$101(raw) && isDict$101(raw.entries) ? raw.entries : {};
+	const entries = isDict$103(raw) && isDict$103(raw.entries) ? raw.entries : {};
 	for (const [key, record] of Object.entries(entries)) {
-		if (!parseEntryMetaKey(key) || !isDict$101(record) || !isDict$101(record.meta)) continue;
+		if (!parseEntryMetaKey(key) || !isDict$103(record) || !isDict$103(record.meta)) continue;
 		if (typeof record.contentHash !== "string") continue;
 		file.entries[key] = {
 			meta: record.meta,
@@ -14107,7 +14111,7 @@ var WI_ENTRY_TEMPLATE = Object.freeze({
 		tags: []
 	}
 });
-function isDict$100(value) {
+function isDict$102(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /** Canon book of a chat: "Maestro · канон · <8 chars of a stable hash of the chat id>". */
@@ -14120,7 +14124,7 @@ function canonBookName(chatId) {
 */
 function copyValue$2(value) {
 	if (Array.isArray(value)) return value.map((item) => copyValue$2(item));
-	if (isDict$100(value)) {
+	if (isDict$102(value)) {
 		const out = {};
 		for (const [key, item] of Object.entries(value)) out[key] = copyValue$2(item);
 		return out;
@@ -14196,7 +14200,7 @@ function oneOf$2(list, value, fallback) {
 }
 /** Validated meta of a stored canon entry; null when the entry is not a canon item. */
 function readCanonMeta(raw) {
-	if (!isDict$100(raw) || !CANON_KINDS$1.includes(String(raw.kind))) return null;
+	if (!isDict$102(raw) || !CANON_KINDS$1.includes(String(raw.kind))) return null;
 	const meta = {
 		kind: raw.kind,
 		status: oneOf$2(CANON_STATUSES$1, raw.status, "active"),
@@ -14205,7 +14209,7 @@ function readCanonMeta(raw) {
 		updatedAt: typeof raw.updatedAt === "number" ? raw.updatedAt : 0
 	};
 	if (typeof raw.type === "string") meta.type = raw.type;
-	if (isDict$100(raw.base) && typeof raw.base.world === "string" && Number.isInteger(raw.base.uid)) {
+	if (isDict$102(raw.base) && typeof raw.base.world === "string" && Number.isInteger(raw.base.uid)) {
 		meta.base = {
 			world: raw.base.world,
 			uid: raw.base.uid,
@@ -14226,12 +14230,12 @@ function readCanonMeta(raw) {
 * editor) is a user addition; one whose meta is broken (an override without a base) is not an item.
 */
 function canonItemsOf(data) {
-	const entries = isDict$100(data) && isDict$100(data.entries) ? data.entries : {};
+	const entries = isDict$102(data) && isDict$102(data.entries) ? data.entries : {};
 	const items = [];
 	for (const [key, entry] of Object.entries(entries)) {
-		if (!isDict$100(entry)) continue;
-		const raw = (isDict$100(entry.extensions) ? entry.extensions : {}).maestro;
-		const meta = isDict$100(raw) && raw.kind !== void 0 ? readCanonMeta(raw) : {
+		if (!isDict$102(entry)) continue;
+		const raw = (isDict$102(entry.extensions) ? entry.extensions : {}).maestro;
+		const meta = isDict$102(raw) && raw.kind !== void 0 ? readCanonMeta(raw) : {
 			kind: "addition",
 			status: "active",
 			origin: "user",
@@ -14271,7 +14275,7 @@ function buildCanonEntry(uid, fields, meta, fallbackComment = "") {
 	if (!entry.comment && fallbackComment) entry.comment = fallbackComment;
 	if (meta.kind !== "addition") entry.disable = true;
 	entry.extensions = {
-		...isDict$100(fields.extensions) ? copyValue$2(fields.extensions) : {},
+		...isDict$102(fields.extensions) ? copyValue$2(fields.extensions) : {},
 		maestro: copyValue$2(meta)
 	};
 	delete entry.world;
@@ -14294,8 +14298,8 @@ function scanMarker(item) {
 function baseDriftOf(item, baseEntry) {
 	const base = item.meta.base;
 	if (!base) return null;
-	const now = isDict$100(baseEntry) && typeof baseEntry.content === "string" ? baseEntry.content : "";
-	if (isDict$100(baseEntry) && entryContentHash(baseEntry) === base.contentHash) return null;
+	const now = isDict$102(baseEntry) && typeof baseEntry.content === "string" ? baseEntry.content : "";
+	if (isDict$102(baseEntry) && entryContentHash(baseEntry) === base.contentHash) return null;
 	return {
 		then: base.content ?? "",
 		now
@@ -14303,7 +14307,7 @@ function baseDriftOf(item, baseEntry) {
 }
 function stripMaestro(entry) {
 	const out = { ...entry };
-	if (isDict$100(out.extensions)) {
+	if (isDict$102(out.extensions)) {
 		const extensions = { ...out.extensions };
 		delete extensions.maestro;
 		if (Object.keys(extensions).length) out.extensions = extensions;
@@ -14718,7 +14722,7 @@ function activationKey(world, uid) {
 }
 /** The four lists of a WORLDINFO_ENTRIES_LOADED payload; null when the payload does not look like one. */
 function listsOf(payload) {
-	if (!isDict$100(payload)) return null;
+	if (!isDict$102(payload)) return null;
 	const lists = {};
 	for (const name of LIST_NAMES) {
 		const list = payload[name];
@@ -14745,8 +14749,8 @@ function stripCanonBooks(lists) {
 	return [...found].sort();
 }
 function isOwnCopy(entry) {
-	const extensions = isDict$100(entry?.extensions) ? entry.extensions : void 0;
-	return typeof (isDict$100(extensions?.maestro) ? extensions.maestro : void 0)?.canonUid === "number";
+	const extensions = isDict$102(entry?.extensions) ? entry.extensions : void 0;
+	return typeof (isDict$102(extensions?.maestro) ? extensions.maestro : void 0)?.canonUid === "number";
 }
 function findBase(lists, world, uid) {
 	for (const name of LIST_NAMES) {
@@ -14760,13 +14764,13 @@ function findBase(lists, world, uid) {
 	return null;
 }
 function markerOf(entry) {
-	const extensions = isDict$100(entry.extensions) ? entry.extensions : void 0;
-	return isDict$100(extensions?.maestro) ? extensions.maestro : void 0;
+	const extensions = isDict$102(entry.extensions) ? entry.extensions : void 0;
+	return isDict$102(extensions?.maestro) ? extensions.maestro : void 0;
 }
 /** The scan copy of an addition: a fresh object with fresh arrays, in the canon book's name. */
 function additionCopy(item, canonBook) {
 	const copy = copyValue$2(item.entry);
-	const extensions = isDict$100(copy.extensions) ? copy.extensions : {};
+	const extensions = isDict$102(copy.extensions) ? copy.extensions : {};
 	return {
 		...copy,
 		uid: item.uid,
@@ -14781,7 +14785,7 @@ function additionCopy(item, canonBook) {
 function overrideCopy(base, item) {
 	const copy = materializeOverride(base, item.entry, itemOverrideFields(item.meta, item.entry));
 	copy.extensions = {
-		...isDict$100(base.extensions) ? base.extensions : {},
+		...isDict$102(base.extensions) ? base.extensions : {},
 		maestro: scanMarker(item)
 	};
 	return copy;
@@ -14861,7 +14865,7 @@ function recentText(messages, count) {
 	const parts = [];
 	for (let i = messages.length - 1; i >= 0 && parts.length < count; i--) {
 		const message = messages[i];
-		if (!isDict$100(message) || message.is_system === true) continue;
+		if (!isDict$102(message) || message.is_system === true) continue;
 		if (typeof message.mes === "string" && message.mes) parts.push(message.mes);
 	}
 	return parts.reverse().join("\n");
@@ -14893,7 +14897,7 @@ function itemKeys(item) {
 }
 /** Is an activated entry the canon's own (an addition copy or an override copy)? */
 function isCanonActivation(entry, canonBook) {
-	if (!isDict$100(entry)) return false;
+	if (!isDict$102(entry)) return false;
 	if (entry.world === canonBook) return true;
 	const marker = markerOf(entry);
 	return typeof marker?.canonUid === "number" && typeof marker.kind === "string";
@@ -15374,10 +15378,10 @@ var DICE_LIMITS = {
 	flat: 1e4,
 	target: 1e5
 };
-function isDict$99(value) {
+function isDict$101(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
-function str$21(value) {
+function str$23(value) {
 	return typeof value === "string" ? value.trim() : "";
 }
 /** A string kept as typed (multi-line rules keep inner spacing), only trimmed at the ends. */
@@ -15393,7 +15397,7 @@ function cleanList(value) {
 	const seen = /* @__PURE__ */ new Set();
 	const out = [];
 	for (const item of list) {
-		const clean = str$21(item);
+		const clean = str$23(item);
 		const key = clean.toLowerCase();
 		if (!clean || seen.has(key)) continue;
 		seen.add(key);
@@ -15596,12 +15600,12 @@ function initialValueOf(attribute) {
 	}
 }
 function normalizeEvent(raw, index) {
-	if (!isDict$99(raw)) return null;
-	const when = isDict$99(raw.when) ? raw.when : {};
+	if (!isDict$101(raw)) return null;
+	const when = isDict$101(raw.when) ? raw.when : {};
 	const op = oneOf$1(EVENT_OPS, when.op);
 	if (!op) return null;
 	const event = {
-		id: str$21(raw.id) || `event_${index + 1}`,
+		id: str$23(raw.id) || `event_${index + 1}`,
 		when: { op },
 		text: text$12(raw.text)
 	};
@@ -15611,12 +15615,12 @@ function normalizeEvent(raw, index) {
 	return event;
 }
 function normalizeAttribute(raw, index) {
-	if (!isDict$99(raw)) return null;
+	if (!isDict$101(raw)) return null;
 	const kind = oneOf$1(ATTRIBUTE_KINDS, raw.kind) ?? (raw.kind === void 0 ? "number" : "text");
-	const name = str$21(raw.name);
-	const promptName = str$21(raw.promptName);
+	const name = str$23(raw.name);
+	const promptName = str$23(raw.promptName);
 	const attribute = {
-		id: str$21(raw.id) || `attr_${index + 1}`,
+		id: str$23(raw.id) || `attr_${index + 1}`,
 		name: name || promptName,
 		promptName: promptName || name,
 		kind
@@ -15647,15 +15651,15 @@ function normalizeAttribute(raw, index) {
 	return attribute;
 }
 function normalizeCheck(raw, index) {
-	if (!isDict$99(raw)) return null;
-	const name = str$21(raw.name);
-	const promptName = str$21(raw.promptName);
+	if (!isDict$101(raw)) return null;
+	const name = str$23(raw.name);
+	const promptName = str$23(raw.promptName);
 	const difficulty = finite$2(raw.difficulty) ?? (typeof raw.difficulty === "string" && raw.difficulty.trim() ? Number(raw.difficulty) : null);
 	const check = {
-		id: str$21(raw.id) || `check_${index + 1}`,
+		id: str$23(raw.id) || `check_${index + 1}`,
 		name: name || promptName,
 		promptName: promptName || name,
-		dice: str$21(raw.dice),
+		dice: str$23(raw.dice),
 		difficulty: difficulty !== null && Number.isFinite(difficulty) ? difficulty : null,
 		triggers: cleanList(raw.triggers)
 	};
@@ -15663,8 +15667,8 @@ function normalizeCheck(raw, index) {
 	return check;
 }
 function normalizeHolders(raw) {
-	const kind = isDict$99(raw) ? oneOf$1(HOLDER_KINDS, raw.kind) : void 0;
-	const names = isDict$99(raw) ? cleanList(raw.names) : [];
+	const kind = isDict$101(raw) ? oneOf$1(HOLDER_KINDS, raw.kind) : void 0;
+	const names = isDict$101(raw) ? cleanList(raw.names) : [];
 	switch (kind) {
 		case "persona": return { kind };
 		case "world": return { kind };
@@ -15678,20 +15682,20 @@ function normalizeHolders(raw) {
 		};
 		default: {
 			const holders = { kind: "characters" };
-			if (isDict$99(raw) && raw.includePersona === true) holders.includePersona = true;
+			if (isDict$101(raw) && raw.includePersona === true) holders.includePersona = true;
 			return holders;
 		}
 	}
 }
 function normalizeScope(raw) {
-	if (isDict$99(raw)) {
-		if (raw.kind === "card" && str$21(raw.avatar)) return {
+	if (isDict$101(raw)) {
+		if (raw.kind === "card" && str$23(raw.avatar)) return {
 			kind: "card",
-			avatar: str$21(raw.avatar)
+			avatar: str$23(raw.avatar)
 		};
-		if (raw.kind === "chat" && str$21(raw.chatId)) return {
+		if (raw.kind === "chat" && str$23(raw.chatId)) return {
 			kind: "chat",
-			chatId: str$21(raw.chatId)
+			chatId: str$23(raw.chatId)
 		};
 	}
 	return { kind: "global" };
@@ -15702,13 +15706,13 @@ function normalizeScope(raw) {
 * Null when it is not an object or has no id.
 */
 function normalizeDef(raw) {
-	if (!isDict$99(raw)) return null;
-	const id = str$21(raw.id);
+	if (!isDict$101(raw)) return null;
+	const id = str$23(raw.id);
 	if (!id) return null;
 	const def = {
 		id,
-		name: str$21(raw.name) || id,
-		...str$21(raw.promptName) ? { promptName: str$21(raw.promptName) } : {},
+		name: str$23(raw.name) || id,
+		...str$23(raw.promptName) ? { promptName: str$23(raw.promptName) } : {},
 		summary: text$12(raw.summary),
 		rules: text$12(raw.rules),
 		attributes: (Array.isArray(raw.attributes) ? raw.attributes : []).map((item, index) => normalizeAttribute(item, index)).filter((item) => item !== null),
@@ -15717,8 +15721,8 @@ function normalizeDef(raw) {
 		tracking: oneOf$1(TRACKING_MODES, raw.tracking) ?? "background",
 		scope: normalizeScope(raw.scope)
 	};
-	if (str$21(raw.template)) def.template = str$21(raw.template);
-	if (str$21(raw.book)) def.book = str$21(raw.book);
+	if (str$23(raw.template)) def.template = str$23(raw.template);
+	if (str$23(raw.book)) def.book = str$23(raw.book);
 	if (typeof raw.uid === "number" && Number.isInteger(raw.uid) && raw.uid >= 0) def.uid = raw.uid;
 	if (finite$2(raw.updatedAt) !== void 0) def.updatedAt = raw.updatedAt;
 	return def;
@@ -16078,11 +16082,11 @@ function storedDef(def) {
 }
 /** The definition JSON of an entry, or null when it is not a mechanic entry. */
 function mechanicJsonOf(entry) {
-	if (!isDict$99(entry) || !isDict$99(entry.extensions) || !isDict$99(entry.extensions.maestro)) return null;
+	if (!isDict$101(entry) || !isDict$101(entry.extensions) || !isDict$101(entry.extensions.maestro)) return null;
 	const maestro = entry.extensions.maestro;
 	if (maestro.type !== void 0 && maestro.type !== "mechanic") return null;
 	const json = maestro[MECHANIC_EXTENSION_KEY];
-	return isDict$99(json) ? json : null;
+	return isDict$101(json) ? json : null;
 }
 function isMechanicEntry(entry) {
 	return mechanicJsonOf(entry) !== null;
@@ -16094,8 +16098,8 @@ function isMechanicEntry(entry) {
 */
 function defToEntry(def, uid, previous) {
 	const stored = storedDef(def);
-	const before = isDict$99(previous) ? previous : {};
-	const previousTyped = readTypedMeta(isDict$99(before.extensions) ? before.extensions.maestro : void 0);
+	const before = isDict$101(previous) ? previous : {};
+	const previousTyped = readTypedMeta(isDict$101(before.extensions) ? before.extensions.maestro : void 0);
 	const meta = {
 		type: MECHANIC_ENTRY_TYPE,
 		fields: {
@@ -16108,7 +16112,7 @@ function defToEntry(def, uid, previous) {
 	};
 	const extensions = withTypedMeta(before.extensions, meta) ?? {};
 	extensions.maestro = {
-		...isDict$99(extensions.maestro) ? extensions.maestro : {},
+		...isDict$101(extensions.maestro) ? extensions.maestro : {},
 		[MECHANIC_EXTENSION_KEY]: stored
 	};
 	const rest = { ...before };
@@ -16134,7 +16138,7 @@ function defToEntry(def, uid, previous) {
 function entryToDef(entry, book) {
 	const json = mechanicJsonOf(entry);
 	const def = json ? normalizeDef(json) : null;
-	if (!def || !isDict$99(entry)) return null;
+	if (!def || !isDict$101(entry)) return null;
 	const maestro = entry.extensions.maestro;
 	const typed = readTypedMeta(maestro);
 	const content = typeof entry.content === "string" ? entry.content.replace(/\r\n?/g, "\n").trim() : "";
@@ -16182,10 +16186,10 @@ var STATE_LIMITS = {
 	text: 500,
 	reason: 200
 };
-function isDict$98(value) {
+function isDict$100(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
-function str$20(value) {
+function str$22(value) {
 	return typeof value === "string" ? value.trim() : "";
 }
 /** Lower case, trimmed, inner whitespace / underscores / hyphens as one space: the matching form of a name. */
@@ -16242,7 +16246,7 @@ function listItems(attr, raw) {
 	const options = attr.options ?? [];
 	const exact = (item) => options.find((option) => sameName$3(option, item));
 	let items;
-	if (Array.isArray(raw)) items = raw.map((item) => typeof item === "number" ? String(item) : str$20(item));
+	if (Array.isArray(raw)) items = raw.map((item) => typeof item === "number" ? String(item) : str$22(item));
 	else if (typeof raw === "string") {
 		const whole = raw.trim();
 		items = !whole ? [] : exact(whole) || !/[,;]/.test(whole) ? [whole] : whole.split(/\s*[,;]\s*/);
@@ -16512,7 +16516,7 @@ function int$1(value, fallback) {
 	return typeof value === "number" && Number.isFinite(value) ? Math.trunc(value) : fallback;
 }
 function readChange$1(raw) {
-	if (!isDict$98(raw)) return null;
+	if (!isDict$100(raw)) return null;
 	const { id, mechanicId, holder, attribute, to, source } = raw;
 	if (typeof id !== "string" || typeof mechanicId !== "string" || typeof holder !== "string") return null;
 	if (typeof attribute !== "string" || !isValue(to) || !isSource(source)) return null;
@@ -16528,7 +16532,7 @@ function readChange$1(raw) {
 		at: int$1(raw.at, 0)
 	};
 	if (typeof raw.reason === "string" && raw.reason) change.reason = raw.reason;
-	if (isDict$98(raw.latch)) {
+	if (isDict$100(raw.latch)) {
 		const latch = {};
 		for (const [key, value] of Object.entries(raw.latch)) if (typeof value === "boolean") latch[key] = value;
 		if (Object.keys(latch).length) change.latch = latch;
@@ -16538,7 +16542,7 @@ function readChange$1(raw) {
 	return change;
 }
 function readEvent(raw) {
-	if (!isDict$98(raw)) return null;
+	if (!isDict$100(raw)) return null;
 	const { id, changeId, mechanicId, holder, attribute, eventId, text } = raw;
 	for (const field of [
 		id,
@@ -16565,12 +16569,12 @@ function readEvent(raw) {
 /** A stored document repaired (unknown or broken parts dropped). */
 function normalizeStateDoc(raw) {
 	const doc = emptyStateDoc();
-	if (!isDict$98(raw)) return doc;
-	if (isDict$98(raw.holders)) for (const [mechanicId, holders] of Object.entries(raw.holders)) {
-		if (!isDict$98(holders)) continue;
+	if (!isDict$100(raw)) return doc;
+	if (isDict$100(raw.holders)) for (const [mechanicId, holders] of Object.entries(raw.holders)) {
+		if (!isDict$100(holders)) continue;
 		const out = {};
 		for (const [name, holder] of Object.entries(holders)) {
-			if (!isDict$98(holder) || !isDict$98(holder.values)) continue;
+			if (!isDict$100(holder) || !isDict$100(holder.values)) continue;
 			const values = {};
 			for (const [attr, value] of Object.entries(holder.values)) if (isValue(value)) values[attr] = value;
 			out[name] = {
@@ -16584,7 +16588,7 @@ function normalizeStateDoc(raw) {
 		const change = readChange$1(item);
 		if (change) doc.log.push(change);
 	}
-	if (isDict$98(raw.latched)) {
+	if (isDict$100(raw.latched)) {
 		for (const [key, value] of Object.entries(raw.latched)) if (value === true) doc.latched[key] = true;
 	}
 	if (Array.isArray(raw.fired)) for (const item of raw.fired) {
@@ -16627,7 +16631,7 @@ function publicEvent$1(event) {
 		at: event.at
 	};
 }
-function clip$13(text, max) {
+function clip$14(text, max) {
 	const value = (text ?? "").replace(/\s+/g, " ").trim();
 	if (!value) return void 0;
 	return value.length > max ? `${value.slice(0, max - 1)}…` : value;
@@ -16703,7 +16707,7 @@ function applyChanges(doc, inputs, options) {
 			at: options.now,
 			prevUpdatedAt: holder.updatedAt
 		};
-		const reason = clip$13(input.reason, STATE_LIMITS.reason);
+		const reason = clip$14(input.reason, STATE_LIMITS.reason);
 		if (reason) change.reason = reason;
 		if (created) change.created = true;
 		holder.values[attr.id] = next.value;
@@ -17457,7 +17461,7 @@ function blockInstruction(defs, holdersByMechanic) {
 }
 //#endregion
 //#region src/domain/text-clean.ts
-function isDict$97(value) {
+function isDict$99(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /** Names of real HTML elements (lower case). BunnyMo tags (`<SPECIES:ELF>`, `<PHYSICAL>`) are not among them. */
@@ -17588,7 +17592,7 @@ var HTML_ELEMENTS = /* @__PURE__ */ new Set([
 	"wbr"
 ]);
 /** Elements whose tags separate lines of text. */
-var BLOCK_ELEMENTS = /* @__PURE__ */ new Set([
+var BLOCK_ELEMENTS$1 = /* @__PURE__ */ new Set([
 	"address",
 	"article",
 	"aside",
@@ -17666,7 +17670,7 @@ function looksLikeTracker(json) {
 	if (!body.startsWith("{")) return false;
 	try {
 		const parsed = JSON.parse(body);
-		return isDict$97(parsed) && TRACKER_KEYS.some((key) => key in parsed);
+		return isDict$99(parsed) && TRACKER_KEYS.some((key) => key in parsed);
 	} catch {
 		return TRACKER_KEY_RE$3.test(body);
 	}
@@ -17714,7 +17718,7 @@ function stripHtml(text) {
 	if (!text.includes("<") && !text.includes("&")) return text;
 	return decodeEntities(text.replace(/<!--[\s\S]*?-->/g, "").replace(/<(style|script)(?=[\s>])[^>]*>[\s\S]*?<\/\1\s*>/gi, "").replace(/<\/?([A-Za-z][A-Za-z0-9-]*)(?=[\s/>])[^<>]*>/g, (whole, name) => {
 		if (!isHtmlElementName(name)) return whole;
-		return BLOCK_ELEMENTS.has(name.toLowerCase()) ? "\n" : "";
+		return BLOCK_ELEMENTS$1.has(name.toLowerCase()) ? "\n" : "";
 	}));
 }
 /** The block CK appends in "thinking" display mode: `<BunnyMoTags>`, then "Name:" and "• CATEGORY: values" lines. */
@@ -17753,11 +17757,11 @@ function stripNaiPlaceholders(text) {
 * its own text and is not a picture post.
 */
 function isImagePost(message) {
-	if (!isDict$97(message) || !isDict$97(message.extra)) return false;
+	if (!isDict$99(message) || !isDict$99(message.extra)) return false;
 	const extra = message.extra;
-	if (isDict$97(extra.nai_studio)) return true;
+	if (isDict$99(extra.nai_studio)) return true;
 	const media = extra.media;
-	if (!Array.isArray(media) || !media.length || !media.every((item) => isDict$97(item) && isDict$97(item.nai_studio))) return false;
+	if (!Array.isArray(media) || !media.length || !media.every((item) => isDict$99(item) && isDict$99(item.nai_studio))) return false;
 	const text = typeof message.mes === "string" ? message.mes.trim() : "";
 	if (!text) return true;
 	return media.some((item) => {
@@ -17775,7 +17779,7 @@ function normalizeWhitespace(text) {
 */
 function cleanForAnalysis(message) {
 	if (typeof message !== "string" && isImagePost(message)) return "";
-	const raw = typeof message === "string" ? message : isDict$97(message) ? message.mes : void 0;
+	const raw = typeof message === "string" ? message : isDict$99(message) ? message.mes : void 0;
 	if (typeof raw !== "string" || !raw) return "";
 	let text = stripDesTrackerJson(raw);
 	text = stripCkDumps(text);
@@ -17784,9 +17788,58 @@ function cleanForAnalysis(message) {
 	text = stripHtml(text);
 	return normalizeWhitespace(text);
 }
+/** ST's «Manage chat files» preview is `...` + the last 400 characters (src/endpoints/chats.js getPreviewMessage). */
+var LEADING_ELLIPSIS_RE = /^\s*(\.{3}|…)/;
+/** The first bare fence line (the closing fence of a block whose opening was cut off). */
+var FIRST_BARE_FENCE_RE = /^([\s\S]*?)(?:\r?\n|^)[ \t]*```[ \t]*(?:\r?\n|$)/;
+var FIRST_BLANK_LINE_RE = /^([\s\S]*?)\r?\n[ \t]*\r?\n/;
+/** The segment is the end of a JSON object cut from the front: quoted keys, more closers than openers, ends closed. */
+function looksLikeJsonTail(segment) {
+	const body = segment.trim();
+	if (!body || !/[}\]]$/.test(body) || !/"\s*:/.test(body)) return false;
+	const opened = (body.match(/[{[]/g) ?? []).length;
+	return (body.match(/[}\]]/g) ?? []).length > opened;
+}
+/**
+* Removes what is left of a DES tracker block when a preview was cut from the front (`...": "Lyra"}]}` + a closing
+* fence, or an unfenced JSON tail up to the first blank line). Text that does not start inside JSON is kept.
+*/
+function stripTrackerTail(text) {
+	if (typeof text !== "string" || !text) return typeof text === "string" ? text : "";
+	const fence = FIRST_BARE_FENCE_RE.exec(text);
+	const before = fence?.[1] ?? "";
+	if (fence && !before.includes("```") && (/^[\s}\]]*$/.test(before) || looksLikeJsonTail(before))) return text.slice(fence[0].length).replace(/^\s+/, "");
+	const blank = FIRST_BLANK_LINE_RE.exec(text);
+	if (blank && looksLikeJsonTail(blank[1])) return text.slice(blank[0].length).replace(/^\s+/, "");
+	return text;
+}
+/**
+* The text of a last-message preview in a chat list (ST's recent chats, «Manage chat files», chat side bars) without
+* the service noise cleanForAnalysis removes. HTML is stripped twice: the first pass decodes what ST or a regex
+* escaped into text (`&lt;font color=…&gt;`), the second removes those tags too. Whitespace collapses to single
+* spaces (`keepLines`: paragraphs are kept, for tooltips); a leading `...` of a cut preview stays. Empty when nothing
+* but noise was there.
+*/
+function cleanPreviewText(text, options = {}) {
+	if (typeof text !== "string" || !text.trim()) return "";
+	let body = text;
+	let lead = "";
+	const ellipsis = LEADING_ELLIPSIS_RE.exec(body);
+	if (ellipsis) {
+		lead = ellipsis[1];
+		body = stripTrackerTail(body.slice(ellipsis[0].length).replace(/^[ \t]+/, ""));
+	}
+	body = stripDesTrackerJson(body);
+	body = stripCkDumps(body);
+	body = stripNaiPlaceholders(body);
+	body = stripBlock(body);
+	body = stripHtml(stripHtml(body));
+	body = options.keepLines ? normalizeWhitespace(body) : body.replace(/\s+/g, " ").trim();
+	return body ? `${lead}${body}` : "";
+}
 //#endregion
 //#region src/features/architect/context.ts
-function isDict$96(value) {
+function isDict$98(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 var MENTION_CACHE_LIMIT = 600;
@@ -18049,14 +18102,14 @@ var SceneContext = class {
 		const window = this.settings().presence.mentionWindow;
 		let end = chat.length;
 		const last = chat[end - 1];
-		if (type === "swipe" && isDict$96(last) && last.is_user !== true && last.is_system !== true) end--;
+		if (type === "swipe" && isDict$98(last) && last.is_user !== true && last.is_system !== true) end--;
 		const committed = lastCommittedIndex$2(chat);
-		const lastText = isDict$96(last) && typeof last.mes === "string" ? last.mes : "";
+		const lastText = isDict$98(last) && typeof last.mes === "string" ? last.mes : "";
 		const key = [
 			this.app.host.chatId() ?? "",
 			end,
 			lastText.length,
-			isDict$96(last) ? String(last.swipe_id ?? 0) : "",
+			isDict$98(last) ? String(last.swipe_id ?? 0) : "",
 			committed,
 			type,
 			window,
@@ -18120,8 +18173,8 @@ var SceneContext = class {
 	/** Names of the characters in the scene of the committed reply; null when it has no DES characters. */
 	trackerNames(chat, committed) {
 		const message = committed >= 0 ? chat[committed] : void 0;
-		const text = isDict$96(message) && typeof message.mes === "string" ? message.mes : "";
-		const key = `${committed}|${isDict$96(message) ? String(message.swipe_id ?? 0) : ""}|${text.length}`;
+		const text = isDict$98(message) && typeof message.mes === "string" ? message.mes : "";
+		const key = `${committed}|${isDict$98(message) ? String(message.swipe_id ?? 0) : ""}|${text.length}`;
 		if (this.tracker?.key === key) return this.tracker.names;
 		let names = null;
 		try {
@@ -18178,7 +18231,7 @@ var SceneContext = class {
 		let counted = 0;
 		for (let i = end - 1; i >= 0 && counted < 40; i--) {
 			const message = chat[i];
-			if (!isDict$96(message) || message.is_system === true) continue;
+			if (!isDict$98(message) || message.is_system === true) continue;
 			const ids = this.mentionsOf(world, i, message, counted < window);
 			if (!ids) break;
 			rows.unshift(ids);
@@ -18213,7 +18266,7 @@ var SceneContext = class {
 			let counted = 0;
 			for (let i = chat.length - 1; i >= 0 && counted < 40; i--) {
 				const message = chat[i];
-				if (!isDict$96(message) || message.is_system === true) continue;
+				if (!isDict$98(message) || message.is_system === true) continue;
 				this.mentionsOf(world, i, message, true);
 				counted++;
 			}
@@ -18238,7 +18291,7 @@ var DAMP_RULE_ID = "architect.damp";
 var PIN_RULE_ID = "architect.pin";
 var LORE_BUDGET_RULE_ID = "architect.loreBudget";
 var DEDUP_RULE_ID = "architect.dedup";
-function isDict$95(value) {
+function isDict$97(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function text$11(value) {
@@ -18254,7 +18307,7 @@ function entriesOf$3(lists) {
 		lists.personaLore
 	]) {
 		if (!Array.isArray(list)) continue;
-		for (const entry of list) if (isDict$95(entry) && typeof entry.world === "string" && entry.uid !== void 0) result.push(entry);
+		for (const entry of list) if (isDict$97(entry) && typeof entry.world === "string" && entry.uid !== void 0) result.push(entry);
 	}
 	return result;
 }
@@ -18480,7 +18533,7 @@ var ArchitectLore = class {
 		const run = this.runFor(args, scan);
 		if (run.pinsDone || scan.loop > 1 || !this.settings().presence.pin) return;
 		run.pinsDone = true;
-		const activated = isDict$95(args.activated) ? args.activated.entries : void 0;
+		const activated = isDict$97(args.activated) ? args.activated.entries : void 0;
 		if (!(activated instanceof Map) || !this.pinCandidates.size) return;
 		const map = activated;
 		const sorted = Array.isArray(args.sortedEntries) ? args.sortedEntries : [];
@@ -18490,7 +18543,7 @@ var ArchitectLore = class {
 				run.protect.add(key);
 				continue;
 			}
-			byKey ??= new Map(sorted.filter(isDict$95).map((item) => [activationKey(item.world, item.uid), item]));
+			byKey ??= new Map(sorted.filter(isDict$97).map((item) => [activationKey(item.world, item.uid), item]));
 			const entry = byKey.get(key);
 			if (!entry || entry.disable === true) continue;
 			if (typeof entry.content === "string" && entry.content.includes("{{")) try {
@@ -18513,7 +18566,7 @@ var ArchitectLore = class {
 	}
 	budget(args, scan) {
 		const run = this.runFor(args, scan);
-		const activated = isDict$95(args.activated) ? args.activated.entries : void 0;
+		const activated = isDict$97(args.activated) ? args.activated.entries : void 0;
 		if (!(activated instanceof Map)) return [];
 		const map = activated;
 		const limit = this.settings().budgets.lore;
@@ -18534,7 +18587,7 @@ var ArchitectLore = class {
 			exemptOf = (key, entry) => run.protect.has(key) || pins.has(key) || entry.ignoreBudget === true || isProtected(text$11(entry.world)) || this.scene.isCanonEntry(entry) || scene !== null && this.scene.verdict(entry, scene).action === "pin";
 		}
 		for (const [rawKey, entry] of map) {
-			if (!isDict$95(entry)) continue;
+			if (!isDict$97(entry)) continue;
 			const key = String(rawKey);
 			byKey.set(key, entry);
 			items.push({
@@ -18555,8 +18608,8 @@ var ArchitectLore = class {
 			map.delete(key);
 			entry.disable = true;
 			if (position(entry) === Number.MAX_SAFE_INTEGER) {
-				const twin = sorted.find((item) => isDict$95(item) && item.world === entry.world && item.uid === entry.uid);
-				if (isDict$95(twin)) twin.disable = true;
+				const twin = sorted.find((item) => isDict$97(item) && item.world === entry.world && item.uid === entry.uid);
+				if (isDict$97(twin)) twin.disable = true;
 			}
 			lore?.markCut?.(text$11(entry.world), Number(entry.uid));
 			cuts.push({
@@ -18575,7 +18628,7 @@ var ArchitectLore = class {
 			this.real.loreBefore = run.used + run.cutTokens;
 			this.real.loreAfter = run.used;
 			this.real.at = Date.now();
-			if (scan.final) this.tokens.want([...map.values()].filter(isDict$95));
+			if (scan.final) this.tokens.want([...map.values()].filter(isDict$97));
 		}
 		return cuts;
 	}
@@ -18663,7 +18716,7 @@ function defaultArchitectSettings() {
 		}
 	};
 }
-function isDict$94(value) {
+function isDict$96(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function flag(value, fallback) {
@@ -18680,20 +18733,20 @@ function cleanWindow(value) {
 function readArchitectSettings(slice) {
 	const defaults = defaultArchitectSettings();
 	const raw = slice;
-	if (!isDict$94(raw.budgets)) raw.budgets = cleanBudgets(raw.budgets);
+	if (!isDict$96(raw.budgets)) raw.budgets = cleanBudgets(raw.budgets);
 	else {
 		const clean = cleanBudgets(raw.budgets);
 		for (const source of BUDGET_SOURCES) if (raw.budgets[source] !== clean[source]) raw.budgets[source] = clean[source];
 	}
-	if (!isDict$94(raw.presence)) raw.presence = { ...defaults.presence };
+	if (!isDict$96(raw.presence)) raw.presence = { ...defaults.presence };
 	const presence = raw.presence;
 	presence.damp = flag(presence.damp, defaults.presence.damp);
 	presence.pin = flag(presence.pin, defaults.presence.pin);
 	if (presence.mentionWindow !== cleanWindow(presence.mentionWindow)) presence.mentionWindow = cleanWindow(presence.mentionWindow);
-	if (!isDict$94(raw.duplicates)) raw.duplicates = { ...defaults.duplicates };
+	if (!isDict$96(raw.duplicates)) raw.duplicates = { ...defaults.duplicates };
 	const duplicates = raw.duplicates;
 	duplicates.detect = flag(duplicates.detect, defaults.duplicates.detect);
-	if (!isDict$94(raw.cache)) raw.cache = { ...defaults.cache };
+	if (!isDict$96(raw.cache)) raw.cache = { ...defaults.cache };
 	const cache = raw.cache;
 	cache.measure = flag(cache.measure, defaults.cache.measure);
 	cache.orderCheck = flag(cache.orderCheck, defaults.cache.orderCheck);
@@ -18701,7 +18754,7 @@ function readArchitectSettings(slice) {
 }
 //#endregion
 //#region src/features/architect/prompt.ts
-function isDict$93(value) {
+function isDict$95(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /** Extension prompt keys the injection budgets act on. */
@@ -18720,7 +18773,7 @@ var SELF_FITTING = /* @__PURE__ */ new Set(["voices", "mechanics"]);
 var POSITION_NONE$1 = -1;
 /** Replaces the text of one part of a message (string content, or a new array with a new text part). */
 function setPartText$1(message, part, text) {
-	if (!isDict$93(message)) return;
+	if (!isDict$95(message)) return;
 	if (typeof message.content === "string") {
 		message.content = text;
 		return;
@@ -18728,7 +18781,7 @@ function setPartText$1(message, part, text) {
 	if (Array.isArray(message.content)) {
 		const parts = [...message.content];
 		const old = parts[part];
-		if (!isDict$93(old)) return;
+		if (!isDict$95(old)) return;
 		parts[part] = {
 			...old,
 			text
@@ -18789,7 +18842,7 @@ var PromptStage = class {
 		const message = messages[hit.message];
 		const next = spliceText(messageTextParts(message)[hit.part] ?? "", hit.start, hit.needle.length, replacement);
 		setPartText$1(message, hit.part, next);
-		if (isDict$93(message) && typeof message.content === "string" && !next.trim() && !message.tool_calls) messages.splice(hit.message, 1);
+		if (isDict$95(message) && typeof message.content === "string" && !next.trim() && !message.tool_calls) messages.splice(hit.message, 1);
 	}
 	trim(source, value, limit) {
 		if (source === "ckRag") return trimRagInjection(value, limit, estimateText);
@@ -18807,7 +18860,7 @@ var PromptStage = class {
 	}
 	/** CHAT_COMPLETION_PROMPT_READY (non-dry): budgets and consented drops on the final messages; the capture. */
 	onPromptReady(data) {
-		if (!isDict$93(data) || data.dryRun !== false || !Array.isArray(data.chat)) return null;
+		if (!isDict$95(data) || data.dryRun !== false || !Array.isArray(data.chat)) return null;
 		const messages = data.chat;
 		const prompts = this.app.host.ctx().extensionPrompts ?? {};
 		const settings = this.settings();
@@ -18927,7 +18980,7 @@ var PromptStage = class {
 		}
 		const lore = [];
 		for (const raw of this.activated ?? []) {
-			if (!isDict$93(raw) || typeof raw.world !== "string") continue;
+			if (!isDict$95(raw) || typeof raw.world !== "string") continue;
 			lore.push({
 				world: raw.world,
 				uid: Number(raw.uid),
@@ -19057,11 +19110,11 @@ var SKIPPED_OWNERS = /* @__PURE__ */ new Set([
 	"wiOutlet",
 	"maestro"
 ]);
-function isDict$92(value) {
+function isDict$94(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function isConsentPayload(value) {
-	return isDict$92(value) && typeof value.id === "string" && (value.consent === null || isDict$92(value.consent));
+	return isDict$94(value) && typeof value.id === "string" && (value.consent === null || isDict$94(value.consent));
 }
 var ArchitectService = class {
 	app;
@@ -19135,9 +19188,9 @@ var ArchitectService = class {
 		own(this.meter.onChange(() => this.changed()));
 		for (const off of this.meter.install()) own(off);
 		this.app.journal.registerUndo(CONSENT_TARGET, async (change) => {
-			const id = isDict$92(change.ref) ? change.ref.id : void 0;
+			const id = isDict$94(change.ref) ? change.ref.id : void 0;
 			if (typeof id !== "string") return false;
-			const before = isDict$92(change.before) ? change.before : null;
+			const before = isDict$94(change.before) ? change.before : null;
 			await this.consents.save(before, id);
 			this.refreshKeeps();
 			return true;
@@ -20875,7 +20928,7 @@ function fullTurn(turn) {
 	return out;
 }
 function callNote(call) {
-	if (call.status === "applied" || call.status === "declined") return `${call.name} ${call.status}${call.summary ? ` (${clip$12(call.summary, 120)})` : ""}`;
+	if (call.status === "applied" || call.status === "declined") return `${call.name} ${call.status}${call.summary ? ` (${clip$13(call.summary, 120)})` : ""}`;
 	if (call.status === "error") return `${call.name} failed`;
 	return call.name;
 }
@@ -20899,7 +20952,7 @@ function compactTurn(turn) {
 	});
 	return out;
 }
-function clip$12(text, max) {
+function clip$13(text, max) {
 	const flat = text.replace(/\s+/g, " ").trim();
 	return flat.length > max ? `${flat.slice(0, Math.max(0, max - 1))}…` : flat;
 }
@@ -20909,8 +20962,8 @@ function turnLine(turn) {
 	const answers = turn.filter((message) => message.role === "assistant");
 	const answer = answers.map((message) => message.text.trim()).filter(Boolean).join(" ");
 	const calls = answers.flatMap((message) => message.toolCalls ?? []);
-	const parts = [user ? `User: «${clip$12(user.text, 120)}»` : "User: —"];
-	parts.push(answer ? `Assistant: «${clip$12(answer, 160)}»` : "Assistant: no answer");
+	const parts = [user ? `User: «${clip$13(user.text, 120)}»` : "User: —"];
+	parts.push(answer ? `Assistant: «${clip$13(answer, 160)}»` : "Assistant: no answer");
 	if (calls.length) parts.push(`[${calls.map(callNote).join("; ")}]`);
 	return parts.join(" → ");
 }
@@ -20977,6 +21030,7 @@ var PROMPT_TOOLS = [
 	"Tools:",
 	"- Before answering a question about this chat, its lore, settings, health, costs or the journal, look it up with the read tools; never guess a value you can read. Read only what you need.",
 	"- Where to look first: how Maestro or a neighbour works → `docs_search`; «why did X not know / not mention …» → `lore_turn` with `name` (then `dossier`, `knowledge_who`); «why was this turn expensive» → `cost_turn`; «what does this regex do» → `regex_explain`, then `regex_test` on a sample; what went into the prompt → `turn_prompt`.",
+	"- The story itself: what happens in the chat → `chat_read` (latest messages or a range) or `chat_search`; the character card and its starting scenes (first message, alternate greetings) → `card_read`; the persona → `persona_read`. «Propose mechanics for this chat/card» → `scenario_overview`, then one `mechanic_save` per proposal (each is shown to the user as a card to confirm).",
 	"- Use a write tool only when the user asked for that change or agreed to your suggestion. Every change is shown to the user as a before/after card and is applied only after the user confirms it. If the user declines, do not propose the same change again unless asked.",
 	"- One change per call, with exact values; prefer the smallest change that solves the problem. Never say a change was made before its tool reported it applied.",
 	"- If a tool returns an error, fix the arguments once or explain the problem; do not repeat a failing call.",
@@ -21037,7 +21091,7 @@ var STATUSES$2 = [
 	"applied",
 	"declined"
 ];
-var ROLES$6 = [
+var ROLES$7 = [
 	"user",
 	"assistant",
 	"notice"
@@ -21096,7 +21150,7 @@ function normalizeCall(raw, live) {
 function normalizeMessage(raw, live) {
 	if (!isRecord$9(raw) || typeof raw["id"] !== "string") return null;
 	const role = raw["role"];
-	if (!ROLES$6.includes(role)) return null;
+	if (!ROLES$7.includes(role)) return null;
 	const message = {
 		id: raw["id"],
 		role,
@@ -21544,7 +21598,7 @@ var AssistantService = class {
 			const forModel = toolResultText(output, tool.name, settings.resultChars);
 			await this.patchCall(run, messageId, call.id, {
 				status: "ok",
-				summary: typeof output.summary === "string" ? clip$12(output.summary, 200) : void 0,
+				summary: typeof output.summary === "string" ? clip$13(output.summary, 200) : void 0,
 				result: capText(redactSecrets(serializeToolData(output.data)), STORED_RESULT_CHARS),
 				untrusted: output.untrusted === true ? true : void 0
 			});
@@ -21571,8 +21625,8 @@ var AssistantService = class {
 		run.writes++;
 		await this.patchCall(run, messageId, call.id, {
 			status: "waiting",
-			summary: clip$12(plan.summary, 300),
-			target: clip$12(plan.target, 200),
+			summary: clip$13(plan.summary, 300),
+			target: clip$13(plan.target, 200),
 			before: compactValue(plan.before),
 			after: compactValue(plan.after)
 		});
@@ -21659,7 +21713,7 @@ var AssistantService = class {
 	async closeCall(run, messageId, call, error, forModel) {
 		await this.patchCall(run, messageId, call.id, {
 			status: "error",
-			error: clip$12(error, 300)
+			error: clip$13(error, 300)
 		});
 		return forModel;
 	}
@@ -21701,7 +21755,7 @@ var AssistantService = class {
 	failure(error) {
 		if (error instanceof Stopped) return this.t("m33.error.stopped");
 		if (error instanceof TimedOut) return this.t("m33.error.timeout");
-		return clip$12(redactSecrets((error instanceof Error ? error.message : String(error)) || this.t("m33.error.toolFailed")), 300);
+		return clip$13(redactSecrets((error instanceof Error ? error.message : String(error)) || this.t("m33.error.toolFailed")), 300);
 	}
 	errorText(result) {
 		const error = result.error ?? "";
@@ -21714,8 +21768,8 @@ var AssistantService = class {
 			case "empty":
 			case "parse": return this.t("m33.error.empty");
 			default:
-				if (error.startsWith("transport:")) return this.t("m33.error.transport", { detail: clip$12(redactSecrets(error.slice(10)), 160) });
-				return this.t("m33.error.failed", { detail: clip$12(redactSecrets(error || "?"), 160) });
+				if (error.startsWith("transport:")) return this.t("m33.error.transport", { detail: clip$13(redactSecrets(error.slice(10)), 160) });
+				return this.t("m33.error.failed", { detail: clip$13(redactSecrets(error || "?"), 160) });
 		}
 	}
 	emit() {
@@ -22229,11 +22283,1460 @@ function findTopic(topics, query, locale) {
 	return topics.find((topic) => topic.id === hit.id) ?? null;
 }
 //#endregion
+//#region src/domain/assistant-chat.ts
+function isDict$93(value) {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function str$21(value) {
+	return typeof value === "string" ? value : "";
+}
+/** Text cut to `max` characters with «…». */
+function clip$12(text, max) {
+	return text.length > max ? `${text.slice(0, Math.max(1, max - 1)).trimEnd()}…` : text;
+}
+/** Who wrote a message: the user, a character, or a system message (`extra.type`: narrator, comment…). */
+function messageRole(message) {
+	if (!isDict$93(message)) return "char";
+	if (message.is_user === true) return "user";
+	const extra = isDict$93(message.extra) ? message.extra : void 0;
+	return extra && typeof extra.type === "string" && extra.type ? "system" : "char";
+}
+function dateOf(value) {
+	if (typeof value === "number" && Number.isFinite(value) && value > 0) return new Date(value).toISOString();
+	const text = str$21(value).trim();
+	return text ? clip$12(text, 40) : void 0;
+}
+/** A chat message as the assistant sees it; `clean` strips the service noise (cleanForAnalysis). */
+function messageView(message, index, clean = true) {
+	const dict = isDict$93(message) ? message : {};
+	const view = {
+		index,
+		name: clip$12(str$21(dict.name).trim() || "?", 60),
+		role: messageRole(message),
+		text: clean ? cleanForAnalysis(message) : str$21(dict.mes)
+	};
+	const swipes = Array.isArray(dict.swipes) ? dict.swipes.length : 0;
+	if (swipes > 1) view.swipe = `${(typeof dict.swipe_id === "number" && dict.swipe_id >= 0 ? dict.swipe_id : 0) + 1}/${swipes}`;
+	const date = dateOf(dict.send_date);
+	if (date) view.date = date;
+	if (dict.is_system === true) view.hidden = true;
+	const extra = isDict$93(dict.extra) ? dict.extra : void 0;
+	if (view.role === "system" && extra) view.system = clip$12(str$21(extra.type), 30);
+	if (isImagePost(message)) view.image = true;
+	return view;
+}
+/**
+* The tracker JSON that opens a reply in DES's together mode, parsed (an object with quests / infoBox /
+* characterThoughts or characters); null when the text does not open with one or it is not valid JSON.
+*/
+function leadingTrackerJson(text) {
+	if (typeof text !== "string" || !text) return null;
+	const rest = stripDesTrackerJson(text);
+	if (rest === text) return null;
+	const parsed = parseTrackerJson(text.slice(0, text.length - rest.length).trim());
+	return isDict$93(parsed) ? parsed : null;
+}
+/**
+* The DES tracker of a message: its per-swipe record (where DES keeps it), else the tracker JSON at the start of its
+* text. Null for user messages and messages without tracker data.
+*/
+function messageTracker(message) {
+	const record = desSwipeRecord(message);
+	if (record) {
+		const snapshot = parseDesTracker(record);
+		if (!isEmptySnapshot(snapshot)) return snapshot;
+	}
+	if (!isDict$93(message) || message.is_user === true) return null;
+	const json = leadingTrackerJson(str$21(message.mes));
+	if (!json) return null;
+	const snapshot = {
+		characters: parseDesCharacters(json.characterThoughts ?? json.characters ?? null),
+		infoBox: parseDesInfoBox(json.infoBox ?? json.infobox ?? null),
+		quests: parseDesQuests(json.quests ?? null)
+	};
+	return isEmptySnapshot(snapshot) ? null : snapshot;
+}
+/** The latest message (from the end) that carries a tracker, with its index; null when none does. */
+function latestTracker(chat) {
+	for (let index = chat.length - 1; index >= 0; index--) {
+		const snapshot = messageTracker(chat[index]);
+		if (snapshot) return {
+			index,
+			snapshot
+		};
+	}
+	return null;
+}
+function timeLabel(info) {
+	if (!info) return void 0;
+	const clock = info.time ? [info.time.start, info.time.end].filter(Boolean).join("–") : "";
+	const label = [info.date, clock].filter(Boolean).join(", ");
+	return label ? clip$12(label, 80) : void 0;
+}
+/** The compact summary of a tracker (null when it says nothing about the scene). */
+function trackerBrief(snapshot) {
+	if (!snapshot) return null;
+	const brief = {};
+	const location = snapshot.infoBox?.location;
+	if (location) brief.location = clip$12(location, 100);
+	const time = timeLabel(snapshot.infoBox);
+	if (time) brief.time = time;
+	const present = snapshot.characters.filter((character) => !character.offScene).map((item) => item.name);
+	if (present.length) brief.present = present.slice(0, 12).map((name) => clip$12(name, 40));
+	return Object.keys(brief).length ? brief : null;
+}
+function trackerScene(snapshot) {
+	if (!snapshot) return null;
+	const scene = { ...trackerBrief(snapshot) ?? {} };
+	const info = snapshot.infoBox;
+	const weather = [info?.weather?.emoji, info?.weather?.forecast].filter(Boolean).join(" ");
+	const temperature = info?.temperature ? `${info.temperature.value}${info.temperature.unit ?? ""}` : "";
+	if (weather || temperature) scene.weather = clip$12([weather, temperature].filter(Boolean).join(", "), 80);
+	const off = snapshot.characters.filter((character) => character.offScene).map((item) => item.name);
+	if (off.length) scene.offScene = off.slice(0, 10).map((name) => clip$12(name, 40));
+	const characters = snapshot.characters.slice(0, 10).map((character) => {
+		const row = { name: clip$12(character.name, 40) };
+		if (character.relationship) row.relationship = clip$12(character.relationship, 60);
+		if (character.stats.length) row.stats = clip$12(character.stats.slice(0, 8).map((stat) => `${stat.name} ${stat.value}`).join(", "), 120);
+		return row;
+	});
+	if (characters.some((row) => row.relationship || row.stats)) scene.characters = characters;
+	const quests = snapshot.quests;
+	if (quests && (quests.main || quests.optional.length)) {
+		scene.quests = {};
+		if (quests.main) scene.quests.main = clip$12(quests.main, 160);
+		if (quests.optional.length) scene.quests.optional = quests.optional.slice(0, 6).map((q) => clip$12(q, 120));
+	}
+	if (info?.recentEvents.length) scene.recentEvents = info.recentEvents.slice(0, 3).map((e) => clip$12(e, 200));
+	const fields = Object.entries(info?.fields ?? {}).slice(0, 6);
+	if (fields.length) scene.fields = Object.fromEntries(fields.map(([key, value]) => [key, clip$12(value, 80)]));
+	return Object.keys(scene).length ? scene : null;
+}
+/** Distinct search stems of a query (lower case, ё → е, stop words dropped), at most 8. */
+function searchTerms(query) {
+	if (typeof query !== "string") return [];
+	return [...new Set(tokenize$3(query).map(stem))].filter((term) => term.length >= 2).slice(0, 8);
+}
+var WORD_RE$5 = /[\p{L}\p{N}_]+/gu;
+/**
+* A stem without a final й/ь, and a three-letter Russian word without its final vowel (the stemmer leaves words that
+* short alone): «Кай», «Кая», «Каю» all give «ка».
+*/
+function soft(stemmed) {
+	if (stemmed.length >= 3 && /[йь]$/.test(stemmed)) return stemmed.slice(0, -1);
+	if (stemmed.length === 3 && /^[а-я]+$/.test(stemmed) && /[аяоеыиую]$/.test(stemmed)) return stemmed.slice(0, -1);
+	return stemmed;
+}
+/**
+* Which search terms a text contains: a word matches a term when their stems agree (a final й/ь aside), or (terms of
+* four letters and more) when the word or its stem starts with the term — «Анну», «Анной» find «Анна», «Кая» finds
+* «Кай», «убедила» finds «убедить».
+*/
+function matchTerms(text, terms) {
+	if (typeof text !== "string" || !text || !terms.length) return null;
+	const found = /* @__PURE__ */ new Set();
+	let at = -1;
+	for (const match of normalizeText(text).matchAll(WORD_RE$5)) {
+		const word = match[0];
+		const wordStem = stem(word);
+		for (const term of terms) {
+			if (found.has(term)) continue;
+			if (!(soft(wordStem) === soft(term) || term.length >= 4 && (wordStem.startsWith(term) || word.startsWith(term)))) continue;
+			found.add(term);
+			if (at < 0) at = match.index;
+		}
+		if (found.size === terms.length) break;
+	}
+	return found.size ? {
+		matched: found.size,
+		at: Math.min(Math.max(0, at), text.length)
+	} : null;
+}
+/** About `radius` characters on each side of `at`, on word boundaries, on one line, with «…» where cut. */
+function snippetAround(text, at, radius = 100) {
+	if (typeof text !== "string" || !text) return "";
+	const centre = Math.min(Math.max(0, at), text.length);
+	let start = Math.max(0, centre - radius);
+	let end = Math.min(text.length, centre + radius);
+	for (let step = 0; start > 0 && step < 20 && /\S/.test(text[start - 1] ?? ""); step++) start--;
+	for (let step = 0; end < text.length && step < 20 && /\S/.test(text[end] ?? ""); step++) end++;
+	const body = text.slice(start, end).replace(/\s+/g, " ").trim();
+	return `${start > 0 ? "…" : ""}${body}${end < text.length ? "…" : ""}`;
+}
+function strings$22(value) {
+	return Array.isArray(value) ? value.filter((item) => typeof item === "string" && !!item.trim()) : [];
+}
+function bookOf$1(raw) {
+	if (!isDict$93(raw)) return null;
+	const list = Array.isArray(raw.entries) ? raw.entries : isDict$93(raw.entries) ? Object.values(raw.entries) : [];
+	const entries = [];
+	for (const item of list) {
+		if (!isDict$93(item)) continue;
+		const keys = strings$22(item.keys ?? item.key);
+		const title = str$21(item.comment).trim() || str$21(item.name).trim() || keys[0] || `#${entries.length + 1}`;
+		entries.push({
+			title,
+			keys,
+			enabled: item.enabled !== false && item.disable !== true
+		});
+	}
+	const book = { entries };
+	const name = str$21(raw.name).trim();
+	if (name) book.name = name;
+	return entries.length || name ? book : null;
+}
+/**
+* The fields of a character card as SillyTavern uses them: the top-level fields (ST keeps them in sync with the V2
+* `data`) with `data` as the fallback, and the V2-only fields from `data`. Null for anything that is not a card.
+*/
+function cardView(character) {
+	if (!isDict$93(character)) return null;
+	const data = isDict$93(character.data) ? character.data : {};
+	const extensions = isDict$93(data.extensions) ? data.extensions : {};
+	const field = (top, inData = top) => (str$21(character[top]) || str$21(data[inData])).trim();
+	const depth = isDict$93(extensions.depth_prompt) ? extensions.depth_prompt : null;
+	const depthText = depth ? str$21(depth.prompt).trim() : "";
+	const card = {
+		name: field("name") || "?",
+		avatar: str$21(character.avatar),
+		description: field("description"),
+		personality: field("personality"),
+		scenario: field("scenario"),
+		firstMessage: field("first_mes"),
+		alternateGreetings: strings$22(data.alternate_greetings).map((text) => text.trim()),
+		examples: field("mes_example"),
+		creatorNotes: str$21(data.creator_notes).trim() || str$21(character.creatorcomment).trim(),
+		systemPrompt: str$21(data.system_prompt).trim(),
+		postHistory: str$21(data.post_history_instructions).trim(),
+		depthPrompt: null,
+		tags: [...new Set([...strings$22(character.tags), ...strings$22(data.tags)].map((tag) => tag.trim()))],
+		book: bookOf$1(data.character_book)
+	};
+	if (depthText) {
+		card.depthPrompt = { text: depthText };
+		if (depth && typeof depth.depth === "number") card.depthPrompt.depth = depth.depth;
+		if (depth && typeof depth.role === "string" && depth.role) card.depthPrompt.role = depth.role;
+	}
+	const world = str$21(extensions.world).trim();
+	if (world) card.world = world;
+	const creator = str$21(data.creator).trim();
+	if (creator) card.creator = creator;
+	const version = str$21(data.character_version).trim();
+	if (version) card.version = version;
+	return card;
+}
+/** Letters and digits only, lower case, ё → е: a comparable form of a text. */
+function letters$1(text) {
+	return normalizeText(text).replace(/[^\p{L}\p{N}]+/gu, "");
+}
+/**
+* Which starting scene the chat opened with: 0 = the first message, n = alternate greeting n. ST keeps the greetings
+* as swipes of the opening message, so its swipe id tells when the swipes line up with the card; otherwise the text is
+* compared (macros like {{user}} are already replaced in the chat, so a macro-free piece of each greeting is looked
+* for). Undefined when the chat does not open with one of the card's greetings.
+*/
+function greetingInChat(chat, card) {
+	const first = chat[0];
+	if (!isDict$93(first) || first.is_user === true) return void 0;
+	const greetings = [card.firstMessage, ...card.alternateGreetings];
+	const swipes = Array.isArray(first.swipes) ? first.swipes.length : 0;
+	const swipeId = typeof first.swipe_id === "number" ? first.swipe_id : 0;
+	if (greetings.length > 1 && swipes === greetings.length && swipeId >= 0 && swipeId < swipes) return swipeId;
+	const opening = letters$1(str$21(first.mes));
+	if (!opening) return void 0;
+	const index = greetings.findIndex((greeting) => {
+		const piece = greeting.split(/\{\{[^}]*\}\}/).map(letters$1).find((part) => part.length >= 20);
+		return !!piece && opening.includes(piece.slice(0, 60));
+	});
+	return index >= 0 ? index : void 0;
+}
+/** `power_user.persona_description_position` (personas.js persona_description_positions). */
+var PERSONA_POSITIONS = {
+	0: "in the prompt (after the card)",
+	1: "in the prompt (after the card)",
+	2: "top of the author's note",
+	3: "bottom of the author's note",
+	4: "in the chat at a depth",
+	9: "not sent"
+};
+/** Extension prompt roles (`persona_description_role`). */
+var PROMPT_ROLES = {
+	0: "system",
+	1: "user",
+	2: "assistant"
+};
+/** The avatar id of a persona by its name (`power_user.personas` maps avatar → name); only when unique. */
+function personaAvatarByName(power, name) {
+	if (!isDict$93(power) || !isDict$93(power.personas) || !name.trim()) return void 0;
+	const wanted = name.trim();
+	const avatars = Object.entries(power.personas).filter(([, value]) => typeof value === "string" && value.trim() === wanted).map(([avatar]) => avatar);
+	return avatars.length === 1 ? avatars[0] : void 0;
+}
+/** The lock states of a persona as ST's isPersonaLocked() computes them. */
+function personaLock(power, chatMetadata, avatar, target) {
+	const lock = {
+		chat: false,
+		character: false,
+		default: false
+	};
+	if (!avatar) return lock;
+	const settings = isDict$93(power) ? power : {};
+	lock.chat = (isDict$93(chatMetadata) ? chatMetadata : {}).persona === avatar;
+	lock.default = settings.default_persona === avatar;
+	const descriptor = (isDict$93(settings.persona_descriptions) ? settings.persona_descriptions : {})[avatar];
+	lock.character = (isDict$93(descriptor) && Array.isArray(descriptor.connections) ? descriptor.connections : []).some((connection) => {
+		if (!isDict$93(connection)) return false;
+		if (target.groupId) return connection.type === "group" && connection.id === target.groupId;
+		return connection.type === "character" && !!target.characterAvatar && connection.id === target.characterAvatar;
+	});
+	return lock;
+}
+//#endregion
+//#region src/domain/doctor-types.ts
+/** Rule ids of M22 the doctor points to (stages 1–2). */
+var DOCTOR_RULES = {
+	duplicates: "pack.duplicates",
+	bookCap: "book.cap",
+	assistantToSystem: "role.assistantToSystem",
+	cyrillicLeftBoundary: "keys.cyrillicLeftBoundary",
+	packVersion: "pack.versionConflict",
+	nsfwCollision: "wrapper.nsfwCollision"
+};
+function str$20(value) {
+	return typeof value === "string" ? value : value === void 0 || value === null ? "" : String(value);
+}
+function keyList$1(value) {
+	return Array.isArray(value) ? value.map((key) => str$20(key).trim()).filter(Boolean) : [];
+}
+function num$10(value, fallback) {
+	const parsed = typeof value === "number" ? value : typeof value === "string" && value !== "" ? Number(value) : NaN;
+	return Number.isFinite(parsed) ? parsed : fallback;
+}
+function nullableNum(value) {
+	if (value === null || value === void 0 || value === "") return null;
+	const parsed = num$10(value, NaN);
+	return Number.isFinite(parsed) ? parsed : null;
+}
+function nullableBool(value) {
+	return typeof value === "boolean" ? value : null;
+}
+/**
+* Normalises a raw entry of a loaded book (`loadWorldInfo(name).entries[uid]`). Missing fields take ST's template
+* defaults (world-info.js `newWorldInfoEntryDefinition`): position 0, depth 4, null for "use the global setting".
+*/
+function toDoctorEntry(book, raw, fallbackUid, localizerKeys = []) {
+	return {
+		book,
+		uid: num$10(raw.uid, fallbackUid),
+		comment: str$20(raw.comment),
+		content: str$20(raw.content),
+		key: keyList$1(raw.key),
+		keysecondary: keyList$1(raw.keysecondary),
+		disable: raw.disable === true,
+		constant: raw.constant === true,
+		position: num$10(raw.position, 0),
+		depth: num$10(raw.depth, 4),
+		role: nullableNum(raw.role),
+		scanDepth: nullableNum(raw.scanDepth),
+		caseSensitive: nullableBool(raw.caseSensitive),
+		matchWholeWords: nullableBool(raw.matchWholeWords),
+		excludeRecursion: raw.excludeRecursion === true,
+		preventRecursion: raw.preventRecursion === true,
+		ignoreBudget: raw.ignoreBudget === true,
+		localizerKeys: [...localizerKeys]
+	};
+}
+/** "Comment" or "#uid" for messages. */
+function entryLabel$2(entry) {
+	const comment = entry.comment.trim();
+	return comment ? comment.length > 80 ? `${comment.slice(0, 77)}…` : comment : `#${entry.uid}`;
+}
+/** Up to `limit` items joined for a message, with "…" when more exist. */
+function sample(items, limit = 3) {
+	const unique = [...new Set(items)];
+	const shown = unique.slice(0, limit).join(", ");
+	return unique.length > limit ? `${shown}, …` : shown;
+}
+//#endregion
+//#region src/domain/doctor-budget.ts
+var STRATEGIES = [
+	"evenly",
+	"characterFirst",
+	"globalFirst"
+];
+function num$9(value, fallback) {
+	return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+}
+/**
+* Reads world-info.js settings: the object of `getWorldInfoSettings()` or the module namespace itself (both carry
+* the `world_info_*` names). Missing values take ST's defaults.
+*/
+function readWiSettings$1(raw) {
+	const strategy = num$9(raw.world_info_character_strategy, 1);
+	return {
+		depth: num$9(raw.world_info_depth, 2),
+		budgetPercent: num$9(raw.world_info_budget, 25),
+		budgetCap: num$9(raw.world_info_budget_cap, 0),
+		recursive: raw.world_info_recursive === true,
+		maxRecursionSteps: num$9(raw.world_info_max_recursion_steps, 0),
+		minActivations: num$9(raw.world_info_min_activations, 0),
+		caseSensitive: raw.world_info_case_sensitive === true,
+		wholeWords: raw.world_info_match_whole_words === true,
+		strategy: STRATEGIES[strategy] ?? "characterFirst",
+		overflowAlert: raw.world_info_overflow_alert === true
+	};
+}
+/** ST's budget: `round(percent × context / 100) || 1`, capped by the budget cap (world-info.js). Null without a context. */
+function budgetTokens(settings, maxContext) {
+	if (!maxContext || maxContext <= 0) return null;
+	let budget = Math.round(settings.budgetPercent * maxContext / 100) || 1;
+	if (settings.budgetCap > 0) budget = Math.min(budget, settings.budgetCap);
+	return budget;
+}
+/** Rough tokens of English lore text (≈ 4 characters per token). */
+function charsToTokens(chars, charsPerToken = 4) {
+	return Math.max(0, Math.round(chars / charsPerToken));
+}
+/** Budget size, constants over budget, real overflows (M1), entries outside the budget, the insertion strategy. */
+function findBudgetIssues(input) {
+	const { settings } = input;
+	const issues = [];
+	const budget = budgetTokens(settings, input.maxContext);
+	const enabled = input.entries.filter((entry) => !entry.disable);
+	const constantTokens = charsToTokens(enabled.filter((entry) => entry.constant).reduce((sum, entry) => sum + entry.content.length, 0));
+	const target = { setting: "world_info_budget" };
+	let binding = false;
+	if (budget !== null && settings.budgetCap === 0 && budget >= 5e4) issues.push({
+		kind: "budget.overflow",
+		severity: "warn",
+		messageKey: "m5.f.budgetUnlimited",
+		params: {
+			percent: settings.budgetPercent,
+			context: input.maxContext ?? 0,
+			budget
+		},
+		target,
+		fixRule: DOCTOR_RULES.bookCap
+	});
+	if (budget !== null && constantTokens > budget) {
+		binding = true;
+		issues.push({
+			kind: "budget.overflow",
+			severity: "warn",
+			messageKey: "m5.f.budgetConstants",
+			params: {
+				constants: constantTokens,
+				budget
+			},
+			target
+		});
+	}
+	const journal = input.journal;
+	if (journal && journal.overflowTurns > 0) {
+		binding = true;
+		issues.push({
+			kind: "budget.overflow",
+			severity: "warn",
+			messageKey: settings.overflowAlert ? "m5.f.budgetOverflowed" : "m5.f.budgetOverflowedSilent",
+			params: {
+				count: journal.overflowTurns,
+				turns: journal.turns,
+				cut: journal.cut
+			},
+			target,
+			fixRule: DOCTOR_RULES.bookCap
+		});
+	}
+	const ignored = enabled.filter((entry) => entry.ignoreBudget);
+	if (ignored.length) issues.push({
+		kind: "budget.strategy",
+		severity: "info",
+		messageKey: "m5.f.budgetIgnored",
+		params: {
+			count: ignored.length,
+			chars: ignored.reduce((sum, entry) => sum + entry.content.length, 0)
+		},
+		target: { setting: "ignoreBudget" }
+	});
+	if (binding) issues.push({
+		kind: "budget.strategy",
+		severity: "info",
+		messageKey: `m5.f.budgetStrategy.${settings.strategy}`,
+		params: { budget: budget ?? 0 },
+		target: { setting: "world_info_character_strategy" }
+	});
+	return issues;
+}
+/** Cap for one book: `share` of its current size in tokens, rounded to 500, at least 1000. */
+function suggestCapTokens(chars, share = .35) {
+	const tokens = charsToTokens(chars * share);
+	return Math.max(1e3, Math.round(tokens / 500) * 500);
+}
+/** Caps for the heaviest books (sorted by size, largest first). */
+function suggestBookCaps(rows, options = {}) {
+	const share = options.share ?? .35;
+	const minChars = options.minChars ?? 2e4;
+	const limit = options.limit ?? 3;
+	return [...rows].filter((row) => row.chars >= minChars).sort((a, b) => b.chars - a.chars).slice(0, limit).map((row) => ({
+		book: row.book,
+		currentChars: row.chars,
+		currentTokens: charsToTokens(row.chars),
+		capTokens: suggestCapTokens(row.chars, share)
+	}));
+}
+/** Tokens of chat history to parse (Russian text: ≈ 3.5 characters per token). */
+function historyTokens(chars) {
+	return charsToTokens(chars, 3.5);
+}
+/**
+* A rough price of parsing history on a cheap background model. Input and output are blended at
+* `usdPerMillion` (default $0.5 per million tokens, DeepSeek V4 Flash class); the real price depends on the profile.
+*/
+function bootstrapCostUsd(tokens, usdPerMillion = .5) {
+	return tokens / 1e6 * usdPerMillion;
+}
+//#endregion
+//#region src/features/assistant/tools/read/common.ts
+function isDict$92(value) {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function argsOf$1(args) {
+	return isDict$92(args) ? args : {};
+}
+/** A trimmed string argument (numbers are accepted as text), undefined when absent or empty. */
+function strArg(args, name, max = 300) {
+	const value = args[name];
+	const text = typeof value === "string" ? value.trim() : typeof value === "number" ? String(value) : "";
+	return text ? text.slice(0, max) : void 0;
+}
+/** A raw string argument (spaces kept: samples, replacements), undefined when not a string. */
+function rawArg(args, name, max = 4e3) {
+	const value = args[name];
+	return typeof value === "string" ? value.slice(0, max) : void 0;
+}
+/** An integer argument clamped to [min, max]; `fallback` when absent or not a number. */
+function intArg(args, name, fallback, min, max) {
+	const value = args[name];
+	const number = typeof value === "number" ? value : typeof value === "string" ? Number(value) : NaN;
+	if (!Number.isFinite(number)) return fallback;
+	return Math.min(max, Math.max(min, Math.round(number)));
+}
+/** An optional integer argument (undefined when absent or not a number). */
+function optIntArg(args, name) {
+	const value = args[name];
+	const number = typeof value === "number" ? value : typeof value === "string" && value.trim() ? Number(value) : NaN;
+	return Number.isFinite(number) ? Math.round(number) : void 0;
+}
+function boolArg(args, name, fallback) {
+	const value = args[name];
+	if (typeof value === "boolean") return value;
+	if (value === "true") return true;
+	if (value === "false") return false;
+	return fallback;
+}
+/** One of the allowed values, else the fallback (undefined when none). */
+function enumArg(args, name, allowed, fallback) {
+	const value = args[name];
+	return typeof value === "string" && allowed.includes(value) ? value : fallback;
+}
+/** An object schema with no extra properties. */
+function objectSchema(properties = {}, required = []) {
+	const schema = {
+		type: "object",
+		properties,
+		additionalProperties: false
+	};
+	if (required.length) schema.required = required;
+	return schema;
+}
+var prop = {
+	string: (description, extra = {}) => ({
+		type: "string",
+		description,
+		...extra
+	}),
+	integer: (description, extra = {}) => ({
+		type: "integer",
+		description,
+		...extra
+	}),
+	boolean: (description) => ({
+		type: "boolean",
+		description
+	}),
+	enum: (description, values) => ({
+		type: "string",
+		description,
+		enum: [...values]
+	})
+};
+/** Text cut to `max` characters (with «…»); non-strings become ''. */
+function cut$6(value, max) {
+	const text = typeof value === "string" ? value : value === void 0 || value === null ? "" : String(value);
+	return text.length > max ? `${text.slice(0, Math.max(1, max - 1)).trimEnd()}…` : text;
+}
+/** The first `max` items and how many were left out. */
+function capList(items, max) {
+	const result = {
+		items: items.slice(0, max),
+		total: items.length
+	};
+	if (items.length > max) result.more = items.length - max;
+	return result;
+}
+/** A line in the user's language. */
+function say(ctx, en, ru) {
+	return ctx.locale === "ru" ? ru : en;
+}
+/** An answer that tells the model why there is nothing (module off, nothing found). */
+function notice(ctx, en, ru, data = {}) {
+	return {
+		data: {
+			note: en,
+			...data
+		},
+		summary: say(ctx, en, ru)
+	};
+}
+/** Time of a record as ISO text (compact, model-friendly). */
+function when(at) {
+	return typeof at === "number" && Number.isFinite(at) && at > 0 ? new Date(at).toISOString() : void 0;
+}
+/**
+* Builds an output at full size, then smaller (the scale × 0.75 per step) until its JSON fits `max` characters or the
+* scale reaches `floor`; the last build is returned with the scale it used. For tools whose answer is mostly long
+* texts (chat messages, card fields) and must fit the core's result cap whole.
+*/
+function fitToSize(build, max, floor = .1) {
+	let scale = 1;
+	let data = build(scale);
+	while (JSON.stringify(data).length > max && scale > floor) {
+		scale = Math.max(floor, scale * .75);
+		data = build(scale);
+	}
+	return {
+		data,
+		scale
+	};
+}
+/** Drops undefined members (smaller JSON). */
+function compact$1(object) {
+	for (const key of Object.keys(object)) if (object[key] === void 0) delete object[key];
+	return object;
+}
+/** Paths and values that may hold secrets are never shown (profiles, keys, addresses). */
+var SENSITIVE = /key|token|secret|password|api|url|endpoint|host|proxy|profile|connection/i;
+/**
+* The same for journal locators, where `key` alone is common and harmless (lorebook keys): only API keys and the
+* other secrets count.
+*/
+var SENSITIVE_REF = /api[_-]?key|token|secret|password|url|endpoint|host|proxy|profile|connection/i;
+/** Another module's API, undefined when it is off (or its getter throws). */
+function apiOf(app, key) {
+	try {
+		return app.modules.api(key) ?? void 0;
+	} catch {
+		return;
+	}
+}
+/** available() for a tool that needs a module's API. */
+function needsApi(...keys) {
+	return (app) => keys.every((key) => apiOf(app, key) !== void 0);
+}
+/** A promise with a deadline: the fallback when it is late or fails. */
+async function withTimeout$3(promise, ms, fallback) {
+	let timer;
+	try {
+		return await Promise.race([promise.catch(() => fallback), new Promise((resolve) => {
+			timer = setTimeout(() => resolve(fallback), ms);
+		})]);
+	} finally {
+		if (timer !== void 0) clearTimeout(timer);
+	}
+}
+/** Runs a getter that may throw (another module's API); the fallback on error. */
+function safely$1(read, fallback) {
+	try {
+		return read();
+	} catch {
+		return fallback;
+	}
+}
+/** Texts of the chat's messages, oldest first, system messages left out (the last `limit`). */
+function chatTexts(app, limit = 200) {
+	const chat = safely$1(() => app.host.ctx().chat ?? [], []);
+	const texts = [];
+	for (let index = chat.length - 1; index >= 0 && texts.length < limit; index--) {
+		const message = chat[index];
+		if (!message || message.is_system) continue;
+		texts.unshift(typeof message.mes === "string" ? message.mes : "");
+	}
+	return texts;
+}
+/** Names of the lorebooks ST scans now: the lore journal's reasons, else the BunnyMo adapter's list. */
+async function activeBooks$1(app) {
+	const journal = apiOf(app, "loreJournal");
+	if (journal) {
+		const reasons = await withTimeout$3(journal.whyActive(), 3e3, []);
+		if (reasons.length) return reasons.map((row) => row.book);
+	}
+	try {
+		const books = await withTimeout$3(adaptersOf(app).bunnymo.activeBooks(), 3e3, []);
+		if (books.length) return books;
+	} catch {}
+	return [];
+}
+/** Every lorebook name ST knows (the Lore Studio's list, else ST's). */
+function allBooks(app) {
+	const store = apiOf(app, "loreStore");
+	if (store) return safely$1(() => store.books(), []);
+	return safely$1(() => app.host.ctx().getWorldInfoNames?.() ?? [], []);
+}
+/** A book's data (a copy): the Lore Studio's store, else ST's loadWorldInfo; null when missing. */
+async function loadBook$2(app, name) {
+	const store = apiOf(app, "loreStore");
+	let data;
+	try {
+		data = store ? await store.load(name) : await app.host.ctx().loadWorldInfo?.(name);
+	} catch {
+		return null;
+	}
+	if (!isDict$92(data) || !isDict$92(data.entries)) return null;
+	return data;
+}
+/** True when lorebooks can be read (the Lore Studio's store or ST's loadWorldInfo). */
+function canReadLore(app) {
+	if (apiOf(app, "loreStore")) return true;
+	return safely$1(() => typeof app.host.ctx().loadWorldInfo === "function", false);
+}
+/** World Info scan settings (depth, case, whole words); ST's defaults when world-info.js is not available. */
+async function wiSettings(app) {
+	try {
+		const module = await withTimeout$3(app.host.modules.worldInfo(), 3e3, {});
+		const getter = module.getWorldInfoSettings;
+		const raw = typeof getter === "function" ? getter() : module;
+		return readWiSettings$1(isDict$92(raw) ? raw : {});
+	} catch {
+		return readWiSettings$1({});
+	}
+}
+/** Entry keys as strings. */
+function keysOf$1(value) {
+	return Array.isArray(value) ? value.filter((item) => typeof item === "string" && !!item) : [];
+}
+/** Builds a read tool (kind 'read'). */
+function readTool(spec) {
+	return {
+		...spec,
+		kind: "read"
+	};
+}
+//#endregion
+//#region src/features/assistant/tools/read/chat.ts
+/** JSON size the answers aim at: under the core's default result cap (12 000), which also adds its wrapper. */
+var OUTPUT_CHARS = 11e3;
+/** available(): a chat is open. */
+function chatIsOpen(app) {
+	return safely$1(() => {
+		const id = app.host.chatId();
+		return id !== null && id !== void 0 && id !== "";
+	}, false);
+}
+function chatOf(app) {
+	return safely$1(() => {
+		const chat = app.host.ctx().chat;
+		return Array.isArray(chat) ? chat : [];
+	}, []);
+}
+function str$19(value) {
+	return typeof value === "string" ? value : "";
+}
+function contextDict(app) {
+	return safely$1(() => app.host.ctx(), {});
+}
+function targetOf(characters, id) {
+	const character = characters[id];
+	if (!isDict$92(character)) return null;
+	return {
+		id,
+		name: str$19(character.name).trim() || "?",
+		avatar: str$19(character.avatar)
+	};
+}
+/** The group of a group chat with its members found among ST's characters; null in a one-on-one chat. */
+function groupOf$1(app) {
+	const ctx = contextDict(app);
+	const groupId = ctx.groupId;
+	if (typeof groupId !== "string" && typeof groupId !== "number") return null;
+	const group = (Array.isArray(ctx.groups) ? ctx.groups : []).find((item) => isDict$92(item) && String(item.id) === String(groupId));
+	if (!isDict$92(group)) return null;
+	const characters = Array.isArray(ctx.characters) ? ctx.characters : [];
+	const disabled = new Set(Array.isArray(group.disabled_members) ? group.disabled_members : []);
+	const members = [];
+	for (const member of Array.isArray(group.members) ? group.members : []) {
+		const id = characters.findIndex((character) => isDict$92(character) && (character.avatar === member || character.name === member));
+		const target = id >= 0 ? targetOf(characters, id) : null;
+		if (!target) continue;
+		if (disabled.has(member)) target.muted = true;
+		members.push(target);
+	}
+	return {
+		id: String(groupId),
+		name: str$19(group.name).trim() || String(groupId),
+		members
+	};
+}
+/** The character of a one-on-one chat. */
+function currentTarget(app) {
+	const ctx = contextDict(app);
+	const raw = ctx.characterId;
+	const id = typeof raw === "number" ? raw : typeof raw === "string" && raw.trim() ? Number(raw) : NaN;
+	if (!Number.isInteger(id) || id < 0) return null;
+	return targetOf(Array.isArray(ctx.characters) ? ctx.characters : [], id);
+}
+/** A target by name: exact (any case, ё = е), else the only one whose name contains it. */
+function findByName$1(targets, name) {
+	const wanted = normalizeText(name.trim());
+	const exact = targets.find((target) => normalizeText(target.name) === wanted);
+	if (exact) return exact;
+	const partial = targets.filter((target) => normalizeText(target.name).includes(wanted));
+	return partial.length === 1 ? partial[0] : void 0;
+}
+/**
+* A character's full card: ST loads characters lazily (shallow ones have only the list fields), so a shallow one is
+* loaded first (read-only, from the server).
+*/
+async function loadCard(app, target) {
+	const ctx = contextDict(app);
+	let character = (Array.isArray(ctx.characters) ? ctx.characters : [])[target.id];
+	if (isDict$92(character) && character.shallow === true && typeof ctx.unshallowCharacter === "function") {
+		const load = ctx.unshallowCharacter;
+		await withTimeout$3(Promise.resolve().then(() => load(target.id)), 4e3, void 0);
+		const fresh = contextDict(app).characters;
+		character = Array.isArray(fresh) ? fresh[target.id] : character;
+	}
+	return cardView(character);
+}
+/** ST's tags of a character (tag_map by avatar → tag names). */
+function stTags(app, avatar) {
+	const ctx = contextDict(app);
+	const map = isDict$92(ctx.tagMap) ? ctx.tagMap : {};
+	const ids = Array.isArray(map[avatar]) ? map[avatar] : [];
+	const tags = Array.isArray(ctx.tags) ? ctx.tags : [];
+	return ids.flatMap((id) => {
+		const tag = tags.find((item) => isDict$92(item) && item.id === id);
+		return isDict$92(tag) && typeof tag.name === "string" && tag.name ? [tag.name] : [];
+	});
+}
+function tagsOf(app, card) {
+	return [.../* @__PURE__ */ new Set([...card.tags, ...stTags(app, card.avatar)])];
+}
+function chatMetadata(app) {
+	const metadata = contextDict(app).chatMetadata;
+	return isDict$92(metadata) ? metadata : {};
+}
+var ROLES$6 = [
+	"all",
+	"user",
+	"char"
+];
+var READ_DEFAULT = 20;
+var READ_MAX = 60;
+function trackerOf(message) {
+	return trackerBrief(messageTracker(message));
+}
+var chatRead = (app) => readTool({
+	name: "chat_read",
+	description: "Messages of the current chat (the story itself): index, author name, role (user / char / system), swipe n/m, date, `hidden` (excluded from the prompt), the text cleaned of service noise (DES tracker JSON, CK dumps, NAI image placeholders, mechanics blocks, HTML) and the message's DES tracker as a compact `tracker` (location, time, characters present). Default: the latest 20 messages; `from`/`to` for a range (0-based indices; the chat's size is in `chat`). Long texts are cut (`cut` = the full length): read fewer messages to get them whole.",
+	parameters: objectSchema({
+		from: prop.integer("First message index (0-based, inclusive); reads forward from it.", { minimum: 0 }),
+		to: prop.integer("Last message index (inclusive); without `from`, the messages up to it.", { minimum: 0 }),
+		last: prop.integer("How many messages at most (1-60, default 20); without `from`, the latest ones.", {
+			minimum: 1,
+			maximum: READ_MAX
+		}),
+		role: prop.enum("Only the user's messages, only the characters' (default all).", ROLES$6),
+		clean: prop.boolean("Strip the service noise from the texts (default true; false = the raw text).")
+	}),
+	available: chatIsOpen,
+	async run(rawArgs, ctx) {
+		const args = argsOf$1(rawArgs);
+		const chat = chatOf(app);
+		if (!chat.length) return notice(ctx, "The chat is empty.", "Чат пуст.", { chat: { messages: 0 } });
+		const lastIndex = chat.length - 1;
+		const count = intArg(args, "last", READ_DEFAULT, 1, READ_MAX);
+		const from = optIntArg(args, "from");
+		const to = optIntArg(args, "to");
+		const role = enumArg(args, "role", ROLES$6, "all") ?? "all";
+		const clean = boolArg(args, "clean", true);
+		const low = Math.min(Math.max(from ?? 0, 0), lastIndex);
+		const high = Math.min(Math.max(to ?? lastIndex, 0), lastIndex);
+		const totals = {
+			messages: chat.length,
+			first: 0,
+			last: lastIndex
+		};
+		if (low > high) return notice(ctx, "`from` is after `to`.", "`from` больше, чем `to`.", { chat: totals });
+		const candidates = [];
+		for (let index = low; index <= high; index++) if (role === "all" || messageRole(chat[index]) === role) candidates.push(index);
+		if (!candidates.length) return notice(ctx, "No messages of that kind in the range.", "В этом диапазоне таких сообщений нет.", { chat: totals });
+		const picked = from !== void 0 ? candidates.slice(0, count) : candidates.slice(-count);
+		const more = candidates.length - picked.length;
+		const views = picked.map((index) => ({
+			view: messageView(chat[index], index, clean),
+			tracker: trackerOf(chat[index])
+		}));
+		const lastTracked = views.reduce((found, row, position) => row.tracker ? position : found, -1);
+		const baseCap = Math.min(7e3, Math.max(300, Math.floor(9e3 / picked.length)));
+		const { data } = fitToSize((scale) => {
+			const cap = Math.max(80, Math.round(baseCap * scale));
+			let anyCut = false;
+			const messages = views.map(({ view, tracker }, position) => {
+				const row = {
+					...view,
+					text: cut$6(view.text, cap)
+				};
+				if (view.text.length > cap) {
+					row.cut = view.text.length;
+					anyCut = true;
+				}
+				if (tracker && (scale >= .4 || position === lastTracked)) row.tracker = tracker;
+				return row;
+			});
+			const notes = [];
+			if (anyCut) notes.push(`Texts over ${cap} characters are cut (\`cut\` = the full length): read fewer messages (from/to) to get them whole.`);
+			if (more > 0) notes.push(`${more} more messages in this range: use from/to.`);
+			return compact$1({
+				chat: totals,
+				shown: compact$1({
+					from: picked[0],
+					to: picked[picked.length - 1],
+					count: picked.length,
+					role: role === "all" ? void 0 : role,
+					raw: clean ? void 0 : true
+				}),
+				messages,
+				truncated: anyCut || more > 0,
+				note: notes.length ? notes.join(" ") : void 0
+			});
+		}, OUTPUT_CHARS);
+		const first = picked[0];
+		const last = picked[picked.length - 1];
+		return {
+			data,
+			untrusted: true,
+			summary: say(ctx, `Chat: #${first}–#${last} (${picked.length} of ${chat.length})`, `Чат: №${first}–№${last} (${picked.length} из ${chat.length})`)
+		};
+	}
+});
+var chatSearch = (app) => readTool({
+	name: "chat_search",
+	description: "Finds messages of the current chat that contain words (Russian or English, case-insensitive, word forms matched by simple stems, so a Russian case form of a name finds the name): index, author, how many of the words matched, and a snippet around the first match. Best matches first (all words, then fewer), newest first among equals; read a hit in full with chat_read(from, to).",
+	parameters: objectSchema({
+		query: prop.string("Words to look for (a name, a place, a thing, a phrase)."),
+		limit: prop.integer("Hits (1-30, default 10).", {
+			minimum: 1,
+			maximum: 30
+		})
+	}, ["query"]),
+	available: chatIsOpen,
+	async run(rawArgs, ctx) {
+		const args = argsOf$1(rawArgs);
+		const query = strArg(args, "query", 200);
+		const terms = query ? searchTerms(query) : [];
+		if (!query || !terms.length) return notice(ctx, "Give words to search for.", "Нужны слова для поиска.");
+		const chat = chatOf(app);
+		const found = [];
+		chat.forEach((message, index) => {
+			const text = cleanForAnalysis(message);
+			const match = matchTerms(text, terms);
+			if (match) found.push({
+				index,
+				matched: match.matched,
+				at: match.at,
+				text
+			});
+		});
+		found.sort((a, b) => b.matched - a.matched || b.index - a.index);
+		const limit = intArg(args, "limit", 10, 1, 30);
+		const full = found.filter((hit) => hit.matched === terms.length).length;
+		const hits = found.slice(0, limit).map((hit) => {
+			const view = messageView(chat[hit.index], hit.index, false);
+			return compact$1({
+				index: hit.index,
+				name: view.name,
+				role: view.role,
+				hidden: view.hidden,
+				matched: terms.length > 1 ? `${hit.matched}/${terms.length}` : void 0,
+				snippet: snippetAround(hit.text, hit.at, 110)
+			});
+		});
+		return {
+			data: compact$1({
+				query,
+				terms,
+				found: found.length,
+				allWords: terms.length > 1 ? full : void 0,
+				messages: chat.length,
+				hits,
+				note: terms.length > 1 && found.length && !full ? "No message has all the words: partial matches are shown." : void 0
+			}),
+			untrusted: true,
+			summary: say(ctx, `Chat search «${query}»: ${found.length} messages`, `Поиск по чату «${query}»: сообщений — ${found.length}`)
+		};
+	}
+});
+var PARTS = [
+	"all",
+	"description",
+	"personality",
+	"scenario",
+	"first_message",
+	"greetings",
+	"examples",
+	"creator_notes",
+	"system_prompt",
+	"post_history",
+	"depth_prompt",
+	"book"
+];
+var PART_TEXT = {
+	description: (card) => card.description,
+	personality: (card) => card.personality,
+	scenario: (card) => card.scenario,
+	first_message: (card) => card.firstMessage,
+	examples: (card) => card.examples,
+	creator_notes: (card) => card.creatorNotes,
+	system_prompt: (card) => card.systemPrompt,
+	post_history: (card) => card.postHistory
+};
+/** Full texts of one part: as much as fits. */
+var FULL_TEXT = 9e3;
+function sizesOf(card) {
+	const size = (text) => text.length || void 0;
+	return compact$1({
+		description: size(card.description),
+		personality: size(card.personality),
+		scenario: size(card.scenario),
+		firstMessage: size(card.firstMessage),
+		greetings: card.alternateGreetings.length ? card.alternateGreetings.map((text) => text.length) : void 0,
+		examples: size(card.examples),
+		creatorNotes: size(card.creatorNotes),
+		systemPrompt: size(card.systemPrompt),
+		postHistory: size(card.postHistory),
+		depthPrompt: card.depthPrompt ? card.depthPrompt.text.length : void 0
+	});
+}
+/** The chat's own overrides of card fields (Chat options → scenario / examples / system prompt override). */
+function chatOverrides(app, scale) {
+	const metadata = chatMetadata(app);
+	const part = (key, max) => {
+		const text = str$19(metadata[key]).trim();
+		return text ? cut$6(text, Math.max(80, Math.round(max * scale))) : void 0;
+	};
+	const overrides = compact$1({
+		scenario: part("scenario", 800),
+		examples: part("mes_example", 400),
+		systemPrompt: part("system_prompt", 400)
+	});
+	return Object.keys(overrides).length ? overrides : void 0;
+}
+function bookView(card, names) {
+	if (!card.book) return void 0;
+	const entries = card.book.entries;
+	return compact$1({
+		name: card.book.name,
+		entries: entries.length,
+		disabled: entries.filter((entry) => !entry.enabled).length || void 0,
+		names: names > 0 ? entries.slice(0, names).map((entry) => cut$6(entry.title, 50)) : void 0
+	});
+}
+function cardOverview(app, card, chat, groupName) {
+	const inChat = groupName ? void 0 : greetingInChat(chat, card);
+	const { data } = fitToSize((scale) => {
+		let anyCut = false;
+		const c = (text, max) => {
+			if (!text) return void 0;
+			const limit = Math.max(80, Math.round(max * scale));
+			if (text.length > limit) anyCut = true;
+			return cut$6(text, limit);
+		};
+		const alternates = card.alternateGreetings;
+		return compact$1({
+			name: card.name,
+			avatar: card.avatar || void 0,
+			group: groupName,
+			creator: card.creator,
+			version: card.version,
+			sizes: sizesOf(card),
+			description: c(card.description, 2500),
+			personality: c(card.personality, 800),
+			scenario: c(card.scenario, 1500),
+			chatOverrides: chatOverrides(app, scale),
+			firstMessage: c(card.firstMessage, 1500),
+			alternateGreetings: alternates.length ? {
+				total: alternates.length,
+				items: alternates.map((text, index) => ({
+					n: index + 1,
+					text: c(text, 700) ?? ""
+				}))
+			} : void 0,
+			greetingInChat: inChat === void 0 ? void 0 : inChat === 0 ? "first message" : `alternate greeting ${inChat}`,
+			examples: c(card.examples, 800),
+			creatorNotes: c(card.creatorNotes, 600),
+			systemPrompt: c(card.systemPrompt, 500),
+			postHistory: c(card.postHistory, 500),
+			depthPrompt: card.depthPrompt ? compact$1({
+				depth: card.depthPrompt.depth,
+				role: card.depthPrompt.role,
+				text: c(card.depthPrompt.text, 500)
+			}) : void 0,
+			tags: (() => {
+				const tags = tagsOf(app, card);
+				return tags.length ? tags.slice(0, 20) : void 0;
+			})(),
+			world: card.world,
+			book: bookView(card, Math.round(30 * scale)),
+			note: anyCut ? "Long fields are cut (`sizes` = full lengths): read one whole with `part`, a starting scene with `greeting` (0 = the first message, n = alternate greeting n)." : void 0
+		});
+	}, OUTPUT_CHARS);
+	return data;
+}
+function cardPart(card, part, chat, inGroup) {
+	const text = PART_TEXT[part];
+	if (text) {
+		const value = text(card);
+		return compact$1({
+			name: card.name,
+			part,
+			size: value.length,
+			text: value ? cut$6(value, FULL_TEXT) : void 0,
+			note: value ? void 0 : "This part of the card is empty."
+		});
+	}
+	if (part === "depth_prompt") return compact$1({
+		name: card.name,
+		part,
+		depth: card.depthPrompt?.depth,
+		role: card.depthPrompt?.role,
+		size: card.depthPrompt?.text.length ?? 0,
+		text: card.depthPrompt ? cut$6(card.depthPrompt.text, FULL_TEXT) : void 0,
+		note: card.depthPrompt ? void 0 : "The card has no depth prompt."
+	});
+	if (part === "book") {
+		const entries = card.book?.entries ?? [];
+		return compact$1({
+			name: card.name,
+			part,
+			world: card.world,
+			book: card.book?.name,
+			entries: entries.length,
+			items: entries.slice(0, 80).map((entry) => compact$1({
+				title: cut$6(entry.title, 60),
+				keys: entry.keys.slice(0, 6).map((key) => cut$6(key, 40)),
+				off: entry.enabled ? void 0 : true
+			})),
+			note: card.book ? void 0 : "The card has no embedded character book."
+		});
+	}
+	const greetings = [card.firstMessage, ...card.alternateGreetings];
+	const inChat = inGroup ? void 0 : greetingInChat(chat, card);
+	const { data } = fitToSize((scale) => compact$1({
+		name: card.name,
+		part,
+		total: greetings.length,
+		greetingInChat: inChat,
+		items: greetings.map((value, n) => compact$1({
+			n,
+			kind: n === 0 ? "first message" : "alternate greeting",
+			size: value.length,
+			text: cut$6(value, Math.max(120, Math.round(3e3 * scale)))
+		}))
+	}), OUTPUT_CHARS, .02);
+	return data;
+}
+var cardRead = (app) => readTool({
+	name: "card_read",
+	description: "The character card of the current chat (in a group chat: the member list, or one member by `name`): description, personality, scenario, the first message and ALL alternate greetings (the starting scenes, numbered; which one this chat opened with), example dialogues, creator notes, system prompt and post-history instructions, depth prompt, tags, the embedded character book (entries) and the card's linked lorebook, with the size of each field. The overview cuts long fields: `part` reads one whole, `greeting` one starting scene whole (0 = the first message, n = alternate greeting n).",
+	parameters: objectSchema({
+		name: prop.string("A group member (or the current character) by name; omit for the current character."),
+		part: prop.enum("One part of the card in full instead of the overview (default all).", PARTS),
+		greeting: prop.integer("One starting scene in full: 0 = the first message, n = alternate greeting n.", { minimum: 0 })
+	}),
+	available: chatIsOpen,
+	async run(rawArgs, ctx) {
+		const args = argsOf$1(rawArgs);
+		const name = strArg(args, "name", 80);
+		const part = enumArg(args, "part", PARTS, "all") ?? "all";
+		const greeting = optIntArg(args, "greeting");
+		const chat = chatOf(app);
+		const group = groupOf$1(app);
+		let target;
+		if (group) {
+			if (!name) return groupOverview(app, group, ctx);
+			target = findByName$1(group.members, name);
+		} else {
+			target = currentTarget(app);
+			if (target && name && !findByName$1([target], name)) target = void 0;
+		}
+		if (target === null) return notice(ctx, "No character card is open.", "Карточка персонажа не открыта.");
+		if (!target) {
+			const known = (group?.members ?? [currentTarget(app)]).flatMap((item) => item ? [item.name] : []);
+			return notice(ctx, `No card named «${name ?? ""}» here.`, `Здесь нет карточки «${name ?? ""}».`, { known });
+		}
+		const card = await loadCard(app, target);
+		if (!card) return notice(ctx, "The card could not be read.", "Карточку не удалось прочитать.");
+		const alternates = card.alternateGreetings.length;
+		if (greeting !== void 0) {
+			const text = greeting === 0 ? card.firstMessage : card.alternateGreetings[greeting - 1];
+			if (text === void 0 || greeting < 0) return notice(ctx, `No starting scene ${greeting}: the card has the first message and ${alternates} alternate greetings.`, `Нет стартовой сцены ${greeting}: в карточке первое сообщение и ещё приветствий — ${alternates}.`);
+			const inChat = group ? void 0 : greetingInChat(chat, card);
+			return {
+				data: compact$1({
+					name: card.name,
+					greeting,
+					kind: greeting === 0 ? "first message" : "alternate greeting",
+					alternateGreetings: alternates,
+					inChat: inChat === greeting || void 0,
+					size: text.length,
+					text: cut$6(text, FULL_TEXT)
+				}),
+				untrusted: true,
+				summary: say(ctx, `Card ${card.name}: starting scene ${greeting}`, `Карточка ${card.name}: стартовая сцена ${greeting}`)
+			};
+		}
+		return {
+			data: part === "all" ? cardOverview(app, card, chat, group?.name) : cardPart(card, part, chat, group !== null),
+			untrusted: true,
+			summary: part === "all" ? say(ctx, `Card: ${card.name}${alternates ? ` (+${alternates} greetings)` : ""}`, `Карточка: ${card.name}${alternates ? ` (доп. приветствий: ${alternates})` : ""}`) : say(ctx, `Card ${card.name}: ${part}`, `Карточка ${card.name}: ${part}`)
+		};
+	}
+});
+async function groupOverview(app, group, ctx) {
+	const cards = await Promise.all(group.members.map((member) => loadCard(app, member)));
+	const { data } = fitToSize((scale) => compact$1({
+		group: group.name,
+		members: group.members.map((member, index) => {
+			const card = cards[index];
+			return compact$1({
+				name: member.name,
+				avatar: member.avatar || void 0,
+				muted: member.muted,
+				description: card?.description ? cut$6(card.description, Math.max(80, Math.round(300 * scale))) : void 0,
+				alternateGreetings: card?.alternateGreetings.length || void 0
+			});
+		}),
+		chatOverrides: chatOverrides(app, scale),
+		note: "Group chat: read one member's card with `name`."
+	}), OUTPUT_CHARS);
+	return {
+		data,
+		untrusted: true,
+		summary: say(ctx, `Group «${group.name}»: ${group.members.length} members`, `Группа «${group.name}»: участников ${group.members.length}`)
+	};
+}
+/** The active persona's avatar id: personas.js `user_avatar`, else the only persona with this name. */
+async function personaAvatar(app, power, name) {
+	try {
+		const module = await withTimeout$3(app.host.modules.load("personas.js"), 3e3, {});
+		if (typeof module.user_avatar === "string" && module.user_avatar) return module.user_avatar;
+	} catch {}
+	return personaAvatarByName(power, name) ?? "";
+}
+async function personaInfo(app) {
+	const ctx = contextDict(app);
+	const power = isDict$92(ctx.powerUserSettings) ? ctx.powerUserSettings : {};
+	const name = str$19(ctx.name1).trim();
+	return {
+		name,
+		avatar: await personaAvatar(app, power, name),
+		description: str$19(power.persona_description).trim(),
+		power
+	};
+}
+var personaRead = (app) => readTool({
+	name: "persona_read",
+	description: "The user's active persona: name, title, description (cut), where its description goes in the prompt, its lorebook, and its lock state: locked to this chat, connected to this character/group, or the default persona.",
+	parameters: objectSchema(),
+	available: chatIsOpen,
+	async run(_rawArgs, ctx) {
+		const persona = await personaInfo(app);
+		const power = persona.power;
+		const descriptions = isDict$92(power.persona_descriptions) ? power.persona_descriptions : {};
+		const descriptor = persona.avatar && isDict$92(descriptions[persona.avatar]) ? descriptions[persona.avatar] : {};
+		const descriptorDict = isDict$92(descriptor) ? descriptor : {};
+		const group = groupOf$1(app);
+		const lock = personaLock(power, chatMetadata(app), persona.avatar, {
+			characterAvatar: currentTarget(app)?.avatar,
+			groupId: group?.id ?? null
+		});
+		const position = typeof power.persona_description_position === "number" ? power.persona_description_position : 0;
+		const atDepth = position === 4;
+		const connections = Array.isArray(descriptorDict.connections) ? descriptorDict.connections.length : 0;
+		const lockLabel = lock.chat ? say(ctx, " (locked to this chat)", " (закреплена за чатом)") : lock.character ? say(ctx, " (connected to this character)", " (привязана к персонажу)") : lock.default ? say(ctx, " (default)", " (по умолчанию)") : "";
+		return {
+			data: compact$1({
+				name: persona.name || void 0,
+				avatar: persona.avatar || void 0,
+				title: str$19(descriptorDict.title).trim() || void 0,
+				size: persona.description.length,
+				description: persona.description ? cut$6(persona.description, 3e3) : void 0,
+				position: PERSONA_POSITIONS[position] ?? String(position),
+				depth: atDepth && typeof power.persona_description_depth === "number" ? power.persona_description_depth : void 0,
+				role: atDepth && typeof power.persona_description_role === "number" ? PROMPT_ROLES[power.persona_description_role] : void 0,
+				lorebook: str$19(power.persona_description_lorebook).trim() || void 0,
+				lock,
+				connections: connections || void 0,
+				note: persona.avatar ? void 0 : "The persona avatar is unknown: the lock states may be incomplete."
+			}),
+			untrusted: true,
+			summary: say(ctx, `Persona: ${persona.name || "?"}${lockLabel}`, `Персона: ${persona.name || "?"}${lockLabel}`)
+		};
+	}
+});
+function mechanicView$1(def, active) {
+	return compact$1({
+		id: def.id,
+		name: def.name,
+		active,
+		holders: def.holders.kind,
+		attributes: def.attributes.slice(0, 10).map((attribute) => {
+			const range = attribute.kind === "number" && (attribute.min !== void 0 || attribute.max !== void 0) ? ` ${attribute.min ?? ""}–${attribute.max ?? ""}` : "";
+			return `${cut$6(attribute.name, 40)}: ${attribute.kind}${range}`;
+		}),
+		checks: def.checks.length ? def.checks.slice(0, 6).map((check) => cut$6(check.name, 40)) : void 0
+	});
+}
+function mechanicsView(app) {
+	const api = apiOf(app, "mechanics");
+	if (!api) return {
+		off: true,
+		note: "The Mechanics module is off: mechanic_save is unavailable until the user switches it on (Settings → Modules)."
+	};
+	const active = new Set(safely$1(() => api.active(), []).map((def) => def.id));
+	const defs = safely$1(() => api.list(), []);
+	const templates = safely$1(() => api.templates(), []);
+	return compact$1({
+		existing: defs.slice(0, 12).map((def) => mechanicView$1(def, active.has(def.id))),
+		more: defs.length > 12 ? defs.length - 12 : void 0,
+		templates: templates.slice(0, 20).map((template) => ({
+			id: template.id,
+			title: cut$6(safely$1(() => app.i18n.t(template.titleKey), template.id), 60)
+		}))
+	});
+}
+var NEXT_STEP = "To propose mechanics: fit them to this story (genre, conflicts, resources, relationships, what the starting scenes set up), don't duplicate existing ones, and make one mechanic_save call per proposal (a template id with overrides, or a full definition) — each is shown to the user as a card and saved only after confirmation.";
+var scenarioOverview = (app) => readTool({
+	name: "scenario_overview",
+	description: "Everything needed to propose mechanics (or to understand the story) in one call: the card essentials (description and scenario cut; members in a group chat), the persona, the starting scenes (the first message and every alternate greeting, ~400 characters each, and which one this chat opened with), the latest chat messages cleaned, the DES tracker's last state (location, time, characters, relationships, stats, quests), the existing Maestro mechanics (names, attributes, checks) and templates, the active lorebooks and the scene type. Then propose with mechanic_save.",
+	parameters: objectSchema({ messages: prop.integer("How many of the latest messages to include (1-20, default 10).", {
+		minimum: 1,
+		maximum: 20
+	}) }),
+	available: chatIsOpen,
+	async run(rawArgs, ctx) {
+		const count = intArg(argsOf$1(rawArgs), "messages", 10, 1, 20);
+		const chat = chatOf(app);
+		const group = groupOf$1(app);
+		const target = group ? null : currentTarget(app);
+		const card = target ? await loadCard(app, target) : null;
+		const memberCards = group ? await Promise.all(group.members.slice(0, 8).map((member) => loadCard(app, member))) : [];
+		const persona = await personaInfo(app);
+		const metadata = chatMetadata(app);
+		const tracker = latestTracker(chat);
+		const recentStart = Math.max(0, chat.length - count);
+		const recent = chat.slice(recentStart).map((message, offset) => messageView(message, recentStart + offset));
+		const books = (await activeBooks$1(app)).slice(0, 15);
+		const director = apiOf(app, "director");
+		const scene = director ? safely$1(() => director.scene()?.type, void 0) : void 0;
+		const mechanics = mechanicsView(app);
+		const inChat = card ? greetingInChat(chat, card) : void 0;
+		const { data } = fitToSize((scale) => {
+			const c = (text, max) => text ? cut$6(text, Math.max(60, Math.round(max * scale))) : void 0;
+			const greetings = card ? [card.firstMessage, ...card.alternateGreetings] : [];
+			return compact$1({
+				chat: compact$1({
+					messages: chat.length,
+					group: group?.name,
+					character: card?.name,
+					scene
+				}),
+				card: card ? compact$1({
+					name: card.name,
+					description: c(card.description, 1500),
+					personality: c(card.personality, 300),
+					scenario: c(str$19(metadata.scenario).trim() || card.scenario, 800),
+					scenarioOverride: str$19(metadata.scenario).trim() ? true : void 0,
+					creatorNotes: c(card.creatorNotes, 300),
+					tags: (() => {
+						const tags = tagsOf(app, card);
+						return tags.length ? tags.slice(0, 12) : void 0;
+					})(),
+					world: card.world,
+					book: bookView(card, Math.round(15 * scale))
+				}) : void 0,
+				members: group ? group.members.slice(0, 8).map((member, index) => compact$1({
+					name: member.name,
+					muted: member.muted,
+					description: c(memberCards[index]?.description ?? "", 400)
+				})) : void 0,
+				groupScenario: group ? c(str$19(metadata.scenario).trim(), 600) : void 0,
+				persona: compact$1({
+					name: persona.name || void 0,
+					description: c(persona.description, 400)
+				}),
+				startingScenes: greetings.length ? compact$1({
+					total: greetings.length,
+					chatOpenedWith: inChat,
+					items: greetings.map((text, n) => ({
+						n,
+						text: c(text, 400) ?? ""
+					}))
+				}) : void 0,
+				recent: recent.map((view) => compact$1({
+					index: view.index,
+					name: view.name,
+					role: view.role,
+					hidden: view.hidden,
+					image: view.image,
+					text: c(view.text, 600) ?? ""
+				})),
+				tracker: tracker ? {
+					message: tracker.index,
+					...trackerScene(tracker.snapshot) ?? {}
+				} : void 0,
+				mechanics,
+				lorebooks: compact$1({
+					active: books.length ? books : void 0,
+					chat: str$19(metadata.world_info).trim() || void 0,
+					card: card?.world
+				}),
+				next: NEXT_STEP
+			});
+		}, OUTPUT_CHARS);
+		const title = card?.name ?? group?.name ?? "?";
+		return {
+			data,
+			untrusted: true,
+			summary: say(ctx, `Scenario: ${title}, ${chat.length} messages`, `Сценарий: ${title}, сообщений ${chat.length}`)
+		};
+	}
+});
+function chatTools(app) {
+	return [
+		chatRead(app),
+		chatSearch(app),
+		cardRead(app),
+		personaRead(app),
+		scenarioOverview(app)
+	];
+}
+//#endregion
 //#region CHANGELOG.md?raw
-var CHANGELOG_default = "# Журнал изменений\n\n## 1.9.0 — ассистент (2026-10-05)\n\n- **Ассистент Maestro** — вкладка «Ассистент» в пульте, отдельно от ролевой игры: спрашивай про Maestro, этот чат и расширения. Модель — из своего профиля подключения (по умолчанию фоновый), свой цикл с инструментами, а не инструменты ST — модель РП их не видит. Дневной потолок фоновых трат ассистента не останавливает: его запускаешь ты.\n- **Читает и объясняет** — 27 инструментов: модули и их настройки, здоровье стека, журнал, «Входящие», промпт хода, почему запись лора сработала или нет («почему героиня не узнала сестру?» — ключи, глубина сканирования, падежи, вероятность, группы, задержки), почему ход дорогой (источники, кэш, перегенерации), регексы (объяснение и проверка на примере по правилам ST), досье, отношения, кто что знает, места, календарь, гардероб, паспорта, механики, режиссёр, блоки пресета. Встроенная справка: каждый модуль, каждый сосед и частые вопросы — на русском и английском.\n- **Делает — только с твоего согласия**: настройки модулей, включение модулей, уровни автономии, механики, регексы (только после проверки на примерах), блоки и условия в твоём слое пресета, записи лора, паспорта. Каждое изменение — карточкой «было/стало» с кнопками «Применить» и «Отклонить», всё в журнале с откатом.\n- **Безопасность**: текст чата, лора, карточек и пресетов для ассистента — только данные, не инструкции; ключи API, токены, адреса и профили подключения он не видит и не меняет; книги BunnyMo не трогает; не больше 10 шагов и 5 предложенных изменений на сообщение и 20 применённых изменений в час.\n\n## 1.8.0 — единый интерфейс (2026-10-05)\n\n- **Единый стиль** — SillyTavern, чат и расширения выглядят как одно приложение: одна таблица стилей Maestro за классом `maestro-theme` на странице. Цвета, размытие, тени, размер шрифта и ширину чата даёт твоя тема ST (смена темы подхватывается сама), скругления, отступы и элементы управления — общие с окнами Maestro. Выключил стиль или Maestro — всё выглядит как раньше; настройки соседей не меняются.\n- **Соседи в том же стиле**: Doom's Enhancement Suite (окна, полоса портретов, шапки сцены и мысли в чате — через его собственные переменные), CarrotKernel (самые заметные части), NAI Studio (панель, окна, картинки в чате), DES-RU, строки памяти Qvink, Lorebook Localizer.\n- **«Оформление» в настройках пульта**: стиль целиком и по частям (ST, чат, каждое расширение), плотность, скругления, «Показать, как было» на 10 секунд.\n- **Док «Расширения»** — блоки настроек CarrotKernel, Qvink, NAI Studio, DES-RU, Localizer и DES открываются прямо в пульте (настоящие блоки, всё работает) и возвращаются на своё место, когда пульт закрыт или Maestro выключен; по желанию — и полоса портретов DES. Ярлыки открывают окна соседей: настройки и каталог персонажей DES, редактор памяти Qvink, галерея и сцена NAI Studio, локализатор, менеджеры CarrotKernel.\n- **Пульт по разделам** — вкладки собраны в группы: Ход, Входящие, Канон, Досье, Мир, Механики, Здоровье, Журнал, Расширения, Настройки; группы сворачиваются, на телефоне — разделы в списке вкладок.\n\n## 1.7.0 — механики (2026-10-05)\n\n- **Конструктор механик** во вкладке «Механики»: свои игровые системы без возни через лор — атрибуты (числа, шкалы, списки, тексты), у кого они есть (персонажи, твой персонаж, фракции, мир), правила для модели, события на порогах («мана на нуле — заклинание срывается»), проверки с кубиками. Шаблоны: здоровье и выносливость, магия с маной и школами, репутация у фракций, деньги, навыки с проверками, отношения. Механика хранится записью типа «механика» в книге Maestro, действует для карточки, чата или везде и выключается в отдельном чате.\n- **Три способа учёта** — на выбор для каждой механики и атрибута: статы трекера DES (Maestro по твоему согласию добавляет их в DES, твои собственные статы не трогает), короткий служебный блок в конце ответа модели (Maestro читает его, чинит ошибки формата и прячет), фоновый разбор ответа. Изменения применяются, когда ты отправляешь следующее сообщение; свайп или удаление ответа откатывает его изменения. Правка значения в пульте — с откатом.\n- **Броски делает Maestro**: слово-триггер в твоём сообщении («убедить», «колдую», \"sneak\") — и проверка уходит в промпт фактом: «Spellcasting check (Элизабет): rolled 6, needed 100 or lower — success». Свайп не перебрасывает. Есть кнопка «Бросок» и команда `/maestro-roll`.\n- **В промпте** — только правила и значения механик, которые участвуют в сцене, ближе к концу; бюджет «механики» у архитектора. Флаги `maestro_mech_<механика>` для условных блоков пресета — в каталоге Пресет-студии. События на порогах — материал для поворотов режиссёра.\n- **Виджеты** — значения в пульте и строкой под портретами DES (на телефоне — одна строка с прокруткой).\n\n## 1.6.0 — визуальная связка (2026-10-05)\n\n- **Гардероб и состояния** — новый наряд из трекера DES (повторившийся два хода) становится именованным нарядом в паспорте NAI Studio уровня чата, а знакомый наряд узнаётся и надевается снова; состояния персонажей (мокрый, ранен, устал…) и мест (разрушено, украшено, пожар, ночь) включаются и выключаются в паспортах по трекеру. Персонаж, который появляется уже в новом наряде, тоже получает его. NAI Studio рисует узнанный наряд его тегами. Библиотека нарядов — во вкладке «Гардероб» и в досье, всё с откатом. Отложенные карточки нарядов из ревизии разбираются сами.\n- **Паспорта в лорбуках** — у записи лора может быть визуальный паспорт в формате NAI Studio: в книгах Maestro — в самой записи, у базовых книг — в реестре Maestro (файлы книг не меняются, книги BunnyMo не трогаются). Создаётся генератором NAI Studio или фоновой моделью по его схеме, правится в Лор-студии рядом с текстом. NAI Studio получает паспорта записей, сработавших или упомянутых в сцене.\n- **Фоны** — фон чата следует за местом: сначала подбор из библиотеки фонов SillyTavern (по названию, папкам, состоянию места, времени суток и погоде из DES), иначе — кнопка «Сгенерировать фон» в NAI Studio (с учётом режима «только бесплатно»). Только фон этого чата — общий фон и `settings.json` не меняются. Поставленный тобой фон Maestro не трогает, пока не разрешишь снова выбирать самому.\n- **«Оформить»** в досье — новый NPC или место получает всё одной кнопкой: запись канона с русскими ключами, архив CarrotKernel по словарю загруженных пакетов BunnyMo (в твою книгу-репозиторий или новую «Maestro · архив»), паспорт NAI Studio, если его нет. Весь план — одной карточкой во «Входящих», каждую часть можно откатить отдельно. «В книгу карточки» переносит запись канона в книгу карточки.\n- Нужен NAI Studio 0.12.1 (паспорта от Maestro, генерация паспорта и фона, наряды по формулировке трекера); со старыми версиями эти части просто не включаются.\n\n## 1.5.0 — живой мир (2026-10-05)\n\n- **Закулисье** — раз в несколько ходов (15 в «Сбалансированном», 10 и в конце сцен в «Кино», в «Экономном» только по кнопке) фоновая модель коротко рассказывает, чем были заняты до трёх важных персонажей, которых давно нет в сцене. События — в канон чата; смерть, плен, исчезновение и всё, что спорит с каноном, сначала ждёт тебя во «Входящих». Иногда присутствующие слышат слух.\n- **Календарь и обещания** — время истории по трекеру DES (обычные даты, «День N», выдуманные календари); договорённости и сроки из ревизии или вручную: «к закату», «через три дня», «by tomorrow». Наступивший срок — повод для заметки режиссёра; просроченное и нарушенное отмечается.\n- **Кто что знает** (экспериментально, выключено по умолчанию) — участники сцены знают её события, секреты из ревизии помечаются; голосовые карточки получают «не знает: …», когда тема всплыла.\n- Ревизия сразу отдаёт обещания календарю и секреты — модулю «Кто что знает»; отложенные карточки прошлых этапов разбираются сами.\n\n## 1.4.0 — режиссура (2026-10-05)\n\n- **Режиссёр сцены** — после каждого хода определяет тип сцены (диалог, бой, интимная, исследование, пропуск времени, светская, драма) по ответу, твоему сообщению и трекеру DES, с устойчивостью к случайным скачкам; при сомнении — дешёвая модель. Для следующей генерации ставит одноразовые флаги: `maestro_scene_<тип>`, длина ответа, откровенная сцена, язык, «момент для картинки». Тип можно задать самому.\n- **Темп и повороты** — если история встала (то же место, ничего не происходит, повторы, разговор по кругу), короткая заметка режиссёра ближе к концу промпта с поворотом из квестов DES и незакрытых нитей. Молчит, когда ты сам ведёшь сюжет; никогда не уводит от тёмных и откровенных сцен. «Встряхнуть» — заметка по кнопке.\n- **Голоса персонажей** — компактная карточка на каждого присутствующего: манера речи (LING и блок Linguistics), MBTI с состоянием, отношение к тебе сейчас, связи с другими присутствующими, цели. Когда карточки включены, вставка CarrotKernel «Character Consistency» гасится при сборке промпта (настройки CK не меняются), а DES-RU перестаёт её пересобирать. Выключено по умолчанию.\n- **Условные блоки пресета** — в Пресет-студии блок можно сделать «только когда …» / «кроме когда …» по флагу Maestro (`{{if .maestro_…}}`), с симулятором флагов, проверкой синтаксиса и предупреждением, если новый движок макросов выключен. «Подготовить к отключению» спрашивает, оставить ли такие блоки обычным текстом или выключить.\n\n## 1.3.0 — ресурсы: архитектор промпта и казначей (2026-10-05)\n\n- **Бюджеты по источникам** — общий потолок лора (поверх потолков книг), RAG CarrotKernel, краткосрочной памяти Qvink и необязательного блока контекста DES; при превышении уходят наименее важные куски, инструкции трекера DES и долгая память Qvink не трогаются никогда. По умолчанию всё выключено.\n- **Кто рядом** — записи об отсутствующих и далёких местах приглушаются, если о них не говорили последние сообщения; записи присутствующих и текущего места закрепляются (включается в «Архитекторе»).\n- **Повторы фактов** между лором, каноном, памятью Qvink, архивами CK и DES — отчёт, а по твоему согласию остаётся один источник.\n- **Кэш провайдера** — доля промпта из кэша и место, где промпт начинает меняться; проверка, что меняющиеся вставки Maestro стоят в конце.\n- **«До и после»** каждого правила — во «Промпте хода».\n- **Казначей** — сколько стоит игра: последний ход, сессия, сегодня и 14 дней, по источникам (основная модель, перегенерации, авто-свайпы, Qvink, задачи Maestro, NAI) и Anlas; при достижении общего дневного лимита — переход в «Экономный», если так настроено.\n- Учитываются кэшированные токены провайдеров.\n\n## 1.2.0 — контроль качества ответа (2026-10-04)\n\n- **Проверка каждого ответа** до того, как NAI Studio начнёт рисовать: уход в другой язык, кальки и штампы; реплики и действия за тебя; отказы, морализаторство, оговорки вне роли, смягчение и навязчивые вопросы; повторы прошлых ответов; обрезанный ответ; служебный мусор и протёкший HTML (JSON трекера DES и маркеры NAI — норма); нет трекера DES; граница контента. Сначала бесплатные правила, дешёвая модель-судья — только при сомнении (в «Экономном» — никогда).\n- **Действия по видам брака** — выкл / «Само» (очистить, попросить продолжить, один свайп за ход с точной инструкцией, ремонт трекера через Медика) / «Уведомить» (значки «Переделать» и «Не брак»). По умолчанию «Само» — только мусор и трекер, остальное — «Уведомить», пока не набрана статистика ложных срабатываний.\n- **Ранняя отсечка** служебных токенов модели прямо в потоке: остановка и один свайп.\n- **Граница контента** — настраиваемые правила с умолчанием (никакого сексуального контента с несовершеннолетними), тестовый режим.\n- **NAI Studio ждёт «качество ок»** (нужен NAI Studio 0.11.0): картинки не рисуются для ответа, ушедшего на переделку.\n\n## 1.1.0 — Пресет-студия (2026-10-04)\n\n- **Пресет-студия** — большое окно для пресета Chat Completion: «Карта» (как SillyTavern соберёт промпт: блоки по порядку, вставки расширений на своих местах, токены, блоки, которые включены, но не уйдут), «Блоки» (порядок перетаскиванием, массовое включение, поиск, предпросмотр с макросами), редактор блока, «Анализ» (несохранённые правки, пустые и неотправляемые блоки, противоречия, повторы с лором и вставками, особенности модели и провайдера), «Версии» (каждое сохранение — версия, откат), «Параметры» генерации и сценариев.\n- **Твой слой** — твои блоки и правки хранятся отдельно от базового пресета и накладываются при его выборе; новая версия базы (например, Marinara) ставится без потери правок, а при изменённом тексте блока — выбор из трёх версий. Перенос текущих правок в слой с предпросмотром (ключи подключения можно не переносить), перенос слоя на другой пресет, блоки из чужих пресетов.\n- **Безопасное сохранение** — пресет сохраняется только с явным телом, незнакомые ключи и расширения сохраняются, переименование переносит разрешения регексов и спрашивает о профилях подключения; несохранённые правки сохраняются версией перед переключением пресета.\n- **Сценарии генерации** — свои параметры для перевоплощения и продолжения (выключены по умолчанию).\n- Раздел Prompt Manager можно заменить кнопкой студии (настройка, по умолчанию выключена — до проверки паритета вживую).\n- **«Подготовить к отключению», экспорт и импорт данных Maestro** в настройках пульта.\n\n## 1.0.0 — выпуск R3, первая полная версия (2026-10-04)\n\nЭтап 4: ревизия и живой канон.\n\n- **Сигналы хода** — когда ты отправляешь сообщение, прошлый ответ фиксируется, и Maestro без ИИ сравнивает его с ходом раньше: смена отношения, стойкая внешность, место, пропуск времени, конец сцены, квесты, кто пришёл и ушёл, новые алиасы и имена, память Qvink. Свободный текст засчитывается, только если продержался два хода; свайп и правка откатывают ровно то, что дал ответ.\n- **Ревизия «сюжет → канон»** — по сигналам, раз в N сообщений, в конце сцены или командой `/maestro-revise` дешёвая модель смотрит, что изменилось у известных персонажей и мест, и предлагает обновить владельца: канон чата, теги архива CK (только из словаря паков), паспорт NAI уровня чата, прозвища чата, реестр мест. Наряды, обещания и секреты ждут своих этапов отложенными карточками.\n- **«Входящие»** — карточки по персонажам, ссылка на сообщение, «было/стало» по хранилищам, цитата и уверенность; принять, изменить на месте, отклонить, отложить, «Всегда так», принять всё.\n- **Проверка противоречий** — сначала правила (имена, числа, даты, отрицания), при сомнении — дешёвая модель; общий сервис для ревизии и живого канона.\n- **Живой канон** — то, что придумала модель (праздник, таверна, род), после фиксации хода становится пробной записью канона с русскими ключами; подтверждается, только если ты сам это упомянул, принял, если оно всплыло снова без подсказки или продержалось 10 ходов без противоречий. Пакетное извлечение пишет английский текст записей. Свайп убирает пробное, подтверждённое остаётся.\n- **Летопись и автопамять** — воспоминания Qvink, выпавшие из долгой памяти, становятся главами канона (срабатывают по двум ключам сразу); важные моменты сами получают отметку «запомнить» во всех свайпах; «Ранее в истории…» после перерыва.\n- **Замеры** — вкладка с критериями первой полной версии: задержка Maestro до запроса, доля фоновых расходов, лор на ход, выпавшие сообщения, роли записей, вкладки, ревизия, живой канон, листы, файлы паков. Скрипт стенда `tools/stand/measure.mjs`.\n- Исправлено: досье и листы брали архив «Александра» для «Александр» (падежная форма совпадала с другим именем); запросы NAI Studio записывались в расходы Qvink.\n\n## 0.2.0 — выпуск R2 (2026-10-04)\n\nЭтапы 2 и 3: Лор-студия, роли книг, доктор, канон; модель мира, досье, места.\n\n**Этап 3**\n\n- **Модель мира** — каждый персонаж, персона и место стека одной сущностью: карточки, состав DES, алиасы DES и DES-RU, падежи, паспорта NAI, архивы CK, записи лорбуков с типом, канон и места. Одно лицо под разными именами склеивается; сомнительные совпадения — во «Входящих». Прозвища, которые действуют только в этом чате.\n- **Досье** — одна страница на сущность: DES, лор, канон, архив CK и теги, паспорт NAI (с изменениями этого чата), падежи, воспоминания Qvink, RAG, последний лист. Сверка структуры (нет записи, паспорта или архива, алиас не стал ключом, имена расходятся), сверка внешности ИИ по кнопке, «Разнести» правку по хранилищам. Команда `/maestro-dossier`.\n- **Места** — реестр мест чата по локации DES: новое название становится местом, если продержалось два хода; вложенность, история визитов (кто был, когда), описание записью канона. NAI Studio держит непрерывность фона по id места.\n- **Граф отношений** — как персонажи относятся к твоей персоне, ход за ходом по трекеру DES.\n- **Режим BunnyMo** — словарь тегов всех паков (конфликты, дубли, теги без пака), паки по чатам, сравнение пака с новым файлом, проверка целостности, редактор листов архивов CK. Команда `/maestro-bunnymo`.\n- Нужен NAI Studio 0.10.0 для паспортов уровня чата и непрерывности по местам (без него всё остальное работает).\n\n**Этап 2**\n\n- **Лор-студия** — свой редактор лорбуков рядом со штатным: книги по ролям, все поля и действия штатного окна, канон рядом с базой, история версий, русские ключи, кампании DES. Кнопку «Миры и лорбуки» можно отдать студии настройкой.\n- **Роли книг** — Maestro знает, где ядро и паки BunnyMo, архивы CK, мир, карточка, NPC, канон; паки BunnyMo только для чтения.\n- **Канон чата** — изменения сюжета в отдельном лорбуке чата: переопределение, подавление, закрепление, добавление; бюджет, архив, слежение за базой, повышение до базы, экспорт, ветки. Срабатывает по русскому тексту.\n- **Доктор** — «Исправить в файле» для твоих книг (паки — никогда) и лечение регексов, всё с откатом.\n- **Правила** — кириллица и «целые слова», конфликт версий паков, `<NSFW>` в архивах, глубина сканирования архивов CK.\n- Нужны DES-RU 0.8.0 и Lorebook Localizer 0.2.0 (без них всё работает, но без склонений и локализации из студии).\n\n## 0.1.0 — выпуск R1 (2026-10-04)\n\nНаблюдение и быстрые исправления.\n\n- **Журнал лора** — какой лор ушёл в промпт на каждом ходу, почему, каким ключом и через какую запись; почему книга активна; «Что если» без генерации.\n- **Инспектор хода** — из чего собран промпт: пресет, лор по книгам, вставки соседей, история.\n- **Медик** — проверки соседей после каждого ответа; ремонт трекера DES; предупреждение о prefill с ролью assistant.\n- **Страж** — эталон настроек и пресета, дрейф во «Входящих»; устаревшая вкладка больше не перезаписывает настройки, пресеты и лорбуки.\n- **Доктор** — находки в лорбуках и регексах, испытание регексов.\n- **Правила на лету** — роль assistant → system, потолок и лимит рекурсии книги, дубли паков, «дыры» Qvink, картинки NAI вне пересказов, видимые теги BunnyMo, кнопка векторизации CK и полоса портретов DES на телефоне.\n- **Листы персонажей** — команды BunnyMo генерируются своей сборкой промпта, без хвоста сцены и трекера, сворачиваются и уходят из промпта после следующего хода.\n- **Мастер первого запуска.**\n\n## 0.0.0 — этап 0\n\nКаркас: слой ST, сервисы ядра, адаптеры соседей, пульт, стенд с имитацией модели.\n";
+var CHANGELOG_default = "# Журнал изменений\n\n## 1.10.0 — правки по живым тестам (2026-10-05)\n\n- **Стиль сообщений** — новая вкладка в «Настройках»: редактор правил, как выглядят сообщения игрока и персонажей. Правило — что найти (\"…\", «…» ёлочками, реплики через тире, \\*мысли\\*, \\*\\*акцент\\*\\*, (…), […], свой регекс с проверкой) и как показать (цвет из темы, курсив, жирный, приглушение, шрифт, черта или подложка, вид кавычек — только на экране). Пресеты: «Классика» (по умолчанию: повествование обычным текстом, \"диалоги\" цветом цитат, \\*мысли\\* курсивом), «Книга», «Подсветка речи», «Мысли отдельно», «Ёлочки», «Сценарий», «Роман», «Контраст», «Игрок отдельно», «Минимум». Живой пример. Сохранённый текст сообщений не меняется. По желанию — «Подсказать модели этот формат».\n- **Сообщения игрока** — свой вид: акцентная черта, имя акцентным цветом, по желанию сдвиг вправо в «пузырях».\n- **Стартовая страница** в едином стиле: карточки недавних чатов, кнопки, приветствие. В превью чатов больше нет JSON трекера DES и сырых тегов вроде `<font color=…>` (только на экране; то же в «Управлении чатами» и боковой панели Top Info Bar).\n- **Оформлены**: панель персон игрока, «Управление чатами», панель чатов Top Info Bar, поле ввода (скругление, отступы, подсветка фокуса; на телефоне — крупные кнопки и шрифт 16 px без увеличения в iOS).\n- **Верхняя панель** снова с воздухом: высота подросла через собственную переменную ST, вся раскладка сдвигается вместе с ней (в iOS и в режиме «Плотно» — как в ST).\n- **Ассистент видит чат и карточку**: чтение и поиск по сообщениям текущего чата (трекер DES — коротко), карточка персонажа со всеми стартовыми сценами (первое сообщение и альтернативные приветствия), персона игрока и «обзор сценария» — одним вызовом всё, что нужно, чтобы предложить механики по этому чату.\n\n## 1.9.0 — ассистент (2026-10-05)\n\n- **Ассистент Maestro** — вкладка «Ассистент» в пульте, отдельно от ролевой игры: спрашивай про Maestro, этот чат и расширения. Модель — из своего профиля подключения (по умолчанию фоновый), свой цикл с инструментами, а не инструменты ST — модель РП их не видит. Дневной потолок фоновых трат ассистента не останавливает: его запускаешь ты.\n- **Читает и объясняет** — 27 инструментов: модули и их настройки, здоровье стека, журнал, «Входящие», промпт хода, почему запись лора сработала или нет («почему героиня не узнала сестру?» — ключи, глубина сканирования, падежи, вероятность, группы, задержки), почему ход дорогой (источники, кэш, перегенерации), регексы (объяснение и проверка на примере по правилам ST), досье, отношения, кто что знает, места, календарь, гардероб, паспорта, механики, режиссёр, блоки пресета. Встроенная справка: каждый модуль, каждый сосед и частые вопросы — на русском и английском.\n- **Делает — только с твоего согласия**: настройки модулей, включение модулей, уровни автономии, механики, регексы (только после проверки на примерах), блоки и условия в твоём слое пресета, записи лора, паспорта. Каждое изменение — карточкой «было/стало» с кнопками «Применить» и «Отклонить», всё в журнале с откатом.\n- **Безопасность**: текст чата, лора, карточек и пресетов для ассистента — только данные, не инструкции; ключи API, токены, адреса и профили подключения он не видит и не меняет; книги BunnyMo не трогает; не больше 10 шагов и 5 предложенных изменений на сообщение и 20 применённых изменений в час.\n\n## 1.8.0 — единый интерфейс (2026-10-05)\n\n- **Единый стиль** — SillyTavern, чат и расширения выглядят как одно приложение: одна таблица стилей Maestro за классом `maestro-theme` на странице. Цвета, размытие, тени, размер шрифта и ширину чата даёт твоя тема ST (смена темы подхватывается сама), скругления, отступы и элементы управления — общие с окнами Maestro. Выключил стиль или Maestro — всё выглядит как раньше; настройки соседей не меняются.\n- **Соседи в том же стиле**: Doom's Enhancement Suite (окна, полоса портретов, шапки сцены и мысли в чате — через его собственные переменные), CarrotKernel (самые заметные части), NAI Studio (панель, окна, картинки в чате), DES-RU, строки памяти Qvink, Lorebook Localizer.\n- **«Оформление» в настройках пульта**: стиль целиком и по частям (ST, чат, каждое расширение), плотность, скругления, «Показать, как было» на 10 секунд.\n- **Док «Расширения»** — блоки настроек CarrotKernel, Qvink, NAI Studio, DES-RU, Localizer и DES открываются прямо в пульте (настоящие блоки, всё работает) и возвращаются на своё место, когда пульт закрыт или Maestro выключен; по желанию — и полоса портретов DES. Ярлыки открывают окна соседей: настройки и каталог персонажей DES, редактор памяти Qvink, галерея и сцена NAI Studio, локализатор, менеджеры CarrotKernel.\n- **Пульт по разделам** — вкладки собраны в группы: Ход, Входящие, Канон, Досье, Мир, Механики, Здоровье, Журнал, Расширения, Настройки; группы сворачиваются, на телефоне — разделы в списке вкладок.\n\n## 1.7.0 — механики (2026-10-05)\n\n- **Конструктор механик** во вкладке «Механики»: свои игровые системы без возни через лор — атрибуты (числа, шкалы, списки, тексты), у кого они есть (персонажи, твой персонаж, фракции, мир), правила для модели, события на порогах («мана на нуле — заклинание срывается»), проверки с кубиками. Шаблоны: здоровье и выносливость, магия с маной и школами, репутация у фракций, деньги, навыки с проверками, отношения. Механика хранится записью типа «механика» в книге Maestro, действует для карточки, чата или везде и выключается в отдельном чате.\n- **Три способа учёта** — на выбор для каждой механики и атрибута: статы трекера DES (Maestro по твоему согласию добавляет их в DES, твои собственные статы не трогает), короткий служебный блок в конце ответа модели (Maestro читает его, чинит ошибки формата и прячет), фоновый разбор ответа. Изменения применяются, когда ты отправляешь следующее сообщение; свайп или удаление ответа откатывает его изменения. Правка значения в пульте — с откатом.\n- **Броски делает Maestro**: слово-триггер в твоём сообщении («убедить», «колдую», \"sneak\") — и проверка уходит в промпт фактом: «Spellcasting check (Элизабет): rolled 6, needed 100 or lower — success». Свайп не перебрасывает. Есть кнопка «Бросок» и команда `/maestro-roll`.\n- **В промпте** — только правила и значения механик, которые участвуют в сцене, ближе к концу; бюджет «механики» у архитектора. Флаги `maestro_mech_<механика>` для условных блоков пресета — в каталоге Пресет-студии. События на порогах — материал для поворотов режиссёра.\n- **Виджеты** — значения в пульте и строкой под портретами DES (на телефоне — одна строка с прокруткой).\n\n## 1.6.0 — визуальная связка (2026-10-05)\n\n- **Гардероб и состояния** — новый наряд из трекера DES (повторившийся два хода) становится именованным нарядом в паспорте NAI Studio уровня чата, а знакомый наряд узнаётся и надевается снова; состояния персонажей (мокрый, ранен, устал…) и мест (разрушено, украшено, пожар, ночь) включаются и выключаются в паспортах по трекеру. Персонаж, который появляется уже в новом наряде, тоже получает его. NAI Studio рисует узнанный наряд его тегами. Библиотека нарядов — во вкладке «Гардероб» и в досье, всё с откатом. Отложенные карточки нарядов из ревизии разбираются сами.\n- **Паспорта в лорбуках** — у записи лора может быть визуальный паспорт в формате NAI Studio: в книгах Maestro — в самой записи, у базовых книг — в реестре Maestro (файлы книг не меняются, книги BunnyMo не трогаются). Создаётся генератором NAI Studio или фоновой моделью по его схеме, правится в Лор-студии рядом с текстом. NAI Studio получает паспорта записей, сработавших или упомянутых в сцене.\n- **Фоны** — фон чата следует за местом: сначала подбор из библиотеки фонов SillyTavern (по названию, папкам, состоянию места, времени суток и погоде из DES), иначе — кнопка «Сгенерировать фон» в NAI Studio (с учётом режима «только бесплатно»). Только фон этого чата — общий фон и `settings.json` не меняются. Поставленный тобой фон Maestro не трогает, пока не разрешишь снова выбирать самому.\n- **«Оформить»** в досье — новый NPC или место получает всё одной кнопкой: запись канона с русскими ключами, архив CarrotKernel по словарю загруженных пакетов BunnyMo (в твою книгу-репозиторий или новую «Maestro · архив»), паспорт NAI Studio, если его нет. Весь план — одной карточкой во «Входящих», каждую часть можно откатить отдельно. «В книгу карточки» переносит запись канона в книгу карточки.\n- Нужен NAI Studio 0.12.1 (паспорта от Maestro, генерация паспорта и фона, наряды по формулировке трекера); со старыми версиями эти части просто не включаются.\n\n## 1.5.0 — живой мир (2026-10-05)\n\n- **Закулисье** — раз в несколько ходов (15 в «Сбалансированном», 10 и в конце сцен в «Кино», в «Экономном» только по кнопке) фоновая модель коротко рассказывает, чем были заняты до трёх важных персонажей, которых давно нет в сцене. События — в канон чата; смерть, плен, исчезновение и всё, что спорит с каноном, сначала ждёт тебя во «Входящих». Иногда присутствующие слышат слух.\n- **Календарь и обещания** — время истории по трекеру DES (обычные даты, «День N», выдуманные календари); договорённости и сроки из ревизии или вручную: «к закату», «через три дня», «by tomorrow». Наступивший срок — повод для заметки режиссёра; просроченное и нарушенное отмечается.\n- **Кто что знает** (экспериментально, выключено по умолчанию) — участники сцены знают её события, секреты из ревизии помечаются; голосовые карточки получают «не знает: …», когда тема всплыла.\n- Ревизия сразу отдаёт обещания календарю и секреты — модулю «Кто что знает»; отложенные карточки прошлых этапов разбираются сами.\n\n## 1.4.0 — режиссура (2026-10-05)\n\n- **Режиссёр сцены** — после каждого хода определяет тип сцены (диалог, бой, интимная, исследование, пропуск времени, светская, драма) по ответу, твоему сообщению и трекеру DES, с устойчивостью к случайным скачкам; при сомнении — дешёвая модель. Для следующей генерации ставит одноразовые флаги: `maestro_scene_<тип>`, длина ответа, откровенная сцена, язык, «момент для картинки». Тип можно задать самому.\n- **Темп и повороты** — если история встала (то же место, ничего не происходит, повторы, разговор по кругу), короткая заметка режиссёра ближе к концу промпта с поворотом из квестов DES и незакрытых нитей. Молчит, когда ты сам ведёшь сюжет; никогда не уводит от тёмных и откровенных сцен. «Встряхнуть» — заметка по кнопке.\n- **Голоса персонажей** — компактная карточка на каждого присутствующего: манера речи (LING и блок Linguistics), MBTI с состоянием, отношение к тебе сейчас, связи с другими присутствующими, цели. Когда карточки включены, вставка CarrotKernel «Character Consistency» гасится при сборке промпта (настройки CK не меняются), а DES-RU перестаёт её пересобирать. Выключено по умолчанию.\n- **Условные блоки пресета** — в Пресет-студии блок можно сделать «только когда …» / «кроме когда …» по флагу Maestro (`{{if .maestro_…}}`), с симулятором флагов, проверкой синтаксиса и предупреждением, если новый движок макросов выключен. «Подготовить к отключению» спрашивает, оставить ли такие блоки обычным текстом или выключить.\n\n## 1.3.0 — ресурсы: архитектор промпта и казначей (2026-10-05)\n\n- **Бюджеты по источникам** — общий потолок лора (поверх потолков книг), RAG CarrotKernel, краткосрочной памяти Qvink и необязательного блока контекста DES; при превышении уходят наименее важные куски, инструкции трекера DES и долгая память Qvink не трогаются никогда. По умолчанию всё выключено.\n- **Кто рядом** — записи об отсутствующих и далёких местах приглушаются, если о них не говорили последние сообщения; записи присутствующих и текущего места закрепляются (включается в «Архитекторе»).\n- **Повторы фактов** между лором, каноном, памятью Qvink, архивами CK и DES — отчёт, а по твоему согласию остаётся один источник.\n- **Кэш провайдера** — доля промпта из кэша и место, где промпт начинает меняться; проверка, что меняющиеся вставки Maestro стоят в конце.\n- **«До и после»** каждого правила — во «Промпте хода».\n- **Казначей** — сколько стоит игра: последний ход, сессия, сегодня и 14 дней, по источникам (основная модель, перегенерации, авто-свайпы, Qvink, задачи Maestro, NAI) и Anlas; при достижении общего дневного лимита — переход в «Экономный», если так настроено.\n- Учитываются кэшированные токены провайдеров.\n\n## 1.2.0 — контроль качества ответа (2026-10-04)\n\n- **Проверка каждого ответа** до того, как NAI Studio начнёт рисовать: уход в другой язык, кальки и штампы; реплики и действия за тебя; отказы, морализаторство, оговорки вне роли, смягчение и навязчивые вопросы; повторы прошлых ответов; обрезанный ответ; служебный мусор и протёкший HTML (JSON трекера DES и маркеры NAI — норма); нет трекера DES; граница контента. Сначала бесплатные правила, дешёвая модель-судья — только при сомнении (в «Экономном» — никогда).\n- **Действия по видам брака** — выкл / «Само» (очистить, попросить продолжить, один свайп за ход с точной инструкцией, ремонт трекера через Медика) / «Уведомить» (значки «Переделать» и «Не брак»). По умолчанию «Само» — только мусор и трекер, остальное — «Уведомить», пока не набрана статистика ложных срабатываний.\n- **Ранняя отсечка** служебных токенов модели прямо в потоке: остановка и один свайп.\n- **Граница контента** — настраиваемые правила с умолчанием (никакого сексуального контента с несовершеннолетними), тестовый режим.\n- **NAI Studio ждёт «качество ок»** (нужен NAI Studio 0.11.0): картинки не рисуются для ответа, ушедшего на переделку.\n\n## 1.1.0 — Пресет-студия (2026-10-04)\n\n- **Пресет-студия** — большое окно для пресета Chat Completion: «Карта» (как SillyTavern соберёт промпт: блоки по порядку, вставки расширений на своих местах, токены, блоки, которые включены, но не уйдут), «Блоки» (порядок перетаскиванием, массовое включение, поиск, предпросмотр с макросами), редактор блока, «Анализ» (несохранённые правки, пустые и неотправляемые блоки, противоречия, повторы с лором и вставками, особенности модели и провайдера), «Версии» (каждое сохранение — версия, откат), «Параметры» генерации и сценариев.\n- **Твой слой** — твои блоки и правки хранятся отдельно от базового пресета и накладываются при его выборе; новая версия базы (например, Marinara) ставится без потери правок, а при изменённом тексте блока — выбор из трёх версий. Перенос текущих правок в слой с предпросмотром (ключи подключения можно не переносить), перенос слоя на другой пресет, блоки из чужих пресетов.\n- **Безопасное сохранение** — пресет сохраняется только с явным телом, незнакомые ключи и расширения сохраняются, переименование переносит разрешения регексов и спрашивает о профилях подключения; несохранённые правки сохраняются версией перед переключением пресета.\n- **Сценарии генерации** — свои параметры для перевоплощения и продолжения (выключены по умолчанию).\n- Раздел Prompt Manager можно заменить кнопкой студии (настройка, по умолчанию выключена — до проверки паритета вживую).\n- **«Подготовить к отключению», экспорт и импорт данных Maestro** в настройках пульта.\n\n## 1.0.0 — выпуск R3, первая полная версия (2026-10-04)\n\nЭтап 4: ревизия и живой канон.\n\n- **Сигналы хода** — когда ты отправляешь сообщение, прошлый ответ фиксируется, и Maestro без ИИ сравнивает его с ходом раньше: смена отношения, стойкая внешность, место, пропуск времени, конец сцены, квесты, кто пришёл и ушёл, новые алиасы и имена, память Qvink. Свободный текст засчитывается, только если продержался два хода; свайп и правка откатывают ровно то, что дал ответ.\n- **Ревизия «сюжет → канон»** — по сигналам, раз в N сообщений, в конце сцены или командой `/maestro-revise` дешёвая модель смотрит, что изменилось у известных персонажей и мест, и предлагает обновить владельца: канон чата, теги архива CK (только из словаря паков), паспорт NAI уровня чата, прозвища чата, реестр мест. Наряды, обещания и секреты ждут своих этапов отложенными карточками.\n- **«Входящие»** — карточки по персонажам, ссылка на сообщение, «было/стало» по хранилищам, цитата и уверенность; принять, изменить на месте, отклонить, отложить, «Всегда так», принять всё.\n- **Проверка противоречий** — сначала правила (имена, числа, даты, отрицания), при сомнении — дешёвая модель; общий сервис для ревизии и живого канона.\n- **Живой канон** — то, что придумала модель (праздник, таверна, род), после фиксации хода становится пробной записью канона с русскими ключами; подтверждается, только если ты сам это упомянул, принял, если оно всплыло снова без подсказки или продержалось 10 ходов без противоречий. Пакетное извлечение пишет английский текст записей. Свайп убирает пробное, подтверждённое остаётся.\n- **Летопись и автопамять** — воспоминания Qvink, выпавшие из долгой памяти, становятся главами канона (срабатывают по двум ключам сразу); важные моменты сами получают отметку «запомнить» во всех свайпах; «Ранее в истории…» после перерыва.\n- **Замеры** — вкладка с критериями первой полной версии: задержка Maestro до запроса, доля фоновых расходов, лор на ход, выпавшие сообщения, роли записей, вкладки, ревизия, живой канон, листы, файлы паков. Скрипт стенда `tools/stand/measure.mjs`.\n- Исправлено: досье и листы брали архив «Александра» для «Александр» (падежная форма совпадала с другим именем); запросы NAI Studio записывались в расходы Qvink.\n\n## 0.2.0 — выпуск R2 (2026-10-04)\n\nЭтапы 2 и 3: Лор-студия, роли книг, доктор, канон; модель мира, досье, места.\n\n**Этап 3**\n\n- **Модель мира** — каждый персонаж, персона и место стека одной сущностью: карточки, состав DES, алиасы DES и DES-RU, падежи, паспорта NAI, архивы CK, записи лорбуков с типом, канон и места. Одно лицо под разными именами склеивается; сомнительные совпадения — во «Входящих». Прозвища, которые действуют только в этом чате.\n- **Досье** — одна страница на сущность: DES, лор, канон, архив CK и теги, паспорт NAI (с изменениями этого чата), падежи, воспоминания Qvink, RAG, последний лист. Сверка структуры (нет записи, паспорта или архива, алиас не стал ключом, имена расходятся), сверка внешности ИИ по кнопке, «Разнести» правку по хранилищам. Команда `/maestro-dossier`.\n- **Места** — реестр мест чата по локации DES: новое название становится местом, если продержалось два хода; вложенность, история визитов (кто был, когда), описание записью канона. NAI Studio держит непрерывность фона по id места.\n- **Граф отношений** — как персонажи относятся к твоей персоне, ход за ходом по трекеру DES.\n- **Режим BunnyMo** — словарь тегов всех паков (конфликты, дубли, теги без пака), паки по чатам, сравнение пака с новым файлом, проверка целостности, редактор листов архивов CK. Команда `/maestro-bunnymo`.\n- Нужен NAI Studio 0.10.0 для паспортов уровня чата и непрерывности по местам (без него всё остальное работает).\n\n**Этап 2**\n\n- **Лор-студия** — свой редактор лорбуков рядом со штатным: книги по ролям, все поля и действия штатного окна, канон рядом с базой, история версий, русские ключи, кампании DES. Кнопку «Миры и лорбуки» можно отдать студии настройкой.\n- **Роли книг** — Maestro знает, где ядро и паки BunnyMo, архивы CK, мир, карточка, NPC, канон; паки BunnyMo только для чтения.\n- **Канон чата** — изменения сюжета в отдельном лорбуке чата: переопределение, подавление, закрепление, добавление; бюджет, архив, слежение за базой, повышение до базы, экспорт, ветки. Срабатывает по русскому тексту.\n- **Доктор** — «Исправить в файле» для твоих книг (паки — никогда) и лечение регексов, всё с откатом.\n- **Правила** — кириллица и «целые слова», конфликт версий паков, `<NSFW>` в архивах, глубина сканирования архивов CK.\n- Нужны DES-RU 0.8.0 и Lorebook Localizer 0.2.0 (без них всё работает, но без склонений и локализации из студии).\n\n## 0.1.0 — выпуск R1 (2026-10-04)\n\nНаблюдение и быстрые исправления.\n\n- **Журнал лора** — какой лор ушёл в промпт на каждом ходу, почему, каким ключом и через какую запись; почему книга активна; «Что если» без генерации.\n- **Инспектор хода** — из чего собран промпт: пресет, лор по книгам, вставки соседей, история.\n- **Медик** — проверки соседей после каждого ответа; ремонт трекера DES; предупреждение о prefill с ролью assistant.\n- **Страж** — эталон настроек и пресета, дрейф во «Входящих»; устаревшая вкладка больше не перезаписывает настройки, пресеты и лорбуки.\n- **Доктор** — находки в лорбуках и регексах, испытание регексов.\n- **Правила на лету** — роль assistant → system, потолок и лимит рекурсии книги, дубли паков, «дыры» Qvink, картинки NAI вне пересказов, видимые теги BunnyMo, кнопка векторизации CK и полоса портретов DES на телефоне.\n- **Листы персонажей** — команды BunnyMo генерируются своей сборкой промпта, без хвоста сцены и трекера, сворачиваются и уходят из промпта после следующего хода.\n- **Мастер первого запуска.**\n\n## 0.0.0 — этап 0\n\nКаркас: слой ST, сервисы ядра, адаптеры соседей, пульт, стенд с имитацией модели.\n";
 //#endregion
 //#region README.md?raw
-var README_default = "# Maestro\n\nРасширение-дирижёр для SillyTavern. Оно связывает DES, Qvink Memory, BunnyMo и CarrotKernel, NAI Studio, DES-RU и Lorebook Localizer в одну систему. Maestro держит канон истории согласованным, показывает, из чего собран каждый ход, само чинит типовые сбои и ведёт сцену с минимальным участием пользователя.\n\n**Статус:** 1.9.0 — этапы 0–13 (весь план разработки) плана разработки (после первой полной версии R3 каждый этап выходит своим выпуском). Список изменений — [`CHANGELOG.md`](CHANGELOG.md).\n\n## Что умеет сейчас\n\n- **Пульт** — одно окно со всем, что делает Maestro, по разделам: обзор стека, «Входящие» с предложениями, журнал с откатом каждого действия, блоки настроек соседей в доке «Расширения».\n- **Ассистент** — переписка в пульте: объясняет, почему что-то произошло в чате, диагностирует стек и делает изменения — каждое только после твоего подтверждения и с откатом.\n- **Единый стиль** — SillyTavern, чат и расширения в одном оформлении поверх твоей темы ST; выключил — всё как было.\n- **Наблюдение** — какой лор ушёл в промпт и почему, из чего собран промпт хода, здоровье соседей, страж настроек и вкладок.\n- **Правила на лету** — исправления известных «углов» стека при каждом сканировании, без правки файлов: роли записей, потолки книг, кириллица и «целые слова», дубли и версии паков BunnyMo, «дыры» Qvink и другое.\n- **Листы персонажей** — команды BunnyMo генерируются своей сборкой промпта и сворачиваются.\n- **Лор-студия** — редактор лорбуков рядом со штатным окном: книги по ролям, все поля записи, история версий, русские ключи, кампании DES.\n- **Канон чата** — изменения сюжета живут в отдельном лорбуке чата и не трогают твои книги.\n- **Модель мира, досье, места, отношения** — одна страница на персонажа или место со всем, что знает стек; места и отношения записываются по ходу игры.\n- **Режим BunnyMo** — словарь тегов, паки по чатам, редактор листов. Файлы паков не меняются никогда.\n- **Ревизия и живой канон** — канон следует за историей: перемены у известных персонажей приходят предложениями во «Входящие», придуманное моделью сохраняется пробным и подтверждается по правилам; летопись, автопамять Qvink и «Ранее в истории…».\n- **Замеры** — как Maestro справляется с критериями первой полной версии, по живой игре.\n- **Пресет-студия** — карта сборки промпта, анализ, версии и твой слой поверх базового пресета: обновление Marinara не теряет твоих правок.\n- **Визуальная связка** — наряды и состояния персонажей и мест в паспортах NAI Studio, паспорта у записей лора, фон чата по месту, «Оформить» нового NPC одной кнопкой.\n- **Механики** — свои статы, магия, репутация, деньги, навыки: конструктор и шаблоны, учёт через статы DES, служебный блок или фоновый разбор, броски Maestro фактом в промпт, виджеты под портретами DES.\n- **Живой мир** — закулисье отсутствующих персонажей, календарь и обещания по времени истории, «кто что знает» (экспериментально).\n- **Режиссура** — тип сцены и одноразовые флаги для условных блоков пресета, заметки режиссёра при застое, голосовые карточки присутствующих вместо вставки CarrotKernel.\n- **Архитектор промпта и казначей** — бюджеты по источникам, лор тех, кто рядом, повторы фактов, кэш провайдера; расходы по ходам, дням и источникам.\n- **Контроль качества** — отказы, ответ за тебя, уход в английский, повторы, мусор и обрезка ловятся сразу; переделка одной кнопкой или сама; картинки NAI ждут проверки.\n\n## Требования\n\n- SillyTavern 1.19, Chat Completion.\n- Работает с любым набором соседей; для всех возможностей — DES 2.6, DES-RU 0.8+, Lorebook Localizer 0.2+, NAI Studio 0.12.1+, Qvink Memory, BunnyMo V3.0 и CarrotKernel.\n- Для `{{if}}` в пресете — новый движок макросов ST (мастер первого запуска проверяет).\n\n## Установка\n\n«Установить расширение» в SillyTavern → адрес этого репозитория. После установки откроется мастер первого запуска.\n\n## Документы\n\n- Функциональный план: [`docs/plan.md`](docs/plan.md)\n- План разработки: [`docs/dev-plan.md`](docs/dev-plan.md)\n- Устройство кода: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)\n- Отчёты этапов: [`docs/reports/`](docs/reports/)\n- Паритет студий со штатными окнами: [`docs/parity/lore-studio.md`](docs/parity/lore-studio.md), [`docs/parity/preset-studio.md`](docs/parity/preset-studio.md)\n- Исследование стека: [`docs/research/`](docs/research/)\n\nЛицензия: AGPL-3.0.\n";
+var README_default = "# Maestro\n\nРасширение-дирижёр для SillyTavern. Оно связывает DES, Qvink Memory, BunnyMo и CarrotKernel, NAI Studio, DES-RU и Lorebook Localizer в одну систему. Maestro держит канон истории согласованным, показывает, из чего собран каждый ход, само чинит типовые сбои и ведёт сцену с минимальным участием пользователя.\n\n**Статус:** 1.10.0 — этапы 0–13 (весь план разработки) и правки по живым тестам плана разработки (после первой полной версии R3 каждый этап выходит своим выпуском). Список изменений — [`CHANGELOG.md`](CHANGELOG.md).\n\n## Что умеет сейчас\n\n- **Пульт** — одно окно со всем, что делает Maestro, по разделам: обзор стека, «Входящие» с предложениями, журнал с откатом каждого действия, блоки настроек соседей в доке «Расширения».\n- **Ассистент** — переписка в пульте: объясняет, почему что-то произошло в чате, диагностирует стек и делает изменения — каждое только после твоего подтверждения и с откатом.\n- **Стиль сообщений** — редактор правил, как выглядят повествование, диалоги и мысли у игрока и персонажей; пресеты от «Классики» до «Сценария».\n- **Единый стиль** — SillyTavern, чат и расширения в одном оформлении поверх твоей темы ST; выключил — всё как было.\n- **Наблюдение** — какой лор ушёл в промпт и почему, из чего собран промпт хода, здоровье соседей, страж настроек и вкладок.\n- **Правила на лету** — исправления известных «углов» стека при каждом сканировании, без правки файлов: роли записей, потолки книг, кириллица и «целые слова», дубли и версии паков BunnyMo, «дыры» Qvink и другое.\n- **Листы персонажей** — команды BunnyMo генерируются своей сборкой промпта и сворачиваются.\n- **Лор-студия** — редактор лорбуков рядом со штатным окном: книги по ролям, все поля записи, история версий, русские ключи, кампании DES.\n- **Канон чата** — изменения сюжета живут в отдельном лорбуке чата и не трогают твои книги.\n- **Модель мира, досье, места, отношения** — одна страница на персонажа или место со всем, что знает стек; места и отношения записываются по ходу игры.\n- **Режим BunnyMo** — словарь тегов, паки по чатам, редактор листов. Файлы паков не меняются никогда.\n- **Ревизия и живой канон** — канон следует за историей: перемены у известных персонажей приходят предложениями во «Входящие», придуманное моделью сохраняется пробным и подтверждается по правилам; летопись, автопамять Qvink и «Ранее в истории…».\n- **Замеры** — как Maestro справляется с критериями первой полной версии, по живой игре.\n- **Пресет-студия** — карта сборки промпта, анализ, версии и твой слой поверх базового пресета: обновление Marinara не теряет твоих правок.\n- **Визуальная связка** — наряды и состояния персонажей и мест в паспортах NAI Studio, паспорта у записей лора, фон чата по месту, «Оформить» нового NPC одной кнопкой.\n- **Механики** — свои статы, магия, репутация, деньги, навыки: конструктор и шаблоны, учёт через статы DES, служебный блок или фоновый разбор, броски Maestro фактом в промпт, виджеты под портретами DES.\n- **Живой мир** — закулисье отсутствующих персонажей, календарь и обещания по времени истории, «кто что знает» (экспериментально).\n- **Режиссура** — тип сцены и одноразовые флаги для условных блоков пресета, заметки режиссёра при застое, голосовые карточки присутствующих вместо вставки CarrotKernel.\n- **Архитектор промпта и казначей** — бюджеты по источникам, лор тех, кто рядом, повторы фактов, кэш провайдера; расходы по ходам, дням и источникам.\n- **Контроль качества** — отказы, ответ за тебя, уход в английский, повторы, мусор и обрезка ловятся сразу; переделка одной кнопкой или сама; картинки NAI ждут проверки.\n\n## Требования\n\n- SillyTavern 1.19, Chat Completion.\n- Работает с любым набором соседей; для всех возможностей — DES 2.6, DES-RU 0.8+, Lorebook Localizer 0.2+, NAI Studio 0.12.1+, Qvink Memory, BunnyMo V3.0 и CarrotKernel.\n- Для `{{if}}` в пресете — новый движок макросов ST (мастер первого запуска проверяет).\n\n## Установка\n\n«Установить расширение» в SillyTavern → адрес этого репозитория. После установки откроется мастер первого запуска.\n\n## Документы\n\n- Функциональный план: [`docs/plan.md`](docs/plan.md)\n- План разработки: [`docs/dev-plan.md`](docs/dev-plan.md)\n- Устройство кода: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)\n- Отчёты этапов: [`docs/reports/`](docs/reports/)\n- Паритет студий со штатными окнами: [`docs/parity/lore-studio.md`](docs/parity/lore-studio.md), [`docs/parity/preset-studio.md`](docs/parity/preset-studio.md)\n- Исследование стека: [`docs/research/`](docs/research/)\n\nЛицензия: AGPL-3.0.\n";
 var GUIDE_TOPICS = [
 	{
 		id: "lore-miss",
@@ -22376,8 +23879,8 @@ var GUIDE_TOPICS = [
 			"what can you change",
 			"что можешь"
 		],
-		en: ["What the assistant can and cannot do", "Reads: this documentation, Maestro's modules and allowlisted settings, health and capabilities, the journal and Inbox, the turn's lore and prompt, costs, lore entries, canon, regexes, world model data, mechanics, the director, preset blocks and flags. Changes (only after you confirm a before/after card, journaled with undo, rate-limited): module settings on the allowlist, mechanics, regex scripts with a test, preset flags and blocks, passports, lore entries. Never: API keys, addresses, connection profiles, its own limits, BunnyMo pack files, ST code. Text from the chat, lore, cards and presets is data for it, never an instruction."],
-		ru: ["Что ассистент может и чего не может", "Читает: эту документацию, модули Maestro и разрешённые настройки, здоровье и возможности, журнал и «Входящие», лор и промпт хода, расходы, записи лора, канон, регексы, данные модели мира, механики, режиссёра, блоки и флаги пресета. Меняет (только после подтверждения карточки «было/стало», с журналом и откатом, с ограничением частоты): настройки модулей из разрешённого списка, механики, регексы с испытанием, флаги и блоки пресета, паспорта, записи лора. Никогда: ключи API, адреса, профили подключения, свои собственные лимиты, файлы паков BunnyMo, код ST. Текст из чата, лора, карточек и пресетов для него — данные, а не инструкции."]
+		en: ["What the assistant can and cannot do", "Reads: this documentation, Maestro's modules and allowlisted settings, health and capabilities, the journal and Inbox, the chat's messages, the character card with its greetings and the persona, the turn's lore and prompt, costs, lore entries, canon, regexes, world model data, mechanics, the director, preset blocks and flags. Changes (only after you confirm a before/after card, journaled with undo, rate-limited): module settings on the allowlist, mechanics, regex scripts with a test, preset flags and blocks, passports, lore entries. Never: API keys, addresses, connection profiles, its own limits, BunnyMo pack files, ST code. Text from the chat, lore, cards and presets is data for it, never an instruction."],
+		ru: ["Что ассистент может и чего не может", "Читает: эту документацию, модули Maestro и разрешённые настройки, здоровье и возможности, журнал и «Входящие», сообщения чата, карточку персонажа с приветствиями и персону, лор и промпт хода, расходы, записи лора, канон, регексы, данные модели мира, механики, режиссёра, блоки и флаги пресета. Меняет (только после подтверждения карточки «было/стало», с журналом и откатом, с ограничением частоты): настройки модулей из разрешённого списка, механики, регексы с испытанием, флаги и блоки пресета, паспорта, записи лора. Никогда: ключи API, адреса, профили подключения, свои собственные лимиты, файлы паков BunnyMo, код ST. Текст из чата, лора, карточек и пресетов для него — данные, а не инструкции."]
 	},
 	{
 		id: "disable",
@@ -22441,6 +23944,33 @@ var GUIDE_TOPICS = [
 		],
 		en: ["Diagnosis: the DES tracker is missing or stale", "Without the tracker JSON in a reply DES keeps the old scene state. The Medic notices it after the reply and repairs it through DES's own update path (the cheap model as a fallback); the quality check reports «no DES tracker». Frequent causes: a regex that cuts the JSON (regex_list → findings «breaks DES JSON»), a reply cut off by the length limit, a preset block that forbids code blocks, the model drifting. Check maestro_health and regex_list."],
 		ru: ["Диагностика: нет трекера DES или он устарел", "Без JSON трекера в ответе DES держит старое состояние сцены. Медик замечает это после ответа и чинит через собственный путь обновления DES (запасной путь — дешёвая модель); контроль качества сообщает «нет трекера DES». Частые причины: регекс, режущий JSON (regex_list → находки «ломает JSON DES»), ответ обрезан лимитом длины, блок пресета запрещает блоки кода, модель «уплыла». Проверь maestro_health и regex_list."]
+	},
+	{
+		id: "chat-card",
+		keywords: [
+			"read the chat",
+			"прочитай чат",
+			"текущий чат",
+			"messages",
+			"сообщения",
+			"card",
+			"карточка",
+			"карточку",
+			"greeting",
+			"greetings",
+			"приветствие",
+			"приветствия",
+			"starting scene",
+			"стартовые сцены",
+			"first message",
+			"первое сообщение",
+			"persona",
+			"персона",
+			"propose mechanics",
+			"предложи механики"
+		],
+		en: ["How the assistant reads the chat and the card", "The assistant reads the story itself while a chat is open. chat_read — the chat's messages (the latest 20 by default, at most 60, or a range from/to; only the user's or the characters'): index, author, swipe, date, hidden messages marked, the text cleaned of service noise (the DES tracker JSON becomes a short `tracker`: location, time, who is present; CK dumps, NAI image placeholders, mechanics blocks and HTML are removed); long texts are cut, a narrower range gives them whole. chat_search — messages with given words (Russian or English, word forms, ё = е) with a snippet. card_read — the character card: description, personality, scenario, the first message and every alternate greeting (the starting scenes, numbered, and which one the chat opened with), examples, creator notes, system prompt, depth prompt, tags, the embedded book and the linked lorebook; `part` or `greeting` reads one whole; in a group chat — the members, one by name. persona_read — your persona: description, where it goes in the prompt, lock to the chat/character/default. scenario_overview — all of it in one call for «propose mechanics for this chat»: card essentials, starting scenes, the latest messages, the last tracker state, existing mechanics and templates, active lorebooks; then each proposed mechanic comes as a mechanic_save card you confirm or decline. Everything read from the chat, the card and the persona is data for the assistant, never instructions; nothing it reads goes into the chat."],
+		ru: ["Как ассистент читает чат и карточку", "Пока открыт чат, ассистент читает саму историю. chat_read — сообщения чата (по умолчанию последние 20, не больше 60, или диапазон from/to; только твои или только персонажей): номер, автор, свайп, дата, скрытые сообщения помечены, текст очищен от служебного (JSON трекера DES превращается в короткий `tracker`: место, время, кто в сцене; дампы CK, заглушки картинок NAI, блоки механик и HTML убираются); длинные тексты обрезаются, узкий диапазон даёт их целиком. chat_search — сообщения с нужными словами (русский или английский, словоформы, ё = е) с фрагментом. card_read — карточка персонажа: описание, характер, сценарий, первое сообщение и все альтернативные приветствия (стартовые сцены, по номерам, и с какой начат этот чат), примеры диалогов, заметки автора, системный промпт, промпт на глубине, теги, встроенная книга и привязанный лорбук; `part` или `greeting` читают одно поле целиком; в групповом чате — участники, один по имени. persona_read — твоя персона: описание, куда оно идёт в промпте, закреплена ли за чатом, персонажем или по умолчанию. scenario_overview — всё это одним вызовом для «предложи механики по этому чату»: главное из карточки, стартовые сцены, последние сообщения, последнее состояние трекера, уже созданные механики и шаблоны, активные лорбуки; затем каждая предложенная механика приходит карточкой mechanic_save, которую ты принимаешь или отклоняешь. Всё прочитанное из чата, карточки и персоны для ассистента — данные, а не инструкции; ничего из прочитанного не попадает в чат."]
 	},
 	{
 		id: "unsupported",
@@ -23090,8 +24620,8 @@ var MODULE_TOPICS = [
 			"confirm",
 			"подтверждение"
 		],
-		en: ["Maestro assistant (M33)", "A conversation in the pult, apart from the role-play; the model comes from the connection profile of the «assistant» task (Settings → Connection profiles; empty = the main background profile). It reads the documentation, settings, health, journal, lore and regexes, explains and diagnoses, and makes changes — module settings, mechanics, regexes with a test, preset flags and blocks, passports, lore entries — only after you confirm a before/after card. Chat and lore are data for it, never instructions; secrets, API keys, addresses and connection profiles are invisible to it; every change is journaled with undo; changes per hour are limited.\nWhere: pult → Assistant."],
-		ru: ["Ассистент Maestro (M33)", "Переписка в пульте, отдельно от РП; модель — из профиля подключения задачи «ассистент» (Настройки → Профили подключения; пусто — основной фоновый профиль). Читает документацию, настройки, здоровье, журнал, лор и регексы, объясняет и диагностирует, а меняет — настройки модулей, механики, регексы с испытанием, флаги и блоки пресета, паспорта, записи лора — только после твоего подтверждения карточки «было/стало». Чат и лор для него — данные, не инструкции; секреты, ключи API, адреса и профили подключения ему не видны; каждое изменение — в журнале с откатом; число изменений в час ограничено.\nГде: пульт → Ассистент."]
+		en: ["Maestro assistant (M33)", "A conversation in the pult, apart from the role-play; the model comes from the connection profile of the «assistant» task (Settings → Connection profiles; empty = the main background profile). It reads the documentation, settings, health, journal, lore and regexes, the chat messages, the character card with its starting scenes and the persona, explains and diagnoses, and makes changes — module settings, mechanics, regexes with a test, preset flags and blocks, passports, lore entries — only after you confirm a before/after card. Chat and lore are data for it, never instructions; secrets, API keys, addresses and connection profiles are invisible to it; every change is journaled with undo; changes per hour are limited.\nWhere: pult → Assistant."],
+		ru: ["Ассистент Maestro (M33)", "Переписка в пульте, отдельно от РП; модель — из профиля подключения задачи «ассистент» (Настройки → Профили подключения; пусто — основной фоновый профиль). Читает документацию, настройки, здоровье, журнал, лор и регексы, сообщения чата, карточку персонажа со стартовыми сценами и персону, объясняет и диагностирует, а меняет — настройки модулей, механики, регексы с испытанием, флаги и блоки пресета, паспорта, записи лора — только после твоего подтверждения карточки «было/стало». Чат и лор для него — данные, не инструкции; секреты, ключи API, адреса и профили подключения ему не видны; каждое изменение — в журнале с откатом; число изменений в час ограничено.\nГде: пульт → Ассистент."]
 	}
 ].map((doc) => ({
 	id: `module.${doc.key}`,
@@ -23298,430 +24828,7 @@ function knowledgeBase() {
 }
 /** Maestro's version: the newest `## x.y.z` heading of the changelog (null when it cannot be read). */
 function maestroVersion() {
-	return /^##\s+(\d+\.\d+\.\d+)/m.exec("# Журнал изменений\n\n## 1.9.0 — ассистент (2026-10-05)\n\n- **Ассистент Maestro** — вкладка «Ассистент» в пульте, отдельно от ролевой игры: спрашивай про Maestro, этот чат и расширения. Модель — из своего профиля подключения (по умолчанию фоновый), свой цикл с инструментами, а не инструменты ST — модель РП их не видит. Дневной потолок фоновых трат ассистента не останавливает: его запускаешь ты.\n- **Читает и объясняет** — 27 инструментов: модули и их настройки, здоровье стека, журнал, «Входящие», промпт хода, почему запись лора сработала или нет («почему героиня не узнала сестру?» — ключи, глубина сканирования, падежи, вероятность, группы, задержки), почему ход дорогой (источники, кэш, перегенерации), регексы (объяснение и проверка на примере по правилам ST), досье, отношения, кто что знает, места, календарь, гардероб, паспорта, механики, режиссёр, блоки пресета. Встроенная справка: каждый модуль, каждый сосед и частые вопросы — на русском и английском.\n- **Делает — только с твоего согласия**: настройки модулей, включение модулей, уровни автономии, механики, регексы (только после проверки на примерах), блоки и условия в твоём слое пресета, записи лора, паспорта. Каждое изменение — карточкой «было/стало» с кнопками «Применить» и «Отклонить», всё в журнале с откатом.\n- **Безопасность**: текст чата, лора, карточек и пресетов для ассистента — только данные, не инструкции; ключи API, токены, адреса и профили подключения он не видит и не меняет; книги BunnyMo не трогает; не больше 10 шагов и 5 предложенных изменений на сообщение и 20 применённых изменений в час.\n\n## 1.8.0 — единый интерфейс (2026-10-05)\n\n- **Единый стиль** — SillyTavern, чат и расширения выглядят как одно приложение: одна таблица стилей Maestro за классом `maestro-theme` на странице. Цвета, размытие, тени, размер шрифта и ширину чата даёт твоя тема ST (смена темы подхватывается сама), скругления, отступы и элементы управления — общие с окнами Maestro. Выключил стиль или Maestro — всё выглядит как раньше; настройки соседей не меняются.\n- **Соседи в том же стиле**: Doom's Enhancement Suite (окна, полоса портретов, шапки сцены и мысли в чате — через его собственные переменные), CarrotKernel (самые заметные части), NAI Studio (панель, окна, картинки в чате), DES-RU, строки памяти Qvink, Lorebook Localizer.\n- **«Оформление» в настройках пульта**: стиль целиком и по частям (ST, чат, каждое расширение), плотность, скругления, «Показать, как было» на 10 секунд.\n- **Док «Расширения»** — блоки настроек CarrotKernel, Qvink, NAI Studio, DES-RU, Localizer и DES открываются прямо в пульте (настоящие блоки, всё работает) и возвращаются на своё место, когда пульт закрыт или Maestro выключен; по желанию — и полоса портретов DES. Ярлыки открывают окна соседей: настройки и каталог персонажей DES, редактор памяти Qvink, галерея и сцена NAI Studio, локализатор, менеджеры CarrotKernel.\n- **Пульт по разделам** — вкладки собраны в группы: Ход, Входящие, Канон, Досье, Мир, Механики, Здоровье, Журнал, Расширения, Настройки; группы сворачиваются, на телефоне — разделы в списке вкладок.\n\n## 1.7.0 — механики (2026-10-05)\n\n- **Конструктор механик** во вкладке «Механики»: свои игровые системы без возни через лор — атрибуты (числа, шкалы, списки, тексты), у кого они есть (персонажи, твой персонаж, фракции, мир), правила для модели, события на порогах («мана на нуле — заклинание срывается»), проверки с кубиками. Шаблоны: здоровье и выносливость, магия с маной и школами, репутация у фракций, деньги, навыки с проверками, отношения. Механика хранится записью типа «механика» в книге Maestro, действует для карточки, чата или везде и выключается в отдельном чате.\n- **Три способа учёта** — на выбор для каждой механики и атрибута: статы трекера DES (Maestro по твоему согласию добавляет их в DES, твои собственные статы не трогает), короткий служебный блок в конце ответа модели (Maestro читает его, чинит ошибки формата и прячет), фоновый разбор ответа. Изменения применяются, когда ты отправляешь следующее сообщение; свайп или удаление ответа откатывает его изменения. Правка значения в пульте — с откатом.\n- **Броски делает Maestro**: слово-триггер в твоём сообщении («убедить», «колдую», \"sneak\") — и проверка уходит в промпт фактом: «Spellcasting check (Элизабет): rolled 6, needed 100 or lower — success». Свайп не перебрасывает. Есть кнопка «Бросок» и команда `/maestro-roll`.\n- **В промпте** — только правила и значения механик, которые участвуют в сцене, ближе к концу; бюджет «механики» у архитектора. Флаги `maestro_mech_<механика>` для условных блоков пресета — в каталоге Пресет-студии. События на порогах — материал для поворотов режиссёра.\n- **Виджеты** — значения в пульте и строкой под портретами DES (на телефоне — одна строка с прокруткой).\n\n## 1.6.0 — визуальная связка (2026-10-05)\n\n- **Гардероб и состояния** — новый наряд из трекера DES (повторившийся два хода) становится именованным нарядом в паспорте NAI Studio уровня чата, а знакомый наряд узнаётся и надевается снова; состояния персонажей (мокрый, ранен, устал…) и мест (разрушено, украшено, пожар, ночь) включаются и выключаются в паспортах по трекеру. Персонаж, который появляется уже в новом наряде, тоже получает его. NAI Studio рисует узнанный наряд его тегами. Библиотека нарядов — во вкладке «Гардероб» и в досье, всё с откатом. Отложенные карточки нарядов из ревизии разбираются сами.\n- **Паспорта в лорбуках** — у записи лора может быть визуальный паспорт в формате NAI Studio: в книгах Maestro — в самой записи, у базовых книг — в реестре Maestro (файлы книг не меняются, книги BunnyMo не трогаются). Создаётся генератором NAI Studio или фоновой моделью по его схеме, правится в Лор-студии рядом с текстом. NAI Studio получает паспорта записей, сработавших или упомянутых в сцене.\n- **Фоны** — фон чата следует за местом: сначала подбор из библиотеки фонов SillyTavern (по названию, папкам, состоянию места, времени суток и погоде из DES), иначе — кнопка «Сгенерировать фон» в NAI Studio (с учётом режима «только бесплатно»). Только фон этого чата — общий фон и `settings.json` не меняются. Поставленный тобой фон Maestro не трогает, пока не разрешишь снова выбирать самому.\n- **«Оформить»** в досье — новый NPC или место получает всё одной кнопкой: запись канона с русскими ключами, архив CarrotKernel по словарю загруженных пакетов BunnyMo (в твою книгу-репозиторий или новую «Maestro · архив»), паспорт NAI Studio, если его нет. Весь план — одной карточкой во «Входящих», каждую часть можно откатить отдельно. «В книгу карточки» переносит запись канона в книгу карточки.\n- Нужен NAI Studio 0.12.1 (паспорта от Maestro, генерация паспорта и фона, наряды по формулировке трекера); со старыми версиями эти части просто не включаются.\n\n## 1.5.0 — живой мир (2026-10-05)\n\n- **Закулисье** — раз в несколько ходов (15 в «Сбалансированном», 10 и в конце сцен в «Кино», в «Экономном» только по кнопке) фоновая модель коротко рассказывает, чем были заняты до трёх важных персонажей, которых давно нет в сцене. События — в канон чата; смерть, плен, исчезновение и всё, что спорит с каноном, сначала ждёт тебя во «Входящих». Иногда присутствующие слышат слух.\n- **Календарь и обещания** — время истории по трекеру DES (обычные даты, «День N», выдуманные календари); договорённости и сроки из ревизии или вручную: «к закату», «через три дня», «by tomorrow». Наступивший срок — повод для заметки режиссёра; просроченное и нарушенное отмечается.\n- **Кто что знает** (экспериментально, выключено по умолчанию) — участники сцены знают её события, секреты из ревизии помечаются; голосовые карточки получают «не знает: …», когда тема всплыла.\n- Ревизия сразу отдаёт обещания календарю и секреты — модулю «Кто что знает»; отложенные карточки прошлых этапов разбираются сами.\n\n## 1.4.0 — режиссура (2026-10-05)\n\n- **Режиссёр сцены** — после каждого хода определяет тип сцены (диалог, бой, интимная, исследование, пропуск времени, светская, драма) по ответу, твоему сообщению и трекеру DES, с устойчивостью к случайным скачкам; при сомнении — дешёвая модель. Для следующей генерации ставит одноразовые флаги: `maestro_scene_<тип>`, длина ответа, откровенная сцена, язык, «момент для картинки». Тип можно задать самому.\n- **Темп и повороты** — если история встала (то же место, ничего не происходит, повторы, разговор по кругу), короткая заметка режиссёра ближе к концу промпта с поворотом из квестов DES и незакрытых нитей. Молчит, когда ты сам ведёшь сюжет; никогда не уводит от тёмных и откровенных сцен. «Встряхнуть» — заметка по кнопке.\n- **Голоса персонажей** — компактная карточка на каждого присутствующего: манера речи (LING и блок Linguistics), MBTI с состоянием, отношение к тебе сейчас, связи с другими присутствующими, цели. Когда карточки включены, вставка CarrotKernel «Character Consistency» гасится при сборке промпта (настройки CK не меняются), а DES-RU перестаёт её пересобирать. Выключено по умолчанию.\n- **Условные блоки пресета** — в Пресет-студии блок можно сделать «только когда …» / «кроме когда …» по флагу Maestro (`{{if .maestro_…}}`), с симулятором флагов, проверкой синтаксиса и предупреждением, если новый движок макросов выключен. «Подготовить к отключению» спрашивает, оставить ли такие блоки обычным текстом или выключить.\n\n## 1.3.0 — ресурсы: архитектор промпта и казначей (2026-10-05)\n\n- **Бюджеты по источникам** — общий потолок лора (поверх потолков книг), RAG CarrotKernel, краткосрочной памяти Qvink и необязательного блока контекста DES; при превышении уходят наименее важные куски, инструкции трекера DES и долгая память Qvink не трогаются никогда. По умолчанию всё выключено.\n- **Кто рядом** — записи об отсутствующих и далёких местах приглушаются, если о них не говорили последние сообщения; записи присутствующих и текущего места закрепляются (включается в «Архитекторе»).\n- **Повторы фактов** между лором, каноном, памятью Qvink, архивами CK и DES — отчёт, а по твоему согласию остаётся один источник.\n- **Кэш провайдера** — доля промпта из кэша и место, где промпт начинает меняться; проверка, что меняющиеся вставки Maestro стоят в конце.\n- **«До и после»** каждого правила — во «Промпте хода».\n- **Казначей** — сколько стоит игра: последний ход, сессия, сегодня и 14 дней, по источникам (основная модель, перегенерации, авто-свайпы, Qvink, задачи Maestro, NAI) и Anlas; при достижении общего дневного лимита — переход в «Экономный», если так настроено.\n- Учитываются кэшированные токены провайдеров.\n\n## 1.2.0 — контроль качества ответа (2026-10-04)\n\n- **Проверка каждого ответа** до того, как NAI Studio начнёт рисовать: уход в другой язык, кальки и штампы; реплики и действия за тебя; отказы, морализаторство, оговорки вне роли, смягчение и навязчивые вопросы; повторы прошлых ответов; обрезанный ответ; служебный мусор и протёкший HTML (JSON трекера DES и маркеры NAI — норма); нет трекера DES; граница контента. Сначала бесплатные правила, дешёвая модель-судья — только при сомнении (в «Экономном» — никогда).\n- **Действия по видам брака** — выкл / «Само» (очистить, попросить продолжить, один свайп за ход с точной инструкцией, ремонт трекера через Медика) / «Уведомить» (значки «Переделать» и «Не брак»). По умолчанию «Само» — только мусор и трекер, остальное — «Уведомить», пока не набрана статистика ложных срабатываний.\n- **Ранняя отсечка** служебных токенов модели прямо в потоке: остановка и один свайп.\n- **Граница контента** — настраиваемые правила с умолчанием (никакого сексуального контента с несовершеннолетними), тестовый режим.\n- **NAI Studio ждёт «качество ок»** (нужен NAI Studio 0.11.0): картинки не рисуются для ответа, ушедшего на переделку.\n\n## 1.1.0 — Пресет-студия (2026-10-04)\n\n- **Пресет-студия** — большое окно для пресета Chat Completion: «Карта» (как SillyTavern соберёт промпт: блоки по порядку, вставки расширений на своих местах, токены, блоки, которые включены, но не уйдут), «Блоки» (порядок перетаскиванием, массовое включение, поиск, предпросмотр с макросами), редактор блока, «Анализ» (несохранённые правки, пустые и неотправляемые блоки, противоречия, повторы с лором и вставками, особенности модели и провайдера), «Версии» (каждое сохранение — версия, откат), «Параметры» генерации и сценариев.\n- **Твой слой** — твои блоки и правки хранятся отдельно от базового пресета и накладываются при его выборе; новая версия базы (например, Marinara) ставится без потери правок, а при изменённом тексте блока — выбор из трёх версий. Перенос текущих правок в слой с предпросмотром (ключи подключения можно не переносить), перенос слоя на другой пресет, блоки из чужих пресетов.\n- **Безопасное сохранение** — пресет сохраняется только с явным телом, незнакомые ключи и расширения сохраняются, переименование переносит разрешения регексов и спрашивает о профилях подключения; несохранённые правки сохраняются версией перед переключением пресета.\n- **Сценарии генерации** — свои параметры для перевоплощения и продолжения (выключены по умолчанию).\n- Раздел Prompt Manager можно заменить кнопкой студии (настройка, по умолчанию выключена — до проверки паритета вживую).\n- **«Подготовить к отключению», экспорт и импорт данных Maestro** в настройках пульта.\n\n## 1.0.0 — выпуск R3, первая полная версия (2026-10-04)\n\nЭтап 4: ревизия и живой канон.\n\n- **Сигналы хода** — когда ты отправляешь сообщение, прошлый ответ фиксируется, и Maestro без ИИ сравнивает его с ходом раньше: смена отношения, стойкая внешность, место, пропуск времени, конец сцены, квесты, кто пришёл и ушёл, новые алиасы и имена, память Qvink. Свободный текст засчитывается, только если продержался два хода; свайп и правка откатывают ровно то, что дал ответ.\n- **Ревизия «сюжет → канон»** — по сигналам, раз в N сообщений, в конце сцены или командой `/maestro-revise` дешёвая модель смотрит, что изменилось у известных персонажей и мест, и предлагает обновить владельца: канон чата, теги архива CK (только из словаря паков), паспорт NAI уровня чата, прозвища чата, реестр мест. Наряды, обещания и секреты ждут своих этапов отложенными карточками.\n- **«Входящие»** — карточки по персонажам, ссылка на сообщение, «было/стало» по хранилищам, цитата и уверенность; принять, изменить на месте, отклонить, отложить, «Всегда так», принять всё.\n- **Проверка противоречий** — сначала правила (имена, числа, даты, отрицания), при сомнении — дешёвая модель; общий сервис для ревизии и живого канона.\n- **Живой канон** — то, что придумала модель (праздник, таверна, род), после фиксации хода становится пробной записью канона с русскими ключами; подтверждается, только если ты сам это упомянул, принял, если оно всплыло снова без подсказки или продержалось 10 ходов без противоречий. Пакетное извлечение пишет английский текст записей. Свайп убирает пробное, подтверждённое остаётся.\n- **Летопись и автопамять** — воспоминания Qvink, выпавшие из долгой памяти, становятся главами канона (срабатывают по двум ключам сразу); важные моменты сами получают отметку «запомнить» во всех свайпах; «Ранее в истории…» после перерыва.\n- **Замеры** — вкладка с критериями первой полной версии: задержка Maestro до запроса, доля фоновых расходов, лор на ход, выпавшие сообщения, роли записей, вкладки, ревизия, живой канон, листы, файлы паков. Скрипт стенда `tools/stand/measure.mjs`.\n- Исправлено: досье и листы брали архив «Александра» для «Александр» (падежная форма совпадала с другим именем); запросы NAI Studio записывались в расходы Qvink.\n\n## 0.2.0 — выпуск R2 (2026-10-04)\n\nЭтапы 2 и 3: Лор-студия, роли книг, доктор, канон; модель мира, досье, места.\n\n**Этап 3**\n\n- **Модель мира** — каждый персонаж, персона и место стека одной сущностью: карточки, состав DES, алиасы DES и DES-RU, падежи, паспорта NAI, архивы CK, записи лорбуков с типом, канон и места. Одно лицо под разными именами склеивается; сомнительные совпадения — во «Входящих». Прозвища, которые действуют только в этом чате.\n- **Досье** — одна страница на сущность: DES, лор, канон, архив CK и теги, паспорт NAI (с изменениями этого чата), падежи, воспоминания Qvink, RAG, последний лист. Сверка структуры (нет записи, паспорта или архива, алиас не стал ключом, имена расходятся), сверка внешности ИИ по кнопке, «Разнести» правку по хранилищам. Команда `/maestro-dossier`.\n- **Места** — реестр мест чата по локации DES: новое название становится местом, если продержалось два хода; вложенность, история визитов (кто был, когда), описание записью канона. NAI Studio держит непрерывность фона по id места.\n- **Граф отношений** — как персонажи относятся к твоей персоне, ход за ходом по трекеру DES.\n- **Режим BunnyMo** — словарь тегов всех паков (конфликты, дубли, теги без пака), паки по чатам, сравнение пака с новым файлом, проверка целостности, редактор листов архивов CK. Команда `/maestro-bunnymo`.\n- Нужен NAI Studio 0.10.0 для паспортов уровня чата и непрерывности по местам (без него всё остальное работает).\n\n**Этап 2**\n\n- **Лор-студия** — свой редактор лорбуков рядом со штатным: книги по ролям, все поля и действия штатного окна, канон рядом с базой, история версий, русские ключи, кампании DES. Кнопку «Миры и лорбуки» можно отдать студии настройкой.\n- **Роли книг** — Maestro знает, где ядро и паки BunnyMo, архивы CK, мир, карточка, NPC, канон; паки BunnyMo только для чтения.\n- **Канон чата** — изменения сюжета в отдельном лорбуке чата: переопределение, подавление, закрепление, добавление; бюджет, архив, слежение за базой, повышение до базы, экспорт, ветки. Срабатывает по русскому тексту.\n- **Доктор** — «Исправить в файле» для твоих книг (паки — никогда) и лечение регексов, всё с откатом.\n- **Правила** — кириллица и «целые слова», конфликт версий паков, `<NSFW>` в архивах, глубина сканирования архивов CK.\n- Нужны DES-RU 0.8.0 и Lorebook Localizer 0.2.0 (без них всё работает, но без склонений и локализации из студии).\n\n## 0.1.0 — выпуск R1 (2026-10-04)\n\nНаблюдение и быстрые исправления.\n\n- **Журнал лора** — какой лор ушёл в промпт на каждом ходу, почему, каким ключом и через какую запись; почему книга активна; «Что если» без генерации.\n- **Инспектор хода** — из чего собран промпт: пресет, лор по книгам, вставки соседей, история.\n- **Медик** — проверки соседей после каждого ответа; ремонт трекера DES; предупреждение о prefill с ролью assistant.\n- **Страж** — эталон настроек и пресета, дрейф во «Входящих»; устаревшая вкладка больше не перезаписывает настройки, пресеты и лорбуки.\n- **Доктор** — находки в лорбуках и регексах, испытание регексов.\n- **Правила на лету** — роль assistant → system, потолок и лимит рекурсии книги, дубли паков, «дыры» Qvink, картинки NAI вне пересказов, видимые теги BunnyMo, кнопка векторизации CK и полоса портретов DES на телефоне.\n- **Листы персонажей** — команды BunnyMo генерируются своей сборкой промпта, без хвоста сцены и трекера, сворачиваются и уходят из промпта после следующего хода.\n- **Мастер первого запуска.**\n\n## 0.0.0 — этап 0\n\nКаркас: слой ST, сервисы ядра, адаптеры соседей, пульт, стенд с имитацией модели.\n")?.[1] ?? null;
-}
-//#endregion
-//#region src/domain/doctor-types.ts
-/** Rule ids of M22 the doctor points to (stages 1–2). */
-var DOCTOR_RULES = {
-	duplicates: "pack.duplicates",
-	bookCap: "book.cap",
-	assistantToSystem: "role.assistantToSystem",
-	cyrillicLeftBoundary: "keys.cyrillicLeftBoundary",
-	packVersion: "pack.versionConflict",
-	nsfwCollision: "wrapper.nsfwCollision"
-};
-function str$19(value) {
-	return typeof value === "string" ? value : value === void 0 || value === null ? "" : String(value);
-}
-function keyList$1(value) {
-	return Array.isArray(value) ? value.map((key) => str$19(key).trim()).filter(Boolean) : [];
-}
-function num$10(value, fallback) {
-	const parsed = typeof value === "number" ? value : typeof value === "string" && value !== "" ? Number(value) : NaN;
-	return Number.isFinite(parsed) ? parsed : fallback;
-}
-function nullableNum(value) {
-	if (value === null || value === void 0 || value === "") return null;
-	const parsed = num$10(value, NaN);
-	return Number.isFinite(parsed) ? parsed : null;
-}
-function nullableBool(value) {
-	return typeof value === "boolean" ? value : null;
-}
-/**
-* Normalises a raw entry of a loaded book (`loadWorldInfo(name).entries[uid]`). Missing fields take ST's template
-* defaults (world-info.js `newWorldInfoEntryDefinition`): position 0, depth 4, null for "use the global setting".
-*/
-function toDoctorEntry(book, raw, fallbackUid, localizerKeys = []) {
-	return {
-		book,
-		uid: num$10(raw.uid, fallbackUid),
-		comment: str$19(raw.comment),
-		content: str$19(raw.content),
-		key: keyList$1(raw.key),
-		keysecondary: keyList$1(raw.keysecondary),
-		disable: raw.disable === true,
-		constant: raw.constant === true,
-		position: num$10(raw.position, 0),
-		depth: num$10(raw.depth, 4),
-		role: nullableNum(raw.role),
-		scanDepth: nullableNum(raw.scanDepth),
-		caseSensitive: nullableBool(raw.caseSensitive),
-		matchWholeWords: nullableBool(raw.matchWholeWords),
-		excludeRecursion: raw.excludeRecursion === true,
-		preventRecursion: raw.preventRecursion === true,
-		ignoreBudget: raw.ignoreBudget === true,
-		localizerKeys: [...localizerKeys]
-	};
-}
-/** "Comment" or "#uid" for messages. */
-function entryLabel$2(entry) {
-	const comment = entry.comment.trim();
-	return comment ? comment.length > 80 ? `${comment.slice(0, 77)}…` : comment : `#${entry.uid}`;
-}
-/** Up to `limit` items joined for a message, with "…" when more exist. */
-function sample(items, limit = 3) {
-	const unique = [...new Set(items)];
-	const shown = unique.slice(0, limit).join(", ");
-	return unique.length > limit ? `${shown}, …` : shown;
-}
-//#endregion
-//#region src/domain/doctor-budget.ts
-var STRATEGIES = [
-	"evenly",
-	"characterFirst",
-	"globalFirst"
-];
-function num$9(value, fallback) {
-	return typeof value === "number" && Number.isFinite(value) ? value : fallback;
-}
-/**
-* Reads world-info.js settings: the object of `getWorldInfoSettings()` or the module namespace itself (both carry
-* the `world_info_*` names). Missing values take ST's defaults.
-*/
-function readWiSettings$1(raw) {
-	const strategy = num$9(raw.world_info_character_strategy, 1);
-	return {
-		depth: num$9(raw.world_info_depth, 2),
-		budgetPercent: num$9(raw.world_info_budget, 25),
-		budgetCap: num$9(raw.world_info_budget_cap, 0),
-		recursive: raw.world_info_recursive === true,
-		maxRecursionSteps: num$9(raw.world_info_max_recursion_steps, 0),
-		minActivations: num$9(raw.world_info_min_activations, 0),
-		caseSensitive: raw.world_info_case_sensitive === true,
-		wholeWords: raw.world_info_match_whole_words === true,
-		strategy: STRATEGIES[strategy] ?? "characterFirst",
-		overflowAlert: raw.world_info_overflow_alert === true
-	};
-}
-/** ST's budget: `round(percent × context / 100) || 1`, capped by the budget cap (world-info.js). Null without a context. */
-function budgetTokens(settings, maxContext) {
-	if (!maxContext || maxContext <= 0) return null;
-	let budget = Math.round(settings.budgetPercent * maxContext / 100) || 1;
-	if (settings.budgetCap > 0) budget = Math.min(budget, settings.budgetCap);
-	return budget;
-}
-/** Rough tokens of English lore text (≈ 4 characters per token). */
-function charsToTokens(chars, charsPerToken = 4) {
-	return Math.max(0, Math.round(chars / charsPerToken));
-}
-/** Budget size, constants over budget, real overflows (M1), entries outside the budget, the insertion strategy. */
-function findBudgetIssues(input) {
-	const { settings } = input;
-	const issues = [];
-	const budget = budgetTokens(settings, input.maxContext);
-	const enabled = input.entries.filter((entry) => !entry.disable);
-	const constantTokens = charsToTokens(enabled.filter((entry) => entry.constant).reduce((sum, entry) => sum + entry.content.length, 0));
-	const target = { setting: "world_info_budget" };
-	let binding = false;
-	if (budget !== null && settings.budgetCap === 0 && budget >= 5e4) issues.push({
-		kind: "budget.overflow",
-		severity: "warn",
-		messageKey: "m5.f.budgetUnlimited",
-		params: {
-			percent: settings.budgetPercent,
-			context: input.maxContext ?? 0,
-			budget
-		},
-		target,
-		fixRule: DOCTOR_RULES.bookCap
-	});
-	if (budget !== null && constantTokens > budget) {
-		binding = true;
-		issues.push({
-			kind: "budget.overflow",
-			severity: "warn",
-			messageKey: "m5.f.budgetConstants",
-			params: {
-				constants: constantTokens,
-				budget
-			},
-			target
-		});
-	}
-	const journal = input.journal;
-	if (journal && journal.overflowTurns > 0) {
-		binding = true;
-		issues.push({
-			kind: "budget.overflow",
-			severity: "warn",
-			messageKey: settings.overflowAlert ? "m5.f.budgetOverflowed" : "m5.f.budgetOverflowedSilent",
-			params: {
-				count: journal.overflowTurns,
-				turns: journal.turns,
-				cut: journal.cut
-			},
-			target,
-			fixRule: DOCTOR_RULES.bookCap
-		});
-	}
-	const ignored = enabled.filter((entry) => entry.ignoreBudget);
-	if (ignored.length) issues.push({
-		kind: "budget.strategy",
-		severity: "info",
-		messageKey: "m5.f.budgetIgnored",
-		params: {
-			count: ignored.length,
-			chars: ignored.reduce((sum, entry) => sum + entry.content.length, 0)
-		},
-		target: { setting: "ignoreBudget" }
-	});
-	if (binding) issues.push({
-		kind: "budget.strategy",
-		severity: "info",
-		messageKey: `m5.f.budgetStrategy.${settings.strategy}`,
-		params: { budget: budget ?? 0 },
-		target: { setting: "world_info_character_strategy" }
-	});
-	return issues;
-}
-/** Cap for one book: `share` of its current size in tokens, rounded to 500, at least 1000. */
-function suggestCapTokens(chars, share = .35) {
-	const tokens = charsToTokens(chars * share);
-	return Math.max(1e3, Math.round(tokens / 500) * 500);
-}
-/** Caps for the heaviest books (sorted by size, largest first). */
-function suggestBookCaps(rows, options = {}) {
-	const share = options.share ?? .35;
-	const minChars = options.minChars ?? 2e4;
-	const limit = options.limit ?? 3;
-	return [...rows].filter((row) => row.chars >= minChars).sort((a, b) => b.chars - a.chars).slice(0, limit).map((row) => ({
-		book: row.book,
-		currentChars: row.chars,
-		currentTokens: charsToTokens(row.chars),
-		capTokens: suggestCapTokens(row.chars, share)
-	}));
-}
-/** Tokens of chat history to parse (Russian text: ≈ 3.5 characters per token). */
-function historyTokens(chars) {
-	return charsToTokens(chars, 3.5);
-}
-/**
-* A rough price of parsing history on a cheap background model. Input and output are blended at
-* `usdPerMillion` (default $0.5 per million tokens, DeepSeek V4 Flash class); the real price depends on the profile.
-*/
-function bootstrapCostUsd(tokens, usdPerMillion = .5) {
-	return tokens / 1e6 * usdPerMillion;
-}
-//#endregion
-//#region src/features/assistant/tools/read/common.ts
-function isDict$91(value) {
-	return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-function argsOf$1(args) {
-	return isDict$91(args) ? args : {};
-}
-/** A trimmed string argument (numbers are accepted as text), undefined when absent or empty. */
-function strArg(args, name, max = 300) {
-	const value = args[name];
-	const text = typeof value === "string" ? value.trim() : typeof value === "number" ? String(value) : "";
-	return text ? text.slice(0, max) : void 0;
-}
-/** A raw string argument (spaces kept: samples, replacements), undefined when not a string. */
-function rawArg(args, name, max = 4e3) {
-	const value = args[name];
-	return typeof value === "string" ? value.slice(0, max) : void 0;
-}
-/** An integer argument clamped to [min, max]; `fallback` when absent or not a number. */
-function intArg(args, name, fallback, min, max) {
-	const value = args[name];
-	const number = typeof value === "number" ? value : typeof value === "string" ? Number(value) : NaN;
-	if (!Number.isFinite(number)) return fallback;
-	return Math.min(max, Math.max(min, Math.round(number)));
-}
-/** An optional integer argument (undefined when absent or not a number). */
-function optIntArg(args, name) {
-	const value = args[name];
-	const number = typeof value === "number" ? value : typeof value === "string" && value.trim() ? Number(value) : NaN;
-	return Number.isFinite(number) ? Math.round(number) : void 0;
-}
-function boolArg(args, name, fallback) {
-	const value = args[name];
-	if (typeof value === "boolean") return value;
-	if (value === "true") return true;
-	if (value === "false") return false;
-	return fallback;
-}
-/** One of the allowed values, else the fallback (undefined when none). */
-function enumArg(args, name, allowed, fallback) {
-	const value = args[name];
-	return typeof value === "string" && allowed.includes(value) ? value : fallback;
-}
-/** An object schema with no extra properties. */
-function objectSchema(properties = {}, required = []) {
-	const schema = {
-		type: "object",
-		properties,
-		additionalProperties: false
-	};
-	if (required.length) schema.required = required;
-	return schema;
-}
-var prop = {
-	string: (description, extra = {}) => ({
-		type: "string",
-		description,
-		...extra
-	}),
-	integer: (description, extra = {}) => ({
-		type: "integer",
-		description,
-		...extra
-	}),
-	boolean: (description) => ({
-		type: "boolean",
-		description
-	}),
-	enum: (description, values) => ({
-		type: "string",
-		description,
-		enum: [...values]
-	})
-};
-/** Text cut to `max` characters (with «…»); non-strings become ''. */
-function cut$6(value, max) {
-	const text = typeof value === "string" ? value : value === void 0 || value === null ? "" : String(value);
-	return text.length > max ? `${text.slice(0, Math.max(1, max - 1)).trimEnd()}…` : text;
-}
-/** The first `max` items and how many were left out. */
-function capList(items, max) {
-	const result = {
-		items: items.slice(0, max),
-		total: items.length
-	};
-	if (items.length > max) result.more = items.length - max;
-	return result;
-}
-/** A line in the user's language. */
-function say(ctx, en, ru) {
-	return ctx.locale === "ru" ? ru : en;
-}
-/** An answer that tells the model why there is nothing (module off, nothing found). */
-function notice(ctx, en, ru, data = {}) {
-	return {
-		data: {
-			note: en,
-			...data
-		},
-		summary: say(ctx, en, ru)
-	};
-}
-/** Time of a record as ISO text (compact, model-friendly). */
-function when(at) {
-	return typeof at === "number" && Number.isFinite(at) && at > 0 ? new Date(at).toISOString() : void 0;
-}
-/** Drops undefined members (smaller JSON). */
-function compact$1(object) {
-	for (const key of Object.keys(object)) if (object[key] === void 0) delete object[key];
-	return object;
-}
-/** Paths and values that may hold secrets are never shown (profiles, keys, addresses). */
-var SENSITIVE = /key|token|secret|password|api|url|endpoint|host|proxy|profile|connection/i;
-/**
-* The same for journal locators, where `key` alone is common and harmless (lorebook keys): only API keys and the
-* other secrets count.
-*/
-var SENSITIVE_REF = /api[_-]?key|token|secret|password|url|endpoint|host|proxy|profile|connection/i;
-/** Another module's API, undefined when it is off (or its getter throws). */
-function apiOf(app, key) {
-	try {
-		return app.modules.api(key) ?? void 0;
-	} catch {
-		return;
-	}
-}
-/** available() for a tool that needs a module's API. */
-function needsApi(...keys) {
-	return (app) => keys.every((key) => apiOf(app, key) !== void 0);
-}
-/** A promise with a deadline: the fallback when it is late or fails. */
-async function withTimeout$3(promise, ms, fallback) {
-	let timer;
-	try {
-		return await Promise.race([promise.catch(() => fallback), new Promise((resolve) => {
-			timer = setTimeout(() => resolve(fallback), ms);
-		})]);
-	} finally {
-		if (timer !== void 0) clearTimeout(timer);
-	}
-}
-/** Runs a getter that may throw (another module's API); the fallback on error. */
-function safely$1(read, fallback) {
-	try {
-		return read();
-	} catch {
-		return fallback;
-	}
-}
-/** Texts of the chat's messages, oldest first, system messages left out (the last `limit`). */
-function chatTexts(app, limit = 200) {
-	const chat = safely$1(() => app.host.ctx().chat ?? [], []);
-	const texts = [];
-	for (let index = chat.length - 1; index >= 0 && texts.length < limit; index--) {
-		const message = chat[index];
-		if (!message || message.is_system) continue;
-		texts.unshift(typeof message.mes === "string" ? message.mes : "");
-	}
-	return texts;
-}
-/** Names of the lorebooks ST scans now: the lore journal's reasons, else the BunnyMo adapter's list. */
-async function activeBooks$1(app) {
-	const journal = apiOf(app, "loreJournal");
-	if (journal) {
-		const reasons = await withTimeout$3(journal.whyActive(), 3e3, []);
-		if (reasons.length) return reasons.map((row) => row.book);
-	}
-	try {
-		const books = await withTimeout$3(adaptersOf(app).bunnymo.activeBooks(), 3e3, []);
-		if (books.length) return books;
-	} catch {}
-	return [];
-}
-/** Every lorebook name ST knows (the Lore Studio's list, else ST's). */
-function allBooks(app) {
-	const store = apiOf(app, "loreStore");
-	if (store) return safely$1(() => store.books(), []);
-	return safely$1(() => app.host.ctx().getWorldInfoNames?.() ?? [], []);
-}
-/** A book's data (a copy): the Lore Studio's store, else ST's loadWorldInfo; null when missing. */
-async function loadBook$2(app, name) {
-	const store = apiOf(app, "loreStore");
-	let data;
-	try {
-		data = store ? await store.load(name) : await app.host.ctx().loadWorldInfo?.(name);
-	} catch {
-		return null;
-	}
-	if (!isDict$91(data) || !isDict$91(data.entries)) return null;
-	return data;
-}
-/** True when lorebooks can be read (the Lore Studio's store or ST's loadWorldInfo). */
-function canReadLore(app) {
-	if (apiOf(app, "loreStore")) return true;
-	return safely$1(() => typeof app.host.ctx().loadWorldInfo === "function", false);
-}
-/** World Info scan settings (depth, case, whole words); ST's defaults when world-info.js is not available. */
-async function wiSettings(app) {
-	try {
-		const module = await withTimeout$3(app.host.modules.worldInfo(), 3e3, {});
-		const getter = module.getWorldInfoSettings;
-		const raw = typeof getter === "function" ? getter() : module;
-		return readWiSettings$1(isDict$91(raw) ? raw : {});
-	} catch {
-		return readWiSettings$1({});
-	}
-}
-/** Entry keys as strings. */
-function keysOf$1(value) {
-	return Array.isArray(value) ? value.filter((item) => typeof item === "string" && !!item) : [];
-}
-/** Builds a read tool (kind 'read'). */
-function readTool(spec) {
-	return {
-		...spec,
-		kind: "read"
-	};
+	return /^##\s+(\d+\.\d+\.\d+)/m.exec("# Журнал изменений\n\n## 1.10.0 — правки по живым тестам (2026-10-05)\n\n- **Стиль сообщений** — новая вкладка в «Настройках»: редактор правил, как выглядят сообщения игрока и персонажей. Правило — что найти (\"…\", «…» ёлочками, реплики через тире, \\*мысли\\*, \\*\\*акцент\\*\\*, (…), […], свой регекс с проверкой) и как показать (цвет из темы, курсив, жирный, приглушение, шрифт, черта или подложка, вид кавычек — только на экране). Пресеты: «Классика» (по умолчанию: повествование обычным текстом, \"диалоги\" цветом цитат, \\*мысли\\* курсивом), «Книга», «Подсветка речи», «Мысли отдельно», «Ёлочки», «Сценарий», «Роман», «Контраст», «Игрок отдельно», «Минимум». Живой пример. Сохранённый текст сообщений не меняется. По желанию — «Подсказать модели этот формат».\n- **Сообщения игрока** — свой вид: акцентная черта, имя акцентным цветом, по желанию сдвиг вправо в «пузырях».\n- **Стартовая страница** в едином стиле: карточки недавних чатов, кнопки, приветствие. В превью чатов больше нет JSON трекера DES и сырых тегов вроде `<font color=…>` (только на экране; то же в «Управлении чатами» и боковой панели Top Info Bar).\n- **Оформлены**: панель персон игрока, «Управление чатами», панель чатов Top Info Bar, поле ввода (скругление, отступы, подсветка фокуса; на телефоне — крупные кнопки и шрифт 16 px без увеличения в iOS).\n- **Верхняя панель** снова с воздухом: высота подросла через собственную переменную ST, вся раскладка сдвигается вместе с ней (в iOS и в режиме «Плотно» — как в ST).\n- **Ассистент видит чат и карточку**: чтение и поиск по сообщениям текущего чата (трекер DES — коротко), карточка персонажа со всеми стартовыми сценами (первое сообщение и альтернативные приветствия), персона игрока и «обзор сценария» — одним вызовом всё, что нужно, чтобы предложить механики по этому чату.\n\n## 1.9.0 — ассистент (2026-10-05)\n\n- **Ассистент Maestro** — вкладка «Ассистент» в пульте, отдельно от ролевой игры: спрашивай про Maestro, этот чат и расширения. Модель — из своего профиля подключения (по умолчанию фоновый), свой цикл с инструментами, а не инструменты ST — модель РП их не видит. Дневной потолок фоновых трат ассистента не останавливает: его запускаешь ты.\n- **Читает и объясняет** — 27 инструментов: модули и их настройки, здоровье стека, журнал, «Входящие», промпт хода, почему запись лора сработала или нет («почему героиня не узнала сестру?» — ключи, глубина сканирования, падежи, вероятность, группы, задержки), почему ход дорогой (источники, кэш, перегенерации), регексы (объяснение и проверка на примере по правилам ST), досье, отношения, кто что знает, места, календарь, гардероб, паспорта, механики, режиссёр, блоки пресета. Встроенная справка: каждый модуль, каждый сосед и частые вопросы — на русском и английском.\n- **Делает — только с твоего согласия**: настройки модулей, включение модулей, уровни автономии, механики, регексы (только после проверки на примерах), блоки и условия в твоём слое пресета, записи лора, паспорта. Каждое изменение — карточкой «было/стало» с кнопками «Применить» и «Отклонить», всё в журнале с откатом.\n- **Безопасность**: текст чата, лора, карточек и пресетов для ассистента — только данные, не инструкции; ключи API, токены, адреса и профили подключения он не видит и не меняет; книги BunnyMo не трогает; не больше 10 шагов и 5 предложенных изменений на сообщение и 20 применённых изменений в час.\n\n## 1.8.0 — единый интерфейс (2026-10-05)\n\n- **Единый стиль** — SillyTavern, чат и расширения выглядят как одно приложение: одна таблица стилей Maestro за классом `maestro-theme` на странице. Цвета, размытие, тени, размер шрифта и ширину чата даёт твоя тема ST (смена темы подхватывается сама), скругления, отступы и элементы управления — общие с окнами Maestro. Выключил стиль или Maestro — всё выглядит как раньше; настройки соседей не меняются.\n- **Соседи в том же стиле**: Doom's Enhancement Suite (окна, полоса портретов, шапки сцены и мысли в чате — через его собственные переменные), CarrotKernel (самые заметные части), NAI Studio (панель, окна, картинки в чате), DES-RU, строки памяти Qvink, Lorebook Localizer.\n- **«Оформление» в настройках пульта**: стиль целиком и по частям (ST, чат, каждое расширение), плотность, скругления, «Показать, как было» на 10 секунд.\n- **Док «Расширения»** — блоки настроек CarrotKernel, Qvink, NAI Studio, DES-RU, Localizer и DES открываются прямо в пульте (настоящие блоки, всё работает) и возвращаются на своё место, когда пульт закрыт или Maestro выключен; по желанию — и полоса портретов DES. Ярлыки открывают окна соседей: настройки и каталог персонажей DES, редактор памяти Qvink, галерея и сцена NAI Studio, локализатор, менеджеры CarrotKernel.\n- **Пульт по разделам** — вкладки собраны в группы: Ход, Входящие, Канон, Досье, Мир, Механики, Здоровье, Журнал, Расширения, Настройки; группы сворачиваются, на телефоне — разделы в списке вкладок.\n\n## 1.7.0 — механики (2026-10-05)\n\n- **Конструктор механик** во вкладке «Механики»: свои игровые системы без возни через лор — атрибуты (числа, шкалы, списки, тексты), у кого они есть (персонажи, твой персонаж, фракции, мир), правила для модели, события на порогах («мана на нуле — заклинание срывается»), проверки с кубиками. Шаблоны: здоровье и выносливость, магия с маной и школами, репутация у фракций, деньги, навыки с проверками, отношения. Механика хранится записью типа «механика» в книге Maestro, действует для карточки, чата или везде и выключается в отдельном чате.\n- **Три способа учёта** — на выбор для каждой механики и атрибута: статы трекера DES (Maestro по твоему согласию добавляет их в DES, твои собственные статы не трогает), короткий служебный блок в конце ответа модели (Maestro читает его, чинит ошибки формата и прячет), фоновый разбор ответа. Изменения применяются, когда ты отправляешь следующее сообщение; свайп или удаление ответа откатывает его изменения. Правка значения в пульте — с откатом.\n- **Броски делает Maestro**: слово-триггер в твоём сообщении («убедить», «колдую», \"sneak\") — и проверка уходит в промпт фактом: «Spellcasting check (Элизабет): rolled 6, needed 100 or lower — success». Свайп не перебрасывает. Есть кнопка «Бросок» и команда `/maestro-roll`.\n- **В промпте** — только правила и значения механик, которые участвуют в сцене, ближе к концу; бюджет «механики» у архитектора. Флаги `maestro_mech_<механика>` для условных блоков пресета — в каталоге Пресет-студии. События на порогах — материал для поворотов режиссёра.\n- **Виджеты** — значения в пульте и строкой под портретами DES (на телефоне — одна строка с прокруткой).\n\n## 1.6.0 — визуальная связка (2026-10-05)\n\n- **Гардероб и состояния** — новый наряд из трекера DES (повторившийся два хода) становится именованным нарядом в паспорте NAI Studio уровня чата, а знакомый наряд узнаётся и надевается снова; состояния персонажей (мокрый, ранен, устал…) и мест (разрушено, украшено, пожар, ночь) включаются и выключаются в паспортах по трекеру. Персонаж, который появляется уже в новом наряде, тоже получает его. NAI Studio рисует узнанный наряд его тегами. Библиотека нарядов — во вкладке «Гардероб» и в досье, всё с откатом. Отложенные карточки нарядов из ревизии разбираются сами.\n- **Паспорта в лорбуках** — у записи лора может быть визуальный паспорт в формате NAI Studio: в книгах Maestro — в самой записи, у базовых книг — в реестре Maestro (файлы книг не меняются, книги BunnyMo не трогаются). Создаётся генератором NAI Studio или фоновой моделью по его схеме, правится в Лор-студии рядом с текстом. NAI Studio получает паспорта записей, сработавших или упомянутых в сцене.\n- **Фоны** — фон чата следует за местом: сначала подбор из библиотеки фонов SillyTavern (по названию, папкам, состоянию места, времени суток и погоде из DES), иначе — кнопка «Сгенерировать фон» в NAI Studio (с учётом режима «только бесплатно»). Только фон этого чата — общий фон и `settings.json` не меняются. Поставленный тобой фон Maestro не трогает, пока не разрешишь снова выбирать самому.\n- **«Оформить»** в досье — новый NPC или место получает всё одной кнопкой: запись канона с русскими ключами, архив CarrotKernel по словарю загруженных пакетов BunnyMo (в твою книгу-репозиторий или новую «Maestro · архив»), паспорт NAI Studio, если его нет. Весь план — одной карточкой во «Входящих», каждую часть можно откатить отдельно. «В книгу карточки» переносит запись канона в книгу карточки.\n- Нужен NAI Studio 0.12.1 (паспорта от Maestro, генерация паспорта и фона, наряды по формулировке трекера); со старыми версиями эти части просто не включаются.\n\n## 1.5.0 — живой мир (2026-10-05)\n\n- **Закулисье** — раз в несколько ходов (15 в «Сбалансированном», 10 и в конце сцен в «Кино», в «Экономном» только по кнопке) фоновая модель коротко рассказывает, чем были заняты до трёх важных персонажей, которых давно нет в сцене. События — в канон чата; смерть, плен, исчезновение и всё, что спорит с каноном, сначала ждёт тебя во «Входящих». Иногда присутствующие слышат слух.\n- **Календарь и обещания** — время истории по трекеру DES (обычные даты, «День N», выдуманные календари); договорённости и сроки из ревизии или вручную: «к закату», «через три дня», «by tomorrow». Наступивший срок — повод для заметки режиссёра; просроченное и нарушенное отмечается.\n- **Кто что знает** (экспериментально, выключено по умолчанию) — участники сцены знают её события, секреты из ревизии помечаются; голосовые карточки получают «не знает: …», когда тема всплыла.\n- Ревизия сразу отдаёт обещания календарю и секреты — модулю «Кто что знает»; отложенные карточки прошлых этапов разбираются сами.\n\n## 1.4.0 — режиссура (2026-10-05)\n\n- **Режиссёр сцены** — после каждого хода определяет тип сцены (диалог, бой, интимная, исследование, пропуск времени, светская, драма) по ответу, твоему сообщению и трекеру DES, с устойчивостью к случайным скачкам; при сомнении — дешёвая модель. Для следующей генерации ставит одноразовые флаги: `maestro_scene_<тип>`, длина ответа, откровенная сцена, язык, «момент для картинки». Тип можно задать самому.\n- **Темп и повороты** — если история встала (то же место, ничего не происходит, повторы, разговор по кругу), короткая заметка режиссёра ближе к концу промпта с поворотом из квестов DES и незакрытых нитей. Молчит, когда ты сам ведёшь сюжет; никогда не уводит от тёмных и откровенных сцен. «Встряхнуть» — заметка по кнопке.\n- **Голоса персонажей** — компактная карточка на каждого присутствующего: манера речи (LING и блок Linguistics), MBTI с состоянием, отношение к тебе сейчас, связи с другими присутствующими, цели. Когда карточки включены, вставка CarrotKernel «Character Consistency» гасится при сборке промпта (настройки CK не меняются), а DES-RU перестаёт её пересобирать. Выключено по умолчанию.\n- **Условные блоки пресета** — в Пресет-студии блок можно сделать «только когда …» / «кроме когда …» по флагу Maestro (`{{if .maestro_…}}`), с симулятором флагов, проверкой синтаксиса и предупреждением, если новый движок макросов выключен. «Подготовить к отключению» спрашивает, оставить ли такие блоки обычным текстом или выключить.\n\n## 1.3.0 — ресурсы: архитектор промпта и казначей (2026-10-05)\n\n- **Бюджеты по источникам** — общий потолок лора (поверх потолков книг), RAG CarrotKernel, краткосрочной памяти Qvink и необязательного блока контекста DES; при превышении уходят наименее важные куски, инструкции трекера DES и долгая память Qvink не трогаются никогда. По умолчанию всё выключено.\n- **Кто рядом** — записи об отсутствующих и далёких местах приглушаются, если о них не говорили последние сообщения; записи присутствующих и текущего места закрепляются (включается в «Архитекторе»).\n- **Повторы фактов** между лором, каноном, памятью Qvink, архивами CK и DES — отчёт, а по твоему согласию остаётся один источник.\n- **Кэш провайдера** — доля промпта из кэша и место, где промпт начинает меняться; проверка, что меняющиеся вставки Maestro стоят в конце.\n- **«До и после»** каждого правила — во «Промпте хода».\n- **Казначей** — сколько стоит игра: последний ход, сессия, сегодня и 14 дней, по источникам (основная модель, перегенерации, авто-свайпы, Qvink, задачи Maestro, NAI) и Anlas; при достижении общего дневного лимита — переход в «Экономный», если так настроено.\n- Учитываются кэшированные токены провайдеров.\n\n## 1.2.0 — контроль качества ответа (2026-10-04)\n\n- **Проверка каждого ответа** до того, как NAI Studio начнёт рисовать: уход в другой язык, кальки и штампы; реплики и действия за тебя; отказы, морализаторство, оговорки вне роли, смягчение и навязчивые вопросы; повторы прошлых ответов; обрезанный ответ; служебный мусор и протёкший HTML (JSON трекера DES и маркеры NAI — норма); нет трекера DES; граница контента. Сначала бесплатные правила, дешёвая модель-судья — только при сомнении (в «Экономном» — никогда).\n- **Действия по видам брака** — выкл / «Само» (очистить, попросить продолжить, один свайп за ход с точной инструкцией, ремонт трекера через Медика) / «Уведомить» (значки «Переделать» и «Не брак»). По умолчанию «Само» — только мусор и трекер, остальное — «Уведомить», пока не набрана статистика ложных срабатываний.\n- **Ранняя отсечка** служебных токенов модели прямо в потоке: остановка и один свайп.\n- **Граница контента** — настраиваемые правила с умолчанием (никакого сексуального контента с несовершеннолетними), тестовый режим.\n- **NAI Studio ждёт «качество ок»** (нужен NAI Studio 0.11.0): картинки не рисуются для ответа, ушедшего на переделку.\n\n## 1.1.0 — Пресет-студия (2026-10-04)\n\n- **Пресет-студия** — большое окно для пресета Chat Completion: «Карта» (как SillyTavern соберёт промпт: блоки по порядку, вставки расширений на своих местах, токены, блоки, которые включены, но не уйдут), «Блоки» (порядок перетаскиванием, массовое включение, поиск, предпросмотр с макросами), редактор блока, «Анализ» (несохранённые правки, пустые и неотправляемые блоки, противоречия, повторы с лором и вставками, особенности модели и провайдера), «Версии» (каждое сохранение — версия, откат), «Параметры» генерации и сценариев.\n- **Твой слой** — твои блоки и правки хранятся отдельно от базового пресета и накладываются при его выборе; новая версия базы (например, Marinara) ставится без потери правок, а при изменённом тексте блока — выбор из трёх версий. Перенос текущих правок в слой с предпросмотром (ключи подключения можно не переносить), перенос слоя на другой пресет, блоки из чужих пресетов.\n- **Безопасное сохранение** — пресет сохраняется только с явным телом, незнакомые ключи и расширения сохраняются, переименование переносит разрешения регексов и спрашивает о профилях подключения; несохранённые правки сохраняются версией перед переключением пресета.\n- **Сценарии генерации** — свои параметры для перевоплощения и продолжения (выключены по умолчанию).\n- Раздел Prompt Manager можно заменить кнопкой студии (настройка, по умолчанию выключена — до проверки паритета вживую).\n- **«Подготовить к отключению», экспорт и импорт данных Maestro** в настройках пульта.\n\n## 1.0.0 — выпуск R3, первая полная версия (2026-10-04)\n\nЭтап 4: ревизия и живой канон.\n\n- **Сигналы хода** — когда ты отправляешь сообщение, прошлый ответ фиксируется, и Maestro без ИИ сравнивает его с ходом раньше: смена отношения, стойкая внешность, место, пропуск времени, конец сцены, квесты, кто пришёл и ушёл, новые алиасы и имена, память Qvink. Свободный текст засчитывается, только если продержался два хода; свайп и правка откатывают ровно то, что дал ответ.\n- **Ревизия «сюжет → канон»** — по сигналам, раз в N сообщений, в конце сцены или командой `/maestro-revise` дешёвая модель смотрит, что изменилось у известных персонажей и мест, и предлагает обновить владельца: канон чата, теги архива CK (только из словаря паков), паспорт NAI уровня чата, прозвища чата, реестр мест. Наряды, обещания и секреты ждут своих этапов отложенными карточками.\n- **«Входящие»** — карточки по персонажам, ссылка на сообщение, «было/стало» по хранилищам, цитата и уверенность; принять, изменить на месте, отклонить, отложить, «Всегда так», принять всё.\n- **Проверка противоречий** — сначала правила (имена, числа, даты, отрицания), при сомнении — дешёвая модель; общий сервис для ревизии и живого канона.\n- **Живой канон** — то, что придумала модель (праздник, таверна, род), после фиксации хода становится пробной записью канона с русскими ключами; подтверждается, только если ты сам это упомянул, принял, если оно всплыло снова без подсказки или продержалось 10 ходов без противоречий. Пакетное извлечение пишет английский текст записей. Свайп убирает пробное, подтверждённое остаётся.\n- **Летопись и автопамять** — воспоминания Qvink, выпавшие из долгой памяти, становятся главами канона (срабатывают по двум ключам сразу); важные моменты сами получают отметку «запомнить» во всех свайпах; «Ранее в истории…» после перерыва.\n- **Замеры** — вкладка с критериями первой полной версии: задержка Maestro до запроса, доля фоновых расходов, лор на ход, выпавшие сообщения, роли записей, вкладки, ревизия, живой канон, листы, файлы паков. Скрипт стенда `tools/stand/measure.mjs`.\n- Исправлено: досье и листы брали архив «Александра» для «Александр» (падежная форма совпадала с другим именем); запросы NAI Studio записывались в расходы Qvink.\n\n## 0.2.0 — выпуск R2 (2026-10-04)\n\nЭтапы 2 и 3: Лор-студия, роли книг, доктор, канон; модель мира, досье, места.\n\n**Этап 3**\n\n- **Модель мира** — каждый персонаж, персона и место стека одной сущностью: карточки, состав DES, алиасы DES и DES-RU, падежи, паспорта NAI, архивы CK, записи лорбуков с типом, канон и места. Одно лицо под разными именами склеивается; сомнительные совпадения — во «Входящих». Прозвища, которые действуют только в этом чате.\n- **Досье** — одна страница на сущность: DES, лор, канон, архив CK и теги, паспорт NAI (с изменениями этого чата), падежи, воспоминания Qvink, RAG, последний лист. Сверка структуры (нет записи, паспорта или архива, алиас не стал ключом, имена расходятся), сверка внешности ИИ по кнопке, «Разнести» правку по хранилищам. Команда `/maestro-dossier`.\n- **Места** — реестр мест чата по локации DES: новое название становится местом, если продержалось два хода; вложенность, история визитов (кто был, когда), описание записью канона. NAI Studio держит непрерывность фона по id места.\n- **Граф отношений** — как персонажи относятся к твоей персоне, ход за ходом по трекеру DES.\n- **Режим BunnyMo** — словарь тегов всех паков (конфликты, дубли, теги без пака), паки по чатам, сравнение пака с новым файлом, проверка целостности, редактор листов архивов CK. Команда `/maestro-bunnymo`.\n- Нужен NAI Studio 0.10.0 для паспортов уровня чата и непрерывности по местам (без него всё остальное работает).\n\n**Этап 2**\n\n- **Лор-студия** — свой редактор лорбуков рядом со штатным: книги по ролям, все поля и действия штатного окна, канон рядом с базой, история версий, русские ключи, кампании DES. Кнопку «Миры и лорбуки» можно отдать студии настройкой.\n- **Роли книг** — Maestro знает, где ядро и паки BunnyMo, архивы CK, мир, карточка, NPC, канон; паки BunnyMo только для чтения.\n- **Канон чата** — изменения сюжета в отдельном лорбуке чата: переопределение, подавление, закрепление, добавление; бюджет, архив, слежение за базой, повышение до базы, экспорт, ветки. Срабатывает по русскому тексту.\n- **Доктор** — «Исправить в файле» для твоих книг (паки — никогда) и лечение регексов, всё с откатом.\n- **Правила** — кириллица и «целые слова», конфликт версий паков, `<NSFW>` в архивах, глубина сканирования архивов CK.\n- Нужны DES-RU 0.8.0 и Lorebook Localizer 0.2.0 (без них всё работает, но без склонений и локализации из студии).\n\n## 0.1.0 — выпуск R1 (2026-10-04)\n\nНаблюдение и быстрые исправления.\n\n- **Журнал лора** — какой лор ушёл в промпт на каждом ходу, почему, каким ключом и через какую запись; почему книга активна; «Что если» без генерации.\n- **Инспектор хода** — из чего собран промпт: пресет, лор по книгам, вставки соседей, история.\n- **Медик** — проверки соседей после каждого ответа; ремонт трекера DES; предупреждение о prefill с ролью assistant.\n- **Страж** — эталон настроек и пресета, дрейф во «Входящих»; устаревшая вкладка больше не перезаписывает настройки, пресеты и лорбуки.\n- **Доктор** — находки в лорбуках и регексах, испытание регексов.\n- **Правила на лету** — роль assistant → system, потолок и лимит рекурсии книги, дубли паков, «дыры» Qvink, картинки NAI вне пересказов, видимые теги BunnyMo, кнопка векторизации CK и полоса портретов DES на телефоне.\n- **Листы персонажей** — команды BunnyMo генерируются своей сборкой промпта, без хвоста сцены и трекера, сворачиваются и уходят из промпта после следующего хода.\n- **Мастер первого запуска.**\n\n## 0.0.0 — этап 0\n\nКаркас: слой ST, сервисы ядра, адаптеры соседей, пульт, стенд с имитацией модели.\n")?.[1] ?? null;
 }
 //#endregion
 //#region src/features/assistant/tools/read/docs.ts
@@ -23877,7 +24984,7 @@ var loreSearch = (app) => readTool({
 			if (!data) continue;
 			scanned += 1;
 			for (const [uid, entry] of Object.entries(data.entries)) {
-				if (!isDict$91(entry)) continue;
+				if (!isDict$92(entry)) continue;
 				const topic = entryTopic(book, uid, entry);
 				const score = terms.length ? scoreTopic(topic, terms, phrase) : 0;
 				if (score <= 0) continue;
@@ -23923,9 +25030,9 @@ var loreEntry = (app) => readTool({
 		const entry = (await loadBook$2(app, book))?.entries[String(uid)];
 		if (!entry) return notice(ctx, `No entry ${uid} in «${book}».`, `В «${book}» нет записи ${uid}.`);
 		const num = (value) => typeof value === "number" && Number.isFinite(value) ? value : void 0;
-		const filter = isDict$91(entry.characterFilter) ? entry.characterFilter : null;
+		const filter = isDict$92(entry.characterFilter) ? entry.characterFilter : null;
 		const filterNames = filter ? [...keysOf$1(filter.names), ...keysOf$1(filter.tags)] : [];
-		const maestro = isDict$91(entry.extensions) && isDict$91(entry.extensions.maestro) ? entry.extensions.maestro : null;
+		const maestro = isDict$92(entry.extensions) && isDict$92(entry.extensions.maestro) ? entry.extensions.maestro : null;
 		const role = safely$1(() => apiOf(app, "bookRoles")?.roleOf(book), void 0);
 		const passports = apiOf(app, "lorePassports");
 		const passport = passports ? await withTimeout$3(passports.get(book, uid), 2e3, null) : null;
@@ -24078,7 +25185,7 @@ function small(value, depth = 0) {
 		const items = value.slice(0, 30).map((item) => small(item, depth + 1));
 		return value.length > 30 ? [...items, `… +${value.length - 30}`] : items;
 	}
-	if (isDict$91(value)) {
+	if (isDict$92(value)) {
 		if (depth >= 5) return "{…}";
 		const out = {};
 		for (const [key, item] of Object.entries(value)) {
@@ -24697,14 +25804,14 @@ function definitionView(def, active) {
 }
 /** Duck-typed extras of the mechanics service: its flags for conditional blocks. */
 function mechanicsFlags(api) {
-	if (!isDict$91(api)) return {
+	if (!isDict$92(api)) return {
 		catalogue: [],
 		on: []
 	};
 	return {
 		catalogue: safely$1(() => {
 			const list = typeof api.flagCatalogue === "function" ? api.flagCatalogue.call(api) : [];
-			return Array.isArray(list) ? list.flatMap((item) => isDict$91(item) && typeof item.flag === "string" ? [item.flag] : []) : [];
+			return Array.isArray(list) ? list.flatMap((item) => isDict$92(item) && typeof item.flag === "string" ? [item.flag] : []) : [];
 		}, []),
 		on: safely$1(() => {
 			const list = typeof api.flagsOn === "function" ? api.flagsOn.call(api) : [];
@@ -26099,9 +27206,9 @@ function scriptsFromSettings(app) {
 	const settings = ctx.extensionSettings ?? {};
 	const character = ctx.characterId === void 0 ? void 0 : ctx.characters?.[Number(ctx.characterId)];
 	const preset = ctx.chatCompletionSettings;
-	const presetScripts = isDict$91(preset?.extensions) ? preset.extensions.regex_scripts : void 0;
+	const presetScripts = isDict$92(preset?.extensions) ? preset.extensions.regex_scripts : void 0;
 	const allowedChars = settings.character_allowed_regex;
-	const allowedPresets = isDict$91(settings.preset_allowed_regex) ? settings.preset_allowed_regex.openai : void 0;
+	const allowedPresets = isDict$92(settings.preset_allowed_regex) ? settings.preset_allowed_regex.openai : void 0;
 	const lists = {
 		global: {
 			list: settings.regex,
@@ -27107,7 +28214,7 @@ var ArgError = class extends Error {
 		this.name = "ArgError";
 	}
 };
-function isDict$90(value) {
+function isDict$91(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /** JSON-safe deep copy. */
@@ -27121,7 +28228,7 @@ function sameJson$1(a, b) {
 }
 function stableJson(value) {
 	if (Array.isArray(value)) return `[${value.map(stableJson).join(",")}]`;
-	if (isDict$90(value)) return `{${Object.keys(value).filter((key) => value[key] !== void 0).sort().map((key) => `${JSON.stringify(key)}:${stableJson(value[key])}`).join(",")}}`;
+	if (isDict$91(value)) return `{${Object.keys(value).filter((key) => value[key] !== void 0).sort().map((key) => `${JSON.stringify(key)}:${stableJson(value[key])}`).join(",")}}`;
 	return JSON.stringify(value) ?? "null";
 }
 function present(args, name) {
@@ -27270,7 +28377,7 @@ function optObject(args, name) {
 			expected: "object"
 		});
 	}
-	if (!isDict$90(value)) throw new ArgError("argType", {
+	if (!isDict$91(value)) throw new ArgError("argType", {
 		name,
 		expected: "object"
 	});
@@ -27836,7 +28943,7 @@ function composedContent(meta) {
 }
 /** Typed meta stored on an entry (`extensions.maestro`), or null. */
 function entryTypedMeta(entry) {
-	return readTypedMeta(isDict$90(entry.extensions) ? entry.extensions.maestro : void 0);
+	return readTypedMeta(isDict$91(entry.extensions) ? entry.extensions.maestro : void 0);
 }
 /** Values of the patched fields before and after, only those that differ (the card). */
 function changedFields$1(entry, patch) {
@@ -28033,17 +29140,17 @@ function convertKeyList(value, caseSensitive) {
 }
 //#endregion
 //#region src/domain/doctor-fixes.ts
-function isDict$89(value) {
+function isDict$90(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function isBookData(value) {
-	return isDict$89(value) && isDict$89(value.entries);
+	return isDict$90(value) && isDict$90(value.entries);
 }
 /** JSON with sorted object keys; `undefined` and `null` are the same ("use the default"). */
 function stableStringify$1(value) {
 	if (value === void 0 || value === null) return "null";
 	if (Array.isArray(value)) return `[${value.map(stableStringify$1).join(",")}]`;
-	if (isDict$89(value)) return `{${Object.keys(value).filter((key) => value[key] !== void 0).sort().map((key) => `${JSON.stringify(key)}:${stableStringify$1(value[key])}`).join(",")}}`;
+	if (isDict$90(value)) return `{${Object.keys(value).filter((key) => value[key] !== void 0).sort().map((key) => `${JSON.stringify(key)}:${stableStringify$1(value[key])}`).join(",")}}`;
 	return JSON.stringify(value) ?? "null";
 }
 /** The entry holds exactly these field values. */
@@ -28053,8 +29160,8 @@ function entryHas(entry, values) {
 /** The stored key of an entry by uid (`entries[uid]`, or the entry whose `uid` field matches). */
 function entryKeyOf(data, uid) {
 	const direct = data.entries[String(uid)];
-	if (isDict$89(direct)) return String(uid);
-	for (const [key, entry] of Object.entries(data.entries)) if (isDict$89(entry) && Number(entry.uid) === uid) return key;
+	if (isDict$90(direct)) return String(uid);
+	for (const [key, entry] of Object.entries(data.entries)) if (isDict$90(entry) && Number(entry.uid) === uid) return key;
 	return null;
 }
 function copyValue$1(value) {
@@ -28137,7 +29244,7 @@ async function commitPatches(io, book, patches, options = {}) {
 }
 /** Entries of a stored book in the shape the BunnyMo heuristics read. */
 function likeScan(book, data) {
-	return Object.values(data.entries).filter(isDict$89).map((entry) => ({
+	return Object.values(data.entries).filter(isDict$90).map((entry) => ({
 		...entry,
 		world: book
 	}));
@@ -28149,13 +29256,13 @@ function isBunnyMoBook(book, data) {
 }
 /** The book holds at least one character archive. */
 function hasArchives(data) {
-	return Object.values(data.entries).some((entry) => isDict$89(entry) && isCharacterArchive(entry));
+	return Object.values(data.entries).some((entry) => isDict$90(entry) && isCharacterArchive(entry));
 }
 /** Enabled entries with their uid. */
 function enabledEntriesOf(data) {
 	const result = [];
 	for (const [key, entry] of Object.entries(data.entries)) {
-		if (!isDict$89(entry) || entry.disable === true) continue;
+		if (!isDict$90(entry) || entry.disable === true) continue;
 		const uid = Number(entry.uid ?? key);
 		if (Number.isFinite(uid)) result.push({
 			uid,
@@ -28202,13 +29309,13 @@ function repairBraces(key) {
 * the marker's `added` lists, so the marker keeps describing the entry.
 */
 function planLocalizerFix(uid, entry) {
-	const extensions = isDict$89(entry.extensions) ? entry.extensions : null;
-	const marker = extensions && isDict$89(extensions[LOCALIZER_MARKER]) ? extensions[LOCALIZER_MARKER] : null;
-	const languages = marker && isDict$89(marker.languages) ? marker.languages : null;
+	const extensions = isDict$90(entry.extensions) ? entry.extensions : null;
+	const marker = extensions && isDict$90(extensions[LOCALIZER_MARKER]) ? extensions[LOCALIZER_MARKER] : null;
+	const languages = marker && isDict$90(marker.languages) ? marker.languages : null;
 	if (!extensions || !marker || !languages) return null;
 	const replace = /* @__PURE__ */ new Map();
 	for (const state of Object.values(languages)) {
-		const added = isDict$89(state) && isDict$89(state.added) ? state.added : null;
+		const added = isDict$90(state) && isDict$90(state.added) ? state.added : null;
 		if (!added) continue;
 		for (const field of KEY_FIELDS) for (const key of stringKeys(added[field])) {
 			const problem = regexKeyProblem(key);
@@ -28223,7 +29330,7 @@ function planLocalizerFix(uid, entry) {
 		return next ? [next] : [];
 	}) : keys;
 	const nextLanguages = Object.fromEntries(Object.entries(languages).map(([lang, state]) => {
-		if (!isDict$89(state) || !isDict$89(state.added)) return [lang, state];
+		if (!isDict$90(state) || !isDict$90(state.added)) return [lang, state];
 		const added = { ...state.added };
 		for (const field of KEY_FIELDS) if (Array.isArray(added[field])) added[field] = fix(added[field]);
 		return [lang, {
@@ -28338,7 +29445,7 @@ var PASSPORT_SOURCES = [
 	"model",
 	"user"
 ];
-function isDict$88(value) {
+function isDict$89(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function str$17(value) {
@@ -28423,20 +29530,20 @@ function aliasList(value, name) {
 * type (all eight slots present), unknown fields are kept as they are.
 */
 function normalizePassport(raw, fallback = {}) {
-	if (!isDict$88(raw)) return null;
+	if (!isDict$89(raw)) return null;
 	const copy = jsonCopy$4(raw);
 	const kind = isPassportKind(copy.kind) ? copy.kind : fallback.kind ?? "character";
 	const name = str$17(copy.name).trim() || (fallback.name ?? "").trim();
-	const slotsIn = isDict$88(copy.slots) ? copy.slots : {};
+	const slotsIn = isDict$89(copy.slots) ? copy.slots : {};
 	const slots = {};
 	for (const slot of PASSPORT_SLOTS$1) slots[slot] = str$17(slotsIn[slot]);
 	for (const [slot, value] of Object.entries(slotsIn)) if (!(slot in slots) && typeof value === "string") slots[slot] = value;
-	const nsfw = isDict$88(copy.nsfw) ? copy.nsfw : {};
-	const outfits = (Array.isArray(copy.outfits) ? copy.outfits : []).filter(isDict$88).map((outfit) => ({
+	const nsfw = isDict$89(copy.nsfw) ? copy.nsfw : {};
+	const outfits = (Array.isArray(copy.outfits) ? copy.outfits : []).filter(isDict$89).map((outfit) => ({
 		name: str$17(outfit.name).trim(),
 		tags: str$17(outfit.tags)
 	})).filter((outfit) => outfit.name);
-	const states = (Array.isArray(copy.states) ? copy.states : []).filter(isDict$88).map((state) => ({
+	const states = (Array.isArray(copy.states) ? copy.states : []).filter(isDict$89).map((state) => ({
 		id: str$17(state.id).trim(),
 		tags: str$17(state.tags),
 		enabled: state.enabled === true
@@ -28471,8 +29578,8 @@ function looksLikePassport(value) {
 }
 /** The record stored under `passport` (or a bare passport there, treated as made by the user); null for junk. */
 function readPassportRecord(raw) {
-	if (!isDict$88(raw)) return null;
-	const nested = isDict$88(raw.passport);
+	if (!isDict$89(raw)) return null;
+	const nested = isDict$89(raw.passport);
 	if (!nested && !looksLikePassport(raw)) return null;
 	const passport = normalizePassport(nested ? raw.passport : raw);
 	if (!passport) return null;
@@ -28501,7 +29608,7 @@ function isUserMade(record) {
 }
 /** The passport record of an entry of a Maestro or canon book (`extensions.maestro.passport`). */
 function passportOfEntry(entry) {
-	if (!isDict$88(entry) || !isDict$88(entry.extensions) || !isDict$88(entry.extensions.maestro)) return null;
+	if (!isDict$89(entry) || !isDict$89(entry.extensions) || !isDict$89(entry.extensions.maestro)) return null;
 	return readPassportRecord(entry.extensions.maestro[PASSPORT_KEY]);
 }
 /**
@@ -28510,13 +29617,13 @@ function passportOfEntry(entry) {
 * nothing is returned when nothing is left of an absent `extensions`. Returns a new object.
 */
 function withPassport(extensions, record) {
-	const had = isDict$88(extensions);
+	const had = isDict$89(extensions);
 	const next = had ? { ...extensions } : {};
 	const previous = next.maestro;
-	const maestro = isDict$88(previous) ? { ...previous } : {};
+	const maestro = isDict$89(previous) ? { ...previous } : {};
 	if (record) maestro[PASSPORT_KEY] = jsonCopy$4(record);
 	else delete maestro[PASSPORT_KEY];
-	const wasEmpty = isDict$88(previous) && Object.keys(previous).length === 0;
+	const wasEmpty = isDict$89(previous) && Object.keys(previous).length === 0;
 	if (Object.keys(maestro).length || wasEmpty) next.maestro = maestro;
 	else delete next.maestro;
 	if (!had && !Object.keys(next).length) return void 0;
@@ -28524,7 +29631,7 @@ function withPassport(extensions, record) {
 }
 /** A sidecar record (bookRoles entry meta) with the passport set or removed; other keys kept; undefined when empty. */
 function withSidecarPassport(meta, record) {
-	const next = isDict$88(meta) ? { ...meta } : {};
+	const next = isDict$89(meta) ? { ...meta } : {};
 	if (record) next[PASSPORT_KEY] = jsonCopy$4(record);
 	else delete next[PASSPORT_KEY];
 	return Object.keys(next).length ? next : void 0;
@@ -28535,27 +29642,27 @@ function tagFields(passport) {
 		text: str$17(passport.tags),
 		anatomyAllowed: false
 	}];
-	const slots = isDict$88(passport.slots) ? passport.slots : {};
+	const slots = isDict$89(passport.slots) ? passport.slots : {};
 	for (const [slot, value] of Object.entries(slots)) fields.push({
 		field: `slots.${slot}`,
 		text: str$17(value),
 		anatomyAllowed: false
 	});
 	(Array.isArray(passport.outfits) ? passport.outfits : []).forEach((outfit, index) => {
-		if (isDict$88(outfit)) fields.push({
+		if (isDict$89(outfit)) fields.push({
 			field: `outfits.${index}`,
 			text: str$17(outfit.tags),
 			anatomyAllowed: false
 		});
 	});
 	(Array.isArray(passport.states) ? passport.states : []).forEach((state, index) => {
-		if (isDict$88(state)) fields.push({
+		if (isDict$89(state)) fields.push({
 			field: `states.${index}`,
 			text: str$17(state.tags),
 			anatomyAllowed: false
 		});
 	});
-	const nsfw = isDict$88(passport.nsfw) ? passport.nsfw : {};
+	const nsfw = isDict$89(passport.nsfw) ? passport.nsfw : {};
 	fields.push({
 		field: "nsfw",
 		text: str$17(nsfw.tags),
@@ -28572,8 +29679,8 @@ function tagFields(passport) {
 function isPassportEmpty(passport) {
 	if (!passport) return true;
 	if (passport.kind !== "character") return !str$17(passport.tags).trim();
-	const slots = isDict$88(passport.slots) ? passport.slots : {};
-	const nsfw = isDict$88(passport.nsfw) ? passport.nsfw : {};
+	const slots = isDict$89(passport.slots) ? passport.slots : {};
+	const nsfw = isDict$89(passport.nsfw) ? passport.nsfw : {};
 	const outfits = Array.isArray(passport.outfits) ? passport.outfits : [];
 	return Object.values(slots).every((value) => !str$17(value).trim()) && !outfits.length && !str$17(nsfw.tags).trim();
 }
@@ -28655,7 +29762,7 @@ function fixPassport(passport) {
 function passportTagLine$1(passport, max = 160) {
 	let line;
 	if (passport.kind === "character") {
-		const slots = isDict$88(passport.slots) ? passport.slots : {};
+		const slots = isDict$89(passport.slots) ? passport.slots : {};
 		line = joinTags$1(...PASSPORT_SLOTS$1.map((slot) => str$17(slots[slot])));
 	} else line = joinTags$1(str$17(passport.tags));
 	return line.length > max ? `${line.slice(0, max - 1).trimEnd()}…` : line;
@@ -29233,7 +30340,7 @@ function isBunnyMo(app, book, data) {
 		const books = adaptersOf(app).bunnymo.books();
 		if (books.core.includes(book) || books.packs.includes(book)) return true;
 	} catch {}
-	return !!data && isDict$90(data.entries) && isBunnyMoBook(book, data);
+	return !!data && isDict$91(data.entries) && isBunnyMoBook(book, data);
 }
 /** A book the Lore Studio shows and may write, with its data; throws a user-language Error otherwise. */
 async function writableBook(app, store, wanted, say) {
@@ -29264,7 +30371,7 @@ function typedStorage(app, book) {
 async function loadSidecar(roles, book, uid) {
 	try {
 		const meta = roles.loadEntryMeta ? await roles.loadEntryMeta(book, uid) : roles.entryMeta(book, uid);
-		return isDict$90(meta) ? meta : void 0;
+		return isDict$91(meta) ? meta : void 0;
 	} catch {
 		return;
 	}
@@ -29442,7 +30549,7 @@ function loreEntryUpdateTool() {
 			const changes = readEntryChanges(input);
 			const { book, data } = await writableBook(app, store, wanted, say);
 			const entry = data.entries[String(uid)];
-			if (!isDict$90(entry)) throw failure(say, "loreNoEntry", {
+			if (!isDict$91(entry)) throw failure(say, "loreNoEntry", {
 				book,
 				uid
 			});
@@ -29564,7 +30671,7 @@ function passportSetTool() {
 				const found = await writableBook(app, store, book, say);
 				book = found.book;
 				const entry = found.data.entries[String(uid)];
-				if (!isDict$90(entry)) throw failure(say, "loreNoEntry", {
+				if (!isDict$91(entry)) throw failure(say, "loreNoEntry", {
 					book,
 					uid
 				});
@@ -29623,11 +30730,11 @@ function mergeList(base, patch) {
 	if (!Array.isArray(patch)) return patch;
 	const result = Array.isArray(base) ? jsonCopy$5(base) : [];
 	for (const item of patch) {
-		if (!isDict$90(item) || typeof item.id !== "string" || !item.id) {
+		if (!isDict$91(item) || typeof item.id !== "string" || !item.id) {
 			result.push(jsonCopy$5(item));
 			continue;
 		}
-		const index = result.findIndex((other) => isDict$90(other) && other.id === item.id);
+		const index = result.findIndex((other) => isDict$91(other) && other.id === item.id);
 		if (item.remove === true) {
 			if (index >= 0) result.splice(index, 1);
 			continue;
@@ -30093,7 +31200,7 @@ function presetBlockAddTool() {
 				},
 				role: {
 					type: "string",
-					enum: [...PROMPT_ROLES],
+					enum: [...PROMPT_ROLES$1],
 					description: "Message role (default system)."
 				},
 				content: {
@@ -30150,7 +31257,7 @@ function presetBlockAddTool() {
 			if (!apis) throw failure(say, "presetUnavailable");
 			const args = argsOf(raw);
 			const name = reqString(args, "name", { max: 100 });
-			const role = optEnum(args, "role", PROMPT_ROLES) ?? "system";
+			const role = optEnum(args, "role", PROMPT_ROLES$1) ?? "system";
 			let content = reqString(args, "content", {
 				raw: true,
 				max: 2e4
@@ -30550,7 +31657,7 @@ async function regexEngine$2(app) {
 function extensionSettings(app) {
 	try {
 		const settings = app.host.ctx().extensionSettings;
-		return isDict$90(settings) ? settings : null;
+		return isDict$91(settings) ? settings : null;
 	} catch {
 		return null;
 	}
@@ -30561,7 +31668,7 @@ async function globalRegexStore(app) {
 	const read = engine?.getScriptsByType;
 	const write = engine?.saveScriptsByType;
 	if (typeof read === "function" && typeof write === "function") {
-		const codes = isDict$90(engine?.SCRIPT_TYPES) ? engine.SCRIPT_TYPES : {};
+		const codes = isDict$91(engine?.SCRIPT_TYPES) ? engine.SCRIPT_TYPES : {};
 		const code = typeof codes.GLOBAL === "number" ? codes.GLOBAL : 0;
 		const list = read(code, { allowedOnly: false });
 		return {
@@ -30612,7 +31719,7 @@ async function afterWrite(app) {
 	}
 }
 function asScripts(list) {
-	return list.map((item) => isDict$90(item) ? item : {});
+	return list.map((item) => isDict$91(item) ? item : {});
 }
 function nameOf$1(script) {
 	return typeof script.scriptName === "string" && script.scriptName ? script.scriptName : String(script.id ?? "");
@@ -30880,7 +31987,7 @@ function regexToggleTool() {
 					if (!live) throw failure(say, "regexUnavailable");
 					const index = locateScript(asScripts(live.list), scriptId || name).index;
 					const target = index >= 0 ? live.list[index] : void 0;
-					if (!target || !isDict$90(target)) throw failure(say, "regexGone", { name });
+					if (!target || !isDict$91(target)) throw failure(say, "regexGone", { name });
 					const previous = target.disabled === true;
 					target.disabled = !on;
 					await live.save(live.list);
@@ -30935,7 +32042,7 @@ async function undoRegex(app, change) {
 	if (ref.op === "create") {
 		const index = scriptId ? scripts.findIndex((script) => script.id === scriptId) : -1;
 		if (index < 0) return true;
-		if (!isDict$90(change.after) || !sameCore(scripts[index], change.after)) return false;
+		if (!isDict$91(change.after) || !sameCore(scripts[index], change.after)) return false;
 		await store.save(store.list.filter((_, position) => position !== index));
 		await afterWrite(app);
 		return true;
@@ -30943,7 +32050,7 @@ async function undoRegex(app, change) {
 	if (ref.op === "toggle") {
 		const index = locateScript(scripts, scriptId || name).index;
 		const live = index >= 0 ? store.list[index] : void 0;
-		if (!isDict$90(live) || !isDict$90(change.after) || !isDict$90(change.before)) return false;
+		if (!isDict$91(live) || !isDict$91(change.after) || !isDict$91(change.before)) return false;
 		if (live.disabled === true !== (change.after.disabled === true)) return false;
 		live.disabled = change.before.disabled === true;
 		await store.save(store.list);
@@ -31248,6 +32355,7 @@ function readTools(app) {
 	return [
 		...maestroTools(app),
 		...docsTools(),
+		...chatTools(app),
 		...turnTools(app),
 		...loreTools(app),
 		...regexTools(app),
@@ -35407,7 +36515,7 @@ var SOURCES$1 = [
 	"generated",
 	"user"
 ];
-function isDict$87(value) {
+function isDict$88(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function strings$21(value) {
@@ -35423,7 +36531,7 @@ function emptyPointer() {
 	};
 }
 function readChoice(raw) {
-	if (!isDict$87(raw)) return null;
+	if (!isDict$88(raw)) return null;
 	if (typeof raw.placeId !== "string" || !raw.placeId || typeof raw.file !== "string" || !raw.file) return null;
 	const source = SOURCES$1.find((item) => item === raw.source) ?? "library";
 	const choice = {
@@ -35438,8 +36546,8 @@ function readChoice(raw) {
 }
 /** A clean copy of a stored pointer (junk and unknown versions give the empty one). */
 function readPointer(raw) {
-	if (!isDict$87(raw) || raw.v !== 1) return emptyPointer();
-	const undone = Array.isArray(raw.undone) ? raw.undone.filter(isDict$87).filter((item) => typeof item.placeId === "string" && typeof item.file === "string").map((item) => ({
+	if (!isDict$88(raw) || raw.v !== 1) return emptyPointer();
+	const undone = Array.isArray(raw.undone) ? raw.undone.filter(isDict$88).filter((item) => typeof item.placeId === "string" && typeof item.file === "string").map((item) => ({
 		placeId: item.placeId,
 		file: item.file
 	})) : [];
@@ -35502,12 +36610,12 @@ function libraryFileOf(value) {
 }
 /** NAI Studio's «free only» switch (on unless explicitly off); null when its settings cannot be read. */
 function naiFreeOnly(settings) {
-	if (!isDict$87(settings) || !isDict$87(settings.anlas)) return null;
+	if (!isDict$88(settings) || !isDict$88(settings.anlas)) return null;
 	return settings.anlas.freeOnly !== false;
 }
 /** NAI Studio refused because the request would spend Anlas in «free only» mode (its NaiError 'free-only-blocked'). */
 function isFreeOnlyRefusal(error) {
-	if (isDict$87(error) && typeof error.code === "string" && /free[-_ ]?only/i.test(error.code)) return true;
+	if (isDict$88(error) && typeof error.code === "string" && /free[-_ ]?only/i.test(error.code)) return true;
 	const message = error instanceof Error ? error.message : typeof error === "string" ? error : "";
 	return /free[-_ ]?only/i.test(message);
 }
@@ -35595,7 +36703,7 @@ var BACKGROUNDS_MODULE = "backgrounds.js";
 var CAP_ST_BACKGROUNDS = "st.backgrounds";
 var LIST_URL = "/api/backgrounds/all";
 var FOLDERS_URL = "/api/backgrounds/folders";
-function isDict$86(value) {
+function isDict$87(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 var ChatBackground = class {
@@ -35633,7 +36741,7 @@ var ChatBackground = class {
 	async globalUrl() {
 		try {
 			const settings = (await this.app.host.modules.load(BACKGROUNDS_MODULE)).background_settings;
-			if (isDict$86(settings) && typeof settings.url === "string" && settings.url) return settings.url;
+			if (isDict$87(settings) && typeof settings.url === "string" && settings.url) return settings.url;
 		} catch (error) {
 			this.log.debug("backgrounds.js is not available", error);
 		}
@@ -35642,7 +36750,7 @@ var ChatBackground = class {
 	/** Probe of CAP_ST_BACKGROUNDS. */
 	async probe() {
 		try {
-			return isDict$86((await this.app.host.modules.load(BACKGROUNDS_MODULE)).background_settings);
+			return isDict$87((await this.app.host.modules.load(BACKGROUNDS_MODULE)).background_settings);
 		} catch {
 			return false;
 		}
@@ -35699,7 +36807,7 @@ var ChatBackground = class {
 			return null;
 		}
 		if (!Array.isArray(images)) return null;
-		const files = images.map((image) => typeof image === "string" ? image : isDict$86(image) ? image.filename : void 0).filter((file) => typeof file === "string" && !!file);
+		const files = images.map((image) => typeof image === "string" ? image : isDict$87(image) ? image.filename : void 0).filter((file) => typeof file === "string" && !!file);
 		const folders = await this.folders();
 		return files.map((file) => ({
 			file,
@@ -35719,9 +36827,9 @@ var ChatBackground = class {
 			const data = await response.json();
 			const names = /* @__PURE__ */ new Map();
 			if (Array.isArray(data?.folders)) {
-				for (const folder of data.folders) if (isDict$86(folder) && typeof folder.id === "string" && typeof folder.name === "string") names.set(folder.id, folder.name);
+				for (const folder of data.folders) if (isDict$87(folder) && typeof folder.id === "string" && typeof folder.name === "string") names.set(folder.id, folder.name);
 			}
-			if (isDict$86(data?.imageFolderMap)) for (const [file, ids] of Object.entries(data.imageFolderMap)) {
+			if (isDict$87(data?.imageFolderMap)) for (const [file, ids] of Object.entries(data.imageFolderMap)) {
 				if (!Array.isArray(ids)) continue;
 				const list = ids.map((id) => names.get(String(id))).filter((name) => !!name);
 				if (list.length) out.set(file, list);
@@ -35759,7 +36867,7 @@ var PROPOSAL_TTL_MS = 18e5;
 var PARENTS_MAX = 8;
 /** Capability of the NAI adapter: NAI Studio draws backgrounds of places (0.12.0+). */
 var CAP_NAI_BACKGROUNDS = "nai.backgrounds";
-function isDict$85(value) {
+function isDict$86(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function text$10(value) {
@@ -35774,7 +36882,7 @@ var SOURCES = [
 	"user"
 ];
 function readSetPayload(raw) {
-	if (!isDict$85(raw)) return null;
+	if (!isDict$86(raw)) return null;
 	const chatId = text$10(raw.chatId);
 	const placeId = text$10(raw.placeId);
 	const file = text$10(raw.file);
@@ -35794,7 +36902,7 @@ function readSetPayload(raw) {
 	};
 }
 function readChangeRef(raw) {
-	if (!isDict$85(raw)) return null;
+	if (!isDict$86(raw)) return null;
 	const chatId = text$10(raw.chatId);
 	const afterUrl = text$10(raw.afterUrl);
 	const beforeUrl = text$10(raw.beforeUrl);
@@ -36074,10 +37182,10 @@ var BackgroundsService = class {
 			} catch {
 				info = null;
 			}
-			if (!isDict$85(info)) continue;
+			if (!isDict$86(info)) continue;
 			if (info.time || info.weather || info.date) return sceneConditions({
-				time: isDict$85(info.time) ? info.time : null,
-				weather: isDict$85(info.weather) ? info.weather : null,
+				time: isDict$86(info.time) ? info.time : null,
+				weather: isDict$86(info.weather) ? info.weather : null,
 				date: typeof info.date === "string" ? info.date : null
 			});
 		}
@@ -36429,7 +37537,7 @@ var BackgroundsService = class {
 			let offFailed = () => {};
 			try {
 				offFailed = port.on?.("requestFailed", (detail) => {
-					if (isDict$85(detail) && (detail.request === void 0 || detail.request === "background")) failure = detail;
+					if (isDict$86(detail) && (detail.request === void 0 || detail.request === "background")) failure = detail;
 				}) ?? (() => {});
 			} catch (error) {
 				this.log.debug("NAI Studio requestFailed is not available", error);
@@ -36439,7 +37547,7 @@ var BackgroundsService = class {
 				result = await port.generateBackground(input);
 			} catch (error) {
 				failure = {
-					code: isDict$85(error) && typeof error.code === "string" ? error.code : void 0,
+					code: isDict$86(error) && typeof error.code === "string" ? error.code : void 0,
 					message: error instanceof Error ? error.message : String(error)
 				};
 				result = null;
@@ -37215,7 +38323,7 @@ var ROLE_IDS = [
 var STICKY_ROLES = /* @__PURE__ */ new Set(["chat", "npc"]);
 /** Share of character archives that makes a book an archive book even outside CK's repo list. */
 var ARCHIVE_SHARE = .5;
-function isDict$84(value) {
+function isDict$85(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function isRoleId(value) {
@@ -37232,13 +38340,13 @@ function isBackupBookName(name) {
 	return /\(backup/i.test(name) || /\.carrot_backup$/i.test(name.trim());
 }
 function entriesOf$2(data) {
-	const entries = isDict$84(data) && isDict$84(data.entries) ? data.entries : {};
-	return Object.values(entries).filter(isDict$84);
+	const entries = isDict$85(data) && isDict$85(data.entries) ? data.entries : {};
+	return Object.values(entries).filter(isDict$85);
 }
 function maestroRoleOf(data) {
-	const extensions = isDict$84(data) ? data.extensions : void 0;
-	const maestro = isDict$84(extensions) ? extensions.maestro : void 0;
-	return isDict$84(maestro) && typeof maestro.role === "string" ? maestro.role : null;
+	const extensions = isDict$85(data) ? data.extensions : void 0;
+	const maestro = isDict$85(extensions) ? extensions.maestro : void 0;
+	return isDict$85(maestro) && typeof maestro.role === "string" ? maestro.role : null;
 }
 /** Classifies a loaded book (`{entries, extensions}`) with the BunnyMo heuristics. */
 function contentFacts(book, data) {
@@ -37268,11 +38376,11 @@ function joined(value) {
 * Settings such as order or position do not change the kind of a book and are left out.
 */
 function bookFingerprint(data) {
-	const entries = isDict$84(data) && isDict$84(data.entries) ? data.entries : {};
+	const entries = isDict$85(data) && isDict$85(data.entries) ? data.entries : {};
 	const parts = [];
 	for (const key of Object.keys(entries).sort((a, b) => Number(a) - Number(b) || (a < b ? -1 : a > b ? 1 : 0))) {
 		const entry = entries[key];
-		if (!isDict$84(entry)) continue;
+		if (!isDict$85(entry)) continue;
 		parts.push([
 			key,
 			joined(entry.key),
@@ -37337,7 +38445,7 @@ function emptyRegistry() {
 	};
 }
 function readFacts(value) {
-	if (!isDict$84(value)) return void 0;
+	if (!isDict$85(value)) return void 0;
 	const bunnymo = value.bunnymo === "core" || value.bunnymo === "pack" ? value.bunnymo : null;
 	const number = (field) => typeof field === "number" && Number.isFinite(field) && field >= 0 ? field : 0;
 	return {
@@ -37350,16 +38458,16 @@ function readFacts(value) {
 /** A stored registry with junk records dropped. */
 function readRegistry(raw) {
 	const registry = emptyRegistry();
-	const books = isDict$84(raw) && isDict$84(raw.books) ? raw.books : {};
+	const books = isDict$85(raw) && isDict$85(raw.books) ? raw.books : {};
 	for (const [book, record] of Object.entries(books)) {
-		if (!book || !isDict$84(record) || !isRoleId(record.role)) continue;
+		if (!book || !isDict$85(record) || !isRoleId(record.role)) continue;
 		const item = {
 			role: record.role,
 			source: record.source === "user" ? "user" : "auto",
 			fingerprint: typeof record.fingerprint === "string" ? record.fingerprint : "",
 			at: typeof record.at === "number" ? record.at : 0
 		};
-		if (isDict$84(record.pack) && typeof record.pack.name === "string") {
+		if (isDict$85(record.pack) && typeof record.pack.name === "string") {
 			item.pack = { name: record.pack.name };
 			if (typeof record.pack.version === "string") item.pack.version = record.pack.version;
 		}
@@ -37389,7 +38497,7 @@ function sameRecord(a, b) {
 }
 //#endregion
 //#region src/features/bookRoles/context.ts
-function isDict$83(value) {
+function isDict$84(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function strings$19(value) {
@@ -37406,7 +38514,7 @@ async function loadBook$1(app, book, log) {
 	if (typeof load !== "function") return null;
 	try {
 		const data = await load(book);
-		return isDict$83(data) && isDict$83(data.entries) ? data : null;
+		return isDict$84(data) && isDict$84(data.entries) ? data : null;
 	} catch (error) {
 		log.debug(`lorebook ${book} did not load`, error);
 		return null;
@@ -37425,21 +38533,21 @@ async function readRoleContext(app, log) {
 	const context = emptyRoleContext();
 	const ctx = app.host.ctx();
 	const module = await worldInfoModule(app, log);
-	const settings = module && isDict$83(module.world_info) ? module.world_info : null;
+	const settings = module && isDict$84(module.world_info) ? module.world_info : null;
 	const cardBooks = /* @__PURE__ */ new Set();
 	for (const character of ctx.characters ?? []) {
 		const primary = character?.data?.extensions?.world;
 		if (typeof primary === "string" && primary) cardBooks.add(primary);
 	}
-	for (const lore of Array.isArray(settings?.charLore) ? settings.charLore : []) if (isDict$83(lore)) for (const book of strings$19(lore.extraBooks)) cardBooks.add(book);
+	for (const lore of Array.isArray(settings?.charLore) ? settings.charLore : []) if (isDict$84(lore)) for (const book of strings$19(lore.extraBooks)) cardBooks.add(book);
 	context.cardBooks = cardBooks;
 	const chatBook = ctx.chatMetadata?.world_info;
 	context.chatBook = typeof chatBook === "string" && chatBook ? chatBook : null;
 	const personaBooks = /* @__PURE__ */ new Set();
-	const power = isDict$83(ctx.powerUserSettings) ? ctx.powerUserSettings : {};
+	const power = isDict$84(ctx.powerUserSettings) ? ctx.powerUserSettings : {};
 	if (typeof power.persona_description_lorebook === "string" && power.persona_description_lorebook) personaBooks.add(power.persona_description_lorebook);
-	if (isDict$83(power.persona_descriptions)) {
-		for (const persona of Object.values(power.persona_descriptions)) if (isDict$83(persona) && typeof persona.lorebook === "string" && persona.lorebook) personaBooks.add(persona.lorebook);
+	if (isDict$84(power.persona_descriptions)) {
+		for (const persona of Object.values(power.persona_descriptions)) if (isDict$84(persona) && typeof persona.lorebook === "string" && persona.lorebook) personaBooks.add(persona.lorebook);
 	}
 	context.personaBooks = personaBooks;
 	context.globalBooks = new Set(strings$19(module?.selected_world_info));
@@ -38186,15 +39294,15 @@ var TEMPLATE_TAG_RE = /<([A-Za-z][A-Za-z0-9_-]*):[^<>\n]+>/g;
 function text$8(value) {
 	return typeof value === "string" ? value : value === void 0 || value === null ? "" : String(value);
 }
-function isDict$82(value) {
+function isDict$83(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /** Entries of book data (`{entries: {uid: entry}}`) with their uid; invalid entries are skipped. */
 function entriesWithUid(data) {
-	const entries = isDict$82(data) && isDict$82(data.entries) ? data.entries : {};
+	const entries = isDict$83(data) && isDict$83(data.entries) ? data.entries : {};
 	const result = [];
 	for (const [key, entry] of Object.entries(entries)) {
-		if (!isDict$82(entry)) continue;
+		if (!isDict$83(entry)) continue;
 		const uid = Number(entry.uid ?? key);
 		if (Number.isFinite(uid)) result.push({
 			uid,
@@ -39049,7 +40157,7 @@ function integrityFindings(facts) {
 //#region src/domain/bunnymo-mode-sheet.ts
 var BLOCK_RE$2 = /<bunnymotags>([\s\S]*?)<\/bunnymotags>/gi;
 var SECTION_RE$3 = /<([A-Za-z][A-Za-z_]*)>([\s\S]*?)<\/\1\s*>/gi;
-var TAG_RE$3 = /<([A-Za-z][A-Za-z0-9_-]*):([^<>\n]+)>/g;
+var TAG_RE$4 = /<([A-Za-z][A-Za-z0-9_-]*):([^<>\n]+)>/g;
 var MBTI_RE$3 = /<([EI][NS][FT][JP])-([UH])>/gi;
 var GROUP_RE = /<(\/?)(PHYSICAL|PERSONALITY|NSFW|HEALTH)>/gi;
 var WRAPPER_RE = /<\/?BunnymoTags:[^>\n]*>/gi;
@@ -39218,7 +40326,7 @@ function parseSheet(content) {
 		const prose = found.filter((section) => section.inBlock).map((section) => section.outer);
 		const free = (position) => !prose.some((span) => inside(span, position));
 		const area = content.slice(block.inner.start, block.inner.end);
-		for (const match of area.matchAll(TAG_RE$3)) {
+		for (const match of area.matchAll(TAG_RE$4)) {
 			const start = block.inner.start + (match.index ?? 0);
 			if (!free(start)) continue;
 			const key = match[1] ?? "";
@@ -39521,7 +40629,7 @@ var BUNNYMO_RULES = [
 	"wrapper.nsfwCollision",
 	"book.cap"
 ];
-function isDict$81(value) {
+function isDict$82(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function strings$18(value) {
@@ -39660,12 +40768,12 @@ var BunnyMoModeService = class {
 		try {
 			if (store) {
 				const data = await store.load(book);
-				return isDict$81(data) && isDict$81(data.entries) ? data : null;
+				return isDict$82(data) && isDict$82(data.entries) ? data : null;
 			}
 			const load = this.app.host.ctx().loadWorldInfo;
 			if (typeof load !== "function") return null;
 			const data = await load(book);
-			return isDict$81(data) && isDict$81(data.entries) ? copy$1(data) : null;
+			return isDict$82(data) && isDict$82(data.entries) ? copy$1(data) : null;
 		} catch (error) {
 			this.log.debug(`lorebook ${book} did not load`, error);
 			return null;
@@ -39927,7 +41035,7 @@ var BunnyMoModeService = class {
 		this.emit();
 	}
 	async undoSelection(change) {
-		const chatId = isDict$81(change.ref) ? change.ref.chatId : void 0;
+		const chatId = isDict$82(change.ref) ? change.ref.chatId : void 0;
 		if (!chatId || chatId !== this.app.host.chatId()) return false;
 		await this.app.chat.setPointer(SELECTION_POINTER, readPackSelection(change.before));
 		this.emit();
@@ -39957,7 +41065,7 @@ var BunnyMoModeService = class {
 		if (!lists) return 0;
 		this.classifyUnknown(lists);
 		const removed = suppressBooks(lists, (world) => isOffBySelection(selection, world) && this.kindOf(world) === "pack");
-		if (!simulating && isDict$81(payload)) {
+		if (!simulating && isDict$82(payload)) {
 			if (!this.seenPayloads.has(payload)) {
 				this.seenPayloads.add(payload);
 				this.suppressed = removed;
@@ -40101,7 +41209,7 @@ var BunnyMoModeService = class {
 	isBunnyMo(book, data) {
 		const kind = this.kindOf(book);
 		if (kind === "core" || kind === "pack") return true;
-		return !!data && isDict$81(data.entries) && isBunnyMoBook(book, data);
+		return !!data && isDict$82(data.entries) && isBunnyMoBook(book, data);
 	}
 	async saveSheet(sheet) {
 		const { book, uid } = sheet;
@@ -40200,7 +41308,7 @@ var BunnyMoModeService = class {
 		}
 	}
 	async undoSheet(change) {
-		const ref = isDict$81(change.ref) ? change.ref : {};
+		const ref = isDict$82(change.ref) ? change.ref : {};
 		const book = typeof ref.book === "string" ? ref.book : null;
 		const uid = Number(ref.uid);
 		if (!book || !Number.isFinite(uid) || typeof change.before !== "string") return false;
@@ -41122,7 +42230,7 @@ function categoriesOf(dictionary) {
 function valuesOf(dictionary, category) {
 	return dictionary.tags.filter((tag) => tag.category === category && tag.value !== null && tag.entries.length > 0).map((tag) => tag.value);
 }
-function renderEditor(ctx, body, editor, dictionary) {
+function renderEditor$1(ctx, body, editor, dictionary) {
 	const { t, state } = ctx;
 	const draft = editor.draft;
 	const blocked = (editor.original.blocks ?? 1) > 1;
@@ -41486,7 +42594,7 @@ async function renderSheets(ctx, body) {
 		}
 		const dictionary = await ctx.service.dictionary();
 		clear(body);
-		renderEditor(ctx, body, editor, dictionary);
+		renderEditor$1(ctx, body, editor, dictionary);
 	} catch (error) {
 		clear(body);
 		body.appendChild(el("div", {
@@ -42122,7 +43230,7 @@ function readLabel(text) {
 	return info;
 }
 /** A label that says nothing about the day («Evening»): treated as no date. */
-function isBlank(info) {
+function isBlank$1(info) {
 	return !info.key && !info.numbers.length && info.weekday === void 0 && !info.date && info.relative === void 0;
 }
 function sameLabel(a, b) {
@@ -42186,9 +43294,9 @@ function advanceClock(previous, observed) {
 	const start = parseClock(observed.start);
 	const minutes = end ?? start ?? void 0;
 	const arriving = start ?? end;
-	const usable = label && !isBlank(label) ? label : null;
+	const usable = label && !isBlank$1(label) ? label : null;
 	const before = previous ? readLabel(previous.label) : null;
-	const prior = before && !isBlank(before) ? before : null;
+	const prior = before && !isBlank$1(before) ? before : null;
 	const build = (day, anchor, weekday) => {
 		const clock = {
 			label: usable ? usable.text : prior ? previous?.label ?? "" : label?.text ?? previous?.label ?? "",
@@ -42490,7 +43598,7 @@ function resolveDue(expression, base) {
 /** The day a written label stands for, compared with the clock's label (the add form: «15 Зимня» when it is «12 Зимня»). */
 function labelDay(text, base) {
 	const info = readLabel(text);
-	if (!info || !base || isBlank(info)) return null;
+	if (!info || !base || isBlank$1(info)) return null;
 	const anchor = base.anchor;
 	if (info.date && anchor && comparable(anchor, info)) return anchor.day + (dateDifference(anchor, info.date) ?? 0);
 	const current = readLabel(base.label);
@@ -42712,17 +43820,17 @@ var OUTCOME_STATUS = {
 function newId$7() {
 	return `prm-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
-function isDict$80(value) {
+function isDict$81(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function stringList$3(value) {
 	return Array.isArray(value) ? value.filter((item) => typeof item === "string" && !!item.trim()) : [];
 }
 function isMoment(value) {
-	return isDict$80(value) && typeof value.label === "string" && (value.day === null || typeof value.day === "number" && Number.isFinite(value.day));
+	return isDict$81(value) && typeof value.label === "string" && (value.day === null || typeof value.day === "number" && Number.isFinite(value.day));
 }
 function isClock(value) {
-	return isDict$80(value) && typeof value.label === "string" && typeof value.day === "number";
+	return isDict$81(value) && typeof value.label === "string" && typeof value.day === "number";
 }
 function copyMoment(moment) {
 	if (!moment) return null;
@@ -42737,13 +43845,13 @@ function copyMoment(moment) {
 function normaliseCalendarDoc(doc) {
 	if (!isClock(doc.clock)) doc.clock = null;
 	if (!Array.isArray(doc.history)) doc.history = [];
-	doc.history = doc.history.filter((entry) => isDict$80(entry) && typeof entry.index === "number" && isClock(entry.clock));
+	doc.history = doc.history.filter((entry) => isDict$81(entry) && typeof entry.index === "number" && isClock(entry.clock));
 	if (typeof doc.lastIndex !== "number" || !Number.isFinite(doc.lastIndex)) doc.lastIndex = -1;
 	if (typeof doc.turn !== "number" || !Number.isFinite(doc.turn)) doc.turn = 0;
 	if (!Array.isArray(doc.taken)) doc.taken = [];
 	doc.taken = doc.taken.filter((id) => typeof id === "string");
 	if (!Array.isArray(doc.promises)) doc.promises = [];
-	doc.promises = doc.promises.filter((item) => isDict$80(item) && typeof item.id === "string" && typeof item.what === "string");
+	doc.promises = doc.promises.filter((item) => isDict$81(item) && typeof item.id === "string" && typeof item.what === "string");
 	for (const promise of doc.promises) {
 		promise.who = stringList$3(promise.who);
 		promise.toWhom = stringList$3(promise.toWhom);
@@ -43825,11 +44933,11 @@ function emptyBook(chatId, chatName) {
 	};
 }
 function entriesOf$1(data) {
-	if (!isDict$100(data.entries)) data.entries = {};
+	if (!isDict$102(data.entries)) data.entries = {};
 	return data.entries;
 }
 function titleOf(entry, uid) {
-	if (isDict$100(entry)) {
+	if (isDict$102(entry)) {
 		if (typeof entry.comment === "string" && entry.comment.trim()) return entry.comment.trim();
 		const key = Array.isArray(entry.key) ? entry.key.find((item) => typeof item === "string" && item.trim()) : "";
 		if (typeof key === "string" && key) return key;
@@ -43865,7 +44973,7 @@ var CanonStore = class {
 		};
 		on("WORLDINFO_UPDATED", (name, data) => {
 			if (typeof name !== "string" || !isCanonBookName(name)) return;
-			if (isDict$100(data) && isDict$100(data.entries)) this.remember(name, jsonClone(data));
+			if (isDict$102(data) && isDict$102(data.entries)) this.remember(name, jsonClone(data));
 			else this.invalidate(name);
 			this.emit();
 		});
@@ -43951,7 +45059,7 @@ var CanonStore = class {
 		if (typeof ctx.loadWorldInfo !== "function") return null;
 		try {
 			const data = await ctx.loadWorldInfo(name);
-			return isDict$100(data) && isDict$100(data.entries) ? data : null;
+			return isDict$102(data) && isDict$102(data.entries) ? data : null;
 		} catch (error) {
 			this.log.debug(`lorebook ${name} did not load`, error);
 			return null;
@@ -43959,8 +45067,8 @@ var CanonStore = class {
 	}
 	async readEntry(book, uid) {
 		const data = await this.readBook(book);
-		const entry = data && isDict$100(data.entries) ? data.entries[String(uid)] : void 0;
-		return isDict$100(entry) ? entry : null;
+		const entry = data && isDict$102(data.entries) ? data.entries[String(uid)] : void 0;
+		return isDict$102(entry) ? entry : null;
 	}
 	async list(filter = {}) {
 		const name = this.bookName();
@@ -44065,8 +45173,8 @@ var CanonStore = class {
 			const existing = options.uid !== void 0 ? state.items.find((item) => item.uid === options.uid) : findItemForBase(state.items, kind, draft.meta.base);
 			const uid = options.uid ?? existing?.uid ?? freeUid$2(entries);
 			const previous = entries[String(uid)];
-			const before = isDict$100(previous) ? jsonClone(previous) : null;
-			const previousMeta = before && isDict$100(before.extensions) ? readCanonMeta(before.extensions.maestro) : null;
+			const before = isDict$102(previous) ? jsonClone(previous) : null;
+			const previousMeta = before && isDict$102(before.extensions) ? readCanonMeta(before.extensions.maestro) : null;
 			const now = Date.now();
 			const meta = {
 				...draft.meta,
@@ -44088,8 +45196,8 @@ var CanonStore = class {
 			}
 			const fallback = kind === "addition" ? "" : `${this.t(`m6.kind.${kind}`)}: ${titleOf(base, meta.base?.uid ?? uid)}`;
 			const entry = buildCanonEntry(uid, draft.entry, meta, fallback);
-			const keptPassport = before && isDict$100(before.extensions) && isDict$100(before.extensions.maestro) ? before.extensions.maestro.passport : void 0;
-			if (keptPassport !== void 0 && isDict$100(entry.extensions) && isDict$100(entry.extensions.maestro)) entry.extensions.maestro.passport ??= keptPassport;
+			const keptPassport = before && isDict$102(before.extensions) && isDict$102(before.extensions.maestro) ? before.extensions.maestro.passport : void 0;
+			if (keptPassport !== void 0 && isDict$102(entry.extensions) && isDict$102(entry.extensions.maestro)) entry.extensions.maestro.passport ??= keptPassport;
 			entries[String(uid)] = entry;
 			await this.saveBook(name, data);
 			const title = titleOf(entry, uid);
@@ -44115,7 +45223,7 @@ var CanonStore = class {
 			const data = jsonClone(state.data);
 			const entries = entriesOf$1(data);
 			const before = entries[String(uid)];
-			if (!isDict$100(before)) return;
+			if (!isDict$102(before)) return;
 			delete entries[String(uid)];
 			await this.saveBook(name, data);
 			await this.journal("canon.remove", this.t("m6.journal.remove", { title: titleOf(before, uid) }), [{
@@ -44139,7 +45247,7 @@ var CanonStore = class {
 			const data = jsonClone(state.data);
 			const entries = entriesOf$1(data);
 			const current = entries[String(uid)];
-			if (!isDict$100(current) || !isDict$100(current.extensions) || !isDict$100(current.extensions.maestro)) return;
+			if (!isDict$102(current) || !isDict$102(current.extensions) || !isDict$102(current.extensions.maestro)) return;
 			const raw = current.extensions.maestro;
 			if (!readCanonMeta(raw) || raw.status === status) return;
 			const before = jsonClone(current);
@@ -44195,8 +45303,8 @@ var CanonStore = class {
 		const canonBook = this.bookName();
 		return this.enqueue(async () => {
 			const baseData = await this.readBook(base.world);
-			const current = baseData && isDict$100(baseData.entries) ? baseData.entries[String(base.uid)] : void 0;
-			if (!baseData || !isDict$100(current)) return false;
+			const current = baseData && isDict$102(baseData.entries) ? baseData.entries[String(base.uid)] : void 0;
+			if (!baseData || !isDict$102(current)) return false;
 			const data = jsonClone(baseData);
 			const before = jsonClone(current);
 			const after = item.meta.kind === "override" ? materializeOverride(current, item.entry, itemOverrideFields(item.meta, item.entry)) : {
@@ -44216,7 +45324,7 @@ var CanonStore = class {
 				before,
 				after
 			}];
-			if (state.data && isDict$100(entriesOf$1(state.data)[String(uid)])) {
+			if (state.data && isDict$102(entriesOf$1(state.data)[String(uid)])) {
 				const canonData = jsonClone(state.data);
 				const removed = entriesOf$1(canonData)[String(uid)];
 				delete entriesOf$1(canonData)[String(uid)];
@@ -44249,7 +45357,7 @@ var CanonStore = class {
 			if (!base) continue;
 			if (!books.has(base.world)) books.set(base.world, await this.readBook(base.world));
 			const data = books.get(base.world);
-			const changed = baseDriftOf(item, data && isDict$100(data.entries) ? data.entries[String(base.uid)] : void 0);
+			const changed = baseDriftOf(item, data && isDict$102(data.entries) ? data.entries[String(base.uid)] : void 0);
 			if (changed) drift.push({
 				item,
 				baseThen: changed.then,
@@ -44274,8 +45382,8 @@ var CanonStore = class {
 		for (const name of (this.worldNames() ?? []).filter((book) => isCanonBookName(book))) {
 			const data = await this.readBook(name);
 			if (!data || !canonItemsOf(data).length) continue;
-			const extensions = isDict$100(data.extensions) ? data.extensions : {};
-			const meta = isDict$100(extensions.maestro) ? extensions.maestro : {};
+			const extensions = isDict$102(data.extensions) ? data.extensions : {};
+			const meta = isDict$102(extensions.maestro) ? extensions.maestro : {};
 			const chatName = typeof meta.chatName === "string" && meta.chatName ? meta.chatName : name;
 			created.push(await this.exportBook(name, chatName));
 		}
@@ -44291,8 +45399,8 @@ var CanonStore = class {
 		}
 		const baseOf = (world, uid) => {
 			const data = books.get(world);
-			const entry = data && isDict$100(data.entries) ? data.entries[String(uid)] : void 0;
-			return isDict$100(entry) ? entry : null;
+			const entry = data && isDict$102(data.entries) ? data.entries[String(uid)] : void 0;
+			return isDict$102(entry) ? entry : null;
 		};
 		const book = buildExportBook(items, baseOf, {
 			noteTitle: this.t("m6.export.noteTitle"),
@@ -44330,7 +45438,7 @@ var CanonStore = class {
 			if (!source) return false;
 			const data = jsonClone(source);
 			data.extensions = {
-				...isDict$100(data.extensions) ? data.extensions : {},
+				...isDict$102(data.extensions) ? data.extensions : {},
 				maestro: {
 					role: "canon",
 					chatId,
@@ -44356,9 +45464,9 @@ var CanonStore = class {
 				const data = jsonClone(current);
 				let changed = false;
 				for (const entry of Object.values(entriesOf$1(data))) {
-					if (!isDict$100(entry) || !isDict$100(entry.extensions)) continue;
+					if (!isDict$102(entry) || !isDict$102(entry.extensions)) continue;
 					const meta = entry.extensions.maestro;
-					if (!isDict$100(meta) || !isDict$100(meta.base) || meta.base.world !== oldName) continue;
+					if (!isDict$102(meta) || !isDict$102(meta.base) || meta.base.world !== oldName) continue;
 					entry.extensions = {
 						...entry.extensions,
 						maestro: {
@@ -44387,7 +45495,7 @@ var CanonStore = class {
 			if (!state.data && change.before === null) return true;
 			const data = state.data ? jsonClone(state.data) : { entries: {} };
 			const entries = entriesOf$1(data);
-			if (isDict$100(change.before)) entries[String(uid)] = jsonClone(change.before);
+			if (isDict$102(change.before)) entries[String(uid)] = jsonClone(change.before);
 			else delete entries[String(uid)];
 			await this.saveBook(book, data, !state.exists);
 			this.emit();
@@ -44403,7 +45511,7 @@ var CanonStore = class {
 			if (!current) return false;
 			const data = jsonClone(current);
 			const entries = entriesOf$1(data);
-			if (isDict$100(change.before)) entries[String(uid)] = jsonClone(change.before);
+			if (isDict$102(change.before)) entries[String(uid)] = jsonClone(change.before);
 			else delete entries[String(uid)];
 			await this.saveBook(book, data);
 			return true;
@@ -44568,7 +45676,7 @@ var CanonGlosses = class {
 	collectLocalizer(lists) {
 		const pairs = [];
 		for (const list of Object.values(lists)) for (const entry of list) {
-			if (!isDict$100(entry) || !isDict$100(entry.extensions) || !entry.extensions.lorebook_localizer) continue;
+			if (!isDict$102(entry) || !isDict$102(entry.extensions) || !entry.extensions.lorebook_localizer) continue;
 			const marker = readLocalizerMarker(entry);
 			if (!marker) continue;
 			for (const state of Object.values(marker.languages)) pairs.push(...pairsFromLocalizer(state.sources, [...state.added.key, ...state.added.keysecondary]));
@@ -44762,11 +45870,11 @@ var CanonScan = class {
 		}
 	}
 	onScanDone(args) {
-		if (!isDict$100(args)) return;
+		if (!isDict$102(args)) return;
 		const book = this.store.bookName();
-		const activated = isDict$100(args.activated) ? args.activated.entries : void 0;
+		const activated = isDict$102(args.activated) ? args.activated.entries : void 0;
 		if (!book || !(activated instanceof Map)) return;
-		const state = isDict$100(args.state) ? args.state : {};
+		const state = isDict$102(args.state) ? args.state : {};
 		const loop = typeof state.loopCount === "number" && state.loopCount > 0 ? state.loopCount : 1;
 		const sorted = Array.isArray(args.sortedEntries) ? args.sortedEntries : [];
 		let scan = this.scan;
@@ -44789,8 +45897,8 @@ var CanonScan = class {
 	forcePins(activated, sorted, scan) {
 		for (const key of this.pins) {
 			if (activated.has(key)) continue;
-			const entry = sorted.find((item) => isDict$100(item) && activationKey(item.world, item.uid) === key);
-			if (!isDict$100(entry)) continue;
+			const entry = sorted.find((item) => isDict$102(item) && activationKey(item.world, item.uid) === key);
+			if (!isDict$102(entry)) continue;
 			if (typeof entry.content === "string") try {
 				entry.content = this.app.host.ctx().substituteParams(entry.content);
 			} catch (error) {
@@ -44810,7 +45918,7 @@ var CanonScan = class {
 			const key = String(rawKey);
 			if (scan.accepted.has(key) || scan.pinned.has(key) || !isCanonActivation(entry, book)) continue;
 			const copy = entry;
-			const marker = isDict$100(copy.extensions) && isDict$100(copy.extensions.maestro) ? copy.extensions.maestro : {};
+			const marker = isDict$102(copy.extensions) && isDict$102(copy.extensions.maestro) ? copy.extensions.maestro : {};
 			const uid = copy.world === book ? Number(copy.uid) : Number(marker.canonUid);
 			byKey.set(key, copy);
 			candidates.push({
@@ -44831,8 +45939,8 @@ var CanonScan = class {
 			activated.delete(key);
 			entry.disable = true;
 			if (!sorted.includes(entry)) {
-				const twin = sorted.find((item) => isDict$100(item) && activationKey(item.world, item.uid) === key);
-				if (isDict$100(twin)) twin.disable = true;
+				const twin = sorted.find((item) => isDict$102(item) && activationKey(item.world, item.uid) === key);
+				if (isDict$102(twin)) twin.disable = true;
 			}
 			scan.cut++;
 			lore?.markCut?.(String(entry.world), Number(entry.uid));
@@ -45354,10 +46462,10 @@ var canonModule = {
 var MAX_CANDIDATES$1 = 20;
 var MAX_WORDS = 3;
 var MAX_QUOTED_WORDS = 4;
-var WORD_RE$3 = /[\p{L}\p{M}][\p{L}\p{M}'’-]*/gu;
+var WORD_RE$4 = /[\p{L}\p{M}][\p{L}\p{M}'’-]*/gu;
 var QUOTED_RE$1 = /(\p{L})[ \t]+[«“"„]([^«»“”"„\n]{2,40})[»”"“]/gu;
 /** A capitalised word right after one of these (spaces and emphasis skipped) starts a sentence or a line of speech. */
-var SENTENCE_END = /* @__PURE__ */ new Set([
+var SENTENCE_END$1 = /* @__PURE__ */ new Set([
 	".",
 	"!",
 	"?",
@@ -45569,7 +46677,7 @@ function charBefore(text, index) {
 }
 function sentenceStart$1(text, index) {
 	const before = charBefore(text, index);
-	return before === "" || SENTENCE_END.has(before);
+	return before === "" || SENTENCE_END$1.has(before);
 }
 /** Only spaces (no punctuation, no line break) between two tokens. */
 function adjacent(text, a, b) {
@@ -45580,7 +46688,7 @@ function letters(word) {
 }
 function tokensOf(text) {
 	const tokens = [];
-	for (const match of text.matchAll(WORD_RE$3)) {
+	for (const match of text.matchAll(WORD_RE$4)) {
 		const word = match[0].replace(/['’-]+$/, "");
 		const index = match.index ?? 0;
 		tokens.push({
@@ -47018,7 +48126,7 @@ var contradictionsModule = {
 };
 //#endregion
 //#region src/domain/chronicle-chapters.ts
-function isDict$79(value) {
+function isDict$80(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function strings$16(value) {
@@ -47048,9 +48156,9 @@ function memoryHash(text) {
 /** Stored tracking records, repaired (unknown fields and broken records dropped). */
 function readTracked(raw) {
 	const out = {};
-	if (!isDict$79(raw)) return out;
+	if (!isDict$80(raw)) return out;
 	for (const [key, value] of Object.entries(raw)) {
-		if (!/^\d+$/.test(key) || !isDict$79(value)) continue;
+		if (!/^\d+$/.test(key) || !isDict$80(value)) continue;
 		const state = MEMORY_STATES.includes(String(value.state)) ? value.state : null;
 		if (!state || typeof value.date !== "string" || typeof value.hash !== "string") continue;
 		const item = {
@@ -47390,7 +48498,7 @@ function chapterId(indexes, dates) {
 	return `ch-${stableHash(`${indexes.join(",")}|${dates.join("|")}`)}`;
 }
 function readChronicleMeta(raw) {
-	if (!isDict$79(raw) || typeof raw.id !== "string" || !raw.id) return null;
+	if (!isDict$80(raw) || typeof raw.id !== "string" || !raw.id) return null;
 	if (!Number.isInteger(raw.from) || !Number.isInteger(raw.to)) return null;
 	return {
 		id: raw.id,
@@ -47405,11 +48513,11 @@ function readChronicleMeta(raw) {
 }
 /** A canon item (uid, meta, entry) as a chronicle chapter; null for anything else. */
 function chapterInfoOf(item) {
-	const meta = isDict$79(item.meta) ? item.meta : {};
+	const meta = isDict$80(item.meta) ? item.meta : {};
 	if (meta.type !== "chapter" || meta.origin !== "chronicle") return null;
 	const chronicle = readChronicleMeta(meta.chronicle);
 	if (!chronicle) return null;
-	const fields = isDict$79(meta["typeFields"]) ? meta[TYPED_FIELDS_KEY] : {};
+	const fields = isDict$80(meta["typeFields"]) ? meta[TYPED_FIELDS_KEY] : {};
 	const content = typeof item.entry.content === "string" ? item.entry.content : "";
 	const comment = typeof item.entry.comment === "string" ? item.entry.comment.trim() : "";
 	return {
@@ -47568,7 +48676,7 @@ function recapDue(now, lastMessageAt, shownAt, afterHours) {
 	return now - since > afterHours * 36e5;
 }
 /** Russian when the texts hold more Cyrillic than Latin letters. */
-function chatLanguage(texts) {
+function chatLanguage$1(texts) {
 	let cyrillic = 0;
 	let latin = 0;
 	for (const text of texts) for (const char of text) if (/\p{Script=Cyrillic}/u.test(char)) cyrillic++;
@@ -47740,19 +48848,19 @@ var BUSY_RETRY_MS = 5e3;
 var BUSY_RETRIES = 6;
 var IDLE_DELAY_MS$2 = 500;
 /** Messages whose language decides whether the event's own words can be keys. */
-var LANGUAGE_MESSAGES$2 = 6;
+var LANGUAGE_MESSAGES$3 = 6;
 var MAX_ALIASES = 4;
-function isDict$78(value) {
+function isDict$79(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function isChapterPayload(value) {
-	return isDict$78(value) && typeof value.id === "string" && typeof value.content === "string" && Array.isArray(value.keys) && Array.isArray(value.dates) && isDict$78(value.chronicle);
+	return isDict$79(value) && typeof value.id === "string" && typeof value.content === "string" && Array.isArray(value.keys) && Array.isArray(value.dates) && isDict$79(value.chronicle);
 }
 function isMergePayload(value) {
-	return isDict$78(value) && typeof value.keep === "number" && typeof value.drop === "number" && typeof value.content === "string" && isDict$78(value.chronicle);
+	return isDict$79(value) && typeof value.keep === "number" && typeof value.drop === "number" && typeof value.content === "string" && isDict$79(value.chronicle);
 }
 function isArchivePayload$1(value) {
-	return isDict$78(value) && Array.isArray(value.uids) && value.uids.every((uid) => Number.isInteger(uid));
+	return isDict$79(value) && Array.isArray(value.uids) && value.uids.every((uid) => Number.isInteger(uid));
 }
 /** A canon item as a draft that recreates it (undo of a merge). */
 function draftOf$1(item) {
@@ -47768,7 +48876,7 @@ function draftOf$1(item) {
 	});
 }
 function isDraft(value) {
-	return isDict$78(value) && isDict$78(value.entry) && isDict$78(value.meta);
+	return isDict$79(value) && isDict$79(value.entry) && isDict$79(value.meta);
 }
 /** The canon draft of a chapter: a selective AND ANY addition, typed «chapter», origin 'chronicle'. */
 function chapterDraft(input) {
@@ -48099,13 +49207,13 @@ var ChapterService = class {
 	}
 	chatLanguage(chat) {
 		const texts = [];
-		for (let i = chat.length - 1; i >= 0 && texts.length < LANGUAGE_MESSAGES$2; i--) {
+		for (let i = chat.length - 1; i >= 0 && texts.length < LANGUAGE_MESSAGES$3; i--) {
 			const message = chat[i];
 			if (!message || message.is_system) continue;
 			const text = cleanForAnalysis(message);
 			if (text) texts.push(text);
 		}
-		return chatLanguage(texts);
+		return chatLanguage$1(texts);
 	}
 	async proposeChapters(fallen, tracked, epoch) {
 		const { app, env } = this;
@@ -48364,13 +49472,13 @@ var ChapterService = class {
 		const canon = this.env.canon();
 		const keep = change.ref.keep;
 		const drop = change.ref.drop;
-		const before = isDict$78(change.before) ? change.before : {};
+		const before = isDict$79(change.before) ? change.before : {};
 		if (!canon || typeof keep !== "number" || typeof drop !== "number") return false;
 		if (!isDraft(before.keep) || !isDraft(before.drop)) return false;
 		await canon.put(structuredClone(before.keep), { uid: keep });
 		await canon.put(structuredClone(before.drop), { uid: drop });
 		const dropMeta = before.drop.meta;
-		const dropChronicle = isDict$78(dropMeta.chronicle) ? dropMeta.chronicle : {};
+		const dropChronicle = isDict$79(dropMeta.chronicle) ? dropMeta.chronicle : {};
 		const dropId = typeof change.ref.dropId === "string" ? change.ref.dropId : "";
 		const indexes = new Set((Array.isArray(dropChronicle.indexes) ? dropChronicle.indexes : []).map((index) => String(index)));
 		if (dropId) await this.env.store.mutate((doc) => {
@@ -48476,12 +49584,12 @@ function createChronicleEnv(app, log, store, settings) {
 }
 //#endregion
 //#region src/features/chronicle/qvink-flags.ts
-function isDict$77(value) {
+function isDict$78(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function flagsOf(extra) {
-	const record = isDict$77(extra) ? extra[QVINK_KEY] : void 0;
-	if (!isDict$77(record)) return null;
+	const record = isDict$78(extra) ? extra[QVINK_KEY] : void 0;
+	if (!isDict$78(record)) return null;
 	return {
 		remember: record.remember === true,
 		exclude: record.exclude === true
@@ -48496,7 +49604,7 @@ function currentSwipe(message) {
 function readRememberState(message) {
 	return {
 		live: flagsOf(message.extra),
-		swipes: swipeInfos(message).map((info) => isDict$77(info) ? flagsOf(info.extra) : null)
+		swipes: swipeInfos(message).map((info) => isDict$78(info) ? flagsOf(info.extra) : null)
 	};
 }
 function isRemembered(message) {
@@ -48504,12 +49612,12 @@ function isRemembered(message) {
 }
 function hasSummary(message) {
 	const record = message?.extra?.[QVINK_KEY];
-	return isDict$77(record) && typeof record.memory === "string" && record.memory.trim().length > 0;
+	return isDict$78(record) && typeof record.memory === "string" && record.memory.trim().length > 0;
 }
 /** The record of an `extra` object, created when missing. */
 function recordIn(holder) {
-	const extra = isDict$77(holder.extra) ? holder.extra : holder.extra = {};
-	return isDict$77(extra["qvink_memory"]) ? extra[QVINK_KEY] : extra[QVINK_KEY] = {};
+	const extra = isDict$78(holder.extra) ? holder.extra : holder.extra = {};
+	return isDict$78(extra["qvink_memory"]) ? extra[QVINK_KEY] : extra[QVINK_KEY] = {};
 }
 /** Sets or restores the flags of a record; `null` removes the flags (the record goes when nothing else is left). */
 function setFlags(holder, state) {
@@ -48519,8 +49627,8 @@ function setFlags(holder, state) {
 		record.exclude = state.exclude;
 		return;
 	}
-	const extra = isDict$77(holder.extra) ? holder.extra : null;
-	const record = extra && isDict$77(extra["qvink_memory"]) ? extra[QVINK_KEY] : null;
+	const extra = isDict$78(holder.extra) ? holder.extra : null;
+	const record = extra && isDict$78(extra["qvink_memory"]) ? extra[QVINK_KEY] : null;
 	if (!extra || !record) return;
 	delete record.remember;
 	delete record.exclude;
@@ -48538,9 +49646,9 @@ function writeRemember(message) {
 	const live = message.extra[QVINK_KEY];
 	const current = currentSwipe(message);
 	swipeInfos(message).forEach((info, index) => {
-		if (!isDict$77(info)) return;
+		if (!isDict$78(info)) return;
 		if (index === current) {
-			const extra = isDict$77(info.extra) ? info.extra : info.extra = {};
+			const extra = isDict$78(info.extra) ? info.extra : info.extra = {};
 			extra[QVINK_KEY] = structuredClone(live);
 			return;
 		}
@@ -48554,13 +49662,13 @@ function writeRemember(message) {
 function restoreRemember(message, before) {
 	setFlags(message, before.live);
 	swipeInfos(message).forEach((info, index) => {
-		if (isDict$77(info)) setFlags(info, before.swipes[index] ?? null);
+		if (isDict$78(info)) setFlags(info, before.swipes[index] ?? null);
 	});
 }
 /** A stored RememberState (journal JSON) or null. */
 function readStoredState(raw) {
-	if (!isDict$77(raw) || !Array.isArray(raw.swipes)) return null;
-	const flags = (value) => isDict$77(value) ? {
+	if (!isDict$78(raw) || !Array.isArray(raw.swipes)) return null;
+	const flags = (value) => isDict$78(value) ? {
 		remember: value.remember === true,
 		exclude: value.exclude === true
 	} : null;
@@ -48587,7 +49695,7 @@ function emptyChronicleDoc() {
 		recap: null
 	};
 }
-function isDict$76(value) {
+function isDict$77(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function isReasonCode(value) {
@@ -48597,7 +49705,7 @@ function readReasons(raw) {
 	if (!Array.isArray(raw)) return [];
 	const out = [];
 	for (const item of raw) {
-		if (!isDict$76(item) || !isReasonCode(item.code)) continue;
+		if (!isDict$77(item) || !isReasonCode(item.code)) continue;
 		const reason = { code: item.code };
 		if (typeof item.text === "string" && item.text.trim()) reason.text = item.text.trim();
 		out.push(reason);
@@ -48608,7 +49716,7 @@ function readRemembered(raw) {
 	if (!Array.isArray(raw)) return [];
 	const out = [];
 	for (const item of raw) {
-		if (!isDict$76(item) || !Number.isInteger(item.index) || typeof item.date !== "string") continue;
+		if (!isDict$77(item) || !Number.isInteger(item.index) || typeof item.date !== "string") continue;
 		out.push({
 			index: item.index,
 			date: item.date,
@@ -48619,7 +49727,7 @@ function readRemembered(raw) {
 	return out;
 }
 function readRecap(raw) {
-	if (!isDict$76(raw) || typeof raw.shownAt !== "number" || !Number.isFinite(raw.shownAt)) return null;
+	if (!isDict$77(raw) || typeof raw.shownAt !== "number" || !Number.isFinite(raw.shownAt)) return null;
 	const stamp = {
 		shownAt: raw.shownAt,
 		source: raw.source === "ai" ? "ai" : "memory"
@@ -48742,11 +49850,11 @@ var REMEMBER_KIND = "chronicle.remember";
 var REMEMBER_TARGET = "m9.remember";
 var FLUSH_DELAY_MS = 1500;
 var IDLE_DELAY_MS$1 = 300;
-function isDict$75(value) {
+function isDict$76(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function isRememberPayload(value) {
-	return isDict$75(value) && Number.isInteger(value.index) && typeof value.date === "string" && Array.isArray(value.reasons) && value.reasons.every((reason) => isDict$75(reason) && isReasonCode(reason.code));
+	return isDict$76(value) && Number.isInteger(value.index) && typeof value.date === "string" && Array.isArray(value.reasons) && value.reasons.every((reason) => isDict$76(reason) && isReasonCode(reason.code));
 }
 function text$7(value) {
 	return typeof value === "string" && value.trim() ? value.trim() : void 0;
@@ -48813,7 +49921,7 @@ var AutoMemory = class {
 	onSignal(signal) {
 		if (!this.env.settings().autoMemory) return;
 		if (signal.chatId && signal.chatId !== this.app.host.chatId()) return;
-		const data = isDict$75(signal.data) ? signal.data : {};
+		const data = isDict$76(signal.data) ? signal.data : {};
 		let index = signal.messageIndex;
 		let found;
 		switch (signal.kind) {
@@ -49017,7 +50125,7 @@ var RETURN_DELAY_MS = 400;
 var LEADER_DELAY_MS = 500;
 /** A chat this short has nothing to recap. */
 var MIN_MESSAGES$1 = 4;
-var LANGUAGE_MESSAGES$1 = 6;
+var LANGUAGE_MESSAGES$2 = 6;
 var TASK_TTL_MS$5 = 18e5;
 var RecapService = class {
 	env;
@@ -49170,13 +50278,13 @@ var RecapService = class {
 	language() {
 		const chat = this.app.host.ctx().chat ?? [];
 		const texts = [];
-		for (let i = chat.length - 1; i >= 0 && texts.length < LANGUAGE_MESSAGES$1; i--) {
+		for (let i = chat.length - 1; i >= 0 && texts.length < LANGUAGE_MESSAGES$2; i--) {
 			const message = chat[i];
 			if (!message || message.is_system) continue;
 			const text = cleanForAnalysis(message);
 			if (text) texts.push(text);
 		}
-		return chatLanguage(texts);
+		return chatLanguage$1(texts);
 	}
 	/** The background model's recap; null when it is unavailable or failed. */
 	async aiText(material) {
@@ -50898,7 +52006,7 @@ var SCENE_ALIASES = {
 	emotional: "drama",
 	party: "social"
 };
-function isDict$74(value) {
+function isDict$75(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /** The scene type a model answered with: an object or JSON text (fences, prose around it); null when unusable. */
@@ -50914,7 +52022,7 @@ function parseSceneAnswer(raw) {
 			return null;
 		}
 	}
-	if (!isDict$74(data) || typeof data.type !== "string") return null;
+	if (!isDict$75(data) || typeof data.type !== "string") return null;
 	const name = data.type.trim().toLowerCase();
 	const type = SCENE_KINDS.includes(name) ? name : SCENE_ALIASES[name];
 	if (!type) return null;
@@ -51006,7 +52114,7 @@ function climaxWords(text) {
 	for (const match of normalizeText$2(text).matchAll(CLIMAX_RE)) found.add(match[0]);
 	return found.size;
 }
-function isDict$73(value) {
+function isDict$74(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /**
@@ -51014,9 +52122,9 @@ function isDict$73(value) {
 * off (NAI Studio then never spends Anlas on them), 'paid' when they may spend, 'unknown' without readable settings.
 */
 function pictureBudget(naiSettings) {
-	if (!isDict$73(naiSettings)) return "unknown";
-	const anlas = isDict$73(naiSettings.anlas) ? naiSettings.anlas : void 0;
-	const markers = isDict$73(naiSettings.markers) ? naiSettings.markers : void 0;
+	if (!isDict$74(naiSettings)) return "unknown";
+	const anlas = isDict$74(naiSettings.anlas) ? naiSettings.anlas : void 0;
+	const markers = isDict$74(naiSettings.markers) ? naiSettings.markers : void 0;
 	if (!anlas && !markers) return "unknown";
 	if (anlas?.freeOnly !== false) return "free";
 	return markers?.allowPaid === true ? "paid" : "free";
@@ -52033,7 +53141,7 @@ function foldSignals(signals) {
 var TIME_SKIP_HOURS = 6;
 var EXCERPT_CHARS = 2500;
 var USER_EXCERPT_CHARS$1 = 600;
-var LANGUAGE_MESSAGES = 6;
+var LANGUAGE_MESSAGES$1 = 6;
 /** Provisional living-canon facts this many messages old are threads the story may have forgotten. */
 var THREAD_AGE = 6;
 var MAX_MEMORY_SCAN = 3e3;
@@ -52211,7 +53319,7 @@ async function computeDraft(app, index, context, log) {
 	const climax = climaxWords(text);
 	if (climax > 0) cues.push("climax");
 	const recentTexts = [];
-	for (let i = index; i >= 0 && recentTexts.length < LANGUAGE_MESSAGES; i--) {
+	for (let i = index; i >= 0 && recentTexts.length < LANGUAGE_MESSAGES$1; i--) {
 		const item = chat[i];
 		if (!isStory(item)) continue;
 		const clean = cleanForAnalysis(item);
@@ -52355,7 +53463,7 @@ function emptyDirectorDoc() {
 		lastCommitted: -1
 	};
 }
-function isDict$72(value) {
+function isDict$73(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function isSceneKind(value) {
@@ -52368,7 +53476,7 @@ function strings$15(value) {
 	return Array.isArray(value) ? value.filter((item) => typeof item === "string") : [];
 }
 function decisionOf(value) {
-	if (!isDict$72(value) || !isSceneKind(value.type)) return null;
+	if (!isDict$73(value) || !isSceneKind(value.type)) return null;
 	const decision = {
 		type: value.type,
 		confidence: Math.min(1, Math.max(0, num$7(value.confidence, .5))),
@@ -52380,11 +53488,11 @@ function decisionOf(value) {
 	return decision;
 }
 function memoryOf(value) {
-	if (!isDict$72(value)) return {
+	if (!isDict$73(value)) return {
 		current: null,
 		candidate: null
 	};
-	const candidate = isDict$72(value.candidate) && isSceneKind(value.candidate.type) ? value.candidate : null;
+	const candidate = isDict$73(value.candidate) && isSceneKind(value.candidate.type) ? value.candidate : null;
 	return {
 		current: decisionOf(value.current),
 		candidate: candidate ? {
@@ -52395,7 +53503,7 @@ function memoryOf(value) {
 	};
 }
 function turnOf(value) {
-	if (!isDict$72(value) || typeof value.index !== "number") return null;
+	if (!isDict$73(value) || typeof value.index !== "number") return null;
 	return {
 		index: value.index,
 		place: typeof value.place === "string" ? value.place : null,
@@ -52419,7 +53527,7 @@ var REASONS$3 = [
 	"loop"
 ];
 function noteOf(value) {
-	if (!isDict$72(value) || typeof value.text !== "string") return null;
+	if (!isDict$73(value) || typeof value.text !== "string") return null;
 	const source = NOTE_SOURCES.find((item) => item === value.source);
 	if (!source) return null;
 	const note = {
@@ -52447,7 +53555,7 @@ function readDirectorDoc(raw) {
 	doc.overrideHeld = Math.max(0, Math.floor(num$7(raw.overrideHeld, 0)));
 	doc.explicitHits = Math.max(0, Math.floor(num$7(raw.explicitHits, 0)));
 	doc.language = raw.language === "ru" || raw.language === "en" ? raw.language : null;
-	const picture = isDict$72(raw.picture) ? raw.picture : null;
+	const picture = isDict$73(raw.picture) ? raw.picture : null;
 	doc.picture = picture ? {
 		messageIndex: num$7(picture.messageIndex, -1),
 		cues: strings$15(picture.cues).filter((cue) => CUES.includes(cue))
@@ -53243,7 +54351,7 @@ function defaultDirectorSettings() {
 		userWeight: .6
 	};
 }
-function isDict$71(value) {
+function isDict$72(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function intIn$1(value, min, max, fallback) {
@@ -53254,7 +54362,7 @@ function readDirectorSettings(slice) {
 	const defaults = defaultDirectorSettings();
 	const stall = intIn$1(slice.stallTurns, 2, 20, defaults.stallTurns);
 	if (slice.stallTurns !== stall) slice.stallTurns = stall;
-	if (!isDict$71(slice.every)) slice.every = { ...defaults.every };
+	if (!isDict$72(slice.every)) slice.every = { ...defaults.every };
 	const every = slice.every;
 	for (const mode of DIRECTOR_MODES) {
 		const value = intIn$1(every[mode], 0, 50, defaults.every[mode]);
@@ -54524,7 +55632,7 @@ var dockModule = {
 //#endregion
 //#region src/features/doctor/files.ts
 var LORE_ENTRY_TARGET$1 = "lore-entry";
-function isDict$70(value) {
+function isDict$71(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function bookRoles(app) {
@@ -54598,7 +55706,7 @@ function patchChanges$1(book, patches) {
 async function undoLoreEntry$1(app, change) {
 	const book = change.ref.book;
 	const uid = Number(change.ref.uid);
-	if (typeof book !== "string" || !Number.isFinite(uid) || !isDict$70(change.before) || !isDict$70(change.after)) return false;
+	if (typeof book !== "string" || !Number.isFinite(uid) || !isDict$71(change.before) || !isDict$71(change.after)) return false;
 	return (await writePatches$1(app, book, [{
 		uid,
 		before: change.before,
@@ -54606,11 +55714,11 @@ async function undoLoreEntry$1(app, change) {
 	}], "revert")).ok;
 }
 function isEntryPatch$1(value) {
-	return isDict$70(value) && typeof value.uid === "number" && isDict$70(value.before) && isDict$70(value.after);
+	return isDict$71(value) && typeof value.uid === "number" && isDict$71(value.before) && isDict$71(value.after);
 }
 //#endregion
 //#region src/features/doctor/sources.ts
-function isDict$69(value) {
+function isDict$70(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function extras(app) {
@@ -54639,10 +55747,10 @@ async function readLore(app, log) {
 			log.warn(`lorebook ${book} did not load`, error);
 			continue;
 		}
-		if (!isDict$69(data) || !isDict$69(data.entries)) continue;
+		if (!isDict$70(data) || !isDict$70(data.entries)) continue;
 		loaded.push(book);
 		for (const [uid, raw] of Object.entries(data.entries)) {
-			if (!isDict$69(raw)) continue;
+			if (!isDict$70(raw)) continue;
 			const marker = readLocalizerMarker(raw);
 			const added = marker ? Object.values(marker.languages).flatMap((state) => [...state.added.key, ...state.added.keysecondary]) : [];
 			entries.push(toDoctorEntry(book, raw, Number(uid) || 0, added));
@@ -54703,7 +55811,7 @@ async function readWorldInfoSettings(app, log) {
 		const module = await app.host.modules.worldInfo();
 		const getter = module.getWorldInfoSettings;
 		const raw = typeof getter === "function" ? getter() : module;
-		return isDict$69(raw) ? readWiSettings$1(raw) : null;
+		return isDict$70(raw) ? readWiSettings$1(raw) : null;
 	} catch (error) {
 		log.debug("world-info.js is not available", error);
 		return null;
@@ -54785,9 +55893,9 @@ function fallbackScripts(app) {
 	const scoped = character?.data?.extensions?.regex_scripts;
 	const allowedChars = settings.character_allowed_regex;
 	const preset = extras(app).chatCompletionSettings;
-	const presetScripts = isDict$69(preset?.extensions) ? preset.extensions.regex_scripts : void 0;
+	const presetScripts = isDict$70(preset?.extensions) ? preset.extensions.regex_scripts : void 0;
 	const presetName = preset?.preset_settings_openai;
-	const allowedPresets = isDict$69(settings.preset_allowed_regex) ? settings.preset_allowed_regex.openai : void 0;
+	const allowedPresets = isDict$70(settings.preset_allowed_regex) ? settings.preset_allowed_regex.openai : void 0;
 	return {
 		global: {
 			list: Array.isArray(settings.regex) ? settings.regex : [],
@@ -54807,7 +55915,7 @@ function fallbackScripts(app) {
 async function readRegexScripts(app, log) {
 	const engine = await regexEngine$1(app);
 	const byType = engine?.getScriptsByType;
-	const codes = isDict$69(engine?.SCRIPT_TYPES) ? engine.SCRIPT_TYPES : null;
+	const codes = isDict$70(engine?.SCRIPT_TYPES) ? engine.SCRIPT_TYPES : null;
 	let lists;
 	let viaEngine = false;
 	if (typeof byType === "function") {
@@ -54838,7 +55946,7 @@ async function readRegexScripts(app, log) {
 		list.forEach((item, index) => {
 			const script = normalizeScript(item, type, index, allowed);
 			scripts.push(script);
-			if (isDict$69(item)) raw.set(script.id, item);
+			if (isDict$70(item)) raw.set(script.id, item);
 		});
 	}
 	const disabled = app.host.ctx().extensionSettings.disabledExtensions;
@@ -55064,21 +56172,21 @@ var TYPES = [
 	"scoped",
 	"preset"
 ];
-function isDict$68(value) {
+function isDict$69(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function jsonCopy$2(value) {
 	return JSON.parse(JSON.stringify(value));
 }
 function isRegexFixPayload(value) {
-	if (!isDict$68(value)) return false;
+	if (!isDict$69(value)) return false;
 	return ACTIONS$1.includes(value.action) && TYPES.includes(value.type) && typeof value.scriptId === "string" && typeof value.index === "number" && typeof value.name === "string" && (value.owner === null || typeof value.owner === "string");
 }
 async function presetManager$1(app) {
 	try {
 		const get = (await app.host.modules.presetManager()).getPresetManager;
 		const manager = typeof get === "function" ? get() : null;
-		return isDict$68(manager) ? manager : null;
+		return isDict$69(manager) ? manager : null;
 	} catch {
 		return null;
 	}
@@ -55110,11 +56218,11 @@ async function scriptStore(app, type) {
 	const read = engine?.getScriptsByType;
 	const write = engine?.saveScriptsByType;
 	if (typeof read === "function" && typeof write === "function") {
-		const stored = (isDict$68(engine?.SCRIPT_TYPES) ? engine.SCRIPT_TYPES : {})[type.toUpperCase()];
+		const stored = (isDict$69(engine?.SCRIPT_TYPES) ? engine.SCRIPT_TYPES : {})[type.toUpperCase()];
 		const code = typeof stored === "number" ? stored : DEFAULT_CODES[type];
 		const list = read(code, { allowedOnly: false });
 		return {
-			list: Array.isArray(list) ? list.filter(isDict$68) : [],
+			list: Array.isArray(list) ? list.filter(isDict$69) : [],
 			owner,
 			save: async (next) => {
 				await write(next, code);
@@ -55125,7 +56233,7 @@ async function scriptStore(app, type) {
 	if (type === "global") {
 		const list = ctx.extensionSettings.regex;
 		return {
-			list: Array.isArray(list) ? list.filter(isDict$68) : [],
+			list: Array.isArray(list) ? list.filter(isDict$69) : [],
 			owner,
 			save: async (next) => {
 				app.host.ctx().extensionSettings.regex = next;
@@ -55138,7 +56246,7 @@ async function scriptStore(app, type) {
 		if (id === void 0 || id === "") return null;
 		const list = ctx.characters[Number(id)]?.data?.extensions?.regex_scripts;
 		return {
-			list: Array.isArray(list) ? list.filter(isDict$68) : [],
+			list: Array.isArray(list) ? list.filter(isDict$69) : [],
 			owner,
 			save: async (next) => {
 				await app.host.ctx().writeExtensionField(id, "regex_scripts", next);
@@ -55149,7 +56257,7 @@ async function scriptStore(app, type) {
 	if (!manager?.readPresetExtensionField || !manager.writePresetExtensionField) return null;
 	const list = manager.readPresetExtensionField({ path: "regex_scripts" });
 	return {
-		list: Array.isArray(list) ? list.filter(isDict$68) : [],
+		list: Array.isArray(list) ? list.filter(isDict$69) : [],
 		owner,
 		save: async (next) => {
 			await manager.writePresetExtensionField?.({
@@ -55217,7 +56325,7 @@ async function undoRegexFix(app, change) {
 		owner: typeof ref.owner === "string" ? ref.owner : null
 	};
 	const store = await openStore(app, payload);
-	if (!store || !isDict$68(change.before)) return false;
+	if (!store || !isDict$69(change.before)) return false;
 	if (change.after === null) {
 		if (payload.scriptId && store.list.some((script) => script.id === payload.scriptId)) return false;
 		const next = [...store.list];
@@ -55226,7 +56334,7 @@ async function undoRegexFix(app, change) {
 	} else {
 		const index = locate(store.list, payload);
 		const live = index >= 0 ? store.list[index] : void 0;
-		if (!live || live.disabled === true !== (isDict$68(change.after) && change.after.disabled === true)) return false;
+		if (!live || live.disabled === true !== (isDict$69(change.after) && change.after.disabled === true)) return false;
 		live.disabled = change.before.disabled === true;
 		await store.save(store.list);
 	}
@@ -57720,7 +58828,7 @@ function patchPassport(passport, patch) {
 	return next;
 }
 var ProtectedBookError = class extends Error {};
-function isDict$67(value) {
+function isDict$68(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function strings$14(value) {
@@ -57740,10 +58848,10 @@ function passportHas(passport, patch) {
 	return Object.entries(patch.slots ?? {}).every(([slot, value]) => (passport.slots[slot] ?? "") === value);
 }
 function isPayload(value) {
-	return isDict$67(value) && typeof value.op === "string";
+	return isDict$68(value) && typeof value.op === "string";
 }
 function isFixRequest(value) {
-	if (!isDict$67(value)) return false;
+	if (!isDict$68(value)) return false;
 	if (value.op === "addKeys") return typeof value.world === "string" && typeof value.uid === "number" && Array.isArray(value.keys);
 	if (value.op === "placeEntry") return typeof value.placeId === "string";
 	if (value.op === "desAlias") return typeof value.canonical === "string" && typeof value.alias === "string";
@@ -57812,7 +58920,7 @@ var DossierActions = class {
 	async effective(world, uid) {
 		const state = await this.sources.bookState(world);
 		const base = state.data?.entries[String(uid)];
-		const entry = isDict$67(base) ? base : null;
+		const entry = isDict$68(base) ? base : null;
 		const fields = {
 			key: strings$14(entry?.key),
 			content: str$16(entry?.content)
@@ -57955,7 +59063,7 @@ var DossierActions = class {
 				case "baseKeys": {
 					const state = await this.sources.bookState(payload.world);
 					const entry = state.data?.entries[String(payload.uid)];
-					return !state.protected && isDict$67(entry) && sameList$1(strings$14(entry.key), payload.before);
+					return !state.protected && isDict$68(entry) && sameList$1(strings$14(entry.key), payload.before);
 				}
 				case "canonOverride": {
 					const current = await this.effective(payload.world, payload.uid);
@@ -57989,7 +59097,7 @@ var DossierActions = class {
 		const world = change.ref.world;
 		const uid = Number(change.ref.uid);
 		const io = this.io();
-		if (typeof world !== "string" || !Number.isFinite(uid) || !io || !isDict$67(change.before) || !isDict$67(change.after)) return false;
+		if (typeof world !== "string" || !Number.isFinite(uid) || !io || !isDict$68(change.before) || !isDict$68(change.after)) return false;
 		return (await commitPatches(io, world, [{
 			uid,
 			before: change.before,
@@ -58002,7 +59110,7 @@ var DossierActions = class {
 	async undoCanon(change) {
 		const canon = this.canon();
 		const ref = change.ref;
-		if (!canon || !isDict$67(change.before)) return false;
+		if (!canon || !isDict$68(change.before)) return false;
 		const before = change.before;
 		if (typeof ref.itemUid === "number") {
 			await this.putItem(ref.itemUid, before);
@@ -58023,14 +59131,14 @@ var DossierActions = class {
 	async undoPassport(change) {
 		const id = change.ref.id;
 		const target = change.ref.target;
-		if (typeof id !== "string" || !isDict$67(change.before) || !this.sources.naiApi()) return false;
-		await this.savePassport(id, isDict$67(target) ? target : null, change.before);
+		if (typeof id !== "string" || !isDict$68(change.before) || !this.sources.naiApi()) return false;
+		await this.savePassport(id, isDict$68(target) ? target : null, change.before);
 		return true;
 	}
 	async undoPlace(change) {
 		const places = this.sources.places();
 		const id = change.ref.placeId;
-		if (!places || typeof id !== "string" || !isDict$67(change.before) || !places.get(id)) return false;
+		if (!places || typeof id !== "string" || !isDict$68(change.before) || !places.get(id)) return false;
 		await places.update(id, change.before);
 		return true;
 	}
@@ -58383,7 +59491,7 @@ var DossierActions = class {
 //#region src/domain/sheet-reply.ts
 /** `<BunnymoTags>…</BunnymoTags>` in any case; the `<BunnymoTags:Title>` entry wrapper does not match. */
 var BLOCK_RE = /<bunnymotags>([\s\S]*?)<\/bunnymotags>/gi;
-var TAG_RE$2 = /<([A-Za-z][A-Za-z0-9_-]*):([^<>\n]+)>/g;
+var TAG_RE$3 = /<([A-Za-z][A-Za-z0-9_-]*):([^<>\n]+)>/g;
 var HAS_TAG_RE = /<[A-Za-z][A-Za-z0-9_-]*:[^<>\n]+>/;
 var MBTI_RE$2 = /<([EI][NS][FT][JP]-[UH])>/gi;
 var PLACEHOLDER_RE = /^(?:BLANK|NEW|VALUE|TARGET|NAME|NAME[\s_]HERE|PLACEHOLDER|TBD|X{3,})$/i;
@@ -58436,7 +59544,7 @@ function looksLikeSheet(text) {
 	if (lastBlockEnd(value) >= 0) return true;
 	if (value.split("\n").some((line) => BANNER_RE.test(line))) return true;
 	if ((value.match(SECTION_RE$2) ?? []).length >= 2) return true;
-	return (value.match(new RegExp(TAG_RE$2.source, "g")) ?? []).length >= 3;
+	return (value.match(new RegExp(TAG_RE$3.source, "g")) ?? []).length >= 3;
 }
 /**
 * Removes DES tracker JSON: fenced blocks with tracker keys anywhere (a sheet reply may end with one) and an
@@ -58558,7 +59666,7 @@ function collectTags(bodies) {
 	let name = null;
 	const tags = /* @__PURE__ */ new Set();
 	for (const body of bodies) {
-		for (const match of body.matchAll(TAG_RE$2)) {
+		for (const match of body.matchAll(TAG_RE$3)) {
 			const key = (match[1] ?? "").trim();
 			const value = (match[2] ?? "").trim();
 			if (key.toUpperCase() === "NAME") {
@@ -58608,7 +59716,7 @@ function compareSheetTags(rawReply, archiveText) {
 }
 //#endregion
 //#region src/domain/dossier-data.ts
-function isDict$66(value) {
+function isDict$67(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function str$15(value) {
@@ -58668,7 +59776,7 @@ function passportFields(passport) {
 * per slot, other known fields replace. Returns the effective passport and the overridden field names.
 */
 function overridePassport(base, override) {
-	if (!isDict$66(override)) return {
+	if (!isDict$67(override)) return {
 		passport: base,
 		overridden: []
 	};
@@ -58680,7 +59788,7 @@ function overridePassport(base, override) {
 		states: base.states.map((state) => ({ ...state }))
 	};
 	const overridden = [];
-	if (isDict$66(override.slots)) for (const [slot, value] of Object.entries(override.slots)) {
+	if (isDict$67(override.slots)) for (const [slot, value] of Object.entries(override.slots)) {
 		if (typeof value !== "string" || passport.slots[slot] === value) continue;
 		passport.slots[slot] = value;
 		overridden.push(`slot.${slot}`);
@@ -58702,14 +59810,14 @@ function overridePassport(base, override) {
 		overridden.push("aliases");
 	}
 	if (Array.isArray(override.outfits)) {
-		passport.outfits = override.outfits.filter(isDict$66).map((outfit) => ({
+		passport.outfits = override.outfits.filter(isDict$67).map((outfit) => ({
 			name: str$15(outfit.name),
 			tags: str$15(outfit.tags)
 		}));
 		overridden.push("outfits");
 	}
 	if (Array.isArray(override.states)) {
-		passport.states = override.states.filter(isDict$66).map((state) => ({
+		passport.states = override.states.filter(isDict$67).map((state) => ({
 			id: str$15(state.id),
 			tags: str$15(state.tags),
 			enabled: state.enabled === true
@@ -58779,9 +59887,9 @@ function pickMemories(memories, limit) {
 }
 /** M31's mark `extra.maestro.sheet` of a message, when it is there. */
 function readSheetMark(extra) {
-	const maestro = isDict$66(extra) ? extra.maestro : void 0;
-	const sheet = isDict$66(maestro) ? maestro.sheet : void 0;
-	if (!isDict$66(sheet) || typeof sheet.command !== "string") return null;
+	const maestro = isDict$67(extra) ? extra.maestro : void 0;
+	const sheet = isDict$67(maestro) ? maestro.sheet : void 0;
+	if (!isDict$67(sheet) || typeof sheet.command !== "string") return null;
 	return {
 		command: sheet.command,
 		target: str$15(sheet.target),
@@ -58820,11 +59928,11 @@ function findLastSheet(messages, names) {
 }
 /** CK RAG collections of a character (`rag.collectionMetadata[id].characterName`) with their triggers. */
 function ragCollectionsFor(rag, names) {
-	const metadata = isDict$66(rag) ? rag.collectionMetadata : void 0;
-	if (!isDict$66(metadata)) return [];
+	const metadata = isDict$67(rag) ? rag.collectionMetadata : void 0;
+	if (!isDict$67(metadata)) return [];
 	const out = [];
 	for (const [id, raw] of Object.entries(metadata)) {
-		if (!isDict$66(raw) || !isFor(str$15(raw.characterName) || null, names)) continue;
+		if (!isDict$67(raw) || !isFor(str$15(raw.characterName) || null, names)) continue;
 		const keywords = Array.isArray(raw.keywords) ? raw.keywords.filter((item) => typeof item === "string" && item.trim() !== "") : [];
 		out.push({
 			id,
@@ -60028,7 +61136,7 @@ var DossierService = class {
 };
 //#endregion
 //#region src/features/dossier/sources.ts
-function isDict$65(value) {
+function isDict$66(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function str$13(value) {
@@ -60364,7 +61472,7 @@ var DossierSources = class {
 			if (seen.has(id) || world === canonBook) return;
 			const data = await this.loadBook(world, cache);
 			const entry = data?.entries[String(uid)];
-			if (!data || !isDict$65(entry)) return;
+			if (!data || !isDict$66(entry)) return;
 			seen.add(id);
 			out.push({
 				...this.loreFact(world, uid, entry, data, items, canonBook),
@@ -60413,7 +61521,7 @@ var DossierSources = class {
 		for (const source of entity.sources) {
 			if (source.kind !== "ck.archive" || !source.world || typeof source.uid !== "number") continue;
 			const entry = (await this.loadBook(source.world, cache))?.entries[String(source.uid)];
-			if (isDict$65(entry)) add(source.world, source.uid, entry);
+			if (isDict$66(entry)) add(source.world, source.uid, entry);
 		}
 		const books = unique$1([...this.archiveBooks(), ...await this.activeBooks()]);
 		for (const book of books) {
@@ -60426,14 +61534,14 @@ var DossierSources = class {
 	/** The raw chat-level store (read directly: the API returns resolved copies, the dossier shows base and override). */
 	naiChatStore() {
 		const meta = this.app.host.ctx().chatMetadata.nai_studio;
-		const store = isDict$65(meta) ? meta.passports : void 0;
+		const store = isDict$66(meta) ? meta.passports : void 0;
 		const overrides = {};
-		if (isDict$65(store) && isDict$65(store.overrides)) {
-			for (const [id, value] of Object.entries(store.overrides)) if (isDict$65(value)) overrides[id] = value;
+		if (isDict$66(store) && isDict$66(store.overrides)) {
+			for (const [id, value] of Object.entries(store.overrides)) if (isDict$66(value)) overrides[id] = value;
 		}
 		return {
 			overrides,
-			extra: isDict$65(store) && Array.isArray(store.extra) ? store.extra.map(readPassport).filter((item) => item !== null) : []
+			extra: isDict$66(store) && Array.isArray(store.extra) ? store.extra.map(readPassport).filter((item) => item !== null) : []
 		};
 	}
 	/** The chat's override of a passport when it belongs to this owner (`owner` absent: any owner). */
@@ -60535,9 +61643,9 @@ var DossierSources = class {
 	}
 	personaPassport(avatar) {
 		const settings = this.safe(() => adaptersOf(this.app).nai.settings(), null);
-		const scene = isDict$65(settings) ? settings.scene : void 0;
-		const store = isDict$65(scene) ? scene.personaPassports : void 0;
-		if (!isDict$65(store)) return null;
+		const scene = isDict$66(settings) ? settings.scene : void 0;
+		const store = isDict$66(scene) ? scene.personaPassports : void 0;
+		if (!isDict$66(store)) return null;
 		return readPassport(store[avatar || "default"] ?? store.default);
 	}
 	desFact(entity, names) {
@@ -60572,20 +61680,20 @@ var DossierSources = class {
 			}
 		}
 		const meta = this.app.host.ctx().chatMetadata.dooms_tracker;
-		const known = isDict$65(meta) && isDict$65(meta.knownCharacters) ? meta.knownCharacters : {};
+		const known = isDict$66(meta) && isDict$66(meta.knownCharacters) ? meta.knownCharacters : {};
 		const rosterEntry = inRoster ? known[inRoster] : void 0;
-		if (isDict$65(rosterEntry) && typeof rosterEntry.emoji === "string") fact.rosterEmoji = rosterEntry.emoji;
+		if (isDict$66(rosterEntry) && typeof rosterEntry.emoji === "string") fact.rosterEmoji = rosterEntry.emoji;
 		const settings = this.safe(() => des.settings(), null) ?? {};
 		const key = fact.canonical;
-		const pick = (store) => isDict$65(store) ? store[key] : void 0;
+		const pick = (store) => isDict$66(store) ? store[key] : void 0;
 		const appearance = pick(settings.characterAppearance);
 		if (typeof appearance === "string" && appearance.trim()) fact.portraitPrompt = appearance.trim();
 		const injection = pick(settings.characterInjection);
-		if (isDict$65(injection) && typeof injection.description === "string" && injection.description.trim()) fact.workshopDescription = injection.description.trim();
+		if (isDict$66(injection) && typeof injection.description === "string" && injection.description.trim()) fact.workshopDescription = injection.description.trim();
 		const relationship = pick(settings.characterRelationships);
 		if (typeof relationship === "string" && relationship.trim()) fact.relationshipOverride = relationship.trim();
 		const user = pick(settings.userCharacters);
-		if (isDict$65(user)) fact.user = user;
+		if (isDict$66(user)) fact.user = user;
 		if (!fact.inRoster && !canonical && !fact.character && !fact.user) return null;
 		return fact;
 	}
@@ -61545,12 +62653,12 @@ function archiveSchema(vocabulary, maxEnum = 400) {
 		}
 	};
 }
-function isDict$64(value) {
+function isDict$65(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /** The first JSON object of a model answer (code fences and chatter around it allowed); null when there is none. */
 function readJsonObject(raw) {
-	if (isDict$64(raw)) return raw;
+	if (isDict$65(raw)) return raw;
 	if (typeof raw !== "string") return null;
 	const cleaned = raw.replace(/```(?:json)?/gi, "").trim();
 	const start = cleaned.indexOf("{");
@@ -61558,7 +62666,7 @@ function readJsonObject(raw) {
 	if (start < 0 || end <= start) return null;
 	try {
 		const value = JSON.parse(cleaned.slice(start, end + 1));
-		return isDict$64(value) ? value : null;
+		return isDict$65(value) ? value : null;
 	} catch {
 		return null;
 	}
@@ -61607,7 +62715,7 @@ function parseArchiveAnswer(raw, vocabulary) {
 	for (const item of list) {
 		let category;
 		let value;
-		if (isDict$64(item)) {
+		if (isDict$65(item)) {
 			category = typeof item.category === "string" ? item.category : "";
 			value = typeof item.value === "string" ? item.value : "";
 		} else if (typeof item === "string") {
@@ -62078,7 +63186,7 @@ var STYLE_UP_TARGET = "dossier-styleup";
 /** Journal target of one written part (the real locator: canon uid, book + uid, passport id). */
 var STYLE_UP_PART_TARGET = "dossier-styleup-part";
 var ARCHIVE_MAX_TOKENS = 700;
-function isDict$63(value) {
+function isDict$64(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function str$12(value) {
@@ -62094,10 +63202,10 @@ function newId$5(prefix) {
 	return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
 }
 function isStyleUpPayload(value) {
-	return isDict$63(value) && value.op === "styleUp" && typeof value.planId === "string" && typeof value.entityId === "string" && Array.isArray(value.parts);
+	return isDict$64(value) && value.op === "styleUp" && typeof value.planId === "string" && typeof value.entityId === "string" && Array.isArray(value.parts);
 }
 function isPromotePayload(value) {
-	return isDict$63(value) && value.op === "promote" && typeof value.canonUid === "number" && typeof value.book === "string" && typeof value.planId === "string";
+	return isDict$64(value) && value.op === "promote" && typeof value.canonUid === "number" && typeof value.book === "string" && typeof value.planId === "string";
 }
 var DossierStyleUp = class {
 	app;
@@ -62464,7 +63572,7 @@ var DossierStyleUp = class {
 			key
 		});
 		const settings = this.safe(() => adaptersOf(this.app).nai.settings(), null);
-		const des = isDict$63(settings) && isDict$63(settings.des) ? settings.des : null;
+		const des = isDict$64(settings) && isDict$64(settings.des) ? settings.des : null;
 		const auto = des ? des.enabled !== false && des.autoPassports !== false : false;
 		const inDes = facts.desPresent && !!facts.des && (facts.des.inRoster || !!facts.des.character);
 		if (auto && inDes) return void hint("passportAuto", { name: knowledge.name });
@@ -62746,7 +63854,7 @@ var DossierStyleUp = class {
 		}
 		if (state.protected) throw new ProtectedBookError(this.t("m7.p13", { book }));
 		const data = state.data ?? { entries: {} };
-		if (Object.values(data.entries).some((entry) => isDict$63(entry) && entry.disable !== true && archiveMatch(entry, part.name) === "exact")) throw new Error(this.t("m7.styleUp.error.archiveExists", {
+		if (Object.values(data.entries).some((entry) => isDict$64(entry) && entry.disable !== true && archiveMatch(entry, part.name) === "exact")) throw new Error(this.t("m7.styleUp.error.archiveExists", {
 			name: part.name,
 			book
 		}));
@@ -62860,7 +63968,7 @@ var DossierStyleUp = class {
 		const after = change.after;
 		switch (ref.part) {
 			case "canon":
-			case "placeEntry": return this.undoCanonItem(Number(ref.uid), isDict$63(after) ? str$12(after.content) : null);
+			case "placeEntry": return this.undoCanonItem(Number(ref.uid), isDict$64(after) ? str$12(after.content) : null);
 			case "archive":
 			case "promote": return this.undoBookEntry(change);
 			case "passport": {
@@ -62901,19 +64009,19 @@ var DossierStyleUp = class {
 		const key = data ? entryKeyOf(data, uid) : null;
 		if (data && key !== null) {
 			const entry = data.entries[key];
-			const written = isDict$63(change.after) ? str$12(change.after.content) : str$12(change.after);
-			if (!isDict$63(entry) || str$12(entry.content) !== written) return false;
+			const written = isDict$64(change.after) ? str$12(change.after.content) : str$12(change.after);
+			if (!isDict$64(entry) || str$12(entry.content) !== written) return false;
 			delete data.entries[key];
 			await io.save(book, data);
 			this.refreshCk(book);
 		}
-		if (ref.part === "promote" && isDict$63(change.before)) return this.restoreCanonItem(change.before);
+		if (ref.part === "promote" && isDict$64(change.before)) return this.restoreCanonItem(change.before);
 		return true;
 	}
 	/** A promoted canon addition comes back to the chat canon. */
 	async restoreCanonItem(snapshot) {
 		const canon = this.canon();
-		if (!canon || !isDict$63(snapshot.entry) || !isDict$63(snapshot.meta)) return false;
+		if (!canon || !isDict$64(snapshot.entry) || !isDict$64(snapshot.meta)) return false;
 		const entry = { ...snapshot.entry };
 		delete entry.uid;
 		const meta = { ...snapshot.meta };
@@ -63024,7 +64132,7 @@ var DossierStyleUp = class {
 		const typed = item.meta[TYPED_FIELDS_KEY];
 		if (roles && item.meta.type) await this.safeAsync(() => roles.setEntryMeta(payload.book, uid, {
 			type: item.meta.type,
-			[TYPED_FIELDS_KEY]: isDict$63(typed) ? { ...typed } : {}
+			[TYPED_FIELDS_KEY]: isDict$64(typed) ? { ...typed } : {}
 		}), void 0);
 		const snapshot = {
 			entry: structuredClone(item.entry),
@@ -64024,14 +65132,14 @@ var StaleBanner = class {
 };
 //#endregion
 //#region src/domain/settings-diff.ts
-function isDict$62(value) {
+function isDict$63(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /** JSON with sorted object keys; `undefined` (also nested) becomes null. Throws on cycles, like JSON. */
 function stableStringify(value) {
 	return JSON.stringify(value === void 0 ? null : value, (_key, item) => {
 		if (item === void 0) return null;
-		if (!isDict$62(item)) return item;
+		if (!isDict$63(item)) return item;
 		const sorted = {};
 		for (const key of Object.keys(item).sort()) sorted[key] = item[key];
 		return sorted;
@@ -64063,7 +65171,7 @@ function jsonCopy$1(value) {
 function getPath(source, path) {
 	let current = source;
 	for (const part of path.split(".")) {
-		if (!isDict$62(current)) return void 0;
+		if (!isDict$63(current)) return void 0;
 		current = current[part];
 	}
 	return current;
@@ -64076,7 +65184,7 @@ function setPath(target, path, value) {
 	let current = target;
 	for (const part of parts) {
 		const next = current[part];
-		if (isDict$62(next)) current = next;
+		if (isDict$63(next)) current = next;
 		else {
 			const created = {};
 			current[part] = created;
@@ -64091,7 +65199,7 @@ function pathMatches(path, patterns) {
 	return patterns.some((pattern) => path === pattern || path.startsWith(`${pattern}.`));
 }
 function omitKeys(value, omit) {
-	if (!omit?.length || !isDict$62(value)) return value;
+	if (!omit?.length || !isDict$63(value)) return value;
 	const copy = { ...value };
 	for (const key of omit) delete copy[key];
 	return copy;
@@ -64105,7 +65213,7 @@ function pickTracked(source, specs, prefix) {
 		values: {},
 		restore: {}
 	};
-	if (!isDict$62(source)) return part;
+	if (!isDict$63(source)) return part;
 	for (const spec of specs) {
 		const raw = getPath(source, spec.path);
 		if (raw === void 0) continue;
@@ -64125,7 +65233,7 @@ function pickTracked(source, specs, prefix) {
 }
 /** Every own key of `source` except `deny` (and keys starting with `_`), for neighbours without a fixed schema. */
 function keysExcept(source, deny) {
-	if (!isDict$62(source)) return [];
+	if (!isDict$63(source)) return [];
 	return Object.keys(source).filter((key) => !deny.includes(key) && !key.startsWith("_") && !key.includes(".")).sort().map((key) => ({ path: key }));
 }
 /** Merges tracked parts (later parts win on equal paths). */
@@ -64208,7 +65316,7 @@ function acknowledgePaths(baseline, current, patterns) {
 * tab would overwrite). Keys that cannot be serialised are skipped. Best effort by design.
 */
 function topLevelDiff(local, server, options) {
-	if (!isDict$62(local) || !isDict$62(server)) return [];
+	if (!isDict$63(local) || !isDict$63(server)) return [];
 	const keys = [.../* @__PURE__ */ new Set([...Object.keys(local), ...Object.keys(server)])].sort();
 	const result = [];
 	for (const key of keys) {
@@ -64225,7 +65333,7 @@ function topLevelDiff(local, server, options) {
 	return result;
 }
 function readStamp(value) {
-	if (!isDict$62(value)) return null;
+	if (!isDict$63(value)) return null;
 	const { tabId, seq, at } = value;
 	if (typeof tabId !== "string" || !tabId) return null;
 	if (typeof seq !== "number" || !Number.isFinite(seq)) return null;
@@ -64244,7 +65352,7 @@ function parseSettingsText(text) {
 	if (typeof text !== "string") return void 0;
 	try {
 		const parsed = JSON.parse(text);
-		return isDict$62(parsed) ? parsed : void 0;
+		return isDict$63(parsed) ? parsed : void 0;
 	} catch {
 		return;
 	}
@@ -64262,18 +65370,18 @@ function isTabFresh(known, server, myTabId) {
 //#region src/features/guardian/baseline.ts
 var BASELINE_FILE = "maestro-baseline.json";
 var DISMISSED_LIMIT = 20;
-function isDict$61(value) {
+function isDict$62(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /** Validates a stored file; null for anything that is not a baseline. */
 function readBaseline$2(raw) {
-	if (!isDict$61(raw) || raw.schema !== 1 || !isDict$61(raw.values)) return null;
+	if (!isDict$62(raw) || raw.schema !== 1 || !isDict$62(raw.values)) return null;
 	return {
 		schema: 1,
 		takenAt: typeof raw.takenAt === "number" ? raw.takenAt : 0,
 		reason: typeof raw.reason === "string" ? raw.reason : "",
 		values: raw.values,
-		restore: isDict$61(raw.restore) ? raw.restore : {},
+		restore: isDict$62(raw.restore) ? raw.restore : {},
 		dismissed: Array.isArray(raw.dismissed) ? raw.dismissed.filter((item) => typeof item === "string") : []
 	};
 }
@@ -64336,7 +65444,7 @@ var BaselineStore = class {
 };
 //#endregion
 //#region src/domain/medic-prefill.ts
-function isDict$60(value) {
+function isDict$61(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /**
@@ -64345,17 +65453,17 @@ function isDict$60(value) {
 */
 function activePromptOrder(promptOrder, characterId) {
 	if (!Array.isArray(promptOrder)) return [];
-	const lists = promptOrder.filter(isDict$60);
+	const lists = promptOrder.filter(isDict$61);
 	const find = (id) => id === void 0 ? void 0 : lists.find((item) => String(item.character_id) === String(id));
 	const chosen = find(100001) ?? find(characterId) ?? lists[0];
-	return (chosen && Array.isArray(chosen.order) ? chosen.order : []).filter(isDict$60).filter((item) => typeof item.identifier === "string").map((item) => ({
+	return (chosen && Array.isArray(chosen.order) ? chosen.order : []).filter(isDict$61).filter((item) => typeof item.identifier === "string").map((item) => ({
 		identifier: item.identifier,
 		enabled: item.enabled !== false
 	}));
 }
 /** Index of the prompt list entry with this identifier (oai_settings.prompts). */
 function promptIndex(prompts, identifier) {
-	return Array.isArray(prompts) ? prompts.findIndex((prompt) => isDict$60(prompt) && prompt.identifier === identifier) : -1;
+	return Array.isArray(prompts) ? prompts.findIndex((prompt) => isDict$61(prompt) && prompt.identifier === identifier) : -1;
 }
 function hasContent(prompt) {
 	return typeof prompt.content === "string" && prompt.content.trim() !== "";
@@ -64368,7 +65476,7 @@ function hasContent(prompt) {
 function findAssistantPrefill(prompts, order) {
 	if (!Array.isArray(prompts)) return null;
 	const byId = /* @__PURE__ */ new Map();
-	for (const prompt of prompts) if (isDict$60(prompt) && typeof prompt.identifier === "string") byId.set(prompt.identifier, prompt);
+	for (const prompt of prompts) if (isDict$61(prompt) && typeof prompt.identifier === "string") byId.set(prompt.identifier, prompt);
 	const name = (prompt, identifier) => typeof prompt.name === "string" && prompt.name ? prompt.name : identifier;
 	for (const entry of order) {
 		if (!entry.enabled) continue;
@@ -64402,7 +65510,7 @@ function findAssistantPrefill(prompts, order) {
 }
 //#endregion
 //#region src/features/guardian/tracked.ts
-function isDict$59(value) {
+function isDict$60(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /** Preset fields that hold addresses, keys or passwords: never stored, kept as they are on restore. */
@@ -64555,7 +65663,7 @@ function empty() {
 }
 function liveOai(app) {
 	const settings = app.host.ctx().chatCompletionSettings;
-	return isDict$59(settings) ? settings : null;
+	return isDict$60(settings) ? settings : null;
 }
 function withoutKeys$1(source, keys) {
 	const copy = { ...source };
@@ -64568,7 +65676,7 @@ async function livePresetBody(app, log) {
 	try {
 		const get = (await app.host.modules.openai()).getChatCompletionPreset;
 		const body = typeof get === "function" ? get() : null;
-		return isDict$59(body) ? jsonCopy$1(withoutKeys$1(body, PRESET_SECRET_KEYS)) : null;
+		return isDict$60(body) ? jsonCopy$1(withoutKeys$1(body, PRESET_SECRET_KEYS)) : null;
 	} catch (error) {
 		log.debug("preset body unavailable", error);
 		return null;
@@ -64583,7 +65691,7 @@ async function presetPart(app, log) {
 	const order = activePromptOrder(oai.prompt_order);
 	part.values["preset.order"] = order.map((entry) => entry.identifier);
 	part.values["preset.toggles"] = Object.fromEntries(order.map((entry) => [entry.identifier, entry.enabled]));
-	const ids = (Array.isArray(oai.prompts) ? oai.prompts.filter(isDict$59) : []).filter((prompt) => typeof prompt.identifier === "string");
+	const ids = (Array.isArray(oai.prompts) ? oai.prompts.filter(isDict$60) : []).filter((prompt) => typeof prompt.identifier === "string");
 	part.values["preset.roles"] = Object.fromEntries(ids.map((prompt) => [prompt.identifier, typeof prompt.role === "string" ? prompt.role : "system"]));
 	part.values["preset.contents"] = Object.fromEntries(ids.filter((prompt) => prompt.marker !== true).map((prompt) => [prompt.identifier, valueHash({
 		name: prompt.name ?? null,
@@ -64607,7 +65715,7 @@ function regexPart(app) {
 	const scripts = app.host.ctx().extensionSettings.regex;
 	if (!Array.isArray(scripts)) return part;
 	for (const script of scripts) {
-		if (!isDict$59(script) || typeof script.id !== "string" || !script.id) continue;
+		if (!isDict$60(script) || typeof script.id !== "string" || !script.id) continue;
 		const path = `regex.${script.id}`;
 		part.values[path] = {
 			name: typeof script.scriptName === "string" ? script.scriptName : "",
@@ -64629,7 +65737,7 @@ async function worldInfoPart(app, log) {
 		const wi = await app.host.modules.worldInfo();
 		const get = wi.getWorldInfoSettings;
 		const settings = typeof get === "function" ? get() : null;
-		if (isDict$59(settings)) {
+		if (isDict$60(settings)) {
 			for (const key of WI_KEYS) if (settings[key] !== void 0) part.values[`worldInfo.${key}`] = settings[key];
 		}
 		if (Array.isArray(wi.selected_world_info)) part.values["worldInfo.globalSelect"] = wi.selected_world_info.filter((item) => typeof item === "string").sort();
@@ -64642,7 +65750,7 @@ function profilesPart(app) {
 	const part = empty();
 	const profiles = getPath(app.host.ctx().extensionSettings, "connectionManager.profiles");
 	if (!Array.isArray(profiles)) return part;
-	part.values["profiles.list"] = profiles.filter(isDict$59).map((profile) => `${String(profile.name ?? "")}#${String(profile.id ?? "")}`).sort();
+	part.values["profiles.list"] = profiles.filter(isDict$60).map((profile) => `${String(profile.name ?? "")}#${String(profile.id ?? "")}`).sort();
 	return part;
 }
 function extensionsPart(app) {
@@ -64685,7 +65793,7 @@ function fullValue(part, path) {
 function isRestorable(entry, baseline) {
 	const group = groupOf(entry.path);
 	if (group === "preset") {
-		if (isPresetBodyPath(entry.path)) return isDict$59(baseline.restore["preset.body"]);
+		if (isPresetBodyPath(entry.path)) return isDict$60(baseline.restore["preset.body"]);
 		return entry.baseline !== void 0;
 	}
 	if (group === "worldInfo") return entry.path !== "worldInfo.globalSelect" && entry.baseline !== void 0;
@@ -64697,24 +65805,24 @@ async function presetManager(app) {
 	if (!app.host.caps.has("st.presetManager")) return null;
 	const get = (await app.host.modules.presetManager()).getPresetManager;
 	const manager = typeof get === "function" ? get("openai") : null;
-	return isDict$59(manager) ? manager : null;
+	return isDict$60(manager) ? manager : null;
 }
 async function rerenderPrompts(app, log) {
 	if (!app.host.caps.has("st.oai.promptManager")) return;
 	try {
 		const manager = (await app.host.modules.openai()).promptManager;
-		if (isDict$59(manager) && typeof manager.render === "function") manager.render.call(manager, false);
+		if (isDict$60(manager) && typeof manager.render === "function") manager.render.call(manager, false);
 	} catch (error) {
 		log.debug("prompt manager render failed", error);
 	}
 }
 function globalOrderEntry(oai) {
-	const lists = Array.isArray(oai.prompt_order) ? oai.prompt_order.filter(isDict$59) : [];
+	const lists = Array.isArray(oai.prompt_order) ? oai.prompt_order.filter(isDict$60) : [];
 	return lists.find((item) => String(item.character_id) === String(100001)) ?? lists[0] ?? null;
 }
 /** Saves the body into the preset file through ST's preset manager, which then selects and applies it. */
 async function writePresetBody(app, value) {
-	if (!isDict$59(value) || typeof value.name !== "string" || !value.name || !isDict$59(value.body)) return false;
+	if (!isDict$60(value) || typeof value.name !== "string" || !value.name || !isDict$60(value.body)) return false;
 	const manager = await presetManager(app);
 	if (!manager || typeof manager.savePreset !== "function") return false;
 	let secrets = {};
@@ -64722,10 +65830,10 @@ async function writePresetBody(app, value) {
 		const openai = await app.host.modules.openai();
 		const names = openai.openai_setting_names;
 		const list = openai.openai_settings;
-		const slot = isDict$59(names) ? names[value.name] : void 0;
+		const slot = isDict$60(names) ? names[value.name] : void 0;
 		const stored = Array.isArray(list) && typeof slot === "number" ? list[slot] : void 0;
-		const source = isDict$59(stored) ? stored : typeof openai.getChatCompletionPreset === "function" ? openai.getChatCompletionPreset() : null;
-		if (isDict$59(source)) {
+		const source = isDict$60(stored) ? stored : typeof openai.getChatCompletionPreset === "function" ? openai.getChatCompletionPreset() : null;
+		if (isDict$60(source)) {
 			for (const key of PRESET_SECRET_KEYS) if (source[key] !== void 0) secrets[key] = source[key];
 		}
 	}
@@ -64750,7 +65858,7 @@ async function writePreset(app, log, path, value) {
 	const oai = liveOai(app);
 	if (!oai) return false;
 	if (path === "preset.roles") {
-		if (!isDict$59(value) || !Array.isArray(oai.prompts)) return false;
+		if (!isDict$60(value) || !Array.isArray(oai.prompts)) return false;
 		for (const [identifier, role] of Object.entries(value)) {
 			const index = promptIndex(oai.prompts, identifier);
 			if (index >= 0 && typeof role === "string") oai.prompts[index].role = role;
@@ -64758,9 +65866,9 @@ async function writePreset(app, log, path, value) {
 	} else if (path === "preset.toggles" || path === "preset.order") {
 		const entry = globalOrderEntry(oai);
 		if (!entry || !Array.isArray(entry.order)) return false;
-		const items = entry.order.filter(isDict$59);
+		const items = entry.order.filter(isDict$60);
 		if (path === "preset.toggles") {
-			if (!isDict$59(value)) return false;
+			if (!isDict$60(value)) return false;
 			for (const item of items) {
 				const enabled = value[String(item.identifier)];
 				if (typeof enabled === "boolean") item.enabled = enabled;
@@ -64782,12 +65890,12 @@ function writeRegex(app, path, value) {
 	const settings = app.host.ctx().extensionSettings;
 	const scripts = Array.isArray(settings.regex) ? settings.regex : [];
 	settings.regex = scripts;
-	const index = scripts.findIndex((script) => isDict$59(script) && script.id === id);
+	const index = scripts.findIndex((script) => isDict$60(script) && script.id === id);
 	if (value === void 0 || value === null) {
 		if (index >= 0) scripts.splice(index, 1);
 		return true;
 	}
-	if (!isDict$59(value) || value.id !== id) return false;
+	if (!isDict$60(value) || value.id !== id) return false;
 	if (index >= 0) scripts[index] = jsonCopy$1(value);
 	else scripts.push(jsonCopy$1(value));
 	return true;
@@ -64836,11 +65944,11 @@ var SETTING_TARGET = "guardian-setting";
 var PULT_ONLY = ["extensions.versions"];
 var DESCRIBE_LIMIT = 12;
 var VALUE_CHARS = 40;
-function isDict$58(value) {
+function isDict$59(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function isDriftPayload(value) {
-	return isDict$58(value) && typeof value.hash === "string" && typeof value.baselineAt === "number" && Array.isArray(value.restore) && Array.isArray(value.adopt);
+	return isDict$59(value) && typeof value.hash === "string" && typeof value.baselineAt === "number" && Array.isArray(value.restore) && Array.isArray(value.adopt);
 }
 /** Restore order: the whole preset first (it reloads everything), then its name, then the rest. */
 function restoreRank(path) {
@@ -64947,7 +66055,7 @@ var GuardianService = class {
 		let entries = detail.entries.filter((entry) => paths.includes(entry.path) && isRestorable(entry, baseline));
 		if (confirmPreset && entries.some((entry) => isPresetBodyPath(entry.path))) {
 			const value = baseline.restore["preset.body"];
-			const name = isDict$58(value) && typeof value.name === "string" ? value.name : "";
+			const name = isDict$59(value) && typeof value.name === "string" ? value.name : "";
 			if (!await this.app.ui.confirm(this.t("m4.confirm.presetTitle"), this.t("m4.confirm.presetBody", { name }))) entries = entries.filter((entry) => !isPresetBodyPath(entry.path));
 		}
 		entries.sort((a, b) => restoreRank(a.path) - restoreRank(b.path) || a.path.localeCompare(b.path));
@@ -65056,7 +66164,7 @@ var GuardianService = class {
 		}
 	}
 	findCard(hash) {
-		return this.app.inbox.list().find((card) => card.kind === "guardian.drift" && isDict$58(card.payload) && card.payload.hash === hash)?.id;
+		return this.app.inbox.list().find((card) => card.kind === "guardian.drift" && isDict$59(card.payload) && card.payload.hash === hash)?.id;
 	}
 	/** Inbox applier: restores what can be restored and takes the rest as the new baseline. */
 	async applyCard(payload) {
@@ -65106,7 +66214,7 @@ var GuardianService = class {
 		const title = this.t(key);
 		let name = rest;
 		if (group === "regex") {
-			const value = isDict$58(entry.current) ? entry.current : isDict$58(entry.baseline) ? entry.baseline : null;
+			const value = isDict$59(entry.current) ? entry.current : isDict$59(entry.baseline) ? entry.baseline : null;
 			if (value && typeof value.name === "string" && value.name) name = value.name;
 		} else if (group === "preset") {
 			const known = this.t(`m4.preset.${rest}`);
@@ -65767,7 +66875,7 @@ var LORE_WAIT_MS = 5e3;
 var REPLY_GRACE_MS$1 = 6e4;
 var NOT_A_TURN$1 = /* @__PURE__ */ new Set(["quiet", "impersonate"]);
 var TOKEN_CACHE_LIMIT$2 = 2e3;
-function isDict$57(value) {
+function isDict$58(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /** Prompt Manager's "absolute" injection position (PromptManager.js INJECTION_POSITION). */
@@ -65782,7 +66890,7 @@ function ensureDoc(doc) {
 	const raw = doc;
 	raw.v = 1;
 	if (!Array.isArray(raw.records)) raw.records = [];
-	raw.records = raw.records.filter((record) => isDict$57(record) && typeof record.messageIndex === "number" && Array.isArray(record.sources));
+	raw.records = raw.records.filter((record) => isDict$58(record) && typeof record.messageIndex === "number" && Array.isArray(record.sources));
 	return raw;
 }
 var Inspector = class {
@@ -65863,7 +66971,7 @@ var Inspector = class {
 		this.awaiting = { type: info.type };
 	}
 	onPromptReady(data) {
-		if (!isDict$57(data) || data.dryRun !== false || !this.awaiting) return;
+		if (!isDict$58(data) || data.dryRun !== false || !this.awaiting) return;
 		const { type } = this.awaiting;
 		this.awaiting = null;
 		this.pendingEndedAt = null;
@@ -65880,12 +66988,12 @@ var Inspector = class {
 	promptManager() {
 		if (!this.app.host.caps.has("st.oai.promptManager")) return null;
 		const pm = this.openai?.promptManager;
-		return isDict$57(pm) ? pm : null;
+		return isDict$58(pm) ? pm : null;
 	}
 	snapshotCounts() {
 		try {
 			const counts = this.promptManager()?.tokenHandler?.getCounts?.();
-			if (!isDict$57(counts)) return null;
+			if (!isDict$58(counts)) return null;
 			const copy = {};
 			for (const [identifier, value] of Object.entries(counts)) if (typeof value === "number" && Number.isFinite(value)) copy[identifier] = value;
 			return copy;
@@ -65918,7 +67026,7 @@ var Inspector = class {
 			if (!Array.isArray(order)) return [];
 			const result = [];
 			for (const item of order) {
-				if (!isDict$57(item) || item.enabled === false || typeof item.identifier !== "string") continue;
+				if (!isDict$58(item) || item.enabled === false || typeof item.identifier !== "string") continue;
 				const prompt = pm.getPromptById(item.identifier);
 				if (!prompt || prompt.marker === true || Number(prompt.injection_position) !== ABSOLUTE$1) continue;
 				if (typeof prompt.content !== "string" || !prompt.content) continue;
@@ -66455,7 +67563,7 @@ function promptTab(app, inspector, settings) {
 		} catch (error) {
 			app.log.debug("preset prompts", error);
 		}
-		const history = details.capture.messages.filter((message) => ["user", "assistant"].includes(messageRole(message))).map((message) => messageText(message)).join("\n");
+		const history = details.capture.messages.filter((message) => ["user", "assistant"].includes(messageRole$1(message))).map((message) => messageText(message)).join("\n");
 		if (history) texts.push({
 			source: t("m2.src.history"),
 			text: history
@@ -66715,7 +67823,7 @@ var MAX_MAX_FACTS = 2e3;
 var MAX_SENTENCE = 500;
 var NAME_ALIASES = 3;
 var NAME_FORMS = 8;
-function isDict$56(value) {
+function isDict$57(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function str$11(value) {
@@ -66726,7 +67834,7 @@ function emptyKnowledgeDoc() {
 }
 /** A stored fact repaired (null for junk). */
 function normalizeFact(raw) {
-	if (!isDict$56(raw)) return null;
+	if (!isDict$57(raw)) return null;
 	const id = str$11(raw.id);
 	const text = str$11(raw.text);
 	if (!id || !text) return null;
@@ -66748,7 +67856,7 @@ function normalizeFact(raw) {
 }
 /** A fresh, repaired copy of a stored document (never the cached object). */
 function normalizeKnowledgeDoc(raw) {
-	const facts = isDict$56(raw) && Array.isArray(raw.facts) ? raw.facts : [];
+	const facts = isDict$57(raw) && Array.isArray(raw.facts) ? raw.facts : [];
 	const seen = /* @__PURE__ */ new Set();
 	const out = [];
 	for (const item of facts) {
@@ -66817,7 +67925,7 @@ function eventsFromSignals(signals, options) {
 	const out = [];
 	const names = (name) => nameTopics(name, options.lookup);
 	for (const signal of signals) {
-		const data = isDict$56(signal.data) ? signal.data : {};
+		const data = isDict$57(signal.data) ? signal.data : {};
 		const name = str$11(data.name);
 		switch (signal.kind) {
 			case "quest.added":
@@ -67093,7 +68201,7 @@ function setKnown(fact, name, known) {
 }
 //#endregion
 //#region src/domain/voices-speech.ts
-var TAG_RE$1 = /<([A-Za-z][A-Za-z0-9_-]*):([^<>\n]+)>/g;
+var TAG_RE$2 = /<([A-Za-z][A-Za-z0-9_-]*):([^<>\n]+)>/g;
 var ANY_TAG_RE$1 = /<\/?[^<>\n]{1,80}>/g;
 var LING_KEYS = /* @__PURE__ */ new Set([
 	"LING",
@@ -67132,12 +68240,12 @@ var SPEECH_ASPECTS = [
 function text$5(value) {
 	return typeof value === "string" ? value : "";
 }
-function collapse(value) {
+function collapse$1(value) {
 	return value.replace(/\s+/g, " ").trim();
 }
 /** A tag value as a readable label: `SOFT_SPOKEN` → `soft spoken`, `Old-Fashioned` → `old-fashioned`. */
 function tagLabel(value) {
-	return collapse(value.replace(/_/g, " ")).toLowerCase();
+	return collapse$1(value.replace(/_/g, " ")).toLowerCase();
 }
 function pushUnique(list, value) {
 	const label = tagLabel(value);
@@ -67146,7 +68254,7 @@ function pushUnique(list, value) {
 /** LING values used inside a prose text (`Character uses <LING:COMMANDING> speech`). */
 function lingInProse(prose) {
 	const found = [];
-	for (const match of prose.matchAll(TAG_RE$1)) if (LING_KEYS.has((match[1] ?? "").toUpperCase())) pushUnique(found, match[2] ?? "");
+	for (const match of prose.matchAll(TAG_RE$2)) if (LING_KEYS.has((match[1] ?? "").toUpperCase())) pushUnique(found, match[2] ?? "");
 	return found;
 }
 /**
@@ -67154,7 +68262,7 @@ function lingInProse(prose) {
 * breaks, whitespace collapses.
 */
 function cleanLinguistics(prose) {
-	return collapse(prose.replace(TAG_RE$1, (_whole, _key, value) => tagLabel(value)).replace(ANY_TAG_RE$1, " ").replace(MARKDOWN_RE, "").replace(HEADER_RE, ". ").replace(BULLET_RE, ". ")).replace(/\s+([.,;!?])/g, "$1").replace(/([.!?…;])(?:\s*\.)+/g, "$1").replace(/^[\s.;]+/, "");
+	return collapse$1(prose.replace(TAG_RE$2, (_whole, _key, value) => tagLabel(value)).replace(ANY_TAG_RE$1, " ").replace(MARKDOWN_RE, "").replace(HEADER_RE, ". ").replace(BULLET_RE, ". ")).replace(/\s+([.,;!?])/g, "$1").replace(/([.!?…;])(?:\s*\.)+/g, "$1").replace(/^[\s.;]+/, "");
 }
 /** The voice of a parsed sheet (M35 `readSheet`, a sheet draft). */
 function archiveVoiceFromSheet(sheet) {
@@ -67192,7 +68300,7 @@ function archiveVoiceOf(content) {
 }
 /** Sentences of a cleaned prose (ends of sentences, semicolons). */
 function splitSentences$2(prose) {
-	return prose.split(/(?<=[.!?…])\s+|;\s*/).map((sentence) => collapse(sentence).replace(/[.;]+$/, "")).filter((sentence) => sentence.length > 1);
+	return prose.split(/(?<=[.!?…])\s+|;\s*/).map((sentence) => collapse$1(sentence).replace(/[.;]+$/, "")).filter((sentence) => sentence.length > 1);
 }
 /**
 * A sentence without what a card does not need: the subject (a pronoun, «Character», one of `names` — the character's
@@ -67212,7 +68320,7 @@ function compactSentence(sentence, names = []) {
 function quotedWords(prose) {
 	const found = [];
 	for (const match of prose.matchAll(QUOTE_RE)) {
-		const word = collapse(match[1] ?? match[2] ?? match[3] ?? "");
+		const word = collapse$1(match[1] ?? match[2] ?? match[3] ?? "");
 		if (word && !found.includes(word)) found.push(word);
 	}
 	return found;
@@ -67251,7 +68359,7 @@ function speechText(voice, options) {
 */
 function mbtiText(mbti, state, stateChars = 60) {
 	if (!mbti) return "";
-	const now = state && stateChars > 0 ? truncate(collapse(state), stateChars) : "";
+	const now = state && stateChars > 0 ? truncate(collapse$1(state), stateChars) : "";
 	const notes = [mbti.variant === "H" ? "healthy" : mbti.variant === "U" ? "unhealthy" : "", now ? `now: ${now}` : ""].filter(Boolean).join("; ");
 	const type = mbti.variant ? `${mbti.type}-${mbti.variant}` : mbti.type;
 	return notes ? `${type} (${notes})` : type;
@@ -67268,7 +68376,7 @@ var PROSE_CHARS = [
 ];
 var GOAL_KEY_RE = /goals?|objectives?|intent|plans?|motiv|wants?|desires?|agenda|purpose|(?:^|_)aims?(?:_|$)|цел|намерен|план|мотив|желан|стремлен/i;
 var STATE_KEY_RE = /demeanou?r|mood|emotion|feeling|(?:^|_)state(?:_|$)|поведени|настроени|состояни|эмоци|чувств/i;
-var WORD_RE$2 = /[\p{L}\p{N}_]/u;
+var WORD_RE$3 = /[\p{L}\p{N}_]/u;
 var CYRILLIC_RE$5 = /\p{Script=Cyrillic}/u;
 /** Letters a Cyrillic name may be followed by in running text (a case ending: «Анн|ой»). */
 var CYRILLIC_TAIL = 2;
@@ -67326,7 +68434,7 @@ function mentionsName(text, needles) {
 		const needle = normalizeName(raw);
 		if (needle.length < 2) continue;
 		for (let at = haystack.indexOf(needle); at >= 0; at = haystack.indexOf(needle, at + 1)) {
-			if (at > 0 && WORD_RE$2.test(haystack[at - 1] ?? "")) continue;
+			if (at > 0 && WORD_RE$3.test(haystack[at - 1] ?? "")) continue;
 			const tail = /^[\p{L}\p{N}_]*/u.exec(haystack.slice(at + needle.length))?.[0] ?? "";
 			if (!tail) return true;
 			if (CYRILLIC_RE$5.test(needle) && tail.length <= CYRILLIC_TAIL && /^\p{Script=Cyrillic}+$/u.test(tail)) return true;
@@ -67689,16 +68797,16 @@ var UNAWARE_BEFORE = /(?:unknown|hidden|kept|keeps|keeping|concealed|conceals|se
 /** «without Bob knowing». */
 var WITHOUT_BEFORE = /without\s+$/;
 var KNOWING_AFTER = /^(?:'s)?\s+knowing\b/;
-var WORD_RE$1 = /[\p{L}\p{N}_]/u;
+var WORD_RE$2 = /[\p{L}\p{N}_]/u;
 var WINDOW = 60;
 /** Start positions of a needle with a left word boundary and at most `tail` word characters after it. */
 function occurrences(text, needle, tail) {
 	const out = [];
 	if (!needle) return out;
 	for (let at = text.indexOf(needle); at >= 0; at = text.indexOf(needle, at + 1)) {
-		if (at > 0 && WORD_RE$1.test(text[at - 1] ?? "")) continue;
+		if (at > 0 && WORD_RE$2.test(text[at - 1] ?? "")) continue;
 		let extra = 0;
-		while (extra <= tail && WORD_RE$1.test(text[at + needle.length + extra] ?? "")) extra++;
+		while (extra <= tail && WORD_RE$2.test(text[at + needle.length + extra] ?? "")) extra++;
 		if (extra <= tail) out.push(at);
 	}
 	return out;
@@ -68778,7 +69886,7 @@ var SCAN_STATE = {
 	RECURSION: 2,
 	MIN_ACTIVATIONS: 3
 };
-function isDict$55(value) {
+function isDict$56(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function num$6(value, fallback = 0) {
@@ -68799,13 +69907,13 @@ function entryId(world, uid) {
 }
 /** Our id of a raw scan entry; null when it has no world/uid. */
 function rawId(raw) {
-	if (!isDict$55(raw) || typeof raw.world !== "string") return null;
+	if (!isDict$56(raw) || typeof raw.world !== "string") return null;
 	const uid = Number(raw.uid);
 	return Number.isFinite(uid) ? entryId(raw.world, uid) : null;
 }
 /** Copies the fields M1 needs from a scan entry; null when it has no world/uid. */
 function captureEntry(raw, loop, recursionLevel) {
-	if (!isDict$55(raw)) return null;
+	if (!isDict$56(raw)) return null;
 	const uid = Number(raw.uid);
 	if (typeof raw.world !== "string" || !Number.isFinite(uid)) return null;
 	const entry = {
@@ -68882,15 +69990,15 @@ var ScanCollector = class {
 	}
 	/** One WORLDINFO_SCAN_DONE payload. Cheap: identity copies only. */
 	scanDone(args) {
-		if (this.complete || !isDict$55(args)) return;
-		const state = isDict$55(args.state) ? args.state : {};
+		if (this.complete || !isDict$56(args)) return;
+		const state = isDict$56(args.state) ? args.state : {};
 		const loop = num$6(state.loopCount, this.lastLoop + 1);
 		if (loop <= this.lastLoop) this.reset();
 		this.lastLoop = loop;
 		const current = num$6(state.current, SCAN_STATE.INITIAL);
 		if (current === SCAN_STATE.RECURSION) this.recursionSteps++;
 		const level = current === SCAN_STATE.RECURSION ? this.recursionSteps : 0;
-		const activated = isDict$55(args.activated) ? args.activated.entries : void 0;
+		const activated = isDict$56(args.activated) ? args.activated.entries : void 0;
 		if (isMapLike(activated)) for (const raw of activated.values()) {
 			const id = rawId(raw);
 			if (id === null) continue;
@@ -68899,9 +70007,9 @@ var ScanCollector = class {
 			const entry = captureEntry(raw, loop, level);
 			if (entry) this.activated.set(id, entry);
 		}
-		const budget = isDict$55(args.budget) ? args.budget : {};
+		const budget = isDict$56(args.budget) ? args.budget : {};
 		const reason = budget.overflowed === true ? "budget" : "other";
-		const fresh = isDict$55(args.new) && Array.isArray(args.new.successful) ? args.new.successful : [];
+		const fresh = isDict$56(args.new) && Array.isArray(args.new.successful) ? args.new.successful : [];
 		for (const raw of fresh) {
 			const id = rawId(raw);
 			if (id === null || this.activated.has(id) || this.cutEntries.has(id)) continue;
@@ -69139,7 +70247,7 @@ var STALE_COLLECTOR_MS = 9e5;
 var NOT_A_TURN = /* @__PURE__ */ new Set(["quiet", "impersonate"]);
 var TOKEN_CACHE_LIMIT$1 = 3e3;
 var TOKEN_WORKERS = 4;
-function isDict$54(value) {
+function isDict$55(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function strings$10(value) {
@@ -69227,7 +70335,7 @@ var LoreJournal = class {
 		this.ensureLoaded();
 	}
 	onEntriesLoaded(payload) {
-		if (!isDict$54(payload)) return;
+		if (!isDict$55(payload)) return;
 		if (this.sim) {
 			this.prepareSimulation(payload);
 			return;
@@ -69247,7 +70355,7 @@ var LoreJournal = class {
 		]) {
 			const list = lists[name];
 			if (!Array.isArray(list)) continue;
-			for (const entry of list) if (isDict$54(entry) && entry.useProbability) entry.useProbability = false;
+			for (const entry of list) if (isDict$55(entry) && entry.useProbability) entry.useProbability = false;
 		}
 		if (sim.transform) try {
 			sim.transform(lists);
@@ -69541,7 +70649,7 @@ var LoreJournal = class {
 	async whyActive() {
 		const ctx = this.app.host.ctx();
 		const wi = await loadWorldInfo(this.app);
-		const charLore = isDict$54(wi?.world_info) && Array.isArray(wi.world_info.charLore) ? wi.world_info.charLore : [];
+		const charLore = isDict$55(wi?.world_info) && Array.isArray(wi.world_info.charLore) ? wi.world_info.charLore : [];
 		const characters = ctx.characters ?? [];
 		const members = ctx.groupId ? ((ctx.groups ?? []).find((group) => group.id === ctx.groupId)?.members ?? []).map((avatar) => characters.find((character) => character.avatar === avatar)) : [ctx.characterId === void 0 ? void 0 : characters[Number(ctx.characterId)]];
 		const primary = [];
@@ -69551,7 +70659,7 @@ var LoreJournal = class {
 			const world = character.data?.extensions?.world;
 			if (typeof world === "string" && world) primary.push(world);
 			const key = avatarKey$1(character.avatar ?? "");
-			for (const lore of charLore) if (isDict$54(lore) && lore.name === key) extra.push(...strings$10(lore.extraBooks));
+			for (const lore of charLore) if (isDict$55(lore) && lore.name === key) extra.push(...strings$10(lore.extraBooks));
 		}
 		const chatBook = ctx.chatMetadata?.world_info;
 		const personaBook = ctx.powerUserSettings?.persona_description_lorebook;
@@ -69602,7 +70710,7 @@ var LoreJournal = class {
 		} finally {
 			this.sim = null;
 		}
-		const final = isDict$54(result) ? result.allActivatedEntries : void 0;
+		const final = isDict$55(result) ? result.allActivatedEntries : void 0;
 		if (final && typeof final[Symbol.iterator] === "function") sim.collector.activatedFinal([...final]);
 		return this.buildRecord(sim.collector.result(), {
 			messageIndex: -1,
@@ -69675,10 +70783,10 @@ var LoreJournal = class {
 				this.log.debug(`lorebook ${world} did not load`, error);
 				continue;
 			}
-			const entries = isDict$54(book) && isDict$54(book.entries) ? book.entries : {};
+			const entries = isDict$55(book) && isDict$55(book.entries) ? book.entries : {};
 			const wanted = new Map(record.activations.filter((row) => row.world === world).map((row) => [row.uid, row]));
 			for (const raw of Object.values(entries)) {
-				if (!isDict$54(raw)) continue;
+				if (!isDict$55(raw)) continue;
 				const row = wanted.get(Number(raw.uid));
 				if (!row) continue;
 				const entry = captureEntry({
@@ -71917,7 +73025,7 @@ function buildExtractMessages$1(input) {
 		content: user
 	}];
 }
-function isDict$53(value) {
+function isDict$54(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function text$3(value, max) {
@@ -71960,13 +73068,13 @@ function parsed(data) {
 */
 function parseExtraction(data, context) {
 	const value = parsed(data);
-	if (!isDict$53(value) || !Array.isArray(value.provisional) && !Array.isArray(value.facts)) return null;
+	if (!isDict$54(value) || !Array.isArray(value.provisional) && !Array.isArray(value.facts)) return null;
 	const rejected = [];
 	const updates = [];
 	const uids = new Set(context.uids);
 	const done = /* @__PURE__ */ new Set();
 	for (const item of Array.isArray(value.provisional) ? value.provisional : []) {
-		if (!isDict$53(item) || typeof item.uid !== "number" || !uids.has(item.uid) || done.has(item.uid)) {
+		if (!isDict$54(item) || typeof item.uid !== "number" || !uids.has(item.uid) || done.has(item.uid)) {
 			rejected.push({
 				item,
 				reason: "unknown uid"
@@ -71999,7 +73107,7 @@ function parseExtraction(data, context) {
 	const seen = /* @__PURE__ */ new Set();
 	for (const item of Array.isArray(value.facts) ? value.facts : []) {
 		if (facts.length >= Math.max(0, context.max)) break;
-		if (!isDict$53(item)) {
+		if (!isDict$54(item)) {
 			rejected.push({
 				item,
 				reason: "not an object"
@@ -72109,7 +73217,7 @@ function emptyLivingDoc() {
 		stats: emptyStats()
 	};
 }
-function isDict$52(value) {
+function isDict$53(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function str$10(value, fallback = "") {
@@ -72128,7 +73236,7 @@ function isLivingType(value) {
 	return typeof value === "string" && LIVING_TYPES.includes(value);
 }
 function draftOf(raw) {
-	if (!isDict$52(raw) || typeof raw.name !== "string" || !raw.name.trim()) return null;
+	if (!isDict$53(raw) || typeof raw.name !== "string" || !raw.name.trim()) return null;
 	const source = int(raw.sourceMessage, -1);
 	if (source < 0) return null;
 	const draft = {
@@ -72148,7 +73256,7 @@ function draftOf(raw) {
 	return draft;
 }
 function factOf(raw) {
-	if (!isDict$52(raw) || typeof raw.id !== "string" || typeof raw.name !== "string" || !raw.name.trim()) return null;
+	if (!isDict$53(raw) || typeof raw.id !== "string" || typeof raw.name !== "string" || !raw.name.trim()) return null;
 	const fact = {
 		id: raw.id,
 		name: raw.name.trim(),
@@ -72180,14 +73288,14 @@ function factOf(raw) {
 /** A stored document of any shape → a valid one (unknown entries dropped). */
 function normalizeLivingDoc(raw) {
 	const doc = emptyLivingDoc();
-	if (!isDict$52(raw)) return doc;
+	if (!isDict$53(raw)) return doc;
 	if (Array.isArray(raw.drafts)) doc.drafts = raw.drafts.map(draftOf).filter((item) => !!item);
 	if (Array.isArray(raw.facts)) doc.facts = raw.facts.map(factOf).filter((item) => !!item);
-	if (Array.isArray(raw.committed)) doc.committed = raw.committed.filter((item) => isDict$52(item) && typeof item.index === "number").map((item) => ({
+	if (Array.isArray(raw.committed)) doc.committed = raw.committed.filter((item) => isDict$53(item) && typeof item.index === "number").map((item) => ({
 		index: item.index,
 		stamp: str$10(item.stamp)
 	}));
-	if (isDict$52(raw.extract)) {
+	if (isDict$53(raw.extract)) {
 		const extract = raw.extract;
 		doc.extract = {
 			upTo: int(extract.upTo, -1),
@@ -72199,7 +73307,7 @@ function normalizeLivingDoc(raw) {
 		if (typeof extract.updated === "number") doc.extract.updated = extract.updated;
 	}
 	doc.started = raw.started === true;
-	if (isDict$52(raw.stats)) {
+	if (isDict$53(raw.stats)) {
 		const stats = raw.stats;
 		for (const key of STAT_KEYS) doc.stats[key] = Math.max(0, int(stats[key], 0));
 	}
@@ -72207,7 +73315,7 @@ function normalizeLivingDoc(raw) {
 }
 /** Fingerprint of a chat message: send date, swipe and text (a swipe, an edit or a regeneration changes it). */
 function messageStamp$1(message) {
-	if (!isDict$52(message)) return "";
+	if (!isDict$53(message)) return "";
 	const swipe = typeof message.swipe_id === "number" ? message.swipe_id : 0;
 	return `${str$10(message.send_date)}|${swipe}|${stableHash(str$10(message.mes))}`;
 }
@@ -75434,7 +76542,7 @@ function estimatePassportCost(lengths) {
 }
 //#endregion
 //#region src/features/lorePassports/io.ts
-function isDict$51(value) {
+function isDict$52(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function jsonCopy(value) {
@@ -75450,7 +76558,7 @@ var PassportError = class extends Error {
 };
 /** Canon items carry a CanonMeta in `extensions.maestro` (kind + status): such an entry belongs to a canon book. */
 function hasCanonMeta(entry) {
-	if (!isDict$51(entry) || !isDict$51(entry.extensions) || !isDict$51(entry.extensions.maestro)) return false;
+	if (!isDict$52(entry) || !isDict$52(entry.extensions) || !isDict$52(entry.extensions.maestro)) return false;
 	const meta = entry.extensions.maestro;
 	return typeof meta.kind === "string" && typeof meta.status === "string";
 }
@@ -75502,15 +76610,15 @@ var PassportIo = class {
 			const ctx = this.app.host.ctx();
 			if (typeof ctx.loadWorldInfo !== "function") return null;
 			raw = await ctx.loadWorldInfo(world);
-			if (isDict$51(raw)) raw = jsonCopy(raw);
+			if (isDict$52(raw)) raw = jsonCopy(raw);
 		}
-		if (!isDict$51(raw)) return null;
-		if (!isDict$51(raw.entries)) raw.entries = {};
+		if (!isDict$52(raw)) return null;
+		if (!isDict$52(raw.entries)) raw.entries = {};
 		return raw;
 	}
 	async loadEntry(world, uid) {
 		const entry = (await this.loadBook(world))?.entries[String(uid)];
-		return isDict$51(entry) ? entry : null;
+		return isDict$52(entry) ? entry : null;
 	}
 	/** Where the passports of a book's entries live (an entry carrying canon meta is always a canon entry). */
 	place(world, entry) {
@@ -75539,7 +76647,7 @@ var PassportIo = class {
 		const roles = this.roles();
 		if (!roles) return void 0;
 		const meta = roles.loadEntryMeta ? await roles.loadEntryMeta(world, uid) : roles.entryMeta(world, uid);
-		return isDict$51(meta) ? meta : void 0;
+		return isDict$52(meta) ? meta : void 0;
 	}
 	/** Sets (null: removes) the passport inside the entry; returns how it was written. */
 	async writeEntry(world, uid, record, summary) {
@@ -75561,7 +76669,7 @@ var PassportIo = class {
 		if (typeof ctx.loadWorldInfo !== "function" || typeof ctx.saveWorldInfo !== "function") throw new PassportError(this.t("m28.error.noWriter"), "noWriter");
 		const data = await this.loadBook(world);
 		const entry = data?.entries[String(uid)];
-		if (!data || !isDict$51(entry)) throw new PassportError(this.t("m28.error.missing", {
+		if (!data || !isDict$52(entry)) throw new PassportError(this.t("m28.error.missing", {
 			book: world,
 			uid
 		}), "missing");
@@ -75704,20 +76812,20 @@ var ScenePassports = class {
 		const data = await this.io.loadBook(world);
 		if (!data) return book;
 		for (const [key, raw] of Object.entries(data.entries)) {
-			if (!isDict$51(raw)) continue;
+			if (!isDict$52(raw)) continue;
 			const uid = typeof raw.uid === "number" && Number.isInteger(raw.uid) ? raw.uid : Number(key);
 			if (!Number.isInteger(uid)) continue;
 			const place = book.place === "entry" ? "entry" : this.io.place(world, raw);
 			if (place !== "entry" && place !== "sidecar") continue;
-			const extensions = isDict$51(raw.extensions) ? raw.extensions : {};
-			const maestro = isDict$51(extensions.maestro) ? extensions.maestro : void 0;
+			const extensions = isDict$52(raw.extensions) ? raw.extensions : {};
+			const maestro = isDict$52(extensions.maestro) ? extensions.maestro : void 0;
 			let record;
 			let typedSource;
 			if (place === "entry") {
 				record = passportOfEntry(raw);
 				typedSource = maestro;
 				const base = maestro?.base;
-				if (maestro?.kind === "override" && isDict$51(base) && typeof base.world === "string") {
+				if (maestro?.kind === "override" && isDict$52(base) && typeof base.world === "string") {
 					if (typeof base.uid === "number") book.overrides.set(entryMetaKey(base.world, base.uid), uid);
 				}
 			} else {
@@ -76018,7 +77126,7 @@ var LorePassportsService = class {
 		let typedSource;
 		if (place === "entry") {
 			record = passportOfEntry(entry);
-			typedSource = isDict$51(entry.extensions) ? entry.extensions.maestro : void 0;
+			typedSource = isDict$52(entry.extensions) ? entry.extensions.maestro : void 0;
 		} else {
 			const meta = await this.io.readSidecar(world, uid);
 			record = readPassportRecord(meta?.passport);
@@ -88609,14 +89717,14 @@ var OUTCOMES = [
 ];
 /** Words of a check name tried at the start of the command (multi-word names such as «Взлом замков»). */
 var NAME_WORDS_MAX = 4;
-function isDict$50(value) {
+function isDict$51(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function emptyDoc$2() {
 	return { results: [] };
 }
 function readResult(raw) {
-	if (!isDict$50(raw)) return null;
+	if (!isDict$51(raw)) return null;
 	const { id, mechanicId, checkId, holder, dice, text } = raw;
 	if (typeof id !== "string" || !id || typeof mechanicId !== "string" || typeof checkId !== "string") return null;
 	if (typeof holder !== "string" || typeof text !== "string") return null;
@@ -88643,7 +89751,7 @@ function readResult(raw) {
 	return result;
 }
 function readResults(doc) {
-	return (isDict$50(doc) && Array.isArray(doc.results) ? doc.results : []).map(readResult).filter((item) => item !== null);
+	return (isDict$51(doc) && Array.isArray(doc.results) ? doc.results : []).map(readResult).filter((item) => item !== null);
 }
 function publicResult(result) {
 	return {
@@ -89330,7 +90438,7 @@ var MECHANICS_DEF_TARGET = "mechanics.def";
 /** Chat-metadata pointer (`chatMetadata.maestro.pointers`) with the ids switched off in that chat. */
 var MECHANICS_OFF_POINTER = "mechanics.off";
 var BOOK_ROLES_KEY = "bookRoles";
-function isDict$49(value) {
+function isDict$50(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /** Where the open chat is: its character's avatar (every member's in a group chat) and its id. */
@@ -89351,7 +90459,7 @@ function scopeContextOf(app) {
 }
 /** The definitions of a book's mechanic entries, by uid. */
 function defsOfBook(book, data) {
-	if (!isDict$49(data) || !isDict$49(data.entries)) return [];
+	if (!isDict$50(data) || !isDict$50(data.entries)) return [];
 	const defs = [];
 	for (const entry of Object.values(data.entries)) {
 		const def = entryToDef(entry, book);
@@ -89532,7 +90640,7 @@ var MechanicDefinitions = class {
 			return;
 		}
 		this.bump(name);
-		if (isDict$49(data) && isDict$49(data.entries)) {
+		if (isDict$50(data) && isDict$50(data.entries)) {
 			this.store(name, data);
 			return;
 		}
@@ -89667,14 +90775,14 @@ var MechanicDefinitions = class {
 			const entries = data.entries;
 			const own = draft.book === book && draft.uid !== void 0 ? entries[String(draft.uid)] : void 0;
 			const sameId = draft.uid === void 0 ? Object.values(entries).find((entry) => entryToDef(entry, book)?.id === draft.id) : void 0;
-			const uid = own && isMechanicEntry(own) ? draft.uid : isDict$49(sameId) && typeof sameId.uid === "number" ? sameId.uid : freeUid(entries);
+			const uid = own && isMechanicEntry(own) ? draft.uid : isDict$50(sameId) && typeof sameId.uid === "number" ? sameId.uid : freeUid(entries);
 			const clash = clashOf(uid);
 			if (clash) throw new Error(this.t("m25.def.error.duplicateId", {
 				id: draft.id,
 				name: clash.name
 			}));
 			const previous = entries[String(uid)];
-			const before = isDict$49(previous) ? cloneDef(previous) : null;
+			const before = isDict$50(previous) ? cloneDef(previous) : null;
 			const after = defToEntry({
 				...draft,
 				updatedAt: Date.now()
@@ -89714,7 +90822,7 @@ var MechanicDefinitions = class {
 			if (!data) return;
 			if (this.isProtected(book, data)) throw new Error(this.t("m25.def.error.p13", { book }));
 			const previous = data.entries[String(uid)];
-			if (!isDict$49(previous) || !isMechanicEntry(previous)) return;
+			if (!isDict$50(previous) || !isMechanicEntry(previous)) return;
 			const before = cloneDef(previous);
 			delete data.entries[String(uid)];
 			this.bump(book);
@@ -89755,7 +90863,7 @@ var MechanicDefinitions = class {
 			const data = await io.load(book);
 			if (!data) return change.before === null;
 			if (this.isProtected(book, data)) return false;
-			if (isDict$49(change.before)) data.entries[String(uid)] = cloneDef(change.before);
+			if (isDict$50(change.before)) data.entries[String(uid)] = cloneDef(change.before);
 			else delete data.entries[String(uid)];
 			this.bump(book);
 			await io.save(book, data);
@@ -90730,7 +91838,7 @@ function emptyPlacesDoc() {
 		dismissed: []
 	};
 }
-function isDict$48(value) {
+function isDict$49(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function num$5(value, fallback) {
@@ -90740,7 +91848,7 @@ function strings$6(value) {
 	return Array.isArray(value) ? value.filter((item) => typeof item === "string") : [];
 }
 function readVisit(raw) {
-	if (!isDict$48(raw)) return null;
+	if (!isDict$49(raw)) return null;
 	const from = num$5(raw.from, NaN);
 	if (!Number.isFinite(from)) return null;
 	const visit = {
@@ -90753,7 +91861,7 @@ function readVisit(raw) {
 	return visit;
 }
 function readPlace(raw) {
-	if (!isDict$48(raw) || typeof raw.id !== "string" || !raw.id || typeof raw.name !== "string" || !raw.name.trim()) return null;
+	if (!isDict$49(raw) || typeof raw.id !== "string" || !raw.id || typeof raw.name !== "string" || !raw.name.trim()) return null;
 	const place = {
 		id: raw.id,
 		name: raw.name.trim(),
@@ -90765,12 +91873,12 @@ function readPlace(raw) {
 		lastSeen: num$5(raw.lastSeen, -1),
 		visits: (Array.isArray(raw.visits) ? raw.visits : []).map(readVisit).filter((visit) => visit !== null).sort((a, b) => a.from - b.from)
 	};
-	if (isDict$48(raw.entry) && typeof raw.entry.world === "string" && typeof raw.entry.uid === "number") place.entry = {
+	if (isDict$49(raw.entry) && typeof raw.entry.world === "string" && typeof raw.entry.uid === "number") place.entry = {
 		world: raw.entry.world,
 		uid: raw.entry.uid
 	};
 	if (typeof raw.passportId === "string" && raw.passportId) place.passportId = raw.passportId;
-	if (isDict$48(raw.state)) {
+	if (isDict$49(raw.state)) {
 		const state = {};
 		for (const [key, value] of Object.entries(raw.state)) if (typeof value === "string") state[key] = value;
 		place.state = state;
@@ -90779,7 +91887,7 @@ function readPlace(raw) {
 	return place;
 }
 function readCandidate(raw) {
-	if (!isDict$48(raw) || typeof raw.key !== "string" || !raw.key || typeof raw.name !== "string") return null;
+	if (!isDict$49(raw) || typeof raw.key !== "string" || !raw.key || typeof raw.name !== "string") return null;
 	const candidate = {
 		key: raw.key,
 		label: typeof raw.label === "string" ? raw.label : raw.name,
@@ -90794,7 +91902,7 @@ function readCandidate(raw) {
 	return candidate;
 }
 function readTrace$1(raw) {
-	if (!isDict$48(raw)) return null;
+	if (!isDict$49(raw)) return null;
 	return {
 		firstSeen: num$5(raw.firstSeen, -1),
 		lastSeen: num$5(raw.lastSeen, -1),
@@ -90802,12 +91910,12 @@ function readTrace$1(raw) {
 	};
 }
 function readRecord$1(raw) {
-	if (!isDict$48(raw) || typeof raw.index !== "number" || !isDict$48(raw.before)) return null;
+	if (!isDict$49(raw) || typeof raw.index !== "number" || !isDict$49(raw.before)) return null;
 	const before = raw.before;
 	const places = {};
-	if (isDict$48(before.places)) for (const [id, trace] of Object.entries(before.places)) places[id] = trace === null ? null : readTrace$1(trace);
+	if (isDict$49(before.places)) for (const [id, trace] of Object.entries(before.places)) places[id] = trace === null ? null : readTrace$1(trace);
 	const candidates = {};
-	if (isDict$48(before.candidates)) for (const [key, value] of Object.entries(before.candidates)) candidates[key] = value === null ? null : readCandidate(value);
+	if (isDict$49(before.candidates)) for (const [key, value] of Object.entries(before.candidates)) candidates[key] = value === null ? null : readCandidate(value);
 	const record = {
 		index: raw.index,
 		stamp: typeof raw.stamp === "string" ? raw.stamp : "",
@@ -90829,7 +91937,7 @@ function readRecord$1(raw) {
 * place's last visit left open. Never shares objects with `raw`.
 */
 function normalizePlacesDoc(raw) {
-	const source = isDict$48(raw) ? raw : {};
+	const source = isDict$49(raw) ? raw : {};
 	const places = [];
 	const ids = /* @__PURE__ */ new Set();
 	for (const item of Array.isArray(source.places) ? source.places : []) {
@@ -91607,7 +92715,7 @@ function reinsertPlace(doc, snapshot) {
 }
 //#endregion
 //#region src/features/mechanics/state-holders.ts
-function isDict$47(value) {
+function isDict$48(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /** The world model (M7), when it runs. */
@@ -92091,7 +93199,7 @@ var MechanicState = class {
 	}
 	/** Journal undo of a change (the user's edit, or a background change applied through autonomy). */
 	async undo(change) {
-		const ref = isDict$47(change.ref) ? change.ref : {};
+		const ref = isDict$48(change.ref) ? change.ref : {};
 		const chatId = this.app.host.chatId();
 		if (!chatId || typeof ref.chatId === "string" && ref.chatId !== chatId) return false;
 		const locator = {};
@@ -92832,12 +93940,12 @@ function buildExtractMessages(input) {
 		].join("\n")
 	}];
 }
-function isDict$46(value) {
+function isDict$47(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /** The answer as an object: parsed JSON, a JSON string (optionally fenced), or null. */
 function answerOf(raw) {
-	if (isDict$46(raw)) return raw;
+	if (isDict$47(raw)) return raw;
 	if (typeof raw !== "string") return null;
 	let text = raw.trim();
 	const fenced = /^```[a-z]*\s*\n?([\s\S]*?)\n?```$/i.exec(text);
@@ -92847,7 +93955,7 @@ function answerOf(raw) {
 	if (start < 0 || end <= start) return null;
 	try {
 		const parsed = JSON.parse(text.slice(start, end + 1));
-		return isDict$46(parsed) ? parsed : null;
+		return isDict$47(parsed) ? parsed : null;
 	} catch {
 		return null;
 	}
@@ -92870,7 +93978,7 @@ function parseExtractAnswer(raw, targets, options = {}) {
 	const edits = [];
 	const rejected = [];
 	for (const item of answer.changes) {
-		if (!isDict$46(item) || typeof item.holder !== "string" || typeof item.attribute !== "string") {
+		if (!isDict$47(item) || typeof item.holder !== "string" || typeof item.attribute !== "string") {
 			rejected.push({
 				item,
 				reason: "shape"
@@ -93009,13 +94117,13 @@ function readBlockRecord(message) {
 	if (!message) return null;
 	const swipeId = swipeIdOf$3(message);
 	const info = Array.isArray(message.swipe_info) ? message.swipe_info[swipeId] : void 0;
-	const candidates = [message.extra?.[EXTRA_KEY], isDict$47(info) && isDict$47(info.extra) ? info.extra[EXTRA_KEY] : void 0];
+	const candidates = [message.extra?.[EXTRA_KEY], isDict$48(info) && isDict$48(info.extra) ? info.extra[EXTRA_KEY] : void 0];
 	for (const raw of candidates) {
-		if (!isDict$47(raw) || raw.swipeId !== swipeId || !Array.isArray(raw.items)) continue;
+		if (!isDict$48(raw) || raw.swipeId !== swipeId || !Array.isArray(raw.items)) continue;
 		const record = {
 			v: 1,
 			swipeId,
-			items: raw.items.filter((item) => isDict$47(item) && typeof item.holder === "string" && typeof item.attribute === "string" && [
+			items: raw.items.filter((item) => isDict$48(item) && typeof item.holder === "string" && typeof item.attribute === "string" && [
 				"set",
 				"add",
 				"sub",
@@ -93031,11 +94139,11 @@ function readBlockRecord(message) {
 }
 /** Writes the record on the message and on its current swipe (ST copies `swipe_info[i].extra` back on swipes). */
 function writeBlockRecord(message, record) {
-	const extra = isDict$47(message.extra) ? message.extra : message.extra = {};
+	const extra = isDict$48(message.extra) ? message.extra : message.extra = {};
 	extra[EXTRA_KEY] = record;
 	const info = Array.isArray(message.swipe_info) ? message.swipe_info[record.swipeId] : void 0;
-	if (isDict$47(info)) {
-		const infoExtra = isDict$47(info.extra) ? info.extra : info.extra = {};
+	if (isDict$48(info)) {
+		const infoExtra = isDict$48(info.extra) ? info.extra : info.extra = {};
 		infoExtra[EXTRA_KEY] = structuredClone(record);
 	}
 }
@@ -93057,11 +94165,11 @@ function statMatches(statName, attr) {
 	].some((name) => !!name && nameKey$5(name) === key);
 }
 function statsOf(raw) {
-	const dict = isDict$47(raw) ? raw : {};
+	const dict = isDict$48(raw) ? raw : {};
 	const list = Array.isArray(dict.customStats) ? dict.customStats : [];
 	return {
 		enabled: dict.enabled === true,
-		customStats: list.filter(isDict$47).filter((item) => typeof item.name === "string" && item.name.trim()).map((item) => ({
+		customStats: list.filter(isDict$48).filter((item) => typeof item.name === "string" && item.name.trim()).map((item) => ({
 			id: typeof item.id === "string" && item.id ? item.id : String(item.name),
 			name: String(item.name),
 			enabled: item.enabled !== false
@@ -93069,10 +94177,10 @@ function statsOf(raw) {
 	};
 }
 function isChangePayload(value) {
-	return isDict$47(value) && value.m25 === 1 && typeof value.messageIndex === "number" && typeof value.swipeId === "number" && Array.isArray(value.changes);
+	return isDict$48(value) && value.m25 === 1 && typeof value.messageIndex === "number" && typeof value.swipeId === "number" && Array.isArray(value.changes);
 }
 function isDesStatsPayload(value) {
-	return isDict$47(value) && value.m25 === 1 && typeof value.mechanicId === "string" && Array.isArray(value.stats);
+	return isDict$48(value) && value.m25 === 1 && typeof value.mechanicId === "string" && Array.isArray(value.stats);
 }
 var MechanicTracking = class {
 	deps;
@@ -93217,9 +94325,9 @@ var MechanicTracking = class {
 	}
 	/** Leftover blocks of older replies never reach the model (assistant messages only). */
 	onPromptReady(data) {
-		if (this.disposed || !isDict$47(data) || !Array.isArray(data.chat)) return;
+		if (this.disposed || !isDict$48(data) || !Array.isArray(data.chat)) return;
 		for (const message of data.chat) {
-			if (!isDict$47(message) || message.role !== "assistant") continue;
+			if (!isDict$48(message) || message.role !== "assistant") continue;
 			const content = message.content;
 			if (typeof content === "string") {
 				if (hasBlockMarker(content)) {
@@ -93227,7 +94335,7 @@ var MechanicTracking = class {
 					if (next !== content) message.content = next;
 				}
 			} else if (Array.isArray(content)) for (const part of content) {
-				if (!isDict$47(part) || typeof part.text !== "string" || !hasBlockMarker(part.text)) continue;
+				if (!isDict$48(part) || typeof part.text !== "string" || !hasBlockMarker(part.text)) continue;
 				const next = stripBlock(part.text);
 				if (next !== part.text) part.text = next;
 			}
@@ -93248,7 +94356,7 @@ var MechanicTracking = class {
 			const created = { active: 0 };
 			formatter.addHook(function maestroMechanicsBlock(mes, info) {
 				if (created.active <= 0 || typeof mes !== "string") return mes;
-				if (isDict$47(info) && (info.isUser === true || info.isReasoning === true)) return mes;
+				if (isDict$48(info) && (info.isUser === true || info.isReasoning === true)) return mes;
 				return stripBlock(mes, { partial: true });
 			}, { stage: "beforeRegex" });
 			DISPLAY_HOOKS.set(formatter, created);
@@ -93311,8 +94419,8 @@ var MechanicTracking = class {
 	characterStats(des = this.des()) {
 		if (!des || typeof des.settings !== "function") return null;
 		const settings = des.settings();
-		const tracker = isDict$47(settings?.trackerConfig) ? settings.trackerConfig : {};
-		return statsOf((isDict$47(tracker.presentCharacters) ? tracker.presentCharacters : {}).characterStats);
+		const tracker = isDict$48(settings?.trackerConfig) ? settings.trackerConfig : {};
+		return statsOf((isDict$48(tracker.presentCharacters) ? tracker.presentCharacters : {}).characterStats);
 	}
 	/** Names (matching form) of the stats DES asks the model for now; empty when off or DES is not available. */
 	desStatus() {
@@ -95411,7 +96519,7 @@ var mechanicsModule = {
 };
 //#endregion
 //#region src/domain/medic-des.ts
-function isDict$45(value) {
+function isDict$46(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /**
@@ -95429,7 +96537,7 @@ function emptyKeyFieldNames(fields) {
 	if (!Array.isArray(fields)) return [];
 	const names = [];
 	for (const field of fields) {
-		if (!isDict$45(field) || field.enabled === false) continue;
+		if (!isDict$46(field) || field.enabled === false) continue;
 		const name = typeof field.name === "string" ? field.name.trim() : "";
 		if (name && desFieldKey(name) === "") names.push(name);
 	}
@@ -95438,7 +96546,7 @@ function emptyKeyFieldNames(fields) {
 /** True when some character in `characterThoughts` has a `details` entry with the empty key `""`. */
 function hasEmptyDetailKeys(characterThoughts) {
 	const data = parseTrackerJson(characterThoughts);
-	return (Array.isArray(data) ? data : isDict$45(data) && Array.isArray(data.characters) ? data.characters : []).some((character) => isDict$45(character) && isDict$45(character.details) && Object.hasOwn(character.details, ""));
+	return (Array.isArray(data) ? data : isDict$46(data) && Array.isArray(data.characters) ? data.characters : []).some((character) => isDict$46(character) && isDict$46(character.details) && Object.hasOwn(character.details, ""));
 }
 function blank(value) {
 	return value === null || value === void 0 || typeof value === "string" && value.trim() === "";
@@ -95516,14 +96624,14 @@ function buildCompactRepairPrompt(input) {
 }
 //#endregion
 //#region src/domain/medic-lore.ts
-function isDict$44(value) {
+function isDict$45(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /** Entries of a book (`{entries: {uid: entry}}` or a list), as plain objects. */
 function bookEntries(book) {
-	const entries = isDict$44(book) ? book.entries : void 0;
-	if (Array.isArray(entries)) return entries.filter(isDict$44);
-	if (isDict$44(entries)) return Object.values(entries).filter(isDict$44);
+	const entries = isDict$45(book) ? book.entries : void 0;
+	if (Array.isArray(entries)) return entries.filter(isDict$45);
+	if (isDict$45(entries)) return Object.values(entries).filter(isDict$45);
 	return [];
 }
 function ref(entry) {
@@ -95587,13 +96695,13 @@ function findQvinkGaps(messages, options = QVINK_GAP_DEFAULTS) {
 //#region src/features/medic/prefill.ts
 var PREFILL_KIND = "medic.prefillRole";
 var PREFILL_TARGET = "preset-prompt-role";
-function isDict$43(value) {
+function isDict$44(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /** Live Chat Completion settings (oai_settings) or null. */
 function liveSettings(app) {
 	const settings = app.host.ctx().chatCompletionSettings;
-	return isDict$43(settings) ? settings : null;
+	return isDict$44(settings) ? settings : null;
 }
 /** The assistant prompt that ends the request with the active preset, if any. */
 function detectPrefill(app) {
@@ -95685,9 +96793,9 @@ var PrefillFix = class {
 		const openai = await this.app.host.modules.openai();
 		const names = openai.openai_setting_names;
 		const list = openai.openai_settings;
-		const slot = isDict$43(names) ? names[preset] : void 0;
+		const slot = isDict$44(names) ? names[preset] : void 0;
 		const stored = Array.isArray(list) && typeof slot === "number" ? list[slot] : void 0;
-		if (!isDict$43(stored)) {
+		if (!isDict$44(stored)) {
 			this.log.warn(`preset ${preset} is not in ST's preset list; only the live settings changed`);
 			return;
 		}
@@ -95697,7 +96805,7 @@ var PrefillFix = class {
 		body.prompts[index].role = role;
 		const getManager = (await this.app.host.modules.presetManager()).getPresetManager;
 		const manager = typeof getManager === "function" ? getManager("openai") : null;
-		const save = isDict$43(manager) ? manager.savePreset : void 0;
+		const save = isDict$44(manager) ? manager.savePreset : void 0;
 		if (typeof save !== "function") {
 			this.log.warn("preset manager has no savePreset; only the live settings changed");
 			return;
@@ -95709,7 +96817,7 @@ var PrefillFix = class {
 		if (!this.app.host.caps.has("st.oai.promptManager")) return;
 		try {
 			const manager = (await this.app.host.modules.openai()).promptManager;
-			const render = isDict$43(manager) ? manager.render : void 0;
+			const render = isDict$44(manager) ? manager.render : void 0;
 			if (typeof render === "function") render.call(manager, false);
 		} catch (error) {
 			this.log.debug("prompt manager render failed", error);
@@ -95718,7 +96826,7 @@ var PrefillFix = class {
 };
 //#endregion
 //#region src/features/medic/sources.ts
-function isDict$42(value) {
+function isDict$43(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /** Reply types that are not a model's story reply (first message, background calls, NAI picture posts). */
@@ -95730,7 +96838,7 @@ var SKIPPED_TYPES = /* @__PURE__ */ new Set([
 ]);
 /** NAI Studio picture post: `extra.nai_studio` with the image prompt as text (research/qvink-nai-studio.md §B5). */
 function isPicturePost(message) {
-	return isDict$42(message.extra?.nai_studio);
+	return isDict$43(message.extra?.nai_studio);
 }
 /** The last user message before `index` asked BunnyMo for a sheet (`!fullsheet`, …). */
 function answersSheetCommand(chat, index) {
@@ -95743,7 +96851,7 @@ function answersSheetCommand(chat, index) {
 /** A message M31 marked as a sheet (`extra.maestro.sheet`). */
 function isSheetMessage(message) {
 	const maestro = message.extra?.maestro;
-	return isDict$42(maestro) && maestro.sheet === true;
+	return isDict$43(maestro) && maestro.sheet === true;
 }
 /** The reply at `index` is a regular story reply the checks apply to. */
 function isStoryReply$1(chat, index, type = "normal") {
@@ -95772,7 +96880,7 @@ function qvinkViews(chat) {
 			isSystem: message.is_system,
 			textLength: typeof message.mes === "string" ? message.mes.trim().length : 0,
 			skip: isPicturePost(message),
-			record: isDict$42(raw) ? {
+			record: isDict$43(raw) ? {
 				memory: typeof raw.memory === "string" ? raw.memory : "",
 				exclude: raw.exclude === true,
 				remember: raw.remember === true,
@@ -95813,11 +96921,11 @@ async function activeBookNames(app) {
 		const wi = await app.host.modules.worldInfo();
 		if (Array.isArray(wi.selected_world_info)) for (const name of wi.selected_world_info) addName(names, name);
 		const character = ctx.characters[Number(ctx.characterId)];
-		const lore = isDict$42(wi.world_info) ? wi.world_info.charLore : void 0;
+		const lore = isDict$43(wi.world_info) ? wi.world_info.charLore : void 0;
 		const fileName = charaFilename(character?.avatar);
 		if (Array.isArray(lore) && fileName) {
-			const extra = lore.find((item) => isDict$42(item) && item.name === fileName);
-			if (isDict$42(extra) && Array.isArray(extra.extraBooks)) for (const name of extra.extraBooks) addName(names, name);
+			const extra = lore.find((item) => isDict$43(item) && item.name === fileName);
+			if (isDict$43(extra) && Array.isArray(extra.extraBooks)) for (const name of extra.extraBooks) addName(names, name);
 		}
 	} catch {}
 	if (!app.host.isGroupChat()) {
@@ -96108,7 +97216,7 @@ var QUIET_BLOCKS = [
 	"present",
 	"message"
 ];
-function isDict$41(value) {
+function isDict$42(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function swipeIdOf$2(message) {
@@ -96300,7 +97408,7 @@ var TrackerRepair = class {
 	/** The proposal handed to autonomy (also the source of the journal record). */
 	proposal(payload, kit) {
 		const swipes = this.app.host.ctx().chat[payload.messageIndex]?.extra?.dooms_tracker_swipes;
-		const raw = isDict$41(swipes) ? swipes[String(payload.swipeId)] : void 0;
+		const raw = isDict$42(swipes) ? swipes[String(payload.swipeId)] : void 0;
 		const before = {
 			record: raw === void 0 ? null : raw,
 			lastGenerated: sectionsOf(kit?.lastGenerated() ?? null)
@@ -96342,7 +97450,7 @@ var TrackerRepair = class {
 		const message = this.app.host.ctx().chat[payload.messageIndex];
 		const kit = await this.kit();
 		const extra = message.extra ??= {};
-		const swipes = isDict$41(extra.dooms_tracker_swipes) ? extra.dooms_tracker_swipes : {};
+		const swipes = isDict$42(extra.dooms_tracker_swipes) ? extra.dooms_tracker_swipes : {};
 		extra.dooms_tracker_swipes = swipes;
 		swipes[String(payload.swipeId)] = { ...payload.record };
 		if (kit && this.isLatestReply(payload.messageIndex)) kit.adopt(payload.record, String(message.mes ?? ""));
@@ -96351,14 +97459,14 @@ var TrackerRepair = class {
 	/** Undo handler of TRACKER_TARGET: puts the previous record (and DES's display state) back. */
 	async undo(change) {
 		const ref = change.ref;
-		const after = isDict$41(change.after) ? change.after.record : void 0;
-		const before = isDict$41(change.before) ? change.before : {};
+		const after = isDict$42(change.after) ? change.after.record : void 0;
+		const before = isDict$42(change.before) ? change.before : {};
 		if (typeof ref.messageIndex !== "number" || typeof ref.swipeId !== "number" || !after) return false;
 		if (this.app.host.chatId() !== ref.chatId) return false;
 		const message = this.app.host.ctx().chat[ref.messageIndex];
 		const swipes = message?.extra?.dooms_tracker_swipes;
 		const key = String(ref.swipeId);
-		if (!message || !isDict$41(swipes) || !sameTrackerRecord(swipes[key], after)) return false;
+		if (!message || !isDict$42(swipes) || !sameTrackerRecord(swipes[key], after)) return false;
 		if (before.record === null || before.record === void 0) delete swipes[key];
 		else swipes[key] = before.record;
 		const kit = await this.kit();
@@ -96421,8 +97529,8 @@ function expectsTracker$1(settings) {
 	return settings.showInfoBox !== false || settings.showCharacterThoughts !== false || settings.showQuests === true;
 }
 function isRepairPayload(value) {
-	if (!isDict$41(value)) return false;
-	return typeof value.chatId === "string" && typeof value.messageIndex === "number" && typeof value.swipeId === "number" && typeof value.mesHash === "string" && isDict$41(value.record);
+	if (!isDict$42(value)) return false;
+	return typeof value.chatId === "string" && typeof value.messageIndex === "number" && typeof value.swipeId === "number" && typeof value.mesHash === "string" && isDict$42(value.record);
 }
 //#endregion
 //#region src/features/medic/health.ts
@@ -96431,12 +97539,12 @@ var RULE_ASSISTANT_ROLE = "role.assistantToSystem";
 /** ST capabilities whose absence switches off parts of Maestro (reported separately: st.cm, st.chatCompletion). */
 var SEPARATE_CAPS = /* @__PURE__ */ new Set(["st.cm", "st.chatCompletion"]);
 var MAX_LISTED = 5;
-function isDict$40(value) {
+function isDict$41(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function nested(source, ...path) {
 	let current = source;
-	for (const key of path) current = isDict$40(current) ? current[key] : void 0;
+	for (const key of path) current = isDict$41(current) ? current[key] : void 0;
 	return current;
 }
 /** "Книга: 3, Другая: 1 …" */
@@ -96911,6 +98019,3282 @@ var medicModule = {
 			repair,
 			prefill
 		})) own(app.ui.addHealthCheck(check));
+	}
+};
+//#endregion
+//#region src/domain/message-style.ts
+var MATCH_KINDS = [
+	"narration",
+	"doubleQuotes",
+	"guillemets",
+	"dashDialogue",
+	"asterisk",
+	"doubleAsterisk",
+	"underscore",
+	"parentheses",
+	"brackets",
+	"backticks",
+	"custom"
+];
+/**
+* Kinds that are direct speech: they may change the marks they are shown with. ST wraps "…", “…” and «…» alike in
+* `<q>`; dash dialogue, asides and custom rules it does not mark at all — Maestro's formatter hook does (see buildPlan).
+*/
+var DIALOGUE_KINDS = [
+	"doubleQuotes",
+	"guillemets",
+	"dashDialogue"
+];
+var APPLY_TO = [
+	"all",
+	"user",
+	"char"
+];
+var COLOR_TOKENS = [
+	"accent",
+	"text",
+	"muted",
+	"quote",
+	"em",
+	"underline"
+];
+var FONT_TOKENS = [
+	"ui",
+	"chat",
+	"mono",
+	"serif"
+];
+var MARKS = [
+	"keep",
+	"straight",
+	"curly",
+	"guillemets",
+	"none"
+];
+var PLAYER_MARKS = [
+	"none",
+	"bar",
+	"tint",
+	"both"
+];
+var PLAYER_ALIGN = ["default", "indent"];
+var OPACITY_MIN = .3;
+function defaultStyle() {
+	return {
+		color: null,
+		italic: null,
+		bold: null,
+		underline: false,
+		opacity: 1,
+		spacing: false,
+		font: null,
+		highlight: false,
+		bar: false,
+		marks: "keep"
+	};
+}
+function makeStyle(partial = {}) {
+	return {
+		...defaultStyle(),
+		...partial
+	};
+}
+function defaultPlayerStyle() {
+	return {
+		enabled: true,
+		mark: "bar",
+		color: "accent",
+		name: true,
+		align: "default"
+	};
+}
+function isDialogueKind(kind) {
+	return DIALOGUE_KINDS.includes(kind);
+}
+/** Narration styles the whole message text: underline, highlight and bar make no sense there. */
+function supportsDecoration(kind) {
+	return kind !== "narration";
+}
+/** The rule applies to messages of this scope. */
+function appliesTo(rule, scope) {
+	return rule.applyTo === "all" || rule.applyTo === scope;
+}
+/** Enabled rules of a scope (all enabled rules without a scope), in priority order. */
+function activeRules(rules, scope) {
+	return rules.filter((rule) => rule.enabled && (!scope || appliesTo(rule, scope)));
+}
+var PRESET_IDS = [
+	"classic",
+	"book",
+	"speech",
+	"thoughts",
+	"guillemets",
+	"screenplay",
+	"novel",
+	"contrast",
+	"player",
+	"minimal"
+];
+var DEFAULT_PRESET = "classic";
+function rule$1(id, kind, style = {}, extra = {}) {
+	return {
+		id,
+		name: "",
+		enabled: true,
+		match: { kind },
+		applyTo: "all",
+		style: makeStyle(style),
+		...extra
+	};
+}
+var CLASSIC = () => [
+	rule$1("narration", "narration"),
+	rule$1("speech", "doubleQuotes", { color: "quote" }),
+	rule$1("guillemets", "guillemets", { color: "quote" }),
+	rule$1("thoughts", "asterisk", { italic: true }),
+	rule$1("accent", "doubleAsterisk", { bold: true }),
+	rule$1("dash", "dashDialogue", { color: "quote" }, { enabled: false })
+];
+var PRESETS = {
+	classic: CLASSIC,
+	book: () => [
+		rule$1("narration", "narration"),
+		rule$1("dash", "dashDialogue"),
+		rule$1("guillemets", "guillemets", { color: "text" }),
+		rule$1("speech", "doubleQuotes", { color: "text" }),
+		rule$1("thoughts", "asterisk", {
+			italic: true,
+			color: "muted"
+		}),
+		rule$1("accent", "doubleAsterisk", { bold: true })
+	],
+	speech: () => [
+		rule$1("narration", "narration", { opacity: .8 }),
+		rule$1("speech", "doubleQuotes", {
+			color: "accent",
+			bold: true
+		}),
+		rule$1("guillemets", "guillemets", {
+			color: "accent",
+			bold: true
+		}),
+		rule$1("dash", "dashDialogue", {
+			color: "accent",
+			bold: true
+		}),
+		rule$1("thoughts", "asterisk", { italic: true })
+	],
+	thoughts: () => [
+		rule$1("narration", "narration"),
+		rule$1("speech", "doubleQuotes", { color: "quote" }),
+		rule$1("guillemets", "guillemets", { color: "quote" }),
+		rule$1("thoughts", "asterisk", {
+			italic: true,
+			color: "muted",
+			bar: true
+		}),
+		rule$1("thoughts2", "underscore", {
+			italic: true,
+			color: "muted",
+			bar: true
+		}),
+		rule$1("accent", "doubleAsterisk", { bold: true })
+	],
+	guillemets: () => [
+		rule$1("narration", "narration"),
+		rule$1("speech", "doubleQuotes", {
+			color: "quote",
+			marks: "guillemets"
+		}),
+		rule$1("guillemets", "guillemets", { color: "quote" }),
+		rule$1("dash", "dashDialogue", {
+			color: "quote",
+			marks: "guillemets"
+		}),
+		rule$1("thoughts", "asterisk", { italic: true })
+	],
+	screenplay: () => [
+		rule$1("narration", "narration", {
+			italic: true,
+			color: "muted"
+		}),
+		rule$1("speech", "doubleQuotes", {
+			bold: true,
+			color: "text"
+		}),
+		rule$1("guillemets", "guillemets", {
+			bold: true,
+			color: "text"
+		}),
+		rule$1("dash", "dashDialogue", {
+			bold: true,
+			color: "text"
+		}),
+		rule$1("thoughts", "asterisk", {
+			italic: false,
+			color: "em"
+		})
+	],
+	novel: () => [
+		rule$1("narration", "narration", { font: "serif" }),
+		rule$1("speech", "doubleQuotes", {
+			color: "text",
+			marks: "curly"
+		}),
+		rule$1("guillemets", "guillemets", { color: "text" }),
+		rule$1("dash", "dashDialogue"),
+		rule$1("thoughts", "asterisk", {
+			italic: true,
+			color: "muted"
+		})
+	],
+	contrast: () => [
+		rule$1("narration", "narration", { color: "muted" }),
+		rule$1("speech", "doubleQuotes", { color: "text" }),
+		rule$1("guillemets", "guillemets", { color: "text" }),
+		rule$1("dash", "dashDialogue", { color: "text" }),
+		rule$1("thoughts", "asterisk", {
+			italic: true,
+			color: "accent"
+		})
+	],
+	player: () => [
+		rule$1("usernarr", "narration", {
+			italic: true,
+			color: "muted"
+		}, { applyTo: "user" }),
+		rule$1("userspeech", "doubleQuotes", {
+			bold: true,
+			color: "text"
+		}, { applyTo: "user" }),
+		rule$1("userdash", "dashDialogue", {
+			bold: true,
+			color: "text"
+		}, { applyTo: "user" }),
+		...CLASSIC().filter((item) => item.id !== "dash")
+	],
+	minimal: () => []
+};
+function isPresetId(value) {
+	return typeof value === "string" && PRESET_IDS.includes(value);
+}
+/** Fresh copies of a preset's rules. */
+function presetRules(id) {
+	return (PRESETS[id] ?? PRESETS["classic"])();
+}
+var STYLE_KEYS = [
+	"color",
+	"italic",
+	"bold",
+	"underline",
+	"opacity",
+	"spacing",
+	"font",
+	"highlight",
+	"bar",
+	"marks"
+];
+/** Same rules in the same order (the editor shows «changed» when the rules differ from their preset). */
+function sameRules(a, b) {
+	if (a.length !== b.length) return false;
+	return a.every((item, index) => canonical$1(item) === canonical$1(b[index]));
+}
+function canonical$1(item) {
+	const match = { kind: item.match.kind };
+	if (item.match.kind === "custom") {
+		match.pattern = item.match.pattern ?? "";
+		match.flags = item.match.flags ?? "";
+	}
+	const style = makeStyle(item.style);
+	return JSON.stringify([
+		item.id,
+		item.name,
+		item.enabled,
+		match,
+		item.applyTo,
+		STYLE_KEYS.map((key) => style[key])
+	]);
+}
+var customCache = /* @__PURE__ */ new Map();
+var CUSTOM_CACHE_SIZE = 64;
+/** Only CUSTOM_FLAGS letters, each once, in a stable order. */
+function cleanFlags(flags) {
+	const text = typeof flags === "string" ? flags : "";
+	return [..."is"].filter((flag) => text.includes(flag)).join("");
+}
+/**
+* Compiles a custom rule's pattern (global; with `u` when the pattern is valid in Unicode mode, so `\p{L}` works).
+* A pattern that matches the empty string is refused: it would match everywhere.
+*/
+function compileCustom(pattern, flags) {
+	const source = typeof pattern === "string" ? pattern : "";
+	const extra = cleanFlags(flags);
+	if (!source.trim()) return {
+		ok: false,
+		reason: "empty"
+	};
+	if (source.length > 300) return {
+		ok: false,
+		reason: "tooLong"
+	};
+	const key = `${extra}\u0000${source}`;
+	const cached = customCache.get(key);
+	if (cached) return cached;
+	let result;
+	let re = null;
+	let detail = "";
+	for (const base of ["gu", "g"]) try {
+		re = new RegExp(source, base + extra);
+		break;
+	} catch (error) {
+		if (!detail) detail = error instanceof Error ? error.message : String(error);
+	}
+	if (!re) result = {
+		ok: false,
+		reason: "syntax",
+		detail
+	};
+	else {
+		re.lastIndex = 0;
+		const empty = re.exec("");
+		re.lastIndex = 0;
+		result = empty ? {
+			ok: false,
+			reason: "emptyMatch"
+		} : {
+			ok: true,
+			re
+		};
+	}
+	if (customCache.size >= CUSTOM_CACHE_SIZE) customCache.delete(customCache.keys().next().value);
+	customCache.set(key, result);
+	return result;
+}
+function isDict$40(value) {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+var HEX_RE = /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i;
+var ID_RE = /^[a-z][a-z0-9]{0,23}$/;
+function isHexColor(value) {
+	return typeof value === "string" && HEX_RE.test(value);
+}
+function isColorToken(value) {
+	return typeof value === "string" && COLOR_TOKENS.includes(value);
+}
+/** A colour token, a lower-cased hex colour, or null. */
+function normalizeColor(value) {
+	if (isColorToken(value)) return value;
+	if (isHexColor(value)) return value.toLowerCase();
+	return null;
+}
+function triState(value) {
+	return typeof value === "boolean" ? value : null;
+}
+function clampOpacity(value) {
+	return Math.round(Math.min(1, Math.max(OPACITY_MIN, typeof value === "number" && Number.isFinite(value) ? value : 1)) * 100) / 100;
+}
+function normalizeStyle(raw, kind) {
+	const source = isDict$40(raw) ? raw : {};
+	const decorated = supportsDecoration(kind);
+	const font = source.font;
+	const marks = source.marks;
+	return {
+		color: normalizeColor(source.color),
+		italic: triState(source.italic),
+		bold: triState(source.bold),
+		underline: decorated && source.underline === true,
+		opacity: clampOpacity(source.opacity),
+		spacing: source.spacing === true,
+		font: typeof font === "string" && FONT_TOKENS.includes(font) ? font : null,
+		highlight: decorated && source.highlight === true,
+		bar: decorated && source.bar === true,
+		marks: isDialogueKind(kind) && typeof marks === "string" && MARKS.includes(marks) ? marks : "keep"
+	};
+}
+/** The smallest free id with this prefix (`c1`, `c2`, …). */
+function newRuleId(rules, prefix = "c") {
+	const used = new Set(rules.map((item) => item.id));
+	for (let n = 1;; n++) {
+		const id = `${prefix}${n}`;
+		if (!used.has(id)) return id;
+	}
+}
+/** A repaired rule, or null when it is not a rule at all (unknown kind). */
+function normalizeRule(raw) {
+	if (!isDict$40(raw)) return null;
+	const match = isDict$40(raw.match) ? raw.match : { kind: raw.match };
+	const kind = match.kind;
+	if (typeof kind !== "string" || !MATCH_KINDS.includes(kind)) return null;
+	const matchKind = kind;
+	const result = {
+		id: typeof raw.id === "string" && ID_RE.test(raw.id) ? raw.id : "",
+		name: typeof raw.name === "string" ? raw.name.trim().slice(0, 60) : "",
+		enabled: raw.enabled !== false,
+		match: { kind: matchKind },
+		applyTo: typeof raw.applyTo === "string" && APPLY_TO.includes(raw.applyTo) ? raw.applyTo : "all",
+		style: normalizeStyle(raw.style, matchKind)
+	};
+	if (matchKind === "custom") {
+		result.match.pattern = typeof match.pattern === "string" ? match.pattern.slice(0, 300) : "";
+		result.match.flags = cleanFlags(match.flags);
+	}
+	return result;
+}
+/** Repaired rules: unknown entries dropped, ids made valid and unique, at most MAX_RULES. */
+function normalizeRules(raw) {
+	if (!Array.isArray(raw)) return [];
+	const result = [];
+	for (const item of raw) {
+		if (result.length >= 40) break;
+		const repaired = normalizeRule(item);
+		if (!repaired) continue;
+		if (!repaired.id || result.some((other) => other.id === repaired.id)) repaired.id = newRuleId(result, "r");
+		result.push(repaired);
+	}
+	return result;
+}
+function normalizePlayer(raw) {
+	const source = isDict$40(raw) ? raw : {};
+	const defaults = defaultPlayerStyle();
+	return {
+		enabled: typeof source.enabled === "boolean" ? source.enabled : defaults.enabled,
+		mark: typeof source.mark === "string" && PLAYER_MARKS.includes(source.mark) ? source.mark : defaults.mark,
+		color: normalizeColor(source.color) ?? defaults.color,
+		name: typeof source.name === "boolean" ? source.name : defaults.name,
+		align: typeof source.align === "string" && PLAYER_ALIGN.includes(source.align) ? source.align : defaults.align
+	};
+}
+var SPAN_CLASS = {
+	dashDialogue: "dash",
+	parentheses: "paren",
+	brackets: "bracket"
+};
+function buildPlan(rules, scope) {
+	const active = activeRules(rules, scope);
+	const has = (kind) => active.some((item) => item.match.kind === kind);
+	const swaps = (kind) => active.some((item) => item.match.kind === kind && item.style.marks !== "keep");
+	const spans = [];
+	for (const item of active) {
+		const kind = item.match.kind;
+		if (kind === "custom") {
+			if (!compileCustom(item.match.pattern, item.match.flags).ok) continue;
+			spans.push({
+				cls: `c-${item.id}`,
+				kind,
+				pattern: item.match.pattern ?? "",
+				flags: cleanFlags(item.match.flags)
+			});
+			continue;
+		}
+		const cls = SPAN_CLASS[kind];
+		if (cls && !spans.some((span) => span.cls === cls)) spans.push({
+			cls,
+			kind
+		});
+	}
+	return {
+		quotes: has("doubleQuotes") || has("guillemets"),
+		marks: {
+			dq: swaps("doubleQuotes"),
+			gq: swaps("guillemets"),
+			dash: swaps("dashDialogue")
+		},
+		spans
+	};
+}
+/** Changes when the hook would mark messages differently (then visible messages are marked again). */
+function planSignature(plans) {
+	return plans ? JSON.stringify([plans.user, plans.char]) : "";
+}
+//#endregion
+//#region src/domain/message-style-hint.ts
+var PHRASES = {
+	ru: {
+		doubleQuotes: "прямую речь пиши в кавычках \"…\"",
+		guillemets: "прямую речь пиши в кавычках-ёлочках «…»",
+		dashDialogue: "прямую речь оформляй с новой строки через тире: «— Реплика, — сказал он.»",
+		asterisk: "мысли и выделения — *курсивом*",
+		underscore: "мысли и выделения — _курсивом_",
+		parentheses: "короткие ремарки — в (скобках)",
+		brackets: "служебные пометки — в [квадратных скобках]",
+		backticks: "надписи и записки — в `обратных кавычках`"
+	},
+	en: {
+		doubleQuotes: "write direct speech in double quotes \"…\"",
+		guillemets: "write direct speech in guillemets «…»",
+		dashDialogue: "write direct speech on a new line after a dash: \"— A line, — he said.\"",
+		asterisk: "thoughts and emphasis in *italics*",
+		underscore: "thoughts and emphasis in _italics_",
+		parentheses: "short asides in (parentheses)",
+		brackets: "service notes in [square brackets]",
+		backticks: "signs and notes in `backticks`"
+	}
+};
+/** Kinds the hint mentions after dialogue and thoughts, in this order. */
+var EXTRA_KINDS = [
+	"parentheses",
+	"brackets",
+	"backticks"
+];
+/**
+* The instruction for the characters' replies (rules for all messages or the characters'), '' when the rules ask
+* for nothing the model writes. Only the first dialogue kind is named: the model needs one convention.
+*/
+function buildFormatHint(rules, language) {
+	const active = activeRules(rules, "char");
+	const phrases = PHRASES[language] ?? PHRASES.en;
+	const parts = [];
+	const dialogue = active.find((rule) => DIALOGUE_KINDS.includes(rule.match.kind));
+	if (dialogue) parts.push(phrases[dialogue.match.kind]);
+	const thoughts = active.find((rule) => rule.match.kind === "asterisk" || rule.match.kind === "underscore");
+	if (thoughts) parts.push(phrases[thoughts.match.kind]);
+	for (const kind of EXTRA_KINDS) if (active.some((rule) => rule.match.kind === kind)) parts.push(phrases[kind]);
+	if (!parts.length) return "";
+	const text = parts.join(", ");
+	return `${text[0].toUpperCase()}${text.slice(1)}.`;
+}
+//#endregion
+//#region src/features/messageStyle/hint.ts
+var HINT_INJECTION = "messageStyle.hint";
+/** Recent messages read to tell the chat language. */
+var LANGUAGE_MESSAGES = 8;
+/** The chat language by its recent messages; the UI language when the chat says too little. */
+function chatLanguage(app) {
+	try {
+		const chat = app.host.ctx().chat ?? [];
+		const texts = [];
+		for (let i = chat.length - 1; i >= 0 && texts.length < LANGUAGE_MESSAGES; i--) {
+			const message = chat[i];
+			if (!message || message.is_system) continue;
+			const text = cleanForAnalysis(message);
+			if (text) texts.push(text);
+		}
+		const language = dominantLanguage(texts);
+		if (language) return language;
+	} catch {}
+	return app.i18n.locale();
+}
+/** The note the model gets now ('' when the rules ask nothing of it). */
+function currentHint(app, settings) {
+	return buildFormatHint(settings.rules, chatLanguage(app));
+}
+/** Registers the producer; returns its remover (own() it). */
+function installHint(app, settings) {
+	return app.ephemeral.addProducer(HINT_INJECTION, (gen) => {
+		if (gen.quiet || gen.dryRun || gen.sheetCommand) return;
+		const current = settings();
+		if (!current.enabled || !current.hint) return;
+		const text = currentHint(app, current);
+		if (!text) return;
+		app.ephemeral.setInjection(HINT_INJECTION, {
+			text,
+			position: 1,
+			depth: 1,
+			role: 0,
+			scan: false
+		});
+	});
+}
+//#endregion
+//#region src/features/messageStyle/settings.ts
+var MESSAGE_STYLE_KEY = "messageStyle";
+var MESSAGE_STYLE_ID = "M32m";
+function defaultMessageStyleSettings() {
+	return {
+		enabled: true,
+		preset: DEFAULT_PRESET,
+		rules: presetRules(DEFAULT_PRESET),
+		player: defaultPlayerStyle(),
+		hint: false
+	};
+}
+/** The live slice, repaired in place (it is the object the editor edits). */
+function readMessageStyleSettings(slice) {
+	if (typeof slice.enabled !== "boolean") slice.enabled = true;
+	if (!isPresetId(slice.preset)) slice.preset = DEFAULT_PRESET;
+	if (!Array.isArray(slice.rules)) slice.rules = presetRules(slice.preset);
+	else {
+		const rules = normalizeRules(slice.rules);
+		if (JSON.stringify(rules) !== JSON.stringify(slice.rules)) slice.rules = rules;
+	}
+	const player = normalizePlayer(slice.player);
+	if (JSON.stringify(player) !== JSON.stringify(slice.player)) slice.player = player;
+	if (typeof slice.hint !== "boolean") slice.hint = false;
+	return slice;
+}
+//#endregion
+//#region src/features/messageStyle/strings.ts
+var MESSAGE_STYLE_STRINGS = {
+	en: {
+		"m32m.title": "Message style",
+		"m32m.tab": "Message style",
+		"m32m.intro": "How messages look in the chat: narration, dialogue, thoughts, asides — for the player and for the characters. Only the display changes: the saved text stays exactly as written. Turn this off and messages look as SillyTavern draws them.",
+		"m32m.enabled": "Style messages",
+		"m32m.enabledHint": "Off: the chat looks exactly as without Maestro.",
+		"m32m.off": "Off: messages look as SillyTavern draws them.",
+		"m32m.noHook": "SillyTavern did not provide its formatter hook, so only rules for \"…\", *…*, **…** and `…` work. Guillemets, dash dialogue, asides, your own rules and mark swapping are not available.",
+		"m32m.presets": "Preset",
+		"m32m.presetsHint": "A starting set of rules. Change any rule below; the preset can be brought back at any time.",
+		"m32m.preset.modified": "changed",
+		"m32m.preset.reset": "Bring back the preset rules",
+		"m32m.preset.confirmTitle": "Replace the rules?",
+		"m32m.preset.confirmBody": "Your changes to the rules will be lost: they become the rules of «{name}».",
+		"m32m.preset.classic": "Classic",
+		"m32m.preset.classic.desc": "Plain narration, \"dialogue\" in the quote colour, *thoughts* in italics.",
+		"m32m.preset.book": "Book",
+		"m32m.preset.book.desc": "Dash dialogue and «…» in the text colour, thoughts italic and muted.",
+		"m32m.preset.speech": "Highlighted speech",
+		"m32m.preset.speech.desc": "Dialogue of every kind bold in the accent colour, narration slightly muted.",
+		"m32m.preset.thoughts": "Thoughts apart",
+		"m32m.preset.thoughts.desc": "Thoughts italic and muted, with a soft accent bar on the left.",
+		"m32m.preset.guillemets": "Guillemets",
+		"m32m.preset.guillemets.desc": "Every kind of dialogue is shown in «…».",
+		"m32m.preset.screenplay": "Screenplay",
+		"m32m.preset.screenplay.desc": "Bold dialogue, narration italic and muted like stage directions.",
+		"m32m.preset.novel": "Novel",
+		"m32m.preset.novel.desc": "Serif text, dialogue in “curly quotes”, muted thoughts.",
+		"m32m.preset.contrast": "Contrast",
+		"m32m.preset.contrast.desc": "Muted narration, bright dialogue, thoughts in the accent colour.",
+		"m32m.preset.player": "Player apart",
+		"m32m.preset.player.desc": "Your narration reads like stage directions, your lines are bold; characters as in Classic.",
+		"m32m.preset.minimal": "Minimal",
+		"m32m.preset.minimal.desc": "No rules: SillyTavern's own look.",
+		"m32m.preview": "Preview",
+		"m32m.previewHint": "A sample message drawn with the current rules, as in the chat.",
+		"m32m.preview.char": "Character",
+		"m32m.preview.user": "Player",
+		"m32m.sample.charName": "Mira",
+		"m32m.sample.userName": "You",
+		"m32m.sample.char": "Rain drummed on the tavern roof. *Late again*, Mira thought.\n\"Right on time,\" she said without looking up.\n— Sorry, the road was flooded, — he shook the rain off his cloak. — Any news?\nThe innkeeper grunted: «Closing in an hour.» (A door slammed somewhere.) **Nobody turned around.**",
+		"m32m.sample.user": "*I sit down across from her and pull off my wet gloves.* \"Good to see you.\"\n— What happened? — I ask more quietly. (She seems angry.)",
+		"m32m.rules": "Rules",
+		"m32m.rulesHint": "Higher rules win: where two rules find the same text, the upper one decides. Narration is everything the other enabled rules do not mark.",
+		"m32m.rules.empty": "No rules: messages look as SillyTavern draws them.",
+		"m32m.kind.narration": "Narration",
+		"m32m.kind.doubleQuotes": "Dialogue \"…\"",
+		"m32m.kind.guillemets": "Dialogue «…»",
+		"m32m.kind.dashDialogue": "Dash dialogue — …",
+		"m32m.kind.asterisk": "Thoughts and emphasis *…*",
+		"m32m.kind.doubleAsterisk": "Strong accent **…**",
+		"m32m.kind.underscore": "Italics _…_",
+		"m32m.kind.parentheses": "Asides (…)",
+		"m32m.kind.brackets": "Notes […]",
+		"m32m.kind.backticks": "Code and signs `…`",
+		"m32m.kind.custom": "Your own rule (regex)",
+		"m32m.applyTo.all": "Everyone",
+		"m32m.applyTo.user": "Player",
+		"m32m.applyTo.char": "Characters",
+		"m32m.rule.enable": "Rule «{name}» is on",
+		"m32m.rule.expand": "Rule settings «{name}»",
+		"m32m.rule.up": "Move up",
+		"m32m.rule.down": "Move down",
+		"m32m.rule.delete": "Delete the rule",
+		"m32m.rule.name": "Name",
+		"m32m.rule.kind": "What it marks",
+		"m32m.rule.applyTo": "Whose messages",
+		"m32m.rule.color": "Colour",
+		"m32m.rule.italic": "Slant",
+		"m32m.rule.bold": "Weight",
+		"m32m.rule.opacity": "Opacity",
+		"m32m.rule.opacityValue": "{value}%",
+		"m32m.rule.font": "Font",
+		"m32m.rule.marks": "Quote marks",
+		"m32m.rule.marksHint": "On screen only: the saved text keeps its own marks.",
+		"m32m.rule.decor": "Extra",
+		"m32m.rule.underline": "Underline",
+		"m32m.rule.spacing": "Letter spacing",
+		"m32m.rule.highlight": "Highlight",
+		"m32m.rule.bar": "Bar on the left",
+		"m32m.rule.cannot": "This rule needs SillyTavern's formatter hook, which is not available: the rule does nothing now.",
+		"m32m.rule.sharedEm": "SillyTavern draws *…* and _…_ the same way (italics): rules for either style all italics.",
+		"m32m.rule.narrationHint": "Narration is all the text the other enabled rules do not mark. Its font and spacing apply to the whole message unless a rule sets its own.",
+		"m32m.tri.st": "As in ST",
+		"m32m.italic.on": "Italic",
+		"m32m.italic.off": "Upright",
+		"m32m.bold.on": "Bold",
+		"m32m.bold.off": "Regular",
+		"m32m.color.none": "As in ST",
+		"m32m.color.accent": "Accent",
+		"m32m.color.text": "Text",
+		"m32m.color.muted": "Muted",
+		"m32m.color.quote": "ST quote colour",
+		"m32m.color.em": "ST italics colour",
+		"m32m.color.underline": "ST underline colour",
+		"m32m.color.custom": "Custom colour",
+		"m32m.font.none": "As around it",
+		"m32m.font.ui": "Interface",
+		"m32m.font.chat": "Chat",
+		"m32m.font.mono": "Monospace",
+		"m32m.font.serif": "Serif",
+		"m32m.marks.keep": "As written",
+		"m32m.marks.straight": "\"Straight\"",
+		"m32m.marks.curly": "“Curly”",
+		"m32m.marks.guillemets": "«Guillemets»",
+		"m32m.marks.none": "No marks",
+		"m32m.custom.pattern": "Regular expression",
+		"m32m.custom.patternHint": "JavaScript syntax without slashes, e.g. ~[^~]+~ for ~whisper~. Code, links and HTML are never matched.",
+		"m32m.custom.ignoreCase": "Ignore case",
+		"m32m.custom.test": "Try it",
+		"m32m.custom.testDefault": "She leaned closer: ~listen carefully~. Nobody heard.",
+		"m32m.custom.hits": "Matches: {count}",
+		"m32m.custom.none": "No matches",
+		"m32m.custom.ok": "The expression is fine",
+		"m32m.custom.error.empty": "Enter an expression.",
+		"m32m.custom.error.tooLong": "The expression is too long.",
+		"m32m.custom.error.syntax": "The expression has an error: {detail}",
+		"m32m.custom.error.emptyMatch": "The expression matches empty text, so it would match everywhere.",
+		"m32m.add": "Add a rule",
+		"m32m.add.kind": "Kind of the new rule",
+		"m32m.add.button": "Add",
+		"m32m.rule.newCustom": "Your rule",
+		"m32m.player.title": "Player's messages",
+		"m32m.player.enabled": "Set the player's messages apart",
+		"m32m.player.enabledHint": "A mark on the whole message; the text itself follows the rules above.",
+		"m32m.player.mark": "Mark",
+		"m32m.player.mark.none": "None",
+		"m32m.player.mark.bar": "Bar on the left",
+		"m32m.player.mark.tint": "Tint",
+		"m32m.player.mark.both": "Bar and tint",
+		"m32m.player.color": "Colour",
+		"m32m.player.name": "Name in this colour",
+		"m32m.player.align": "Bubbles",
+		"m32m.player.align.default": "As in ST",
+		"m32m.player.align.indent": "Shift right",
+		"m32m.player.alignHint": "Only for the «Bubbles» chat style in SillyTavern's settings.",
+		"m32m.hint.title": "Hint to the model",
+		"m32m.hint.toggle": "Tell the model this format",
+		"m32m.hint.desc": "Affects the model: before the last message the prompt gets a short system note in the chat language describing the format the rules expect. Only for this turn, never saved.",
+		"m32m.hint.preview": "The model gets:",
+		"m32m.hint.empty": "The enabled rules ask nothing of the model."
+	},
+	ru: {
+		"m32m.title": "Стиль сообщений",
+		"m32m.tab": "Стиль сообщений",
+		"m32m.intro": "Как выглядят сообщения в чате: повествование, диалоги, мысли, ремарки — у игрока и у персонажей. Меняется только отображение: сохранённый текст остаётся ровно таким, как написан. Выключишь — сообщения будут выглядеть так, как их рисует SillyTavern.",
+		"m32m.enabled": "Оформлять сообщения",
+		"m32m.enabledHint": "Выключено — чат выглядит ровно как без Maestro.",
+		"m32m.off": "Выключено: сообщения выглядят так, как их рисует SillyTavern.",
+		"m32m.noHook": "SillyTavern не дал хук форматирования, поэтому работают только правила для \"…\", *…*, **…** и `…`. Ёлочки, диалоги через тире, ремарки, свои правила и замена кавычек недоступны.",
+		"m32m.presets": "Пресет",
+		"m32m.presetsHint": "Готовый набор правил. Любое правило ниже можно поменять, а пресет — вернуть в любой момент.",
+		"m32m.preset.modified": "изменён",
+		"m32m.preset.reset": "Вернуть правила пресета",
+		"m32m.preset.confirmTitle": "Заменить правила?",
+		"m32m.preset.confirmBody": "Твои правки правил пропадут: правила станут как в пресете «{name}».",
+		"m32m.preset.classic": "Классика",
+		"m32m.preset.classic.desc": "Повествование — обычный текст, \"диалоги\" цветом цитат, *мысли* курсивом.",
+		"m32m.preset.book": "Книга",
+		"m32m.preset.book.desc": "Диалоги через тире и «…» цветом текста, мысли — приглушённым курсивом.",
+		"m32m.preset.speech": "Подсветка речи",
+		"m32m.preset.speech.desc": "Любые диалоги — жирным акцентным цветом, повествование чуть приглушено.",
+		"m32m.preset.thoughts": "Мысли отдельно",
+		"m32m.preset.thoughts.desc": "Мысли — приглушённым курсивом с мягкой акцентной чертой слева.",
+		"m32m.preset.guillemets": "Ёлочки",
+		"m32m.preset.guillemets.desc": "Любые диалоги показываются в «ёлочках».",
+		"m32m.preset.screenplay": "Сценарий",
+		"m32m.preset.screenplay.desc": "Реплики жирным, повествование — приглушённым курсивом, как ремарки.",
+		"m32m.preset.novel": "Роман",
+		"m32m.preset.novel.desc": "Шрифт с засечками, диалоги в “лапках”, приглушённые мысли.",
+		"m32m.preset.contrast": "Контраст",
+		"m32m.preset.contrast.desc": "Приглушённое повествование, яркие диалоги, мысли акцентным цветом.",
+		"m32m.preset.player": "Игрок отдельно",
+		"m32m.preset.player.desc": "Твоё повествование — как ремарки, твои реплики — жирным; персонажи — как в «Классике».",
+		"m32m.preset.minimal": "Минимум",
+		"m32m.preset.minimal.desc": "Без правил: родной вид SillyTavern.",
+		"m32m.preview": "Предпросмотр",
+		"m32m.previewHint": "Пример сообщения с текущими правилами — так оно будет выглядеть в чате.",
+		"m32m.preview.char": "Персонаж",
+		"m32m.preview.user": "Игрок",
+		"m32m.sample.charName": "Мира",
+		"m32m.sample.userName": "Ты",
+		"m32m.sample.char": "Дождь барабанил по крыше таверны. *Опять он опаздывает*, — подумала Мира.\n\"Ты вовремя\", — бросила она, не поднимая глаз.\n— Прости, дорогу размыло, — он стряхнул капли с плаща. — Есть новости?\nТрактирщик буркнул: «Закрываемся через час». (Где-то хлопнула дверь.) **Никто не обернулся.**",
+		"m32m.sample.user": "*Сажусь напротив и снимаю мокрые перчатки.* \"Рад тебя видеть.\"\n— Что случилось? — спрашиваю я тише. (Кажется, она злится.)",
+		"m32m.rules": "Правила",
+		"m32m.rulesHint": "Верхние правила главнее: если два правила нашли один и тот же текст, решает верхнее. Повествование — всё, что не выделили другие включённые правила.",
+		"m32m.rules.empty": "Правил нет: сообщения выглядят так, как их рисует SillyTavern.",
+		"m32m.kind.narration": "Повествование",
+		"m32m.kind.doubleQuotes": "Диалоги \"…\"",
+		"m32m.kind.guillemets": "Диалоги «…»",
+		"m32m.kind.dashDialogue": "Диалоги через тире — …",
+		"m32m.kind.asterisk": "Мысли и выделения *…*",
+		"m32m.kind.doubleAsterisk": "Сильный акцент **…**",
+		"m32m.kind.underscore": "Курсив _…_",
+		"m32m.kind.parentheses": "Ремарки (…)",
+		"m32m.kind.brackets": "Пометки […]",
+		"m32m.kind.backticks": "Код и надписи `…`",
+		"m32m.kind.custom": "Своё правило (регулярка)",
+		"m32m.applyTo.all": "Все",
+		"m32m.applyTo.user": "Игрок",
+		"m32m.applyTo.char": "Персонажи",
+		"m32m.rule.enable": "Правило «{name}» включено",
+		"m32m.rule.expand": "Настройки правила «{name}»",
+		"m32m.rule.up": "Выше",
+		"m32m.rule.down": "Ниже",
+		"m32m.rule.delete": "Удалить правило",
+		"m32m.rule.name": "Название",
+		"m32m.rule.kind": "Что выделяет",
+		"m32m.rule.applyTo": "Чьи сообщения",
+		"m32m.rule.color": "Цвет",
+		"m32m.rule.italic": "Наклон",
+		"m32m.rule.bold": "Насыщенность",
+		"m32m.rule.opacity": "Непрозрачность",
+		"m32m.rule.opacityValue": "{value}%",
+		"m32m.rule.font": "Шрифт",
+		"m32m.rule.marks": "Кавычки",
+		"m32m.rule.marksHint": "Только на экране: в сохранённом тексте кавычки не меняются.",
+		"m32m.rule.decor": "Дополнительно",
+		"m32m.rule.underline": "Подчёркивание",
+		"m32m.rule.spacing": "Разрядка",
+		"m32m.rule.highlight": "Подсветка",
+		"m32m.rule.bar": "Черта слева",
+		"m32m.rule.cannot": "Этому правилу нужен хук форматирования SillyTavern, а его нет: сейчас правило ничего не делает.",
+		"m32m.rule.sharedEm": "SillyTavern рисует *…* и _…_ одинаково, курсивом: правила для любого из них оформляют весь курсив.",
+		"m32m.rule.narrationHint": "Повествование — весь текст, который не выделили другие включённые правила. Его шрифт и разрядка действуют на всё сообщение, если у правила не задан свой.",
+		"m32m.tri.st": "Как в ST",
+		"m32m.italic.on": "Курсив",
+		"m32m.italic.off": "Прямой",
+		"m32m.bold.on": "Жирный",
+		"m32m.bold.off": "Обычный",
+		"m32m.color.none": "Как в ST",
+		"m32m.color.accent": "Акцент",
+		"m32m.color.text": "Текст",
+		"m32m.color.muted": "Приглушённый",
+		"m32m.color.quote": "Цвет цитат ST",
+		"m32m.color.em": "Цвет курсива ST",
+		"m32m.color.underline": "Цвет подчёркивания ST",
+		"m32m.color.custom": "Свой цвет",
+		"m32m.font.none": "Как вокруг",
+		"m32m.font.ui": "Интерфейса",
+		"m32m.font.chat": "Чата",
+		"m32m.font.mono": "Моноширинный",
+		"m32m.font.serif": "С засечками",
+		"m32m.marks.keep": "Как в тексте",
+		"m32m.marks.straight": "\"Прямые\"",
+		"m32m.marks.curly": "“Лапки”",
+		"m32m.marks.guillemets": "«Ёлочки»",
+		"m32m.marks.none": "Без кавычек",
+		"m32m.custom.pattern": "Регулярное выражение",
+		"m32m.custom.patternHint": "Синтаксис JavaScript без косых черт, например ~[^~]+~ для ~шёпота~. Код, ссылки и HTML не затрагиваются.",
+		"m32m.custom.ignoreCase": "Без учёта регистра",
+		"m32m.custom.test": "Проверка",
+		"m32m.custom.testDefault": "Она наклонилась ближе: ~слушай внимательно~. Никто не услышал.",
+		"m32m.custom.hits": "Совпадений: {count}",
+		"m32m.custom.none": "Совпадений нет",
+		"m32m.custom.ok": "Выражение в порядке",
+		"m32m.custom.error.empty": "Впиши выражение.",
+		"m32m.custom.error.tooLong": "Выражение слишком длинное.",
+		"m32m.custom.error.syntax": "В выражении ошибка: {detail}",
+		"m32m.custom.error.emptyMatch": "Выражение совпадает с пустым текстом — оно сработало бы везде.",
+		"m32m.add": "Добавить правило",
+		"m32m.add.kind": "Вид нового правила",
+		"m32m.add.button": "Добавить",
+		"m32m.rule.newCustom": "Своё правило",
+		"m32m.player.title": "Сообщения игрока",
+		"m32m.player.enabled": "Выделять сообщения игрока",
+		"m32m.player.enabledHint": "Отметка на всём сообщении; сам текст оформляют правила выше.",
+		"m32m.player.mark": "Отметка",
+		"m32m.player.mark.none": "Нет",
+		"m32m.player.mark.bar": "Черта слева",
+		"m32m.player.mark.tint": "Подложка",
+		"m32m.player.mark.both": "Черта и подложка",
+		"m32m.player.color": "Цвет",
+		"m32m.player.name": "Имя этим цветом",
+		"m32m.player.align": "«Пузыри»",
+		"m32m.player.align.default": "Как в ST",
+		"m32m.player.align.indent": "Сдвинуть вправо",
+		"m32m.player.alignHint": "Только для стиля чата «Пузыри» в настройках SillyTavern.",
+		"m32m.hint.title": "Подсказка модели",
+		"m32m.hint.toggle": "Подсказать модели этот формат",
+		"m32m.hint.desc": "Влияет на модель: перед последним сообщением в промпт добавляется короткая системная заметка на языке чата — какой формат ждут правила. Только на этот ход, нигде не сохраняется.",
+		"m32m.hint.preview": "Модель получит:",
+		"m32m.hint.empty": "Включённые правила ничего не просят от модели."
+	}
+};
+//#endregion
+//#region src/domain/message-style-css.ts
+/** Prefix of the classes the formatter hook adds. */
+var ANNOTATION_PREFIX = "maestro-ms-";
+/** Both spellings of an annotation class: as written and as ST's sanitizer leaves it (`custom-` prefix). */
+function annotationSelector(name) {
+	return `:is(.${ANNOTATION_PREFIX}${name}, .custom-${ANNOTATION_PREFIX}${name})`;
+}
+var TEXT_COLOR = "var(--maestro-text, var(--SmartThemeBodyColor))";
+var ACCENT_COLOR = "var(--maestro-accent, var(--SmartThemeQuoteColor))";
+var SOFT_ACCENT = "var(--maestro-accent-soft, color-mix(in srgb, var(--SmartThemeQuoteColor) 18%, transparent))";
+var QUOTE_COLOR = "var(--SmartThemeQuoteColor)";
+var EM_COLOR = "var(--SmartThemeEmColor)";
+var COLOR_VALUES = {
+	accent: ACCENT_COLOR,
+	text: TEXT_COLOR,
+	muted: "var(--maestro-text-muted, var(--maestro-muted, var(--SmartThemeEmColor)))",
+	quote: QUOTE_COLOR,
+	em: EM_COLOR,
+	underline: "var(--SmartThemeUnderlineColor)"
+};
+var FONT_STACKS = {
+	ui: "var(--maestro-font-ui, var(--mainFontFamily, sans-serif))",
+	chat: "var(--maestro-font-chat, var(--mainFontFamily, sans-serif))",
+	mono: "var(--maestro-font-mono, var(--monoFontFamily, monospace))",
+	serif: "Georgia, 'PT Serif', 'Noto Serif', 'Times New Roman', serif"
+};
+var SPACING = "0.03em";
+/** CSS colour of a token or a hex colour (anything else falls back to the text colour). */
+function colorValue(value) {
+	if (isColorToken(value)) return COLOR_VALUES[value];
+	return /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i.test(value) ? value.toLowerCase() : TEXT_COLOR;
+}
+function mix$1(color, amount) {
+	return amount >= 1 ? color : `color-mix(in srgb, ${color} ${Math.round(amount * 100)}%, transparent)`;
+}
+var CHANNEL_OF = {
+	narration: "narration",
+	doubleQuotes: "dq",
+	guillemets: "gq",
+	dashDialogue: "dash",
+	asterisk: "em",
+	underscore: "em",
+	doubleAsterisk: "strong",
+	backticks: "code",
+	parentheses: "paren",
+	brackets: "bracket",
+	custom: "custom"
+};
+/** The colour ST gives a channel (null: it inherits). */
+var CHANNEL_COLOR = {
+	dq: QUOTE_COLOR,
+	gq: QUOTE_COLOR,
+	em: EM_COLOR
+};
+/** Selector of a rule's parts inside the message text ('' = the text itself); null when it cannot be styled. */
+function channelSelector(rule, annotated) {
+	switch (CHANNEL_OF[rule.match.kind]) {
+		case "narration": return "";
+		case "dq": return annotated ? `q${annotationSelector("dq")}` : "q";
+		case "gq": return annotated ? `q${annotationSelector("gq")}` : null;
+		case "em": return ":is(em, i)";
+		case "strong": return ":is(strong, b)";
+		case "code": return ":not(pre) > code";
+		case "dash": return annotated ? annotationSelector("dash") : null;
+		case "paren": return annotated ? annotationSelector("paren") : null;
+		case "bracket": return annotated ? annotationSelector("bracket") : null;
+		default: return annotated ? annotationSelector(`c-${rule.id}`) : null;
+	}
+}
+/** The rule can be drawn now (kinds only the hook marks need it). */
+function canStyle(rule, annotated) {
+	return channelSelector(rule, annotated) !== null;
+}
+function block(selectors, declarations) {
+	if (!declarations.length || !selectors.length) return "";
+	return `${selectors.join(",\n")} {\n${declarations.map((item) => `    ${item};`).join("\n")}\n}\n`;
+}
+function narrationDeclarations(style) {
+	const out = [];
+	if (style.color !== null || style.opacity < 1) out.push(`color: ${mix$1(style.color !== null ? colorValue(style.color) : TEXT_COLOR, style.opacity)}`);
+	if (style.italic !== null) out.push(`font-style: ${style.italic ? "italic" : "normal"}`);
+	if (style.bold !== null) out.push(`font-weight: ${style.bold ? "bold" : "normal"}`);
+	if (style.spacing) out.push(`letter-spacing: ${SPACING}`);
+	if (style.font) out.push(`font-family: ${FONT_STACKS[style.font]}`);
+	return out;
+}
+function ruleDeclarations(style, channel, narration) {
+	const out = [];
+	const own = style.color !== null ? colorValue(style.color) : null;
+	const reset = narration?.color === true && own === null;
+	if (own !== null || style.opacity < 1 || reset) {
+		const base = own ?? CHANNEL_COLOR[channel] ?? (reset ? "var(--maestro-text, var(--SmartThemeBodyColor))" : "currentColor");
+		out.push(`color: ${mix$1(base, style.opacity)}`);
+	}
+	if (style.italic !== null) out.push(`font-style: ${style.italic ? "italic" : "normal"}`);
+	else if (narration?.italic && channel !== "em") out.push("font-style: normal");
+	if (style.bold !== null) out.push(`font-weight: ${style.bold ? "bold" : "normal"}`);
+	else if (narration?.bold && channel !== "strong") out.push("font-weight: normal");
+	if (style.underline) out.push("text-decoration-line: underline", "text-underline-offset: 0.18em");
+	if (style.spacing) out.push(`letter-spacing: ${SPACING}`);
+	if (style.font) out.push(`font-family: ${FONT_STACKS[style.font]}`);
+	const shadows = [];
+	if (style.bar) {
+		shadows.push(`inset 0.16em 0 0 ${mix$1(own ?? "var(--maestro-accent, var(--SmartThemeQuoteColor))", .6)}`);
+		out.push("padding-left: 0.35em");
+	}
+	if (style.highlight) {
+		out.push(`background-color: ${SOFT_ACCENT}`, "border-radius: 0.25em");
+		shadows.push(`0 0 0 0.12em ${SOFT_ACCENT}`);
+	}
+	if (shadows.length) out.push(`box-shadow: ${shadows.join(", ")}`, "-webkit-box-decoration-break: clone", "box-decoration-break: clone");
+	return out;
+}
+var GLYPHS = {
+	keep: null,
+	none: null,
+	straight: ["\"\\22\"", "\"\\22\""],
+	curly: ["\"\\201C\"", "\"\\201D\""],
+	guillemets: ["\"\\AB\"", "\"\\BB\""]
+};
+function marksCss(roots, channel, marks, swapped) {
+	const mark = annotationSelector("mark");
+	const at = (suffix) => roots.map((root) => `${root} ${channel}${suffix}`);
+	if (marks === "keep") {
+		if (!swapped) return "";
+		return block(at(` > ${mark}`), ["display: inline"]) + block([...at("::before"), ...at("::after")], ["content: none"]);
+	}
+	const glyphs = GLYPHS[marks];
+	let css = block(at(` > ${mark}`), ["display: none"]);
+	if (glyphs) css += block(at("::before"), [`content: ${glyphs[0]}`]) + block(at("::after"), [`content: ${glyphs[1]}`]);
+	return css;
+}
+function scopeRoots(scope, options) {
+	const page = `html.${options.pageClass}`;
+	return [`${page} #chat .mes${scope === "user" ? "[is_user=\"true\"]" : ":not([is_user=\"true\"])"} .mes_text`, `${page} .${options.previewClass}[data-ms-scope="${scope}"] .${options.previewClass}-text`];
+}
+function scopeCss$1(rules, scope, options) {
+	const active = activeRules(rules, scope).filter((rule) => canStyle(rule, options.annotated));
+	if (!active.length) return "";
+	const roots = scopeRoots(scope, options);
+	const narrationRules = active.filter((rule) => rule.match.kind === "narration");
+	const firstSet = (pick) => {
+		for (const rule of narrationRules) {
+			const value = pick(rule.style);
+			if (value !== null) return value;
+		}
+		return null;
+	};
+	const narration = narrationRules.length ? {
+		color: narrationRules.some((rule) => rule.style.color !== null || rule.style.opacity < 1),
+		italic: firstSet((style) => style.italic) === true,
+		bold: firstSet((style) => style.bold) === true
+	} : null;
+	let css = "";
+	const textReset = [];
+	if (narration?.italic) textReset.push("font-style: normal");
+	if (narration?.bold) textReset.push("font-weight: normal");
+	if (narrationRules.some((rule) => rule.style.spacing)) textReset.push("letter-spacing: normal");
+	css += block(roots.map((root) => `${root} :where(pre, code, [data-naist-img])`), textReset);
+	for (const rule of [...active].reverse()) {
+		const channel = CHANNEL_OF[rule.match.kind];
+		const selector = channelSelector(rule, options.annotated);
+		if (channel === "narration") {
+			css += block(roots, narrationDeclarations(rule.style));
+			continue;
+		}
+		css += block(roots.map((root) => `${root} ${selector}`), ruleDeclarations(rule.style, channel, narration));
+	}
+	if (options.annotated) for (const kind of [
+		"doubleQuotes",
+		"guillemets",
+		"dashDialogue"
+	]) {
+		const own = active.filter((rule) => rule.match.kind === kind);
+		if (!own.length) continue;
+		const swapped = own.some((rule) => rule.style.marks !== "keep");
+		const selector = channelSelector(own[0], true);
+		for (const rule of [...own].reverse()) css += marksCss(roots, selector, rule.style.marks, swapped);
+	}
+	const dialogue = options.annotated ? `:is(q, ${annotationSelector("dash")})` : "q";
+	const colours = (channel) => active.some((rule) => CHANNEL_OF[rule.match.kind] === channel && (rule.style.color !== null || rule.style.opacity < 1));
+	if (colours("em")) css += block(roots.map((root) => `${root} ${dialogue} :is(em, i)`), ["color: inherit"]);
+	if (colours("strong")) css += block(roots.map((root) => `${root} ${dialogue} :is(strong, b)`), ["color: inherit"]);
+	return css;
+}
+/** The player's messages as a whole: a bar or a tint on the message, the name colour, bubble alignment. */
+function playerCss(player, options) {
+	if (!player.enabled) return "";
+	const page = `html.${options.pageClass}`;
+	const color = colorValue(player.color);
+	const boxes = [`${page} #chat .mes[is_user="true"]`, `${page} .${options.previewClass}[data-ms-scope="user"]`];
+	let css = "";
+	if (player.mark === "bar" || player.mark === "both") {
+		const bar = `inset 3px 0 0 ${mix$1(color, .75)}`;
+		css += block(boxes, [`box-shadow: ${bar}`]);
+		const theme = options.themeClasses;
+		if (theme) css += block([`${page}.${theme.layer}.${theme.chat} body.bubblechat #chat .mes[is_user="true"]`], [`box-shadow: ${bar}, var(--maestro-elevation-1, 0 0 #0000)`]);
+	}
+	if (player.mark === "tint" || player.mark === "both") css += block(boxes, [`background-image: linear-gradient(90deg, ${mix$1(color, .12)}, ${mix$1(color, .04)})`]);
+	if (player.name) css += block([`${boxes[0]} .name_text`, `${boxes[1]} .${options.previewClass}-name`], [`color: ${color}`]);
+	if (player.align === "indent") css += block([`${page} body.bubblechat #chat .mes[is_user="true"]`], ["width: auto", "margin-left: clamp(16px, 12%, 120px)"]);
+	return css;
+}
+/** The whole stylesheet: the player's look, then the rules of both scopes. */
+function buildMessageStyleCss(rules, player, options) {
+	return [
+		"/* Maestro M32m: message style */\n",
+		playerCss(player, options),
+		scopeCss$1(rules, "char", options),
+		scopeCss$1(rules, "user", options)
+	].join("");
+}
+var SPACE_RE = /[\s\u00a0\u2009\u202f]/;
+var WORD_RE$1 = /[\p{L}\p{N}]/u;
+var DASHES = "—–";
+var SENTENCE_END = ".!?…";
+/** Marks that may follow a sentence end before a dash: «Да.» — / "Нет!" — / (так.) —. */
+var CLOSERS = "»\"”')]*_";
+function isSpace(char) {
+	return char !== void 0 && char !== "" && SPACE_RE.test(char);
+}
+function isWord(char) {
+	return char !== void 0 && char !== "" && WORD_RE$1.test(char);
+}
+/** Lines of a text range (without their line breaks). */
+function lineRanges(text, from = 0, to = text.length) {
+	const out = [];
+	let pos = from;
+	for (;;) {
+		const nl = text.indexOf("\n", pos);
+		const end = nl < 0 || nl >= to ? to : nl;
+		out.push({
+			start: pos,
+			end
+		});
+		if (end >= to) break;
+		pos = end + 1;
+	}
+	return out;
+}
+function isBlank(text, start, end) {
+	for (let i = start; i < end; i++) {
+		const char = text[i];
+		if (char !== " " && char !== "	" && char !== "\r") return false;
+	}
+	return true;
+}
+/** Paragraphs: runs of non-blank lines (a blank line ends a paragraph). */
+function paragraphRanges(text) {
+	const out = [];
+	let start = -1;
+	let last = 0;
+	for (const line of lineRanges(text)) if (isBlank(text, line.start, line.end)) {
+		if (start >= 0) out.push({
+			start,
+			end: last
+		});
+		start = -1;
+	} else {
+		if (start < 0) start = line.start;
+		last = line.end;
+	}
+	if (start >= 0) out.push({
+		start,
+		end: last
+	});
+	return out;
+}
+var COMMENT_RE$1 = /<!--[\s\S]*?(?:-->|$)/g;
+/** Elements whose content is not story text. */
+var HIDDEN_RE = /<(style|script|pre|code|textarea|bunnymotags|think|thinking)\b[^>]{0,1000}>[\s\S]*?<\/\1\s*>/gi;
+/** HTML tags and tag-like markers (`<SPECIES:ELF>`, `<NPC name="…">`); quoted attribute values may hold `>`. */
+var TAG_RE$1 = /<\/?[A-Za-z][\w:.-]*(?:\s(?:[^<>"']|"[^"]{0,1000}"|'[^']{0,1000}')*)?\/?>/g;
+var NAI_RE = /\[nai:img:[^\]\s]{1,80}\]/g;
+var IIG_RE = /\[IMG:GEN:\{[\s\S]{0,4000}?\}\]/g;
+/** A URL; balanced parentheses inside it (wiki links) belong to it, a closing one after it does not. */
+var URL_RE$1 = /\b(?:https?:\/\/|www\.)[^\s<>"'«»“”()[\]]+(?:\([^\s<>"'()]*\)[^\s<>"'«»“”()[\]]*)*/gi;
+var FENCE_LINE_RE$1 = /^ {0,3}(`{3,}|~{3,})/;
+function regexRanges(text, re, out, trim) {
+	re.lastIndex = 0;
+	let match;
+	while ((match = re.exec(text)) !== null) {
+		let value = match[0];
+		if (trim) value = value.replace(trim, "");
+		if (value.length) out.push({
+			start: match.index,
+			end: match.index + value.length
+		});
+		if (match[0].length === 0) re.lastIndex++;
+	}
+	re.lastIndex = 0;
+}
+/** Fenced code blocks (``` or ~~~, line based; an unclosed fence runs to the end). */
+function fenceRanges(text) {
+	if (!text.includes("```") && !text.includes("~~~")) return [];
+	const out = [];
+	let open = null;
+	for (const line of lineRanges(text)) {
+		const head = FENCE_LINE_RE$1.exec(text.slice(line.start, Math.min(line.end, line.start + 64)));
+		if (!head) continue;
+		const run = head[1];
+		if (!open) open = {
+			start: line.start,
+			char: run[0],
+			length: run.length
+		};
+		else if (run[0] === open.char && run.length >= open.length && isBlank(text, line.start + head[0].length, line.end)) {
+			out.push({
+				start: open.start,
+				end: line.end
+			});
+			open = null;
+		}
+	}
+	if (open) out.push({
+		start: open.start,
+		end: text.length
+	});
+	return out;
+}
+/** Inline code spans: a run of N backticks closed by the next run of exactly N in the same paragraph. */
+function codeSpanRanges(text, blocked) {
+	if (!text.includes("`")) return [];
+	const out = [];
+	for (const para of paragraphRanges(text)) {
+		const runs = [];
+		for (let i = para.start; i < para.end;) if (text[i] === "`" && !blocked?.[i]) {
+			let j = i;
+			while (j < para.end && text[j] === "`" && !blocked?.[j]) j++;
+			runs.push({
+				start: i,
+				end: j
+			});
+			i = j;
+		} else i++;
+		const exhausted = /* @__PURE__ */ new Set();
+		for (let r = 0; r < runs.length; r++) {
+			const open = runs[r];
+			const length = open.end - open.start;
+			if (exhausted.has(length)) continue;
+			let c = r + 1;
+			while (c < runs.length && runs[c].end - runs[c].start !== length) c++;
+			if (c >= runs.length) {
+				exhausted.add(length);
+				continue;
+			}
+			out.push({
+				start: open.start,
+				end: runs[c].end
+			});
+			r = c;
+		}
+	}
+	return out;
+}
+/** Sorted and merged. */
+function mergeRanges(ranges) {
+	const sorted = ranges.filter((range) => range.end > range.start).sort((a, b) => a.start - b.start);
+	const out = [];
+	for (const range of sorted) {
+		const last = out[out.length - 1];
+		if (last && range.start <= last.end) last.end = Math.max(last.end, range.end);
+		else out.push({
+			start: range.start,
+			end: range.end
+		});
+	}
+	return out;
+}
+/** The DES tracker JSON that opens a reply in together mode (fenced or bare), as a range. */
+function desTrackerRange(text) {
+	const rest = stripDesTrackerJson(text);
+	return rest.length < text.length ? {
+		start: 0,
+		end: text.length - rest.length
+	} : null;
+}
+/** Everything that is not story text: code, HTML, the DES tracker, NAI markers, URLs. */
+function textExclusions(text) {
+	if (!text) return {
+		ranges: [],
+		code: []
+	};
+	const ranges = [];
+	const des = desTrackerRange(text);
+	if (des) ranges.push(des);
+	const fences = fenceRanges(text);
+	ranges.push(...fences);
+	let code = [];
+	if (text.includes("`")) {
+		code = codeSpanRanges(text, maskOf(text.length, mergeRanges([...fences, ...des ? [des] : []])));
+		ranges.push(...code);
+	}
+	if (text.includes("<")) {
+		regexRanges(text, COMMENT_RE$1, ranges);
+		regexRanges(text, HIDDEN_RE, ranges);
+		regexRanges(text, TAG_RE$1, ranges);
+	}
+	if (text.includes("[")) {
+		regexRanges(text, NAI_RE, ranges);
+		regexRanges(text, IIG_RE, ranges);
+	}
+	if (/https?:|www\./i.test(text)) regexRanges(text, URL_RE$1, ranges, /[.,!?;:…]+$/);
+	return {
+		ranges: mergeRanges(ranges),
+		code
+	};
+}
+/** A mask with `value` over the ranges (other characters 0). */
+function maskOf(length, ranges, value = 2) {
+	const mask = new Uint8Array(length);
+	for (const range of ranges) mask.fill(value, Math.max(0, range.start), Math.min(length, range.end));
+	return mask;
+}
+/** "…" and “…” on one line, like ST pairs them (the first closing mark ends the quote; empty quotes are skipped). */
+function quotePairs(text, mask) {
+	const out = [];
+	if (!text.includes("\"") && !text.includes("“")) return out;
+	for (const line of lineRanges(text)) {
+		let straight = -1;
+		let curly = -1;
+		for (let i = line.start; i < line.end; i++) {
+			if (mask[i]) continue;
+			const char = text[i];
+			if (char === "\"") {
+				if (straight < 0 && curly < 0) straight = i;
+				else if (straight >= 0) {
+					if (i > straight + 1) out.push({
+						start: straight,
+						end: i + 1,
+						open: 1,
+						close: 1
+					});
+					straight = -1;
+				}
+			} else if (char === "“") {
+				if (straight < 0 && curly < 0) curly = i;
+			} else if (char === "”" && curly >= 0) {
+				if (i > curly + 1) out.push({
+					start: curly,
+					end: i + 1,
+					open: 1,
+					close: 1
+				});
+				curly = -1;
+			}
+		}
+	}
+	return out;
+}
+/**
+* Outermost balanced pairs of `open`/`close` in each range (a stack: nested pairs fold into the outer one, an
+* unmatched mark is plain text and inner pairs around it still count). Empty pairs are skipped.
+*/
+function nestedPairs(text, mask, open, close, ranges, options = {}) {
+	const out = [];
+	for (const range of ranges) {
+		const stack = [];
+		const kept = [];
+		for (let i = range.start; i < range.end; i++) {
+			if (mask[i]) continue;
+			const char = text[i];
+			if (char === open) {
+				if (!options.skip?.(i)) stack.push(i);
+			} else if (char === close && stack.length && !options.skip?.(i)) {
+				const start = stack.pop();
+				const pair = {
+					start,
+					end: i + 1,
+					open: 1,
+					close: 1
+				};
+				if (pair.end - pair.start <= 2 || options.accept && !options.accept(pair)) continue;
+				while (kept.length && kept[kept.length - 1].start > start) kept.pop();
+				kept.push(pair);
+			}
+		}
+		out.push(...kept);
+	}
+	return out;
+}
+/** «…» on one line, nesting allowed. */
+function guillemetPairs(text, mask) {
+	if (!text.includes("«")) return [];
+	return nestedPairs(text, mask, "«", "»", lineRanges(text));
+}
+/** (…) in a paragraph; smileys `:)` `;(` are not brackets. */
+function parenPairs(text, mask) {
+	if (!text.includes("(")) return [];
+	return nestedPairs(text, mask, "(", ")", paragraphRanges(text), { skip: (i) => text[i - 1] === ":" || text[i - 1] === ";" });
+}
+/** […] in a paragraph; a Markdown link `[text](url)` is not an aside. */
+function bracketPairs(text, mask) {
+	if (!text.includes("[")) return [];
+	return nestedPairs(text, mask, "[", "]", paragraphRanges(text), { accept: (pair) => text[pair.end] !== "(" });
+}
+/** Index of the previous character that is neither whitespace nor excluded (line start - 1 when none). */
+function previousChar(text, mask, from, lineStart) {
+	let p = from;
+	while (p >= lineStart && (isSpace(text[p]) || mask[p] === 2)) p--;
+	return p;
+}
+/** The character at p ends a sentence, possibly followed by closing marks: `.`, `!»`, `?"`, `.)`. */
+function endsSentence(text, p, lineStart) {
+	let q = p;
+	while (q >= lineStart && CLOSERS.includes(text[q])) q--;
+	return q >= lineStart && SENTENCE_END.includes(text[q]);
+}
+/**
+* Russian direct speech with dashes, line by line. Speech starts at «— »/«– » at the start of a line, after a
+* sentence end or a colon; in a line that opened with speech also after a comma («…, — сказал он, — как дела?»).
+* Speech ends before « — » that follows `,` `.` `!` `?` `…` (the author's words), or at the end of the line. A
+* dash inside a sentence («Москва — столица») is plain text. The opening mark is the dash with its space; a comma
+* before the author's words stays outside («— Привет», — сказал он).
+*/
+function dashSpeech(text, mask) {
+	const out = [];
+	if (!text.includes("—") && !text.includes("–")) return out;
+	for (const line of lineRanges(text)) {
+		let first = line.start;
+		while (first < line.end && (isSpace(text[first]) || text[first] === ">" || mask[first] === 2)) first++;
+		let speech = -1;
+		let dialogueLine = false;
+		for (let i = first; i < line.end; i++) {
+			if (!DASHES.includes(text[i]) || mask[i] || i + 1 >= line.end || !isSpace(text[i + 1])) continue;
+			const p = previousChar(text, mask, i - 1, line.start);
+			const spaced = p < i - 1;
+			if (speech < 0) {
+				if (i === first) {
+					speech = i;
+					dialogueLine = true;
+					continue;
+				}
+				if (!spaced || p < line.start) continue;
+				const prev = text[p];
+				if (prev === ":" || endsSentence(text, p, line.start) || dialogueLine && prev === ",") speech = i;
+			} else {
+				if (!spaced || p < speech + 2) continue;
+				const prev = text[p];
+				if (prev !== "," && !endsSentence(text, p, line.start)) continue;
+				const end = prev === "," ? p : p + 1;
+				if (end > speech + 2) out.push({
+					start: speech,
+					end,
+					open: 2,
+					close: 0
+				});
+				speech = -1;
+			}
+		}
+		if (speech >= 0) {
+			let end = line.end;
+			while (end > speech && isSpace(text[end - 1])) end--;
+			if (end > speech + 2) out.push({
+				start: speech,
+				end,
+				open: 2,
+				close: 0
+			});
+		}
+	}
+	return out;
+}
+/** Matches of a user regex (at most `limit`); none may start or end in opaque text or hold excluded text. */
+function customPairs(text, mask, re, limit = 500) {
+	const out = [];
+	const global = re.global ? re : new RegExp(re.source, `${re.flags}g`);
+	global.lastIndex = 0;
+	let match;
+	while ((match = global.exec(text)) !== null) {
+		const start = match.index;
+		const end = start + match[0].length;
+		if (end === start) {
+			global.lastIndex = start + 1;
+			continue;
+		}
+		let clear = mask[start] === 0 && mask[end - 1] === 0;
+		for (let i = start; clear && i < end; i++) if (mask[i] === 2) clear = false;
+		if (clear) out.push({
+			start,
+			end,
+			open: 0,
+			close: 0
+		});
+		if (out.length >= limit) break;
+	}
+	global.lastIndex = 0;
+	return out;
+}
+/**
+* `*…*` and `**…**` per paragraph with a delimiter stack (a light CommonMark): a run can open when the next character
+* is not a space and close when the previous one is not; `***x***` gives an `*` pair around a `**` pair. Pairs are
+* properly nested by construction.
+*/
+function emphasisPairs(text, mask) {
+	const em = [];
+	const strong = [];
+	if (!text.includes("*")) return {
+		em,
+		strong
+	};
+	for (const para of paragraphRanges(text)) {
+		const stack = [];
+		for (let i = para.start; i < para.end; i++) {
+			if (text[i] !== "*" || mask[i]) continue;
+			let j = i;
+			while (j < para.end && text[j] === "*" && !mask[j]) j++;
+			const prev = i > para.start ? text[i - 1] : void 0;
+			const next = j < para.end ? text[j] : void 0;
+			const canOpen = next !== void 0 && !isSpace(next);
+			const canClose = prev !== void 0 && !isSpace(prev);
+			let rest = i;
+			if (canClose) while (rest < j && stack.length) {
+				const opener = stack[stack.length - 1];
+				const use = opener.end - opener.start >= 2 && j - rest >= 2 ? 2 : 1;
+				(use === 2 ? strong : em).push({
+					start: opener.end - use,
+					end: rest + use,
+					open: use,
+					close: use
+				});
+				opener.end -= use;
+				rest += use;
+				if (opener.end <= opener.start) stack.pop();
+			}
+			if (rest < j && canOpen) stack.push({
+				start: rest,
+				end: j
+			});
+			i = j - 1;
+		}
+	}
+	return {
+		em,
+		strong
+	};
+}
+/** `_…_` on one line like ST's underscore extension: single underscores at word edges, the first closer wins. */
+function underscorePairs(text, mask) {
+	const out = [];
+	if (!text.includes("_")) return out;
+	for (const line of lineRanges(text)) {
+		let open = -1;
+		for (let i = line.start; i < line.end; i++) {
+			if (text[i] !== "_" || mask[i] || text[i - 1] === "_" || text[i + 1] === "_") continue;
+			const prev = i > line.start ? text[i - 1] : void 0;
+			const next = i + 1 < line.end ? text[i + 1] : void 0;
+			if (open < 0) {
+				if (!isWord(prev) && next !== void 0 && !isSpace(next)) open = i;
+			} else if (!isWord(next) && prev !== void 0 && !isSpace(prev) && i > open + 1) {
+				out.push({
+					start: open,
+					end: i + 1,
+					open: 1,
+					close: 1
+				});
+				open = -1;
+			}
+		}
+	}
+	return out;
+}
+/** For a family of properly nested (or disjoint) ranges: the innermost range holding each position, -1 for none. */
+function innermost(length, ranges) {
+	const inner = new Int32Array(length).fill(-1);
+	if (!ranges.length) return inner;
+	const order = ranges.map((_, index) => index).sort((a, b) => ranges[a].start - ranges[b].start || ranges[b].end - ranges[a].end);
+	const stack = [];
+	let k = 0;
+	for (let pos = 0; pos < length; pos++) {
+		while (stack.length && ranges[stack[stack.length - 1]].end <= pos) stack.pop();
+		while (k < order.length && ranges[order[k]].start <= pos) {
+			if (ranges[order[k]].end > pos) stack.push(order[k]);
+			k++;
+		}
+		inner[pos] = stack.length ? stack[stack.length - 1] : -1;
+	}
+	return inner;
+}
+/** The range crosses a member of the family the `inner` map was built from (neither inside nor around it). */
+function crosses(range, inner) {
+	return inner[range.start] !== inner[range.end - 1];
+}
+/**
+* Outer layer: no overlaps. Sources are merged by start (one linear k-way merge); the earliest start wins, a tie
+* goes to the source listed first (the rule higher in the list).
+*/
+function selectLayer1(sources) {
+	const heads = sources.map(() => 0);
+	const out = [];
+	let cursor = 0;
+	for (;;) {
+		let best = -1;
+		for (let s = 0; s < sources.length; s++) {
+			const pair = sources[s].pairs[heads[s]];
+			if (!pair) continue;
+			if (best < 0 || pair.start < sources[best].pairs[heads[best]].start) best = s;
+		}
+		if (best < 0) break;
+		const source = sources[best];
+		const pair = source.pairs[heads[best]];
+		heads[best]++;
+		if (pair.start < cursor) continue;
+		out.push({
+			...pair,
+			ruleId: source.ruleId,
+			kind: source.kind
+		});
+		cursor = pair.end;
+	}
+	return out;
+}
+/** Candidates of a built-in outer-layer kind. */
+function layer1Pairs(text, mask, kind) {
+	switch (kind) {
+		case "doubleQuotes": return quotePairs(text, mask);
+		case "guillemets": return guillemetPairs(text, mask);
+		case "dashDialogue": return dashSpeech(text, mask);
+		case "parentheses": return parenPairs(text, mask);
+		case "brackets": return bracketPairs(text, mask);
+		default: return [];
+	}
+}
+var LAYER1_KINDS = [
+	"doubleQuotes",
+	"guillemets",
+	"dashDialogue",
+	"parentheses",
+	"brackets",
+	"custom"
+];
+function byStart(a, b) {
+	return a.start - b.start || b.end - a.end;
+}
+/**
+* Everything the enabled rules of a scope mark in a raw message text, outer matches before the ones inside them.
+* With several rules of one built-in kind the first one marks it. Narration is not a match: see narrationRanges.
+*/
+function findMatches(text, rules, options = {}) {
+	const active = activeRules(rules, options.scope).filter((rule) => rule.match.kind !== "narration");
+	if (!text || !active.length) return [];
+	const exclusions = textExclusions(text);
+	const mask = maskOf(text.length, exclusions.ranges);
+	const firstOf = (kind) => active.find((rule) => rule.match.kind === kind);
+	const sources = [];
+	const seen = /* @__PURE__ */ new Set();
+	for (const rule of active) {
+		const kind = rule.match.kind;
+		if (!LAYER1_KINDS.includes(kind)) continue;
+		if (kind === "custom") {
+			const compiled = compileCustom(rule.match.pattern, rule.match.flags);
+			if (compiled.ok) sources.push({
+				ruleId: rule.id,
+				kind,
+				pairs: customPairs(text, mask, compiled.re)
+			});
+			continue;
+		}
+		if (seen.has(kind)) continue;
+		seen.add(kind);
+		sources.push({
+			ruleId: rule.id,
+			kind,
+			pairs: layer1Pairs(text, mask, kind)
+		});
+	}
+	const outer = selectLayer1(sources);
+	const outerInner = innermost(text.length, outer);
+	const inline = [];
+	const want = (kind) => firstOf(kind);
+	const asterisk = want("asterisk");
+	const strongRule = want("doubleAsterisk");
+	const underscore = want("underscore");
+	const backticks = want("backticks");
+	if (asterisk || strongRule || underscore) {
+		const { em, strong } = emphasisPairs(text, mask);
+		const family = [...em, ...strong];
+		const familyInner = innermost(text.length, family);
+		const keep = (pair) => !crosses(pair, outerInner);
+		if (asterisk) {
+			for (const pair of em) if (keep(pair)) inline.push({
+				...pair,
+				ruleId: asterisk.id,
+				kind: "asterisk"
+			});
+		}
+		if (strongRule) {
+			for (const pair of strong) if (keep(pair)) inline.push({
+				...pair,
+				ruleId: strongRule.id,
+				kind: "doubleAsterisk"
+			});
+		}
+		if (underscore) {
+			for (const pair of underscorePairs(text, mask)) if (keep(pair) && !crosses(pair, familyInner)) inline.push({
+				...pair,
+				ruleId: underscore.id,
+				kind: "underscore"
+			});
+		}
+	}
+	if (backticks) for (const range of exclusions.code) {
+		const ticks = countTicks(text, range.start);
+		const pair = {
+			start: range.start,
+			end: range.end,
+			open: ticks,
+			close: ticks
+		};
+		if (!crosses(pair, outerInner)) inline.push({
+			...pair,
+			ruleId: backticks.id,
+			kind: "backticks"
+		});
+	}
+	return [...outer, ...inline].sort(byStart);
+}
+function countTicks(text, start) {
+	let n = 0;
+	while (text[start + n] === "`") n++;
+	return n;
+}
+//#endregion
+//#region src/domain/message-style-model.ts
+var BLOCK_ELEMENTS = /* @__PURE__ */ new Set([
+	"address",
+	"article",
+	"aside",
+	"blockquote",
+	"center",
+	"dd",
+	"details",
+	"div",
+	"dl",
+	"dt",
+	"figcaption",
+	"figure",
+	"footer",
+	"h1",
+	"h2",
+	"h3",
+	"h4",
+	"h5",
+	"h6",
+	"header",
+	"hr",
+	"li",
+	"main",
+	"nav",
+	"ol",
+	"p",
+	"pre",
+	"section",
+	"summary",
+	"table",
+	"tbody",
+	"td",
+	"tfoot",
+	"th",
+	"thead",
+	"tr",
+	"ul"
+]);
+/** Elements whose text is never story text for the rules. */
+var EXCLUDED_ELEMENTS = /* @__PURE__ */ new Set([
+	"a",
+	"audio",
+	"button",
+	"canvas",
+	"code",
+	"custom-style",
+	"iframe",
+	"kbd",
+	"math",
+	"noscript",
+	"object",
+	"pre",
+	"samp",
+	"script",
+	"select",
+	"style",
+	"svg",
+	"template",
+	"textarea",
+	"video"
+]);
+var VOID_ELEMENTS = /* @__PURE__ */ new Set([
+	"area",
+	"base",
+	"br",
+	"col",
+	"embed",
+	"hr",
+	"img",
+	"input",
+	"link",
+	"meta",
+	"param",
+	"source",
+	"track",
+	"wbr"
+]);
+var VisibleTextBuilder = class {
+	chars = [];
+	pieces = [];
+	offsets = [];
+	parents = [];
+	depths = [];
+	masks = [];
+	stack = [];
+	quotes = [];
+	excludedDepth = 0;
+	quoteDepth = 0;
+	nextId = 0;
+	/**
+	* An element starts; returns its id. `skip`: treat its content as excluded (NAI image hosts, foreign widgets).
+	* Void elements are not entered (their close() is a no-op).
+	*/
+	open(name, options = {}) {
+		const tag = name.toLowerCase();
+		const id = this.nextId++;
+		if (BLOCK_ELEMENTS.has(tag)) this.paragraphBreak();
+		if (VOID_ELEMENTS.has(tag)) {
+			if (tag === "br") this.virtual("\n");
+			return id;
+		}
+		const excluded = options.skip === true || EXCLUDED_ELEMENTS.has(tag);
+		let quote = -1;
+		if (tag === "q" && !excluded) {
+			quote = this.quotes.length;
+			this.quotes.push({
+				element: id,
+				first: -1,
+				last: -1
+			});
+			this.quoteDepth++;
+		}
+		if (excluded) this.excludedDepth++;
+		this.stack.push({
+			id,
+			name: tag,
+			excluded,
+			quote
+		});
+		return id;
+	}
+	/** The element with this id ends (ignored unless it is the innermost open one). */
+	close(id) {
+		const top = this.stack[this.stack.length - 1];
+		if (!top || top.id !== id) return;
+		this.stack.pop();
+		if (top.excluded) this.excludedDepth--;
+		if (top.quote >= 0) this.quoteDepth--;
+		if (BLOCK_ELEMENTS.has(top.name)) this.paragraphBreak();
+	}
+	/** A text piece (a text node) with its index in the caller's piece list. */
+	text(data, piece) {
+		if (!data) return;
+		const top = this.stack[this.stack.length - 1];
+		const parent = top ? top.id : -1;
+		const depth = this.stack.length;
+		const mask = this.excludedDepth > 0 ? 2 : this.quoteDepth > 0 ? 1 : 0;
+		const first = this.chars.length;
+		for (let k = 0; k < data.length; k++) {
+			let char = data[k];
+			if (mask !== 2 && (char === "\n" || char === "\r" || char === "	")) char = " ";
+			this.push(char, piece, k, parent, depth, mask);
+		}
+		if (this.quoteDepth > 0) for (const entry of this.stack) {
+			if (entry.quote < 0) continue;
+			const quote = this.quotes[entry.quote];
+			if (quote.first < 0) quote.first = first;
+			quote.last = this.chars.length - 1;
+		}
+	}
+	build() {
+		const text = this.chars.join("");
+		const mask = Uint8Array.from(this.masks);
+		for (const range of textExclusions(text).ranges) mask.fill(2, range.start, range.end);
+		return {
+			text,
+			piece: Int32Array.from(this.pieces),
+			offset: Int32Array.from(this.offsets),
+			parent: Int32Array.from(this.parents),
+			depth: Int32Array.from(this.depths),
+			mask,
+			quotes: this.quotes.map((quote) => ({ ...quote }))
+		};
+	}
+	push(char, piece, offset, parent, depth, mask) {
+		this.chars.push(char);
+		this.pieces.push(piece);
+		this.offsets.push(offset);
+		this.parents.push(parent);
+		this.depths.push(depth);
+		this.masks.push(mask);
+	}
+	virtual(char) {
+		const top = this.stack[this.stack.length - 1];
+		this.push(char, -1, 0, top ? top.id : -1, this.stack.length, 0);
+	}
+	paragraphBreak() {
+		const n = this.chars.length;
+		if (!n) return;
+		if (this.chars[n - 1] === "\n" && this.chars[n - 2] === "\n") return;
+		if (this.chars[n - 1] !== "\n") this.virtual("\n");
+		this.virtual("\n");
+	}
+};
+var QUOTE_CLASS = {
+	"\"": "dq",
+	"“": "dq",
+	"＂": "dq",
+	"«": "gq"
+};
+var QUOTE_CLOSER = {
+	"\"": "\"",
+	"“": "”",
+	"＂": "＂",
+	"«": "»"
+};
+/** The range starts and ends in text of the same element and never leaves it. */
+function isWhole(model, start, end) {
+	if (end <= start || model.piece[start] < 0 || model.piece[end - 1] < 0) return false;
+	const parent = model.parent[start];
+	if (model.parent[end - 1] !== parent) return false;
+	const depth = model.depth[start];
+	for (let i = start; i < end; i++) if (model.depth[i] < depth) return false;
+	return true;
+}
+/** Runs of plain (unmasked, real) characters of one text piece inside the range. */
+function pieceRuns(model, start, end) {
+	const out = [];
+	let run = -1;
+	for (let i = start; i <= end; i++) {
+		const plain = i < end && model.piece[i] >= 0 && model.mask[i] === 0;
+		const continues = plain && run >= 0 && model.piece[i] === model.piece[i - 1] && model.offset[i] === model.offset[i - 1] + 1;
+		if (run >= 0 && !continues) {
+			out.push({
+				start: run,
+				end: i
+			});
+			run = -1;
+		}
+		if (plain && run < 0) run = i;
+	}
+	return out;
+}
+function spanPairs(model, span) {
+	const { text, mask } = model;
+	switch (span.kind) {
+		case "dashDialogue": return dashSpeech(text, mask);
+		case "parentheses": return parenPairs(text, mask);
+		case "brackets": return bracketPairs(text, mask);
+		default: {
+			const compiled = compileCustom(span.pattern, span.flags);
+			return compiled.ok ? customPairs(text, mask, compiled.re) : [];
+		}
+	}
+}
+/** What to mark in a rendered message for the plan of its scope. */
+function planAnnotations(model, plan) {
+	const out = [];
+	const { text, mask } = model;
+	if (plan.quotes) for (const quote of model.quotes) {
+		if (quote.first < 0 || mask[quote.first] === 2) continue;
+		const opener = text[quote.first];
+		const cls = QUOTE_CLASS[opener];
+		if (!cls) continue;
+		const marks = [];
+		if (plan.marks[cls] && quote.last > quote.first && text[quote.last] === QUOTE_CLOSER[opener] && model.parent[quote.first] === quote.element && model.parent[quote.last] === quote.element) marks.push({
+			start: quote.first,
+			end: quote.first + 1
+		}, {
+			start: quote.last,
+			end: quote.last + 1
+		});
+		out.push({
+			type: "quote",
+			element: quote.element,
+			cls,
+			marks
+		});
+	}
+	if (!plan.spans.length) return out;
+	const sources = plan.spans.map((span) => ({
+		ruleId: span.cls,
+		kind: span.kind,
+		pairs: spanPairs(model, span)
+	}));
+	for (const match of selectLayer1(sources)) {
+		const whole = isWhole(model, match.start, match.end);
+		const pieces = whole ? [] : pieceRuns(model, match.start, match.end);
+		if (!whole && !pieces.length) continue;
+		const marks = [];
+		if (match.kind === "dashDialogue" && plan.marks.dash && match.open > 0) {
+			const mark = {
+				start: match.start,
+				end: match.start + match.open
+			};
+			const single = pieceRuns(model, mark.start, mark.end);
+			if (single.length === 1 && single[0].start === mark.start && single[0].end === mark.end && (whole || pieces.some((piece) => piece.start <= mark.start && mark.end <= piece.end))) marks.push(mark);
+		}
+		out.push({
+			type: "span",
+			cls: match.ruleId,
+			start: match.start,
+			end: match.end,
+			whole,
+			pieces,
+			marks
+		});
+	}
+	return out;
+}
+var ENTITY_DASHES = [
+	"&mdash;",
+	"&ndash;",
+	"&#8212;",
+	"&#8211;",
+	"&#x2014;",
+	"&#x2013;"
+];
+/** Cheap check before parsing a rendered message: could the plan mark anything in this HTML? */
+function mayAnnotate(html, plan) {
+	if (!html) return false;
+	if (plan.quotes && html.includes("<q")) return true;
+	for (const span of plan.spans) {
+		if (span.kind === "custom") return true;
+		if (span.kind === "dashDialogue" && (html.includes("—") || html.includes("–") || ENTITY_DASHES.some((entity) => html.includes(entity)))) return true;
+		if (span.kind === "parentheses" && html.includes("(")) return true;
+		if (span.kind === "brackets" && html.includes("[")) return true;
+	}
+	return false;
+}
+/** What ST itself marks, as rules: quotes become `<q>`, emphasis `<em>`/`<strong>`, backticks `<code>`. */
+var ST_RULES = [
+	["q1", "doubleQuotes"],
+	["q2", "guillemets"],
+	["e1", "asterisk"],
+	["e2", "doubleAsterisk"],
+	["e3", "underscore"],
+	["k1", "backticks"]
+].map(([id, kind]) => ({
+	id,
+	name: "",
+	enabled: true,
+	match: { kind },
+	applyTo: "all",
+	style: makeStyle()
+}));
+var ST_TAGS = {
+	doubleQuotes: "q",
+	guillemets: "q",
+	asterisk: "em",
+	underscore: "em",
+	doubleAsterisk: "strong",
+	backticks: "code"
+};
+function escapeHtml(char) {
+	return char === "&" ? "&amp;" : char === "<" ? "&lt;" : char === ">" ? "&gt;" : char;
+}
+/**
+* HTML for a plain sample text the way SillyTavern renders it (quotes in `<q>` with their marks, emphasis in
+* `<em>`/`<strong>` without the asterisks, paragraphs and line breaks): the preview uses it when ST's own formatter
+* is not available. Text is escaped; nothing from the input becomes markup.
+*/
+function sampleHtml(text) {
+	const n = text.length;
+	if (!n) return "";
+	const matches = findMatches(text, ST_RULES);
+	const opens = Array.from({ length: n + 1 }, () => []);
+	const closes = Array.from({ length: n + 1 }, () => []);
+	const skip = new Uint8Array(n);
+	for (const match of matches) {
+		const tag = ST_TAGS[match.kind] ?? "span";
+		if (tag !== "q") {
+			skip.fill(1, match.start, match.start + match.open);
+			skip.fill(1, match.end - match.close, match.end);
+		}
+		opens[match.start].push(`<${tag}>`);
+		closes[match.end].unshift(`</${tag}>`);
+	}
+	const parts = [];
+	for (const para of paragraphRanges(text)) {
+		parts.push("<p>");
+		for (let i = para.start; i < para.end; i++) {
+			parts.push(...closes[i], ...opens[i]);
+			if (skip[i]) continue;
+			const char = text[i];
+			parts.push(char === "\n" ? "<br>" : escapeHtml(char));
+		}
+		parts.push(...closes[para.end], "</p>");
+	}
+	return parts.join("");
+}
+//#endregion
+//#region src/features/messageStyle/annotate.ts
+var SANITIZED_PREFIX = `custom-${ANNOTATION_PREFIX}`;
+function isOurClass(token) {
+	return token.startsWith("maestro-ms-") || token.startsWith(SANITIZED_PREFIX);
+}
+/** NAI Studio's inline image hosts and mounted pictures are never story text. */
+function skipElement(element) {
+	return element.hasAttribute("data-naist-img") || element.hasAttribute("data-naist-mounted") || element.classList.contains("naist-inline");
+}
+function walk(root) {
+	const builder = new VisibleTextBuilder();
+	const pieces = [];
+	const elements = [];
+	const visit = (node) => {
+		for (let child = node.firstChild; child; child = child.nextSibling) if (child.nodeType === 3) {
+			pieces.push(child);
+			builder.text(child.data, pieces.length - 1);
+		} else if (child.nodeType === 1) {
+			const element = child;
+			const id = builder.open(element.localName || element.nodeName, { skip: skipElement(element) });
+			elements[id] = element;
+			visit(element);
+			builder.close(id);
+		}
+	};
+	visit(root);
+	return {
+		model: builder.build(),
+		pieces,
+		elements
+	};
+}
+/** Text pieces split at the given offsets: start offset → the text node that begins there. */
+var Segments = class {
+	model;
+	pieces;
+	starts = /* @__PURE__ */ new Map();
+	nodes = /* @__PURE__ */ new Map();
+	constructor(model, pieces) {
+		this.model = model;
+		this.pieces = pieces;
+	}
+	/** Requests node boundaries around the visible range. */
+	cut(range) {
+		const { piece, offset } = this.model;
+		this.add(piece[range.start], offset[range.start]);
+		this.add(piece[range.end - 1], offset[range.end - 1] + 1);
+	}
+	split() {
+		for (const [index, offsets] of this.starts) {
+			const node = this.pieces[index];
+			const length = node.data.length;
+			const unique = [...new Set(offsets)].filter((value) => value > 0 && value < length).sort((a, b) => a - b);
+			const map = /* @__PURE__ */ new Map([[0, node]]);
+			for (let i = unique.length - 1; i >= 0; i--) map.set(unique[i], node.splitText(unique[i]));
+			this.nodes.set(index, map);
+			this.starts.set(index, [0, ...unique]);
+		}
+	}
+	/** First and last text node of a visible range (after split()). */
+	bounds(range) {
+		const first = this.nodeAt(range.start);
+		const last = this.nodeAt(range.end - 1);
+		return first && last ? [first, last] : null;
+	}
+	nodeAt(index) {
+		const piece = this.model.piece[index];
+		const offset = this.model.offset[index];
+		const starts = this.starts.get(piece);
+		const map = this.nodes.get(piece);
+		if (!starts || !map) return null;
+		let start = 0;
+		for (const value of starts) if (value <= offset) start = value;
+		return map.get(start) ?? null;
+	}
+	add(piece, offset) {
+		if (piece < 0) return;
+		const list = this.starts.get(piece) ?? [];
+		list.push(offset);
+		this.starts.set(piece, list);
+	}
+};
+/**
+* Wraps the sibling nodes from `first` to `last` in a span. Nodes that are the first/last child of a span made in
+* this pass are lifted to that span, so outer wraps go around inner ones.
+*/
+function wrap(first, last, cls, created) {
+	let from = first;
+	let to = last;
+	while (from.parentNode && created.has(from.parentNode) && from.parentNode.firstChild === from) from = from.parentNode;
+	while (to.parentNode && created.has(to.parentNode) && to.parentNode.lastChild === to) to = to.parentNode;
+	const parent = from.parentNode;
+	if (!parent || parent !== to.parentNode) return false;
+	const span = (parent.ownerDocument ?? parent).createElement("span");
+	span.className = `${ANNOTATION_PREFIX}${cls}`;
+	parent.insertBefore(span, from);
+	let node = from;
+	while (node) {
+		const next = node.nextSibling;
+		span.appendChild(node);
+		if (node === to) break;
+		node = next;
+	}
+	created.add(span);
+	return true;
+}
+/** Marks a message (a `.mes_text` or a parsed fragment) for the plan; returns how many marks were made. */
+function annotateNode(root, plan) {
+	const { model, pieces, elements } = walk(root);
+	const annotations = planAnnotations(model, plan);
+	if (!annotations.length) return 0;
+	const segments = new Segments(model, pieces);
+	const marks = [];
+	const spans = [];
+	for (const item of annotations) {
+		marks.push(...item.marks);
+		if (item.type !== "span") continue;
+		if (item.whole) spans.push({
+			range: {
+				start: item.start,
+				end: item.end
+			},
+			cls: item.cls
+		});
+		else for (const piece of item.pieces) spans.push({
+			range: piece,
+			cls: item.cls
+		});
+	}
+	for (const range of [...marks, ...spans.map((item) => item.range)]) segments.cut(range);
+	segments.split();
+	const created = /* @__PURE__ */ new Set();
+	let count = 0;
+	for (const range of marks) {
+		const bounds = segments.bounds(range);
+		if (bounds && wrap(bounds[0], bounds[1], "mark", created)) count++;
+	}
+	for (const item of spans) {
+		const bounds = segments.bounds(item.range);
+		if (bounds && wrap(bounds[0], bounds[1], item.cls, created)) count++;
+	}
+	for (const item of annotations) {
+		if (item.type !== "quote") continue;
+		const element = elements[item.element];
+		if (!element) continue;
+		element.classList.add(`${ANNOTATION_PREFIX}${item.cls}`);
+		count++;
+	}
+	return count;
+}
+/** Takes Maestro's marks out of a message again (spans unwrapped, classes removed, text nodes merged). */
+function clearAnnotations(root) {
+	let count = 0;
+	const parents = /* @__PURE__ */ new Set();
+	for (const span of Array.from(root.querySelectorAll("span"))) {
+		if (!Array.from(span.classList).some(isOurClass)) continue;
+		const parent = span.parentNode;
+		if (!parent) continue;
+		while (span.firstChild) parent.insertBefore(span.firstChild, span);
+		parent.removeChild(span);
+		parents.add(parent);
+		count++;
+	}
+	for (const quote of Array.from(root.querySelectorAll("q"))) {
+		const ours = Array.from(quote.classList).filter(isOurClass);
+		if (!ours.length) continue;
+		quote.classList.remove(...ours);
+		if (!quote.classList.length) quote.removeAttribute("class");
+		count++;
+	}
+	for (const parent of parents) parent.normalize();
+	return count;
+}
+/** Whether a message holds any of Maestro's marks. */
+function hasAnnotations(root) {
+	return root.querySelector(`[class*="${ANNOTATION_PREFIX}"]`) !== null;
+}
+/**
+* The formatter hook's work: ST's HTML for one message, marked for the plan. The HTML is parsed into an inert
+* <template> (nothing loads or runs) and serialised back only when something was marked.
+*/
+function annotateHtml(html, plan, doc) {
+	if (!mayAnnotate(html, plan)) return html;
+	const template = doc.createElement("template");
+	template.innerHTML = html;
+	return annotateNode(template.content, plan) ? template.innerHTML : html;
+}
+//#endregion
+//#region src/features/messageStyle/styler.ts
+/** Page class of the whole module. */
+var MESSAGE_STYLE_CLASS = "maestro-msgstyle";
+/** ui.style id of the generated rules. */
+var RULES_STYLE_ID = "maestro-m32m-rules";
+/** Class of the editor's preview boxes (their text is `-text`, the name `-name`). */
+var PREVIEW_CLASS = "maestro-m32m-preview";
+/** Page classes of the theme layer and its chat part (src/features/theme/api.ts). */
+var THEME_CLASSES = {
+	layer: "maestro-theme",
+	chat: "maestro-theme-chat"
+};
+/** ST's element with the user's custom CSS: Maestro's sheet goes before it so the user's rules keep the last word. */
+var CUSTOM_CSS_ID$2 = "custom-style";
+/** One hook per formatter for the page (ST has no removeHook). */
+var HOOKS = /* @__PURE__ */ new WeakMap();
+var MessageStyler = class {
+	app;
+	log;
+	doc;
+	restyleMs;
+	listeners = /* @__PURE__ */ new Set();
+	hook = null;
+	plans = null;
+	signature = "";
+	css = "";
+	offStyle = null;
+	offSettings = null;
+	timer = null;
+	running = false;
+	constructor(deps) {
+		this.app = deps.app;
+		this.log = deps.log;
+		this.doc = deps.doc ?? document;
+		this.restyleMs = deps.restyleMs ?? 60;
+	}
+	start() {
+		if (this.running) return;
+		this.running = true;
+		this.offSettings = this.app.settings.onChange((path) => {
+			if (path === `modules.messageStyle` || path.startsWith(`modules.messageStyle.`)) this.sync();
+		});
+		this.installHook();
+		this.sync();
+	}
+	dispose() {
+		this.running = false;
+		this.offSettings?.();
+		this.offSettings = null;
+		this.unapply();
+		this.emit();
+		this.listeners.clear();
+	}
+	/** The live settings slice (repaired). */
+	settings() {
+		return readMessageStyleSettings(this.app.settings.module(MESSAGE_STYLE_KEY));
+	}
+	/** ST's formatter hook is in place (kinds ST does not mark can be styled). */
+	annotated() {
+		return this.hook !== null;
+	}
+	/** Messages are being styled now. */
+	active() {
+		return this.running && this.offStyle !== null;
+	}
+	/** The hook's plan for a scope while active. */
+	plan(scope) {
+		return this.plans?.[scope] ?? null;
+	}
+	/** Applies an edit of the settings and saves it (`path` under the module, e.g. `rules`); the notice syncs. */
+	update(path, change) {
+		change(this.settings());
+		this.app.settings.notify(`modules.${MESSAGE_STYLE_KEY}.${path}`);
+		this.app.settings.save();
+	}
+	onChange(listener) {
+		this.listeners.add(listener);
+		return () => this.listeners.delete(listener);
+	}
+	/** Marks the messages on screen again (after a neighbour rebuilt them, for instance). */
+	refresh() {
+		if (this.plans) this.restyleVisible();
+	}
+	/**
+	* HTML of a sample message as the chat would show it: ST's own formatter (it runs this hook too) when available,
+	* else a close imitation of ST's output marked for the current plan.
+	*/
+	formatPreview(text, scope, name) {
+		if (this.hook) try {
+			const formatter = this.app.host.ctx().messageFormatter;
+			if (typeof formatter?.format === "function") {
+				const html = formatter.format(text, name, false, scope === "user", -1);
+				if (typeof html === "string") return html;
+			}
+		} catch (error) {
+			this.log.debug("message style: ST could not format the preview", error);
+		}
+		const html = sampleHtml(text);
+		const plan = this.plan(scope);
+		return plan ? annotateHtml(html, plan, this.doc) : html;
+	}
+	/** Brings the page in line with the settings (idempotent). */
+	sync() {
+		const settings = this.settings();
+		if (!this.running || !settings.enabled) {
+			this.unapply();
+			this.emit();
+			return;
+		}
+		this.doc.documentElement?.classList.add(MESSAGE_STYLE_CLASS);
+		this.setStyle(buildMessageStyleCss(settings.rules, settings.player, {
+			pageClass: MESSAGE_STYLE_CLASS,
+			previewClass: PREVIEW_CLASS,
+			annotated: this.annotated(),
+			themeClasses: THEME_CLASSES
+		}));
+		const plans = this.hook ? {
+			user: buildPlan(settings.rules, "user"),
+			char: buildPlan(settings.rules, "char")
+		} : null;
+		this.plans = plans;
+		if (this.hook) this.hook.plans = plans;
+		const signature = planSignature(plans);
+		if (signature !== this.signature) {
+			this.signature = signature;
+			this.scheduleRestyle();
+		}
+		this.emit();
+	}
+	unapply() {
+		this.clearTimer();
+		this.doc.documentElement?.classList.remove(MESSAGE_STYLE_CLASS);
+		if (this.offStyle) try {
+			this.offStyle();
+		} catch (error) {
+			this.log.warn("message style: style removal failed", error);
+		}
+		this.offStyle = null;
+		this.css = "";
+		if (this.hook) this.hook.plans = null;
+		this.plans = null;
+		if (this.signature) {
+			this.signature = "";
+			this.clearVisible();
+		}
+	}
+	installHook() {
+		let formatter;
+		try {
+			formatter = this.app.host.ctx().messageFormatter;
+		} catch {
+			formatter = void 0;
+		}
+		if (!formatter || typeof formatter.addHook !== "function") return;
+		if (!this.app.host.caps.has("st.messageFormatter")) return;
+		let state = HOOKS.get(formatter);
+		if (!state) {
+			const created = {
+				plans: null,
+				doc: this.doc
+			};
+			try {
+				formatter.addHook(function maestroMessageStyle(mes, info) {
+					const plans = created.plans;
+					if (!plans || typeof mes !== "string" || !mes) return mes;
+					const meta = typeof info === "object" && info !== null ? info : {};
+					if (meta.isReasoning === true) return mes;
+					try {
+						return annotateHtml(mes, plans[meta.isUser === true ? "user" : "char"], created.doc);
+					} catch {
+						return mes;
+					}
+				}, {
+					stage: "afterMarkdown",
+					order: 90
+				});
+			} catch (error) {
+				this.log.warn("message style: the formatter hook could not be added", error);
+				return;
+			}
+			HOOKS.set(formatter, created);
+			state = created;
+		}
+		state.doc = this.doc;
+		this.hook = state;
+	}
+	setStyle(css) {
+		if (css === this.css && this.offStyle) return;
+		this.offStyle = this.app.ui.style(RULES_STYLE_ID, css);
+		this.css = css;
+		this.keepBeforeCustomCss();
+	}
+	keepBeforeCustomCss() {
+		const custom = this.doc.getElementById(CUSTOM_CSS_ID$2);
+		const node = this.doc.querySelector(`style[data-maestro-style="${RULES_STYLE_ID}"]`);
+		const parent = custom?.parentNode;
+		if (!custom || !node || !parent || node.parentNode !== parent) return;
+		if (node.compareDocumentPosition(custom) & 2) parent.insertBefore(node, custom);
+	}
+	scheduleRestyle() {
+		this.clearTimer();
+		this.timer = setTimeout(() => {
+			this.timer = null;
+			this.restyleVisible();
+		}, this.restyleMs);
+	}
+	clearTimer() {
+		if (this.timer !== null) clearTimeout(this.timer);
+		this.timer = null;
+	}
+	/** Message texts on screen; ST's message editor (a textarea inside `.mes_text`) is left alone. */
+	visibleTexts() {
+		const chat = this.doc.getElementById("chat");
+		if (!chat) return [];
+		const out = [];
+		for (const mes of Array.from(chat.querySelectorAll(".mes"))) {
+			const text = mes.querySelector(".mes_text");
+			if (!text || text.querySelector("textarea")) continue;
+			out.push({
+				text,
+				scope: mes.getAttribute("is_user") === "true" ? "user" : "char"
+			});
+		}
+		return out;
+	}
+	restyleVisible() {
+		const plans = this.plans;
+		if (!plans) return;
+		for (const { text, scope } of this.visibleTexts()) try {
+			clearAnnotations(text);
+			annotateNode(text, plans[scope]);
+		} catch (error) {
+			this.log.debug("message style: a message could not be marked", error);
+		}
+	}
+	clearVisible() {
+		for (const { text } of this.visibleTexts()) try {
+			if (hasAnnotations(text)) clearAnnotations(text);
+		} catch (error) {
+			this.log.debug("message style: marks could not be removed", error);
+		}
+	}
+	emit() {
+		for (const listener of [...this.listeners]) try {
+			listener();
+		} catch (error) {
+			this.log.warn("message style: change listener failed", error);
+		}
+	}
+};
+//#endregion
+//#region src/features/messageStyle/view.ts
+var MESSAGE_STYLE_TAB = "messageStyle";
+var EDITOR_CSS = `
+.maestro-m32m { display: flex; flex-direction: column; gap: var(--maestro-gap-sm); }
+.maestro-m32m-presets { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; }
+.maestro-m32m .maestro-m32m-preset {
+    display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start; gap: 2px;
+    height: auto; min-height: 44px; margin: 0; padding: 6px 8px; text-align: left; white-space: normal;
+}
+.maestro-m32m-preset[aria-pressed='true'] { outline: 2px solid var(--maestro-accent); outline-offset: -2px; }
+.maestro-m32m-preset-name { font-weight: 600; }
+.maestro-m32m-preset-desc { font-size: 0.8em; opacity: 0.8; }
+.maestro-m32m-previews { display: grid; gap: 8px; }
+.${PREVIEW_CLASS} {
+    padding: 8px 10px; border: 1px solid var(--maestro-border); border-radius: var(--maestro-radius-sm);
+    background-color: var(--maestro-raised);
+}
+.${PREVIEW_CLASS}-name { margin-bottom: 4px; font-size: 0.9em; font-weight: 600; }
+.${PREVIEW_CLASS}-label { float: right; font-size: 0.75em; opacity: 0.7; }
+.${PREVIEW_CLASS}-text {
+    color: var(--SmartThemeBodyColor); font-family: var(--mainFontFamily); line-height: 1.5; overflow-wrap: anywhere;
+}
+.${PREVIEW_CLASS}-text p { margin: 0 0 0.5em; }
+.${PREVIEW_CLASS}-text p:last-child { margin-bottom: 0; }
+.${PREVIEW_CLASS}-text q { color: var(--SmartThemeQuoteColor); }
+.${PREVIEW_CLASS}-text q::before, .${PREVIEW_CLASS}-text q::after { content: ''; }
+.${PREVIEW_CLASS}-text :is(em, i) { color: var(--SmartThemeEmColor); }
+.${PREVIEW_CLASS}-text q :is(em, i) { color: inherit; }
+.${PREVIEW_CLASS}-text u { color: var(--SmartThemeUnderlineColor); }
+.maestro-m32m-rules { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.maestro-m32m-rule { border: 1px solid var(--maestro-border); border-radius: var(--maestro-radius-sm); }
+.maestro-m32m-rule.maestro-off .maestro-m32m-rule-title { opacity: 0.6; }
+.maestro-m32m-rule-head { display: flex; align-items: center; gap: 6px; padding: 2px 6px; }
+.maestro-m32m-rule-head input[type='checkbox'] { flex: none; margin: 0; }
+.maestro-m32m-rule-title {
+    display: flex; flex: 1; flex-direction: column; align-items: flex-start; min-width: 0; min-height: 40px;
+    padding: 4px; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer;
+}
+.maestro-m32m-rule-name { overflow-wrap: anywhere; }
+.maestro-m32m-rule-meta { font-size: 0.8em; opacity: 0.75; }
+.maestro-m32m-rule-actions { display: flex; flex: none; gap: 2px; }
+.maestro-m32m-rule-actions .menu_button { min-width: 36px; min-height: 36px; margin: 0; padding: 0 6px; }
+.maestro-m32m-rule-body {
+    display: flex; flex-direction: column; gap: 6px; padding: 6px 8px 10px; border-top: 1px solid var(--maestro-border);
+}
+.maestro-m32m-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.maestro-m32m .maestro-m32m-chip { display: inline-flex; align-items: center; gap: 4px; min-height: 32px; margin: 0; padding: 2px 8px; }
+.maestro-m32m-chip[aria-checked='true'] { outline: 2px solid var(--maestro-accent); outline-offset: -2px; }
+.maestro-m32m-chip input[type='color'] { width: 18px; height: 18px; padding: 0; border: 0; background: none; }
+.maestro-m32m-swatch {
+    flex: none; width: 14px; height: 14px; border: 1px solid var(--maestro-border); border-radius: 50%;
+}
+.maestro-m32m-swatch-none {
+    background: repeating-linear-gradient(45deg, transparent 0 3px, var(--maestro-border) 3px 4px);
+}
+.maestro-m32m-toggles { display: flex; flex-wrap: wrap; gap: 4px 14px; }
+.maestro-m32m-opacity { display: flex; align-items: center; gap: 8px; }
+.maestro-m32m-opacity input { flex: 1; min-width: 0; }
+.maestro-m32m-opacity-value { min-width: 3em; text-align: right; font-variant-numeric: tabular-nums; }
+.maestro-m32m-pattern { width: 100%; font-family: var(--monoFontFamily, monospace); }
+.maestro-m32m-pattern-status { font-size: 0.85em; }
+.maestro-m32m-pattern-status[data-state='error'] { color: var(--maestro-error); }
+.maestro-m32m-pattern-status[data-state='ok'] { color: var(--maestro-ok); }
+.maestro-m32m-test { width: 100%; min-height: 3.5em; margin: 0; resize: vertical; }
+.maestro-m32m-test-result {
+    margin-top: 4px; padding: 4px 6px; border-radius: var(--maestro-radius-sm); background-color: var(--maestro-raised);
+    white-space: pre-wrap; overflow-wrap: anywhere;
+}
+.maestro-m32m-hit { border-radius: 3px; background-color: var(--maestro-accent-soft); color: inherit; }
+.maestro-m32m-add { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.maestro-m32m-add .maestro-select { flex: 1; min-width: 160px; margin: 0; }
+.maestro-m32m-hint-text {
+    padding: 6px 8px; border-left: 3px solid var(--maestro-accent); background-color: var(--maestro-raised);
+    white-space: pre-wrap;
+}
+@media screen and (max-width: 1000px) {
+    .maestro-m32m .maestro-field { grid-template-columns: 1fr; }
+    .maestro-m32m-presets { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); }
+}
+`;
+var triOf = (value) => value === null ? "st" : value ? "on" : "off";
+var triValue = (value) => value === "st" ? null : value === "on";
+/** `#abc` → `#aabbcc` (what `<input type=color>` accepts). */
+function longHex(hex) {
+	return /^#[0-9a-f]{3}$/i.test(hex) ? `#${[...hex.slice(1)].map((char) => char + char).join("")}` : hex;
+}
+/** Renders the editor into `container` and keeps it in sync with the settings; returns the cleanup. */
+function renderEditor(container, deps) {
+	const { app, styler } = deps;
+	const t = (key, params) => app.i18n.t(key, params);
+	const root = el("div", { class: "maestro-m32m" });
+	container.appendChild(root);
+	/** Rules whose settings are open. */
+	const expanded = /* @__PURE__ */ new Set();
+	/** Custom patterns being typed (kept while invalid) and the testers' texts. */
+	const drafts = /* @__PURE__ */ new Map();
+	const samples = /* @__PURE__ */ new Map();
+	let quiet = false;
+	let focusNext = null;
+	const commit = (path, change, redraw = true) => {
+		quiet = !redraw;
+		try {
+			styler.update(path, change);
+		} finally {
+			quiet = false;
+		}
+	};
+	const editRule = (id, change, redraw = true) => commit("rules", (settings) => {
+		const rule = settings.rules.find((item) => item.id === id);
+		if (rule) change(rule);
+	}, redraw);
+	/** Marks the focusable element of a control so focus survives redraws. */
+	const control = (node, key) => {
+		const target = node.matches("input, button, select, textarea") ? node : node.querySelector("input, button, select, textarea");
+		if (target) target.dataset.m32mControl = key;
+		return node;
+	};
+	const seg = (key, label, value, options, onChange) => {
+		const node = segmented({
+			label,
+			value,
+			options,
+			onChange
+		});
+		for (const item of node.querySelectorAll("button")) item.dataset.m32mControl = `${key}-${item.dataset.value ?? ""}`;
+		return node;
+	};
+	const hint = (key) => el("div", {
+		class: "maestro-hint",
+		text: t(key)
+	});
+	const ruleLabel = (rule) => rule.name || t(`m32m.kind.${rule.match.kind}`);
+	const choosePreset = async (id) => {
+		const settings = styler.settings();
+		const modified = !sameRules(settings.rules, presetRules(settings.preset));
+		if (id === settings.preset && !modified) return;
+		if (modified) {
+			const name = t(`m32m.preset.${id}`);
+			if (!await app.ui.confirm(t("m32m.preset.confirmTitle"), t("m32m.preset.confirmBody", { name }))) return;
+		}
+		expanded.clear();
+		drafts.clear();
+		commit("preset", (current) => {
+			current.preset = id;
+			current.rules = presetRules(id);
+		});
+	};
+	const presetsSection = (settings) => {
+		const modified = !sameRules(settings.rules, presetRules(settings.preset));
+		const buttons = PRESET_IDS.map((id) => {
+			const current = id === settings.preset;
+			const name = t(`m32m.preset.${id}`);
+			const node = el("button", {
+				class: [
+					"menu_button",
+					"maestro-btn",
+					"maestro-m32m-preset"
+				],
+				attrs: {
+					type: "button",
+					"aria-pressed": current ? "true" : "false"
+				},
+				data: {
+					preset: id,
+					m32mControl: `preset-${id}`
+				}
+			}, [el("span", {
+				class: "maestro-m32m-preset-name",
+				text: current && modified ? `${name} · ${t("m32m.preset.modified")}` : name
+			}), el("span", {
+				class: "maestro-m32m-preset-desc",
+				text: t(`m32m.preset.${id}.desc`)
+			})]);
+			node.addEventListener("click", () => void choosePreset(id));
+			return node;
+		});
+		return section$1(t("m32m.presets"), [
+			hint("m32m.presetsHint"),
+			el("div", {
+				class: "maestro-m32m-presets",
+				attrs: {
+					role: "group",
+					"aria-label": t("m32m.presets")
+				}
+			}, buttons),
+			modified ? control(button({
+				label: t("m32m.preset.reset"),
+				icon: "fa-rotate-left",
+				onClick: () => choosePreset(settings.preset)
+			}), "preset-reset") : null
+		]);
+	};
+	const previewBox = (scope) => {
+		const name = t(scope === "user" ? "m32m.sample.userName" : "m32m.sample.charName");
+		const text = el("div", { class: `${PREVIEW_CLASS}-text` });
+		text.innerHTML = styler.formatPreview(t(`m32m.sample.${scope}`), scope, name);
+		return el("div", {
+			class: PREVIEW_CLASS,
+			data: { msScope: scope }
+		}, [el("div", { class: `${PREVIEW_CLASS}-name` }, [el("span", {
+			class: `${PREVIEW_CLASS}-label`,
+			text: t(`m32m.preview.${scope}`)
+		}), name]), text]);
+	};
+	const previewSection = () => section$1(t("m32m.preview"), [hint("m32m.previewHint"), el("div", { class: "maestro-m32m-previews" }, [previewBox("char"), previewBox("user")])]);
+	const swatch = (value) => {
+		const node = el("span", {
+			class: ["maestro-m32m-swatch", value === null ? "maestro-m32m-swatch-none" : null],
+			attrs: { "aria-hidden": "true" }
+		});
+		if (value !== null) node.style.background = colorValue(value);
+		return node;
+	};
+	const colorChips = (key, value, allowNone, onPick) => {
+		const group = el("div", {
+			class: "maestro-m32m-chips",
+			attrs: {
+				role: "radiogroup",
+				"aria-label": t("m32m.rule.color")
+			}
+		});
+		const options = [...allowNone ? [null] : [], ...COLOR_TOKENS];
+		for (const option of options) {
+			const chip = el("button", {
+				class: [
+					"menu_button",
+					"maestro-btn",
+					"maestro-m32m-chip"
+				],
+				attrs: {
+					type: "button",
+					role: "radio",
+					"aria-checked": option === value ? "true" : "false"
+				},
+				data: {
+					m32mControl: `${key}-${option ?? "none"}`,
+					color: option ?? ""
+				}
+			}, [swatch(option), el("span", { text: t(`m32m.color.${option ?? "none"}`) })]);
+			chip.addEventListener("click", () => onPick(option));
+			group.appendChild(chip);
+		}
+		const custom = isHexColor(value) ? value : null;
+		const picker = el("input", {
+			attrs: {
+				type: "color",
+				"aria-label": t("m32m.color.custom")
+			},
+			data: { m32mControl: `${key}-custom` }
+		});
+		picker.value = longHex(custom ?? "#888888");
+		picker.addEventListener("change", () => onPick(picker.value.toLowerCase()));
+		group.appendChild(el("label", {
+			class: [
+				"menu_button",
+				"maestro-btn",
+				"maestro-m32m-chip"
+			],
+			attrs: {
+				role: "radio",
+				"aria-checked": custom ? "true" : "false"
+			}
+		}, [picker, el("span", { text: t("m32m.color.custom") })]));
+		return group;
+	};
+	const renderTest = (result, text, rule) => {
+		clear(result);
+		if (!rule) return;
+		const matches = findMatches(text, [rule]).filter((match) => match.kind === "custom");
+		let pos = 0;
+		for (const match of matches) {
+			if (match.start > pos) result.append(text.slice(pos, match.start));
+			result.append(el("mark", {
+				class: "maestro-m32m-hit",
+				text: text.slice(match.start, match.end)
+			}));
+			pos = match.end;
+		}
+		if (pos < text.length) result.append(text.slice(pos));
+		result.append(el("div", {
+			class: "maestro-hint",
+			text: matches.length ? t("m32m.custom.hits", { count: matches.length }) : t("m32m.custom.none")
+		}));
+	};
+	const customFields = (rule) => {
+		const id = rule.id;
+		const flags = rule.match.flags ?? "";
+		const statusId = uid("maestro-m32m-status");
+		const input = el("input", {
+			class: "text_pole maestro-m32m-pattern",
+			attrs: {
+				type: "text",
+				spellcheck: "false",
+				autocomplete: "off",
+				maxlength: 300,
+				"aria-label": t("m32m.custom.pattern"),
+				"aria-describedby": statusId
+			},
+			data: { m32mControl: `rule-${id}-pattern` }
+		});
+		input.value = drafts.get(id) ?? rule.match.pattern ?? "";
+		const status = el("div", {
+			class: "maestro-m32m-pattern-status",
+			attrs: {
+				id: statusId,
+				role: "status",
+				"aria-live": "polite"
+			}
+		});
+		const area = el("textarea", {
+			class: "text_pole maestro-m32m-test",
+			attrs: {
+				rows: 3,
+				"aria-label": t("m32m.custom.test")
+			},
+			data: { m32mControl: `rule-${id}-test` }
+		});
+		area.value = samples.get(id) ?? t("m32m.custom.testDefault");
+		const result = el("div", {
+			class: "maestro-m32m-test-result",
+			attrs: { "aria-live": "polite" }
+		});
+		const refresh = () => {
+			const check = compileCustom(input.value, flags);
+			status.dataset.state = check.ok ? "ok" : "error";
+			status.textContent = check.ok ? t("m32m.custom.ok") : t(`m32m.custom.error.${check.reason}`, { detail: check.detail ?? "" });
+			input.setAttribute("aria-invalid", check.ok ? "false" : "true");
+			const probe = {
+				...rule,
+				enabled: true,
+				applyTo: "all",
+				match: {
+					kind: "custom",
+					pattern: input.value,
+					flags
+				}
+			};
+			renderTest(result, area.value, check.ok ? probe : null);
+		};
+		input.addEventListener("input", () => {
+			drafts.set(id, input.value);
+			refresh();
+		});
+		input.addEventListener("change", () => {
+			if (!compileCustom(input.value, flags).ok) return;
+			drafts.delete(id);
+			editRule(id, (item) => {
+				item.match.pattern = input.value;
+			});
+		});
+		area.addEventListener("input", () => {
+			samples.set(id, area.value);
+			refresh();
+		});
+		refresh();
+		return [
+			field$1(t("m32m.custom.pattern"), el("div", {}, [input, status]), t("m32m.custom.patternHint")),
+			control(toggle({
+				label: t("m32m.custom.ignoreCase"),
+				checked: flags.includes("i"),
+				onChange: (checked) => editRule(id, (item) => {
+					const current = item.match.flags ?? "";
+					item.match.flags = cleanFlags(checked ? `${current}i` : current.replace("i", ""));
+				})
+			}), `rule-${id}-ignoreCase`),
+			field$1(t("m32m.custom.test"), el("div", {}, [area, result]))
+		];
+	};
+	const changeKind = (rule, kind) => {
+		rule.match = kind === "custom" ? {
+			kind,
+			pattern: rule.match.pattern ?? "",
+			flags: cleanFlags(rule.match.flags)
+		} : { kind };
+		rule.style = normalizeStyle(rule.style, kind);
+	};
+	const ruleBody = (rule, annotated) => {
+		const id = rule.id;
+		const kind = rule.match.kind;
+		const style = rule.style;
+		const parts = [];
+		if (!canStyle(rule, annotated)) parts.push(banner(t("m32m.rule.cannot"), "warn"));
+		if (kind === "narration") parts.push(hint("m32m.rule.narrationHint"));
+		if (kind === "asterisk" || kind === "underscore") parts.push(hint("m32m.rule.sharedEm"));
+		const name = el("input", {
+			class: "text_pole",
+			attrs: {
+				type: "text",
+				maxlength: 60,
+				placeholder: t(`m32m.kind.${kind}`),
+				"aria-label": t("m32m.rule.name")
+			},
+			data: { m32mControl: `rule-${id}-name` }
+		});
+		name.value = rule.name;
+		name.addEventListener("change", () => editRule(id, (item) => {
+			item.name = name.value.trim().slice(0, 60);
+		}));
+		parts.push(field$1(t("m32m.rule.name"), name));
+		parts.push(field$1(t("m32m.rule.kind"), control(select({
+			label: t("m32m.rule.kind"),
+			value: kind,
+			options: MATCH_KINDS.map((value) => ({
+				value,
+				label: t(`m32m.kind.${value}`)
+			})),
+			onChange: (value) => editRule(id, (item) => changeKind(item, value))
+		}), `rule-${id}-kind`)));
+		parts.push(field$1(t("m32m.rule.applyTo"), seg(`rule-${id}-applyTo`, t("m32m.rule.applyTo"), rule.applyTo, APPLY_TO.map((value) => ({
+			value,
+			label: t(`m32m.applyTo.${value}`)
+		})), (value) => editRule(id, (item) => {
+			item.applyTo = value;
+		}))));
+		if (kind === "custom") parts.push(...customFields(rule));
+		parts.push(field$1(t("m32m.rule.color"), colorChips(`rule-${id}-color`, style.color, true, (value) => editRule(id, (item) => {
+			item.style.color = value;
+		}))));
+		const tri = (key) => seg(`rule-${id}-${key}`, t(`m32m.rule.${key}`), triOf(style[key]), [
+			{
+				value: "st",
+				label: t("m32m.tri.st")
+			},
+			{
+				value: "on",
+				label: t(`m32m.${key}.on`)
+			},
+			{
+				value: "off",
+				label: t(`m32m.${key}.off`)
+			}
+		], (value) => editRule(id, (item) => {
+			item.style[key] = triValue(value);
+		}));
+		parts.push(field$1(t("m32m.rule.italic"), tri("italic")), field$1(t("m32m.rule.bold"), tri("bold")));
+		const range = el("input", {
+			attrs: {
+				type: "range",
+				min: 30,
+				max: 100,
+				step: 5,
+				"aria-label": t("m32m.rule.opacity")
+			},
+			data: { m32mControl: `rule-${id}-opacity` }
+		});
+		range.value = String(Math.round(style.opacity * 100));
+		const shown = el("span", {
+			class: "maestro-m32m-opacity-value",
+			text: t("m32m.rule.opacityValue", { value: range.value })
+		});
+		range.addEventListener("input", () => {
+			shown.textContent = t("m32m.rule.opacityValue", { value: range.value });
+			editRule(id, (item) => {
+				item.style.opacity = clampOpacity(Number(range.value) / 100);
+			}, false);
+		});
+		parts.push(field$1(t("m32m.rule.opacity"), el("div", { class: "maestro-m32m-opacity" }, [range, shown])));
+		parts.push(field$1(t("m32m.rule.font"), control(select({
+			label: t("m32m.rule.font"),
+			value: style.font ?? "",
+			options: [{
+				value: "",
+				label: t("m32m.font.none")
+			}, ...FONT_TOKENS.map((value) => ({
+				value,
+				label: t(`m32m.font.${value}`)
+			}))],
+			onChange: (value) => editRule(id, (item) => {
+				item.style.font = FONT_TOKENS.includes(value) ? value : null;
+			})
+		}), `rule-${id}-font`)));
+		if (isDialogueKind(kind)) parts.push(field$1(t("m32m.rule.marks"), control(select({
+			label: t("m32m.rule.marks"),
+			value: style.marks,
+			options: MARKS.map((value) => ({
+				value,
+				label: t(`m32m.marks.${value}`)
+			})),
+			onChange: (value) => editRule(id, (item) => {
+				item.style.marks = value;
+			})
+		}), `rule-${id}-marks`), t("m32m.rule.marksHint")));
+		const flag = (key) => control(toggle({
+			label: t(`m32m.rule.${key}`),
+			checked: style[key],
+			onChange: (checked) => editRule(id, (item) => {
+				item.style[key] = checked;
+			})
+		}), `rule-${id}-${key}`);
+		const decorated = supportsDecoration(kind);
+		parts.push(field$1(t("m32m.rule.decor"), el("div", { class: "maestro-m32m-toggles" }, [
+			decorated ? flag("underline") : null,
+			flag("spacing"),
+			decorated ? flag("highlight") : null,
+			decorated ? flag("bar") : null
+		])));
+		return el("div", { class: "maestro-m32m-rule-body" }, parts);
+	};
+	const move = (id, delta) => commit("rules", (settings) => {
+		const from = settings.rules.findIndex((item) => item.id === id);
+		const to = from + delta;
+		if (from < 0 || to < 0 || to >= settings.rules.length) return;
+		const [rule] = settings.rules.splice(from, 1);
+		settings.rules.splice(to, 0, rule);
+	});
+	const remove = (id) => {
+		expanded.delete(id);
+		drafts.delete(id);
+		commit("rules", (settings) => {
+			settings.rules = settings.rules.filter((item) => item.id !== id);
+		});
+	};
+	const iconButton = (name, label, disabled, onClick, key) => control(button({
+		icon: name,
+		title: label,
+		disabled,
+		onClick
+	}), key);
+	const ruleItem = (rule, index, count, annotated) => {
+		const label = ruleLabel(rule);
+		const open = expanded.has(rule.id);
+		const enabled = el("input", {
+			attrs: {
+				type: "checkbox",
+				"aria-label": t("m32m.rule.enable", { name: label })
+			},
+			data: { m32mControl: `rule-${rule.id}-enabled` }
+		});
+		enabled.checked = rule.enabled;
+		enabled.addEventListener("change", () => editRule(rule.id, (item) => {
+			item.enabled = enabled.checked;
+		}));
+		const title = el("button", {
+			class: "maestro-m32m-rule-title",
+			title: t("m32m.rule.expand", { name: label }),
+			attrs: {
+				type: "button",
+				"aria-expanded": open ? "true" : "false"
+			},
+			data: { m32mControl: `rule-${rule.id}-open` }
+		}, [el("span", {
+			class: "maestro-m32m-rule-name",
+			text: label
+		}), el("span", {
+			class: "maestro-m32m-rule-meta",
+			text: `${t(`m32m.kind.${rule.match.kind}`)} · ${t(`m32m.applyTo.${rule.applyTo}`)}`
+		})]);
+		title.addEventListener("click", () => {
+			if (expanded.has(rule.id)) expanded.delete(rule.id);
+			else expanded.add(rule.id);
+			draw();
+		});
+		return el("li", {
+			class: ["maestro-m32m-rule", rule.enabled ? null : "maestro-off"],
+			data: { rule: rule.id }
+		}, [el("div", { class: "maestro-m32m-rule-head" }, [
+			enabled,
+			title,
+			el("div", { class: "maestro-m32m-rule-actions" }, [
+				iconButton("fa-arrow-up", t("m32m.rule.up"), index === 0, () => move(rule.id, -1), `rule-${rule.id}-up`),
+				iconButton("fa-arrow-down", t("m32m.rule.down"), index === count - 1, () => move(rule.id, 1), `rule-${rule.id}-down`),
+				iconButton("fa-trash-can", t("m32m.rule.delete"), false, () => remove(rule.id), `rule-${rule.id}-delete`)
+			])
+		]), open ? ruleBody(rule, annotated) : null]);
+	};
+	const addRule = (kind) => {
+		const rules = styler.settings().rules;
+		if (rules.length >= 40) return;
+		const id = newRuleId(rules, kind === "custom" ? "c" : "r");
+		expanded.add(id);
+		focusNext = kind === "custom" ? `rule-${id}-pattern` : `rule-${id}-name`;
+		commit("rules", (settings) => {
+			settings.rules.push({
+				id,
+				name: kind === "custom" ? t("m32m.rule.newCustom") : "",
+				enabled: true,
+				match: kind === "custom" ? {
+					kind,
+					pattern: "",
+					flags: ""
+				} : { kind },
+				applyTo: "all",
+				style: makeStyle(kind === "custom" ? { color: "accent" } : {})
+			});
+		});
+	};
+	const rulesSection = (settings, annotated) => {
+		let kind = "custom";
+		const list = el("ol", { class: "maestro-m32m-rules" }, settings.rules.map((rule, index) => ruleItem(rule, index, settings.rules.length, annotated)));
+		const add = el("div", { class: "maestro-m32m-add" }, [control(select({
+			label: t("m32m.add.kind"),
+			value: kind,
+			options: MATCH_KINDS.map((value) => ({
+				value,
+				label: t(`m32m.kind.${value}`)
+			})),
+			onChange: (value) => {
+				kind = value;
+			}
+		}), "add-kind"), control(button({
+			label: t("m32m.add.button"),
+			icon: "fa-plus",
+			disabled: settings.rules.length >= 40,
+			onClick: () => addRule(kind)
+		}), "add")]);
+		return section$1(t("m32m.rules"), [
+			hint("m32m.rulesHint"),
+			settings.rules.length ? list : emptyState(t("m32m.rules.empty"), "fa-paintbrush"),
+			field$1(t("m32m.add"), add)
+		]);
+	};
+	const playerSection = (settings) => {
+		const player = settings.player;
+		const edit = (change) => commit("player", (current) => change(current.player));
+		return section$1(t("m32m.player.title"), [
+			control(toggle({
+				label: t("m32m.player.enabled"),
+				hint: t("m32m.player.enabledHint"),
+				checked: player.enabled,
+				onChange: (checked) => edit((value) => {
+					value.enabled = checked;
+				})
+			}), "player-enabled"),
+			field$1(t("m32m.player.mark"), seg("player-mark", t("m32m.player.mark"), player.mark, PLAYER_MARKS.map((value) => ({
+				value,
+				label: t(`m32m.player.mark.${value}`)
+			})), (mark) => edit((value) => {
+				value.mark = mark;
+			}))),
+			field$1(t("m32m.player.color"), colorChips("player-color", player.color, false, (color) => edit((value) => {
+				value.color = color ?? "accent";
+			}))),
+			control(toggle({
+				label: t("m32m.player.name"),
+				checked: player.name,
+				onChange: (checked) => edit((value) => {
+					value.name = checked;
+				})
+			}), "player-name"),
+			field$1(t("m32m.player.align"), seg("player-align", t("m32m.player.align"), player.align, PLAYER_ALIGN.map((value) => ({
+				value,
+				label: t(`m32m.player.align.${value}`)
+			})), (align) => edit((value) => {
+				value.align = align;
+			})), t("m32m.player.alignHint"))
+		]);
+	};
+	const hintSection = (settings) => {
+		const text = settings.hint ? currentHint(app, settings) : "";
+		return section$1(t("m32m.hint.title"), [
+			control(toggle({
+				label: t("m32m.hint.toggle"),
+				checked: settings.hint,
+				onChange: (checked) => commit("hint", (current) => {
+					current.hint = checked;
+				})
+			}), "hint"),
+			hint("m32m.hint.desc"),
+			settings.hint && text ? hint("m32m.hint.preview") : null,
+			settings.hint && text ? el("div", {
+				class: "maestro-m32m-hint-text",
+				text
+			}) : null,
+			settings.hint && !text ? hint("m32m.hint.empty") : null
+		]);
+	};
+	function draw() {
+		const active = root.ownerDocument.activeElement;
+		const focused = focusNext ?? (root.contains(active) ? active?.dataset?.m32mControl : void 0);
+		focusNext = null;
+		clear(root);
+		const settings = styler.settings();
+		const annotated = styler.annotated();
+		append(root, [
+			hint("m32m.intro"),
+			control(toggle({
+				label: t("m32m.enabled"),
+				hint: t("m32m.enabledHint"),
+				checked: settings.enabled,
+				onChange: (checked) => commit("enabled", (current) => {
+					current.enabled = checked;
+				})
+			}), "enabled"),
+			settings.enabled ? null : el("div", {
+				class: "maestro-hint",
+				attrs: { role: "status" },
+				text: t("m32m.off")
+			}),
+			annotated ? null : banner(t("m32m.noHook"), "warn"),
+			presetsSection(settings),
+			previewSection(),
+			rulesSection(settings, annotated),
+			playerSection(settings),
+			hintSection(settings)
+		]);
+		if (focused) root.querySelector(`[data-m32m-control="${focused}"]`)?.focus();
+	}
+	draw();
+	const off = styler.onChange(() => {
+		if (!quiet) draw();
+	});
+	return () => {
+		off();
+		root.remove();
+	};
+}
+/** The pult tab «Стиль сообщений» (group «Настройки»). */
+function messageStyleTab(deps) {
+	return {
+		id: MESSAGE_STYLE_TAB,
+		titleKey: "m32m.tab",
+		icon: "fa-paintbrush",
+		order: 97,
+		group: "settings",
+		render: (container) => renderEditor(container, deps)
+	};
+}
+//#endregion
+//#region src/features/messageStyle/index.ts
+var EDITOR_STYLE_ID = "maestro-m32m-view";
+var messageStyleModule = {
+	id: MESSAGE_STYLE_ID,
+	key: MESSAGE_STYLE_KEY,
+	stage: 12,
+	titleKey: "m32m.title",
+	enabledByDefault: true,
+	defaults: defaultMessageStyleSettings,
+	i18n: MESSAGE_STYLE_STRINGS,
+	init({ app, log, own }) {
+		const styler = new MessageStyler({
+			app,
+			log: log.scope("msgstyle")
+		});
+		own(() => styler.dispose());
+		styler.start();
+		own(installHint(app, () => styler.settings()));
+		own(app.ui.style(EDITOR_STYLE_ID, EDITOR_CSS));
+		own(app.ui.addTab(messageStyleTab({
+			app,
+			styler
+		})));
+		app.modules.expose(MESSAGE_STYLE_KEY, {
+			enabled: () => styler.active(),
+			preset: () => styler.settings().preset,
+			annotated: () => styler.annotated(),
+			refresh: () => styler.refresh(),
+			onChange: (listener) => styler.onChange(listener)
+		});
 	}
 };
 //#endregion
@@ -113375,7 +117759,7 @@ function renderBlockEditor(app, model, actions) {
 		class: "text_pole maestro-m34-f-role",
 		attrs: { disabled: !editable }
 	});
-	for (const value of PROMPT_ROLES) role.append(el("option", {
+	for (const value of PROMPT_ROLES$1) role.append(el("option", {
 		text: t(`m34.role.${value}`),
 		attrs: { value }
 	}));
@@ -113472,7 +117856,7 @@ function renderBlockEditor(app, model, actions) {
 	stale.hidden = true;
 	const read = () => ({
 		name: name.value,
-		role: PROMPT_ROLES.includes(role.value) ? role.value : "system",
+		role: PROMPT_ROLES$1.includes(role.value) ? role.value : "system",
 		position: position.value === "1" ? 1 : 0,
 		depth: Number(depth.value),
 		order: Number(order.value),
@@ -130613,12 +134997,103 @@ ${G$1} .mes_reasoning img:not(.mes_img) {
     border-radius: var(--maestro-radius-md);
 }
 
+/* ---------------------------------------------------------------- composer (#send_form) */
+/* ST's surface (blur tint + blur) stays; a frame, a soft lift and one focus ring for the whole form. */
+${G$1} #send_form {
+    border-color: var(--maestro-border);
+    border-radius: 0 0 var(--maestro-radius-lg) var(--maestro-radius-lg);
+    box-shadow: var(--maestro-elevation-1);
+    transition:
+        border-color ${T$2},
+        box-shadow ${T$2};
+}
+
+${G$1} #send_form:has(#send_textarea:focus-visible) {
+    border-color: var(--maestro-accent);
+    outline: 2px solid var(--maestro-accent-soft);
+    outline-offset: 0;
+}
+
+/* ST: 6px all round, normal line height; 6px + 1.4 lines + ST's 3px progress edge fit ST's block size. */
+${G$1} #send_textarea {
+    padding: 6px var(--maestro-space-2);
+    line-height: 1.4;
+}
+
+${G$1} #send_textarea::placeholder {
+    opacity: 0.6;
+}
+
+${G$1} #rightSendForm>div:not(.mes_stop),
+${G$1} #leftSendForm>div {
+    border-radius: var(--maestro-radius-md);
+    transition:
+        opacity ${T$2},
+        color ${T$2},
+        background-color ${T$2};
+}
+
+${G$1} #rightSendForm>div:hover,
+${G$1} #leftSendForm>div:hover {
+    background-color: var(--maestro-surface-3);
+}
+
+${G$1} #rightSendForm>div:focus-visible,
+${G$1} #leftSendForm>div:focus-visible {
+    outline: 2px solid var(--maestro-focus);
+    outline-offset: -2px;
+}
+
+${G$1} #send_but {
+    color: var(--maestro-accent);
+}
+
+/* Quick Replies under the text area (its sheet loads after Maestro's: one more id). */
+${G$1} #send_form #qr--bar>.qr--buttons .qr--button {
+    border-color: var(--maestro-border);
+    border-radius: var(--maestro-radius-pill);
+    transition:
+        background-color ${T$2},
+        border-color ${T$2};
+}
+
+${G$1} #send_form #qr--bar>.qr--buttons .qr--button:hover {
+    border-color: var(--maestro-accent);
+    background-color: var(--maestro-surface-3);
+}
+
 /* ---------------------------------------------------------------- phones */
 @media screen and (max-width: 1000px) {
     ${G$1} .swipe_right,
     ${G$1} .swipe_left {
         width: 32px;
         height: 32px;
+    }
+
+    /* 16px or more: iOS zooms into smaller inputs. */
+    ${G$1} #send_textarea {
+        font-size: max(16px, var(--mainFontSize));
+    }
+
+    ${G$1} #rightSendForm>div:not(.mes_stop),
+    ${G$1} #leftSendForm>div {
+        min-height: var(--maestro-touch);
+    }
+}
+
+/* Wider phones and tablets: square targets (portrait phones keep ST's 1.15em icon columns). */
+@media screen and (min-width: 451px) and (max-width: 1000px) {
+    ${G$1} #rightSendForm>div:not(.mes_stop),
+    ${G$1} #leftSendForm>div {
+        min-width: var(--maestro-touch);
+    }
+}
+
+/* Touch screens: no sticky hovers on the composer's icons. */
+@media (hover: none) {
+    ${G$1} #rightSendForm>div:hover,
+    ${G$1} #leftSendForm>div:hover {
+        background-color: transparent;
     }
 }
 `;
@@ -130639,6 +135114,19 @@ function chatCss(density) {
 }
 var G = `:where(html.${THEME_CLASS}.${partClass("st")})`;
 var T$1 = "var(--animation-duration, 125ms)";
+var COMFORTABLE = `
+/* ---------------------------------------------------------------- comfortable density: a top bar with air */
+@supports not (-webkit-touch-callout: none) {
+    ${G}:root {
+        --topBarBlockPadding: calc(var(--mainFontSize) / 1.6);
+    }
+
+    /* ST sizes the bar's backdrop by the send form's block size: it follows the taller icon row instead. */
+    ${G} #top-bar {
+        --bottomFormBlockSize: var(--topBarBlockSize);
+    }
+}
+`;
 var COMPACT = `
 /* ---------------------------------------------------------------- compact density */
 ${G} .menu_button {
@@ -130872,34 +135360,15 @@ ${G} input[type='checkbox']:focus-visible {
     outline-offset: 1px;
 }
 
-/* ---------------------------------------------------------------- send form */
-${G} #send_form {
-    border-color: var(--maestro-border);
-    border-radius: 0 0 var(--maestro-radius-lg) var(--maestro-radius-lg);
-}
-
-${G} #send_form:has(#send_textarea:focus-visible) {
-    border-color: var(--maestro-accent);
-    outline: 1px solid var(--maestro-accent-soft);
-}
-
-${G} #rightSendForm>div,
-${G} #leftSendForm>div {
-    border-radius: var(--maestro-radius-sm);
-}
-
-${G} #rightSendForm>div:hover,
-${G} #leftSendForm>div:hover {
-    background-color: var(--maestro-surface-3);
-}
-
 /* ---------------------------------------------------------------- character and persona lists */
 ${G} .bogus_folder_select,
 ${G} .character_select,
 ${G} .group_select,
 ${G} .avatar-container {
     border-radius: var(--maestro-radius-md);
-    transition: background-color ${T$1};
+    transition:
+        background-color ${T$1},
+        border-color ${T$1};
 }
 
 ${G} .bogus_folder_select:hover,
@@ -130907,6 +135376,377 @@ ${G} .character_select:hover,
 ${G} .group_select:hover,
 ${G} .avatar-container:hover {
     background-color: var(--maestro-surface-3);
+}
+
+${G} .ch_description {
+    color: var(--maestro-text-muted);
+}
+
+${G} .avatar-container .ch_additional_info,
+${G} .character_name_block .character_version {
+    color: var(--maestro-text-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+/* ---------------------------------------------------------------- persona management (#PersonaManagement) */
+/* The chosen persona: ST's white frame becomes the accent; the default persona keeps ST's golden avatar ring. */
+${G} .avatar-container.selected {
+    border-color: var(--maestro-accent);
+    background-color: var(--maestro-accent-soft);
+}
+
+${G} #user_avatar_block .avatar_upload {
+    background-color: var(--maestro-surface-2);
+    border: 1px dashed var(--maestro-border);
+    transition:
+        background-color ${T$1},
+        border-color ${T$1};
+}
+
+${G} #user_avatar_block .avatar_upload:hover {
+    background-color: var(--maestro-surface-3);
+    border-color: var(--maestro-accent);
+}
+
+/* «Chat» / «Character» lock badges on the cards. */
+${G} #persona-management-block .avatar_container_states .menu_button {
+    border-color: var(--maestro-divider);
+    border-radius: var(--maestro-radius-pill);
+    background-color: var(--maestro-surface-2);
+    font-size: calc(var(--mainFontSize) * 0.85);
+}
+
+${G} #persona_controls .persona_name {
+    opacity: 0.9;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+}
+
+${G} #persona_description {
+    line-height: 1.5;
+}
+
+/* Connections: Default / Character / Chat; ST colours the locked icons (gold, green, quote colour). */
+${G} #persona_connections_buttons .menu_button.locked {
+    background-color: var(--maestro-surface-2);
+    box-shadow: inset 0 0 0 1px var(--maestro-divider);
+}
+
+${G} #persona_connections_buttons .menu_button.locked:hover {
+    background-color: var(--maestro-surface-3);
+}
+
+${G} #lock_persona_default.locked {
+    border-color: color-mix(in srgb, var(--golden, gold) 50%, var(--maestro-border));
+}
+
+/* ---------------------------------------------------------------- start page: recent chats (welcome-screen.js) */
+${G} .welcomePanel {
+    border: 1px solid var(--maestro-divider);
+    border-radius: var(--maestro-radius-lg);
+    background-color: var(--maestro-surface-2);
+    box-shadow: var(--maestro-elevation-1);
+}
+
+/* Bubbles: ST's bot-bubble tint stays the background. */
+${G} body.bubblechat .welcomePanel {
+    border-color: var(--maestro-border);
+    border-radius: var(--maestro-radius-lg);
+}
+
+${G} .welcomePanel .welcomeHeaderVersionDisplay {
+    font-family: var(--maestro-font-ui);
+    letter-spacing: 0.01em;
+}
+
+${G} .welcomePanel .recentChatsTitle {
+    font-family: var(--maestro-font-ui);
+    letter-spacing: 0.02em;
+}
+
+${G} .welcomePanel .welcomeShortcuts .menu_button {
+    border-color: var(--maestro-divider);
+    border-radius: var(--maestro-radius-pill);
+    background-color: var(--maestro-surface-2);
+}
+
+${G} .welcomePanel .welcomeShortcuts .menu_button:hover {
+    border-color: var(--maestro-border);
+    background-color: var(--maestro-surface-3);
+}
+
+${G} .welcomePanel .welcomeShortcuts .welcomeShortcutsSeparator {
+    color: var(--maestro-divider);
+}
+
+${G} .welcomePanel .recentChatList .noRecentChat {
+    color: var(--maestro-text-muted);
+}
+
+${G} .welcomeRecent .recentChatList .recentChat {
+    border-color: var(--maestro-divider);
+    border-radius: var(--maestro-radius-md);
+    background-color: var(--maestro-surface-2);
+    transition:
+        background-color ${T$1},
+        border-color ${T$1},
+        box-shadow ${T$1};
+}
+
+${G} .welcomeRecent .recentChatList .recentChat:hover {
+    border-color: var(--maestro-border);
+    background-color: var(--maestro-surface-3);
+}
+
+${G} .welcomeRecent .recentChatList .recentChat:focus-visible {
+    outline: 2px solid var(--maestro-focus);
+    outline-offset: 1px;
+}
+
+/* Pinned chats: an accent edge, the pin in the accent colour. */
+${G} .welcomeRecent .recentChatList .recentChat:has(.recentChatPinned) {
+    border-color: color-mix(in srgb, var(--maestro-accent) 45%, transparent);
+    box-shadow: inset 3px 0 0 var(--maestro-accent);
+}
+
+${G} .welcomeRecent .recentChatList .recentChat .recentChatPinned {
+    color: var(--maestro-accent);
+    opacity: 1;
+}
+
+${G} .welcomeRecent .recentChatList .recentChat .avatar img {
+    border-color: var(--maestro-border);
+    box-shadow: var(--maestro-elevation-1);
+}
+
+${G} .welcomeRecent .recentChatList .recentChat .chatNameContainer .chatName {
+    color: var(--maestro-text-muted);
+}
+
+${G} .welcomeRecent .recentChatList .recentChat .chatNameContainer .chatName .characterName {
+    color: var(--maestro-text);
+    font-weight: 600;
+    letter-spacing: 0.01em;
+}
+
+${G} .welcomeRecent .recentChatList .recentChat .chatNameContainer .chatDate,
+${G} .welcomeRecent .recentChatList .recentChat .chatStats {
+    color: var(--maestro-text-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+${G} .welcomeRecent .recentChatList .recentChat .chatMessageContainer .chatMessage {
+    color: var(--maestro-text);
+    opacity: 0.85;
+    line-height: 1.4;
+}
+
+${G} .welcomeRecent .recentChatList .recentChat .chatStats .counterBlock::after {
+    color: var(--maestro-divider);
+}
+
+${G} .welcomeRecent .recentChatList .recentChat .chatActions button {
+    transition:
+        opacity ${T$1},
+        background-color ${T$1},
+        border-color ${T$1};
+}
+
+${G} .welcomeRecent .recentChatList .recentChat .chatActions .pinChat.active {
+    color: var(--maestro-accent);
+    border-color: color-mix(in srgb, var(--maestro-accent) 60%, transparent);
+}
+
+/* ST rotates the chevron when the list is open: keep that animated. */
+${G} .welcomeRecent .recentChatList .showMoreChats {
+    border-radius: var(--maestro-radius-pill);
+    transition:
+        transform ${T$1},
+        background-color ${T$1};
+}
+
+/* Mouse only: the card's actions come up on hover (touch screens always show them). */
+@media (hover: hover) {
+    ${G} .welcomeRecent .recentChatList .recentChat .chatActions button {
+        opacity: 0.55;
+    }
+
+    ${G} .welcomeRecent .recentChatList .recentChat:hover .chatActions button,
+    ${G} .welcomeRecent .recentChatList .recentChat .chatActions button:focus-visible,
+    ${G} .welcomeRecent .recentChatList .recentChat .chatActions .pinChat.active {
+        opacity: 1;
+    }
+}
+
+/* ---------------------------------------------------------------- start page: welcome messages */
+/* The assistant's greeting (type assistant_message): a raised card with an accent edge (bubbles keep ST's look). */
+${G} body:not(.bubblechat) #chat .mes[type="assistant_message"]:not(.selected) {
+    background-color: var(--maestro-surface-2);
+    box-shadow: inset 3px 0 0 color-mix(in srgb, var(--maestro-accent) 55%, transparent);
+}
+
+/* «API Connections» / «Character Management» / «Extensions» (welcome_prompt). */
+${G} #chat .mes[type="welcome_prompt"] .drawer-opener {
+    border-color: var(--maestro-divider);
+    border-radius: var(--maestro-radius-pill);
+    background-color: var(--maestro-surface-2);
+    transition:
+        background-color ${T$1},
+        border-color ${T$1};
+}
+
+${G} #chat .mes[type="welcome_prompt"] .drawer-opener:hover {
+    border-color: color-mix(in srgb, var(--maestro-accent) 60%, transparent);
+    background-color: var(--maestro-accent-soft);
+}
+
+${G} #chat .mes[type="welcome_prompt"] .drawer-opener i {
+    color: var(--maestro-accent);
+}
+
+/* ---------------------------------------------------------------- «Manage chat files» (#select_chat_popup) */
+${G} #select_chat_popup {
+    border-color: var(--maestro-border);
+    border-radius: var(--maestro-radius-lg);
+    box-shadow: var(--maestro-elevation-2);
+}
+
+${G} #select_chat_search {
+    border-radius: var(--maestro-radius-pill);
+}
+
+${G} #select_chat_cross {
+    border-radius: var(--maestro-radius-pill);
+    transition: opacity ${T$1};
+}
+
+${G} .select_chat_block {
+    border-color: var(--maestro-divider);
+    border-radius: var(--maestro-radius-md);
+    background-color: var(--maestro-surface-2);
+    transition:
+        background-color ${T$1},
+        border-color ${T$1};
+}
+
+${G} .select_chat_block:hover {
+    border-color: var(--maestro-border);
+    background-color: var(--maestro-surface-3);
+}
+
+/* The open chat. */
+${G} .select_chat_block[highlight] {
+    border-color: color-mix(in srgb, var(--maestro-accent) 50%, transparent);
+    background-color: var(--maestro-accent-soft);
+    box-shadow: inset 3px 0 0 var(--maestro-accent);
+}
+
+${G} .select_chat_block_filename.select_chat_block_filename_item {
+    opacity: 1;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+}
+
+${G} .select_chat_info .select_chat_block_filename_item {
+    opacity: 1;
+    color: var(--maestro-text-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+${G} .select_chat_block_mes {
+    opacity: 0.85;
+    line-height: 1.4;
+}
+
+${G} .select_chat_actions>div,
+${G} .renameChatButton {
+    border-radius: var(--maestro-radius-xs);
+    transition: opacity ${T$1};
+}
+
+/* ---------------------------------------------------------------- Top Info Bar (the chat bar over the chat) */
+/* Extension-TopInfoBar: #extensionTopBar (chat select, search, icons) in #sheld, #extensionConnectionProfiles under
+   it, the chat side bar #extensionSideBar in #movingDivs. One more id outranks its sheet, loaded after Maestro's. */
+${G} #sheld #extensionTopBar {
+    border-color: var(--maestro-border);
+    border-radius: var(--maestro-radius-lg) var(--maestro-radius-lg) 0 0;
+    box-shadow: var(--maestro-elevation-1);
+}
+
+${G} #sheld #extensionConnectionProfiles {
+    border-color: var(--maestro-border);
+    border-radius: 0 0 var(--maestro-radius-lg) var(--maestro-radius-lg);
+}
+
+${G} #sheld #extensionTopBar .right_menu_button {
+    border-radius: var(--maestro-radius-sm);
+    transition:
+        filter ${T$1},
+        color ${T$1},
+        background-color ${T$1};
+}
+
+${G} #sheld #extensionTopBar .right_menu_button:hover {
+    background-color: var(--maestro-surface-3);
+}
+
+${G} #sheld #extensionTopBar .right_menu_button.active {
+    color: var(--maestro-accent);
+}
+
+${G} #sheld #extensionTopBar .right_menu_button:focus-visible {
+    outline: 2px solid var(--maestro-focus);
+    outline-offset: 1px;
+}
+
+${G} #sheld #extensionTopBarChatName {
+    border-radius: var(--maestro-radius-sm);
+    font-weight: 600;
+    opacity: 1;
+    transition: background-color ${T$1};
+}
+
+${G} #sheld #extensionTopBarChatName:hover {
+    background-color: var(--maestro-surface-2);
+}
+
+${G} #sheld #extensionTopBarSearchInput {
+    border-radius: var(--maestro-radius-pill);
+    background-color: var(--maestro-well);
+}
+
+${G} #movingDivs #extensionSideBar #extensionSideBarContainer .sideBarItem {
+    border-color: var(--maestro-divider);
+    border-radius: var(--maestro-radius-md);
+    background-color: var(--maestro-surface-2);
+    transition:
+        background-color ${T$1},
+        border-color ${T$1};
+}
+
+${G} #movingDivs #extensionSideBar #extensionSideBarContainer .sideBarItem:hover {
+    border-color: var(--maestro-border);
+    background-color: var(--maestro-surface-3);
+}
+
+${G} #movingDivs #extensionSideBar #extensionSideBarContainer .sideBarItem.selected {
+    border-color: color-mix(in srgb, var(--maestro-accent) 50%, transparent);
+    background-color: var(--maestro-accent-soft);
+    box-shadow: inset 3px 0 0 var(--maestro-accent);
+}
+
+${G} #movingDivs #extensionSideBar #extensionSideBarContainer .sideBarItem .chatName {
+    font-weight: 600;
+}
+
+${G} #movingDivs #extensionSideBar #extensionSideBarContainer .sideBarItem .chatDate,
+${G} #movingDivs #extensionSideBar #extensionSideBarContainer .sideBarItem .chatStats {
+    color: var(--maestro-text-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+${G} #movingDivs #extensionSideBar #extensionSideBarContainer .sideBarItem .chatMessage {
+    opacity: 0.85;
 }
 
 /* ---------------------------------------------------------------- toasts */
@@ -130951,6 +135791,30 @@ ${G} body #toast-container>div {
     ${G} #left-nav-panel {
         border-radius: 0 0 var(--maestro-radius-lg) var(--maestro-radius-lg);
     }
+
+    /* Start page: ST hides the shortcut labels on phones, the icons become square targets. */
+    ${G} .welcomePanel .welcomeShortcuts .menu_button,
+    ${G} .welcomeRecent .recentChatList .showMoreChats {
+        min-width: var(--maestro-touch);
+    }
+
+    ${G} .welcomeRecent .recentChatList .recentChat .chatActions button {
+        min-width: calc(var(--maestro-touch) * 0.8);
+    }
+
+    /* The lock badges on persona cards are labels, not targets: ST's own height. */
+    ${G} #persona-management-block .avatar_container_states .menu_button {
+        min-height: auto;
+    }
+
+    /* «Manage chat files»: rename, export, delete are 15px glyphs in ST. */
+    ${G} .select_chat_actions>div,
+    ${G} .renameChatButton {
+        min-width: var(--maestro-touch);
+        min-height: var(--maestro-touch);
+        line-height: var(--maestro-touch);
+        text-align: center;
+    }
 }
 
 /* ---------------------------------------------------------------- touch screens: no sticky hovers */
@@ -130964,10 +135828,158 @@ ${G} body #toast-container>div {
     }
 }
 `;
-/** The «st» stylesheet; the compact density adds tighter control padding (comfortable keeps ST's own). */
+/**
+* The «st» stylesheet. Comfortable: a taller top bar (ST's --topBarBlockPadding) and ST's own control padding;
+* compact: ST's top bar and tighter control padding.
+*/
 function stCss(density) {
-	return density === "compact" ? `${BASE}${COMPACT}` : BASE;
+	return density === "compact" ? `${BASE}${COMPACT}` : `${BASE}${COMFORTABLE}`;
 }
+//#endregion
+//#region src/features/theme/previews.ts
+/** Where ST (and the Top Info Bar extension) print a last-message preview. */
+var PREVIEW_TARGETS = Object.freeze([
+	{
+		selector: ".welcomeRecent .recentChat .chatMessage",
+		title: true
+	},
+	{ selector: "#select_chat_div .select_chat_block_mes" },
+	{ selector: "#extensionSideBar .sideBarItem .chatMessage" }
+]);
+/** The original text of a cleaned preview. */
+var PREVIEW_TEXT_ATTR = "data-maestro-preview-text";
+/** The original title of a cleaned preview. */
+var PREVIEW_TITLE_ATTR = "data-maestro-preview-title";
+var SELECTOR = PREVIEW_TARGETS.map((target) => target.selector).join(", ");
+/** The preview nodes' own classes: subtrees are searched by these, then checked against the full selectors. */
+var LEAVES = [...new Set(PREVIEW_TARGETS.map((target) => target.selector.split(/\s+/).pop()))].join(", ");
+/** Mutations inside chat messages (streaming, swipes, edits) never touch a preview. */
+var SKIP = ".mes";
+var ELEMENT_NODE = 1;
+var isElement = (node) => node?.nodeType === ELEMENT_NODE;
+var collapse = (text) => text.replace(/\s+/g, " ").trim();
+/** Preview nodes in a subtree (its ancestors count for the match, as they do in the page). */
+function previewsIn(root) {
+	return [...root.querySelectorAll(LEAVES)].filter((node) => node.matches(SELECTOR));
+}
+var PreviewCleaner = class {
+	deps;
+	doc;
+	clean;
+	shown = /* @__PURE__ */ new WeakMap();
+	observer = null;
+	running = false;
+	constructor(deps = {}) {
+		this.deps = deps;
+		this.doc = deps.doc ?? document;
+		this.clean = deps.clean ?? cleanPreviewText;
+	}
+	isRunning() {
+		return this.running;
+	}
+	/** Cleans every preview on the page and keeps cleaning re-rendered ones (idempotent). */
+	start() {
+		if (this.running) return;
+		this.running = true;
+		const Observer = this.doc.defaultView?.MutationObserver ?? globalThis.MutationObserver;
+		const root = this.doc.body ?? this.doc.documentElement;
+		if (Observer && root) {
+			this.observer = new Observer((records) => this.guard(() => this.onMutations(records)));
+			this.observer.observe(root, {
+				childList: true,
+				subtree: true
+			});
+		}
+		this.guard(() => this.applyAll());
+	}
+	/** Stops watching and puts the original texts back (idempotent). */
+	stop() {
+		this.observer?.disconnect();
+		this.observer = null;
+		if (!this.running) return;
+		this.running = false;
+		this.guard(() => this.restoreAll());
+	}
+	/** Sets the state in one call (the layer's sync). */
+	sync(on) {
+		if (on) this.start();
+		else this.stop();
+	}
+	/** Cleans every preview under `root` now. */
+	applyAll(root = this.doc) {
+		for (const node of previewsIn(root)) this.apply(node);
+	}
+	guard(run) {
+		try {
+			run();
+		} catch (error) {
+			this.deps.onError?.(error);
+		}
+	}
+	onMutations(records) {
+		const found = /* @__PURE__ */ new Set();
+		for (const record of records) {
+			if (record.type !== "childList" || !record.addedNodes.length) continue;
+			const target = record.target;
+			if (isElement(target)) {
+				if (target.closest(SKIP)) continue;
+				if (target.matches(SELECTOR)) {
+					found.add(target);
+					continue;
+				}
+			}
+			for (const node of record.addedNodes) {
+				if (!isElement(node)) continue;
+				if (node.matches(SELECTOR)) found.add(node);
+				else if (node.firstElementChild) for (const inner of previewsIn(node)) found.add(inner);
+			}
+		}
+		for (const node of found) if (node.isConnected) this.apply(node);
+	}
+	apply(node) {
+		const target = PREVIEW_TARGETS.find((item) => node.matches(item.selector));
+		if (!target) return;
+		const shown = this.shown.get(node) ?? {};
+		const text = node.textContent ?? "";
+		if (shown.text === void 0 || text !== shown.text) {
+			const cleaned = this.clean(text);
+			if (cleaned === collapse(text)) {
+				node.removeAttribute(PREVIEW_TEXT_ATTR);
+				delete shown.text;
+			} else {
+				node.setAttribute(PREVIEW_TEXT_ATTR, text);
+				shown.text = cleaned;
+				node.textContent = cleaned;
+			}
+		}
+		const title = target.title ? node.getAttribute("title") : null;
+		if (title !== null && title !== shown.title) {
+			const cleaned = this.clean(title, { keepLines: true });
+			if (collapse(cleaned) === collapse(title)) {
+				node.removeAttribute(PREVIEW_TITLE_ATTR);
+				delete shown.title;
+			} else {
+				node.setAttribute(PREVIEW_TITLE_ATTR, title);
+				shown.title = cleaned;
+				node.setAttribute("title", cleaned);
+			}
+		}
+		if (shown.text === void 0 && shown.title === void 0) this.shown.delete(node);
+		else this.shown.set(node, shown);
+	}
+	restoreAll() {
+		for (const node of this.doc.querySelectorAll(`[${PREVIEW_TEXT_ATTR}], [${PREVIEW_TITLE_ATTR}]`)) {
+			const shown = this.shown.get(node);
+			const text = node.getAttribute(PREVIEW_TEXT_ATTR);
+			if (text !== null && (shown?.text === void 0 || node.textContent === shown.text)) node.textContent = text;
+			const title = node.getAttribute(PREVIEW_TITLE_ATTR);
+			if (title !== null && (shown?.title === void 0 || node.getAttribute("title") === shown.title)) node.setAttribute("title", title);
+			node.removeAttribute(PREVIEW_TEXT_ATTR);
+			node.removeAttribute(PREVIEW_TITLE_ATTR);
+			this.shown.delete(node);
+		}
+	}
+};
 //#endregion
 //#region src/domain/theme-tokens.ts
 /** ST 1.19 defaults (public/style.css :root). */
@@ -131664,6 +136676,7 @@ var ThemeLayer = class {
 	skins;
 	doc;
 	watcher;
+	previews;
 	styles = /* @__PURE__ */ new Map();
 	listeners = /* @__PURE__ */ new Set();
 	brokenSkins = /* @__PURE__ */ new Set();
@@ -131684,6 +136697,14 @@ var ThemeLayer = class {
 			onChange: () => this.refresh(),
 			onError: (error) => this.log.debug("theme watcher", error)
 		});
+		this.previews = new PreviewCleaner({
+			doc: this.doc,
+			onError: (error) => this.log.debug("theme previews", error)
+		});
+	}
+	/** The chat-list previews are being cleaned (layer and «st» part on, not «Как было»). */
+	cleaningPreviews() {
+		return this.previews.isRunning();
 	}
 	start() {
 		if (this.running) return;
@@ -131785,10 +136806,12 @@ var ThemeLayer = class {
 		this.renderTokens(settings);
 		this.keepBeforeCustomCss();
 		this.setClasses(settings, this.previewTimer === null);
+		this.previews.sync(this.previewTimer === null && settings.parts.st);
 		if (!this.watcher.isRunning()) this.watcher.start();
 	}
 	unapply() {
 		this.watcher.stop();
+		this.previews.stop();
 		this.setClasses(null, false);
 		for (const { off } of this.styles.values()) try {
 			off();
@@ -131872,7 +136895,9 @@ var THEME_STRINGS = {
 		"m32.theme.parts": "What to restyle",
 		"m32.theme.partsHint": "Extensions appear here when they are installed and enabled.",
 		"m32.theme.part.st": "SillyTavern interface",
+		"m32.theme.part.st.hint": "Top bar, panels and popups, the start page with recent chats, chat files, personas and the character list. Chat lists show the last message without service blocks (DES tracker, HTML); the chats themselves are not changed.",
 		"m32.theme.part.chat": "Chat messages",
+		"m32.theme.part.chat.hint": "Messages in all three ST chat styles and the message box under the chat.",
 		"m32.theme.part.des": "DES (scene headers, windows)",
 		"m32.theme.part.ck": "CarrotKernel",
 		"m32.theme.part.nai": "NAI Studio",
@@ -131902,7 +136927,9 @@ var THEME_STRINGS = {
 		"m32.theme.parts": "Что оформлять",
 		"m32.theme.partsHint": "Расширения появятся в списке, когда они установлены и включены.",
 		"m32.theme.part.st": "Интерфейс SillyTavern",
+		"m32.theme.part.st.hint": "Верхняя панель, панели и окна, стартовая страница с недавними чатами, список чатов, персоны и список персонажей. В списках чатов последнее сообщение показано без служебных блоков (трекер DES, HTML), сами чаты не меняются.",
 		"m32.theme.part.chat": "Сообщения чата",
+		"m32.theme.part.chat.hint": "Сообщения во всех трёх стилях чата ST и поле ввода под чатом.",
 		"m32.theme.part.des": "DES (шапки сцен, окна)",
 		"m32.theme.part.ck": "CarrotKernel",
 		"m32.theme.part.nai": "NAI Studio",
@@ -131942,11 +136969,14 @@ function partLabel(app, part, skins) {
 	}
 	return app.i18n.t(own);
 }
-/** What a neighbour part restyles (`<titleKey>.hint` of its skin), if the skin has such a string. */
+/**
+* What a part restyles: `<titleKey>.hint` of a neighbour's skin, or Maestro's `m32.theme.part.<part>.hint` (ST and
+* the chat), if there is such a string.
+*/
 function partHint(app, part, skins) {
 	const skin = skins.find((item) => item.id === part);
-	if (!skin?.titleKey) return void 0;
-	const key = `${skin.titleKey}.hint`;
+	const key = skin?.titleKey ? `${skin.titleKey}.hint` : skin ? "" : `m32.theme.part.${part}.hint`;
+	if (!key) return void 0;
 	const hint = app.i18n.t(key);
 	return hint && hint !== key ? hint : void 0;
 }
@@ -145146,6 +150176,7 @@ var MODULES = [
 	mechanicsModule,
 	themeModule,
 	dockModule,
+	messageStyleModule,
 	assistantModule
 ];
 //#endregion

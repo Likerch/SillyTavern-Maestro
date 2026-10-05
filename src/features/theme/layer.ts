@@ -1,12 +1,14 @@
 // The theme layer (M32): owns the page classes on <html> (`maestro-theme` + `maestro-theme-<part>`), the stylesheets
-// (tokens, «st», «chat», neighbours' skins) and the theme watcher. Off — by the setting, the module switch, Maestro's
-// own shutdown — removes every class and sheet, so the page looks exactly as without Maestro (P11). Settings of ST and
-// of the neighbours are never written.
+// (tokens, «st», «chat», neighbours' skins), the theme watcher and, with the «st» part, the clean chat-list previews
+// (previews.ts). Off — by the setting, the module switch, Maestro's own shutdown, «Как было» — removes every class and
+// sheet and puts the original previews back, so the page looks exactly as without Maestro (P11). Settings of ST and of
+// the neighbours are never written.
 import type { App, Logger, Unsubscribe } from '../../shared/contracts';
 import { THEME_CLASS, partClass } from './api';
 import type { NeighbourSkin, ThemeApi, ThemePart } from './api';
 import { chatCss } from './css-chat';
 import { stCss } from './css-st';
+import { PreviewCleaner } from './previews';
 import { ALL_PARTS, THEME_KEY, isThemePart, readThemeSettings } from './settings';
 import type { ThemeSettings } from './settings';
 import { TOKENS_STYLE_ID, buildTokensCss, readStTheme } from './tokens';
@@ -34,6 +36,7 @@ export class ThemeLayer implements ThemeApi {
     private readonly skins: readonly NeighbourSkin[];
     private readonly doc: Document;
     private readonly watcher: ThemeWatcher;
+    private readonly previews: PreviewCleaner;
     private readonly styles = new Map<string, { css: string; off: Unsubscribe }>();
     private readonly listeners = new Set<() => void>();
     private readonly brokenSkins = new Set<string>();
@@ -55,6 +58,15 @@ export class ThemeLayer implements ThemeApi {
             onChange: () => this.refresh(),
             onError: (error) => this.log.debug('theme watcher', error),
         });
+        this.previews = new PreviewCleaner({
+            doc: this.doc,
+            onError: (error) => this.log.debug('theme previews', error),
+        });
+    }
+
+    /** The chat-list previews are being cleaned (layer and «st» part on, not «Как было»). */
+    cleaningPreviews(): boolean {
+        return this.previews.isRunning();
     }
 
     /* ---------------------------------------------------------------- lifecycle */
@@ -185,11 +197,13 @@ export class ThemeLayer implements ThemeApi {
         this.renderTokens(settings);
         this.keepBeforeCustomCss();
         this.setClasses(settings, this.previewTimer === null);
+        this.previews.sync(this.previewTimer === null && settings.parts.st);
         if (!this.watcher.isRunning()) this.watcher.start();
     }
 
     private unapply(): void {
         this.watcher.stop();
+        this.previews.stop();
         this.setClasses(null, false);
         for (const { off } of this.styles.values()) {
             try {

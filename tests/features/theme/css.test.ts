@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it } from 'vitest';
 import { CHAT_GATE, chatCss } from '../../../src/features/theme/css-chat';
-import { ST_GATE, stCss } from '../../../src/features/theme/css-st';
+import { ST_GATE, TOP_BAR_PADDING, stCss } from '../../../src/features/theme/css-st';
 import { ALL_PARTS, defaultThemeSettings, isThemePart, readThemeSettings } from '../../../src/features/theme/settings';
 import type { ThemeSettings } from '../../../src/features/theme/settings';
 import { ST_THEME_VARS, THEME_TOKENS, buildTokensCss, readStTheme } from '../../../src/features/theme/tokens';
@@ -47,6 +47,39 @@ function splitTopLevel(list: string): string[] {
     return parts;
 }
 
+/** Every style rule (inside @media/@supports too): its selectors, its declarations and the at-rules around it. */
+function rules(css: string): { selectors: string[]; body: string; within: string[] }[] {
+    const text = css.replace(/\/\*[\s\S]*?\*\//g, '');
+    const out: { selectors: string[]; body: string; within: string[] }[] = [];
+    const stack: string[] = [];
+    let prelude = '';
+    let current: { selectors: string[]; body: string; within: string[] } | null = null;
+    for (const char of text) {
+        if (current) {
+            if (char === '}') {
+                out.push(current);
+                current = null;
+            } else {
+                current.body += char;
+            }
+        } else if (char === '{') {
+            const head = prelude.trim();
+            if (head.startsWith('@')) stack.push(head);
+            else current = { selectors: splitTopLevel(head), body: '', within: [...stack] };
+            prelude = '';
+        } else if (char === '}') {
+            stack.pop();
+            prelude = '';
+        } else {
+            prelude += char;
+        }
+    }
+    return out;
+}
+
+/** Desktop part of a sheet: the phone media blocks (any query ending at ST's 1000px breakpoint) removed. */
+const desktopOnly = (css: string) => css.replace(/@media screen and [^{]*\(max-width: 1000px\) \{[\s\S]*?\n\}/g, '');
+
 const balanced = (css: string) => {
     let depth = 0;
     for (const char of css) {
@@ -83,18 +116,139 @@ describe('restyle stylesheets', () => {
     it('never touches layout properties of ST elements (sizes only for touch targets on phones)', () => {
         const all = sheets.map((sheet) => sheet.css).join('\n');
         expect(all).not.toMatch(/(^|[\s;{])(display|position|top|left|right|bottom|float|overflow)\s*:/m);
-        const desktop = all.replace(/@media screen and \(max-width: 1000px\) \{[\s\S]*?\n\}/g, '');
-        expect(desktop).not.toMatch(/(^|[\s;{])(width|height|min-width|min-height)\s*:/m);
+        expect(desktopOnly(all)).not.toMatch(/(^|[\s;{])(width|height|min-width|min-height)\s*:/m);
         // The only margin: the gap between compact bubbles (ST's own rule sets 5px).
         const margins = [...all.matchAll(/(?:^|[\s;{])(margin[a-z-]*\s*:[^;]*;)/gm)].map((match) => match[1]);
         expect(margins).toEqual(['margin-bottom: var(--maestro-space-1);']);
     });
 
-    it('changes padding only at the compact density', () => {
-        expect(stCss('comfortable')).not.toMatch(/\bpadding\s*:/);
+    it('changes padding only at the compact density, and the composer’s text area (inside ST’s block size)', () => {
+        const padded = (css: string) =>
+            rules(css)
+                .filter((rule) => /(^|[\s;])padding\s*:/.test(rule.body))
+                .flatMap((rule) => rule.selectors);
+        expect(padded(stCss('comfortable'))).toEqual([]);
         expect(stCss('compact')).toMatch(/padding: var\(--maestro-control-py\)/);
-        expect(chatCss('comfortable')).not.toMatch(/\bpadding\s*:/);
+        expect(padded(chatCss('comfortable'))).toEqual([`${CHAT_GATE} #send_textarea`]);
+        expect(chatCss('comfortable')).toContain('padding: 6px var(--maestro-space-2);');
         expect(chatCss('compact')).toMatch(/padding: var\(--maestro-mes-pad\)/);
+    });
+
+    it('sets only ST’s top bar variables, only at the comfortable density, only under the gate and never on iOS', () => {
+        const custom = (css: string) =>
+            rules(css).flatMap((rule) =>
+                [...rule.body.matchAll(/(?:^|[\s;])(--[\w-]+)\s*:\s*([^;]+);/g)].map((match) => ({
+                    name: match[1],
+                    value: match[2]!.trim(),
+                    selectors: rule.selectors,
+                    within: rule.within,
+                })),
+            );
+        const comfortable = custom(stCss('comfortable'));
+        expect(comfortable.map((item) => item.name)).toEqual(['--topBarBlockPadding', '--bottomFormBlockSize']);
+        expect(comfortable[0]).toEqual({
+            name: '--topBarBlockPadding',
+            value: TOP_BAR_PADDING,
+            selectors: [`${ST_GATE}:root`],
+            within: ['@supports not (-webkit-touch-callout: none)'],
+        });
+        expect(comfortable[1]).toEqual({
+            name: '--bottomFormBlockSize',
+            value: 'var(--topBarBlockSize)',
+            selectors: [`${ST_GATE} #top-bar`],
+            within: ['@supports not (-webkit-touch-callout: none)'],
+        });
+        // ST's value: calc(var(--mainFontSize) / 3).
+        expect(TOP_BAR_PADDING).toBe('calc(var(--mainFontSize) / 1.6)');
+        expect(custom(stCss('compact'))).toEqual([]);
+        expect(custom(chatCss('comfortable'))).toEqual([]);
+        expect(custom(chatCss('compact'))).toEqual([]);
+        // The bar keeps its elevation and divider.
+        expect(stCss('comfortable')).toContain(
+            `${ST_GATE} #top-bar {\n    box-shadow: var(--maestro-elevation-2);\n    border-bottom: 1px solid var(--maestro-divider);`,
+        );
+    });
+
+    it('applies the top bar variable only while the layer and the part are on', () => {
+        const html = document.documentElement;
+        // The gate is the condition: the rule's selector matches <html> only with both classes.
+        const selector = `${ST_GATE}:root`;
+        expect(html.matches(selector)).toBe(false);
+        html.classList.add('maestro-theme');
+        expect(html.matches(selector)).toBe(false);
+        html.classList.add('maestro-theme-st');
+        expect(html.matches(selector)).toBe(true);
+        html.classList.remove('maestro-theme');
+        expect(html.matches(selector)).toBe(false);
+    });
+
+    it('styles the start page, chat files, personas, the chat bar and the composer', () => {
+        const st = selectors(stCss('comfortable'));
+        for (const selector of [
+            '.welcomePanel',
+            '.welcomeRecent .recentChatList .recentChat',
+            '.welcomeRecent .recentChatList .recentChat:hover',
+            '.welcomeRecent .recentChatList .recentChat:has(.recentChatPinned)',
+            '.welcomeRecent .recentChatList .recentChat .chatMessageContainer .chatMessage',
+            '.welcomeRecent .recentChatList .recentChat .chatActions .pinChat.active',
+            '.welcomeRecent .recentChatList .showMoreChats',
+            '.welcomePanel .welcomeShortcuts .menu_button',
+            'body:not(.bubblechat) #chat .mes[type="assistant_message"]:not(.selected)',
+            '#chat .mes[type="welcome_prompt"] .drawer-opener',
+            '#select_chat_popup',
+            '#select_chat_search',
+            '.select_chat_block',
+            '.select_chat_block[highlight]',
+            '.select_chat_block_mes',
+            '.avatar-container.selected',
+            '#persona-management-block .avatar_container_states .menu_button',
+            '#persona_description',
+            '#persona_connections_buttons .menu_button.locked',
+            '#sheld #extensionTopBar',
+            '#sheld #extensionTopBarChatName',
+            '#sheld #extensionTopBarSearchInput',
+            '#movingDivs #extensionSideBar #extensionSideBarContainer .sideBarItem',
+        ]) {
+            expect(st, selector).toContain(`${ST_GATE} ${selector}`);
+        }
+        // The Top Info Bar loads its sheet after Maestro's: its elements are outranked by one more id.
+        for (const selector of st.filter((item) => /#extension(TopBar|SideBar|ConnectionProfiles)/.test(item))) {
+            expect(selector.startsWith(`${ST_GATE} #sheld #`) || selector.startsWith(`${ST_GATE} #movingDivs #`)).toBe(
+                true,
+            );
+        }
+        // The send form moved to the «chat» part.
+        expect(st.some((selector) => selector.includes('#send_form'))).toBe(false);
+        const chat = selectors(chatCss('comfortable'));
+        for (const selector of [
+            '#send_form',
+            '#send_form:has(#send_textarea:focus-visible)',
+            '#send_textarea',
+            '#send_textarea::placeholder',
+            '#rightSendForm>div:not(.mes_stop)',
+            '#leftSendForm>div',
+            '#rightSendForm>div:focus-visible',
+            '#send_form #qr--bar>.qr--buttons .qr--button',
+        ]) {
+            expect(chat, selector).toContain(`${CHAT_GATE} ${selector}`);
+        }
+    });
+
+    it('gives the composer 16px text and touch-sized icons on phones only', () => {
+        const phone = rules(chatCss('comfortable')).filter((rule) => rule.within.some((at) => at.includes('1000px')));
+        const textarea = phone.find((rule) => rule.selectors.includes(`${CHAT_GATE} #send_textarea`));
+        expect(textarea?.body).toContain('font-size: max(16px, var(--mainFontSize));');
+        const icons = phone.filter((rule) => rule.selectors.includes(`${CHAT_GATE} #leftSendForm>div`));
+        expect(icons.map((rule) => rule.body.trim())).toEqual([
+            'min-height: var(--maestro-touch);',
+            'min-width: var(--maestro-touch);',
+        ]);
+        // Square targets only where ST's icon columns are not 1.15em wide (portrait phones, ≤ 450px).
+        expect(icons[1]!.within).toEqual(['@media screen and (min-width: 451px) and (max-width: 1000px)']);
+        const desktop = rules(desktopOnly(chatCss('comfortable')));
+        expect(desktop.some((rule) => /font-size/.test(rule.body) && rule.selectors.join().includes('#send'))).toBe(
+            false,
+        );
     });
 
     it('lets Maestro’s own dialogs and buttons keep their phone sizes and colours', () => {
