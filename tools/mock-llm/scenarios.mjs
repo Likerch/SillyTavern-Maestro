@@ -320,6 +320,8 @@ const FLAG_MARKERS = [
     'fenced',
     'tool',
     'outfit',
+    'stat',
+    'mechblock',
 ];
 
 /** Marker names this engine understands (for README and the /__config validation). */
@@ -345,7 +347,8 @@ function isSummaryRequest(text) {
 export function extractNames(texts, userName, systemTexts = []) {
     const fromJson = [];
     for (const text of texts) {
-        for (const match of text.matchAll(/"name"\s*:\s*"([^"\n]{2,40})"/g)) {
+        for (const match of text.matchAll(/"name"\s*:\s*"([^"\n]{2,40})"(?!\s*,\s*"value")/g)) {
+            // A `{"name": "Health", "value": …}` object is a DES stat, not a character.
             const name = match[1].trim();
             if (!/\p{L}/u.test(name) || EN_STOP.has(name) || name.includes('{{') || name === userName) continue;
             const index = fromJson.indexOf(name);
@@ -738,9 +741,21 @@ function trackerObject(ctx, rng, lang) {
     const [outfitWho, outfitWhat] = outfitArg.includes('=')
         ? outfitArg.split('=', 2).map((part) => part.trim())
         : ['', outfitArg.trim()];
+    // [mock:stat:Имя=Mana:40,Health:90] gives that character DES stats (the first character without a name).
+    const statArg = ctx.markers?.get('stat') ?? '';
+    const [statWho, statList] = statArg.includes('=')
+        ? statArg.split('=', 2).map((part) => part.trim())
+        : ['', statArg];
+    const stats = statList
+        .split(',')
+        .map((item) => item.split(':').map((part) => part.trim()))
+        .filter(([name, value]) => name && value !== undefined && value !== '')
+        .map(([name, value]) => ({ name, value: Number.isFinite(Number(value)) ? Number(value) : value }));
     const known = (ctx.names.length ? ctx.names : DEFAULT_NAMES).slice(0, 3);
-    const names = outfitWho && !known.includes(outfitWho) ? [outfitWho, ...known.slice(0, 2)] : known;
+    const joining = [...new Set([outfitWho, statWho].filter((name) => name && !known.includes(name)))];
+    const names = [...joining, ...known].slice(0, Math.max(3, joining.length));
     const outfitIndex = outfitWho ? names.indexOf(outfitWho) : 0;
+    const statIndex = statWho ? names.indexOf(statWho) : 0;
     const weather = pick(rng, WEATHER);
     const start = ctx.lastTime ?? { h: 18, m: 0 };
     const startMinutes = start.h * 60 + start.m;
@@ -773,6 +788,7 @@ function trackerObject(ctx, rng, lang) {
                 demeanor: pick(rng, text.demeanor),
                 ...(outfitWhat && i === outfitIndex ? { outfit: outfitWhat } : {}),
             },
+            ...(stats.length && i === statIndex ? { stats } : {}),
             relationship: { status: pick(rng, statuses) },
             thoughts: { content: fill(pick(rng, text.thoughts), { U: ctx.userName }) },
         })),
@@ -1017,6 +1033,16 @@ export function buildReply(ctx, n = 0) {
     } else {
         const body = prose(ctx, rng, lang, { user: m.has('user'), invent: m.has('invent') });
         content = m.has('nojson') ? body : `${trackerBlock(ctx, rng, lang)}\n\n${body}`;
+    }
+
+    // [mock:mechblock:Кай.Mana: -10; Кай.Schools += fire] ends the reply with a mechanics service block (M25).
+    if (kind === 'story' && m.get('mechblock')) {
+        const lines = m
+            .get('mechblock')
+            .split(';')
+            .map((line) => line.trim())
+            .filter(Boolean);
+        content += ['', '', '<mechanics>', ...lines, '</mechanics>'].join('\n');
     }
 
     let finishReason = 'stop';

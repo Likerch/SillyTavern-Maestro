@@ -7,7 +7,7 @@
   "css": "dist/style.css",
   "generate_interceptor": "MAESTRO_Intercept",
   "author": "Likerchik",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "homePage": "https://github.com/Likerch/SillyTavern-Maestro",
   "auto_update": true,
   "minimum_client_version": "1.19.0",

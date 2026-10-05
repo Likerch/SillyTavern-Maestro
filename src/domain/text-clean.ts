@@ -5,8 +5,10 @@
 //   bunnymo-carrotkernel.md §3.2 item 6; same detection as DES-RU src/lib/carrot-data.js stripCarrotDumps);
 // - NAI Studio: `[nai:img:<id>]` placeholders of inline images, and whole picture posts (research/
 //   qvink-nai-studio.md §B5);
-// - HTML from models, DES-RU and regexes.
+// - HTML from models, DES-RU and regexes;
+// - a mechanics service block (M25) the mechanics module has not stripped yet.
 // Pure: no DOM, no SillyTavern.
+import { stripBlock } from './mechanics-block';
 
 type Dict = Record<string, unknown>;
 
@@ -237,6 +239,7 @@ export function cleanForAnalysis(message: unknown): string {
     let text = stripDesTrackerJson(raw);
     text = stripCkDumps(text);
     text = stripNaiPlaceholders(text);
+    text = stripBlock(text);
     text = stripHtml(text);
     return normalizeWhitespace(text);
 }

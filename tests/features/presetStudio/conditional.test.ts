@@ -14,6 +14,8 @@ import {
     flagLabel,
     knownFlags,
     macroEngineState,
+    mechanicsCatalogue,
+    mechanicsFlagsOn,
     maestroConditionalBlocks,
     prepareConditionalsForDisable,
     presetFlags,
@@ -90,6 +92,32 @@ describe('flag catalogue', () => {
         expect(names).toContain('maestro_lang_ru');
         expect(names).toHaveLength(FALLBACK_FLAGS.length);
         expect(flagLabel(s.app, FALLBACK_FLAGS[1]!)).toBe('Scene: combat and danger');
+    });
+
+    it('offers one flag per mechanic, titled by its name, and the ones on now', () => {
+        expect(mechanicsCatalogue(s.app)).toEqual([]);
+        expect(mechanicsFlagsOn(s.app)).toEqual([]);
+        s.app.modules.expose('mechanics', {
+            flagCatalogue: () => [
+                { flag: 'maestro_mech_magic', label: 'Магия' },
+                { flag: 'not a flag', label: 'x' },
+            ],
+            flagsOn: () => ['maestro_mech_magic', 7],
+        });
+        const [magic, ...rest] = mechanicsCatalogue(s.app);
+        expect(rest).toEqual([]);
+        expect(magic).toEqual({
+            name: 'maestro_mech_magic',
+            source: 'mechanics',
+            titleKey: 'm25.prompt.flag',
+            descriptionKey: 'm25.prompt.flag.hint',
+            label: 'Магия',
+        });
+        expect(flagCatalogue(s.app).map((entry) => entry.name)).toContain('maestro_mech_magic');
+        expect(knownFlags(s.app)).toContain('maestro_mech_magic');
+        // Without the mechanics strings the label is the mechanic's name.
+        expect(flagLabel(s.app, magic!)).toBe('Магия');
+        expect(mechanicsFlagsOn(s.app)).toEqual(['maestro_mech_magic']);
     });
 
     it('reads the director’s catalogue in any of the shapes it may expose', () => {

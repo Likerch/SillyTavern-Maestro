@@ -233,6 +233,33 @@ describe('mock LLM', () => {
         const joinedTracker = JSON.parse(joinedReply.slice(8, joinedReply.indexOf('\n```', 8))) as typeof tracker;
         expect(joinedTracker.characters[0]).toMatchObject({ name: 'Элизабет', details: { outfit: 'красное платье' } });
         expect(joinedTracker.characters.filter((ch) => ch.details.outfit)).toHaveLength(1);
+
+        const mechanics = await complete({
+            messages: [
+                ...story.slice(0, 1),
+                {
+                    role: 'user',
+                    content: 'Колдую. [mock:mechblock:Кай.Mana: -10; Кай.Schools += fire][mock:stat:Илза=Mana:40]',
+                },
+            ],
+        });
+        const mechReply = mechanics.choices[0]!.message.content;
+        expect(mechReply.endsWith('<mechanics>\nКай.Mana: -10\nКай.Schools += fire\n</mechanics>')).toBe(true);
+        const statTracker = JSON.parse(mechReply.slice(8, mechReply.indexOf('\n```', 8))) as {
+            characters: { name: string; stats?: { name: string; value: number }[] }[];
+        };
+        expect(statTracker.characters.find((ch) => ch.name === 'Илза')?.stats).toEqual([{ name: 'Mana', value: 40 }]);
+        // The next request carries that tracker: its stats are not characters.
+        const next = await complete({
+            messages: [
+                ...story.slice(0, 1),
+                { role: 'assistant', content: mechReply },
+                { role: 'user', content: 'Дальше.' },
+            ],
+        });
+        const nextReply = next.choices[0]!.message.content;
+        const nextTracker = JSON.parse(nextReply.slice(8, nextReply.indexOf('\n```', 8))) as typeof statTracker;
+        expect(nextTracker.characters.map((ch) => ch.name)).not.toContain('Mana');
     });
 
     it('calls a tool when asked and answers the tool result', async () => {

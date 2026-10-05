@@ -17,6 +17,7 @@ import { loreJournalModule } from '../features/loreJournal';
 import { livingCanonModule } from '../features/livingCanon';
 import { lorePassportsModule } from '../features/lorePassports';
 import { loreStudioModule } from '../features/loreStudio';
+import { mechanicsModule } from '../features/mechanics';
 import { medicModule } from '../features/medic';
 import { metricsModule } from '../features/metrics';
 import { offscreenModule } from '../features/offscreen';
@@ -82,4 +83,6 @@ export const MODULES: MaestroModule[] = [
     wardrobeModule,
     lorePassportsModule,
     backgroundsModule,
+    // Stage 11: mechanics.
+    mechanicsModule,
 ];

@@ -36,13 +36,14 @@ export const BUDGET_SLOTS: Partial<Record<BudgetSource, string>> = {
     qvink: 'qvink_memory_short',
     des: 'dooms-tracker-context',
     voices: 'maestro_voices',
+    mechanics: 'maestro_mechanics',
 };
 
 /** Sources of later stages: the budget is stored, there is nothing to measure yet. */
-export const FUTURE_SOURCES: ReadonlySet<BudgetSource> = new Set(['mechanics', 'director']);
+export const FUTURE_SOURCES: ReadonlySet<BudgetSource> = new Set(['director']);
 
 /** Sources that fit themselves to the budget (M15 reads it): measured here, never shortened. */
-export const SELF_FITTING: ReadonlySet<BudgetSource> = new Set(['voices']);
+export const SELF_FITTING: ReadonlySet<BudgetSource> = new Set(['voices', 'mechanics']);
 
 /** ST extension_prompt_types.NONE: never injected. */
 const POSITION_NONE = -1;

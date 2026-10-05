@@ -23,6 +23,7 @@ import type {
 import {
     blockCondition,
     evaluate,
+    isFlagName,
     isTruthy,
     parseConditional,
     variableText,
@@ -35,6 +36,7 @@ import type { PresetBody, PresetPrompt, PresetStore } from './store-api';
 
 /** Key of the director's API (M13/M14, features/director/api.ts). */
 export const DIRECTOR_API_KEY = 'director';
+export const MECHANICS_API_KEY = 'mechanics';
 
 /** Scene types of the director (features/director/api.ts SceneType), for the fallback catalogue. */
 const SCENE_TYPES = ['dialogue', 'combat', 'intimate', 'exploration', 'timeskip', 'social', 'drama'] as const;
@@ -88,6 +90,33 @@ export function directorCatalogue(app: App): FlagEntry[] {
     return Array.isArray(flags) ? readFlagEntries(flags, 'director') : [];
 }
 
+/** The mechanics' flags (`flagCatalogue(): { flag, label }[]`, M25): one per mechanic, titled by its name. */
+export function mechanicsCatalogue(app: App): FlagEntry[] {
+    const api = app.modules.api<unknown>(MECHANICS_API_KEY);
+    if (!isRecord(api)) return [];
+    const list = call(api, api.flagCatalogue);
+    if (!Array.isArray(list)) return [];
+    return list.flatMap((item): FlagEntry[] => {
+        if (!isRecord(item) || typeof item.flag !== 'string' || !isFlagName(item.flag)) return [];
+        const entry: FlagEntry = {
+            name: item.flag,
+            source: 'mechanics',
+            titleKey: 'm25.prompt.flag',
+            descriptionKey: 'm25.prompt.flag.hint',
+        };
+        if (typeof item.label === 'string' && item.label) entry.label = item.label;
+        return [entry];
+    });
+}
+
+/** The mechanics' flags that are on now (`flagsOn(): string[]`). */
+export function mechanicsFlagsOn(app: App): string[] {
+    const api = app.modules.api<unknown>(MECHANICS_API_KEY);
+    if (!isRecord(api)) return [];
+    const flags = call(api, api.flagsOn);
+    return Array.isArray(flags) ? flags.filter((name): name is string => typeof name === 'string') : [];
+}
+
 /** The flags the director sets for the next generation (`flags(): Record<string, string>`), or null. */
 export function directorCurrentFlags(app: App): Record<string, string> | null {
     const api = app.modules.api<unknown>(DIRECTOR_API_KEY);
@@ -117,16 +146,25 @@ export function presetFlags(body: PresetBody): FlagEntry[] {
 
 /** The catalogue the studio offers: the director's flags, the fallbacks, then the preset's own. */
 export function flagCatalogue(app: App, body?: PresetBody): FlagEntry[] {
-    return mergeCatalogue(directorCatalogue(app), FALLBACK_FLAGS, body ? presetFlags(body) : []);
+    return mergeCatalogue(
+        directorCatalogue(app),
+        mechanicsCatalogue(app),
+        FALLBACK_FLAGS,
+        body ? presetFlags(body) : [],
+    );
 }
 
 /** Flags Maestro owns by its catalogue (the director's and the fallbacks; not the preset's own variables). */
 export function knownFlags(app: App): string[] {
-    return mergeCatalogue(directorCatalogue(app), FALLBACK_FLAGS).map((entry) => entry.name);
+    return mergeCatalogue(directorCatalogue(app), mechanicsCatalogue(app), FALLBACK_FLAGS).map((entry) => entry.name);
 }
 
 /** A flag's label: its title from the catalogue (when the key is known to i18n), else the name. */
 export function flagLabel(app: App, entry: FlagEntry): string {
+    if (entry.label) {
+        const title = entry.titleKey ? app.i18n.t(entry.titleKey, { name: entry.label }) : '';
+        return title && title !== entry.titleKey ? title : entry.label;
+    }
     if (!entry.titleKey) return entry.name;
     const title = app.i18n.t(entry.titleKey);
     return title && title !== entry.titleKey ? title : entry.name;

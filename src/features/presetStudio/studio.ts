@@ -61,6 +61,7 @@ import {
     conditionalRows,
     directorCurrentFlags,
     directorFlagsOn,
+    mechanicsFlagsOn,
     flagCatalogue,
     flagHint,
     knownFlags,
@@ -1026,6 +1027,7 @@ export class PresetStudio {
                 useCurrent: () => {
                     state.on.clear();
                     for (const name of directorFlagsOn(this.app)) state.on.add(name);
+                    for (const name of mechanicsFlagsOn(this.app)) state.on.add(name);
                     this.renderTab();
                 },
                 open: (identifier) => void this.openEditor(identifier),

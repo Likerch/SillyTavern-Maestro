@@ -154,6 +154,72 @@ export class DesAdapter extends NeighbourBase<'des'> {
         return copy;
     }
 
+    /**
+     * Replaces DES's per-character stats (`trackerConfig.presentCharacters.characterStats.customStats`; DES 2.6
+     * state.js:229, asked for in jsonPromptHelpers.js buildCharactersJSONInstruction) with `next` — callers merge,
+     * keeping the user's own stats — and, with `options.enable`, sets the feature switch `characterStats.enabled`.
+     * Writes DES's live settings object (state.js) and mirrors the stats into the active tracker preset (DES loads a
+     * preset's trackerConfig over the live one on character switch, persistence.js autoSwitchPresetForEntity), then
+     * persists like DES: its own `saveSettings()` (persistence.js:544), else `extension_settings[name] = live` and
+     * `saveSettingsDebounced()`. Fields DES keeps on a stat besides id/name/enabled stay. False when DES or its
+     * live state is not available. Callers check `isWorkshopOpen()` first (plan §10.8).
+     */
+    setCharacterStats(
+        next: { id: string; name: string; enabled: boolean }[],
+        options: { enable?: boolean } = {},
+    ): boolean {
+        const live = this.modules.state?.extensionSettings;
+        if (!this.present() || !isDict(live)) return false;
+        const tracker = isDict(live.trackerConfig) ? live.trackerConfig : (live.trackerConfig = {});
+        const present = isDict(tracker.presentCharacters)
+            ? tracker.presentCharacters
+            : (tracker.presentCharacters = {});
+        const previous = isDict(present.characterStats) ? present.characterStats : {};
+        const before = Array.isArray(previous.customStats) ? previous.customStats.filter(isDict) : [];
+        const customStats = next
+            .filter((stat) => stat && typeof stat.name === 'string' && stat.name.trim())
+            .map((stat) => {
+                const id = String(stat.id ?? '').trim() || stat.name.trim();
+                const kept = before.find((item) => item.id === id) ?? {};
+                return { ...kept, id, name: stat.name.trim(), enabled: stat.enabled !== false };
+            });
+        const stats: Dict = {
+            ...previous,
+            enabled: options.enable ?? previous.enabled === true,
+            customStats,
+        };
+        present.characterStats = stats;
+        const manager = isDict(live.presetManager) ? live.presetManager : null;
+        const activeId = typeof manager?.activePresetId === 'string' ? manager.activePresetId : null;
+        const presets = isDict(manager?.presets) ? manager.presets : null;
+        const preset = activeId && presets && isDict(presets[activeId]) ? presets[activeId] : null;
+        if (preset && isDict(preset.trackerConfig)) {
+            const presetChars = isDict(preset.trackerConfig.presentCharacters)
+                ? preset.trackerConfig.presentCharacters
+                : (preset.trackerConfig.presentCharacters = {});
+            presetChars.characterStats = JSON.parse(JSON.stringify(stats)) as Dict;
+        }
+        this.persistSettings(live);
+        return true;
+    }
+
+    /** Saves DES's live settings the way DES does (persistence.js saveSettings), with ST's own save as fallback. */
+    private persistSettings(live: Dict): void {
+        const save = this.modules.persistence?.saveSettings;
+        if (typeof save === 'function') {
+            try {
+                (save as () => void)();
+                return;
+            } catch (error) {
+                this.log.warn('DES saveSettings failed; saving through SillyTavern', error);
+            }
+        }
+        if (!this.located) return;
+        const ctx = this.host.ctx();
+        ctx.extensionSettings[this.located.name] = live;
+        ctx.saveSettingsDebounced();
+    }
+
     /** The Workshop is open: Maestro must not write DES stores until it closes (plan §10.8). */
     isWorkshopOpen(): boolean {
         return hasElement(DES_SELECTORS.workshopOpen);

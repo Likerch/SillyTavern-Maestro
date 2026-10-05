@@ -20,7 +20,7 @@ import type { IfSection, SyntaxIssueCode } from './preset-conditional-syntax';
 
 /* ------------------------------------------------------------------ catalogue */
 
-export type FlagSource = 'director' | 'builtin' | 'preset' | 'custom';
+export type FlagSource = 'director' | 'mechanics' | 'builtin' | 'preset' | 'custom';
 
 /** A flag the studio offers (the director's catalogue: `{ name, titleKey, descriptionKey }`). */
 export interface FlagEntry {
@@ -28,6 +28,8 @@ export interface FlagEntry {
     titleKey?: string;
     descriptionKey?: string;
     source: FlagSource;
+    /** A name to put into the title (a mechanic's name: «Механика «{name}» в сцене»). */
+    label?: string;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

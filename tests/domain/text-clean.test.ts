@@ -187,4 +187,9 @@ describe('cleanForAnalysis', () => {
     it('accepts a raw string', () => {
         expect(cleanForAnalysis('<b>Hi</b>\r\nthere ')).toBe('Hi\nthere');
     });
+
+    it('drops a mechanics service block the mechanics module has not stripped yet', () => {
+        const mes = 'Лира колдует.\n\n<mechanics>\nЛира.Mana: -10\n</mechanics>';
+        expect(cleanForAnalysis({ mes, extra: {} })).toBe('Лира колдует.');
+    });
 });
