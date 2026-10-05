@@ -88,6 +88,15 @@ export function createLlmClient(deps: LlmClientDeps): LlmClientImpl {
         return service;
     }
 
+    /** The API of a Connection Manager profile ('openrouter', 'openai', …), undefined when unknown. */
+    function profileApi(profileId: string): string | undefined {
+        const context: Partial<STContext> = host.ctx();
+        const manager = context.extensionSettings?.connectionManager as { profiles?: unknown } | undefined;
+        const list = Array.isArray(manager?.profiles) ? (manager.profiles as Record<string, unknown>[]) : [];
+        const api = list.find((profile) => profile?.id === profileId)?.api;
+        return typeof api === 'string' ? api : undefined;
+    }
+
     function candidates(task: string): string[] {
         const profiles = settings.core().profiles ?? {};
         const primary = nonEmpty(profiles[task]) ?? nonEmpty(profiles['default']);
@@ -146,7 +155,7 @@ export function createLlmClient(deps: LlmClientDeps): LlmClientImpl {
             const raw = await service.sendRequest(
                 profileId,
                 buildMessages(request, useSchema),
-                request.maxTokens,
+                maxTokensFor(request),
                 {
                     stream: false,
                     signal: controller.signal,
@@ -154,7 +163,7 @@ export function createLlmClient(deps: LlmClientDeps): LlmClientImpl {
                     includePreset: false,
                     includeInstruct: true,
                 },
-                buildOverride(request, useSchema),
+                buildOverride(request, useSchema, profileApi(profileId)),
             );
             recordCost(request.task, raw, spent);
             return { kind: 'ok', raw };
@@ -317,10 +326,28 @@ function toWire(message: LlmMessage): WireMessage {
     });
 }
 
-function buildOverride(request: LlmRequest, useSchema: boolean): Record<string, unknown> {
+/**
+ * Background tasks do not reason: the profile's preset is not applied (includePreset: false), so a reasoning model
+ * (DeepSeek V4 on OpenRouter) thinks by default and a short task spends its whole budget on thoughts and answers
+ * nothing. OpenRouter takes the effort as given ('none'); other APIs keep their own default.
+ */
+export function reasoningOverride(task: string, api: string | undefined): string | undefined {
+    if (INTERACTIVE_TASKS.has(task)) return undefined;
+    return api === 'openrouter' ? 'none' : undefined;
+}
+
+/** Structured answers get room even when a provider still reasons a little (a director verdict asked for 80). */
+export const SCHEMA_MIN_TOKENS = 200;
+
+export function maxTokensFor(request: LlmRequest): number {
+    return request.schema ? Math.max(request.maxTokens, SCHEMA_MIN_TOKENS) : request.maxTokens;
+}
+
+function buildOverride(request: LlmRequest, useSchema: boolean, api?: string): Record<string, unknown> {
     const tools = request.tools && request.tools.length > 0 ? request.tools : undefined;
     return dropUndefined({
         temperature: request.temperature,
+        reasoning_effort: reasoningOverride(request.task, api),
         json_schema:
             useSchema && request.schema
                 ? { name: request.schema.name, strict: true, value: request.schema.schema }

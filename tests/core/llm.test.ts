@@ -149,6 +149,27 @@ describe('llm client: request shape', () => {
         expect(result).toEqual({ ok: true, toolCalls, costUsd: 0, tokens: { prompt: 0, completion: 0 } });
     });
 
+    it('turns reasoning off for background tasks on OpenRouter profiles and gives structured answers room', async () => {
+        (mock.extensionSettings as Record<string, unknown>).connectionManager = {
+            profiles: [
+                { id: 'p-judge', api: 'openrouter' },
+                { id: 'p-default', api: 'openai' },
+            ],
+        };
+        const { client } = setup({ profiles: { judge: 'p-judge', assistant: 'p-judge', default: 'p-default' } });
+        replies.push(completion('{"score": 1}'), completion('Hi.'), completion('Ok.'));
+        await client.request(ask({ schema: SCHEMA, maxTokens: 80 }));
+        expect(calls[0]!.override).toMatchObject({ reasoning_effort: 'none' });
+        expect(calls[0]!.maxTokens).toBe(200);
+        // The assistant keeps the model's reasoning; another API keeps its own default.
+        await client.request(ask({ task: 'assistant', maxTokens: 80 }));
+        expect(calls[1]!.override).not.toHaveProperty('reasoning_effort');
+        expect(calls[1]!.maxTokens).toBe(80);
+        await client.request(ask({ task: 'revision' }));
+        expect(calls[2]!.profileId).toBe('p-default');
+        expect(calls[2]!.override).not.toHaveProperty('reasoning_effort');
+    });
+
     it('marks its own requests with the signal it hands to sendRequest', async () => {
         const { client, own } = setup();
         replies.push(completion('ok'));
