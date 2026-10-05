@@ -222,7 +222,7 @@ export class PmLauncher {
             onClick: () => (this.classic ? this.hideClassic() : this.showClassic()),
         });
         this.parts = { preset, unsaved, stats, error, classic };
-        return el('div', { class: 'maestro-m34-launcher maestro-theme', attrs: { id: LAUNCHER_ID } }, [
+        return el('div', { class: 'maestro-m34-launcher maestro-ui', attrs: { id: LAUNCHER_ID } }, [
             el('div', { class: 'maestro-m34-launcher-head' }, [
                 icon('fa-sliders'),
                 el('strong', { text: this.t('m34.title') }),

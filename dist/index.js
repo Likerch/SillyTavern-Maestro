@@ -7450,7 +7450,45 @@ function overviewTab(env) {
 }
 //#endregion
 //#region src/ui/components/tabs.ts
+var instances = 0;
+/** localStorage may throw (private mode, blocked site data) or be missing: collapsing then just is not remembered. */
+function readCollapsed(key) {
+	if (!key) return /* @__PURE__ */ new Set();
+	try {
+		const raw = globalThis.localStorage?.getItem(key);
+		const parsed = raw ? JSON.parse(raw) : [];
+		return new Set(Array.isArray(parsed) ? parsed.filter((value) => typeof value === "string") : []);
+	} catch {
+		return /* @__PURE__ */ new Set();
+	}
+}
+function writeCollapsed(key, groups) {
+	if (!key) return;
+	try {
+		globalThis.localStorage?.setItem(key, JSON.stringify([...groups].sort()));
+	} catch {}
+}
+/** Splits items into plain tabs and groups of consecutive items (a group of one item is a plain tab). */
+function blocksOf(items) {
+	const blocks = [];
+	for (const item of items) {
+		const group = item.group && item.groupLabel ? item.group : null;
+		const last = blocks[blocks.length - 1];
+		if (group !== null && last && last.group === group) last.items.push(item);
+		else blocks.push({
+			group,
+			label: item.groupLabel ?? "",
+			items: [item]
+		});
+	}
+	return blocks.flatMap((block) => block.group !== null && block.items.length < 2 ? block.items.map((item) => ({
+		group: null,
+		label: "",
+		items: [item]
+	})) : [block]);
+}
 function tabs(options) {
+	const prefix = `maestro-tabs-${++instances}`;
 	const list = el("div", {
 		class: "maestro-tabs",
 		attrs: {
@@ -7464,43 +7502,121 @@ function tabs(options) {
 		attrs: { "aria-label": options.label }
 	});
 	let items = [];
+	let blocks = [];
 	let current = options.active ?? null;
+	const collapsedGroups = readCollapsed(options.storageKey);
 	const buttonOf = (id) => [...list.querySelectorAll(".maestro-tab")].find((node) => node.dataset.tab === id) ?? null;
+	const groupNodeOf = (group) => [...list.querySelectorAll(".maestro-tab-group")].find((node) => node.dataset.group === group) ?? null;
+	const blockOf = (id) => blocks.find((block) => block.items.some((item) => item.id === id));
+	const hidden = (item) => {
+		const block = blockOf(item.id);
+		return !!block?.group && collapsedGroups.has(block.group);
+	};
 	const pickerLabel = (item) => item.badge ? `${item.label} (${item.badge})` : item.label;
+	const tabButton = (item) => {
+		const badge = el("span", {
+			class: "maestro-tab-badge",
+			text: item.badge ? String(item.badge) : ""
+		});
+		badge.hidden = !item.badge;
+		const node = el("button", {
+			class: "maestro-tab",
+			data: { tab: item.id },
+			attrs: {
+				type: "button",
+				role: "tab",
+				"aria-selected": "false",
+				tabindex: "-1"
+			}
+		}, [
+			item.icon ? icon(item.icon) : null,
+			el("span", {
+				class: "maestro-tab-label",
+				text: item.label
+			}),
+			badge
+		]);
+		node.addEventListener("click", () => choose(item.id));
+		return node;
+	};
+	const groupBlock = (block, index) => {
+		const headId = `${prefix}-group-${index}`;
+		const bodyId = `${headId}-items`;
+		const head = el("button", {
+			class: "maestro-tab-group-head",
+			data: { group: block.group },
+			attrs: {
+				type: "button",
+				id: headId,
+				"aria-controls": bodyId
+			}
+		}, [
+			icon("fa-chevron-down", "maestro-tab-group-chevron"),
+			el("span", {
+				class: "maestro-tab-group-label",
+				text: block.label
+			}),
+			el("span", { class: "maestro-tab-badge" })
+		]);
+		head.addEventListener("click", () => toggle(block.group, !collapsedGroups.has(block.group)));
+		const body = el("div", {
+			class: "maestro-tab-group-items",
+			attrs: { id: bodyId }
+		}, block.items.map(tabButton));
+		return el("div", {
+			class: "maestro-tab-group",
+			data: { group: block.group },
+			attrs: {
+				role: "group",
+				"aria-labelledby": headId
+			}
+		}, [head, body]);
+	};
 	const render = () => {
+		blocks = blocksOf(items);
 		list.replaceChildren();
 		picker.replaceChildren();
-		for (const item of items) {
-			const badge = el("span", {
-				class: "maestro-tab-badge",
-				text: item.badge ? String(item.badge) : ""
-			});
-			badge.hidden = !item.badge;
-			const node = el("button", {
-				class: "maestro-tab",
-				data: { tab: item.id },
-				attrs: {
-					type: "button",
-					role: "tab",
-					"aria-selected": "false",
-					tabindex: "-1"
-				}
-			}, [
-				item.icon ? icon(item.icon) : null,
-				el("span", {
-					class: "maestro-tab-label",
-					text: item.label
-				}),
-				badge
-			]);
-			node.addEventListener("click", () => choose(item.id));
-			list.appendChild(node);
-			picker.appendChild(el("option", {
+		blocks.forEach((block, index) => {
+			if (block.group === null) {
+				for (const item of block.items) list.appendChild(tabButton(item));
+				for (const item of block.items) picker.appendChild(el("option", {
+					text: pickerLabel(item),
+					attrs: { value: item.id }
+				}));
+				return;
+			}
+			list.appendChild(groupBlock(block, index));
+			picker.appendChild(el("optgroup", { attrs: { label: block.label } }, block.items.map((item) => el("option", {
 				text: pickerLabel(item),
 				attrs: { value: item.id }
-			}));
-		}
+			}))));
+		});
 		mark();
+	};
+	/** Heading state: collapsed flag, rolled-up badge and «the active tab is inside» while collapsed. */
+	const markGroups = () => {
+		for (const block of blocks) {
+			if (block.group === null) continue;
+			const node = groupNodeOf(block.group);
+			if (!node) continue;
+			const collapsed = collapsedGroups.has(block.group);
+			const head = node.querySelector(".maestro-tab-group-head");
+			const body = node.querySelector(".maestro-tab-group-items");
+			node.classList.toggle("maestro-collapsed", collapsed);
+			node.classList.toggle("maestro-has-active", collapsed && block.items.some((item) => item.id === current));
+			if (body) body.hidden = collapsed;
+			if (head) {
+				head.setAttribute("aria-expanded", collapsed ? "false" : "true");
+				const title = options.groupTitle?.(collapsed);
+				if (title) head.title = title;
+				const total = collapsed ? block.items.reduce((sum, item) => sum + (item.badge ?? 0), 0) : 0;
+				const badge = head.querySelector(".maestro-tab-badge");
+				if (badge) {
+					badge.textContent = total ? String(total) : "";
+					badge.hidden = !total;
+				}
+			}
+		}
 	};
 	const mark = () => {
 		if (current === null || !items.some((item) => item.id === current)) current = items[0]?.id ?? null;
@@ -7511,12 +7627,34 @@ function tabs(options) {
 			node.setAttribute("tabindex", on ? "0" : "-1");
 		}
 		if (current !== null) picker.value = current;
+		markGroups();
+	};
+	const toggle = (group, collapsed) => {
+		if (collapsedGroups.has(group) === collapsed) return;
+		if (collapsed) collapsedGroups.add(group);
+		else collapsedGroups.delete(group);
+		writeCollapsed(options.storageKey, collapsedGroups);
+		markGroups();
+	};
+	/** A tab chosen elsewhere (picker, openPult) inside a collapsed group opens that group. */
+	const reveal = (id) => {
+		const group = blockOf(id)?.group;
+		if (group && collapsedGroups.has(group)) toggle(group, false);
 	};
 	const choose = (id) => {
 		if (!items.some((item) => item.id === id)) return;
+		if (id !== current) reveal(id);
 		current = id;
 		mark();
 		options.onSelect(id);
+	};
+	/** The next visible tab from `from` in direction `step` (wrapping); tabs of collapsed groups are skipped. */
+	const step = (from, delta) => {
+		for (let offset = 1; offset <= items.length; offset++) {
+			const index = ((from + delta * offset) % items.length + items.length) % items.length;
+			const item = items[index];
+			if (item && !hidden(item)) return item;
+		}
 	};
 	list.addEventListener("keydown", (event) => {
 		if (![
@@ -7528,13 +7666,13 @@ function tabs(options) {
 			"End"
 		].includes(event.key) || !items.length) return;
 		event.preventDefault();
-		const index = Math.max(0, items.findIndex((item) => item.id === current));
-		let next;
-		if (event.key === "ArrowDown" || event.key === "ArrowRight") next = (index + 1) % items.length;
-		else if (event.key === "ArrowUp" || event.key === "ArrowLeft") next = (index - 1 + items.length) % items.length;
-		else if (event.key === "Home") next = 0;
-		else next = items.length - 1;
-		const target = items[next];
+		const index = items.findIndex((item) => item.id === current);
+		const visible = items.filter((item) => !hidden(item));
+		let target;
+		if (event.key === "ArrowDown" || event.key === "ArrowRight") target = step(index < 0 ? -1 : index, 1);
+		else if (event.key === "ArrowUp" || event.key === "ArrowLeft") target = step(index < 0 ? 0 : index, -1);
+		else if (event.key === "Home") target = visible[0];
+		else target = visible[visible.length - 1];
 		if (!target) return;
 		choose(target.id);
 		buttonOf(target.id)?.focus();
@@ -7544,11 +7682,12 @@ function tabs(options) {
 		list,
 		picker,
 		setItems(next) {
-			items = [...next];
+			items = next.map((item) => ({ ...item }));
 			render();
 		},
 		setActive(id) {
 			if (!items.some((item) => item.id === id)) return;
+			if (id !== current) reveal(id);
 			current = id;
 			mark();
 		},
@@ -7563,14 +7702,91 @@ function tabs(options) {
 			}
 			const option = [...picker.options].find((entry) => entry.value === id);
 			if (option) option.textContent = pickerLabel(item);
+			markGroups();
 		},
-		active: () => current
+		active: () => current,
+		setCollapsed: (group, collapsed) => toggle(group, collapsed),
+		collapsed: () => [...collapsedGroups].sort()
 	};
 	handle.setItems(options.items);
 	return handle;
 }
+/** Groups in sidebar order; the label is `ui.group.<id>` (the top group has none). */
+var PULT_GROUPS = [
+	"top",
+	"turn",
+	"inbox",
+	"canon",
+	"dossier",
+	"world",
+	"mechanics",
+	"health",
+	"journal",
+	"assistant",
+	"extensions",
+	"more",
+	"settings"
+];
+/** Group of the tabs that existed before `PultTab.group` (tab id → group id). */
+var TAB_GROUPS = {
+	overview: "top",
+	turn: "turn",
+	prompt: "turn",
+	director: "turn",
+	voices: "turn",
+	quality: "turn",
+	architect: "turn",
+	treasurer: "turn",
+	inbox: "inbox",
+	canon: "canon",
+	living: "canon",
+	revision: "canon",
+	signals: "canon",
+	chronicle: "canon",
+	lorePassports: "canon",
+	loreStudio: "canon",
+	presetStudio: "canon",
+	dossier: "dossier",
+	wardrobe: "dossier",
+	bunnymo: "dossier",
+	world: "world",
+	places: "world",
+	relations: "world",
+	calendar: "world",
+	offscreen: "world",
+	knowledge: "world",
+	backgrounds: "world",
+	mechanics: "mechanics",
+	health: "health",
+	doctor: "health",
+	guardian: "health",
+	rules: "health",
+	tasks: "health",
+	metrics: "health",
+	journal: "journal",
+	assistant: "assistant",
+	extensions: "extensions",
+	settings: "settings",
+	theme: "settings"
+};
+/** The group a tab is shown in: its own `group` when known, then the central map, then «Ещё». */
+function groupOf$1(tab) {
+	if (tab.group && PULT_GROUPS.includes(tab.group)) return tab.group;
+	return TAB_GROUPS[tab.id] ?? "more";
+}
+/** i18n key of a group's heading (`null` for the top group, which has none). */
+function groupLabelKey(group) {
+	return group === "top" ? null : `ui.group.${group}`;
+}
+/** Tabs in sidebar order: by group, then by the tab's own order (then id, for a stable order). */
+function sortTabs(tabs) {
+	const rank = (tab) => PULT_GROUPS.indexOf(groupOf$1(tab));
+	return [...tabs].sort((a, b) => rank(a) - rank(b) || a.order - b.order || a.id.localeCompare(b.id));
+}
 //#endregion
 //#region src/ui/views/pult.ts
+/** localStorage key of the collapsed sidebar groups. */
+var COLLAPSED_GROUPS_KEY = "maestro.pult.collapsedGroups";
 var Pult = class {
 	deps;
 	registry = /* @__PURE__ */ new Map();
@@ -7607,9 +7823,9 @@ var Pult = class {
 			this.deps.onBadgesChanged();
 		};
 	}
-	/** Registered tabs sorted by order (then id, for a stable order). */
+	/** Registered tabs in sidebar order: by group (plan §7), then by order (then id, for a stable order). */
 	tabs() {
-		return [...this.registry.values()].sort((a, b) => a.order - b.order || a.id.localeCompare(b.id));
+		return sortTabs(this.registry.values());
 	}
 	isOpen() {
 		return this.popup !== null;
@@ -7629,12 +7845,17 @@ var Pult = class {
 			return;
 		}
 		const root = this.buildChrome();
+		let created = null;
 		const popup = new c.Popup(root, c.POPUP_TYPE.DISPLAY, "", {
 			wide: true,
 			large: true,
 			allowVerticalScrolling: false,
-			animation: prefersReducedMotion() ? "none" : "fast"
+			animation: prefersReducedMotion() ? "none" : "fast",
+			onClose: () => {
+				if (created) this.handleClosed(created);
+			}
 		});
+		created = popup;
 		popup.dlg.classList.add("maestro-pult-dialog");
 		this.popup = popup;
 		popup.show().then(() => this.handleClosed(popup), () => this.handleClosed(popup));
@@ -7707,7 +7928,9 @@ var Pult = class {
 		this.nav = tabs({
 			items: [],
 			label: t("ui.pult.tabs"),
-			onSelect: (id) => this.select(id)
+			onSelect: (id) => this.select(id),
+			storageKey: COLLAPSED_GROUPS_KEY,
+			groupTitle: (collapsed) => this.deps.i18n.t(collapsed ? "ui.group.expand" : "ui.group.collapse")
 		});
 		this.body = el("div", {
 			class: "maestro-pult-body",
@@ -7732,7 +7955,7 @@ var Pult = class {
 			close
 		};
 		this.syncTabs();
-		return el("div", { class: "maestro-pult maestro-theme" }, [el("div", { class: "maestro-pult-header" }, [
+		return el("div", { class: "maestro-pult maestro-ui" }, [el("div", { class: "maestro-pult-header" }, [
 			el("div", { class: "maestro-pult-brand" }, [icon("fa-wand-magic-sparkles"), title]),
 			this.nav.picker,
 			close
@@ -7740,12 +7963,18 @@ var Pult = class {
 	}
 	syncTabs() {
 		if (!this.nav) return;
-		this.nav.setItems(this.tabs().map((tab) => ({
-			id: tab.id,
-			label: this.deps.i18n.t(tab.titleKey),
-			icon: tab.icon,
-			badge: this.badgeOf(tab)
-		})));
+		this.nav.setItems(this.tabs().map((tab) => {
+			const group = groupOf$1(tab);
+			const labelKey = groupLabelKey(group);
+			return {
+				id: tab.id,
+				label: this.deps.i18n.t(tab.titleKey),
+				icon: tab.icon,
+				badge: this.badgeOf(tab),
+				group,
+				groupLabel: labelKey ? this.deps.i18n.t(labelKey) : void 0
+			};
+		}));
 		if (this.activeId) this.nav.setActive(this.activeId);
 	}
 	renderActive() {
@@ -8124,13 +8353,39 @@ function settingsTab(env) {
 			})])
 		]);
 	};
+	/** Module sections; each render's disposer is collected so a re-render or closing the tab releases it. */
+	const moduleSections = (disposers) => shell.settingsSections().map((entry) => {
+		const body = el("div", {
+			class: "maestro-settings-extra",
+			data: { section: entry.id }
+		});
+		try {
+			const result = entry.render(body);
+			if (typeof result === "function") disposers.push(result);
+		} catch (error) {
+			shell.log.error(`settings section "${entry.id}" failed`, error);
+			clear(body);
+			body.appendChild(emptyState(t("ui.pult.renderFailed"), "fa-bug"));
+		}
+		return section$1(t(entry.titleKey), body);
+	});
+	const release = (disposers) => {
+		for (const dispose of disposers.splice(0)) try {
+			dispose();
+		} catch (error) {
+			shell.log.warn("settings section cleanup failed", error);
+		}
+	};
 	return {
 		id: SETTINGS_TAB$1,
 		titleKey: "ui.tab.settings",
 		icon: "fa-gear",
 		order: 90,
+		group: "settings",
 		render(container) {
+			const disposers = [];
 			const draw = () => {
+				release(disposers);
 				clear(container);
 				container.append(el("div", { class: "maestro-view maestro-settings" }, [
 					generalBlock(),
@@ -8138,11 +8393,16 @@ function settingsTab(env) {
 					profilesBlock(),
 					autonomyBlock(),
 					modulesBlock(draw),
-					dataBlock()
+					dataBlock(),
+					...moduleSections(disposers)
 				]));
 			};
 			draw();
-			return shell.onRegistryChange(draw);
+			const off = shell.onRegistryChange(draw);
+			return () => {
+				off();
+				release(disposers);
+			};
 		}
 	};
 }
@@ -8285,6 +8545,20 @@ var UI_STRINGS = {
 		"ui.tab.tasks": "Tasks",
 		"ui.tab.journal": "Journal",
 		"ui.tab.settings": "Settings",
+		"ui.group.turn": "Turn",
+		"ui.group.inbox": "Inbox",
+		"ui.group.canon": "Canon",
+		"ui.group.dossier": "Dossier",
+		"ui.group.world": "World",
+		"ui.group.mechanics": "Mechanics",
+		"ui.group.health": "Health",
+		"ui.group.journal": "Journal",
+		"ui.group.assistant": "Assistant",
+		"ui.group.extensions": "Extensions",
+		"ui.group.settings": "Settings",
+		"ui.group.more": "More",
+		"ui.group.collapse": "Collapse the group",
+		"ui.group.expand": "Expand the group",
 		"ui.lamp.ok": "Works",
 		"ui.lamp.warn": "Partly works",
 		"ui.lamp.error": "Not available",
@@ -8494,6 +8768,20 @@ var UI_STRINGS = {
 		"ui.tab.tasks": "Задачи",
 		"ui.tab.journal": "Журнал",
 		"ui.tab.settings": "Настройки",
+		"ui.group.turn": "Ход",
+		"ui.group.inbox": "Входящие",
+		"ui.group.canon": "Канон",
+		"ui.group.dossier": "Досье",
+		"ui.group.world": "Мир",
+		"ui.group.mechanics": "Механики",
+		"ui.group.health": "Здоровье",
+		"ui.group.journal": "Журнал",
+		"ui.group.assistant": "Ассистент",
+		"ui.group.extensions": "Расширения",
+		"ui.group.settings": "Настройки",
+		"ui.group.more": "Ещё",
+		"ui.group.collapse": "Свернуть группу",
+		"ui.group.expand": "Развернуть группу",
 		"ui.lamp.ok": "Работает",
 		"ui.lamp.warn": "Работает частично",
 		"ui.lamp.error": "Недоступно",
@@ -8888,7 +9176,7 @@ var Wizard = class {
 			className: "maestro-wizard-next",
 			onClick: () => this.next()
 		});
-		const root = el("div", { class: "maestro-wizard maestro-theme" }, [
+		const root = el("div", { class: "maestro-wizard maestro-ui" }, [
 			el("div", { class: "maestro-wizard-head" }, [
 				counter,
 				title,
@@ -8985,6 +9273,8 @@ var MaestroUi = class {
 	badges;
 	slash;
 	checks = /* @__PURE__ */ new Map();
+	sections = /* @__PURE__ */ new Map();
+	sectionListeners = /* @__PURE__ */ new Set();
 	styles = /* @__PURE__ */ new Map();
 	noticeList = [];
 	unsubscribers = [];
@@ -9075,6 +9365,8 @@ var MaestroUi = class {
 		for (const node of this.styles.values()) node.remove();
 		this.styles.clear();
 		this.checks.clear();
+		this.sections.clear();
+		this.sectionListeners.clear();
 		this.noticeList.length = 0;
 	}
 	addTab(tab) {
@@ -9164,6 +9456,17 @@ var MaestroUi = class {
 			this.styles.delete(id);
 		};
 	}
+	addSettingsSection(section) {
+		if (this.disposed) return () => {};
+		if (this.sections.has(section.id)) this.log.warn(`settings section "${section.id}" replaced`);
+		this.sections.set(section.id, section);
+		this.sectionsChanged();
+		return () => {
+			if (this.sections.get(section.id) !== section) return;
+			this.sections.delete(section.id);
+			this.sectionsChanged();
+		};
+	}
 	updateBadges() {
 		this.pult.updateBadges();
 		const urgent = this.noticeList.some((entry) => entry.urgent && !entry.seen);
@@ -9217,7 +9520,22 @@ var MaestroUi = class {
 		this.pult.relocalize();
 	}
 	onRegistryChange(listener) {
-		return onRegistryChange(listener);
+		const off = onRegistryChange(listener);
+		this.sectionListeners.add(listener);
+		return () => {
+			off();
+			this.sectionListeners.delete(listener);
+		};
+	}
+	settingsSections() {
+		return [...this.sections.values()].sort((a, b) => a.order - b.order || a.id.localeCompare(b.id));
+	}
+	sectionsChanged() {
+		for (const listener of [...this.sectionListeners]) try {
+			listener();
+		} catch (error) {
+			this.log.error("settings section listener failed", error);
+		}
 	}
 	listen(event, handler) {
 		try {
@@ -15883,16 +16201,16 @@ function toNumber(raw) {
 	const value = Number(text);
 	return Number.isFinite(value) ? value : null;
 }
-function round$4(value) {
+function round$5(value) {
 	return Math.round(value * 1e4) / 1e4;
 }
 function clampNumber(attr, value) {
-	let next = round$4(value);
+	let next = round$5(value);
 	if (attr.min !== void 0 && next < attr.min) next = attr.min;
 	if (attr.max !== void 0 && next > attr.max) next = attr.max;
 	return {
 		value: next,
-		clamped: next !== round$4(value)
+		clamped: next !== round$5(value)
 	};
 }
 /** Attribute of a mechanic by id, prompt name or display name (case-insensitive). */
@@ -16427,7 +16745,7 @@ function revertDifference(attr, change, current) {
 	if (typeof change.to === "number" && typeof current === "number") {
 		const from = typeof change.from === "number" ? change.from : change.to;
 		const raw = current - (change.to - from);
-		return attr ? clampNumber(attr, raw).value : round$4(raw);
+		return attr ? clampNumber(attr, raw).value : round$5(raw);
 	}
 	if (attr?.kind === "scale" && typeof current === "string") {
 		const to = scaleIndex(attr, change.to);
@@ -16619,7 +16937,7 @@ function editsToChanges(edits, getDef, valueOf) {
 					mechanicId: def.id,
 					holder: edit.holder,
 					attribute: attr.id,
-					value: round$4(base * numeric)
+					value: round$5(base * numeric)
 				};
 				else reason = "op";
 				break;
@@ -21034,7 +21352,7 @@ function timeJump(previous, current, thresholdHours) {
 			skipped: true,
 			dateChanged: true
 		};
-		const hours = round$3((MINUTES_PER_DAY$1 - before + after) / 60);
+		const hours = round$4((MINUTES_PER_DAY$1 - before + after) / 60);
 		return {
 			skipped: hours > thresholdHours,
 			hours,
@@ -21062,14 +21380,14 @@ function timeJump(previous, current, thresholdHours) {
 		skipped: false,
 		dateChanged
 	};
-	const hours = round$3(minutes / 60);
+	const hours = round$4(minutes / 60);
 	return {
 		skipped: hours > thresholdHours,
 		hours,
 		dateChanged
 	};
 }
-function round$3(value) {
+function round$4(value) {
 	return Math.round(value * 10) / 10;
 }
 //#endregion
@@ -23103,7 +23421,7 @@ function conditionTags(conditions) {
 function conditionsKey(conditions) {
 	return `${conditions.time ?? "-"}|${[...conditions.weather].sort().join(",") || "-"}|${conditions.season ?? "-"}`;
 }
-function round$2(value) {
+function round$3(value) {
 	return Math.round(value * 100) / 100;
 }
 function timeDistance(a, b) {
@@ -23231,7 +23549,7 @@ function scoreItem(item, profile, conditions, options) {
 	}
 	return {
 		file: item.file,
-		score: round$2(place + Math.max(extra, SCORE$1.extraCap) + state + fit),
+		score: round$3(place + Math.max(extra, SCORE$1.extraCap) + state + fit),
 		matched: true,
 		variant
 	};
@@ -38977,13 +39295,13 @@ function density(hits) {
 function addScaled(target, hits, factor, cap) {
 	for (const kind of WORD_KINDS) target[kind] += Math.min(cap, hits.scores[kind] * factor);
 }
-function round$1(value) {
+function round$2(value) {
 	return Math.round(value * 1e3) / 1e3;
 }
 /** Confidence of the winner from the two best scores: strong single evidence ~0.9, a close race ~0.4. */
 function confidenceOf(top, second) {
 	const value = 1 - (Math.max(0, second) + 1) / (Math.max(0, top) + 2);
-	return round$1(Math.min(.98, Math.max(.05, value)));
+	return round$2(Math.min(.98, Math.max(.05, value)));
 }
 /** Rules-only scene type of a committed reply. */
 function classifyScene(input) {
@@ -39035,7 +39353,7 @@ function classifyScene(input) {
 }
 /** The verdict of final scores: the winner, the runner-up, the confidence and «unsure» (a close race). */
 function rankScores(scores, explicit, timeSkipped) {
-	for (const kind of SCENE_KINDS) scores[kind] = round$1(scores[kind]);
+	for (const kind of SCENE_KINDS) scores[kind] = round$2(scores[kind]);
 	const ranked = [...SCENE_KINDS].sort((a, b) => scores[b] - scores[a] || SCENE_KINDS.indexOf(a) - SCENE_KINDS.indexOf(b));
 	const type = ranked[0];
 	const second = ranked[1];
@@ -39100,7 +39418,7 @@ function userCue(text) {
 	}
 	if (skips > 0) strong.add("timeskip");
 	if (hits.explicit > 0) strong.add("intimate");
-	for (const kind of SCENE_KINDS) scores[kind] = round$1(scores[kind]);
+	for (const kind of SCENE_KINDS) scores[kind] = round$2(scores[kind]);
 	const ranked = SCENE_KINDS.filter((kind) => kind !== "dialogue").sort((a, b) => scores[b] - scores[a] || SCENE_KINDS.indexOf(a) - SCENE_KINDS.indexOf(b));
 	const type = ranked[0];
 	const top = scores[type];
@@ -39165,7 +39483,7 @@ function emptySceneMemory() {
 function stepScene(memory, observation) {
 	const decision = (held) => ({
 		type: observation.type,
-		confidence: round$1(observation.confidence),
+		confidence: round$2(observation.confidence),
 		messageIndex: observation.messageIndex,
 		by: observation.by,
 		held,
@@ -39191,7 +39509,7 @@ function stepScene(memory, observation) {
 		},
 		candidate: {
 			type: observation.type,
-			confidence: round$1(observation.confidence),
+			confidence: round$2(observation.confidence),
 			messageIndex: observation.messageIndex
 		}
 	};
@@ -39290,7 +39608,7 @@ function parseSceneAnswer(raw) {
 	if (confidence > 1 && confidence <= 100) confidence /= 100;
 	return {
 		type,
-		confidence: round$1(Math.min(1, Math.max(0, confidence)))
+		confidence: round$2(Math.min(1, Math.max(0, confidence)))
 	};
 }
 //#endregion
@@ -42130,6 +42448,762 @@ var directorModule = {
 		own(registerProfileTask(SCENE_TASK, "m13.profileTask"));
 		own(app.ui.style("maestro-m13", DIRECTOR_CSS));
 		own(app.ui.addTab(directorTab(app, service, settings)));
+	}
+};
+//#endregion
+//#region src/features/dock/dock.ts
+/** ST's extension settings columns (public/index.html), right one first: most neighbours mount there. */
+var ST_EXTENSION_COLUMNS = ["#extensions_settings2", "#extensions_settings"];
+var Dock = class {
+	options;
+	entries = /* @__PURE__ */ new Map();
+	doc;
+	constructor(options) {
+		this.options = options;
+		this.doc = options.doc ?? (() => document);
+	}
+	/** Ids of the targets docked now. */
+	ids() {
+		return [...this.entries.keys()];
+	}
+	isDocked(id) {
+		const entry = this.entries.get(id);
+		return !!entry && entry.node.parentNode === entry.slot;
+	}
+	/** The target's node outside the dock (on its home position), if the page has it. */
+	find(target) {
+		const doc = this.doc();
+		for (const selector of target.selectors) {
+			let nodes;
+			try {
+				nodes = [...doc.querySelectorAll(selector)];
+			} catch {
+				continue;
+			}
+			const node = nodes.find((candidate) => !this.inDock(candidate));
+			if (node) return node;
+		}
+		let located = [];
+		try {
+			located = target.locate?.(doc) ?? [];
+		} catch (error) {
+			this.options.log.debug(`dock: locating "${target.id}" failed`, error);
+		}
+		return located.find((node) => !!node && node.isConnected && !this.inDock(node)) ?? null;
+	}
+	/** Moves the target's node into `slot` (appended). */
+	dock(target, slot) {
+		const existing = this.entries.get(target.id);
+		if (existing && existing.slot === slot && existing.node.parentNode === slot) return "already";
+		if (existing) this.undock(target.id);
+		const node = this.find(target);
+		const parent = node?.parentNode;
+		if (!node || !parent) return "missing";
+		const entry = {
+			target,
+			node,
+			slot,
+			placeholder: this.doc().createComment(` maestro-dock: ${target.id} `),
+			parent,
+			next: node.nextSibling,
+			column: this.columnOf(node),
+			observer: null,
+			adoptions: 0
+		};
+		parent.insertBefore(entry.placeholder, node);
+		slot.appendChild(node);
+		this.entries.set(target.id, entry);
+		this.watch(entry);
+		return "docked";
+	}
+	/** Puts the node back where it was. Returns true when the node went back to the page by this call. */
+	undock(id) {
+		const entry = this.entries.get(id);
+		if (!entry) return false;
+		this.entries.delete(id);
+		entry.observer?.disconnect();
+		entry.observer = null;
+		let returned = false;
+		try {
+			if (entry.node.parentNode === entry.slot) {
+				const fresh = this.find(entry.target);
+				if (fresh && fresh !== entry.node) entry.node.remove();
+				else returned = this.putBack(entry);
+			}
+		} catch (error) {
+			this.options.log.warn(`dock: cannot return "${id}"`, error);
+		} finally {
+			entry.placeholder.remove();
+		}
+		return returned;
+	}
+	undockAll() {
+		for (const id of [...this.entries.keys()]) this.undock(id);
+	}
+	inDock(node) {
+		for (const entry of this.entries.values()) if (entry.slot.contains(node)) return true;
+		return false;
+	}
+	columnOf(node) {
+		return node.parentElement?.closest(ST_EXTENSION_COLUMNS.join(", ")) ?? null;
+	}
+	putBack(entry) {
+		const { node, placeholder, parent, next } = entry;
+		if (placeholder.isConnected && placeholder.parentNode) {
+			placeholder.parentNode.replaceChild(node, placeholder);
+			return true;
+		}
+		if (parent.isConnected) {
+			parent.insertBefore(node, next && next.parentNode === parent ? next : null);
+			return true;
+		}
+		const doc = this.doc();
+		if (entry.target.fallback) {
+			const place = entry.target.fallback(doc);
+			if (!place) {
+				node.remove();
+				return false;
+			}
+			place.parent.insertBefore(node, place.before);
+			return true;
+		}
+		const column = entry.column?.isConnected === true ? entry.column : ST_EXTENSION_COLUMNS.map((selector) => doc.querySelector(selector)).find((found) => !!found);
+		if (!column) {
+			this.options.log.warn(`dock: no place to return "${entry.target.id}" to`);
+			node.remove();
+			return false;
+		}
+		column.appendChild(node);
+		return true;
+	}
+	/** Watches the home of a docked node for the owner redrawing it (childList of the parent and the columns). */
+	watch(entry) {
+		const Observer = this.doc().defaultView?.MutationObserver;
+		if (typeof Observer !== "function") return;
+		const observer = new Observer(() => this.check(entry));
+		const roots = /* @__PURE__ */ new Set([entry.parent]);
+		if (entry.column) roots.add(entry.column);
+		for (const selector of ST_EXTENSION_COLUMNS) {
+			const column = this.doc().querySelector(selector);
+			if (column) roots.add(column);
+		}
+		for (const root of roots) observer.observe(root, { childList: true });
+		entry.observer = observer;
+	}
+	check(entry) {
+		if (this.entries.get(entry.target.id) !== entry) return;
+		const id = entry.target.id;
+		if (entry.node.parentNode !== entry.slot) {
+			this.release(entry);
+			this.options.onEvent?.(id, "taken");
+			return;
+		}
+		const fresh = this.find(entry.target);
+		if (!fresh || fresh === entry.node) return;
+		entry.node.remove();
+		entry.placeholder.remove();
+		if (entry.adoptions >= 3 || !fresh.parentNode) {
+			this.options.log.info(`dock: "${id}" keeps redrawing its block, leaving it in place`);
+			this.release(entry);
+			this.options.onEvent?.(id, "redrawn");
+			return;
+		}
+		const parent = fresh.parentNode;
+		entry.observer?.disconnect();
+		entry.node = fresh;
+		entry.parent = parent;
+		entry.next = fresh.nextSibling;
+		entry.column = this.columnOf(fresh);
+		entry.adoptions++;
+		parent.insertBefore(entry.placeholder, fresh);
+		entry.slot.appendChild(fresh);
+		this.watch(entry);
+		this.options.onEvent?.(id, "adopted");
+	}
+	release(entry) {
+		entry.observer?.disconnect();
+		entry.observer = null;
+		entry.placeholder.remove();
+		this.entries.delete(entry.target.id);
+	}
+};
+//#endregion
+//#region src/features/dock/settings.ts
+var DOCK_KEY = "dock";
+var DOCK_ID = "M32d";
+var DOCK_TAB = "extensions";
+function defaultDockSettings() {
+	return {
+		keep: {},
+		portraitBar: false
+	};
+}
+/** The live slice, repaired in place (it is the object the tab edits). */
+function readDockSettings(slice) {
+	if (!slice.keep || typeof slice.keep !== "object" || Array.isArray(slice.keep)) slice.keep = {};
+	for (const [key, value] of Object.entries(slice.keep)) if (typeof value !== "boolean") delete slice.keep[key];
+	if (typeof slice.portraitBar !== "boolean") slice.portraitBar = false;
+	return slice;
+}
+function keeps(settings, id) {
+	return settings.keep[id] !== false;
+}
+//#endregion
+//#region src/features/dock/strings.ts
+var DOCK_STRINGS = {
+	en: {
+		"m32.dock.title": "Extensions dock",
+		"m32.dock.tab": "Extensions",
+		"m32.dock.intro": "The neighbour extensions' own settings blocks, gathered here while this tab is open. They keep working as usual; when the tab closes, each block goes back to its place in the Extensions panel. Maestro never changes their settings.",
+		"m32.dock.none": "No neighbour extensions found.",
+		"m32.dock.keep": "Keep in the pult",
+		"m32.dock.keepHint": "Off: the block stays in the Extensions panel.",
+		"m32.dock.atHome": "The block stays in the Extensions panel.",
+		"m32.dock.missing": "The settings block is not on the page: the extension has not drawn it yet or is turned off.",
+		"m32.dock.taken": "The extension took its block back — it is where the extension put it.",
+		"m32.dock.redrawn": "The extension keeps redrawing its block, so it stays in the Extensions panel this time.",
+		"m32.dock.shortcuts": "Shortcuts",
+		"m32.dock.shortcutsHint": "Open the extensions' own windows. The pult closes first so the window does not end up underneath it.",
+		"m32.dock.shortcutMissing": "Could not open «{name}»: the extension does not offer its button right now.",
+		"m32.dock.portraits": "DES portrait bar",
+		"m32.dock.portraitsToggle": "Move the portrait bar here",
+		"m32.dock.portraitsHint": "It goes back above the chat input when the tab closes or Maestro is turned off. If it ever ends up in the wrong place, pick its position in DES's settings (Present Characters Panel → Position): DES puts it back itself.",
+		"m32.dock.portraitsMissing": "The portrait bar is not on the page (DES has it switched off).",
+		"m32.dock.n.des": "Doom's Enhancement Suite",
+		"m32.dock.n.desru": "DES-RU",
+		"m32.dock.n.ck": "CarrotKernel",
+		"m32.dock.n.qvink": "Qvink Memory",
+		"m32.dock.n.nai": "NAI Studio",
+		"m32.dock.n.localizer": "Lorebook Localizer",
+		"m32.dock.qvinkPopout": "Qvink's settings are open in their own window right now, so the block stays in the Extensions panel.",
+		"m32.dock.naiNote": "Tag suggestions in the prompt fields only appear while the panel is in the Extensions panel.",
+		"m32.dock.open.ckRepository": "Repository manager",
+		"m32.dock.open.ckTemplates": "Templates",
+		"m32.dock.open.ckPacks": "Pack manager",
+		"m32.dock.open.qvinkMemory": "Qvink memory editor",
+		"m32.dock.open.naiGallery": "NAI Studio gallery",
+		"m32.dock.open.naiScene": "NAI Studio scene composer",
+		"m32.dock.open.localizer": "Lorebook Localizer",
+		"m32.dock.open.desSettings": "DES settings",
+		"m32.dock.open.desRoster": "DES character roster (Workshop)",
+		"m32.dock.open.desLore": "DES Lore Library",
+		"m32.dock.open.desTracker": "DES tracker editor"
+	},
+	ru: {
+		"m32.dock.title": "Док расширений",
+		"m32.dock.tab": "Расширения",
+		"m32.dock.intro": "Собственные блоки настроек соседних расширений — здесь, пока открыта эта вкладка. Они работают как обычно, а когда вкладка закрывается, каждый блок возвращается на своё место в панели расширений. Их настройки Maestro не меняет.",
+		"m32.dock.none": "Соседних расширений не нашлось.",
+		"m32.dock.keep": "Держать в пульте",
+		"m32.dock.keepHint": "Если выключить, блок останется в панели расширений.",
+		"m32.dock.atHome": "Блок остаётся в панели расширений.",
+		"m32.dock.missing": "Блока настроек нет на странице: расширение ещё не нарисовало его или выключено.",
+		"m32.dock.taken": "Расширение забрало свой блок — он там, куда его поставило расширение.",
+		"m32.dock.redrawn": "Расширение раз за разом перерисовывает свой блок, поэтому сейчас он остаётся в панели расширений.",
+		"m32.dock.shortcuts": "Ярлыки",
+		"m32.dock.shortcutsHint": "Открывают собственные окна расширений. Пульт сначала закрывается, чтобы окно не оказалось под ним.",
+		"m32.dock.shortcutMissing": "Не получилось открыть «{name}»: расширение сейчас не показывает свою кнопку.",
+		"m32.dock.portraits": "Полоса портретов DES",
+		"m32.dock.portraitsToggle": "Перенести полосу портретов сюда",
+		"m32.dock.portraitsHint": "Она вернётся на место над полем ввода, когда вкладка закроется или Maestro выключится. Если полоса всё же окажется не там, выбери её положение в настройках DES («Панель персонажей в сцене» → «Положение») — DES сам поставит её на место.",
+		"m32.dock.portraitsMissing": "Полосы портретов нет на странице (в DES она выключена).",
+		"m32.dock.n.des": "Doom's Enhancement Suite",
+		"m32.dock.n.desru": "DES-RU",
+		"m32.dock.n.ck": "CarrotKernel",
+		"m32.dock.n.qvink": "Qvink Memory",
+		"m32.dock.n.nai": "NAI Studio",
+		"m32.dock.n.localizer": "Lorebook Localizer",
+		"m32.dock.qvinkPopout": "Настройки Qvink сейчас открыты в отдельном окне, поэтому блок остаётся в панели расширений.",
+		"m32.dock.naiNote": "Подсказки тегов в полях промпта появляются, только когда панель стоит в панели расширений.",
+		"m32.dock.open.ckRepository": "Менеджер репозиториев",
+		"m32.dock.open.ckTemplates": "Шаблоны",
+		"m32.dock.open.ckPacks": "Менеджер паков",
+		"m32.dock.open.qvinkMemory": "Редактор памяти Qvink",
+		"m32.dock.open.naiGallery": "Галерея NAI Studio",
+		"m32.dock.open.naiScene": "Сцена NAI Studio",
+		"m32.dock.open.localizer": "Локализатор лорбуков",
+		"m32.dock.open.desSettings": "Настройки DES",
+		"m32.dock.open.desRoster": "Мастерская DES: каталог персонажей",
+		"m32.dock.open.desLore": "Библиотека лора DES",
+		"m32.dock.open.desTracker": "Настройка трекера DES"
+	}
+};
+//#endregion
+//#region src/features/dock/neighbours.ts
+var page = () => typeof document === "undefined" ? null : document;
+/** Hidden by the neighbour itself (`hidden`, jQuery's inline `display: none`): its button would do nothing. */
+function shown(node) {
+	for (let current = node; current; current = current.parentElement) if (current.hidden || current.style.display === "none") return false;
+	return true;
+}
+/** A click on the neighbour's first usable button. */
+function clickFirst(selectors, options = {}) {
+	const doc = page();
+	if (!doc) return null;
+	for (const selector of selectors) {
+		const node = doc.querySelector(selector);
+		if (!node) continue;
+		if (options.visible && !shown(node)) continue;
+		if (options.enabled && node.disabled) continue;
+		return () => node.click();
+	}
+	return null;
+}
+/** The neighbour's own slash command, when it is registered in this ST. */
+function slash(app, name) {
+	const ctx = app.host.ctx();
+	if (!ctx.SlashCommandParser?.commands?.[name] || typeof ctx.executeSlashCommandsWithOptions !== "function") return null;
+	const run = ctx.executeSlashCommandsWithOptions.bind(ctx);
+	return () => run(`/${name}`, { handleExecutionErrors: true });
+}
+/** A method of CK's public object `window.CarrotKernel` (index.js:6518), read live through the CK adapter. */
+function ckMethod(app, method) {
+	let kernel = null;
+	try {
+		kernel = adaptersOf(app).ck.kernel?.() ?? null;
+	} catch {
+		return null;
+	}
+	const fn = kernel?.[method];
+	return typeof fn === "function" ? () => fn.call(kernel) : null;
+}
+/** The outer wrapper of a block found by an inner node: the drawer itself, or its parent when that is not a column. */
+function outerOf(inner) {
+	const drawer = inner?.closest(".inline-drawer") ?? null;
+	if (!drawer) return null;
+	const parent = drawer.parentElement;
+	if (!parent || parent.matches(ST_EXTENSION_COLUMNS.join(", "))) return drawer;
+	return parent;
+}
+/** In the order of plan M32 п.5. */
+var NEIGHBOURS$1 = [
+	{
+		id: "ck",
+		nameKey: "m32.dock.n.ck",
+		adapter: "ck",
+		block: {
+			id: "ck",
+			selectors: ["#carrot_settings"]
+		}
+	},
+	{
+		id: "qvink",
+		nameKey: "m32.dock.n.qvink",
+		adapter: "qvink",
+		block: {
+			id: "qvink",
+			selectors: ["#qvink_memory_settings"]
+		},
+		busy: (doc) => doc.getElementById("qmExtensionPopout") ? "m32.dock.qvinkPopout" : null
+	},
+	{
+		id: "nai",
+		nameKey: "m32.dock.n.nai",
+		adapter: "nai",
+		block: {
+			id: "nai",
+			selectors: ["#naist_panel"]
+		},
+		noteKey: "m32.dock.naiNote"
+	},
+	{
+		id: "desru",
+		nameKey: "m32.dock.n.desru",
+		adapter: "desru",
+		block: {
+			id: "desru",
+			selectors: ["#desru-settings"]
+		}
+	},
+	{
+		id: "localizer",
+		nameKey: "m32.dock.n.localizer",
+		adapter: "localizer",
+		block: {
+			id: "localizer",
+			selectors: [".lorebook-localizer-settings"]
+		}
+	},
+	{
+		id: "des",
+		nameKey: "m32.dock.n.des",
+		adapter: "des",
+		block: {
+			id: "des",
+			selectors: [],
+			locate: (doc) => [...doc.querySelectorAll("#rpg-extension-enabled")].map((node) => outerOf(node))
+		}
+	}
+];
+var PORTRAIT_BAR = {
+	id: "desPortraits",
+	selectors: ["#dooms-portrait-bar-wrapper"],
+	fallback: (doc) => {
+		const form = doc.getElementById("send_form");
+		if (form?.parentNode) return {
+			parent: form.parentNode,
+			before: form
+		};
+		const sheld = doc.getElementById("sheld");
+		return sheld ? {
+			parent: sheld,
+			before: null
+		} : null;
+	}
+};
+var SHORTCUTS = [
+	{
+		id: "ckRepository",
+		neighbour: "ck",
+		labelKey: "m32.dock.open.ckRepository",
+		icon: "fa-box-archive",
+		mode: "docked",
+		find: (app) => ckMethod(app, "openRepositoryManager") ?? clickFirst(["#carrot_settings .carrot-status-repository"])
+	},
+	{
+		id: "ckTemplates",
+		neighbour: "ck",
+		labelKey: "m32.dock.open.ckTemplates",
+		icon: "fa-file-pen",
+		mode: "docked",
+		find: (app) => ckMethod(app, "openTemplateManager") ?? clickFirst(["#carrot_settings .carrot-status-templates"])
+	},
+	{
+		id: "ckPacks",
+		neighbour: "ck",
+		labelKey: "m32.dock.open.ckPacks",
+		icon: "fa-boxes-stacked",
+		mode: "docked",
+		find: (app) => ckMethod(app, "openPackManager") ?? clickFirst(["#carrot_settings .carrot-status-packs"])
+	},
+	{
+		id: "qvinkMemory",
+		neighbour: "qvink",
+		labelKey: "m32.dock.open.qvinkMemory",
+		icon: "fa-brain",
+		mode: "close",
+		find: (app) => slash(app, "qm-toggle-edit-interface") ?? clickFirst(["#edit_memory_state"], { enabled: true })
+	},
+	{
+		id: "naiGallery",
+		neighbour: "nai",
+		labelKey: "m32.dock.open.naiGallery",
+		icon: "fa-images",
+		mode: "close",
+		find: (app) => clickFirst(["#naist_img_open_gallery"]) ?? slash(app, "nai-gallery")
+	},
+	{
+		id: "naiScene",
+		neighbour: "nai",
+		labelKey: "m32.dock.open.naiScene",
+		icon: "fa-clapperboard",
+		mode: "close",
+		find: (app) => clickFirst(["#naist_open_composer"]) ?? slash(app, "nai-scene")
+	},
+	{
+		id: "localizer",
+		neighbour: "localizer",
+		labelKey: "m32.dock.open.localizer",
+		icon: "fa-language",
+		mode: "close",
+		find: () => clickFirst(["#lorebook_localizer_button", ".lorebook-localizer-settings .lbl-open"])
+	},
+	{
+		id: "desSettings",
+		neighbour: "des",
+		labelKey: "m32.dock.open.desSettings",
+		icon: "fa-sliders",
+		mode: "close",
+		find: () => clickFirst(["#dooms-open-settings-btn"])
+	},
+	{
+		id: "desRoster",
+		neighbour: "des",
+		labelKey: "m32.dock.open.desRoster",
+		icon: "fa-users-rectangle",
+		mode: "close",
+		find: () => clickFirst(["#rpg-open-character-roster"]) ?? clickFirst(["#dooms-pb-open-roster"], { visible: true })
+	},
+	{
+		id: "desLore",
+		neighbour: "des",
+		labelKey: "m32.dock.open.desLore",
+		icon: "fa-book-atlas",
+		mode: "close",
+		find: () => clickFirst(["#rpg-open-lorebook"])
+	},
+	{
+		id: "desTracker",
+		neighbour: "des",
+		labelKey: "m32.dock.open.desTracker",
+		icon: "fa-table-list",
+		mode: "close",
+		find: () => clickFirst(["#rpg-open-tracker-editor"])
+	}
+];
+//#endregion
+//#region src/features/dock/view.ts
+var DOCK_CSS = `
+.maestro-m32d { display: flex; flex-direction: column; gap: var(--maestro-gap); }
+.maestro-m32d-shortcuts { display: flex; flex-wrap: wrap; gap: 6px; }
+.maestro-m32d-state { display: flex; flex-direction: column; gap: 6px; }
+.maestro-m32d-slot { display: flex; flex-direction: column; min-width: 0; }
+.maestro-m32d-slot:empty { display: none; }
+.maestro-m32d-slot > * { max-width: 100%; }
+.maestro-m32d-slot .inline-drawer-toggle.inline-drawer-header {
+    background-image: linear-gradient(348deg, var(--white30a) 2%, var(--grey30a) 10%, var(--black70a) 95%,
+        var(--SmartThemeQuoteColor) 100%);
+    margin-bottom: 5px; border-radius: 10px; padding: 2px 5px; border: 1px solid var(--SmartThemeBorderColor);
+    transition: all var(--animation-duration-2x);
+}
+.maestro-m32d-slot .inline-drawer-toggle.inline-drawer-header:hover { filter: brightness(150%); }
+.maestro-m32d-slot input[type="checkbox"], .maestro-m32d-slot input[type="radio"] { margin-left: 10px; margin-right: 10px; }
+.maestro-m32d-slot #qvink_popout_button, .maestro-m32d-slot #carrot-main-lorebook-popout-btn { display: none !important; }
+.maestro-m32d-slot > #dooms-portrait-bar-wrapper {
+    position: relative !important; inset: auto !important; z-index: auto !important; transform: none !important;
+    width: auto !important; max-width: 100%; height: auto !important; box-shadow: none !important;
+}
+@media screen and (max-width: 1000px) {
+    .maestro-m32d-shortcuts .maestro-btn { flex: 1 1 100%; justify-content: flex-start; }
+}
+`;
+/** A neighbour is shown when its adapter reports it or its block is on the page. */
+function neighbourPresent$1(app, dock, neighbour) {
+	try {
+		if (app.adapters[neighbour.adapter]?.present()) return true;
+	} catch {}
+	return dock.isDocked(neighbour.id) || dock.find(neighbour.block) !== null;
+}
+function dockTab(deps) {
+	const { app, dock, settings } = deps;
+	const t = app.i18n.t.bind(app.i18n);
+	const commit = (path) => {
+		app.settings.notify(`modules.${DOCK_KEY}.${path}`);
+		app.settings.save();
+	};
+	const failed = (shortcut, error) => {
+		if (error !== void 0) app.log.warn(`dock: opener "${shortcut.id}" failed`, error);
+		app.ui.notice(t("m32.dock.shortcutMissing", { name: t(shortcut.labelKey) }), {
+			level: "warn",
+			urgent: true
+		});
+	};
+	const run = async (shortcut) => {
+		const open = shortcut.find(app);
+		if (!open) {
+			failed(shortcut);
+			return;
+		}
+		try {
+			await open();
+		} catch (error) {
+			failed(shortcut, error);
+		}
+	};
+	/** `close` shortcuts: the pult closes first (the blocks go home — some openers live in them), then the opener. */
+	const openOutside = async (shortcut) => {
+		app.ui.closePult?.();
+		await run(shortcut);
+	};
+	/** CK draws its windows inside its block: open the block's drawer (ST's own toggle), then call the opener. */
+	const openDocked = async (shortcut, slot) => {
+		const drawer = slot.querySelector(".inline-drawer");
+		const header = [...drawer?.children ?? []].find((child) => child.classList.contains("inline-drawer-toggle"));
+		const icon = header?.querySelector(".inline-drawer-icon");
+		if (header instanceof HTMLElement && icon && !icon.classList.contains("up")) header.click();
+		drawer?.scrollIntoView({ block: "start" });
+		await run(shortcut);
+	};
+	const shortcutButton = (shortcut, onClick) => button({
+		label: t(shortcut.labelKey),
+		icon: shortcut.icon,
+		onClick
+	});
+	const shortcutsBlock = (present) => {
+		const available = SHORTCUTS.filter((shortcut) => shortcut.mode === "close" && present.has(shortcut.neighbour) && shortcut.find(app));
+		if (!available.length) return null;
+		return section$1(t("m32.dock.shortcuts"), [el("div", {
+			class: "maestro-hint",
+			text: t("m32.dock.shortcutsHint")
+		}), el("div", { class: "maestro-m32d-shortcuts" }, available.map((shortcut) => shortcutButton(shortcut, () => openOutside(shortcut))))]);
+	};
+	return {
+		id: DOCK_TAB,
+		titleKey: "m32.dock.tab",
+		icon: "fa-puzzle-piece",
+		order: 85,
+		group: "extensions",
+		render(container) {
+			const notes = /* @__PURE__ */ new Map();
+			const slots = /* @__PURE__ */ new Map();
+			const inBlock = /* @__PURE__ */ new Map();
+			let closed = false;
+			/** The line under a card's toggle: where the block is now. */
+			const note = (id, text, level = "info") => {
+				const holder = notes.get(id);
+				if (!holder) return;
+				clear(holder);
+				if (text) holder.appendChild(banner(text, level, level === "warn" ? "fa-circle-info" : "fa-house"));
+			};
+			/** Shortcuts drawn inside the neighbour's block are offered only while the block is here. */
+			const syncInBlock = (id) => {
+				const holder = inBlock.get(id);
+				if (holder) holder.hidden = !dock.isDocked(id);
+			};
+			const place = (neighbour) => {
+				const slot = slots.get(neighbour.id);
+				if (!slot) return;
+				const busy = neighbour.busy?.(document) ?? null;
+				if (!keeps(settings(), neighbour.id) || busy) {
+					dock.undock(neighbour.id);
+					note(neighbour.id, busy ? t(busy) : t("m32.dock.atHome"), busy ? "warn" : "info");
+				} else {
+					const result = dock.dock(neighbour.block, slot);
+					note(neighbour.id, result === "missing" ? t("m32.dock.missing") : null, "warn");
+				}
+				syncInBlock(neighbour.id);
+			};
+			const placeBar = () => {
+				const slot = slots.get(PORTRAIT_BAR.id);
+				if (!slot) return;
+				if (!settings().portraitBar) {
+					dock.undock(PORTRAIT_BAR.id);
+					note(PORTRAIT_BAR.id, null);
+					return;
+				}
+				const result = dock.dock(PORTRAIT_BAR, slot);
+				note(PORTRAIT_BAR.id, result === "missing" ? t("m32.dock.portraitsMissing") : null, "warn");
+			};
+			const neighbourCard = (neighbour) => {
+				const holder = el("div", { class: "maestro-m32d-note" });
+				const slot = el("div", {
+					class: "maestro-m32d-slot",
+					data: { dock: neighbour.id }
+				});
+				notes.set(neighbour.id, holder);
+				slots.set(neighbour.id, slot);
+				const own = SHORTCUTS.filter((shortcut) => shortcut.mode === "docked" && shortcut.neighbour === neighbour.id && shortcut.find(app));
+				let actions = null;
+				if (own.length) {
+					actions = el("div", {
+						class: "maestro-m32d-shortcuts",
+						data: { shortcuts: neighbour.id }
+					}, own.map((shortcut) => shortcutButton(shortcut, () => openDocked(shortcut, slot))));
+					inBlock.set(neighbour.id, actions);
+				}
+				return section$1(t(neighbour.nameKey), [el("div", { class: "maestro-m32d-state" }, [
+					toggle({
+						label: t("m32.dock.keep"),
+						hint: t("m32.dock.keepHint"),
+						checked: keeps(settings(), neighbour.id),
+						onChange: (checked) => {
+							settings().keep[neighbour.id] = checked;
+							commit(`keep.${neighbour.id}`);
+							place(neighbour);
+						}
+					}),
+					neighbour.noteKey ? el("div", {
+						class: "maestro-hint",
+						text: t(neighbour.noteKey)
+					}) : null,
+					holder,
+					actions
+				]), slot]);
+			};
+			const barCard = () => {
+				const holder = el("div", { class: "maestro-m32d-note" });
+				const slot = el("div", {
+					class: "maestro-m32d-slot",
+					data: { dock: PORTRAIT_BAR.id }
+				});
+				notes.set(PORTRAIT_BAR.id, holder);
+				slots.set(PORTRAIT_BAR.id, slot);
+				return section$1(t("m32.dock.portraits"), [el("div", { class: "maestro-m32d-state" }, [
+					toggle({
+						label: t("m32.dock.portraitsToggle"),
+						checked: settings().portraitBar,
+						onChange: (checked) => {
+							settings().portraitBar = checked;
+							commit("portraitBar");
+							placeBar();
+						}
+					}),
+					el("div", {
+						class: "maestro-hint",
+						text: t("m32.dock.portraitsHint")
+					}),
+					holder
+				]), slot]);
+			};
+			const present = NEIGHBOURS$1.filter((neighbour) => neighbourPresent$1(app, dock, neighbour));
+			const presentIds = new Set(present.map((neighbour) => neighbour.id));
+			const view = el("div", { class: "maestro-view maestro-m32d" }, [el("div", {
+				class: "maestro-hint",
+				text: t("m32.dock.intro")
+			})]);
+			container.appendChild(view);
+			if (!present.length) {
+				view.appendChild(emptyState(t("m32.dock.none"), "fa-puzzle-piece"));
+				return;
+			}
+			const shortcuts = shortcutsBlock(presentIds);
+			if (shortcuts) view.appendChild(shortcuts);
+			for (const neighbour of present) view.appendChild(neighbourCard(neighbour));
+			const withBar = presentIds.has("des");
+			if (withBar) view.appendChild(barCard());
+			for (const neighbour of present) place(neighbour);
+			if (withBar) placeBar();
+			const offEvents = deps.onDockEvent((id, event) => {
+				if (closed) return;
+				syncInBlock(id);
+				if (event === "adopted") return;
+				note(id, t(event === "taken" ? "m32.dock.taken" : "m32.dock.redrawn"), "warn");
+			});
+			return () => {
+				closed = true;
+				offEvents();
+				dock.undockAll();
+			};
+		}
+	};
+}
+//#endregion
+//#region src/features/dock/index.ts
+var dockModule = {
+	id: DOCK_ID,
+	key: DOCK_KEY,
+	stage: 12,
+	titleKey: "m32.dock.title",
+	enabledByDefault: true,
+	defaults: defaultDockSettings,
+	i18n: DOCK_STRINGS,
+	init({ app, log, own }) {
+		const settings = () => readDockSettings(app.settings.module(DOCK_KEY));
+		const listeners = /* @__PURE__ */ new Set();
+		const dock = new Dock({
+			log: log.scope("dock"),
+			onEvent: (id, event) => {
+				for (const listener of [...listeners]) listener(id, event);
+			}
+		});
+		own(() => dock.undockAll());
+		const onUnload = () => dock.undockAll();
+		globalThis.addEventListener?.("pagehide", onUnload);
+		own(() => globalThis.removeEventListener?.("pagehide", onUnload));
+		own(app.ui.style("maestro-m32d", DOCK_CSS));
+		own(app.ui.addTab(dockTab({
+			app,
+			dock,
+			settings,
+			onDockEvent: (listener) => {
+				listeners.add(listener);
+				return () => listeners.delete(listener);
+			}
+		})));
+		app.modules.expose(DOCK_KEY, {
+			docked: () => dock.ids().filter((id) => dock.isDocked(id)),
+			returnAll: () => dock.undockAll()
+		});
 	}
 };
 //#endregion
@@ -63625,7 +64699,7 @@ var NUMBER_FIELDS$1 = {
 		integer: true
 	}
 };
-function parseNumber(text, spec) {
+function parseNumber$1(text, spec) {
 	const trimmed = text.trim();
 	if (trimmed === "") return spec.nullable ? {
 		ok: true,
@@ -66300,7 +67374,7 @@ function numberField(env, field, options) {
 			env.changed();
 			return;
 		}
-		const result = parseNumber(text, NUMBER_FIELDS$1[field]);
+		const result = parseNumber$1(text, NUMBER_FIELDS$1[field]);
 		if (!result.ok) {
 			env.setError(field, numberMessage(env, result, spec));
 			env.changed();
@@ -75637,7 +76711,7 @@ var LoreStudio = class {
 				this.render();
 			}
 		});
-		return el("div", { class: "maestro-m23 maestro-theme" }, [el("div", { class: "maestro-m23-header" }, [
+		return el("div", { class: "maestro-m23 maestro-ui" }, [el("div", { class: "maestro-m23-header" }, [
 			el("div", { class: "maestro-m23-brand" }, [icon("fa-book-atlas"), el("h3", { text: this.t("m23.title") })]),
 			nav,
 			button({
@@ -86611,12 +87685,12 @@ var STATUS_MARK = {
 	warn: "⚠",
 	none: "—"
 };
-var round = (value, digits = 0) => {
+var round$1 = (value, digits = 0) => {
 	if (value === void 0 || !Number.isFinite(value)) return void 0;
 	const factor = 10 ** digits;
 	return Math.round(value * factor) / factor;
 };
-var percent$2 = (share) => share === void 0 ? void 0 : round(share * 100, 1);
+var percent$2 = (share) => share === void 0 ? void 0 : round$1(share * 100, 1);
 function row(key, status, values) {
 	return {
 		id: CRITERIA.indexOf(key) + 1,
@@ -86634,26 +87708,26 @@ function buildCriteria(input) {
 	const sheetDefects = sheets ? sheets.findings.length : 0;
 	return [
 		row("latency", latencyVerdict(latency), {
-			desktopP95: round(desktop.p95),
-			desktopP50: round(desktop.p50),
+			desktopP95: round$1(desktop.p95),
+			desktopP50: round$1(desktop.p50),
 			desktopN: desktop.n,
-			phoneP95: round(phone.p95),
-			phoneP50: round(phone.p50),
+			phoneP95: round$1(phone.p95),
+			phoneP50: round$1(phone.p50),
 			phoneN: phone.n
 		}),
 		row("cost", costVerdict(cost), {
 			share: percent$2(cost.share),
 			turns: cost.turns,
-			backgroundUsd: round(cost.backgroundUsd, 4),
-			mainUsd: round(cost.mainUsd, 4),
+			backgroundUsd: round$1(cost.backgroundUsd, 4),
+			mainUsd: round$1(cost.mainUsd, 4),
 			autoSwipes: cost.autoSwipes
 		}),
 		row("lore", loreVerdict(lore.ratio), {
 			ratio: percent$2(lore.ratio.ratio),
 			source: lore.ratio.source,
-			current: round(lore.current.avg),
+			current: round$1(lore.current.avg),
 			turns: lore.current.turns,
-			baseline: round(lore.baseline?.avgChars),
+			baseline: round$1(lore.baseline?.avgChars),
 			before: lore.whatIf?.before,
 			after: lore.whatIf?.after
 		}),
@@ -97126,7 +98200,7 @@ var PmLauncher = class {
 			classic
 		};
 		return el("div", {
-			class: "maestro-m34-launcher maestro-theme",
+			class: "maestro-m34-launcher maestro-ui",
 			attrs: { id: LAUNCHER_ID }
 		}, [
 			el("div", { class: "maestro-m34-launcher-head" }, [
@@ -104556,7 +105630,7 @@ var PresetStudio = class {
 		});
 		this.side.hidden = true;
 		this.layout = el("div", { class: "maestro-m34-layout" }, [this.pane, this.side]);
-		return el("div", { class: "maestro-m34 maestro-theme" }, [
+		return el("div", { class: "maestro-m34 maestro-ui" }, [
 			this.header,
 			el("div", { class: "maestro-m34-nav" }, [this.nav.list, this.nav.picker]),
 			this.layout
@@ -119519,6 +120593,3513 @@ var signalsModule = {
 	}
 };
 //#endregion
+//#region src/features/theme/api.ts
+/** Page class of the whole layer. */
+var THEME_CLASS = "maestro-theme";
+/** Page class of one part: `maestro-theme-st`, `maestro-theme-chat`, `maestro-theme-des`… */
+var partClass = (part) => `${THEME_CLASS}-${part}`;
+var G$1 = `:where(html.${THEME_CLASS}.${partClass("chat")})`;
+var T$2 = "var(--animation-duration, 125ms)";
+var BASE$1 = `
+/* ---------------------------------------------------------------- messages */
+${G$1} .mes {
+    border-radius: var(--maestro-radius-md);
+    transition: background-color ${T$2};
+}
+
+@media (hover: hover) {
+    ${G$1} body:not(.bubblechat):not(.documentstyle) #chat .mes:not(.selected):hover {
+        background-color: var(--maestro-surface-2);
+    }
+}
+
+/* Bubbles: ST's user/bot tints stay the backgrounds. */
+${G$1} body.bubblechat .mes {
+    border-color: var(--maestro-border);
+    border-radius: var(--maestro-radius-lg);
+    box-shadow: var(--maestro-elevation-1);
+}
+
+/* ---------------------------------------------------------------- name line, timestamp, counters */
+${G$1} :where(.mes) .name_text {
+    font-weight: 600;
+    letter-spacing: 0.01em;
+}
+
+${G$1} :where(.mes) .timestamp {
+    color: var(--maestro-text-muted);
+    opacity: 1;
+    font-variant-numeric: tabular-nums;
+}
+
+${G$1} .mes .mes_timer,
+${G$1} .mes .mesIDDisplay,
+${G$1} .mes .tokenCounterDisplay {
+    color: var(--maestro-text-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+/* ---------------------------------------------------------------- avatars (ST's avatar shape setting is kept) */
+${G$1} :where(.mes) .avatar img {
+    border-color: var(--maestro-border);
+    box-shadow: var(--maestro-elevation-1);
+}
+
+/* ---------------------------------------------------------------- message actions */
+${G$1} .mes_button,
+${G$1} .extraMesButtons>div {
+    border-radius: var(--maestro-radius-sm);
+    transition:
+        opacity ${T$2},
+        background-color ${T$2};
+}
+
+${G$1} .mes_button:hover,
+${G$1} .extraMesButtons>div:hover {
+    background-color: var(--maestro-surface-3);
+}
+
+${G$1} .mes_edit_buttons .menu_button,
+${G$1} .mes_reasoning_actions .menu_button {
+    border-radius: var(--maestro-radius-sm);
+}
+
+/* ---------------------------------------------------------------- swipes */
+${G$1} .swipe_right,
+${G$1} .swipe_left {
+    border-radius: var(--maestro-radius-pill);
+    transition:
+        opacity ${T$2},
+        background-color ${T$2};
+}
+
+${G$1} .swipe_right:hover,
+${G$1} .swipe_left:hover {
+    background-color: var(--maestro-surface-3);
+}
+
+${G$1} .swipes-counter {
+    font-variant-numeric: tabular-nums;
+}
+
+/* ---------------------------------------------------------------- reasoning */
+${G$1} .mes_reasoning_header {
+    background-color: var(--maestro-surface-2);
+    border: 1px solid var(--maestro-divider);
+    border-radius: var(--maestro-radius-md);
+    transition: background-color ${T$2};
+}
+
+${G$1} .mes_reasoning_details[data-has-content="true"] .mes_reasoning_header:hover {
+    background-color: var(--maestro-surface-3);
+}
+
+${G$1} .mes_reasoning {
+    border-radius: var(--maestro-radius-xs);
+}
+
+/* ---------------------------------------------------------------- code and quotes (colours: ST's) */
+/* ST styles every \`code\` (0,0,1); \`:where()\` keeps that specificity, scoped to messages. */
+${G$1} :where(.mes_text, .mes_reasoning) code {
+    border-color: var(--maestro-divider);
+    border-radius: var(--maestro-radius-xs);
+}
+
+${G$1} .mes_text pre code,
+${G$1} .mes_reasoning pre code {
+    border-radius: var(--maestro-radius-md);
+}
+
+${G$1} .mes_text blockquote,
+${G$1} .mes_reasoning blockquote {
+    border-radius: 0 var(--maestro-radius-sm) var(--maestro-radius-sm) 0;
+    background-color: var(--maestro-surface-2);
+}
+
+/* ---------------------------------------------------------------- images (generic: ST's media and any <img>) */
+${G$1} .mes .mes_img_container,
+${G$1} .mes .mes_video_container {
+    border-radius: var(--maestro-radius-md);
+    box-shadow: var(--maestro-elevation-1);
+}
+
+${G$1} .mes_text img:not(.mes_img),
+${G$1} .mes_reasoning img:not(.mes_img) {
+    border-radius: var(--maestro-radius-md);
+}
+
+/* ---------------------------------------------------------------- phones */
+@media screen and (max-width: 1000px) {
+    ${G$1} .swipe_right,
+    ${G$1} .swipe_left {
+        width: 32px;
+        height: 32px;
+    }
+}
+`;
+var COMPACT$1 = `
+/* ---------------------------------------------------------------- compact density */
+${G$1} .mes {
+    padding: var(--maestro-mes-pad) var(--maestro-mes-pad) 0 var(--maestro-mes-pad);
+}
+
+${G$1} body.bubblechat .mes {
+    padding: var(--maestro-mes-pad);
+    margin-bottom: var(--maestro-space-1);
+}
+`;
+/** The «chat» stylesheet; the compact density adds tighter message padding (comfortable keeps ST's own). */
+function chatCss(density) {
+	return density === "compact" ? `${BASE$1}${COMPACT$1}` : BASE$1;
+}
+var G = `:where(html.${THEME_CLASS}.${partClass("st")})`;
+var T$1 = "var(--animation-duration, 125ms)";
+var COMPACT = `
+/* ---------------------------------------------------------------- compact density */
+${G} .menu_button {
+    padding: var(--maestro-control-py) var(--maestro-control-px);
+}
+
+${G} .text_pole {
+    padding: var(--maestro-control-py) var(--maestro-control-px);
+}
+`;
+var BASE = `
+/* ---------------------------------------------------------------- page */
+${G} {
+    accent-color: var(--maestro-accent);
+}
+
+${G} ::selection {
+    background-color: var(--maestro-accent-soft);
+}
+
+/* ---------------------------------------------------------------- scrollbars */
+${G} ::-webkit-scrollbar-thumb:vertical,
+${G} ::-webkit-scrollbar-thumb:horizontal {
+    background-color: var(--maestro-scroll-thumb);
+    box-shadow: none;
+    border-radius: var(--maestro-radius-pill);
+}
+
+${G} ::-webkit-scrollbar-thumb:hover {
+    background-color: var(--maestro-text-muted);
+}
+
+@supports not selector(::-webkit-scrollbar) {
+    ${G} {
+        scrollbar-color: var(--maestro-scroll-thumb) transparent;
+    }
+}
+
+/* ---------------------------------------------------------------- top bar and drawer icons */
+${G} #top-bar {
+    box-shadow: var(--maestro-elevation-2);
+    border-bottom: 1px solid var(--maestro-divider);
+}
+
+${G} .drawer-icon {
+    border-radius: var(--maestro-radius-sm);
+    transition:
+        opacity ${T$1},
+        color ${T$1},
+        background-color ${T$1};
+}
+
+${G} .drawer-icon.closedIcon {
+    opacity: 0.45;
+}
+
+${G} .drawer-icon.closedIcon:hover {
+    opacity: 1;
+    background-color: var(--maestro-surface-3);
+}
+
+${G} .drawer-icon.openIcon {
+    color: var(--maestro-accent);
+}
+
+${G} .drawer-toggle:focus-visible,
+${G} .drawer-icon:focus-visible {
+    outline: 2px solid var(--maestro-focus);
+    outline-offset: 1px;
+}
+
+/* ---------------------------------------------------------------- drawers and settings panels */
+${G} .drawer-content {
+    border-color: var(--maestro-border);
+    border-radius: var(--maestro-radius-lg);
+    box-shadow: var(--maestro-elevation-2);
+}
+
+${G} .inline-drawer-header {
+    border-radius: var(--maestro-radius-sm);
+    transition: background-color ${T$1};
+}
+
+${G} .inline-drawer-toggle.inline-drawer-header:hover {
+    background-color: var(--maestro-surface-2);
+}
+
+${G} .inline-drawer-icon {
+    transition:
+        filter ${T$1},
+        transform ${T$1};
+}
+
+${G} .inline-drawer-header:hover .inline-drawer-icon {
+    filter: brightness(110%);
+}
+
+${G} #extensions_settings .inline-drawer-toggle.inline-drawer-header,
+${G} #extensions_settings2 .inline-drawer-toggle.inline-drawer-header,
+${G} #user-settings-block h4,
+${G} .standoutHeader {
+    background-image: none;
+    background-color: var(--maestro-surface-2);
+    border: 1px solid var(--maestro-divider);
+    border-radius: var(--maestro-radius-md);
+    box-shadow: inset 3px 0 0 var(--maestro-accent);
+}
+
+${G} #extensions_settings .inline-drawer-toggle.inline-drawer-header:hover,
+${G} #extensions_settings2 .inline-drawer-toggle.inline-drawer-header:hover,
+${G} .standoutHeader.inline-drawer-header:hover {
+    filter: none;
+    background-color: var(--maestro-surface-3);
+}
+
+${G} .standoutHeader~.inline-drawer-content {
+    border-color: var(--maestro-divider);
+    border-radius: var(--maestro-radius-md);
+    background-color: var(--maestro-well);
+}
+
+${G} .settingsSectionWrap {
+    border-color: var(--maestro-divider);
+    border-radius: var(--maestro-radius-md);
+}
+
+/* ---------------------------------------------------------------- popups and menus */
+/* Same specificity as ST's .popup: Maestro's full-screen phone dialogs (.popup.maestro-*-dialog, radius 0) still win. */
+${G} .popup {
+    border-color: var(--maestro-border);
+    border-radius: var(--maestro-radius-lg);
+    box-shadow: var(--maestro-elevation-2);
+}
+
+${G} .popup .popup-button-close {
+    border-radius: var(--maestro-radius-pill);
+}
+
+${G} #options,
+${G} #extensionsMenu,
+${G} .popup .popper-modal {
+    border-radius: var(--maestro-radius-lg);
+    box-shadow: var(--maestro-elevation-2);
+}
+
+${G} .options-content,
+${G} .list-group {
+    border-color: var(--maestro-border);
+    border-radius: var(--maestro-radius-md);
+}
+
+${G} .options-content a,
+${G} #extensionsMenu>.extension_container>div,
+${G} #extensionsMenu>div:not(.extension_container),
+${G} .list-group>div,
+${G} .list-group .list-group-item {
+    border-radius: var(--maestro-radius-sm);
+    transition:
+        opacity ${T$1},
+        background-color ${T$1};
+}
+
+${G} #extensionsMenu>.extension_container>div:hover,
+${G} #extensionsMenu>div:not(.extension_container):hover,
+${G} .options-content a:hover,
+${G} .list-group-item:hover {
+    background-color: var(--maestro-surface-3);
+}
+
+/* ---------------------------------------------------------------- buttons */
+${G} .menu_button {
+    border-radius: var(--maestro-radius-sm);
+    transition:
+        background-color ${T$1},
+        border-color ${T$1},
+        box-shadow ${T$1},
+        filter ${T$1};
+}
+
+${G} .menu_button:where(:not(.maestro-btn)) {
+    border-color: var(--maestro-border);
+}
+
+${G} .menu_button:not(.disabled):not([disabled]):hover,
+${G} .menu_button:not(.disabled):not([disabled]).active {
+    background-color: var(--maestro-surface-3);
+}
+
+${G} .menu_button:focus-visible {
+    outline: 2px solid var(--maestro-focus);
+    outline-offset: 1px;
+}
+
+/* ---------------------------------------------------------------- inputs */
+${G} .text_pole {
+    border-color: var(--maestro-border);
+    border-radius: var(--maestro-radius-sm);
+    background-color: var(--maestro-well);
+    transition:
+        border-color ${T$1},
+        box-shadow ${T$1};
+}
+
+${G} select {
+    border-color: var(--maestro-border);
+    border-radius: var(--maestro-radius-sm);
+}
+
+${G} textarea {
+    border-color: var(--maestro-border);
+    border-radius: var(--maestro-radius-sm);
+}
+
+${G} select:focus-visible,
+${G} input:focus-visible,
+${G} textarea:focus-visible {
+    outline: 2px solid var(--maestro-accent-soft);
+    outline-offset: 0;
+    border-color: var(--maestro-accent);
+}
+
+${G} input[type='checkbox'] {
+    border-radius: var(--maestro-radius-xs);
+    transition:
+        box-shadow ${T$1},
+        outline-color ${T$1};
+}
+
+${G} input[type='checkbox']:focus-visible {
+    outline: 2px solid var(--maestro-focus);
+    outline-offset: 1px;
+}
+
+/* ---------------------------------------------------------------- send form */
+${G} #send_form {
+    border-color: var(--maestro-border);
+    border-radius: 0 0 var(--maestro-radius-lg) var(--maestro-radius-lg);
+}
+
+${G} #send_form:has(#send_textarea:focus-visible) {
+    border-color: var(--maestro-accent);
+    outline: 1px solid var(--maestro-accent-soft);
+}
+
+${G} #rightSendForm>div,
+${G} #leftSendForm>div {
+    border-radius: var(--maestro-radius-sm);
+}
+
+${G} #rightSendForm>div:hover,
+${G} #leftSendForm>div:hover {
+    background-color: var(--maestro-surface-3);
+}
+
+/* ---------------------------------------------------------------- character and persona lists */
+${G} .bogus_folder_select,
+${G} .character_select,
+${G} .group_select,
+${G} .avatar-container {
+    border-radius: var(--maestro-radius-md);
+    transition: background-color ${T$1};
+}
+
+${G} .bogus_folder_select:hover,
+${G} .character_select:hover,
+${G} .group_select:hover,
+${G} .avatar-container:hover {
+    background-color: var(--maestro-surface-3);
+}
+
+/* ---------------------------------------------------------------- toasts */
+${G} body #toast-container>div {
+    border-radius: var(--maestro-radius-md);
+    box-shadow: var(--maestro-elevation-2);
+}
+
+/* ---------------------------------------------------------------- phones (ST's breakpoint) */
+@media screen and (max-width: 1000px) {
+    ${G} .menu_button:where(:not(.maestro-btn)) {
+        min-height: var(--maestro-touch);
+    }
+
+    ${G} .menu_button:where(.fa-solid, .fa-regular, .fa-fw):where(:not(.maestro-btn)) {
+        min-width: var(--maestro-touch);
+    }
+
+    ${G} .text_pole,
+    ${G} select {
+        min-height: var(--maestro-touch);
+    }
+
+    ${G} input[type='checkbox'] {
+        width: calc(var(--mainFontSize) * 1.3);
+        height: calc(var(--mainFontSize) * 1.3);
+    }
+
+    ${G} .inline-drawer-header {
+        min-height: var(--maestro-touch);
+    }
+
+    ${G} .options-content a,
+    ${G} #extensionsMenu>.extension_container>div,
+    ${G} #extensionsMenu>div:not(.extension_container),
+    ${G} .list-group .list-group-item {
+        padding-top: var(--maestro-space-2);
+        padding-bottom: var(--maestro-space-2);
+    }
+
+    ${G} #right-nav-panel,
+    ${G} #left-nav-panel {
+        border-radius: 0 0 var(--maestro-radius-lg) var(--maestro-radius-lg);
+    }
+}
+
+/* ---------------------------------------------------------------- touch screens: no sticky hovers */
+@media (hover: none) {
+    ${G} .drawer-icon.closedIcon:hover,
+    ${G} .bogus_folder_select:hover,
+    ${G} .character_select:hover,
+    ${G} .group_select:hover,
+    ${G} .avatar-container:hover {
+        background-color: transparent;
+    }
+}
+`;
+/** The «st» stylesheet; the compact density adds tighter control padding (comfortable keeps ST's own). */
+function stCss(density) {
+	return density === "compact" ? `${BASE}${COMPACT}` : BASE;
+}
+//#endregion
+//#region src/domain/theme-tokens.ts
+/** ST 1.19 defaults (public/style.css :root). */
+var ST_THEME_DEFAULTS = {
+	body: "rgb(220, 220, 210)",
+	quote: "rgb(225, 138, 36)",
+	blurTint: "rgba(23, 23, 23, 1)",
+	shadow: "rgba(0, 0, 0, 0.5)",
+	border: "rgba(0, 0, 0, 0.5)",
+	blurStrength: 10,
+	shadowWidth: 2,
+	fontScale: 1,
+	chatWidth: "50vw",
+	mainFont: "\"Noto Sans\", sans-serif",
+	monoFont: "'Noto Sans Mono', 'Courier New', Consolas, monospace"
+};
+var DEFAULT_TOKEN_OPTIONS = {
+	density: "comfortable",
+	radiusScale: 1
+};
+/** Base font size of ST (`--mainFontSize: calc(var(--fontScale) * 15px)`). */
+var BASE_FONT_PX = 15;
+/** Fallback chain appended after the user's UI font (Cyrillic-capable system fonts first). */
+var UI_FONT_FALLBACK = [
+	"system-ui",
+	"-apple-system",
+	"\"Segoe UI\"",
+	"Roboto",
+	"\"Noto Sans\"",
+	"Arial",
+	"sans-serif"
+];
+var GENERIC_FAMILIES = /* @__PURE__ */ new Set([
+	"serif",
+	"sans-serif",
+	"monospace",
+	"cursive",
+	"fantasy",
+	"system-ui",
+	"ui-serif",
+	"ui-sans-serif",
+	"ui-monospace",
+	"ui-rounded",
+	"math",
+	"emoji",
+	"fangsong"
+]);
+var NAMED = {
+	transparent: {
+		r: 0,
+		g: 0,
+		b: 0,
+		a: 0
+	},
+	black: {
+		r: 0,
+		g: 0,
+		b: 0,
+		a: 1
+	},
+	white: {
+		r: 255,
+		g: 255,
+		b: 255,
+		a: 1
+	},
+	gray: {
+		r: 128,
+		g: 128,
+		b: 128,
+		a: 1
+	},
+	grey: {
+		r: 128,
+		g: 128,
+		b: 128,
+		a: 1
+	},
+	silver: {
+		r: 192,
+		g: 192,
+		b: 192,
+		a: 1
+	},
+	red: {
+		r: 255,
+		g: 0,
+		b: 0,
+		a: 1
+	},
+	orange: {
+		r: 255,
+		g: 165,
+		b: 0,
+		a: 1
+	},
+	gold: {
+		r: 255,
+		g: 215,
+		b: 0,
+		a: 1
+	},
+	yellow: {
+		r: 255,
+		g: 255,
+		b: 0,
+		a: 1
+	},
+	green: {
+		r: 0,
+		g: 128,
+		b: 0,
+		a: 1
+	},
+	blue: {
+		r: 0,
+		g: 0,
+		b: 255,
+		a: 1
+	},
+	purple: {
+		r: 128,
+		g: 0,
+		b: 128,
+		a: 1
+	}
+};
+var BLACK = {
+	r: 0,
+	g: 0,
+	b: 0,
+	a: 1
+};
+var WHITE = {
+	r: 255,
+	g: 255,
+	b: 255,
+	a: 1
+};
+function clamp(value, min, max) {
+	return Math.min(max, Math.max(min, value));
+}
+var round = (value, digits = 0) => {
+	const factor = 10 ** digits;
+	return Math.round(value * factor) / factor;
+};
+/** First number in a CSS value: `1.2`, `10px`, `calc(10 * 1px)` → 10; anything else → fallback. */
+function parseNumber(text, fallback) {
+	if (typeof text !== "string") return fallback;
+	const match = /-?(?:\d+\.?\d*|\.\d+)(?:e[+-]?\d+)?/i.exec(text);
+	if (!match) return fallback;
+	const value = Number(match[0]);
+	return Number.isFinite(value) ? value : fallback;
+}
+/** Parses a CSS colour: hex (3/4/6/8), rgb()/rgba() (comma or space syntax, %, `/ alpha`), hsl()/hsla(), a few names. */
+function parseColor(text) {
+	if (typeof text !== "string") return null;
+	const value = text.trim().toLowerCase();
+	if (!value) return null;
+	const named = Object.hasOwn(NAMED, value) ? NAMED[value] : void 0;
+	if (named) return { ...named };
+	if (value.startsWith("#")) return parseHex(value.slice(1));
+	const fn = /^(rgba?|hsla?)\((.*)\)$/.exec(value);
+	if (!fn) return null;
+	const args = splitArgs(fn[2] ?? "");
+	if (!args) return null;
+	return fn[1]?.startsWith("rgb") ? fromRgbArgs(args) : fromHslArgs(args);
+}
+function parseHex(hex) {
+	if (!/^[0-9a-f]+$/.test(hex)) return null;
+	let pairs;
+	if (hex.length === 3 || hex.length === 4) pairs = [...hex].map((digit) => digit + digit);
+	else if (hex.length === 6 || hex.length === 8) pairs = hex.match(/../g) ?? [];
+	else return null;
+	const [r = 0, g = 0, b = 0, a] = pairs.map((pair) => parseInt(pair, 16));
+	return {
+		r,
+		g,
+		b,
+		a: a === void 0 ? 1 : round(a / 255, 3)
+	};
+}
+/** `1, 2, 3, 0.5` or `1 2 3 / 50%` → ['1', '2', '3', '0.5'] (3 or 4 parts), else null. */
+function splitArgs(body) {
+	const [main = "", alpha, extra] = body.split("/");
+	if (extra !== void 0) return null;
+	const parts = main.split(/[\s,]+/).map((part) => part.trim()).filter(Boolean);
+	if (alpha !== void 0) {
+		if (parts.length !== 3 || !alpha.trim()) return null;
+		parts.push(alpha.trim());
+	}
+	const [x, y, z, w] = parts;
+	if (x === void 0 || y === void 0 || z === void 0 || parts.length > 4) return null;
+	return [
+		x,
+		y,
+		z,
+		w
+	];
+}
+/** A channel/number token: `none` = 0, `50%` = fraction of `percentOf`, else a plain number. */
+function token(part, percentOf) {
+	if (part === "none") return 0;
+	const percent = part.endsWith("%");
+	const number = Number(percent ? part.slice(0, -1) : part);
+	if (!Number.isFinite(number)) return null;
+	return percent ? number / 100 * percentOf : number;
+}
+function alphaOf(part) {
+	if (part === void 0) return 1;
+	const value = token(part, 1);
+	return value === null ? null : clamp(value, 0, 1);
+}
+function fromRgbArgs([x, y, z, w]) {
+	const r = token(x, 255);
+	const g = token(y, 255);
+	const b = token(z, 255);
+	const a = alphaOf(w);
+	if (r === null || g === null || b === null || a === null) return null;
+	return {
+		r: clamp(r, 0, 255),
+		g: clamp(g, 0, 255),
+		b: clamp(b, 0, 255),
+		a
+	};
+}
+var HUE_UNITS = {
+	deg: 1,
+	turn: 360,
+	rad: 180 / Math.PI,
+	grad: .9
+};
+function hue(part) {
+	if (part === "none") return 0;
+	const match = /^(-?(?:\d+\.?\d*|\.\d+))(deg|turn|rad|grad)?$/.exec(part);
+	if (!match) return null;
+	return (Number(match[1]) * (HUE_UNITS[match[2] ?? "deg"] ?? 1) % 360 + 360) % 360;
+}
+function fromHslArgs([x, y, z, w]) {
+	const h = hue(x);
+	const s = token(y, 1);
+	const l = token(z, 1);
+	const a = alphaOf(w);
+	if (h === null || s === null || l === null || a === null) return null;
+	const sat = clamp(y.endsWith("%") ? s : s / 100, 0, 1);
+	const light = clamp(z.endsWith("%") ? l : l / 100, 0, 1);
+	const k = (n) => (n + h / 30) % 12;
+	const chroma = sat * Math.min(light, 1 - light);
+	const f = (n) => light - chroma * Math.max(-1, Math.min(k(n) - 3, 9 - k(n), 1));
+	return {
+		r: f(0) * 255,
+		g: f(8) * 255,
+		b: f(4) * 255,
+		a
+	};
+}
+/** `rgb(r, g, b)` when opaque, else `rgba(r, g, b, a)`; channels rounded. */
+function formatColor(color) {
+	const r = Math.round(clamp(color.r, 0, 255));
+	const g = Math.round(clamp(color.g, 0, 255));
+	const b = Math.round(clamp(color.b, 0, 255));
+	const a = round(clamp(color.a, 0, 1), 3);
+	return a >= 1 ? `rgb(${r}, ${g}, ${b})` : `rgba(${r}, ${g}, ${b}, ${a})`;
+}
+function withAlpha(color, alpha) {
+	return {
+		...color,
+		a: clamp(alpha, 0, 1)
+	};
+}
+/** The colour without its transparency. */
+function opaque(color) {
+	return withAlpha(color, 1);
+}
+/**
+* `color-mix(in srgb, a weight, b)`: premultiplied interpolation, so mixing with `transparent` fades instead of
+* darkening. `weight` is the share of `a` (0–1).
+*/
+function mix(a, b, weight) {
+	const w = clamp(weight, 0, 1);
+	const alpha = a.a * w + b.a * (1 - w);
+	if (alpha <= 0) return {
+		r: 0,
+		g: 0,
+		b: 0,
+		a: 0
+	};
+	const channel = (x, y) => (x * a.a * w + y * b.a * (1 - w)) / alpha;
+	return {
+		r: channel(a.r, b.r),
+		g: channel(a.g, b.g),
+		b: channel(a.b, b.b),
+		a: alpha
+	};
+}
+/** Alpha compositing of `top` over `bottom` (source-over). */
+function over(top, bottom) {
+	const alpha = top.a + bottom.a * (1 - top.a);
+	if (alpha <= 0) return {
+		r: 0,
+		g: 0,
+		b: 0,
+		a: 0
+	};
+	const channel = (x, y) => (x * top.a + y * bottom.a * (1 - top.a)) / alpha;
+	return {
+		r: channel(top.r, bottom.r),
+		g: channel(top.g, bottom.g),
+		b: channel(top.b, bottom.b),
+		a: alpha
+	};
+}
+/** WCAG relative luminance of the colour's RGB (alpha ignored). */
+function luminance(color) {
+	const linear = (value) => {
+		const c = clamp(value, 0, 255) / 255;
+		return c <= .04045 ? c / 12.92 : ((c + .055) / 1.055) ** 2.4;
+	};
+	return .2126 * linear(color.r) + .7152 * linear(color.g) + .0722 * linear(color.b);
+}
+/** WCAG contrast ratio (1–21). A translucent `fg` is composited over an opaque `bg` first. */
+function contrast(fg, bg) {
+	const back = opaque(bg);
+	const l1 = luminance(fg.a < 1 ? over(fg, back) : fg);
+	const l2 = luminance(back);
+	const [hi, lo] = l1 > l2 ? [l1, l2] : [l2, l1];
+	return (hi + .05) / (lo + .05);
+}
+/** Dark colours read better with white on top (decided by contrast, not by a luminance threshold). */
+function isDark(color) {
+	return contrast(WHITE, opaque(color)) >= contrast(BLACK, opaque(color));
+}
+/** Black or white, whichever contrasts more with `color`. */
+function readableOn(color) {
+	return isDark(color) ? { ...WHITE } : { ...BLACK };
+}
+/**
+* Moves `fg` toward `toward` in 5 % steps until it contrasts at least `min` with `bg`; if even `toward` is not
+* enough, tries black/white (whichever suits `bg`). Returns the first passing colour or the best one found.
+*/
+function ensureContrast(fg, bg, min, toward) {
+	if (contrast(fg, bg) >= min) return fg;
+	let best = fg;
+	let bestRatio = contrast(fg, bg);
+	for (const target of [toward, readableOn(bg)]) for (let step = 1; step <= 20; step++) {
+		const candidate = mix(target, fg, step / 20);
+		const ratio = contrast(candidate, bg);
+		if (ratio >= min) return candidate;
+		if (ratio > bestRatio) {
+			best = candidate;
+			bestRatio = ratio;
+		}
+	}
+	return best;
+}
+/** Smallest alpha (from `start`, in 0.02 steps, up to `max`) at which `color` over `bg` reaches `min` contrast. */
+function alphaForContrast(color, bg, min, start, max) {
+	let alpha = start;
+	while (alpha < max && contrast(withAlpha(color, alpha), bg) < min) alpha = round(alpha + .02, 2);
+	return withAlpha(color, Math.min(alpha, max));
+}
+/** Drops characters that could end a declaration in generated CSS (`;`, braces, angle brackets, backslashes). */
+function cssSafe(value) {
+	return value.replace(/[;{}<>\\]/g, "").trim();
+}
+/** Splits a font-family list, keeping quoted names intact. */
+function fontFamilies(list) {
+	return (list.match(/"[^"]*"|'[^']*'|[^,]+/g) ?? []).map((name) => name.trim()).filter(Boolean);
+}
+/** The user's families (without generic ones) followed by `fallback` (duplicates removed, case-insensitive). */
+function fontStack(family, fallback) {
+	const seen = /* @__PURE__ */ new Set();
+	const out = [];
+	const add = (name) => {
+		const key = name.replace(/^["']|["']$/g, "").toLowerCase();
+		if (!key || seen.has(key)) return;
+		seen.add(key);
+		out.push(name);
+	};
+	const own = fontFamilies(cssSafe(family ?? ""));
+	const last = fallback[fallback.length - 1];
+	for (const name of own) if (!GENERIC_FAMILIES.has(name.toLowerCase())) add(name);
+	for (const name of fallback) if (name !== last) add(name);
+	if (last) add(last);
+	return out.join(", ");
+}
+/** `--sheldWidth` as given when it is a plain length (`50vw`, `800px`, `60%`), else ST's default. */
+function chatWidth(value) {
+	const text = (value ?? "").trim();
+	return /^\d+(?:\.\d+)?(?:vw|dvw|svw|px|%|rem|em)$/.test(text) ? text : ST_THEME_DEFAULTS.chatWidth;
+}
+function clampRadiusScale(value) {
+	return clamp(typeof value === "number" && Number.isFinite(value) ? value : DEFAULT_TOKEN_OPTIONS.radiusScale, 0, 2);
+}
+var px = (value) => `${round(value, 2)}px`;
+var color = (text, fallback) => parseColor(text) ?? parseColor(fallback);
+/**
+* All `--maestro-*` tokens for ST's current theme. Values are literal (computed once per theme change), so neighbours'
+* skins and Maestro's own UI read the same numbers without re-deriving them in CSS.
+*/
+function deriveTokens(input, options = DEFAULT_TOKEN_OPTIONS) {
+	const text = opaque(color(input.body, ST_THEME_DEFAULTS.body));
+	const surface = color(input.blurTint, ST_THEME_DEFAULTS.blurTint);
+	const base = over(surface, readableOn(text));
+	const dark = isDark(base);
+	const accent = ensureContrast(opaque(color(input.quote, ST_THEME_DEFAULTS.quote)), base, 3, text);
+	const shadow = color(input.shadow, ST_THEME_DEFAULTS.shadow);
+	const border = color(input.border, ST_THEME_DEFAULTS.border);
+	const fontScale = clamp(parseNumber(input.fontScale, ST_THEME_DEFAULTS.fontScale), .5, 2);
+	const blur = input.noBlur ? 0 : clamp(parseNumber(input.blurStrength, ST_THEME_DEFAULTS.blurStrength), 0, 60);
+	const shadowWidth = clamp(parseNumber(input.shadowWidth, ST_THEME_DEFAULTS.shadowWidth), 0, 20);
+	const compact = options.density === "compact";
+	const density = compact ? .75 : 1;
+	const flow = clamp(fontScale, .8, 1.4);
+	const space = (size) => px(Math.max(1, Math.round(size * density * flow)));
+	const radiusScale = clampRadiusScale(options.radiusScale);
+	const radius = (size) => px(Math.round(size * radiusScale * 10) / 10);
+	const muted = ensureContrast(mix(text, base, .62), base, 4.5, text);
+	const divider = alphaForContrast(text, base, 1.3, .12, .4);
+	const elevationColor = (factor) => formatColor(withAlpha(shadow, clamp(shadow.a * factor, .15, .85)));
+	const elevation1 = `0 1px ${px(2 + shadowWidth)} ${elevationColor(.6)}`;
+	const elevation2 = `0 ${px(4 + shadowWidth)} ${px(18 + shadowWidth * 4)} ${elevationColor(.9)}`;
+	return {
+		"--maestro-radius-xs": radius(3),
+		"--maestro-radius-sm": radius(6),
+		"--maestro-radius-md": radius(10),
+		"--maestro-radius-lg": radius(14),
+		"--maestro-radius-pill": radiusScale === 0 ? "0px" : "999px",
+		"--maestro-radius": radius(10),
+		"--maestro-space-1": space(4),
+		"--maestro-space-2": space(8),
+		"--maestro-space-3": space(12),
+		"--maestro-space-4": space(16),
+		"--maestro-gap": space(12),
+		"--maestro-gap-sm": space(6),
+		"--maestro-control-py": px(compact ? 2 : 3),
+		"--maestro-control-px": px(compact ? 4 : 5),
+		"--maestro-mes-pad": px(compact ? 6 : 10),
+		"--maestro-touch": px(compact ? 34 : 40),
+		"--maestro-font-ui": fontStack(input.mainFont || ST_THEME_DEFAULTS.mainFont, UI_FONT_FALLBACK),
+		"--maestro-font-chat": cssSafe(input.mainFont || "") || ST_THEME_DEFAULTS.mainFont,
+		"--maestro-font-mono": cssSafe(input.monoFont || "") || ST_THEME_DEFAULTS.monoFont,
+		"--maestro-font-size": px(BASE_FONT_PX * fontScale),
+		"--maestro-text": formatColor(text),
+		"--maestro-text-muted": formatColor(muted),
+		"--maestro-surface-1": formatColor(surface),
+		"--maestro-surface-2": formatColor(withAlpha(text, .06)),
+		"--maestro-surface-3": formatColor(withAlpha(text, .12)),
+		"--maestro-surface-solid": formatColor(base),
+		"--maestro-well": formatColor(withAlpha(BLACK, dark ? .3 : .06)),
+		"--maestro-border": formatColor(border),
+		"--maestro-divider": formatColor(divider),
+		"--maestro-accent": formatColor(accent),
+		"--maestro-accent-soft": formatColor(withAlpha(accent, .18)),
+		"--maestro-on-accent": formatColor(readableOn(accent)),
+		"--maestro-focus": formatColor(accent),
+		"--maestro-shadow": formatColor(shadow),
+		"--maestro-elevation-1": input.noShadows ? "none" : elevation1,
+		"--maestro-elevation-2": input.noShadows ? "none" : elevation2,
+		"--maestro-blur": px(blur),
+		"--maestro-scroll-thumb": formatColor(withAlpha(text, .28)),
+		"--maestro-chat-width": chatWidth(input.chatWidth)
+	};
+}
+/** The token block as CSS (`selector { --name: value; … }`). */
+function tokensCss(selector, tokens) {
+	return `${selector} {\n${Object.entries(tokens).map(([name, value]) => `    ${name}: ${value};`).join("\n")}\n}\n`;
+}
+//#endregion
+//#region src/features/theme/settings.ts
+var THEME_KEY = "theme";
+/** Every part, in the order the settings list them. */
+var ALL_PARTS = [
+	"st",
+	"chat",
+	...[
+		"des",
+		"ck",
+		"nai",
+		"desru",
+		"qvink",
+		"localizer"
+	]
+];
+var DENSITIES = ["comfortable", "compact"];
+/** Radius presets offered in the settings (any value in the range is accepted from storage). */
+var RADIUS_PRESETS = [
+	0,
+	.5,
+	1,
+	1.5
+];
+function defaultThemeSettings() {
+	return {
+		enabled: true,
+		parts: Object.fromEntries(ALL_PARTS.map((part) => [part, true])),
+		density: DEFAULT_TOKEN_OPTIONS.density,
+		radiusScale: DEFAULT_TOKEN_OPTIONS.radiusScale
+	};
+}
+function isThemePart(value) {
+	return typeof value === "string" && ALL_PARTS.includes(value);
+}
+/** The live slice, repaired in place (it is the object the settings section edits). */
+function readThemeSettings(slice) {
+	const defaults = defaultThemeSettings();
+	if (typeof slice.enabled !== "boolean") slice.enabled = defaults.enabled;
+	if (!slice.parts || typeof slice.parts !== "object" || Array.isArray(slice.parts)) slice.parts = defaults.parts;
+	const parts = slice.parts;
+	for (const part of ALL_PARTS) if (typeof parts[part] !== "boolean") parts[part] = true;
+	if (!DENSITIES.includes(slice.density)) slice.density = defaults.density;
+	if (slice.radiusScale !== clampRadiusScale(slice.radiusScale)) slice.radiusScale = clampRadiusScale(slice.radiusScale);
+	return slice;
+}
+Object.freeze(Object.keys(deriveTokens({})));
+/** ui.style id of the token block. */
+var TOKENS_STYLE_ID = "maestro-theme-tokens";
+/** ST variables the derivation reads (custom properties on <html>, set by power-user.js applyTheme*). */
+var ST_THEME_VARS = {
+	body: "--SmartThemeBodyColor",
+	quote: "--SmartThemeQuoteColor",
+	blurTint: "--SmartThemeBlurTintColor",
+	shadow: "--SmartThemeShadowColor",
+	border: "--SmartThemeBorderColor",
+	blurStrength: "--blurStrength",
+	shadowWidth: "--shadowWidth",
+	fontScale: "--fontScale",
+	chatWidth: "--sheldWidth",
+	mainFont: "--mainFontFamily",
+	monoFont: "--monoFontFamily"
+};
+/**
+* Reads ST's theme from the page. Browsers inherit custom properties, so <body> sees ST's values plus anything a
+* custom CSS set on body; <html> is the fallback (and what test DOMs without inheritance report).
+*/
+function readStTheme(doc = document) {
+	const view = doc.defaultView;
+	const html = doc.documentElement;
+	const body = doc.body;
+	const htmlStyle = view && html ? view.getComputedStyle(html) : null;
+	const bodyStyle = view && body ? view.getComputedStyle(body) : null;
+	const read = (name) => {
+		return bodyStyle?.getPropertyValue(name).trim() || htmlStyle?.getPropertyValue(name).trim() || html?.style.getPropertyValue(name).trim() || void 0;
+	};
+	const input = {};
+	for (const [key, name] of Object.entries(ST_THEME_VARS)) {
+		const value = read(name);
+		if (value !== void 0) input[key] = value;
+	}
+	input.noBlur = body?.classList.contains("no-blur") ?? false;
+	input.noShadows = body?.classList.contains("noShadows") ?? false;
+	return input;
+}
+/** The token stylesheet for the current theme. */
+function buildTokensCss(input, options) {
+	return `/* Maestro M32: design tokens derived from the ST theme */\n${tokensCss(`html.${THEME_CLASS}`, deriveTokens(input, options))}`;
+}
+/** ST events after which the theme may have changed (keys of eventTypes). */
+var WATCH_EVENTS = [
+	"SETTINGS_UPDATED",
+	"SETTINGS_LOADED_AFTER",
+	"APP_READY"
+];
+/** Controls of ST's «User Settings» drawer whose change re-themes the page. */
+var THEME_CONTROLS = "#themes, #user-settings-block, #UI-Theme-Block, #UI-Customization";
+var CUSTOM_CSS_ID$1 = "custom-style";
+var ThemeWatcher = class {
+	deps;
+	doc;
+	debounceMs;
+	observers = [];
+	customCssObserver = null;
+	customCssNode = null;
+	offs = [];
+	timer = null;
+	running = false;
+	constructor(deps) {
+		this.deps = deps;
+		this.doc = deps.doc ?? document;
+		this.debounceMs = deps.debounceMs ?? 150;
+	}
+	isRunning() {
+		return this.running;
+	}
+	start() {
+		if (this.running) return;
+		this.running = true;
+		const Observer = this.doc.defaultView?.MutationObserver ?? globalThis.MutationObserver;
+		if (Observer) {
+			const html = this.doc.documentElement;
+			const body = this.doc.body;
+			const attributes = new Observer(() => this.poke());
+			if (html) attributes.observe(html, {
+				attributes: true,
+				attributeFilter: ["style"]
+			});
+			if (body) attributes.observe(body, {
+				attributes: true,
+				attributeFilter: ["class", "style"]
+			});
+			this.observers.push(attributes);
+			if (this.doc.head) {
+				const head = new Observer((records) => {
+					if (records.some((record) => [...record.addedNodes, ...record.removedNodes].some((node) => node.id === CUSTOM_CSS_ID$1 || node.nodeName === "LINK"))) {
+						this.watchCustomCss(Observer);
+						this.poke();
+					}
+				});
+				head.observe(this.doc.head, { childList: true });
+				this.observers.push(head);
+			}
+			this.watchCustomCss(Observer);
+		}
+		const onControl = (event) => {
+			const target = event.target;
+			if (target && typeof target.closest === "function" && target.closest(THEME_CONTROLS)) this.poke();
+		};
+		this.doc.addEventListener("change", onControl, true);
+		this.offs.push(() => this.doc.removeEventListener("change", onControl, true));
+		for (const event of WATCH_EVENTS) {
+			if (!this.deps.subscribe) break;
+			try {
+				this.offs.push(this.deps.subscribe(event, () => this.poke()));
+			} catch (error) {
+				this.deps.onError?.(error);
+			}
+		}
+	}
+	stop() {
+		this.running = false;
+		for (const observer of this.observers.splice(0)) observer.disconnect();
+		this.customCssObserver?.disconnect();
+		this.customCssObserver = null;
+		this.customCssNode = null;
+		for (const off of this.offs.splice(0)) try {
+			off();
+		} catch (error) {
+			this.deps.onError?.(error);
+		}
+		if (this.timer !== null) clearTimeout(this.timer);
+		this.timer = null;
+	}
+	/** Schedules one callback after the burst settles. */
+	poke() {
+		if (!this.running) return;
+		if (this.timer !== null) clearTimeout(this.timer);
+		this.timer = setTimeout(() => {
+			this.timer = null;
+			this.fire();
+		}, this.debounceMs);
+	}
+	/** Runs a pending callback now (tests, refresh()). */
+	flush() {
+		if (this.timer === null) return;
+		clearTimeout(this.timer);
+		this.timer = null;
+		this.fire();
+	}
+	fire() {
+		if (!this.running) return;
+		try {
+			this.deps.onChange();
+		} catch (error) {
+			this.deps.onError?.(error);
+		}
+	}
+	watchCustomCss(Observer) {
+		const node = this.doc.getElementById(CUSTOM_CSS_ID$1);
+		if (node === this.customCssNode) return;
+		this.customCssObserver?.disconnect();
+		this.customCssObserver = null;
+		this.customCssNode = node;
+		if (!node) return;
+		this.customCssObserver = new Observer(() => this.poke());
+		this.customCssObserver.observe(node, {
+			childList: true,
+			characterData: true,
+			subtree: true
+		});
+	}
+};
+//#endregion
+//#region src/features/theme/layer.ts
+var ST_STYLE_ID = "maestro-theme-st";
+var CHAT_STYLE_ID = "maestro-theme-chat";
+var skinStyleId = (skin) => `${THEME_CLASS}-${skin.id}`;
+/** «Как было»: how long the original look is shown before the layer comes back by itself. */
+var PREVIEW_MS = 1e4;
+/** ST's element with the user's custom CSS: Maestro's sheets go before it so the user's rules still win ties. */
+var CUSTOM_CSS_ID = "custom-style";
+var ThemeLayer = class {
+	app;
+	log;
+	skins;
+	doc;
+	watcher;
+	styles = /* @__PURE__ */ new Map();
+	listeners = /* @__PURE__ */ new Set();
+	brokenSkins = /* @__PURE__ */ new Set();
+	offSettings = null;
+	running = false;
+	applied = false;
+	previewTimer = null;
+	signature = "";
+	constructor(deps) {
+		this.app = deps.app;
+		this.log = deps.log;
+		this.skins = deps.skins;
+		this.doc = deps.doc ?? document;
+		this.watcher = new ThemeWatcher({
+			doc: this.doc,
+			debounceMs: deps.debounceMs,
+			subscribe: (event, handler) => this.app.host.events.on(event, handler),
+			onChange: () => this.refresh(),
+			onError: (error) => this.log.debug("theme watcher", error)
+		});
+	}
+	start() {
+		if (this.running) return;
+		this.running = true;
+		this.offSettings = this.app.settings.onChange((path) => {
+			if (path === `modules.theme` || path.startsWith(`modules.theme.`)) this.sync();
+		});
+		this.sync();
+	}
+	dispose() {
+		this.running = false;
+		this.offSettings?.();
+		this.offSettings = null;
+		this.clearPreviewTimer();
+		this.unapply();
+		this.emitIfChanged();
+		this.listeners.clear();
+	}
+	/** The live settings slice (repaired). */
+	settings() {
+		return readThemeSettings(this.app.settings.module(THEME_KEY));
+	}
+	enabled() {
+		return this.applied && this.previewTimer === null;
+	}
+	parts() {
+		if (!this.enabled()) return [];
+		const settings = this.settings();
+		return ALL_PARTS.filter((part) => settings.parts[part]);
+	}
+	async setEnabled(on) {
+		this.clearPreviewTimer();
+		this.settings().enabled = on;
+		this.commit("enabled");
+	}
+	async setPart(part, on) {
+		if (!isThemePart(part)) return;
+		this.clearPreviewTimer();
+		this.settings().parts[part] = on;
+		this.commit(`parts.${part}`);
+	}
+	refresh() {
+		if (!this.applied) return;
+		this.renderTokens(this.settings());
+		this.keepBeforeCustomCss();
+		this.emitIfChanged();
+	}
+	onChange(listener) {
+		this.listeners.add(listener);
+		return () => this.listeners.delete(listener);
+	}
+	async setDensity(density) {
+		this.settings().density = density;
+		this.commit("density");
+	}
+	async setRadiusScale(scale) {
+		this.settings().radiusScale = scale;
+		this.commit("radiusScale");
+	}
+	/** «Как было» is showing (the classes are off for a moment, the settings are unchanged). */
+	previewing() {
+		return this.previewTimer !== null;
+	}
+	/** Shows the page without the layer for PREVIEW_MS (or until called with false). */
+	preview(on) {
+		if (on && this.applied && this.previewTimer === null) this.previewTimer = setTimeout(() => {
+			this.previewTimer = null;
+			this.sync();
+		}, PREVIEW_MS);
+		else if (!on) this.clearPreviewTimer();
+		this.sync();
+	}
+	/** Brings the page in line with the settings (idempotent). */
+	sync() {
+		const settings = this.settings();
+		if (!this.running || !settings.enabled) {
+			this.clearPreviewTimer();
+			this.unapply();
+		} else this.apply(settings);
+		this.emitIfChanged();
+	}
+	commit(path) {
+		this.app.settings.notify(`modules.${THEME_KEY}.${path}`);
+		this.app.settings.save();
+		this.sync();
+	}
+	apply(settings) {
+		this.applied = true;
+		this.setStyle(ST_STYLE_ID, stCss(settings.density));
+		this.setStyle(CHAT_STYLE_ID, chatCss(settings.density));
+		for (const skin of this.skins) {
+			if (typeof skin.css !== "string") {
+				if (!this.brokenSkins.has(skin.id)) this.log.warn(`theme: skin ${String(skin.id)} has no css`);
+				this.brokenSkins.add(skin.id);
+				continue;
+			}
+			this.setStyle(skinStyleId(skin), skin.css);
+		}
+		this.renderTokens(settings);
+		this.keepBeforeCustomCss();
+		this.setClasses(settings, this.previewTimer === null);
+		if (!this.watcher.isRunning()) this.watcher.start();
+	}
+	unapply() {
+		this.watcher.stop();
+		this.setClasses(null, false);
+		for (const { off } of this.styles.values()) try {
+			off();
+		} catch (error) {
+			this.log.warn("theme: style removal failed", error);
+		}
+		this.styles.clear();
+		this.applied = false;
+	}
+	setClasses(settings, on) {
+		const list = this.doc.documentElement?.classList;
+		if (!list) return;
+		list.toggle(THEME_CLASS, on);
+		for (const part of ALL_PARTS) list.toggle(partClass(part), on && settings?.parts[part] === true);
+	}
+	renderTokens(settings) {
+		let css;
+		try {
+			css = buildTokensCss(readStTheme(this.doc), {
+				density: settings.density,
+				radiusScale: settings.radiusScale
+			});
+		} catch (error) {
+			this.log.warn("theme: cannot read the ST theme", error);
+			return;
+		}
+		this.setStyle(TOKENS_STYLE_ID, css);
+	}
+	setStyle(id, css) {
+		if (this.styles.get(id)?.css === css) return;
+		this.styles.set(id, {
+			css,
+			off: this.app.ui.style(id, css)
+		});
+	}
+	/** Moves Maestro's theme sheets in front of ST's custom CSS so the user's own rules keep the last word. */
+	keepBeforeCustomCss() {
+		const custom = this.doc.getElementById(CUSTOM_CSS_ID);
+		const parent = custom?.parentNode;
+		if (!custom || !parent) return;
+		for (const id of this.styles.keys()) {
+			const node = this.doc.querySelector(`style[data-maestro-style="${id}"]`);
+			if (!node || node.parentNode !== parent) continue;
+			if (node.compareDocumentPosition(custom) & Node.DOCUMENT_POSITION_PRECEDING) parent.insertBefore(node, custom);
+		}
+	}
+	clearPreviewTimer() {
+		if (this.previewTimer !== null) clearTimeout(this.previewTimer);
+		this.previewTimer = null;
+	}
+	emitIfChanged() {
+		const settings = this.running ? this.settings() : null;
+		const signature = JSON.stringify([
+			this.enabled(),
+			this.parts(),
+			this.previewing(),
+			settings?.enabled,
+			settings?.density,
+			settings?.radiusScale,
+			this.styles.get("maestro-theme-tokens")?.css ?? ""
+		]);
+		if (signature === this.signature) return;
+		this.signature = signature;
+		for (const listener of [...this.listeners]) try {
+			listener();
+		} catch (error) {
+			this.log.warn("theme: change listener failed", error);
+		}
+	}
+};
+//#endregion
+//#region src/features/theme/strings.ts
+var THEME_STRINGS = {
+	en: {
+		"m32.theme.title": "Appearance",
+		"m32.theme.tab": "Appearance",
+		"m32.theme.intro": "One look for SillyTavern, the chat and the extensions. Colours, blur, shadows and font size come from your ST theme; Maestro adds rounded corners, spacing and consistent controls.",
+		"m32.theme.enabled": "Unified Maestro style",
+		"m32.theme.enabledHint": "Off: everything looks exactly as without Maestro. ST and extension settings are never changed.",
+		"m32.theme.offHint": "The unified style is off: SillyTavern and the extensions look as they do without Maestro.",
+		"m32.theme.parts": "What to restyle",
+		"m32.theme.partsHint": "Extensions appear here when they are installed and enabled.",
+		"m32.theme.part.st": "SillyTavern interface",
+		"m32.theme.part.chat": "Chat messages",
+		"m32.theme.part.des": "DES (scene headers, windows)",
+		"m32.theme.part.ck": "CarrotKernel",
+		"m32.theme.part.nai": "NAI Studio",
+		"m32.theme.part.desru": "DES-RU",
+		"m32.theme.part.qvink": "Qvink Memory",
+		"m32.theme.part.localizer": "Lorebook Localizer",
+		"m32.theme.density": "Density",
+		"m32.theme.density.comfortable": "Comfortable",
+		"m32.theme.density.compact": "Compact",
+		"m32.theme.radius": "Corners",
+		"m32.theme.radius.0": "Square",
+		"m32.theme.radius.0.5": "Slightly rounded",
+		"m32.theme.radius.1": "Rounded",
+		"m32.theme.radius.1.5": "Round",
+		"m32.theme.compareLabel": "Compare",
+		"m32.theme.compare": "Show the original look",
+		"m32.theme.compareBack": "Back to the unified style",
+		"m32.theme.compareHint": "Shows the page without Maestro’s style for 10 seconds, then the style comes back by itself. Nothing is saved."
+	},
+	ru: {
+		"m32.theme.title": "Оформление",
+		"m32.theme.tab": "Оформление",
+		"m32.theme.intro": "Один стиль для SillyTavern, чата и расширений. Цвета, размытие, тени и размер шрифта берутся из твоей темы ST, а Maestro добавляет скругления, отступы и единые элементы управления.",
+		"m32.theme.enabled": "Единый стиль Maestro",
+		"m32.theme.enabledHint": "Если выключить, всё будет выглядеть ровно как без Maestro. Настройки ST и расширений не меняются.",
+		"m32.theme.offHint": "Единый стиль выключен: SillyTavern и расширения выглядят как без Maestro.",
+		"m32.theme.parts": "Что оформлять",
+		"m32.theme.partsHint": "Расширения появятся в списке, когда они установлены и включены.",
+		"m32.theme.part.st": "Интерфейс SillyTavern",
+		"m32.theme.part.chat": "Сообщения чата",
+		"m32.theme.part.des": "DES (шапки сцен, окна)",
+		"m32.theme.part.ck": "CarrotKernel",
+		"m32.theme.part.nai": "NAI Studio",
+		"m32.theme.part.desru": "DES-RU",
+		"m32.theme.part.qvink": "Память Qvink",
+		"m32.theme.part.localizer": "Lorebook Localizer",
+		"m32.theme.density": "Плотность",
+		"m32.theme.density.comfortable": "Свободно",
+		"m32.theme.density.compact": "Плотно",
+		"m32.theme.radius": "Углы",
+		"m32.theme.radius.0": "Прямые",
+		"m32.theme.radius.0.5": "Чуть скруглённые",
+		"m32.theme.radius.1": "Скруглённые",
+		"m32.theme.radius.1.5": "Круглые",
+		"m32.theme.compareLabel": "Сравнить",
+		"m32.theme.compare": "Показать, как было",
+		"m32.theme.compareBack": "Вернуть единый стиль",
+		"m32.theme.compareHint": "На 10 секунд покажет страницу без стиля Maestro, потом стиль вернётся сам. Ничего не сохраняется."
+	}
+};
+//#endregion
+//#region src/features/theme/view.ts
+var THEME_TAB = "theme";
+var THEME_CSS = `
+.maestro-m32 { display: flex; flex-direction: column; gap: var(--maestro-gap-sm); }
+.maestro-m32-parts { display: flex; flex-direction: column; gap: 4px; }
+.maestro-m32-compare { display: flex; flex-wrap: wrap; align-items: center; gap: var(--maestro-gap-sm); }
+.maestro-m32 .maestro-toggle[aria-disabled='true'] { opacity: 0.55; }
+`;
+/** Name of a part: ST and chat from Maestro's strings, neighbours from their skin (fallback: Maestro's key). */
+function partLabel(app, part, skins) {
+	const own = `m32.theme.part.${part}`;
+	const skin = skins.find((item) => item.id === part);
+	if (skin?.titleKey) {
+		const label = app.i18n.t(skin.titleKey);
+		if (label && label !== skin.titleKey) return label;
+	}
+	return app.i18n.t(own);
+}
+/** What a neighbour part restyles (`<titleKey>.hint` of its skin), if the skin has such a string. */
+function partHint(app, part, skins) {
+	const skin = skins.find((item) => item.id === part);
+	if (!skin?.titleKey) return void 0;
+	const key = `${skin.titleKey}.hint`;
+	const hint = app.i18n.t(key);
+	return hint && hint !== key ? hint : void 0;
+}
+/** Parts listed in the settings: ST, chat, then each neighbour whose skin says it is on the page. */
+function listedParts(app, skins) {
+	const parts = ["st", "chat"];
+	for (const skin of skins) if (isPresent(app, skin) && !parts.includes(skin.id)) parts.push(skin.id);
+	return parts;
+}
+/** A throwing probe counts as «not on the page». */
+function isPresent(app, skin) {
+	try {
+		return skin.present(app) === true;
+	} catch {
+		return false;
+	}
+}
+/** Renders the settings into `container` and keeps them in sync with the layer; returns the cleanup. */
+function renderThemeSettings(container, deps, framed) {
+	const { app, layer, skins } = deps;
+	const t = app.i18n.t.bind(app.i18n);
+	const root = el("div", { class: "maestro-m32" });
+	container.appendChild(root);
+	const control = (node, key) => {
+		const target = node.matches("input, button") ? node : node.querySelector("input, button");
+		if (target) target.dataset.m32Control = key;
+		return node;
+	};
+	const draw = () => {
+		const focused = root.ownerDocument.activeElement?.dataset?.m32Control;
+		clear(root);
+		const settings = layer.settings();
+		const on = settings.enabled;
+		const enabled = control(toggle({
+			label: t("m32.theme.enabled"),
+			hint: t("m32.theme.enabledHint"),
+			checked: on,
+			onChange: (checked) => layer.setEnabled(checked)
+		}), "enabled");
+		const parts = el("div", {
+			class: "maestro-m32-parts",
+			attrs: {
+				role: "group",
+				"aria-label": t("m32.theme.parts")
+			}
+		}, listedParts(app, skins).map((part) => {
+			const node = control(toggle({
+				label: partLabel(app, part, skins),
+				hint: partHint(app, part, skins),
+				checked: settings.parts[part],
+				disabled: !on,
+				onChange: (checked) => layer.setPart(part, checked)
+			}), `part-${part}`);
+			node.dataset.part = part;
+			if (!on) node.setAttribute("aria-disabled", "true");
+			return node;
+		}));
+		const density = segmented({
+			label: t("m32.theme.density"),
+			value: settings.density,
+			options: DENSITIES.map((value) => ({
+				value,
+				label: t(`m32.theme.density.${value}`)
+			})),
+			onChange: (value) => layer.setDensity(value)
+		});
+		for (const node of density.querySelectorAll("button")) node.dataset.m32Control = `density-${node.dataset.value ?? ""}`;
+		const radius = segmented({
+			label: t("m32.theme.radius"),
+			value: String(settings.radiusScale),
+			options: RADIUS_PRESETS.map((value) => ({
+				value: String(value),
+				label: t(`m32.theme.radius.${value}`)
+			})),
+			onChange: (value) => layer.setRadiusScale(Number(value))
+		});
+		for (const node of radius.querySelectorAll("button")) node.dataset.m32Control = `radius-${node.dataset.value ?? ""}`;
+		const previewing = layer.previewing();
+		const compare = el("div", { class: "maestro-m32-compare" }, [control(button({
+			label: t(previewing ? "m32.theme.compareBack" : "m32.theme.compare"),
+			icon: previewing ? "fa-wand-magic-sparkles" : "fa-eye",
+			disabled: !on,
+			onClick: () => layer.preview(!previewing)
+		}), "compare")]);
+		compare.firstElementChild?.setAttribute("aria-pressed", previewing ? "true" : "false");
+		const body = [
+			el("div", {
+				class: "maestro-hint",
+				text: t("m32.theme.intro")
+			}),
+			enabled,
+			on ? null : el("div", {
+				class: "maestro-hint",
+				attrs: { role: "status" },
+				text: t("m32.theme.offHint")
+			}),
+			field$1(t("m32.theme.parts"), parts, t("m32.theme.partsHint")),
+			field$1(t("m32.theme.density"), density),
+			field$1(t("m32.theme.radius"), radius),
+			field$1(t("m32.theme.compareLabel"), compare, t("m32.theme.compareHint"))
+		];
+		if (framed) root.appendChild(section$1(t("m32.theme.title"), body));
+		else for (const node of body) if (node) root.appendChild(node);
+		if (focused) root.querySelector(`[data-m32-control="${focused}"]`)?.focus();
+	};
+	draw();
+	const off = layer.onChange(draw);
+	return () => {
+		off();
+		root.remove();
+	};
+}
+/** Fallback when the shell has no settings sections yet: a small pult tab «Оформление». */
+function themeTab(deps) {
+	return {
+		id: THEME_TAB,
+		titleKey: "m32.theme.tab",
+		icon: "fa-palette",
+		order: 98,
+		render: (container) => renderThemeSettings(container, deps, true)
+	};
+}
+/** Registers the settings where the shell wants them; returns the remover (own() it). */
+function registerThemeSettings(deps) {
+	const ui = deps.app.ui;
+	const offStyle = ui.style("maestro-m32-view", THEME_CSS);
+	let offView;
+	if (typeof ui.addSettingsSection === "function") offView = ui.addSettingsSection({
+		id: THEME_TAB,
+		titleKey: "m32.theme.title",
+		order: 30,
+		render: (container) => renderThemeSettings(container, deps, false)
+	});
+	else offView = ui.addTab(themeTab(deps));
+	return () => {
+		offView();
+		offStyle();
+	};
+}
+//#endregion
+//#region src/features/theme/module.ts
+/** `skinStrings`: the skins' own strings (their titleKey and hints), registered together with the module's. */
+function createThemeModule(skins, skinStrings) {
+	return {
+		id: "M32",
+		key: THEME_KEY,
+		stage: 12,
+		titleKey: "m32.theme.title",
+		enabledByDefault: true,
+		defaults: defaultThemeSettings,
+		i18n: skinStrings ? {
+			en: {
+				...skinStrings.en,
+				...THEME_STRINGS.en
+			},
+			ru: {
+				...skinStrings.ru,
+				...THEME_STRINGS.ru
+			}
+		} : THEME_STRINGS,
+		init({ app, log, own }) {
+			const layer = new ThemeLayer({
+				app,
+				log: log.scope("theme"),
+				skins
+			});
+			own(() => layer.dispose());
+			layer.start();
+			app.modules.expose(THEME_KEY, {
+				enabled: () => layer.enabled(),
+				parts: () => layer.parts(),
+				setEnabled: (on) => layer.setEnabled(on),
+				setPart: (part, on) => layer.setPart(part, on),
+				refresh: () => layer.refresh(),
+				onChange: (listener) => layer.onChange(listener)
+			});
+			own(registerThemeSettings({
+				app,
+				layer,
+				skins
+			}));
+		}
+	};
+}
+//#endregion
+//#region src/features/theme/neighbours/common.ts
+/** `html.maestro-theme.maestro-theme-<id>`: the start of every selector of a skin. */
+function skinScope(id) {
+	return `html.${THEME_CLASS}.${partClass(id)}`;
+}
+/**
+* Maestro's design tokens (src/features/theme/tokens.ts). The theme module defines them on `html.maestro-theme`,
+* which every skin rule requires, so they are always there when a skin applies. Colours, blur and shadow follow the
+* ST theme; radii, spacing and fonts are Maestro's. The status colours come from Maestro's own stylesheet
+* (src/ui/style.css), hence their fallbacks.
+*/
+var T = {
+	text: "var(--maestro-text)",
+	muted: "var(--maestro-text-muted)",
+	accent: "var(--maestro-accent)",
+	accentSoft: "var(--maestro-accent-soft)",
+	/** Text on an accent background. */
+	onAccent: "var(--maestro-on-accent)",
+	focus: "var(--maestro-focus)",
+	/** Frames (ST's border colour as is). */
+	border: "var(--maestro-border)",
+	/** Separators inside a surface: always visible. */
+	divider: "var(--maestro-divider)",
+	/** Window and panel background (translucent like ST's). */
+	surface1: "var(--maestro-surface-1)",
+	/** A section or card on a surface. */
+	surface2: "var(--maestro-surface-2)",
+	/** Hover, pressed, selected. */
+	surface3: "var(--maestro-surface-3)",
+	/** Opaque: menus, sticky headers, anything that must not be see-through. */
+	surfaceSolid: "var(--maestro-surface-solid)",
+	/** Input background. */
+	well: "var(--maestro-well)",
+	/** A colour, used inside box-shadow values. */
+	shadow: "var(--maestro-shadow)",
+	/** box-shadow values: raised blocks / floating windows (`none` with ST's «No text shadows»). */
+	elevation1: "var(--maestro-elevation-1)",
+	elevation2: "var(--maestro-elevation-2)",
+	/** A length (0px when ST's blur is off). */
+	blur: "var(--maestro-blur)",
+	radiusXs: "var(--maestro-radius-xs)",
+	radiusSm: "var(--maestro-radius-sm)",
+	radiusMd: "var(--maestro-radius-md)",
+	radiusLg: "var(--maestro-radius-lg)",
+	radiusPill: "var(--maestro-radius-pill)",
+	space1: "var(--maestro-space-1)",
+	space2: "var(--maestro-space-2)",
+	space3: "var(--maestro-space-3)",
+	space4: "var(--maestro-space-4)",
+	fontUi: "var(--maestro-font-ui)",
+	fontChat: "var(--maestro-font-chat)",
+	fontMono: "var(--maestro-font-mono)",
+	scrollThumb: "var(--maestro-scroll-thumb)",
+	ok: "var(--maestro-ok, rgb(88, 182, 0))",
+	warn: "var(--maestro-warn, rgb(230, 170, 40))",
+	error: "var(--maestro-error, rgb(225, 80, 80))"
+};
+/** Values built from the tokens that several skins share (Maestro's own buttons, src/ui/style.css). */
+var V = {
+	primaryBg: `color-mix(in srgb, ${T.accent} 32%, transparent)`,
+	primaryBgHover: `color-mix(in srgb, ${T.accent} 44%, transparent)`,
+	primaryBorder: `color-mix(in srgb, ${T.accent} 60%, transparent)`,
+	accentLine: `color-mix(in srgb, ${T.accent} 45%, transparent)`,
+	focusRing: `0 0 0 2px color-mix(in srgb, ${T.focus} 45%, transparent)`,
+	/** A hue mixed with ST's text colour: keeps the hue's meaning and stays readable on light and dark themes. */
+	readable: (hue, share = 65) => `color-mix(in srgb, ${hue} ${share}%, ${T.text})`
+};
+/** ST's phone breakpoint (its own `max-width: 1000px`). */
+var PHONE = "(max-width: 1000px)";
+/** Touch targets on phones: Maestro's density token, never below 36px. */
+var TOUCH = "max(36px, var(--maestro-touch))";
+var GROUP_AT_RULES = /* @__PURE__ */ new Set([
+	"media",
+	"supports",
+	"container"
+]);
+/** Index of the first `stop` character outside strings, brackets and parentheses (comments are gone), or -1. */
+function findTopLevel(text, from, stops) {
+	let depth = 0;
+	let quote = "";
+	for (let i = from; i < text.length; i++) {
+		const c = text.charAt(i);
+		if (quote) {
+			if (c === "\\") i++;
+			else if (c === quote) quote = "";
+		} else if (c === "\"" || c === "'") quote = c;
+		else if (c === "(" || c === "[") depth++;
+		else if (c === ")" || c === "]") depth--;
+		else if (depth === 0 && stops.includes(c)) return i;
+	}
+	return -1;
+}
+/** Index of the `}` closing the block opened at `open`. */
+function closingBrace(text, open) {
+	let depth = 0;
+	let quote = "";
+	for (let i = open; i < text.length; i++) {
+		const c = text.charAt(i);
+		if (quote) {
+			if (c === "\\") i++;
+			else if (c === quote) quote = "";
+		} else if (c === "\"" || c === "'") quote = c;
+		else if (c === "{") depth++;
+		else if (c === "}" && --depth === 0) return i;
+	}
+	throw new Error("neighbour skin: unbalanced braces");
+}
+/** Splits a selector list at its top-level commas (`:is(a, b)` stays whole). */
+function splitSelectors(list) {
+	const parts = [];
+	let start = 0;
+	for (let i = findTopLevel(list, 0, ","); i !== -1; i = findTopLevel(list, start, ",")) {
+		parts.push(list.slice(start, i));
+		start = i + 1;
+	}
+	parts.push(list.slice(start));
+	return parts.map((part) => part.trim().replace(/\s+/g, " ")).filter(Boolean);
+}
+function scopeSelector(scope, selector) {
+	return selector.startsWith("&") ? `${scope}${selector.slice(1)}` : `${scope} ${selector}`;
+}
+function scopeBlock(scope, css, indent) {
+	const out = [];
+	let pos = 0;
+	for (;;) {
+		const open = findTopLevel(css, pos, "{;}");
+		if (open === -1) {
+			if (css.slice(pos).trim()) throw new Error(`neighbour skin: dangling text "${css.slice(pos).trim()}"`);
+			break;
+		}
+		const prelude = css.slice(pos, open).trim();
+		if (css[open] !== "{") throw new Error(`neighbour skin: unexpected "${css[open]}" after "${prelude}"`);
+		const close = closingBrace(css, open);
+		const body = css.slice(open + 1, close);
+		if (prelude.startsWith("@")) {
+			const name = /^@([\w-]+)/.exec(prelude)?.[1] ?? "";
+			if (!GROUP_AT_RULES.has(name)) throw new Error(`neighbour skin: @${name} is not allowed`);
+			out.push(`${indent}${prelude.replace(/\s+/g, " ")} {\n${scopeBlock(scope, body, `${indent}    `)}${indent}}\n`);
+		} else {
+			if (!prelude) throw new Error("neighbour skin: a rule without a selector");
+			const selectors = splitSelectors(prelude).map((s) => scopeSelector(scope, s));
+			const declarations = body.split(/;(?![^(]*\))/).map((d) => d.trim().replace(/\s+/g, " ")).filter(Boolean).map((d) => `${indent}    ${d};\n`).join("");
+			out.push(`${indent}${selectors.join(`,\n${indent}`)} {\n${declarations}${indent}}\n`);
+		}
+		pos = close + 1;
+	}
+	return out.join("");
+}
+/** Prefixes every selector of `css` with `scope`; comments are dropped. Throws on malformed CSS. */
+function scopeCss(scope, css) {
+	return scopeBlock(scope, css.replace(/\/\*[\s\S]*?\*\//g, ""), "");
+}
+function domHas(selectors) {
+	if (typeof document === "undefined") return false;
+	return selectors.some((selector) => {
+		try {
+			return document.querySelector(selector) !== null;
+		} catch {
+			return false;
+		}
+	});
+}
+/** True when the neighbour's adapter says it is present, or one of its own elements is on the page. */
+function neighbourPresent(app, id, probes) {
+	try {
+		if (app.adapters[id]?.present()) return true;
+	} catch {}
+	return domHas(probes);
+}
+//#endregion
+//#region src/features/theme/neighbours/ck.ts
+/** CK's settings block. */
+var CK_PROBES = ["#carrot_settings"];
+/** CK's own surfaces: inside them ST's `--active` (CK's highlight) becomes Maestro's accent. */
+var ROOTS = ":is(#carrot_settings, .carrot-extension-settings, .carrot-popup-overlay, .carrot-popup-container, .baby-bunny-overlay, .carrot-tutorial-overlay, .carrot-rag-overlay, .ck-panel, .bmt-template-interface)";
+var SETTINGS$2 = ":is(#carrot_settings, .carrot-extension-settings)";
+var CSS$5 = `
+/* ---------------------------------------------------------------- variables */
+
+${ROOTS} {
+    --active: ${T.accent};
+}
+
+/* The lorebook tracker's palette (CK defines it on :root). */
+& body {
+    --ck-primary: ${T.accent};
+    --ck-primary-light: ${T.accent};
+    --ck-primary-dark: ${T.accent};
+    --ck-primary-gradient: ${T.accent};
+    --ck-primary-alpha: ${T.accentSoft};
+    --ck-primary-alpha-heavy: color-mix(in srgb, ${T.accent} 30%, transparent);
+    --ck-glass-light: ${T.surface2};
+    --ck-glass-medium: ${T.surface2};
+    --ck-glass-heavy: ${T.surface3};
+    --ck-radius-xs: ${T.radiusSm};
+    --ck-radius-sm: ${T.radiusSm};
+    --ck-radius-md: ${T.radiusMd};
+    --ck-radius-lg: ${T.radiusLg};
+    --ck-radius-xl: ${T.radiusLg};
+    --ck-shadow-glow: 0 0 16px ${T.accentSoft};
+}
+
+/* ---------------------------------------------------------------- settings block */
+
+${SETTINGS$2} {
+    font-family: ${T.fontUi};
+}
+
+${SETTINGS$2} .carrot-card {
+    background: ${T.surface2};
+    border: 1px solid ${T.border};
+    border-radius: ${T.radiusMd};
+    box-shadow: none;
+}
+
+${SETTINGS$2} .carrot-card:hover {
+    border-color: ${V.accentLine};
+    box-shadow: none;
+    transform: none;
+}
+
+${SETTINGS$2} .carrot-card-header {
+    background: transparent;
+    border-bottom: 1px solid ${T.divider};
+}
+
+${SETTINGS$2} .carrot-card-header h3 {
+    color: ${T.text};
+}
+
+${SETTINGS$2} .carrot-card-body {
+    background: transparent;
+}
+
+${SETTINGS$2} :is(.carrot-card-subtitle, .carrot-help-text, .carrot-status-detail, .carrot-lorebook-status, .carrot-slider-hint) {
+    color: ${T.muted};
+}
+
+${SETTINGS$2} :is(.carrot-toggle-label, .carrot-slider-title, .carrot-status-value, .carrot-lorebook-item, .carrot-lorebook-name) {
+    color: ${T.text};
+}
+
+${SETTINGS$2} :is(.carrot-select, .carrot-input) {
+    background: ${T.well};
+    border: 1px solid ${T.border};
+    border-radius: ${T.radiusSm};
+    color: ${T.text};
+}
+
+${SETTINGS$2} :is(.carrot-select, .carrot-input):hover {
+    border-color: ${V.accentLine};
+}
+
+${SETTINGS$2} :is(.carrot-select, .carrot-input):focus {
+    border-color: ${T.accent};
+    box-shadow: ${V.focusRing};
+}
+
+${SETTINGS$2} .carrot-toggle {
+    background: ${T.surface2};
+    border-color: ${T.border};
+    border-radius: ${T.radiusSm};
+}
+
+${SETTINGS$2} .carrot-toggle:hover {
+    background: ${T.accentSoft};
+    border-color: ${V.accentLine};
+}
+
+${SETTINGS$2} .carrot-toggle-slider {
+    background: ${T.surface3};
+    box-shadow: none;
+}
+
+${SETTINGS$2} .carrot-toggle input:checked + .carrot-toggle-slider {
+    background: ${T.accent};
+    box-shadow: none;
+}
+
+${SETTINGS$2} .carrot-slider-container {
+    background: ${T.surface2};
+    border-color: ${T.border};
+    border-radius: ${T.radiusSm};
+}
+
+${SETTINGS$2} .carrot-slider-container:hover {
+    background: ${T.accentSoft};
+    border-color: ${V.accentLine};
+    box-shadow: none;
+}
+
+${SETTINGS$2} .carrot-slider {
+    background: ${T.well};
+    border-color: ${T.border};
+}
+
+${SETTINGS$2} .carrot-slider::-webkit-slider-thumb {
+    background: ${T.accent};
+    border-color: ${T.surface1};
+}
+
+${SETTINGS$2} .carrot-slider::-moz-range-thumb {
+    background: ${T.accent};
+    border-color: ${T.surface1};
+}
+
+${SETTINGS$2} .carrot-status-section {
+    background: transparent;
+    border-color: ${T.border};
+    border-radius: ${T.radiusMd};
+    box-shadow: none;
+}
+
+${SETTINGS$2} .carrot-status-panel {
+    background: ${T.surface2};
+    border-color: ${T.border};
+    border-left: 3px solid ${T.accent};
+    border-radius: ${T.radiusMd};
+}
+
+${SETTINGS$2} .carrot-status-panel:hover {
+    background: ${T.surface3};
+    border-color: ${V.accentLine};
+    box-shadow: none;
+    transform: none;
+}
+
+${SETTINGS$2} .carrot-status-panel.active {
+    background: ${T.accentSoft} !important;
+    box-shadow: none !important;
+    transform: none !important;
+}
+
+${SETTINGS$2} .carrot-status-icon {
+    background: ${T.accentSoft};
+    border-color: ${V.accentLine};
+    border-radius: ${T.radiusSm};
+    color: ${T.accent};
+}
+
+${SETTINGS$2} .carrot-status-title {
+    color: ${T.accent};
+}
+
+${SETTINGS$2} .carrot-lorebook-container {
+    background: transparent;
+    border-color: ${T.border};
+    border-radius: ${T.radiusMd};
+}
+
+${SETTINGS$2} .carrot-lorebook-item {
+    border-bottom-color: ${T.divider};
+}
+
+${SETTINGS$2} .carrot-lorebook-item:hover {
+    background: ${T.surface2};
+    transform: none;
+}
+
+/* ---------------------------------------------------------------- buttons (settings and popups) */
+
+${ROOTS} .carrot-primary-btn {
+    background: ${V.primaryBg};
+    border: 1px solid ${V.primaryBorder};
+    border-radius: ${T.radiusSm};
+    color: ${T.text};
+    box-shadow: none;
+}
+
+${ROOTS} .carrot-primary-btn:hover {
+    background: ${V.primaryBgHover};
+    border-color: ${T.accent};
+    box-shadow: none;
+    transform: none;
+}
+
+${ROOTS} .carrot-secondary-btn {
+    background: ${T.surface2};
+    border: 1px solid ${T.border};
+    border-radius: ${T.radiusSm};
+    color: ${T.text};
+}
+
+${ROOTS} .carrot-secondary-btn:hover {
+    background: ${T.surface3};
+    border-color: ${V.accentLine};
+    transform: none;
+}
+
+${ROOTS} :is(.carrot-primary-btn, .carrot-secondary-btn):focus-visible {
+    outline: none;
+    box-shadow: ${V.focusRing};
+}
+
+/* ---------------------------------------------------------------- popups, tutorial, RAG viewer */
+
+.carrot-popup-overlay {
+    backdrop-filter: blur(${T.blur});
+}
+
+.carrot-popup-container,
+.chunk-modal {
+    background: ${T.surface1};
+    border: 1px solid ${T.border};
+    border-radius: ${T.radiusLg};
+    box-shadow: ${T.elevation2};
+    color: ${T.text};
+    font-family: ${T.fontUi};
+}
+
+.carrot-popup-content {
+    background: transparent;
+}
+
+.carrot-popup-header {
+    background: transparent;
+    border-bottom: 1px solid ${T.divider};
+    color: ${T.text};
+}
+
+.carrot-popup-header :is(h3, h4) {
+    color: ${T.text};
+}
+
+.carrot-popup-close {
+    color: ${T.muted};
+    border-radius: ${T.radiusSm};
+}
+
+.carrot-popup-close:hover {
+    background: ${T.surface3};
+    color: ${T.text};
+}
+
+.carrot-popup-body {
+    color: ${T.text};
+}
+
+/* The tutorial floats over the settings without a backdrop: opaque. */
+.carrot-tutorial-popup {
+    background: ${T.surfaceSolid};
+    border-radius: ${T.radiusLg};
+    box-shadow: ${T.elevation2};
+    color: ${T.text};
+    font-family: ${T.fontUi};
+}
+
+.carrot-rag-overlay {
+    backdrop-filter: blur(${T.blur});
+}
+
+/* ---------------------------------------------------------------- lorebook tracker */
+
+.ck-panel {
+    background: ${T.surface1};
+    border: 1px solid ${T.border};
+    border-radius: ${T.radiusLg};
+    box-shadow: ${T.elevation2};
+    font-family: ${T.fontUi};
+}
+
+.ck-panel .ck-header {
+    background: ${T.surface2};
+    border-bottom-color: ${T.divider};
+}
+
+.ck-panel .ck-header__title {
+    text-shadow: none;
+}
+
+.ck-panel :is(.ck-header__badge, .ck-world-header__badge) {
+    background: ${T.accentSoft};
+    border-color: ${V.accentLine};
+    color: ${T.text};
+    box-shadow: none;
+    text-shadow: none;
+}
+
+.ck-panel .ck-world-header {
+    background: ${T.surface2};
+    border-bottom-color: ${T.divider};
+}
+
+.ck-panel .ck-content {
+    background: transparent;
+}
+
+.ck-panel .ck-entry {
+    border-left-color: ${T.accent};
+    border-radius: ${T.radiusSm};
+}
+
+.ck-panel .ck-empty {
+    background: transparent;
+}
+
+/* ---------------------------------------------------------------- BunnyMo blocks in messages */
+
+.mes .carrot-thinking-details {
+    margin: ${T.space2} 0;
+    padding: ${T.space1} ${T.space2};
+    background: ${T.surface2};
+    border: 1px solid ${T.border};
+    border-left: 3px solid ${T.accent};
+    border-radius: ${T.radiusMd};
+    font-family: ${T.fontUi};
+}
+
+.mes .carrot-thinking-summary {
+    cursor: pointer;
+}
+
+.mes .bmt-tracker-card.horizontal-layout {
+    border: 1px solid ${T.border} !important;
+    border-radius: ${T.radiusLg} !important;
+    box-shadow: ${T.elevation1} !important;
+}
+
+/* ---------------------------------------------------------------- phones: touch targets */
+
+@media ${PHONE} {
+    .carrot-popup-close {
+        min-width: ${TOUCH};
+        min-height: ${TOUCH};
+    }
+
+    ${ROOTS} :is(.carrot-primary-btn, .carrot-secondary-btn) {
+        min-height: ${TOUCH};
+    }
+}
+`;
+var CK_SKIN = {
+	id: "ck",
+	titleKey: "m32.skin.ck",
+	css: scopeCss(skinScope("ck"), CSS$5),
+	present: (app) => neighbourPresent(app, "ck", CK_PROBES)
+};
+//#endregion
+//#region src/features/theme/neighbours/des.ts
+/** DES's settings block (Extensions panel), its tracker panel and its portrait bar. */
+var DES_PROBES = [
+	"#rpg-extension-enabled",
+	".rpg-panel",
+	"#dooms-portrait-bar-wrapper"
+];
+/** Every DES window and panel; the id inside gives each rule id weight (DES's own rules are id-scoped). */
+var SURFACES = ":is(#rpg-settings-popup, .rpg-settings-popup, .rpg-lb-modal, .rpg-panel, #rpg-thought-panel)";
+/** The settings, editor, log, Workshop, Roster and sheet windows share this frame. */
+var POPUP = ":is(#rpg-settings-popup, .rpg-settings-popup)";
+var LORE = ":is(#rpg-lorebook-modal, .rpg-lb-modal)";
+/** The portrait bar laid out as a strip (above / below / top), not as a side panel. */
+var STRIP = "#dooms-portrait-bar-wrapper:not(.dooms-pb-position-left, .dooms-pb-position-right)";
+var SCENE_BLOCKS = ":is(.dooms-scene-header, .dooms-info-banner, .dooms-info-hud, .dooms-info-ticker-wrapper, .dooms-scene-transition)";
+var RPG_VARIABLES = `
+    --rpg-bg: ${T.surface1};
+    --rpg-accent: ${T.surface2};
+    --rpg-text: ${T.text};
+    --rpg-highlight: ${T.accent};
+    --rpg-border: ${T.border};
+    --rpg-shadow: ${T.shadow};
+    --rpg-text-muted: ${T.muted};
+`;
+var CSS$4 = `
+/* ---------------------------------------------------------------- variables */
+
+/* Anything outside DES's own variable holders (thoughts and tracker data in the chat, side portrait panel) reads them
+   from body; the chat bubbles and the portrait cards take Maestro's accent and radius. */
+& body {
+    ${RPG_VARIABLES}
+    --cb-accent: ${T.accent};
+    --cb-border-radius: ${T.radiusMd};
+    --dooms-pb-card-radius: ${T.radiusMd};
+}
+
+/* DES's holders (default theme, [data-theme] themes) and their children (the «custom» theme writes inline). */
+.rpg-panel,
+.rpg-panel > *,
+#rpg-thought-panel,
+#rpg-thought-panel > *,
+#rpg-thought-icon,
+#rpg-thought-icon > *,
+.rpg-mobile-toggle,
+.rpg-mobile-toggle > *,
+#dooms-settings-fab,
+#dooms-settings-fab > *,
+${LORE},
+${LORE} > *,
+${POPUP} .rpg-settings-popup-content,
+${POPUP} .rpg-settings-popup-content > * {
+    ${RPG_VARIABLES}
+}
+
+/* ---------------------------------------------------------------- tracker panel and floating parts */
+
+.rpg-panel {
+    background: ${T.surface1};
+    color: ${T.text};
+    font-family: ${T.fontUi};
+    box-shadow: ${T.elevation2};
+}
+
+#rpg-thought-panel,
+.rpg-mobile-toggle {
+    color: ${T.text};
+    font-family: ${T.fontUi};
+}
+
+${SURFACES} .rpg-panel-header {
+    border-bottom: 1px solid ${T.divider};
+}
+
+${SURFACES} .rpg-panel-header h3 {
+    color: ${T.text};
+    text-shadow: none;
+}
+
+${SURFACES} .rpg-panel-header h3 i {
+    color: ${T.accent};
+}
+
+${SURFACES} .rpg-content-box {
+    background: ${T.surface2};
+    border: 1px solid ${T.border};
+    border-radius: ${T.radiusMd};
+    box-shadow: none;
+}
+
+${SURFACES} .rpg-tab-btn:hover {
+    background: ${T.accentSoft};
+}
+
+${SURFACES} .rpg-tab-btn.active {
+    color: ${T.text};
+    border-bottom-color: ${T.accent};
+}
+
+/* ---------------------------------------------------------------- windows: frame, header, footer */
+
+/* The backdrops: a pseudo-element of the settings-style windows, the overlay itself for the Lore Library. */
+${POPUP}::before,
+${LORE} {
+    backdrop-filter: blur(${T.blur});
+}
+
+${POPUP} .rpg-settings-popup-content,
+${LORE} .rpg-lb-modal-content {
+    background: ${T.surface1};
+    color: ${T.text};
+    border: 1px solid ${T.border};
+    border-radius: ${T.radiusLg};
+    box-shadow: ${T.elevation2};
+    font-family: ${T.fontUi};
+}
+
+${POPUP} .rpg-settings-popup-header {
+    background: transparent;
+    border-bottom: 1px solid ${T.divider};
+}
+
+${LORE} .rpg-lb-modal-header {
+    background: ${T.surface2};
+    border-bottom: 1px solid ${T.divider};
+}
+
+${POPUP} .rpg-settings-popup-header h3,
+${LORE} .rpg-lb-modal-header h3 {
+    color: ${T.text};
+    font-weight: 600;
+}
+
+${POPUP} .rpg-settings-popup-header h3 i,
+${LORE} .rpg-lb-modal-header h3 i {
+    color: ${T.accent};
+}
+
+${POPUP} .rpg-settings-popup-footer,
+${LORE} .rpg-lb-modal-footer {
+    background: transparent;
+    border-top: 1px solid ${T.divider};
+}
+
+${POPUP} .rpg-popup-close,
+${LORE} .rpg-lb-close {
+    color: ${T.muted};
+    border-radius: ${T.radiusSm};
+}
+
+${POPUP} .rpg-popup-close:hover,
+${POPUP} .rpg-popup-close:focus-visible,
+${LORE} .rpg-lb-close:hover,
+${LORE} .rpg-lb-close:focus-visible {
+    background: ${T.surface3};
+    color: ${T.text};
+}
+
+/* ---------------------------------------------------------------- buttons */
+
+${SURFACES} :is(.rpg-btn, .rpg-btn-secondary, .rpg-lb-btn, .rpg-accordion-action-btn, .rpg-lb-close-editor-btn) {
+    background: ${T.surface2};
+    border: 1px solid ${T.border};
+    border-radius: ${T.radiusSm};
+    color: ${T.text};
+    box-shadow: none;
+}
+
+${SURFACES} :is(.rpg-btn, .rpg-btn-secondary, .rpg-lb-btn, .rpg-accordion-action-btn, .rpg-lb-close-editor-btn):hover {
+    background: ${T.surface3};
+    border-color: ${V.accentLine};
+    color: ${T.text};
+}
+
+${SURFACES} .rpg-btn-primary {
+    background: ${V.primaryBg};
+    border: 1px solid ${V.primaryBorder};
+    border-radius: ${T.radiusSm};
+    color: ${T.text};
+    box-shadow: none;
+}
+
+${SURFACES} .rpg-btn-primary:hover {
+    background: ${V.primaryBgHover};
+    border-color: ${T.accent};
+    color: ${T.text};
+    box-shadow: none;
+}
+
+${SURFACES} .rpg-btn-ghost {
+    background: transparent;
+    border-color: transparent;
+}
+
+${SURFACES} .rpg-btn-ghost:hover {
+    background: ${T.surface3};
+    border-color: ${T.border};
+}
+
+${SURFACES} :is(.rpg-btn, .rpg-btn-primary, .rpg-btn-secondary, .rpg-lb-btn):focus-visible {
+    outline: none;
+    box-shadow: ${V.focusRing};
+}
+
+/* ---------------------------------------------------------------- inputs, toggles, accordions */
+
+${SURFACES} :is(.rpg-input, .rpg-select, .rpg-textarea, .rpg-prompt-textarea, .rpg-accordion-input, .rpg-accordion-select, .rpg-inline-input),
+${SURFACES} .rpg-setting-row input[type="number"] {
+    background: ${T.well};
+    border: 1px solid ${T.border};
+    border-radius: ${T.radiusSm};
+    color: ${T.text};
+}
+
+${SURFACES} :is(.rpg-input, .rpg-select, .rpg-textarea, .rpg-prompt-textarea, .rpg-accordion-input, .rpg-accordion-select, .rpg-inline-input):focus,
+${SURFACES} .rpg-setting-row input[type="number"]:focus {
+    outline: none;
+    border-color: ${T.accent};
+    box-shadow: ${V.focusRing};
+}
+
+${SURFACES} .rpg-toggle-slider {
+    background: ${T.surface3};
+}
+
+${SURFACES} .rpg-toggle-slider::before {
+    background: ${T.muted};
+}
+
+${SURFACES} .rpg-toggle-switch input:checked + .rpg-toggle-slider {
+    background: ${V.primaryBg};
+}
+
+${SURFACES} .rpg-toggle-switch input:checked + .rpg-toggle-slider::before {
+    background: ${T.accent};
+}
+
+${SURFACES} .rpg-toggle-switch input:focus-visible + .rpg-toggle-slider {
+    box-shadow: ${V.focusRing};
+}
+
+${SURFACES} .rpg-accordion-section {
+    background: ${T.surface2};
+    border: 1px solid ${T.border};
+    border-radius: ${T.radiusMd};
+}
+
+${SURFACES} .rpg-accordion-header {
+    background: transparent;
+}
+
+${SURFACES} .rpg-accordion-header:hover {
+    background: ${T.accentSoft};
+}
+
+${SURFACES} .rpg-accordion-title {
+    color: ${T.text};
+}
+
+${SURFACES} .rpg-accordion-body {
+    background: transparent;
+    border-top: 1px solid ${T.divider};
+}
+
+${SURFACES} .rpg-accordion-body .rpg-setting-row + .rpg-setting-row {
+    border-top-color: ${T.divider};
+}
+
+${SURFACES} :is(.rpg-setting-hint, .rpg-prompt-hint, .rpg-subsection-label),
+${SURFACES} .rpg-setting-row small {
+    color: ${T.muted};
+}
+
+${SURFACES} .rpg-subsection-label {
+    border-top-color: ${T.divider};
+}
+
+/* ---------------------------------------------------------------- Workshop, Roster, editor and library tabs */
+
+${SURFACES} :is(.cr-mode-pill, .cr-scope-pill) {
+    border-color: ${T.border};
+    color: ${T.muted};
+}
+
+${SURFACES} :is(.cr-mode-pill, .cr-scope-pill):hover {
+    border-color: ${V.accentLine};
+    color: ${T.text};
+}
+
+${SURFACES} :is(.cr-mode-pill, .cr-scope-pill).is-active {
+    background: ${T.accentSoft};
+    border-color: ${T.accent};
+    color: ${T.text};
+}
+
+${SURFACES} .cr-tile {
+    background: ${T.surface2};
+    border-color: ${T.border};
+    border-radius: ${T.radiusMd};
+}
+
+${SURFACES} .cr-tile:is(:hover, :focus-visible) {
+    border-color: ${T.accent};
+    box-shadow: 0 6px 18px ${T.accentSoft};
+}
+
+${SURFACES} .rpg-editor-tab {
+    background: transparent;
+    color: ${T.muted};
+}
+
+${SURFACES} .rpg-editor-tab:hover {
+    background: ${T.surface2};
+    color: ${T.text};
+}
+
+${SURFACES} .rpg-editor-tab.active {
+    background: ${T.accentSoft};
+    border-bottom-color: ${T.accent};
+    color: ${T.text};
+}
+
+${SURFACES} .rpg-lb-tab {
+    color: ${T.muted};
+}
+
+${SURFACES} .rpg-lb-tab:hover {
+    color: ${T.text};
+}
+
+${SURFACES} .rpg-lb-tab.active {
+    background: ${T.accentSoft};
+    border-bottom-color: ${T.accent};
+    color: ${T.text};
+}
+
+${SURFACES} .workshop-nav {
+    border-bottom-color: ${T.divider};
+}
+
+${SURFACES} .workshop-nav button:not(.active) {
+    color: ${T.muted};
+}
+
+${SURFACES} .workshop-nav button:not(.active):hover {
+    background: ${T.surface2};
+    color: ${T.text};
+}
+
+/* Greys DES hard-codes for dark themes only (#555 … #aaa) become the muted text colour; active states keep DES's
+   meaning (a green «on» toolbar button stays green), white-on-red ones move to the accent. */
+${SURFACES} :is(.rpg-accordion-chevron, .rpg-accordion-mini-btn, .rpg-lb-toolbar-btn, .rpg-lb-fpill, .rpg-cs-tab, .rpg-inspector-tab):not(.active) {
+    color: ${T.muted};
+}
+
+${SURFACES} :is(.rpg-accordion-mini-btn, .rpg-lb-fpill, .rpg-cs-tab, .rpg-inspector-tab):not(.active):hover {
+    color: ${T.text};
+}
+
+${SURFACES} .rpg-lb-toolbar-btn:not(.active):hover {
+    color: ${T.accent};
+}
+
+${SURFACES} :is(.rpg-cs-tab, .rpg-inspector-tab).active {
+    color: ${T.text};
+    border-bottom-color: ${T.accent};
+}
+
+${SURFACES} .rpg-lb-fpill.active {
+    background: ${T.accent};
+    border-color: ${T.accent};
+    color: ${T.onAccent};
+}
+
+/* ---------------------------------------------------------------- settings block in the Extensions panel */
+
+.dooms-github-star-btn {
+    background: ${T.surface2};
+    border: 1px solid ${T.border};
+    border-radius: ${T.radiusSm};
+    color: ${T.text};
+}
+
+.dooms-github-star-btn:hover {
+    background: ${T.surface3};
+    box-shadow: none;
+}
+
+.dooms-github-star-btn:focus-visible {
+    box-shadow: ${V.focusRing};
+}
+
+.dooms-github-star-btn .dooms-github-star-label {
+    color: ${T.text};
+}
+
+.dooms-github-star-btn .dooms-github-star-icon {
+    color: ${T.muted};
+}
+
+/* ---------------------------------------------------------------- portrait bar */
+
+${STRIP} .dooms-portrait-bar,
+${STRIP} .dooms-pb-toggle {
+    background: ${T.surface2};
+}
+
+#dooms-portrait-bar-wrapper:is(.dooms-pb-position-left, .dooms-pb-position-right) {
+    border-color: ${T.border};
+    box-shadow: 0 0 18px ${T.shadow};
+}
+
+#dooms-portrait-bar-wrapper .dooms-pb-toggle:hover {
+    background: ${T.accentSoft};
+}
+
+#dooms-portrait-bar-wrapper .dooms-pb-toggle-dot {
+    background: ${V.accentLine};
+}
+
+#dooms-portrait-bar-wrapper .dooms-pb-toggle:hover .dooms-pb-toggle-dot {
+    background: ${T.accent};
+}
+
+#dooms-portrait-bar-wrapper :is(.dooms-pb-toggle-label, .dooms-pb-toggle-chevron, .dooms-pb-count, .dooms-pb-empty) {
+    color: ${T.muted};
+}
+
+#dooms-portrait-bar-wrapper .dooms-pb-toggle:hover :is(.dooms-pb-toggle-label, .dooms-pb-toggle-chevron) {
+    color: ${T.text};
+}
+
+#dooms-portrait-bar-wrapper .dooms-pb-title {
+    color: ${T.accent};
+    font-family: ${T.fontUi};
+}
+
+#dooms-portrait-bar-wrapper .dooms-pb-count {
+    background: ${T.surface2};
+    border-radius: ${T.radiusPill};
+}
+
+#dooms-portrait-bar-wrapper .dooms-pb-header {
+    border-bottom-color: ${T.divider};
+}
+
+#dooms-portrait-bar-wrapper .dooms-pb-restore-btn {
+    border-color: ${T.border};
+    border-radius: ${T.radiusSm};
+    color: ${T.muted};
+}
+
+#dooms-portrait-bar-wrapper .dooms-pb-restore-btn:hover {
+    background: ${T.accentSoft};
+    border-color: ${T.accent};
+    color: ${T.text};
+}
+
+#dooms-portrait-bar-wrapper .dooms-portrait-card {
+    background: ${T.surface2};
+    border-color: ${T.border};
+}
+
+#dooms-portrait-bar-wrapper .dooms-portrait-card:hover {
+    border-color: ${T.accent};
+    box-shadow: 0 4px 12px ${T.accentSoft};
+}
+
+#dooms-portrait-bar-wrapper .dooms-portrait-card.dooms-pb-speaking {
+    border-color: ${T.accent};
+    box-shadow: 0 0 8px ${V.accentLine};
+}
+
+#dooms-portrait-bar-wrapper .dooms-portrait-card.dooms-pb-speaking::before {
+    background: ${T.accent};
+}
+
+#dooms-portrait-bar-wrapper :is(.dooms-pb-you-badge, .dooms-pb-new-badge) {
+    background: ${T.accent};
+    color: ${T.onAccent};
+}
+
+#dooms-portrait-bar-wrapper .dooms-portrait-card.dooms-pb-user {
+    box-shadow: 0 0 0 2px ${V.accentLine};
+}
+
+#dooms-portrait-bar-wrapper .dooms-portrait-card-name {
+    font-family: ${T.fontUi};
+}
+
+#dooms-portrait-bar-wrapper .dooms-portrait-card-emoji {
+    background: ${T.surface2};
+}
+
+#dooms-portrait-bar-wrapper .dooms-pb-back-header {
+    border-bottom-color: ${V.accentLine};
+}
+
+#dooms-portrait-bar-wrapper :is(.dooms-pb-back-name, .dooms-pb-back-label) {
+    color: ${T.accent};
+}
+
+#dooms-portrait-bar-wrapper .dooms-pb-arrow {
+    background: ${T.surface1};
+    border-color: ${T.border};
+    color: ${T.text};
+}
+
+#dooms-portrait-bar-wrapper .dooms-pb-arrow:hover {
+    background: ${T.accentSoft};
+    border-color: ${T.accent};
+    color: ${T.text};
+}
+
+#dooms-portrait-bar-wrapper .dooms-pb-scroll::-webkit-scrollbar-thumb {
+    background: ${T.scrollThumb};
+}
+
+.dooms-pb-context-menu {
+    background: ${T.surfaceSolid};
+    border: 1px solid ${T.border};
+    border-radius: ${T.radiusMd};
+    box-shadow: ${T.elevation2};
+    font-family: ${T.fontUi};
+}
+
+.dooms-pb-context-menu .dooms-pb-ctx-item {
+    color: ${T.text};
+}
+
+.dooms-pb-context-menu .dooms-pb-ctx-item:hover {
+    background: ${T.accentSoft};
+    color: ${T.text};
+}
+
+.dooms-pb-context-menu .dooms-pb-ctx-danger {
+    color: ${V.readable(T.error, 80)};
+}
+
+.dooms-pb-context-menu .dooms-pb-ctx-divider {
+    background: ${T.divider};
+}
+
+/* ---------------------------------------------------------------- chat: scene header, info box, transitions */
+
+${SCENE_BLOCKS} * {
+    --st-accent: ${T.accent};
+    --st-border-color: ${T.border};
+    --st-label-color: ${T.muted};
+    --st-text-color: ${T.text};
+    --st-quest-icon: ${T.accent};
+    --st-quest-text: ${T.text};
+    --st-events-text: ${T.muted};
+    --st-border-radius: ${T.radiusMd};
+}
+
+:is(.dooms-scene-header, .dooms-info-banner) {
+    background: ${T.surface2};
+    border: 1px solid ${T.border};
+    border-left: 3px solid ${T.accent};
+    border-radius: ${T.radiusMd};
+    font-family: ${T.fontUi};
+}
+
+.dooms-scene-characters {
+    border-top-color: ${T.divider};
+}
+
+.dooms-scene-char-badge {
+    background: ${T.accentSoft};
+    border-color: ${V.accentLine};
+    color: ${T.text};
+}
+
+.dooms-info-hud {
+    background: ${T.surface1};
+    border-color: ${T.border};
+    border-radius: ${T.radiusMd};
+    box-shadow: ${T.elevation2};
+    font-family: ${T.fontUi};
+    color: ${T.text};
+}
+
+.dooms-info-ticker-wrapper {
+    background: ${T.surface1};
+    border-color: ${T.border};
+    border-radius: 0 0 ${T.radiusMd} ${T.radiusMd};
+    box-shadow: ${T.elevation1};
+    font-family: ${T.fontUi};
+    color: ${T.text};
+}
+
+.dooms-info-ticker:hover {
+    background: ${T.accentSoft};
+}
+
+.dooms-scene-transition {
+    font-family: ${T.fontUi};
+}
+
+.dooms-transition-cinematic {
+    background: ${T.surface2};
+    border-top-color: ${T.border};
+    border-bottom-color: ${T.border};
+}
+
+.dooms-transition-hybrid {
+    background: ${T.surface2};
+    border-color: ${T.border};
+    border-radius: ${T.radiusLg};
+}
+
+/* ---------------------------------------------------------------- chat: thoughts and tracker data */
+
+.dooms-inline-thought {
+    background: ${T.surface2};
+    border-left-color: ${T.accent};
+    border-radius: ${T.radiusSm};
+}
+
+.dooms-inline-thought[open] {
+    background: color-mix(in srgb, ${T.accent} 8%, transparent);
+}
+
+.dooms-inline-thought-summary {
+    color: ${T.text};
+    font-family: ${T.fontUi};
+}
+
+.dooms-inline-thought-content {
+    color: ${T.text};
+    font-family: ${T.fontChat};
+    border-top-color: ${T.divider};
+}
+
+.dooms-thought-tts:hover {
+    background: ${T.accentSoft};
+    color: ${T.accent};
+}
+
+.dooms-tracker-json {
+    background: ${T.surface2};
+    border-left-color: ${T.border};
+    border-radius: ${T.radiusSm};
+    font-family: ${T.fontUi};
+}
+
+.dooms-tracker-json[open] {
+    background: ${T.surface3};
+}
+
+/* ---------------------------------------------------------------- phones: touch targets */
+
+/* DES makes the Lore Library header sticky on narrow screens: it must not be see-through. */
+@media (max-width: 600px) {
+    ${LORE} .rpg-lb-modal-header {
+        background: ${T.surfaceSolid};
+    }
+}
+
+@media ${PHONE} {
+    ${SURFACES} :is(.rpg-btn, .rpg-btn-primary, .rpg-btn-secondary, .rpg-lb-btn, .rpg-accordion-action-btn) {
+        min-height: ${TOUCH};
+    }
+
+    #dooms-portrait-bar-wrapper .dooms-pb-restore-btn {
+        min-width: ${TOUCH};
+        min-height: ${TOUCH};
+    }
+
+    .dooms-pb-context-menu .dooms-pb-ctx-item {
+        min-height: ${TOUCH};
+    }
+}
+`;
+var DES_SKIN = {
+	id: "des",
+	titleKey: "m32.skin.des",
+	css: scopeCss(skinScope("des"), CSS$4),
+	present: (app) => neighbourPresent(app, "des", DES_PROBES)
+};
+//#endregion
+//#region src/features/theme/neighbours/desru.ts
+/** DES-RU's settings block. */
+var DESRU_PROBES = ["#desru-settings"];
+var ROOT = ":is(#desru-settings, .desru-settings)";
+var CSS$3 = `
+${ROOT} {
+    font-family: ${T.fontUi};
+}
+
+${ROOT} :is(.desru-intro, .desru-des-name, .desru-notes, .desru-module-desc, .desru-option-desc, .desru-dict-stats, .desru-dict-hint, .desru-footer) {
+    color: ${T.muted};
+}
+
+${ROOT} .desru-status {
+    background: ${T.surface2};
+    border-color: ${T.border};
+    border-radius: ${T.radiusMd};
+}
+
+${ROOT} .desru-badge {
+    background: color-mix(in srgb, currentColor 12%, transparent);
+}
+
+${ROOT} .desru-tone-on {
+    color: ${V.readable(T.ok, 80)};
+}
+
+${ROOT} :is(.desru-tone-warn, .desru-tone-blocked, .desru-problems, .desru-note-warn) {
+    color: ${V.readable(T.warn, 80)};
+}
+
+${ROOT} :is(.desru-tone-error, .desru-dict-error) {
+    color: ${V.readable(T.error, 80)};
+}
+
+${ROOT} .desru-heading {
+    color: ${T.text};
+}
+
+${ROOT} .desru-module {
+    padding: ${T.space2};
+    border-radius: ${T.radiusSm};
+}
+
+${ROOT} .desru-module:hover {
+    background: ${T.surface2};
+}
+
+${ROOT} .desru-section {
+    padding: ${T.space1} ${T.space2};
+    background: ${T.surface2};
+    border: 1px solid ${T.border};
+    border-radius: ${T.radiusMd};
+}
+
+${ROOT} .desru-section[open] > summary {
+    margin-bottom: ${T.space2};
+    color: ${T.accent};
+}
+
+${ROOT} .desru-section > summary:focus-visible {
+    outline: none;
+    box-shadow: ${V.focusRing};
+    border-radius: ${T.radiusSm};
+}
+
+${ROOT} .desru-merge-list > li {
+    padding: ${T.space1} ${T.space2};
+    border-radius: ${T.radiusSm};
+}
+
+${ROOT} .desru-merge-list > li:hover {
+    background: ${T.surface3};
+}
+
+/* The dictionary editors are ST text fields (\`text_pole\`): the ST part styles them. */
+${ROOT} .desru-log {
+    background: ${T.well};
+    border: 1px solid ${T.border};
+    border-radius: ${T.radiusSm};
+    color: ${T.text};
+    font-family: ${T.fontMono};
+}
+
+@media ${PHONE} {
+    ${ROOT} :is(.desru-merge-list, .desru-log-actions) .menu_button,
+    ${ROOT} .desru-recheck {
+        min-height: ${TOUCH};
+    }
+}
+`;
+var DESRU_SKIN = {
+	id: "desru",
+	titleKey: "m32.skin.desru",
+	css: scopeCss(skinScope("desru"), CSS$3),
+	present: (app) => neighbourPresent(app, "desru", DESRU_PROBES)
+};
+//#endregion
+//#region src/features/theme/neighbours/localizer.ts
+/** Localizer's settings block and its World Info button. */
+var LOCALIZER_PROBES = [".lorebook-localizer-settings", "#lorebook_localizer_button"];
+var SETTINGS$1 = ".lorebook-localizer-settings";
+var DIALOG = ".lbl-dialog";
+var CSS$2 = `
+${SETTINGS$1},
+${DIALOG} {
+    font-family: ${T.fontUi};
+}
+
+:is(${SETTINGS$1}, ${DIALOG}) :is(.lbl-hint, .lbl-counter, .lbl-source, .lbl-progress-status, .lbl-field-label) {
+    color: ${T.muted};
+}
+
+${DIALOG} .lbl-warning {
+    color: ${V.readable(T.warn, 80)};
+}
+
+${DIALOG} :is(.lbl-book-list, .lbl-details) {
+    background: ${T.surface2};
+    border-color: ${T.border};
+    border-radius: ${T.radiusMd};
+}
+
+${DIALOG} .lbl-details[open] > summary {
+    color: ${T.accent};
+}
+
+${DIALOG} .lbl-details > summary:focus-visible {
+    outline: none;
+    box-shadow: ${V.focusRing};
+    border-radius: ${T.radiusSm};
+}
+
+${DIALOG} .lbl-book {
+    border-radius: ${T.radiusSm};
+}
+
+${DIALOG} .lbl-book:hover {
+    background: ${T.surface3};
+}
+
+${DIALOG} .lbl-badge {
+    background: ${T.surface2};
+    border-color: ${T.border};
+    border-radius: ${T.radiusPill};
+}
+
+${DIALOG} .lbl-preview-book-title {
+    border-bottom-color: ${T.divider};
+}
+
+${DIALOG} .lbl-preview-entry {
+    border-left: 2px solid ${T.divider};
+}
+
+${DIALOG} .lbl-preview-entry-title {
+    color: ${T.accent};
+}
+
+${DIALOG} .lbl-proposal {
+    padding: 2px ${T.space1};
+    border-radius: ${T.radiusSm};
+}
+
+${DIALOG} .lbl-proposal:hover {
+    background: ${T.surface2};
+}
+
+${DIALOG} .lbl-arrow {
+    color: ${T.accent};
+}
+
+${DIALOG} .lbl-key-input.lbl-invalid {
+    outline-color: ${T.error};
+}
+
+${DIALOG} .lbl-progress-bar {
+    accent-color: ${T.accent};
+}
+
+@media ${PHONE} {
+    ${SETTINGS$1} .menu_button,
+    ${DIALOG} .lbl-toolbar .menu_button {
+        min-height: ${TOUCH};
+    }
+}
+`;
+var LOCALIZER_SKIN = {
+	id: "localizer",
+	titleKey: "m32.skin.localizer",
+	css: scopeCss(skinScope("localizer"), CSS$2),
+	present: (app) => neighbourPresent(app, "localizer", LOCALIZER_PROBES)
+};
+//#endregion
+//#region src/features/theme/neighbours/nai.ts
+/** NAI Studio's settings panel. */
+var NAI_PROBES = ["#naist_panel"];
+var PANEL = ":is(#naist_panel, .naist-panel)";
+/** Studio content shown in ST popups. */
+var STUDIO = ":is(.naist-dialog, .naist-gallery, .naist-lightbox, .naist-inspector, .naist-refine)";
+var CSS$1 = `
+/* ---------------------------------------------------------------- settings panel */
+
+${PANEL} {
+    font-family: ${T.fontUi};
+}
+
+${PANEL} .naist-tabs {
+    border-bottom-color: ${T.divider};
+}
+
+${PANEL} .naist-tab {
+    border-radius: ${T.radiusSm};
+}
+
+${PANEL} .naist-tab-active {
+    background: ${T.accentSoft};
+    border-color: ${T.accent};
+}
+
+${PANEL} .naist-section {
+    border-bottom: 1px solid ${T.divider};
+}
+
+${PANEL} .naist-character {
+    border-top: 1px solid ${T.divider};
+}
+
+${PANEL} .naist-banner {
+    background: color-mix(in srgb, ${T.warn} 10%, transparent);
+    border-color: ${T.warn};
+    border-left-width: 3px;
+    border-radius: ${T.radiusSm};
+}
+
+${PANEL} :is(.naist-account, .naist-hint, .naist-feature-hint, .naist-muted) {
+    color: ${T.muted};
+}
+
+:is(${PANEL}, ${STUDIO}) .naist-block {
+    background: ${T.surface2};
+    border-color: ${T.border};
+    border-radius: ${T.radiusMd};
+}
+
+:is(${PANEL}, ${STUDIO}) .naist-badge {
+    border-color: ${T.border};
+    border-radius: ${T.radiusPill};
+}
+
+:is(${PANEL}, ${STUDIO}) .naist-message {
+    background: ${T.surface2};
+    border-radius: ${T.radiusSm};
+}
+
+:is(${PANEL}, ${STUDIO}) :is(.naist-json, .naist-pre, .naist-composer-preview) {
+    background: ${T.well};
+    border-color: ${T.border};
+    border-radius: ${T.radiusSm};
+    font-family: ${T.fontMono};
+}
+
+/* ---------------------------------------------------------------- studio windows */
+
+${STUDIO} {
+    font-family: ${T.fontUi};
+}
+
+${STUDIO} .naist-g-card,
+${STUDIO} .naist-vibe-card {
+    background: ${T.surface2};
+    border-color: ${T.border};
+    border-radius: ${T.radiusMd};
+}
+
+${STUDIO} .naist-g-card:hover,
+${STUDIO} .naist-vibe-card:hover {
+    border-color: ${V.accentLine};
+}
+
+${STUDIO} .naist-g-selected {
+    outline-color: ${T.accent};
+}
+
+${STUDIO} .naist-g-card-text {
+    color: ${T.muted};
+}
+
+${STUDIO} .naist-slot {
+    background: ${T.surface2};
+    border-color: ${T.border};
+    border-radius: ${T.radiusMd};
+}
+
+${STUDIO} .naist-canvas {
+    background: ${T.surface2};
+    border-color: ${T.border};
+    border-radius: ${T.radiusMd};
+}
+
+${STUDIO} .naist-comic-layout {
+    border-color: ${T.border};
+    border-radius: ${T.radiusSm};
+}
+
+${STUDIO} .naist-comic-layout.naist-tab-active {
+    background: ${T.accentSoft};
+    border-color: ${T.accent};
+}
+
+${STUDIO} .naist-meta-table th {
+    color: ${T.muted};
+}
+
+${STUDIO} .naist-lightbox-image img,
+${STUDIO} .naist-compare-images img,
+${STUDIO} .naist-persona-avatar-preview {
+    border-radius: ${T.radiusMd};
+}
+
+.naist-wand-sep {
+    border-top-color: ${T.divider};
+}
+
+/* ---------------------------------------------------------------- progress card, tag hints, token meter */
+
+/* Floats over the chat without a backdrop blur: opaque. */
+.naist-progress {
+    background: ${T.surfaceSolid};
+    border-color: ${T.border};
+    border-radius: ${T.radiusMd};
+    box-shadow: ${T.elevation2};
+    color: ${T.text};
+    font-family: ${T.fontUi};
+}
+
+.naist-progress-bar,
+.naist-tokens-bar {
+    background: ${T.surface3};
+}
+
+.naist-progress-bar span {
+    background: ${T.accent};
+}
+
+.naist-ac {
+    background: ${T.surfaceSolid};
+    border-color: ${T.border};
+    border-radius: ${T.radiusSm};
+    box-shadow: ${T.elevation2};
+    color: ${T.text};
+    font-family: ${T.fontUi};
+}
+
+.naist-ac :is(.naist-ac-item:hover, .naist-ac-active) {
+    background: ${T.accentSoft};
+}
+
+/* ---------------------------------------------------------------- chat: inline images */
+
+.naist-inline-frame.naist-inline-border {
+    outline-color: ${T.border};
+}
+
+.naist-inline-img {
+    background: ${T.surface2};
+}
+
+.naist-inline-toolbar {
+    border-radius: ${T.radiusSm};
+}
+
+.naist-inline-caption {
+    color: ${T.muted};
+    font-family: ${T.fontUi};
+}
+
+.naist-inline-missing {
+    background: ${T.surface2};
+    border-color: ${T.border};
+    border-radius: ${T.radiusSm};
+    color: ${T.muted};
+    font-family: ${T.fontUi};
+}
+
+.naist-inline-chip {
+    background: ${T.surface2};
+    border-color: ${T.border};
+    border-radius: ${T.radiusPill};
+    color: ${T.text};
+    font-family: ${T.fontUi};
+}
+
+.naist-inline-chip:hover {
+    background: ${T.accentSoft};
+    border-color: ${T.accent};
+}
+
+.naist-inline-drop {
+    outline-color: ${T.accent};
+}
+
+.naist-media-tools-float {
+    border-radius: ${T.radiusSm};
+}
+
+/* ---------------------------------------------------------------- chat: image markers */
+
+.naist-marker-box {
+    background: ${T.surface2};
+    border-color: ${T.border};
+    border-radius: ${T.radiusMd};
+    color: ${T.text};
+    font-family: ${T.fontUi};
+}
+
+.naist-inline-marker-error .naist-marker-box {
+    border-color: ${T.error};
+}
+
+.naist-marker-prompt {
+    color: ${T.muted};
+}
+
+img.naist-marker-stream,
+img.custom-naist-marker-stream {
+    border-color: ${T.border};
+    border-radius: ${T.radiusMd};
+}
+
+img.naist-marker-failed {
+    outline-color: ${T.error};
+}
+
+/* ---------------------------------------------------------------- phones: touch targets */
+
+@media ${PHONE} {
+    ${PANEL} .naist-tab,
+    :is(${PANEL}, ${STUDIO}) :is(.naist-slot, .naist-assist, .naist-gallery-actions, .naist-lightbox-actions) .menu_button,
+    .naist-marker-actions .menu_button {
+        min-height: ${TOUCH};
+    }
+
+    .naist-inline-chip {
+        min-height: ${TOUCH};
+    }
+}
+`;
+var NAI_SKIN = {
+	id: "nai",
+	titleKey: "m32.skin.nai",
+	css: scopeCss(skinScope("nai"), CSS$1),
+	present: (app) => neighbourPresent(app, "nai", NAI_PROBES)
+};
+//#endregion
+//#region src/features/theme/neighbours/qvink.ts
+/** Qvink's settings block. */
+var QVINK_PROBES = ["#qvink_memory_settings"];
+var SETTINGS = ":is(#qvink_memory_settings, #qmExtensionPopout)";
+var EDITORS = ":is(#qvink_memory_state_interface, #qvink_summary_prompt_interface)";
+/** A memory line with text: Qvink also adds an empty line under messages without a memory (to keep spacing). */
+var MEMORY = "#chat div.qvink_memory_text:has(> span:not(:empty))";
+var CSS = `
+/* ---------------------------------------------------------------- variables (Qvink defines them on :root) */
+
+& body {
+    --qm-default: ${T.muted};
+    --qm-short: ${V.readable("#2e8b57")};
+    --qm-long: ${V.readable("#4682b4")};
+    --qm-old: ${V.readable("#b22222")};
+    --qm-excluded: color-mix(in srgb, ${T.muted} 75%, transparent);
+    --qm-message-removed: ${T.muted};
+}
+
+/* ---------------------------------------------------------------- chat: memory lines */
+
+${MEMORY} {
+    margin: ${T.space1} 0 ${T.space2};
+    padding: 2px ${T.space2};
+    background: ${T.surface2};
+    border-left: 2px solid ${T.divider};
+    border-radius: 0 ${T.radiusSm} ${T.radiusSm} 0;
+    font-family: ${T.fontUi};
+    line-height: 1.45;
+    cursor: pointer;
+}
+
+${MEMORY}:hover {
+    background: ${T.surface3};
+}
+
+${MEMORY}:has(> .qvink_short_memory) {
+    border-left-color: var(--qm-short);
+}
+
+${MEMORY}:has(> .qvink_long_memory) {
+    border-left-color: var(--qm-long);
+}
+
+${MEMORY}:has(> .qvink_old_memory) {
+    border-left-color: var(--qm-old);
+}
+
+${MEMORY}:has(> .qvink_exclude_memory) {
+    border-left-color: var(--qm-excluded);
+}
+
+${MEMORY} .qvink_memory_reasoning {
+    color: ${T.muted};
+}
+
+#chat textarea.qvink_memory_edit_textarea {
+    padding: 2px ${T.space2};
+    background: ${T.well};
+    border: 1px solid ${T.accent};
+    border-radius: ${T.radiusSm};
+    color: ${T.text};
+    font-family: ${T.fontUi};
+    box-shadow: ${V.focusRing};
+}
+
+/* ---------------------------------------------------------------- settings block and popout */
+
+${SETTINGS} .qvink_interface_card {
+    background: ${T.surface2};
+    border: 1px solid ${T.border};
+    border-radius: ${T.radiusMd};
+    box-shadow: none;
+}
+
+${SETTINGS} .button_highlight {
+    color: ${T.accent};
+}
+
+/* ---------------------------------------------------------------- memory editor and prompt editor */
+
+${EDITORS} .qvink_interface_card {
+    background: ${T.surface2};
+    border: 1px solid ${T.border};
+    border-radius: ${T.radiusMd};
+    box-shadow: none;
+}
+
+/* Sticky (Qvink's own rule): opaque, so rows do not show through. */
+#qvink_memory_state_interface table thead {
+    background: ${T.surfaceSolid};
+}
+
+#qvink_memory_state_interface table tbody tr:hover {
+    background-color: ${T.surface2};
+}
+
+#qvink_memory_state_interface table tr:has(input.interface_message_select:checked, textarea:focus) {
+    background-color: ${T.accentSoft};
+}
+
+#qvink_memory_state_interface table td.interface_summary i {
+    color: ${T.muted};
+}
+
+#qvink_memory_state_interface #selected_count {
+    color: ${T.accent};
+}
+
+#qvink_memory_state_interface :is(#bulk_regex, #bulk_delete, #bulk_summarize) {
+    color: ${V.readable(T.error, 80)};
+}
+
+/* ---------------------------------------------------------------- progress bar, group members */
+
+#sheld .qvink_progress_bar {
+    background-color: ${T.surface1};
+    border-bottom: 1px solid ${T.divider};
+    color: ${T.text};
+    font-family: ${T.fontUi};
+}
+
+.qvink_memory_group_member_enable.qvink_memory_group_member_enabled,
+.qvink_memory_group_member_enable:hover {
+    filter: drop-shadow(0 0 5px ${T.accent});
+}
+
+@media ${PHONE} {
+    ${SETTINGS} .menu_button,
+    ${EDITORS} .menu_button {
+        min-height: ${TOUCH};
+    }
+}
+`;
+//#endregion
+//#region src/features/theme/index.ts
+var themeModule = createThemeModule([
+	DES_SKIN,
+	CK_SKIN,
+	NAI_SKIN,
+	DESRU_SKIN,
+	{
+		id: "qvink",
+		titleKey: "m32.skin.qvink",
+		css: scopeCss(skinScope("qvink"), CSS),
+		present: (app) => neighbourPresent(app, "qvink", QVINK_PROBES)
+	},
+	LOCALIZER_SKIN
+], {
+	en: {
+		"m32.skin.des": "Doom's Enhancement Suite",
+		"m32.skin.des.hint": "Portrait bar, scene headers and thoughts in the chat, the tracker panel and DES's windows: settings, Character Workshop, Character Roster, Lore Library.",
+		"m32.skin.ck": "CarrotKernel",
+		"m32.skin.ck.hint": "Settings block, popups, the lorebook tracker, the RAG viewer and the BunnyMo blocks in messages.",
+		"m32.skin.nai": "NAI Studio",
+		"m32.skin.nai.hint": "Settings panel, studio windows, generation progress, and the images and image markers in the chat.",
+		"m32.skin.desru": "DES-RU",
+		"m32.skin.desru.hint": "Settings block: status, modules, dictionaries, name merges and the log.",
+		"m32.skin.qvink": "Qvink Memory",
+		"m32.skin.qvink.hint": "Memory lines under messages, the settings block, the memory editor and the progress bar.",
+		"m32.skin.localizer": "Lorebook Localizer",
+		"m32.skin.localizer.hint": "Settings block and the key localization window."
+	},
+	ru: {
+		"m32.skin.des": "Doom's Enhancement Suite",
+		"m32.skin.des.hint": "Полоса портретов, шапки сцен и мысли в чате, панель трекера и окна DES: настройки, мастерская персонажа, каталог персонажей, библиотека лора.",
+		"m32.skin.ck": "CarrotKernel",
+		"m32.skin.ck.hint": "Блок настроек, всплывающие окна, трекер лорбуков, просмотр RAG и блоки BunnyMo в сообщениях.",
+		"m32.skin.nai": "NAI Studio",
+		"m32.skin.nai.hint": "Панель настроек, окна студии, ход генерации, картинки и маркеры картинок в чате.",
+		"m32.skin.desru": "DES-RU",
+		"m32.skin.desru.hint": "Блок настроек: состояние, модули, словари, склейки имён и журнал.",
+		"m32.skin.qvink": "Qvink Memory",
+		"m32.skin.qvink.hint": "Строки памяти под сообщениями, блок настроек, редактор памяти и полоса прогресса.",
+		"m32.skin.localizer": "Lorebook Localizer",
+		"m32.skin.localizer.hint": "Блок настроек и окно перевода ключей."
+	}
+});
+//#endregion
 //#region src/domain/treasurer-spend.ts
 /** Display and summary order. */
 var SPEND_SOURCES = [
@@ -130677,7 +135258,9 @@ var MODULES = [
 	wardrobeModule,
 	lorePassportsModule,
 	backgroundsModule,
-	mechanicsModule
+	mechanicsModule,
+	themeModule,
+	dockModule
 ];
 //#endregion
 //#region src/app/app.ts

@@ -9,6 +9,7 @@ import type {
     Journal,
     Logger,
     ModuleManager,
+    SettingsSection,
     SettingsService,
     TaskQueue,
     Ui,
@@ -62,8 +63,10 @@ export interface Shell {
     scrollToMessage(index: number): void;
     /** Language changed: rebuild every visible string. */
     relocalize(): void;
-    /** Subscribes to registry changes that should re-render the settings view. */
+    /** Subscribes to registry changes that should re-render the settings view (settings sections included). */
     onRegistryChange(listener: () => void): Unsubscribe;
+    /** Sections added by modules (Ui.addSettingsSection), sorted by order. */
+    settingsSections(): SettingsSection[];
 }
 
 export interface ViewEnv extends CoreViewDeps {

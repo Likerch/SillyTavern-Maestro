@@ -554,7 +554,7 @@ export class PresetStudio {
         this.side = el('aside', { class: 'maestro-m34-side', attrs: { 'aria-label': this.t('m34.editor.panel') } });
         this.side.hidden = true;
         this.layout = el('div', { class: 'maestro-m34-layout' }, [this.pane, this.side]);
-        return el('div', { class: 'maestro-m34 maestro-theme' }, [
+        return el('div', { class: 'maestro-m34 maestro-ui' }, [
             this.header,
             el('div', { class: 'maestro-m34-nav' }, [this.nav.list, this.nav.picker]),
             this.layout,

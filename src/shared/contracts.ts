@@ -474,6 +474,22 @@ export interface PultTab {
     render(container: HTMLElement): void | Unsubscribe;
     /** Badge number (e.g. Inbox count). */
     badge?(): number;
+    /**
+     * Sidebar group (plan §7): 'turn', 'inbox', 'canon', 'dossier', 'world', 'mechanics', 'health', 'journal',
+     * 'assistant', 'extensions', 'settings', or 'top' (above the groups, no heading). Missing or unknown: the UI's
+     * central map by tab id (src/ui/views/pult-groups.ts), else «Ещё».
+     */
+    group?: string;
+}
+
+/** A block of the Settings tab added by a module (shown after the built-in blocks, by order). */
+export interface SettingsSection {
+    id: string;
+    /** i18n key of the section heading. */
+    titleKey: string;
+    order: number;
+    /** Renders into its own container; the returned disposer runs on every re-render and when the tab closes. */
+    render(container: HTMLElement): void | Unsubscribe;
 }
 
 export interface HealthCheck {
@@ -523,6 +539,8 @@ export interface Ui {
     ): Unsubscribe;
     /** Adds CSS that is removed on dispose. */
     style(id: string, css: string): Unsubscribe;
+    /** Adds a section to the Settings tab (same id replaces); the remover takes it away (own() it). */
+    addSettingsSection?(section: SettingsSection): Unsubscribe;
 }
 
 /* ------------------------------------------------------------------ adapters */

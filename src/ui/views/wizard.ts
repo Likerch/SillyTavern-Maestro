@@ -171,7 +171,7 @@ export class Wizard {
             className: 'maestro-wizard-next',
             onClick: () => this.next(),
         });
-        const root = el('div', { class: 'maestro-wizard maestro-theme' }, [
+        const root = el('div', { class: 'maestro-wizard maestro-ui' }, [
             el('div', { class: 'maestro-wizard-head' }, [
                 counter,
                 title,

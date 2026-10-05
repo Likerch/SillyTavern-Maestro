@@ -8,6 +8,7 @@ import { canonModule } from '../features/canon';
 import { contradictionsModule } from '../features/contradictions';
 import { chronicleModule } from '../features/chronicle';
 import { directorModule } from '../features/director';
+import { dockModule } from '../features/dock';
 import { doctorModule } from '../features/doctor';
 import { dossierModule } from '../features/dossier';
 import { guardianModule } from '../features/guardian';
@@ -30,6 +31,7 @@ import { rulesModule } from '../features/rules';
 import { scenariosModule } from '../features/scenarios';
 import { sheetsModule } from '../features/sheets';
 import { signalsModule } from '../features/signals';
+import { themeModule } from '../features/theme';
 import { treasurerModule } from '../features/treasurer';
 import { voicesModule } from '../features/voices';
 import { wardrobeModule } from '../features/wardrobe';
@@ -85,4 +87,7 @@ export const MODULES: MaestroModule[] = [
     backgroundsModule,
     // Stage 11: mechanics.
     mechanicsModule,
+    // Stage 12: unified look and the dock.
+    themeModule,
+    dockModule,
 ];

@@ -1,7 +1,8 @@
 // Settings tab (plan §7): language, debug, mode, budgets, profiles per task, autonomy levels, modules and data
-// actions. Values are written straight into CoreSettings, then saved and announced with notify(path).
+// actions, then the sections modules add (Ui.addSettingsSection, e.g. the look). Values are written straight into
+// CoreSettings, then saved and announced with notify(path).
 import { ConsoleLogger } from '../../core/logger';
-import type { AutonomyLevel, CoreSettings, PultTab } from '../../shared/contracts';
+import type { AutonomyLevel, CoreSettings, PultTab, Unsubscribe } from '../../shared/contracts';
 import { banner, emptyState, section } from '../components/card';
 import { field, numberInput, select, toggle } from '../components/controls';
 import type { SelectOption } from '../components/controls';
@@ -291,13 +292,41 @@ export function settingsTab(env: ViewEnv): PultTab {
         ]);
     };
 
+    /** Module sections; each render's disposer is collected so a re-render or closing the tab releases it. */
+    const moduleSections = (disposers: Unsubscribe[]): HTMLElement[] =>
+        shell.settingsSections().map((entry) => {
+            const body = el('div', { class: 'maestro-settings-extra', data: { section: entry.id } });
+            try {
+                const result = entry.render(body);
+                if (typeof result === 'function') disposers.push(result);
+            } catch (error) {
+                shell.log.error(`settings section "${entry.id}" failed`, error);
+                clear(body);
+                body.appendChild(emptyState(t('ui.pult.renderFailed'), 'fa-bug'));
+            }
+            return section(t(entry.titleKey), body);
+        });
+
+    const release = (disposers: Unsubscribe[]) => {
+        for (const dispose of disposers.splice(0)) {
+            try {
+                dispose();
+            } catch (error) {
+                shell.log.warn('settings section cleanup failed', error);
+            }
+        }
+    };
+
     return {
         id: SETTINGS_TAB,
         titleKey: 'ui.tab.settings',
         icon: 'fa-gear',
         order: 90,
+        group: 'settings',
         render(container) {
+            const disposers: Unsubscribe[] = [];
             const draw = () => {
+                release(disposers);
                 clear(container);
                 container.append(
                     el('div', { class: 'maestro-view maestro-settings' }, [
@@ -307,11 +336,16 @@ export function settingsTab(env: ViewEnv): PultTab {
                         autonomyBlock(),
                         modulesBlock(draw),
                         dataBlock(),
+                        ...moduleSections(disposers),
                     ]),
                 );
             };
             draw();
-            return shell.onRegistryChange(draw);
+            const off = shell.onRegistryChange(draw);
+            return () => {
+                off();
+                release(disposers);
+            };
         },
     };
 }

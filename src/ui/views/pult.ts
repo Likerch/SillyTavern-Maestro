@@ -1,11 +1,16 @@
 // The Pult: one large ST Popup with a vertical tab list (desktop) or a full-screen view with a tab picker
 // (phones, ≤1000px — ST's breakpoint, see style.css). Tabs render lazily: only the active tab is in the DOM,
-// and switching tabs disposes the previous render.
+// and switching tabs disposes the previous render. The sidebar is grouped by plan §7 sections (pult-groups.ts);
+// collapsed groups are remembered per browser.
 import type { Host, I18n, Logger, PultTab, Unsubscribe } from '../../shared/contracts';
 import { emptyState } from '../components/card';
 import { button, clear, el, icon, prefersReducedMotion } from '../components/dom';
 import { tabs } from '../components/tabs';
 import type { TabsHandle } from '../components/tabs';
+import { groupLabelKey, groupOf, sortTabs } from './pult-groups';
+
+/** localStorage key of the collapsed sidebar groups. */
+export const COLLAPSED_GROUPS_KEY = 'maestro.pult.collapsedGroups';
 
 interface PopupHandle {
     show(): Promise<unknown>;
@@ -57,9 +62,9 @@ export class Pult {
         };
     }
 
-    /** Registered tabs sorted by order (then id, for a stable order). */
+    /** Registered tabs in sidebar order: by group (plan §7), then by order (then id, for a stable order). */
     tabs(): PultTab[] {
-        return [...this.registry.values()].sort((a, b) => a.order - b.order || a.id.localeCompare(b.id));
+        return sortTabs(this.registry.values());
     }
 
     isOpen(): boolean {
@@ -82,12 +87,19 @@ export class Pult {
             return;
         }
         const root = this.buildChrome();
+        let created: PopupHandle | null = null;
         const popup = new c.Popup(root, c.POPUP_TYPE.DISPLAY, '', {
             wide: true,
             large: true,
             allowVerticalScrolling: false,
             animation: prefersReducedMotion() ? 'none' : 'fast',
+            // ST removes the dialog from the page before show() resolves; tabs that hold foreign nodes (the dock) must
+            // put them back while the dialog is still in the document, so the active tab is unmounted here already.
+            onClose: () => {
+                if (created) this.handleClosed(created);
+            },
         });
+        created = popup;
         popup.dlg.classList.add('maestro-pult-dialog');
         this.popup = popup;
         void popup.show().then(
@@ -175,7 +187,13 @@ export class Pult {
 
     private buildChrome(): HTMLElement {
         const t = this.deps.i18n.t.bind(this.deps.i18n);
-        this.nav = tabs({ items: [], label: t('ui.pult.tabs'), onSelect: (id) => this.select(id) });
+        this.nav = tabs({
+            items: [],
+            label: t('ui.pult.tabs'),
+            onSelect: (id) => this.select(id),
+            storageKey: COLLAPSED_GROUPS_KEY,
+            groupTitle: (collapsed) => this.deps.i18n.t(collapsed ? 'ui.group.expand' : 'ui.group.collapse'),
+        });
         this.body = el('div', { class: 'maestro-pult-body', attrs: { role: 'tabpanel', tabindex: '-1' } });
         const title = el('h3', { class: 'maestro-pult-title', text: t('ui.title') });
         const close = button({
@@ -187,7 +205,7 @@ export class Pult {
         });
         this.chrome = { title, close };
         this.syncTabs();
-        return el('div', { class: 'maestro-pult maestro-theme' }, [
+        return el('div', { class: 'maestro-pult maestro-ui' }, [
             el('div', { class: 'maestro-pult-header' }, [
                 el('div', { class: 'maestro-pult-brand' }, [icon('fa-wand-magic-sparkles'), title]),
                 this.nav.picker,
@@ -200,12 +218,18 @@ export class Pult {
     private syncTabs(): void {
         if (!this.nav) return;
         this.nav.setItems(
-            this.tabs().map((tab) => ({
-                id: tab.id,
-                label: this.deps.i18n.t(tab.titleKey),
-                icon: tab.icon,
-                badge: this.badgeOf(tab),
-            })),
+            this.tabs().map((tab) => {
+                const group = groupOf(tab);
+                const labelKey = groupLabelKey(group);
+                return {
+                    id: tab.id,
+                    label: this.deps.i18n.t(tab.titleKey),
+                    icon: tab.icon,
+                    badge: this.badgeOf(tab),
+                    group,
+                    groupLabel: labelKey ? this.deps.i18n.t(labelKey) : undefined,
+                };
+            }),
         );
         if (this.activeId) this.nav.setActive(this.activeId);
     }

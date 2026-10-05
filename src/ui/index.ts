@@ -6,6 +6,7 @@ import type {
     I18n,
     Logger,
     PultTab,
+    SettingsSection,
     SettingsService,
     SlashCommandSpec,
     Ui,
@@ -46,6 +47,7 @@ export interface UiImpl extends Ui {
     /** Unlike the contract (void), returns a remover: the command then answers "module is off". */
     addSlashCommand(command: SlashCommandSpec): Unsubscribe;
     closePult(): void;
+    addSettingsSection(section: SettingsSection): Unsubscribe;
     /** Opens the first-run wizard if it has not been completed (also runs by itself after APP_READY). */
     runFirstRunWizardIfNeeded(): boolean;
 }
@@ -67,6 +69,8 @@ class MaestroUi implements UiImpl, Shell {
     private readonly badges: MessageBadges;
     private readonly slash: SlashCommands;
     private readonly checks = new Map<string, HealthCheck>();
+    private readonly sections = new Map<string, SettingsSection>();
+    private readonly sectionListeners = new Set<() => void>();
     private readonly styles = new Map<string, HTMLStyleElement>();
     private readonly noticeList: NoticeEntry[] = [];
     private readonly unsubscribers: Unsubscribe[] = [];
@@ -166,6 +170,8 @@ class MaestroUi implements UiImpl, Shell {
         for (const node of this.styles.values()) node.remove();
         this.styles.clear();
         this.checks.clear();
+        this.sections.clear();
+        this.sectionListeners.clear();
         this.noticeList.length = 0;
     }
 
@@ -273,6 +279,18 @@ class MaestroUi implements UiImpl, Shell {
         };
     }
 
+    addSettingsSection(section: SettingsSection): Unsubscribe {
+        if (this.disposed) return () => {};
+        if (this.sections.has(section.id)) this.log.warn(`settings section "${section.id}" replaced`);
+        this.sections.set(section.id, section);
+        this.sectionsChanged();
+        return () => {
+            if (this.sections.get(section.id) !== section) return;
+            this.sections.delete(section.id);
+            this.sectionsChanged();
+        };
+    }
+
     /* ---------------------------------------------------------------- Shell (for views) */
 
     updateBadges(): void {
@@ -344,10 +362,29 @@ class MaestroUi implements UiImpl, Shell {
     }
 
     onRegistryChange(listener: () => void): Unsubscribe {
-        return onRegistryChange(listener);
+        const off = onRegistryChange(listener);
+        this.sectionListeners.add(listener);
+        return () => {
+            off();
+            this.sectionListeners.delete(listener);
+        };
+    }
+
+    settingsSections(): SettingsSection[] {
+        return [...this.sections.values()].sort((a, b) => a.order - b.order || a.id.localeCompare(b.id));
     }
 
     /* ---------------------------------------------------------------- internals */
+
+    private sectionsChanged(): void {
+        for (const listener of [...this.sectionListeners]) {
+            try {
+                listener();
+            } catch (error) {
+                this.log.error('settings section listener failed', error);
+            }
+        }
+    }
 
     private listen(event: string, handler: (...args: unknown[]) => unknown): void {
         try {

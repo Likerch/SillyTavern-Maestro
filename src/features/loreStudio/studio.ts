@@ -255,7 +255,7 @@ export class LoreStudio {
                 void this.render();
             },
         });
-        return el('div', { class: 'maestro-m23 maestro-theme' }, [
+        return el('div', { class: 'maestro-m23 maestro-ui' }, [
             el('div', { class: 'maestro-m23-header' }, [
                 el('div', { class: 'maestro-m23-brand' }, [
                     icon('fa-book-atlas'),
