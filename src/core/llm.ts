@@ -20,6 +20,9 @@ import type {
 } from '../shared/contracts';
 import { readUsage, tokensOf } from './cost';
 
+/** Tasks the user starts and watches (the assistant): the daily cap of background spending does not stop them. */
+export const INTERACTIVE_TASKS: ReadonlySet<string> = new Set(['assistant']);
+
 export interface OwnRequestHooks {
     /** Marks a request in flight so the fetch-level meter does not count it twice. */
     beginOwn?(signal?: AbortSignal): void;
@@ -253,7 +256,7 @@ export function createLlmClient(deps: LlmClientDeps): LlmClientImpl {
 
     return {
         async request<T = unknown>(request: LlmRequest): Promise<LlmResult<T>> {
-            if (cost.backgroundCapReached()) return { ok: false, error: 'cap' };
+            if (!INTERACTIVE_TASKS.has(request.task) && cost.backgroundCapReached()) return { ok: false, error: 'cap' };
             const service = connectionManager();
             if (!service) return { ok: false, error: 'no-cm' };
             const profiles = candidates(request.task);

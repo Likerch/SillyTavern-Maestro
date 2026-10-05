@@ -315,6 +315,14 @@ describe('llm client: failures', () => {
         expect(calls).toHaveLength(0);
     });
 
+    it('lets the assistant (started by the user) through the background cap', async () => {
+        const { client } = setup({ capped: true, profiles: { assistant: 'p-judge', judge: 'p-judge' } });
+        replies.push(completion('Hello.'));
+        const result = await client.request(ask({ task: 'assistant' }));
+        expect(calls).toHaveLength(1);
+        expect(result).not.toEqual({ ok: false, error: 'cap' });
+    });
+
     it('reports missing profiles and a missing or disabled Connection Manager', async () => {
         expect(await setup({ profiles: {} }).client.request(ask())).toEqual({ ok: false, error: 'no-profile' });
         expect(setup({ profiles: {} }).client.available('judge')).toBe(false);

@@ -287,6 +287,27 @@ describe('mock LLM', () => {
             tools,
         });
         expect(answer.choices[0]!.message.content).toContain('{"hits":1}');
+
+        // Given arguments, and a tool named in the user's message wins over one a system prompt lists.
+        const two = [
+            ...tools,
+            { type: 'function', function: { name: 'toggle', parameters: { type: 'object', properties: {} } } },
+        ];
+        const given = await complete({
+            messages: [{ role: 'user', content: '[mock:tool:toggle={"module":"metrics","on":false}]' }],
+            tools: two,
+        });
+        const givenCall = given.choices[0]!.message.tool_calls![0]!;
+        expect(givenCall.function.name).toBe('toggle');
+        expect(JSON.parse(givenCall.function.arguments)).toEqual({ module: 'metrics', on: false });
+        const named = await complete({
+            messages: [
+                { role: 'system', content: 'Use search_lore first.' },
+                { role: 'user', content: 'call toggle please' },
+            ],
+            tools: two,
+        });
+        expect(named.choices[0]!.message.tool_calls![0]!.function.name).toBe('toggle');
     });
 
     it('injects failures from headers', async () => {

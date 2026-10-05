@@ -923,14 +923,23 @@ const BOS_PREFIX =
 function toolCallFor(ctx, rng, n) {
     const tools = ctx.tools.filter((t) => t?.type === 'function' && t.function?.name);
     if (tools.length === 0) return null;
-    const asked = ctx.markers.get('tool');
+    // [mock:tool:name] or [mock:tool:name={"json":"args"}] (the given arguments are used as they are).
+    const [askedName, askedArgs] = (ctx.markers.get('tool') ?? '').split(/=(.*)/s);
+    let given = null;
+    try {
+        given = askedArgs ? JSON.parse(askedArgs) : null;
+    } catch {
+        given = null;
+    }
     const forced = typeof ctx.toolChoice === 'object' ? ctx.toolChoice?.function?.name : null;
-    const mentioned = tools.find((t) => ctx.trailingText.includes(t.function.name))?.function.name;
-    const name = forced || asked || mentioned || tools[0].function.name;
+    // A name in the user's own message wins over names a system prompt lists.
+    const mentionedIn = (text) => tools.find((t) => text.includes(t.function.name))?.function.name;
+    const mentioned = mentionedIn(ctx.lastUserText ?? '') || mentionedIn(ctx.trailingText);
+    const name = forced || askedName || mentioned || tools[0].function.name;
     const tool = tools.find((t) => t.function.name === name) ?? tools[0];
     const parameters = tool.function.parameters ?? { type: 'object', properties: {} };
     const handler = toolHandlers.get(tool.function.name);
-    const args = conformToSchema(handler ? handler(ctx, rng) : {}, parameters);
+    const args = given ?? conformToSchema(handler ? handler(ctx, rng) : {}, parameters);
     return {
         id: `call_mock_${n}_${hashString(tool.function.name).toString(16)}`,
         type: 'function',

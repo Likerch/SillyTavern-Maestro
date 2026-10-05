@@ -1,5 +1,6 @@
 // Every plan module, in stage order. Stages add their modules here.
 import { architectModule } from '../features/architect';
+import { assistantModule } from '../features/assistant';
 import { backgroundsModule } from '../features/backgrounds';
 import { bookRolesModule } from '../features/bookRoles';
 import { bunnymoModeModule } from '../features/bunnymoMode';
@@ -90,4 +91,6 @@ export const MODULES: MaestroModule[] = [
     // Stage 12: unified look and the dock.
     themeModule,
     dockModule,
+    // Stage 13: the assistant.
+    assistantModule,
 ];
