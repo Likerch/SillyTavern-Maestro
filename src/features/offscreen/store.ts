@@ -56,6 +56,8 @@ export interface OffscreenDoc {
     runs: OffscreenRun[];
     /** The chat's history was read once (counter and sightings of a chat that started before the module). */
     bootstrapped: boolean;
+    /** Events of characters from outside this chat's story (1.10.3) were looked for and taken back once. */
+    localChecked?: boolean;
 }
 
 export function emptyOffscreenDoc(): OffscreenDoc {
@@ -155,6 +157,7 @@ export function readOffscreenDoc(raw: Record<string, unknown>): OffscreenDoc {
         .filter((item): item is OffscreenRun => item !== null)
         .slice(-RUNS_KEPT);
     doc.bootstrapped = raw.bootstrapped === true;
+    if (raw.localChecked === true) doc.localChecked = true;
     return doc;
 }
 

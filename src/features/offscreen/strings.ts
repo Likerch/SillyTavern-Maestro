@@ -5,6 +5,7 @@ import type { I18nParts } from '../../shared/contracts';
 export const OFFSCREEN_STRINGS: I18nParts = {
     en: {
         'm16.title': 'Backstage',
+        'm16.foreignRemoved': 'Backstage: took back events of characters who are not part of this chat: {names}.',
         'm16.tab': 'Backstage',
         'm16.profileTask': 'Backstage (what absent characters were doing)',
         'kind.offscreen.event': 'Backstage: an event of an absent character',
@@ -85,6 +86,7 @@ export const OFFSCREEN_STRINGS: I18nParts = {
     },
     ru: {
         'm16.title': 'Закулисье',
+        'm16.foreignRemoved': 'Закулисье: убраны события персонажей не из этого чата: {names}.',
         'm16.tab': 'Закулисье',
         'm16.profileTask': 'Закулисье (чем заняты отсутствующие персонажи)',
         'kind.offscreen.event': 'Закулисье: событие с отсутствующим персонажем',

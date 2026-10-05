@@ -95,6 +95,69 @@ describe('picking characters', () => {
         expect(env.tasks.queued.at(-1)?.payload).toMatchObject({ reason: 'manual', characters: ['Mira'] });
     });
 
+    it('never picks a character known only to global stores; this chat’s books and words make one local', async () => {
+        env.world.list.push(
+            entity({
+                name: 'Florence',
+                forms: ['Флоренс', 'Флоренсу'],
+                sources: [{ kind: 'ck.archive', ref: 'Archive#7', label: 'Florence', world: 'Archive', uid: 7 }],
+            }),
+            entity({
+                name: 'Bram',
+                sources: [{ kind: 'lore.entry', ref: 'ChatBook#1', label: 'Bram', world: 'ChatBook', uid: 1 }],
+            }),
+        );
+        (env.mock.chatMetadata as Record<string, unknown>).world_info = 'ChatBook';
+        const service = await env.start();
+        const names = () => service.candidates().map((candidate) => candidate.name);
+        expect(names()).not.toContain('Florence');
+        expect(names()).toContain('Bram');
+        env.mock.chat.push(userMessage('Я вспомнил о Флоренс.'));
+        expect(names()).toContain('Florence');
+    });
+
+    it('takes back, once, events saved earlier for characters from outside this chat', async () => {
+        env.world.list.push(
+            entity({
+                name: 'Florence',
+                sources: [{ kind: 'ck.archive', ref: 'Archive#7', label: 'Florence', world: 'Archive', uid: 7 }],
+            }),
+        );
+        const saved = {
+            character: 'Florence',
+            characterKey: 'florence',
+            status: 'saved',
+            messageIndex: 3,
+            turn: 2,
+            at: 1,
+        };
+        await env.app.chat.put('offscreen', {
+            turns: 6,
+            lastCommitted: 10,
+            lastRunTurn: 6,
+            seen: {},
+            runs: [],
+            bootstrapped: true,
+            events: [
+                { ...saved, id: 'e1', text: 'Florence cooked soup.', canonUid: 5 },
+                { ...saved, id: 'e2', character: 'Mira', characterKey: 'mira', text: 'Mira sold herbs.', canonUid: 6 },
+            ],
+        });
+        const service = await env.start();
+        await vi.runAllTimersAsync();
+        expect(env.canon.removed).toEqual([5]);
+        expect(service.events().map((item) => [item.character, item.status])).toEqual([
+            ['Mira', 'saved'],
+            ['Florence', 'rejected'],
+        ]);
+        expect(env.ui.notices.at(-1)?.text).toContain('Florence');
+        // Once per chat.
+        await env.stop();
+        await env.start();
+        await vi.runAllTimersAsync();
+        expect(env.canon.removed).toEqual([5]);
+    });
+
     it('a narrator card that never appears in a scene is not a character', async () => {
         env.world.list = env.world.list.filter((item) => item.name !== 'Mira');
         env.des.known = [];

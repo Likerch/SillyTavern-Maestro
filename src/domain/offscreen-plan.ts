@@ -120,6 +120,12 @@ export interface CandidateInput {
     lastEventTurn: number | null;
     /** An event of this character waits in the Inbox. */
     pendingInbox?: boolean;
+    /**
+     * The character belongs to this chat's story: on its DES roster, seen in a scene, named in its messages, or known
+     * from the card, the chat canon, or a book of this chat or card. A character known only to global stores (a shared
+     * CK character repository, global lorebooks, another card's passport) never gets an event here. Absent: local.
+     */
+    local?: boolean;
 }
 
 export interface RankedCandidate extends CandidateInput {
@@ -147,6 +153,7 @@ function eligible(candidate: CandidateInput, options: PickOptions): boolean {
     if (candidate.persona || candidate.present || candidate.removed || candidate.pendingInbox) return false;
     if (!candidate.name.trim() || !candidate.key) return false;
     if (!isImportant(candidate.sourceKinds, candidate.roster)) return false;
+    if (candidate.local === false) return false;
     if (candidate.main && candidate.lastSeenTurn === null) return false;
     // Roster characters seen before this chat was counted are long gone; lore-only ones count from the start.
     const absence = candidate.lastSeenTurn === null && candidate.roster ? Infinity : absenceOf(candidate, options.now);

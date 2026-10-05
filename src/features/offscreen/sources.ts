@@ -12,6 +12,7 @@ import type { CandidateInput } from '../../domain/offscreen-plan';
 import { storyTimeLabel } from '../../domain/offscreen-plan';
 import type { OffscreenBrief, OffscreenFact } from '../../domain/offscreen-prompt';
 import { cleanLabel, normalizePlaceName } from '../../domain/places-label';
+import { cleanForAnalysis } from '../../domain/text-clean';
 import { normalizeName } from '../../domain/world-names';
 import type { App, Logger } from '../../shared/contracts';
 import type { CalendarApi } from '../calendar/api';
@@ -237,6 +238,34 @@ export class OffscreenSources {
 
     /* ---------------------------------------------------------------- candidates */
 
+    /** Books of this chat and its card(s): the chat book, the primary book of each card in the chat. */
+    localBooks(): Set<string> {
+        const ctx = this.app.host.ctx();
+        const books = new Set<string>();
+        const chatBook = (ctx.chatMetadata as Dict | undefined)?.world_info;
+        if (typeof chatBook === 'string' && chatBook) books.add(chatBook);
+        const members = ctx.groupId
+            ? (ctx.groups.find((group) => group.id === ctx.groupId)?.members ?? []).map((avatar) =>
+                  ctx.characters.find((character) => character.avatar === avatar),
+              )
+            : [ctx.characterId === undefined ? undefined : ctx.characters[Number(ctx.characterId)]];
+        for (const character of members) {
+            const primary = character?.data?.extensions?.world;
+            if (typeof primary === 'string' && primary) books.add(primary);
+        }
+        return books;
+    }
+
+    /** The chat's own text (cleaned, lower-case, ё→е) to tell whether a name was ever used in this story. */
+    chatText(limit = 400): string {
+        return normalizeForMatch(
+            this.chat()
+                .slice(-limit)
+                .map((message) => cleanForAnalysis(message))
+                .join('   '),
+        );
+    }
+
     /** Every character the offscreen world may consider: world model characters and DES's roster. */
     candidateInputs(doc: OffscreenDoc, scene: SceneInfo | null): CandidateInput[] {
         const persona = normalizeName(this.persona());
@@ -260,11 +289,33 @@ export class OffscreenSources {
             if (event.status === 'inbox') pending.add(event.characterKey);
         }
         const out: CandidateInput[] = [];
+        const books = this.localBooks();
+        let text: string | null = null;
+        const mentioned = (names: readonly string[]) => {
+            text ??= this.chatText();
+            const body = text;
+            return names.some((name) => name.length > 1 && containsWithLeftBoundary(body, normalizeForMatch(name)));
+        };
+        const localSource = (entity: Entity | undefined) =>
+            entity?.sources.some(
+                (source) =>
+                    source.kind === 'card' ||
+                    source.kind === 'canon.entry' ||
+                    (source.world !== undefined && books.has(source.world)),
+            ) ?? false;
         const add = (name: string, sourceKinds: string[], entity?: Entity) => {
             const key = normalizeName(name);
             if (!key || out.some((item) => item.key === key)) return;
             const names = entity ? [entity.name, ...entity.aliases, ...entity.forms].map(normalizeName) : [key];
             const seen = names.map((item) => doc.seen[item]).find((record) => record !== undefined);
+            const roster = names.some((item) => rosterKeys.has(item));
+            const present = names.some((item) => presentKeys.has(item));
+            const local =
+                roster ||
+                present ||
+                seen !== undefined ||
+                localSource(entity) ||
+                mentioned(entity ? [entity.name, ...entity.aliases, ...entity.forms] : [name]);
             out.push({
                 name,
                 key,
@@ -277,6 +328,7 @@ export class OffscreenSources {
                 lastSeenTurn: seen ? seen.turn : null,
                 lastEventTurn: lastEvent.get(key) ?? null,
                 pendingInbox: pending.has(key),
+                local,
             });
         };
         try {

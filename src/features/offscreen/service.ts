@@ -234,6 +234,7 @@ export class OffscreenService implements Required<OffscreenApi> {
                 if (!leader) return;
                 this.saveSoon();
                 this.scheduleSettle();
+                void this.dropForeignEvents();
             }),
         );
         own(() => this.dispose());
@@ -338,9 +339,48 @@ export class OffscreenService implements Required<OffscreenApi> {
         this.doc = readOffscreenDoc(raw);
         this.docChat = chatId;
         this.bootstrap(this.doc);
+        void this.dropForeignEvents();
         // The newest reply is the one the next send commits: its scene is where a rumour would be heard.
         this.snapshot = this.makeSnapshot(chatId, lastStoryReply(this.sources.chat()));
         this.changed();
+    }
+
+    /**
+     * Before 1.10.3 a character known only to global stores (a shared CK character repository, a global lorebook) could
+     * get offscreen events in every chat. Once per chat, the leader takes such saved events back: the canon item is
+     * removed (journaled by the canon, undoable) and the event is marked rejected. Characters this chat knows stay.
+     */
+    private async dropForeignEvents(): Promise<void> {
+        const doc = this.doc;
+        const chatId = this.docChat;
+        if (!doc || !chatId || doc.localChecked || this.disposed || !this.app.leader.isLeader()) return;
+        const local = new Map(this.sources.candidateInputs(doc, null).map((input) => [input.key, input.local]));
+        const foreign = doc.events.filter(
+            (event) => event.status === 'saved' && local.get(event.characterKey) === false,
+        );
+        const canon = this.sources.canon();
+        if (foreign.length && !canon) return; // try again when the canon is on
+        const names: string[] = [];
+        for (const event of foreign) {
+            if (chatId !== this.app.host.chatId()) return;
+            try {
+                if (event.canonUid !== undefined) await canon!.remove(event.canonUid);
+            } catch (error) {
+                this.log.warn(`offscreen: event of ${event.character} could not be taken out of the canon`, error);
+                return;
+            }
+            delete event.canonUid;
+            event.status = 'rejected';
+            names.push(event.character);
+        }
+        doc.localChecked = true;
+        this.saveSoon();
+        if (names.length) {
+            const list = uniqueStrings(names).join(', ');
+            this.log.info(`offscreen: took back events of characters from outside this chat: ${list}`);
+            this.app.ui.notice(this.app.i18n.t('m16.foreignRemoved', { names: list }));
+            this.changed();
+        }
     }
 
     /**
