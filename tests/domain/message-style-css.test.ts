@@ -174,6 +174,18 @@ describe('rules', () => {
         ]);
     });
 
+    it('leaves the speaker colour of <font color> lines alone and keeps the rule otherwise', () => {
+        const sheet = css([rule('speech', 'doubleQuotes', { style: makeStyle({ color: 'quote', bold: true }) })]);
+        const dialogue = `:is(q, ${annotationSelector('dash')})`;
+        expect(declarations(sheet, `${CHAR} :is(font[color], [style*="color"]) ${dialogue}`)).toEqual([
+            'color: inherit',
+        ]);
+        // Without a colour the rule needs no exception.
+        expect(css([rule('speech', 'doubleQuotes', { style: makeStyle({ bold: true }) })])).not.toContain(
+            'font[color]',
+        );
+    });
+
     it('lets the higher rule win: lower rules are written first', () => {
         const sheet = css([
             rule('top', 'doubleQuotes', { style: makeStyle({ color: 'accent' }) }),

@@ -292,6 +292,13 @@ function scopeCss(rules: readonly StyleRule[], scope: Scope, options: CssOptions
             roots.map((root) => `${root} ${dialogue} :is(strong, b)`),
             ['color: inherit'],
         );
+    // A speaker colour the reply carries itself (DES dialogue colouring: <font color=…>"…"</font>) wins over the
+    // rule's colour: the rule keeps its slant and weight, the line keeps its speaker's colour.
+    if (colours('dq') || colours('gq') || colours('dash'))
+        css += block(
+            roots.map((root) => `${root} :is(font[color], [style*="color"]) ${dialogue}`),
+            ['color: inherit'],
+        );
     return css;
 }
 
