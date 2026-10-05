@@ -330,6 +330,38 @@ export const ENTRY_FORM_CSS = `
 .maestro-m23f-readonly .maestro-m23f-edit {
     opacity: 0.85;
 }
+.maestro-m23f-passport,
+.maestro-m23f-passport-edit {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 0;
+}
+.maestro-m23f-passport-where,
+.maestro-m23f-passport-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+}
+.maestro-m23f-passport-badge {
+    margin-left: 6px;
+}
+.maestro-m23f-passport-issues {
+    margin: 0;
+    padding-left: 18px;
+    font-size: 0.9em;
+    overflow-wrap: anywhere;
+}
+.maestro-m23f-passport-error {
+    color: var(--maestro-error);
+}
+.maestro-m23f-passport-warn {
+    color: var(--maestro-warn);
+}
+.maestro-m23f-passport-message {
+    overflow-wrap: anywhere;
+}
 @media (min-width: 700px) {
     .maestro-m23f-row {
         display: grid;

@@ -18,6 +18,7 @@ import type { TriggerReason } from '../../domain/revision-plan';
 import type { App, Logger, Proposal, Signal, Unsubscribe } from '../../shared/contracts';
 import type { CalendarApi } from '../calendar/api';
 import type { KnowledgeApi } from '../knowledge/api';
+import type { WardrobeApi } from '../wardrobe/api';
 import type { SignalBatch, SignalsApi } from '../signals/api';
 import type { Entity } from '../world/api';
 import type { DeferredCard, RevisionApi, RevisionChange, RevisionRun, RevisionStatus } from './api';
@@ -432,8 +433,8 @@ export class RevisionService {
             return;
         }
         if (change.target.startsWith('deferred.')) {
-            // Stage 9: promises go to the calendar (M17), secrets to «кто что знает» (M18) when they run; otherwise the
-            // change waits as a deferred card, which those modules pick up when they are turned on.
+            // Promises go to the calendar (M17), secrets to «кто что знает» (M18), outfits to the wardrobe (M27) when
+            // they run; otherwise the change waits as a deferred card, which those modules pick up when turned on.
             if (await this.routeDeferred(change)) {
                 run.changes.push(change);
                 return;
@@ -503,6 +504,12 @@ export class RevisionService {
                 const knowledge = this.app.modules.api<KnowledgeApi>('knowledge');
                 if (typeof knowledge?.intakeSecret !== 'function') return false;
                 return (await knowledge.intakeSecret(statement)) !== null;
+            }
+            if (change.target === 'deferred.outfit') {
+                // '' is a valid answer: the passport's default clothing was put on.
+                const wardrobe = this.app.modules.api<WardrobeApi>('wardrobe');
+                if (typeof wardrobe?.intakeOutfit !== 'function') return false;
+                return (await wardrobe.intakeOutfit(statement)) !== null;
             }
         } catch (error) {
             this.log.warn(`revision: ${change.target} was not taken; it waits as a deferred card`, error);

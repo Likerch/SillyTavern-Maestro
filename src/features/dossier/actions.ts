@@ -6,9 +6,8 @@
 // - NAI passports only through NAI Studio's API (chat level), places through the place registry, chat nicknames
 //   through the world model; DES aliases are DES's: the dossier only leaves an Inbox note.
 // Inbox cards outlive the page: appliers re-run the stored payloads; undo handlers revert by target.
-import { adaptersOf } from '../../adapters';
 import { uniqueStrings } from '../../domain/canon-keys';
-import { commitPatches, isBookData } from '../../domain/doctor-fixes';
+import { commitPatches } from '../../domain/doctor-fixes';
 import type { BookIo } from '../../domain/doctor-fixes';
 import { normName } from '../../domain/dossier-names';
 import type { NaiPassport, NaiPassportTarget } from '../../adapters/nai';
@@ -16,6 +15,7 @@ import type { App, Decision, JournalChange, Logger, Proposal, Unsubscribe } from
 import type { CanonApi, CanonItem, CanonMeta } from '../canon/api';
 import type { EntitySource } from '../world/api';
 import type { DossierFinding, SpreadEdit } from './api';
+import { bookIo } from './book-io';
 import { DOSSIER_ID } from './settings';
 import type { DossierSources } from './sources';
 
@@ -160,28 +160,7 @@ export class DossierActions {
     }
 
     private io(): BookIo | null {
-        const ctx = this.app.host.ctx();
-        if (typeof ctx.loadWorldInfo !== 'function' || typeof ctx.saveWorldInfo !== 'function') return null;
-        return {
-            load: async (book) => {
-                const data: unknown = await this.app.host.ctx().loadWorldInfo?.(book);
-                return isBookData(data) ? data : null;
-            },
-            save: async (book, data) => {
-                const current = this.app.host.ctx();
-                await current.saveWorldInfo?.(book, data, true);
-                try {
-                    current.reloadWorldInfoEditor?.(book);
-                } catch (error) {
-                    this.log.debug('lorebook editor reload failed', error);
-                }
-                try {
-                    adaptersOf(this.app).des.invalidateLoreCache(book);
-                } catch (error) {
-                    this.log.debug('DES Lore Library cache reset failed', error);
-                }
-            },
-        };
+        return bookIo(this.app, this.log);
     }
 
     private async canonItems(): Promise<CanonItem[]> {

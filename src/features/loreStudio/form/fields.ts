@@ -514,19 +514,8 @@ export function enabledToggle(env: FormEnv): HTMLElement {
     return checkField(env, 'disable', { label: env.t('m23f.enabled'), invert: true }).node;
 }
 
-/** Placeholder for the passport (M28, stage 10): present in the DOM, hidden until that stage. */
-export function passportSection(env: FormEnv): HTMLElement {
-    const node = formSection(
-        env.t('m23f.section.passport'),
-        [el('div', { class: 'maestro-m23f-hint', text: env.t('m23f.passport.later') })],
-        {
-            id: 'passport',
-            open: false,
-        },
-    );
-    node.hidden = true;
-    return node;
-}
+/** The passport section (M28) lives in passport.ts. */
+export { passportSection } from './passport';
 
 /** «Сделать как в ST» shortcut for the engine-relevant hidden switches (selective / useProbability). */
 export function stFixButton(env: FormEnv): HTMLElement | null {

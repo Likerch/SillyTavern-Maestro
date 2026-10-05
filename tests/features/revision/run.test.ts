@@ -309,6 +309,18 @@ describe('change handling', () => {
         ).toEqual(['deferred.secret']);
     });
 
+    it('routes outfits to the wardrobe; the default clothing ("") counts as taken', async () => {
+        const intakeOutfit = vi.fn(async () => '');
+        env.modules.apis.set('wardrobe', { intakeOutfit });
+        const outfit = change({ target: 'deferred.outfit', value: 'Anna changed into a red dress.', sourceMessage: 3 });
+        env.llm.script = [answer(outfit)];
+        await parts.service.execute('manual');
+        expect(intakeOutfit).toHaveBeenCalledWith(
+            expect.objectContaining({ value: 'Anna changed into a red dress.', sourceMessage: 3 }),
+        );
+        expect(parts.service.api().deferred()).toEqual([]);
+    });
+
     it('rejects unsure changes and unknown entities, with the reason', async () => {
         seedAnna(env);
         env.llm.script = [answer(change({ confidence: 0.3 }), change({ entity: 'Zed', value: 'Zed is tall.' }))];

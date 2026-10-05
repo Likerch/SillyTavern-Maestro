@@ -1,10 +1,12 @@
-// M7 «Досье» (plan M7 п. 1–5, dev-plan 3.2): one page per entity with everything the stack knows — lore with the
+// M7 «Досье» (plan M7 п. 1–6, dev-plan 3.2): one page per entity with everything the stack knows — lore with the
 // chat canon on top, CK archive and BunnyMo tags, NAI passports, DES, Russian forms, Qvink memories, CK RAG, the last
 // BunnyMo sheet, the place registry and the persona — with structural checks by rules, an AI comparison of appearance
-// and descriptions on demand, and «Разнести». Reads the world model (WorldModelApi) when it is on; works for the card
+// and descriptions on demand, «Разнести», and «Оформить» for a new NPC or place (stage 10, style-up.ts) with
+// «В книгу карточки» for its canon entries. Reads the world model (WorldModelApi) when it is on; works for the card
 // character, the persona, DES's roster and places without it. Exposed as app.modules.api<DossierApi>('dossier').
 import { adaptersOf } from '../../adapters';
 import type { MaestroModule } from '../../shared/contracts';
+import { registerProfileTask } from '../../ui';
 import { DossierActions } from './actions';
 import type { DossierApi } from './api';
 import { DossierCompare } from './compare';
@@ -14,6 +16,7 @@ import { DOSSIER_ID, DOSSIER_KEY, defaultDossierSettings, readDossierSettings } 
 import type { DossierSettings } from './settings';
 import { DossierSources } from './sources';
 import { DOSSIER_STRINGS } from './strings';
+import { DossierStyleUp, STYLE_UP_TASK } from './style-up';
 import { DOSSIER_CSS, dossierTab } from './view';
 
 export const dossierModule: MaestroModule<DossierSettings> = {
@@ -31,8 +34,12 @@ export const dossierModule: MaestroModule<DossierSettings> = {
         for (const off of actions.install()) own(off);
         const compare = new DossierCompare(app, sources, settings, log);
         for (const off of compare.install()) own(off);
-        const service = new DossierService(app, sources, actions, compare);
+        const styleUp = new DossierStyleUp(app, sources, log);
+        for (const off of styleUp.install()) own(off);
+        own(registerProfileTask(STYLE_UP_TASK, 'm7.styleUp.profileTask'));
+        const service = new DossierService(app, sources, actions, compare, styleUp);
         own(compare.onResult((entityId) => service.emit(entityId)));
+        own(styleUp.onResult((entityId) => service.emit(entityId)));
         // A passport saved in NAI Studio (card or chat) changes what the open dossier shows. Best effort: without
         // NAI Studio's API at start nothing is subscribed.
         try {
@@ -76,3 +83,14 @@ export { DOSSIER_STRINGS } from './strings';
 export { defaultDossierSettings } from './settings';
 export type { DossierSettings } from './settings';
 export type { Dossier, DossierApi, DossierFinding, DossierSection, SpreadEdit } from './api';
+export type {
+    PartOutcome,
+    PromotePayload,
+    StyleUpChoice,
+    StyleUpHint,
+    StyleUpInfo,
+    StyleUpPart,
+    StyleUpPayload,
+    StyleUpPlan,
+    StyleUpResult,
+} from './style-up';

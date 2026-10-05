@@ -2,17 +2,23 @@
 // NAI Studio 0.10.0 `NAI_STUDIO_API` (plan §16, stage 3) as the NaiAdapter exposes it: read live, only version 1
 // with every method, `nai.api` only while NAI Studio is present; chat passports as typed copies; events passed through.
 // NAI Studio 0.11.0 quality gates: `nai.qualityGate` with the optional member, setQualityGate() by message index.
+// NAI Studio 0.12.0: `nai.lorePassports` / `nai.passportGen` / `nai.backgrounds`, the provider registration, the passport
+// generator and backgrounds through the adapter (no-ops / null without the members), the `requestFailed` event.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createAdapters } from '../../src/adapters';
 import type {
     Adapters,
+    NaiBackgroundInput,
     NaiPassport,
+    NaiPassportGenInput,
+    NaiPassportProvider,
     NaiQualityGate,
+    NaiRequestFailedDetail,
     NaiSceneProvider,
     NaiStudioApi,
     NaiStudioEvents,
 } from '../../src/adapters';
-import { NAI_API_GLOBAL, NAI_INTERCEPTOR, readNaiApi } from '../../src/adapters/nai';
+import { NAI_API_GLOBAL, NAI_INTERCEPTOR, readNaiApi, readPassport } from '../../src/adapters/nai';
 import { clearScripts, createStand, silentLog } from '../helpers/adapters-host';
 import type { AdapterStand } from '../helpers/adapters-host';
 
@@ -62,7 +68,11 @@ function fakeNai() {
     const card: NaiPassport[] = [passport('p1', ''), passport('p2', 'Bram')];
     const chatOwn: NaiPassport[] = [];
     const overrides = new Map<string, Partial<NaiPassport>>();
-    const listeners = { passportsSaved: new Set<(d: unknown) => void>(), imageReady: new Set<(d: unknown) => void>() };
+    const listeners = {
+        passportsSaved: new Set<(d: unknown) => void>(),
+        imageReady: new Set<(d: unknown) => void>(),
+        requestFailed: new Set<(d: unknown) => void>(),
+    };
     const providers: NaiSceneProvider[] = [];
     const emit = <K extends keyof NaiStudioEvents>(event: K, detail: NaiStudioEvents[K]) =>
         listeners[event].forEach((listener) => listener(structuredClone(detail)));
@@ -223,6 +233,41 @@ describe('NaiAdapter.api', () => {
     });
 });
 
+describe('passport outfits with tracker wordings (NAI Studio 0.12.1)', () => {
+    it('keeps the looks of outfits as strings and leaves the field out when there are none', () => {
+        const read = readPassport({
+            id: 'p1',
+            outfits: [
+                { name: 'Armor', tags: 'armor', looks: ['Стальные латы', 7, 'steel plate armor'] },
+                { name: 'Robe', tags: 'robe', looks: [] },
+                { name: 'Gown', tags: 'gown', looks: 'not a list' },
+            ],
+        })!;
+        expect(read.outfits).toEqual([
+            { name: 'Armor', tags: 'armor', looks: ['Стальные латы', 'steel plate armor'] },
+            { name: 'Robe', tags: 'robe' },
+            { name: 'Gown', tags: 'gown' },
+        ]);
+        // A copy: changing it leaves the stored passport alone.
+        const raw = { id: 'p2', outfits: [{ name: 'A', tags: '', looks: ['x'] }] };
+        readPassport(raw)!.outfits[0]!.looks!.push('changed');
+        expect(raw.outfits[0]!.looks).toEqual(['x']);
+    });
+
+    it('gives them through the chat passports', async () => {
+        stand.install(NAME, MANIFEST, { loaded: true });
+        await adapters.nai.ready();
+        globals[NAI_INTERCEPTOR] = () => {};
+        const { api } = fakeNai();
+        const armored = passport('x', 'X');
+        armored.outfits = [{ name: 'Armor', tags: 'armor', looks: ['Стальные латы'] }];
+        globals[NAI_API_GLOBAL] = { ...api, passports: () => [armored] };
+        expect(adapters.nai.chatPassports()[0]!.outfits).toEqual([
+            { name: 'Armor', tags: 'armor', looks: ['Стальные латы'] },
+        ]);
+    });
+});
+
 describe('NaiAdapter.setQualityGate (NAI Studio 0.11.0)', () => {
     /** The 0.10.0 double plus registerQualityGate with NAI Studio's calling convention. */
     function fakeNaiWithGates() {
@@ -315,5 +360,180 @@ describe('NaiAdapter.setQualityGate (NAI Studio 0.11.0)', () => {
         expect(off).toBeTypeOf('function');
         off();
         expect(gate).not.toHaveBeenCalled();
+    });
+});
+
+describe('NaiAdapter lore passports, passport generation and backgrounds (NAI Studio 0.12.0)', () => {
+    /** The 0.11.0 double plus the 0.12.0 members with NAI Studio's calling conventions. */
+    function fakeNai012() {
+        const fake = fakeNai();
+        const providers = new Map<string, NaiPassportProvider>();
+        const generated: NaiPassportGenInput[] = [];
+        const backgrounds: NaiBackgroundInput[] = [];
+        const api: NaiStudioApi = {
+            ...fake.api,
+            registerQualityGate: () => () => {},
+            registerPassportProvider: (provider) => {
+                if (!provider?.id) throw new Error('NAI Studio API: provider id must be a non-empty string');
+                providers.set(provider.id, provider);
+                return () => void providers.delete(provider.id);
+            },
+            generatePassport: async (input) => {
+                generated.push(input);
+                if (input.kind === ('scenario' as never)) throw new Error('NAI Studio API: kind must be one of …');
+                if (!input.description.trim()) return null;
+                return { ...passport('pnew', input.name), kind: input.kind, extra: { x: 1 } };
+            },
+            generateBackground: async (input) => {
+                backgrounds.push(input);
+                if (input.locationName === 'Paid') return null;
+                if (input.locationName === 'Broken') throw new Error('NAI Studio API: locationName must be …');
+                if (input.locationName === 'Junk') return { file: 42 } as never;
+                return { file: `maestro-${input.locationName.toLowerCase()}-1759600000000.png` };
+            },
+        };
+        return { ...fake, api, providers, generated, backgrounds };
+    }
+
+    it('reports each capability only with its member while NAI Studio is present', async () => {
+        stand.install(NAME, { ...MANIFEST, version: '0.12.0' }, { loaded: true });
+        await adapters.nai.ready();
+        globals[NAI_INTERCEPTOR] = () => {};
+        globals[NAI_API_GLOBAL] = fakeNai().api;
+        await stand.caps.refresh();
+        for (const cap of ['nai.lorePassports', 'nai.passportGen', 'nai.backgrounds'] as const)
+            expect(stand.caps.has(cap)).toBe(false);
+
+        const full = fakeNai012();
+        globals[NAI_API_GLOBAL] = full.api;
+        await stand.caps.refresh();
+        expect(adapters.nai.capabilities()).toEqual([
+            'nai.present',
+            'nai.api',
+            'nai.qualityGate',
+            'nai.lorePassports',
+            'nai.passportGen',
+            'nai.backgrounds',
+        ]);
+        globals[NAI_API_GLOBAL] = { ...full.api, generateBackground: undefined };
+        await stand.caps.refresh();
+        expect(stand.caps.has('nai.backgrounds')).toBe(false);
+        expect(stand.caps.has('nai.passportGen')).toBe(true);
+
+        stand.disable(NAME);
+        await stand.caps.refresh();
+        expect(stand.caps.has('nai.lorePassports')).toBe(false);
+        expect(stand.caps.has('nai.passportGen')).toBe(false);
+    });
+
+    it('registers a passport provider and unregisters it; a no-op without the member or when refused', async () => {
+        stand.install(NAME, MANIFEST, { loaded: true });
+        await adapters.nai.ready();
+        const passports = vi.fn((context: { messageIndex: number; text: string }) => [
+            passport(`lore-${context.messageIndex}`, 'Bram'),
+        ]);
+        const provider: NaiPassportProvider = { id: 'maestro', priority: 5, passports };
+
+        // No API, then 0.11.0 without the member: nothing registered.
+        adapters.nai.registerPassportProvider(provider)();
+        globals[NAI_API_GLOBAL] = fakeNai().api;
+        adapters.nai.registerPassportProvider(provider)();
+
+        const fake = fakeNai012();
+        globals[NAI_API_GLOBAL] = fake.api;
+        const off = adapters.nai.registerPassportProvider(provider);
+        expect([...fake.providers.keys()]).toEqual(['maestro']);
+        const given = await fake.providers.get('maestro')!.passports({ messageIndex: 4, text: 'Bram waves.' });
+        expect(given.map((p) => p.id)).toEqual(['lore-4']);
+        expect(passports).toHaveBeenCalledWith({ messageIndex: 4, text: 'Bram waves.' });
+        off();
+        expect(fake.providers.size).toBe(0);
+        off();
+
+        // Refused by NAI Studio, or an unregistration that throws: logged, nothing breaks.
+        expect(adapters.nai.registerPassportProvider({ ...provider, id: '' })).toBeTypeOf('function');
+        globals[NAI_API_GLOBAL] = {
+            ...fake.api,
+            registerPassportProvider: () => () => {
+                throw new Error('boom');
+            },
+        };
+        expect(() => adapters.nai.registerPassportProvider(provider)()).not.toThrow();
+        globals[NAI_API_GLOBAL] = { ...fake.api, registerPassportProvider: () => 'junk' as never };
+        expect(() => adapters.nai.registerPassportProvider(provider)()).not.toThrow();
+    });
+
+    it('generates a passport as a typed copy, null without the member, on failure or rejected input', async () => {
+        stand.install(NAME, MANIFEST, { loaded: true });
+        await adapters.nai.ready();
+        const input: NaiPassportGenInput = {
+            name: 'Old Mill',
+            kind: 'location',
+            description: 'A mill by the river.',
+            language: 'ru',
+        };
+        expect(await adapters.nai.generatePassport(input)).toBeNull();
+        globals[NAI_API_GLOBAL] = fakeNai().api;
+        expect(await adapters.nai.generatePassport(input)).toBeNull();
+
+        const fake = fakeNai012();
+        globals[NAI_API_GLOBAL] = fake.api;
+        const result = await adapters.nai.generatePassport(input);
+        expect(result).toMatchObject({ id: 'pnew', kind: 'location', name: 'Old Mill', extra: { x: 1 } });
+        expect(fake.generated).toEqual([input]);
+        expect(await adapters.nai.generatePassport({ ...input, description: ' ' })).toBeNull();
+        expect(await adapters.nai.generatePassport({ ...input, kind: 'scenario' as never })).toBeNull();
+    });
+
+    it('generates a background: the stored file name, null without the member, when refused or on junk', async () => {
+        stand.install(NAME, MANIFEST, { loaded: true });
+        await adapters.nai.ready();
+        const input: NaiBackgroundInput = {
+            locationName: 'Mill',
+            tags: 'autumn',
+            passportId: 'lore-mill',
+            timeOfDay: 'evening',
+            weather: 'rain',
+            style: 'Ink',
+        };
+        expect(await adapters.nai.generateBackground(input)).toBeNull();
+        globals[NAI_API_GLOBAL] = fakeNai().api;
+        expect(await adapters.nai.generateBackground(input)).toBeNull();
+
+        const fake = fakeNai012();
+        globals[NAI_API_GLOBAL] = fake.api;
+        expect(await adapters.nai.generateBackground(input)).toEqual({ file: 'maestro-mill-1759600000000.png' });
+        expect(fake.backgrounds).toEqual([input]);
+        expect(await adapters.nai.generateBackground({ locationName: 'Paid' })).toBeNull();
+        expect(await adapters.nai.generateBackground({ locationName: 'Broken' })).toBeNull();
+        expect(await adapters.nai.generateBackground({ locationName: 'Junk' })).toBeNull();
+    });
+
+    it('passes requestFailed through, and subscribes to nothing when an older NAI Studio does not know the event', async () => {
+        stand.install(NAME, MANIFEST, { loaded: true });
+        await adapters.nai.ready();
+        const fake = fakeNai012();
+        globals[NAI_API_GLOBAL] = fake.api;
+        const failures: NaiRequestFailedDetail[] = [];
+        const off = adapters.nai.on('requestFailed', (detail) => failures.push(detail));
+        const detail: NaiRequestFailedDetail = {
+            request: 'background',
+            name: 'Mill',
+            code: 'free-only-blocked',
+            message: 'This request would spend 6 Anlas.',
+        };
+        fake.emit('requestFailed', detail);
+        expect(failures).toEqual([detail]);
+        off();
+
+        globals[NAI_API_GLOBAL] = {
+            ...fakeNai().api,
+            on: (event: string) => {
+                throw new Error(`NAI Studio API: unknown event "${event}"`);
+            },
+        };
+        const none = adapters.nai.on('requestFailed', () => {});
+        expect(none).toBeTypeOf('function');
+        none();
     });
 });

@@ -372,6 +372,14 @@ export class CanonStore {
             const fallback =
                 kind === 'addition' ? '' : `${this.t(`m6.kind.${kind}`)}: ${titleOf(base, meta.base?.uid ?? uid)}`;
             const entry = buildCanonEntry(uid, draft.entry, meta, fallback);
+            // M28: a passport kept in the item survives updates of the item.
+            const keptPassport =
+                before && isDict(before.extensions) && isDict(before.extensions.maestro)
+                    ? before.extensions.maestro.passport
+                    : undefined;
+            if (keptPassport !== undefined && isDict(entry.extensions) && isDict(entry.extensions.maestro)) {
+                entry.extensions.maestro.passport ??= keptPassport;
+            }
             entries[String(uid)] = entry;
             await this.saveBook(name, data);
             const title = titleOf(entry, uid);

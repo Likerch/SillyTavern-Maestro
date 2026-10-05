@@ -319,6 +319,7 @@ const FLAG_MARKERS = [
     'badjson',
     'fenced',
     'tool',
+    'outfit',
 ];
 
 /** Marker names this engine understands (for README and the /__config validation). */
@@ -731,7 +732,15 @@ registerTool('search_lore', (ctx) => ({ query: ctx.names[0] ?? DEFAULT_LOCATION,
 
 function trackerObject(ctx, rng, lang) {
     const text = TEXT[lang];
-    const names = (ctx.names.length ? ctx.names : DEFAULT_NAMES).slice(0, 3);
+    // [mock:outfit:Имя=наряд] (or just [mock:outfit:наряд] for the first character) puts an outfit into the tracker;
+    // a named character who is not in the scene joins it.
+    const outfitArg = ctx.markers?.get('outfit') ?? '';
+    const [outfitWho, outfitWhat] = outfitArg.includes('=')
+        ? outfitArg.split('=', 2).map((part) => part.trim())
+        : ['', outfitArg.trim()];
+    const known = (ctx.names.length ? ctx.names : DEFAULT_NAMES).slice(0, 3);
+    const names = outfitWho && !known.includes(outfitWho) ? [outfitWho, ...known.slice(0, 2)] : known;
+    const outfitIndex = outfitWho ? names.indexOf(outfitWho) : 0;
     const weather = pick(rng, WEATHER);
     const start = ctx.lastTime ?? { h: 18, m: 0 };
     const startMinutes = start.h * 60 + start.m;
@@ -759,7 +768,11 @@ function trackerObject(ctx, rng, lang) {
         characters: names.map((name, i) => ({
             name,
             emoji: ['🌹', '⚔️', '⚗️', '⚓', '🗺️'][i % 5],
-            details: { appearance: pick(rng, text.appearance), demeanor: pick(rng, text.demeanor) },
+            details: {
+                appearance: pick(rng, text.appearance),
+                demeanor: pick(rng, text.demeanor),
+                ...(outfitWhat && i === outfitIndex ? { outfit: outfitWhat } : {}),
+            },
             relationship: { status: pick(rng, statuses) },
             thoughts: { content: fill(pick(rng, text.thoughts), { U: ctx.userName }) },
         })),

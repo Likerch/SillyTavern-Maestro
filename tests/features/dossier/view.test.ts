@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { DossierApi } from '../../../src/features/dossier/api';
 import type { Dossier } from '../../../src/features/dossier/api';
 import { spreadTargets } from '../../../src/features/dossier/view';
+import type { Outfit, WardrobeApi } from '../../../src/features/wardrobe/api';
 import type { PultTab } from '../../../src/shared/contracts';
 import { LYRA_ID, lyraScene } from './fixtures';
 import { FakeWorldModel, createDossierEnv, settle, startDossier, wi } from './helpers';
@@ -203,6 +204,118 @@ describe('dossier tab', () => {
             'Мара',
             'Меч',
         ]);
+    });
+});
+
+describe('dossier outfits (M27 п.4)', () => {
+    /** The wardrobe's API over a list: outfits of «Лира» only, wear() switches «active» and tells the listeners. */
+    function fakeWardrobe(list: Outfit[], options: { failWear?: string } = {}) {
+        const listeners = new Set<() => void>();
+        const worn: [string, string][] = [];
+        const asked: (string | undefined)[] = [];
+        const wardrobe: WardrobeApi = {
+            outfits(character) {
+                asked.push(character);
+                return character === 'Лира' ? list.map((outfit) => ({ ...outfit })) : [];
+            },
+            changes: () => [],
+            async wear(passportId, outfit) {
+                if (options.failWear) throw new Error(options.failWear);
+                worn.push([passportId, outfit]);
+                for (const item of list) item.active = item.name === outfit;
+                for (const listener of listeners) listener();
+            },
+            onChange(listener) {
+                listeners.add(listener);
+                return () => void listeners.delete(listener);
+            },
+        };
+        env.modules.expose('wardrobe', wardrobe);
+        return { list, listeners, worn, asked };
+    }
+
+    const outfit = (name: string, tags: string, active = false): Outfit => ({
+        passportId: 'p-lyra',
+        character: 'Лира',
+        name,
+        tags,
+        seenAs: [],
+        firstSeen: 1,
+        lastSeen: 1,
+        active,
+    });
+
+    const box = () => container.querySelector<HTMLElement>('.maestro-m7-wardrobe');
+    const rows = () => [...container.querySelectorAll<HTMLElement>('.maestro-m7-outfit')];
+
+    it('lists the character’s outfits with tags, the worn one marked, and puts one on', async () => {
+        const wardrobe = fakeWardrobe([
+            outfit('travel cloak', 'grey travel cloak, leather boots', true),
+            outfit('ballgown', 'white ball gown, long gloves'),
+        ]);
+        api.open(LYRA_ID);
+        await render();
+        expect(wardrobe.asked).toContain('Лира');
+        expect(box()!.hidden).toBe(false);
+        const title = (node: Element | undefined) => node?.querySelector('.maestro-section-title')?.textContent;
+        expect(title(box()!)).toBe('Outfits (2)');
+        expect(rows().map((row) => row.dataset.outfit)).toEqual(['travel cloak', 'ballgown']);
+        expect(rows()[0]!.textContent).toContain('worn');
+        expect(rows()[0]!.textContent).toContain('grey travel cloak, leather boots');
+        expect(rows()[0]!.querySelector('button')).toBeNull();
+        expect(rows()[1]!.textContent).not.toContain('worn');
+        // The block sits between the checks and the sections.
+        const blocks = [...container.querySelectorAll('.maestro-m7 > *')];
+        const at = blocks.indexOf(box()!);
+        expect(title(blocks[at - 1])).toBe('Checks (2)');
+        expect(title(blocks[at + 1])).toMatch(/^What the stack knows \(\d+\)$/);
+
+        buttonByText('Put on', rows()[1]!).click();
+        await settle();
+        expect(wardrobe.worn).toEqual([['p-lyra', 'ballgown']]);
+        expect(env.ui.notices.at(-1)?.text).toBe('«ballgown» is on now.');
+        expect(rows()[1]!.textContent).toContain('worn');
+        expect(rows()[1]!.querySelector('button')).toBeNull();
+        expect(rows()[0]!.querySelector('button')).not.toBeNull();
+    });
+
+    it('stays hidden without outfits, shows up when the wardrobe learns one, and reports a failed «put on»', async () => {
+        const wardrobe = fakeWardrobe([], { failWear: 'The passport is no longer in this chat.' });
+        api.open(LYRA_ID);
+        await render();
+        expect(box()!.hidden).toBe(true);
+        expect(rows()).toEqual([]);
+        // A page edit survives the refresh: only the outfit block is redrawn.
+        const value = container.querySelector<HTMLTextAreaElement>('.maestro-m7-spread textarea')!;
+        value.value = 'draft';
+        wardrobe.list.push(outfit('ballgown', 'white ball gown'));
+        for (const listener of wardrobe.listeners) listener();
+        expect(box()!.hidden).toBe(false);
+        expect(rows().map((row) => row.dataset.outfit)).toEqual(['ballgown']);
+        expect(container.querySelector<HTMLTextAreaElement>('.maestro-m7-spread textarea')!.value).toBe('draft');
+        buttonByText('Put on', rows()[0]!).click();
+        await settle();
+        expect(env.ui.notices.at(-1)?.text).toBe('The passport is no longer in this chat.');
+        expect(wardrobe.worn).toEqual([]);
+    });
+
+    it('is not there without the wardrobe module, and hidden for someone without outfits', async () => {
+        api.open(LYRA_ID);
+        await render();
+        expect(box()).toBeNull();
+        expect(container.querySelector('.maestro-m7-name')?.textContent).toBe('Лира');
+        if (typeof unmount === 'function') unmount();
+        unmount = undefined;
+        fakeWardrobe([outfit('ballgown', 'white ball gown')]);
+        container.replaceChildren();
+        await render();
+        buttonByText('All').click();
+        await settle();
+        buttonByText('Алекс').click();
+        await settle();
+        expect(container.querySelector('.maestro-m7-name')?.textContent).toBe('Алекс');
+        expect(box()?.hidden ?? true).toBe(true);
+        expect(rows()).toEqual([]);
     });
 });
 

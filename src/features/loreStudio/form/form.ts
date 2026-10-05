@@ -138,6 +138,18 @@ export class EntryForm {
             reload: () => this.reload(),
             isDirty: () => this.isDirty(),
             status: (text, level) => this.setStatus(text, level ?? 'info'),
+            hold: async <T>(job: () => Promise<T>): Promise<T> => {
+                // Our own write: WORLDINFO_UPDATED of it is not an outside change (onExternalChange skips while saving).
+                const was = this.saving;
+                this.saving = true;
+                this.refreshChrome();
+                try {
+                    return await job();
+                } finally {
+                    this.saving = was;
+                    this.refreshChrome();
+                }
+            },
         };
         try {
             this.life.push(
@@ -513,7 +525,9 @@ export class EntryForm {
             }
             // The sidecar is bound to the content hash: a content edit made here by the user keeps the type valid, so
             // the record is written again after the entry (written first, so the new hash is the one bound).
-            const rebind = state.typedStorage === 'sidecar' && state.typedStored !== null && 'content' in patch;
+            // The same holds for a passport kept there (M28): the section shows it was made for the older text.
+            const keeps = state.typedStored !== null || state.sidecar?.passport !== undefined;
+            const rebind = state.typedStorage === 'sidecar' && keeps && 'content' in patch;
             if (sidecarChanged || rebind) {
                 const roles = bookRolesApi(app);
                 if (!roles) throw new Error(t('m23f.typed.unavailable'));

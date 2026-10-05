@@ -6,11 +6,17 @@
 // outfits and states, the events "passportsSaved" / "imageReady" and scene providers. Writes go through the API
 // only (it merges the card field and keeps passport ids, plan §10.12). NAI Studio 0.11.0 adds quality gates to the
 // same version 1 (plan §16, stage 6): its automatic drawings for a reply wait for Maestro's verdict on it.
+// NAI Studio 0.12.0 adds (plan §16, stage 10; M28/M29): passport providers — the passports of lore entries of
+// a scene join its scene images and markers after the card/persona/chat passports —, its passport generator
+// for one entry, and backgrounds of places uploaded into ST's backgrounds library (never set by NAI Studio).
 //
 // Capabilities:
-// - `nai.present`     installed, enabled in ST and its interceptor is registered;
-// - `nai.api`         NAI Studio's public API version 1 is published (NAI Studio 0.10.0+) while it is present;
-// - `nai.qualityGate` that API takes quality gates (`registerQualityGate`, NAI Studio 0.11.0+).
+// - `nai.present`      installed, enabled in ST and its interceptor is registered;
+// - `nai.api`          NAI Studio's public API version 1 is published (NAI Studio 0.10.0+) while it is present;
+// - `nai.qualityGate`  that API takes quality gates (`registerQualityGate`, NAI Studio 0.11.0+);
+// - `nai.lorePassports` it takes passport providers (`registerPassportProvider`, NAI Studio 0.12.0+);
+// - `nai.passportGen`  it writes a passport from a description (`generatePassport`, NAI Studio 0.12.0+);
+// - `nai.backgrounds`  it draws backgrounds of places (`generateBackground`, NAI Studio 0.12.0+).
 import { NeighbourBase, extensionSettingsOf, homePageHas, isDict, stringList } from '../base';
 import type { AdapterDeps, Dict, ExtensionManifest } from '../base';
 
@@ -31,7 +37,8 @@ export interface NaiPassport {
     aliases: string[];
     tags: string;
     slots: Record<string, string>;
-    outfits: { name: string; tags: string }[];
+    /** `looks` (NAI Studio 0.12.1): DES tracker wordings known to mean the outfit; NAI Studio draws it for them. */
+    outfits: { name: string; tags: string; looks?: string[] }[];
     activeOutfit: string;
     states: { id: string; tags: string; enabled: boolean }[];
     negative: string;
@@ -107,9 +114,73 @@ export interface NaiImageReadyDetail {
     passportIds: string[];
 }
 
+/** What `NaiRequestFailedDetail.request` names: a `generatePassport` or a `generateBackground` call. */
+export type NaiRequestKind = 'passport' | 'background';
+
+/**
+ * NAI Studio 0.12.0+: a `generatePassport` / `generateBackground` call resolved null. `code` is NAI Studio's error
+ * code (`free-only-blocked`: free-only mode refused to spend Anlas; `aborted`: the user declined the cost; …),
+ * `message` the text the user saw.
+ */
+export interface NaiRequestFailedDetail {
+    request: NaiRequestKind;
+    /** The passport's or the place's name. */
+    name: string;
+    code: string;
+    message: string;
+}
+
 export interface NaiStudioEvents {
     passportsSaved: NaiPassportsSavedDetail;
     imageReady: NaiImageReadyDetail;
+    /** NAI Studio 0.12.0+; subscribing on an older one does nothing (see NaiAdapter.on). */
+    requestFailed: NaiRequestFailedDetail;
+}
+
+/**
+ * A passport provider as NAI Studio 0.12.0 calls it (N:features/scene/passport-providers.ts): the passports of the
+ * scene of a message (Maestro: lore entries activated or mentioned there). NAI Studio adds them after the passports
+ * of the cards, the persona and the chat (those win by name or alias), waits 3 s at most and skips a provider that
+ * throws; a passport without an id gets `<provider id>:<kind>:<name>`.
+ */
+export interface NaiPassportProvider {
+    id: string;
+    /** Higher first: its passport wins a name another provider also gives. 0 when absent. */
+    priority?: number;
+    passports(context: NaiSceneHintContext): Promise<NaiPassport[]> | NaiPassport[];
+}
+
+/** Kinds NAI Studio's generator writes a single passport for. */
+export type NaiPassportGenKind = 'character' | 'location' | 'object' | 'world';
+
+/** `generatePassport` input (NAI Studio 0.12.0+). */
+export interface NaiPassportGenInput {
+    name: string;
+    kind: NaiPassportGenKind;
+    /** The text describing it (a lore entry); macros like {{char}} are substituted by NAI Studio. */
+    description: string;
+    /** Language of the story (`ru`): the name as it spells it goes to the aliases. */
+    language?: string;
+}
+
+/** `generateBackground` input (NAI Studio 0.12.0+). */
+export interface NaiBackgroundInput {
+    locationName: string;
+    /** Extra tags (the state of the place). */
+    tags?: string;
+    /** A location (or world) passport of the chat or of a passport provider. */
+    passportId?: string;
+    /** As a tracker writes it (`evening`, `19:40`, Russian words too). */
+    timeOfDay?: string;
+    /** As a tracker writes it (`rain`, Russian words too). */
+    weather?: string;
+    /** A saved NAI Studio style by name, else style tags. */
+    style?: string;
+}
+
+/** A background NAI Studio stored in ST's backgrounds library (`maestro-<slug>-<timestamp>.png`). */
+export interface NaiBackgroundResult {
+    file: string;
 }
 
 /** What NAI Studio asks a quality gate about: one assistant reply, the swipe its drawings are for. */
@@ -156,6 +227,19 @@ export interface NaiStudioApi {
      * swiped away or deleted while waiting is not drawn. Manual generation never waits. Returns the unregistration.
      */
     registerQualityGate?(gate: NaiQualityGate): () => void;
+    /** NAI Studio 0.12.0+ (absent before). Registers a passport provider; returns the unregistration. */
+    registerPassportProvider?(provider: NaiPassportProvider): () => void;
+    /**
+     * NAI Studio 0.12.0+. Its passport generator for one entry through its language backend; nothing is saved. A full
+     * passport (new id, the given name) or null (a `requestFailed` event says why). Invalid input rejects.
+     */
+    generatePassport?(input: NaiPassportGenInput): Promise<NaiPassport | null>;
+    /**
+     * NAI Studio 0.12.0+. One background without people (16:9, ~1 MP) through its pipeline and Anlas guards, uploaded
+     * into ST's backgrounds library (POST /api/backgrounds/upload); never set. The stored file name, or null (a toast
+     * and a `requestFailed` event say why; a declined cost confirmation is `aborted`).
+     */
+    generateBackground?(input: NaiBackgroundInput): Promise<NaiBackgroundResult | null>;
 }
 
 const API_METHODS = [
@@ -171,7 +255,8 @@ const API_METHODS = [
 
 /**
  * The published NAI Studio API when it is version 1 with every method of 0.10.0; undefined otherwise. Members added
- * later within version 1 (`registerQualityGate`, 0.11.0) are optional: check them before use.
+ * later within version 1 (`registerQualityGate`, 0.11.0; `registerPassportProvider`, `generatePassport`,
+ * `generateBackground`, 0.12.0) are optional: check them before use.
  */
 export function readNaiApi(value: unknown): NaiStudioApi | undefined {
     if (typeof value !== 'object' || value === null) return undefined;
@@ -201,7 +286,10 @@ export function readPassport(raw: unknown): NaiPassport | null {
         for (const [slot, value] of Object.entries(copy.slots)) if (typeof value === 'string') slots[slot] = value;
     }
     const outfits = Array.isArray(copy.outfits)
-        ? copy.outfits.filter(isDict).map((outfit) => ({ name: text(outfit.name), tags: text(outfit.tags) }))
+        ? copy.outfits.filter(isDict).map((outfit) => {
+              const looks = stringList(outfit.looks);
+              return { name: text(outfit.name), tags: text(outfit.tags), ...(looks.length ? { looks } : {}) };
+          })
         : [];
     const states = Array.isArray(copy.states)
         ? copy.states
@@ -236,6 +324,15 @@ export class NaiAdapter extends NeighbourBase<'nai'> {
         this.capability(
             'nai.qualityGate',
             () => this.present() && typeof this.api()?.registerQualityGate === 'function',
+        );
+        this.capability(
+            'nai.lorePassports',
+            () => this.present() && typeof this.api()?.registerPassportProvider === 'function',
+        );
+        this.capability('nai.passportGen', () => this.present() && typeof this.api()?.generatePassport === 'function');
+        this.capability(
+            'nai.backgrounds',
+            () => this.present() && typeof this.api()?.generateBackground === 'function',
         );
     }
 
@@ -272,11 +369,81 @@ export class NaiAdapter extends NeighbourBase<'nai'> {
         }
     }
 
-    /** Subscribes through the API; without it nothing is subscribed and the returned unsubscription does nothing. */
+    /**
+     * Subscribes through the API; without it — or for an event this NAI Studio does not have yet (`requestFailed`
+     * before 0.12.0) — nothing is subscribed and the returned unsubscription does nothing.
+     */
     on<K extends NaiStudioEvent>(event: K, listener: (detail: NaiStudioEvents[K]) => void): () => void {
         const api = this.api();
         if (!api) return () => {};
-        return api.on(event, listener);
+        try {
+            return api.on(event, listener);
+        } catch (error) {
+            this.log.warn(`NAI_STUDIO_API.on("${event}") failed`, error);
+            return () => {};
+        }
+    }
+
+    /**
+     * Registers a passport provider with NAI Studio (0.12.0+): the passports of lore entries of a scene join its scene
+     * images and markers after the card/persona/chat passports (those win by name or alias); a provider with the same
+     * id replaces the previous one. Returns the unregistration; without the API member (older NAI Studio, disabled,
+     * not loaded) or when NAI Studio refuses it, nothing is registered and the returned function does nothing. NAI
+     * Studio drops its registrations when it is disabled: register again when `nai.lorePassports` comes back.
+     */
+    registerPassportProvider(provider: NaiPassportProvider): () => void {
+        const api = this.api();
+        if (typeof api?.registerPassportProvider !== 'function') return () => {};
+        let off: () => void;
+        try {
+            const result = api.registerPassportProvider(provider);
+            off = typeof result === 'function' ? result : () => {};
+        } catch (error) {
+            this.log.warn('NAI_STUDIO_API.registerPassportProvider failed', error);
+            return () => {};
+        }
+        return () => {
+            try {
+                off();
+            } catch (error) {
+                this.log.warn('passport provider unregistration failed', error);
+            }
+        };
+    }
+
+    /**
+     * NAI Studio's passport generator (0.12.0+) for one person, place, item or the world from its text, through the
+     * language backend chosen in NAI Studio; nothing is saved. A typed copy of the passport (new id, the given name),
+     * or null: without the API member, when generation failed (NAI Studio emits `requestFailed`) or rejected input.
+     */
+    async generatePassport(input: NaiPassportGenInput): Promise<NaiPassport | null> {
+        const api = this.api();
+        if (typeof api?.generatePassport !== 'function') return null;
+        try {
+            return readPassport(await api.generatePassport(input));
+        } catch (error) {
+            this.log.warn('NAI_STUDIO_API.generatePassport failed', error);
+            return null;
+        }
+    }
+
+    /**
+     * One background for a place drawn by NAI Studio (0.12.0+) and uploaded into ST's backgrounds library; NAI Studio
+     * never sets it — the caller does. `{ file }` with the stored file name, or null: without the API member, when NAI
+     * Studio refused (free-only mode would have to spend Anlas, the user declined the cost; it shows a toast and emits
+     * `requestFailed`), when it failed, or for rejected input.
+     */
+    async generateBackground(input: NaiBackgroundInput): Promise<NaiBackgroundResult | null> {
+        const api = this.api();
+        if (typeof api?.generateBackground !== 'function') return null;
+        try {
+            const result: unknown = await api.generateBackground(input);
+            const file = isDict(result) && typeof result.file === 'string' ? result.file.trim() : '';
+            return file ? { file } : null;
+        } catch (error) {
+            this.log.warn('NAI_STUDIO_API.generateBackground failed', error);
+            return null;
+        }
     }
 
     /**

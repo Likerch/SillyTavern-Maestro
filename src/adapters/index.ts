@@ -32,15 +32,22 @@ export type {
 } from './localizer';
 export { NaiAdapter } from './nai';
 export type {
+    NaiBackgroundInput,
+    NaiBackgroundResult,
     NaiImageReadyDetail,
     NaiImageReadyKind,
     NaiPassport,
+    NaiPassportGenInput,
+    NaiPassportGenKind,
     NaiPassportKind,
+    NaiPassportProvider,
     NaiPassportScope,
     NaiPassportTarget,
     NaiPassportsSavedDetail,
     NaiQualityGate,
     NaiQualityGateDetail,
+    NaiRequestFailedDetail,
+    NaiRequestKind,
     NaiSaveScope,
     NaiSceneHint,
     NaiSceneHintContext,

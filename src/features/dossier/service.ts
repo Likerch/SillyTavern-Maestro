@@ -9,6 +9,7 @@ import type { DossierCompare } from './compare';
 import { structuralFindings } from './findings';
 import { buildSections } from './sections';
 import type { DossierSources, EntityFacts } from './sources';
+import type { DossierStyleUp, StyleUpInfo } from './style-up';
 
 export const DOSSIER_TAB = 'dossier';
 
@@ -36,7 +37,11 @@ export function searchEntities(entities: readonly Entity[], query: string): Enti
 export interface LoadedDossier {
     dossier: Dossier;
     facts: EntityFacts;
+    /** «Оформить» (M7 п. 6): missing stores, the card's book and the canon additions it can take. */
+    styleUp: StyleUpInfo;
 }
+
+const NO_STYLE_UP: StyleUpInfo = { gaps: null, cardBook: null, promotable: [] };
 
 export class DossierService implements DossierApi {
     private current: string | null = null;
@@ -47,6 +52,7 @@ export class DossierService implements DossierApi {
         readonly sources: DossierSources,
         readonly actions: DossierActions,
         readonly compare: DossierCompare,
+        readonly styleUp: DossierStyleUp,
     ) {}
 
     private t(key: string, params?: Record<string, string | number>): string {
@@ -73,7 +79,13 @@ export class DossierService implements DossierApi {
             sections: buildSections(facts, t),
             findings: [...structuralFindings(facts, this.sources, t), ...(ai?.findings ?? [])],
         };
-        return { dossier, facts };
+        let styleUp = NO_STYLE_UP;
+        try {
+            styleUp = await this.styleUp.info(facts);
+        } catch (error) {
+            this.app.log.debug('dossier «style up» info failed', error);
+        }
+        return { dossier, facts, styleUp };
     }
 
     async build(entityId: string): Promise<Dossier> {

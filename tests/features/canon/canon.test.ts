@@ -129,6 +129,21 @@ describe('items', () => {
         expect(await canon.list({ kind: 'pin' })).toHaveLength(1);
     });
 
+    it('keeps a lore passport stored in the item when the item is updated (M28)', async () => {
+        const uid = await canon.put(onBase('override', 'World', 1, { content: 'A dead dragon.' }));
+        const stored = env.world.entry(book, uid)!;
+        const extensions = stored.extensions as Dict;
+        const passport = { passport: { name: 'Dragon', tags: 'dragon, red scales' }, generatedBy: 'user' };
+        await env.world.edit(book, uid, {
+            extensions: { ...extensions, maestro: { ...(extensions.maestro as Dict), passport } },
+        });
+        await settle();
+        await canon.put(onBase('override', 'World', 1, { content: 'A sleeping dragon.' }));
+        const updated = env.world.entry(book, uid)!;
+        expect(updated.content).toBe('A sleeping dragon.');
+        expect(((updated.extensions as Dict).maestro as Dict).passport).toEqual(passport);
+    });
+
     it('rejects drafts without a base or with an unknown kind', async () => {
         await expect(
             canon.put({ entry: {}, meta: { kind: 'override', status: 'active', origin: 'user' } }),

@@ -733,7 +733,9 @@ describe('spread', () => {
             'dossier.fix',
             'dossier.fixFile',
             'dossier.note',
+            'dossier.promoteToCard',
             'dossier.spread',
+            'dossier.styleUp',
         ]);
         const applier = env.inbox2.appliers.get('dossier.fix')!;
         const payload: ActionPayload = {

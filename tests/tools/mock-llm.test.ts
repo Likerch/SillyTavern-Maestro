@@ -215,6 +215,24 @@ describe('mock LLM', () => {
         // Names stay as they are; the prose itself must be English.
         expect(english.choices[0]!.message.content.replace(/[А-ЯЁ][а-яё]+/g, '')).not.toMatch(/[а-яё]{3,}/);
         expect(english.choices[0]!.message.content).toMatch(/\b(the|and|of)\b/);
+
+        const dressed = await complete({
+            messages: [...story.slice(0, 1), { role: 'user', content: '[mock:outfit:Мартин=синий камзол] дальше' }],
+        });
+        const reply = dressed.choices[0]!.message.content;
+        const tracker = JSON.parse(reply.slice(8, reply.indexOf('\n```', 8))) as {
+            characters: { name: string; details: Record<string, string> }[];
+        };
+        expect(tracker.characters.find((ch) => ch.name === 'Мартин')?.details.outfit).toBe('синий камзол');
+        expect(tracker.characters.find((ch) => ch.name === 'Вера')?.details.outfit).toBeUndefined();
+
+        const joined = await complete({
+            messages: [...story.slice(0, 1), { role: 'user', content: '[mock:outfit:Элизабет=красное платье]' }],
+        });
+        const joinedReply = joined.choices[0]!.message.content;
+        const joinedTracker = JSON.parse(joinedReply.slice(8, joinedReply.indexOf('\n```', 8))) as typeof tracker;
+        expect(joinedTracker.characters[0]).toMatchObject({ name: 'Элизабет', details: { outfit: 'красное платье' } });
+        expect(joinedTracker.characters.filter((ch) => ch.details.outfit)).toHaveLength(1);
     });
 
     it('calls a tool when asked and answers the tool result', async () => {

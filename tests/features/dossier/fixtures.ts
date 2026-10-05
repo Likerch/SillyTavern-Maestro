@@ -138,3 +138,56 @@ export function personaScene(env: DossierEnv): void {
     };
     env.n.desSettings = { userCharacters: { Алекс: { color: '#123456', pronouns: 'he/him' } } };
 }
+
+/* ------------------------------------------------------------------ «Оформить» (M7 п. 6) */
+
+export const MIRA_ID = 'character:мира';
+export const MIRA_FORMS = ['Мира', 'Миры', 'Мире', 'Миру', 'Мирой'];
+
+/** Pack entries the BunnyMo dictionary of the «Оформить» tests is built from. */
+export const STYLE_UP_PACK = [
+    wi(11, { comment: 'Human', key: ['<SPECIES:HUMAN>'], content: 'Humans.' }),
+    wi(12, { comment: 'Kuudere', key: ['<DERE:KUUDERE>'], content: 'Cool.' }),
+    wi(13, { comment: 'Stoic', key: ['<TRAIT:STOIC>'], content: 'Stoic.' }),
+    wi(14, { comment: 'Blunt', key: ['<LING:BLUNT>'], content: 'Blunt speech.' }),
+    wi(15, { comment: 'INTJ-U', key: ['<INTJ-U>'], content: 'The schemer.' }),
+];
+
+/**
+ * The «Лира» scene plus a new NPC «Мира» known only to DES (roster and the newest tracker): no lorebook entry, no
+ * CK archive, no NAI passport. NAI Studio's API keeps the chat's own passports in `extra` like NAI Studio does.
+ */
+export function miraScene(env: DossierEnv): { nai: FakeNaiApi } {
+    const { nai } = lyraScene(env);
+    const n = env.n;
+    n.desKnown = ['Лира', 'Мира'];
+    n.trackers.set(
+        4,
+        tracker([
+            { name: 'Лира', details: { appearance: 'серебряные волосы' } },
+            {
+                name: 'Мира',
+                details: { appearance: 'рыжая коса, шрам на щеке', demeanor: 'холодная', thoughts: 'скучно' },
+            },
+        ]),
+    );
+    n.desruApi = desRuApi({ Лира: LYRA_FORMS, Лисичка: ['Лисичка', 'Лисички'], Мира: MIRA_FORMS }, () => null);
+    const store = () => ((env.mock.chatMetadata.nai_studio as Dict).passports as { extra: Dict[] }).extra;
+    const save = nai.savePassport.bind(nai);
+    nai.savePassport = async (passport, scope, target) => {
+        if (scope === 'chat' && !target && !nai.getPassport(passport.id)) {
+            nai.saved.push({ passport: structuredClone(passport), scope });
+            store().push(structuredClone(passport) as unknown as Dict);
+            return;
+        }
+        await save(passport, scope, target);
+    };
+    const clear = nai.clearChatOverride.bind(nai);
+    nai.clearChatOverride = async (id) => {
+        const extra = store();
+        const index = extra.findIndex((item) => item.id === id);
+        if (index >= 0) extra.splice(index, 1);
+        await clear(id);
+    };
+    return { nai };
+}

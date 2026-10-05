@@ -57,6 +57,11 @@ export interface FormEnv {
     isDirty(): boolean;
     /** Short status line in the toolbar. */
     status(text: string, level?: StatusLevel): void;
+    /**
+     * Runs a write made from inside the form other than «Save» (the passport, M28) while the form ignores the echo
+     * of outside changes; the job brings `state` up to date before it returns.
+     */
+    hold?<T>(job: () => Promise<T>): Promise<T>;
 }
 
 function safeApi<T>(app: App, key: string): T | undefined {

@@ -1,12 +1,17 @@
 // Pult tab «Досье» (M7): entity picker (search; persona first, then characters on scene, then the rest), the dossier
 // page with collapsible sections and «Открыть», structural findings with fix buttons, «Сверить с ИИ» with a size and
-// cost estimate, and the «Разнести» editor (field, value, target checkboxes). Mobile-first: one column, wrapping rows.
-import type { App, Decision, PultTab } from '../../shared/contracts';
+// cost estimate, the «Разнести» editor (field, value, target checkboxes), «Оформить» (M7 п. 6: the button in the
+// header when stores are missing, the plan preview with a checkbox per part, the status after it was applied),
+// «В книгу карточки» on the entity's canon additions and «Наряды» (M27 п.4: the wardrobe's outfit library of a
+// character, the worn one marked, «Надеть»). Mobile-first: one column, wrapping rows.
+import type { StyleUpPartId } from '../../domain/dossier-styleup';
+import type { App, Decision, PultTab, Unsubscribe } from '../../shared/contracts';
 import { badge, banner, emptyState, section } from '../../ui/components/card';
 import { select } from '../../ui/components/controls';
 import { append, button, clear, el, icon } from '../../ui/components/dom';
 import type { Child } from '../../ui/components/dom';
 import { formatTime, formatUsd, tOr } from '../../ui/views/format';
+import type { Outfit, WardrobeApi } from '../wardrobe/api';
 import type { Entity, EntitySource } from '../world/api';
 import { ProtectedBookError } from './actions';
 import type { Dossier, DossierFinding, DossierSection, SpreadEdit } from './api';
@@ -14,6 +19,7 @@ import { CompareError } from './compare';
 import type { DossierOpener } from './opener';
 import { DOSSIER_TAB } from './service';
 import type { DossierService, LoadedDossier } from './service';
+import type { StyleUpPart, StyleUpPlan } from './style-up';
 
 const PICKER_LIMIT = 60;
 const TEXT_PREVIEW = 1200;
@@ -49,6 +55,17 @@ export const DOSSIER_CSS = `
 .maestro-m7-spread { display: flex; flex-direction: column; gap: 6px; }
 .maestro-m7-spread-value { width: 100%; box-sizing: border-box; min-height: 2.5em; }
 .maestro-m7-targets { display: flex; flex-direction: column; gap: 2px; }
+.maestro-m7-styleup { display: flex; flex-direction: column; gap: 6px; }
+.maestro-m7-part { border: 1px solid var(--maestro-border); border-radius: var(--maestro-radius-sm); padding: 6px 8px; display: flex; flex-direction: column; gap: 4px; }
+.maestro-m7-part-line { overflow-wrap: anywhere; }
+.maestro-m7-part pre { white-space: pre-wrap; overflow-wrap: anywhere; margin: 4px 0; font-size: 0.9em; }
+.maestro-m7-status { display: flex; flex-direction: column; gap: 2px; }
+.maestro-m7-outfits { display: flex; flex-direction: column; gap: 4px; }
+.maestro-m7-outfit { border: 1px solid var(--maestro-border); border-radius: var(--maestro-radius-sm); padding: 4px 8px; display: flex; flex-direction: column; gap: 2px; }
+.maestro-m7-outfit-head { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; min-height: 32px; }
+.maestro-m7-outfit-name { font-weight: 600; overflow-wrap: anywhere; }
+.maestro-m7-outfit-head .maestro-m7-outfit-wear { margin-left: auto; }
+.maestro-m7-outfit-tags { font-size: 0.85em; color: var(--maestro-muted); overflow-wrap: anywhere; }
 `;
 
 type Field = SpreadEdit['field'];
@@ -94,6 +111,12 @@ const KIND_ICONS: Record<string, string> = {
     place: 'fa-location-dot',
 };
 
+/** The «Оформить» panel of the open dossier: planning (the model call runs), the preview, or sent. */
+type StyleUpPanel =
+    | { entityId: string; phase: 'planning' }
+    | { entityId: string; phase: 'preview'; plan: StyleUpPlan; selected: Set<StyleUpPartId>; book: string | null }
+    | { entityId: string; phase: 'sent'; decision: Decision; name: string };
+
 export function dossierTab(app: App, service: DossierService, opener: DossierOpener): PultTab {
     const t = app.i18n.t.bind(app.i18n);
     const fieldLabel = (key: string): string => {
@@ -123,6 +146,7 @@ export function dossierTab(app: App, service: DossierService, opener: DossierOpe
             let loadingId: string | null = null;
             let error = '';
             let spreadField: Field = 'alias';
+            let panel: StyleUpPanel | null = null;
             const root = el('div', { class: 'maestro-view maestro-m7' });
             container.appendChild(root);
 
@@ -245,10 +269,33 @@ export function dossierTab(app: App, service: DossierService, opener: DossierOpe
                 return node;
             };
 
-            const sectionView = (item: DossierSection, index: number): HTMLElement => {
+            const promoteButton = (item: DossierSection, data: LoadedDossier): HTMLElement | null => {
+                const uid = item.source?.kind === 'canon.entry' ? item.source.uid : undefined;
+                const book = data.styleUp.cardBook;
+                if (uid === undefined || !book || !data.styleUp.promotable.includes(uid)) return null;
+                return button({
+                    label: t('m7.styleUp.promote.action'),
+                    icon: 'fa-book-medical',
+                    kind: 'ghost',
+                    title: t('m7.styleUp.promote.hint', { book }),
+                    onClick: async () => {
+                        try {
+                            const decision = await service.styleUp.promote(data.dossier.entityId, uid);
+                            app.ui.notice(decisionText(decision));
+                        } catch (problem) {
+                            notifyError(problem);
+                        }
+                        if (alive) void reload();
+                    },
+                });
+            };
+
+            const sectionView = (item: DossierSection, index: number, data?: LoadedDossier): HTMLElement => {
                 const details = el('details', { class: 'maestro-m7-section', data: { kind: item.kind } });
                 if (index < OPEN_SECTIONS) details.open = true;
                 const fields = Object.entries(item.fields ?? {});
+                const promote = data ? promoteButton(item, data) : null;
+                const canOpen = opener.canOpen(item);
                 append(details, [
                     el('summary', {}, [
                         badge(t(`m7.kind.${item.kind}`), 'muted'),
@@ -267,18 +314,214 @@ export function dossierTab(app: App, service: DossierService, opener: DossierOpe
                           )
                         : null,
                     textView(item.text),
-                    opener.canOpen(item)
+                    canOpen || promote
                         ? el('div', { class: 'maestro-m7-actions' }, [
-                              button({
-                                  label: t('m7.open'),
-                                  icon: 'fa-arrow-up-right-from-square',
-                                  kind: 'ghost',
-                                  onClick: () => opener.open(item),
-                              }),
+                              canOpen
+                                  ? button({
+                                        label: t('m7.open'),
+                                        icon: 'fa-arrow-up-right-from-square',
+                                        kind: 'ghost',
+                                        onClick: () => opener.open(item),
+                                    })
+                                  : null,
+                              promote,
                           ])
                         : null,
                 ]);
                 return details;
+            };
+
+            /* ------------------------------------------------------------ «Оформить» */
+
+            const partName = (part: string): string => t(`m7.styleUp.part.${part}`);
+
+            const startStyleUp = async (data: LoadedDossier): Promise<void> => {
+                const entityId = data.dossier.entityId;
+                panel = { entityId, phase: 'planning' };
+                draw();
+                try {
+                    const plan = await service.styleUp.plan(data.facts);
+                    if (!alive || panel?.entityId !== entityId) return;
+                    const archive = plan.parts.find((part) => part.part === 'archive');
+                    panel = {
+                        entityId,
+                        phase: 'preview',
+                        plan,
+                        selected: new Set(plan.parts.map((part) => part.part)),
+                        book: archive?.part === 'archive' ? archive.book : null,
+                    };
+                } catch (problem) {
+                    panel = null;
+                    notifyError(problem);
+                }
+                draw();
+            };
+
+            const muted = (text: string): HTMLElement => el('div', { class: 'maestro-muted', text });
+
+            const partDetails = (part: StyleUpPart): HTMLElement[] => {
+                const pre = (text: string) => el('pre', { text });
+                switch (part.part) {
+                    case 'canon':
+                        return [muted(t('m7.styleUp.keys', { list: part.keys.join(', ') })), pre(part.content)];
+                    case 'archive':
+                        return [
+                            muted(t('m7.styleUp.tags', { list: part.tags.join(' ') })),
+                            muted(t('m7.styleUp.keys', { list: part.keys.join(', ') })),
+                            pre(part.content),
+                        ];
+                    case 'passport': {
+                        const preview = service.styleUp.preview(part) as { tags?: string };
+                        return [pre(preview.tags ?? '')];
+                    }
+                    case 'placeEntry':
+                        return [pre(part.content)];
+                    case 'lorePassport':
+                        return [muted(t('m7.styleUp.preview.lorePassport'))];
+                }
+            };
+
+            const partView = (part: StyleUpPart, state: Extract<StyleUpPanel, { phase: 'preview' }>): HTMLElement => {
+                const input = el('input', { attrs: { type: 'checkbox' } });
+                input.checked = state.selected.has(part.part);
+                input.addEventListener('change', () => {
+                    if (input.checked) state.selected.add(part.part);
+                    else state.selected.delete(part.part);
+                });
+                const box = el('div', { class: 'maestro-m7-part', data: { part: part.part } }, [
+                    el('label', { class: 'checkbox_label' }, [input, el('span', { text: partName(part.part) })]),
+                    el('div', { class: 'maestro-m7-part-line', text: service.styleUp.describe(part) }),
+                    muted(t('m7.styleUp.before')),
+                ]);
+                if (part.part === 'archive' && part.rejected.length) {
+                    box.appendChild(
+                        el('div', {
+                            class: 'maestro-warn-text',
+                            text: t('m7.styleUp.rejected', {
+                                list: part.rejected.map((item) => `${item.tag} (${item.reason})`).join(', '),
+                            }),
+                        }),
+                    );
+                }
+                if (part.part === 'archive' && part.books.length > 1) {
+                    box.appendChild(
+                        select<string>({
+                            value: state.book ?? part.book,
+                            label: t('m7.styleUp.book'),
+                            options: part.books.map((book) => ({ value: book, label: book })),
+                            onChange: (book) => {
+                                state.book = book;
+                            },
+                        }),
+                    );
+                }
+                box.appendChild(
+                    el('details', {}, [el('summary', { text: t('m7.styleUp.show') }), ...partDetails(part)]),
+                );
+                return box;
+            };
+
+            const styleUpPanel = (data: LoadedDossier): HTMLElement | null => {
+                const state = panel;
+                if (!state || state.entityId !== data.dossier.entityId || state.phase === 'sent') return null;
+                const title = t('m7.styleUp.title', { name: data.dossier.name });
+                if (state.phase === 'planning') return section(title, muted(t('m7.styleUp.planning')));
+                const { plan } = state;
+                const close = () => {
+                    panel = null;
+                    draw();
+                };
+                const hints = plan.hints.map((hint) =>
+                    banner(service.styleUp.hintText(hint), 'info', 'fa-circle-info'),
+                );
+                const cost =
+                    plan.costUsd !== undefined
+                        ? muted(t('m7.styleUp.cost', { usd: formatUsd(plan.costUsd, app.i18n) }))
+                        : null;
+                const dialog = (children: (HTMLElement | null)[]) =>
+                    el(
+                        'div',
+                        { class: 'maestro-m7-styleup', attrs: { role: 'dialog', 'aria-label': title } },
+                        children,
+                    );
+                if (!plan.parts.length) {
+                    return section(
+                        title,
+                        dialog([
+                            emptyState(t('m7.styleUp.nothing'), 'fa-circle-info'),
+                            ...hints,
+                            cost,
+                            el('div', { class: 'maestro-m7-actions' }, [
+                                button({ label: t('m7.styleUp.close'), icon: 'fa-xmark', onClick: close }),
+                            ]),
+                        ]),
+                    );
+                }
+                return section(
+                    title,
+                    dialog([
+                        el('div', { class: 'maestro-hint', text: t('m7.styleUp.intro') }),
+                        ...plan.parts.map((part) => partView(part, state)),
+                        ...hints,
+                        cost,
+                        el('div', { class: 'maestro-m7-actions' }, [
+                            button({
+                                label: t('m7.styleUp.apply'),
+                                icon: 'fa-wand-magic-sparkles',
+                                kind: 'primary',
+                                className: 'maestro-m7-styleup-apply',
+                                onClick: async () => {
+                                    if (!state.selected.size) {
+                                        app.ui.notice(t('m7.styleUp.none'), { level: 'warn' });
+                                        return;
+                                    }
+                                    try {
+                                        const decision = await service.styleUp.propose(plan, {
+                                            parts: [...state.selected],
+                                            ...(state.book ? { book: state.book } : {}),
+                                        });
+                                        app.ui.notice(decisionText(decision));
+                                        panel = { entityId: state.entityId, phase: 'sent', decision, name: plan.name };
+                                    } catch (problem) {
+                                        notifyError(problem);
+                                    }
+                                    if (alive) void reload();
+                                },
+                            }),
+                            button({ label: t('m7.styleUp.cancel'), icon: 'fa-xmark', kind: 'ghost', onClick: close }),
+                        ]),
+                    ]),
+                );
+            };
+
+            /** What the last «Оформить» or promotion did, and a plan waiting in the Inbox. */
+            const styleUpStatus = (data: LoadedDossier): HTMLElement | null => {
+                const entityId = data.dossier.entityId;
+                const result = service.styleUp.lastResult(entityId);
+                const sent =
+                    panel?.entityId === entityId && panel.phase === 'sent' && panel.decision === 'queued'
+                        ? panel
+                        : null;
+                if (!result && !sent) return null;
+                const lines: HTMLElement[] = [];
+                if (sent) lines.push(muted(t('m7.styleUp.status.sent', { name: sent.name })));
+                if (result) {
+                    lines.push(muted(t('m7.styleUp.status.title', { time: formatTime(result.at, app.i18n) })));
+                    for (const outcome of result.outcomes) {
+                        const part = partName(outcome.part);
+                        lines.push(
+                            el('div', {
+                                class: outcome.ok ? 'maestro-m7-status-ok' : 'maestro-warn-text',
+                                data: { part: outcome.part, ok: String(outcome.ok) },
+                                text: outcome.ok
+                                    ? t('m7.styleUp.status.ok', { part })
+                                    : t('m7.styleUp.status.failed', { part, error: outcome.error ?? '' }),
+                            }),
+                        );
+                        if (outcome.note) lines.push(muted(outcome.note));
+                    }
+                }
+                return el('div', { class: 'maestro-m7-status' }, lines);
             };
 
             /* ------------------------------------------------------------ AI comparison */
@@ -424,6 +667,83 @@ export function dossierTab(app: App, service: DossierService, opener: DossierOpe
                 return box;
             };
 
+            /* ------------------------------------------------------------ «Наряды» (M27 п.4) */
+
+            /** The open dossier's outfit block: refilled in place when the wardrobe changes (the page keeps its state). */
+            let wardrobeBox: HTMLElement | null = null;
+            let wardrobeFor: LoadedDossier | null = null;
+
+            const wardrobeApi = (): WardrobeApi | undefined => {
+                try {
+                    return app.modules.api<WardrobeApi>('wardrobe');
+                } catch {
+                    return undefined;
+                }
+            };
+
+            const outfitRow = (wardrobe: WardrobeApi, outfit: Outfit): HTMLElement =>
+                el('div', { class: 'maestro-m7-outfit', data: { outfit: outfit.name } }, [
+                    el('div', { class: 'maestro-m7-outfit-head' }, [
+                        el('span', { class: 'maestro-m7-outfit-name', text: outfit.name }),
+                        outfit.active ? badge(t('m7.wardrobe.active'), 'ok') : null,
+                        outfit.active
+                            ? null
+                            : button({
+                                  label: t('m7.wardrobe.wear'),
+                                  icon: 'fa-shirt',
+                                  kind: 'ghost',
+                                  className: 'maestro-m7-outfit-wear',
+                                  title: t('m7.wardrobe.wearHint'),
+                                  onClick: async () => {
+                                      try {
+                                          await wardrobe.wear(outfit.passportId, outfit.name);
+                                          app.ui.notice(t('m7.wardrobe.worn', { name: outfit.name }));
+                                      } catch (problem) {
+                                          notifyError(problem);
+                                      }
+                                      if (alive) fillWardrobe();
+                                  },
+                              }),
+                    ]),
+                    outfit.tags ? el('div', { class: 'maestro-m7-outfit-tags', text: outfit.tags }) : null,
+                ]);
+
+            const fillWardrobe = (): void => {
+                const box = wardrobeBox;
+                const data = wardrobeFor;
+                if (!box || !data) return;
+                clear(box);
+                const wardrobe = wardrobeApi();
+                let outfits: Outfit[];
+                try {
+                    outfits = wardrobe?.outfits(data.dossier.name) ?? [];
+                } catch {
+                    outfits = [];
+                }
+                box.hidden = !wardrobe || !outfits.length;
+                if (!wardrobe || !outfits.length) return;
+                box.appendChild(
+                    section(
+                        t('m7.wardrobe.title', { count: outfits.length }),
+                        el(
+                            'div',
+                            { class: 'maestro-m7-outfits' },
+                            outfits.map((outfit) => outfitRow(wardrobe, outfit)),
+                        ),
+                    ),
+                );
+            };
+
+            /** Characters (and the persona) only, while the wardrobe module is on; hidden without outfits. */
+            const wardrobeView = (data: LoadedDossier): HTMLElement | null => {
+                const kind = data.facts.entity.kind;
+                if ((kind !== 'character' && kind !== 'persona') || !wardrobeApi()) return null;
+                wardrobeBox = el('div', { class: 'maestro-m7-wardrobe' });
+                wardrobeFor = data;
+                fillWardrobe();
+                return wardrobeBox;
+            };
+
             /* ------------------------------------------------------------ page */
 
             const dossierView = (data: LoadedDossier): HTMLElement[] => {
@@ -433,6 +753,7 @@ export function dossierTab(app: App, service: DossierService, opener: DossierOpe
                     (finding) => finding.kind !== 'appearanceMismatch' && finding.kind !== 'descriptionMismatch',
                 );
                 const ai = dossier.findings.filter((finding) => !structural.includes(finding));
+                const gaps = data.styleUp.gaps;
                 const head = section(
                     t('m7.title'),
                     [
@@ -453,6 +774,13 @@ export function dossierTab(app: App, service: DossierService, opener: DossierOpe
                             class: 'maestro-muted',
                             text: t('m7.builtAt', { time: formatTime(dossier.builtAt, app.i18n) }),
                         }),
+                        gaps
+                            ? el('div', {
+                                  class: 'maestro-muted maestro-m7-missing',
+                                  text: t('m7.styleUp.missing', { list: gaps.missing.map(partName).join(', ') }),
+                              })
+                            : null,
+                        styleUpStatus(data),
                     ],
                     [
                         button({
@@ -462,6 +790,17 @@ export function dossierTab(app: App, service: DossierService, opener: DossierOpe
                             onClick: () => service.select(null),
                         }),
                         button({ label: t('m7.refresh'), icon: 'fa-rotate', onClick: () => reload() }),
+                        gaps
+                            ? button({
+                                  label: t('m7.styleUp.action'),
+                                  icon: 'fa-wand-magic-sparkles',
+                                  kind: 'primary',
+                                  className: 'maestro-m7-styleup-start',
+                                  title: t('m7.styleUp.actionHint'),
+                                  disabled: panel?.entityId === dossier.entityId && panel.phase === 'planning',
+                                  onClick: () => startStyleUp(data),
+                              })
+                            : null,
                     ],
                 );
                 const findingsBlock = section(t('m7.findings.title', { count: dossier.findings.length }), [
@@ -474,16 +813,26 @@ export function dossierTab(app: App, service: DossierService, opener: DossierOpe
                 const sectionsBlock = section(
                     t('m7.sections.title', { count: dossier.sections.length }),
                     dossier.sections.length
-                        ? el('div', { class: 'maestro-m7-sections' }, dossier.sections.map(sectionView))
+                        ? el(
+                              'div',
+                              { class: 'maestro-m7-sections' },
+                              dossier.sections.map((item, index) => sectionView(item, index, data)),
+                          )
                         : emptyState(t('m7.sections.none'), 'fa-folder-open'),
                 );
                 const spreadBlock = section(t('m7.spread.title'), spreadView(data));
-                return [head, findingsBlock, sectionsBlock, spreadBlock];
+                const styleUpBlock = styleUpPanel(data);
+                const wardrobeBlock = wardrobeView(data);
+                return [head, styleUpBlock, findingsBlock, wardrobeBlock, sectionsBlock, spreadBlock].filter(
+                    (block): block is HTMLElement => block !== null,
+                );
             };
 
             const draw = () => {
                 if (!alive) return;
                 clear(root);
+                wardrobeBox = null;
+                wardrobeFor = null;
                 const current = service.currentId();
                 if (!current) {
                     root.appendChild(pickerView());
@@ -540,11 +889,20 @@ export function dossierTab(app: App, service: DossierService, opener: DossierOpe
             const offWorld = world?.onChange(() => {
                 if (alive && !service.currentId()) fillPicker();
             });
+            let offWardrobe: Unsubscribe | undefined;
+            try {
+                offWardrobe = wardrobeApi()?.onChange(() => {
+                    if (alive) fillWardrobe();
+                });
+            } catch {
+                offWardrobe = undefined;
+            }
             void reload();
             return () => {
                 alive = false;
                 offChange();
                 offWorld?.();
+                offWardrobe?.();
             };
         },
     };
