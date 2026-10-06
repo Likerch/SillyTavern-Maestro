@@ -6,11 +6,13 @@
 // studio refuses to open (plan §4.14).
 import type { App, I18nParts, Logger, MaestroModule, Unsubscribe } from '../../shared/contracts';
 import type { PresetAnalysisApi } from './analysis-api';
+import { PresetBinder } from './binding';
 import type { PresetLayerApi } from './layer-api';
 import { PM_CONTAINER_ID, PmInfo, PmLauncher } from './launcher';
 import type { PresetStore } from './store-api';
 import { ANALYSIS_STRINGS } from './analysis-strings';
 import { LAYER_STRINGS } from './layer-strings';
+import { SCOPE_STRINGS } from './scope-strings';
 import { PRESET_STORE_STRINGS } from './store';
 import { M34_STRINGS } from './strings';
 import { PresetStudio, defaultPresetStudioSettings, servicesOf } from './studio';
@@ -45,6 +47,11 @@ export interface PresetFactories {
 /** What other modules get as 'presetStudio'. */
 export interface PresetStudioApi {
     open(identifier?: string): void;
+    /**
+     * Switches the preset the way the studio does: unsaved edits are asked about first («Сохранить / Отбросить /
+     * Отмена»); `reason` is said first in that question. False when the user stayed (release 1.13).
+     */
+    select?(name: string, reason?: string): Promise<boolean>;
 }
 
 /** Runtime handles of a started module (tests, other code in this feature). */
@@ -52,6 +59,7 @@ export interface PresetStudioRuntime {
     studio: PresetStudio;
     launcher: PmLauncher;
     pm: PmInfo;
+    binder: PresetBinder;
 }
 
 let runtime: PresetStudioRuntime | null = null;
@@ -71,6 +79,7 @@ export const PRESET_STUDIO_STRINGS: I18nParts = {
         ...LAYER_STRINGS.en,
         ...PRESET_STORE_STRINGS.en,
         ...TARGET_STRINGS.en,
+        ...SCOPE_STRINGS.en,
     },
     ru: {
         ...M34_STRINGS.ru,
@@ -78,6 +87,7 @@ export const PRESET_STUDIO_STRINGS: I18nParts = {
         ...LAYER_STRINGS.ru,
         ...PRESET_STORE_STRINGS.ru,
         ...TARGET_STRINGS.ru,
+        ...SCOPE_STRINGS.ru,
     },
 };
 
@@ -173,9 +183,21 @@ export function createPresetStudioModule(factories: PresetFactories): MaestroMod
             const studio = new PresetStudio({ app, log, services, settings, saveSettings, pm, showClassic });
             const launcher = new PmLauncher({ app, log, services, pm, open: () => studio.open() });
             ref.launcher = launcher;
-            runtime = { studio, launcher, pm };
+            // A preset bound to the card or the chat is selected when it opens (binding.ts).
+            const binder = new PresetBinder({
+                app,
+                log,
+                layer: () => services.layer(),
+                store: () => services.store(),
+                settings,
+                saveSettings,
+                switchPreset: (name, options) => studio.switchPreset(name, options),
+            });
+            for (const off of binder.install()) own(off);
+            runtime = { studio, launcher, pm, binder };
             expose(PRESET_STUDIO_KEY, {
                 open: (identifier?: string) => studio.open(identifier),
+                select: (name: string, reason?: string) => studio.switchPreset(name, { reason }),
             } satisfies PresetStudioApi);
             own(() => {
                 studio.dispose();

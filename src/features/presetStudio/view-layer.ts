@@ -10,8 +10,9 @@ import { toggle } from '../../ui/components/controls';
 import { renderParts, wordDiff } from '../../ui/components/diff';
 import { button, el, icon } from '../../ui/components/dom';
 import type { App } from '../../shared/contracts';
-import type { Layer, LayerApplyReport, LayerConflict, LayerOp } from './layer-api';
+import type { Layer, LayerApplyReport, LayerConflict, LayerOp, LayerScope, LayerScopeInfo } from './layer-api';
 import type { PresetPrompt } from './store-api';
+import { availableScopes, scopeField, scopeLabel, scopeSelect } from './view-scopes';
 
 export interface ForeignPick {
     file: string;
@@ -36,6 +37,8 @@ export interface LayerModel {
     /** The layer module can reselect the preset (lay the layer over it again) and prepare for disabling. */
     canReselect: boolean;
     canPrepare: boolean;
+    /** Scopes (plan-2 «Области действия»): the card and chat open now, where new edits go, moving ops between scopes. */
+    scopes?: { context: LayerScopeInfo; editScope: LayerScope; canMove: boolean };
 }
 
 export interface LayerActions {
@@ -52,6 +55,10 @@ export interface LayerActions {
     open(identifier: string): void;
     reselect(): Promise<void>;
     prepareDisable(mode: 'reselectBase' | 'saveMerged'): Promise<void>;
+    /** Where new edits go from now on. */
+    setEditScope?(scope: LayerScope): void;
+    /** Moves the op at an index of `layer.ops` into another scope. */
+    moveOp?(index: number, scope: LayerScope): Promise<void>;
 }
 
 /** One layer operation as a line («Своя правка блока „Main Prompt“: content»). */
@@ -180,6 +187,14 @@ export function renderLayerPanel(app: App, model: LayerModel, actions: LayerActi
                 onChange: (on) => actions.setEditsToLayer(on),
             }),
             el('div', { class: 'maestro-field-hint', text: t('m34.layer.editsToLayerHint') }),
+            model.scopes && model.editsToLayer && actions.setEditScope
+                ? scopeField(app, {
+                      value: model.scopes.editScope,
+                      context: model.scopes.context,
+                      onChange: (scope) => actions.setEditScope?.(scope),
+                      className: 'maestro-m34-layer-scope',
+                  })
+                : null,
             !model.layer && model.editsToLayer && !model.layerMode
                 ? el('div', { class: 'maestro-row' }, [
                       button({
@@ -213,31 +228,50 @@ export function renderLayerPanel(app: App, model: LayerModel, actions: LayerActi
     ]);
     if (!ops.length) opsSection.append(emptyState(t('m34.layer.noOps'), 'fa-layer-group'));
     else {
-        const list = el('ol', { class: 'maestro-m34-op-list' });
-        ops.forEach((op, index) => {
-            const identifier = op.op === 'add' ? op.prompt.identifier : op.op === 'key' ? null : op.identifier;
-            list.append(
-                el('li', { class: 'maestro-m34-op', data: { index } }, [
-                    el('span', { class: 'maestro-m34-op-text', text: describeOp(app, op, model.promptNames) }),
-                    identifier
-                        ? button({
-                              icon: 'fa-pen',
-                              kind: 'ghost',
-                              title: t('m34.layer.openBlock'),
-                              onClick: () => actions.open(identifier),
-                          })
-                        : null,
-                    button({
-                        icon: 'fa-trash-can',
-                        kind: 'ghost',
-                        title: t('m34.layer.removeOp'),
-                        className: 'maestro-m34-op-remove',
-                        onClick: () => actions.removeOp(index),
-                    }),
-                ]),
+        // Grouped by scope, in the order they are laid over the base; indexes stay those of `layer.ops`.
+        const context = model.scopes?.context ?? null;
+        const movable = model.scopes?.canMove === true && actions.moveOp ? availableScopes(context) : [];
+        for (const scope of ['global', 'character', 'chat'] as const) {
+            const items = ops
+                .map((op, index) => ({ op, index }))
+                .filter(({ op }) => ((op as { scope?: LayerScope }).scope ?? 'global') === scope);
+            if (!items.length) continue;
+            const list = el('ol', { class: 'maestro-m34-op-list', data: { scope } });
+            for (const { op, index } of items) {
+                const identifier = op.op === 'add' ? op.prompt.identifier : op.op === 'key' ? null : op.identifier;
+                const targets = movable.filter((item) => item !== scope);
+                list.append(
+                    el('li', { class: 'maestro-m34-op', data: { index, scope } }, [
+                        el('span', { class: 'maestro-m34-op-text', text: describeOp(app, op, model.promptNames) }),
+                        targets.length
+                            ? moveSelect(scope, targets, (to) => actions.moveOp?.(index, to) ?? Promise.resolve())
+                            : null,
+                        identifier
+                            ? button({
+                                  icon: 'fa-pen',
+                                  kind: 'ghost',
+                                  title: t('m34.layer.openBlock'),
+                                  onClick: () => actions.open(identifier),
+                              })
+                            : null,
+                        button({
+                            icon: 'fa-trash-can',
+                            kind: 'ghost',
+                            title: t('m34.layer.removeOp'),
+                            className: 'maestro-m34-op-remove',
+                            onClick: () => actions.removeOp(index),
+                        }),
+                    ]),
+                );
+            }
+            opsSection.append(
+                el('h5', {
+                    class: 'maestro-m34-op-scope',
+                    text: t('m34.scope.group', { scope: scopeLabel(app, scope, context), count: items.length }),
+                }),
+                list,
             );
-        });
-        opsSection.append(list);
+        }
     }
     const orphaned = model.report?.orphaned ?? [];
     if (orphaned.length) {
@@ -388,6 +422,29 @@ export function renderLayerPanel(app: App, model: LayerModel, actions: LayerActi
     }
     root.append(foreignSection);
     return root;
+
+    /** «Перенести в…»: the other scopes this chat offers. */
+    function moveSelect(
+        from: LayerScope,
+        targets: LayerScope[],
+        move: (scope: LayerScope) => Promise<void>,
+    ): HTMLSelectElement {
+        const node = scopeSelect(app, {
+            value: from,
+            context: model.scopes?.context ?? null,
+            onChange: (scope) => {
+                if (scope !== from) void move(scope);
+            },
+            className: 'maestro-m34-op-move',
+            label: t('m34.scope.move'),
+        });
+        for (const option of [...node.options]) {
+            if (option.value !== from && !targets.includes(option.value as LayerScope)) option.remove();
+        }
+        node.disabled = false;
+        node.title = t('m34.scope.move');
+        return node;
+    }
 
     function presetSelect(names: string[], label: string, className: string): HTMLSelectElement {
         const node = el('select', { class: ['text_pole', className], attrs: { 'aria-label': label } });

@@ -38,6 +38,9 @@ const SHELL_FILES = [
     'view-scenarios.ts',
     'view-tab.ts',
     'view-versions.ts',
+    'view-scopes.ts',
+    'view-neighbours.ts',
+    'binding.ts',
 ];
 
 describe('Preset Studio strings', () => {
@@ -104,7 +107,9 @@ describe('Preset Studio strings', () => {
                 'worldInfoAfter',
             ].map((source) => `m34.source.${source}`),
         ];
-        expect(dynamic.filter((key) => !(key in M34_STRINGS.en))).toEqual([]);
+        // Keys of release 1.13 (scopes, bindings, neighbour prompts) live in scope-strings.ts, merged in the module.
+        expect(dynamic.filter((key) => !(key in PRESET_STUDIO_STRINGS.en))).toEqual([]);
+        expect(dynamic.filter((key) => !(key in PRESET_STUDIO_STRINGS.ru))).toEqual([]);
     });
 
     it('report store failures in words, never with the English log message', () => {

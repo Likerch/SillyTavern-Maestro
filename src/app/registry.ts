@@ -23,6 +23,7 @@ import { mechanicsModule } from '../features/mechanics';
 import { medicModule } from '../features/medic';
 import { messageStyleModule } from '../features/messageStyle';
 import { metricsModule } from '../features/metrics';
+import { neighbourPromptsModule } from '../features/neighbourPrompts';
 import { offscreenModule } from '../features/offscreen';
 import { placesModule } from '../features/places';
 import { presetStudioModule } from '../features/presetStudio';
@@ -71,6 +72,8 @@ export const MODULES: MaestroModule[] = [
     metricsModule,
     // Stage 5: Preset Studio.
     presetStudioModule,
+    // Release 1.13: neighbour prompts (M36) — its prompt-ready listener runs before the architect's (stage 7).
+    neighbourPromptsModule,
     // Stage 6: reply quality.
     qualityModule,
     // Stage 7: resources.

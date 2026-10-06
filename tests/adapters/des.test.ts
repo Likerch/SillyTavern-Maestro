@@ -31,6 +31,14 @@ function desModules(stand: AdapterStand, name = DES): { settings: Record<string,
     stand.imports.set(new URL('src/systems/lorebook/lorebookAPI.js', base).href, {
         invalidateWICache: (book: string) => invalidated.push(book),
     });
+    stand.imports.set(new URL('src/systems/generation/promptBuilder.js', base).href, {
+        DEFAULT_HTML_PROMPT: 'Built-in HTML rules',
+        DEFAULT_DIALOGUE_COLORING_PROMPT: 'Built-in colours',
+        DEFAULT_NARRATOR_PROMPT: 'Built-in narrator',
+        DEFAULT_CONTEXT_INSTRUCTIONS_PROMPT: 'Built-in context',
+        getAssembledTrackerPrompt: ({ generatedOnly }: { generatedOnly?: boolean } = {}) =>
+            !generatedOnly && settings.customTrackerPrompt ? settings.customTrackerPrompt : 'Generated tracker block',
+    });
     return { settings, invalidated };
 }
 
@@ -78,6 +86,7 @@ describe('DesAdapter', () => {
             `${scriptUrl(DES).replace('index.js', '')}src/core/state.js`,
             `${scriptUrl(DES).replace('index.js', '')}src/core/persistence.js`,
             `${scriptUrl(DES).replace('index.js', '')}src/systems/lorebook/lorebookAPI.js`,
+            `${scriptUrl(DES).replace('index.js', '')}src/systems/generation/promptBuilder.js`,
         ]);
         await stand.caps.refresh();
         for (const id of ['des.present', 'des.state', 'des.enabled', 'des.together', 'des.lore'])
@@ -93,7 +102,7 @@ describe('DesAdapter', () => {
         expect(invalidated).toEqual(['Book']);
         // ready() is idempotent once connected.
         await adapters.des.ready();
-        expect(stand.importedUrls).toHaveLength(3);
+        expect(stand.importedUrls).toHaveLength(4);
     });
 
     it('reads mode, switch and aliases from the live settings object', async () => {
@@ -110,6 +119,24 @@ describe('DesAdapter', () => {
         expect(stand.caps.has('des.enabled')).toBe(false);
         settings.generationMode = 'weird';
         expect(adapters.des.generationMode()).toBe('together');
+    });
+
+    it('reads and writes DES prompt overrides; built-in texts come from promptBuilder.js', async () => {
+        stand.install(DES, DES_MANIFEST, { loaded: true });
+        const { settings } = desModules(stand);
+        await adapters.des.ready();
+        expect(adapters.des.promptOverride('customHtmlPrompt')).toBe('');
+        expect(adapters.des.promptBuiltin('customHtmlPrompt')).toBe('Built-in HTML rules');
+        expect(adapters.des.promptBuiltin('customNarratorPrompt')).toBe('Built-in narrator');
+        expect(adapters.des.promptBuiltin('customTrackerPrompt')).toBe('Generated tracker block');
+        expect(adapters.des.promptBuiltin('customTrackerInstructionsPrompt')).toBeNull();
+        const saves = stand.mock.saveSettingsCalls;
+        expect(adapters.des.setPromptOverride('customHtmlPrompt', 'No HTML.')).toBe(true);
+        expect(settings.customHtmlPrompt).toBe('No HTML.');
+        expect(adapters.des.promptOverride('customHtmlPrompt')).toBe('No HTML.');
+        // DES's own saveSettings (persistence.js) is used, not ST's.
+        expect(stand.mock.saveSettingsCalls).toBe(saves);
+        expect(adapters.des.setPromptOverride('enabled' as never, 'x')).toBe(false);
     });
 
     it('is absent when disabled in ST, and does not import anything', async () => {
@@ -131,7 +158,7 @@ describe('DesAdapter', () => {
         stand.addScript(DES);
         await adapters.des.ready();
         expect(adapters.des.present()).toBe(true);
-        expect(stand.importedUrls).toHaveLength(3);
+        expect(stand.importedUrls).toHaveLength(4);
     });
 
     it('keeps working without optional modules and falls back to saved settings', async () => {

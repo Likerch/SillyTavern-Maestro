@@ -55,6 +55,7 @@ export function presetStudioTab(app: App, deps: TabDeps): PultTab {
                                       ? t('m34.launcher.noTokens')
                                       : t('m34.launcher.tokens', { count: summary.tokens.toLocaleString() }),
                                   summary.dirty ? t('m34.launcher.unsaved') : null,
+                                  summary.binding ?? null,
                               ]
                                   .filter(Boolean)
                                   .join(' · '),

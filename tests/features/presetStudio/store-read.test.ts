@@ -105,7 +105,7 @@ describe('draft', () => {
         const layer: Partial<PresetLayerApi> = {
             get: (base) =>
                 base === 'Marinara'
-                    ? { base, ops: [{ op: 'key', key: 'temperature', value: 0.3 }], updatedAt: 1 }
+                    ? { base, ops: [{ op: 'key', key: 'temperature', value: 0.3, scope: 'global' }], updatedAt: 1 }
                     : null,
             apply: (_base, body) => ({
                 body: { ...body, temperature: 0.3 },

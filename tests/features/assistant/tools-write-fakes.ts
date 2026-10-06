@@ -274,7 +274,9 @@ export function fakePreset(
     const layer = {
         get: (base: string): Layer | null => {
             const ops = layers.get(base);
-            return ops?.length ? { base, ops: structuredClone(ops), updatedAt: 1 } : null;
+            return ops?.length
+                ? { base, ops: structuredClone(ops).map((op) => ({ ...op, scope: 'global' as const })), updatedAt: 1 }
+                : null;
         },
         record: async (base: string, op: LayerOp) => {
             log('layer.record', base, op);

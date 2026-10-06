@@ -111,6 +111,12 @@ export class Dialogs {
             const text = this.t(key, { status: error.status ?? '' });
             if (text !== key) return text;
         }
+        // Neighbour prompts (M36, NeighbourPromptError of neighbourPrompts/api.ts): known by name, not imported.
+        if (error instanceof Error && error.name === 'NeighbourPromptError') {
+            const key = `m34.neighbours.error.${String((error as Error & { code?: unknown }).code)}`;
+            const text = this.t(key);
+            if (text !== key) return text;
+        }
         return this.t('m34.error.generic');
     }
 

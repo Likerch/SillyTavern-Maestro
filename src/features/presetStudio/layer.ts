@@ -20,7 +20,26 @@
 //   until the next change. «Подготовить к отключению» (prepareDisable) reselects the base once without the layer, or
 //   saves base + layer as a normal preset.
 // The layer never writes a preset file (P2): «Сохранить базу» is the store's job, with strip().
+//
+// Scopes (plan-2 «Области действия», layer-api.ts): the character and chat parts live in ScopedDocs (core/scoped-docs)
+// — a Maestro file per card avatar and a per-chat document — and are laid over the global part in this order. What is
+// laid over the working copy now is `applied` (the card and the chat whose parts it holds), kept in the module's
+// settings next to ST's own copy of the working copy (settings.json), because page load has no BEFORE. On a chat
+// switch (bus 'chat:changed') the parts of the chat left are stripped from the working copy and those of the chat
+// opened are laid on through the store (PresetStore.syncWorking: no journal, no version, the preset stays saved).
+// ST's own saves of the file («Обновить пресет», «Сохранить как», PresetManager.savePreset of other extensions) are
+// built from the working copy: a fetch-gate hook on /api/presets/save writes them without the character and chat
+// parts, and the cached body ST keeps of that save is cleaned the same way (and stripped again in the BEFORE of a
+// «Сохранить как» that selects it).
 import { tPlural } from '../../core/labels';
+import {
+    EMPTY_SCOPE_CONTEXT,
+    ScopedDocs,
+    currentScopeContext,
+    sameScopeContext,
+    scopeOwner,
+} from '../../core/scoped-docs';
+import type { ScopeContext, ScopeKind } from '../../core/scoped-docs';
 import {
     applyLayer,
     contentOf,
@@ -28,7 +47,6 @@ import {
     emptyReport,
     findPrompt,
     isDict,
-    stripLayer,
 } from '../../domain/preset-layer-apply';
 import type {
     AddOp,
@@ -48,10 +66,33 @@ import {
     validateOp,
     withOrigins,
 } from '../../domain/preset-layer-ops';
+import {
+    CHAT_SCOPES,
+    SCOPES,
+    applyScoped,
+    emptyScopeDoc,
+    flatOps,
+    holdsParts,
+    plainOp,
+    rebaseOp,
+    sanitizeScopeDoc,
+    stripScoped,
+} from '../../domain/preset-layer-scopes';
+import type { ScopeLayerDoc, ScopeOps } from '../../domain/preset-layer-scopes';
 import { jsonCopy, valuesEqual } from '../../domain/settings-diff';
 import type { App, JournalChange, Logger, Unsubscribe } from '../../shared/contracts';
 import type { GuardianApi } from '../guardian/api';
-import type { Layer, LayerApplyReport, LayerOp, PresetLayerApi } from './layer-api';
+import type {
+    Layer,
+    LayerApplyReport,
+    LayerChange,
+    LayerOp,
+    LayerScope,
+    LayerScopeInfo,
+    PresetBindings,
+    PresetLayerApi,
+    ScopedLayerOp,
+} from './layer-api';
 import { LayerFiles } from './layer-files';
 import { LAYER_STRINGS } from './layer-strings';
 import { paramLabel } from './param-labels';
@@ -61,6 +102,13 @@ export const PRESET_LAYER_KEY = 'presetLayer';
 /** Journal target of layer changes (undo puts the op back). */
 export const LAYER_TARGET = 'preset-layer';
 export const LAYER_JOURNAL_KIND = 'preset.layer';
+/** Journal target and kind of a preset bound to a card or a chat (undo puts the old binding back). */
+export const BINDING_TARGET = 'preset-binding';
+export const BINDING_JOURNAL_KIND = 'preset.binding';
+/** Document kind of the character and chat parts (core/scoped-docs). */
+export const PRESET_SCOPE_KIND = 'preset-scope';
+/** The studio module's settings slice (what is laid over the working copy is kept there). */
+export const STUDIO_SETTINGS_KEY = 'presetStudio';
 const MODULE_ID = 'M34';
 /** Longest wait of the BEFORE handler for layers still loading at start. */
 const LOAD_WAIT_MS = 2000;
@@ -68,15 +116,30 @@ const LOAD_WAIT_MS = 2000;
 const RENAME_TIMEOUT_MS = 30_000;
 /** M4 baseline paths a layer application changes on purpose. */
 const PRESET_PATHS = ['preset.order', 'preset.toggles', 'preset.roles', 'preset.contents', 'preset.body'];
+/** ST's preset save endpoint (src/endpoints/presets.js). */
+const SAVE_URL_RE = /\/api\/presets\/save(?:[?#]|$)/;
+/** How long a save ST made without the chat parts keeps its cached body (and the BEFORE that selects it) cleaned. */
+const STRIP_WINDOW_MS = 5000;
+/** ST updates its cache after the server answered: cleaned again a little later. */
+const CACHE_FIX_DELAYS_MS = [0, 200, 1000];
 
 type Dict = Record<string, unknown>;
 type OfferReason = 'layerMissing' | 'baseChanged';
 
-interface LayerChange {
+interface OpChange {
     key: string;
     index: number;
     before: DomainOp | null;
     after: DomainOp | null;
+    scope: LayerScope;
+    owner: string | null;
+}
+
+/** What the working copy holds, kept in the studio's settings (page load has no BEFORE). */
+interface AppliedScope {
+    base: string;
+    avatar: string | null;
+    chatId: string | null;
 }
 
 /**
@@ -95,18 +158,32 @@ function delay(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+/** Replaces the contents of a live object (ST's cache keeps references to it). */
+function replaceContents(target: Dict, source: Dict): void {
+    for (const key of Object.keys(target)) if (!Object.hasOwn(source, key)) delete target[key];
+    Object.assign(target, source);
+}
+
 export function createPresetLayer(app: App, log: Logger, store?: PresetStore): PresetLayerHandle {
     app.i18n.register(LAYER_STRINGS);
     const t = (key: string, params?: Record<string, string | number>) => app.i18n.t(key, params);
-    const listeners = new Set<() => void>();
+    const listeners = new Set<(change?: LayerChange) => void>();
     let saveErrorShown = false;
-    const files = new LayerFiles(app.files, log, {
-        onError: (base) => {
-            if (saveErrorShown) return;
-            saveErrorShown = true;
-            app.ui.notice(t('m34.layerSvc.saveFailed', { name: base }), { level: 'error' });
+    const saveFailed = (base: string) => {
+        if (saveErrorShown) return;
+        saveErrorShown = true;
+        app.ui.notice(t('m34.layerSvc.saveFailed', { name: base }), { level: 'error' });
+    };
+    const files = new LayerFiles(app.files, log, { onError: saveFailed });
+    const scoped = new ScopedDocs<ScopeLayerDoc>(
+        { files: app.files, chat: app.chat, log },
+        {
+            kind: PRESET_SCOPE_KIND,
+            defaults: emptyScopeDoc,
+            sanitize: sanitizeScopeDoc,
+            onError: () => saveFailed(currentName()),
         },
-    });
+    );
 
     let loading: Promise<void> | null = null;
     let loaded = false;
@@ -115,27 +192,55 @@ export function createPresetLayer(app: App, log: Logger, store?: PresetStore): P
     let renaming: { oldName: string; newName: string } | null = null;
     let renameTimer: ReturnType<typeof setTimeout> | null = null;
     /** What BEFORE applied, for AFTER. */
-    let pending: { name: string; base: LayerBody; body: LayerBody } | null = null;
+    let pending: { name: string; base: LayerBody; body: LayerBody; ops: DomainOp[] } | null = null;
     /** BEFORE changed the report: AFTER tells the listeners (the working copy is final by then). */
     let reportDirty = false;
     let last: { name: string; report: DomainReport } | null = null;
     /** «Подготовить к отключению»: the next BEFORE of this name loads the base without the layer. */
     let suppressOnce: string | null = null;
     let checked = false;
+    /** The card and the chat whose parts the working copy holds now. */
+    let applied: ScopeContext = { ...EMPTY_SCOPE_CONTEXT };
+    /** Loading the parts of the persisted `applied` (page load), awaited by the page-load check and the first sync. */
+    let startup: Promise<void> = Promise.resolve();
+    let contextChain: Promise<unknown> = Promise.resolve();
+    /** Saves ST made without the chat parts, by preset name: their cached body and selection are cleaned too. */
+    const pendingStrip = new Map<string, { parts: ScopeOps[]; until: number }>();
+    const timers = new Set<ReturnType<typeof setTimeout>>();
 
     /* ------------------------------------------------------------ plumbing */
 
-    const emit = (): void => {
+    const emit = (change: LayerChange = 'ops'): void => {
         for (const listener of [...listeners]) {
             try {
-                listener();
+                listener(change);
             } catch (error) {
                 log.error('preset layer listener failed', error);
             }
         }
     };
 
+    /** Global ops of a base (the layer files). */
     const opsOf = (base: string): DomainOp[] => files.get(base)?.ops ?? [];
+
+    /** Ops of one scope of a base for an owner (avatar or chat id; ignored for global). */
+    const opsIn = (base: string, scope: LayerScope, owner: string | null): DomainOp[] => {
+        if (scope === 'global') return opsOf(base);
+        if (!owner) return [];
+        return scoped.get(scope, owner)?.layers[base]?.ops ?? [];
+    };
+
+    /** The parts laid over a base in a context, in order (`scopes` picks some of them). */
+    const partsFor = (base: string, context: ScopeContext, scopes: readonly LayerScope[] = SCOPES): ScopeOps[] =>
+        scopes.map((scope) => ({
+            scope,
+            ops: opsIn(base, scope, scope === 'global' ? null : scopeOwner(context, scope)),
+        }));
+
+    /** Every op laid over a base now (global, the card's, the chat's). */
+    const allOps = (base: string): DomainOp[] => flatOps(partsFor(base, applied));
+
+    const below = (scope: LayerScope): LayerScope[] => SCOPES.slice(0, SCOPES.indexOf(scope));
 
     const currentName = (): string => {
         try {
@@ -185,6 +290,13 @@ export function createPresetLayer(app: App, log: Logger, store?: PresetStore): P
         return savedSync(name);
     };
 
+    /** The saved base with the scopes below `scope` laid over it (what an op of `scope` is made on). */
+    const bodyBelow = (base: string, scope: LayerScope): LayerBody | null => {
+        const saved = savedSync(base);
+        if (!saved) return null;
+        return scope === 'global' ? saved : applyScoped(saved, partsFor(base, applied, below(scope))).body;
+    };
+
     const workingSync = (): LayerBody | null => {
         try {
             if (store) return store.working() as LayerBody;
@@ -224,10 +336,10 @@ export function createPresetLayer(app: App, log: Logger, store?: PresetStore): P
     /** Recomputes the report of the current preset against its saved base after a layer change. */
     const refreshReport = (base: string): void => {
         if (base !== currentName()) return;
-        const ops = opsOf(base);
+        const parts = partsFor(base, applied);
         const saved = savedSync(base);
-        if (!ops.length) setLast(base, null);
-        else if (saved) setLast(base, applyLayer(saved, ops).report);
+        if (!flatOps(parts).length) setLast(base, null);
+        else if (saved) setLast(base, applyScoped(saved, parts).report);
     };
 
     const newIdentifier = (): string => {
@@ -242,7 +354,131 @@ export function createPresetLayer(app: App, log: Logger, store?: PresetStore): P
             : `maestro-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
     };
 
-    const journal = async (summary: string, base: string, changes: readonly LayerChange[]): Promise<void> => {
+    /* ------------------------------------------------------------ scopes */
+
+    const info = (context: ScopeContext = applied): LayerScopeInfo => ({
+        character: context.avatar ? { avatar: context.avatar, name: context.characterName ?? context.avatar } : null,
+        chat: context.chatId ? { id: context.chatId } : null,
+    });
+
+    const settingsSlice = (): Dict => app.settings.module<Dict>(STUDIO_SETTINGS_KEY);
+
+    /** Remembers what the working copy of `base` holds (settings, saved with ST's copy of the working copy). */
+    const setApplied = (context: ScopeContext, base: string): void => {
+        applied = { ...context };
+        try {
+            const slice = settingsSlice();
+            const next: AppliedScope = { base, avatar: context.avatar, chatId: context.chatId };
+            if (valuesEqual(slice.scopeApplied ?? null, next)) return;
+            slice.scopeApplied = next;
+            app.settings.save();
+        } catch (error) {
+            log.debug('applied scope not remembered', error);
+        }
+    };
+
+    const persistedApplied = (): ScopeContext => {
+        try {
+            const value = settingsSlice().scopeApplied;
+            if (!isDict(value) || value.base !== currentName()) return { ...EMPTY_SCOPE_CONTEXT };
+            return {
+                avatar: typeof value.avatar === 'string' && value.avatar ? value.avatar : null,
+                characterName: null,
+                chatId: typeof value.chatId === 'string' && value.chatId ? value.chatId : null,
+            };
+        } catch {
+            return { ...EMPTY_SCOPE_CONTEXT };
+        }
+    };
+
+    /** The part of a context whose documents are in memory (BEFORE never waits for the network). */
+    const loadedPart = (context: ScopeContext): ScopeContext => {
+        const avatar = context.avatar && scoped.has('character', context.avatar) ? context.avatar : null;
+        const chatId = context.chatId && scoped.has('chat', context.chatId) ? context.chatId : null;
+        return { avatar, characterName: avatar ? context.characterName : null, chatId };
+    };
+
+    /** The owner of a scope in the context laid over the working copy; throws when that scope is not available. */
+    const ownerOf = (scope: LayerScope): string | null => {
+        if (scope === 'global') return null;
+        const owner = scopeOwner(applied, scope);
+        if (!owner) throw new Error(`preset layer: no ${scope} is open`);
+        return owner;
+    };
+
+    /** Changes the ops of one scope of a base: global ones through the layer files, the others through ScopedDocs. */
+    const mutateOps = async (
+        base: string,
+        scope: LayerScope,
+        owner: string | null,
+        change: (ops: DomainOp[]) => DomainOp[],
+    ): Promise<void> => {
+        if (scope === 'global') {
+            files.mutate(base, (file) => {
+                file.ops = change(file.ops);
+            });
+            return;
+        }
+        if (!owner) throw new Error(`preset layer: no owner for the ${scope} scope`);
+        await scoped.mutate(scope as ScopeKind, owner, (doc) => {
+            const next = change(doc.layers[base]?.ops ?? []);
+            if (next.length) doc.layers[base] = { ops: next, updatedAt: Date.now() };
+            else delete doc.layers[base];
+        });
+    };
+
+    /**
+     * Brings the working copy to the scopes of the chat open now: the parts of the context it holds are stripped and
+     * those of the new one laid on, through the store (no journal, no version: the preset does not become unsaved).
+     */
+    const runSync = async (): Promise<LayerScopeInfo> => {
+        await load();
+        await startup;
+        const target = currentScopeContext(app.host);
+        await scoped.load(target);
+        if (!installed) return info();
+        const base = currentName();
+        const from = applied;
+        if (sameScopeContext(from, target)) {
+            applied = { ...target };
+            return info();
+        }
+        const fromParts = partsFor(base, from, CHAT_SCOPES);
+        const toParts = partsFor(base, target, CHAT_SCOPES);
+        if (!base || valuesEqual(flatOps(fromParts), flatOps(toParts)) || !app.host.isChatCompletion()) {
+            setApplied(target, base);
+            emit('context');
+            return info();
+        }
+        const working = await workingBody();
+        if (!working || typeof store?.syncWorking !== 'function') {
+            // Without the store the working copy cannot be rewritten: the next preset change lays the scopes on.
+            log.warn('the scopes of this chat wait for the next preset change (no preset store)');
+            setApplied(target, base);
+            emit('context');
+            return info();
+        }
+        const next = applyScoped(stripScoped(working, fromParts), toParts).body;
+        setApplied(target, base);
+        try {
+            await store.syncWorking(next as PresetBody);
+        } catch (error) {
+            log.warn('the working copy did not take the scopes of this chat', error);
+        }
+        refreshReport(base);
+        emit('context');
+        return info();
+    };
+
+    const syncContext = (): Promise<LayerScopeInfo> => {
+        const job = contextChain.then(runSync, runSync);
+        contextChain = job.catch(() => undefined);
+        return job;
+    };
+
+    /* ------------------------------------------------------------ journal */
+
+    const journal = async (summary: string, base: string, changes: readonly OpChange[]): Promise<void> => {
         if (!changes.length) return;
         try {
             await app.journal.record({
@@ -251,7 +487,10 @@ export function createPresetLayer(app: App, log: Logger, store?: PresetStore): P
                 summary,
                 changes: changes.map((change) => ({
                     target: LAYER_TARGET,
-                    ref: { base, key: change.key, index: change.index },
+                    ref:
+                        change.scope === 'global'
+                            ? { base, key: change.key, index: change.index }
+                            : { base, key: change.key, index: change.index, scope: change.scope, owner: change.owner },
                     before: change.before,
                     after: change.after,
                 })),
@@ -267,8 +506,11 @@ export function createPresetLayer(app: App, log: Logger, store?: PresetStore): P
         const ref = change.ref;
         const base = typeof ref.base === 'string' ? ref.base : '';
         const key = typeof ref.key === 'string' ? ref.key : '';
-        if (!base || !key) return false;
-        const current = opsOf(base).find((op) => opKey(op) === key) ?? null;
+        const scope: LayerScope = ref.scope === 'character' || ref.scope === 'chat' ? ref.scope : 'global';
+        const owner = typeof ref.owner === 'string' && ref.owner ? ref.owner : null;
+        if (!base || !key || (scope !== 'global' && !owner)) return false;
+        if (scope !== 'global' && owner) await scoped.loadOne(scope, owner);
+        const current = opsIn(base, scope, owner).find((op) => opKey(op) === key) ?? null;
         if (!valuesEqual(current, change.after ?? null)) {
             log.warn(`layer op ${key} of ${base} changed after this action; not undone`);
             return false;
@@ -276,30 +518,41 @@ export function createPresetLayer(app: App, log: Logger, store?: PresetStore): P
         const before =
             change.before !== null && validateOp(change.before) === null ? (change.before as DomainOp) : null;
         const index = typeof ref.index === 'number' ? ref.index : undefined;
-        files.mutate(base, (file) => {
-            file.ops = setOpAt(file.ops, key, before, index);
-        });
+        await mutateOps(base, scope, owner, (ops) => setOpAt(ops, key, before, index));
         refreshReport(base);
         emit();
         return true;
     };
 
+    /** Journal undo of a binding: back to the preset bound before, if nobody changed it since. */
+    const undoBinding = async (change: JournalChange): Promise<boolean> => {
+        const scope = change.ref.scope === 'character' || change.ref.scope === 'chat' ? change.ref.scope : null;
+        const owner = typeof change.ref.owner === 'string' ? change.ref.owner : '';
+        if (!scope || !owner) return false;
+        await scoped.loadOne(scope, owner);
+        const current = scoped.get(scope, owner)?.binding?.preset ?? null;
+        if (current !== (typeof change.after === 'string' ? change.after : null)) return false;
+        const before = typeof change.before === 'string' && change.before ? change.before : null;
+        await scoped.mutate(scope, owner, (doc) => {
+            doc.binding = before ? { preset: before, at: Date.now() } : null;
+        });
+        emit('binding');
+        return true;
+    };
+
     /** An add op gets an identifier of its own: none given, or one the base already uses (a picked foreign block). */
-    const ownIdentifier = (base: string, op: AddOp, body: LayerBody | null): AddOp => {
+    const ownIdentifier = (ops: readonly DomainOp[], op: AddOp, body: LayerBody | null): AddOp => {
         const id = op.prompt.identifier;
-        if (id && opsOf(base).some((item) => item.op === 'add' && item.prompt.identifier === id)) return op;
+        if (id && ops.some((item) => item.op === 'add' && item.prompt.identifier === id)) return op;
         if (id && !(body && findPrompt(body, id))) return op;
         return { ...op, prompt: { ...op.prompt, identifier: newIdentifier() } };
     };
-
-    const ownBlock = (base: string, identifier: string): boolean =>
-        opsOf(base).some((op) => op.op === 'add' && op.prompt.identifier === identifier);
 
     /* ------------------------------------------------------------ journal summaries */
 
     /** A block's name for a journal summary: the user's own block, else the base's (its identifier at worst). */
     const blockName = (base: string, identifier: string): string => {
-        const own = opsOf(base).find((op): op is AddOp => op.op === 'add' && op.prompt.identifier === identifier);
+        const own = allOps(base).find((op): op is AddOp => op.op === 'add' && op.prompt.identifier === identifier);
         const prompt = own?.prompt ?? findPrompt(savedSync(base), identifier) ?? findPrompt(workingSync(), identifier);
         const name = typeof prompt?.name === 'string' ? prompt.name.trim() : '';
         return name || identifier;
@@ -314,17 +567,26 @@ export function createPresetLayer(app: App, log: Logger, store?: PresetStore): P
 
     const paramName = (key: string): string => paramLabel(key, app.i18n) ?? key;
 
-    /** «В слое «Marinara» выключен блок «Main»»: what one recorded operation does, in words. */
-    const recordSummary = (base: string, op: DomainOp): string => {
-        if (op.op === 'key') return t('m34.layerSvc.journal.key', { name: base, param: paramName(op.key) });
-        const what = op.op === 'toggle' ? (op.enabled ? 'on' : 'off') : op.op;
-        return t(`m34.layerSvc.journal.${what}`, { name: base, block: opBlock(base, op) });
+    /** «(только в этом чате)»: where an edit lives, for journal summaries of the character and chat scopes. */
+    const scopeSuffix = (scope: LayerScope): string => {
+        if (scope === 'global') return '';
+        if (scope === 'chat') return ` (${t('m34.layerSvc.scope.chat')})`;
+        return ` (${t('m34.layerSvc.scope.character', { name: applied.characterName ?? applied.avatar ?? '' })})`;
     };
 
-    const removeSummary = (base: string, op: DomainOp): string =>
-        op.op === 'key'
+    /** «В слое «Marinara» выключен блок «Main»»: what one recorded operation does, in words. */
+    const recordSummary = (base: string, op: DomainOp, scope: LayerScope): string => {
+        if (op.op === 'key') {
+            return t('m34.layerSvc.journal.key', { name: base, param: paramName(op.key) }) + scopeSuffix(scope);
+        }
+        const what = op.op === 'toggle' ? (op.enabled ? 'on' : 'off') : op.op;
+        return t(`m34.layerSvc.journal.${what}`, { name: base, block: opBlock(base, op) }) + scopeSuffix(scope);
+    };
+
+    const removeSummary = (base: string, op: DomainOp, scope: LayerScope): string =>
+        (op.op === 'key'
             ? t('m34.layerSvc.journal.removeKey', { name: base, param: paramName(op.key) })
-            : t('m34.layerSvc.journal.remove', { name: base, block: opBlock(base, op) });
+            : t('m34.layerSvc.journal.remove', { name: base, block: opBlock(base, op) })) + scopeSuffix(scope);
 
     /* ------------------------------------------------------------ ST's preset manager */
 
@@ -390,6 +652,65 @@ export function createPresetLayer(app: App, log: Logger, store?: PresetStore): P
         return target;
     };
 
+    /* ------------------------------------------------------------ ST's own saves of the file */
+
+    /** The character and chat parts of what a save of the current working copy would bake in (none: []). */
+    const chatPartsNow = (): ScopeOps[] =>
+        partsFor(currentName(), applied, CHAT_SCOPES).filter((part) => part.ops.length > 0);
+
+    const later = (ms: number, run: () => void): void => {
+        const timer = setTimeout(() => {
+            timers.delete(timer);
+            run();
+        }, ms);
+        timers.add(timer);
+    };
+
+    /** ST put the body it sent into its cache: that copy loses the chat parts too. */
+    const cleanCache = (name: string): void => {
+        const entry = pendingStrip.get(name);
+        if (!entry) return;
+        if (entry.until < Date.now()) {
+            pendingStrip.delete(name);
+            return;
+        }
+        const cached = cachedBody(name);
+        if (cached && holdsParts(cached, entry.parts)) {
+            replaceContents(cached, jsonCopy(stripScoped(cached, entry.parts)) as Dict);
+            log.debug(`cached body of ${name}: the character and chat edits taken out`);
+        }
+    };
+
+    /**
+     * /api/presets/save (fetch gate, before the request leaves): a body built from the working copy while character or
+     * chat parts are laid over it is written without them. The studio's own saves are already without them.
+     */
+    const onSaveRequest = (_url: string, init: RequestInit | undefined): void => {
+        if (!installed || !init || typeof init.body !== 'string') return;
+        const parts = chatPartsNow();
+        if (!parts.length) return;
+        let payload: unknown;
+        try {
+            payload = JSON.parse(init.body);
+        } catch {
+            return;
+        }
+        if (!isDict(payload) || payload.apiId !== 'openai' || !isDict(payload.preset)) return;
+        const preset = payload.preset as LayerBody;
+        if (!holdsParts(preset, parts)) return;
+        payload.preset = stripScoped(preset, parts);
+        init.body = JSON.stringify(payload);
+        const name = typeof payload.name === 'string' ? payload.name : '';
+        log.info(`preset ${name || '?'} saved without the edits of this character and chat`);
+        if (!name) return;
+        pendingStrip.set(name, { parts: jsonCopy(parts), until: Date.now() + STRIP_WINDOW_MS });
+        for (const ms of CACHE_FIX_DELAYS_MS) later(ms, () => cleanCache(name));
+        later(STRIP_WINDOW_MS + 10, () => {
+            const entry = pendingStrip.get(name);
+            if (entry && entry.until < Date.now()) pendingStrip.delete(name);
+        });
+    };
+
     /* ------------------------------------------------------------ ST events */
 
     const handleBefore = (payload: unknown): void => {
@@ -407,20 +728,30 @@ export function createPresetLayer(app: App, log: Logger, store?: PresetStore): P
         }
         if (suppressOnce !== null && suppressOnce === name) {
             suppressOnce = null;
+            setApplied({ ...EMPTY_SCOPE_CONTEXT }, name);
             setLast(name, null);
             reportDirty = true;
             return;
         }
-        const ops = opsOf(name);
+        // ST's own «Сохранить как» while character or chat edits were on: its cache got them, the file did not.
+        const strip = pendingStrip.get(name);
+        if (strip && strip.until >= Date.now() && holdsParts(preset as LayerBody, strip.parts)) {
+            const clean = stripScoped(preset as LayerBody, strip.parts);
+            for (const [key, value] of Object.entries(clean)) if (preset[key] !== value) preset[key] = value;
+        }
+        const target = loadedPart(currentScopeContext(app.host));
+        setApplied(target, name);
+        const parts = partsFor(name, target);
+        const ops = flatOps(parts);
         if (!ops.length) {
             if (last) reportDirty = true;
             setLast(name, null);
             return;
         }
         const base: LayerBody = { ...preset };
-        const { body, report } = applyLayer(base, ops);
+        const { body, report } = applyScoped(base, parts);
         for (const [key, value] of Object.entries(body)) if (preset[key] !== value) preset[key] = value;
-        pending = { name, base, body };
+        pending = { name, base, body, ops };
         setLast(name, report);
         reportDirty = true;
         if (report.conflicts.length || report.orphaned.length) {
@@ -473,14 +804,44 @@ export function createPresetLayer(app: App, log: Logger, store?: PresetStore): P
             emit();
         }
         if (!done || !installed) return;
-        const ops = opsOf(done.name);
-        if (!ops.length) return;
+        // The mark of the page-load check lives in the global layer file: only a base with a global layer has one.
+        if (!opsOf(done.name).length) return;
         const working = workingSync() ?? done.body;
-        remember(done.name, layerFingerprint(working, ops), baseFingerprint(savedSync(done.name) ?? done.base));
+        remember(done.name, layerFingerprint(working, done.ops), baseFingerprint(savedSync(done.name) ?? done.base));
         void acknowledgeGuardian();
     };
 
+    /** The character and chat parts of the open card and chat follow a rename (other cards and chats do not). */
+    const renameScopes = async (oldName: string, newName: string): Promise<void> => {
+        for (const scope of CHAT_SCOPES) {
+            const owner = scopeOwner(applied, scope);
+            const doc = owner ? scoped.get(scope as ScopeKind, owner) : undefined;
+            if (!owner || !doc || (!doc.layers[oldName] && doc.binding?.preset !== oldName)) continue;
+            await scoped.mutate(scope as ScopeKind, owner, (next) => {
+                const layer = next.layers[oldName];
+                if (layer) {
+                    next.layers[newName] = layer;
+                    delete next.layers[oldName];
+                }
+                if (next.binding?.preset === oldName) next.binding = { ...next.binding, preset: newName };
+            });
+        }
+        try {
+            const slice = settingsSlice();
+            const value = slice.scopeApplied;
+            if (isDict(value) && value.base === oldName) {
+                slice.scopeApplied = { ...value, base: newName };
+                app.settings.save();
+            }
+        } catch (error) {
+            log.debug('applied scope not renamed', error);
+        }
+    };
+
     const renamed = (oldName: string, newName: string): void => {
+        void renameScopes(oldName, newName).catch((error: unknown) =>
+            log.warn('scopes did not follow a rename', error),
+        );
         if (!files.rename(oldName, newName)) return;
         log.info(`layer moved from ${oldName} to ${newName}`);
         if (last?.name === oldName) last = { name: newName, report: last.report };
@@ -528,23 +889,26 @@ export function createPresetLayer(app: App, log: Logger, store?: PresetStore): P
     };
 
     /**
-     * Page load (no BEFORE): the working copy should hold apply(saved base). The layer is missing when its part of
-     * the working copy differs from that; the base changed on the server when the remembered base fingerprint
-     * differs and the working copy matches neither the new base nor the new base with the layer stripped (a base the
-     * studio saved itself, or ST's «Обновить пресет» baking the layer in, are not changes from elsewhere).
+     * Page load (no BEFORE): the working copy should hold apply(saved base) with every part it was saved with. The
+     * layer is missing when its part of the working copy differs from that; the base changed on the server when the
+     * remembered base fingerprint differs and the working copy matches neither the new base nor the new base with the
+     * layer stripped (a base the studio saved itself, or ST's «Обновить пресет» baking the layer in, are not changes
+     * from elsewhere).
      */
     const pageLoadCheck = async (): Promise<OfferReason | null> => {
         if (checked) return null;
         checked = true;
         await load();
+        await startup;
         if (!installed || !app.host.isChatCompletion()) return null;
         const name = currentName();
-        const ops = opsOf(name);
-        if (!name || !ops.length) return null;
+        if (!name || !opsOf(name).length) return null;
         const saved = await savedBody(name);
         const working = await workingBody();
         if (!saved || !working) return null;
-        const { body: expected, report } = applyLayer(saved, ops);
+        const parts = partsFor(name, applied);
+        const ops = flatOps(parts);
+        const { body: expected, report } = applyScoped(saved, parts);
         setLast(name, report);
         emit();
         const workingPrint = layerFingerprint(working, ops);
@@ -554,7 +918,7 @@ export function createPresetLayer(app: App, log: Logger, store?: PresetStore): P
         let reason: OfferReason | null = null;
         if (workingPrint !== layerFingerprint(expected, ops)) {
             reason = baseMoved ? 'baseChanged' : 'layerMissing';
-        } else if (baseMoved && !baseMatches(saved, working) && !baseMatches(saved, stripLayer(working, ops))) {
+        } else if (baseMoved && !baseMatches(saved, working) && !baseMatches(saved, stripScoped(working, parts))) {
             reason = 'baseChanged';
         }
         if (!reason) {
@@ -573,10 +937,22 @@ export function createPresetLayer(app: App, log: Logger, store?: PresetStore): P
         renameTimer = null;
         renaming = null;
         pending = null;
+        for (const timer of timers) clearTimeout(timer);
+        timers.clear();
+        pendingStrip.clear();
         files.stop();
         if (files.hasPending()) void files.flush().catch((error: unknown) => log.warn('layer flush failed', error));
         const current = currentName();
-        if (!current || !opsOf(current).length) return;
+        // Nobody would take this card's or chat's edits off on the next chat switch: they leave the working copy now.
+        const parts = partsFor(current, applied, CHAT_SCOPES).filter((part) => part.ops.length > 0);
+        const working = parts.length ? workingSync() : null;
+        if (working && typeof store?.syncWorking === 'function') {
+            void store
+                .syncWorking(stripScoped(working, parts) as PresetBody)
+                .catch((error: unknown) => log.warn('character and chat edits stayed in the working copy', error));
+        }
+        if (current) setApplied({ ...EMPTY_SCOPE_CONTEXT }, current);
+        if (!current || !allOps(current).length) return;
         // P11: the layer stays in the working copy until the next preset change.
         try {
             app.ui.notice(t('m34.layerSvc.dispose.notice', { name: current }), {
@@ -595,41 +971,75 @@ export function createPresetLayer(app: App, log: Logger, store?: PresetStore): P
         }
     };
 
+    /** Finds the op at an index of `get(base).ops`. */
+    const locate = (
+        base: string,
+        index: number,
+    ): { op: DomainOp; scope: LayerScope; owner: string | null; local: number } | null => {
+        let offset = index;
+        for (const part of partsFor(base, applied)) {
+            if (offset < part.ops.length) {
+                const op = part.ops[offset];
+                if (!op) return null;
+                const owner = part.scope === 'global' ? null : scopeOwner(applied, part.scope);
+                return { op, scope: part.scope, owner, local: offset };
+            }
+            offset -= part.ops.length;
+        }
+        return null;
+    };
+
     /* ------------------------------------------------------------ the API */
 
     const api: PresetLayerApi = {
-        get(base: string): Layer | null {
-            const file = files.get(base);
-            if (!file || !file.ops.length) return null;
-            return { base, ops: jsonCopy(file.ops) as LayerOp[], updatedAt: file.updatedAt };
+        get(base: string, options?: { scope?: LayerScope }): Layer | null {
+            const ops: ScopedLayerOp[] = [];
+            let updatedAt = 0;
+            for (const scope of options?.scope ? [options.scope] : SCOPES) {
+                if (scope === 'global') {
+                    const file = files.get(base);
+                    if (!file?.ops.length) continue;
+                    updatedAt = Math.max(updatedAt, file.updatedAt);
+                    for (const op of file.ops) ops.push({ ...(jsonCopy(op) as LayerOp), scope: 'global' });
+                    continue;
+                }
+                const owner = scopeOwner(applied, scope);
+                const entry = owner ? scoped.get(scope as ScopeKind, owner)?.layers[base] : undefined;
+                if (!owner || !entry?.ops.length) continue;
+                updatedAt = Math.max(updatedAt, entry.updatedAt);
+                for (const op of entry.ops) ops.push({ ...(jsonCopy(op) as LayerOp), scope, owner });
+            }
+            return ops.length ? { base, ops, updatedAt } : null;
         },
 
-        async record(base: string, op: LayerOp): Promise<void> {
+        async record(base: string, op: LayerOp, scope: LayerScope = 'global'): Promise<void> {
             await load();
             const error = validateOp(op);
             if (error) throw new Error(`preset layer: ${error}`);
-            const body = await savedBody(base);
-            let incoming = withOrigins(op, body);
+            const owner = ownerOf(scope);
+            await savedBody(base);
+            const body = bodyBelow(base, scope);
+            const current = opsIn(base, scope, owner);
+            let incoming = withOrigins(plainOp(op as DomainOp), body);
             if (incoming.op === 'add') {
-                incoming = ownIdentifier(base, incoming, body);
+                incoming = ownIdentifier(current, incoming, body);
             } else if (incoming.op !== 'key') {
-                const own = ownBlock(base, incoming.identifier);
-                if (!own && body && !baseHas(body, incoming.identifier)) {
-                    throw new Error(`preset layer: no block ${incoming.identifier} in ${base}`);
+                const id = incoming.identifier;
+                const own = current.some((item) => item.op === 'add' && item.prompt.identifier === id);
+                if (!own && body && !baseHas(body, id)) {
+                    throw new Error(`preset layer: no block ${id} in ${base}`);
                 }
                 if (incoming.op === 'edit' && !own && !incoming.baseHash) {
-                    throw new Error(`preset layer: the base text of ${incoming.identifier} is unknown`);
+                    throw new Error(`preset layer: the base text of ${id} is unknown`);
                 }
             }
-            const merged = mergeOp(opsOf(base), incoming);
+            const merged = mergeOp(current, incoming);
             if (!merged.before && !merged.after) return;
             const change = incoming;
-            const summary = recordSummary(base, change);
-            files.mutate(base, (file) => {
-                file.ops = mergeOp(file.ops, change).ops;
-            });
+            const summary = recordSummary(base, change, scope);
+            await mutateOps(base, scope, owner, (ops) => mergeOp(ops, change).ops);
             await journal(summary, base, [
-                { key: merged.key, index: merged.index, before: merged.before, after: merged.after },
+                { key: merged.key, index: merged.index, before: merged.before, after: merged.after, scope, owner },
             ]);
             refreshReport(base);
             emit();
@@ -637,32 +1047,33 @@ export function createPresetLayer(app: App, log: Logger, store?: PresetStore): P
 
         async remove(base: string, index: number): Promise<void> {
             await load();
-            const op = opsOf(base)[index];
-            if (!op) return;
-            const key = opKey(op);
-            const summary = removeSummary(base, op);
-            files.mutate(base, (file) => {
-                file.ops = setOpAt(file.ops, key, null);
-            });
-            await journal(summary, base, [{ key, index, before: op, after: null }]);
+            const found = locate(base, index);
+            if (!found) return;
+            const key = opKey(found.op);
+            const summary = removeSummary(base, found.op, found.scope);
+            await mutateOps(base, found.scope, found.owner, (ops) => setOpAt(ops, key, null));
+            await journal(summary, base, [
+                { key, index: found.local, before: found.op, after: null, scope: found.scope, owner: found.owner },
+            ]);
             refreshReport(base);
             emit();
         },
 
         apply(base: string, body: PresetBody): { body: PresetBody; report: LayerApplyReport } {
-            const ops = opsOf(base);
-            if (!ops.length) return { body, report: emptyReport() };
-            return applyLayer(body, ops);
+            const parts = partsFor(base, applied);
+            if (!flatOps(parts).length) return { body, report: emptyReport() };
+            return applyScoped(body as LayerBody, parts) as { body: PresetBody; report: LayerApplyReport };
         },
 
-        strip(base: string, body: PresetBody): PresetBody {
-            const ops = opsOf(base);
-            return ops.length ? stripLayer(body, ops) : body;
+        strip(base: string, body: PresetBody, scopes?: readonly LayerScope[]): PresetBody {
+            const parts = partsFor(base, applied, scopes ?? SCOPES);
+            return flatOps(parts).length ? (stripScoped(body as LayerBody, parts) as PresetBody) : body;
         },
 
-        async resolveConflict(base, identifier, choice): Promise<void> {
+        async resolveConflict(base, identifier, choice, scope: LayerScope = 'global'): Promise<void> {
             await load();
-            const ops = opsOf(base);
+            const owner = ownerOf(scope);
+            const ops = opsIn(base, scope, owner);
             const index = ops.findIndex(
                 (op) =>
                     (op.op === 'edit' && op.identifier === identifier) ||
@@ -670,33 +1081,39 @@ export function createPresetLayer(app: App, log: Logger, store?: PresetStore): P
             );
             const op = ops[index];
             if (!op) throw new Error(`preset layer: no op for ${identifier} in ${base}`);
-            const body = await savedBody(base);
+            await savedBody(base);
+            const body = bodyBelow(base, scope);
             const block = body ? findPrompt(body, identifier) : undefined;
             const known =
-                last?.name === base ? last.report.conflicts.find((c) => c.identifier === identifier) : undefined;
+                last?.name === base
+                    ? last.report.conflicts.find(
+                          (c) =>
+                              c.identifier === identifier &&
+                              ((c as { scope?: LayerScope }).scope ?? 'global') === scope,
+                      )
+                    : undefined;
             const newBase = block ? contentOf(block) : known?.newBase;
             if (newBase === undefined) throw new Error(`preset layer: the base text of ${identifier} is unknown`);
             const next = resolveOp(op, choice, newBase);
             const oldKey = opKey(op);
             const nextKey = next ? opKey(next) : oldKey;
-            const summary = t('m34.layerSvc.journal.resolve', { name: base, block: blockName(base, identifier) });
-            const changes: LayerChange[] = [];
+            const summary =
+                t('m34.layerSvc.journal.resolve', { name: base, block: blockName(base, identifier) }) +
+                scopeSuffix(scope);
+            const changes: OpChange[] = [];
             if (next && nextKey === oldKey) {
-                changes.push({ key: oldKey, index, before: op, after: next });
+                changes.push({ key: oldKey, index, before: op, after: next, scope, owner });
             } else {
-                changes.push({ key: oldKey, index, before: op, after: null });
+                changes.push({ key: oldKey, index, before: op, after: null, scope, owner });
                 if (next) {
                     const existing = ops.find((item) => opKey(item) === nextKey) ?? null;
-                    changes.push({ key: nextKey, index, before: existing, after: next });
+                    changes.push({ key: nextKey, index, before: existing, after: next, scope, owner });
                 }
             }
-            files.mutate(base, (file) => {
-                if (next && nextKey === oldKey) {
-                    file.ops = setOpAt(file.ops, oldKey, next);
-                    return;
-                }
-                file.ops = setOpAt(file.ops, oldKey, null);
-                if (next) file.ops = setOpAt(file.ops, nextKey, next, index);
+            await mutateOps(base, scope, owner, (list) => {
+                if (next && nextKey === oldKey) return setOpAt(list, oldKey, next);
+                const without = setOpAt(list, oldKey, null);
+                return next ? setOpAt(without, nextKey, next, index) : without;
             });
             await journal(summary, base, changes);
             // The working copy of the current preset shows the chosen text right away.
@@ -721,24 +1138,34 @@ export function createPresetLayer(app: App, log: Logger, store?: PresetStore): P
             emit();
         },
 
-        async migrateFrom(base: string, reference: PresetBody, edited: PresetBody): Promise<LayerApplyReport> {
+        async migrateFrom(
+            base: string,
+            reference: PresetBody,
+            edited: PresetBody,
+            scope: LayerScope = 'global',
+        ): Promise<LayerApplyReport> {
             await load();
+            const owner = ownerOf(scope);
             const plan = planMigration(reference, edited);
-            let ops = opsOf(base);
-            const changes: LayerChange[] = [];
+            let ops = opsIn(base, scope, owner);
+            const changes: OpChange[] = [];
             for (const op of plan.ops) {
                 const key = opKey(op);
                 const index = ops.findIndex((item) => opKey(item) === key);
                 const before = index >= 0 ? (ops[index] ?? null) : null;
-                changes.push({ key, index: index >= 0 ? index : ops.length, before, after: op });
+                changes.push({ key, index: index >= 0 ? index : ops.length, before, after: op, scope, owner });
                 ops = setOpAt(ops, key, op);
             }
             if (plan.ops.length) {
                 const planned = plan.ops;
-                files.mutate(base, (file) => {
-                    for (const op of planned) file.ops = setOpAt(file.ops, opKey(op), op);
+                await mutateOps(base, scope, owner, (list) => {
+                    let next = list;
+                    for (const op of planned) next = setOpAt(next, opKey(op), op);
+                    return next;
                 });
-                const summary = tPlural(app.i18n, 'm34.layerSvc.journal.migrate', plan.ops.length, { name: base });
+                const summary =
+                    tPlural(app.i18n, 'm34.layerSvc.journal.migrate', plan.ops.length, { name: base }) +
+                    scopeSuffix(scope);
                 await journal(summary, base, changes);
             }
             refreshReport(base);
@@ -755,11 +1182,18 @@ export function createPresetLayer(app: App, log: Logger, store?: PresetStore): P
             const moved = transferOps(source, from, to);
             const prepared = moved.ops.map((op) => withOrigins(op, to));
             let ops = opsOf(toBase);
-            const changes: LayerChange[] = [];
+            const changes: OpChange[] = [];
             for (const op of prepared) {
                 const result = mergeOp(ops, op);
                 if (result.before || result.after) {
-                    changes.push({ key: result.key, index: result.index, before: result.before, after: result.after });
+                    changes.push({
+                        key: result.key,
+                        index: result.index,
+                        before: result.before,
+                        after: result.after,
+                        scope: 'global',
+                        owner: null,
+                    });
                 }
                 ops = result.ops;
             }
@@ -794,14 +1228,17 @@ export function createPresetLayer(app: App, log: Logger, store?: PresetStore): P
             return last && last.name === currentName() ? jsonCopy(last.report) : null;
         },
 
-        onChange(listener: () => void): Unsubscribe {
+        onChange(listener: (change?: LayerChange) => void): Unsubscribe {
             listeners.add(listener);
             return () => listeners.delete(listener);
         },
 
         ready: load,
 
-        flush: () => files.flush(),
+        flush: async () => {
+            await files.flush();
+            await scoped.flush();
+        },
 
         planMigration(reference: PresetBody, edited: PresetBody): { ops: LayerOp[]; report: LayerApplyReport } {
             const plan = planMigration(reference, edited);
@@ -812,6 +1249,98 @@ export function createPresetLayer(app: App, log: Logger, store?: PresetStore): P
         reselect,
 
         prepareDisable,
+
+        context: () => info(),
+
+        whenContext: () => contextChain.then(() => info()),
+
+        below(base: string, scope: LayerScope): PresetBody | null {
+            return bodyBelow(base, scope) as PresetBody | null;
+        },
+
+        async moveOp(base: string, index: number, scope: LayerScope): Promise<void> {
+            await load();
+            const found = locate(base, index);
+            if (!found || found.scope === scope) return;
+            const toOwner = ownerOf(scope);
+            const key = opKey(found.op);
+            // Out of the old scope first: the base below the new scope must not hold the op itself.
+            await mutateOps(base, found.scope, found.owner, (ops) => setOpAt(ops, key, null));
+            await savedBody(base);
+            const incoming = withOrigins(rebaseOp(found.op), bodyBelow(base, scope));
+            const merged = mergeOp(opsIn(base, scope, toOwner), incoming);
+            await mutateOps(base, scope, toOwner, (ops) => mergeOp(ops, incoming).ops);
+            const what = opBlock(base, found.op) || paramName(found.op.op === 'key' ? found.op.key : '');
+            await journal(
+                t(`m34.layerSvc.journal.moveScope.${scope}`, {
+                    name: base,
+                    block: what,
+                    character: applied.characterName ?? applied.avatar ?? '',
+                }),
+                base,
+                [
+                    {
+                        key,
+                        index: found.local,
+                        before: found.op,
+                        after: null,
+                        scope: found.scope,
+                        owner: found.owner,
+                    },
+                    {
+                        key: merged.key,
+                        index: merged.index,
+                        before: merged.before,
+                        after: merged.after,
+                        scope,
+                        owner: toOwner,
+                    },
+                ],
+            );
+            refreshReport(base);
+            emit();
+        },
+
+        bindings(): PresetBindings {
+            const character = applied.avatar
+                ? (scoped.get('character', applied.avatar)?.binding?.preset ?? null)
+                : null;
+            const chat = applied.chatId ? (scoped.get('chat', applied.chatId)?.binding?.preset ?? null) : null;
+            const active = chat
+                ? { scope: 'chat' as const, preset: chat }
+                : character
+                  ? { scope: 'character' as const, preset: character }
+                  : null;
+            return { character, chat, active, context: info() };
+        },
+
+        async bind(scope: 'character' | 'chat', preset: string | null): Promise<void> {
+            await contextChain;
+            const owner = ownerOf(scope);
+            if (!owner) return;
+            await scoped.loadOne(scope, owner);
+            const before = scoped.get(scope, owner)?.binding?.preset ?? null;
+            const next = preset?.trim() || null;
+            if (before === next) return;
+            await scoped.mutate(scope, owner, (doc) => {
+                doc.binding = next ? { preset: next, at: Date.now() } : null;
+            });
+            const who = applied.characterName ?? applied.avatar ?? '';
+            const summary = next
+                ? t(`m34.layerSvc.journal.bind.${scope}`, { name: next, character: who })
+                : t(`m34.layerSvc.journal.unbind.${scope}`, { name: before ?? '', character: who });
+            try {
+                await app.journal.record({
+                    module: MODULE_ID,
+                    kind: BINDING_JOURNAL_KIND,
+                    summary,
+                    changes: [{ target: BINDING_TARGET, ref: { scope, owner }, before, after: next }],
+                });
+            } catch (error) {
+                log.warn('binding was not journaled', error);
+            }
+            emit('binding');
+        },
     };
 
     let disposers: Unsubscribe[] = [];
@@ -824,12 +1353,18 @@ export function createPresetLayer(app: App, log: Logger, store?: PresetStore): P
             installed = true;
             checked = false;
             app.journal.registerUndo(LAYER_TARGET, undoChange);
+            app.journal.registerUndo(BINDING_TARGET, undoBinding);
             void load();
+            applied = persistedApplied();
+            startup = scoped.load(applied).catch((error: unknown) => log.warn('scopes could not be loaded', error));
             const events = app.host.events;
             const on = (key: string, raw: string, handler: (...args: unknown[]) => unknown): Unsubscribe =>
                 events.on(events.name(key) ?? raw, handler);
             const check = () => {
                 void pageLoadCheck().catch((error: unknown) => log.warn('page-load layer check failed', error));
+            };
+            const sync = () => {
+                void syncContext().catch((error: unknown) => log.warn('scopes of the chat were not laid on', error));
             };
             disposers = [
                 on('OAI_PRESET_CHANGED_BEFORE', 'oai_preset_changed_before', onBefore),
@@ -839,8 +1374,11 @@ export function createPresetLayer(app: App, log: Logger, store?: PresetStore): P
                 // APP_READY fires a late listener at once (auto-fire), so a module enabled later is checked too.
                 on('APP_READY', 'app_ready', check),
                 on('SETTINGS_LOADED', 'settings_loaded', check),
+                app.bus.on('chat:changed', sync),
+                app.host.fetchGate.beforeRequest(SAVE_URL_RE, onSaveRequest),
                 dispose,
             ];
+            sync();
             return [...disposers];
         },
         dispose(): void {

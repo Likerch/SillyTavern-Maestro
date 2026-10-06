@@ -102,6 +102,8 @@ export interface LayerConflict {
     oldBase: string;
     newBase: string;
     mine: string;
+    /** The layer scope of the op in conflict (preset-layer-scopes.ts; absent = global). */
+    scope?: 'global' | 'character' | 'chat';
 }
 
 export interface LayerApplyReport {

@@ -18,8 +18,8 @@ export { BunnyMoAdapter } from './bunnymo';
 export type { BunnyMoBooks } from './bunnymo';
 export { CkAdapter } from './ck';
 export type { CarrotKernelGlobal } from './ck';
-export { DesAdapter } from './des';
-export type { DesCharacterField, DesGenerationMode } from './des';
+export { DES_PROMPT_KEYS, DesAdapter } from './des';
+export type { DesCharacterField, DesGenerationMode, DesPromptKey } from './des';
 export { DesRuAdapter } from './desru';
 export type { DesRuApi, DesRuFunction, DesRuModule } from './desru';
 export { LocalizerAdapter } from './localizer';
@@ -30,12 +30,13 @@ export type {
     LocalizerLanguageState,
     LocalizerMarker,
 } from './localizer';
-export { NaiAdapter } from './nai';
+export { NAI_MARKERS_SLOT, NaiAdapter } from './nai';
 export type {
     NaiBackgroundInput,
     NaiBackgroundResult,
     NaiImageReadyDetail,
     NaiImageReadyKind,
+    NaiMarkerSettings,
     NaiPassport,
     NaiPassportGenInput,
     NaiPassportGenKind,
@@ -58,8 +59,8 @@ export type {
 } from './nai';
 export { PresetAdapter } from './preset';
 export type { PresetPromptInfo } from './preset';
-export { QvinkAdapter } from './qvink';
-export type { QvinkMemory } from './qvink';
+export { QVINK_TEXT_KEYS, QvinkAdapter } from './qvink';
+export type { QvinkMemory, QvinkTextKey } from './qvink';
 
 /** Concrete adapters by id; assignable to `App['adapters']`, and typed for later stages. */
 export interface Adapters {

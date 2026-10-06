@@ -24,10 +24,12 @@ import { uid } from '../../ui/components/controls';
 import { button, el } from '../../ui/components/dom';
 import type { App } from '../../shared/contracts';
 import type { MacroEngineState } from './conditional';
+import type { LayerScope, LayerScopeInfo } from './layer-api';
 import type { PresetPrompt } from './store-api';
 import { highlighted } from './view-blocks';
 import { renderConditionControl } from './view-conditional';
 import type { FlagOption } from './view-conditional';
+import { scopeField } from './view-scopes';
 
 export interface EditorModel {
     prompt: PresetPrompt;
@@ -38,6 +40,8 @@ export interface EditorModel {
     sourceKey: string | null;
     /** The «Условие» control (conditional blocks): the flag catalogue and the macro engine state. */
     conditions?: { flags: FlagOption[]; engine: MacroEngineState };
+    /** Where new edits go («Везде / Этот персонаж / Этот чат»), shared with the «Слой» tab; absent: no scoped layer. */
+    scope?: { value: LayerScope; context: LayerScopeInfo; onChange(scope: LayerScope): void };
 }
 
 export interface EditorActions {
@@ -280,6 +284,14 @@ export function renderBlockEditor(app: App, model: EditorModel, actions: EditorA
             ]),
             condition?.element ?? null,
             highlight,
+            editable && model.scope
+                ? scopeField(app, {
+                      value: model.scope.value,
+                      context: model.scope.context,
+                      onChange: (scope) => model.scope?.onChange(scope),
+                      className: 'maestro-m34-editor-scope',
+                  })
+                : null,
             el('div', { class: 'maestro-m34-editor-actions' }, [
                 editable
                     ? button({
