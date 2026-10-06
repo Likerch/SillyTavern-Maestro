@@ -4,7 +4,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PmInfo } from '../../../src/features/presetStudio/launcher';
 import { SCOPE_STRINGS } from '../../../src/features/presetStudio/scope-strings';
-import { PresetStudio, STUDIO_TABS, servicesOf } from '../../../src/features/presetStudio/studio';
+import { PresetStudio, STUDIO_TABS, presetStudioWindow, servicesOf } from '../../../src/features/presetStudio/studio';
 import type { PromptAuditApi } from '../../../src/features/promptAudit/api';
 import { click, createStand, q, qa, wait } from './ui-stand';
 import type { Stand } from './ui-stand';
@@ -32,6 +32,7 @@ beforeEach(() => {
         pm: new PmInfo(s.app, s.app.log),
         showClassic: () => {},
     });
+    s.app.ui.addWindow!(presetStudioWindow(studio));
 });
 
 afterEach(() => {
