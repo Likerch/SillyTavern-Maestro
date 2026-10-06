@@ -11,6 +11,8 @@ export interface PromptContext {
     stVersion?: string;
     /** Maestro's mode (economy / balanced / cinema). */
     mode?: string;
+    /** The conversation works on a preset (a block attached, preset tools in use): the preset rules go in. */
+    presets?: boolean;
 }
 
 const LANGUAGE: Record<PromptContext['locale'], string> = {
@@ -34,7 +36,9 @@ export const PROMPT_ROLE =
 export const PROMPT_TASKS =
     'You explain how Maestro and the stack behave (why a character did not know something, why a turn was ' +
     'expensive, what a regex does), diagnose problems, and make the changes the user asks for: module settings, ' +
-    'mechanics, regexes (tested first), preset flags and blocks, passports and lore entries.';
+    'mechanics, regexes (tested first), passports and lore entries, and the chat preset — you read it whole (block ' +
+    'texts, parameters, versions, analysis, a dry run of the prompt), edit blocks and parameters in a scope, build ' +
+    'new presets, bind a preset to the character or the chat, and change the prompts of the other extensions.';
 
 export const PROMPT_TOOLS = [
     'Tools:',
@@ -48,13 +52,48 @@ export const PROMPT_TOOLS = [
         'character card and its starting scenes (first message, alternate greetings) → `card_read`; the persona → ' +
         '`persona_read`. «Propose mechanics for this chat/card» → `scenario_overview`, then one `mechanic_save` per ' +
         'proposal (each is shown to the user as a card to confirm).',
+    '- The preset: presets, bindings and unsaved edits → `preset_list`; a block whole → `preset_block_read`; ' +
+        'parameters → `preset_params`; what really goes to the model and how big it is → `preset_dry_run` (no ' +
+        'request is sent); problems and model quirks → `preset_findings`; two presets → `preset_compare`; the other ' +
+        "extensions' prompts → `neighbour_prompts`.",
     '- Use a write tool only when the user asked for that change or agreed to your suggestion. Every change is ' +
         'shown to the user as a before/after card and is applied only after the user confirms it. If the user ' +
         'declines, do not propose the same change again unless asked.',
-    '- One change per call, with exact values; prefer the smallest change that solves the problem. Never say a ' +
-        'change was made before its tool reported it applied.',
+    '- One change per call, with exact values; prefer the smallest change that solves the problem. Related preset ' +
+        'edits go together as one `preset_pack` card. Never say a change was made before its tool reported it ' +
+        'applied.',
     '- If a tool returns an error, fix the arguments once or explain the problem; do not repeat a failing call.',
-    '- At most 10 tool rounds and 5 proposed changes per user message; when you reach a limit, stop and ask.',
+    '- At most 10 tool rounds, 5 cards (a pack is one card) and 20 changes per user message; when you reach a ' +
+        'limit, stop and ask.',
+].join('\n');
+
+/** How to work with presets (in the prompt while the conversation works on one; the full guide is `guide.presets`). */
+export const PROMPT_PRESETS = [
+    'Preset work:',
+    '- Edits never write the preset file: they go into a layer laid over it, in a scope — `global` (everywhere, ' +
+        'the default), `character` (every chat of this character card) or `chat` (this chat only), laid in that ' +
+        'order, so a chat edit wins over a global one. Pass `scope` only when the user asked for this character or ' +
+        "this chat; he can still switch it on the card. A block the layer added is edited in that block's own scope.",
+    '- Layer edits survive an update of the base preset (a text edit made on an older base text becomes a conflict ' +
+        'the user resolves in the Preset Studio). «Apply» on the card is the save: layer edits need no save step. ' +
+        '`preset_save` only writes unsaved edits made elsewhere into the file, or saves a copy under a new name.',
+    '- The layer cannot delete a block of the base preset: `preset_block_remove` switches it off there; a block the ' +
+        'layer added is removed. Change part of a long block with `replace` (exact, unique snippets) instead of ' +
+        'resending the whole text.',
+    '- Several related edits (one topic reworked, a cleanup) go as ONE `preset_pack`: the user may untick items, ' +
+        'one undo reverts the whole pack.',
+    '- `preset_bind` binds a whole preset to the character or the chat: it is selected when that chat opens, and ' +
+        'the previous preset comes back on leaving. `preset_create` builds a new preset from scratch, from the ' +
+        'current one or from blocks of several presets.',
+    '- Before and after a bigger change check `preset_dry_run`: the assembled prompt without sending it (roles, ' +
+        'order, sizes; the lore, the card and the history only as sizes).',
+    '- Model pitfalls (see the hints of `preset_findings` for the active model): with DeepSeek V4 through ' +
+        'OpenRouter, system messages in the middle of the history merge into the neighbouring turn — keep in-chat ' +
+        'blocks in the user role or out of the history; an assistant-role message at the end (a prefill) breaks the ' +
+        'reply — do not add one; moving the DES tracker instructions to the system role broke the tracker JSON and ' +
+        'the coloured dialogue in practice — keep them in the user role with that preset and model.',
+    "- Neighbour prompts: «everywhere» changes the extension's own setting; a copy for the character or the chat " +
+        'is put in by Maestro at generation time only. Read-only entries and BunnyMo packs are never changed.',
 ].join('\n');
 
 export const PROMPT_SAFETY = [
@@ -87,10 +126,13 @@ export function buildSystemPrompt(context: PromptContext): string {
         PROMPT_TASKS,
         LANGUAGE[context.locale],
         PROMPT_TOOLS,
+        context.presets ? PROMPT_PRESETS : '',
         PROMPT_SAFETY,
         PROMPT_STYLE,
         `Context: ${facts}`,
-    ].join('\n\n');
+    ]
+        .filter(Boolean)
+        .join('\n\n');
 }
 
 /** Older turns that no longer fit the history budget, one line each (appended to the system prompt). */

@@ -1,25 +1,36 @@
-// The assistant's write tools (M33, plan M33 п.4 «делает»; §4.13): each one validates the request and describes the
-// change (WritePlan: summary, target, before/after) without touching anything; the core shows the card and calls
-// apply() only after the user confirms. apply() writes through the owning module's API (which journals with undo)
-// or journals the change itself with an undo handler registered here.
+// The assistant's write tools (M33, plan M33 п.4 «делает»; §4.13; plan-2 §1): each one validates the request and
+// describes the change (WritePlan: summary, target, before/after, a pack's items, the scope switch) without touching
+// anything; the core shows the card and calls apply() only after the user confirms. apply() writes through the owning
+// module's API (which journals with undo) or journals the change itself with an undo handler registered here; a card
+// whose changes another module journaled one by one gets one record over them (assistant-group: one undo).
 //
-// | tool                   | writes through                                                  | journal (undo)     |
-// |------------------------|-----------------------------------------------------------------|--------------------|
-// | setting_set            | ToolContext.settings.plan (the core's allowlist)                | the core           |
-// | module_toggle          | app.modules.enable/disable                                      | assistant-module   |
-// | autonomy_set           | app.autonomy.setLevel (default: core settings, as Settings)     | assistant-autonomy |
-// | mechanic_save          | mechanics.save                                                  | mechanics          |
-// | mechanic_toggle_chat   | mechanics.setEnabledInChat                                      | assistant-mech-chat|
-// | regex_create/_toggle   | ST regex engine saveScriptsByType(GLOBAL) / extension_settings  | assistant-regex    |
-// | preset_block_add/_cond | presetLayer.record + presetStore.addPrompt/updatePrompt         | preset layer/store |
-// | lore_entry_create/_upd | loreStore.createEntry/updateEntry (+ bookRoles registry type)   | Lore Studio        |
-// | passport_set           | lorePassports.set                                               | lorePassports      |
+// | tool                         | writes through                                                | journal (undo)       |
+// |------------------------------|---------------------------------------------------------------|----------------------|
+// | setting_set                  | ToolContext.settings.plan (the core's allowlist)              | the core             |
+// | module_toggle                | app.modules.enable/disable                                    | assistant-module     |
+// | autonomy_set                 | app.autonomy.setLevel (default: core settings, as Settings)   | assistant-autonomy   |
+// | mechanic_save                | mechanics.save                                                | mechanics            |
+// | mechanic_toggle_chat         | mechanics.setEnabledInChat                                    | assistant-mech-chat  |
+// | regex_create/_toggle         | ST regex engine saveScriptsByType(GLOBAL) / extension_settings| assistant-regex      |
+// | preset_block_add/_condition/ | presetLayer.record(base, op, scope) + presetStore (working    | preset layer/store,  |
+// |   _edit/_toggle/_move/       |   copy); _remove of an own block: presetLayer.remove +        |   assistant-group    |
+// |   _remove, preset_params_set,|   presetStore.removePrompt                                    |                      |
+// |   preset_pack                |                                                               |                      |
+// | preset_create                | presetStore.createFromBody (+ presetLayer.bind)               | preset store/layer   |
+// | preset_bind / _unbind        | presetLayer.bind                                              | preset layer         |
+// | preset_save                  | presetStore.save / saveAs                                     | preset store         |
+// | preset_version_restore       | presetStore.restoreVersion                                    | preset store         |
+// | neighbour_prompt_set         | neighbourPrompts.setGlobal / setScoped                        | neighbourPrompts     |
+// | lore_entry_create/_upd       | loreStore.createEntry/updateEntry (+ bookRoles registry type) | Lore Studio          |
+// | passport_set                 | lorePassports.set                                             | lorePassports        |
 import type { App, JournalChange, Logger } from '../../../../shared/contracts';
 import type { ToolFactory, ToolSpec } from '../../api';
-import { UNDO_TARGETS } from './common';
+import { UNDO_TARGETS, undoGroup } from './common';
 import { loreEntryCreateTool, loreEntryUpdateTool, passportSetTool } from './lore';
 import { mechanicSaveTool, mechanicToggleChatTool, undoMechanicChat } from './mechanics';
-import { presetBlockAddTool, presetBlockConditionTool } from './preset';
+import { neighbourPromptSetTool } from './neighbours';
+import { presetWriteTools } from './preset';
+import { presetFileTools } from './preset-files';
 import { regexCreateTool, regexToggleTool, undoRegex } from './regex';
 import { autonomySetTool, moduleToggleTool, settingSetTool, undoAutonomy, undoModule } from './settings';
 
@@ -45,6 +56,7 @@ export function registerWriteUndo(app: App, log: Logger): void {
     app.journal.registerUndo(UNDO_TARGETS.autonomy, guard('autonomy', undoAutonomy));
     app.journal.registerUndo(UNDO_TARGETS.mechanicChat, guard('mechanic', undoMechanicChat));
     app.journal.registerUndo(UNDO_TARGETS.regex, guard('regex', undoRegex));
+    app.journal.registerUndo(UNDO_TARGETS.group, guard('group', undoGroup));
 }
 
 /** The write tools, in the order they are offered. */
@@ -58,8 +70,9 @@ export const writeTools: ToolFactory = (app: App, log: Logger): ToolSpec[] => {
         mechanicToggleChatTool(),
         regexCreateTool(),
         regexToggleTool(),
-        presetBlockAddTool(),
-        presetBlockConditionTool(),
+        ...presetWriteTools(),
+        ...presetFileTools(),
+        neighbourPromptSetTool(),
         loreEntryCreateTool(),
         loreEntryUpdateTool(),
         passportSetTool(),

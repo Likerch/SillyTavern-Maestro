@@ -4,7 +4,8 @@
 // P-073), Save (into the user's layer when there is one), «Сохранить базу», Save as, Rename, Delete, Import, Export,
 // «Классический редактор». Tabs: Карта, Блоки, Анализ, Условия, Слой, Версии, Параметры; the block editor is a side panel
 // (an overlay on phones) with a leave guard. Data: store-api.ts / layer-api.ts / analysis-api.ts, found at run time
-// (app.modules.api), so the window degrades when a part is missing.
+// (app.modules.api), so the window degrades when a part is missing. With the assistant on, «Обсудить с ассистентом» on
+// the preset (header) and on every block row opens it with that preset or block attached (plan-2 §1 п. 7).
 //
 // Edits (EditRouter): with a layer for the current base and `editsToLayer` on, every studio edit is recorded in the
 // layer (layer.record) and applied to the working copy through the store, so it works at once and survives a base
@@ -40,6 +41,7 @@ import type { TabsHandle } from '../../ui/components/tabs';
 import { banner } from '../../ui/components/card';
 import { append, button, el } from '../../ui/components/dom';
 import type { App, Logger, MaestroWindowSpec, Unsubscribe } from '../../shared/contracts';
+import type { AssistantApi } from '../assistant/api';
 import type { MapSlot, PresetAnalysisApi, PresetFinding, ProviderHint } from './analysis-api';
 import { Dialogs, downloadJson } from './dialogs';
 import type { LayerApplyReport, LayerConflict, LayerOp, LayerScope, PresetLayerApi } from './layer-api';
@@ -795,6 +797,14 @@ export class PresetStudio {
                         className: 'maestro-m34-delete-preset',
                         onClick: () => this.deletePreset(),
                     }),
+                    this.assistant()
+                        ? button({
+                              icon: 'fa-comments',
+                              title: this.t('m34.discuss.preset'),
+                              className: 'maestro-m34-discuss',
+                              onClick: () => this.discuss(),
+                          })
+                        : null,
                     button({
                         icon: 'fa-list-ul',
                         label: this.t('m34.classic'),
@@ -1338,7 +1348,35 @@ export class PresetStudio {
             resetOrder: () => this.resetOrder(),
             substitute: (identifier) => this.substitute(identifier),
             changed: () => this.rerender(),
+            discuss: this.assistant() ? (identifier) => this.discuss(identifier) : undefined,
         };
+    }
+
+    /** The assistant when it can take a preset or a block into a conversation (its module on). */
+    private assistant(): AssistantApi | null {
+        const api = this.app.modules.api<AssistantApi>('assistant');
+        return api && typeof api.discuss === 'function' ? api : null;
+    }
+
+    /**
+     * «Обсудить с ассистентом» (plan-2 §1 п. 7): the assistant opens with the preset, or one of its blocks, attached to
+     * the next message; what it applies reaches the studio through the store's and the layer's change events.
+     */
+    discuss(identifier?: string): void {
+        const api = this.assistant();
+        const preset = this.store()?.current();
+        if (!api || !preset) return;
+        if (identifier) {
+            const prompt = this.promptOf(identifier);
+            api.discuss?.({
+                kind: 'presetBlock',
+                preset,
+                identifier,
+                label: prompt ? promptName(prompt) : identifier,
+            });
+            return;
+        }
+        api.discuss?.({ kind: 'preset', preset, label: preset });
     }
 
     private async newBlock(): Promise<void> {

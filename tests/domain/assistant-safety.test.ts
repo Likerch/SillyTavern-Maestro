@@ -43,13 +43,20 @@ describe('assistant-safety: allowlist', () => {
         'connection.retries',
         'model',
         'judge.modelName',
+        // State the Preset Studio keeps in its settings (the layer laid over the working copy, a bound chat).
+        'scopeApplied',
+        'scopeApplied.chatId',
+        'bindingRestore',
     ])('hides %s', (path) => {
         expect(isHiddenPath(path)).toBe(true);
     });
 
-    it.each(['keepTurns', 'pacing.every', 'enabled', 'threshold', 'tags'])('shows %s', (path) => {
-        expect(isHiddenPath(path)).toBe(false);
-    });
+    it.each(['keepTurns', 'pacing.every', 'enabled', 'threshold', 'tags', 'editsToLayer', 'scopeAppliedNote'])(
+        'shows %s',
+        (path) => {
+            expect(isHiddenPath(path)).toBe(false);
+        },
+    );
 
     it('splits only sane paths', () => {
         expect(splitPath('a.b_c.$d-1')).toEqual(['a', 'b_c', '$d-1']);

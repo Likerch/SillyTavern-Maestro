@@ -11,6 +11,14 @@
  */
 export const HIDDEN_SETTING = /key|token|secret|password|api|url|endpoint|host|proxy|profile|connection|model/i;
 
+/**
+ * State a module keeps in its settings slice (not a choice of the user): what the Preset Studio's layer laid over the
+ * working copy (`scopeApplied`) and the preset a bound chat replaced (`bindingRestore`). Changed by hand it would make
+ * the layer strip the wrong edits or switch to the wrong preset, so the assistant neither sees nor changes it; preset
+ * edits go through the preset tools.
+ */
+export const INTERNAL_SETTING = /(^|\.)(scopeApplied|bindingRestore)(\.|$)/;
+
 /** Deepest settings path the assistant sees (module slices are shallow; this only stops pathological objects). */
 export const MAX_SETTING_DEPTH = 6;
 /** Longest string value the assistant may write into a setting. */
@@ -45,7 +53,7 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 }
 
 export function isHiddenPath(path: string): boolean {
-    return HIDDEN_SETTING.test(path);
+    return HIDDEN_SETTING.test(path) || INTERNAL_SETTING.test(path);
 }
 
 /** Dot path → segments; null when malformed (empty segment, odd characters, prototype keys, too deep). */

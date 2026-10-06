@@ -1,7 +1,11 @@
-// The assistant's pult tab (M33, plan §7 «Ассистент»): the conversation (user and assistant bubbles with light
-// Markdown, tool chips, write cards with before → after and «Применить» / «Отклонить»), the input (Enter sends,
-// Shift+Enter adds a line), «Стоп» while the loop runs, «Очистить» with a confirmation and the cost line. Phones: the
-// tab fills the pult, the input sticks to the bottom, big buttons. Every model or tool text goes in as text nodes.
+// The assistant's pult tab (M33, plan §7 «Ассистент»; plan-2 §1): the conversation (user and assistant bubbles with
+// light Markdown, tool chips, write cards with before → after and «Применить» / «Отклонить»; a pack card lists its
+// changes with a tick each and offers «Применить всё» / «Применить выбранные»; a card that can go to another scope has
+// the switch «Где действует»), the input (Enter sends, Shift+Enter adds a line) with the chips of what is attached to
+// the next message («Обсудить с ассистентом» in the Preset Studio; ✕ removes one), «Стоп» while the loop runs,
+// «Очистить» with a confirmation and the cost line. Phones: the tab fills the pult, the input sticks to the bottom, big
+// buttons. Every model or tool text goes in as text nodes.
+import { tPlural } from '../../core/labels';
 import { parseMarkdown } from '../../domain/assistant-markdown';
 import type { Block, Inline } from '../../domain/assistant-markdown';
 import type { App, PultTab, Unsubscribe } from '../../shared/contracts';
@@ -12,11 +16,12 @@ import { diffView } from '../../ui/components/diff';
 import { button, clear, el, icon } from '../../ui/components/dom';
 import type { Child } from '../../ui/components/dom';
 import { formatUsd } from '../../ui/views/format';
-import type { AssistantApi, AssistantMessage, ToolCallRecord } from './api';
-import { ASSISTANT_KEY, ASSISTANT_LIMITS, ASSISTANT_TASK } from './settings';
+import { contextKey } from './api';
+import type { AssistantApi, AssistantContextItem, AssistantMessage, ToolCallItem, ToolCallRecord } from './api';
+import { ASSISTANT_KEY, ASSISTANT_LIMITS, ASSISTANT_TAB, ASSISTANT_TASK } from './settings';
 import type { AssistantSettings } from './settings';
 
-export const ASSISTANT_TAB = 'assistant';
+export { ASSISTANT_TAB };
 export const ASSISTANT_TAB_ORDER = 95;
 export const ASSISTANT_SECTION_ORDER = 40;
 export const EXAMPLE_KEYS = ['m33.example.1', 'm33.example.2', 'm33.example.3', 'm33.example.4'] as const;
@@ -80,6 +85,26 @@ export const M33_CSS = `
 .maestro-m33-card-head { display: flex; align-items: center; gap: 6px; font-weight: 600; }
 .maestro-m33-card-state { margin-inline-start: auto; color: var(--maestro-muted); font-size: 0.85em; font-weight: normal; }
 .maestro-m33-card-actions { display: flex; flex-wrap: wrap; gap: var(--maestro-gap-sm); }
+.maestro-m33-card-scope { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 0.9em; }
+.maestro-m33-card-scope select { width: auto; min-width: 12em; margin: 0; }
+.maestro-m33-pack-badge { padding: 0 6px; border-radius: var(--maestro-radius-sm); background: var(--maestro-accent-soft);
+    font-size: 0.8em; font-weight: normal; }
+.maestro-m33-items { display: flex; flex-direction: column; gap: 6px; }
+.maestro-m33-item { display: flex; flex-direction: column; gap: 4px; padding: 6px 8px; border: 1px solid var(--maestro-border);
+    border-radius: var(--maestro-radius-sm); }
+.maestro-m33-item-off { opacity: 0.6; }
+.maestro-m33-item-head { display: flex; align-items: center; gap: 6px; }
+.maestro-m33-item-head input { margin: 0; }
+.maestro-m33-item-summary { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.maestro-m33-item-state { color: var(--maestro-muted); font-size: 0.85em; }
+.maestro-m33-item-error .maestro-m33-item-state { color: var(--maestro-error); }
+.maestro-m33-item > details > summary { cursor: pointer; color: var(--maestro-muted); font-size: 0.85em; }
+.maestro-m33-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.maestro-m33-context { display: inline-flex; align-items: center; gap: 4px; max-width: 100%; padding: 2px 4px 2px 8px;
+    border: 1px solid var(--maestro-border); border-radius: 999px; background: var(--maestro-accent-soft); font-size: 0.85em; }
+.maestro-m33-context > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.maestro-m33-context .maestro-btn { min-height: 0; padding: 0 4px; }
+.maestro-m33-composer-main { display: flex; flex: 1; flex-direction: column; gap: 4px; min-width: 0; }
 .maestro-m33-thinking { display: flex; align-items: center; gap: 6px; color: var(--maestro-muted); }
 .maestro-m33-empty { display: flex; flex-direction: column; gap: var(--maestro-gap-sm); padding: var(--maestro-gap) 0; }
 .maestro-m33-empty-title { font-weight: 600; }
@@ -156,6 +181,13 @@ function cut(text: string, max: number): string {
     return text.length > max ? `${text.slice(0, max)}…` : text;
 }
 
+/** «Блок «Main Prompt» из «Marinara»» / «Пресет «Marinara»». */
+export function contextText(app: App, item: AssistantContextItem): string {
+    return item.kind === 'presetBlock'
+        ? app.i18n.t('m33.context.block', { name: item.label || item.identifier || '', preset: item.preset })
+        : app.i18n.t('m33.context.preset', { name: item.preset });
+}
+
 /** A call is a write when it reached the card stage (plan made) or carries a write status. */
 function isWriteRecord(record: ToolCallRecord): boolean {
     return (
@@ -183,9 +215,18 @@ export function costOf(messages: readonly AssistantMessage[]): { total: number; 
 
 export function assistantTab(app: App, api: AssistantViewApi): PultTab {
     const t = (key: string, params?: Record<string, string | number>) => app.i18n.t(key, params);
-    // Kept across renders: the draft and which chips are open.
+    // Kept across renders: the draft, which chips are open, and the choices made on waiting cards (pack ticks, scope).
     let draft = '';
     const openChips = new Set<string>();
+    const choices = new Map<string, { cleared: Set<string>; scope?: string }>();
+    const choiceOf = (id: string) => {
+        let choice = choices.get(id);
+        if (!choice) {
+            choice = { cleared: new Set() };
+            choices.set(id, choice);
+        }
+        return choice;
+    };
 
     return {
         id: ASSISTANT_TAB,
@@ -241,10 +282,36 @@ export function assistantTab(app: App, api: AssistantViewApi): PultTab {
                 className: 'maestro-m33-stop',
                 onClick: () => api.stop(),
             });
+            const attached = el('div', {
+                class: 'maestro-m33-chips maestro-m33-attached',
+                attrs: { 'aria-label': t('m33.context.label') },
+            });
             const composer = el('div', { class: 'maestro-m33-composer' }, [
-                input,
+                el('div', { class: 'maestro-m33-composer-main' }, [attached, input]),
                 el('div', { class: 'maestro-m33-composer-actions' }, [sendButton, stopButton]),
             ]);
+
+            const contextChip = (item: AssistantContextItem, removable: boolean): HTMLElement =>
+                el('span', { class: 'maestro-m33-context', data: { context: contextKey(item) } }, [
+                    icon(item.kind === 'presetBlock' ? 'fa-cube' : 'fa-sliders'),
+                    el('span', { text: contextText(app, item), title: contextText(app, item) }),
+                    removable
+                        ? button({
+                              icon: 'fa-xmark',
+                              kind: 'ghost',
+                              title: t('m33.context.remove'),
+                              className: 'maestro-m33-context-remove',
+                              onClick: () => api.detach?.(contextKey(item)),
+                          })
+                        : null,
+                ]);
+
+            const drawAttached = () => {
+                clear(attached);
+                const items = api.attachments?.() ?? [];
+                attached.hidden = !items.length;
+                for (const item of items) attached.append(contextChip(item, true));
+            };
 
             const chip = (record: ToolCallRecord): HTMLElement => {
                 const node = el('details', {
@@ -278,27 +345,179 @@ export function assistantTab(app: App, api: AssistantViewApi): PultTab {
                 return node;
             };
 
+            /** The scope line: a switch while the card waits (two or more scopes), else the scope in words. */
+            const scopeRow = (record: ToolCallRecord, live: boolean): HTMLElement | null => {
+                const options = record.scopes ?? [];
+                if (!options.length) return null;
+                const current = (live ? choices.get(record.id)?.scope : undefined) ?? record.scope ?? options[0]!.value;
+                const label = options.find((option) => option.value === current)?.label ?? current;
+                if (!live || options.length < 2) {
+                    return el('div', { class: 'maestro-m33-card-scope' }, [
+                        icon('fa-location-crosshairs'),
+                        el('span', { text: `${t('m33.card.scope')}: ${label}` }),
+                    ]);
+                }
+                return el('label', { class: 'maestro-m33-card-scope' }, [
+                    icon('fa-location-crosshairs'),
+                    el('span', { text: t('m33.card.scope') }),
+                    select({
+                        value: current,
+                        label: t('m33.card.scope'),
+                        options: options.map((option) => ({ value: option.value, label: option.label })),
+                        onChange: (value) => {
+                            choiceOf(record.id).scope = value;
+                        },
+                    }),
+                ]);
+            };
+
+            const itemState = (item: ToolCallItem): string => {
+                if (item.status === 'error') return t('m33.card.item.error', { error: item.error ?? '' });
+                return item.status ? t(`m33.card.item.${item.status}`) : '';
+            };
+
+            /** The changes of a pack: a tick each while it waits, their fate afterwards. */
+            const itemsList = (record: ToolCallRecord, live: boolean, refresh: () => void): HTMLElement | null => {
+                const items = record.items ?? [];
+                if (!items.length) return null;
+                const cleared = live ? choiceOf(record.id).cleared : new Set<string>();
+                return el(
+                    'div',
+                    { class: 'maestro-m33-items' },
+                    items.map((item) => {
+                        const off = live ? cleared.has(item.id) : item.status === 'skipped';
+                        const head: Child[] = [];
+                        if (live) {
+                            const tick = el('input', {
+                                class: 'maestro-m33-item-tick',
+                                attrs: { type: 'checkbox', 'aria-label': t('m33.card.item.keep') },
+                                data: { item: item.id },
+                            });
+                            tick.checked = !off;
+                            tick.addEventListener('change', () => {
+                                if (tick.checked) cleared.delete(item.id);
+                                else cleared.add(item.id);
+                                refresh();
+                            });
+                            head.push(tick);
+                        } else if (item.status) {
+                            head.push(
+                                icon(
+                                    item.status === 'applied'
+                                        ? 'fa-check'
+                                        : item.status === 'error'
+                                          ? 'fa-triangle-exclamation'
+                                          : 'fa-minus',
+                                ),
+                            );
+                        }
+                        head.push(el('span', { class: 'maestro-m33-item-summary', text: item.summary }));
+                        const state = live ? '' : itemState(item);
+                        if (state) head.push(el('span', { class: 'maestro-m33-item-state', text: state }));
+                        const hasValues = item.before !== undefined || item.after !== undefined;
+                        const diff = hasValues
+                            ? el('details', {}, [
+                                  el('summary', { text: item.target ?? t('m33.card.item.diff') }),
+                                  diffView(item.before, item.after, t),
+                              ])
+                            : null;
+                        if (diff && items.length <= 3) diff.setAttribute('open', '');
+                        return el(
+                            'div',
+                            {
+                                class: [
+                                    'maestro-m33-item',
+                                    off ? 'maestro-m33-item-off' : null,
+                                    item.status ? `maestro-m33-item-${item.status}` : null,
+                                ],
+                                data: { item: item.id },
+                            },
+                            [el('div', { class: 'maestro-m33-item-head' }, head), diff],
+                        );
+                    }),
+                );
+            };
+
             const card = (record: ToolCallRecord): HTMLElement => {
                 let footer: Child;
+                const items = record.items ?? [];
+                const live = record.status === 'waiting' && !(api.awaiting && !api.awaiting(record.id));
+                let refreshButtons = () => {};
                 if (record.status === 'waiting') {
-                    footer =
-                        api.awaiting && !api.awaiting(record.id)
-                            ? el('div', { class: 'maestro-hint', text: t('m33.card.otherTab') })
-                            : el('div', { class: 'maestro-m33-card-actions' }, [
-                                  button({
-                                      label: t('m33.card.apply'),
-                                      icon: 'fa-check',
-                                      kind: 'primary',
-                                      className: 'maestro-m33-apply',
-                                      onClick: () => api.confirm(record.id, true),
-                                  }),
-                                  button({
-                                      label: t('m33.card.decline'),
-                                      icon: 'fa-xmark',
-                                      className: 'maestro-m33-decline',
-                                      onClick: () => api.confirm(record.id, false),
-                                  }),
-                              ]);
+                    if (!live) {
+                        footer = el('div', { class: 'maestro-hint', text: t('m33.card.otherTab') });
+                    } else if (items.length) {
+                        const choice = choiceOf(record.id);
+                        const kept = () => items.filter((item) => !choice.cleared.has(item.id)).map((item) => item.id);
+                        const all = button({
+                            label: t('m33.card.applyAll'),
+                            icon: 'fa-check-double',
+                            kind: 'primary',
+                            className: 'maestro-m33-apply',
+                            onClick: () =>
+                                api.confirm(record.id, true, {
+                                    selected: items.map((item) => item.id),
+                                    scope: choice.scope ?? record.scope,
+                                }),
+                        });
+                        const some = button({
+                            label: t('m33.card.applySelected'),
+                            icon: 'fa-check',
+                            className: 'maestro-m33-apply-selected',
+                            onClick: () =>
+                                api.confirm(record.id, true, { selected: kept(), scope: choice.scope ?? record.scope }),
+                        });
+                        refreshButtons = () => {
+                            const count = kept().length;
+                            some.disabled = count === 0 || count === items.length;
+                            for (const node of cardNode.querySelectorAll<HTMLElement>('.maestro-m33-item')) {
+                                node.classList.toggle(
+                                    'maestro-m33-item-off',
+                                    choice.cleared.has(node.dataset['item'] ?? ''),
+                                );
+                            }
+                        };
+                        footer = el('div', { class: 'maestro-m33-card-actions' }, [
+                            all,
+                            some,
+                            button({
+                                label: t('m33.card.decline'),
+                                icon: 'fa-xmark',
+                                className: 'maestro-m33-decline',
+                                onClick: () => api.confirm(record.id, false),
+                            }),
+                        ]);
+                    } else {
+                        footer = el('div', { class: 'maestro-m33-card-actions' }, [
+                            button({
+                                label: t('m33.card.apply'),
+                                icon: 'fa-check',
+                                kind: 'primary',
+                                className: 'maestro-m33-apply',
+                                onClick: () => {
+                                    const scope = choices.get(record.id)?.scope;
+                                    return scope === undefined
+                                        ? api.confirm(record.id, true)
+                                        : api.confirm(record.id, true, { scope });
+                                },
+                            }),
+                            button({
+                                label: t('m33.card.decline'),
+                                icon: 'fa-xmark',
+                                className: 'maestro-m33-decline',
+                                onClick: () => api.confirm(record.id, false),
+                            }),
+                        ]);
+                    }
+                } else if (record.status === 'applied' && items.length) {
+                    const applied = items.filter((item) => item.status === 'applied').length;
+                    footer = el('div', {
+                        class: 'maestro-hint',
+                        text:
+                            applied === items.length
+                                ? t('m33.card.applied')
+                                : t('m33.card.appliedPart', { applied, total: items.length }),
+                    });
                 } else if (record.status === 'applied') {
                     footer = el('div', { class: 'maestro-hint', text: t('m33.card.applied') });
                 } else if (record.status === 'declined') {
@@ -312,26 +531,47 @@ export function assistantTab(app: App, api: AssistantViewApi): PultTab {
                     footer = null;
                 }
                 const hasValues = record.before !== undefined || record.after !== undefined;
-                return el(
+                const cardNode = el(
                     'div',
                     {
-                        class: ['maestro-card', 'maestro-m33-card', `maestro-m33-card-${record.status}`],
+                        class: [
+                            'maestro-card',
+                            'maestro-m33-card',
+                            `maestro-m33-card-${record.status}`,
+                            items.length ? 'maestro-m33-pack' : null,
+                        ],
                         data: { call: record.id },
                     },
                     [
                         el('div', { class: 'maestro-m33-card-head' }, [
-                            icon(record.status === 'running' ? 'fa-spinner' : 'fa-pen-to-square'),
+                            icon(
+                                record.status === 'running'
+                                    ? 'fa-spinner'
+                                    : items.length
+                                      ? 'fa-layer-group'
+                                      : 'fa-pen-to-square',
+                            ),
                             el('span', { class: 'maestro-m33-card-target', text: record.target ?? record.name }),
+                            items.length
+                                ? el('span', {
+                                      class: 'maestro-m33-pack-badge',
+                                      text: tPlural(app.i18n, 'm33.card.pack', items.length),
+                                  })
+                                : null,
                             el('span', {
                                 class: 'maestro-m33-card-state',
                                 text: t(`m33.status.${record.status}`),
                             }),
                         ]),
                         record.summary ? el('div', { class: 'maestro-m33-card-summary', text: record.summary }) : null,
+                        scopeRow(record, live),
                         hasValues ? diffView(record.before, record.after, t) : null,
+                        itemsList(record, live, () => refreshButtons()),
                         footer,
                     ],
                 );
+                refreshButtons();
+                return cardNode;
             };
 
             const messageNode = (message: AssistantMessage): HTMLElement => {
@@ -343,7 +583,15 @@ export function assistantTab(app: App, api: AssistantViewApi): PultTab {
                     );
                 }
                 if (message.role === 'user') {
+                    const context = message.context ?? [];
                     return el('div', { class: 'maestro-m33-msg maestro-m33-user', data: { id: message.id } }, [
+                        context.length
+                            ? el(
+                                  'div',
+                                  { class: 'maestro-m33-chips' },
+                                  context.map((item) => contextChip(item, false)),
+                              )
+                            : null,
                         el('div', {
                             class: 'maestro-m33-bubble',
                             text: message.text,
@@ -437,9 +685,15 @@ export function assistantTab(app: App, api: AssistantViewApi): PultTab {
                 clear(list);
                 if (!messages.length && !busy) list.append(emptyView());
                 for (const message of messages) list.append(messageNode(message));
-                const waiting = messages.some((message) =>
-                    (message.toolCalls ?? []).some((call) => call.status === 'waiting'),
+                const waitingIds = new Set(
+                    messages.flatMap((message) =>
+                        (message.toolCalls ?? []).filter((call) => call.status === 'waiting').map((call) => call.id),
+                    ),
                 );
+                // Choices of answered cards are no longer needed.
+                for (const id of [...choices.keys()]) if (!waitingIds.has(id)) choices.delete(id);
+                const waiting = waitingIds.size > 0;
+                drawAttached();
                 if (busy && !waiting)
                     list.append(
                         el('div', { class: 'maestro-m33-thinking', attrs: { role: 'status' } }, [

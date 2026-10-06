@@ -18,12 +18,17 @@ export const UNDO_TARGETS = {
     autonomy: 'assistant-autonomy',
     mechanicChat: 'assistant-mechanic-chat',
     regex: 'assistant-regex',
+    /** One card's changes journaled by other modules (a preset pack): one undo takes them all back. */
+    group: 'assistant-group',
 } as const;
+
+/** Journal kind of a card whose changes other modules journaled one by one (UNDO_TARGETS.group). */
+export const GROUP_KIND = 'assistant.group';
 
 /** An Error with a sentence in the user's language for `m33w.err.<code>`. */
 export function failure(say: Say, code: string, params: ErrorParams = {}): Error {
     // `argType` names the expected type with a word of the user's language.
-    if (code === 'argType' && typeof params.expected === 'string') {
+    if ((code === 'argType' || code === 'presetParamType') && typeof params.expected === 'string') {
         return new Error(say(`m33w.err.${code}`, { ...params, expected: say(`m33w.type.${params.expected}`) }));
     }
     return new Error(say(`m33w.err.${code}`, params));
@@ -66,6 +71,69 @@ export async function journal(
     } catch (error) {
         app.log.warn(`assistant: ${entry.kind} was not journaled`, error);
     }
+}
+
+/** Modules whose journal records an assistant card may gather under one undo (Preset Studio, neighbour prompts). */
+const GROUPED_MODULES: ReadonlySet<string> = new Set(['M34', 'M36']);
+
+function journalIds(app: App): Set<string> {
+    try {
+        return new Set(app.journal.list().map((record) => record.id));
+    } catch {
+        return new Set();
+    }
+}
+
+/**
+ * Runs the work of one card (a pack, or one edit the Preset Studio journals as a layer op plus a working-copy change)
+ * and, when it left two or more records of the preset modules, journals one record over them: undoing it undoes them
+ * all, newest first. The records stay in the journal as they are (each can still be undone alone).
+ */
+export async function grouped<T>(app: App, summary: () => string, work: () => Promise<T>): Promise<T> {
+    const before = journalIds(app);
+    const since = Date.now() - 1000;
+    try {
+        return await work();
+    } finally {
+        let fresh: string[] = [];
+        try {
+            // list() is newest first: reversed, the records come in the order they were made.
+            fresh = app.journal
+                .list()
+                .filter(
+                    (record) =>
+                        !before.has(record.id) &&
+                        GROUPED_MODULES.has(record.module) &&
+                        record.at >= since &&
+                        record.undone !== true,
+                )
+                .map((record) => record.id)
+                .reverse();
+        } catch (error) {
+            app.log.debug('assistant: journal not readable for grouping', error);
+        }
+        if (fresh.length > 1) {
+            await journal(app, {
+                kind: GROUP_KIND,
+                summary: summary(),
+                change: { target: UNDO_TARGETS.group, ref: { records: fresh }, before: null, after: fresh.length },
+            });
+        }
+    }
+}
+
+/** Undo of a grouped card: its records newest first; records already undone (or trimmed away) are skipped. */
+export async function undoGroup(app: App, change: JournalChange): Promise<boolean> {
+    const raw = change.ref['records'];
+    const ids = Array.isArray(raw) ? raw.filter((id): id is string => typeof id === 'string' && !!id) : [];
+    if (!ids.length) return false;
+    const records = new Map(app.journal.list().map((record) => [record.id, record]));
+    for (const id of [...ids].reverse()) {
+        const record = records.get(id);
+        if (!record || record.undone) continue;
+        if (!(await app.journal.undo(id))) return false;
+    }
+    return true;
 }
 
 /** A fresh uuid: ST's own generator, else the browser's, else a time-based id. */

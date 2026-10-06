@@ -3,8 +3,9 @@
 // user is male (masculine or neutral forms). Exported for the module's i18n; the tools translate with the
 // conversation's locale (ToolContext.locale) through `sayer()`.
 import type { I18nParts } from '../../../../shared/contracts';
+import { PRESET_WRITE_STRINGS } from './preset-strings';
 
-export const WRITE_STRINGS: I18nParts = {
+const BASE_STRINGS: I18nParts = {
     en: {
         'm33w.on': 'on',
         'm33w.off': 'off',
@@ -364,6 +365,12 @@ export const WRITE_STRINGS: I18nParts = {
         'm33w.passport.empty': 'Паспорт пустой — рисовать нечего.',
         'm33w.passport.summary': 'Паспорт записи «{entry}» в «{book}»',
     },
+};
+
+/** Every string of the write tools (the preset and neighbour-prompt tools have their own file). */
+export const WRITE_STRINGS: I18nParts = {
+    en: { ...BASE_STRINGS.en, ...PRESET_WRITE_STRINGS.en },
+    ru: { ...BASE_STRINGS.ru, ...PRESET_WRITE_STRINGS.ru },
 };
 
 export type Say = (key: string, params?: Record<string, string | number>) => string;

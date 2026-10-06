@@ -5,20 +5,29 @@
 export const ASSISTANT_KEY = 'assistant';
 /** Task kind of the assistant's requests: picks the profile (CoreSettings.profiles) and labels the cost. */
 export const ASSISTANT_TASK = 'assistant';
+/** The assistant's pult tab and the window that shows it (plan-2 §10; the pult tab when there are no windows). */
+export const ASSISTANT_TAB = 'assistant';
+export const ASSISTANT_WINDOW = 'assistant';
+/**
+ * Answer length while the conversation works on a preset (a block attached, or preset tools in use): a block text or a
+ * pack of edits travels in the tool call's arguments, and a cut call is lost. The setting wins when it is higher.
+ */
+export const PRESET_MAX_TOKENS = 4000;
 
 export interface AssistantSettings {
     /** Longest answer per model request, tokens. */
     maxTokens: number;
     /** Budget of the conversation history sent with every request, tokens. */
     historyTokens: number;
-    /** Applied changes per hour and chat. */
+    /** Applied changes per hour and chat (every applied change of a pack counts). */
     writesPerHour: number;
     /** Longest tool result the model receives, characters. */
     resultChars: number;
 }
 
 export function defaultAssistantSettings(): AssistantSettings {
-    return { maxTokens: 2000, historyTokens: 6000, writesPerHour: 20, resultChars: 12000 };
+    // 40 changes an hour: preset work comes in packs of several edits, each applied edit counts.
+    return { maxTokens: 2000, historyTokens: 6000, writesPerHour: 40, resultChars: 12000 };
 }
 
 export const ASSISTANT_LIMITS: Readonly<Record<keyof AssistantSettings, readonly [number, number]>> = {

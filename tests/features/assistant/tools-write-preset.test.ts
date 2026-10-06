@@ -51,20 +51,23 @@ describe('preset_block_add', () => {
             'ru',
         );
         expect(plan.summary).toBe(
-            'Новый блок «Боевые правила» (system) после «Main Prompt», только при maestro_scene_combat',
+            'Новый блок «Боевые правила» (система) после «Main Prompt», только при maestro_scene_combat',
         );
         expect(plan.target).toBe('Пресет «Marinara» · твой слой');
         expect(plan.before).toBeNull();
         expect(plan.after).toEqual({
-            name: 'Боевые правила',
-            role: 'system',
-            place: 'после «Main Prompt»',
-            enabled: true,
-            content: '{{if .maestro_scene_combat}}Describe wounds plainly.{{/if}}',
+            Название: 'Боевые правила',
+            Роль: 'система',
+            Где: 'после «Main Prompt»',
+            Состояние: 'включён',
+            Текст: '{{if .maestro_scene_combat}}Describe wounds plainly.{{/if}}',
         });
+        // «Везде» by default; outside a character chat there is nothing to switch to.
+        expect(plan.scope).toBe('global');
+        expect(plan.scopes).toEqual([{ value: 'global', label: 'Везде' }]);
         expect(preset.calls).toEqual([]);
         const { result } = await plan.apply();
-        expect(result).toEqual({ identifier: 'blk-1', preset: 'Marinara' });
+        expect(result).toEqual({ identifier: 'blk-1', preset: 'Marinara', scope: 'global' });
         expect(methods(preset)).toEqual(['layer.record', 'addPrompt']);
         const [base, op] = preset.calls[0]!.args as [string, Record<string, unknown>];
         expect(base).toBe('Marinara');
@@ -111,7 +114,7 @@ describe('preset_block_add', () => {
             enabled: false,
         });
         expect(plan.summary).toBe('New block «B» (user) before «Post-History», in the chat at depth 2');
-        expect((plan.after as Record<string, unknown>).warnings).toEqual(['The block is added switched off.']);
+        expect((plan.after as Record<string, unknown>).Note).toEqual(['The block is added switched off.']);
         await plan.apply();
         expect(before.preset.calls[0]!.args[1]).toMatchObject({
             anchor: { kind: 'before', identifier: 'jailbreak' },
@@ -165,8 +168,8 @@ describe('preset_block_add', () => {
             condition: { flag: 'maestro_scene_combat', mode: 'except' },
         });
         expect(plan.summary).toBe('New block «X» (system) at the end, except when maestro_scene_combat');
-        expect((plan.after as Record<string, unknown>).content).toBe('{{if !.maestro_scene_combat}}x{{/if}}');
-        expect((plan.after as Record<string, unknown>).warnings).toEqual([
+        expect((plan.after as Record<string, unknown>).Text).toBe('{{if !.maestro_scene_combat}}x{{/if}}');
+        expect((plan.after as Record<string, unknown>).Note).toEqual([
             'Nothing sets «maestro_scene_combat» yet: until something does, an «only when» block stays silent and an «except» block is always sent.',
             'The new macro engine of SillyTavern is not on: {{if}} would reach the model as plain text.',
         ]);
@@ -176,7 +179,7 @@ describe('preset_block_add', () => {
             position: { place: 'end' },
             condition: { flag: 'maestro_mech_magic', mode: 'only' },
         });
-        expect((mech.after as Record<string, unknown>).warnings).toEqual([
+        expect((mech.after as Record<string, unknown>).Note).toEqual([
             'The new macro engine of SillyTavern is not on: {{if}} would reach the model as plain text.',
         ]);
     });
@@ -200,8 +203,9 @@ describe('preset_block_condition', () => {
         );
         expect(plan.summary).toBe('Блок «Post-History»: кроме maestro_explicit');
         expect(plan.target).toBe('Пресет «Marinara» · твой слой · «Post-History»');
-        expect(plan.before).toEqual({ text: 'Stay in character.' });
-        expect(plan.after).toEqual({ text: '{{if !.maestro_explicit}}Stay in character.{{/if}}' });
+        expect(plan.before).toEqual({ Текст: 'Stay in character.' });
+        expect(plan.after).toEqual({ Текст: '{{if !.maestro_explicit}}Stay in character.{{/if}}' });
+        expect(plan.full).toBe(true);
         await plan.apply();
         expect(methods(preset)).toEqual(['layer.record', 'updatePrompt']);
         expect(preset.calls[0]!.args[1]).toEqual({
@@ -231,7 +235,7 @@ describe('preset_block_condition', () => {
         preset.calls.length = 0;
         const plan = await fake.plan('preset_block_condition', { block: 'Mine', mode: 'always' });
         expect(plan.summary).toBe('Block «Mine»: always (no condition)');
-        expect(plan.after).toEqual({ text: 'Fight!' });
+        expect(plan.after).toEqual({ Text: 'Fight!' });
         await plan.apply();
         expect(preset.calls[0]!.args[1]).toMatchObject({
             op: 'edit',
