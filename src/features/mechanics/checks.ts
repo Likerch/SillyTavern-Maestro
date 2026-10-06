@@ -754,6 +754,8 @@ export class MechanicChecks implements ChecksPart {
             const off = this.deps.app.ui.messageBadge(result.messageIndex, {
                 id: `m25-check-${result.id}`,
                 text: this.t('m25.check.badge', { line }),
+                kind: 'roll',
+                icon: 'fa-dice-d20',
             });
             this.badges.set(result.id, off);
         } catch (error) {

@@ -76,6 +76,10 @@ export interface FactData {
     /** An Inbox card about a contradiction is open ('pending'), or the user kept the fact despite it ('kept'). */
     dispute?: 'pending' | 'kept';
     droppedBy?: DropReason;
+    /** When the user dropped it (the strip under its message shows «Забыл» during that page session). */
+    droppedAt?: number;
+    /** The user said Maestro took it for a fact by mistake («Это ошибка» in the strip). */
+    wrong?: boolean;
     origin: FactOrigin;
     /** The last committed turn counted for survival (a turn is counted once). */
     countedTurn?: number;
@@ -217,6 +221,8 @@ function factOf(raw: unknown): FactData | null {
     if (typeof raw.conflict === 'string' && raw.conflict) fact.conflict = raw.conflict;
     if (raw.dispute === 'pending' || raw.dispute === 'kept') fact.dispute = raw.dispute;
     if (typeof raw.droppedBy === 'string') fact.droppedBy = oneOf(DROP_REASONS, raw.droppedBy, 'missing');
+    if (typeof raw.droppedAt === 'number') fact.droppedAt = raw.droppedAt;
+    if (raw.wrong === true) fact.wrong = true;
     if (typeof raw.countedTurn === 'number') fact.countedTurn = raw.countedTurn;
     if (raw.wasConfirmed === true) fact.wasConfirmed = true;
     if (raw.wasContradicted === true) fact.wasContradicted = true;

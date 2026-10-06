@@ -931,16 +931,16 @@ export class QualityService implements QualityApi {
         const open = verdict.defects.filter((defect) => defect.status === 'notified');
         if (!open.length || verdict.invalidated) return;
         const possible = open.every((defect) => defect.suspected);
+        // One line of the strip under the reply (plan-2 §5): «Переделать» or «Не брак» — a question for the user.
         const offs = [
             this.app.ui.messageBadge(index, {
                 id: `${BADGE_PREFIX}${index}`,
                 text: this.t(possible ? 'm12.badge.possible' : 'm12.badge.text', { kinds: this.kindsText(open) }),
+                kind: 'question',
+                icon: 'fa-triangle-exclamation',
+                tone: 'warn',
                 action: { label: this.t('m12.badge.redo'), run: () => void this.redo(index) },
-            }),
-            this.app.ui.messageBadge(index, {
-                id: `${BADGE_PREFIX}${index}-ok`,
-                text: this.t('m12.badge.falseText'),
-                action: { label: this.t('m12.badge.dismiss'), run: () => void this.dismissAll(index) },
+                actions: [{ label: this.t('m12.badge.dismiss'), run: () => void this.dismissAll(index) }],
             }),
         ];
         this.badges.set(index, offs);

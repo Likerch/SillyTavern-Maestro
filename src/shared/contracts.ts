@@ -707,11 +707,12 @@ export interface Ui {
      * are shown collapsed under «Подробнее».
      */
     confirm(title: string, body: string | HTMLElement, options?: { details?: string }): Promise<boolean>;
-    /** Message badge with an action button (M12 notify). */
-    messageBadge(
-        messageIndex: number,
-        badge: { id: string; text: string; action?: { label: string; run: () => void } },
-    ): Unsubscribe;
+    /**
+     * A line of the strip under a message (plan-2 §5) that lives in memory only (gone after a reload): the autonomy
+     * level «Сообщать», M12 «Брак», M25 rolls. Lines that must come back after a reload come from a
+     * MessageStripProvider over a stored document instead.
+     */
+    messageBadge(messageIndex: number, badge: MessageBadgeSpec): Unsubscribe;
     /** Adds CSS that is removed on dispose. */
     style(id: string, css: string): Unsubscribe;
     /** Adds a section to the Settings tab (same id replaces); the remover takes it away (own() it). */
@@ -801,6 +802,21 @@ export interface StripItem {
     body?(container: HTMLElement): void | Unsubscribe;
     /** Opens a window section instead of expanding. */
     open?: { window: string; tab?: string; params?: Record<string, unknown> };
+}
+
+/** Ui.messageBadge: a memory-only strip line (the first three fields are the original badge). */
+export interface MessageBadgeSpec {
+    /** Same id on the same message replaces the line. */
+    id: string;
+    text: string;
+    /** The main button (shown first, highlighted). */
+    action?: { label: string; run: () => void };
+    /** More buttons after `action`. */
+    actions?: StripAction[];
+    /** Default: 'proposal' when there is a button, else 'info'. */
+    kind?: StripItem['kind'];
+    icon?: string;
+    tone?: StripItem['tone'];
 }
 
 export interface MessageStripProvider {

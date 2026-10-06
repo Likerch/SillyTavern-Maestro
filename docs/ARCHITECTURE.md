@@ -59,6 +59,12 @@ Rules:
   the default level «Всё»), what needs attention `important`, replies to the user's own click `urgent: true`. Repeated
   notices of one turn share a `group`. Automatic actions get a «Сделал: …» toast with undo from autonomy; give
   proposals that read badly after «Сделал:» an `appliedNotice` in the past tense.
+- The strip under chat messages (plan-2 §5, src/ui/views/message-strip.ts): a module shows lines under a message with
+  `own(app.ui.addMessageStripProvider?.({ id, order, items(messageIndex), onChange }))` — items derived from a stored
+  document (they come back after a reload and go once decided), cheap `items()` (called on every repaint of that
+  message), `onChange(indexes)` naming the messages whose items changed. Kinds `proposal`/`question` wait for a decision
+  (the setting «только то, что ждёт решения»). Display only: never the message text, the prompt or Qvink memory.
+  `app.ui.messageBadge` adds a memory-only line (gone after a reload).
 - Ephemeral prompt changes (flags, injections) go through `app.ephemeral`; they are cleared after every
   generation.
 - Windows (plan-2 §10, src/ui/windows): there is no modal pult. A module adds a section with `app.ui.addTab(tab)`

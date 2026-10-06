@@ -6,6 +6,7 @@ import { worldModule } from '../../../src/features/world';
 import type { WorldModelApi } from '../../../src/features/world/api';
 import { createChatStore } from '../../../src/core/chat-store';
 import { createFileStore } from '../../../src/core/files';
+import { stripMessageOf } from '../../../src/ui/views/inbox-strip';
 import { createTestLogger } from '../../helpers/core-host';
 import type { Dict, WorldEnv } from './helpers';
 import { addCard, createWorldEnv, FakeNaiApi, startModule, trackerMessage, userMessage, wi } from './helpers';
@@ -118,16 +119,15 @@ describe('a namesake of another story', () => {
         expect(card.changes[0]?.after).toBe(
             'CarrotKernel archive «Офелия Character Archive» in «Архив персонажей»; NAI Studio passport npc1 (Elizabeth.png); DES Workshop: Офелия',
         );
-        expect(env.ui.badges.map((badge) => [badge.messageIndex, badge.badge.text, badge.removed])).toEqual([
-            [1, 'Офелия — the same character as in another story?', false],
-        ]);
-        expect(env.ui.badges[0]?.badge.action?.label).toBe('Answer');
+        // The strip under the message where the name first appears asks it (the Inbox's strip items), no badge.
+        expect(card.payload).toMatchObject({ messageIndex: 1 });
+        expect(stripMessageOf(card)).toBe(1);
+        expect(env.ui.badges).toEqual([]);
         expect((await worldDoc()).asked).toEqual({ 'being\u0000офелия': [ARCHIVE, PASSPORT, WORKSHOP] });
 
         await world.rebuild();
         await tick();
         expect(questions()).toHaveLength(1);
-        expect(env.ui.badges.filter((badge) => !badge.removed)).toHaveLength(1);
     });
 
     it('«The same» binds every listed source; undoing it asks again', async () => {
@@ -138,7 +138,6 @@ describe('a namesake of another story', () => {
         expect(sourceKinds()).toEqual(['des.character', 'nai.passport', 'des.workshop', 'ck.archive']);
         expect((await worldDoc()).bound).toEqual([ARCHIVE, PASSPORT, WORKSHOP]);
         expect(world.identity!(ofelia().id)?.pending).toEqual([]);
-        expect(env.ui.badges.every((badge) => badge.removed)).toBe(true);
         // The real Inbox journals an accepted card with its changes.
         const id = await env.journal.record({
             module: card.module,
@@ -213,7 +212,9 @@ describe('a namesake of another story', () => {
             'Странник here — the same character as in the book «Архив персонажей»?',
         ]);
         expect(world.resolve('Странник')).toBeUndefined();
-        expect(env.ui.badges.find((badge) => badge.badge.text.startsWith('Странник'))?.messageIndex).toBe(3);
+        expect(questions().find((card) => card.title.startsWith('Странник'))?.payload).toMatchObject({
+            messageIndex: 3,
+        });
     });
 
     it('other tabs do not ask', async () => {
@@ -266,14 +267,12 @@ describe('a namesake of another story', () => {
         expect(nai.exclusions).toEqual([['npc1', true]]);
     });
 
-    it('a chat switch takes the badges away', async () => {
+    it('the question is not tied to its message as a source: a swipe of it does not drop the question', async () => {
         world.entities();
         await tick();
-        expect(env.ui.badges.filter((badge) => !badge.removed)).toHaveLength(1);
-        env.mock.chatId = 'Other chat';
-        env.mock.chatMetadata = {};
-        await env.app.bus.emit('chat:changed', { chatId: 'Other chat' });
-        expect(env.ui.badges.every((badge) => badge.removed)).toBe(true);
+        const card = questions()[0]!;
+        expect(card.proposal.sourceMessage).toBeUndefined();
+        expect(card.payload).toMatchObject({ messageIndex: 1 });
     });
 });
 

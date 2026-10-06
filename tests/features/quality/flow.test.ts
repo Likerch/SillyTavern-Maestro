@@ -72,7 +72,7 @@ describe('verdict flow', () => {
         expect(fakeChecks.calls).toHaveLength(0);
     });
 
-    it('a notify defect gets the two badges, counts as detected and blocks reply:ok', async () => {
+    it('a notify defect gets a strip question with two answers, counts as detected and blocks reply:ok', async () => {
         env.defects(defect('userSpeech', { quote: 'I said yes' }));
         const service = env.start();
         await env.reply(2);
@@ -80,10 +80,11 @@ describe('verdict flow', () => {
         expect(verdict.ok).toBe(false);
         expect(verdict.action).toBe('notified');
         expect(verdict.defects[0]).toMatchObject({ kind: 'userSpeech', status: 'notified', quote: 'I said yes' });
-        expect(env.badges.map((item) => item.badge.id)).toEqual(['maestro-qc-2', 'maestro-qc-2-ok']);
+        expect(env.badges.map((item) => item.badge.id)).toEqual(['maestro-qc-2']);
+        expect(env.badges[0]!.badge).toMatchObject({ kind: 'question', tone: 'warn' });
         expect(env.badges[0]!.badge.text).toContain('speaking for you');
         expect(env.badges[0]!.badge.action?.label).toBe('Redo');
-        expect(env.badges[1]!.badge.action?.label).toBe('Not a defect');
+        expect(env.badges[0]!.badge.actions?.map((action) => action.label)).toEqual(['Not a defect']);
         expect(env.bus['reply:ok']).toBeUndefined();
         expect(service.stats().find((row) => row.kind === 'userSpeech')!.detected).toBe(1);
     });
@@ -257,7 +258,7 @@ describe('invalidation', () => {
         await env.app.bus.emit('chat:changed', { chatId: 'chat-1' });
         await settle(10);
         expect(service.verdict(2)).toBeDefined();
-        expect(env.badges.filter((item) => !item.removed).length).toBe(2);
+        expect(env.badges.filter((item) => !item.removed).length).toBe(1);
     });
 });
 

@@ -1,12 +1,15 @@
 // Maestro's UI shell: windows (plan-2 §10; the pult tabs became their sections), the Maestro menu and entry points,
-// notices, confirmations, message badges and the message button, styles, slash commands, health checks and the
-// first-run wizard. Core views are registered by app.ts after mount().
+// notices, confirmations, the strip under chat messages (with the memory-only lines of Ui.messageBadge), the message
+// button, styles, slash commands, health checks and the first-run wizard. Core views and the Inbox's strip provider are
+// registered by app.ts after mount().
 import type {
     HealthCheck,
     Host,
     I18n,
     Logger,
     MaestroWindowSpec,
+    MessageBadgeSpec,
+    MessageStripProvider,
     NoticeImportance,
     NoticeOptions,
     NotifyLevel,
@@ -15,6 +18,7 @@ import type {
     SettingsSection,
     SettingsService,
     SlashCommandSpec,
+    StripItem,
     Ui,
     Unsubscribe,
     WizardStep,
@@ -25,9 +29,10 @@ import { coreCommands } from './views/core-commands';
 import { EntryPoints } from './views/entry-points';
 import { healthTab } from './views/health';
 import { inboxTab } from './views/inbox';
+import { inboxStripProvider } from './views/inbox-strip';
 import { journalTab } from './views/journal';
-import { MessageBadges } from './views/message-badges';
 import { MessageButtons } from './views/message-button';
+import { MessageStrip } from './views/message-strip';
 import { overviewTab } from './views/overview';
 import { onRegistryChange } from './views/registries';
 import { settingsTab } from './views/settings';
@@ -74,6 +79,7 @@ export interface UiImpl extends Ui {
     closeWindow(id: string): void;
     isWindowOpen(id: string): boolean;
     windowOfTab(tabId: string): string | undefined;
+    addMessageStripProvider(provider: MessageStripProvider): Unsubscribe;
     /** Opens the first-run wizard if it has not been completed (also runs by itself after APP_READY). */
     runFirstRunWizardIfNeeded(): boolean;
     /** Re-opens the windows that were open on this device (app.ts, once, after the modules started). */
@@ -125,8 +131,8 @@ class MaestroUi implements UiImpl, Shell {
     private readonly mainMenu: MainMenu;
     private readonly wizard: Wizard;
     private readonly entries: EntryPoints;
-    private readonly badges: MessageBadges;
     private readonly messageButtons: MessageButtons;
+    private readonly strip: MessageStrip;
     private readonly slash: SlashCommands;
     /** Services of the core views (jobs, modules…), known after registerCoreViews. */
     private coreDeps: CoreViewDeps | null = null;
@@ -185,7 +191,6 @@ class MaestroUi implements UiImpl, Shell {
             },
             openMain: () => this.openWindow(MAESTRO_WINDOW),
         });
-        this.badges = new MessageBadges(this.host, this.log);
         this.messageButtons = new MessageButtons({
             host: this.host,
             i18n: this.i18n,
@@ -193,13 +198,23 @@ class MaestroUi implements UiImpl, Shell {
             menu: this.menu,
             items: (index) => this.messageMenu(index),
         });
-        this.slash = new SlashCommands(this.host, this.i18n, this.log);
-        setButtonErrorHandler((error) => {
-            this.log.error('action failed', error);
+        const actionFailed = (error: unknown) =>
             this.notice(
                 this.i18n.t('ui.actionFailed', { error: error instanceof Error ? error.message : String(error) }),
                 { level: 'error' },
             );
+        this.strip = new MessageStrip({
+            host: this.host,
+            i18n: this.i18n,
+            settings: this.settings,
+            log: this.log,
+            open: (target) => this.openTarget(target),
+            onError: actionFailed,
+        });
+        this.slash = new SlashCommands(this.host, this.i18n, this.log);
+        setButtonErrorHandler((error) => {
+            this.log.error('action failed', error);
+            actionFailed(error);
         });
         // Last: adding a window reports back through windowsChanged(), which needs the entry points.
         for (const spec of BUILTIN_WINDOWS) this.windows.add(spec);
@@ -243,6 +258,7 @@ class MaestroUi implements UiImpl, Shell {
             this.coreTabs.push(this.addTab(tab));
         }
         this.coreTabs.push(deps.inbox.onChange(() => this.updateBadges()));
+        this.coreTabs.push(this.strip.addProvider(inboxStripProvider(env)));
         const jobs = deps.jobs;
         if (jobs) {
             this.entries.setJobs(jobs.list());
@@ -291,8 +307,8 @@ class MaestroUi implements UiImpl, Shell {
         this.windows.dispose();
         this.tabs.clear();
         this.entries.dispose();
-        this.badges.dispose();
         this.messageButtons.dispose();
+        this.strip.dispose();
         this.slash.dispose();
         for (const node of this.styles.values()) node.remove();
         this.styles.clear();
@@ -431,12 +447,15 @@ class MaestroUi implements UiImpl, Shell {
         }
     }
 
-    messageBadge(
-        messageIndex: number,
-        badge: { id: string; text: string; action?: { label: string; run: () => void } },
-    ): Unsubscribe {
+    /** Back-compat adapter: a memory-only line of the strip under the message. */
+    messageBadge(messageIndex: number, badge: MessageBadgeSpec): Unsubscribe {
         if (this.disposed) return () => {};
-        return this.badges.add(messageIndex, badge);
+        return this.strip.badge(messageIndex, badge);
+    }
+
+    addMessageStripProvider(provider: MessageStripProvider): Unsubscribe {
+        if (this.disposed) return () => {};
+        return this.strip.addProvider(provider);
     }
 
     style(id: string, css: string): Unsubscribe {
@@ -538,6 +557,7 @@ class MaestroUi implements UiImpl, Shell {
         this.entries.relocalize();
         this.messageButtons.relocalize();
         this.windows.relocalize();
+        this.strip.repaintAll();
     }
 
     onRegistryChange(listener: () => void): Unsubscribe {
@@ -617,6 +637,22 @@ class MaestroUi implements UiImpl, Shell {
                 this.log.error('settings section listener failed', error);
             }
         }
+    }
+
+    /**
+     * A strip item's window section: that window when windows exist (plan-2 §10); without windows, or without a window
+     * id (the item only knows the tab), the pult tab — which opens the tab's own window once windows exist.
+     */
+    private openTarget(target: NonNullable<StripItem['open']>): void {
+        const openWindow = (this as Ui).openWindow;
+        if (typeof openWindow === 'function' && target.window) {
+            openWindow.call(this, target.window, {
+                ...(target.tab ? { tab: target.tab } : {}),
+                ...(target.params ? { params: target.params } : {}),
+            });
+            return;
+        }
+        this.openPult(target.tab);
     }
 
     private listen(event: string, handler: (...args: unknown[]) => unknown): void {

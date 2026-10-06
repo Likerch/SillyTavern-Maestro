@@ -1034,44 +1034,230 @@
     border-top: 1px solid var(--maestro-border);
 }
 
-/* ------------------------------------------------------------------ message badges (in the chat) */
+/* ------------------------------------------------------------------ the strip under chat messages (plan-2 §5) */
 
-.maestro-badge {
-    display: inline-flex;
+.maestro-strip {
+    box-sizing: border-box;
+    min-width: 0;
+    max-width: 100%;
+    margin: 4px 0 2px;
+    border-left: 2px solid color-mix(in srgb, var(--maestro-accent) 55%, transparent);
+    border-radius: var(--maestro-radius-sm);
+    background: color-mix(in srgb, var(--maestro-accent) 6%, transparent);
+    color: var(--maestro-text);
+    font-size: 0.85em;
+    line-height: 1.4;
+}
+
+.maestro-strip [hidden] {
+    display: none !important;
+}
+
+.maestro-strip-line {
+    appearance: none;
+    box-sizing: border-box;
+    display: flex;
     align-items: center;
-    gap: 4px;
-    max-width: 22em;
-    padding: 1px 4px 1px 7px;
-    border: 1px solid color-mix(in srgb, var(--maestro-accent) 55%, transparent);
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--maestro-accent) 12%, transparent);
+    gap: 6px;
+    width: 100%;
+    min-height: 32px;
+    padding: 2px 8px;
+    border: 0;
+    border-radius: var(--maestro-radius-sm);
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: start;
+    cursor: pointer;
+}
+
+.maestro-strip-line:hover {
+    background: var(--maestro-raised);
+}
+
+.maestro-strip-line.maestro-strip-plain {
+    cursor: default;
+}
+
+.maestro-strip-line.maestro-strip-plain:hover {
+    background: transparent;
+}
+
+.maestro-strip-logo,
+.maestro-strip-item-icon {
+    flex-shrink: 0;
     color: var(--maestro-accent);
-    font-size: 0.8em;
-    line-height: 1.5;
+}
+
+.maestro-strip-summary {
+    display: flex;
+    flex: 1;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    overflow: hidden;
     white-space: nowrap;
 }
 
-.maestro-badge-text {
+.maestro-strip-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+}
+
+.maestro-strip-chip-text {
     overflow: hidden;
     text-overflow: ellipsis;
 }
 
-.maestro-badge-action {
-    appearance: none;
+.maestro-strip-chip-icon,
+.maestro-strip-dot,
+.maestro-strip-caret {
     flex-shrink: 0;
-    padding: 0 8px;
-    border: 0;
+    color: var(--maestro-muted);
+}
+
+.maestro-strip-dot {
+    margin-inline-end: 2px;
+}
+
+.maestro-strip-chip.maestro-strip-kind-proposal .maestro-strip-chip-icon,
+.maestro-strip-chip.maestro-strip-kind-question .maestro-strip-chip-icon {
+    color: var(--maestro-accent);
+}
+
+.maestro-strip-caret,
+.maestro-strip-toggle .fa-chevron-down {
+    transition: transform var(--maestro-duration);
+}
+
+.maestro-strip-open > .maestro-strip-line .maestro-strip-caret,
+.maestro-strip-toggle[aria-expanded='true'] .fa-chevron-down {
+    transform: rotate(180deg);
+}
+
+.maestro-strip-items {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 0 6px 6px;
+}
+
+.maestro-strip-item {
+    padding-top: 4px;
+    border-top: 1px solid color-mix(in srgb, var(--maestro-border) 60%, transparent);
+}
+
+.maestro-strip-item-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 8px;
+}
+
+.maestro-strip-item-text {
+    flex: 1 1 14em;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.maestro-strip-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-inline-start: auto;
+}
+
+.maestro-strip-action,
+.maestro-strip-toggle {
+    appearance: none;
+    min-width: 32px;
+    min-height: 32px;
+    padding: 2px 10px;
+    border: 1px solid var(--maestro-border);
     border-radius: 999px;
-    background: var(--maestro-accent);
-    color: var(--maestro-surface);
+    background: var(--maestro-raised);
+    color: inherit;
     font: inherit;
-    font-weight: 600;
+    white-space: nowrap;
     cursor: pointer;
 }
 
-.maestro-badge-action:focus-visible {
-    outline: 2px solid var(--maestro-text);
+.maestro-strip-toggle {
+    padding: 2px 8px;
+}
+
+.maestro-strip-action:hover,
+.maestro-strip-toggle:hover {
+    background: var(--maestro-raised-strong);
+}
+
+.maestro-strip-primary {
+    border-color: var(--maestro-accent);
+    background: var(--maestro-accent);
+    color: var(--maestro-surface);
+    font-weight: 600;
+}
+
+.maestro-strip-primary:hover {
+    background: color-mix(in srgb, var(--maestro-accent) 85%, var(--maestro-text));
+}
+
+.maestro-strip-action:disabled {
+    opacity: 0.6;
+    cursor: progress;
+}
+
+.maestro-strip-line:focus-visible,
+.maestro-strip-action:focus-visible,
+.maestro-strip-toggle:focus-visible {
+    outline: 2px solid var(--maestro-accent);
     outline-offset: 1px;
+}
+
+.maestro-strip-body {
+    margin-top: 4px;
+}
+
+/* Inbox cards: the Inbox and the strip draw the same card (views/inbox.ts inboxCardRenderer). */
+.maestro-inbox-evidence {
+    margin: 0;
+    padding: 2px 8px;
+    border-left: 3px solid var(--maestro-border);
+    color: var(--maestro-muted);
+    font-style: italic;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.maestro-inbox-edit {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.maestro-inbox-edit textarea {
+    width: 100%;
+    min-height: 4em;
+    box-sizing: border-box;
+    resize: vertical;
+}
+
+.maestro-strip-item.maestro-strip-kind-info {
+    color: var(--maestro-muted);
+}
+
+.maestro-strip-item.maestro-strip-kind-info .maestro-strip-item-icon {
+    color: var(--maestro-ok);
+}
+
+.maestro-strip-tone-accent .maestro-strip-item-text {
+    font-weight: 600;
+}
+
+.maestro-strip-tone-warn .maestro-strip-item-icon {
+    color: var(--maestro-warn);
 }
 
 #chat .mes.maestro-flash {
@@ -1639,12 +1825,35 @@
         padding: 8px;
     }
 
-    .maestro-badge {
-        max-width: 18em;
+    /* Phones: the collapsed strip is one line that scrolls sideways; buttons are a row that scrolls too. */
+    .maestro-strip-summary {
+        overflow-x: auto;
+        scrollbar-width: none;
     }
 
-    .maestro-badge-action {
-        padding: 4px 10px;
+    .maestro-strip-summary::-webkit-scrollbar {
+        display: none;
+    }
+
+    .maestro-strip-chip {
+        flex-shrink: 0;
+    }
+
+    .maestro-strip-chip-text {
+        overflow: visible;
+    }
+
+    .maestro-strip-actions {
+        flex-wrap: nowrap;
+        width: 100%;
+        margin-inline-start: 0;
+        overflow-x: auto;
+    }
+
+    .maestro-strip-action,
+    .maestro-strip-toggle {
+        flex-shrink: 0;
+        min-height: 36px;
     }
 }
 
@@ -1665,6 +1874,8 @@
     .maestro-ui,
     .maestro-badge,
     .maestro-mes-button,
+    .maestro-strip,
+    .maestro-strip *,
     .maestro-topbar *,
     #chat .mes.maestro-flash,
     .maestro-topbar-toggle::after,

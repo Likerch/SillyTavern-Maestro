@@ -4,7 +4,8 @@
 // «Подробнее», everything technical (kind, ref locators, raw values, the module's notes). The actions: accept, edit
 // the value inline and accept it as edited, reject, put off until tomorrow, «always» (the kind becomes 'auto' unless
 // it may never be). Accepting re-validates the card in core; a stale card is reported instead of applied. Deferred
-// cards of the revision (M8) wait in their own section. No popups.
+// cards of the revision (M8) wait in their own section. No popups. The card renderer (inboxCardRenderer) is shared with
+// the strip under chat messages (inbox-strip.ts), which shows a card in a compact form under its source message.
 //
 // Card payload convention (read when present, optional for every module): `entityName` groups the card, `value`
 // with `editable: true` enables «Edit» (accept passes `{...payload, value}` as the edited payload), `evidence` is a
@@ -66,10 +67,6 @@ const INBOX_CSS = `
 .maestro-inbox-group { display: flex; flex-direction: column; gap: var(--maestro-gap-sm, 6px); }
 .maestro-inbox-group + .maestro-inbox-group { margin-top: var(--maestro-gap, 10px); }
 .maestro-inbox-group-head { display: flex; align-items: center; gap: 6px; font-weight: 600; overflow-wrap: anywhere; }
-.maestro-inbox-evidence { margin: 0; padding: 2px 8px; border-left: 3px solid var(--maestro-border);
-    color: var(--maestro-muted); font-style: italic; white-space: pre-wrap; overflow-wrap: anywhere; }
-.maestro-inbox-edit { display: flex; flex-direction: column; gap: 6px; }
-.maestro-inbox-edit textarea { width: 100%; min-height: 4em; box-sizing: border-box; resize: vertical; }
 `;
 
 type Dict = Record<string, unknown>;
@@ -119,7 +116,29 @@ export function groupByEntity(cards: readonly InboxCard[]): { entity: string; ca
         .sort((a, b) => Number(a.entity === '') - Number(b.entity === '') || newest(b.cards) - newest(a.cards));
 }
 
-export function inboxTab(env: ViewEnv): PultTab {
+/** How Inbox cards are drawn: the Inbox tab and the strip under chat messages (plan-2 §5) share one renderer. */
+export interface InboxCardRenderer {
+    /**
+     * A card. `compact` (the strip under a message): no title (the strip line shows it), no source link (it is that
+     * message) and no buttons (the strip line has them); the description, evidence, changes, the editor and
+     * «Подробнее» stay.
+     */
+    cardView(item: InboxCard, redraw: () => void, options?: { compact?: boolean }): HTMLElement;
+    /** Accepts a card; a stale one is reported instead of applied. */
+    accept(item: InboxCard): Promise<boolean>;
+    /** The card's value can be edited before accepting (payload convention above). */
+    editable(item: InboxCard): boolean;
+    /** Opens the inline editor of an editable card (the draft survives redraws). */
+    startEdit(item: InboxCard): boolean;
+    /** Forgets the drafts of cards that are gone. */
+    keepDrafts(ids: ReadonlySet<string>): void;
+    /** A revision string (`m8.inbox.*`) with its English fallback. */
+    tx(key: string, params?: Record<string, string | number>): string;
+    /** «Сообщение №5»: jumps to the source message. */
+    sourceButton(index: number | undefined): HTMLButtonElement | null;
+}
+
+export function inboxCardRenderer(env: ViewEnv): InboxCardRenderer {
     const { i18n, shell } = env;
     const t = i18n.t.bind(i18n);
     /** A revision string with its English fallback (the module may be absent). */
@@ -131,10 +150,6 @@ export function inboxTab(env: ViewEnv): PultTab {
     };
     /** The kind's human name; '' when its module did not name it (the raw kind then shows under «Подробнее»). */
     const kindName = (kind: string): string => humanKind(i18n, kind) ?? '';
-    const revision = (): RevisionLike | undefined => {
-        const api = env.modules.api<RevisionLike>(REVISION_KEY);
-        return api && typeof api.deferred === 'function' ? api : undefined;
-    };
 
     /** Cards whose value is being edited, with the draft text (kept across re-renders). */
     const drafts = new Map<string, string>();
@@ -150,6 +165,11 @@ export function inboxTab(env: ViewEnv): PultTab {
         const ok = await env.inbox.accept(item.id, { ...payload, value });
         if (ok) drafts.delete(item.id);
         else shell.notice(tx('m8.inbox.editFailed', { title: item.title }), { level: 'warn' });
+    };
+
+    const editable = (item: InboxCard): boolean => {
+        const meta = cardMeta(item);
+        return meta.editable && meta.value !== undefined && !item.deferred;
     };
 
     /** The kind is not 'auto' yet and may become it (never for kinds registered with neverAuto). */
@@ -234,11 +254,12 @@ export function inboxTab(env: ViewEnv): PultTab {
         ]);
     };
 
-    const cardView = (item: InboxCard, redraw: () => void): HTMLElement => {
+    const cardView = (item: InboxCard, redraw: () => void, options: { compact?: boolean } = {}): HTMLElement => {
+        const compact = options.compact === true;
         const meta = cardMeta(item);
         const head = [
-            moduleTitle(env.modules, i18n, item.module),
-            kindName(item.kind),
+            compact ? '' : moduleTitle(env.modules, i18n, item.module),
+            compact ? '' : kindName(item.kind),
             formatTime(item.createdAt, i18n),
         ];
         const subtitle: (HTMLElement | string)[] = [
@@ -251,18 +272,22 @@ export function inboxTab(env: ViewEnv): PultTab {
         if (item.expiresAt)
             subtitle.push(badge(t('ui.inbox.expires', { time: formatTime(item.expiresAt, i18n) }), 'muted'));
         const editing = drafts.has(item.id);
-        const editable = meta.editable && meta.value !== undefined && !item.deferred;
+        const canEdit = editable(item);
+        const body = [
+            item.description ? el('div', { class: 'maestro-card-text', text: item.description }) : null,
+            meta.evidence ? el('blockquote', { class: 'maestro-inbox-evidence', text: meta.evidence }) : null,
+            ...item.changes.map((change) => humanChangeView(change, env.labels, i18n)),
+            editing ? editor(item, redraw) : null,
+            technical(item),
+        ];
+        if (compact) {
+            return card({ subtitle, className: 'maestro-inbox-card maestro-inbox-compact', body });
+        }
         return card({
             title: item.title,
             subtitle,
             className: 'maestro-inbox-card',
-            body: [
-                item.description ? el('div', { class: 'maestro-card-text', text: item.description }) : null,
-                meta.evidence ? el('blockquote', { class: 'maestro-inbox-evidence', text: meta.evidence }) : null,
-                ...item.changes.map((change) => humanChangeView(change, env.labels, i18n)),
-                editing ? editor(item, redraw) : null,
-                technical(item),
-            ],
+            body,
             actions: [
                 sourceButton(item.sourceMessage),
                 el('span', { class: 'maestro-grow' }),
@@ -279,7 +304,7 @@ export function inboxTab(env: ViewEnv): PultTab {
                     kind: 'danger',
                     onClick: () => env.inbox.reject(item.id),
                 }),
-                editable && !editing
+                canEdit && !editing
                     ? button({
                           label: tx('m8.inbox.edit'),
                           icon: 'fa-pen',
@@ -309,6 +334,35 @@ export function inboxTab(env: ViewEnv): PultTab {
                 }),
             ],
         });
+    };
+
+    return {
+        cardView,
+        accept,
+        editable,
+        startEdit(item: InboxCard): boolean {
+            if (!editable(item)) return false;
+            if (!drafts.has(item.id)) drafts.set(item.id, cardMeta(item).value ?? '');
+            return true;
+        },
+        keepDrafts(ids: ReadonlySet<string>): void {
+            for (const id of [...drafts.keys()]) if (!ids.has(id)) drafts.delete(id);
+        },
+        tx,
+        sourceButton,
+    };
+}
+
+export function inboxTab(env: ViewEnv): PultTab {
+    const { i18n, shell } = env;
+    const t = i18n.t.bind(i18n);
+    const renderer = inboxCardRenderer(env);
+    const tx = renderer.tx;
+    const sourceButton = renderer.sourceButton;
+    const cardView = (item: InboxCard, redraw: () => void): HTMLElement => renderer.cardView(item, redraw);
+    const revision = (): RevisionLike | undefined => {
+        const api = env.modules.api<RevisionLike>(REVISION_KEY);
+        return api && typeof api.deferred === 'function' ? api : undefined;
     };
 
     const groupsView = (cards: InboxCard[], redraw: () => void): HTMLElement => {
@@ -394,7 +448,7 @@ export function inboxTab(env: ViewEnv): PultTab {
             const draw = () => {
                 clear(container);
                 const cards = [...env.inbox.list()].sort((a, b) => b.createdAt - a.createdAt);
-                for (const id of [...drafts.keys()]) if (!cards.some((item) => item.id === id)) drafts.delete(id);
+                renderer.keepDrafts(new Set(cards.map((item) => item.id)));
                 const actionable = cards.filter((item) => !item.deferred);
                 const acceptAll = button({
                     label: t('ui.inbox.acceptAll', { count: actionable.length }),

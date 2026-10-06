@@ -1,6 +1,7 @@
 // M26 «Живой канон: новое, выдуманное ИИ» (plan M26, §8; dev-plan 4.4): names the model invents become provisional
 // chat canon after the turn is committed (cheap search on every reply, batch extraction every N messages) and are
-// confirmed only by the rules of plan M26 п. 4. Exposed as app.modules.api<LivingCanonApi>('livingCanon').
+// confirmed only by the rules of plan M26 п. 4. Exposed as app.modules.api<LivingCanonApi>('livingCanon'). Provisional
+// facts also show in the strip under their reply (strip.ts).
 import { formatEnum } from '../../core/labels';
 import type { MaestroModule } from '../../shared/contracts';
 import { registerProfileTask } from '../../ui';
@@ -8,6 +9,7 @@ import type { LivingCanonApi } from './api';
 import { defaultLivingSettings, EXTRACT_TASK, FACT_TARGET, LIVING_ID, LIVING_KEY, LivingCanonService } from './service';
 import type { LivingCanonSettings } from './service';
 import { LIVING_STRINGS } from './strings';
+import { livingStripProvider } from './strip';
 import { LIVING_CSS, livingTab } from './view';
 
 function count(value: unknown, fallback: number, max: number): number {
@@ -55,10 +57,14 @@ export const livingCanonModule: MaestroModule<LivingCanonSettings> = {
         own(registerProfileTask(EXTRACT_TASK, 'm26.profileTask'));
         own(app.ui.style('m26-living', LIVING_CSS));
         own(app.ui.addTab(livingTab(app, service, settings)));
+        // Facts under the replies they came from (plan-2 §5); an older shell without the strip simply has none.
+        const offStrip = app.ui.addMessageStripProvider?.(livingStripProvider(app, service));
+        if (offStrip) own(offStrip);
     },
 };
 
 export { LIVING_STRINGS } from './strings';
+export { LIVING_STRIP, livingStripProvider } from './strip';
 export {
     defaultLivingSettings,
     DISPUTED_KIND,
