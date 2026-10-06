@@ -1568,8 +1568,9 @@
     position: fixed;
     top: var(--topBarBlockSize, 0px);
     right: 0;
-    bottom: 0;
+    bottom: auto;
     left: 0;
+    height: calc(var(--maestro-viewport-h, 100dvh) - var(--topBarBlockSize, 0px));
     z-index: 2950;
     border: 0;
     border-radius: 0;

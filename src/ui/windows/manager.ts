@@ -913,6 +913,10 @@ export class WindowManager {
     private layoutAll(): void {
         if (!this.root || !this.sides) return;
         this.root.classList.toggle('maestro-windows-sheet', this.sheet);
+        // The phone sheet takes the viewport height from here: 100dvh and the fixed containing block are not
+        // reliable everywhere (a transformed or zero-height <html> makes `top/bottom: 0` collapse the sheet).
+        const height = Number(globalThis.innerHeight) || 0;
+        if (height > 0) this.root.style.setProperty('--maestro-viewport-h', `${height}px`);
         for (const win of this.wins.values()) this.placeWindow(win);
         this.layoutSides();
         for (const win of this.wins.values()) {
