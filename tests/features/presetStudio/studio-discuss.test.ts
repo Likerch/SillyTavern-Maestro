@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AssistantContextItem } from '../../../src/features/assistant/api';
 import { PmInfo } from '../../../src/features/presetStudio/launcher';
 import { SCOPE_STRINGS } from '../../../src/features/presetStudio/scope-strings';
-import { PresetStudio, servicesOf } from '../../../src/features/presetStudio/studio';
+import { PresetStudio, presetStudioWindow, servicesOf } from '../../../src/features/presetStudio/studio';
 import { click, createStand, q, qa, wait } from './ui-stand';
 import type { Stand } from './ui-stand';
 
@@ -17,7 +17,7 @@ let discussed: AssistantContextItem[];
 const row = (id: string) => qa('.maestro-m34-block').find((node) => node.dataset.id === id) as HTMLElement;
 
 function build(): PresetStudio {
-    return new PresetStudio({
+    const built = new PresetStudio({
         app: s.app,
         log: s.app.log,
         services: servicesOf(s.app),
@@ -26,6 +26,8 @@ function build(): PresetStudio {
         pm: new PmInfo(s.app, s.app.log),
         showClassic: () => {},
     });
+    s.app.ui.addWindow!(presetStudioWindow(built));
+    return built;
 }
 
 beforeEach(() => {

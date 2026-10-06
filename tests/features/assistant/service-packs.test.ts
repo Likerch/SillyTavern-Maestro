@@ -310,6 +310,8 @@ describe('the preset mode and attached context', () => {
         const service = env.service();
         const openPult = vi.fn();
         env.ui.openPult = openPult;
+        // Without windows (an older shell) the pult tab opens.
+        delete (env.ui as { openWindow?: unknown }).openWindow;
         service.discuss({ kind: 'preset', preset: 'Marinara', label: 'Marinara' });
         expect(openPult).toHaveBeenCalledWith('assistant');
         const openWindow = vi.fn();
