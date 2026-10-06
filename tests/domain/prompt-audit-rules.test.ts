@@ -156,6 +156,34 @@ describe('auditRules: the real case', () => {
         });
     });
 
+    it('a small system block of the preset after the history is a minor note without a one-click fix', () => {
+        const small = capture(
+            [
+                item({
+                    ref: 'preset:tags',
+                    owner: 'preset',
+                    key: 'tags',
+                    role: 'system',
+                    place: 'chat',
+                    text: '</chat_history>',
+                    message: 3,
+                }),
+            ],
+            {
+                messages: [
+                    { role: 'system', chars: 10, refs: [] },
+                    { role: 'user', chars: 10, refs: [] },
+                    { role: 'assistant', chars: 10, refs: [] },
+                    { role: 'system', chars: 15, refs: ['preset:tags'] },
+                ],
+                connection: { ...DEEPSEEK },
+            },
+        );
+        const [hit] = roleHits(small);
+        expect(hit).toMatchObject({ topic: 'role', severity: 'low', a: { ref: 'preset:tags' } });
+        expect(hit?.fix).toBeUndefined();
+    });
+
     it('accepts its own fix: a limit that leaves the extra parts out is not tight any more', () => {
         const fixed = realCaseCapture();
         const fix = only(auditRules(fixed), 'tight')[0]!.fix!;

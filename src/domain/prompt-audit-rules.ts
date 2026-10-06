@@ -813,14 +813,18 @@ export function roleHits(capture: AuditCapture): RuleHit[] {
             const owners = new Set(items.map((entry) => entry.owner));
             const tracker = items.some((entry) => DES_TRACKER_SLOT.test(entry.ref));
             const heavy = message.chars >= 6000 || (trailing && owners.size >= 2);
+            // Small system blocks of a preset built for it (Marinara's tags, output format) work in practice: a note,
+            // no one-click role change. What broke for real is the tracker or a big merged trailing system block.
+            const risky = tracker || heavy;
             hits.push({
                 topic: 'role',
-                severity: tracker || heavy ? 'high' : 'medium',
+                severity: risky ? 'high' : 'low',
                 a: side(main, main.text.slice(0, 200)),
                 b: other ? side(other, other.text.slice(0, 200)) : undefined,
                 values: { a: trailing ? 'trailing' : 'middle', b: String(message.chars) },
                 quirk: 'systemMerge',
-                fix: roleFix(main, 'user'),
+                // A neighbour's or Maestro's role is advice anyway; a preset's own small block gets no one-click fix.
+                fix: risky || main.owner !== 'preset' ? roleFix(main, 'user') : undefined,
             });
         }
         if (message.role === 'assistant' && lastMessage && quirks.has('prefillEos')) {

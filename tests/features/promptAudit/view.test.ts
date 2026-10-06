@@ -49,8 +49,8 @@ describe('the report view', () => {
         expect(root.textContent).toContain('preset «Marinara»');
         q('.maestro-m38-check')!.click();
         await settle();
-        expect(qa('.maestro-m38-group').map((node) => node.dataset.severity)).toEqual(['high', 'medium']);
-        expect(qa('.maestro-m38-conflict[data-severity="medium"]')).toHaveLength(2);
+        expect(qa('.maestro-m38-group').map((node) => node.dataset.severity)).toEqual(['high', 'low']);
+        expect(qa('.maestro-m38-conflict[data-severity="low"]')).toHaveLength(2);
         const card = q('.maestro-m38-conflict[data-severity="high"]')!;
         expect(card.querySelector('strong')?.textContent).toBe('The reply cannot hold everything');
         expect([...card.querySelectorAll('.maestro-m38-owner')].map((node) => node.textContent)).toEqual([
@@ -68,13 +68,13 @@ describe('the report view', () => {
             'This character',
             'This chat',
         ]);
-        const role = q('.maestro-m38-conflict[data-severity="medium"]')!;
+        const role = q('.maestro-m38-conflict[data-severity="low"]')!;
         expect(role.querySelector('.maestro-m38-risk')?.textContent).toContain(
             'What it risks: On deepseek/deepseek-v4-flash',
         );
         expect(role.querySelector('.maestro-m38-advice')?.textContent).toContain('This is a Maestro insert.');
         expect(role.querySelector('.maestro-m38-fix-one')).toBeNull();
-        expect(root.textContent).toContain('Serious: 1 · medium: 2 · minor: 0');
+        expect(root.textContent).toContain('Serious: 1 · medium: 0 · minor: 2');
     });
 
     it('fixes one conflict in the chosen scope, then offers the check again', async () => {
@@ -98,9 +98,9 @@ describe('the report view', () => {
         await realTurn();
         await a.api.check();
         await settle();
-        q('.maestro-m38-conflict[data-severity="medium"] .maestro-m38-skip')!.click();
+        q('.maestro-m38-conflict[data-severity="low"] .maestro-m38-skip')!.click();
         await settle();
-        q('.maestro-m38-conflict[data-severity="medium"] .maestro-m38-skip')!.click();
+        q('.maestro-m38-conflict[data-severity="low"] .maestro-m38-skip')!.click();
         await settle();
         expect(qa('.maestro-m38-conflict')).toHaveLength(1);
         q('.maestro-m38-conflict .maestro-m38-ignore')!.click();
