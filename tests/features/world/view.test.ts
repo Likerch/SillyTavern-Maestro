@@ -80,11 +80,11 @@ describe('M7 world tab', () => {
         expect(names()).toEqual(['Алекс', 'Анна', 'Анна Петрова', 'Elizabeth']);
         const sections = [...container.querySelectorAll('.maestro-section-title')].map((node) => node.textContent);
         expect(sections).toEqual(
-            expect.arrayContaining(['Persona (1)', 'Characters (3)', 'Maybe the same (1)', 'Chat aliases']),
+            expect.arrayContaining(['Persona (1)', 'Characters (3)', 'Maybe the same (1)', 'Nicknames in this chat']),
         );
         const elizabeth = container.querySelector<HTMLElement>('[data-id="character:elizabeth"]')!;
         expect(elizabeth.textContent).toContain('in the scene');
-        expect(elizabeth.textContent).toContain('Sources: 3');
+        expect(elizabeth.textContent).toContain('Known from: 3');
         expect(elizabeth.textContent).toContain('Forms: Лизой');
         const search = container.querySelector<HTMLInputElement>('.maestro-m7w-search')!;
         search.value = 'лизой';
@@ -102,7 +102,7 @@ describe('M7 world tab', () => {
         buttonByText('Merge').click();
         await tick();
         expect(world.resolve('Анна')?.name).toBe('Анна Петрова');
-        expect(env.ui.notices.at(-1)?.text).toContain('chat alias «Анна»');
+        expect(env.ui.notices.at(-1)?.text).toContain('in this chat «Анна» means the same now');
         const record = env.journal.records.find((item) => item.kind === 'world.merge')!;
         expect(record.changes[0]?.target).toBe('world-merge');
         expect(await env.journal.undo(record.id)).toBe(true);
@@ -147,7 +147,7 @@ describe('M7 world tab', () => {
         expect(world.chatAliases()).toEqual({});
         buttonByText('Add', container.querySelector('.maestro-m7w-alias-form')!).click();
         await tick();
-        expect(env.ui.notices.at(-1)).toMatchObject({ text: 'Enter an alias.', options: { level: 'error' } });
+        expect(env.ui.notices.at(-1)).toMatchObject({ text: 'Enter a nickname.', options: { level: 'error' } });
     });
 
     it('shows a placeholder without a chat', async () => {

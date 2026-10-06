@@ -72,7 +72,7 @@ describe('M9 auto-memory: the «remember» mark', () => {
         expect(record.changes[0]).toMatchObject({ target: 'm9.remember', ref: { index: 1 } });
         const proposal = t.autonomy.proposals.find((entry) => entry.kind === REMEMBER_KIND)!;
         expect(proposal.appliedNotice).toMatchObject({
-            text: 'Kept message #1 in long-term memory: important event (Turning point).',
+            text: 'Kept in long-term memory: important event (Turning point).',
             group: 'm9.remember.applied',
         });
         expect(proposal.appliedNotice?.groupText?.(3)).toBe('Kept 3 important moments in long-term memory');
@@ -104,6 +104,24 @@ describe('M9 auto-memory: the «remember» mark', () => {
         expect(message.extra?.qvink_memory).toBeUndefined();
     });
 
+    it('names quests and characters of the signals by name; their world ids go to the details', async () => {
+        t.mock.chat.push(reply('x', { memory: 'M' }));
+        await s.memory.remember(0, [
+            { code: 'quest', text: 'quest:доставить письмо настоятелю' },
+            { code: 'quest', text: 'quest:найти свидетеля на причалах' },
+            { code: 'relationship', text: 'character:александр' },
+            { code: 'relationship', text: 'character:мартин' },
+        ]);
+        const proposal = t.autonomy.proposals.find((entry) => entry.kind === REMEMBER_KIND)!;
+        expect(proposal.appliedNotice?.text).toBe(
+            'Kept in long-term memory: new quest «Доставить письмо настоятелю», new quest «Найти свидетеля на ' +
+                'причалах», relationship turn — Александр, Мартин.',
+        );
+        expect(proposal.title).not.toContain('quest:');
+        expect(proposal.description).not.toContain('character:');
+        expect(proposal.details).toContain('quest:доставить письмо настоятелю');
+    });
+
     it('leaves the user’s own mark alone and does not set a mark the user removed', async () => {
         t.mock.chat.push(reply('x', { memory: 'M', remember: true }));
         expect(await s.memory.remember(0, [{ code: 'quest' }])).toBeNull();
@@ -115,7 +133,7 @@ describe('M9 auto-memory: the «remember» mark', () => {
         // A second reason for a message Maestro marked: collected.
         await s.memory.remember(1, [{ code: 'quest', text: 'Find the ring' }]);
         expect(s.memory.remembered()).toEqual([
-            { messageIndex: 1, reason: 'revealed secret; new quest (Find the ring)' },
+            { messageIndex: 1, reason: 'revealed secret, new quest (Find the ring)' },
         ]);
         // The user takes the mark off: Maestro does not put it back.
         (qvinkOf(t.mock.chat[1]) as Dict).remember = false;

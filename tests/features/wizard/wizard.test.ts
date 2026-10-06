@@ -201,7 +201,7 @@ describe('step 3: baseline', () => {
     it('steps aside without the Guardian', () => {
         const { container, done } = render('w1.baseline');
         expect(done).toHaveBeenCalled();
-        expect(container.textContent).toContain('Страж (M4) выключен');
+        expect(container.textContent).toContain('Страж выключен');
     });
 
     it('takes the baseline on click and is done after it', async () => {
@@ -225,7 +225,7 @@ describe('step 4: findings', () => {
     it('steps aside without the Doctor', () => {
         const { container, done } = render('w1.findings');
         expect(done).toHaveBeenCalled();
-        expect(container.textContent).toContain('Доктор (M5) выключен');
+        expect(container.textContent).toContain('Доктор выключен');
     });
 
     it('runs the Doctor and summarises the findings', async () => {
@@ -276,7 +276,7 @@ describe('step 5: rules', () => {
     it('steps aside without the Rules module', () => {
         const { container, done } = render('w1.rules');
         expect(done).toHaveBeenCalled();
-        expect(container.textContent).toContain('«Правила» (M22) выключен');
+        expect(container.textContent).toContain('«Правила» выключен');
     });
 
     it('offers stage 1–2 rules with defaults, compares and applies on «Далее» with book caps', async () => {

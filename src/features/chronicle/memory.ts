@@ -60,6 +60,11 @@ function reason(code: ReasonCode, detail?: string): RememberReason {
     return detail ? { code, text: detail } : { code };
 }
 
+/** A world-model entity id as signals carry it (`quest:доставить письмо`, `character:александр`). */
+function isEntityRef(text: string): boolean {
+    return /^[a-z]+:\S/.test(text);
+}
+
 export class AutoMemory {
     /** Reasons per message index, waiting for the generation to end. */
     private readonly pending = new Map<number, RememberReason[]>();
@@ -234,6 +239,7 @@ export class AutoMemory {
         if (app.autonomy.level(REMEMBER_KIND, 'auto') === 'off') return null;
         const payload: RememberPayload = { index, date, reasons };
         const why = this.reasonText(reasons);
+        const refs = this.refsText(reasons);
         const change: JournalChange = {
             target: REMEMBER_TARGET,
             ref: { index, date },
@@ -246,8 +252,9 @@ export class AutoMemory {
                 kind: REMEMBER_KIND,
                 title: env.t('m9.remember.proposal', { index, reason: why }),
                 description: env.t('m9.remember.description', { index, reason: why }),
+                ...(refs ? { details: env.t('m9.remember.details', { refs }) } : {}),
                 appliedNotice: {
-                    text: env.t('m9.remember.applied', { index, reason: why }),
+                    text: env.t('m9.remember.applied', { reason: why }),
                     group: 'm9.remember.applied',
                     groupText: (count) => tPlural(app.i18n, 'm9.remember.appliedMany', count),
                 },
@@ -332,13 +339,59 @@ export class AutoMemory {
 
     /* ---------------------------------------------------------------- reading */
 
+    /**
+     * The reasons in story words: «новый квест «Доставить письмо настоятелю»», «перелом в отношениях — Александр,
+     * Мартин». Signals name quests and characters by world-model ids (`quest:…`, `character:…`): they are shown by
+     * the entity's name; the ids themselves go to the details only (refsText).
+     */
     reasonText(reasons: readonly RememberReason[]): string {
+        const parts: { text: string; people?: string[] }[] = [];
+        // Every turn in relationships of the message is one part: «перелом в отношениях — Александр, Мартин».
+        let people: string[] | null = null;
+        for (const item of reasons) {
+            const label = this.env.t(`m9.reason.${item.code}`);
+            if (!item.text) parts.push({ text: label });
+            else if (!isEntityRef(item.text)) {
+                parts.push({ text: this.env.t('m9.reason.withText', { reason: label, text: item.text }) });
+            } else if (item.code === 'relationship') {
+                const name = this.entityName(item.text);
+                if (people) people.push(name);
+                else {
+                    people = [name];
+                    parts.push({ text: label, people });
+                }
+            } else
+                parts.push({
+                    text: this.env.t('m9.reason.named', { reason: label, name: this.entityName(item.text) }),
+                });
+        }
+        return parts
+            .map((part) =>
+                part.people
+                    ? this.env.t('m9.reason.people', { reason: part.text, names: part.people.join(', ') })
+                    : part.text,
+            )
+            .join(', ');
+    }
+
+    /** The world-model ids behind the reasons (for «Подробнее»), '' when there are none. */
+    refsText(reasons: readonly RememberReason[]): string {
         return reasons
-            .map((item) => {
-                const label = this.env.t(`m9.reason.${item.code}`);
-                return item.text ? this.env.t('m9.reason.withText', { reason: label, text: item.text }) : label;
-            })
-            .join('; ');
+            .map((item) => item.text ?? '')
+            .filter(isEntityRef)
+            .join(', ');
+    }
+
+    /** An entity id as its name: the world model's name, else the id's name part with a capital letter. */
+    private entityName(ref: string): string {
+        try {
+            const name = this.env.world()?.get(ref)?.name;
+            if (name) return name;
+        } catch (error) {
+            this.env.log.debug('world entity lookup failed', error);
+        }
+        const tail = ref.slice(ref.indexOf(':') + 1).trim();
+        return tail ? tail[0]!.toUpperCase() + tail.slice(1) : ref;
     }
 
     /** Messages Maestro marked that are still marked (the user may have taken a mark off), oldest first. */

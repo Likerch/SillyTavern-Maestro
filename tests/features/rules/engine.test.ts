@@ -149,6 +149,17 @@ describe('enabled state', () => {
         expect(rules.isEnabled(DUPLICATES_RULE_ID)).toBe(true);
     });
 
+    it('switches without its own record for a caller that journals the switch itself (one line per action)', async () => {
+        env.finishWizard();
+        env.autonomy.levels.set(RULE_TOGGLE_KIND, 'inbox');
+        await rules.setEnabled(DUPLICATES_RULE_ID, false, { journal: false });
+        expect(rules.isEnabled(DUPLICATES_RULE_ID)).toBe(false);
+        expect(env.autonomy.proposals).toHaveLength(0);
+        expect(env.journal.records).toHaveLength(0);
+        await rules.setEnabled('no.such.rule', true, { journal: false });
+        expect(rules.isEnabled('no.such.rule')).toBe(false);
+    });
+
     it('follows the autonomy level of the kind; Inbox cards apply through the registered applier', async () => {
         env.autonomy.levels.set(RULE_TOGGLE_KIND, 'inbox');
         await rules.setEnabled('display.bunnymoTags', false);

@@ -18,6 +18,7 @@ import {
     chapterKeys,
     chapterShare,
     chapterTitle,
+    isChapterRangeTitle,
     countTerms,
     distinctiveWords,
     eventLine,
@@ -394,7 +395,7 @@ export class ChapterService {
     async chapters(): Promise<Chapter[]> {
         return (await this.infos()).map((info) => ({
             uid: info.uid,
-            title: info.title,
+            title: this.shownTitle(info),
             from: info.from,
             to: info.to,
             keys: [...info.keys],
@@ -419,8 +420,27 @@ export class ChapterService {
 
     /** A chapter in a card: «Alice — Tavern» (сообщения №2–4); the stored title when it has no name. */
     private label(info: ChapterInfo): string {
-        if (!info.name) return `«${info.title}»`;
+        if (!info.name) return `«${this.shownTitle(info)}»`;
+        // Nothing names it: the range in the user's words, not the English fallback name.
+        if (isChapterRangeTitle(info.name)) return this.range(info.from, info.to);
         return this.env.t('m9.chapter.label', { name: info.name, range: this.range(info.from, info.to) });
+    }
+
+    /**
+     * The entry title (comment) the user reads: «Летопись: Алиса — Таверна (№2–4)»; a chapter nothing names reads as
+     * «Летопись: сообщения №2–4» (its stored English name «Messages 2–4» stays for the model).
+     */
+    private comment(title: string, from: number, to: number): string {
+        if (isChapterRangeTitle(title)) return this.env.t('m9.chapter.comment.range', { range: this.range(from, to) });
+        return this.env.t('m9.chapter.comment', { title, from, to });
+    }
+
+    /** The title of a chapter made before 1.11 with the English range fallback in it, shown in the user's words. */
+    private shownTitle(info: ChapterInfo): string {
+        if (info.name && isChapterRangeTitle(info.name) && info.title.includes(info.name)) {
+            return this.env.t('m9.chapter.comment.range', { range: this.range(info.from, info.to) });
+        }
+        return info.title;
     }
 
     /** What happened and what Maestro does, then the remembered events (in the chat's language) one per line. */
@@ -637,7 +657,7 @@ export class ChapterService {
         };
         const payload: ChapterPayload = {
             id: chronicle.id,
-            comment: env.t('m9.chapter.comment', { title, from, to }),
+            comment: this.comment(title, from, to),
             content: chapterContent(title, texts, characters),
             keys: keys.primary,
             secondary: keys.secondary,
@@ -780,7 +800,7 @@ export class ChapterService {
             drop: plan.drop.uid,
             keepId: plan.keep.id,
             dropId: plan.drop.id,
-            comment: env.t('m9.chapter.comment', { title: name, from: chronicle.from, to: chronicle.to }),
+            comment: this.comment(name, chronicle.from, chronicle.to),
             content: chapterContent(name, events, chronicle.characters),
             keys: keys.primary,
             secondary: keys.secondary,

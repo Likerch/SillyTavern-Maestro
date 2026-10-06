@@ -24,6 +24,19 @@ const labels: Labels = {
     targets: () => [...CANON_TARGETS],
 };
 
+describe('canon titles', () => {
+    it('shows the offscreen bookkeeping title in Russian, in the journal row too', () => {
+        const ru = i18nOf('ru');
+        expect(
+            describeChange(
+                { target: 'canon-entry', ref: {}, before: null, after: { comment: 'Offscreen: Мира', content: 'x' } },
+                labels,
+                ru,
+            )?.rows,
+        ).toEqual([{ label: 'Запись', kind: 'added', after: 'За кадром: Мира' }]);
+    });
+});
+
 describe('M6 and M35 roles strings', () => {
     it('have the same keys in English and Russian, none empty', () => {
         for (const parts of [CANON_STRINGS, BOOK_ROLES_STRINGS]) {

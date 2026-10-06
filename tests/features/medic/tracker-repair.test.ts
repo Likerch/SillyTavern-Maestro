@@ -60,7 +60,7 @@ describe('tracker repair after a reply (together mode)', () => {
         expect(record?.kind).toBe(REPAIR_KIND);
         expect(record?.changes[0]?.target).toBe(TRACKER_TARGET);
         // Announced once by autonomy (appliedNotice, grouped per turn), with an undo action.
-        const done = env.ui.notices.filter((notice) => notice.text === 'Restored the DES tracker of reply #2.');
+        const done = env.ui.notices.filter((notice) => notice.text === 'Restored the DES tracker of reply #1.');
         expect(done).toHaveLength(1);
         expect(done[0]!.options?.group).toBe(REPAIR_KIND);
         expect(done[0]!.options?.groupText?.(3)).toBe('Restored the DES tracker of 3 replies');
@@ -164,7 +164,7 @@ describe('tracker repair after a reply (together mode)', () => {
         expect(env.journal.list({ module: 'M3' })).toHaveLength(1);
         // A direct reply to his click: always shown.
         expect(env.ui.notices.at(-1)).toMatchObject({
-            text: 'Restored the DES tracker of reply #2.',
+            text: 'Restored the DES tracker of reply #1.',
             options: { importance: 'urgent' },
         });
     });
@@ -224,7 +224,7 @@ describe('tracker repair after a reply (together mode)', () => {
         env.llm.request.mockResolvedValue({ ok: false, error: 'x' });
         await reply();
         const texts = env.ui.notices.map((notice) => notice.text);
-        expect(texts).toContain('The pictures of reply #2 were not drawn: NAI Studio left its markers unprocessed.');
+        expect(texts).toContain('The pictures of reply #1 were not drawn: NAI Studio left its markers unprocessed.');
         expect(texts.some((text) => text.includes('Russian field names vanished'))).toBe(true);
         expect(texts.some((text) => text.includes('Doctor'))).toBe(true);
         // Plain words only: no raw markup in the notices.

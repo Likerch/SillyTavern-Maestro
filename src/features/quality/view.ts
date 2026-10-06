@@ -128,7 +128,7 @@ export function qualityTab(app: App, service: QualityService, settings: () => Qu
                         el('span', {
                             class: 'maestro-m12-name',
                             text: t('m12.verdict.title', {
-                                index: verdict.messageIndex + 1,
+                                index: verdict.messageIndex,
                                 swipe: verdict.swipeId + 1,
                             }),
                         }),

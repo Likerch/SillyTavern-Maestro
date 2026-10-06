@@ -105,6 +105,12 @@ describe('items', () => {
         expect(await canon.list()).toEqual([]);
     });
 
+    it('names Maestro’s own English titles in the user’s words in the journal; the stored title stays', async () => {
+        await canon.put(addition({ comment: 'Offscreen: Mira', key: ['Mira'], content: 'Offscreen: Mira left.' }));
+        expect(env.world.entry(book, 0)).toMatchObject({ comment: 'Offscreen: Mira' });
+        expect(env.journal.records.at(-1)?.summary).toBe('Added to the chat canon: «Off-screen: Mira»');
+    });
+
     it('updates the item of the same base, snapshots the base and keeps createdAt', async () => {
         const first = await canon.put(onBase('override', 'World', 1, { content: 'A dead dragon.' }));
         const created = (await canon.list())[0]!;

@@ -61,7 +61,10 @@ export function worldTab(app: App, model: WorldModel): PultTab {
                 try {
                     await job();
                 } catch (error) {
-                    app.ui.notice(error instanceof Error ? error.message : String(error), { level: 'error' });
+                    app.ui.notice(error instanceof Error ? error.message : String(error), {
+                        level: 'error',
+                        urgent: true,
+                    });
                 }
             };
 
@@ -149,7 +152,7 @@ export function worldTab(app: App, model: WorldModel): PultTab {
                             onClick: () =>
                                 run(async () => {
                                     await model.mergeAndRecord(a.id, b.id);
-                                    app.ui.notice(t('m7w.merge.done', { alias: b.name }));
+                                    app.ui.notice(t('m7w.merge.done', { alias: b.name }), { urgent: true });
                                 }),
                         }),
                         button({
@@ -159,7 +162,7 @@ export function worldTab(app: App, model: WorldModel): PultTab {
                             onClick: () =>
                                 run(async () => {
                                     await model.separateAndRecord(a.id, b.id);
-                                    app.ui.notice(t('m7w.separate.done'));
+                                    app.ui.notice(t('m7w.separate.done'), { urgent: true });
                                 }),
                         }),
                     ]),

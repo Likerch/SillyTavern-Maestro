@@ -13,56 +13,32 @@ import { UI_STRINGS } from '../../src/ui/views/strings';
 
 const ROOT = resolve(__dirname, '../../src');
 
-/** Modules another pass rewrites (plan-2 §3 follow-up): only they may have kinds and targets on the lists below. */
-const PENDING_FOLDERS = ['wardrobe', 'world', 'dossier', 'voices', 'sheets', 'lorePassports', 'loreStudio'];
+/**
+ * Modules a later pass rewrites: only they may have kinds and targets on the lists below. Empty since the follow-up
+ * pass of release 1.11 labelled the last of them; keep the mechanism for a module that is mid-rewrite.
+ */
+const PENDING_FOLDERS: string[] = [];
 
 /**
  * Kinds and targets of those modules that still lack labels. Remove an entry as soon as it gets one — the test fails
  * for a listed item that is already labelled, so the list stays honest.
  */
-const PENDING_KINDS: string[] = [
-    'lore.save',
-    'lore.settings',
-    'wardrobe.outfit',
-    'wardrobe.placeState',
-    'wardrobe.state',
-    'wardrobe.wear',
-    'world.alias',
-    'world.separate',
-];
-const PENDING_TARGETS: string[] = [
-    'dossier-canon',
-    'dossier-chat-alias',
-    'dossier-entry',
-    'dossier-note',
-    'dossier-passport',
-    'dossier-place',
-    'dossier-styleup',
-    'dossier-styleup-part',
-    'lore-passport',
-    'lore-studio-binding',
-    'lore-studio-book',
-    'lore-studio-entry',
-    'lore-studio-settings',
-    'sheets.hidden',
-    'sheets.text',
-    'wardrobe.passport',
-    'world-alias',
-    'world-merge',
-    'world-separate',
-];
+const PENDING_KINDS: string[] = [];
+const PENDING_TARGETS: string[] = [];
+
+/**
+ * Where an entity or a fact comes from (`kind: 'des.workshop'` of a WorldSource) is not an action: every member of the
+ * world model's `SourceKind` union (src/features/world/api.ts), read from the source so a new source kind needs no list
+ * here. Read narrowly: the union's string literals only.
+ */
+function sourceKinds(): string[] {
+    const api = readFileSync(join(ROOT, 'features/world/api.ts'), 'utf8');
+    const union = /export type SourceKind\s*=([^;]+);/.exec(api)?.[1] ?? '';
+    return [...union.matchAll(/'([^']+)'/g)].map((match) => match[1]!);
+}
 
 /** Dotted `kind:` values that are not actions: entity sources of the dossier and the world model, revision signals. */
-const NOT_ACTION_KINDS = new Set([
-    'memory.important',
-    'fact.new',
-    'des.character',
-    'canon.entry',
-    'lore.entry',
-    'ck.archive',
-    'nai.passport',
-    'qvink.memory',
-]);
+const NOT_ACTION_KINDS = new Set(['memory.important', 'fact.new', ...sourceKinds()]);
 
 /**
  * Kinds built from templates (`kind: \`quality.${…}\``): every expansion is checked; 'signal' marks bus signals,
@@ -83,8 +59,9 @@ const TEMPLATES: Record<string, string[] | 'signal' | 'pending'> = {
         'boundary',
     ].map((kind) => `quality.${kind}`),
     'promise.*': 'signal',
-    'lore.book.*': 'pending',
-    'lore.binding.*': 'pending',
+    // Lore Studio journal kinds (features/loreStudio/store.ts: BookOp, journalBinding()).
+    'lore.book.*': ['create', 'delete', 'rename', 'restore', 'import'].map((op) => `lore.book.${op}`),
+    'lore.binding.*': ['global', 'primary', 'extra', 'chat', 'persona'].map((kind) => `lore.binding.${kind}`),
 };
 
 function walk(dir: string, out: string[] = []): string[] {
@@ -172,6 +149,11 @@ function scanKinds(): Scan {
         // file that calls the APIs.
         if (!file.rel.startsWith('features/') && !CALLS.test(file.text)) continue;
         for (const match of file.text.matchAll(/\bkind:\s*'([^']+)'/g)) add(match[1]!, file);
+        // Either of two kinds (`kind: record ? 'lorePassports.set' : 'lorePassports.remove'`).
+        for (const match of file.text.matchAll(/\bkind:\s*[^,'\n]*\?\s*'([^']+)'\s*:\s*'([^']+)'/g)) {
+            add(match[1]!, file);
+            add(match[2]!, file);
+        }
         for (const match of file.text.matchAll(/\bkind:\s*([A-Z][A-Z0-9_]*)\b/g)) {
             // Background task kinds (`kind: EXTRACT_TASK`) and signal kinds are not actions.
             if (!/_(TASK|SIGNAL)$/.test(match[1]!)) addName(match[1]!, file);
@@ -248,7 +230,19 @@ describe('labels of action kinds and journal targets (plan-2 §3)', () => {
 
     it('finds the kinds and targets of the modules (the scan itself works)', () => {
         expect(kinds.size).toBeGreaterThan(60);
-        for (const kind of ['living.fact', 'canon.fact', 'wardrobe.outfit', 'quality.junk', 'backgrounds.pick']) {
+        // Source kinds of the world model are not actions; their list is read from the union itself.
+        expect(NOT_ACTION_KINDS.has('des.workshop')).toBe(true);
+        expect(NOT_ACTION_KINDS.has('canon.entry')).toBe(true);
+        expect(kinds.has('des.workshop')).toBe(false);
+        for (const kind of [
+            'living.fact',
+            'canon.fact',
+            'wardrobe.outfit',
+            'quality.junk',
+            'backgrounds.pick',
+            'lorePassports.remove',
+            'lore.binding.chat',
+        ]) {
             expect(kinds.has(kind), kind).toBe(true);
         }
         expect(targets.has('living-fact')).toBe(true);

@@ -36,7 +36,7 @@ export const ENTRY_FORM_STRINGS: I18nParts = {
         'm23f.external.gone': 'The entry is gone from the book.',
 
         'm23f.ro.bunnymo':
-            'BunnyMo packs are never edited: not the text, not the keys, no translations (P13). Technical fixes (role, recursion, duplicates) happen on the fly in «Rules», each one can be switched off.',
+            'BunnyMo packs are never edited: not the text, not the keys, no translations. Technical fixes (role, recursion, duplicates) happen on the fly in «Rules», each one can be switched off.',
         'm23f.ro.generic': 'This book is open read-only.',
         'm23f.ro.openRules': 'Open «Rules»',
 
@@ -57,7 +57,7 @@ export const ENTRY_FORM_STRINGS: I18nParts = {
         'm23f.section.history': 'Version history',
         'm23f.passport.loading': 'Reading the passport…',
         'm23f.passport.none': 'The entry has no passport yet.',
-        'm23f.passport.bunnymo': 'BunnyMo pack entries never get passports (P13).',
+        'm23f.passport.bunnymo': 'BunnyMo pack entries never get passports: Maestro does not change them.',
         'm23f.passport.noRegistry':
             'The passport of a base book entry is kept in the Maestro registry: turn on the «Book roles» module.',
         'm23f.passport.badge.entry': 'in the entry',
@@ -577,7 +577,7 @@ export const ENTRY_FORM_STRINGS: I18nParts = {
         'm23f.external.gone': 'Записи больше нет в книге.',
 
         'm23f.ro.bunnymo':
-            'Паки BunnyMo никогда не редактируются: ни текст, ни ключи, ни переводы (P13). Технические исправления (роль, рекурсия, дубли) Maestro делает на лету во вкладке «Правила» — каждое можно выключить.',
+            'Паки BunnyMo никогда не редактируются: ни текст, ни ключи, ни переводы. Технические исправления (роль, рекурсия, дубли) Maestro делает на лету во вкладке «Правила» — каждое можно выключить.',
         'm23f.ro.generic': 'Книга открыта только для чтения.',
         'm23f.ro.openRules': 'Открыть «Правила»',
 
@@ -598,7 +598,7 @@ export const ENTRY_FORM_STRINGS: I18nParts = {
         'm23f.section.history': 'История версий',
         'm23f.passport.loading': 'Читаю паспорт…',
         'm23f.passport.none': 'У записи пока нет паспорта.',
-        'm23f.passport.bunnymo': 'У записей паков BunnyMo паспортов не бывает (P13).',
+        'm23f.passport.bunnymo': 'У записей паков BunnyMo паспортов не бывает: Maestro их не меняет.',
         'm23f.passport.noRegistry':
             'Паспорт записи базовой книги хранится в реестре Maestro — включи модуль «Роли книг».',
         'm23f.passport.badge.entry': 'в записи',

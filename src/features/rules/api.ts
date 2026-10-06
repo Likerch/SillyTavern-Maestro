@@ -136,7 +136,12 @@ export interface RulesApi {
     register(rule: RuleDefinition): Unsubscribe;
     list(): RuleState[];
     isEnabled(id: string): boolean;
-    setEnabled(id: string, enabled: boolean): Promise<void>;
+    /**
+     * Switches a rule through autonomy (its own journal record and notice). `{ journal: false }`: just switch it — for a
+     * caller that journals the switch itself (the doctor's «Включить правило» and its undo), so the journal shows one
+     * line for one action.
+     */
+    setEnabled(id: string, enabled: boolean, options?: { journal?: boolean }): Promise<void>;
     /** Simulates the current chat with and without the given rules (via M1). */
     compare(ids: string[]): Promise<RuleImpact>;
     /** True while M1 asks to suspend this rule in a simulation. */

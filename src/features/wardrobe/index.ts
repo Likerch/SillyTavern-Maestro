@@ -6,16 +6,75 @@
 // portraits are redrawn on a change. Character states (wet, wounded, tired …) and place states (ruined, on fire,
 // night, rain …) follow the tracker. Writes go through NAI Studio's API at chat scope only.
 // Exposed as app.modules.api<WardrobeApi>('wardrobe').
-import type { MaestroModule } from '../../shared/contracts';
+import type { I18n, MaestroModule, TargetSpec } from '../../shared/contracts';
 import type { WardrobeApi } from './api';
 import { DesFieldOffer } from './des-field';
 import { PersonaCheck } from './persona';
 import { installPromptLine } from './prompt-line';
 import { WardrobeService } from './service';
-import { defaultWardrobeSettings, readWardrobeSettings, WARDROBE_ID, WARDROBE_KEY } from './settings';
+import {
+    defaultWardrobeSettings,
+    DES_FIELD_UNDO_TARGET,
+    readWardrobeSettings,
+    WARDROBE_ID,
+    WARDROBE_KEY,
+    WARDROBE_UNDO_TARGET,
+} from './settings';
 import type { WardrobeSettings } from './settings';
 import { WARDROBE_STRINGS } from './strings';
 import { WARDROBE_CSS, wardrobeTab } from './view';
+
+const TECHNICAL = { labelKey: 'm27.field.technical', hidden: true };
+
+function text(value: unknown): string {
+    return typeof value === 'string' ? value.trim() : '';
+}
+
+/** The outfit on: its name, or the own clothes for the clothing slot (''). */
+function outfitName(value: unknown, i18n: I18n): string {
+    if (typeof value !== 'string') return '';
+    return value.trim() || i18n.t('m27.value.own');
+}
+
+/** A state switched on reads by its name («мокрая одежда»); switched off it is gone. */
+function stateName(value: unknown, i18n: I18n): string {
+    if (typeof value !== 'object' || value === null) return '';
+    const state = value as { id?: unknown; enabled?: unknown };
+    const id = text(state.id);
+    if (!id || state.enabled === false) return '';
+    const key = `m27.state.${id}`;
+    const name = i18n.t(key);
+    return name === key ? id : name;
+}
+
+/**
+ * Wardrobe changes read as clothes and states: the outfit on, a new outfit, a look copied into the chat, a state on or
+ * off. NAI tags, the tracker wordings an outfit was seen as and the DES field's prompt text are technical.
+ */
+export const WARDROBE_TARGETS: TargetSpec[] = [
+    {
+        target: WARDROBE_UNDO_TARGET,
+        fields: {
+            activeOutfit: { labelKey: 'm27.field.outfit', format: outfitName },
+            outfit: {
+                labelKey: 'm27.field.newOutfit',
+                format: (value) =>
+                    typeof value === 'object' && value !== null ? text((value as { name?: unknown }).name) : '',
+            },
+            passport: { labelKey: 'm27.field.copied', format: text },
+            state: { labelKey: 'm27.field.state', format: stateName },
+            tags: TECHNICAL,
+            looks: TECHNICAL,
+        },
+    },
+    {
+        target: DES_FIELD_UNDO_TARGET,
+        fields: {
+            name: { labelKey: 'm27.field.desField', format: text },
+            description: TECHNICAL,
+        },
+    },
+];
 
 export const wardrobeModule: MaestroModule<WardrobeSettings> = {
     id: WARDROBE_ID,
@@ -25,6 +84,7 @@ export const wardrobeModule: MaestroModule<WardrobeSettings> = {
     enabledByDefault: true,
     defaults: defaultWardrobeSettings,
     i18n: WARDROBE_STRINGS,
+    targets: WARDROBE_TARGETS,
     init({ app, log, own }) {
         const settings = () => readWardrobeSettings(app.settings.module<Partial<WardrobeSettings>>(WARDROBE_KEY));
         const scoped = log.scope('wardrobe');

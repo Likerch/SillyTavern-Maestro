@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 // The «Голоса» pult tab: cards with tokens, attitudes between characters, the whole insert, the CK quiet mode status
-// (CK insert silenced, DES-RU told) and the settings.
+// (the CarrotKernel hint taken out, DES-RU told) and the settings.
 import { afterEach, describe, expect, it } from 'vitest';
 import { VOICES_TAB, voicesTab } from '../../../src/features/voices/view';
 import type { Unsubscribe } from '../../../src/shared/contracts';
@@ -71,16 +71,16 @@ describe('voices tab', () => {
     it('shows the quiet mode status: waiting, silenced, not found, DES-RU told', async () => {
         app = await startVoices();
         const root = await render(app);
-        expect(text(root)).toContain('CK insert will be silenced in the next reply');
-        expect(text(root)).toContain('DES-RU told ✓');
+        expect(text(root)).toContain('The CarrotKernel hint is taken out from the next reply on');
+        expect(text(root)).toContain('DES-RU knows ✓');
 
         await generate(app, prompt(), { ck: CK });
         await settleUi();
-        expect(text(root)).toMatch(/CK insert silenced ✓ \(last reply: −\d+ tokens/);
+        expect(text(root)).toMatch(/CarrotKernel hint taken out ✓ \(last reply: −\d+ tokens/);
 
         await generate(app, [{ role: 'user', content: 'elsewhere' }], { ck: CK });
         await settleUi();
-        expect(text(root)).toContain('CK insert silenced ✗');
+        expect(text(root)).toContain('CarrotKernel hint not taken out ✗');
         expect(root.querySelector('.maestro-lamp-error')).not.toBeNull();
     });
 
@@ -88,8 +88,8 @@ describe('voices tab', () => {
         app = await startVoices({ chat: [userMessage('Hi.')], desru: null });
         const root = await render(app);
         expect(text(root)).toContain('No cards');
-        expect(text(root)).toContain('CK insert is not silenced: there are no cards');
-        expect(text(root)).toContain('not needed (no DES-RU 0.8+)');
+        expect(text(root)).toContain('The CarrotKernel hint stays: there are no cards');
+        expect(text(root)).toContain('No need to tell DES-RU (no DES-RU 0.8+)');
         await changeChat(app, undefined);
         await settleUi();
         expect(text(root)).toContain('No chat is open.');

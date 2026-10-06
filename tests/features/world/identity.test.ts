@@ -99,14 +99,15 @@ describe('a namesake of another story', () => {
         ]);
         expect(questions()).toHaveLength(1);
         const card = questions()[0]!;
-        expect(card.title).toBe('Офелия here — the same character as in «Архив персонажей»?');
+        expect(card.title).toBe('Офелия here — the same character as in the book «Архив персонажей»?');
         expect(card.description).toBe(
-            'The name «Офелия» came up in this story, and it is known elsewhere already: character and way of ' +
-                'speaking from the sheet in «Архив персонажей»; looks and outfits from the passport of the card ' +
-                '«Elizabeth»; portrait and description from DES. «The same» — Maestro uses this data here as well. ' +
-                '«Another one» — everything here will be its own, the old data stays out. Until you answer, the ' +
-                'old data is not used.',
+            'The name «Офелия» is known from other stories already: character and way of speaking from the sheet ' +
+                'in «Архив персонажей»; looks and outfits from the card «Elizabeth»; portrait and description from ' +
+                'DES. Answer «The same», and all that helps here too. «Another one» — everything here is its own, ' +
+                'the old stays out. Until you answer, the old is not used here.',
         );
+        // Books, entry numbers and passport ids are details, not the question.
+        expect(card.proposal?.details).toContain('npc1');
         expect(card.proposal).toMatchObject({ acceptLabel: 'The same', rejectLabel: 'Another one' });
         expect(card.payload).toMatchObject({
             name: 'Офелия',
@@ -115,7 +116,7 @@ describe('a namesake of another story', () => {
         });
         expect(card.changes[0]).toMatchObject({ target: 'world-identity', before: null });
         expect(card.changes[0]?.after).toBe(
-            'CK archive «Офелия Character Archive» in «Архив персонажей»; NAI passport npc1 (Elizabeth.png); DES Workshop: Офелия',
+            'CarrotKernel archive «Офелия Character Archive» in «Архив персонажей»; NAI Studio passport npc1 (Elizabeth.png); DES Workshop: Офелия',
         );
         expect(env.ui.badges.map((badge) => [badge.messageIndex, badge.badge.text, badge.removed])).toEqual([
             [1, 'Офелия — the same character as in another story?', false],
@@ -164,7 +165,7 @@ describe('a namesake of another story', () => {
         const record = env.journal.records.at(-1)!;
         expect(record.kind).toBe('world.apart');
         expect(record.summary).toBe(
-            'Remembered: Офелия here is not the one in «Архив персонажей»; that data is not used here.',
+            'Noted: Офелия here is another character, not the one in the book «Архив персонажей»',
         );
         expect(record.changes.map((change) => change.target)).toEqual(['world-identity', 'world-nai-excluded']);
         await world.rebuild();
@@ -208,8 +209,8 @@ describe('a namesake of another story', () => {
         await world.rebuild();
         await tick();
         expect(questions().map((card) => card.title)).toEqual([
-            'Офелия here — the same character as in «Архив персонажей»?',
-            'Странник here — the same character as in «Архив персонажей»?',
+            'Офелия here — the same character as in the book «Архив персонажей»?',
+            'Странник here — the same character as in the book «Архив персонажей»?',
         ]);
         expect(world.resolve('Странник')).toBeUndefined();
         expect(env.ui.badges.find((badge) => badge.badge.text.startsWith('Странник'))?.messageIndex).toBe(3);

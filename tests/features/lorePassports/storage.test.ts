@@ -73,7 +73,7 @@ describe('lore passports: storage by book role (P2, P13)', () => {
         expect(await service.storageOf('Bunny')).toBe('bunnymo');
         env.roles.roles.delete('Bunny');
         env.bunnymo.packs.push('Bunny');
-        await expect(service.set('Bunny', 0, ANNA_PASSPORT)).rejects.toThrow(/P13/);
+        await expect(service.set('Bunny', 0, ANNA_PASSPORT)).rejects.toThrow(/BunnyMo/);
         expect(env.roles.setEntryMeta).not.toHaveBeenCalled();
         expect(env.store.updates).toHaveLength(0);
     });
@@ -166,7 +166,7 @@ describe('lore passports: strings', () => {
     it('have the same non-empty m28 keys in English and Russian', () => {
         expect(Object.keys(LORE_PASSPORTS_STRINGS.ru).sort()).toEqual(Object.keys(LORE_PASSPORTS_STRINGS.en).sort());
         for (const [key, text] of Object.entries(LORE_PASSPORTS_STRINGS.ru)) {
-            expect(key.startsWith('m28.'), key).toBe(true);
+            expect(key, key).toMatch(/^(m28\.|kind\.lorePassports\.|target\.lore-passport$)/);
             expect(text, key).not.toBe('');
         }
     });

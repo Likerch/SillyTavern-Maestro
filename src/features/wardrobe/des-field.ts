@@ -143,13 +143,14 @@ export class DesFieldOffer {
     async add(): Promise<'added' | 'exists' | 'workshop' | 'declined' | 'failed'> {
         const status = this.status();
         if (status === 'present') return 'exists';
+        // Always his click (the tab, the health check, the notice): the answers are urgent.
         if (status !== 'missing') {
-            this.app.ui.notice(this.t('m27.desField.failed'), { level: 'warn' });
+            this.app.ui.notice(this.t('m27.desField.failed'), { level: 'warn', urgent: true });
             return 'failed';
         }
         const des = this.des();
         if (des?.isWorkshopOpen()) {
-            this.app.ui.notice(this.t('m27.desField.workshop'), { level: 'warn' });
+            this.app.ui.notice(this.t('m27.desField.workshop'), { level: 'warn', urgent: true });
             return 'workshop';
         }
         const field = this.proposed();
@@ -163,8 +164,9 @@ export class DesFieldOffer {
         const proposal: Proposal<DesFieldPayload> = {
             module: WARDROBE_ID,
             kind: WARDROBE_KINDS.desField,
-            title: this.t('m27.desField.proposal', { name: field.name }),
+            title: this.t('m27.desField.proposal'),
             description: this.t('m27.desField.body', { name: field.name }),
+            details: this.t('m27.desField.details', { name: field.name, id: DES_FIELD_ID }),
             changes: [change],
             payload,
             apply: async (value) => {
@@ -182,7 +184,7 @@ export class DesFieldOffer {
             return 'failed';
         }
         if (decision !== 'applied') return decision === 'rejected' ? 'declined' : 'failed';
-        this.app.ui.notice(this.t('m27.desField.added', { name: field.name }));
+        this.app.ui.notice(this.t('m27.desField.added', { name: field.name }), { urgent: true });
         return 'added';
     }
 
@@ -233,6 +235,7 @@ export class DesFieldOffer {
         this.noticed = true;
         this.app.ui.notice(this.t('m27.desField.notice'), {
             level: 'info',
+            importance: 'info',
             action: { label: this.t('m27.desField.add'), run: () => void this.add() },
         });
     }

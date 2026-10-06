@@ -26,9 +26,11 @@
 //   passport (NAI Studio 0.12.1 draws the outfit, not the tracker look, when the tracker says one of them).
 import { adaptersOf } from '../../adapters';
 import { readPassport } from '../../adapters/nai';
+import { tPlural } from '../../core/labels';
 import type { NaiPassport, NaiPassportTarget, NaiStudioApi } from '../../adapters/nai';
 import type { DesTrackerSnapshot } from '../../domain/des-tracker';
 import { normalizePassport } from '../../domain/lore-passport';
+import { genderKey } from '../../domain/name-gender';
 import { committedIndices } from '../../domain/places-registry';
 import { fieldAspect } from '../../domain/signals-diff';
 import { observeWear, revertWear, sameWearing } from '../../domain/wardrobe-current';
@@ -175,6 +177,15 @@ type Plan =
     | { kind: 'wait' }
     /** No garment is known: nothing to put on. */
     | { kind: 'none' };
+
+/** A wardrobe card in words: title, body, technical notes and the notice when it was done by itself. */
+interface CardText {
+    title: string;
+    body: string;
+    details?: string | undefined;
+    /** «Сделал» notice (and the journal line of a change by hand); the title when absent. */
+    done?: string;
+}
 
 /** What an outfit statement came to: the outfit name, or null — with the reason when it never can be taken. */
 interface Taken {
@@ -768,7 +779,9 @@ export class WardrobeService implements Required<WardrobeApi> {
             await this.app.journal.record({
                 module: WARDROBE_ID,
                 kind: WARDROBE_WEAR_KIND,
-                summary: this.t('m27.journal.wear', { name: subject, outfit: name || this.t('m27.clothing') }),
+                summary: name
+                    ? this.t('m27.journal.wear', { name: subject, outfit: name })
+                    : this.t('m27.journal.wearOwn', { name: subject }),
                 changes: [this.outfitChange(payload, before, name)],
             });
         } catch (error) {
@@ -962,7 +975,7 @@ export class WardrobeService implements Required<WardrobeApi> {
             }
             const payload = this.payload('outfit.wear', target, input, { name: match.name, wording, look });
             const text = this.wearText(target, { wording } as WearRecord, match.name);
-            const decision = await this.propose(WARDROBE_KINDS.outfit, payload, text.title, text.body, [
+            const decision = await this.propose(WARDROBE_KINDS.outfit, payload, text, [
                 this.outfitChange(
                     payload,
                     passport.activeOutfit,
@@ -993,7 +1006,7 @@ export class WardrobeService implements Required<WardrobeApi> {
             activate: !stale,
         });
         const text = this.createText(target, { wording } as WearRecord, { name, tags: tagText });
-        const decision = await this.propose(WARDROBE_KINDS.outfit, payload, text.title, text.body, [
+        const decision = await this.propose(WARDROBE_KINDS.outfit, payload, text, [
             this.outfitChange(payload, passport.activeOutfit, stale ? passport.activeOutfit : name, tagText),
         ]);
         return { name: taken(decision) ? name : null };
@@ -1110,23 +1123,38 @@ export class WardrobeService implements Required<WardrobeApi> {
         };
     }
 
+    /**
+     * A wardrobe change through autonomy. The card speaks of clothes and pictures (title, body); NAI tags and ids go to
+     * «Подробнее»; done automatically, it is announced as the story says it («Вера переоделась: «Шёлковое платье»»),
+     * outfit changes of one turn as one notice («Переоделись 2 персонажа»), state changes as another.
+     */
     private async propose(
         kind: string,
         payload: WardrobePayload,
-        title: string,
-        description: string,
+        text: CardText,
         changes: JournalChange[],
     ): Promise<Decision> {
+        const outfits = kind === WARDROBE_KINDS.outfit;
+        const group = outfits ? (payload.action === 'passport.copy' ? 'm27.copy' : 'm27.outfit') : 'm27.state';
         const proposal: Proposal<WardrobePayload> = {
             module: WARDROBE_ID,
             kind,
-            title,
-            description,
+            title: text.title,
+            description: text.body,
+            appliedNotice: {
+                text: text.done ?? text.title,
+                group,
+                groupText: (count) =>
+                    group === 'm27.copy'
+                        ? (text.done ?? text.title)
+                        : tPlural(this.app.i18n, outfits ? 'm27.done.outfits' : 'm27.done.states', count),
+            },
             changes,
             payload,
             apply: (value) => this.apply(isWardrobePayload(value) ? value : payload),
             stillValid: async () => this.valid(payload),
         };
+        if (text.details) proposal.details = text.details;
         if (payload.messageIndex >= 0) proposal.sourceMessage = payload.messageIndex;
         try {
             return await this.app.autonomy.decide(proposal, 'auto');
@@ -1745,7 +1773,7 @@ export class WardrobeService implements Required<WardrobeApi> {
             const payload = this.payload('outfit.wear', target, input, { ...extra, name });
             const change = this.outfitChange(payload, active, name, undefined, this.wearLooks(passport, name, look));
             const text = this.wearText(target, record, name);
-            await this.settle(record.key, name, payload, text.title, text.body, [change], options.direct === true);
+            await this.settle(record.key, name, payload, text, [change], options.direct === true);
             return;
         }
         if (!options.direct && record.queued !== undefined && sameName(record.queued, plan.name)) return;
@@ -1757,7 +1785,7 @@ export class WardrobeService implements Required<WardrobeApi> {
         });
         const change = this.outfitChange(payload, active, plan.name, plan.tags);
         const text = this.createText(target, record, plan);
-        await this.settle(record.key, plan.name, payload, text.title, text.body, [change], options.direct === true);
+        await this.settle(record.key, plan.name, payload, text, [change], options.direct === true);
     }
 
     /** A proposal through autonomy (or applied at once by hand), and what the record keeps of the outcome. */
@@ -1765,8 +1793,7 @@ export class WardrobeService implements Required<WardrobeApi> {
         key: string,
         name: string,
         payload: WardrobePayload,
-        title: string,
-        body: string,
+        text: CardText,
         changes: JournalChange[],
         direct: boolean,
     ): Promise<void> {
@@ -1776,7 +1803,7 @@ export class WardrobeService implements Required<WardrobeApi> {
                 await this.app.journal.record({
                     module: WARDROBE_ID,
                     kind: WARDROBE_WEAR_KIND,
-                    summary: title,
+                    summary: text.done ?? text.title,
                     changes,
                 });
             } catch (error) {
@@ -1784,7 +1811,7 @@ export class WardrobeService implements Required<WardrobeApi> {
             }
             return;
         }
-        const decision = await this.propose(WARDROBE_KINDS.outfit, payload, title, body, changes);
+        const decision = await this.propose(WARDROBE_KINDS.outfit, payload, text, changes);
         // Waiting in the Inbox, as a notice, or refused: not proposed again while the clothing stays.
         if (decision === 'queued' || decision === 'notified' || decision === 'rejected') {
             await this.mutate((doc) => {
@@ -1898,26 +1925,39 @@ export class WardrobeService implements Required<WardrobeApi> {
         return { ...passport, outfits };
     }
 
-    private wearText(target: PassportTarget, record: WearRecord, name: string): { title: string; body: string } {
+    /** Tags for pictures, for «Подробнее». */
+    private tagDetails(tags: string): string | undefined {
+        return tags.trim() ? this.t('m27.card.details.tags', { tags: tags.trim() }) : undefined;
+    }
+
+    /** Undressing: «Вера в полотенце»; the body says what the story says and what pictures do. */
+    private undressText(who: string, kind: UndressKind, text: string, tags: string): CardText {
+        return {
+            title: this.t(`m27.card.undress.${kind}`, { name: who }),
+            body: this.t('m27.card.undress.body', { name: who, text }),
+            details: this.tagDetails(tags),
+        };
+    }
+
+    private wearText(target: PassportTarget, record: WearRecord, name: string): CardText {
         const who = target.name;
         const text = record.wording;
+        const tags = name
+            ? (target.passport.outfits.find((outfit) => sameName(outfit.name, name))?.tags ?? '')
+            : (target.passport.slots.clothing ?? '');
         const undress = undressOfOutfit(name);
-        if (undress) {
-            return {
-                title: this.t(`m27.proposal.undress.${undress}`, { name: who }),
-                body: this.t('m27.proposal.body.undress', { name: who, text, outfit: name }),
-            };
-        }
+        if (undress) return this.undressText(who, undress, text, tags);
         if (!name) {
             return {
-                title: this.t('m27.proposal.clothing', { name: who }),
-                body: this.t('m27.proposal.body.clothing', { name: who, text }),
+                title: this.t('m27.card.clothing', { name: who }),
+                body: this.t('m27.card.clothing.body', { text }),
+                details: this.tagDetails(tags),
             };
         }
-        const tags = target.passport.outfits.find((outfit) => sameName(outfit.name, name))?.tags ?? '';
         return {
-            title: this.t('m27.proposal.wear', { name: who, outfit: name }),
-            body: this.t('m27.proposal.body.wear', { name: who, text, outfit: name, tags: tags || '—' }),
+            title: this.t(genderKey('m27.card.wear', who), { name: who, outfit: name }),
+            body: this.t('m27.card.wear.body', { text, outfit: name }),
+            details: this.tagDetails(tags),
         };
     }
 
@@ -1925,22 +1965,14 @@ export class WardrobeService implements Required<WardrobeApi> {
         target: PassportTarget,
         record: WearRecord,
         plan: { name: string; tags: string; undress?: UndressKind },
-    ): { title: string; body: string } {
+    ): CardText {
         const who = target.name;
-        if (plan.undress) {
-            return {
-                title: this.t(`m27.proposal.undress.${plan.undress}`, { name: who }),
-                body: this.t('m27.proposal.body.undress', { name: who, text: record.wording, outfit: plan.name }),
-            };
-        }
+        if (plan.undress) return this.undressText(who, plan.undress, record.wording, plan.tags);
         return {
-            title: this.t('m27.proposal.create', { name: who, outfit: plan.name }),
-            body: this.t('m27.proposal.body.create', {
-                name: who,
-                text: record.wording,
-                outfit: plan.name,
-                tags: plan.tags || '—',
-            }),
+            title: this.t(genderKey('m27.card.wear', who), { name: who, outfit: plan.name }),
+            body: this.t('m27.card.create.body', { text: record.wording, outfit: plan.name }),
+            details: this.tagDetails(plan.tags),
+            done: this.t(genderKey('m27.card.created', who), { name: who, outfit: plan.name }),
         };
     }
 
@@ -2273,8 +2305,12 @@ export class WardrobeService implements Required<WardrobeApi> {
         const decision = await this.propose(
             WARDROBE_KINDS.outfit,
             payload,
-            this.t('m27.proposal.copy', { name: copy.name }),
-            this.t('m27.proposal.body.copy', { name: copy.name }),
+            {
+                title: this.t('m27.card.copy', { name: copy.name }),
+                body: this.t('m27.card.copy.body', { name: copy.name }),
+                details: this.t('m27.card.details.copy', { id }),
+                done: this.t('m27.card.copy.done', { name: copy.name }),
+            },
             [
                 {
                     target: WARDROBE_UNDO_TARGET,
@@ -2379,6 +2415,17 @@ export class WardrobeService implements Required<WardrobeApi> {
         }
     }
 
+    /** «Вера: мокрая одежда» / «Таверна: пожар — уже нет», what pictures do, the tags under «Подробнее». */
+    private stateText(action: 'state' | 'place', name: string, state: string, on: boolean, tags: string): CardText {
+        const side = on ? 'On' : 'Off';
+        return {
+            title: this.t(`m27.card.state${side}`, { name, state }),
+            body: this.t(action === 'place' ? `m27.card.place${side}.body` : `m27.card.state${side}.body`),
+            details: this.tagDetails(tags),
+            done: this.t(`m27.card.state${side}.done`, { name, state }),
+        };
+    }
+
     private stateTitle(id: string): string {
         const key = `m27.state.${id}`;
         const text = this.t(key);
@@ -2408,7 +2455,7 @@ export class WardrobeService implements Required<WardrobeApi> {
             },
         );
         const state = this.stateTitle(item.id);
-        let title: string;
+        let subject: string;
         const changes: JournalChange[] = [];
         const ref = {
             op: payload.op,
@@ -2421,7 +2468,7 @@ export class WardrobeService implements Required<WardrobeApi> {
         if (action === 'place' && place) {
             payload.placeId = place.id;
             payload.subject = place.name;
-            title = this.t('m27.proposal.placeOn', { place: place.name, state });
+            subject = place.name;
             changes.push({
                 target: WARDROBE_UNDO_TARGET,
                 ref: { ...ref, placeId: place.id, subject: place.name },
@@ -2432,7 +2479,7 @@ export class WardrobeService implements Required<WardrobeApi> {
                 },
             });
         } else {
-            title = this.t('m27.proposal.stateOn', { name: target.name, state });
+            subject = target.name;
             changes.push({
                 target: WARDROBE_UNDO_TARGET,
                 ref: { ...ref, subject: target.name },
@@ -2441,7 +2488,7 @@ export class WardrobeService implements Required<WardrobeApi> {
             });
         }
         const kind = action === 'state' ? WARDROBE_KINDS.state : WARDROBE_KINDS.place;
-        const decision = await this.propose(kind, payload, title, this.t('m27.proposal.body.state', { tags }), changes);
+        const decision = await this.propose(kind, payload, this.stateText(action, subject, state, true, tags), changes);
         if (decision === 'queued' || decision === 'notified') await this.track(action, target, payload, place);
     }
 
@@ -2482,13 +2529,13 @@ export class WardrobeService implements Required<WardrobeApi> {
             rule: item.id,
             stateId: entry.stateId,
         };
-        let title: string;
+        let subject: string;
         let change: JournalChange;
         if (action === 'place' && place) {
             payload.placeId = place.id;
             payload.subject = place.name;
             payload.added = [...(entry.added ?? [])];
-            title = this.t('m27.proposal.placeOff', { place: place.name, state });
+            subject = place.name;
             change = {
                 target: WARDROBE_UNDO_TARGET,
                 ref: { ...ref, placeId: place.id, subject: place.name },
@@ -2499,7 +2546,7 @@ export class WardrobeService implements Required<WardrobeApi> {
                 },
             };
         } else {
-            title = this.t('m27.proposal.stateOff', { name: target.name, state });
+            subject = target.name;
             change = {
                 target: WARDROBE_UNDO_TARGET,
                 ref: { ...ref, subject: target.name },
@@ -2511,8 +2558,7 @@ export class WardrobeService implements Required<WardrobeApi> {
         const decision = await this.propose(
             kind,
             payload,
-            title,
-            this.t('m27.proposal.body.state', { tags: payload.tags ?? '' }),
+            this.stateText(action, subject, state, false, payload.tags ?? ''),
             [change],
         );
         if (decision !== 'applied') {

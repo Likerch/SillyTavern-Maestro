@@ -61,7 +61,7 @@ export function wardrobeTab(
         try {
             await job();
         } catch (error) {
-            app.ui.notice(error instanceof Error ? error.message : String(error), { level: 'warn' });
+            app.ui.notice(error instanceof Error ? error.message : String(error), { level: 'warn', urgent: true });
         }
     };
 
@@ -168,7 +168,7 @@ export function wardrobeTab(
                       onClick: () =>
                           run(async () => {
                               const name = await service.markNew(item.key);
-                              app.ui.notice(t('m27.now.created', { name }));
+                              app.ui.notice(t('m27.now.created', { name }), { urgent: true });
                           }),
                   })
                 : null,
@@ -209,10 +209,11 @@ export function wardrobeTab(
                         run(async () => {
                             const text = input.value.trim();
                             if (!text) {
-                                app.ui.notice(t('m27.persona.empty'), { level: 'warn' });
+                                app.ui.notice(t('m27.persona.empty'), { level: 'warn', urgent: true });
                                 return;
                             }
-                            if (await service.setPersonaWearing(text, 'user')) app.ui.notice(t('m27.persona.saved'));
+                            if (await service.setPersonaWearing(text, 'user'))
+                                app.ui.notice(t('m27.persona.saved'), { urgent: true });
                         }),
                 }),
             ]),

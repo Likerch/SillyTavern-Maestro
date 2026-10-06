@@ -5,9 +5,17 @@
 // «В книгу карточки» for its canon entries. Reads the world model (WorldModelApi) when it is on; works for the card
 // character, the persona, DES's roster and places without it. Exposed as app.modules.api<DossierApi>('dossier').
 import { adaptersOf } from '../../adapters';
-import type { MaestroModule } from '../../shared/contracts';
+import type { MaestroModule, TargetSpec } from '../../shared/contracts';
 import { registerProfileTask } from '../../ui';
-import { DossierActions } from './actions';
+import {
+    ALIAS_TARGET,
+    CANON_TARGET,
+    DossierActions,
+    ENTRY_TARGET,
+    NOTE_TARGET,
+    PASSPORT_TARGET,
+    PLACE_TARGET,
+} from './actions';
 import type { DossierApi } from './api';
 import { DossierCompare } from './compare';
 import { DossierOpener } from './opener';
@@ -16,8 +24,49 @@ import { DOSSIER_ID, DOSSIER_KEY, defaultDossierSettings, readDossierSettings } 
 import type { DossierSettings } from './settings';
 import { DossierSources } from './sources';
 import { DOSSIER_STRINGS } from './strings';
-import { DossierStyleUp, STYLE_UP_TASK } from './style-up';
+import { DossierStyleUp, STYLE_UP_PART_TARGET, STYLE_UP_TARGET, STYLE_UP_TASK } from './style-up';
 import { DOSSIER_CSS, dossierTab } from './view';
+
+const KEYS = { labelKey: 'm7.field.keys', hidden: true };
+
+/**
+ * How the dossier's journal changes read (plan-2 §3; labels `target.dossier-*`). Keys (names and case-form regexes),
+ * entry texts (English canon), NAI tags and ids stay under «Подробнее» — the card title already says what changes in
+ * words; names of passports, places and chat nicknames are shown.
+ */
+export const DOSSIER_TARGETS: TargetSpec[] = [
+    // Keys added right in a lore book: { key } before and after.
+    { target: ENTRY_TARGET, fields: { key: KEYS } },
+    // The chat canon's override of a lore entry or a canon addition: { key?, content? }.
+    { target: CANON_TARGET, fields: { key: KEYS, content: { labelKey: 'm7.field.text', hidden: true } } },
+    // A passport patch of this chat: other names are read as they are, slots are NAI tags.
+    {
+        target: PASSPORT_TARGET,
+        fields: {
+            aliases: { labelKey: 'm7.field.otherNames' },
+            slots: { labelKey: 'm7.field.looks', hidden: true },
+        },
+    },
+    // The place registry: { name?, aliases? }.
+    {
+        target: PLACE_TARGET,
+        fields: { name: { labelKey: 'm7.field.placeName' }, aliases: { labelKey: 'm7.field.placeAliases' } },
+    },
+    // A chat nickname: { alias, entity (id), name }.
+    {
+        target: ALIAS_TARGET,
+        fields: {
+            alias: { labelKey: 'm7.field.nickname' },
+            name: { labelKey: 'm7.field.means' },
+            entity: { labelKey: 'm7.field.id', hidden: true },
+        },
+    },
+    // A DES reminder (its text is the card's description) or the place entry made by a fix (a place id).
+    { target: NOTE_TARGET, technical: true },
+    // «Оформить»: every part's content (canon text, CK markup, NAI tags); the card lists the parts in words.
+    { target: STYLE_UP_TARGET, technical: true },
+    { target: STYLE_UP_PART_TARGET, technical: true },
+];
 
 export const dossierModule: MaestroModule<DossierSettings> = {
     id: DOSSIER_ID,
@@ -27,6 +76,7 @@ export const dossierModule: MaestroModule<DossierSettings> = {
     enabledByDefault: true,
     defaults: defaultDossierSettings,
     i18n: DOSSIER_STRINGS,
+    targets: DOSSIER_TARGETS,
     init({ app, log, own }) {
         const settings = () => readDossierSettings(app.settings.module<Partial<DossierSettings>>(DOSSIER_KEY));
         const sources = new DossierSources(app, settings, log);

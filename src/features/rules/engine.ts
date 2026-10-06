@@ -192,7 +192,7 @@ export class RulesEngine implements RulesApi {
             register: (rule) => this.register(rule),
             list: () => this.list(),
             isEnabled: (id) => this.isEnabled(id),
-            setEnabled: (id, enabled) => this.setEnabled(id, enabled),
+            setEnabled: (id, enabled, options) => this.setEnabled(id, enabled, options),
             compare: (ids) => this.compare(ids),
             suspended: (id) => this.suspended(id),
             cutEntries: () => this.cutEntries(),
@@ -328,7 +328,11 @@ export class RulesEngine implements RulesApi {
         return !!rule && this.isEnabled(id) && !this.waitsForWizard(rule);
     }
 
-    async setEnabled(id: string, enabled: boolean): Promise<void> {
+    async setEnabled(id: string, enabled: boolean, options: { journal?: boolean } = {}): Promise<void> {
+        if (options.journal === false) {
+            if (this.rules.has(id)) this.applyFlag(id, enabled);
+            return;
+        }
         await this.toggle(id, enabled);
     }
 

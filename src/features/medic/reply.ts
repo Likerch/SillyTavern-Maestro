@@ -42,7 +42,7 @@ export class ReplyWatcher {
         const adapters = adaptersOf(this.app);
 
         if (adapters.nai.present() && hasRawNaiMarker(message.mes)) {
-            this.app.ui.notice(this.t('m3.nai.reply', { index: index + 1 }), { level: 'warn' });
+            this.app.ui.notice(this.t('m3.nai.reply', { index }), { level: 'warn' });
         }
 
         const des = adapters.des;
@@ -50,7 +50,7 @@ export class ReplyWatcher {
         if (!expectsTracker(des.settings())) return;
         const record = desSwipeRecord(message);
         if (trackerMissing(record)) {
-            if (hasFencedJson(message.mes)) this.once('regex', 'm3.regex.reply', { index: index + 1 });
+            if (hasFencedJson(message.mes)) this.once('regex', 'm3.regex.reply', { index });
             // Not awaited: the model call must not hold other reply:ready listeners.
             if (this.settings.trackerRepair) void this.repair.auto(index);
             return;

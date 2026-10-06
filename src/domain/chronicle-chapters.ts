@@ -504,7 +504,20 @@ export function chapterTitle(names: readonly string[], place: string | null, fro
     const people = shown.join(', ');
     if (people && place) return `${people} — ${place}`;
     if (people || place) return people || (place as string);
+    return chapterRangeTitle(from, to);
+}
+
+/**
+ * The title of a chapter nothing names: «Messages 12–20». It is the chapter's stored name (it goes to the model with
+ * the canon text, in English); the user sees the message range in his language instead (isChapterRangeTitle).
+ */
+export function chapterRangeTitle(from: number, to: number): string {
     return from === to ? `Message ${from}` : `Messages ${from}–${to}`;
+}
+
+/** The title is the message-range fallback of chapterRangeTitle (any range). */
+export function isChapterRangeTitle(title: string): boolean {
+    return /^Messages? \d+(?:–\d+)?$/.test(title.trim());
 }
 
 /** One line per event (Qvink memories are one-liners, but edited ones may hold line breaks). */

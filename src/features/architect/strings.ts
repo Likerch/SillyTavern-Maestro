@@ -13,7 +13,7 @@ export const ARCHITECT_STRINGS: I18nParts = {
             'where, repeated facts and the provider cache. Nothing changes the prompt until you turn it on here.',
         'm20.noChat': 'Open a chat: the architect works on its prompts.',
         'm20.rulesMissing':
-            'The lore part of the architect runs inside the «Rules» module (M22), which is off: the lore budget, ' +
+            'The lore part of the architect runs inside the «Rules» module, which is off: the lore budget, ' +
             'damping, pinning and repeats in lore do nothing now.',
 
         'm20.budgets.title': 'Budgets',
@@ -58,7 +58,7 @@ export const ARCHITECT_STRINGS: I18nParts = {
         'm20.presence.damp': 'Damp lore about absent characters and far places',
         'm20.presence.pin': 'Pin lore about present characters and the current place',
         'm20.presence.window': 'A mention in the last K messages keeps an entry',
-        'm20.presence.noWorld': 'The world model (M7) is off: there is nothing to judge presence by.',
+        'm20.presence.noWorld': 'The world model is off: there is nothing to judge presence by.',
         'm20.presence.damped': 'Damped last turn: {count}',
         'm20.presence.pinned': 'Pinned last turn: {count}',
         'm20.presence.cuts': 'Cut by the lore budget last turn: {count}',
@@ -164,7 +164,7 @@ export const ARCHITECT_STRINGS: I18nParts = {
             'и кэш провайдера. Пока ты ничего не включил здесь, промпт не меняется.',
         'm20.noChat': 'Открой чат: архитектор работает с его промптами.',
         'm20.rulesMissing':
-            'Лорная часть архитектора работает внутри модуля «Правила» (M22), а он выключен: бюджет лора, ' +
+            'Лорная часть архитектора работает внутри модуля «Правила», а он выключен: бюджет лора, ' +
             'приглушение, закрепление и повторы в лоре сейчас не действуют.',
 
         'm20.budgets.title': 'Бюджеты',
@@ -208,7 +208,7 @@ export const ARCHITECT_STRINGS: I18nParts = {
         'm20.presence.damp': 'Приглушать лор об отсутствующих и далёких местах',
         'm20.presence.pin': 'Закреплять лор присутствующих и текущего места',
         'm20.presence.window': 'Упоминание в последних K сообщениях сохраняет запись',
-        'm20.presence.noWorld': 'Модель мира (M7) выключена — присутствие определить не по чему.',
+        'm20.presence.noWorld': 'Модель мира выключена — присутствие определить не по чему.',
         'm20.presence.damped': 'Приглушено в прошлом ходе: {count}',
         'm20.presence.pinned': 'Закреплено в прошлом ходе: {count}',
         'm20.presence.cuts': 'Снято бюджетом лора в прошлом ходе: {count}',

@@ -3,6 +3,7 @@
 // request where the fix is clear (keys to add, the place's description entry, a DES alias note).
 import { structuralIssues } from '../../domain/dossier-check';
 import type { StructuralIssue } from '../../domain/dossier-check';
+import { kindFamily } from '../../domain/world-names';
 import type { I18n } from '../../shared/contracts';
 import type { EntitySource } from '../world/api';
 import type { FixRequest } from './actions';
@@ -94,10 +95,16 @@ function keysOf(list: readonly EntitySource[]): string[] {
     return [...new Set(list.map((source) => source.key ?? `${source.kind}:${source.ref}`))];
 }
 
+/** 'being' | 'place' | 'other': the noun of the identity question, as the world model asks it («тот же персонаж»). */
+function nounOf(kind: string): 'being' | 'place' | 'other' {
+    const family = kindFamily(kind);
+    return family === 'being' ? 'being' : family === 'place' ? 'place' : 'other';
+}
+
 /**
- * Plan-2 §9 in the dossier: a namesake of another story waiting for an answer («Это тот же» / «Это другой
- * персонаж»), one declared another one («Это тот же» changes it back), and data from outside the chat used for a
- * character of this chat that is not the card itself («Это другой персонаж»).
+ * Plan-2 §9 in the dossier: a namesake of another story waiting for an answer («Тот же» / «Другой», the world
+ * model's question), one declared another one («Тот же» changes it back), and data from outside the chat used for a
+ * character of this chat that is not the card itself («Другой»).
  */
 export function identityFindings(facts: EntityFacts, t: I18n['t']): DossierFinding[] {
     const identity = facts.identity;
@@ -105,6 +112,9 @@ export function identityFindings(facts: EntityFacts, t: I18n['t']): DossierFindi
     if (!identity) return [];
     const findings: DossierFinding[] = [];
     const name = entity.name;
+    const noun = nounOf(entity.kind);
+    const same = t(`m7.fix.sameAs.${noun}`);
+    const other = t(`m7.fix.apart.${noun}`);
     const decide = (op: 'sameAs' | 'apart', list: readonly EntitySource[]): FixRequest => ({
         op,
         entityId: entity.id,
@@ -116,16 +126,16 @@ export function identityFindings(facts: EntityFacts, t: I18n['t']): DossierFindi
             {
                 kind: 'otherStory',
                 severity: 'warn',
-                text: t('m7.finding.otherPending', { name, list }),
+                text: t(`m7.finding.otherPending.${noun}`, { name, list }),
                 sources: identity.pending,
-                fix: { label: t('m7.fix.sameAs'), payload: decide('sameAs', identity.pending) },
+                fix: { label: same, payload: decide('sameAs', identity.pending) },
             },
             {
                 kind: 'otherStory',
                 severity: 'info',
-                text: t('m7.finding.otherPendingApart', { name }),
+                text: t(`m7.finding.otherPendingApart.${noun}`, { name }),
                 sources: [],
-                fix: { label: t('m7.fix.apart'), payload: decide('apart', identity.pending) },
+                fix: { label: other, payload: decide('apart', identity.pending) },
             },
         );
     }
@@ -133,9 +143,9 @@ export function identityFindings(facts: EntityFacts, t: I18n['t']): DossierFindi
         findings.push({
             kind: 'otherStory',
             severity: 'info',
-            text: t('m7.finding.otherApart', { name, list: listOf(identity.apart, t) }),
+            text: t(`m7.finding.otherApart.${noun}`, { name, list: listOf(identity.apart, t) }),
             sources: identity.apart,
-            fix: { label: t('m7.fix.sameAs'), payload: decide('sameAs', identity.apart) },
+            fix: { label: same, payload: decide('sameAs', identity.apart) },
         });
     }
     const anchor = entity.sources.some((source) => source.kind === 'card' || source.kind === 'persona');
@@ -146,7 +156,7 @@ export function identityFindings(facts: EntityFacts, t: I18n['t']): DossierFindi
             severity: 'info',
             text: t('m7.finding.shared', { name, list: listOf(shared, t) }),
             sources: shared,
-            fix: { label: t('m7.fix.apart'), payload: decide('apart', identity.shared) },
+            fix: { label: other, payload: decide('apart', identity.shared) },
         });
     }
     return findings;

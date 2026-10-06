@@ -12,7 +12,7 @@ describe('strings of M31 and M34s', () => {
         expect(Object.keys(parts.ru).sort()).toEqual(Object.keys(parts.en).sort());
         expect(parts.en[module.titleKey]).toBeTruthy();
         for (const key of Object.keys(parts.en)) {
-            expect(key.startsWith('m31.') || key.startsWith('scn.') || key.startsWith('kind.sheets.')).toBe(true);
+            expect(key, key).toMatch(/^(m31\.|scn\.|kind\.sheets\.|target\.sheets\.)/);
         }
     });
 
