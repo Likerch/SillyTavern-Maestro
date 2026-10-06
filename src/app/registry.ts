@@ -27,6 +27,7 @@ import { neighbourPromptsModule } from '../features/neighbourPrompts';
 import { offscreenModule } from '../features/offscreen';
 import { placesModule } from '../features/places';
 import { presetStudioModule } from '../features/presetStudio';
+import { promptAuditModule } from '../features/promptAudit';
 import { qualityModule } from '../features/quality';
 import { relationsModule } from '../features/relations';
 import { revisionModule } from '../features/revision';
@@ -98,4 +99,6 @@ export const MODULES: MaestroModule[] = [
     messageStyleModule,
     // Stage 13: the assistant.
     assistantModule,
+    // Release 1.13, second wave: the prompt audit (M38) — after the assistant, whose tools it registers.
+    promptAuditModule,
 ];

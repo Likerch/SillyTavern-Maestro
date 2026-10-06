@@ -16,7 +16,7 @@ import { SCOPE_STRINGS } from './scope-strings';
 import { PRESET_STORE_STRINGS } from './store';
 import { M34_STRINGS } from './strings';
 import { PresetStudio, defaultPresetStudioSettings, presetStudioWindow, servicesOf } from './studio';
-import type { PresetStudioSettings } from './studio';
+import type { PresetStudioSettings, StudioTab } from './studio';
 import { M34_CSS } from './styles';
 import { PRESET_TARGETS, TARGET_STRINGS } from './targets';
 import { presetStudioTab } from './view-tab';
@@ -52,6 +52,8 @@ export interface PresetStudioApi {
      * Отмена»); `reason` is said first in that question. False when the user stayed (release 1.13).
      */
     select?(name: string, reason?: string): Promise<boolean>;
+    /** Opens the studio on a tab (the prompt audit's /maestro-audit opens «Проверка промпта»). */
+    openTab?(tab: StudioTab): void;
 }
 
 /** Runtime handles of a started module (tests, other code in this feature). */
@@ -198,6 +200,10 @@ export function createPresetStudioModule(factories: PresetFactories): MaestroMod
             expose(PRESET_STUDIO_KEY, {
                 open: (identifier?: string) => studio.open(identifier),
                 select: (name: string, reason?: string) => studio.switchPreset(name, { reason }),
+                openTab: (tab: StudioTab) => {
+                    studio.open();
+                    studio.selectTab(tab);
+                },
             } satisfies PresetStudioApi);
             own(() => {
                 studio.dispose();

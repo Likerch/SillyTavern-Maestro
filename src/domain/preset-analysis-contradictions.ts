@@ -43,31 +43,33 @@ export interface InstructionFacets {
 
 const L = '\\p{L}';
 /** Whole-word match that works for Cyrillic (`\b` is ASCII-only in JavaScript). */
-function word(pattern: string): RegExp {
+export function word(pattern: string): RegExp {
     return new RegExp(`(?<!${L})(?:${pattern})(?!${L})`, 'iu');
 }
 
-const NEGATION = word("not|never|don't|dont|do not|avoid|no|without|instead of|не|никогда|нельзя|избегай|без|вместо");
+export const NEGATION = word(
+    "not|never|don't|dont|do not|avoid|no|without|instead of|не|никогда|нельзя|избегай|без|вместо",
+);
 /** Length qualifiers that contain a negation word but are limits, not prohibitions. */
-const LIMIT_PHRASES = new RegExp(
+export const LIMIT_PHRASES = new RegExp(
     word('no more than|not more than|no less than|not less than|не более|не больше|не менее|не меньше').source,
     'giu',
 );
 /** Clause separators: punctuation and "but" / «но» / «а». */
-const CLAUSE_SPLIT = /[.!?;,\n]+|\s(?:but|however|но|а|однако)\s/iu;
+export const CLAUSE_SPLIT = /[.!?;,\n]+|\s(?:but|however|но|а|однако)\s/iu;
 
-const POV_PATTERNS: [string, RegExp][] = [
+export const POV_PATTERNS: [string, RegExp][] = [
     ['first', word('first[- ]person|от первого лица|в первом лице|первого лица')],
     ['second', word('second[- ]person|от второго лица|во втором лице|второго лица')],
     ['third', word('third[- ]person|от третьего лица|в третьем лице|третьего лица')],
 ];
 
-const TENSE_PATTERNS: [string, RegExp][] = [
-    ['past', word('past tense|прошедш\\p{L}* времен\\p{L}*')],
-    ['present', word('present tense|настоящ\\p{L}* времен\\p{L}*')],
+export const TENSE_PATTERNS: [string, RegExp][] = [
+    ['past', word('past tense|прошедш\\p{L}* (?:времен\\p{L}*|время)')],
+    ['present', word('present tense|настоящ\\p{L}* (?:времен\\p{L}*|время)')],
 ];
 
-const LANGUAGES: Record<string, string> = {
+export const LANGUAGES: Record<string, string> = {
     english: 'en',
     russian: 'ru',
     japanese: 'ja',
@@ -84,7 +86,7 @@ const LANGUAGES: Record<string, string> = {
     испанском: 'es',
 };
 const LANGUAGE_WORDS = Object.keys(LANGUAGES).join('|');
-const LANGUAGE_PATTERNS: RegExp[] = [
+export const LANGUAGE_PATTERNS: RegExp[] = [
     new RegExp(
         `(?<!${L})(?:respond|reply|write|answer|speak|output|narrate|use|translate)(?!${L})[^\\n]{0,40}?(?<!${L})(?:in|into)\\s+(${LANGUAGE_WORDS})(?!${L})`,
         'iu',
@@ -137,7 +139,7 @@ function mark(map: Map<string, Polarity>, key: string, negated: boolean): void {
     map.set(key, value);
 }
 
-function lengthLimits(clause: string): LengthLimit[] {
+export function lengthLimits(clause: string): LengthLimit[] {
     const limits: LengthLimit[] = [];
     for (const match of clause.matchAll(LENGTH_RE)) {
         const groups = match.groups ?? {};
