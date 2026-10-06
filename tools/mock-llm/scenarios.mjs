@@ -878,6 +878,236 @@ registerSchema('maestro_mechanics_extract', (ctx) => {
 
 registerTool('search_lore', (ctx) => ({ query: ctx.names[0] ?? DEFAULT_LOCATION, limit: 5 }));
 
+// Scenario preparation (src/domain/prepare-extract.ts, schema 'maestro_prepare'): a plan read from the sources of the
+// request. The card part: characters from «- Имя — описание» lines, places from «…» quotes, a house as a faction, a
+// secret, the start time, the starting scene, a mechanic with a starting value and the direction. A book part: one
+// place, faction, tradition or item per entry («[S2] Book · Title» with its Russian key).
+// prettier-ignore
+const PREP_TRANSLIT = {
+    а: 'a', б: 'b', в: 'v', г: 'g', д: 'd', е: 'e', ё: 'e', ж: 'zh', з: 'z', и: 'i', й: 'y', к: 'k', л: 'l', м: 'm',
+    н: 'n', о: 'o', п: 'p', р: 'r', с: 's', т: 't', у: 'u', ф: 'f', х: 'kh', ц: 'ts', ч: 'ch', ш: 'sh', щ: 'sch',
+    ъ: '', ы: 'y', ь: '', э: 'e', ю: 'yu', я: 'ya',
+};
+
+export function translit(name) {
+    return [...String(name)]
+        .map((char) => {
+            const lower = char.toLowerCase();
+            const latin = PREP_TRANSLIT[lower];
+            if (latin === undefined) return char;
+            return char === lower ? latin : latin.charAt(0).toUpperCase() + latin.slice(1);
+        })
+        .join('');
+}
+
+/** `[S1] Label\ntext` blocks of the request's <sources>. */
+export function prepareSources(text) {
+    const body = /<sources>\n([\s\S]*?)\n<\/sources>/.exec(String(text ?? ''))?.[1] ?? '';
+    const out = [];
+    for (const block of body.split(/\n(?=\[S\d+\] )/)) {
+        const match = /^\[(S\d+)\] ([^\n]*)\n?([\s\S]*)$/.exec(block.trim());
+        if (match) out.push({ ref: match[1], label: match[2], text: match[3] });
+    }
+    return out;
+}
+
+const PREP_PLACE_WORDS =
+    /tavern|harbou?r|market|fort|fens?\b|pass\b|lighthouse|hall\b|monastery|hut\b|archive|coast|reaches/i;
+const PREP_FACTION_WORDS = /\bhouse\b|order\b|guild|brotherhood|council|watch\b|smugglers|cult\b/i;
+const PREP_TRADITION_WORDS = /festival|oath|tradition|custom|leave bread|spirits/i;
+
+registerSchema('maestro_prepare', (ctx) => {
+    const request = ctx.lastUserText;
+    const persona = /The player's character: ([^.\n]+)\./.exec(request)?.[1]?.trim() || ctx.userName;
+    const sources = prepareSources(request);
+    const empty = {
+        characters: [],
+        places: [],
+        factions: [],
+        items: [],
+        traditions: [],
+        promises: [],
+        secrets: [],
+        mechanics: [],
+    };
+    const blank = (fields) => ({ ...Object.fromEntries(fields.map((field) => [field, ''])), russian: '', sources: [] });
+    const result = {
+        ...empty,
+        world: { ...blank(['name', 'english', 'setting', 'era', 'tone', 'laws', 'customs']), forms: [] },
+        time: blank(['date', 'time', 'calendar']),
+        scene: { ...blank(['place', 'date', 'time', 'situation']), present: [] },
+        direction: blank(['genre', 'pacing', 'firstScene', 'notes']),
+    };
+    const card = sources.filter((source) => !source.label.includes(' · '));
+    if (card.length) {
+        const all = card.map((source) => source.text).join('\n');
+        const refs = card.map((source) => source.ref);
+        const greeting = card.find((source) => /Starting scene/.test(source.label));
+        for (const match of all.matchAll(/^- ([А-ЯЁA-Z][\p{L}-]+) — ([^\n]+)$/gmu)) {
+            const name = match[1];
+            const english = translit(name);
+            result.characters.push({
+                name,
+                english,
+                forms: [],
+                role: `${english} is one of the people of the story.`,
+                appearance: `${english} looks the part of the role the story gives.`,
+                personality: `${english} acts as the card describes.`,
+                speech: 'Speaks plainly.',
+                relations: [{ to: persona, relation: `${english} has just met ${persona}.` }],
+                outfit: greeting?.text.includes(name.slice(0, 4)) ? 'a dark green cloak' : '',
+                present: !!greeting?.text.includes(name.slice(0, 4)),
+                persona: false,
+                russian: match[2].trim().slice(0, 150),
+                sources: refs.slice(0, 1),
+            });
+        }
+        const quoted = [...all.matchAll(/«([^»\n]{3,40})»/g)].map((match) => match[1]);
+        const places = [...new Set(quoted)].filter((name) => /^[А-ЯЁ]/.test(name)).slice(0, 2);
+        const top = /Серебрян\S+ Гаван\S+/.exec(all)?.[0] ? 'Серебряная Гавань' : '';
+        if (top) {
+            result.places.push({
+                name: top,
+                english: 'Silver Harbor',
+                forms: ['Гавань', 'Серебряной Гавани'],
+                parent: '',
+                kind: 'port city',
+                description: 'A free port on the cold northern coast.',
+                state: '',
+                russian: 'Вольный порт на холодном северном побережье.',
+                sources: refs.slice(0, 1),
+            });
+        }
+        for (const name of places) {
+            result.places.push({
+                name,
+                english: translit(name),
+                forms: [],
+                parent: top,
+                kind: 'tavern',
+                description: `${translit(name)} is where the story begins.`,
+                state: 'Rain drums on the shutters.',
+                russian: `«${name}» — место, где начинается история.`,
+                sources: refs.slice(0, 1),
+            });
+        }
+        const house = /торгов\S+ дом\S* (\p{Lu}\p{L}+)/u.exec(all)?.[1];
+        if (house) {
+            result.factions.push({
+                name: `Торговый дом ${house}`,
+                english: `House ${translit(house)}`,
+                forms: [house],
+                leader: '',
+                goals: 'Keep its seat on the council.',
+                description: 'An old merchant family.',
+                russian: `Старый торговый дом ${house}, держится за место в совете.`,
+                sources: refs.slice(0, 1),
+            });
+        }
+        const first = result.characters[0]?.name ?? DEFAULT_NAMES[0];
+        result.secrets.push({
+            text: `${translit(first)} knows more about the missing cargo than she says.`,
+            about: first,
+            knownBy: [first],
+            hiddenFrom: [persona],
+            russian: `${first} знает о пропавшем грузе больше, чем говорит.`,
+            sources: refs.slice(0, 1),
+        });
+        result.time = {
+            date: 'День 1',
+            time: /дожд|вечер/i.test(all) ? 'вечер' : 'утро',
+            calendar: '',
+            russian: 'История начинается в первый день, вечером.',
+            sources: refs.slice(0, 1),
+        };
+        result.scene = {
+            place: places[0] ?? top,
+            date: 'День 1',
+            time: result.time.time,
+            present: result.characters.filter((item) => item.present).map((item) => item.name),
+            situation: `${persona} arrives as the story begins.`,
+            russian: 'Герой входит, и история начинается.',
+            sources: greeting ? [greeting.ref] : refs.slice(0, 1),
+        };
+        result.mechanics.push({
+            name: 'Доверие',
+            english: 'Trust',
+            summary: 'How much the people of the story trust the player.',
+            rules: 'Trust grows with kept promises and falls with lies.',
+            template: '',
+            holders: 'characters',
+            holderNames: [],
+            attributes: [
+                {
+                    name: 'Доверие',
+                    english: 'Trust',
+                    kind: 'number',
+                    min: 0,
+                    max: 100,
+                    initial: '50',
+                    levels: [],
+                    options: [],
+                },
+            ],
+            initial: [{ holder: first, attribute: 'Trust', value: '40' }],
+            russian: 'Насколько персонажи доверяют герою.',
+            sources: refs.slice(0, 1),
+        });
+        result.direction = {
+            genre: 'Mystery',
+            pacing: 'Measured, with room for conversation.',
+            firstScene: 'dialogue',
+            notes: 'Open with talk, keep the threat off screen.',
+            russian: 'Детектив в неспешном темпе, начинается с разговора.',
+            sources: refs.slice(0, 1),
+        };
+        const world = /в мире ([\p{L}\s]+?)[.,]/u.exec(all)?.[1]?.trim();
+        if (world) {
+            result.world = {
+                name: world,
+                english: translit(world),
+                forms: [],
+                setting: 'A cold northern coast of free ports and fens.',
+                era: 'Age of sail',
+                tone: 'Grim and wet, with warm taverns.',
+                laws: 'Little magic; the sea rules.',
+                customs: 'Oaths are sworn on salt.',
+                russian: 'Холодное северное побережье вольных портов и топей.',
+                sources: refs.slice(0, 1),
+            };
+        }
+    }
+    for (const source of sources.filter((item) => item.label.includes(' · '))) {
+        const title = source.label.split(' · ').slice(1).join(' · ').trim();
+        const russian = /Keys: ([^\n]*)/
+            .exec(source.text)?.[1]
+            ?.split(',')
+            .map((key) => key.trim())
+            .find((key) => /[А-яЁё]/.test(key));
+        const name = russian || title;
+        const base = {
+            name,
+            english: title,
+            forms: [],
+            russian: `«${name}» — из книги мира этой истории.`,
+            sources: [source.ref],
+        };
+        const sentence =
+            source.text
+                .split('\n')
+                .find((line) => !line.startsWith('Keys:'))
+                ?.split('. ')[0] ?? title;
+        if (PREP_FACTION_WORDS.test(title))
+            result.factions.push({ ...base, leader: '', goals: '', description: `${sentence}.` });
+        else if (PREP_PLACE_WORDS.test(`${title} ${sentence}`))
+            result.places.push({ ...base, parent: '', kind: '', description: `${sentence}.`, state: '' });
+        else if (PREP_TRADITION_WORDS.test(`${title} ${sentence}`))
+            result.traditions.push({ ...base, when: '', practice: `${sentence}.`, meaning: '' });
+        else result.items.push({ ...base, owner: '', description: `${sentence}.` });
+    }
+    return result;
+});
+
 /* ------------------------------------------------------------------ reply builders */
 
 /**

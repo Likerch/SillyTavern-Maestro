@@ -26,6 +26,7 @@ import { metricsModule } from '../features/metrics';
 import { neighbourPromptsModule } from '../features/neighbourPrompts';
 import { offscreenModule } from '../features/offscreen';
 import { placesModule } from '../features/places';
+import { prepareModule } from '../features/prepare';
 import { presetStudioModule } from '../features/presetStudio';
 import { promptAuditModule } from '../features/promptAudit';
 import { qualityModule } from '../features/quality';
@@ -101,4 +102,6 @@ export const MODULES: MaestroModule[] = [
     assistantModule,
     // Release 1.13, second wave: the prompt audit (M38) — after the assistant, whose tools it registers.
     promptAuditModule,
+    // Release 1.15: scenario preparation.
+    prepareModule,
 ];

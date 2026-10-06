@@ -13,6 +13,12 @@ import {
     MECHANICS_EXTRACT_SCHEMA,
     parseExtractAnswer,
 } from '../../src/domain/mechanics-extract';
+import {
+    buildPrepareMessages,
+    parsePrepareAnswer,
+    prepareSchema,
+    PREPARE_SCHEMA,
+} from '../../src/domain/prepare-extract';
 import { buildRevisionMessages, revisionSchema } from '../../src/domain/revision-prompt';
 import {
     parseTranslation,
@@ -143,6 +149,51 @@ describe('mock LLM', () => {
         const text = chunks.map((c) => c.choices[0]?.delta.content ?? '').join('');
         expect(text.startsWith('```json')).toBe(true);
         expect(chunks.length).toBeGreaterThan(10);
+    });
+
+    it('answers the scenario preparation schema from the sources of the request', async () => {
+        const messages = buildPrepareMessages({
+            cardName: 'Хроники',
+            personaName: 'Кай',
+            known: { canon: [], places: [], passports: [] },
+            templates: [],
+            mechanics: [],
+            part: { index: 0, total: 1, core: true },
+            sources: [
+                {
+                    ref: 'S1',
+                    label: 'Card description',
+                    text: 'Мир: Серебряная Гавань — вольный порт.\n- Вера — капитан портовой стражи, немногословная.',
+                },
+                { ref: 'S2', label: 'Starting scene (the greeting)', text: 'Вера стоит в таверне «Солёный якорь».' },
+                {
+                    ref: 'S3',
+                    label: 'World · Old Fort',
+                    text: 'Keys: Old Fort, Старый форт\nThe Old Fort is a ruined fort.',
+                },
+            ],
+        });
+        const reply = await complete({
+            messages,
+            response_format: { type: 'json_schema', json_schema: { ...prepareSchema(), strict: true } },
+        });
+        const data = JSON.parse(reply.choices[0]!.message.content) as unknown;
+        expect(matchesSchema(data, PREPARE_SCHEMA)).toBe(true);
+        const parsed = parsePrepareAnswer(data, {
+            refs: new Map([
+                ['S1', 'card.description'],
+                ['S2', 'card.greeting'],
+                ['S3', 'book:World#7'],
+            ]),
+        });
+        const ids = parsed!.items.map((item) => item.id);
+        expect(ids).toEqual(
+            expect.arrayContaining(['character:vera', 'place:silver harbor', 'place:solenyy yakor', 'place:old fort']),
+        );
+        const vera = parsed!.items.find((item) => item.id === 'character:vera')!;
+        expect(vera.kind === 'character' && vera.data.present).toBe(true);
+        expect(vera.russian).toContain('капитан');
+        expect(parsed!.items.find((item) => item.id === 'place:old fort')?.sources).toEqual(['book:World#7']);
     });
 
     it('answers the real revision and living canon schemas with a Russian sentence for the cards', async () => {
