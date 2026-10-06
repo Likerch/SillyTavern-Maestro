@@ -2,7 +2,7 @@
 
 Расширение-дирижёр для SillyTavern. Оно связывает DES, Qvink Memory, BunnyMo и CarrotKernel, NAI Studio, DES-RU и Lorebook Localizer в одну систему. Maestro держит канон истории согласованным, показывает, из чего собран каждый ход, само чинит типовые сбои и ведёт сцену с минимальным участием пользователя.
 
-**Статус:** 1.10.3 — выполнены все этапы 0–13 плана разработки, дальше — правки по живым тестам. Список изменений — [`CHANGELOG.md`](CHANGELOG.md).
+**Статус:** 1.11.0 — выполнены все этапы 0–13 плана разработки; идут обновления по [`docs/plan-2.md`](docs/plan-2.md) (выпуски 1.11–1.15). Список изменений — [`CHANGELOG.md`](CHANGELOG.md).
 
 ## Что умеет сейчас
 
@@ -30,7 +30,7 @@
 ## Требования
 
 - SillyTavern 1.19, Chat Completion.
-- Работает с любым набором соседей; для всех возможностей — DES 2.6, DES-RU 0.8+, Lorebook Localizer 0.2+, NAI Studio 0.12.1+, Qvink Memory, BunnyMo V3.0 и CarrotKernel.
+- Работает с любым набором соседей; для всех возможностей — DES 2.6, DES-RU 0.8.2+, Lorebook Localizer 0.3+, NAI Studio 0.14+, Qvink Memory, BunnyMo V3.0 и CarrotKernel.
 - Для `{{if}}` в пресете — новый движок макросов ST (мастер первого запуска проверяет).
 
 ## Установка
@@ -39,7 +39,7 @@
 
 ## Документы
 
-- Функциональный план: [`docs/plan.md`](docs/plan.md)
+- Функциональный план: [`docs/plan.md`](docs/plan.md); обновления после 1.10: [`docs/plan-2.md`](docs/plan-2.md)
 - План разработки: [`docs/dev-plan.md`](docs/dev-plan.md)
 - Устройство кода: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
 - Отчёты этапов: [`docs/reports/`](docs/reports/)

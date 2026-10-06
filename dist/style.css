@@ -117,6 +117,106 @@
     color: #fff;
 }
 
+/* A job the user started is running: a thin ring around the same icon (no extra top-bar icons, plan-2 В18). */
+.maestro-topbar-busy .maestro-topbar-toggle::after {
+    content: '';
+    position: absolute;
+    inset: -3px;
+    border-radius: 50%;
+    pointer-events: none;
+    opacity: 0.85;
+    background: conic-gradient(
+        var(--maestro-accent) calc(var(--maestro-job-progress, 0.25) * 1turn),
+        color-mix(in srgb, var(--maestro-accent) 18%, transparent) 0
+    );
+    -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 2px));
+    mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 2px));
+}
+
+.maestro-topbar-indeterminate .maestro-topbar-toggle::after {
+    animation: maestro-job-spin 1.4s linear infinite;
+}
+
+@keyframes maestro-job-spin {
+    to {
+        transform: rotate(1turn);
+    }
+}
+
+/* ------------------------------------------------------------------ progress bars and user jobs */
+
+.maestro-progress {
+    position: relative;
+    height: 6px;
+    border-radius: 3px;
+    background: var(--maestro-raised-strong);
+    overflow: hidden;
+}
+
+.maestro-progress-bar {
+    height: 100%;
+    width: 0;
+    background: var(--maestro-accent);
+    transition: width var(--maestro-duration) ease;
+}
+
+.maestro-progress-indeterminate .maestro-progress-bar {
+    width: 35%;
+    animation: maestro-progress-sweep 1.4s ease-in-out infinite;
+}
+
+@keyframes maestro-progress-sweep {
+    from {
+        transform: translateX(-100%);
+    }
+
+    to {
+        transform: translateX(290%);
+    }
+}
+
+.maestro-jobs {
+    display: flex;
+    flex-direction: column;
+    gap: var(--maestro-gap-sm);
+}
+
+.maestro-job {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: var(--maestro-gap-sm) var(--maestro-gap);
+    border: 1px solid var(--maestro-border);
+    border-radius: var(--maestro-radius-sm);
+    background: var(--maestro-raised);
+}
+
+.maestro-job-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--maestro-gap-sm);
+}
+
+.maestro-job-title {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+}
+
+.maestro-job-status {
+    overflow-wrap: anywhere;
+}
+
+.maestro-job-failed .maestro-job-status {
+    color: var(--maestro-error);
+}
+
+.maestro-job-warn .maestro-job-status {
+    color: var(--maestro-warn);
+}
+
 .maestro-ext-content {
     display: flex;
     flex-direction: column;
@@ -643,6 +743,45 @@
 
 .maestro-change-target {
     font-weight: 600;
+}
+
+.maestro-change-label {
+    font-weight: 600;
+    color: var(--maestro-text, inherit);
+}
+
+/* «Подробнее» (plan-2 §3): technical parts of cards and journal records, collapsed by default. */
+.maestro-details {
+    color: var(--maestro-muted);
+    font-size: 0.9em;
+}
+
+.maestro-details > summary {
+    cursor: pointer;
+    width: fit-content;
+}
+
+.maestro-details > :not(summary) {
+    margin-top: 4px;
+}
+
+.maestro-details-notes {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+/* A notice's action as a real button on the toast (no «по нажатию» suffix). */
+.maestro-toast {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+}
+
+.maestro-toast-action.menu_button {
+    margin: 0;
+    padding: 2px 8px;
+    width: auto;
 }
 
 .maestro-diff {
@@ -1172,7 +1311,9 @@
     .maestro-ui,
     .maestro-badge,
     .maestro-topbar *,
-    #chat .mes.maestro-flash {
+    #chat .mes.maestro-flash,
+    .maestro-topbar-toggle::after,
+    .maestro-progress-bar {
         animation: none !important;
         transition: none !important;
         scroll-behavior: auto !important;
