@@ -662,37 +662,64 @@ export function conformToSchema(value, schema, root = schema, depth = 0, hint = 
 // filling rules above keep these replies valid even when the real schema differs.
 registerSchema('maestro_ping', (ctx) => ({ ok: true, model: ctx.model, echo: ctx.lastUserText.slice(0, 120) }));
 
+/** The last `#N` / `[N]` message number of the request (revision and living canon number their messages). */
+function lastMessageIndex(text) {
+    const numbers = [...String(text ?? '').matchAll(/(?:^|\n)(?:#|\[)(\d+)\]?\s/g)].map((match) => Number(match[1]));
+    return numbers.length ? Math.max(...numbers) : 0;
+}
+
+// Revision «сюжет → канон» (src/domain/revision-prompt.ts): the value keeps its English/tag format, `russian` is the
+// sentence the user's Inbox card shows (plan-2 §3).
 registerSchema('maestro_revision', (ctx) => {
     const [a = DEFAULT_NAMES[0], b = DEFAULT_NAMES[1]] = ctx.names;
+    const sourceMessage = lastMessageIndex(ctx.lastUserText);
     return {
         changes: [
             {
                 class: 'known',
-                target: a,
-                field: 'relationship',
-                before: 'Neutral',
-                after: 'Ally',
+                entity: a,
+                target: 'canon.fact',
+                field: '',
+                value: `${a} now openly sides with ${ctx.userName}.`,
+                russian: `${a} теперь открыто на стороне ${ctx.userName}.`,
+                before: '',
                 evidence: `${a} открыто встаёт на сторону ${ctx.userName}.`,
+                sourceMessage,
+                confidence: 0.85,
             },
             {
                 class: 'new',
-                target: 'Башня Звёздочётов Ориса',
-                field: 'location',
-                after: 'Старая башня над крышами Гавани',
+                entity: 'Башня Звёздочётов Ориса',
+                target: 'canon.fact',
+                field: '',
+                value: "An old stargazers' tower stands above the roofs of the Harbour.",
+                russian: 'Над крышами Гавани стоит старая башня звездочётов.',
+                before: '',
                 evidence: `${b} упоминает башню впервые.`,
+                sourceMessage,
+                confidence: 0.8,
             },
         ],
-        summary: 'Отношения изменились, появилось новое место.',
     };
 });
 
-registerSchema('maestro_living_canon', (ctx) => ({
-    facts: (ctx.names.length ? ctx.names : DEFAULT_NAMES).slice(0, 3).map((name, i) => ({
-        subject: name,
-        statement: `${name} находится в ${ctx.location ?? DEFAULT_LOCATION}.`,
-        confidence: 0.9 - i * 0.1,
-    })),
-}));
+// Living canon batch extraction (src/domain/living-extract.ts, schema name 'living_canon'): English canon texts for
+// the provisional facts it was sent, each with a short Russian sentence for the user's cards and notices.
+registerSchema('living_canon', (ctx) => {
+    const provisional = [...String(ctx.lastUserText ?? '').matchAll(/uid (\d+): ([^\n(]+?) \((\w+)\)/g)].map(
+        (match) => ({
+            uid: Number(match[1]),
+            name: match[2].trim(),
+            english: '',
+            type: match[3],
+            // English only: the canon text is checked for Latin script (the Russian name stays in the keys).
+            text: `A ${match[3]} the narrator introduced recently; the people of the story know it well.`,
+            russian: `${match[2].trim()} — то, что появилось в истории недавно.`,
+            duplicateOf: '',
+        }),
+    );
+    return { provisional, facts: [] };
+});
 
 registerSchema('maestro_backstage', (ctx) => ({
     events: [

@@ -199,7 +199,11 @@ export function directorTab(app: App, service: DirectorService, settings: () => 
                 className: 'maestro-m13-nudge',
                 onClick: async () => {
                     const note = await service.nudge();
-                    app.ui.notice(t(note ? 'm14.nudge.done' : 'm14.nudge.nothing'), { level: note ? 'info' : 'warn' });
+                    // A reply to the user's own click: shown at every notification level.
+                    app.ui.notice(t(note ? 'm14.nudge.done' : 'm14.nudge.nothing'), {
+                        level: note ? 'info' : 'warn',
+                        urgent: true,
+                    });
                 },
             }),
         );

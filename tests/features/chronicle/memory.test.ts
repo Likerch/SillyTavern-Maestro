@@ -67,9 +67,15 @@ describe('M9 auto-memory: the «remember» mark', () => {
         const record = t.journal.records.find((entry) => entry.kind === REMEMBER_KIND)!;
         expect(record).toMatchObject({
             module: 'M9',
-            summary: '«Remember» message #1: important event (Turning point)',
+            summary: 'Message #1 into long-term memory: important event (Turning point)',
         });
         expect(record.changes[0]).toMatchObject({ target: 'm9.remember', ref: { index: 1 } });
+        const proposal = t.autonomy.proposals.find((entry) => entry.kind === REMEMBER_KIND)!;
+        expect(proposal.appliedNotice).toMatchObject({
+            text: 'Kept message #1 in long-term memory: important event (Turning point).',
+            group: 'm9.remember.applied',
+        });
+        expect(proposal.appliedNotice?.groupText?.(3)).toBe('Kept 3 important moments in long-term memory');
 
         expect(await t.journal.undo(record.id)).toBe(true);
         expect(qvinkOf(message)).toEqual({

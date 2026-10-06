@@ -72,6 +72,7 @@ describe('module_toggle', () => {
         const record = fake.undoJournal.records[0]!;
         expect(record.module).toBe('M33');
         expect(record.kind).toBe('assistant.module');
+        expect(record.summary).toBe('Выключил модуль «Режиссёр»');
         expect(record.changes[0]).toEqual({
             target: 'assistant-module',
             ref: { key: 'director' },
@@ -124,7 +125,11 @@ describe('module_toggle', () => {
 
 describe('autonomy_set', () => {
     it('sets a level through setLevel, journals it and undoes it back to the module default', async () => {
-        const fake = writeFake({ modules: MODULES.map((row) => ({ ...row })) });
+        const fake = writeFake({
+            modules: MODULES.map((row) => ({ ...row })),
+            locale: 'ru',
+            strings: { ru: { 'kind.canon.fact': 'Факты канона' } },
+        });
         fake.autonomy.stats.push('canon.fact');
         const plan = await fake.plan('autonomy_set', { kind: 'canon.fact', level: 'auto' }, 'ru');
         expect(plan.summary).toBe('Автономия «canon.fact»: Как задано в модуле → Само');
@@ -134,6 +139,8 @@ describe('autonomy_set', () => {
         await plan.apply();
         expect(fake.autonomy.setLevelCalls).toEqual([{ kind: 'canon.fact', level: 'auto' }]);
         expect(fake.core.autonomy['canon.fact']).toBe('auto');
+        // The journal names the kind by its label; the raw kind stays in ref.
+        expect(fake.undoJournal.records[0]!.summary).toBe('Поставил «Само» для «Факты канона»');
         expect(fake.undoJournal.records[0]!.changes[0]).toEqual({
             target: 'assistant-autonomy',
             ref: { kind: 'canon.fact' },
@@ -152,6 +159,7 @@ describe('autonomy_set', () => {
         expect(plan.before).toBe('Ask');
         expect(plan.after).toBe('Module default');
         await plan.apply();
+        expect(fake.undoJournal.records[0]!.summary).toBe('Set «Module default» for one kind of actions');
         expect('doctor.regexFix' in fake.core.autonomy).toBe(false);
         expect(await fake.undoJournal.undoLast()).toBe(true);
         expect(fake.core.autonomy['doctor.regexFix']).toBe('ask');

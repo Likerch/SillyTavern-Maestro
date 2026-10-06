@@ -9,6 +9,7 @@ import { createFileStore } from '../core/files';
 import { createI18n, hostLocale } from '../core/i18n';
 import { createInbox } from '../core/inbox';
 import { createJournal } from '../core/journal';
+import { createLabels } from '../core/labels';
 import { createLeader } from '../core/leader';
 import { createLlmClient } from '../core/llm';
 import { ConsoleLogger, createLogger } from '../core/logger';
@@ -71,6 +72,7 @@ export async function startMaestro(): Promise<Runtime> {
     const ui = createUi({ host, i18n, settings, log: log.scope('ui') });
     autonomy.bind({ inbox, ui, i18n });
 
+    const labels = createLabels();
     const adapters = createAdapters(host, log.scope('adapters'));
     const modules = new Modules(settings, log.scope('modules'));
 
@@ -98,6 +100,8 @@ export async function startMaestro(): Promise<Runtime> {
 
     modules.register(MODULES, (module) => {
         if (module.i18n) i18n.register(module.i18n);
+        // Labels of journal targets stay registered while the module is off: its old records still read well.
+        if (module.targets) labels.register(module.targets);
     });
 
     host.install();
@@ -112,7 +116,18 @@ export async function startMaestro(): Promise<Runtime> {
     tasks.start();
     cost.install();
     ui.mount();
-    ui.registerCoreViews({ inbox, journal, autonomy, cost, modules, settings, caps: host.caps, tasks, i18n });
+    ui.registerCoreViews({
+        inbox,
+        journal,
+        autonomy,
+        cost,
+        modules,
+        settings,
+        caps: host.caps,
+        tasks,
+        i18n,
+        labels,
+    });
     const offDataActions = installDataActions(app);
     await modules.startAll(app);
     ui.runFirstRunWizardIfNeeded();

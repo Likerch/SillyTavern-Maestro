@@ -104,6 +104,7 @@ describe('regex_create', () => {
         expect(env.saves).toBe(1);
         expect(env.acknowledged).toEqual([['regex']]);
         expect(env.scans).toBe(1);
+        expect(fake.undoJournal.records[0]!.summary).toBe('Added the regex «No asterisks»');
         const change = fake.undoJournal.records[0]!.changes[0]!;
         expect(change.target).toBe('assistant-regex');
         expect(change.ref).toEqual({ op: 'create', scriptId: 'uuid-1', name: 'No asterisks' });
@@ -245,6 +246,7 @@ describe('regex_toggle', () => {
         await plan.apply();
         expect((env.settings.regex[0] as Record<string, unknown>).disabled).toBe(true);
         expect(env.saves).toBe(1);
+        expect(fake.undoJournal.records[0]!.summary).toBe('Выключил регекс «Trim»');
         expect(fake.undoJournal.records[0]!.changes[0]).toMatchObject({
             target: 'assistant-regex',
             ref: { op: 'toggle', scriptId: 'a1', name: 'Trim' },

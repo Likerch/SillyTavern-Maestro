@@ -23,10 +23,60 @@ beforeEach(() => {
 afterEach(() => ui.dispose());
 
 describe('notice()', () => {
-    it('keeps non-urgent notices quiet: no toast, no badge', () => {
+    it('shows every notice as a short toast at «Всё» (the default) without a badge for non-urgent ones', () => {
         ui.notice('Тихое сообщение');
-        expect(env.toastr.info).not.toHaveBeenCalled();
+        expect(env.toastr.info).toHaveBeenCalledTimes(1);
+        const [text, title, options] = env.toastr.info.mock.calls[0] as [string, string, { timeOut: number }];
+        expect([text, title, options.timeOut]).toEqual(['Тихое сообщение', 'Maestro', 5000]);
         expect(topBadge()?.hidden).toBe(true);
+    });
+
+    it('filters toasts by the notification level; the Overview still lists everything', () => {
+        env.settings.core().notifyLevel = 'important';
+        ui.notice('Сведение');
+        ui.notice('Важное', { importance: 'important' });
+        ui.notice('Предупреждение', { level: 'warn' });
+        ui.notice('Срочное', { urgent: true });
+        expect(env.toastr.info.mock.calls.map((call) => call[0])).toEqual(['Важное', 'Срочное']);
+        expect(env.toastr.warning.mock.calls.map((call) => call[0])).toEqual(['Предупреждение']);
+        env.settings.core().notifyLevel = 'urgent';
+        ui.notice('Ещё важное', { importance: 'important', level: 'warn' });
+        ui.notice('Ещё срочное', { importance: 'urgent' });
+        expect(env.toastr.warning).toHaveBeenCalledTimes(1);
+        expect(env.toastr.info.mock.calls.map((call) => call[0])).toEqual(['Важное', 'Срочное', 'Ещё срочное']);
+        ui.openPult('overview');
+        expect(document.querySelectorAll('.maestro-notice')).toHaveLength(6);
+    });
+
+    it('merges notices of one group within a turn and starts again after the user sends a message', async () => {
+        const undo = [vi.fn(), vi.fn(), vi.fn()];
+        const groupText = (count: number) => `Запомнил ${count} факта`;
+        ui.notice('Запомнил: праздник', { group: 'facts', groupText, action: { label: 'Отменить', run: undo[0]! } });
+        ui.notice('Запомнил: таверна', { group: 'facts', groupText, action: { label: 'Отменить', run: undo[1]! } });
+        ui.notice('Другое');
+        ui.openPult('overview');
+        const texts = () => [...document.querySelectorAll('.maestro-notice-text')].map((node) => node.textContent);
+        expect(texts()).toEqual(['Другое', 'Запомнил 2 факта']);
+        // The merged entry's button runs every action of the group (here: undo both facts).
+        const merged = [...document.querySelectorAll<HTMLElement>('.maestro-notice')][1]!;
+        merged.querySelector('button')!.click();
+        expect(undo[0]).toHaveBeenCalledTimes(1);
+        expect(undo[1]).toHaveBeenCalledTimes(1);
+        // The previous toast of the group is replaced, not stacked.
+        expect(env.toastr.clear).not.toHaveBeenCalled();
+        await env.mock.eventSource.emit('message_sent', 3);
+        ui.notice('Запомнил: мост', { group: 'facts', groupText, action: { label: 'Отменить', run: undo[2]! } });
+        ui.openPult('overview');
+        expect(texts()).toEqual(['Запомнил: мост', 'Другое', 'Запомнил 2 факта']);
+    });
+
+    it('merges without a group text as «first … и ещё N»', () => {
+        ui.notice('Убрал событие о Флоренс', { group: 'offscreen' });
+        ui.notice('Убрал событие о Марке', { group: 'offscreen' });
+        ui.notice('Убрал событие об Иве', { group: 'offscreen' });
+        ui.openPult('overview');
+        expect(document.querySelector('.maestro-notice-text')?.textContent).toBe('Убрал событие о Флоренс и ещё 2');
+        expect(env.toastr.info.mock.calls.at(-1)?.[0]).toBe('Убрал событие о Флоренс и ещё 2');
     });
 
     it('shows urgent notices as a toast of the matching level with the same text', () => {
@@ -38,12 +88,23 @@ describe('notice()', () => {
         expect(env.toastr.warning).toHaveBeenCalledTimes(1);
     });
 
-    it('runs the action when the toast is clicked and mentions it in the text', () => {
+    it('puts the action on a button of the toast: the button acts, a click elsewhere opens the Overview', () => {
         const run = vi.fn();
         ui.notice('Вкладка устарела', { urgent: true, action: { label: 'Обновить', run } });
-        const [text, , options] = env.toastr.info.mock.calls[0] as [string, string, { onclick: () => void }];
-        expect(text).toContain('Обновить');
-        options.onclick();
+        const [message, , options] = env.toastr.info.mock.calls[0] as [
+            HTMLElement,
+            string,
+            { onclick: (event?: { target: unknown }) => void; escapeHtml: boolean },
+        ];
+        // No «(по нажатию: …)» suffix any more: the text is the text, the action is a real button.
+        expect(message.querySelector('.maestro-toast-text')?.textContent).toBe('Вкладка устарела');
+        const button = message.querySelector<HTMLButtonElement>('.maestro-toast-action')!;
+        expect(button.textContent).toBe('Обновить');
+        expect(options.escapeHtml).toBe(false);
+        options.onclick({ target: message.querySelector('.maestro-toast-text') });
+        expect(run).not.toHaveBeenCalled();
+        expect(document.querySelector('.maestro-pult')).not.toBeNull();
+        options.onclick({ target: button });
         expect(run).toHaveBeenCalledTimes(1);
     });
 
@@ -96,6 +157,15 @@ describe('confirm()', () => {
         await expect(ui.confirm('a', 'b')).resolves.toBe(false);
         env.callGenericPopup.mockRejectedValueOnce(new Error('no popup'));
         await expect(ui.confirm('a', 'b')).resolves.toBe(false);
+    });
+
+    it('keeps technical notes collapsed under «Подробнее»', async () => {
+        await ui.confirm('Исправить книгу «Мир»?', 'Поменяю 2 записи.', { details: 'uid 4: role 2 → 0' });
+        const content = env.callGenericPopup.mock.calls[0]?.[0] as HTMLElement;
+        const details = content.querySelector<HTMLDetailsElement>('details.maestro-details')!;
+        expect(details.open).toBe(false);
+        expect(details.querySelector('summary')?.textContent).toBe('Подробнее');
+        expect(details.textContent).toContain('uid 4: role 2 → 0');
     });
 
     it('accepts an element body', async () => {

@@ -11,6 +11,7 @@
 //   most three) — the voice cards (M15) show them as «Unaware of: …»;
 // - the user marks who knows from the pult: journaled with undo. The store is capped (oldest scene facts go first).
 import { adaptersOf } from '../../adapters';
+import { formatClip } from '../../core/labels';
 import {
     addDrafts,
     capFacts,
@@ -59,6 +60,8 @@ const SETTLE_MS = 400;
 /** Names offered to the reply reader and the secret parser at most. */
 const MAX_NAMES = 300;
 const PEOPLE: readonly string[] = ['character', 'persona'];
+/** Chat words quoted in a journal line at most. */
+const QUOTE_CLIP = formatClip(100);
 
 function newId(): string {
     return `kf-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
@@ -509,7 +512,7 @@ export class KnowledgeService {
         if (outcome.created) {
             await this.journal({
                 kind: 'knowledge.secret',
-                summary: t('m18.journal.secret', { text }),
+                summary: t('m18.journal.secret', { text: this.words(outcome.fact) }),
                 changes: [
                     {
                         target: SECRET_TARGET,
@@ -543,16 +546,23 @@ export class KnowledgeService {
             const fact = doc.facts.find((item) => item.id === factId);
             if (!fact) return { changed: false, result: null };
             const changed = setKnown(fact, name, known);
-            return { changed, result: { text: fact.text, changed } };
+            return { changed, result: { words: this.words(fact), changed } };
         });
         if (outcome === null) throw new Error(t('m18.error.noFact'));
         if (outcome === undefined) throw new Error(t('m18.error.notSaved'));
         if (!outcome.changed) return;
         await this.journal({
             kind: 'knowledge.known',
-            summary: t(known ? 'm18.journal.known' : 'm18.journal.unknown', { name, fact: outcome.text }),
+            summary: t(known ? 'm18.journal.known' : 'm18.journal.unknown', { name, fact: outcome.words }),
             changes: [{ target: KNOWN_TARGET, ref: { factId, character: name }, before: !known, after: known }],
         });
+    }
+
+    /** A fact in a journal line: the chat's own words when there are some (the statement is English), cut short. */
+    private words(fact: { text: string; quote?: string }): string {
+        const quote = fact.quote?.trim();
+        if (!quote) return fact.text;
+        return this.app.i18n.t('m18.journal.quote', { text: QUOTE_CLIP(quote, this.app.i18n) });
     }
 
     private async journal(action: { kind: string; summary: string; changes: JournalChange[]; sourceMessage?: number }) {

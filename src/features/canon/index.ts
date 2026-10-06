@@ -11,7 +11,7 @@ import { CanonGlosses } from './glosses';
 import { CanonScan, defaultCanonSettings } from './scan';
 import type { CanonSettings } from './scan';
 import { CANON_ID, CANON_KEY, CanonStore } from './store';
-import { CANON_STRINGS } from './strings';
+import { CANON_STRINGS, CANON_TARGETS } from './strings';
 import { CANON_CSS, canonTab } from './view';
 
 function readSettings(slice: Partial<CanonSettings>): CanonSettings {
@@ -35,6 +35,7 @@ export const canonModule: MaestroModule<CanonSettings> = {
     defaults: defaultCanonSettings,
     requires: ['st.events.entriesLoaded', 'st.events.scanDone'],
     i18n: CANON_STRINGS,
+    targets: CANON_TARGETS,
     init({ app, log, own }) {
         const settings = () => readSettings(app.settings.module<Partial<CanonSettings>>(CANON_KEY));
         const store = new CanonStore(app, log);
@@ -93,7 +94,7 @@ export const canonModule: MaestroModule<CanonSettings> = {
     },
 };
 
-export { CANON_STRINGS } from './strings';
+export { CANON_STRINGS, CANON_TARGETS } from './strings';
 export { CanonStore } from './store';
 export { CanonScan, defaultCanonSettings } from './scan';
 export type { CanonSettings } from './scan';

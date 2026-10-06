@@ -252,7 +252,8 @@ export class RecapService {
         if (!chatId) return '';
         const material = await this.material();
         if (!hasMaterial(material)) {
-            app.ui.notice(env.t('m9.recap.empty'));
+            // A reply to «Показать сейчас».
+            app.ui.notice(env.t('m9.recap.empty'), { urgent: true });
             return '';
         }
         const settings = env.settings().recap;

@@ -202,7 +202,7 @@ describe('module lifecycle', () => {
         const run = await s.lore.start(module);
         await s.slash[0]!.callback({}, '');
         expect(document.querySelector('.maestro-m34-dialog')).toBeNull();
-        expect(s.notices.at(-1)?.text).toContain('data layer');
+        expect(s.notices.at(-1)?.text).toContain('cannot open');
         await run.stop();
     });
 });

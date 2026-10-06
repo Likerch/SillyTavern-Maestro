@@ -14,6 +14,7 @@
 //   facts and the facts the cheap search missed.
 // Passes run one at a time (a serial chain), so an invalidation never interleaves with the commit of the same reply.
 import { adaptersOf } from '../../adapters';
+import { tPlural } from '../../core/labels';
 import { uniqueStrings } from '../../domain/canon-keys';
 import { desSwipeRecord, parseDesCharacters, parseDesInfoBox } from '../../domain/des-tracker';
 import {
@@ -136,14 +137,27 @@ export interface CandidatePayload {
     origin: FactOrigin;
     text?: string;
     english?: string;
+    /** The fact in one short Russian sentence (batch extraction), for cards and notices. */
+    russian?: string;
     conflict?: string;
+    /** The quote again, for the Inbox card's evidence line (core view convention). */
+    evidence?: string;
+}
+
+/** What a disputed card says to the user: the reply's quote and the names of what it contradicts. */
+interface DisputedView {
+    evidence?: string;
+    /** Labels of the canon items it contradicts (the full conflict text stays in `conflict`, for details). */
+    against?: string[];
 }
 
 /** Payload of a 'living.disputed' card: a new fact, an existing provisional one, or a conflict with confirmed canon. */
-export type DisputedPayload =
-    | { mode: 'new'; candidate: CandidatePayload; conflict: string }
-    | { mode: 'existing'; id: string; uid: number; conflict: string }
-    | { mode: 'conflict'; id: string; uid: number; quote: string; sourceMessage: number; conflict: string };
+export type DisputedPayload = DisputedView &
+    (
+        | { mode: 'new'; candidate: CandidatePayload; conflict: string }
+        | { mode: 'existing'; id: string; uid: number; conflict: string }
+        | { mode: 'conflict'; id: string; uid: number; quote: string; sourceMessage: number; conflict: string }
+    );
 
 interface CandidateInput {
     name: string;
@@ -155,6 +169,7 @@ interface CandidateInput {
     variants?: string[];
     text?: string;
     english?: string;
+    russian?: string;
     mergeInto?: string;
 }
 
@@ -189,6 +204,7 @@ function readCandidate(value: unknown): CandidatePayload | null {
     };
     if (typeof value.text === 'string' && value.text.trim()) candidate.text = value.text;
     if (typeof value.english === 'string' && value.english.trim()) candidate.english = value.english;
+    if (typeof value.russian === 'string' && value.russian.trim()) candidate.russian = value.russian;
     if (typeof value.conflict === 'string' && value.conflict) candidate.conflict = value.conflict;
     return candidate;
 }
@@ -221,6 +237,16 @@ function newId(): string {
 function clip(text: string, max: number): string {
     const value = text.replace(/\s+/g, ' ').trim();
     return value.length > max ? `${value.slice(0, max - 1)}…` : value;
+}
+
+/** Names of what a statement contradicts, for the user (at most three). */
+function againstOf(hits: readonly Contradiction[]): string[] {
+    return uniqueStrings(hits.map((hit) => hit.label.trim()).filter(Boolean)).slice(0, 3);
+}
+
+/** A sentence without its final full stop (it goes into a longer line). */
+function bare(sentence: string): string {
+    return sentence.trim().replace(/[.。]+$/u, '');
 }
 
 /** Canon meta of an item (unknown fields such as `livingId` kept) without the bookkeeping put() fills in itself. */
@@ -974,11 +1000,18 @@ export class LivingCanonService implements Required<LivingCanonApi> {
         };
         if (input.text) payload.text = input.text;
         if (input.english) payload.english = input.english;
+        if (input.russian) payload.russian = input.russian;
+        if (input.quote) payload.evidence = clip(input.quote, 300);
         const hits = await this.contradictionsOf(input.text ?? input.quote, input.name, undefined, mode);
         budget.left--;
         if (hits.length) {
             payload.conflict = this.describe(hits);
-            await this.dispute({ mode: 'new', candidate: payload, conflict: payload.conflict });
+            await this.dispute({
+                mode: 'new',
+                candidate: payload,
+                conflict: payload.conflict,
+                against: againstOf(hits),
+            });
             return 'disputed';
         }
         const decision = await this.decideInline(payload.id, () =>
@@ -989,21 +1022,52 @@ export class LivingCanonService implements Required<LivingCanonApi> {
         return 'skipped';
     }
 
+    /** The fact in plain words: the model's Russian sentence, else «Традиция: Праздник урожая». */
+    private statement(fact: { name: string; type: LivingType; russian?: string }): string {
+        if (fact.russian?.trim()) return fact.russian.trim();
+        return this.t('m26.statement', { type: this.typeName(fact.type, true), name: fact.name });
+    }
+
+    private typeName(type: LivingType, capital = false): string {
+        const name = this.t(`m26.type.${type}`);
+        return capital ? name.charAt(0).toUpperCase() + name.slice(1) : name;
+    }
+
+    /** Technical lines of a card: canon book, keys, the English canon text, the full contradiction. */
+    private details(parts: { book?: string; keys?: readonly string[]; text?: string; conflict?: string }): string {
+        const lines: string[] = [];
+        if (parts.book) lines.push(this.t('m26.details.book', { book: parts.book }));
+        if (parts.keys?.length) lines.push(this.t('m26.details.keys', { keys: parts.keys.join(', ') }));
+        if (parts.text) lines.push(this.t('m26.details.text', { text: parts.text }));
+        if (parts.conflict) lines.push(this.t('m26.details.conflict', { conflict: parts.conflict }));
+        return lines.join('\n');
+    }
+
     private factProposal(payload: CandidatePayload): Proposal<CandidatePayload> {
         const book = this.canon()?.bookName() ?? '';
+        const statement = this.statement(payload);
+        const what = payload.russian?.trim()
+            ? bare(payload.russian)
+            : this.t('m26.notice.what', { name: payload.name, type: this.typeName(payload.type) });
+        const after: Record<string, unknown> = {
+            name: payload.name,
+            type: payload.type,
+            quote: payload.quote,
+            keys: payload.keys,
+        };
+        if (payload.russian) after.russian = payload.russian;
         return {
             module: LIVING_ID,
             kind: FACT_KIND,
             title: this.t('m26.proposal.fact', { name: payload.name }),
-            description: payload.text ?? payload.quote,
-            changes: [
-                {
-                    target: FACT_TARGET,
-                    ref: { id: payload.id, book },
-                    before: null,
-                    after: { name: payload.name, type: payload.type, quote: payload.quote, keys: payload.keys },
-                },
-            ],
+            description: this.t('m26.proposal.factBody', { statement }),
+            details: this.details({ book, keys: payload.keys, text: payload.text }),
+            appliedNotice: {
+                text: this.t('m26.notice.captured', { what }),
+                group: 'living.captured',
+                groupText: (count) => tPlural(this.app.i18n, 'm26.notice.capturedMany', count),
+            },
+            changes: [{ target: FACT_TARGET, ref: { id: payload.id, book }, before: null, after }],
             payload,
             sourceMessage: payload.sourceMessage,
             apply: async (value) => {
@@ -1071,6 +1135,7 @@ export class LivingCanonService implements Required<LivingCanonApi> {
             };
             if (candidate.text) fact.text = candidate.text;
             if (candidate.english) fact.english = candidate.english;
+            if (candidate.russian) fact.russian = candidate.russian;
             if (candidate.conflict) {
                 fact.conflict = candidate.conflict;
                 fact.dispute = 'kept';
@@ -1244,16 +1309,18 @@ export class LivingCanonService implements Required<LivingCanonApi> {
                   ? payload.sourceMessage
                   : this.store.peek()?.facts.find((fact) => fact.id === payload.id)?.sourceMessage;
         const book = this.canon()?.bookName() ?? '';
+        const known =
+            payload.mode === 'new' ? undefined : this.store.peek()?.facts.find((fact) => fact.id === payload.id);
+        const subject = payload.mode === 'new' ? payload.candidate : known;
+        const after: Record<string, unknown> = { name, quote };
+        if (payload.mode === 'new') {
+            after.type = payload.candidate.type;
+            after.keys = payload.candidate.keys;
+            if (payload.candidate.russian) after.russian = payload.candidate.russian;
+        }
         const changes: JournalChange[] =
             payload.mode === 'new'
-                ? [
-                      {
-                          target: FACT_TARGET,
-                          ref: { id: payload.candidate.id, book },
-                          before: null,
-                          after: { name, quote, keys: payload.candidate.keys },
-                      },
-                  ]
+                ? [{ target: FACT_TARGET, ref: { id: payload.candidate.id, book }, before: null, after }]
                 : [];
         await this.store.mutate((doc) => {
             if (payload.mode === 'new') {
@@ -1277,6 +1344,7 @@ export class LivingCanonService implements Required<LivingCanonApi> {
                 };
                 if (candidate.text) fact.text = candidate.text;
                 if (candidate.english) fact.english = candidate.english;
+                if (candidate.russian) fact.russian = candidate.russian;
                 doc.facts.push(fact);
                 return { changed: true, result: undefined };
             }
@@ -1287,16 +1355,29 @@ export class LivingCanonService implements Required<LivingCanonApi> {
             if (payload.mode === 'conflict') countContradicted(doc, fact);
             return { changed: true, result: undefined };
         });
-        const title = this.t(payload.mode === 'conflict' ? 'm26.proposal.conflict' : 'm26.proposal.disputed', { name });
+        const titleKey = {
+            new: 'm26.proposal.disputed',
+            existing: 'm26.proposal.existing',
+            conflict: 'm26.proposal.conflict',
+        }[payload.mode];
+        const against = payload.against?.length ? payload.against.join(', ') : this.t('m26.against.unknown');
         const description = this.t(`m26.proposal.${payload.mode}Body`, {
-            quote: clip(quote, 300),
-            conflict: payload.conflict,
+            statement: subject ? this.statement(subject) : name,
+            name,
+            against,
         });
+        if (quote) payload.evidence = clip(quote, 300);
         const proposal: Proposal<DisputedPayload> = {
             module: LIVING_ID,
             kind: DISPUTED_KIND,
-            title,
+            title: this.t(titleKey, { name }),
             description,
+            details: this.details({
+                book,
+                keys: payload.mode === 'new' ? payload.candidate.keys : undefined,
+                text: subject?.text,
+                conflict: payload.conflict,
+            }),
             changes,
             payload,
             apply: (value) => this.applyLater(key, () => this.acceptDisputed(value)),
@@ -1413,6 +1494,7 @@ export class LivingCanonService implements Required<LivingCanonApi> {
             quote: statement,
             sourceMessage,
             conflict: this.describe(hits),
+            against: againstOf(hits),
         });
     }
 
@@ -1478,7 +1560,13 @@ export class LivingCanonService implements Required<LivingCanonApi> {
             }
             const conflict = this.describe(hits);
             if (survived && !fact.dispute) {
-                await this.dispute({ mode: 'existing', id: fact.id, uid: fact.uid, conflict });
+                await this.dispute({
+                    mode: 'existing',
+                    id: fact.id,
+                    uid: fact.uid,
+                    conflict,
+                    against: againstOf(hits),
+                });
             } else if (fact.conflict !== conflict) {
                 await this.store.mutate((next) => {
                     const live = next.facts.find((item) => item.id === fact.id);
@@ -1523,6 +1611,26 @@ export class LivingCanonService implements Required<LivingCanonApi> {
             return { changed: true, result: undefined };
         });
         this.log.info(`living fact «${fact.name}» confirmed (${reason})`);
+        // The user's own «Подтвердить» needs no toast; the story confirming a fact by itself is news (plan-2 §5).
+        if (reason !== 'userAccepted') {
+            this.app.ui.notice(
+                this.t('m26.notice.confirmed', { name: fact.name, reason: this.t(`m26.reason.${reason}`) }),
+                {
+                    group: 'living.confirmed',
+                    groupText: (count) => tPlural(this.app.i18n, 'm26.notice.confirmedMany', count),
+                },
+            );
+        }
+    }
+
+    /** Provisional facts that left the canon because their reply changed: one calm notice per turn. */
+    private announceDropped(names: readonly string[], reason: 'swiped' | 'deleted' | 'edited'): void {
+        for (const name of names) {
+            this.app.ui.notice(this.t(`m26.notice.dropped.${reason}`, { name }), {
+                group: 'living.dropped',
+                groupText: (count) => tPlural(this.app.i18n, 'm26.notice.droppedMany', count),
+            });
+        }
     }
 
     /* ---------------------------------------------------------------- invalidation (§5 «Отмена») */
@@ -1543,11 +1651,13 @@ export class LivingCanonService implements Required<LivingCanonApi> {
         const plan = invalidationPlan(doc, index, reason);
         const canon = this.canon();
         const removed: string[] = [];
+        const names: string[] = [];
         for (const fact of plan.provisional) {
             if (fact.uid === undefined || !canon) continue;
             try {
                 await canon.remove(fact.uid);
                 removed.push(fact.id);
+                names.push(fact.name);
             } catch (error) {
                 this.log.warn(`provisional fact «${fact.name}» was not removed`, error);
             }
@@ -1561,8 +1671,10 @@ export class LivingCanonService implements Required<LivingCanonApi> {
             const changed = dropped > 0 || drafts !== next.drafts.length || commits !== next.committed.length;
             return { changed, result: undefined };
         });
-        if (removed.length)
+        if (removed.length) {
             this.log.info(`${removed.length} provisional fact(s) of message ${index} removed (${reason})`);
+            this.announceDropped(names, reason);
+        }
         this.emit();
     }
 
@@ -1586,12 +1698,14 @@ export class LivingCanonService implements Required<LivingCanonApi> {
         if (!doc) return;
         const canon = this.canon();
         const removed: string[] = [];
+        const names: string[] = [];
         for (const fact of doc.facts) {
             if (fact.status !== 'provisional' || fact.uid === undefined || !canon) continue;
             if (where(fact.sourceMessage, fact.stamp) !== null) continue;
             try {
                 await canon.remove(fact.uid);
                 removed.push(fact.id);
+                names.push(fact.name);
             } catch (error) {
                 this.log.warn(`provisional fact «${fact.name}» was not removed`, error);
             }
@@ -1628,7 +1742,10 @@ export class LivingCanonService implements Required<LivingCanonApi> {
             if (markDropped(next, gone, 'invalidated') > 0) changed = true;
             return { changed, result: undefined };
         });
-        if (removed.length) this.log.info(`${removed.length} provisional fact(s) removed: their messages were deleted`);
+        if (removed.length) {
+            this.log.info(`${removed.length} provisional fact(s) removed: their messages were deleted`);
+            this.announceDropped(names, 'deleted');
+        }
         this.emit();
     }
 
@@ -1674,6 +1791,9 @@ export class LivingCanonService implements Required<LivingCanonApi> {
                     ...(typeof fact.text === 'string' && isEnglishText(fact.text.trim())
                         ? { text: fact.text.trim() }
                         : {}),
+                    ...(typeof fact.russian === 'string' && fact.russian.trim()
+                        ? { russian: fact.russian.trim() }
+                        : {}),
                 },
                 budget,
                 'rules',
@@ -1698,7 +1818,11 @@ export class LivingCanonService implements Required<LivingCanonApi> {
                     live.conflict = conflict;
                     return { changed: true, result: undefined };
                 });
-                this.app.ui.notice(this.t('m26.accept.conflict', { name: fact.name, conflict }), { level: 'warn' });
+                // A reply to the user's own click: always shown.
+                this.app.ui.notice(
+                    this.t('m26.accept.conflict', { name: fact.name, against: againstOf(hits).join(', ') }),
+                    { level: 'warn', urgent: true },
+                );
                 return false;
             }
             await this.confirm(fact, 'userAccepted');
@@ -1921,6 +2045,9 @@ export class LivingCanonService implements Required<LivingCanonApi> {
                 result: undefined,
             }));
             this.log.info(`living fact «${fact.name}» is «${update.duplicateOf}»; removed`);
+            this.app.ui.notice(this.t('m26.notice.duplicate', { name: fact.name, other: update.duplicateOf }), {
+                group: 'living.duplicate',
+            });
             return true;
         }
         if (fact.entryHash && entryHash(item.entry) !== fact.entryHash) return false;
@@ -1945,6 +2072,7 @@ export class LivingCanonService implements Required<LivingCanonApi> {
             if (!live) return { changed: false, result: undefined };
             live.text = update.text;
             if (update.english) live.english = update.english;
+            if (update.russian) live.russian = update.russian;
             live.name = name;
             live.type = type;
             live.keys = keys;
@@ -1967,6 +2095,7 @@ export class LivingCanonService implements Required<LivingCanonApi> {
                 origin: 'extract',
                 text: fact.text,
                 ...(fact.english ? { english: fact.english } : {}),
+                ...(fact.russian ? { russian: fact.russian } : {}),
             },
             budget,
             'inline',

@@ -3,13 +3,30 @@
 // when nothing fits, «Сгенерировать фон» in NAI Studio by the user's button. Only the CHAT background is set (ST's chat
 // lock path), never the global one or `/bg`; a chat background Maestro did not set is the user's and stays.
 // Exposed as app.modules.api<BackgroundsApi>('backgrounds').
-import type { MaestroModule } from '../../shared/contracts';
+import { formatPlain } from '../../core/labels';
+import type { I18n, MaestroModule } from '../../shared/contracts';
 import type { BackgroundsApi } from './api';
 import { BackgroundsService } from './service';
-import { BACKGROUNDS_ID, BACKGROUNDS_KEY, defaultBackgroundsSettings, readBackgroundsSettings } from './settings';
+import {
+    BACKGROUNDS_ID,
+    BACKGROUNDS_KEY,
+    CHAT_BG_TARGET,
+    defaultBackgroundsSettings,
+    readBackgroundsSettings,
+} from './settings';
 import type { BackgroundsSettings } from './settings';
 import { BACKGROUNDS_STRINGS } from './strings';
 import { BACKGROUNDS_CSS, backgroundsTab } from './view';
+
+/**
+ * A chat background as the journal shows it: the library title («tavern night»); a raw value (the user's own picture,
+ * a URL) reads as «другой фон» — paths and URLs stay under «Подробнее».
+ */
+function backgroundName(value: unknown, i18n: I18n): string {
+    const text = formatPlain(value, i18n);
+    if (!text) return '';
+    return /^(?:url\(|data:|https?:)|[\\/]/i.test(text) ? i18n.t('m29.target.other') : text;
+}
 
 export const backgroundsModule: MaestroModule<BackgroundsSettings> = {
     id: BACKGROUNDS_ID,
@@ -19,6 +36,7 @@ export const backgroundsModule: MaestroModule<BackgroundsSettings> = {
     enabledByDefault: true,
     defaults: defaultBackgroundsSettings,
     i18n: BACKGROUNDS_STRINGS,
+    targets: [{ target: CHAT_BG_TARGET, format: backgroundName }],
     init({ app, log, own }) {
         const settings = () =>
             readBackgroundsSettings(app.settings.module<Partial<BackgroundsSettings>>(BACKGROUNDS_KEY));

@@ -4,7 +4,7 @@ import type { I18nParts } from '../../shared/contracts';
 
 export const CHECK_STRINGS: I18nParts = {
     en: {
-        'kind.mechanics.check': 'Mechanics: dice rolls for checks',
+        'kind.mechanics.check': 'Check rolls',
 
         'm25.check.outcome.critical': 'critical success',
         'm25.check.outcome.success': 'success',
@@ -83,7 +83,7 @@ export const CHECK_STRINGS: I18nParts = {
         'm25.prompt.cut': 'Shortened to fit: {count} steps',
     },
     ru: {
-        'kind.mechanics.check': 'Механики: броски проверок',
+        'kind.mechanics.check': 'Броски проверок',
 
         'm25.check.outcome.critical': 'критический успех',
         'm25.check.outcome.success': 'успех',

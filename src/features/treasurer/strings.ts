@@ -80,14 +80,18 @@ export const M21_STRINGS: I18nParts = {
         'm21.mode.cinema': 'Cinema',
 
         'm21.limit.warn': "Today's spend reached the daily limit: {spent} of {limit}.",
-        'm21.limit.economy': 'The daily limit is reached ({spent} of {limit}): Economy is on until tomorrow.',
+        'm21.limit.economy':
+            'The daily limit is reached ({spent} of {limit}): I switched Maestro to Economy until tomorrow.',
         'm21.limit.economyAlready': 'The daily limit is reached ({spent} of {limit}); Economy is already on.',
         'm21.limit.stopBackground':
-            "The daily limit is reached ({spent} of {limit}): Maestro's background tasks stop until tomorrow. " +
+            'The daily limit is reached ({spent} of {limit}): I stopped my background tasks until tomorrow. ' +
             'The chat works as usual.',
         'm21.limit.restore': 'Back to {mode}',
-        'm21.limit.restored': 'A new day: the mode is back to {mode}.',
-        'm21.journal.economy': 'Daily limit {limit} reached: Economy mode',
+        'm21.limit.restored': 'A new day: I put the mode back to {mode}.',
+        'm21.journal.economy': 'The daily limit of {limit} is reached: switched Maestro to Economy',
+
+        'kind.treasurer.economy': 'Economy mode at the daily limit',
+        'target.treasurer.mode': 'Maestro mode',
     },
     ru: {
         'm21.title': 'Казначей',
@@ -167,14 +171,18 @@ export const M21_STRINGS: I18nParts = {
         'm21.mode.balanced': 'Сбалансированный',
         'm21.mode.cinema': 'Кино',
 
-        'm21.limit.warn': 'Расходы за сегодня достигли дневного лимита: {spent} из {limit}.',
-        'm21.limit.economy': 'Дневной лимит достигнут ({spent} из {limit}): до завтра включён режим «Экономный».',
-        'm21.limit.economyAlready': 'Дневной лимит достигнут ({spent} из {limit}); режим «Экономный» уже включён.',
+        'm21.limit.warn': 'Дневной лимит исчерпан: сегодня потрачено {spent} из {limit}.',
+        'm21.limit.economy':
+            'Дневной лимит исчерпан ({spent} из {limit}): до завтра перевёл Maestro в режим «Экономный».',
+        'm21.limit.economyAlready': 'Дневной лимит исчерпан ({spent} из {limit}); режим «Экономный» и так включён.',
         'm21.limit.stopBackground':
-            'Дневной лимит достигнут ({spent} из {limit}): фоновые задачи Maestro остановлены до завтра. ' +
+            'Дневной лимит исчерпан ({spent} из {limit}): до завтра остановил свои фоновые задачи. ' +
             'Чат работает как обычно.',
         'm21.limit.restore': 'Вернуть «{mode}»',
-        'm21.limit.restored': 'Новый день: режим снова «{mode}».',
-        'm21.journal.economy': 'Дневной лимит {limit} достигнут: режим «Экономный»',
+        'm21.limit.restored': 'Новый день: вернул режим «{mode}».',
+        'm21.journal.economy': 'Дневной лимит {limit} исчерпан: перевёл Maestro в «Экономный»',
+
+        'kind.treasurer.economy': 'Экономный режим по дневному лимиту',
+        'target.treasurer.mode': 'Режим Maestro',
     },
 };

@@ -39,6 +39,9 @@ export const guardianModule: MaestroModule<GuardianSettings> = {
     enabledByDefault: true,
     defaults: () => ({ autoCheckMinutes: 10 }),
     i18n: GUARDIAN_STRINGS,
+    // Settings values (preset bodies, regex scripts, extension keys) are technical: the card's description names
+    // what changed, the values themselves stay under «Подробнее».
+    targets: [{ target: SETTING_TARGET, technical: true }],
 
     init({ app, settings, log, own }) {
         const t = app.i18n.t.bind(app.i18n);

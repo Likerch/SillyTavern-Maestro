@@ -1,10 +1,11 @@
 // M26 «Живой канон: новое, выдуманное ИИ» (plan M26, §8; dev-plan 4.4): names the model invents become provisional
 // chat canon after the turn is committed (cheap search on every reply, batch extraction every N messages) and are
 // confirmed only by the rules of plan M26 п. 4. Exposed as app.modules.api<LivingCanonApi>('livingCanon').
+import { formatEnum } from '../../core/labels';
 import type { MaestroModule } from '../../shared/contracts';
 import { registerProfileTask } from '../../ui';
 import type { LivingCanonApi } from './api';
-import { defaultLivingSettings, EXTRACT_TASK, LIVING_ID, LIVING_KEY, LivingCanonService } from './service';
+import { defaultLivingSettings, EXTRACT_TASK, FACT_TARGET, LIVING_ID, LIVING_KEY, LivingCanonService } from './service';
 import type { LivingCanonSettings } from './service';
 import { LIVING_STRINGS } from './strings';
 import { LIVING_CSS, livingTab } from './view';
@@ -32,6 +33,19 @@ export const livingCanonModule: MaestroModule<LivingCanonSettings> = {
     enabledByDefault: true,
     defaults: defaultLivingSettings,
     i18n: LIVING_STRINGS,
+    targets: [
+        {
+            target: FACT_TARGET,
+            fields: {
+                name: { labelKey: 'm26.field.name' },
+                type: { labelKey: 'm26.field.type', format: formatEnum('m26.type.') },
+                russian: { labelKey: 'm26.field.russian' },
+                // The quote is the card's evidence line; keys and ids are technical.
+                quote: { labelKey: 'm26.field.name', hidden: true },
+                keys: { labelKey: 'm26.field.name', hidden: true },
+            },
+        },
+    ],
     init({ app, log, own }) {
         const settings = () => readLivingSettings(app.settings.module<Partial<LivingCanonSettings>>(LIVING_KEY));
         const service = new LivingCanonService(app, log.scope('living'), settings);

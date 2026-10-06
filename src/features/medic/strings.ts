@@ -5,8 +5,14 @@ export const MEDIC_STRINGS: I18nParts = {
     en: {
         'm3.title': 'Medic',
         'm3.profileTask': 'Medic: tracker repair',
-        'kind.medic.trackerRepair': 'DES tracker repair',
-        'kind.medic.prefillRole': 'Preset: assistant prefill → user',
+        'kind.medic.trackerRepair': 'DES tracker restore',
+        'kind.medic.prefillRole': 'Preset prefill fix',
+        'target.des-tracker-swipe': 'DES tracker of a reply',
+        'target.preset-prompt-role': 'Preset block',
+        'm3.target.role': 'Role',
+        'm3.role.assistant': 'model (assistant)',
+        'm3.role.user': 'you (user)',
+        'm3.role.system': 'system',
 
         'm3.check.deps': 'Maestro dependencies',
         'm3.check.desTracker': 'DES tracker of the last reply',
@@ -33,18 +39,18 @@ export const MEDIC_STRINGS: I18nParts = {
         'm3.regex.damage':
             'Reply #{index} has a JSON block, but DES could not read it: the JSON is broken or a regex damages it. The Doctor (M5) shows which regexes touch it.',
         'm3.regex.reply':
-            'Reply #{index}: DES could not read the tracker JSON. A regex may be damaging it — see the Doctor.',
+            'DES could not read the tracker in reply #{index}: a regex seems to damage it. The Doctor tab shows which one.',
         'm3.fieldKeys.ok': 'Field names are fine.',
         'm3.fieldKeys.fixed': 'Cyrillic field names ({names}) are restored by DES-RU.',
         'm3.fieldKeys.noFix':
             'DES turns the field names {names} into empty keys "" and DES-RU\'s "Cyrillic field names" fix is off or missing.',
         'm3.fieldKeys.broken':
             'The last tracker has empty field keys "" although DES-RU should restore them ({names}). Check DES-RU.',
-        'm3.fieldKeys.reply': 'The DES tracker has empty field keys "": DES-RU did not restore the field names.',
+        'm3.fieldKeys.reply': 'The Russian field names vanished from the DES tracker: DES-RU did not restore them.',
         'm3.nai.absent': 'NAI Studio is not active.',
         'm3.nai.ok': 'NAI Studio finished its markers.',
         'm3.nai.raw': 'Reply #{index} still has raw NAI markers <img data-nai=…>: NAI Studio did not process them.',
-        'm3.nai.reply': 'Reply #{index}: NAI Studio left raw <img data-nai=…> markers.',
+        'm3.nai.reply': 'The pictures of reply #{index} were not drawn: NAI Studio left its markers unprocessed.',
         'm3.qvink.absent': 'Qvink Memory is not active.',
         'm3.qvink.off': 'Qvink is off for this chat.',
         'm3.qvink.keeps': '"Remove Messages" is off: Qvink drops nothing from the prompt.',
@@ -65,15 +71,18 @@ export const MEDIC_STRINGS: I18nParts = {
             'The prompt "{name}" with the assistant role ends the request (prefill). Through OpenRouter this gives garbage. The fix switches its role to user (asks first).',
         'm3.prefill.foundDepth':
             'The prompt "{name}" is injected at depth 0 with the assistant role (prefill). The fix switches its role to user (asks first).',
-        'm3.prefill.title': 'Switch "{name}" in preset "{preset}" to the user role',
+        'm3.prefill.title': 'Switch the block “{name}” of preset “{preset}” to the user role',
         'm3.prefill.description':
-            'The prompt "{name}" is sent as an assistant message at the very end. Its role becomes user in the live settings and in the saved preset.',
+            'The request ends with the block “{name}” written as the model (a prefill); through OpenRouter such an ending gives garbage instead of a reply. The block becomes a message from user — in the live settings and in the saved preset. The journal can undo it.',
 
-        'm3.repair.title': 'Restore the DES tracker of reply #{index}',
+        'm3.repair.title': 'Restoring the DES tracker of reply #{index}',
         'm3.repair.description':
-            "DES did not get a tracker with this reply. Maestro asked the model for it with DES's own update prompt and parsed it with DES.",
-        'm3.repair.done': 'DES tracker of reply #{index} restored.',
-        'm3.repair.failed': 'The DES tracker of reply #{index} is missing and was not restored: {reason}',
+            'The model left out the DES tracker (scene, characters, quests) in this reply. I asked it for the tracker separately, with the same request DES uses for updates, and read the answer the way DES does.',
+        'm3.repair.done': 'Restored the DES tracker of reply #{index}.',
+        'm3.repair.doneMany.one': 'Restored the DES tracker of {count} reply',
+        'm3.repair.doneMany.few': 'Restored the DES tracker of {count} replies',
+        'm3.repair.doneMany.many': 'Restored the DES tracker of {count} replies',
+        'm3.repair.failed': 'Reply #{index} came without a DES tracker, and I could not restore it: {reason}',
         'm3.repair.fix': 'Fix',
         'm3.repair.block.disabled': 'DES is off.',
         'm3.repair.block.mode': 'DES is not in together mode.',
@@ -90,8 +99,14 @@ export const MEDIC_STRINGS: I18nParts = {
     ru: {
         'm3.title': 'Медик',
         'm3.profileTask': 'Медик: ремонт трекера',
-        'kind.medic.trackerRepair': 'Ремонт трекера DES',
-        'kind.medic.prefillRole': 'Пресет: prefill assistant → user',
+        'kind.medic.trackerRepair': 'Восстановление трекера DES',
+        'kind.medic.prefillRole': 'Исправление prefill в пресете',
+        'target.des-tracker-swipe': 'Трекер DES в ответе',
+        'target.preset-prompt-role': 'Блок пресета',
+        'm3.target.role': 'Роль',
+        'm3.role.assistant': 'модель (assistant)',
+        'm3.role.user': 'ты (user)',
+        'm3.role.system': 'система (system)',
 
         'm3.check.deps': 'Что нужно Maestro',
         'm3.check.desTracker': 'Трекер DES в последнем ответе',
@@ -118,18 +133,18 @@ export const MEDIC_STRINGS: I18nParts = {
         'm3.regex.damage':
             'В ответе №{index} есть блок JSON, но DES его не прочитал: JSON битый или его портит регекс. Какие регексы его трогают, покажет Доктор (M5).',
         'm3.regex.reply':
-            'Ответ №{index}: DES не прочитал JSON трекера. Возможно, его портит регекс — загляни в Доктора.',
+            'DES не смог прочитать трекер в ответе №{index}: похоже, его портит какой-то регекс. Какой — покажет вкладка «Доктор».',
         'm3.fieldKeys.ok': 'С названиями полей всё в порядке.',
         'm3.fieldKeys.fixed': 'Кириллические названия полей ({names}) восстанавливает DES-RU.',
         'm3.fieldKeys.noFix':
             'DES превращает названия полей {names} в пустые ключи "", а исправление DES-RU «Кириллические названия полей» выключено или DES-RU нет.',
         'm3.fieldKeys.broken':
             'В последнем трекере пустые ключи полей "", хотя DES-RU должен их восстанавливать ({names}). Проверь DES-RU.',
-        'm3.fieldKeys.reply': 'В трекере DES пустые ключи полей "": DES-RU не вернул названия.',
+        'm3.fieldKeys.reply': 'Из трекера DES пропали русские названия полей: DES-RU их не восстановил.',
         'm3.nai.absent': 'NAI Studio не активен.',
         'm3.nai.ok': 'NAI Studio доделал маркеры.',
         'm3.nai.raw': 'В ответе №{index} остались сырые маркеры NAI <img data-nai=…>: NAI Studio их не обработал.',
-        'm3.nai.reply': 'Ответ №{index}: NAI Studio оставил сырые маркеры <img data-nai=…>.',
+        'm3.nai.reply': 'Картинки в ответе №{index} не нарисовались: NAI Studio не обработал свои метки.',
         'm3.qvink.absent': 'Qvink Memory не активен.',
         'm3.qvink.off': 'В этом чате Qvink выключен.',
         'm3.qvink.keeps': '«Remove Messages» выключено: Qvink ничего не убирает из промпта.',
@@ -150,15 +165,18 @@ export const MEDIC_STRINGS: I18nParts = {
             'Запрос заканчивается блоком «{name}» с ролью assistant (prefill). Через OpenRouter это даёт мусор. Исправление переведёт его в роль user (сначала спросит).',
         'm3.prefill.foundDepth':
             'Блок «{name}» вставляется на глубину 0 с ролью assistant (prefill). Исправление переведёт его в роль user (сначала спросит).',
-        'm3.prefill.title': 'Перевести «{name}» в пресете «{preset}» в роль user',
+        'm3.prefill.title': 'Перевести блок «{name}» пресета «{preset}» в роль user',
         'm3.prefill.description':
-            'Блок «{name}» уходит модели последним сообщением от assistant. Его роль станет user — в текущих настройках и в сохранённом пресете.',
+            'Запрос заканчивается блоком «{name}» от лица модели (prefill), а через OpenRouter такой конец даёт мусор вместо ответа. Блок станет сообщением от user — в текущих настройках и в сохранённом пресете. Отменить можно в журнале.',
 
-        'm3.repair.title': 'Восстановить трекер DES для ответа №{index}',
+        'm3.repair.title': 'Восстановление трекера DES в ответе №{index}',
         'm3.repair.description':
-            'DES не получил трекер вместе с этим ответом. Maestro попросил модель восстановить его собственным запросом обновления DES и разобрал ответ парсером DES.',
-        'm3.repair.done': 'Трекер DES для ответа №{index} восстановлен.',
-        'm3.repair.failed': 'В ответе №{index} нет трекера DES, восстановить не вышло: {reason}',
+            'Модель не прислала трекер DES (сцена, персонажи, задания) вместе с этим ответом. Я попросил его отдельно — тем же запросом, которым DES обновляет трекер, — и разобрал ответ так же, как это делает DES.',
+        'm3.repair.done': 'Восстановил трекер DES в ответе №{index}.',
+        'm3.repair.doneMany.one': 'Восстановил трекер DES в {count} ответе',
+        'm3.repair.doneMany.few': 'Восстановил трекер DES в {count} ответах',
+        'm3.repair.doneMany.many': 'Восстановил трекер DES в {count} ответах',
+        'm3.repair.failed': 'Модель не прислала трекер DES в ответе №{index}, а восстановить его не вышло: {reason}',
         'm3.repair.fix': 'Починить',
         'm3.repair.block.disabled': 'DES выключен.',
         'm3.repair.block.mode': 'DES работает не в режиме «вместе с ответом».',

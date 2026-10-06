@@ -19,7 +19,8 @@ export const DOCK_STRINGS: I18nParts = {
         'm32.dock.shortcuts': 'Shortcuts',
         'm32.dock.shortcutsHint':
             "Open the extensions' own windows. The pult closes first so the window does not end up underneath it.",
-        'm32.dock.shortcutMissing': 'Could not open «{name}»: the extension does not offer its button right now.',
+        'm32.dock.shortcutMissing':
+            'Could not open «{name}»: the extension does not show its button right now. It may be off or still loading.',
 
         'm32.dock.portraits': 'DES portrait bar',
         'm32.dock.portraitsToggle': 'Move the portrait bar here',
@@ -68,7 +69,8 @@ export const DOCK_STRINGS: I18nParts = {
         'm32.dock.shortcuts': 'Ярлыки',
         'm32.dock.shortcutsHint':
             'Открывают собственные окна расширений. Пульт сначала закрывается, чтобы окно не оказалось под ним.',
-        'm32.dock.shortcutMissing': 'Не получилось открыть «{name}»: расширение сейчас не показывает свою кнопку.',
+        'm32.dock.shortcutMissing':
+            'Не получилось открыть «{name}»: расширение сейчас не показывает нужную кнопку. Возможно, оно выключено или ещё загружается.',
 
         'm32.dock.portraits': 'Полоса портретов DES',
         'm32.dock.portraitsToggle': 'Перенести полосу портретов сюда',

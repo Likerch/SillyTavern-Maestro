@@ -36,6 +36,14 @@ export const LORE_JOURNAL_KEY = 'loreJournal';
 export const RULE_TOGGLE_KIND = 'rules.toggle';
 /** Journal target of a rule switch; undo restores the previous explicit flag. */
 export const RULE_FLAG_TARGET = 'm22.rule';
+
+/**
+ * Notice group of an automatic rule switch. M5 (doctor/rules.ts) uses the same `rules.switch:<id>:on` for its
+ * «Включить правило», which switches the rule through this module: both announcements merge into one.
+ */
+export function ruleSwitchGroup(id: string, enabled: boolean): string {
+    return `rules.switch:${id}:${enabled ? 'on' : 'off'}`;
+}
 export const DEFAULT_GAP_GUARD_LIMIT = 20;
 /** ST `scan_state.RECURSION` (world-info.js). */
 const SCAN_RECURSION = 2;
@@ -330,12 +338,16 @@ export class RulesEngine implements RulesApi {
         if (!rule) return 'skipped';
         const t = (key: string, params?: Record<string, string | number>) => this.app.i18n.t(key, params);
         const before = this.explicitFlag(id) ?? null;
+        const name = t(rule.titleKey);
+        const done = t(enabled ? 'm22.toggle.done.on' : 'm22.toggle.done.off', { rule: name });
         return this.app.autonomy.decide<TogglePayload>(
             {
                 module: RULES_MODULE_ID,
                 kind: RULE_TOGGLE_KIND,
-                title: t(enabled ? 'm22.toggle.on' : 'm22.toggle.off', { rule: t(rule.titleKey) }),
+                title: t(enabled ? 'm22.toggle.on' : 'm22.toggle.off', { rule: name }),
                 description: rule.kind === 'lore' ? t('m22.toggle.loreHint') : t(rule.descriptionKey),
+                // M5's «Включить правило» announces the same switch under the same group: one notice, not two.
+                appliedNotice: { text: done, group: ruleSwitchGroup(id, enabled), groupText: () => done },
                 changes: [{ target: RULE_FLAG_TARGET, ref: { id }, before, after: enabled }],
                 payload: { id, enabled },
                 apply: async (payload) => this.applyFlag(payload.id, payload.enabled),

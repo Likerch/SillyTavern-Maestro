@@ -102,7 +102,8 @@ describe('settings access (allowlist)', () => {
         expect(record).toMatchObject({
             module: 'M33',
             kind: SETTING_KIND,
-            summary: 'Режиссёр: pacing.every — 4 → 6',
+            // The journal line has no path (an English key): it stays in the change's ref.
+            summary: 'Поменял настройку модуля «Режиссёр»: 4 → 6',
             changes: [
                 { target: SETTING_TARGET, ref: { module: 'director', path: 'pacing.every' }, before: 4, after: 6 },
             ],

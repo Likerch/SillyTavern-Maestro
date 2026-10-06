@@ -363,7 +363,7 @@ function renderEditor(ctx: ViewContext, body: HTMLElement, editor: SheetEditorSt
         onClick: () =>
             ctx.run(async () => {
                 if (sameSheet(draft, editor.original)) {
-                    ctx.app.ui.notice(t('m35b.sheets.unchanged'));
+                    ctx.app.ui.notice(t('m35b.sheets.unchanged'), { urgent: true });
                     return;
                 }
                 await ctx.service.saveSheet(draft);
@@ -372,7 +372,11 @@ function renderEditor(ctx: ViewContext, body: HTMLElement, editor: SheetEditorSt
                     editor.original = fresh;
                     editor.draft = copySheet(fresh);
                 }
-                ctx.app.ui.notice(t('m35b.sheets.saved', { name: draft.name || `#${editor.uid}` }), { level: 'info' });
+                // Replies to the user's own click: shown at every notification level.
+                ctx.app.ui.notice(t('m35b.sheets.saved', { name: draft.name || `#${editor.uid}` }), {
+                    level: 'info',
+                    urgent: true,
+                });
                 ctx.redraw();
             }),
     });

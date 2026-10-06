@@ -1,6 +1,8 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { createLabels, describeChange } from '../../../src/core/labels';
 import { doctorModule } from '../../../src/features/doctor';
+import type { JournalChange } from '../../../src/shared/contracts';
 import type { DoctorApi, Finding } from '../../../src/features/doctor';
 import { message } from '../../helpers/st-mock';
 import { clearScripts } from '../../helpers/adapters-host';
@@ -250,8 +252,13 @@ describe('M5 tab', () => {
         enable.click();
         await flush();
         expect(rules.isEnabled('role.assistantToSystem')).toBe(true);
-        expect(s.journal.records[0]).toMatchObject({ module: 'M5', kind: 'doctor.enableRule' });
-        expect(s.ui.notices.at(-1)?.text).toBe('Правило «Роль assistant → system» включено.');
+        expect(s.journal.records[0]).toMatchObject({
+            module: 'M5',
+            kind: 'doctor.enableRule',
+            summary: 'Включение правила «Роль assistant → system»',
+        });
+        // 'auto': autonomy announces «Включил правило …» itself (with undo); the tab adds no second notice.
+        expect(s.ui.notices).toHaveLength(0);
         expect(container.querySelector(`[data-finding="${finding.dataset.finding}"]`)?.textContent).toContain(
             'Исправляется правилом на лету',
         );
@@ -259,6 +266,22 @@ describe('M5 tab', () => {
         expect(rules.isEnabled('role.assistantToSystem')).toBe(false);
         // Rules that do not exist yet and findings without a rule.
         expect(container.textContent).toContain('Правило появится на следующих этапах');
+        dispose();
+    });
+
+    it('answers his click itself when the rule is switched on after a question', async () => {
+        const rules = new FakeRules([{ id: 'role.assistantToSystem' }]);
+        s.modules.expose('rules', rules);
+        s.i18n.register({ en: {}, ru: { 'rule.role.assistantToSystem': 'Роль assistant → system' } });
+        s.levels['doctor.enableRule'] = 'ask';
+        const { container, dispose } = await openTab();
+        buttonNamed(container, 'Включить правило')!.click();
+        await flush();
+        expect(rules.isEnabled('role.assistantToSystem')).toBe(true);
+        expect(s.ui.notices.at(-1)).toEqual({
+            text: 'Включил правило «Роль assistant → system».',
+            options: { urgent: true },
+        });
         dispose();
     });
 
@@ -343,7 +366,7 @@ describe('M5 lifecycle', () => {
         expect(s.ui.tabs).toHaveLength(1);
         expect(s.ui.styles.has('m5-doctor')).toBe(true);
         expect(s.modules.api('doctor')).toBeDefined();
-        expect(s.app.i18n.t('kind.doctor.enableRule')).toBe('Включение правил из «Доктора»');
+        expect(s.app.i18n.t('kind.doctor.enableRule')).toBe('Включение правила по находке Доктора');
         await stop();
         stop = async () => {};
         expect(s.ui.tabs).toHaveLength(0);
@@ -355,5 +378,54 @@ describe('M5 lifecycle', () => {
         const en = Object.keys(doctorModule.i18n!.en).sort();
         expect(Object.keys(doctorModule.i18n!.ru).sort()).toEqual(en);
         for (const key of en) expect(doctorModule.i18n!.ru[key]?.trim()).toBeTruthy();
+        const placeholders = (text: string) => [...text.matchAll(/\{(\w+)\}/g)].map((match) => match[1]).sort();
+        for (const key of en) {
+            expect(placeholders(doctorModule.i18n!.ru[key]!), key).toEqual(placeholders(doctorModule.i18n!.en[key]!));
+        }
+    });
+
+    it('names its action kinds and describes its journal targets (lore-entry for M22 too)', () => {
+        const { en, ru } = doctorModule.i18n!;
+        for (const kind of ['doctor.enableRule', 'doctor.fileFix', 'doctor.regexFix', 'doctor.presetRegexFix']) {
+            expect(en[`kind.${kind}`], kind).toBeTruthy();
+            expect(ru[`kind.${kind}`], kind).toBeTruthy();
+        }
+        const targets = doctorModule.targets ?? [];
+        expect(targets.map((spec) => spec.target).sort()).toEqual(['doctor-regex', 'doctor-rule', 'lore-entry']);
+        for (const spec of targets) {
+            const keys = [`target.${spec.target}`, ...Object.values(spec.fields ?? {}).map((field) => field.labelKey)];
+            for (const key of keys) {
+                expect(en[key], key).toBeTruthy();
+                expect(ru[key], key).toBeTruthy();
+            }
+        }
+    });
+
+    it('shows its changes in words and leaves keys and patterns to «Подробнее»', () => {
+        const labels = createLabels();
+        labels.register(doctorModule.targets ?? []);
+        const i18n = s.app.i18n;
+        const show = (change: JournalChange) => describeChange(change, labels, i18n);
+        const ref = { book: 'Архив', uid: 0 };
+        expect(show({ target: 'lore-entry', ref, before: { role: 2 }, after: { role: 0 } })).toEqual({
+            label: 'Запись лора',
+            rows: [{ label: 'Роль', kind: 'changed', before: 'assistant', after: 'system' }],
+        });
+        expect(show({ target: 'lore-entry', ref, before: { key: ['Аня'] }, after: { key: ['/Аня/iu'] } })).toBeNull();
+        expect(
+            show({
+                target: 'doctor-regex',
+                ref: { type: 'global', name: 'Clean HTML' },
+                before: { scriptName: 'Clean HTML', findRegex: '/<[^>]*>/g', disabled: false },
+                after: { scriptName: 'Clean HTML', findRegex: '/<[^>]*>/g', disabled: true },
+            }),
+        ).toEqual({
+            label: 'Регекс',
+            rows: [{ label: 'Состояние', kind: 'changed', before: 'работает', after: 'выключен' }],
+        });
+        expect(show({ target: 'doctor-rule', ref: { rule: 'x' }, before: false, after: true })).toEqual({
+            label: 'Правило',
+            rows: [{ label: '', kind: 'changed', before: 'выключено', after: 'включено' }],
+        });
     });
 });

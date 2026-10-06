@@ -177,7 +177,7 @@ export function revisionTab(app: App, service: RevisionService): PultTab {
                     onClick: async () => {
                         try {
                             await service.request('manual');
-                            app.ui.notice(t('m8.queued'));
+                            app.ui.notice(t('m8.queued'), { urgent: true });
                         } catch (error) {
                             app.ui.notice(error instanceof Error ? error.message : String(error), { level: 'warn' });
                         }

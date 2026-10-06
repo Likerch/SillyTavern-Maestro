@@ -218,10 +218,11 @@ describe('pack.versionConflict', () => {
         const asked = proposalsOf(PACK_VERSION_KIND);
         expect(asked).toHaveLength(1);
         expect(asked[0]).toMatchObject({ module: 'M22', payload: { group, book: V2 } });
-        expect(asked[0]!.description).toContain(
-            '2 entries with the same keys but different text (for example <INTJ-U>, <ENTP-U>)',
-        );
-        expect(asked[0]!.title).toBe('Pack versions: keep “MBTI V2”?');
+        expect(asked[0]!.description).toContain('2 entries with the same keys but different text, so one tag');
+        // BunnyMo tags are technical: «Подробнее».
+        expect(asked[0]!.description).not.toContain('<INTJ-U>');
+        expect(asked[0]!.details).toBe('For example the tags <INTJ-U>, <ENTP-U>');
+        expect(asked[0]!.title).toBe('Several versions of one BunnyMo pack — keep “MBTI V2”?');
         expect(env.settings.module<{ packChoices: Record<string, string> }>('rules').packChoices).toEqual({
             [group]: V2,
         });
@@ -441,6 +442,11 @@ describe('ck.archiveDepth', () => {
             },
         });
         expect(card!.description).toContain('DES-RU');
+        // Characters by name in the card; uids under «Подробнее».
+        expect(card!.title).toBe('Character sheets in “Архив” fire only on the last message — fix them?');
+        expect(card!.description).toContain('Sheets: «Анна»');
+        expect(card!.description).not.toContain('#0');
+        expect(card!.details).toMatch(/^#0\b/);
         expect(card!.changes[0]).toMatchObject({ target: 'lore-entry', ref: { book: 'Архив', uid: 0 } });
         // Queued (default 'inbox'): nothing written, and not proposed again for the same entries.
         expect(saves).toEqual([]);

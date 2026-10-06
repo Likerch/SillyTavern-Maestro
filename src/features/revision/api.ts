@@ -26,6 +26,8 @@ export interface RevisionChange {
     target: RevisionTarget;
     /** Short English statement (canon), tag list (CK), passport tags (NAI), alias… */
     value: string;
+    /** The change as one short Russian sentence for the user's card (plan-2 §3); the value stays as above. */
+    russian?: string;
     /** What it replaces, as read when proposed (checked again before applying, plan §4.6). */
     before?: string;
     /** Quote from the chat that supports it (as written, Russian allowed). */
@@ -56,6 +58,8 @@ export interface DeferredCard {
     target: 'deferred.outfit' | 'deferred.promise' | 'deferred.secret';
     entityName: string;
     value: string;
+    /** The change in one short Russian sentence, when the model gave one. */
+    russian?: string;
     evidence: string;
     sourceMessage: number;
     at: number;

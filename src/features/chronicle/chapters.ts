@@ -8,6 +8,7 @@
 // The canon budget is obeyed three ways: a chapter is at most a quarter of the budget, chapters rank below other
 // canon (order 90 — the budget cuts them first) and active chapters take at most half of the budget (older ones go
 // to the archive and come back when mentioned).
+import { tPlural } from '../../core/labels';
 import {
     chapterCap,
     chapterContent,
@@ -19,6 +20,7 @@ import {
     chapterTitle,
     countTerms,
     distinctiveWords,
+    eventLine,
     groupMemories,
     mergedKeys,
     mergedMeta,
@@ -408,6 +410,35 @@ export class ChapterService {
         return (await canon.list({ origin: 'chronicle' })).find((item) => item.uid === uid);
     }
 
+    /* ---------------------------------------------------------------- card texts */
+
+    /** «сообщения №3–8» / «сообщение №3». */
+    private range(from: number, to: number): string {
+        return this.env.t(from === to ? 'm9.range.one' : 'm9.range.many', { from, to });
+    }
+
+    /** A chapter in a card: «Alice — Tavern» (сообщения №2–4); the stored title when it has no name. */
+    private label(info: ChapterInfo): string {
+        if (!info.name) return `«${info.title}»`;
+        return this.env.t('m9.chapter.label', { name: info.name, range: this.range(info.from, info.to) });
+    }
+
+    /** What happened and what Maestro does, then the remembered events (in the chat's language) one per line. */
+    private story(intro: string, events: readonly string[]): string {
+        const lines = events.map(eventLine).filter(Boolean);
+        if (!lines.length) return intro;
+        return [intro, this.env.t('m9.chapter.events'), ...lines.map((line) => `— ${line}`)].join('\n');
+    }
+
+    /** «Подробнее»: the AND keys and the canon text (typed fields with English labels). */
+    private details(payload: { keys: string[]; secondary: string[]; content: string }): string {
+        const keys = this.env.t('m9.chapter.keys', {
+            primary: payload.keys.join(', '),
+            secondary: payload.secondary.join(', '),
+        });
+        return `${keys}\n\n${payload.content}`;
+    }
+
     /* ---------------------------------------------------------------- terms */
 
     private mainIds(): Set<string> {
@@ -614,12 +645,24 @@ export class ChapterService {
             chronicle,
             dates,
         };
+        // Without participants or a place the domain's title is a message range in English: the range says it better.
+        const range = this.range(from, to);
+        const named = characters.length > 0 || place !== null;
+        const heading = named
+            ? env.t('m9.chapter.proposal', { title, range })
+            : env.t('m9.chapter.proposal.range', { range });
         const decision = await app.autonomy.decide<ChapterPayload>(
             {
                 module: CHRONICLE_ID,
                 kind: CHAPTER_KIND,
-                title: env.t('m9.chapter.proposal', { title: payload.comment }),
-                description: payload.content,
+                title: heading,
+                description: this.story(env.t('m9.chapter.description', { range }), texts),
+                details: this.details(payload),
+                appliedNotice: {
+                    text: env.t('m9.chapter.applied', { title: named ? `${title} (${range})` : range }),
+                    group: 'm9.chapter.applied',
+                    groupText: (count) => tPlural(app.i18n, 'm9.chapter.appliedMany', count),
+                },
                 changes: [
                     {
                         target: CHAPTER_TARGET,
@@ -714,8 +757,9 @@ export class ChapterService {
             for (const plan of planMerges(await this.infos(), { maxChars: cap })) await this.proposeMerge(plan);
         }
         if (app.autonomy.level(ARCHIVE_KIND, 'auto') !== 'off') {
-            const uids = planArchive(await this.infos(), chapterShare(limit));
-            if (uids.length) await this.proposeArchive(uids);
+            const infos = await this.infos();
+            const uids = planArchive(infos, chapterShare(limit));
+            if (uids.length) await this.proposeArchive(uids, infos);
         }
     }
 
@@ -748,8 +792,14 @@ export class ChapterService {
             {
                 module: CHRONICLE_ID,
                 kind: MERGE_KIND,
-                title: env.t('m9.merge.proposal', { first: plan.keep.title, second: plan.drop.title }),
-                description: payload.content,
+                title: env.t('m9.merge.proposal', { first: this.label(plan.keep), second: this.label(plan.drop) }),
+                description: this.story(env.t('m9.merge.description', { name }), events),
+                details: this.details(payload),
+                appliedNotice: {
+                    text: env.t('m9.merge.applied', { name }),
+                    group: 'm9.merge.applied',
+                    groupText: (count) => tPlural(app.i18n, 'm9.merge.appliedMany', count),
+                },
                 changes: [
                     {
                         target: MERGE_TARGET,
@@ -822,17 +872,23 @@ export class ChapterService {
         return true;
     }
 
-    private async proposeArchive(uids: number[]): Promise<void> {
+    private async proposeArchive(uids: number[], infos: readonly ChapterInfo[]): Promise<void> {
         const { app, env } = this;
         const signature = `archive:${uids.join(',')}`;
         if (this.proposed.has(signature)) return;
         this.proposed.add(signature);
         const payload: ArchivePayload = { uids };
+        const names = uids
+            .map((uid) => infos.find((info) => info.uid === uid))
+            .filter((info): info is ChapterInfo => !!info)
+            .map((info) => this.label(info));
         await app.autonomy.decide<ArchivePayload>(
             {
                 module: CHRONICLE_ID,
                 kind: ARCHIVE_KIND,
-                title: env.t('m9.archive.proposal', { count: uids.length }),
+                title: tPlural(app.i18n, 'm9.archive.proposal', uids.length),
+                description: env.t('m9.archive.description', { list: names.join(', ') }),
+                appliedNotice: { text: tPlural(app.i18n, 'm9.archive.applied', uids.length) },
                 changes: uids.map((uid) => ({
                     target: ARCHIVE_TARGET,
                     ref: { uid },

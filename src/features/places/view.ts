@@ -86,7 +86,11 @@ export function placesTab(app: App, service: PlacesService): PultTab {
                 try {
                     await job();
                 } catch (error) {
-                    app.ui.notice(error instanceof Error ? error.message : String(error), { level: 'error' });
+                    // Every job here is the user's click: its failure is an urgent reply.
+                    app.ui.notice(error instanceof Error ? error.message : String(error), {
+                        level: 'error',
+                        urgent: true,
+                    });
                 }
                 if (alive) draw();
             };
@@ -247,7 +251,9 @@ export function placesTab(app: App, service: PlacesService): PultTab {
                                 run(async () => {
                                     const entry = await service.ensureEntry(place.id);
                                     if (!(await openEntry(app, entry))) {
-                                        app.ui.notice(t('m24.entry.ready', { book: entry.world, uid: entry.uid }));
+                                        app.ui.notice(t('m24.entry.ready', { book: entry.world, uid: entry.uid }), {
+                                            urgent: true,
+                                        });
                                     }
                                 }),
                         }),

@@ -13,6 +13,7 @@
 // ('edited' outcome) writes the user's text — after the same checks.
 import { adaptersOf } from '../../adapters';
 import type { NaiPassportTarget } from '../../adapters/nai';
+import { tPlural } from '../../core/labels';
 import { isCharacterArchive } from '../../domain/bunnymo';
 import { uniqueStrings } from '../../domain/canon-keys';
 import { normName } from '../../domain/dossier-names';
@@ -106,6 +107,8 @@ interface PayloadBase {
     entityName: string;
     entityId?: string;
     value: string;
+    /** The change in one short Russian sentence for the card (the value keeps its English/tag format). */
+    russian?: string;
     evidence: string;
     confidence: number;
     sourceMessage: number;
@@ -261,7 +264,28 @@ export class RevisionRoutes {
         };
         if (entity) base.entityId = entity.id;
         if (change.field) base.field = change.field;
+        if (change.russian) base.russian = change.russian;
         return base;
+    }
+
+    /** A place state key in words («condition» → «состояние»); unknown keys read as «изменение». */
+    private placeKey(key: string): string {
+        const name = `m8.placeKey.${key}`;
+        const text = this.t(name);
+        return text === name ? this.t('m8.placeKey.other') : text;
+    }
+
+    /** What the card says happened: the model's Russian sentence, else its own value (English) as the fallback. */
+    private statement(payload: PayloadBase): string {
+        return payload.russian?.trim() || payload.value;
+    }
+
+    /** Technical lines of a card (plan-2 §3 «Подробнее»): where it is written, the raw value, what it replaces. */
+    private details(lines: Record<string, string | undefined>): string {
+        return Object.entries(lines)
+            .filter(([, value]) => value !== undefined && value !== '')
+            .map(([key, value]) => this.t(`m8.details.${key}`, { value: value ?? '' }))
+            .join('\n');
     }
 
     private proposal(
@@ -269,8 +293,9 @@ export class RevisionRoutes {
         title: string,
         description: string,
         changes: JournalChange[],
+        extra: Pick<Proposal, 'details' | 'appliedNotice'> = {},
     ): Proposal<RevisionPayload> {
-        return {
+        const proposal: Proposal<RevisionPayload> = {
             module: REVISION_ID,
             kind: payload.target,
             title,
@@ -281,6 +306,9 @@ export class RevisionRoutes {
             apply: (value) => this.apply(isRevisionPayload(value) ? value : payload),
             stillValid: () => this.stillValid(payload),
         };
+        if (extra.details) proposal.details = extra.details;
+        if (extra.appliedNotice) proposal.appliedNotice = extra.appliedNotice;
+        return proposal;
     }
 
     private planned(
@@ -288,12 +316,20 @@ export class RevisionRoutes {
         title: string,
         description: string,
         changes: JournalChange[],
-        extra: { forceInbox?: boolean; costUsd?: number } = {},
+        extra: {
+            forceInbox?: boolean;
+            costUsd?: number;
+            details?: string;
+            appliedNotice?: Proposal['appliedNotice'];
+        } = {},
     ): Planned {
         const kind = payload.target as RoutedKind;
         return {
             ok: true,
-            proposal: this.proposal(payload, title, description, changes),
+            proposal: this.proposal(payload, title, description, changes, {
+                details: extra.details,
+                appliedNotice: extra.appliedNotice,
+            }),
             level: DEFAULT_LEVELS[kind] ?? 'inbox',
             forceInbox: extra.forceInbox === true,
             costUsd: extra.costUsd ?? 0,
@@ -317,19 +353,28 @@ export class RevisionRoutes {
         // Confirmed canon is never overwritten by a contradicting fact: such a card waits in the Inbox (M26 п. 4).
         const against = withoutStatement(before, inserted.replaced ? change.before : undefined);
         const conflict = await this.conflicts(change.value, entity.name, dest.label, against);
-        const params = { name: entity.name, dest: dest.label, value: payload.value };
+        const params = { name: entity.name, dest: dest.label, statement: this.statement(payload) };
         let description = this.t(inserted.replaced ? 'm8.card.fact.replace' : 'm8.card.fact.body', params);
         if (conflict.lines.length) {
-            description += `\n${this.t('m8.card.conflict', { list: conflict.lines.join('; ') })}`;
+            description += `\n${this.t('m8.card.conflict', { list: conflict.labels.join(', ') })}`;
         } else if (conflict.unchecked) {
             description += `\n${this.t('m8.card.unchecked')}`;
         }
         return this.planned(
             payload,
-            this.t('m8.card.fact.title', params),
+            this.t(inserted.replaced ? 'm8.card.fact.replaceTitle' : 'm8.card.fact.title', params),
             description,
             [{ target: TARGETS.canon, ref: this.destRef(dest), before, after: inserted.content }],
-            { forceInbox: conflict.lines.length > 0 || conflict.unchecked, costUsd: conflict.costUsd },
+            {
+                forceInbox: conflict.lines.length > 0 || conflict.unchecked,
+                costUsd: conflict.costUsd,
+                details: this.details({
+                    entry: dest.label,
+                    english: payload.value,
+                    replaces: change.before,
+                    conflict: conflict.lines.join('; '),
+                }),
+            },
         );
     }
 
@@ -344,31 +389,34 @@ export class RevisionRoutes {
         entityName: string,
         label: string,
         against: string,
-    ): Promise<{ lines: string[]; unchecked: boolean; costUsd: number }> {
-        const none = { lines: [], unchecked: false, costUsd: 0 };
+    ): Promise<{ lines: string[]; labels: string[]; unchecked: boolean; costUsd: number }> {
+        const none = { lines: [], labels: [], unchecked: false, costUsd: 0 };
         const service = this.sources.contradictions();
         if (!service || !against.trim()) return none;
         const input: ContradictionInput = { statement, entities: [entityName], against: [{ label, text: against }] };
+        // The lines quote the (English) canon: details only. The card names what it contradicts.
         const format = (list: readonly Contradiction[]) =>
             list.slice(0, 3).map((item) => `${item.label}: «${item.conflicting}»`);
+        const labels = (list: readonly Contradiction[]) => uniqueStrings(list.slice(0, 3).map((item) => item.label));
         try {
             const quick = service.quick(input);
-            if (quick.length) return { lines: format(quick), unchecked: false, costUsd: 0 };
+            if (quick.length) return { lines: format(quick), labels: labels(quick), unchecked: false, costUsd: 0 };
         } catch (error) {
             this.log.debug('revision: contradiction rules failed', error);
         }
         if (this.app.autonomy.level('canon.fact', DEFAULT_LEVELS['canon.fact']) !== 'auto') return none;
         try {
             const result = await withTimeout(service.check(input), this.checkTimeoutMs);
-            if (!result) return { lines: [], unchecked: true, costUsd: 0 };
+            if (!result) return { lines: [], labels: [], unchecked: true, costUsd: 0 };
             return {
                 lines: result.clean ? [] : format(result.contradictions),
+                labels: result.clean ? [] : labels(result.contradictions),
                 unchecked: false,
                 costUsd: result.costUsd,
             };
         } catch (error) {
             this.log.warn('revision: contradiction check failed', error);
-            return { lines: [], unchecked: true, costUsd: 0 };
+            return { lines: [], labels: [], unchecked: true, costUsd: 0 };
         }
     }
 
@@ -590,20 +638,28 @@ export class RevisionRoutes {
             remove: removed.tags,
             before: current.content,
         };
-        const params = {
-            name: entity.name,
-            added: added.tags.join(' '),
-            removed: removed.tags.join(' ') || '—',
-            book: archive.world,
-        };
-        return this.planned(payload, this.t('m8.card.tags.title', params), this.t('m8.card.tags.body', params), [
+        const params = { name: entity.name, statement: this.statement(payload) };
+        return this.planned(
+            payload,
+            this.t('m8.card.tags.title', params),
+            this.t('m8.card.tags.body', params),
+            [
+                {
+                    target: TARGETS.ck,
+                    ref: { world: archive.world, uid: archive.uid, created: !current.override },
+                    before: current.content,
+                    after: result.content,
+                },
+            ],
             {
-                target: TARGETS.ck,
-                ref: { world: archive.world, uid: archive.uid, created: !current.override },
-                before: current.content,
-                after: result.content,
+                details: this.details({
+                    book: archive.world,
+                    tagsAdded: added.tags.join(' '),
+                    tagsRemoved: removed.tags.join(' '),
+                    ckRescan: 'yes',
+                }),
             },
-        ]);
+        );
     }
 
     /** Re-reads CK's repos so its character map sees the archive (research §5 step 3); best effort. */
@@ -647,12 +703,13 @@ export class RevisionRoutes {
             slot,
             before,
         };
-        const params = { name: entity.name, slot: this.t(`m8.slot.${slot}`) };
+        const params = { name: entity.name, slot: this.t(`m8.slot.${slot}`), statement: this.statement(payload) };
         return this.planned(
             payload,
             this.t('m8.card.appearance.title', params),
             this.t('m8.card.appearance.body', params),
             [{ target: TARGETS.passport, ref: { id: source.passportId, slot, owner }, before, after: tags.tags }],
+            { details: this.details({ slot, naiTags: tags.tags, replaces: before }) },
         );
     }
 
@@ -738,6 +795,14 @@ export class RevisionRoutes {
             this.t('m8.card.alias.title', params),
             this.t(payload.keys ? 'm8.card.alias.keys' : 'm8.card.alias.body', params),
             changes,
+            {
+                details: this.details({ entry: payload.keys ? dest?.label : undefined }),
+                appliedNotice: {
+                    text: this.t('m8.notice.alias', params),
+                    group: 'revision.alias',
+                    groupText: (count) => tPlural(this.app.i18n, 'm8.notice.aliasMany', count),
+                },
+            },
         );
     }
 
@@ -764,10 +829,29 @@ export class RevisionRoutes {
         const problem = checkFactText(change.value);
         if (problem) return { ok: false, rejection: problem, costUsd: 0 };
         const payload: RevisionPayload = { ...this.base(change, entity, true), op: 'event' };
-        const params = { name: payload.entityName, value: payload.value };
-        return this.planned(payload, this.t('m8.card.event.title', params), this.t('m8.card.event.body', params), [
-            { target: TARGETS.event, ref: { messageIndex: change.sourceMessage }, before: null, after: payload.value },
-        ]);
+        const statement = this.statement(payload);
+        const params = { name: payload.entityName, statement, what: statement.replace(/[.!]+$/u, '') };
+        return this.planned(
+            payload,
+            this.t('m8.card.event.title', params),
+            this.t('m8.card.event.body', params),
+            [
+                {
+                    target: TARGETS.event,
+                    ref: { messageIndex: change.sourceMessage },
+                    before: null,
+                    after: payload.value,
+                },
+            ],
+            {
+                details: this.details({ english: payload.russian ? payload.value : undefined }),
+                appliedNotice: {
+                    text: this.t('m8.notice.event', params),
+                    group: 'revision.event',
+                    groupText: (count) => tPlural(this.app.i18n, 'm8.notice.eventMany', count),
+                },
+            },
+        );
     }
 
     private planPlace(change: RevisionChange, entity: Entity | undefined): Planned {
@@ -795,10 +879,27 @@ export class RevisionRoutes {
             key,
             before,
         };
-        const params = { name: place.name, key, value: payload.value };
-        return this.planned(payload, this.t('m8.card.place.title', params), this.t('m8.card.place.body', params), [
-            { target: TARGETS.place, ref: { placeId: place.id, key }, before, after: payload.value },
-        ]);
+        const statement = this.statement(payload);
+        const params = {
+            name: place.name,
+            key: this.placeKey(key),
+            statement,
+            what: statement.replace(/[.!]+$/u, ''),
+        };
+        return this.planned(
+            payload,
+            this.t('m8.card.place.title', params),
+            this.t('m8.card.place.body', params),
+            [{ target: TARGETS.place, ref: { placeId: place.id, key }, before, after: payload.value }],
+            {
+                details: this.details({ field: key, english: payload.value, replaces: before }),
+                appliedNotice: {
+                    text: this.t('m8.notice.place', params),
+                    group: 'revision.place',
+                    groupText: (count) => tPlural(this.app.i18n, 'm8.notice.placeMany', count),
+                },
+            },
+        );
     }
 
     /* ---------------------------------------------------------------- apply and validate */
@@ -862,7 +963,7 @@ export class RevisionRoutes {
                 return;
             }
             case 'note':
-                this.app.ui.notice(payload.text, { level: 'info' });
+                this.app.ui.notice(payload.text, { level: 'info', importance: 'important' });
                 return;
             case 'event':
                 await this.app.bus.emit('signal', {

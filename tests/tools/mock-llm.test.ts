@@ -5,6 +5,10 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { matchesSchema } from '../../src/core/llm';
+import { buildExtractMessages, EXTRACT_SCHEMA, parseExtraction } from '../../src/domain/living-extract';
+import { buildRevisionMessages, revisionSchema } from '../../src/domain/revision-prompt';
+import { parseRevisionChanges } from '../../src/domain/revision-parse';
 
 const SERVER = fileURLToPath(new URL('../../tools/mock-llm/server.mjs', import.meta.url));
 
@@ -127,6 +131,50 @@ describe('mock LLM', () => {
         const text = chunks.map((c) => c.choices[0]?.delta.content ?? '').join('');
         expect(text.startsWith('```json')).toBe(true);
         expect(chunks.length).toBeGreaterThan(10);
+    });
+
+    it('answers the real revision and living canon schemas with a Russian sentence for the cards', async () => {
+        const revision = revisionSchema();
+        const reply = await complete({
+            messages: buildRevisionMessages({
+                from: 3,
+                to: 4,
+                messages: [
+                    { index: 3, name: 'Анна', text: 'Анна открыто встала на сторону Бориса.' },
+                    { index: 4, name: 'Борис', text: 'Борис кивнул.' },
+                ],
+                signals: [],
+                memories: [],
+                entities: [{ name: 'Анна', kind: 'character', aliases: [], canon: [] }],
+            }),
+            response_format: { type: 'json_schema', json_schema: { ...revision, strict: true } },
+        });
+        const data = JSON.parse(reply.choices[0]!.message.content) as unknown;
+        expect(matchesSchema(data, revision.schema)).toBe(true);
+        const parsed = parseRevisionChanges(data, { from: 3, to: 4 });
+        expect(parsed?.changes.length).toBeGreaterThan(0);
+        expect(parsed?.changes.every((change) => /\p{Script=Cyrillic}/u.test(change.russian ?? ''))).toBe(true);
+
+        const living = await complete({
+            messages: buildExtractMessages({
+                messages: [{ index: 7, text: 'Вечером начался Праздник Фонарей.' }],
+                provisional: [{ uid: 4, name: 'Праздник Фонарей', type: 'tradition', quotes: [] }],
+                known: [],
+                max: 2,
+            }),
+            response_format: { type: 'json_schema', json_schema: { name: 'living_canon', schema: EXTRACT_SCHEMA } },
+        });
+        const extracted = JSON.parse(living.choices[0]!.message.content) as unknown;
+        expect(matchesSchema(extracted, EXTRACT_SCHEMA)).toBe(true);
+        const result = parseExtraction(extracted, {
+            uids: [4],
+            messages: new Map([[7, 'Вечером начался Праздник Фонарей.']]),
+            known: () => false,
+            max: 2,
+        });
+        expect(result?.updates).toEqual([
+            expect.objectContaining({ uid: 4, russian: expect.stringContaining('Праздник Фонарей') }),
+        ]);
     });
 
     it('fills a registered json_schema and walks an unknown one', async () => {

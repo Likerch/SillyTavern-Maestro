@@ -1,6 +1,42 @@
-// Strings of M9 «Летопись, автопамять и „Ранее в истории…"» (`m9.*`, autonomy kinds `kind.chronicle.*`). Russian is
-// the primary UI language; the user is addressed as «ты» (male).
-import type { I18nParts } from '../../shared/contracts';
+// Strings of M9 «Летопись, автопамять и „Ранее в истории…"» (`m9.*`, autonomy kinds `kind.chronicle.*`, journal
+// targets `target.m9.*`) and how those targets read in Inbox cards and the journal. Russian is the primary UI language;
+// the user is addressed as «ты» (male).
+import { formatClip, formatEnum, formatPlain } from '../../core/labels';
+import type { I18nParts, TargetSpec } from '../../shared/contracts';
+
+/**
+ * A chapter reads by its title; keys and the typed content (English field labels) stay under «Подробнее», as do the
+ * canon drafts of a merge and Qvink's per-swipe flags of a «remember» mark.
+ */
+export const CHRONICLE_TARGETS: TargetSpec[] = [
+    {
+        target: 'm9.chapter',
+        fields: {
+            title: { labelKey: 'm9.field.chapter', format: formatClip(100) },
+            keys: { labelKey: 'm9.field.keys', hidden: true },
+            secondary: { labelKey: 'm9.field.keys', hidden: true },
+            content: { labelKey: 'm9.field.text', hidden: true },
+        },
+    },
+    {
+        target: 'm9.merge',
+        fields: {
+            title: { labelKey: 'm9.field.chapter', format: formatClip(100) },
+            keys: { labelKey: 'm9.field.keys', hidden: true },
+            secondary: { labelKey: 'm9.field.keys', hidden: true },
+        },
+    },
+    // before 'active' → after 'archived'
+    { target: 'm9.archive', valueLabelKey: 'm9.field.state', format: formatEnum('m9.state.') },
+    {
+        target: 'm9.remember',
+        fields: {
+            remember: { labelKey: 'm9.field.remember', format: formatPlain },
+            live: { labelKey: 'm9.field.remember', hidden: true },
+            swipes: { labelKey: 'm9.field.remember', hidden: true },
+        },
+    },
+];
 
 export const CHRONICLE_STRINGS: I18nParts = {
     en: {
@@ -10,19 +46,63 @@ export const CHRONICLE_STRINGS: I18nParts = {
         'm9.profileTask': 'Chronicle: «Previously in the story…»',
         'kind.chronicle.chapter': 'Chronicle chapters from forgotten memories',
         'kind.chronicle.merge': 'Merging small chronicle chapters',
-        'kind.chronicle.archive': 'Archiving old chronicle chapters (canon budget)',
+        'kind.chronicle.archive': 'Archiving old chronicle chapters',
         'kind.chronicle.remember': '«Remember» marks in Qvink',
+        'target.m9.chapter': 'Chronicle chapter',
+        'target.m9.merge': 'Merged chronicle chapters',
+        'target.m9.archive': 'Chronicle chapter',
+        'target.m9.remember': '«Remember» mark in Qvink',
+        'm9.field.chapter': 'Chapter',
+        'm9.field.keys': 'Keys',
+        'm9.field.text': 'Text',
+        'm9.field.state': 'State',
+        'm9.field.remember': 'Keep in long-term memory',
+        'm9.state.active': 'active',
+        'm9.state.archived': 'archived',
         'm9.warn.noQvink':
             'Qvink Memory is not installed or is off for this chat: no chapters and no «remember» marks.',
-        'm9.warn.noCanon': 'The chat canon (M6) is off: chapters have nowhere to go.',
-        'm9.error.noCanon': 'The chat canon is not available.',
+        'm9.warn.noCanon': 'Chronicle chapters have nowhere to go: the «Chat canon» module is off.',
+        'm9.error.noCanon': 'The chronicle has nowhere to go: the «Chat canon» module is off.',
         'm9.error.messageGone': 'The message has changed or is gone.',
         'm9.error.noStudio': 'The Lore Studio is off: open the canon book in the lorebook editor.',
         'm9.chapter.comment': 'Chronicle: {title} (#{from}–{to})',
-        'm9.chapter.proposal': 'New chronicle chapter: {title}',
-        'm9.merge.proposal': 'Merge chronicle chapters: «{first}» and «{second}»',
-        'm9.archive.proposal': 'Archive old chronicle chapters: {count}',
-        'm9.remember.proposal': '«Remember» message #{index}: {reason}',
+        'm9.range.one': 'message #{from}',
+        'm9.range.many': 'messages #{from}–{to}',
+        'm9.chapter.label': '«{name}» ({range})',
+        'm9.chapter.proposal': 'New chronicle chapter: {title} ({range})',
+        'm9.chapter.proposal.range': 'New chronicle chapter: {range}',
+        'm9.chapter.description':
+            "The memories of {range} no longer fit in Qvink's long-term memory. I will keep them as a chronicle chapter in the chat canon, so the model recalls them when the story comes back to them.",
+        'm9.chapter.events': 'What it holds:',
+        'm9.chapter.keys': 'Keys: {primary} AND one of: {secondary}',
+        'm9.chapter.applied': 'Added a chapter to the chronicle: {title}.',
+        'm9.chapter.appliedMany.one': 'Added {count} chapter to the chronicle',
+        'm9.chapter.appliedMany.few': 'Added {count} chapters to the chronicle',
+        'm9.chapter.appliedMany.many': 'Added {count} chapters to the chronicle',
+        'm9.merge.proposal': 'Merging chronicle chapters: {first} and {second}',
+        'm9.merge.description':
+            'Two small chronicle chapters tell about the same thing. I will merge them into one, «{name}», so they take less room in the canon.',
+        'm9.merge.applied': 'Merged two chronicle chapters into one: «{name}».',
+        'm9.merge.appliedMany.one': 'Merged chronicle chapters: {count} pair',
+        'm9.merge.appliedMany.few': 'Merged chronicle chapters: {count} pairs',
+        'm9.merge.appliedMany.many': 'Merged chronicle chapters: {count} pairs',
+        'm9.archive.proposal.one': 'To the archive: {count} old chronicle chapter',
+        'm9.archive.proposal.few': 'To the archive: {count} old chronicle chapters',
+        'm9.archive.proposal.many': 'To the archive: {count} old chronicle chapters',
+        'm9.archive.description':
+            'Chronicle chapters take more than half of the room the canon has. I will archive the oldest: {list}. They come back when the story mentions them again.',
+        'm9.archive.applied.one': 'Archived {count} old chronicle chapter: it comes back when the story mentions it.',
+        'm9.archive.applied.few':
+            'Archived {count} old chronicle chapters: they come back when the story mentions them.',
+        'm9.archive.applied.many':
+            'Archived {count} old chronicle chapters: they come back when the story mentions them.',
+        'm9.remember.proposal': 'Message #{index} into long-term memory: {reason}',
+        'm9.remember.description':
+            "Message #{index} holds an important moment: {reason}. I will set Qvink's «remember» mark on it so it stays in the long-term memory.",
+        'm9.remember.applied': 'Kept message #{index} in long-term memory: {reason}.',
+        'm9.remember.appliedMany.one': 'Kept {count} important moment in long-term memory',
+        'm9.remember.appliedMany.few': 'Kept {count} important moments in long-term memory',
+        'm9.remember.appliedMany.many': 'Kept {count} important moments in long-term memory',
         'm9.reason.important': 'important event',
         'm9.reason.quest': 'new quest',
         'm9.reason.relationship': 'relationship turn',
@@ -85,18 +165,60 @@ export const CHRONICLE_STRINGS: I18nParts = {
         'm9.profileTask': 'Летопись: «Ранее в истории…»',
         'kind.chronicle.chapter': 'Главы летописи из забытых воспоминаний',
         'kind.chronicle.merge': 'Склейка мелких глав летописи',
-        'kind.chronicle.archive': 'Старые главы летописи — в архив (бюджет канона)',
+        'kind.chronicle.archive': 'Архив старых глав летописи',
         'kind.chronicle.remember': 'Отметки «запомнить» в Qvink',
+        'target.m9.chapter': 'Глава летописи',
+        'target.m9.merge': 'Склейка глав летописи',
+        'target.m9.archive': 'Глава летописи',
+        'target.m9.remember': 'Отметка «запомнить» в Qvink',
+        'm9.field.chapter': 'Глава',
+        'm9.field.keys': 'Ключи',
+        'm9.field.text': 'Текст',
+        'm9.field.state': 'Состояние',
+        'm9.field.remember': 'Запомнить надолго',
+        'm9.state.active': 'действует',
+        'm9.state.archived': 'в архиве',
         'm9.warn.noQvink': 'Qvink Memory не установлен или выключен в этом чате: ни глав, ни отметок «запомнить».',
-        'm9.warn.noCanon': 'Канон чата (M6) выключен: главам некуда записываться.',
-        'm9.error.noCanon': 'Канон чата недоступен.',
+        'm9.warn.noCanon': 'Главы летописи некуда записать: выключен «Канон чата».',
+        'm9.error.noCanon': 'Летопись некуда записать: выключен «Канон чата».',
         'm9.error.messageGone': 'Сообщение изменилось или удалено.',
-        'm9.error.noStudio': 'Лор-студия выключена: открой книгу канона в редакторе лорбуков.',
+        'm9.error.noStudio': 'Лор-студия выключена: открой книгу канона в редакторе книг лора SillyTavern.',
         'm9.chapter.comment': 'Летопись: {title} (№{from}–{to})',
-        'm9.chapter.proposal': 'Новая глава летописи: {title}',
-        'm9.merge.proposal': 'Склеить главы летописи: «{first}» и «{second}»',
-        'm9.archive.proposal': 'Старые главы летописи — в архив: {count}',
-        'm9.remember.proposal': '«Запомнить» сообщение №{index}: {reason}',
+        'm9.range.one': 'сообщение №{from}',
+        'm9.range.many': 'сообщения №{from}–{to}',
+        'm9.chapter.label': '«{name}» ({range})',
+        'm9.chapter.proposal': 'Новая глава летописи: {title} ({range})',
+        'm9.chapter.proposal.range': 'Новая глава летописи: {range}',
+        'm9.chapter.description':
+            'Воспоминания ({range}) уже не помещаются в долгую память Qvink. Сохраню их главой летописи в каноне чата — модель вспомнит о них, когда история к ним вернётся.',
+        'm9.chapter.events': 'Что в ней:',
+        'm9.chapter.keys': 'Ключи: {primary} И одно из: {secondary}',
+        'm9.chapter.applied': 'Записал в летопись новую главу: {title}.',
+        'm9.chapter.appliedMany.one': 'Записал в летопись {count} новую главу',
+        'm9.chapter.appliedMany.few': 'Записал в летопись {count} новые главы',
+        'm9.chapter.appliedMany.many': 'Записал в летопись {count} новых глав',
+        'm9.merge.proposal': 'Склейка глав летописи: {first} и {second}',
+        'm9.merge.description':
+            'Две небольшие главы летописи рассказывают об одном и том же. Склею их в одну, «{name}», — так они займут меньше места в каноне.',
+        'm9.merge.applied': 'Склеил две главы летописи в одну: «{name}».',
+        'm9.merge.appliedMany.one': 'Склеил главы летописи: {count} пара',
+        'm9.merge.appliedMany.few': 'Склеил главы летописи: {count} пары',
+        'm9.merge.appliedMany.many': 'Склеил главы летописи: {count} пар',
+        'm9.archive.proposal.one': 'В архив: {count} старая глава летописи',
+        'm9.archive.proposal.few': 'В архив: {count} старые главы летописи',
+        'm9.archive.proposal.many': 'В архив: {count} старых глав летописи',
+        'm9.archive.description':
+            'Главы летописи заняли больше половины места, отведённого канону. Уберу в архив самые старые: {list}. Они вернутся, когда о них снова зайдёт речь.',
+        'm9.archive.applied.one': 'Убрал в архив {count} старую главу летописи: она вернётся, когда о ней зайдёт речь.',
+        'm9.archive.applied.few': 'Убрал в архив {count} старые главы летописи: они вернутся, когда о них зайдёт речь.',
+        'm9.archive.applied.many': 'Убрал в архив {count} старых глав летописи: они вернутся, когда о них зайдёт речь.',
+        'm9.remember.proposal': 'Сообщение №{index} — в долгую память: {reason}',
+        'm9.remember.description':
+            'В сообщении №{index} важный момент: {reason}. Поставлю на нём отметку «запомнить» в Qvink — тогда он останется в долгой памяти.',
+        'm9.remember.applied': 'Запомнил надолго сообщение №{index}: {reason}.',
+        'm9.remember.appliedMany.one': 'Запомнил надолго {count} важный момент',
+        'm9.remember.appliedMany.few': 'Запомнил надолго {count} важных момента',
+        'm9.remember.appliedMany.many': 'Запомнил надолго {count} важных моментов',
         'm9.reason.important': 'важное событие',
         'm9.reason.quest': 'новый квест',
         'm9.reason.relationship': 'перелом в отношениях',

@@ -20,6 +20,7 @@
 //   until the next change. «Подготовить к отключению» (prepareDisable) reselects the base once without the layer, or
 //   saves base + layer as a normal preset.
 // The layer never writes a preset file (P2): «Сохранить базу» is the store's job, with strip().
+import { tPlural } from '../../core/labels';
 import {
     applyLayer,
     contentOf,
@@ -53,6 +54,7 @@ import type { GuardianApi } from '../guardian/api';
 import type { Layer, LayerApplyReport, LayerOp, PresetLayerApi } from './layer-api';
 import { LayerFiles } from './layer-files';
 import { LAYER_STRINGS } from './layer-strings';
+import { paramLabel } from './param-labels';
 import type { PresetBody, PresetPrompt, PresetStore } from './store-api';
 
 export const PRESET_LAYER_KEY = 'presetLayer';
@@ -293,6 +295,37 @@ export function createPresetLayer(app: App, log: Logger, store?: PresetStore): P
     const ownBlock = (base: string, identifier: string): boolean =>
         opsOf(base).some((op) => op.op === 'add' && op.prompt.identifier === identifier);
 
+    /* ------------------------------------------------------------ journal summaries */
+
+    /** A block's name for a journal summary: the user's own block, else the base's (its identifier at worst). */
+    const blockName = (base: string, identifier: string): string => {
+        const own = opsOf(base).find((op): op is AddOp => op.op === 'add' && op.prompt.identifier === identifier);
+        const prompt = own?.prompt ?? findPrompt(savedSync(base), identifier) ?? findPrompt(workingSync(), identifier);
+        const name = typeof prompt?.name === 'string' ? prompt.name.trim() : '';
+        return name || identifier;
+    };
+
+    const opBlock = (base: string, op: DomainOp): string =>
+        op.op === 'add'
+            ? (typeof op.prompt.name === 'string' && op.prompt.name.trim()) || blockName(base, op.prompt.identifier)
+            : op.op === 'key'
+              ? ''
+              : blockName(base, op.identifier);
+
+    const paramName = (key: string): string => paramLabel(key, app.i18n) ?? key;
+
+    /** «В слое «Marinara» выключен блок «Main»»: what one recorded operation does, in words. */
+    const recordSummary = (base: string, op: DomainOp): string => {
+        if (op.op === 'key') return t('m34.layerSvc.journal.key', { name: base, param: paramName(op.key) });
+        const what = op.op === 'toggle' ? (op.enabled ? 'on' : 'off') : op.op;
+        return t(`m34.layerSvc.journal.${what}`, { name: base, block: opBlock(base, op) });
+    };
+
+    const removeSummary = (base: string, op: DomainOp): string =>
+        op.op === 'key'
+            ? t('m34.layerSvc.journal.removeKey', { name: base, param: paramName(op.key) })
+            : t('m34.layerSvc.journal.remove', { name: base, block: opBlock(base, op) });
+
     /* ------------------------------------------------------------ ST's preset manager */
 
     const presetManager = async (): Promise<Dict | null> => {
@@ -481,8 +514,9 @@ export function createPresetLayer(app: App, log: Logger, store?: PresetStore): P
     };
 
     const offer = (name: string, reason: OfferReason): void => {
+        // Found by Maestro at page load (not a reply to a click): it needs attention, so 'important', not urgent.
         app.ui.notice(t(`m34.layerSvc.offer.${reason}`, { name }), {
-            urgent: true,
+            importance: 'important',
             level: 'warn',
             action: {
                 label: t('m34.layerSvc.offer.action'),
@@ -590,10 +624,11 @@ export function createPresetLayer(app: App, log: Logger, store?: PresetStore): P
             const merged = mergeOp(opsOf(base), incoming);
             if (!merged.before && !merged.after) return;
             const change = incoming;
+            const summary = recordSummary(base, change);
             files.mutate(base, (file) => {
                 file.ops = mergeOp(file.ops, change).ops;
             });
-            await journal(t('m34.layerSvc.journal.record', { name: base }), base, [
+            await journal(summary, base, [
                 { key: merged.key, index: merged.index, before: merged.before, after: merged.after },
             ]);
             refreshReport(base);
@@ -605,12 +640,11 @@ export function createPresetLayer(app: App, log: Logger, store?: PresetStore): P
             const op = opsOf(base)[index];
             if (!op) return;
             const key = opKey(op);
+            const summary = removeSummary(base, op);
             files.mutate(base, (file) => {
                 file.ops = setOpAt(file.ops, key, null);
             });
-            await journal(t('m34.layerSvc.journal.remove', { name: base }), base, [
-                { key, index, before: op, after: null },
-            ]);
+            await journal(summary, base, [{ key, index, before: op, after: null }]);
             refreshReport(base);
             emit();
         },
@@ -645,6 +679,7 @@ export function createPresetLayer(app: App, log: Logger, store?: PresetStore): P
             const next = resolveOp(op, choice, newBase);
             const oldKey = opKey(op);
             const nextKey = next ? opKey(next) : oldKey;
+            const summary = t('m34.layerSvc.journal.resolve', { name: base, block: blockName(base, identifier) });
             const changes: LayerChange[] = [];
             if (next && nextKey === oldKey) {
                 changes.push({ key: oldKey, index, before: op, after: next });
@@ -663,7 +698,7 @@ export function createPresetLayer(app: App, log: Logger, store?: PresetStore): P
                 file.ops = setOpAt(file.ops, oldKey, null);
                 if (next) file.ops = setOpAt(file.ops, nextKey, next, index);
             });
-            await journal(t('m34.layerSvc.journal.resolve', { name: base }), base, changes);
+            await journal(summary, base, changes);
             // The working copy of the current preset shows the chosen text right away.
             if (store && base === currentName()) {
                 const mine =
@@ -703,7 +738,8 @@ export function createPresetLayer(app: App, log: Logger, store?: PresetStore): P
                 files.mutate(base, (file) => {
                     for (const op of planned) file.ops = setOpAt(file.ops, opKey(op), op);
                 });
-                await journal(t('m34.layerSvc.journal.migrate', { name: base, count: plan.ops.length }), base, changes);
+                const summary = tPlural(app.i18n, 'm34.layerSvc.journal.migrate', plan.ops.length, { name: base });
+                await journal(summary, base, changes);
             }
             refreshReport(base);
             emit();
@@ -732,7 +768,10 @@ export function createPresetLayer(app: App, log: Logger, store?: PresetStore): P
                     for (const op of prepared) file.ops = mergeOp(file.ops, op).ops;
                 });
                 await journal(
-                    t('m34.layerSvc.journal.transfer', { name: toBase, from: fromBase, count: prepared.length }),
+                    tPlural(app.i18n, 'm34.layerSvc.journal.transfer', prepared.length, {
+                        name: toBase,
+                        from: fromBase,
+                    }),
                     toBase,
                     changes,
                 );

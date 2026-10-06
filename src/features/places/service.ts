@@ -422,12 +422,15 @@ export class PlacesService implements Required<PlacesApi> {
             description: [
                 this.t('m24.merge.description', {
                     label: data.label,
+                    name: data.name,
                     place: this.path(target.id).join(' › '),
                 }),
                 others.length ? this.t('m24.merge.others', { places: others.join(', ') }) : '',
             ]
                 .filter(Boolean)
                 .join(' '),
+            details: this.t('m24.merge.details', { label: data.label }),
+            appliedNotice: { text: this.t('m24.merge.applied', { name: data.name, place: target.name }) },
             changes: [{ target: PLACE_TARGET, ref: { id: target.id }, before: copyPlace(target), after }],
             payload,
             sourceMessage: data.index,

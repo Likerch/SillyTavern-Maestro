@@ -835,6 +835,7 @@ export class MechanicTracking implements TrackingPart {
             kind: CHANGE_KIND,
             title: this.t('m25.track.change.title', { count: changes.length, index }),
             description: lines.join('\n'),
+            appliedNotice: { text: this.t('m25.track.change.done', { index }) },
             changes: preview,
             payload,
             sourceMessage: index,

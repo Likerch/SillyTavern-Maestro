@@ -1,4 +1,5 @@
-// Strings of M22 «Правила». Russian is the primary UI language.
+// Strings of M22 «Правила» (`m22.*`, action kinds `kind.rules.*`, journal targets `target.m22.*`; 'lore-entry' is
+// described by M5). Russian is the primary UI language.
 import type { I18nParts } from '../../shared/contracts';
 
 export const RULES_STRINGS: I18nParts = {
@@ -19,11 +20,16 @@ export const RULES_STRINGS: I18nParts = {
         'm22.firstRun':
             'Lore, prompt and neighbour rules switch on after the first-run wizard. Display and interface fixes already work.',
         'm22.toggle': 'On',
-        'm22.toggle.on': 'Rule «{rule}» switched on',
-        'm22.toggle.off': 'Rule «{rule}» switched off',
+        'm22.toggle.on': 'Switching on the rule «{rule}»',
+        'm22.toggle.off': 'Switching off the rule «{rule}»',
+        'm22.toggle.done.on': 'Switched on the rule «{rule}».',
+        'm22.toggle.done.off': 'Switched off the rule «{rule}».',
         'm22.toggle.loreHint':
             'Switching a lore rule resets sticky and cooldown of the entries it touches (SillyTavern ties them to the entry text).',
-        'm22.toggle.notApplied': 'The switch was not applied ({decision}).',
+        'm22.toggle.notApplied.queued': 'Switching the rule «{rule}» is waiting in the Inbox.',
+        'm22.toggle.notApplied.notified': 'Switching the rule «{rule}» waits for «Apply» in the notice.',
+        'm22.toggle.notApplied.rejected': 'The rule «{rule}» stays as it was.',
+        'm22.toggle.notApplied.skipped': 'The rule «{rule}» was not switched: such changes are off or out of date.',
         'm22.default': 'default',
         'm22.explicit': 'set by you',
         'm22.waiting': 'waits for the first-run wizard',
@@ -61,10 +67,23 @@ export const RULES_STRINGS: I18nParts = {
         'm22.caps.inactive': 'not active now',
         'm22.caps.cut': 'Cut on the last scan: {count}',
         'm22.caps.ruleOff': 'The «Book cap and recursion limit» rule is off: the limits are kept but not applied.',
-        'm22.qvinkExclude.title': 'Qvink: picture post #{index} excluded from summaries',
+        'm22.qvinkExclude.title': 'Leaving picture post #{index} out of Qvink summaries',
+        'm22.qvinkExclude.description':
+            'This is an NAI picture post: there is nothing to summarise in it, so Qvink skips it.',
+        'm22.qvinkExclude.done': 'Left picture post #{index} out of Qvink summaries.',
+        'm22.qvinkExclude.doneMany.one': 'Left {count} picture post out of Qvink summaries',
+        'm22.qvinkExclude.doneMany.few': 'Left {count} picture posts out of Qvink summaries',
+        'm22.qvinkExclude.doneMany.many': 'Left {count} picture posts out of Qvink summaries',
         'm22.task.qvinkSummarize': 'Qvink: summarise messages that left the prompt',
-        'kind.rules.toggle': 'Rule switches',
-        'kind.rules.qvinkExclude': 'Qvink: picture posts excluded',
+        'kind.rules.toggle': 'Switching rules on and off',
+        'kind.rules.qvinkExclude': 'Pictures left out of Qvink summaries',
+        'target.m22.rule': 'Rule',
+        'target.m22.qvinkExclude': 'Picture in Qvink summaries',
+        'target.m22.packChoice': 'Pack version',
+        'm22.value.ruleOn': 'on',
+        'm22.value.ruleOff': 'off',
+        'm22.value.excluded': 'left out',
+        'm22.value.summarised': 'summarised',
 
         'm22.rule.role.assistantToSystem.title': 'Assistant role → system',
         'm22.rule.role.assistantToSystem.description':
@@ -105,9 +124,10 @@ export const RULES_STRINGS: I18nParts = {
         'm22.rule.ck.archiveDepth.title': 'CK archives that fire only on the last message',
         'm22.rule.ck.archiveDepth.description':
             'Baby Bunny saves archives with scan depth 1, so a character fires only when the name is in the very last message. For each of your archive books the Inbox gets one proposal: switch them to the global scan depth and, with DES-RU, add Russian case forms to the name keys. BunnyMo packs are never touched.',
-        'm22.packVersion.title': 'Pack versions: keep “{book}”?',
+        'm22.packVersion.title': 'Several versions of one BunnyMo pack — keep “{book}”?',
         'm22.packVersion.description':
-            '{books}: {count} entries with the same keys but different text (for example {sample}), so one tag fires both texts.\n\nYes: keep “{book}” (looks newest); the copies from {others} are switched off on the fly, the files do not change.\nNo: keep every version.\n\nYou can change the choice on the “Rules” tab at any time.',
+            '{books}: {count} entries with the same keys but different text, so one tag fires both texts and the model gets two different descriptions.\n\nYes: keep “{book}” (looks newest); the copies from {others} are switched off on the fly, the files do not change.\nNo: keep every version.\n\nYou can change the choice on the “Rules” tab at any time.',
+        'm22.packVersion.details': 'For example the tags {sample}',
         'm22.pack.title': 'Pack versions',
         'm22.pack.none': 'No version conflicts in the last scan.',
         'm22.pack.group': '{books}: {count} entries',
@@ -115,17 +135,19 @@ export const RULES_STRINGS: I18nParts = {
         'm22.pack.keepAll': 'keep every version',
         'm22.pack.keep': 'keep “{book}”',
         'm22.pack.keepNewest': 'keep “{book}” (newest)',
-        'm22.archiveDepth.title': 'Archives in “{book}”: scan depth 1 → global ({count})',
+        'm22.archiveDepth.title': 'Character sheets in “{book}” fire only on the last message — fix them?',
         'm22.archiveDepth.description':
-            'These archives in “{book}” fire only when the name is in the very last message. The fix sets their scan depth to the global setting; the book is saved right away, and the journal keeps the previous values.',
-        'm22.archiveDepth.forms': 'Name keys also get every Russian case form from DES-RU.',
+            'Characters of this book ({count}) come back only when their name is in the very last message. I will give their character sheets the global scan depth; the book “{book}” is saved right away, and the journal keeps the previous values.',
+        'm22.archiveDepth.forms':
+            'I will also add every Russian case form of the names (through DES-RU), so other forms of a name are recognised too.',
         'm22.archiveDepth.noForms': 'Name keys stay as they are (DES-RU is not available).',
+        'm22.archiveDepth.entries': 'Sheets: {list}',
         'm22.archiveDepth.more': '…and {count} more',
         'm22.archiveDepth.failed.missing': 'The book “{book}” or its entries are gone.',
         'm22.archiveDepth.failed.stale': 'The archives in “{book}” changed after the proposal.',
         'm22.archiveDepth.failed.protected': '“{book}” is a BunnyMo book: its file is never edited.',
-        'kind.rules.packVersion': 'Pack version choice',
-        'kind.rules.ckArchiveDepth': 'CK archive fixes',
+        'kind.rules.packVersion': 'Choice of a BunnyMo pack version',
+        'kind.rules.ckArchiveDepth': 'Character sheet fixes',
     },
     ru: {
         'm22.title': 'Правила',
@@ -144,11 +166,17 @@ export const RULES_STRINGS: I18nParts = {
         'm22.firstRun':
             'Правила лора, промпта и соседей включатся после мастера первого запуска. Исправления показа и интерфейса уже работают.',
         'm22.toggle': 'Включено',
-        'm22.toggle.on': 'Правило «{rule}» включено',
-        'm22.toggle.off': 'Правило «{rule}» выключено',
+        'm22.toggle.on': 'Включение правила «{rule}»',
+        'm22.toggle.off': 'Выключение правила «{rule}»',
+        'm22.toggle.done.on': 'Включил правило «{rule}».',
+        'm22.toggle.done.off': 'Выключил правило «{rule}».',
         'm22.toggle.loreHint':
             'Включение и выключение правила лора сбрасывает sticky и cooldown затронутых записей (в SillyTavern они привязаны к тексту записи).',
-        'm22.toggle.notApplied': 'Переключение не применено ({decision}).',
+        'm22.toggle.notApplied.queued': 'Переключение правила «{rule}» ждёт во «Входящих».',
+        'm22.toggle.notApplied.notified': 'Переключение правила «{rule}» ждёт: нажми «Применить» в уведомлении.',
+        'm22.toggle.notApplied.rejected': 'Правило «{rule}» осталось как было.',
+        'm22.toggle.notApplied.skipped':
+            'Правило «{rule}» не переключилось: такие изменения сейчас выключены или предложение устарело.',
         'm22.default': 'по умолчанию',
         'm22.explicit': 'задано тобой',
         'm22.waiting': 'ждёт мастера первого запуска',
@@ -187,10 +215,23 @@ export const RULES_STRINGS: I18nParts = {
         'm22.caps.cut': 'Снято на последнем сканировании: {count}',
         'm22.caps.ruleOff':
             'Правило «Потолок книги и лимит рекурсии» выключено: ограничения сохранены, но не применяются.',
-        'm22.qvinkExclude.title': 'Qvink: пост-картинка №{index} исключён из пересказа',
+        'm22.qvinkExclude.title': 'Исключение картинки №{index} из пересказов Qvink',
+        'm22.qvinkExclude.description':
+            'Это пост с картинкой NAI: пересказывать в нём нечего, поэтому Qvink его пропустит.',
+        'm22.qvinkExclude.done': 'Убрал картинку №{index} из пересказов Qvink.',
+        'm22.qvinkExclude.doneMany.one': 'Убрал из пересказов Qvink {count} картинку',
+        'm22.qvinkExclude.doneMany.few': 'Убрал из пересказов Qvink {count} картинки',
+        'm22.qvinkExclude.doneMany.many': 'Убрал из пересказов Qvink {count} картинок',
         'm22.task.qvinkSummarize': 'Qvink: пересказать сообщения, выпавшие из промпта',
-        'kind.rules.toggle': 'Включение правил',
-        'kind.rules.qvinkExclude': 'Qvink: исключение постов-картинок',
+        'kind.rules.toggle': 'Включение и выключение правил',
+        'kind.rules.qvinkExclude': 'Картинки без пересказа в Qvink',
+        'target.m22.rule': 'Правило',
+        'target.m22.qvinkExclude': 'Картинка в пересказах Qvink',
+        'target.m22.packChoice': 'Версия пака',
+        'm22.value.ruleOn': 'включено',
+        'm22.value.ruleOff': 'выключено',
+        'm22.value.excluded': 'не пересказывается',
+        'm22.value.summarised': 'пересказывается',
 
         'm22.rule.role.assistantToSystem.title': 'Роль assistant → system',
         'm22.rule.role.assistantToSystem.description':
@@ -231,9 +272,10 @@ export const RULES_STRINGS: I18nParts = {
         'm22.rule.ck.archiveDepth.title': 'Архивы CK по последнему сообщению',
         'm22.rule.ck.archiveDepth.description':
             'Baby Bunny сохраняет архивы с глубиной сканирования 1 — персонаж срабатывает, только если имя есть в самом последнем сообщении. Для каждой твоей книги архивов во «Входящие» приходит одно предложение: перевести их на общую глубину сканирования, а с DES-RU — ещё и добавить ключам имён русские падежи. Паки BunnyMo не трогаются никогда.',
-        'm22.packVersion.title': 'Версии паков: оставить «{book}»?',
+        'm22.packVersion.title': 'Несколько версий одного пака BunnyMo — оставить «{book}»?',
         'm22.packVersion.description':
-            '{books}: записей с одинаковыми ключами, но разным текстом — {count} (например, {sample}), и на один тег срабатывают оба текста.\n\nДа — оставить «{book}» (похоже, самую новую): копии из {others} выключаются на лету, файлы не меняются.\nНет — оставить все версии.\n\nВыбор можно поменять в любой момент во вкладке «Правила».',
+            '{books}: записей с одинаковыми ключами, но разным текстом — {count}. На один тег срабатывают оба текста, и модель получает два разных описания.\n\nДа — оставить «{book}» (похоже, самую новую): копии из {others} выключаются на лету, файлы не меняются.\nНет — оставить все версии.\n\nВыбор можно поменять в любой момент во вкладке «Правила».',
+        'm22.packVersion.details': 'Например, теги {sample}',
         'm22.pack.title': 'Версии паков',
         'm22.pack.none': 'На последнем сканировании конфликтов версий не было.',
         'm22.pack.group': '{books}: записей — {count}',
@@ -241,16 +283,18 @@ export const RULES_STRINGS: I18nParts = {
         'm22.pack.keepAll': 'оставить все версии',
         'm22.pack.keep': 'оставить «{book}»',
         'm22.pack.keepNewest': 'оставить «{book}» (новее)',
-        'm22.archiveDepth.title': 'Архивы в «{book}»: глубина сканирования 1 → общая ({count})',
+        'm22.archiveDepth.title': 'Листы характера в «{book}» срабатывают только по последнему сообщению — исправить?',
         'm22.archiveDepth.description':
-            'Эти архивы в «{book}» срабатывают, только если имя есть в самом последнем сообщении. Исправление ставит им общую глубину сканирования; книга сохраняется сразу, прежние значения остаются в журнале.',
-        'm22.archiveDepth.forms': 'Ключам имён добавляются все русские падежи из DES-RU.',
-        'm22.archiveDepth.noForms': 'Ключи имён остаются как есть (DES-RU недоступен).',
+            'Персонажи из этой книги ({count}) вспоминаются, только если имя прозвучало в самом последнем сообщении. Поставлю их листам характера общую глубину сканирования; книга «{book}» сохранится сразу, прежние значения останутся в журнале.',
+        'm22.archiveDepth.forms':
+            'Заодно добавлю к именам все падежи (через DES-RU), чтобы персонажей узнавали и в других формах имени.',
+        'm22.archiveDepth.noForms': 'Ключи имён останутся как есть (DES-RU недоступен).',
+        'm22.archiveDepth.entries': 'Листы: {list}',
         'm22.archiveDepth.more': '…и ещё {count}',
         'm22.archiveDepth.failed.missing': 'Книги «{book}» или её записей больше нет.',
         'm22.archiveDepth.failed.stale': 'Архивы в «{book}» изменились после предложения.',
         'm22.archiveDepth.failed.protected': '«{book}» — книга BunnyMo, её файл не правится.',
-        'kind.rules.packVersion': 'Выбор версии пака',
-        'kind.rules.ckArchiveDepth': 'Исправление архивов CK',
+        'kind.rules.packVersion': 'Выбор версии пака BunnyMo',
+        'kind.rules.ckArchiveDepth': 'Исправление листов характера',
     },
 };

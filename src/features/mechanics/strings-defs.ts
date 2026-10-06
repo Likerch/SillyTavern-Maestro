@@ -194,6 +194,11 @@ export const DEF_STRINGS: I18nParts = {
         'm25.def.journal.update': 'Mechanic «{name}» changed',
         'm25.def.journal.remove': 'Mechanic «{name}» deleted',
 
+        'kind.mechanics.def.create': 'New mechanics',
+        'kind.mechanics.def.update': 'Mechanics edits',
+        'kind.mechanics.def.remove': 'Mechanics removal',
+        'target.mechanics.def': 'Mechanic',
+
         'm25.def.settings.title': 'Mechanics settings',
         'm25.def.settings.autoChecks': 'Roll checks when your message has a trigger word',
         'm25.def.settings.strip': 'Widgets next to the DES portraits',
@@ -393,6 +398,11 @@ export const DEF_STRINGS: I18nParts = {
         'm25.def.journal.create': 'Создана механика «{name}»',
         'm25.def.journal.update': 'Изменена механика «{name}»',
         'm25.def.journal.remove': 'Удалена механика «{name}»',
+
+        'kind.mechanics.def.create': 'Создание механики',
+        'kind.mechanics.def.update': 'Правка механики',
+        'kind.mechanics.def.remove': 'Удаление механики',
+        'target.mechanics.def': 'Механика',
 
         'm25.def.settings.title': 'Настройки механик',
         'm25.def.settings.autoChecks': 'Бросать проверки, когда в твоём сообщении есть слово-триггер',

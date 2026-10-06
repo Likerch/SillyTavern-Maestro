@@ -339,7 +339,7 @@ describe('step 5: rules', () => {
         expect(record).toMatchObject({
             module: 'W1',
             kind: 'wizard.rules',
-            summary: 'Мастер первого запуска: правила (4)',
+            summary: 'Первая настройка: поменял правила для лора (4)',
         });
         // The listener is gone after the first click.
         next!.click();

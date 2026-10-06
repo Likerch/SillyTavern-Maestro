@@ -2,9 +2,10 @@
 // through the fetch gate, background cap, overall daily limit) — spend per turn, session and day by source (main,
 // user regenerations, M12's auto-swipes, Qvink, Maestro's tasks, NAI Studio's LLM calls and its Anlas), the pult tab
 // «Расходы» and the «Экономный» switch when the daily limit says so (never blocking the main generation).
+import { formatEnum } from '../../core/labels';
 import type { MaestroModule } from '../../shared/contracts';
 import type { TreasurerApi } from './api';
-import { TREASURER_ID, TREASURER_KEY, TreasurerService, defaultTreasurerSettings } from './service';
+import { MODE_TARGET, TREASURER_ID, TREASURER_KEY, TreasurerService, defaultTreasurerSettings } from './service';
 import type { TreasurerSettings } from './service';
 import { M21_STRINGS } from './strings';
 import { M21_CSS, treasurerTab } from './view';
@@ -32,6 +33,8 @@ export const treasurerModule: MaestroModule<TreasurerSettings> = {
     enabledByDefault: true,
     defaults: defaultTreasurerSettings,
     i18n: M21_STRINGS,
+    // The mode switch reads «Режим Maestro: Сбалансированный → Экономный».
+    targets: [{ target: MODE_TARGET, format: formatEnum('m21.mode.') }],
     init({ app, settings, log, own }) {
         const service = new TreasurerService(app, settings, log);
         service.install(own);

@@ -753,7 +753,8 @@ export class BunnyMoModeService {
         });
         if (!result.ok) throw new Error(this.t(`m35b.error.sheet.${result.error}`, { book, uid }));
         if (!result.changed) return;
-        const summary = this.t('m35b.journal.sheet', { name: sheet.name || `#${uid}`, book });
+        // The book and the entry are in the change's ref («Подробнее»); the summary names the character.
+        const summary = this.t('m35b.journal.sheet', { name: sheet.name || `#${uid}` });
         await this.writeContent(book, uid, data, key, result.content, before, summary);
         this.cache.delete(book);
         this.dictionaryCache = null;

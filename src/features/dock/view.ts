@@ -71,6 +71,7 @@ export function dockTab(deps: DockViewDeps): PultTab {
 
     const failed = (shortcut: Shortcut, error?: unknown) => {
         if (error !== undefined) app.log.warn(`dock: opener "${shortcut.id}" failed`, error);
+        // A reply to his own click: always shown.
         app.ui.notice(t('m32.dock.shortcutMissing', { name: t(shortcut.labelKey) }), { level: 'warn', urgent: true });
     };
 

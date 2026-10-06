@@ -427,7 +427,9 @@ describe('M21 daily limit', () => {
         expect(env.settingsNotified).toContain('core.mode');
         expect(settings).toMatchObject({ limitDate: dayKey(env.wall.value), modeBeforeLimit: 'balanced' });
         expect(env.notices).toHaveLength(1);
-        expect(env.notices[0]!.text).toBe('The daily limit is reached ($2.10 of $2.00): Economy is on until tomorrow.');
+        expect(env.notices[0]!.text).toBe(
+            'The daily limit is reached ($2.10 of $2.00): I switched Maestro to Economy until tomorrow.',
+        );
         expect(env.notices[0]!.options).toMatchObject({ urgent: true, level: 'warn' });
         await wait();
         expect(env.journal[0]).toMatchObject({
@@ -467,7 +469,7 @@ describe('M21 daily limit', () => {
         step(DAY);
         await env.ended();
         expect(env.core.mode).toBe('balanced');
-        expect(env.notices.at(-1)?.text).toBe('A new day: the mode is back to Balanced.');
+        expect(env.notices.at(-1)?.text).toBe('A new day: I put the mode back to Balanced.');
         expect(settings.modeBeforeLimit).toBe('');
     });
 
@@ -476,7 +478,7 @@ describe('M21 daily limit', () => {
         expect(env.notices[0]!.text).toBe("Today's spend reached the daily limit: $2.10 of $2.00.");
         settings.limitDate = '';
         fire('stopBackground');
-        expect(env.notices[1]!.text).toContain("Maestro's background tasks stop until tomorrow");
+        expect(env.notices[1]!.text).toContain('I stopped my background tasks until tomorrow');
         settings.limitDate = '';
         env.core.mode = 'economy';
         fire('economy');

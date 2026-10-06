@@ -3,6 +3,7 @@
 // off" test that makes the revision split its batch (plan §9). Pure: no DOM, no SillyTavern.
 import { isRevisionTarget } from './revision-prompt';
 import type { RevisionTargetName } from './revision-prompt';
+import { russianSentence } from './text-script';
 
 export interface ParsedChange {
     class: 'known' | 'new';
@@ -11,6 +12,8 @@ export interface ParsedChange {
     /** Passport slot of 'nai.appearance', state key of 'places.state'. */
     field?: string;
     value: string;
+    /** The change as one short Russian sentence for the user's card (the value keeps its English/tag format). */
+    russian?: string;
     before?: string;
     evidence: string;
     sourceMessage: number;
@@ -77,6 +80,8 @@ export function readChange(raw: unknown, range: { from: number; to: number }): P
     if (field && field.length <= MAX_FIELD) change.field = field;
     const before = str(raw.before);
     if (before) change.before = clip(before, MAX_VALUE);
+    const russian = russianSentence(raw.russian);
+    if (russian) change.russian = russian;
     return change;
 }
 

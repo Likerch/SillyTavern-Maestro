@@ -52,7 +52,8 @@ export function backgroundsTab(app: App, service: BackgroundsService, settings: 
         try {
             await job();
         } catch (error) {
-            app.ui.notice(error instanceof Error ? error.message : String(error), { level: 'warn' });
+            // A failed action of the user's own: shown at every notification level.
+            app.ui.notice(error instanceof Error ? error.message : String(error), { level: 'warn', urgent: true });
         }
     };
 

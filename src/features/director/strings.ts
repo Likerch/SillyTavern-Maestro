@@ -99,8 +99,9 @@ export const DIRECTOR_STRINGS: I18nParts = {
         'm14.steer.action': 'a clear move in the scene',
         'm14.nudge': 'Shake it up',
         'm14.nudge.hint': 'Prepare a director’s note for the next turn now, regardless of the frequency limit',
-        'm14.nudge.done': 'The note is ready: it goes into the next generation unless you steer the plot yourself.',
-        'm14.nudge.nothing': 'Nothing to build a twist from: no open quests or unresolved threads.',
+        'm14.nudge.done':
+            "The director's note is ready: it nudges the plot in the next reply unless you steer it yourself first.",
+        'm14.nudge.nothing': 'Nothing to build a twist from: the story has no open quests or loose threads.',
         'm14.mode.off': 'In «{mode}» the director writes no notes by itself, only on «Shake it up».',
         'm14.notes.title': 'Director’s notes',
         'm14.notes.empty': 'No notes yet.',
@@ -214,8 +215,9 @@ export const DIRECTOR_STRINGS: I18nParts = {
         'm14.steer.long': 'длинное описание событий',
         'm14.nudge': 'Встряхнуть',
         'm14.nudge.hint': 'Подготовить заметку режиссёра к следующему ходу сейчас, без ограничения частоты',
-        'm14.nudge.done': 'Заметка готова: она уйдёт в следующую генерацию, если ты сам не направишь сюжет.',
-        'm14.nudge.nothing': 'Не из чего строить поворот: нет открытых квестов и незакрытых нитей.',
+        'm14.nudge.done':
+            'Заметка режиссёра готова: она подтолкнёт сюжет в следующем ответе, если ты сам не направишь его раньше.',
+        'm14.nudge.nothing': 'Поворот не из чего строить: в истории нет открытых квестов и незакрытых сюжетных линий.',
         'm14.mode.off': 'В режиме «{mode}» режиссёр сам заметок не пишет — только по кнопке «Встряхнуть».',
         'm14.notes.title': 'Заметки режиссёра',
         'm14.notes.empty': 'Заметок пока нет.',

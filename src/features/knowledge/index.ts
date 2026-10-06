@@ -7,7 +7,7 @@ import type { KnowledgeApi } from './api';
 import { KnowledgeService } from './service';
 import { KNOWLEDGE_ID, KNOWLEDGE_KEY, defaultKnowledgeSettings, readKnowledgeSettings } from './settings';
 import type { KnowledgeSettings } from './settings';
-import { KNOWLEDGE_STRINGS } from './strings';
+import { KNOWLEDGE_STRINGS, KNOWLEDGE_TARGETS } from './strings';
 import { KNOWLEDGE_CSS, knowledgeTab } from './view';
 
 export const knowledgeModule: MaestroModule<KnowledgeSettings> = {
@@ -18,6 +18,7 @@ export const knowledgeModule: MaestroModule<KnowledgeSettings> = {
     enabledByDefault: false,
     defaults: defaultKnowledgeSettings,
     i18n: KNOWLEDGE_STRINGS,
+    targets: KNOWLEDGE_TARGETS,
     init({ app, log, own }) {
         const settings = () => readKnowledgeSettings(app.settings.module<Partial<KnowledgeSettings>>(KNOWLEDGE_KEY));
         const service = new KnowledgeService(app, log, settings);
@@ -28,7 +29,7 @@ export const knowledgeModule: MaestroModule<KnowledgeSettings> = {
     },
 };
 
-export { KNOWLEDGE_STRINGS } from './strings';
+export { KNOWLEDGE_STRINGS, KNOWLEDGE_TARGETS } from './strings';
 export { KnowledgeService } from './service';
 export { KNOWLEDGE_ID, KNOWLEDGE_KEY, defaultKnowledgeSettings, readKnowledgeSettings } from './settings';
 export type { KnowledgeSettings } from './settings';

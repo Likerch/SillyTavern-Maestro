@@ -184,7 +184,7 @@ describe('Inbox', () => {
         await flush();
         expect(fakes.inbox.accepted).toEqual(['1']);
         ui.openPult('overview');
-        expect(body().textContent).toContain('Принято: 1; устарели и пропущены: 1.');
+        expect(body().textContent).toContain('Принял 1. Пропустил 1: с тех пор всё изменилось.');
     });
 });
 

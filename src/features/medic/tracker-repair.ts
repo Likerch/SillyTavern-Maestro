@@ -12,8 +12,10 @@
 //   4. store    — `extra.dooms_tracker_swipes[swipe_id]` as JSON strings, `lastGeneratedData` per section (+ the
 //                 quests mirror via parseQuests), `committedTrackerData` only when empty — exactly what
 //                 onMessageReceived/updateRPGData do; then DES's renderers and persistence.saveChatData({immediate}).
-// Autonomy kind 'medic.trackerRepair' (default 'auto'); every repair is journaled and can be undone.
+// Autonomy kind 'medic.trackerRepair' (default 'auto'); every repair is journaled and can be undone. An automatic
+// repair is announced by autonomy itself (Proposal.appliedNotice, grouped per turn).
 import { adaptersOf } from '../../adapters';
+import { tPlural } from '../../core/labels';
 import { desSwipeRecord } from '../../domain/des-tracker';
 import { stableHash } from '../../domain/hash';
 import { buildCompactRepairPrompt, sameTrackerRecord, trackerMissing } from '../../domain/medic-des';
@@ -119,7 +121,8 @@ export class TrackerRepair {
 
     /** Reply handler path: generate, then let the autonomy level decide (default 'auto'). */
     async auto(index: number): Promise<void> {
-        if (this.app.autonomy.level(REPAIR_KIND, 'auto') === 'off') return;
+        const level = this.app.autonomy.level(REPAIR_KIND, 'auto');
+        if (level === 'off') return;
         const key = this.runKey(index);
         if (!key || this.running.has(key)) return;
         this.running.add(key);
@@ -134,9 +137,10 @@ export class TrackerRepair {
                 this.reportFailure(index, result.block);
                 return;
             }
+            // 'auto' announces the repair itself (the proposal's appliedNotice); after «Yes» to the question, say so.
             const decision = await this.app.autonomy.decide(this.proposal(result, check.kit), 'auto');
-            if (decision === 'applied') {
-                this.app.ui.notice(this.t('m3.repair.done', { index: index + 1 }), { level: 'info' });
+            if (decision === 'applied' && level !== 'auto') {
+                this.app.ui.notice(this.t('m3.repair.done', { index: index + 1 }), { importance: 'urgent' });
             }
         } catch (error) {
             this.log.error('tracker repair failed', error);
@@ -158,23 +162,26 @@ export class TrackerRepair {
             await new Promise((resolve) => setTimeout(resolve, 200));
         }
         if (this.running.has(key)) return false;
-        return this.manual(index);
+        return this.manual(index, false);
     }
 
-    /** "Починить": the user asked, so the result is applied at once (and journaled). */
-    async manual(index: number): Promise<boolean> {
+    /**
+     * "Починить": the user asked, so the result is applied at once (and journaled). `clicked`: a direct reply to the
+     * user's click (always shown); M12's request runs in the background and reports like an automatic repair.
+     */
+    async manual(index: number, clicked = true): Promise<boolean> {
         const key = this.runKey(index);
         if (!key || this.running.has(key)) return false;
         this.running.add(key);
         try {
             const check = await this.blocker(index);
             if ('block' in check) {
-                if (check.block !== 'present') this.reportFailure(index, check.block, false);
+                if (check.block !== 'present') this.reportFailure(index, check.block, false, clicked);
                 return check.block === 'present';
             }
             const result = await this.generate(index, check.kit);
             if ('block' in result) {
-                this.reportFailure(index, result.block, false);
+                this.reportFailure(index, result.block, false, clicked);
                 return false;
             }
             const proposal = this.proposal(result, check.kit);
@@ -186,11 +193,17 @@ export class TrackerRepair {
                 changes: proposal.changes,
                 sourceMessage: index,
             });
-            this.app.ui.notice(this.t('m3.repair.done', { index: index + 1 }), { level: 'info' });
+            const notice = this.appliedNotice(index);
+            this.app.ui.notice(
+                notice.text,
+                clicked
+                    ? { importance: 'urgent' }
+                    : { level: 'info', group: notice.group, groupText: notice.groupText },
+            );
             return true;
         } catch (error) {
             this.log.error('tracker repair failed', error);
-            this.reportFailure(index, 'llm', false);
+            this.reportFailure(index, 'llm', false, clicked);
             return false;
         } finally {
             this.running.delete(key);
@@ -278,8 +291,18 @@ export class TrackerRepair {
             changes: [change],
             payload,
             sourceMessage: payload.messageIndex,
+            appliedNotice: this.appliedNotice(payload.messageIndex),
             apply: (value) => this.apply(value),
             stillValid: () => this.stillValid(payload),
+        };
+    }
+
+    /** «Восстановил трекер DES в ответе №N»; repairs of one turn merge into one notice. */
+    private appliedNotice(index: number): NonNullable<Proposal['appliedNotice']> {
+        return {
+            text: this.t('m3.repair.done', { index: index + 1 }),
+            group: REPAIR_KIND,
+            groupText: (count) => tPlural(this.app.i18n, 'm3.repair.doneMany', count),
         };
     }
 
@@ -366,13 +389,19 @@ export class TrackerRepair {
         return chatId && message ? `${chatId}:${index}:${swipeIdOf(message)}` : null;
     }
 
-    private reportFailure(index: number, block: RepairBlock, offerFix = true): void {
+    /** A failed repair needs his attention (important); after his own «Починить» it is always shown. */
+    private reportFailure(index: number, block: RepairBlock, offerFix = true, clicked = false): void {
         const text = this.t('m3.repair.failed', { index: index + 1, reason: this.t(`m3.repair.block.${block}`) });
+        const importance = clicked ? 'urgent' : 'important';
         this.app.ui.notice(
             text,
             offerFix
-                ? { level: 'warn', action: { label: this.t('m3.repair.fix'), run: () => void this.manual(index) } }
-                : { level: 'warn' },
+                ? {
+                      level: 'warn',
+                      importance,
+                      action: { label: this.t('m3.repair.fix'), run: () => void this.manual(index, true) },
+                  }
+                : { level: 'warn', importance },
         );
     }
 }

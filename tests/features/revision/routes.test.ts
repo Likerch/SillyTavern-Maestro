@@ -80,9 +80,14 @@ describe('canon.fact', () => {
             module: 'M8',
             kind: 'canon.fact',
             sourceMessage: 3,
-            title: 'Anna: canon fact',
+            title: 'Anna: something changed',
         });
-        expect(proposal.description).toBe('Replaces an outdated statement in the chat canon (Anna).');
+        // No Russian sentence from the model here: the English value is the fallback; the details say where it goes.
+        expect(proposal.description).toBe(
+            'Anna now lives in Paris.\nI will update the old statement in the chat canon.',
+        );
+        expect(proposal.details).toContain('Entry: Anna');
+        expect(proposal.details).toContain('Replaces: Anna lives in Rome.');
         expect(proposal.changes).toEqual([
             {
                 target: TARGETS.canon,
@@ -114,6 +119,18 @@ describe('canon.fact', () => {
         expect(env.canon.overrideOf('World', 1)).toBeUndefined();
     });
 
+    it("says it in the model's Russian words; the English canon text waits in the details", async () => {
+        const anna = seedAnna(env);
+        const proposal = ok(
+            await parts.routes.plan(known({ russian: 'Анна переехала в Париж.', before: 'Anna lives in Rome.' }), anna),
+        ).proposal;
+        expect(proposal.description).toBe(
+            'Анна переехала в Париж.\nI will update the old statement in the chat canon.',
+        );
+        expect(proposal.details).toContain('Canon text (English): Anna now lives in Paris.');
+        expect(proposal.payload).toMatchObject({ russian: 'Анна переехала в Париж.' });
+    });
+
     it('appends to an existing override and restores it on undo', async () => {
         const anna = seedAnna(env);
         await env.canon.put({
@@ -127,7 +144,7 @@ describe('canon.fact', () => {
             },
         });
         const proposal = ok(await parts.routes.plan(known(), anna)).proposal;
-        expect(proposal.description).toBe('A new fact for the chat canon (Anna).');
+        expect(proposal.description).toBe('Anna now lives in Paris.\nI will write it into the chat canon.');
         await proposal.apply(proposal.payload);
         const override = env.canon.overrideOf('World', 1)!;
         expect(override.meta.fields).toEqual(['key', 'content']);
@@ -220,7 +237,10 @@ describe('canon.fact', () => {
         ];
         const planned = ok(await parts.routes.plan(known({ value: 'Anna has never painted.' }), anna));
         expect(planned.forceInbox).toBe(true);
-        expect(planned.proposal.description).toContain('Conflicts with confirmed canon: Anna: «Anna is a painter.»');
+        // The card names what it disagrees with; the English canon line itself waits in the details.
+        expect(planned.proposal.description).toContain('This disagrees with what is already known: Anna.');
+        expect(planned.proposal.description).not.toContain('Anna is a painter.');
+        expect(planned.proposal.details).toContain('Contradiction: Anna: «Anna is a painter.»');
         expect(env.contradictions.quickInputs[0]).toEqual({
             statement: 'Anna has never painted.',
             entities: ['Anna'],
@@ -506,7 +526,11 @@ describe('chat.alias and des.alias', () => {
             await parts.routes.plan(known({ entityName: 'Bob', target: 'chat.alias', value: 'Bobby' }), bob),
         );
         expect(planned.proposal.changes).toHaveLength(1);
-        expect(planned.proposal.description).toBe('A nickname of this chat (alias map).');
+        expect(planned.proposal.description).toBe(
+            'The story calls Bob «Bobby». I will remember the nickname in this chat.',
+        );
+        expect(planned.proposal.appliedNotice?.text).toBe('Remembered a nickname: Bob — «Bobby»');
+        expect(planned.proposal.appliedNotice?.groupText?.(2)).toBe('Remembered 2 nicknames');
         await applyPlanned(planned, 'Bobster');
         expect(env.worldModel.aliases).toEqual({ Bobster: 'character:bob' });
         await expect(applyPlanned(planned, '')).rejects.toThrow('empty value');
@@ -517,7 +541,7 @@ describe('chat.alias and des.alias', () => {
         const planned = ok(await parts.routes.plan(known({ target: 'des.alias', value: 'Lady Anna' }), anna));
         expect(planned.forceInbox).toBe(true);
         expect(planned.proposal.payload).toMatchObject({ op: 'note', editable: false });
-        expect(planned.proposal.description).toContain('add the alias in the DES Character Workshop yourself');
+        expect(planned.proposal.description).toContain('add the new name in the DES Character Workshop');
         await applyPlanned(planned);
         expect(env.ui.notices.map((notice) => notice.text)).toEqual([planned.proposal.description]);
         expect(rejected(await parts.routes.plan(known({ target: 'des.alias', value: 'BLANK' }), anna))).toBe(

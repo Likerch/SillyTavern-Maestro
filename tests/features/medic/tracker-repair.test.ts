@@ -59,7 +59,12 @@ describe('tracker repair after a reply (together mode)', () => {
         const record = env.journal.list({ module: 'M3' })[0];
         expect(record?.kind).toBe(REPAIR_KIND);
         expect(record?.changes[0]?.target).toBe(TRACKER_TARGET);
-        expect(env.ui.notices.some((notice) => notice.text.includes('restored'))).toBe(true);
+        // Announced once by autonomy (appliedNotice, grouped per turn), with an undo action.
+        const done = env.ui.notices.filter((notice) => notice.text === 'Restored the DES tracker of reply #2.');
+        expect(done).toHaveLength(1);
+        expect(done[0]!.options?.group).toBe(REPAIR_KIND);
+        expect(done[0]!.options?.groupText?.(3)).toBe('Restored the DES tracker of 3 replies');
+        expect(done[0]!.options?.action).toBeDefined();
     });
 
     it('repairs on request for M12 and reports a tracker that is already there', async () => {
@@ -150,12 +155,18 @@ describe('tracker repair after a reply (together mode)', () => {
         expect(env.llm.request).not.toHaveBeenCalled();
         const notice = env.ui.notices.find((item) => item.options?.action);
         expect(notice?.text).toContain('Workshop');
+        expect(notice?.options?.importance).toBe('important');
         env.adapters.des.workshopOpen = false;
         notice!.options!.action!.run();
         await flush();
         expect(lastSwipe()?.infoBox).toBe('{"location":{"value":"Tavern"}}');
         await env.journal.load();
         expect(env.journal.list({ module: 'M3' })).toHaveLength(1);
+        // A direct reply to his click: always shown.
+        expect(env.ui.notices.at(-1)).toMatchObject({
+            text: 'Restored the DES tracker of reply #2.',
+            options: { importance: 'urgent' },
+        });
     });
 
     it('reports model failures and unreadable answers', async () => {
@@ -213,8 +224,10 @@ describe('tracker repair after a reply (together mode)', () => {
         env.llm.request.mockResolvedValue({ ok: false, error: 'x' });
         await reply();
         const texts = env.ui.notices.map((notice) => notice.text);
-        expect(texts.some((text) => text.includes('raw <img data-nai'))).toBe(true);
-        expect(texts.some((text) => text.includes('empty field keys'))).toBe(true);
+        expect(texts).toContain('The pictures of reply #2 were not drawn: NAI Studio left its markers unprocessed.');
+        expect(texts.some((text) => text.includes('Russian field names vanished'))).toBe(true);
         expect(texts.some((text) => text.includes('Doctor'))).toBe(true);
+        // Plain words only: no raw markup in the notices.
+        expect(texts.some((text) => text.includes('<img'))).toBe(false);
     });
 });

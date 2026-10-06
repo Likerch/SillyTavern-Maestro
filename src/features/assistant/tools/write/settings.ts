@@ -1,6 +1,7 @@
 // Write tools over Maestro's own settings (M33, plan §4.13): one module setting through the core's allowlist
 // (ToolContext.settings — API keys, URLs and connection profiles never pass), a module on or off through the module
 // manager, the autonomy level of a kind of actions. Every change shows before/after and is journaled with undo.
+import { kindLabel } from '../../../../core/labels';
 import { optEnum, reqBool, reqEnum, reqString } from '../../../../domain/assistant-write-args';
 import type { App, AutonomyLevel, JournalChange } from '../../../../shared/contracts';
 import type { ToolSpec } from '../../api';
@@ -107,10 +108,7 @@ export function moduleToggleTool(): ToolSpec {
                             };
                             await journal(app, {
                                 kind: 'assistant.module',
-                                summary: say('m33w.module.journal', {
-                                    title,
-                                    state: say(on ? 'm33w.state.on' : 'm33w.state.off'),
-                                }),
+                                summary: say(on ? 'm33w.module.journal.on' : 'm33w.module.journal.off', { title }),
                                 change,
                             });
                         }
@@ -210,9 +208,13 @@ export function autonomySetTool(): ToolSpec {
                     async apply() {
                         const previous = storedLevel(app, kind);
                         if (!writeLevel(app, kind, after)) throw failure(say, 'autonomyNeverAuto', { kind });
+                        // The journal names the kind in words (its `kind.<kind>` label); the raw kind stays in ref.
+                        const name = kindLabel(app.i18n, kind);
                         await journal(app, {
                             kind: 'assistant.autonomy',
-                            summary: say('m33w.autonomy.journal', { kind, level: label(after) }),
+                            summary: name
+                                ? say('m33w.autonomy.journal', { kind: name, level: label(after) })
+                                : say('m33w.autonomy.journalUnnamed', { level: label(after) }),
                             change: { target: UNDO_TARGETS.autonomy, ref: { kind }, before: previous, after },
                         });
                         return { result: { kind, level: after ?? 'default' } };

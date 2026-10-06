@@ -31,6 +31,8 @@ export interface LivingProposal {
     type?: string;
     /** English canon text, when the proposer already has one. */
     text?: string;
+    /** The fact as one short Russian sentence for the user, when the proposer has one. */
+    russian?: string;
 }
 
 export interface LivingCanonApi {

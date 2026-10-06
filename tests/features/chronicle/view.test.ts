@@ -2,7 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { chronicleModule } from '../../../src/features/chronicle';
 import type { ChronicleApi } from '../../../src/features/chronicle/api';
-import { CHRONICLE_STRINGS } from '../../../src/features/chronicle/strings';
+import { CHRONICLE_STRINGS, CHRONICLE_TARGETS } from '../../../src/features/chronicle/strings';
 import { profileTasks, resetRegistries } from '../../../src/ui/views/registries';
 import { createChronicleTestApp, reply, settle, startModule, userMessage } from './helpers';
 import type { ChronicleTestApp } from './helpers';
@@ -85,13 +85,32 @@ describe('M9 module', () => {
         expect(Object.keys(CHRONICLE_STRINGS.ru).sort()).toEqual(Object.keys(CHRONICLE_STRINGS.en).sort());
         for (const [key, text] of Object.entries(CHRONICLE_STRINGS.ru)) expect(text, key).not.toBe('');
         for (const key of Object.keys(CHRONICLE_STRINGS.en))
-            expect(key.startsWith('m9.') || key.startsWith('kind.chronicle.')).toBe(true);
+            expect(key.startsWith('m9.') || key.startsWith('kind.chronicle.') || key.startsWith('target.m9.')).toBe(
+                true,
+            );
         for (const reason of ['important', 'quest', 'relationship', 'oath', 'secret']) {
             expect(CHRONICLE_STRINGS.ru).toHaveProperty(`m9.reason.${reason}`);
         }
         for (const target of ['user', 'userAndPrompt', 'off']) {
             expect(CHRONICLE_STRINGS.ru).toHaveProperty(`m9.recap.target.${target}`);
         }
+    });
+
+    it('names its action kinds and journal targets in both languages', () => {
+        expect(chronicleModule.targets).toBe(CHRONICLE_TARGETS);
+        const targets = CHRONICLE_TARGETS.map((spec) => spec.target);
+        expect(targets).toEqual(['m9.chapter', 'm9.merge', 'm9.archive', 'm9.remember']);
+        const kinds = ['chapter', 'merge', 'archive', 'remember'].map((kind) => `kind.chronicle.${kind}`);
+        const fields = CHRONICLE_TARGETS.flatMap((spec) => Object.values(spec.fields ?? {}).map((f) => f.labelKey));
+        const keys = [...kinds, ...targets.map((target) => `target.${target}`), ...fields, 'm9.field.state'];
+        for (const key of keys) {
+            expect(CHRONICLE_STRINGS.en[key], key).toBeTruthy();
+            expect(CHRONICLE_STRINGS.ru[key], key).toBeTruthy();
+        }
+        for (const name of ['chapter.appliedMany', 'merge.appliedMany', 'archive.proposal', 'archive.applied']) {
+            for (const form of ['one', 'few', 'many']) expect(CHRONICLE_STRINGS.ru[`m9.${name}.${form}`]).toBeTruthy();
+        }
+        expect(CHRONICLE_STRINGS.ru['kind.chronicle.archive']).not.toContain('бюджет');
     });
 });
 
@@ -181,7 +200,7 @@ describe('M9 chronicle tab', () => {
         const banners = [...container.querySelectorAll('.maestro-banner')].map((node) => node.textContent);
         expect(banners).toEqual([
             'Qvink Memory is not installed or is off for this chat: no chapters and no «remember» marks.',
-            'The chat canon (M6) is off: chapters have nowhere to go.',
+            'Chronicle chapters have nowhere to go: the «Chat canon» module is off.',
         ]);
         if (typeof unmount === 'function') unmount();
         t.mock.chatId = undefined;

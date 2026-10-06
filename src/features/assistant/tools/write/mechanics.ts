@@ -215,7 +215,9 @@ export function mechanicToggleChatTool(): ToolSpec {
                         if (previous !== on) {
                             await journal(app, {
                                 kind: 'assistant.mechanicChat',
-                                summary: say('m33w.mechanic.journal.chat', { name: def.name, state: state(on) }),
+                                summary: say(on ? 'm33w.mechanic.journal.chatOn' : 'm33w.mechanic.journal.chatOff', {
+                                    name: def.name,
+                                }),
                                 change: {
                                     target: UNDO_TARGETS.mechanicChat,
                                     ref: { chatId, id: def.id },

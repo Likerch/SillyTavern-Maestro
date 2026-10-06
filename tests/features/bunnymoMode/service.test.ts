@@ -421,7 +421,7 @@ describe('sheet editor', () => {
         const [book, uid, patch, reason] = calls[0]!;
         expect([book, uid]).toEqual([ARCHIVES, 1]);
         expect((patch as { content: string }).content).toContain('<TRAIT:STOIC>, <TRAIT:PROUD>');
-        expect(reason).toEqual({ module: 'M35b', summary: `Sheet of Мира («${ARCHIVES}»)` });
+        expect(reason).toEqual({ module: 'M35b', summary: 'Character sheet saved: Мира' });
         expect(env.world.saves).toEqual([]);
         expect(env.journal.records.some((item) => item.kind === 'bunnymo.sheet')).toBe(false);
     });
@@ -433,7 +433,7 @@ describe('sheet editor', () => {
         await expect(api.saveSheet({ ...sheet, book: MBTI_V2, uid: 2 })).rejects.toThrow('is a BunnyMo book');
         env.bunny.packs = [DERE];
         await expect(api.saveSheet({ ...sheet, book: DERE, uid: 14 })).rejects.toThrow('is a BunnyMo book');
-        await expect(api.saveSheet({ ...sheet, uid: 77 })).rejects.toThrow('has no entry 77');
+        await expect(api.saveSheet({ ...sheet, uid: 77 })).rejects.toThrow('has no such entry');
         await expect(api.saveSheet({ ...sheet, book: 'Missing' })).rejects.toThrow('could not be read');
         const content = `${String(env.world.entry(ARCHIVES, 1)!.content)}\n<BunnymoTags><Name:Ann></BunnymoTags>`;
         await env.world.edit(ARCHIVES, 1, { content });

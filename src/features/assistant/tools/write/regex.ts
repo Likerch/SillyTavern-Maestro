@@ -355,7 +355,7 @@ export function regexToggleTool(): ToolSpec {
                         await afterWrite(app);
                         await journal(app, {
                             kind: 'assistant.regexToggle',
-                            summary: say('m33w.regex.journal.toggle', { name, state: state(on) }),
+                            summary: say(on ? 'm33w.regex.journal.on' : 'm33w.regex.journal.off', { name }),
                             change: {
                                 target: UNDO_TARGETS.regex,
                                 ref: { op: 'toggle', scriptId, name },

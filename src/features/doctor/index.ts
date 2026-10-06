@@ -2,11 +2,13 @@
 // chat and every regex script on demand; fixes are M22 rules switched on from a finding («Включить правило»), file
 // fixes of the user's books («Исправить в файле», asked, journaled) and regex actions. BunnyMo packs never get a
 // file fix (P13).
-import type { MaestroModule } from '../../shared/contracts';
+import { formatPlain } from '../../core/labels';
+import type { I18n, MaestroModule, TargetSpec } from '../../shared/contracts';
 import type { DoctorApi } from './api';
+import { LORE_ENTRY_TARGET } from './files';
 import { registerFileFixes } from './fixes';
-import { registerRegexFixes } from './regex-fix';
-import { registerRuleActions } from './rules';
+import { REGEX_TARGET, registerRegexFixes } from './regex-fix';
+import { RULE_TARGET, registerRuleActions } from './rules';
 import { DoctorService } from './service';
 import { DOCTOR_STRINGS } from './strings';
 import { DOCTOR_CSS, doctorTab } from './view';
@@ -14,6 +16,49 @@ import { DOCTOR_CSS, doctorTab } from './view';
 export type DoctorSettings = Record<string, never>;
 
 export const DOCTOR_KEY = 'doctor';
+
+/** ST's World Info role (0 system, 1 user, 2 assistant) by its name. */
+function formatRole(value: unknown, i18n: I18n): string {
+    return typeof value === 'number' ? i18n.t(`m5.role.${value}`) : formatPlain(value, i18n);
+}
+
+/** Regex `disabled` flag → «работает» / «выключен». */
+function formatRegexState(value: unknown, i18n: I18n): string {
+    return typeof value === 'boolean' ? i18n.t(value ? 'm5.value.regexOff' : 'm5.value.regexOn') : '';
+}
+
+/** Rule switch → «включено» / «выключено». */
+function formatRuleSwitch(value: unknown, i18n: I18n): string {
+    return typeof value === 'boolean' ? i18n.t(value ? 'm5.value.ruleOn' : 'm5.value.ruleOff') : '';
+}
+
+/**
+ * Journal targets of the doctor. 'lore-entry' is shared with M22 (its archive fixes): it is described here only.
+ * Fields not listed — keys, the Localizer marker, regex patterns — are technical and stay under «Подробнее».
+ */
+export const DOCTOR_TARGETS: TargetSpec[] = [
+    {
+        target: LORE_ENTRY_TARGET,
+        fields: {
+            role: { labelKey: 'm5.field.role', format: formatRole },
+            // null (the global depth) reads as the own depth removed.
+            // null = the global scan depth of SillyTavern (the fix for character sheets).
+            scanDepth: {
+                labelKey: 'm5.field.scanDepth',
+                nullable: true,
+                format: (value, i18n) => (value === null ? i18n.t('m5.value.globalDepth') : formatPlain(value, i18n)),
+            },
+        },
+    },
+    {
+        target: REGEX_TARGET,
+        fields: {
+            scriptName: { labelKey: 'm5.field.regexName' },
+            disabled: { labelKey: 'm5.field.regexState', format: formatRegexState },
+        },
+    },
+    { target: RULE_TARGET, format: formatRuleSwitch },
+];
 
 export const doctorModule: MaestroModule<DoctorSettings> = {
     id: 'M5',
@@ -23,6 +68,7 @@ export const doctorModule: MaestroModule<DoctorSettings> = {
     enabledByDefault: true,
     defaults: () => ({}),
     i18n: DOCTOR_STRINGS,
+    targets: DOCTOR_TARGETS,
     init({ app, log, own }) {
         const service = new DoctorService(app, log);
         const api: DoctorApi = service.api;

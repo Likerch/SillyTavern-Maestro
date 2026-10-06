@@ -1,17 +1,20 @@
 // Inbox tab: proposals waiting for a decision (plan §4.7, §7, M8 «Входящие»). Cards are grouped by entity; each shows
-// its source message (a jump into the chat), the per-store before/after diff, the model's evidence and confidence,
-// and the actions: accept, edit the value inline and accept it as edited, reject, put off until tomorrow, «always»
-// (the kind becomes 'auto' unless it may never be). Accepting re-validates the card in core; a stale card is
-// reported instead of applied. Deferred cards of the revision (M8) wait in their own section. No popups.
+// its source message (a jump into the chat), the model's evidence and confidence, the change in plain words
+// (plan-2 §3: target and field labels from the modules' TargetSpecs, «было → стало») and, collapsed under
+// «Подробнее», everything technical (kind, ref locators, raw values, the module's notes). The actions: accept, edit
+// the value inline and accept it as edited, reject, put off until tomorrow, «always» (the kind becomes 'auto' unless
+// it may never be). Accepting re-validates the card in core; a stale card is reported instead of applied. Deferred
+// cards of the revision (M8) wait in their own section. No popups.
 //
 // Card payload convention (read when present, optional for every module): `entityName` groups the card, `value`
 // with `editable: true` enables «Edit» (accept passes `{...payload, value}` as the edited payload), `evidence` is a
 // quote from the chat, `confidence` is 0..1. The revision's strings (`m8.inbox.*`) come with its module; English
 // fallbacks keep the view whole without it.
+import { kindLabel as humanKind } from '../../core/labels';
 import { deferredStage } from '../../domain/revision-plan';
-import type { InboxCard, JournalChange, PultTab, Unsubscribe } from '../../shared/contracts';
+import type { InboxCard, PultTab, Unsubscribe } from '../../shared/contracts';
 import { badge, card, emptyState, section } from '../components/card';
-import { changeView } from '../components/diff';
+import { changeView, detailsView, humanChangeView } from '../components/diff';
 import { append, button, clear, el } from '../components/dom';
 import { coalesce, formatTime, moduleTitle, tOr } from './format';
 import type { ViewEnv } from './types';
@@ -25,6 +28,8 @@ interface DeferredLike {
     target: string;
     entityName: string;
     value: string;
+    /** The change in one Russian sentence (the value is English then and goes to the details). */
+    russian?: string;
     evidence: string;
     sourceMessage: number;
     at: number;
@@ -124,7 +129,8 @@ export function inboxTab(env: ViewEnv): PultTab {
             fallback = fallback.split(`{${name}}`).join(String(value));
         return tOr(i18n, key, fallback, params);
     };
-    const kindLabel = (kind: string): string => tOr(i18n, `kind.${kind}`, kind);
+    /** The kind's human name; '' when its module did not name it (the raw kind then shows under «Подробнее»). */
+    const kindName = (kind: string): string => humanKind(i18n, kind) ?? '';
     const revision = (): RevisionLike | undefined => {
         const api = env.modules.api<RevisionLike>(REVISION_KEY);
         return api && typeof api.deferred === 'function' ? api : undefined;
@@ -174,18 +180,20 @@ export function inboxTab(env: ViewEnv): PultTab {
             env.settings.save();
             env.settings.notify(`core.autonomy.${item.kind}`);
         }
-        shell.notice(tx('m8.inbox.always.done', { kind: kindLabel(item.kind) }));
+        shell.notice(tx('m8.inbox.always.done', { kind: kindName(item.kind) || item.title }), {
+            importance: 'urgent',
+        });
         await accept(item);
     };
 
-    /** One store's before/after; a module may name its journal targets (`m8.store.<target>`) for the head. */
-    const storeChange = (change: JournalChange): HTMLElement => {
-        const node = changeView(change, t);
-        const label = tOr(i18n, `m8.store.${change.target}`, '');
-        const head = node.querySelector('.maestro-change-target');
-        if (label && head) head.textContent = label;
-        return node;
-    };
+    /** Everything technical about a card: kind and module ids, the module's notes, raw changes with locators. */
+    const technical = (item: InboxCard): HTMLElement | null =>
+        detailsView(i18n, env.settings.core().showTechnical === true, [
+            el('div', { class: 'maestro-muted', text: t('ui.inbox.detailsKind', { kind: item.kind }) }),
+            el('div', { class: 'maestro-muted', text: t('ui.inbox.detailsModule', { module: item.module }) }),
+            item.details ? el('div', { class: 'maestro-details-notes', text: item.details }) : null,
+            ...item.changes.map((change) => changeView(change, t)),
+        ]);
 
     const sourceButton = (index: number | undefined): HTMLButtonElement | null =>
         index !== undefined
@@ -228,11 +236,13 @@ export function inboxTab(env: ViewEnv): PultTab {
 
     const cardView = (item: InboxCard, redraw: () => void): HTMLElement => {
         const meta = cardMeta(item);
+        const head = [
+            moduleTitle(env.modules, i18n, item.module),
+            kindName(item.kind),
+            formatTime(item.createdAt, i18n),
+        ];
         const subtitle: (HTMLElement | string)[] = [
-            el('span', {
-                class: 'maestro-muted',
-                text: `${moduleTitle(env.modules, i18n, item.module)} · ${item.kind} · ${formatTime(item.createdAt, i18n)}`,
-            }),
+            el('span', { class: 'maestro-muted', text: head.filter(Boolean).join(' · ') }),
         ];
         if (meta.confidence !== undefined) {
             subtitle.push(badge(tx('m8.inbox.confidence', { value: Math.round(meta.confidence * 100) }), 'muted'));
@@ -249,8 +259,9 @@ export function inboxTab(env: ViewEnv): PultTab {
             body: [
                 item.description ? el('div', { class: 'maestro-card-text', text: item.description }) : null,
                 meta.evidence ? el('blockquote', { class: 'maestro-inbox-evidence', text: meta.evidence }) : null,
-                ...item.changes.map(storeChange),
+                ...item.changes.map((change) => humanChangeView(change, env.labels, i18n)),
                 editing ? editor(item, redraw) : null,
+                technical(item),
             ],
             actions: [
                 sourceButton(item.sourceMessage),
@@ -344,9 +355,14 @@ export function inboxTab(env: ViewEnv): PultTab {
                         className: 'maestro-inbox-deferred',
                         level: 'muted',
                         body: [
-                            el('div', { class: 'maestro-card-text', text: item.value }),
+                            el('div', { class: 'maestro-card-text', text: item.russian || item.value }),
                             item.evidence
                                 ? el('blockquote', { class: 'maestro-inbox-evidence', text: item.evidence })
+                                : null,
+                            item.russian
+                                ? detailsView(i18n, env.settings.core().showTechnical === true, [
+                                      el('div', { class: 'maestro-details-notes', text: item.value }),
+                                  ])
                                 : null,
                         ],
                         actions: [

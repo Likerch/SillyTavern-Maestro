@@ -54,6 +54,12 @@ describe('clean', () => {
         });
         expect(service.stats().find((row) => row.kind === 'junk')).toMatchObject({ detected: 1, autoActions: 1 });
         expect(env.badges).toHaveLength(0);
+        // The journal reads as a noun phrase, the automatic notice as what Maestro did; fixes of a turn merge.
+        const proposal = env.autonomy.decisions[0]!;
+        expect(proposal.title).toBe('Cleaning reply #3: service junk');
+        expect(proposal.appliedNotice?.text).toBe('Cleaned reply #3: service junk.');
+        expect(proposal.appliedNotice?.group).toBe('quality.applied');
+        expect(proposal.appliedNotice?.groupText?.(2)).toBe('Fixed defects in replies: 2 fixes');
     });
 
     it('removes the quoted junk itself when the check gives no cleaned text', async () => {
@@ -271,7 +277,7 @@ describe('notify badges', () => {
         await service.dismiss(2, 'refusal');
         const open = env.badges.filter((item) => !item.removed);
         expect(open).toHaveLength(2);
-        expect(open[0]!.badge.text).toBe('Defect: repetition');
+        expect(open[0]!.badge.text).toBe('Defect in this reply: repetition');
         expect(service.verdict(2)!.ok).toBe(false);
     });
 

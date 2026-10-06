@@ -220,8 +220,11 @@ describe('drift in the Inbox', () => {
         await service().checkDrift();
         const list = await cards();
         expect(list).toHaveLength(1);
-        expect(list[0]!.title).toContain('2');
-        expect(list[0]!.description).toContain('Qvink · auto_summarize: was true → now false');
+        expect(list[0]!.title).toBe('2 settings changed since the baseline — put them back?');
+        // The card says where in words; setting keys and raw values are under «Подробнее».
+        expect(list[0]!.description).toContain('by an update: Qvink, Lorebooks.');
+        expect(list[0]!.description).not.toContain('auto_summarize');
+        expect(list[0]!.details).toContain('Qvink · auto_summarize: was true → now false');
         expect(list[0]!.changes).toHaveLength(1);
 
         expect(await env.inbox.accept(list[0]!.id)).toBe(true);
@@ -301,5 +304,7 @@ describe('drift in the Inbox', () => {
         expect(text).toContain('Qvink · x: added');
         expect(text).toContain('Qvink · y: removed');
         expect(text).toContain('custom: changed');
+        // In words: named regexes and preset parts, other settings by their extension only, each once.
+        expect(service().where(items)).toBe('Regex · Clean HTML, Preset · prompt order, Qvink, custom');
     });
 });

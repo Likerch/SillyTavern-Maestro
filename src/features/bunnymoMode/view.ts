@@ -102,7 +102,8 @@ export function bunnymoTab(app: App, service: BunnyMoModeService, state: ViewSta
                     try {
                         await job();
                     } catch (error) {
-                        app.ui.notice(errorText(error), { level: 'error' });
+                        // A failed action of the user's own: shown at every notification level.
+                        app.ui.notice(errorText(error), { level: 'error', urgent: true });
                         if (alive) draw();
                     }
                 },

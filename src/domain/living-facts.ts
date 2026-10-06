@@ -59,6 +59,8 @@ export interface FactData {
     /** English canon text (batch extraction). */
     text?: string;
     english?: string;
+    /** The same fact as one short Russian sentence for cards and notices (batch extraction; the canon stays English). */
+    russian?: string;
     keys: string[];
     sourceMessage: number;
     stamp: string;
@@ -208,6 +210,7 @@ function factOf(raw: unknown): FactData | null {
     if (Number.isInteger(raw.uid)) fact.uid = raw.uid as number;
     if (typeof raw.text === 'string' && raw.text.trim()) fact.text = raw.text;
     if (typeof raw.english === 'string' && raw.english.trim()) fact.english = raw.english;
+    if (typeof raw.russian === 'string' && raw.russian.trim()) fact.russian = raw.russian;
     if (typeof raw.confirmedBy === 'string') fact.confirmedBy = oneOf(CONFIRM_REASONS, raw.confirmedBy, 'survived');
     if (typeof raw.confirmedAt === 'number') fact.confirmedAt = raw.confirmedAt;
     if (typeof raw.entryHash === 'string') fact.entryHash = raw.entryHash;

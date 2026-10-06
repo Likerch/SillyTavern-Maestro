@@ -12,6 +12,7 @@
 //               Studio's wait resolves (true = draw, false = the reply is being redone; 20 s at most → true).
 // Group chats sleep (plan §4.14); quiet generations, sheets, picture posts and first messages are skipped.
 import { adaptersOf } from '../../adapters';
+import { tPlural } from '../../core/labels';
 import { stableHash } from '../../domain/hash';
 import { runFreeChecks } from '../../domain/quality-checks';
 import { JUDGE_THRESHOLD } from '../../domain/quality-types';
@@ -57,6 +58,8 @@ import type { CutoffInfo } from './stream';
 export const TEXT_TARGET = 'quality-text';
 export const SWIPE_TARGET = 'quality-swipe';
 export const CONTINUE_TARGET = 'quality-continue';
+/** Automatic fixes of one turn (clean, swipe, continue) merge into one notice. */
+export const APPLIED_GROUP = 'quality.applied';
 export const FIX_INJECTION = 'quality_fix';
 export const BADGE_PREFIX = 'maestro-qc-';
 
@@ -702,6 +705,15 @@ export class QualityService implements QualityApi {
         return defects.find((defect) => this.action(defect.kind) === 'auto')?.kind ?? defects[0]?.kind ?? fallback;
     }
 
+    /** «Почистил ответ №5: служебный мусор.» — the notice of an automatic fix; a turn's fixes merge into one. */
+    private appliedNotice(key: string, params: Record<string, string | number>): Proposal['appliedNotice'] {
+        return {
+            text: this.t(key, params),
+            group: APPLIED_GROUP,
+            groupText: (count) => tPlural(this.app.i18n, 'm12.applied.many', count),
+        };
+    }
+
     private async decide(proposal: Proposal<Record<string, never>>): Promise<Decision> {
         try {
             return await this.app.autonomy.decide(proposal, 'auto');
@@ -749,6 +761,10 @@ export class QualityService implements QualityApi {
             module: QUALITY_ID,
             kind: `quality.${this.primaryKind(defects, 'junk')}`,
             title: this.t('m12.journal.clean', { index: index + 1, kinds: this.kindsText(defects) }),
+            appliedNotice: this.appliedNotice('m12.applied.clean', {
+                index: index + 1,
+                kinds: this.kindsText(defects),
+            }),
             changes: [change],
             payload: {},
             sourceMessage: index,
@@ -815,6 +831,10 @@ export class QualityService implements QualityApi {
             module: QUALITY_ID,
             kind: `quality.${this.primaryKind(defects, 'refusal')}`,
             title: this.t('m12.journal.swipe', { index: index + 1, kinds: this.kindsText(defects) }),
+            appliedNotice: this.appliedNotice('m12.applied.swipe', {
+                index: index + 1,
+                kinds: this.kindsText(defects),
+            }),
             changes: [
                 {
                     target: SWIPE_TARGET,
@@ -849,6 +869,7 @@ export class QualityService implements QualityApi {
             module: QUALITY_ID,
             kind: 'quality.truncated',
             title: this.t('m12.journal.continue', { index: index + 1 }),
+            appliedNotice: this.appliedNotice('m12.applied.continue', { index: index + 1 }),
             changes: [
                 {
                     target: CONTINUE_TARGET,
@@ -1230,8 +1251,9 @@ export class QualityService implements QualityApi {
         if (!message || !this.isActive()) return;
         const verdict = this.verdicts.live(messageIndex, swipeIdOf(message));
         const defects = (verdict?.defects ?? []).filter((defect) => defect.status !== 'dismissed');
+        // Replies to his «Переделать»: always shown.
         if (!this.actions.isLast(messageIndex)) {
-            this.app.ui.notice(this.t('m12.redo.notLast'), { level: 'warn' });
+            this.app.ui.notice(this.t('m12.redo.notLast'), { level: 'warn', importance: 'urgent' });
             return;
         }
         for (const kind of new Set(defects.map((defect) => defect.kind))) {
@@ -1246,7 +1268,7 @@ export class QualityService implements QualityApi {
         const input = { userName: ctx.name1 || 'User', language: this.currentLanguage(messageIndex) };
         const note = fixNote(defects, this.instructionContext(input));
         if (!(await this.startSwipe(messageIndex, note, false))) {
-            this.app.ui.notice(this.t('m12.redo.failed'), { level: 'warn' });
+            this.app.ui.notice(this.t('m12.redo.failed'), { level: 'warn', importance: 'urgent' });
             if (verdict) this.showBadges(verdict);
         }
     }

@@ -222,7 +222,7 @@ describe('views', () => {
         const container = document.createElement('div');
         tab.render(container);
         expect(container.textContent).toContain('Text Completion is active');
-        expect(container.textContent).toContain('data layer is not running');
+        expect(container.textContent).toContain('cannot open');
         expect(container.querySelector<HTMLButtonElement>('.maestro-m34-tab-open')?.disabled).toBe(true);
     });
 });

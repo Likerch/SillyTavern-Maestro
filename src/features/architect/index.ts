@@ -6,10 +6,11 @@
 // limits stay M22's rule 'book.cap' (п. 2); scan-only glosses stay M6's (п. 5).
 // The lore part runs as M22 rules (RulesApi.register); the rest listens to CHAT_COMPLETION_PROMPT_READY (last),
 // WORLD_INFO_ACTIVATED and the fetch gate. Exposed as app.modules.api<ArchitectApi>('architect').
+import { formatClip } from '../../core/labels';
 import type { MaestroModule } from '../../shared/contracts';
 import type { InspectorApi } from '../inspector/api';
 import type { ArchitectApi } from './api';
-import { ArchitectService } from './service';
+import { ArchitectService, CONSENT_TARGET } from './service';
 import { ARCHITECT_ID, ARCHITECT_KEY, defaultArchitectSettings } from './settings';
 import type { ArchitectSettings } from './settings';
 import { ARCHITECT_STRINGS } from './strings';
@@ -23,6 +24,8 @@ export const architectModule: MaestroModule<ArchitectSettings> = {
     enabledByDefault: true,
     defaults: defaultArchitectSettings,
     i18n: ARCHITECT_STRINGS,
+    // A consent reads as the fact itself; its sources, sentence keys and the kept source ref stay under «Подробнее».
+    targets: [{ target: CONSENT_TARGET, fields: { text: { labelKey: 'm20.consent.fact', format: formatClip(200) } } }],
     init({ app, log, own }) {
         const service = new ArchitectService(app, log);
         service.install(own);

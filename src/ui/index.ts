@@ -5,6 +5,9 @@ import type {
     Host,
     I18n,
     Logger,
+    NoticeImportance,
+    NoticeOptions,
+    NotifyLevel,
     PultTab,
     SettingsSection,
     SettingsService,
@@ -13,6 +16,7 @@ import type {
     Unsubscribe,
     WizardStep,
 } from '../shared/contracts';
+import { detailsView } from './components/diff';
 import { el, prefersReducedMotion, setButtonErrorHandler } from './components/dom';
 import { EntryPoints } from './views/entry-points';
 import { healthTab } from './views/health';
@@ -57,6 +61,34 @@ const MAX_NOTICES = 50;
 const WIZARD_DELAY_MS = 1500;
 
 const TOAST: Record<NoticeLevel, 'info' | 'warning' | 'error'> = { info: 'info', warn: 'warning', error: 'error' };
+const SEVERITY: Record<NoticeLevel, number> = { info: 0, warn: 1, error: 2 };
+const RANK: Record<NoticeImportance, number> = { info: 0, important: 1, urgent: 2 };
+/** Lowest importance that pops up as a toast at each notification level. */
+const THRESHOLD: Record<NotifyLevel, NoticeImportance> = { all: 'info', important: 'important', urgent: 'urgent' };
+/** ST events that start a new turn for notice grouping (keys of eventTypes). */
+const TURN_EVENTS = ['MESSAGE_SENT', 'CHAT_CHANGED'];
+
+type NoticeAction = { label: string; run: () => void };
+
+/** A merged group of notices within one turn (NoticeOptions.group). */
+interface NoticeGroup {
+    entry: NoticeEntry;
+    texts: string[];
+    actions: NoticeAction[];
+    groupText?: (count: number) => string;
+}
+
+/** The importance a notice gets when the caller did not say. */
+export function noticeImportance(options: NoticeOptions): NoticeImportance {
+    if (options.importance) return options.importance;
+    if (options.urgent) return 'urgent';
+    return options.level === 'warn' || options.level === 'error' ? 'important' : 'info';
+}
+
+/** Whether a notice of this importance pops up as a toast at the user's level. */
+export function passesLevel(importance: NoticeImportance, level: NotifyLevel | undefined): boolean {
+    return RANK[importance] >= RANK[THRESHOLD[level ?? 'all'] ?? 'info'];
+}
 
 class MaestroUi implements UiImpl, Shell {
     readonly host: Host;
@@ -73,6 +105,11 @@ class MaestroUi implements UiImpl, Shell {
     private readonly sectionListeners = new Set<() => void>();
     private readonly styles = new Map<string, HTMLStyleElement>();
     private readonly noticeList: NoticeEntry[] = [];
+    private readonly noticeGroups = new Map<string, NoticeGroup>();
+    /** Toast element per notice id (a merged group replaces its toast). */
+    private readonly toasts = new Map<number, unknown>();
+    /** Bumped when the user sends a message or the chat changes: groups merge only within one turn. */
+    private turn = 0;
     private readonly unsubscribers: Unsubscribe[] = [];
     private readonly coreTabs: Unsubscribe[] = [];
     private wizardTimer: ReturnType<typeof setTimeout> | null = null;
@@ -121,6 +158,7 @@ class MaestroUi implements UiImpl, Shell {
         this.mounted = true;
         this.entries.mount();
         this.updateBadges();
+        for (const event of TURN_EVENTS) this.listen(event, () => this.nextTurn());
         this.listen('APP_READY', () => {
             // ST builds some containers late; and APP_READY auto-fires for late listeners (lib/eventemitter.js).
             this.entries.mount();
@@ -173,6 +211,8 @@ class MaestroUi implements UiImpl, Shell {
         this.sections.clear();
         this.sectionListeners.clear();
         this.noticeList.length = 0;
+        this.noticeGroups.clear();
+        this.toasts.clear();
     }
 
     /* ---------------------------------------------------------------- Ui contract */
@@ -211,36 +251,52 @@ class MaestroUi implements UiImpl, Shell {
         this.pult.rerender();
     }
 
-    notice(
-        text: string,
-        options: { urgent?: boolean; level?: NoticeLevel; action?: { label: string; run: () => void } } = {},
-    ): void {
+    notice(text: string, options: NoticeOptions = {}): void {
         const level = options.level ?? 'info';
-        const urgent = options.urgent === true;
-        const entry: NoticeEntry = {
-            id: this.nextNotice++,
-            at: Date.now(),
-            text,
-            level,
-            urgent,
-            action: options.action,
-            seen: !urgent,
-        };
-        this.noticeList.push(entry);
-        if (this.noticeList.length > MAX_NOTICES) this.noticeList.splice(0, this.noticeList.length - MAX_NOTICES);
+        const importance = noticeImportance(options);
+        const urgent = importance === 'urgent';
         if (level === 'error') this.log.warn('notice:', text);
         else this.log.info('notice:', text);
-        if (urgent) this.toast(entry);
+        const merged = options.group ? this.mergeNotice(options.group, text, level, importance, options.action) : null;
+        const entry =
+            merged ??
+            this.addNotice({
+                id: this.nextNotice++,
+                at: Date.now(),
+                text,
+                level,
+                importance,
+                urgent,
+                action: options.action,
+                seen: !urgent,
+                turn: this.turn,
+                count: 1,
+                ...(options.group ? { group: options.group } : {}),
+            });
+        if (options.group && !merged) {
+            this.noticeGroups.set(options.group, {
+                entry,
+                texts: [text],
+                actions: options.action ? [options.action] : [],
+                groupText: options.groupText,
+            });
+        }
+        if (passesLevel(entry.importance, this.settings.core().notifyLevel)) this.toast(entry);
         this.updateBadges();
         if (this.pult.activeTab() === 'overview') this.pult.rerender();
     }
 
-    async confirm(title: string, body: string | HTMLElement): Promise<boolean> {
+    async confirm(title: string, body: string | HTMLElement, options: { details?: string } = {}): Promise<boolean> {
         try {
             const c = this.host.ctx();
             const content = el('div', { class: 'maestro-confirm' }, [
                 el('h3', { class: 'maestro-confirm-title', text: title }),
                 typeof body === 'string' ? el('div', { class: 'maestro-confirm-body', text: body }) : body,
+                options.details
+                    ? detailsView(this.i18n, this.settings.core().showTechnical === true, [
+                          el('div', { class: 'maestro-details-notes', text: options.details }),
+                      ])
+                    : null,
             ]);
             const result = await c.callGenericPopup(content, c.POPUP_TYPE.CONFIRM, '', {
                 okButton: this.i18n.t('ui.confirm.yes'),
@@ -316,6 +372,7 @@ class MaestroUi implements UiImpl, Shell {
 
     clearNotices(): void {
         this.noticeList.length = 0;
+        this.noticeGroups.clear();
         this.updateBadges();
     }
 
@@ -394,28 +451,126 @@ class MaestroUi implements UiImpl, Shell {
         }
     }
 
+    private addNotice(entry: NoticeEntry): NoticeEntry {
+        this.noticeList.push(entry);
+        if (this.noticeList.length > MAX_NOTICES) {
+            for (const dropped of this.noticeList.splice(0, this.noticeList.length - MAX_NOTICES)) {
+                this.toasts.delete(dropped.id);
+                if (dropped.group && this.noticeGroups.get(dropped.group)?.entry === dropped) {
+                    this.noticeGroups.delete(dropped.group);
+                }
+            }
+        }
+        return entry;
+    }
+
+    /** Folds a notice into its group's entry of this turn; null when the group has none yet. */
+    private mergeNotice(
+        group: string,
+        text: string,
+        level: NoticeLevel,
+        importance: NoticeImportance,
+        action: NoticeAction | undefined,
+    ): NoticeEntry | null {
+        const state = this.noticeGroups.get(group);
+        if (!state || state.entry.turn !== this.turn || !this.noticeList.includes(state.entry)) {
+            this.noticeGroups.delete(group);
+            return null;
+        }
+        const { entry } = state;
+        state.texts.push(text);
+        if (action) state.actions.push(action);
+        entry.count = state.texts.length;
+        entry.text = this.groupText(state);
+        entry.at = Date.now();
+        if (SEVERITY[level] > SEVERITY[entry.level]) entry.level = level;
+        if (RANK[importance] > RANK[entry.importance]) {
+            entry.importance = importance;
+            entry.urgent = importance === 'urgent';
+            if (entry.urgent) entry.seen = false;
+        }
+        const actions = [...state.actions];
+        const first = actions[0];
+        entry.action = first
+            ? {
+                  label: first.label,
+                  run: () => {
+                      for (const item of actions) {
+                          try {
+                              item.run();
+                          } catch (error) {
+                              this.log.error('notice action failed', error);
+                          }
+                      }
+                  },
+              }
+            : undefined;
+        // The newest notice goes last (the Overview lists the newest first).
+        const index = this.noticeList.indexOf(entry);
+        if (index >= 0) this.noticeList.splice(index, 1);
+        this.noticeList.push(entry);
+        return entry;
+    }
+
+    private groupText(state: NoticeGroup): string {
+        const count = state.texts.length;
+        try {
+            const text = state.groupText?.(count);
+            if (text) return text;
+        } catch (error) {
+            this.log.warn('notice group text failed', error);
+        }
+        return this.i18n.t('ui.notice.andMore', { text: state.texts[0] ?? '', count: count - 1 });
+    }
+
+    private nextTurn(): void {
+        this.turn++;
+        this.noticeGroups.clear();
+    }
+
     private toast(entry: NoticeEntry): void {
         const notifier = (globalThis as { toastr?: typeof toastr }).toastr;
         if (!notifier) return;
+        const previous = this.toasts.get(entry.id);
+        if (previous) {
+            try {
+                (notifier.clear as (toast?: unknown) => void)(previous);
+            } catch (error) {
+                this.log.debug('toast clear failed', error);
+            }
+        }
         const title = this.i18n.t('ui.title');
         const action = entry.action;
-        const text = action ? `${entry.text} ${this.i18n.t('ui.notice.tapTo', { label: action.label })}` : entry.text;
         const options: Record<string, unknown> = {
-            timeOut: entry.level === 'error' ? 15000 : 8000,
+            timeOut: entry.level === 'error' ? 15000 : entry.level === 'warn' || action ? 8000 : 5000,
             extendedTimeOut: 5000,
         };
+        let message: string | HTMLElement = entry.text;
         if (action) {
-            options.onclick = () => {
-                try {
-                    action.run();
-                } catch (error) {
-                    this.log.error('notice action failed', error);
-                }
-            };
-        } else {
-            options.onclick = () => this.openPult('overview');
+            // The action is a real button on the toast: a click elsewhere only opens the Overview, never acts.
+            message = el('span', { class: 'maestro-toast' }, [
+                el('span', { class: 'maestro-toast-text', text: entry.text }),
+                el('button', {
+                    class: ['maestro-toast-action', 'menu_button'],
+                    text: action.label,
+                    attrs: { type: 'button' },
+                }),
+            ]);
+            options.escapeHtml = false;
         }
-        notifier[TOAST[entry.level]](text, title, options);
+        options.onclick = (event?: Event) => {
+            const target = event?.target;
+            const onButton = !!action && target instanceof Element && target.closest('.maestro-toast-action') !== null;
+            try {
+                if (onButton) action?.run();
+                else this.openPult('overview');
+            } catch (error) {
+                this.log.error('notice action failed', error);
+            }
+        };
+        const show = notifier[TOAST[entry.level]] as (message: unknown, title?: string, options?: unknown) => unknown;
+        const handle = show(message, title, options);
+        if (handle) this.toasts.set(entry.id, handle);
     }
 
     private flash(node: HTMLElement): void {

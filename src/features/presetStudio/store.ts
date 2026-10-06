@@ -16,6 +16,7 @@
 //   preset-keys, preset-file). Saves made outside Maestro become versions by 'st'; unsaved edits of a preset that is
 //   switched away become a 'draft' version (snapped in OAI_PRESET_CHANGED_BEFORE, P-073).
 // Exposed by the studio shell as app.modules.api<PresetStore>(PRESET_STORE_KEY).
+import { tPlural } from '../../core/labels';
 import {
     bodyHash,
     diffDraft,
@@ -58,6 +59,7 @@ import { valueHash } from '../../domain/settings-diff';
 import type { App, I18nParts, JournalChange, Logger, Unsubscribe } from '../../shared/contracts';
 import type { GuardianApi } from '../guardian/api';
 import type { PresetLayerApi } from './layer-api';
+import { paramLabel } from './param-labels';
 import { CONNECTION_REFRESH_SELECTORS, PresetStoreError, PromptModel, StPreset } from './st-preset';
 import type {
     PresetBody,
@@ -82,7 +84,26 @@ export const PRESET_LAYER_KEY = 'presetLayer';
 export const PROMPT_TARGET = 'preset-prompt';
 export const KEYS_TARGET = 'preset-keys';
 export const FILE_TARGET = 'preset-file';
+/** Journal kinds of the store's writes (their labels `kind.<kind>` live in targets.ts). */
+export const STORE_JOURNAL_KINDS = [
+    'presetStudio.prompt',
+    'presetStudio.promptAdd',
+    'presetStudio.promptRemove',
+    'presetStudio.detach',
+    'presetStudio.toggle',
+    'presetStudio.reorder',
+    'presetStudio.keys',
+    'presetStudio.save',
+    'presetStudio.saveAs',
+    'presetStudio.import',
+    'presetStudio.restore',
+    'presetStudio.rename',
+    'presetStudio.remove',
+] as const;
+type StoreJournalKind = (typeof STORE_JOURNAL_KINDS)[number];
 const MODULE_ID = 'M34';
+/** Names listed in a journal summary before «и ещё N». */
+const SUMMARY_NAMES = 3;
 const SIGNATURE_DELAY_MS = 250;
 const DETECT_DELAY_MS = 1500;
 const ACK_DELAY_MS = 1500;
@@ -124,12 +145,14 @@ export const PRESET_STORE_STRINGS: I18nParts = {
         'm34.store.rename.profilesTitle': 'Connection profiles use this preset',
         'm34.store.rename.profilesBody':
             'These connection profiles select the preset «{from}»: {profiles}. Point them to «{to}»?',
-        'm34.store.rename.profilesKept': 'Connection profiles still select «{from}»: {profiles}.',
-        'm34.store.rename.oldFileKept': 'The old preset file «{name}» could not be deleted.',
-        'm34.store.remove.failed': 'The preset «{name}» was not deleted from the server.',
+        'm34.store.rename.profilesKept': 'Connection profiles {profiles} still point to the old name «{from}».',
+        'm34.store.rename.oldFileKept':
+            'The old file of the preset «{name}» could not be deleted: it stays on the server.',
+        'm34.store.remove.failed': 'The server did not delete the preset «{name}».',
         'm34.store.remove.profiles':
-            'Connection profiles select the deleted preset «{name}»: {profiles}. Fix them in the Connection Manager.',
-        'm34.store.remove.regex': 'Regex scripts of «{name}» were allowed; ST dropped that permission with the preset.',
+            'Connection profiles {profiles} still select the deleted preset «{name}». Pick another preset for them in the Connection Manager.',
+        'm34.store.remove.regex':
+            'Together with the preset «{name}», SillyTavern took back the permission to run its Regex scripts.',
         'm34.store.version.save': 'Saved in the studio',
         'm34.store.version.saveAs': 'Saved as a copy of «{from}»',
         'm34.store.version.import': 'Imported from a file',
@@ -141,14 +164,21 @@ export const PRESET_STORE_STRINGS: I18nParts = {
         'm34.store.journal.prompt': 'Preset block «{name}» changed',
         'm34.store.journal.promptAdd': 'Preset block «{name}» added',
         'm34.store.journal.promptRemove': 'Preset block «{name}» deleted',
-        'm34.store.journal.detach': 'Preset block «{name}» taken out of the order',
-        'm34.store.journal.toggle': 'Preset blocks switched: {count}',
+        'm34.store.journal.detach': 'Block «{name}» taken out of the preset order (the block itself stays)',
+        'm34.store.journal.enable.one': 'Preset block {names} switched on',
+        'm34.store.journal.enable.few': 'Preset blocks switched on: {names}',
+        'm34.store.journal.enable.many': 'Preset blocks switched on: {names}',
+        'm34.store.journal.disable.one': 'Preset block {names} switched off',
+        'm34.store.journal.disable.few': 'Preset blocks switched off: {names}',
+        'm34.store.journal.disable.many': 'Preset blocks switched off: {names}',
+        'm34.store.journal.more': '{names} and {count} more',
         'm34.store.journal.reorder': 'Preset block order changed',
-        'm34.store.journal.keys': 'Preset settings changed: {keys}',
+        'm34.store.journal.keys': 'Preset parameters changed: {keys}',
+        'm34.store.journal.keysOther': 'Service parameters of the preset changed: {count}',
         'm34.store.journal.save': 'Preset «{name}» saved',
         'm34.store.journal.saveAs': 'Preset saved as «{name}»',
         'm34.store.journal.import': 'Preset «{name}» imported',
-        'm34.store.journal.restore': 'Preset «{name}» rolled back to a version',
+        'm34.store.journal.restore': 'Preset «{name}» rolled back to an earlier version',
         'm34.store.journal.rename': 'Preset «{from}» renamed to «{to}»',
         'm34.store.journal.remove': 'Preset «{name}» deleted',
     },
@@ -162,12 +192,12 @@ export const PRESET_STORE_STRINGS: I18nParts = {
         'm34.store.rename.profilesTitle': 'Профили подключения ссылаются на этот пресет',
         'm34.store.rename.profilesBody':
             'Эти профили подключения выбирают пресет «{from}»: {profiles}. Переключить их на «{to}»?',
-        'm34.store.rename.profilesKept': 'Профили подключения по-прежнему выбирают «{from}»: {profiles}.',
-        'm34.store.rename.oldFileKept': 'Не удалось удалить старый файл пресета «{name}».',
-        'm34.store.remove.failed': 'Пресет «{name}» не удалён с сервера.',
+        'm34.store.rename.profilesKept': 'Профили подключения {profiles} всё ещё указывают на старое имя «{from}».',
+        'm34.store.rename.oldFileKept': 'Старый файл пресета «{name}» удалить не удалось — он остался на сервере.',
+        'm34.store.remove.failed': 'Сервер не удалил пресет «{name}».',
         'm34.store.remove.profiles':
-            'Удалённый пресет «{name}» выбирают профили подключения: {profiles}. Поправь их в менеджере подключений.',
-        'm34.store.remove.regex': 'Регексы пресета «{name}» были разрешены; ST снял это разрешение вместе с пресетом.',
+            'Профили подключения {profiles} всё ещё выбирают удалённый пресет «{name}». Выбери для них другой в менеджере подключений.',
+        'm34.store.remove.regex': 'Вместе с пресетом «{name}» SillyTavern снял разрешение запускать его скрипты Regex.',
         'm34.store.version.save': 'Сохранено в студии',
         'm34.store.version.saveAs': 'Сохранено как копия «{from}»',
         'm34.store.version.import': 'Импортировано из файла',
@@ -179,14 +209,21 @@ export const PRESET_STORE_STRINGS: I18nParts = {
         'm34.store.journal.prompt': 'Изменён блок пресета «{name}»',
         'm34.store.journal.promptAdd': 'Добавлен блок пресета «{name}»',
         'm34.store.journal.promptRemove': 'Удалён блок пресета «{name}»',
-        'm34.store.journal.detach': 'Блок пресета «{name}» убран из порядка',
-        'm34.store.journal.toggle': 'Переключены блоки пресета: {count}',
+        'm34.store.journal.detach': 'Блок «{name}» убран из порядка пресета (сам блок остался)',
+        'm34.store.journal.enable.one': 'Включён блок пресета {names}',
+        'm34.store.journal.enable.few': 'Включены блоки пресета: {names}',
+        'm34.store.journal.enable.many': 'Включены блоки пресета: {names}',
+        'm34.store.journal.disable.one': 'Выключен блок пресета {names}',
+        'm34.store.journal.disable.few': 'Выключены блоки пресета: {names}',
+        'm34.store.journal.disable.many': 'Выключены блоки пресета: {names}',
+        'm34.store.journal.more': '{names} и ещё {count}',
         'm34.store.journal.reorder': 'Изменён порядок блоков пресета',
         'm34.store.journal.keys': 'Изменены параметры пресета: {keys}',
+        'm34.store.journal.keysOther': 'Изменены служебные параметры пресета: {count}',
         'm34.store.journal.save': 'Сохранён пресет «{name}»',
         'm34.store.journal.saveAs': 'Пресет сохранён как «{name}»',
         'm34.store.journal.import': 'Импортирован пресет «{name}»',
-        'm34.store.journal.restore': 'Пресет «{name}» откачен к версии',
+        'm34.store.journal.restore': 'Пресет «{name}» возвращён к прежней версии',
         'm34.store.journal.rename': 'Пресет «{from}» переименован в «{to}»',
         'm34.store.journal.remove': 'Удалён пресет «{name}»',
     },
@@ -428,7 +465,7 @@ export class PresetStoreService implements PresetStore {
         await this.serial(async () => {
             const model = this.model();
             const before = readOrder(model.order());
-            let count = 0;
+            const names: string[] = [];
             for (const identifier of new Set(identifiers)) {
                 const entry = model.entry(identifier);
                 if (entry) {
@@ -440,13 +477,17 @@ export class PresetStoreService implements PresetStore {
                     model.insert(identifier, enabled, 0);
                 }
                 model.forgetCount(identifier);
-                count++;
+                names.push(promptName(model.get(identifier) ?? { identifier }));
             }
-            if (!count) return;
+            if (!names.length) return;
             this.persist(model);
-            await this.record('presetStudio.toggle', this.t('m34.store.journal.toggle', { count }), [
-                this.orderChange(before, readOrder(model.order())),
-            ]);
+            const summary = tPlural(
+                this.app.i18n,
+                enabled ? 'm34.store.journal.enable' : 'm34.store.journal.disable',
+                names.length,
+                { names: this.nameList(names.map((name) => `«${name}»`)) },
+            );
+            await this.record('presetStudio.toggle', summary, [this.orderChange(before, readOrder(model.order()))]);
             this.changed('prompts');
         });
     }
@@ -475,18 +516,14 @@ export class PresetStoreService implements PresetStore {
         await this.serial(async () => {
             const changes = this.applyKeys(patch);
             if (!changes) return;
-            await this.record(
-                'presetStudio.keys',
-                this.t('m34.store.journal.keys', { keys: changes.keys.join(', ') }),
-                [
-                    {
-                        target: KEYS_TARGET,
-                        ref: { preset: this.current(), keys: changes.keys, absent: changes.absent },
-                        before: changes.before,
-                        after: changes.after,
-                    },
-                ],
-            );
+            await this.record('presetStudio.keys', this.keysSummary(changes.keys), [
+                {
+                    target: KEYS_TARGET,
+                    ref: { preset: this.current(), keys: changes.keys, absent: changes.absent },
+                    before: changes.before,
+                    after: changes.after,
+                },
+            ]);
             this.changed('keys');
         });
     }
@@ -722,7 +759,8 @@ export class PresetStoreService implements PresetStore {
             ]);
             if (meta.journal !== false) {
                 const kind = meta.op === 'saveAs' || meta.op === 'import' || meta.op === 'restore' ? meta.op : 'save';
-                await this.record(`presetStudio.${kind}`, this.t(`m34.store.journal.${kind}`, { name: savedName }), [
+                const journalKind = `presetStudio.${kind}` as const;
+                await this.record(journalKind, this.t(`m34.store.journal.${kind}`, { name: savedName }), [
                     {
                         target: FILE_TARGET,
                         ref: {
@@ -1219,7 +1257,28 @@ export class PresetStoreService implements PresetStore {
         return { target: PROMPT_TARGET, ref: { preset: this.current(), part: 'order' }, before, after };
     }
 
-    private async record(kind: string, summary: string, changes: JournalChange[]): Promise<void> {
+    /** «A, B, C и ещё 2»: the first names of a summary list. */
+    private nameList(names: readonly string[]): string {
+        const shown = names.slice(0, SUMMARY_NAMES).join(', ');
+        const more = names.length - SUMMARY_NAMES;
+        return more > 0 ? this.t('m34.store.journal.more', { names: shown, count: more }) : shown;
+    }
+
+    /** Changed parameters by the «Параметры» tab's names; keys the tab does not show are only counted. */
+    private keysSummary(keys: readonly string[]): string {
+        const labels = keys
+            .map((key) => paramLabel(key, this.app.i18n))
+            .filter((label): label is string => label !== undefined);
+        if (!labels.length) return this.t('m34.store.journal.keysOther', { count: keys.length });
+        const shown = labels.slice(0, SUMMARY_NAMES);
+        const more = keys.length - shown.length;
+        const list = shown.join(', ');
+        return this.t('m34.store.journal.keys', {
+            keys: more > 0 ? this.t('m34.store.journal.more', { names: list, count: more }) : list,
+        });
+    }
+
+    private async record(kind: StoreJournalKind, summary: string, changes: JournalChange[]): Promise<void> {
         try {
             await this.app.journal.record({ module: MODULE_ID, kind, summary, changes });
         } catch (error) {

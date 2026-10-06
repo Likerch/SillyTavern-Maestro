@@ -246,6 +246,7 @@ export function createInbox(deps: InboxDeps, options: InboxOptions = {}): InboxS
                 sourceMessage: proposal.sourceMessage,
                 expiresAt: now + (addOptions?.ttlMs ?? defaultTtl),
             };
+            if (proposal.details) card.details = proposal.details;
             if (addOptions?.deferred) card.deferred = true;
             live.set(card.id, proposal);
             const saved = await mutate((list, at) => {

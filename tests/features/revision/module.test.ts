@@ -48,7 +48,9 @@ describe('M8 strings', () => {
         expect(Object.keys(REVISION_STRINGS.ru).sort()).toEqual(Object.keys(REVISION_STRINGS.en).sort());
         for (const [key, text] of Object.entries(REVISION_STRINGS.ru)) expect(text.trim(), key).not.toBe('');
         for (const key of Object.keys(REVISION_STRINGS.en))
-            expect(key.startsWith('m8.') || key.startsWith('kind.'), key).toBe(true);
+            expect(key.startsWith('m8.') || key.startsWith('kind.') || key.startsWith('target.revision.'), key).toBe(
+                true,
+            );
     });
 
     it('name every target, autonomy kind, rejection and run reason', () => {

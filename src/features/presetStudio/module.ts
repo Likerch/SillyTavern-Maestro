@@ -16,6 +16,7 @@ import { M34_STRINGS } from './strings';
 import { PresetStudio, defaultPresetStudioSettings, servicesOf } from './studio';
 import type { PresetStudioSettings } from './studio';
 import { M34_CSS } from './styles';
+import { PRESET_TARGETS, TARGET_STRINGS } from './targets';
 import { presetStudioTab } from './view-tab';
 
 export const PRESET_STUDIO_KEY = 'presetStudio';
@@ -59,10 +60,25 @@ export function presetStudioRuntime(): PresetStudioRuntime | null {
     return runtime;
 }
 
-/** The shell's strings and those of the parts (they exist before any part's install() runs). */
+/**
+ * The shell's strings and those of the parts (they exist before any part's install() runs), with the labels of the
+ * journal kinds and targets (targets.ts).
+ */
 export const PRESET_STUDIO_STRINGS: I18nParts = {
-    en: { ...M34_STRINGS.en, ...ANALYSIS_STRINGS.en, ...LAYER_STRINGS.en, ...PRESET_STORE_STRINGS.en },
-    ru: { ...M34_STRINGS.ru, ...ANALYSIS_STRINGS.ru, ...LAYER_STRINGS.ru, ...PRESET_STORE_STRINGS.ru },
+    en: {
+        ...M34_STRINGS.en,
+        ...ANALYSIS_STRINGS.en,
+        ...LAYER_STRINGS.en,
+        ...PRESET_STORE_STRINGS.en,
+        ...TARGET_STRINGS.en,
+    },
+    ru: {
+        ...M34_STRINGS.ru,
+        ...ANALYSIS_STRINGS.ru,
+        ...LAYER_STRINGS.ru,
+        ...PRESET_STORE_STRINGS.ru,
+        ...TARGET_STRINGS.ru,
+    },
 };
 
 type Own = (dispose: Unsubscribe | (() => void | Promise<void>)) => void;
@@ -117,6 +133,7 @@ export function createPresetStudioModule(factories: PresetFactories): MaestroMod
         defaults: defaultPresetStudioSettings,
         requires: ['st.oai.promptManager', 'st.presetManager'],
         i18n: PRESET_STUDIO_STRINGS,
+        targets: PRESET_TARGETS,
         async init({ app, settings, log, own }) {
             const expose = (key: string, api: unknown) => {
                 app.modules.expose(key, api);

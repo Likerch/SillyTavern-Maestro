@@ -317,7 +317,9 @@ describe('sheet editor', () => {
             .replace('<ENTJ-U>', '<ENTJ-H>')
             .replace('<JEALOUSY:POSSESSIVE>,</NSFW>', '<JEALOUSY:POSSESSIVE>,<KINK:PRAISE>, </NSFW>');
         expect(env.world.entry(ARCHIVES, 0)?.content).toBe(expected);
-        expect(env.ui.notices.map((notice) => notice.text)).toContain('Sheet of Atsu_Ibn_Oba_Al-Masri saved.');
+        expect(env.ui.notices.map((notice) => notice.text)).toContain(
+            'Saved the character sheet: Atsu_Ibn_Oba_Al-Masri.',
+        );
         // The editor reloads the saved sheet.
         expect(container.querySelectorAll('.maestro-m35b-chip')).toHaveLength(21);
     });
@@ -339,7 +341,7 @@ describe('sheet editor', () => {
         expect(container.querySelector('.maestro-m35b-chips')?.textContent).toContain('<DERE:KUDERE>');
         buttonByText('Save').click();
         await ready();
-        expect(env.ui.notices.map((notice) => notice.text)).toContain('Nothing has changed.');
+        expect(env.ui.notices.map((notice) => notice.text)).toContain('Nothing to save: the sheet has not changed.');
         expect(env.world.saves.filter((save) => save.name === ARCHIVES)).toHaveLength(1);
         buttonByText('Back to the list').click();
         await ready();

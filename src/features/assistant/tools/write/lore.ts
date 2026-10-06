@@ -192,7 +192,7 @@ export function loreEntryCreateTool(): ToolSpec {
                         // The store journals the new entry (undo removes it).
                         const uid = await live.createEntry(book, patch as Partial<WiEntry>, {
                             module: ASSISTANT_MODULE,
-                            summary: say('m33w.lore.journal.create', { title, book }),
+                            summary: say('m33w.lore.journal.create', { title }),
                         });
                         const roles = rolesOf(app);
                         if (meta && storage === 'sidecar' && roles) {
@@ -285,7 +285,7 @@ export function loreEntryUpdateTool(): ToolSpec {
                         if (Object.keys(realPatch).length) {
                             await live.updateEntry(book, uid, realPatch as Partial<WiEntry>, {
                                 module: ASSISTANT_MODULE,
-                                summary: say('m33w.lore.journal.update', { title, book }),
+                                summary: say('m33w.lore.journal.update', { title }),
                             });
                         }
                         const liveRoles = rolesOf(app);
