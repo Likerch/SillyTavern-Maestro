@@ -1,8 +1,9 @@
 // M25 «Механики», checks part (plan M25 п.3, §5 phase 1 «Делает броски механик», §8 «броски механик — Само», P15):
 // - auto checks: at ST's MESSAGE_SENT (the user's message index, before the generate interceptor runs the producers)
 //   the story part of the message is read for the trigger words of the checks on in this chat (domain detection,
-//   string work only) and at most one check is rolled at once; the save, the journal entry and the message badge
-//   follow without being awaited (P15);
+//   string work only) and at most one check is rolled at once; the save and the journal entry follow without being
+//   awaited (P15); the roll card under the message comes from the mechanics strip provider over this log
+//   (play-strip.ts), so it is back after a reload;
 // - the roll belongs to the user message: swipes, regenerations and continues never roll again (MESSAGE_SENT does not
 //   fire for them; the prompt part repeats the delivered fact); an edit of the last user message keeps the roll while
 //   the same check is called for and replaces it otherwise; deleting the message drops its undelivered roll;
@@ -56,7 +57,6 @@ const RESULTS_KEPT = 100;
 const MODEL_ROLLS_MAX = 3;
 /** Journal kind of taking a roll's consequences back. */
 export const UNDO_ROLL_KIND = 'mechanics.undoRoll';
-const BADGES_SHOWN = 20;
 const DEFAULT_SAVE_MS = 300;
 const OUTCOMES: readonly CheckOutcome[] = ['critical', 'success', 'failure', 'fumble', 'none'];
 /** Words of a check name tried at the start of the command (multi-word names such as «Взлом замков»). */
@@ -66,7 +66,7 @@ interface StoredCheck extends CheckResult {
     delivered?: boolean;
     /** Rolled for a user message whose reply never came before the next one: never given to the model. */
     expired?: boolean;
-    /** Hash of the user message text: badges and edits find their message by it. */
+    /** Hash of the user message text: edits find their message by it. */
     stamp?: string;
     /** Model rolls: the swipe of the reply that asked. */
     swipe?: number;
@@ -270,7 +270,6 @@ export class MechanicChecks implements ChecksPart {
     private generation = 0;
     private readonly listeners = new Set<() => void>();
     private readonly offs: Unsubscribe[] = [];
-    private readonly badges = new Map<string, Unsubscribe>();
     private saveTimer: ReturnType<typeof setTimeout> | null = null;
     private disposed = false;
     private readonly rng: Rng;
@@ -321,7 +320,6 @@ export class MechanicChecks implements ChecksPart {
                 this.deps.log.debug('checks: release failed', error);
             }
         }
-        this.clearBadges();
         this.listeners.clear();
     }
 
@@ -349,7 +347,6 @@ export class MechanicChecks implements ChecksPart {
 
     private open(): void {
         const generation = ++this.generation;
-        this.clearBadges();
         this.results = [];
         this.loaded = false;
         this.chatId = this.deps.app.host.chatId();
@@ -380,7 +377,6 @@ export class MechanicChecks implements ChecksPart {
         this.results = [...stored, ...fresh].slice(-RESULTS_KEPT);
         this.loaded = true;
         if (fresh.length) this.saveSoon();
-        for (const result of this.results.slice(-BADGES_SHOWN)) this.badge(result);
         this.changed();
     }
 
@@ -424,7 +420,6 @@ export class MechanicChecks implements ChecksPart {
                 result.stamp = stamp;
                 manual = true;
                 touched = true;
-                this.badge(result);
             } else if (result.messageIndex < index) {
                 result.expired = true;
                 touched = true;
@@ -808,7 +803,6 @@ export class MechanicChecks implements ChecksPart {
         const { result, ops } = rolled;
         this.results.push(result);
         if (this.results.length > RESULTS_KEPT) this.results.splice(0, this.results.length - RESULTS_KEPT);
-        this.badge(result);
         this.journal(result, ops.length);
         this.saveSoon();
         this.changed();
@@ -1047,7 +1041,6 @@ export class MechanicChecks implements ChecksPart {
         let touched = false;
         this.results = this.results.filter((result) => {
             if (result.messageIndex < index) return true;
-            this.unbadge(result.id);
             if (!pending(result)) return true;
             touched = true;
             return false;
@@ -1068,10 +1061,7 @@ export class MechanicChecks implements ChecksPart {
         // A roll by hand belongs to the message whatever its text says: no auto roll next to it.
         const manual = mine.filter((result) => result.by === 'user');
         if (manual.length || !this.autoAllowed()) {
-            for (const result of manual) {
-                result.stamp = stamp;
-                this.badge(result);
-            }
+            for (const result of manual) result.stamp = stamp;
             if (manual.length) this.saveSoon();
             return;
         }
@@ -1087,7 +1077,6 @@ export class MechanicChecks implements ChecksPart {
               )
             : undefined;
         const dropped = new Set(autos.filter((result) => result !== same).map((result) => result.id));
-        for (const id of dropped) this.unbadge(id);
         if (dropped.size && this.state.undoWhere) {
             void this.state
                 .undoWhere((change) => !!change.rollId && dropped.has(change.rollId))
@@ -1096,7 +1085,6 @@ export class MechanicChecks implements ChecksPart {
         this.results = this.results.filter((result) => !dropped.has(result.id));
         if (same) {
             same.stamp = stamp;
-            this.badge(same);
         } else if (found) {
             const rolled = this.makeRoll(found.def, found.check, found.holder, {
                 explicit: found.explicit,
@@ -1112,42 +1100,6 @@ export class MechanicChecks implements ChecksPart {
         }
         this.saveSoon();
         this.changed();
-    }
-
-    /* ---------------------------------------------------------------- badges on the user's messages */
-
-    private badge(result: StoredCheck): void {
-        if (result.messageIndex < 0 || !result.stamp || this.disposed || result.hidden) return;
-        const message = this.deps.app.host.ctx().chat?.[result.messageIndex];
-        if (!message?.is_user || stampOf(message) !== result.stamp) return;
-        this.unbadge(result.id);
-        try {
-            const line = describeCheck(result, this.deps.app.i18n, checkNameOf(this.defs, result));
-            const off = this.deps.app.ui.messageBadge(result.messageIndex, {
-                id: `m25-check-${result.id}`,
-                text: this.t('m25.check.badge', { line }),
-                kind: 'roll',
-                icon: 'fa-dice-d20',
-            });
-            this.badges.set(result.id, off);
-        } catch (error) {
-            this.deps.log.debug('roll badge failed', error);
-        }
-    }
-
-    private unbadge(id: string): void {
-        const off = this.badges.get(id);
-        if (!off) return;
-        this.badges.delete(id);
-        try {
-            off();
-        } catch {
-            // the badge is gone with its message
-        }
-    }
-
-    private clearBadges(): void {
-        for (const id of [...this.badges.keys()]) this.unbadge(id);
     }
 
     /* ---------------------------------------------------------------- /maestro-roll */

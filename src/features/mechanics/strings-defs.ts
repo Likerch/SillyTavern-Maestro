@@ -6,7 +6,7 @@ import type { I18nParts } from '../../shared/contracts';
 export const DEF_STRINGS: I18nParts = {
     en: {
         'm25.title': 'Mechanics',
-        'm25.tab': 'Mechanics',
+        'm25.tab': 'In play',
 
         'm25.def.section': 'Mechanics constructor',
         'm25.def.hint':
@@ -228,7 +228,7 @@ export const DEF_STRINGS: I18nParts = {
     },
     ru: {
         'm25.title': 'Механики',
-        'm25.tab': 'Механики',
+        'm25.tab': 'В игре',
 
         'm25.def.section': 'Конструктор механик',
         'm25.def.hint':

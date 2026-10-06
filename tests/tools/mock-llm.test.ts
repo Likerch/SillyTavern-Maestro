@@ -14,6 +14,12 @@ import {
     parseExtractAnswer,
 } from '../../src/domain/mechanics-extract';
 import { buildRevisionMessages, revisionSchema } from '../../src/domain/revision-prompt';
+import {
+    parseTranslation,
+    TRANSLATE_JSON_SCHEMA,
+    TRANSLATE_SCHEMA,
+    translateMessages,
+} from '../../src/features/mechanics/translate';
 import { parseRevisionChanges } from '../../src/domain/revision-parse';
 
 const SERVER = fileURLToPath(new URL('../../tools/mock-llm/server.mjs', import.meta.url));
@@ -389,6 +395,25 @@ describe('mock LLM', () => {
             },
         });
         expect(Object.keys(JSON.parse(plain.choices[0]!.message.content) as object)).toEqual(['changes']);
+    });
+
+    it('translates the texts of a mechanic for the model', async () => {
+        const answer = await complete({
+            messages: translateMessages([
+                { key: 'rules', text: 'Без маны заклинание срывается.' },
+                { key: 'name', text: 'Магия' },
+            ]),
+            response_format: {
+                type: 'json_schema',
+                json_schema: { name: TRANSLATE_SCHEMA, schema: TRANSLATE_JSON_SCHEMA },
+            },
+        });
+        const data = JSON.parse(answer.choices[0]!.message.content) as unknown;
+        expect(matchesSchema(data, TRANSLATE_JSON_SCHEMA)).toBe(true);
+        expect(parseTranslation(data)).toEqual([
+            { key: 'rules', text: 'EN: Без маны заклинание срывается.' },
+            { key: 'name', text: 'EN: Магия' },
+        ]);
     });
 
     it('calls a tool when asked and answers the tool result', async () => {

@@ -1,8 +1,8 @@
 // The Maestro strip under chat messages (plan-2 §5, §6.А): one thin line per message, built from every provider's items
-// (Inbox proposals, living canon facts, memory-only lines of Ui.messageBadge: autonomy «Сообщать», M12 «Брак», M25
-// rolls…). Collapsed it says what is there in story words («2 предложения · запомнил факт · бросок»; a single item shows
-// its own text); a click lists the items with their buttons, an expandable body or a window to open. Display only:
-// nothing here touches the message text, the prompt, Qvink memory or swipes.
+// (Inbox proposals, living canon facts, M25 changes and roll cards, memory-only lines of Ui.messageBadge: autonomy
+// «Сообщать», M12 «Брак»…). Collapsed it says what is there in story words («2 предложения · запомнил факт ·
+// бросок»; a single item shows its own text); a click lists the items with their buttons, an expandable body or a
+// window to open. Display only: nothing here touches the message text, the prompt, Qvink memory or swipes.
 //
 // Where it sits: inside `.mes_block`, right after ST's own blocks (`.mes_bias`, else the last of `.mes_file_wrapper`,
 // `.mes_media_wrapper`, `.mes_text`). DES chat bubbles rebuild only the innerHTML of `.mes_text` (DES

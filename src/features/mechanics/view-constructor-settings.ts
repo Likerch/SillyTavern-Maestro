@@ -1,18 +1,22 @@
-// M25 «Механики», the settings section of the pult tab: the book of new definitions, checks by trigger words, the
-// widgets strip, the background parse, the prompt budget and depth (the live slice of settings.ts; P16: the depth
-// keeps the injection near the end); plan-2 §6: rolls asked by the model, fights by the director's scene, how the
-// user's own character's DES stats are read, and how far back factions are looked for.
-import { section } from '../../ui/components/card';
+// M25 «Механики», the module's own settings (the gear of the «Механики» window, plan-2 §10 п.4): the book of new
+// definitions, auto checks, the widgets strip, the background parse, the prompt budget and depth (the live slice of
+// settings.ts; P16: the depth keeps the injection near the end); plan-2 §6: rolls asked by the model, fights by the
+// director's scene, how the user's own character's DES stats are read, and how far back factions are looked for;
+// plan-2 §6.А: the HUD, the user's character under the DES portraits and which values show there. Narrator messages
+// and the status block are places of each mechanic («Где видно» in the constructor; В22: off by default).
+import { resolveVisibility } from '../../domain/mechanics-visibility';
+import { moduleSettingsSection } from '../../ui/components/card';
 import { field, numberInput, select, toggle } from '../../ui/components/controls';
 import { el } from '../../ui/components/dom';
 import { DEFAULT_MECHANICS_BOOK, MECHANICS_KEY } from './parts';
-import type { MechanicsSettings, PartDeps, SectionRenderer } from './parts';
+import type { DefinitionsPart, MechanicsSettings, PartDeps, SectionRenderer } from './parts';
 import { DEPTH_LIMITS, PROMPT_BUDGET_LIMITS, RELEVANCE_LIMITS } from './settings';
+import { nextPins, pinKey } from './widgets';
 
-type Flag = 'autoChecks' | 'strip' | 'background' | 'modelRolls' | 'autoCombat';
+type Flag = 'autoChecks' | 'strip' | 'background' | 'modelRolls' | 'autoCombat' | 'hud' | 'desPersona';
 type Count = 'promptBudget' | 'depth' | 'relevance';
 
-export function settingsSection(deps: PartDeps): SectionRenderer {
+export function settingsSection(deps: PartDeps, defs?: Pick<DefinitionsPart, 'active'>): SectionRenderer {
     const { app } = deps;
     const t = (key: string) => app.i18n.t(key);
 
@@ -22,12 +26,52 @@ export function settingsSection(deps: PartDeps): SectionRenderer {
         app.settings.save();
     };
 
+    /** «Под портретами DES»: a switch per attribute that may show there (none chosen: all of them). */
+    const desChoice = (): HTMLElement | null => {
+        if (!defs) return null;
+        let active: ReturnType<typeof defs.active>;
+        try {
+            active = defs.active();
+        } catch {
+            active = [];
+        }
+        const options = active.flatMap((def) =>
+            def.holders.kind === 'world' || def.holders.kind === 'factions'
+                ? []
+                : def.attributes
+                      .filter((attribute) => {
+                          const visibility = resolveVisibility(def, attribute);
+                          return visibility.places.des && visibility.preset !== 'secret';
+                      })
+                      .map((attribute) => ({ key: pinKey(def, attribute), label: `${def.name}: ${attribute.name}` })),
+        );
+        if (!options.length) return null;
+        const all = options.map((option) => option.key);
+        const chosen = deps.settings().desAttrs ?? [];
+        return field(
+            t('m25.ctor.settings.desAttrs'),
+            el(
+                'div',
+                { class: 'maestro-m25-des-attrs' },
+                options.map((option) =>
+                    toggle({
+                        label: option.label,
+                        checked: !chosen.length || chosen.includes(option.key),
+                        onChange: (checked) =>
+                            commit('desAttrs', nextPins(deps.settings().desAttrs ?? [], all, option.key, checked)),
+                    }),
+                ),
+            ),
+            t('m25.ctor.settings.desAttrs.hint'),
+        );
+    };
+
     return (container) => {
         const current = deps.settings();
-        const flag = (key: Flag) =>
+        const flag = (key: Flag, label = `m25.def.settings.${key}`) =>
             toggle({
-                label: t(`m25.def.settings.${key}`),
-                checked: current[key],
+                label: t(label),
+                checked: current[key] !== false,
                 onChange: (checked) => commit(key, checked),
             });
         const count = (key: Count, limits: { min: number; max: number }) =>
@@ -66,11 +110,16 @@ export function settingsSection(deps: PartDeps): SectionRenderer {
             }),
             t('m25.def.settings.personaFallback.hint'),
         );
-        const node = section(t('m25.def.settings.title'), [
+        const node = moduleSettingsSection(t('m25.def.settings.title'), [
             flag('autoChecks'),
             flag('modelRolls'),
             flag('autoCombat'),
+            flag('hud', 'm25.ctor.settings.hud'),
+            el('div', { class: 'maestro-hint', text: t('m25.ctor.settings.hud.hint') }),
             flag('strip'),
+            flag('desPersona', 'm25.ctor.settings.desPersona'),
+            desChoice(),
+            el('div', { class: 'maestro-hint', text: t('m25.ctor.settings.places.hint') }),
             flag('background'),
             fallback,
             count('promptBudget', PROMPT_BUDGET_LIMITS),

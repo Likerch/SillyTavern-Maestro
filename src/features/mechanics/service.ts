@@ -41,7 +41,8 @@ import { mechanicFlag, mechanicFlags } from './prompt';
 import type { MechanicPrompt } from './prompt';
 import type { ChecksPart, DefinitionsPart, PartDeps, RollOptions, StateOp, StatePart } from './parts';
 import { ITEM_KIND, REVEAL_KIND, STATUS_KIND } from './state';
-import { holderContextOf, worldOf } from './state-holders';
+import { holderContextOf, personaOf, worldOf } from './state-holders';
+import { renderHolderInto } from './view-values';
 
 /** Recent threshold events offered to the director as twist sources. */
 const TWIST_EVENTS = 5;
@@ -488,5 +489,26 @@ export class MechanicsService implements MechanicsApi {
 
     onEvent(listener: (event: MechanicsEvent) => void): Unsubscribe {
         return this.statePart.onEvent?.(listener) ?? (() => undefined);
+    }
+
+    /* ---------------------------------------------------------------- the play surfaces (plan-2 §6.А) */
+
+    holdersInScene(mechanicId: string): string[] {
+        const def = this.defs.get(mechanicId);
+        if (!def) return [];
+        try {
+            return this.statePart.holdersInScene(def);
+        } catch {
+            return [];
+        }
+    }
+
+    persona(): string {
+        return this.deps ? personaOf(this.deps.app) : '';
+    }
+
+    renderHolder(container: HTMLElement, holder: string, place: VisibilityPlace): Unsubscribe | null {
+        if (!this.deps) return null;
+        return renderHolderInto(this.deps.app.i18n, this, container, holder, place);
     }
 }

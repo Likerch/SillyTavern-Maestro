@@ -115,6 +115,8 @@ export interface AttributeDef {
     formula?: string;
     growth?: AttributeGrowth;
     visibility?: VisibilityInput;
+    /** A short sign shown before the value on the play surfaces (an emoji: «❤», «🔷»). */
+    icon?: string;
 }
 
 export type HolderSpec =
@@ -203,6 +205,13 @@ export interface MechanicDef {
     pinned?: boolean;
     /** Extra words that make a world mechanic relevant when mentioned. */
     keys?: string[];
+    /** The summary and rules as the user wrote them (his language); `summary` / `rules` are the English the model gets. */
+    summarySource?: string;
+    rulesSource?: string;
+    /** Hashes of the source texts the English was translated from (a changed source is translated again). */
+    translatedFrom?: { summary?: string; rules?: string };
+    /** Narrator messages of this mechanic's rolls are part of the story for the model too (default: the player's only). */
+    narratorToModel?: boolean;
 }
 
 export interface MechanicTemplate {
@@ -231,6 +240,8 @@ export const DEF_LIMITS = { actions: 12, effects: 8, statuses: 40, time: 12, thr
 /** Ids of mechanics, attributes, checks and events: snake_case, a letter first (flags are `maestro_mech_<id>`). */
 export const ID_PATTERN = /^[a-z][a-z0-9_]*$/;
 export const MAX_ID_LENGTH = 40;
+/** Characters of an attribute's sign (an emoji may take two code points). */
+export const ICON_MAX = 4;
 /** Key of the definition JSON inside `entry.extensions.maestro`. */
 export const MECHANIC_EXTENSION_KEY = 'mechanic';
 /** Entry type of a definition (src/domain/entry-types.ts). */
@@ -813,6 +824,8 @@ function normalizeAttribute(raw: unknown, index: number): AttributeDef | null {
     }
     const visibility = normalizeVisibilityInput(raw.visibility);
     if (visibility) attribute.visibility = visibility;
+    const icon = str(raw.icon);
+    if (icon) attribute.icon = [...icon].slice(0, ICON_MAX).join('');
     return attribute;
 }
 
@@ -929,6 +942,15 @@ export function normalizeDef(raw: unknown): MechanicDef | null {
     if (raw.pinned === true) def.pinned = true;
     const keys = cleanList(raw.keys).slice(0, DEF_LIMITS.keys);
     if (keys.length) def.keys = keys;
+    if (text(raw.summarySource)) def.summarySource = text(raw.summarySource);
+    if (text(raw.rulesSource)) def.rulesSource = text(raw.rulesSource);
+    if (isDict(raw.translatedFrom)) {
+        const from: { summary?: string; rules?: string } = {};
+        if (str(raw.translatedFrom.summary)) from.summary = str(raw.translatedFrom.summary);
+        if (str(raw.translatedFrom.rules)) from.rules = str(raw.translatedFrom.rules);
+        if (from.summary || from.rules) def.translatedFrom = from;
+    }
+    if (raw.narratorToModel === true) def.narratorToModel = true;
     return def;
 }
 

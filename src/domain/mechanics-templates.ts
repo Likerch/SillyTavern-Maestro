@@ -27,6 +27,20 @@ type Built = Omit<MechanicDef, 'id' | 'scope'>;
 
 const pick = (locale: Locale, en: string, ru: string): string => (locale === 'ru' ? ru : en);
 
+/** Signs of the common numbers on the play surfaces («❤ 80 → 65» under a reply, the HUD). */
+const SIGNS: Readonly<Record<string, string>> = {
+    health: '❤',
+    hp: '❤',
+    stamina: '⚡',
+    mana: '🔷',
+    coins: '🪙',
+    hunger: '🍖',
+    thirst: '💧',
+    fatigue: '💤',
+    sanity: '🧠',
+    armor: '🛡',
+};
+
 function numberAttr(
     locale: Locale,
     id: string,
@@ -34,7 +48,15 @@ function numberAttr(
     ru: string,
     options: Partial<AttributeDef> = {},
 ): AttributeDef {
-    return { id, name: pick(locale, en, ru), promptName: en, kind: 'number', ...options };
+    const sign = SIGNS[id];
+    return {
+        id,
+        name: pick(locale, en, ru),
+        promptName: en,
+        kind: 'number',
+        ...(sign ? { icon: sign } : {}),
+        ...options,
+    };
 }
 
 function status(

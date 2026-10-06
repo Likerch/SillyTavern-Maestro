@@ -348,9 +348,8 @@ describe('editor', () => {
         const once = [...block().querySelectorAll<HTMLInputElement>('input[type="checkbox"]')].at(-1)!;
         once.checked = false;
         once.dispatchEvent(new Event('change'));
-        const visible = one<HTMLInputElement>('input[type="checkbox"]', block());
-        visible.checked = false;
-        visible.dispatchEvent(new Event('change'));
+        // «Где видно» of the attribute: the «secret from everyone» set (the old «visible» switch).
+        await click(one('.maestro-m25-preset-secret', block()));
         choose(one<HTMLSelectElement>('select[aria-label="Tracking"]', block()), 'block');
 
         await click(buttonByText('Add attribute'));
@@ -410,7 +409,7 @@ describe('editor', () => {
                 max: 50,
                 initial: 20,
                 tracking: 'block',
-                visible: false,
+                visibility: { preset: 'secret' },
                 events: [{ id: 'event', when: { op: '>=', value: 5 }, text: 'Full.', once: false }],
             },
             { id: 'zametka', name: 'Заметка', promptName: 'Заметка', kind: 'text', initial: 'Calm.' },

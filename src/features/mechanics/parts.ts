@@ -56,6 +56,16 @@ export interface MechanicsSettings {
     personaFallback: 'background' | 'block';
     /** Messages looked back for names of factions and world mechanics (they join the prompt only when mentioned). */
     relevance: number;
+    /** The HUD over the chat (plan-2 §6.А п.4): shown while a mechanic is on. */
+    hud: boolean;
+    /** Attributes pinned to the HUD (`mechanic.attribute`); empty: every one the HUD may show. */
+    hudAttrs: string[];
+    /** Characters shown in the HUD besides the user's character. */
+    hudHolders: string[];
+    /** Attributes chosen for the strip under DES portraits (`mechanic.attribute`); empty: every one it may show. */
+    desAttrs: string[];
+    /** The user's character in the strip under DES portraits. */
+    desPersona: boolean;
 }
 
 export const DEFAULT_MECHANICS_SETTINGS: MechanicsSettings = {
@@ -69,6 +79,11 @@ export const DEFAULT_MECHANICS_SETTINGS: MechanicsSettings = {
     autoCombat: true,
     personaFallback: 'background',
     relevance: 4,
+    hud: true,
+    hudAttrs: [],
+    hudHolders: [],
+    desAttrs: [],
+    desPersona: true,
 };
 
 export interface PartDeps {

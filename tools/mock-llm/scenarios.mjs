@@ -799,6 +799,23 @@ registerSchema('nai_passports', (ctx) => {
 // The wardrobe asks what the user's character wears: `[mock:wear:phrase]` in the chat is the answer, else null.
 registerSchema('wardrobe_persona', (ctx) => ({ wearing: ctx.markers?.get('wear') || null }));
 
+// The English of a mechanic for the model (src/features/mechanics/translate.ts, schema 'maestro_mechanics_translate'):
+// the request's items come back with an "EN: " prefix (Cyrillic kept: a test sees what was translated).
+registerSchema('maestro_mechanics_translate', (ctx) => {
+    let items;
+    try {
+        const parsed = JSON.parse(String(ctx.lastUserText ?? '{}'));
+        items = Array.isArray(parsed?.items) ? parsed.items : [];
+    } catch {
+        items = [];
+    }
+    return {
+        items: items
+            .filter((item) => item && typeof item.key === 'string')
+            .map((item) => ({ key: item.key, text: `EN: ${String(item.text ?? '')}` })),
+    };
+});
+
 // The mechanics background parse (src/domain/mechanics-extract.ts, schema 'maestro_mechanics_extract'): the marker
 // `[mock:mechextract:Кай.Mana=-10; Кай.Mood=warm; Кай.status+=poisoned 3 turns; Кай.status-=blessed;
 // Кай.items+=rope 2; Кай.items-=coin 5]` in the reply it reads (a story turn with that marker repeats it on its last

@@ -9,7 +9,7 @@
 //   MutationObserver on the wrapper's parent (childList only — streaming text never reaches it) puts the strip back;
 //   without a wrapper a cheap poll looks for it. Hidden by CSS when DES hides its bar or docks it to a side.
 import { initialValueOf, parseDice } from '../../domain/mechanics-defs';
-import { resolveVisibility, shownIn } from '../../domain/mechanics-visibility';
+import { resolveVisibility, shownIn, wordsFor } from '../../domain/mechanics-visibility';
 import type { Unsubscribe } from '../../shared/contracts';
 import { badge, card, emptyState, section } from '../../ui/components/card';
 import type { Level } from '../../ui/components/card';
@@ -23,10 +23,16 @@ import type {
     CheckDef,
     CheckResult,
     MechanicDef,
+    MechanicsApi,
     StateChange,
 } from './api';
 import { checkNameOf, describeCheck } from './checks';
-import type { ChecksPart, DefinitionsPart, PartDeps, SectionRenderer, StatePart } from './parts';
+import { MECHANICS_KEY } from './parts';
+import type { ChecksPart, DefinitionsPart, MechanicsSettings, PartDeps, SectionRenderer, StatePart } from './parts';
+import { shownValue } from '../../domain/mechanics-view';
+import type { ShownValue } from '../../domain/mechanics-view';
+import { personaOf as personaOfState } from './state-holders';
+import { meter as valueMeter, personaOf, sameName, translator, valueNode, wordsText } from './view-values';
 
 export const STRIP_ID = 'maestro-m25-strip';
 export const DES_WRAPPER_ID = 'dooms-portrait-bar-wrapper';
@@ -42,6 +48,12 @@ export const WIDGETS_CSS = `
 .maestro-m25-state .maestro-m25-holder { border: 1px solid var(--maestro-border); border-radius: var(--maestro-radius-sm);
     padding: 6px 8px; display: flex; flex-direction: column; gap: 4px; }
 .maestro-m25-state .maestro-m25-holder-name { font-weight: 600; overflow-wrap: anywhere; }
+.maestro-m25-state .maestro-m25-holder-head { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.maestro-m25-state .maestro-m25-holder-head .maestro-m25-holder-name { flex: 1 1 auto; }
+.maestro-m25-state .maestro-m25-pin { background: none; border: none; color: inherit; cursor: pointer; opacity: 0.35;
+    min-width: 28px; min-height: 28px; }
+.maestro-m25-state .maestro-m25-pin-on { opacity: 1; color: var(--maestro-accent, inherit); }
+.maestro-m25-state .maestro-m25-unknown { letter-spacing: 2px; }
 .maestro-m25-state .maestro-m25-attr { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .maestro-m25-state .maestro-m25-attr-name { min-width: 7em; opacity: 0.85; }
 .maestro-m25-state .maestro-m25-attr .maestro-number { width: 6em; }
@@ -100,25 +112,7 @@ function bounded(attribute: AttributeDef): attribute is AttributeDef & { min: nu
 }
 
 /** A small meter for a bounded number (role meter, a fill as wide as the share). */
-export function meter(value: number, min: number, max: number, label: string): HTMLElement {
-    const share = Math.min(1, Math.max(0, (value - min) / (max - min)));
-    const fill = el('span', { class: 'maestro-m25-meter-fill' });
-    fill.style.width = `${Math.round(share * 100)}%`;
-    return el(
-        'span',
-        {
-            class: 'maestro-m25-meter',
-            attrs: {
-                role: 'meter',
-                'aria-label': label,
-                'aria-valuemin': min,
-                'aria-valuemax': max,
-                'aria-valuenow': value,
-            },
-        },
-        [fill],
-    );
-}
+export const meter = valueMeter;
 
 function plain(value: AttributeValue | null, none: string): string {
     if (value === null || value === undefined) return '—';
@@ -150,6 +144,24 @@ interface Picked {
     check: string;
     holder: string;
     difficulty: string;
+    mode: '' | 'adv' | 'dis';
+    vs: string;
+}
+
+/** `mechanic.attribute` of a pin. */
+export function pinKey(def: Pick<MechanicDef, 'id'>, attribute: Pick<AttributeDef, 'id'>): string {
+    return `${def.id}.${attribute.id}`;
+}
+
+/**
+ * Pins an attribute to the HUD or takes it off. No pins means «every attribute the HUD may show»: taking one off then
+ * pins all the others; pinning the last missing one goes back to «every».
+ */
+export function nextPins(current: readonly string[], all: readonly string[], key: string, on: boolean): string[] {
+    const base = current.length ? [...current] : [...all];
+    const next = on ? (base.includes(key) ? base : [...base, key]) : base.filter((item) => item !== key);
+    const everything = all.length > 0 && all.every((item) => next.includes(item)) && next.length === all.length;
+    return everything ? [] : next;
 }
 
 export function stateSection(
@@ -157,10 +169,14 @@ export function stateSection(
     defs: DefinitionsPart,
     state: StatePart,
     checks: ChecksPart,
+    api?: MechanicsApi,
 ): SectionRenderer {
     const { app } = deps;
     const t = app.i18n.t.bind(app.i18n);
     const picked = new Map<string, Picked>();
+    /** Hidden values the user chose to see in this window (asked once; forgotten when the section closes). */
+    let peeking = false;
+    let redrawNow: () => void = () => {};
 
     const run = async (job: () => Promise<unknown>): Promise<void> => {
         try {
@@ -291,19 +307,173 @@ export function stateSection(
                 : attribute.kind === 'list'
                   ? listControl(def, holder, attribute, value)
                   : textControl(def, holder, attribute, value);
+        // How the player sees it when it is shown in words («Книжный»): next to the value being edited.
+        const visibility = resolveVisibility(def, attribute);
+        const words =
+            visibility.view === 'words' ? wordsText(translator(app.i18n), wordsFor(attribute, visibility, value)) : '';
         return el('div', { class: 'maestro-m25-attr', data: { attribute: attribute.id } }, [
             el('span', { class: 'maestro-m25-attr-name', text: attribute.name }),
             ...controls,
+            words ? el('span', { class: 'maestro-muted maestro-m25-words', text: `«${words}»` }) : null,
         ]);
     };
 
-    const holderBlock = (def: MechanicDef, holder: string): HTMLElement =>
-        el('div', { class: 'maestro-m25-holder', data: { holder } }, [
-            el('div', { class: 'maestro-m25-holder-name', text: holder }),
-            ...def.attributes
-                .filter((attribute) => attribute.visible !== false)
-                .map((attribute) => attributeRow(def, holder, attribute)),
+    const commit = <K extends keyof MechanicsSettings>(key: K, value: MechanicsSettings[K]) => {
+        deps.settings()[key] = value;
+        app.settings.notify(`modules.${MECHANICS_KEY}.${key}`);
+        app.settings.save();
+    };
+
+    const revealed = (def: MechanicDef, holder: string, attribute: AttributeDef): boolean => {
+        try {
+            return state.isRevealed?.(def.id, holder, attribute.id) ?? false;
+        } catch {
+            return false;
+        }
+    };
+
+    /** Attributes the HUD may show (their place is on): the pins choose among these. */
+    const hudKeys = (): string[] =>
+        safeList(() => defs.active()).flatMap((def) =>
+            def.attributes
+                .filter((attribute) => {
+                    const visibility = resolveVisibility(def, attribute);
+                    return visibility.places.hud && visibility.preset !== 'secret' && visibility.view !== 'hidden';
+                })
+                .map((attribute) => pinKey(def, attribute)),
+        );
+
+    const pinButton = (def: MechanicDef, attribute: AttributeDef): HTMLElement | null => {
+        const visibility = resolveVisibility(def, attribute);
+        if (!visibility.places.hud || visibility.preset === 'secret' || visibility.view === 'hidden') return null;
+        const key = pinKey(def, attribute);
+        const pins = deps.settings().hudAttrs ?? [];
+        const on = !pins.length || pins.includes(key);
+        const label = t(on ? 'm25.win.pin.off' : 'm25.win.pin.on', { name: attribute.name });
+        return el(
+            'button',
+            {
+                class: ['maestro-m25-pin', on ? 'maestro-m25-pin-on' : null],
+                title: label,
+                attrs: { type: 'button', 'aria-label': label, 'aria-pressed': String(on) },
+                on: {
+                    click: () => {
+                        commit('hudAttrs', nextPins(deps.settings().hudAttrs ?? [], hudKeys(), key, !on));
+                        redrawNow();
+                    },
+                },
+            },
+            [icon('fa-thumbtack')],
+        );
+    };
+
+    /** «Раскрыть» for a hidden value (the player sees it from now on); «Скрыть снова» once it is revealed. */
+    const hiddenControls = (def: MechanicDef, holder: string, attribute: AttributeDef): HTMLElement[] => {
+        if (!api?.reveal) return [];
+        const open = revealed(def, holder, attribute);
+        return [
+            button({
+                label: t(open ? 'm25.win.hide' : 'm25.win.reveal'),
+                icon: open ? 'fa-eye-slash' : 'fa-eye',
+                kind: 'ghost',
+                className: open ? 'maestro-m25-hide' : 'maestro-m25-reveal',
+                title: t(open ? 'm25.win.hide.hint' : 'm25.win.reveal.hint'),
+                onClick: () => run(() => api.reveal!(def.id, holder, attribute.id, !open)),
+            }),
+        ];
+    };
+
+    const peekButton = (): HTMLElement =>
+        button({
+            label: t('m25.win.peek'),
+            icon: 'fa-eye',
+            kind: 'ghost',
+            className: 'maestro-m25-peek',
+            onClick: async () => {
+                const ok = await app.ui.confirm(t('m25.win.peek.title'), t('m25.win.peek.body'));
+                if (!ok) return;
+                peeking = true;
+                redrawNow();
+            },
+        });
+
+    const hiddenRow = (def: MechanicDef, holder: string, attribute: AttributeDef): HTMLElement =>
+        el('div', { class: 'maestro-m25-attr maestro-m25-attr-hidden', data: { attribute: attribute.id } }, [
+            el('span', { class: 'maestro-m25-attr-name', text: attribute.name }),
+            el('span', { class: 'maestro-muted maestro-m25-unknown', text: '???' }),
+            peekButton(),
+            ...hiddenControls(def, holder, attribute),
         ]);
+
+    const resetAsk = (def: MechanicDef, holder?: string) =>
+        run(async () => {
+            if (!api?.reset) return;
+            const ok = await app.ui.confirm(
+                t('m25.win.reset.title'),
+                holder
+                    ? t('m25.win.reset.holderBody', { holder, name: def.name })
+                    : t('m25.win.reset.body', { name: def.name }),
+            );
+            if (!ok) return;
+            const count = await api.reset({ mechanicId: def.id, ...(holder ? { holder } : {}) });
+            app.ui.notice(count ? t('m25.win.reset.done', { count }) : t('m25.win.reset.nothing'), { urgent: true });
+        });
+
+    const holderBlock = (def: MechanicDef, holder: string): HTMLElement => {
+        const persona = api ? personaOf(api) : '';
+        const isPersona = !!persona && sameName(holder, persona);
+        const characters = def.holders.kind !== 'world' && def.holders.kind !== 'factions';
+        const chosen = (deps.settings().hudHolders ?? []).some((name) => sameName(name, holder));
+        const rows: HTMLElement[] = [];
+        for (const attribute of def.attributes) {
+            const visibility = resolveVisibility(def, attribute);
+            if (attribute.visible === false || visibility.preset === 'secret') continue;
+            const hidden = visibility.preset === 'hidden';
+            if (hidden && !peeking && !revealed(def, holder, attribute)) {
+                rows.push(hiddenRow(def, holder, attribute));
+                continue;
+            }
+            const row = attributeRow(def, holder, attribute);
+            if (hidden) row.append(...hiddenControls(def, holder, attribute));
+            const pin = api && characters && isPersona ? pinButton(def, attribute) : null;
+            if (pin) row.appendChild(pin);
+            rows.push(row);
+        }
+        const head: (HTMLElement | null)[] = [el('span', { class: 'maestro-m25-holder-name', text: holder })];
+        if (api && characters && !isPersona) {
+            head.push(
+                button({
+                    label: t(chosen ? 'm25.win.hud.off' : 'm25.win.hud.on'),
+                    icon: 'fa-thumbtack',
+                    kind: chosen ? 'primary' : 'ghost',
+                    className: 'maestro-m25-hud-holder-toggle',
+                    onClick: () => {
+                        const list = deps.settings().hudHolders ?? [];
+                        commit(
+                            'hudHolders',
+                            chosen ? list.filter((name) => !sameName(name, holder)) : [...list, holder],
+                        );
+                        redrawNow();
+                    },
+                }),
+            );
+        }
+        if (api?.reset) {
+            head.push(
+                button({
+                    icon: 'fa-rotate-left',
+                    title: t('m25.win.reset.holder', { holder }),
+                    kind: 'ghost',
+                    className: 'maestro-m25-reset-holder',
+                    onClick: () => resetAsk(def, holder),
+                }),
+            );
+        }
+        return el('div', { class: 'maestro-m25-holder', data: { holder } }, [
+            el('div', { class: 'maestro-m25-holder-head' }, head),
+            ...rows,
+        ]);
+    };
 
     const changeRow = (def: MechanicDef, change: StateChange): HTMLElement => {
         const attribute = def.attributes.find((item) => item.id === change.attribute);
@@ -322,6 +492,18 @@ export function stateSection(
                 ? el('span', { class: 'maestro-muted', text: t('m25.widget.change.reason', { reason: change.reason }) })
                 : null,
             el('span', { class: 'maestro-muted', text: formatTime(change.at, app.i18n) }),
+            api?.undoChange
+                ? button({
+                      label: t('m25.play.undo'),
+                      kind: 'ghost',
+                      className: 'maestro-m25-undo',
+                      onClick: () =>
+                          run(async () => {
+                              const ok = await api.undoChange!(change.id);
+                              if (!ok) app.ui.notice(t('m25.play.undo.failed'), { level: 'warn', urgent: true });
+                          }),
+                  })
+                : null,
         ]);
     };
 
@@ -332,6 +514,8 @@ export function stateSection(
             check: firstCheck.id,
             holder: memory && holders.includes(memory.holder) ? memory.holder : (holders[0] ?? ''),
             difficulty: memory?.difficulty ?? '',
+            mode: memory?.mode ?? '',
+            vs: memory && holders.includes(memory.vs) ? memory.vs : '',
         };
         picked.set(def.id, choice);
         const hint = el('div', { class: 'maestro-hint' });
@@ -379,6 +563,34 @@ export function stateSection(
                       })
                     : null,
                 difficulty,
+                select<string>({
+                    value: choice.mode,
+                    options: [
+                        { value: '', label: t('m25.win.roll.mode.none') },
+                        { value: 'adv', label: t('m25.win.roll.mode.adv') },
+                        { value: 'dis', label: t('m25.win.roll.mode.dis') },
+                    ],
+                    label: t('m25.win.roll.mode'),
+                    onChange: (value) => {
+                        choice.mode = value === 'adv' || value === 'dis' ? value : '';
+                    },
+                }),
+                holderOptions.length > 1
+                    ? select<string>({
+                          value: choice.vs,
+                          options: [
+                              { value: '', label: t('m25.win.roll.vs.none') },
+                              ...holderOptions.map((holder) => ({
+                                  value: holder,
+                                  label: t('m25.win.roll.vs.holder', { holder }),
+                              })),
+                          ],
+                          label: t('m25.win.roll.vs'),
+                          onChange: (value) => {
+                              choice.vs = value;
+                          },
+                      })
+                    : null,
                 button({
                     label: t('m25.widget.roll.button'),
                     title: t('m25.widget.roll.hint'),
@@ -389,12 +601,11 @@ export function stateSection(
                         const typed = difficulty.value.trim();
                         const value = typed && !difficulty.disabled ? Number(typed) : NaN;
                         try {
-                            const result = await checks.roll(
-                                def.id,
-                                choice.check,
-                                choice.holder,
-                                Number.isFinite(value) ? { difficulty: value } : {},
-                            );
+                            const result = await checks.roll(def.id, choice.check, choice.holder, {
+                                ...(Number.isFinite(value) ? { difficulty: value } : {}),
+                                ...(choice.mode ? { mode: choice.mode } : {}),
+                                ...(choice.vs && choice.vs !== choice.holder ? { vs: { holder: choice.vs } } : {}),
+                            });
                             const line = describeCheck(result, app.i18n, checkNameOf(defs, result));
                             app.ui.notice(t('m25.check.rolled', { line }), { urgent: true });
                         } catch (error) {
@@ -491,6 +702,15 @@ export function stateSection(
         return card({
             className: 'maestro-m25-mechanic',
             title: def.name,
+            actions: api?.reset
+                ? button({
+                      label: t('m25.win.reset'),
+                      icon: 'fa-rotate-left',
+                      kind: 'ghost',
+                      className: 'maestro-m25-reset',
+                      onClick: () => resetAsk(def),
+                  })
+                : undefined,
             body: [
                 holders.length
                     ? el(
@@ -532,6 +752,10 @@ export function stateSection(
             );
         };
         const redraw = coalesce(draw, 100);
+        redrawNow = () => {
+            redraw.cancel();
+            draw();
+        };
         const offs: Unsubscribe[] = [
             defs.onChange(() => alive && redraw()),
             state.onChange(() => alive && redraw()),
@@ -543,6 +767,8 @@ export function stateSection(
         draw();
         return () => {
             alive = false;
+            peeking = false;
+            redrawNow = () => {};
             redraw.cancel();
             for (const off of offs) off();
         };
@@ -564,11 +790,18 @@ interface StripStat {
     value: number;
     min?: number;
     max?: number;
+    /** The attribute and how it shows (words in the «book» set, an icon…). */
+    attribute?: AttributeDef;
+    shown?: ShownValue;
 }
 
 interface StripRow {
     holder: string;
     stats: StripStat[];
+}
+
+function personaOfApp(deps: PartDeps): string {
+    return personaOfState(deps.app);
 }
 
 function narrowScreen(): boolean {
@@ -696,23 +929,45 @@ export class MechanicStrip {
         this.poll = null;
     }
 
-    /** Visible number attributes of the characters in the scene (world and faction holders are not characters). */
+    /**
+     * What the strip shows: the characters in the scene — the user's character first (setting desPersona) — with the
+     * attributes whose place «under DES portraits» is on (only those chosen in settings.desAttrs, when any), each in its
+     * view; hidden-unrevealed and secret ones never. World and faction holders are not characters.
+     */
     rows(): StripRow[] {
         const rows = new Map<string, StripRow>();
+        const settings = this.deps.settings();
+        const chosen = settings.desAttrs ?? [];
+        const persona = personaOfApp(this.deps);
         for (const def of safeList(() => this.defs.active())) {
             if (def.holders.kind === 'world' || def.holders.kind === 'factions') continue;
-            const numbers = def.attributes.filter(
-                (attribute) => attribute.kind === 'number' && resolveVisibility(def, attribute).places.des,
+            const attributes = def.attributes.filter(
+                (attribute) =>
+                    resolveVisibility(def, attribute).places.des &&
+                    (!chosen.length || chosen.includes(pinKey(def, attribute))),
             );
-            if (!numbers.length) continue;
+            if (!attributes.length) continue;
             for (const holder of safeList(() => this.state.holdersInScene(def))) {
+                if (settings.desPersona === false && persona && sameName(holder, persona)) continue;
                 const row = rows.get(holder) ?? { holder, stats: [] };
-                for (const attribute of numbers) {
+                for (const attribute of attributes) {
                     const revealed = this.state.isRevealed?.(def.id, holder, attribute.id) ?? false;
-                    if (!shownIn(resolveVisibility(def, attribute), 'des', revealed)) continue;
-                    const value = valueOf(this.state, def, holder, attribute);
-                    if (typeof value !== 'number' || !Number.isFinite(value)) continue;
-                    const stat: StripStat = { label: attribute.name, value };
+                    const visibility = resolveVisibility(def, attribute);
+                    if (!shownIn(visibility, 'des', revealed)) continue;
+                    const raw =
+                        attribute.kind === 'number'
+                            ? (this.state.numberOf?.(def.id, holder, attribute.id) ??
+                              valueOf(this.state, def, holder, attribute))
+                            : valueOf(this.state, def, holder, attribute);
+                    const shown = shownValue(attribute, visibility, raw);
+                    // An empty list or text says nothing on a strip this small.
+                    if (!shown || (attribute.kind !== 'number' && !shown.text)) continue;
+                    const stat: StripStat = {
+                        label: attribute.name,
+                        value: typeof raw === 'number' ? raw : 0,
+                        attribute,
+                        shown,
+                    };
                     if (bounded(attribute)) {
                         stat.min = attribute.min;
                         stat.max = attribute.max;
@@ -722,13 +977,16 @@ export class MechanicStrip {
                 if (row.stats.length) rows.set(holder, row);
             }
         }
-        return [...rows.values()];
+        const list = [...rows.values()];
+        // The user's character first.
+        list.sort((a, b) => Number(sameName(b.holder, persona)) - Number(sameName(a.holder, persona)));
+        return list;
     }
 
     private render(): void {
         const node = this.node;
         if (this.disposed || !node?.isConnected) return;
-        const t = this.deps.app.i18n.t.bind(this.deps.app.i18n);
+        const t = translator(this.deps.app.i18n);
         const rows = this.rows();
         clear(node);
         node.hidden = rows.length === 0;
@@ -741,16 +999,20 @@ export class MechanicStrip {
                 el('span', { class: 'maestro-m25-strip-holder', data: { holder: row.holder } }, [
                     el('span', { class: 'maestro-m25-strip-name', text: row.holder }),
                     ...row.stats.map((stat) =>
-                        el('span', { class: 'maestro-m25-strip-stat', title: stat.label }, [
-                            el('span', { class: 'maestro-m25-strip-label', text: stat.label }),
-                            stat.max !== undefined && stat.min !== undefined
-                                ? meter(stat.value, stat.min, stat.max, stat.label)
-                                : null,
-                            el('span', {
-                                class: 'maestro-m25-strip-value',
-                                text: stat.max !== undefined ? `${stat.value}/${stat.max}` : String(stat.value),
-                            }),
-                        ]),
+                        stat.shown && stat.attribute && stat.shown.view !== 'number' && stat.shown.view !== 'bar'
+                            ? el('span', { class: 'maestro-m25-strip-stat', title: stat.label }, [
+                                  valueNode(t, stat.attribute, stat.shown),
+                              ])
+                            : el('span', { class: 'maestro-m25-strip-stat', title: stat.label }, [
+                                  el('span', { class: 'maestro-m25-strip-label', text: stat.label }),
+                                  stat.max !== undefined && stat.min !== undefined
+                                      ? meter(stat.value, stat.min, stat.max, stat.label)
+                                      : null,
+                                  el('span', {
+                                      class: 'maestro-m25-strip-value',
+                                      text: stat.shown?.text ?? String(stat.value),
+                                  }),
+                              ]),
                     ),
                 ]),
             ),

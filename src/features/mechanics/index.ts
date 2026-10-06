@@ -14,10 +14,16 @@ import { MechanicPrompt } from './prompt';
 import { MechanicsService } from './service';
 import { defaultMechanicsSettings, readMechanicsSettings } from './settings';
 import { BATCH_UNDO_TARGET, MechanicState, VALUE_UNDO_TARGET } from './state';
+import { MechanicsHud } from './hud';
+import { MechanicsNarrator } from './narrator';
+import { MechanicsPlayStrip } from './play-strip';
 import { MECHANICS_STRINGS } from './strings';
 import { DES_STATS_UNDO_TARGET, MechanicTracking } from './tracking';
-import { mechanicsTab } from './view';
+import { MechanicTranslator } from './translate';
+import { mechanicsBuildTab, mechanicsLogTab, mechanicsTab } from './view';
 import { MECHANICS_DEF_CSS } from './view-constructor';
+import { PLAY_CSS } from './view-play';
+import { VALUES_CSS } from './view-values';
 import { MechanicStrip } from './widgets';
 
 export const mechanicsModule: MaestroModule<MechanicsSettings> = {
@@ -73,12 +79,33 @@ export const mechanicsModule: MaestroModule<MechanicsSettings> = {
         own(() => strip.dispose());
         strip.install();
 
-        app.modules.expose(
-            MECHANICS_KEY,
-            new MechanicsService(defs, state, checks, deps, { prompt, combat }) satisfies MechanicsApi,
-        );
+        const api = new MechanicsService(defs, state, checks, deps, { prompt, combat }) satisfies MechanicsApi;
+        app.modules.expose(MECHANICS_KEY, api);
+
+        // plan-2 §6.А: under the replies (change lines, roll cards, events, the status block), the HUD, narrator
+        // messages, and the English for the model of what the user writes in his language.
+        const play = new MechanicsPlayStrip(deps, api);
+        own(() => play.dispose());
+        play.install();
+
+        const hud = new MechanicsHud(deps, api);
+        own(() => hud.dispose());
+        hud.install();
+
+        const narrator = new MechanicsNarrator(deps, api);
+        own(() => narrator.dispose());
+        narrator.install();
+
+        const translator = new MechanicTranslator(deps, defs);
+        own(() => translator.dispose());
+        translator.install();
+
         own(app.ui.style('maestro-m25-defs', MECHANICS_DEF_CSS));
-        own(app.ui.addTab(mechanicsTab(deps, defs, state, checks, tracking)));
+        own(app.ui.style('maestro-m25-values', VALUES_CSS));
+        own(app.ui.style('maestro-m25-play', PLAY_CSS));
+        own(app.ui.addTab(mechanicsTab(deps, defs, state, checks, api)));
+        own(app.ui.addTab(mechanicsLogTab(deps, api)));
+        own(app.ui.addTab(mechanicsBuildTab(deps, defs, tracking, api, translator)));
     },
 };
 
@@ -87,7 +114,11 @@ export { defaultMechanicsSettings, readMechanicsSettings } from './settings';
 export { MechanicDefinitions, MECHANICS_DEF_TARGET, MECHANICS_OFF_POINTER, scopeContextOf } from './definitions';
 export { MechanicsService } from './service';
 export { MechanicCombat, COMBAT_KIND } from './combat';
-export { MECHANICS_TAB, mechanicsTab } from './view';
+export { MECHANICS_BUILD_TAB, MECHANICS_LOG_TAB, MECHANICS_TAB, mechanicsTab } from './view';
+export { MechanicsHud } from './hud';
+export { MechanicsNarrator } from './narrator';
+export { MechanicsPlayStrip } from './play-strip';
+export { MechanicTranslator, TRANSLATE_TASK } from './translate';
 export { constructorSection, MECHANICS_DEF_CSS } from './view-constructor';
 export { settingsSection } from './view-constructor-settings';
 export { DEFAULT_MECHANICS_BOOK, DEFAULT_MECHANICS_SETTINGS, MECHANICS_ID, MECHANICS_KEY } from './parts';

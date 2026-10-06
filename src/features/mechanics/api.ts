@@ -181,6 +181,8 @@ export interface AttributeDef {
     growth?: AttributeGrowth;
     /** Overrides of the mechanic's visibility. */
     visibility?: VisibilityInput;
+    /** A short sign before the value on the play surfaces (an emoji: «❤», «🔷»). */
+    icon?: string;
 }
 
 /** Who has the attributes. Faction and world holders are named things, not characters. */
@@ -289,6 +291,13 @@ export interface MechanicDef {
     pinned?: boolean;
     /** Extra words that make a world mechanic relevant when mentioned. */
     keys?: string[];
+    /** The summary and rules as the user wrote them (his language); `summary` / `rules` are the English the model gets. */
+    summarySource?: string;
+    rulesSource?: string;
+    /** Hashes of the source texts the English was translated from (a changed source is translated again). */
+    translatedFrom?: { summary?: string; rules?: string };
+    /** Narrator messages of this mechanic's rolls are part of the story for the model too (default: the player's). */
+    narratorToModel?: boolean;
 }
 
 /** A ready-made mechanic: health and stamina, magic with mana and schools, faction reputation, money, skills… */
@@ -593,4 +602,15 @@ export interface MechanicsApi {
     previewPrompt?(): MechanicsPromptPreview | null;
     /** What just happened (changes, rolls, events, the fight, undo) — for the change line, roll cards, narrator. */
     onEvent?(listener: (event: MechanicsEvent) => void): Unsubscribe;
+
+    // ---- plan-2 §6.А, the play surfaces (release 1.14, second wave); optional like the rest.
+    /** Holders of a mechanic in the scene now (present characters, the persona, factions and the world when named). */
+    holdersInScene?(mechanicId: string): string[];
+    /** The user's character's name ('' without one). */
+    persona?(): string;
+    /**
+     * Draws a holder's mechanics as the player may see them in a place (the dossier's «Механики» section): values in
+     * their view, statuses with what is left, items. Nothing is drawn (null) when there is nothing to show.
+     */
+    renderHolder?(container: HTMLElement, holder: string, place: VisibilityPlace): Unsubscribe | null;
 }
