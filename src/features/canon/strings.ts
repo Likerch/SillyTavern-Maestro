@@ -1,7 +1,24 @@
 // Strings of M6 «Канон чата» (`m6.*`, action kinds `kind.canon.*`, journal targets `target.canon-*`) and how its journal
 // targets read in Inbox cards and the journal. Russian is the primary UI language; the user is addressed as «ты».
 import { formatClip, formatPlain } from '../../core/labels';
+import { offscreenCharacterOf } from '../../domain/offscreen-parse';
 import type { I18n, I18nParts, TargetSpec } from '../../shared/contracts';
+
+/**
+ * The title of a canon entry as the user reads it. Titles Maestro writes in English for its own bookkeeping
+ * («Offscreen: Mira») are shown in his words («За кадром: Mira»); the stored title does not change.
+ */
+export function canonTitle(title: string, i18n: I18n): string {
+    const character = offscreenCharacterOf(title);
+    return character ? i18n.t('m6.title.offscreen', { name: character }) : title;
+}
+
+const clipTitle = formatClip(80);
+
+/** The entry title field in Inbox cards and the journal (see canonTitle). */
+function titleField(value: unknown, i18n: I18n): string {
+    return clipTitle(typeof value === 'string' ? canonTitle(value, i18n) : value, i18n);
+}
 
 /** «действует» / «в архиве» of a canon entry (its meta lives in `extensions.maestro`). */
 function canonState(value: unknown, i18n: I18n): string {
@@ -19,7 +36,7 @@ export const CANON_TARGETS: TargetSpec[] = [
     {
         target: 'canon-entry',
         fields: {
-            comment: { labelKey: 'm6.field.title', format: formatClip(80) },
+            comment: { labelKey: 'm6.field.title', format: titleField },
             extensions: { labelKey: 'm6.field.state', format: canonState },
             content: { labelKey: 'm6.field.text', hidden: true },
             key: { labelKey: 'm6.field.keys', hidden: true },
@@ -52,6 +69,7 @@ export const CANON_STRINGS: I18nParts = {
         'target.canon-base-entry': 'Entry of a shared lorebook',
         'target.canon-book': 'Lorebook',
         'm6.field.title': 'Entry',
+        'm6.title.offscreen': 'Off-screen: {name}',
         'm6.field.state': 'State',
         'm6.field.text': 'Text',
         'm6.field.keys': 'Keys',
@@ -156,6 +174,7 @@ export const CANON_STRINGS: I18nParts = {
         'target.canon-base-entry': 'Запись в общей книге лора',
         'target.canon-book': 'Книга лора',
         'm6.field.title': 'Запись',
+        'm6.title.offscreen': 'За кадром: {name}',
         'm6.field.state': 'Состояние',
         'm6.field.text': 'Текст',
         'm6.field.keys': 'Ключи',

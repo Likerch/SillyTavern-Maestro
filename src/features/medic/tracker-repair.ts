@@ -140,7 +140,7 @@ export class TrackerRepair {
             // 'auto' announces the repair itself (the proposal's appliedNotice); after «Yes» to the question, say so.
             const decision = await this.app.autonomy.decide(this.proposal(result, check.kit), 'auto');
             if (decision === 'applied' && level !== 'auto') {
-                this.app.ui.notice(this.t('m3.repair.done', { index: index + 1 }), { importance: 'urgent' });
+                this.app.ui.notice(this.t('m3.repair.done', { index }), { importance: 'urgent' });
             }
         } catch (error) {
             this.log.error('tracker repair failed', error);
@@ -286,7 +286,7 @@ export class TrackerRepair {
         return {
             module: 'M3',
             kind: REPAIR_KIND,
-            title: this.t('m3.repair.title', { index: payload.messageIndex + 1 }),
+            title: this.t('m3.repair.title', { index: payload.messageIndex }),
             description: this.t('m3.repair.description'),
             changes: [change],
             payload,
@@ -300,7 +300,7 @@ export class TrackerRepair {
     /** «Восстановил трекер DES в ответе №N»; repairs of one turn merge into one notice. */
     private appliedNotice(index: number): NonNullable<Proposal['appliedNotice']> {
         return {
-            text: this.t('m3.repair.done', { index: index + 1 }),
+            text: this.t('m3.repair.done', { index }),
             group: REPAIR_KIND,
             groupText: (count) => tPlural(this.app.i18n, 'm3.repair.doneMany', count),
         };
@@ -391,7 +391,7 @@ export class TrackerRepair {
 
     /** A failed repair needs his attention (important); after his own «Починить» it is always shown. */
     private reportFailure(index: number, block: RepairBlock, offerFix = true, clicked = false): void {
-        const text = this.t('m3.repair.failed', { index: index + 1, reason: this.t(`m3.repair.block.${block}`) });
+        const text = this.t('m3.repair.failed', { index, reason: this.t(`m3.repair.block.${block}`) });
         const importance = clicked ? 'urgent' : 'important';
         this.app.ui.notice(
             text,

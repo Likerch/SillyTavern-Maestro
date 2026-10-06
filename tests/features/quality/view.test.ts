@@ -47,7 +47,7 @@ describe('quality tab', () => {
         await env.reply(2);
         render();
         const text = container.textContent ?? '';
-        expect(text).toContain('Message #3, swipe 1');
+        expect(text).toContain('Message #2, swipe 1');
         expect(text).toContain('waiting for you');
         expect(text).toContain('refusal');
         expect(text).toContain('«I cannot do that»');

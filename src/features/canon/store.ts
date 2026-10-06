@@ -32,6 +32,7 @@ import { entryContentHash } from '../../domain/roles-meta';
 import type { App, JournalChange, Logger, Unsubscribe } from '../../shared/contracts';
 import type { BookRolesApi } from '../bookRoles/api';
 import type { BaseDrift, CanonDraft, CanonItem, CanonKind, CanonMeta, CanonOrigin, CanonStatus } from './api';
+import { canonTitle } from './strings';
 
 type Dict = Record<string, unknown>;
 
@@ -289,6 +290,11 @@ export class CanonStore {
         if (isCanonBookName(name)) this.remember(name, snapshot);
     }
 
+    /** An entry's title for the journal, in the user's words (Maestro's English bookkeeping titles translated). */
+    private shownTitle(entry: unknown, uid: number): string {
+        return canonTitle(titleOf(entry, uid), this.app.i18n);
+    }
+
     private async journal(kind: string, summary: string, changes: JournalChange[], sourceMessage?: number) {
         try {
             await this.app.journal.record({
@@ -382,7 +388,7 @@ export class CanonStore {
             }
             entries[String(uid)] = entry;
             await this.saveBook(name, data);
-            const title = titleOf(entry, uid);
+            const title = this.shownTitle(entry, uid);
             await this.journal(
                 'canon.put',
                 this.t(before ? 'm6.journal.update' : 'm6.journal.put', { title }),
@@ -406,7 +412,7 @@ export class CanonStore {
             if (!isDict(before)) return;
             delete entries[String(uid)];
             await this.saveBook(name, data);
-            await this.journal('canon.remove', this.t('m6.journal.remove', { title: titleOf(before, uid) }), [
+            await this.journal('canon.remove', this.t('m6.journal.remove', { title: this.shownTitle(before, uid) }), [
                 { target: CANON_ENTRY_TARGET, ref: { book: name, uid }, before, after: null },
             ]);
             this.emit();
@@ -434,7 +440,10 @@ export class CanonStore {
             await this.saveBook(name, data);
             await this.journal(
                 'canon.status',
-                this.t('m6.journal.status', { title: titleOf(entry, uid), status: this.t(`m6.status.${status}`) }),
+                this.t('m6.journal.status', {
+                    title: this.shownTitle(entry, uid),
+                    status: this.t(`m6.status.${status}`),
+                }),
                 [{ target: CANON_ENTRY_TARGET, ref: { book: name, uid }, before, after: entry }],
             );
             this.emit();
@@ -501,7 +510,7 @@ export class CanonStore {
             }
             await this.journal(
                 'canon.promote',
-                this.t('m6.journal.promote', { title: titleOf(after, base.uid), book: base.world }),
+                this.t('m6.journal.promote', { title: this.shownTitle(after, base.uid), book: base.world }),
                 changes,
             );
             this.emit();

@@ -1,12 +1,13 @@
 // M23 «Лор-студия», stage 2: the data layer (LoreStore, exposed as 'loreStore'), the studio window, its entry
 // points (pult tab, /maestro-lore) and the optional takeover of ST's «Worlds/Lorebooks» button. The entry form is
 // injected (form/index.ts, written separately) so this module can be built and tested without it.
-import type { MaestroModule } from '../../shared/contracts';
+import { formatClip, formatPlain } from '../../core/labels';
+import type { I18n, MaestroModule, TargetSpec } from '../../shared/contracts';
 import { DesLore } from './des-lore';
 import type { RenderEntryForm } from './form-api';
 import { userJobs } from './jobs';
 import { StLore } from './st-lore';
-import { STORE_KEY, LoreStoreService } from './store';
+import { STORE_KEY, LoreStoreService, UNDO_BINDING, UNDO_BOOK, UNDO_ENTRY, UNDO_SETTINGS } from './store';
 import type { LoreStore } from './store-api';
 import { M23_STRINGS } from './strings';
 import { LoreStudio, defaultStudioSettings } from './studio';
@@ -16,6 +17,38 @@ import { ButtonTakeover } from './takeover';
 import { loreStudioTab } from './view-tab';
 
 export const LORE_STUDIO_KEY = 'loreStudio';
+
+/** Yes for a set flag, nothing otherwise (the row then shows as added or removed). */
+function flag(value: unknown, i18n: I18n): string {
+    return value === true ? i18n.t('core.value.yes') : '';
+}
+
+/** A binding: on/off for a global book, a book name, a list of names, «нет» for none. */
+function binding(value: unknown, i18n: I18n): string {
+    if (typeof value === 'boolean') return i18n.t(value ? 'm23.value.on' : 'm23.value.off');
+    if (value === null || (Array.isArray(value) && !value.length)) return i18n.t('m23.value.none');
+    return formatPlain(value, i18n);
+}
+
+/**
+ * Lore Studio changes: an entry reads by its title and on/off state (its text and keys are often English and long —
+ * «Подробнее»), a book snapshot by its entry count, bindings by book names. The WI settings are ST's own option keys.
+ */
+export const LORE_STUDIO_TARGETS: TargetSpec[] = [
+    {
+        target: UNDO_ENTRY,
+        fields: {
+            comment: { labelKey: 'm23.field.title', format: formatClip(80) },
+            disable: { labelKey: 'm23.field.off', format: flag },
+            constant: { labelKey: 'm23.field.always', format: flag },
+            content: { labelKey: 'm23.field.text', hidden: true },
+            key: { labelKey: 'm23.field.keys', hidden: true },
+        },
+    },
+    { target: UNDO_BOOK, fields: { entries: { labelKey: 'm23.field.entries' } } },
+    { target: UNDO_BINDING, format: binding, nullable: true },
+    { target: UNDO_SETTINGS, technical: true },
+];
 
 /** Runtime handles of a started module (tests, other code in this feature). */
 export interface LoreStudioRuntime {
@@ -40,6 +73,7 @@ export function createLoreStudioModule(renderForm: RenderEntryForm | null): Maes
         defaults: defaultStudioSettings,
         requires: ['st.wi.module'],
         i18n: M23_STRINGS,
+        targets: LORE_STUDIO_TARGETS,
         init({ app, settings, log, own }) {
             const st = new StLore(app, log);
             const des = new DesLore(app, log);

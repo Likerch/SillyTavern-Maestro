@@ -131,9 +131,11 @@ export function dossierTab(app: App, service: DossierService, opener: DossierOpe
         if (head === 'slot' && rest) return tOr(app.i18n, `m7.field.slot.${rest}`, rest);
         return tOr(app.i18n, `m7.field.${key}`, key);
     };
+    // Every notice of this tab answers a button the user pressed: always shown (plan-2 §3).
+    const reply = (text: string, level: 'info' | 'warn' = 'info') => app.ui.notice(text, { level, urgent: true });
     const notifyError = (error: unknown) => {
         const text = error instanceof Error ? error.message : String(error);
-        app.ui.notice(text, { level: error instanceof ProtectedBookError ? 'warn' : 'error' });
+        app.ui.notice(text, { level: error instanceof ProtectedBookError ? 'warn' : 'error', urgent: true });
     };
 
     return {
@@ -234,7 +236,7 @@ export function dossierTab(app: App, service: DossierService, opener: DossierOpe
                                   onClick: async () => {
                                       try {
                                           const decision = await service.actions.fix(finding);
-                                          app.ui.notice(decisionText(decision));
+                                          reply(decisionText(decision));
                                       } catch (problem) {
                                           notifyError(problem);
                                       }
@@ -283,7 +285,7 @@ export function dossierTab(app: App, service: DossierService, opener: DossierOpe
                     onClick: async () => {
                         try {
                             const decision = await service.styleUp.promote(data.dossier.entityId, uid);
-                            app.ui.notice(decisionText(decision));
+                            reply(decisionText(decision));
                         } catch (problem) {
                             notifyError(problem);
                         }
@@ -368,6 +370,8 @@ export function dossierTab(app: App, service: DossierService, opener: DossierOpe
                         return [muted(t('m7.styleUp.keys', { list: part.keys.join(', ') })), pre(part.content)];
                     case 'archive':
                         return [
+                            // With several books the book choice of the part names it.
+                            ...(part.books.length > 1 ? [] : [muted(t('m7.styleUp.bookLine', { book: part.book }))]),
                             muted(t('m7.styleUp.tags', { list: part.tags.join(' ') })),
                             muted(t('m7.styleUp.keys', { list: part.keys.join(', ') })),
                             pre(part.content),
@@ -474,7 +478,7 @@ export function dossierTab(app: App, service: DossierService, opener: DossierOpe
                                 className: 'maestro-m7-styleup-apply',
                                 onClick: async () => {
                                     if (!state.selected.size) {
-                                        app.ui.notice(t('m7.styleUp.none'), { level: 'warn' });
+                                        reply(t('m7.styleUp.none'), 'warn');
                                         return;
                                     }
                                     try {
@@ -482,7 +486,7 @@ export function dossierTab(app: App, service: DossierService, opener: DossierOpe
                                             parts: [...state.selected],
                                             ...(state.book ? { book: state.book } : {}),
                                         });
-                                        app.ui.notice(decisionText(decision));
+                                        reply(decisionText(decision));
                                         panel = { entityId: state.entityId, phase: 'sent', decision, name: plan.name };
                                     } catch (problem) {
                                         notifyError(problem);
@@ -571,7 +575,7 @@ export function dossierTab(app: App, service: DossierService, opener: DossierOpe
                             onClick: async () => {
                                 try {
                                     const findings = await service.compareWithAi(data.dossier.entityId);
-                                    app.ui.notice(
+                                    reply(
                                         findings.length
                                             ? t('m7.compare.found', { count: findings.length })
                                             : t('m7.compare.none'),
@@ -647,7 +651,7 @@ export function dossierTab(app: App, service: DossierService, opener: DossierOpe
                                     .filter((item) => item.input.checked)
                                     .map((item) => item.source);
                                 if (!text || !targets.length) {
-                                    app.ui.notice(t('m7.spread.empty'), { level: 'warn' });
+                                    reply(t('m7.spread.empty'), 'warn');
                                     return;
                                 }
                                 try {
@@ -657,7 +661,7 @@ export function dossierTab(app: App, service: DossierService, opener: DossierOpe
                                         value: text,
                                         targets,
                                     });
-                                    app.ui.notice(count ? t('m7.spread.done', { count }) : t('m7.spread.nothing'));
+                                    reply(count ? t('m7.spread.done', { count }) : t('m7.spread.nothing'));
                                     if (count) value.value = '';
                                 } catch (problem) {
                                     notifyError(problem);
@@ -701,7 +705,7 @@ export function dossierTab(app: App, service: DossierService, opener: DossierOpe
                                   onClick: async () => {
                                       try {
                                           await wardrobe.wear(outfit.passportId, outfit.name);
-                                          app.ui.notice(t('m7.wardrobe.worn', { name: outfit.name }));
+                                          reply(t('m7.wardrobe.worn', { name: outfit.name }));
                                       } catch (problem) {
                                           notifyError(problem);
                                       }

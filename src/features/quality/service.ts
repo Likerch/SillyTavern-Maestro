@@ -760,9 +760,9 @@ export class QualityService implements QualityApi {
         const decision = await this.decide({
             module: QUALITY_ID,
             kind: `quality.${this.primaryKind(defects, 'junk')}`,
-            title: this.t('m12.journal.clean', { index: index + 1, kinds: this.kindsText(defects) }),
+            title: this.t('m12.journal.clean', { index, kinds: this.kindsText(defects) }),
             appliedNotice: this.appliedNotice('m12.applied.clean', {
-                index: index + 1,
+                index,
                 kinds: this.kindsText(defects),
             }),
             changes: [change],
@@ -830,9 +830,9 @@ export class QualityService implements QualityApi {
         const decision = await this.decide({
             module: QUALITY_ID,
             kind: `quality.${this.primaryKind(defects, 'refusal')}`,
-            title: this.t('m12.journal.swipe', { index: index + 1, kinds: this.kindsText(defects) }),
+            title: this.t('m12.journal.swipe', { index, kinds: this.kindsText(defects) }),
             appliedNotice: this.appliedNotice('m12.applied.swipe', {
-                index: index + 1,
+                index,
                 kinds: this.kindsText(defects),
             }),
             changes: [
@@ -868,8 +868,8 @@ export class QualityService implements QualityApi {
         const decision = await this.decide({
             module: QUALITY_ID,
             kind: 'quality.truncated',
-            title: this.t('m12.journal.continue', { index: index + 1 }),
-            appliedNotice: this.appliedNotice('m12.applied.continue', { index: index + 1 }),
+            title: this.t('m12.journal.continue', { index }),
+            appliedNotice: this.appliedNotice('m12.applied.continue', { index }),
             changes: [
                 {
                     target: CONTINUE_TARGET,

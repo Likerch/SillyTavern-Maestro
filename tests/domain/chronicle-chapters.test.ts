@@ -7,6 +7,7 @@ import {
     chapterInfoOf,
     chapterKeys,
     chapterShare,
+    chapterRangeTitle,
     chapterTitle,
     countTerms,
     distinctiveWords,
@@ -14,6 +15,7 @@ import {
     eventLine,
     eventsFromField,
     groupMemories,
+    isChapterRangeTitle,
     memoryHash,
     mergedKeys,
     mergedMeta,
@@ -407,6 +409,12 @@ describe('chronicle content', () => {
         expect(chapterTitle([], 'Tavern', 1, 4)).toBe('Tavern');
         expect(chapterTitle([], null, 1, 4)).toBe('Messages 1–4');
         expect(chapterTitle([], null, 7, 7)).toBe('Message 7');
+        // The range fallback is recognised, so the user sees the range in his own words.
+        expect(chapterRangeTitle(3, 9)).toBe('Messages 3–9');
+        expect(isChapterRangeTitle('Messages 1–4')).toBe(true);
+        expect(isChapterRangeTitle(' Message 7 ')).toBe(true);
+        expect(isChapterRangeTitle('Alice — Tavern')).toBe(false);
+        expect(isChapterRangeTitle('Messages from home')).toBe(false);
     });
 
     it('writes the typed «chapter» content', () => {

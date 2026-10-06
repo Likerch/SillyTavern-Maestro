@@ -269,7 +269,7 @@ describe('«Оформить»: the plan', () => {
         env.n.naiSettings = { des: { enabled: true, autoPassports: true } };
         plan = await styleUp.plan(facts);
         expect(plan.hints).toEqual([{ part: 'passport', key: 'passportAuto', params: { name: 'Мира' } }]);
-        expect(styleUp.hintText(plan.hints[0]!)).toContain('NAI Studio writes a passport for Мира itself');
+        expect(styleUp.hintText(plan.hints[0]!)).toContain('NAI Studio describes the looks for pictures itself');
 
         env.n.naiSettings = { des: { enabled: true, autoPassports: false } };
         withGenerator(async () => {
@@ -306,10 +306,15 @@ describe('«Оформить»: the proposal and applying it', () => {
         expect(await styleUp.propose(plan)).toBe('queued');
         const proposal = env.autonomy.proposals.at(-1) as Proposal<StyleUpPayload>;
         expect(proposal.kind).toBe(STYLE_UP_KIND);
-        expect(proposal.title).toBe('Style up Мира');
-        expect(proposal.description).toContain('• Chat canon entry «Мира» (5 keys)');
-        expect(proposal.description).toContain('• CarrotKernel archive in «Archives» (6 tags)');
-        expect(proposal.description).toContain('• NAI passport of Мира for this chat');
+        expect(proposal.title).toBe('Мира: set up everything that is missing?');
+        expect(proposal.description).toContain('• An entry about the character in the chat canon');
+        expect(proposal.description).toContain('• A character sheet — traits: 6');
+        expect(proposal.description).toContain('• The looks for pictures — in this chat only');
+        // Books, keys, tags and the passport id wait under «Подробнее».
+        expect(proposal.description).not.toContain('Archives');
+        expect(proposal.details).toContain('Character sheet in the book «Archives»');
+        expect(proposal.details).toMatch(/Chat canon entry «Мира», keys: Мира/);
+        expect(proposal.appliedNotice?.text).toBe('Мира: set up everything that was missing.');
         expect(proposal.changes.map((change) => change.ref.part)).toEqual(['canon', 'archive', 'passport']);
         expect(proposal.changes.every((change) => change.target === STYLE_UP_TARGET && change.before === null)).toBe(
             true,
@@ -359,12 +364,12 @@ describe('«Оформить»: the proposal and applying it', () => {
         expect(nai.getPassport(passportId)?.name).toBe('Мира');
 
         expect(partRecords().map((record) => record.summary)).toEqual([
-            'Style up Мира: canon entry',
-            'Style up Мира: CK archive in «Archives»',
-            'Style up Мира: NAI passport of this chat',
+            'Мира: started an entry in the chat canon',
+            'Мира: wrote a character sheet',
+            'Мира: wrote the looks for pictures in this chat',
         ]);
         const card = env.journal.records.find(
-            (record) => record.kind === STYLE_UP_KIND && record.summary === 'Style up Мира',
+            (record) => record.kind === STYLE_UP_KIND && record.summary === 'Мира: set up everything that is missing?',
         )!;
         expect(card.changes).toHaveLength(3);
         expect(styleUp.lastResult(MIRA_ID)?.outcomes).toEqual([
@@ -403,7 +408,7 @@ describe('«Оформить»: the proposal and applying it', () => {
         const record = partRecords()[0]!;
         expect(await env.journal.undo(record.id)).toBe(false);
         // A second copy of the same archive is refused.
-        await expect(applier.apply(payload)).rejects.toThrow('already has an archive of Мира');
+        await expect(applier.apply(payload)).rejects.toThrow('Мира already has a character sheet');
     });
 
     it('creates «Maestro · архив» with the role «CK archive» and says CK must be told', async () => {
@@ -439,7 +444,7 @@ describe('«Оформить»: the proposal and applying it', () => {
         expect(env.world.books.get('Pack')).toEqual(before);
         expect(styleUp.lastResult(MIRA_ID)?.outcomes[0]).toMatchObject({
             ok: false,
-            error: expect.stringContaining('P13'),
+            error: expect.stringContaining('is a BunnyMo book'),
         });
         expect(await styleUp.stillValid(payload)).toBe(false);
     });
@@ -450,7 +455,7 @@ describe('«Оформить»: the proposal and applying it', () => {
         const result = await styleUp.applyStyleUp(styleUp.payloadOf(plan));
         expect(result.outcomes.map((outcome) => outcome.ok)).toEqual([true, true, false]);
         expect(env.ui.notices.at(-1)).toMatchObject({ options: { level: 'warn' } });
-        expect(env.ui.notices.at(-1)?.text).toContain('NAI passport: NAI Studio 0.10 or newer');
+        expect(env.ui.notices.at(-1)?.text).toContain('Looks for pictures: NAI Studio 0.10 or newer');
         expect(await styleUp.stillValid(styleUp.payloadOf(plan, { parts: ['passport'] }))).toBe(false);
     });
 });
@@ -537,7 +542,9 @@ describe('«Оформить» for a place', () => {
         expect(lore.generated).toEqual([[entry.world, entry.uid]]);
         expect(await styleUp.gaps(await factsOf(sources, 'place:tavern'))).toBeNull();
 
-        const card = env.journal.records.find((record) => record.summary === 'Style up the place Таверна')!;
+        const card = env.journal.records.find(
+            (record) => record.summary === 'The place «Таверна»: set up everything that is missing?',
+        )!;
         expect(await env.journal.undo(card.id)).toBe(true);
         expect(lore.removed).toEqual([[entry.world, entry.uid]]);
         expect((await canon.list()).some((candidate) => candidate.uid === entry.uid)).toBe(false);
@@ -591,7 +598,7 @@ describe('«Повысить до книги карточки»', () => {
 
         env.ui.confirmAnswer = false;
         expect(await styleUp.promote(MIRA_ID, uid)).toBe('rejected');
-        expect(env.ui.confirms.at(-1)?.title).toBe('Promote «Мира» to the card’s lorebook «World»?');
+        expect(env.ui.confirms.at(-1)?.title).toBe('Move «Мира» into the card’s lore book?');
         expect(Object.values(env.world.entries('World')).some((entry) => entry.comment === 'Мира')).toBe(false);
 
         env.ui.confirmAnswer = true;
@@ -616,8 +623,8 @@ describe('«Повысить до книги карточки»', () => {
         lyra.data = { extensions: { world: 'Pack' } };
         await expect(styleUp.promote(MIRA_ID, uid)).rejects.toBeInstanceOf(ProtectedBookError);
         lyra.data = { extensions: {} };
-        await expect(styleUp.promote(MIRA_ID, uid)).rejects.toThrow('The card has no lorebook of its own.');
-        await expect(styleUp.promote(MIRA_ID, 999)).rejects.toThrow('The canon entry is gone.');
+        await expect(styleUp.promote(MIRA_ID, uid)).rejects.toThrow('The card has no lore book of its own.');
+        await expect(styleUp.promote(MIRA_ID, 999)).rejects.toThrow('This chat canon entry is gone.');
         expect(await styleUp.cardBook()).toBeNull();
     });
 

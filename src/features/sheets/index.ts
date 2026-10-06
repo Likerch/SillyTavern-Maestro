@@ -22,7 +22,7 @@ import {
 import { compareSheetTags, trimSheetReply } from '../../domain/sheet-reply';
 import type { SheetTagReport } from '../../domain/sheet-reply';
 import type { SheetCommand } from '../../domain/sheets';
-import type { GenerationInfo, JournalChange, MaestroModule, Unsubscribe } from '../../shared/contracts';
+import type { GenerationInfo, JournalChange, MaestroModule, TargetSpec, Unsubscribe } from '../../shared/contracts';
 import type { Scenario, ScenarioContext, ScenarioPlan, ScenariosApi } from '../scenarios/api';
 import type { SheetMark, SheetsApi } from './api';
 import { SHEET_CSS, SheetDecorator } from './collapse';
@@ -118,6 +118,17 @@ function number(value: unknown, fallback: number, min: number): number {
     return typeof value === 'number' && Number.isFinite(value) && value >= min ? value : fallback;
 }
 
+/** The sheet text is BunnyMo markup (technical); hiding reads as visible/hidden for the model. */
+const SHEET_TARGETS: TargetSpec[] = [
+    { target: TEXT_TARGET, technical: true },
+    {
+        target: HIDDEN_TARGET,
+        valueLabelKey: 'm31.field.model',
+        format: (value, i18n) =>
+            typeof value === 'boolean' ? i18n.t(value ? 'm31.value.hidden' : 'm31.value.shown') : '',
+    },
+];
+
 export const sheetsModule: MaestroModule<SheetsSettings> = {
     id: 'M31',
     key: 'sheets',
@@ -126,6 +137,7 @@ export const sheetsModule: MaestroModule<SheetsSettings> = {
     enabledByDefault: true,
     defaults: () => ({ maxTokens: 6000, temperature: 0.7, excerptMessages: 12, collapse: true }),
     i18n: SHEET_STRINGS,
+    targets: SHEET_TARGETS,
 
     init({ app, settings, log, own }) {
         const ctx = () => app.host.ctx();
@@ -225,6 +237,8 @@ export const sheetsModule: MaestroModule<SheetsSettings> = {
                     module: 'sheets',
                     kind: SHEET_TRIM_KIND,
                     title: app.i18n.t('m31.trim.title', { name: payload.target }),
+                    description: app.i18n.t('m31.trim.body'),
+                    appliedNotice: { text: app.i18n.t('m31.trim.done', { name: payload.target }) },
                     changes: [change],
                     payload,
                     sourceMessage: payload.index,
@@ -259,6 +273,8 @@ export const sheetsModule: MaestroModule<SheetsSettings> = {
                     module: 'sheets',
                     kind: SHEET_CAPTURE_KIND,
                     title: app.i18n.t('m31.capture.title', { name: target }),
+                    description: app.i18n.t('m31.capture.body'),
+                    appliedNotice: { text: app.i18n.t('m31.capture.done', { name: target }) },
                     changes: [],
                     payload: { index },
                     sourceMessage: index,
@@ -358,6 +374,8 @@ export const sheetsModule: MaestroModule<SheetsSettings> = {
                     module: 'sheets',
                     kind: SHEET_HIDE_KIND,
                     title: app.i18n.t('m31.hide.title', { name: target }),
+                    description: app.i18n.t('m31.hide.body'),
+                    appliedNotice: { text: app.i18n.t('m31.hide.done', { name: target }) },
                     changes: ranges.map(([start, end]) => ({
                         target: HIDDEN_TARGET,
                         ref: { start, end },

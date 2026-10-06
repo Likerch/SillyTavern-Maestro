@@ -101,7 +101,7 @@ describe('DES tracker and regexes', () => {
         );
         env.llm.request.mockResolvedValue({ ok: true, text: '{"infoBox":{"location":"Inn"}}' });
         const result = await check('desTracker').run();
-        expect(result.message).toContain('#2');
+        expect(result.message).toContain('#1');
         await result.fix?.();
         const swipes = env.mock.chat[1]!.extra!.dooms_tracker_swipes as Record<string, Record<string, unknown>>;
         expect(swipes['0']?.infoBox).toBe('{"location":"Inn"}');

@@ -115,16 +115,16 @@ describe('dossier tab', () => {
         api.open(LYRA_ID);
         await render();
         const finding = container.querySelector<HTMLElement>('.maestro-m7-finding[data-kind="aliasNotKey"]')!;
-        buttonByText('Add «Лисичка» as a key', finding).click();
+        buttonByText('Add the name «Лисичка» to the entry', finding).click();
         await settle();
         expect(env.autonomy.proposals.at(-1)?.kind).toBe('dossier.fixFile');
-        expect(env.ui.notices.at(-1)?.text).toBe('Sent to the Inbox.');
+        expect(env.ui.notices.at(-1)).toMatchObject({ text: 'Sent to the Inbox.', options: { urgent: true } });
     });
 
     it('runs the AI comparison from the button and shows its estimate and cost', async () => {
         api.open(LYRA_ID);
         await render();
-        expect(container.textContent).toMatch(/7 stores, ≈ \d+ tokens/);
+        expect(container.textContent).toMatch(/7 sources, ≈ \d+ tokens/);
         expect(container.textContent).toContain('Background spend today');
         const run = buttonByText('Compare with AI');
         expect(run.disabled).toBe(false);
@@ -150,24 +150,24 @@ describe('dossier tab', () => {
         await render();
         const spread = container.querySelector<HTMLElement>('.maestro-m7-spread')!;
         const labels = [...spread.querySelectorAll('label')].map((node) => node.textContent);
-        expect(labels).toEqual(['DES: Лира', 'lore: Lyra', 'NAI passport: Лира']);
+        expect(labels).toEqual(['DES: Лира', 'lore entry: Lyra', 'looks for pictures: Лира']);
         buttonByText('Spread', spread).click();
         await settle();
-        expect(env.ui.notices.at(-1)?.text).toBe('Enter a value and pick at least one store.');
+        expect(env.ui.notices.at(-1)?.text).toBe('Enter a value and tick at least one source.');
         spread.querySelector<HTMLTextAreaElement>('textarea')!.value = 'Лиса';
         spread.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')[1]!.checked = false;
         buttonByText('Spread', spread).click();
         await settle();
-        expect(env.ui.notices.at(-1)?.text).toBe('Proposals made: 2.');
+        expect(env.ui.notices.at(-1)?.text).toBe('Edits prepared: 2.');
         expect(env.inbox2.added.map((card) => card.kind)).toEqual(['dossier.note']);
         const field = spread.querySelector<HTMLSelectElement>('select')!;
         field.value = 'description';
         field.dispatchEvent(new Event('change'));
-        expect([...spread.querySelectorAll('label')].map((node) => node.textContent)).toEqual(['lore: Lyra']);
+        expect([...spread.querySelectorAll('label')].map((node) => node.textContent)).toEqual(['lore entry: Lyra']);
         spread.querySelector<HTMLTextAreaElement>('textarea')!.value = 'Healer.';
         buttonByText('Spread', spread).click();
         await settle();
-        expect(env.ui.notices.at(-1)?.text).toBe('No store needs this change.');
+        expect(env.ui.notices.at(-1)?.text).toBe('It is already like that everywhere — nothing to change.');
     });
 
     it('expands long texts, goes back to the list and shows errors', async () => {
@@ -186,7 +186,9 @@ describe('dossier tab', () => {
         expect(container.querySelector('.maestro-m7-search')).not.toBeNull();
         api.open('character:никто');
         await settle();
-        expect(container.textContent).toContain('Unknown entity: character:никто.');
+        expect(container.textContent).toContain(
+            'I do not know who this is: there is no such character or place in this chat.',
+        );
         buttonByText('All').click();
         await settle();
         expect(container.querySelector('.maestro-m7-search')).not.toBeNull();
@@ -271,7 +273,7 @@ describe('dossier outfits (M27 п.4)', () => {
         const blocks = [...container.querySelectorAll('.maestro-m7 > *')];
         const at = blocks.indexOf(box()!);
         expect(title(blocks[at - 1])).toBe('Checks (2)');
-        expect(title(blocks[at + 1])).toMatch(/^What the stack knows \(\d+\)$/);
+        expect(title(blocks[at + 1])).toMatch(/^What is known \(\d+\)$/);
 
         buttonByText('Put on', rows()[1]!).click();
         await settle();

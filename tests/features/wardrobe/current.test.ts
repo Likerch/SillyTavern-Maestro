@@ -60,11 +60,11 @@ describe('every committed turn (English UI)', () => {
         await env.turn(dressed('Elf, in a white ball gown with long gloves'));
         expect(anna().activeOutfit).toBe('ballgown');
         expect(env.nai.of('setOutfit')).toEqual([['p-anna', 'ballgown', 'chat']]);
-        expect(lastJournal().summary).toBe('Anna: outfit «ballgown» again');
+        expect(lastJournal().summary).toBe('Anna changed clothes: «ballgown»');
         await env.turn(dressed('wearing blue jeans and a grey hoodie'));
         expect(anna().activeOutfit).toBe('');
         expect(wearing('Anna')).toMatchObject({ outfit: '' });
-        expect(lastJournal().summary).toBe('Anna: own clothes again');
+        expect(lastJournal().summary).toBe('Anna is in their own clothes again');
     });
 
     it('takes the clothing field first and keeps its wording as a look', async () => {
@@ -84,7 +84,7 @@ describe('every committed turn (English UI)', () => {
         await env.turn(dressed('Naked, hair loose'));
         expect(anna().outfits.at(-1)).toEqual({ name: 'No clothes', tags: 'nude' });
         expect(anna().activeOutfit).toBe('No clothes');
-        expect(lastJournal().summary).toBe('Anna: no clothes');
+        expect(lastJournal().summary).toBe('Anna has no clothes on');
         await env.turn(dressed('wrapped in a towel'));
         expect(anna().activeOutfit).toBe('In a towel');
         expect(anna().outfits.find((outfit) => outfit.name === 'In a towel')!.tags).toBe('naked towel, towel');
@@ -148,7 +148,7 @@ describe('every committed turn (English UI)', () => {
         const after = env.nai.calls.length;
         await env.turn(dressed('in a dark blue silk dress'));
         expect(env.nai.calls).toHaveLength(after);
-        await expect(service.wearOther('nobody', '')).rejects.toThrow('no NAI passport');
+        await expect(service.wearOther('nobody', '')).rejects.toThrow('no look for pictures');
     });
 
     it('updates the record at the Inbox level and proposes once while the clothing stays', async () => {
@@ -223,8 +223,8 @@ describe('every committed turn (English UI)', () => {
         expect(copy).toMatchObject({ kind: 'character', name: 'Vera', activeOutfit: 'grey cloak' });
         expect(copy!.id).toMatch(/^maestro-vera-/);
         expect(env.journal.records.map((record) => record.summary)).toEqual([
-            'Vera: own passport in this chat',
-            'Vera: new outfit «grey cloak»',
+            'Vera: a look of their own in this chat',
+            'Vera changed clothes: «grey cloak»',
         ]);
         expect(wearing('Vera')).toMatchObject({ passportId: copy!.id, outfit: 'grey cloak' });
         expect(await env.journal.undo(env.journal.records[0]!.id)).toBe(true);
@@ -268,10 +268,10 @@ describe('Russian UI', () => {
         await env.turn(dressed('Высокая, серебристые волосы, в тёмно-синем шёлковом платье и кожаных сапогах'));
         await env.turn(dressed('в тёмно-синем шёлковом платье, кожаные сапоги'));
         expect(anna().activeOutfit).toBe('Шёлковое платье');
-        expect(lastJournal().summary).toBe('Anna: новый наряд «Шёлковое платье»');
+        expect(lastJournal().summary).toBe('Anna переоделась: «Шёлковое платье»');
         await env.turn(dressed('Обнажена, волосы распущены'));
         expect(anna().activeOutfit).toBe('Без одежды');
-        expect(lastJournal().summary).toBe('Anna: без одежды');
+        expect(lastJournal().summary).toBe('Anna без одежды');
         await env.turn(dressed('в одном нижнем белье'));
         expect(anna().activeOutfit).toBe('Нижнее бельё');
     });
@@ -310,7 +310,7 @@ describe('Russian UI', () => {
         const writes = env.nai.calls.length;
         await env.turn(dressed('в белом бальном платье'));
         expect(env.nai.calls).toHaveLength(writes);
-        await expect(service.markNew('nobody')).rejects.toThrow('нет паспорта NAI');
+        await expect(service.markNew('nobody')).rejects.toThrow('нет внешности для картинок');
     });
 });
 
@@ -445,7 +445,7 @@ describe('the DES clothing field', () => {
         const check = await offer().run();
         expect(check).toMatchObject({
             status: 'warn',
-            message: 'В DES нет поля одежды: наряды вычитываются из «Внешности».',
+            message: 'DES не спрашивает про одежду: наряды угадываются по описанию внешности.',
         });
         await check.fix!();
         expect(env.des.fields.at(-1)).toMatchObject({
@@ -455,7 +455,10 @@ describe('the DES clothing field', () => {
             description: expect.stringContaining('What the character is wearing'),
         });
         expect(env.autonomy.never.has('wardrobe.desField')).toBe(true);
-        expect(lastJournal()).toMatchObject({ kind: 'wardrobe.desField', summary: 'Трекер DES: поле «Outfit»' });
+        expect(lastJournal()).toMatchObject({
+            kind: 'wardrobe.desField',
+            summary: 'Спрашивать у модели, кто во что одет',
+        });
         expect(await offer().run()).toMatchObject({ status: 'ok' });
         await env.switchTo('chat-2');
         await env.switchTo('chat-1');

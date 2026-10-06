@@ -50,7 +50,7 @@ describe('wardrobe tab', () => {
         await render();
         expect(text()).toContain('No chat is open.');
         expect(text()).toContain('Character states');
-        expect(text()).not.toContain('Characters with passports');
+        expect(text()).not.toContain('Characters with a look for pictures');
         cleanup?.();
         container.textContent = '';
         env.mock.chatId = 'chat-1';
@@ -63,9 +63,9 @@ describe('wardrobe tab', () => {
     it('lists the characters with their outfits and puts one on', async () => {
         await env.start();
         await render();
-        expect(text()).toContain('Characters with passports');
+        expect(text()).toContain('Characters with a look for pictures');
         const card = cardOf('Anna')!;
-        expect(card.textContent).toContain('Wearing: own clothes (clothing slot)');
+        expect(card.textContent).toContain('Wearing: own clothes (from the card)');
         expect(card.textContent).toContain('ballgown');
         expect(card.textContent).toContain('white ball gown, long gloves, tiara');
         expect(card.textContent).toContain('No states on.');
@@ -95,7 +95,7 @@ describe('wardrobe tab', () => {
         expect(card.textContent).toContain('Wearing: leather jacket');
         expect(card.textContent).toContain('Recognised from: Кожаная куртка');
         expect(card.textContent).toContain('New outfit «leather jacket»');
-        expect(card.textContent).toContain('On: wet');
+        expect(card.textContent).toContain('Now: wet');
         expect(card.textContent).toContain('message #0');
         buttons('Undo')[0]!.click();
         await env.tick(150);
@@ -119,24 +119,24 @@ describe('wardrobe tab', () => {
         env.places.currentId = 'tavern';
         await env.start();
         await render();
-        expect(text()).toContain('Location passport: Таверна');
+        expect(text()).toContain('Drawn as: Таверна');
         await env.turn({ location: 'Таверна', weather: 'Дождь' });
         await env.tick(150);
         expect(text()).toContain('States: rain');
-        expect(text()).toContain('On: rain');
+        expect(text()).toContain('Now: rain');
         env.places.currentId = 'square';
         cleanup?.();
         container.textContent = '';
         await render();
-        expect(text()).toContain('This place has no NAI location passport');
+        expect(text()).toContain('This place has no look for pictures');
     });
 
     it('says when NAI Studio is missing or another tab writes, and switches parts off', async () => {
         await env.start();
         env.naiPresent.value = false;
         await render();
-        expect(text()).toContain('NAI Studio 0.10 or newer is needed');
-        expect(text()).toContain('No character of this chat has a NAI passport.');
+        expect(text()).toContain('without NAI Studio 0.10 or newer');
+        expect(text()).toContain('No character of this chat has a look for pictures');
         expect(text()).toContain('The current place is not known yet.');
         cleanup?.();
         container.textContent = '';
@@ -176,7 +176,7 @@ describe('wardrobe tab', () => {
         expect(rows()[0]!.textContent).toContain('in a dark blue silk dress');
         expect(rows()[0]!.textContent).toContain('New — remembered if it stays one more turn · since message #0');
         expect(rows()[0]!.textContent).toContain('from the appearance');
-        expect(rows()[1]!.textContent).toContain('No NAI passport: Maestro only remembers it');
+        expect(rows()[1]!.textContent).toContain('No look for pictures: only remembered');
         expect(rows()[1]!.querySelector('button')).toBeNull();
         const picker = rows()[0]!.querySelector('select')!;
         expect([...picker.options].map((option) => option.textContent)).toEqual(['Own clothes', 'ballgown']);
@@ -218,7 +218,7 @@ describe('wardrobe tab', () => {
         await env.start();
         await env.tick(50);
         await render(new DesFieldOffer(env.app, env.app.log));
-        expect(text()).toContain('Add the field «Outfit» to the DES tracker?');
+        expect(text()).toContain('Only the field «Outfit» is added to its tracker');
         expect(text()).toContain('Not taken from the revision');
         expect(text()).toContain('Nobody: «Nobody wears a red hat.» — nobody of this chat has that name.');
         buttons('Add the field')[0]!.click();

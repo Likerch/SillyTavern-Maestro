@@ -6,6 +6,9 @@
 // - NAI passports only through NAI Studio's API (chat level), places through the place registry, chat nicknames
 //   through the world model; DES aliases are DES's: the dossier only leaves an Inbox note.
 // Inbox cards outlive the page: appliers re-run the stored payloads; undo handlers revert by target.
+// Card texts follow plan-2 §3: the title says what changes in story words, the description where and for whom, and the
+// book, entry number, keys and passport id go to `details` («Подробнее»).
+import { tPlural } from '../../core/labels';
 import { uniqueStrings } from '../../domain/canon-keys';
 import { commitPatches } from '../../domain/doctor-fixes';
 import type { BookIo } from '../../domain/doctor-fixes';
@@ -74,6 +77,16 @@ export type ActionPayload =
     | { op: 'note'; text: string };
 
 export class ProtectedBookError extends Error {}
+
+/** What a dossier card says (already translated). */
+interface CardText {
+    title: string;
+    description: string;
+    /** Book, entry number, keys, passport id: «Подробнее». */
+    details?: string;
+    /** The notice after an automatic apply (past tense: the title reads badly after «Сделал: …»). */
+    applied?: string;
+}
 
 type Dict = Record<string, unknown>;
 
@@ -260,7 +273,8 @@ export class DossierActions {
                 return;
             }
             case 'note':
-                this.app.ui.notice(payload.text, { level: 'info' });
+                // Accepting a reminder card repeats what to do: a reply to the user's own click.
+                this.app.ui.notice(payload.text, { urgent: true });
                 return;
         }
     }
@@ -270,7 +284,7 @@ export class DossierActions {
         const api = this.sources.naiApi();
         if (!api) throw new Error(this.t('m7.error.noNaiApi'));
         const current = api.getPassport(id);
-        if (!current) throw new Error(this.t('m7.error.gone'));
+        if (!current) throw new Error(this.t('m7.error.passportGone'));
         await api.savePassport(patchPassport(current, patch), 'chat', target ?? undefined);
     }
 
@@ -490,45 +504,65 @@ export class DossierActions {
                 return [
                     { target: NOTE_TARGET, ref: { placeId: payload.placeId }, before: null, after: payload.placeId },
                 ];
-            case 'chatAlias':
+            case 'chatAlias': {
+                // The name is kept with the change so the journal reads «Прозвище: Лиса · Кто это: Лира».
+                const name = this.sources.entity(payload.entityId)?.name;
                 return [
                     {
                         target: ALIAS_TARGET,
                         ref: { alias: payload.alias },
                         before: null,
-                        after: { alias: payload.alias, entity: payload.entityId },
+                        after: { alias: payload.alias, entity: payload.entityId, ...(name ? { name } : {}) },
                     },
                 ];
+            }
             case 'note':
                 return [{ target: NOTE_TARGET, ref: {}, before: null, after: payload.text }];
         }
     }
 
-    private proposal(
-        kind: string,
-        title: string,
-        description: string,
-        payload: ActionPayload,
-    ): Proposal<ActionPayload> {
-        return {
+    private proposal(kind: string, text: CardText, payload: ActionPayload): Proposal<ActionPayload> {
+        const proposal: Proposal<ActionPayload> = {
             module: DOSSIER_ID,
             kind,
-            title,
-            description,
+            title: text.title,
+            description: text.description,
             changes: this.changesOf(payload),
             payload,
             apply: (value) => this.apply(value),
             stillValid: () => this.stillValid(payload),
         };
+        if (text.details) proposal.details = text.details;
+        if (text.applied) {
+            // «Разнести» makes several cards at once: their automatic notices merge into one.
+            proposal.appliedNotice =
+                kind === SPREAD_KIND
+                    ? {
+                          text: text.applied,
+                          group: SPREAD_KIND,
+                          groupText: (count) => tPlural(this.app.i18n, 'm7.spread.appliedMany', count),
+                      }
+                    : { text: text.applied };
+        }
+        return proposal;
     }
 
-    private async decide(kind: string, title: string, description: string, payload: ActionPayload): Promise<Decision> {
-        return this.app.autonomy.decide<ActionPayload>(this.proposal(kind, title, description, payload), 'inbox');
+    private async decide(kind: string, text: CardText, payload: ActionPayload): Promise<Decision> {
+        return this.app.autonomy.decide<ActionPayload>(this.proposal(kind, text, payload), 'inbox');
     }
 
     /** DES owns aliases: an Inbox card that tells what to add in the DES Workshop (never applied by Maestro). */
     private async note(title: string, text: string): Promise<void> {
-        await this.app.inbox.add(this.proposal(NOTE_KIND, title, text, { op: 'note', text }) as Proposal);
+        await this.app.inbox.add(
+            this.proposal(NOTE_KIND, { title, description: text }, { op: 'note', text }) as Proposal,
+        );
+    }
+
+    /** Book and entry of a lore change (with the keys it adds): «Подробнее». */
+    private entryDetails(world: string, uid: number, entry: string, keys?: readonly string[]): string {
+        const lines = [this.t('m7.details.entry', { book: world, uid, entry })];
+        if (keys?.length) lines.push(this.t('m7.details.keys', { keys: keys.join(', ') }));
+        return lines.join('\n');
     }
 
     /* ---------------------------------------------------------------- fixes */
@@ -540,10 +574,14 @@ export class DossierActions {
         if (request.op === 'placeEntry') {
             const place = this.sources.places()?.get(request.placeId);
             if (!place || place.entry) return 'skipped';
+            const params = { name: place.name };
             return this.decide(
                 FIX_KIND,
-                this.t('m7.fix.placeEntry.title', { name: place.name }),
-                this.t('m7.fix.placeEntry.body', { name: place.name }),
+                {
+                    title: this.t('m7.fix.placeEntry.title', params),
+                    description: this.t('m7.fix.placeEntry.body', params),
+                    applied: this.t('m7.fix.placeEntry.applied', params),
+                },
                 { op: 'placeEntry', placeId: place.id },
             );
         }
@@ -570,9 +608,17 @@ export class DossierActions {
         const added = request.keys.filter((key) => !before.some((item) => normName(item) === normName(key)));
         if (!added.length) return 'skipped';
         const after = [...before, ...added];
-        const params = { keys: added.join(', '), entry: title, book: request.world };
+        // Case forms come as one regex key: the title names no key then, the regex waits in «Подробнее».
+        const forms = finding.kind === 'formsMissing';
+        const params = { entry: title, names: added.map((key) => `«${key}»`).join(', ') };
+        const text = (where: string): CardText => ({
+            title: this.t(forms ? 'm7.fix.forms.title' : 'm7.fix.keys.title', params),
+            description: this.t(where),
+            details: this.entryDetails(request.world, request.uid, title, added),
+            applied: this.t(forms ? 'm7.fix.forms.applied' : 'm7.fix.keys.applied', params),
+        });
         if (this.canon() && this.app.host.chatId()) {
-            return this.decide(FIX_KIND, this.t('m7.fix.keys.title', params), this.t('m7.fix.keys.canon', params), {
+            return this.decide(FIX_KIND, text('m7.where.canonOverride'), {
                 op: 'canonOverride',
                 world: request.world,
                 uid: request.uid,
@@ -581,7 +627,7 @@ export class DossierActions {
                 created: !current.override,
             });
         }
-        return this.decide(FIX_FILE_KIND, this.t('m7.fix.keys.title', params), this.t('m7.fix.keys.file', params), {
+        return this.decide(FIX_FILE_KIND, text('m7.fix.keys.file'), {
             op: 'baseKeys',
             world: request.world,
             uid: request.uid,
@@ -612,6 +658,40 @@ export class DossierActions {
         return before;
     }
 
+    /**
+     * What a lore or canon entry card says: a new name it answers to, a replaced description, or a line added to its
+     * text («внешность — шрам на лице»). `where` tells which chats it touches; `details` locates the entry.
+     */
+    private entryText(edit: SpreadEdit, entry: string, where: string, details: string): CardText {
+        const value = edit.value;
+        const params = { entry, value, what: '' };
+        let description = this.t(where);
+        if (edit.field === 'alias' || edit.field === 'name') {
+            return {
+                title: this.t('m7.spread.lore.names', params),
+                description,
+                details: `${details}\n${this.t('m7.details.keys', { keys: value })}`,
+                applied: this.t('m7.spread.lore.namesApplied', params),
+            };
+        }
+        if (edit.field === 'description') {
+            description = `${this.t('m7.spread.newText', { value })}\n${description}`;
+            return {
+                title: this.t('m7.spread.lore.description', params),
+                description,
+                details,
+                applied: this.t('m7.spread.lore.descriptionApplied', params),
+            };
+        }
+        params.what = this.t(`m7.spread.what.${edit.field}`);
+        return {
+            title: this.t('m7.spread.lore.text', params),
+            description,
+            details,
+            applied: this.t('m7.spread.lore.textApplied', params),
+        };
+    }
+
     private async spreadLore(edit: SpreadEdit, world: string, uid: number, label: string): Promise<boolean> {
         if (!this.canon() || !this.app.host.chatId()) return false;
         const current = await this.effective(world, uid);
@@ -622,8 +702,8 @@ export class DossierActions {
         if (!current.base) return false;
         const fields = this.textFields(edit.field, edit.value, current.fields);
         if (!fields) return false;
-        const params = { entry: label, value: edit.value, field: this.t(`m7.spread.field.${edit.field}`) };
-        await this.decide(SPREAD_KIND, this.t('m7.spread.lore.title', params), this.t('m7.spread.lore.body', params), {
+        const text = this.entryText(edit, label, 'm7.where.canonOverride', this.entryDetails(world, uid, label));
+        await this.decide(SPREAD_KIND, text, {
             op: 'canonOverride',
             world,
             uid,
@@ -643,8 +723,8 @@ export class DossierActions {
         const current: EntryFields = { key: strings(item.entry.key), content: str(item.entry.content) };
         const fields = this.textFields(edit.field, edit.value, current);
         if (!fields) return false;
-        const params = { entry: label, value: edit.value, field: this.t(`m7.spread.field.${edit.field}`) };
-        await this.decide(SPREAD_KIND, this.t('m7.spread.lore.title', params), this.t('m7.spread.canon.body', params), {
+        const text = this.entryText(edit, label, 'm7.where.canonItem', this.t('m7.details.canonItem', { uid }));
+        await this.decide(SPREAD_KIND, text, {
             op: 'canonItem',
             uid,
             fields,
@@ -678,14 +758,20 @@ export class DossierActions {
             : source.avatar
               ? { avatar: source.avatar }
               : null;
-        const params = { name: source.label, value: edit.value, field: this.t(`m7.spread.field.${edit.field}`) };
-        await this.decide(SPREAD_KIND, this.t('m7.spread.nai.title', params), this.t('m7.spread.nai.body', params), {
-            op: 'passport',
-            id,
-            target,
-            patch,
-            before,
-        });
+        const params = { name: source.label, value: edit.value };
+        const names = !patch.slots;
+        const details = [this.t('m7.details.passport', { id })];
+        if (patch.slots?.body) details.push(this.t('m7.details.tags', { tags: patch.slots.body }));
+        await this.decide(
+            SPREAD_KIND,
+            {
+                title: this.t(names ? 'm7.spread.nai.names' : 'm7.spread.nai.looks', params),
+                description: this.t('m7.spread.nai.body'),
+                details: details.join('\n'),
+                applied: this.t(names ? 'm7.spread.nai.namesApplied' : 'm7.spread.nai.looksApplied', params),
+            },
+            { op: 'passport', id, target, patch, before },
+        );
         return true;
     }
 
@@ -707,11 +793,15 @@ export class DossierActions {
         } else {
             return false;
         }
-        const params = { name: place.name, value: edit.value, field: this.t(`m7.spread.field.${edit.field}`) };
+        const params = { name: place.name, value: edit.value };
+        const key = edit.field === 'name' ? 'm7.spread.place.name' : 'm7.spread.place.alias';
         await this.decide(
             SPREAD_KIND,
-            this.t('m7.spread.place.title', params),
-            this.t('m7.spread.place.body', params),
+            {
+                title: this.t(key, params),
+                description: this.t('m7.spread.place.body'),
+                applied: this.t(`${key}Applied`, params),
+            },
             payload,
         );
         return true;
@@ -734,13 +824,12 @@ export class DossierActions {
         const params = { alias: edit.value, name: this.sources.entity(edit.entityId)?.name ?? edit.entityId };
         await this.decide(
             SPREAD_KIND,
-            this.t('m7.spread.alias.title', params),
-            this.t('m7.spread.alias.body', params),
             {
-                op: 'chatAlias',
-                alias: edit.value,
-                entityId: edit.entityId,
+                title: this.t('m7.spread.alias.title', params),
+                description: this.t('m7.spread.alias.body', params),
+                applied: this.t('m7.spread.alias.applied', params),
             },
+            { op: 'chatAlias', alias: edit.value, entityId: edit.entityId },
         );
         return true;
     }

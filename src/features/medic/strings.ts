@@ -37,7 +37,7 @@ export const MEDIC_STRINGS: I18nParts = {
         'm3.tracker.missing': 'Reply #{index} has no DES tracker. The fix asks the model for it in the background.',
         'm3.regex.ok': 'No sign of a damaged tracker.',
         'm3.regex.damage':
-            'Reply #{index} has a JSON block, but DES could not read it: the JSON is broken or a regex damages it. The Doctor (M5) shows which regexes touch it.',
+            'Reply #{index} has a JSON block, but DES could not read it: the JSON is broken or a regex damages it. The «Doctor» tab shows which regexes touch it.',
         'm3.regex.reply':
             'DES could not read the tracker in reply #{index}: a regex seems to damage it. The Doctor tab shows which one.',
         'm3.fieldKeys.ok': 'Field names are fine.',
@@ -131,7 +131,7 @@ export const MEDIC_STRINGS: I18nParts = {
         'm3.tracker.missing': 'В ответе №{index} нет трекера DES. Исправление попросит модель восстановить его в фоне.',
         'm3.regex.ok': 'Признаков испорченного трекера нет.',
         'm3.regex.damage':
-            'В ответе №{index} есть блок JSON, но DES его не прочитал: JSON битый или его портит регекс. Какие регексы его трогают, покажет Доктор (M5).',
+            'В ответе №{index} есть блок JSON, но DES его не прочитал: JSON битый или его портит регекс. Какие регексы его трогают, покажет вкладка «Доктор».',
         'm3.regex.reply':
             'DES не смог прочитать трекер в ответе №{index}: похоже, его портит какой-то регекс. Какой — покажет вкладка «Доктор».',
         'm3.fieldKeys.ok': 'С названиями полей всё в порядке.',

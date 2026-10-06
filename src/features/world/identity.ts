@@ -28,6 +28,8 @@ import { putAsked, putIdentity } from './store';
 import type { WorldDoc, WorldStore } from './store';
 
 export const SAME_AS_KIND = 'world.sameAs';
+/** Journal kind of «Другой» (the question itself is SAME_AS_KIND). */
+export const APART_KIND = 'world.apart';
 export const IDENTITY_TARGET = 'world-identity';
 export const EXCLUDE_TARGET = 'world-nai-excluded';
 /** New questions per build (the rest wait for the next build). */
@@ -350,6 +352,7 @@ export class IdentityDesk {
                 same,
                 other,
             }),
+            details: this.details(sources),
             changes: [this.change(payload, 'same', {}, sources)],
             payload,
             acceptLabel: same,
@@ -501,7 +504,7 @@ export class IdentityDesk {
      * record (the decision first, the switches after it, so undo turns them back before the decision).
      */
     private async decide(
-        payload: Pick<SameAsPayload, 'group' | 'name' | 'keys'>,
+        payload: Pick<SameAsPayload, 'group' | 'name' | 'keys' | 'kind'>,
         decision: Decision,
         sources: readonly WorldSource[],
     ): Promise<void> {
@@ -518,11 +521,8 @@ export class IdentityDesk {
         const where = this.where(sources);
         await this.app.journal.record({
             module: this.host.moduleId,
-            kind: decision === 'same' ? SAME_AS_KIND : 'world.apart',
-            summary: this.t(decision === 'same' ? 'm7w.journal.same' : 'm7w.journal.apart', {
-                name: payload.name,
-                where,
-            }),
+            kind: decision === 'same' ? SAME_AS_KIND : APART_KIND,
+            summary: this.t(`m7w.journal.${decision}.${nounOf(payload.kind)}`, { name: payload.name, where }),
             changes: [this.change(payload, decision, previous, sources), ...switches],
         });
     }
@@ -685,7 +685,12 @@ export class IdentityDesk {
                   ...this.hiddenApart(entity),
               ]).map(sourceKeyOf);
         if (!wanted.length) throw new Error(this.t('m7w.error.noIdentity'));
-        const payload = { group: this.groupKey(entity), name: entity.name, keys: [...new Set(wanted)] };
+        const payload = {
+            group: this.groupKey(entity),
+            name: entity.name,
+            kind: entity.kind,
+            keys: [...new Set(wanted)],
+        };
         await this.decide(payload, 'same', this.sourcesOf(payload.group, payload.keys));
     }
 
@@ -694,7 +699,12 @@ export class IdentityDesk {
         const identity = this.identity(entity);
         const wanted = keys?.length ? [...keys] : ordered([...identity.shared, ...identity.pending]).map(sourceKeyOf);
         if (!wanted.length) throw new Error(this.t('m7w.error.noIdentity'));
-        const payload = { group: this.groupKey(entity), name: entity.name, keys: [...new Set(wanted)] };
+        const payload = {
+            group: this.groupKey(entity),
+            name: entity.name,
+            kind: entity.kind,
+            keys: [...new Set(wanted)],
+        };
         await this.decide(payload, 'apart', this.sourcesOf(payload.group, payload.keys));
     }
 

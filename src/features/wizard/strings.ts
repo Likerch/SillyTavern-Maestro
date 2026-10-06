@@ -39,7 +39,7 @@ export const WIZARD_STRINGS: I18nParts = {
         'w1.baseline.take': 'Take the baseline',
         'w1.baseline.retake': 'Take it again',
         'w1.baseline.taken': 'Baseline taken.',
-        'w1.baseline.off': 'The Guardian (M4) is off: the baseline can be taken later from its tab.',
+        'w1.baseline.off': 'The Guardian is off: the baseline can be taken later from its tab.',
 
         'w1.findings.title': 'Regexes and findings',
         'w1.findings.intro':
@@ -52,13 +52,13 @@ export const WIZARD_STRINGS: I18nParts = {
         'w1.findings.open': 'Open the Doctor tab',
         'w1.findings.rescan': 'Check again',
         'w1.findings.failed': 'The check failed: {error}',
-        'w1.findings.off': 'The Doctor (M5) is off: this step is skipped.',
+        'w1.findings.off': 'The Doctor is off: this step is skipped.',
 
         'w1.rules.title': 'Rules',
         'w1.rules.intro':
             'On-the-fly fixes of stage 1. They work on copies while the prompt is built and never touch files; each one can be switched off later. Your choice is applied when you press «Next».',
         'w1.rules.none': 'No stage 1 rules are registered yet.',
-        'w1.rules.off': 'The Rules module (M22) is off: this step is skipped.',
+        'w1.rules.off': 'The «Rules» module is off: this step is skipped.',
         'w1.rules.compare': 'Compare before/after',
         'w1.rules.comparing': 'Simulating the current chat…',
         'w1.rules.delta': 'Lore per turn: {delta} characters.',
@@ -148,7 +148,7 @@ export const WIZARD_STRINGS: I18nParts = {
         'w1.baseline.take': 'Снять эталон',
         'w1.baseline.retake': 'Снять заново',
         'w1.baseline.taken': 'Эталон снят.',
-        'w1.baseline.off': 'Страж (M4) выключен: эталон можно будет снять позже на его вкладке.',
+        'w1.baseline.off': 'Страж выключен: эталон можно будет снять позже на его вкладке.',
 
         'w1.findings.title': 'Регексы и находки',
         'w1.findings.intro':
@@ -161,13 +161,13 @@ export const WIZARD_STRINGS: I18nParts = {
         'w1.findings.open': 'Открыть вкладку «Доктор»',
         'w1.findings.rescan': 'Проверить заново',
         'w1.findings.failed': 'Проверка не удалась: {error}',
-        'w1.findings.off': 'Доктор (M5) выключен — шаг пропускается.',
+        'w1.findings.off': 'Доктор выключен — шаг пропускается.',
 
         'w1.rules.title': 'Правила',
         'w1.rules.intro':
             'Исправления этапа 1 на лету. Они работают на копиях при сборке промпта и не трогают файлы; любое потом можно выключить. Выбор применится, когда нажмёшь «Далее».',
         'w1.rules.none': 'Правила этапа 1 пока не зарегистрированы.',
-        'w1.rules.off': 'Модуль «Правила» (M22) выключен — шаг пропускается.',
+        'w1.rules.off': 'Модуль «Правила» выключен — шаг пропускается.',
         'w1.rules.compare': 'Сравнить до/после',
         'w1.rules.comparing': 'Прогоняю текущий чат…',
         'w1.rules.delta': 'Лор за ход: {delta} символов.',

@@ -1,5 +1,6 @@
 // «Включить правило» from a finding: the M22 rule is switched on through app.autonomy (kind 'doctor.enableRule',
-// default 'auto'), so the change is journaled and can be undone; with a stricter level it becomes an Inbox card.
+// default 'auto'), so the change is journaled and can be undone; with a stricter level it becomes an Inbox card. The
+// switch itself bypasses M22's own autonomy (`{ journal: false }`): one action, one journal record — the doctor's.
 import type { App, Decision, JournalChange, Unsubscribe } from '../../shared/contracts';
 import type { RuleState, RulesApi } from '../rules/api';
 import type { Finding } from './api';
@@ -37,7 +38,7 @@ async function applyRule(app: App, payload: unknown): Promise<void> {
     const parsed = rulePayload(payload);
     const rules = rulesApi(app);
     if (!parsed || !rules) throw new Error('the rules module is not running');
-    await rules.setEnabled(parsed.rule, true);
+    await rules.setEnabled(parsed.rule, true, { journal: false });
 }
 
 async function stillOff(app: App, payload: unknown): Promise<boolean> {
@@ -52,7 +53,7 @@ export function registerRuleActions(app: App): Unsubscribe {
         const rules = rulesApi(app);
         const id = change.ref.rule;
         if (!rules || typeof id !== 'string') return false;
-        await rules.setEnabled(id, change.before === true);
+        await rules.setEnabled(id, change.before === true, { journal: false });
         return true;
     });
     return app.inbox.registerApplier(
@@ -78,8 +79,8 @@ export async function enableRule(app: App, state: RuleState, finding: Finding, m
             kind: ENABLE_RULE_KIND,
             title,
             description: t('m5.enableRuleDescription', { finding: message }),
-            // Applying switches the rule through M22, which announces the same switch: the shared group
-            // (M22's ruleSwitchGroup, `rules.switch:<id>:on`) folds both into one notice.
+            // The same group as M22's own switch notice (ruleSwitchGroup, `rules.switch:<id>:on`): a switch from the
+            // «Rules» tab in the same turn folds into this notice.
             appliedNotice: { text: done, group: `rules.switch:${state.id}:on`, groupText: () => done },
             changes: [
                 { target: RULE_TARGET, ref: { rule: state.id, finding: finding.id }, before: false, after: true },

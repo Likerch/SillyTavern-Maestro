@@ -66,6 +66,7 @@ export const CHRONICLE_STRINGS: I18nParts = {
         'm9.error.messageGone': 'The message has changed or is gone.',
         'm9.error.noStudio': 'The Lore Studio is off: open the canon book in the lorebook editor.',
         'm9.chapter.comment': 'Chronicle: {title} (#{from}–{to})',
+        'm9.chapter.comment.range': 'Chronicle: {range}',
         'm9.range.one': 'message #{from}',
         'm9.range.many': 'messages #{from}–{to}',
         'm9.chapter.label': '«{name}» ({range})',
@@ -99,7 +100,8 @@ export const CHRONICLE_STRINGS: I18nParts = {
         'm9.remember.proposal': 'Message #{index} into long-term memory: {reason}',
         'm9.remember.description':
             "Message #{index} holds an important moment: {reason}. I will set Qvink's «remember» mark on it so it stays in the long-term memory.",
-        'm9.remember.applied': 'Kept message #{index} in long-term memory: {reason}.',
+        'm9.remember.applied': 'Kept in long-term memory: {reason}.',
+        'm9.remember.details': 'From the signals: {refs}',
         'm9.remember.appliedMany.one': 'Kept {count} important moment in long-term memory',
         'm9.remember.appliedMany.few': 'Kept {count} important moments in long-term memory',
         'm9.remember.appliedMany.many': 'Kept {count} important moments in long-term memory',
@@ -109,6 +111,8 @@ export const CHRONICLE_STRINGS: I18nParts = {
         'm9.reason.oath': 'oath',
         'm9.reason.secret': 'revealed secret',
         'm9.reason.withText': '{reason} ({text})',
+        'm9.reason.named': '{reason} «{name}»',
+        'm9.reason.people': '{reason} — {names}',
         'm9.chapters.title': 'Chronicle',
         'm9.chapters.hint':
             'When a remembered Qvink memory no longer fits its long-term memory, it becomes a chapter of the chat canon. A chapter fires on two keys at once (a participant AND a place, an item or another participant), so chapters about the main heroes do not fire every turn.',
@@ -184,6 +188,7 @@ export const CHRONICLE_STRINGS: I18nParts = {
         'm9.error.messageGone': 'Сообщение изменилось или удалено.',
         'm9.error.noStudio': 'Лор-студия выключена: открой книгу канона в редакторе книг лора SillyTavern.',
         'm9.chapter.comment': 'Летопись: {title} (№{from}–{to})',
+        'm9.chapter.comment.range': 'Летопись: {range}',
         'm9.range.one': 'сообщение №{from}',
         'm9.range.many': 'сообщения №{from}–{to}',
         'm9.chapter.label': '«{name}» ({range})',
@@ -215,7 +220,8 @@ export const CHRONICLE_STRINGS: I18nParts = {
         'm9.remember.proposal': 'Сообщение №{index} — в долгую память: {reason}',
         'm9.remember.description':
             'В сообщении №{index} важный момент: {reason}. Поставлю на нём отметку «запомнить» в Qvink — тогда он останется в долгой памяти.',
-        'm9.remember.applied': 'Запомнил надолго сообщение №{index}: {reason}.',
+        'm9.remember.applied': 'Запомнил надолго: {reason}.',
+        'm9.remember.details': 'Из сигналов: {refs}',
         'm9.remember.appliedMany.one': 'Запомнил надолго {count} важный момент',
         'm9.remember.appliedMany.few': 'Запомнил надолго {count} важных момента',
         'm9.remember.appliedMany.many': 'Запомнил надолго {count} важных моментов',
@@ -225,6 +231,8 @@ export const CHRONICLE_STRINGS: I18nParts = {
         'm9.reason.oath': 'клятва',
         'm9.reason.secret': 'раскрытый секрет',
         'm9.reason.withText': '{reason} ({text})',
+        'm9.reason.named': '{reason} «{name}»',
+        'm9.reason.people': '{reason} — {names}',
         'm9.chapters.title': 'Летопись',
         'm9.chapters.hint':
             'Когда отмеченное воспоминание Qvink перестаёт помещаться в его долгую память, оно становится главой канона чата. Глава срабатывает только по двум ключам сразу (участник И место, предмет или второй участник), поэтому главы о главных героях не лезут в каждый ход.',

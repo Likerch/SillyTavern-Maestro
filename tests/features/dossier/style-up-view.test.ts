@@ -88,9 +88,11 @@ describe('«Оформить» in the dossier tab', () => {
         api.open(MIRA_ID);
         await settle();
         expect(container.querySelector('.maestro-m7-missing')?.textContent).toBe(
-            'Missing: Canon entry, CK archive, NAI passport.',
+            'Missing: Chat canon entry, Character sheet, Looks for pictures.',
         );
-        expect(buttonByText('Style up').title).toContain('canon entry with Russian keys');
+        expect(buttonByText('Style up').title).toContain(
+            'a chat canon entry, a character sheet, the looks for pictures',
+        );
     });
 
     it('previews the plan, sends the kept parts as one card and shows the status', async () => {
@@ -102,8 +104,10 @@ describe('«Оформить» in the dossier tab', () => {
         expect(dialog.getAttribute('role')).toBe('dialog');
         const parts = [...dialog.querySelectorAll<HTMLElement>('.maestro-m7-part')];
         expect(parts.map((node) => node.dataset.part)).toEqual(['canon', 'archive', 'passport']);
-        expect(parts[1]?.textContent).toContain('CarrotKernel archive in «Archives» (1 tags)');
-        expect(parts[1]?.textContent).toContain('Dropped: <SPECIES:DRAGON> (unknownValue)');
+        expect(parts[1]?.textContent).toContain('A character sheet — traits: 1');
+        // The book is a detail of the part (one book: no choice to show it).
+        expect(parts[1]?.querySelector('details')?.textContent).toContain('Book: Archives');
+        expect(parts[1]?.textContent).toContain('Did not pass the check: <SPECIES:DRAGON> (unknownValue)');
         expect(parts[1]?.querySelector('pre')?.textContent).toBe(
             '<BunnymoTags><Name:Мира> <PHYSICAL><SPECIES:HUMAN></PHYSICAL></BunnymoTags>',
         );
@@ -136,9 +140,9 @@ describe('«Оформить» in the dossier tab', () => {
         expect(env.ui.notices.at(-1)?.text).toBe('Done.');
         const status = container.querySelector<HTMLElement>('.maestro-m7-status')!;
         expect([...status.querySelectorAll<HTMLElement>('[data-part]')].map((node) => node.textContent)).toEqual([
-            '✓ Canon entry',
-            '✓ CK archive',
-            '✓ NAI passport',
+            '✓ Chat canon entry',
+            '✓ Character sheet',
+            '✓ Looks for pictures',
         ]);
         expect(container.querySelector('.maestro-m7-styleup-start')).toBeNull();
     });
@@ -147,7 +151,9 @@ describe('«Оформить» in the dossier tab', () => {
         env.mock.chatId = undefined as unknown as string;
         api.open(MIRA_ID);
         await render();
-        expect(container.querySelector('.maestro-m7-missing')?.textContent).toBe('Missing: CK archive, NAI passport.');
+        expect(container.querySelector('.maestro-m7-missing')?.textContent).toBe(
+            'Missing: Character sheet, Looks for pictures.',
+        );
         buttonByText('Style up').click();
         await settle();
         const empty = container.querySelector<HTMLElement>('.maestro-m7-styleup')!;
@@ -191,7 +197,7 @@ describe('«Оформить» in the dossier tab', () => {
         api.open(MIRA_ID);
         await render();
         const section = container.querySelector<HTMLElement>('.maestro-m7-section[data-kind="canon"]')!;
-        const promote = buttonByText('To the card’s lorebook', section);
+        const promote = buttonByText('To the card’s lore book', section);
         expect(promote.title).toContain('«World»');
         promote.click();
         await settle(30);

@@ -270,7 +270,7 @@ describe('entities without the world model', () => {
 
     it('rejects unknown entities', async () => {
         const api = await start();
-        await expect(api.build('character:никто')).rejects.toThrow('Unknown entity');
+        await expect(api.build('character:никто')).rejects.toThrow('I do not know who this is');
     });
 });
 
@@ -392,18 +392,20 @@ describe('other stories (plan-2 §9)', () => {
         expect(sectionOf(dossier.sections, 'des').fields?.portraitPrompt).toBeUndefined();
         const other = dossier.findings.filter((item) => item.kind === 'otherStory');
         expect(other.map((item) => item.text)).toEqual([
-            'Мара is known in other stories too: character and way of speaking from the sheet in «Archives»; ' +
-                'looks and outfits from the passport of the card «lyra»; portrait and description from DES. ' +
-                'Until you decide, that data is not used here.',
-            'If Мара here is another character, the old data never shows up here.',
+            'The name Мара was met in other stories before, and they bring: character and way of speaking from ' +
+                'the sheet in «Archives»; looks and outfits from the card «lyra»; portrait and ' +
+                'description from DES. Is it the same character here? Until you answer, that data is not used here.',
+            'If Мара here is another character, everything here stays their own and the old data never shows up.',
         ]);
+        // The buttons answer the world model’s question: «Тот же» / «Другой».
+        expect(other.map((item) => item.fix?.label)).toEqual(['The same', 'Another one']);
         expect(other.map((item) => item.fix?.payload)).toEqual([
             { op: 'sameAs', entityId: MARA_ID, keys: ['ck:Archives#мара', 'nai:lyra.png#npc1', 'des:мара'] },
             { op: 'apart', entityId: MARA_ID, keys: ['ck:Archives#мара', 'nai:lyra.png#npc1', 'des:мара'] },
         ]);
     });
 
-    it('«It is the same one» and «It is another character» go to the world model at once', async () => {
+    it('«The same» and «Another one» go to the world model at once', async () => {
         const world = maraScene();
         const api = await start();
         const [same, apart] = (await api.check(MARA_ID)).filter((item) => item.kind === 'otherStory');
@@ -424,14 +426,18 @@ describe('other stories (plan-2 §9)', () => {
         const api = await start();
         const findings = await api.check(MARA_ID);
         expect(findings.filter((item) => item.kind === 'otherStory').map((item) => item.fix?.label)).toEqual([
-            'It is the same one',
+            'The same',
         ]);
+        expect(findings.find((item) => item.kind === 'otherStory')?.text).toBe(
+            'You said Мара here is another character: looks and outfits from the card «lyra»; ' +
+                'portrait and description from DES stay out of this chat.',
+        );
         const shared = findings.find((item) => item.kind === 'sharedStory')!;
         expect(shared.text).toBe(
-            'For Мара Maestro also uses data from outside this chat: character and way of speaking from the sheet in «Archives».',
+            'Мара: part of the data comes from outside this chat — character and way of speaking from the sheet in «Archives».',
         );
         expect(shared.fix).toEqual({
-            label: 'It is another character',
+            label: 'Another one',
             payload: { op: 'apart', entityId: MARA_ID, keys: ['ck:Archives#мара'] },
         });
     });
@@ -446,7 +452,7 @@ describe('structural checks', () => {
         const [alias, forms] = findings as [DossierFinding, DossierFinding];
         expect(alias.text).toContain('«Лисичка»');
         expect(alias.fix).toEqual({
-            label: 'Add «Лисичка» as a key',
+            label: 'Add the name «Лисичка» to the entry',
             payload: { op: 'addKeys', world: 'World', uid: 1, keys: ['Лисичка'] },
         });
         expect(alias.sources.map((source) => source.kind)).toEqual(['lore.entry', 'des.character']);
@@ -495,7 +501,8 @@ describe('structural checks', () => {
         expect(mismatch.fix?.payload).toEqual({ op: 'desAlias', canonical: 'Лира', alias: 'Lira Moon' });
         expect(await actions().actions.fix(mismatch)).toBe('queued');
         expect(env.inbox2.added.map((card) => card.kind)).toEqual(['dossier.note']);
-        expect(env.inbox2.added[0]?.description).toContain('DES owns aliases');
+        expect(env.inbox2.added[0]?.title).toBe('Лира: add the other name «Lira Moon» in DES');
+        expect(env.inbox2.added[0]?.description).toContain('DES keeps the other names of characters');
     });
 });
 
@@ -508,7 +515,14 @@ describe('fixes', () => {
         const { actions: act } = actions();
         expect(await act.fix(alias!)).toBe('queued');
         const proposal = env.autonomy.proposals.at(-1)!;
-        expect(proposal).toMatchObject({ module: 'M7', kind: 'dossier.fix' });
+        expect(proposal).toMatchObject({
+            module: 'M7',
+            kind: 'dossier.fix',
+            title: 'The entry «Lyra» will also answer to «Лисичка»',
+            description: 'Only in this chat, through the chat canon; the lore book itself does not change.',
+            details: 'Book «World», entry #1 «Lyra».\nNew keys: Лисичка',
+            appliedNotice: { text: 'The entry «Lyra» now also answers to «Лисичка».' },
+        });
         expect(proposal.payload).toMatchObject({
             op: 'canonOverride',
             fields: { key: ['Лира', 'Lyra', 'Лисичка'] },
@@ -593,7 +607,8 @@ describe('fixes', () => {
         expect(sectionOf(dossier.sections, 'lore').fields?.protected).toBe('BunnyMo book (read-only)');
         const alias = dossier.findings.find((item) => item.kind === 'aliasNotKey')!;
         expect(alias.fix).toBeUndefined();
-        expect(alias.text).toContain('P13');
+        expect(alias.text).toContain('The only entries are in BunnyMo books, and I never edit those.');
+        expect(alias.text).not.toContain('P13');
         expect(dossier.findings.some((item) => item.kind === 'formsMissing')).toBe(false);
 
         const { actions: act } = actions();

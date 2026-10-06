@@ -24,7 +24,7 @@ describe('M7 world strings', () => {
 
     it('use their own prefix and cover every kind, source and reason', () => {
         const keys = Object.keys(WORLD_STRINGS.en);
-        expect(keys.every((key) => key.startsWith('m7w.') || key.startsWith('kind.world.'))).toBe(true);
+        expect(keys.every((key) => /^(m7w\.|kind\.world\.|target\.world-)/.test(key))).toBe(true);
         for (const kind of WORLD_KINDS) expect(keys).toContain(`m7w.kind.${kind}`);
         for (const source of SOURCE_KINDS) expect(keys).toContain(`m7w.source.${source}`);
         for (const reason of ['sharedName', 'sharedAlias', 'firstName', 'anchors']) {

@@ -104,7 +104,7 @@ export function medicHealthChecks(deps: HealthDeps): HealthCheck[] {
             if (!trackerMissing(desSwipeRecord(message))) return { status: 'ok', message: t('m3.tracker.ok') };
             return {
                 status: 'warn',
-                message: t('m3.tracker.missing', { index: index + 1 }),
+                message: t('m3.tracker.missing', { index }),
                 fix: async () => {
                     await repair.manual(index);
                 },
@@ -120,7 +120,7 @@ export function medicHealthChecks(deps: HealthDeps): HealthCheck[] {
             const message = app.host.ctx().chat[index];
             const damaged = trackerMissing(desSwipeRecord(message)) && hasFencedJson(message?.mes);
             return damaged
-                ? { status: 'warn', message: t('m3.regex.damage', { index: index + 1 }) }
+                ? { status: 'warn', message: t('m3.regex.damage', { index }) }
                 : { status: 'ok', message: t('m3.regex.ok') };
         }),
 
@@ -157,7 +157,7 @@ export function medicHealthChecks(deps: HealthDeps): HealthCheck[] {
             const index = lastStoryReply(app);
             if (index < 0) return { status: 'skip', message: t('m3.noReply') };
             return hasRawNaiMarker(app.host.ctx().chat[index]?.mes)
-                ? { status: 'warn', message: t('m3.nai.raw', { index: index + 1 }) }
+                ? { status: 'warn', message: t('m3.nai.raw', { index }) }
                 : { status: 'ok', message: t('m3.nai.ok') };
         }),
 

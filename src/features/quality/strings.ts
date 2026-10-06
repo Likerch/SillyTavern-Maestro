@@ -72,7 +72,7 @@ export const QUALITY_STRINGS: I18nParts = {
         'm12.kindHint.junk':
             'Service tokens, code or leaked HTML (the DES tracker block and NAI markers are fine). Auto: cleaned.',
         'm12.kindHint.truncated': 'The reply stops mid-sentence or hit the token limit. Auto: /continue.',
-        'm12.kindHint.missingTracker': 'No DES tracker JSON in «together» mode. Auto: repaired by the Medic (M3).',
+        'm12.kindHint.missingTracker': 'No DES tracker JSON in «together» mode. Auto: repaired by the Medic.',
         'm12.kindHint.language': 'The reply drifts into another language, calques and stock phrases. Auto: swipe.',
         'm12.kindHint.userSpeech': 'Lines or actions written for you. Auto: swipe.',
         'm12.kindHint.refusal': 'Refusals and out-of-character remarks. Auto: swipe.',
@@ -213,7 +213,7 @@ export const QUALITY_STRINGS: I18nParts = {
         'm12.kindHint.junk':
             'Служебные токены, код, протёкший HTML (блок трекера DES и маркеры NAI — норма). Само: очистка.',
         'm12.kindHint.truncated': 'Ответ оборвался на полуслове или упёрся в лимит токенов. Само: /continue.',
-        'm12.kindHint.missingTracker': 'Нет JSON трекера DES в режиме «вместе». Само: ремонт через Медика (M3).',
+        'm12.kindHint.missingTracker': 'Нет JSON трекера DES в режиме «вместе». Само: ремонт через Медика.',
         'm12.kindHint.language': 'Уход в другой язык, кальки и штампы. Само: свайп.',
         'm12.kindHint.userSpeech': 'Реплики и действия за тебя. Само: свайп.',
         'm12.kindHint.refusal': 'Отказы и оговорки вне роли. Само: свайп.',

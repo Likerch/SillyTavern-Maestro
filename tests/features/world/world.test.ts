@@ -217,7 +217,7 @@ describe('M7 world model: Inbox cards and decisions', () => {
         expect(world.chatAliases()).toEqual({ РЫЖАЯ: 'character:анна' });
         await world.setChatAlias('рыжая', null);
         expect(world.chatAliases()).toEqual({});
-        await expect(world.setChatAlias(' ', 'character:анна')).rejects.toThrow('Enter an alias.');
+        await expect(world.setChatAlias(' ', 'character:анна')).rejects.toThrow('Enter a nickname.');
         await expect(world.setChatAlias('X', 'character:nobody')).rejects.toThrow();
     });
 });

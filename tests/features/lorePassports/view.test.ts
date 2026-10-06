@@ -96,7 +96,7 @@ describe('lore passports: pult tab', () => {
         expect(view.root.textContent).toContain('Generation is not available now');
         click(view.root, 'Generate missing (1)');
         await settle();
-        expect(env.notice).toHaveBeenCalledWith(expect.stringContaining('open chat'), { level: 'warn' });
+        expect(env.notice).toHaveBeenCalledWith(expect.stringContaining('open chat'), { level: 'warn', urgent: true });
         await env.nai.providers[0]!.passports({ messageIndex: 2, text: '' });
         await settle(10);
         expect(view.root.textContent).toMatch(/For message #2, .*: Anna/);

@@ -30,6 +30,9 @@ import type { WorldDoc, WorldStore } from './store';
 export const WORLD_ID = 'M7w';
 export const WORLD_KEY = 'world';
 export const MERGE_KIND = 'world.merge';
+/** Journal kinds of the tab's own actions. */
+export const ALIAS_KIND = 'world.alias';
+export const SEPARATE_KIND = 'world.separate';
 export const ALIAS_TARGET = 'world-alias';
 export const MERGE_TARGET = 'world-merge';
 export const SEPARATE_TARGET = 'world-separate';
@@ -682,7 +685,7 @@ export class WorldModel {
         await this.separate(aId, bId);
         await this.app.journal.record({
             module: WORLD_ID,
-            kind: 'world.separate',
+            kind: SEPARATE_KIND,
             summary: this.app.i18n.t('m7w.journal.separate', { a: a?.name ?? aId, b: b?.name ?? bId }),
             changes: [{ target: SEPARATE_TARGET, ref: { a: aId, b: bId }, before: false, after: true }],
         });
@@ -696,7 +699,7 @@ export class WorldModel {
         const target = entityId ? this.get(entityId) : undefined;
         await this.app.journal.record({
             module: WORLD_ID,
-            kind: 'world.alias',
+            kind: ALIAS_KIND,
             summary: target
                 ? this.app.i18n.t('m7w.journal.alias', { alias: alias.trim(), name: target.name })
                 : this.app.i18n.t('m7w.journal.aliasRemoved', { alias: alias.trim() }),
@@ -764,11 +767,13 @@ export class WorldModel {
         const b = this.build.byId.get(candidate.b);
         if (!a || !b) return null;
         const t = this.app.i18n.t.bind(this.app.i18n);
+        const reason = t(`m7w.reason.${candidate.reason}`, { name: candidate.name ?? b.name, a: a.name, b: b.name });
         return {
             module: WORLD_ID,
             kind: MERGE_KIND,
             title: t('m7w.merge.title', { a: a.name, b: b.name }),
-            description: t(`m7w.reason.${candidate.reason}`, { name: candidate.name ?? b.name, a: a.name, b: b.name }),
+            description: `${reason} ${t('m7w.merge.body', { a: a.name, b: b.name })}`,
+            details: t('m7w.merge.details', { a: a.id, b: b.id }),
             changes: [this.mergeChange(a, b)],
             payload: { a: a.id, b: b.id },
             apply: (payload) => this.applyCard(payload),

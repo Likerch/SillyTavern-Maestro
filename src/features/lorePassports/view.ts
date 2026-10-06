@@ -191,7 +191,7 @@ export function lorePassportsTab(
             const generateMissing = async (missing: IndexedEntry[]) => {
                 const generator = service.generator();
                 if (generator.kind === 'none') {
-                    app.ui.notice(t(`m28.gen.${generator.reason}`), { level: 'warn' });
+                    app.ui.notice(t(`m28.gen.${generator.reason}`), { level: 'warn', urgent: true });
                     return;
                 }
                 const estimate = estimatePassportCost(missing.map((entry) => entry.chars));

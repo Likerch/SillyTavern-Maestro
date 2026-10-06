@@ -160,6 +160,15 @@ export function offscreenComment(character: string): string {
     return `Offscreen: ${character}`;
 }
 
+/**
+ * The character of an offscreen canon title («Offscreen: Mira» → «Mira»), null for any other title. The stored title
+ * stays English (offscreen finds its items by it); notices and the journal show it in the user's words.
+ */
+export function offscreenCharacterOf(comment: string): string | null {
+    const match = /^Offscreen: (.+)$/.exec(comment.trim());
+    return match?.[1]?.trim() || null;
+}
+
 /** «Offscreen (3 марта, 14:00): Mira sold her shop. Whereabouts now: the capital.» */
 export function offscreenContent(text: string, storyTime?: string, location?: string): string {
     const body = str(text);

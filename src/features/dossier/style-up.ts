@@ -649,13 +649,13 @@ export class DossierStyleUp {
 
     /* ---------------------------------------------------------------- the proposal */
 
+    /** One part in story words (the book, keys and tags are in partDetails). */
     private partLabel(part: StyleUpPart): string {
         switch (part.part) {
             case 'canon':
-                return this.t('m7.styleUp.line.canon', { name: part.title, keys: part.keys.length });
+                return this.t('m7.styleUp.line.canon', { name: part.title });
             case 'archive':
                 return this.t(part.create ? 'm7.styleUp.line.archiveNew' : 'm7.styleUp.line.archive', {
-                    book: part.book,
                     count: part.tags.length,
                 });
             case 'passport':
@@ -674,6 +674,26 @@ export class DossierStyleUp {
 
     hintText(hint: StyleUpHint): string {
         return this.t(`m7.styleUp.hint.${hint.key}`, hint.params);
+    }
+
+    /** The technical side of a part for «Подробнее»: the book, the keys, the tags, the passport id. */
+    private partDetails(part: StyleUpPart): string | null {
+        switch (part.part) {
+            case 'canon':
+                return this.t('m7.styleUp.details.canon', { title: part.title, keys: part.keys.join(', ') });
+            case 'archive':
+                return this.t(part.create ? 'm7.styleUp.details.archiveNew' : 'm7.styleUp.details.archive', {
+                    book: part.book,
+                    tags: part.tags.join(' '),
+                });
+            case 'passport':
+                return this.t('m7.styleUp.details.passport', {
+                    id: part.passport.id,
+                    tags: passportTagLine(part.passport),
+                });
+            default:
+                return null;
+        }
     }
 
     /** What the card shows for a part: the store's content after (before: nothing). */
@@ -737,13 +757,18 @@ export class DossierStyleUp {
         const hints = plan.hints
             .filter((hint) => hint.key === 'archiveNewBook' || hint.key === 'passportAuto')
             .map((hint) => this.hintText(hint));
+        const place = plan.kind === 'place';
+        const details = payload.parts.map((part) => this.partDetails(part)).filter((line) => line !== null);
         const proposal: Proposal<StyleUpPayload> = {
             module: DOSSIER_ID,
             kind: STYLE_UP_KIND,
-            title: this.t(plan.kind === 'place' ? 'm7.styleUp.card.place' : 'm7.styleUp.card.title', {
-                name: plan.name,
-            }),
-            description: [this.t('m7.styleUp.card.body'), ...lines, ...hints].join('\n'),
+            title: this.t(place ? 'm7.styleUp.card.place' : 'm7.styleUp.card.title', { name: plan.name }),
+            description: [this.t('m7.styleUp.card.body'), ...lines, this.t('m7.styleUp.card.undo'), ...hints].join(
+                '\n',
+            ),
+            appliedNotice: {
+                text: this.t(place ? 'm7.styleUp.card.appliedPlace' : 'm7.styleUp.card.applied', { name: plan.name }),
+            },
             changes: this.cardChanges(payload),
             payload,
             apply: async (value) => {
@@ -751,6 +776,7 @@ export class DossierStyleUp {
             },
             stillValid: () => this.stillValid(payload),
         };
+        if (details.length) proposal.details = details.join('\n');
         return this.app.autonomy.decide<StyleUpPayload>(proposal, 'inbox');
     }
 
@@ -796,12 +822,14 @@ export class DossierStyleUp {
     async applyStyleUp(payload: StyleUpPayload): Promise<StyleUpResult> {
         const outcomes: PartOutcome[] = [];
         const context: ApplyContext = {};
+        let firstError: unknown = null;
         for (const part of payload.parts) {
             try {
                 const note = await this.applyPart(payload, part, context);
                 outcomes.push(note ? { part: part.part, ok: true, note } : { part: part.part, ok: true });
             } catch (error) {
                 this.log.warn(`dossier: «style up» ${part.part} failed`, error);
+                firstError ??= error;
                 outcomes.push({ part: part.part, ok: false, error: message(error) });
             }
         }
@@ -809,17 +837,18 @@ export class DossierStyleUp {
         this.finish(result);
         const failed = outcomes.filter((outcome) => !outcome.ok);
         if (outcomes.length && failed.length === outcomes.length) {
-            throw failed[0]?.error?.includes('P13')
-                ? new ProtectedBookError(failed[0].error)
-                : new Error(failed[0]?.error ?? 'failed');
+            const text = failed[0]?.error ?? 'failed';
+            throw firstError instanceof ProtectedBookError ? new ProtectedBookError(text) : new Error(text);
         }
         if (failed.length) {
+            // Needs his attention: some parts were not written (the others stay, each with its own undo).
             this.app.ui.notice(
                 this.t('m7.styleUp.partial', {
+                    name: payload.name,
                     count: failed.length,
                     errors: failed.map((item) => `${this.t(`m7.styleUp.part.${item.part}`)}: ${item.error}`).join('; '),
                 }),
-                { level: 'warn' },
+                { level: 'warn', importance: 'important' },
             );
         }
         return result;
@@ -928,7 +957,7 @@ export class DossierStyleUp {
         await this.journalPart(
             payload.planId,
             STYLE_UP_KIND,
-            this.t('m7.styleUp.journal.archive', { name: part.name, book }),
+            this.t('m7.styleUp.journal.archive', { name: part.name }),
             { part: 'archive', book, uid, createdBook: created },
             part.content,
         );
@@ -1180,8 +1209,9 @@ export class DossierStyleUp {
             {
                 module: DOSSIER_ID,
                 kind: PROMOTE_KIND,
-                title: this.t('m7.styleUp.promote.title', { title, book }),
-                description: this.t('m7.styleUp.promote.body', { title, book }),
+                title: this.t('m7.styleUp.promote.title', { title }),
+                description: this.t('m7.styleUp.promote.body', { title }),
+                details: this.t('m7.styleUp.promote.details', { book }),
                 changes: [
                     {
                         target: STYLE_UP_TARGET,
@@ -1245,7 +1275,7 @@ export class DossierStyleUp {
         await this.journalPart(
             payload.planId,
             PROMOTE_KIND,
-            this.t('m7.styleUp.journal.promote', { title: payload.title, book: payload.book }),
+            this.t('m7.styleUp.journal.promote', { title: payload.title }),
             { part: 'promote', book: payload.book, uid },
             { content: str(entry.content) },
             snapshot,

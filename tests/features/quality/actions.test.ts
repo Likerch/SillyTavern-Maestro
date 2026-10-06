@@ -56,8 +56,8 @@ describe('clean', () => {
         expect(env.badges).toHaveLength(0);
         // The journal reads as a noun phrase, the automatic notice as what Maestro did; fixes of a turn merge.
         const proposal = env.autonomy.decisions[0]!;
-        expect(proposal.title).toBe('Cleaning reply #3: service junk');
-        expect(proposal.appliedNotice?.text).toBe('Cleaned reply #3: service junk.');
+        expect(proposal.title).toBe('Cleaning reply #2: service junk');
+        expect(proposal.appliedNotice?.text).toBe('Cleaned reply #2: service junk.');
         expect(proposal.appliedNotice?.group).toBe('quality.applied');
         expect(proposal.appliedNotice?.groupText?.(2)).toBe('Fixed defects in replies: 2 fixes');
     });

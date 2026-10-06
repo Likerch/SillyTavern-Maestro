@@ -56,7 +56,8 @@ describe('module', () => {
 
     it('has the same keys in both languages and repairs its settings', () => {
         expect(Object.keys(WARDROBE_STRINGS.ru).sort()).toEqual(Object.keys(WARDROBE_STRINGS.en).sort());
-        for (const key of Object.keys(WARDROBE_STRINGS.en)) expect(key.startsWith('m27.')).toBe(true);
+        for (const key of Object.keys(WARDROBE_STRINGS.en))
+            expect(key).toMatch(/^(m27|kind\.wardrobe|target\.wardrobe)\./);
         expect(wardrobeModule.defaults()).toEqual({
             outfits: true,
             states: true,
@@ -118,7 +119,7 @@ describe('outfits from the DES tracker', () => {
         expect(anna().activeOutfit).toBe('blue silk dress');
         const record = lastJournal();
         expect(record).toMatchObject({ module: 'M27', kind: 'wardrobe.outfit', sourceMessage: 4 });
-        expect(record.summary).toBe('Anna: new outfit «blue silk dress»');
+        expect(record.summary).toBe('Anna changed clothes: «blue silk dress»');
         expect(record.changes[0]).toMatchObject({
             target: WARDROBE_UNDO_TARGET,
             ref: { action: 'outfit.create', passportId: 'p-anna', name: 'blue silk dress' },
@@ -175,7 +176,7 @@ describe('outfits from the DES tracker', () => {
         ]);
         expect(env.nai.of('savePassport')).toHaveLength(3);
         expect(anna().outfits).toHaveLength(2);
-        expect(lastJournal().summary).toBe('Anna: outfit «blue silk dress» again');
+        expect(lastJournal().summary).toBe('Anna changed clothes: «blue silk dress»');
         // A wording the outfit knows already (case, punctuation): only put on.
         await env.outfitSignal('Anna', 'White ball gown and long gloves!', { messageIndex: 10 });
         expect(env.nai.of('setOutfit')).toEqual([['p-anna', 'ballgown', 'chat']]);
@@ -241,7 +242,7 @@ describe('outfits from the DES tracker', () => {
             tags: 'blue jeans, grey hoodie, sneakers',
             looks: ['джинсы и серая толстовка'],
         });
-        expect(lastJournal().summary).toBe('Anna: own clothes again');
+        expect(lastJournal().summary).toBe('Anna is in their own clothes again');
         expect(service.outfits('Anna').map((outfit) => outfit.name)).toEqual(['red evening dress', 'ballgown']);
         // Undo takes the wording back and the stand-in with it.
         expect(await env.journal.undo(lastJournal().id)).toBe(true);
@@ -351,7 +352,7 @@ describe('wear by hand', () => {
         expect(record).toMatchObject({
             module: 'M27',
             kind: 'wardrobe.wear',
-            summary: 'Anna: «ballgown» put on by hand',
+            summary: 'Anna: outfit «ballgown», chosen by hand',
         });
         expect(service.history()[0]).toMatchObject({ origin: 'user', state: 'ballgown', messageIndex: -1 });
         await service.wear('p-anna', 'ballgown');
@@ -362,8 +363,8 @@ describe('wear by hand', () => {
 
     it('explains what is missing', async () => {
         const service = await env.start();
-        await expect(service.wear('p-anna', 'pajamas')).rejects.toThrow('The passport has no outfit «pajamas».');
-        await expect(service.wear('nope', '')).rejects.toThrow('The passport is no longer in this chat.');
+        await expect(service.wear('p-anna', 'pajamas')).rejects.toThrow('There is no outfit «pajamas».');
+        await expect(service.wear('nope', '')).rejects.toThrow('This character has no look in this chat any more.');
         env.naiPresent.value = false;
         await expect(service.wear('p-anna', '')).rejects.toThrow('NAI Studio 0.10 or newer is needed');
         env.mock.chatId = undefined;
@@ -396,7 +397,7 @@ describe('character states', () => {
         expect(enabledStates(anna())).toEqual(['wet', 'sleepy', 'drunk']);
         await env.turn({ characters: [{ name: 'Anna', details: { appearance: 'спокойна' } }] });
         expect(enabledStates(anna())).toEqual(['wet', 'drunk']);
-        expect(lastJournal().summary).toBe('Anna: no longer tiredness');
+        expect(lastJournal().summary).toBe('Anna: tiredness — no longer');
         await env.turn({ characters: [{ name: 'Anna', details: { appearance: 'спокойна' } }] });
         expect(enabledStates(anna())).toEqual([]);
         expect(env.nai.of('setState').slice(-2)).toEqual([
