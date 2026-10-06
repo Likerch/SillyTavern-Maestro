@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { readWardrobeSettings, wardrobeTab } from '../../../src/features/wardrobe';
+import { DesFieldOffer, readWardrobeSettings, wardrobeTab } from '../../../src/features/wardrobe';
 import type { WardrobeSettings } from '../../../src/features/wardrobe';
 import type { PultTab, Unsubscribe } from '../../../src/shared/contracts';
 import { createWardrobeEnv } from './helpers';
@@ -28,8 +28,8 @@ afterEach(async () => {
     vi.useRealTimers();
 });
 
-async function render(): Promise<void> {
-    tab = wardrobeTab(env.app, env.service(), settings);
+async function render(field?: DesFieldOffer): Promise<void> {
+    tab = wardrobeTab(env.app, env.service(), settings, field);
     expect(tab).toMatchObject({ id: 'wardrobe', titleKey: 'm27.tab', order: 60, icon: 'fa-shirt' });
     cleanup = tab.render(container);
     await env.tick(150);
@@ -145,10 +145,89 @@ describe('wardrobe tab', () => {
         await render();
         expect(text()).toContain('Another Maestro tab follows the story');
         const toggles = [...container.querySelectorAll<HTMLInputElement>('.maestro-toggle input')];
-        expect(toggles.map((node) => node.checked)).toEqual([true, true, true]);
+        expect(toggles.map((node) => node.checked)).toEqual([true, true, true, true, true, true]);
         toggles[1]!.checked = false;
         toggles[1]!.dispatchEvent(new Event('change'));
-        expect(settings()).toEqual({ outfits: true, states: false, places: true });
+        toggles[3]!.checked = false;
+        toggles[3]!.dispatchEvent(new Event('change'));
+        const numbers = [...container.querySelectorAll<HTMLInputElement>('input.maestro-number')];
+        numbers[1]!.value = '4';
+        numbers[1]!.dispatchEvent(new Event('change'));
+        expect(settings()).toMatchObject({
+            outfits: true,
+            states: false,
+            places: true,
+            promptLine: false,
+            personaEvery: 4,
+        });
+    });
+
+    it('shows who is in the scene and what they wear, with «Put on another» and «This is a new outfit»', async () => {
+        await env.start();
+        await env.turn({
+            characters: [
+                { name: 'Anna', details: { appearance: 'Silver hair, in a dark blue silk dress' } },
+                { name: 'Незнакомка', details: { appearance: 'в сером плаще' } },
+            ],
+        });
+        await render();
+        expect(text()).toContain('Who is in the scene and what they wear');
+        const rows = () => [...container.querySelectorAll<HTMLElement>('.maestro-m27-now')];
+        expect(rows()[0]!.textContent).toContain('in a dark blue silk dress');
+        expect(rows()[0]!.textContent).toContain('New — remembered if it stays one more turn · since message #0');
+        expect(rows()[0]!.textContent).toContain('from the appearance');
+        expect(rows()[1]!.textContent).toContain('No NAI passport: Maestro only remembers it');
+        expect(rows()[1]!.querySelector('button')).toBeNull();
+        const picker = rows()[0]!.querySelector('select')!;
+        expect([...picker.options].map((option) => option.textContent)).toEqual(['Own clothes', 'ballgown']);
+        picker.value = 'ballgown';
+        picker.dispatchEvent(new Event('change'));
+        buttons('Put on another')[0]!.click();
+        await env.tick(150);
+        expect(env.nai.getPassport('p-anna')!.activeOutfit).toBe('ballgown');
+        expect(rows()[0]!.textContent).toContain('Outfit: «ballgown»');
+        buttons('This is a new outfit')[0]!.click();
+        await env.tick(150);
+        expect(env.ui.notices.at(-1)?.text).toBe('Remembered as «blue silk dress».');
+        expect(env.nai.getPassport('p-anna')!.activeOutfit).toBe('blue silk dress');
+    });
+
+    it('keeps what the user’s character wears, typed by hand', async () => {
+        await env.start();
+        await render();
+        expect(text()).toContain('The tracker has not said what anyone wears yet.');
+        const input = container.querySelector<HTMLTextAreaElement>('.maestro-m27-persona textarea')!;
+        buttons('Remember')[0]!.click();
+        await env.tick(150);
+        expect(env.ui.notices.at(-1)?.text).toBe('Write what your character wears.');
+        input.value = 'grey travel cloak and boots';
+        buttons('Remember')[0]!.click();
+        await env.tick(150);
+        expect(env.ui.notices.at(-1)?.text).toBe('Remembered what you wear.');
+        const persona = container.querySelector<HTMLElement>('.maestro-m27-persona .maestro-m27-now')!;
+        expect(persona.textContent).toContain('Алекс');
+        expect(persona.textContent).toContain('you');
+        expect(persona.textContent).toContain('grey travel cloak and boots');
+        expect(container.querySelector<HTMLTextAreaElement>('.maestro-m27-persona textarea')!.value).toBe(
+            'grey travel cloak and boots',
+        );
+    });
+
+    it('offers the clothing field of DES and lists revision cards it could not take', async () => {
+        env.revision.card('Nobody wears a red hat.', 1, 'Nobody');
+        await env.start();
+        await env.tick(50);
+        await render(new DesFieldOffer(env.app, env.app.log));
+        expect(text()).toContain('Add the field «Outfit» to the DES tracker?');
+        expect(text()).toContain('Not taken from the revision');
+        expect(text()).toContain('Nobody: «Nobody wears a red hat.» — nobody of this chat has that name.');
+        buttons('Add the field')[0]!.click();
+        await env.tick(150);
+        expect(env.des.fields.at(-1)).toMatchObject({ id: 'outfit', name: 'Outfit' });
+        cleanup?.();
+        container.textContent = '';
+        await render(new DesFieldOffer(env.app, env.app.log));
+        expect(buttons('Add the field')).toEqual([]);
     });
 
     it('stops redrawing after cleanup', async () => {

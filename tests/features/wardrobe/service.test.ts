@@ -57,10 +57,37 @@ describe('module', () => {
     it('has the same keys in both languages and repairs its settings', () => {
         expect(Object.keys(WARDROBE_STRINGS.ru).sort()).toEqual(Object.keys(WARDROBE_STRINGS.en).sort());
         for (const key of Object.keys(WARDROBE_STRINGS.en)) expect(key.startsWith('m27.')).toBe(true);
-        expect(wardrobeModule.defaults()).toEqual({ outfits: true, states: true, places: true });
-        const slice: Record<string, unknown> = { outfits: 'yes', states: false };
-        expect(readWardrobeSettings(slice)).toEqual({ outfits: true, states: false, places: true });
-        expect(defaultWardrobeSettings()).toEqual({ outfits: true, states: true, places: true });
+        expect(wardrobeModule.defaults()).toEqual({
+            outfits: true,
+            states: true,
+            places: true,
+            promptLine: true,
+            promptDepth: 1,
+            redrawPortrait: true,
+            persona: true,
+            personaEvery: 6,
+        });
+        const slice: Record<string, unknown> = { outfits: 'yes', states: false, promptDepth: 99.4, personaEvery: 'x' };
+        expect(readWardrobeSettings(slice)).toEqual({
+            ...defaultWardrobeSettings(),
+            states: false,
+            promptDepth: 20,
+            personaEvery: 6,
+        });
+        expect(readWardrobeSettings({ promptDepth: -3, personaEvery: 2.6 })).toMatchObject({
+            promptDepth: 0,
+            personaEvery: 3,
+        });
+        expect(defaultWardrobeSettings()).toEqual({
+            outfits: true,
+            states: true,
+            places: true,
+            promptLine: true,
+            promptDepth: 1,
+            redrawPortrait: true,
+            persona: true,
+            personaEvery: 6,
+        });
     });
 
     it('recognises its own payloads only', () => {
@@ -206,10 +233,20 @@ describe('outfits from the DES tracker', () => {
         await env.outfitSignal('Anna', 'Красное вечернее платье', { from: 'Джинсы, серая толстовка', messageIndex: 4 });
         expect(anna().activeOutfit).toBe('red evening dress');
         await env.outfitSignal('Anna', 'джинсы и серая толстовка', { messageIndex: 6 });
-        expect(env.nai.of('setOutfit')).toEqual([['p-anna', '', 'chat']]);
+        expect(env.nai.of('setOutfit')).toEqual([]);
         expect(anna().activeOutfit).toBe('');
+        // The wording of the own clothes goes to the clothing slot's stand-in (same tags as the slot).
+        expect(anna().outfits.at(-1)).toEqual({
+            name: 'Own clothes',
+            tags: 'blue jeans, grey hoodie, sneakers',
+            looks: ['джинсы и серая толстовка'],
+        });
         expect(lastJournal().summary).toBe('Anna: own clothes again');
         expect(service.outfits('Anna').map((outfit) => outfit.name)).toEqual(['red evening dress', 'ballgown']);
+        // Undo takes the wording back and the stand-in with it.
+        expect(await env.journal.undo(lastJournal().id)).toBe(true);
+        expect(anna().activeOutfit).toBe('red evening dress');
+        expect(anna().outfits.map((outfit) => outfit.name)).toEqual(['ballgown', 'red evening dress']);
     });
 
     it('resolves chat-only and persona passports, and skips characters without one', async () => {
@@ -512,8 +549,10 @@ describe('deferred outfit cards', () => {
             'green cloak',
         ]);
         expect(anna().activeOutfit).toBe('green cloak');
-        expect(env.revision.dismissed).toEqual(['def-2', 'def-1', 'def-3']);
-        expect(env.revision.cards.map((card) => card.id)).toEqual([unknown.id, 'def-5']);
+        // A card about nobody of this chat can never be taken: dismissed with the reason (not retried forever).
+        expect(env.revision.dismissed).toEqual(['def-2', 'def-1', 'def-3', unknown.id]);
+        expect(env.revision.cards.map((card) => card.id)).toEqual(['def-5']);
+        expect(service.droppedCards()).toMatchObject([{ id: unknown.id, entityName: 'Nobody', reason: 'unknown' }]);
         expect(service.history({ kind: 'outfit' }).map((entry) => entry.origin)).toEqual([
             'revision',
             'revision',

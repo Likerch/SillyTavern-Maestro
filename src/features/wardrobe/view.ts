@@ -1,12 +1,16 @@
-// Pult tab «Гардероб» (plan M27): per character in the scene — what is worn, the known outfits with «Надеть», the
-// states that are on and the recent changes with «Отменить»; the current place with its location passport and
-// states; which parts work by themselves. Cards and wrapped rows: readable on a phone.
+// Pult tab «Гардероб» (plan M27; plan-2 §4): «Кто в сцене и что на нём» — what everyone of the scene wears now, which
+// outfit it is, since which message, with «Надеть другое» and «Это новый наряд»; «Сейчас на тебе» for the user's
+// character; the offer of the clothing field in DES; per character with a passport the outfit library, states and
+// recent changes with «Отменить»; the current place with its location passport and states; revision cards that could
+// not be taken; which parts work by themselves. Cards and wrapped rows: readable on a phone.
 import type { HistoryEntry } from '../../domain/wardrobe-doc';
 import type { App, PultTab } from '../../shared/contracts';
 import { badge, banner, card, emptyState, section } from '../../ui/components/card';
-import { toggle } from '../../ui/components/controls';
+import { field, numberInput, select, toggle } from '../../ui/components/controls';
 import { button, clear, el } from '../../ui/components/dom';
 import { coalesce, formatTime } from '../../ui/views/format';
+import type { Wearing } from './api';
+import type { DesFieldOffer } from './des-field';
 import type { PassportTarget, WardrobeService } from './service';
 import { WARDROBE_KEY } from './settings';
 import type { WardrobeSettings } from './settings';
@@ -16,6 +20,8 @@ export const WARDROBE_TAB = 'wardrobe';
 const RECENT_SHOWN = 5;
 /** Wordings shown under an outfit. */
 const SEEN_SHOWN = 2;
+/** Revision cards not taken, shown. */
+const DROPPED_SHOWN = 5;
 
 export const WARDROBE_CSS = `
 .maestro-m27 .maestro-m27-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; overflow-wrap: anywhere; }
@@ -28,9 +34,21 @@ export const WARDROBE_CSS = `
 .maestro-m27 .maestro-m27-change { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 0.9em; }
 .maestro-m27 .maestro-m27-change.maestro-m27-undone { opacity: 0.6; text-decoration: line-through; }
 .maestro-m27 .maestro-m27-sub { font-weight: 600; margin-top: 4px; }
+.maestro-m27 .maestro-m27-now { border: 1px solid var(--maestro-border); border-radius: var(--maestro-radius-sm);
+    padding: 6px 8px; display: flex; flex-direction: column; gap: 4px; }
+.maestro-m27 .maestro-m27-now.maestro-m27-away { opacity: 0.7; }
+.maestro-m27 .maestro-m27-now-name { font-weight: 600; overflow-wrap: anywhere; }
+.maestro-m27 .maestro-m27-now-text { overflow-wrap: anywhere; }
+.maestro-m27 .maestro-m27-now-meta { font-size: 0.85em; opacity: 0.8; overflow-wrap: anywhere; }
+.maestro-m27 .maestro-m27-persona textarea { width: 100%; min-height: 2.6em; box-sizing: border-box; }
 `;
 
-export function wardrobeTab(app: App, service: WardrobeService, settings: () => WardrobeSettings): PultTab {
+export function wardrobeTab(
+    app: App,
+    service: WardrobeService,
+    settings: () => WardrobeSettings,
+    fieldOffer?: DesFieldOffer,
+): PultTab {
     const t = app.i18n.t.bind(app.i18n);
 
     const stateLabel = (id: string): string => {
@@ -93,6 +111,144 @@ export function wardrobeTab(app: App, service: WardrobeService, settings: () => 
                   ),
               )
             : el('div', { class: 'maestro-muted', text: t('m27.recent.none') });
+
+    /* ------------------------------------------------------------ what everyone wears now */
+
+    /** «Наряд: …», «Своя одежда», «Новое …», «Ждёт твоего решения …» or «Паспорта нет …». */
+    const outfitLine = (item: Wearing): string => {
+        if (!item.passportId) return t('m27.now.noPassport');
+        if (item.queued !== undefined) return t('m27.now.queued', { name: item.queued || t('m27.now.own') });
+        if (item.outfit === null) return t('m27.now.new');
+        return item.outfit ? t('m27.now.outfit', { name: item.outfit }) : t('m27.now.own');
+    };
+
+    const metaLine = (item: Wearing): string => {
+        const parts: string[] = [];
+        if (item.undress) parts.push(t(`m27.undress.${item.undress}`));
+        if (item.since >= 0) parts.push(t('m27.now.since', { index: item.since }));
+        if (item.source === 'field') parts.push(t('m27.now.fromField'));
+        else if (item.source === 'appearance') parts.push(t('m27.now.fromAppearance'));
+        if (!item.present && !item.persona) parts.push(t('m27.now.away'));
+        return parts.join(' · ');
+    };
+
+    /** «Надеть другое»: the outfits of the passport and the own clothes. */
+    const otherPicker = (item: Wearing): HTMLElement | null => {
+        if (!item.passportId || !service.naiApi()) return null;
+        const outfits = service.outfits().filter((outfit) => outfit.passportId === item.passportId);
+        const options = [
+            { value: '', label: t('m27.now.own') },
+            ...outfits.map((outfit) => ({ value: outfit.name, label: outfit.name })),
+        ];
+        let chosen = item.outfit ?? '';
+        const picker = select<string>({
+            value: chosen,
+            label: t('m27.now.other.pick'),
+            options,
+            onChange: (value) => {
+                chosen = value;
+            },
+        });
+        return el('div', { class: 'maestro-m27-row' }, [
+            picker,
+            button({
+                label: t('m27.now.other'),
+                title: t('m27.now.other.hint'),
+                icon: 'fa-shirt',
+                className: 'maestro-m27-other',
+                onClick: () => run(() => service.wearOther(item.key, chosen)),
+            }),
+            item.tags
+                ? button({
+                      label: t('m27.now.markNew'),
+                      title: t('m27.now.markNew.hint'),
+                      icon: 'fa-plus',
+                      kind: 'ghost',
+                      className: 'maestro-m27-new',
+                      onClick: () =>
+                          run(async () => {
+                              const name = await service.markNew(item.key);
+                              app.ui.notice(t('m27.now.created', { name }));
+                          }),
+                  })
+                : null,
+        ]);
+    };
+
+    const nowRow = (item: Wearing): HTMLElement =>
+        el('div', { class: ['maestro-m27-now', item.present || item.persona ? null : 'maestro-m27-away'] }, [
+            el('div', { class: 'maestro-m27-row' }, [
+                el('span', { class: 'maestro-m27-now-name', text: item.name }),
+                item.persona ? badge(t('m27.now.you'), 'muted') : null,
+            ]),
+            el('div', { class: 'maestro-m27-now-text', text: item.wording }),
+            el('div', {
+                class: 'maestro-m27-now-meta',
+                text: [outfitLine(item), metaLine(item)].filter(Boolean).join(' · '),
+            }),
+            otherPicker(item),
+        ]);
+
+    const personaBox = (item: Wearing | undefined): HTMLElement => {
+        const input = el('textarea', {
+            class: 'text_pole',
+            attrs: { rows: 2, placeholder: t('m27.persona.placeholder'), 'aria-label': t('m27.persona.title') },
+        });
+        input.value = item?.wording ?? '';
+        return el('div', { class: 'maestro-m27-persona maestro-m27-list' }, [
+            el('div', { class: 'maestro-m27-sub', text: t('m27.persona.title') }),
+            item ? nowRow(item) : null,
+            input,
+            el('div', { class: 'maestro-m27-row' }, [
+                button({
+                    label: t('m27.persona.save'),
+                    icon: 'fa-check',
+                    kind: 'primary',
+                    className: 'maestro-m27-persona-save',
+                    onClick: () =>
+                        run(async () => {
+                            const text = input.value.trim();
+                            if (!text) {
+                                app.ui.notice(t('m27.persona.empty'), { level: 'warn' });
+                                return;
+                            }
+                            if (await service.setPersonaWearing(text, 'user')) app.ui.notice(t('m27.persona.saved'));
+                        }),
+                }),
+            ]),
+            el('div', { class: 'maestro-hint', text: t('m27.persona.hint') }),
+        ]);
+    };
+
+    const nowSection = (): HTMLElement => {
+        const items = service.current();
+        const people = items.filter((item) => !item.persona);
+        return section(t('m27.now.title'), [
+            people.length
+                ? el('div', { class: 'maestro-m27-list' }, people.map(nowRow))
+                : el('div', { class: 'maestro-muted', text: t('m27.now.empty') }),
+            personaBox(items.find((item) => item.persona)),
+        ]);
+    };
+
+    const fieldBanner = (): HTMLElement | null => {
+        if (!fieldOffer || fieldOffer.status() !== 'missing') return null;
+        const { name } = fieldOffer.proposed();
+        return el('div', { class: 'maestro-m27-list maestro-m27-field' }, [
+            banner(t('m27.desField.missing', { name }), 'info', 'fa-shirt'),
+            el('div', { class: 'maestro-m27-row' }, [
+                button({
+                    label: t('m27.desField.add'),
+                    icon: 'fa-plus',
+                    kind: 'primary',
+                    className: 'maestro-m27-field-add',
+                    onClick: () => run(() => fieldOffer.add()),
+                }),
+            ]),
+        ]);
+    };
+
+    /* ------------------------------------------------------------ passports */
 
     const characterCard = (target: PassportTarget): HTMLElement => {
         const passport = target.passport;
@@ -199,23 +355,66 @@ export function wardrobeTab(app: App, service: WardrobeService, settings: () => 
         ]);
     };
 
+    const droppedSection = (): HTMLElement | null => {
+        const dropped = service.droppedCards().slice(0, DROPPED_SHOWN);
+        if (!dropped.length) return null;
+        return section(t('m27.dropped.title'), [
+            el(
+                'div',
+                { class: 'maestro-m27-list' },
+                dropped.map((item) =>
+                    el('div', {
+                        class: 'maestro-m27-change maestro-m27-dropped',
+                        text: t(`m27.dropped.${item.reason}`, { name: item.entityName, text: item.value }),
+                    }),
+                ),
+            ),
+        ]);
+    };
+
     const settingsSection = (): HTMLElement => {
         const current = settings();
-        const option = (key: keyof WardrobeSettings) =>
+        const save = (key: keyof WardrobeSettings) => {
+            app.settings.notify(`modules.${WARDROBE_KEY}.${key}`);
+            app.settings.save();
+        };
+        type Flag = 'outfits' | 'states' | 'places' | 'promptLine' | 'redrawPortrait' | 'persona';
+        const option = (key: Flag, hint?: string) =>
             toggle({
                 label: t(`m27.settings.${key}`),
                 checked: current[key],
+                ...(hint ? { hint } : {}),
                 onChange: (checked) => {
                     settings()[key] = checked;
-                    app.settings.notify(`modules.${WARDROBE_KEY}.${key}`);
-                    app.settings.save();
+                    save(key);
                 },
             });
+        const number = (key: 'promptDepth' | 'personaEvery', min: number, max: number) =>
+            field(
+                t(`m27.settings.${key}`),
+                numberInput({
+                    value: current[key],
+                    min,
+                    max,
+                    step: 1,
+                    label: t(`m27.settings.${key}`),
+                    onChange: (value) => {
+                        settings()[key] = Math.round(value);
+                        save(key);
+                    },
+                }),
+            );
         return section(t('m27.settings.title'), [
             el('div', { class: 'maestro-hint', text: t('m27.settings.hint') }),
             option('outfits'),
             option('states'),
             option('places'),
+            option('promptLine'),
+            el('div', { class: 'maestro-hint', text: t('m27.settings.promptLine.hint') }),
+            number('promptDepth', 0, 20),
+            option('redrawPortrait'),
+            option('persona'),
+            number('personaEvery', 1, 50),
         ]);
     };
 
@@ -245,8 +444,13 @@ export function wardrobeTab(app: App, service: WardrobeService, settings: () => 
                 if (!service.naiApi()) root.appendChild(banner(t('m27.noNai'), 'warn'));
                 else if (!app.leader.isLeader())
                     root.appendChild(banner(t('m27.notLeader'), 'muted', 'fa-circle-info'));
+                const offer = fieldBanner();
+                if (offer) root.appendChild(offer);
+                root.appendChild(nowSection());
                 root.appendChild(charactersSection());
                 root.appendChild(placeSection());
+                const dropped = droppedSection();
+                if (dropped) root.appendChild(dropped);
                 root.appendChild(settingsSection());
             };
             const redraw = coalesce(draw, 100);

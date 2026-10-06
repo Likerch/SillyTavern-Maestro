@@ -43,6 +43,14 @@ export const DES_SELECTORS = {
 
 export type DesGenerationMode = 'together' | 'separate' | 'external';
 
+/** One per-character field of DES's tracker (trackerConfig.presentCharacters.customFields). */
+export interface DesCharacterField {
+    id: string;
+    name: string;
+    enabled: boolean;
+    description: string;
+}
+
 export function isDesManifest(manifest: ExtensionManifest): boolean {
     return homePageHas(manifest, DES_REPO) || manifest.display_name === DES_DISPLAY_NAME;
 }
@@ -201,6 +209,97 @@ export class DesAdapter extends NeighbourBase<'des'> {
         }
         this.persistSettings(live);
         return true;
+    }
+
+    /**
+     * The per-character fields DES asks the model for (`trackerConfig.presentCharacters.customFields`, DES 2.6
+     * state.js:216; DES's default is `appearance` and `demeanor`). The detail key of a field in the tracker JSON is
+     * `toSnakeCase(name)` (jsonPromptHelpers.js buildCharactersJSONInstruction), the name itself for Cyrillic names
+     * when DES-RU restores them. Copies; null when DES or its live state is not available.
+     */
+    characterFields(): DesCharacterField[] | null {
+        const live = this.modules.state?.extensionSettings;
+        if (!this.present() || !isDict(live)) return null;
+        const tracker = isDict(live.trackerConfig) ? live.trackerConfig : {};
+        const present = isDict(tracker.presentCharacters) ? tracker.presentCharacters : {};
+        const fields = Array.isArray(present.customFields) ? present.customFields.filter(isDict) : [];
+        return fields.map((field) => ({
+            id: typeof field.id === 'string' ? field.id : '',
+            name: typeof field.name === 'string' ? field.name : '',
+            enabled: field.enabled !== false,
+            description: typeof field.description === 'string' ? field.description : '',
+        }));
+    }
+
+    /**
+     * Adds a per-character field to DES's live tracker config (or switches on a field with the same id), mirrors it
+     * into the active tracker preset (DES loads a preset's trackerConfig over the live one on character switch,
+     * persistence.js loadPreset) and saves like DES. `before` is the field as it was (null: it was added). Null when
+     * DES or its live state is not available. Callers check `isWorkshopOpen()` first (plan §10.8).
+     */
+    addCharacterField(field: {
+        id: string;
+        name: string;
+        description: string;
+    }): { before: Record<string, unknown> | null } | null {
+        const live = this.modules.state?.extensionSettings;
+        if (!this.present() || !isDict(live) || !field.id.trim() || !field.name.trim()) return null;
+        const change = (config: Dict): Record<string, unknown> | null => {
+            const present = isDict(config.presentCharacters)
+                ? config.presentCharacters
+                : (config.presentCharacters = {});
+            const list = Array.isArray(present.customFields) ? present.customFields : (present.customFields = []);
+            const existing = list.find((item): item is Dict => isDict(item) && item.id === field.id);
+            if (existing) {
+                const before = JSON.parse(JSON.stringify(existing)) as Record<string, unknown>;
+                existing.enabled = true;
+                return before;
+            }
+            list.push({
+                id: field.id,
+                name: field.name,
+                enabled: true,
+                description: field.description,
+                persistInHistory: false,
+            });
+            return null;
+        };
+        const tracker = isDict(live.trackerConfig) ? live.trackerConfig : (live.trackerConfig = {});
+        const before = change(tracker);
+        const preset = this.activePreset(live);
+        if (preset && isDict(preset.trackerConfig)) change(preset.trackerConfig);
+        this.persistSettings(live);
+        return { before };
+    }
+
+    /**
+     * Takes back `addCharacterField`: the field with this id goes from the live config and the active preset, or gets
+     * back its old state when `before` is given. False when DES or its live state is not available.
+     */
+    removeCharacterField(id: string, before: Record<string, unknown> | null = null): boolean {
+        const live = this.modules.state?.extensionSettings;
+        if (!this.present() || !isDict(live)) return false;
+        const change = (config: unknown) => {
+            if (!isDict(config) || !isDict(config.presentCharacters)) return;
+            const present = config.presentCharacters;
+            if (!Array.isArray(present.customFields)) return;
+            const index = present.customFields.findIndex((item) => isDict(item) && item.id === id);
+            if (index < 0) return;
+            if (before) present.customFields[index] = JSON.parse(JSON.stringify(before)) as Dict;
+            else present.customFields.splice(index, 1);
+        };
+        change(live.trackerConfig);
+        const preset = this.activePreset(live);
+        if (preset) change(preset.trackerConfig);
+        this.persistSettings(live);
+        return true;
+    }
+
+    private activePreset(live: Dict): Dict | null {
+        const manager = isDict(live.presetManager) ? live.presetManager : null;
+        const activeId = typeof manager?.activePresetId === 'string' ? manager.activePresetId : null;
+        const presets = isDict(manager?.presets) ? manager.presets : null;
+        return activeId && presets && isDict(presets[activeId]) ? presets[activeId] : null;
     }
 
     /** Saves DES's live settings the way DES does (persistence.js saveSettings), with ST's own save as fallback. */

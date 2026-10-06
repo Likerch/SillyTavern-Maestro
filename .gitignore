@@ -7,3 +7,6 @@ coverage/
 tools/stand/runtime/
 .claude/
 .idea/
+
+# Real tracker samples from the user's own chats (tools/extract-des-samples.mjs): never public.
+tests/fixtures-private/

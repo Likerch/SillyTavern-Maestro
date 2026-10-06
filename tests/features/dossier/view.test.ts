@@ -3,7 +3,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { DossierApi } from '../../../src/features/dossier/api';
 import type { Dossier } from '../../../src/features/dossier/api';
 import { spreadTargets } from '../../../src/features/dossier/view';
-import type { Outfit, WardrobeApi } from '../../../src/features/wardrobe/api';
+import type { Outfit, WardrobeApi, Wearing } from '../../../src/features/wardrobe/api';
+import { WARDROBE_STRINGS } from '../../../src/features/wardrobe/strings';
 import type { PultTab } from '../../../src/shared/contracts';
 import { LYRA_ID, lyraScene } from './fixtures';
 import { FakeWorldModel, createDossierEnv, settle, startDossier, wi } from './helpers';
@@ -209,11 +210,13 @@ describe('dossier tab', () => {
 
 describe('dossier outfits (M27 п.4)', () => {
     /** The wardrobe's API over a list: outfits of «Лира» only, wear() switches «active» and tells the listeners. */
-    function fakeWardrobe(list: Outfit[], options: { failWear?: string } = {}) {
+    function fakeWardrobe(list: Outfit[], options: { failWear?: string; now?: Wearing[] } = {}) {
         const listeners = new Set<() => void>();
         const worn: [string, string][] = [];
         const asked: (string | undefined)[] = [];
+        const now = options.now;
         const wardrobe: WardrobeApi = {
+            ...(now ? { current: (character?: string) => now.filter((item) => item.name === character) } : {}),
             outfits(character) {
                 asked.push(character);
                 return character === 'Лира' ? list.map((outfit) => ({ ...outfit })) : [];
@@ -231,7 +234,7 @@ describe('dossier outfits (M27 п.4)', () => {
             },
         };
         env.modules.expose('wardrobe', wardrobe);
-        return { list, listeners, worn, asked };
+        return { list, listeners, worn, asked, now };
     }
 
     const outfit = (name: string, tags: string, active = false): Outfit => ({
@@ -297,6 +300,43 @@ describe('dossier outfits (M27 п.4)', () => {
         await settle();
         expect(env.ui.notices.at(-1)?.text).toBe('The passport is no longer in this chat.');
         expect(wardrobe.worn).toEqual([]);
+    });
+
+    it('says in the header what the character wears now (release 1.11)', async () => {
+        env.app.i18n.register(WARDROBE_STRINGS);
+        const item: Wearing = {
+            key: 'p-lyra',
+            name: 'Лира',
+            persona: false,
+            passportId: 'p-lyra',
+            wording: 'в сером дорожном плаще',
+            tags: 'grey travel cloak',
+            undress: '',
+            outfit: 'travel cloak',
+            since: 4,
+            seen: 6,
+            turns: 2,
+            present: true,
+            source: 'appearance',
+        };
+        const wardrobe = fakeWardrobe([outfit('travel cloak', 'grey travel cloak', true)], { now: [item] });
+        api.open(LYRA_ID);
+        await render();
+        const now = () => container.querySelector<HTMLElement>('.maestro-m7-now')!;
+        expect(now().hidden).toBe(false);
+        expect(now().textContent).toBe('Wearing: в сером дорожном плащеOutfit: «travel cloak» · since message #4');
+        // The wardrobe learns other clothing: the header follows without a reload.
+        Object.assign(item, { wording: 'в белой рубахе', outfit: null, since: 8 });
+        for (const listener of wardrobe.listeners) listener();
+        expect(now().textContent).toBe(
+            'Wearing: в белой рубахеNew — remembered if it stays one more turn · since message #8',
+        );
+        Object.assign(item, { outfit: '', passportId: '' });
+        for (const listener of wardrobe.listeners) listener();
+        expect(now().querySelector('.maestro-m7-now-meta')!.textContent).toBe('since message #8');
+        wardrobe.now!.length = 0;
+        for (const listener of wardrobe.listeners) listener();
+        expect(now().hidden).toBe(true);
     });
 
     it('is not there without the wardrobe module, and hidden for someone without outfits', async () => {

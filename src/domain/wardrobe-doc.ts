@@ -2,6 +2,8 @@
 // each passport outfit was recognised from, when it was first and last seen), the history of changes for the pult and
 // undo, and the two-turn bookkeeping of the states Maestro switched on. The outfits and states themselves live in NAI
 // Studio's chat-level passports (§2.1); this is only Maestro's memory about them. Pure.
+import { normalizeWearRecord } from './wardrobe-current';
+import type { WearRecord } from './wardrobe-current';
 import type { TrackedState } from './wardrobe-states';
 import { wordingScore } from './wardrobe-match';
 
@@ -60,17 +62,47 @@ export interface WardrobeDoc {
     lastOutfit: Record<string, number>;
     /** Revision deferred cards taken in (dismissed there; kept in case dismissing failed). */
     taken: string[];
+    /** What everyone of the scene (and the persona) wears now: record key → record (wardrobe-current.ts). */
+    current: Record<string, WearRecord>;
+    /** Revision cards the wardrobe could not take, dismissed with the reason (newest last). */
+    dropped: DroppedCard[];
+    /** The persona check: last committed message it looked at (-1: never). */
+    personaCheck: number;
+}
+
+/** A revision outfit card that was dismissed because it cannot be taken. */
+export interface DroppedCard {
+    id: string;
+    entityName: string;
+    value: string;
+    reason: 'unknown' | 'noGarment' | 'removal' | 'noPassport';
+    sourceMessage: number;
+    at: number;
 }
 
 export const KEEP_HISTORY = 200;
 export const KEEP_OUTFITS = 300;
 export const KEEP_SEEN = 8;
 export const KEEP_TAKEN = 500;
+export const KEEP_DROPPED = 50;
+export const KEEP_CURRENT = 100;
 /** A wording this close to a remembered one is not stored again. */
 const SAME_WORDING = 0.9;
 
 export function emptyWardrobeDoc(): WardrobeDoc {
-    return { version: 1, outfits: [], history: [], chars: {}, places: {}, lastIndex: -1, lastOutfit: {}, taken: [] };
+    return {
+        version: 1,
+        outfits: [],
+        history: [],
+        chars: {},
+        places: {},
+        lastIndex: -1,
+        lastOutfit: {},
+        taken: [],
+        current: {},
+        dropped: [],
+        personaCheck: -1,
+    };
 }
 
 type Dict = Record<string, unknown>;
@@ -186,7 +218,43 @@ export function normalizeWardrobeDoc(raw: unknown): WardrobeDoc {
         }
     }
     doc.taken = strings(raw.taken).slice(-KEEP_TAKEN);
+    if (isDict(raw.current)) {
+        const records = Object.values(raw.current)
+            .map(normalizeWearRecord)
+            .filter((item): item is WearRecord => item !== null)
+            .sort((a, b) => a.at - b.at)
+            .slice(-KEEP_CURRENT);
+        for (const record of records) doc.current[record.key] = record;
+    }
+    doc.dropped = (Array.isArray(raw.dropped) ? raw.dropped : [])
+        .map(droppedOf)
+        .filter((item): item is DroppedCard => item !== null)
+        .slice(-KEEP_DROPPED);
+    doc.personaCheck = num(raw.personaCheck, -1);
     return doc;
+}
+
+const DROP_REASONS: readonly DroppedCard['reason'][] = ['unknown', 'noGarment', 'removal', 'noPassport'];
+
+function droppedOf(raw: unknown): DroppedCard | null {
+    if (!isDict(raw) || !str(raw.id)) return null;
+    const reason = DROP_REASONS.find((item) => item === raw.reason);
+    if (!reason) return null;
+    return {
+        id: str(raw.id),
+        entityName: str(raw.entityName),
+        value: str(raw.value),
+        reason,
+        sourceMessage: num(raw.sourceMessage, -1),
+        at: num(raw.at, 0),
+    };
+}
+
+/** Remembers a dismissed revision card (the oldest go beyond KEEP_DROPPED). */
+export function pushDropped(doc: WardrobeDoc, card: DroppedCard): void {
+    doc.dropped = doc.dropped.filter((item) => item.id !== card.id);
+    doc.dropped.push(card);
+    if (doc.dropped.length > KEEP_DROPPED) doc.dropped.splice(0, doc.dropped.length - KEEP_DROPPED);
 }
 
 /* ------------------------------------------------------------------ the library */
