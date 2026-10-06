@@ -53,19 +53,39 @@ export const WARDROBE_STRINGS: I18nParts = {
 
         'm27.settings.title': 'By itself',
         'm27.settings.hint':
-            'Off: Maestro leaves that part of the passports alone. How changes are confirmed (by itself, Inbox …) is set by the autonomy levels of the kinds wardrobe.* in the settings.',
+            'Off: Maestro leaves that part of the passports alone. How changes are confirmed (by itself, Inbox …) is set in the autonomy settings.',
         'm27.settings.outfits': 'Outfits from the DES tracker and the revision',
         'm27.settings.states': 'Character states',
         'm27.settings.places': 'Place states',
+        'm27.settings.promptLine': 'A line «who wears what» in the prompt',
+        'm27.settings.promptLine.hint':
+            'Near the end of the prompt: only the characters of the scene and you, about 30–80 tokens. It helps the model keep clothes consistent.',
+        'm27.settings.promptDepth': 'Depth in the chat',
+        'm27.settings.redrawPortrait': 'Redraw the DES portrait when the outfit changes',
+        'm27.settings.persona': 'Follow what your character wears (background model)',
+        'm27.settings.personaEvery': 'At most every N turns',
 
         'm27.proposal.create': '{name}: new outfit «{outfit}»',
         'm27.proposal.wear': '{name}: outfit «{outfit}» again',
         'm27.proposal.clothing': '{name}: own clothes again',
+        'm27.proposal.undress.naked': '{name}: no clothes',
+        'm27.proposal.undress.towel': '{name}: in a towel',
+        'm27.proposal.undress.underwear': '{name}: in underwear',
+        'm27.proposal.copy': '{name}: own passport in this chat',
+        'm27.proposal.body.create':
+            '{name} is wearing something new: {text}. Maestro will remember it as the outfit «{outfit}» and put it on in this chat, so pictures draw it the same way every time.\n\nDetails: NAI tags — {tags}.',
+        'm27.proposal.body.wear':
+            '{name} is in «{outfit}» again: {text}. Maestro will put it on in this chat.\n\nDetails: NAI tags — {tags}.',
+        'm27.proposal.body.clothing':
+            '{name} is in their own clothes again: {text}. Maestro will put the clothes of the passport back on in this chat.',
+        'm27.proposal.body.undress':
+            '{name}: {text}. In this chat pictures will draw «{outfit}» until {name} dresses again.',
+        'm27.proposal.body.copy':
+            'The look of «{name}» is only in the lore. Maestro will copy it into this chat, so outfits can be kept here; the lore entry stays as it is.',
         'm27.proposal.stateOn': '{name}: {state}',
         'm27.proposal.stateOff': '{name}: no longer {state}',
         'm27.proposal.placeOn': '{place}: {state}',
         'm27.proposal.placeOff': '{place}: {state} is over',
-        'm27.proposal.body.outfit': 'Tags: {tags}. DES: «{text}». Only this chat; the card is not changed.',
         'm27.proposal.body.state': 'Tags: {tags}. Only this chat; the card is not changed.',
         'm27.journal.wear': '{name}: «{outfit}» put on by hand',
 
@@ -73,6 +93,59 @@ export const WARDROBE_STRINGS: I18nParts = {
         'm27.error.gone': 'The passport is no longer in this chat.',
         'm27.error.noOutfit': 'The passport has no outfit «{name}».',
         'm27.error.noChat': 'No chat is open.',
+        'm27.error.noPassport': 'This character has no NAI passport in this chat.',
+        'm27.error.noGarment': 'No garment is recognised in what they wear now.',
+
+        'm27.now.title': 'Who is in the scene and what they wear',
+        'm27.now.empty': 'The tracker has not said what anyone wears yet.',
+        'm27.now.outfit': 'Outfit: «{name}»',
+        'm27.now.own': 'Own clothes',
+        'm27.now.new': 'New — remembered if it stays one more turn',
+        'm27.now.queued': 'Waiting for your decision: «{name}»',
+        'm27.now.noPassport': 'No NAI passport: Maestro only remembers it',
+        'm27.now.since': 'since message #{index}',
+        'm27.now.away': 'not in the scene',
+        'm27.now.you': 'you',
+        'm27.now.fromField': 'from the clothing field',
+        'm27.now.fromAppearance': 'from the appearance',
+        'm27.now.other': 'Put on another',
+        'm27.now.other.hint': 'Choose which outfit this clothing really is: Maestro remembers it.',
+        'm27.now.other.pick': 'Outfit',
+        'm27.now.markNew': 'This is a new outfit',
+        'm27.now.markNew.hint': 'Remember what is worn now as a new outfit and put it on.',
+        'm27.now.created': 'Remembered as «{name}».',
+        'm27.undress.naked': 'no clothes',
+        'm27.undress.towel': 'in a towel',
+        'm27.undress.underwear': 'in underwear',
+        'm27.undress.partial': 'partly undressed',
+
+        'm27.persona.title': 'What you wear now',
+        'm27.persona.placeholder': 'e.g. a grey travel cloak and boots',
+        'm27.persona.save': 'Remember',
+        'm27.persona.saved': 'Remembered what you wear.',
+        'm27.persona.empty': 'Write what your character wears.',
+        'm27.persona.hint': 'Maestro also checks it in the chat now and then, when clothes come up.',
+
+        'm27.desField.missing':
+            'DES does not ask the model what everyone wears: its tracker has no clothing field, so Maestro reads clothes from the appearance text, which is less reliable. Add the field «{name}» to the DES tracker? Only that field is added; it can be undone in the journal.',
+        'm27.desField.add': 'Add the field',
+        'm27.desField.added': 'DES now asks what everyone wears: the «{name}» field is added.',
+        'm27.desField.workshop': 'Close the DES Workshop first: it overwrites the tracker settings when it saves.',
+        'm27.desField.failed': 'The field could not be added: the DES settings are not available.',
+        'm27.desField.proposal': 'DES tracker: the field «{name}»',
+        'm27.desField.body':
+            'DES will ask the model every reply what each character wears, in a separate «{name}» field. Maestro keeps outfits from it and draws them the same way. Nothing else in DES changes.',
+        'm27.desField.notice':
+            'Maestro reads clothes from the DES appearance text. Add a separate clothing field to the DES tracker?',
+        'm27.health.desField': 'Wardrobe: clothing field in DES',
+        'm27.health.desField.ok': 'DES asks what everyone wears.',
+        'm27.health.desField.missing': 'DES has no clothing field: outfits are read from the appearance text.',
+
+        'm27.dropped.title': 'Not taken from the revision',
+        'm27.dropped.unknown': '{name}: «{text}» — nobody of this chat has that name.',
+        'm27.dropped.noGarment': '{name}: «{text}» — no garment is recognised.',
+        'm27.dropped.removal': '{name}: «{text}» — it says what was taken off, not what is worn.',
+        'm27.dropped.noPassport': '{name}: «{text}» — this character has no NAI passport.',
 
         'm27.state.wet': 'wet',
         'm27.state.injured': 'wounds',
@@ -152,20 +225,38 @@ export const WARDROBE_STRINGS: I18nParts = {
 
         'm27.settings.title': 'Само',
         'm27.settings.hint':
-            'Выключено — Maestro не трогает эту часть паспортов. Как подтверждаются изменения (само, «Входящие» …), задают уровни автономии видов wardrobe.* в настройках.',
+            'Выключено — Maestro не трогает эту часть паспортов. Как подтверждаются изменения (само, «Входящие» …), задаётся в настройках автономии.',
         'm27.settings.outfits': 'Наряды из трекера DES и ревизии',
         'm27.settings.states': 'Состояния персонажей',
         'm27.settings.places': 'Состояния мест',
+        'm27.settings.promptLine': 'Строка «кто во что одет» в промпте',
+        'm27.settings.promptLine.hint':
+            'Ближе к концу промпта: только персонажи сцены и ты, примерно 30–80 токенов. Помогает модели не путать одежду.',
+        'm27.settings.promptDepth': 'Глубина в чате',
+        'm27.settings.redrawPortrait': 'Перерисовывать портрет DES при смене наряда',
+        'm27.settings.persona': 'Следить, во что одет твой персонаж (фоновая модель)',
+        'm27.settings.personaEvery': 'Не чаще чем раз в N ходов',
 
         'm27.proposal.create': '{name}: новый наряд «{outfit}»',
         'm27.proposal.wear': '{name}: снова наряд «{outfit}»',
         'm27.proposal.clothing': '{name}: снова своя одежда',
+        'm27.proposal.undress.naked': '{name}: без одежды',
+        'm27.proposal.undress.towel': '{name}: в полотенце',
+        'm27.proposal.undress.underwear': '{name}: в нижнем белье',
+        'm27.proposal.copy': '{name}: свой паспорт в этом чате',
+        'm27.proposal.body.create':
+            '{name} теперь в другой одежде: {text}. Запомню её как наряд «{outfit}» и надену в этом чате — картинки будут рисовать его каждый раз одинаково.\n\nПодробнее: теги NAI — {tags}.',
+        'm27.proposal.body.wear':
+            '{name} снова в наряде «{outfit}»: {text}. Надену его в этом чате.\n\nПодробнее: теги NAI — {tags}.',
+        'm27.proposal.body.clothing': '{name} снова в своей одежде: {text}. Верну в этом чате одежду из паспорта.',
+        'm27.proposal.body.undress':
+            '{name}: {text}. В этом чате картинки будут рисовать «{outfit}», пока {name} снова не оденется.',
+        'm27.proposal.body.copy':
+            'Внешность «{name}» есть только в лоре. Скопирую её в этот чат, чтобы запоминать здесь наряды; сама запись лора не изменится.',
         'm27.proposal.stateOn': '{name}: {state}',
         'm27.proposal.stateOff': '{name}: {state} — уже нет',
         'm27.proposal.placeOn': '{place}: {state}',
         'm27.proposal.placeOff': '{place}: {state} — уже нет',
-        'm27.proposal.body.outfit':
-            'Теги: {tags}. В трекере DES: «{text}». Только для этого чата, карточка не меняется.',
         'm27.proposal.body.state': 'Теги: {tags}. Только для этого чата, карточка не меняется.',
         'm27.journal.wear': '{name}: наряд «{outfit}» надет вручную',
 
@@ -173,6 +264,59 @@ export const WARDROBE_STRINGS: I18nParts = {
         'm27.error.gone': 'Паспорта больше нет в этом чате.',
         'm27.error.noOutfit': 'В паспорте нет наряда «{name}».',
         'm27.error.noChat': 'Чат не открыт.',
+        'm27.error.noPassport': 'У этого персонажа нет паспорта NAI в этом чате.',
+        'm27.error.noGarment': 'В том, что сейчас надето, не узнаётся ни одной вещи.',
+
+        'm27.now.title': 'Кто в сцене и что на нём',
+        'm27.now.empty': 'Трекер пока не говорил, кто во что одет.',
+        'm27.now.outfit': 'Наряд: «{name}»',
+        'm27.now.own': 'Своя одежда',
+        'm27.now.new': 'Новое — запомню, если продержится ещё ход',
+        'm27.now.queued': 'Ждёт твоего решения: «{name}»',
+        'm27.now.noPassport': 'Паспорта NAI нет — Maestro только помнит это',
+        'm27.now.since': 'с сообщения №{index}',
+        'm27.now.away': 'не в сцене',
+        'm27.now.you': 'ты',
+        'm27.now.fromField': 'из поля «Одежда»',
+        'm27.now.fromAppearance': 'из «Внешности»',
+        'm27.now.other': 'Надеть другое',
+        'm27.now.other.hint': 'Выбрать, какой это на самом деле наряд, — Maestro запомнит.',
+        'm27.now.other.pick': 'Наряд',
+        'm27.now.markNew': 'Это новый наряд',
+        'm27.now.markNew.hint': 'Запомнить то, что сейчас надето, как новый наряд и надеть его.',
+        'm27.now.created': 'Запомнил как «{name}».',
+        'm27.undress.naked': 'без одежды',
+        'm27.undress.towel': 'в полотенце',
+        'm27.undress.underwear': 'в нижнем белье',
+        'm27.undress.partial': 'частично без одежды',
+
+        'm27.persona.title': 'Сейчас на тебе',
+        'm27.persona.placeholder': 'например: серый дорожный плащ и сапоги',
+        'm27.persona.save': 'Запомнить',
+        'm27.persona.saved': 'Запомнил, что на тебе.',
+        'm27.persona.empty': 'Напиши, во что одет твой персонаж.',
+        'm27.persona.hint': 'Maestro и сам иногда уточняет это по чату, когда речь заходит об одежде.',
+
+        'm27.desField.missing':
+            'Трекер DES не спрашивает у модели, кто во что одет: отдельного поля для одежды в нём нет, и Maestro вычитывает одежду из «Внешности» — это менее точно. Добавить в трекер DES поле «{name}»? Добавится только это поле; отменить можно в журнале.',
+        'm27.desField.add': 'Добавить поле',
+        'm27.desField.added': 'Теперь DES спрашивает, кто во что одет: поле «{name}» добавлено.',
+        'm27.desField.workshop': 'Сначала закрой мастерскую DES — при сохранении она перезаписывает настройки трекера.',
+        'm27.desField.failed': 'Поле добавить не удалось: настройки DES недоступны.',
+        'm27.desField.proposal': 'Трекер DES: поле «{name}»',
+        'm27.desField.body':
+            'DES будет каждый ход спрашивать у модели, во что одет каждый персонаж, — отдельным полем «{name}». Maestro по нему запоминает наряды и рисует их одинаково. Больше в DES ничего не меняется.',
+        'm27.desField.notice':
+            'Одежду Maestro сейчас вычитывает из «Внешности» DES. Добавить в трекер DES отдельное поле для одежды?',
+        'm27.health.desField': 'Гардероб: поле одежды в DES',
+        'm27.health.desField.ok': 'DES спрашивает, кто во что одет.',
+        'm27.health.desField.missing': 'В DES нет поля одежды: наряды вычитываются из «Внешности».',
+
+        'm27.dropped.title': 'Не взял из ревизии',
+        'm27.dropped.unknown': '{name}: «{text}» — в этом чате нет такого персонажа.',
+        'm27.dropped.noGarment': '{name}: «{text}» — не узнал ни одной вещи.',
+        'm27.dropped.removal': '{name}: «{text}» — тут сказано, что сняли, а не что надето.',
+        'm27.dropped.noPassport': '{name}: «{text}» — у персонажа нет паспорта NAI.',
 
         'm27.state.wet': 'мокрая одежда',
         'm27.state.injured': 'раны',

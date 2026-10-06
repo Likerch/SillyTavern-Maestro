@@ -196,6 +196,7 @@ const EN_GARMENTS = [
     'hakama', 'toga', 'loincloth', 'gown', 'overalls', 'overcoat', 'cape', 'mantle', 'robes', 'trousers', 'slacks',
     'jumper', 'pullover', 'waistcoat', 'armour', 'tights', 'thighhighs', 'pumps', 'tee', 'tshirt', 'pyjamas', 'frock',
     'boot', 'shoe', 'raincoat', 'parka', 'overshirt', 'camisole', 'chemise', 'petticoat', 'breeches', 'tabard',
+    'boxers', 'briefs', 'undergarments',
 ];
 // prettier-ignore
 const EN_ACCESSORIES = [
@@ -383,6 +384,15 @@ export function lookupRu(word: string): Term | null {
     const exact = RU_EXACT.get(value);
     if (exact) return exact;
     for (const { prefix, term } of RU_PREFIXES) if (value.startsWith(prefix)) return term;
+    return null;
+}
+
+/** The dictionary key a Russian word matched (`=form` for an exact form); null when unknown. */
+export function ruTermKey(word: string): string | null {
+    const value = normalize(word);
+    if (!value) return null;
+    if (RU_EXACT.has(value)) return `=${value}`;
+    for (const { prefix } of RU_PREFIXES) if (value.startsWith(prefix)) return prefix;
     return null;
 }
 

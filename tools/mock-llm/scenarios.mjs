@@ -178,13 +178,39 @@ const TEXT = {
                 '{X} предлагает переждать непогоду в месте под названием {T}, в полудне пути отсюда.',
             ],
         ],
+        // Like real DES: one «appearance» text with the features and the clothes (DES has no outfit field).
         appearance: [
-            'Тёмный плащ, промокший у подола',
-            'Волосы собраны в тугую косу, на поясе кинжал',
-            'Кожаная куртка с латунными пряжками',
-            'Очки на цепочке, пальцы в пятнах чернил',
-            'Мундир стражи, на рукаве потёртая нашивка',
-            'Дорожная накидка, через плечо сумка с картами',
+            // wear: as the appearance text says it; outfit: the same for a clothing field.
+            {
+                look: 'Высокая, волосы собраны в тугую косу',
+                wear: 'в тёмном плаще, промокшем у подола',
+                outfit: 'Тёмный плащ, промокший у подола, высокие сапоги',
+            },
+            {
+                look: 'Худощавый, рыжие кудри, веснушки',
+                wear: 'в кожаной куртке с латунными пряжками',
+                outfit: 'Кожаная куртка с латунными пряжками, холщовые штаны',
+            },
+            {
+                look: 'Очки на цепочке, пальцы в пятнах чернил',
+                wear: 'в сером сюртуке',
+                outfit: 'Серый сюртук, белая рубашка',
+            },
+            {
+                look: 'Коротко стриженный, шрам над бровью',
+                wear: 'в мундире стражи с потёртой нашивкой',
+                outfit: 'Мундир стражи, сапоги',
+            },
+            {
+                look: 'Светлые волосы до плеч, внимательный взгляд',
+                wear: 'в дорожной накидке, через плечо сумка',
+                outfit: 'Дорожная накидка, сумка через плечо',
+            },
+            {
+                look: 'Смуглая кожа, тёмные глаза',
+                wear: 'в льняной рубахе и шерстяном жилете',
+                outfit: 'Льняная рубаха, шерстяной жилет',
+            },
         ],
         demeanor: [
             'Насторожённость, взгляд скользит по толпе',
@@ -280,9 +306,21 @@ const TEXT = {
             ],
         ],
         appearance: [
-            'Dark cloak, wet at the hem',
-            'Hair in a tight braid, a dagger at the belt',
-            'Leather jacket with brass buckles',
+            {
+                look: 'Tall, hair in a tight braid',
+                wear: 'wearing a dark cloak, wet at the hem',
+                outfit: 'Dark cloak, wet at the hem, high boots',
+            },
+            {
+                look: 'Lean, red curls and freckles',
+                wear: 'wearing a leather jacket with brass buckles',
+                outfit: 'Leather jacket with brass buckles, canvas trousers',
+            },
+            {
+                look: 'Spectacles on a chain, ink-stained fingers',
+                wear: 'wearing a grey frock coat',
+                outfit: 'Grey frock coat, white shirt',
+            },
         ],
         demeanor: ['Watchful, eyes sliding over the crowd', 'Restrained curiosity', 'Tired but standing straight'],
         thoughts: [
@@ -320,6 +358,7 @@ const FLAG_MARKERS = [
     'fenced',
     'tool',
     'outfit',
+    'wear',
     'stat',
     'mechblock',
 ];
@@ -756,13 +795,33 @@ registerSchema('nai_passports', (ctx) => {
     };
 });
 
+// The wardrobe asks what the user's character wears: `[mock:wear:phrase]` in the chat is the answer, else null.
+registerSchema('wardrobe_persona', (ctx) => ({ wearing: ctx.markers?.get('wear') || null }));
+
 registerTool('search_lore', (ctx) => ({ query: ctx.names[0] ?? DEFAULT_LOCATION, limit: 5 }));
 
 /* ------------------------------------------------------------------ reply builders */
 
+/**
+ * The key of a clothing field the DES tracker template asks for (Maestro adds «Одежда» / "Outfit" with the user's
+ * consent), or null: real DES only has appearance and demeanor.
+ */
+export function outfitFieldOf(texts) {
+    for (const text of texts) {
+        for (const block of String(text ?? '').matchAll(/"details"\s*:\s*\{([^{}]*)\}/g)) {
+            for (const key of block[1].matchAll(/"([^"\n]{1,40})"\s*:/g)) {
+                if (/одежд|наряд|outfit|cloth|attire/i.test(key[1])) return key[1];
+            }
+        }
+    }
+    return null;
+}
+
 function trackerObject(ctx, rng, lang) {
     const text = TEXT[lang];
-    // [mock:outfit:Имя=наряд] (or just [mock:outfit:наряд] for the first character) puts an outfit into the tracker;
+    const outfitKey = outfitFieldOf(ctx.texts ?? []);
+    // [mock:outfit:Имя=наряд] (or just [mock:outfit:наряд] for the first character) dresses a character: the clothes
+    // go into the appearance text like real DES writes them, and into the clothing field when the template has one;
     // a named character who is not in the scene joins it.
     const outfitArg = ctx.markers?.get('outfit') ?? '';
     const [outfitWho, outfitWhat] = outfitArg.includes('=')
@@ -807,18 +866,22 @@ function trackerObject(ctx, rng, lang) {
             temperature: { value: 6 + Math.floor(rng() * 10), unit: 'C' },
             recentEvents: [pick(rng, text.events)],
         },
-        characters: names.map((name, i) => ({
-            name,
-            emoji: ['🌹', '⚔️', '⚗️', '⚓', '🗺️'][i % 5],
-            details: {
-                appearance: pick(rng, text.appearance),
-                demeanor: pick(rng, text.demeanor),
-                ...(outfitWhat && i === outfitIndex ? { outfit: outfitWhat } : {}),
-            },
-            ...(stats.length && i === statIndex ? { stats } : {}),
-            relationship: { status: pick(rng, statuses) },
-            thoughts: { content: fill(pick(rng, text.thoughts), { U: ctx.userName }) },
-        })),
+        characters: names.map((name, i) => {
+            const look = pick(rng, text.appearance);
+            const dressed = outfitWhat && i === outfitIndex;
+            return {
+                name,
+                emoji: ['🌹', '⚔️', '⚗️', '⚓', '🗺️'][i % 5],
+                details: {
+                    appearance: `${look.look}, ${dressed ? outfitWhat : look.wear}`,
+                    demeanor: pick(rng, text.demeanor),
+                    ...(outfitKey ? { [outfitKey]: dressed ? outfitWhat : look.outfit } : {}),
+                },
+                ...(stats.length && i === statIndex ? { stats } : {}),
+                relationship: { status: pick(rng, statuses) },
+                thoughts: { content: fill(pick(rng, text.thoughts), { U: ctx.userName }) },
+            };
+        }),
     };
 }
 

@@ -30,6 +30,11 @@ import type {
     App,
     AutonomyLevel,
     Decision,
+    GenerationInfo,
+    HealthCheck,
+    InjectionSpec,
+    LlmRequest,
+    LlmResult,
     Proposal,
     PultTab,
     SettingsService,
@@ -90,6 +95,8 @@ export class FakeNai implements NaiStudioApi {
     persona: NaiPassport[] = [];
     chatOwn: NaiPassport[] = [];
     readonly views = new Map<string, NaiPassport>();
+    /** Passports of the chat itself made through savePassport (clearChatOverride drops them). */
+    readonly created = new Set<string>();
     readonly calls: NaiCall[] = [];
     private readonly listeners = new Map<string, Set<(detail: unknown) => void>>();
 
@@ -123,6 +130,11 @@ export class FakeNai implements NaiStudioApi {
     async savePassport(value: NaiPassport, scope: NaiSaveScope, target?: NaiPassportTarget): Promise<void> {
         this.calls.push({ method: 'savePassport', args: [structuredClone(value), scope, target] });
         if (scope !== 'chat') throw new Error('NAI Studio API: the card must not be written in these tests');
+        // A passport with no card or persona behind it becomes a passport of the chat itself.
+        if (!target && !this.base(value.id)) {
+            this.chatOwn.push(structuredClone(value));
+            this.created.add(value.id);
+        }
         this.views.set(value.id, structuredClone(value));
         this.emit('passportsSaved', { ids: [value.id], scope });
     }
@@ -155,6 +167,7 @@ export class FakeNai implements NaiStudioApi {
     async clearChatOverride(id: string): Promise<void> {
         this.calls.push({ method: 'clearChatOverride', args: [id] });
         this.views.delete(id);
+        if (this.created.has(id)) this.chatOwn = this.chatOwn.filter((item) => item.id !== id);
     }
 
     on<K extends NaiStudioEvent>(event: K, listener: (detail: NaiStudioEvents[K]) => void): () => void {
@@ -219,7 +232,48 @@ export class LevelAutonomy {
     stats() {
         return [];
     }
-    neverAuto(): void {}
+    readonly never = new Set<string>();
+    neverAuto(kind: string): void {
+        this.never.add(kind);
+    }
+}
+
+/** Ephemeral prompt changes of one generation (producers run by generate()). */
+export class FakeEphemeral {
+    readonly producers = new Map<string, (gen: GenerationInfo) => void | Promise<void>>();
+    readonly injections = new Map<string, InjectionSpec>();
+    setFlag(): void {}
+    setInjection(key: string, spec: InjectionSpec): void {
+        this.injections.set(key, spec);
+    }
+    addProducer(name: string, producer: (gen: GenerationInfo) => void | Promise<void>): Unsubscribe {
+        this.producers.set(name, producer);
+        return () => this.producers.delete(name);
+    }
+    clearAll(): void {
+        this.injections.clear();
+    }
+    /** Runs every producer for one generation; the injections it set. */
+    async generate(gen: Partial<GenerationInfo> = {}): Promise<Map<string, InjectionSpec>> {
+        this.injections.clear();
+        const info: GenerationInfo = { type: 'normal', dryRun: false, quiet: false, ...gen };
+        for (const producer of this.producers.values()) await producer(info);
+        return new Map(this.injections);
+    }
+}
+
+/** The background model: answers by a function of the request; records the requests. */
+export class FakeLlm {
+    readonly requests: LlmRequest[] = [];
+    availableValue = true;
+    answer: (request: LlmRequest) => LlmResult = () => ({ ok: true, data: { wearing: null } });
+    available(): boolean {
+        return this.availableValue;
+    }
+    async request<T = unknown>(request: LlmRequest): Promise<LlmResult<T>> {
+        this.requests.push(request);
+        return this.answer(request) as LlmResult<T>;
+    }
 }
 
 export class FakeRevision implements RevisionApi {
@@ -428,7 +482,7 @@ export interface WardrobeEnv {
     mock: StMock;
     host: TestHost;
     modules: FakeModules;
-    ui: FakeUi & { tabs: PultTab[]; styles: Map<string, string> };
+    ui: FakeUi & { tabs: PultTab[]; styles: Map<string, string>; checks: HealthCheck[] };
     leader: { value: boolean };
     slices: Record<string, Record<string, unknown>>;
     nai: FakeNai;
@@ -438,6 +492,15 @@ export interface WardrobeEnv {
     inbox: FakeInbox;
     revision: FakeRevision;
     places: FakePlaces;
+    ephemeral: FakeEphemeral;
+    llm: FakeLlm;
+    tasks: FakeTasks;
+    /** NAI Studio 0.14 portrait redraws asked for (DES names). */
+    portraits: string[];
+    /** DES as the adapter sees it: its per-character fields, the Workshop, saves. */
+    des: FakeDes;
+    desru: { present: boolean; settings: { modules: Record<string, Record<string, unknown>> } };
+    core: { mode: string };
     logLines: LogLineRecord[];
     start(): Promise<WardrobeService>;
     stop(): Promise<void>;
@@ -452,6 +515,45 @@ export interface WardrobeEnv {
         options?: { from?: string; messageIndex?: number; entity?: string },
     ): Promise<void>;
     switchTo(chatId: string | undefined, chat?: STChatMessage[]): Promise<void>;
+}
+
+/** DES's tracker config through the adapter's methods (characterFields, addCharacterField, removeCharacterField). */
+export class FakeDes {
+    present = true;
+    workshop = false;
+    fields: { id: string; name: string; enabled: boolean; description: string; persistInHistory?: boolean }[] = [
+        { id: 'appearance', name: 'Appearance', enabled: true, description: 'Visible physical appearance' },
+        { id: 'demeanor', name: 'Demeanor', enabled: true, description: 'Observable demeanor' },
+    ];
+    saves = 0;
+    characterFields() {
+        return this.present ? this.fields.map((field) => ({ ...field })) : null;
+    }
+    addCharacterField(field: { id: string; name: string; description: string }) {
+        if (!this.present) return null;
+        const existing = this.fields.find((item) => item.id === field.id);
+        this.saves++;
+        if (existing) {
+            const before = { ...existing };
+            existing.enabled = true;
+            return { before };
+        }
+        this.fields.push({ ...field, enabled: true, persistInHistory: false });
+        return { before: null };
+    }
+    removeCharacterField(id: string, before: Record<string, unknown> | null = null) {
+        if (!this.present) return false;
+        const index = this.fields.findIndex((item) => item.id === id);
+        if (index >= 0) {
+            if (before) this.fields[index] = before as never;
+            else this.fields.splice(index, 1);
+        }
+        this.saves++;
+        return true;
+    }
+    isWorkshopOpen() {
+        return this.workshop;
+    }
 }
 
 function adapter(id: string, extra: Record<string, unknown> = {}): Record<string, unknown> {
@@ -518,7 +620,17 @@ export function createWardrobeEnv(locale: 'en' | 'ru' = 'en'): WardrobeEnv {
     const naiPresent = { value: true };
     const leader = { value: true };
     const base = createFakeUi();
-    const ui = Object.assign(base, { tabs: [] as PultTab[], styles: new Map<string, string>() });
+    const ui = Object.assign(base, {
+        tabs: [] as PultTab[],
+        styles: new Map<string, string>(),
+        checks: [] as HealthCheck[],
+    });
+    ui.addHealthCheck = (check) => {
+        ui.checks.push(check);
+        return () => {
+            ui.checks = ui.checks.filter((item) => item !== check);
+        };
+    };
     ui.addTab = (tab) => {
         ui.tabs.push(tab);
         return () => {
@@ -530,19 +642,40 @@ export function createWardrobeEnv(locale: 'en' | 'ru' = 'en'): WardrobeEnv {
         return () => ui.styles.delete(id);
     };
     const slices: Record<string, Record<string, unknown>> = {};
+    const portraits: string[] = [];
+    const des = new FakeDes();
+    const desru = {
+        present: false,
+        settings: { modules: { fixes: { enabled: true, fieldKeys: true } } as Record<string, Record<string, unknown>> },
+    };
     const adapters = {
         des: adapter('des', {
+            present: () => des.present,
             trackerFor: (index: number) => {
                 const record = desSwipeRecord(mock.chat[index]);
                 return record ? parseDesTracker(record) : null;
             },
+            characterFields: () => des.characterFields(),
+            addCharacterField: (field: { id: string; name: string; description: string }) =>
+                des.addCharacterField(field),
+            removeCharacterField: (id: string, before: Record<string, unknown> | null) =>
+                des.removeCharacterField(id, before),
+            isWorkshopOpen: () => des.isWorkshopOpen(),
         }),
-        desru: adapter('desru'),
+        desru: adapter('desru', {
+            present: () => desru.present,
+            moduleEnabled: (module: string) => desru.settings.modules[module]?.enabled !== false,
+            settings: () => desru.settings,
+        }),
         ck: adapter('ck'),
         bunnymo: adapter('bunnymo'),
         qvink: adapter('qvink'),
         nai: adapter('nai', {
             api: () => (naiPresent.value ? nai : undefined),
+            requestDesPortrait: async (name: string) => {
+                portraits.push(name);
+                return true;
+            },
             chatPassports: (scope?: NaiPassportScope) =>
                 naiPresent.value
                     ? nai
@@ -558,13 +691,17 @@ export function createWardrobeEnv(locale: 'en' | 'ru' = 'en'): WardrobeEnv {
     const journal = new FakeJournal();
     const autonomy = new LevelAutonomy(journal);
     const inbox = new FakeInbox();
+    const ephemeral = new FakeEphemeral();
+    const llm = new FakeLlm();
+    const tasks = new FakeTasks();
+    const core = { mode: 'balanced' };
     const app = {
         host,
         turn: new FakeTurn(),
         log,
         i18n,
         settings: {
-            core: () => ({ mode: 'balanced' }),
+            core: () => core,
             module: <T extends object>(key: string) => (slices[key] ??= {}) as T,
             isModuleEnabled: () => true,
             setModuleEnabled() {},
@@ -575,13 +712,13 @@ export function createWardrobeEnv(locale: 'en' | 'ru' = 'en'): WardrobeEnv {
         files,
         chat,
         leader: { isLeader: () => leader.value, onChange: () => () => {} },
-        tasks: new FakeTasks(),
-        llm: {} as App['llm'],
-        cost: {} as App['cost'],
+        tasks,
+        llm: llm as unknown as App['llm'],
+        cost: { backgroundCapReached: () => false } as unknown as App['cost'],
         journal,
         autonomy: autonomy as unknown as App['autonomy'],
         inbox,
-        ephemeral: {} as App['ephemeral'],
+        ephemeral: ephemeral as unknown as App['ephemeral'],
         bus,
         ui,
         adapters,
@@ -608,6 +745,13 @@ export function createWardrobeEnv(locale: 'en' | 'ru' = 'en'): WardrobeEnv {
         inbox,
         revision,
         places,
+        ephemeral,
+        llm,
+        tasks,
+        portraits,
+        des,
+        desru,
+        core,
         logLines,
         async start() {
             disposers = [];

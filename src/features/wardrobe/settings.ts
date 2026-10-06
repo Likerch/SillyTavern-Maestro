@@ -10,6 +10,8 @@ export const WARDROBE_KINDS = {
     outfit: 'wardrobe.outfit',
     state: 'wardrobe.state',
     place: 'wardrobe.placeState',
+    /** The «Одежда» field in DES's tracker: it changes another extension's settings, so it asks by default. */
+    desField: 'wardrobe.desField',
 } as const;
 
 /** Journal kind of an outfit put on by hand in the pult. */
@@ -18,6 +20,18 @@ export const WARDROBE_WEAR_KIND = 'wardrobe.wear';
 /** Journal target of every passport change of the wardrobe (one undo handler). */
 export const WARDROBE_UNDO_TARGET = 'wardrobe.passport';
 
+/** Journal target of the DES tracker field Maestro added. */
+export const DES_FIELD_UNDO_TARGET = 'wardrobe.desField';
+
+/** Background task: what the user's character wears, from the chat (strict JSON). */
+export const PERSONA_TASK = 'wardrobe.persona';
+
+/** «Что надето сейчас» record key of the user's character. */
+export const PERSONA_KEY = 'persona';
+
+/** Ephemeral injection key of the prompt line (extension prompt slot `maestro_wardrobe`). */
+export const WARDROBE_INJECTION = 'wardrobe';
+
 export interface WardrobeSettings {
     /** New outfits from the DES tracker and the revision's deferred cards become named outfits and are put on. */
     outfits: boolean;
@@ -25,17 +39,50 @@ export interface WardrobeSettings {
     states: boolean;
     /** Place states (ruined, on fire, night, rain …) go to the location passport. */
     places: boolean;
+    /** A short line «who wears what» near the end of the prompt (present characters and the persona). */
+    promptLine: boolean;
+    /** In-chat depth of that line. */
+    promptDepth: number;
+    /** NAI Studio redraws the DES portrait when a character's outfit changes. */
+    redrawPortrait: boolean;
+    /** The background model reads what the user's character wears (only when the chat speaks of clothes). */
+    persona: boolean;
+    /** At most every this many committed turns. */
+    personaEvery: number;
 }
 
 export function defaultWardrobeSettings(): WardrobeSettings {
-    return { outfits: true, states: true, places: true };
+    return {
+        outfits: true,
+        states: true,
+        places: true,
+        promptLine: true,
+        promptDepth: 1,
+        redrawPortrait: true,
+        persona: true,
+        personaEvery: 6,
+    };
 }
+
+const NUMBERS: Readonly<Partial<Record<keyof WardrobeSettings, readonly [number, number]>>> = {
+    promptDepth: [0, 20],
+    personaEvery: [1, 50],
+};
 
 /** The live slice, repaired in place (it is the object the pult edits). */
 export function readWardrobeSettings(slice: Partial<WardrobeSettings>): WardrobeSettings {
     const defaults = defaultWardrobeSettings();
+    const target = slice as Record<string, unknown>;
     for (const key of Object.keys(defaults) as (keyof WardrobeSettings)[]) {
-        if (typeof slice[key] !== 'boolean') slice[key] = defaults[key];
+        const fallback = defaults[key];
+        const range = NUMBERS[key];
+        if (range) {
+            const value = target[key];
+            target[key] =
+                typeof value === 'number' && Number.isFinite(value)
+                    ? Math.min(range[1], Math.max(range[0], Math.round(value)))
+                    : fallback;
+        } else if (typeof target[key] !== 'boolean') target[key] = fallback;
     }
     return slice as WardrobeSettings;
 }

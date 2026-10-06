@@ -271,16 +271,38 @@ describe('mock LLM', () => {
         const tracker = JSON.parse(reply.slice(8, reply.indexOf('\n```', 8))) as {
             characters: { name: string; details: Record<string, string> }[];
         };
-        expect(tracker.characters.find((ch) => ch.name === 'Мартин')?.details.outfit).toBe('синий камзол');
-        expect(tracker.characters.find((ch) => ch.name === 'Вера')?.details.outfit).toBeUndefined();
+        // Like real DES: no outfit field, the clothes are in the appearance text.
+        const martin = tracker.characters.find((ch) => ch.name === 'Мартин')!;
+        expect(martin.details.appearance).toMatch(/, синий камзол$/);
+        expect(Object.keys(martin.details).sort()).toEqual(['appearance', 'demeanor']);
+        const others = tracker.characters.filter((ch) => ch.name !== 'Мартин');
+        expect(others.some((ch) => ch.details.appearance?.includes('синий камзол'))).toBe(false);
 
         const joined = await complete({
             messages: [...story.slice(0, 1), { role: 'user', content: '[mock:outfit:Элизабет=красное платье]' }],
         });
         const joinedReply = joined.choices[0]!.message.content;
         const joinedTracker = JSON.parse(joinedReply.slice(8, joinedReply.indexOf('\n```', 8))) as typeof tracker;
-        expect(joinedTracker.characters[0]).toMatchObject({ name: 'Элизабет', details: { outfit: 'красное платье' } });
-        expect(joinedTracker.characters.filter((ch) => ch.details.outfit)).toHaveLength(1);
+        expect(joinedTracker.characters[0]!.name).toBe('Элизабет');
+        expect(joinedTracker.characters[0]!.details.appearance).toContain('красное платье');
+        expect(joinedTracker.characters.filter((ch) => ch.details.appearance?.includes('красное платье'))).toHaveLength(
+            1,
+        );
+
+        // With Maestro's clothing field in the DES template the clothes go there too.
+        const template =
+            '"details": {\n      "Внешность": "…",\n      "Одежда": "Во что персонаж одет прямо сейчас"\n    }';
+        const withField = await complete({
+            messages: [
+                { role: 'system', content: template },
+                ...story.slice(0, 1),
+                { role: 'user', content: '[mock:outfit:Мартин=синий камзол]' },
+            ],
+        });
+        const fieldReply = withField.choices[0]!.message.content;
+        const fieldTracker = JSON.parse(fieldReply.slice(8, fieldReply.indexOf('\n```', 8))) as typeof tracker;
+        expect(fieldTracker.characters.find((ch) => ch.name === 'Мартин')?.details['Одежда']).toBe('синий камзол');
+        expect(fieldTracker.characters.every((ch) => typeof ch.details['Одежда'] === 'string')).toBe(true);
 
         const mechanics = await complete({
             messages: [

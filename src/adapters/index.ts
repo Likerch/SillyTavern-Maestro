@@ -19,7 +19,7 @@ export type { BunnyMoBooks } from './bunnymo';
 export { CkAdapter } from './ck';
 export type { CarrotKernelGlobal } from './ck';
 export { DesAdapter } from './des';
-export type { DesGenerationMode } from './des';
+export type { DesCharacterField, DesGenerationMode } from './des';
 export { DesRuAdapter } from './desru';
 export type { DesRuApi, DesRuFunction, DesRuModule } from './desru';
 export { LocalizerAdapter } from './localizer';

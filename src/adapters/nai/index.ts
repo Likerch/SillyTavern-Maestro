@@ -265,6 +265,25 @@ export function readNaiApi(value: unknown): NaiStudioApi | undefined {
     return API_METHODS.every((method) => typeof api[method] === 'function') ? (value as NaiStudioApi) : undefined;
 }
 
+/* ---- Release 1.11, wardrobe: DES portrait redraw ---- */
+
+/** NAI Studio 0.14.0's portrait redraw (brief contract), read off the API object without widening NaiStudioApi. */
+interface NaiPortraitApi {
+    requestDesPortrait(name: string, options?: { reason?: string }): Promise<boolean>;
+}
+
+/** The API when it can redraw a DES portrait: the method, and 'requestDesPortrait' in `features` when it lists them. */
+function portraitApi(api: NaiStudioApi | undefined): NaiPortraitApi | null {
+    if (!api) return null;
+    const value = api as unknown as Record<string, unknown>;
+    if (typeof value.requestDesPortrait !== 'function') return null;
+    const features = value.features;
+    if (Array.isArray(features) && !features.includes('requestDesPortrait')) return null;
+    return value as unknown as NaiPortraitApi;
+}
+
+/* ---- end of the wardrobe block ---- */
+
 export function isNaiManifest(manifest: ExtensionManifest): boolean {
     return (
         manifest.display_name === NAI_DISPLAY_NAME ||
@@ -445,6 +464,30 @@ export class NaiAdapter extends NeighbourBase<'nai'> {
             return null;
         }
     }
+
+    /* ---- Release 1.11, wardrobe: DES portrait redraw (NAI Studio 0.14.0, feature 'requestDesPortrait') ---- */
+
+    /** NAI Studio's DES portrait redraw is there (feature-detected: the method, and `features` when it is listed). */
+    canRequestDesPortrait(): boolean {
+        return portraitApi(this.api()) !== null;
+    }
+
+    /**
+     * Asks NAI Studio (0.14.0+) to queue a redraw of the DES portrait of `name` now (the wardrobe: the outfit changed).
+     * True when queued; false without the feature, for an empty name or when NAI Studio refused or failed.
+     */
+    async requestDesPortrait(name: string, options: { reason?: string } = {}): Promise<boolean> {
+        const api = portraitApi(this.api());
+        if (!api || !name.trim()) return false;
+        try {
+            return (await api.requestDesPortrait(name.trim(), options)) === true;
+        } catch (error) {
+            this.log.warn('NAI_STUDIO_API.requestDesPortrait failed', error);
+            return false;
+        }
+    }
+
+    /* ---- end of the wardrobe block ---- */
 
     /**
      * Makes `gate` NAI Studio's quality gate for Maestro (NAI Studio 0.11.0+): its automatic drawings for a reply

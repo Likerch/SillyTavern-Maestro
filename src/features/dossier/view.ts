@@ -11,7 +11,7 @@ import { select } from '../../ui/components/controls';
 import { append, button, clear, el, icon } from '../../ui/components/dom';
 import type { Child } from '../../ui/components/dom';
 import { formatTime, formatUsd, tOr } from '../../ui/views/format';
-import type { Outfit, WardrobeApi } from '../wardrobe/api';
+import type { Outfit, WardrobeApi, Wearing } from '../wardrobe/api';
 import type { Entity, EntitySource } from '../world/api';
 import { ProtectedBookError } from './actions';
 import type { Dossier, DossierFinding, DossierSection, SpreadEdit } from './api';
@@ -34,6 +34,8 @@ export const DOSSIER_CSS = `
 .maestro-m7-chip.maestro-m7-present { border-color: var(--maestro-accent); }
 .maestro-m7-head { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .maestro-m7-name { font-weight: 600; font-size: 1.1em; overflow-wrap: anywhere; }
+.maestro-m7-now { overflow-wrap: anywhere; }
+.maestro-m7-now-meta { font-size: 0.85em; color: var(--maestro-muted); overflow-wrap: anywhere; }
 .maestro-m7-actions { display: flex; flex-wrap: wrap; gap: 6px; }
 .maestro-m7-findings { display: flex; flex-direction: column; gap: 6px; }
 .maestro-m7-finding { border: 1px solid var(--maestro-border); border-radius: var(--maestro-radius-sm); padding: 6px 8px; display: flex; flex-direction: column; gap: 4px; }
@@ -672,6 +674,8 @@ export function dossierTab(app: App, service: DossierService, opener: DossierOpe
             /** The open dossier's outfit block: refilled in place when the wardrobe changes (the page keeps its state). */
             let wardrobeBox: HTMLElement | null = null;
             let wardrobeFor: LoadedDossier | null = null;
+            /** «Сейчас: …» in the header of a character's page (what the wardrobe says is worn now). */
+            let nowBox: HTMLElement | null = null;
 
             const wardrobeApi = (): WardrobeApi | undefined => {
                 try {
@@ -734,6 +738,45 @@ export function dossierTab(app: App, service: DossierService, opener: DossierOpe
                 );
             };
 
+            /** «Сейчас: шёлковое платье» and, below, which outfit it is and since which message (wardrobe strings). */
+            const fillNow = (): void => {
+                const box = nowBox;
+                const data = wardrobeFor;
+                if (!box || !data) return;
+                clear(box);
+                let item: Wearing | undefined;
+                try {
+                    item = wardrobeApi()?.current?.(data.dossier.name)[0];
+                } catch {
+                    item = undefined;
+                }
+                box.hidden = !item?.wording;
+                if (!item?.wording) return;
+                const outfit = !item.passportId
+                    ? ''
+                    : item.outfit
+                      ? t('m27.now.outfit', { name: item.outfit })
+                      : item.outfit === ''
+                        ? t('m27.now.own')
+                        : t('m27.now.new');
+                const meta = [outfit, item.since >= 0 ? t('m27.now.since', { index: item.since }) : '']
+                    .filter(Boolean)
+                    .join(' · ');
+                box.append(
+                    el('div', { text: t('m27.wearing', { outfit: item.wording }) }),
+                    meta ? el('div', { class: 'maestro-m7-now-meta', text: meta }) : '',
+                );
+            };
+
+            const nowView = (data: LoadedDossier): HTMLElement | null => {
+                const kind = data.facts.entity.kind;
+                if ((kind !== 'character' && kind !== 'persona') || !wardrobeApi()?.current) return null;
+                nowBox = el('div', { class: 'maestro-m7-now' });
+                wardrobeFor = data;
+                fillNow();
+                return nowBox;
+            };
+
             /** Characters (and the persona) only, while the wardrobe module is on; hidden without outfits. */
             const wardrobeView = (data: LoadedDossier): HTMLElement | null => {
                 const kind = data.facts.entity.kind;
@@ -769,6 +812,7 @@ export function dossierTab(app: App, service: DossierService, opener: DossierOpe
                                   text: t('m7.aliases', { list: entity.aliases.join(', ') }),
                               })
                             : null,
+                        nowView(data),
                         facts.worldOn ? null : banner(t('m7.worldOff'), 'info', 'fa-circle-info'),
                         el('div', {
                             class: 'maestro-muted',
@@ -833,6 +877,7 @@ export function dossierTab(app: App, service: DossierService, opener: DossierOpe
                 clear(root);
                 wardrobeBox = null;
                 wardrobeFor = null;
+                nowBox = null;
                 const current = service.currentId();
                 if (!current) {
                     root.appendChild(pickerView());
@@ -892,7 +937,9 @@ export function dossierTab(app: App, service: DossierService, opener: DossierOpe
             let offWardrobe: Unsubscribe | undefined;
             try {
                 offWardrobe = wardrobeApi()?.onChange(() => {
-                    if (alive) fillWardrobe();
+                    if (!alive) return;
+                    fillWardrobe();
+                    fillNow();
                 });
             } catch {
                 offWardrobe = undefined;

@@ -41,6 +41,34 @@ export interface OutfitIntake {
     sourceMessage: number;
 }
 
+/** «Что надето сейчас»: what one character of the chat (or the persona) wears now. */
+export interface Wearing {
+    /** Record key (for «Надеть другое» / «Это новый наряд»). */
+    key: string;
+    name: string;
+    persona: boolean;
+    /** NAI passport; '' when the character has none (the record is Maestro's only). */
+    passportId: string;
+    /** The clothing as the tracker (or the user) writes it. */
+    wording: string;
+    /** English NAI tags of it. */
+    tags: string;
+    /** 'naked' | 'towel' | 'underwear' | 'partial' | ''. */
+    undress: string;
+    /** The outfit it is ('' the own clothes), null while it is new. */
+    outfit: string | null;
+    /** The outfit proposed and waiting for the user. */
+    queued?: string;
+    /** Message where this clothing first showed. */
+    since: number;
+    /** Last committed message that said it, and how many committed turns in a row did. */
+    seen: number;
+    turns: number;
+    present: boolean;
+    /** 'field' | 'appearance' | 'model' | 'user' | 'revision'. */
+    source: string;
+}
+
 export interface WardrobeApi {
     /** Outfits known for a character (the dossier's library), newest first. */
     outfits(character?: string): Outfit[];
@@ -59,4 +87,7 @@ export interface WardrobeApi {
     intakeOutfit?(statement: OutfitIntake): Promise<string | null>;
     /** State ids Maestro keeps on a place's location passport (night, rain, ruined …): backgrounds (M29), pult. */
     placeStates?(placeId: string): string[];
+    // Release 1.11 «что надето сейчас» (optional for the same reason).
+    /** What everyone of the chat wears now (or one character / the persona by name): the scene first. */
+    current?(character?: string): Wearing[];
 }

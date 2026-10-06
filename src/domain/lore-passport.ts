@@ -153,7 +153,13 @@ export function normalizePassport(raw: unknown, fallback: { kind?: PassportKind;
     const nsfw = isDict(copy.nsfw) ? copy.nsfw : {};
     const outfits = (Array.isArray(copy.outfits) ? copy.outfits : [])
         .filter(isDict)
-        .map((outfit) => ({ name: str(outfit.name).trim(), tags: str(outfit.tags) }))
+        .map((outfit) => {
+            // The tracker wordings an outfit is drawn for (NAI Studio 0.12.1 `looks`) stay with it.
+            const looks = Array.isArray(outfit.looks)
+                ? outfit.looks.filter((look): look is string => typeof look === 'string' && look.trim() !== '')
+                : [];
+            return { name: str(outfit.name).trim(), tags: str(outfit.tags), ...(looks.length ? { looks } : {}) };
+        })
         .filter((outfit) => outfit.name);
     const states = (Array.isArray(copy.states) ? copy.states : [])
         .filter(isDict)
