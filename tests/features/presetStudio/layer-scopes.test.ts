@@ -114,6 +114,19 @@ describe('scoped edits', () => {
         expect(stand.store.draft().dirty).toBe(false);
     });
 
+    it('a value set everywhere after a chat value survives leaving that chat', async () => {
+        // The chat sets 0.2 first, then 0.9 is set everywhere (the chat value stays on top in this chat).
+        await layer.record('Marinara', { op: 'key', key: 'temperature', value: 0.2 }, 'chat');
+        await stand.store.setKeys({ temperature: 0.2 });
+        await layer.record('Marinara', { op: 'key', key: 'temperature', value: 0.9 }, 'global');
+        expect(stand.oai.temp_openai).toBe(0.2);
+        await openChat('chat-2');
+        expect(stand.oai.temp_openai).toBe(0.9);
+        await openChat('chat-1');
+        expect(stand.oai.temp_openai).toBe(0.2);
+        expect(stand.store.draft().dirty).toBe(false);
+    });
+
     it('keeps unsaved edits of the working copy through a chat switch', async () => {
         await edit('chat', 'Chat GM');
         await stand.store.updatePrompt('style', { content: 'Unsaved style' });

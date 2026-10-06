@@ -205,7 +205,7 @@ export function createPresetLayer(app: App, log: Logger, store?: PresetStore): P
     let startup: Promise<void> = Promise.resolve();
     let contextChain: Promise<unknown> = Promise.resolve();
     /** Saves ST made without the chat parts, by preset name: their cached body and selection are cleaned too. */
-    const pendingStrip = new Map<string, { parts: ScopeOps[]; until: number }>();
+    const pendingStrip = new Map<string, { parts: ScopeOps[]; under: ScopeOps[]; until: number }>();
     const timers = new Set<ReturnType<typeof setTimeout>>();
 
     /* ------------------------------------------------------------ plumbing */
@@ -236,6 +236,19 @@ export function createPresetLayer(app: App, log: Logger, store?: PresetStore): P
             scope,
             ops: opsIn(base, scope, scope === 'global' ? null : scopeOwner(context, scope)),
         }));
+
+    /**
+     * The parts that stay under `parts` when only those are stripped (the scopes below the lowest of them): a stripped
+     * part goes back to what they give, not to the base values its ops remembered.
+     */
+    const underOf = (base: string, context: ScopeContext, parts: readonly ScopeOps[]): ScopeOps[] => {
+        const lowest = Math.min(...parts.map((part) => SCOPES.indexOf(part.scope)));
+        return partsFor(
+            base,
+            context,
+            SCOPES.filter((scope, index) => index < lowest && !parts.some((part) => part.scope === scope)),
+        );
+    };
 
     /** Every op laid over a base now (global, the card's, the chat's). */
     const allOps = (base: string): DomainOp[] => flatOps(partsFor(base, applied));
@@ -458,7 +471,7 @@ export function createPresetLayer(app: App, log: Logger, store?: PresetStore): P
             emit('context');
             return info();
         }
-        const next = applyScoped(stripScoped(working, fromParts), toParts).body;
+        const next = applyScoped(stripScoped(working, fromParts, underOf(base, from, fromParts)), toParts).body;
         setApplied(target, base);
         try {
             await store.syncWorking(next as PresetBody);
@@ -676,7 +689,7 @@ export function createPresetLayer(app: App, log: Logger, store?: PresetStore): P
         }
         const cached = cachedBody(name);
         if (cached && holdsParts(cached, entry.parts)) {
-            replaceContents(cached, jsonCopy(stripScoped(cached, entry.parts)) as Dict);
+            replaceContents(cached, jsonCopy(stripScoped(cached, entry.parts, entry.under)) as Dict);
             log.debug(`cached body of ${name}: the character and chat edits taken out`);
         }
     };
@@ -698,12 +711,13 @@ export function createPresetLayer(app: App, log: Logger, store?: PresetStore): P
         if (!isDict(payload) || payload.apiId !== 'openai' || !isDict(payload.preset)) return;
         const preset = payload.preset as LayerBody;
         if (!holdsParts(preset, parts)) return;
-        payload.preset = stripScoped(preset, parts);
+        const under = underOf(currentName(), applied, parts);
+        payload.preset = stripScoped(preset, parts, under);
         init.body = JSON.stringify(payload);
         const name = typeof payload.name === 'string' ? payload.name : '';
         log.info(`preset ${name || '?'} saved without the edits of this character and chat`);
         if (!name) return;
-        pendingStrip.set(name, { parts: jsonCopy(parts), until: Date.now() + STRIP_WINDOW_MS });
+        pendingStrip.set(name, { parts: jsonCopy(parts), under: jsonCopy(under), until: Date.now() + STRIP_WINDOW_MS });
         for (const ms of CACHE_FIX_DELAYS_MS) later(ms, () => cleanCache(name));
         later(STRIP_WINDOW_MS + 10, () => {
             const entry = pendingStrip.get(name);
@@ -736,7 +750,7 @@ export function createPresetLayer(app: App, log: Logger, store?: PresetStore): P
         // ST's own «Сохранить как» while character or chat edits were on: its cache got them, the file did not.
         const strip = pendingStrip.get(name);
         if (strip && strip.until >= Date.now() && holdsParts(preset as LayerBody, strip.parts)) {
-            const clean = stripScoped(preset as LayerBody, strip.parts);
+            const clean = stripScoped(preset as LayerBody, strip.parts, strip.under);
             for (const [key, value] of Object.entries(clean)) if (preset[key] !== value) preset[key] = value;
         }
         const target = loadedPart(currentScopeContext(app.host));
@@ -948,7 +962,7 @@ export function createPresetLayer(app: App, log: Logger, store?: PresetStore): P
         const working = parts.length ? workingSync() : null;
         if (working && typeof store?.syncWorking === 'function') {
             void store
-                .syncWorking(stripScoped(working, parts) as PresetBody)
+                .syncWorking(stripScoped(working, parts, underOf(current, applied, parts)) as PresetBody)
                 .catch((error: unknown) => log.warn('character and chat edits stayed in the working copy', error));
         }
         if (current) setApplied({ ...EMPTY_SCOPE_CONTEXT }, current);
@@ -1067,7 +1081,9 @@ export function createPresetLayer(app: App, log: Logger, store?: PresetStore): P
 
         strip(base: string, body: PresetBody, scopes?: readonly LayerScope[]): PresetBody {
             const parts = partsFor(base, applied, scopes ?? SCOPES);
-            return flatOps(parts).length ? (stripScoped(body as LayerBody, parts) as PresetBody) : body;
+            return flatOps(parts).length
+                ? (stripScoped(body as LayerBody, parts, underOf(base, applied, parts)) as PresetBody)
+                : body;
         },
 
         async resolveConflict(base, identifier, choice, scope: LayerScope = 'global'): Promise<void> {

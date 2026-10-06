@@ -125,3 +125,50 @@ describe('scope documents and ops', () => {
         expect(rebaseOp(chatBlock)).toEqual(chatBlock);
     });
 });
+
+describe('stripping a part goes back to the parts below it', () => {
+    // The chat set 0.2 first (remembering the base 1), then 0.9 was set everywhere.
+    const chatKey: LayerOp = { op: 'key', key: 'temperature', value: 0.2, baseValue: 1 };
+    const globalKey: LayerOp = { op: 'key', key: 'temperature', value: 0.9, baseValue: 1 };
+    const globalPart: ScopeOps = { scope: 'global', ops: [globalKey] };
+
+    it('a chat switch leaves the global value, not the base value the chat op remembered', () => {
+        const chatPart: ScopeOps = { scope: 'chat', ops: [chatKey] };
+        const working = applyScoped(baseBody(), [globalPart, chatPart]).body;
+        expect(working.temperature).toBe(0.2);
+        expect(stripScoped(working, [chatPart], [globalPart]).temperature).toBe(0.9);
+        // Without the parts below it the remembered base value is all there is (as before).
+        expect(stripScoped(working, [chatPart]).temperature).toBe(1);
+        // Stripping everything still gives the base.
+        expect(stripScoped(working, [globalPart, chatPart]).temperature).toBe(1);
+    });
+
+    it('takes toggles, texts and the card part below as the base of the chat part', () => {
+        const globalOff: LayerOp = { op: 'toggle', identifier: 'task', enabled: false, baseEnabled: true };
+        const chatOn: LayerOp = { op: 'toggle', identifier: 'task', enabled: true, baseEnabled: true };
+        const characterKey: LayerOp = { op: 'key', key: 'temperature', value: 0.5, baseValue: 1 };
+        const lower: ScopeOps[] = [
+            { scope: 'global', ops: [globalOff, globalEdit] },
+            { scope: 'character', ops: [characterKey] },
+        ];
+        const chatPart: ScopeOps = {
+            scope: 'chat',
+            ops: [chatOn, { ...chatEdit, baseText: 'Main text' }, chatKey],
+        };
+        const working = applyScoped(baseBody(), [...lower, chatPart]).body;
+        expect(content(working, 'main')).toBe('Chat main');
+        const left = stripScoped(working, [chatPart], lower);
+        expect(content(left, 'main')).toBe('Global main');
+        expect(left.temperature).toBe(0.5);
+        expect(enabledOf(left, 'task')).toBe(false);
+    });
+});
+
+function enabledOf(body: unknown, identifier: string): boolean | undefined {
+    const orders = (body as { prompt_order?: { order?: { identifier: string; enabled: boolean }[] }[] }).prompt_order;
+    for (const entry of orders ?? []) {
+        const item = entry.order?.find((candidate) => candidate.identifier === identifier);
+        if (item) return item.enabled;
+    }
+    return undefined;
+}

@@ -89,11 +89,104 @@ export function applyScoped(
     return { body, report };
 }
 
-/** Takes the parts out again, the last one first. */
-export function stripScoped(body: LayerBody, parts: readonly ScopeOps[]): LayerBody {
+/**
+ * Takes the parts out again, the last one first. A part goes back to what the parts below it give, not to the base
+ * values its ops remembered when they were recorded: an edit made «везде» after a chat edit of the same value would
+ * otherwise come back as the old base once the chat's part is stripped (chat 0.2, then everywhere 0.9 → leaving the
+ * chat gave the old 1.0).
+ */
+export function stripScoped(
+    body: LayerBody,
+    parts: readonly ScopeOps[],
+    /** Parts that stay laid under the stripped ones (the global part when a chat switch strips the card's and chat's). */
+    under: readonly ScopeOps[] = [],
+): LayerBody {
     let result = body;
-    for (const part of [...parts].reverse()) if (part.ops.length) result = stripLayer(result, part.ops);
+    for (let index = parts.length - 1; index >= 0; index--) {
+        const part = parts[index];
+        if (!part?.ops.length) continue;
+        const below = flatOps([...under, ...parts.slice(0, index)]);
+        result = stripLayer(result, below.length ? part.ops.map((op) => withBaseBelow(op, below)) : part.ops);
+    }
     return result;
+}
+
+/** The op with its base values taken from the last op below it that sets the same thing (unchanged when none does). */
+export function withBaseBelow(op: LayerOp, below: readonly LayerOp[]): LayerOp {
+    const last = <T extends LayerOp>(match: (candidate: LayerOp) => candidate is T): T | undefined => {
+        for (let index = below.length - 1; index >= 0; index--) {
+            const candidate = below[index];
+            if (candidate && match(candidate)) return candidate;
+        }
+        return undefined;
+    };
+    const added = (identifier: string) =>
+        last((candidate): candidate is Extract<LayerOp, { op: 'add' }> => {
+            return candidate.op === 'add' && candidate.prompt.identifier === identifier;
+        });
+    switch (op.op) {
+        case 'key': {
+            const lower = last((candidate): candidate is Extract<LayerOp, { op: 'key' }> => {
+                return candidate.op === 'key' && candidate.key === op.key;
+            });
+            if (!lower) return op;
+            const copy = { ...op, baseValue: jsonCopy(lower.value) };
+            delete copy.baseUnset;
+            return copy;
+        }
+        case 'toggle': {
+            const lower = last((candidate): candidate is Extract<LayerOp, { op: 'toggle' }> => {
+                return candidate.op === 'toggle' && candidate.identifier === op.identifier;
+            });
+            if (lower) return { ...op, baseEnabled: lower.enabled };
+            const add = added(op.identifier);
+            return add ? { ...op, baseEnabled: add.enabled } : op;
+        }
+        case 'move': {
+            const lower = last((candidate): candidate is Extract<LayerOp, { op: 'move' }> => {
+                return candidate.op === 'move' && candidate.identifier === op.identifier;
+            });
+            if (lower) return { ...op, baseAnchor: jsonCopy(lower.anchor) };
+            const add = added(op.identifier);
+            return add ? { ...op, baseAnchor: jsonCopy(add.anchor) } : op;
+        }
+        case 'edit': {
+            const copy = { ...op, baseFields: { ...(op.baseFields ?? {}) } };
+            const add = added(op.identifier);
+            const edits = below.filter(
+                (candidate): candidate is Extract<LayerOp, { op: 'edit' }> =>
+                    candidate.op === 'edit' && candidate.identifier === op.identifier,
+            );
+            let touched = false;
+            for (const field of Object.keys(op.patch)) {
+                // The last op below that sets the field: an edit, else the block the layer added.
+                let value: unknown;
+                let found = false;
+                for (let index = edits.length - 1; index >= 0 && !found; index--) {
+                    const patch = edits[index]?.patch as Record<string, unknown> | undefined;
+                    if (patch && Object.hasOwn(patch, field)) {
+                        value = patch[field];
+                        found = true;
+                    }
+                }
+                if (!found && add && Object.hasOwn(add.prompt, field)) {
+                    value = (add.prompt as unknown as Record<string, unknown>)[field];
+                    found = true;
+                }
+                if (!found) continue;
+                touched = true;
+                if (field === 'content') {
+                    if (typeof value === 'string') copy.baseText = value;
+                } else {
+                    (copy.baseFields as Record<string, unknown>)[field] = jsonCopy(value);
+                    if (copy.baseMissing) copy.baseMissing = copy.baseMissing.filter((name) => name !== field);
+                }
+            }
+            return touched ? copy : op;
+        }
+        default:
+            return op;
+    }
 }
 
 /** All ops of the parts, in order. */
