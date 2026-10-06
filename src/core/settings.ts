@@ -1,7 +1,9 @@
-import type { CoreSettings, Logger, SettingsService, Unsubscribe } from '../shared/contracts';
+import type { ChatNoticesLevel, CoreSettings, Logger, SettingsService, Unsubscribe } from '../shared/contracts';
 
 export const SETTINGS_KEY = 'maestro';
 export const CORE_SCHEMA_VERSION = 1;
+/** What the strip under chat messages shows (plan-2 §5): everything, what waits for a decision, nothing. */
+export const CHAT_NOTICES: readonly ChatNoticesLevel[] = ['all', 'pending', 'none'];
 
 export function defaultCoreSettings(): CoreSettings {
     return {
@@ -17,6 +19,7 @@ export function defaultCoreSettings(): CoreSettings {
         firstRunDone: false,
         notifyLevel: 'all',
         showTechnical: false,
+        chatNotices: 'all',
     };
 }
 
@@ -149,5 +152,6 @@ export function migrateCore(settings: CoreSettings): CoreSettings {
     if (!settings.schemaVersion || settings.schemaVersion < 1) settings.schemaVersion = 1;
     if (!(['all', 'important', 'urgent'] as const).includes(settings.notifyLevel)) settings.notifyLevel = 'all';
     if (typeof settings.showTechnical !== 'boolean') settings.showTechnical = false;
+    if (!CHAT_NOTICES.includes(settings.chatNotices as ChatNoticesLevel)) settings.chatNotices = 'all';
     return settings;
 }

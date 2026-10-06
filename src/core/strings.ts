@@ -11,6 +11,7 @@ export const CORE_STRINGS: I18nParts = {
         'core.autonomy.level.ask': 'Ask',
         'core.autonomy.level.off': 'Off',
         'core.autonomy.apply': 'Apply',
+        'core.autonomy.dismiss': 'No, thanks',
         'core.autonomy.stale':
             'The suggestion is out of date: things changed since it appeared, so nothing was changed.',
         'core.autonomy.failed': 'Could not apply: {title}',
@@ -42,6 +43,7 @@ export const CORE_STRINGS: I18nParts = {
         'core.autonomy.level.ask': 'Спросить',
         'core.autonomy.level.off': 'Выкл',
         'core.autonomy.apply': 'Применить',
+        'core.autonomy.dismiss': 'Не надо',
         'core.autonomy.stale': 'Предложение устарело: с тех пор всё изменилось, поэтому я ничего не менял.',
         'core.autonomy.failed': 'Не получилось применить: {title}',
         'core.autonomy.promote':

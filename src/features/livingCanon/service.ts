@@ -1842,11 +1842,11 @@ export class LivingCanonService implements Required<LivingCanonApi> {
         return { confirmed, blocked: uids.length - confirmed };
     }
 
-    drop(uid: number): Promise<void> {
+    drop(uid: number, options: { wrong?: boolean } = {}): Promise<void> {
         return this.serial(async () => {
             const fact = this.store.peek()?.facts.find((item) => item.uid === uid && item.status !== 'dropped');
             if (!fact) return;
-            await this.dropFact(fact.id, 'user');
+            await this.dropFact(fact.id, 'user', options.wrong === true);
             this.app.autonomy.record(FACT_KIND, 'rejected');
             this.emit();
         });
@@ -1860,7 +1860,7 @@ export class LivingCanonService implements Required<LivingCanonApi> {
         });
     }
 
-    private async dropFact(id: string, reason: 'user' | 'undone'): Promise<void> {
+    private async dropFact(id: string, reason: 'user' | 'undone', wrong = false): Promise<void> {
         const fact = this.store.peek()?.facts.find((item) => item.id === id);
         if (!fact || fact.status === 'dropped') return;
         if (fact.uid !== undefined && (fact.status === 'provisional' || fact.status === 'active')) {
@@ -1868,7 +1868,14 @@ export class LivingCanonService implements Required<LivingCanonApi> {
         }
         await this.store.mutate((doc) => {
             const dropped = markDropped(doc, [id], reason) > 0;
-            if (dropped && reason === 'user') bumpStat(doc, 'droppedByUser');
+            if (dropped && reason === 'user') {
+                bumpStat(doc, 'droppedByUser');
+                const live = doc.facts.find((item) => item.id === id);
+                if (live) {
+                    live.droppedAt = Date.now();
+                    if (wrong) live.wrong = true;
+                }
+            }
             return { changed: dropped, result: undefined };
         });
     }

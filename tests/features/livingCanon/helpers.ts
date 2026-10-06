@@ -26,6 +26,7 @@ import type {
     LlmRequest,
     LlmResult,
     MaestroModule,
+    MessageStripProvider,
     Proposal,
     PultTab,
     Unsubscribe,
@@ -287,6 +288,8 @@ export interface TestUi extends FakeUi {
     tabs: PultTab[];
     styles: Map<string, string>;
     opened: (string | undefined)[];
+    /** Providers of the strip under chat messages. */
+    strips: MessageStripProvider[];
 }
 
 export interface LivingTestApp {
@@ -359,7 +362,14 @@ export function createLivingTestApp(): LivingTestApp {
         tabs: [] as PultTab[],
         styles: new Map<string, string>(),
         opened: [] as (string | undefined)[],
+        strips: [] as MessageStripProvider[],
     });
+    ui.addMessageStripProvider = (provider) => {
+        ui.strips.push(provider);
+        return () => {
+            ui.strips = ui.strips.filter((item) => item !== provider);
+        };
+    };
     ui.addTab = (tab) => {
         ui.tabs.push(tab);
         return () => {

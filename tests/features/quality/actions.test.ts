@@ -85,7 +85,7 @@ describe('clean', () => {
         await env.reply(2);
         expect(env.chat[2]!.mes).toBe('Anna smiled. <div>leak</div>');
         expect(service.verdict(2)!.defects[0]!.status).toBe('notified');
-        expect(env.badges.filter((item) => !item.removed)).toHaveLength(2);
+        expect(env.badges.filter((item) => !item.removed)).toHaveLength(1);
     });
 
     it('an undo of the cleaning puts the text back and counts a false positive', async () => {
@@ -169,7 +169,7 @@ describe('auto-swipe', () => {
         const verdict = service.verdict(2)!;
         expect(verdict.action).toBe('notified');
         expect(service.swipeBudget()).toBe(true);
-        expect(env.badges.filter((item) => !item.removed)).toHaveLength(2);
+        expect(env.badges.filter((item) => !item.removed)).toHaveLength(1);
     });
 
     it('does not swipe a reply that is not the last message', async () => {
@@ -255,7 +255,7 @@ describe('notify badges', () => {
         env.defects(defect('refusal'), defect('repetition'));
         const service = env.start();
         await env.reply(2);
-        env.badges[1]!.badge.action!.run();
+        env.badges[0]!.badge.actions![0]!.run();
         await sleep(10);
         const verdict = service.verdict(2)!;
         expect(verdict.defects.every((item) => item.status === 'dismissed')).toBe(true);
@@ -270,13 +270,13 @@ describe('notify badges', () => {
         expect(env.badges.every((item) => item.removed)).toBe(true);
     });
 
-    it('dismiss() of one kind keeps the badges for the rest', async () => {
+    it('dismiss() of one kind keeps the line for the rest', async () => {
         env.defects(defect('refusal'), defect('repetition'));
         const service = env.start();
         await env.reply(2);
         await service.dismiss(2, 'refusal');
         const open = env.badges.filter((item) => !item.removed);
-        expect(open).toHaveLength(2);
+        expect(open).toHaveLength(1);
         expect(open[0]!.badge.text).toBe('Defect in this reply: repetition');
         expect(service.verdict(2)!.ok).toBe(false);
     });
