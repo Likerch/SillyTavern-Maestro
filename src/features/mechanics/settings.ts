@@ -7,6 +7,7 @@ import type { MechanicsSettings } from './parts';
 /** Limits of the numeric settings. */
 export const PROMPT_BUDGET_LIMITS = { min: 50, max: 4000 } as const;
 export const DEPTH_LIMITS = { min: 0, max: 20 } as const;
+export const RELEVANCE_LIMITS = { min: 1, max: 20 } as const;
 
 export function defaultMechanicsSettings(): MechanicsSettings {
     return { ...DEFAULT_MECHANICS_SETTINGS };
@@ -31,5 +32,12 @@ export function readMechanicsSettings(slice: Partial<MechanicsSettings>): Mechan
         defaults.promptBudget,
     );
     slice.depth = clampInt(slice.depth, DEPTH_LIMITS.min, DEPTH_LIMITS.max, defaults.depth);
+    for (const key of ['modelRolls', 'autoCombat'] as const) {
+        if (typeof slice[key] !== 'boolean') slice[key] = defaults[key];
+    }
+    if (slice.personaFallback !== 'background' && slice.personaFallback !== 'block') {
+        slice.personaFallback = defaults.personaFallback;
+    }
+    slice.relevance = clampInt(slice.relevance, RELEVANCE_LIMITS.min, RELEVANCE_LIMITS.max, defaults.relevance);
     return slice as MechanicsSettings;
 }

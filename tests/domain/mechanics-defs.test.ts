@@ -136,7 +136,8 @@ describe('parseDice', () => {
             '1d20+mod(stealth)',
             '1d20+3<=@stealth',
             '1d20*2',
-            '1d20+3+2',
+            '1d20+3+',
+            '4d6kh5',
             '1d20>=10',
         ]) {
             expect(parseDice(bad), bad).toBeNull();

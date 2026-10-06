@@ -96,6 +96,11 @@ describe('MechanicsService', () => {
             'money',
             'skills',
             'relationships',
+            'survival',
+            'sanity',
+            'trade',
+            'combat',
+            'social',
         ]);
         const magic = service.fromTemplate('magic')!;
         expect(magic).toMatchObject({ id: 'magic_2', name: 'Magic', scope: { kind: 'card', avatar: AVATAR } });

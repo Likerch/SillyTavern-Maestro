@@ -10,12 +10,19 @@
 // code fences, `[mechanics]` brackets, HTML-escaped tags, bullets, Russian holder names, `Kai's health`, attribute by
 // id / prompt name / display name in any case, unicode minus, ×/x/* factors, `12 → 9`, `45/100`, trailing comments.
 // Pure: no DOM, no SillyTavern.
+import { difficultyWord } from './mechanics-checks';
 import { trackingOf } from './mechanics-defs';
-import type { AttributeDef, MechanicDef } from './mechanics-defs';
+import type { AttributeDef, MechanicDef, StatusDuration } from './mechanics-defs';
+import type { DifficultyLevel, RollMode } from './mechanics-dice';
 import { findAttribute, nameKey, toNumber } from './mechanics-state';
 import type { Edit, EditOp } from './mechanics-state';
+import { parseDurationText } from './mechanics-status';
+import { resolveVisibility } from './mechanics-visibility';
 
-/** One parsed line of a block. `attribute` is '' when the line had no `Holder.attribute` dot. */
+/**
+ * One parsed line of a block. `attribute` is '' when the line had no `Holder.attribute` dot. Statuses, items and
+ * equipment use the attributes 'status', 'items', 'equip' and 'wear' with the raw text as the value.
+ */
 export interface BlockItem {
     holder: string;
     attribute: string;
@@ -23,6 +30,29 @@ export interface BlockItem {
     value: string | number;
     reason?: string;
     /** The line as written (trimmed). */
+    line: string;
+}
+
+/** `roll: Stealth Kai vs Guard.Perception adv hard` — the model asks Maestro for a check. */
+export interface BlockRoll {
+    /** The check and (maybe) who rolls, as written («Stealth Kai», "Kai's Stealth"). */
+    head: string;
+    /** The other side of an opposed check. */
+    vs?: { holder: string; check?: string };
+    mode?: RollMode;
+    level?: DifficultyLevel;
+    difficulty?: number;
+    line: string;
+}
+
+export type CombatAction = 'start' | 'end' | 'enemy' | 'out';
+
+/** `combat: start`, `combat: enemy Bandit hp=20`, `combat: out Bandit`, `combat: end`. */
+export interface BlockCombat {
+    action: CombatAction;
+    names: string[];
+    /** Starting values of an enemy (`hp=20 armor=12`). */
+    stats?: Record<string, number>;
     line: string;
 }
 
@@ -34,6 +64,8 @@ export interface ParsedBlock {
     repaired: string[];
     /** Non-empty lines inside a block that could not be read. */
     dropped: string[];
+    rolls: BlockRoll[];
+    combat: BlockCombat[];
 }
 
 interface Token {
@@ -88,8 +120,9 @@ function lineBounds(text: string, from: number): { start: number; end: number } 
     return { start: from, end: end < 0 ? text.length : end };
 }
 
-/** A line that is surely a block line (outside the tags): `Holder.attribute …` or an explicit change. */
+/** A line that is surely a block line (outside the tags): `Holder.attribute …`, an explicit change, a roll or a fight. */
 function strictLine(line: string): boolean {
+    if (parseRollLine(line) || parseCombatLine(line)) return true;
     const item = parseBlockLine(line);
     return !!item && (item.attribute !== '' || item.op !== 'set');
 }
@@ -231,6 +264,210 @@ function splitLeft(left: string): { holder: string; attribute: string } {
     return { holder: text.replace(/\.$/, '').trim(), attribute: '' };
 }
 
+const SPECIAL_ATTRIBUTES: Record<string, 'status' | 'items' | 'equip' | 'wear'> = {
+    status: 'status',
+    statuses: 'status',
+    condition: 'status',
+    conditions: 'status',
+    состояние: 'status',
+    состояния: 'status',
+    статус: 'status',
+    статусы: 'status',
+    эффект: 'status',
+    эффекты: 'status',
+    items: 'items',
+    item: 'items',
+    inventory: 'items',
+    inv: 'items',
+    предметы: 'items',
+    предмет: 'items',
+    инвентарь: 'items',
+    вещи: 'items',
+    equip: 'equip',
+    equipped: 'equip',
+    hand: 'equip',
+    hands: 'equip',
+    'в руках': 'equip',
+    wear: 'wear',
+    wears: 'wear',
+    worn: 'wear',
+    надето: 'wear',
+};
+
+/** 'status' / 'items' / 'equip' / 'wear' for the pseudo attributes of statuses and inventories. */
+export function specialAttribute(attribute: string): 'status' | 'items' | 'equip' | 'wear' | null {
+    return SPECIAL_ATTRIBUTES[nameKey(attribute)] ?? null;
+}
+
+/** A trailing note after `#`, `//` or a dash (parentheses stay in the value). */
+function splitNote(right: string): { value: string; reason?: string } {
+    const value = right.trim();
+    const separator = /\s+(?:#|\/\/|—|–|--)\s+/.exec(value);
+    if (separator && separator.index > 0) {
+        const reason = value.slice(separator.index + separator[0].length).trim();
+        const head = value.slice(0, separator.index).trim();
+        return reason ? { value: head, reason } : { value: head };
+    }
+    return { value };
+}
+
+/** "rope x2", '"rope" ×2', "2 rope", "rope (2)" → name and quantity (1 by default). */
+export function parseItemText(raw: string): { name: string; qty: number; slot?: 'hand' | 'worn' } {
+    let text = String(raw ?? '').trim();
+    let slot: 'hand' | 'worn' | undefined;
+    const slotMatch = /\s*\((?:in hand|hand|в руках|в руке|worn|wear|надет[оаы]?)\)\s*$/i.exec(text);
+    if (slotMatch) {
+        slot = /hand|рук/i.test(slotMatch[0]) ? 'hand' : 'worn';
+        text = text.slice(0, slotMatch.index).trim();
+    }
+    let qty = 1;
+    const tail = /\s*(?:[x×*]\s*(\d+(?:[.,]\d+)?)|\((\d+(?:[.,]\d+)?)\))\s*$/i.exec(text);
+    const head = /^(\d+(?:[.,]\d+)?)(?:\s*[x×*]\s*|\s+)(?=\S)/i.exec(text);
+    if (tail && tail.index > 0) {
+        qty = toNumber(tail[1] ?? tail[2]) ?? 1;
+        text = text.slice(0, tail.index);
+    } else if (head && head[0].length < text.length) {
+        qty = toNumber(head[1]) ?? 1;
+        text = text.slice(head[0].length);
+    }
+    const name = text.replace(/^["'«»“”`]+|["'«»“”`]+$/g, '').trim();
+    return slot ? { name, qty, slot } : { name, qty };
+}
+
+/** «Отравлен (3 хода)», "Poisoned 3 turns", "Blessed (until sunset)" → name, duration and the duration as written. */
+export function parseStatusText(raw: string): { name: string; duration: StatusDuration | null; durationText?: string } {
+    const text = String(raw ?? '').trim();
+    const paren = /^(.*?)\s*\(([^()]*)\)\s*$/.exec(text);
+    if (paren?.[1]) {
+        const name = cleanName(paren[1]);
+        const words = (paren[2] ?? '').trim();
+        return { name, duration: parseDurationText(words), ...(words ? { durationText: words } : {}) };
+    }
+    const trailing = /^(.*?)\s+(?:for\s+|на\s+)?(\d+\s*[a-zа-яё]+(?:\s+\d+\s*[a-zа-яё]+)?)\s*$/i.exec(text);
+    if (trailing?.[1]) {
+        const duration = parseDurationText(trailing[2] ?? '');
+        if (duration) {
+            return {
+                name: cleanName(trailing[1]),
+                duration,
+                durationText: (trailing[2] ?? '').trim(),
+            };
+        }
+    }
+    return { name: cleanName(text), duration: null };
+}
+
+/** A name without quotes and stray brackets around it. */
+function cleanName(text: string): string {
+    return text.replace(/^[\s"'«»“”`()[\]]+|[\s"'«»“”`()[\]]+$/g, '').trim();
+}
+
+const ROLL_RE = /^(?:roll|check|проверка|бросок)\s*[:\-—]\s*(.+)$/i;
+const VS_RE = /\s+(?:vs\.?|versus|против)\s+/i;
+const ADV_RE = /(?:^|\s)(?:with\s+advantage|advantage|adv|с\s+преимуществом|преимущество)(?=\s|$)/i;
+const DIS_RE = /(?:^|\s)(?:with\s+disadvantage|disadvantage|dis|с\s+помехой|помеха)(?=\s|$)/i;
+const DC_RE = /(?:^|\s)(?:dc|сл|сложность|difficulty)\s*[:=]?\s*(\d{1,3})(?=\s|$)/i;
+const LEVEL_WORDS =
+    /(?:^|\s)(very\s+hard|very\s+difficult|easy|normal|hard|difficult|очень\s+трудн\S*|очень\s+сложн\S*|легк\S*|трудн\S*|сложн\S*)(?=\s|$)/i;
+
+/** `roll: <check> [who] [vs <who>.<check>] [adv|dis] [easy|hard|DC 15]`; null when the line is not a roll. */
+export function parseRollLine(raw: string): BlockRoll | null {
+    const line = String(raw ?? '')
+        .trim()
+        .replace(/^(?:[-*•·]|\d+[.)])\s+/, '');
+    const match = ROLL_RE.exec(line);
+    if (!match?.[1]) return null;
+    let text = ` ${match[1].trim()} `;
+    const roll: BlockRoll = { head: '', line };
+    if (ADV_RE.test(text)) {
+        roll.mode = 'adv';
+        text = text.replace(ADV_RE, ' ');
+    } else if (DIS_RE.test(text)) {
+        roll.mode = 'dis';
+        text = text.replace(DIS_RE, ' ');
+    }
+    const dc = DC_RE.exec(text);
+    if (dc?.[1]) {
+        roll.difficulty = Number(dc[1]);
+        text = text.replace(DC_RE, ' ');
+    }
+    const level = LEVEL_WORDS.exec(text);
+    if (level?.[1]) {
+        const parsed = difficultyWord(level[1]);
+        if (parsed) roll.level = parsed;
+        text = text.replace(LEVEL_WORDS, ' ');
+    }
+    const parts = text.split(VS_RE);
+    const clean = (part: string | undefined) =>
+        (part ?? '')
+            .replace(/\s+/g, ' ')
+            .trim()
+            .replace(/[.,;:]+$/g, '')
+            .trim();
+    roll.head = clean(parts[0]);
+    const other = clean(parts[1]);
+    if (other) {
+        const dot = other.lastIndexOf('.');
+        const possessive = /^(.+?)['’]s\s+(.+)$/i.exec(other);
+        if (dot > 0 && dot < other.length - 1) {
+            roll.vs = { holder: other.slice(0, dot).trim(), check: other.slice(dot + 1).trim() };
+        } else if (possessive?.[1] && possessive[2]) {
+            roll.vs = { holder: possessive[1].trim(), check: possessive[2].trim() };
+        } else roll.vs = { holder: other };
+    }
+    return roll.head ? roll : null;
+}
+
+const COMBAT_RE = /^(?:combat|fight|battle|бой|битва|схватка)\s*[:\-—]\s*(.+)$/i;
+const COMBAT_ACTIONS: { action: CombatAction; re: RegExp }[] = [
+    { action: 'start', re: /^(?:start|begin|starts|begins|начало|начать|начинается|старт)(?=[\s,:]|$)\s*[:,]?\s*/i },
+    {
+        action: 'end',
+        re: /^(?:end|ends|over|stop|finish|конец|закончен|окончен|завершён|завершен)(?=[\s,:]|$)\s*[:,]?\s*/i,
+    },
+    {
+        action: 'enemy',
+        re: /^(?:enemy|enemies|foe|adds?|join|joins|враг|враги|противник|противники)(?=[\s,:]|$)\s*[:,]?\s*/i,
+    },
+    {
+        action: 'out',
+        re: /^(?:out|down|defeated|dead|fled|выбыл|выбыла|повержен|повержена|убит|убита|сбежал)(?=[\s,:]|$)\s*[:,]?\s*/i,
+    },
+];
+
+/** `combat: start [Bandit, Wolf]` / `end` / `enemy Bandit hp=20 armor=12` / `out Bandit`; null otherwise. */
+export function parseCombatLine(raw: string): BlockCombat | null {
+    const line = String(raw ?? '')
+        .trim()
+        .replace(/^(?:[-*•·]|\d+[.)])\s+/, '');
+    const match = COMBAT_RE.exec(line);
+    if (!match?.[1]) return null;
+    let rest = match[1].trim();
+    const found = COMBAT_ACTIONS.find((item) => item.re.test(rest));
+    if (!found) return null;
+    rest = rest.replace(found.re, '').trim();
+    const stats: Record<string, number> = {};
+    rest = rest
+        .replace(/([a-zа-яё_][\wа-яё]*)\s*[=:]\s*(-?\d+(?:[.,]\d+)?)/gi, (_all, name: string, value: string) => {
+            const number = toNumber(value);
+            if (number !== null) stats[name.toLowerCase()] = number;
+            return ' ';
+        })
+        .replace(/[()]/g, ' ');
+    const names = rest
+        .split(/\s*(?:,|;|\band\b|\bи\b)\s*/i)
+        .map((name) =>
+            name
+                .replace(/^["'«»“”`]+|["'«»“”`]+$/g, '')
+                .replace(/\s+/g, ' ')
+                .trim(),
+        )
+        .filter((name) => name && !/^(?:with|vs|против)$/i.test(name));
+    const combat: BlockCombat = { action: found.action, names, line };
+    if (Object.keys(stats).length) combat.stats = stats;
+    return combat;
+}
+
 /** One `Holder.attribute <op> value` line; null when the line is not one. */
 export function parseBlockLine(raw: string): BlockItem | null {
     let line = String(raw ?? '')
@@ -258,6 +495,16 @@ export function parseBlockLine(raw: string): BlockItem | null {
     } else return null;
     const { holder, attribute } = splitLeft(left);
     if (!holder || holder.length > 80 || /[<>{}]/.test(holder)) return null;
+    const special = specialAttribute(attribute);
+    if (special) {
+        // The parentheses belong to the value here: «Отравлен (3 хода)», "sword (hand)".
+        const { value, reason } = splitNote(right);
+        if (!value) return null;
+        const specialOp: EditOp = op === '-=' ? 'sub' : op === '+=' ? 'add' : 'set';
+        const item: BlockItem = { holder, attribute: special, op: specialOp, value, line };
+        if (reason) item.reason = reason;
+        return item;
+    }
     const { value: rawValue, reason } = splitReason(right);
     const value = unquote(rawValue);
     if (!value || /^\(.*\)$/.test(value)) return null;
@@ -295,7 +542,7 @@ export function parseBlockLine(raw: string): BlockItem | null {
 /** Every block of a text: its lines, what was repaired and what could not be read. */
 export function parseBlock(text: string): ParsedBlock {
     const source = typeof text === 'string' ? text : '';
-    const result: ParsedBlock = { found: false, items: [], repaired: [], dropped: [] };
+    const result: ParsedBlock = { found: false, items: [], repaired: [], dropped: [], rolls: [], combat: [] };
     if (!hasBlockMarker(source)) return result;
     const repaired = new Set<string>();
     const spans = blockSpans(source, repaired);
@@ -304,6 +551,16 @@ export function parseBlock(text: string): ParsedBlock {
         for (const line of source.slice(span.bodyStart, span.bodyEnd).split('\n')) {
             const trimmed = line.trim();
             if (!trimmed || /^```[\w-]*$/.test(trimmed)) continue;
+            const roll = parseRollLine(trimmed);
+            if (roll) {
+                result.rolls.push(roll);
+                continue;
+            }
+            const combat = parseCombatLine(trimmed);
+            if (combat) {
+                result.combat.push(combat);
+                continue;
+            }
             const item = parseBlockLine(trimmed);
             if (item) result.items.push(item);
             else result.dropped.push(trimmed);
@@ -352,8 +609,8 @@ export type BlockRejectReason = 'attribute' | 'holder' | 'mode';
 export interface BlockResolveOptions {
     /** The holder of a mechanic a raw name stands for; null when the mechanic has no such holder. */
     resolveHolder: (def: MechanicDef, raw: string) => string | null;
-    /** Attributes the block may change (default: tracking 'block'). */
-    allows?: (def: MechanicDef, attr: AttributeDef) => boolean;
+    /** Attributes the block may change for a holder (default: tracking 'block', known to the model). */
+    allows?: (def: MechanicDef, attr: AttributeDef, holder: string) => boolean;
 }
 
 function attributeSuffix(holderText: string, attr: AttributeDef): string | null {
@@ -374,16 +631,125 @@ function attributeSuffix(holderText: string, attr: AttributeDef): string | null 
     return null;
 }
 
-/** Block lines → edits of the given mechanics (the holder decides between attributes of the same name). */
+/** A status the block applies or removes. */
+export interface BlockStatusEdit {
+    mechanicId: string;
+    holder: string;
+    op: 'add' | 'remove';
+    name: string;
+    duration: StatusDuration | null;
+    /** The duration as written (a phrase like «до заката» is placed in story time by the calendar). */
+    durationText?: string;
+    reason?: string;
+}
+
+/** An item the block gives, takes or puts on / in hand. */
+export interface BlockItemEdit {
+    mechanicId: string;
+    holder: string;
+    op: 'give' | 'take' | 'equip';
+    name: string;
+    qty: number;
+    slot?: 'hand' | 'worn' | null;
+    reason?: string;
+}
+
+export interface ResolvedBlock {
+    edits: Edit[];
+    statuses: BlockStatusEdit[];
+    inventory: BlockItemEdit[];
+    rejected: { item: BlockItem; reason: BlockRejectReason }[];
+}
+
+/** The first mechanic with that part (statuses / inventory) that has the holder, and the holder's name. */
+function partOwner(
+    defs: readonly MechanicDef[],
+    has: (def: MechanicDef) => boolean,
+    raw: string,
+    options: BlockResolveOptions,
+): { def: MechanicDef; holder: string } | 'mode' | 'holder' {
+    const owners = defs.filter(has);
+    if (!owners.length) return 'mode';
+    for (const def of owners) {
+        const holder = options.resolveHolder(def, raw);
+        if (holder) return { def, holder };
+    }
+    return 'holder';
+}
+
+function resolveSpecial(
+    item: BlockItem,
+    defs: readonly MechanicDef[],
+    options: BlockResolveOptions,
+    out: ResolvedBlock,
+): void {
+    const text = String(item.value);
+    if (item.attribute === 'status') {
+        const owner = partOwner(defs, (def) => def.statuses !== undefined, item.holder, options);
+        if (typeof owner === 'string') {
+            out.rejected.push({ item, reason: owner });
+            return;
+        }
+        const parsed = parseStatusText(text);
+        if (!parsed.name) {
+            out.rejected.push({ item, reason: 'attribute' });
+            return;
+        }
+        const edit: BlockStatusEdit = {
+            mechanicId: owner.def.id,
+            holder: owner.holder,
+            op: item.op === 'sub' ? 'remove' : 'add',
+            name: parsed.name,
+            duration: parsed.duration,
+        };
+        if (parsed.durationText) edit.durationText = parsed.durationText;
+        if (item.reason) edit.reason = item.reason;
+        out.statuses.push(edit);
+        return;
+    }
+    const owner = partOwner(defs, (def) => def.inventory !== undefined, item.holder, options);
+    if (typeof owner === 'string') {
+        out.rejected.push({ item, reason: owner });
+        return;
+    }
+    const parsed = parseItemText(text);
+    if (!parsed.name) {
+        out.rejected.push({ item, reason: 'attribute' });
+        return;
+    }
+    const base = { mechanicId: owner.def.id, holder: owner.holder, name: parsed.name, qty: parsed.qty };
+    let edit: BlockItemEdit;
+    if (item.attribute === 'items') {
+        edit = { ...base, op: item.op === 'sub' ? 'take' : 'give' };
+        if (parsed.slot && edit.op === 'give') edit.slot = parsed.slot;
+    } else {
+        edit = { ...base, op: 'equip', slot: item.op === 'sub' ? null : item.attribute === 'wear' ? 'worn' : 'hand' };
+    }
+    if (item.reason) edit.reason = item.reason;
+    out.inventory.push(edit);
+}
+
+/**
+ * Block lines → edits of the given mechanics (the holder decides between attributes of the same name); statuses and
+ * items go to the mechanics that keep them. Attributes the model is not told about (prompt 'none') are not its to
+ * change.
+ */
 export function resolveBlock(
     items: readonly BlockItem[],
     defs: readonly MechanicDef[],
     options: BlockResolveOptions,
-): { edits: Edit[]; rejected: { item: BlockItem; reason: BlockRejectReason }[] } {
-    const allows = options.allows ?? ((def: MechanicDef, attr: AttributeDef) => trackingOf(def, attr) === 'block');
-    const edits: Edit[] = [];
-    const rejected: { item: BlockItem; reason: BlockRejectReason }[] = [];
+): ResolvedBlock {
+    const allows =
+        options.allows ??
+        ((def: MechanicDef, attr: AttributeDef) =>
+            trackingOf(def, attr) === 'block' && !attr.formula && resolveVisibility(def, attr).prompt !== 'none');
+    const out: ResolvedBlock = { edits: [], statuses: [], inventory: [], rejected: [] };
+    const { edits, rejected } = out;
     for (const item of items) {
+        if (specialAttribute(item.attribute) && !defs.some((def) => findAttribute(def, item.attribute))) {
+            resolveSpecial({ ...item, attribute: specialAttribute(item.attribute) as string }, defs, options, out);
+            continue;
+        }
         const candidates: { def: MechanicDef; attr: AttributeDef; holder: string }[] = [];
         for (const def of defs) {
             if (item.attribute) {
@@ -409,7 +775,7 @@ export function resolveBlock(
         for (const candidate of candidates) {
             const holder = options.resolveHolder(candidate.def, candidate.holder);
             if (holder === null) continue;
-            if (!allows(candidate.def, candidate.attr)) {
+            if (!allows(candidate.def, candidate.attr, holder)) {
                 reason = 'mode';
                 continue;
             }
@@ -427,7 +793,46 @@ export function resolveBlock(
         }
         if (!done) rejected.push({ item, reason });
     }
-    return { edits, rejected };
+    return out;
+}
+
+/** A check to roll: its mechanic, its names (id, display, English, `mechanic.check`). */
+export interface RollCheckRef {
+    mechanicId: string;
+    checkId: string;
+    names: readonly string[];
+}
+
+/**
+ * The check and the actor of a roll request: the longest run of words at the start (or the end) of the head that is
+ * a check name; the rest, without a possessive, is the actor ('' when none).
+ */
+export function resolveRollHead(
+    head: string,
+    checks: readonly RollCheckRef[],
+): { check: RollCheckRef; actor: string } | null {
+    const words = head
+        .replace(/['’]s\b/gi, '')
+        .split(/\s+/)
+        .filter(Boolean);
+    const named = (text: string) => {
+        const key = nameKey(text.replace(/[.,:;]+$/g, ''));
+        return key ? (checks.find((check) => check.names.some((name) => nameKey(name) === key)) ?? null) : null;
+    };
+    for (let count = words.length; count >= 1; count--) {
+        const front = named(words.slice(0, count).join(' '));
+        if (front) return { check: front, actor: words.slice(count).join(' ').trim() };
+        const back = named(words.slice(words.length - count).join(' '));
+        if (back)
+            return {
+                check: back,
+                actor: words
+                    .slice(0, words.length - count)
+                    .join(' ')
+                    .trim(),
+            };
+    }
+    return null;
 }
 
 /* ------------------------------------------------------------------ the instruction */
@@ -474,33 +879,108 @@ function exampleLine(holder: string, attr: AttributeDef): string {
     }
 }
 
+/** What else the block may carry besides values. */
+export interface BlockInstructionOptions {
+    /** Names of the checks the model may ask Maestro to roll (`roll: …`); none → no roll line. */
+    checks?: readonly string[];
+    /** Fights are run by a mechanic in the scene. */
+    combat?: boolean;
+    /** Attributes the block tracks for the persona only (DES does not list the user's character). */
+    persona?: { name: string; attributes: (def: MechanicDef) => AttributeDef[] };
+}
+
+/** The attributes the block tracks: block tracking, stored, and known to the model. */
+function blockAttributes(def: MechanicDef): AttributeDef[] {
+    return def.attributes.filter(
+        (attr) => trackingOf(def, attr) === 'block' && !attr.formula && resolveVisibility(def, attr).prompt !== 'none',
+    );
+}
+
 /**
  * English instruction for the 'block' attributes of the mechanics in the scene: the format, the holders and the
- * attributes. '' when no mechanic in the scene uses the block.
+ * attributes; statuses and items of the mechanics that keep them (with block tracking); roll requests and fights when
+ * given. '' when there is nothing the block could carry.
  */
 export function blockInstruction(
     defs: readonly MechanicDef[],
     holdersByMechanic: Readonly<Record<string, readonly string[]>>,
+    options: BlockInstructionOptions = {},
 ): string {
     const groups: string[] = [];
     let example = '';
+    let statuses = '';
+    let items = '';
+    let someone = '';
     for (const def of defs) {
-        const attributes = def.attributes.filter((attr) => trackingOf(def, attr) === 'block');
         const holders = (holdersByMechanic[def.id] ?? []).filter((holder) => holder.trim());
-        if (!attributes.length || !holders.length) continue;
-        const first = attributes[0];
-        if (!example && first) example = exampleLine(holders[0] ?? 'Holder', first);
-        groups.push(
-            [`Holders: ${holders.join(', ')}`, ...attributes.map((attr) => `- ${describeForModel(attr)}`)].join('\n'),
+        // A secret mechanic is Maestro's alone: the model is told nothing about it.
+        if (!holders.length || resolveVisibility(def).prompt === 'none') continue;
+        someone ||= holders.find((holder) => holder !== 'world') ?? '';
+        const attributes = blockAttributes(def);
+        if (attributes.length) {
+            const first = attributes[0];
+            if (!example && first) example = exampleLine(holders[0] ?? 'Holder', first);
+            groups.push(
+                [`Holders: ${holders.join(', ')}`, ...attributes.map((attr) => `- ${describeForModel(attr)}`)].join(
+                    '\n',
+                ),
+            );
+        }
+        const persona = options.persona;
+        if (persona && holders.some((holder) => nameKey(holder) === nameKey(persona.name))) {
+            const own = persona.attributes(def).filter((attr) => !attributes.includes(attr));
+            if (own.length) {
+                if (!example && own[0]) example = exampleLine(persona.name, own[0]);
+                groups.push(
+                    [`Holders: ${persona.name}`, ...own.map((attr) => `- ${describeForModel(attr)}`)].join('\n'),
+                );
+            }
+        }
+        if (def.tracking === 'block') {
+            if (def.statuses !== undefined && !statuses) statuses = holders[0] ?? '';
+            if (def.inventory !== undefined && !items) items = holders[0] ?? '';
+        }
+    }
+    const checks = (options.checks ?? []).filter((name) => name.trim());
+    if (!groups.length && !statuses && !items && !checks.length && !options.combat) return '';
+    if (!example && statuses) example = `${statuses}.status += Poisoned (3 turns)`;
+    if (!example && items) example = `${items}.items += rope x2`;
+    if (!example && checks.length) example = `roll: ${checks[0]} ${someone || 'Holder'}`;
+    if (!example && options.combat) example = 'combat: start';
+    const changes = groups.length > 0 || !!statuses || !!items;
+    const lines = changes
+        ? [
+              '[Mechanics block] At the very end of your reply, after the story, list every change this reply makes to the values below in a service block (leave the block out when nothing changed):',
+              '<mechanics>',
+              example,
+              '</mechanics>',
+              'One change per line: Holder.attribute: +N or -N changes a number; Holder.attribute = value sets a value (a number, a level of a scale, an option of a list, a text); Holder.attribute += option / -= option adds or removes an option of a list. Use the holder and attribute names exactly as listed. Write nothing else inside the block; the reader never sees it.',
+          ]
+        : [
+              '[Mechanics block] When the story needs it, end your reply with a service block (the reader never sees it):',
+              '<mechanics>',
+              example,
+              '</mechanics>',
+          ];
+    if (statuses) {
+        lines.push(
+            'Conditions: Holder.status += Poisoned (3 turns) puts a condition on someone (say how long: turns, hours, days, or until when); Holder.status -= Poisoned ends it.',
         );
     }
-    if (!groups.length) return '';
-    return [
-        '[Mechanics block] At the very end of your reply, after the story, list every change this reply makes to the values below in a service block (leave the block out when nothing changed):',
-        '<mechanics>',
-        example,
-        '</mechanics>',
-        'One change per line: Holder.attribute: +N or -N changes a number; Holder.attribute = value sets a value (a number, a level of a scale, an option of a list, a text); Holder.attribute += option / -= option adds or removes an option of a list. Use the holder and attribute names exactly as listed. Write nothing else inside the block; the reader never sees it.',
-        ...groups,
-    ].join('\n');
+    if (items) {
+        lines.push(
+            'Items: Holder.items += rope x2 gives, Holder.items -= coin x5 takes away; Holder.equip += sword puts it in hand, Holder.wear += cloak puts it on.',
+        );
+    }
+    if (checks.length) {
+        lines.push(
+            `Rolls: when the outcome of a risky action is uncertain, do not decide it — write roll: <check> <who> (optionally vs <other>.<check>, adv or dis, easy or hard) and stop before the outcome; Maestro rolls and gives you the result next turn. Checks: ${checks.join(', ')}.`,
+        );
+    }
+    if (options.combat) {
+        lines.push(
+            'Fights: combat: start (with combat: enemy <name> for each foe), combat: out <name> when someone is down or flees, combat: end when it is over.',
+        );
+    }
+    return [...lines, ...groups].join('\n');
 }

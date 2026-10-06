@@ -5,6 +5,8 @@
 // words) and «Сделать статами DES». Stacked fields and wrapping rows: usable on a phone.
 import {
     cleanList,
+    criticalsDefault,
+    criticalsOf,
     desStatsAttributes,
     diceAttributes,
     EVENT_OPS,
@@ -888,10 +890,12 @@ export function constructorSection(deps: PartDeps, defs: Definitions, tracking: 
                     ),
                     toggle({
                         label: t('m25.def.check.criticals'),
-                        checked: check.criticals !== false,
+                        // The truth for any dice: the check's own switch, else the default (one d20 or d100).
+                        checked: criticalsOf(check),
                         onChange: (checked) => {
-                            if (checked) delete check.criticals;
-                            else check.criticals = false;
+                            const formula = parseDice(check.dice);
+                            if (formula && checked === criticalsDefault(formula)) delete check.criticals;
+                            else check.criticals = checked;
                         },
                     }),
                 ],

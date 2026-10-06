@@ -61,9 +61,15 @@ export function mechanicSaveTool(): ToolSpec {
             'Creates or changes a mechanic (stats, magic, reputation, money, skills…) of the Mechanics module. ' +
             'Either `template` (a template id, with optional `overrides`) or `definition` (a MechanicDef JSON: id, ' +
             'name, summary, rules (English, for the model), attributes [{id, name, promptName, kind ' +
-            'number|scale|list|text, min, max, initial, levels, options, multi, tracking, events}], holders {kind ' +
+            'number|scale|list|text, min, max, initial, levels, options, multi, tracking, events [{id, when, text, ' +
+            'actions, chain}], formula (derived, "50 + 10 * @level"), growth {perUse, cap}, visibility}], holders {kind ' +
             'persona|characters|named|world|factions, names}, checks [{id, name, promptName, dice like ' +
-            '"1d20+mod(@attr)", difficulty, triggers}], tracking desStats|block|background|manual). With the id of ' +
+            '"1d20+@attr" or "2d6+1d4", difficulty, triggers, effects [{on success|failure|critical|fumble|any, ' +
+            'changes [{who actor|target|persona, attr, op add|sub|set|mul|push|pull, value}], text}]}], tracking ' +
+            'desStats|block|background|manual, visibility {preset game|book|hidden|secret}, statuses [{name, ' +
+            'promptName, duration {turns|minutes}, modifiers}], inventory {money}, time [{attr, amount, per ' +
+            'turn|hour|day, when rest|awake}], progression {xp, level, thresholds, onLevelUp}, combat {initiative, ' +
+            'enemy}). With the id of ' +
             'an existing mechanic only the given fields change: attributes and checks are merged by id, ' +
             '{id, remove: true} removes one. Validated before the user confirms; current ones: mechanics_state.',
         parameters: {

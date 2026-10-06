@@ -4,9 +4,17 @@
 // cut to a token budget, least important first: other holders' values, then the rules (down to the summary, then
 // nothing), then the main holder's values (the persona), then whole mechanics from the last. The block-format
 // instruction (tracking) is never cut. Plus the facts block for one generation: check results and fired events.
+// Visibility (plan-2 §6.А): an attribute the model must not know (prompt 'none', secret) never appears; 'words' gives
+// the word band instead of the number ("mana: low"); a mechanic whose attributes may only be mentioned in words, or
+// not at all, gets a short "Changes: …" line. Extra lines (conditions, inventories) are cut right after the other
+// holders' values; fixed lines (the fight) never.
 // Pure: no DOM, no SillyTavern. The shapes are structural copies of features/mechanics/api.ts (domain cannot import
 // feature types); a MechanicDef fits PromptMechanic as is.
 import { estimateTokens } from './rules-lore';
+import { mentionLine, resolveVisibility, wordsFor } from './mechanics-visibility';
+import type { MentionGroup, MentionVisibility, VisibilityInput } from './mechanics-visibility';
+import { durationText, itemsText } from './mechanics-status';
+import type { ItemState } from './mechanics-status';
 
 export type PromptValue = number | string | string[];
 
@@ -19,6 +27,7 @@ export interface PromptAttribute {
     max?: number;
     levels?: string[];
     visible?: boolean;
+    visibility?: VisibilityInput;
 }
 
 export interface PromptMechanic {
@@ -29,6 +38,7 @@ export interface PromptMechanic {
     summary: string;
     rules: string;
     attributes: readonly PromptAttribute[];
+    visibility?: VisibilityInput;
 }
 
 export interface PromptHolder {
@@ -100,15 +110,45 @@ export function formatValue(attribute: PromptAttribute, value: PromptValue | nul
     }
 }
 
+/** One value as words ("mana: low"), or as a value when the attribute has no words. */
+export function wordsValue(
+    mechanic: PromptMechanic,
+    attribute: PromptAttribute,
+    value: PromptValue | null | undefined,
+): string | null {
+    const words = wordsFor(attribute, resolveVisibility(mechanic, attribute), value);
+    if (!words) return formatValue(attribute, value);
+    return `${labelOf(attribute)}: ${compact(words.label)}`;
+}
+
 /** "Kai: mana 12/30, schools: fire, water", or null when the holder shows nothing. */
 export function holderLine(mechanic: PromptMechanic, holder: PromptHolder): string | null {
     const parts: string[] = [];
     for (const attribute of mechanic.attributes) {
-        if (attribute.visible === false) continue;
-        const text = formatValue(attribute, holder.values[attribute.id]);
+        const visibility = resolveVisibility(mechanic, attribute);
+        if (visibility.prompt === 'none') continue;
+        const value = holder.values[attribute.id];
+        const text =
+            visibility.prompt === 'words' ? wordsValue(mechanic, attribute, value) : formatValue(attribute, value);
         if (text) parts.push(text);
     }
     return parts.length ? `${compact(holder.name)}: ${parts.join(', ')}` : null;
+}
+
+/** "Changes: attitude in words only, never as numbers." for attributes that may not be stated with numbers. */
+export function mentionText(mechanic: PromptMechanic): string {
+    const groups = new Map<MentionVisibility, string[]>();
+    for (const attribute of mechanic.attributes) {
+        const visibility = resolveVisibility(mechanic, attribute);
+        if (visibility.prompt === 'none' || visibility.mention === 'numbers') continue;
+        const list = groups.get(visibility.mention) ?? [];
+        list.push(labelOf(attribute));
+        groups.set(visibility.mention, list);
+    }
+    const ordered: MentionGroup[] = (['words', 'none'] as const)
+        .filter((mention) => groups.has(mention))
+        .map((mention) => ({ mention, names: groups.get(mention) ?? [] }));
+    return mentionLine(ordered);
 }
 
 /* ------------------------------------------------------------------ the rules block */
@@ -119,10 +159,12 @@ interface Draft {
     section: PromptSection;
     lines: { holder: PromptHolder; text: string }[];
     rules: RulesLevel;
+    mention: string;
 }
 
 export type CutStep =
     | { kind: 'holder'; mechanicId: string; holder: string; primary: boolean }
+    | { kind: 'extra'; index: number }
     | { kind: 'rules'; mechanicId: string; to: 'summary' | 'none' }
     | { kind: 'mechanic'; mechanicId: string };
 
@@ -142,6 +184,10 @@ export interface RulesOptions {
     budget: number;
     /** Never cut (the service-block instruction of the tracking part). */
     instruction?: string;
+    /** Lines after the mechanics (conditions, inventories), cut right after the other holders' values. */
+    extras?: readonly string[];
+    /** Lines after the mechanics that are never cut (the fight). */
+    fixed?: readonly string[];
     count?: TokenCount;
 }
 
@@ -158,24 +204,38 @@ function sectionText(draft: Draft): string {
         draft.section.mechanic.promptName || draft.section.mechanic.name || draft.section.mechanic.id,
     );
     const rules = rulesText(draft.section.mechanic, draft.rules);
-    return [rules ? `${label}: ${rules}` : label, ...draft.lines.map((line) => line.text)].join(' | ');
+    const head = rules ? `${label}: ${rules}` : label;
+    const mention = draft.rules !== 'none' && draft.mention ? ` ${draft.mention}` : '';
+    return [`${head}${mention}`, ...draft.lines.map((line) => line.text)].join(' | ');
 }
 
-function assemble(drafts: readonly Draft[], instruction: string): string {
+interface Tail {
+    extras: string[];
+    fixed: string[];
+    instruction: string;
+}
+
+function assemble(drafts: readonly Draft[], tail: Tail): string {
     const lines = drafts.map(sectionText);
     if (lines.length) lines[0] = `${RULES_HEADER} ${lines[0]}`;
-    if (instruction) lines.push(instruction);
+    lines.push(...tail.extras, ...tail.fixed);
+    if (tail.instruction) lines.push(tail.instruction);
     return lines.join('\n');
 }
 
 /** The next thing to cut, least important first; false when nothing is left to cut. */
-function cutOne(drafts: Draft[], cut: CutStep[]): boolean {
+function cutOne(drafts: Draft[], cut: CutStep[], tail: Tail): boolean {
     const backwards = [...drafts].reverse();
     for (const draft of backwards) {
         const at = draft.lines.map((line) => !line.holder.primary).lastIndexOf(true);
         if (at < 0) continue;
         const line = draft.lines.splice(at, 1)[0] as Draft['lines'][number];
         cut.push({ kind: 'holder', mechanicId: draft.section.mechanic.id, holder: line.holder.name, primary: false });
+        return true;
+    }
+    if (tail.extras.length) {
+        tail.extras.pop();
+        cut.push({ kind: 'extra', index: tail.extras.length });
         return true;
     }
     for (const draft of backwards) {
@@ -209,19 +269,24 @@ function cutOne(drafts: Draft[], cut: CutStep[]): boolean {
  */
 export function renderRules(sections: readonly PromptSection[], options: RulesOptions): RenderedRules {
     const count = options.count ?? countTokens;
-    const instruction = (options.instruction ?? '').trim();
+    const tail: Tail = {
+        instruction: (options.instruction ?? '').trim(),
+        extras: (options.extras ?? []).map(compact).filter(Boolean),
+        fixed: (options.fixed ?? []).map(compact).filter(Boolean),
+    };
     const budget = options.budget > 0 ? Math.floor(options.budget) : 0;
     const drafts: Draft[] = sections.map((section) => ({
         section,
         rules: 'full',
+        mention: mentionText(section.mechanic),
         lines: section.holders.flatMap((holder) => {
             const text = holderLine(section.mechanic, holder);
             return text ? [{ holder, text }] : [];
         }),
     }));
     const cut: CutStep[] = [];
-    let text = assemble(drafts, instruction);
-    while (budget > 0 && count(text) > budget && cutOne(drafts, cut)) text = assemble(drafts, instruction);
+    let text = assemble(drafts, tail);
+    while (budget > 0 && count(text) > budget && cutOne(drafts, cut, tail)) text = assemble(drafts, tail);
     return {
         text,
         tokens: text ? count(text) : 0,
@@ -244,4 +309,41 @@ export function renderFacts(facts: readonly string[]): string {
         lines.push(`- ${text}`);
     }
     return lines.length ? `${FACTS_HEADER}\n${lines.join('\n')}` : '';
+}
+
+/* ------------------------------------------------------------------ conditions and inventories */
+
+export interface PromptStatus {
+    promptName: string;
+    remaining: { turns?: number; minutes?: number } | null;
+    until?: { day: number; minutes?: number };
+    stacks?: number;
+    text?: string;
+}
+
+/**
+ * "[Conditions] Kai: poisoned (2 turns left), blessed (until day 3 18:00) | Mira: stunned" for the holders in the scene
+ * that have any; '' when nobody has one.
+ */
+export function conditionsLine(entries: readonly { holder: string; statuses: readonly PromptStatus[] }[]): string {
+    const parts: string[] = [];
+    for (const entry of entries) {
+        if (!entry.statuses.length) continue;
+        const list = entry.statuses.map((status) => {
+            const stacks = status.stacks && status.stacks > 1 ? ` x${status.stacks}` : '';
+            const time = durationText(status);
+            const note = status.text ? `: ${compact(status.text)}` : '';
+            return `${compact(status.promptName)}${stacks}${time ? ` (${time})` : ''}${note}`;
+        });
+        parts.push(`${compact(entry.holder)}: ${list.join(', ')}`);
+    }
+    return parts.length ? `[Conditions] ${parts.join(' | ')}` : '';
+}
+
+/** "[Inventory] Kai: rope x2, sword (in hand) | Mira: lantern"; '' when nobody carries anything. */
+export function inventoryLine(entries: readonly { holder: string; items: readonly ItemState[] }[]): string {
+    const parts = entries
+        .filter((entry) => entry.items.length)
+        .map((entry) => `${compact(entry.holder)}: ${itemsText(entry.items)}`);
+    return parts.length ? `[Inventory] ${parts.join(' | ')}` : '';
 }

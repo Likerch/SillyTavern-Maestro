@@ -30,6 +30,10 @@ describe('mechanics settings', () => {
             promptBudget: 4000,
             depth: 0,
             background: true,
+            modelRolls: true,
+            autoCombat: true,
+            personaFallback: 'background',
+            relevance: 4,
         });
         expect(readMechanicsSettings({ book: ' Мои ', promptBudget: 333.4, depth: Number.NaN })).toMatchObject({
             book: 'Мои',

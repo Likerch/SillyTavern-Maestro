@@ -9,6 +9,7 @@
 //   MutationObserver on the wrapper's parent (childList only — streaming text never reaches it) puts the strip back;
 //   without a wrapper a cheap poll looks for it. Hidden by CSS when DES hides its bar or docks it to a side.
 import { initialValueOf, parseDice } from '../../domain/mechanics-defs';
+import { resolveVisibility, shownIn } from '../../domain/mechanics-visibility';
 import type { Unsubscribe } from '../../shared/contracts';
 import { badge, card, emptyState, section } from '../../ui/components/card';
 import type { Level } from '../../ui/components/card';
@@ -132,6 +133,7 @@ const SOURCE_LEVEL: Record<ChangeSource, Level> = {
     check: 'warn',
     event: 'warn',
     user: 'ok',
+    time: 'muted',
 };
 
 const OUTCOME_LEVEL: Record<CheckResult['outcome'], Level> = {
@@ -280,14 +282,15 @@ export function stateSection(
 
     const attributeRow = (def: MechanicDef, holder: string, attribute: AttributeDef): HTMLElement => {
         const value = valueOf(state, def, holder, attribute);
-        const controls =
-            attribute.kind === 'number'
-                ? numberControl(def, holder, attribute, value)
-                : attribute.kind === 'scale'
-                  ? scaleControl(def, holder, attribute, value)
-                  : attribute.kind === 'list'
-                    ? listControl(def, holder, attribute, value)
-                    : textControl(def, holder, attribute, value);
+        const controls = attribute.formula
+            ? [el('span', { class: 'maestro-m25-derived', text: plain(value, '—') })]
+            : attribute.kind === 'number'
+              ? numberControl(def, holder, attribute, value)
+              : attribute.kind === 'scale'
+                ? scaleControl(def, holder, attribute, value)
+                : attribute.kind === 'list'
+                  ? listControl(def, holder, attribute, value)
+                  : textControl(def, holder, attribute, value);
         return el('div', { class: 'maestro-m25-attr', data: { attribute: attribute.id } }, [
             el('span', { class: 'maestro-m25-attr-name', text: attribute.name }),
             ...controls,
@@ -478,7 +481,13 @@ export function stateSection(
     };
 
     const mechanicCard = (def: MechanicDef, pendingIds: ReadonlySet<string>): HTMLElement => {
-        const holders = safeList(() => state.holdersInScene(def));
+        // The pult shows every faction and the world (the prompt takes them only when they are named).
+        const holders =
+            def.holders.kind === 'factions'
+                ? [...def.holders.names]
+                : def.holders.kind === 'world'
+                  ? ['world']
+                  : safeList(() => state.holdersInScene(def));
         return card({
             className: 'maestro-m25-mechanic',
             title: def.name,
@@ -693,12 +702,14 @@ export class MechanicStrip {
         for (const def of safeList(() => this.defs.active())) {
             if (def.holders.kind === 'world' || def.holders.kind === 'factions') continue;
             const numbers = def.attributes.filter(
-                (attribute) => attribute.kind === 'number' && attribute.visible !== false,
+                (attribute) => attribute.kind === 'number' && resolveVisibility(def, attribute).places.des,
             );
             if (!numbers.length) continue;
             for (const holder of safeList(() => this.state.holdersInScene(def))) {
                 const row = rows.get(holder) ?? { holder, stats: [] };
                 for (const attribute of numbers) {
+                    const revealed = this.state.isRevealed?.(def.id, holder, attribute.id) ?? false;
+                    if (!shownIn(resolveVisibility(def, attribute), 'des', revealed)) continue;
                     const value = valueOf(this.state, def, holder, attribute);
                     if (typeof value !== 'number' || !Number.isFinite(value)) continue;
                     const stat: StripStat = { label: attribute.name, value };

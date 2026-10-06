@@ -14,9 +14,16 @@
 // - 'background': after the commit, when a mechanic in the scene has background attributes (or DES-stat attributes
 //   DES does not track yet), one cheap task 'mechanics.extract' with a strict JSON schema reads the committed reply
 //   (under the background cost cap) → validated edits → autonomy 'mechanics.change' (fallback 'auto') → state.apply.
+// - the block also carries statuses (`Kai.status += Poisoned (3 turns)`), items (`Kai.items += rope x2`), roll requests
+//   (`roll: Stealth Kai vs Guard.Perception adv`, rolled by the checks part as soon as the reply arrives) and fights
+//   (`combat: start|enemy|out|end`, run by the combat part at the commit);
+// - the user's character: DES does not list {{user}}, so his DES-stat attributes are read by the background parse (or
+//   the block, settings.personaFallback);
+// - after the tracking of a committed reply its turn runs (state.processTurn: the clock, statuses, time rules, rounds).
 // A committed reply is processed once per source (the state's change log tells); an edit of the latest committed
 // reply is processed again after the state took its changes back.
 import { adaptersOf } from '../../adapters';
+import { parseDueExpression, resolveDue } from '../../domain/calendar-time';
 import {
     hasBlockMarker,
     parseBlock,
@@ -24,16 +31,18 @@ import {
     stripBlock,
     blockInstruction as buildBlockInstruction,
 } from '../../domain/mechanics-block';
-import type { BlockItem } from '../../domain/mechanics-block';
+import type { BlockCombat, BlockItem, BlockRoll } from '../../domain/mechanics-block';
 import { desStatsAttributes, initialValueOf, trackingOf } from '../../domain/mechanics-defs';
-import type { AttributeDef } from '../../domain/mechanics-defs';
+import type { AttributeDef, StatusDuration } from '../../domain/mechanics-defs';
 import {
     buildExtractMessages,
     EXTRACT_SCHEMA_NAME,
-    MECHANICS_EXTRACT_SCHEMA,
+    extractSchemaFor,
     parseExtractAnswer,
 } from '../../domain/mechanics-extract';
-import type { ExtractTarget } from '../../domain/mechanics-extract';
+import type { ExtractItem, ExtractStatus, ExtractTarget } from '../../domain/mechanics-extract';
+import { itemsText } from '../../domain/mechanics-status';
+import { playerSees, resolveVisibility } from '../../domain/mechanics-visibility';
 import {
     editsToChanges,
     findAttribute,
@@ -50,8 +59,8 @@ import { cleanForAnalysis } from '../../domain/text-clean';
 import type { App, JournalChange, Proposal, TaskInfo, Unsubscribe } from '../../shared/contracts';
 import type { AttributeValue, MechanicDef } from './api';
 import { MECHANICS_ID } from './parts';
-import type { ChangeInput, DefinitionsPart, PartDeps, StatePart, TrackingPart } from './parts';
-import { holderContextOf, isDict, swipeIdOf } from './state-holders';
+import type { ChangeInput, DefinitionsPart, PartDeps, StateOp, StatePart, TrackingPart } from './parts';
+import { holderContextOf, isDict, personaOf, swipeIdOf } from './state-holders';
 import { VALUE_UNDO_TARGET } from './state';
 
 /** Maestro's record of the parsed service block on a chat message (and its swipe). */
@@ -79,6 +88,10 @@ export interface BlockRecord {
     /** Lines that could not be read. */
     dropped?: number;
     at: number;
+    /** Rolls the model asked for (rolled on arrival). */
+    rolls?: BlockRoll[];
+    /** Fight lines (run at the commit). */
+    combat?: BlockCombat[];
 }
 
 export interface DesStat {
@@ -92,12 +105,13 @@ interface CharacterStats {
     customStats: DesStat[];
 }
 
-/** Inbox payload of background changes (JSON). */
+/** Inbox payload of background changes (JSON): values, and the statuses and items the reply gave or took. */
 export interface ChangePayload {
     m25: 1;
     messageIndex: number;
     swipeId: number;
     changes: ChangeInput[];
+    ops?: StateOp[];
 }
 
 /** Inbox payload of the DES stats (JSON): stats to add or switch on, merged into DES's list when applied. */
@@ -149,6 +163,20 @@ export function readBlockRecord(message: STChatMessage | null | undefined): Bloc
         if (Array.isArray(raw.repaired))
             record.repaired = raw.repaired.filter((item): item is string => typeof item === 'string');
         if (typeof raw.dropped === 'number') record.dropped = raw.dropped;
+        if (Array.isArray(raw.rolls)) {
+            record.rolls = raw.rolls.filter(
+                (item): item is BlockRoll =>
+                    isDict(item) && typeof item.head === 'string' && typeof item.line === 'string',
+            );
+        }
+        if (Array.isArray(raw.combat)) {
+            record.combat = raw.combat.filter(
+                (item): item is BlockCombat =>
+                    isDict(item) &&
+                    ['start', 'end', 'enemy', 'out'].includes(String(item.action)) &&
+                    Array.isArray(item.names),
+            );
+        }
         return record;
     }
     return null;
@@ -211,8 +239,13 @@ function isDesStatsPayload(value: unknown): value is DesStatsPayload {
     return isDict(value) && value.m25 === 1 && typeof value.mechanicId === 'string' && Array.isArray(value.stats);
 }
 
+/** Fight lines of a committed reply's block (the combat part runs them). */
+export type CombatLinesListener = (index: number, lines: BlockCombat[]) => Promise<void> | void;
+
 export class MechanicTracking implements TrackingPart {
     private readonly offs: Unsubscribe[] = [];
+    private readonly rollListeners = new Set<(index: number, swipeId: number, rolls: BlockRoll[]) => void>();
+    private readonly combatListeners = new Set<CombatLinesListener>();
     private queue: Promise<unknown> = Promise.resolve();
     private timer: ReturnType<typeof setTimeout> | null = null;
     private pending = new Set<number>();
@@ -293,6 +326,16 @@ export class MechanicTracking implements TrackingPart {
         }
     }
 
+    onRollRequests(listener: (index: number, swipeId: number, rolls: BlockRoll[]) => void): Unsubscribe {
+        this.rollListeners.add(listener);
+        return () => this.rollListeners.delete(listener);
+    }
+
+    onCombatLines(listener: CombatLinesListener): Unsubscribe {
+        this.combatListeners.add(listener);
+        return () => this.combatListeners.delete(listener);
+    }
+
     private onSt(key: string, handler: (...args: unknown[]) => unknown, order?: 'last'): void {
         const name = this.app.host.events.name(key);
         if (!name) {
@@ -367,8 +410,21 @@ export class MechanicTracking implements TrackingPart {
         };
         if (parsed.repaired.length) record.repaired = parsed.repaired;
         if (parsed.dropped.length) record.dropped = parsed.dropped.length;
+        const rolls = [...(previous?.rolls ?? []), ...parsed.rolls];
+        if (rolls.length) record.rolls = rolls;
+        const combat = [...(previous?.combat ?? []), ...parsed.combat];
+        if (combat.length) record.combat = combat;
         setMessageText(message, stripped);
         writeBlockRecord(message, record);
+        if (parsed.rolls.length) {
+            for (const listener of [...this.rollListeners]) {
+                try {
+                    listener(index, swipeId, parsed.rolls);
+                } catch (error) {
+                    this.deps.log.warn('mechanics: a roll request failed', error);
+                }
+            }
+        }
         try {
             ctx.updateMessageBlock?.(index, message);
         } catch (error) {
@@ -482,11 +538,37 @@ export class MechanicTracking implements TrackingPart {
             if (changes.length) await this.state.apply(changes);
         }
         if (!done.has('block') && generation === this.generation) {
-            const changes = this.blockChanges(defs, message, index);
-            if (changes.length) await this.state.apply(changes);
+            const ops = this.blockOps(defs, message, index);
+            if (ops.length) await this.applyOps(ops);
+            const lines = readBlockRecord(message)?.combat ?? [];
+            if (lines.length) await this.runCombatLines(index, lines);
         }
         if (!done.has('background') && generation === this.generation) {
             await this.maybeExtract(defs, index, swipeIdOf(message), desStats);
+        }
+        if (generation === this.generation) {
+            try {
+                await this.state.processTurn?.(index);
+            } catch (error) {
+                this.deps.log.warn('mechanics: the turn could not be processed', error);
+            }
+        }
+    }
+
+    /** Values through apply() (fakes of the stage-11 contract), everything else through applyOps(). */
+    private async applyOps(ops: StateOp[]): Promise<void> {
+        const values = ops.filter((op): op is ChangeInput => op.kind === undefined || op.kind === 'value');
+        if (this.state.applyOps) await this.state.applyOps(ops);
+        else if (values.length) await this.state.apply(values);
+    }
+
+    private async runCombatLines(index: number, lines: BlockCombat[]): Promise<void> {
+        for (const listener of [...this.combatListeners]) {
+            try {
+                await listener(index, lines);
+            } catch (error) {
+                this.deps.log.warn('mechanics: the fight lines failed', error);
+            }
         }
     }
 
@@ -527,6 +609,18 @@ export class MechanicTracking implements TrackingPart {
     private modeOf(def: MechanicDef, attr: AttributeDef, enabled: ReadonlySet<string>) {
         const mode = trackingOf(def, attr);
         return mode === 'desStats' && !this.inDes(attr, enabled) ? 'background' : mode;
+    }
+
+    /** The persona's DES-stat attributes go to the fallback (DES never lists the user's character). */
+    private personaMode(def: MechanicDef, attr: AttributeDef, enabled: ReadonlySet<string>) {
+        return trackingOf(def, attr) === 'desStats'
+            ? this.deps.settings().personaFallback
+            : this.modeOf(def, attr, enabled);
+    }
+
+    /** The model knows the attribute (secret ones are Maestro's alone). */
+    private known(def: MechanicDef, attr: AttributeDef): boolean {
+        return !attr.formula && resolveVisibility(def, attr).prompt !== 'none';
     }
 
     desStatsStatus(def: MechanicDef): { attribute: string; inDes: boolean }[] {
@@ -647,20 +741,84 @@ export class MechanicTracking implements TrackingPart {
 
     /* ---------------------------------------------------------------- the service block: commit */
 
-    private blockChanges(defs: readonly MechanicDef[], message: STChatMessage, index: number): ChangeInput[] {
+    private blockOps(defs: readonly MechanicDef[], message: STChatMessage, index: number): StateOp[] {
         const record = readBlockRecord(message);
         if (!record?.items.length) return [];
         const context = holderContextOf(this.app);
-        const { edits, rejected } = resolveBlock(record.items, defs, {
+        const persona = personaOf(this.app);
+        const fallback = this.deps.settings().personaFallback === 'block';
+        const resolved = resolveBlock(record.items, defs, {
             resolveHolder: (def, raw) => resolveHolder(def, raw, context),
+            allows: (def, attr, holder) => {
+                if (!this.known(def, attr)) return false;
+                const mode = trackingOf(def, attr);
+                if (mode === 'block') return true;
+                return fallback && mode === 'desStats' && !!persona && nameKey(holder ?? '') === nameKey(persona);
+            },
         });
-        if (rejected.length) {
+        if (resolved.rejected.length) {
             this.deps.log.debug(
-                `mechanics: ${rejected.length} block lines of #${index} not applied`,
-                rejected.map((item) => `${item.item.line}: ${item.reason}`),
+                `mechanics: ${resolved.rejected.length} block lines of #${index} not applied`,
+                resolved.rejected.map((item) => `${item.item.line}: ${item.reason}`),
             );
         }
-        return this.toChanges(edits, 'block', index);
+        const ops: StateOp[] = this.toChanges(resolved.edits, 'block', index);
+        for (const edit of resolved.statuses) {
+            const base = {
+                source: 'block' as const,
+                messageIndex: index,
+                mechanicId: edit.mechanicId,
+                holder: edit.holder,
+            };
+            if (edit.op === 'remove') {
+                ops.push({
+                    ...base,
+                    kind: 'status',
+                    op: 'remove',
+                    ref: edit.name,
+                    ...(edit.reason ? { reason: edit.reason } : {}),
+                });
+                continue;
+            }
+            const duration = this.durationOf(edit.duration, edit.durationText);
+            ops.push({
+                ...base,
+                kind: 'status',
+                op: 'add',
+                status: { name: edit.name, ...(duration ? { duration } : {}) },
+                ...(edit.reason ? { reason: edit.reason } : {}),
+            });
+        }
+        for (const edit of resolved.inventory) {
+            const base = {
+                source: 'block' as const,
+                messageIndex: index,
+                mechanicId: edit.mechanicId,
+                holder: edit.holder,
+                ...(edit.reason ? { reason: edit.reason } : {}),
+            };
+            if (edit.op === 'equip') {
+                ops.push({ ...base, kind: 'item', op: 'equip', item: { name: edit.name }, slot: edit.slot ?? null });
+            } else if (edit.op === 'take') {
+                ops.push({ ...base, kind: 'item', op: 'take', item: { name: edit.name }, qty: edit.qty });
+            } else {
+                const item = edit.slot ? { name: edit.name, equipped: edit.slot } : { name: edit.name };
+                ops.push({ ...base, kind: 'item', op: 'give', item, qty: edit.qty });
+            }
+        }
+        return ops;
+    }
+
+    /** A duration from parsed words, else a phrase placed in story time by the calendar («до заката» → until). */
+    private durationOf(parsed: StatusDuration | null, text: string | undefined): StatusDuration | null {
+        if (parsed) return parsed;
+        if (!text) return null;
+        const due = parseDueExpression(text);
+        const clock = this.state.clock?.() ?? null;
+        if (!due || !clock) return null;
+        const moment = resolveDue(due, { ...clock });
+        if (moment.day === null) return null;
+        return { until: { day: moment.day, ...(moment.minutes !== undefined ? { minutes: moment.minutes } : {}) } };
     }
 
     private toChanges(edits: readonly Edit[], source: 'block' | 'background', index: number): ChangeInput[] {
@@ -673,17 +831,40 @@ export class MechanicTracking implements TrackingPart {
         return changes.map((change) => ({ ...change, source, messageIndex: index }));
     }
 
-    blockInstruction(defs: MechanicDef[], holdersByMechanic: Record<string, string[]>): string {
-        return buildBlockInstruction(defs, holdersByMechanic);
+    blockInstruction(
+        defs: MechanicDef[],
+        holdersByMechanic: Record<string, string[]>,
+        options: { checks?: string[]; combat?: boolean } = {},
+    ): string {
+        const persona = personaOf(this.app);
+        const enabled = this.desStatus();
+        const fallback = this.deps.settings().personaFallback === 'block';
+        return buildBlockInstruction(defs, holdersByMechanic, {
+            ...(options.checks?.length ? { checks: options.checks } : {}),
+            ...(options.combat ? { combat: true } : {}),
+            ...(fallback && persona
+                ? {
+                      persona: {
+                          name: persona,
+                          attributes: (def: MechanicDef) =>
+                              def.attributes.filter(
+                                  (attr) => this.known(def, attr) && this.personaMode(def, attr, enabled) === 'block',
+                              ),
+                      },
+                  }
+                : {}),
+        });
     }
 
     /* ---------------------------------------------------------------- background parse */
 
     private backgroundTargets(defs: readonly MechanicDef[], enabled: ReadonlySet<string>): ExtractTarget[] {
         const targets: ExtractTarget[] = [];
+        const persona = personaOf(this.app);
+        const isPersona = (name: string) => !!persona && nameKey(name) === nameKey(persona);
         for (const def of defs) {
-            const attributes = def.attributes.filter((attr) => this.modeOf(def, attr, enabled) === 'background');
-            if (!attributes.length) continue;
+            // A secret mechanic is Maestro's alone: never sent to the model, the background one included.
+            if (resolveVisibility(def).prompt === 'none') continue;
             let holders: string[] = [];
             try {
                 holders = this.state.holdersInScene(def);
@@ -691,19 +872,38 @@ export class MechanicTracking implements TrackingPart {
                 this.deps.log.debug('mechanics: the scene is not readable', error);
             }
             if (!holders.length) continue;
-            targets.push({
-                def,
-                attributes,
-                holders: holders.map((name) => ({
+            const attributes = def.attributes.filter(
+                (attr) => this.known(def, attr) && this.modeOf(def, attr, enabled) === 'background',
+            );
+            const own = def.attributes.filter(
+                (attr) => this.known(def, attr) && this.personaMode(def, attr, enabled) === 'background',
+            );
+            const statuses = def.statuses !== undefined && def.tracking === 'background';
+            const inventory = def.inventory !== undefined && def.tracking === 'background';
+            const holderOf = (name: string, list: AttributeDef[]) => {
+                const entry: ExtractTarget['holders'][number] = {
                     name,
                     values: Object.fromEntries(
-                        attributes.map((attr) => [
-                            attr.id,
-                            this.state.value(def.id, name, attr.id) ?? initialValueOf(attr),
-                        ]),
+                        list.map((attr) => [attr.id, this.state.value(def.id, name, attr.id) ?? initialValueOf(attr)]),
                     ),
-                })),
-            });
+                };
+                if (statuses) {
+                    entry.statuses = (this.state.statuses?.(name)[0]?.statuses ?? []).map(
+                        (status) => status.promptName,
+                    );
+                }
+                if (inventory) entry.items = itemsText(this.state.items?.(name)[0]?.items ?? []);
+                return entry;
+            };
+            const others = holders.filter((name) => !isPersona(name));
+            const parts = { ...(statuses ? { statuses: true } : {}), ...(inventory ? { inventory: true } : {}) };
+            if ((attributes.length || statuses || inventory) && others.length) {
+                targets.push({ def, attributes, holders: others.map((name) => holderOf(name, attributes)), ...parts });
+            }
+            const me = holders.find(isPersona);
+            if (me && (own.length || statuses || inventory)) {
+                targets.push({ def, attributes: own, holders: [holderOf(me, own)], ...parts });
+            }
         }
         return targets;
     }
@@ -767,12 +967,16 @@ export class MechanicTracking implements TrackingPart {
         const reply = stripBlock(cleanForAnalysis(message));
         if (!reply.trim()) return;
         const generation = this.generation;
+        const schema = extractSchemaFor({
+            statuses: targets.some((target) => target.statuses),
+            items: targets.some((target) => target.inventory),
+        });
         const response = await this.app.llm.request<unknown>({
             task: EXTRACT_TASK,
             messages: buildExtractMessages({ targets, reply }),
             maxTokens: EXTRACT_MAX_TOKENS,
             temperature: 0.1,
-            schema: { name: EXTRACT_SCHEMA_NAME, schema: MECHANICS_EXTRACT_SCHEMA },
+            schema: { name: EXTRACT_SCHEMA_NAME, schema },
         });
         if (!response.ok) {
             this.deps.log.info(`mechanics: the background parse failed (${response.error ?? 'unknown error'})`);
@@ -790,14 +994,76 @@ export class MechanicTracking implements TrackingPart {
         }
         if (parsed.rejected.length) this.deps.log.debug('mechanics: background items dropped', parsed.rejected);
         const changes = this.toChanges(parsed.edits, 'background', index);
-        if (changes.length) await this.propose(changes, index, swipeId, chatId);
+        const ops = this.extractOps(parsed.statuses, parsed.items, index);
+        if (changes.length || ops.length) await this.propose(changes, index, swipeId, chatId, ops);
+    }
+
+    private extractOps(statuses: readonly ExtractStatus[], items: readonly ExtractItem[], index: number): StateOp[] {
+        const ops: StateOp[] = [];
+        for (const status of statuses) {
+            const base = {
+                source: 'background' as const,
+                messageIndex: index,
+                mechanicId: status.mechanicId,
+                holder: status.holder,
+                ...(status.reason ? { reason: status.reason } : {}),
+            };
+            if (!status.add) {
+                ops.push({ ...base, kind: 'status', op: 'remove', ref: status.name });
+                continue;
+            }
+            const duration = this.durationOf(status.duration, status.durationText);
+            ops.push({
+                ...base,
+                kind: 'status',
+                op: 'add',
+                status: { name: status.name, ...(duration ? { duration } : {}) },
+            });
+        }
+        for (const item of items) {
+            const base = {
+                source: 'background' as const,
+                messageIndex: index,
+                mechanicId: item.mechanicId,
+                holder: item.holder,
+                item: { name: item.name },
+                qty: Math.abs(item.qty),
+                ...(item.reason ? { reason: item.reason } : {}),
+            };
+            ops.push(item.qty > 0 ? { ...base, kind: 'item', op: 'give' } : { ...base, kind: 'item', op: 'take' });
+        }
+        return ops;
     }
 
     private holderLabel(holder: string): string {
         return holder === WORLD_HOLDER ? this.t('m25.state.holder.world') : holder;
     }
 
-    private async propose(changes: ChangeInput[], index: number, swipeId: number, chatId: string): Promise<void> {
+    /** The player may see this change (plan-2 §6.А: hidden values never reach cards, notices or the journal). */
+    private seen(op: StateOp): boolean {
+        if (op.kind === 'clock' || op.kind === 'combat') return true;
+        const def = this.defs.get(op.mechanicId);
+        if (!def) return true;
+        if (op.kind === 'status' || op.kind === 'item') return playerSees(resolveVisibility(def));
+        const attr = findAttribute(def, op.attribute);
+        if (!attr) return true;
+        const revealed = this.state.isRevealed?.(def.id, op.holder, attr.id) ?? false;
+        return playerSees(resolveVisibility(def, attr), revealed);
+    }
+
+    private async propose(
+        allChanges: ChangeInput[],
+        index: number,
+        swipeId: number,
+        chatId: string,
+        allOps: StateOp[] = [],
+    ): Promise<void> {
+        const changes = allChanges.filter((change) => this.seen(change));
+        const ops = allOps.filter((op) => this.seen(op));
+        const silent = [...allChanges.filter((change) => !this.seen(change)), ...allOps.filter((op) => !this.seen(op))];
+        if (silent.length)
+            await this.applyOps(silent.map((op) => ({ ...op, source: 'background' as const, messageIndex: index })));
+        if (!changes.length && !ops.length) return;
         const running = new Map<string, AttributeValue | null>();
         const preview: JournalChange[] = [];
         const lines: string[] = [];
@@ -829,11 +1095,23 @@ export class MechanicTracking implements TrackingPart {
                 `${this.holderLabel(change.holder)} · ${attr.name}: ${formatValue(before)} → ${formatValue(after)}${quote}`,
             );
         }
+        for (const op of ops) {
+            if (op.kind === 'status') {
+                const name = op.op === 'add' ? op.status.name : op.op === 'remove' ? op.ref : op.instance.name;
+                const key = op.op === 'remove' ? 'm25.track.change.statusOff' : 'm25.track.change.statusOn';
+                lines.push(this.t(key, { holder: this.holderLabel(op.holder), status: name }));
+            } else if (op.kind === 'item') {
+                const key = op.op === 'take' ? 'm25.track.change.itemOff' : 'm25.track.change.itemOn';
+                const qty = op.op === 'equip' ? 1 : (op.qty ?? 1);
+                lines.push(this.t(key, { holder: this.holderLabel(op.holder), item: op.item.name, qty }));
+            }
+        }
         const payload: ChangePayload = { m25: 1, messageIndex: index, swipeId, changes };
+        if (ops.length) payload.ops = ops;
         const proposal: Proposal<ChangePayload> = {
             module: MECHANICS_ID,
             kind: CHANGE_KIND,
-            title: this.t('m25.track.change.title', { count: changes.length, index }),
+            title: this.t('m25.track.change.title', { count: changes.length + ops.length, index }),
             description: lines.join('\n'),
             appliedNotice: { text: this.t('m25.track.change.done', { index }) },
             changes: preview,
@@ -852,9 +1130,17 @@ export class MechanicTracking implements TrackingPart {
     private async applyChangePayload(payload: unknown): Promise<void> {
         if (!isChangePayload(payload)) throw new Error('bad mechanics change card');
         if (!this.replyOf(payload.messageIndex, payload.swipeId)) return;
-        await this.state.apply(
-            payload.changes.map((change) => ({ ...change, source: 'background', messageIndex: payload.messageIndex })),
-        );
+        const changes: StateOp[] = payload.changes.map((change) => ({
+            ...change,
+            source: 'background' as const,
+            messageIndex: payload.messageIndex,
+        }));
+        const ops = (Array.isArray(payload.ops) ? payload.ops : []).map((op) => ({
+            ...op,
+            source: 'background' as const,
+            messageIndex: payload.messageIndex,
+        })) as StateOp[];
+        await this.applyOps([...changes, ...ops]);
     }
 
     /* ---------------------------------------------------------------- invalidation */

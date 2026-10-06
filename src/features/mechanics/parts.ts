@@ -3,15 +3,24 @@
 // - state (state.ts, tracking.ts): values per chat, the three tracking modes, threshold events;
 // - checks (checks.ts, prompt.ts, widgets.ts): dice, checks, the prompt injection and flags, the widgets.
 // service.ts implements MechanicsApi by delegating to the parts.
+import type { BlockRoll } from '../../domain/mechanics-block';
+import type { OpInput } from '../../domain/mechanics-state';
 import type { App, Logger, Unsubscribe } from '../../shared/contracts';
 import type {
     AttributeValue,
     ChangeSource,
     CheckResult,
+    CombatState,
+    DerivedValue,
     FiredEvent,
     HolderState,
+    ItemState,
     MechanicDef,
+    MechanicsClock,
+    MechanicsEvent,
     StateChange,
+    StatusState,
+    VisibilityPlace,
 } from './api';
 
 export const MECHANICS_KEY = 'mechanics';
@@ -39,6 +48,14 @@ export interface MechanicsSettings {
     depth: number;
     /** Background parse of committed replies for 'background' attributes. */
     background: boolean;
+    /** The model may ask Maestro for rolls in its service block (`roll: …`). */
+    modelRolls: boolean;
+    /** A fight starts and ends with the director's scene type. */
+    autoCombat: boolean;
+    /** DES does not list the user's character: its DES-stat attributes are read by the background parse or the block. */
+    personaFallback: 'background' | 'block';
+    /** Messages looked back for names of factions and world mechanics (they join the prompt only when mentioned). */
+    relevance: number;
 }
 
 export const DEFAULT_MECHANICS_SETTINGS: MechanicsSettings = {
@@ -48,6 +65,10 @@ export const DEFAULT_MECHANICS_SETTINGS: MechanicsSettings = {
     promptBudget: 400,
     depth: 1,
     background: true,
+    modelRolls: true,
+    autoCombat: true,
+    personaFallback: 'background',
+    relevance: 4,
 };
 
 export interface PartDeps {
@@ -70,7 +91,7 @@ export interface DefinitionsPart {
     dispose(): void;
 }
 
-/** One change to apply (from tracking, a check, an event or the user). */
+/** One value change to apply (from tracking, a check, an event or the user). */
 export interface ChangeInput {
     mechanicId: string;
     holder: string;
@@ -78,9 +99,25 @@ export interface ChangeInput {
     /** Absolute value, or a delta for numbers (`delta: true`). */
     value: AttributeValue;
     delta?: boolean;
+    /** 'mul': a factor (numbers); 'push' / 'pull': options added to / removed from a list. */
+    op?: 'mul' | 'push' | 'pull';
     source: ChangeSource;
     messageIndex: number;
     reason?: string;
+    rollId?: string;
+    batch?: string;
+    kind?: 'value';
+}
+
+/** Any state operation: a value change, a status, an item, revealing, the fight, the clock (domain/mechanics-state). */
+export type StateOp = OpInput;
+
+/** Options of an application. */
+export interface ApplyOpsOptions {
+    /** Journal the user's own operations as one record (default: when every operation is the user's). */
+    journal?: boolean;
+    /** Kind of that journal record (default 'mechanics.set'). */
+    kind?: string;
 }
 
 /** State part: values per chat (a Maestro file), per-message changes (swipes and deletions roll them back). */
@@ -102,6 +139,31 @@ export interface StatePart {
     /** Loads the chat's state document (its change log tells which replies were processed). */
     load?(): Promise<unknown>;
     dispose(): void;
+    // plan-2 §6 additions (optional: fakes of the stage-11 contract stay valid).
+    /** Applies any operations (statuses, items, reveal, fight, clock) like apply(). */
+    applyOps?(ops: StateOp[], options?: ApplyOpsOptions): Promise<StateChange[]>;
+    /** A number for dice and formulas: with status and item modifiers; scales as their level index. */
+    numberOf?(mechanicId: string, holder: string, attribute: string): number | null;
+    /** The bonus statuses and equipped items give to a check of a holder. */
+    checkBonus?(def: MechanicDef, checkId: string, holder: string): number;
+    derived?(mechanicId: string, holder: string): DerivedValue[];
+    statuses?(holder?: string): { holder: string; statuses: StatusState[] }[];
+    items?(holder?: string): { holder: string; items: ItemState[] }[];
+    combat?(): CombatState | null;
+    clock?(): MechanicsClock | null;
+    isRevealed?(mechanicId: string, holder: string, attribute: string): boolean;
+    changesOf?(messageIndex: number, options?: { place?: VisibilityPlace }): StateChange[];
+    undoChange?(changeId: string): Promise<boolean>;
+    /** Takes back every change matching (newest first); the removed changes. */
+    undoWhere?(
+        match: (change: StateChange) => boolean,
+        journal?: { kind: string; summary: string },
+    ): Promise<StateChange[]>;
+    reset?(target: { mechanicId?: string; holder?: string }): Promise<number>;
+    /** The committed reply's turn: the story clock, statuses, time rules, the fight's round (leader, once). */
+    processTurn?(index: number): Promise<void>;
+    onEvent?(listener: (event: MechanicsEvent) => void): Unsubscribe;
+    emitEvent?(event: MechanicsEvent): void;
 }
 
 /** Tracking part: the three ways changes are noticed. */
@@ -110,23 +172,40 @@ export interface TrackingPart {
      * English instruction for the 'block' attributes of the mechanics in the scene (format of the service block,
      * the holders and attributes it may change), '' when none uses the block. The prompt part appends it.
      */
-    blockInstruction(defs: MechanicDef[], holdersByMechanic: Record<string, string[]>): string;
+    blockInstruction(
+        defs: MechanicDef[],
+        holdersByMechanic: Record<string, string[]>,
+        options?: { checks?: string[]; combat?: boolean },
+    ): string;
     /** Which number attributes of a mechanic are DES stats now (constructor). */
     desStatsStatus(def: MechanicDef): { attribute: string; inDes: boolean }[];
     /** Adds the mechanic's 'desStats' attributes to DES's character stats (asks, journals, undoable). */
     enableDesStats(def: MechanicDef): Promise<boolean>;
     dispose(): void;
+    /** Roll requests of a reply's block, as soon as the reply arrives (the checks part rolls them). */
+    onRollRequests?(listener: (index: number, swipeId: number, rolls: BlockRoll[]) => void): Unsubscribe;
+}
+
+/** Options of a roll by hand. */
+export interface RollOptions {
+    difficulty?: number;
+    mode?: 'adv' | 'dis';
+    vs?: { holder: string; mechanicId?: string; checkId?: string };
 }
 
 /** Checks part. */
 export interface ChecksPart {
-    roll(mechanicId: string, checkId: string, holder: string, options?: { difficulty?: number }): Promise<CheckResult>;
+    roll(mechanicId: string, checkId: string, holder: string, options?: RollOptions): Promise<CheckResult>;
     checks(limit?: number): CheckResult[];
     /** Check results not yet given to the model (the prompt part takes them once per generation). */
     pendingChecks(): CheckResult[];
     markChecksDelivered(results: CheckResult[]): void;
     onChange(listener: () => void): Unsubscribe;
     dispose(): void;
+    rollsOf?(messageIndex: number): CheckResult[];
+    undoRoll?(rollId: string): Promise<boolean>;
+    /** Names of the checks the model may ask for (the block instruction lists them). */
+    checkNames?(): string[];
 }
 
 /** A section of the pult tab rendered by a part (the tab is composed in index.ts). */

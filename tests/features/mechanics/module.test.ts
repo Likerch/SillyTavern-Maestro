@@ -32,8 +32,15 @@ function part(name: string, extra: Record<string, unknown> = {}) {
 }
 
 vi.mock('../../../src/features/mechanics/state', () => ({
-    MechanicState: part('state'),
+    MechanicState: part('state', {
+        holdersInScene: () => [],
+        state: () => [],
+    }),
     VALUE_UNDO_TARGET: 'mechanics.value',
+    BATCH_UNDO_TARGET: 'mechanics.batch',
+    STATUS_KIND: 'mechanics.status',
+    ITEM_KIND: 'mechanics.item',
+    REVEAL_KIND: 'mechanics.reveal',
 }));
 vi.mock('../../../src/features/mechanics/tracking', () => ({
     DES_STATS_UNDO_TARGET: 'mechanics.desStats',
@@ -41,9 +48,17 @@ vi.mock('../../../src/features/mechanics/tracking', () => ({
         desStatsStatus: () => [],
         enableDesStats: async () => true,
         blockInstruction: () => '',
+        onRollRequests: (listener: unknown) => {
+            calls.args.rollListener = [listener];
+            return () => calls.log.push('roll requests off');
+        },
+        onCombatLines: (listener: unknown) => {
+            calls.args.combatListener = [listener];
+            return () => calls.log.push('combat lines off');
+        },
     }),
 }));
-vi.mock('../../../src/features/mechanics/checks', () => ({ MechanicChecks: part('checks') }));
+vi.mock('../../../src/features/mechanics/checks', () => ({ MechanicChecks: part('checks'), secureRng: () => 0.5 }));
 vi.mock('../../../src/features/mechanics/prompt', () => ({ MechanicPrompt: part('prompt') }));
 vi.mock('../../../src/features/mechanics/widgets', () => ({
     MechanicStrip: part('strip'),
@@ -91,6 +106,10 @@ describe('mechanics module', () => {
             promptBudget: 400,
             depth: 1,
             background: true,
+            modelRolls: true,
+            autoCombat: true,
+            personaFallback: 'background',
+            relevance: 4,
         });
         expect(mechanicsModule.i18n).toBe(MECHANICS_STRINGS);
         expect(MECHANICS_STRINGS.en['m25.title']).toBe('Mechanics');
@@ -119,6 +138,9 @@ describe('mechanics module', () => {
         expect(calls.args.checks?.[1]).toBe(defs);
         expect(calls.args.prompt).toHaveLength(5);
         expect(calls.args.strip?.[1]).toBe(defs);
+        // The model's roll requests go to the checks part, the block's fight lines to the combat part.
+        expect(calls.args.rollListener).toHaveLength(1);
+        expect(calls.args.combatListener).toHaveLength(1);
 
         const api = env.modules.api<MechanicsApi>('mechanics');
         expect(api).toBeInstanceOf(MechanicsService);
@@ -145,6 +167,8 @@ describe('mechanics module', () => {
         expect(calls.log).toEqual([
             'dispose strip',
             'dispose prompt',
+            'combat lines off',
+            'roll requests off',
             'dispose checks',
             'dispose tracking',
             'dispose state',

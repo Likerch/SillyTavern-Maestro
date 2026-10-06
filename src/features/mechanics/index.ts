@@ -5,14 +5,15 @@
 // Exposed as app.modules.api<MechanicsApi>('mechanics').
 import type { MaestroModule } from '../../shared/contracts';
 import type { MechanicsApi } from './api';
-import { MechanicChecks } from './checks';
+import { MechanicChecks, secureRng } from './checks';
+import { MechanicCombat } from './combat';
 import { MechanicDefinitions, MECHANICS_DEF_TARGET } from './definitions';
 import { MECHANICS_ID, MECHANICS_KEY } from './parts';
 import type { MechanicsSettings, PartDeps } from './parts';
 import { MechanicPrompt } from './prompt';
 import { MechanicsService } from './service';
 import { defaultMechanicsSettings, readMechanicsSettings } from './settings';
-import { MechanicState, VALUE_UNDO_TARGET } from './state';
+import { BATCH_UNDO_TARGET, MechanicState, VALUE_UNDO_TARGET } from './state';
 import { MECHANICS_STRINGS } from './strings';
 import { DES_STATS_UNDO_TARGET, MechanicTracking } from './tracking';
 import { mechanicsTab } from './view';
@@ -31,6 +32,8 @@ export const mechanicsModule: MaestroModule<MechanicsSettings> = {
         // A definition is stored as a lore entry: its name reads in words, the English rules stay under «Подробнее».
         { target: MECHANICS_DEF_TARGET, fields: { comment: { labelKey: 'm25.def.field.name' } } },
         { target: VALUE_UNDO_TARGET },
+        // A reset or another batch of changes: its count reads in words, the batch id stays technical.
+        { target: BATCH_UNDO_TARGET, fields: { count: { labelKey: 'm25.state.field.count' } } },
         // DES's whole stats list (ids, prompt names): technical.
         { target: DES_STATS_UNDO_TARGET, technical: true },
     ],
@@ -53,6 +56,14 @@ export const mechanicsModule: MaestroModule<MechanicsSettings> = {
         const checks = new MechanicChecks(deps, defs, state);
         own(() => checks.dispose());
         checks.install();
+        // Rolls the model asks for in its service block: rolled as soon as the reply arrives.
+        own(tracking.onRollRequests((index, swipeId, rolls) => checks.requested(index, swipeId, rolls)));
+
+        const combat = new MechanicCombat(deps, defs, state, secureRng);
+        own(() => combat.dispose());
+        combat.install();
+        // Fight lines of a committed reply's block.
+        own(tracking.onCombatLines((index, lines) => combat.handleLines(index, lines)));
 
         const prompt = new MechanicPrompt(deps, defs, state, tracking, checks);
         own(() => prompt.dispose());
@@ -62,7 +73,10 @@ export const mechanicsModule: MaestroModule<MechanicsSettings> = {
         own(() => strip.dispose());
         strip.install();
 
-        app.modules.expose(MECHANICS_KEY, new MechanicsService(defs, state, checks, deps) satisfies MechanicsApi);
+        app.modules.expose(
+            MECHANICS_KEY,
+            new MechanicsService(defs, state, checks, deps, { prompt, combat }) satisfies MechanicsApi,
+        );
         own(app.ui.style('maestro-m25-defs', MECHANICS_DEF_CSS));
         own(app.ui.addTab(mechanicsTab(deps, defs, state, checks, tracking)));
     },
@@ -72,6 +86,7 @@ export { DEF_STRINGS, MECHANICS_STRINGS } from './strings';
 export { defaultMechanicsSettings, readMechanicsSettings } from './settings';
 export { MechanicDefinitions, MECHANICS_DEF_TARGET, MECHANICS_OFF_POINTER, scopeContextOf } from './definitions';
 export { MechanicsService } from './service';
+export { MechanicCombat, COMBAT_KIND } from './combat';
 export { MECHANICS_TAB, mechanicsTab } from './view';
 export { constructorSection, MECHANICS_DEF_CSS } from './view-constructor';
 export { settingsSection } from './view-constructor-settings';

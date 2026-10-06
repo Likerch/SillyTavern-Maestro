@@ -1,0 +1,155 @@
+// Strings of M25 «Механики», the engine of plan-2 §6 (release 1.14): consequences, statuses, items, formulas, levels,
+// time, fights, visibility, new templates and the settings for them. Russian is the primary UI language; the user is
+// addressed as «ты» (male).
+import type { I18nParts } from '../../shared/contracts';
+
+export const ENGINE_STRINGS: I18nParts = {
+    en: {
+        // definition problems
+        'm25.def.issue.formulaEmpty': '«{where}»: the formula is empty.',
+        'm25.def.issue.formulaLong': '«{where}»: the formula is too long.',
+        'm25.def.issue.formulaChar': '«{where}»: an odd character in the formula (place {at}: «{detail}»).',
+        'm25.def.issue.formulaSyntax': '«{where}»: something is missing or out of place in the formula (place {at}).',
+        'm25.def.issue.formulaParen': '«{where}»: the parentheses of the formula do not match.',
+        'm25.def.issue.formulaFunc':
+            '«{where}»: unknown function «{detail}» (min, max, floor, ceil, round, abs and clamp are known).',
+        'm25.def.issue.formulaArgs': '«{where}»: the function «{detail}» got the wrong number of values.',
+        'm25.def.issue.formulaDice': '«{where}»: dice are not allowed here, or the die is too big ({detail}).',
+        'm25.def.issue.formulaRef': '«{where}»: the formula refers to {detail}, but there is no such value.',
+        'm25.def.issue.formulaCycle': 'The formulas refer to each other in a circle: {where}.',
+        'm25.def.issue.formulaDepth': '«{where}»: the formula is nested too deeply.',
+        'm25.def.issue.actionAttr': '«{where}»: a consequence changes «{attribute}», but there is no such attribute.',
+        'm25.def.issue.actionDerived': '«{where}»: «{attribute}» is computed by a formula and cannot be changed.',
+        'm25.def.issue.actionOp': '«{where}»: this kind of change does not fit «{attribute}».',
+        'm25.def.issue.actionStatus': '«{where}»: a status consequence needs the status name.',
+        'm25.def.issue.actionItem': '«{where}»: an item consequence needs the item name.',
+        'm25.def.issue.actionReveal': '«{where}»: there is no attribute «{attribute}» to reveal.',
+        'm25.def.issue.eventChain': '«{attribute}»: the event chains to «{chain}», but there is no such event.',
+        'm25.def.issue.eventChainSelf': '«{attribute}»: an event cannot chain to itself.',
+        'm25.def.issue.growthCap': '«{attribute}»: the growth limit is above the maximum.',
+        'm25.def.issue.timeAttr': 'A time rule changes «{attribute}», but there is no such number attribute.',
+        'm25.def.issue.progressionAttr': 'Levels need number attributes; «{attribute}» is not one.',
+        'm25.def.issue.progressionThresholds': 'The experience thresholds of the levels have to grow.',
+        'm25.def.issue.combatInitiative': 'The initiative check «{check}» is not among the checks.',
+        'm25.def.issue.inventoryMoney': 'The money of the inventory is «{attribute}», but there is no such number.',
+
+        // formula errors for the constructor
+        'm25.formula.error.empty': 'the formula is empty',
+        'm25.formula.error.long': 'the formula is too long',
+        'm25.formula.error.char': 'an odd character',
+        'm25.formula.error.syntax': 'something is missing or out of place',
+        'm25.formula.error.paren': 'the parentheses do not match',
+        'm25.formula.error.func': 'an unknown function',
+        'm25.formula.error.args': 'a function got the wrong number of values',
+        'm25.formula.error.dice': 'dice are not allowed here',
+        'm25.formula.error.ref': 'an unknown value',
+        'm25.formula.error.cycle': 'formulas refer to each other in a circle',
+        'm25.formula.error.depth': 'nested too deeply',
+
+        // default words of bounded numbers (the «book» view)
+        'm25.words.default.0': 'none left',
+        'm25.words.default.1': 'very low',
+        'm25.words.default.2': 'low',
+        'm25.words.default.3': 'moderate',
+        'm25.words.default.4': 'high',
+        'm25.words.default.5': 'full',
+
+        // visibility presets and places (for the UI wave)
+        'm25.visibility.game': 'Game',
+        'm25.visibility.book': 'Book',
+        'm25.visibility.hidden': 'Hidden',
+        'm25.visibility.secret': 'Secret from everyone',
+        'm25.visibility.place.hud': 'HUD',
+        'm25.visibility.place.strip': 'Under the reply',
+        'm25.visibility.place.narrator': 'Narrator messages',
+        'm25.visibility.place.statusBlock': 'Status block',
+        'm25.visibility.place.des': 'Under DES portraits',
+        'm25.visibility.place.dossier': 'Dossier',
+
+        // checks and fights
+        'm25.combat.error.noMechanic': 'No mechanic on in this chat runs fights: add the «Combat» template first.',
+
+        // settings
+        'm25.def.settings.modelRolls': 'The model may ask me for rolls in the service block',
+        'm25.def.settings.autoCombat': 'Start and end fights with the director’s scene',
+        'm25.def.settings.personaFallback': 'Your character’s DES stats',
+        'm25.def.settings.personaFallback.hint':
+            'DES never lists your character, so his numbers are read another way: by the background parse or by the service block.',
+        'm25.def.settings.personaFallback.background': 'background parse',
+        'm25.def.settings.personaFallback.block': 'service block',
+        'm25.def.settings.relevance': 'Messages to look back for factions',
+        'm25.def.settings.relevance.hint':
+            'Factions and world mechanics go into the prompt only when they were named in this many last messages (or are pinned).',
+    },
+    ru: {
+        'm25.def.issue.formulaEmpty': '«{where}»: формула пустая.',
+        'm25.def.issue.formulaLong': '«{where}»: формула слишком длинная.',
+        'm25.def.issue.formulaChar': '«{where}»: в формуле лишний знак (место {at}: «{detail}»).',
+        'm25.def.issue.formulaSyntax': '«{where}»: в формуле чего-то не хватает или что-то не на месте (место {at}).',
+        'm25.def.issue.formulaParen': '«{where}»: в формуле не сходятся скобки.',
+        'm25.def.issue.formulaFunc':
+            '«{where}»: неизвестная функция «{detail}» (есть min, max, floor, ceil, round, abs и clamp).',
+        'm25.def.issue.formulaArgs': '«{where}»: функции «{detail}» передано не то число значений.',
+        'm25.def.issue.formulaDice': '«{where}»: кости здесь нельзя, или кубик слишком большой ({detail}).',
+        'm25.def.issue.formulaRef': '«{where}»: формула ссылается на {detail}, а такого значения нет.',
+        'm25.def.issue.formulaCycle': 'Формулы ссылаются друг на друга по кругу: {where}.',
+        'm25.def.issue.formulaDepth': '«{where}»: у формулы слишком много вложенных скобок.',
+        'm25.def.issue.actionAttr': '«{where}»: последствие меняет «{attribute}», а такого атрибута нет.',
+        'm25.def.issue.actionDerived': '«{where}»: «{attribute}» считается по формуле, менять его нельзя.',
+        'm25.def.issue.actionOp': '«{where}»: такое изменение не подходит атрибуту «{attribute}».',
+        'm25.def.issue.actionStatus': '«{where}»: у последствия-состояния нет названия состояния.',
+        'm25.def.issue.actionItem': '«{where}»: у последствия-предмета нет названия предмета.',
+        'm25.def.issue.actionReveal': '«{where}»: раскрывать нечего — нет атрибута «{attribute}».',
+        'm25.def.issue.eventChain': '«{attribute}»: событие запускает «{chain}», а такого события нет.',
+        'm25.def.issue.eventChainSelf': '«{attribute}»: событие не может запускать само себя.',
+        'm25.def.issue.growthCap': '«{attribute}»: предел роста выше максимума.',
+        'm25.def.issue.timeAttr': 'Правило времени меняет «{attribute}», а такого числового атрибута нет.',
+        'm25.def.issue.progressionAttr': 'Для уровней нужны числовые атрибуты, а «{attribute}» — не такой.',
+        'm25.def.issue.progressionThresholds': 'Пороги опыта для уровней должны расти.',
+        'm25.def.issue.combatInitiative': 'Проверки инициативы «{check}» нет среди проверок.',
+        'm25.def.issue.inventoryMoney': 'Деньги инвентаря — «{attribute}», а такого числа нет.',
+
+        'm25.formula.error.empty': 'формула пустая',
+        'm25.formula.error.long': 'формула слишком длинная',
+        'm25.formula.error.char': 'лишний знак',
+        'm25.formula.error.syntax': 'чего-то не хватает или что-то не на месте',
+        'm25.formula.error.paren': 'не сходятся скобки',
+        'm25.formula.error.func': 'неизвестная функция',
+        'm25.formula.error.args': 'функции передано не то число значений',
+        'm25.formula.error.dice': 'кости здесь нельзя',
+        'm25.formula.error.ref': 'нет такого значения',
+        'm25.formula.error.cycle': 'формулы ссылаются друг на друга по кругу',
+        'm25.formula.error.depth': 'слишком много вложенных скобок',
+
+        'm25.words.default.0': 'ничего не осталось',
+        'm25.words.default.1': 'почти на нуле',
+        'm25.words.default.2': 'мало',
+        'm25.words.default.3': 'средне',
+        'm25.words.default.4': 'много',
+        'm25.words.default.5': 'полностью',
+
+        'm25.visibility.game': 'Игровой',
+        'm25.visibility.book': 'Книжный',
+        'm25.visibility.hidden': 'Скрытый',
+        'm25.visibility.secret': 'Тайный от всех',
+        'm25.visibility.place.hud': 'HUD',
+        'm25.visibility.place.strip': 'Под ответом',
+        'm25.visibility.place.narrator': 'Сообщения рассказчика',
+        'm25.visibility.place.statusBlock': 'Статус-блок',
+        'm25.visibility.place.des': 'Под портретами DES',
+        'm25.visibility.place.dossier': 'Досье',
+
+        'm25.combat.error.noMechanic': 'Ни одна механика этого чата не ведёт бой: сначала добавь шаблон «Бой».',
+
+        'm25.def.settings.modelRolls': 'Модель может просить меня о бросках в служебном блоке',
+        'm25.def.settings.autoCombat': 'Начинать и заканчивать бой по сцене режиссёра',
+        'm25.def.settings.personaFallback': 'Статы DES твоего персонажа',
+        'm25.def.settings.personaFallback.hint':
+            'DES не ведёт твоего персонажа, поэтому его числа читаются иначе: фоновым разбором или служебным блоком.',
+        'm25.def.settings.personaFallback.background': 'фоновый разбор',
+        'm25.def.settings.personaFallback.block': 'служебный блок',
+        'm25.def.settings.relevance': 'Сколько сообщений смотреть для фракций',
+        'm25.def.settings.relevance.hint':
+            'Фракции и механики мира попадают в промпт, только если их называли в стольких последних сообщениях (или они закреплены).',
+    },
+};
