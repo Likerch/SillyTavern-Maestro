@@ -120,6 +120,18 @@ describe('every committed turn (English UI)', () => {
         expect(anna().activeOutfit).toBe('ballgown');
     });
 
+    it('does not stall when messages were deleted while it was not looking', async () => {
+        await env.start();
+        for (let i = 0; i < 4; i++) await env.turn(dressed('in a white ball gown'));
+        expect(anna().activeOutfit).toBe('ballgown');
+        // The chat file was cut back without Maestro seeing it (another tab, Maestro off): the stored mark now
+        // points past the end of the chat and must not make the next turns look processed.
+        await env.switchTo('chat-1', []);
+        await env.turn(dressed('wearing blue jeans and a grey hoodie'));
+        expect(anna().activeOutfit).toBe('');
+        expect(wearing('Anna')).toMatchObject({ outfit: '' });
+    });
+
     it('leaves the user’s own choice alone while the clothing stays, and learns a choice made in Maestro', async () => {
         const service = await env.start();
         await env.turn(dressed('in a dark blue silk dress'));

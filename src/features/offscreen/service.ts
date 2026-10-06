@@ -64,6 +64,7 @@ import type { CharacterBrief, SceneInfo } from './sources';
 import { OffscreenSources } from './sources';
 import { EVENTS_KEPT, RUNS_KEPT, emptyOffscreenDoc, publicEvent, readOffscreenDoc, trimSeen } from './store';
 import type { OffscreenDoc, OffscreenRun, StoredEvent } from './store';
+import { freshMark } from '../../domain/turn-mark';
 
 export interface OffscreenTimings {
     /** Pause after a commit or a scene end before the turn is read and the trigger checked (off the send path). */
@@ -422,7 +423,10 @@ export class OffscreenService implements Required<OffscreenApi> {
 
     private commit(index: number): void {
         const doc = this.current();
-        if (!doc || index <= doc.lastCommitted) return;
+        if (!doc) return;
+        // A mark past the end of the chat (messages deleted while unseen) would block every new turn.
+        doc.lastCommitted = freshMark(doc.lastCommitted, this.app.host.ctx().chat?.length ?? 0);
+        if (index <= doc.lastCommitted) return;
         doc.turns += 1;
         doc.lastCommitted = index;
         this.pendingCommits.push({ index, turn: doc.turns });

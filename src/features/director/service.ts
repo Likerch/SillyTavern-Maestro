@@ -50,6 +50,7 @@ import {
     readDirectorDoc,
 } from './store';
 import type { DirectorDoc } from './store';
+import { freshMark } from '../../domain/turn-mark';
 
 export const SCENE_TASK = 'director.scene';
 export const NOTE_INJECTION = 'director';
@@ -297,9 +298,16 @@ export class DirectorService implements Required<DirectorApi> {
         return { seen: new Set(doc.seen), lastPlace: doc.lastPlace };
     }
 
+    /** The doc's commit mark, reset when it points past the end of the chat (messages deleted while unseen). */
+    private committedMark(doc: DirectorDoc): number {
+        const mark = freshMark(doc.lastCommitted, this.app.host.ctx().chat?.length ?? 0);
+        if (mark !== doc.lastCommitted) doc.lastCommitted = mark;
+        return mark;
+    }
+
     private scheduleDraft(index: number): void {
         const doc = this.current();
-        if (!doc || index <= doc.lastCommitted) return;
+        if (!doc || index <= this.committedMark(doc)) return;
         const chat = this.app.host.ctx().chat ?? [];
         const message = chat[index];
         if (!message || message.is_user || index !== chat.length - 1) return;
@@ -327,7 +335,7 @@ export class DirectorService implements Required<DirectorApi> {
     private commit(index: number): void {
         const doc = this.current();
         if (!doc) return;
-        if (index <= doc.lastCommitted) return;
+        if (index <= this.committedMark(doc)) return;
         const draft = this.drafts.get(index);
         const message = this.app.host.ctx().chat?.[index];
         this.drafts.delete(index);

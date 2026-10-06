@@ -89,6 +89,7 @@ import {
     WARDROBE_WEAR_KIND,
 } from './settings';
 import type { WardrobeSettings } from './settings';
+import { freshMark } from '../../domain/turn-mark';
 
 export type WardrobeAction = 'outfit.create' | 'outfit.wear' | 'state' | 'place' | 'passport.copy';
 
@@ -1562,10 +1563,11 @@ export class WardrobeService implements Required<WardrobeApi> {
         const settings = this.settings();
         if (!settings.states && !settings.places && !settings.outfits) return;
         const doc = await this.loadDoc();
-        if (index <= doc.lastIndex) return;
+        // A mark past the end of the chat (messages deleted while unseen) would block every new turn.
+        if (index <= freshMark(doc.lastIndex, this.chat().length)) return;
         const snapshot = this.tracker(index);
         await this.mutate((fresh) => {
-            fresh.lastIndex = Math.max(fresh.lastIndex, index);
+            fresh.lastIndex = Math.max(freshMark(fresh.lastIndex, this.chat().length), index);
             return true;
         });
         if (snapshot && generation === this.generation) {
