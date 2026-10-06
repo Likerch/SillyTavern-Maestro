@@ -25,8 +25,8 @@ describe('CHECK_STRINGS', () => {
         }
         for (const outcome of ['critical', 'success', 'failure', 'fumble', 'none'])
             used.add(`m25.check.outcome.${outcome}`);
-        for (const by of ['auto', 'user']) used.add(`m25.check.by.${by}`);
-        for (const source of ['desStats', 'block', 'background', 'check', 'event', 'user']) {
+        for (const by of ['auto', 'user', 'model']) used.add(`m25.check.by.${by}`);
+        for (const source of ['desStats', 'block', 'background', 'check', 'event', 'user', 'time']) {
             used.add(`m25.widget.source.${source}`);
         }
         expect(used.size).toBeGreaterThan(30);

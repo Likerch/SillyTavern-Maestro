@@ -1,15 +1,16 @@
 // M25 «Механики», the settings section of the pult tab: the book of new definitions, checks by trigger words, the
 // widgets strip, the background parse, the prompt budget and depth (the live slice of settings.ts; P16: the depth
-// keeps the injection near the end).
+// keeps the injection near the end); plan-2 §6: rolls asked by the model, fights by the director's scene, how the
+// user's own character's DES stats are read, and how far back factions are looked for.
 import { section } from '../../ui/components/card';
-import { field, numberInput, toggle } from '../../ui/components/controls';
+import { field, numberInput, select, toggle } from '../../ui/components/controls';
 import { el } from '../../ui/components/dom';
 import { DEFAULT_MECHANICS_BOOK, MECHANICS_KEY } from './parts';
 import type { MechanicsSettings, PartDeps, SectionRenderer } from './parts';
-import { DEPTH_LIMITS, PROMPT_BUDGET_LIMITS } from './settings';
+import { DEPTH_LIMITS, PROMPT_BUDGET_LIMITS, RELEVANCE_LIMITS } from './settings';
 
-type Flag = 'autoChecks' | 'strip' | 'background';
-type Count = 'promptBudget' | 'depth';
+type Flag = 'autoChecks' | 'strip' | 'background' | 'modelRolls' | 'autoCombat';
+type Count = 'promptBudget' | 'depth' | 'relevance';
 
 export function settingsSection(deps: PartDeps): SectionRenderer {
     const { app } = deps;
@@ -52,12 +53,29 @@ export function settingsSection(deps: PartDeps): SectionRenderer {
             book.value = value;
             commit('book', value);
         });
+        const fallback = field(
+            t('m25.def.settings.personaFallback'),
+            select({
+                value: current.personaFallback,
+                options: (['background', 'block'] as const).map((value) => ({
+                    value,
+                    label: t(`m25.def.settings.personaFallback.${value}`),
+                })),
+                label: t('m25.def.settings.personaFallback'),
+                onChange: (value) => commit('personaFallback', value === 'block' ? 'block' : 'background'),
+            }),
+            t('m25.def.settings.personaFallback.hint'),
+        );
         const node = section(t('m25.def.settings.title'), [
             flag('autoChecks'),
+            flag('modelRolls'),
+            flag('autoCombat'),
             flag('strip'),
             flag('background'),
+            fallback,
             count('promptBudget', PROMPT_BUDGET_LIMITS),
             count('depth', DEPTH_LIMITS),
+            count('relevance', RELEVANCE_LIMITS),
             field(t('m25.def.book'), book, t('m25.def.book.hint')),
         ]);
         node.classList.add('maestro-m25-settings');

@@ -119,6 +119,8 @@ export function reputationDef(): MechanicDef {
         checks: [],
         tracking: 'background',
         scope: { kind: 'global' },
+        // Always in the scene (else only when named in the last messages).
+        pinned: true,
     };
 }
 

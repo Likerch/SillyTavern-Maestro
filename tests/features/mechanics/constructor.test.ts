@@ -129,6 +129,11 @@ describe('templates', () => {
             'Money',
             'Skills with checks',
             'Relationships',
+            'Survival',
+            'Sanity',
+            'Inventory and trade',
+            'Combat',
+            'Social scales',
         ]);
         await click(buttonByText('Close'));
         expect(text()).toContain('Mechanics constructor');
@@ -137,8 +142,8 @@ describe('templates', () => {
         expect(text()).toContain('New mechanic');
         expect(one<HTMLInputElement>('.maestro-m25-def-name').value).toBe('Magic');
         expect(one<HTMLInputElement>('.maestro-m25-def-id').value).toBe('magic_2');
-        expect(container.querySelectorAll('.maestro-m25-attr')).toHaveLength(2);
-        expect(one<HTMLInputElement>('.maestro-m25-dice').value).toBe('1d100<=@mana');
+        expect(container.querySelectorAll('.maestro-m25-attr')).toHaveLength(3);
+        expect(one<HTMLInputElement>('.maestro-m25-dice').value).toBe('1d20+@arcana');
         expect(text()).toContain('Save the mechanic first.');
         await click(buttonByText('Save'));
         expect(defs.saved).toHaveLength(1);

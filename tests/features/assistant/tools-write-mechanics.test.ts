@@ -34,12 +34,13 @@ describe('mechanic_save', () => {
             },
             'ru',
         );
-        expect(plan.summary).toBe('Новая механика «Magic»: атрибутов — 1, проверок — 1, действует у этого персонажа');
+        expect(plan.summary).toBe('Новая механика «Magic»: атрибутов — 2, проверок — 1, действует у этого персонажа');
         expect(plan.target).toBe('Механики · «Magic»');
         expect(plan.before).toBeNull();
         const after = plan.after as Record<string, unknown>;
         expect(after.attributes).toEqual([
             'Mana (mana): number 0–50, starts at 50; at <= 0: {holder} has no mana left and cannot cast.',
+            'Arcana (arcana): number 0–10, starts at 2, grows by 0.2 per successful use up to 8',
         ]);
         expect(after.rules).toBe('Mana is scarce.');
         expect(after.scope).toBe('card');
@@ -47,7 +48,7 @@ describe('mechanic_save', () => {
         const { result } = await plan.apply();
         expect(mechanics.saved).toHaveLength(1);
         expect(mechanics.saved[0]!.id).toBe('magic');
-        expect(mechanics.saved[0]!.attributes.map((item) => item.id)).toEqual(['mana']);
+        expect(mechanics.saved[0]!.attributes.map((item) => item.id)).toEqual(['mana', 'arcana']);
         expect(mechanics.saved[0]!.scope).toEqual({ kind: 'card', avatar: 'kai.png' });
         expect(result).toEqual({ id: 'magic', name: 'Magic', book: 'Maestro Mechanics', uid: 7 });
     });
@@ -122,7 +123,7 @@ describe('mechanic_save', () => {
     it('refuses unknown templates, both sources at once, and non-definitions', async () => {
         const { fake } = setup();
         expect(await planError(fake.plan('mechanic_save', { template: 'nope' }))).toBe(
-            'There is no template «nope». Templates: health, magic, reputation, money, skills, relationships.',
+            'There is no template «nope». Templates: health, magic, reputation, money, skills, relationships, survival, sanity, trade, combat, social.',
         );
         expect(await planError(fake.plan('mechanic_save', { template: 'magic', definition: {} }))).toBe(
             'Give either «definition» or «template», not both.',
