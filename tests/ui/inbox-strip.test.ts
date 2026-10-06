@@ -186,7 +186,7 @@ describe('the setting in Settings', () => {
     it('chooses everything, only what waits for a decision, or nothing', () => {
         start();
         ui.openPult('settings');
-        const select = [...document.querySelectorAll<HTMLSelectElement>('.maestro-pult-body select')].find(
+        const select = [...document.querySelectorAll<HTMLSelectElement>('.maestro-window-body select')].find(
             (node) => node.getAttribute('aria-label') === 'Строка Maestro под сообщениями',
         )!;
         expect([...select.options].map((option) => option.textContent)).toEqual([

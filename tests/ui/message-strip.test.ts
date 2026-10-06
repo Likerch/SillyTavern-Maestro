@@ -200,7 +200,7 @@ describe('the strip', () => {
         expect(stripOf(1)!.querySelector<HTMLElement>('.maestro-strip-body')?.hidden).toBe(true);
     });
 
-    it('opens a window section through openWindow when there are windows, else the pult tab', async () => {
+    it('opens a window section through openWindow, or the tab’s window when the item names no window', async () => {
         const fake = fakeProvider();
         fake.items.set(1, [
             { id: 'w', kind: 'fact', text: 'Запомнил', open: { window: 'canon', tab: 'living', params: { x: 1 } } },
@@ -209,16 +209,15 @@ describe('the strip', () => {
         ui.addMessageStripProvider(fake.provider);
         await flush();
         const openPult = vi.spyOn(ui, 'openPult').mockImplementation(() => {});
+        const openWindow = vi.spyOn(ui as Ui & { openWindow: NonNullable<Ui['openWindow']> }, 'openWindow');
+        openWindow.mockImplementation(() => {});
         line(1).click();
         const openers = () => [...stripOf(1)!.querySelectorAll<HTMLButtonElement>('.maestro-strip-open-window')];
         openers()[0]!.click();
-        expect(openPult).toHaveBeenCalledWith('living');
-        const openWindow = vi.fn();
-        (ui as Ui).openWindow = openWindow;
-        openers()[0]!.click();
         expect(openWindow).toHaveBeenCalledWith('canon', { tab: 'living', params: { x: 1 } });
+        expect(openPult).not.toHaveBeenCalled();
         openers()[1]!.click();
-        expect(openPult).toHaveBeenCalledTimes(2);
+        expect(openPult).toHaveBeenCalledWith('living');
     });
 
     it('follows the setting: everything, only what waits for a decision, nothing', async () => {
