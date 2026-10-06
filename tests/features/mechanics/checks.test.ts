@@ -1,6 +1,6 @@
 // M25 checks part: the auto roll at MESSAGE_SENT (once, never on swipes), the actor and the difficulty, rolls by
 // button and by /maestro-roll, pending/delivered, the per-chat log (load, merge, conflicts), edits and deletions,
-// journal entries and message badges.
+// journal entries and the rolls of each message (the strip's roll cards).
 import { afterEach, describe, expect, it } from 'vitest';
 import { stableHash } from '../../../src/domain/hash';
 import {
@@ -93,14 +93,9 @@ describe('auto checks', () => {
             changes: [],
             sourceMessage: 1,
         });
-        expect(ctx.badges).toEqual([
-            {
-                index: 1,
-                id: `m25-check-${result!.id}`,
-                text: 'Roll: Убеждение (Kai): 14 vs 15 — failure',
-                removed: false,
-            },
-        ]);
+        // The roll card under the message comes from the mechanics strip over the stored log (no memory badge).
+        expect(ctx.badges).toEqual([]);
+        expect(part.rollsOf(1).map((item) => item.id)).toEqual([result!.id]);
     });
 
     it('roll nothing without a trigger, when switched off, in group chats, for sheets or unknown messages', async () => {
@@ -209,7 +204,7 @@ describe('rolls by hand', () => {
         const index = await send(ctx, 'Я пытаюсь убедить его.');
         expect(part.checks()).toHaveLength(1);
         expect(part.checks()[0]).toMatchObject({ id: manual.id, messageIndex: index });
-        expect(ctx.badges.at(-1)).toMatchObject({ index, removed: false });
+        expect(part.rollsOf(index).map((item) => item.id)).toEqual([manual.id]);
     });
 
     it('take the difficulty given, the persona by default and attribute values as modifiers', async () => {
@@ -336,11 +331,11 @@ describe('edits and deletions', () => {
         };
         await edit('Я пытаюсь убедить стражника, улыбаясь.');
         expect(part.checks().map((result) => result.id)).toEqual([first.id]);
-        expect(ctx.badges.filter((badge) => !badge.removed)).toHaveLength(1);
+        expect(part.rollsOf(index)).toHaveLength(1);
 
         await edit('Я жду.');
         expect(part.checks()).toEqual([]);
-        expect(ctx.badges.every((badge) => badge.removed)).toBe(true);
+        expect(part.rollsOf(index)).toEqual([]);
 
         ctx.state.set('social', 'Kai', 'stealth', 50);
         await edit('Я тихо крадусь мимо.');
@@ -381,7 +376,7 @@ describe('edits and deletions', () => {
 });
 
 describe('the log', () => {
-    it('is loaded per chat, with badges on the messages that still match', async () => {
+    it('is loaded per chat, the rolls of each message at hand', async () => {
         const part = await start();
         const message = userMessage('Я пытаюсь убедить его.');
         const result = {
@@ -409,7 +404,8 @@ describe('the log', () => {
         expect(part.checks().map((item) => item.id)).toEqual(['old-2', 'old-1']);
         expect(part.checks()[0]?.rolls).toEqual([]);
         expect(part.pendingChecks().map((item) => item.id)).toEqual(['old-2']);
-        expect(ctx.badges.filter((badge) => !badge.removed).map((badge) => badge.id)).toEqual(['m25-check-old-1']);
+        expect(part.rollsOf(0).map((item) => item.id)).toEqual(['old-1', 'old-2']);
+        expect(ctx.badges).toEqual([]);
         expect(part.checks(1)).toHaveLength(1);
     });
 

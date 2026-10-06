@@ -32,8 +32,15 @@ function part(name: string, extra: Record<string, unknown> = {}) {
 }
 
 vi.mock('../../../src/features/mechanics/state', () => ({
-    MechanicState: part('state'),
+    MechanicState: part('state', {
+        holdersInScene: () => [],
+        state: () => [],
+    }),
     VALUE_UNDO_TARGET: 'mechanics.value',
+    BATCH_UNDO_TARGET: 'mechanics.batch',
+    STATUS_KIND: 'mechanics.status',
+    ITEM_KIND: 'mechanics.item',
+    REVEAL_KIND: 'mechanics.reveal',
 }));
 vi.mock('../../../src/features/mechanics/tracking', () => ({
     DES_STATS_UNDO_TARGET: 'mechanics.desStats',
@@ -41,11 +48,20 @@ vi.mock('../../../src/features/mechanics/tracking', () => ({
         desStatsStatus: () => [],
         enableDesStats: async () => true,
         blockInstruction: () => '',
+        onRollRequests: (listener: unknown) => {
+            calls.args.rollListener = [listener];
+            return () => calls.log.push('roll requests off');
+        },
+        onCombatLines: (listener: unknown) => {
+            calls.args.combatListener = [listener];
+            return () => calls.log.push('combat lines off');
+        },
     }),
 }));
-vi.mock('../../../src/features/mechanics/checks', () => ({ MechanicChecks: part('checks') }));
+vi.mock('../../../src/features/mechanics/checks', () => ({ MechanicChecks: part('checks'), secureRng: () => 0.5 }));
 vi.mock('../../../src/features/mechanics/prompt', () => ({ MechanicPrompt: part('prompt') }));
-vi.mock('../../../src/features/mechanics/widgets', () => ({
+vi.mock('../../../src/features/mechanics/widgets', async (importOriginal) => ({
+    ...(await importOriginal<Record<string, unknown>>()),
     MechanicStrip: part('strip'),
     stateSection: (...args: unknown[]) => {
         calls.args.stateSection = args;
@@ -91,6 +107,15 @@ describe('mechanics module', () => {
             promptBudget: 400,
             depth: 1,
             background: true,
+            modelRolls: true,
+            autoCombat: true,
+            personaFallback: 'background',
+            relevance: 4,
+            hud: true,
+            hudAttrs: [],
+            hudHolders: [],
+            desAttrs: [],
+            desPersona: true,
         });
         expect(mechanicsModule.i18n).toBe(MECHANICS_STRINGS);
         expect(MECHANICS_STRINGS.en['m25.title']).toBe('Mechanics');
@@ -119,11 +144,22 @@ describe('mechanics module', () => {
         expect(calls.args.checks?.[1]).toBe(defs);
         expect(calls.args.prompt).toHaveLength(5);
         expect(calls.args.strip?.[1]).toBe(defs);
+        // The model's roll requests go to the checks part, the block's fight lines to the combat part.
+        expect(calls.args.rollListener).toHaveLength(1);
+        expect(calls.args.combatListener).toHaveLength(1);
 
         const api = env.modules.api<MechanicsApi>('mechanics');
         expect(api).toBeInstanceOf(MechanicsService);
         expect(api?.list()).toEqual([]);
 
+        // The «Механики» window: «В игре», «История», «Конструктор».
+        expect(env.ui.tabs.map((item) => [item.id, item.group ?? null, item.order])).toEqual(
+            expect.arrayContaining([
+                ['mechanics', 'mechanics', 63],
+                ['mechanicsLog', 'mechanics', 64],
+                ['mechanicsBuild', 'mechanics', 65],
+            ]),
+        );
         const tab = env.ui.tabs.find((item) => item.id === 'mechanics')!;
         expect(tab).toMatchObject({ titleKey: 'm25.tab', icon: 'fa-dice-d20', order: 63 });
         expect(env.ui.styles.has('maestro-m25-defs')).toBe(true);
@@ -131,20 +167,33 @@ describe('mechanics module', () => {
         document.body.appendChild(container);
         const unmount = tab.render(container);
         expect(calls.args.stateSection?.[1]).toBe(defs);
+        // The API goes to the state section (hidden values, pins, resets).
+        expect(calls.args.stateSection?.[4]).toBe(api);
         const parts = [...container.querySelectorAll('.maestro-m25-part')];
         expect(parts).toHaveLength(3);
-        expect(parts[0]!.querySelector('.fake-state-section')).not.toBeNull();
-        expect(parts[1]!.textContent).toContain(DEF_STRINGS.en['m25.def.section']);
-        expect(parts[2]!.textContent).toContain(DEF_STRINGS.en['m25.def.settings.title']);
+        expect(parts[1]!.querySelector('.fake-state-section')).not.toBeNull();
         if (typeof unmount === 'function') unmount();
         expect(calls.log).toContain('state section off');
         expect(container.children).toHaveLength(0);
+
+        const build = env.ui.tabs.find((item) => item.id === 'mechanicsBuild')!;
+        const buildBox = document.createElement('div');
+        document.body.appendChild(buildBox);
+        const offBuild = build.render(buildBox);
+        const buildParts = [...buildBox.querySelectorAll('.maestro-m25-part')];
+        expect(buildParts).toHaveLength(2);
+        expect(buildParts[0]!.textContent).toContain(DEF_STRINGS.en['m25.def.section']);
+        expect(buildParts[1]!.textContent).toContain(DEF_STRINGS.en['m25.def.settings.title']);
+        if (typeof offBuild === 'function') offBuild();
+        expect(buildBox.children).toHaveLength(0);
 
         calls.log.length = 0;
         await started.stop();
         expect(calls.log).toEqual([
             'dispose strip',
             'dispose prompt',
+            'combat lines off',
+            'roll requests off',
             'dispose checks',
             'dispose tracking',
             'dispose state',

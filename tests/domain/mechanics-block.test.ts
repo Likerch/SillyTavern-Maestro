@@ -130,7 +130,14 @@ describe('parseBlock and stripBlock', () => {
         expect(stripBlock(text)).toBe(story);
         expect(hasBlockMarker(story)).toBe(false);
         expect(stripBlock(story)).toBe(story);
-        expect(parseBlock(story)).toEqual({ found: false, items: [], repaired: [], dropped: [] });
+        expect(parseBlock(story)).toEqual({
+            found: false,
+            items: [],
+            repaired: [],
+            dropped: [],
+            rolls: [],
+            combat: [],
+        });
     });
 
     it('repairs a missing closing tag, a missing opening tag and fences', () => {

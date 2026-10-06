@@ -442,6 +442,7 @@ export const DOSSIER_STRINGS: I18nParts = {
         'm7.styleUp.promote.body':
             'The entry starts working in every chat with this card and leaves this chat’s canon so it does not fire twice. You can undo it from the journal.',
         'm7.styleUp.promote.details': 'The card’s lore book: «{book}».',
+        'm7.mechanics.title': 'Mechanics',
         'm7.wardrobe.title': 'Outfits ({count})',
         'm7.wardrobe.active': 'worn',
         'm7.wardrobe.wear': 'Put on',
@@ -885,6 +886,7 @@ export const DOSSIER_STRINGS: I18nParts = {
         'm7.styleUp.promote.body':
             'Запись заработает во всех чатах с этой карточкой, а из канона этого чата уберётся, чтобы не срабатывать дважды. Отменить можно из журнала.',
         'm7.styleUp.promote.details': 'Книга карточки: «{book}».',
+        'm7.mechanics.title': 'Механики',
         'm7.wardrobe.title': 'Наряды ({count})',
         'm7.wardrobe.active': 'надет',
         'm7.wardrobe.wear': 'Надеть',

@@ -8,10 +8,16 @@
 // - the facts (pending check results and fired events) at depth 0 for one generation; they are marked delivered when
 //   the generation ends without being stopped, and a swipe / regenerate / continue of the same reply gets them again
 //   (the roll belongs to the user's message: it is never rolled again).
+// - plan-2 §6–6.А: values as each attribute's visibility allows (numbers, words, nothing), numbers with the
+//   modifiers of statuses and items, derived values computed; the conditions and inventories of the holders in the
+//   scene (cut right after the other holders' values) and the fight's turn order (never cut); the block instruction
+//   lists the checks the model may ask Maestro to roll (settings.modelRolls) and the fight lines.
 // Everything is read from memory (definitions, state, the roll log): nothing is awaited on the send path (P15).
+import { combatLine } from '../../domain/mechanics-combat';
 import { initialValueOf } from '../../domain/mechanics-defs';
-import { renderFacts, renderRules } from '../../domain/mechanics-prompt';
+import { conditionsLine, inventoryLine, renderFacts, renderRules } from '../../domain/mechanics-prompt';
 import type { CutStep, PromptSection, RenderedRules } from '../../domain/mechanics-prompt';
+import { resolveVisibility } from '../../domain/mechanics-visibility';
 import type { GenerationInfo, Unsubscribe } from '../../shared/contracts';
 import type { ArchitectApi } from '../architect/api';
 import type { AttributeValue, CheckResult, FiredEvent, MechanicDef } from './api';
@@ -155,14 +161,56 @@ export class MechanicPrompt {
     private values(def: MechanicDef, holder: string): Record<string, AttributeValue | null> {
         const values: Record<string, AttributeValue | null> = {};
         for (const attribute of def.attributes) {
-            if (attribute.visible === false) continue;
+            if (resolveVisibility(def, attribute).prompt === 'none') continue;
             try {
-                values[attribute.id] = this.state.value(def.id, holder, attribute.id) ?? initialValueOf(attribute);
+                const effective =
+                    attribute.kind === 'number' ? (this.state.numberOf?.(def.id, holder, attribute.id) ?? null) : null;
+                values[attribute.id] =
+                    effective ?? this.state.value(def.id, holder, attribute.id) ?? initialValueOf(attribute);
             } catch {
                 values[attribute.id] = initialValueOf(attribute);
             }
         }
         return values;
+    }
+
+    /** Conditions and inventories of the holders in the scene, as the model may know them. */
+    private extras(scene: readonly SceneEntry[]): string[] {
+        const lines: string[] = [];
+        const names: string[] = [];
+        for (const entry of scene) {
+            if (entry.def.holders.kind === 'world' || entry.def.holders.kind === 'factions') continue;
+            for (const holder of entry.holders)
+                if (!names.some((name) => nameKey(name) === nameKey(holder))) names.push(holder);
+        }
+        const statuses = this.safe(() => this.state.statuses?.() ?? [], [], 'the statuses');
+        const known = (mechanicId: string | undefined) => {
+            const def = mechanicId ? this.safe(() => this.defs.get(mechanicId), null, 'a definition') : null;
+            return !def || resolveVisibility(def).prompt !== 'none';
+        };
+        const conditions = names.map((holder) => ({
+            holder,
+            statuses: (statuses.find((entry) => nameKey(entry.holder) === nameKey(holder))?.statuses ?? []).filter(
+                (status) => known(status.mechanicId),
+            ),
+        }));
+        const conditionText = conditionsLine(conditions);
+        if (conditionText) lines.push(conditionText);
+        const items = this.safe(() => this.state.items?.() ?? [], [], 'the items');
+        const carriers: string[] = [];
+        for (const entry of scene) {
+            if (entry.def.inventory === undefined || resolveVisibility(entry.def).prompt === 'none') continue;
+            for (const holder of entry.holders)
+                if (!carriers.some((name) => nameKey(name) === nameKey(holder))) carriers.push(holder);
+        }
+        const inventoryText = inventoryLine(
+            carriers.map((holder) => ({
+                holder,
+                items: items.find((entry) => nameKey(entry.holder) === nameKey(holder))?.items ?? [],
+            })),
+        );
+        if (inventoryText) lines.push(inventoryText);
+        return lines;
     }
 
     private sections(scene: readonly SceneEntry[]): PromptSection[] {
@@ -216,20 +264,34 @@ export class MechanicPrompt {
             };
         }
         let instruction = '';
+        const combat = this.safe(() => this.state.combat?.() ?? null, null, 'the fight');
         if (withInstruction) {
             const holders: Record<string, string[]> = {};
             for (const entry of scene) holders[entry.def.id] = entry.holders;
+            const checks = this.deps.settings().modelRolls
+                ? this.safe(() => this.checks.checkNames?.() ?? [], [], 'the checks')
+                : [];
+            const fights = scene.some((entry) => entry.def.combat !== undefined);
             instruction = this.safe(
                 () =>
                     this.tracking.blockInstruction(
                         scene.map((entry) => entry.def),
                         holders,
+                        { ...(checks.length ? { checks } : {}), ...(fights ? { combat: true } : {}) },
                     ),
                 '',
                 'the block instruction',
             );
         }
-        const rendered = renderRules(this.sections(scene), { budget: budget.tokens, instruction });
+        const fight = combatLine(combat);
+        // A secret mechanic is Maestro's alone: no rules, no values (its flag still serves the preset's blocks).
+        const known = scene.filter((entry) => resolveVisibility(entry.def).prompt !== 'none');
+        const rendered = renderRules(this.sections(known), {
+            budget: budget.tokens,
+            instruction,
+            extras: this.extras(scene),
+            ...(fight ? { fixed: [fight] } : {}),
+        });
         return { scene, rendered, source: budget.source };
     }
 
@@ -253,6 +315,15 @@ export class MechanicPrompt {
             events = [...last.events.filter((event) => !seen.has(eventKey(event))), ...pendingEvents];
         }
         return { checks, events, pendingChecks, pendingEvents };
+    }
+
+    /** Events the model may hear of: a secret mechanic's own status ending stays Maestro's. */
+    private told(events: readonly FiredEvent[]): FiredEvent[] {
+        return events.filter((event) => {
+            if (event.attribute !== 'status') return true;
+            const def = this.safe(() => this.defs.get(event.mechanicId), null, 'a definition');
+            return !def || resolveVisibility(def).prompt !== 'none';
+        });
     }
 
     /* ---------------------------------------------------------------- the generation */
@@ -283,7 +354,10 @@ export class MechanicPrompt {
         const chat = app.host.ctx().chat ?? [];
         const forIndex = type === 'swipe' || type === 'continue' ? chat.length - 1 : chat.length;
         const facts = this.facts(chatId, type, forIndex);
-        const lines = [...facts.checks.map((result) => result.text), ...facts.events.map((event) => event.text)];
+        const lines = [
+            ...facts.checks.map((result) => result.text),
+            ...this.told(facts.events).map((event) => event.text),
+        ];
         const text = renderFacts(lines.slice(-FACTS_MAX));
         if (text) {
             // The outcome of what the user just did: the very end of the history.
@@ -334,9 +408,10 @@ export class MechanicPrompt {
             flags: scene.map((entry) => mechanicFlag(entry.def.id)),
             facts: facts
                 ? renderFacts(
-                      [...facts.checks.map((result) => result.text), ...facts.events.map((event) => event.text)].slice(
-                          -FACTS_MAX,
-                      ),
+                      [
+                          ...facts.checks.map((result) => result.text),
+                          ...this.told(facts.events).map((event) => event.text),
+                      ].slice(-FACTS_MAX),
                   )
                 : '',
         };

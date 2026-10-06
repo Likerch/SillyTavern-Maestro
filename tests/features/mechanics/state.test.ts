@@ -147,8 +147,11 @@ describe('MechanicState: the scene', () => {
         expect(env.state.holdersInScene(magicDef())).toEqual(['Kai', 'Lena', 'Алекс']);
         expect(env.state.holdersInScene(healthDef())).toEqual(['Kai', 'Lena']);
         expect(env.state.holdersInScene(magicDef({ holders: { kind: 'persona' } }))).toEqual(['Алекс']);
-        expect(env.state.holdersInScene(magicDef({ holders: { kind: 'world' } }))).toEqual(['world']);
+        expect(env.state.holdersInScene(magicDef({ holders: { kind: 'world' }, pinned: true }))).toEqual(['world']);
         expect(env.state.holdersInScene(reputationDef())).toEqual(['Guild', 'Crown']);
+        // Not pinned: only when named in the last messages (plan-2 §6 п. 13).
+        expect(env.state.holdersInScene(magicDef({ holders: { kind: 'world' } }))).toEqual([]);
+        expect(env.state.holdersInScene({ ...reputationDef(), pinned: false })).toEqual([]);
         expect(
             env.state.holdersInScene(magicDef({ holders: { kind: 'named', names: ['Мира', 'Kai', 'Alex', 'Zed'] } })),
         ).toEqual(['Kai', 'Alex']);

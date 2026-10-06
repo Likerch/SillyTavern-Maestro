@@ -1,8 +1,9 @@
 // M25 «Механики», checks part (plan M25 п.3, §5 phase 1 «Делает броски механик», §8 «броски механик — Само», P15):
 // - auto checks: at ST's MESSAGE_SENT (the user's message index, before the generate interceptor runs the producers)
 //   the story part of the message is read for the trigger words of the checks on in this chat (domain detection,
-//   string work only) and at most one check is rolled at once; the save, the journal entry and the message badge
-//   follow without being awaited (P15);
+//   string work only) and at most one check is rolled at once; the save and the journal entry follow without being
+//   awaited (P15); the roll card under the message comes from the mechanics strip provider over this log
+//   (play-strip.ts), so it is back after a reload;
 // - the roll belongs to the user message: swipes, regenerations and continues never roll again (MESSAGE_SENT does not
 //   fire for them; the prompt part repeats the delivered fact); an edit of the last user message keeps the roll while
 //   the same check is called for and replaces it otherwise; deleting the message drops its undelivered roll;
@@ -10,21 +11,36 @@
 //   message is sent belongs to that message and stops the auto roll for it;
 // - the log is a small per-chat Maestro document `mechanics-checks` (newest last, bounded); results not yet given to
 //   the model are «pending» until the prompt part marks them delivered after a finished generation;
-// - every roll is journaled (kind 'mechanics.check', nothing to undo); an autonomy level 'off' stops auto rolls.
+// - every roll is journaled (kind 'mechanics.check', nothing to undo); an autonomy level 'off' stops auto rolls;
+// - plan-2 §6: a check's effects (consequences per outcome) are resolved when it is rolled (formulas over the actor's
+//   values, the roll's total and margin) and applied at once (source 'check', the roll's id: undoRoll takes them
+//   back); the fact names them. Skills used by a check grow by use. Statuses and equipped items add their modifiers.
+//   Advantage / disadvantage and opposed checks ("vs Guard.Perception"); the model may ask for rolls in its service
+//   block (`roll: …`, by 'model'): rolled as the reply arrives, they belong to the reply (a swipe drops them) and reach
+//   the next generation as facts. A secret mechanic's roll gives the model only its outcomes; a hidden one is marked
+//   so the player surfaces skip it.
 import { stableHash } from '../../domain/hash';
+import { resolveRollHead } from '../../domain/mechanics-block';
+import type { BlockRoll, RollCheckRef } from '../../domain/mechanics-block';
 import { detectCheck, difficultyWord, normalizeWord } from '../../domain/mechanics-checks';
 import type { ActorNames, CheckTrigger } from '../../domain/mechanics-checks';
-import { diceAttributes, initialValueOf, parseDice } from '../../domain/mechanics-defs';
+import { criticalsOf, diceAttributes, initialValueOf, parseDice } from '../../domain/mechanics-defs';
 import type { DiceFormula } from '../../domain/mechanics-defs';
-import { checkFact, difficultyFor, rollDice } from '../../domain/mechanics-dice';
-import type { DiceOutcome, DifficultyLevel, Rng } from '../../domain/mechanics-dice';
+import { checkFact, difficultyFor, marginOf, opposedFact, opposedOutcome, rollDice } from '../../domain/mechanics-dice';
+import type { DiceOutcome, DiceRoll, DifficultyLevel, RollMode, Rng } from '../../domain/mechanics-dice';
+import { resolveActions } from '../../domain/mechanics-effects';
+import { resolveHolder as resolveStateHolder } from '../../domain/mechanics-state';
+import { grownValue } from '../../domain/mechanics-time';
+import { resolveVisibility } from '../../domain/mechanics-visibility';
 import { detectSheetCommand } from '../../domain/sheets';
 import { cleanForAnalysis } from '../../domain/text-clean';
 import type { I18n, JournalAction, SlashCommandSpec, Unsubscribe } from '../../shared/contracts';
 import type { WorldModelApi } from '../world/api';
 import type { CheckDef, CheckOutcome, CheckResult, MechanicDef } from './api';
 import { MECHANICS_ID } from './parts';
-import type { ChecksPart, DefinitionsPart, PartDeps, StatePart } from './parts';
+import type { ChecksPart, DefinitionsPart, PartDeps, RollOptions, StateOp, StatePart } from './parts';
+import { BATCH_UNDO_TARGET } from './state';
+import { holderContextOf } from './state-holders';
 
 // The domain's outcomes are exactly the API's (src/domain cannot import feature types).
 type Exact<T, U> = [T] extends [U] ? ([U] extends [T] ? true : never) : never;
@@ -37,7 +53,10 @@ export const CHECKS_DOC = 'mechanics-checks';
 export const CHECK_KIND = 'mechanics.check';
 export const ROLL_COMMAND = 'maestro-roll';
 const RESULTS_KEPT = 100;
-const BADGES_SHOWN = 20;
+/** Rolls the model may ask for in one reply. */
+const MODEL_ROLLS_MAX = 3;
+/** Journal kind of taking a roll's consequences back. */
+export const UNDO_ROLL_KIND = 'mechanics.undoRoll';
 const DEFAULT_SAVE_MS = 300;
 const OUTCOMES: readonly CheckOutcome[] = ['critical', 'success', 'failure', 'fumble', 'none'];
 /** Words of a check name tried at the start of the command (multi-word names such as «Взлом замков»). */
@@ -47,8 +66,10 @@ interface StoredCheck extends CheckResult {
     delivered?: boolean;
     /** Rolled for a user message whose reply never came before the next one: never given to the model. */
     expired?: boolean;
-    /** Hash of the user message text: badges and edits find their message by it. */
+    /** Hash of the user message text: edits find their message by it. */
     stamp?: string;
+    /** Model rolls: the swipe of the reply that asked. */
+    swipe?: number;
 }
 
 interface ChecksDoc {
@@ -93,9 +114,31 @@ function readResult(raw: unknown): StoredCheck | null {
         by: raw.by === 'auto' ? 'auto' : 'user',
         at: number(raw.at, 0),
     };
+    if (raw.by === 'model') result.by = 'model';
     if (raw.delivered === true) result.delivered = true;
     if (raw.expired === true) result.expired = true;
     if (typeof raw.stamp === 'string') result.stamp = raw.stamp;
+    if (typeof raw.swipe === 'number') result.swipe = raw.swipe;
+    if (raw.mode === 'adv' || raw.mode === 'dis') result.mode = raw.mode;
+    if (typeof raw.other === 'number') result.other = raw.other;
+    if (isDict(raw.vs) && typeof raw.vs.holder === 'string' && typeof raw.vs.checkId === 'string') {
+        result.vs = {
+            holder: raw.vs.holder,
+            mechanicId: typeof raw.vs.mechanicId === 'string' ? raw.vs.mechanicId : mechanicId,
+            checkId: raw.vs.checkId,
+            total: number(raw.vs.total, 0),
+            rolls: Array.isArray(raw.vs.rolls)
+                ? raw.vs.rolls.filter((item): item is number => typeof item === 'number')
+                : [],
+        };
+    }
+    if (Array.isArray(raw.consequences)) {
+        result.consequences = raw.consequences.filter((item): item is string => typeof item === 'string');
+    }
+    if (Array.isArray(raw.changes))
+        result.changes = raw.changes.filter((item): item is string => typeof item === 'string');
+    if (raw.hidden === true) result.hidden = true;
+    if (raw.undone === true) result.undone = true;
     return result;
 }
 
@@ -105,7 +148,7 @@ function readResults(doc: unknown): StoredCheck[] {
 }
 
 function publicResult(result: StoredCheck): CheckResult {
-    return {
+    const out: CheckResult = {
         id: result.id,
         mechanicId: result.mechanicId,
         checkId: result.checkId,
@@ -121,6 +164,14 @@ function publicResult(result: StoredCheck): CheckResult {
         by: result.by,
         at: result.at,
     };
+    if (result.mode) out.mode = result.mode;
+    if (result.other !== undefined) out.other = result.other;
+    if (result.vs) out.vs = { ...result.vs, rolls: [...result.vs.rolls] };
+    if (result.consequences?.length) out.consequences = [...result.consequences];
+    if (result.changes?.length) out.changes = [...result.changes];
+    if (result.hidden) out.hidden = true;
+    if (result.undone) out.undone = true;
+    return out;
 }
 
 function pending(result: StoredCheck): boolean {
@@ -195,10 +246,20 @@ interface Found {
 interface RollSpec {
     explicit: number | null;
     level: DifficultyLevel | null;
-    by: 'auto' | 'user';
+    by: 'auto' | 'user' | 'model';
     messageIndex: number;
     /** Auto rolls: nothing is rolled when the formula or a value is missing (instead of an error). */
     strict: boolean;
+    mode?: RollMode | null;
+    /** The other side of an opposed check. */
+    vs?: { def: MechanicDef; check: CheckDef; holder: string } | null;
+    swipe?: number;
+}
+
+/** A roll and the state operations its consequences make. */
+interface Rolled {
+    result: StoredCheck;
+    ops: StateOp[];
 }
 
 export class MechanicChecks implements ChecksPart {
@@ -209,7 +270,6 @@ export class MechanicChecks implements ChecksPart {
     private generation = 0;
     private readonly listeners = new Set<() => void>();
     private readonly offs: Unsubscribe[] = [];
-    private readonly badges = new Map<string, Unsubscribe>();
     private saveTimer: ReturnType<typeof setTimeout> | null = null;
     private disposed = false;
     private readonly rng: Rng;
@@ -260,7 +320,6 @@ export class MechanicChecks implements ChecksPart {
                 this.deps.log.debug('checks: release failed', error);
             }
         }
-        this.clearBadges();
         this.listeners.clear();
     }
 
@@ -288,7 +347,6 @@ export class MechanicChecks implements ChecksPart {
 
     private open(): void {
         const generation = ++this.generation;
-        this.clearBadges();
         this.results = [];
         this.loaded = false;
         this.chatId = this.deps.app.host.chatId();
@@ -319,7 +377,6 @@ export class MechanicChecks implements ChecksPart {
         this.results = [...stored, ...fresh].slice(-RESULTS_KEPT);
         this.loaded = true;
         if (fresh.length) this.saveSoon();
-        for (const result of this.results.slice(-BADGES_SHOWN)) this.badge(result);
         this.changed();
     }
 
@@ -356,12 +413,13 @@ export class MechanicChecks implements ChecksPart {
         const stamp = stampOf(message);
         for (const result of this.results) {
             if (!pending(result)) continue;
+            // The model asked for it in the reply this message answers: it goes to the next generation.
+            if (result.by === 'model' && result.messageIndex === index - 1) continue;
             if (result.messageIndex < 0) {
                 result.messageIndex = index;
                 result.stamp = stamp;
                 manual = true;
                 touched = true;
-                this.badge(result);
             } else if (result.messageIndex < index) {
                 result.expired = true;
                 touched = true;
@@ -379,14 +437,14 @@ export class MechanicChecks implements ChecksPart {
         if (detectSheetCommand(message.mes)) return;
         const found = this.detect(message);
         if (!found) return;
-        const result = this.makeRoll(found.def, found.check, found.holder, {
+        const rolled = this.makeRoll(found.def, found.check, found.holder, {
             explicit: found.explicit,
             level: found.level,
             by: 'auto',
             messageIndex: index,
             strict: true,
         });
-        if (result) this.record(result);
+        if (rolled) this.record(rolled);
     }
 
     /** The check the message calls for, with its actor, or null (no roll). */
@@ -509,10 +567,17 @@ export class MechanicChecks implements ChecksPart {
 
     /* ---------------------------------------------------------------- rolling */
 
-    /** A number for the dice: the value, a scale's level index; the initial value for a holder without one yet. */
+    /**
+     * A number for the dice: the value with status and item modifiers (a scale's level index); the initial value for
+     * a holder without one yet.
+     */
     private numeric(def: MechanicDef, holder: string, attributeId: string, known: boolean): number | null {
         const attribute = def.attributes.find((item) => item.id === attributeId);
         if (!attribute) return null;
+        if (this.state.numberOf && known) {
+            const number = this.state.numberOf(def.id, holder, attributeId);
+            if (number !== null) return number;
+        }
         let value = this.state.value(def.id, holder, attributeId);
         if (value === null && known) value = initialValueOf(attribute);
         if (typeof value === 'number' && Number.isFinite(value)) return value;
@@ -534,7 +599,94 @@ export class MechanicChecks implements ChecksPart {
         return def.attributes.find((attribute) => attribute.id === id)?.name ?? id;
     }
 
-    private makeRoll(def: MechanicDef, check: CheckDef, holder: string, spec: RollSpec): StoredCheck | null {
+    private bonusOf(def: MechanicDef, check: CheckDef, holder: string): number {
+        try {
+            return this.state.checkBonus?.(def, check.id, holder) ?? 0;
+        } catch {
+            return 0;
+        }
+    }
+
+    /** One side's roll (the actor's, or the other side of an opposed check). */
+    private rollFor(
+        def: MechanicDef,
+        check: CheckDef,
+        formula: DiceFormula,
+        holder: string,
+        spec: Pick<RollSpec, 'explicit' | 'level' | 'mode'>,
+        opposed: boolean,
+    ): DiceRoll {
+        const known = this.isHolder(def, holder);
+        return rollDice(formula, (attribute) => this.numeric(def, holder, attribute, known), this.rng, {
+            difficulty: opposed ? null : this.targetOf(check, formula, spec.explicit, spec.level),
+            level: formula.under ? spec.level : null,
+            criticals: criticalsOf(check),
+            mode: spec.mode ?? null,
+            bonus: this.bonusOf(def, check, holder),
+        });
+    }
+
+    /** The consequences of an outcome: state operations and English notes (the actor's values, the roll). */
+    private consequences(
+        def: MechanicDef,
+        check: CheckDef,
+        holder: string,
+        target: string | null,
+        roll: DiceRoll,
+        outcome: DiceOutcome,
+        formula: DiceFormula,
+        messageIndex: number,
+        margin: number,
+    ): { ops: StateOp[]; notes: string[] } {
+        const ops: StateOp[] = [];
+        const notes: string[] = [];
+        const matches = (on: string) =>
+            on === 'any' ||
+            on === outcome ||
+            (on === 'success' && outcome === 'critical') ||
+            (on === 'failure' && outcome === 'fumble');
+        const context = holderContextOf(this.deps.app);
+        for (const effect of (check.effects ?? []).filter((item) => matches(item.on))) {
+            const resolved = resolveActions(effect.changes, {
+                def,
+                actor: holder,
+                target,
+                persona: context.persona,
+                getDef: (id) => this.defs.get(id),
+                resolveHolder: (owner, raw) => resolveStateHolder(owner, raw, context),
+                numberOf: (mechanicId, who, attribute) =>
+                    this.state.numberOf?.(mechanicId, who, attribute) ??
+                    numberValue(this.state.value(mechanicId, who, attribute)),
+                roll: { total: roll.total, margin, natural: roll.natural },
+                rng: this.rng,
+                base: { source: 'check', messageIndex, reason: check.promptName || check.name },
+            });
+            ops.push(...resolved.ops);
+            notes.push(...resolved.notes);
+            if (effect.text) notes.push(effect.text);
+        }
+        // Growth by use: the attributes the dice read.
+        for (const attributeId of diceAttributes(formula)) {
+            const attribute = def.attributes.find((item) => item.id === attributeId);
+            if (!attribute?.growth || attribute.formula) continue;
+            const current = numberValue(this.state.value(def.id, holder, attributeId));
+            if (current === null) continue;
+            const next = grownValue(current, attribute.growth, outcome, attribute.max);
+            if (next === null || next === current) continue;
+            ops.push({
+                mechanicId: def.id,
+                holder,
+                attribute: attributeId,
+                value: next,
+                source: 'check',
+                messageIndex,
+                reason: check.promptName || check.name,
+            });
+        }
+        return { ops, notes };
+    }
+
+    private makeRoll(def: MechanicDef, check: CheckDef, holder: string, spec: RollSpec): Rolled | null {
         const formula = parseDice(check.dice);
         if (!formula) {
             if (spec.strict) {
@@ -548,11 +700,8 @@ export class MechanicChecks implements ChecksPart {
         if (spec.strict && diceAttributes(formula).some((id) => this.numeric(def, holder, id, known) === null)) {
             return null;
         }
-        const roll = rollDice(formula, (attribute) => this.numeric(def, holder, attribute, known), this.rng, {
-            difficulty: this.targetOf(check, formula, spec.explicit, spec.level),
-            level: formula.under ? spec.level : null,
-            criticals: typeof check.criticals === 'boolean' ? check.criticals : undefined,
-        });
+        const vs = spec.vs ?? null;
+        const roll = this.rollFor(def, check, formula, holder, spec, !!vs && !formula.under);
         if (formula.under && roll.target === null) {
             throw new Error(
                 this.t('m25.check.error.noValue', {
@@ -560,6 +709,56 @@ export class MechanicChecks implements ChecksPart {
                     holder,
                 }),
             );
+        }
+        let outcome: DiceOutcome = roll.outcome;
+        let text = checkFact(check.promptName || check.name, holder, roll);
+        let other: DiceRoll | null = null;
+        if (vs) {
+            const otherFormula = parseDice(vs.check.dice);
+            if (otherFormula) {
+                other = this.rollFor(
+                    vs.def,
+                    vs.check,
+                    otherFormula,
+                    vs.holder,
+                    { explicit: null, level: null },
+                    !otherFormula.under,
+                );
+                outcome = opposedOutcome(roll, other);
+                text = opposedFact(
+                    { check: check.promptName || check.name, holder, roll },
+                    { check: vs.check.promptName || vs.check.name, holder: vs.holder, roll: other },
+                    outcome,
+                );
+            }
+        }
+        // How far the actor won (or lost): over the target, or over the other side of an opposed check.
+        const margin = other
+            ? formula.under
+                ? marginOf(roll) - marginOf(other)
+                : roll.total - other.total
+            : marginOf(roll);
+        const { ops, notes } = this.consequences(
+            def,
+            check,
+            holder,
+            vs?.holder ?? null,
+            roll,
+            outcome,
+            formula,
+            spec.messageIndex,
+            margin,
+        );
+        const visibility = resolveVisibility(def);
+        if (visibility.preset === 'secret') {
+            // The model gets only what came of it.
+            const outcomes = (check.effects ?? [])
+                .filter((effect) => effect.text)
+                .map((effect) => effect.text as string);
+            const said = notes.filter((note) => outcomes.includes(note));
+            text = said.length ? `${check.promptName || check.name}: ${said.join('; ')}.` : '';
+        } else if (notes.length) {
+            text = `${text} Consequences: ${notes.join('; ')}.`;
         }
         const result: StoredCheck = {
             // Not from this.rng: an injected (seeded) RNG serves the dice only.
@@ -571,33 +770,84 @@ export class MechanicChecks implements ChecksPart {
             rolls: roll.rolls,
             modifier: roll.modifier,
             total: roll.total,
-            target: roll.target,
-            outcome: roll.outcome,
-            text: checkFact(check.promptName || check.name, holder, roll),
+            target: other ? other.total : roll.target,
+            outcome,
+            text,
             messageIndex: spec.messageIndex,
             by: spec.by,
             at: Date.now(),
         };
-        if (spec.messageIndex >= 0) result.stamp = stampOf(this.deps.app.host.ctx().chat?.[spec.messageIndex]);
-        return result;
+        if (roll.mode && roll.other) {
+            result.mode = roll.mode;
+            result.other = roll.other.total;
+        }
+        if (vs && other) {
+            result.vs = {
+                holder: vs.holder,
+                mechanicId: vs.def.id,
+                checkId: vs.check.id,
+                total: other.total,
+                rolls: other.rolls,
+            };
+        }
+        if (notes.length) result.consequences = notes;
+        if (visibility.preset === 'secret' || visibility.preset === 'hidden') result.hidden = true;
+        if (spec.swipe !== undefined) result.swipe = spec.swipe;
+        if (spec.messageIndex >= 0 && spec.by !== 'model') {
+            result.stamp = stampOf(this.deps.app.host.ctx().chat?.[spec.messageIndex]);
+        }
+        return { result, ops: ops.map((op) => ({ ...op, rollId: result.id })) };
     }
 
-    private record(result: StoredCheck): void {
+    private record(rolled: Rolled): void {
+        const { result, ops } = rolled;
         this.results.push(result);
         if (this.results.length > RESULTS_KEPT) this.results.splice(0, this.results.length - RESULTS_KEPT);
-        this.badge(result);
-        this.journal(result);
+        this.journal(result, ops.length);
+        this.saveSoon();
+        this.changed();
+        this.state.emitEvent?.({ type: 'roll', result: publicResult(result) });
+        if (ops.length) {
+            // Off the send path: the consequences land in the state when its queue gets to them.
+            void Promise.resolve()
+                .then(() => this.applyConsequences(result, ops))
+                .catch((error: unknown) => this.deps.log.warn('roll consequences were not applied', error));
+        }
+    }
+
+    private async applyConsequences(result: StoredCheck, ops: StateOp[]): Promise<void> {
+        let changes: { id: string }[] = [];
+        if (this.state.applyOps) changes = await this.state.applyOps(ops, { journal: false });
+        else {
+            const values = ops.filter((op) => op.kind === undefined || op.kind === 'value');
+            if (values.length) changes = await this.state.apply(values as never);
+        }
+        if (!changes.length) return;
+        result.changes = changes.map((change) => change.id);
         this.saveSoon();
         this.changed();
     }
 
-    private journal(result: StoredCheck): void {
+    /** The roll in the journal; with consequences its undo takes them back (target 'mechanics.batch', by roll id). */
+    private journal(result: StoredCheck, consequences = 0): void {
         const line = describeCheck(result, this.deps.app.i18n, checkNameOf(this.defs, result));
+        const chatId = this.deps.app.host.chatId();
         const action: JournalAction = {
             module: MECHANICS_ID,
             kind: CHECK_KIND,
-            summary: this.t('m25.check.journal', { line }),
-            changes: [],
+            // A hidden or secret roll: not even the journal tells its result.
+            summary: result.hidden ? this.t('m25.check.journal.hidden') : this.t('m25.check.journal', { line }),
+            changes:
+                consequences > 0 && chatId
+                    ? [
+                          {
+                              target: BATCH_UNDO_TARGET,
+                              ref: { chatId, rollId: result.id },
+                              before: { count: consequences },
+                              after: null,
+                          },
+                      ]
+                    : [],
         };
         if (result.messageIndex >= 0) action.sourceMessage = result.messageIndex;
         // Off the send path: the journal writes its file on its own schedule.
@@ -619,25 +869,124 @@ export class MechanicChecks implements ChecksPart {
         check: CheckDef,
         holder: string,
         difficulty: { explicit: number | null; level: DifficultyLevel | null },
+        extra: Pick<RollSpec, 'mode' | 'vs'> = {},
     ): StoredCheck {
         if (!this.deps.app.host.chatId()) throw new Error(this.t('m25.check.error.noChat'));
         const name = holder.trim() || this.defaultHolder(def);
         if (!name) throw new Error(this.t('m25.check.error.noHolder'));
-        const result = this.makeRoll(def, check, name, { ...difficulty, by: 'user', messageIndex: -1, strict: false });
-        if (!result) throw new Error(this.t('m25.check.error.formula', { dice: check.dice }));
-        this.record(result);
-        return result;
+        const rolled = this.makeRoll(def, check, name, {
+            ...difficulty,
+            ...extra,
+            by: 'user',
+            messageIndex: -1,
+            strict: false,
+        });
+        if (!rolled) throw new Error(this.t('m25.check.error.formula', { dice: check.dice }));
+        this.record(rolled);
+        return rolled.result;
     }
 
-    async roll(
-        mechanicId: string,
-        checkId: string,
-        holder: string,
-        options: { difficulty?: number } = {},
-    ): Promise<CheckResult> {
+    async roll(mechanicId: string, checkId: string, holder: string, options: RollOptions = {}): Promise<CheckResult> {
         const { def, check } = this.require(mechanicId, checkId);
         const explicit = typeof options.difficulty === 'number' ? options.difficulty : null;
-        return publicResult(this.rollNow(def, check, holder, { explicit, level: null }));
+        let vs: RollSpec['vs'] = null;
+        if (options.vs?.holder) {
+            const other = this.require(options.vs.mechanicId ?? def.id, options.vs.checkId ?? check.id);
+            vs = { ...other, holder: this.resolveHolder(other.def, options.vs.holder) };
+        }
+        return publicResult(
+            this.rollNow(def, check, holder, { explicit, level: null }, { mode: options.mode ?? null, vs }),
+        );
+    }
+
+    /* ---------------------------------------------------------------- rolls the model asks for */
+
+    /** Names of the checks the model may ask for (the block instruction lists them). */
+    checkNames(): string[] {
+        try {
+            return this.defs
+                .active()
+                .filter((def) => resolveVisibility(def).prompt !== 'none')
+                .flatMap((def) => def.checks.map((check) => check.promptName || check.name))
+                .filter(Boolean);
+        } catch {
+            return [];
+        }
+    }
+
+    private checkRefs(): RollCheckRef[] {
+        return this.defs.active().flatMap((def) =>
+            def.checks.map((check) => ({
+                mechanicId: def.id,
+                checkId: check.id,
+                names: [`${def.id}.${check.id}`, check.id, check.name, check.promptName].filter(Boolean),
+            })),
+        );
+    }
+
+    /**
+     * The block of a reply asks for rolls (`roll: Stealth Kai vs Guard.Perception adv`): rolled now, they belong to
+     * the reply (a swipe drops them) and reach the next generation as facts.
+     */
+    requested(index: number, swipeId: number, rolls: readonly BlockRoll[]): void {
+        if (this.disposed || !this.deps.settings().modelRolls || !Number.isInteger(index) || index < 0) return;
+        if (!this.deps.app.host.chatId() || this.deps.app.host.chatId() !== this.chatId) return;
+        const refs = this.checkRefs();
+        let made = this.results.filter(
+            (result) => result.by === 'model' && result.messageIndex === index && result.swipe === swipeId,
+        ).length;
+        for (const request of rolls) {
+            if (made >= MODEL_ROLLS_MAX) break;
+            try {
+                const head = resolveRollHead(request.head, refs);
+                if (!head) continue;
+                const { def, check } = this.require(head.check.mechanicId, head.check.checkId);
+                const holder = head.actor ? this.resolveHolder(def, head.actor) : this.defaultHolder(def);
+                if (!holder) continue;
+                let vs: RollSpec['vs'] = null;
+                if (request.vs?.holder) {
+                    const named = request.vs.check ? resolveRollHead(request.vs.check, refs) : null;
+                    const other = named ? this.require(named.check.mechanicId, named.check.checkId) : { def, check };
+                    vs = { ...other, holder: this.resolveHolder(other.def, request.vs.holder) };
+                }
+                const rolled = this.makeRoll(def, check, holder, {
+                    explicit: request.difficulty ?? null,
+                    level: request.level ?? null,
+                    by: 'model',
+                    messageIndex: index,
+                    strict: false,
+                    mode: request.mode ?? null,
+                    vs,
+                    swipe: swipeId,
+                });
+                if (!rolled) continue;
+                this.record(rolled);
+                made++;
+            } catch (error) {
+                this.deps.log.debug(`mechanics: the roll "${request.line}" was not made`, error);
+            }
+        }
+    }
+
+    /* ---------------------------------------------------------------- per message and undo */
+
+    rollsOf(messageIndex: number): CheckResult[] {
+        return this.results.filter((result) => result.messageIndex === messageIndex).map(publicResult);
+    }
+
+    async undoRoll(rollId: string): Promise<boolean> {
+        const result = this.results.find((item) => item.id === rollId);
+        if (!result || result.undone) return false;
+        const line = describeCheck(result, this.deps.app.i18n, checkNameOf(this.defs, result));
+        const removed =
+            (await this.state.undoWhere?.((change) => change.rollId === rollId, {
+                kind: UNDO_ROLL_KIND,
+                summary: this.t('m25.check.journal.undone', { line }),
+            })) ?? [];
+        result.undone = true;
+        this.saveSoon();
+        this.changed();
+        return removed.length > 0 || !result.changes?.length;
     }
 
     /* ---------------------------------------------------------------- the log */
@@ -670,9 +1019,21 @@ export class MechanicChecks implements ChecksPart {
         try {
             if (reason === 'deleted') this.deleted(index);
             else if (reason === 'edited') this.edited(index);
+            else this.swiped(index);
         } catch (error) {
             this.deps.log.warn('mechanics checks: invalidation failed', error);
         }
+    }
+
+    /** A reply was swiped: the rolls it asked for go (the state takes their consequences back with the reply). */
+    private swiped(index: number): void {
+        const before = this.results.length;
+        this.results = this.results.filter(
+            (result) => !(result.by === 'model' && result.messageIndex >= index && pending(result)),
+        );
+        if (this.results.length === before) return;
+        this.saveSoon();
+        this.changed();
     }
 
     /** Messages from `index` on are gone: their undelivered rolls go too, delivered ones stay as history. */
@@ -680,7 +1041,6 @@ export class MechanicChecks implements ChecksPart {
         let touched = false;
         this.results = this.results.filter((result) => {
             if (result.messageIndex < index) return true;
-            this.unbadge(result.id);
             if (!pending(result)) return true;
             touched = true;
             return false;
@@ -701,10 +1061,7 @@ export class MechanicChecks implements ChecksPart {
         // A roll by hand belongs to the message whatever its text says: no auto roll next to it.
         const manual = mine.filter((result) => result.by === 'user');
         if (manual.length || !this.autoAllowed()) {
-            for (const result of manual) {
-                result.stamp = stamp;
-                this.badge(result);
-            }
+            for (const result of manual) result.stamp = stamp;
             if (manual.length) this.saveSoon();
             return;
         }
@@ -720,62 +1077,29 @@ export class MechanicChecks implements ChecksPart {
               )
             : undefined;
         const dropped = new Set(autos.filter((result) => result !== same).map((result) => result.id));
-        for (const id of dropped) this.unbadge(id);
+        if (dropped.size && this.state.undoWhere) {
+            void this.state
+                .undoWhere((change) => !!change.rollId && dropped.has(change.rollId))
+                .catch((error: unknown) => this.deps.log.debug('roll consequences were not taken back', error));
+        }
         this.results = this.results.filter((result) => !dropped.has(result.id));
         if (same) {
             same.stamp = stamp;
-            this.badge(same);
         } else if (found) {
-            const result = this.makeRoll(found.def, found.check, found.holder, {
+            const rolled = this.makeRoll(found.def, found.check, found.holder, {
                 explicit: found.explicit,
                 level: found.level,
                 by: 'auto',
                 messageIndex: index,
                 strict: true,
             });
-            if (result) {
-                this.record(result);
+            if (rolled) {
+                this.record(rolled);
                 return;
             }
         }
         this.saveSoon();
         this.changed();
-    }
-
-    /* ---------------------------------------------------------------- badges on the user's messages */
-
-    private badge(result: StoredCheck): void {
-        if (result.messageIndex < 0 || !result.stamp || this.disposed) return;
-        const message = this.deps.app.host.ctx().chat?.[result.messageIndex];
-        if (!message?.is_user || stampOf(message) !== result.stamp) return;
-        this.unbadge(result.id);
-        try {
-            const line = describeCheck(result, this.deps.app.i18n, checkNameOf(this.defs, result));
-            const off = this.deps.app.ui.messageBadge(result.messageIndex, {
-                id: `m25-check-${result.id}`,
-                text: this.t('m25.check.badge', { line }),
-                kind: 'roll',
-                icon: 'fa-dice-d20',
-            });
-            this.badges.set(result.id, off);
-        } catch (error) {
-            this.deps.log.debug('roll badge failed', error);
-        }
-    }
-
-    private unbadge(id: string): void {
-        const off = this.badges.get(id);
-        if (!off) return;
-        this.badges.delete(id);
-        try {
-            off();
-        } catch {
-            // the badge is gone with its message
-        }
-    }
-
-    private clearBadges(): void {
-        for (const id of [...this.badges.keys()]) this.unbadge(id);
     }
 
     /* ---------------------------------------------------------------- /maestro-roll */
@@ -889,6 +1213,10 @@ export class MechanicChecks implements ChecksPart {
         await app.chat.put<ChecksDoc>(CHECKS_DOC, { results: merged.map((result) => ({ ...result })) });
         this.changed();
     }
+}
+
+function numberValue(value: unknown): number | null {
+    return typeof value === 'number' && Number.isFinite(value) ? value : null;
 }
 
 /** A typed difficulty: a number ("15") or words («трудно», "very hard"); null when it is neither. */

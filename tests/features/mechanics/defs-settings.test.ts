@@ -30,7 +30,23 @@ describe('mechanics settings', () => {
             promptBudget: 4000,
             depth: 0,
             background: true,
+            modelRolls: true,
+            autoCombat: true,
+            personaFallback: 'background',
+            relevance: 4,
+            hud: true,
+            hudAttrs: [],
+            hudHolders: [],
+            desAttrs: [],
+            desPersona: true,
         });
+        expect(
+            readMechanicsSettings({
+                hud: false,
+                hudAttrs: ['magic.mana', 'magic.mana', '', 3, ' magic.hp '] as unknown as string[],
+                hudHolders: 'Kai' as unknown as string[],
+            }),
+        ).toMatchObject({ hud: false, hudAttrs: ['magic.mana', 'magic.hp'], hudHolders: [] });
         expect(readMechanicsSettings({ book: ' Мои ', promptBudget: 333.4, depth: Number.NaN })).toMatchObject({
             book: 'Мои',
             promptBudget: 333,

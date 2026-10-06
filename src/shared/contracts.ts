@@ -709,7 +709,7 @@ export interface Ui {
     confirm(title: string, body: string | HTMLElement, options?: { details?: string }): Promise<boolean>;
     /**
      * A line of the strip under a message (plan-2 §5) that lives in memory only (gone after a reload): the autonomy
-     * level «Сообщать», M12 «Брак», M25 rolls. Lines that must come back after a reload come from a
+     * level «Сообщать», M12 «Брак». Lines that must come back after a reload (M25 changes and rolls) come from a
      * MessageStripProvider over a stored document instead.
      */
     messageBadge(messageIndex: number, badge: MessageBadgeSpec): Unsubscribe;

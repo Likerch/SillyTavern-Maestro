@@ -7,7 +7,19 @@ import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { matchesSchema } from '../../src/core/llm';
 import { buildExtractMessages, EXTRACT_SCHEMA, parseExtraction } from '../../src/domain/living-extract';
+import {
+    buildExtractMessages as buildMechanicsExtract,
+    extractSchemaFor,
+    MECHANICS_EXTRACT_SCHEMA,
+    parseExtractAnswer,
+} from '../../src/domain/mechanics-extract';
 import { buildRevisionMessages, revisionSchema } from '../../src/domain/revision-prompt';
+import {
+    parseTranslation,
+    TRANSLATE_JSON_SCHEMA,
+    TRANSLATE_SCHEMA,
+    translateMessages,
+} from '../../src/features/mechanics/translate';
 import { parseRevisionChanges } from '../../src/domain/revision-parse';
 
 const SERVER = fileURLToPath(new URL('../../tools/mock-llm/server.mjs', import.meta.url));
@@ -330,6 +342,78 @@ describe('mock LLM', () => {
         const nextReply = next.choices[0]!.message.content;
         const nextTracker = JSON.parse(nextReply.slice(8, nextReply.indexOf('\n```', 8))) as typeof statTracker;
         expect(nextTracker.characters.map((ch) => ch.name)).not.toContain('Mana');
+    });
+
+    it('answers the mechanics background parse from the marker its reply repeats', async () => {
+        const marker = '[mock:mechextract:Кай.Mana=-10; Кай.status+=poisoned 3 turns; Кай.items+=rope 2]';
+        const reply = await complete({ messages: [...story.slice(0, 1), { role: 'user', content: `Иду. ${marker}` }] });
+        const text = reply.choices[0]!.message.content;
+        expect(text.endsWith(marker)).toBe(true);
+        const def = {
+            id: 'magic',
+            name: 'Magic',
+            summary: 'Magic',
+            rules: '',
+            attributes: [{ id: 'mana', name: 'Mana', promptName: 'Mana', kind: 'number' as const, min: 0, max: 100 }],
+            holders: { kind: 'characters' as const, includePersona: true },
+            checks: [],
+            tracking: 'background' as const,
+            scope: { kind: 'global' as const },
+            statuses: [],
+            inventory: {},
+        };
+        const targets = [
+            {
+                def,
+                attributes: def.attributes,
+                holders: [{ name: 'Кай', values: { mana: 50 } }],
+                statuses: true,
+                inventory: true,
+            },
+        ];
+        const schema = extractSchemaFor({ statuses: true, items: true });
+        const answer = await complete({
+            messages: buildMechanicsExtract({ targets, reply: text }),
+            response_format: { type: 'json_schema', json_schema: { name: 'maestro_mechanics_extract', schema } },
+        });
+        const data = JSON.parse(answer.choices[0]!.message.content) as unknown;
+        expect(matchesSchema(data, schema)).toBe(true);
+        const parsed = parseExtractAnswer(data, targets);
+        expect(parsed?.edits).toEqual([
+            expect.objectContaining({ holder: 'Кай', attribute: 'mana', op: 'add', value: -10 }),
+        ]);
+        expect(parsed?.statuses).toEqual([
+            expect.objectContaining({ holder: 'Кай', name: 'poisoned', add: true, duration: { turns: 3 } }),
+        ]);
+        expect(parsed?.items).toEqual([expect.objectContaining({ holder: 'Кай', name: 'rope', qty: 2 })]);
+        // Without room in the schema the statuses and items are left out.
+        const plain = await complete({
+            messages: buildMechanicsExtract({ targets, reply: text }),
+            response_format: {
+                type: 'json_schema',
+                json_schema: { name: 'maestro_mechanics_extract', schema: MECHANICS_EXTRACT_SCHEMA },
+            },
+        });
+        expect(Object.keys(JSON.parse(plain.choices[0]!.message.content) as object)).toEqual(['changes']);
+    });
+
+    it('translates the texts of a mechanic for the model', async () => {
+        const answer = await complete({
+            messages: translateMessages([
+                { key: 'rules', text: 'Без маны заклинание срывается.' },
+                { key: 'name', text: 'Магия' },
+            ]),
+            response_format: {
+                type: 'json_schema',
+                json_schema: { name: TRANSLATE_SCHEMA, schema: TRANSLATE_JSON_SCHEMA },
+            },
+        });
+        const data = JSON.parse(answer.choices[0]!.message.content) as unknown;
+        expect(matchesSchema(data, TRANSLATE_JSON_SCHEMA)).toBe(true);
+        expect(parseTranslation(data)).toEqual([
+            { key: 'rules', text: 'EN: Без маны заклинание срывается.' },
+            { key: 'name', text: 'EN: Магия' },
+        ]);
     });
 
     it('calls a tool when asked and answers the tool result', async () => {

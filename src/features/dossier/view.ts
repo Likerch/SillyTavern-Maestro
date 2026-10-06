@@ -2,8 +2,10 @@
 // page with collapsible sections and «Открыть», structural findings with fix buttons, «Сверить с ИИ» with a size and
 // cost estimate, the «Разнести» editor (field, value, target checkboxes), «Оформить» (M7 п. 6: the button in the
 // header when stores are missing, the plan preview with a checkbox per part, the status after it was applied),
-// «В книгу карточки» on the entity's canon additions and «Наряды» (M27 п.4: the wardrobe's outfit library of a
-// character, the worn one marked, «Надеть»). Mobile-first: one column, wrapping rows.
+// «В книгу карточки» on the entity's canon additions, «Наряды» (M27 п.4: the wardrobe's outfit library of a
+// character, the worn one marked, «Надеть») and «Механики» (plan-2 §6.А п.7: the character's values, statuses and items
+// as the mechanics' visibility allows in the dossier, drawn by the mechanics module). Mobile-first: one column,
+// wrapping rows.
 import type { StyleUpPartId } from '../../domain/dossier-styleup';
 import type { App, Decision, PultTab, Unsubscribe } from '../../shared/contracts';
 import { badge, banner, emptyState, section } from '../../ui/components/card';
@@ -11,6 +13,7 @@ import { select } from '../../ui/components/controls';
 import { append, button, clear, el, icon } from '../../ui/components/dom';
 import type { Child } from '../../ui/components/dom';
 import { formatTime, formatUsd, tOr } from '../../ui/views/format';
+import type { MechanicsApi } from '../mechanics/api';
 import type { Outfit, WardrobeApi, Wearing } from '../wardrobe/api';
 import type { Entity, EntitySource } from '../world/api';
 import { ProtectedBookError } from './actions';
@@ -791,6 +794,43 @@ export function dossierTab(app: App, service: DossierService, opener: DossierOpe
                 return wardrobeBox;
             };
 
+            /* ------------------------------------------------------------ «Механики» (plan-2 §6.А п.7) */
+
+            /** The open page's mechanics block: drawn and followed by the mechanics module, released on every redraw. */
+            let mechanicsOff: Unsubscribe | null = null;
+
+            const releaseMechanics = (): void => {
+                const off = mechanicsOff;
+                mechanicsOff = null;
+                try {
+                    off?.();
+                } catch {
+                    // the block is gone with the page
+                }
+            };
+
+            const mechanicsView = (data: LoadedDossier): HTMLElement | null => {
+                const kind = data.facts.entity.kind;
+                if (kind !== 'character' && kind !== 'persona') return null;
+                let api: MechanicsApi | undefined;
+                try {
+                    api = app.modules.api<MechanicsApi>('mechanics');
+                } catch {
+                    api = undefined;
+                }
+                if (!api?.renderHolder) return null;
+                const box = el('div', { class: 'maestro-m7-mechanics' });
+                let off: Unsubscribe | null;
+                try {
+                    off = api.renderHolder(box, data.dossier.name, 'dossier');
+                } catch {
+                    off = null;
+                }
+                if (!off) return null;
+                mechanicsOff = off;
+                return section(t('m7.mechanics.title'), box);
+            };
+
             /* ------------------------------------------------------------ page */
 
             const dossierView = (data: LoadedDossier): HTMLElement[] => {
@@ -871,13 +911,21 @@ export function dossierTab(app: App, service: DossierService, opener: DossierOpe
                 const spreadBlock = section(t('m7.spread.title'), spreadView(data));
                 const styleUpBlock = styleUpPanel(data);
                 const wardrobeBlock = wardrobeView(data);
-                return [head, styleUpBlock, findingsBlock, wardrobeBlock, sectionsBlock, spreadBlock].filter(
-                    (block): block is HTMLElement => block !== null,
-                );
+                const mechanicsBlock = mechanicsView(data);
+                return [
+                    head,
+                    styleUpBlock,
+                    findingsBlock,
+                    mechanicsBlock,
+                    wardrobeBlock,
+                    sectionsBlock,
+                    spreadBlock,
+                ].filter((block): block is HTMLElement => block !== null);
             };
 
             const draw = () => {
                 if (!alive) return;
+                releaseMechanics();
                 clear(root);
                 wardrobeBox = null;
                 wardrobeFor = null;
@@ -951,6 +999,7 @@ export function dossierTab(app: App, service: DossierService, opener: DossierOpe
             void reload();
             return () => {
                 alive = false;
+                releaseMechanics();
                 offChange();
                 offWorld?.();
                 offWardrobe?.();

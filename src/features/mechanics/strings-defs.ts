@@ -6,7 +6,7 @@ import type { I18nParts } from '../../shared/contracts';
 export const DEF_STRINGS: I18nParts = {
     en: {
         'm25.title': 'Mechanics',
-        'm25.tab': 'Mechanics',
+        'm25.tab': 'In play',
 
         'm25.def.section': 'Mechanics constructor',
         'm25.def.hint':
@@ -39,17 +39,33 @@ export const DEF_STRINGS: I18nParts = {
             'Health and stamina from 0 to 100 for every character; at 0 — unconscious or exhausted.',
         'm25.def.template.magic': 'Magic',
         'm25.def.template.magic.hint':
-            'Mana, schools of magic and a spellcasting check that rolls under the current mana.',
+            'Mana, schools of magic and the magic art; a spellcasting check costs 10 mana when the spell works and 5 when it fails.',
         'm25.def.template.reputation': 'Faction reputation',
-        'm25.def.template.reputation.hint': 'A reputation scale from hostile to revered with every faction you list.',
+        'm25.def.template.reputation.hint':
+            'A reputation scale from hostile to revered with every faction of your lore (or the ones you list).',
         'm25.def.template.money': 'Money',
         'm25.def.template.money.hint': "Your character's purse in coins, with a short price list for the model.",
         'm25.def.template.skills': 'Skills with checks',
         'm25.def.template.skills.hint':
-            'Persuasion, deception, intimidation, stealth, athletics and perception from 0 to 20; d20 checks are rolled when your message calls for them.',
+            'Persuasion, deception, intimidation, stealth, athletics and perception from 0 to 10; d20 + skill against 12 when your message calls for it; skills grow with use.',
         'm25.def.template.relationships': 'Relationships',
         'm25.def.template.relationships.hint':
             'How each character feels about your character: from hostile to devoted.',
+        'm25.def.template.survival': 'Survival',
+        'm25.def.template.survival.hint':
+            'Hunger, thirst and fatigue of your character grow with story time (from the DES date and time); food, drink and sleep bring them down.',
+        'm25.def.template.sanity': 'Sanity',
+        'm25.def.template.sanity.hint':
+            'How much horror the characters can take: a sanity check takes 1 point or 1d6; below 30 they are unsettled.',
+        'm25.def.template.trade': 'Inventory and trade',
+        'm25.def.template.trade.hint':
+            'What your character carries, with prices and coins: buying and selling go through the purse.',
+        'm25.def.template.combat': 'Combat',
+        'm25.def.template.combat.hint':
+            'Fights in rounds with initiative, hit points, armor, attack and defense; a hit costs 1d6 + attack, at 0 HP a fighter is out.',
+        'm25.def.template.social': 'Social scales',
+        'm25.def.template.social.hint':
+            'Sympathy, trust and attraction of every character toward yours, shown in words instead of numbers.',
 
         'm25.def.editor.new': 'New mechanic',
         'm25.def.editor.edit': 'Editing «{name}»',
@@ -212,7 +228,7 @@ export const DEF_STRINGS: I18nParts = {
     },
     ru: {
         'm25.title': 'Механики',
-        'm25.tab': 'Механики',
+        'm25.tab': 'В игре',
 
         'm25.def.section': 'Конструктор механик',
         'm25.def.hint':
@@ -244,17 +260,32 @@ export const DEF_STRINGS: I18nParts = {
         'm25.def.template.health.hint':
             'Здоровье и выносливость от 0 до 100 у каждого персонажа; на нуле — потеря сознания или изнеможение.',
         'm25.def.template.magic': 'Магия',
-        'm25.def.template.magic.hint': 'Мана, школы магии и проверка заклинания: бросок не выше текущей маны.',
+        'm25.def.template.magic.hint':
+            'Мана, школы магии и магическое искусство; заклинание стоит 10 маны, если получилось, и 5 — если сорвалось.',
         'm25.def.template.reputation': 'Репутация у фракций',
         'm25.def.template.reputation.hint':
-            'Шкала репутации от «враждебно» до «почитание» у каждой фракции, которую ты перечислишь.',
+            'Шкала репутации от «враждебно» до «почитание» у каждой фракции из твоего лора (или тех, что перечислишь).',
         'm25.def.template.money': 'Деньги',
         'm25.def.template.money.hint': 'Кошелёк твоего персонажа в монетах и короткий прейскурант для модели.',
         'm25.def.template.skills': 'Навыки с проверками',
         'm25.def.template.skills.hint':
-            'Убеждение, обман, запугивание, скрытность, атлетика и внимательность от 0 до 20; бросок d20 делается, когда этого требует твоё сообщение.',
+            'Убеждение, обман, запугивание, скрытность, атлетика и внимательность от 0 до 10; бросок d20 + навык против 12, когда этого требует твоё сообщение; навыки растут от применения.',
         'm25.def.template.relationships': 'Отношения',
         'm25.def.template.relationships.hint': 'Как каждый персонаж относится к твоему: от вражды до преданности.',
+        'm25.def.template.survival': 'Выживание',
+        'm25.def.template.survival.hint':
+            'Голод, жажда и усталость твоего персонажа растут со временем истории (по дате и времени DES); еда, питьё и сон их снижают.',
+        'm25.def.template.sanity': 'Рассудок',
+        'm25.def.template.sanity.hint':
+            'Сколько ужаса выдерживают персонажи: проверка рассудка отнимает 1 или 1d6; ниже 30 — «не в себе».',
+        'm25.def.template.trade': 'Инвентарь и торговля',
+        'm25.def.template.trade.hint':
+            'Что носит твой персонаж, с ценами и монетами: покупки и продажи идут через кошелёк.',
+        'm25.def.template.combat': 'Бой',
+        'm25.def.template.combat.hint':
+            'Бой по раундам с инициативой, здоровьем, бронёй, атакой и защитой; попадание — 1d6 + атака, на нуле боец выбывает.',
+        'm25.def.template.social': 'Социальные шкалы',
+        'm25.def.template.social.hint': 'Симпатия, доверие и влечение каждого персонажа к твоему — словами, без чисел.',
 
         'm25.def.editor.new': 'Новая механика',
         'm25.def.editor.edit': 'Правка: «{name}»',

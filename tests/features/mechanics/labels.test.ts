@@ -6,7 +6,18 @@ import { createLabels, describeChange } from '../../../src/core/labels';
 import { CORE_STRINGS } from '../../../src/core/strings';
 import { MECHANICS_DEF_TARGET, MECHANICS_STRINGS, mechanicsModule } from '../../../src/features/mechanics';
 import { CHECK_KIND } from '../../../src/features/mechanics/checks';
-import { SET_KIND, VALUE_UNDO_TARGET } from '../../../src/features/mechanics/state';
+import {
+    BATCH_UNDO_TARGET,
+    ITEM_KIND,
+    RESET_KIND,
+    REVEAL_KIND,
+    SET_KIND,
+    STATUS_KIND,
+    UNDO_KIND,
+    VALUE_UNDO_TARGET,
+} from '../../../src/features/mechanics/state';
+import { COMBAT_KIND } from '../../../src/features/mechanics/combat';
+import { UNDO_ROLL_KIND } from '../../../src/features/mechanics/checks';
 import { CHANGE_KIND, DES_STATS_KIND, DES_STATS_UNDO_TARGET } from '../../../src/features/mechanics/tracking';
 import type { I18n } from '../../../src/shared/contracts';
 
@@ -18,6 +29,13 @@ const KINDS = [
     'mechanics.def.create',
     'mechanics.def.update',
     'mechanics.def.remove',
+    STATUS_KIND,
+    ITEM_KIND,
+    REVEAL_KIND,
+    RESET_KIND,
+    UNDO_KIND,
+    UNDO_ROLL_KIND,
+    COMBAT_KIND,
 ];
 
 function i18nFor(locale: 'en' | 'ru'): I18n {
@@ -54,7 +72,7 @@ describe('M25 labels', () => {
 
     it('describes every journal target with labels in both languages', () => {
         expect(mechanicsModule.targets?.map((spec) => spec.target).sort()).toEqual(
-            [MECHANICS_DEF_TARGET, VALUE_UNDO_TARGET, DES_STATS_UNDO_TARGET].sort(),
+            [MECHANICS_DEF_TARGET, VALUE_UNDO_TARGET, BATCH_UNDO_TARGET, DES_STATS_UNDO_TARGET].sort(),
         );
         for (const spec of mechanicsModule.targets ?? []) {
             const keys = [

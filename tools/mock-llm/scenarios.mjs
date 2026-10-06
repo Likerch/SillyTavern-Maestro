@@ -361,6 +361,7 @@ const FLAG_MARKERS = [
     'wear',
     'stat',
     'mechblock',
+    'mechextract',
 ];
 
 /** Marker names this engine understands (for README and the /__config validation). */
@@ -825,6 +826,56 @@ registerSchema('maestro_prompt_audit', (ctx) => {
     };
 });
 
+// The English of a mechanic for the model (src/features/mechanics/translate.ts, schema 'maestro_mechanics_translate'):
+// the request's items come back with an "EN: " prefix (Cyrillic kept: a test sees what was translated).
+registerSchema('maestro_mechanics_translate', (ctx) => {
+    let items;
+    try {
+        const parsed = JSON.parse(String(ctx.lastUserText ?? '{}'));
+        items = Array.isArray(parsed?.items) ? parsed.items : [];
+    } catch {
+        items = [];
+    }
+    return {
+        items: items
+            .filter((item) => item && typeof item.key === 'string')
+            .map((item) => ({ key: item.key, text: `EN: ${String(item.text ?? '')}` })),
+    };
+});
+
+// The mechanics background parse (src/domain/mechanics-extract.ts, schema 'maestro_mechanics_extract'): the marker
+// `[mock:mechextract:Кай.Mana=-10; Кай.Mood=warm; Кай.status+=poisoned 3 turns; Кай.status-=blessed;
+// Кай.items+=rope 2; Кай.items-=coin 5]` in the reply it reads (a story turn with that marker repeats it on its last
+// line). Statuses and items are dropped when the request's schema has no room for them.
+registerSchema('maestro_mechanics_extract', (ctx) => {
+    const changes = [];
+    const statuses = [];
+    const items = [];
+    for (const raw of String(ctx.markers?.get('mechextract') ?? '').split(';')) {
+        const match = /^\s*([^.=+-]+?)\.([^=+-]+?)\s*(\+=|-=|=)\s*(.+?)\s*$/.exec(raw);
+        if (!match) continue;
+        const [, holder, attribute, op, value] = match;
+        const reason = 'mock';
+        const key = attribute.trim().toLowerCase();
+        if (key === 'status' || key === 'statuses') {
+            const duration = /\s(\d+\s*\S+)$/.exec(value);
+            const name = duration ? value.slice(0, duration.index).trim() : value;
+            statuses.push({ holder, name, add: op !== '-=', duration: duration ? duration[1] : '', reason });
+        } else if (key === 'items' || key === 'item') {
+            const qty = /\s(\d+)$/.exec(value);
+            const name = qty ? value.slice(0, qty.index).trim() : value;
+            const count = qty ? Number(qty[1]) : 1;
+            items.push({ holder, name, qty: op === '-=' ? -count : count, reason });
+        } else if (/^[+-]?\d+(?:\.\d+)?$/.test(value) && (op !== '=' || /^[+-]/.test(value))) {
+            const number = Number(value);
+            changes.push({ holder, attribute, value: '', delta: op === '-=' ? -number : number, reason });
+        } else {
+            changes.push({ holder, attribute, value, delta: null, reason });
+        }
+    }
+    return { changes, statuses, items };
+});
+
 registerTool('search_lore', (ctx) => ({ query: ctx.names[0] ?? DEFAULT_LOCATION, limit: 5 }));
 
 /* ------------------------------------------------------------------ reply builders */
@@ -1170,6 +1221,9 @@ export function buildReply(ctx, n = 0) {
             .filter(Boolean);
         content += ['', '', '<mechanics>', ...lines, '</mechanics>'].join('\n');
     }
+    // [mock:mechextract:…] in a story turn: the reply repeats the marker on its last line, so the background parse of
+    // that reply (which only sees the reply) finds it.
+    if (kind === 'story' && m.get('mechextract')) content += `\n\n[mock:mechextract:${m.get('mechextract')}]`;
 
     let finishReason = 'stop';
     if (m.has('bos')) content = BOS_PREFIX + content;
