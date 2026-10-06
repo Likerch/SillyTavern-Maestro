@@ -34,6 +34,7 @@ import {
 import { isMaestroFlag } from '../../domain/preset-conditional-syntax';
 import { anchorFor, moveItem, moveOps, sameOrder } from '../../domain/preset-ui-order';
 import { stableHash } from '../../domain/hash';
+import { banner } from '../../ui/components/card';
 import { tabs } from '../../ui/components/tabs';
 import type { TabsHandle } from '../../ui/components/tabs';
 import { append, button, el, icon, prefersReducedMotion } from '../../ui/components/dom';
@@ -42,6 +43,7 @@ import type { MapSlot, PresetAnalysisApi, PresetFinding, ProviderHint } from './
 import { Dialogs, downloadJson } from './dialogs';
 import type { LayerApplyReport, LayerConflict, LayerOp, LayerScope, PresetLayerApi } from './layer-api';
 import type { NeighbourPromptsApi } from '../neighbourPrompts/api';
+import type { PromptAuditApi } from '../promptAudit/api';
 import { renderNeighboursPanel } from './view-neighbours';
 import { availableScopes, bindingText, scopeLabel } from './view-scopes';
 import type { PmInfo } from './launcher';
@@ -77,7 +79,8 @@ import type { FlagOption } from './view-conditional';
 
 /* ------------------------------------------------------------------ settings and services */
 
-export type StudioTab = 'map' | 'blocks' | 'analysis' | 'conditional' | 'layer' | 'versions' | 'params' | 'neighbours';
+export type StudioTab =
+    'map' | 'blocks' | 'analysis' | 'conditional' | 'layer' | 'versions' | 'params' | 'neighbours' | 'audit';
 export const STUDIO_TABS: readonly StudioTab[] = [
     'map',
     'blocks',
@@ -87,6 +90,7 @@ export const STUDIO_TABS: readonly StudioTab[] = [
     'versions',
     'params',
     'neighbours',
+    'audit',
 ];
 
 export interface PresetStudioSettings {
@@ -118,6 +122,8 @@ export interface PresetServices {
     scenarios(): ScenariosApi | null;
     /** Neighbour prompts (M36, neighbourPrompts/api.ts): the «Промпты соседей» tab. */
     neighbours?(): NeighbourPromptsApi | null;
+    /** The prompt audit (M38, promptAudit/api.ts): the «Проверка промпта» tab. */
+    audit?(): PromptAuditApi | null;
 }
 
 export function servicesOf(app: App): PresetServices {
@@ -127,6 +133,7 @@ export function servicesOf(app: App): PresetServices {
         analysis: () => app.modules.api<PresetAnalysisApi>('presetAnalysis') ?? null,
         scenarios: () => app.modules.api<ScenariosApi>('scenarios') ?? null,
         neighbours: () => app.modules.api<NeighbourPromptsApi>('neighbourPrompts') ?? null,
+        audit: () => app.modules.api<PromptAuditApi>('promptAudit') ?? null,
     };
 }
 
@@ -877,6 +884,16 @@ export class PresetStudio {
                         }),
                     );
                     return;
+                case 'audit': {
+                    // The audit's own view redraws itself (M38); the studio only hosts it.
+                    const audit = this.deps.services.audit?.() ?? null;
+                    pane.replaceChildren(
+                        audit
+                            ? audit.renderReport()
+                            : banner(this.t('m34.audit.unavailable'), 'info', 'fa-circle-info'),
+                    );
+                    return;
+                }
                 case 'params':
                     pane.replaceChildren(
                         renderParamsPanel(
@@ -2226,4 +2243,5 @@ const TAB_ICONS: Record<StudioTab, string> = {
     versions: 'fa-clock-rotate-left',
     params: 'fa-sliders',
     neighbours: 'fa-puzzle-piece',
+    audit: 'fa-scale-balanced',
 };

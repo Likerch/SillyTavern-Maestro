@@ -198,6 +198,8 @@ declare global {
             global: { get(name: string): unknown; set(name: string, value: unknown): void };
         };
         generateQuietPrompt(options: { quietPrompt: string; [key: string]: unknown }): Promise<string>;
+        /** ST's Generate (script.js): `dryRun` assembles the prompt (PROMPT_READY with dryRun true) without sending it. */
+        generate?(type: string, options?: Record<string, unknown>, dryRun?: boolean): Promise<unknown>;
         executeSlashCommandsWithOptions(text: string, options?: Record<string, unknown>): Promise<unknown>;
         SlashCommandParser: { addCommandObject(command: unknown): void; commands: Record<string, unknown> };
         SlashCommand: STSlashCommandStatic;

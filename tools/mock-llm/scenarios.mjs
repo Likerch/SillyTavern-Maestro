@@ -798,6 +798,33 @@ registerSchema('nai_passports', (ctx) => {
 // The wardrobe asks what the user's character wears: `[mock:wear:phrase]` in the chat is the answer, else null.
 registerSchema('wardrobe_persona', (ctx) => ({ wearing: ctx.markers?.get('wear') || null }));
 
+// The prompt audit (M38, src/domain/prompt-audit-ai.ts) sends a map of instructions (`[I1] owner · role…`, then the
+// text between `<<<` and `>>>` lines): the answer is one conflict between the first two instructions, quoting the
+// first sentence of each exactly, with an edit fix on the first one (none when the map has fewer than two).
+registerSchema('maestro_prompt_audit', (ctx) => {
+    const blocks = [...String(ctx.lastUserText ?? '').matchAll(/\[(I\d+)\][^\n]*\n<<<\n([\s\S]*?)\n>>>/g)];
+    if (blocks.length < 2) return { conflicts: [] };
+    const quote = (text) => {
+        const body = text.replace(/^\s*<[^>\n]+>\s*/, '');
+        return (/[^.!?\n]+[.!?]?/.exec(body)?.[0] ?? body).trim().slice(0, 160);
+    };
+    const [first, second] = blocks;
+    const a = quote(first[2]);
+    const b = quote(second[2]);
+    return {
+        conflicts: [
+            {
+                severity: 'medium',
+                a: { owner: 'mock', ref: first[1], quote: a },
+                b: { owner: 'mock', ref: second[1], quote: b },
+                why: 'Эти две инструкции спорят друг с другом (ответ заглушки).',
+                risk_for_model: '',
+                fix: { side: 'a', kind: 'edit', target: first[1], after_text: `${a} (mock fix)`, scope_hint: 'global' },
+            },
+        ],
+    };
+});
+
 registerTool('search_lore', (ctx) => ({ query: ctx.names[0] ?? DEFAULT_LOCATION, limit: 5 }));
 
 /* ------------------------------------------------------------------ reply builders */
