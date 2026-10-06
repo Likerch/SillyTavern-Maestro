@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { FALLBACK_FLAGS } from '../../../src/features/presetStudio/conditional';
 import { PmInfo } from '../../../src/features/presetStudio/launcher';
 import { PRESET_STUDIO_STRINGS } from '../../../src/features/presetStudio/module';
-import { PresetStudio, servicesOf } from '../../../src/features/presetStudio/studio';
+import { PresetStudio, presetStudioWindow, servicesOf } from '../../../src/features/presetStudio/studio';
 import type { PresetBody } from '../../../src/features/presetStudio/store-api';
 import { click, createStand, presetBody, prompt, q, qa, wait } from './ui-stand';
 import type { Stand } from './ui-stand';
@@ -90,6 +90,7 @@ beforeEach(() => {
         pm: new PmInfo(s.app, s.app.log),
         showClassic: () => {},
     });
+    s.app.ui.addWindow!(presetStudioWindow(studio));
 });
 
 afterEach(() => {
@@ -295,6 +296,7 @@ describe('the «Условия» tab', () => {
             pm: new PmInfo(s.app, s.app.log),
             showClassic: () => {},
         });
+        s.app.ui.addWindow!(presetStudioWindow(studio));
         studio.open();
         await wait();
         await tab('conditional');

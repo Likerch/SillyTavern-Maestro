@@ -4,6 +4,7 @@
 import type { MaestroModule } from '../../shared/contracts';
 import { registerProfileTask } from '../../ui';
 import type { DirectorApi } from './api';
+import { sceneCommand } from './command';
 import { DirectorService, SCENE_TASK } from './service';
 import { defaultDirectorSettings, DIRECTOR_ID, DIRECTOR_KEY, readDirectorSettings } from './settings';
 import type { DirectorSettings } from './settings';
@@ -26,6 +27,7 @@ export const directorModule: MaestroModule<DirectorSettings> = {
         own(registerProfileTask(SCENE_TASK, 'm13.profileTask'));
         own(app.ui.style('maestro-m13', DIRECTOR_CSS));
         own(app.ui.addTab(directorTab(app, service, settings)));
+        own(app.ui.addSlashCommand(sceneCommand(app, service)));
     },
 };
 

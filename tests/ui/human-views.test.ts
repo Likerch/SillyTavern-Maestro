@@ -9,7 +9,7 @@ import type { InboxCard, JournalRecord } from '../../src/shared/contracts';
 import { createUi } from '../../src/ui';
 import type { UiImpl } from '../../src/ui';
 import { resetRegistries } from '../../src/ui/views/registries';
-import { buildStDom, installUiEnv } from '../helpers/ui-env';
+import { buildStDom, frontBody, installUiEnv } from '../helpers/ui-env';
 import type { UiTestEnv } from '../helpers/ui-env';
 import { coreFakes, fakeAutonomy, FakeModules, fakeModule, inboxCard } from '../helpers/ui-fakes';
 import type { CoreFakes } from '../helpers/ui-fakes';
@@ -18,7 +18,7 @@ let env: UiTestEnv;
 let ui: UiImpl;
 let fakes: CoreFakes;
 
-const body = () => document.querySelector<HTMLElement>('.maestro-pult-body')!;
+const body = () => frontBody()!;
 
 const STRINGS = {
     en: {

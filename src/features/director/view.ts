@@ -4,7 +4,7 @@
 import { DIRECTOR_FLAGS } from '../../domain/director-flags';
 import { SCENE_KINDS } from '../../domain/director-scene';
 import type { App, PultTab } from '../../shared/contracts';
-import { badge, banner, card, emptyState, section } from '../../ui/components/card';
+import { badge, banner, card, emptyState, section, moduleSettingsSection } from '../../ui/components/card';
 import { field, numberInput, select, toggle } from '../../ui/components/controls';
 import { button, clear, el } from '../../ui/components/dom';
 import { coalesce, formatTime } from '../../ui/views/format';
@@ -235,7 +235,7 @@ export function directorTab(app: App, service: DirectorService, settings: () => 
 
     const settingsSection = (): HTMLElement => {
         const current = settings();
-        return section(t('m14.settings.title'), [
+        return moduleSettingsSection(t('m14.settings.title'), [
             field(
                 t('m14.settings.stall'),
                 numberInput({

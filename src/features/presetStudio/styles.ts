@@ -1,8 +1,34 @@
 // Stylesheet of the Preset Studio (M34). Includes the only rule that hides ST's Prompt Manager (P-013: hidden by a
 // body class, never removed — it keeps rendering), the launcher in ST's drawer, and the studio window: header, tabs,
-// the current tab and the block editor as a side panel, the «Условия» tab and the «Условие» control. Phones and
-// narrow windows (≤1000px, ST's breakpoint): a full-screen dialog, the editor as an overlay, 44px tap targets, ↑/↓
-// instead of dragging (P-017, P10).
+// the current tab and the block editor as a side panel, the «Условия» tab and the «Условие» control. The studio is a
+// Maestro window (plan-2 §10); phones and narrow windows (≤1000px, ST's breakpoint, also by the window's own width):
+// the editor as an overlay, 44px tap targets, ↑/↓ instead of dragging (P-017, P10).
+/** Phones (≤1000px, ST's breakpoint) and narrow Maestro windows (plan-2 §10) share these rules. */
+const NARROW = `
+    .maestro-m34-header { padding: 6px; padding-top: max(6px, env(safe-area-inset-top)); gap: 6px; }
+    .maestro-m34-actions { margin-left: 0; }
+    .maestro-m34-actions .maestro-btn span, .maestro-m34-brand h3 { display: none; }
+    .maestro-m34-preset { flex: 1 1 140px; min-width: 0; max-width: none; }
+    .maestro-m34-nav { padding: 4px 6px; }
+    .maestro-m34-layout.maestro-m34-with-editor { grid-template-columns: minmax(0, 1fr); }
+    .maestro-m34-side {
+        position: absolute;
+        inset: 0;
+        z-index: 2;
+        border: 0;
+        background: var(--maestro-surface);
+        padding-bottom: max(8px, env(safe-area-inset-bottom));
+    }
+    .maestro-m34-handle { display: none; }
+    .maestro-btn, .maestro-m34-block-name, .maestro-m34-slot-name, .maestro-m34-version-pick { min-height: var(--maestro-tap); }
+    .maestro-m34-cond-flag { min-height: var(--maestro-tap); }
+    .maestro-m34-block-main { flex-wrap: wrap; }
+    .maestro-m34-block-name { flex-basis: 50%; }
+    .maestro-m34-conflict-cols { grid-template-columns: minmax(0, 1fr); }
+    .maestro-m34-diff-field { grid-template-columns: minmax(0, 1fr); }
+    .maestro-m34-text { max-height: 240px; }
+`;
+
 export const M34_CSS = `
 body.maestro-pm-replaced #completion_prompt_manager { display: none !important; }
 .maestro-m34-launcher {
@@ -26,23 +52,6 @@ body.maestro-pm-replaced #completion_prompt_manager { display: none !important; 
 .maestro-m34-launcher-actions { display: flex; flex-wrap: wrap; gap: 6px; }
 .maestro-m34-launcher-actions .maestro-btn { margin: 0; }
 
-.popup.maestro-m34-dialog {
-    width: min(1500px, 98dvw);
-    height: min(940px, 94dvh);
-    max-height: 94dvh;
-    padding: 0;
-    overflow: hidden;
-}
-.popup.maestro-m34-dialog .popup-content {
-    margin: 0;
-    padding: 0;
-    display: flex;
-    min-height: 0;
-    height: 100%;
-    text-align: start;
-}
-.popup.maestro-m34-dialog .popup-body { height: 100%; }
-.popup.maestro-m34-dialog .popup-button-close { display: none !important; }
 .maestro-m34 {
     display: flex;
     flex-direction: column;
@@ -295,38 +304,7 @@ body.maestro-pm-replaced #completion_prompt_manager { display: none !important; 
 .maestro-m34-cond-actions { display: flex; flex-wrap: wrap; gap: 6px; }
 .maestro-m34-cond-actions .maestro-btn { margin: 0; }
 @media screen and (max-width: 1000px) {
-    .popup.maestro-m34-dialog,
-    .popup.maestro-m34-dialog.large_dialogue_popup {
-        width: 100dvw !important;
-        min-width: 100dvw !important;
-        max-width: 100dvw !important;
-        height: 100dvh !important;
-        max-height: 100dvh !important;
-        margin: 0;
-        border: 0;
-        border-radius: 0;
-    }
-    .maestro-m34-header { padding: 6px; padding-top: max(6px, env(safe-area-inset-top)); gap: 6px; }
-    .maestro-m34-actions { margin-left: 0; }
-    .maestro-m34-actions .maestro-btn span, .maestro-m34-brand h3 { display: none; }
-    .maestro-m34-preset { flex: 1 1 140px; min-width: 0; max-width: none; }
-    .maestro-m34-nav { padding: 4px 6px; }
-    .maestro-m34-layout.maestro-m34-with-editor { grid-template-columns: minmax(0, 1fr); }
-    .maestro-m34-side {
-        position: absolute;
-        inset: 0;
-        z-index: 2;
-        border: 0;
-        background: var(--maestro-surface);
-        padding-bottom: max(8px, env(safe-area-inset-bottom));
-    }
-    .maestro-m34-handle { display: none; }
-    .maestro-btn, .maestro-m34-block-name, .maestro-m34-slot-name, .maestro-m34-version-pick { min-height: var(--maestro-tap); }
-    .maestro-m34-cond-flag { min-height: var(--maestro-tap); }
-    .maestro-m34-block-main { flex-wrap: wrap; }
-    .maestro-m34-block-name { flex-basis: 50%; }
-    .maestro-m34-conflict-cols { grid-template-columns: minmax(0, 1fr); }
-    .maestro-m34-diff-field { grid-template-columns: minmax(0, 1fr); }
-    .maestro-m34-text { max-height: 240px; }
-}
+${NARROW}}
+@container maestro-window (max-width: 1000px) {
+${NARROW}}
 `;

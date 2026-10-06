@@ -6,7 +6,7 @@ import { boundSet } from '../../domain/backgrounds-score';
 import { libraryFileOf, cssUrlPath } from '../../domain/backgrounds-state';
 import { VARIANT_TAGS, fileTitle } from '../../domain/backgrounds-tokens';
 import type { App, PultTab } from '../../shared/contracts';
-import { badge, banner, emptyState, section } from '../../ui/components/card';
+import { badge, banner, emptyState, section, moduleSettingsSection } from '../../ui/components/card';
 import { field, numberInput, select, toggle } from '../../ui/components/controls';
 import { button, clear, el } from '../../ui/components/dom';
 import { coalesce } from '../../ui/views/format';
@@ -356,7 +356,7 @@ export function backgroundsTab(app: App, service: BackgroundsService, settings: 
 
             const settingsSection = (): HTMLElement => {
                 const current = settings();
-                return section(t('m29.settings.title'), [
+                return moduleSettingsSection(t('m29.settings.title'), [
                     toggle({
                         label: t('m29.settings.auto'),
                         hint: t('m29.settings.auto.hint'),

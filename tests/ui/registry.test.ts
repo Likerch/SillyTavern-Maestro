@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { PultTab } from '../../src/shared/contracts';
 import { createUi } from '../../src/ui';
 import type { UiImpl } from '../../src/ui';
-import { buildStDom, FakePopup, installUiEnv } from '../helpers/ui-env';
+import { buildStDom, FakePopup, installUiEnv, openWindows, sectionIds, windowBody } from '../helpers/ui-env';
 import type { UiTestEnv } from '../helpers/ui-env';
 
 function tab(id: string, order: number, extra: Partial<PultTab> = {}): PultTab & { renders: number; cleanups: number } {
@@ -31,9 +31,11 @@ function tab(id: string, order: number, extra: Partial<PultTab> = {}): PultTab &
 let env: UiTestEnv;
 let ui: UiImpl;
 
-const tabIds = () => [...document.querySelectorAll<HTMLElement>('.maestro-tab')].map((node) => node.dataset.tab);
-const body = () => document.querySelector<HTMLElement>('.maestro-pult-body');
+const tabIds = () => sectionIds('maestro');
+const body = () => windowBody('maestro');
 const topBadge = () => document.querySelector<HTMLElement>('#maestro-topbar .maestro-topbar-badge');
+const menuItems = () =>
+    [...document.querySelectorAll<HTMLElement>('.maestro-menu .maestro-menu-item')].map((node) => node.dataset.item);
 
 beforeEach(() => {
     buildStDom();
@@ -57,25 +59,38 @@ describe('entry points', () => {
         expect(top?.querySelector('.drawer-icon.fa-wand-magic-sparkles')).not.toBeNull();
         expect(document.querySelector('#extensions_settings2 #maestro-ext-settings .inline-drawer')).not.toBeNull();
         expect(document.querySelector('#extensionsMenu #maestro-wand')).not.toBeNull();
+        // Still the only Maestro icon in the top bar (plan-2 В18).
+        expect(document.querySelectorAll('#top-settings-holder [id^="maestro"]')).toHaveLength(1);
     });
 
-    it('opens the pult from every entry point', () => {
+    it('the top-bar icon and the wand open the Maestro menu; the extensions block opens the Maestro window', () => {
         ui.addTab(tab('a', 1));
-        document.querySelector<HTMLElement>('#maestro-topbar .maestro-topbar-toggle')?.click();
-        expect(FakePopup.open()).toHaveLength(1);
-        ui.closePult();
-        document.querySelector<HTMLElement>('#maestro-ext-settings .maestro-ext-open')?.click();
-        expect(FakePopup.open()).toHaveLength(1);
-        ui.closePult();
+        const toggle = document.querySelector<HTMLElement>('#maestro-topbar .maestro-topbar-toggle')!;
+        toggle.click();
+        expect(toggle.getAttribute('aria-expanded')).toBe('true');
+        expect(menuItems()).toContain('window:maestro');
+        expect(menuItems()).toContain('settings');
+        // A second click closes it.
+        toggle.click();
+        expect(document.querySelector('.maestro-menu')).toBeNull();
+        expect(toggle.getAttribute('aria-expanded')).toBe('false');
         document
             .querySelector<HTMLElement>('#maestro-wand [role=button]')
             ?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
-        expect(FakePopup.open()).toHaveLength(1);
+        expect(document.querySelector('.maestro-menu')).not.toBeNull();
+        document.querySelector<HTMLElement>('.maestro-menu-item[data-item="window:maestro"]')?.click();
+        expect(document.querySelector('.maestro-menu')).toBeNull();
+        expect(openWindows()).toEqual(['maestro']);
+        ui.closeWindow('maestro');
+        document.querySelector<HTMLElement>('#maestro-ext-settings .maestro-ext-open')?.click();
+        expect(openWindows()).toEqual(['maestro']);
+        expect(FakePopup.open()).toHaveLength(0);
     });
 
     it('removes everything on dispose', () => {
         ui.addTab(tab('a', 1));
         ui.openPult();
+        document.querySelector<HTMLElement>('#maestro-topbar .maestro-topbar-toggle')?.click();
         const off = ui.style('x', '.a{}');
         void off;
         ui.dispose();
@@ -83,9 +98,11 @@ describe('entry points', () => {
         expect(document.querySelector('#maestro-ext-settings')).toBeNull();
         expect(document.querySelector('#maestro-wand')).toBeNull();
         expect(document.querySelector('style[data-maestro-style]')).toBeNull();
-        expect(FakePopup.open()).toHaveLength(0);
+        expect(document.querySelector('.maestro-windows')).toBeNull();
+        expect(document.querySelector('.maestro-menu')).toBeNull();
         ui.openPult();
-        expect(FakePopup.open()).toHaveLength(0);
+        ui.openWindow('maestro');
+        expect(document.querySelector('.maestro-window')).toBeNull();
     });
 
     it('mounts late containers on APP_READY', async () => {
@@ -101,17 +118,17 @@ describe('entry points', () => {
     });
 });
 
-describe('pult tabs registry', () => {
-    it('sorts tabs by order regardless of registration order', () => {
+describe('sections (the old pult tabs)', () => {
+    it('sorts sections by order regardless of registration order', () => {
         ui.addTab(tab('c', 30));
         ui.addTab(tab('a', 10));
         ui.addTab(tab('b', 20));
         ui.openPult();
         expect(tabIds()).toEqual(['a', 'b', 'c']);
-        expect(document.querySelector('.maestro-tab.maestro-on')?.getAttribute('data-tab')).toBe('a');
+        expect(document.querySelector('.maestro-window-section.maestro-on')?.getAttribute('data-tab')).toBe('a');
     });
 
-    it('renders lazily: only the active tab, and disposes it on switch and close', () => {
+    it('renders lazily: only the active section, and disposes it on switch and close', () => {
         const a = tab('a', 1);
         const b = tab('b', 2);
         ui.addTab(a);
@@ -123,35 +140,53 @@ describe('pult tabs registry', () => {
         ui.openPult('b');
         expect([a.cleanups, b.renders]).toEqual([1, 1]);
         expect(body()?.textContent).toBe('content b #1');
-        ui.closePult();
-        expect(b.cleanups).toBe(1);
-        expect(FakePopup.open()).toHaveLength(0);
+        // The strip switches sections too.
+        document.querySelector<HTMLElement>('.maestro-window-section[data-tab="a"]')?.click();
+        expect([a.renders, b.cleanups]).toEqual([2, 1]);
+        ui.closeWindow('maestro');
+        expect(a.cleanups).toBe(2);
+        expect(openWindows()).toEqual([]);
     });
 
-    it('re-renders the active tab on refresh()', () => {
-        const a = tab('a', 1);
+    it('re-renders the active section on refresh(), not while the user types in it', () => {
+        const a = tab('a', 1, {
+            render(container: HTMLElement) {
+                a.renders++;
+                container.append(Object.assign(document.createElement('input'), { type: 'text' }));
+                return () => {
+                    a.cleanups++;
+                };
+            },
+        });
         ui.addTab(a);
         ui.openPult();
         ui.refresh();
         expect(a.renders).toBe(2);
         expect(a.cleanups).toBe(1);
-        expect(body()?.textContent).toBe('content a #2');
+        body()?.querySelector('input')?.focus();
+        ui.refresh();
+        expect(a.renders).toBe(2);
     });
 
-    it('reuses one popup and remembers the last tab', async () => {
+    it('closePult() leaves desktop windows open (they do not cover the chat)', () => {
+        ui.addTab(tab('a', 1));
+        ui.openPult();
+        ui.closePult();
+        expect(openWindows()).toEqual(['maestro']);
+    });
+
+    it('remembers the last section of a window', () => {
         ui.addTab(tab('a', 1));
         ui.addTab(tab('b', 2));
         ui.openPult('b');
         ui.openPult();
-        expect(FakePopup.instances).toHaveLength(1);
-        FakePopup.instances[0]?.close();
-        await Promise.resolve();
+        expect(document.querySelectorAll('.maestro-window')).toHaveLength(1);
+        ui.closeWindow('maestro');
         ui.openPult();
-        expect(FakePopup.instances).toHaveLength(2);
-        expect(document.querySelector('.maestro-tab.maestro-on')?.getAttribute('data-tab')).toBe('b');
+        expect(document.querySelector('.maestro-window-section.maestro-on')?.getAttribute('data-tab')).toBe('b');
     });
 
-    it('handles tabs added and removed while open', () => {
+    it('handles sections added and removed while open', () => {
         const removeA = ui.addTab(tab('a', 1));
         ui.openPult();
         ui.addTab(tab('b', 0));
@@ -161,7 +196,7 @@ describe('pult tabs registry', () => {
         expect(body()?.textContent).toBe('content b #1');
     });
 
-    it('shows an error state when a tab fails to render', () => {
+    it('shows an error state when a section fails to render', () => {
         ui.addTab(
             tab('a', 1, {
                 render: () => {
@@ -173,18 +208,18 @@ describe('pult tabs registry', () => {
         expect(body()?.querySelector('.maestro-empty')).not.toBeNull();
     });
 
-    it('opens the pult as a DISPLAY popup with Maestro classes', () => {
+    it('opens no ST popup: a non-modal window with Maestro classes', () => {
         ui.addTab(tab('a', 1));
         ui.openPult();
-        const popup = FakePopup.instances[0];
-        expect(popup?.type).toBe(4);
-        expect(popup?.options).toMatchObject({ wide: true, large: true });
-        expect(popup?.dlg.classList.contains('maestro-pult-dialog')).toBe(true);
+        expect(FakePopup.instances).toHaveLength(0);
+        const node = document.querySelector<HTMLElement>('.maestro-window')!;
+        expect(node.closest('.maestro-windows.maestro-ui')).not.toBeNull();
+        expect(node.getAttribute('aria-modal')).toBe('false');
     });
 });
 
 describe('badges', () => {
-    it('sums tab badges into the top-bar badge', () => {
+    it('sums section badges into the top-bar badge', () => {
         let count = 2;
         ui.addTab(tab('a', 1, { badge: () => count }));
         ui.addTab(tab('b', 2, { badge: () => 1 }));
@@ -195,11 +230,13 @@ describe('badges', () => {
         expect(topBadge()?.textContent).toBe('1');
     });
 
-    it('updates tab badges in the open pult and hides zero', () => {
+    it('updates section badges in an open window and hides zero', () => {
         let count = 0;
         ui.addTab(tab('a', 1, { badge: () => count }));
+        ui.addTab(tab('b', 2));
         ui.openPult();
-        const badge = () => document.querySelector<HTMLElement>('.maestro-tab[data-tab="a"] .maestro-tab-badge');
+        const badge = () =>
+            document.querySelector<HTMLElement>('.maestro-window-section[data-tab="a"] .maestro-window-section-badge');
         expect(badge()?.hidden).toBe(true);
         expect(topBadge()?.hidden).toBe(true);
         count = 5;

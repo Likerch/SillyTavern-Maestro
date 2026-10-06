@@ -173,8 +173,40 @@ export function installUiEnv(locale: 'ru' | 'en' = 'ru'): UiTestEnv {
     };
 }
 
+/** The body of the window in front (the one opened or clicked last). */
+export function frontBody(): HTMLElement | null {
+    return document.querySelector<HTMLElement>('.maestro-window.maestro-window-front .maestro-window-body');
+}
+
+/** The body of a window by id. */
+export function windowBody(id: string): HTMLElement | null {
+    return document.querySelector<HTMLElement>(`.maestro-window[data-window="${id}"] .maestro-window-body`);
+}
+
+/** Ids of the open windows (DOM order). */
+export function openWindows(): string[] {
+    return [...document.querySelectorAll<HTMLElement>('.maestro-window')].map((node) => node.dataset.window ?? '');
+}
+
+/** Section ids in a window's strip. */
+export function sectionIds(id: string): string[] {
+    return [
+        ...document.querySelectorAll<HTMLElement>(`.maestro-window[data-window="${id}"] .maestro-window-section`),
+    ].map((node) => node.dataset.tab ?? '');
+}
+
+/** Forgets the remembered window layout (localStorage outlives a test). */
+export function resetWindowLayout(): void {
+    try {
+        globalThis.localStorage?.removeItem('maestro.windows');
+    } catch {
+        // no storage in this environment
+    }
+}
+
 /** Minimal ST DOM: top bar with the extensions drawer, extensions panel, wand menu and a chat of `messages`. */
 export function buildStDom(messages = 3, options: { withButtons?: boolean } = {}): void {
+    resetWindowLayout();
     const withButtons = options.withButtons ?? true;
     const chat = Array.from({ length: messages }, (_, index) => {
         const buttons = withButtons ? '<div class="mes_buttons"><div class="mes_button mes_edit"></div></div>' : '';

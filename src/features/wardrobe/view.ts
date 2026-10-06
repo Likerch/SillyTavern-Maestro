@@ -5,7 +5,7 @@
 // not be taken; which parts work by themselves. Cards and wrapped rows: readable on a phone.
 import type { HistoryEntry } from '../../domain/wardrobe-doc';
 import type { App, PultTab } from '../../shared/contracts';
-import { badge, banner, card, emptyState, section } from '../../ui/components/card';
+import { badge, banner, card, emptyState, section, moduleSettingsSection } from '../../ui/components/card';
 import { field, numberInput, select, toggle } from '../../ui/components/controls';
 import { button, clear, el } from '../../ui/components/dom';
 import { coalesce, formatTime } from '../../ui/views/format';
@@ -405,7 +405,7 @@ export function wardrobeTab(
                     },
                 }),
             );
-        return section(t('m27.settings.title'), [
+        return moduleSettingsSection(t('m27.settings.title'), [
             el('div', { class: 'maestro-hint', text: t('m27.settings.hint') }),
             option('outfits'),
             option('states'),

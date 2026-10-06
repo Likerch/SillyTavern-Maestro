@@ -103,7 +103,10 @@ describe('notice()', () => {
         expect(options.escapeHtml).toBe(false);
         options.onclick({ target: message.querySelector('.maestro-toast-text') });
         expect(run).not.toHaveBeenCalled();
-        expect(document.querySelector('.maestro-pult')).not.toBeNull();
+        expect(
+            document.querySelector<HTMLElement>('.maestro-window[data-window="maestro"] .maestro-window-body')?.dataset
+                .tab,
+        ).toBe('overview');
         options.onclick({ target: button });
         expect(run).toHaveBeenCalledTimes(1);
     });

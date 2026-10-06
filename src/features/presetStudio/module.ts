@@ -13,7 +13,7 @@ import { ANALYSIS_STRINGS } from './analysis-strings';
 import { LAYER_STRINGS } from './layer-strings';
 import { PRESET_STORE_STRINGS } from './store';
 import { M34_STRINGS } from './strings';
-import { PresetStudio, defaultPresetStudioSettings, servicesOf } from './studio';
+import { PresetStudio, defaultPresetStudioSettings, presetStudioWindow, servicesOf } from './studio';
 import type { PresetStudioSettings } from './studio';
 import { M34_CSS } from './styles';
 import { PRESET_TARGETS, TARGET_STRINGS } from './targets';
@@ -182,6 +182,8 @@ export function createPresetStudioModule(factories: PresetFactories): MaestroMod
                 if (runtime?.studio === studio) runtime = null;
             });
             own(app.ui.style('m34-preset-studio', M34_CSS));
+            // Plan-2 §10: the studio is a non-modal Maestro window.
+            if (typeof app.ui.addWindow === 'function') own(app.ui.addWindow(presetStudioWindow(studio)));
             // Putting PM back is part of every disable (P11, P-015).
             own(() => launcher.restore());
             if (settings.replacePromptManager) launcher.install();

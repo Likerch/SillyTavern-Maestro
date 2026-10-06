@@ -1,7 +1,7 @@
 // Pult tab «Голоса» (M15): the cards that go into the next reply with their tokens, attitudes between present
 // characters, the whole insert, the CarrotKernel quiet mode status (CK insert silenced, DES-RU told) and the settings.
 import type { App, PultTab } from '../../shared/contracts';
-import { badge, card, emptyState, lamp, section } from '../../ui/components/card';
+import { badge, card, emptyState, lamp, section, moduleSettingsSection } from '../../ui/components/card';
 import { field, numberInput, toggle } from '../../ui/components/controls';
 import { clear, el } from '../../ui/components/dom';
 import { coalesce, formatTime } from '../../ui/views/format';
@@ -136,7 +136,7 @@ export function voicesTab(app: App, service: VoicesService): PultTab {
             const settingsView = (): HTMLElement => {
                 const settings = service.settings();
                 const injection = service.injection();
-                return section(t('m15.settings.title'), [
+                return moduleSettingsSection(t('m15.settings.title'), [
                     field(
                         t('m15.settings.cap'),
                         numberInput({

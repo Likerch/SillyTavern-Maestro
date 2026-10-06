@@ -5,7 +5,7 @@ import { createUi, registerProfileTask, registerSettingsAction } from '../../src
 import type { UiImpl } from '../../src/ui';
 import { resetRegistries } from '../../src/ui/views/registries';
 import { UI_STRINGS } from '../../src/ui/views/strings';
-import { buildStDom, FakePopup, installUiEnv } from '../helpers/ui-env';
+import { buildStDom, FakePopup, frontBody, installUiEnv, sectionIds } from '../helpers/ui-env';
 import type { UiTestEnv } from '../helpers/ui-env';
 import { coreFakes, fakeAutonomy, fakeCost, FakeModules, fakeModule, fakeTasks, inboxCard } from '../helpers/ui-fakes';
 import type { CoreFakes } from '../helpers/ui-fakes';
@@ -14,7 +14,7 @@ let env: UiTestEnv;
 let ui: UiImpl;
 let fakes: CoreFakes;
 
-const body = () => document.querySelector<HTMLElement>('.maestro-pult-body')!;
+const body = () => frontBody()!;
 const buttonByText = (text: string, root: ParentNode = document) =>
     [...root.querySelectorAll<HTMLButtonElement>('button')].find((node) => node.textContent?.trim() === text);
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
@@ -40,13 +40,26 @@ afterEach(() => {
 });
 
 describe('core views', () => {
-    it('registers the six core tabs in plan order', () => {
+    it('registers the six core tabs as sections of their windows', () => {
         start();
+        expect(['overview', 'inbox', 'health', 'tasks', 'journal', 'settings'].map((id) => ui.windowOfTab(id))).toEqual(
+            ['maestro', 'inbox', 'health', 'health', 'maestro', 'maestro'],
+        );
         ui.openPult();
-        const ids = [...document.querySelectorAll<HTMLElement>('.maestro-tab')].map((node) => node.dataset.tab);
-        expect(ids).toEqual(['overview', 'inbox', 'health', 'tasks', 'journal', 'settings']);
-        const labels = [...document.querySelectorAll('.maestro-tab-label')].map((node) => node.textContent);
-        expect(labels).toEqual(['Обзор', 'Входящие', 'Здоровье', 'Задачи', 'Журнал', 'Настройки']);
+        const ids = sectionIds('maestro');
+        expect(ids).toEqual(['overview', 'journal', 'settings']);
+        const labels = [
+            ...document.querySelectorAll('.maestro-window[data-window="maestro"] .maestro-window-section-label'),
+        ].map((node) => node.textContent);
+        expect(labels).toEqual(['Обзор', 'Журнал', 'Настройки']);
+        ui.openPult('health');
+        expect(sectionIds('health')).toEqual(['health', 'tasks']);
+        // One section: no strip.
+        ui.openPult('inbox');
+        expect(
+            document.querySelector<HTMLElement>('.maestro-window[data-window="inbox"] .maestro-window-sections')
+                ?.hidden,
+        ).toBe(true);
     });
 
     it('every ui string exists in both languages', () => {
@@ -290,9 +303,15 @@ describe('Settings', () => {
         language.value = 'en';
         language.dispatchEvent(new Event('change'));
         expect(env.settings.core().uiLanguage).toBe('en');
-        expect(document.querySelector('.maestro-tab[data-tab="settings"] .maestro-tab-label')?.textContent).toBe(
-            'Settings',
-        );
+        expect(
+            document.querySelector('.maestro-window-section[data-tab="settings"] .maestro-window-section-label')
+                ?.textContent,
+        ).toBe('Settings');
+        expect(
+            document
+                .querySelector('.maestro-window[data-window="maestro"] .maestro-window-close')
+                ?.getAttribute('title'),
+        ).toBe('Close');
         expect(document.querySelector('#maestro-ext-settings .maestro-ext-open')?.textContent).toBe('Open Maestro');
     });
 

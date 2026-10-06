@@ -14,7 +14,7 @@ import type {
     Ui,
     Unsubscribe,
 } from '../../src/shared/contracts';
-import { createTestHost, createTestLogger, settle, switchChat } from './core-host';
+import { createTestHost, createTestLogger, fakeWindows, settle, switchChat } from './core-host';
 import { EVENT_TYPES, installStMock } from './st-mock';
 import type { StMock } from './st-mock';
 
@@ -180,6 +180,7 @@ export function createLoreApp(options: { locale?: 'ru' | 'en' } = {}): LoreTestA
     };
 
     const ui: Ui = {
+        ...fakeWindows(),
         addTab(tab) {
             tabs.push(tab);
             return () => {

@@ -1,6 +1,7 @@
-// Pult tab «Расширения» (M32 п.5, Q30): «Ярлыки» to the neighbours' own windows, then one card per present neighbour
-// holding its real settings block while the tab is open («Держать в пульте», on by default), and — when asked — DES's
-// portrait bar. Closing or re-rendering the tab, stopping the module and unloading the page put every node back.
+// Section «Расширения» of the «Maestro» window (M32 п.5, Q30; a pult tab before plan-2 §10): «Ярлыки» to the
+// neighbours' own windows, then one card per present neighbour holding its real settings block while the section is
+// shown («Держать в пульте», on by default), and — when asked — DES's portrait bar. Switching the section, collapsing
+// or closing its window, re-rendering, stopping the module and unloading the page put every node back.
 import type { App, PultTab } from '../../shared/contracts';
 import { banner, emptyState, section } from '../../ui/components/card';
 import { toggle } from '../../ui/components/controls';
@@ -14,8 +15,8 @@ import type { DockSettings } from './settings';
 /*
  * ST styles extension blocks only inside its columns (style.css:5403 `#extensions_settings .inline-drawer-header`,
  * extensions-panel.css:10 `.extensions_block input`): the same look in the dock. Neighbour nodes are styled here only
- * by the stylesheet. Buttons that would pull part of a docked block out into a body-level window (under our modal
- * dialog, so unusable) are hidden while the block is in the pult: Qvink's pop-out, CK's lorebook pop-out.
+ * by the stylesheet. Buttons that would pull part of a docked block out into a body-level window (out of the dock's
+ * reach when the block goes home) are hidden while the block is docked: Qvink's pop-out, CK's lorebook pop-out.
  */
 export const DOCK_CSS = `
 .maestro-m32d { display: flex; flex-direction: column; gap: var(--maestro-gap); }
@@ -88,9 +89,14 @@ export function dockTab(deps: DockViewDeps): PultTab {
         }
     };
 
-    /** `close` shortcuts: the pult closes first (the blocks go home — some openers live in them), then the opener. */
+    /**
+     * `close` shortcuts: the window holding the dock closes first (the blocks go home — some openers live in them),
+     * then the opener.
+     */
     const openOutside = async (shortcut: Shortcut) => {
-        app.ui.closePult?.();
+        const holder = app.ui.windowOfTab?.(DOCK_TAB);
+        if (holder && app.ui.closeWindow) app.ui.closeWindow(holder);
+        else app.ui.closePult?.();
         await run(shortcut);
     };
 

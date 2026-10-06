@@ -3,7 +3,7 @@
 // «Вернуть» for closed ones), a small add form and the overdue grace. Cards and wrapped rows: readable on a phone.
 import { formatMinutes } from '../../domain/calendar-time';
 import type { App, PultTab } from '../../shared/contracts';
-import { badge, banner, card, emptyState, section } from '../../ui/components/card';
+import { badge, banner, card, emptyState, section, moduleSettingsSection } from '../../ui/components/card';
 import type { Level } from '../../ui/components/card';
 import { field, numberInput } from '../../ui/components/controls';
 import { button, clear, el } from '../../ui/components/dom';
@@ -231,7 +231,7 @@ export function calendarTab(app: App, service: CalendarService, settings: () => 
 
     const settingsSection = (): HTMLElement => {
         const current = settings();
-        return section(t('m17.settings.title'), [
+        return moduleSettingsSection(t('m17.settings.title'), [
             field(
                 t('m17.settings.days'),
                 numberInput({

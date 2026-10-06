@@ -7,7 +7,7 @@ import type { DockApi, DockSettings } from '../../../src/features/dock';
 import type { App, NeighbourAdapter } from '../../../src/shared/contracts';
 import { createUi } from '../../../src/ui';
 import type { UiImpl } from '../../../src/ui';
-import { installUiEnv } from '../../helpers/ui-env';
+import { installUiEnv, resetWindowLayout } from '../../helpers/ui-env';
 import type { UiTestEnv } from '../../helpers/ui-env';
 
 export const PAGE = `
@@ -98,6 +98,7 @@ export const desBlock = () =>
 
 export async function startDock(options: { presence?: Partial<NeighbourPresence> } = {}): Promise<DockEnv> {
     document.body.innerHTML = PAGE;
+    resetWindowLayout();
     const env = installUiEnv('ru');
     env.settings.core().firstRunDone = true;
     const ui = createUi({ host: env.host, i18n: env.i18n, settings: env.settings, log: env.log });

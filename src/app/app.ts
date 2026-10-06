@@ -134,6 +134,8 @@ export async function startMaestro(): Promise<Runtime> {
     });
     const offDataActions = installDataActions(app);
     await modules.startAll(app);
+    // Windows left open on this device come back once their modules registered their sections (plan-2 §10).
+    ui.restoreWindows();
     ui.runFirstRunWizardIfNeeded();
 
     // DES and others finish loading their settings after Maestro activates: probe again once ST is ready.

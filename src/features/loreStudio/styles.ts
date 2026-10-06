@@ -1,24 +1,25 @@
-// Stylesheet of the Lore Studio (M23). Desktop: books | entries | form in one large popup. Phones and narrow
-// windows (≤1000px, ST's breakpoint): a full-screen dialog showing one pane at a time (books → entries → form),
-// 44px tap targets, no hover-only controls (P10, L-017).
+// Stylesheet of the Lore Studio (M23). A wide window: books | entries | form. The layout follows the width of its
+// Maestro window (container queries on the window body, plan-2 §10): a narrow window or a phone (≤1000px, ST's
+// breakpoint) shows one pane at a time (books → entries → form), 44px tap targets, no hover-only controls (P10, L-017).
+/** Phones (≤1000px, ST's breakpoint) and narrow Maestro windows (plan-2 §10) share these rules. */
+const NARROW = `
+    .maestro-m23-header { padding: 6px; padding-top: max(6px, env(safe-area-inset-top)); gap: 6px; }
+    .maestro-m23-classic span { display: none; }
+    .maestro-m23-layout, .maestro-m23-layout.maestro-m23-with-form { grid-template-columns: minmax(0, 1fr); }
+    .maestro-m23-layout .maestro-m23-col { display: none; border: 0; }
+    .maestro-m23-layout[data-pane='books'] .maestro-m23-col-books,
+    .maestro-m23-layout[data-pane='entries'] .maestro-m23-col-entries,
+    .maestro-m23-layout[data-pane='form'] .maestro-m23-col-form { display: block; }
+    .maestro-m23-back { display: inline-flex; }
+    .maestro-btn, .maestro-m23-book-name, .maestro-m23-entry-title, .maestro-m23-campaign-name { min-height: var(--maestro-tap); }
+    .maestro-m23-entry-main { flex-wrap: wrap; }
+    .maestro-m23-entry-title { flex-basis: 60%; }
+    .maestro-m23-bulk-row { grid-template-columns: auto 1fr; }
+    .maestro-m23-bulk-row > :nth-child(3) { display: none; }
+    .maestro-m23-bulk-row > :nth-child(4) { grid-column: 1 / -1; }
+`;
+
 export const M23_CSS = `
-.popup.maestro-m23-dialog {
-    width: min(1500px, 98dvw);
-    height: min(940px, 94dvh);
-    max-height: 94dvh;
-    padding: 0;
-    overflow: hidden;
-}
-.popup.maestro-m23-dialog .popup-content {
-    margin: 0;
-    padding: 0;
-    display: flex;
-    min-height: 0;
-    height: 100%;
-    text-align: start;
-}
-.popup.maestro-m23-dialog .popup-body { height: 100%; }
-.popup.maestro-m23-dialog .popup-button-close { display: none !important; }
 .maestro-m23 {
     display: flex;
     flex-direction: column;
@@ -50,7 +51,7 @@ export const M23_CSS = `
     grid-template-columns: minmax(220px, 280px) minmax(0, 1fr) minmax(360px, 44%);
 }
 /* Not enough room for three columns: the open form hides the book list (the entry list keeps its width). */
-@media screen and (min-width: 1001px) and (max-width: 1599px) {
+@container maestro-window (min-width: 1001px) and (max-width: 1599px) {
     .maestro-m23-layout.maestro-m23-with-form { grid-template-columns: minmax(0, 1fr) minmax(400px, 55%); }
     .maestro-m23-layout.maestro-m23-with-form .maestro-m23-col-books { display: none; }
 }
@@ -257,30 +258,7 @@ export const M23_CSS = `
 .maestro-m23-bulk-row .text_pole { margin: 0; }
 .maestro-m23-order-form { display: flex; flex-direction: column; gap: 4px; }
 @media screen and (max-width: 1000px) {
-    .popup.maestro-m23-dialog,
-    .popup.maestro-m23-dialog.large_dialogue_popup {
-        width: 100dvw !important;
-        min-width: 100dvw !important;
-        max-width: 100dvw !important;
-        height: 100dvh !important;
-        max-height: 100dvh !important;
-        margin: 0;
-        border: 0;
-        border-radius: 0;
-    }
-    .maestro-m23-header { padding: 6px; padding-top: max(6px, env(safe-area-inset-top)); gap: 6px; }
-    .maestro-m23-classic span { display: none; }
-    .maestro-m23-layout, .maestro-m23-layout.maestro-m23-with-form { grid-template-columns: minmax(0, 1fr); }
-    .maestro-m23-layout .maestro-m23-col { display: none; border: 0; }
-    .maestro-m23-layout[data-pane='books'] .maestro-m23-col-books,
-    .maestro-m23-layout[data-pane='entries'] .maestro-m23-col-entries,
-    .maestro-m23-layout[data-pane='form'] .maestro-m23-col-form { display: block; }
-    .maestro-m23-back { display: inline-flex; }
-    .maestro-btn, .maestro-m23-book-name, .maestro-m23-entry-title, .maestro-m23-campaign-name { min-height: var(--maestro-tap); }
-    .maestro-m23-entry-main { flex-wrap: wrap; }
-    .maestro-m23-entry-title { flex-basis: 60%; }
-    .maestro-m23-bulk-row { grid-template-columns: auto 1fr; }
-    .maestro-m23-bulk-row > :nth-child(3) { display: none; }
-    .maestro-m23-bulk-row > :nth-child(4) { grid-column: 1 / -1; }
-}
+${NARROW}}
+@container maestro-window (max-width: 1000px) {
+${NARROW}}
 `;

@@ -3,7 +3,7 @@
 // and the settings: turns per mode, scene ends, characters per run, turns away, rumours.
 import { pluralForm } from '../../domain/offscreen-plan';
 import type { App, PultTab } from '../../shared/contracts';
-import { badge, emptyState, section } from '../../ui/components/card';
+import { badge, emptyState, section, moduleSettingsSection } from '../../ui/components/card';
 import type { Level } from '../../ui/components/card';
 import { field, numberInput, toggle } from '../../ui/components/controls';
 import { append, button, clear, el } from '../../ui/components/dom';
@@ -183,7 +183,7 @@ export function offscreenTab(app: App, service: OffscreenService, settings: () =
                     commit(`sceneEnd.${mode}`);
                 },
             });
-        return section(t('m16.settings.title'), [
+        return moduleSettingsSection(t('m16.settings.title'), [
             el('div', { class: 'maestro-hint', text: t('m16.settings.every.hint') }),
             every('balanced'),
             every('cinema'),

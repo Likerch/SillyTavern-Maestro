@@ -4,7 +4,7 @@
 // extraction interval. Mobile first: one column, wrapping rows.
 import type { DraftData, FactData } from '../../domain/living-facts';
 import type { App, PultTab } from '../../shared/contracts';
-import { badge, banner, emptyState, section } from '../../ui/components/card';
+import { badge, banner, emptyState, MODULE_SETTINGS_CLASS, section } from '../../ui/components/card';
 import { field, numberInput } from '../../ui/components/controls';
 import { button, clear, el } from '../../ui/components/dom';
 import { coalesce, formatTime } from '../../ui/views/format';
@@ -228,7 +228,7 @@ export function livingTab(app: App, service: LivingCanonService, settings: () =>
                         }),
                         hint,
                     );
-                return el('details', {}, [
+                return el('details', { class: MODULE_SETTINGS_CLASS }, [
                     el('summary', { text: t('m26.settings') }),
                     number('maxPerTurn', t('m26.settings.k'), 10, t('m26.settings.kHint')),
                     number('surviveTurns', t('m26.settings.survive'), 100, t('m26.settings.surviveHint')),

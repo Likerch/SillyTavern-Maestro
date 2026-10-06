@@ -160,14 +160,14 @@ describe('module lifecycle', () => {
         expect(s.slash.map((command) => command.name)).toEqual(['maestro-preset']);
         await s.slash[0]!.callback({}, 'Style');
         await wait();
-        expect(document.querySelector('.maestro-m34-dialog')).not.toBeNull();
+        expect(document.querySelector('.maestro-window[data-window="presetStudio"]')).not.toBeNull();
         expect(q<HTMLInputElement>('.maestro-m34-f-name')?.value).toBe('Style');
         await run.stop();
         expect(run.installed()).toBe(false);
         expect(presetStudioRuntime()).toBeNull();
         expect(document.getElementById(LAUNCHER_ID)).toBeNull();
         expect(document.body.classList.contains(REPLACED_CLASS)).toBe(false);
-        expect(document.querySelector('.maestro-m34-dialog')).toBeNull();
+        expect(document.querySelector('.maestro-window[data-window="presetStudio"]')).toBeNull();
         expect(s.app.modules.api('presetStore')).toBeUndefined();
         expect(s.app.modules.api('presetStudio')).toBeUndefined();
         expect(s.lore.tabs.map((tab) => tab.id)).not.toContain('presetStudio');
@@ -201,7 +201,7 @@ describe('module lifecycle', () => {
         s.app.modules.expose('presetStore', undefined);
         const run = await s.lore.start(module);
         await s.slash[0]!.callback({}, '');
-        expect(document.querySelector('.maestro-m34-dialog')).toBeNull();
+        expect(document.querySelector('.maestro-window[data-window="presetStudio"]')).toBeNull();
         expect(s.notices.at(-1)?.text).toContain('cannot open');
         await run.stop();
     });

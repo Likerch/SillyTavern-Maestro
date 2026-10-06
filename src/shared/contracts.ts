@@ -688,7 +688,12 @@ export interface Ui {
     addWizardStep(step: WizardStep): Unsubscribe;
     /** ST cannot unregister: the remover makes the command answer "module is off" (own() it). */
     addSlashCommand(command: SlashCommandSpec): Unsubscribe;
+    /** Opens the window that shows the tab, on that section (plan-2 §10; no tab: the «Maestro» window). */
     openPult(tabId?: string): void;
+    /**
+     * Makes room for the chat before jumping to a message or opening ST's own UI: on a phone the visible window
+     * closes; desktop windows do not cover the chat and stay. Use closeWindow() to close a particular window.
+     */
     closePult?(): void;
     /** Badge refresh after state changes. */
     refresh(): void;

@@ -6,7 +6,7 @@ import type { UserJobsService } from '../../src/core/jobs';
 import { createUi } from '../../src/ui';
 import type { UiImpl } from '../../src/ui';
 import { resetRegistries } from '../../src/ui/views/registries';
-import { buildStDom, installUiEnv } from '../helpers/ui-env';
+import { buildStDom, frontBody, installUiEnv } from '../helpers/ui-env';
 import type { UiTestEnv } from '../helpers/ui-env';
 import { coreFakes } from '../helpers/ui-fakes';
 
@@ -14,7 +14,7 @@ let env: UiTestEnv;
 let ui: UiImpl;
 let jobs: UserJobsService;
 
-const body = () => document.querySelector<HTMLElement>('.maestro-pult-body')!;
+const body = () => frontBody()!;
 const top = () => document.getElementById('maestro-topbar')!;
 const toggle = () => top().querySelector<HTMLElement>('.maestro-topbar-toggle')!;
 const buttonByText = (text: string, root: ParentNode = document) =>
@@ -89,11 +89,11 @@ describe('user jobs outside their window', () => {
         expect(top().classList.contains('maestro-topbar-indeterminate')).toBe(false);
         expect(top().style.getPropertyValue('--maestro-job-progress')).toBe('0.25');
         expect(toggle().title).toBe(
-            'Maestro — открыть пульт · Русские ключи для книги «World»: Локализую: 30 из 120 записей',
+            'Maestro — окна и задачи · Русские ключи для книги «World»: Локализую: 30 из 120 записей',
         );
         jobs.start({ key: 'b', title: 'Другая' });
         expect(top().classList.contains('maestro-topbar-indeterminate')).toBe(true);
-        expect(toggle().title).toBe('Maestro — открыть пульт · идут твои задачи: 2');
+        expect(toggle().title).toBe('Maestro — окна и задачи · идут твои задачи: 2');
         job.finish('Готово');
         expect(top().classList.contains('maestro-topbar-busy')).toBe(true);
         // No extra icons in the top bar: the ring is drawn on Maestro's own toggle.
@@ -104,7 +104,7 @@ describe('user jobs outside their window', () => {
         const job = jobs.start({ key: 'a', title: 'A' })!;
         job.finish('Готово');
         expect(top().classList.contains('maestro-topbar-busy')).toBe(false);
-        expect(toggle().title).toBe('Maestro — открыть пульт');
+        expect(toggle().title).toBe('Maestro — окна и задачи');
         jobs.start({ key: 'b', title: 'B' });
         ui.dispose();
         expect(document.getElementById('maestro-topbar')).toBeNull();

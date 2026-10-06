@@ -12,7 +12,7 @@ const docsSearch = (): ToolSpec =>
     readTool({
         name: 'docs_search',
         description:
-            "Search Maestro's documentation: modules (what each does, where it is in the pult, its settings, common questions), the extension stack (SillyTavern, DES, DES-RU, CarrotKernel, BunnyMo, Qvink, NAI Studio, Lorebook Localizer, the preset), diagnosis guides, README and the changelog. Russian or English query. Returns topic ids with a snippet; read one with docs_read.",
+            "Search Maestro's documentation: modules (what each does, which window holds it, its settings, common questions), the extension stack (SillyTavern, DES, DES-RU, CarrotKernel, BunnyMo, Qvink, NAI Studio, Lorebook Localizer, the preset), diagnosis guides, README and the changelog. Russian or English query. Returns topic ids with a snippet; read one with docs_read.",
         parameters: objectSchema(
             {
                 query: prop.string('What to look for, in any language.'),

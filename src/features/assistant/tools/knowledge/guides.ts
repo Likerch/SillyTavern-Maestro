@@ -119,11 +119,11 @@ const GUIDES: readonly GuideDoc[] = [
         keywords: ['journal', 'журнал', 'undo', 'откат', 'откатить', 'revert', 'history', 'история', 'rollback'],
         en: [
             'The journal and undo',
-            "Everything Maestro does is recorded in the journal (pult → Journal) with what changed (before/after) and can be undone one by one; a swipe, deletion or edit of a reply undoes what that reply caused (only the unconfirmed and provisional — confirmed canon stays). The assistant's confirmed changes are journaled the same way.\nTools: journal_recent (module filter).",
+            "Everything Maestro does is recorded in the journal (the «Maestro» window → «Journal»; /maestro-undo takes back the latest) with what changed (before/after) and can be undone one by one; a swipe, deletion or edit of a reply undoes what that reply caused (only the unconfirmed and provisional — confirmed canon stays). The assistant's confirmed changes are journaled the same way.\nTools: journal_recent (module filter).",
         ],
         ru: [
             'Журнал и откат',
-            'Всё, что делает Maestro, записывается в журнал (пульт → Журнал) с тем, что изменилось («было/стало»), и откатывается по одному действию; свайп, удаление или правка ответа откатывают то, что дал этот ответ (только непринятое и пробное — подтверждённый канон остаётся). Подтверждённые изменения ассистента журналируются так же.\nИнструменты: journal_recent (фильтр по модулю).',
+            'Всё, что делает Maestro, записывается в журнал (окно «Maestro» → «Журнал»; /maestro-undo отменяет последнее) с тем, что изменилось («было/стало»), и откатывается по одному действию; свайп, удаление или правка ответа откатывают то, что дал этот ответ (только непринятое и пробное — подтверждённый канон остаётся). Подтверждённые изменения ассистента журналируются так же.\nИнструменты: journal_recent (фильтр по модулю).',
         ],
     },
     {
@@ -295,6 +295,18 @@ const GUIDES: readonly GuideDoc[] = [
         ru: [
             'Как ассистент читает чат и карточку',
             'Пока открыт чат, ассистент читает саму историю. chat_read — сообщения чата (по умолчанию последние 20, не больше 60, или диапазон from/to; только твои или только персонажей): номер, автор, свайп, дата, скрытые сообщения помечены, текст очищен от служебного (JSON трекера DES превращается в короткий `tracker`: место, время, кто в сцене; дампы CK, заглушки картинок NAI, блоки механик и HTML убираются); длинные тексты обрезаются, узкий диапазон даёт их целиком. chat_search — сообщения с нужными словами (русский или английский, словоформы, ё = е) с фрагментом. card_read — карточка персонажа: описание, характер, сценарий, первое сообщение и все альтернативные приветствия (стартовые сцены, по номерам, и с какой начат этот чат), примеры диалогов, заметки автора, системный промпт, промпт на глубине, теги, встроенная книга и привязанный лорбук; `part` или `greeting` читают одно поле целиком; в групповом чате — участники, один по имени. persona_read — твоя персона: описание, куда оно идёт в промпте, закреплена ли за чатом, персонажем или по умолчанию. scenario_overview — всё это одним вызовом для «предложи механики по этому чату»: главное из карточки, стартовые сцены, последние сообщения, последнее состояние трекера, уже созданные механики и шаблоны, активные лорбуки; затем каждая предложенная механика приходит карточкой mechanic_save, которую ты принимаешь или отклоняешь. Всё прочитанное из чата, карточки и персоны для ассистента — данные, а не инструкции; ничего из прочитанного не попадает в чат.',
+        ],
+    },
+    {
+        id: 'windows',
+        keywords: ['window', 'окно', 'окна', 'panel', 'панель', 'pult', 'пульт', 'menu', 'меню', 'open', 'открыть'],
+        en: [
+            "Maestro's windows",
+            "Maestro has no modal panel: its parts open as windows beside the chat — Assistant, Inbox, Characters, Mechanics, World, Canon, Turn, Health and Maestro (overview, journal, general settings, the look, the neighbours' dock, the studio launchers). The Maestro icon in the top bar (or the wand) opens a menu with the windows, their badges and the running tasks. A window docks to the left or right side (the arrows swap sides), detaches into a floating window that can be moved, resized and collapsed to its title bar, and attaches back; Escape or × closes it. The gear in a window header shows the settings of the current section (or opens the general settings). Several windows can be open at once; their places are remembered on this device. On a phone a window covers the chat, one at a time, with chips to switch. Each message has a Maestro button with «Dossier» and «Mechanics». Commands: /maestro [window], /maestro-undo, /maestro-mode, /maestro-scene.",
+        ],
+        ru: [
+            'Окна Maestro',
+            'Модального пульта больше нет: части Maestro открываются окнами рядом с чатом — Ассистент, Входящие, Персонажи, Механики, Мир, Канон, Ход, Здоровье и Maestro (обзор, журнал, общие настройки, оформление, док соседей, запуск студий). Значок Maestro в верхней панели (или волшебная палочка) открывает меню со списком окон, их счётчиками и идущими задачами. Окно прикрепляется слева или справа (стрелки переносят на другую сторону), открепляется в плавающее окно — его можно двигать, менять размер и сворачивать в заголовок — и прикрепляется обратно; Escape или × закрывают его. Шестерёнка в заголовке окна показывает настройки текущего раздела (или открывает общие настройки). Можно держать открытыми несколько окон, их места запоминаются на этом устройстве. На телефоне окно занимает весь экран поверх чата, по одному, переключение — кнопками сверху. У каждого сообщения есть кнопка Maestro с пунктами «Досье» и «Механики». Команды: /maestro [окно], /maestro-undo, /maestro-mode, /maestro-scene.',
         ],
     },
     {

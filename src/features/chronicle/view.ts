@@ -2,7 +2,7 @@
 // marked «remember» with the reasons, the recap settings with «Показать сейчас», and the module switches. Cards
 // instead of a table: they wrap on phones.
 import type { PultTab, Unsubscribe } from '../../shared/contracts';
-import { badge, banner, card, emptyState, section } from '../../ui/components/card';
+import { badge, banner, card, emptyState, section, moduleSettingsSection } from '../../ui/components/card';
 import { field, numberInput, select, toggle } from '../../ui/components/controls';
 import { button, clear, el } from '../../ui/components/dom';
 import { coalesce } from '../../ui/views/format';
@@ -197,7 +197,7 @@ export function chronicleTab(deps: ChronicleTabDeps): PultTab {
     };
 
     const settingsSection = (settings: ChronicleSettings): HTMLElement =>
-        section(t('m9.settings.title'), [
+        moduleSettingsSection(t('m9.settings.title'), [
             toggle({
                 label: t('m9.settings.chapters'),
                 hint: t('m9.settings.chaptersHint'),

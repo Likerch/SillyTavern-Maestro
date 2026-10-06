@@ -12,7 +12,7 @@ This file is the contract for everyone writing Maestro code (humans and agents).
 | `src/host/` | the only door to SillyTavern: context, events with ordering, runtime imports of ST modules, capabilities, fetch gate | `shared`, `domain` |
 | `src/core/` | services: settings, i18n, logger, files, chat store, leader, tasks, user jobs, LLM client, cost, journal, autonomy, inbox, ephemeral, bus, turn pipeline | `shared`, `domain`, `host` |
 | `src/adapters/<id>/` | one neighbour extension each (des, desru, ck, bunnymo, qvink, nai, localizer, preset) | `shared`, `domain`, `host`, `core` |
-| `src/ui/` | generic components, pult shell, styles | `shared`, `domain`, `host`, `core` |
+| `src/ui/` | generic components, the windows shell (side panels, floating windows, menu), styles | `shared`, `domain`, `host`, `core` |
 | `src/features/<key>/` | modules M1–M35 | everything except `app` |
 | `src/app/` | wiring: builds the `App`, registers modules, lifecycle | everything |
 
@@ -61,6 +61,15 @@ Rules:
   proposals that read badly after «Сделал:» an `appliedNotice` in the past tense.
 - Ephemeral prompt changes (flags, injections) go through `app.ephemeral`; they are cleared after every
   generation.
+- Windows (plan-2 §10, src/ui/windows): there is no modal pult. A module adds a section with `app.ui.addTab(tab)`
+  (`PultTab.group` or the central map in src/ui/views/pult-groups.ts decides its window: Ассистент, Входящие,
+  Персонажи, Механики, Мир, Канон, Ход, Здоровье, else «Maestro»), or a window of its own with
+  `own(app.ui.addWindow({ id, titleKey, icon, order, render(container, ctx), canClose?, hidden?, defaultDock? }))`
+  (the studios). Sections render lazily and must give back what they borrow in their cleanup (it runs when the section
+  is switched, hidden, collapsed or closed). `openPult(tab)` opens the tab's window on that section; `closePult()`
+  only makes room for the chat (closes the visible window on a phone); close a window with `closeWindow(id)`. A
+  module's own settings inside its section go into `moduleSettingsSection()` (components/card.ts): the window's gear
+  shows them.
 - Long jobs the user starts himself (localize a book …) run through `app.jobs` (core/jobs.ts): one job per key,
   progress and «Stop», visible in the Tasks tab and as a ring on the top-bar icon; the view that started it draws
   its state from the job, so closing and reopening it loses nothing. Background work stays in `app.tasks`.

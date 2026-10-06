@@ -61,7 +61,7 @@ describe('settings sections', () => {
         expect(look.state.renders).toBe(1);
     });
 
-    it('disposes section renders on re-render and when the tab closes', () => {
+    it('disposes section renders on re-render, on a section switch and when the window closes', () => {
         const look = section('look', 20);
         ui.addSettingsSection(look.entry);
         ui.openPult('settings');
@@ -70,7 +70,7 @@ describe('settings sections', () => {
         ui.openPult('overview');
         expect(look.state).toEqual({ renders: 2, disposed: 2 });
         ui.openPult('settings');
-        ui.closePult();
+        ui.closeWindow(ui.windowOfTab('settings')!);
         expect(look.state).toEqual({ renders: 3, disposed: 3 });
     });
 

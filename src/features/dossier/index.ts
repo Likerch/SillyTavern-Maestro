@@ -109,6 +109,7 @@ export const dossierModule: MaestroModule<DossierSettings> = {
             spread: (edit) => service.spread(edit),
             open: (entityId) => service.open(entityId),
             onChange: (listener) => service.onChange(listener),
+            openByName: (name) => !!name.trim() && service.openNamed(name) !== null,
         };
         app.modules.expose(DOSSIER_KEY, api);
 
@@ -122,10 +123,10 @@ export const dossierModule: MaestroModule<DossierSettings> = {
                 callback: (_args, value) => {
                     const name = String(value ?? '').trim();
                     if (!name) {
-                        service.openByName('');
+                        service.openNamed('');
                         return '';
                     }
-                    return service.openByName(name) ? '' : app.i18n.t('m7.slash.notFound', { name });
+                    return service.openNamed(name) ? '' : app.i18n.t('m7.slash.notFound', { name });
                 },
             }),
         );

@@ -13,7 +13,7 @@ import {
 } from '../../domain/lore-inspector';
 import type { InspectorSource, SourceComparison, SourceText } from '../../domain/lore-inspector';
 import type { App, PultTab } from '../../shared/contracts';
-import { badge, banner, emptyState, section } from '../../ui/components/card';
+import { badge, banner, emptyState, MODULE_SETTINGS_CLASS, section } from '../../ui/components/card';
 import { field, numberInput, select, toggle } from '../../ui/components/controls';
 import { button, clear, el } from '../../ui/components/dom';
 import type { Child } from '../../ui/components/dom';
@@ -410,7 +410,7 @@ export function promptTab(app: App, inspector: Inspector, settings: InspectorSet
             };
 
             const settingsView = (): HTMLElement =>
-                el('details', { class: 'maestro-m2-details' }, [
+                el('details', { class: ['maestro-m2-details', MODULE_SETTINGS_CLASS] }, [
                     el('summary', { text: t('m2.settings.title') }),
                     field(
                         t('m2.settings.keepTurns'),

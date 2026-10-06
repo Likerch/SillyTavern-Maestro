@@ -1,13 +1,16 @@
-// Maestro's UI shell: pult (tabs registry), entry points, notices, confirmations, message badges, styles,
-// slash commands, health checks and the first-run wizard. Core views are registered by app.ts after mount().
+// Maestro's UI shell: windows (plan-2 §10; the pult tabs became their sections), the Maestro menu and entry points,
+// notices, confirmations, message badges and the message button, styles, slash commands, health checks and the
+// first-run wizard. Core views are registered by app.ts after mount().
 import type {
     HealthCheck,
     Host,
     I18n,
     Logger,
+    MaestroWindowSpec,
     NoticeImportance,
     NoticeOptions,
     NotifyLevel,
+    OpenWindowOptions,
     PultTab,
     SettingsSection,
     SettingsService,
@@ -18,13 +21,14 @@ import type {
 } from '../shared/contracts';
 import { detailsView } from './components/diff';
 import { el, prefersReducedMotion, setButtonErrorHandler } from './components/dom';
+import { coreCommands } from './views/core-commands';
 import { EntryPoints } from './views/entry-points';
 import { healthTab } from './views/health';
 import { inboxTab } from './views/inbox';
 import { journalTab } from './views/journal';
 import { MessageBadges } from './views/message-badges';
+import { MessageButtons } from './views/message-button';
 import { overviewTab } from './views/overview';
-import { Pult } from './views/pult';
 import { onRegistryChange } from './views/registries';
 import { settingsTab } from './views/settings';
 import { SlashCommands } from './views/slash-commands';
@@ -32,10 +36,23 @@ import { UI_STRINGS } from './views/strings';
 import { tasksTab } from './views/tasks';
 import type { CoreViewDeps, NoticeEntry, NoticeLevel, Shell } from './views/types';
 import { Wizard } from './views/wizard';
+import { BUILTIN_WINDOWS } from './windows/builtin';
+import { MainMenu } from './windows/main-menu';
+import { WindowManager } from './windows/manager';
+import { FloatingMenu } from './windows/menu';
+import type { MenuItem } from './windows/menu';
+import { MAESTRO_WINDOW, TabRegistry } from './windows/sections';
 
 export { registerProfileTask, registerSettingsAction } from './views/registries';
 export type { SettingsAction } from './views/registries';
 export type { CoreViewDeps } from './views/types';
+export { MAESTRO_WINDOW } from './windows/sections';
+
+/** What the message menu needs from the dossier module (its api.ts, duck-typed: ui does not import features). */
+interface DossierOpener {
+    open?(entityId: string): void;
+    openByName?(name: string): boolean;
+}
 
 export interface UiDeps {
     host: Host;
@@ -52,8 +69,15 @@ export interface UiImpl extends Ui {
     addSlashCommand(command: SlashCommandSpec): Unsubscribe;
     closePult(): void;
     addSettingsSection(section: SettingsSection): Unsubscribe;
+    addWindow(spec: MaestroWindowSpec): Unsubscribe;
+    openWindow(id: string, options?: OpenWindowOptions): void;
+    closeWindow(id: string): void;
+    isWindowOpen(id: string): boolean;
+    windowOfTab(tabId: string): string | undefined;
     /** Opens the first-run wizard if it has not been completed (also runs by itself after APP_READY). */
     runFirstRunWizardIfNeeded(): boolean;
+    /** Re-opens the windows that were open on this device (app.ts, once, after the modules started). */
+    restoreWindows(): void;
 }
 
 const MAX_NOTICES = 50;
@@ -95,11 +119,17 @@ class MaestroUi implements UiImpl, Shell {
     readonly log: Logger;
     readonly i18n: I18n;
     private readonly settings: SettingsService;
-    private readonly pult: Pult;
+    private readonly tabs: TabRegistry;
+    private readonly windows: WindowManager;
+    private readonly menu: FloatingMenu;
+    private readonly mainMenu: MainMenu;
     private readonly wizard: Wizard;
     private readonly entries: EntryPoints;
     private readonly badges: MessageBadges;
+    private readonly messageButtons: MessageButtons;
     private readonly slash: SlashCommands;
+    /** Services of the core views (jobs, modules…), known after registerCoreViews. */
+    private coreDeps: CoreViewDeps | null = null;
     private readonly checks = new Map<string, HealthCheck>();
     private readonly sections = new Map<string, SettingsSection>();
     private readonly sectionListeners = new Set<() => void>();
@@ -124,11 +154,19 @@ class MaestroUi implements UiImpl, Shell {
         this.log = deps.log;
         this.i18n = deps.i18n;
         this.settings = deps.settings;
-        this.pult = new Pult({
-            host: this.host,
+        this.tabs = new TabRegistry(this.log);
+        this.windows = new WindowManager({
             i18n: this.i18n,
             log: this.log,
-            onBadgesChanged: () => this.updateBadges(),
+            tabs: this.tabs,
+            onChange: () => this.windowsChanged(),
+        });
+        this.menu = new FloatingMenu(this.log);
+        this.mainMenu = new MainMenu({
+            i18n: this.i18n,
+            windows: this.windows,
+            menu: this.menu,
+            jobs: () => this.coreDeps?.jobs,
         });
         this.wizard = new Wizard({
             host: this.host,
@@ -139,8 +177,22 @@ class MaestroUi implements UiImpl, Shell {
                 if (!skipped) this.notice(this.i18n.t('ui.wizard.finished'), { level: 'info' });
             },
         });
-        this.entries = new EntryPoints({ i18n: this.i18n, log: this.log, open: () => this.openPult() });
+        this.entries = new EntryPoints({
+            i18n: this.i18n,
+            log: this.log,
+            menu: (anchor) => {
+                if (!this.disposed) this.mainMenu.toggle(anchor);
+            },
+            openMain: () => this.openWindow(MAESTRO_WINDOW),
+        });
         this.badges = new MessageBadges(this.host, this.log);
+        this.messageButtons = new MessageButtons({
+            host: this.host,
+            i18n: this.i18n,
+            log: this.log,
+            menu: this.menu,
+            items: (index) => this.messageMenu(index),
+        });
         this.slash = new SlashCommands(this.host, this.i18n, this.log);
         setButtonErrorHandler((error) => {
             this.log.error('action failed', error);
@@ -149,6 +201,8 @@ class MaestroUi implements UiImpl, Shell {
                 { level: 'error' },
             );
         });
+        // Last: adding a window reports back through windowsChanged(), which needs the entry points.
+        for (const spec of BUILTIN_WINDOWS) this.windows.add(spec);
     }
 
     /* ---------------------------------------------------------------- lifecycle */
@@ -157,11 +211,13 @@ class MaestroUi implements UiImpl, Shell {
         if (this.mounted || this.disposed) return;
         this.mounted = true;
         this.entries.mount();
+        this.messageButtons.mount();
         this.updateBadges();
         for (const event of TURN_EVENTS) this.listen(event, () => this.nextTurn());
         this.listen('APP_READY', () => {
             // ST builds some containers late; and APP_READY auto-fires for late listeners (lib/eventemitter.js).
             this.entries.mount();
+            this.messageButtons.mount();
             this.updateBadges();
             if (this.wizardTimer === null && !this.wizardChecked && !this.settings.core().firstRunDone) {
                 this.wizardTimer = setTimeout(() => {
@@ -174,6 +230,7 @@ class MaestroUi implements UiImpl, Shell {
 
     registerCoreViews(deps: CoreViewDeps): void {
         for (const unsubscribe of this.coreTabs.splice(0)) unsubscribe();
+        this.coreDeps = deps;
         const env = { ...deps, shell: this as Shell };
         for (const tab of [
             overviewTab(env),
@@ -190,9 +247,30 @@ class MaestroUi implements UiImpl, Shell {
         if (jobs) {
             this.entries.setJobs(jobs.list());
             this.coreTabs.push(
-                jobs.on(() => this.entries.setJobs(jobs.list())),
+                jobs.on(() => {
+                    this.entries.setJobs(jobs.list());
+                    this.mainMenu.refresh();
+                }),
                 () => this.entries.setJobs([]),
             );
+        }
+        for (const command of coreCommands({
+            i18n: this.i18n,
+            log: this.log,
+            settings: this.settings,
+            journal: deps.journal,
+            windows: this.windows,
+            tabs: this.tabs,
+            notice: (text, options) => this.notice(text, options),
+            confirm: (title, body, options) => this.confirm(title, body, options),
+            openMenu: () => {
+                const anchor = this.entries.topAnchor();
+                if (!anchor) return false;
+                this.mainMenu.open(anchor);
+                return true;
+            },
+        })) {
+            this.coreTabs.push(this.addSlashCommand(command));
         }
     }
 
@@ -209,9 +287,12 @@ class MaestroUi implements UiImpl, Shell {
             }
         }
         this.wizard.dispose();
-        this.pult.dispose();
+        this.menu.dispose();
+        this.windows.dispose();
+        this.tabs.clear();
         this.entries.dispose();
         this.badges.dispose();
+        this.messageButtons.dispose();
         this.slash.dispose();
         for (const node of this.styles.values()) node.remove();
         this.styles.clear();
@@ -221,12 +302,41 @@ class MaestroUi implements UiImpl, Shell {
         this.noticeList.length = 0;
         this.noticeGroups.clear();
         this.toasts.clear();
+        this.coreDeps = null;
     }
 
     /* ---------------------------------------------------------------- Ui contract */
 
     addTab(tab: PultTab): Unsubscribe {
-        return this.pult.add(tab);
+        if (this.disposed) return () => {};
+        return this.tabs.add(tab);
+    }
+
+    addWindow(spec: MaestroWindowSpec): Unsubscribe {
+        if (this.disposed) return () => {};
+        return this.windows.add(spec);
+    }
+
+    openWindow(id: string, options?: OpenWindowOptions): void {
+        if (this.disposed) return;
+        this.menu.close();
+        this.windows.open(id, options);
+    }
+
+    closeWindow(id: string): void {
+        this.windows.close(id);
+    }
+
+    isWindowOpen(id: string): boolean {
+        return this.windows.isOpen(id);
+    }
+
+    windowOfTab(tabId: string): string | undefined {
+        return this.windows.windowOfTab(tabId);
+    }
+
+    restoreWindows(): void {
+        if (!this.disposed) this.windows.restore();
     }
 
     addHealthCheck(check: HealthCheck): Unsubscribe {
@@ -245,18 +355,21 @@ class MaestroUi implements UiImpl, Shell {
         return this.slash.add(command);
     }
 
+    /** The pult is gone (plan-2 §10): opens the window that shows the tab, on that section. */
     openPult(tabId?: string): void {
         if (this.disposed) return;
-        this.pult.open(tabId);
+        this.menu.close();
+        this.windows.openTab(tabId);
     }
 
+    /** Makes room for the chat: on a phone the visible window closes; desktop windows do not cover the chat. */
     closePult(): void {
-        this.pult.close();
+        this.menu.close();
+        this.windows.yieldToChat();
     }
 
     refresh(): void {
-        this.updateBadges();
-        this.pult.rerender();
+        this.windows.refresh();
     }
 
     notice(text: string, options: NoticeOptions = {}): void {
@@ -291,7 +404,7 @@ class MaestroUi implements UiImpl, Shell {
         }
         if (passesLevel(entry.importance, this.settings.core().notifyLevel)) this.toast(entry);
         this.updateBadges();
-        if (this.pult.activeTab() === 'overview') this.pult.rerender();
+        this.windows.rerenderTab('overview');
     }
 
     async confirm(title: string, body: string | HTMLElement, options: { details?: string } = {}): Promise<boolean> {
@@ -358,9 +471,8 @@ class MaestroUi implements UiImpl, Shell {
     /* ---------------------------------------------------------------- Shell (for views) */
 
     updateBadges(): void {
-        this.pult.updateBadges();
-        const urgent = this.noticeList.some((entry) => entry.urgent && !entry.seen);
-        this.entries.setBadge(this.pult.totalBadge(), urgent);
+        // The window manager calls back windowsChanged(), which sets the top-bar badge and the open menu.
+        this.windows.updateBadges();
     }
 
     notices(): readonly NoticeEntry[] {
@@ -403,7 +515,7 @@ class MaestroUi implements UiImpl, Shell {
     }
 
     scrollToMessage(index: number): void {
-        this.pult.close();
+        this.closePult();
         const node = document.querySelector<HTMLElement>(`#chat .mes[mesid="${index}"]`);
         if (node) {
             this.flash(node);
@@ -422,8 +534,10 @@ class MaestroUi implements UiImpl, Shell {
     }
 
     relocalize(): void {
+        this.menu.close();
         this.entries.relocalize();
-        this.pult.relocalize();
+        this.messageButtons.relocalize();
+        this.windows.relocalize();
     }
 
     onRegistryChange(listener: () => void): Unsubscribe {
@@ -440,6 +554,60 @@ class MaestroUi implements UiImpl, Shell {
     }
 
     /* ---------------------------------------------------------------- internals */
+
+    /** Windows, sections or badges changed: the top-bar badge and the open Maestro menu follow. */
+    private windowsChanged(): void {
+        const urgent = this.noticeList.some((entry) => entry.urgent && !entry.seen);
+        this.entries.setBadge(this.tabs.totalBadge(), urgent);
+        this.mainMenu.refresh();
+    }
+
+    /** The menu of a message's Maestro button: the speaker's dossier, the mechanics window. */
+    private messageMenu(index: number): MenuItem[] {
+        const t = this.i18n.t.bind(this.i18n);
+        const items: MenuItem[] = [];
+        let message: STChatMessage | undefined;
+        try {
+            message = this.host.ctx().chat?.[index];
+        } catch (error) {
+            this.log.debug('message menu: no chat', error);
+        }
+        const name = typeof message?.name === 'string' ? message.name.trim() : '';
+        const dossier = this.coreDeps?.modules.api<DossierOpener>('dossier');
+        if (message && !message.is_user && !message.is_system && name && dossier) {
+            items.push({
+                id: 'dossier',
+                label: t('ui.mesButton.dossier', { name }),
+                icon: 'fa-address-card',
+                run: () => this.openDossier(dossier, name),
+            });
+        }
+        if (this.windows.sections('mechanics').length) {
+            items.push({
+                id: 'mechanics',
+                label: t('ui.mesButton.mechanics'),
+                icon: 'fa-dice-d20',
+                run: () => this.openWindow('mechanics', { params: { messageIndex: index } }),
+            });
+        }
+        if (!items.length) {
+            items.push({
+                id: 'maestro',
+                label: t('ui.mesButton.maestro'),
+                icon: 'fa-wand-magic-sparkles',
+                run: () => this.openWindow(MAESTRO_WINDOW),
+            });
+        }
+        return items;
+    }
+
+    private openDossier(dossier: DossierOpener, name: string): void {
+        if (typeof dossier.openByName === 'function') {
+            if (dossier.openByName(name)) return;
+            this.notice(this.i18n.t('ui.mesButton.noDossier', { name }), { level: 'info', importance: 'urgent' });
+        }
+        this.openPult('dossier');
+    }
 
     private sectionsChanged(): void {
         for (const listener of [...this.sectionListeners]) {

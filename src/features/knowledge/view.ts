@@ -4,7 +4,7 @@
 import { knows, MAX_MAX_FACTS, MIN_MAX_FACTS } from '../../domain/knowledge-facts';
 import { recentStoryText } from '../../domain/knowledge-match';
 import type { App, PultTab } from '../../shared/contracts';
-import { badge, banner, card, emptyState, section } from '../../ui/components/card';
+import { badge, banner, card, emptyState, section, moduleSettingsSection } from '../../ui/components/card';
 import { field, numberInput, select, toggle } from '../../ui/components/controls';
 import { clear, el } from '../../ui/components/dom';
 import { coalesce } from '../../ui/views/format';
@@ -197,7 +197,7 @@ export function knowledgeTab(app: App, service: KnowledgeService): PultTab {
                     app.settings.notify(path);
                     draw();
                 };
-                return section(t('m18.settings.title'), [
+                return moduleSettingsSection(t('m18.settings.title'), [
                     field(
                         t('m18.settings.maxFacts'),
                         numberInput({

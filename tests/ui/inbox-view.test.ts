@@ -11,7 +11,7 @@ import { createUi } from '../../src/ui';
 import type { UiImpl } from '../../src/ui';
 import { cardMeta, groupByEntity } from '../../src/ui/views/inbox';
 import { resetRegistries } from '../../src/ui/views/registries';
-import { buildStDom, installUiEnv } from '../helpers/ui-env';
+import { buildStDom, frontBody, installUiEnv } from '../helpers/ui-env';
 import type { UiTestEnv } from '../helpers/ui-env';
 import { coreFakes, fakeAutonomy, FakeInbox, FakeModules, inboxCard } from '../helpers/ui-fakes';
 import type { CoreFakes } from '../helpers/ui-fakes';
@@ -46,7 +46,7 @@ let env: UiTestEnv;
 let ui: UiImpl | undefined;
 let fakes: CoreFakes & { inbox: EditingInbox };
 
-const body = () => document.querySelector<HTMLElement>('.maestro-pult-body')!;
+const body = () => frontBody()!;
 const buttonByText = (text: string, root: ParentNode = document) =>
     [...root.querySelectorAll<HTMLButtonElement>('button')].find((node) => node.textContent?.trim() === text);
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0));

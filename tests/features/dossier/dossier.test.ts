@@ -931,6 +931,13 @@ describe('module', () => {
         expect(env.opened).toEqual(['dossier', 'dossier']);
         api.open('persona:алекс');
         expect(seen.at(-1)).toBe('persona:алекс');
+        // The message button «Досье» (plan-2 §10): by the speaker's name; nobody → false, nothing opened.
+        expect(api.openByName?.('Лисичка')).toBe(true);
+        expect(seen.at(-1)).toBe(LYRA_ID);
+        const opened = env.opened.length;
+        expect(api.openByName?.('Никто')).toBe(false);
+        expect(api.openByName?.('  ')).toBe(false);
+        expect(env.opened).toHaveLength(opened);
     });
 
     it('refreshes the open dossier when NAI Studio saves passports', async () => {

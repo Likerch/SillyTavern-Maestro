@@ -41,6 +41,26 @@ export function section(title: string, children: Child | Child[], actions?: Chil
     ]);
 }
 
+/**
+ * Marks a module's own settings inside its tab (plan-2 §10 п.4): in a window they stay hidden until the gear in the
+ * window header shows them.
+ */
+export const MODULE_SETTINGS_CLASS = 'maestro-module-settings';
+
+export function moduleSettings<T extends HTMLElement>(node: T): T {
+    node.classList.add(MODULE_SETTINGS_CLASS);
+    return node;
+}
+
+/** A section with a module's own settings (shown in a window by its gear). */
+export function moduleSettingsSection(
+    title: string,
+    children: Child | Child[],
+    actions?: Child | Child[],
+): HTMLElement {
+    return moduleSettings(section(title, children, actions));
+}
+
 export function emptyState(text: string, iconName = 'fa-circle-check'): HTMLElement {
     return el('div', { class: 'maestro-empty' }, [icon(iconName), el('span', { text })]);
 }

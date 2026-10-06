@@ -1,4 +1,5 @@
-// The Preset Studio window (M34, stage 5): one large ST Popup, full screen on phones (≤1000px). Header: the preset
+// The Preset Studio window (M34, stage 5): a Maestro window (plan-2 §10: non-modal, floating and large by default,
+// full screen on phones ≤1000px; registered by the module as 'presetStudio', this class renders its body). Header: the preset
 // select (a switch with unsaved edits asks «Сохранить / Отбросить / Отмена» first — ST would drop them silently,
 // P-073), Save (into the user's layer when there is one), «Сохранить базу», Save as, Rename, Delete, Import, Export,
 // «Классический редактор». Tabs: Карта, Блоки, Анализ, Условия, Слой, Версии, Параметры; the block editor is a side panel
@@ -36,8 +37,9 @@ import { anchorFor, moveItem, moveOps, sameOrder } from '../../domain/preset-ui-
 import { stableHash } from '../../domain/hash';
 import { tabs } from '../../ui/components/tabs';
 import type { TabsHandle } from '../../ui/components/tabs';
-import { append, button, el, icon, prefersReducedMotion } from '../../ui/components/dom';
-import type { App, Logger, Unsubscribe } from '../../shared/contracts';
+import { banner } from '../../ui/components/card';
+import { append, button, el } from '../../ui/components/dom';
+import type { App, Logger, MaestroWindowSpec, Unsubscribe } from '../../shared/contracts';
 import type { MapSlot, PresetAnalysisApi, PresetFinding, ProviderHint } from './analysis-api';
 import { Dialogs, downloadJson } from './dialogs';
 import type { LayerApplyReport, LayerConflict, LayerOp, PresetLayerApi } from './layer-api';
@@ -342,10 +344,26 @@ export interface StudioDeps {
     showClassic(): void;
 }
 
-interface PopupHandle {
-    show(): Promise<unknown>;
-    completeCancelled(): Promise<unknown>;
-    dlg: HTMLDialogElement;
+/** Id of the studio's Maestro window (also the id of its launcher tab in the «Maestro» window). */
+export const PRESET_STUDIO_WINDOW = 'presetStudio';
+
+/**
+ * The studio's window (plan-2 §10): non-modal, floating and large the first time (full screen on phones), hidden from
+ * the window list (opened by studio.open(), the launchers and the Maestro menu). The assistant can stay open beside it.
+ */
+export function presetStudioWindow(studio: PresetStudio): MaestroWindowSpec {
+    return {
+        id: PRESET_STUDIO_WINDOW,
+        titleKey: 'm34.title',
+        icon: 'fa-sliders',
+        order: 210,
+        hidden: true,
+        defaultDock: 'float',
+        defaultWidth: 1400,
+        defaultHeight: 900,
+        render: (container) => studio.mount(container),
+        canClose: () => studio.canClose(),
+    };
 }
 
 const REFRESH_DELAY_MS = 40;
@@ -364,7 +382,6 @@ export class PresetStudio {
     private readonly dialogs: Dialogs;
     readonly router: EditRouter;
     private readonly started = new Set<string>();
-    private popup: PopupHandle | null = null;
     private closing: { allowed: boolean } | null = null;
     private root: HTMLElement | null = null;
     private header: HTMLElement | null = null;
@@ -421,7 +438,7 @@ export class PresetStudio {
     }
 
     isOpen(): boolean {
-        return this.popup !== null;
+        return this.root !== null;
     }
 
     currentTab(): StudioTab {
@@ -430,52 +447,73 @@ export class PresetStudio {
 
     /* ---------------------------------------------------------------- open, close */
 
-    /** Opens the window (on a block when given: identifier or name); a second call just switches to it. */
+    /** Opens the window (on a block when given: identifier or name); a second call brings it forward and switches. */
     open(identifier?: string): void {
         if (!this.app.host.isChatCompletion()) {
             this.app.ui.notice(this.t('m34.error.textCompletion'), { urgent: true, level: 'warn' });
             return;
         }
-        const store = this.store();
-        if (!store) {
+        if (!this.store()) {
             this.app.ui.notice(this.t('m34.error.noStore'), { urgent: true, level: 'error' });
             return;
         }
-        if (!this.popup) {
-            const ctx = this.app.host.ctx();
-            if (typeof ctx.Popup !== 'function') {
-                this.deps.log.error('ST Popup is not available; cannot open the Preset Studio');
-                return;
-            }
-            this.root = this.buildChrome();
-            const closing = { allowed: false };
-            this.closing = closing;
-            const popup = new ctx.Popup(this.root, ctx.POPUP_TYPE.DISPLAY, '', {
-                wide: true,
-                large: true,
-                allowVerticalScrolling: false,
-                animation: prefersReducedMotion() ? 'none' : 'fast',
-                // Escape and ST's own close path: the block editor may keep the window open for unsaved edits.
-                onClosing: () => (closing.allowed ? true : this.canLeave()),
-            });
-            popup.dlg.classList.add('maestro-m34-dialog');
-            this.popup = popup;
-            this.offs.push(store.onChange((reason) => this.onStoreChange(reason)));
-            const layer = this.deps.services.layer();
-            if (layer) this.offs.push(layer.onChange(() => this.scheduleRefresh()));
-            void popup.show().then(
-                () => this.handleClosed(popup),
-                () => this.handleClosed(popup),
-            );
-            void this.deps.pm.load().then(() => this.scheduleRefresh());
+        if (typeof this.app.ui.openWindow !== 'function') {
+            this.deps.log.error('Maestro windows are not available; cannot open the Preset Studio');
+            return;
         }
+        const fresh = this.root === null;
+        // Mounts the body through mount() (the module's window spec) or brings the open window forward.
+        this.app.ui.openWindow(PRESET_STUDIO_WINDOW);
+        if (!this.root) return;
         const target = identifier ? this.resolveBlock(identifier) : null;
         if (target) {
             this.selectTab('blocks');
             void this.openEditor(target);
             return;
         }
+        if (!fresh) void this.render();
+    }
+
+    /**
+     * The window body (MaestroWindowSpec.render). Opened straight from the menu while the studio cannot work (Text
+     * Completion, no preset store) it explains why instead.
+     */
+    mount(container: HTMLElement): Unsubscribe {
+        if (this.root) this.handleClosed();
+        const store = this.store();
+        const unavailable = !this.app.host.isChatCompletion()
+            ? 'm34.error.textCompletion'
+            : !store
+              ? 'm34.error.noStore'
+              : null;
+        if (unavailable || !store) {
+            container.appendChild(
+                el('div', { class: 'maestro-m34-unavailable maestro-ui' }, [
+                    banner(this.t(unavailable ?? 'm34.error.noStore'), 'warn'),
+                ]),
+            );
+            return () => {};
+        }
+        this.closing = { allowed: false };
+        this.root = this.buildChrome();
+        container.appendChild(this.root);
+        this.offs.push(store.onChange((reason) => this.onStoreChange(reason)));
+        const layer = this.deps.services.layer();
+        if (layer) this.offs.push(layer.onChange(() => this.scheduleRefresh()));
+        void this.deps.pm.load().then(() => this.scheduleRefresh());
         void this.render();
+        const root = this.root;
+        return () => {
+            if (this.root === root) this.handleClosed();
+        };
+    }
+
+    /** The window's close guard (×, Escape): the block editor may keep it open for unsaved edits. */
+    canClose(): boolean | Promise<boolean> {
+        if (!this.root || this.closing?.allowed) return true;
+        // Nothing to ask (no editor with unsaved edits): close at once.
+        if (!this.editor || !this.editor.dirty()) return true;
+        return this.canLeave();
     }
 
     /** An identifier or a block name (the slash command takes either). */
@@ -506,7 +544,7 @@ export class PresetStudio {
     }
 
     async requestClose(): Promise<boolean> {
-        if (!this.popup) return true;
+        if (!this.root) return true;
         if (!(await this.canLeave())) return false;
         this.close();
         return true;
@@ -514,25 +552,25 @@ export class PresetStudio {
 
     /** Closes without asking (module disable, or after the guard agreed). */
     close(): void {
-        const popup = this.popup;
-        if (!popup) return;
+        if (!this.root) return;
         if (this.closing) this.closing.allowed = true;
-        this.handleClosed(popup);
-        void popup.completeCancelled().catch((error: unknown) => this.deps.log.debug('preset studio close', error));
+        this.app.ui.closeWindow?.(PRESET_STUDIO_WINDOW);
+        // No window manager (or the window is already gone): take the body down here.
+        if (this.root) this.handleClosed();
     }
 
     dispose(): void {
         this.close();
     }
 
-    private handleClosed(popup: PopupHandle): void {
-        if (this.popup !== popup) return;
+    private handleClosed(): void {
         this.disposeEditor();
         for (const off of this.offs.splice(0)) off();
         if (this.refreshTimer) clearTimeout(this.refreshTimer);
         this.refreshTimer = null;
-        this.popup = null;
+        this.root?.remove();
         this.root = null;
+        this.closing = null;
         this.header = null;
         this.pane = null;
         this.side = null;
@@ -598,7 +636,6 @@ export class PresetStudio {
         const hasLayer = !!layer && layer.get(current) !== null;
         header.replaceChildren();
         append(header, [
-            el('div', { class: 'maestro-m34-brand' }, [icon('fa-sliders'), el('h3', { text: this.t('m34.title') })]),
             select,
             draft.dirty
                 ? el('span', {
@@ -692,15 +729,7 @@ export class PresetStudio {
                         className: 'maestro-m34-classic',
                         onClick: () => this.openClassic(),
                     }),
-                    button({
-                        icon: 'fa-xmark',
-                        kind: 'ghost',
-                        title: this.t('m34.close'),
-                        className: 'maestro-m34-close',
-                        onClick: async () => {
-                            await this.requestClose();
-                        },
-                    }),
+                    // The window's header carries the title and the close button.
                 ],
             ),
         ]);
@@ -738,10 +767,10 @@ export class PresetStudio {
     }
 
     scheduleRefresh(): void {
-        if (this.refreshTimer || !this.popup) return;
+        if (this.refreshTimer || !this.root) return;
         this.refreshTimer = setTimeout(() => {
             this.refreshTimer = null;
-            if (this.popup) void this.render();
+            if (this.root) void this.render();
         }, REFRESH_DELAY_MS);
     }
 
@@ -872,7 +901,7 @@ export class PresetStudio {
             this.scheduleRefresh();
             return;
         }
-        if (!this.popup) return;
+        if (!this.root) return;
         if (kind === this.tab || (kind === 'map' && this.tab === 'blocks')) this.renderTab();
     }
 

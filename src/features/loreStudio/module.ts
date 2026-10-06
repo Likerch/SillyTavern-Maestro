@@ -10,7 +10,7 @@ import { StLore } from './st-lore';
 import { STORE_KEY, LoreStoreService, UNDO_BINDING, UNDO_BOOK, UNDO_ENTRY, UNDO_SETTINGS } from './store';
 import type { LoreStore } from './store-api';
 import { M23_STRINGS } from './strings';
-import { LoreStudio, defaultStudioSettings } from './studio';
+import { LoreStudio, defaultStudioSettings, loreStudioWindow } from './studio';
 import type { LoreStudioSettings } from './studio';
 import { M23_CSS } from './styles';
 import { ButtonTakeover } from './takeover';
@@ -113,6 +113,8 @@ export function createLoreStudioModule(renderForm: RenderEntryForm | null): Maes
                 }
             });
             own(app.ui.style('m23-lore-studio', M23_CSS));
+            // Plan-2 §10: the studio is a non-modal Maestro window.
+            if (typeof app.ui.addWindow === 'function') own(app.ui.addWindow(loreStudioWindow(studio)));
 
             const setTakeover = async (on: boolean): Promise<boolean> => {
                 settings.takeoverButton = on;

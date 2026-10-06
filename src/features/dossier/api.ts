@@ -68,4 +68,10 @@ export interface DossierApi {
     spread(edit: SpreadEdit): Promise<number>;
     open(entityId: string): void;
     onChange(listener: (entityId: string | null) => void): Unsubscribe;
+    // Addition of plan-2 §10 (optional so that fakes of the older contract stay valid).
+    /**
+     * Opens the dossier of whoever answers to this name (world model, else the fallback set) — the message button
+     * «Досье» of a speaker; false when nobody does (nothing is opened then).
+     */
+    openByName?(name: string): boolean;
 }

@@ -3,7 +3,7 @@
 // cost. Proposals themselves live in the Inbox tab.
 import { parseRejection } from '../../domain/revision-checks';
 import type { App, PultTab } from '../../shared/contracts';
-import { badge, emptyState, section } from '../../ui/components/card';
+import { badge, emptyState, section, moduleSettingsSection } from '../../ui/components/card';
 import { field, numberInput, toggle } from '../../ui/components/controls';
 import { append, button, clear, el } from '../../ui/components/dom';
 import { coalesce, formatTime, formatUsd, tOr } from '../../ui/views/format';
@@ -90,7 +90,7 @@ export function revisionTab(app: App, service: RevisionService): PultTab {
 
     const settingsView = (): HTMLElement => {
         const current = settings();
-        return section(t('m8.settings.title'), [
+        return moduleSettingsSection(t('m8.settings.title'), [
             field(
                 t('m8.settings.threshold'),
                 numberInput({

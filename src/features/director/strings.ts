@@ -34,6 +34,17 @@ export const DIRECTOR_STRINGS: I18nParts = {
         'm13.override.label': 'Scene type',
         'm13.override.auto': 'Automatic',
         'm13.override.hint': 'Your choice holds until you switch back to automatic.',
+        'm13.slash.help':
+            'Sets the scene type for the next turns (dialogue, combat, intimate, exploration, time skip, social, drama), or “auto” to let the director decide again. Without a value: names the current one.',
+        'm13.slash.type': 'scene type or “auto”',
+        'm13.slash.noChat': 'Open a chat first: the scene type is set per chat.',
+        'm13.slash.current': 'The scene now: {type} (the director decided). Types: {list}.',
+        'm13.slash.currentUser':
+            'The scene now: {type} (your choice). Types: {list}; “auto” gives it back to the director.',
+        'm13.slash.none': 'The scene type is not decided yet. Types: {list}.',
+        'm13.slash.unknown': 'There is no scene type “{name}”. Types: {list}, or “auto”.',
+        'm13.slash.set': 'Scene: {type}. It holds from the next reply until you switch back to automatic.',
+        'm13.slash.auto': 'The director picks the scene type again.',
         'm13.flags.title': 'Flags for the next generation',
         'm13.flags.hint':
             'One-shot chat variables for conditional preset blocks, for example {{if .maestro_scene_combat}}…{{/if}} (needs the new macro engine). Set right before the generation and cleared after it.',
@@ -150,6 +161,16 @@ export const DIRECTOR_STRINGS: I18nParts = {
         'm13.override.label': 'Тип сцены',
         'm13.override.auto': 'Автоматически',
         'm13.override.hint': 'Твой выбор держится, пока не вернёшь «Автоматически».',
+        'm13.slash.help':
+            'Задаёт тип сцены на следующие ходы (диалог, бой, интимная, исследование, пропуск времени, светская, драма) или «авто» — тогда снова решает режиссёр. Без значения — называет текущий.',
+        'm13.slash.type': 'тип сцены или «авто»',
+        'm13.slash.noChat': 'Сначала открой чат: тип сцены задаётся для чата.',
+        'm13.slash.current': 'Сейчас сцена: {type} (решил режиссёр). Типы: {list}.',
+        'm13.slash.currentUser': 'Сейчас сцена: {type} (твой выбор). Типы: {list}; «авто» вернёт выбор режиссёру.',
+        'm13.slash.none': 'Тип сцены пока не определён. Типы: {list}.',
+        'm13.slash.unknown': 'Типа сцены «{name}» нет. Есть: {list} или «авто».',
+        'm13.slash.set': 'Сцена: {type}. Держится со следующего ответа, пока не вернёшь «авто».',
+        'm13.slash.auto': 'Тип сцены снова выбирает режиссёр.',
         'm13.flags.title': 'Флаги на следующую генерацию',
         'm13.flags.hint':
             'Одноразовые переменные чата для условных блоков пресета, например {{if .maestro_scene_combat}}…{{/if}} (нужен новый движок макросов). Ставятся прямо перед генерацией и снимаются после неё.',

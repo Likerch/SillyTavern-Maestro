@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { directorModule } from '../../../src/features/director';
+import { sceneCommand, sceneOf } from '../../../src/features/director/command';
 import type { DirectorApi } from '../../../src/features/director';
 import { switchChat } from '../../helpers/core-host';
 import { createDirectorEnv, FAST, trackerMessage, userMessage } from './helpers';
@@ -261,5 +262,63 @@ describe('M13 director: module', () => {
         await env.reply(HARD_COMBAT);
         expect(await env.send('…')).toEqual({});
         expect(directorModule).toMatchObject({ id: 'M13', key: 'director', stage: 8, enabledByDefault: true });
+    });
+});
+
+describe('/maestro-scene (plan-2 §10)', () => {
+    it('reads scene types by id or by name in either language', () => {
+        expect(sceneOf('combat')).toBe('combat');
+        expect(sceneOf('Бой')).toBe('combat');
+        expect(sceneOf('бой и опасность')).toBe('combat');
+        expect(sceneOf('интим')).toBe('intimate');
+        expect(sceneOf('Time skip')).toBe('timeskip');
+        expect(sceneOf('«Драма»')).toBe('drama');
+        expect(sceneOf('авто')).toBeNull();
+        expect(sceneOf('auto')).toBeNull();
+        expect(sceneOf('пикник')).toBeUndefined();
+        expect(sceneOf('бо')).toBeUndefined();
+    });
+
+    it("sets the user's choice for the next turns, names it, and gives it back to the director", async () => {
+        await started();
+        const command = sceneCommand(env.app, env.service());
+        expect(command.name).toBe('maestro-scene');
+        expect(await command.callback({}, '')).toContain('The scene type is not decided yet.');
+        expect(await command.callback({}, 'драма')).toBe(
+            'Scene: Drama and conflict. It holds from the next reply until you switch back to automatic.',
+        );
+        expect(env.service().override()).toBe('drama');
+        expect(await command.callback({}, '')).toContain('The scene now: Drama and conflict (your choice).');
+        // Shown as a notice too: ST does not print a command's result.
+        expect(env.ui.notices.at(-1)?.options).toMatchObject({ importance: 'urgent' });
+        expect(await command.callback({}, 'пикник')).toContain('There is no scene type “пикник”.');
+        expect(env.service().override()).toBe('drama');
+        expect(await command.callback({}, 'auto')).toBe('The director picks the scene type again.');
+        expect(env.service().override()).toBeNull();
+    });
+
+    it('asks to open a chat first', async () => {
+        await started();
+        env.mock.chatId = undefined;
+        const command = sceneCommand(env.app, env.service());
+        expect(await command.callback({}, 'бой')).toBe('Open a chat first: the scene type is set per chat.');
+    });
+
+    it('is registered by the module', async () => {
+        const commands: string[] = [];
+        const add = env.ui.addSlashCommand;
+        env.ui.addSlashCommand = (spec) => {
+            commands.push(spec.name);
+            return add(spec);
+        };
+        const disposers: (() => void | Promise<void>)[] = [];
+        await directorModule.init({
+            app: env.app,
+            settings: env.settings(),
+            log: env.app.log,
+            own: (dispose) => disposers.push(dispose),
+        });
+        expect(commands).toEqual(['maestro-scene']);
+        for (const dispose of disposers.reverse()) await dispose();
     });
 });

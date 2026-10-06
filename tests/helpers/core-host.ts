@@ -2,6 +2,8 @@
 import { createI18n } from '../../src/core/i18n';
 import { CORE_STRINGS } from '../../src/core/strings';
 import type { Host, HostEvents, I18n, Logger, Ui, Unsubscribe } from '../../src/shared/contracts';
+import { WindowManager } from '../../src/ui/windows/manager';
+import { TabRegistry } from '../../src/ui/windows/sections';
 import { EVENT_TYPES } from './st-mock';
 import type { StMock } from './st-mock';
 
@@ -80,10 +82,35 @@ export interface FakeUi extends Ui {
     confirms: { title: string; body: string | HTMLElement }[];
     confirmOptions: ({ details?: string } | undefined)[];
     confirmAnswer: boolean;
+    /** Real window manager (plan-2 §10) behind addWindow/openWindow/closeWindow: the studios render into it. */
+    windows: WindowManager;
+}
+
+/** The window part of a fake Ui: a real WindowManager (plan-2 §10), so the studios can open in tests. */
+export function fakeWindows(): Required<
+    Pick<Ui, 'addWindow' | 'openWindow' | 'closeWindow' | 'isWindowOpen' | 'windowOfTab'>
+> & {
+    windows: WindowManager;
+} {
+    const windows = new WindowManager({
+        i18n: createI18n(() => 'en'),
+        log: createTestLogger(),
+        tabs: new TabRegistry(createTestLogger()),
+        onChange: () => {},
+    });
+    return {
+        windows,
+        addWindow: (spec) => windows.add(spec),
+        openWindow: (id, options) => windows.open(id, options),
+        closeWindow: (id) => windows.close(id),
+        isWindowOpen: (id) => windows.isOpen(id),
+        windowOfTab: (tabId) => windows.windowOfTab(tabId),
+    };
 }
 
 export function createFakeUi(): FakeUi {
     const ui: FakeUi = {
+        ...fakeWindows(),
         notices: [],
         badges: [],
         confirms: [],

@@ -2,7 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PmInfo } from '../../../src/features/presetStudio/launcher';
 import type { ScenariosApi } from '../../../src/features/scenarios/api';
-import { PresetStudio, baseHashOf, servicesOf } from '../../../src/features/presetStudio/studio';
+import { PresetStudio, baseHashOf, presetStudioWindow, servicesOf } from '../../../src/features/presetStudio/studio';
 import type { StudioTab } from '../../../src/features/presetStudio/studio';
 import { POPUP_RESULT } from '../../helpers/ui-env';
 import { CUSTOM, click, createStand, presetBody, q, qa, wait } from './ui-stand';
@@ -104,6 +104,7 @@ beforeEach(() => {
         pm: new PmInfo(s.app, s.app.log),
         showClassic: () => classic++,
     });
+    s.app.ui.addWindow!(presetStudioWindow(studio));
 });
 
 afterEach(() => {
@@ -113,7 +114,7 @@ afterEach(() => {
 describe('window and tabs', () => {
     it('opens a large dialog on the block list in PM order', async () => {
         await open();
-        expect(q('.popup.maestro-m34-dialog')).not.toBeNull();
+        expect(q('.maestro-window[data-window="presetStudio"].maestro-window-float .maestro-m34')).not.toBeNull();
         expect(rowIds()).toEqual(['main', 'charDescription', 'style', 'extra', 'chatHistory']);
         expect(row('extra').classList.contains('maestro-m34-off')).toBe(true);
         expect(q('.maestro-m34-count')?.textContent).toBe('On: 4 of 5');
@@ -175,12 +176,12 @@ describe('window and tabs', () => {
     it('refuses Text Completion and a missing store', async () => {
         s.lore.app.host.isChatCompletion = () => false;
         studio.open();
-        expect(q('.maestro-m34-dialog')).toBeNull();
+        expect(q('.maestro-window[data-window="presetStudio"]')).toBeNull();
         expect(s.notices.at(-1)?.text).toContain('Chat Completion');
         s.lore.app.host.isChatCompletion = () => true;
         s.app.modules.expose('presetStore', undefined);
         studio.open();
-        expect(q('.maestro-m34-dialog')).toBeNull();
+        expect(q('.maestro-window[data-window="presetStudio"]')).toBeNull();
     });
 
     it('opens on a block by identifier or name and goes to the classic editor', async () => {
@@ -405,11 +406,11 @@ describe('block editor guard', () => {
         await wait();
         input(q<HTMLInputElement>('.maestro-m34-f-name'), 'Style 2', 'input');
         s.answer(null);
-        click(q('.maestro-m34-close'));
+        click(q('.maestro-window[data-window="presetStudio"] .maestro-window-close'));
         await wait();
         expect(studio.isOpen()).toBe(true);
         s.answer(POPUP_RESULT.AFFIRMATIVE);
-        click(q('.maestro-m34-close'));
+        click(q('.maestro-window[data-window="presetStudio"] .maestro-window-close'));
         await wait();
         expect(s.store.called('updatePrompt')).toEqual([['style', { name: 'Style 2' }]]);
         expect(studio.isOpen()).toBe(false);

@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { DOCK_STRINGS, dockModule, NEIGHBOURS, SHORTCUTS } from '../../../src/features/dock';
-import { FakePopup } from '../../helpers/ui-env';
+import { openWindows, windowBody } from '../../helpers/ui-env';
 import { desBlock, snapshot, startDock } from './helpers';
 import type { DockEnv } from './helpers';
 
@@ -14,7 +14,7 @@ afterEach(async () => {
 });
 
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
-const body = () => document.querySelector<HTMLElement>('.maestro-pult-body')!;
+const body = () => windowBody('maestro')!;
 const slot = (id: string) => document.querySelector<HTMLElement>(`.maestro-m32d-slot[data-dock="${id}"]`);
 const card = (id: string) => slot(id)?.closest('section') ?? null;
 const keepToggle = (id: string) => {
@@ -40,7 +40,7 @@ describe('dock module', () => {
         dock = await startDock();
         dock.ui.openPult('extensions');
         expect(dockModule).toMatchObject({ id: 'M32d', key: 'dock', stage: 12, enabledByDefault: true });
-        const tab = document.querySelector<HTMLElement>('.maestro-tab[data-tab="extensions"]');
+        const tab = document.querySelector<HTMLElement>('.maestro-window-section[data-tab="extensions"]');
         expect(tab?.textContent).toContain('Расширения');
         expect(tab?.querySelector('.fa-puzzle-piece')).not.toBeNull();
         expect(body().dataset.tab).toBe('extensions');
@@ -81,28 +81,44 @@ describe('dock module', () => {
         expect(document.getElementById('dooms-portrait-bar-wrapper')?.parentElement?.id).toBe('form_sheld');
     });
 
-    it('closing the pult puts every block back at its exact position', async () => {
+    it('closing the window puts every block back at its exact position', async () => {
         document.body.innerHTML = '';
         dock = await startDock();
         const before = snapshot();
         dock.ui.openPult('extensions');
-        dock.ui.closePult();
+        dock.ui.closeWindow('maestro');
         expect(snapshot()).toEqual(before);
         expect(dock.api().docked()).toEqual([]);
     });
 
-    it("returns the blocks in ST's onClose, while the dialog is still in the document", async () => {
+    it('returns the blocks while the window is still in the document, and when it collapses', async () => {
         dock = await startDock();
         const before = snapshot();
         dock.ui.openPult('extensions');
-        const popup = FakePopup.instances[0]!;
-        expect(typeof popup.options.onClose).toBe('function');
-        expect(popup.dlg.isConnected).toBe(true);
-        (popup.options.onClose as () => void)();
+        const node = document.querySelector<HTMLElement>('.maestro-window[data-window="maestro"]')!;
+        const connected: boolean[] = [];
+        // Blocks go home through insertBefore on their old parent: record whether the window is still on the page.
+        const insert = Node.prototype.insertBefore;
+        const spy = vi.spyOn(Node.prototype, 'insertBefore').mockImplementation(function (this: Node, child, ref) {
+            connected.push(node.isConnected);
+            return insert.call(this, child, ref) as never;
+        });
+        dock.ui.closeWindow('maestro');
+        spy.mockRestore();
         expect(snapshot()).toEqual(before);
-        popup.close();
-        await flush();
+        // Every block went home before the window left the page.
+        expect(connected.length).toBeGreaterThan(0);
+        expect(connected.every(Boolean)).toBe(true);
+        // A collapsed window hides its section: the blocks go home; expanding docks them again.
+        dock.ui.openPult('extensions');
+        expect(dock.api().docked()).toHaveLength(6);
+        node.ownerDocument
+            .querySelector<HTMLElement>('.maestro-window[data-window="maestro"] .maestro-window-collapse')
+            ?.click();
+        expect(dock.api().docked()).toEqual([]);
         expect(snapshot()).toEqual(before);
+        document.querySelector<HTMLElement>('.maestro-window[data-window="maestro"] .maestro-window-collapse')?.click();
+        expect(dock.api().docked()).toHaveLength(6);
     });
 
     it('switching tabs and re-rendering return the blocks; reopening docks them again', async () => {
@@ -131,21 +147,21 @@ describe('dock module', () => {
         expect(dock.settings().keep.qvink).toBe(false);
         expect(document.getElementById('qvink_memory_settings')?.parentElement?.id).toBe('extensions_settings2');
         expect(card('qvink')?.textContent).toContain('Блок остаётся в панели расширений.');
-        dock.ui.closePult();
+        dock.ui.closeWindow('maestro');
         expect(snapshot()).toEqual(before);
         dock.ui.openPult('extensions');
         expect(slot('qvink')?.children).toHaveLength(0);
         expect(keepToggle('qvink').checked).toBe(false);
         setToggle(keepToggle('qvink'), true);
         expect(slot('qvink')?.firstElementChild?.id).toBe('qvink_memory_settings');
-        dock.ui.closePult();
+        dock.ui.closeWindow('maestro');
         expect(snapshot()).toEqual(before);
     });
 
     it("never changes the neighbours' settings", async () => {
         await open();
         setToggle(keepToggle('ck'), false);
-        dock!.ui.closePult();
+        dock!.ui.closeWindow('maestro');
         for (const [key, value] of Object.entries(dock!.neighbourSettings)) {
             expect(dock!.env.mock.extensionSettings[key], key).toEqual(value);
         }
@@ -172,7 +188,7 @@ describe('dock module', () => {
         expect(slot('desru')?.firstElementChild).toBe(fresh);
         expect(stale.isConnected).toBe(false);
         expect(document.querySelectorAll('#desru-settings')).toHaveLength(1);
-        dock.ui.closePult();
+        dock.ui.closeWindow('maestro');
         expect(document.querySelectorAll('#desru-settings')).toHaveLength(1);
         expect(fresh.parentElement?.id).toBe('extensions_settings2');
     });
@@ -184,7 +200,7 @@ describe('dock module', () => {
         document.getElementById('extensions_settings')!.appendChild(block);
         await flush();
         expect(card('nai')?.textContent).toContain('Расширение забрало свой блок');
-        dock.ui.closePult();
+        dock.ui.closeWindow('maestro');
         expect(block.parentElement?.id).toBe('extensions_settings');
     });
 
@@ -196,7 +212,7 @@ describe('dock module', () => {
         wrapper.appendChild(document.getElementById('desru-settings')!);
         dock.ui.openPult('extensions');
         wrapper.remove();
-        dock.ui.closePult();
+        dock.ui.closeWindow('maestro');
         expect(document.getElementById('desru-settings')?.parentElement?.id).toBe('extensions_settings2');
     });
 
@@ -206,7 +222,7 @@ describe('dock module', () => {
         dock.ui.openPult('extensions');
         await dock.stop();
         expect(snapshot()).toEqual(before);
-        expect(document.querySelector('.maestro-tab[data-tab="extensions"]')).toBeNull();
+        expect(document.querySelector('.maestro-window-section[data-tab="extensions"]')).toBeNull();
 
         dock.ui.dispose();
         dock = await startDock();
@@ -222,7 +238,7 @@ describe('dock module', () => {
         dock.ui.openPult('extensions');
         expect(slot('qvink')).toBeNull();
         expect(slot('ck')).not.toBeNull();
-        dock.ui.closePult();
+        dock.ui.closeWindow('maestro');
         await dock.stop();
         dock.ui.dispose();
 
@@ -256,7 +272,7 @@ describe('DES portrait bar', () => {
         expect(dock.settings().portraitBar).toBe(true);
         expect(slot('desPortraits')?.firstElementChild).toBe(bar);
         expect(bar.classList.contains('dooms-pb-position-left')).toBe(true);
-        dock.ui.closePult();
+        dock.ui.closeWindow('maestro');
         expect(snapshot()).toEqual(before);
         dock.ui.openPult('extensions');
         expect(slot('desPortraits')?.firstElementChild).toBe(bar);
@@ -300,8 +316,8 @@ describe('shortcuts', () => {
         ]) {
             document.getElementById(id)!.addEventListener('click', () => {
                 clicks.push(id);
-                // The opener runs after the pult closed and the blocks went home.
-                expect(FakePopup.open()).toHaveLength(0);
+                // The opener runs after the window closed and the blocks went home.
+                expect(openWindows()).toEqual([]);
                 expect(snapshot()).toEqual(before);
             });
         }
@@ -392,7 +408,7 @@ describe('shortcuts', () => {
         await flush();
         expect(dock.kernel.openPackManager).toHaveBeenCalledTimes(1);
         expect(toggled).toHaveBeenCalledTimes(1);
-        expect(FakePopup.open()).toHaveLength(1);
+        expect(openWindows()).toEqual(['maestro']);
         buttonByText('Шаблоны', actions)!.click();
         await flush();
         expect(toggled).toHaveBeenCalledTimes(1);

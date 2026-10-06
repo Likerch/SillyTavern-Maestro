@@ -13,7 +13,7 @@ import { bookJobKey, entryJobKey, localizeData, startLocalizeJob } from '../../.
 import type { LocalizeRequest } from '../../../src/features/loreStudio/localize-job';
 import { LOCALIZE_STRINGS } from '../../../src/features/loreStudio/localize-strings';
 import { M23_STRINGS } from '../../../src/features/loreStudio/strings';
-import { LoreStudio, defaultStudioSettings } from '../../../src/features/loreStudio/studio';
+import { LoreStudio, defaultStudioSettings, loreStudioWindow } from '../../../src/features/loreStudio/studio';
 import type { App } from '../../../src/shared/contracts';
 import { createStand, entry, resetDom } from './stand';
 import type { Stand } from './stand';
@@ -330,6 +330,7 @@ describe('localization job runner', () => {
 describe('Lore Studio localization strip', () => {
     let s: Stand;
     let off: () => void;
+    let offWindow: () => void;
     let studio: LoreStudio;
     let fake: ReturnType<typeof fakeLocalizer>;
 
@@ -374,10 +375,12 @@ describe('Lore Studio localization strip', () => {
             saveSettings: vi.fn(),
             openClassic: vi.fn(async () => true),
         });
+        offWindow = s.app.ui.addWindow!(loreStudioWindow(studio));
     });
 
     afterEach(() => {
         studio.close();
+        offWindow();
         off();
     });
 

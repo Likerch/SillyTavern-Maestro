@@ -2,15 +2,16 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Mock } from 'vitest';
 import type { EntryFormContext, RenderEntryForm } from '../../../src/features/loreStudio/form-api';
-import { LoreStudio, defaultStudioSettings } from '../../../src/features/loreStudio/studio';
+import { LoreStudio, defaultStudioSettings, loreStudioWindow } from '../../../src/features/loreStudio/studio';
 import type { LoreStudioSettings } from '../../../src/features/loreStudio/studio';
 import { loreStudioTab } from '../../../src/features/loreStudio/view-tab';
-import { FakePopup, POPUP_RESULT } from '../../helpers/ui-env';
+import { POPUP_RESULT } from '../../helpers/ui-env';
 import { createStand, entry, resetDom } from './stand';
 import type { Stand } from './stand';
 
 let s: Stand;
 let off: () => void;
+let offWindow: () => void;
 let studio: LoreStudio;
 let form: Mock<RenderEntryForm>;
 let formCleanup: Mock<() => void>;
@@ -23,6 +24,8 @@ const qa = <T extends Element = HTMLElement>(selector: string) => [...document.q
 const rows = () => qa('.maestro-m23-entry');
 const row = (uid: number) => q(`.maestro-m23-entry[data-uid="${uid}"]`) as HTMLElement;
 const click = (node: Element | null | undefined) => (node as HTMLElement).click();
+/** The × of the studio's window (the window header carries it). */
+const closeButton = () => q('.maestro-window[data-window="loreStudio"] .maestro-window-close');
 const byTitle = (scope: ParentNode, title: string) => scope.querySelector<HTMLElement>(`[title="${title}"]`);
 
 async function openBook(name: string): Promise<void> {
@@ -62,10 +65,12 @@ beforeEach(() => {
         saveSettings: vi.fn(),
         openClassic,
     });
+    offWindow = s.app.ui.addWindow!(loreStudioWindow(studio));
 });
 
 afterEach(() => {
     studio.close();
+    offWindow();
     off();
 });
 
@@ -73,7 +78,7 @@ describe('books panel', () => {
     it('opens a large dialog with books grouped by role section', async () => {
         studio.open();
         await wait();
-        expect(q('.popup.maestro-m23-dialog')).not.toBeNull();
+        expect(q('.maestro-window[data-window="loreStudio"].maestro-window-float .maestro-m23')).not.toBeNull();
         const sections = qa('.maestro-m23-section').map((node) => node.dataset.section);
         expect(sections).toEqual(['chat', 'world', 'system']);
         const pack = qa('.maestro-m23-book').find((node) => node.dataset.book === 'Pack')!;
@@ -367,7 +372,7 @@ describe('leave guard of the entry form', () => {
         await wait();
         expect(q('.maestro-m23-setting')).toBeNull();
         expect(q('.maestro-segment.maestro-on')?.dataset.value).toBe('library');
-        click(q('.maestro-m23-close'));
+        click(closeButton());
         await wait();
         expect(studio.isOpen()).toBe(true);
         click(byTitle(document, 'Open in the classic editor'));
@@ -380,7 +385,7 @@ describe('leave guard of the entry form', () => {
         await wait();
         expect((form.mock.calls.at(-1)![1] as EntryFormContext).uid).toBe(4);
         expect(formCleanup).toHaveBeenCalledTimes(1);
-        click(q('.maestro-m23-close'));
+        click(closeButton());
         await wait();
         expect(studio.isOpen()).toBe(false);
     });
@@ -396,18 +401,23 @@ describe('leave guard of the entry form', () => {
         expect(guard).not.toHaveBeenCalled();
     });
 
-    it('hands the guard to ST’s onClosing (Escape) unless the close was already allowed', async () => {
+    it('hands the guard to the window (Escape, ×) unless the close was already allowed', async () => {
         await openBook('World');
         click(title(3));
-        const popup = FakePopup.instances.at(-1)!;
-        const onClosing = popup.options.onClosing as () => Promise<boolean> | boolean;
-        expect(await onClosing()).toBe(false);
+        const escape = () =>
+            q('.maestro-m23-main')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+        escape();
+        await wait();
+        expect(guard).toHaveBeenCalledTimes(1);
+        expect(studio.isOpen()).toBe(true);
+        expect(await studio.canClose()).toBe(false);
         guard.mockResolvedValue(true);
-        expect(await onClosing()).toBe(true);
+        expect(await studio.canClose()).toBe(true);
         guard.mockClear();
         studio.close();
-        expect(await onClosing()).toBe(true);
+        expect(studio.isOpen()).toBe(false);
         expect(guard).not.toHaveBeenCalled();
+        expect(q('.maestro-window[data-window="loreStudio"]')).toBeNull();
     });
 });
 

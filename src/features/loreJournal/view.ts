@@ -1,7 +1,7 @@
 // Pult tab «Лор хода» (M1): the lore of a turn, which key fired, why each book is active, chat summaries and the
 // "what if" dry run. Everything heavy (key matching, dry run) runs only on a button press.
 import type { App, PultTab } from '../../shared/contracts';
-import { badge, banner, emptyState, section } from '../../ui/components/card';
+import { badge, banner, emptyState, MODULE_SETTINGS_CLASS, section } from '../../ui/components/card';
 import { field, numberInput, select } from '../../ui/components/controls';
 import { button, clear, el } from '../../ui/components/dom';
 import type { Child } from '../../ui/components/dom';
@@ -370,7 +370,7 @@ export function turnTab(app: App, journal: LoreJournal, settings: LoreJournalSet
             };
 
             const settingsView = (): HTMLElement =>
-                el('details', { class: 'maestro-m1-details' }, [
+                el('details', { class: ['maestro-m1-details', MODULE_SETTINGS_CLASS] }, [
                     el('summary', { text: t('m1.settings.title') }),
                     field(
                         t('m1.settings.keepTurns'),

@@ -146,7 +146,7 @@ export class DossierService implements DossierApi {
     }
 
     /** `/maestro-dossier [name]`: resolves the name (world model, else the fallback set) and opens the dossier. */
-    openByName(name: string): Entity | null {
+    openNamed(name: string): Entity | null {
         const trimmed = name.trim();
         if (!trimmed) {
             this.app.ui.openPult(DOSSIER_TAB);

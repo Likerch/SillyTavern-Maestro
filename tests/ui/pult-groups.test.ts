@@ -4,10 +4,9 @@ import type { PultTab } from '../../src/shared/contracts';
 import { createUi } from '../../src/ui';
 import type { UiImpl } from '../../src/ui';
 import { tabs } from '../../src/ui/components/tabs';
-import { COLLAPSED_GROUPS_KEY } from '../../src/ui/views/pult';
 import { groupOf, MORE_GROUP, PULT_GROUPS, sortTabs, TAB_GROUPS, TOP_GROUP } from '../../src/ui/views/pult-groups';
 import { UI_STRINGS } from '../../src/ui/views/strings';
-import { buildStDom, installUiEnv } from '../helpers/ui-env';
+import { buildStDom, installUiEnv, sectionIds, windowBody } from '../helpers/ui-env';
 import type { UiTestEnv } from '../helpers/ui-env';
 
 function tab(id: string, order: number, extra: Partial<PultTab> = {}): PultTab {
@@ -94,6 +93,9 @@ describe('group map', () => {
         }
     });
 });
+
+/** Where the tabs component remembers collapsed groups (the Preset Studio's tab list uses it). */
+const COLLAPSED_GROUPS_KEY = 'maestro.pult.collapsedGroups';
 
 describe('tabs component with groups', () => {
     const items = () => [
@@ -229,7 +231,7 @@ describe('tabs component with groups', () => {
     });
 });
 
-describe('grouped pult', () => {
+describe('windows by group (plan-2 §10)', () => {
     let env: UiTestEnv;
     let ui: UiImpl;
 
@@ -249,6 +251,7 @@ describe('grouped pult', () => {
                 'test.extensions': 'Расширения',
                 'test.settings': 'Настройки',
                 'test.custom': 'Своё',
+                'test.loreStudio': 'Лор-студия',
             },
         });
         ui = createUi({ host: env.host, i18n: env.i18n, settings: env.settings, log: env.log });
@@ -256,11 +259,6 @@ describe('grouped pult', () => {
     });
 
     afterEach(() => ui.dispose());
-
-    const heads = () => [...document.querySelectorAll('.maestro-tab-group-label')].map((node) => node.textContent);
-    const tabIds = () => [...document.querySelectorAll<HTMLElement>('.maestro-tab')].map((node) => node.dataset.tab);
-    const head = (group: string) =>
-        document.querySelector<HTMLButtonElement>(`.maestro-tab-group[data-group="${group}"] .maestro-tab-group-head`);
 
     function register(): { inbox: number } {
         const counts = { inbox: 2 };
@@ -274,46 +272,71 @@ describe('grouped pult', () => {
             tab('prompt', 21),
             tab('turn', 20),
             tab('overview', 10),
+            tab('loreStudio', 40),
         ]) {
             ui.addTab(item);
         }
         return counts;
     }
 
-    it('shows group headings in plan order with tabs under them', () => {
+    it('gives every tab the window of its group; unknown ones and the studio launchers go to «Maestro»', () => {
         register();
-        ui.openPult();
-        expect(tabIds()).toEqual([
-            'overview',
-            'turn',
-            'prompt',
-            'inbox',
-            'canon',
-            'living',
-            'extensions',
-            'custom',
-            'settings',
+        expect(
+            ['overview', 'turn', 'prompt', 'inbox', 'canon', 'living', 'extensions', 'custom', 'settings'].map(
+                (id) => `${id}:${ui.windowOfTab(id)}`,
+            ),
+        ).toEqual([
+            'overview:maestro',
+            'turn:turn',
+            'prompt:turn',
+            'inbox:inbox',
+            'canon:canon',
+            'living:canon',
+            'extensions:maestro',
+            'custom:maestro',
+            'settings:maestro',
         ]);
-        expect(heads()).toEqual(['Ход', 'Канон']);
-        expect(document.querySelector('.maestro-tab.maestro-on')?.getAttribute('data-tab')).toBe('overview');
-        const picker = document.querySelector<HTMLSelectElement>('.maestro-tabs-picker');
-        expect([...(picker?.querySelectorAll('optgroup') ?? [])].map((node) => node.label)).toEqual(['Ход', 'Канон']);
+        // The launcher tab is in the canon group by the central map, but «Maestro» lists it explicitly.
+        expect(ui.windowOfTab('loreStudio')).toBe('maestro');
+        // Not registered yet: the central map still names the window.
+        expect(ui.windowOfTab('wardrobe')).toBe('characters');
+        ui.openPult();
+        expect(sectionIds('maestro')).toEqual(['overview', 'loreStudio', 'extensions', 'custom', 'settings']);
+        ui.openPult('turn');
+        expect(sectionIds('turn')).toEqual(['turn', 'prompt']);
     });
 
-    it('collapsing survives reopening the pult; badges roll up and still reach the top bar', async () => {
+    it('a tab registered later joins its window by group, and an asked-for section waits for it', () => {
+        register();
+        ui.openWindow('characters', { tab: 'wardrobe' });
+        expect(windowBody('characters')?.querySelector('.maestro-empty')).not.toBeNull();
+        ui.addTab(tab('dossier', 1));
+        expect(windowBody('characters')?.textContent).toBe('content dossier');
+        ui.addTab(tab('wardrobe', 2));
+        expect(sectionIds('characters')).toEqual(['dossier', 'wardrobe']);
+        expect(windowBody('characters')?.textContent).toBe('content wardrobe');
+    });
+
+    it('rolls section badges up into the window, the menu and the top bar', () => {
         const counts = register();
-        ui.openPult();
-        head('canon')?.click();
-        expect(head('canon')?.querySelector('.maestro-tab-badge')?.textContent).toBe('5');
-        ui.closePult();
-        ui.openPult();
-        expect(head('canon')?.getAttribute('aria-expanded')).toBe('false');
         expect(document.querySelector('#maestro-topbar .maestro-topbar-badge')?.textContent).toBe('7');
+        ui.openPult('canon');
+        const badge = (id: string) =>
+            document.querySelector<HTMLElement>(
+                `.maestro-window-section[data-tab="${id}"] .maestro-window-section-badge`,
+            );
+        expect(badge('canon')?.textContent).toBe('4');
+        expect(badge('living')?.textContent).toBe('1');
+        document.querySelector<HTMLElement>('#maestro-topbar .maestro-topbar-toggle')?.click();
+        const menuBadge = (id: string) =>
+            document.querySelector(`.maestro-menu-item[data-item="window:${id}"] .maestro-menu-badge`)?.textContent;
+        expect(menuBadge('canon')).toBe('5');
+        expect(menuBadge('inbox')).toBe('2');
         counts.inbox = 0;
         ui.refresh();
         expect(document.querySelector('#maestro-topbar .maestro-topbar-badge')?.textContent).toBe('5');
+        expect(menuBadge('inbox')).toBeUndefined();
         ui.openPult('living');
-        expect(head('canon')?.getAttribute('aria-expanded')).toBe('true');
-        expect(document.querySelector('.maestro-pult-body')?.textContent).toBe('content living');
+        expect(windowBody('canon')?.textContent).toBe('content living');
     });
 });

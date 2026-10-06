@@ -4,7 +4,7 @@ export const M33_STRINGS: I18nParts = {
     en: {
         'm33.title': 'Maestro assistant',
         'm33.tab': 'Assistant',
-        'm33.profileTask': 'Assistant (conversation in the pult)',
+        'm33.profileTask': 'Assistant (conversation in its window)',
         'kind.assistant.setting': 'Module settings',
         'kind.assistant.module': 'Switching modules',
         'kind.assistant.autonomy': 'Autonomy levels',
@@ -134,7 +134,7 @@ export const M33_STRINGS: I18nParts = {
     ru: {
         'm33.title': 'Ассистент Maestro',
         'm33.tab': 'Ассистент',
-        'm33.profileTask': 'Ассистент (переписка в пульте)',
+        'm33.profileTask': 'Ассистент (переписка в его окне)',
         'kind.assistant.setting': 'Настройки модулей',
         'kind.assistant.module': 'Переключение модулей',
         'kind.assistant.autonomy': 'Уровни автономии',

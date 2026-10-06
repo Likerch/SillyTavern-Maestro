@@ -1,4 +1,5 @@
-// The Lore Studio window (M23): one large ST Popup, full screen on phones (≤1000px). «Books» view: books by role
+// The Lore Studio window (M23): a Maestro window (plan-2 §10: non-modal, floating and large by default, full screen
+// on phones ≤1000px; the module registers it as 'loreStudio' and this class renders its body). «Books» view: books by role
 // on the left, entries of the selected book in the centre, the entry form on the right (an overlay on phones, one
 // pane at a time); «WI settings» and «DES campaigns» views. All data goes through the LoreStore (store.ts).
 import { bookLinks, freeBookName, linkCount } from '../../domain/lore-studio-books';
@@ -19,8 +20,8 @@ import {
 import { adaptersOf } from '../../adapters';
 import type { LocalizerApi } from '../../adapters';
 import { segmented } from '../../ui/components/controls';
-import { button, el, icon, prefersReducedMotion } from '../../ui/components/dom';
-import type { App, Logger, Unsubscribe, UserJobInfo, UserJobs } from '../../shared/contracts';
+import { button, el } from '../../ui/components/dom';
+import type { App, Logger, MaestroWindowSpec, Unsubscribe, UserJobInfo, UserJobs } from '../../shared/contracts';
 import type { BookRolesApi } from '../bookRoles/api';
 import type { CanonApi } from '../canon/api';
 import type { DoctorApi } from '../doctor/api';
@@ -65,10 +66,26 @@ export interface StudioDeps {
     openClassic(book?: string): Promise<boolean>;
 }
 
-interface PopupHandle {
-    show(): Promise<unknown>;
-    completeCancelled(): Promise<unknown>;
-    dlg: HTMLDialogElement;
+/** Id of the studio's Maestro window (also the id of its launcher tab in the «Maestro» window). */
+export const LORE_STUDIO_WINDOW = 'loreStudio';
+
+/**
+ * The studio's window (plan-2 §10): non-modal, floating and large the first time (full screen on phones), hidden from
+ * the window list (opened by studio.open(), the launchers and the Maestro menu). The assistant can stay open beside it.
+ */
+export function loreStudioWindow(studio: LoreStudio): MaestroWindowSpec {
+    return {
+        id: LORE_STUDIO_WINDOW,
+        titleKey: 'm23.title',
+        icon: 'fa-book-atlas',
+        order: 200,
+        hidden: true,
+        defaultDock: 'float',
+        defaultWidth: 1400,
+        defaultHeight: 900,
+        render: (container) => studio.mount(container),
+        canClose: () => studio.canClose(),
+    };
 }
 
 export type StudioView = 'library' | 'settings' | 'campaigns';
@@ -83,7 +100,7 @@ export class LoreStudio {
     /** Localization jobs outlive the window: the book header draws them from here (plan-2 §8). */
     private readonly jobs: UserJobs;
     private jobsOff: Unsubscribe | null = null;
-    private popup: PopupHandle | null = null;
+    /** The studio's body while its window is open (null: closed). */
     private root: HTMLElement | null = null;
     private main: HTMLElement | null = null;
     private columns: { books: HTMLElement; entries: HTMLElement; form: HTMLElement } | null = null;
@@ -102,7 +119,7 @@ export class LoreStudio {
     /** The open form's «may I leave?» (unsaved edits); set through EntryFormContext.setLeaveGuard. */
     private leaveGuard: (() => Promise<boolean>) | null = null;
     private formToken = 0;
-    /** Per popup: a close we already allowed (or forced) skips the guard in ST's onClosing. */
+    /** Per opening: a close we already allowed (or forced) skips the guard in the window's canClose. */
     private closing: { allowed: boolean } | null = null;
     private readonly booksState: BooksState = {
         search: '',
@@ -141,50 +158,23 @@ export class LoreStudio {
     }
 
     isOpen(): boolean {
-        return this.popup !== null;
+        return this.root !== null;
     }
 
     currentBook(): string | null {
         return this.book;
     }
 
-    /** Opens the window (on a book and entry when given); a second call just switches to them. */
+    /** Opens the window (on a book and entry when given); a second call brings it forward and switches to them. */
     open(book?: string, uid?: number): void {
-        if (!this.popup) {
-            const ctx = this.app.host.ctx();
-            if (typeof ctx.Popup !== 'function') {
-                this.deps.log.error('ST Popup is not available; cannot open the Lore Studio');
-                return;
-            }
-            this.root = this.buildChrome();
-            const closing = { allowed: false };
-            this.closing = closing;
-            const popup = new ctx.Popup(this.root, ctx.POPUP_TYPE.DISPLAY, '', {
-                wide: true,
-                large: true,
-                allowVerticalScrolling: false,
-                animation: prefersReducedMotion() ? 'none' : 'fast',
-                // Escape and ST's own close path: the form may keep the window open for unsaved edits.
-                onClosing: () => (closing.allowed ? true : this.canLeave()),
-            });
-            popup.dlg.classList.add('maestro-m23-dialog');
-            this.popup = popup;
-            this.storeOff = this.deps.store.onChange((changed) => this.scheduleRefresh(changed));
-            this.jobsOff = this.jobs.on((_job, key) => {
-                if (this.book !== null && key === bookJobKey(this.book)) this.updateJobSlot();
-            });
-            // M35 detects every book once (lazily, in the background); until then unknown books stay read-only.
-            const roles = this.app.modules.api<BookRolesApi>('bookRoles');
-            if (roles) {
-                this.rolesOff = roles.onChange(() => this.scheduleRefresh(null));
-                void roles.refresh().catch((error: unknown) => this.deps.log.warn('book roles refresh failed', error));
-            }
-            void popup.show().then(
-                () => this.handleClosed(popup),
-                () => this.handleClosed(popup),
-            );
-            this.dirtyAll = true;
+        const fresh = this.root === null;
+        if (typeof this.app.ui.openWindow !== 'function') {
+            this.deps.log.error('Maestro windows are not available; cannot open the Lore Studio');
+            return;
         }
+        // Mounts the body through mount() (the module's window spec) or brings the open window forward.
+        this.app.ui.openWindow(LORE_STUDIO_WINDOW);
+        if (!this.root) return;
         if (book && this.deps.store.books().includes(book)) {
             this.view = 'library';
             void this.selectBook(book).then((selected) => {
@@ -192,7 +182,39 @@ export class LoreStudio {
             });
             return;
         }
+        if (!fresh) void this.render();
+    }
+
+    /** The window body (MaestroWindowSpec.render): the studio lives here until the window closes. */
+    mount(container: HTMLElement): Unsubscribe {
+        if (this.root) this.handleClosed();
+        this.closing = { allowed: false };
+        this.root = this.buildChrome();
+        container.appendChild(this.root);
+        this.storeOff = this.deps.store.onChange((changed) => this.scheduleRefresh(changed));
+        this.jobsOff = this.jobs.on((_job, key) => {
+            if (this.book !== null && key === bookJobKey(this.book)) this.updateJobSlot();
+        });
+        // M35 detects every book once (lazily, in the background); until then unknown books stay read-only.
+        const roles = this.app.modules.api<BookRolesApi>('bookRoles');
+        if (roles) {
+            this.rolesOff = roles.onChange(() => this.scheduleRefresh(null));
+            void roles.refresh().catch((error: unknown) => this.deps.log.warn('book roles refresh failed', error));
+        }
+        this.dirtyAll = true;
         void this.render();
+        const root = this.root;
+        return () => {
+            if (this.root === root) this.handleClosed();
+        };
+    }
+
+    /** The window's close guard (× , Escape): the open entry form may keep it open for unsaved edits. */
+    canClose(): boolean | Promise<boolean> {
+        if (!this.root || this.closing?.allowed) return true;
+        // Nothing to ask (no open entry form): close at once.
+        if (!this.leaveGuard || this.entriesState.openUid === null) return true;
+        return this.canLeave();
     }
 
     /** True when nothing stops leaving the open entry (no form, no guard, or the form agreed). */
@@ -207,9 +229,9 @@ export class LoreStudio {
         }
     }
 
-    /** A close the user asked for (× button, «Классический редактор»): the form is asked first. */
+    /** A close the user asked for («Классический редактор»): the form is asked first. */
     async requestClose(): Promise<boolean> {
-        if (!this.popup) return true;
+        if (!this.root) return true;
         if (!(await this.canLeave())) return false;
         this.close();
         return true;
@@ -217,19 +239,18 @@ export class LoreStudio {
 
     /** Closes without asking (module disable, or after the guard agreed). */
     close(): void {
-        const popup = this.popup;
-        if (!popup) return;
+        if (!this.root) return;
         if (this.closing) this.closing.allowed = true;
-        this.handleClosed(popup);
-        void popup.completeCancelled().catch((error: unknown) => this.deps.log.debug('lore studio close', error));
+        this.app.ui.closeWindow?.(LORE_STUDIO_WINDOW);
+        // No window manager (or the window is already gone): take the body down here.
+        if (this.root) this.handleClosed();
     }
 
     dispose(): void {
         this.close();
     }
 
-    private handleClosed(popup: PopupHandle): void {
-        if (this.popup !== popup) return;
+    private handleClosed(): void {
         this.closeForm(false);
         this.storeOff?.();
         this.storeOff = null;
@@ -239,10 +260,11 @@ export class LoreStudio {
         this.rolesOff = null;
         if (this.refreshTimer) clearTimeout(this.refreshTimer);
         this.refreshTimer = null;
-        this.popup = null;
+        this.root?.remove();
         this.root = null;
         this.main = null;
         this.columns = null;
+        this.closing = null;
     }
 
     /* ---------------------------------------------------------------- chrome and views */
@@ -267,12 +289,9 @@ export class LoreStudio {
                 void this.render();
             },
         });
+        // The window's header carries the title and the close button.
         return el('div', { class: 'maestro-m23 maestro-ui' }, [
             el('div', { class: 'maestro-m23-header' }, [
-                el('div', { class: 'maestro-m23-brand' }, [
-                    icon('fa-book-atlas'),
-                    el('h3', { text: this.t('m23.title') }),
-                ]),
                 nav,
                 button({
                     icon: 'fa-book-open',
@@ -280,15 +299,6 @@ export class LoreStudio {
                     title: this.t('m23.classicHint'),
                     className: 'maestro-m23-classic',
                     onClick: () => this.openClassic(this.book ?? undefined),
-                }),
-                button({
-                    icon: 'fa-xmark',
-                    kind: 'ghost',
-                    title: this.t('m23.close'),
-                    className: 'maestro-m23-close',
-                    onClick: async () => {
-                        await this.requestClose();
-                    },
                 }),
             ]),
             this.main,
