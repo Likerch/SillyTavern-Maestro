@@ -2,20 +2,24 @@
 // the DES campaign with the background model and proposes what the story needs before the first move — characters,
 // the world, places, factions, items, traditions, time, promises, secrets, the starting scene, mechanics and direction;
 // the chosen items are written through the modules' APIs, each as one part with its own undo, «для чата» or «для
-// персонажа» (reused by the card's next new chats). The offer under the greeting and the preparation window come in the
-// next wave; here: the engine (PrepareApi), a pult tab and `/maestro-prepare`.
-// Exposed as app.modules.api<PrepareApi>('prepare').
+// персонажа» (reused by the card's next new chats). Maestro offers it by itself in a line under the greeting
+// (offer.ts); the window «Подготовка к игре» (window.ts: what will be read and the price, the run, the review with
+// choices, edits and scopes, the result with undo, «Готово к игре») — a window of its own, or the pult tab without
+// windows; `/maestro-prepare`. Exposed as app.modules.api<PrepareApi>('prepare').
 import type { App, MaestroModule, SlashCommandSpec } from '../../shared/contracts';
 import type { PrepareApi } from './api';
+import { PrepareUi } from './controller';
+import { PrepareOffer } from './offer';
 import { PrepareService } from './service';
 import { PREPARE_ID, PREPARE_KEY, defaultPrepareSettings, readPrepareSettings } from './settings';
 import type { PrepareSettings } from './settings';
 import { PREPARE_STRINGS, PREPARE_TARGETS } from './strings';
-import { PREPARE_CSS, planLines, prepareTab } from './view';
+import { planLines } from './view';
+import { PREPARE_CSS, registerPrepareView } from './window';
 
 export const PREPARE_COMMAND = 'maestro-prepare';
 
-function slashCommand(app: App, service: PrepareService): SlashCommandSpec {
+function slashCommand(app: App, service: PrepareService, ui: PrepareUi): SlashCommandSpec {
     const t = app.i18n.t.bind(app.i18n);
     const listPlan = (): string => {
         const plan = service.plan();
@@ -51,6 +55,11 @@ function slashCommand(app: App, service: PrepareService): SlashCommandSpec {
                 if (!eligibility.ok && !(command === 'again' && eligibility.reason === 'started')) {
                     return say(t(`m37.view.notNew.${eligibility.reason ?? 'noChat'}`), 'warn');
                 }
+                // Without a word the window opens first: what will be read and what it costs (plan-2 §7 п. 2).
+                if (command !== 'again' && command !== 'start') {
+                    ui.open();
+                    return t('m37.slash.opened');
+                }
                 const key = await service.start({ force: command === 'again' });
                 if (!key) return say(t('m37.slash.running'));
                 await service.whenDone();
@@ -75,16 +84,27 @@ export const prepareModule: MaestroModule<PrepareSettings> = {
         const settings = () => readPrepareSettings(app.settings.module<Partial<PrepareSettings>>(PREPARE_KEY));
         const service = new PrepareService(app, log, settings);
         for (const off of service.install()) own(off);
-        app.modules.expose(PREPARE_KEY, service.api() satisfies PrepareApi);
+        const api = service.api();
+        app.modules.expose(PREPARE_KEY, api satisfies PrepareApi);
+        const ui = new PrepareUi(app, { ...api, watch: () => service.watch() }, settings);
+        service.setOpener(() => ui.open());
         own(app.ui.style('maestro-m37', PREPARE_CSS));
-        own(app.ui.addTab(prepareTab(app, service)));
-        own(app.ui.addSlashCommand(slashCommand(app, service)));
+        own(registerPrepareView(ui));
+        // The offer under the greeting; a shell without the strip gets the quiet notice only.
+        const offer = new PrepareOffer(ui);
+        const offStrip = app.ui.addMessageStripProvider?.(offer.provider());
+        if (offStrip) own(offStrip);
+        for (const off of offer.install()) own(off);
+        own(app.ui.addSlashCommand(slashCommand(app, service, ui)));
         void service.load().catch((error: unknown) => log.debug('prepare: the plan did not load', error));
     },
 };
 
 export { PREPARE_STRINGS, PREPARE_TARGETS } from './strings';
 export { PrepareService } from './service';
+export { PrepareUi, PREPARE_WINDOW } from './controller';
+export type { PrepareEngine } from './controller';
+export { PrepareOffer, PREPARE_STRIP } from './offer';
 export { PREPARE_ID, PREPARE_KEY, defaultPrepareSettings, readPrepareSettings } from './settings';
 export type { PrepareSettings } from './settings';
 export type * from './api';

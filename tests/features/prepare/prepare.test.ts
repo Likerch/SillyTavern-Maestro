@@ -451,7 +451,7 @@ describe('prepare: for the character', () => {
 });
 
 describe('prepare: the module', () => {
-    it('registers its API, tab and command; the command analyses and lists the plan', async () => {
+    it('registers its API, tab and command; the command opens the tab first, «start» analyses and lists the plan', async () => {
         started.stop();
         const owned: (() => void)[] = [];
         const tabs: string[] = [];
@@ -473,7 +473,12 @@ describe('prepare: the module', () => {
         expect(tabs).toEqual(['prepare']);
         const api = env.modules.api<PrepareApi>('prepare')!;
         expect(api.isNewChat()).toBe(true);
-        const text = await command!.callback({}, '');
+        let opened: string | undefined;
+        env.ui.openPult = (tab) => void (opened = tab);
+        expect(await command!.callback({}, '')).toContain('Открыл окно подготовки');
+        expect(opened).toBe('prepare');
+        expect(env.llm.requests).toHaveLength(0);
+        const text = await command!.callback({}, 'start');
         expect(text).toContain('Персонажи (');
         expect(text).toContain('• ');
         expect(api.plan()?.items.length).toBeGreaterThan(5);

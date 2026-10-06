@@ -20,8 +20,17 @@ import type {
 } from '../shared/contracts';
 import { readUsage, tokensOf } from './cost';
 
-/** Tasks the user starts and watches (the assistant): the daily cap of background spending does not stop them. */
-export const INTERACTIVE_TASKS: ReadonlySet<string> = new Set(['assistant']);
+/**
+ * Tasks the user starts and watches — the assistant, «Подготовить к игре» (task 'prepare', src/domain/prepare-extract.ts;
+ * its price is shown before he presses «Начать»): the daily cap of background spending does not stop them.
+ */
+export const INTERACTIVE_TASKS: ReadonlySet<string> = new Set(['assistant', 'prepare']);
+
+/**
+ * Tasks that keep the model's own reasoning (the assistant's conversation). Preparation is interactive but a structured
+ * extraction: it stays without reasoning, like every background task, so its price matches the estimate.
+ */
+export const REASONING_TASKS: ReadonlySet<string> = new Set(['assistant']);
 
 export interface OwnRequestHooks {
     /** Marks a request in flight so the fetch-level meter does not count it twice. */
@@ -332,7 +341,7 @@ function toWire(message: LlmMessage): WireMessage {
  * nothing. OpenRouter takes the effort as given ('none'); other APIs keep their own default.
  */
 export function reasoningOverride(task: string, api: string | undefined): string | undefined {
-    if (INTERACTIVE_TASKS.has(task)) return undefined;
+    if (REASONING_TASKS.has(task)) return undefined;
     return api === 'openrouter' ? 'none' : undefined;
 }
 

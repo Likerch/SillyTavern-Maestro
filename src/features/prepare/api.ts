@@ -15,6 +15,9 @@
 //    every item is written as one part with its own journal record (undo per part: `undoItem(id)` or the journal),
 //    the summary lists what was done, skipped and failed in story words.
 // 6. `status()` — «Готово к игре»: what is still missing (passports, DES portraits, places, backgrounds).
+// The module's own face uses nothing but this API (plus the service's `watch()` while the window shows the job):
+// controller.ts (shared actions, per-chat drafts), offer.ts (the strip line under the greeting, the quiet notice),
+// window.ts + review.ts (the window «Подготовка к игре», or the pult tab «Подготовка» in a shell without windows).
 import type { Unsubscribe } from '../../shared/contracts';
 import type { AnyPrepareItem, PrepareKind, PreparePlan } from '../../domain/prepare-plan';
 import type { SelectionRow, MissingItem } from '../../domain/prepare-apply';

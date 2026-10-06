@@ -344,6 +344,19 @@ describe('llm client: failures', () => {
         expect(result).not.toEqual({ ok: false, error: 'cap' });
     });
 
+    it('lets «Подготовить к игре» (started by the user after the estimate) through the cap, reasoning still off', async () => {
+        (mock.extensionSettings as Record<string, unknown>).connectionManager = {
+            profiles: [{ id: 'p-judge', api: 'openrouter' }],
+        };
+        const { client } = setup({ capped: true, profiles: { prepare: 'p-judge', judge: 'p-judge' } });
+        replies.push(completion('{"score": 1}'));
+        const result = await client.request(ask({ task: 'prepare', schema: SCHEMA }));
+        expect(calls).toHaveLength(1);
+        expect(result).not.toEqual({ ok: false, error: 'cap' });
+        expect(calls[0]!.override).toMatchObject({ reasoning_effort: 'none' });
+        expect(await client.request(ask({ task: 'revision' }))).toEqual({ ok: false, error: 'cap' });
+    });
+
     it('reports missing profiles and a missing or disabled Connection Manager', async () => {
         expect(await setup({ profiles: {} }).client.request(ask())).toEqual({ ok: false, error: 'no-profile' });
         expect(setup({ profiles: {} }).client.available('judge')).toBe(false);

@@ -127,6 +127,8 @@ export class PrepareService {
     private readonly applier: Applier;
     private readonly cardBook: CardBook;
     private writeChain: Promise<unknown> = Promise.resolve();
+    /** Opens the preparation window (the job's «Открыть», the notice after applying); set by the module's face. */
+    private openView: () => void = () => this.app.ui.openPult(PREPARE_TAB);
 
     constructor(
         private readonly app: App,
@@ -175,6 +177,11 @@ export class PrepareService {
                 this.log.error('prepare: listener failed', error);
             }
         }
+    }
+
+    /** Where «Открыть» of the job and of the applied notice leads (the window, or the pult tab without windows). */
+    setOpener(open: () => void): void {
+        this.openView = open;
     }
 
     /** Views showing the job right now (a job nobody watches reports its end with a notice). */
@@ -407,7 +414,7 @@ export class PrepareService {
             module: PREPARE_KEY,
             cancellable: true,
             visible: () => this.watchers > 0,
-            open: { label: this.t('m37.job.open'), run: () => this.app.ui.openPult(PREPARE_TAB) },
+            open: { label: this.t('m37.job.open'), run: () => this.openView() },
         });
         if (!handle) return null;
         let resolve: () => void = () => {};
@@ -629,7 +636,7 @@ export class PrepareService {
                 {
                     importance: summary.failed.length ? 'important' : 'info',
                     level: summary.failed.length ? 'warn' : 'info',
-                    action: { label: this.t('m37.job.open'), run: () => this.app.ui.openPult(PREPARE_TAB) },
+                    action: { label: this.t('m37.job.open'), run: () => this.openView() },
                 },
             );
         }
