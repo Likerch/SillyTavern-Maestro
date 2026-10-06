@@ -116,26 +116,35 @@ export async function proposeArchiveFixes(env: RuleEnv): Promise<number> {
         if (settings.archiveProposals[book] === signature) continue;
         const payload: ArchiveFixPayload = { book, patches };
         const withForms = patches.some((patch) => 'key' in patch.after);
+        // The card names the characters (the first key of an archive is the name); uids and entry titles go to
+        // «Подробнее».
+        const names: string[] = [];
         const preview = patches.slice(0, PREVIEW_LINES).map((patch) => {
             const entry = data.entries[String(patch.uid)];
             const comment = isPlainObject(entry) && typeof entry.comment === 'string' ? entry.comment : '';
+            const first = isPlainObject(entry) && Array.isArray(entry.key) ? entry.key[0] : undefined;
+            const name = typeof first === 'string' && first.trim() ? first.trim() : comment.trim();
+            if (name) names.push(`«${name}»`);
             return `#${patch.uid} ${comment}`.trim();
         });
         if (patches.length > PREVIEW_LINES) {
-            preview.push(env.t('m22.archiveDepth.more', { count: patches.length - PREVIEW_LINES }));
+            const more = env.t('m22.archiveDepth.more', { count: patches.length - PREVIEW_LINES });
+            preview.push(more);
+            if (names.length) names.push(more);
         }
         const decision = await env.app.autonomy.decide<ArchiveFixPayload>(
             {
                 module: 'M22',
                 kind: ARCHIVE_DEPTH_KIND,
-                title: env.t('m22.archiveDepth.title', { book, count: patches.length }),
+                title: env.t('m22.archiveDepth.title', { book }),
                 description: [
-                    env.t('m22.archiveDepth.description', { book }),
+                    env.t('m22.archiveDepth.description', { book, count: patches.length }),
+                    names.length ? env.t('m22.archiveDepth.entries', { list: names.join(', ') }) : '',
                     withForms ? env.t('m22.archiveDepth.forms') : formsKey ? '' : env.t('m22.archiveDepth.noForms'),
-                    preview.join('\n'),
                 ]
                     .filter(Boolean)
                     .join('\n\n'),
+                details: preview.join('\n'),
                 changes: patchChanges(book, patches),
                 payload,
                 stillValid: () => archiveFixValid(env, payload),

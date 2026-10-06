@@ -6,15 +6,15 @@
 import type { MaestroModule } from '../../shared/contracts';
 import type { MechanicsApi } from './api';
 import { MechanicChecks } from './checks';
-import { MechanicDefinitions } from './definitions';
+import { MechanicDefinitions, MECHANICS_DEF_TARGET } from './definitions';
 import { MECHANICS_ID, MECHANICS_KEY } from './parts';
 import type { MechanicsSettings, PartDeps } from './parts';
 import { MechanicPrompt } from './prompt';
 import { MechanicsService } from './service';
 import { defaultMechanicsSettings, readMechanicsSettings } from './settings';
-import { MechanicState } from './state';
+import { MechanicState, VALUE_UNDO_TARGET } from './state';
 import { MECHANICS_STRINGS } from './strings';
-import { MechanicTracking } from './tracking';
+import { DES_STATS_UNDO_TARGET, MechanicTracking } from './tracking';
 import { mechanicsTab } from './view';
 import { MECHANICS_DEF_CSS } from './view-constructor';
 import { MechanicStrip } from './widgets';
@@ -27,6 +27,13 @@ export const mechanicsModule: MaestroModule<MechanicsSettings> = {
     enabledByDefault: true,
     defaults: defaultMechanicsSettings,
     i18n: MECHANICS_STRINGS,
+    targets: [
+        // A definition is stored as a lore entry: its name reads in words, the English rules stay under «Подробнее».
+        { target: MECHANICS_DEF_TARGET, fields: { comment: { labelKey: 'm25.def.field.name' } } },
+        { target: VALUE_UNDO_TARGET },
+        // DES's whole stats list (ids, prompt names): technical.
+        { target: DES_STATS_UNDO_TARGET, technical: true },
+    ],
     init({ app, log, own }) {
         const settings = () => readMechanicsSettings(app.settings.module<Partial<MechanicsSettings>>(MECHANICS_KEY));
         const deps: PartDeps = { app, log: log.scope('mechanics'), settings };

@@ -50,6 +50,15 @@ Rules:
   capability (`app.host.caps.register(id, probe)`), so a different ST version degrades instead of crashing.
 - Autonomy: any change to user-visible data goes through `app.autonomy.decide(proposal, defaultLevel)` and is
   recorded in `app.journal` with an undo handler for its target type.
+- What the user reads (plan-2 §3): every action kind passed to autonomy / the Inbox / the journal has a human label
+  `kind.<kind>` (en + ru), and every journal target is described in `MaestroModule.targets` (`target.<target>` label,
+  human field labels and value formatters from `src/core/labels.ts`; ids, keys, tags and English canon text are
+  `hidden`/`technical`). Card titles and descriptions use story words; technical notes go to `Proposal.details`
+  («Подробнее»). `tests/app/labels-static.test.ts` fails for an unlabelled kind or an undescribed undo target.
+- Notices: `app.ui.notice(text, { importance, group, groupText, action })`. Background news is `info` (a 5 s toast at
+  the default level «Всё»), what needs attention `important`, replies to the user's own click `urgent: true`. Repeated
+  notices of one turn share a `group`. Automatic actions get a «Сделал: …» toast with undo from autonomy; give
+  proposals that read badly after «Сделал:» an `appliedNotice` in the past tense.
 - Ephemeral prompt changes (flags, injections) go through `app.ephemeral`; they are cleared after every
   generation.
 - Long jobs the user starts himself (localize a book …) run through `app.jobs` (core/jobs.ts): one job per key,

@@ -55,7 +55,11 @@ describe('guardian tab', () => {
         buttons('Restore')[0]!.click();
         await flush();
         expect((env.mock.extensionSettings.qvink_memory as Record<string, unknown>).auto_summarize).toBe(true);
-        expect(env.ui.notices.at(-1)?.text).toContain('Settings restored: 1');
+        // A reply to his click: always shown.
+        expect(env.ui.notices.at(-1)).toMatchObject({
+            text: 'Put settings back to the baseline: 1.',
+            options: { urgent: true },
+        });
         expect(container.textContent).toContain('Everything matches the baseline');
     });
 

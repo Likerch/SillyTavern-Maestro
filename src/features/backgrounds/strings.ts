@@ -1,10 +1,14 @@
-// Strings of M29 «Фоны» (`m29.*`, autonomy kind `kind.backgrounds.set`). Russian is the primary UI language; the user is addressed as «ты» (male).
+// Strings of M29 «Фоны» (`m29.*`, action kinds `kind.backgrounds.*`, journal target `target.chat-background`).
+// Russian is the primary UI language; the user is addressed as «ты» (male).
 import type { I18nParts } from '../../shared/contracts';
 
 export const BACKGROUNDS_STRINGS: I18nParts = {
     en: {
         'm29.title': 'Backgrounds',
-        'kind.backgrounds.set': 'Chat background by place (from the library)',
+        'kind.backgrounds.set': 'Chat background for the place',
+        'kind.backgrounds.pick': 'Background chosen by hand',
+        'kind.backgrounds.generate': 'Generated background',
+        'target.chat-background': 'Chat background',
         'm29.tab': 'Backgrounds',
         'm29.hint':
             "The chat background follows the scene: the place's own background, else the best match from ST's background library by the place name, its surroundings, its state, the time of day and the weather. Only this chat's background changes, never the global one. A background you set yourself is never replaced.",
@@ -93,21 +97,27 @@ export const BACKGROUNDS_STRINGS: I18nParts = {
         'm29.generate.failed': 'The background was not generated: {error}',
         'm29.generate.empty': 'NAI Studio returned no picture.',
         'm29.generate.pinned':
-            'The new background is bound to the place; your own chat background stays until you let Maestro choose again.',
-        'm29.generate.done': 'A new background for «{place}» is in the library and bound to the place.',
+            'The new background is bound to the place; your own chat background stays until you let me choose again.',
+        'm29.generate.done': 'A new background for «{place}» is ready: it is in the library and bound to the place.',
         'm29.offer': 'No background in the library fits «{place}». Generate one in NAI Studio?',
 
-        'm29.journal.set': 'Chat background: «{file}» ({place})',
-        'm29.journal.pick': 'Chat background picked: «{file}» ({place})',
-        'm29.journal.bound': 'Bound background shown: «{file}» ({place})',
-        'm29.journal.generate': 'Generated background shown: «{file}» ({place})',
-        'm29.proposal.library': 'The best match for the place in the ST background library.',
-        'm29.proposal.user': 'The background bound to this place.',
-        'm29.proposal.generated': 'The background NAI Studio generated for this place.',
+        'm29.journal.set': 'Chat background for «{place}»',
+        'm29.journal.pick': 'Set the background you chose for «{place}»',
+        'm29.journal.bound': 'Set the background bound to «{place}»',
+        'm29.journal.generate': 'Set the newly generated background for «{place}»',
+        'm29.notice.set': 'Changed the chat background to fit «{place}».',
+        'm29.proposal.library':
+            'This background from your library fits the place best. Only the background of this chat changes.',
+        'm29.proposal.user': 'This is the background you bound to the place. Only the background of this chat changes.',
+        'm29.proposal.generated':
+            'NAI Studio generated this background for the place. Only the background of this chat changes.',
+        'm29.details.file': 'Background file: {file}',
+        'm29.details.variant': 'Variant: {variant}',
+        'm29.target.other': 'another background',
 
-        'm29.error.stale': 'The chat background changed meanwhile; nothing was done.',
+        'm29.error.stale': 'The chat background changed meanwhile, so I left it alone.',
         'm29.error.noPlaces': 'The «Places» module is off.',
-        'm29.error.noPlace': 'This place is not in the registry.',
+        'm29.error.noPlace': 'This place is not among the places of this chat.',
         'm29.error.variant': 'Unknown variant: use a time of day, weather or season.',
         'm29.error.noChat': 'No chat is open.',
 
@@ -124,7 +134,10 @@ export const BACKGROUNDS_STRINGS: I18nParts = {
     },
     ru: {
         'm29.title': 'Фоны',
-        'kind.backgrounds.set': 'Фон чата по месту (из библиотеки)',
+        'kind.backgrounds.set': 'Смена фона чата под место',
+        'kind.backgrounds.pick': 'Фон, выбранный вручную',
+        'kind.backgrounds.generate': 'Сгенерированный фон',
+        'target.chat-background': 'Фон чата',
         'm29.tab': 'Фоны',
         'm29.hint':
             'Фон чата следует за сценой: свой фон места, а если его нет — лучший из библиотеки фонов ST по названию места, тому, что вокруг, его состоянию, времени суток и погоде. Меняется только фон этого чата, общий фон не трогается. Фон, который ты поставил сам, Maestro не заменяет.',
@@ -212,21 +225,26 @@ export const BACKGROUNDS_STRINGS: I18nParts = {
         'm29.generate.failed': 'Фон не сгенерирован: {error}',
         'm29.generate.empty': 'NAI Studio не вернула картинку.',
         'm29.generate.pinned':
-            'Новый фон привязан к месту; твой фон чата останется, пока ты снова не доверишь выбор Maestro.',
-        'm29.generate.done': 'Новый фон для «{place}» лежит в библиотеке и привязан к месту.',
-        'm29.offer': 'Для «{place}» в библиотеке нет подходящего фона. Сгенерировать в NAI Studio?',
+            'Новый фон привязан к месту, но сейчас стоит твой фон чата — он останется, пока ты снова не доверишь выбор мне.',
+        'm29.generate.done': 'Готов новый фон для «{place}»: он в библиотеке и привязан к месту.',
+        'm29.offer': 'Для «{place}» в библиотеке нет подходящего фона. Сгенерировать его в NAI Studio?',
 
-        'm29.journal.set': 'Фон чата: «{file}» ({place})',
-        'm29.journal.pick': 'Фон чата выбран вручную: «{file}» ({place})',
-        'm29.journal.bound': 'Поставлен привязанный фон: «{file}» ({place})',
-        'm29.journal.generate': 'Поставлен сгенерированный фон: «{file}» ({place})',
-        'm29.proposal.library': 'Лучшее совпадение для места в библиотеке фонов ST.',
-        'm29.proposal.user': 'Фон, привязанный к этому месту.',
-        'm29.proposal.generated': 'Фон, который NAI Studio сгенерировала для этого места.',
+        'm29.journal.set': 'Фон чата под место «{place}»',
+        'm29.journal.pick': 'Поставил выбранный тобой фон для «{place}»',
+        'm29.journal.bound': 'Поставил фон, привязанный к «{place}»',
+        'm29.journal.generate': 'Поставил новый сгенерированный фон для «{place}»',
+        'm29.notice.set': 'Сменил фон чата под место «{place}».',
+        'm29.proposal.library':
+            'Из твоей библиотеки фонов месту лучше всего подходит этот. Сменится только фон этого чата.',
+        'm29.proposal.user': 'Это фон, который ты привязал к месту. Сменится только фон этого чата.',
+        'm29.proposal.generated': 'Этот фон NAI Studio сгенерировала для места. Сменится только фон этого чата.',
+        'm29.details.file': 'Файл фона: {file}',
+        'm29.details.variant': 'Вариант: {variant}',
+        'm29.target.other': 'другой фон',
 
-        'm29.error.stale': 'Фон чата за это время поменялся — ничего не сделано.',
+        'm29.error.stale': 'Фон чата за это время сменился, поэтому я ничего не менял.',
         'm29.error.noPlaces': 'Модуль «Места» выключен.',
-        'm29.error.noPlace': 'Такого места нет в реестре.',
+        'm29.error.noPlace': 'Этого места нет среди мест чата.',
         'm29.error.variant': 'Неизвестный вариант: нужно время суток, погода или время года.',
         'm29.error.noChat': 'Чат не открыт.',
 

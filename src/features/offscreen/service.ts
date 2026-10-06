@@ -16,6 +16,7 @@
 // - rumours: the ephemeral producer may add one note near the end of the prompt (P16), every third turn after a saved
 //   event, only when a present character could know (same place, or a relationship with the event's character).
 // State per chat in the document 'offscreen' (the leader writes). Nothing here softens the story (§11).
+import { tPlural } from '../../core/labels';
 import { uniqueStrings } from '../../domain/canon-keys';
 import {
     MAX_TEXT_CHARS,
@@ -376,9 +377,11 @@ export class OffscreenService implements Required<OffscreenApi> {
         doc.localChecked = true;
         this.saveSoon();
         if (names.length) {
-            const list = uniqueStrings(names).join(', ');
+            const unique = uniqueStrings(names);
+            const list = unique.join(', ');
             this.log.info(`offscreen: took back events of characters from outside this chat: ${list}`);
-            this.app.ui.notice(this.app.i18n.t('m16.foreignRemoved', { names: list }));
+            const key = unique.length === 1 ? 'm16.foreignRemoved.one' : 'm16.foreignRemoved';
+            this.app.ui.notice(this.t(key, { names: list }));
             this.changed();
         }
     }
@@ -792,8 +795,14 @@ export class OffscreenService implements Required<OffscreenApi> {
         return conflict.costUsd;
     }
 
+    /**
+     * The card in story words: what the character did (the model writes events in English, as they go to the canon),
+     * where they are now, why it waits for the user and what accepting does. The canon keys go to «Подробнее»; the
+     * canon text itself is the change (a technical target).
+     */
     private proposal(payload: OffscreenPayload, unchecked: boolean): Proposal<OffscreenPayload> {
         const content = offscreenContent(payload.value, payload.storyTime, payload.location);
+        const name = payload.entityName;
         const lines = [
             this.t(payload.storyTime ? 'm16.card.body.time' : 'm16.card.body', {
                 time: payload.storyTime ?? '',
@@ -804,6 +813,10 @@ export class OffscreenService implements Required<OffscreenApi> {
         if (payload.drastic) lines.push(this.t('m16.card.drastic'));
         if (payload.conflict) lines.push(this.t('m16.card.conflict', { list: payload.conflict }));
         else if (unchecked) lines.push(this.t('m16.card.unchecked'));
+        lines.push(this.t('m16.card.ask', { name }));
+        let title = 'm16.card.title';
+        if (payload.drastic) title = 'm16.card.title.drastic';
+        else if (payload.conflict || unchecked) title = 'm16.card.title.conflict';
         const change: JournalChange = {
             target: OFFSCREEN_TARGET,
             ref: { eventId: payload.eventId, chatId: payload.chatId },
@@ -813,8 +826,14 @@ export class OffscreenService implements Required<OffscreenApi> {
         return {
             module: OFFSCREEN_ID,
             kind: OFFSCREEN_KIND,
-            title: this.t('m16.card.title', { name: payload.entityName }),
+            title: this.t(title, { name }),
             description: lines.join('\n'),
+            details: this.t('m16.card.keys', { keys: strings(payload.keys).join(', ') }),
+            appliedNotice: {
+                text: this.t('m16.applied', { name }),
+                group: 'm16.applied',
+                groupText: (count) => tPlural(this.app.i18n, 'm16.appliedMany', count),
+            },
             changes: [change],
             payload,
             sourceMessage: payload.messageIndex >= 0 ? payload.messageIndex : undefined,

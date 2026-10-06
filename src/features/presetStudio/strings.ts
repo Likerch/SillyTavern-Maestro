@@ -18,10 +18,19 @@ const en: Record<string, string> = {
     'm34.tab.params': 'Parameters',
     'm34.tab.conditional': 'Conditions',
 
-    'm34.error.generic': 'Preset Studio: {error}',
-    'm34.error.noStore': 'The preset data layer is not running, so the Preset Studio cannot open. See Maestro’s log.',
+    'm34.error.generic': 'That did not work. The details are in Maestro’s log.',
+    'm34.error.unavailable': 'SillyTavern’s presets are not available right now. Try again in a moment.',
+    'm34.error.not-found': 'This preset or block is not there any more.',
+    'm34.error.exists': 'This name is already taken.',
+    'm34.error.invalid': 'That did not work: the name or the file does not fit.',
+    'm34.error.busy': 'A reply is being generated. Wait for it to finish and try again.',
+    'm34.error.cancelled': 'Cancelled.',
+    'm34.error.protected': 'This is a built-in SillyTavern block: it cannot be deleted, only switched off.',
+    'm34.error.http': 'The server did not accept the preset (error {status}).',
+    'm34.error.noStore':
+        'The Preset Studio cannot open: SillyTavern’s presets are not available to it. See Maestro’s log.',
     'm34.error.textCompletion':
-        'The Preset Studio works with Chat Completion. With Text Completion use SillyTavern’s own preset panels.',
+        'The Preset Studio works with Chat Completion only. With Text Completion use SillyTavern’s own preset panels.',
 
     'm34.dialog.ok': 'OK',
     'm34.dialog.cancel': 'Cancel',
@@ -94,17 +103,19 @@ const en: Record<string, string> = {
     'm34.save.layerTitle': 'Save changes',
     'm34.save.layerBody':
         'The working copy of «{base}» has changes that are not in your layer (classic editor, commands, neighbours). Keep them in your layer (they survive a base update) or write them into the base file?',
-    'm34.save.toLayer': 'Changes moved into your layer of «{base}»: {applied}. Conflicts: {conflicts}.',
+    'm34.save.toLayer': 'Edits moved into your layer of «{base}»: {applied}.',
+    'm34.save.toLayerConflicts':
+        'Edits moved into your layer of «{base}»: {applied}. Conflicts to settle: {conflicts} — see the «Your layer» tab.',
     'm34.saveBase.title': 'Save the base',
     'm34.saveBase.body':
         'The working copy without your layer is written into the preset file «{base}». Your layer stays apart and is laid over the base again.',
     'm34.saveBase.ok': 'Save base',
     'm34.saveAs.title': 'Save preset as',
     'm34.saveAs.hint': 'Tip: name it after a character or group to bind the preset to their chats.',
-    'm34.saveAs.done': 'Saved as «{name}».',
+    'm34.saveAs.done': 'Preset saved as «{name}».',
     'm34.rename.title': 'Rename «{name}»',
     'm34.rename.hint': 'Connection profiles that use the old name are offered a fix.',
-    'm34.rename.done': '«{from}» renamed to «{to}».',
+    'm34.rename.done': 'Preset «{from}» renamed to «{to}».',
     'm34.delete.title': 'Delete preset',
     'm34.delete.body':
         'Delete the preset «{name}»? SillyTavern switches to the first preset left. Maestro keeps the versions of the deleted preset.',
@@ -168,7 +179,8 @@ const en: Record<string, string> = {
     'm34.blocks.deleteBody': 'Delete the block «{name}»? It can be undone from Maestro’s journal.',
     'm34.blocks.deleteLayerBody':
         'Delete the block «{name}»? A block you added in your layer is deleted with its operations. A block of the base cannot be deleted by the layer: it is switched off in your layer instead.',
-    'm34.blocks.disabledInLayer': '«{name}» belongs to the base preset: it is switched off in your layer.',
+    'm34.blocks.disabledInLayer':
+        'The block «{name}» is part of the preset itself, so it is switched off in your layer instead of deleted.',
     'm34.blocks.resetTitle': 'Reset the order',
     'm34.blocks.resetBody':
         'Put the list back to SillyTavern’s default order? Your blocks leave the list but are not deleted (insert them again from «Blocks outside the list»).',
@@ -183,9 +195,9 @@ const en: Record<string, string> = {
 
     'm34.list.importTitle': 'Import a prompt list',
     'm34.list.importBody': 'Existing prompts with the same ID will be overridden. Do you want to proceed?',
-    'm34.list.imported': 'Prompt list imported: {updated} updated, {added} added.',
-    'm34.list.invalid.json': '«{file}» is not JSON.',
-    'm34.list.invalid.shape': '«{file}» is not a prompt list (version, type, data.prompts).',
+    'm34.list.imported': 'Block list loaded: {updated} updated, {added} added.',
+    'm34.list.invalid.json': 'The file «{file}» cannot be read: it is not JSON.',
+    'm34.list.invalid.shape': 'The file «{file}» holds no list of preset blocks.',
 
     'm34.editor.panel': 'Block editor',
     'm34.editor.title': 'Block «{name}»',
@@ -223,7 +235,7 @@ const en: Record<string, string> = {
     'm34.editor.types': 'Stored with foreign types ({fields}); saving writes the types SillyTavern accepts.',
     'm34.editor.stale':
         'The preset changed while you were editing. Saving writes into the block of the preset now selected.',
-    'm34.editor.missing': 'The block {id} is not in this preset any more.',
+    'm34.editor.missing': 'This block is not in the preset any more.',
     'm34.editor.added': 'Block «{name}» added and switched on.',
     'm34.editor.changedTitle': 'The block changed meanwhile',
     'm34.editor.changedBody':
@@ -322,7 +334,7 @@ const en: Record<string, string> = {
     'm34.layer.migrateBody':
         'Compare the working copy of «{base}» with «{reference}» and keep the differences in your layer?',
     'm34.layer.migratePreview': 'Operations: {ops}, conflicts: {conflicts}, not fitting: {orphaned}.',
-    'm34.layer.noReference': 'The preset «{name}» could not be read.',
+    'm34.layer.noReference': 'I could not read the preset «{name}».',
     'm34.layer.transferTitle': 'Transfer to another preset',
     'm34.layer.transferHint': 'Your layer is copied onto another preset by anchors (e.g. «after </task>»).',
     'm34.layer.target': 'Target preset',
@@ -338,7 +350,7 @@ const en: Record<string, string> = {
     'm34.layer.foreignFile': '«{file}»: blocks {count}',
     'm34.layer.foreignAdd': 'Add to my layer ({count})',
     'm34.layer.foreignClear': 'Close',
-    'm34.layer.foreignInvalid': '«{file}» is not a preset.',
+    'm34.layer.foreignInvalid': 'The file «{file}» is not a preset.',
     'm34.layer.foreignAdded': 'Blocks added to your layer of «{base}»: {count} (switched off).',
     'm34.layer.workingTitle': 'Working copy',
     'm34.layer.reselect': 'Reselect the preset with the layer',
@@ -346,7 +358,7 @@ const en: Record<string, string> = {
         'Selects the preset again through SillyTavern, so your layer is laid over the saved base.',
     'm34.layer.reselectBody': 'Select the preset again with your layer on top?',
     'm34.layer.reselectDirty': 'The working copy has unsaved changes: selecting the preset again replaces them. Go on?',
-    'm34.layer.reselected': 'Preset «{name}» selected again with your layer.',
+    'm34.layer.reselected': 'Preset «{name}» selected again, with your layer on top.',
     'm34.layer.prepareHint':
         'Before disabling Maestro: the layer lives in the working copy only while Maestro lays it over. Either go back to the plain base, or save base + layer as an ordinary preset.',
     'm34.layer.prepareBase': 'Back to the clean base',
@@ -370,7 +382,7 @@ const en: Record<string, string> = {
     'm34.versions.restoreTitle': 'Roll back',
     'm34.versions.restoreBody':
         'Write the version of {when} into «{name}» and load it? The current state stays as a version too.',
-    'm34.versions.restored': '«{name}» rolled back.',
+    'm34.versions.restored': 'Preset «{name}» rolled back to the chosen version.',
     'm34.versions.by.user': 'studio',
     'm34.versions.by.layer': 'layer',
     'm34.versions.by.import': 'import',
@@ -634,11 +646,19 @@ const ru: Record<string, string> = {
     'm34.tab.params': 'Параметры',
     'm34.tab.conditional': 'Условия',
 
-    'm34.error.generic': 'Пресет-студия: {error}',
+    'm34.error.generic': 'Не получилось. Подробности — в логе Maestro.',
+    'm34.error.unavailable': 'Пресеты SillyTavern сейчас недоступны. Попробуй ещё раз чуть позже.',
+    'm34.error.not-found': 'Этого пресета или блока уже нет.',
+    'm34.error.exists': 'Такое имя уже занято.',
+    'm34.error.invalid': 'Не получилось: имя или файл не подходят.',
+    'm34.error.busy': 'Сейчас пишется ответ. Дождись, пока он закончится, и повтори.',
+    'm34.error.cancelled': 'Отменено.',
+    'm34.error.protected': 'Это встроенный блок SillyTavern: удалить его нельзя, только выключить.',
+    'm34.error.http': 'Сервер не принял пресет (ошибка {status}).',
     'm34.error.noStore':
-        'Слой данных пресетов не запущен, поэтому Пресет-студия не открывается. Подробности — в журнале Maestro.',
+        'Пресет-студия не открывается: ей недоступны пресеты SillyTavern. Подробности — в логе Maestro.',
     'm34.error.textCompletion':
-        'Пресет-студия работает с Chat Completion. Для Text Completion пользуйся штатными панелями пресетов SillyTavern.',
+        'Пресет-студия работает только с Chat Completion. Для Text Completion пользуйся штатными панелями пресетов SillyTavern.',
 
     'm34.dialog.ok': 'ОК',
     'm34.dialog.cancel': 'Отмена',
@@ -711,17 +731,19 @@ const ru: Record<string, string> = {
     'm34.save.layerTitle': 'Сохранить правки',
     'm34.save.layerBody':
         'В рабочей копии «{base}» есть правки, которых нет в твоём слое (классический редактор, команды, соседи). Перенести их в слой (переживут обновление базы) или записать в файл базы?',
-    'm34.save.toLayer': 'Перенесено в слой «{base}»: {applied}. Конфликтов: {conflicts}.',
+    'm34.save.toLayer': 'Перенёс в слой «{base}» правок: {applied}.',
+    'm34.save.toLayerConflicts':
+        'Перенёс в слой «{base}» правок: {applied}. Есть конфликты ({conflicts}) — разберись с ними во вкладке «Слой».',
     'm34.saveBase.title': 'Сохранить базу',
     'm34.saveBase.body':
         'Рабочая копия без твоего слоя запишется в файл пресета «{base}». Слой останется отдельно и снова ляжет поверх базы.',
     'm34.saveBase.ok': 'Сохранить базу',
     'm34.saveAs.title': 'Сохранить пресет как',
     'm34.saveAs.hint': 'Совет: назови его как персонажа или группу, чтобы пресет привязался к их чатам.',
-    'm34.saveAs.done': 'Сохранено как «{name}».',
+    'm34.saveAs.done': 'Пресет сохранён как «{name}».',
     'm34.rename.title': 'Переименовать «{name}»',
     'm34.rename.hint': 'Профили подключения со старым именем студия предложит поправить.',
-    'm34.rename.done': '«{from}» переименован в «{to}».',
+    'm34.rename.done': 'Пресет «{from}» переименован в «{to}».',
     'm34.delete.title': 'Удалить пресет',
     'm34.delete.body':
         'Удалить пресет «{name}»? SillyTavern переключится на первый оставшийся. Версии удалённого пресета Maestro сохранит.',
@@ -785,7 +807,7 @@ const ru: Record<string, string> = {
     'm34.blocks.deleteBody': 'Удалить блок «{name}»? Отменить можно из журнала Maestro.',
     'm34.blocks.deleteLayerBody':
         'Удалить блок «{name}»? Блок, добавленный в твоём слое, удалится вместе с его операциями. Блок базы слой удалить не может — он будет выключен в слое.',
-    'm34.blocks.disabledInLayer': '«{name}» — блок базового пресета: в слое он выключен.',
+    'm34.blocks.disabledInLayer': 'Блок «{name}» есть в самом пресете, поэтому в твоём слое он выключен, а не удалён.',
     'm34.blocks.resetTitle': 'Сбросить порядок',
     'm34.blocks.resetBody':
         'Вернуть список к стандартному порядку SillyTavern? Твои блоки уйдут из списка, но не удалятся (их можно вставить снова из «Блоков вне списка»).',
@@ -800,9 +822,9 @@ const ru: Record<string, string> = {
 
     'm34.list.importTitle': 'Импорт списка промптов',
     'm34.list.importBody': 'Блоки с тем же ID будут перезаписаны. Продолжить?',
-    'm34.list.imported': 'Список промптов импортирован: обновлено — {updated}, добавлено — {added}.',
-    'm34.list.invalid.json': '«{file}» — не JSON.',
-    'm34.list.invalid.shape': '«{file}» — не список промптов (нужны version, type, data.prompts).',
+    'm34.list.imported': 'Список блоков загружен: обновлено {updated}, добавлено {added}.',
+    'm34.list.invalid.json': 'Файл «{file}» не читается: это не JSON.',
+    'm34.list.invalid.shape': 'В файле «{file}» нет списка блоков пресета.',
 
     'm34.editor.panel': 'Редактор блока',
     'm34.editor.title': 'Блок «{name}»',
@@ -841,7 +863,7 @@ const ru: Record<string, string> = {
     'm34.editor.types':
         'Записан с чужими типами ({fields}); при сохранении запишутся типы, которые понимает SillyTavern.',
     'm34.editor.stale': 'Пока ты правил блок, пресет сменился. Сохранение запишет в блок выбранного сейчас пресета.',
-    'm34.editor.missing': 'Блока {id} в этом пресете больше нет.',
+    'm34.editor.missing': 'Этого блока в пресете больше нет.',
     'm34.editor.added': 'Блок «{name}» добавлен и включён.',
     'm34.editor.changedTitle': 'Блок изменили',
     'm34.editor.changedBody':
@@ -937,7 +959,7 @@ const ru: Record<string, string> = {
     'm34.layer.migrate': 'Перенести мои правки в слой',
     'm34.layer.migrateBody': 'Сравнить рабочую копию «{base}» с «{reference}» и сохранить различия в твоём слое?',
     'm34.layer.migratePreview': 'Операций: {ops}, конфликтов: {conflicts}, не ложится: {orphaned}.',
-    'm34.layer.noReference': 'Пресет «{name}» прочитать не удалось.',
+    'm34.layer.noReference': 'Не смог прочитать пресет «{name}».',
     'm34.layer.transferTitle': 'Перенос на другой пресет',
     'm34.layer.transferHint': 'Слой копируется на другой пресет по якорям (например, «после </task>»).',
     'm34.layer.target': 'Пресет, куда переносить',
@@ -953,15 +975,15 @@ const ru: Record<string, string> = {
     'm34.layer.foreignFile': '«{file}»: блоков — {count}',
     'm34.layer.foreignAdd': 'Добавить в мой слой ({count})',
     'm34.layer.foreignClear': 'Закрыть',
-    'm34.layer.foreignInvalid': '«{file}» — не пресет.',
-    'm34.layer.foreignAdded': 'В слой «{base}» добавлено блоков: {count} (выключены).',
+    'm34.layer.foreignInvalid': 'Файл «{file}» — не пресет.',
+    'm34.layer.foreignAdded': 'Добавил в слой «{base}» блоков: {count} — пока они выключены.',
     'm34.layer.workingTitle': 'Рабочая копия',
     'm34.layer.reselect': 'Перевыбрать пресет со слоем',
     'm34.layer.reselectHint': 'Пресет выбирается заново через SillyTavern, и слой ложится поверх сохранённой базы.',
     'm34.layer.reselectBody': 'Выбрать пресет заново с твоим слоем сверху?',
     'm34.layer.reselectDirty':
         'В рабочей копии есть несохранённые правки: повторный выбор пресета их заменит. Продолжить?',
-    'm34.layer.reselected': 'Пресет «{name}» выбран заново со слоем.',
+    'm34.layer.reselected': 'Пресет «{name}» выбран заново, твой слой лёг сверху.',
     'm34.layer.prepareHint':
         'Перед отключением Maestro: слой живёт в рабочей копии, только пока Maestro его накладывает. Вернись к чистой базе или сохрани базу со слоем обычным пресетом.',
     'm34.layer.prepareBase': 'Вернуть чистую базу',
@@ -985,7 +1007,7 @@ const ru: Record<string, string> = {
     'm34.versions.restoreTitle': 'Откат',
     'm34.versions.restoreBody':
         'Записать версию от {when} в «{name}» и загрузить её? Текущее состояние тоже останется версией.',
-    'm34.versions.restored': '«{name}» откачен.',
+    'm34.versions.restored': 'Пресет «{name}» возвращён к выбранной версии.',
     'm34.versions.by.user': 'студия',
     'm34.versions.by.layer': 'слой',
     'm34.versions.by.import': 'импорт',

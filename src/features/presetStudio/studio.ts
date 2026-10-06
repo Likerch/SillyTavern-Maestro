@@ -840,6 +840,7 @@ export class PresetStudio {
         try {
             this.deps.services.scenarios()?.setParams?.(id, values);
         } catch (error) {
+            this.deps.log.warn('scenario parameters were not stored', error);
             this.app.ui.notice(this.dialogs.errorText(error), { urgent: true, level: 'error' });
         }
         this.scheduleRefresh();
@@ -1259,6 +1260,7 @@ export class PresetStudio {
         try {
             result = typeof ctx.substituteParams === 'function' ? ctx.substituteParams(text) : text;
         } catch (error) {
+            this.deps.log.warn('macro preview failed', error);
             this.app.ui.notice(this.dialogs.errorText(error), { urgent: true, level: 'error' });
             return;
         }
@@ -1371,7 +1373,7 @@ export class PresetStudio {
         if (!(await this.canLeave())) return false;
         const prompt = this.promptOf(identifier);
         if (!prompt) {
-            this.app.ui.notice(this.t('m34.editor.missing', { id: identifier }), { urgent: true, level: 'warn' });
+            this.app.ui.notice(this.t('m34.editor.missing'), { urgent: true, level: 'warn' });
             return false;
         }
         this.showEditor(prompt, false);
@@ -1467,7 +1469,7 @@ export class PresetStudio {
         }
         const current = this.promptOf(base.identifier);
         if (!current) {
-            this.app.ui.notice(this.t('m34.editor.missing', { id: base.identifier }), { urgent: true, level: 'warn' });
+            this.app.ui.notice(this.t('m34.editor.missing'), { urgent: true, level: 'warn' });
             return false;
         }
         // P-018: somebody (classic PM, /setpromptentry, a neighbour) changed the block meanwhile.
@@ -1571,9 +1573,14 @@ export class PresetStudio {
                 this.t('m34.save.layerIntro', { base }),
             );
             if (!report) return false;
+            const conflicts = report.conflicts.length;
             this.app.ui.notice(
-                this.t('m34.save.toLayer', { base, applied: report.applied, conflicts: report.conflicts.length }),
-                { urgent: true, level: report.conflicts.length ? 'warn' : 'info' },
+                this.t(conflicts ? 'm34.save.toLayerConflicts' : 'm34.save.toLayer', {
+                    base,
+                    applied: report.applied,
+                    conflicts,
+                }),
+                { urgent: true, level: conflicts ? 'warn' : 'info' },
             );
             this.rerender();
             return true;

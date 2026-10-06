@@ -65,7 +65,7 @@ export function chronicleTab(deps: ChronicleTabDeps): PultTab {
         const studio = app.modules.api<{ open?(book?: string, uid?: number): void }>('loreStudio');
         const book = env.canon()?.bookName();
         if (typeof studio?.open !== 'function' || !book) {
-            app.ui.notice(t('m9.error.noStudio'), { level: 'warn' });
+            app.ui.notice(t('m9.error.noStudio'), { level: 'warn', urgent: true });
             return;
         }
         app.ui.closePult?.();

@@ -2,7 +2,8 @@
 // in and dismissed, «what X does not know» when the topic came up (Russian forms, English words), the cap, «знает»
 // marks with undo, rollback on invalidation, per-chat storage and the module's registration.
 import { afterEach, describe, expect, it } from 'vitest';
-import { knowledgeModule } from '../../../src/features/knowledge';
+import { createLabels, describeChange } from '../../../src/core/labels';
+import { KNOWLEDGE_STRINGS, KNOWLEDGE_TARGETS, knowledgeModule } from '../../../src/features/knowledge';
 import type { KnowledgeApi } from '../../../src/features/knowledge/api';
 import { KNOWN_TARGET, SECRET_TARGET } from '../../../src/features/knowledge/settings';
 import type { Unsubscribe } from '../../../src/shared/contracts';
@@ -387,8 +388,8 @@ describe('who knows: marks from the pult', () => {
         expect(factOf(api, 'Anna is a spy').knownBy).toEqual(['Corvin']);
         const records = env.journal.records.slice(1);
         expect(records.map((record) => [record.kind, record.summary])).toEqual([
-            ['knowledge.known', 'Corvin knows: Anna is a spy'],
-            ['knowledge.known', 'Anna does not know: Anna is a spy'],
+            ['knowledge.known', 'Corvin knows now: Anna is a spy'],
+            ['knowledge.known', 'Anna does not know now: Anna is a spy'],
         ]);
         expect(records[0]?.changes).toEqual([
             { target: KNOWN_TARGET, ref: { factId: id, character: 'Corvin' }, before: false, after: true },
@@ -400,6 +401,52 @@ describe('who knows: marks from the pult', () => {
         expect(factOf(api, 'Anna is a spy').knownBy).toEqual(['Anna']);
         await expect(api.markKnown('nope', 'Bob')).rejects.toThrow('This fact is gone.');
         await expect(api.markKnown(id, ' ')).rejects.toThrow('No character name.');
+    });
+});
+
+describe('how the journal reads', () => {
+    it('names the kinds and targets in both languages', () => {
+        expect(knowledgeModule.targets).toBe(KNOWLEDGE_TARGETS);
+        const keys = [
+            'kind.knowledge.secret',
+            'kind.knowledge.known',
+            ...KNOWLEDGE_TARGETS.map((spec) => `target.${spec.target}`),
+            ...KNOWLEDGE_TARGETS.flatMap((spec) => Object.values(spec.fields ?? {}).map((field) => field.labelKey)),
+            'm18.field.knows',
+        ];
+        for (const key of keys) {
+            expect(KNOWLEDGE_STRINGS.en[key], key).toBeTruthy();
+            expect(KNOWLEDGE_STRINGS.ru[key], key).toBeTruthy();
+        }
+    });
+
+    it('journals a secret in the chat words and shows who knows it, without ids or the English statement', async () => {
+        const env = createKnowledgeTestApp();
+        const { api } = start(env);
+        await api.addSecret({
+            text: 'Anna is a spy for the Duke',
+            topics: ['spy'],
+            knownBy: ['Anna'],
+            sourceMessage: 3,
+            quote: 'Только не говори Каю, что я работаю на герцога.',
+        });
+        const record = env.journal.records.at(-1)!;
+        expect(record.summary).toBe('Noted a secret: «Только не говори Каю, что я работаю на герцога.»');
+        const labels = createLabels();
+        labels.register(KNOWLEDGE_TARGETS);
+        const human = describeChange(record.changes[0]!, labels, env.app.i18n);
+        expect(human?.label).toBe('Secret');
+        expect(human?.rows.map((row) => [row.label, row.after])).toEqual([
+            ['Words from the chat', 'Только не говори Каю, что я работаю на герцога.'],
+            ['Known to', 'Anna'],
+            ['Message', '#3'],
+            ['Noted', expect.any(String)],
+        ]);
+        expect(JSON.stringify(human)).not.toContain('spy');
+        const known = { target: KNOWN_TARGET, ref: { factId: 'x', character: 'Kai' }, before: false, after: true };
+        expect(describeChange(known, labels, env.app.i18n)?.rows).toEqual([
+            { label: 'Knows', kind: 'changed', before: 'no', after: 'yes' },
+        ]);
     });
 });
 

@@ -2,6 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { PresetLayerApi } from '../../../src/features/presetStudio/layer-api';
 import { KEYS_TARGET, PRESET_LAYER_KEY, PresetStoreError } from '../../../src/features/presetStudio/store';
+import { M34_STRINGS } from '../../../src/features/presetStudio/strings';
 import { createStoreEnv, ev } from './helpers-store';
 import type { StoreEnv } from './helpers-store';
 
@@ -161,6 +162,14 @@ describe('setKeys', () => {
         expect(await stand.env.journal.undo(record.id)).toBe(true);
         expect(stand.oai.temp_openai).toBe(1);
         expect(stand.oai.bias_preset_selected).toBe('Default (none)');
+    });
+
+    it('names the changed parameters in the journal the way the «Parameters» tab does', async () => {
+        stand.env.app.i18n.register(M34_STRINGS);
+        await stand.store.setKeys({ temperature: 0.2, openai_max_tokens: 100, bias_preset_selected: 'Other bias' });
+        expect(stand.env.journal.list({ module: 'M34' })[0]!.summary).toBe(
+            'Preset parameters changed: Temperature, Max Response Length (tokens) and 1 more',
+        );
     });
 
     it('does not undo keys changed again since', async () => {

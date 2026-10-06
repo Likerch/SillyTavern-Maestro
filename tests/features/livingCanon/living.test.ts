@@ -93,7 +93,15 @@ describe('M26: drafts before the commit (P14)', () => {
             }),
         ]);
         const [proposal] = proposalsOf(env, 'living.fact');
-        expect(proposal?.title).toBe('New provisional fact: Праздник Фонарей');
+        expect(proposal?.title).toBe('A new fact about the world: Праздник Фонарей');
+        // Plain words in the card; the canon book and keys only in its details (plan-2 §3).
+        expect(proposal?.description).toBe(
+            'Tradition: Праздник Фонарей.\nI will remember it as provisional: it becomes firm canon once the story confirms it.',
+        );
+        expect(proposal?.details).toContain('Keys: Праздник Фонарей');
+        expect(proposal?.appliedNotice?.text).toBe('Remembered as provisional: Праздник Фонарей (tradition)');
+        expect(proposal?.appliedNotice?.group).toBe('living.captured');
+        expect(proposal?.appliedNotice?.groupText?.(3)).toBe('Remembered 3 new facts about the world (provisional)');
         expect(env.journal.records.map((record) => record.kind)).toEqual(['living.fact']);
     });
 
@@ -219,9 +227,13 @@ describe('M26: disputed facts', () => {
         const index = await turn(env, living, DISPUTED);
         expect(env.canon.living()).toEqual([]);
         const [card] = proposalsOf(env, 'living.disputed');
-        expect(card?.title).toBe('Disputed invented fact: Праздник Фонарей');
+        expect(card?.title).toBe('Something new disagrees with the story: Праздник Фонарей');
         expect(card?.sourceMessage).toBe(index);
-        expect(String(card?.description)).toContain('never had any festivals');
+        // The card names what it contradicts; the contradiction itself (English canon) waits in the details.
+        expect(String(card?.description)).toContain('This does not fit what is already known: Эльмира.');
+        expect(String(card?.description)).not.toContain('never had any festivals');
+        expect(String(card?.details)).toContain('never had any festivals');
+        expect((card?.payload as { evidence?: string }).evidence).toContain('Праздник Фонарей');
         expect(living.facts()).toEqual([expect.objectContaining({ name: 'Праздник Фонарей', status: 'disputed' })]);
         // The commit path asks the rules only (no model on the send path, P15).
         expect(env.contradictions.checkInputs).toEqual([]);
@@ -284,6 +296,16 @@ describe('M26: confirmation rules', () => {
         expect(item?.meta.status).toBe('active');
         expect(living.facts()[0]).toMatchObject({ status: 'active', confirmedBy: 'userMentioned' });
         expect(env.canon.calls).toContain(`status:${item?.uid}:active`);
+        // The confirmation is news in story words, grouped per turn (plan-2 §5).
+        const notice = env.ui.notices.find((entry) => entry.options?.group === 'living.confirmed');
+        expect(notice?.text).toBe('Fact confirmed: Праздник Фонарей — you mentioned it');
+        expect(notice?.options?.groupText?.(2)).toBe('2 facts about the world were confirmed');
+    });
+
+    it('says nothing when the user confirms a fact himself', async () => {
+        const { uid } = await provisional();
+        expect(await living.accept(uid)).toBe(true);
+        expect(env.ui.notices.filter((entry) => entry.options?.group === 'living.confirmed')).toEqual([]);
     });
 
     it('confirms by an explicit acceptance when nothing contradicts it', async () => {
@@ -306,7 +328,9 @@ describe('M26: confirmation rules', () => {
         expect(env.contradictions.checkOptions).toEqual([expect.objectContaining({ inline: false })]);
         expect(env.canon.item(uid)?.meta.status).toBe('provisional');
         expect(living.records()[0]?.conflict).toContain('forbidden');
-        expect(env.ui.notices.at(-1)?.text).toContain('is not confirmed');
+        expect(env.ui.notices.at(-1)?.text).toBe(
+            'Cannot confirm “Праздник Фонарей”: it disagrees with what is already known — Фонари.',
+        );
         // The model clears the rules' suspicion: confirmed.
         env.contradictions.verdict = () => ({ clean: true, askedAi: true, contradictions: [], costUsd: 0 });
         expect(await living.accept(uid)).toBe(true);
@@ -383,7 +407,7 @@ describe('M26: confirmation rules', () => {
         const later = await turn(env, living, 'Праздник Фонарей отмечают осенью.');
         expect(env.canon.item(item!.uid)?.entry.content).toBe('Tradition: Lantern Festival\nHeld every spring.');
         const [card] = proposalsOf(env, 'living.disputed');
-        expect(card?.title).toBe('The story contradicts confirmed canon: Праздник Фонарей');
+        expect(card?.title).toBe('The story disagrees with a known fact: Праздник Фонарей');
         expect(card?.sourceMessage).toBe(later);
         // Accepting: the story wins, the entry becomes provisional with the new statement.
         await card?.apply(card.payload);
@@ -412,6 +436,11 @@ describe('M26: undoing a reply (§5 «Отмена»)', () => {
             status: 'dropped',
             droppedBy: 'invalidated',
         });
+        const dropped = env.ui.notices.filter((entry) => entry.options?.group === 'living.dropped');
+        expect(dropped.map((entry) => entry.text)).toEqual([
+            'Forgot the provisional fact “Орден Серебряной Луны”: its reply was edited.',
+        ]);
+        expect(dropped[0]?.options?.groupText?.(3)).toBe('Forgot 3 provisional facts from changed replies');
         await env.app.bus.emit('message:invalidated', { messageIndex: first, reason: 'swiped' });
         await flush(living);
         expect(env.canon.living().map((item) => item.meta.status)).toEqual(['active']);

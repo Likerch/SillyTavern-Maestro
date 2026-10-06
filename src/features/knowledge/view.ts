@@ -39,8 +39,9 @@ export function knowledgeTab(app: App, service: KnowledgeService): PultTab {
     const settings = (): KnowledgeSettings =>
         readKnowledgeSettings(app.settings.module<Partial<KnowledgeSettings>>(KNOWLEDGE_KEY));
 
+    /** A failed «knows» toggle: a reply to the user's own click, always shown. */
     const report = (error: unknown): void => {
-        app.ui.notice(error instanceof Error ? error.message : String(error), { level: 'error' });
+        app.ui.notice(error instanceof Error ? error.message : String(error), { level: 'error', urgent: true });
     };
 
     return {

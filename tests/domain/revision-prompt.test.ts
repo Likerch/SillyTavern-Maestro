@@ -69,6 +69,9 @@ describe('revision targets and schema', () => {
         expect(items.additionalProperties).toBe(false);
         expect(schema.additionalProperties).toBe(false);
         expect((items.properties as Record<string, { enum?: string[] }>).target!.enum).toEqual([...REVISION_TARGETS]);
+        // A Russian sentence for the user's card comes with every change (plan-2 §3).
+        expect(properties).toContain('russian');
+        expect(revisionInstructions(5)).toContain('- russian: the same change as ONE short plain Russian sentence');
     });
 
     it('instructions are English, call the data untrusted and cap the changes', () => {

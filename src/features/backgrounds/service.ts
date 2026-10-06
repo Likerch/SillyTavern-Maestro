@@ -638,13 +638,20 @@ export class BackgroundsService implements BackgroundsApi {
             source: pick.source,
             score: pick.score,
         };
-        const title = this.t('m29.journal.set', { file: fileTitle(pick.file) || pick.file, place: place.name });
+        const title = this.t('m29.journal.set', { place: place.name });
+        // The file name and the variant tags are technical: «Подробнее» only.
+        const details = [
+            this.t('m29.details.file', { file: pick.file }),
+            pick.variant.length ? this.t('m29.details.variant', { variant: pick.variant.join(', ') }) : '',
+        ];
         const decision = await this.app.autonomy.decide<SetPayload>(
             {
                 module: BACKGROUNDS_KEY,
                 kind: SET_KIND,
                 title,
                 description: this.t(`m29.proposal.${pick.source}`),
+                details: details.filter(Boolean).join('\n'),
+                appliedNotice: { text: this.t('m29.notice.set', { place: place.name }) },
                 changes: [this.changeOf(payload, pointer, true)],
                 payload,
                 ttlMs: PROPOSAL_TTL_MS,
@@ -820,7 +827,7 @@ export class BackgroundsService implements BackgroundsApi {
         await this.setByUser(
             { placeId, file, variant, source: this.sourceOf(file, 'user'), score: 0 },
             PICK_KIND,
-            this.t('m29.journal.pick', { file: fileTitle(file) || file, place: name }),
+            this.t('m29.journal.pick', { place: name }),
             true,
         );
     }
@@ -917,7 +924,7 @@ export class BackgroundsService implements BackgroundsApi {
                     await this.setByUser(
                         choice,
                         GENERATE_KIND,
-                        this.t('m29.journal.generate', { file: fileTitle(file) || file, place: place.name }),
+                        this.t('m29.journal.generate', { place: place.name }),
                         false,
                     );
                 }
@@ -967,12 +974,7 @@ export class BackgroundsService implements BackgroundsApi {
         const library = await this.loadLibrary();
         const pick = this.choose(place, library.items, library.ok);
         if (!pick || pick.score !== BOUND_SCORE) return;
-        await this.setByUser(
-            pick,
-            PICK_KIND,
-            this.t('m29.journal.bound', { file: fileTitle(pick.file) || pick.file, place: place.name }),
-            false,
-        );
+        await this.setByUser(pick, PICK_KIND, this.t('m29.journal.bound', { place: place.name }), false);
     }
 
     /** A change the user asked for: applied now (also over the user's own background) and journaled. */

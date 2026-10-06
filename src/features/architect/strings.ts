@@ -5,6 +5,9 @@ export const ARCHITECT_STRINGS: I18nParts = {
     en: {
         'm20.title': 'Prompt architect',
         'm20.tab': 'Architect',
+        'kind.architect.duplicate': 'Repeated facts in the prompt',
+        'target.m20.consent': 'Repeated fact',
+        'm20.consent.fact': 'Fact',
         'm20.intro':
             'A smaller and sharper prompt with the same knowledge: budgets per source, lore of who is here and ' +
             'where, repeated facts and the provider cache. Nothing changes the prompt until you turn it on here.',
@@ -81,10 +84,18 @@ export const ARCHITECT_STRINGS: I18nParts = {
         'm20.dup.reportOnly': 'Report only',
         'm20.dup.kept': 'Kept: {source}. The other copies are dropped.',
         'm20.dup.journal.keep': 'Repeated fact: keep only {source}',
-        'm20.dup.journal.report': 'Repeated fact: report only',
+        'm20.dup.journal.report': 'Repeated fact: let every copy through again',
+        'm20.dup.proposal.keep':
+            'The same fact reaches the prompt several times. I will cut the other copies out on the fly; books and ' +
+            'memories stay as they are.',
+        'm20.dup.proposal.report':
+            'Every copy of the fact goes into the prompt again; the repeat only shows in the Architect tab.',
+        'm20.dup.details': 'Found in: {sources}',
+        'm20.dup.notice.keep': 'The repeated fact now reaches the prompt from one place only: {source}.',
+        'm20.dup.notice.report': 'The repeated fact reaches the prompt from every place again; I only point it out.',
         'm20.owner.lore': 'lore',
         'm20.owner.canon': 'canon',
-        'm20.owner.ckArchive': 'CK archive',
+        'm20.owner.ckArchive': 'character sheet',
         'm20.owner.ck': 'CK RAG',
         'm20.owner.qvink': 'Qvink memory',
         'm20.owner.des': 'DES',
@@ -145,6 +156,9 @@ export const ARCHITECT_STRINGS: I18nParts = {
     ru: {
         'm20.title': 'Архитектор промпта',
         'm20.tab': 'Архитектор',
+        'kind.architect.duplicate': 'Повторы фактов в промпте',
+        'target.m20.consent': 'Повтор факта',
+        'm20.consent.fact': 'Факт',
         'm20.intro':
             'Промпт меньше и точнее при тех же знаниях: бюджеты по источникам, лор тех, кто рядом, повторы фактов ' +
             'и кэш провайдера. Пока ты ничего не включил здесь, промпт не меняется.',
@@ -220,10 +234,18 @@ export const ARCHITECT_STRINGS: I18nParts = {
         'm20.dup.reportOnly': 'Только отчёт',
         'm20.dup.kept': 'Оставлено: {source}. Остальные копии убираются.',
         'm20.dup.journal.keep': 'Повтор факта: оставить только {source}',
-        'm20.dup.journal.report': 'Повтор факта: только отчёт',
+        'm20.dup.journal.report': 'Повтор факта: снова пускать все копии',
+        'm20.dup.proposal.keep':
+            'Один и тот же факт попадает в промпт несколько раз. Остальные копии я буду убирать на лету; книги и ' +
+            'память при этом не меняются.',
+        'm20.dup.proposal.report':
+            'Все копии факта снова пойдут в промпт, повтор останется только в отчёте на вкладке «Архитектор».',
+        'm20.dup.details': 'Где встречается: {sources}',
+        'm20.dup.notice.keep': 'Повторяющийся факт теперь идёт в промпт только из одного места: {source}.',
+        'm20.dup.notice.report': 'Повторяющийся факт снова идёт в промпт из всех мест — я только отмечаю повтор.',
         'm20.owner.lore': 'лор',
         'm20.owner.canon': 'канон',
-        'm20.owner.ckArchive': 'архив CK',
+        'm20.owner.ckArchive': 'лист характера',
         'm20.owner.ck': 'RAG CK',
         'm20.owner.qvink': 'память Qvink',
         'm20.owner.des': 'DES',

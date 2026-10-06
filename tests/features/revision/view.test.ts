@@ -65,7 +65,9 @@ describe('pult tab «Ревизия»', () => {
         expect(
             (env.app.tasks as unknown as { queued: { payload: unknown }[] }).queued.map((task) => task.payload),
         ).toEqual([{ reason: 'manual' }]);
-        expect(env.ui.notices.map((notice) => notice.text)).toContain('The revision is queued.');
+        expect(env.ui.notices.map((notice) => notice.text)).toContain(
+            'I will go through the story in the background; proposals will appear in the Inbox.',
+        );
         const inputs = [...container.querySelectorAll<HTMLInputElement>('input[type="number"]')];
         inputs[0]!.value = '5';
         inputs[0]!.dispatchEvent(new Event('change'));

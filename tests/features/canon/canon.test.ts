@@ -96,7 +96,7 @@ describe('items', () => {
         expect(env.world.reloads).toContain(book);
         expect(env.neighbours.desInvalidated).toContain(book);
         const record = env.journal.records.at(-1)!;
-        expect(record).toMatchObject({ module: 'M6', kind: 'canon.put', summary: 'Canon: added «Tavern»' });
+        expect(record).toMatchObject({ module: 'M6', kind: 'canon.put', summary: 'Added to the chat canon: «Tavern»' });
         expect(record.changes[0]).toMatchObject({ target: 'canon-entry', ref: { book, uid: 0 }, before: null });
         expect((await canon.list()).map((item) => item.uid)).toEqual([0]);
 
@@ -123,7 +123,7 @@ describe('items', () => {
         expect(updated.meta.kind).toBe('suppress');
         expect(updated.meta.createdAt).toBe(created.meta.createdAt);
         expect(updated.meta.updatedAt).toBeGreaterThan(created.meta.updatedAt);
-        expect(env.journal.records.at(-1)?.summary).toBe('Canon: changed «Suppressed: Dragon»');
+        expect(env.journal.records.at(-1)?.summary).toBe('Changed in the chat canon: «Suppressed: Dragon»');
         const pin = await canon.put(onBase('pin', 'World', 1));
         expect(pin).not.toBe(first);
         expect(await canon.list({ kind: 'pin' })).toHaveLength(1);
@@ -280,7 +280,9 @@ describe('scan', () => {
         await runScan(env, listsFrom(env.world, { globalLore: ['World', book] }), 'castle');
         expect(lists.globalLore.filter((entry) => entry.world === book)).toEqual([]);
         expect(lists.globalLore.find((entry) => entry.uid === 0)?.content).toBe('Ruins.');
-        expect(env.ui.notices.filter((notice) => notice.text.includes('switched on in SillyTavern'))).toHaveLength(1);
+        const warnings = env.ui.notices.filter((notice) => notice.text.includes('switched on in SillyTavern'));
+        expect(warnings).toHaveLength(1);
+        expect(warnings[0]?.options).toMatchObject({ importance: 'important', level: 'warn' });
     });
 
     it('reports canon books in the health check', async () => {
@@ -490,6 +492,12 @@ describe('branches', () => {
         await settle();
         const proposal = env.autonomy.proposals.at(-1)!;
         expect(proposal.kind).toBe('canon.branchCopy');
+        expect(proposal).toMatchObject({
+            title: 'Canon for the new branch of the chat',
+            details: `Canon lorebook of the parent chat: ${canonBookName(parent)}`,
+            appliedNotice: { text: `Copied the canon of «${parent}» into this branch.` },
+        });
+        expect(proposal.description).not.toContain(canonBookName(parent));
         expect(env.autonomy.levels.get('canon.branchCopy')).toBeUndefined();
         await env.mock.eventSource.emit(EVENT_TYPES.CHAT_CHANGED!, env.mock.chatId);
         await settle();

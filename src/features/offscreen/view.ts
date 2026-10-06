@@ -138,10 +138,14 @@ export function offscreenTab(app: App, service: OffscreenService, settings: () =
             onClick: async () => {
                 const names = candidates.filter((item) => chosen.has(item.name)).map((item) => item.name);
                 try {
+                    // Replies to the user's own click: shown whatever the notification level.
                     await service.runNow(names.length ? names : undefined);
-                    app.ui.notice(t('m16.now.queued'));
+                    app.ui.notice(t('m16.now.queued'), { urgent: true });
                 } catch (error) {
-                    app.ui.notice(error instanceof Error ? error.message : String(error), { level: 'warn' });
+                    app.ui.notice(error instanceof Error ? error.message : String(error), {
+                        level: 'warn',
+                        urgent: true,
+                    });
                 }
                 draw();
             },

@@ -66,7 +66,7 @@ describe('addSlashCommand()', () => {
         const off = ui.addSlashCommand(spec());
         off();
         await expect(env.slashCommands['maestro-mode']?.callback({}, '')).resolves.toBe(
-            '/maestro-mode недоступна: её модуль Maestro выключен.',
+            '/maestro-mode сейчас не работает: выключен её модуль Maestro.',
         );
         ui.addSlashCommand(spec());
         expect(env.addCommandObject).toHaveBeenCalledTimes(1);

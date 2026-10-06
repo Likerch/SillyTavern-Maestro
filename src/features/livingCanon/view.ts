@@ -105,9 +105,13 @@ export function livingTab(app: App, service: LivingCanonService, settings: () =>
             const factBody = (fact: FactData): (HTMLElement | null)[] => {
                 const keys = fact.keys.filter((key) => key !== fact.name).slice(0, KEYS_SHOWN);
                 return [
+                    fact.russian ? el('div', { class: 'maestro-m26-text', text: fact.russian }) : null,
                     el('div', { class: 'maestro-m26-quote', text: quoteText(fact.quote) }),
                     fact.text
-                        ? el('div', { class: 'maestro-m26-text', text: t('m26.text', { text: fact.text }) })
+                        ? el('div', {
+                              class: 'maestro-m26-small maestro-muted',
+                              text: t('m26.text', { text: fact.text }),
+                          })
                         : el('div', { class: 'maestro-m26-small maestro-muted', text: t('m26.noText') }),
                     keys.length
                         ? el('div', { class: 'maestro-m26-small', text: t('m26.keys', { keys: keys.join(', ') }) })
@@ -260,7 +264,16 @@ export function livingTab(app: App, service: LivingCanonService, settings: () =>
                                 class: 'maestro-hint',
                                 text: t('m26.hint', { k: current.maxPerTurn, n: current.surviveTurns }),
                             }),
-                            app.modules.api(CANON_KEY) ? null : banner(t('m26.noCanon'), 'warn'),
+                            app.modules.api(CANON_KEY)
+                                ? null
+                                : el('div', { class: 'maestro-row' }, [
+                                      banner(t('m26.noCanon'), 'warn'),
+                                      button({
+                                          label: t('m26.enableCanon'),
+                                          icon: 'fa-power-off',
+                                          onClick: () => run(() => app.modules.enable(CANON_KEY)),
+                                      }),
+                                  ]),
                             extractLine(),
                         ],
                         [
@@ -271,7 +284,7 @@ export function livingTab(app: App, service: LivingCanonService, settings: () =>
                                 onClick: () =>
                                     run(async () => {
                                         await service.extractNow();
-                                        app.ui.notice(t('m26.extract.queued'));
+                                        app.ui.notice(t('m26.extract.queued'), { urgent: true });
                                     }),
                             }),
                             provisional.length
@@ -281,7 +294,7 @@ export function livingTab(app: App, service: LivingCanonService, settings: () =>
                                       onClick: () =>
                                           run(async () => {
                                               const result = await service.acceptAll();
-                                              app.ui.notice(t('m26.acceptAll.done', result));
+                                              app.ui.notice(t('m26.acceptAll.done', result), { urgent: true });
                                           }),
                                   })
                                 : null,

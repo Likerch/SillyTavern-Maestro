@@ -1,8 +1,11 @@
-// Journal tab: every Maestro action with undo (plan §4.6), plus autonomy decision stats (§4.12, §8).
+// Journal tab: every Maestro action with undo (plan §4.6), plus autonomy decision stats (§4.12, §8). A record reads in
+// plain words (summary, module, human kind, the change as «было → стало» from the modules' TargetSpecs); kind ids,
+// locators and raw values wait under «Подробнее» (plan-2 §3).
+import { kindLabel } from '../../core/labels';
 import type { JournalRecord, PultTab } from '../../shared/contracts';
 import { emptyState, section } from '../components/card';
 import { select } from '../components/controls';
-import { changeView } from '../components/diff';
+import { changeView, detailsView, humanChangeView } from '../components/diff';
 import { button, clear, el } from '../components/dom';
 import { table } from '../components/table';
 import { formatTime, moduleTitle } from './format';
@@ -14,21 +17,35 @@ const LIMIT = 300;
 export function journalTab(env: ViewEnv): PultTab {
     const { i18n, shell } = env;
     const t = i18n.t.bind(i18n);
+    /** Human kind name; the raw kind when the module did not name it (still better than nothing in a table). */
+    const kindName = (kind: string): string => kindLabel(i18n, kind) ?? kind;
 
-    const recordView = (record: JournalRecord, redraw: () => void): HTMLElement =>
-        el('div', { class: ['maestro-journal-row', record.undone ? 'maestro-undone' : null] }, [
+    const changesView = (record: JournalRecord): HTMLElement | null => {
+        if (!record.changes.length) return null;
+        const open = env.settings.core().showTechnical === true;
+        const human = record.changes
+            .map((change) => humanChangeView(change, env.labels, i18n))
+            .filter((node): node is HTMLElement => node !== null);
+        const technical = detailsView(i18n, open, [
+            el('div', { class: 'maestro-muted', text: t('ui.inbox.detailsKind', { kind: record.kind }) }),
+            ...record.changes.map((change) => changeView(change, t)),
+        ]);
+        if (!human.length) return technical;
+        return el('details', { class: 'maestro-journal-changes' }, [
+            el('summary', { text: t('ui.journal.changes') }),
+            ...human,
+            technical,
+        ]);
+    };
+
+    const recordView = (record: JournalRecord, redraw: () => void): HTMLElement => {
+        const known = kindLabel(i18n, record.kind);
+        const meta = [formatTime(record.at, i18n), moduleTitle(env.modules, i18n, record.module), known ?? ''];
+        return el('div', { class: ['maestro-journal-row', record.undone ? 'maestro-undone' : null] }, [
             el('div', { class: 'maestro-journal-main' }, [
                 el('div', { class: 'maestro-journal-summary', text: record.summary }),
-                el('div', {
-                    class: 'maestro-muted',
-                    text: `${formatTime(record.at, i18n)} · ${moduleTitle(env.modules, i18n, record.module)} · ${record.kind}`,
-                }),
-                record.changes.length
-                    ? el('details', { class: 'maestro-journal-changes' }, [
-                          el('summary', { text: t('ui.journal.changes', { count: record.changes.length }) }),
-                          ...record.changes.map((change) => changeView(change, t)),
-                      ])
-                    : null,
+                el('div', { class: 'maestro-muted', text: meta.filter(Boolean).join(' · ') }),
+                changesView(record),
             ]),
             button({
                 label: record.undone ? t('ui.journal.undoneLabel') : t('ui.journal.undo'),
@@ -40,22 +57,24 @@ export function journalTab(env: ViewEnv): PultTab {
                         ok
                             ? t('ui.journal.undoDone', { summary: record.summary })
                             : t('ui.journal.undoFailed', { summary: record.summary }),
-                        {
-                            level: ok ? 'info' : 'warn',
-                        },
+                        // A reply to the user's own click: always shown.
+                        { level: ok ? 'info' : 'warn', importance: 'urgent' },
                     );
                     redraw();
                 },
             }),
         ]);
+    };
 
     const statsView = (): HTMLElement => {
-        const stats = [...env.autonomy.stats()].sort((a, b) => a.kind.localeCompare(b.kind));
+        const stats = [...env.autonomy.stats()]
+            .map((row) => ({ ...row, label: kindName(row.kind) }))
+            .sort((a, b) => a.label.localeCompare(b.label));
         return section(
             t('ui.journal.stats'),
             table(
                 [
-                    { key: 'kind', label: t('ui.journal.kind'), cell: (row) => row.kind },
+                    { key: 'kind', label: t('ui.journal.kind'), cell: (row) => row.label },
                     {
                         key: 'accepted',
                         label: t('ui.journal.accepted'),

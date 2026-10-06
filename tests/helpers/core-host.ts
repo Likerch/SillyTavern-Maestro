@@ -78,6 +78,7 @@ export interface FakeUi extends Ui {
     notices: { text: string; options?: Parameters<Ui['notice']>[1] }[];
     badges: { messageIndex: number; badge: Parameters<Ui['messageBadge']>[1]; removed: boolean }[];
     confirms: { title: string; body: string | HTMLElement }[];
+    confirmOptions: ({ details?: string } | undefined)[];
     confirmAnswer: boolean;
 }
 
@@ -86,6 +87,7 @@ export function createFakeUi(): FakeUi {
         notices: [],
         badges: [],
         confirms: [],
+        confirmOptions: [],
         confirmAnswer: true,
         addTab: () => () => {},
         addHealthCheck: () => () => {},
@@ -96,8 +98,9 @@ export function createFakeUi(): FakeUi {
         notice(text, options) {
             ui.notices.push({ text, options });
         },
-        async confirm(title, body) {
+        async confirm(title, body, options) {
             ui.confirms.push({ title, body });
+            ui.confirmOptions.push(options);
             return ui.confirmAnswer;
         },
         messageBadge(messageIndex, badge) {

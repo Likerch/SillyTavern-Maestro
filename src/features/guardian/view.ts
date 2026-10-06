@@ -79,7 +79,8 @@ export function guardianTab(app: App, service: GuardianService, t: Translate): P
                         kind: 'primary',
                         onClick: async () => {
                             await service.takeBaseline('manual');
-                            app.ui.notice(t('m4.notice.taken'), { level: 'info' });
+                            // A reply to his click: always shown.
+                            app.ui.notice(t('m4.notice.taken'), { level: 'info', urgent: true });
                         },
                     }),
                 );
@@ -92,7 +93,10 @@ export function guardianTab(app: App, service: GuardianService, t: Translate): P
                 const restorable = items.filter((item) => item.restorable).map((item) => item.path);
                 const restore = async (paths: string[]) => {
                     const count = await service.restoreNow(paths);
-                    app.ui.notice(t('m4.notice.restored', { count }), { level: count ? 'info' : 'warn' });
+                    app.ui.notice(t('m4.notice.restored', { count }), {
+                        level: count ? 'info' : 'warn',
+                        urgent: true,
+                    });
                 };
                 return section(
                     t('m4.view.drift'),

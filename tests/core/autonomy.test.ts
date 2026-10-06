@@ -136,6 +136,52 @@ describe('decide', () => {
         });
     });
 
+    it('auto: tells the user what it did, grouped per kind, with undo through the journal', async () => {
+        let undone = 0;
+        journal.registerUndo('flag', async () => {
+            undone++;
+            return true;
+        });
+        const item = proposal({ sourceMessage: 3 });
+        await autonomy.decide(item, 'auto');
+        const [notice] = ui.notices;
+        expect(notice?.text).toBe('Done: Anna has a sister');
+        expect(notice?.options).toMatchObject({ importance: 'info', group: 'autonomy.auto:canon.fact' });
+        // Without a kind label the merged text does without it; with one it names the kind.
+        expect(notice?.options?.groupText?.(3)).toBe('Made 3 changes myself');
+        expect(notice?.options?.action?.label).toBe('Undo');
+        notice?.options?.action?.run();
+        await vi.waitFor(() => expect(undone).toBe(1));
+        expect(journal.list()[0]?.undone).toBe(true);
+        await vi.waitFor(() => expect(ui.notices.at(-1)?.text).toBe('Undone: Anna has a sister'));
+    });
+
+    it("auto: uses the proposal's own story words and the kind label in the merged notice", async () => {
+        const i18n = createTestI18n('ru');
+        i18n.register({ en: { 'kind.canon.fact': 'Facts' }, ru: { 'kind.canon.fact': 'Факты о мире' } });
+        autonomy.bind({ inbox, ui, i18n });
+        await autonomy.decide(proposal(), 'auto');
+        expect(ui.notices[0]?.options?.groupText?.(2)).toBe('Сделал сам 2 изменения — Факты о мире');
+        expect(ui.notices[0]?.options?.groupText?.(5)).toBe('Сделал сам 5 изменений — Факты о мире');
+        const custom = proposal({
+            appliedNotice: { text: 'Запомнил пробно: праздник урожая', group: 'living.captured', groupText: () => 'x' },
+        });
+        await autonomy.decide(custom, 'auto');
+        expect(ui.notices[1]).toMatchObject({
+            text: 'Запомнил пробно: праздник урожая',
+            options: { group: 'living.captured', importance: 'info' },
+        });
+        // Other levels say nothing of the kind: the Inbox card and the badge are the message.
+        await autonomy.decide(proposal(), 'inbox');
+        expect(ui.notices).toHaveLength(2);
+    });
+
+    it("ask: shows the proposal's technical notes in the confirmation", async () => {
+        await autonomy.decide(proposal({ details: 'Book: World, uid 4' }), 'ask');
+        expect(ui.confirms.at(-1)).toMatchObject({ title: 'Anna has a sister', body: 'From message 3' });
+        expect(ui.confirmOptions.at(-1)).toEqual({ details: 'Book: World, uid 4' });
+    });
+
     it('auto: skips a proposal whose "before" changed', async () => {
         const item = proposal({ stillValid: async () => false });
         expect(await autonomy.decide(item, 'auto')).toBe('skipped');
@@ -249,9 +295,10 @@ describe('stats and trust', () => {
         expect(ui.notices).toHaveLength(1);
         const offer = ui.notices[0]!;
         expect(offer.text).toBe(
-            'You accepted “canon.fact” suggestions 5 times in a row without changes. Apply them automatically from now on?',
+            'You have accepted “canon.fact” 5 times in a row without changes. Shall I do it myself from now on, without asking?',
         );
-        expect(offer.options?.urgent).toBe(false);
+        expect(offer.options?.urgent).toBeUndefined();
+        expect(offer.options?.importance).toBe('important');
         autonomy.record('canon.fact', 'accepted');
         expect(ui.notices).toHaveLength(1);
 
@@ -268,7 +315,7 @@ describe('stats and trust', () => {
         autonomy.bind({ inbox, ui, i18n });
         for (let i = 0; i < 5; i++) autonomy.record('canon.fact', 'accepted');
         expect(ui.notices[0]!.text).toBe(
-            'Ты принимаешь предложения «Факты канона» без правок (подряд: 5). Применять их дальше автоматически?',
+            'Ты уже 5 раз подряд принимаешь «Факты канона» без правок. Делать это дальше самому, не спрашивая?',
         );
     });
 

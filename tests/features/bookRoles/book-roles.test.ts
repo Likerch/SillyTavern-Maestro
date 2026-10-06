@@ -280,7 +280,7 @@ describe('entry meta sidecar', () => {
         await api().setEntryMeta('Plain', 0, undefined);
         expect(api().entryMeta('Plain', 0)).toBeUndefined();
         await api().setEntryMeta('Plain', 5, undefined);
-        await expect(api().setEntryMeta('Plain', 5, { type: 'x' })).rejects.toThrow('has no entry 5');
+        await expect(api().setEntryMeta('Plain', 5, { type: 'x' })).rejects.toThrow('has no such entry');
         await expect(api().setEntryMeta('Missing', 0, { type: 'x' })).rejects.toThrow('could not be read');
     });
 });

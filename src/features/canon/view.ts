@@ -74,7 +74,8 @@ export function canonTab(app: App, store: CanonStore, scan: CanonScan): PultTab 
                     await job();
                 } catch (error) {
                     note = error instanceof Error ? error.message : String(error);
-                    app.ui.notice(note, { level: 'error' });
+                    // Every job here is the user's click: its failure is an urgent reply.
+                    app.ui.notice(note, { level: 'error', urgent: true });
                 }
                 if (alive) void draw();
             };
@@ -256,7 +257,7 @@ export function canonTab(app: App, store: CanonStore, scan: CanonScan): PultTab 
                                 onClick: () =>
                                     run(async () => {
                                         drift = await store.baseDrift();
-                                        if (!drift.length) app.ui.notice(t('m6.drift.none'));
+                                        if (!drift.length) app.ui.notice(t('m6.drift.none'), { urgent: true });
                                     }),
                             }),
                             button({

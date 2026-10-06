@@ -61,11 +61,11 @@ describe('the service block', () => {
         const broken = await env.receive(`${STORY}\n<mechanics>\nthe mana fades\n</mechanics>`);
         expect(env.mock.chat[broken]!.mes).toBe(STORY);
         expect(env.ui.notices.map((notice) => notice.text)).toEqual([
-            `Mechanics: the service block of reply #${broken} could not be read; it was removed.`,
+            `I could not read the mechanics changes in reply #${broken}, so I removed that service block from the reply.`,
         ]);
         const partial = await env.receive(`${STORY}\n<mechanics>\nKai.mana: -1\nnonsense here\n</mechanics>`);
         expect(env.ui.notices[1]?.text).toBe(
-            `Mechanics: lines of the service block in reply #${partial} that could not be read: 1.`,
+            `Some mechanics changes in reply #${partial} could not be read, so I skipped them (lines: 1).`,
         );
         expect(readBlockRecord(env.mock.chat[partial])?.dropped).toBe(1);
     });
@@ -200,7 +200,10 @@ describe('DES stats', () => {
         expect(env.tracking.desStatsStatus(healthDef())).toEqual([{ attribute: 'hp', inDes: false }]);
         expect(await env.tracking.enableDesStats(healthDef())).toBe(true);
         const proposal = env.autonomy.proposals[0]!;
-        expect(proposal).toMatchObject({ kind: DES_STATS_KIND, title: 'Add the stats of «Здоровье» to DES' });
+        expect(proposal).toMatchObject({
+            kind: DES_STATS_KIND,
+            title: 'Add the stats of «Здоровье» to the DES tracker?',
+        });
         expect(proposal.description).toContain('Health');
         expect(env.autonomy.never.has(DES_STATS_KIND)).toBe(true);
         expect(env.des.stats()).toEqual({
@@ -330,7 +333,8 @@ describe('the background parse', () => {
         expect(request.messages[1]?.content).toContain('Guild: Standing neutral');
         expect(request.messages[1]?.content).toContain('Гильдия довольна');
         const proposal = env.autonomy.proposals.find((item) => item.kind === CHANGE_KIND)!;
-        expect(proposal.title).toBe(`Mechanics: changes from reply #${index} (1)`);
+        expect(proposal.title).toBe(`Mechanics changes in reply #${index}: 1`);
+        expect(proposal.appliedNotice?.text).toBe(`Updated the mechanics from reply #${index}.`);
         expect(proposal.description).toBe('Guild · Отношение: neutral → liked («Гильдия довольна»)');
         expect(env.state.value('rep', 'Guild', 'standing')).toBe('liked');
         expect(env.state.history()[0]).toMatchObject({ source: 'background', messageIndex: index });

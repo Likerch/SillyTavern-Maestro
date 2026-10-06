@@ -14,7 +14,8 @@ import { formatTime } from '../../ui/views/format';
 import type { BookStat, Finding, FindingKind, FindingSeverity, RegexAction, RegexInfo } from './api';
 import { fileFixOffered } from './fixes';
 import type { BookFacts, FileFixOutcome } from './fixes';
-import { enableRule, ruleState, rulesApi } from './rules';
+import { regexRoute } from './regex-fix';
+import { ENABLE_RULE_KIND, ENABLE_RULE_LEVEL, enableRule, ruleState, rulesApi } from './rules';
 import type { DoctorService } from './service';
 import { chatSample, openBook } from './sources';
 
@@ -91,6 +92,9 @@ function depthText(app: App, info: RegexInfo): string {
 export function doctorTab(app: App, service: DoctorService): PultTab {
     const t = app.i18n.t.bind(app.i18n);
     const bench: BenchState = { scriptId: '', source: 'last', count: 3, custom: '', output: null };
+    /** A reply to his click in this tab: always shown, whatever the notification level. */
+    const reply = (text: string, level?: 'warn'): void =>
+        app.ui.notice(text, level ? { level, urgent: true } : { urgent: true });
 
     return {
         id: DOCTOR_TAB,
@@ -178,9 +182,11 @@ export function doctorTab(app: App, service: DoctorService): PultTab {
                     title: t('m5.ruleTitle', { rule: t(state.definition.titleKey) }),
                     onClick: async () => {
                         const rule = t(state.definition.titleKey);
+                        // 'auto' announces «Включил правило …» itself (with undo): no second notice then.
+                        const auto = app.autonomy.level(ENABLE_RULE_KIND, ENABLE_RULE_LEVEL) === 'auto';
                         const decision = await enableRule(app, state, finding, findingText(app, finding));
-                        if (decision === 'applied') app.ui.notice(t('m5.enableRuleDone', { rule }));
-                        else if (decision === 'queued') app.ui.notice(t('m5.enableRuleQueued', { rule }));
+                        if (decision === 'applied' && !auto) reply(t('m5.enableRuleDone', { rule }));
+                        else if (decision === 'queued') reply(t('m5.enableRuleQueued', { rule }));
                         if (alive) draw();
                     },
                 });
@@ -191,16 +197,16 @@ export function doctorTab(app: App, service: DoctorService): PultTab {
                 const book = outcome.book;
                 if (outcome.status === 'decided') {
                     if (outcome.decision === 'applied') {
-                        app.ui.notice(t('m5.fixFile.done', { book, count: outcome.count }));
+                        reply(t('m5.fixFile.done', { book, count: outcome.count }));
                     } else if (outcome.decision === 'queued') {
-                        app.ui.notice(t('m5.fixFile.queued', { book }));
+                        reply(t('m5.fixFile.queued', { book }));
                     }
                 } else if (outcome.status === 'nothing') {
-                    app.ui.notice(t('m5.fixFile.none', { book }));
+                    reply(t('m5.fixFile.none', { book }));
                 } else if (outcome.status === 'protected') {
-                    app.ui.notice(t('m5.bunnyBook'), { level: 'warn' });
+                    reply(t('m5.bunnyBook'), 'warn');
                 } else {
-                    app.ui.notice(t('m5.fixFile.unavailable'), { level: 'warn' });
+                    reply(t('m5.fixFile.unavailable'), 'warn');
                 }
             };
 
@@ -217,14 +223,18 @@ export function doctorTab(app: App, service: DoctorService): PultTab {
                 });
             };
 
-            const regexNotice = (decision: Decision, action: RegexAction, name: string): void => {
-                if (decision === 'applied') app.ui.notice(t(`m5.regexFix.done.${action}`, { name }));
-                else if (decision === 'queued') app.ui.notice(t('m5.regexFix.queued', { name }));
+            const regexNotice = (decision: Decision, action: RegexAction, name: string, auto: boolean): void => {
+                if (decision === 'applied' && !auto) reply(t(`m5.regexFix.done.${action}`, { name }));
+                else if (decision === 'queued') reply(t('m5.regexFix.queued', { name }));
             };
 
             const runRegexAction = async (script: RegexScriptInfo, action: RegexAction, note?: string) => {
                 const name = script.name || t('m5.regex.unnamed');
-                regexNotice(await service.regexAction(script.id, action, note ? t(note) : undefined), action, name);
+                // 'auto' announces the change itself (with undo): no second notice then.
+                const route = regexRoute(script, action);
+                const auto = app.autonomy.level(route.kind, route.fallback) === 'auto';
+                const decision = await service.regexAction(script.id, action, note ? t(note) : undefined);
+                regexNotice(decision, action, name, auto);
                 if (alive) draw();
             };
 

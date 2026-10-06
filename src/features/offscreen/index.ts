@@ -12,6 +12,7 @@ import {
     OFFSCREEN_ID,
     OFFSCREEN_KEY,
     OFFSCREEN_LLM_TASK,
+    OFFSCREEN_TARGET,
     readOffscreenSettings,
 } from './settings';
 import type { OffscreenSettings } from './settings';
@@ -26,6 +27,8 @@ export const offscreenModule: MaestroModule<OffscreenSettings> = {
     enabledByDefault: true,
     defaults: defaultOffscreenSettings,
     i18n: OFFSCREEN_STRINGS,
+    // The value is the canon entry text in English: the card's description tells the event in story words.
+    targets: [{ target: OFFSCREEN_TARGET, technical: true }],
     init({ app, log, own }) {
         const settings = () => readOffscreenSettings(app.settings.module<Partial<OffscreenSettings>>(OFFSCREEN_KEY));
         const service = new OffscreenService(app, log, settings);

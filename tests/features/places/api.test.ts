@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { placesModule } from '../../../src/features/places';
+import { createLabels, describeChange } from '../../../src/core/labels';
+import { PLACES_STRINGS, PLACES_TARGETS, placesModule } from '../../../src/features/places';
 import type { Place, PlacesApi } from '../../../src/features/places/api';
 import { FakeCanon, createPlacesTestApp, settle, startModule, turn } from './helpers';
 import type { PlacesTestApp } from './helpers';
@@ -41,20 +42,47 @@ describe('editing places', () => {
         expect(env.journal.records.at(-1)).toMatchObject({
             module: 'M24',
             kind: 'places.create',
-            summary: 'Places: added «Rusty Anchor»',
+            summary: 'New place: «Rusty Anchor»',
         });
 
         await places.update(inn.id, { name: 'Rusty Anchor Inn', aliases: ['Anchor'] });
         expect(named('Rusty Anchor Inn').aliases).toEqual(['Anchor', 'Rusty Anchor']);
-        expect(env.journal.records.at(-1)?.summary).toBe('Places: «Rusty Anchor» renamed to «Rusty Anchor Inn»');
+        expect(env.journal.records.at(-1)?.summary).toBe('The place «Rusty Anchor» is now called «Rusty Anchor Inn»');
         await places.update(inn.id, { parent: null });
-        expect(env.journal.records.at(-1)?.summary).toBe('Places: changed «Rusty Anchor Inn»');
+        expect(env.journal.records.at(-1)?.summary).toBe('Place «Rusty Anchor Inn» changed');
         expect(await undoLast()).toBe(true);
         expect(named('Rusty Anchor Inn').parent).toBe(city.id);
         expect(await undoLast()).toBe(true);
         expect(named('Rusty Anchor').aliases).toEqual([]);
         expect(await undoLast()).toBe(true);
         expect(places.list().map((place) => place.name)).toEqual(['Port Royal']);
+    });
+
+    it('shows its journal changes in words: names, other names, the parent place by name', async () => {
+        expect(placesModule.targets).toBe(PLACES_TARGETS);
+        const keys = [
+            ...['merge', 'create', 'update', 'remove', 'alias'].map((kind) => `kind.places.${kind}`),
+            ...PLACES_TARGETS.map((spec) => `target.${spec.target}`),
+            ...PLACES_TARGETS.flatMap((spec) => Object.values(spec.fields ?? {}).map((field) => field.labelKey)),
+        ];
+        for (const key of keys) {
+            expect(PLACES_STRINGS.en[key], key).toBeTruthy();
+            expect(PLACES_STRINGS.ru[key], key).toBeTruthy();
+        }
+        const labels = createLabels();
+        labels.register(PLACES_TARGETS);
+        const city = await places.create('Port Royal');
+        const inn = await places.create('Rusty Anchor');
+        await places.update(inn.id, { parent: city.id, aliases: ['Anchor'] });
+        const change = env.journal.records.at(-1)!.changes[0]!;
+        expect(describeChange(change, labels, env.app.i18n)).toEqual({
+            label: 'Place',
+            rows: [
+                { label: 'Other names', kind: 'added', after: 'Anchor' },
+                { label: 'Part of', kind: 'added', after: 'Port Royal' },
+            ],
+        });
+        expect(JSON.stringify(describeChange(change, labels, env.app.i18n))).not.toContain(inn.id);
     });
 
     it('reports bad edits in plain words', async () => {
@@ -77,7 +105,7 @@ describe('editing places', () => {
         expect(named('Tavern')).toMatchObject({ aliases: ['Inn'], firstSeen: 0, lastSeen: 2 });
         expect(named('Cellar').parent).toBe(tavern.id);
         expect(places.current()?.id).toBe(tavern.id);
-        expect(env.journal.records.at(-1)?.summary).toBe('Places: «Inn» merged into «Tavern»');
+        expect(env.journal.records.at(-1)?.summary).toBe('The place «Inn» merged into «Tavern»');
         expect(await undoLast()).toBe(true);
         expect(named('Inn').visits).toHaveLength(1);
         expect(named('Tavern')).toMatchObject({ aliases: [], visits: [] });
@@ -87,7 +115,7 @@ describe('editing places', () => {
         await places.remove(inn.id);
         expect(named('Cellar').parent).toBeNull();
         expect(places.current()).toBeNull();
-        expect(env.journal.records.at(-1)?.summary).toBe('Places: removed «Inn»');
+        expect(env.journal.records.at(-1)?.summary).toBe('Place «Inn» removed');
         expect(await undoLast()).toBe(true);
         expect(named('Cellar').parent).toBe(inn.id);
         expect(places.current()?.id).toBe(inn.id);
@@ -108,7 +136,7 @@ describe('editing places', () => {
         expect(env.journal.records.at(-1)?.kind).toBe('places.create');
         await places.mergeCandidate('docks', city.id);
         expect(named('Port Royal').aliases).toEqual(['Docks']);
-        expect(env.journal.records.at(-1)?.summary).toBe('Places: «Docks» is another name of «Port Royal»');
+        expect(env.journal.records.at(-1)?.summary).toBe('«Docks» is another name of the place «Port Royal»');
         await turn(env, 'Harbour');
         await places.dismissCandidate('harbour');
         await turn(env, 'Harbour');
@@ -120,7 +148,7 @@ describe('editing places', () => {
 describe('description entry', () => {
     it('needs the chat canon', async () => {
         const inn = await places.create('Inn');
-        await expect(places.ensureEntry(inn.id)).rejects.toThrow('The chat canon module is off');
+        await expect(places.ensureEntry(inn.id)).rejects.toThrow('the «Chat canon» module is off');
         await expect(places.ensureEntry('nope')).rejects.toThrow('This place (or name) is gone.');
     });
 

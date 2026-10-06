@@ -59,6 +59,16 @@ describe('offscreen module', () => {
         expect(Object.keys(OFFSCREEN_STRINGS.ru).sort()).toEqual(Object.keys(OFFSCREEN_STRINGS.en).sort());
         for (const value of Object.values(OFFSCREEN_STRINGS.ru)) expect(value.trim()).not.toBe('');
     });
+
+    it('names its action kind and journal target in both languages, in words', () => {
+        expect(offscreenModule.targets?.map((spec) => spec.target)).toEqual(['offscreen.event']);
+        for (const key of ['kind.offscreen.event', 'target.offscreen.event']) {
+            expect(OFFSCREEN_STRINGS.en[key], key).toBeTruthy();
+            expect(OFFSCREEN_STRINGS.ru[key], key).toBeTruthy();
+        }
+        expect(OFFSCREEN_STRINGS.ru['kind.offscreen.event']).toBe('События за кадром');
+        for (const form of ['one', 'few', 'many']) expect(OFFSCREEN_STRINGS.ru[`m16.appliedMany.${form}`]).toBeTruthy();
+    });
 });
 
 describe('settings', () => {

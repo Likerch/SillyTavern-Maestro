@@ -59,7 +59,8 @@ export function calendarTab(app: App, service: CalendarService, settings: () => 
         try {
             await job();
         } catch (error) {
-            app.ui.notice(error instanceof Error ? error.message : String(error), { level: 'warn' });
+            // Every job here is the user's click: its failure is an urgent reply.
+            app.ui.notice(error instanceof Error ? error.message : String(error), { level: 'warn', urgent: true });
         }
     };
 
@@ -213,7 +214,7 @@ export function calendarTab(app: App, service: CalendarService, settings: () => 
                         quote: quote.value,
                     });
                     for (const node of [who, toWhom, what, when, quote]) node.value = '';
-                    app.ui.notice(t('m17.add.done'), { level: 'info' });
+                    app.ui.notice(t('m17.add.done'), { level: 'info', urgent: true });
                 }),
         });
         return section(t('m17.add.title'), [

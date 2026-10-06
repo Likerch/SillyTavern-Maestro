@@ -1,3 +1,4 @@
+import type { Labels } from '../../core/labels';
 import type {
     Autonomy,
     Capabilities,
@@ -9,6 +10,7 @@ import type {
     Journal,
     Logger,
     ModuleManager,
+    NoticeImportance,
     SettingsSection,
     SettingsService,
     TaskQueue,
@@ -30,6 +32,8 @@ export interface CoreViewDeps {
     /** Jobs the user started (tasks tab, top-bar progress ring). */
     jobs?: UserJobs;
     i18n: I18n;
+    /** How journal targets read to the user (module descriptions); without it changes show under «Подробнее». */
+    labels?: Labels;
 }
 
 export type NoticeLevel = 'info' | 'warn' | 'error';
@@ -39,10 +43,16 @@ export interface NoticeEntry {
     at: number;
     text: string;
     level: NoticeLevel;
+    importance: NoticeImportance;
     urgent: boolean;
     action?: { label: string; run: () => void };
     /** Urgent notices count in the top-bar badge until the Overview has shown them. */
     seen: boolean;
+    /** Merge key (NoticeOptions.group) and the turn it belongs to. */
+    group?: string;
+    turn: number;
+    /** How many notices this entry stands for (merged group). */
+    count: number;
 }
 
 /** What views need from the UI shell besides the services. */

@@ -1,8 +1,10 @@
-// Settings tab (plan §7): language, debug, mode, budgets, profiles per task, autonomy levels, modules and data
-// actions, then the sections modules add (Ui.addSettingsSection, e.g. the look). Values are written straight into
-// CoreSettings, then saved and announced with notify(path).
+// Settings tab (plan §7): language, debug, mode, notifications (plan-2 §3: how much pops up, technical details),
+// budgets, profiles per task, autonomy levels (by the kinds' human names), modules and data actions, then the
+// sections modules add (Ui.addSettingsSection, e.g. the look). Values are written straight into CoreSettings, then
+// saved and announced with notify(path).
+import { kindLabel } from '../../core/labels';
 import { ConsoleLogger } from '../../core/logger';
-import type { AutonomyLevel, CoreSettings, PultTab, Unsubscribe } from '../../shared/contracts';
+import type { AutonomyLevel, CoreSettings, NotifyLevel, PultTab, Unsubscribe } from '../../shared/contracts';
 import { banner, emptyState, section } from '../components/card';
 import { field, numberInput, select, toggle } from '../components/controls';
 import type { SelectOption } from '../components/controls';
@@ -26,6 +28,7 @@ const EMPTY_PROFILE_LABEL: Record<string, string> = {
     fallback: 'ui.settings.profileNoFallback',
 };
 const LIMIT_ACTIONS: readonly CoreSettings['dailyLimit']['action'][] = ['warn', 'economy', 'stopBackground'];
+export const NOTIFY_LEVELS: readonly NotifyLevel[] = ['all', 'important', 'urgent'];
 
 export function settingsTab(env: ViewEnv): PultTab {
     const { i18n, shell, settings } = env;
@@ -72,6 +75,33 @@ export function settingsTab(env: ViewEnv): PultTab {
                     core().debug = checked;
                     ConsoleLogger.setLevel(checked ? 'debug' : 'info');
                     commit('core.debug');
+                },
+            }),
+        ]);
+
+    const noticesBlock = (redraw: () => void): HTMLElement =>
+        section(t('ui.settings.notices'), [
+            field(
+                t('ui.settings.notifyLevel'),
+                select<NotifyLevel>({
+                    value: core().notifyLevel ?? 'all',
+                    label: t('ui.settings.notifyLevel'),
+                    options: NOTIFY_LEVELS.map((value) => ({ value, label: t(`ui.settings.notifyLevel.${value}`) })),
+                    onChange: (value) => {
+                        core().notifyLevel = value;
+                        commit('core.notifyLevel');
+                    },
+                }),
+                t('ui.settings.notifyLevelHint'),
+            ),
+            toggle({
+                label: t('ui.settings.showTechnical'),
+                hint: t('ui.settings.showTechnicalHint'),
+                checked: core().showTechnical === true,
+                onChange: (checked) => {
+                    core().showTechnical = checked;
+                    commit('core.showTechnical');
+                    redraw();
                 },
             }),
         ]);
@@ -191,7 +221,13 @@ export function settingsTab(env: ViewEnv): PultTab {
 
     const autonomyBlock = (): HTMLElement => {
         const stored = core().autonomy;
-        const kinds = [...new Set([...env.autonomy.stats().map((stat) => stat.kind), ...Object.keys(stored)])].sort();
+        const technical = core().showTechnical === true;
+        const kinds = [...new Set([...env.autonomy.stats().map((stat) => stat.kind), ...Object.keys(stored)])]
+            .map((kind) => ({ kind, label: kindLabel(i18n, kind) }))
+            // Named kinds first, by name; a kind its module did not name yet shows as is, at the end.
+            .sort(
+                (a, b) => Number(!a.label) - Number(!b.label) || (a.label ?? a.kind).localeCompare(b.label ?? b.kind),
+            );
         if (!kinds.length)
             return section(t('ui.settings.autonomy'), emptyState(t('ui.settings.autonomyEmpty'), 'fa-scale-balanced'));
         const options: SelectOption<AutonomyLevel | ''>[] = [
@@ -200,12 +236,12 @@ export function settingsTab(env: ViewEnv): PultTab {
         ];
         return section(t('ui.settings.autonomy'), [
             el('div', { class: 'maestro-hint', text: t('ui.settings.autonomyHint') }),
-            ...kinds.map((kind) =>
+            ...kinds.map(({ kind, label }) =>
                 field(
-                    kind,
+                    label ?? kind,
                     select<AutonomyLevel | ''>({
                         value: stored[kind] ?? '',
-                        label: kind,
+                        label: label ?? kind,
                         options,
                         onChange: (value) => {
                             if (value) core().autonomy[kind] = value;
@@ -213,6 +249,7 @@ export function settingsTab(env: ViewEnv): PultTab {
                             commit(`core.autonomy.${kind}`);
                         },
                     }),
+                    technical && label ? kind : undefined,
                 ),
             ),
         ]);
@@ -228,7 +265,10 @@ export function settingsTab(env: ViewEnv): PultTab {
             list.map((item) =>
                 el('div', { class: 'maestro-module-row' }, [
                     toggle({
-                        label: `${t(item.module.titleKey)} (${item.module.id})`,
+                        // Plan ids (M6, M26) are for debugging only (plan-2 §3).
+                        label: core().showTechnical
+                            ? `${t(item.module.titleKey)} (${item.module.id})`
+                            : t(item.module.titleKey),
                         checked: item.enabled,
                         onChange: async (checked) => {
                             try {
@@ -331,6 +371,7 @@ export function settingsTab(env: ViewEnv): PultTab {
                 container.append(
                     el('div', { class: 'maestro-view maestro-settings' }, [
                         generalBlock(),
+                        noticesBlock(draw),
                         budgetBlock(),
                         profilesBlock(),
                         autonomyBlock(),

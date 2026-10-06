@@ -419,7 +419,7 @@ describe('page load', () => {
         const notice = s.env.ui.notices[0];
         expect(notice?.text).toContain('«Marinara»');
         expect(notice?.text).toContain('not laid over');
-        expect(notice?.options?.urgent).toBe(true);
+        expect(notice?.options?.importance).toBe('important');
         notice?.options?.action?.run();
         await flush();
         expect(s.selectPreset).toHaveBeenCalledWith('0');
@@ -482,6 +482,9 @@ describe('journal, conflicts, migration, transfer', () => {
         const records = s.env.journal.list({ module: 'M34' });
         expect(records).toHaveLength(2);
         expect(records[0]?.changes[0]?.target).toBe(LAYER_TARGET);
+        // The summary names the block and the preset in words (plan-2 §3).
+        const mainName = findPrompt(s.cache[0], 'main')?.name;
+        expect(records[1]?.summary).toBe(`Block «${mainName}» edited in your layer of «Marinara»`);
         // The older record cannot be undone while a newer one changed the same op.
         expect(await s.env.journal.undo(records[1]?.id ?? '')).toBe(false);
         expect(await s.env.journal.undo(records[0]?.id ?? '')).toBe(true);

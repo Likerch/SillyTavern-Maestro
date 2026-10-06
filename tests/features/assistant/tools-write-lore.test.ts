@@ -65,7 +65,7 @@ describe('lore_entry_create', () => {
             {
                 book: 'World',
                 partial: { comment: 'Kai', content: 'Kai is a smith.', key: ['Kai', 'Кай'], position: 4, depth: 2 },
-                reason: { module: 'M33', summary: 'Ассистент: новая запись «Kai» в «World»' },
+                reason: { module: 'M33', summary: 'Добавил в лор запись «Kai»' },
             },
         ]);
     });
@@ -201,7 +201,7 @@ describe('lore_entry_update', () => {
                 book: 'World',
                 uid: 0,
                 patch: { content: 'Anna is a surgeon.', disable: true },
-                reason: { module: 'M33', summary: 'Ассистент: запись «Anna» в «World» изменена' },
+                reason: { module: 'M33', summary: 'Поправил запись лора «Anna»' },
             },
         ]);
     });

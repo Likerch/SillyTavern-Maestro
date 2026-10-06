@@ -2,9 +2,10 @@
 // the pack manager with packs per chat (suppressed on the fly), «compare with a file», the archive (sheet) editor, the
 // integrity checks and the list of runtime fixes to BunnyMo books. Pack files are never written.
 // Exposed as app.modules.api<BunnyMoModeApi>('bunnymoMode'); pult tab 'bunnymo'; command /maestro-bunnymo.
+import { formatEnum } from '../../core/labels';
 import type { MaestroModule } from '../../shared/contracts';
 import type { BunnyMoModeApi } from './api';
-import { BUNNYMO_MODE_ID, BUNNYMO_MODE_KEY, BunnyMoModeService } from './service';
+import { BUNNYMO_MODE_ID, BUNNYMO_MODE_KEY, BunnyMoModeService, SELECTION_TARGET, SHEET_TARGET } from './service';
 import { BUNNYMO_MODE_STRINGS } from './strings';
 import { BUNNYMO_MODE_CSS } from './styles';
 import { bunnymoTab } from './view';
@@ -25,6 +26,17 @@ export const bunnymoModeModule: MaestroModule<BunnyMoModeSettings> = {
     enabledByDefault: true,
     defaults: () => ({}),
     i18n: BUNNYMO_MODE_STRINGS,
+    targets: [
+        {
+            target: SELECTION_TARGET,
+            fields: {
+                mode: { labelKey: 'm35b.target.mode', format: formatEnum('m35b.target.mode.') },
+                books: { labelKey: 'm35b.target.books' },
+            },
+        },
+        // A sheet is CarrotKernel markup (<Name:…>, <BunnymoTags>): the whole value stays under «Подробнее».
+        { target: SHEET_TARGET, technical: true },
+    ],
     init({ app, log, own }) {
         const service = new BunnyMoModeService(app, log);
         for (const off of service.install()) own(off);
@@ -88,7 +100,7 @@ export const bunnymoModeModule: MaestroModule<BunnyMoModeSettings> = {
 };
 
 export { BUNNYMO_MODE_STRINGS } from './strings';
-export { BunnyMoModeService, BUNNYMO_MODE_ID, BUNNYMO_MODE_KEY } from './service';
+export { BunnyMoModeService, BUNNYMO_MODE_ID, BUNNYMO_MODE_KEY, SELECTION_TARGET, SHEET_TARGET } from './service';
 export type {
     ArchiveSheet,
     BunnyMoModeApi,

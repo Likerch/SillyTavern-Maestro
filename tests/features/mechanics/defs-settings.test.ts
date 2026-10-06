@@ -40,11 +40,12 @@ describe('mechanics settings', () => {
 });
 
 describe('definitions strings', () => {
-    it('have the same keys in English and Russian, none empty, all under m25.', () => {
+    it('have the same keys in English and Russian, none empty, all under m25. (or kind./target. labels)', () => {
         expect(Object.keys(DEF_STRINGS.ru).sort()).toEqual(Object.keys(DEF_STRINGS.en).sort());
         for (const [key, text] of Object.entries(DEF_STRINGS.ru)) expect(text, key).not.toBe('');
         for (const key of Object.keys(DEF_STRINGS.en)) {
-            expect(key === 'm25.title' || key === 'm25.tab' || key.startsWith('m25.def.'), key).toBe(true);
+            const label = key.startsWith('kind.mechanics.def.') || key.startsWith('target.mechanics.');
+            expect(key === 'm25.title' || key === 'm25.tab' || key.startsWith('m25.def.') || label, key).toBe(true);
         }
     });
 

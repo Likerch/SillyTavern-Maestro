@@ -1,5 +1,6 @@
 // Autonomy levels and trust (plan §4.7, §8). Every change to user-visible data goes through decide():
-// auto (apply + journal), notify (badge/notice with an action), inbox (card), ask (modal), off.
+// auto (apply + journal + a short «Сделал: …» notice with undo, grouped per kind within a turn), notify
+// (badge/notice with an action), inbox (card), ask (modal), off.
 // Decision statistics per kind feed trust growth: N accepted-without-edit in a row → offer "auto".
 import type {
     Autonomy,
@@ -18,6 +19,7 @@ import type {
     Unsubscribe,
 } from '../shared/contracts';
 import { readFresh } from './files';
+import { kindLabel as humanKind, tPlural } from './labels';
 
 type Outcome = 'accepted' | 'edited' | 'rejected' | 'undone';
 
@@ -176,12 +178,7 @@ export function createAutonomy(deps: AutonomyDeps, options: AutonomyOptions = {}
         return value;
     };
 
-    const kindLabel = (kind: string): string => {
-        if (!bound) return kind;
-        const key = `kind.${kind}`;
-        const text = bound.i18n.t(key);
-        return text === key ? kind : text;
-    };
+    const kindLabel = (kind: string): string => (bound ? (humanKind(bound.i18n, kind) ?? kind) : kind);
 
     const offerPromotion = (kind: string) => {
         if (!bound || never.has(kind)) return;
@@ -190,7 +187,7 @@ export function createAutonomy(deps: AutonomyDeps, options: AutonomyOptions = {}
         const { ui, i18n } = bound;
         const label = kindLabel(kind);
         ui.notice(i18n.t('core.autonomy.promote', { kind: label, count: trustStreak }), {
-            urgent: false,
+            importance: 'important',
             level: 'info',
             action: {
                 label: i18n.t('core.autonomy.promoteAction'),
@@ -199,7 +196,8 @@ export function createAutonomy(deps: AutonomyDeps, options: AutonomyOptions = {}
                     settings.core().autonomy[kind] = 'auto';
                     settings.save();
                     settings.notify(`core.autonomy.${kind}`);
-                    ui.notice(i18n.t('core.autonomy.promoted', { kind: label }));
+                    // A reply to the user's own click: always shown.
+                    ui.notice(i18n.t('core.autonomy.promoted', { kind: label }), { importance: 'urgent' });
                 },
             },
         });
@@ -224,8 +222,8 @@ export function createAutonomy(deps: AutonomyDeps, options: AutonomyOptions = {}
         if (outcome === 'accepted' && current.streak === trustStreak) offerPromotion(kind);
     };
 
-    /** Validates, applies and journals a proposal. */
-    const applyNow = async <T>(proposal: Proposal<T>, quiet: boolean): Promise<boolean> => {
+    /** Validates, applies and journals a proposal; false when it was not applied, else the journal id ('' if none). */
+    const applyNow = async <T>(proposal: Proposal<T>, quiet: boolean): Promise<string | false> => {
         try {
             if (proposal.stillValid && !(await proposal.stillValid())) {
                 log.info(`${proposal.kind}: proposal is out of date; skipped`);
@@ -241,7 +239,7 @@ export function createAutonomy(deps: AutonomyDeps, options: AutonomyOptions = {}
             return false;
         }
         try {
-            await journal.record({
+            return await journal.record({
                 module: proposal.module,
                 kind: proposal.kind,
                 summary: proposal.title,
@@ -250,8 +248,36 @@ export function createAutonomy(deps: AutonomyDeps, options: AutonomyOptions = {}
             });
         } catch (error) {
             log.error(`${proposal.kind}: applied but not journaled`, error);
+            return '';
         }
-        return true;
+    };
+
+    /** «Сделал: …» after an automatic action, with undo through the journal; grouped per kind within a turn. */
+    const announceApplied = <T>(proposal: Proposal<T>, recordId: string): void => {
+        if (!bound) return;
+        const { ui, i18n } = bound;
+        const custom = proposal.appliedNotice;
+        const label = humanKind(i18n, proposal.kind);
+        const title = proposal.title;
+        const undo = async () => {
+            const ok = await journal.undo(recordId);
+            ui.notice(i18n.t(ok ? 'core.autonomy.undone' : 'core.autonomy.undoFailed', { title }), {
+                level: ok ? 'info' : 'warn',
+                importance: ok ? 'info' : 'important',
+            });
+        };
+        ui.notice(custom?.text ?? i18n.t('core.autonomy.done', { title }), {
+            importance: 'info',
+            level: 'info',
+            group: custom?.group ?? `autonomy.auto:${proposal.kind}`,
+            groupText:
+                custom?.groupText ??
+                ((count) =>
+                    label
+                        ? tPlural(i18n, 'core.autonomy.doneMany', count, { kind: label })
+                        : tPlural(i18n, 'core.autonomy.doneManyPlain', count)),
+            action: recordId ? { label: i18n.t('core.autonomy.undo'), run: () => void undo() } : undefined,
+        });
     };
 
     const notify = <T>(proposal: Proposal<T>, ui: Ui, i18n: I18n): Decision => {
@@ -261,8 +287,8 @@ export function createAutonomy(deps: AutonomyDeps, options: AutonomyOptions = {}
             if (done) return;
             done = true;
             off?.();
-            void applyNow(proposal, false).then((ok) => {
-                if (ok) record(proposal.kind, 'accepted');
+            void applyNow(proposal, false).then((id) => {
+                if (id !== false) record(proposal.kind, 'accepted');
             });
         };
         const action = { label: i18n.t('core.autonomy.apply'), run };
@@ -273,7 +299,7 @@ export function createAutonomy(deps: AutonomyDeps, options: AutonomyOptions = {}
                 action,
             });
         } else {
-            ui.notice(proposal.title, { action });
+            ui.notice(proposal.title, { action, importance: 'important' });
         }
         return 'notified';
     };
@@ -293,8 +319,12 @@ export function createAutonomy(deps: AutonomyDeps, options: AutonomyOptions = {}
             switch (chosen) {
                 case 'off':
                     return 'skipped';
-                case 'auto':
-                    return (await applyNow(proposal, true)) ? 'applied' : 'skipped';
+                case 'auto': {
+                    const id = await applyNow(proposal, true);
+                    if (id === false) return 'skipped';
+                    announceApplied(proposal, id);
+                    return 'applied';
+                }
                 case 'notify':
                     return bound ? notify(proposal, bound.ui, bound.i18n) : 'skipped';
                 case 'inbox':
@@ -306,12 +336,16 @@ export function createAutonomy(deps: AutonomyDeps, options: AutonomyOptions = {}
                     return 'queued';
                 case 'ask': {
                     if (!bound) return 'skipped';
-                    const yes = await bound.ui.confirm(proposal.title, proposal.description ?? '');
+                    const yes = await bound.ui.confirm(
+                        proposal.title,
+                        proposal.description ?? '',
+                        proposal.details ? { details: proposal.details } : undefined,
+                    );
                     if (!yes) {
                         record(proposal.kind, 'rejected');
                         return 'rejected';
                     }
-                    if (!(await applyNow(proposal, false))) return 'skipped';
+                    if ((await applyNow(proposal, false)) === false) return 'skipped';
                     record(proposal.kind, 'accepted');
                     return 'applied';
                 }

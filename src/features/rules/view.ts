@@ -177,7 +177,11 @@ export function rulesTab(engine: RulesEngine, app: App): PultTab {
                 const decision: Decision = await engine.toggle(state.id, checked);
                 if (decision !== 'applied' && engine.isEnabled(state.id) !== checked) {
                     const level = decision === 'queued' || decision === 'notified' ? 'info' : 'warn';
-                    app.ui.notice(t('m22.toggle.notApplied', { decision }), { level });
+                    // A reply to his switch: always shown.
+                    app.ui.notice(t(`m22.toggle.notApplied.${decision}`, { rule: t(state.definition.titleKey) }), {
+                        level,
+                        urgent: true,
+                    });
                 }
                 draw();
             };

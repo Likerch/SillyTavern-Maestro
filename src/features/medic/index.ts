@@ -3,6 +3,7 @@
 // gaps, assistant-role lore at depth, Localizer keys, an assistant prefill in the preset, regex damage and
 // Maestro's own dependencies (§4.14). Health checks live in the Pult's Health tab; per-reply checks run after
 // `reply:ready`.
+import { formatEnum } from '../../core/labels';
 import type { MaestroModule } from '../../shared/contracts';
 import { registerProfileTask } from '../../ui';
 import { medicHealthChecks } from './health';
@@ -22,6 +23,12 @@ export const medicModule: MaestroModule<MedicSettings> = {
     enabledByDefault: true,
     defaults: () => ({ trackerRepair: true }),
     i18n: MEDIC_STRINGS,
+    targets: [
+        // The tracker record is DES's JSON: only under «Подробнее».
+        { target: TRACKER_TARGET, technical: true },
+        // 'assistant' → 'user': «Роль: модель (assistant) → ты (user)».
+        { target: PREFILL_TARGET, valueLabelKey: 'm3.target.role', format: formatEnum('m3.role.') },
+    ],
 
     init({ app, settings, log, own }) {
         const t = app.i18n.t.bind(app.i18n);

@@ -3,6 +3,7 @@
 //   background task asks Qvink to summarise them;
 // - NAI picture posts get Qvink's "exclude" mark so their image prompts are not summarised.
 import { adaptersOf } from '../../../adapters';
+import { tPlural } from '../../../core/labels';
 import { estimateTokens, isPlainObject } from '../../../domain/rules-lore';
 import {
     QVINK_MEMORY_KEY,
@@ -231,6 +232,13 @@ export async function excludeImagePost(env: RuleEnv, messageId: unknown): Promis
             module: 'M22',
             kind: QVINK_EXCLUDE_KIND,
             title: env.t('m22.qvinkExclude.title', { index }),
+            description: env.t('m22.qvinkExclude.description'),
+            // Several picture posts in one turn: «Убрал из пересказов Qvink 3 картинки».
+            appliedNotice: {
+                text: env.t('m22.qvinkExclude.done', { index }),
+                group: QVINK_EXCLUDE_KIND,
+                groupText: (count) => tPlural(env.app.i18n, 'm22.qvinkExclude.doneMany', count),
+            },
             changes: [{ target: QVINK_EXCLUDE_TARGET, ref: { ...payload }, before: false, after: true }],
             payload,
             stillValid: async () => sameMessage(env.app.host.ctx(), payload.index, payload.sendDate),

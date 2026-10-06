@@ -176,6 +176,8 @@ describe('setEnabled and reorder', () => {
         expect(live('depth').enabled).toBeUndefined();
         expect(stand.pm.counts.depth).toBeNull();
         expect(records()).toHaveLength(1);
+        // «Style» was on already: the summary names only the block that changed.
+        expect(records()[0]!.summary).toBe('Preset block «Depth note» switched on');
     });
 
     it('inserts a block that is not in the order first', async () => {

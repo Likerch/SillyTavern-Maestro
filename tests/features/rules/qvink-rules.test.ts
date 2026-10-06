@@ -208,6 +208,11 @@ describe('NAI picture posts in Qvink', () => {
         const record = env.journal.records.at(-1)!;
         expect(record).toMatchObject({ module: 'M22', kind: 'rules.qvinkExclude' });
         expect(record.changes[0]).toMatchObject({ target: 'm22.qvinkExclude', ref: { index: 3, sendDate: 'date-3' } });
+        // Applied by itself: a past-tense notice, merged with the other picture posts of the turn.
+        const notice = env.autonomy.proposals.at(-1)!.appliedNotice!;
+        expect(notice.text).toBe('Left picture post #3 out of Qvink summaries.');
+        expect(notice.group).toBe('rules.qvinkExclude');
+        expect(notice.groupText?.(2)).toBe('Left 2 picture posts out of Qvink summaries');
 
         expect(await env.journal.undo(record.id)).toBe(true);
         expect(env.slash.at(-1)).toBe('/qm-toggle-exclude exclude=false 3');

@@ -10,6 +10,7 @@ import { AssistantService } from './service';
 import { ASSISTANT_KEY, ASSISTANT_TASK, defaultAssistantSettings, readAssistantSettings } from './settings';
 import type { AssistantSettings } from './settings';
 import { M33_STRINGS } from './strings';
+import { ASSISTANT_TARGETS } from './targets';
 import { builtinTools } from './tools';
 import { ASSISTANT_SECTION_ORDER, M33_CSS, assistantTab, renderAssistantSettings } from './view';
 
@@ -33,6 +34,7 @@ export { createSettingsAccess, registerSettingUndo, SETTING_KIND, SETTING_TARGET
 export { buildSystemPrompt } from './prompt';
 export { ASSISTANT_TAB } from './view';
 export { M33_STRINGS } from './strings';
+export { ASSISTANT_TARGETS } from './targets';
 
 export const assistantModule: MaestroModule<AssistantSettings> = {
     id: 'M33',
@@ -42,6 +44,7 @@ export const assistantModule: MaestroModule<AssistantSettings> = {
     enabledByDefault: true,
     defaults: defaultAssistantSettings,
     i18n: M33_STRINGS,
+    targets: ASSISTANT_TARGETS,
     init({ app, settings, log, own }) {
         const access = createSettingsAccess(app);
         registerSettingUndo(app);

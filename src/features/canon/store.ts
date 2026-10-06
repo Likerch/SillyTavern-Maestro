@@ -450,13 +450,14 @@ export class CanonStore {
         const base = item?.meta.base;
         if (!item || !base || (item.meta.kind !== 'override' && item.meta.kind !== 'suppress')) return false;
         const roles = this.app.modules.api<BookRolesApi>(BOOK_ROLES_KEY);
+        // Promotion always starts from the user's click («Канон для всех чатов»): its refusals are urgent replies.
         if (roles?.roleOf(base.world)?.readOnly) {
-            this.app.ui.notice(this.t('m6.promote.readOnly', { book: base.world }), { level: 'warn' });
+            this.app.ui.notice(this.t('m6.promote.readOnly', { book: base.world }), { level: 'warn', urgent: true });
             return false;
         }
         const baseEntry = await this.readEntry(base.world, base.uid);
         if (!baseEntry) {
-            this.app.ui.notice(this.t('m6.promote.missing', { book: base.world }), { level: 'warn' });
+            this.app.ui.notice(this.t('m6.promote.missing', { book: base.world }), { level: 'warn', urgent: true });
             return false;
         }
         const ok = await this.app.ui.confirm(

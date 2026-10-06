@@ -43,7 +43,11 @@ describe('MechanicState: values', () => {
         expect(env.state.value('magic', 'Кай', 'Mana')).toBe(30);
         expect(env.state.history()).toHaveLength(1);
         const record = env.journal.records[0]!;
-        expect(record).toMatchObject({ module: 'M25', kind: SET_KIND, summary: 'Mechanics: Kai · Мана = 30' });
+        expect(record).toMatchObject({
+            module: 'M25',
+            kind: SET_KIND,
+            summary: 'Kai: Мана is now 30 (changed by hand)',
+        });
         expect(record.changes[0]).toMatchObject({ target: VALUE_UNDO_TARGET, before: 50, after: 30 });
         expect(await env.journal.undo(record.id)).toBe(true);
         expect(env.state.value('magic', 'Kai', 'mana')).toBe(50);
@@ -52,7 +56,7 @@ describe('MechanicState: values', () => {
 
     it('journals several edits once and undoes a number edit followed by another change as a difference', async () => {
         await env.state.apply([user('mana', 40), user('schools', 'fire, water')]);
-        expect(env.journal.records[0]?.summary).toBe('Mechanics: 2 values changed by hand');
+        expect(env.journal.records[0]?.summary).toBe('Mechanics values changed by hand: 2');
         await env.state.apply([{ ...user('mana', -5), source: 'block', messageIndex: 3, delta: true }]);
         expect(await env.journal.undo(env.journal.records[0]!.id)).toBe(true);
         expect(env.state.value('magic', 'Kai', 'mana')).toBe(45);

@@ -1,11 +1,61 @@
-// Strings of M6 «Канон чата» (`m6.*`). Russian is the primary UI language; the user is addressed as «ты».
-import type { I18nParts } from '../../shared/contracts';
+// Strings of M6 «Канон чата» (`m6.*`, action kinds `kind.canon.*`, journal targets `target.canon-*`) and how its journal
+// targets read in Inbox cards and the journal. Russian is the primary UI language; the user is addressed as «ты».
+import { formatClip, formatPlain } from '../../core/labels';
+import type { I18n, I18nParts, TargetSpec } from '../../shared/contracts';
+
+/** «действует» / «в архиве» of a canon entry (its meta lives in `extensions.maestro`). */
+function canonState(value: unknown, i18n: I18n): string {
+    if (typeof value !== 'object' || value === null) return '';
+    const meta = (value as { maestro?: unknown }).maestro;
+    const status = typeof meta === 'object' && meta !== null ? (meta as { status?: unknown }).status : undefined;
+    return typeof status === 'string' && status ? i18n.t(`m6.status.${status}`) : '';
+}
+
+/**
+ * Entries are World Info entries: the title (comment) and the canon state read in words; the text is usually English
+ * canon prose and the keys are search terms, so both stay under «Подробнее» with uid, order and the rest.
+ */
+export const CANON_TARGETS: TargetSpec[] = [
+    {
+        target: 'canon-entry',
+        fields: {
+            comment: { labelKey: 'm6.field.title', format: formatClip(80) },
+            extensions: { labelKey: 'm6.field.state', format: canonState },
+            content: { labelKey: 'm6.field.text', hidden: true },
+            key: { labelKey: 'm6.field.keys', hidden: true },
+        },
+    },
+    {
+        target: 'canon-base-entry',
+        fields: {
+            comment: { labelKey: 'm6.field.title', format: formatClip(80) },
+            disable: { labelKey: 'm6.field.off', format: formatPlain },
+            content: { labelKey: 'm6.field.text', hidden: true },
+            key: { labelKey: 'm6.field.keys', hidden: true },
+        },
+    },
+    // A created lorebook (export, a branch's canon): the book names are technical, the summary says what happened.
+    { target: 'canon-book', technical: true },
+];
 
 export const CANON_STRINGS: I18nParts = {
     en: {
         'm6.title': 'Chat canon',
         'm6.tab': 'Canon',
         'kind.canon.branchCopy': 'Copying the canon into a branch',
+        'kind.canon.put': 'Chat canon entries',
+        'kind.canon.remove': 'Removing from the chat canon',
+        'kind.canon.status': 'Archiving and restoring canon entries',
+        'kind.canon.promote': 'Canon for all chats',
+        'kind.canon.export': 'Exporting the canon to a lorebook',
+        'target.canon-entry': 'Chat canon entry',
+        'target.canon-base-entry': 'Entry of a shared lorebook',
+        'target.canon-book': 'Lorebook',
+        'm6.field.title': 'Entry',
+        'm6.field.state': 'State',
+        'm6.field.text': 'Text',
+        'm6.field.keys': 'Keys',
+        'm6.field.off': 'Switched off',
         'm6.hint':
             'What the story changed lives here, not in your lorebooks: overrides replace a base entry for this chat only, additions are new entries, suppressions hide a base entry, pins force one in. Maestro mixes the canon into every scan; the book itself is never switched on.',
         'm6.noChat': 'No chat is open.',
@@ -57,12 +107,12 @@ export const CANON_STRINGS: I18nParts = {
             'The override is written into «{entry}» of the lorebook {book} and leaves the chat canon. Every chat with this book will see it.',
         'm6.promote.bodySuppress':
             'The entry «{entry}» of the lorebook {book} is switched off for every chat, and the suppression leaves the chat canon.',
-        'm6.promote.readOnly': 'The lorebook {book} is read-only (BunnyMo): it is never edited.',
-        'm6.promote.missing': 'The base entry is gone from {book}.',
+        'm6.promote.readOnly': 'Maestro never edits the lorebook «{book}»: it is read-only (BunnyMo).',
+        'm6.promote.missing': 'The original entry is gone from the lorebook «{book}».',
         'm6.export.action': 'Export',
         'm6.export.hint':
             'Save the canon as an ordinary lorebook (overrides expanded, suppressed entries listed in a note)',
-        'm6.export.done': 'Canon exported to the lorebook «{book}». It is not attached to anything.',
+        'm6.export.done': 'Canon exported to the lorebook «{book}»; it is not attached to anything.',
         'm6.export.empty': 'The canon of this chat is empty: nothing to export.',
         'm6.export.noteTitle': 'Maestro canon: base entries to review',
         'm6.export.suppressed': 'Suppressed in this chat (switch them off by hand):',
@@ -70,17 +120,20 @@ export const CANON_STRINGS: I18nParts = {
         'm6.export.pinned': 'Always active in this chat:',
         'm6.export.line': '- {world} — {comment} (uid {uid})',
         'm6.warn.active':
-            'The canon lorebook {book} is switched on in SillyTavern. Maestro mixes the canon in by itself: switch the book off; until then its entries are left out of the scan.',
-        'm6.branch.title': 'Copy the canon into this branch',
+            'The canon lorebook «{book}» is switched on in SillyTavern. Switch it off: Maestro mixes the canon in by itself, and while the book is on its entries are left out.',
+        'm6.branch.title': 'Canon for the new branch of the chat',
         'm6.branch.description':
-            'This chat is a branch of «{parent}», which has a canon. Copy it here? (The whole canon is copied; restoring it exactly as of the branch point comes later.)',
-        'm6.branch.failed': 'The canon was not copied: the branch already has one or the parent canon is gone.',
-        'm6.journal.put': 'Canon: added «{title}»',
-        'm6.journal.update': 'Canon: changed «{title}»',
-        'm6.journal.remove': 'Canon: removed «{title}»',
-        'm6.journal.status': 'Canon: «{title}» is now {status}',
-        'm6.journal.promote': 'Canon «{title}» written into {book}',
-        'm6.journal.export': 'Canon exported to «{book}»',
+            'This chat branched off «{parent}», which already has a canon. Copy it here? Then the branch goes on with the same facts. The whole canon is copied, including what was added after the branch point.',
+        'm6.branch.details': 'Canon lorebook of the parent chat: {book}',
+        'm6.branch.applied': 'Copied the canon of «{parent}» into this branch.',
+        'm6.branch.failed':
+            'The canon was not copied: the branch already has its own, or the parent chat has no canon any more.',
+        'm6.journal.put': 'Added to the chat canon: «{title}»',
+        'm6.journal.update': 'Changed in the chat canon: «{title}»',
+        'm6.journal.remove': 'Removed from the chat canon: «{title}»',
+        'm6.journal.status': 'Canon entry «{title}» is now {status}',
+        'm6.journal.promote': '«{title}» written into the lorebook «{book}» for all chats',
+        'm6.journal.export': 'Canon exported to the lorebook «{book}»',
         'm6.error.noChat': 'No chat is open.',
         'm6.error.noWorldInfo': 'This SillyTavern cannot save lorebooks from extensions.',
         'm6.error.kind': 'Unknown kind of canon item.',
@@ -93,7 +146,20 @@ export const CANON_STRINGS: I18nParts = {
     ru: {
         'm6.title': 'Канон чата',
         'm6.tab': 'Канон',
-        'kind.canon.branchCopy': 'Копия канона в ветку',
+        'kind.canon.branchCopy': 'Копия канона в новую ветку чата',
+        'kind.canon.put': 'Записи в каноне чата',
+        'kind.canon.remove': 'Удаление из канона чата',
+        'kind.canon.status': 'Архив и возврат записей канона',
+        'kind.canon.promote': 'Канон для всех чатов',
+        'kind.canon.export': 'Выгрузка канона в книгу лора',
+        'target.canon-entry': 'Запись канона чата',
+        'target.canon-base-entry': 'Запись в общей книге лора',
+        'target.canon-book': 'Книга лора',
+        'm6.field.title': 'Запись',
+        'm6.field.state': 'Состояние',
+        'm6.field.text': 'Текст',
+        'm6.field.keys': 'Ключи',
+        'm6.field.off': 'Выключена',
         'm6.hint':
             'Здесь живёт то, что изменил сюжет, — не в твоих лорбуках: переопределение заменяет базовую запись только в этом чате, добавление — новая запись, подавление прячет базовую запись, закрепление включает её всегда. Maestro подмешивает канон при каждом сканировании; сама книга не включается никогда.',
         'm6.noChat': 'Чат не открыт.',
@@ -145,12 +211,12 @@ export const CANON_STRINGS: I18nParts = {
             'Переопределение запишется в «{entry}» лорбука {book} и уйдёт из канона чата. Это увидят все чаты с этой книгой.',
         'm6.promote.bodySuppress':
             'Запись «{entry}» лорбука {book} выключится во всех чатах, а подавление уйдёт из канона чата.',
-        'm6.promote.readOnly': 'Лорбук {book} только для чтения (BunnyMo): его не правят.',
-        'm6.promote.missing': 'Базовой записи больше нет в {book}.',
+        'm6.promote.readOnly': 'Книгу лора «{book}» Maestro не правит: она только для чтения (BunnyMo).',
+        'm6.promote.missing': 'Исходной записи в книге лора «{book}» больше нет.',
         'm6.export.action': 'Экспорт',
         'm6.export.hint':
             'Сохранить канон обычным лорбуком (переопределения развёрнуты, подавленные записи перечислены в заметке)',
-        'm6.export.done': 'Канон выгружен в лорбук «{book}». Он ни к чему не привязан.',
+        'm6.export.done': 'Канон выгружен в книгу лора «{book}» — она ни к чему не подключена.',
         'm6.export.empty': 'Канон этого чата пуст — выгружать нечего.',
         'm6.export.noteTitle': 'Канон Maestro: базовые записи, на которые стоит взглянуть',
         'm6.export.suppressed': 'Подавлены в этом чате (выключи их вручную):',
@@ -158,17 +224,19 @@ export const CANON_STRINGS: I18nParts = {
         'm6.export.pinned': 'Всегда включены в этом чате:',
         'm6.export.line': '- {world} — {comment} (uid {uid})',
         'm6.warn.active':
-            'Лорбук канона {book} включён в SillyTavern. Maestro подмешивает канон сам: выключи книгу, а пока её записи в сканирование не попадают.',
-        'm6.branch.title': 'Скопировать канон в эту ветку',
+            'Книга канона «{book}» включена в SillyTavern. Выключи её: Maestro подмешивает канон сам, а пока книга включена, её записи не учитываются.',
+        'm6.branch.title': 'Канон для новой ветки чата',
         'm6.branch.description':
-            'Этот чат — ветка «{parent}», у которого есть канон. Скопировать его сюда? (Копируется весь канон; точное восстановление на момент ветвления появится позже.)',
-        'm6.branch.failed': 'Канон не скопирован: у ветки он уже есть или канона родителя больше нет.',
-        'm6.journal.put': 'Канон: добавлено «{title}»',
-        'm6.journal.update': 'Канон: изменено «{title}»',
-        'm6.journal.remove': 'Канон: убрано «{title}»',
-        'm6.journal.status': 'Канон: «{title}» теперь {status}',
-        'm6.journal.promote': 'Канон «{title}» записан в {book}',
-        'm6.journal.export': 'Канон выгружен в «{book}»',
+            'Этот чат ответвился от «{parent}», а там у истории уже есть канон. Скопировать его сюда? Тогда ветка продолжит с теми же фактами. Канон копируется целиком — вместе с тем, что появилось после точки ветвления.',
+        'm6.branch.details': 'Книга канона исходного чата: {book}',
+        'm6.branch.applied': 'Перенёс в эту ветку канон из «{parent}».',
+        'm6.branch.failed': 'Канон не скопирован: у ветки уже есть свой или у исходного чата канона больше нет.',
+        'm6.journal.put': 'В канон чата добавлено: «{title}»',
+        'm6.journal.update': 'В каноне чата изменено: «{title}»',
+        'm6.journal.remove': 'Из канона чата убрано: «{title}»',
+        'm6.journal.status': 'Запись канона «{title}» теперь {status}',
+        'm6.journal.promote': '«{title}» записано в книгу лора «{book}» — для всех чатов',
+        'm6.journal.export': 'Канон выгружен в книгу лора «{book}»',
         'm6.error.noChat': 'Чат не открыт.',
         'm6.error.noWorldInfo': 'Эта версия SillyTavern не даёт расширениям сохранять лорбуки.',
         'm6.error.kind': 'Неизвестный вид записи канона.',

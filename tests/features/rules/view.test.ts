@@ -60,7 +60,10 @@ describe('rules tab', () => {
         input.dispatchEvent(new Event('change'));
         await settle();
         expect(rules.isEnabled('display.bunnymoTags')).toBe(true);
-        expect(env.ui.notices.at(-1)).toContain('skipped');
+        // In words, with the rule's name — not the raw decision.
+        expect(env.ui.notices.at(-1)).toBe(
+            'The rule «Show BunnyMo tags» was not switched: such changes are off or out of date.',
+        );
     });
 
     it('shows unavailable rules and the changes of the last scan', async () => {

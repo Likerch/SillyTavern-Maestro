@@ -46,7 +46,13 @@ export interface CoreSettings {
     /** Modules switched on/off by the user; missing = module default. */
     modules: Record<string, boolean>;
     firstRunDone: boolean;
+    /** Which notices pop up as toasts: everything (default), important and urgent ones, or urgent ones only. */
+    notifyLevel: NotifyLevel;
+    /** Technical details of cards and journal records (book, uid, raw data) start expanded. */
+    showTechnical: boolean;
 }
+
+export type NotifyLevel = 'all' | 'important' | 'urgent';
 
 export interface SettingsService {
     core(): CoreSettings;
@@ -401,10 +407,19 @@ export interface Journal {
 
 export interface Proposal<T = unknown> {
     module: string;
-    /** Action kind used for the autonomy level, e.g. 'canon.fact', 'qc.swipe'. */
+    /** Action kind used for the autonomy level, e.g. 'canon.fact', 'qc.swipe'. Needs an i18n label `kind.<kind>`. */
     kind: string;
+    /** What happened in the story and what Maestro proposes, in plain words (no ids, keys or English data). */
     title: string;
+    /** One or two plain sentences: what changes if the user agrees. */
     description?: string;
+    /** Technical notes (book, entry, tags, English canon text) shown only under «Подробнее». */
+    details?: string;
+    /**
+     * The notice shown when autonomy applied the proposal by itself ('auto'). Default: «Сделал: {title}», grouped
+     * per kind within a turn. The notice offers to undo the journal record.
+     */
+    appliedNotice?: { text: string; group?: string; groupText?: (count: number) => string };
     /** Diff shown to the user. */
     changes: JournalChange[];
     payload: T;
@@ -448,6 +463,8 @@ export interface InboxCard {
     kind: string;
     title: string;
     description?: string;
+    /** Technical notes (Proposal.details), shown under «Подробнее». */
+    details?: string;
     changes: JournalChange[];
     /** JSON-serialisable payload passed to the registered applier. */
     payload: unknown;
@@ -547,6 +564,57 @@ export interface Bus {
     emit<K extends keyof MaestroEvents>(event: K, payload: MaestroEvents[K]): Promise<void>;
 }
 
+/* ------------------------------------------------------------------ how changes are shown */
+
+/** One field of a change's before/after object, as the user sees it. */
+export interface TargetFieldSpec {
+    /** i18n key of the human label («Наряд», «Тип»). */
+    labelKey: string;
+    /** Value → human text (enum values, booleans, times, tag lists); '' hides the row. Default: plain text. */
+    format?(value: unknown, i18n: I18n): string;
+    /** Technical field (ids, tags, English text): shown only under «Подробнее». */
+    hidden?: boolean;
+    /** `null` is a value here (e.g. «use the global setting») and goes through `format`, not «absent». */
+    nullable?: boolean;
+}
+
+/**
+ * How the changes of one journal target are shown in Inbox cards and the journal (MaestroModule.targets). The label
+ * is `target.<target>` unless labelKey says otherwise. Fields not listed here, `ref` locators and the raw values go
+ * to «Подробнее»; a target nobody describes shows its whole diff there only.
+ */
+export interface TargetSpec {
+    target: string;
+    labelKey?: string;
+    /** Fields of object values, in display order. */
+    fields?: Record<string, TargetFieldSpec>;
+    /** Plain-text values (strings, lists): the row label; omitted = the target label alone. */
+    valueLabelKey?: string;
+    /** Value → human text for non-object values (a list of tags, a number with a unit). */
+    format?(value: unknown, i18n: I18n): string;
+    /** The value itself is technical (English canon text, CK markup, NAI tags, JSON): only under «Подробнее». */
+    technical?: boolean;
+    /** A plain `null` value is meaningful (a reset to the default) and goes through `format`. */
+    nullable?: boolean;
+}
+
+/** Notice importance: info (toast at «Всё»), important (also at «Важное»), urgent (always). */
+export type NoticeImportance = 'info' | 'important' | 'urgent';
+
+export interface NoticeOptions {
+    /** Same as importance 'urgent' (kept for older callers). */
+    urgent?: boolean;
+    /** Default: urgent → 'urgent', warn/error → 'important', otherwise 'info'. */
+    importance?: NoticeImportance;
+    level?: 'info' | 'warn' | 'error';
+    /** A button on the toast and in the Overview list. Merged notices run every action of the group. */
+    action?: { label: string; run: () => void };
+    /** Notices of one group within one turn merge into one («Запомнил 3 новых факта о мире»). */
+    group?: string;
+    /** Text of a merged group of `count` (≥ 2) notices; default: the first text «и ещё N». */
+    groupText?: (count: number) => string;
+}
+
 /* ------------------------------------------------------------------ UI registry */
 
 export interface PultTab {
@@ -609,13 +677,16 @@ export interface Ui {
     closePult?(): void;
     /** Badge refresh after state changes. */
     refresh(): void;
-    /** Non-blocking notice; `urgent` uses a toast, otherwise only the badge/log. */
-    notice(
-        text: string,
-        options?: { urgent?: boolean; level?: 'info' | 'warn' | 'error'; action?: { label: string; run: () => void } },
-    ): void;
-    /** Modal confirmation through ST Popup (only for urgent Maestro-initiated questions). */
-    confirm(title: string, body: string | HTMLElement): Promise<boolean>;
+    /**
+     * Non-blocking notice: listed in the Overview and shown as a toast when its importance passes the user's
+     * notification level (CoreSettings.notifyLevel). Plain story words; technical details belong to the journal.
+     */
+    notice(text: string, options?: NoticeOptions): void;
+    /**
+     * Modal confirmation through ST Popup (only for urgent Maestro-initiated questions). `details` (technical notes)
+     * are shown collapsed under «Подробнее».
+     */
+    confirm(title: string, body: string | HTMLElement, options?: { details?: string }): Promise<boolean>;
     /** Message badge with an action button (M12 notify). */
     messageBadge(
         messageIndex: number,
@@ -663,6 +734,8 @@ export interface MaestroModule<S extends object = object> {
     /** Capability ids that must be present; otherwise the module stays off with a health warning. */
     requires?: string[];
     i18n?: I18nParts;
+    /** How the module's journal targets are shown (registered at load time, like i18n; also when the module is off). */
+    targets?: TargetSpec[];
     init(ctx: ModuleContext<S>): void | Promise<void>;
     /** Optional extra cleanup; owned disposers run anyway. */
     dispose?(): void | Promise<void>;

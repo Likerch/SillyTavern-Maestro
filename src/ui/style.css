@@ -745,6 +745,45 @@
     font-weight: 600;
 }
 
+.maestro-change-label {
+    font-weight: 600;
+    color: var(--maestro-text, inherit);
+}
+
+/* «Подробнее» (plan-2 §3): technical parts of cards and journal records, collapsed by default. */
+.maestro-details {
+    color: var(--maestro-muted);
+    font-size: 0.9em;
+}
+
+.maestro-details > summary {
+    cursor: pointer;
+    width: fit-content;
+}
+
+.maestro-details > :not(summary) {
+    margin-top: 4px;
+}
+
+.maestro-details-notes {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+/* A notice's action as a real button on the toast (no «по нажатию» suffix). */
+.maestro-toast {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+}
+
+.maestro-toast-action.menu_button {
+    margin: 0;
+    padding: 2px 8px;
+    width: auto;
+}
+
 .maestro-diff {
     padding: 6px 8px;
     border-radius: var(--maestro-radius-sm);

@@ -150,7 +150,9 @@ describe('picking characters', () => {
             ['Mira', 'saved'],
             ['Florence', 'rejected'],
         ]);
-        expect(env.ui.notices.at(-1)?.text).toContain('Florence');
+        expect(env.ui.notices.at(-1)?.text).toBe(
+            'Took back the off-screen events about Florence: this character belongs to another story.',
+        );
         // Once per chat.
         await env.stop();
         await env.start();
@@ -174,7 +176,7 @@ describe('picking characters', () => {
         expect(env.tasks.queued.at(-1)?.payload.characters).toEqual(['Mira']);
         await expect(service.runNow(['Алекс'])).rejects.toThrow('Nobody to look in on');
         env.modules.apis.delete('canon');
-        await expect(service.runNow()).rejects.toThrow('The chat canon is off');
+        await expect(service.runNow()).rejects.toThrow('the «Chat canon» module is off');
         env.host.group = true;
         await expect(service.runNow()).rejects.toThrow('group chats');
         env.host.group = false;
@@ -350,8 +352,13 @@ describe('checks and routing', () => {
         expect(env.autonomy.proposals[0]).toMatchObject({
             module: 'M16',
             kind: 'offscreen.event',
-            title: 'Backstage: Mira',
+            title: 'Mira off-screen: a new event',
+            appliedNotice: { text: 'Mira off-screen: added the event to the chat canon.', group: 'm16.applied' },
         });
+        expect(env.autonomy.proposals[0]?.appliedNotice?.groupText?.(3)).toBe(
+            'Added 3 off-screen events to the chat canon',
+        );
+        expect(env.autonomy.proposals[0]?.description).toMatch(/Add it to the chat canon\?/);
         const [saved] = service.events();
         expect(saved).toMatchObject({
             character: 'Mira',
@@ -398,7 +405,9 @@ describe('checks and routing', () => {
         expect(env.autonomy.proposals).toEqual([]);
         const card = env.inbox.added[0]!;
         expect(card).toMatchObject({ kind: 'offscreen.event', sourceMessage: LAST_COMMITTED });
-        expect(card.description).toContain('Contradicts the canon: canon: Mira: «never leaves the port»');
+        expect(card.description).toContain('It disputes what is already known: canon: Mira: «never leaves the port»');
+        expect(card.title).toBe('Mira off-screen: the event disputes the story');
+        expect(card.details).toBe('Keys of the canon entry: Mira, Мира, Миру, Миры');
         expect(card.payload).toMatchObject({
             m16: 1,
             entityName: 'Mira',
@@ -419,7 +428,7 @@ describe('checks and routing', () => {
         env.llm.script = [answer(event())];
         const service = await env.start();
         await service.execute('manual', ['Mira']);
-        expect(env.inbox.added[0]?.description).toContain('The contradiction check could not run.');
+        expect(env.inbox.added[0]?.description).toContain('I could not check whether it disputes the story');
         env.contradictions.fail = false;
         env.contradictions.result = { clean: false, askedAi: false, costUsd: 0, contradictions: [] };
         await env.runTasks();
@@ -439,7 +448,8 @@ describe('checks and routing', () => {
         const service = await env.start();
         await service.execute('manual', ['Mira']);
         expect(env.canon.puts).toEqual([]);
-        expect(env.inbox.added[0]?.description).toContain('A drastic turn');
+        expect(env.inbox.added[0]?.description).toContain('This is a drastic turn');
+        expect(env.inbox.added[0]?.title).toBe('Mira off-screen: a drastic turn');
         expect(service.events()[0]).toMatchObject({ status: 'inbox', drastic: true });
     });
 

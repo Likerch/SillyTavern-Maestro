@@ -389,14 +389,15 @@ export function qualityTab(app: App, service: QualityService, settings: () => Qu
                                     const bad = draft.some(
                                         (rule) => !rule.patterns.length || rule.patterns.some((p) => patternError(p)),
                                     );
+                                    // Replies to his «Сохранить»: always shown.
                                     if (bad) {
-                                        app.ui.notice(t('m12.boundary.invalid'), { level: 'warn' });
+                                        app.ui.notice(t('m12.boundary.invalid'), { level: 'warn', urgent: true });
                                         return;
                                     }
                                     await service.setBoundary(draft);
                                     draft = service.boundary();
                                     drawRules();
-                                    app.ui.notice(t('m12.boundary.saved'));
+                                    app.ui.notice(t('m12.boundary.saved'), { urgent: true });
                                 },
                             }),
                         ]),

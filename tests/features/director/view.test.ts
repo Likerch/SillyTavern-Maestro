@@ -116,14 +116,14 @@ describe('director tab', () => {
         button('Shake it up')!.click();
         await env.tick(150);
         expect(env.ui.notices.at(-1)).toMatchObject({
-            text: 'Nothing to build a twist from: no open quests or unresolved threads.',
-            options: { level: 'warn' },
+            text: 'Nothing to build a twist from: the story has no open quests or loose threads.',
+            options: { level: 'warn', urgent: true },
         });
         await env.reply('Тишина в зале.', TAVERN);
         await env.send('…');
         button('Shake it up')!.click();
         await env.tick(150);
-        expect(env.ui.notices.at(-1)?.text).toContain('The note is ready');
+        expect(env.ui.notices.at(-1)?.text).toContain("The director's note is ready");
         expect(text()).toContain('Note for the next turn');
         expect(text()).toContain('Вернуть долг гильдии');
         expect(text()).toContain('Quest');

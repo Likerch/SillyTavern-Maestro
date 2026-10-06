@@ -153,7 +153,11 @@ export class CanonScan {
             if (this.warned.has(book)) continue;
             this.warned.add(book);
             this.log.warn(`canon book ${book} is active in ST; its entries are left out of the scan`);
-            this.app.ui.notice(this.app.i18n.t('m6.warn.active', { book }), { urgent: true, level: 'warn' });
+            // Needs his hand (switch the book off), but it is not a reply to a click: important, not urgent.
+            this.app.ui.notice(this.app.i18n.t('m6.warn.active', { book }), {
+                importance: 'important',
+                level: 'warn',
+            });
         }
     }
 

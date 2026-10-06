@@ -2,6 +2,7 @@
 // between several buttons («Сохранить / Отбросить / Отмена») and a form dialog. Everything goes in as text nodes.
 import { el } from '../../ui/components/dom';
 import type { App } from '../../shared/contracts';
+import { PresetStoreError } from './st-preset';
 
 /** Values our custom buttons resolve with (ST's AFFIRMATIVE is 1, NEGATIVE 0, CANCELLED null). */
 const CUSTOM_RESULT_BASE = 100;
@@ -100,8 +101,17 @@ export class Dialogs {
         });
     }
 
+    /**
+     * A failure in plain words: the store's errors by their code (`m34.error.<code>`); anything else only says that it
+     * did not work — the English message is for the log, which the callers write.
+     */
     errorText(error: unknown): string {
-        return this.t('m34.error.generic', { error: error instanceof Error ? error.message : String(error) });
+        if (error instanceof PresetStoreError) {
+            const key = `m34.error.${error.code}`;
+            const text = this.t(key, { status: error.status ?? '' });
+            if (text !== key) return text;
+        }
+        return this.t('m34.error.generic');
     }
 
     /** Runs an action and reports a failure as an urgent notice instead of throwing into the button handler. */
@@ -110,7 +120,8 @@ export class Dialogs {
             return await action();
         } catch (error) {
             this.app.log.warn('preset studio action failed', error);
-            this.app.ui.notice(this.errorText(error), { urgent: true, level: 'error' });
+            const cancelled = error instanceof PresetStoreError && error.code === 'cancelled';
+            this.app.ui.notice(this.errorText(error), { urgent: true, level: cancelled ? 'info' : 'error' });
             return undefined;
         }
     }

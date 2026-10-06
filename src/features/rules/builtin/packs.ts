@@ -95,10 +95,11 @@ export function packVersionRule(env: RuleEnv): RuleDefinition {
                 description: t('m22.packVersion.description', {
                     books: group.books.join(' · '),
                     count: group.count,
-                    sample: group.sample.join(', '),
                     book: group.newest,
                     others: others.join(', '),
                 }),
+                // BunnyMo tags (<INTJ-U>) are technical: «Подробнее».
+                details: group.sample.length ? t('m22.packVersion.details', { sample: group.sample.join(', ') }) : '',
                 changes: [{ target: PACK_CHOICE_TARGET, ref: { group: group.id }, before: null, after: group.newest }],
                 payload,
                 stillValid: async () => env.settings().packChoices[group.id] === undefined,

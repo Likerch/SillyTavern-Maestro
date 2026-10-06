@@ -196,7 +196,7 @@ describe('places tab', () => {
         delete (env.mock.context as unknown as Record<string, unknown>).executeSlashCommandsWithOptions;
         buttonByText('Description', placeNode('Inn')).click();
         await redraw();
-        expect(env.ui.notices.at(-1)?.text).toBe(`The description is entry 0 of the lorebook ${canon.book}.`);
+        expect(env.ui.notices.at(-1)?.text).toBe(`The description is entry #0 of the lorebook «${canon.book}».`);
     });
 
     it('acts on candidates', async () => {

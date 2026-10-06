@@ -3,6 +3,8 @@
 // «Всегда так», and the revision's deferred cards. The base behaviour (accept/reject/snooze, mass accept, stale
 // cards) is covered in views.test.ts.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { createLabels } from '../../src/core/labels';
+import { revisionModule } from '../../src/features/revision';
 import { REVISION_STRINGS } from '../../src/features/revision/strings';
 import type { InboxCard } from '../../src/shared/contracts';
 import { createUi } from '../../src/ui';
@@ -137,23 +139,38 @@ describe('Inbox view (M8)', () => {
         expect(buttonByText('Изменить', cardWith('Plain'))).toBeUndefined();
     });
 
-    it('names the stores of the revision in the diff heads', () => {
-        start('ru');
+    it("keeps the revision's English values and store addresses under «Подробнее»; a nickname reads in words", () => {
+        const labels = createLabels();
+        labels.register(revisionModule.targets ?? []);
+        start('ru', { labels });
         env.i18n.register(REVISION_STRINGS);
         fakes.inbox.set([
             revisionCard('1', 'Anna', {
                 changes: [
                     { target: 'revision.canon', ref: { world: 'World', uid: 1 }, before: 'Rome', after: 'Paris' },
                     { target: 'revision.passport', ref: { id: 'p1', slot: 'hair' }, before: 'long', after: 'short' },
+                    {
+                        target: 'revision.alias',
+                        ref: { alias: 'Аня' },
+                        before: null,
+                        after: { alias: 'Аня', entity: 'Anna' },
+                    },
                 ],
             }),
         ]);
         ui!.openPult('inbox');
-        const heads = [...cardWith('Anna: card 1').querySelectorAll('.maestro-change-target')].map(
-            (node) => node.textContent,
-        );
-        expect(heads).toEqual(['Канон чата', 'Паспорт NAI этого чата']);
-        expect(cardWith('Anna: card 1').textContent).toContain('world: World, uid: 1');
+        const card = cardWith('Anna: card 1');
+        const details = card.querySelector<HTMLDetailsElement>('details.maestro-details')!;
+        expect(details.open).toBe(false);
+        const main = [...card.querySelectorAll('.maestro-change-human')].map((node) => node.textContent);
+        expect(main).toEqual(['ПрозвищеПрозвищеАняКтоAnna']);
+        expect(details.textContent).toContain('revision.canon');
+        expect(details.textContent).toContain('world: World, uid: 1');
+        expect(details.textContent).toContain('Вид действия: canon.fact');
+        const outside = card.textContent!.replace(details.textContent!, '');
+        expect(outside).not.toContain('revision.');
+        expect(outside).not.toContain('uid');
+        expect(outside).not.toContain('canon.fact');
     });
 
     it('keeps the plain list when no card names an entity', () => {
@@ -226,14 +243,14 @@ describe('Inbox view (M8)', () => {
         expect(buttonByText('Всегда так', cardWith('Anna: waiting'))).toBeUndefined();
         expect(buttonByText('Изменить', cardWith('Anna: waiting'))).toBeUndefined();
         const always = buttonByText('Всегда так', cardWith('Anna: card 1'))!;
-        expect(always.title).toBe('Принять и дальше делать такие изменения самому');
+        expect(always.title).toBe('Принять, и дальше такие изменения я делаю сам');
         always.click();
         await flush();
         expect(env.settings.core().autonomy).toEqual({ 'canon.fact': 'auto' });
         expect(notify).toHaveBeenCalledWith('core.autonomy.canon.fact');
         expect(fakes.inbox.accepted).toEqual(['1']);
         ui!.openPult('overview');
-        expect(body().textContent).toContain('«Факты канона об известных сущностях (ревизия)» теперь делается само.');
+        expect(body().textContent).toContain('Хорошо: «Перемены в известном о персонажах и местах» дальше делаю сам.');
     });
 
     it('snooze keeps its label and explains itself', () => {

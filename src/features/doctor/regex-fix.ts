@@ -246,6 +246,18 @@ export async function undoRegexFix(app: App, change: JournalChange): Promise<boo
     return true;
 }
 
+/** Kind and default level of an action: preset scripts and deletes ask, toggles of other scripts are 'auto'. */
+export function regexRoute(
+    script: Pick<RegexScriptInfo, 'type'>,
+    action: RegexAction,
+): { kind: string; fallback: AutonomyLevel } {
+    const preset = script.type === 'preset';
+    return {
+        kind: preset ? PRESET_REGEX_KIND : REGEX_FIX_KIND,
+        fallback: preset || action === 'delete' ? 'ask' : 'auto',
+    };
+}
+
 /** Proposes the action for one script of the inventory; `note` is added to the question (e.g. «only disabled»). */
 export async function regexAction(
     app: App,
@@ -266,13 +278,17 @@ export async function regexAction(
     const index = store ? locate(store.list, payload) : -1;
     const live = store && index >= 0 ? store.list[index] : undefined;
     if (!live) {
-        app.ui.notice(t('m5.regexFix.notFound', { name: script.name || script.id }), { level: 'warn' });
+        // A reply to his click in the Doctor tab: always shown.
+        app.ui.notice(t('m5.regexFix.notFound', { name: script.name || script.id }), {
+            level: 'warn',
+            importance: 'urgent',
+        });
         return 'skipped';
     }
     const before = jsonCopy(live);
     const after = action === 'delete' ? null : { ...before, disabled: action === 'disable' };
     const preset = script.type === 'preset';
-    const fallback: AutonomyLevel = preset || action === 'delete' ? 'ask' : 'auto';
+    const { kind, fallback } = regexRoute(script, action);
     const name = script.name || t('m5.regex.unnamed');
     const description = [
         t(`m5.regexFix.description.${action}`, { name, type: t(`m5.regexType.${script.type}`) }),
@@ -284,9 +300,10 @@ export async function regexAction(
     return app.autonomy.decide<RegexFixPayload>(
         {
             module: 'M5',
-            kind: preset ? PRESET_REGEX_KIND : REGEX_FIX_KIND,
+            kind,
             title: t(`m5.regexFix.title.${action}`, { name, type: t(`m5.regexType.${script.type}`) }),
             description,
+            appliedNotice: { text: t(`m5.regexFix.done.${action}`, { name }) },
             changes: [
                 {
                     target: REGEX_TARGET,

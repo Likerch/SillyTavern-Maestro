@@ -69,6 +69,8 @@ export class CanonBranches {
                     kind: BRANCH_KIND,
                     title: t('m6.branch.title'),
                     description: t('m6.branch.description', { parent }),
+                    details: t('m6.branch.details', { book: payload.parentBook }),
+                    appliedNotice: { text: t('m6.branch.applied', { parent }) },
                     changes: [
                         {
                             target: CANON_BOOK_TARGET,

@@ -448,6 +448,7 @@ export class RevisionService {
                 sourceMessage: change.sourceMessage,
                 at: Date.now(),
             };
+            if (change.russian) card.russian = change.russian;
             if (!deferred.some((item) => sameDeferred(item, card))) deferred.push(card);
             run.changes.push(change);
             return;
@@ -523,6 +524,7 @@ export class RevisionService {
             quote: change.evidence,
             text: change.value,
             sourceMessage: change.sourceMessage,
+            ...(change.russian ? { russian: change.russian } : {}),
         };
         const living = this.sources.livingCanon();
         if (typeof living?.propose === 'function') {

@@ -221,10 +221,41 @@ describe('M26: what the batch extraction writes', () => {
         await runExtraction();
         expect(env.canon.living()).toEqual([]);
         const [card] = proposalsOf(env, 'living.disputed');
-        expect(card?.title).toBe('Disputed invented fact: Серые плащи');
+        expect(card?.title).toBe('Something new disagrees with the story: Серые плащи');
         // Inside the extraction task the full check runs inline (a queued one would wait for this very task).
         expect(env.contradictions.checkOptions).toEqual([expect.objectContaining({ inline: true })]);
         expect(living.facts()).toEqual([expect.objectContaining({ name: 'Серые плащи', status: 'disputed' })]);
+    });
+
+    it('shows the Russian sentence of an extracted fact in its card and notice; the English text in details', async () => {
+        const index = await turn(env, living, QUIET);
+        env.llm.result = {
+            ok: true,
+            data: {
+                provisional: [],
+                facts: [
+                    {
+                        name: 'Серые плащи',
+                        english: 'Grey Cloaks',
+                        type: 'faction',
+                        text: 'Guards in grey cloaks who have watched the river bridge for three centuries.',
+                        russian: 'Люди в серых плащах триста лет охраняют мост через реку.',
+                        quote: QUIET,
+                        message: index,
+                    },
+                ],
+            },
+        };
+        await living.extractNow();
+        await runExtraction();
+        const [card] = proposalsOf(env, 'living.fact');
+        expect(card?.description).toContain('Люди в серых плащах триста лет охраняют мост через реку.');
+        expect(card?.description).not.toContain('three centuries');
+        expect(card?.details).toContain('Guards in grey cloaks who have watched the river bridge');
+        expect(card?.appliedNotice?.text).toBe(
+            'Remembered as provisional: Люди в серых плащах триста лет охраняют мост через реку',
+        );
+        expect(living.records()[0]?.russian).toBe('Люди в серых плащах триста лет охраняют мост через реку.');
     });
 
     it('removes a provisional fact the model calls a duplicate of known lore', async () => {

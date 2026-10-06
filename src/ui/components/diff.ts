@@ -1,5 +1,9 @@
-// "Before / after" views for Inbox cards and journal records: word-level diff for strings, field-by-field
-// diff for JSON objects. The diff functions are pure (no DOM) so they are cheap to test.
+// "Before / after" views for Inbox cards and journal records. The main body shows a change in plain words
+// (humanChangeView: the target's human label, described fields as «label: было → стало», from the module's
+// TargetSpec); the raw view (changeView: target id, ref locators, word diff for strings, field-by-field diff for
+// JSON objects) belongs under «Подробнее». The diff functions are pure (no DOM) so they are cheap to test.
+import { describeChange } from '../../core/labels';
+import type { Labels } from '../../core/labels';
 import type { I18n, JournalChange } from '../../shared/contracts';
 import { el } from './dom';
 import type { Child } from './dom';
@@ -266,9 +270,9 @@ function fieldTable(fields: FieldDiff[], t: Translate): HTMLElement {
     ]);
 }
 
-/** One journal/inbox change: target and locator, then the diff. */
+/** One journal/inbox change as stored: target id and locator, then the raw diff («Подробнее»). */
 export function changeView(change: JournalChange, t: Translate): HTMLElement {
-    const ref = Object.entries(change.ref)
+    const ref = Object.entries(change.ref ?? {})
         .filter(([, value]) => value !== undefined && value !== null && typeof value !== 'object')
         .map(([key, value]) => `${key}: ${String(value)}`)
         .join(', ');
@@ -279,4 +283,60 @@ export function changeView(change: JournalChange, t: Translate): HTMLElement {
         ]),
         diffView(change.before, change.after, t),
     ]);
+}
+
+/** Long texts read better as a word diff than as «было → стало». */
+const WORD_DIFF_MIN = 60;
+
+function humanRowCell(row: { kind: string; before?: string; after?: string }, t: Translate): Child {
+    if (row.kind === 'added') return el('ins', { class: 'maestro-diff-add', text: row.after ?? '' });
+    if (row.kind === 'removed') return el('del', { class: 'maestro-diff-del', text: row.before ?? '' });
+    const before = row.before ?? '';
+    const after = row.after ?? '';
+    if (before.length + after.length >= WORD_DIFF_MIN) return renderParts(wordDiff(before, after), t);
+    return el('span', { class: 'maestro-diff-change' }, [
+        el('del', { class: 'maestro-diff-del', title: t('ui.diff.was'), text: before }),
+        el('span', { class: 'maestro-diff-arrow', text: ' → ' }),
+        el('ins', { class: 'maestro-diff-add', title: t('ui.diff.now'), text: after }),
+    ]);
+}
+
+/**
+ * The change in plain words: the target's label and its described fields («Наряд: дорожный плащ → шёлковое
+ * платье»). Null when the module did not describe the target (or only technical parts changed): then the change is
+ * shown under «Подробнее» only.
+ */
+export function humanChangeView(change: JournalChange, labels: Labels | undefined, i18n: I18n): HTMLElement | null {
+    const human = describeChange(change, labels, i18n);
+    if (!human) return null;
+    const t = i18n.t.bind(i18n);
+    return el('div', { class: ['maestro-change', 'maestro-change-human'] }, [
+        human.label
+            ? el('div', { class: 'maestro-change-head' }, [
+                  el('span', { class: 'maestro-change-label', text: human.label }),
+              ])
+            : null,
+        el(
+            'div',
+            { class: 'maestro-diff maestro-diff-fields' },
+            human.rows.map((row) =>
+                el('div', { class: ['maestro-diff-row', `maestro-diff-${row.kind}`] }, [
+                    row.label ? el('div', { class: 'maestro-diff-path', text: row.label }) : null,
+                    el('div', { class: 'maestro-diff-cell' }, [humanRowCell(row, t)]),
+                ]),
+            ),
+        ),
+    ]);
+}
+
+/** «Подробнее»: technical parts of a card or a journal record, collapsed unless the user wants them open. */
+export function detailsView(i18n: I18n, open: boolean, parts: readonly Child[]): HTMLElement | null {
+    const content = parts.filter((part) => part !== null && part !== undefined && part !== false && part !== '');
+    if (!content.length) return null;
+    const node = el('details', { class: 'maestro-details' }, [
+        el('summary', { text: i18n.t('ui.inbox.details') }),
+        ...content,
+    ]);
+    if (open) node.open = true;
+    return node;
 }

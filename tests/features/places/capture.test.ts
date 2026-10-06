@@ -123,6 +123,8 @@ describe('capture on committed turns', () => {
         expect(proposal).toMatchObject({
             module: 'M24',
             title: '«Rusty Anchor» may be «Rusty Anchor Tavern»',
+            details: 'DES tracker location: Rusty Anchor',
+            appliedNotice: { text: 'Noted: «Rusty Anchor» is another name of «Rusty Anchor Tavern».' },
             sourceMessage: 2,
             payload: { key: 'rusty anchor', target: inn.id, name: 'Rusty Anchor', index: 2 },
         });

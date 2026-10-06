@@ -15,6 +15,8 @@ export function defaultCoreSettings(): CoreSettings {
         autonomy: {},
         modules: {},
         firstRunDone: false,
+        notifyLevel: 'all',
+        showTechnical: false,
     };
 }
 
@@ -145,5 +147,7 @@ export class Settings implements SettingsService {
 /** Core settings migrations: add steps as `if (settings.schemaVersion === n) { …; settings.schemaVersion = n + 1; }`. */
 export function migrateCore(settings: CoreSettings): CoreSettings {
     if (!settings.schemaVersion || settings.schemaVersion < 1) settings.schemaVersion = 1;
+    if (!(['all', 'important', 'urgent'] as const).includes(settings.notifyLevel)) settings.notifyLevel = 'all';
+    if (typeof settings.showTechnical !== 'boolean') settings.showTechnical = false;
     return settings;
 }

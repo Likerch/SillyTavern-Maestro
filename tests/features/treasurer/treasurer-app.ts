@@ -82,6 +82,8 @@ export function createTreasurerStand(): TreasurerStand {
         autonomy: {},
         modules: {},
         firstRunDone: true,
+        notifyLevel: 'all',
+        showTechnical: false,
     };
     const env: TreasurerStand = {
         stand,

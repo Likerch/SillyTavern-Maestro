@@ -163,6 +163,7 @@ describe('mechanic_toggle_chat', () => {
         expect(plan.after).toBe('выкл');
         await plan.apply();
         expect(mechanics.chatCalls).toEqual([{ id: 'health', on: false }]);
+        expect(fake.undoJournal.records[0]!.summary).toBe('Выключил механику «Здоровье» в этом чате');
         expect(fake.undoJournal.records[0]!.changes[0]).toEqual({
             target: 'assistant-mechanic-chat',
             ref: { chatId: 'chat-1', id: 'health' },

@@ -236,6 +236,11 @@ describe('autonomy and undo', () => {
         await env.enter(tavern.id);
         expect(env.live()).toBe('');
         const proposal = env.autonomy.proposals.at(-1)!;
+        // The card names the place; the file name is a detail.
+        expect(proposal.title).toContain('Таверна');
+        expect(proposal.title).not.toContain('tavern');
+        expect(proposal.details).toContain('tavern day.jpg');
+        expect(proposal.appliedNotice?.text).toContain('Таверна');
         const payload = JSON.parse(JSON.stringify(proposal.payload)) as SetPayload;
         expect(await env.inbox.validators.get(SET_KIND)!(payload)).toBe(true);
         await env.inbox.appliers.get(SET_KIND)!(payload);

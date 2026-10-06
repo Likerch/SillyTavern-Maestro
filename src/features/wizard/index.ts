@@ -30,6 +30,12 @@ export const wizardModule: MaestroModule<WizardSettings> = {
     enabledByDefault: true,
     defaults: defaultWizardSettings,
     i18n: WIZARD_STRINGS,
+    // Rule ids, book names and the ST flag name are technical: the record's summary says it in words.
+    targets: [
+        { target: RULE_TARGET, valueLabelKey: 'w1.field.on' },
+        { target: CAPS_TARGET, technical: true },
+        { target: POWER_TARGET, valueLabelKey: 'w1.field.on' },
+    ],
     init({ app, settings, own }) {
         let running = true;
         own(() => {

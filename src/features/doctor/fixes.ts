@@ -164,7 +164,24 @@ function valueText(app: App, field: string, value: unknown): string {
     return value === null || value === undefined ? '—' : String(value);
 }
 
-/** Text preview of the patches for the question (the Inbox shows the full changes). */
+/** «Entries: «Anna», «Tavern» …» — the entries' titles (comment, else the first key) for the question. */
+export function entryNames(app: App, data: Record<string, RawEntry> | null, patches: readonly EntryPatch[]): string {
+    const names = patches
+        .map((patch) => {
+            const entry = data?.[String(patch.uid)];
+            const comment = typeof entry?.comment === 'string' ? entry.comment.trim() : '';
+            const key = Array.isArray(entry?.key) && typeof entry.key[0] === 'string' ? entry.key[0].trim() : '';
+            return comment || key;
+        })
+        .filter(Boolean);
+    if (!names.length) return '';
+    const shown = names.slice(0, PREVIEW_LINES).map((name) => `«${name}»`);
+    if (names.length > PREVIEW_LINES)
+        shown.push(app.i18n.t('m5.fixFile.more', { count: names.length - PREVIEW_LINES }));
+    return app.i18n.t('m5.fixFile.entries', { list: shown.join(', ') });
+}
+
+/** Technical preview of the patches (uid, field: before → after) for «Подробнее». */
 export function previewText(app: App, data: Record<string, RawEntry> | null, patches: readonly EntryPatch[]): string {
     const lines = patches.slice(0, PREVIEW_LINES).map((patch) => {
         const entry = data?.[String(patch.uid)];
@@ -214,8 +231,12 @@ export async function fixInFile(app: App, finding: Finding): Promise<FileFixOutc
             title: t(`m5.fixFile.title.${name}`, { book }),
             description: [
                 t('m5.fixFile.description', { book, count: plan.patches.length }),
-                previewText(app, data.entries, plan.patches),
-            ].join('\n\n'),
+                entryNames(app, data.entries, plan.patches),
+            ]
+                .filter(Boolean)
+                .join('\n\n'),
+            // Entry uids and field names (role, scanDepth, keys) belong under «Подробнее».
+            details: previewText(app, data.entries, plan.patches),
             changes: patchChanges(book, plan.patches),
             payload: plan,
             stillValid: () => fileFixValid(app, plan),

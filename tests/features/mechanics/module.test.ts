@@ -31,8 +31,12 @@ function part(name: string, extra: Record<string, unknown> = {}) {
     };
 }
 
-vi.mock('../../../src/features/mechanics/state', () => ({ MechanicState: part('state') }));
+vi.mock('../../../src/features/mechanics/state', () => ({
+    MechanicState: part('state'),
+    VALUE_UNDO_TARGET: 'mechanics.value',
+}));
 vi.mock('../../../src/features/mechanics/tracking', () => ({
+    DES_STATS_UNDO_TARGET: 'mechanics.desStats',
     MechanicTracking: part('tracking', {
         desStatsStatus: () => [],
         enableDesStats: async () => true,

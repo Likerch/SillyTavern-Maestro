@@ -51,6 +51,14 @@ describe('one change', () => {
         });
     });
 
+    it('keeps a Russian sentence for the card only when it is Russian', () => {
+        expect(readChange(raw({ russian: '  Анна теперь живёт   в Париже. ' }), range)?.russian).toBe(
+            'Анна теперь живёт в Париже.',
+        );
+        expect(readChange(raw({ russian: 'Anna now lives in Paris.' }), range)?.russian).toBeUndefined();
+        expect(readChange(raw({ russian: '' }), range)?.russian).toBeUndefined();
+    });
+
     it('drops unusable items', () => {
         expect(readChange(null, range)).toBeNull();
         expect(readChange(raw({ target: 'lore.rewrite' }), range)).toBeNull();

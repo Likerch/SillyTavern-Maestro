@@ -6,7 +6,9 @@ export const GUARDIAN_STRINGS: I18nParts = {
     en: {
         'm4.title': 'Settings and tab guardian',
         'm4.tab': 'Guardian',
-        'kind.guardian.drift': 'Settings drift from the baseline',
+        'kind.guardian.drift': 'Settings changed since the baseline',
+        'kind.guardian.restore': 'Settings put back to the baseline',
+        'target.guardian-setting': 'Setting',
 
         'm4.state.fresh': 'This tab is up to date',
         'm4.state.stale': 'This tab is out of date',
@@ -48,13 +50,17 @@ export const GUARDIAN_STRINGS: I18nParts = {
         'm4.reason.first-start': 'first start',
         'm4.reason.wizard': 'first-run wizard',
 
-        'm4.notice.taken': 'Baseline taken.',
-        'm4.notice.restored': 'Settings restored: {count}.',
-        'm4.journal.restore': 'Settings restored from the baseline: {count}',
+        'm4.notice.taken': 'Saved the current settings as the baseline.',
+        'm4.notice.restored': 'Put settings back to the baseline: {count}.',
+        'm4.journal.restore': 'Settings put back to the baseline: {count}',
 
-        'm4.card.title': 'Settings changed since the baseline: {count}',
+        'm4.card.title.one': '{count} setting changed since the baseline — put it back?',
+        'm4.card.title.few': '{count} settings changed since the baseline — put them back?',
+        'm4.card.title.many': '{count} settings changed since the baseline — put them back?',
+        'm4.card.lead':
+            'Since the baseline snapshot these settings changed — by hand, by another extension or by an update: {where}.',
         'm4.card.intro':
-            'Accept — restore the baseline values (what cannot be restored becomes the new baseline). Reject — keep everything as it is.',
+            'Accept — put the baseline values back (what cannot be put back becomes the new baseline). Reject — keep everything as it is.',
         'm4.card.more': '…and {count} more',
         'm4.confirm.presetTitle': 'Restore the whole preset?',
         'm4.confirm.presetBody':
@@ -84,7 +90,9 @@ export const GUARDIAN_STRINGS: I18nParts = {
     ru: {
         'm4.title': 'Страж настроек и вкладок',
         'm4.tab': 'Страж',
-        'kind.guardian.drift': 'Настройки разошлись с эталоном',
+        'kind.guardian.drift': 'Настройки изменились после эталона',
+        'kind.guardian.restore': 'Возврат настроек к эталону',
+        'target.guardian-setting': 'Настройка',
 
         'm4.state.fresh': 'Вкладка актуальна',
         'm4.state.stale': 'Вкладка устарела',
@@ -103,7 +111,7 @@ export const GUARDIAN_STRINGS: I18nParts = {
         'm4.banner.saveAnywayHint': 'Настройки этой вкладки заменят то, что сохранила другая.',
         'm4.kind.settings': 'настройки',
         'm4.kind.preset': 'пресеты',
-        'm4.kind.worldinfo': 'лорбуки',
+        'm4.kind.worldinfo': 'книги лора',
 
         'm4.view.tab': 'Вкладка',
         'm4.view.lastCheck': 'Последняя проверка: {time}',
@@ -126,13 +134,17 @@ export const GUARDIAN_STRINGS: I18nParts = {
         'm4.reason.first-start': 'при первом запуске',
         'm4.reason.wizard': 'в мастере первого запуска',
 
-        'm4.notice.taken': 'Эталон снят.',
-        'm4.notice.restored': 'Восстановлено настроек: {count}.',
-        'm4.journal.restore': 'Настройки возвращены к эталону: {count}',
+        'm4.notice.taken': 'Запомнил текущие настройки как эталон.',
+        'm4.notice.restored': 'Вернул настройки к эталону: {count}.',
+        'm4.journal.restore': 'Возврат настроек к эталону: {count}',
 
-        'm4.card.title': 'Настройки разошлись с эталоном: {count}',
+        'm4.card.title.one': 'После эталона изменилась {count} настройка — вернуть как было?',
+        'm4.card.title.few': 'После эталона изменились {count} настройки — вернуть как было?',
+        'm4.card.title.many': 'После эталона изменилось {count} настроек — вернуть как было?',
+        'm4.card.lead':
+            'С момента снимка-эталона эти настройки поменялись — вручную, другим расширением или обновлением: {where}.',
         'm4.card.intro':
-            'Принять — вернуть значения эталона (то, что вернуть нельзя, станет новым эталоном). Отклонить — оставить всё как есть.',
+            'Принять — вернуть прежние значения (то, что вернуть нельзя, станет новым эталоном). Отклонить — оставить всё как есть.',
         'm4.card.more': '…и ещё {count}',
         'm4.confirm.presetTitle': 'Вернуть пресет целиком?',
         'm4.confirm.presetBody':
@@ -149,7 +161,7 @@ export const GUARDIAN_STRINGS: I18nParts = {
         'm4.group.ck': 'CarrotKernel',
         'm4.group.nai': 'NAI Studio',
         'm4.group.des': 'DES',
-        'm4.group.worldInfo': 'Лорбуки',
+        'm4.group.worldInfo': 'Книги лора',
         'm4.group.profiles': 'Профили подключения',
         'm4.group.extensions': 'Расширения',
         'm4.preset.name': 'активный пресет',

@@ -14,7 +14,7 @@ import { RECAP_CSS, RECAP_TASK, RecapService } from './recap';
 import { CHRONICLE_ID, CHRONICLE_KEY, defaultChronicleSettings, readChronicleSettings } from './settings';
 import type { ChronicleSettings } from './settings';
 import { ChronicleStore } from './store';
-import { CHRONICLE_STRINGS } from './strings';
+import { CHRONICLE_STRINGS, CHRONICLE_TARGETS } from './strings';
 import { CHRONICLE_CSS, chronicleTab } from './view';
 
 export const chronicleModule: MaestroModule<ChronicleSettings> = {
@@ -25,6 +25,7 @@ export const chronicleModule: MaestroModule<ChronicleSettings> = {
     enabledByDefault: true,
     defaults: defaultChronicleSettings,
     i18n: CHRONICLE_STRINGS,
+    targets: CHRONICLE_TARGETS,
     init({ app, settings, log, own }) {
         const read = () => readChronicleSettings(settings);
         read();
@@ -61,7 +62,7 @@ export const chronicleModule: MaestroModule<ChronicleSettings> = {
     },
 };
 
-export { CHRONICLE_STRINGS } from './strings';
+export { CHRONICLE_STRINGS, CHRONICLE_TARGETS } from './strings';
 export { CHRONICLE_ID, CHRONICLE_KEY, defaultChronicleSettings } from './settings';
 export type { ChronicleSettings } from './settings';
 export type { Chapter, ChronicleApi, RecapSettings } from './api';

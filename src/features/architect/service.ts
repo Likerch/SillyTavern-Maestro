@@ -482,7 +482,7 @@ export class ArchitectService implements ArchitectApi {
             const source =
                 fact.sources.find((item) => item.ref === owner) ?? fact.sources.find((item) => item.owner === owner);
             if (!source) return;
-            label = this.sourceLabel(source.owner, source.ref);
+            label = this.ownerName(source.owner);
             next = {
                 id: duplicateId,
                 keys: [...keys],
@@ -493,12 +493,18 @@ export class ArchitectService implements ArchitectApi {
             };
         }
         const t = (key: string, params?: Record<string, string | number>) => this.app.i18n.t(key, params);
+        // The main text names the kind of source only («память Qvink», «лор»); books and entries go to «Подробнее».
+        const sources = fact.sources.map((item) => this.sourceLabel(item.owner, item.ref)).join('; ');
         await this.app.autonomy.decide<ConsentPayload>(
             {
                 module: ARCHITECT_ID,
                 kind: CONSENT_KIND,
                 title: next ? t('m20.dup.journal.keep', { source: label }) : t('m20.dup.journal.report'),
-                description: fact.text,
+                description: t(next ? 'm20.dup.proposal.keep' : 'm20.dup.proposal.report'),
+                details: t('m20.dup.details', { sources }),
+                appliedNotice: {
+                    text: next ? t('m20.dup.notice.keep', { source: label }) : t('m20.dup.notice.report'),
+                },
                 changes: [{ target: CONSENT_TARGET, ref: { id: duplicateId }, before: previous, after: next }],
                 payload: { id: duplicateId, consent: next },
                 apply: (payload) => this.applyConsent(payload),
@@ -521,11 +527,16 @@ export class ArchitectService implements ArchitectApi {
         this.changed();
     }
 
+    /** «лор», «память Qvink» — the kind of source in words (no book or entry). */
+    ownerName(owner: string): string {
+        const ownerKey = `m20.owner.${owner}`;
+        const name = this.app.i18n.t(ownerKey);
+        return name === ownerKey ? owner : name;
+    }
+
     /** «лор · Book #12», «память Qvink» — how a source is named in the UI. */
     sourceLabel(owner: string, ref: string): string {
-        const t = (key: string) => this.app.i18n.t(key);
-        const ownerKey = `m20.owner.${owner}`;
-        const name = t(ownerKey) === ownerKey ? owner : t(ownerKey);
+        const name = this.ownerName(owner);
         if (owner === 'lore' || owner === 'ckArchive' || owner === 'canon') {
             const hash = ref.lastIndexOf('#');
             return hash > 0 ? `${name} · ${ref.slice(0, hash)} #${ref.slice(hash + 1)}` : name;

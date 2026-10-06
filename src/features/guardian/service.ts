@@ -1,6 +1,7 @@
 // M4's GuardianApi and its drift workflow (plan M4 пп. 1–3, §8 "Дрейф настроек и восстановление эталона —
 // Входящие"): the baseline file, drift against live settings, one Inbox card per distinct drift (leader tab only),
 // restore with journal and undo, and acknowledge() for changes other modules make on purpose (audit A17).
+import { tPlural } from '../../core/labels';
 import {
     acknowledgePaths,
     diffTracked,
@@ -280,8 +281,10 @@ export class GuardianService implements GuardianApi {
         const proposal: Proposal<DriftPayload> = {
             module: 'M4',
             kind: DRIFT_KIND,
-            title: this.t('m4.card.title', { count: entries.length }),
-            description: this.describe(entries, baseline),
+            title: tPlural(this.app.i18n, 'm4.card.title', entries.length),
+            description: [this.t('m4.card.lead', { where: this.where(entries) }), this.t('m4.card.intro')].join('\n\n'),
+            // Setting keys and raw values («Qvink · auto_summarize: было true → стало false») are technical.
+            details: this.describe(entries, baseline),
             changes: restore.map((entry) =>
                 settingChange(entry.path, fullValue(detail.current, entry.path), fullValue(baseline, entry.path)),
             ),
@@ -342,14 +345,38 @@ export class GuardianService implements GuardianApi {
         this.cards.clear();
     }
 
-    /** Short human-readable list for the card. */
+    /** Every change with its setting key and values, for «Подробнее» of the card. */
     describe(entries: readonly DriftEntry[], baseline: TrackedPart): string {
         const lines = entries
             .slice(0, DESCRIBE_LIMIT)
             .map((entry) => `• ${this.label(entry)}: ${this.change(entry, baseline)}`);
         if (entries.length > DESCRIBE_LIMIT)
             lines.push(this.t('m4.card.more', { count: entries.length - DESCRIBE_LIMIT }));
-        return [this.t('m4.card.intro'), ...lines].join('\n');
+        return lines.join('\n');
+    }
+
+    /**
+     * Where the changes are, in words: «Пресет · роли блоков, Регекс · Clean HTML, Qvink». Regexes and known preset
+     * parts are named; other settings only by their extension (their keys stay under «Подробнее»).
+     */
+    where(entries: readonly DriftEntry[]): string {
+        const names = new Set<string>();
+        for (const entry of entries) {
+            const group = groupOf(entry.path);
+            const rest = entry.path.slice(group.length + 1);
+            const named =
+                group === 'regex' || (group === 'preset' && this.t(`m4.preset.${rest}`) !== `m4.preset.${rest}`);
+            if (named) {
+                names.add(this.label(entry));
+            } else {
+                const title = this.t(`m4.group.${group}`);
+                names.add(title === `m4.group.${group}` ? group : title);
+            }
+        }
+        const list = [...names];
+        const shown = list.slice(0, DESCRIBE_LIMIT);
+        if (list.length > DESCRIBE_LIMIT) shown.push(this.t('m4.card.more', { count: list.length - DESCRIBE_LIMIT }));
+        return shown.join(', ');
     }
 
     /** "Регекс · Clean HTML", "Qvink · auto_summarize". */

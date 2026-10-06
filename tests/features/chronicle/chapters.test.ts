@@ -123,8 +123,20 @@ describe('M9 chronicle: falling out of the long-term memory', () => {
         const record = t.journal.records.find((entry) => entry.kind === CHAPTER_KIND);
         expect(record).toMatchObject({
             module: 'M9',
-            summary: 'New chronicle chapter: Chronicle: Alice, Bob — Tavern (#1–3)',
+            summary: 'New chronicle chapter: Alice, Bob — Tavern (messages #1–3)',
         });
+        const proposal = t.autonomy.proposals.find((entry) => entry.kind === CHAPTER_KIND)!;
+        expect(proposal.description?.split('\n')).toEqual([
+            "The memories of messages #1–3 no longer fit in Qvink's long-term memory. I will keep them as a chronicle chapter in the chat canon, so the model recalls them when the story comes back to them.",
+            'What it holds:',
+            '— Alice met Bob in the tavern.',
+            '— Alice gave Bob a Ring.',
+        ]);
+        expect(proposal.details).toContain('Keys: Alice, Алиса, Алисы AND one of: Tavern');
+        expect(proposal.appliedNotice?.text).toBe(
+            'Added a chapter to the chronicle: Alice, Bob — Tavern (messages #1–3).',
+        );
+        expect(proposal.appliedNotice?.groupText?.(2)).toBe('Added 2 chapters to the chronicle');
         expect(record?.changes[0]).toMatchObject({ target: 'm9.chapter', before: null });
         expect(await s.chapters.chapters()).toEqual([
             {
@@ -191,6 +203,12 @@ describe('M9 chronicle: falling out of the long-term memory', () => {
         expect(active.reduce((sum, chapter) => sum + chapter.chars, 0)).toBeLessThanOrEqual(500);
         expect(chapters.map((chapter) => chapter.status)).toEqual(['archived', 'active', 'active']);
         expect(t.journal.records.filter((record) => record.kind === ARCHIVE_KIND)).toHaveLength(1);
+        const archive = t.autonomy.proposals.find((entry) => entry.kind === ARCHIVE_KIND)!;
+        expect(archive.title).toBe('To the archive: 1 old chronicle chapter');
+        expect(archive.description).toContain('I will archive the oldest: «Carl, Sera» (message #0).');
+        expect(archive.appliedNotice?.text).toBe(
+            'Archived 1 old chronicle chapter: it comes back when the story mentions it.',
+        );
         expect(t.canon.calls).toContain(`status:${chapters[0]?.uid}:archived`);
         // Undo brings it back.
         const record = t.journal.records.find((entry) => entry.kind === ARCHIVE_KIND)!;
@@ -356,7 +374,7 @@ describe('M9 chronicle: merging small chapters', () => {
         expect(await memories()).toMatchObject({ '6': { chapter: 'ch-2' }, '8': { chapter: 'ch-2' } });
         const record = t.journal.records.find((entry) => entry.kind === MERGE_KIND)!;
         expect(record.summary).toBe(
-            'Merge chronicle chapters: «Chronicle: Alice — Tavern (#2–4)» and «Chronicle: Alice — Tavern (#6–8)»',
+            'Merging chronicle chapters: «Alice — Tavern» (messages #2–4) and «Alice — Tavern» (messages #6–8)',
         );
         expect(await t.journal.undo(record.id)).toBe(true);
         expect(t.canon.items.find((item) => item.uid === first)?.entry.comment).toBe(

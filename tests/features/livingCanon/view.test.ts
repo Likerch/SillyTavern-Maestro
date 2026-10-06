@@ -101,7 +101,7 @@ describe('M26 pult tab', () => {
         buttonByText('Confirm all provisional').click();
         await flush(living);
         await redraw();
-        expect(env.ui.notices.at(-1)?.text).toBe('Confirmed: 2; held back by contradictions: 0.');
+        expect(env.ui.notices.at(-1)?.text).toBe('Confirmed: 2. Held back by contradictions: 0.');
         expect(sections()).toContain('Confirmed recently (2)');
     });
 
@@ -128,7 +128,7 @@ describe('M26 pult tab', () => {
         buttonByText('Extract now').click();
         await flush(living);
         expect(env.tasks.queued.map((task) => task.kind)).toEqual(['living.extract']);
-        expect(env.ui.notices.at(-1)?.text).toContain('The extraction is queued');
+        expect(env.ui.notices.at(-1)?.text).toContain('I will look for new facts');
         const inputs = [...container.querySelectorAll<HTMLInputElement>('input[type="number"]')];
         expect(inputs.map((input) => input.value)).toEqual(['3', '10', '10']);
         inputs[0]!.value = '5';
@@ -141,7 +141,7 @@ describe('M26 pult tab', () => {
     it('explains an empty chat, a group chat and a missing canon', async () => {
         env.modules.apis.delete('canon');
         render();
-        expect(container.textContent).toContain('The chat canon (M6) is off');
+        expect(container.textContent).toContain('New facts have nowhere to go: “Chat canon” is off.');
         if (typeof unmount === 'function') unmount();
         env.host.group = true;
         render();

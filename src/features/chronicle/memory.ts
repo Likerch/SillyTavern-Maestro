@@ -7,6 +7,7 @@
 // All of it is collected on the send path and handled after the generation (P14, P15), in the leader tab, through
 // app.autonomy (kind 'chronicle.remember', default «auto»), journaled with an undo that puts every swipe's flags back.
 // A message the user already marked is left alone (it stays the user's); a mark the user removed is not set again.
+import { tPlural } from '../../core/labels';
 import { detectImportant } from '../../domain/chronicle-recap';
 import { cleanForAnalysis, isImagePost } from '../../domain/text-clean';
 import type { JournalChange, Signal, Unsubscribe } from '../../shared/contracts';
@@ -244,7 +245,12 @@ export class AutoMemory {
                 module: CHRONICLE_ID,
                 kind: REMEMBER_KIND,
                 title: env.t('m9.remember.proposal', { index, reason: why }),
-                description: why,
+                description: env.t('m9.remember.description', { index, reason: why }),
+                appliedNotice: {
+                    text: env.t('m9.remember.applied', { index, reason: why }),
+                    group: 'm9.remember.applied',
+                    groupText: (count) => tPlural(app.i18n, 'm9.remember.appliedMany', count),
+                },
                 changes: [change],
                 payload,
                 stillValid: async () => this.canRemember(payload),

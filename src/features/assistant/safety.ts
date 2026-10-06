@@ -126,7 +126,18 @@ export function createSettingsAccess(app: App, options: SettingsAccessOptions = 
                         before: previous,
                         after: clone(after),
                     };
-                    await app.journal.record({ module: ASSISTANT_ID, kind: SETTING_KIND, summary, changes: [change] });
+                    // The journal line reads without the path (an English JSON key): it waits in the change's ref.
+                    const line = t('m33.setting.journal', {
+                        module: moduleTitle,
+                        before: formatSettingValue(previous),
+                        after: formatSettingValue(after),
+                    });
+                    await app.journal.record({
+                        module: ASSISTANT_ID,
+                        kind: SETTING_KIND,
+                        summary: line,
+                        changes: [change],
+                    });
                     return { result: { module: moduleKey, path, value: after } };
                 },
             };

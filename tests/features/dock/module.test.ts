@@ -414,7 +414,7 @@ describe('shortcuts', () => {
         button.click();
         await flush();
         expect(notice).toHaveBeenCalledWith(
-            'Не получилось открыть «Сцена NAI Studio»: расширение сейчас не показывает свою кнопку.',
+            'Не получилось открыть «Сцена NAI Studio»: расширение сейчас не показывает нужную кнопку. Возможно, оно выключено или ещё загружается.',
             {
                 level: 'warn',
                 urgent: true,

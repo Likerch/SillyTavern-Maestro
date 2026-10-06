@@ -3,9 +3,25 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { PROMPT_ROLES, PROMPT_TRIGGERS } from '../../../src/domain/preset-ui-blocks';
 import { PARAMS, PARAM_GROUPS, optionKey } from '../../../src/domain/preset-ui-params';
+import { createI18n } from '../../../src/core/i18n';
+import { Dialogs } from '../../../src/features/presetStudio/dialogs';
 import { PRESET_STUDIO_STRINGS } from '../../../src/features/presetStudio/module';
+import { PresetStoreError } from '../../../src/features/presetStudio/st-preset';
+import type { PresetStoreErrorCode } from '../../../src/features/presetStudio/st-preset';
 import { M34_STRINGS } from '../../../src/features/presetStudio/strings';
 import { STUDIO_TABS } from '../../../src/features/presetStudio/studio';
+import type { App } from '../../../src/shared/contracts';
+
+const ERROR_CODES: PresetStoreErrorCode[] = [
+    'unavailable',
+    'not-found',
+    'exists',
+    'invalid',
+    'busy',
+    'cancelled',
+    'protected',
+    'http',
+];
 
 const SOURCE = join(__dirname, '../../../src/features/presetStudio');
 const SHELL_FILES = [
@@ -64,6 +80,7 @@ describe('Preset Studio strings', () => {
             ...['user', 'layer', 'import', 'st', 'migration', 'draft', 'other'].map((by) => `m34.versions.by.${by}`),
             ...['added', 'removed', 'changed'].map((kind) => `m34.diff.${kind}`),
             ...['json', 'shape'].map((reason) => `m34.list.invalid.${reason}`),
+            ...ERROR_CODES.map((code) => `m34.error.${code}`),
             ...['migrate', 'transfer'].map((kind) => `m34.layer.report.${kind}`),
             ...['start', 'end', 'chat'].map((where) => `m34.map.where.${where}`),
             ...['notNumber', 'range', 'option'].map((error) => `m34.params.error.${error}`),
@@ -88,5 +105,18 @@ describe('Preset Studio strings', () => {
             ].map((source) => `m34.source.${source}`),
         ];
         expect(dynamic.filter((key) => !(key in M34_STRINGS.en))).toEqual([]);
+    });
+
+    it('report store failures in words, never with the English log message', () => {
+        const i18n = createI18n(() => 'en');
+        i18n.register(PRESET_STUDIO_STRINGS);
+        const dialogs = new Dialogs({ i18n } as unknown as App);
+        for (const code of ERROR_CODES) {
+            const text = dialogs.errorText(new PresetStoreError(code, 'english details for the log', 502));
+            expect(text, code).toBe(i18n.t(`m34.error.${code}`, { status: 502 }));
+            expect(text, code).not.toContain('english details');
+        }
+        expect(dialogs.errorText(new PresetStoreError('http', 'x', 502))).toContain('502');
+        expect(dialogs.errorText(new Error('preset layer: no block x in y'))).toBe(i18n.t('m34.error.generic'));
     });
 });

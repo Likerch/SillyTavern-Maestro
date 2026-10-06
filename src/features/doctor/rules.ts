@@ -62,10 +62,15 @@ export function registerRuleActions(app: App): Unsubscribe {
     );
 }
 
-/** Proposes switching the rule on; returns the autonomy decision. */
+/** The default level of switching a rule on from a finding. */
+export const ENABLE_RULE_LEVEL = 'auto';
+
+/** Proposes switching the rule on; returns the autonomy decision ('auto' announces «Включил правило …» itself). */
 export async function enableRule(app: App, state: RuleState, finding: Finding, message: string): Promise<Decision> {
     const t = app.i18n.t.bind(app.i18n);
-    const title = t('m5.enableRuleTitle', { rule: t(state.definition.titleKey) });
+    const rule = t(state.definition.titleKey);
+    const title = t('m5.enableRuleTitle', { rule });
+    const done = t('m5.enableRuleDone', { rule });
     const payload: EnableRulePayload = { rule: state.id };
     return app.autonomy.decide<EnableRulePayload>(
         {
@@ -73,6 +78,9 @@ export async function enableRule(app: App, state: RuleState, finding: Finding, m
             kind: ENABLE_RULE_KIND,
             title,
             description: t('m5.enableRuleDescription', { finding: message }),
+            // Applying switches the rule through M22, which announces the same switch: the shared group
+            // (M22's ruleSwitchGroup, `rules.switch:<id>:on`) folds both into one notice.
+            appliedNotice: { text: done, group: `rules.switch:${state.id}:on`, groupText: () => done },
             changes: [
                 { target: RULE_TARGET, ref: { rule: state.id, finding: finding.id }, before: false, after: true },
             ],
@@ -80,6 +88,6 @@ export async function enableRule(app: App, state: RuleState, finding: Finding, m
             apply: (value) => applyRule(app, value),
             stillValid: () => stillOff(app, payload),
         },
-        'auto',
+        ENABLE_RULE_LEVEL,
     );
 }

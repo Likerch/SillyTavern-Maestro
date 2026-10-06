@@ -5,7 +5,7 @@ import type { MaestroModule } from '../../shared/contracts';
 import { registerProfileTask } from '../../ui';
 import type { QualityApi } from './api';
 import { JUDGE_TASK } from './judge';
-import { QualityService } from './service';
+import { CONTINUE_TARGET, QualityService, SWIPE_TARGET, TEXT_TARGET } from './service';
 import { defaultQualitySettings, QUALITY_ID, QUALITY_KEY, readQualitySettings } from './settings';
 import type { QualitySettings } from './settings';
 import { QUALITY_STRINGS } from './strings';
@@ -19,6 +19,13 @@ export const qualityModule: MaestroModule<QualitySettings> = {
     enabledByDefault: true,
     defaults: defaultQualitySettings,
     i18n: QUALITY_STRINGS,
+    targets: [
+        // The reply is the story itself: a cleaned reply reads as a word diff of «Текст ответа».
+        { target: TEXT_TARGET, fields: { text: { labelKey: 'm12.target.text' } } },
+        // A swipe keeps the swipe id and the English fix note; a continuation only the text before it.
+        { target: SWIPE_TARGET, technical: true },
+        { target: CONTINUE_TARGET, technical: true },
+    ],
     init({ app, log, own }) {
         const settings = () => readQualitySettings(app.settings.module<Partial<QualitySettings>>(QUALITY_KEY));
         const service = new QualityService(app, log, settings);
