@@ -10,7 +10,7 @@ This file is the contract for everyone writing Maestro code (humans and agents).
 | `src/shared/` | `contracts.ts` (all service interfaces, `App`, `MaestroModule`) and constants | nothing |
 | `src/domain/` | pure logic: no DOM, network, `SillyTavern`, `console` | `shared` |
 | `src/host/` | the only door to SillyTavern: context, events with ordering, runtime imports of ST modules, capabilities, fetch gate | `shared`, `domain` |
-| `src/core/` | services: settings, i18n, logger, files, chat store, leader, tasks, LLM client, cost, journal, autonomy, inbox, ephemeral, bus, turn pipeline | `shared`, `domain`, `host` |
+| `src/core/` | services: settings, i18n, logger, files, chat store, leader, tasks, user jobs, LLM client, cost, journal, autonomy, inbox, ephemeral, bus, turn pipeline | `shared`, `domain`, `host` |
 | `src/adapters/<id>/` | one neighbour extension each (des, desru, ck, bunnymo, qvink, nai, localizer, preset) | `shared`, `domain`, `host`, `core` |
 | `src/ui/` | generic components, pult shell, styles | `shared`, `domain`, `host`, `core` |
 | `src/features/<key>/` | modules M1–M35 | everything except `app` |
@@ -52,6 +52,9 @@ Rules:
   recorded in `app.journal` with an undo handler for its target type.
 - Ephemeral prompt changes (flags, injections) go through `app.ephemeral`; they are cleared after every
   generation.
+- Long jobs the user starts himself (localize a book …) run through `app.jobs` (core/jobs.ts): one job per key,
+  progress and «Stop», visible in the Tasks tab and as a ring on the top-bar icon; the view that started it draws
+  its state from the job, so closing and reopening it loses nothing. Background work stays in `app.tasks`.
 - Performance: nothing heavy on the send path (P15). Listeners on `WORLDINFO_ENTRIES_LOADED` /
   `WORLDINFO_SCAN_DONE` must be idempotent and cheap; cache by entry hash.
 

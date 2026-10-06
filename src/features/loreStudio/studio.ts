@@ -20,7 +20,7 @@ import { adaptersOf } from '../../adapters';
 import type { LocalizerApi } from '../../adapters';
 import { segmented } from '../../ui/components/controls';
 import { button, el, icon, prefersReducedMotion } from '../../ui/components/dom';
-import type { App, Logger, Unsubscribe } from '../../shared/contracts';
+import type { App, Logger, Unsubscribe, UserJobInfo, UserJobs } from '../../shared/contracts';
 import type { BookRolesApi } from '../bookRoles/api';
 import type { CanonApi } from '../canon/api';
 import type { DoctorApi } from '../doctor/api';
@@ -28,6 +28,8 @@ import type { LoreJournalApi } from '../loreJournal/api';
 import { applyOrderForm, bulkEditForm, moveTargetForm } from './dialog-forms';
 import { Dialogs } from './dialogs';
 import type { RenderEntryForm } from './form-api';
+import { userJobs } from './jobs';
+import { bookJobKey, startLocalizeJob } from './localize-job';
 import type { LoreStoreService } from './store';
 import type { SaveReason } from './store-api';
 import { renderBooksPanel } from './view-books';
@@ -36,6 +38,7 @@ import { renderCampaignsPanel } from './view-campaigns';
 import type { CampaignsActions, CampaignsModel } from './view-campaigns';
 import { renderEntriesPanel, visibleEntries } from './view-entries';
 import type { EntriesActions, EntriesModel, EntriesState } from './view-entries';
+import { renderJobStrip } from './view-job';
 import { renderSettingsPanel } from './view-settings';
 
 export interface LoreStudioSettings {
@@ -77,6 +80,9 @@ const FOCUS_CLASSES = ['maestro-m23-entry-search', 'maestro-m23-book-search'];
 export class LoreStudio {
     private readonly app: App;
     private readonly dialogs: Dialogs;
+    /** Localization jobs outlive the window: the book header draws them from here (plan-2 §8). */
+    private readonly jobs: UserJobs;
+    private jobsOff: Unsubscribe | null = null;
     private popup: PopupHandle | null = null;
     private root: HTMLElement | null = null;
     private main: HTMLElement | null = null;
@@ -110,6 +116,7 @@ export class LoreStudio {
     constructor(private readonly deps: StudioDeps) {
         this.app = deps.app;
         this.dialogs = new Dialogs(deps.app);
+        this.jobs = userJobs(deps.app);
         const sort = SORT_OPTIONS.some((option) => option.id === deps.settings.sort)
             ? deps.settings.sort
             : DEFAULT_SORT_ID;
@@ -163,6 +170,9 @@ export class LoreStudio {
             popup.dlg.classList.add('maestro-m23-dialog');
             this.popup = popup;
             this.storeOff = this.deps.store.onChange((changed) => this.scheduleRefresh(changed));
+            this.jobsOff = this.jobs.on((_job, key) => {
+                if (this.book !== null && key === bookJobKey(this.book)) this.updateJobSlot();
+            });
             // M35 detects every book once (lazily, in the background); until then unknown books stay read-only.
             const roles = this.app.modules.api<BookRolesApi>('bookRoles');
             if (roles) {
@@ -223,6 +233,8 @@ export class LoreStudio {
         this.closeForm(false);
         this.storeOff?.();
         this.storeOff = null;
+        this.jobsOff?.();
+        this.jobsOff = null;
         this.rolesOff?.();
         this.rolesOff = null;
         if (this.refreshTimer) clearTimeout(this.refreshTimer);
@@ -536,6 +548,7 @@ export class LoreStudio {
                 (name) => name !== book && !(model?.roleOf(name).readOnly ?? false),
             ),
             localizer: this.localizerApi() !== undefined,
+            localizeJob: this.jobs.get(bookJobKey(book)),
         };
     }
 
@@ -980,27 +993,25 @@ export class LoreStudio {
                 const current = book();
                 const api = this.localizerApi();
                 if (!api) return;
+                // The strip already stands in for the button; a stale button (another render) must not start a twin.
+                if (this.jobs.get(bookJobKey(current))?.state === 'active') {
+                    this.updateJobSlot();
+                    return;
+                }
                 const uids = Object.values(this.bookData?.entries ?? {})
                     .map((entry) => Number(entry.uid))
                     .filter((uid) => Number.isInteger(uid));
                 if (!uids.length) return;
+                if (await this.isProtected(api, current)) {
+                    this.app.ui.notice(this.t('m23.book.localizeProtected'), { urgent: true, level: 'warn' });
+                    return;
+                }
                 const body = el('p', { text: this.t('m23.book.localizeBody', { book: current, count: uids.length }) });
                 if (!(await this.dialogs.confirm(this.t('m23.book.localize'), body, this.t('m23.book.localizeRun'))))
                     return;
-                const result = await this.dialogs.run(async () => {
-                    if (await api.isProtectedBook(current)) throw new Error(this.t('m23.book.localizeProtected'));
-                    return api.localizeEntries(current, uids);
-                });
-                if (!result) return;
-                this.deps.app.ui.notice(this.t('m23.book.localizeDone', { ...result }), {
-                    urgent: true,
-                    level: 'info',
-                });
-                await store.st.dropCache(current);
-                this.bookData = await store.load(current);
-                this.dirtyAll = true;
-                await this.render();
+                this.startLocalize(current, uids);
             },
+            renderLocalizeJob: (job) => this.renderLocalizeJob(job),
             deleteBook: async () => {
                 const current = book();
                 const links = await this.linksOf(current);
@@ -1145,6 +1156,77 @@ export class LoreStudio {
                 void this.selectBook(book);
             },
         };
+    }
+
+    /* ---------------------------------------------------------------- localization jobs (plan-2 §8) */
+
+    private async isProtected(api: LocalizerApi, book: string): Promise<boolean> {
+        if (typeof api.isProtectedBook !== 'function') return false;
+        try {
+            return await api.isProtectedBook(book);
+        } catch (error) {
+            this.deps.log.debug('isProtectedBook failed', error);
+            return false;
+        }
+    }
+
+    /** Starts Russian keys for these entries of a book as a user job; the work goes on after the studio closes. */
+    private startLocalize(book: string, uids: number[]): void {
+        const api = this.localizerApi();
+        if (!api || !uids.length) return;
+        const entries = this.book === book ? this.entries() : {};
+        const titles: Record<number, string> = {};
+        for (const uid of uids) {
+            const entry = entries[String(uid)];
+            const comment = typeof entry?.comment === 'string' ? (entry.comment.trim().split('\n')[0] ?? '') : '';
+            titles[uid] = comment || this.t('m23.entries.untitled', { uid });
+        }
+        startLocalizeJob({
+            app: this.app,
+            jobs: this.jobs,
+            api,
+            scope: 'book',
+            book,
+            uids,
+            titles,
+            visible: () => this.isOpen() && this.view === 'library' && this.book === book,
+            open: () => {
+                this.app.ui.closePult?.();
+                this.open(book);
+            },
+            afterRun: (name) => this.afterLocalize(name),
+        });
+        this.updateJobSlot();
+    }
+
+    /** The Localizer wrote the book: forget ST's cached copy and show the new keys if the book is on screen. */
+    private async afterLocalize(book: string): Promise<void> {
+        await this.deps.store.st.dropCache(book);
+        if (!this.isOpen() || this.book !== book) return;
+        this.bookData = await this.deps.store.load(book);
+        this.dirtyAll = true;
+        await this.render();
+    }
+
+    private renderLocalizeJob(job: UserJobInfo): HTMLElement {
+        const book = this.book ?? '';
+        return renderJobStrip(this.app, job, {
+            stop: () => {
+                this.jobs.cancel(job.key);
+            },
+            retry: (uids) => this.startLocalize(book, uids),
+            dismiss: () => this.jobs.dismiss(job.key),
+        });
+    }
+
+    /** Redraws the strip in place (no list re-render: progress ticks must not reset the scroll). */
+    private updateJobSlot(): void {
+        const panel = this.columns?.entries;
+        if (!panel || !this.book) return;
+        const job = this.jobs.get(bookJobKey(this.book));
+        panel.querySelector('.maestro-m23-job-slot')?.replaceChildren(...(job ? [this.renderLocalizeJob(job)] : []));
+        const trigger = panel.querySelector<HTMLElement>('.maestro-m23-localize');
+        if (trigger) trigger.hidden = job !== undefined;
     }
 
     /** Lorebook Localizer's API (0.2+), when the adapter is there and sees it. */

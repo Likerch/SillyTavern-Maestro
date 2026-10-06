@@ -659,7 +659,70 @@ describe('Lore Studio entry form', () => {
         await settle();
         expect(field<HTMLTextAreaElement>(root(mounted), 'key').value).toBe('Anna, /Ан(на|ну)/iu');
         expect(root(mounted).querySelector('.maestro-m23f-chip-ll')?.textContent).toContain('LL');
-        expect(text(mounted)).toContain('Localizer added 1 keys.');
+        expect(text(mounted)).toContain('Done: added 1 key');
+    });
+
+    it('runs Russian keys of an entry as a job with an inline status that survives reopening', async () => {
+        let resolve: (value: unknown) => void = () => {};
+        let options: { signal?: AbortSignal; onProgress?: (p: unknown) => void } | undefined;
+        const localizeEntries = vi.fn(
+            (_book: string, _uids: number[], given?: typeof options) =>
+                new Promise((done) => {
+                    options = given;
+                    resolve = done;
+                }),
+        );
+        let busy = true;
+        stand.localizer.api = () => ({
+            version: 1,
+            features: ['progress', 'cancel', 'busy', 'timeout'],
+            busy: () => ({ running: busy }),
+            localizeEntries,
+        });
+        mounted = await mount(stand, 'World', 1);
+        await click(root(mounted), 'Russian keys');
+        expect(localizeEntries).toHaveBeenCalledTimes(1);
+        expect(text(mounted)).toContain('Waiting: Lorebook Localizer is busy with another job');
+        expect(buttonByText(root(mounted), 'Russian keys').hidden).toBe(true);
+        expect(hasButton(root(mounted), 'Stop')).toBe(true);
+
+        // Closed and opened again while it runs: the status comes back from the job, the button stays hidden.
+        mounted.dispose();
+        mounted = await mount(stand, 'World', 1);
+        busy = false;
+        options?.onProgress?.({ phase: 'running', done: 0, total: 1 });
+        await settle();
+        expect(text(mounted)).toContain('Translating the keys…');
+        expect(buttonByText(root(mounted), 'Russian keys').hidden).toBe(true);
+        buttonByText(root(mounted), 'Russian keys').click();
+        await settle();
+        expect(localizeEntries).toHaveBeenCalledTimes(1);
+
+        await click(root(mounted), 'Stop');
+        expect(options?.signal?.aborted).toBe(true);
+        expect(text(mounted)).toContain('Stopping after the current batch…');
+        resolve({ added: 0, entries: 0, failures: 0, cancelled: true, failed: [] });
+        await settle();
+        expect(text(mounted)).toContain('Stopped');
+        expect(buttonByText(root(mounted), 'Russian keys').hidden).toBe(false);
+        // The form showed the end itself: no notice.
+        expect(stand.app.ui.notice).not.toHaveBeenCalled();
+    });
+
+    it('reports a failed entry job in plain words with a retry', async () => {
+        const localizeEntries = vi
+            .fn()
+            .mockRejectedValueOnce(new Error('localizeEntries: no API connection'))
+            .mockResolvedValueOnce({ added: 2, entries: 1, failures: 0 });
+        stand.localizer.api = () => ({ version: 1, localizeEntries });
+        mounted = await mount(stand, 'World', 1);
+        await click(root(mounted), 'Russian keys');
+        await settle();
+        expect(text(mounted)).toContain('Error: there is no connection to the model');
+        await click(root(mounted), 'Retry');
+        await settle();
+        expect(localizeEntries).toHaveBeenCalledTimes(2);
+        expect(text(mounted)).toContain('Done: added 2 keys');
     });
 
     it('shows activations from the lore journal and doctor findings with their rule', async () => {

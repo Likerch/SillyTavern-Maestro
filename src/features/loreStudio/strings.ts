@@ -1,6 +1,7 @@
 // Strings of M23 «Лор-студия» (keys m23.*). Russian is the primary language; ST's own Russian labels are reused
 // for the parity controls (research/parity-lore.md, column RU) so the studio and the classic window speak alike.
 import type { I18nParts } from '../../shared/contracts';
+import { LOCALIZE_STRINGS } from './localize-strings';
 
 const en: Record<string, string> = {
     'm23.title': 'Lore Studio',
@@ -85,10 +86,9 @@ const en: Record<string, string> = {
     'm23.book.export': 'Export (download JSON)',
     'm23.book.localize': 'Russian keys for the book (Lorebook Localizer)',
     'm23.book.localizeBody':
-        'Lorebook Localizer will translate the keys of all {count} entries of «{book}» and add Russian forms. It uses your Localizer settings and connection. The change can be undone from the journal of each entry.',
+        'Lorebook Localizer will translate the keys of all {count} entries of «{book}» and add Russian forms. It uses your Localizer settings and connection. The change can be undone from the journal of each entry. You can close the studio meanwhile: the progress stays in the book header and in Maestro’s «Tasks».',
     'm23.book.localizeRun': 'Add keys',
     'm23.book.localizeProtected': 'Lorebook Localizer does not touch this book (BunnyMo).',
-    'm23.book.localizeDone': 'Keys added: {added} in {entries} entries; not translated: {failures}.',
     'm23.book.classic': 'Open in the classic editor',
     'm23.book.delete': 'Delete book',
     'm23.book.deleteTitle': 'Delete the lorebook',
@@ -507,10 +507,9 @@ const ru: Record<string, string> = {
     'm23.book.export': 'Экспорт (скачать JSON)',
     'm23.book.localize': 'Русские ключи для книги (Lorebook Localizer)',
     'm23.book.localizeBody':
-        'Lorebook Localizer переведёт ключи всех записей книги «{book}» ({count}) и добавит русские формы. Используются твои настройки и подключение Localizer.',
+        'Lorebook Localizer переведёт ключи всех записей книги «{book}» ({count}) и добавит русские формы. Используются твои настройки и подключение Localizer. Студию можно закрыть: ход работы виден в шапке книги и во вкладке «Задачи» Maestro.',
     'm23.book.localizeRun': 'Добавить ключи',
     'm23.book.localizeProtected': 'Эту книгу Lorebook Localizer не трогает (BunnyMo).',
-    'm23.book.localizeDone': 'Добавлено ключей: {added} в {entries} записях; без перевода: {failures}.',
     'm23.book.classic': 'Открыть в классическом редакторе',
     'm23.book.delete': 'Удалить книгу',
     'm23.book.deleteTitle': 'Удаление лорбука',
@@ -847,4 +846,7 @@ const ru: Record<string, string> = {
     'm23.error.classicUnavailable': 'Не удалось открыть классическое окно «Миры и лорбуки».',
 };
 
-export const M23_STRINGS: I18nParts = { en, ru };
+export const M23_STRINGS: I18nParts = {
+    en: { ...en, ...LOCALIZE_STRINGS.en },
+    ru: { ...ru, ...LOCALIZE_STRINGS.ru },
+};

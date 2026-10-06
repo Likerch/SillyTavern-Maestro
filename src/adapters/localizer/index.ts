@@ -3,6 +3,8 @@
 // (LL src/entries.js): which source keys it translated and which keys it appended, per language.
 // Since 0.2.0 it publishes `globalThis.LOREBOOK_LOCALIZER_API` (LL src/api.js): its pure key builders, headless
 // localization of chosen entries, and the BunnyMo protection check (BunnyMo books and packs are never localized).
+// 0.3.0 adds (same version 1, listed in `features`): progress, stop (AbortSignal), a per-batch timeout and the
+// «busy» state of its one-at-a-time queue. Maestro checks `features` before passing the new options.
 //
 // Capabilities:
 // - `localizer.present` installed, enabled in ST and loaded (its module script, button or settings exist);
@@ -22,11 +24,39 @@ export const LOCALIZER_API_GLOBAL = 'LOREBOOK_LOCALIZER_API';
 /** The API version this adapter speaks; within a version the Localizer only adds members. */
 export const LOCALIZER_API_VERSION = 1;
 
+/** Optional members of the API, by the `features` the Localizer lists (0.3.0+). */
+export type LocalizerFeature = 'progress' | 'cancel' | 'busy' | 'timeout';
+
+export interface LocalizeProgress {
+    /** `queued`: waits for another Localizer job (reported at once); `saving`: writes the book. */
+    phase: 'queued' | 'running' | 'saving';
+    /** Entries processed / requested. */
+    done: number;
+    total: number;
+}
+
+export interface LocalizerBusyState {
+    running: boolean;
+    /** Its own dialog or an API call holds the queue. */
+    by?: 'dialog' | 'api';
+}
+
 export interface LocalizeEntriesOptions {
     /** Target language id from the Localizer's list (`ru`, `uk`, `de`, …); default: the one chosen in its dialog. */
     language?: string;
     /** Connection Manager profile id, `''` for the current connection; default: the one chosen in its dialog. */
     profileId?: string;
+    /** 0.3.0 `progress`. */
+    onProgress?: (progress: LocalizeProgress) => void;
+    /** 0.3.0 `cancel`: stops after (or inside) the current batch, keeps finished batches and resolves. */
+    signal?: AbortSignal;
+    /** 0.3.0 `timeout`: a batch without an answer in time is a failed attempt (default 90 000). */
+    batchTimeoutMs?: number;
+}
+
+export interface LocalizeFailure {
+    uid: number;
+    reason: 'timeout' | 'invalid' | 'error';
 }
 
 export interface LocalizeEntriesResult {
@@ -36,6 +66,10 @@ export interface LocalizeEntriesResult {
     entries: number;
     /** Entries the model did not translate (errors, missing or unusable replies). */
     failures: number;
+    /** 0.3.0: the signal stopped the job; the numbers cover what was done. */
+    cancelled?: boolean;
+    /** 0.3.0: which entries failed and why. */
+    failed?: LocalizeFailure[];
 }
 
 /** `globalThis.LOREBOOK_LOCALIZER_API`, version 1 (Lorebook Localizer 0.2.0+). */
@@ -55,6 +89,18 @@ export interface LocalizerApi {
     localizeEntries(book: string, uids: number[], options?: LocalizeEntriesOptions): Promise<LocalizeEntriesResult>;
     /** BunnyMo's own lorebook or one of its packs (recognised by content): never localized. */
     isProtectedBook(book: string): Promise<boolean>;
+    /** 0.3.0 `busy`: whether its queue is taken (its dialog or another API call). */
+    busy?(): LocalizerBusyState;
+    onBusyChange?(listener: (state: LocalizerBusyState) => void): () => void;
+    /** 0.3.0+: optional members it supports. Missing before 0.3.0. */
+    readonly features?: readonly string[];
+}
+
+/** The optional features this Localizer API declares (empty before 0.3.0). */
+export function localizerFeatures(api: LocalizerApi | undefined): Set<LocalizerFeature> {
+    const list = api?.features;
+    const known: LocalizerFeature[] = ['progress', 'cancel', 'busy', 'timeout'];
+    return new Set(Array.isArray(list) ? known.filter((feature) => list.includes(feature)) : []);
 }
 
 const API_METHODS = ['buildKeyRegex', 'buildPlainKeys', 'cleanForms', 'localizeEntries', 'isProtectedBook'] as const;

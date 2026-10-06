@@ -1,10 +1,13 @@
-// Tasks tab: Maestro's background queue (plan §4.5). The queue has no change event, so the open tab polls.
+// Tasks tab: jobs the user started himself (plan-2 §8: progress and «Stop» outside the window that started them)
+// and Maestro's background queue (plan §4.5). The queue has no change event, so the open tab polls; jobs report
+// their changes and redraw the tab at once (coalesced).
 import type { PultTab, TaskInfo } from '../../shared/contracts';
 import { badge, section } from '../components/card';
 import type { Level } from '../components/card';
 import { button, clear, el } from '../components/dom';
 import { table } from '../components/table';
-import { formatTime } from './format';
+import { coalesce, formatTime } from './format';
+import { renderJobs } from './jobs';
 import type { ViewEnv } from './types';
 
 export const TASKS_TAB = 'tasks';
@@ -34,8 +37,15 @@ export function tasksTab(env: ViewEnv): PultTab {
                 const list = [...env.tasks.list()].sort(
                     (a, b) => STATE_ORDER[a.state] - STATE_ORDER[b.state] || b.createdAt - a.createdAt,
                 );
+                const jobs = env.jobs;
                 container.append(
                     el('div', { class: 'maestro-view maestro-tasks' }, [
+                        jobs
+                            ? section(t('ui.jobs.title'), [
+                                  renderJobs(jobs, i18n, draw),
+                                  el('div', { class: 'maestro-hint', text: t('ui.jobs.hint') }),
+                              ])
+                            : null,
                         section(
                             t('ui.tasks.title'),
                             table(
@@ -86,7 +96,13 @@ export function tasksTab(env: ViewEnv): PultTab {
             };
             draw();
             const timer = setInterval(draw, POLL_MS);
-            return () => clearInterval(timer);
+            const redraw = coalesce(draw, 100);
+            const offJobs = env.jobs?.on(() => redraw());
+            return () => {
+                clearInterval(timer);
+                redraw.cancel();
+                offJobs?.();
+            };
         },
     };
 }

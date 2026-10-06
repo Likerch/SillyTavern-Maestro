@@ -8,6 +8,7 @@ import { createEphemeral } from '../core/ephemeral';
 import { createFileStore } from '../core/files';
 import { createI18n, hostLocale } from '../core/i18n';
 import { createInbox } from '../core/inbox';
+import { createUserJobs } from '../core/jobs';
 import { createJournal } from '../core/journal';
 import { createLeader } from '../core/leader';
 import { createLlmClient } from '../core/llm';
@@ -70,6 +71,7 @@ export async function startMaestro(): Promise<Runtime> {
     });
     const ui = createUi({ host, i18n, settings, log: log.scope('ui') });
     autonomy.bind({ inbox, ui, i18n });
+    const jobs = createUserJobs({ log: log.scope('jobs'), notice: (text, options) => ui.notice(text, options) });
 
     const adapters = createAdapters(host, log.scope('adapters'));
     const modules = new Modules(settings, log.scope('modules'));
@@ -84,6 +86,7 @@ export async function startMaestro(): Promise<Runtime> {
         chat,
         leader,
         tasks,
+        jobs,
         llm,
         cost,
         journal,
@@ -112,7 +115,7 @@ export async function startMaestro(): Promise<Runtime> {
     tasks.start();
     cost.install();
     ui.mount();
-    ui.registerCoreViews({ inbox, journal, autonomy, cost, modules, settings, caps: host.caps, tasks, i18n });
+    ui.registerCoreViews({ inbox, journal, autonomy, cost, modules, settings, caps: host.caps, tasks, jobs, i18n });
     const offDataActions = installDataActions(app);
     await modules.startAll(app);
     ui.runFirstRunWizardIfNeeded();
@@ -136,6 +139,7 @@ export async function startMaestro(): Promise<Runtime> {
             await modules.stopAll();
             ui.dispose();
             cost.dispose();
+            jobs.dispose();
             tasks.stop();
             leader.stop();
             turn.dispose();

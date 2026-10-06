@@ -15,7 +15,7 @@ import {
     sortEntries,
 } from '../../domain/lore-studio-sort';
 import { button, el, icon } from '../../ui/components/dom';
-import type { App } from '../../shared/contracts';
+import type { App, UserJobInfo } from '../../shared/contracts';
 import { reasonText, roleKey } from './view-books';
 import type { RoleView } from './store';
 
@@ -37,6 +37,8 @@ export interface EntriesModel {
     targets: string[];
     /** Lorebook Localizer's API is there (0.2+): Russian keys for the whole book (L-172). */
     localizer?: boolean;
+    /** The localization job of this book (running or finished): its strip replaces the button (plan-2 §8). */
+    localizeJob?: UserJobInfo;
 }
 
 export interface EntriesState {
@@ -75,6 +77,8 @@ export interface EntriesActions {
     exportBook(): Promise<void>;
     deleteBook(): Promise<void>;
     localizeBook(): Promise<void>;
+    /** The status strip of this book's localization job (view-job.ts). */
+    renderLocalizeJob(job: UserJobInfo): HTMLElement;
     openClassic(): void;
     back(): void;
 }
@@ -147,9 +151,7 @@ export function renderEntriesPanel(
             }),
             button({ icon: 'fa-paste', title: t('m23.book.duplicate'), onClick: () => actions.duplicateBook() }),
             button({ icon: 'fa-file-export', title: t('m23.book.export'), onClick: () => actions.exportBook() }),
-            model.localizer && !readOnly && model.role.info?.localizable !== false
-                ? button({ icon: 'fa-language', title: t('m23.book.localize'), onClick: () => actions.localizeBook() })
-                : null,
+            model.localizer && !readOnly && model.role.info?.localizable !== false ? localizeButton() : null,
             button({ icon: 'fa-book-atlas', title: t('m23.book.classic'), onClick: () => actions.openClassic() }),
             button({
                 icon: 'fa-trash-can',
@@ -159,6 +161,23 @@ export function renderEntriesPanel(
             }),
         ]),
     ]);
+
+    /** While a job of this book exists the strip stands in for the button: no second job, no dim button. */
+    function localizeButton(): HTMLButtonElement {
+        const node = button({
+            icon: 'fa-language',
+            title: t('m23.book.localize'),
+            className: 'maestro-m23-localize',
+            onClick: () => actions.localizeBook(),
+        });
+        node.hidden = model.localizeJob !== undefined;
+        return node;
+    }
+    const jobSlot = el(
+        'div',
+        { class: 'maestro-m23-job-slot' },
+        model.localizeJob ? actions.renderLocalizeJob(model.localizeJob) : null,
+    );
 
     /* ------------------------------------------------------------ toolbar */
     const search = el('input', {
@@ -247,7 +266,7 @@ export function renderEntriesPanel(
     });
     const pager = el('div', { class: 'maestro-m23-pager' });
     const list = el('div', { class: 'maestro-m23-entry-list', attrs: { role: 'list' } });
-    root.append(header, toolbar, bulk, pager, list);
+    root.append(header, jobSlot, toolbar, bulk, pager, list);
 
     /** «Apply current sorting as Order» works on the whole book in the current order (L-114). */
     function sortForApply(): LoreEntry[] {

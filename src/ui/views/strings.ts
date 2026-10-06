@@ -12,6 +12,8 @@ export const UI_STRINGS: I18nParts = {
 
         'ui.entry.topTitle': 'Maestro — open the control panel',
         'ui.entry.topTitleCount': 'Maestro — {count} waiting',
+        'ui.entry.topTitleJob': '{title}: {status}',
+        'ui.entry.topTitleJobs': 'your tasks running: {count}',
         'ui.entry.wandTitle': 'Open the Maestro control panel',
         'ui.entry.description':
             'Conductor of the extension stack: one canon, one prompt, one panel. Everything lives in the control panel.',
@@ -182,6 +184,20 @@ export const UI_STRINGS: I18nParts = {
         'ui.tasks.state.failed': 'Failed',
         'ui.tasks.state.expired': 'Expired',
 
+        'ui.jobs.title': 'Your tasks',
+        'ui.jobs.empty': 'Nothing you started is running.',
+        'ui.jobs.hint':
+            'Tasks you started yourself. They keep going when you close the window you started them in; finished ones stay here for 10 minutes.',
+        'ui.jobs.queued': 'Waiting for its turn…',
+        'ui.jobs.running': 'Working…',
+        'ui.jobs.saving': 'Saving…',
+        'ui.jobs.progress': '{done} of {total}',
+        'ui.jobs.stopping': 'Stopping after the current step…',
+        'ui.jobs.started': 'started at {time}',
+        'ui.jobs.stop': 'Stop',
+        'ui.jobs.open': 'Open',
+        'ui.jobs.hide': 'Hide',
+
         'ui.settings.general': 'General',
         'ui.settings.language': 'Interface language',
         'ui.settings.language.auto': 'As in SillyTavern',
@@ -261,6 +277,8 @@ export const UI_STRINGS: I18nParts = {
 
         'ui.entry.topTitle': 'Maestro — открыть пульт',
         'ui.entry.topTitleCount': 'Maestro — ждут решения: {count}',
+        'ui.entry.topTitleJob': '{title}: {status}',
+        'ui.entry.topTitleJobs': 'идут твои задачи: {count}',
         'ui.entry.wandTitle': 'Открыть пульт Maestro',
         'ui.entry.description':
             'Дирижёр стека расширений: один канон, один промпт, один пульт. Всё управление — в пульте.',
@@ -429,6 +447,20 @@ export const UI_STRINGS: I18nParts = {
         'ui.tasks.state.done': 'Готово',
         'ui.tasks.state.failed': 'Сбой',
         'ui.tasks.state.expired': 'Устарела',
+
+        'ui.jobs.title': 'Твои задачи',
+        'ui.jobs.empty': 'Сейчас ничего из запущенного тобой не идёт.',
+        'ui.jobs.hint':
+            'Задачи, которые ты запустил сам. Они продолжаются, даже если закрыть окно, где ты их начал; готовые видны здесь 10 минут.',
+        'ui.jobs.queued': 'Ждёт своей очереди…',
+        'ui.jobs.running': 'Идёт…',
+        'ui.jobs.saving': 'Сохраняю…',
+        'ui.jobs.progress': '{done} из {total}',
+        'ui.jobs.stopping': 'Останавливаю после текущего шага…',
+        'ui.jobs.started': 'начата в {time}',
+        'ui.jobs.stop': 'Остановить',
+        'ui.jobs.open': 'Открыть',
+        'ui.jobs.hide': 'Скрыть',
 
         'ui.settings.general': 'Общие',
         'ui.settings.language': 'Язык интерфейса',

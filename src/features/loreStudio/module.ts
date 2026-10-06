@@ -4,6 +4,7 @@
 import type { MaestroModule } from '../../shared/contracts';
 import { DesLore } from './des-lore';
 import type { RenderEntryForm } from './form-api';
+import { userJobs } from './jobs';
 import { StLore } from './st-lore';
 import { STORE_KEY, LoreStoreService } from './store';
 import type { LoreStore } from './store-api';
@@ -69,6 +70,13 @@ export function createLoreStudioModule(renderForm: RenderEntryForm | null): Maes
             own(() => {
                 studio.dispose();
                 if (runtime?.studio === studio) runtime = null;
+            });
+            // P11: a disabled studio leaves nothing running (a Localizer without «stop» finishes on its own).
+            own(() => {
+                const jobs = userJobs(app);
+                for (const job of jobs.list()) {
+                    if (job.module === LORE_STUDIO_KEY && job.state === 'active') jobs.cancel(job.key);
+                }
             });
             own(app.ui.style('m23-lore-studio', M23_CSS));
 

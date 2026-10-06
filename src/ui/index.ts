@@ -148,6 +148,14 @@ class MaestroUi implements UiImpl, Shell {
             this.coreTabs.push(this.addTab(tab));
         }
         this.coreTabs.push(deps.inbox.onChange(() => this.updateBadges()));
+        const jobs = deps.jobs;
+        if (jobs) {
+            this.entries.setJobs(jobs.list());
+            this.coreTabs.push(
+                jobs.on(() => this.entries.setJobs(jobs.list())),
+                () => this.entries.setJobs([]),
+            );
+        }
     }
 
     dispose(): void {

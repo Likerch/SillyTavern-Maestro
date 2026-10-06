@@ -14,6 +14,7 @@ import type {
     TaskQueue,
     Ui,
     Unsubscribe,
+    UserJobs,
 } from '../../shared/contracts';
 
 /** Services the core views render (passed by app.ts to registerCoreViews). */
@@ -26,6 +27,8 @@ export interface CoreViewDeps {
     settings: SettingsService;
     caps: Capabilities;
     tasks: TaskQueue;
+    /** Jobs the user started (tasks tab, top-bar progress ring). */
+    jobs?: UserJobs;
     i18n: I18n;
 }
 

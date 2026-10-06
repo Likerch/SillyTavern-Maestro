@@ -1,7 +1,9 @@
 // Ways into the pult (plan §7): a top-bar icon with a badge, a block in the Extensions panel and an item in
-// the wand menu. All three are Maestro's own nodes and are removed on dispose.
-import type { I18n, Logger } from '../../shared/contracts';
+// the wand menu. All three are Maestro's own nodes and are removed on dispose. While a job the user started runs,
+// the same top-bar icon gets a thin progress ring (CSS only: no extra icons in the top bar, plan-2 В18).
+import type { I18n, Logger, UserJobInfo } from '../../shared/contracts';
 import { el } from '../components/dom';
+import { jobFraction, jobStatus } from './jobs';
 
 const TOP_ID = 'maestro-topbar';
 const EXT_ID = 'maestro-ext-settings';
@@ -28,6 +30,7 @@ export class EntryPoints {
     private ext: { root: HTMLElement; title: HTMLElement; text: HTMLElement; open: HTMLElement } | null = null;
     private wand: { root: HTMLElement; label: HTMLElement; item: HTMLElement } | null = null;
     private badge = { count: 0, urgent: false };
+    private running: UserJobInfo[] = [];
 
     constructor(private readonly deps: Deps) {}
 
@@ -37,19 +40,46 @@ export class EntryPoints {
         if (!this.ext?.root.isConnected) this.mountExtensions();
         if (!this.wand?.root.isConnected) this.mountWand();
         this.setBadge(this.badge.count, this.badge.urgent);
+        this.setJobs(this.running);
     }
 
     setBadge(count: number, urgent: boolean): void {
         this.badge = { count, urgent };
         if (!this.top) return;
-        const { badge, toggle } = this.top;
+        const { badge } = this.top;
         badge.textContent = count > 99 ? '99+' : String(count);
         badge.hidden = count <= 0;
         badge.classList.toggle('maestro-urgent', urgent);
-        const label =
-            count > 0 ? this.deps.i18n.t('ui.entry.topTitleCount', { count }) : this.deps.i18n.t('ui.entry.topTitle');
-        toggle.title = label;
-        toggle.setAttribute('aria-label', label);
+        this.updateTitle();
+    }
+
+    /** Jobs the user started: a ring while any runs (its share done when there is one job that counts). */
+    setJobs(jobs: readonly UserJobInfo[]): void {
+        this.running = jobs.filter((job) => job.state === 'active');
+        if (!this.top) return;
+        const { root } = this.top;
+        const busy = this.running.length > 0;
+        const fraction = this.running.length === 1 && this.running[0] ? jobFraction(this.running[0]) : null;
+        root.classList.toggle('maestro-topbar-busy', busy);
+        root.classList.toggle('maestro-topbar-indeterminate', busy && fraction === null);
+        if (busy && fraction !== null)
+            root.style.setProperty('--maestro-job-progress', String(Math.max(0.03, fraction)));
+        else root.style.removeProperty('--maestro-job-progress');
+        this.updateTitle();
+    }
+
+    private updateTitle(): void {
+        if (!this.top) return;
+        const t = this.deps.i18n.t.bind(this.deps.i18n);
+        const count = this.badge.count;
+        const parts = [count > 0 ? t('ui.entry.topTitleCount', { count }) : t('ui.entry.topTitle')];
+        const [first] = this.running;
+        if (this.running.length > 1) parts.push(t('ui.entry.topTitleJobs', { count: this.running.length }));
+        else if (first)
+            parts.push(t('ui.entry.topTitleJob', { title: first.title, status: jobStatus(first, this.deps.i18n) }));
+        const label = parts.join(' · ');
+        this.top.toggle.title = label;
+        this.top.toggle.setAttribute('aria-label', label);
     }
 
     relocalize(): void {

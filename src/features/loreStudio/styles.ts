@@ -146,6 +146,36 @@ export const M23_CSS = `
 .maestro-m23-book-heading-title { margin: 0; overflow-wrap: anywhere; }
 .maestro-m23-book-heading-meta { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 0.85em; }
 .maestro-m23-book-actions { display: flex; flex-wrap: wrap; gap: 4px; }
+/* Localization job of the book (plan-2 §8): the strip stands in for the dimmed button. */
+.maestro-m23-job-slot:empty { display: none; }
+.maestro-m23-job {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 6px 10px;
+    margin-bottom: var(--maestro-gap-sm);
+    border: 1px solid var(--maestro-border);
+    border-inline-start: 3px solid var(--maestro-accent);
+    border-radius: var(--maestro-radius-sm);
+    background: var(--maestro-raised);
+}
+.maestro-m23-job-line { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.maestro-m23-job-text { flex: 1 1 14em; min-width: 0; overflow-wrap: anywhere; }
+.maestro-m23-job-actions { display: flex; flex-wrap: wrap; gap: 4px; }
+.maestro-m23-job-actions .maestro-btn { margin: 0; }
+.maestro-m23-job-icon { color: var(--maestro-accent); }
+.maestro-m23-job-hint { color: var(--maestro-muted); font-size: 0.85em; }
+.maestro-m23-job-details { font-size: 0.85em; color: var(--maestro-muted); }
+.maestro-m23-job-details summary { cursor: pointer; }
+.maestro-m23-job-details ul { margin: 4px 0 0; padding-inline-start: 1.2em; }
+.maestro-m23-job.maestro-m23-job-done { border-inline-start-color: var(--maestro-ok); }
+.maestro-m23-job-done .maestro-m23-job-icon { color: var(--maestro-ok); }
+.maestro-m23-job.maestro-m23-job-warn { border-inline-start-color: var(--maestro-warn); }
+.maestro-m23-job-warn .maestro-m23-job-icon { color: var(--maestro-warn); }
+.maestro-m23-job.maestro-m23-job-failed { border-inline-start-color: var(--maestro-error); }
+.maestro-m23-job-failed .maestro-m23-job-icon, .maestro-m23-job-failed .maestro-m23-job-text { color: var(--maestro-error); }
+.maestro-m23-job.maestro-m23-job-cancelled { border-inline-start-color: var(--maestro-muted); }
+.maestro-m23-job-cancelled .maestro-m23-job-icon { color: var(--maestro-muted); }
 .maestro-m23-sort, .maestro-m23-page-size { width: auto; margin: 0; }
 .maestro-m23-bulk {
     display: flex;

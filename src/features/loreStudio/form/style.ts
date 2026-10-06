@@ -76,6 +76,37 @@ export const ENTRY_FORM_CSS = `
 .maestro-m23f-status-error {
     color: var(--maestro-error);
 }
+/* Inline status of the entry's localization job (plan-2 §8). */
+.maestro-m23f-job:empty {
+    display: none;
+}
+.maestro-m23-job-inline {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.9em;
+}
+.maestro-m23-job-inline .maestro-btn {
+    margin: 0;
+}
+.maestro-m23-job-inline .maestro-m23-job-icon {
+    color: var(--maestro-accent);
+}
+.maestro-m23-job-inline.maestro-m23-job-done .maestro-m23-job-icon {
+    color: var(--maestro-ok);
+}
+.maestro-m23-job-inline.maestro-m23-job-warn,
+.maestro-m23-job-inline.maestro-m23-job-warn .maestro-m23-job-icon {
+    color: var(--maestro-warn);
+}
+.maestro-m23-job-inline.maestro-m23-job-failed,
+.maestro-m23-job-inline.maestro-m23-job-failed .maestro-m23-job-icon {
+    color: var(--maestro-error);
+}
+.maestro-m23-job-inline.maestro-m23-job-cancelled {
+    color: var(--maestro-muted);
+}
 .maestro-m23f-edit {
     display: flex;
     flex-direction: column;

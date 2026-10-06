@@ -201,6 +201,90 @@ export interface TaskQueue {
     kick(): void;
 }
 
+/* ------------------------------------------------------------------ user jobs */
+
+/**
+ * Long jobs the user started himself (localize a book, Russian keys of an entry …). Unlike the background queue
+ * they live in memory of this tab only, run at once, report progress and may be stopped. One job per key.
+ */
+export type UserJobPhase = 'queued' | 'running' | 'saving';
+export type UserJobState = 'active' | 'done' | 'failed' | 'cancelled';
+
+export interface UserJobSpec {
+    /** Same key cannot run twice at the same time ('localize:World'). */
+    key: string;
+    /** Translated, shown in lists and the top-bar tooltip. */
+    title: string;
+    /** Owner module key (lists, cleanup). */
+    module?: string;
+    /** The owner passes `handle.signal` on and stops when it aborts; enables «Stop». */
+    cancellable?: boolean;
+    /** True while a view shows this job; otherwise its end is reported once with a notice. */
+    visible?: () => boolean;
+    /** Opens the place where the job lives (notice action, «Open» in the tasks tab). */
+    open?: { label: string; run: () => void };
+}
+
+export interface UserJobInfo {
+    key: string;
+    title: string;
+    module?: string;
+    state: UserJobState;
+    phase: UserJobPhase;
+    /** Progress counters; without `total` the job is indeterminate. */
+    done?: number;
+    total?: number;
+    /** Translated status line of an active job («Локализую: 34 из 120 записей»). */
+    label?: string;
+    cancellable: boolean;
+    /** «Stop» was pressed; the owner finishes after the current step. */
+    cancelRequested: boolean;
+    /** The job can be opened (spec.open). */
+    openable: boolean;
+    startedAt: number;
+    updatedAt: number;
+    finishedAt?: number;
+    /** Translated result of a finished job (done or cancelled). */
+    summary?: string;
+    /** Translated error of a failed job. */
+    error?: string;
+    /** A finished job with partial failures. */
+    warn?: boolean;
+    /** JSON data of the owner (counts, failed items for «retry failed»). */
+    data?: Record<string, unknown>;
+}
+
+export interface UserJobHandle {
+    readonly key: string;
+    /** Aborted by cancel(); calls after the job finished are ignored. */
+    readonly signal: AbortSignal;
+    progress(done: number, total: number, label?: string): void;
+    phase(phase: UserJobPhase, label?: string): void;
+    /** Merges owner data (shown by the owner's own views). */
+    data(patch: Record<string, unknown>): void;
+    finish(
+        summary: string,
+        options?: { cancelled?: boolean; warn?: boolean; data?: Record<string, unknown>; notice?: string },
+    ): void;
+    fail(error: string, options?: { data?: Record<string, unknown>; notice?: string }): void;
+}
+
+export interface UserJobs {
+    /** Starts a job; null while a job with this key is still active (a finished one is replaced). */
+    start(spec: UserJobSpec): UserJobHandle | null;
+    get(key: string): UserJobInfo | undefined;
+    /** Active jobs first, then finished ones (kept ~10 minutes), newest first. */
+    list(): UserJobInfo[];
+    /** Asks an active cancellable job to stop; false when there is nothing to stop. */
+    cancel(key: string): boolean;
+    /** Forgets a finished job now («Hide»). */
+    dismiss(key: string): void;
+    /** Runs the job's open action (spec.open); false when it has none. */
+    open(key: string): boolean;
+    /** Called after every change; `job` is undefined when the job was removed. */
+    on(listener: (job: UserJobInfo | undefined, key: string) => void): Unsubscribe;
+}
+
 /* ------------------------------------------------------------------ LLM and cost */
 
 export interface LlmMessage {
@@ -618,6 +702,8 @@ export interface App {
     chat: ChatStore;
     leader: Leader;
     tasks: TaskQueue;
+    /** Long jobs the user started (progress, stop); optional so older test apps stay valid. */
+    jobs?: UserJobs;
     llm: LlmClient;
     cost: CostMeter;
     journal: Journal;
