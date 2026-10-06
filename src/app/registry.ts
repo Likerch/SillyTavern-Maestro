@@ -25,6 +25,7 @@ import { messageStyleModule } from '../features/messageStyle';
 import { metricsModule } from '../features/metrics';
 import { offscreenModule } from '../features/offscreen';
 import { placesModule } from '../features/places';
+import { prepareModule } from '../features/prepare';
 import { presetStudioModule } from '../features/presetStudio';
 import { qualityModule } from '../features/quality';
 import { relationsModule } from '../features/relations';
@@ -95,4 +96,6 @@ export const MODULES: MaestroModule[] = [
     messageStyleModule,
     // Stage 13: the assistant.
     assistantModule,
+    // Release 1.15: scenario preparation.
+    prepareModule,
 ];
