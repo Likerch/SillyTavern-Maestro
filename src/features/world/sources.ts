@@ -5,7 +5,10 @@
 //   every committed turn;
 // - lore(): lorebooks of the active books and the CarrotKernel repos (typed entries, archives, entries named after a
 //   known entity) and the chat canon. Read lazily and never on the send path.
-// Read-only: nothing here writes to a neighbour.
+// Every record carries its scope (plan-2 §9, domain/world-scope.ts) and a stable decision key: this chat (the chat
+// book, the canon, the DES roster, chat passports, places), the chat's card (its books and passports) or every chat
+// (global books, CK repos, DES Workshop data, persona books). The card's text and its books' entries tell which names
+// are the card's own. Read-only: nothing here writes to a neighbour.
 import { adaptersOf } from '../../adapters';
 import { archiveTags, isCharacterArchive } from '../../domain/bunnymo';
 import type { DesTrackerSnapshot } from '../../domain/des-tracker';
@@ -13,6 +16,18 @@ import { readTypedMeta } from '../../domain/entry-types';
 import type { WorldAttach, WorldRecord, WorldSource } from '../../domain/world-identity';
 import type { WorldKind } from '../../domain/world-names';
 import { looksLikeName, nameList, normalizeName, splitAliases } from '../../domain/world-names';
+import {
+    archiveSourceKey,
+    cardTexts,
+    chatOriginTag,
+    entryOrigin,
+    entrySourceKey,
+    entryTexts,
+    localBookNames,
+    passportSourceKey,
+    workshopSourceKey,
+} from '../../domain/world-scope';
+import type { WorldScope } from '../../domain/world-scope';
 import type { App, Logger } from '../../shared/contracts';
 import type { BookRolesApi } from '../bookRoles/api';
 import type { CanonApi, CanonItem } from '../canon/api';
@@ -21,7 +36,16 @@ import type { PlacesApi } from '../places/api';
 type Dict = Record<string, unknown>;
 
 /** Canonical-name priority of each store (lower wins; DES canonical aliases override them all). */
-export const RANK = { card: 1, persona: 1, place: 1, entry: 2, archive: 3, passport: 4, roster: 5 } as const;
+export const RANK = {
+    card: 1,
+    persona: 1,
+    place: 1,
+    entry: 2,
+    archive: 3,
+    passport: 4,
+    roster: 5,
+    workshop: 6,
+} as const;
 
 /** Entry types that are world entities (rules, chapters and notes are not). */
 const ENTRY_KINDS: ReadonlySet<string> = new Set([
@@ -44,6 +68,10 @@ const PASSPORT_KINDS: Readonly<Record<string, WorldKind>> = {
 export interface CheapSources {
     records: WorldRecord[];
     aliasGroups: Record<string, string[]>[];
+    /** Names that are the card's by themselves: the chat's card(s) and the persona. */
+    cardNames: string[];
+    /** What the chat's card(s) say (fields, greetings, examples, the embedded book). */
+    cardTexts: string[];
 }
 
 export interface LoreSources {
@@ -53,6 +81,8 @@ export interface LoreSources {
     books: Set<string>;
     canonBook: string;
     canonItems: CanonItem[];
+    /** Texts of the card books' entries (a name the card's own book uses is the card's). */
+    cardBookTexts: string[];
     at: number;
 }
 
@@ -142,6 +172,9 @@ export function chatCards(ctx: STContext): { index: number; character: STCharact
 }
 
 export class WorldSources {
+    /** Origin tag of the chat being read (entries Maestro wrote for it are its own). */
+    private origin: string | null = null;
+
     constructor(
         private readonly app: App,
         private readonly log: Logger,
@@ -157,23 +190,77 @@ export class WorldSources {
             records.push({
                 kind: 'character',
                 name: character.name,
-                source: { kind: 'card', ref: character.avatar, label: character.name, avatar: character.avatar },
+                source: {
+                    kind: 'card',
+                    ref: character.avatar,
+                    label: character.name,
+                    avatar: character.avatar,
+                    scope: 'card',
+                    key: `card:${character.avatar}`,
+                },
                 rank: RANK.card,
             });
         }
         const persona = text(ctx.name1);
         if (persona) {
+            const ref = this.personaAvatars(persona)[0] ?? persona;
             records.push({
                 kind: 'persona',
                 name: persona,
-                source: { kind: 'persona', ref: this.personaAvatars(persona)[0] ?? persona, label: persona },
+                source: { kind: 'persona', ref, label: persona, scope: 'global', key: `persona:${ref}` },
                 rank: RANK.persona,
             });
         }
         records.push(...this.roster(snapshot));
         records.push(...this.passports(cards, persona));
         records.push(...this.places());
-        return { records, aliasGroups: this.aliasGroups() };
+        records.push(...this.workshop());
+        return {
+            records,
+            aliasGroups: this.aliasGroups(),
+            cardNames: [...cards.map(({ character }) => character.name), ...(persona ? [persona] : [])],
+            cardTexts: cards.flatMap(({ character }) => cardTexts(character)),
+        };
+    }
+
+    /**
+     * DES Workshop data (portrait prompt, description, relationship) is kept by name for every chat: passive records,
+     * part of the chat's person of that name unless a question about the name is open (plan-2 §9).
+     */
+    private workshop(): WorldRecord[] {
+        let settings: Dict | null = null;
+        try {
+            const des = adaptersOf(this.app).des as { settings?: () => Dict | null };
+            settings = typeof des.settings === 'function' ? des.settings() : null;
+        } catch (error) {
+            this.log.debug('DES Workshop data is not available', error);
+        }
+        if (!isDict(settings)) return [];
+        const names = new Map<string, string>();
+        const add = (store: unknown, has: (value: unknown) => boolean) => {
+            if (!isDict(store)) return;
+            for (const [name, value] of Object.entries(store)) {
+                const key = normalizeName(name);
+                if (key && has(value) && !names.has(key)) names.set(key, name.trim());
+            }
+        };
+        const filled = (value: unknown) => typeof value === 'string' && value.trim() !== '';
+        add(settings.characterAppearance, filled);
+        add(settings.characterInjection, (value) => isDict(value) && filled(value.description));
+        add(settings.characterRelationships, filled);
+        return [...names.values()].map((name) => ({
+            kind: 'character' as const,
+            name,
+            source: {
+                kind: 'des.workshop' as const,
+                ref: name,
+                label: name,
+                scope: 'global',
+                key: workshopSourceKey(name),
+            },
+            rank: RANK.workshop,
+            passive: true,
+        }));
     }
 
     /** DES canonical aliases and DES-RU's view of them (DES-RU 0.8.0+). */
@@ -220,7 +307,7 @@ export class WorldSources {
             const record: WorldRecord = {
                 kind: 'character',
                 name,
-                source: { kind: 'des.character', ref: name, label: name },
+                source: { kind: 'des.character', ref: name, label: name, scope: 'chat' },
                 rank: RANK.roster,
             };
             if (snapshot) record.present = inScene.get(key) ?? false;
@@ -239,9 +326,11 @@ export class WorldSources {
     }
 
     /**
-     * NAI passports. With NAI Studio's API (0.10.0+) they are read as the chat sees them (chat overrides applied):
-     * per card, the persona's and the chat's own. Without it: the card field, and the persona passport from NAI's
-     * settings; chat-level passports need the API.
+     * NAI passports. With NAI Studio's API (0.10.0+) they are read as the chat sees them (chat overrides applied;
+     * passports switched off in this chat are not listed, NAI Studio 0.14.0+): per card, the persona's and the chat's
+     * own. Without it: the card field, and the persona passport from NAI's settings; chat-level passports need the
+     * API. Card passports are the card's (NPCs NAI Studio once saved there may be of another story); the persona's
+     * and the chat's are this chat's.
      */
     private passports(cards: { index: number; character: STCharacter }[], persona: string): WorldRecord[] {
         const nai = adaptersOf(this.app).nai;
@@ -251,11 +340,14 @@ export class WorldSources {
             if (!kind) return;
             const name = passport.name || (kind === 'character' ? owner : '');
             if (!name) return;
+            const holder = avatar ?? (ownerKind === 'persona' ? 'persona' : 'chat');
             const source: WorldSource = {
                 kind: 'nai.passport',
                 ref: `${avatar ?? ownerKind}#${passport.id}`,
                 label: name,
                 passportId: passport.id,
+                scope: avatar ? 'card' : 'chat',
+                key: passportSourceKey(holder, passport.id),
             };
             if (avatar) source.avatar = avatar;
             out.push({
@@ -327,7 +419,7 @@ export class WorldSources {
                 name: place.name,
                 aliases: nameList(place.aliases),
                 forms: strings(place.forms),
-                source: { kind: 'place' as const, ref: place.id, label: place.name },
+                source: { kind: 'place' as const, ref: place.id, label: place.name, scope: 'chat' as const },
                 rank: RANK.place,
             }));
         } catch (error) {
@@ -346,6 +438,7 @@ export class WorldSources {
             books: new Set(),
             canonBook: '',
             canonItems: [],
+            cardBookTexts: [],
             at: Date.now(),
         };
         let active: string[] = [];
@@ -360,11 +453,20 @@ export class WorldSources {
         } catch (error) {
             this.log.debug('CarrotKernel repos are not available', error);
         }
+        let archiveBooks: string[] = [];
+        try {
+            archiveBooks = adapters.bunnymo.books().archives;
+        } catch (error) {
+            this.log.debug('BunnyMo archive books are not available', error);
+        }
         const roles = this.app.modules.api<BookRolesApi>('bookRoles');
         const canon = this.app.modules.api<CanonApi>('canon');
         result.canonBook = canon ? canon.bookName() : '';
+        const scopes = await this.bookScopes();
+        const chatId = this.app.host.chatId();
+        this.origin = chatId ? chatOriginTag(chatId) : null;
         const activeSet = new Set(active);
-        const repoSet = new Set(repos);
+        const archiveSet = new Set([...repos, ...archiveBooks]);
         for (const book of [...new Set([...active, ...repos])]) {
             if (!isCurrent()) return null;
             const role = roles?.roleOf(book)?.role;
@@ -374,8 +476,8 @@ export class WorldSources {
             await this.readBook(
                 book,
                 role,
-                activeSet.has(book),
-                repoSet.has(book) || role === 'ck.archive',
+                { active: activeSet.has(book), archives: archiveSet.has(book) || role === 'ck.archive' },
+                scopes.get(book) ?? 'global',
                 roles,
                 result,
             );
@@ -392,14 +494,39 @@ export class WorldSources {
         return isCurrent() ? result : null;
     }
 
+    /** The chat book and the canon are this chat's, the cards' primary and extra books the card's; others global. */
+    async bookScopes(): Promise<Map<string, WorldScope>> {
+        const ctx = this.app.host.ctx();
+        let charLore: unknown;
+        try {
+            const settings = (await this.app.host.modules.worldInfo()).world_info;
+            charLore = isDict(settings) ? settings.charLore : undefined;
+        } catch (error) {
+            this.log.debug('world-info.js is not available; extra card books count as global', error);
+        }
+        const local = localBookNames({
+            chatBook: ctx.chatMetadata?.world_info,
+            cards: chatCards(ctx).map(({ character }) => character),
+            charLore,
+        });
+        const scopes = new Map<string, WorldScope>();
+        for (const book of local.card) scopes.set(book, 'card');
+        for (const book of local.chat) scopes.set(book, 'chat');
+        const canon = this.app.modules.api<CanonApi>('canon');
+        const canonBook = canon ? canon.bookName() : '';
+        if (canonBook) scopes.set(canonBook, 'chat');
+        return scopes;
+    }
+
     private async readBook(
         book: string,
         role: string | undefined,
-        active: boolean,
-        archives: boolean,
+        reading: { active: boolean; archives: boolean },
+        scope: WorldScope,
         roles: BookRolesApi | undefined,
         result: LoreSources,
     ): Promise<void> {
+        const { active, archives } = reading;
         const load = this.app.host.ctx().loadWorldInfo;
         if (typeof load !== 'function') return;
         let data: unknown;
@@ -424,24 +551,29 @@ export class WorldSources {
         for (const entry of entries) {
             const uid = typeof entry.uid === 'number' ? entry.uid : Number(entry.uid);
             if (entry.disable === true || !Number.isFinite(uid)) continue;
+            // A name the card's own book uses is the card's (plan-2 §9: of the card).
+            if (scope === 'card') result.cardBookTexts.push(...entryTexts(entry));
             const source: WorldSource = {
                 kind: 'lore.entry',
                 ref: `${book}#${uid}`,
                 label: entryLabel(entry, uid),
                 world: book,
                 uid,
+                // Maestro wrote it for this chat (an NPC's archive in a shared repo): this chat's own.
+                scope: this.origin && entryOrigin(entry) === this.origin ? 'chat' : scope,
+                key: entrySourceKey(book, uid),
             };
             if (archives && isCharacterArchive(entry)) {
                 const name = archiveTags(entry).name ?? entryName(entry);
                 if (!name) continue;
+                // Repos hold archives of every story: one joins a person of this chat only when it is of the card or
+                // bound to this chat (domain/world-identity.ts scopes), active book or not.
                 result.records.push({
                     kind: 'character',
                     name,
                     aliases: nameList(entryKeys(entry)),
-                    source: { ...source, kind: 'ck.archive' },
+                    source: { ...source, kind: 'ck.archive', key: archiveSourceKey(book, name) },
                     rank: RANK.archive,
-                    // Repos that are not active hold archives of other stories: only names known here join.
-                    optional: !active,
                 });
                 continue;
             }
@@ -488,6 +620,8 @@ export class WorldSources {
             label: entryLabel(entry, item.uid),
             world: result.canonBook,
             uid: item.uid,
+            scope: 'chat',
+            key: entrySourceKey(result.canonBook, item.uid),
         };
         const typed = readTypedMeta(isDict(entry.extensions) ? entry.extensions.maestro : undefined);
         const type = item.meta.type ?? typed?.type;

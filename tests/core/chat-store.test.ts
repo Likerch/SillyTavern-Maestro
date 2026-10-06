@@ -361,3 +361,35 @@ describe('export and import', () => {
         expect(mock.files.has(docName('chat-1', 'bad'))).toBe(false);
     });
 });
+
+describe('deleted chats (plan-2 §9)', () => {
+    it('removes every document of a chat ST deleted, of every kind, and nothing of other chats', async () => {
+        await store.put('notes', { items: ['old story'] });
+        await store.put('world', { aliases: { Фея: 'character:офелия' } });
+        await vi.waitFor(() => expect(mock.files.has('maestro-chat-kinds.json')).toBe(true));
+        await switchChat(mock, 'chat-2');
+        await store.put('notes', { items: ['other chat'] });
+        await mock.eventSource.emit('chat_deleted', 'chat-1');
+        await vi.waitFor(() => expect(mock.files.has(docName('chat-1', 'world'))).toBe(false));
+        expect(mock.files.has(docName('chat-1', 'notes'))).toBe(false);
+        expect(mock.files.has(docName('chat-2', 'notes'))).toBe(true);
+        expect(mock.files.has('maestro-chat-kinds.json')).toBe(true);
+        // A new chat that gets the same id starts empty.
+        await switchChat(mock, 'chat-1');
+        expect(await store.get('notes', notes)).toEqual({ items: [] });
+    });
+
+    it('group chats too; the open chat and unknown ids are left alone', async () => {
+        await store.put('notes', { items: ['open'] });
+        expect(await store.removeChat('chat-1')).toBe(0);
+        expect(mock.files.has(docName('chat-1', 'notes'))).toBe(true);
+        expect(await store.removeChat('never-written')).toBe(0);
+        await switchChat(mock, 'group-chat-2');
+        await store.put('notes', { items: ['group'] });
+        await switchChat(mock, 'chat-1');
+        await mock.eventSource.emit('group_chat_deleted', 'group-chat-2');
+        await vi.waitFor(() => expect(mock.files.has(docName('group-chat-2', 'notes'))).toBe(false));
+        await mock.eventSource.emit('chat_deleted', 42);
+        expect(mock.files.has(docName('chat-1', 'notes'))).toBe(true);
+    });
+});

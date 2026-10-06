@@ -261,18 +261,43 @@ export class FakeDesRu {
     }
 }
 
-/** A fake of NAI Studio's API v1 (only what the world model reads): passports by scope and the saved event. */
+/**
+ * A fake of NAI Studio's API v1 (only what the world model reads): passports by scope and the saved event; with
+ * `features` ['excludePassport'] (NAI Studio 0.14) passports switched off in the chat are not listed.
+ */
 export class FakeNaiApi {
     readonly version = 1;
     byAvatar: Record<string, Dict[]> = {};
     persona: Dict[] = [];
     chat: Dict[] = [];
+    features: string[] = [];
+    readonly excluded = new Set<string>();
+    readonly exclusions: [string, boolean][] = [];
     readonly listeners = new Set<(detail: unknown) => void>();
     passports(scope: { avatar?: string; persona?: boolean; chat?: boolean } = {}): Dict[] {
-        if (scope.avatar) return structuredClone(this.byAvatar[scope.avatar] ?? []);
-        if (scope.persona) return structuredClone(this.persona);
-        if (scope.chat) return structuredClone(this.chat);
+        const visible = (list: Dict[]) => structuredClone(list.filter((item) => !this.excluded.has(String(item.id))));
+        if (scope.avatar) return visible(this.byAvatar[scope.avatar] ?? []);
+        if (scope.persona) return visible(this.persona);
+        if (scope.chat) return visible(this.chat);
         return [];
+    }
+    readonly excludedListeners = new Set<(detail: { id: string; excluded: boolean }) => void>();
+    async setPassportExcluded(id: string, excluded: boolean): Promise<void> {
+        this.exclusions.push([id, excluded]);
+        this.switchNow(id, excluded);
+    }
+    /** NAI Studio's own buttons («Не использовать в этом чате» / «Вернуть в этот чат»). */
+    userSwitch(id: string, excluded: boolean): void {
+        this.switchNow(id, excluded);
+    }
+    private switchNow(id: string, excluded: boolean): void {
+        if (this.excluded.has(id) === excluded) return;
+        if (excluded) this.excluded.add(id);
+        else this.excluded.delete(id);
+        for (const listener of [...this.excludedListeners]) listener({ id, excluded });
+    }
+    isPassportExcluded(id: string): boolean {
+        return this.excluded.has(id);
     }
     on(_event: string, listener: (detail: unknown) => void): () => void {
         this.listeners.add(listener);
@@ -284,6 +309,7 @@ export class FakeNaiApi {
 }
 
 export interface Neighbours {
+    desSettings: Dict | null;
     desKnown: string[];
     desRemoved: string[];
     desAliases: Record<string, string[]>;
@@ -366,6 +392,7 @@ export function createWorldEnv(): WorldEnv {
         return () => ui.styles.delete(id);
     };
     const neighbours: Neighbours = {
+        desSettings: null,
         desKnown: [],
         desRemoved: [],
         desAliases: {},
@@ -389,6 +416,7 @@ export function createWorldEnv(): WorldEnv {
             },
             removedCharacters: () => [...neighbours.desRemoved],
             aliases: () => structuredClone(neighbours.desAliases),
+            settings: () => neighbours.desSettings,
             trackerFor: (index: number) => {
                 const record = desSwipeRecord(mock.chat[index]);
                 return record ? parseDesTracker(record) : null;
@@ -396,7 +424,10 @@ export function createWorldEnv(): WorldEnv {
         }),
         desru: adapter('desru', { api: () => neighbours.desru }),
         ck: adapter('ck', { repoBooks: () => [...neighbours.ckRepos] }),
-        bunnymo: adapter('bunnymo', { activeBooks: async () => [...neighbours.active] }),
+        bunnymo: adapter('bunnymo', {
+            activeBooks: async () => [...neighbours.active],
+            books: () => ({ core: [], packs: [], archives: [] }),
+        }),
         qvink: adapter('qvink'),
         nai: adapter('nai', {
             passportsOf,
@@ -405,6 +436,23 @@ export function createWorldEnv(): WorldEnv {
             chatPassports: (scope?: Dict) => neighbours.naiApi?.passports(scope) ?? [],
             on: (event: string, listener: (detail: unknown) => void) =>
                 neighbours.naiApi ? neighbours.naiApi.on(event, listener) : () => {},
+            canExcludePassports: () => !!neighbours.naiApi?.features.includes('excludePassport'),
+            setPassportExcluded: async (id: string, excluded: boolean) => {
+                const api = neighbours.naiApi;
+                if (!api?.features.includes('excludePassport')) return false;
+                await api.setPassportExcluded(id, excluded);
+                return true;
+            },
+            isPassportExcluded: (id: string) =>
+                neighbours.naiApi?.features.includes('excludePassport')
+                    ? neighbours.naiApi.isPassportExcluded(id)
+                    : undefined,
+            onPassportExcluded: (listener: (detail: { id: string; excluded: boolean }) => void) => {
+                const api = neighbours.naiApi;
+                if (!api?.features.includes('excludePassport')) return () => {};
+                api.excludedListeners.add(listener);
+                return () => api.excludedListeners.delete(listener);
+            },
         }),
         localizer: adapter('localizer'),
         preset: adapter('preset'),

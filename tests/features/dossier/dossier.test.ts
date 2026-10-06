@@ -8,7 +8,7 @@ import type { DossierApi, DossierFinding, DossierSection } from '../../../src/fe
 import { compareSources } from '../../../src/features/dossier/compare';
 import { defaultDossierSettings } from '../../../src/features/dossier/settings';
 import { DossierSources } from '../../../src/features/dossier/sources';
-import type { Entity } from '../../../src/features/world/api';
+import type { Entity, EntityIdentity } from '../../../src/features/world/api';
 import { message } from '../../helpers/st-mock';
 import { ARCHIVE_CONTENT, LYRA_FORMS_KEY, LYRA_ID, lyraScene, personaScene } from './fixtures';
 import {
@@ -309,6 +309,134 @@ describe('with the world model', () => {
     });
 });
 
+describe('other stories (plan-2 §9)', () => {
+    const MARA_ID = 'character:мара';
+    const pending = [
+        {
+            kind: 'ck.archive' as const,
+            ref: 'Archives#7',
+            label: 'Мара',
+            world: 'Archives',
+            uid: 7,
+            scope: 'global' as const,
+            key: 'ck:Archives#мара',
+        },
+        {
+            kind: 'nai.passport' as const,
+            ref: 'lyra.png#npc1',
+            label: 'Мара',
+            passportId: 'npc1',
+            avatar: 'lyra.png',
+            scope: 'card' as const,
+            key: 'nai:lyra.png#npc1',
+        },
+        { kind: 'des.workshop' as const, ref: 'Мара', label: 'Мара', scope: 'global' as const, key: 'des:мара' },
+    ];
+
+    class IdentityWorld extends FakeWorldModel {
+        readonly calls: unknown[][] = [];
+        identity(id: string): EntityIdentity | undefined {
+            return id === MARA_ID ? { ofCard: false, shared: [], pending, apart: [] } : undefined;
+        }
+        foreignRefs(): string[] {
+            return ['Archives#7', 'World#3'];
+        }
+        async sameAs(id: string, keys?: string[]): Promise<void> {
+            this.calls.push(['sameAs', id, keys]);
+        }
+        async different(id: string, keys?: string[]): Promise<void> {
+            this.calls.push(['different', id, keys]);
+        }
+    }
+
+    function maraScene(): IdentityWorld {
+        lyraScene(env);
+        env.n.desKnown = ['Лира', 'Мара'];
+        env.n.desSettings = { ...env.n.desSettings, characterAppearance: { Мара: 'red hair, green dress' } };
+        env.world.book('Archives', [
+            wi(5, { comment: 'Лира Character Archive', key: ['Лира'], content: ARCHIVE_CONTENT }),
+            wi(7, {
+                comment: 'x',
+                key: ['Мара'],
+                content: '<BunnymoTags><Name:Мара>, <SPECIES:VAMPIRE></BunnymoTags>',
+            }),
+        ]);
+        env.world.book('World', [
+            wi(1, { comment: 'Lyra', key: ['Лира', 'Lyra'], content: 'Lyra is an elf with long silver hair.' }),
+            wi(3, { comment: 'Old Мара', key: ['Мара'], content: 'Мара of another story.' }),
+        ]);
+        env.n.passports.set(0, [passport({ id: 'npc1', name: 'Мара', slots: { hair: 'red hair' } })]);
+        const world = new IdentityWorld([
+            {
+                id: MARA_ID,
+                kind: 'character',
+                name: 'Мара',
+                aliases: [],
+                forms: [],
+                sources: [{ kind: 'des.character', ref: 'Мара', label: 'Мара', scope: 'chat' }],
+            },
+        ]);
+        env.modules.expose('world', world);
+        return world;
+    }
+
+    it('a namesake’s archive, card passport, entries and DES Workshop data stay out of the dossier', async () => {
+        maraScene();
+        const api = await start();
+        const dossier = await api.build(MARA_ID);
+        const kinds = dossier.sections.map((item) => item.kind);
+        expect(kinds).not.toContain('ck');
+        expect(kinds).not.toContain('nai');
+        expect(kinds).not.toContain('lore');
+        expect(dossier.sections.some((item) => item.text.includes('another story'))).toBe(false);
+        expect(sectionOf(dossier.sections, 'des').fields?.portraitPrompt).toBeUndefined();
+        const other = dossier.findings.filter((item) => item.kind === 'otherStory');
+        expect(other.map((item) => item.text)).toEqual([
+            'Мара is known in other stories too: character and way of speaking from the sheet in «Archives»; ' +
+                'looks and outfits from the passport of the card «lyra»; portrait and description from DES. ' +
+                'Until you decide, that data is not used here.',
+            'If Мара here is another character, the old data never shows up here.',
+        ]);
+        expect(other.map((item) => item.fix?.payload)).toEqual([
+            { op: 'sameAs', entityId: MARA_ID, keys: ['ck:Archives#мара', 'nai:lyra.png#npc1', 'des:мара'] },
+            { op: 'apart', entityId: MARA_ID, keys: ['ck:Archives#мара', 'nai:lyra.png#npc1', 'des:мара'] },
+        ]);
+    });
+
+    it('«It is the same one» and «It is another character» go to the world model at once', async () => {
+        const world = maraScene();
+        const api = await start();
+        const [same, apart] = (await api.check(MARA_ID)).filter((item) => item.kind === 'otherStory');
+        expect(await actions().actions.fix(same!)).toBe('applied');
+        expect(await actions().actions.fix(apart!)).toBe('applied');
+        expect(world.calls).toEqual([
+            ['sameAs', MARA_ID, ['ck:Archives#мара', 'nai:lyra.png#npc1', 'des:мара']],
+            ['different', MARA_ID, ['ck:Archives#мара', 'nai:lyra.png#npc1', 'des:мара']],
+        ]);
+    });
+
+    it('data from outside used for a character of this chat can be declared another one’s', async () => {
+        const world = maraScene();
+        world.identity = (id: string) =>
+            id === MARA_ID
+                ? { ofCard: false, shared: pending.slice(0, 1), pending: [], apart: pending.slice(1) }
+                : undefined;
+        const api = await start();
+        const findings = await api.check(MARA_ID);
+        expect(findings.filter((item) => item.kind === 'otherStory').map((item) => item.fix?.label)).toEqual([
+            'It is the same one',
+        ]);
+        const shared = findings.find((item) => item.kind === 'sharedStory')!;
+        expect(shared.text).toBe(
+            'For Мара Maestro also uses data from outside this chat: character and way of speaking from the sheet in «Archives».',
+        );
+        expect(shared.fix).toEqual({
+            label: 'It is another character',
+            payload: { op: 'apart', entityId: MARA_ID, keys: ['ck:Archives#мара'] },
+        });
+    });
+});
+
 describe('structural checks', () => {
     it('reports an alias that is no key and missing case forms, with fixes', async () => {
         lyraScene(env);
@@ -339,6 +467,16 @@ describe('structural checks', () => {
         ]);
         env.n.passports.set(0, [passport({ id: 'p2', name: 'Marra', aliases: ['Мара'] })]);
         const api = await start();
+        // Plan-2 §9: Мара is not the card's — a repo archive and an NPC passport of the card with her name may be a
+        // namesake's of another story, so they are not hers here (before, they were taken by the bare name).
+        expect((await api.check('character:мара')).map((item) => item.kind)).toEqual([
+            'missingEntry',
+            'missingPassport',
+            'missingArchive',
+        ]);
+        // Once the card itself names her, they are hers.
+        const card = (env.mock.context as unknown as { characters: STCharacter[] }).characters[0]!;
+        card.description = `${card.description ?? ''} Её ученица — Мара.`;
         const kinds = (await api.check('character:мара')).map((item) => item.kind);
         expect(kinds).toEqual(['missingEntry', 'nameMismatch']);
         env.n.passports.set(0, []);

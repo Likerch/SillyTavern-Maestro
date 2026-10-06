@@ -161,6 +161,8 @@ export interface ChatStore {
     ): void;
     exportChat(chatId: string): Promise<Record<string, unknown>>;
     importChat(chatId: string, bundle: Record<string, unknown>): Promise<void>;
+    /** Deletes every document of a chat (ST deleted the chat); returns how many files were removed. */
+    removeChat?(chatId: string): Promise<number>;
 }
 
 /* ------------------------------------------------------------------ leader, tasks */
@@ -327,6 +329,9 @@ export interface Proposal<T = unknown> {
     sourceMessage?: number;
     /** Lifetime of the Inbox card when the proposal is queued. */
     ttlMs?: number;
+    /** Inbox button texts when «Accept» / «Reject» would not say it (a question: «Тот же» / «Другой»). */
+    acceptLabel?: string;
+    rejectLabel?: string;
     /** Apply the proposal (called when allowed or accepted). */
     apply(payload: T): Promise<void>;
     /** Optional check that "before" still matches the live data. */
@@ -372,6 +377,9 @@ export interface InboxCard {
     /** Deferred cards wait for a module of a later stage. */
     deferred?: boolean;
     expiresAt?: number;
+    /** The proposal's own button texts (Proposal.acceptLabel / rejectLabel), already translated. */
+    acceptLabel?: string;
+    rejectLabel?: string;
 }
 
 export interface Inbox {

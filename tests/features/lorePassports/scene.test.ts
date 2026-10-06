@@ -40,6 +40,20 @@ describe('lore passports: the scene (§16)', () => {
         expect(scene[1]).toMatchObject({ name: 'Anna', passport: { kind: 'character', name: 'Anna' } });
     });
 
+    it('gives no passport of a namesake’s entry of another story, even when ST activated it (plan-2 §9)', async () => {
+        const env = createEnv();
+        await withPassports(env);
+        env.world.foreign = ['World#0'];
+        env.loreJournal.push(3, [
+            { world: 'World', uid: 0 },
+            { world: 'Places', uid: 0 },
+        ]);
+        const service = env.service();
+        service.forScene();
+        await settle();
+        expect(service.forScene().map((item) => `${item.world}#${item.uid}`)).toEqual(['Places#0']);
+    });
+
     it('adds the entries of entities mentioned in the last messages and drops duplicates', async () => {
         const env = createEnv();
         await withPassports(env);

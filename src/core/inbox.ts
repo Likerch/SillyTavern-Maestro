@@ -247,6 +247,12 @@ export function createInbox(deps: InboxDeps, options: InboxOptions = {}): InboxS
                 expiresAt: now + (addOptions?.ttlMs ?? defaultTtl),
             };
             if (addOptions?.deferred) card.deferred = true;
+            if (typeof proposal.acceptLabel === 'string' && proposal.acceptLabel.trim()) {
+                card.acceptLabel = proposal.acceptLabel.trim();
+            }
+            if (typeof proposal.rejectLabel === 'string' && proposal.rejectLabel.trim()) {
+                card.rejectLabel = proposal.rejectLabel.trim();
+            }
             live.set(card.id, proposal);
             const saved = await mutate((list, at) => {
                 list.push(card);

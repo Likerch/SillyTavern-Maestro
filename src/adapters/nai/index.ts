@@ -493,4 +493,80 @@ export class NaiAdapter extends NeighbourBase<'nai'> {
         const list = Array.isArray(field.passports) ? field.passports : isDict(field.passport) ? [field.passport] : [];
         return list.map(readPassport).filter((passport): passport is NaiPassport => passport !== null);
     }
+
+    /* ---------------------------------------------------------------- passport exclusion (NAI Studio 0.14.0+) */
+    // Plan-2 §9: a card passport the user declared another one's («Другой») is switched off in the current chat only;
+    // NAI Studio then treats it as absent everywhere in that chat. Feature-detected through `features`.
+
+    /** NAI Studio's API with the exclusion members, when it offers them (`features` lists 'excludePassport'). */
+    private exclusionApi(): (NaiStudioApi & NaiPassportExclusion) | undefined {
+        const api = this.api() as (NaiStudioApi & NaiPassportExclusion) | undefined;
+        if (!api || !Array.isArray(api.features) || !api.features.includes(NAI_EXCLUDE_FEATURE)) return undefined;
+        return typeof api.setPassportExcluded === 'function' ? api : undefined;
+    }
+
+    /** NAI Studio can switch a card passport off for the current chat. */
+    canExcludePassports(): boolean {
+        return this.exclusionApi() !== undefined;
+    }
+
+    /** Switches a passport off (or back on) for the current chat; false without the feature or when NAI Studio refused. */
+    async setPassportExcluded(passportId: string, excluded: boolean): Promise<boolean> {
+        const api = this.exclusionApi();
+        if (!api?.setPassportExcluded) return false;
+        try {
+            await api.setPassportExcluded(passportId, excluded);
+            return true;
+        } catch (error) {
+            this.log.warn('NAI_STUDIO_API.setPassportExcluded failed', error);
+            return false;
+        }
+    }
+
+    /** Whether a passport is switched off in the current chat; undefined without the feature. */
+    isPassportExcluded(passportId: string): boolean | undefined {
+        const api = this.exclusionApi();
+        if (typeof api?.isPassportExcluded !== 'function') return undefined;
+        try {
+            return api.isPassportExcluded(passportId) === true;
+        } catch (error) {
+            this.log.warn('NAI_STUDIO_API.isPassportExcluded failed', error);
+            return undefined;
+        }
+    }
+
+    /** `passportExcludedChanged` events; the returned unsubscription does nothing without the feature. */
+    onPassportExcluded(listener: (detail: NaiPassportExcludedDetail) => void): () => void {
+        const api = this.exclusionApi();
+        if (!api) return () => {};
+        try {
+            const off = (api.on as (event: string, cb: (detail: NaiPassportExcludedDetail) => void) => unknown)(
+                'passportExcludedChanged',
+                listener,
+            );
+            return typeof off === 'function' ? (off as () => void) : () => {};
+        } catch (error) {
+            this.log.warn('NAI_STUDIO_API.on("passportExcludedChanged") failed', error);
+            return () => {};
+        }
+    }
+}
+
+/* ------------------------------------------------------------------ passport exclusion (NAI Studio 0.14.0+) */
+
+/** The `features` entry of NAI Studio 0.14.0+ that announces passport exclusion per chat. */
+export const NAI_EXCLUDE_FEATURE = 'excludePassport';
+
+/** `passportExcludedChanged` event detail. */
+export interface NaiPassportExcludedDetail {
+    id: string;
+    excluded: boolean;
+}
+
+/** Members of `NAI_STUDIO_API` v1 added by NAI Studio 0.14.0 for per-chat passport exclusion (all optional). */
+export interface NaiPassportExclusion {
+    features?: readonly string[];
+    /** Current chat only (a chat_metadata flag); an excluded passport is invisible to every NAI Studio feature there. */
+    setPassportExcluded?(passportId: string, excluded: boolean): Promise<void>;
+    isPassportExcluded?(passportId: string): boolean;
 }

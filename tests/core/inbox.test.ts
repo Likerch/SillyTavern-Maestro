@@ -79,6 +79,16 @@ afterEach(() => {
 });
 
 describe('inbox', () => {
+    it('keeps a question’s own button texts on the card (blank ones are left out)', async () => {
+        await inbox.add(proposal({ acceptLabel: ' Тот же ', rejectLabel: 'Другой' }));
+        await inbox.add(proposal({ acceptLabel: '  ' }));
+        const [question, plain] = storedCards();
+        expect(question).toMatchObject({ acceptLabel: 'Тот же', rejectLabel: 'Другой' });
+        expect(plain).not.toHaveProperty('acceptLabel');
+        expect(plain).not.toHaveProperty('rejectLabel');
+        expect(inbox.list()[0]).toMatchObject({ acceptLabel: 'Тот же', rejectLabel: 'Другой' });
+    });
+
     it('stores cards as JSON with a 14-day lifetime', async () => {
         const changed = vi.fn();
         inbox.onChange(changed);

@@ -173,6 +173,73 @@ export function findNeedle(text: string, needle: string, tail: number): number {
     }
 }
 
+const WORD_SPLIT_RE = /[^\p{L}\p{N}_]+/u;
+
+/**
+ * The words of a chat with the message each first appears in (plan-2 §9: does this chat name someone?). Messages are
+ * read once; a name is then looked up among the words instead of in every message: a needle matches a word that
+ * starts with it and has at most `tail` more characters — what findNeedle accepts at a word start.
+ */
+export class WordIndex {
+    private readonly first = new Map<string, number>();
+    /** Words by their first two and three characters. */
+    private readonly buckets = new Map<string, string[]>();
+    /** Messages read (the next one to read). */
+    size = 0;
+    /** Bumped whenever a new word is learned: a name not found stays not found until then. */
+    version = 0;
+
+    add(index: number, text: string): void {
+        for (const word of normalizeText(text).split(WORD_SPLIT_RE)) {
+            if (!word) continue;
+            const known = this.first.get(word);
+            if (known !== undefined && known <= index) continue;
+            if (known === undefined) {
+                for (const length of [2, 3]) {
+                    if (word.length < length) continue;
+                    const key = word.slice(0, length);
+                    const bucket = this.buckets.get(key);
+                    if (bucket) bucket.push(word);
+                    else this.buckets.set(key, [word]);
+                }
+                this.version++;
+            }
+            this.first.set(word, index);
+        }
+    }
+
+    /**
+     * The first message using a one-word needle, -1 if none. Null for a needle of several words (or with a hyphen):
+     * the caller reads the messages that have all its words (wordsAt).
+     */
+    firstOf(needle: MentionNeedle): number | null {
+        const text = needle.needle;
+        if (WORD_SPLIT_RE.test(text)) return null;
+        let best = -1;
+        for (const word of this.buckets.get(text.slice(0, Math.min(3, text.length))) ?? []) {
+            if (word.length - text.length > needle.tail || !word.startsWith(text)) continue;
+            const at = this.first.get(word) ?? -1;
+            if (at >= 0 && (best < 0 || at < best)) best = at;
+        }
+        return best;
+    }
+
+    /** From which message every word of a several-word needle has appeared (-1: one of them never did). */
+    wordsAt(needle: MentionNeedle): number {
+        const words = needle.needle.split(WORD_SPLIT_RE).filter(Boolean);
+        let from = 0;
+        for (const [index, word] of words.entries()) {
+            const at =
+                index === words.length - 1
+                    ? (this.firstOf({ needle: word, tail: needle.tail }) ?? -1)
+                    : (this.first.get(word) ?? -1);
+            if (at < 0) return -1;
+            from = Math.max(from, at);
+        }
+        return from;
+    }
+}
+
 /** Ids of the rows mentioned in `text`, in order of their first mention. */
 export function findMentions(matcher: MentionMatcher, text: string): string[] {
     if (!text || !matcher.rows.length) return [];

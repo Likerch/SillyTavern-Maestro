@@ -6,6 +6,11 @@
 //
 // Entities come from the world model (WorldModelApi). Without it the dossier still knows the card character(s), the
 // persona, DES's roster and the registered places, built directly from those sources.
+//
+// Other stories (plan-2 §9): what lives outside this chat — CK repos, global books, NPC passports of the card, DES
+// Workshop data kept by name — is shown only when it is part of the entity: the world model's sources (the card's own
+// or bound with «Тот же»), never found by a bare name. Without the world model only the card's own names (its
+// characters, the persona, names its text uses) reach outside the chat's own books.
 import { adaptersOf } from '../../adapters';
 import { readPassport } from '../../adapters/nai';
 import type { NaiPassport, NaiStudioApi } from '../../adapters/nai';
@@ -32,13 +37,14 @@ import {
 } from '../../domain/dossier-names';
 import { archiveMatch } from '../../domain/sheet-context';
 import { stripDesTrackerJson } from '../../domain/text-clean';
+import { cardNameMatcher, cardTexts, chatOriginTag, entryOrigin, localBookNames } from '../../domain/world-scope';
 import type { App, Logger } from '../../shared/contracts';
 import type { BookRolesApi } from '../bookRoles/api';
 import type { CanonApi, CanonItem } from '../canon/api';
 import type { Place, PlacesApi } from '../places/api';
 import type { RelationsApi } from '../relations/api';
 import type { SheetsApi } from '../sheets/api';
-import type { Entity, EntitySource, WorldModelApi } from '../world/api';
+import type { Entity, EntityIdentity, EntitySource, WorldModelApi } from '../world/api';
 import type { DossierSettings } from './settings';
 
 type Dict = Record<string, unknown>;
@@ -168,6 +174,20 @@ export interface EntityFacts {
     /** Card description of the card character (AI comparison). */
     cardDescription: string | null;
     cardAvatar: string | null;
+    /** Card/global sources of the name: used here, waiting for an answer, declared another one's (world model). */
+    identity: EntityIdentity | null;
+}
+
+/** What of the stores outside this chat the dossier may read for an entity (plan-2 §9). */
+interface Reach {
+    /** World model on: archives and card passports only through the entity's sources. */
+    world: boolean;
+    /** Books outside the chat may be searched by the entity's names (the card's own names). */
+    wide: boolean;
+    /** The chat's books (the chat book, the canon, the cards' books). */
+    local: Set<string>;
+    /** `${book}#${uid}` of a namesake's entries: never shown. */
+    foreign: Set<string>;
 }
 
 export class DossierSources {
@@ -411,7 +431,8 @@ export class DossierSources {
 
     async facts(entity: Entity): Promise<EntityFacts> {
         const adapters = adaptersOf(this.app);
-        const worldOn = !!this.world();
+        const world = this.world();
+        const worldOn = !!world;
         const personlike = entity.kind === 'character' || entity.kind === 'persona';
         const names = unique([entity.name, ...entity.aliases]);
         const allNames = unique([...names, ...entity.forms]);
@@ -419,10 +440,12 @@ export class DossierSources {
         const canon = this.canon();
         const canonBook = canon && this.app.host.chatId() ? this.safe(() => canon.bookName() || null, null) : null;
         const items = canon && canonBook ? await this.canonItems(canon) : [];
+        const identity = world?.identity ? this.safe(() => world.identity?.(entity.id) ?? null, null) : null;
+        const reach = await this.reach(entity, identity, canonBook);
 
         const place = entity.kind === 'place' ? this.placeFact(entity) : null;
-        const lore = await this.loreFacts(entity, names, items, canonBook, cache, place);
-        const archives = personlike ? await this.archiveFacts(entity, names, cache) : [];
+        const lore = await this.loreFacts(entity, names, items, canonBook, cache, place, reach);
+        const archives = personlike ? await this.archiveFacts(entity, names, cache, reach) : [];
         const ck = adapters.ck;
         const ckPresent = this.safe(() => ck.present(), false);
         const ragEnabled = ckPresent && this.safe(() => ck.ragEnabled(), false);
@@ -441,18 +464,19 @@ export class DossierSources {
             archives,
             ckPresent,
             ragEnabled,
+            // CK keeps RAG collections by name for every chat: none while a namesake's data is kept out (plan-2 §9).
             rag:
-                personlike && ckPresent
+                personlike && ckPresent && !(identity && [...identity.pending, ...identity.apart].length)
                     ? ragCollectionsFor(
                           this.safe(() => ck.settings()?.rag, undefined),
                           names,
                       )
                     : [],
-            passports: await this.passportFacts(entity, names, place, persona),
+            passports: await this.passportFacts(entity, names, place, persona, reach),
             naiPresent: this.safe(() => adapters.nai.present(), false),
             naiApi: !!this.naiApi(),
             desPresent,
-            des: personlike && desPresent ? this.desFact(entity, names) : null,
+            des: personlike && desPresent ? this.desFact(entity, names, identity) : null,
             desruPresent: !!desruApi,
             forms: entity.forms.length
                 ? unique(entity.forms)
@@ -466,6 +490,7 @@ export class DossierSources {
             relation: personlike ? this.relation(entity) : null,
             cardDescription: null,
             cardAvatar: null,
+            identity,
         };
         const card = this.cardOf(entity);
         if (card) {
@@ -473,6 +498,41 @@ export class DossierSources {
             facts.cardDescription = str(card.description).trim() || null;
         }
         return facts;
+    }
+
+    /**
+     * How far the dossier may look outside the chat for this entity: the card's own names (its characters, the persona,
+     * a name the card's text uses — the world model's answer, else read here) and names the user bound reach every
+     * book; others only the chat's own books. A namesake's entries are never shown.
+     */
+    private async reach(entity: Entity, identity: EntityIdentity | null, canonBook: string | null): Promise<Reach> {
+        const ctx = this.app.host.ctx();
+        const cards = this.cardCharacters();
+        let charLore: unknown;
+        try {
+            const settings = (await this.app.host.modules.worldInfo()).world_info;
+            charLore = isDict(settings) ? settings.charLore : undefined;
+        } catch (error) {
+            this.log.debug('world-info.js is not available; extra card books count as global', error);
+        }
+        const books = localBookNames({ chatBook: ctx.chatMetadata?.world_info, cards, charLore });
+        const local = new Set([...books.chat, ...books.card, ...(canonBook ? [canonBook] : [])]);
+        const anchor = entity.sources.some((source) => source.kind === 'card' || source.kind === 'persona');
+        const world = this.world();
+        const foreign = new Set(world?.foreignRefs ? this.safe(() => world.foreignRefs?.() ?? [], []) : []);
+        let wide = anchor || entity.kind === 'persona';
+        if (!wide && identity) {
+            wide = identity.ofCard || identity.shared.some((source) => source.kind !== 'des.workshop');
+        } else if (!wide) {
+            const persona = str(ctx.name1).trim();
+            const ofCard = cardNameMatcher({
+                names: [...cards.map((character) => character.name), ...(persona ? [persona] : [])],
+                texts: cards.flatMap((character) => cardTexts(character)),
+                forms: (name) => this.formsOf(name) ?? [],
+            });
+            wide = [entity.name, ...entity.aliases].some((name) => ofCard(name));
+        }
+        return { world: !!world, wide, local, foreign };
     }
 
     private async canonItems(canon: CanonApi): Promise<CanonItem[]> {
@@ -531,12 +591,13 @@ export class DossierSources {
         canonBook: string | null,
         cache: Map<string, BookData | null>,
         place: PlaceFact | null,
+        reach: Reach,
     ): Promise<LoreFact[]> {
         const out: LoreFact[] = [];
         const seen = new Set<string>();
         const add = async (world: string, uid: number, extra: Partial<LoreFact> = {}) => {
             const id = `${world}#${uid}`;
-            if (seen.has(id) || world === canonBook) return;
+            if (seen.has(id) || world === canonBook || reach.foreign.has(id)) return;
             const data = await this.loadBook(world, cache);
             const entry = data?.entries[String(uid)];
             if (!data || !isDict(entry)) return;
@@ -553,6 +614,8 @@ export class DossierSources {
         const archiveBooks = new Set(this.archiveBooks());
         for (const book of await this.activeBooks()) {
             if (book === canonBook || archiveBooks.has(book)) continue;
+            // A name found in a book outside the chat may be a namesake of another story (plan-2 §9).
+            if (!reach.wide && !reach.local.has(book)) continue;
             const data = await this.loadBook(book, cache);
             if (!data || this.isProtected(book, data)) continue;
             for (const { uid, entry } of enabledEntriesOf(data)) {
@@ -564,10 +627,16 @@ export class DossierSources {
         return out;
     }
 
+    /**
+     * The entity's archives: with the world model only its own sources (an archive of the same name in a repo may be
+     * a namesake's, plan-2 §9); without it archives named exactly so, in the chat's books or — for the card's own
+     * names — in every archive book.
+     */
     private async archiveFacts(
         entity: Entity,
         names: readonly string[],
         cache: Map<string, BookData | null>,
+        reach: Reach,
     ): Promise<ArchiveFact[]> {
         const out: ArchiveFact[] = [];
         const seen = new Set<string>();
@@ -584,11 +653,18 @@ export class DossierSources {
             const entry = (await this.loadBook(source.world, cache))?.entries[String(source.uid)];
             if (isDict(entry)) add(source.world, source.uid, entry);
         }
+        if (reach.world) return out;
+        const chatId = this.app.host.chatId();
+        const origin = chatId ? chatOriginTag(chatId) : null;
         const books = unique([...this.archiveBooks(), ...(await this.activeBooks())]);
         for (const book of books) {
+            // Outside the chat's books only archives Maestro wrote for this chat, unless the name is the card's.
+            const own = !reach.wide && !reach.local.has(book);
+            if (own && !origin) continue;
             const data = await this.loadBook(book, cache);
             if (!data || this.isProtected(book, data)) continue;
             for (const { uid, entry } of enabledEntriesOf(data)) {
+                if (own && entryOrigin(entry) !== origin) continue;
                 // Canonical names: only the exact name counts (an inflected match would give Александр Александра's).
                 if (names.some((name) => archiveMatch(entry, name) === 'exact')) add(book, uid, entry);
             }
@@ -648,6 +724,7 @@ export class DossierSources {
         names: readonly string[],
         place: PlaceFact | null,
         persona: PersonaFact | null,
+        reach: Reach,
     ): Promise<PassportFact[]> {
         const ctx = this.app.host.ctx();
         const nai = adaptersOf(this.app).nai;
@@ -677,13 +754,14 @@ export class DossierSources {
                 .filter((source) => source.kind === 'nai.passport' && source.passportId)
                 .map((source) => `${source.avatar ?? ''}#${source.passportId ?? ''}`),
         );
-        const matches = (passport: NaiPassport, ref: string, cardName: string): boolean => {
+        const matches = (passport: NaiPassport, ref: string, cardName: string, card: boolean): boolean => {
             if (wanted.has(ref)) return true;
+            if (entity.kind === 'place' && passport.id === place?.place.passportId) return true;
+            // A card passport of another name-bearer may be a namesake's (an NPC NAI Studio once saved into the card):
+            // with the world model only the entity's own sources count; without it, the card's own names (plan-2 §9).
+            if (card && (reach.world || !reach.wide)) return false;
             if (entity.kind === 'place') {
-                return (
-                    passport.id === place?.place.passportId ||
-                    (passport.kind === 'location' && namesOverlap([passport.name, ...passport.aliases], names))
-                );
+                return passport.kind === 'location' && namesOverlap([passport.name, ...passport.aliases], names);
             }
             return (
                 passport.kind === 'character' && namesOverlap([passport.name || cardName, ...passport.aliases], names)
@@ -694,7 +772,7 @@ export class DossierSources {
             if (!character) continue;
             for (const passport of this.safe(() => nai.passportsOf(index), [])) {
                 const ref = `${character.avatar}#${passport.id}`;
-                if (!matches(passport, ref, character.name)) continue;
+                if (!matches(passport, ref, character.name, true)) continue;
                 out.push({
                     passport,
                     avatar: character.avatar,
@@ -715,7 +793,7 @@ export class DossierSources {
         const own = this.naiApi() ? this.safe(() => nai.chatPassports({ chat: true }), []) : store.extra;
         for (const passport of own) {
             const ref = `#${passport.id}`;
-            if (!passport.name || !matches(passport, ref, '')) continue;
+            if (!passport.name || !matches(passport, ref, '', false)) continue;
             out.push({
                 passport,
                 avatar: '',
@@ -738,7 +816,7 @@ export class DossierSources {
 
     /* ---------------------------------------------------------------- DES */
 
-    private desFact(entity: Entity, names: readonly string[]): DesFact | null {
+    private desFact(entity: Entity, names: readonly string[], identity: EntityIdentity | null): DesFact | null {
         const des = adaptersOf(this.app).des;
         const wanted = normSet(names);
         const aliases = this.desAliases();
@@ -776,13 +854,18 @@ export class DossierSources {
         const settings = this.safe(() => des.settings(), null) ?? {};
         const key = fact.canonical;
         const pick = (store: unknown): unknown => (isDict(store) ? store[key] : undefined);
-        const appearance = pick(settings.characterAppearance);
+        // DES keeps Workshop data by name for every chat: a namesake's (waiting for an answer or declared another
+        // one's) stays hidden here (plan-2 §9).
+        const hidden = [...(identity?.pending ?? []), ...(identity?.apart ?? [])].some(
+            (source) => source.kind === 'des.workshop',
+        );
+        const appearance = hidden ? undefined : pick(settings.characterAppearance);
         if (typeof appearance === 'string' && appearance.trim()) fact.portraitPrompt = appearance.trim();
-        const injection = pick(settings.characterInjection);
+        const injection = hidden ? undefined : pick(settings.characterInjection);
         if (isDict(injection) && typeof injection.description === 'string' && injection.description.trim()) {
             fact.workshopDescription = injection.description.trim();
         }
-        const relationship = pick(settings.characterRelationships);
+        const relationship = hidden ? undefined : pick(settings.characterRelationships);
         if (typeof relationship === 'string' && relationship.trim()) fact.relationshipOverride = relationship.trim();
         const user = pick(settings.userCharacters);
         if (isDict(user)) fact.user = user;

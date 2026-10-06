@@ -40,6 +40,7 @@ export interface ChatStoreOptions {
 }
 
 export type MaestroChatStore = ChatStore & {
+    removeChat(chatId: string): Promise<number>;
     dispose(): void;
     /** Forgets cached documents (also done on CHAT_CHANGED). */
     clearCache(): void;
@@ -344,9 +345,47 @@ export function createChatStore(
         cache.clear();
     };
 
+    /**
+     * Deletes every document of a chat ST deleted (plan-2 §9: a new chat that gets the same id must not inherit them).
+     * Kinds: those this tab knows, the global kinds index and — for the open chat — its pointers. Each removal waits
+     * for writes of that document still in flight. The open chat is never cleared this way.
+     */
+    const removeChat = async (chatId: string): Promise<number> => {
+        if (!chatId || chatId === host.chatId()) return 0;
+        const kinds = new Set<string>(knownKinds);
+        for (const kind of await loadGlobalKinds()) kinds.add(kind);
+        let removed = 0;
+        for (const kind of [...kinds].sort()) {
+            const key = keyOf(chatId, kind);
+            await serial(key, async () => {
+                const name = chatDocName(files, chatId, kind);
+                try {
+                    if (!isEnvelope(await readFresh<unknown>(files, name))) return;
+                    await files.remove(name);
+                    removed++;
+                } catch (error) {
+                    log.warn(`could not delete ${kind} of a deleted chat`, error);
+                }
+                cache.delete(key);
+                knownVersions.delete(key);
+            });
+        }
+        if (removed) log.info(`deleted ${removed} Maestro document(s) of a deleted chat`);
+        return removed;
+    };
+
     const chatChanged = host.events.name('CHAT_CHANGED');
     const offChatChanged: Unsubscribe = chatChanged ? host.events.on(chatChanged, () => clearCache()) : () => {};
     if (!chatChanged) log.warn('CHAT_CHANGED is missing; chat documents are not reloaded on chat switch');
+    // ST passes the deleted chat's id (file name without .jsonl; a group chat's id): script.js delChat /
+    // deleteCharacterChatByName, group-chats.js deleteGroupChat / deleteGroup.
+    const offDeleted: Unsubscribe[] = ['CHAT_DELETED', 'GROUP_CHAT_DELETED'].map((key) => {
+        const name = host.events.name(key);
+        if (!name) return () => {};
+        return host.events.on(name, (chatId) => {
+            if (typeof chatId === 'string' && chatId) void removeChat(chatId);
+        });
+    });
 
     return {
         async get<T extends object>(kind: string, defaults: () => T): Promise<T> {
@@ -450,10 +489,13 @@ export function createChatStore(
             }
         },
 
+        removeChat,
+
         clearCache,
 
         dispose(): void {
             offChatChanged();
+            for (const off of offDeleted) off();
             if (saveTimer !== null) {
                 clearTimeout(saveTimer);
                 void flushMetadata();

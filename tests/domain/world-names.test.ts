@@ -14,6 +14,7 @@ import {
     pairKey,
     splitAliases,
     splitPairKey,
+    WordIndex,
     wordsOf,
 } from '../../src/domain/world-names';
 
@@ -111,5 +112,31 @@ describe('mention needles', () => {
         expect(findMentions(matcher, 'Лёша, Лиза')).toEqual(['a']);
         expect(findMentions(matcher, '')).toEqual([]);
         expect(findMentions(buildMentionMatcher([]), 'Лиза')).toEqual([]);
+    });
+});
+
+describe('WordIndex', () => {
+    it('finds the first message using a name, with a short case ending, at a word start only', () => {
+        const words = new WordIndex();
+        words.add(0, 'Annual fair in town.');
+        words.add(1, 'Вошла Офелия.');
+        words.add(2, 'Привет, Офелии!');
+        words.add(3, 'Анна-Мария и Анна Петрова пришли.');
+        const needle = (text: string, tail = 2) => ({ needle: text, tail });
+        expect(words.firstOf(needle('офелия'))).toBe(1);
+        expect(words.firstOf(needle('офели', 3))).toBe(1);
+        expect(words.firstOf(needle('ann', 0))).toBe(-1);
+        expect(words.firstOf(needle('fair', 0))).toBe(0);
+        expect(words.firstOf(needle('ли'))).toBe(-1);
+        expect(words.firstOf(needle('анна петрова'))).toBeNull();
+        expect(words.wordsAt(needle('анна петрова'))).toBe(3);
+        expect(words.wordsAt(needle('анна смирнова'))).toBe(-1);
+        expect(words.firstOf(needle('анна-мария'))).toBeNull();
+        const version = words.version;
+        words.add(4, 'Офелия снова здесь.');
+        expect(words.firstOf(needle('офелия'))).toBe(1);
+        words.add(0, 'Офелия раньше всех.');
+        expect(words.firstOf(needle('офелия'))).toBe(0);
+        expect(words.version).toBeGreaterThan(version);
     });
 });

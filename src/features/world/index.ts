@@ -3,7 +3,7 @@
 // as app.modules.api<WorldModelApi>('world'); the dossier (M7), places (M24) and relations (M19) read it.
 import type { MaestroModule } from '../../shared/contracts';
 import { WORLD_ID, WORLD_KEY, WorldModel } from './model';
-import { WorldStore } from './store';
+import { registerWorldMigrations, WorldStore } from './store';
 import { WORLD_STRINGS } from './strings';
 import { WORLD_CSS, worldTab } from './view';
 
@@ -18,6 +18,7 @@ export const worldModule: MaestroModule<WorldSettings> = {
     defaults: () => ({}),
     i18n: WORLD_STRINGS,
     init({ app, log, own }) {
+        registerWorldMigrations(app.chat);
         const store = new WorldStore(app, log);
         const model = new WorldModel(app, store, log);
         for (const off of model.install()) own(off);
@@ -30,6 +31,16 @@ export const worldModule: MaestroModule<WorldSettings> = {
 
 export { WORLD_STRINGS } from './strings';
 export { WorldModel, committedIndex, MERGE_KIND, WORLD_ID, WORLD_KEY } from './model';
-export { WorldStore, emptyWorldDoc } from './store';
+export { WorldStore, emptyWorldDoc, WORLD_SCHEMA } from './store';
+export { SAME_AS_KIND } from './identity';
 export type { WorldDoc } from './store';
-export type { Entity, EntityKind, EntitySource, Fact, MergeCandidate, WorldModelApi } from './api';
+export type {
+    Entity,
+    EntityIdentity,
+    EntityKind,
+    EntitySource,
+    Fact,
+    MergeCandidate,
+    SourceScope,
+    WorldModelApi,
+} from './api';

@@ -53,7 +53,10 @@ export function patchPassport(passport: NaiPassport, patch: PassportPatch): NaiP
 export type FixRequest =
     | { op: 'addKeys'; world: string; uid: number; keys: string[] }
     | { op: 'placeEntry'; placeId: string }
-    | { op: 'desAlias'; canonical: string; alias: string };
+    | { op: 'desAlias'; canonical: string; alias: string }
+    // Plan-2 §9: «Это тот же» / «Это другой персонаж» about a namesake's sources (decided by the world model).
+    | { op: 'sameAs'; entityId: string; keys: string[] }
+    | { op: 'apart'; entityId: string; keys: string[] };
 
 export type ActionPayload =
     | { op: 'baseKeys'; world: string; uid: number; before: string[]; after: string[] }
@@ -109,6 +112,13 @@ export function isFixRequest(value: unknown): value is FixRequest {
     }
     if (value.op === 'placeEntry') return typeof value.placeId === 'string';
     if (value.op === 'desAlias') return typeof value.canonical === 'string' && typeof value.alias === 'string';
+    if (value.op === 'sameAs' || value.op === 'apart') {
+        return (
+            typeof value.entityId === 'string' &&
+            Array.isArray(value.keys) &&
+            value.keys.every((key) => typeof key === 'string')
+        );
+    }
     return false;
 }
 
@@ -543,6 +553,14 @@ export class DossierActions {
                 this.t('m7.note.alias.body', { alias: request.alias, name: request.canonical }),
             );
             return 'queued';
+        }
+        if (request.op === 'sameAs' || request.op === 'apart') {
+            // The user's own answer, given right here: the world model records it (journal, undo) at once.
+            const world = this.sources.world();
+            const decide = request.op === 'sameAs' ? world?.sameAs : world?.different;
+            if (!world || !decide) return 'skipped';
+            await decide.call(world, request.entityId, request.keys);
+            return 'applied';
         }
         const current = await this.effective(request.world, request.uid);
         if (current.protected) throw new ProtectedBookError(this.t('m7.p13', { book: request.world }));
