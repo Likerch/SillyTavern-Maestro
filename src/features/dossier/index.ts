@@ -13,6 +13,7 @@ import {
     DossierActions,
     ENTRY_TARGET,
     NOTE_TARGET,
+    PLACE_ENTRY_TARGET,
     PASSPORT_TARGET,
     PLACE_TARGET,
 } from './actions';
@@ -63,6 +64,8 @@ export const DOSSIER_TARGETS: TargetSpec[] = [
     },
     // A DES reminder (its text is the card's description) or the place entry made by a fix (a place id).
     { target: NOTE_TARGET, technical: true },
+    // The place description entry a fix made: the change's value is the place's name.
+    { target: PLACE_ENTRY_TARGET, valueLabelKey: 'm7.field.place' },
     // «Оформить»: every part's content (canon text, CK markup, NAI tags); the card lists the parts in words.
     { target: STYLE_UP_TARGET, technical: true },
     { target: STYLE_UP_PART_TARGET, technical: true },

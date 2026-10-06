@@ -19,6 +19,8 @@ export const DOSSIER_STRINGS: I18nParts = {
         'target.dossier-place': 'Place',
         'target.dossier-chat-alias': 'Nickname in this chat',
         'target.dossier-note': 'Reminder',
+        'target.dossier-place-entry': 'Place description',
+        'm7.field.place': 'Place',
         'target.dossier-styleup': 'Style up',
         'target.dossier-styleup-part': 'Part of a style up',
         'm7.worldOff':
@@ -461,6 +463,8 @@ export const DOSSIER_STRINGS: I18nParts = {
         'target.dossier-place': 'Место',
         'target.dossier-chat-alias': 'Прозвище в этом чате',
         'target.dossier-note': 'Напоминание',
+        'target.dossier-place-entry': 'Описание места',
+        'm7.field.place': 'Место',
         'target.dossier-styleup': 'Оформление',
         'target.dossier-styleup-part': 'Часть оформления',
         'm7.worldOff':

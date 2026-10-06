@@ -266,6 +266,12 @@ describe('entities without the world model', () => {
         expect(decision).toBe('applied');
         expect(places.ensured).toEqual(['tavern']);
         expect(await actions().actions.fix(finding!)).toBe('skipped');
+
+        // Undo really unlinks the description (it used to report success and change nothing).
+        const record = env.journal.records.find((entry) => entry.kind === 'dossier.fix')!;
+        expect(record.changes[0]).toMatchObject({ target: 'dossier-place-entry', ref: { placeId: 'tavern' } });
+        expect(await env.journal.undo(record.id)).toBe(true);
+        expect(places.get('tavern')?.entry).toBeUndefined();
     });
 
     it('rejects unknown entities', async () => {

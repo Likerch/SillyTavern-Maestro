@@ -32,6 +32,8 @@ export const PASSPORT_TARGET = 'dossier-passport';
 export const PLACE_TARGET = 'dossier-place';
 export const ALIAS_TARGET = 'dossier-chat-alias';
 export const NOTE_TARGET = 'dossier-note';
+/** The description entry a fix made for a place (undo removes it while it is still the empty stub). */
+export const PLACE_ENTRY_TARGET = 'dossier-place-entry';
 
 /** The canon's default override fields (M6 store DEFAULT_OVERRIDE_FIELDS). */
 const DEFAULT_OVERRIDE_FIELDS = ['content', 'key', 'keysecondary', 'comment'];
@@ -161,8 +163,11 @@ export class DossierActions {
         journal.registerUndo(PASSPORT_TARGET, (change) => this.undoPassport(change));
         journal.registerUndo(PLACE_TARGET, (change) => this.undoPlace(change));
         journal.registerUndo(ALIAS_TARGET, (change) => this.undoAlias(change));
-        // A note changed nothing: undoing it has nothing to revert.
-        journal.registerUndo(NOTE_TARGET, async () => true);
+        // A note changed nothing: undoing it has nothing to revert. Records before 1.11 kept the place fix here too.
+        journal.registerUndo(NOTE_TARGET, (change) =>
+            typeof change.ref.placeId === 'string' ? this.undoPlaceEntry(change) : Promise.resolve(true),
+        );
+        journal.registerUndo(PLACE_ENTRY_TARGET, (change) => this.undoPlaceEntry(change));
         // Base books never become «auto» (plan §8); notes are never applied automatically either.
         this.app.autonomy.neverAuto(FIX_FILE_KIND);
         this.app.autonomy.neverAuto(NOTE_KIND);
@@ -443,6 +448,25 @@ export class DossierActions {
         return true;
     }
 
+    /**
+     * The place fix made (or linked) a description entry: the link goes, and the entry too while it is still the empty
+     * stub the fix wrote — a description written since stays in the canon.
+     */
+    private async undoPlaceEntry(change: JournalChange): Promise<boolean> {
+        const places = this.sources.places();
+        const id = change.ref.placeId;
+        if (!places || typeof id !== 'string') return false;
+        const entry = places.get(id)?.entry;
+        if (!entry) return true;
+        const canon = this.canon();
+        if (canon && entry.world === canon.bookName()) {
+            const item = (await canon.list({ kind: 'addition' })).find((candidate) => candidate.uid === entry.uid);
+            if (item && item.meta.type === 'place' && isPlaceStub(item.entry.content)) await canon.remove(item.uid);
+        }
+        await places.update(id, { entry: undefined });
+        return true;
+    }
+
     private async undoAlias(change: JournalChange): Promise<boolean> {
         const world = this.sources.world();
         const alias = change.ref.alias;
@@ -502,7 +526,12 @@ export class DossierActions {
                 ];
             case 'placeEntry':
                 return [
-                    { target: NOTE_TARGET, ref: { placeId: payload.placeId }, before: null, after: payload.placeId },
+                    {
+                        target: PLACE_ENTRY_TARGET,
+                        ref: { placeId: payload.placeId },
+                        before: null,
+                        after: this.sources.places()?.get(payload.placeId)?.name ?? payload.placeId,
+                    },
                 ];
             case 'chatAlias': {
                 // The name is kept with the change so the journal reads «Прозвище: Лиса · Кто это: Лира».
@@ -881,4 +910,9 @@ export class DossierActions {
         }
         return count;
     }
+}
+
+/** The description stub places.ensureEntry writes: «Place: X», maybe «Part of: Y», and an empty «Description:». */
+function isPlaceStub(content: unknown): boolean {
+    return typeof content === 'string' && /^Place: [^\n]*(\nPart of: [^\n]*)?\nDescription:\s*$/.test(content.trim());
 }

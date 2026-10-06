@@ -13,6 +13,7 @@ import {
     FIX_KIND,
     NOTE_KIND,
     NOTE_TARGET,
+    PLACE_ENTRY_TARGET,
     PASSPORT_TARGET,
     PLACE_TARGET,
     SPREAD_KIND,
@@ -45,6 +46,7 @@ const TARGETS = [
     PLACE_TARGET,
     ALIAS_TARGET,
     NOTE_TARGET,
+    PLACE_ENTRY_TARGET,
     STYLE_UP_TARGET,
     STYLE_UP_PART_TARGET,
 ];
@@ -59,7 +61,7 @@ describe('M7 labels', () => {
         }
     });
 
-    it('names every kind and describes the eight journal targets', () => {
+    it('names every kind and describes the nine journal targets', () => {
         expect(dossierModule.targets?.map((spec) => spec.target).sort()).toEqual([...TARGETS].sort());
         for (const locale of ['en', 'ru'] as const) {
             for (const kind of KINDS) {
