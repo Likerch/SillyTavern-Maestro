@@ -293,10 +293,20 @@ export function createAutonomy(deps: AutonomyDeps, options: AutonomyOptions = {}
         };
         const action = { label: i18n.t('core.autonomy.apply'), run };
         if (proposal.sourceMessage !== undefined) {
+            // A line of the strip under the message (plan-2 §5); «Не надо» lets it go like a rejected card.
+            const dismiss = () => {
+                if (done) return;
+                done = true;
+                off?.();
+                record(proposal.kind, 'rejected');
+            };
             off = ui.messageBadge(proposal.sourceMessage, {
                 id: `maestro-autonomy-${++badgeSeq}`,
                 text: proposal.title,
+                kind: 'proposal',
+                icon: 'fa-wand-magic-sparkles',
                 action,
+                actions: [{ label: i18n.t('core.autonomy.dismiss'), run: dismiss }],
             });
         } else {
             ui.notice(proposal.title, { action, importance: 'important' });

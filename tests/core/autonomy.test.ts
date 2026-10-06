@@ -218,6 +218,21 @@ describe('decide', () => {
         expect(autonomy.stats()).toEqual([expect.objectContaining({ kind: 'canon.fact', accepted: 1, streak: 1 })]);
     });
 
+    it('notify: the line under the message is a proposal; «No, thanks» lets it go as a rejection', async () => {
+        const item = proposal({ sourceMessage: 4 });
+        await autonomy.decide(item, 'notify');
+        const badge = ui.badges[0]!;
+        expect(badge.badge).toMatchObject({ kind: 'proposal', text: 'Anna has a sister' });
+        const dismiss = badge.badge.actions?.[0];
+        expect(dismiss?.label).toBe('No, thanks');
+        await dismiss!.run();
+        badge.badge.action!.run();
+        expect(badge.removed).toBe(true);
+        await Promise.resolve();
+        expect(item.applied).toEqual([]);
+        expect(autonomy.stats()).toEqual([expect.objectContaining({ kind: 'canon.fact', rejected: 1, accepted: 0 })]);
+    });
+
     it('notify: uses a notice when there is no source message', async () => {
         const item = proposal();
         expect(await autonomy.decide(item, 'notify')).toBe('notified');

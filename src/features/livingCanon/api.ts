@@ -41,7 +41,11 @@ export interface LivingCanonApi {
     provisional(): LivingFact[];
     /** Explicit acceptance by the user (confirms when the contradiction check is clean). */
     accept(uid: number): Promise<boolean>;
-    drop(uid: number): Promise<void>;
+    /**
+     * The user drops a fact (it leaves the canon; the name is not offered again in this chat). `wrong`: Maestro took it
+     * for a fact by mistake («Это ошибка» under the message) — kept on the record for the statistics and the revision.
+     */
+    drop(uid: number, options?: { wrong?: boolean }): Promise<void>;
     /** Queues the batch extraction now (normally every N messages). */
     extractNow(): Promise<void>;
     onChange(listener: () => void): Unsubscribe;

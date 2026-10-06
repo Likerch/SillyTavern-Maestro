@@ -108,6 +108,16 @@ export const LIVING_STRINGS: I18nParts = {
         'm26.error.noCanon': '“Chat canon” is off: there is nowhere to write the fact.',
         'm26.error.stale': 'The reply this fact came from has changed.',
         'm26.error.payload': 'This card cannot be read.',
+        'm26.strip.named': '{name} — {type}',
+        'm26.strip.fact': 'Remembered: {what} (provisional)',
+        'm26.strip.confirmed': 'Fact confirmed: {what}',
+        'm26.strip.dropped': 'Forgot: {what}',
+        'm26.strip.wrong': 'Marked as my mistake and forgot: {what}',
+        'm26.strip.confirm': 'Right',
+        'm26.strip.forget': 'Forget',
+        'm26.strip.mistake': 'A mistake',
+        'm26.strip.hint':
+            '“Right” makes it confirmed canon. “Forget” takes it out of the canon. “A mistake” takes it out too and notes that I took it for a fact wrongly. Either way the name is not offered again in this chat.',
     },
     ru: {
         'm26.title': 'Живой канон',
@@ -215,5 +225,15 @@ export const LIVING_STRINGS: I18nParts = {
         'm26.error.noCanon': 'Выключен «Канон чата»: записать факт некуда.',
         'm26.error.stale': 'Ответ, из которого взят факт, изменился.',
         'm26.error.payload': 'Не удаётся прочитать эту карточку.',
+        'm26.strip.named': '{name} — {type}',
+        'm26.strip.fact': 'Запомнил: {what} (пробно)',
+        'm26.strip.confirmed': 'Факт подтвердился: {what}',
+        'm26.strip.dropped': 'Забыл: {what}',
+        'm26.strip.wrong': 'Отметил как свою ошибку и забыл: {what}',
+        'm26.strip.confirm': 'Верно',
+        'm26.strip.forget': 'Забыть',
+        'm26.strip.mistake': 'Это ошибка',
+        'm26.strip.hint':
+            '«Верно» — сделать подтверждённым каноном. «Забыть» — убрать из канона. «Это ошибка» — тоже убрать и запомнить, что я принял это за факт по ошибке. В обоих случаях это название в этом чате больше не предлагаю.',
     },
 };

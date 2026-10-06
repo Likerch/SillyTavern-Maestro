@@ -1,10 +1,18 @@
-// Settings tab (plan §7): language, debug, mode, notifications (plan-2 §3: how much pops up, technical details),
-// budgets, profiles per task, autonomy levels (by the kinds' human names), modules and data actions, then the
-// sections modules add (Ui.addSettingsSection, e.g. the look). Values are written straight into CoreSettings, then
-// saved and announced with notify(path).
+// Settings tab (plan §7): language, debug, mode, notifications (plan-2 §3: how much pops up, technical details; §5: what
+// the strip under chat messages shows), budgets, profiles per task, autonomy levels (by the kinds' human names), modules
+// and data actions, then the sections modules add (Ui.addSettingsSection, e.g. the look). Values are written straight
+// into CoreSettings, then saved and announced with notify(path).
 import { kindLabel } from '../../core/labels';
 import { ConsoleLogger } from '../../core/logger';
-import type { AutonomyLevel, CoreSettings, NotifyLevel, PultTab, Unsubscribe } from '../../shared/contracts';
+import { CHAT_NOTICES } from '../../core/settings';
+import type {
+    AutonomyLevel,
+    ChatNoticesLevel,
+    CoreSettings,
+    NotifyLevel,
+    PultTab,
+    Unsubscribe,
+} from '../../shared/contracts';
 import { banner, emptyState, section } from '../components/card';
 import { field, numberInput, select, toggle } from '../components/controls';
 import type { SelectOption } from '../components/controls';
@@ -93,6 +101,19 @@ export function settingsTab(env: ViewEnv): PultTab {
                     },
                 }),
                 t('ui.settings.notifyLevelHint'),
+            ),
+            field(
+                t('ui.settings.chatNotices'),
+                select<ChatNoticesLevel>({
+                    value: core().chatNotices ?? 'all',
+                    label: t('ui.settings.chatNotices'),
+                    options: CHAT_NOTICES.map((value) => ({ value, label: t(`ui.settings.chatNotices.${value}`) })),
+                    onChange: (value) => {
+                        core().chatNotices = value;
+                        commit('core.chatNotices');
+                    },
+                }),
+                t('ui.settings.chatNoticesHint'),
             ),
             toggle({
                 label: t('ui.settings.showTechnical'),

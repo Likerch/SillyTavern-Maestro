@@ -1,10 +1,13 @@
-// Maestro's UI shell: pult (tabs registry), entry points, notices, confirmations, message badges, styles,
-// slash commands, health checks and the first-run wizard. Core views are registered by app.ts after mount().
+// Maestro's UI shell: pult (tabs registry), entry points, notices, confirmations, the strip under chat messages (with
+// the memory-only lines of Ui.messageBadge), styles, slash commands, health checks and the first-run wizard. Core views
+// and the Inbox's strip provider are registered by app.ts after mount().
 import type {
     HealthCheck,
     Host,
     I18n,
     Logger,
+    MessageBadgeSpec,
+    MessageStripProvider,
     NoticeImportance,
     NoticeOptions,
     NotifyLevel,
@@ -12,6 +15,7 @@ import type {
     SettingsSection,
     SettingsService,
     SlashCommandSpec,
+    StripItem,
     Ui,
     Unsubscribe,
     WizardStep,
@@ -21,8 +25,9 @@ import { el, prefersReducedMotion, setButtonErrorHandler } from './components/do
 import { EntryPoints } from './views/entry-points';
 import { healthTab } from './views/health';
 import { inboxTab } from './views/inbox';
+import { inboxStripProvider } from './views/inbox-strip';
 import { journalTab } from './views/journal';
-import { MessageBadges } from './views/message-badges';
+import { MessageStrip } from './views/message-strip';
 import { overviewTab } from './views/overview';
 import { Pult } from './views/pult';
 import { onRegistryChange } from './views/registries';
@@ -52,6 +57,7 @@ export interface UiImpl extends Ui {
     addSlashCommand(command: SlashCommandSpec): Unsubscribe;
     closePult(): void;
     addSettingsSection(section: SettingsSection): Unsubscribe;
+    addMessageStripProvider(provider: MessageStripProvider): Unsubscribe;
     /** Opens the first-run wizard if it has not been completed (also runs by itself after APP_READY). */
     runFirstRunWizardIfNeeded(): boolean;
 }
@@ -98,7 +104,7 @@ class MaestroUi implements UiImpl, Shell {
     private readonly pult: Pult;
     private readonly wizard: Wizard;
     private readonly entries: EntryPoints;
-    private readonly badges: MessageBadges;
+    private readonly strip: MessageStrip;
     private readonly slash: SlashCommands;
     private readonly checks = new Map<string, HealthCheck>();
     private readonly sections = new Map<string, SettingsSection>();
@@ -140,14 +146,23 @@ class MaestroUi implements UiImpl, Shell {
             },
         });
         this.entries = new EntryPoints({ i18n: this.i18n, log: this.log, open: () => this.openPult() });
-        this.badges = new MessageBadges(this.host, this.log);
-        this.slash = new SlashCommands(this.host, this.i18n, this.log);
-        setButtonErrorHandler((error) => {
-            this.log.error('action failed', error);
+        const actionFailed = (error: unknown) =>
             this.notice(
                 this.i18n.t('ui.actionFailed', { error: error instanceof Error ? error.message : String(error) }),
                 { level: 'error' },
             );
+        this.strip = new MessageStrip({
+            host: this.host,
+            i18n: this.i18n,
+            settings: this.settings,
+            log: this.log,
+            open: (target) => this.openTarget(target),
+            onError: actionFailed,
+        });
+        this.slash = new SlashCommands(this.host, this.i18n, this.log);
+        setButtonErrorHandler((error) => {
+            this.log.error('action failed', error);
+            actionFailed(error);
         });
     }
 
@@ -186,6 +201,7 @@ class MaestroUi implements UiImpl, Shell {
             this.coreTabs.push(this.addTab(tab));
         }
         this.coreTabs.push(deps.inbox.onChange(() => this.updateBadges()));
+        this.coreTabs.push(this.strip.addProvider(inboxStripProvider(env)));
         const jobs = deps.jobs;
         if (jobs) {
             this.entries.setJobs(jobs.list());
@@ -211,7 +227,7 @@ class MaestroUi implements UiImpl, Shell {
         this.wizard.dispose();
         this.pult.dispose();
         this.entries.dispose();
-        this.badges.dispose();
+        this.strip.dispose();
         this.slash.dispose();
         for (const node of this.styles.values()) node.remove();
         this.styles.clear();
@@ -318,12 +334,15 @@ class MaestroUi implements UiImpl, Shell {
         }
     }
 
-    messageBadge(
-        messageIndex: number,
-        badge: { id: string; text: string; action?: { label: string; run: () => void } },
-    ): Unsubscribe {
+    /** Back-compat adapter: a memory-only line of the strip under the message. */
+    messageBadge(messageIndex: number, badge: MessageBadgeSpec): Unsubscribe {
         if (this.disposed) return () => {};
-        return this.badges.add(messageIndex, badge);
+        return this.strip.badge(messageIndex, badge);
+    }
+
+    addMessageStripProvider(provider: MessageStripProvider): Unsubscribe {
+        if (this.disposed) return () => {};
+        return this.strip.addProvider(provider);
     }
 
     style(id: string, css: string): Unsubscribe {
@@ -424,6 +443,7 @@ class MaestroUi implements UiImpl, Shell {
     relocalize(): void {
         this.entries.relocalize();
         this.pult.relocalize();
+        this.strip.repaintAll();
     }
 
     onRegistryChange(listener: () => void): Unsubscribe {
@@ -449,6 +469,22 @@ class MaestroUi implements UiImpl, Shell {
                 this.log.error('settings section listener failed', error);
             }
         }
+    }
+
+    /**
+     * A strip item's window section: that window when windows exist (plan-2 §10); without windows, or without a window
+     * id (the item only knows the tab), the pult tab — which opens the tab's own window once windows exist.
+     */
+    private openTarget(target: NonNullable<StripItem['open']>): void {
+        const openWindow = (this as Ui).openWindow;
+        if (typeof openWindow === 'function' && target.window) {
+            openWindow.call(this, target.window, {
+                ...(target.tab ? { tab: target.tab } : {}),
+                ...(target.params ? { params: target.params } : {}),
+            });
+            return;
+        }
+        this.openPult(target.tab);
     }
 
     private listen(event: string, handler: (...args: unknown[]) => unknown): void {

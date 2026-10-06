@@ -3,14 +3,14 @@
 // - A name this chat uses (a record of the chat has it, or a message names it) with a namesake's sources waiting gets one
 //   Inbox card (kind 'world.sameAs', «Входящие» by default, never automatic) listing in plain words what the other one
 //   brings; «Тот же» binds those sources to the chat, «Другой» keeps them out for good (a card passport is switched off
-//   in this chat through NAI Studio 0.14+). Until the answer nothing of them is used. A badge on the message where the
-//   name first appears leads to the Inbox.
+//   in this chat through NAI Studio 0.14+). Until the answer nothing of them is used. The card names the message where
+//   the name first appears (payload.messageIndex, not sourceMessage: a swipe of that message must not drop the
+//   question), and the Inbox's items of the strip under chat messages ask it there, with the card's own answers.
 // - The dossier changes the decision later («Это тот же» / «Это другой персонаж»); every decision is journaled and
 //   undone (an undone answer is asked again).
 // Messages are read for names off the send path (the world model rebuilds after the generation): each message once,
 // into a word index (domain/world-names.ts WordIndex) the names are looked up in.
 import { adaptersOf } from '../../adapters';
-import { stableHash } from '../../domain/hash';
 import type { WorldBuild, WorldForeign, WorldSource } from '../../domain/world-identity';
 import { isLocalSource, sourceKeyOf } from '../../domain/world-identity';
 import {
@@ -58,7 +58,7 @@ export interface SameAsPayload {
     entityName: string;
     kind: string;
     keys: string[];
-    /** Where the name first appears in this chat (the badge's message), -1 if unknown. */
+    /** Where the name first appears in this chat (the strip under it asks the question), -1 if unknown. */
     messageIndex: number;
 }
 
@@ -140,7 +140,6 @@ export class IdentityDesk {
     private words = new WordIndex();
     /** Per foreign group: the first message naming it, for which needles, at which word-index version. */
     private readonly ledger = new Map<string, { sig: string; first: number; version: number }>();
-    private readonly badges = new Map<string, { index: number; off: Unsubscribe }>();
     private asking = false;
     private disposed = false;
     /** Passport switches Maestro asked for: their `passportExcludedChanged` events are echoes, not the user's. */
@@ -172,14 +171,12 @@ export class IdentityDesk {
 
     private dispose(): void {
         this.disposed = true;
-        this.clearBadges();
     }
 
-    /** Chat switch: messages and badges belong to the old chat. */
+    /** Chat switch: the messages belong to the old chat. */
     reset(): void {
         this.words = new WordIndex();
         this.ledger.clear();
-        this.clearBadges();
     }
 
     /**
@@ -200,10 +197,7 @@ export class IdentityDesk {
 
     /** Called after every build; questions only once the lorebooks are read (their sources join the same card). */
     afterBuild(loreReady: boolean): void {
-        if (this.disposed || !this.app.host.chatId()) {
-            this.clearBadges();
-            return;
-        }
+        if (this.disposed || !this.app.host.chatId() || !loreReady) return;
         let present: Present[];
         try {
             present = this.present();
@@ -211,8 +205,7 @@ export class IdentityDesk {
             this.log.warn('names of the chat could not be read', error);
             return;
         }
-        this.syncBadges(present);
-        if (loreReady) void this.ask(present);
+        void this.ask(present);
     }
 
     /** Waiting groups whose name this chat uses (a record of the chat, or a message names it). */
@@ -323,7 +316,6 @@ export class IdentityDesk {
                     this.log.warn('identity question failed', error);
                 }
             }
-            this.syncBadges(this.present());
         } finally {
             this.asking = false;
         }
@@ -730,50 +722,5 @@ export class IdentityDesk {
             }
         }
         return [...refs];
-    }
-
-    /* ---------------------------------------------------------------- badges */
-
-    /** A badge on the message where a name with an open question first appears; gone once answered. */
-    private syncBadges(present: readonly Present[]): void {
-        if (this.disposed) return;
-        const doc = this.store.current();
-        const wanted = new Map<string, Present>();
-        for (const item of present) {
-            const asked = new Set(doc.asked[item.group.key] ?? []);
-            if (item.first < 0 || !item.group.pending.some((source) => asked.has(sourceKeyOf(source)))) continue;
-            wanted.set(item.group.key, item);
-        }
-        for (const [key, badge] of [...this.badges]) {
-            if (wanted.get(key)?.first === badge.index) continue;
-            this.badges.delete(key);
-            this.unbadge(badge.off);
-        }
-        for (const [key, item] of wanted) {
-            if (this.badges.has(key)) continue;
-            try {
-                const off = this.app.ui.messageBadge(item.first, {
-                    id: `maestro-m7w-same-${stableHash(key)}`,
-                    text: this.t(`m7w.sameAs.badge.${nounOf(item.group.kind)}`, { name: item.group.name }),
-                    action: { label: this.t('m7w.sameAs.answer'), run: () => this.app.ui.openPult('inbox') },
-                });
-                this.badges.set(key, { index: item.first, off });
-            } catch (error) {
-                this.log.debug('identity badge failed', error);
-            }
-        }
-    }
-
-    private unbadge(off: Unsubscribe): void {
-        try {
-            off();
-        } catch {
-            // the badge left with its message
-        }
-    }
-
-    private clearBadges(): void {
-        for (const badge of this.badges.values()) this.unbadge(badge.off);
-        this.badges.clear();
     }
 }
