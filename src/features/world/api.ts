@@ -29,7 +29,11 @@ export type SourceKind =
     | 'ck.archive'
     | 'nai.passport'
     | 'qvink.memory'
-    | 'place';
+    | 'place'
+    | 'des.workshop';
+
+/** Where a source lives (plan-2 §9): this chat, the chat's card, or every chat (global stores, other stories). */
+export type SourceScope = 'chat' | 'card' | 'global';
 
 /** Where something about an entity lives; enough to open it (book + uid, passport id, message index). */
 export interface EntitySource {
@@ -43,6 +47,23 @@ export interface EntitySource {
     passportId?: string;
     /** Avatar file of the character card that owns the source (passports, card books). */
     avatar?: string;
+    // Additions of plan-2 §9 (optional so that fakes of the stage-3 contract stay valid).
+    /** Where the data lives; missing: this chat. */
+    scope?: SourceScope;
+    /** Stable key of the chat's identity decisions (`lore:<book>#<uid>`, `ck:<book>#<name>`, `nai:<owner>#<id>`, `des:<name>`). */
+    key?: string;
+}
+
+/** What the chat decided (or not yet) about the card/global sources answering to an entity's name (plan-2 §9). */
+export interface EntityIdentity {
+    /** The name is the card's own: the card or a group member, the persona, or used by the card's text or book. */
+    ofCard: boolean;
+    /** Card or global sources used for this entity: the card's own, or bound with «Тот же». */
+    shared: EntitySource[];
+    /** A namesake's sources waiting for the user's answer: not used until then. */
+    pending: EntitySource[];
+    /** Sources declared another one's in this chat («Другой»): never used here. */
+    apart: EntitySource[];
 }
 
 export interface Entity {
@@ -105,4 +126,15 @@ export interface WorldModelApi {
     separate(aId: string, bId: string): Promise<void>;
     mergeCandidates(): MergeCandidate[];
     onChange(listener: () => void): Unsubscribe;
+    // Additions of plan-2 §9 (optional so that fakes of the stage-3 contract stay valid).
+    /** Card/global sources of the entity's name: used here, waiting for an answer, declared another one's. */
+    identity?(entityId: string): EntityIdentity | undefined;
+    /** «Это тот же»: these keys (every waiting and declared-another one when omitted) join the entity; journaled. */
+    sameAs?(entityId: string, keys?: string[]): Promise<void>;
+    /** «Это другой персонаж»: these card/global sources (all shared and waiting ones when omitted) leave; journaled. */
+    different?(entityId: string, keys?: string[]): Promise<void>;
+    /** Binds sources Maestro made for this chat («Оформить» wrote an archive): no question, no journal record. */
+    bindSources?(entityId: string, keys: string[]): Promise<void>;
+    /** `${book}#${uid}` of lore entries and archives not used in this chat (a namesake's: waiting or declared). */
+    foreignRefs?(): string[];
 }

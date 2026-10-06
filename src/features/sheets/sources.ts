@@ -4,6 +4,9 @@
 // cache): only when it is there does the WI filter of the sheet generation drop the rest of the lore — otherwise
 // the generation falls back to ST's own prompt and must keep its lore. Archives are taken from the entries ST loads
 // for this generation (seen through keepEntry) and, failing that, from the CK repo books.
+// Other stories (plan-2 §9): an archive with the target's name may be a namesake's. With the world model only the
+// target's own archives count (its entity's sources); without it, archives in the chat's own books, archives Maestro
+// wrote for this chat, and any archive only for the card's own names. The card data comes from the chat's own cards.
 import { adaptersOf } from '../../adapters';
 import type { BunnyMoEntryLike } from '../../domain/bunnymo';
 import {
@@ -20,7 +23,9 @@ import {
 import type { ExcerptLine, SheetCharacterData } from '../../domain/sheet-context';
 import { detectSheetCommand } from '../../domain/sheets';
 import type { SheetCommand } from '../../domain/sheets';
+import { cardNameMatcher, cardTexts, chatOriginTag, entryOrigin, localBookNames } from '../../domain/world-scope';
 import type { App, Logger } from '../../shared/contracts';
+import type { WorldModelApi } from '../world/api';
 import { sheetMark } from './marks';
 
 type Dict = Record<string, unknown>;
@@ -32,6 +37,18 @@ function isDict(value: unknown): value is Dict {
 /** How far back the DES tracker of the target is looked for. */
 const TRACKER_LOOKBACK = 30;
 
+/** Which archives may speak for a target in this chat. */
+interface ArchiveReach {
+    /** The world model knows the target: only its own archives (`book#uid`). */
+    refs: Set<string> | null;
+    /** The target is the card's own name: any archive of that name. */
+    wide: boolean;
+    /** The chat's own books. */
+    local: Set<string>;
+    /** Origin tag of entries Maestro wrote for this chat. */
+    origin: string | null;
+}
+
 export class SheetSources {
     private command: SheetCommand | null = null;
     private target: string | null = null;
@@ -40,6 +57,7 @@ export class SheetSources {
     /** Command entry content seen in this generation's WI entries. */
     private instructionSeen: string | null = null;
     private readonly archivesSeen = new Map<string, { item: string; match: 'exact' | 'fuzzy' }>();
+    private reachNow: ArchiveReach | null = null;
 
     constructor(
         private readonly app: App,
@@ -53,6 +71,7 @@ export class SheetSources {
         this.instructionLoaded = null;
         this.instructionSeen = null;
         this.archivesSeen.clear();
+        this.reachNow = this.reach(target);
     }
 
     end(): void {
@@ -60,6 +79,64 @@ export class SheetSources {
         this.target = null;
         this.instructionLoaded = null;
         this.instructionSeen = null;
+        this.reachNow = null;
+    }
+
+    /** The chat's own cards: the current character, or every member of a group. */
+    private chatCards(): STCharacter[] {
+        const ctx = this.app.host.ctx();
+        const characters = Array.isArray(ctx.characters) ? ctx.characters : [];
+        if (ctx.groupId) {
+            const group = (ctx.groups ?? []).find((item) => item.id === ctx.groupId);
+            return (group?.members ?? [])
+                .map((avatar) => characters.find((character) => character?.avatar === avatar))
+                .filter((character): character is STCharacter => !!character);
+        }
+        const current = ctx.characterId === undefined ? undefined : characters[Number(ctx.characterId)];
+        return current ? [current] : [];
+    }
+
+    /** Which archives may speak for the target (plan-2 §9). */
+    private reach(target: string): ArchiveReach {
+        const ctx = this.app.host.ctx();
+        const cards = this.chatCards();
+        const chatId = this.app.host.chatId();
+        const books = localBookNames({ chatBook: ctx.chatMetadata?.world_info, cards });
+        const reach: ArchiveReach = {
+            refs: null,
+            wide: false,
+            local: new Set([...books.chat, ...books.card]),
+            origin: chatId ? chatOriginTag(chatId) : null,
+        };
+        let entity: ReturnType<WorldModelApi['resolve']>;
+        try {
+            const world = this.app.modules.api<WorldModelApi>('world');
+            entity = world?.resolve(target, 'character') ?? world?.resolve(target);
+        } catch (error) {
+            this.log.debug('world model is not available for the sheet', error);
+        }
+        if (entity) {
+            reach.refs = new Set(
+                entity.sources
+                    .filter((source) => (source.kind === 'ck.archive' || source.kind === 'lore.entry') && source.world)
+                    .map((source) => `${source.world}#${source.uid}`),
+            );
+            return reach;
+        }
+        const persona = typeof ctx.name1 === 'string' ? ctx.name1 : '';
+        const ofCard = cardNameMatcher({
+            names: [...cards.map((character) => character.name), persona].filter(Boolean),
+            texts: cards.flatMap((character) => cardTexts(character)),
+        });
+        reach.wide = cards.some((character) => exactName(character.name, target)) || ofCard(target);
+        return reach;
+    }
+
+    /** An archive entry may speak for the target in this chat. */
+    private allowed(entry: Dict, reach: ArchiveReach): boolean {
+        const book = typeof entry.world === 'string' ? entry.world : '';
+        if (reach.refs) return reach.refs.has(`${book}#${String(entry.uid ?? '')}`);
+        return reach.wide || reach.local.has(book) || (!!reach.origin && entryOrigin(entry) === reach.origin);
     }
 
     /** Loads the command entry before the WI scan; the lore filter is on only when it was found. */
@@ -84,6 +161,8 @@ export class SheetSources {
         }
         const match = this.target ? archiveMatch(entry as BunnyMoEntryLike, this.target) : null;
         if (match) {
+            // A namesake's archive of another story stays out of the scan as well (plan-2 §9).
+            if (this.reachNow && !this.allowed(entry, this.reachNow)) return false;
             if (usable) {
                 const key = `${String(entry.world ?? '')}::${String(entry.uid ?? '')}`;
                 this.archivesSeen.set(key, { item: entry.content as string, match });
@@ -119,12 +198,14 @@ export class SheetSources {
     async archives(target: string): Promise<string[]> {
         if (target === this.target && this.archivesSeen.size) return preferExact([...this.archivesSeen.values()]);
         const adapters = adaptersOf(this.app);
-        const books = [...new Set([...adapters.ck.repoBooks(), ...adapters.bunnymo.books().archives])];
+        const reach = this.reach(target);
+        const books = [...new Set([...adapters.ck.repoBooks(), ...adapters.bunnymo.books().archives, ...reach.local])];
         const found: { item: string; match: 'exact' | 'fuzzy' }[] = [];
         for (const book of books) {
             for (const entry of await this.entriesOf(book)) {
                 const match = archiveMatch(entry, target);
-                if (match && typeof entry.content === 'string') found.push({ item: entry.content, match });
+                if (!match || typeof entry.content !== 'string' || !this.allowed(entry as Dict, reach)) continue;
+                found.push({ item: entry.content, match });
             }
         }
         return preferExact(found);
@@ -135,10 +216,11 @@ export class SheetSources {
         const ctx = this.app.host.ctx();
         const data: SheetCharacterData = { target, archives };
         const current = ctx.characterId === undefined ? undefined : ctx.characters[Number(ctx.characterId)];
+        // Only the chat's own cards: another card with the same name belongs to another story (plan-2 §9).
         const card =
             current && exactName(current.name, target)
                 ? current
-                : (findByName(ctx.characters, (character) => character?.name, target) ??
+                : (findByName(this.chatCards(), (character) => character?.name, target) ??
                   (current && sameCharacter(current.name, target) ? current : undefined));
         if (card) {
             data.card = {
@@ -227,6 +309,8 @@ export class SheetSources {
                     comment: entry.comment,
                     content: entry.content,
                     world: book,
+                    uid: entry.uid,
+                    extensions: entry.extensions,
                 }));
         } catch (error) {
             this.log.debug(`lorebook ${book} did not load`, error);

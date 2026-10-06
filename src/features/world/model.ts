@@ -4,6 +4,8 @@
 // until WORLDINFO_UPDATED of a book that was read, a change of the active books, roles or canon; DES-RU's
 // onNamesChanged and the place registry trigger a cheap rebuild. Merge candidates become one Inbox card each
 // (kind 'world.merge'), proposed by the leader tab only; decisions live in the chat document 'world'.
+// Card and global records join a person of this chat only when they are the card's own or the user bound them
+// (plan-2 §9, domain/world-identity.ts scopes); the identity desk (identity.ts) asks about the rest.
 import { adaptersOf } from '../../adapters';
 import type { DesRuApi } from '../../adapters';
 import type { DesCharacter, DesTrackerSnapshot } from '../../domain/des-tracker';
@@ -13,13 +15,15 @@ import { assembleWorld, entityById, resolveName } from '../../domain/world-ident
 import type { WorldBuild } from '../../domain/world-identity';
 import { buildMentionMatcher, findMentions, mentionNeedles, normalizeName, pairKey } from '../../domain/world-names';
 import type { MentionMatcher } from '../../domain/world-names';
+import { cardNameMatcher } from '../../domain/world-scope';
 import type { App, JournalChange, Logger, Proposal, Unsubscribe } from '../../shared/contracts';
 import type { BookRolesApi } from '../bookRoles/api';
 import type { CanonApi } from '../canon/api';
 import type { PlacesApi } from '../places/api';
-import type { Entity, EntityKind, Fact, MergeCandidate, WorldModelApi } from './api';
+import type { Entity, EntityIdentity, EntityKind, Fact, MergeCandidate, WorldModelApi } from './api';
+import { IdentityDesk } from './identity';
 import { WorldSources } from './sources';
-import type { LoreSources } from './sources';
+import type { CheapSources, LoreSources } from './sources';
 import { addPair, aliasTarget, putAlias } from './store';
 import type { WorldDoc, WorldStore } from './store';
 
@@ -44,6 +48,7 @@ const EMPTY_BUILD: WorldBuild = {
     index: new Map(),
     candidates: [],
     redirects: new Map(),
+    foreign: [],
 };
 
 interface DesLatest {
@@ -103,7 +108,10 @@ export class WorldModel {
     private knownCards = new Map<string, MergePayload>();
     private rejectedSeen = 0;
     private readonly appliedPairs = new Set<string>();
+    /** «Of the card» for the current card text (rebuilt when the card or its books change). */
+    private cardMatch: { sig: string; match: (name: string) => boolean } | null = null;
     readonly sources: WorldSources;
+    readonly identity: IdentityDesk;
 
     constructor(
         private readonly app: App,
@@ -111,6 +119,15 @@ export class WorldModel {
         private readonly log: Logger,
     ) {
         this.sources = new WorldSources(app, log);
+        this.identity = new IdentityDesk(app, store, log, {
+            moduleId: WORLD_ID,
+            build: () => this.build,
+            rebuild: () => this.rebuildNow(),
+            forms: (name) => this.forms(name),
+            stems: () => !this.formsApi,
+            ofCard: (name) => this.cardMatch?.match(name) ?? false,
+            generation: () => this.generation,
+        });
     }
 
     /* ---------------------------------------------------------------- lifecycle */
@@ -132,7 +149,8 @@ export class WorldModel {
             }),
         );
         offs.push(
-            app.bus.on('message:invalidated', ({ messageIndex }) => {
+            app.bus.on('message:invalidated', ({ messageIndex, reason }) => {
+                this.identity.forgetMentions(messageIndex, reason);
                 // A swipe of the reply in progress changes nothing committed.
                 const previous = this.committed;
                 this.committed = committedIndex(app.host.ctx().chat ?? []);
@@ -159,6 +177,7 @@ export class WorldModel {
             }),
         );
         offs.push(this.registerApplier());
+        offs.push(...this.identity.install());
         app.journal.registerUndo(ALIAS_TARGET, (change) => this.undoAlias(change));
         app.journal.registerUndo(MERGE_TARGET, (change) => this.undoMerge(change));
         app.journal.registerUndo(SEPARATE_TARGET, (change) => this.undoSeparate(change));
@@ -200,6 +219,8 @@ export class WorldModel {
         this.pending = { cheap: false, lore: false };
         this.knownCards = new Map();
         this.appliedPairs.clear();
+        this.cardMatch = null;
+        this.identity.reset();
         this.committed = committedIndex(this.app.host.ctx().chat ?? []);
         this.store.reset();
         this.emit();
@@ -309,9 +330,23 @@ export class WorldModel {
         } catch {
             naiApi = undefined;
         }
-        this.subscribe('nai', naiApi, () =>
-            nai.on('passportsSaved', () => this.request({ cheap: true }, CHANGE_DELAY_MS)),
-        );
+        this.subscribe('nai', naiApi, () => {
+            const offSaved = nai.on('passportsSaved', () => this.request({ cheap: true }, CHANGE_DELAY_MS));
+            // NAI Studio 0.14+: a passport switched off (or on) in this chat leaves (or joins) the chat's passports.
+            const offExcluded =
+                typeof nai.onPassportExcluded === 'function'
+                    ? nai.onPassportExcluded((detail) => {
+                          void this.identity
+                              .mirrorExclusion(detail)
+                              .catch((error: unknown) => this.log.warn('NAI passport switch not mirrored', error))
+                              .finally(() => this.request({ cheap: true }, CHANGE_DELAY_MS));
+                      })
+                    : () => {};
+            return () => {
+                offSaved();
+                offExcluded();
+            };
+        });
         const places = this.app.modules.api<PlacesApi>('places');
         this.subscribe('places', places, () =>
             (places as PlacesApi).onChange(() => this.request({ cheap: true }, CHANGE_DELAY_MS)),
@@ -368,17 +403,45 @@ export class WorldModel {
         const cheap = this.sources.cheap(this.snapshot);
         const doc = this.store.current();
         const lore = this.lore;
+        const ofCard = this.cardMatcher(cheap, lore);
         this.build = assembleWorld({
             records: [...cheap.records, ...(lore?.records ?? [])],
             attach: lore?.attach ?? [],
             aliasGroups: cheap.aliasGroups,
-            decisions: { aliases: doc.aliases, merged: doc.merged, separated: doc.separated },
+            decisions: {
+                aliases: doc.aliases,
+                merged: doc.merged,
+                separated: doc.separated,
+                bound: doc.bound,
+                apart: doc.apart,
+            },
             forms: this.forms,
+            ofCard,
         });
         this.matcher = null;
         this.built = true;
         this.emit();
-        if (lore && !this.loreStale) void this.proposeCandidates();
+        const loreReady = !!lore && !this.loreStale;
+        if (loreReady) void this.proposeCandidates();
+        // P15: reading the chat for names waits for the reply to finish (the build after it asks).
+        if (this.generating()) this.request({ cheap: true }, CHANGE_DELAY_MS);
+        else this.identity.afterBuild(loreReady && this.store.loaded());
+    }
+
+    /** «Of the card» over the card's names and text and its books' entries (kept while they stay the same). */
+    private cardMatcher(cheap: CheapSources, lore: LoreSources | null): (name: string) => boolean {
+        const texts = [...cheap.cardTexts, ...(lore?.cardBookTexts ?? [])];
+        const sig = [
+            cheap.cardNames.join('\u0001'),
+            texts.length,
+            texts.reduce((sum, item) => sum + item.length, 0),
+            lore?.at ?? 0,
+            this.formsApi ? 1 : 0,
+        ].join('|');
+        if (this.cardMatch?.sig !== sig) {
+            this.cardMatch = { sig, match: cardNameMatcher({ names: cheap.cardNames, texts, forms: this.forms }) };
+        }
+        return this.cardMatch.match;
     }
 
     /** Builds the cheap part now if nothing is built yet; asks for the lorebooks (read later, off the send path). */
@@ -833,6 +896,25 @@ export class WorldModel {
             separate: (aId, bId) => this.separate(aId, bId),
             mergeCandidates: () => this.mergeCandidates(),
             onChange: (listener) => this.onChange(listener),
+            identity: (entityId) => this.entityIdentity(entityId),
+            sameAs: async (entityId, keys) => this.identity.sameAs(this.need(entityId), keys),
+            different: async (entityId, keys) => this.identity.different(this.need(entityId), keys),
+            bindSources: async (entityId, keys) => this.identity.bind(this.need(entityId), keys),
+            foreignRefs: () => {
+                this.ensureBuilt();
+                return this.identity.foreignRefs();
+            },
         };
+    }
+
+    private entityIdentity(entityId: string): EntityIdentity | undefined {
+        const entity = this.get(entityId);
+        return entity ? this.identity.identity(entity) : undefined;
+    }
+
+    private need(entityId: string): Entity {
+        const entity = this.get(entityId);
+        if (!entity) throw new Error(this.app.i18n.t('m7w.error.noEntity'));
+        return entity;
     }
 }

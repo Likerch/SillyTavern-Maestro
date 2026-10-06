@@ -140,20 +140,27 @@ describe('assembleWorld: merging', () => {
         expect(chain.entities[0]?.sources).toHaveLength(5);
     });
 
-    it('drops records without names and optional records nobody else names', () => {
+    // Before plan-2 §9 an archive of a repo that is not active joined whenever one of its names was known (here «Liz»
+    // through a DES alias group): exactly how a namesake of another story slipped in. Now only the card's own joins.
+    it('drops records without names; repo archives join only when they are the card’s', () => {
         const archive = (name: string): WorldRecord => ({
             kind: 'character',
             name,
-            source: { kind: 'ck.archive', ref: `Repo#${name}`, label: name },
+            source: { kind: 'ck.archive', ref: `Repo#${name}`, label: name, scope: 'global', key: `ck:Repo#${name}` },
             rank: 3,
-            optional: true,
         });
         const build = assembleWorld({
             records: [card('Elizabeth'), roster('  '), archive('Странник'), archive('Liz'), archive('Elizabeth')],
             aliasGroups: [{ Elizabeth: ['Liz'] }],
+            ofCard: (name) => name.trim().toLowerCase() === 'elizabeth',
         });
         expect(build.entities.map((entity) => entity.name)).toEqual(['Elizabeth']);
-        expect(build.entities[0]?.sources.filter((source) => source.kind === 'ck.archive')).toHaveLength(2);
+        expect(build.entities[0]?.sources.filter((source) => source.kind === 'ck.archive')).toHaveLength(1);
+        // «Liz» is Elizabeth here (DES alias): her repo archive waits for the question under her name.
+        expect(build.foreign.map((group) => [group.key, group.entity ?? null, group.local])).toEqual([
+            ['being\u0000elizabeth', 'character:elizabeth', true],
+            ['being\u0000странник', null, false],
+        ]);
     });
 });
 

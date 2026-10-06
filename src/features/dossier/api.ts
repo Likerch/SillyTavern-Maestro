@@ -27,7 +27,10 @@ export type DossierFindingKind =
     | 'nameMismatch'
     | 'formsMissing'
     | 'appearanceMismatch'
-    | 'descriptionMismatch';
+    | 'descriptionMismatch'
+    // Plan-2 §9: a namesake of another story (waiting for an answer, declared another one) and data used from outside.
+    | 'otherStory'
+    | 'sharedStory';
 
 export interface DossierFinding {
     kind: DossierFindingKind;

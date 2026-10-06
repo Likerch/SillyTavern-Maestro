@@ -274,7 +274,7 @@ export function inboxTab(env: ViewEnv): PultTab {
                     onClick: () => env.inbox.snooze(item.id, SNOOZE_MS),
                 }),
                 button({
-                    label: t('ui.inbox.reject'),
+                    label: item.rejectLabel ?? t('ui.inbox.reject'),
                     icon: 'fa-xmark',
                     kind: 'danger',
                     onClick: () => env.inbox.reject(item.id),
@@ -298,7 +298,7 @@ export function inboxTab(env: ViewEnv): PultTab {
                       })
                     : null,
                 button({
-                    label: t('ui.inbox.accept'),
+                    label: item.acceptLabel ?? t('ui.inbox.accept'),
                     icon: 'fa-check',
                     kind: 'primary',
                     disabled: item.deferred === true,

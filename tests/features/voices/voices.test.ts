@@ -77,6 +77,18 @@ describe('cards', () => {
         expect(started.loads).toEqual([ARCHIVES, ARCHIVES]);
     });
 
+    it('takes no archive by the bare name: a namesake’s archive of another story stays out (plan-2 §9)', async () => {
+        // The world model keeps Anna's same-name archive out of this chat until the user says it is her.
+        const started = await start({
+            world: [{ name: 'Kai', kind: 'persona' }, { name: 'Anna' }, { name: 'Corvin', archive: `${ARCHIVES}#2` }],
+        });
+        await tick();
+        expect(card(started, 'Anna')?.text).toBe(
+            '[Voice: Anna] Now: guarded, tired | Toward Kai: Friend | Goals: find the map; quest: Escape Velmora with Anna',
+        );
+        expect(started.loads).toEqual([ARCHIVES]);
+    });
+
     it('leaves out absent characters, the persona and characters hidden in DES', async () => {
         const started = await start({
             before(test) {

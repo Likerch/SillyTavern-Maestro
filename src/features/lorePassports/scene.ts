@@ -271,18 +271,28 @@ export class ScenePassports {
         }
     }
 
-    /** `${world}#${uid}` of the activated entries (not cut), then of the entries of mentioned entities. */
+    /**
+     * `${world}#${uid}` of the activated entries (not cut), then of the entries of mentioned entities. An entry the
+     * world model keeps out of this chat (a namesake's of another story, plan-2 §9) gives no passport even when ST
+     * activated it by its keyword.
+     */
     keys(text?: string, messageIndex?: number): string[] {
+        const world = this.api<WorldModelApi>('world');
+        let foreign = new Set<string>();
+        try {
+            foreign = new Set(world?.foreignRefs?.() ?? []);
+        } catch (error) {
+            this.log.debug('world model foreign entries failed', error);
+        }
         const keys: string[] = [];
-        const add = (world: unknown, uid: unknown) => {
-            if (typeof world !== 'string' || !world || typeof uid !== 'number' || !Number.isInteger(uid)) return;
-            const key = entryMetaKey(world, uid);
-            if (!keys.includes(key)) keys.push(key);
+        const add = (book: unknown, uid: unknown) => {
+            if (typeof book !== 'string' || !book || typeof uid !== 'number' || !Number.isInteger(uid)) return;
+            const key = entryMetaKey(book, uid);
+            if (!keys.includes(key) && !foreign.has(key)) keys.push(key);
         };
         for (const activation of this.turnFor(messageIndex)?.activations ?? []) {
             if (!activation.cut) add(activation.world, activation.uid);
         }
-        const world = this.api<WorldModelApi>('world');
         const source = text && text.trim() ? text : this.lastMessagesText();
         if (world && source.trim()) {
             try {

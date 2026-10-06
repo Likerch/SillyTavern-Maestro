@@ -7,9 +7,18 @@
 // - an alias of one record (passport alias, entry key) equal to the name of exactly one other entity.
 // A Russian form of an English name is never guessed: it only joins through DES/DES-RU aliases.
 // Doubtful cases become merge candidates instead (one name claimed by two entities of one kind; a short first name
-// matching full names; two cards/personas/places that an alias would glue). Pure: no DOM, no SillyTavern.
+// matching full names; two cards/personas/places that an alias would glue).
+//
+// Scopes (plan-2 §9): records of this chat and the anchors (cards, the persona, places) glue freely. A record of the
+// card or of every chat (a card passport, a CK archive, a global book, DES Workshop data) is someone of another story
+// until shown otherwise: it joins only when it is of the card (its name is the card's, plays in the card's text or
+// book) or the user bound it to this chat («Тот же»); a source declared another one's («Другой») never joins. Other
+// people (and things whose name this chat already uses) stay out — not in the entities, not in the index — and are
+// reported as foreign groups for the question. Things of the wider stores no record of this chat names join freely
+// (the setting's places, items, factions). Pure: no DOM, no SillyTavern.
 import type { WorldKind } from './world-names';
 import { entityIdOf, kindFamily, kindOrder, normalizeName, pairKey, wordsOf } from './world-names';
+import type { WorldScope } from './world-scope';
 
 export type WorldSourceKind =
     | 'card'
@@ -22,7 +31,8 @@ export type WorldSourceKind =
     | 'ck.archive'
     | 'nai.passport'
     | 'qvink.memory'
-    | 'place';
+    | 'place'
+    | 'des.workshop';
 
 /** Same shape as `EntitySource` of the world API. */
 export interface WorldSource {
@@ -34,6 +44,10 @@ export interface WorldSource {
     messageIndex?: number;
     passportId?: string;
     avatar?: string;
+    /** Where the data lives (world-scope.ts); missing: this chat. */
+    scope?: WorldScope;
+    /** Stable key of the chat's identity decisions (world-scope.ts); missing: `${kind}:${ref}`. */
+    key?: string;
 }
 
 /** Same shape as `Entity` of the world API. */
@@ -72,8 +86,11 @@ export interface WorldRecord {
     /** Canonical-name priority, lower wins (card 1 … DES roster 5). */
     rank?: number;
     present?: boolean;
-    /** Kept only when one of its names is already known (archives of CK repos that are not active). */
-    optional?: boolean;
+    /**
+     * Never asks by itself (DES Workshop data, kept by name for every chat): joins the entity this chat has under that
+     * name unless a question about the name is open; dropped when the chat has nobody of that name.
+     */
+    passive?: boolean;
 }
 
 /** A lorebook entry without a known type: attached as a source to the entity it names, never an entity itself. */
@@ -89,6 +106,10 @@ export interface WorldDecisions {
     merged: Record<string, string>;
     /** Pair keys (pairKey) of entities declared different. */
     separated: readonly string[];
+    /** Source keys of card/global records the user bound to this chat («Тот же»). */
+    bound?: readonly string[];
+    /** Source keys declared another one's in this chat («Другой»): they never join, not even of the card. */
+    apart?: readonly string[];
 }
 
 export interface AssembleInput {
@@ -99,6 +120,27 @@ export interface AssembleInput {
     decisions?: WorldDecisions;
     /** Russian case forms of a name (DES-RU), the name itself included or not. */
     forms?: (name: string) => readonly string[];
+    /** «Of the card» (world-scope cardNameMatcher): card/global records with such a name join without a question. */
+    ofCard?: (name: string) => boolean;
+}
+
+/** Card or global sources answering to a name this chat uses (or may use) that are not part of the chat's world. */
+export interface WorldForeign {
+    /** `${family}\u0000${normalised name}` (family: 'being' for people, else the kind). */
+    key: string;
+    kind: WorldKind;
+    /** The name as this chat knows it (its entity), else as the first foreign record spells it. */
+    name: string;
+    /** A record of this chat answers to the name: the namesake is here already. */
+    local: boolean;
+    /** The chat's entity of that name, when there is one. */
+    entity?: string;
+    /** Names the foreign records give (looked for in the chat's messages when the name is not local). */
+    names: string[];
+    /** Waiting for the user's answer: not used until then. */
+    pending: WorldSource[];
+    /** Declared another one's in this chat. */
+    apart: WorldSource[];
 }
 
 /** 0 = a name of the entity, 1 = an alias, 2 = a case form. */
@@ -115,12 +157,24 @@ export interface WorldBuild {
     candidates: WorldCandidate[];
     /** Former or per-record ids (`kind:name` of a merged record, a kept id) → the entity id now. */
     redirects: Map<string, string>;
+    /** Card/global sources kept out of the chat's world, by name (sorted by key). */
+    foreign: WorldForeign[];
 }
 
 const DEFAULT_RANK = 9;
 const SCORE = { sharedName: 0.6, sharedAlias: 0.5, firstNameUnique: 0.7, firstNameMany: 0.4, anchors: 0.5 };
 /** Sources that make an entity distinct by themselves: two of them never merge without the user. */
 const ANCHOR_SOURCES = new Set<WorldSourceKind>(['card', 'persona', 'place']);
+
+/** The decision key of a source. */
+export function sourceKeyOf(source: WorldSource): string {
+    return source.key ?? `${source.kind}:${source.ref}`;
+}
+
+/** A source of this chat or an anchor (card, persona, place): glues freely by name. */
+export function isLocalSource(source: WorldSource): boolean {
+    return (source.scope !== 'card' && source.scope !== 'global') || ANCHOR_SOURCES.has(source.kind);
+}
 
 interface Group {
     members: number[];
@@ -264,26 +318,126 @@ function family(kind: string): string {
     return kindFamily(kind);
 }
 
-/** Drops optional records none of whose names is known from the other records (or DES groups linked to them). */
-function keepKnown(input: AssembleInput): WorldRecord[] {
-    const base = input.records.filter((record) => !record.optional);
-    const optional = input.records.filter((record) => record.optional);
-    if (!optional.length) return [...base];
-    const known = new Set<string>();
-    for (const record of base) {
-        for (const name of [record.name, ...(record.aliases ?? [])]) known.add(normalizeName(name));
+function nameKey(kind: string, name: string): string {
+    return `${family(kind)}\u0000${normalizeName(name)}`;
+}
+
+/** A record of the card or of every chat (not an anchor): it needs the card or the user to join. */
+function isWide(record: WorldRecord): boolean {
+    return !isLocalSource(record.source);
+}
+
+/** Foreign sources collected under one name while the records are split. */
+class ForeignDrafts {
+    readonly groups = new Map<string, WorldForeign>();
+    private readonly seen = new Map<string, Set<string>>();
+
+    constructor(private readonly localNames: ReadonlyMap<string, string>) {}
+
+    /** The group a record goes to: the name this chat uses (its primary name, else an alias), else its own name. */
+    keyOf(record: { kind: string; name: string; aliases?: readonly string[] }): string {
+        const own = nameKey(record.kind, record.name);
+        if (this.localNames.has(own)) return own;
+        for (const alias of record.aliases ?? []) {
+            const key = nameKey(record.kind, alias);
+            if (normalizeName(alias) && this.localNames.has(key)) return key;
+        }
+        return own;
     }
-    for (const groups of input.aliasGroups ?? []) {
-        for (const [canonical, list] of Object.entries(groups)) {
-            const names = [canonical, ...list].map(normalizeName);
-            if (names.some((name) => known.has(name))) for (const name of names) known.add(name);
+
+    add(key: string, kind: WorldKind, name: string, source: WorldSource, status: 'pending' | 'apart'): void {
+        let group = this.groups.get(key);
+        if (!group) {
+            group = {
+                key,
+                kind,
+                name: this.localNames.get(key) ?? name.trim(),
+                local: this.localNames.has(key),
+                names: [],
+                pending: [],
+                apart: [],
+            };
+            this.groups.set(key, group);
+        }
+        if (name.trim() && !group.names.some((item) => normalizeName(item) === normalizeName(name))) {
+            group.names.push(name.trim());
+        }
+        const seen = this.seen.get(key) ?? new Set<string>();
+        this.seen.set(key, seen);
+        const sourceKey = sourceKeyOf(source);
+        if (seen.has(sourceKey)) return;
+        seen.add(sourceKey);
+        group[status].push({ ...source });
+    }
+
+    hasPending(key: string): boolean {
+        return (this.groups.get(key)?.pending.length ?? 0) > 0;
+    }
+}
+
+interface ScopeSplit {
+    admitted: WorldRecord[];
+    drafts: ForeignDrafts;
+    /** Normalised names (family-keyed) of the records of this chat and the anchors, with their first spelling. */
+    localNames: Map<string, string>;
+}
+
+/**
+ * Records of this chat and the anchors always join. A card/global record joins when bound or of the card and stays
+ * out when declared another one's; otherwise people stay out (foreign, waiting for an answer), things join unless a
+ * record of this chat already uses the name. Passive records join the name's entity unless a question is open.
+ */
+function splitByScope(records: readonly WorldRecord[], input: AssembleInput): ScopeSplit {
+    const decisions = input.decisions;
+    const bound = new Set(decisions?.bound ?? []);
+    const apart = new Set(decisions?.apart ?? []);
+    const ofCard = input.ofCard ?? (() => false);
+    const local = records.filter((record) => !isWide(record));
+    const localNames = new Map<string, string>();
+    for (const record of local) {
+        const key = nameKey(record.kind, record.name);
+        if (!localNames.has(key)) localNames.set(key, record.name.trim());
+    }
+    for (const record of local) {
+        for (const alias of record.aliases ?? []) {
+            const key = nameKey(record.kind, alias);
+            if (normalizeName(alias) && !localNames.has(key)) localNames.set(key, alias.trim());
         }
     }
-    known.delete('');
-    const kept = optional.filter((record) =>
-        [record.name, ...(record.aliases ?? [])].some((name) => known.has(normalizeName(name))),
-    );
-    return [...base, ...kept];
+    const drafts = new ForeignDrafts(localNames);
+    const admitted: WorldRecord[] = [...local];
+    const passive: WorldRecord[] = [];
+    const collides = (record: WorldRecord) =>
+        [record.name, ...(record.aliases ?? [])].some(
+            (name) => normalizeName(name) && localNames.has(nameKey(record.kind, name)),
+        );
+    for (const record of records) {
+        if (!isWide(record)) continue;
+        const key = sourceKeyOf(record.source);
+        if (apart.has(key)) {
+            drafts.add(drafts.keyOf(record), record.kind, record.name, record.source, 'apart');
+        } else if (bound.has(key) || ofCard(record.name)) {
+            admitted.push(record);
+        } else if (record.passive) {
+            passive.push(record);
+        } else if (family(record.kind) === 'being' || collides(record)) {
+            drafts.add(drafts.keyOf(record), record.kind, record.name, record.source, 'pending');
+        } else {
+            admitted.push(record);
+        }
+    }
+    const known = new Set<string>();
+    for (const record of admitted) {
+        for (const name of [record.name, ...(record.aliases ?? [])]) {
+            if (normalizeName(name)) known.add(nameKey(record.kind, name));
+        }
+    }
+    for (const record of passive) {
+        const key = drafts.keyOf(record);
+        if (drafts.hasPending(key)) drafts.add(key, record.kind, record.name, record.source, 'pending');
+        else if (known.has(nameKey(record.kind, record.name))) admitted.push(record);
+    }
+    return { admitted, drafts, localNames };
 }
 
 function addCandidate(
@@ -307,7 +461,13 @@ function addCandidate(
 
 /** Builds the entities, the name index and the merge candidates. Deterministic for the same input. */
 export function assembleWorld(input: AssembleInput): WorldBuild {
-    const records = keepKnown(input).filter((record) => normalizeName(record.name));
+    const split = splitByScope(
+        input.records.filter((record) => normalizeName(record.name)),
+        input,
+    );
+    // Input order: ids and ties do not depend on which records the scopes let in.
+    const order = new Map(input.records.map((record, index) => [record, index]));
+    const records = split.admitted.sort((a, b) => (order.get(a) ?? 0) - (order.get(b) ?? 0));
     const decisions: WorldDecisions = input.decisions ?? { aliases: {}, merged: {}, separated: [] };
     const groups = new Groups(records, new Set(decisions.separated));
 
@@ -561,15 +721,42 @@ export function assembleWorld(input: AssembleInput): WorldBuild {
         for (const form of entity.forms) indexAdd(form, entity.id, 2);
     }
 
-    // 9. Untyped entries join the entity they name (only when the name is unambiguous).
+    // 9. Untyped entries join the entity they name (only when the name is unambiguous). One of the card or of every
+    // chat joins a person, or a thing this chat names itself, only when bound or of the card (else it is foreign).
+    const { drafts } = split;
+    const bound = new Set(decisions.bound ?? []);
+    const apart = new Set(decisions.apart ?? []);
+    const ofCard = input.ofCard ?? (() => false);
+    const draftOf = (names: readonly string[]): string | undefined => {
+        for (const name of names) {
+            const wanted = `\u0000${normalizeName(name)}`;
+            for (const key of drafts.groups.keys()) if (key.endsWith(wanted)) return key;
+        }
+        return undefined;
+    };
     for (const item of input.attach ?? []) {
+        const wide = !isLocalSource(item.source);
+        const key = sourceKeyOf(item.source);
+        const free = !wide || bound.has(key) || item.names.some((name) => ofCard(name));
         const ids = new Set<string>();
         for (const name of item.names) {
             for (const hit of index.get(normalizeName(name)) ?? []) if (hit.strength < 2) ids.add(hit.id);
         }
-        if (ids.size !== 1) continue;
-        const entity = entities.find((candidate) => candidate.id === [...ids][0]);
-        if (!entity) continue;
+        const entity = ids.size === 1 ? entities.find((candidate) => candidate.id === [...ids][0]) : undefined;
+        if (wide && apart.has(key)) {
+            const draft = entity ? nameKey(entity.kind, entity.name) : draftOf(item.names);
+            if (draft) drafts.add(draft, entity?.kind ?? 'character', entity?.name ?? '', item.source, 'apart');
+            continue;
+        }
+        if (!entity) {
+            const draft = free ? undefined : draftOf(item.names);
+            if (draft) drafts.add(draft, 'character', '', item.source, 'pending');
+            continue;
+        }
+        if (!free && (family(entity.kind) === 'being' || entity.sources.some(isLocalSource))) {
+            drafts.add(nameKey(entity.kind, entity.name), entity.kind, entity.name, item.source, 'pending');
+            continue;
+        }
         if (entity.sources.some((source) => source.kind === item.source.kind && source.ref === item.source.ref)) {
             continue;
         }
@@ -600,7 +787,68 @@ export function assembleWorld(input: AssembleInput): WorldBuild {
     }
     finalCandidates.sort((x, y) => y.score - x.score || (x.a + x.b).localeCompare(y.a + y.b, 'ru'));
 
-    return { entities, byId: byEntityId, index, candidates: finalCandidates, redirects };
+    const foreign = linkForeign(drafts, index, byEntityId);
+    return { entities, byId: byEntityId, index, candidates: finalCandidates, redirects, foreign };
+}
+
+/**
+ * Foreign groups tied to the chat's entity of their name (one group per entity: an archive found by the roster name and
+ * an entry found by the card name ask one question), named as the chat names it. A source both waiting and declared
+ * another one's counts as declared.
+ */
+function linkForeign(
+    drafts: ForeignDrafts,
+    index: ReadonlyMap<string, WorldIndexHit[]>,
+    byId: ReadonlyMap<string, WorldEntity>,
+): WorldForeign[] {
+    const out = new Map<string, WorldForeign>();
+    for (const group of drafts.groups.values()) {
+        const cut = group.key.indexOf('\u0000');
+        const groupFamily = group.key.slice(0, cut);
+        const ids = [
+            ...new Set(
+                (index.get(group.key.slice(cut + 1)) ?? [])
+                    .filter((hit) => hit.strength < 2 && family(byId.get(hit.id)?.kind ?? '') === groupFamily)
+                    .map((hit) => hit.id),
+            ),
+        ];
+        const entity = ids.length === 1 ? byId.get(ids[0] as string) : undefined;
+        const key = entity ? nameKey(entity.kind, entity.name) : group.key;
+        const local = group.local || !!entity?.sources.some(isLocalSource);
+        const known = out.get(key);
+        if (!known) {
+            const item: WorldForeign = {
+                ...group,
+                key,
+                local,
+                names: [...group.names],
+                pending: [...group.pending],
+                apart: [...group.apart],
+            };
+            if (entity) {
+                item.entity = entity.id;
+                item.name = entity.name;
+                item.kind = entity.kind;
+            }
+            out.set(key, item);
+            continue;
+        }
+        known.local ||= local;
+        for (const name of group.names) {
+            if (!known.names.some((item) => normalizeName(item) === normalizeName(name))) known.names.push(name);
+        }
+        for (const status of ['pending', 'apart'] as const) {
+            for (const source of group[status]) {
+                const sourceKey = sourceKeyOf(source);
+                if (!known[status].some((item) => sourceKeyOf(item) === sourceKey)) known[status].push(source);
+            }
+        }
+    }
+    for (const group of out.values()) {
+        const apartKeys = new Set(group.apart.map(sourceKeyOf));
+        group.pending = group.pending.filter((source) => !apartKeys.has(sourceKeyOf(source)));
+    }
+    return [...out.values()].sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
 }
 
 /** The entity a stale or merged id now belongs to. */

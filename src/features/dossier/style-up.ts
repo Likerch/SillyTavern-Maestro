@@ -58,6 +58,7 @@ import type { BookData } from '../../domain/doctor-fixes';
 import { TYPED_FIELDS_KEY } from '../../domain/entry-types';
 import { freeUid, templateEntry } from '../../domain/lore-studio-entries';
 import { archiveMatch } from '../../domain/sheet-context';
+import { chatOriginTag } from '../../domain/world-scope';
 import type { App, Decision, JournalChange, Logger, Proposal, Unsubscribe } from '../../shared/contracts';
 import type { BookRolesApi } from '../bookRoles/api';
 import type { BunnyMoModeApi } from '../bunnymoMode/api';
@@ -916,7 +917,12 @@ export class DossierStyleUp {
         );
         if (exists) throw new Error(this.t('m7.styleUp.error.archiveExists', { name: part.name, book }));
         const uid = freeUid(data.entries);
-        data.entries[String(uid)] = archiveEntry(uid, { name: part.name, keys: part.keys, content: part.content });
+        const entry = archiveEntry(uid, { name: part.name, keys: part.keys, content: part.content });
+        // The archive is this chat's NPC's, though the repo is shared: its origin keeps namesakes of other chats from
+        // taking it (plan-2 §9).
+        const chatId = this.app.host.chatId();
+        if (chatId) entry.extensions = { maestro: { origin: chatOriginTag(chatId) } };
+        data.entries[String(uid)] = entry;
         await io.save(book, data);
         this.refreshCk(book);
         await this.journalPart(

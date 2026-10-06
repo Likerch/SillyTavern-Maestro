@@ -266,6 +266,100 @@ describe('sheet scenario', () => {
     });
 });
 
+describe('other stories (plan-2 §9)', () => {
+    const OTHER_VERA = {
+        uid: 9,
+        key: ['Вера'],
+        comment: 'Вера Character Archive (another story)',
+        content: '<BunnymoTags><Name:Вера>, <SPECIES:VAMPIRE></BunnymoTags>',
+    };
+
+    function otherStories(): void {
+        fx.books.set('Old Repo', { entries: { 9: OTHER_VERA } });
+        fx.adapters.ck.repos = ['Repo', 'Old Repo'];
+        const context = fx.mock.context as unknown as { characters: Record<string, unknown>[] };
+        context.characters.push({ name: 'Мартин', avatar: 'martin.png', description: 'Мартин из другой истории.' });
+    }
+
+    async function dataOf(
+        command: string,
+        extraLore: Record<string, unknown>[] = [],
+    ): Promise<{
+        data: string;
+        kept: string[];
+    }> {
+        fx.mock.chat.push(msg('Кай', command, true));
+        await fx.bus.emit('generation:before', info({ sheetCommand: 'fullsheet' }));
+        const loaded = {
+            globalLore: [{ ...FULLSHEET_ENTRY, world: 'BunnyMo' }],
+            characterLore: [{ ...VERA_ARCHIVE, world: 'Repo' }, { ...MARTIN_ARCHIVE, world: 'Repo' }, ...extraLore],
+            chatLore: [],
+            personaLore: [],
+        };
+        await fx.emit('WORLDINFO_ENTRIES_LOADED', loaded);
+        const eventData = { chat: stPrompt(), dryRun: false };
+        await fx.emit('CHAT_COMPLETION_PROMPT_READY', eventData);
+        const prompt = eventData.chat as { content: string }[];
+        return { data: prompt[1]?.content ?? '', kept: loaded.characterLore.map((entry) => String(entry.comment)) };
+    }
+
+    it('with the world model only the target’s own archives speak for it', async () => {
+        otherStories();
+        const sources = (world: string, uid: number) => [
+            { kind: 'ck.archive', ref: `${world}#${uid}`, label: 'Вера', world, uid },
+        ];
+        fx.apis.set('world', {
+            resolve: (name: string) =>
+                name === 'Вера'
+                    ? {
+                          id: 'character:вера',
+                          kind: 'character',
+                          name: 'Вера',
+                          aliases: [],
+                          forms: [],
+                          sources: sources('Repo', 1),
+                      }
+                    : name === 'Мартин'
+                      ? {
+                            id: 'character:мартин',
+                            kind: 'character',
+                            name: 'Мартин',
+                            aliases: [],
+                            forms: [],
+                            sources: [],
+                        }
+                      : undefined,
+        });
+        await startAll();
+        const vera = await dataOf('!fullsheet Вера', [{ ...OTHER_VERA, world: 'Old Repo' }]);
+        expect(vera.kept).toEqual([VERA_ARCHIVE.comment]);
+        expect(vera.data).toContain('<SPECIES:HUMAN>');
+        expect(vera.data).not.toContain('VAMPIRE');
+        const martin = await dataOf('!fullsheet Мартин');
+        expect(martin.kept).toEqual([]);
+        expect(martin.data).not.toContain('<Name:Мартин>');
+        // Another card named Мартин is another story's: its text stays out.
+        expect(martin.data).not.toContain('из другой истории');
+    });
+
+    it('without it, the card’s own names reach every repo; other names only the chat’s books', async () => {
+        otherStories();
+        await startAll();
+        const vera = await dataOf('!fullsheet Вера', [{ ...OTHER_VERA, world: 'Old Repo' }]);
+        expect(vera.data).toContain('<SPECIES:HUMAN>');
+        const martin = await dataOf('!fullsheet Мартин');
+        expect(martin.kept).toEqual([]);
+        expect(martin.data).not.toContain('<Name:Мартин>');
+        expect(martin.data).not.toContain('из другой истории');
+        // Named by the card itself, he is the card's: his archive speaks for him.
+        const card = (fx.mock.context as unknown as { characters: Record<string, unknown>[] }).characters[0]!;
+        card.description = 'Капитан стражи; её помощник — Мартин.';
+        const named = await dataOf('!fullsheet Мартин');
+        expect(named.kept).toEqual([MARTIN_ARCHIVE.comment]);
+        expect(named.data).toContain('<Name:Мартин>');
+    });
+});
+
 describe('sheet reply', () => {
     it('cuts the mock’s scene and tracker, keeps swipes consistent, marks and journals', async () => {
         fx.adapters.qvink.present = true;

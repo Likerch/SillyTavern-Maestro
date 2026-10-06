@@ -102,6 +102,11 @@ export class FakeLoreJournal implements Partial<LoreJournalApi> {
 
 export class FakeWorld implements Partial<WorldModelApi> {
     list: Entity[] = [];
+    /** `book#uid` of a namesake's entries (plan-2 §9): kept out of this chat. */
+    foreign: string[] = [];
+    foreignRefs(): string[] {
+        return [...this.foreign];
+    }
     mentions(text: string): Entity[] {
         const lower = text.toLowerCase();
         return this.list.filter((entity) =>

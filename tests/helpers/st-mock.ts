@@ -50,6 +50,8 @@ export class FakeEventSource {
 export const EVENT_TYPES: Record<string, string> = {
     APP_READY: 'app_ready',
     CHAT_CHANGED: 'chat_id_changed',
+    CHAT_DELETED: 'chat_deleted',
+    GROUP_CHAT_DELETED: 'group_chat_deleted',
     MESSAGE_SENT: 'message_sent',
     MESSAGE_RECEIVED: 'message_received',
     MESSAGE_EDITED: 'message_edited',

@@ -70,6 +70,88 @@ function fixOf(issue: StructuralIssue, facts: EntityFacts, t: I18n['t']): Dossie
     return undefined;
 }
 
+/** What a namesake's source brings, in story words. */
+function brings(source: EntitySource, t: I18n['t']): string {
+    switch (source.kind) {
+        case 'ck.archive':
+            return t('m7.brings.archive', { book: source.world ?? source.label });
+        case 'lore.entry':
+            return t('m7.brings.entry', { entry: source.label, book: source.world ?? '' });
+        case 'nai.passport':
+            return t('m7.brings.passport', { card: (source.avatar ?? '').replace(/\.[^/.]+$/, '') });
+        case 'des.workshop':
+            return t('m7.brings.workshop');
+        default:
+            return source.label;
+    }
+}
+
+function listOf(list: readonly EntitySource[], t: I18n['t']): string {
+    return [...new Set(list.map((source) => brings(source, t)))].join('; ');
+}
+
+function keysOf(list: readonly EntitySource[]): string[] {
+    return [...new Set(list.map((source) => source.key ?? `${source.kind}:${source.ref}`))];
+}
+
+/**
+ * Plan-2 §9 in the dossier: a namesake of another story waiting for an answer («Это тот же» / «Это другой
+ * персонаж»), one declared another one («Это тот же» changes it back), and data from outside the chat used for a
+ * character of this chat that is not the card itself («Это другой персонаж»).
+ */
+export function identityFindings(facts: EntityFacts, t: I18n['t']): DossierFinding[] {
+    const identity = facts.identity;
+    const entity = facts.entity;
+    if (!identity) return [];
+    const findings: DossierFinding[] = [];
+    const name = entity.name;
+    const decide = (op: 'sameAs' | 'apart', list: readonly EntitySource[]): FixRequest => ({
+        op,
+        entityId: entity.id,
+        keys: keysOf(list),
+    });
+    if (identity.pending.length) {
+        const list = listOf(identity.pending, t);
+        findings.push(
+            {
+                kind: 'otherStory',
+                severity: 'warn',
+                text: t('m7.finding.otherPending', { name, list }),
+                sources: identity.pending,
+                fix: { label: t('m7.fix.sameAs'), payload: decide('sameAs', identity.pending) },
+            },
+            {
+                kind: 'otherStory',
+                severity: 'info',
+                text: t('m7.finding.otherPendingApart', { name }),
+                sources: [],
+                fix: { label: t('m7.fix.apart'), payload: decide('apart', identity.pending) },
+            },
+        );
+    }
+    if (identity.apart.length) {
+        findings.push({
+            kind: 'otherStory',
+            severity: 'info',
+            text: t('m7.finding.otherApart', { name, list: listOf(identity.apart, t) }),
+            sources: identity.apart,
+            fix: { label: t('m7.fix.sameAs'), payload: decide('sameAs', identity.apart) },
+        });
+    }
+    const anchor = entity.sources.some((source) => source.kind === 'card' || source.kind === 'persona');
+    const shared = identity.shared.filter((source) => source.kind !== 'des.workshop');
+    if (!anchor && shared.length) {
+        findings.push({
+            kind: 'sharedStory',
+            severity: 'info',
+            text: t('m7.finding.shared', { name, list: listOf(shared, t) }),
+            sources: shared,
+            fix: { label: t('m7.fix.apart'), payload: decide('apart', identity.shared) },
+        });
+    }
+    return findings;
+}
+
 export function structuralFindings(facts: EntityFacts, sources: DossierSources, t: I18n['t']): DossierFinding[] {
     const { entity } = facts;
     const des = facts.des;
@@ -120,5 +202,6 @@ export function structuralFindings(facts: EntityFacts, sources: DossierSources, 
             fix: { label: t('m7.fix.placeEntry'), payload: request },
         });
     }
+    findings.unshift(...identityFindings(facts, t));
     return findings;
 }

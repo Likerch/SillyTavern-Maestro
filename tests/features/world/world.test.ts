@@ -43,7 +43,8 @@ beforeEach(async () => {
     desru = new FakeDesRu();
     desru.forms = { Лиза: LIZA_FORMS, Анна: ['Анна', 'Анны', 'Анне', 'Анну', 'Анной'] };
     env.neighbours.desru = desru;
-    addCard(env, 'Elizabeth', {
+    const index = addCard(env, 'Elizabeth', {
+        world: 'Card Book',
         nai_studio: {
             passports: [
                 { id: 'p1', kind: 'character', name: '', aliases: ['Liz'] },
@@ -52,6 +53,8 @@ beforeEach(async () => {
             ],
         },
     });
+    // Анна Петрова is of the card (plan-2 §9): her card passport joins without a question.
+    (env.mock.context.characters[index] as STCharacter).description = 'Elizabeth и её подруга Анна Петрова.';
     (env.mock.context as unknown as Dict).name1 = 'Алекс';
     env.neighbours.desKnown = ['Лиза', 'Анна', 'Алекс', 'Скрытый'];
     env.neighbours.desRemoved = ['скрытый'];
