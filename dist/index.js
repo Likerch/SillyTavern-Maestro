@@ -2329,12 +2329,25 @@ function createAutonomy(deps, options = {}) {
 			label: i18n.t("core.autonomy.apply"),
 			run
 		};
-		if (proposal.sourceMessage !== void 0) off = ui.messageBadge(proposal.sourceMessage, {
-			id: `maestro-autonomy-${++badgeSeq}`,
-			text: proposal.title,
-			action
-		});
-		else ui.notice(proposal.title, {
+		if (proposal.sourceMessage !== void 0) {
+			const dismiss = () => {
+				if (done) return;
+				done = true;
+				off?.();
+				record(proposal.kind, "rejected");
+			};
+			off = ui.messageBadge(proposal.sourceMessage, {
+				id: `maestro-autonomy-${++badgeSeq}`,
+				text: proposal.title,
+				kind: "proposal",
+				icon: "fa-wand-magic-sparkles",
+				action,
+				actions: [{
+					label: i18n.t("core.autonomy.dismiss"),
+					run: dismiss
+				}]
+			});
+		} else ui.notice(proposal.title, {
 			action,
 			importance: "important"
 		});
@@ -4990,6 +5003,12 @@ function createLogger() {
 //#endregion
 //#region src/core/settings.ts
 var SETTINGS_KEY = "maestro";
+/** What the strip under chat messages shows (plan-2 §5): everything, what waits for a decision, nothing. */
+var CHAT_NOTICES = [
+	"all",
+	"pending",
+	"none"
+];
 function defaultCoreSettings() {
 	return {
 		schemaVersion: 1,
@@ -5007,7 +5026,8 @@ function defaultCoreSettings() {
 		modules: {},
 		firstRunDone: false,
 		notifyLevel: "all",
-		showTechnical: false
+		showTechnical: false,
+		chatNotices: "all"
 	};
 }
 /** Fills missing keys from defaults without overwriting stored values (shallow per object level). */
@@ -5113,6 +5133,7 @@ function migrateCore(settings) {
 		"urgent"
 	].includes(settings.notifyLevel)) settings.notifyLevel = "all";
 	if (typeof settings.showTechnical !== "boolean") settings.showTechnical = false;
+	if (!CHAT_NOTICES.includes(settings.chatNotices)) settings.chatNotices = "all";
 	return settings;
 }
 //#endregion
@@ -5127,6 +5148,7 @@ var CORE_STRINGS = {
 		"core.autonomy.level.ask": "Ask",
 		"core.autonomy.level.off": "Off",
 		"core.autonomy.apply": "Apply",
+		"core.autonomy.dismiss": "No, thanks",
 		"core.autonomy.stale": "The suggestion is out of date: things changed since it appeared, so nothing was changed.",
 		"core.autonomy.failed": "Could not apply: {title}",
 		"core.autonomy.promote": "You have accepted “{kind}” {count} times in a row without changes. Shall I do it myself from now on, without asking?",
@@ -5153,6 +5175,7 @@ var CORE_STRINGS = {
 		"core.autonomy.level.ask": "Спросить",
 		"core.autonomy.level.off": "Выкл",
 		"core.autonomy.apply": "Применить",
+		"core.autonomy.dismiss": "Не надо",
 		"core.autonomy.stale": "Предложение устарело: с тех пор всё изменилось, поэтому я ничего не менял.",
 		"core.autonomy.failed": "Не получилось применить: {title}",
 		"core.autonomy.promote": "Ты уже {count} раз подряд принимаешь «{kind}» без правок. Делать это дальше самому, не спрашивая?",
@@ -5702,7 +5725,7 @@ function createCapabilities(log) {
 		const generation = entry.generation;
 		let result;
 		try {
-			result = normalize$2(await entry.probe(), entry.detail);
+			result = normalize$3(await entry.probe(), entry.detail);
 		} catch (error) {
 			result = {
 				ok: false,
@@ -5754,7 +5777,7 @@ function createCapabilities(log) {
 		}
 	};
 }
-function normalize$2(outcome, fallbackDetail) {
+function normalize$3(outcome, fallbackDetail) {
 	if (typeof outcome === "boolean") return fallbackDetail === void 0 ? { ok: outcome } : {
 		ok: outcome,
 		detail: fallbackDetail
@@ -6733,380 +6756,6 @@ function detailsView(i18n, open, parts) {
 	return node;
 }
 //#endregion
-//#region src/ui/components/progress.ts
-function progressBar(done, total, label) {
-	const determinate = typeof total === "number" && total > 0 && typeof done === "number";
-	const percent = determinate ? Math.max(0, Math.min(100, Math.round(done / total * 100))) : 0;
-	const bar = el("div", { class: "maestro-progress-bar" });
-	if (determinate) bar.style.width = `${percent}%`;
-	return el("div", {
-		class: ["maestro-progress", determinate ? null : "maestro-progress-indeterminate"],
-		attrs: {
-			role: "progressbar",
-			"aria-label": label,
-			"aria-valuemin": determinate ? 0 : void 0,
-			"aria-valuemax": determinate ? total : void 0,
-			"aria-valuenow": determinate ? done : void 0
-		}
-	}, [bar]);
-}
-//#endregion
-//#region src/ui/views/format.ts
-function intlLocale(i18n) {
-	return i18n.locale() === "ru" ? "ru-RU" : "en-US";
-}
-/** "14:05" for today, "3 окт., 14:05" for other days. */
-function formatTime$1(at, i18n, now = Date.now()) {
-	const date = new Date(at);
-	const today = new Date(now);
-	const options = date.toDateString() === today.toDateString() ? {
-		hour: "2-digit",
-		minute: "2-digit"
-	} : {
-		day: "numeric",
-		month: "short",
-		hour: "2-digit",
-		minute: "2-digit"
-	};
-	try {
-		return new Intl.DateTimeFormat(intlLocale(i18n), options).format(date);
-	} catch {
-		return date.toISOString();
-	}
-}
-/** US dollars with precision that stays readable for cents and fractions of a cent. */
-function formatUsd(value, i18n) {
-	const digits = value !== 0 && Math.abs(value) < .01 ? 4 : 2;
-	try {
-		return new Intl.NumberFormat(intlLocale(i18n), {
-			style: "currency",
-			currency: "USD",
-			minimumFractionDigits: digits,
-			maximumFractionDigits: digits
-		}).format(value);
-	} catch {
-		return `$${value.toFixed(digits)}`;
-	}
-}
-/** Translated key, or the fallback when the key has no translation (I18n returns the key itself then). */
-function tOr(i18n, key, fallback, params) {
-	const text = i18n.t(key, params);
-	return text === key ? fallback : text;
-}
-/** Module title by plan id ('M1') or settings key ('loreJournal'); unknown ids are shown as is. */
-function moduleTitle$1(modules, i18n, id) {
-	const entry = modules?.list().find((item) => item.module.id === id || item.module.key === id);
-	return entry ? i18n.t(entry.module.titleKey) : id;
-}
-/**
-* Coalesces bursts of calls (cost meter ticks, inbox changes) into one call after `ms`.
-* `cancel()` drops a pending call (view unmounted).
-*/
-function coalesce(run, ms = 100) {
-	let timer = null;
-	const call = (() => {
-		if (timer !== null) return;
-		timer = setTimeout(() => {
-			timer = null;
-			run();
-		}, ms);
-	});
-	call.cancel = () => {
-		if (timer !== null) clearTimeout(timer);
-		timer = null;
-	};
-	return call;
-}
-//#endregion
-//#region src/ui/views/jobs.ts
-/** One line about the job: the owner's own label while it runs, its result when finished. */
-function jobStatus(job, i18n) {
-	const t = i18n.t.bind(i18n);
-	if (job.state === "failed") return job.error ?? "";
-	if (job.state !== "active") return job.summary ?? "";
-	if (job.cancelRequested) return t("ui.jobs.stopping");
-	if (job.label) return job.label;
-	if (job.phase === "queued") return t("ui.jobs.queued");
-	if (job.phase === "saving") return t("ui.jobs.saving");
-	if (job.total) return t("ui.jobs.progress", {
-		done: job.done ?? 0,
-		total: job.total
-	});
-	return t("ui.jobs.running");
-}
-/** Share of the work done (0…1); null when the job does not count its work or waits. */
-function jobFraction(job) {
-	if (job.state !== "active" || job.phase === "queued" || !job.total) return null;
-	return Math.max(0, Math.min(1, (job.done ?? 0) / job.total));
-}
-function renderJobs(jobs, i18n, onChange) {
-	const t = i18n.t.bind(i18n);
-	const list = jobs.list();
-	if (!list.length) return el("div", {
-		class: "maestro-empty maestro-jobs-empty",
-		text: t("ui.jobs.empty")
-	});
-	return el("div", {
-		class: "maestro-jobs",
-		attrs: { role: "list" }
-	}, list.map((job) => {
-		const active = job.state === "active";
-		const status = jobStatus(job, i18n);
-		return el("div", {
-			class: [
-				"maestro-job",
-				`maestro-job-${job.state}`,
-				!active && job.warn ? "maestro-job-warn" : null
-			],
-			data: { key: job.key },
-			attrs: { role: "listitem" }
-		}, [
-			el("div", { class: "maestro-job-head" }, [el("span", {
-				class: "maestro-job-title",
-				text: job.title
-			}), el("span", {
-				class: "maestro-muted",
-				text: t("ui.jobs.started", { time: formatTime$1(job.startedAt, i18n) })
-			})]),
-			el("div", {
-				class: "maestro-job-status",
-				text: status,
-				attrs: { "aria-live": "polite" }
-			}),
-			active && job.phase !== "queued" ? progressBar(job.done, job.total, status) : null,
-			el("div", { class: "maestro-row" }, [
-				active && job.cancellable && !job.cancelRequested ? button({
-					label: t("ui.jobs.stop"),
-					icon: "fa-stop",
-					kind: "danger",
-					onClick: () => {
-						jobs.cancel(job.key);
-						onChange();
-					}
-				}) : null,
-				job.openable ? button({
-					label: t("ui.jobs.open"),
-					icon: "fa-up-right-from-square",
-					onClick: () => {
-						jobs.open(job.key);
-					}
-				}) : null,
-				!active ? button({
-					label: t("ui.jobs.hide"),
-					kind: "ghost",
-					onClick: () => {
-						jobs.dismiss(job.key);
-						onChange();
-					}
-				}) : null
-			])
-		]);
-	}));
-}
-//#endregion
-//#region src/ui/views/entry-points.ts
-var TOP_ID = "maestro-topbar";
-var EXT_ID = "maestro-ext-settings";
-var WAND_ID = "maestro-wand";
-var ICON = "fa-wand-magic-sparkles";
-function activate(node, run) {
-	node.addEventListener("click", run);
-	node.addEventListener("keydown", (event) => {
-		if (event.key !== "Enter" && event.key !== " ") return;
-		event.preventDefault();
-		run();
-	});
-}
-var EntryPoints = class {
-	deps;
-	top = null;
-	ext = null;
-	wand = null;
-	badge = {
-		count: 0,
-		urgent: false
-	};
-	running = [];
-	constructor(deps) {
-		this.deps = deps;
-	}
-	/** Idempotent: mounts whatever is missing (ST builds the wand menu late, so APP_READY calls this again). */
-	mount() {
-		if (!this.top?.root.isConnected) this.mountTop();
-		if (!this.ext?.root.isConnected) this.mountExtensions();
-		if (!this.wand?.root.isConnected) this.mountWand();
-		this.setBadge(this.badge.count, this.badge.urgent);
-		this.setJobs(this.running);
-	}
-	setBadge(count, urgent) {
-		this.badge = {
-			count,
-			urgent
-		};
-		if (!this.top) return;
-		const { badge } = this.top;
-		badge.textContent = count > 99 ? "99+" : String(count);
-		badge.hidden = count <= 0;
-		badge.classList.toggle("maestro-urgent", urgent);
-		this.updateTitle();
-	}
-	/** Jobs the user started: a ring while any runs (its share done when there is one job that counts). */
-	setJobs(jobs) {
-		this.running = jobs.filter((job) => job.state === "active");
-		if (!this.top) return;
-		const { root } = this.top;
-		const busy = this.running.length > 0;
-		const fraction = this.running.length === 1 && this.running[0] ? jobFraction(this.running[0]) : null;
-		root.classList.toggle("maestro-topbar-busy", busy);
-		root.classList.toggle("maestro-topbar-indeterminate", busy && fraction === null);
-		if (busy && fraction !== null) root.style.setProperty("--maestro-job-progress", String(Math.max(.03, fraction)));
-		else root.style.removeProperty("--maestro-job-progress");
-		this.updateTitle();
-	}
-	updateTitle() {
-		if (!this.top) return;
-		const t = this.deps.i18n.t.bind(this.deps.i18n);
-		const count = this.badge.count;
-		const parts = [count > 0 ? t("ui.entry.topTitleCount", { count }) : t("ui.entry.topTitle")];
-		const [first] = this.running;
-		if (this.running.length > 1) parts.push(t("ui.entry.topTitleJobs", { count: this.running.length }));
-		else if (first) parts.push(t("ui.entry.topTitleJob", {
-			title: first.title,
-			status: jobStatus(first, this.deps.i18n)
-		}));
-		const label = parts.join(" · ");
-		this.top.toggle.title = label;
-		this.top.toggle.setAttribute("aria-label", label);
-	}
-	relocalize() {
-		const t = this.deps.i18n.t.bind(this.deps.i18n);
-		if (this.ext) {
-			this.ext.title.textContent = t("ui.title");
-			this.ext.text.textContent = t("ui.entry.description");
-			this.ext.open.textContent = t("ui.entry.open");
-		}
-		if (this.wand) {
-			this.wand.label.textContent = t("ui.title");
-			this.wand.item.title = t("ui.entry.wandTitle");
-		}
-		this.setBadge(this.badge.count, this.badge.urgent);
-	}
-	dispose() {
-		this.top?.root.remove();
-		this.ext?.root.remove();
-		this.wand?.root.remove();
-		this.top = null;
-		this.ext = null;
-		this.wand = null;
-	}
-	mountTop() {
-		const holder = document.querySelector("#top-settings-holder");
-		if (!holder) {
-			this.deps.log.debug("top bar not found");
-			return;
-		}
-		document.getElementById(TOP_ID)?.remove();
-		const badge = el("span", {
-			class: "maestro-topbar-badge",
-			attrs: { "aria-hidden": "true" }
-		});
-		badge.hidden = true;
-		const toggle = el("div", {
-			class: "maestro-topbar-toggle",
-			attrs: {
-				role: "button",
-				tabindex: "0"
-			}
-		}, [el("div", { class: [
-			"drawer-icon",
-			"fa-solid",
-			ICON,
-			"fa-fw",
-			"closedIcon"
-		] }), badge]);
-		activate(toggle, () => this.deps.open());
-		const root = el("div", {
-			class: "drawer maestro-topbar",
-			attrs: { id: TOP_ID }
-		}, [toggle]);
-		const extensions = document.getElementById("extensions-settings-button");
-		if (extensions?.parentElement === holder) extensions.after(root);
-		else holder.appendChild(root);
-		this.top = {
-			root,
-			toggle,
-			badge
-		};
-	}
-	mountExtensions() {
-		const container = document.querySelector("#extensions_settings2") ?? document.querySelector("#extensions_settings");
-		if (!container) {
-			this.deps.log.debug("extensions panel not found");
-			return;
-		}
-		document.getElementById(EXT_ID)?.remove();
-		const t = this.deps.i18n.t.bind(this.deps.i18n);
-		const title = el("b", { text: t("ui.title") });
-		const text = el("div", {
-			class: "maestro-ext-text",
-			text: t("ui.entry.description")
-		});
-		const open = el("div", {
-			class: "menu_button maestro-ext-open",
-			text: t("ui.entry.open"),
-			attrs: {
-				role: "button",
-				tabindex: "0"
-			}
-		});
-		activate(open, () => this.deps.open());
-		const root = el("div", {
-			class: "extension_container maestro-ext",
-			attrs: { id: EXT_ID }
-		}, [el("div", { class: "inline-drawer" }, [el("div", { class: "inline-drawer-toggle inline-drawer-header" }, [title, el("div", { class: "inline-drawer-icon fa-solid fa-circle-chevron-down down" })]), el("div", { class: "inline-drawer-content maestro-ext-content" }, [text, open])])]);
-		container.appendChild(root);
-		this.ext = {
-			root,
-			title,
-			text,
-			open
-		};
-	}
-	mountWand() {
-		const menu = document.querySelector("#extensionsMenu");
-		if (!menu) {
-			this.deps.log.debug("wand menu not found");
-			return;
-		}
-		document.getElementById(WAND_ID)?.remove();
-		const t = this.deps.i18n.t.bind(this.deps.i18n);
-		const label = el("span", { text: t("ui.title") });
-		const item = el("div", {
-			class: "list-group-item flex-container flexGap5 interactable",
-			title: t("ui.entry.wandTitle"),
-			attrs: {
-				role: "button",
-				tabindex: "0"
-			}
-		}, [el("div", { class: [
-			"fa-solid",
-			ICON,
-			"extensionsMenuExtensionButton"
-		] }), label]);
-		activate(item, () => this.deps.open());
-		const root = el("div", {
-			class: "extension_container maestro-wand",
-			attrs: { id: WAND_ID }
-		}, [item]);
-		menu.appendChild(root);
-		this.wand = {
-			root,
-			label,
-			item
-		};
-	}
-};
-//#endregion
 //#region src/ui/components/card.ts
 function card(options) {
 	return el("div", { class: [
@@ -7128,6 +6777,19 @@ function section$1(title, children, actions) {
 		class: "maestro-section-title",
 		text: title
 	}), actions !== void 0 ? el("div", { class: "maestro-section-actions" }, actions) : null]), el("div", { class: "maestro-section-body" }, children)]);
+}
+/**
+* Marks a module's own settings inside its tab (plan-2 §10 п.4): in a window they stay hidden until the gear in the
+* window header shows them.
+*/
+var MODULE_SETTINGS_CLASS = "maestro-module-settings";
+function moduleSettings(node) {
+	node.classList.add(MODULE_SETTINGS_CLASS);
+	return node;
+}
+/** A section with a module's own settings (shown in a window by its gear). */
+function moduleSettingsSection(title, children, actions) {
+	return moduleSettings(section$1(title, children, actions));
 }
 function emptyState(text, iconName = "fa-circle-check") {
 	return el("div", { class: "maestro-empty" }, [icon(iconName), el("span", { text })]);
@@ -7155,564 +6817,6 @@ function banner(text, level = "warn", iconName = "fa-triangle-exclamation") {
 		class: ["maestro-banner", `maestro-level-${level}`],
 		attrs: { role: "status" }
 	}, [icon(iconName), el("span", { text })]);
-}
-//#endregion
-//#region src/ui/components/table.ts
-function table(columns, rows, options = {}) {
-	if (!rows.length && options.empty) return emptyState(options.empty, "fa-inbox");
-	const head = el("tr", {}, columns.map((column) => el("th", {
-		class: [column.className, column.numeric ? "maestro-num" : null],
-		text: column.label,
-		attrs: { scope: "col" }
-	})));
-	const body = rows.map((row, index) => el("tr", {}, columns.map((column) => el("td", {
-		class: [column.className, column.numeric ? "maestro-num" : null],
-		data: { label: column.label }
-	}, column.cell(row, index)))));
-	return el("div", { class: ["maestro-table-wrap", options.className] }, [el("table", { class: "maestro-table" }, [
-		options.caption ? el("caption", {
-			class: "maestro-sr-only",
-			text: options.caption
-		}) : null,
-		el("thead", {}, [head]),
-		el("tbody", {}, body)
-	])]);
-}
-//#endregion
-//#region src/ui/views/health.ts
-var HEALTH_TAB = "health";
-var LAMP$1 = {
-	ok: "ok",
-	warn: "warn",
-	error: "error",
-	skip: "off",
-	running: "off"
-};
-function healthTab(env) {
-	const { i18n, shell } = env;
-	const t = i18n.t.bind(i18n);
-	return {
-		id: HEALTH_TAB,
-		titleKey: "ui.tab.health",
-		icon: "fa-heart-pulse",
-		order: 70,
-		render(container) {
-			let alive = true;
-			const results = /* @__PURE__ */ new Map();
-			const runCheck = async (check) => {
-				results.set(check.id, { status: "running" });
-				draw();
-				try {
-					const result = await check.run();
-					results.set(check.id, result);
-				} catch (error) {
-					shell.log.error(`health check ${check.id} failed`, error);
-					results.set(check.id, {
-						status: "error",
-						message: error instanceof Error ? error.message : String(error)
-					});
-				}
-				if (alive) draw();
-			};
-			const runAll = async () => {
-				await Promise.all(shell.healthChecks().map(runCheck));
-			};
-			const checksView = () => {
-				const checks = shell.healthChecks();
-				if (!checks.length) return emptyState(t("ui.health.noChecks"), "fa-stethoscope");
-				return el("div", { class: "maestro-checks" }, checks.map((check) => {
-					const result = results.get(check.id);
-					const status = result?.status ?? "running";
-					const fix = result?.fix;
-					return el("div", { class: ["maestro-check", `maestro-check-${status}`] }, [
-						lamp(LAMP$1[status], t(`ui.health.status.${status}`)),
-						el("div", { class: "maestro-check-main" }, [
-							el("div", {
-								class: "maestro-check-title",
-								text: t(check.titleKey)
-							}),
-							el("div", {
-								class: "maestro-muted",
-								text: `${moduleTitle$1(env.modules, i18n, check.module)} · ${t(`ui.health.status.${status}`)}`
-							}),
-							result?.message ? el("div", {
-								class: "maestro-check-message",
-								text: result.message
-							}) : null
-						]),
-						fix ? button({
-							label: t("ui.health.fix"),
-							icon: "fa-screwdriver-wrench",
-							kind: "primary",
-							onClick: async () => {
-								await fix();
-								await runCheck(check);
-							}
-						}) : null
-					]);
-				}));
-			};
-			const capsView = () => table([
-				{
-					key: "state",
-					label: t("ui.health.state"),
-					cell: (row) => lamp(row.ok ? "ok" : "error", t(row.ok ? "ui.lamp.ok" : "ui.lamp.error"))
-				},
-				{
-					key: "id",
-					label: t("ui.health.capability"),
-					cell: (row) => row.id
-				},
-				{
-					key: "detail",
-					label: t("ui.health.detail"),
-					cell: (row) => row.detail ?? ""
-				}
-			], [...env.caps.report()].sort((a, b) => Number(a.ok) - Number(b.ok) || a.id.localeCompare(b.id)), { empty: t("ui.overview.stackEmpty") });
-			const logView = () => {
-				const lines = ConsoleLogger.recent().slice(-20).reverse();
-				if (!lines.length) return emptyState(t("ui.health.logEmpty"));
-				return el("ul", { class: "maestro-log" }, lines.map((line) => el("li", { class: ["maestro-log-line", `maestro-level-${line.level === "error" ? "error" : "warn"}`] }, [
-					el("span", {
-						class: "maestro-notice-time",
-						text: formatTime$1(line.at, i18n)
-					}),
-					el("span", {
-						class: "maestro-muted",
-						text: line.scope
-					}),
-					el("span", { text: line.text })
-				])));
-			};
-			function draw() {
-				if (!alive) return;
-				clear(container);
-				container.append(el("div", { class: "maestro-view maestro-health" }, [
-					section$1(t("ui.health.checks"), checksView(), button({
-						label: t("ui.health.runAll"),
-						icon: "fa-play",
-						onClick: runAll
-					})),
-					section$1(t("ui.health.capabilities"), capsView(), button({
-						label: t("ui.health.recheck"),
-						icon: "fa-arrows-rotate",
-						onClick: async () => {
-							await env.caps.refresh();
-							draw();
-						}
-					})),
-					section$1(t("ui.health.log"), logView())
-				]));
-			}
-			draw();
-			runAll();
-			return () => {
-				alive = false;
-			};
-		}
-	};
-}
-//#endregion
-//#region src/domain/revision-plan.ts
-/** Why a run is due now (scene end first, then signals, then the interval); null when none is. */
-function decideTrigger(state, settings) {
-	if (settings.sceneEnd && state.sceneEnded && (state.pending > 0 || state.messagesSince > 0)) return "sceneEnd";
-	if (settings.signalThreshold > 0 && state.pending >= settings.signalThreshold) return "signals";
-	if (settings.everyMessages > 0 && state.messagesSince >= settings.everyMessages) return "interval";
-	return null;
-}
-/**
-* Last message index a revision may read (P14): the last user message. Replies after it are not committed yet —
-* the user may still swipe them. -1 when the user has not written anything.
-*/
-function committedEnd(chat) {
-	for (let index = chat.length - 1; index >= 0; index--) {
-		const message = chat[index];
-		if (message && message.is_user === true && message.is_system !== true) return index;
-	}
-	return -1;
-}
-/** Messages of the next run: after the last revised one, at most `maxMessages` back from the end; null when empty. */
-function revisionRange(lastTo, end, maxMessages) {
-	if (end < 0) return null;
-	const from = Math.max(lastTo + 1, end - Math.max(1, maxMessages) + 1, 0);
-	return from <= end ? {
-		from,
-		to: end
-	} : null;
-}
-/** Stage of the plan whose module owns a deferred target (outfits: M27, promises and secrets: M17/M18). */
-function deferredStage(target) {
-	return target === "deferred.outfit" ? 10 : 9;
-}
-/** Appends and drops the oldest items above the cap (in place); returns the list. */
-function pushCapped$1(list, item, cap) {
-	list.push(item);
-	if (cap >= 0 && list.length > cap) list.splice(0, list.length - cap);
-	return list;
-}
-function norm$3(text) {
-	return text.toLowerCase().replace(/ё/g, "е").replace(/[\s.,;:!?«»"'“”]+/g, " ").trim();
-}
-/** Two deferred cards say the same (the next revision often finds the same promise again). */
-function sameDeferred(a, b) {
-	return a.target === b.target && norm$3(a.entityName) === norm$3(b.entityName) && norm$3(a.value) === norm$3(b.value);
-}
-//#endregion
-//#region src/ui/views/inbox.ts
-var INBOX_TAB$1 = "inbox";
-var SNOOZE_MS = 864e5;
-var REVISION_KEY$1 = "revision";
-/** English fallbacks of the revision's `m8.inbox.*` strings. */
-var FALLBACK = {
-	"m8.inbox.edit": "Edit",
-	"m8.inbox.editLabel": "New value",
-	"m8.inbox.save": "Save and accept",
-	"m8.inbox.cancel": "Cancel",
-	"m8.inbox.editFailed": "“{title}” was not applied: check the value (details are in the log).",
-	"m8.inbox.always": "Always",
-	"m8.inbox.always.hint": "Accept and do such changes by itself from now on",
-	"m8.inbox.always.done": "“{kind}” is now done by itself. You can change it in Settings.",
-	"m8.inbox.snooze.hint": "Put off until tomorrow",
-	"m8.inbox.confidence": "confidence {value}%",
-	"m8.inbox.other": "Other",
-	"m8.inbox.deferred.title": "Deferred",
-	"m8.inbox.deferred.hint": "Changes for modules of later stages; they wait here until those modules arrive.",
-	"m8.inbox.deferred.stage": "Deferred until stage {stage}",
-	"m8.inbox.deferred.dismiss": "Remove"
-};
-var INBOX_CSS = `
-.maestro-inbox-group { display: flex; flex-direction: column; gap: var(--maestro-gap-sm, 6px); }
-.maestro-inbox-group + .maestro-inbox-group { margin-top: var(--maestro-gap, 10px); }
-.maestro-inbox-group-head { display: flex; align-items: center; gap: 6px; font-weight: 600; overflow-wrap: anywhere; }
-.maestro-inbox-evidence { margin: 0; padding: 2px 8px; border-left: 3px solid var(--maestro-border);
-    color: var(--maestro-muted); font-style: italic; white-space: pre-wrap; overflow-wrap: anywhere; }
-.maestro-inbox-edit { display: flex; flex-direction: column; gap: 6px; }
-.maestro-inbox-edit textarea { width: 100%; min-height: 4em; box-sizing: border-box; resize: vertical; }
-`;
-function isDict$112(value) {
-	return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-/** What the payload says about the card (see the convention above). */
-function cardMeta(item) {
-	const payload = isDict$112(item.payload) ? item.payload : {};
-	const meta = {
-		entityName: typeof payload.entityName === "string" ? payload.entityName.trim() : "",
-		editable: false
-	};
-	if (typeof payload.value === "string") {
-		meta.value = payload.value;
-		meta.editable = payload.editable === true;
-	}
-	if (typeof payload.evidence === "string" && payload.evidence.trim()) meta.evidence = payload.evidence.trim();
-	if (typeof payload.confidence === "number" && Number.isFinite(payload.confidence)) meta.confidence = Math.min(1, Math.max(0, payload.confidence));
-	return meta;
-}
-/** Cards grouped by entity, the newest group first; cards without an entity form the last group (''). */
-function groupByEntity(cards) {
-	const groups = /* @__PURE__ */ new Map();
-	for (const item of cards) {
-		const entity = cardMeta(item).entityName;
-		const list = groups.get(entity);
-		if (list) list.push(item);
-		else groups.set(entity, [item]);
-	}
-	const newest = (list) => Math.max(...list.map((item) => item.createdAt));
-	return [...groups.entries()].map(([entity, list]) => ({
-		entity,
-		cards: list
-	})).sort((a, b) => Number(a.entity === "") - Number(b.entity === "") || newest(b.cards) - newest(a.cards));
-}
-function inboxTab(env) {
-	const { i18n, shell } = env;
-	const t = i18n.t.bind(i18n);
-	/** A revision string with its English fallback (the module may be absent). */
-	const tx = (key, params) => {
-		let fallback = FALLBACK[key] ?? key;
-		for (const [name, value] of Object.entries(params ?? {})) fallback = fallback.split(`{${name}}`).join(String(value));
-		return tOr(i18n, key, fallback, params);
-	};
-	/** The kind's human name; '' when its module did not name it (the raw kind then shows under «Подробнее»). */
-	const kindName = (kind) => kindLabel(i18n, kind) ?? "";
-	const revision = () => {
-		const api = env.modules.api(REVISION_KEY$1);
-		return api && typeof api.deferred === "function" ? api : void 0;
-	};
-	/** Cards whose value is being edited, with the draft text (kept across re-renders). */
-	const drafts = /* @__PURE__ */ new Map();
-	const accept = async (item) => {
-		const ok = await env.inbox.accept(item.id);
-		if (!ok) shell.notice(t("ui.inbox.stale", { title: item.title }), { level: "warn" });
-		return ok;
-	};
-	const acceptEdited = async (item, value) => {
-		const payload = isDict$112(item.payload) ? item.payload : {};
-		if (await env.inbox.accept(item.id, {
-			...payload,
-			value
-		})) drafts.delete(item.id);
-		else shell.notice(tx("m8.inbox.editFailed", { title: item.title }), { level: "warn" });
-	};
-	/** The kind is not 'auto' yet and may become it (never for kinds registered with neverAuto). */
-	const canPromote = (kind) => {
-		const { autonomy } = env;
-		try {
-			if (autonomy.level(kind, "inbox") === "auto") return false;
-			if (autonomy.isNeverAuto) return !autonomy.isNeverAuto(kind);
-			const stored = env.settings.core().autonomy;
-			const previous = stored[kind];
-			stored[kind] = "auto";
-			const allowed = autonomy.level(kind, "inbox") === "auto";
-			if (previous) stored[kind] = previous;
-			else delete stored[kind];
-			return allowed;
-		} catch {
-			return false;
-		}
-	};
-	/** «Always»: the kind becomes 'auto' (as the trust offer does, core/autonomy.ts), then this card is accepted. */
-	const always = async (item) => {
-		if (env.autonomy.setLevel) {
-			if (!env.autonomy.setLevel(item.kind, "auto")) return;
-		} else {
-			env.settings.core().autonomy[item.kind] = "auto";
-			env.settings.save();
-			env.settings.notify(`core.autonomy.${item.kind}`);
-		}
-		shell.notice(tx("m8.inbox.always.done", { kind: kindName(item.kind) || item.title }), { importance: "urgent" });
-		await accept(item);
-	};
-	/** Everything technical about a card: kind and module ids, the module's notes, raw changes with locators. */
-	const technical = (item) => detailsView(i18n, env.settings.core().showTechnical === true, [
-		el("div", {
-			class: "maestro-muted",
-			text: t("ui.inbox.detailsKind", { kind: item.kind })
-		}),
-		el("div", {
-			class: "maestro-muted",
-			text: t("ui.inbox.detailsModule", { module: item.module })
-		}),
-		item.details ? el("div", {
-			class: "maestro-details-notes",
-			text: item.details
-		}) : null,
-		...item.changes.map((change) => changeView$1(change, t))
-	]);
-	const sourceButton = (index) => index !== void 0 ? button({
-		label: t("ui.inbox.source", { index }),
-		icon: "fa-message",
-		kind: "ghost",
-		onClick: () => shell.scrollToMessage(index)
-	}) : null;
-	const editor = (item, redraw) => {
-		const area = el("textarea", {
-			class: "text_pole",
-			attrs: {
-				"aria-label": tx("m8.inbox.editLabel"),
-				rows: 3
-			}
-		});
-		area.value = drafts.get(item.id) ?? "";
-		area.addEventListener("input", () => drafts.set(item.id, area.value));
-		return el("div", { class: "maestro-inbox-edit" }, [
-			el("div", {
-				class: "maestro-muted",
-				text: tx("m8.inbox.editLabel")
-			}),
-			area,
-			el("div", { class: "maestro-row" }, [button({
-				label: tx("m8.inbox.cancel"),
-				kind: "ghost",
-				onClick: () => {
-					drafts.delete(item.id);
-					redraw();
-				}
-			}), button({
-				label: tx("m8.inbox.save"),
-				icon: "fa-floppy-disk",
-				disabled: false,
-				onClick: () => acceptEdited(item, area.value.trim())
-			})])
-		]);
-	};
-	const cardView = (item, redraw) => {
-		const meta = cardMeta(item);
-		const subtitle = [el("span", {
-			class: "maestro-muted",
-			text: [
-				moduleTitle$1(env.modules, i18n, item.module),
-				kindName(item.kind),
-				formatTime$1(item.createdAt, i18n)
-			].filter(Boolean).join(" · ")
-		})];
-		if (meta.confidence !== void 0) subtitle.push(badge(tx("m8.inbox.confidence", { value: Math.round(meta.confidence * 100) }), "muted"));
-		if (item.deferred) subtitle.push(badge(t("ui.inbox.deferred"), "muted"));
-		if (item.expiresAt) subtitle.push(badge(t("ui.inbox.expires", { time: formatTime$1(item.expiresAt, i18n) }), "muted"));
-		const editing = drafts.has(item.id);
-		const editable = meta.editable && meta.value !== void 0 && !item.deferred;
-		return card({
-			title: item.title,
-			subtitle,
-			className: "maestro-inbox-card",
-			body: [
-				item.description ? el("div", {
-					class: "maestro-card-text",
-					text: item.description
-				}) : null,
-				meta.evidence ? el("blockquote", {
-					class: "maestro-inbox-evidence",
-					text: meta.evidence
-				}) : null,
-				...item.changes.map((change) => humanChangeView(change, env.labels, i18n)),
-				editing ? editor(item, redraw) : null,
-				technical(item)
-			],
-			actions: [
-				sourceButton(item.sourceMessage),
-				el("span", { class: "maestro-grow" }),
-				button({
-					label: t("ui.inbox.snooze"),
-					title: tx("m8.inbox.snooze.hint"),
-					icon: "fa-clock",
-					kind: "ghost",
-					onClick: () => env.inbox.snooze(item.id, SNOOZE_MS)
-				}),
-				button({
-					label: item.rejectLabel ?? t("ui.inbox.reject"),
-					icon: "fa-xmark",
-					kind: "danger",
-					onClick: () => env.inbox.reject(item.id)
-				}),
-				editable && !editing ? button({
-					label: tx("m8.inbox.edit"),
-					icon: "fa-pen",
-					onClick: () => {
-						drafts.set(item.id, meta.value ?? "");
-						redraw();
-					}
-				}) : null,
-				!item.deferred && canPromote(item.kind) ? button({
-					label: tx("m8.inbox.always"),
-					title: tx("m8.inbox.always.hint"),
-					icon: "fa-forward-fast",
-					onClick: () => always(item)
-				}) : null,
-				button({
-					label: item.acceptLabel ?? t("ui.inbox.accept"),
-					icon: "fa-check",
-					kind: "primary",
-					disabled: item.deferred === true,
-					title: item.deferred ? t("ui.inbox.deferredHint") : void 0,
-					onClick: async () => {
-						await accept(item);
-					}
-				})
-			]
-		});
-	};
-	const groupsView = (cards, redraw) => {
-		const groups = groupByEntity(cards);
-		if (groups.length === 1 && groups[0]?.entity === "") return el("div", { class: "maestro-cards" }, cards.map((item) => cardView(item, redraw)));
-		return el("div", { class: "maestro-inbox-groups" }, groups.map((group) => el("div", {
-			class: "maestro-inbox-group",
-			data: { entity: group.entity }
-		}, [el("div", { class: "maestro-inbox-group-head" }, [el("span", { text: group.entity || tx("m8.inbox.other") }), badge(group.cards.length, "muted")]), el("div", { class: "maestro-cards" }, group.cards.map((item) => cardView(item, redraw)))])));
-	};
-	const deferredView = (api, list) => section$1(tx("m8.inbox.deferred.title"), [el("div", {
-		class: "maestro-hint",
-		text: tx("m8.inbox.deferred.hint")
-	}), el("div", { class: "maestro-cards" }, list.map((item) => card({
-		title: `${item.entityName}: ${tOr(i18n, `m8.target.${item.target}`, item.target)}`,
-		subtitle: [badge(tx("m8.inbox.deferred.stage", { stage: deferredStage(item.target) }), "muted"), el("span", {
-			class: "maestro-muted",
-			text: formatTime$1(item.at, i18n)
-		})],
-		className: "maestro-inbox-deferred",
-		level: "muted",
-		body: [
-			el("div", {
-				class: "maestro-card-text",
-				text: item.russian || item.value
-			}),
-			item.evidence ? el("blockquote", {
-				class: "maestro-inbox-evidence",
-				text: item.evidence
-			}) : null,
-			item.russian ? detailsView(i18n, env.settings.core().showTechnical === true, [el("div", {
-				class: "maestro-details-notes",
-				text: item.value
-			})]) : null
-		],
-		actions: [
-			sourceButton(item.sourceMessage),
-			el("span", { class: "maestro-grow" }),
-			api.dismissDeferred ? button({
-				label: tx("m8.inbox.deferred.dismiss"),
-				icon: "fa-trash-can",
-				kind: "ghost",
-				onClick: async () => {
-					await api.dismissDeferred?.(item.id);
-				}
-			}) : null
-		]
-	})))]);
-	return {
-		id: INBOX_TAB$1,
-		titleKey: "ui.tab.inbox",
-		icon: "fa-inbox",
-		order: 30,
-		badge: () => env.inbox.count(),
-		render(container) {
-			const draw = () => {
-				clear(container);
-				const cards = [...env.inbox.list()].sort((a, b) => b.createdAt - a.createdAt);
-				for (const id of [...drafts.keys()]) if (!cards.some((item) => item.id === id)) drafts.delete(id);
-				const actionable = cards.filter((item) => !item.deferred);
-				const acceptAll = button({
-					label: t("ui.inbox.acceptAll", { count: actionable.length }),
-					icon: "fa-check-double",
-					disabled: actionable.length === 0,
-					onClick: async () => {
-						let failed = 0;
-						for (const item of actionable) try {
-							if (!await env.inbox.accept(item.id)) failed++;
-						} catch (error) {
-							failed++;
-							shell.log.error("accept failed", item.id, error);
-						}
-						const accepted = actionable.length - failed;
-						shell.notice(failed ? t("ui.inbox.acceptAllPartial", {
-							accepted,
-							failed
-						}) : t("ui.inbox.acceptAllDone", { accepted }), { level: failed ? "warn" : "info" });
-					}
-				});
-				const api = revision();
-				let deferred = [];
-				try {
-					deferred = api?.deferred() ?? [];
-				} catch (error) {
-					shell.log.warn("deferred cards are not readable", error);
-				}
-				const view = el("div", { class: "maestro-view maestro-inbox" }, [el("style", { text: INBOX_CSS }), section$1(t("ui.inbox.title"), cards.length ? groupsView(cards, draw) : emptyState(t("ui.inbox.empty")), cards.length ? acceptAll : void 0)]);
-				if (api && deferred.length) append(view, deferredView(api, deferred));
-				container.append(view);
-			};
-			draw();
-			const later = coalesce(draw, 50);
-			const unsubscribers = [env.inbox.onChange(later)];
-			try {
-				const off = revision()?.onChange?.(later);
-				if (off) unsubscribers.push(off);
-			} catch (error) {
-				shell.log.debug("revision changes are not observable", error);
-			}
-			return () => {
-				later.cancel();
-				for (const off of unsubscribers) off();
-			};
-		}
-	};
 }
 //#endregion
 //#region src/ui/components/controls.ts
@@ -7835,281 +6939,94 @@ function segmented(options) {
 	return group;
 }
 //#endregion
-//#region src/ui/views/journal.ts
-var JOURNAL_TAB = "journal";
-var LIMIT = 300;
-function journalTab(env) {
-	const { i18n, shell } = env;
-	const t = i18n.t.bind(i18n);
-	/** Human kind name; the raw kind when the module did not name it (still better than nothing in a table). */
-	const kindName = (kind) => kindLabel(i18n, kind) ?? kind;
-	const changesView = (record) => {
-		if (!record.changes.length) return null;
-		const open = env.settings.core().showTechnical === true;
-		const human = record.changes.map((change) => humanChangeView(change, env.labels, i18n)).filter((node) => node !== null);
-		const technical = detailsView(i18n, open, [el("div", {
-			class: "maestro-muted",
-			text: t("ui.inbox.detailsKind", { kind: record.kind })
-		}), ...record.changes.map((change) => changeView$1(change, t))]);
-		if (!human.length) return technical;
-		return el("details", { class: "maestro-journal-changes" }, [
-			el("summary", { text: t("ui.journal.changes") }),
-			...human,
-			technical
-		]);
-	};
-	const recordView = (record, redraw) => {
-		const known = kindLabel(i18n, record.kind);
-		const meta = [
-			formatTime$1(record.at, i18n),
-			moduleTitle$1(env.modules, i18n, record.module),
-			known ?? ""
-		];
-		return el("div", { class: ["maestro-journal-row", record.undone ? "maestro-undone" : null] }, [el("div", { class: "maestro-journal-main" }, [
-			el("div", {
-				class: "maestro-journal-summary",
-				text: record.summary
-			}),
-			el("div", {
-				class: "maestro-muted",
-				text: meta.filter(Boolean).join(" · ")
-			}),
-			changesView(record)
-		]), button({
-			label: record.undone ? t("ui.journal.undoneLabel") : t("ui.journal.undo"),
-			icon: "fa-rotate-left",
-			disabled: record.undone === true,
-			onClick: async () => {
-				const ok = await env.journal.undo(record.id);
-				shell.notice(ok ? t("ui.journal.undoDone", { summary: record.summary }) : t("ui.journal.undoFailed", { summary: record.summary }), {
-					level: ok ? "info" : "warn",
-					importance: "urgent"
-				});
-				redraw();
-			}
-		})]);
-	};
-	const statsView = () => {
-		const stats = [...env.autonomy.stats()].map((row) => ({
-			...row,
-			label: kindName(row.kind)
-		})).sort((a, b) => a.label.localeCompare(b.label));
-		return section$1(t("ui.journal.stats"), table([
-			{
-				key: "kind",
-				label: t("ui.journal.kind"),
-				cell: (row) => row.label
-			},
-			{
-				key: "accepted",
-				label: t("ui.journal.accepted"),
-				numeric: true,
-				cell: (row) => String(row.accepted)
-			},
-			{
-				key: "edited",
-				label: t("ui.journal.edited"),
-				numeric: true,
-				cell: (row) => String(row.edited)
-			},
-			{
-				key: "rejected",
-				label: t("ui.journal.rejected"),
-				numeric: true,
-				cell: (row) => String(row.rejected)
-			},
-			{
-				key: "undone",
-				label: t("ui.journal.undoneCount"),
-				numeric: true,
-				cell: (row) => String(row.undone)
-			},
-			{
-				key: "streak",
-				label: t("ui.journal.streak"),
-				numeric: true,
-				cell: (row) => String(row.streak)
-			}
-		], stats, { empty: t("ui.journal.statsEmpty") }));
-	};
-	return {
-		id: JOURNAL_TAB,
-		titleKey: "ui.tab.journal",
-		icon: "fa-clock-rotate-left",
-		order: 80,
-		render(container) {
-			let filter = "";
-			const draw = () => {
-				clear(container);
-				const records = [...env.journal.list({
-					module: filter || void 0,
-					limit: LIMIT
-				})].sort((a, b) => b.at - a.at);
-				const modules = [...new Set(env.journal.list({ limit: LIMIT }).map((record) => record.module))].sort();
-				const filterSelect = select({
-					value: filter,
-					label: t("ui.journal.filter"),
-					options: [{
-						value: "",
-						label: t("ui.journal.allModules")
-					}, ...modules.map((id) => ({
-						value: id,
-						label: moduleTitle$1(env.modules, i18n, id)
-					}))],
-					onChange: (value) => {
-						filter = value;
-						draw();
-					}
-				});
-				container.append(el("div", { class: "maestro-view maestro-journal" }, [section$1(t("ui.journal.title"), records.length ? el("div", { class: "maestro-journal-list" }, records.map((record) => recordView(record, draw))) : emptyState(t("ui.journal.empty"), "fa-feather"), [filterSelect, button({
-					icon: "fa-arrows-rotate",
-					title: t("ui.refresh"),
-					kind: "ghost",
-					onClick: draw
-				})]), statsView()]));
-			};
-			draw();
-		}
-	};
+//#region src/ui/components/table.ts
+function table(columns, rows, options = {}) {
+	if (!rows.length && options.empty) return emptyState(options.empty, "fa-inbox");
+	const head = el("tr", {}, columns.map((column) => el("th", {
+		class: [column.className, column.numeric ? "maestro-num" : null],
+		text: column.label,
+		attrs: { scope: "col" }
+	})));
+	const body = rows.map((row, index) => el("tr", {}, columns.map((column) => el("td", {
+		class: [column.className, column.numeric ? "maestro-num" : null],
+		data: { label: column.label }
+	}, column.cell(row, index)))));
+	return el("div", { class: ["maestro-table-wrap", options.className] }, [el("table", { class: "maestro-table" }, [
+		options.caption ? el("caption", {
+			class: "maestro-sr-only",
+			text: options.caption
+		}) : null,
+		el("thead", {}, [head]),
+		el("tbody", {}, body)
+	])]);
 }
 //#endregion
-//#region src/ui/views/message-badges.ts
-/** ST events after which message DOM may have been rebuilt. Keys of eventTypes (see HostEvents.on). */
-var RERENDER_EVENTS = [
-	"CHARACTER_MESSAGE_RENDERED",
-	"USER_MESSAGE_RENDERED",
-	"MESSAGE_UPDATED",
-	"MESSAGE_EDITED",
-	"MESSAGE_SWIPED",
-	"MORE_MESSAGES_LOADED",
-	"CHAT_CHANGED"
-];
-var MessageBadges = class {
-	host;
-	log;
-	entries = /* @__PURE__ */ new Map();
-	unsubscribers = [];
-	listening = false;
-	timer = null;
-	constructor(host, log) {
-		this.host = host;
-		this.log = log;
+//#region src/ui/views/format.ts
+function intlLocale(i18n) {
+	return i18n.locale() === "ru" ? "ru-RU" : "en-US";
+}
+/** "14:05" for today, "3 окт., 14:05" for other days. */
+function formatTime$1(at, i18n, now = Date.now()) {
+	const date = new Date(at);
+	const today = new Date(now);
+	const options = date.toDateString() === today.toDateString() ? {
+		hour: "2-digit",
+		minute: "2-digit"
+	} : {
+		day: "numeric",
+		month: "short",
+		hour: "2-digit",
+		minute: "2-digit"
+	};
+	try {
+		return new Intl.DateTimeFormat(intlLocale(i18n), options).format(date);
+	} catch {
+		return date.toISOString();
 	}
-	add(index, spec) {
-		const key = `${index}:${spec.id}`;
-		this.removeNode(this.entries.get(key));
-		const entry = {
-			...spec,
-			key,
-			index,
-			chatId: this.currentChat()
-		};
-		this.entries.set(key, entry);
-		this.listen();
-		this.apply(entry);
-		return () => {
-			if (this.entries.get(key) !== entry) return;
-			this.entries.delete(key);
-			this.removeNode(entry);
-		};
+}
+/** US dollars with precision that stays readable for cents and fractions of a cent. */
+function formatUsd(value, i18n) {
+	const digits = value !== 0 && Math.abs(value) < .01 ? 4 : 2;
+	try {
+		return new Intl.NumberFormat(intlLocale(i18n), {
+			style: "currency",
+			currency: "USD",
+			minimumFractionDigits: digits,
+			maximumFractionDigits: digits
+		}).format(value);
+	} catch {
+		return `$${value.toFixed(digits)}`;
 	}
-	/** Re-applies every badge of the current chat (idempotent). */
-	applyAll() {
-		for (const entry of this.entries.values()) this.apply(entry);
-	}
-	dispose() {
-		if (this.timer !== null) clearTimeout(this.timer);
-		this.timer = null;
-		for (const unsubscribe of this.unsubscribers.splice(0)) unsubscribe();
-		this.listening = false;
-		for (const entry of this.entries.values()) this.removeNode(entry);
-		this.entries.clear();
-	}
-	currentChat() {
-		try {
-			return this.host.chatId();
-		} catch {
-			return null;
-		}
-	}
-	listen() {
-		if (this.listening) return;
-		this.listening = true;
-		for (const event of RERENDER_EVENTS) try {
-			this.unsubscribers.push(this.host.events.on(event, () => this.schedule()));
-		} catch (error) {
-			this.log.debug(`message badges: no event ${event}`, error);
-		}
-	}
-	/** Applies now and once more after ST finishes its own post-render work. */
-	schedule() {
-		this.applyAll();
-		if (this.timer !== null) return;
-		this.timer = setTimeout(() => {
-			this.timer = null;
-			this.applyAll();
-		}, 50);
-	}
-	findMessage(index) {
-		return document.querySelector(`#chat .mes[mesid="${index}"]`);
-	}
-	existing(message, entry) {
-		return [...message.querySelectorAll(".maestro-badge")].find((node) => node.dataset.maestroBadge === entry.id) ?? null;
-	}
-	apply(entry) {
-		const message = this.findMessage(entry.index);
-		const ours = entry.chatId === this.currentChat();
-		if (!message) return;
-		const present = this.existing(message, entry);
-		if (!ours) {
-			present?.remove();
-			return;
-		}
-		if (present) return;
-		const node = this.build(entry);
-		const buttons = message.querySelector(".mes_buttons");
-		if (buttons) {
-			buttons.insertBefore(node, buttons.firstChild);
-			return;
-		}
-		const text = message.querySelector(".mes_text");
-		if (text) text.after(node);
-		else message.appendChild(node);
-	}
-	build(entry) {
-		const node = el("div", {
-			class: "maestro-badge",
-			data: { maestroBadge: entry.id },
-			title: entry.text
-		}, [icon("fa-wand-magic-sparkles"), el("span", {
-			class: "maestro-badge-text",
-			text: entry.text
-		})]);
-		if (entry.action) {
-			const action = entry.action;
-			const run = el("button", {
-				class: "maestro-badge-action",
-				text: action.label,
-				attrs: { type: "button" }
-			});
-			run.addEventListener("click", (event) => {
-				event.stopPropagation();
-				try {
-					action.run();
-				} catch (error) {
-					this.log.error(`message badge action "${entry.id}" failed`, error);
-				}
-			});
-			node.appendChild(run);
-		}
-		return node;
-	}
-	removeNode(entry) {
-		if (!entry) return;
-		const message = this.findMessage(entry.index);
-		if (message) this.existing(message, entry)?.remove();
-	}
-};
+}
+/** Translated key, or the fallback when the key has no translation (I18n returns the key itself then). */
+function tOr(i18n, key, fallback, params) {
+	const text = i18n.t(key, params);
+	return text === key ? fallback : text;
+}
+/** Module title by plan id ('M1') or settings key ('loreJournal'); unknown ids are shown as is. */
+function moduleTitle$1(modules, i18n, id) {
+	const entry = modules?.list().find((item) => item.module.id === id || item.module.key === id);
+	return entry ? i18n.t(entry.module.titleKey) : id;
+}
+/**
+* Coalesces bursts of calls (cost meter ticks, inbox changes) into one call after `ms`.
+* `cancel()` drops a pending call (view unmounted).
+*/
+function coalesce(run, ms = 100) {
+	let timer = null;
+	const call = (() => {
+		if (timer !== null) return;
+		timer = setTimeout(() => {
+			timer = null;
+			run();
+		}, ms);
+	});
+	call.cancel = () => {
+		if (timer !== null) clearTimeout(timer);
+		timer = null;
+	};
+	return call;
+}
 //#endregion
 //#region src/ui/views/overview.ts
 var OVERVIEW_TAB = "overview";
@@ -8328,574 +7245,2708 @@ function overviewTab(env) {
 	};
 }
 //#endregion
-//#region src/ui/components/tabs.ts
-var instances = 0;
-/** localStorage may throw (private mode, blocked site data) or be missing: collapsing then just is not remembered. */
-function readCollapsed(key) {
-	if (!key) return /* @__PURE__ */ new Set();
-	try {
-		const raw = globalThis.localStorage?.getItem(key);
-		const parsed = raw ? JSON.parse(raw) : [];
-		return new Set(Array.isArray(parsed) ? parsed.filter((value) => typeof value === "string") : []);
-	} catch {
-		return /* @__PURE__ */ new Set();
+//#region src/ui/views/strings.ts
+/** Strings of the UI shell and core views (`ui.*`). Russian is the primary UI language. */
+var UI_STRINGS = {
+	en: {
+		"ui.title": "Maestro",
+		"ui.refresh": "Refresh",
+		"ui.actionFailed": "Action failed: {error}",
+		"ui.notice.andMore": "{text} and {count} more",
+		"ui.confirm.yes": "Yes",
+		"ui.confirm.no": "No",
+		"ui.entry.topTitle": "Maestro — windows and tasks",
+		"ui.entry.topTitleCount": "Maestro — {count} waiting",
+		"ui.entry.topTitleJob": "{title}: {status}",
+		"ui.entry.topTitleJobs": "your tasks running: {count}",
+		"ui.entry.wandTitle": "Maestro windows",
+		"ui.entry.description": "Conductor of the extension stack: one canon, one prompt, one interface. Its windows open from the Maestro icon in the top bar and stay beside the chat.",
+		"ui.entry.open": "Open Maestro",
+		"ui.window.assistant": "Assistant",
+		"ui.window.inbox": "Inbox",
+		"ui.window.characters": "Characters",
+		"ui.window.mechanics": "Mechanics",
+		"ui.window.world": "World",
+		"ui.window.canon": "Canon",
+		"ui.window.turn": "Turn",
+		"ui.window.health": "Health",
+		"ui.window.maestro": "Maestro",
+		"ui.window.sections": "Sections of the window",
+		"ui.window.switcher": "Open windows",
+		"ui.window.settings": "Settings of this section",
+		"ui.window.otherSide": "Move to the other side",
+		"ui.window.toLeft": "Move to the left",
+		"ui.window.toRight": "Move to the right",
+		"ui.window.detach": "Detach into a floating window",
+		"ui.window.attach": "Attach to the side",
+		"ui.window.collapse": "Collapse",
+		"ui.window.expand": "Expand",
+		"ui.window.close": "Close",
+		"ui.menu.label": "Maestro menu",
+		"ui.menu.windows": "Windows",
+		"ui.menu.studios": "Studios",
+		"ui.menu.jobs": "Your tasks",
+		"ui.menu.settings": "Settings",
+		"ui.mesButton.title": "Maestro: dossier, mechanics",
+		"ui.mesButton.dossier": "Dossier: {name}",
+		"ui.mesButton.mechanics": "Mechanics",
+		"ui.mesButton.maestro": "Open Maestro",
+		"ui.mesButton.noDossier": "No dossier on {name} yet: here is the list.",
+		"ui.pult.tabs": "Maestro sections",
+		"ui.pult.close": "Close",
+		"ui.pult.noTabs": "Nothing here yet.",
+		"ui.pult.renderFailed": "This section failed to open. Details are in the browser console.",
+		"ui.tab.overview": "Overview",
+		"ui.tab.inbox": "Inbox",
+		"ui.tab.health": "Health",
+		"ui.tab.tasks": "Tasks",
+		"ui.tab.journal": "Journal",
+		"ui.tab.settings": "Settings",
+		"ui.group.turn": "Turn",
+		"ui.group.inbox": "Inbox",
+		"ui.group.canon": "Canon",
+		"ui.group.dossier": "Dossier",
+		"ui.group.world": "World",
+		"ui.group.mechanics": "Mechanics",
+		"ui.group.health": "Health",
+		"ui.group.journal": "Journal",
+		"ui.group.assistant": "Assistant",
+		"ui.group.extensions": "Extensions",
+		"ui.group.settings": "Settings",
+		"ui.group.more": "More",
+		"ui.group.collapse": "Collapse the group",
+		"ui.group.expand": "Expand the group",
+		"ui.lamp.ok": "Works",
+		"ui.lamp.warn": "Partly works",
+		"ui.lamp.error": "Not available",
+		"ui.mode.economy": "Economy",
+		"ui.mode.balanced": "Balanced",
+		"ui.mode.cinema": "Cinema",
+		"ui.mode.economyHint": "Minimum background AI: cheap checks only; the director only sets scene flags (no notes), no backstage.",
+		"ui.mode.balancedHint": "Revisions on signals, AI judge only when in doubt. The default.",
+		"ui.mode.cinemaHint": "More director, backstage and pictures; costs more.",
+		"ui.overview.groupChat": "Group chats are not supported: Maestro sleeps in this chat.",
+		"ui.overview.textCompletion": "Text Completion API: studios and generation scenarios fall back to the classic windows.",
+		"ui.overview.inbox": "Inbox",
+		"ui.overview.inboxCount": "Proposals waiting: {count}",
+		"ui.overview.inboxEmpty": "Nothing waiting for a decision.",
+		"ui.overview.openInbox": "Open",
+		"ui.overview.mode": "Mode",
+		"ui.overview.cost": "Spend today",
+		"ui.overview.stack": "Extension stack",
+		"ui.overview.stackEmpty": "No capability checks yet.",
+		"ui.overview.capsCount": "{ok} of {total}",
+		"ui.overview.capsMissing": "Missing: {count}",
+		"ui.overview.modules": "Modules",
+		"ui.overview.notices": "Notices",
+		"ui.overview.noticesEmpty": "No notices.",
+		"ui.overview.clearNotices": "Clear",
+		"ui.stack.st": "SillyTavern",
+		"ui.stack.des": "Doom's Enhancement Suite",
+		"ui.stack.desru": "DES-RU",
+		"ui.stack.ck": "CarrotKernel",
+		"ui.stack.bunnymo": "BunnyMo",
+		"ui.stack.qvink": "Qvink Memory",
+		"ui.stack.nai": "NAI Studio",
+		"ui.stack.localizer": "Lorebook Localizer",
+		"ui.stack.preset": "Preset",
+		"ui.cost.today": "Total",
+		"ui.cost.background": "Maestro background",
+		"ui.cost.backgroundOfCap": "{spent} of {cap}",
+		"ui.cost.backgroundNoCap": "{spent} (no cap)",
+		"ui.cost.anlas": "Anlas",
+		"ui.cost.capReached": "The background cap is reached: background tasks wait until tomorrow or until the cap is raised.",
+		"ui.cost.bySource": "Spend by source",
+		"ui.cost.source": "Source",
+		"ui.cost.usd": "USD",
+		"ui.cost.source.main": "Main chat",
+		"ui.cost.source.qvink": "Qvink summaries",
+		"ui.cost.source.maestro": "Maestro",
+		"ui.cost.source.nai": "NovelAI",
+		"ui.cost.source.other": "Other",
+		"ui.modules.stage": "Stage",
+		"ui.modules.module": "Module",
+		"ui.modules.status": "Status",
+		"ui.modules.missing": "Missing",
+		"ui.modules.running": "Running",
+		"ui.modules.off": "Off",
+		"ui.modules.blocked": "Waiting for capabilities",
+		"ui.modules.stopped": "Not running",
+		"ui.modules.none": "No modules yet: they arrive with the next stages.",
+		"ui.inbox.title": "Proposals",
+		"ui.inbox.empty": "Inbox is empty.",
+		"ui.inbox.accept": "Accept",
+		"ui.inbox.reject": "Reject",
+		"ui.inbox.snooze": "Tomorrow",
+		"ui.inbox.acceptAll": "Accept all ({count})",
+		"ui.inbox.acceptAllDone": "Done: accepted {accepted}.",
+		"ui.inbox.acceptAllPartial": "Accepted {accepted}. Skipped {failed}: things changed since they appeared.",
+		"ui.inbox.stale": "“{title}” is out of date: things changed since it appeared, so nothing was changed.",
+		"ui.inbox.deferred": "Waits for a module",
+		"ui.inbox.deferredHint": "This proposal needs a module of a later stage.",
+		"ui.inbox.expires": "until {time}",
+		"ui.inbox.source": "Message #{index}",
+		"ui.inbox.details": "Details",
+		"ui.inbox.detailsKind": "Action kind: {kind}",
+		"ui.inbox.detailsModule": "Module: {module}",
+		"ui.inbox.detailsNotes": "Notes",
+		"ui.strip.label": "Maestro about this message",
+		"ui.strip.more": "More",
+		"ui.strip.open": "Open",
+		"ui.strip.edit": "Edit",
+		"ui.strip.single.proposal": "proposal",
+		"ui.strip.single.question": "question",
+		"ui.strip.single.fact": "remembered a fact",
+		"ui.strip.single.change": "change",
+		"ui.strip.single.roll": "roll",
+		"ui.strip.single.info": "note",
+		"ui.strip.count.proposal.one": "{count} proposal",
+		"ui.strip.count.proposal.few": "{count} proposals",
+		"ui.strip.count.proposal.many": "{count} proposals",
+		"ui.strip.count.question.one": "{count} question",
+		"ui.strip.count.question.few": "{count} questions",
+		"ui.strip.count.question.many": "{count} questions",
+		"ui.strip.count.fact.one": "remembered {count} fact",
+		"ui.strip.count.fact.few": "remembered {count} facts",
+		"ui.strip.count.fact.many": "remembered {count} facts",
+		"ui.strip.count.change.one": "{count} change",
+		"ui.strip.count.change.few": "{count} changes",
+		"ui.strip.count.change.many": "{count} changes",
+		"ui.strip.count.roll.one": "{count} roll",
+		"ui.strip.count.roll.few": "{count} rolls",
+		"ui.strip.count.roll.many": "{count} rolls",
+		"ui.strip.count.info.one": "{count} note",
+		"ui.strip.count.info.few": "{count} notes",
+		"ui.strip.count.info.many": "{count} notes",
+		"ui.diff.before": "Before",
+		"ui.diff.after": "After",
+		"ui.diff.added": "Added",
+		"ui.diff.removed": "Removed",
+		"ui.diff.value": "Value",
+		"ui.diff.noChanges": "No changes.",
+		"ui.diff.unchanged": "Unchanged fields: {count}",
+		"ui.diff.was": "was",
+		"ui.diff.now": "now",
+		"ui.diff.target": "Where: {target}",
+		"ui.diff.ref": "Address: {ref}",
+		"ui.journal.title": "Actions",
+		"ui.journal.empty": "No actions yet.",
+		"ui.journal.filter": "Module filter",
+		"ui.journal.allModules": "All modules",
+		"ui.journal.changes": "What changed",
+		"ui.journal.undo": "Undo",
+		"ui.journal.undoneLabel": "Undone",
+		"ui.journal.undoDone": "Undone: {summary}",
+		"ui.journal.undoFailed": "Could not undo: {summary}",
+		"ui.journal.stats": "Decision stats",
+		"ui.journal.statsEmpty": "No decisions yet.",
+		"ui.journal.kind": "Action kind",
+		"ui.journal.accepted": "Accepted",
+		"ui.journal.edited": "Edited",
+		"ui.journal.rejected": "Rejected",
+		"ui.journal.undoneCount": "Undone",
+		"ui.journal.streak": "In a row",
+		"ui.health.checks": "Checks",
+		"ui.health.noChecks": "No checks registered yet.",
+		"ui.health.runAll": "Run again",
+		"ui.health.fix": "Fix",
+		"ui.health.status.ok": "OK",
+		"ui.health.status.warn": "Warning",
+		"ui.health.status.error": "Problem",
+		"ui.health.status.skip": "Skipped",
+		"ui.health.status.running": "Checking…",
+		"ui.health.capabilities": "Capabilities",
+		"ui.health.recheck": "Recheck",
+		"ui.health.state": "State",
+		"ui.health.capability": "Capability",
+		"ui.health.detail": "Details",
+		"ui.health.log": "Recent warnings and errors",
+		"ui.health.logEmpty": "No warnings.",
+		"ui.tasks.title": "Background tasks",
+		"ui.tasks.empty": "The queue is empty.",
+		"ui.tasks.kind": "Task",
+		"ui.tasks.state": "State",
+		"ui.tasks.attempts": "Attempts",
+		"ui.tasks.created": "Created",
+		"ui.tasks.error": "Error",
+		"ui.tasks.kick": "Run now",
+		"ui.tasks.hint": "Tasks run only in the leading tab and never during a generation.",
+		"ui.tasks.state.pending": "Waiting",
+		"ui.tasks.state.running": "Running",
+		"ui.tasks.state.done": "Done",
+		"ui.tasks.state.failed": "Failed",
+		"ui.tasks.state.expired": "Expired",
+		"ui.jobs.title": "Your tasks",
+		"ui.jobs.empty": "Nothing you started is running.",
+		"ui.jobs.hint": "Tasks you started yourself. They keep going when you close the window you started them in; finished ones stay here for 10 minutes.",
+		"ui.jobs.queued": "Waiting for its turn…",
+		"ui.jobs.running": "Working…",
+		"ui.jobs.saving": "Saving…",
+		"ui.jobs.progress": "{done} of {total}",
+		"ui.jobs.stopping": "Stopping after the current step…",
+		"ui.jobs.started": "started at {time}",
+		"ui.jobs.stop": "Stop",
+		"ui.jobs.open": "Open",
+		"ui.jobs.hide": "Hide",
+		"ui.settings.general": "General",
+		"ui.settings.language": "Interface language",
+		"ui.settings.language.auto": "As in SillyTavern",
+		"ui.settings.language.ru": "Русский",
+		"ui.settings.language.en": "English",
+		"ui.settings.mode": "Mode",
+		"ui.settings.modeHint": "Each module can still be switched on or off on top of the mode.",
+		"ui.settings.debug": "Debug mode",
+		"ui.settings.debugHint": "Detailed log in the browser console.",
+		"ui.settings.budget": "Budget",
+		"ui.settings.backgroundCap": "Background cap per day, USD",
+		"ui.settings.backgroundCapHint": "Maestro's own background AI spend; 0 means no cap.",
+		"ui.settings.dailyLimit": "Overall daily limit",
+		"ui.settings.dailyLimitHint": "Counts the main chat too. Off by default.",
+		"ui.settings.dailyLimitUsd": "Limit per day, USD",
+		"ui.settings.dailyLimitAction": "When reached",
+		"ui.settings.limitAction.warn": "Warn",
+		"ui.settings.limitAction.economy": "Switch to Economy",
+		"ui.settings.limitAction.stopBackground": "Stop background tasks",
+		"ui.settings.profiles": "Connection profiles",
+		"ui.settings.profilesHint": "Background tasks go through saved Connection Manager profiles; the active connection is not switched.",
+		"ui.settings.profileDefault": "Main background profile",
+		"ui.settings.profileFallback": "Fallback profile",
+		"ui.settings.profileNone": "Not selected",
+		"ui.settings.profileInherit": "Same as main",
+		"ui.settings.profileNoFallback": "No fallback",
+		"ui.settings.profileMissing": "Missing profile ({id})",
+		"ui.settings.noConnectionManager": "Connection Manager is off: background tasks are not possible.",
+		"ui.settings.autonomy": "Autonomy levels",
+		"ui.settings.autonomyHint": "What Maestro does with each kind of change: does it by itself, tells you, leaves it in the Inbox, asks, or skips it.",
+		"ui.settings.autonomyEmpty": "Action kinds appear here once modules start proposing changes.",
+		"ui.settings.autonomyDefault": "Module default",
+		"ui.autonomy.auto": "Auto",
+		"ui.autonomy.notify": "Notify",
+		"ui.autonomy.inbox": "Inbox",
+		"ui.autonomy.ask": "Ask",
+		"ui.autonomy.off": "Off",
+		"ui.settings.modules": "Modules",
+		"ui.settings.moduleMissing": "Missing capabilities: {caps}",
+		"ui.settings.notices": "Notifications",
+		"ui.settings.notifyLevel": "What to tell me about",
+		"ui.settings.notifyLevelHint": "Short pop-ups in the corner. Everything is always listed in the Overview and the journal.",
+		"ui.settings.notifyLevel.all": "Everything",
+		"ui.settings.notifyLevel.important": "Important",
+		"ui.settings.notifyLevel.urgent": "Urgent only",
+		"ui.settings.showTechnical": "Show technical details",
+		"ui.settings.showTechnicalHint": "Cards and the journal open “Details” right away: books, entry numbers, raw data. For debugging.",
+		"ui.settings.chatNotices": "Maestro line under messages",
+		"ui.settings.chatNoticesHint": "Proposals, remembered facts and rolls right in the chat, under the message they came from. On screen only: nothing goes into the message text or the prompt.",
+		"ui.settings.chatNotices.all": "Everything",
+		"ui.settings.chatNotices.pending": "Only what waits for a decision",
+		"ui.settings.chatNotices.none": "Nothing",
+		"ui.settings.moduleToggleFailed": "Could not switch “{title}”.",
+		"ui.settings.data": "Data",
+		"ui.settings.export": "Export Maestro data",
+		"ui.settings.import": "Import",
+		"ui.settings.prepareDisable": "Prepare to disable",
+		"ui.settings.prepareDisableHint": "“Prepare to disable” moves chat canon into regular lorebooks and leaves the stack working without Maestro.",
+		"ui.settings.actionUnavailable": "Not available yet: this action arrives in a later version.",
+		"ui.settings.runWizard": "Run the first-run wizard again",
+		"ui.slash.maestroOff": "Maestro is disabled.",
+		"ui.slash.moduleOff": "/{name} is unavailable: its Maestro module is off.",
+		"ui.slash.failed": "/{name} failed: {error}",
+		"ui.slash.maestro.help": "Opens a Maestro window by name (Assistant, Inbox, Characters, Mechanics, World, Canon, Turn, Health, Maestro) or one of its sections. Without a name: the Maestro menu.",
+		"ui.slash.maestro.arg": "window or section name",
+		"ui.slash.maestro.unknown": "There is no window called “{name}”. Available: {known}.",
+		"ui.slash.undo.help": "Takes back Maestro's latest change in this chat (asks first).",
+		"ui.slash.undo.nothing": "Nothing to take back: Maestro has not changed anything here yet.",
+		"ui.slash.undo.confirmTitle": "Take back the latest change?",
+		"ui.slash.undo.confirmBody": "The latest thing Maestro did: “{summary}”. It will be undone.",
+		"ui.slash.undo.kept": "Left as it is: {summary}",
+		"ui.slash.undo.done": "Undone: {summary}",
+		"ui.slash.undo.failed": "Could not undo “{summary}”: the data has changed since. See the Journal.",
+		"ui.slash.mode.help": "Switches Maestro's mode: economy, balanced or cinema. Without a value: names the current one.",
+		"ui.slash.mode.arg": "economy, balanced or cinema",
+		"ui.slash.mode.current": "The mode now: {mode}. Available: {list}.",
+		"ui.slash.mode.unknown": "There is no mode “{name}”. Available: {list}.",
+		"ui.slash.mode.set": "Mode: {mode}. {hint}",
+		"ui.wizard.welcomeTitle": "Welcome to Maestro",
+		"ui.wizard.welcome1": "Maestro conducts your extension stack: it watches the lore, the prompt and the neighbours, fixes what breaks and keeps a canon for each chat.",
+		"ui.wizard.welcome2": "Nothing important happens silently: proposals land in the Inbox, every action goes to the journal and can be undone.",
+		"ui.wizard.welcome3": "Maestro's windows open from the wand icon in the top bar and stay beside the chat. A few setup steps follow.",
+		"ui.wizard.stepOf": "Step {step} of {total}",
+		"ui.wizard.back": "Back",
+		"ui.wizard.next": "Next",
+		"ui.wizard.skipStep": "Skip",
+		"ui.wizard.finish": "Finish",
+		"ui.wizard.skipAll": "Skip setup",
+		"ui.wizard.stepFailed": "This step failed to open. It can be skipped.",
+		"ui.wizard.finished": "Setup complete."
+	},
+	ru: {
+		"ui.title": "Maestro",
+		"ui.refresh": "Обновить",
+		"ui.actionFailed": "Не получилось: {error}",
+		"ui.notice.andMore": "{text} и ещё {count}",
+		"ui.confirm.yes": "Да",
+		"ui.confirm.no": "Нет",
+		"ui.entry.topTitle": "Maestro — окна и задачи",
+		"ui.entry.topTitleCount": "Maestro — ждут решения: {count}",
+		"ui.entry.topTitleJob": "{title}: {status}",
+		"ui.entry.topTitleJobs": "идут твои задачи: {count}",
+		"ui.entry.wandTitle": "Окна Maestro",
+		"ui.entry.description": "Дирижёр стека расширений: один канон, один промпт, один интерфейс. Окна открываются значком Maestro в верхней панели и стоят рядом с чатом.",
+		"ui.entry.open": "Открыть Maestro",
+		"ui.window.assistant": "Ассистент",
+		"ui.window.inbox": "Входящие",
+		"ui.window.characters": "Персонажи",
+		"ui.window.mechanics": "Механики",
+		"ui.window.world": "Мир",
+		"ui.window.canon": "Канон",
+		"ui.window.turn": "Ход",
+		"ui.window.health": "Здоровье",
+		"ui.window.maestro": "Maestro",
+		"ui.window.sections": "Разделы окна",
+		"ui.window.switcher": "Открытые окна",
+		"ui.window.settings": "Настройки раздела",
+		"ui.window.otherSide": "Перенести на другую сторону",
+		"ui.window.toLeft": "Перенести влево",
+		"ui.window.toRight": "Перенести вправо",
+		"ui.window.detach": "Открепить в отдельное окно",
+		"ui.window.attach": "Прикрепить сбоку",
+		"ui.window.collapse": "Свернуть",
+		"ui.window.expand": "Развернуть",
+		"ui.window.close": "Закрыть",
+		"ui.menu.label": "Меню Maestro",
+		"ui.menu.windows": "Окна",
+		"ui.menu.studios": "Студии",
+		"ui.menu.jobs": "Твои задачи",
+		"ui.menu.settings": "Настройки",
+		"ui.mesButton.title": "Maestro: досье, механики",
+		"ui.mesButton.dossier": "Досье: {name}",
+		"ui.mesButton.mechanics": "Механики",
+		"ui.mesButton.maestro": "Открыть Maestro",
+		"ui.mesButton.noDossier": "Досье на {name} пока нет — открыл список.",
+		"ui.pult.tabs": "Разделы Maestro",
+		"ui.pult.close": "Закрыть",
+		"ui.pult.noTabs": "Здесь пока пусто.",
+		"ui.pult.renderFailed": "Раздел не открылся. Подробности — в консоли браузера.",
+		"ui.tab.overview": "Обзор",
+		"ui.tab.inbox": "Входящие",
+		"ui.tab.health": "Здоровье",
+		"ui.tab.tasks": "Задачи",
+		"ui.tab.journal": "Журнал",
+		"ui.tab.settings": "Настройки",
+		"ui.group.turn": "Ход",
+		"ui.group.inbox": "Входящие",
+		"ui.group.canon": "Канон",
+		"ui.group.dossier": "Досье",
+		"ui.group.world": "Мир",
+		"ui.group.mechanics": "Механики",
+		"ui.group.health": "Здоровье",
+		"ui.group.journal": "Журнал",
+		"ui.group.assistant": "Ассистент",
+		"ui.group.extensions": "Расширения",
+		"ui.group.settings": "Настройки",
+		"ui.group.more": "Ещё",
+		"ui.group.collapse": "Свернуть группу",
+		"ui.group.expand": "Развернуть группу",
+		"ui.lamp.ok": "Работает",
+		"ui.lamp.warn": "Работает частично",
+		"ui.lamp.error": "Недоступно",
+		"ui.mode.economy": "Экономный",
+		"ui.mode.balanced": "Сбалансированный",
+		"ui.mode.cinema": "Кино",
+		"ui.mode.economyHint": "Минимум фонового ИИ: только дешёвые проверки; режиссёр лишь ставит флаги сцены (без заметок), без закулисья.",
+		"ui.mode.balancedHint": "Ревизия по сигналам, ИИ-судья — только при подозрении. Режим по умолчанию.",
+		"ui.mode.cinemaHint": "Больше режиссёра, закулисья и картинок; дороже.",
+		"ui.overview.groupChat": "Групповые чаты не поддерживаются: в этом чате Maestro спит.",
+		"ui.overview.textCompletion": "Text Completion: студии и сценарии генерации уступают место классическим окнам.",
+		"ui.overview.inbox": "Входящие",
+		"ui.overview.inboxCount": "Ждут решения: {count}",
+		"ui.overview.inboxEmpty": "Решений не ждёт ничего.",
+		"ui.overview.openInbox": "Открыть",
+		"ui.overview.mode": "Режим",
+		"ui.overview.cost": "Расходы за сегодня",
+		"ui.overview.stack": "Стек расширений",
+		"ui.overview.stackEmpty": "Проверок возможностей пока нет.",
+		"ui.overview.capsCount": "{ok} из {total}",
+		"ui.overview.capsMissing": "Не хватает: {count}",
+		"ui.overview.modules": "Модули",
+		"ui.overview.notices": "Уведомления",
+		"ui.overview.noticesEmpty": "Уведомлений нет.",
+		"ui.overview.clearNotices": "Очистить",
+		"ui.stack.st": "SillyTavern",
+		"ui.stack.des": "Doom's Enhancement Suite",
+		"ui.stack.desru": "DES-RU",
+		"ui.stack.ck": "CarrotKernel",
+		"ui.stack.bunnymo": "BunnyMo",
+		"ui.stack.qvink": "Qvink Memory",
+		"ui.stack.nai": "NAI Studio",
+		"ui.stack.localizer": "Lorebook Localizer",
+		"ui.stack.preset": "Пресет",
+		"ui.cost.today": "Всего",
+		"ui.cost.background": "Фон Maestro",
+		"ui.cost.backgroundOfCap": "{spent} из {cap}",
+		"ui.cost.backgroundNoCap": "{spent} (без потолка)",
+		"ui.cost.anlas": "Anlas",
+		"ui.cost.capReached": "Потолок фоновых расходов достигнут: фоновые задачи ждут завтрашнего дня или повышения потолка.",
+		"ui.cost.bySource": "Расходы по источникам",
+		"ui.cost.source": "Источник",
+		"ui.cost.usd": "USD",
+		"ui.cost.source.main": "Основной чат",
+		"ui.cost.source.qvink": "Пересказы Qvink",
+		"ui.cost.source.maestro": "Maestro",
+		"ui.cost.source.nai": "NovelAI",
+		"ui.cost.source.other": "Прочее",
+		"ui.modules.stage": "Этап",
+		"ui.modules.module": "Модуль",
+		"ui.modules.status": "Состояние",
+		"ui.modules.missing": "Не хватает",
+		"ui.modules.running": "Работает",
+		"ui.modules.off": "Выключен",
+		"ui.modules.blocked": "Ждёт возможностей",
+		"ui.modules.stopped": "Не запущен",
+		"ui.modules.none": "Модулей пока нет — они появятся на следующих этапах.",
+		"ui.inbox.title": "Предложения",
+		"ui.inbox.empty": "Во «Входящих» пусто.",
+		"ui.inbox.accept": "Принять",
+		"ui.inbox.reject": "Отклонить",
+		"ui.inbox.snooze": "Завтра",
+		"ui.inbox.acceptAll": "Принять все ({count})",
+		"ui.inbox.acceptAllDone": "Готово: принял {accepted}.",
+		"ui.inbox.acceptAllPartial": "Принял {accepted}. Пропустил {failed}: с тех пор всё изменилось.",
+		"ui.inbox.stale": "«{title}» устарело: с тех пор всё изменилось, поэтому я ничего не менял.",
+		"ui.inbox.deferred": "Ждёт модуля",
+		"ui.inbox.deferredHint": "Для этого предложения нужен модуль следующего этапа.",
+		"ui.inbox.expires": "до {time}",
+		"ui.inbox.source": "Сообщение №{index}",
+		"ui.inbox.details": "Подробнее",
+		"ui.inbox.detailsKind": "Вид действия: {kind}",
+		"ui.inbox.detailsModule": "Модуль: {module}",
+		"ui.inbox.detailsNotes": "Заметки",
+		"ui.strip.label": "Maestro об этом сообщении",
+		"ui.strip.more": "Подробнее",
+		"ui.strip.open": "Открыть",
+		"ui.strip.edit": "Изменить",
+		"ui.strip.single.proposal": "предложение",
+		"ui.strip.single.question": "вопрос",
+		"ui.strip.single.fact": "запомнил факт",
+		"ui.strip.single.change": "изменение",
+		"ui.strip.single.roll": "бросок",
+		"ui.strip.single.info": "заметка",
+		"ui.strip.count.proposal.one": "{count} предложение",
+		"ui.strip.count.proposal.few": "{count} предложения",
+		"ui.strip.count.proposal.many": "{count} предложений",
+		"ui.strip.count.question.one": "{count} вопрос",
+		"ui.strip.count.question.few": "{count} вопроса",
+		"ui.strip.count.question.many": "{count} вопросов",
+		"ui.strip.count.fact.one": "запомнил {count} факт",
+		"ui.strip.count.fact.few": "запомнил {count} факта",
+		"ui.strip.count.fact.many": "запомнил {count} фактов",
+		"ui.strip.count.change.one": "{count} изменение",
+		"ui.strip.count.change.few": "{count} изменения",
+		"ui.strip.count.change.many": "{count} изменений",
+		"ui.strip.count.roll.one": "{count} бросок",
+		"ui.strip.count.roll.few": "{count} броска",
+		"ui.strip.count.roll.many": "{count} бросков",
+		"ui.strip.count.info.one": "{count} заметка",
+		"ui.strip.count.info.few": "{count} заметки",
+		"ui.strip.count.info.many": "{count} заметок",
+		"ui.diff.before": "Было",
+		"ui.diff.after": "Стало",
+		"ui.diff.added": "Добавлено",
+		"ui.diff.removed": "Удалено",
+		"ui.diff.value": "Значение",
+		"ui.diff.noChanges": "Изменений нет.",
+		"ui.diff.unchanged": "Без изменений: {count}",
+		"ui.diff.was": "было",
+		"ui.diff.now": "стало",
+		"ui.diff.target": "Где: {target}",
+		"ui.diff.ref": "Адрес: {ref}",
+		"ui.journal.title": "Действия",
+		"ui.journal.empty": "Действий пока нет.",
+		"ui.journal.filter": "Фильтр по модулю",
+		"ui.journal.allModules": "Все модули",
+		"ui.journal.changes": "Что изменилось",
+		"ui.journal.undo": "Отменить",
+		"ui.journal.undoneLabel": "Отменено",
+		"ui.journal.undoDone": "Отменил: {summary}",
+		"ui.journal.undoFailed": "Не получилось отменить: {summary}",
+		"ui.journal.stats": "Статистика решений",
+		"ui.journal.statsEmpty": "Решений пока нет.",
+		"ui.journal.kind": "Вид действия",
+		"ui.journal.accepted": "Принято",
+		"ui.journal.edited": "Исправлено",
+		"ui.journal.rejected": "Отклонено",
+		"ui.journal.undoneCount": "Отменено",
+		"ui.journal.streak": "Подряд",
+		"ui.health.checks": "Проверки",
+		"ui.health.noChecks": "Проверок пока нет.",
+		"ui.health.runAll": "Проверить снова",
+		"ui.health.fix": "Исправить",
+		"ui.health.status.ok": "В порядке",
+		"ui.health.status.warn": "Предупреждение",
+		"ui.health.status.error": "Проблема",
+		"ui.health.status.skip": "Пропущено",
+		"ui.health.status.running": "Проверяется…",
+		"ui.health.capabilities": "Возможности",
+		"ui.health.recheck": "Перепроверить",
+		"ui.health.state": "Состояние",
+		"ui.health.capability": "Возможность",
+		"ui.health.detail": "Подробности",
+		"ui.health.log": "Последние предупреждения и ошибки",
+		"ui.health.logEmpty": "Предупреждений нет.",
+		"ui.tasks.title": "Фоновые задачи",
+		"ui.tasks.empty": "Очередь пуста.",
+		"ui.tasks.kind": "Задача",
+		"ui.tasks.state": "Состояние",
+		"ui.tasks.attempts": "Попытки",
+		"ui.tasks.created": "Создана",
+		"ui.tasks.error": "Ошибка",
+		"ui.tasks.kick": "Запустить сейчас",
+		"ui.tasks.hint": "Задачи выполняет только ведущая вкладка и никогда — во время генерации.",
+		"ui.tasks.state.pending": "Ждёт",
+		"ui.tasks.state.running": "Выполняется",
+		"ui.tasks.state.done": "Готово",
+		"ui.tasks.state.failed": "Сбой",
+		"ui.tasks.state.expired": "Устарела",
+		"ui.jobs.title": "Твои задачи",
+		"ui.jobs.empty": "Сейчас ничего из запущенного тобой не идёт.",
+		"ui.jobs.hint": "Задачи, которые ты запустил сам. Они продолжаются, даже если закрыть окно, где ты их начал; готовые видны здесь 10 минут.",
+		"ui.jobs.queued": "Ждёт своей очереди…",
+		"ui.jobs.running": "Идёт…",
+		"ui.jobs.saving": "Сохраняю…",
+		"ui.jobs.progress": "{done} из {total}",
+		"ui.jobs.stopping": "Останавливаю после текущего шага…",
+		"ui.jobs.started": "начата в {time}",
+		"ui.jobs.stop": "Остановить",
+		"ui.jobs.open": "Открыть",
+		"ui.jobs.hide": "Скрыть",
+		"ui.settings.general": "Общие",
+		"ui.settings.language": "Язык интерфейса",
+		"ui.settings.language.auto": "Как в SillyTavern",
+		"ui.settings.language.ru": "Русский",
+		"ui.settings.language.en": "English",
+		"ui.settings.mode": "Режим",
+		"ui.settings.modeHint": "Любой модуль можно включить или выключить отдельно поверх режима.",
+		"ui.settings.debug": "Режим отладки",
+		"ui.settings.debugHint": "Подробный журнал в консоли браузера.",
+		"ui.settings.budget": "Бюджет",
+		"ui.settings.backgroundCap": "Потолок фона в день, USD",
+		"ui.settings.backgroundCapHint": "Собственные фоновые запросы Maestro к ИИ; 0 — без потолка.",
+		"ui.settings.dailyLimit": "Общий дневной лимит",
+		"ui.settings.dailyLimitHint": "Учитывает и основной чат. По умолчанию выключен.",
+		"ui.settings.dailyLimitUsd": "Лимит в день, USD",
+		"ui.settings.dailyLimitAction": "Когда достигнут",
+		"ui.settings.limitAction.warn": "Предупредить",
+		"ui.settings.limitAction.economy": "Перейти в «Экономный»",
+		"ui.settings.limitAction.stopBackground": "Остановить фоновые задачи",
+		"ui.settings.profiles": "Профили подключения",
+		"ui.settings.profilesHint": "Фоновые задачи идут через сохранённые профили Connection Manager; активное подключение не переключается.",
+		"ui.settings.profileDefault": "Основной фоновый профиль",
+		"ui.settings.profileFallback": "Запасной профиль",
+		"ui.settings.profileNone": "Не выбран",
+		"ui.settings.profileInherit": "Как основной",
+		"ui.settings.profileNoFallback": "Без запасного",
+		"ui.settings.profileMissing": "Профиль не найден ({id})",
+		"ui.settings.noConnectionManager": "Connection Manager выключен: фоновые задачи невозможны.",
+		"ui.settings.autonomy": "Уровни автономии",
+		"ui.settings.autonomyHint": "Что Maestro делает с каждым видом изменений: делает сам, сообщает, оставляет во «Входящих», спрашивает или пропускает.",
+		"ui.settings.autonomyEmpty": "Виды действий появятся здесь, когда модули начнут что-то предлагать.",
+		"ui.settings.autonomyDefault": "Как задано в модуле",
+		"ui.autonomy.auto": "Само",
+		"ui.autonomy.notify": "Уведомить",
+		"ui.autonomy.inbox": "Входящие",
+		"ui.autonomy.ask": "Спросить",
+		"ui.autonomy.off": "Выкл",
+		"ui.settings.modules": "Модули",
+		"ui.settings.moduleMissing": "Не хватает возможностей: {caps}",
+		"ui.settings.notices": "Уведомления",
+		"ui.settings.notifyLevel": "О чём сообщать",
+		"ui.settings.notifyLevelHint": "Короткие всплывающие сообщения в углу. Полный список всегда есть в «Обзоре» и в журнале.",
+		"ui.settings.notifyLevel.all": "Всё",
+		"ui.settings.notifyLevel.important": "Важное",
+		"ui.settings.notifyLevel.urgent": "Только срочное",
+		"ui.settings.showTechnical": "Показывать технические подробности",
+		"ui.settings.showTechnicalHint": "Карточки и журнал сразу раскрывают «Подробнее»: книги, номера записей, сырые данные. Для отладки.",
+		"ui.settings.chatNotices": "Строка Maestro под сообщениями",
+		"ui.settings.chatNoticesHint": "Предложения, запомненные факты и броски — прямо в чате, под сообщением, к которому они относятся. Только на экране: в текст сообщения и в промпт ничего не попадает.",
+		"ui.settings.chatNotices.all": "Всё",
+		"ui.settings.chatNotices.pending": "Только то, что ждёт решения",
+		"ui.settings.chatNotices.none": "Ничего",
+		"ui.settings.moduleToggleFailed": "Не удалось переключить «{title}».",
+		"ui.settings.data": "Данные",
+		"ui.settings.export": "Экспорт данных Maestro",
+		"ui.settings.import": "Импорт",
+		"ui.settings.prepareDisable": "Подготовить к отключению",
+		"ui.settings.prepareDisableHint": "«Подготовить к отключению» переносит канон чатов в обычные лорбуки и оставляет стек рабочим без Maestro.",
+		"ui.settings.actionUnavailable": "Пока недоступно: это действие появится в следующих версиях.",
+		"ui.settings.runWizard": "Запустить мастер первого запуска снова",
+		"ui.slash.maestroOff": "Maestro отключён.",
+		"ui.slash.moduleOff": "/{name} сейчас не работает: выключен её модуль Maestro.",
+		"ui.slash.failed": "/{name}: ошибка — {error}",
+		"ui.slash.maestro.help": "Открывает окно Maestro по названию (Ассистент, Входящие, Персонажи, Механики, Мир, Канон, Ход, Здоровье, Maestro) или его раздел. Без названия — меню Maestro.",
+		"ui.slash.maestro.arg": "название окна или раздела",
+		"ui.slash.maestro.unknown": "Окна «{name}» нет. Есть: {known}.",
+		"ui.slash.undo.help": "Отменяет последнее изменение Maestro в этом чате (сначала спросит).",
+		"ui.slash.undo.nothing": "Отменять нечего: Maestro здесь пока ничего не менял.",
+		"ui.slash.undo.confirmTitle": "Отменить последнее изменение?",
+		"ui.slash.undo.confirmBody": "Последнее, что сделал Maestro: «{summary}». Это изменение будет отменено.",
+		"ui.slash.undo.kept": "Оставил как есть: {summary}",
+		"ui.slash.undo.done": "Отменил: {summary}",
+		"ui.slash.undo.failed": "Не получилось отменить «{summary}»: данные с тех пор изменились. Загляни в «Журнал».",
+		"ui.slash.mode.help": "Переключает режим Maestro: экономный, сбалансированный или кино. Без значения — называет текущий.",
+		"ui.slash.mode.arg": "экономный, сбалансированный или кино (можно economy, balanced, cinema)",
+		"ui.slash.mode.current": "Сейчас режим «{mode}». Есть: {list}.",
+		"ui.slash.mode.unknown": "Режима «{name}» нет. Есть: {list}.",
+		"ui.slash.mode.set": "Режим «{mode}». {hint}",
+		"ui.wizard.welcomeTitle": "Добро пожаловать в Maestro",
+		"ui.wizard.welcome1": "Maestro дирижирует стеком расширений: следит за лором, промптом и соседями, чинит то, что ломается, и ведёт канон каждого чата.",
+		"ui.wizard.welcome2": "Важное не делается молча: предложения попадают во «Входящие», каждое действие пишется в журнал и откатывается.",
+		"ui.wizard.welcome3": "Окна Maestro открываются значком волшебной палочки в верхней панели и стоят рядом с чатом. Дальше — несколько шагов настройки.",
+		"ui.wizard.stepOf": "Шаг {step} из {total}",
+		"ui.wizard.back": "Назад",
+		"ui.wizard.next": "Далее",
+		"ui.wizard.skipStep": "Пропустить",
+		"ui.wizard.finish": "Готово",
+		"ui.wizard.skipAll": "Пропустить настройку",
+		"ui.wizard.stepFailed": "Шаг не открылся. Его можно пропустить.",
+		"ui.wizard.finished": "Настройка завершена."
 	}
-}
-function writeCollapsed(key, groups) {
-	if (!key) return;
-	try {
-		globalThis.localStorage?.setItem(key, JSON.stringify([...groups].sort()));
-	} catch {}
-}
-/** Splits items into plain tabs and groups of consecutive items (a group of one item is a plain tab). */
-function blocksOf(items) {
-	const blocks = [];
-	for (const item of items) {
-		const group = item.group && item.groupLabel ? item.group : null;
-		const last = blocks[blocks.length - 1];
-		if (group !== null && last && last.group === group) last.items.push(item);
-		else blocks.push({
-			group,
-			label: item.groupLabel ?? "",
-			items: [item]
-		});
-	}
-	return blocks.flatMap((block) => block.group !== null && block.items.length < 2 ? block.items.map((item) => ({
-		group: null,
-		label: "",
-		items: [item]
-	})) : [block]);
-}
-function tabs(options) {
-	const prefix = `maestro-tabs-${++instances}`;
-	const list = el("div", {
-		class: "maestro-tabs",
-		attrs: {
-			role: "tablist",
-			"aria-orientation": "vertical",
-			"aria-label": options.label
-		}
-	});
-	const picker = el("select", {
-		class: "text_pole maestro-tabs-picker",
-		attrs: { "aria-label": options.label }
-	});
-	let items = [];
-	let blocks = [];
-	let current = options.active ?? null;
-	const collapsedGroups = readCollapsed(options.storageKey);
-	const buttonOf = (id) => [...list.querySelectorAll(".maestro-tab")].find((node) => node.dataset.tab === id) ?? null;
-	const groupNodeOf = (group) => [...list.querySelectorAll(".maestro-tab-group")].find((node) => node.dataset.group === group) ?? null;
-	const blockOf = (id) => blocks.find((block) => block.items.some((item) => item.id === id));
-	const hidden = (item) => {
-		const block = blockOf(item.id);
-		return !!block?.group && collapsedGroups.has(block.group);
-	};
-	const pickerLabel = (item) => item.badge ? `${item.label} (${item.badge})` : item.label;
-	const tabButton = (item) => {
-		const badge = el("span", {
-			class: "maestro-tab-badge",
-			text: item.badge ? String(item.badge) : ""
-		});
-		badge.hidden = !item.badge;
-		const node = el("button", {
-			class: "maestro-tab",
-			data: { tab: item.id },
-			attrs: {
-				type: "button",
-				role: "tab",
-				"aria-selected": "false",
-				tabindex: "-1"
-			}
-		}, [
-			item.icon ? icon(item.icon) : null,
-			el("span", {
-				class: "maestro-tab-label",
-				text: item.label
-			}),
-			badge
-		]);
-		node.addEventListener("click", () => choose(item.id));
-		return node;
-	};
-	const groupBlock = (block, index) => {
-		const headId = `${prefix}-group-${index}`;
-		const bodyId = `${headId}-items`;
-		const head = el("button", {
-			class: "maestro-tab-group-head",
-			data: { group: block.group },
-			attrs: {
-				type: "button",
-				id: headId,
-				"aria-controls": bodyId
-			}
-		}, [
-			icon("fa-chevron-down", "maestro-tab-group-chevron"),
-			el("span", {
-				class: "maestro-tab-group-label",
-				text: block.label
-			}),
-			el("span", { class: "maestro-tab-badge" })
-		]);
-		head.addEventListener("click", () => toggle(block.group, !collapsedGroups.has(block.group)));
-		const body = el("div", {
-			class: "maestro-tab-group-items",
-			attrs: { id: bodyId }
-		}, block.items.map(tabButton));
-		return el("div", {
-			class: "maestro-tab-group",
-			data: { group: block.group },
-			attrs: {
-				role: "group",
-				"aria-labelledby": headId
-			}
-		}, [head, body]);
-	};
-	const render = () => {
-		blocks = blocksOf(items);
-		list.replaceChildren();
-		picker.replaceChildren();
-		blocks.forEach((block, index) => {
-			if (block.group === null) {
-				for (const item of block.items) list.appendChild(tabButton(item));
-				for (const item of block.items) picker.appendChild(el("option", {
-					text: pickerLabel(item),
-					attrs: { value: item.id }
-				}));
-				return;
-			}
-			list.appendChild(groupBlock(block, index));
-			picker.appendChild(el("optgroup", { attrs: { label: block.label } }, block.items.map((item) => el("option", {
-				text: pickerLabel(item),
-				attrs: { value: item.id }
-			}))));
-		});
-		mark();
-	};
-	/** Heading state: collapsed flag, rolled-up badge and «the active tab is inside» while collapsed. */
-	const markGroups = () => {
-		for (const block of blocks) {
-			if (block.group === null) continue;
-			const node = groupNodeOf(block.group);
-			if (!node) continue;
-			const collapsed = collapsedGroups.has(block.group);
-			const head = node.querySelector(".maestro-tab-group-head");
-			const body = node.querySelector(".maestro-tab-group-items");
-			node.classList.toggle("maestro-collapsed", collapsed);
-			node.classList.toggle("maestro-has-active", collapsed && block.items.some((item) => item.id === current));
-			if (body) body.hidden = collapsed;
-			if (head) {
-				head.setAttribute("aria-expanded", collapsed ? "false" : "true");
-				const title = options.groupTitle?.(collapsed);
-				if (title) head.title = title;
-				const total = collapsed ? block.items.reduce((sum, item) => sum + (item.badge ?? 0), 0) : 0;
-				const badge = head.querySelector(".maestro-tab-badge");
-				if (badge) {
-					badge.textContent = total ? String(total) : "";
-					badge.hidden = !total;
-				}
-			}
-		}
-	};
-	const mark = () => {
-		if (current === null || !items.some((item) => item.id === current)) current = items[0]?.id ?? null;
-		for (const node of list.querySelectorAll(".maestro-tab")) {
-			const on = node.dataset.tab === current;
-			node.classList.toggle("maestro-on", on);
-			node.setAttribute("aria-selected", on ? "true" : "false");
-			node.setAttribute("tabindex", on ? "0" : "-1");
-		}
-		if (current !== null) picker.value = current;
-		markGroups();
-	};
-	const toggle = (group, collapsed) => {
-		if (collapsedGroups.has(group) === collapsed) return;
-		if (collapsed) collapsedGroups.add(group);
-		else collapsedGroups.delete(group);
-		writeCollapsed(options.storageKey, collapsedGroups);
-		markGroups();
-	};
-	/** A tab chosen elsewhere (picker, openPult) inside a collapsed group opens that group. */
-	const reveal = (id) => {
-		const group = blockOf(id)?.group;
-		if (group && collapsedGroups.has(group)) toggle(group, false);
-	};
-	const choose = (id) => {
-		if (!items.some((item) => item.id === id)) return;
-		if (id !== current) reveal(id);
-		current = id;
-		mark();
-		options.onSelect(id);
-	};
-	/** The next visible tab from `from` in direction `step` (wrapping); tabs of collapsed groups are skipped. */
-	const step = (from, delta) => {
-		for (let offset = 1; offset <= items.length; offset++) {
-			const index = ((from + delta * offset) % items.length + items.length) % items.length;
-			const item = items[index];
-			if (item && !hidden(item)) return item;
-		}
-	};
-	list.addEventListener("keydown", (event) => {
-		if (![
-			"ArrowDown",
-			"ArrowUp",
-			"ArrowLeft",
-			"ArrowRight",
-			"Home",
-			"End"
-		].includes(event.key) || !items.length) return;
-		event.preventDefault();
-		const index = items.findIndex((item) => item.id === current);
-		const visible = items.filter((item) => !hidden(item));
-		let target;
-		if (event.key === "ArrowDown" || event.key === "ArrowRight") target = step(index < 0 ? -1 : index, 1);
-		else if (event.key === "ArrowUp" || event.key === "ArrowLeft") target = step(index < 0 ? 0 : index, -1);
-		else if (event.key === "Home") target = visible[0];
-		else target = visible[visible.length - 1];
-		if (!target) return;
-		choose(target.id);
-		buttonOf(target.id)?.focus();
-	});
-	picker.addEventListener("change", () => choose(picker.value));
-	const handle = {
-		list,
-		picker,
-		setItems(next) {
-			items = next.map((item) => ({ ...item }));
-			render();
-		},
-		setActive(id) {
-			if (!items.some((item) => item.id === id)) return;
-			if (id !== current) reveal(id);
-			current = id;
-			mark();
-		},
-		setBadge(id, value) {
-			const item = items.find((entry) => entry.id === id);
-			if (!item || (item.badge ?? 0) === value) return;
-			item.badge = value;
-			const badge = buttonOf(id)?.querySelector(".maestro-tab-badge");
-			if (badge) {
-				badge.textContent = value ? String(value) : "";
-				badge.hidden = !value;
-			}
-			const option = [...picker.options].find((entry) => entry.value === id);
-			if (option) option.textContent = pickerLabel(item);
-			markGroups();
-		},
-		active: () => current,
-		setCollapsed: (group, collapsed) => toggle(group, collapsed),
-		collapsed: () => [...collapsedGroups].sort()
-	};
-	handle.setItems(options.items);
-	return handle;
-}
-/** Groups in sidebar order; the label is `ui.group.<id>` (the top group has none). */
-var PULT_GROUPS = [
-	"top",
-	"turn",
-	"inbox",
-	"canon",
-	"dossier",
-	"world",
-	"mechanics",
-	"health",
-	"journal",
-	"assistant",
-	"extensions",
-	"more",
-	"settings"
-];
-/** Group of the tabs that existed before `PultTab.group` (tab id → group id). */
-var TAB_GROUPS = {
-	overview: "top",
-	turn: "turn",
-	prompt: "turn",
-	director: "turn",
-	voices: "turn",
-	quality: "turn",
-	architect: "turn",
-	treasurer: "turn",
-	inbox: "inbox",
-	canon: "canon",
-	living: "canon",
-	revision: "canon",
-	signals: "canon",
-	chronicle: "canon",
-	lorePassports: "canon",
-	loreStudio: "canon",
-	presetStudio: "canon",
-	dossier: "dossier",
-	wardrobe: "dossier",
-	bunnymo: "dossier",
-	world: "world",
-	places: "world",
-	relations: "world",
-	calendar: "world",
-	offscreen: "world",
-	knowledge: "world",
-	backgrounds: "world",
-	mechanics: "mechanics",
-	health: "health",
-	doctor: "health",
-	guardian: "health",
-	rules: "health",
-	tasks: "health",
-	metrics: "health",
-	journal: "journal",
-	assistant: "assistant",
-	extensions: "extensions",
-	settings: "settings",
-	theme: "settings"
 };
-/** The group a tab is shown in: its own `group` when known, then the central map, then «Ещё». */
-function groupOf$2(tab) {
-	if (tab.group && PULT_GROUPS.includes(tab.group)) return tab.group;
-	return TAB_GROUPS[tab.id] ?? "more";
+//#endregion
+//#region src/ui/views/slash-commands.ts
+/** By convention an argument named `value` is the unnamed argument (the text after the command). */
+var UNNAMED_ARGUMENT = "value";
+/** Page-wide: survives a UI rebuild (disable → activate without reload) so ST never sees a duplicate. */
+var slots = /* @__PURE__ */ new Map();
+function unnamedText(value) {
+	if (typeof value === "string") return value;
+	if (Array.isArray(value)) return value.map((item) => typeof item === "string" ? item : String(item)).join(" ");
+	if (value === void 0 || value === null) return "";
+	return String(value);
 }
-/** i18n key of a group's heading (`null` for the top group, which has none). */
-function groupLabelKey(group) {
-	return group === "top" ? null : `ui.group.${group}`;
+function namedArgs(named) {
+	if (!named || typeof named !== "object") return {};
+	return Object.fromEntries(Object.entries(named).filter(([key]) => !key.startsWith("_")));
 }
-/** Tabs in sidebar order: by group, then by the tab's own order (then id, for a stable order). */
-function sortTabs(tabs) {
-	const rank = (tab) => PULT_GROUPS.indexOf(groupOf$2(tab));
-	return [...tabs].sort((a, b) => rank(a) - rank(b) || a.order - b.order || a.id.localeCompare(b.id));
+var SlashCommands = class {
+	host;
+	i18n;
+	log;
+	owned = /* @__PURE__ */ new Set();
+	constructor(host, i18n, log) {
+		this.host = host;
+		this.i18n = i18n;
+		this.log = log;
+	}
+	add(spec) {
+		const name = spec.name.replace(/^\//, "");
+		let slot = slots.get(name);
+		if (slot) {
+			slot.spec = spec;
+			slot.state = "active";
+			slot.i18n = this.i18n;
+			slot.log = this.log;
+			slot.owner = this;
+		} else {
+			slot = {
+				spec,
+				state: "active",
+				i18n: this.i18n,
+				log: this.log,
+				owner: this
+			};
+			if (!this.register(name, spec)) return () => {};
+			slots.set(name, slot);
+		}
+		this.owned.add(name);
+		const current = slot;
+		return () => {
+			if (current.spec !== spec || current.state !== "active") return;
+			current.state = "moduleOff";
+		};
+	}
+	/** Maestro is going away: every command it owns answers "Maestro is disabled". */
+	dispose() {
+		for (const name of this.owned) {
+			const slot = slots.get(name);
+			if (slot && slot.owner === this) slot.state = "maestroOff";
+		}
+		this.owned.clear();
+	}
+	register(name, spec) {
+		const c = this.host.ctx();
+		if (!c.SlashCommandParser?.addCommandObject || !c.SlashCommand?.fromProps) {
+			this.log.warn(`slash commands unavailable; /${name} not registered`);
+			return false;
+		}
+		const t = this.i18n.t.bind(this.i18n);
+		const stringType = c.ARGUMENT_TYPE?.STRING ?? "string";
+		const args = spec.args ?? [];
+		const unnamed = args.filter((arg) => arg.name === UNNAMED_ARGUMENT);
+		const named = args.filter((arg) => arg.name !== UNNAMED_ARGUMENT);
+		const props = {
+			name,
+			helpString: t(spec.helpKey),
+			returns: "string",
+			callback: (namedArguments, unnamedArgument) => run(name, namedArguments, unnamedArgument)
+		};
+		if (unnamed.length && c.SlashCommandArgument?.fromProps) props.unnamedArgumentList = unnamed.map((arg) => c.SlashCommandArgument.fromProps({
+			description: t(arg.descriptionKey),
+			typeList: [stringType],
+			isRequired: !arg.optional
+		}));
+		if (named.length && c.SlashCommandNamedArgument?.fromProps) props.namedArgumentList = named.map((arg) => c.SlashCommandNamedArgument.fromProps({
+			name: arg.name,
+			description: t(arg.descriptionKey),
+			typeList: [stringType],
+			isRequired: !arg.optional
+		}));
+		try {
+			c.SlashCommandParser.addCommandObject(c.SlashCommand.fromProps(props));
+			return true;
+		} catch (error) {
+			this.log.error(`failed to register /${name}`, error);
+			return false;
+		}
+	}
+};
+async function run(name, named, unnamed) {
+	const slot = slots.get(name);
+	if (!slot) return "";
+	if (slot.state === "maestroOff") return slot.i18n.t("ui.slash.maestroOff");
+	if (slot.state === "moduleOff") return slot.i18n.t("ui.slash.moduleOff", { name });
+	try {
+		return await slot.spec.callback(namedArgs(named), unnamedText(unnamed));
+	} catch (error) {
+		slot.log.error(`/${name} failed`, error);
+		return slot.i18n.t("ui.slash.failed", {
+			name,
+			error: error instanceof Error ? error.message : String(error)
+		});
+	}
 }
 //#endregion
-//#region src/ui/views/pult.ts
-/** localStorage key of the collapsed sidebar groups. */
-var COLLAPSED_GROUPS_KEY = "maestro.pult.collapsedGroups";
-var Pult = class {
+//#region src/ui/views/core-commands.ts
+/** Lower case, «ё» as «е», no quotes or extra spaces: «Мир», "мир" and ' МИР ' are one name. */
+function normalizeName$1(value) {
+	return value.toLowerCase().replace(/ё/g, "е").replace(/["'«»“”„]/g, "").replace(/[\s_-]+/g, " ").trim();
+}
+/** Names a window answers to: its id, its title now, and (Maestro's own windows) its title in both languages. */
+function windowNames(id, title) {
+	const key = `ui.window.${id}`;
+	return [
+		id,
+		title,
+		UI_STRINGS.en[key],
+		UI_STRINGS.ru[key]
+	].filter((name) => typeof name === "string" && name.length > 0).map(normalizeName$1);
+}
+/** A window id and maybe a section of it for a name; null when nothing answers to it. */
+function resolveTarget(deps, raw) {
+	const name = normalizeName$1(raw);
+	if (!name) return null;
+	const byWindow = deps.windows.list().find((info) => windowNames(info.id, info.title).includes(name));
+	if (byWindow) return { window: byWindow.id };
+	const tab = deps.tabs.all().find((item) => normalizeName$1(item.id) === name || normalizeName$1(deps.i18n.t(item.titleKey)) === name);
+	if (!tab) return null;
+	const window = deps.windows.windowOfTab(tab.id);
+	return window ? {
+		window,
+		tab: tab.id
+	} : null;
+}
+function modeOf(deps, raw) {
+	const name = normalizeName$1(raw);
+	return MODES.find((mode) => [
+		mode,
+		deps.i18n.t(`ui.mode.${mode}`),
+		UI_STRINGS.en[`ui.mode.${mode}`],
+		UI_STRINGS.ru[`ui.mode.${mode}`]
+	].filter((value) => typeof value === "string").some((value) => normalizeName$1(value) === name)) ?? null;
+}
+function coreCommands(deps) {
+	const t = deps.i18n.t.bind(deps.i18n);
+	/** A reply to the user's own command: always shown. */
+	const answer = (text, level = "info") => {
+		deps.notice(text, {
+			level,
+			importance: "urgent"
+		});
+		return text;
+	};
+	return [
+		{
+			name: "maestro",
+			helpKey: "ui.slash.maestro.help",
+			args: [{
+				name: UNNAMED_ARGUMENT,
+				descriptionKey: "ui.slash.maestro.arg",
+				optional: true
+			}],
+			callback: (_args, value) => {
+				const name = value.trim();
+				if (!name) {
+					if (!deps.openMenu()) deps.windows.open("maestro");
+					return "";
+				}
+				const target = resolveTarget(deps, name);
+				if (!target) {
+					const known = deps.windows.list().filter((info) => !info.hidden && info.sections !== 0).map((info) => info.title).join(", ");
+					return answer(t("ui.slash.maestro.unknown", {
+						name,
+						known
+					}), "warn");
+				}
+				deps.windows.open(target.window, target.tab ? { tab: target.tab } : {});
+				return "";
+			}
+		},
+		{
+			name: "maestro-undo",
+			helpKey: "ui.slash.undo.help",
+			callback: async () => {
+				const record = deps.journal.list({ limit: 200 }).find((item) => !item.undone);
+				if (!record) return answer(t("ui.slash.undo.nothing"));
+				if (!await deps.confirm(t("ui.slash.undo.confirmTitle"), t("ui.slash.undo.confirmBody", { summary: record.summary }))) return answer(t("ui.slash.undo.kept", { summary: record.summary }));
+				return await deps.journal.undo(record.id) ? answer(t("ui.slash.undo.done", { summary: record.summary })) : answer(t("ui.slash.undo.failed", { summary: record.summary }), "warn");
+			}
+		},
+		{
+			name: "maestro-mode",
+			helpKey: "ui.slash.mode.help",
+			args: [{
+				name: UNNAMED_ARGUMENT,
+				descriptionKey: "ui.slash.mode.arg",
+				optional: true
+			}],
+			callback: (_args, value) => {
+				const core = deps.settings.core();
+				const list = MODES.map((item) => t(`ui.mode.${item}`)).join(", ");
+				if (!value.trim()) return answer(t("ui.slash.mode.current", {
+					mode: t(`ui.mode.${core.mode}`),
+					list
+				}));
+				const next = modeOf(deps, value);
+				if (!next) return answer(t("ui.slash.mode.unknown", {
+					name: value.trim(),
+					list
+				}), "warn");
+				if (core.mode !== next) {
+					core.mode = next;
+					deps.settings.save();
+					deps.settings.notify("core.mode");
+				}
+				return answer(t("ui.slash.mode.set", {
+					mode: t(`ui.mode.${next}`),
+					hint: t(`ui.mode.${next}Hint`)
+				}));
+			}
+		}
+	];
+}
+//#endregion
+//#region src/ui/components/progress.ts
+function progressBar(done, total, label) {
+	const determinate = typeof total === "number" && total > 0 && typeof done === "number";
+	const percent = determinate ? Math.max(0, Math.min(100, Math.round(done / total * 100))) : 0;
+	const bar = el("div", { class: "maestro-progress-bar" });
+	if (determinate) bar.style.width = `${percent}%`;
+	return el("div", {
+		class: ["maestro-progress", determinate ? null : "maestro-progress-indeterminate"],
+		attrs: {
+			role: "progressbar",
+			"aria-label": label,
+			"aria-valuemin": determinate ? 0 : void 0,
+			"aria-valuemax": determinate ? total : void 0,
+			"aria-valuenow": determinate ? done : void 0
+		}
+	}, [bar]);
+}
+//#endregion
+//#region src/ui/views/jobs.ts
+/** One line about the job: the owner's own label while it runs, its result when finished. */
+function jobStatus(job, i18n) {
+	const t = i18n.t.bind(i18n);
+	if (job.state === "failed") return job.error ?? "";
+	if (job.state !== "active") return job.summary ?? "";
+	if (job.cancelRequested) return t("ui.jobs.stopping");
+	if (job.label) return job.label;
+	if (job.phase === "queued") return t("ui.jobs.queued");
+	if (job.phase === "saving") return t("ui.jobs.saving");
+	if (job.total) return t("ui.jobs.progress", {
+		done: job.done ?? 0,
+		total: job.total
+	});
+	return t("ui.jobs.running");
+}
+/** Share of the work done (0…1); null when the job does not count its work or waits. */
+function jobFraction(job) {
+	if (job.state !== "active" || job.phase === "queued" || !job.total) return null;
+	return Math.max(0, Math.min(1, (job.done ?? 0) / job.total));
+}
+function renderJobs(jobs, i18n, onChange) {
+	const t = i18n.t.bind(i18n);
+	const list = jobs.list();
+	if (!list.length) return el("div", {
+		class: "maestro-empty maestro-jobs-empty",
+		text: t("ui.jobs.empty")
+	});
+	return el("div", {
+		class: "maestro-jobs",
+		attrs: { role: "list" }
+	}, list.map((job) => {
+		const active = job.state === "active";
+		const status = jobStatus(job, i18n);
+		return el("div", {
+			class: [
+				"maestro-job",
+				`maestro-job-${job.state}`,
+				!active && job.warn ? "maestro-job-warn" : null
+			],
+			data: { key: job.key },
+			attrs: { role: "listitem" }
+		}, [
+			el("div", { class: "maestro-job-head" }, [el("span", {
+				class: "maestro-job-title",
+				text: job.title
+			}), el("span", {
+				class: "maestro-muted",
+				text: t("ui.jobs.started", { time: formatTime$1(job.startedAt, i18n) })
+			})]),
+			el("div", {
+				class: "maestro-job-status",
+				text: status,
+				attrs: { "aria-live": "polite" }
+			}),
+			active && job.phase !== "queued" ? progressBar(job.done, job.total, status) : null,
+			el("div", { class: "maestro-row" }, [
+				active && job.cancellable && !job.cancelRequested ? button({
+					label: t("ui.jobs.stop"),
+					icon: "fa-stop",
+					kind: "danger",
+					onClick: () => {
+						jobs.cancel(job.key);
+						onChange();
+					}
+				}) : null,
+				job.openable ? button({
+					label: t("ui.jobs.open"),
+					icon: "fa-up-right-from-square",
+					onClick: () => {
+						jobs.open(job.key);
+					}
+				}) : null,
+				!active ? button({
+					label: t("ui.jobs.hide"),
+					kind: "ghost",
+					onClick: () => {
+						jobs.dismiss(job.key);
+						onChange();
+					}
+				}) : null
+			])
+		]);
+	}));
+}
+//#endregion
+//#region src/ui/views/entry-points.ts
+var TOP_ID = "maestro-topbar";
+var EXT_ID = "maestro-ext-settings";
+var WAND_ID = "maestro-wand";
+var ICON = "fa-wand-magic-sparkles";
+function activate(node, run) {
+	node.addEventListener("click", run);
+	node.addEventListener("keydown", (event) => {
+		if (event.key !== "Enter" && event.key !== " ") return;
+		event.preventDefault();
+		run();
+	});
+}
+var EntryPoints = class {
 	deps;
-	registry = /* @__PURE__ */ new Map();
-	popup = null;
-	nav = null;
-	body = null;
-	chrome = null;
-	activeId = null;
-	lastTab = null;
-	cleanup = null;
+	top = null;
+	ext = null;
+	wand = null;
+	badge = {
+		count: 0,
+		urgent: false
+	};
+	running = [];
 	constructor(deps) {
 		this.deps = deps;
 	}
-	add(tab) {
-		if (this.registry.has(tab.id)) this.deps.log.warn(`pult tab "${tab.id}" replaced`);
-		this.registry.set(tab.id, tab);
-		this.syncTabs();
-		if (this.isOpen() && this.activeId === tab.id) this.rerender();
-		if (this.isOpen() && this.activeId === null) this.select(tab.id);
-		this.deps.onBadgesChanged();
-		return () => {
-			if (this.registry.get(tab.id) !== tab) return;
-			this.registry.delete(tab.id);
-			if (this.activeId === tab.id) {
-				this.unmountActive();
-				this.activeId = null;
-			}
-			this.syncTabs();
-			if (this.isOpen() && this.activeId === null) {
-				const first = this.tabs()[0];
-				if (first) this.select(first.id);
-				else this.renderEmpty();
-			}
-			this.deps.onBadgesChanged();
+	/** Idempotent: mounts whatever is missing (ST builds the wand menu late, so APP_READY calls this again). */
+	mount() {
+		if (!this.top?.root.isConnected) this.mountTop();
+		if (!this.ext?.root.isConnected) this.mountExtensions();
+		if (!this.wand?.root.isConnected) this.mountWand();
+		this.setBadge(this.badge.count, this.badge.urgent);
+		this.setJobs(this.running);
+	}
+	setBadge(count, urgent) {
+		this.badge = {
+			count,
+			urgent
 		};
+		if (!this.top) return;
+		const { badge } = this.top;
+		badge.textContent = count > 99 ? "99+" : String(count);
+		badge.hidden = count <= 0;
+		badge.classList.toggle("maestro-urgent", urgent);
+		this.updateTitle();
 	}
-	/** Registered tabs in sidebar order: by group (plan §7), then by order (then id, for a stable order). */
-	tabs() {
-		return sortTabs(this.registry.values());
+	/** Jobs the user started: a ring while any runs (its share done when there is one job that counts). */
+	setJobs(jobs) {
+		this.running = jobs.filter((job) => job.state === "active");
+		if (!this.top) return;
+		const { root } = this.top;
+		const busy = this.running.length > 0;
+		const fraction = this.running.length === 1 && this.running[0] ? jobFraction(this.running[0]) : null;
+		root.classList.toggle("maestro-topbar-busy", busy);
+		root.classList.toggle("maestro-topbar-indeterminate", busy && fraction === null);
+		if (busy && fraction !== null) root.style.setProperty("--maestro-job-progress", String(Math.max(.03, fraction)));
+		else root.style.removeProperty("--maestro-job-progress");
+		this.updateTitle();
 	}
-	isOpen() {
-		return this.popup !== null;
+	updateTitle() {
+		if (!this.top) return;
+		const t = this.deps.i18n.t.bind(this.deps.i18n);
+		const count = this.badge.count;
+		const parts = [count > 0 ? t("ui.entry.topTitleCount", { count }) : t("ui.entry.topTitle")];
+		const [first] = this.running;
+		if (this.running.length > 1) parts.push(t("ui.entry.topTitleJobs", { count: this.running.length }));
+		else if (first) parts.push(t("ui.entry.topTitleJob", {
+			title: first.title,
+			status: jobStatus(first, this.deps.i18n)
+		}));
+		const label = parts.join(" · ");
+		this.top.toggle.title = label;
+		this.top.toggle.setAttribute("aria-label", label);
 	}
-	activeTab() {
-		return this.activeId;
+	/** The top-bar icon (the menu opens under it), if it is on the page. */
+	topAnchor() {
+		return this.top?.toggle.isConnected ? this.top.toggle : null;
 	}
-	open(tabId) {
-		const target = this.pick(tabId);
-		if (this.popup) {
-			if (target) this.select(target);
-			return;
-		}
-		const c = this.deps.host.ctx();
-		if (typeof c.Popup !== "function") {
-			this.deps.log.error("ST Popup is not available; cannot open the pult");
-			return;
-		}
-		const root = this.buildChrome();
-		let created = null;
-		const popup = new c.Popup(root, c.POPUP_TYPE.DISPLAY, "", {
-			wide: true,
-			large: true,
-			allowVerticalScrolling: false,
-			animation: prefersReducedMotion() ? "none" : "fast",
-			onClose: () => {
-				if (created) this.handleClosed(created);
-			}
-		});
-		created = popup;
-		popup.dlg.classList.add("maestro-pult-dialog");
-		this.popup = popup;
-		popup.show().then(() => this.handleClosed(popup), () => this.handleClosed(popup));
-		if (target) this.select(target);
-		else this.renderEmpty();
-	}
-	close() {
-		const popup = this.popup;
-		if (!popup) return;
-		this.handleClosed(popup);
-		popup.completeCancelled().catch((error) => this.deps.log.debug("pult close", error));
-	}
-	select(id) {
-		if (!this.registry.has(id) || !this.popup) return;
-		this.unmountActive();
-		this.activeId = id;
-		this.lastTab = id;
-		this.nav?.setActive(id);
-		this.renderActive();
-	}
-	/** Re-renders the active tab unless the user is typing in it (a refresh must not eat input). */
-	rerender() {
-		if (!this.popup || !this.activeId || !this.body) return;
-		const focused = document.activeElement;
-		if (focused instanceof HTMLElement && this.body.contains(focused) && focused.matches("input:not([type=checkbox]), textarea")) return;
-		this.unmountActive();
-		this.renderActive();
-	}
-	updateBadges() {
-		if (!this.nav) return;
-		for (const tab of this.registry.values()) this.nav.setBadge(tab.id, this.badgeOf(tab));
-	}
-	totalBadge() {
-		let total = 0;
-		for (const tab of this.registry.values()) total += this.badgeOf(tab);
-		return total;
-	}
-	/** Language changed: rebuild tab titles and the active view. */
 	relocalize() {
-		if (!this.popup || !this.chrome) return;
-		this.chrome.title.textContent = this.deps.i18n.t("ui.title");
-		this.chrome.close.title = this.deps.i18n.t("ui.pult.close");
-		this.chrome.close.setAttribute("aria-label", this.deps.i18n.t("ui.pult.close"));
-		this.syncTabs();
-		this.rerender();
+		const t = this.deps.i18n.t.bind(this.deps.i18n);
+		if (this.ext) {
+			this.ext.title.textContent = t("ui.title");
+			this.ext.text.textContent = t("ui.entry.description");
+			this.ext.open.textContent = t("ui.entry.open");
+		}
+		if (this.wand) {
+			this.wand.label.textContent = t("ui.title");
+			this.wand.item.title = t("ui.entry.wandTitle");
+		}
+		this.setBadge(this.badge.count, this.badge.urgent);
 	}
 	dispose() {
-		this.close();
-		this.registry.clear();
+		this.top?.root.remove();
+		this.ext?.root.remove();
+		this.wand?.root.remove();
+		this.top = null;
+		this.ext = null;
+		this.wand = null;
 	}
-	pick(tabId) {
-		if (tabId && this.registry.has(tabId)) return tabId;
-		if (tabId) this.deps.log.warn(`unknown pult tab "${tabId}"`);
-		if (this.activeId && this.registry.has(this.activeId)) return this.activeId;
-		if (this.lastTab && this.registry.has(this.lastTab)) return this.lastTab;
-		return this.tabs()[0]?.id ?? null;
-	}
-	badgeOf(tab) {
-		if (!tab.badge) return 0;
-		try {
-			const value = tab.badge();
-			return Number.isFinite(value) && value > 0 ? Math.floor(value) : 0;
-		} catch (error) {
-			this.deps.log.warn(`badge of tab "${tab.id}" failed`, error);
-			return 0;
+	mountTop() {
+		const holder = document.querySelector("#top-settings-holder");
+		if (!holder) {
+			this.deps.log.debug("top bar not found");
+			return;
 		}
-	}
-	buildChrome() {
-		const t = this.deps.i18n.t.bind(this.deps.i18n);
-		this.nav = tabs({
-			items: [],
-			label: t("ui.pult.tabs"),
-			onSelect: (id) => this.select(id),
-			storageKey: COLLAPSED_GROUPS_KEY,
-			groupTitle: (collapsed) => this.deps.i18n.t(collapsed ? "ui.group.expand" : "ui.group.collapse")
+		document.getElementById(TOP_ID)?.remove();
+		const badge = el("span", {
+			class: "maestro-topbar-badge",
+			attrs: { "aria-hidden": "true" }
 		});
-		this.body = el("div", {
-			class: "maestro-pult-body",
+		badge.hidden = true;
+		const toggle = el("div", {
+			class: "maestro-topbar-toggle",
 			attrs: {
-				role: "tabpanel",
-				tabindex: "-1"
+				role: "button",
+				tabindex: "0",
+				"aria-haspopup": "menu",
+				"aria-expanded": "false"
+			}
+		}, [el("div", { class: [
+			"drawer-icon",
+			"fa-solid",
+			ICON,
+			"fa-fw",
+			"closedIcon"
+		] }), badge]);
+		activate(toggle, () => this.deps.menu(toggle));
+		const root = el("div", {
+			class: "drawer maestro-topbar",
+			attrs: { id: TOP_ID }
+		}, [toggle]);
+		const extensions = document.getElementById("extensions-settings-button");
+		if (extensions?.parentElement === holder) extensions.after(root);
+		else holder.appendChild(root);
+		this.top = {
+			root,
+			toggle,
+			badge
+		};
+	}
+	mountExtensions() {
+		const container = document.querySelector("#extensions_settings2") ?? document.querySelector("#extensions_settings");
+		if (!container) {
+			this.deps.log.debug("extensions panel not found");
+			return;
+		}
+		document.getElementById(EXT_ID)?.remove();
+		const t = this.deps.i18n.t.bind(this.deps.i18n);
+		const title = el("b", { text: t("ui.title") });
+		const text = el("div", {
+			class: "maestro-ext-text",
+			text: t("ui.entry.description")
+		});
+		const open = el("div", {
+			class: "menu_button maestro-ext-open",
+			text: t("ui.entry.open"),
+			attrs: {
+				role: "button",
+				tabindex: "0"
 			}
 		});
-		const title = el("h3", {
-			class: "maestro-pult-title",
-			text: t("ui.title")
-		});
-		const close = button({
-			icon: "fa-xmark",
-			title: t("ui.pult.close"),
-			kind: "ghost",
-			className: "maestro-pult-close",
-			onClick: () => this.close()
-		});
-		this.chrome = {
+		activate(open, () => this.deps.openMain());
+		const root = el("div", {
+			class: "extension_container maestro-ext",
+			attrs: { id: EXT_ID }
+		}, [el("div", { class: "inline-drawer" }, [el("div", { class: "inline-drawer-toggle inline-drawer-header" }, [title, el("div", { class: "inline-drawer-icon fa-solid fa-circle-chevron-down down" })]), el("div", { class: "inline-drawer-content maestro-ext-content" }, [text, open])])]);
+		container.appendChild(root);
+		this.ext = {
+			root,
 			title,
-			close
+			text,
+			open
 		};
-		this.syncTabs();
-		return el("div", { class: "maestro-pult maestro-ui" }, [el("div", { class: "maestro-pult-header" }, [
-			el("div", { class: "maestro-pult-brand" }, [icon("fa-wand-magic-sparkles"), title]),
-			this.nav.picker,
-			close
-		]), el("div", { class: "maestro-pult-main" }, [this.nav.list, this.body])]);
 	}
-	syncTabs() {
-		if (!this.nav) return;
-		this.nav.setItems(this.tabs().map((tab) => {
-			const group = groupOf$2(tab);
-			const labelKey = groupLabelKey(group);
-			return {
-				id: tab.id,
-				label: this.deps.i18n.t(tab.titleKey),
-				icon: tab.icon,
-				badge: this.badgeOf(tab),
-				group,
-				groupLabel: labelKey ? this.deps.i18n.t(labelKey) : void 0
+	mountWand() {
+		const menu = document.querySelector("#extensionsMenu");
+		if (!menu) {
+			this.deps.log.debug("wand menu not found");
+			return;
+		}
+		document.getElementById(WAND_ID)?.remove();
+		const t = this.deps.i18n.t.bind(this.deps.i18n);
+		const label = el("span", { text: t("ui.title") });
+		const item = el("div", {
+			class: "list-group-item flex-container flexGap5 interactable",
+			title: t("ui.entry.wandTitle"),
+			attrs: {
+				role: "button",
+				tabindex: "0",
+				"aria-haspopup": "menu"
+			}
+		}, [el("div", { class: [
+			"fa-solid",
+			ICON,
+			"extensionsMenuExtensionButton"
+		] }), label]);
+		activate(item, () => this.deps.menu(item));
+		const root = el("div", {
+			class: "extension_container maestro-wand",
+			attrs: { id: WAND_ID }
+		}, [item]);
+		menu.appendChild(root);
+		this.wand = {
+			root,
+			label,
+			item
+		};
+	}
+};
+//#endregion
+//#region src/ui/views/health.ts
+var HEALTH_TAB = "health";
+var LAMP$1 = {
+	ok: "ok",
+	warn: "warn",
+	error: "error",
+	skip: "off",
+	running: "off"
+};
+function healthTab(env) {
+	const { i18n, shell } = env;
+	const t = i18n.t.bind(i18n);
+	return {
+		id: HEALTH_TAB,
+		titleKey: "ui.tab.health",
+		icon: "fa-heart-pulse",
+		order: 70,
+		render(container) {
+			let alive = true;
+			const results = /* @__PURE__ */ new Map();
+			const runCheck = async (check) => {
+				results.set(check.id, { status: "running" });
+				draw();
+				try {
+					const result = await check.run();
+					results.set(check.id, result);
+				} catch (error) {
+					shell.log.error(`health check ${check.id} failed`, error);
+					results.set(check.id, {
+						status: "error",
+						message: error instanceof Error ? error.message : String(error)
+					});
+				}
+				if (alive) draw();
 			};
-		}));
-		if (this.activeId) this.nav.setActive(this.activeId);
+			const runAll = async () => {
+				await Promise.all(shell.healthChecks().map(runCheck));
+			};
+			const checksView = () => {
+				const checks = shell.healthChecks();
+				if (!checks.length) return emptyState(t("ui.health.noChecks"), "fa-stethoscope");
+				return el("div", { class: "maestro-checks" }, checks.map((check) => {
+					const result = results.get(check.id);
+					const status = result?.status ?? "running";
+					const fix = result?.fix;
+					return el("div", { class: ["maestro-check", `maestro-check-${status}`] }, [
+						lamp(LAMP$1[status], t(`ui.health.status.${status}`)),
+						el("div", { class: "maestro-check-main" }, [
+							el("div", {
+								class: "maestro-check-title",
+								text: t(check.titleKey)
+							}),
+							el("div", {
+								class: "maestro-muted",
+								text: `${moduleTitle$1(env.modules, i18n, check.module)} · ${t(`ui.health.status.${status}`)}`
+							}),
+							result?.message ? el("div", {
+								class: "maestro-check-message",
+								text: result.message
+							}) : null
+						]),
+						fix ? button({
+							label: t("ui.health.fix"),
+							icon: "fa-screwdriver-wrench",
+							kind: "primary",
+							onClick: async () => {
+								await fix();
+								await runCheck(check);
+							}
+						}) : null
+					]);
+				}));
+			};
+			const capsView = () => table([
+				{
+					key: "state",
+					label: t("ui.health.state"),
+					cell: (row) => lamp(row.ok ? "ok" : "error", t(row.ok ? "ui.lamp.ok" : "ui.lamp.error"))
+				},
+				{
+					key: "id",
+					label: t("ui.health.capability"),
+					cell: (row) => row.id
+				},
+				{
+					key: "detail",
+					label: t("ui.health.detail"),
+					cell: (row) => row.detail ?? ""
+				}
+			], [...env.caps.report()].sort((a, b) => Number(a.ok) - Number(b.ok) || a.id.localeCompare(b.id)), { empty: t("ui.overview.stackEmpty") });
+			const logView = () => {
+				const lines = ConsoleLogger.recent().slice(-20).reverse();
+				if (!lines.length) return emptyState(t("ui.health.logEmpty"));
+				return el("ul", { class: "maestro-log" }, lines.map((line) => el("li", { class: ["maestro-log-line", `maestro-level-${line.level === "error" ? "error" : "warn"}`] }, [
+					el("span", {
+						class: "maestro-notice-time",
+						text: formatTime$1(line.at, i18n)
+					}),
+					el("span", {
+						class: "maestro-muted",
+						text: line.scope
+					}),
+					el("span", { text: line.text })
+				])));
+			};
+			function draw() {
+				if (!alive) return;
+				clear(container);
+				container.append(el("div", { class: "maestro-view maestro-health" }, [
+					section$1(t("ui.health.checks"), checksView(), button({
+						label: t("ui.health.runAll"),
+						icon: "fa-play",
+						onClick: runAll
+					})),
+					section$1(t("ui.health.capabilities"), capsView(), button({
+						label: t("ui.health.recheck"),
+						icon: "fa-arrows-rotate",
+						onClick: async () => {
+							await env.caps.refresh();
+							draw();
+						}
+					})),
+					section$1(t("ui.health.log"), logView())
+				]));
+			}
+			draw();
+			runAll();
+			return () => {
+				alive = false;
+			};
+		}
+	};
+}
+//#endregion
+//#region src/domain/revision-plan.ts
+/** Why a run is due now (scene end first, then signals, then the interval); null when none is. */
+function decideTrigger(state, settings) {
+	if (settings.sceneEnd && state.sceneEnded && (state.pending > 0 || state.messagesSince > 0)) return "sceneEnd";
+	if (settings.signalThreshold > 0 && state.pending >= settings.signalThreshold) return "signals";
+	if (settings.everyMessages > 0 && state.messagesSince >= settings.everyMessages) return "interval";
+	return null;
+}
+/**
+* Last message index a revision may read (P14): the last user message. Replies after it are not committed yet —
+* the user may still swipe them. -1 when the user has not written anything.
+*/
+function committedEnd(chat) {
+	for (let index = chat.length - 1; index >= 0; index--) {
+		const message = chat[index];
+		if (message && message.is_user === true && message.is_system !== true) return index;
 	}
-	renderActive() {
-		const body = this.body;
-		const tab = this.activeId ? this.registry.get(this.activeId) : void 0;
-		if (!body || !tab) return;
-		clear(body);
-		body.dataset.tab = tab.id;
-		body.scrollTop = 0;
+	return -1;
+}
+/** Messages of the next run: after the last revised one, at most `maxMessages` back from the end; null when empty. */
+function revisionRange(lastTo, end, maxMessages) {
+	if (end < 0) return null;
+	const from = Math.max(lastTo + 1, end - Math.max(1, maxMessages) + 1, 0);
+	return from <= end ? {
+		from,
+		to: end
+	} : null;
+}
+/** Stage of the plan whose module owns a deferred target (outfits: M27, promises and secrets: M17/M18). */
+function deferredStage(target) {
+	return target === "deferred.outfit" ? 10 : 9;
+}
+/** Appends and drops the oldest items above the cap (in place); returns the list. */
+function pushCapped$1(list, item, cap) {
+	list.push(item);
+	if (cap >= 0 && list.length > cap) list.splice(0, list.length - cap);
+	return list;
+}
+function norm$3(text) {
+	return text.toLowerCase().replace(/ё/g, "е").replace(/[\s.,;:!?«»"'“”]+/g, " ").trim();
+}
+/** Two deferred cards say the same (the next revision often finds the same promise again). */
+function sameDeferred(a, b) {
+	return a.target === b.target && norm$3(a.entityName) === norm$3(b.entityName) && norm$3(a.value) === norm$3(b.value);
+}
+//#endregion
+//#region src/ui/views/inbox.ts
+var INBOX_TAB$1 = "inbox";
+var SNOOZE_MS = 864e5;
+var REVISION_KEY$1 = "revision";
+/** English fallbacks of the revision's `m8.inbox.*` strings. */
+var FALLBACK = {
+	"m8.inbox.edit": "Edit",
+	"m8.inbox.editLabel": "New value",
+	"m8.inbox.save": "Save and accept",
+	"m8.inbox.cancel": "Cancel",
+	"m8.inbox.editFailed": "“{title}” was not applied: check the value (details are in the log).",
+	"m8.inbox.always": "Always",
+	"m8.inbox.always.hint": "Accept and do such changes by itself from now on",
+	"m8.inbox.always.done": "“{kind}” is now done by itself. You can change it in Settings.",
+	"m8.inbox.snooze.hint": "Put off until tomorrow",
+	"m8.inbox.confidence": "confidence {value}%",
+	"m8.inbox.other": "Other",
+	"m8.inbox.deferred.title": "Deferred",
+	"m8.inbox.deferred.hint": "Changes for modules of later stages; they wait here until those modules arrive.",
+	"m8.inbox.deferred.stage": "Deferred until stage {stage}",
+	"m8.inbox.deferred.dismiss": "Remove"
+};
+var INBOX_CSS = `
+.maestro-inbox-group { display: flex; flex-direction: column; gap: var(--maestro-gap-sm, 6px); }
+.maestro-inbox-group + .maestro-inbox-group { margin-top: var(--maestro-gap, 10px); }
+.maestro-inbox-group-head { display: flex; align-items: center; gap: 6px; font-weight: 600; overflow-wrap: anywhere; }
+`;
+function isDict$112(value) {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+/** What the payload says about the card (see the convention above). */
+function cardMeta(item) {
+	const payload = isDict$112(item.payload) ? item.payload : {};
+	const meta = {
+		entityName: typeof payload.entityName === "string" ? payload.entityName.trim() : "",
+		editable: false
+	};
+	if (typeof payload.value === "string") {
+		meta.value = payload.value;
+		meta.editable = payload.editable === true;
+	}
+	if (typeof payload.evidence === "string" && payload.evidence.trim()) meta.evidence = payload.evidence.trim();
+	if (typeof payload.confidence === "number" && Number.isFinite(payload.confidence)) meta.confidence = Math.min(1, Math.max(0, payload.confidence));
+	return meta;
+}
+/** Cards grouped by entity, the newest group first; cards without an entity form the last group (''). */
+function groupByEntity(cards) {
+	const groups = /* @__PURE__ */ new Map();
+	for (const item of cards) {
+		const entity = cardMeta(item).entityName;
+		const list = groups.get(entity);
+		if (list) list.push(item);
+		else groups.set(entity, [item]);
+	}
+	const newest = (list) => Math.max(...list.map((item) => item.createdAt));
+	return [...groups.entries()].map(([entity, list]) => ({
+		entity,
+		cards: list
+	})).sort((a, b) => Number(a.entity === "") - Number(b.entity === "") || newest(b.cards) - newest(a.cards));
+}
+function inboxCardRenderer(env) {
+	const { i18n, shell } = env;
+	const t = i18n.t.bind(i18n);
+	/** A revision string with its English fallback (the module may be absent). */
+	const tx = (key, params) => {
+		let fallback = FALLBACK[key] ?? key;
+		for (const [name, value] of Object.entries(params ?? {})) fallback = fallback.split(`{${name}}`).join(String(value));
+		return tOr(i18n, key, fallback, params);
+	};
+	/** The kind's human name; '' when its module did not name it (the raw kind then shows under «Подробнее»). */
+	const kindName = (kind) => kindLabel(i18n, kind) ?? "";
+	/** Cards whose value is being edited, with the draft text (kept across re-renders). */
+	const drafts = /* @__PURE__ */ new Map();
+	const accept = async (item) => {
+		const ok = await env.inbox.accept(item.id);
+		if (!ok) shell.notice(t("ui.inbox.stale", { title: item.title }), { level: "warn" });
+		return ok;
+	};
+	const acceptEdited = async (item, value) => {
+		const payload = isDict$112(item.payload) ? item.payload : {};
+		if (await env.inbox.accept(item.id, {
+			...payload,
+			value
+		})) drafts.delete(item.id);
+		else shell.notice(tx("m8.inbox.editFailed", { title: item.title }), { level: "warn" });
+	};
+	const editable = (item) => {
+		const meta = cardMeta(item);
+		return meta.editable && meta.value !== void 0 && !item.deferred;
+	};
+	/** The kind is not 'auto' yet and may become it (never for kinds registered with neverAuto). */
+	const canPromote = (kind) => {
+		const { autonomy } = env;
 		try {
-			const result = tab.render(body);
-			this.cleanup = typeof result === "function" ? result : null;
-		} catch (error) {
-			this.deps.log.error(`render of tab "${tab.id}" failed`, error);
-			clear(body);
-			body.appendChild(emptyState(this.deps.i18n.t("ui.pult.renderFailed"), "fa-bug"));
+			if (autonomy.level(kind, "inbox") === "auto") return false;
+			if (autonomy.isNeverAuto) return !autonomy.isNeverAuto(kind);
+			const stored = env.settings.core().autonomy;
+			const previous = stored[kind];
+			stored[kind] = "auto";
+			const allowed = autonomy.level(kind, "inbox") === "auto";
+			if (previous) stored[kind] = previous;
+			else delete stored[kind];
+			return allowed;
+		} catch {
+			return false;
 		}
-		this.updateBadges();
-	}
-	renderEmpty() {
-		if (!this.body) return;
-		clear(this.body);
-		this.body.appendChild(emptyState(this.deps.i18n.t("ui.pult.noTabs"), "fa-wand-magic-sparkles"));
-	}
-	unmountActive() {
-		const cleanup = this.cleanup;
-		this.cleanup = null;
-		if (cleanup) try {
-			cleanup();
-		} catch (error) {
-			this.deps.log.warn("tab cleanup failed", error);
+	};
+	/** «Always»: the kind becomes 'auto' (as the trust offer does, core/autonomy.ts), then this card is accepted. */
+	const always = async (item) => {
+		if (env.autonomy.setLevel) {
+			if (!env.autonomy.setLevel(item.kind, "auto")) return;
+		} else {
+			env.settings.core().autonomy[item.kind] = "auto";
+			env.settings.save();
+			env.settings.notify(`core.autonomy.${item.kind}`);
 		}
-		if (this.body) clear(this.body);
+		shell.notice(tx("m8.inbox.always.done", { kind: kindName(item.kind) || item.title }), { importance: "urgent" });
+		await accept(item);
+	};
+	/** Everything technical about a card: kind and module ids, the module's notes, raw changes with locators. */
+	const technical = (item) => detailsView(i18n, env.settings.core().showTechnical === true, [
+		el("div", {
+			class: "maestro-muted",
+			text: t("ui.inbox.detailsKind", { kind: item.kind })
+		}),
+		el("div", {
+			class: "maestro-muted",
+			text: t("ui.inbox.detailsModule", { module: item.module })
+		}),
+		item.details ? el("div", {
+			class: "maestro-details-notes",
+			text: item.details
+		}) : null,
+		...item.changes.map((change) => changeView$1(change, t))
+	]);
+	const sourceButton = (index) => index !== void 0 ? button({
+		label: t("ui.inbox.source", { index }),
+		icon: "fa-message",
+		kind: "ghost",
+		onClick: () => shell.scrollToMessage(index)
+	}) : null;
+	const editor = (item, redraw) => {
+		const area = el("textarea", {
+			class: "text_pole",
+			attrs: {
+				"aria-label": tx("m8.inbox.editLabel"),
+				rows: 3
+			}
+		});
+		area.value = drafts.get(item.id) ?? "";
+		area.addEventListener("input", () => drafts.set(item.id, area.value));
+		return el("div", { class: "maestro-inbox-edit" }, [
+			el("div", {
+				class: "maestro-muted",
+				text: tx("m8.inbox.editLabel")
+			}),
+			area,
+			el("div", { class: "maestro-row" }, [button({
+				label: tx("m8.inbox.cancel"),
+				kind: "ghost",
+				onClick: () => {
+					drafts.delete(item.id);
+					redraw();
+				}
+			}), button({
+				label: tx("m8.inbox.save"),
+				icon: "fa-floppy-disk",
+				disabled: false,
+				onClick: () => acceptEdited(item, area.value.trim())
+			})])
+		]);
+	};
+	const cardView = (item, redraw, options = {}) => {
+		const compact = options.compact === true;
+		const meta = cardMeta(item);
+		const subtitle = [el("span", {
+			class: "maestro-muted",
+			text: [
+				compact ? "" : moduleTitle$1(env.modules, i18n, item.module),
+				compact ? "" : kindName(item.kind),
+				formatTime$1(item.createdAt, i18n)
+			].filter(Boolean).join(" · ")
+		})];
+		if (meta.confidence !== void 0) subtitle.push(badge(tx("m8.inbox.confidence", { value: Math.round(meta.confidence * 100) }), "muted"));
+		if (item.deferred) subtitle.push(badge(t("ui.inbox.deferred"), "muted"));
+		if (item.expiresAt) subtitle.push(badge(t("ui.inbox.expires", { time: formatTime$1(item.expiresAt, i18n) }), "muted"));
+		const editing = drafts.has(item.id);
+		const canEdit = editable(item);
+		const body = [
+			item.description ? el("div", {
+				class: "maestro-card-text",
+				text: item.description
+			}) : null,
+			meta.evidence ? el("blockquote", {
+				class: "maestro-inbox-evidence",
+				text: meta.evidence
+			}) : null,
+			...item.changes.map((change) => humanChangeView(change, env.labels, i18n)),
+			editing ? editor(item, redraw) : null,
+			technical(item)
+		];
+		if (compact) return card({
+			subtitle,
+			className: "maestro-inbox-card maestro-inbox-compact",
+			body
+		});
+		return card({
+			title: item.title,
+			subtitle,
+			className: "maestro-inbox-card",
+			body,
+			actions: [
+				sourceButton(item.sourceMessage),
+				el("span", { class: "maestro-grow" }),
+				button({
+					label: t("ui.inbox.snooze"),
+					title: tx("m8.inbox.snooze.hint"),
+					icon: "fa-clock",
+					kind: "ghost",
+					onClick: () => env.inbox.snooze(item.id, SNOOZE_MS)
+				}),
+				button({
+					label: item.rejectLabel ?? t("ui.inbox.reject"),
+					icon: "fa-xmark",
+					kind: "danger",
+					onClick: () => env.inbox.reject(item.id)
+				}),
+				canEdit && !editing ? button({
+					label: tx("m8.inbox.edit"),
+					icon: "fa-pen",
+					onClick: () => {
+						drafts.set(item.id, meta.value ?? "");
+						redraw();
+					}
+				}) : null,
+				!item.deferred && canPromote(item.kind) ? button({
+					label: tx("m8.inbox.always"),
+					title: tx("m8.inbox.always.hint"),
+					icon: "fa-forward-fast",
+					onClick: () => always(item)
+				}) : null,
+				button({
+					label: item.acceptLabel ?? t("ui.inbox.accept"),
+					icon: "fa-check",
+					kind: "primary",
+					disabled: item.deferred === true,
+					title: item.deferred ? t("ui.inbox.deferredHint") : void 0,
+					onClick: async () => {
+						await accept(item);
+					}
+				})
+			]
+		});
+	};
+	return {
+		cardView,
+		accept,
+		editable,
+		startEdit(item) {
+			if (!editable(item)) return false;
+			if (!drafts.has(item.id)) drafts.set(item.id, cardMeta(item).value ?? "");
+			return true;
+		},
+		keepDrafts(ids) {
+			for (const id of [...drafts.keys()]) if (!ids.has(id)) drafts.delete(id);
+		},
+		tx,
+		sourceButton
+	};
+}
+function inboxTab(env) {
+	const { i18n, shell } = env;
+	const t = i18n.t.bind(i18n);
+	const renderer = inboxCardRenderer(env);
+	const tx = renderer.tx;
+	const sourceButton = renderer.sourceButton;
+	const cardView = (item, redraw) => renderer.cardView(item, redraw);
+	const revision = () => {
+		const api = env.modules.api(REVISION_KEY$1);
+		return api && typeof api.deferred === "function" ? api : void 0;
+	};
+	const groupsView = (cards, redraw) => {
+		const groups = groupByEntity(cards);
+		if (groups.length === 1 && groups[0]?.entity === "") return el("div", { class: "maestro-cards" }, cards.map((item) => cardView(item, redraw)));
+		return el("div", { class: "maestro-inbox-groups" }, groups.map((group) => el("div", {
+			class: "maestro-inbox-group",
+			data: { entity: group.entity }
+		}, [el("div", { class: "maestro-inbox-group-head" }, [el("span", { text: group.entity || tx("m8.inbox.other") }), badge(group.cards.length, "muted")]), el("div", { class: "maestro-cards" }, group.cards.map((item) => cardView(item, redraw)))])));
+	};
+	const deferredView = (api, list) => section$1(tx("m8.inbox.deferred.title"), [el("div", {
+		class: "maestro-hint",
+		text: tx("m8.inbox.deferred.hint")
+	}), el("div", { class: "maestro-cards" }, list.map((item) => card({
+		title: `${item.entityName}: ${tOr(i18n, `m8.target.${item.target}`, item.target)}`,
+		subtitle: [badge(tx("m8.inbox.deferred.stage", { stage: deferredStage(item.target) }), "muted"), el("span", {
+			class: "maestro-muted",
+			text: formatTime$1(item.at, i18n)
+		})],
+		className: "maestro-inbox-deferred",
+		level: "muted",
+		body: [
+			el("div", {
+				class: "maestro-card-text",
+				text: item.russian || item.value
+			}),
+			item.evidence ? el("blockquote", {
+				class: "maestro-inbox-evidence",
+				text: item.evidence
+			}) : null,
+			item.russian ? detailsView(i18n, env.settings.core().showTechnical === true, [el("div", {
+				class: "maestro-details-notes",
+				text: item.value
+			})]) : null
+		],
+		actions: [
+			sourceButton(item.sourceMessage),
+			el("span", { class: "maestro-grow" }),
+			api.dismissDeferred ? button({
+				label: tx("m8.inbox.deferred.dismiss"),
+				icon: "fa-trash-can",
+				kind: "ghost",
+				onClick: async () => {
+					await api.dismissDeferred?.(item.id);
+				}
+			}) : null
+		]
+	})))]);
+	return {
+		id: INBOX_TAB$1,
+		titleKey: "ui.tab.inbox",
+		icon: "fa-inbox",
+		order: 30,
+		badge: () => env.inbox.count(),
+		render(container) {
+			const draw = () => {
+				clear(container);
+				const cards = [...env.inbox.list()].sort((a, b) => b.createdAt - a.createdAt);
+				renderer.keepDrafts(new Set(cards.map((item) => item.id)));
+				const actionable = cards.filter((item) => !item.deferred);
+				const acceptAll = button({
+					label: t("ui.inbox.acceptAll", { count: actionable.length }),
+					icon: "fa-check-double",
+					disabled: actionable.length === 0,
+					onClick: async () => {
+						let failed = 0;
+						for (const item of actionable) try {
+							if (!await env.inbox.accept(item.id)) failed++;
+						} catch (error) {
+							failed++;
+							shell.log.error("accept failed", item.id, error);
+						}
+						const accepted = actionable.length - failed;
+						shell.notice(failed ? t("ui.inbox.acceptAllPartial", {
+							accepted,
+							failed
+						}) : t("ui.inbox.acceptAllDone", { accepted }), { level: failed ? "warn" : "info" });
+					}
+				});
+				const api = revision();
+				let deferred = [];
+				try {
+					deferred = api?.deferred() ?? [];
+				} catch (error) {
+					shell.log.warn("deferred cards are not readable", error);
+				}
+				const view = el("div", { class: "maestro-view maestro-inbox" }, [el("style", { text: INBOX_CSS }), section$1(t("ui.inbox.title"), cards.length ? groupsView(cards, draw) : emptyState(t("ui.inbox.empty")), cards.length ? acceptAll : void 0)]);
+				if (api && deferred.length) append(view, deferredView(api, deferred));
+				container.append(view);
+			};
+			draw();
+			const later = coalesce(draw, 50);
+			const unsubscribers = [env.inbox.onChange(later)];
+			try {
+				const off = revision()?.onChange?.(later);
+				if (off) unsubscribers.push(off);
+			} catch (error) {
+				shell.log.debug("revision changes are not observable", error);
+			}
+			return () => {
+				later.cancel();
+				for (const off of unsubscribers) off();
+			};
+		}
+	};
+}
+//#endregion
+//#region src/ui/views/inbox-strip.ts
+var INBOX_STRIP = "maestro.inbox";
+var INBOX_STRIP_ORDER = 10;
+/** Card kinds that ask a question rather than propose a change. */
+var QUESTION_KINDS = /* @__PURE__ */ new Set(["world.sameAs"]);
+/** The message a card belongs to, if any. */
+function stripMessageOf(card) {
+	if (typeof card.sourceMessage === "number") return card.sourceMessage >= 0 ? card.sourceMessage : void 0;
+	if (!QUESTION_KINDS.has(card.kind)) return void 0;
+	const payload = card.payload;
+	const at = typeof payload === "object" && payload !== null ? payload.messageIndex : void 0;
+	return typeof at === "number" && Number.isInteger(at) && at >= 0 ? at : void 0;
+}
+function inboxStripProvider(env) {
+	const t = env.i18n.t.bind(env.i18n);
+	const renderer = inboxCardRenderer(env);
+	/**
+	* Cards by message (items() is called per message on each repaint), kept while someone listens to the Inbox's
+	* changes — they are what makes it stale.
+	*/
+	let byMessage = null;
+	let listening = 0;
+	const indexed = () => {
+		if (byMessage && listening > 0) return byMessage;
+		const map = /* @__PURE__ */ new Map();
+		const cards = env.inbox.list();
+		for (const card of cards) {
+			if (card.deferred) continue;
+			const at = stripMessageOf(card);
+			if (at === void 0) continue;
+			const list = map.get(at);
+			if (list) list.push(card);
+			else map.set(at, [card]);
+		}
+		for (const list of map.values()) list.sort((a, b) => a.createdAt - b.createdAt);
+		renderer.keepDrafts(new Set(cards.map((card) => card.id)));
+		byMessage = map;
+		return map;
+	};
+	const toItem = (card) => {
+		const question = QUESTION_KINDS.has(card.kind);
+		const actions = [{
+			label: card.acceptLabel ?? t("ui.inbox.accept"),
+			primary: true,
+			run: async () => {
+				await renderer.accept(card);
+			}
+		}];
+		if (renderer.editable(card)) actions.push({
+			label: t("ui.strip.edit"),
+			run: () => {
+				renderer.startEdit(card);
+			}
+		});
+		actions.push({
+			label: card.rejectLabel ?? t("ui.inbox.reject"),
+			run: () => env.inbox.reject(card.id)
+		}, {
+			label: t("ui.inbox.snooze"),
+			run: () => env.inbox.snooze(card.id, SNOOZE_MS)
+		});
+		return {
+			id: card.id,
+			kind: question ? "question" : "proposal",
+			text: card.title,
+			icon: question ? "fa-circle-question" : "fa-inbox",
+			actions,
+			body: (container) => {
+				const draw = () => {
+					clear(container);
+					container.appendChild(renderer.cardView(card, draw, { compact: true }));
+				};
+				draw();
+			}
+		};
+	};
+	return {
+		id: INBOX_STRIP,
+		order: INBOX_STRIP_ORDER,
+		items: (messageIndex) => (indexed().get(messageIndex) ?? []).map(toItem),
+		onChange(listener) {
+			listening++;
+			const off = env.inbox.onChange(() => {
+				const before = byMessage;
+				byMessage = null;
+				if (!before) {
+					listener();
+					return;
+				}
+				listener([.../* @__PURE__ */ new Set([...before.keys(), ...indexed().keys()])]);
+			});
+			return () => {
+				off();
+				listening--;
+				byMessage = null;
+			};
+		}
+	};
+}
+//#endregion
+//#region src/ui/views/journal.ts
+var JOURNAL_TAB = "journal";
+var LIMIT = 300;
+function journalTab(env) {
+	const { i18n, shell } = env;
+	const t = i18n.t.bind(i18n);
+	/** Human kind name; the raw kind when the module did not name it (still better than nothing in a table). */
+	const kindName = (kind) => kindLabel(i18n, kind) ?? kind;
+	const changesView = (record) => {
+		if (!record.changes.length) return null;
+		const open = env.settings.core().showTechnical === true;
+		const human = record.changes.map((change) => humanChangeView(change, env.labels, i18n)).filter((node) => node !== null);
+		const technical = detailsView(i18n, open, [el("div", {
+			class: "maestro-muted",
+			text: t("ui.inbox.detailsKind", { kind: record.kind })
+		}), ...record.changes.map((change) => changeView$1(change, t))]);
+		if (!human.length) return technical;
+		return el("details", { class: "maestro-journal-changes" }, [
+			el("summary", { text: t("ui.journal.changes") }),
+			...human,
+			technical
+		]);
+	};
+	const recordView = (record, redraw) => {
+		const known = kindLabel(i18n, record.kind);
+		const meta = [
+			formatTime$1(record.at, i18n),
+			moduleTitle$1(env.modules, i18n, record.module),
+			known ?? ""
+		];
+		return el("div", { class: ["maestro-journal-row", record.undone ? "maestro-undone" : null] }, [el("div", { class: "maestro-journal-main" }, [
+			el("div", {
+				class: "maestro-journal-summary",
+				text: record.summary
+			}),
+			el("div", {
+				class: "maestro-muted",
+				text: meta.filter(Boolean).join(" · ")
+			}),
+			changesView(record)
+		]), button({
+			label: record.undone ? t("ui.journal.undoneLabel") : t("ui.journal.undo"),
+			icon: "fa-rotate-left",
+			disabled: record.undone === true,
+			onClick: async () => {
+				const ok = await env.journal.undo(record.id);
+				shell.notice(ok ? t("ui.journal.undoDone", { summary: record.summary }) : t("ui.journal.undoFailed", { summary: record.summary }), {
+					level: ok ? "info" : "warn",
+					importance: "urgent"
+				});
+				redraw();
+			}
+		})]);
+	};
+	const statsView = () => {
+		const stats = [...env.autonomy.stats()].map((row) => ({
+			...row,
+			label: kindName(row.kind)
+		})).sort((a, b) => a.label.localeCompare(b.label));
+		return section$1(t("ui.journal.stats"), table([
+			{
+				key: "kind",
+				label: t("ui.journal.kind"),
+				cell: (row) => row.label
+			},
+			{
+				key: "accepted",
+				label: t("ui.journal.accepted"),
+				numeric: true,
+				cell: (row) => String(row.accepted)
+			},
+			{
+				key: "edited",
+				label: t("ui.journal.edited"),
+				numeric: true,
+				cell: (row) => String(row.edited)
+			},
+			{
+				key: "rejected",
+				label: t("ui.journal.rejected"),
+				numeric: true,
+				cell: (row) => String(row.rejected)
+			},
+			{
+				key: "undone",
+				label: t("ui.journal.undoneCount"),
+				numeric: true,
+				cell: (row) => String(row.undone)
+			},
+			{
+				key: "streak",
+				label: t("ui.journal.streak"),
+				numeric: true,
+				cell: (row) => String(row.streak)
+			}
+		], stats, { empty: t("ui.journal.statsEmpty") }));
+	};
+	return {
+		id: JOURNAL_TAB,
+		titleKey: "ui.tab.journal",
+		icon: "fa-clock-rotate-left",
+		order: 80,
+		render(container) {
+			let filter = "";
+			const draw = () => {
+				clear(container);
+				const records = [...env.journal.list({
+					module: filter || void 0,
+					limit: LIMIT
+				})].sort((a, b) => b.at - a.at);
+				const modules = [...new Set(env.journal.list({ limit: LIMIT }).map((record) => record.module))].sort();
+				const filterSelect = select({
+					value: filter,
+					label: t("ui.journal.filter"),
+					options: [{
+						value: "",
+						label: t("ui.journal.allModules")
+					}, ...modules.map((id) => ({
+						value: id,
+						label: moduleTitle$1(env.modules, i18n, id)
+					}))],
+					onChange: (value) => {
+						filter = value;
+						draw();
+					}
+				});
+				container.append(el("div", { class: "maestro-view maestro-journal" }, [section$1(t("ui.journal.title"), records.length ? el("div", { class: "maestro-journal-list" }, records.map((record) => recordView(record, draw))) : emptyState(t("ui.journal.empty"), "fa-feather"), [filterSelect, button({
+					icon: "fa-arrows-rotate",
+					title: t("ui.refresh"),
+					kind: "ghost",
+					onClick: draw
+				})]), statsView()]));
+			};
+			draw();
+		}
+	};
+}
+//#endregion
+//#region src/ui/views/message-button.ts
+var MESSAGE_BUTTON_CLASS = "maestro-mes-button";
+var ROW = ".extraMesButtons";
+var TEMPLATE_ROW = `#message_template .mes ${ROW}`;
+/** ST events after which message DOM may have been rebuilt. Keys of eventTypes (see HostEvents.on). */
+var RENDER_EVENTS = [
+	"CHARACTER_MESSAGE_RENDERED",
+	"USER_MESSAGE_RENDERED",
+	"MESSAGE_UPDATED",
+	"MESSAGE_SWIPED",
+	"MORE_MESSAGES_LOADED",
+	"CHAT_CHANGED"
+];
+var MessageButtons = class {
+	deps;
+	offs = [];
+	listening = false;
+	timer = null;
+	constructor(deps) {
+		this.deps = deps;
 	}
-	handleClosed(popup) {
-		if (this.popup !== popup) return;
-		this.unmountActive();
-		this.popup = null;
-		this.nav = null;
-		this.body = null;
-		this.chrome = null;
-		this.activeId = null;
+	/** Idempotent: the template, the messages on screen, the listeners. */
+	mount() {
+		this.applyAll();
+		if (this.listening) return;
+		this.listening = true;
+		for (const event of RENDER_EVENTS) try {
+			this.offs.push(this.deps.host.events.on(event, () => this.schedule()));
+		} catch (error) {
+			this.deps.log.debug(`message button: no event ${event}`, error);
+		}
+		const onClick = (event) => {
+			const target = event.target instanceof Element ? event.target.closest(`.${MESSAGE_BUTTON_CLASS}`) : null;
+			if (!target || !target.closest("#chat")) return;
+			event.preventDefault();
+			event.stopPropagation();
+			this.openMenu(target);
+		};
+		const onKey = (event) => {
+			if (event.key !== "Enter" && event.key !== " ") return;
+			const target = event.target instanceof HTMLElement ? event.target : null;
+			if (!target?.classList.contains("maestro-mes-button") || !target.closest("#chat")) return;
+			event.preventDefault();
+			this.openMenu(target);
+		};
+		document.addEventListener("click", onClick);
+		document.addEventListener("keydown", onKey);
+		this.offs.push(() => document.removeEventListener("click", onClick), () => document.removeEventListener("keydown", onKey));
+	}
+	/** Language changed: the buttons' tooltips. */
+	relocalize() {
+		for (const node of document.querySelectorAll(`.${MESSAGE_BUTTON_CLASS}`)) this.label(node);
+	}
+	dispose() {
+		if (this.timer !== null) clearTimeout(this.timer);
+		this.timer = null;
+		for (const off of this.offs.splice(0)) off();
+		this.listening = false;
+		for (const node of document.querySelectorAll(`.${MESSAGE_BUTTON_CLASS}`)) node.remove();
+	}
+	applyAll() {
+		const template = document.querySelector(TEMPLATE_ROW);
+		if (template) this.ensure(template);
+		for (const row of document.querySelectorAll(`#chat .mes ${ROW}`)) this.ensure(row);
+	}
+	/** Now and once more after ST finishes its own post-render work. */
+	schedule() {
+		this.applyAll();
+		if (this.timer !== null) return;
+		this.timer = setTimeout(() => {
+			this.timer = null;
+			this.applyAll();
+		}, 50);
+	}
+	ensure(row) {
+		if ([...row.children].some((child) => child.classList.contains("maestro-mes-button"))) return;
+		const node = document.createElement("div");
+		node.className = `mes_button ${MESSAGE_BUTTON_CLASS} fa-solid fa-wand-magic-sparkles`;
+		node.setAttribute("role", "button");
+		node.setAttribute("tabindex", "0");
+		node.setAttribute("aria-haspopup", "menu");
+		this.label(node);
+		row.insertBefore(node, row.firstChild);
+	}
+	label(node) {
+		const text = this.deps.i18n.t("ui.mesButton.title");
+		node.title = text;
+		node.setAttribute("aria-label", text);
+	}
+	openMenu(button) {
+		const index = Number(button.closest(".mes")?.getAttribute("mesid"));
+		if (!Number.isInteger(index) || index < 0) return;
+		const { menu } = this.deps;
+		if (menu.isOpen() && menu.anchorNode() === button) {
+			menu.close();
+			return;
+		}
+		let items = [];
+		try {
+			items = this.deps.items(index);
+		} catch (error) {
+			this.deps.log.error("message menu failed", error);
+		}
+		if (!items.length) return;
+		button.setAttribute("aria-expanded", "true");
+		menu.open(button, [{ items }], {
+			label: this.deps.i18n.t("ui.mesButton.title"),
+			className: "maestro-mes-menu",
+			onClose: () => button.setAttribute("aria-expanded", "false")
+		});
+	}
+};
+//#endregion
+//#region src/ui/views/message-strip.ts
+/** Summary order of the kinds (what waits for a decision first). */
+var STRIP_KINDS = [
+	"proposal",
+	"question",
+	"fact",
+	"change",
+	"roll",
+	"info"
+];
+/** Kinds that wait for the user's decision (CoreSettings.chatNotices 'pending'). */
+var PENDING_KINDS = /* @__PURE__ */ new Set(["proposal", "question"]);
+var KIND_ICON$1 = {
+	proposal: "fa-inbox",
+	question: "fa-circle-question",
+	fact: "fa-seedling",
+	change: "fa-arrow-right-arrow-left",
+	roll: "fa-dice-d20",
+	info: "fa-check"
+};
+/** ST events whose first argument is the re-rendered message (keys of eventTypes). */
+var MESSAGE_EVENTS = [
+	"CHARACTER_MESSAGE_RENDERED",
+	"USER_MESSAGE_RENDERED",
+	"MESSAGE_UPDATED",
+	"MESSAGE_EDITED",
+	"MESSAGE_SWIPED"
+];
+/** ST events after which any message may have been rebuilt or renumbered. */
+var CHAT_EVENTS = [
+	"MORE_MESSAGES_LOADED",
+	"CHAT_CHANGED",
+	"MESSAGE_DELETED"
+];
+/** ST finishes its own post-render work (and neighbours their decorations) after the event: look once more. */
+var SETTLE_MS$5 = 50;
+/** Id of the provider behind Ui.messageBadge. */
+var BADGE_PROVIDER = "maestro.badges";
+var BADGE_ORDER = 50;
+/** Items the user's choice lets through (none, only what waits for a decision, or all). */
+function filterStripItems(items, level) {
+	if (level === "none") return [];
+	if (level === "pending") return items.filter((item) => PENDING_KINDS.has(item.kind));
+	return [...items];
+}
+/** The collapsed line: the single item's own text (and icon), else counts per kind in story words. */
+function stripSummary(i18n, items) {
+	const [only] = items;
+	if (items.length === 1 && only) return [{
+		kind: only.kind,
+		text: only.text,
+		...only.icon ? { icon: only.icon } : {}
+	}];
+	const counts = /* @__PURE__ */ new Map();
+	for (const item of items) counts.set(item.kind, (counts.get(item.kind) ?? 0) + 1);
+	return STRIP_KINDS.filter((kind) => counts.has(kind)).map((kind) => {
+		const count = counts.get(kind) ?? 0;
+		return {
+			kind,
+			text: count === 1 ? i18n.t(`ui.strip.single.${kind}`) : i18n.t(`ui.strip.count.${kind}.${pluralForm$1(count, i18n.locale())}`, { count })
+		};
+	});
+}
+function signatureOf(index, locale, shown) {
+	return JSON.stringify([
+		index,
+		locale,
+		shown.map(({ key, item }) => [
+			key,
+			item.kind,
+			item.text,
+			item.icon ?? "",
+			item.tone ?? "",
+			(item.actions ?? []).map((action) => [action.label, action.primary === true]),
+			typeof item.body === "function",
+			item.open ? [item.open.window, item.open.tab ?? ""] : null
+		])
+	]);
+}
+/** A lone line with no buttons, body or window has nothing to expand: it stays a plain line. */
+function plainLine(shown) {
+	const [only] = shown;
+	return shown.length === 1 && !!only && !only.item.actions?.length && !only.item.body && !only.item.open;
+}
+/** Index of a message node, or null. */
+function messageIndexOf(node) {
+	const value = Number(node.getAttribute("mesid"));
+	return Number.isInteger(value) && value >= 0 ? value : null;
+}
+function childWith(parent, className) {
+	for (const child of parent.children) if (child.classList.contains(className)) return child;
+	return null;
+}
+/** Index from an event argument (ST passes numbers, sometimes numeric strings). */
+function indexArg(value) {
+	if (typeof value === "number" && Number.isInteger(value) && value >= 0) return value;
+	if (typeof value === "string" && /^\d+$/.test(value)) return Number(value);
+}
+var MessageStrip = class {
+	deps;
+	providers = /* @__PURE__ */ new Map();
+	painted = /* @__PURE__ */ new Map();
+	states = /* @__PURE__ */ new Map();
+	badges = /* @__PURE__ */ new Map();
+	badgeListeners = /* @__PURE__ */ new Set();
+	unsubscribers = [];
+	pending = /* @__PURE__ */ new Set();
+	settleTimers = /* @__PURE__ */ new Set();
+	pendingAll = false;
+	/** Messages whose strip must be rebuilt even if its items look the same (after a button ran). */
+	forced = /* @__PURE__ */ new Set();
+	scheduled = false;
+	listening = false;
+	disposed = false;
+	constructor(deps) {
+		this.deps = deps;
+		this.addProvider({
+			id: BADGE_PROVIDER,
+			order: BADGE_ORDER,
+			items: (index) => this.badgeItems(index),
+			onChange: (listener) => {
+				this.badgeListeners.add(listener);
+				return () => this.badgeListeners.delete(listener);
+			}
+		});
+	}
+	addProvider(provider) {
+		if (this.disposed) return () => {};
+		this.providers.get(provider.id)?.off();
+		let off = () => {};
+		try {
+			off = provider.onChange((indexes) => this.schedule(indexes));
+		} catch (error) {
+			this.deps.log.warn(`strip provider "${provider.id}" cannot be observed`, error);
+		}
+		const entry = {
+			provider,
+			off
+		};
+		this.providers.set(provider.id, entry);
+		if (provider.id !== "maestro.badges") {
+			this.listen();
+			this.schedule();
+		}
+		return () => {
+			if (this.providers.get(provider.id) !== entry) return;
+			entry.off();
+			this.providers.delete(provider.id);
+			this.schedule();
+		};
+	}
+	/** Ui.messageBadge: a memory-only line (same id on the same message replaces it). */
+	badge(index, spec) {
+		if (this.disposed) return () => {};
+		const key = `${index}:${spec.id}`;
+		const entry = {
+			...spec,
+			index,
+			chatId: this.chatId()
+		};
+		this.badges.set(key, entry);
+		this.listen();
+		this.emitBadges([index]);
+		return () => {
+			if (this.badges.get(key) !== entry) return;
+			this.badges.delete(key);
+			this.emitBadges([index]);
+		};
+	}
+	/** Repaints the given messages (none: every rendered message) in the next microtask. */
+	schedule(indexes) {
+		if (this.disposed) return;
+		if (!indexes) this.pendingAll = true;
+		else for (const index of indexes) if (Number.isInteger(index) && index >= 0) this.pending.add(index);
+		if (this.scheduled) return;
+		this.scheduled = true;
+		queueMicrotask(() => this.flush());
+	}
+	/** Rebuilds every strip now (language change). */
+	repaintAll() {
+		for (const record of this.painted.values()) record.signature = "";
+		this.schedule();
+	}
+	dispose() {
+		if (this.disposed) return;
+		this.disposed = true;
+		for (const timer of this.settleTimers) clearTimeout(timer);
+		this.settleTimers.clear();
+		for (const unsubscribe of this.unsubscribers.splice(0)) unsubscribe();
+		for (const { off } of this.providers.values()) off();
+		this.providers.clear();
+		for (const record of [...this.painted.values()]) this.remove(record);
+		for (const node of document.querySelectorAll(".maestro-strip")) node.remove();
+		this.badges.clear();
+		this.badgeListeners.clear();
+		this.states.clear();
+	}
+	listen() {
+		if (this.listening) return;
+		this.listening = true;
+		for (const event of MESSAGE_EVENTS) this.on(event, (...args) => {
+			const index = indexArg(args[0]);
+			this.scheduleSettled(index === void 0 ? void 0 : [index]);
+		});
+		for (const event of CHAT_EVENTS) this.on(event, () => {
+			if (event === "CHAT_CHANGED") this.states.clear();
+			this.scheduleSettled();
+		});
+		this.unsubscribers.push(this.deps.settings.onChange((path) => {
+			if (path === "core.chatNotices") this.schedule();
+		}));
+	}
+	on(event, handler) {
+		try {
+			this.unsubscribers.push(this.deps.host.events.on(event, handler));
+		} catch (error) {
+			this.deps.log.debug(`strip: no event ${event}`, error);
+		}
+	}
+	/** Now, and once more after ST's post-render work. */
+	scheduleSettled(indexes) {
+		this.schedule(indexes);
+		const timer = setTimeout(() => {
+			this.settleTimers.delete(timer);
+			this.schedule(indexes);
+		}, SETTLE_MS$5);
+		this.settleTimers.add(timer);
+	}
+	flush() {
+		this.scheduled = false;
+		if (this.disposed) return;
+		const all = this.pendingAll;
+		const indexes = [...this.pending];
+		this.pendingAll = false;
+		this.pending.clear();
+		this.sweep();
+		if (all) for (const message of document.querySelectorAll("#chat .mes[mesid]")) this.paint(message);
+		else for (const index of indexes) {
+			const message = document.querySelector(`#chat .mes[mesid="${index}"]`);
+			if (message) this.paint(message);
+		}
+		this.forced.clear();
+	}
+	/** Forgets strips ST removed together with their messages. */
+	sweep() {
+		for (const record of [...this.painted.values()]) if (!record.node.isConnected) this.remove(record);
+	}
+	chatId() {
+		try {
+			return this.deps.host.chatId();
+		} catch {
+			return null;
+		}
+	}
+	stateOf(index) {
+		const key = `${this.chatId() ?? ""}#${index}`;
+		let state = this.states.get(key);
+		if (!state) {
+			state = {
+				expanded: false,
+				bodies: /* @__PURE__ */ new Set()
+			};
+			this.states.set(key, state);
+		}
+		return state;
+	}
+	collect(index) {
+		const level = this.deps.settings.core().chatNotices;
+		if (level === "none") return [];
+		const providers = [...this.providers.values()].map((entry) => entry.provider).sort((a, b) => a.order - b.order || a.id.localeCompare(b.id));
+		const shown = [];
+		for (const provider of providers) {
+			let items;
+			try {
+				items = provider.items(index) ?? [];
+			} catch (error) {
+				this.deps.log.debug(`strip provider "${provider.id}" failed`, error);
+				continue;
+			}
+			for (const item of filterStripItems(items, level)) {
+				if (!item || typeof item.text !== "string" || !item.text.trim()) continue;
+				shown.push({
+					key: `${provider.id}:${item.id}`,
+					item
+				});
+			}
+		}
+		return shown;
+	}
+	paint(message) {
+		const index = messageIndexOf(message);
+		if (index === null) return;
+		const existing = [...message.querySelectorAll(".maestro-strip")];
+		const shown = this.collect(index);
+		if (!shown.length) {
+			for (const node of existing) this.removeNode(node);
+			return;
+		}
+		const [current, ...extra] = existing;
+		for (const node of extra) this.removeNode(node);
+		const signature = signatureOf(index, this.deps.i18n.locale(), shown);
+		const record = current ? this.painted.get(current) : void 0;
+		if (current && record && record.signature === signature && !this.forced.has(index)) {
+			record.items = new Map(shown.map(({ key, item }) => [key, item]));
+			this.place(message, current);
+			return;
+		}
+		const next = this.build(index, shown, signature);
+		if (current) {
+			this.removeRecord(current);
+			current.replaceWith(next.node);
+		}
+		this.place(message, next.node);
+		this.painted.set(next.node, next);
+		this.renderOpenBodies(next);
+	}
+	/** Puts the strip right after ST's own blocks of the message (see the header). */
+	place(message, node) {
+		const block = childWith(message, "mes_block") ?? message.querySelector(".mes_block") ?? message;
+		let anchor = null;
+		for (const name of [
+			"mes_bias",
+			"mes_file_wrapper",
+			"mes_media_wrapper",
+			"mes_text"
+		]) {
+			anchor = childWith(block, name);
+			if (anchor) break;
+		}
+		if (anchor) {
+			if (anchor.nextElementSibling !== node) anchor.after(node);
+		} else if (node.parentElement !== block) block.appendChild(node);
+	}
+	build(index, shown, signature) {
+		const { i18n } = this.deps;
+		const state = this.stateOf(index);
+		const record = {
+			node: el("div"),
+			index,
+			signature,
+			items: new Map(shown.map(({ key, item }) => [key, item])),
+			bodies: /* @__PURE__ */ new Map()
+		};
+		for (const key of [...state.bodies]) if (!record.items.has(key)) state.bodies.delete(key);
+		const summary = stripSummary(i18n, shown.map(({ item }) => item));
+		const summaryText = summary.map((part) => part.text).join(" · ");
+		const plain = plainLine(shown);
+		const line = el(plain ? "div" : "button", {
+			class: ["maestro-strip-line", plain ? "maestro-strip-plain" : null],
+			title: summaryText,
+			attrs: plain ? {} : {
+				type: "button",
+				"aria-expanded": String(state.expanded)
+			}
+		}, [
+			icon("fa-wand-magic-sparkles", "maestro-strip-logo"),
+			el("span", { class: "maestro-strip-summary" }, summary.map((part, at) => el("span", { class: ["maestro-strip-chip", `maestro-strip-kind-${part.kind}`] }, [
+				at > 0 ? el("span", {
+					class: "maestro-strip-dot",
+					text: "·",
+					attrs: { "aria-hidden": "true" }
+				}) : null,
+				icon(part.icon ?? KIND_ICON$1[part.kind] ?? "fa-circle", "maestro-strip-chip-icon"),
+				el("span", {
+					class: "maestro-strip-chip-text",
+					text: part.text
+				})
+			]))),
+			plain ? null : icon("fa-chevron-down", "maestro-strip-caret")
+		]);
+		const list = el("div", {
+			class: "maestro-strip-items",
+			attrs: { hidden: plain || !state.expanded }
+		}, plain ? [] : shown.map(({ key, item }) => this.row(record, key, item, state)));
+		const node = el("div", {
+			class: ["maestro-strip", state.expanded ? "maestro-strip-open" : null],
+			data: { maestroStrip: index },
+			attrs: {
+				role: "group",
+				"aria-label": i18n.t("ui.strip.label")
+			}
+		}, [line, list]);
+		node.addEventListener("click", (event) => event.stopPropagation());
+		if (!plain) line.addEventListener("click", () => {
+			state.expanded = !state.expanded;
+			node.classList.toggle("maestro-strip-open", state.expanded);
+			line.setAttribute("aria-expanded", String(state.expanded));
+			list.hidden = !state.expanded;
+			if (state.expanded) this.renderOpenBodies(record);
+		});
+		record.node = node;
+		return record;
+	}
+	row(record, key, item, state) {
+		const { i18n } = this.deps;
+		const actions = (item.actions ?? []).map((action, at) => {
+			const node = el("button", {
+				class: ["maestro-strip-action", action.primary ? "maestro-strip-primary" : null],
+				text: action.label,
+				attrs: { type: "button" }
+			});
+			node.addEventListener("click", () => void this.runAction(record, key, at, node));
+			return node;
+		});
+		const bodyBox = item.body ? el("div", {
+			class: "maestro-strip-body",
+			attrs: { hidden: !state.bodies.has(key) }
+		}) : null;
+		let toggle = null;
+		if (bodyBox) {
+			const open = state.bodies.has(key);
+			const button = el("button", {
+				class: "maestro-strip-toggle",
+				title: i18n.t("ui.strip.more"),
+				attrs: {
+					type: "button",
+					"aria-expanded": String(open),
+					"aria-label": i18n.t("ui.strip.more")
+				}
+			}, [icon("fa-chevron-down")]);
+			button.addEventListener("click", () => {
+				const opened = !state.bodies.has(key);
+				if (opened) state.bodies.add(key);
+				else state.bodies.delete(key);
+				button.setAttribute("aria-expanded", String(opened));
+				bodyBox.hidden = !opened;
+				if (opened) this.renderBody(record, key, bodyBox);
+				else this.disposeBody(record, key, bodyBox);
+			});
+			toggle = button;
+		}
+		let opener = null;
+		if (item.open) {
+			opener = el("button", {
+				class: "maestro-strip-action maestro-strip-open-window",
+				title: i18n.t("ui.strip.open"),
+				attrs: {
+					type: "button",
+					"aria-label": i18n.t("ui.strip.open")
+				}
+			}, [icon("fa-up-right-from-square")]);
+			opener.addEventListener("click", () => {
+				const target = record.items.get(key)?.open;
+				if (!target) return;
+				try {
+					this.deps.open(target);
+				} catch (error) {
+					this.fail(error);
+				}
+			});
+		}
+		return el("div", {
+			class: [
+				"maestro-strip-item",
+				`maestro-strip-kind-${item.kind}`,
+				item.tone && item.tone !== "normal" ? `maestro-strip-tone-${item.tone}` : null
+			],
+			data: { maestroItem: key }
+		}, [el("div", { class: "maestro-strip-item-row" }, [
+			icon(item.icon ?? KIND_ICON$1[item.kind] ?? "fa-circle", "maestro-strip-item-icon"),
+			el("span", {
+				class: "maestro-strip-item-text",
+				text: item.text
+			}),
+			actions.length || toggle || opener ? el("span", { class: "maestro-strip-actions" }, [
+				...actions,
+				opener,
+				toggle
+			]) : null
+		]), bodyBox]);
+	}
+	async runAction(record, key, at, node) {
+		const item = record.items.get(key);
+		const action = item?.actions?.[at];
+		if (!item || !action || node.disabled) return;
+		node.disabled = true;
+		try {
+			await action.run();
+		} catch (error) {
+			this.fail(error);
+		} finally {
+			node.disabled = false;
+		}
+		if (item.body) {
+			const state = this.stateOf(record.index);
+			state.expanded = true;
+			state.bodies.add(key);
+		}
+		this.forced.add(record.index);
+		this.schedule([record.index]);
+	}
+	renderOpenBodies(record) {
+		const state = this.stateOf(record.index);
+		if (!state.expanded) return;
+		for (const key of state.bodies) {
+			const box = [...record.node.querySelectorAll(".maestro-strip-item")].find((node) => node.dataset.maestroItem === key)?.querySelector(".maestro-strip-body");
+			if (box && !record.bodies.has(key)) this.renderBody(record, key, box);
+		}
+	}
+	renderBody(record, key, box) {
+		this.disposeBody(record, key, box);
+		const item = record.items.get(key);
+		if (!item?.body) return;
+		try {
+			const off = item.body(box);
+			record.bodies.set(key, typeof off === "function" ? off : null);
+		} catch (error) {
+			this.deps.log.error(`strip body "${key}" failed`, error);
+			clear(box);
+			box.appendChild(el("div", {
+				class: "maestro-muted",
+				text: this.deps.i18n.t("ui.pult.renderFailed")
+			}));
+			record.bodies.set(key, null);
+		}
+	}
+	disposeBody(record, key, box) {
+		if (record.bodies.has(key)) {
+			const off = record.bodies.get(key);
+			record.bodies.delete(key);
+			try {
+				off?.();
+			} catch (error) {
+				this.deps.log.debug("strip body cleanup failed", error);
+			}
+		}
+		if (box) clear(box);
+	}
+	removeRecord(node) {
+		const record = this.painted.get(node);
+		if (!record) return;
+		this.painted.delete(node);
+		for (const key of [...record.bodies.keys()]) this.disposeBody(record, key);
+	}
+	remove(record) {
+		this.removeRecord(record.node);
+		record.node.remove();
+	}
+	removeNode(node) {
+		this.removeRecord(node);
+		node.remove();
+	}
+	fail(error) {
+		this.deps.log.error("strip action failed", error);
+		try {
+			this.deps.onError?.(error);
+		} catch {}
+	}
+	emitBadges(indexes) {
+		for (const listener of [...this.badgeListeners]) listener(indexes);
+	}
+	badgeItems(index) {
+		const chatId = this.chatId();
+		const items = [];
+		for (const entry of this.badges.values()) {
+			if (entry.index !== index || entry.chatId !== chatId) continue;
+			const actions = [...entry.action ? [{
+				label: entry.action.label,
+				run: entry.action.run,
+				primary: true
+			}] : [], ...entry.actions ?? []];
+			const item = {
+				id: entry.id,
+				kind: entry.kind ?? (actions.length ? "proposal" : "info"),
+				text: entry.text
+			};
+			if (actions.length) item.actions = actions;
+			if (entry.icon) item.icon = entry.icon;
+			if (entry.tone) item.tone = entry.tone;
+			items.push(item);
+		}
+		return items;
 	}
 };
 //#endregion
@@ -9058,27 +10109,42 @@ function settingsTab(env) {
 			}
 		})
 	]);
-	const noticesBlock = (redraw) => section$1(t("ui.settings.notices"), [field$1(t("ui.settings.notifyLevel"), select({
-		value: core().notifyLevel ?? "all",
-		label: t("ui.settings.notifyLevel"),
-		options: NOTIFY_LEVELS.map((value) => ({
-			value,
-			label: t(`ui.settings.notifyLevel.${value}`)
-		})),
-		onChange: (value) => {
-			core().notifyLevel = value;
-			commit("core.notifyLevel");
-		}
-	}), t("ui.settings.notifyLevelHint")), toggle({
-		label: t("ui.settings.showTechnical"),
-		hint: t("ui.settings.showTechnicalHint"),
-		checked: core().showTechnical === true,
-		onChange: (checked) => {
-			core().showTechnical = checked;
-			commit("core.showTechnical");
-			redraw();
-		}
-	})]);
+	const noticesBlock = (redraw) => section$1(t("ui.settings.notices"), [
+		field$1(t("ui.settings.notifyLevel"), select({
+			value: core().notifyLevel ?? "all",
+			label: t("ui.settings.notifyLevel"),
+			options: NOTIFY_LEVELS.map((value) => ({
+				value,
+				label: t(`ui.settings.notifyLevel.${value}`)
+			})),
+			onChange: (value) => {
+				core().notifyLevel = value;
+				commit("core.notifyLevel");
+			}
+		}), t("ui.settings.notifyLevelHint")),
+		field$1(t("ui.settings.chatNotices"), select({
+			value: core().chatNotices ?? "all",
+			label: t("ui.settings.chatNotices"),
+			options: CHAT_NOTICES.map((value) => ({
+				value,
+				label: t(`ui.settings.chatNotices.${value}`)
+			})),
+			onChange: (value) => {
+				core().chatNotices = value;
+				commit("core.chatNotices");
+			}
+		}), t("ui.settings.chatNoticesHint")),
+		toggle({
+			label: t("ui.settings.showTechnical"),
+			hint: t("ui.settings.showTechnicalHint"),
+			checked: core().showTechnical === true,
+			onChange: (checked) => {
+				core().showTechnical = checked;
+				commit("core.showTechnical");
+				redraw();
+			}
+		})
+	]);
 	const budgetBlock = () => {
 		const limit = core().dailyLimit;
 		return section$1(t("ui.settings.budget"), [
@@ -9316,630 +10382,6 @@ function settingsTab(env) {
 		}
 	};
 }
-//#endregion
-//#region src/ui/views/slash-commands.ts
-/** By convention an argument named `value` is the unnamed argument (the text after the command). */
-var UNNAMED_ARGUMENT = "value";
-/** Page-wide: survives a UI rebuild (disable → activate without reload) so ST never sees a duplicate. */
-var slots = /* @__PURE__ */ new Map();
-function unnamedText(value) {
-	if (typeof value === "string") return value;
-	if (Array.isArray(value)) return value.map((item) => typeof item === "string" ? item : String(item)).join(" ");
-	if (value === void 0 || value === null) return "";
-	return String(value);
-}
-function namedArgs(named) {
-	if (!named || typeof named !== "object") return {};
-	return Object.fromEntries(Object.entries(named).filter(([key]) => !key.startsWith("_")));
-}
-var SlashCommands = class {
-	host;
-	i18n;
-	log;
-	owned = /* @__PURE__ */ new Set();
-	constructor(host, i18n, log) {
-		this.host = host;
-		this.i18n = i18n;
-		this.log = log;
-	}
-	add(spec) {
-		const name = spec.name.replace(/^\//, "");
-		let slot = slots.get(name);
-		if (slot) {
-			slot.spec = spec;
-			slot.state = "active";
-			slot.i18n = this.i18n;
-			slot.log = this.log;
-			slot.owner = this;
-		} else {
-			slot = {
-				spec,
-				state: "active",
-				i18n: this.i18n,
-				log: this.log,
-				owner: this
-			};
-			if (!this.register(name, spec)) return () => {};
-			slots.set(name, slot);
-		}
-		this.owned.add(name);
-		const current = slot;
-		return () => {
-			if (current.spec !== spec || current.state !== "active") return;
-			current.state = "moduleOff";
-		};
-	}
-	/** Maestro is going away: every command it owns answers "Maestro is disabled". */
-	dispose() {
-		for (const name of this.owned) {
-			const slot = slots.get(name);
-			if (slot && slot.owner === this) slot.state = "maestroOff";
-		}
-		this.owned.clear();
-	}
-	register(name, spec) {
-		const c = this.host.ctx();
-		if (!c.SlashCommandParser?.addCommandObject || !c.SlashCommand?.fromProps) {
-			this.log.warn(`slash commands unavailable; /${name} not registered`);
-			return false;
-		}
-		const t = this.i18n.t.bind(this.i18n);
-		const stringType = c.ARGUMENT_TYPE?.STRING ?? "string";
-		const args = spec.args ?? [];
-		const unnamed = args.filter((arg) => arg.name === UNNAMED_ARGUMENT);
-		const named = args.filter((arg) => arg.name !== UNNAMED_ARGUMENT);
-		const props = {
-			name,
-			helpString: t(spec.helpKey),
-			returns: "string",
-			callback: (namedArguments, unnamedArgument) => run(name, namedArguments, unnamedArgument)
-		};
-		if (unnamed.length && c.SlashCommandArgument?.fromProps) props.unnamedArgumentList = unnamed.map((arg) => c.SlashCommandArgument.fromProps({
-			description: t(arg.descriptionKey),
-			typeList: [stringType],
-			isRequired: !arg.optional
-		}));
-		if (named.length && c.SlashCommandNamedArgument?.fromProps) props.namedArgumentList = named.map((arg) => c.SlashCommandNamedArgument.fromProps({
-			name: arg.name,
-			description: t(arg.descriptionKey),
-			typeList: [stringType],
-			isRequired: !arg.optional
-		}));
-		try {
-			c.SlashCommandParser.addCommandObject(c.SlashCommand.fromProps(props));
-			return true;
-		} catch (error) {
-			this.log.error(`failed to register /${name}`, error);
-			return false;
-		}
-	}
-};
-async function run(name, named, unnamed) {
-	const slot = slots.get(name);
-	if (!slot) return "";
-	if (slot.state === "maestroOff") return slot.i18n.t("ui.slash.maestroOff");
-	if (slot.state === "moduleOff") return slot.i18n.t("ui.slash.moduleOff", { name });
-	try {
-		return await slot.spec.callback(namedArgs(named), unnamedText(unnamed));
-	} catch (error) {
-		slot.log.error(`/${name} failed`, error);
-		return slot.i18n.t("ui.slash.failed", {
-			name,
-			error: error instanceof Error ? error.message : String(error)
-		});
-	}
-}
-//#endregion
-//#region src/ui/views/strings.ts
-/** Strings of the UI shell and core views (`ui.*`). Russian is the primary UI language. */
-var UI_STRINGS = {
-	en: {
-		"ui.title": "Maestro",
-		"ui.refresh": "Refresh",
-		"ui.actionFailed": "Action failed: {error}",
-		"ui.notice.andMore": "{text} and {count} more",
-		"ui.confirm.yes": "Yes",
-		"ui.confirm.no": "No",
-		"ui.entry.topTitle": "Maestro — open the control panel",
-		"ui.entry.topTitleCount": "Maestro — {count} waiting",
-		"ui.entry.topTitleJob": "{title}: {status}",
-		"ui.entry.topTitleJobs": "your tasks running: {count}",
-		"ui.entry.wandTitle": "Open the Maestro control panel",
-		"ui.entry.description": "Conductor of the extension stack: one canon, one prompt, one panel. Everything lives in the control panel.",
-		"ui.entry.open": "Open Maestro",
-		"ui.pult.tabs": "Maestro sections",
-		"ui.pult.close": "Close",
-		"ui.pult.noTabs": "Nothing here yet.",
-		"ui.pult.renderFailed": "This section failed to open. Details are in the browser console.",
-		"ui.tab.overview": "Overview",
-		"ui.tab.inbox": "Inbox",
-		"ui.tab.health": "Health",
-		"ui.tab.tasks": "Tasks",
-		"ui.tab.journal": "Journal",
-		"ui.tab.settings": "Settings",
-		"ui.group.turn": "Turn",
-		"ui.group.inbox": "Inbox",
-		"ui.group.canon": "Canon",
-		"ui.group.dossier": "Dossier",
-		"ui.group.world": "World",
-		"ui.group.mechanics": "Mechanics",
-		"ui.group.health": "Health",
-		"ui.group.journal": "Journal",
-		"ui.group.assistant": "Assistant",
-		"ui.group.extensions": "Extensions",
-		"ui.group.settings": "Settings",
-		"ui.group.more": "More",
-		"ui.group.collapse": "Collapse the group",
-		"ui.group.expand": "Expand the group",
-		"ui.lamp.ok": "Works",
-		"ui.lamp.warn": "Partly works",
-		"ui.lamp.error": "Not available",
-		"ui.mode.economy": "Economy",
-		"ui.mode.balanced": "Balanced",
-		"ui.mode.cinema": "Cinema",
-		"ui.mode.economyHint": "Minimum background AI: cheap checks only; the director only sets scene flags (no notes), no backstage.",
-		"ui.mode.balancedHint": "Revisions on signals, AI judge only when in doubt. The default.",
-		"ui.mode.cinemaHint": "More director, backstage and pictures; costs more.",
-		"ui.overview.groupChat": "Group chats are not supported: Maestro sleeps in this chat.",
-		"ui.overview.textCompletion": "Text Completion API: studios and generation scenarios fall back to the classic windows.",
-		"ui.overview.inbox": "Inbox",
-		"ui.overview.inboxCount": "Proposals waiting: {count}",
-		"ui.overview.inboxEmpty": "Nothing waiting for a decision.",
-		"ui.overview.openInbox": "Open",
-		"ui.overview.mode": "Mode",
-		"ui.overview.cost": "Spend today",
-		"ui.overview.stack": "Extension stack",
-		"ui.overview.stackEmpty": "No capability checks yet.",
-		"ui.overview.capsCount": "{ok} of {total}",
-		"ui.overview.capsMissing": "Missing: {count}",
-		"ui.overview.modules": "Modules",
-		"ui.overview.notices": "Notices",
-		"ui.overview.noticesEmpty": "No notices.",
-		"ui.overview.clearNotices": "Clear",
-		"ui.stack.st": "SillyTavern",
-		"ui.stack.des": "Doom's Enhancement Suite",
-		"ui.stack.desru": "DES-RU",
-		"ui.stack.ck": "CarrotKernel",
-		"ui.stack.bunnymo": "BunnyMo",
-		"ui.stack.qvink": "Qvink Memory",
-		"ui.stack.nai": "NAI Studio",
-		"ui.stack.localizer": "Lorebook Localizer",
-		"ui.stack.preset": "Preset",
-		"ui.cost.today": "Total",
-		"ui.cost.background": "Maestro background",
-		"ui.cost.backgroundOfCap": "{spent} of {cap}",
-		"ui.cost.backgroundNoCap": "{spent} (no cap)",
-		"ui.cost.anlas": "Anlas",
-		"ui.cost.capReached": "The background cap is reached: background tasks wait until tomorrow or until the cap is raised.",
-		"ui.cost.bySource": "Spend by source",
-		"ui.cost.source": "Source",
-		"ui.cost.usd": "USD",
-		"ui.cost.source.main": "Main chat",
-		"ui.cost.source.qvink": "Qvink summaries",
-		"ui.cost.source.maestro": "Maestro",
-		"ui.cost.source.nai": "NovelAI",
-		"ui.cost.source.other": "Other",
-		"ui.modules.stage": "Stage",
-		"ui.modules.module": "Module",
-		"ui.modules.status": "Status",
-		"ui.modules.missing": "Missing",
-		"ui.modules.running": "Running",
-		"ui.modules.off": "Off",
-		"ui.modules.blocked": "Waiting for capabilities",
-		"ui.modules.stopped": "Not running",
-		"ui.modules.none": "No modules yet: they arrive with the next stages.",
-		"ui.inbox.title": "Proposals",
-		"ui.inbox.empty": "Inbox is empty.",
-		"ui.inbox.accept": "Accept",
-		"ui.inbox.reject": "Reject",
-		"ui.inbox.snooze": "Tomorrow",
-		"ui.inbox.acceptAll": "Accept all ({count})",
-		"ui.inbox.acceptAllDone": "Done: accepted {accepted}.",
-		"ui.inbox.acceptAllPartial": "Accepted {accepted}. Skipped {failed}: things changed since they appeared.",
-		"ui.inbox.stale": "“{title}” is out of date: things changed since it appeared, so nothing was changed.",
-		"ui.inbox.deferred": "Waits for a module",
-		"ui.inbox.deferredHint": "This proposal needs a module of a later stage.",
-		"ui.inbox.expires": "until {time}",
-		"ui.inbox.source": "Message #{index}",
-		"ui.inbox.details": "Details",
-		"ui.inbox.detailsKind": "Action kind: {kind}",
-		"ui.inbox.detailsModule": "Module: {module}",
-		"ui.inbox.detailsNotes": "Notes",
-		"ui.diff.before": "Before",
-		"ui.diff.after": "After",
-		"ui.diff.added": "Added",
-		"ui.diff.removed": "Removed",
-		"ui.diff.value": "Value",
-		"ui.diff.noChanges": "No changes.",
-		"ui.diff.unchanged": "Unchanged fields: {count}",
-		"ui.diff.was": "was",
-		"ui.diff.now": "now",
-		"ui.diff.target": "Where: {target}",
-		"ui.diff.ref": "Address: {ref}",
-		"ui.journal.title": "Actions",
-		"ui.journal.empty": "No actions yet.",
-		"ui.journal.filter": "Module filter",
-		"ui.journal.allModules": "All modules",
-		"ui.journal.changes": "What changed",
-		"ui.journal.undo": "Undo",
-		"ui.journal.undoneLabel": "Undone",
-		"ui.journal.undoDone": "Undone: {summary}",
-		"ui.journal.undoFailed": "Could not undo: {summary}",
-		"ui.journal.stats": "Decision stats",
-		"ui.journal.statsEmpty": "No decisions yet.",
-		"ui.journal.kind": "Action kind",
-		"ui.journal.accepted": "Accepted",
-		"ui.journal.edited": "Edited",
-		"ui.journal.rejected": "Rejected",
-		"ui.journal.undoneCount": "Undone",
-		"ui.journal.streak": "In a row",
-		"ui.health.checks": "Checks",
-		"ui.health.noChecks": "No checks registered yet.",
-		"ui.health.runAll": "Run again",
-		"ui.health.fix": "Fix",
-		"ui.health.status.ok": "OK",
-		"ui.health.status.warn": "Warning",
-		"ui.health.status.error": "Problem",
-		"ui.health.status.skip": "Skipped",
-		"ui.health.status.running": "Checking…",
-		"ui.health.capabilities": "Capabilities",
-		"ui.health.recheck": "Recheck",
-		"ui.health.state": "State",
-		"ui.health.capability": "Capability",
-		"ui.health.detail": "Details",
-		"ui.health.log": "Recent warnings and errors",
-		"ui.health.logEmpty": "No warnings.",
-		"ui.tasks.title": "Background tasks",
-		"ui.tasks.empty": "The queue is empty.",
-		"ui.tasks.kind": "Task",
-		"ui.tasks.state": "State",
-		"ui.tasks.attempts": "Attempts",
-		"ui.tasks.created": "Created",
-		"ui.tasks.error": "Error",
-		"ui.tasks.kick": "Run now",
-		"ui.tasks.hint": "Tasks run only in the leading tab and never during a generation.",
-		"ui.tasks.state.pending": "Waiting",
-		"ui.tasks.state.running": "Running",
-		"ui.tasks.state.done": "Done",
-		"ui.tasks.state.failed": "Failed",
-		"ui.tasks.state.expired": "Expired",
-		"ui.jobs.title": "Your tasks",
-		"ui.jobs.empty": "Nothing you started is running.",
-		"ui.jobs.hint": "Tasks you started yourself. They keep going when you close the window you started them in; finished ones stay here for 10 minutes.",
-		"ui.jobs.queued": "Waiting for its turn…",
-		"ui.jobs.running": "Working…",
-		"ui.jobs.saving": "Saving…",
-		"ui.jobs.progress": "{done} of {total}",
-		"ui.jobs.stopping": "Stopping after the current step…",
-		"ui.jobs.started": "started at {time}",
-		"ui.jobs.stop": "Stop",
-		"ui.jobs.open": "Open",
-		"ui.jobs.hide": "Hide",
-		"ui.settings.general": "General",
-		"ui.settings.language": "Interface language",
-		"ui.settings.language.auto": "As in SillyTavern",
-		"ui.settings.language.ru": "Русский",
-		"ui.settings.language.en": "English",
-		"ui.settings.mode": "Mode",
-		"ui.settings.modeHint": "Each module can still be switched on or off on top of the mode.",
-		"ui.settings.debug": "Debug mode",
-		"ui.settings.debugHint": "Detailed log in the browser console.",
-		"ui.settings.budget": "Budget",
-		"ui.settings.backgroundCap": "Background cap per day, USD",
-		"ui.settings.backgroundCapHint": "Maestro's own background AI spend; 0 means no cap.",
-		"ui.settings.dailyLimit": "Overall daily limit",
-		"ui.settings.dailyLimitHint": "Counts the main chat too. Off by default.",
-		"ui.settings.dailyLimitUsd": "Limit per day, USD",
-		"ui.settings.dailyLimitAction": "When reached",
-		"ui.settings.limitAction.warn": "Warn",
-		"ui.settings.limitAction.economy": "Switch to Economy",
-		"ui.settings.limitAction.stopBackground": "Stop background tasks",
-		"ui.settings.profiles": "Connection profiles",
-		"ui.settings.profilesHint": "Background tasks go through saved Connection Manager profiles; the active connection is not switched.",
-		"ui.settings.profileDefault": "Main background profile",
-		"ui.settings.profileFallback": "Fallback profile",
-		"ui.settings.profileNone": "Not selected",
-		"ui.settings.profileInherit": "Same as main",
-		"ui.settings.profileNoFallback": "No fallback",
-		"ui.settings.profileMissing": "Missing profile ({id})",
-		"ui.settings.noConnectionManager": "Connection Manager is off: background tasks are not possible.",
-		"ui.settings.autonomy": "Autonomy levels",
-		"ui.settings.autonomyHint": "What Maestro does with each kind of change: does it by itself, tells you, leaves it in the Inbox, asks, or skips it.",
-		"ui.settings.autonomyEmpty": "Action kinds appear here once modules start proposing changes.",
-		"ui.settings.autonomyDefault": "Module default",
-		"ui.autonomy.auto": "Auto",
-		"ui.autonomy.notify": "Notify",
-		"ui.autonomy.inbox": "Inbox",
-		"ui.autonomy.ask": "Ask",
-		"ui.autonomy.off": "Off",
-		"ui.settings.modules": "Modules",
-		"ui.settings.moduleMissing": "Missing capabilities: {caps}",
-		"ui.settings.notices": "Notifications",
-		"ui.settings.notifyLevel": "What to tell me about",
-		"ui.settings.notifyLevelHint": "Short pop-ups in the corner. Everything is always listed in the Overview and the journal.",
-		"ui.settings.notifyLevel.all": "Everything",
-		"ui.settings.notifyLevel.important": "Important",
-		"ui.settings.notifyLevel.urgent": "Urgent only",
-		"ui.settings.showTechnical": "Show technical details",
-		"ui.settings.showTechnicalHint": "Cards and the journal open “Details” right away: books, entry numbers, raw data. For debugging.",
-		"ui.settings.moduleToggleFailed": "Could not switch “{title}”.",
-		"ui.settings.data": "Data",
-		"ui.settings.export": "Export Maestro data",
-		"ui.settings.import": "Import",
-		"ui.settings.prepareDisable": "Prepare to disable",
-		"ui.settings.prepareDisableHint": "“Prepare to disable” moves chat canon into regular lorebooks and leaves the stack working without Maestro.",
-		"ui.settings.actionUnavailable": "Not available yet: this action arrives in a later version.",
-		"ui.settings.runWizard": "Run the first-run wizard again",
-		"ui.slash.maestroOff": "Maestro is disabled.",
-		"ui.slash.moduleOff": "/{name} is unavailable: its Maestro module is off.",
-		"ui.slash.failed": "/{name} failed: {error}",
-		"ui.wizard.welcomeTitle": "Welcome to Maestro",
-		"ui.wizard.welcome1": "Maestro conducts your extension stack: it watches the lore, the prompt and the neighbours, fixes what breaks and keeps a canon for each chat.",
-		"ui.wizard.welcome2": "Nothing important happens silently: proposals land in the Inbox, every action goes to the journal and can be undone.",
-		"ui.wizard.welcome3": "The control panel opens with the wand icon in the top bar. A few setup steps follow.",
-		"ui.wizard.stepOf": "Step {step} of {total}",
-		"ui.wizard.back": "Back",
-		"ui.wizard.next": "Next",
-		"ui.wizard.skipStep": "Skip",
-		"ui.wizard.finish": "Finish",
-		"ui.wizard.skipAll": "Skip setup",
-		"ui.wizard.stepFailed": "This step failed to open. It can be skipped.",
-		"ui.wizard.finished": "Setup complete."
-	},
-	ru: {
-		"ui.title": "Maestro",
-		"ui.refresh": "Обновить",
-		"ui.actionFailed": "Не получилось: {error}",
-		"ui.notice.andMore": "{text} и ещё {count}",
-		"ui.confirm.yes": "Да",
-		"ui.confirm.no": "Нет",
-		"ui.entry.topTitle": "Maestro — открыть пульт",
-		"ui.entry.topTitleCount": "Maestro — ждут решения: {count}",
-		"ui.entry.topTitleJob": "{title}: {status}",
-		"ui.entry.topTitleJobs": "идут твои задачи: {count}",
-		"ui.entry.wandTitle": "Открыть пульт Maestro",
-		"ui.entry.description": "Дирижёр стека расширений: один канон, один промпт, один пульт. Всё управление — в пульте.",
-		"ui.entry.open": "Открыть Maestro",
-		"ui.pult.tabs": "Разделы Maestro",
-		"ui.pult.close": "Закрыть",
-		"ui.pult.noTabs": "Здесь пока пусто.",
-		"ui.pult.renderFailed": "Раздел не открылся. Подробности — в консоли браузера.",
-		"ui.tab.overview": "Обзор",
-		"ui.tab.inbox": "Входящие",
-		"ui.tab.health": "Здоровье",
-		"ui.tab.tasks": "Задачи",
-		"ui.tab.journal": "Журнал",
-		"ui.tab.settings": "Настройки",
-		"ui.group.turn": "Ход",
-		"ui.group.inbox": "Входящие",
-		"ui.group.canon": "Канон",
-		"ui.group.dossier": "Досье",
-		"ui.group.world": "Мир",
-		"ui.group.mechanics": "Механики",
-		"ui.group.health": "Здоровье",
-		"ui.group.journal": "Журнал",
-		"ui.group.assistant": "Ассистент",
-		"ui.group.extensions": "Расширения",
-		"ui.group.settings": "Настройки",
-		"ui.group.more": "Ещё",
-		"ui.group.collapse": "Свернуть группу",
-		"ui.group.expand": "Развернуть группу",
-		"ui.lamp.ok": "Работает",
-		"ui.lamp.warn": "Работает частично",
-		"ui.lamp.error": "Недоступно",
-		"ui.mode.economy": "Экономный",
-		"ui.mode.balanced": "Сбалансированный",
-		"ui.mode.cinema": "Кино",
-		"ui.mode.economyHint": "Минимум фонового ИИ: только дешёвые проверки; режиссёр лишь ставит флаги сцены (без заметок), без закулисья.",
-		"ui.mode.balancedHint": "Ревизия по сигналам, ИИ-судья — только при подозрении. Режим по умолчанию.",
-		"ui.mode.cinemaHint": "Больше режиссёра, закулисья и картинок; дороже.",
-		"ui.overview.groupChat": "Групповые чаты не поддерживаются: в этом чате Maestro спит.",
-		"ui.overview.textCompletion": "Text Completion: студии и сценарии генерации уступают место классическим окнам.",
-		"ui.overview.inbox": "Входящие",
-		"ui.overview.inboxCount": "Ждут решения: {count}",
-		"ui.overview.inboxEmpty": "Решений не ждёт ничего.",
-		"ui.overview.openInbox": "Открыть",
-		"ui.overview.mode": "Режим",
-		"ui.overview.cost": "Расходы за сегодня",
-		"ui.overview.stack": "Стек расширений",
-		"ui.overview.stackEmpty": "Проверок возможностей пока нет.",
-		"ui.overview.capsCount": "{ok} из {total}",
-		"ui.overview.capsMissing": "Не хватает: {count}",
-		"ui.overview.modules": "Модули",
-		"ui.overview.notices": "Уведомления",
-		"ui.overview.noticesEmpty": "Уведомлений нет.",
-		"ui.overview.clearNotices": "Очистить",
-		"ui.stack.st": "SillyTavern",
-		"ui.stack.des": "Doom's Enhancement Suite",
-		"ui.stack.desru": "DES-RU",
-		"ui.stack.ck": "CarrotKernel",
-		"ui.stack.bunnymo": "BunnyMo",
-		"ui.stack.qvink": "Qvink Memory",
-		"ui.stack.nai": "NAI Studio",
-		"ui.stack.localizer": "Lorebook Localizer",
-		"ui.stack.preset": "Пресет",
-		"ui.cost.today": "Всего",
-		"ui.cost.background": "Фон Maestro",
-		"ui.cost.backgroundOfCap": "{spent} из {cap}",
-		"ui.cost.backgroundNoCap": "{spent} (без потолка)",
-		"ui.cost.anlas": "Anlas",
-		"ui.cost.capReached": "Потолок фоновых расходов достигнут: фоновые задачи ждут завтрашнего дня или повышения потолка.",
-		"ui.cost.bySource": "Расходы по источникам",
-		"ui.cost.source": "Источник",
-		"ui.cost.usd": "USD",
-		"ui.cost.source.main": "Основной чат",
-		"ui.cost.source.qvink": "Пересказы Qvink",
-		"ui.cost.source.maestro": "Maestro",
-		"ui.cost.source.nai": "NovelAI",
-		"ui.cost.source.other": "Прочее",
-		"ui.modules.stage": "Этап",
-		"ui.modules.module": "Модуль",
-		"ui.modules.status": "Состояние",
-		"ui.modules.missing": "Не хватает",
-		"ui.modules.running": "Работает",
-		"ui.modules.off": "Выключен",
-		"ui.modules.blocked": "Ждёт возможностей",
-		"ui.modules.stopped": "Не запущен",
-		"ui.modules.none": "Модулей пока нет — они появятся на следующих этапах.",
-		"ui.inbox.title": "Предложения",
-		"ui.inbox.empty": "Во «Входящих» пусто.",
-		"ui.inbox.accept": "Принять",
-		"ui.inbox.reject": "Отклонить",
-		"ui.inbox.snooze": "Завтра",
-		"ui.inbox.acceptAll": "Принять все ({count})",
-		"ui.inbox.acceptAllDone": "Готово: принял {accepted}.",
-		"ui.inbox.acceptAllPartial": "Принял {accepted}. Пропустил {failed}: с тех пор всё изменилось.",
-		"ui.inbox.stale": "«{title}» устарело: с тех пор всё изменилось, поэтому я ничего не менял.",
-		"ui.inbox.deferred": "Ждёт модуля",
-		"ui.inbox.deferredHint": "Для этого предложения нужен модуль следующего этапа.",
-		"ui.inbox.expires": "до {time}",
-		"ui.inbox.source": "Сообщение №{index}",
-		"ui.inbox.details": "Подробнее",
-		"ui.inbox.detailsKind": "Вид действия: {kind}",
-		"ui.inbox.detailsModule": "Модуль: {module}",
-		"ui.inbox.detailsNotes": "Заметки",
-		"ui.diff.before": "Было",
-		"ui.diff.after": "Стало",
-		"ui.diff.added": "Добавлено",
-		"ui.diff.removed": "Удалено",
-		"ui.diff.value": "Значение",
-		"ui.diff.noChanges": "Изменений нет.",
-		"ui.diff.unchanged": "Без изменений: {count}",
-		"ui.diff.was": "было",
-		"ui.diff.now": "стало",
-		"ui.diff.target": "Где: {target}",
-		"ui.diff.ref": "Адрес: {ref}",
-		"ui.journal.title": "Действия",
-		"ui.journal.empty": "Действий пока нет.",
-		"ui.journal.filter": "Фильтр по модулю",
-		"ui.journal.allModules": "Все модули",
-		"ui.journal.changes": "Что изменилось",
-		"ui.journal.undo": "Отменить",
-		"ui.journal.undoneLabel": "Отменено",
-		"ui.journal.undoDone": "Отменил: {summary}",
-		"ui.journal.undoFailed": "Не получилось отменить: {summary}",
-		"ui.journal.stats": "Статистика решений",
-		"ui.journal.statsEmpty": "Решений пока нет.",
-		"ui.journal.kind": "Вид действия",
-		"ui.journal.accepted": "Принято",
-		"ui.journal.edited": "Исправлено",
-		"ui.journal.rejected": "Отклонено",
-		"ui.journal.undoneCount": "Отменено",
-		"ui.journal.streak": "Подряд",
-		"ui.health.checks": "Проверки",
-		"ui.health.noChecks": "Проверок пока нет.",
-		"ui.health.runAll": "Проверить снова",
-		"ui.health.fix": "Исправить",
-		"ui.health.status.ok": "В порядке",
-		"ui.health.status.warn": "Предупреждение",
-		"ui.health.status.error": "Проблема",
-		"ui.health.status.skip": "Пропущено",
-		"ui.health.status.running": "Проверяется…",
-		"ui.health.capabilities": "Возможности",
-		"ui.health.recheck": "Перепроверить",
-		"ui.health.state": "Состояние",
-		"ui.health.capability": "Возможность",
-		"ui.health.detail": "Подробности",
-		"ui.health.log": "Последние предупреждения и ошибки",
-		"ui.health.logEmpty": "Предупреждений нет.",
-		"ui.tasks.title": "Фоновые задачи",
-		"ui.tasks.empty": "Очередь пуста.",
-		"ui.tasks.kind": "Задача",
-		"ui.tasks.state": "Состояние",
-		"ui.tasks.attempts": "Попытки",
-		"ui.tasks.created": "Создана",
-		"ui.tasks.error": "Ошибка",
-		"ui.tasks.kick": "Запустить сейчас",
-		"ui.tasks.hint": "Задачи выполняет только ведущая вкладка и никогда — во время генерации.",
-		"ui.tasks.state.pending": "Ждёт",
-		"ui.tasks.state.running": "Выполняется",
-		"ui.tasks.state.done": "Готово",
-		"ui.tasks.state.failed": "Сбой",
-		"ui.tasks.state.expired": "Устарела",
-		"ui.jobs.title": "Твои задачи",
-		"ui.jobs.empty": "Сейчас ничего из запущенного тобой не идёт.",
-		"ui.jobs.hint": "Задачи, которые ты запустил сам. Они продолжаются, даже если закрыть окно, где ты их начал; готовые видны здесь 10 минут.",
-		"ui.jobs.queued": "Ждёт своей очереди…",
-		"ui.jobs.running": "Идёт…",
-		"ui.jobs.saving": "Сохраняю…",
-		"ui.jobs.progress": "{done} из {total}",
-		"ui.jobs.stopping": "Останавливаю после текущего шага…",
-		"ui.jobs.started": "начата в {time}",
-		"ui.jobs.stop": "Остановить",
-		"ui.jobs.open": "Открыть",
-		"ui.jobs.hide": "Скрыть",
-		"ui.settings.general": "Общие",
-		"ui.settings.language": "Язык интерфейса",
-		"ui.settings.language.auto": "Как в SillyTavern",
-		"ui.settings.language.ru": "Русский",
-		"ui.settings.language.en": "English",
-		"ui.settings.mode": "Режим",
-		"ui.settings.modeHint": "Любой модуль можно включить или выключить отдельно поверх режима.",
-		"ui.settings.debug": "Режим отладки",
-		"ui.settings.debugHint": "Подробный журнал в консоли браузера.",
-		"ui.settings.budget": "Бюджет",
-		"ui.settings.backgroundCap": "Потолок фона в день, USD",
-		"ui.settings.backgroundCapHint": "Собственные фоновые запросы Maestro к ИИ; 0 — без потолка.",
-		"ui.settings.dailyLimit": "Общий дневной лимит",
-		"ui.settings.dailyLimitHint": "Учитывает и основной чат. По умолчанию выключен.",
-		"ui.settings.dailyLimitUsd": "Лимит в день, USD",
-		"ui.settings.dailyLimitAction": "Когда достигнут",
-		"ui.settings.limitAction.warn": "Предупредить",
-		"ui.settings.limitAction.economy": "Перейти в «Экономный»",
-		"ui.settings.limitAction.stopBackground": "Остановить фоновые задачи",
-		"ui.settings.profiles": "Профили подключения",
-		"ui.settings.profilesHint": "Фоновые задачи идут через сохранённые профили Connection Manager; активное подключение не переключается.",
-		"ui.settings.profileDefault": "Основной фоновый профиль",
-		"ui.settings.profileFallback": "Запасной профиль",
-		"ui.settings.profileNone": "Не выбран",
-		"ui.settings.profileInherit": "Как основной",
-		"ui.settings.profileNoFallback": "Без запасного",
-		"ui.settings.profileMissing": "Профиль не найден ({id})",
-		"ui.settings.noConnectionManager": "Connection Manager выключен: фоновые задачи невозможны.",
-		"ui.settings.autonomy": "Уровни автономии",
-		"ui.settings.autonomyHint": "Что Maestro делает с каждым видом изменений: делает сам, сообщает, оставляет во «Входящих», спрашивает или пропускает.",
-		"ui.settings.autonomyEmpty": "Виды действий появятся здесь, когда модули начнут что-то предлагать.",
-		"ui.settings.autonomyDefault": "Как задано в модуле",
-		"ui.autonomy.auto": "Само",
-		"ui.autonomy.notify": "Уведомить",
-		"ui.autonomy.inbox": "Входящие",
-		"ui.autonomy.ask": "Спросить",
-		"ui.autonomy.off": "Выкл",
-		"ui.settings.modules": "Модули",
-		"ui.settings.moduleMissing": "Не хватает возможностей: {caps}",
-		"ui.settings.notices": "Уведомления",
-		"ui.settings.notifyLevel": "О чём сообщать",
-		"ui.settings.notifyLevelHint": "Короткие всплывающие сообщения в углу. Полный список всегда есть в «Обзоре» и в журнале.",
-		"ui.settings.notifyLevel.all": "Всё",
-		"ui.settings.notifyLevel.important": "Важное",
-		"ui.settings.notifyLevel.urgent": "Только срочное",
-		"ui.settings.showTechnical": "Показывать технические подробности",
-		"ui.settings.showTechnicalHint": "Карточки и журнал сразу раскрывают «Подробнее»: книги, номера записей, сырые данные. Для отладки.",
-		"ui.settings.moduleToggleFailed": "Не удалось переключить «{title}».",
-		"ui.settings.data": "Данные",
-		"ui.settings.export": "Экспорт данных Maestro",
-		"ui.settings.import": "Импорт",
-		"ui.settings.prepareDisable": "Подготовить к отключению",
-		"ui.settings.prepareDisableHint": "«Подготовить к отключению» переносит канон чатов в обычные лорбуки и оставляет стек рабочим без Maestro.",
-		"ui.settings.actionUnavailable": "Пока недоступно: это действие появится в следующих версиях.",
-		"ui.settings.runWizard": "Запустить мастер первого запуска снова",
-		"ui.slash.maestroOff": "Maestro отключён.",
-		"ui.slash.moduleOff": "/{name} сейчас не работает: выключен её модуль Maestro.",
-		"ui.slash.failed": "/{name}: ошибка — {error}",
-		"ui.wizard.welcomeTitle": "Добро пожаловать в Maestro",
-		"ui.wizard.welcome1": "Maestro дирижирует стеком расширений: следит за лором, промптом и соседями, чинит то, что ломается, и ведёт канон каждого чата.",
-		"ui.wizard.welcome2": "Важное не делается молча: предложения попадают во «Входящие», каждое действие пишется в журнал и откатывается.",
-		"ui.wizard.welcome3": "Пульт открывается значком волшебной палочки в верхней панели. Дальше — несколько шагов настройки.",
-		"ui.wizard.stepOf": "Шаг {step} из {total}",
-		"ui.wizard.back": "Назад",
-		"ui.wizard.next": "Далее",
-		"ui.wizard.skipStep": "Пропустить",
-		"ui.wizard.finish": "Готово",
-		"ui.wizard.skipAll": "Пропустить настройку",
-		"ui.wizard.stepFailed": "Шаг не открылся. Его можно пропустить.",
-		"ui.wizard.finished": "Настройка завершена."
-	}
-};
 //#endregion
 //#region src/ui/views/tasks.ts
 var TASKS_TAB = "tasks";
@@ -10236,6 +10678,1558 @@ var Wizard = class {
 		this.nodes = null;
 	}
 };
+/** Where tabs without a known group go. */
+var MORE_GROUP = "more";
+/** Groups in sidebar order; the label is `ui.group.<id>` (the top group has none). */
+var PULT_GROUPS = [
+	"top",
+	"turn",
+	"inbox",
+	"canon",
+	"dossier",
+	"world",
+	"mechanics",
+	"health",
+	"journal",
+	"assistant",
+	"extensions",
+	MORE_GROUP,
+	"settings"
+];
+/** Group of the tabs that existed before `PultTab.group` (tab id → group id). */
+var TAB_GROUPS = {
+	overview: "top",
+	turn: "turn",
+	prompt: "turn",
+	director: "turn",
+	voices: "turn",
+	quality: "turn",
+	architect: "turn",
+	treasurer: "turn",
+	inbox: "inbox",
+	canon: "canon",
+	living: "canon",
+	revision: "canon",
+	signals: "canon",
+	chronicle: "canon",
+	lorePassports: "canon",
+	loreStudio: "canon",
+	presetStudio: "canon",
+	dossier: "dossier",
+	wardrobe: "dossier",
+	bunnymo: "dossier",
+	world: "world",
+	places: "world",
+	relations: "world",
+	calendar: "world",
+	offscreen: "world",
+	knowledge: "world",
+	backgrounds: "world",
+	mechanics: "mechanics",
+	health: "health",
+	doctor: "health",
+	guardian: "health",
+	rules: "health",
+	tasks: "health",
+	metrics: "health",
+	journal: "journal",
+	assistant: "assistant",
+	extensions: "extensions",
+	settings: "settings",
+	theme: "settings"
+};
+/** The group a tab is shown in: its own `group` when known, then the central map, then «Ещё». */
+function groupOf$2(tab) {
+	if (tab.group && PULT_GROUPS.includes(tab.group)) return tab.group;
+	return TAB_GROUPS[tab.id] ?? "more";
+}
+/** Tabs in sidebar order: by group, then by the tab's own order (then id, for a stable order). */
+function sortTabs(tabs) {
+	const rank = (tab) => PULT_GROUPS.indexOf(groupOf$2(tab));
+	return [...tabs].sort((a, b) => rank(a) - rank(b) || a.order - b.order || a.id.localeCompare(b.id));
+}
+//#endregion
+//#region src/ui/windows/sections.ts
+/** The window that takes every tab nobody else claims (and unknown window ids). */
+var MAESTRO_WINDOW = "maestro";
+var TabRegistry = class {
+	log;
+	tabs = /* @__PURE__ */ new Map();
+	listeners = /* @__PURE__ */ new Set();
+	constructor(log) {
+		this.log = log;
+	}
+	add(tab) {
+		if (this.tabs.has(tab.id)) this.log.warn(`pult tab "${tab.id}" replaced`);
+		this.tabs.set(tab.id, tab);
+		this.changed();
+		return () => {
+			if (this.tabs.get(tab.id) !== tab) return;
+			this.tabs.delete(tab.id);
+			this.changed();
+		};
+	}
+	get(id) {
+		return this.tabs.get(id);
+	}
+	has(id) {
+		return this.tabs.has(id);
+	}
+	/** Every tab in the old sidebar order (group, then order, then id). */
+	all() {
+		return sortTabs(this.tabs.values());
+	}
+	badgeOf(tab) {
+		if (!tab.badge) return 0;
+		try {
+			const value = tab.badge();
+			return Number.isFinite(value) && value > 0 ? Math.floor(value) : 0;
+		} catch (error) {
+			this.log.warn(`badge of tab "${tab.id}" failed`, error);
+			return 0;
+		}
+	}
+	totalBadge() {
+		let total = 0;
+		for (const tab of this.tabs.values()) total += this.badgeOf(tab);
+		return total;
+	}
+	onChange(listener) {
+		this.listeners.add(listener);
+		return () => this.listeners.delete(listener);
+	}
+	clear() {
+		this.tabs.clear();
+		this.listeners.clear();
+	}
+	changed() {
+		for (const listener of [...this.listeners]) try {
+			listener();
+		} catch (error) {
+			this.log.error("tab registry listener failed", error);
+		}
+	}
+};
+/** Specs in menu order (order, then id). */
+function sortSpecs(specs) {
+	return [...specs].sort((a, b) => a.order - b.order || a.id.localeCompare(b.id));
+}
+/**
+* The window that shows a tab: one listing it explicitly wins, then one holding its group, then «Maestro».
+* Works for tabs not registered yet (by the central group map), so `openPult(id)` can name the window early.
+*/
+function windowForTab(specs, tab) {
+	const ordered = sortSpecs(specs.filter((spec) => !spec.render));
+	const explicit = ordered.find((spec) => spec.tabs?.includes(tab.id));
+	if (explicit) return explicit.id;
+	const group = groupOf$2(tab);
+	const byGroup = ordered.find((spec) => spec.groups?.includes(group));
+	if (byGroup) return byGroup.id;
+	return ordered.some((spec) => spec.id === "maestro") ? MAESTRO_WINDOW : void 0;
+}
+/** The sections of a window: its explicit tabs in their order, then its group tabs in sidebar order. */
+function sectionsOf$1(specs, spec, tabs) {
+	if (spec.render) return [];
+	const mine = tabs.filter((tab) => windowForTab(specs, tab) === spec.id);
+	const explicit = (spec.tabs ?? []).map((id) => mine.find((tab) => tab.id === id)).filter((tab) => tab !== void 0);
+	const rest = sortTabs(mine.filter((tab) => !explicit.includes(tab)));
+	return [...explicit, ...rest];
+}
+//#endregion
+//#region src/ui/windows/builtin.ts
+/** Window ids of the studios (registered by their modules; hidden from the window list, offered as launchers). */
+var STUDIO_WINDOWS = ["loreStudio", "presetStudio"];
+var BUILTIN_WINDOWS = [
+	{
+		id: "assistant",
+		titleKey: "ui.window.assistant",
+		icon: "fa-comments",
+		order: 10,
+		groups: ["assistant"],
+		defaultDock: "right",
+		defaultWidth: 520
+	},
+	{
+		id: "inbox",
+		titleKey: "ui.window.inbox",
+		icon: "fa-inbox",
+		order: 20,
+		groups: ["inbox"]
+	},
+	{
+		id: "characters",
+		titleKey: "ui.window.characters",
+		icon: "fa-address-card",
+		order: 30,
+		groups: ["dossier"]
+	},
+	{
+		id: "mechanics",
+		titleKey: "ui.window.mechanics",
+		icon: "fa-dice-d20",
+		order: 40,
+		groups: ["mechanics"]
+	},
+	{
+		id: "world",
+		titleKey: "ui.window.world",
+		icon: "fa-earth-europe",
+		order: 50,
+		groups: ["world"]
+	},
+	{
+		id: "canon",
+		titleKey: "ui.window.canon",
+		icon: "fa-scroll",
+		order: 60,
+		groups: ["canon"]
+	},
+	{
+		id: "turn",
+		titleKey: "ui.window.turn",
+		icon: "fa-clapperboard",
+		order: 70,
+		groups: ["turn"]
+	},
+	{
+		id: "health",
+		titleKey: "ui.window.health",
+		icon: "fa-heart-pulse",
+		order: 80,
+		groups: ["health"]
+	},
+	{
+		id: MAESTRO_WINDOW,
+		titleKey: "ui.window.maestro",
+		icon: "fa-wand-magic-sparkles",
+		order: 90,
+		tabs: [
+			"overview",
+			"loreStudio",
+			"presetStudio"
+		],
+		groups: [
+			"top",
+			"journal",
+			"extensions",
+			MORE_GROUP,
+			"settings"
+		],
+		defaultDock: "right",
+		defaultWidth: 560
+	}
+];
+//#endregion
+//#region src/ui/windows/main-menu.ts
+var MainMenu = class {
+	deps;
+	/** The node the menu was last opened from (the shared FloatingMenu also serves the message buttons). */
+	anchor = null;
+	constructor(deps) {
+		this.deps = deps;
+	}
+	/** Opens under the anchor; a second click on the same anchor closes it. */
+	toggle(anchor) {
+		const { menu } = this.deps;
+		if (menu.isOpen() && menu.anchorNode() === anchor) {
+			menu.close();
+			return;
+		}
+		this.open(anchor);
+	}
+	open(anchor) {
+		this.anchor = anchor;
+		anchor.setAttribute("aria-expanded", "true");
+		this.deps.menu.open(anchor, this.groups(), {
+			label: this.deps.i18n.t("ui.menu.label"),
+			className: "maestro-main-menu",
+			onClose: () => anchor.setAttribute("aria-expanded", "false")
+		});
+	}
+	isOpen() {
+		return this.anchor !== null && this.deps.menu.isOpen() && this.deps.menu.anchorNode() === this.anchor;
+	}
+	/** Badges, open windows or jobs changed: the open menu follows. */
+	refresh() {
+		if (this.isOpen()) this.deps.menu.update(this.groups());
+	}
+	groups() {
+		const t = this.deps.i18n.t.bind(this.deps.i18n);
+		const { windows } = this.deps;
+		const list = windows.list();
+		const windowItems = list.filter((info) => !info.hidden && info.sections !== 0 || info.hidden && info.open && !STUDIO_WINDOWS.includes(info.id)).map((info) => ({
+			id: `window:${info.id}`,
+			label: info.title,
+			icon: info.icon,
+			badge: info.badge,
+			active: info.open,
+			run: () => windows.open(info.id)
+		}));
+		const studioItems = list.filter((info) => STUDIO_WINDOWS.includes(info.id)).map((info) => ({
+			id: `window:${info.id}`,
+			label: info.title,
+			icon: info.icon,
+			active: info.open,
+			run: () => windows.open(info.id)
+		}));
+		const jobs = this.deps.jobs();
+		const jobItems = (jobs?.list() ?? []).filter((job) => job.state === "active").map((job) => ({
+			id: `job:${job.key}`,
+			label: job.title,
+			icon: "fa-spinner",
+			hint: jobStatus(job, this.deps.i18n),
+			progress: job.phase === "queued" ? void 0 : {
+				done: job.done,
+				total: job.total
+			},
+			run: () => {
+				if (!job.openable || !jobs?.open(job.key)) windows.openTab("tasks");
+			}
+		}));
+		return [
+			{
+				label: t("ui.menu.windows"),
+				items: windowItems
+			},
+			{
+				label: t("ui.menu.studios"),
+				items: studioItems
+			},
+			{
+				label: t("ui.menu.jobs"),
+				items: jobItems
+			},
+			{ items: [{
+				id: "settings",
+				label: t("ui.menu.settings"),
+				icon: "fa-gear",
+				run: () => windows.openTab("settings")
+			}] }
+		];
+	}
+};
+//#endregion
+//#region src/ui/windows/layout.ts
+var WINDOWS_STORAGE_KEY = "maestro.windows";
+/** ST's phone breakpoint (style.css `@media screen and (max-width: 1000px)`). */
+var SHEET_BREAKPOINT = 1e3;
+/** Part of a floating window that must stay on screen (its header can always be grabbed). */
+var KEEP_VISIBLE = 80;
+var HEADER_HEIGHT = 44;
+function emptyLayout() {
+	return {
+		windows: {},
+		sides: {}
+	};
+}
+var num$13 = (value) => typeof value === "number" && Number.isFinite(value) ? Math.round(value) : void 0;
+function readPlace$1(raw) {
+	if (!raw || typeof raw !== "object") return null;
+	const value = raw;
+	const dock = value.dock === "left" || value.dock === "float" ? value.dock : "right";
+	const side = value.side === "left" ? "left" : value.side === "right" ? "right" : dock === "left" ? "left" : "right";
+	return {
+		open: value.open === true,
+		dock,
+		side,
+		x: num$13(value.x),
+		y: num$13(value.y),
+		width: num$13(value.width),
+		height: num$13(value.height),
+		collapsed: value.collapsed === true,
+		tab: typeof value.tab === "string" ? value.tab : void 0
+	};
+}
+function loadLayout() {
+	try {
+		const raw = globalThis.localStorage?.getItem(WINDOWS_STORAGE_KEY);
+		if (!raw) return emptyLayout();
+		const parsed = JSON.parse(raw);
+		const state = emptyLayout();
+		const windows = parsed.windows && typeof parsed.windows === "object" ? parsed.windows : {};
+		for (const [id, value] of Object.entries(windows)) {
+			const place = readPlace$1(value);
+			if (place) state.windows[id] = place;
+		}
+		const sides = parsed.sides && typeof parsed.sides === "object" ? parsed.sides : {};
+		const left = num$13(sides.left);
+		const right = num$13(sides.right);
+		if (left !== void 0) state.sides.left = left;
+		if (right !== void 0) state.sides.right = right;
+		if (typeof parsed.front === "string") state.front = parsed.front;
+		return state;
+	} catch {
+		return emptyLayout();
+	}
+}
+function saveLayout(state) {
+	try {
+		globalThis.localStorage?.setItem(WINDOWS_STORAGE_KEY, JSON.stringify(state));
+	} catch {}
+}
+function viewport() {
+	return {
+		width: globalThis.innerWidth || document.documentElement?.clientWidth || 1280,
+		height: globalThis.innerHeight || document.documentElement?.clientHeight || 800
+	};
+}
+/** Phones and narrow windows: one full-screen window at a time. */
+function isSheetViewport() {
+	try {
+		const query = globalThis.matchMedia?.(`(max-width: ${SHEET_BREAKPOINT}px)`);
+		if (query) return query.matches;
+	} catch {}
+	return viewport().width <= SHEET_BREAKPOINT;
+}
+/** A side panel never takes more than ~45 % of the screen: the chat stays usable. */
+function clampSideWidth(width, view = viewport()) {
+	const max = Math.max(280, Math.floor(view.width * .45));
+	return Math.max(280, Math.min(max, Math.round(width)));
+}
+/**
+* The free gap beside ST's chat column (#sheld), which ST's own side drawers fill; null when the page has no chat
+* column (tests, an unusual theme).
+*/
+function chatGap(side) {
+	const sheld = document.getElementById("sheld");
+	if (!sheld) return null;
+	const rect = sheld.getBoundingClientRect();
+	if (!rect.width) return null;
+	const gap = side === "left" ? rect.left : viewport().width - rect.right;
+	return gap > 0 ? Math.floor(gap) : null;
+}
+function defaultSideWidth(side, wanted) {
+	if (wanted) return clampSideWidth(wanted);
+	const gap = chatGap(side);
+	return clampSideWidth(gap && gap >= 320 ? gap : 420);
+}
+/** Keeps a floating window grabbable: inside the viewport, its header always reachable. */
+function clampFloat(rect, view = viewport()) {
+	const width = Math.max(280, Math.min(Math.round(rect.width), Math.max(280, view.width - 16)));
+	const height = Math.max(160, Math.min(Math.round(rect.height), Math.max(160, view.height - 16)));
+	return {
+		x: Math.max(KEEP_VISIBLE - width, Math.min(Math.round(rect.x), view.width - KEEP_VISIBLE)),
+		y: Math.max(0, Math.min(Math.round(rect.y), view.height - HEADER_HEIGHT)),
+		width,
+		height
+	};
+}
+/** The first place of a floating window: centred, cascaded a little per window already floating. */
+function defaultFloat(width, height, cascade, view = viewport()) {
+	const w = Math.min(width ?? 480, view.width - 40);
+	const h = Math.min(height ?? 600, view.height - 60);
+	const step = cascade % 6 * 24;
+	return clampFloat({
+		x: Math.round((view.width - w) / 2) + step,
+		y: Math.max(20, Math.round((view.height - h) / 2)) + step,
+		width: w,
+		height: h
+	}, view);
+}
+//#endregion
+//#region src/ui/windows/manager.ts
+/** z-index of floating windows (side panels: 2900 in style.css; ST's top bar and its drawers: 3005). */
+var FLOAT_Z = 2910;
+var MAX_Z_STEPS = 60;
+var SIDES = ["left", "right"];
+function isThenable(value) {
+	return !!value && typeof value.then === "function";
+}
+function setIcon(node, name) {
+	const glyph = node.querySelector("i");
+	if (!glyph) return;
+	glyph.className = "";
+	glyph.classList.add("fa-solid", name, "fa-fw");
+}
+var WindowManager = class {
+	deps;
+	specs = /* @__PURE__ */ new Map();
+	wins = /* @__PURE__ */ new Map();
+	layout = loadLayout();
+	/** Open windows, most recently in front first. */
+	recent = [];
+	root = null;
+	sides = null;
+	rootOffs = [];
+	sheet = false;
+	zCounter = 0;
+	gesture = null;
+	restored = false;
+	disposed = false;
+	tabsOff;
+	constructor(deps) {
+		this.deps = deps;
+		this.tabsOff = deps.tabs.onChange(() => this.tabsChanged());
+	}
+	t(key, params) {
+		return this.deps.i18n.t(key, params);
+	}
+	add(spec) {
+		if (this.disposed) return () => {};
+		if (this.specs.has(spec.id)) this.deps.log.warn(`window "${spec.id}" replaced`);
+		this.specs.set(spec.id, spec);
+		const open = this.wins.get(spec.id);
+		if (open) {
+			this.destroy(open, false);
+			this.show(spec.id, {}, true);
+		}
+		this.tabsChanged();
+		return () => {
+			if (this.specs.get(spec.id) !== spec) return;
+			this.specs.delete(spec.id);
+			const win = this.wins.get(spec.id);
+			if (win) this.destroy(win, false);
+			this.tabsChanged();
+		};
+	}
+	has(id) {
+		return this.specs.has(id);
+	}
+	isOpen(id) {
+		return this.wins.has(id);
+	}
+	/** The window in front (phones: the visible one). */
+	front() {
+		return this.recent.find((id) => this.wins.has(id)) ?? null;
+	}
+	isSheet() {
+		return this.sheet;
+	}
+	windowOfTab(tabId) {
+		return windowForTab([...this.specs.values()], this.deps.tabs.get(tabId) ?? { id: tabId });
+	}
+	/** The active section of an open window. */
+	activeTab(id) {
+		return this.wins.get(id)?.activeTab ?? null;
+	}
+	sections(id) {
+		const spec = this.specs.get(id);
+		return spec ? sectionsOf$1([...this.specs.values()], spec, this.deps.tabs.all()) : [];
+	}
+	list() {
+		return sortSpecs(this.specs.values()).map((spec) => ({
+			id: spec.id,
+			title: this.t(spec.titleKey),
+			icon: spec.icon,
+			order: spec.order,
+			hidden: spec.hidden === true,
+			open: this.wins.has(spec.id),
+			badge: this.badgeOf(spec),
+			sections: spec.render ? -1 : this.sections(spec.id).length
+		}));
+	}
+	badgeOf(spec) {
+		if (spec.badge) try {
+			const value = spec.badge();
+			return Number.isFinite(value) && value > 0 ? Math.floor(value) : 0;
+		} catch (error) {
+			this.deps.log.warn(`badge of window "${spec.id}" failed`, error);
+			return 0;
+		}
+		if (spec.render) return 0;
+		return this.sections(spec.id).reduce((sum, tab) => sum + this.deps.tabs.badgeOf(tab), 0);
+	}
+	open(id, options = {}) {
+		this.show(id, options, false);
+	}
+	/** Opens the window that shows a pult tab, on that section (`openPult` of old). */
+	openTab(tabId) {
+		if (!tabId) {
+			this.open(MAESTRO_WINDOW);
+			return;
+		}
+		const target = this.windowOfTab(tabId);
+		if (!target) this.deps.log.warn(`unknown pult tab "${tabId}"`);
+		this.open(target ?? "maestro", { tab: tabId });
+	}
+	/** Closes a window unless its guard (unsaved edits) keeps it open; resolves to whether it closed. */
+	requestClose(id) {
+		const win = this.wins.get(id);
+		if (!win) return Promise.resolve(true);
+		if (win.closing) return Promise.resolve(false);
+		let verdict = true;
+		try {
+			verdict = win.spec.canClose?.() ?? true;
+		} catch (error) {
+			this.deps.log.warn(`close guard of window "${id}" failed`, error);
+		}
+		if (isThenable(verdict)) {
+			win.closing = true;
+			return Promise.resolve(verdict).then((ok) => {
+				win.closing = false;
+				if (ok === false || this.wins.get(id) !== win) return false;
+				this.finishClose(win);
+				return true;
+			}, (error) => {
+				win.closing = false;
+				this.deps.log.warn(`close guard of window "${id}" failed`, error);
+				return false;
+			});
+		}
+		if (verdict === false) return Promise.resolve(false);
+		this.finishClose(win);
+		return Promise.resolve(true);
+	}
+	close(id) {
+		this.requestClose(id);
+	}
+	/**
+	* Makes room for the chat (`closePult()` of old, called before jumping to a message or opening ST's own UI): on a
+	* phone the visible window closes; on a desktop windows do not cover the chat and stay.
+	*/
+	yieldToChat() {
+		if (!this.sheet) return;
+		const front = this.front();
+		if (front) this.close(front);
+	}
+	/** Re-opens the windows that were open on this device (once per page, after the modules started). */
+	restore() {
+		if (this.restored || this.disposed) return;
+		this.restored = true;
+		const ids = Object.entries(this.layout.windows).filter(([id, place]) => place.open && this.specs.has(id) && this.specs.get(id)?.hidden !== true).map(([id]) => id);
+		const front = this.layout.front;
+		const ordered = front && ids.includes(front) ? [...ids.filter((id) => id !== front), front] : ids;
+		for (const id of ordered) this.show(id, {}, true);
+	}
+	/** Badges, then the visible sections re-render (not under the user's cursor in a text field). */
+	refresh() {
+		for (const win of this.wins.values()) if (!win.spec.render) this.rerender(win);
+		this.updateBadges();
+	}
+	rerenderTab(tabId) {
+		for (const win of this.wins.values()) if (win.activeTab === tabId) this.rerender(win);
+	}
+	updateBadges() {
+		for (const win of this.wins.values()) {
+			this.updateStripBadges(win);
+			this.syncSwitcher(win);
+		}
+		this.deps.onChange();
+	}
+	relocalize() {
+		for (const win of this.wins.values()) {
+			win.title.textContent = win.titleText ?? this.t(win.spec.titleKey);
+			for (const node of Object.values(win.controls)) {
+				const key = node.dataset.titleKey;
+				if (!key) continue;
+				node.title = this.t(key);
+				node.setAttribute("aria-label", node.title);
+			}
+			this.syncControls(win);
+			this.syncStrip(win);
+			this.syncSwitcher(win);
+			win.strip.setAttribute("aria-label", this.t("ui.window.sections"));
+			if (!win.spec.render) this.rerender(win);
+		}
+	}
+	dispose() {
+		if (this.disposed) return;
+		this.disposed = true;
+		this.tabsOff();
+		for (const win of [...this.wins.values()]) this.destroy(win, false);
+		this.removeRoot();
+		this.specs.clear();
+	}
+	show(id, options, restoring) {
+		if (this.disposed) return;
+		let spec = this.specs.get(id);
+		if (!spec) {
+			this.deps.log.warn(`unknown window "${id}"`);
+			spec = this.specs.get(MAESTRO_WINDOW);
+			if (!spec) return;
+		}
+		let win = this.wins.get(spec.id);
+		if (!win) win = this.create(spec, options);
+		else {
+			if (options.dock && options.dock !== win.place.dock) this.setDock(win, options.dock);
+			if (options.params) {
+				win.params = { ...options.params };
+				this.emitParams(win);
+			}
+			if (!spec.render && options.tab) this.selectRequested(win, options.tab);
+		}
+		if (!restoring) win.place.collapsed = false;
+		win.place.open = true;
+		this.toFront(win);
+		this.layoutAll();
+		this.persist();
+		this.deps.onChange();
+	}
+	create(spec, options) {
+		const saved = this.layout.windows[spec.id];
+		const dock = options.dock ?? saved?.dock ?? spec.defaultDock ?? "right";
+		const place = {
+			open: true,
+			dock,
+			side: dock === "left" ? "left" : dock === "right" ? "right" : saved?.side ?? "right",
+			x: saved?.x,
+			y: saved?.y,
+			width: saved?.width,
+			height: saved?.height,
+			collapsed: saved?.collapsed === true,
+			tab: saved?.tab
+		};
+		const win = this.build(spec, place);
+		win.params = { ...options.params ?? {} };
+		this.wins.set(spec.id, win);
+		if (place.dock === "float") this.ensureFloatRect(win);
+		this.ensureRoot();
+		if (spec.render) {
+			this.placeWindow(win);
+			this.mountCustom(win);
+		} else {
+			const ids = this.sections(spec.id).map((tab) => tab.id);
+			const asked = options.tab ?? saved?.tab ?? null;
+			win.activeTab = asked && ids.includes(asked) ? asked : ids[0] ?? null;
+			win.wanted = asked && !ids.includes(asked) ? asked : null;
+			place.tab = win.activeTab ?? place.tab;
+			this.syncStrip(win);
+		}
+		return win;
+	}
+	build(spec, place) {
+		const titleId = `maestro-window-title-${spec.id}`;
+		const title = el("h3", {
+			class: "maestro-window-title",
+			text: this.t(spec.titleKey),
+			attrs: { id: titleId }
+		});
+		const control = (key, iconName, titleKey, run) => {
+			const node = button({
+				icon: iconName,
+				title: this.t(titleKey),
+				kind: "ghost",
+				className: `maestro-window-btn maestro-window-${key}`,
+				onClick: (event) => {
+					event.stopPropagation();
+					run();
+				}
+			});
+			node.dataset.titleKey = titleKey;
+			return node;
+		};
+		const id = spec.id;
+		const winOf = () => this.wins.get(id);
+		const controls = {
+			gear: control("gear", "fa-gear", "ui.window.settings", () => {
+				const win = winOf();
+				if (win) this.toggleSettings(win);
+			}),
+			swap: control("swap", "fa-arrow-right-arrow-left", "ui.window.otherSide", () => {
+				const win = winOf();
+				if (win) this.setDock(win, win.place.dock === "left" ? "right" : "left", true);
+			}),
+			detach: control("detach", "fa-up-right-from-square", "ui.window.detach", () => {
+				const win = winOf();
+				if (win) this.setDock(win, "float", true);
+			}),
+			attach: control("attach", "fa-table-columns", "ui.window.attach", () => {
+				const win = winOf();
+				if (win) this.setDock(win, win.place.side, true);
+			}),
+			collapse: control("collapse", "fa-chevron-up", "ui.window.collapse", () => {
+				const win = winOf();
+				if (win) this.toggleCollapsed(win);
+			}),
+			close: control("close", "fa-xmark", "ui.window.close", () => this.close(id))
+		};
+		const header = el("div", { class: "maestro-window-header" }, [el("div", { class: "maestro-window-brand" }, [icon(spec.icon, "maestro-window-icon"), title]), el("div", { class: "maestro-window-controls" }, Object.values(controls))]);
+		const switcher = el("div", {
+			class: "maestro-window-switcher",
+			attrs: {
+				role: "tablist",
+				"aria-label": this.t("ui.window.switcher")
+			}
+		});
+		switcher.hidden = true;
+		const strip = el("div", {
+			class: "maestro-window-sections",
+			attrs: {
+				role: "tablist",
+				"aria-label": this.t("ui.window.sections")
+			}
+		});
+		strip.hidden = true;
+		const body = el("div", {
+			class: ["maestro-window-body", spec.render ? "maestro-window-custom" : null],
+			attrs: {
+				role: spec.render ? null : "tabpanel",
+				tabindex: "-1"
+			}
+		});
+		const grip = el("div", {
+			class: "maestro-window-grip",
+			attrs: { "aria-hidden": "true" }
+		});
+		const win = {
+			spec,
+			root: el("div", {
+				class: ["maestro-window", spec.render ? "maestro-window-has-body" : "maestro-window-has-sections"],
+				data: { window: spec.id },
+				attrs: {
+					role: "dialog",
+					"aria-modal": "false",
+					"aria-labelledby": titleId,
+					tabindex: "-1"
+				}
+			}, [
+				header,
+				switcher,
+				strip,
+				body,
+				grip
+			]),
+			title,
+			controls,
+			switcher,
+			strip,
+			body,
+			grip,
+			place,
+			activeTab: null,
+			wanted: null,
+			rendered: null,
+			mounted: false,
+			cleanup: null,
+			params: {},
+			paramListeners: /* @__PURE__ */ new Set(),
+			titleText: null,
+			settingsOn: false,
+			closing: false
+		};
+		header.addEventListener("pointerdown", (event) => this.startDrag(win, event));
+		header.addEventListener("dblclick", (event) => {
+			if (event.target instanceof Element && event.target.closest("button")) return;
+			if (!this.sheet) this.toggleCollapsed(win);
+		});
+		grip.addEventListener("pointerdown", (event) => this.startResize(win, event));
+		return win;
+	}
+	finishClose(win) {
+		win.place.open = false;
+		this.destroy(win, true);
+		this.persist();
+		this.deps.onChange();
+	}
+	/** Takes a window down: the body's cleanup runs while it is still in the document (borrowed nodes go home). */
+	destroy(win, closedByUser) {
+		const id = win.spec.id;
+		if (this.wins.get(id) !== win) return;
+		this.release(win);
+		win.paramListeners.clear();
+		win.root.remove();
+		this.wins.delete(id);
+		this.recent = this.recent.filter((item) => item !== id);
+		if (closedByUser) this.layout.windows[id] = {
+			...win.place,
+			open: false
+		};
+		if (!this.wins.size) this.removeRoot();
+		else this.layoutAll();
+	}
+	/** Runs the body's cleanup and empties it. */
+	release(win) {
+		const cleanup = win.cleanup;
+		win.cleanup = null;
+		win.mounted = false;
+		win.rendered = null;
+		if (cleanup) try {
+			cleanup();
+		} catch (error) {
+			this.deps.log.warn(`cleanup of window "${win.spec.id}" failed`, error);
+		}
+		clear(win.body);
+		delete win.body.dataset.tab;
+	}
+	mountCustom(win) {
+		const render = win.spec.render;
+		if (!render) return;
+		const id = win.spec.id;
+		const ctx = {
+			close: () => this.close(id),
+			setTitle: (text) => {
+				win.titleText = text || null;
+				win.title.textContent = win.titleText ?? this.t(win.spec.titleKey);
+			},
+			params: () => ({ ...win.params }),
+			onParams: (listener) => {
+				win.paramListeners.add(listener);
+				return () => win.paramListeners.delete(listener);
+			}
+		};
+		win.mounted = true;
+		try {
+			const result = render(win.body, ctx);
+			win.cleanup = typeof result === "function" ? result : null;
+		} catch (error) {
+			this.deps.log.error(`render of window "${id}" failed`, error);
+			clear(win.body);
+			win.body.appendChild(emptyState(this.t("ui.pult.renderFailed"), "fa-bug"));
+		}
+	}
+	emitParams(win) {
+		for (const listener of [...win.paramListeners]) try {
+			listener({ ...win.params });
+		} catch (error) {
+			this.deps.log.error(`params listener of window "${win.spec.id}" failed`, error);
+		}
+	}
+	visible(win) {
+		if (!this.wins.has(win.spec.id) || !win.root.isConnected) return false;
+		if (this.sheet) return this.front() === win.spec.id;
+		return !win.place.collapsed;
+	}
+	/** Section windows: only the active section of a visible window is rendered. */
+	sync(win) {
+		if (win.spec.render) return;
+		const visible = this.visible(win);
+		const tab = win.activeTab ? this.deps.tabs.get(win.activeTab) : void 0;
+		if (!visible) {
+			if (win.mounted) this.release(win);
+			return;
+		}
+		if (win.mounted && win.rendered === (tab ?? null)) return;
+		this.release(win);
+		this.renderSection(win, tab);
+	}
+	renderSection(win, tab) {
+		const body = win.body;
+		clear(body);
+		win.mounted = true;
+		win.rendered = tab ?? null;
+		body.scrollTop = 0;
+		if (!tab) {
+			body.appendChild(emptyState(this.t("ui.pult.noTabs"), "fa-wand-magic-sparkles"));
+			return;
+		}
+		body.dataset.tab = tab.id;
+		try {
+			const result = tab.render(body);
+			win.cleanup = typeof result === "function" ? result : null;
+		} catch (error) {
+			this.deps.log.error(`render of tab "${tab.id}" failed`, error);
+			clear(body);
+			body.appendChild(emptyState(this.t("ui.pult.renderFailed"), "fa-bug"));
+		}
+		this.updateStripBadges(win);
+	}
+	/** Re-renders the active section unless the user is typing in it (a refresh must not eat input). */
+	rerender(win) {
+		if (win.spec.render || !win.mounted || !this.visible(win)) return;
+		const focused = document.activeElement;
+		if (focused instanceof HTMLElement && win.body.contains(focused) && focused.matches("input:not([type=checkbox]):not([type=radio]), textarea")) return;
+		const tab = win.activeTab ? this.deps.tabs.get(win.activeTab) : void 0;
+		this.release(win);
+		this.renderSection(win, tab);
+	}
+	select(win, tabId) {
+		if (!this.sections(win.spec.id).some((tab) => tab.id === tabId)) return;
+		win.activeTab = tabId;
+		win.place.tab = tabId;
+		win.wanted = null;
+		this.release(win);
+		this.syncStrip(win);
+		this.sync(win);
+		this.persist();
+	}
+	/** openWindow(id, { tab }): the section now, or as soon as its module registers it. */
+	selectRequested(win, tabId) {
+		if (this.sections(win.spec.id).some((tab) => tab.id === tabId)) {
+			this.select(win, tabId);
+			return;
+		}
+		if (this.windowOfTab(tabId) === win.spec.id) win.wanted = tabId;
+		else this.deps.log.debug(`tab "${tabId}" is not a section of window "${win.spec.id}"`);
+	}
+	tabsChanged() {
+		if (this.disposed) return;
+		for (const win of this.wins.values()) {
+			if (win.spec.render) continue;
+			const ids = this.sections(win.spec.id).map((tab) => tab.id);
+			if (win.wanted && ids.includes(win.wanted)) {
+				win.activeTab = win.wanted;
+				win.place.tab = win.wanted;
+				win.wanted = null;
+			}
+			if (win.activeTab && !ids.includes(win.activeTab)) {
+				this.release(win);
+				win.activeTab = null;
+			}
+			if (!win.activeTab) win.activeTab = ids[0] ?? null;
+			this.syncStrip(win);
+			this.sync(win);
+		}
+		this.deps.onChange();
+	}
+	syncStrip(win) {
+		if (win.spec.render) return;
+		const tabs = this.sections(win.spec.id);
+		win.strip.hidden = tabs.length <= 1;
+		win.strip.replaceChildren(...tabs.map((tab) => {
+			const on = tab.id === win.activeTab;
+			const node = el("button", {
+				class: ["maestro-window-section", on ? "maestro-on" : null],
+				data: { tab: tab.id },
+				attrs: {
+					type: "button",
+					role: "tab",
+					"aria-selected": on ? "true" : "false"
+				}
+			}, [
+				icon(tab.icon),
+				el("span", {
+					class: "maestro-window-section-label",
+					text: this.t(tab.titleKey)
+				}),
+				el("span", { class: "maestro-window-section-badge" })
+			]);
+			node.addEventListener("click", () => this.select(win, tab.id));
+			return node;
+		}));
+		this.updateStripBadges(win);
+		this.syncControls(win);
+	}
+	updateStripBadges(win) {
+		for (const node of win.strip.querySelectorAll(".maestro-window-section")) {
+			const tab = node.dataset.tab ? this.deps.tabs.get(node.dataset.tab) : void 0;
+			const badge = node.querySelector(".maestro-window-section-badge");
+			if (!badge) continue;
+			const value = tab ? this.deps.tabs.badgeOf(tab) : 0;
+			badge.textContent = value > 99 ? "99+" : String(value);
+			badge.hidden = value <= 0;
+		}
+	}
+	/** Phones: chips of the open windows over the visible one (two or more open). */
+	syncSwitcher(win) {
+		const open = sortSpecs([...this.wins.values()].map((item) => item.spec));
+		const show = this.sheet && open.length > 1;
+		win.switcher.hidden = !show;
+		if (!show) {
+			win.switcher.replaceChildren();
+			return;
+		}
+		win.switcher.setAttribute("aria-label", this.t("ui.window.switcher"));
+		win.switcher.replaceChildren(...open.map((spec) => {
+			const on = spec.id === win.spec.id;
+			const badge = this.badgeOf(spec);
+			const node = el("button", {
+				class: ["maestro-window-chip", on ? "maestro-on" : null],
+				data: { window: spec.id },
+				attrs: {
+					type: "button",
+					role: "tab",
+					"aria-selected": on ? "true" : "false"
+				}
+			}, [
+				icon(spec.icon),
+				el("span", {
+					class: "maestro-window-chip-label",
+					text: this.t(spec.titleKey)
+				}),
+				badge > 0 ? el("span", {
+					class: "maestro-window-section-badge",
+					text: String(badge)
+				}) : null
+			]);
+			node.addEventListener("click", () => this.open(spec.id));
+			return node;
+		}));
+	}
+	syncControls(win) {
+		const { controls, place } = win;
+		const floating = place.dock === "float";
+		controls.gear.hidden = !!win.spec.render;
+		controls.swap.hidden = this.sheet || floating;
+		controls.detach.hidden = this.sheet || floating;
+		controls.attach.hidden = this.sheet || !floating;
+		controls.collapse.hidden = this.sheet;
+		const collapsed = place.collapsed && !this.sheet;
+		const key = collapsed ? "ui.window.expand" : "ui.window.collapse";
+		controls.collapse.dataset.titleKey = key;
+		controls.collapse.title = this.t(key);
+		controls.collapse.setAttribute("aria-label", controls.collapse.title);
+		controls.collapse.setAttribute("aria-expanded", collapsed ? "false" : "true");
+		setIcon(controls.collapse, collapsed ? "fa-chevron-down" : "fa-chevron-up");
+		controls.swap.dataset.titleKey = place.dock === "left" ? "ui.window.toRight" : "ui.window.toLeft";
+		controls.swap.title = this.t(controls.swap.dataset.titleKey);
+		controls.swap.setAttribute("aria-label", controls.swap.title);
+		controls.gear.setAttribute("aria-pressed", win.settingsOn ? "true" : "false");
+	}
+	/**
+	* The gear (plan-2 §10 п.4): a section's own module settings are hidden in a window until the gear shows them;
+	* a section without any opens the general settings in the «Maestro» window.
+	*/
+	toggleSettings(win) {
+		const blocks = [...win.body.querySelectorAll(`.${MODULE_SETTINGS_CLASS}`)];
+		if (!blocks.length && !win.settingsOn) {
+			this.openTab("settings");
+			return;
+		}
+		win.settingsOn = !win.settingsOn;
+		win.root.classList.toggle("maestro-window-settings-on", win.settingsOn);
+		this.syncControls(win);
+		const first = blocks[0];
+		if (!win.settingsOn || !first) return;
+		if (first instanceof HTMLDetailsElement) first.open = true;
+		const offset = first.getBoundingClientRect().top - win.body.getBoundingClientRect().top;
+		win.body.scrollTop = Math.max(0, win.body.scrollTop + offset - 8);
+	}
+	toggleCollapsed(win) {
+		win.place.collapsed = !win.place.collapsed;
+		this.layoutAll();
+		this.persist();
+	}
+	setDock(win, dock, remember = true) {
+		if (dock !== "float") win.place.side = dock;
+		win.place.dock = dock;
+		if (dock === "float") this.ensureFloatRect(win);
+		else win.root.style.zIndex = "";
+		this.toFront(win);
+		this.layoutAll();
+		if (remember) this.persist();
+	}
+	ensureFloatRect(win) {
+		const { place, spec } = win;
+		if (place.x !== void 0 && place.y !== void 0 && place.width && place.height) {
+			Object.assign(place, clampFloat({
+				x: place.x,
+				y: place.y,
+				width: place.width,
+				height: place.height
+			}));
+			return;
+		}
+		const floats = [...this.wins.values()].filter((item) => item !== win && item.place.dock === "float").length;
+		Object.assign(place, defaultFloat(spec.defaultWidth, spec.defaultHeight, floats));
+	}
+	toFront(win) {
+		const id = win.spec.id;
+		this.recent = [id, ...this.recent.filter((item) => item !== id)];
+		this.layout.front = id;
+		if (win.place.dock === "float") {
+			this.zCounter++;
+			if (this.zCounter > MAX_Z_STEPS) this.normalizeZ();
+			else win.root.style.zIndex = String(FLOAT_Z + this.zCounter);
+		}
+		for (const item of this.wins.values()) item.root.classList.toggle("maestro-window-front", item === win);
+	}
+	/** z-indexes of floats renumbered in their current stacking order (keeps them under ST's top bar). */
+	normalizeZ() {
+		const floats = [...this.wins.values()].filter((item) => item.place.dock === "float").sort((a, b) => Number(a.root.style.zIndex || 0) - Number(b.root.style.zIndex || 0));
+		const front = this.recent[0];
+		const ordered = [...floats.filter((item) => item.spec.id !== front), ...floats.filter((i) => i.spec.id === front)];
+		this.zCounter = 0;
+		for (const item of ordered) item.root.style.zIndex = String(FLOAT_Z + ++this.zCounter);
+	}
+	ensureRoot() {
+		if (this.root) return;
+		const side = (name) => {
+			const resizer = el("div", {
+				class: "maestro-window-resizer",
+				attrs: {
+					role: "separator",
+					"aria-orientation": "vertical",
+					"aria-hidden": "true"
+				}
+			});
+			const node = el("div", { class: ["maestro-window-side", `maestro-window-side-${name}`] }, [resizer]);
+			node.hidden = true;
+			resizer.addEventListener("pointerdown", (event) => this.startSideResize(name, event));
+			return node;
+		};
+		const sides = {
+			left: side("left"),
+			right: side("right")
+		};
+		const root = el("div", { class: "maestro-ui maestro-windows" }, [sides.left, sides.right]);
+		this.root = root;
+		this.sides = sides;
+		this.sheet = isSheetViewport();
+		document.body.appendChild(root);
+		const onKey = (event) => this.onKey(event);
+		const onPointer = (event) => {
+			const win = this.winOf(event.target);
+			if (win && this.front() !== win.spec.id && !this.sheet) this.toFront(win);
+		};
+		const onViewport = () => this.onViewport();
+		root.addEventListener("keydown", onKey);
+		root.addEventListener("pointerdown", onPointer, true);
+		root.addEventListener("focusin", onPointer);
+		globalThis.addEventListener?.("resize", onViewport);
+		this.rootOffs.push(() => globalThis.removeEventListener?.("resize", onViewport));
+		try {
+			const query = globalThis.matchMedia?.("(max-width: 1000px)");
+			if (query?.addEventListener) {
+				query.addEventListener("change", onViewport);
+				this.rootOffs.push(() => query.removeEventListener("change", onViewport));
+			}
+		} catch {}
+	}
+	removeRoot() {
+		this.gesture?.();
+		this.gesture = null;
+		for (const off of this.rootOffs.splice(0)) off();
+		this.root?.remove();
+		this.root = null;
+		this.sides = null;
+	}
+	winOf(target) {
+		if (!(target instanceof Element)) return void 0;
+		const id = target.closest(".maestro-window")?.dataset.window;
+		return id ? this.wins.get(id) : void 0;
+	}
+	/** Escape closes the window it was pressed in (its guard may keep it); ST's own Escape handling does not run. */
+	onKey(event) {
+		if (event.key !== "Escape" || event.isComposing || event.defaultPrevented) return;
+		const win = this.winOf(event.target);
+		if (!win) return;
+		event.preventDefault();
+		event.stopPropagation();
+		this.close(win.spec.id);
+	}
+	onViewport() {
+		if (!this.root) return;
+		this.sheet = isSheetViewport();
+		for (const win of this.wins.values()) if (win.place.dock === "float") this.ensureFloatRect(win);
+		this.layoutAll();
+	}
+	layoutAll() {
+		if (!this.root || !this.sides) return;
+		this.root.classList.toggle("maestro-windows-sheet", this.sheet);
+		const height = Number(globalThis.innerHeight) || 0;
+		if (height > 0) this.root.style.setProperty("--maestro-viewport-h", `${height}px`);
+		for (const win of this.wins.values()) this.placeWindow(win);
+		this.layoutSides();
+		for (const win of this.wins.values()) {
+			this.syncSwitcher(win);
+			this.sync(win);
+		}
+	}
+	placeWindow(win) {
+		const root = this.root;
+		const sides = this.sides;
+		if (!root || !sides) return;
+		const { place } = win;
+		const floating = !this.sheet && place.dock === "float";
+		const node = win.root;
+		node.classList.toggle("maestro-window-sheet", this.sheet);
+		node.classList.toggle("maestro-window-float", floating);
+		node.classList.toggle("maestro-window-docked", !this.sheet && !floating);
+		node.classList.toggle("maestro-window-collapsed", !this.sheet && place.collapsed);
+		node.dataset.dock = this.sheet ? "sheet" : place.dock;
+		const parent = this.sheet || floating ? root : sides[place.dock === "left" ? "left" : "right"];
+		if (node.parentElement !== parent) parent.appendChild(node);
+		node.hidden = this.sheet && this.front() !== win.spec.id;
+		const style = node.style;
+		if (floating) {
+			style.left = `${place.x ?? 0}px`;
+			style.top = `${place.y ?? 0}px`;
+			style.width = `${place.width ?? 280}px`;
+			style.height = place.collapsed ? "" : `${place.height ?? 160}px`;
+			if (!style.zIndex) style.zIndex = String(FLOAT_Z + ++this.zCounter);
+		} else {
+			style.left = "";
+			style.top = "";
+			style.width = "";
+			style.height = "";
+			style.zIndex = "";
+		}
+		this.syncControls(win);
+	}
+	layoutSides() {
+		if (!this.sides) return;
+		for (const name of SIDES) {
+			const node = this.sides[name];
+			const docked = [...node.children].filter((child) => child instanceof HTMLElement && child.classList.contains("maestro-window"));
+			node.hidden = this.sheet || !docked.length;
+			if (node.hidden) continue;
+			if (this.layout.sides[name] === void 0) {
+				const first = docked[0]?.dataset.window;
+				this.layout.sides[name] = defaultSideWidth(name, first ? this.specs.get(first)?.defaultWidth : void 0);
+			}
+			node.style.width = `${clampSideWidth(this.layout.sides[name] ?? 0)}px`;
+			node.classList.toggle("maestro-window-side-collapsed", docked.every((child) => child.classList.contains("maestro-window-collapsed")));
+		}
+	}
+	persist() {
+		for (const win of this.wins.values()) this.layout.windows[win.spec.id] = { ...win.place };
+		saveLayout(this.layout);
+	}
+	/** Follows the pointer until it is released; one gesture at a time. */
+	track(event, move, done) {
+		this.gesture?.();
+		const startX = event.clientX;
+		const startY = event.clientY;
+		const onMove = (ev) => move(ev.clientX - startX, ev.clientY - startY, ev);
+		const finish = () => {
+			document.removeEventListener("pointermove", onMove);
+			document.removeEventListener("pointerup", finish);
+			document.removeEventListener("pointercancel", finish);
+			this.root?.classList.remove("maestro-windows-dragging");
+			if (this.gesture === finish) this.gesture = null;
+			done();
+		};
+		document.addEventListener("pointermove", onMove);
+		document.addEventListener("pointerup", finish);
+		document.addEventListener("pointercancel", finish);
+		this.root?.classList.add("maestro-windows-dragging");
+		this.gesture = finish;
+	}
+	startDrag(win, event) {
+		if (this.sheet || win.place.dock !== "float" || event.button !== 0) return;
+		if (event.target instanceof Element && event.target.closest("button, input, select, textarea, a")) return;
+		event.preventDefault();
+		this.toFront(win);
+		const start = {
+			x: win.place.x ?? 0,
+			y: win.place.y ?? 0
+		};
+		this.track(event, (dx, dy) => {
+			const rect = clampFloat({
+				x: start.x + dx,
+				y: start.y + dy,
+				width: win.place.width ?? 280,
+				height: win.place.height ?? 160
+			});
+			win.place.x = rect.x;
+			win.place.y = rect.y;
+			win.root.style.left = `${rect.x}px`;
+			win.root.style.top = `${rect.y}px`;
+		}, () => this.persist());
+	}
+	startResize(win, event) {
+		if (this.sheet || win.place.dock !== "float" || win.place.collapsed || event.button !== 0) return;
+		event.preventDefault();
+		event.stopPropagation();
+		const start = {
+			width: win.place.width ?? 280,
+			height: win.place.height ?? 160
+		};
+		const view = viewport();
+		this.track(event, (dx, dy) => {
+			const width = Math.max(280, Math.min(start.width + dx, view.width - (win.place.x ?? 0)));
+			const height = Math.max(160, Math.min(start.height + dy, view.height - (win.place.y ?? 0)));
+			win.place.width = Math.round(width);
+			win.place.height = Math.round(height);
+			win.root.style.width = `${win.place.width}px`;
+			win.root.style.height = `${win.place.height}px`;
+		}, () => this.persist());
+	}
+	startSideResize(side, event) {
+		if (this.sheet || event.button !== 0 || !this.sides) return;
+		event.preventDefault();
+		const node = this.sides[side];
+		const start = this.layout.sides[side] ?? node.getBoundingClientRect().width;
+		this.track(event, (dx) => {
+			const width = clampSideWidth(side === "left" ? start + dx : start - dx);
+			this.layout.sides[side] = width;
+			node.style.width = `${width}px`;
+		}, () => this.persist());
+	}
+};
+//#endregion
+//#region src/ui/windows/menu.ts
+var MARGIN = 8;
+var FloatingMenu = class {
+	log;
+	node = null;
+	anchor = null;
+	options = null;
+	offs = [];
+	constructor(log) {
+		this.log = log;
+	}
+	isOpen() {
+		return this.node !== null;
+	}
+	anchorNode() {
+		return this.anchor;
+	}
+	open(anchor, groups, options) {
+		this.close();
+		this.anchor = anchor;
+		this.options = options;
+		const node = el("div", {
+			class: [
+				"maestro-ui",
+				"maestro-menu",
+				options.className
+			],
+			attrs: {
+				role: "menu",
+				"aria-label": options.label,
+				tabindex: "-1"
+			}
+		});
+		this.node = node;
+		this.fill(groups);
+		document.body.appendChild(node);
+		this.place();
+		node.addEventListener("keydown", (event) => this.onKey(event));
+		const outside = (event) => {
+			const target = event.target;
+			if (!(target instanceof Node)) return;
+			if (this.node?.contains(target) || this.anchor?.contains(target)) return;
+			this.close();
+		};
+		const resize = () => this.close();
+		document.addEventListener("pointerdown", outside, true);
+		globalThis.addEventListener?.("resize", resize);
+		this.offs.push(() => document.removeEventListener("pointerdown", outside, true), () => globalThis.removeEventListener?.("resize", resize));
+		this.focusItem(0);
+	}
+	/** Re-renders the items of the open menu (badges, jobs) without moving it. */
+	update(groups) {
+		if (!this.node) return;
+		const focused = document.activeElement instanceof HTMLElement ? document.activeElement.dataset.item : void 0;
+		this.fill(groups);
+		if (focused) this.items().find((item) => item.dataset.item === focused)?.focus();
+	}
+	close() {
+		const node = this.node;
+		if (!node) return;
+		for (const off of this.offs.splice(0)) off();
+		const hadFocus = node.contains(document.activeElement);
+		node.remove();
+		this.node = null;
+		const anchor = this.anchor;
+		const onClose = this.options?.onClose;
+		this.anchor = null;
+		this.options = null;
+		try {
+			onClose?.();
+		} catch (error) {
+			this.log.warn("menu close handler failed", error);
+		}
+		if (hadFocus && anchor?.isConnected) anchor.focus?.();
+	}
+	dispose() {
+		this.close();
+	}
+	fill(groups) {
+		const node = this.node;
+		if (!node) return;
+		node.replaceChildren(...groups.filter((group) => group.items.length).map((group) => el("div", {
+			class: "maestro-menu-group",
+			attrs: {
+				role: "group",
+				"aria-label": group.label
+			}
+		}, [group.label ? el("div", {
+			class: "maestro-menu-heading",
+			text: group.label
+		}) : null, ...group.items.map((item) => this.itemNode(item))])));
+	}
+	itemNode(item) {
+		const badge = item.badge && item.badge > 0 ? item.badge > 99 ? "99+" : String(item.badge) : null;
+		const node = el("button", {
+			class: ["maestro-menu-item", item.active ? "maestro-on" : null],
+			data: { item: item.id },
+			attrs: {
+				type: "button",
+				role: "menuitem",
+				tabindex: "-1"
+			}
+		}, [
+			item.icon ? icon(item.icon, "maestro-menu-icon") : null,
+			el("span", { class: "maestro-menu-text" }, [
+				el("span", {
+					class: "maestro-menu-label",
+					text: item.label
+				}),
+				item.hint ? el("span", {
+					class: "maestro-menu-hint",
+					text: item.hint
+				}) : null,
+				item.progress ? progressBar(item.progress.done, item.progress.total, item.hint ?? item.label) : null
+			]),
+			badge ? el("span", {
+				class: "maestro-menu-badge",
+				text: badge
+			}) : null,
+			item.active ? el("span", {
+				class: "maestro-menu-dot",
+				attrs: { "aria-hidden": "true" }
+			}) : null
+		]);
+		node.addEventListener("click", (event) => {
+			event.stopPropagation();
+			this.close();
+			try {
+				item.run();
+			} catch (error) {
+				this.log.error(`menu item "${item.id}" failed`, error);
+			}
+		});
+		return node;
+	}
+	items() {
+		return [...this.node?.querySelectorAll(".maestro-menu-item") ?? []];
+	}
+	focusItem(index) {
+		const items = this.items();
+		if (!items.length) {
+			this.node?.focus();
+			return;
+		}
+		items[(index + items.length) % items.length]?.focus();
+	}
+	onKey(event) {
+		const items = this.items();
+		const current = items.indexOf(document.activeElement);
+		switch (event.key) {
+			case "Escape":
+				event.preventDefault();
+				event.stopPropagation();
+				this.close();
+				return;
+			case "ArrowDown":
+				event.preventDefault();
+				this.focusItem(current + 1);
+				return;
+			case "ArrowUp":
+				event.preventDefault();
+				this.focusItem(current - 1);
+				return;
+			case "Home":
+				event.preventDefault();
+				this.focusItem(0);
+				return;
+			case "End":
+				event.preventDefault();
+				this.focusItem(items.length - 1);
+				return;
+			case "Tab":
+				this.close();
+				return;
+		}
+	}
+	/** Under the anchor (above it when there is no room below), inside the screen; full width on phones. */
+	place() {
+		const node = this.node;
+		const anchor = this.anchor;
+		if (!node || !anchor) return;
+		const view = viewport();
+		const rect = anchor.getBoundingClientRect();
+		if (isSheetViewport()) {
+			node.classList.add("maestro-menu-sheet");
+			node.style.left = `${MARGIN}px`;
+			node.style.right = `${MARGIN}px`;
+			node.style.top = `${Math.max(MARGIN, Math.round(rect.bottom + 4))}px`;
+			return;
+		}
+		const width = node.offsetWidth || 300;
+		const height = node.offsetHeight || 0;
+		let left = Math.round(rect.left);
+		if (left + width > view.width - MARGIN) left = Math.round(rect.right - width);
+		left = Math.max(MARGIN, Math.min(left, view.width - width - MARGIN));
+		const below = rect.bottom + 4;
+		const above = rect.top - 4 - height;
+		const top = below + height > view.height - MARGIN && above >= MARGIN ? above : below;
+		node.style.left = `${left}px`;
+		node.style.top = `${Math.max(MARGIN, Math.round(top))}px`;
+	}
+};
 //#endregion
 //#region src/ui/index.ts
 var MAX_NOTICES = 50;
@@ -10279,11 +12273,17 @@ var MaestroUi = class {
 	log;
 	i18n;
 	settings;
-	pult;
+	tabs;
+	windows;
+	menu;
+	mainMenu;
 	wizard;
 	entries;
-	badges;
+	messageButtons;
+	strip;
 	slash;
+	/** Services of the core views (jobs, modules…), known after registerCoreViews. */
+	coreDeps = null;
 	checks = /* @__PURE__ */ new Map();
 	sections = /* @__PURE__ */ new Map();
 	sectionListeners = /* @__PURE__ */ new Set();
@@ -10307,11 +12307,19 @@ var MaestroUi = class {
 		this.log = deps.log;
 		this.i18n = deps.i18n;
 		this.settings = deps.settings;
-		this.pult = new Pult({
-			host: this.host,
+		this.tabs = new TabRegistry(this.log);
+		this.windows = new WindowManager({
 			i18n: this.i18n,
 			log: this.log,
-			onBadgesChanged: () => this.updateBadges()
+			tabs: this.tabs,
+			onChange: () => this.windowsChanged()
+		});
+		this.menu = new FloatingMenu(this.log);
+		this.mainMenu = new MainMenu({
+			i18n: this.i18n,
+			windows: this.windows,
+			menu: this.menu,
+			jobs: () => this.coreDeps?.jobs
 		});
 		this.wizard = new Wizard({
 			host: this.host,
@@ -10325,23 +12333,44 @@ var MaestroUi = class {
 		this.entries = new EntryPoints({
 			i18n: this.i18n,
 			log: this.log,
-			open: () => this.openPult()
+			menu: (anchor) => {
+				if (!this.disposed) this.mainMenu.toggle(anchor);
+			},
+			openMain: () => this.openWindow(MAESTRO_WINDOW)
 		});
-		this.badges = new MessageBadges(this.host, this.log);
+		this.messageButtons = new MessageButtons({
+			host: this.host,
+			i18n: this.i18n,
+			log: this.log,
+			menu: this.menu,
+			items: (index) => this.messageMenu(index)
+		});
+		const actionFailed = (error) => this.notice(this.i18n.t("ui.actionFailed", { error: error instanceof Error ? error.message : String(error) }), { level: "error" });
+		this.strip = new MessageStrip({
+			host: this.host,
+			i18n: this.i18n,
+			settings: this.settings,
+			log: this.log,
+			open: (target) => this.openTarget(target),
+			onError: actionFailed
+		});
 		this.slash = new SlashCommands(this.host, this.i18n, this.log);
 		setButtonErrorHandler((error) => {
 			this.log.error("action failed", error);
-			this.notice(this.i18n.t("ui.actionFailed", { error: error instanceof Error ? error.message : String(error) }), { level: "error" });
+			actionFailed(error);
 		});
+		for (const spec of BUILTIN_WINDOWS) this.windows.add(spec);
 	}
 	mount() {
 		if (this.mounted || this.disposed) return;
 		this.mounted = true;
 		this.entries.mount();
+		this.messageButtons.mount();
 		this.updateBadges();
 		for (const event of TURN_EVENTS) this.listen(event, () => this.nextTurn());
 		this.listen("APP_READY", () => {
 			this.entries.mount();
+			this.messageButtons.mount();
 			this.updateBadges();
 			if (this.wizardTimer === null && !this.wizardChecked && !this.settings.core().firstRunDone) this.wizardTimer = setTimeout(() => {
 				this.wizardTimer = null;
@@ -10351,6 +12380,7 @@ var MaestroUi = class {
 	}
 	registerCoreViews(deps) {
 		for (const unsubscribe of this.coreTabs.splice(0)) unsubscribe();
+		this.coreDeps = deps;
 		const env = {
 			...deps,
 			shell: this
@@ -10364,11 +12394,31 @@ var MaestroUi = class {
 			settingsTab(env)
 		]) this.coreTabs.push(this.addTab(tab));
 		this.coreTabs.push(deps.inbox.onChange(() => this.updateBadges()));
+		this.coreTabs.push(this.strip.addProvider(inboxStripProvider(env)));
 		const jobs = deps.jobs;
 		if (jobs) {
 			this.entries.setJobs(jobs.list());
-			this.coreTabs.push(jobs.on(() => this.entries.setJobs(jobs.list())), () => this.entries.setJobs([]));
+			this.coreTabs.push(jobs.on(() => {
+				this.entries.setJobs(jobs.list());
+				this.mainMenu.refresh();
+			}), () => this.entries.setJobs([]));
 		}
+		for (const command of coreCommands({
+			i18n: this.i18n,
+			log: this.log,
+			settings: this.settings,
+			journal: deps.journal,
+			windows: this.windows,
+			tabs: this.tabs,
+			notice: (text, options) => this.notice(text, options),
+			confirm: (title, body, options) => this.confirm(title, body, options),
+			openMenu: () => {
+				const anchor = this.entries.topAnchor();
+				if (!anchor) return false;
+				this.mainMenu.open(anchor);
+				return true;
+			}
+		})) this.coreTabs.push(this.addSlashCommand(command));
 	}
 	dispose() {
 		if (this.disposed) return;
@@ -10381,9 +12431,12 @@ var MaestroUi = class {
 			this.log.warn("ui dispose", error);
 		}
 		this.wizard.dispose();
-		this.pult.dispose();
+		this.menu.dispose();
+		this.windows.dispose();
+		this.tabs.clear();
 		this.entries.dispose();
-		this.badges.dispose();
+		this.messageButtons.dispose();
+		this.strip.dispose();
 		this.slash.dispose();
 		for (const node of this.styles.values()) node.remove();
 		this.styles.clear();
@@ -10393,9 +12446,32 @@ var MaestroUi = class {
 		this.noticeList.length = 0;
 		this.noticeGroups.clear();
 		this.toasts.clear();
+		this.coreDeps = null;
 	}
 	addTab(tab) {
-		return this.pult.add(tab);
+		if (this.disposed) return () => {};
+		return this.tabs.add(tab);
+	}
+	addWindow(spec) {
+		if (this.disposed) return () => {};
+		return this.windows.add(spec);
+	}
+	openWindow(id, options) {
+		if (this.disposed) return;
+		this.menu.close();
+		this.windows.open(id, options);
+	}
+	closeWindow(id) {
+		this.windows.close(id);
+	}
+	isWindowOpen(id) {
+		return this.windows.isOpen(id);
+	}
+	windowOfTab(tabId) {
+		return this.windows.windowOfTab(tabId);
+	}
+	restoreWindows() {
+		if (!this.disposed) this.windows.restore();
 	}
 	addHealthCheck(check) {
 		this.checks.set(check.id, check);
@@ -10410,16 +12486,19 @@ var MaestroUi = class {
 		if (this.disposed) return () => {};
 		return this.slash.add(command);
 	}
+	/** The pult is gone (plan-2 §10): opens the window that shows the tab, on that section. */
 	openPult(tabId) {
 		if (this.disposed) return;
-		this.pult.open(tabId);
+		this.menu.close();
+		this.windows.openTab(tabId);
 	}
+	/** Makes room for the chat: on a phone the visible window closes; desktop windows do not cover the chat. */
 	closePult() {
-		this.pult.close();
+		this.menu.close();
+		this.windows.yieldToChat();
 	}
 	refresh() {
-		this.updateBadges();
-		this.pult.rerender();
+		this.windows.refresh();
 	}
 	notice(text, options = {}) {
 		const level = options.level ?? "info";
@@ -10449,7 +12528,7 @@ var MaestroUi = class {
 		});
 		if (passesLevel(entry.importance, this.settings.core().notifyLevel)) this.toast(entry);
 		this.updateBadges();
-		if (this.pult.activeTab() === "overview") this.pult.rerender();
+		this.windows.rerenderTab("overview");
 	}
 	async confirm(title, body, options = {}) {
 		try {
@@ -10478,9 +12557,14 @@ var MaestroUi = class {
 			return false;
 		}
 	}
+	/** Back-compat adapter: a memory-only line of the strip under the message. */
 	messageBadge(messageIndex, badge) {
 		if (this.disposed) return () => {};
-		return this.badges.add(messageIndex, badge);
+		return this.strip.badge(messageIndex, badge);
+	}
+	addMessageStripProvider(provider) {
+		if (this.disposed) return () => {};
+		return this.strip.addProvider(provider);
 	}
 	style(id, css) {
 		if (this.disposed) return () => {};
@@ -10510,9 +12594,7 @@ var MaestroUi = class {
 		};
 	}
 	updateBadges() {
-		this.pult.updateBadges();
-		const urgent = this.noticeList.some((entry) => entry.urgent && !entry.seen);
-		this.entries.setBadge(this.pult.totalBadge(), urgent);
+		this.windows.updateBadges();
 	}
 	notices() {
 		return this.noticeList;
@@ -10545,7 +12627,7 @@ var MaestroUi = class {
 		return this.wizard.maybeRun();
 	}
 	scrollToMessage(index) {
-		this.pult.close();
+		this.closePult();
 		const node = document.querySelector(`#chat .mes[mesid="${index}"]`);
 		if (node) {
 			this.flash(node);
@@ -10559,8 +12641,11 @@ var MaestroUi = class {
 		}).catch((error) => this.log.warn("chat-jump failed", error));
 	}
 	relocalize() {
+		this.menu.close();
 		this.entries.relocalize();
-		this.pult.relocalize();
+		this.messageButtons.relocalize();
+		this.windows.relocalize();
+		this.strip.repaintAll();
 	}
 	onRegistryChange(listener) {
 		const off = onRegistryChange(listener);
@@ -10573,12 +12658,75 @@ var MaestroUi = class {
 	settingsSections() {
 		return [...this.sections.values()].sort((a, b) => a.order - b.order || a.id.localeCompare(b.id));
 	}
+	/** Windows, sections or badges changed: the top-bar badge and the open Maestro menu follow. */
+	windowsChanged() {
+		const urgent = this.noticeList.some((entry) => entry.urgent && !entry.seen);
+		this.entries.setBadge(this.tabs.totalBadge(), urgent);
+		this.mainMenu.refresh();
+	}
+	/** The menu of a message's Maestro button: the speaker's dossier, the mechanics window. */
+	messageMenu(index) {
+		const t = this.i18n.t.bind(this.i18n);
+		const items = [];
+		let message;
+		try {
+			message = this.host.ctx().chat?.[index];
+		} catch (error) {
+			this.log.debug("message menu: no chat", error);
+		}
+		const name = typeof message?.name === "string" ? message.name.trim() : "";
+		const dossier = this.coreDeps?.modules.api("dossier");
+		if (message && !message.is_user && !message.is_system && name && dossier) items.push({
+			id: "dossier",
+			label: t("ui.mesButton.dossier", { name }),
+			icon: "fa-address-card",
+			run: () => this.openDossier(dossier, name)
+		});
+		if (this.windows.sections("mechanics").length) items.push({
+			id: "mechanics",
+			label: t("ui.mesButton.mechanics"),
+			icon: "fa-dice-d20",
+			run: () => this.openWindow("mechanics", { params: { messageIndex: index } })
+		});
+		if (!items.length) items.push({
+			id: "maestro",
+			label: t("ui.mesButton.maestro"),
+			icon: "fa-wand-magic-sparkles",
+			run: () => this.openWindow(MAESTRO_WINDOW)
+		});
+		return items;
+	}
+	openDossier(dossier, name) {
+		if (typeof dossier.openByName === "function") {
+			if (dossier.openByName(name)) return;
+			this.notice(this.i18n.t("ui.mesButton.noDossier", { name }), {
+				level: "info",
+				importance: "urgent"
+			});
+		}
+		this.openPult("dossier");
+	}
 	sectionsChanged() {
 		for (const listener of [...this.sectionListeners]) try {
 			listener();
 		} catch (error) {
 			this.log.error("settings section listener failed", error);
 		}
+	}
+	/**
+	* A strip item's window section: that window when windows exist (plan-2 §10); without windows, or without a window
+	* id (the item only knows the tab), the pult tab — which opens the tab's own window once windows exist.
+	*/
+	openTarget(target) {
+		const openWindow = this.openWindow;
+		if (typeof openWindow === "function" && target.window) {
+			openWindow.call(this, target.window, {
+				...target.tab ? { tab: target.tab } : {},
+				...target.params ? { params: target.params } : {}
+			});
+			return;
+		}
+		this.openPult(target.tab);
 	}
 	listen(event, handler) {
 		try {
@@ -22237,7 +24385,7 @@ var LANGUAGE = {
 	ru: "Always answer in Russian, even when the data you read is in another language. The user is male: use masculine forms when you address him. Keep names of characters, places, settings and tools exactly as they are written.",
 	en: "Always answer in English, even when the data you read is in another language. Keep names of characters, places, settings and tools exactly as they are written."
 };
-var PROMPT_ROLE = "You are Maestro's assistant. Maestro is a SillyTavern extension that conducts the user's role-play stack: Doom's Enhancement Suite (DES) and DES-RU, CarrotKernel (CK) with BunnyMo packs, Qvink Memory, NAI Studio, Lorebook Localizer and the chat preset. It keeps one chat canon, checks lore, assembles and analyses the prompt, judges reply quality, directs scenes, runs mechanics and gives the stack one interface (the pult). You talk with the user in the pult, apart from the role-play: you are not a character, you never continue the story, and nothing you write goes into the chat.";
+var PROMPT_ROLE = "You are Maestro's assistant. Maestro is a SillyTavern extension that conducts the user's role-play stack: Doom's Enhancement Suite (DES) and DES-RU, CarrotKernel (CK) with BunnyMo packs, Qvink Memory, NAI Studio, Lorebook Localizer and the chat preset. It keeps one chat canon, checks lore, assembles and analyses the prompt, judges reply quality, directs scenes, runs mechanics and gives the stack one interface (the Maestro windows). You talk with the user in your own window beside the chat, apart from the role-play: you are not a character, you never continue the story, and nothing you write goes into the chat.";
 var PROMPT_TASKS = "You explain how Maestro and the stack behave (why a character did not know something, why a turn was expensive, what a regex does), diagnose problems, and make the changes the user asks for: module settings, mechanics, regexes (tested first), preset flags and blocks, passports and lore entries.";
 var PROMPT_TOOLS = [
 	"Tools:",
@@ -22999,7 +25147,7 @@ var M33_STRINGS = {
 	en: {
 		"m33.title": "Maestro assistant",
 		"m33.tab": "Assistant",
-		"m33.profileTask": "Assistant (conversation in the pult)",
+		"m33.profileTask": "Assistant (conversation in its window)",
 		"kind.assistant.setting": "Module settings",
 		"kind.assistant.module": "Switching modules",
 		"kind.assistant.autonomy": "Autonomy levels",
@@ -23115,7 +25263,7 @@ var M33_STRINGS = {
 	ru: {
 		"m33.title": "Ассистент Maestro",
 		"m33.tab": "Ассистент",
-		"m33.profileTask": "Ассистент (переписка в пульте)",
+		"m33.profileTask": "Ассистент (переписка в его окне)",
 		"kind.assistant.setting": "Настройки модулей",
 		"kind.assistant.module": "Переключение модулей",
 		"kind.assistant.autonomy": "Уровни автономии",
@@ -26207,10 +28355,10 @@ function chatTools(app) {
 }
 //#endregion
 //#region CHANGELOG.md?raw
-var CHANGELOG_default = "# Журнал изменений\n\n## 1.11.0 — понятные уведомления, гардероб, тёзки из разных историй (2026-10-06)\n\n- **Тёзки больше не сливаются.** Раньше новый персонаж с тем же именем, что у кого-то из другого чата (паспорт карточки, лист в общем архиве CarrotKernel, запись в общей книге), молча становился «тем же самым»: в новый чат приходили его внешность, наряды, характер, манера речи — и голос попадал в промпт. Теперь Maestro спрашивает во «Входящих» и значком у сообщения: «Офелия здесь — тот же персонаж, что в паспорте карточки?» [Тот же] [Другой]. Пока ты не ответил, старое не используется; «Другой» — в этом чате у неё всё своё, а паспорт карточки выключается только здесь (NAI Studio 0.14). Персонажи самой карточки (названные в её описании, сценарии, приветствиях или книге) — те же без вопросов. «Это разные» в модели мира теперь работает и для одинаковых имён. Решение можно поменять в досье. Данные Maestro удалённых чатов убираются вместе с чатом.\n- **Гардероб видит, во что все одеты сейчас.** Раньше в настоящих чатах он не срабатывал: DES пишет одежду внутри «Внешности», а гардероб ждал отдельного поля. Теперь:\n  - поле «Одежда» в трекер DES — одной кнопкой во вкладке «Гардероб» (только с твоего согласия, откат в журнале); пока его нет, одежда вычитывается из «Внешности»;\n  - каждый ход — сверка: знакомый наряд надевается сам, новый через два хода становится нарядом с русским названием («Шёлковое платье», «Блузка и юбка»); переодевания, раздевание, полотенце, бельё; пропущенный ход больше не «застревает»;\n  - «Кто в сцене и что на нём» во вкладке, «Сейчас: …» в досье, твой персонаж — по разговору об одежде (фоновая модель, не чаще раза в 6 ходов) или полем «Сейчас на тебе»;\n  - строка «кто во что одет» в конце промпта, чтобы модель не путала одежду (выключается);\n  - портрет DES перерисовывается при смене наряда (NAI Studio 0.14, выключается);\n  - NPC с паспортом только из лора получает паспорт чата при первом наряде.\n- **Понятные уведомления.** Каждое говорит словами истории: что случилось, что Maestro сделал или предлагает, что будет, если согласиться. Служебное (книги, номера записей, теги, английский текст канона) — под «Подробнее». У всех действий человеческие названия — в карточках, журнале и настройках автономии. Новое в настройках: «О чём сообщать» — всё (по умолчанию), важное, только срочное; «Показывать технические подробности». Однотипное за ход склеивается («Запомнил 3 новых факта о мире»). То, что Maestro делает сам, теперь видно: «Вера переоделась: «Шёлковое платье»» [Отменить]; живой канон сообщает, что запомнил, подтвердил и отбросил. Канон по-прежнему хранится по-английски, но в карточках — русская формулировка и цитата.\n- **Видно, как идёт локализация лорбука.** В шапке книги Лор-студии — «Локализую: 34 из 120 записей» с полосой и «Остановить»; «Жду: Localizer занят другой задачей»; итог «добавлено N ключей в M записей» и «Повторить неудачные»; ошибки — человеческими словами. Задача не теряется, если закрыть студию: она видна во вкладке «Задачи», а вокруг значка Maestro — кольцо прогресса. То же у кнопки «Русские ключи» записи. Живой счётчик и остановка — с Lorebook Localizer 0.3.\n- Исправлено: гардероб, режиссёр и закулисье переставали замечать новые ходы, если сообщения удалили, пока Maestro не видел (другая вкладка, выключенный Maestro); отмена правки «описание места» в журнале сообщала об успехе и ничего не меняла; номера сообщений в уведомлениях везде такие же, как в чате.\n- Для всех новых возможностей: NAI Studio 0.14.0, DES-RU 0.8.2, Lorebook Localizer 0.3.0; со старыми версиями соответствующие части просто не включаются.\n\n## 1.10.3 — закулисье только своих персонажей (2026-10-05)\n\n- «Закулисье» больше не придумывает события персонажам из других историй. Раньше важным считался любой отсутствующий персонаж с архивом CarrotKernel или записью лора — и персонаж из общей книги-архива получал события во всех чатах, а модель потом его упоминала. Теперь кандидат — только персонаж этой истории: из трекера DES этого чата, появлявшийся в сцене, упомянутый в сообщениях, из карточки, канона чата, книги чата или книги карточки.\n- Уже сохранённые события таких персонажей убираются из канона чата один раз при открытии чата (с откатом в журнале) и сообщаются уведомлением.\n\n## 1.10.2 — цвета реплик персонажей (2026-10-05)\n\n- «Стиль сообщений» больше не перекрашивает реплики, у которых есть свой цвет (раскраска реплик DES: `<font color=…>\"…\"</font>`): цвет персонажа остаётся, правило добавляет только курсив и жирный.\n\n## 1.10.1 — фоновые задачи без рассуждения (2026-10-05)\n\n- Фоновые задачи Maestro (режиссёр, ревизия, живой канон, летопись, закулисье…) на профилях OpenRouter теперь просят модель не рассуждать: пресет профиля к ним не применяется, и DeepSeek V4 тратил весь короткий бюджет на размышления — тип сцены у режиссёра не определялся ни разу, ревизия отвечала со второй-третьей попытки. Ассистент рассуждает как раньше.\n- Задачи со строгой схемой ответа получают не меньше 200 токенов.\n\n## 1.10.0 — правки по живым тестам (2026-10-05)\n\n- **Стиль сообщений** — новая вкладка в «Настройках»: редактор правил, как выглядят сообщения игрока и персонажей. Правило — что найти (\"…\", «…» ёлочками, реплики через тире, \\*мысли\\*, \\*\\*акцент\\*\\*, (…), […], свой регекс с проверкой) и как показать (цвет из темы, курсив, жирный, приглушение, шрифт, черта или подложка, вид кавычек — только на экране). Пресеты: «Классика» (по умолчанию: повествование обычным текстом, \"диалоги\" цветом цитат, \\*мысли\\* курсивом), «Книга», «Подсветка речи», «Мысли отдельно», «Ёлочки», «Сценарий», «Роман», «Контраст», «Игрок отдельно», «Минимум». Живой пример. Сохранённый текст сообщений не меняется. По желанию — «Подсказать модели этот формат».\n- **Сообщения игрока** — свой вид: акцентная черта, имя акцентным цветом, по желанию сдвиг вправо в «пузырях».\n- **Стартовая страница** в едином стиле: карточки недавних чатов, кнопки, приветствие. В превью чатов больше нет JSON трекера DES и сырых тегов вроде `<font color=…>` (только на экране; то же в «Управлении чатами» и боковой панели Top Info Bar).\n- **Оформлены**: панель персон игрока, «Управление чатами», панель чатов Top Info Bar, поле ввода (скругление, отступы, подсветка фокуса; на телефоне — крупные кнопки и шрифт 16 px без увеличения в iOS).\n- **Верхняя панель** снова с воздухом: высота подросла через собственную переменную ST, вся раскладка сдвигается вместе с ней (в iOS и в режиме «Плотно» — как в ST).\n- **Ассистент видит чат и карточку**: чтение и поиск по сообщениям текущего чата (трекер DES — коротко), карточка персонажа со всеми стартовыми сценами (первое сообщение и альтернативные приветствия), персона игрока и «обзор сценария» — одним вызовом всё, что нужно, чтобы предложить механики по этому чату.\n\n## 1.9.0 — ассистент (2026-10-05)\n\n- **Ассистент Maestro** — вкладка «Ассистент» в пульте, отдельно от ролевой игры: спрашивай про Maestro, этот чат и расширения. Модель — из своего профиля подключения (по умолчанию фоновый), свой цикл с инструментами, а не инструменты ST — модель РП их не видит. Дневной потолок фоновых трат ассистента не останавливает: его запускаешь ты.\n- **Читает и объясняет** — 27 инструментов: модули и их настройки, здоровье стека, журнал, «Входящие», промпт хода, почему запись лора сработала или нет («почему героиня не узнала сестру?» — ключи, глубина сканирования, падежи, вероятность, группы, задержки), почему ход дорогой (источники, кэш, перегенерации), регексы (объяснение и проверка на примере по правилам ST), досье, отношения, кто что знает, места, календарь, гардероб, паспорта, механики, режиссёр, блоки пресета. Встроенная справка: каждый модуль, каждый сосед и частые вопросы — на русском и английском.\n- **Делает — только с твоего согласия**: настройки модулей, включение модулей, уровни автономии, механики, регексы (только после проверки на примерах), блоки и условия в твоём слое пресета, записи лора, паспорта. Каждое изменение — карточкой «было/стало» с кнопками «Применить» и «Отклонить», всё в журнале с откатом.\n- **Безопасность**: текст чата, лора, карточек и пресетов для ассистента — только данные, не инструкции; ключи API, токены, адреса и профили подключения он не видит и не меняет; книги BunnyMo не трогает; не больше 10 шагов и 5 предложенных изменений на сообщение и 20 применённых изменений в час.\n\n## 1.8.0 — единый интерфейс (2026-10-05)\n\n- **Единый стиль** — SillyTavern, чат и расширения выглядят как одно приложение: одна таблица стилей Maestro за классом `maestro-theme` на странице. Цвета, размытие, тени, размер шрифта и ширину чата даёт твоя тема ST (смена темы подхватывается сама), скругления, отступы и элементы управления — общие с окнами Maestro. Выключил стиль или Maestro — всё выглядит как раньше; настройки соседей не меняются.\n- **Соседи в том же стиле**: Doom's Enhancement Suite (окна, полоса портретов, шапки сцены и мысли в чате — через его собственные переменные), CarrotKernel (самые заметные части), NAI Studio (панель, окна, картинки в чате), DES-RU, строки памяти Qvink, Lorebook Localizer.\n- **«Оформление» в настройках пульта**: стиль целиком и по частям (ST, чат, каждое расширение), плотность, скругления, «Показать, как было» на 10 секунд.\n- **Док «Расширения»** — блоки настроек CarrotKernel, Qvink, NAI Studio, DES-RU, Localizer и DES открываются прямо в пульте (настоящие блоки, всё работает) и возвращаются на своё место, когда пульт закрыт или Maestro выключен; по желанию — и полоса портретов DES. Ярлыки открывают окна соседей: настройки и каталог персонажей DES, редактор памяти Qvink, галерея и сцена NAI Studio, локализатор, менеджеры CarrotKernel.\n- **Пульт по разделам** — вкладки собраны в группы: Ход, Входящие, Канон, Досье, Мир, Механики, Здоровье, Журнал, Расширения, Настройки; группы сворачиваются, на телефоне — разделы в списке вкладок.\n\n## 1.7.0 — механики (2026-10-05)\n\n- **Конструктор механик** во вкладке «Механики»: свои игровые системы без возни через лор — атрибуты (числа, шкалы, списки, тексты), у кого они есть (персонажи, твой персонаж, фракции, мир), правила для модели, события на порогах («мана на нуле — заклинание срывается»), проверки с кубиками. Шаблоны: здоровье и выносливость, магия с маной и школами, репутация у фракций, деньги, навыки с проверками, отношения. Механика хранится записью типа «механика» в книге Maestro, действует для карточки, чата или везде и выключается в отдельном чате.\n- **Три способа учёта** — на выбор для каждой механики и атрибута: статы трекера DES (Maestro по твоему согласию добавляет их в DES, твои собственные статы не трогает), короткий служебный блок в конце ответа модели (Maestro читает его, чинит ошибки формата и прячет), фоновый разбор ответа. Изменения применяются, когда ты отправляешь следующее сообщение; свайп или удаление ответа откатывает его изменения. Правка значения в пульте — с откатом.\n- **Броски делает Maestro**: слово-триггер в твоём сообщении («убедить», «колдую», \"sneak\") — и проверка уходит в промпт фактом: «Spellcasting check (Элизабет): rolled 6, needed 100 or lower — success». Свайп не перебрасывает. Есть кнопка «Бросок» и команда `/maestro-roll`.\n- **В промпте** — только правила и значения механик, которые участвуют в сцене, ближе к концу; бюджет «механики» у архитектора. Флаги `maestro_mech_<механика>` для условных блоков пресета — в каталоге Пресет-студии. События на порогах — материал для поворотов режиссёра.\n- **Виджеты** — значения в пульте и строкой под портретами DES (на телефоне — одна строка с прокруткой).\n\n## 1.6.0 — визуальная связка (2026-10-05)\n\n- **Гардероб и состояния** — новый наряд из трекера DES (повторившийся два хода) становится именованным нарядом в паспорте NAI Studio уровня чата, а знакомый наряд узнаётся и надевается снова; состояния персонажей (мокрый, ранен, устал…) и мест (разрушено, украшено, пожар, ночь) включаются и выключаются в паспортах по трекеру. Персонаж, который появляется уже в новом наряде, тоже получает его. NAI Studio рисует узнанный наряд его тегами. Библиотека нарядов — во вкладке «Гардероб» и в досье, всё с откатом. Отложенные карточки нарядов из ревизии разбираются сами.\n- **Паспорта в лорбуках** — у записи лора может быть визуальный паспорт в формате NAI Studio: в книгах Maestro — в самой записи, у базовых книг — в реестре Maestro (файлы книг не меняются, книги BunnyMo не трогаются). Создаётся генератором NAI Studio или фоновой моделью по его схеме, правится в Лор-студии рядом с текстом. NAI Studio получает паспорта записей, сработавших или упомянутых в сцене.\n- **Фоны** — фон чата следует за местом: сначала подбор из библиотеки фонов SillyTavern (по названию, папкам, состоянию места, времени суток и погоде из DES), иначе — кнопка «Сгенерировать фон» в NAI Studio (с учётом режима «только бесплатно»). Только фон этого чата — общий фон и `settings.json` не меняются. Поставленный тобой фон Maestro не трогает, пока не разрешишь снова выбирать самому.\n- **«Оформить»** в досье — новый NPC или место получает всё одной кнопкой: запись канона с русскими ключами, архив CarrotKernel по словарю загруженных пакетов BunnyMo (в твою книгу-репозиторий или новую «Maestro · архив»), паспорт NAI Studio, если его нет. Весь план — одной карточкой во «Входящих», каждую часть можно откатить отдельно. «В книгу карточки» переносит запись канона в книгу карточки.\n- Нужен NAI Studio 0.12.1 (паспорта от Maestro, генерация паспорта и фона, наряды по формулировке трекера); со старыми версиями эти части просто не включаются.\n\n## 1.5.0 — живой мир (2026-10-05)\n\n- **Закулисье** — раз в несколько ходов (15 в «Сбалансированном», 10 и в конце сцен в «Кино», в «Экономном» только по кнопке) фоновая модель коротко рассказывает, чем были заняты до трёх важных персонажей, которых давно нет в сцене. События — в канон чата; смерть, плен, исчезновение и всё, что спорит с каноном, сначала ждёт тебя во «Входящих». Иногда присутствующие слышат слух.\n- **Календарь и обещания** — время истории по трекеру DES (обычные даты, «День N», выдуманные календари); договорённости и сроки из ревизии или вручную: «к закату», «через три дня», «by tomorrow». Наступивший срок — повод для заметки режиссёра; просроченное и нарушенное отмечается.\n- **Кто что знает** (экспериментально, выключено по умолчанию) — участники сцены знают её события, секреты из ревизии помечаются; голосовые карточки получают «не знает: …», когда тема всплыла.\n- Ревизия сразу отдаёт обещания календарю и секреты — модулю «Кто что знает»; отложенные карточки прошлых этапов разбираются сами.\n\n## 1.4.0 — режиссура (2026-10-05)\n\n- **Режиссёр сцены** — после каждого хода определяет тип сцены (диалог, бой, интимная, исследование, пропуск времени, светская, драма) по ответу, твоему сообщению и трекеру DES, с устойчивостью к случайным скачкам; при сомнении — дешёвая модель. Для следующей генерации ставит одноразовые флаги: `maestro_scene_<тип>`, длина ответа, откровенная сцена, язык, «момент для картинки». Тип можно задать самому.\n- **Темп и повороты** — если история встала (то же место, ничего не происходит, повторы, разговор по кругу), короткая заметка режиссёра ближе к концу промпта с поворотом из квестов DES и незакрытых нитей. Молчит, когда ты сам ведёшь сюжет; никогда не уводит от тёмных и откровенных сцен. «Встряхнуть» — заметка по кнопке.\n- **Голоса персонажей** — компактная карточка на каждого присутствующего: манера речи (LING и блок Linguistics), MBTI с состоянием, отношение к тебе сейчас, связи с другими присутствующими, цели. Когда карточки включены, вставка CarrotKernel «Character Consistency» гасится при сборке промпта (настройки CK не меняются), а DES-RU перестаёт её пересобирать. Выключено по умолчанию.\n- **Условные блоки пресета** — в Пресет-студии блок можно сделать «только когда …» / «кроме когда …» по флагу Maestro (`{{if .maestro_…}}`), с симулятором флагов, проверкой синтаксиса и предупреждением, если новый движок макросов выключен. «Подготовить к отключению» спрашивает, оставить ли такие блоки обычным текстом или выключить.\n\n## 1.3.0 — ресурсы: архитектор промпта и казначей (2026-10-05)\n\n- **Бюджеты по источникам** — общий потолок лора (поверх потолков книг), RAG CarrotKernel, краткосрочной памяти Qvink и необязательного блока контекста DES; при превышении уходят наименее важные куски, инструкции трекера DES и долгая память Qvink не трогаются никогда. По умолчанию всё выключено.\n- **Кто рядом** — записи об отсутствующих и далёких местах приглушаются, если о них не говорили последние сообщения; записи присутствующих и текущего места закрепляются (включается в «Архитекторе»).\n- **Повторы фактов** между лором, каноном, памятью Qvink, архивами CK и DES — отчёт, а по твоему согласию остаётся один источник.\n- **Кэш провайдера** — доля промпта из кэша и место, где промпт начинает меняться; проверка, что меняющиеся вставки Maestro стоят в конце.\n- **«До и после»** каждого правила — во «Промпте хода».\n- **Казначей** — сколько стоит игра: последний ход, сессия, сегодня и 14 дней, по источникам (основная модель, перегенерации, авто-свайпы, Qvink, задачи Maestro, NAI) и Anlas; при достижении общего дневного лимита — переход в «Экономный», если так настроено.\n- Учитываются кэшированные токены провайдеров.\n\n## 1.2.0 — контроль качества ответа (2026-10-04)\n\n- **Проверка каждого ответа** до того, как NAI Studio начнёт рисовать: уход в другой язык, кальки и штампы; реплики и действия за тебя; отказы, морализаторство, оговорки вне роли, смягчение и навязчивые вопросы; повторы прошлых ответов; обрезанный ответ; служебный мусор и протёкший HTML (JSON трекера DES и маркеры NAI — норма); нет трекера DES; граница контента. Сначала бесплатные правила, дешёвая модель-судья — только при сомнении (в «Экономном» — никогда).\n- **Действия по видам брака** — выкл / «Само» (очистить, попросить продолжить, один свайп за ход с точной инструкцией, ремонт трекера через Медика) / «Уведомить» (значки «Переделать» и «Не брак»). По умолчанию «Само» — только мусор и трекер, остальное — «Уведомить», пока не набрана статистика ложных срабатываний.\n- **Ранняя отсечка** служебных токенов модели прямо в потоке: остановка и один свайп.\n- **Граница контента** — настраиваемые правила с умолчанием (никакого сексуального контента с несовершеннолетними), тестовый режим.\n- **NAI Studio ждёт «качество ок»** (нужен NAI Studio 0.11.0): картинки не рисуются для ответа, ушедшего на переделку.\n\n## 1.1.0 — Пресет-студия (2026-10-04)\n\n- **Пресет-студия** — большое окно для пресета Chat Completion: «Карта» (как SillyTavern соберёт промпт: блоки по порядку, вставки расширений на своих местах, токены, блоки, которые включены, но не уйдут), «Блоки» (порядок перетаскиванием, массовое включение, поиск, предпросмотр с макросами), редактор блока, «Анализ» (несохранённые правки, пустые и неотправляемые блоки, противоречия, повторы с лором и вставками, особенности модели и провайдера), «Версии» (каждое сохранение — версия, откат), «Параметры» генерации и сценариев.\n- **Твой слой** — твои блоки и правки хранятся отдельно от базового пресета и накладываются при его выборе; новая версия базы (например, Marinara) ставится без потери правок, а при изменённом тексте блока — выбор из трёх версий. Перенос текущих правок в слой с предпросмотром (ключи подключения можно не переносить), перенос слоя на другой пресет, блоки из чужих пресетов.\n- **Безопасное сохранение** — пресет сохраняется только с явным телом, незнакомые ключи и расширения сохраняются, переименование переносит разрешения регексов и спрашивает о профилях подключения; несохранённые правки сохраняются версией перед переключением пресета.\n- **Сценарии генерации** — свои параметры для перевоплощения и продолжения (выключены по умолчанию).\n- Раздел Prompt Manager можно заменить кнопкой студии (настройка, по умолчанию выключена — до проверки паритета вживую).\n- **«Подготовить к отключению», экспорт и импорт данных Maestro** в настройках пульта.\n\n## 1.0.0 — выпуск R3, первая полная версия (2026-10-04)\n\nЭтап 4: ревизия и живой канон.\n\n- **Сигналы хода** — когда ты отправляешь сообщение, прошлый ответ фиксируется, и Maestro без ИИ сравнивает его с ходом раньше: смена отношения, стойкая внешность, место, пропуск времени, конец сцены, квесты, кто пришёл и ушёл, новые алиасы и имена, память Qvink. Свободный текст засчитывается, только если продержался два хода; свайп и правка откатывают ровно то, что дал ответ.\n- **Ревизия «сюжет → канон»** — по сигналам, раз в N сообщений, в конце сцены или командой `/maestro-revise` дешёвая модель смотрит, что изменилось у известных персонажей и мест, и предлагает обновить владельца: канон чата, теги архива CK (только из словаря паков), паспорт NAI уровня чата, прозвища чата, реестр мест. Наряды, обещания и секреты ждут своих этапов отложенными карточками.\n- **«Входящие»** — карточки по персонажам, ссылка на сообщение, «было/стало» по хранилищам, цитата и уверенность; принять, изменить на месте, отклонить, отложить, «Всегда так», принять всё.\n- **Проверка противоречий** — сначала правила (имена, числа, даты, отрицания), при сомнении — дешёвая модель; общий сервис для ревизии и живого канона.\n- **Живой канон** — то, что придумала модель (праздник, таверна, род), после фиксации хода становится пробной записью канона с русскими ключами; подтверждается, только если ты сам это упомянул, принял, если оно всплыло снова без подсказки или продержалось 10 ходов без противоречий. Пакетное извлечение пишет английский текст записей. Свайп убирает пробное, подтверждённое остаётся.\n- **Летопись и автопамять** — воспоминания Qvink, выпавшие из долгой памяти, становятся главами канона (срабатывают по двум ключам сразу); важные моменты сами получают отметку «запомнить» во всех свайпах; «Ранее в истории…» после перерыва.\n- **Замеры** — вкладка с критериями первой полной версии: задержка Maestro до запроса, доля фоновых расходов, лор на ход, выпавшие сообщения, роли записей, вкладки, ревизия, живой канон, листы, файлы паков. Скрипт стенда `tools/stand/measure.mjs`.\n- Исправлено: досье и листы брали архив «Александра» для «Александр» (падежная форма совпадала с другим именем); запросы NAI Studio записывались в расходы Qvink.\n\n## 0.2.0 — выпуск R2 (2026-10-04)\n\nЭтапы 2 и 3: Лор-студия, роли книг, доктор, канон; модель мира, досье, места.\n\n**Этап 3**\n\n- **Модель мира** — каждый персонаж, персона и место стека одной сущностью: карточки, состав DES, алиасы DES и DES-RU, падежи, паспорта NAI, архивы CK, записи лорбуков с типом, канон и места. Одно лицо под разными именами склеивается; сомнительные совпадения — во «Входящих». Прозвища, которые действуют только в этом чате.\n- **Досье** — одна страница на сущность: DES, лор, канон, архив CK и теги, паспорт NAI (с изменениями этого чата), падежи, воспоминания Qvink, RAG, последний лист. Сверка структуры (нет записи, паспорта или архива, алиас не стал ключом, имена расходятся), сверка внешности ИИ по кнопке, «Разнести» правку по хранилищам. Команда `/maestro-dossier`.\n- **Места** — реестр мест чата по локации DES: новое название становится местом, если продержалось два хода; вложенность, история визитов (кто был, когда), описание записью канона. NAI Studio держит непрерывность фона по id места.\n- **Граф отношений** — как персонажи относятся к твоей персоне, ход за ходом по трекеру DES.\n- **Режим BunnyMo** — словарь тегов всех паков (конфликты, дубли, теги без пака), паки по чатам, сравнение пака с новым файлом, проверка целостности, редактор листов архивов CK. Команда `/maestro-bunnymo`.\n- Нужен NAI Studio 0.10.0 для паспортов уровня чата и непрерывности по местам (без него всё остальное работает).\n\n**Этап 2**\n\n- **Лор-студия** — свой редактор лорбуков рядом со штатным: книги по ролям, все поля и действия штатного окна, канон рядом с базой, история версий, русские ключи, кампании DES. Кнопку «Миры и лорбуки» можно отдать студии настройкой.\n- **Роли книг** — Maestro знает, где ядро и паки BunnyMo, архивы CK, мир, карточка, NPC, канон; паки BunnyMo только для чтения.\n- **Канон чата** — изменения сюжета в отдельном лорбуке чата: переопределение, подавление, закрепление, добавление; бюджет, архив, слежение за базой, повышение до базы, экспорт, ветки. Срабатывает по русскому тексту.\n- **Доктор** — «Исправить в файле» для твоих книг (паки — никогда) и лечение регексов, всё с откатом.\n- **Правила** — кириллица и «целые слова», конфликт версий паков, `<NSFW>` в архивах, глубина сканирования архивов CK.\n- Нужны DES-RU 0.8.0 и Lorebook Localizer 0.2.0 (без них всё работает, но без склонений и локализации из студии).\n\n## 0.1.0 — выпуск R1 (2026-10-04)\n\nНаблюдение и быстрые исправления.\n\n- **Журнал лора** — какой лор ушёл в промпт на каждом ходу, почему, каким ключом и через какую запись; почему книга активна; «Что если» без генерации.\n- **Инспектор хода** — из чего собран промпт: пресет, лор по книгам, вставки соседей, история.\n- **Медик** — проверки соседей после каждого ответа; ремонт трекера DES; предупреждение о prefill с ролью assistant.\n- **Страж** — эталон настроек и пресета, дрейф во «Входящих»; устаревшая вкладка больше не перезаписывает настройки, пресеты и лорбуки.\n- **Доктор** — находки в лорбуках и регексах, испытание регексов.\n- **Правила на лету** — роль assistant → system, потолок и лимит рекурсии книги, дубли паков, «дыры» Qvink, картинки NAI вне пересказов, видимые теги BunnyMo, кнопка векторизации CK и полоса портретов DES на телефоне.\n- **Листы персонажей** — команды BunnyMo генерируются своей сборкой промпта, без хвоста сцены и трекера, сворачиваются и уходят из промпта после следующего хода.\n- **Мастер первого запуска.**\n\n## 0.0.0 — этап 0\n\nКаркас: слой ST, сервисы ядра, адаптеры соседей, пульт, стенд с имитацией модели.\n";
+var CHANGELOG_default = "# Журнал изменений\n\n## 1.12.0 — окна вместо пульта, Maestro в чате (2026-10-07)\n\n- **Окна.** Всё, что раньше жило в одном модальном пульте, теперь в отдельных окнах, которые не мешают играть: «Ассистент», «Входящие», «Персонажи» (досье, гардероб, BunnyMo), «Механики», «Мир», «Канон», «Ход», «Здоровье» и «Maestro» (обзор, журнал, настройки, оформление, расширения). По умолчанию окно открывается боковой панелью рядом с чатом; его можно открепить в плавающее окно (перетаскивание, размер, свернуть в заголовок) и прикрепить обратно. Несколько окон сразу; где какое окно было — запоминается на этом устройстве. На телефоне окно занимает экран под верхней панелью, открытые окна переключаются кнопками.\n- **Лор-студия и Пресет-студия** — тоже окна: рядом можно держать чат или ассистента.\n- **Шестерёнка в окне** показывает настройки модулей этого раздела.\n- **Меню Maestro** — по значку в верхней панели (новых значков нет): все окна со счётчиками, студии, твои задачи с прогрессом, настройки. То же меню — в «волшебной палочке».\n- **Кнопка Maestro у сообщения** (в «…»): «Досье» говорящего и «Механики».\n- **Команды**: `/maestro [окно]`, `/maestro-undo` (отменить последнее действие Maestro в этом чате), `/maestro-mode экономный|сбалансированный|кино`, `/maestro-scene <тип сцены|авто>`.\n- **Строка Maestro под сообщением**: предложения «Входящих» по этому ответу, запомненные живым каноном факты ([Верно] [Забыть] [Это ошибка]), вопрос «тот же персонаж или другой?», брак ответа, броски — прямо в чате; нажатие раскрывает карточку с кнопками, окно открывать не нужно. Строки переживают перезагрузку и исчезают, когда всё решено; в текст сообщения, промпт и память Qvink ничего не попадает, «пузыри» DES не ломаются. Настройка «Строка Maestro под сообщениями»: всё / только то, что ждёт решения / ничего.\n- Переход к сообщению или открытие студии больше не закрывает окна на компьютере (на телефоне окно уступает место чату).\n\n## 1.11.0 — понятные уведомления, гардероб, тёзки из разных историй (2026-10-06)\n\n- **Тёзки больше не сливаются.** Раньше новый персонаж с тем же именем, что у кого-то из другого чата (паспорт карточки, лист в общем архиве CarrotKernel, запись в общей книге), молча становился «тем же самым»: в новый чат приходили его внешность, наряды, характер, манера речи — и голос попадал в промпт. Теперь Maestro спрашивает во «Входящих» и значком у сообщения: «Офелия здесь — тот же персонаж, что в паспорте карточки?» [Тот же] [Другой]. Пока ты не ответил, старое не используется; «Другой» — в этом чате у неё всё своё, а паспорт карточки выключается только здесь (NAI Studio 0.14). Персонажи самой карточки (названные в её описании, сценарии, приветствиях или книге) — те же без вопросов. «Это разные» в модели мира теперь работает и для одинаковых имён. Решение можно поменять в досье. Данные Maestro удалённых чатов убираются вместе с чатом.\n- **Гардероб видит, во что все одеты сейчас.** Раньше в настоящих чатах он не срабатывал: DES пишет одежду внутри «Внешности», а гардероб ждал отдельного поля. Теперь:\n  - поле «Одежда» в трекер DES — одной кнопкой во вкладке «Гардероб» (только с твоего согласия, откат в журнале); пока его нет, одежда вычитывается из «Внешности»;\n  - каждый ход — сверка: знакомый наряд надевается сам, новый через два хода становится нарядом с русским названием («Шёлковое платье», «Блузка и юбка»); переодевания, раздевание, полотенце, бельё; пропущенный ход больше не «застревает»;\n  - «Кто в сцене и что на нём» во вкладке, «Сейчас: …» в досье, твой персонаж — по разговору об одежде (фоновая модель, не чаще раза в 6 ходов) или полем «Сейчас на тебе»;\n  - строка «кто во что одет» в конце промпта, чтобы модель не путала одежду (выключается);\n  - портрет DES перерисовывается при смене наряда (NAI Studio 0.14, выключается);\n  - NPC с паспортом только из лора получает паспорт чата при первом наряде.\n- **Понятные уведомления.** Каждое говорит словами истории: что случилось, что Maestro сделал или предлагает, что будет, если согласиться. Служебное (книги, номера записей, теги, английский текст канона) — под «Подробнее». У всех действий человеческие названия — в карточках, журнале и настройках автономии. Новое в настройках: «О чём сообщать» — всё (по умолчанию), важное, только срочное; «Показывать технические подробности». Однотипное за ход склеивается («Запомнил 3 новых факта о мире»). То, что Maestro делает сам, теперь видно: «Вера переоделась: «Шёлковое платье»» [Отменить]; живой канон сообщает, что запомнил, подтвердил и отбросил. Канон по-прежнему хранится по-английски, но в карточках — русская формулировка и цитата.\n- **Видно, как идёт локализация лорбука.** В шапке книги Лор-студии — «Локализую: 34 из 120 записей» с полосой и «Остановить»; «Жду: Localizer занят другой задачей»; итог «добавлено N ключей в M записей» и «Повторить неудачные»; ошибки — человеческими словами. Задача не теряется, если закрыть студию: она видна во вкладке «Задачи», а вокруг значка Maestro — кольцо прогресса. То же у кнопки «Русские ключи» записи. Живой счётчик и остановка — с Lorebook Localizer 0.3.\n- Исправлено: гардероб, режиссёр и закулисье переставали замечать новые ходы, если сообщения удалили, пока Maestro не видел (другая вкладка, выключенный Maestro); отмена правки «описание места» в журнале сообщала об успехе и ничего не меняла; номера сообщений в уведомлениях везде такие же, как в чате.\n- Для всех новых возможностей: NAI Studio 0.14.0, DES-RU 0.8.2, Lorebook Localizer 0.3.0; со старыми версиями соответствующие части просто не включаются.\n\n## 1.10.3 — закулисье только своих персонажей (2026-10-05)\n\n- «Закулисье» больше не придумывает события персонажам из других историй. Раньше важным считался любой отсутствующий персонаж с архивом CarrotKernel или записью лора — и персонаж из общей книги-архива получал события во всех чатах, а модель потом его упоминала. Теперь кандидат — только персонаж этой истории: из трекера DES этого чата, появлявшийся в сцене, упомянутый в сообщениях, из карточки, канона чата, книги чата или книги карточки.\n- Уже сохранённые события таких персонажей убираются из канона чата один раз при открытии чата (с откатом в журнале) и сообщаются уведомлением.\n\n## 1.10.2 — цвета реплик персонажей (2026-10-05)\n\n- «Стиль сообщений» больше не перекрашивает реплики, у которых есть свой цвет (раскраска реплик DES: `<font color=…>\"…\"</font>`): цвет персонажа остаётся, правило добавляет только курсив и жирный.\n\n## 1.10.1 — фоновые задачи без рассуждения (2026-10-05)\n\n- Фоновые задачи Maestro (режиссёр, ревизия, живой канон, летопись, закулисье…) на профилях OpenRouter теперь просят модель не рассуждать: пресет профиля к ним не применяется, и DeepSeek V4 тратил весь короткий бюджет на размышления — тип сцены у режиссёра не определялся ни разу, ревизия отвечала со второй-третьей попытки. Ассистент рассуждает как раньше.\n- Задачи со строгой схемой ответа получают не меньше 200 токенов.\n\n## 1.10.0 — правки по живым тестам (2026-10-05)\n\n- **Стиль сообщений** — новая вкладка в «Настройках»: редактор правил, как выглядят сообщения игрока и персонажей. Правило — что найти (\"…\", «…» ёлочками, реплики через тире, \\*мысли\\*, \\*\\*акцент\\*\\*, (…), […], свой регекс с проверкой) и как показать (цвет из темы, курсив, жирный, приглушение, шрифт, черта или подложка, вид кавычек — только на экране). Пресеты: «Классика» (по умолчанию: повествование обычным текстом, \"диалоги\" цветом цитат, \\*мысли\\* курсивом), «Книга», «Подсветка речи», «Мысли отдельно», «Ёлочки», «Сценарий», «Роман», «Контраст», «Игрок отдельно», «Минимум». Живой пример. Сохранённый текст сообщений не меняется. По желанию — «Подсказать модели этот формат».\n- **Сообщения игрока** — свой вид: акцентная черта, имя акцентным цветом, по желанию сдвиг вправо в «пузырях».\n- **Стартовая страница** в едином стиле: карточки недавних чатов, кнопки, приветствие. В превью чатов больше нет JSON трекера DES и сырых тегов вроде `<font color=…>` (только на экране; то же в «Управлении чатами» и боковой панели Top Info Bar).\n- **Оформлены**: панель персон игрока, «Управление чатами», панель чатов Top Info Bar, поле ввода (скругление, отступы, подсветка фокуса; на телефоне — крупные кнопки и шрифт 16 px без увеличения в iOS).\n- **Верхняя панель** снова с воздухом: высота подросла через собственную переменную ST, вся раскладка сдвигается вместе с ней (в iOS и в режиме «Плотно» — как в ST).\n- **Ассистент видит чат и карточку**: чтение и поиск по сообщениям текущего чата (трекер DES — коротко), карточка персонажа со всеми стартовыми сценами (первое сообщение и альтернативные приветствия), персона игрока и «обзор сценария» — одним вызовом всё, что нужно, чтобы предложить механики по этому чату.\n\n## 1.9.0 — ассистент (2026-10-05)\n\n- **Ассистент Maestro** — вкладка «Ассистент» в пульте, отдельно от ролевой игры: спрашивай про Maestro, этот чат и расширения. Модель — из своего профиля подключения (по умолчанию фоновый), свой цикл с инструментами, а не инструменты ST — модель РП их не видит. Дневной потолок фоновых трат ассистента не останавливает: его запускаешь ты.\n- **Читает и объясняет** — 27 инструментов: модули и их настройки, здоровье стека, журнал, «Входящие», промпт хода, почему запись лора сработала или нет («почему героиня не узнала сестру?» — ключи, глубина сканирования, падежи, вероятность, группы, задержки), почему ход дорогой (источники, кэш, перегенерации), регексы (объяснение и проверка на примере по правилам ST), досье, отношения, кто что знает, места, календарь, гардероб, паспорта, механики, режиссёр, блоки пресета. Встроенная справка: каждый модуль, каждый сосед и частые вопросы — на русском и английском.\n- **Делает — только с твоего согласия**: настройки модулей, включение модулей, уровни автономии, механики, регексы (только после проверки на примерах), блоки и условия в твоём слое пресета, записи лора, паспорта. Каждое изменение — карточкой «было/стало» с кнопками «Применить» и «Отклонить», всё в журнале с откатом.\n- **Безопасность**: текст чата, лора, карточек и пресетов для ассистента — только данные, не инструкции; ключи API, токены, адреса и профили подключения он не видит и не меняет; книги BunnyMo не трогает; не больше 10 шагов и 5 предложенных изменений на сообщение и 20 применённых изменений в час.\n\n## 1.8.0 — единый интерфейс (2026-10-05)\n\n- **Единый стиль** — SillyTavern, чат и расширения выглядят как одно приложение: одна таблица стилей Maestro за классом `maestro-theme` на странице. Цвета, размытие, тени, размер шрифта и ширину чата даёт твоя тема ST (смена темы подхватывается сама), скругления, отступы и элементы управления — общие с окнами Maestro. Выключил стиль или Maestro — всё выглядит как раньше; настройки соседей не меняются.\n- **Соседи в том же стиле**: Doom's Enhancement Suite (окна, полоса портретов, шапки сцены и мысли в чате — через его собственные переменные), CarrotKernel (самые заметные части), NAI Studio (панель, окна, картинки в чате), DES-RU, строки памяти Qvink, Lorebook Localizer.\n- **«Оформление» в настройках пульта**: стиль целиком и по частям (ST, чат, каждое расширение), плотность, скругления, «Показать, как было» на 10 секунд.\n- **Док «Расширения»** — блоки настроек CarrotKernel, Qvink, NAI Studio, DES-RU, Localizer и DES открываются прямо в пульте (настоящие блоки, всё работает) и возвращаются на своё место, когда пульт закрыт или Maestro выключен; по желанию — и полоса портретов DES. Ярлыки открывают окна соседей: настройки и каталог персонажей DES, редактор памяти Qvink, галерея и сцена NAI Studio, локализатор, менеджеры CarrotKernel.\n- **Пульт по разделам** — вкладки собраны в группы: Ход, Входящие, Канон, Досье, Мир, Механики, Здоровье, Журнал, Расширения, Настройки; группы сворачиваются, на телефоне — разделы в списке вкладок.\n\n## 1.7.0 — механики (2026-10-05)\n\n- **Конструктор механик** во вкладке «Механики»: свои игровые системы без возни через лор — атрибуты (числа, шкалы, списки, тексты), у кого они есть (персонажи, твой персонаж, фракции, мир), правила для модели, события на порогах («мана на нуле — заклинание срывается»), проверки с кубиками. Шаблоны: здоровье и выносливость, магия с маной и школами, репутация у фракций, деньги, навыки с проверками, отношения. Механика хранится записью типа «механика» в книге Maestro, действует для карточки, чата или везде и выключается в отдельном чате.\n- **Три способа учёта** — на выбор для каждой механики и атрибута: статы трекера DES (Maestro по твоему согласию добавляет их в DES, твои собственные статы не трогает), короткий служебный блок в конце ответа модели (Maestro читает его, чинит ошибки формата и прячет), фоновый разбор ответа. Изменения применяются, когда ты отправляешь следующее сообщение; свайп или удаление ответа откатывает его изменения. Правка значения в пульте — с откатом.\n- **Броски делает Maestro**: слово-триггер в твоём сообщении («убедить», «колдую», \"sneak\") — и проверка уходит в промпт фактом: «Spellcasting check (Элизабет): rolled 6, needed 100 or lower — success». Свайп не перебрасывает. Есть кнопка «Бросок» и команда `/maestro-roll`.\n- **В промпте** — только правила и значения механик, которые участвуют в сцене, ближе к концу; бюджет «механики» у архитектора. Флаги `maestro_mech_<механика>` для условных блоков пресета — в каталоге Пресет-студии. События на порогах — материал для поворотов режиссёра.\n- **Виджеты** — значения в пульте и строкой под портретами DES (на телефоне — одна строка с прокруткой).\n\n## 1.6.0 — визуальная связка (2026-10-05)\n\n- **Гардероб и состояния** — новый наряд из трекера DES (повторившийся два хода) становится именованным нарядом в паспорте NAI Studio уровня чата, а знакомый наряд узнаётся и надевается снова; состояния персонажей (мокрый, ранен, устал…) и мест (разрушено, украшено, пожар, ночь) включаются и выключаются в паспортах по трекеру. Персонаж, который появляется уже в новом наряде, тоже получает его. NAI Studio рисует узнанный наряд его тегами. Библиотека нарядов — во вкладке «Гардероб» и в досье, всё с откатом. Отложенные карточки нарядов из ревизии разбираются сами.\n- **Паспорта в лорбуках** — у записи лора может быть визуальный паспорт в формате NAI Studio: в книгах Maestro — в самой записи, у базовых книг — в реестре Maestro (файлы книг не меняются, книги BunnyMo не трогаются). Создаётся генератором NAI Studio или фоновой моделью по его схеме, правится в Лор-студии рядом с текстом. NAI Studio получает паспорта записей, сработавших или упомянутых в сцене.\n- **Фоны** — фон чата следует за местом: сначала подбор из библиотеки фонов SillyTavern (по названию, папкам, состоянию места, времени суток и погоде из DES), иначе — кнопка «Сгенерировать фон» в NAI Studio (с учётом режима «только бесплатно»). Только фон этого чата — общий фон и `settings.json` не меняются. Поставленный тобой фон Maestro не трогает, пока не разрешишь снова выбирать самому.\n- **«Оформить»** в досье — новый NPC или место получает всё одной кнопкой: запись канона с русскими ключами, архив CarrotKernel по словарю загруженных пакетов BunnyMo (в твою книгу-репозиторий или новую «Maestro · архив»), паспорт NAI Studio, если его нет. Весь план — одной карточкой во «Входящих», каждую часть можно откатить отдельно. «В книгу карточки» переносит запись канона в книгу карточки.\n- Нужен NAI Studio 0.12.1 (паспорта от Maestro, генерация паспорта и фона, наряды по формулировке трекера); со старыми версиями эти части просто не включаются.\n\n## 1.5.0 — живой мир (2026-10-05)\n\n- **Закулисье** — раз в несколько ходов (15 в «Сбалансированном», 10 и в конце сцен в «Кино», в «Экономном» только по кнопке) фоновая модель коротко рассказывает, чем были заняты до трёх важных персонажей, которых давно нет в сцене. События — в канон чата; смерть, плен, исчезновение и всё, что спорит с каноном, сначала ждёт тебя во «Входящих». Иногда присутствующие слышат слух.\n- **Календарь и обещания** — время истории по трекеру DES (обычные даты, «День N», выдуманные календари); договорённости и сроки из ревизии или вручную: «к закату», «через три дня», «by tomorrow». Наступивший срок — повод для заметки режиссёра; просроченное и нарушенное отмечается.\n- **Кто что знает** (экспериментально, выключено по умолчанию) — участники сцены знают её события, секреты из ревизии помечаются; голосовые карточки получают «не знает: …», когда тема всплыла.\n- Ревизия сразу отдаёт обещания календарю и секреты — модулю «Кто что знает»; отложенные карточки прошлых этапов разбираются сами.\n\n## 1.4.0 — режиссура (2026-10-05)\n\n- **Режиссёр сцены** — после каждого хода определяет тип сцены (диалог, бой, интимная, исследование, пропуск времени, светская, драма) по ответу, твоему сообщению и трекеру DES, с устойчивостью к случайным скачкам; при сомнении — дешёвая модель. Для следующей генерации ставит одноразовые флаги: `maestro_scene_<тип>`, длина ответа, откровенная сцена, язык, «момент для картинки». Тип можно задать самому.\n- **Темп и повороты** — если история встала (то же место, ничего не происходит, повторы, разговор по кругу), короткая заметка режиссёра ближе к концу промпта с поворотом из квестов DES и незакрытых нитей. Молчит, когда ты сам ведёшь сюжет; никогда не уводит от тёмных и откровенных сцен. «Встряхнуть» — заметка по кнопке.\n- **Голоса персонажей** — компактная карточка на каждого присутствующего: манера речи (LING и блок Linguistics), MBTI с состоянием, отношение к тебе сейчас, связи с другими присутствующими, цели. Когда карточки включены, вставка CarrotKernel «Character Consistency» гасится при сборке промпта (настройки CK не меняются), а DES-RU перестаёт её пересобирать. Выключено по умолчанию.\n- **Условные блоки пресета** — в Пресет-студии блок можно сделать «только когда …» / «кроме когда …» по флагу Maestro (`{{if .maestro_…}}`), с симулятором флагов, проверкой синтаксиса и предупреждением, если новый движок макросов выключен. «Подготовить к отключению» спрашивает, оставить ли такие блоки обычным текстом или выключить.\n\n## 1.3.0 — ресурсы: архитектор промпта и казначей (2026-10-05)\n\n- **Бюджеты по источникам** — общий потолок лора (поверх потолков книг), RAG CarrotKernel, краткосрочной памяти Qvink и необязательного блока контекста DES; при превышении уходят наименее важные куски, инструкции трекера DES и долгая память Qvink не трогаются никогда. По умолчанию всё выключено.\n- **Кто рядом** — записи об отсутствующих и далёких местах приглушаются, если о них не говорили последние сообщения; записи присутствующих и текущего места закрепляются (включается в «Архитекторе»).\n- **Повторы фактов** между лором, каноном, памятью Qvink, архивами CK и DES — отчёт, а по твоему согласию остаётся один источник.\n- **Кэш провайдера** — доля промпта из кэша и место, где промпт начинает меняться; проверка, что меняющиеся вставки Maestro стоят в конце.\n- **«До и после»** каждого правила — во «Промпте хода».\n- **Казначей** — сколько стоит игра: последний ход, сессия, сегодня и 14 дней, по источникам (основная модель, перегенерации, авто-свайпы, Qvink, задачи Maestro, NAI) и Anlas; при достижении общего дневного лимита — переход в «Экономный», если так настроено.\n- Учитываются кэшированные токены провайдеров.\n\n## 1.2.0 — контроль качества ответа (2026-10-04)\n\n- **Проверка каждого ответа** до того, как NAI Studio начнёт рисовать: уход в другой язык, кальки и штампы; реплики и действия за тебя; отказы, морализаторство, оговорки вне роли, смягчение и навязчивые вопросы; повторы прошлых ответов; обрезанный ответ; служебный мусор и протёкший HTML (JSON трекера DES и маркеры NAI — норма); нет трекера DES; граница контента. Сначала бесплатные правила, дешёвая модель-судья — только при сомнении (в «Экономном» — никогда).\n- **Действия по видам брака** — выкл / «Само» (очистить, попросить продолжить, один свайп за ход с точной инструкцией, ремонт трекера через Медика) / «Уведомить» (значки «Переделать» и «Не брак»). По умолчанию «Само» — только мусор и трекер, остальное — «Уведомить», пока не набрана статистика ложных срабатываний.\n- **Ранняя отсечка** служебных токенов модели прямо в потоке: остановка и один свайп.\n- **Граница контента** — настраиваемые правила с умолчанием (никакого сексуального контента с несовершеннолетними), тестовый режим.\n- **NAI Studio ждёт «качество ок»** (нужен NAI Studio 0.11.0): картинки не рисуются для ответа, ушедшего на переделку.\n\n## 1.1.0 — Пресет-студия (2026-10-04)\n\n- **Пресет-студия** — большое окно для пресета Chat Completion: «Карта» (как SillyTavern соберёт промпт: блоки по порядку, вставки расширений на своих местах, токены, блоки, которые включены, но не уйдут), «Блоки» (порядок перетаскиванием, массовое включение, поиск, предпросмотр с макросами), редактор блока, «Анализ» (несохранённые правки, пустые и неотправляемые блоки, противоречия, повторы с лором и вставками, особенности модели и провайдера), «Версии» (каждое сохранение — версия, откат), «Параметры» генерации и сценариев.\n- **Твой слой** — твои блоки и правки хранятся отдельно от базового пресета и накладываются при его выборе; новая версия базы (например, Marinara) ставится без потери правок, а при изменённом тексте блока — выбор из трёх версий. Перенос текущих правок в слой с предпросмотром (ключи подключения можно не переносить), перенос слоя на другой пресет, блоки из чужих пресетов.\n- **Безопасное сохранение** — пресет сохраняется только с явным телом, незнакомые ключи и расширения сохраняются, переименование переносит разрешения регексов и спрашивает о профилях подключения; несохранённые правки сохраняются версией перед переключением пресета.\n- **Сценарии генерации** — свои параметры для перевоплощения и продолжения (выключены по умолчанию).\n- Раздел Prompt Manager можно заменить кнопкой студии (настройка, по умолчанию выключена — до проверки паритета вживую).\n- **«Подготовить к отключению», экспорт и импорт данных Maestro** в настройках пульта.\n\n## 1.0.0 — выпуск R3, первая полная версия (2026-10-04)\n\nЭтап 4: ревизия и живой канон.\n\n- **Сигналы хода** — когда ты отправляешь сообщение, прошлый ответ фиксируется, и Maestro без ИИ сравнивает его с ходом раньше: смена отношения, стойкая внешность, место, пропуск времени, конец сцены, квесты, кто пришёл и ушёл, новые алиасы и имена, память Qvink. Свободный текст засчитывается, только если продержался два хода; свайп и правка откатывают ровно то, что дал ответ.\n- **Ревизия «сюжет → канон»** — по сигналам, раз в N сообщений, в конце сцены или командой `/maestro-revise` дешёвая модель смотрит, что изменилось у известных персонажей и мест, и предлагает обновить владельца: канон чата, теги архива CK (только из словаря паков), паспорт NAI уровня чата, прозвища чата, реестр мест. Наряды, обещания и секреты ждут своих этапов отложенными карточками.\n- **«Входящие»** — карточки по персонажам, ссылка на сообщение, «было/стало» по хранилищам, цитата и уверенность; принять, изменить на месте, отклонить, отложить, «Всегда так», принять всё.\n- **Проверка противоречий** — сначала правила (имена, числа, даты, отрицания), при сомнении — дешёвая модель; общий сервис для ревизии и живого канона.\n- **Живой канон** — то, что придумала модель (праздник, таверна, род), после фиксации хода становится пробной записью канона с русскими ключами; подтверждается, только если ты сам это упомянул, принял, если оно всплыло снова без подсказки или продержалось 10 ходов без противоречий. Пакетное извлечение пишет английский текст записей. Свайп убирает пробное, подтверждённое остаётся.\n- **Летопись и автопамять** — воспоминания Qvink, выпавшие из долгой памяти, становятся главами канона (срабатывают по двум ключам сразу); важные моменты сами получают отметку «запомнить» во всех свайпах; «Ранее в истории…» после перерыва.\n- **Замеры** — вкладка с критериями первой полной версии: задержка Maestro до запроса, доля фоновых расходов, лор на ход, выпавшие сообщения, роли записей, вкладки, ревизия, живой канон, листы, файлы паков. Скрипт стенда `tools/stand/measure.mjs`.\n- Исправлено: досье и листы брали архив «Александра» для «Александр» (падежная форма совпадала с другим именем); запросы NAI Studio записывались в расходы Qvink.\n\n## 0.2.0 — выпуск R2 (2026-10-04)\n\nЭтапы 2 и 3: Лор-студия, роли книг, доктор, канон; модель мира, досье, места.\n\n**Этап 3**\n\n- **Модель мира** — каждый персонаж, персона и место стека одной сущностью: карточки, состав DES, алиасы DES и DES-RU, падежи, паспорта NAI, архивы CK, записи лорбуков с типом, канон и места. Одно лицо под разными именами склеивается; сомнительные совпадения — во «Входящих». Прозвища, которые действуют только в этом чате.\n- **Досье** — одна страница на сущность: DES, лор, канон, архив CK и теги, паспорт NAI (с изменениями этого чата), падежи, воспоминания Qvink, RAG, последний лист. Сверка структуры (нет записи, паспорта или архива, алиас не стал ключом, имена расходятся), сверка внешности ИИ по кнопке, «Разнести» правку по хранилищам. Команда `/maestro-dossier`.\n- **Места** — реестр мест чата по локации DES: новое название становится местом, если продержалось два хода; вложенность, история визитов (кто был, когда), описание записью канона. NAI Studio держит непрерывность фона по id места.\n- **Граф отношений** — как персонажи относятся к твоей персоне, ход за ходом по трекеру DES.\n- **Режим BunnyMo** — словарь тегов всех паков (конфликты, дубли, теги без пака), паки по чатам, сравнение пака с новым файлом, проверка целостности, редактор листов архивов CK. Команда `/maestro-bunnymo`.\n- Нужен NAI Studio 0.10.0 для паспортов уровня чата и непрерывности по местам (без него всё остальное работает).\n\n**Этап 2**\n\n- **Лор-студия** — свой редактор лорбуков рядом со штатным: книги по ролям, все поля и действия штатного окна, канон рядом с базой, история версий, русские ключи, кампании DES. Кнопку «Миры и лорбуки» можно отдать студии настройкой.\n- **Роли книг** — Maestro знает, где ядро и паки BunnyMo, архивы CK, мир, карточка, NPC, канон; паки BunnyMo только для чтения.\n- **Канон чата** — изменения сюжета в отдельном лорбуке чата: переопределение, подавление, закрепление, добавление; бюджет, архив, слежение за базой, повышение до базы, экспорт, ветки. Срабатывает по русскому тексту.\n- **Доктор** — «Исправить в файле» для твоих книг (паки — никогда) и лечение регексов, всё с откатом.\n- **Правила** — кириллица и «целые слова», конфликт версий паков, `<NSFW>` в архивах, глубина сканирования архивов CK.\n- Нужны DES-RU 0.8.0 и Lorebook Localizer 0.2.0 (без них всё работает, но без склонений и локализации из студии).\n\n## 0.1.0 — выпуск R1 (2026-10-04)\n\nНаблюдение и быстрые исправления.\n\n- **Журнал лора** — какой лор ушёл в промпт на каждом ходу, почему, каким ключом и через какую запись; почему книга активна; «Что если» без генерации.\n- **Инспектор хода** — из чего собран промпт: пресет, лор по книгам, вставки соседей, история.\n- **Медик** — проверки соседей после каждого ответа; ремонт трекера DES; предупреждение о prefill с ролью assistant.\n- **Страж** — эталон настроек и пресета, дрейф во «Входящих»; устаревшая вкладка больше не перезаписывает настройки, пресеты и лорбуки.\n- **Доктор** — находки в лорбуках и регексах, испытание регексов.\n- **Правила на лету** — роль assistant → system, потолок и лимит рекурсии книги, дубли паков, «дыры» Qvink, картинки NAI вне пересказов, видимые теги BunnyMo, кнопка векторизации CK и полоса портретов DES на телефоне.\n- **Листы персонажей** — команды BunnyMo генерируются своей сборкой промпта, без хвоста сцены и трекера, сворачиваются и уходят из промпта после следующего хода.\n- **Мастер первого запуска.**\n\n## 0.0.0 — этап 0\n\nКаркас: слой ST, сервисы ядра, адаптеры соседей, пульт, стенд с имитацией модели.\n";
 //#endregion
 //#region README.md?raw
-var README_default = "# Maestro\n\nРасширение-дирижёр для SillyTavern. Оно связывает DES, Qvink Memory, BunnyMo и CarrotKernel, NAI Studio, DES-RU и Lorebook Localizer в одну систему. Maestro держит канон истории согласованным, показывает, из чего собран каждый ход, само чинит типовые сбои и ведёт сцену с минимальным участием пользователя.\n\n**Статус:** 1.11.0 — выполнены все этапы 0–13 плана разработки; идут обновления по [`docs/plan-2.md`](docs/plan-2.md) (выпуски 1.11–1.15). Список изменений — [`CHANGELOG.md`](CHANGELOG.md).\n\n## Что умеет сейчас\n\n- **Пульт** — одно окно со всем, что делает Maestro, по разделам: обзор стека, «Входящие» с предложениями, журнал с откатом каждого действия, блоки настроек соседей в доке «Расширения».\n- **Ассистент** — переписка в пульте: объясняет, почему что-то произошло в чате, диагностирует стек и делает изменения — каждое только после твоего подтверждения и с откатом.\n- **Стиль сообщений** — редактор правил, как выглядят повествование, диалоги и мысли у игрока и персонажей; пресеты от «Классики» до «Сценария».\n- **Единый стиль** — SillyTavern, чат и расширения в одном оформлении поверх твоей темы ST; выключил — всё как было.\n- **Наблюдение** — какой лор ушёл в промпт и почему, из чего собран промпт хода, здоровье соседей, страж настроек и вкладок.\n- **Правила на лету** — исправления известных «углов» стека при каждом сканировании, без правки файлов: роли записей, потолки книг, кириллица и «целые слова», дубли и версии паков BunnyMo, «дыры» Qvink и другое.\n- **Листы персонажей** — команды BunnyMo генерируются своей сборкой промпта и сворачиваются.\n- **Лор-студия** — редактор лорбуков рядом со штатным окном: книги по ролям, все поля записи, история версий, русские ключи, кампании DES.\n- **Канон чата** — изменения сюжета живут в отдельном лорбуке чата и не трогают твои книги.\n- **Модель мира, досье, места, отношения** — одна страница на персонажа или место со всем, что знает стек; места и отношения записываются по ходу игры.\n- **Режим BunnyMo** — словарь тегов, паки по чатам, редактор листов. Файлы паков не меняются никогда.\n- **Ревизия и живой канон** — канон следует за историей: перемены у известных персонажей приходят предложениями во «Входящие», придуманное моделью сохраняется пробным и подтверждается по правилам; летопись, автопамять Qvink и «Ранее в истории…».\n- **Замеры** — как Maestro справляется с критериями первой полной версии, по живой игре.\n- **Пресет-студия** — карта сборки промпта, анализ, версии и твой слой поверх базового пресета: обновление Marinara не теряет твоих правок.\n- **Визуальная связка** — наряды и состояния персонажей и мест в паспортах NAI Studio, паспорта у записей лора, фон чата по месту, «Оформить» нового NPC одной кнопкой.\n- **Механики** — свои статы, магия, репутация, деньги, навыки: конструктор и шаблоны, учёт через статы DES, служебный блок или фоновый разбор, броски Maestro фактом в промпт, виджеты под портретами DES.\n- **Живой мир** — закулисье отсутствующих персонажей, календарь и обещания по времени истории, «кто что знает» (экспериментально).\n- **Режиссура** — тип сцены и одноразовые флаги для условных блоков пресета, заметки режиссёра при застое, голосовые карточки присутствующих вместо вставки CarrotKernel.\n- **Архитектор промпта и казначей** — бюджеты по источникам, лор тех, кто рядом, повторы фактов, кэш провайдера; расходы по ходам, дням и источникам.\n- **Контроль качества** — отказы, ответ за тебя, уход в английский, повторы, мусор и обрезка ловятся сразу; переделка одной кнопкой или сама; картинки NAI ждут проверки.\n\n## Требования\n\n- SillyTavern 1.19, Chat Completion.\n- Работает с любым набором соседей; для всех возможностей — DES 2.6, DES-RU 0.8.2+, Lorebook Localizer 0.3+, NAI Studio 0.14+, Qvink Memory, BunnyMo V3.0 и CarrotKernel.\n- Для `{{if}}` в пресете — новый движок макросов ST (мастер первого запуска проверяет).\n\n## Установка\n\n«Установить расширение» в SillyTavern → адрес этого репозитория. После установки откроется мастер первого запуска.\n\n## Документы\n\n- Функциональный план: [`docs/plan.md`](docs/plan.md); обновления после 1.10: [`docs/plan-2.md`](docs/plan-2.md)\n- План разработки: [`docs/dev-plan.md`](docs/dev-plan.md)\n- Устройство кода: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)\n- Отчёты этапов: [`docs/reports/`](docs/reports/)\n- Паритет студий со штатными окнами: [`docs/parity/lore-studio.md`](docs/parity/lore-studio.md), [`docs/parity/preset-studio.md`](docs/parity/preset-studio.md)\n- Исследование стека: [`docs/research/`](docs/research/)\n\nЛицензия: AGPL-3.0.\n";
+var README_default = "# Maestro\n\nРасширение-дирижёр для SillyTavern. Оно связывает DES, Qvink Memory, BunnyMo и CarrotKernel, NAI Studio, DES-RU и Lorebook Localizer в одну систему. Maestro держит канон истории согласованным, показывает, из чего собран каждый ход, само чинит типовые сбои и ведёт сцену с минимальным участием пользователя.\n\n**Статус:** 1.12.0 — выполнены все этапы 0–13 плана разработки; идут обновления по [`docs/plan-2.md`](docs/plan-2.md) (выпуски 1.11–1.15). Список изменений — [`CHANGELOG.md`](CHANGELOG.md).\n\n## Что умеет сейчас\n\n- **Окна** — боковые панели и плавающие окна по разделам: ассистент, «Входящие», персонажи, механики, мир, канон, ход, здоровье, журнал с откатом каждого действия, блоки настроек соседей; строка Maestro под сообщениями с предложениями и фактами прямо в чате.\n- **Ассистент** — переписка в пульте: объясняет, почему что-то произошло в чате, диагностирует стек и делает изменения — каждое только после твоего подтверждения и с откатом.\n- **Стиль сообщений** — редактор правил, как выглядят повествование, диалоги и мысли у игрока и персонажей; пресеты от «Классики» до «Сценария».\n- **Единый стиль** — SillyTavern, чат и расширения в одном оформлении поверх твоей темы ST; выключил — всё как было.\n- **Наблюдение** — какой лор ушёл в промпт и почему, из чего собран промпт хода, здоровье соседей, страж настроек и вкладок.\n- **Правила на лету** — исправления известных «углов» стека при каждом сканировании, без правки файлов: роли записей, потолки книг, кириллица и «целые слова», дубли и версии паков BunnyMo, «дыры» Qvink и другое.\n- **Листы персонажей** — команды BunnyMo генерируются своей сборкой промпта и сворачиваются.\n- **Лор-студия** — редактор лорбуков рядом со штатным окном: книги по ролям, все поля записи, история версий, русские ключи, кампании DES.\n- **Канон чата** — изменения сюжета живут в отдельном лорбуке чата и не трогают твои книги.\n- **Модель мира, досье, места, отношения** — одна страница на персонажа или место со всем, что знает стек; места и отношения записываются по ходу игры.\n- **Режим BunnyMo** — словарь тегов, паки по чатам, редактор листов. Файлы паков не меняются никогда.\n- **Ревизия и живой канон** — канон следует за историей: перемены у известных персонажей приходят предложениями во «Входящие», придуманное моделью сохраняется пробным и подтверждается по правилам; летопись, автопамять Qvink и «Ранее в истории…».\n- **Замеры** — как Maestro справляется с критериями первой полной версии, по живой игре.\n- **Пресет-студия** — карта сборки промпта, анализ, версии и твой слой поверх базового пресета: обновление Marinara не теряет твоих правок.\n- **Визуальная связка** — наряды и состояния персонажей и мест в паспортах NAI Studio, паспорта у записей лора, фон чата по месту, «Оформить» нового NPC одной кнопкой.\n- **Механики** — свои статы, магия, репутация, деньги, навыки: конструктор и шаблоны, учёт через статы DES, служебный блок или фоновый разбор, броски Maestro фактом в промпт, виджеты под портретами DES.\n- **Живой мир** — закулисье отсутствующих персонажей, календарь и обещания по времени истории, «кто что знает» (экспериментально).\n- **Режиссура** — тип сцены и одноразовые флаги для условных блоков пресета, заметки режиссёра при застое, голосовые карточки присутствующих вместо вставки CarrotKernel.\n- **Архитектор промпта и казначей** — бюджеты по источникам, лор тех, кто рядом, повторы фактов, кэш провайдера; расходы по ходам, дням и источникам.\n- **Контроль качества** — отказы, ответ за тебя, уход в английский, повторы, мусор и обрезка ловятся сразу; переделка одной кнопкой или сама; картинки NAI ждут проверки.\n\n## Требования\n\n- SillyTavern 1.19, Chat Completion.\n- Работает с любым набором соседей; для всех возможностей — DES 2.6, DES-RU 0.8.2+, Lorebook Localizer 0.3+, NAI Studio 0.14+, Qvink Memory, BunnyMo V3.0 и CarrotKernel.\n- Для `{{if}}` в пресете — новый движок макросов ST (мастер первого запуска проверяет).\n\n## Установка\n\n«Установить расширение» в SillyTavern → адрес этого репозитория. После установки откроется мастер первого запуска.\n\n## Документы\n\n- Функциональный план: [`docs/plan.md`](docs/plan.md); обновления после 1.10: [`docs/plan-2.md`](docs/plan-2.md)\n- План разработки: [`docs/dev-plan.md`](docs/dev-plan.md)\n- Устройство кода: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)\n- Отчёты этапов: [`docs/reports/`](docs/reports/)\n- Паритет студий со штатными окнами: [`docs/parity/lore-studio.md`](docs/parity/lore-studio.md), [`docs/parity/preset-studio.md`](docs/parity/preset-studio.md)\n- Исследование стека: [`docs/research/`](docs/research/)\n\nЛицензия: AGPL-3.0.\n";
 var GUIDE_TOPICS = [
 	{
 		id: "lore-miss",
@@ -26303,8 +28451,8 @@ var GUIDE_TOPICS = [
 			"история",
 			"rollback"
 		],
-		en: ["The journal and undo", "Everything Maestro does is recorded in the journal (pult → Journal) with what changed (before/after) and can be undone one by one; a swipe, deletion or edit of a reply undoes what that reply caused (only the unconfirmed and provisional — confirmed canon stays). The assistant's confirmed changes are journaled the same way.\nTools: journal_recent (module filter)."],
-		ru: ["Журнал и откат", "Всё, что делает Maestro, записывается в журнал (пульт → Журнал) с тем, что изменилось («было/стало»), и откатывается по одному действию; свайп, удаление или правка ответа откатывают то, что дал этот ответ (только непринятое и пробное — подтверждённый канон остаётся). Подтверждённые изменения ассистента журналируются так же.\nИнструменты: journal_recent (фильтр по модулю)."]
+		en: ["The journal and undo", "Everything Maestro does is recorded in the journal (the «Maestro» window → «Journal»; /maestro-undo takes back the latest) with what changed (before/after) and can be undone one by one; a swipe, deletion or edit of a reply undoes what that reply caused (only the unconfirmed and provisional — confirmed canon stays). The assistant's confirmed changes are journaled the same way.\nTools: journal_recent (module filter)."],
+		ru: ["Журнал и откат", "Всё, что делает Maestro, записывается в журнал (окно «Maestro» → «Журнал»; /maestro-undo отменяет последнее) с тем, что изменилось («было/стало»), и откатывается по одному действию; свайп, удаление или правка ответа откатывают то, что дал этот ответ (только непринятое и пробное — подтверждённый канон остаётся). Подтверждённые изменения ассистента журналируются так же.\nИнструменты: journal_recent (фильтр по модулю)."]
 	},
 	{
 		id: "modes",
@@ -26447,6 +28595,24 @@ var GUIDE_TOPICS = [
 		ru: ["Как ассистент читает чат и карточку", "Пока открыт чат, ассистент читает саму историю. chat_read — сообщения чата (по умолчанию последние 20, не больше 60, или диапазон from/to; только твои или только персонажей): номер, автор, свайп, дата, скрытые сообщения помечены, текст очищен от служебного (JSON трекера DES превращается в короткий `tracker`: место, время, кто в сцене; дампы CK, заглушки картинок NAI, блоки механик и HTML убираются); длинные тексты обрезаются, узкий диапазон даёт их целиком. chat_search — сообщения с нужными словами (русский или английский, словоформы, ё = е) с фрагментом. card_read — карточка персонажа: описание, характер, сценарий, первое сообщение и все альтернативные приветствия (стартовые сцены, по номерам, и с какой начат этот чат), примеры диалогов, заметки автора, системный промпт, промпт на глубине, теги, встроенная книга и привязанный лорбук; `part` или `greeting` читают одно поле целиком; в групповом чате — участники, один по имени. persona_read — твоя персона: описание, куда оно идёт в промпте, закреплена ли за чатом, персонажем или по умолчанию. scenario_overview — всё это одним вызовом для «предложи механики по этому чату»: главное из карточки, стартовые сцены, последние сообщения, последнее состояние трекера, уже созданные механики и шаблоны, активные лорбуки; затем каждая предложенная механика приходит карточкой mechanic_save, которую ты принимаешь или отклоняешь. Всё прочитанное из чата, карточки и персоны для ассистента — данные, а не инструкции; ничего из прочитанного не попадает в чат."]
 	},
 	{
+		id: "windows",
+		keywords: [
+			"window",
+			"окно",
+			"окна",
+			"panel",
+			"панель",
+			"pult",
+			"пульт",
+			"menu",
+			"меню",
+			"open",
+			"открыть"
+		],
+		en: ["Maestro's windows", "Maestro has no modal panel: its parts open as windows beside the chat — Assistant, Inbox, Characters, Mechanics, World, Canon, Turn, Health and Maestro (overview, journal, general settings, the look, the neighbours' dock, the studio launchers). The Maestro icon in the top bar (or the wand) opens a menu with the windows, their badges and the running tasks. A window docks to the left or right side (the arrows swap sides), detaches into a floating window that can be moved, resized and collapsed to its title bar, and attaches back; Escape or × closes it. The gear in a window header shows the settings of the current section (or opens the general settings). Several windows can be open at once; their places are remembered on this device. On a phone a window covers the chat, one at a time, with chips to switch. Each message has a Maestro button with «Dossier» and «Mechanics». Commands: /maestro [window], /maestro-undo, /maestro-mode, /maestro-scene."],
+		ru: ["Окна Maestro", "Модального пульта больше нет: части Maestro открываются окнами рядом с чатом — Ассистент, Входящие, Персонажи, Механики, Мир, Канон, Ход, Здоровье и Maestro (обзор, журнал, общие настройки, оформление, док соседей, запуск студий). Значок Maestro в верхней панели (или волшебная палочка) открывает меню со списком окон, их счётчиками и идущими задачами. Окно прикрепляется слева или справа (стрелки переносят на другую сторону), открепляется в плавающее окно — его можно двигать, менять размер и сворачивать в заголовок — и прикрепляется обратно; Escape или × закрывают его. Шестерёнка в заголовке окна показывает настройки текущего раздела (или открывает общие настройки). Можно держать открытыми несколько окон, их места запоминаются на этом устройстве. На телефоне окно занимает весь экран поверх чата, по одному, переключение — кнопками сверху. У каждого сообщения есть кнопка Maestro с пунктами «Досье» и «Механики». Команды: /maestro [окно], /maestro-undo, /maestro-mode, /maestro-scene."]
+	},
+	{
 		id: "unsupported",
 		keywords: [
 			"group chat",
@@ -26487,8 +28653,8 @@ var MODULE_TOPICS = [
 			"recursion",
 			"рекурсия"
 		],
-		en: ["Lore journal (M1)", "Records which lorebook entries reached the prompt on every turn and why: the key that matched, recursion (which entry pulled which), constant entries, entries cut by the budget or by a Maestro rule, why a book is active (global, character, chat, persona, DES campaign, CK). «What if» runs a dry scan without generating.\nWhere: pult → Turn → «Turn lore».\nQuestions: why did/didn't an entry fire, which entries eat the budget, which entries never fire.\nTools: lore_turn (with name for «why did X not …»), lore_entry, lore_search."],
-		ru: ["Журнал лора (M1)", "Записывает, какие записи лорбуков ушли в промпт на каждом ходу и почему: какой ключ совпал, рекурсия (какая запись подтянула какую), постоянные записи, срезанные бюджетом или правилом Maestro, почему книга активна (глобально, карточка, чат, персона, кампания DES, CK). «Что если» — пробное сканирование без генерации.\nГде: пульт → Ход → «Лор хода».\nВопросы: почему запись сработала или нет, какие записи съедают бюджет, какие не срабатывают никогда.\nИнструменты: lore_turn (с name для «почему X не …»), lore_entry, lore_search."]
+		en: ["Lore journal (M1)", "Records which lorebook entries reached the prompt on every turn and why: the key that matched, recursion (which entry pulled which), constant entries, entries cut by the budget or by a Maestro rule, why a book is active (global, character, chat, persona, DES campaign, CK). «What if» runs a dry scan without generating.\nWhere: the «Turn» window → «Turn lore».\nQuestions: why did/didn't an entry fire, which entries eat the budget, which entries never fire.\nTools: lore_turn (with name for «why did X not …»), lore_entry, lore_search."],
+		ru: ["Журнал лора (M1)", "Записывает, какие записи лорбуков ушли в промпт на каждом ходу и почему: какой ключ совпал, рекурсия (какая запись подтянула какую), постоянные записи, срезанные бюджетом или правилом Maestro, почему книга активна (глобально, карточка, чат, персона, кампания DES, CK). «Что если» — пробное сканирование без генерации.\nГде: окно «Ход» → «Лор хода».\nВопросы: почему запись сработала или нет, какие записи съедают бюджет, какие не срабатывают никогда.\nИнструменты: lore_turn (с name для «почему X не …»), lore_entry, lore_search."]
 	},
 	{
 		key: "inspector",
@@ -26503,8 +28669,8 @@ var MODULE_TOPICS = [
 			"sources",
 			"источники"
 		],
-		en: ["Turn inspector (M2)", "Shows what the prompt of each turn was made of: preset blocks, card, lore by book, neighbour injections (DES, CK, Qvink, NAI Studio, DES-RU, Maestro), chat history, with token weights (reconstructed: ST glues injections of the same depth). Rules of the architect show their before/after here.\nWhere: pult → Turn → «Turn prompt».\nQuestions: why is the prompt so big, which extension adds the most, where did history go.\nTools: turn_prompt, cost_turn."],
-		ru: ["Инспектор хода (M2)", "Показывает, из чего собран промпт каждого хода: блоки пресета, карточка, лор по книгам, вставки соседей (DES, CK, Qvink, NAI Studio, DES-RU, Maestro), история чата — с весом в токенах (восстановленным: ST склеивает вставки одной глубины). Правила архитектора показывают здесь «до и после».\nГде: пульт → Ход → «Промпт хода».\nВопросы: почему промпт такой большой, какое расширение добавляет больше всех, куда делась история.\nИнструменты: turn_prompt, cost_turn."]
+		en: ["Turn inspector (M2)", "Shows what the prompt of each turn was made of: preset blocks, card, lore by book, neighbour injections (DES, CK, Qvink, NAI Studio, DES-RU, Maestro), chat history, with token weights (reconstructed: ST glues injections of the same depth). Rules of the architect show their before/after here.\nWhere: the «Turn» window → «Turn prompt».\nQuestions: why is the prompt so big, which extension adds the most, where did history go.\nTools: turn_prompt, cost_turn."],
+		ru: ["Инспектор хода (M2)", "Показывает, из чего собран промпт каждого хода: блоки пресета, карточка, лор по книгам, вставки соседей (DES, CK, Qvink, NAI Studio, DES-RU, Maestro), история чата — с весом в токенах (восстановленным: ST склеивает вставки одной глубины). Правила архитектора показывают здесь «до и после».\nГде: окно «Ход» → «Промпт хода».\nВопросы: почему промпт такой большой, какое расширение добавляет больше всех, куда делась история.\nИнструменты: turn_prompt, cost_turn."]
 	},
 	{
 		key: "medic",
@@ -26519,8 +28685,8 @@ var MODULE_TOPICS = [
 			"ремонт",
 			"des json"
 		],
-		en: ["Medic (M3)", "Checks the neighbours after every reply: the DES tracker JSON is present and valid (repairs it through DES's own update path, or the cheap model as a fallback), DES/Qvink/lore health, and warns about an assistant-role prefill (DeepSeek through OpenRouter turns it into code-like replies).\nWhere: pult → Health → «Health» (checks with «Fix» buttons).\nQuestions: the tracker did not update, «нет трекера DES», odd replies after a prefill.\nTools: maestro_health."],
-		ru: ["Медик (M3)", "Проверяет соседей после каждого ответа: есть ли и цел ли JSON трекера DES (чинит через собственный путь обновления DES, запасной путь — дешёвая модель), здоровье DES, Qvink и лора; предупреждает о prefill с ролью assistant (DeepSeek через OpenRouter отвечает «кодом»).\nГде: пульт → Здоровье → «Здоровье» (проверки с кнопкой «Исправить»).\nВопросы: трекер не обновился, нет трекера DES, странные ответы после prefill.\nИнструменты: maestro_health."]
+		en: ["Medic (M3)", "Checks the neighbours after every reply: the DES tracker JSON is present and valid (repairs it through DES's own update path, or the cheap model as a fallback), DES/Qvink/lore health, and warns about an assistant-role prefill (DeepSeek through OpenRouter turns it into code-like replies).\nWhere: the «Health» window → «Health» (checks with «Fix» buttons).\nQuestions: the tracker did not update, «нет трекера DES», odd replies after a prefill.\nTools: maestro_health."],
+		ru: ["Медик (M3)", "Проверяет соседей после каждого ответа: есть ли и цел ли JSON трекера DES (чинит через собственный путь обновления DES, запасной путь — дешёвая модель), здоровье DES, Qvink и лора; предупреждает о prefill с ролью assistant (DeepSeek через OpenRouter отвечает «кодом»).\nГде: окно «Здоровье» → «Здоровье» (проверки с кнопкой «Исправить»).\nВопросы: трекер не обновился, нет трекера DES, странные ответы после prefill.\nИнструменты: maestro_health."]
 	},
 	{
 		key: "guardian",
@@ -26536,8 +28702,8 @@ var MODULE_TOPICS = [
 			"вкладка",
 			"stale"
 		],
-		en: ["Settings and tab guardian (M4)", "Keeps a baseline of tracked ST settings and the active preset; drift (something changed outside Maestro) goes to the Inbox with «restore». The tab guard stops a stale browser tab (another tab or device saved later) from overwriting settings, presets and lorebooks.\nWhere: pult → Health → «Guardian».\nQuestions: settings rolled back by themselves, «вкладка устарела», what changed since the baseline.\nTools: maestro_health (tab state), journal_recent, inbox_list."],
-		ru: ["Страж настроек и вкладок (M4)", "Держит эталон отслеживаемых настроек ST и активного пресета; дрейф (что-то изменилось мимо Maestro) приходит во «Входящие» с возможностью вернуть. Страж вкладок не даёт устаревшей вкладке (другая вкладка или устройство сохранили позже) перезаписать настройки, пресеты и лорбуки.\nГде: пульт → Здоровье → «Страж».\nВопросы: настройки откатились сами, «вкладка устарела», что изменилось с эталона.\nИнструменты: maestro_health (состояние вкладки), journal_recent, inbox_list."]
+		en: ["Settings and tab guardian (M4)", "Keeps a baseline of tracked ST settings and the active preset; drift (something changed outside Maestro) goes to the Inbox with «restore». The tab guard stops a stale browser tab (another tab or device saved later) from overwriting settings, presets and lorebooks.\nWhere: the «Health» window → «Guardian».\nQuestions: settings rolled back by themselves, «вкладка устарела», what changed since the baseline.\nTools: maestro_health (tab state), journal_recent, inbox_list."],
+		ru: ["Страж настроек и вкладок (M4)", "Держит эталон отслеживаемых настроек ST и активного пресета; дрейф (что-то изменилось мимо Maestro) приходит во «Входящие» с возможностью вернуть. Страж вкладок не даёт устаревшей вкладке (другая вкладка или устройство сохранили позже) перезаписать настройки, пресеты и лорбуки.\nГде: окно «Здоровье» → «Страж».\nВопросы: настройки откатились сами, «вкладка устарела», что изменилось с эталона.\nИнструменты: maestro_health (состояние вкладки), journal_recent, inbox_list."]
 	},
 	{
 		key: "doctor",
@@ -26554,8 +28720,8 @@ var MODULE_TOPICS = [
 			"keys",
 			"ключи"
 		],
-		en: ["Doctor (M5)", "Scans the active lorebooks and all regex scripts: duplicate and conflicting BunnyMo packs, recursion chains and «vacuum» entries, assistant role at depth, CK archive problems, keys without Russian forms, Cyrillic whole-word keys, budget overflow; regexes that break the DES JSON or NAI markers, strip BunnyMo tags, duplicates, dead and conflicting scripts. «Fix in file» for your own books (never BunnyMo packs) and regex treatment, all undoable. Regex test bench.\nWhere: pult → Health → «Doctor».\nQuestions: what is wrong with my lore/regexes, why tags disappear from sheets.\nTools: regex_list, regex_explain, regex_test, maestro_health."],
-		ru: ["Доктор (M5)", "Проверяет активные лорбуки и все регексы: дубли и конфликты паков BunnyMo, цепочки рекурсии и записи-«пылесосы», роль assistant на глубине, проблемы архивов CK, ключи без русских форм, кириллица с «целыми словами», переполнение бюджета; регексы, которые ломают JSON DES или маркеры NAI, срезают теги BunnyMo, дубли, мёртвые и конфликтующие. «Исправить в файле» для твоих книг (паки BunnyMo — никогда) и лечение регексов, всё с откатом. Испытание регексов.\nГде: пульт → Здоровье → «Доктор».\nВопросы: что не так с моим лором и регексами, почему пропадают теги в листах.\nИнструменты: regex_list, regex_explain, regex_test, maestro_health."]
+		en: ["Doctor (M5)", "Scans the active lorebooks and all regex scripts: duplicate and conflicting BunnyMo packs, recursion chains and «vacuum» entries, assistant role at depth, CK archive problems, keys without Russian forms, Cyrillic whole-word keys, budget overflow; regexes that break the DES JSON or NAI markers, strip BunnyMo tags, duplicates, dead and conflicting scripts. «Fix in file» for your own books (never BunnyMo packs) and regex treatment, all undoable. Regex test bench.\nWhere: the «Health» window → «Doctor».\nQuestions: what is wrong with my lore/regexes, why tags disappear from sheets.\nTools: regex_list, regex_explain, regex_test, maestro_health."],
+		ru: ["Доктор (M5)", "Проверяет активные лорбуки и все регексы: дубли и конфликты паков BunnyMo, цепочки рекурсии и записи-«пылесосы», роль assistant на глубине, проблемы архивов CK, ключи без русских форм, кириллица с «целыми словами», переполнение бюджета; регексы, которые ломают JSON DES или маркеры NAI, срезают теги BunnyMo, дубли, мёртвые и конфликтующие. «Исправить в файле» для твоих книг (паки BunnyMo — никогда) и лечение регексов, всё с откатом. Испытание регексов.\nГде: окно «Здоровье» → «Доктор».\nВопросы: что не так с моим лором и регексами, почему пропадают теги в листах.\nИнструменты: regex_list, regex_explain, regex_test, maestro_health."]
 	},
 	{
 		key: "rules",
@@ -26571,8 +28737,8 @@ var MODULE_TOPICS = [
 			"кириллица",
 			"cap"
 		],
-		en: ["Rules on the fly (M22)", "Fixes known corners of the stack at every scan without editing files: assistant role → system, book cap and recursion limit, byte-identical pack duplicates, pack version conflicts, Cyrillic keys and whole words (left boundary only), Qvink «gaps» (messages dropped before they were summarised), NAI picture posts in Qvink, visible BunnyMo tags, <NSFW> in archives, CK archive depth, DES portrait bar on phones. Each rule can be switched off and shows its effect in the turn inspector.\nWhere: pult → Health → «Rules».\nTools: maestro_settings(rules), turn_prompt."],
-		ru: ["Правила на лету (M22)", "Чинят известные «углы» стека при каждом сканировании, не правя файлы: роль assistant → system, потолок книги и лимит рекурсии, побайтные дубли паков, конфликт версий паков, кириллица и «целые слова» (граница только слева), «дыры» Qvink (сообщения выпали из промпта до пересказа), посты-картинки NAI в Qvink, видимые теги BunnyMo, <NSFW> в архивах, глубина архивов CK, полоса портретов DES на телефоне. Каждое правило выключается отдельно и показывает эффект в инспекторе хода.\nГде: пульт → Здоровье → «Правила».\nИнструменты: maestro_settings(rules), turn_prompt."]
+		en: ["Rules on the fly (M22)", "Fixes known corners of the stack at every scan without editing files: assistant role → system, book cap and recursion limit, byte-identical pack duplicates, pack version conflicts, Cyrillic keys and whole words (left boundary only), Qvink «gaps» (messages dropped before they were summarised), NAI picture posts in Qvink, visible BunnyMo tags, <NSFW> in archives, CK archive depth, DES portrait bar on phones. Each rule can be switched off and shows its effect in the turn inspector.\nWhere: the «Health» window → «Rules».\nTools: maestro_settings(rules), turn_prompt."],
+		ru: ["Правила на лету (M22)", "Чинят известные «углы» стека при каждом сканировании, не правя файлы: роль assistant → system, потолок книги и лимит рекурсии, побайтные дубли паков, конфликт версий паков, кириллица и «целые слова» (граница только слева), «дыры» Qvink (сообщения выпали из промпта до пересказа), посты-картинки NAI в Qvink, видимые теги BunnyMo, <NSFW> в архивах, глубина архивов CK, полоса портретов DES на телефоне. Каждое правило выключается отдельно и показывает эффект в инспекторе хода.\nГде: окно «Здоровье» → «Правила».\nИнструменты: maestro_settings(rules), turn_prompt."]
 	},
 	{
 		key: "scenarios",
@@ -26645,8 +28811,8 @@ var MODULE_TOPICS = [
 			"pin",
 			"закрепление"
 		],
-		en: ["Chat canon (M6)", "Story changes live in a separate lorebook of the chat («Maestro · канон · …»), never in your books: overrides (replace a base entry's text for this chat), suppressions, pins (force an entry in), additions. Canon entries are English with Russian keys; a canon budget, archive of dormant items, drift of the base, «make canon for all chats» (asks), export as a plain book, branches follow the journal.\nWhere: pult → Canon → «Canon».\nQuestions: why the character still remembers the old fact (check the override), what the canon says about X.\nTools: canon_list, lore_turn, dossier."],
-		ru: ["Канон чата (M6)", "Изменения сюжета живут в отдельном лорбуке чата («Maestro · канон · …»), а не в твоих книгах: переопределения (заменить текст записи базы для этого чата), подавления, закрепления (принудительно включить запись), добавления. Записи канона — на английском с русскими ключами; бюджет канона, архив спящих, слежение за базой, «сделать каноном для всех чатов» (с вопросом), экспорт обычной книгой, ветки по журналу.\nГде: пульт → Канон → «Канон».\nВопросы: почему персонаж помнит старый факт (проверь переопределение), что канон говорит о X.\nИнструменты: canon_list, lore_turn, dossier."]
+		en: ["Chat canon (M6)", "Story changes live in a separate lorebook of the chat («Maestro · канон · …»), never in your books: overrides (replace a base entry's text for this chat), suppressions, pins (force an entry in), additions. Canon entries are English with Russian keys; a canon budget, archive of dormant items, drift of the base, «make canon for all chats» (asks), export as a plain book, branches follow the journal.\nWhere: the «Canon» window → «Canon».\nQuestions: why the character still remembers the old fact (check the override), what the canon says about X.\nTools: canon_list, lore_turn, dossier."],
+		ru: ["Канон чата (M6)", "Изменения сюжета живут в отдельном лорбуке чата («Maestro · канон · …»), а не в твоих книгах: переопределения (заменить текст записи базы для этого чата), подавления, закрепления (принудительно включить запись), добавления. Записи канона — на английском с русскими ключами; бюджет канона, архив спящих, слежение за базой, «сделать каноном для всех чатов» (с вопросом), экспорт обычной книгой, ветки по журналу.\nГде: окно «Канон» → «Канон».\nВопросы: почему персонаж помнит старый факт (проверь переопределение), что канон говорит о X.\nИнструменты: canon_list, lore_turn, dossier."]
 	},
 	{
 		key: "loreStudio",
@@ -26660,8 +28826,8 @@ var MODULE_TOPICS = [
 			"записи",
 			"des campaigns"
 		],
-		en: ["Lore Studio (M23)", "Maestro's lorebook editor next to ST's window: books by role, every field and action of the native editor, the chat canon next to the base, version history per entry, Russian keys (Localizer), DES campaigns and auto-linking, entry types (place, mechanic, tradition…) and passports. Can take over the «Worlds/Lorebooks» button (setting).\nWhere: pult → Canon → «Lore Studio» (opens a big window).\nTools: lore_search, lore_entry."],
-		ru: ["Лор-студия (M23)", "Редактор лорбуков Maestro рядом со штатным окном: книги по ролям, все поля и действия штатного редактора, канон чата рядом с базой, история версий каждой записи, русские ключи (Localizer), кампании и автопривязка DES, типы записей (место, механика, традиция…) и паспорта. Может забрать кнопку «Миры и лорбуки» (настройка).\nГде: пульт → Канон → «Лор-студия» (большое окно).\nИнструменты: lore_search, lore_entry."]
+		en: ["Lore Studio (M23)", "Maestro's lorebook editor next to ST's window: books by role, every field and action of the native editor, the chat canon next to the base, version history per entry, Russian keys (Localizer), DES campaigns and auto-linking, entry types (place, mechanic, tradition…) and passports. Can take over the «Worlds/Lorebooks» button (setting).\nWhere: the «Maestro» window → «Lore Studio» (opens its own window).\nTools: lore_search, lore_entry."],
+		ru: ["Лор-студия (M23)", "Редактор лорбуков Maestro рядом со штатным окном: книги по ролям, все поля и действия штатного редактора, канон чата рядом с базой, история версий каждой записи, русские ключи (Localizer), кампании и автопривязка DES, типы записей (место, механика, традиция…) и паспорта. Может забрать кнопку «Миры и лорбуки» (настройка).\nГде: окно «Maestro» → «Лор-студия» (открывает своё окно).\nИнструменты: lore_search, lore_entry."]
 	},
 	{
 		key: "places",
@@ -26675,8 +28841,8 @@ var MODULE_TOPICS = [
 			"визиты",
 			"nesting"
 		],
-		en: ["Places (M24)", "The chat's place registry from the DES location: a new name becomes a place after two turns in a row; nesting (city → district → building → room), aliases with case forms, visit history (who was there, when), a description entry of type «place» in the canon, state and background (stage 10). NAI Studio keeps location continuity by place id.\nWhere: pult → World → «Places».\nTools: places_current, dossier."],
-		ru: ["Места (M24)", "Реестр мест чата по локации DES: новое название становится местом, если продержалось два хода подряд; вложенность (город → район → здание → комната), алиасы с падежами, история визитов (кто был и когда), описание — запись типа «место» в каноне, состояние и фон (этап 10). NAI Studio держит непрерывность локаций по id места.\nГде: пульт → Мир → «Места».\nИнструменты: places_current, dossier."]
+		en: ["Places (M24)", "The chat's place registry from the DES location: a new name becomes a place after two turns in a row; nesting (city → district → building → room), aliases with case forms, visit history (who was there, when), a description entry of type «place» in the canon, state and background (stage 10). NAI Studio keeps location continuity by place id.\nWhere: the «World» window → «Places».\nTools: places_current, dossier."],
+		ru: ["Места (M24)", "Реестр мест чата по локации DES: новое название становится местом, если продержалось два хода подряд; вложенность (город → район → здание → комната), алиасы с падежами, история визитов (кто был и когда), описание — запись типа «место» в каноне, состояние и фон (этап 10). NAI Studio держит непрерывность локаций по id места.\nГде: окно «Мир» → «Места».\nИнструменты: places_current, dossier."]
 	},
 	{
 		key: "world",
@@ -26692,8 +28858,8 @@ var MODULE_TOPICS = [
 			"склейка",
 			"identity"
 		],
-		en: ["World model (M7w)", "Every character, persona and place of the stack as one entity: cards, DES cast, DES and DES-RU aliases, case forms, NAI passports, CK archives, typed lore entries, canon and places. One person under different names is glued together; doubtful matches go to the Inbox. Chat-only nicknames.\nWhere: pult → World → «World».\nTools: dossier (resolves any name or case form)."],
-		ru: ["Модель мира (M7w)", "Каждый персонаж, персона и место стека — одной сущностью: карточки, состав DES, алиасы DES и DES-RU, падежи, паспорта NAI, архивы CK, записи лорбуков с типом, канон и места. Одно лицо под разными именами склеивается; сомнительные совпадения — во «Входящих». Прозвища, действующие только в этом чате.\nГде: пульт → Мир → «Мир».\nИнструменты: dossier (узнаёт любое имя и падеж)."]
+		en: ["World model (M7w)", "Every character, persona and place of the stack as one entity: cards, DES cast, DES and DES-RU aliases, case forms, NAI passports, CK archives, typed lore entries, canon and places. One person under different names is glued together; doubtful matches go to the Inbox. Chat-only nicknames.\nWhere: the «World» window → «World».\nTools: dossier (resolves any name or case form)."],
+		ru: ["Модель мира (M7w)", "Каждый персонаж, персона и место стека — одной сущностью: карточки, состав DES, алиасы DES и DES-RU, падежи, паспорта NAI, архивы CK, записи лорбуков с типом, канон и места. Одно лицо под разными именами склеивается; сомнительные совпадения — во «Входящих». Прозвища, действующие только в этом чате.\nГде: окно «Мир» → «Мир».\nИнструменты: dossier (узнаёт любое имя и падеж)."]
 	},
 	{
 		key: "relations",
@@ -26706,8 +28872,8 @@ var MODULE_TOPICS = [
 			"граф",
 			"attitude"
 		],
-		en: ["Relationships (M19)", "How characters relate to your persona (and to each other), turn by turn, from the DES tracker's relationship status and canon facts; the history is kept per chat. Voice cards use it.\nWhere: pult → World → «Relationships».\nTools: relations."],
-		ru: ["Граф отношений (M19)", "Как персонажи относятся к твоей персоне (и друг к другу), ход за ходом — по статусу отношений в трекере DES и фактам канона; история хранится по чату. Ею пользуются голосовые карточки.\nГде: пульт → Мир → «Отношения».\nИнструменты: relations."]
+		en: ["Relationships (M19)", "How characters relate to your persona (and to each other), turn by turn, from the DES tracker's relationship status and canon facts; the history is kept per chat. Voice cards use it.\nWhere: the «World» window → «Relationships».\nTools: relations."],
+		ru: ["Граф отношений (M19)", "Как персонажи относятся к твоей персоне (и друг к другу), ход за ходом — по статусу отношений в трекере DES и фактам канона; история хранится по чату. Ею пользуются голосовые карточки.\nГде: окно «Мир» → «Отношения».\nИнструменты: relations."]
 	},
 	{
 		key: "dossier",
@@ -26721,8 +28887,8 @@ var MODULE_TOPICS = [
 			"разнести",
 			"appearance"
 		],
-		en: ["Dossier (M7)", "One page per entity with everything the stack knows: DES, lore, canon, CK archive and tags, NAI passport (with this chat's changes), case forms, Qvink memories, RAG, the last sheet. Structural checks (no entry, passport or archive; an alias is not a key; names disagree), an AI appearance comparison on demand, «Spread» an edit to every store, «Make up» a new NPC in one click. Command /maestro-dossier.\nWhere: pult → Dossier → «Dossier».\nTools: dossier, wardrobe, relations, knowledge_who."],
-		ru: ["Досье (M7)", "Одна страница на сущность со всем, что знает стек: DES, лор, канон, архив CK и теги, паспорт NAI (с изменениями этого чата), падежи, воспоминания Qvink, RAG, последний лист. Сверка структуры (нет записи, паспорта или архива; алиас не стал ключом; имена расходятся), сверка внешности ИИ по кнопке, «Разнести» правку по хранилищам, «Оформить» нового NPC одной кнопкой. Команда /maestro-dossier.\nГде: пульт → Досье → «Досье».\nИнструменты: dossier, wardrobe, relations, knowledge_who."]
+		en: ["Dossier (M7)", "One page per entity with everything the stack knows: DES, lore, canon, CK archive and tags, NAI passport (with this chat's changes), case forms, Qvink memories, RAG, the last sheet. Structural checks (no entry, passport or archive; an alias is not a key; names disagree), an AI appearance comparison on demand, «Spread» an edit to every store, «Make up» a new NPC in one click. Command /maestro-dossier.\nWhere: the «Characters» window → «Dossier».\nTools: dossier, wardrobe, relations, knowledge_who."],
+		ru: ["Досье (M7)", "Одна страница на сущность со всем, что знает стек: DES, лор, канон, архив CK и теги, паспорт NAI (с изменениями этого чата), падежи, воспоминания Qvink, RAG, последний лист. Сверка структуры (нет записи, паспорта или архива; алиас не стал ключом; имена расходятся), сверка внешности ИИ по кнопке, «Разнести» правку по хранилищам, «Оформить» нового NPC одной кнопкой. Команда /maestro-dossier.\nГде: окно «Персонажи» → «Досье».\nИнструменты: dossier, wardrobe, relations, knowledge_who."]
 	},
 	{
 		key: "bunnymoMode",
@@ -26737,8 +28903,8 @@ var MODULE_TOPICS = [
 			"packs per chat",
 			"паки"
 		],
-		en: ["BunnyMo mode (M35b)", "The tag dictionary of all packs (conflicts, duplicates, tags without a pack), packs per chat (all or a choice), comparing a pack with a new file, integrity check, a sheet editor for CK archives. Pack files are never changed. Command /maestro-bunnymo.\nWhere: pult → Dossier → «BunnyMo».\nTools: docs_read(stack.bunnymo)."],
-		ru: ["Режим BunnyMo (M35b)", "Словарь тегов всех паков (конфликты, дубли, теги без пака), паки по чатам (все или выбор), сравнение пака с новым файлом, проверка целостности, редактор листов архивов CK. Файлы паков не меняются никогда. Команда /maestro-bunnymo.\nГде: пульт → Досье → «BunnyMo».\nИнструменты: docs_read(stack.bunnymo)."]
+		en: ["BunnyMo mode (M35b)", "The tag dictionary of all packs (conflicts, duplicates, tags without a pack), packs per chat (all or a choice), comparing a pack with a new file, integrity check, a sheet editor for CK archives. Pack files are never changed. Command /maestro-bunnymo.\nWhere: the «Characters» window → «BunnyMo».\nTools: docs_read(stack.bunnymo)."],
+		ru: ["Режим BunnyMo (M35b)", "Словарь тегов всех паков (конфликты, дубли, теги без пака), паки по чатам (все или выбор), сравнение пака с новым файлом, проверка целостности, редактор листов архивов CK. Файлы паков не меняются никогда. Команда /maestro-bunnymo.\nГде: окно «Персонажи» → «BunnyMo».\nИнструменты: docs_read(stack.bunnymo)."]
 	},
 	{
 		key: "signals",
@@ -26751,8 +28917,8 @@ var MODULE_TOPICS = [
 			"turn committed",
 			"changes"
 		],
-		en: ["Turn signals (S4)", "When you send a message the previous reply is final: Maestro compares its DES tracker and Qvink memory with the turn before (no AI) — relationship, lasting appearance, place, time skip, scene end, quests, who came and left, new aliases and names, memories. Free text counts only after holding two turns; a swipe or an edit undoes exactly what that reply gave. Signals feed the revision.\nWhere: pult → Canon → «Signals»."],
-		ru: ["Сигналы хода (S4)", "Когда ты отправляешь сообщение, прошлый ответ становится окончательным: Maestro без ИИ сравнивает его трекер DES и память Qvink с ходом раньше — отношения, стойкая внешность, место, пропуск времени, конец сцены, квесты, кто пришёл и ушёл, новые алиасы и имена, воспоминания. Свободный текст засчитывается, только продержавшись два хода; свайп и правка откатывают ровно то, что дал ответ. Сигналы питают ревизию.\nГде: пульт → Канон → «Сигналы»."]
+		en: ["Turn signals (S4)", "When you send a message the previous reply is final: Maestro compares its DES tracker and Qvink memory with the turn before (no AI) — relationship, lasting appearance, place, time skip, scene end, quests, who came and left, new aliases and names, memories. Free text counts only after holding two turns; a swipe or an edit undoes exactly what that reply gave. Signals feed the revision.\nWhere: the «Canon» window → «Signals»."],
+		ru: ["Сигналы хода (S4)", "Когда ты отправляешь сообщение, прошлый ответ становится окончательным: Maestro без ИИ сравнивает его трекер DES и память Qvink с ходом раньше — отношения, стойкая внешность, место, пропуск времени, конец сцены, квесты, кто пришёл и ушёл, новые алиасы и имена, воспоминания. Свободный текст засчитывается, только продержавшись два хода; свайп и правка откатывают ровно то, что дал ответ. Сигналы питают ревизию.\nГде: окно «Канон» → «Сигналы»."]
 	},
 	{
 		key: "contradictions",
@@ -26778,8 +28944,8 @@ var MODULE_TOPICS = [
 			"maestro-revise",
 			"inbox cards"
 		],
-		en: ["Revision «story → canon» (M8)", "On signals, every N messages, at a scene end or by /maestro-revise, the cheap model looks at what changed about KNOWN characters and places and proposes updates to the owner: chat canon, CK archive tags (dictionary only), NAI chat-level passport, chat nicknames, place registry; outfits, promises and secrets go to their modules. Proposals go through the autonomy levels and the Inbox.\nWhere: pult → Canon → «Revision».\nTools: inbox_list, journal_recent."],
-		ru: ["Ревизия «сюжет → канон» (M8)", "По сигналам, раз в N сообщений, в конце сцены или командой /maestro-revise дешёвая модель смотрит, что изменилось у ИЗВЕСТНЫХ персонажей и мест, и предлагает обновить владельца: канон чата, теги архива CK (только из словаря), паспорт NAI уровня чата, прозвища чата, реестр мест; наряды, обещания и секреты уходят своим модулям. Предложения идут по уровням автономии и через «Входящие».\nГде: пульт → Канон → «Ревизия».\nИнструменты: inbox_list, journal_recent."]
+		en: ["Revision «story → canon» (M8)", "On signals, every N messages, at a scene end or by /maestro-revise, the cheap model looks at what changed about KNOWN characters and places and proposes updates to the owner: chat canon, CK archive tags (dictionary only), NAI chat-level passport, chat nicknames, place registry; outfits, promises and secrets go to their modules. Proposals go through the autonomy levels and the Inbox.\nWhere: the «Canon» window → «Revision».\nTools: inbox_list, journal_recent."],
+		ru: ["Ревизия «сюжет → канон» (M8)", "По сигналам, раз в N сообщений, в конце сцены или командой /maestro-revise дешёвая модель смотрит, что изменилось у ИЗВЕСТНЫХ персонажей и мест, и предлагает обновить владельца: канон чата, теги архива CK (только из словаря), паспорт NAI уровня чата, прозвища чата, реестр мест; наряды, обещания и секреты уходят своим модулям. Предложения идут по уровням автономии и через «Входящие».\nГде: окно «Канон» → «Ревизия».\nИнструменты: inbox_list, journal_recent."]
 	},
 	{
 		key: "livingCanon",
@@ -26793,8 +28959,8 @@ var MODULE_TOPICS = [
 			"придумал",
 			"tradition"
 		],
-		en: ["Living canon (M26)", "What the model invented (a holiday, a tavern, a family history) becomes a provisional canon entry with Russian keys after the turn is committed; it is confirmed only if you mention or accept it, if it resurfaces unprompted, or after 10 turns without contradictions. A swipe removes the provisional, confirmed stays.\nWhere: pult → Canon → «Living canon».\nTools: canon_list(status=provisional)."],
-		ru: ["Живой канон (M26)", "То, что придумала модель (праздник, таверна, история рода), после фиксации хода становится пробной записью канона с русскими ключами; подтверждается, только если ты сам это упомянул или принял, если оно всплыло снова без подсказки или продержалось 10 ходов без противоречий. Свайп убирает пробное, подтверждённое остаётся.\nГде: пульт → Канон → «Живой канон».\nИнструменты: canon_list(status=provisional)."]
+		en: ["Living canon (M26)", "What the model invented (a holiday, a tavern, a family history) becomes a provisional canon entry with Russian keys after the turn is committed; it is confirmed only if you mention or accept it, if it resurfaces unprompted, or after 10 turns without contradictions. A swipe removes the provisional, confirmed stays.\nWhere: the «Canon» window → «Living canon».\nTools: canon_list(status=provisional)."],
+		ru: ["Живой канон (M26)", "То, что придумала модель (праздник, таверна, история рода), после фиксации хода становится пробной записью канона с русскими ключами; подтверждается, только если ты сам это упомянул или принял, если оно всплыло снова без подсказки или продержалось 10 ходов без противоречий. Свайп убирает пробное, подтверждённое остаётся.\nГде: окно «Канон» → «Живой канон».\nИнструменты: canon_list(status=provisional)."]
 	},
 	{
 		key: "chronicle",
@@ -26809,8 +28975,8 @@ var MODULE_TOPICS = [
 			"chapters",
 			"главы"
 		],
-		en: ["Chronicle and auto-memory (M9)", "Qvink memories that fall out of the long memory become canon chapters (fire on two keys at once); important moments get the «remember» mark in every swipe; «Previously…» after a break (for you only by default, not in the prompt).\nWhere: pult → Canon → «Chronicle».\nTools: canon_list, docs_read(stack.qvink)."],
-		ru: ["Летопись и автопамять (M9)", "Воспоминания Qvink, выпавшие из долгой памяти, становятся главами канона (срабатывают по двум ключам сразу); важные моменты сами получают отметку «запомнить» во всех свайпах; «Ранее в истории…» после перерыва (по умолчанию только для тебя, не в промпт).\nГде: пульт → Канон → «Летопись».\nИнструменты: canon_list, docs_read(stack.qvink)."]
+		en: ["Chronicle and auto-memory (M9)", "Qvink memories that fall out of the long memory become canon chapters (fire on two keys at once); important moments get the «remember» mark in every swipe; «Previously…» after a break (for you only by default, not in the prompt).\nWhere: the «Canon» window → «Chronicle».\nTools: canon_list, docs_read(stack.qvink)."],
+		ru: ["Летопись и автопамять (M9)", "Воспоминания Qvink, выпавшие из долгой памяти, становятся главами канона (срабатывают по двум ключам сразу); важные моменты сами получают отметку «запомнить» во всех свайпах; «Ранее в истории…» после перерыва (по умолчанию только для тебя, не в промпт).\nГде: окно «Канон» → «Летопись».\nИнструменты: canon_list, docs_read(stack.qvink)."]
 	},
 	{
 		key: "metrics",
@@ -26824,8 +28990,8 @@ var MODULE_TOPICS = [
 			"задержка",
 			"report"
 		],
-		en: ["Measurements (M21m)", "How Maestro meets the criteria of the first full version on live play: Maestro's delay before the request, background spend share, lore per turn (with a what-if), dropped messages, entry roles, tabs, revision, living canon, sheets, untouched pack files. Export as JSON/Markdown.\nWhere: pult → Health → «Measurements»."],
-		ru: ["Замеры (M21m)", "Как Maestro выполняет критерии первой полной версии в живой игре: задержка Maestro до запроса, доля фоновых расходов, лор на ход (с «что если»), выпавшие сообщения, роли записей, вкладки, ревизия, живой канон, листы, нетронутые файлы паков. Экспорт в JSON/Markdown.\nГде: пульт → Здоровье → «Замеры»."]
+		en: ["Measurements (M21m)", "How Maestro meets the criteria of the first full version on live play: Maestro's delay before the request, background spend share, lore per turn (with a what-if), dropped messages, entry roles, tabs, revision, living canon, sheets, untouched pack files. Export as JSON/Markdown.\nWhere: the «Health» window → «Measurements»."],
+		ru: ["Замеры (M21m)", "Как Maestro выполняет критерии первой полной версии в живой игре: задержка Maestro до запроса, доля фоновых расходов, лор на ход (с «что если»), выпавшие сообщения, роли записей, вкладки, ревизия, живой канон, листы, нетронутые файлы паков. Экспорт в JSON/Markdown.\nГде: окно «Здоровье» → «Замеры»."]
 	},
 	{
 		key: "presetStudio",
@@ -26842,8 +29008,8 @@ var MODULE_TOPICS = [
 			"marinara",
 			"versions"
 		],
-		en: ["Preset Studio (M34)", "A big window for the Chat Completion preset: «Map» (how ST will assemble the prompt), «Blocks» (order, bulk enable, search, preview with macros), the block editor, «Analysis» (unsaved edits, empty and never-sent blocks, contradictions, repeats with lore, model/provider quirks), «Versions» (every save is a version, rollback), «Parameters». Your layer keeps your blocks and edits apart from the base preset, so a new Marinara keeps them. Conditional blocks: {{if .maestro_<flag>}}…{{/if}} with a flag simulator (needs ST's new macro engine).\nWhere: pult → Canon → «Preset Studio» (big window); the Prompt Manager section can be replaced by a button (setting).\nTools: preset_blocks, director_scene."],
-		ru: ["Пресет-студия (M34)", "Большое окно для пресета Chat Completion: «Карта» (как ST соберёт промпт), «Блоки» (порядок, массовое включение, поиск, предпросмотр с макросами), редактор блока, «Анализ» (несохранённые правки, пустые и неотправляемые блоки, противоречия, повторы с лором, особенности модели и провайдера), «Версии» (каждое сохранение — версия, откат), «Параметры». Твой слой хранит твои блоки и правки отдельно от базового пресета, поэтому новая Marinara их не теряет. Условные блоки: {{if .maestro_<флаг>}}…{{/if}} с симулятором флагов (нужен новый движок макросов ST).\nГде: пульт → Канон → «Пресет-студия» (большое окно); раздел Prompt Manager можно заменить кнопкой (настройка).\nИнструменты: preset_blocks, director_scene."]
+		en: ["Preset Studio (M34)", "A big window for the Chat Completion preset: «Map» (how ST will assemble the prompt), «Blocks» (order, bulk enable, search, preview with macros), the block editor, «Analysis» (unsaved edits, empty and never-sent blocks, contradictions, repeats with lore, model/provider quirks), «Versions» (every save is a version, rollback), «Parameters». Your layer keeps your blocks and edits apart from the base preset, so a new Marinara keeps them. Conditional blocks: {{if .maestro_<flag>}}…{{/if}} with a flag simulator (needs ST's new macro engine).\nWhere: the «Maestro» window → «Preset Studio» (opens its own window); the Prompt Manager section can be replaced by a button (setting).\nTools: preset_blocks, director_scene."],
+		ru: ["Пресет-студия (M34)", "Большое окно для пресета Chat Completion: «Карта» (как ST соберёт промпт), «Блоки» (порядок, массовое включение, поиск, предпросмотр с макросами), редактор блока, «Анализ» (несохранённые правки, пустые и неотправляемые блоки, противоречия, повторы с лором, особенности модели и провайдера), «Версии» (каждое сохранение — версия, откат), «Параметры». Твой слой хранит твои блоки и правки отдельно от базового пресета, поэтому новая Marinara их не теряет. Условные блоки: {{if .maestro_<флаг>}}…{{/if}} с симулятором флагов (нужен новый движок макросов ST).\nГде: окно «Maestro» → «Пресет-студия» (открывает своё окно); раздел Prompt Manager можно заменить кнопкой (настройка).\nИнструменты: preset_blocks, director_scene."]
 	},
 	{
 		key: "quality",
@@ -26860,8 +29026,8 @@ var MODULE_TOPICS = [
 			"junk",
 			"мусор"
 		],
-		en: ["Reply quality (M12)", "Checks every reply before NAI Studio draws: drift into another language, calques and clichés, speaking/acting for you, refusals and moralising, out-of-character notes, softening, repeats, cut-off reply, service junk and leaked HTML, no DES tracker, the content boundary. Free rules first, the cheap judge only when unsure (never in Economy). Actions per defect kind: off / auto (clean, continue, one swipe per turn with an exact instruction, tracker repair) / notify (badges «Redo» and «Not a defect»). Early cut-off of service tokens in the stream.\nWhere: pult → Turn → «Quality».\nTools: maestro_settings(quality), cost_turn (auto-swipes)."],
-		ru: ["Качество ответа (M12)", "Проверяет каждый ответ до того, как NAI Studio начнёт рисовать: уход в другой язык, кальки и штампы, реплики и действия за тебя, отказы и морализаторство, оговорки вне роли, смягчение, повторы, обрезанный ответ, служебный мусор и протёкший HTML, нет трекера DES, граница контента. Сначала бесплатные правила, дешёвая модель-судья — только при сомнении (в «Экономном» никогда). Действия по видам брака: выкл / «Само» (очистить, попросить продолжить, один свайп за ход с точной инструкцией, ремонт трекера) / «Уведомить» (значки «Переделать» и «Не брак»). Ранняя отсечка служебных токенов в потоке.\nГде: пульт → Ход → «Качество».\nИнструменты: maestro_settings(quality), cost_turn (авто-свайпы)."]
+		en: ["Reply quality (M12)", "Checks every reply before NAI Studio draws: drift into another language, calques and clichés, speaking/acting for you, refusals and moralising, out-of-character notes, softening, repeats, cut-off reply, service junk and leaked HTML, no DES tracker, the content boundary. Free rules first, the cheap judge only when unsure (never in Economy). Actions per defect kind: off / auto (clean, continue, one swipe per turn with an exact instruction, tracker repair) / notify (badges «Redo» and «Not a defect»). Early cut-off of service tokens in the stream.\nWhere: the «Turn» window → «Quality».\nTools: maestro_settings(quality), cost_turn (auto-swipes)."],
+		ru: ["Качество ответа (M12)", "Проверяет каждый ответ до того, как NAI Studio начнёт рисовать: уход в другой язык, кальки и штампы, реплики и действия за тебя, отказы и морализаторство, оговорки вне роли, смягчение, повторы, обрезанный ответ, служебный мусор и протёкший HTML, нет трекера DES, граница контента. Сначала бесплатные правила, дешёвая модель-судья — только при сомнении (в «Экономном» никогда). Действия по видам брака: выкл / «Само» (очистить, попросить продолжить, один свайп за ход с точной инструкцией, ремонт трекера) / «Уведомить» (значки «Переделать» и «Не брак»). Ранняя отсечка служебных токенов в потоке.\nГде: окно «Ход» → «Качество».\nИнструменты: maestro_settings(quality), cost_turn (авто-свайпы)."]
 	},
 	{
 		key: "architect",
@@ -26877,8 +29043,8 @@ var MODULE_TOPICS = [
 			"повторы",
 			"presence"
 		],
-		en: ["Prompt architect (M20)", "Budgets per source: a total lore cap on top of book caps, CK RAG, Qvink short memory, the optional DES context block, voices, mechanics, director (the least important pieces go first; DES tracker instructions and Qvink long memory are never cut). «Who is near»: entries about absent characters and far places are damped unless mentioned lately; present characters and the current place are pinned. Repeated facts across lore, canon, Qvink, CK and DES (report, one source by consent). Provider cache: share of cached prompt and where the prompt starts to change. Everything is off by default.\nWhere: pult → Turn → «Architect».\nTools: turn_prompt, cost_turn, maestro_settings(architect)."],
-		ru: ["Архитектор промпта (M20)", "Бюджеты по источникам: общий потолок лора поверх потолков книг, RAG CarrotKernel, краткосрочная память Qvink, необязательный блок контекста DES, голоса, механики, режиссёр (уходят наименее важные куски; инструкции трекера DES и долгая память Qvink не трогаются никогда). «Кто рядом»: записи об отсутствующих и далёких местах приглушаются, если о них не говорили в последних сообщениях; присутствующие и текущее место закрепляются. Повторы фактов между лором, каноном, Qvink, CK и DES (отчёт, один источник по согласию). Кэш провайдера: доля промпта из кэша и место, где промпт начинает меняться. По умолчанию всё выключено.\nГде: пульт → Ход → «Архитектор».\nИнструменты: turn_prompt, cost_turn, maestro_settings(architect)."]
+		en: ["Prompt architect (M20)", "Budgets per source: a total lore cap on top of book caps, CK RAG, Qvink short memory, the optional DES context block, voices, mechanics, director (the least important pieces go first; DES tracker instructions and Qvink long memory are never cut). «Who is near»: entries about absent characters and far places are damped unless mentioned lately; present characters and the current place are pinned. Repeated facts across lore, canon, Qvink, CK and DES (report, one source by consent). Provider cache: share of cached prompt and where the prompt starts to change. Everything is off by default.\nWhere: the «Turn» window → «Architect».\nTools: turn_prompt, cost_turn, maestro_settings(architect)."],
+		ru: ["Архитектор промпта (M20)", "Бюджеты по источникам: общий потолок лора поверх потолков книг, RAG CarrotKernel, краткосрочная память Qvink, необязательный блок контекста DES, голоса, механики, режиссёр (уходят наименее важные куски; инструкции трекера DES и долгая память Qvink не трогаются никогда). «Кто рядом»: записи об отсутствующих и далёких местах приглушаются, если о них не говорили в последних сообщениях; присутствующие и текущее место закрепляются. Повторы фактов между лором, каноном, Qvink, CK и DES (отчёт, один источник по согласию). Кэш провайдера: доля промпта из кэша и место, где промпт начинает меняться. По умолчанию всё выключено.\nГде: окно «Ход» → «Архитектор».\nИнструменты: turn_prompt, cost_turn, maestro_settings(architect)."]
 	},
 	{
 		key: "treasurer",
@@ -26896,8 +29062,8 @@ var MODULE_TOPICS = [
 			"anlas",
 			"limit"
 		],
-		en: ["Treasurer (M21)", "What the game costs: the last turn, the session, today and 14 days, by source (main model, regenerations, auto-swipes, Qvink, Maestro tasks, NAI) and Anlas; cached tokens are counted. When the overall daily limit is reached it can switch to Economy (Settings → Budget).\nWhere: pult → Turn → «Spending».\nQuestions: why was this turn expensive, how much do background tasks cost.\nTools: cost_turn, cost_summary."],
-		ru: ["Казначей (M21)", "Сколько стоит игра: последний ход, сессия, сегодня и 14 дней — по источникам (основная модель, перегенерации, авто-свайпы, Qvink, задачи Maestro, NAI) и Anlas; кэшированные токены учитываются. При общем дневном лимите может перейти в «Экономный» (Настройки → Бюджет).\nГде: пульт → Ход → «Расходы».\nВопросы: почему этот ход дорогой, сколько стоят фоновые задачи.\nИнструменты: cost_turn, cost_summary."]
+		en: ["Treasurer (M21)", "What the game costs: the last turn, the session, today and 14 days, by source (main model, regenerations, auto-swipes, Qvink, Maestro tasks, NAI) and Anlas; cached tokens are counted. When the overall daily limit is reached it can switch to Economy (Settings → Budget).\nWhere: the «Turn» window → «Spending».\nQuestions: why was this turn expensive, how much do background tasks cost.\nTools: cost_turn, cost_summary."],
+		ru: ["Казначей (M21)", "Сколько стоит игра: последний ход, сессия, сегодня и 14 дней — по источникам (основная модель, перегенерации, авто-свайпы, Qvink, задачи Maestro, NAI) и Anlas; кэшированные токены учитываются. При общем дневном лимите может перейти в «Экономный» (Настройки → Бюджет).\nГде: окно «Ход» → «Расходы».\nВопросы: почему этот ход дорогой, сколько стоят фоновые задачи.\nИнструменты: cost_turn, cost_summary."]
 	},
 	{
 		key: "director",
@@ -26915,8 +29081,8 @@ var MODULE_TOPICS = [
 			"поворот",
 			"nudge"
 		],
-		en: ["Scene director (M13, M14)", "After each turn decides the scene type (dialogue, combat, intimate, exploration, time skip, social, drama) from the reply, your message and the DES tracker, with hysteresis; the cheap model only when unsure. For the next generation it sets one-shot flags: maestro_scene_<type>, reply length, explicit scene, language, «picture moment» — for conditional preset blocks. You can set the type yourself. Pacing: when the story stalls (same place, nothing happens, repeats, loops) a short director's note near the end of the prompt with a twist from DES quests and open threads; silent when you steer the plot; «Shake up» writes one now.\nWhere: pult → Turn → «Director».\nTools: director_scene, preset_blocks."],
-		ru: ["Режиссёр сцены (M13, M14)", "После каждого хода определяет тип сцены (диалог, бой, интимная, исследование, пропуск времени, светская, драма) по ответу, твоему сообщению и трекеру DES, с устойчивостью к скачкам; дешёвая модель — только при сомнении. Для следующей генерации ставит одноразовые флаги: maestro_scene_<тип>, длина ответа, откровенная сцена, язык, «момент для картинки» — для условных блоков пресета. Тип можно задать самому. Темп: если история встала (то же место, ничего не происходит, повторы, разговор по кругу) — короткая заметка режиссёра ближе к концу промпта с поворотом из квестов DES и незакрытых нитей; молчит, когда ты сам ведёшь сюжет; «Встряхнуть» — заметка сейчас.\nГде: пульт → Ход → «Режиссёр».\nИнструменты: director_scene, preset_blocks."]
+		en: ["Scene director (M13, M14)", "After each turn decides the scene type (dialogue, combat, intimate, exploration, time skip, social, drama) from the reply, your message and the DES tracker, with hysteresis; the cheap model only when unsure. For the next generation it sets one-shot flags: maestro_scene_<type>, reply length, explicit scene, language, «picture moment» — for conditional preset blocks. You can set the type yourself. Pacing: when the story stalls (same place, nothing happens, repeats, loops) a short director's note near the end of the prompt with a twist from DES quests and open threads; silent when you steer the plot; «Shake up» writes one now.\nWhere: the «Turn» window → «Director».\nTools: director_scene, preset_blocks."],
+		ru: ["Режиссёр сцены (M13, M14)", "После каждого хода определяет тип сцены (диалог, бой, интимная, исследование, пропуск времени, светская, драма) по ответу, твоему сообщению и трекеру DES, с устойчивостью к скачкам; дешёвая модель — только при сомнении. Для следующей генерации ставит одноразовые флаги: maestro_scene_<тип>, длина ответа, откровенная сцена, язык, «момент для картинки» — для условных блоков пресета. Тип можно задать самому. Темп: если история встала (то же место, ничего не происходит, повторы, разговор по кругу) — короткая заметка режиссёра ближе к концу промпта с поворотом из квестов DES и незакрытых нитей; молчит, когда ты сам ведёшь сюжет; «Встряхнуть» — заметка сейчас.\nГде: окно «Ход» → «Режиссёр».\nИнструменты: director_scene, preset_blocks."]
 	},
 	{
 		key: "voices",
@@ -26931,8 +29097,8 @@ var MODULE_TOPICS = [
 			"character consistency",
 			"mbti"
 		],
-		en: ["Character voices (M15)", "A compact card per present character: manner of speech (LING and the Linguistics block), MBTI with state, attitude to you now, links with others present, goals. When on, CarrotKernel's «Character Consistency» injection is silenced at prompt assembly (CK settings unchanged) and DES-RU stops rebuilding it. Off by default.\nWhere: pult → Turn → «Voices».\nTools: relations, dossier."],
-		ru: ["Голоса персонажей (M15)", "Компактная карточка на каждого присутствующего: манера речи (LING и блок Linguistics), MBTI с состоянием, отношение к тебе сейчас, связи с другими присутствующими, цели. Когда включено, вставка CarrotKernel «Character Consistency» гасится при сборке промпта (настройки CK не меняются), а DES-RU перестаёт её пересобирать. Выключено по умолчанию.\nГде: пульт → Ход → «Голоса».\nИнструменты: relations, dossier."]
+		en: ["Character voices (M15)", "A compact card per present character: manner of speech (LING and the Linguistics block), MBTI with state, attitude to you now, links with others present, goals. When on, CarrotKernel's «Character Consistency» injection is silenced at prompt assembly (CK settings unchanged) and DES-RU stops rebuilding it. Off by default.\nWhere: the «Turn» window → «Voices».\nTools: relations, dossier."],
+		ru: ["Голоса персонажей (M15)", "Компактная карточка на каждого присутствующего: манера речи (LING и блок Linguistics), MBTI с состоянием, отношение к тебе сейчас, связи с другими присутствующими, цели. Когда включено, вставка CarrotKernel «Character Consistency» гасится при сборке промпта (настройки CK не меняются), а DES-RU перестаёт её пересобирать. Выключено по умолчанию.\nГде: окно «Ход» → «Голоса».\nИнструменты: relations, dossier."]
 	},
 	{
 		key: "offscreen",
@@ -26946,8 +29112,8 @@ var MODULE_TOPICS = [
 			"rumours",
 			"слухи"
 		],
-		en: ["Backstage (M16)", "Every few turns (15 in Balanced, 10 and at scene ends in Cinema, only by button in Economy) the background model briefly tells what up to three important absent characters were doing. Events go to the canon; death, capture, disappearance and anything that contradicts the canon wait in the Inbox. Sometimes the present characters hear a rumour.\nWhere: pult → World → «Backstage»."],
-		ru: ["Закулисье (M16)", "Раз в несколько ходов (15 в «Сбалансированном», 10 и в конце сцен в «Кино», в «Экономном» только по кнопке) фоновая модель коротко рассказывает, чем были заняты до трёх важных персонажей, которых давно нет в сцене. События — в канон; смерть, плен, исчезновение и всё, что спорит с каноном, ждёт во «Входящих». Иногда присутствующие слышат слух.\nГде: пульт → Мир → «Закулисье»."]
+		en: ["Backstage (M16)", "Every few turns (15 in Balanced, 10 and at scene ends in Cinema, only by button in Economy) the background model briefly tells what up to three important absent characters were doing. Events go to the canon; death, capture, disappearance and anything that contradicts the canon wait in the Inbox. Sometimes the present characters hear a rumour.\nWhere: the «World» window → «Backstage»."],
+		ru: ["Закулисье (M16)", "Раз в несколько ходов (15 в «Сбалансированном», 10 и в конце сцен в «Кино», в «Экономном» только по кнопке) фоновая модель коротко рассказывает, чем были заняты до трёх важных персонажей, которых давно нет в сцене. События — в канон; смерть, плен, исчезновение и всё, что спорит с каноном, ждёт во «Входящих». Иногда присутствующие слышат слух.\nГде: окно «Мир» → «Закулисье»."]
 	},
 	{
 		key: "calendar",
@@ -26962,8 +29128,8 @@ var MODULE_TOPICS = [
 			"story time",
 			"время истории"
 		],
-		en: ["Calendar and promises (M17)", "Story time from the DES tracker (dates, «Day N», invented calendars); agreements and deadlines from the revision or by hand («by sunset», «in three days»). A due item becomes a director's note; overdue and broken ones are marked.\nWhere: pult → World → «Calendar».\nTools: calendar_now."],
-		ru: ["Календарь и обещания (M17)", "Время истории по трекеру DES (обычные даты, «День N», выдуманные календари); договорённости и сроки из ревизии или вручную («к закату», «через три дня»). Наступивший срок — повод для заметки режиссёра; просроченное и нарушенное отмечается.\nГде: пульт → Мир → «Календарь».\nИнструменты: calendar_now."]
+		en: ["Calendar and promises (M17)", "Story time from the DES tracker (dates, «Day N», invented calendars); agreements and deadlines from the revision or by hand («by sunset», «in three days»). A due item becomes a director's note; overdue and broken ones are marked.\nWhere: the «World» window → «Calendar».\nTools: calendar_now."],
+		ru: ["Календарь и обещания (M17)", "Время истории по трекеру DES (обычные даты, «День N», выдуманные календари); договорённости и сроки из ревизии или вручную («к закату», «через три дня»). Наступивший срок — повод для заметки режиссёра; просроченное и нарушенное отмечается.\nГде: окно «Мир» → «Календарь».\nИнструменты: calendar_now."]
 	},
 	{
 		key: "knowledge",
@@ -26978,8 +29144,8 @@ var MODULE_TOPICS = [
 			"does not know",
 			"не знает"
 		],
-		en: ["Who knows what (M18, experimental)", "Scene participants know the scene's events (by the DES cast at that time); secrets are marked during the revision. Voice cards get «does not know: …» when the topic came up. Off by default.\nWhere: pult → World → «Who knows».\nQuestions: why does a character know (or not know) something.\nTools: knowledge_who."],
-		ru: ["Кто что знает (M18, экспериментально)", "Участники сцены знают её события (по составу DES на тот момент); секреты помечаются во время ревизии. Голосовые карточки получают «не знает: …», когда тема всплыла. Выключено по умолчанию.\nГде: пульт → Мир → «Кто знает».\nВопросы: почему персонаж знает (или не знает) что-то.\nИнструменты: knowledge_who."]
+		en: ["Who knows what (M18, experimental)", "Scene participants know the scene's events (by the DES cast at that time); secrets are marked during the revision. Voice cards get «does not know: …» when the topic came up. Off by default.\nWhere: the «World» window → «Who knows».\nQuestions: why does a character know (or not know) something.\nTools: knowledge_who."],
+		ru: ["Кто что знает (M18, экспериментально)", "Участники сцены знают её события (по составу DES на тот момент); секреты помечаются во время ревизии. Голосовые карточки получают «не знает: …», когда тема всплыла. Выключено по умолчанию.\nГде: окно «Мир» → «Кто знает».\nВопросы: почему персонаж знает (или не знает) что-то.\nИнструменты: knowledge_who."]
 	},
 	{
 		key: "wardrobe",
@@ -26996,8 +29162,8 @@ var MODULE_TOPICS = [
 			"wet",
 			"wounded"
 		],
-		en: ["Wardrobe and states (M27)", "A new outfit in the DES tracker (repeated two turns) becomes a named outfit in the chat-level NAI Studio passport; a known outfit is recognised and worn again. Character states (wet, wounded, tired…) and place states (ruined, decorated, on fire, night) switch in the passports by the tracker. The card is never changed.\nWhere: pult → Dossier → «Wardrobe».\nTools: wardrobe, passports_scene."],
-		ru: ["Гардероб и состояния (M27)", "Новый наряд из трекера DES (повторившийся два хода) становится именованным нарядом в паспорте NAI Studio уровня чата; знакомый наряд узнаётся и надевается снова. Состояния персонажей (мокрый, ранен, устал…) и мест (разрушено, украшено, пожар, ночь) включаются в паспортах по трекеру. Карточка не меняется никогда.\nГде: пульт → Досье → «Гардероб».\nИнструменты: wardrobe, passports_scene."]
+		en: ["Wardrobe and states (M27)", "A new outfit in the DES tracker (repeated two turns) becomes a named outfit in the chat-level NAI Studio passport; a known outfit is recognised and worn again. Character states (wet, wounded, tired…) and place states (ruined, decorated, on fire, night) switch in the passports by the tracker. The card is never changed.\nWhere: the «Characters» window → «Wardrobe».\nTools: wardrobe, passports_scene."],
+		ru: ["Гардероб и состояния (M27)", "Новый наряд из трекера DES (повторившийся два хода) становится именованным нарядом в паспорте NAI Studio уровня чата; знакомый наряд узнаётся и надевается снова. Состояния персонажей (мокрый, ранен, устал…) и мест (разрушено, украшено, пожар, ночь) включаются в паспортах по трекеру. Карточка не меняется никогда.\nГде: окно «Персонажи» → «Гардероб».\nИнструменты: wardrobe, passports_scene."]
 	},
 	{
 		key: "lorePassports",
@@ -27011,8 +29177,8 @@ var MODULE_TOPICS = [
 			"внешность",
 			"entry passport"
 		],
-		en: ["Passports in lorebooks (M28)", "A lore entry can have a visual passport in NAI Studio's format: in Maestro books inside the entry, for base books in Maestro's registry (files unchanged, BunnyMo books untouched). Made by NAI Studio's generator or the background model, edited in the Lore Studio. NAI Studio gets the passports of entries activated or mentioned in the scene.\nWhere: pult → Canon → «Passports».\nTools: passports_scene, lore_entry."],
-		ru: ["Паспорта в лорбуках (M28)", "У записи лора может быть визуальный паспорт в формате NAI Studio: в книгах Maestro — в самой записи, у базовых книг — в реестре Maestro (файлы не меняются, книги BunnyMo не трогаются). Создаётся генератором NAI Studio или фоновой моделью, правится в Лор-студии. NAI Studio получает паспорта записей, сработавших или упомянутых в сцене.\nГде: пульт → Канон → «Паспорта».\nИнструменты: passports_scene, lore_entry."]
+		en: ["Passports in lorebooks (M28)", "A lore entry can have a visual passport in NAI Studio's format: in Maestro books inside the entry, for base books in Maestro's registry (files unchanged, BunnyMo books untouched). Made by NAI Studio's generator or the background model, edited in the Lore Studio. NAI Studio gets the passports of entries activated or mentioned in the scene.\nWhere: the «Canon» window → «Passports».\nTools: passports_scene, lore_entry."],
+		ru: ["Паспорта в лорбуках (M28)", "У записи лора может быть визуальный паспорт в формате NAI Studio: в книгах Maestro — в самой записи, у базовых книг — в реестре Maestro (файлы не меняются, книги BunnyMo не трогаются). Создаётся генератором NAI Studio или фоновой моделью, правится в Лор-студии. NAI Studio получает паспорта записей, сработавших или упомянутых в сцене.\nГде: окно «Канон» → «Паспорта».\nИнструменты: passports_scene, lore_entry."]
 	},
 	{
 		key: "backgrounds",
@@ -27025,8 +29191,8 @@ var MODULE_TOPICS = [
 			"wallpaper",
 			"place background"
 		],
-		en: ["Backgrounds (M29)", "The chat background follows the place: first a pick from ST's background library (name, folders, place state, time of day and weather from DES), otherwise a «Generate background» button in NAI Studio (respecting «free only»). Only this chat's background — never the global one or settings.json. A background you set yourself is left alone until you let Maestro choose again.\nWhere: pult → World → «Backgrounds».\nTools: places_current."],
-		ru: ["Фоны (M29)", "Фон чата следует за местом: сначала подбор из библиотеки фонов ST (по названию, папкам, состоянию места, времени суток и погоде из DES), иначе — кнопка «Сгенерировать фон» в NAI Studio (с учётом «только бесплатно»). Только фон этого чата — не общий фон и не settings.json. Поставленный тобой фон Maestro не трогает, пока не разрешишь выбирать снова.\nГде: пульт → Мир → «Фоны».\nИнструменты: places_current."]
+		en: ["Backgrounds (M29)", "The chat background follows the place: first a pick from ST's background library (name, folders, place state, time of day and weather from DES), otherwise a «Generate background» button in NAI Studio (respecting «free only»). Only this chat's background — never the global one or settings.json. A background you set yourself is left alone until you let Maestro choose again.\nWhere: the «World» window → «Backgrounds».\nTools: places_current."],
+		ru: ["Фоны (M29)", "Фон чата следует за местом: сначала подбор из библиотеки фонов ST (по названию, папкам, состоянию места, времени суток и погоде из DES), иначе — кнопка «Сгенерировать фон» в NAI Studio (с учётом «только бесплатно»). Только фон этого чата — не общий фон и не settings.json. Поставленный тобой фон Maestro не трогает, пока не разрешишь выбирать снова.\nГде: окно «Мир» → «Фоны».\nИнструменты: places_current."]
 	},
 	{
 		key: "mechanics",
@@ -27047,8 +29213,8 @@ var MODULE_TOPICS = [
 			"roll",
 			"бросок"
 		],
-		en: ["Mechanics (M25)", "Your own game systems: attributes (numbers, scales, lists, texts), holders (characters, persona, factions, world), rules for the model, threshold events («mana at zero — the spell fails»), checks with dice. Templates: health and stamina, magic, faction reputation, money, skills, relationships. Stored as a «mechanic» entry in a Maestro book; for the card, the chat or everywhere. Tracking: DES tracker stats, a short service block in the reply (parsed and hidden), or a background parse. Maestro rolls checks from trigger words in your message and puts the result into the prompt as a fact; /maestro-roll. Flags maestro_mech_<id> for conditional preset blocks.\nWhere: pult → Mechanics → «Mechanics».\nTools: mechanics_state."],
-		ru: ["Механики (M25)", "Свои игровые системы: атрибуты (числа, шкалы, списки, тексты), у кого они есть (персонажи, персона, фракции, мир), правила для модели, события на порогах («мана на нуле — заклинание срывается»), проверки с кубиками. Шаблоны: здоровье и выносливость, магия, репутация у фракций, деньги, навыки, отношения. Хранится записью типа «механика» в книге Maestro; для карточки, чата или везде. Учёт: статы трекера DES, короткий служебный блок в ответе (читается и прячется) или фоновый разбор. Maestro бросает кубики по словам-триггерам в твоём сообщении и кладёт результат в промпт фактом; /maestro-roll. Флаги maestro_mech_<id> для условных блоков пресета.\nГде: пульт → Механики → «Механики».\nИнструменты: mechanics_state."]
+		en: ["Mechanics (M25)", "Your own game systems: attributes (numbers, scales, lists, texts), holders (characters, persona, factions, world), rules for the model, threshold events («mana at zero — the spell fails»), checks with dice. Templates: health and stamina, magic, faction reputation, money, skills, relationships. Stored as a «mechanic» entry in a Maestro book; for the card, the chat or everywhere. Tracking: DES tracker stats, a short service block in the reply (parsed and hidden), or a background parse. Maestro rolls checks from trigger words in your message and puts the result into the prompt as a fact; /maestro-roll. Flags maestro_mech_<id> for conditional preset blocks.\nWhere: the «Mechanics» window.\nTools: mechanics_state."],
+		ru: ["Механики (M25)", "Свои игровые системы: атрибуты (числа, шкалы, списки, тексты), у кого они есть (персонажи, персона, фракции, мир), правила для модели, события на порогах («мана на нуле — заклинание срывается»), проверки с кубиками. Шаблоны: здоровье и выносливость, магия, репутация у фракций, деньги, навыки, отношения. Хранится записью типа «механика» в книге Maestro; для карточки, чата или везде. Учёт: статы трекера DES, короткий служебный блок в ответе (читается и прячется) или фоновый разбор. Maestro бросает кубики по словам-триггерам в твоём сообщении и кладёт результат в промпт фактом; /maestro-roll. Флаги maestro_mech_<id> для условных блоков пресета.\nГде: окно «Механики».\nИнструменты: mechanics_state."]
 	},
 	{
 		key: "theme",
@@ -27063,8 +29229,8 @@ var MODULE_TOPICS = [
 			"density",
 			"плотность"
 		],
-		en: ["Unified look (M32)", "One Maestro stylesheet over your ST theme makes ST, the chat and the extensions look like one app: colours, blur, shadows, font size and chat width come from your theme; radii, spacing and controls are Maestro's. Per-part switches (ST, chat, each extension), density, radii, «Show as it was» for 10 seconds. Off → everything as before; neighbour settings are never changed.\nWhere: pult → Settings → «Appearance»."],
-		ru: ["Единый стиль (M32)", "Одна таблица стилей Maestro поверх твоей темы ST делает ST, чат и расширения одним приложением: цвета, размытие, тени, размер шрифта и ширину чата даёт твоя тема; скругления, отступы и элементы управления — Maestro. Переключатели по частям (ST, чат, каждое расширение), плотность, скругления, «Показать, как было» на 10 секунд. Выключил — всё как раньше; настройки соседей не меняются.\nГде: пульт → Настройки → «Оформление»."]
+		en: ["Unified look (M32)", "One Maestro stylesheet over your ST theme makes ST, the chat and the extensions look like one app: colours, blur, shadows, font size and chat width come from your theme; radii, spacing and controls are Maestro's. Per-part switches (ST, chat, each extension), density, radii, «Show as it was» for 10 seconds. Off → everything as before; neighbour settings are never changed.\nWhere: the «Maestro» window → «Settings» → «Appearance»."],
+		ru: ["Единый стиль (M32)", "Одна таблица стилей Maestro поверх твоей темы ST делает ST, чат и расширения одним приложением: цвета, размытие, тени, размер шрифта и ширину чата даёт твоя тема; скругления, отступы и элементы управления — Maestro. Переключатели по частям (ST, чат, каждое расширение), плотность, скругления, «Показать, как было» на 10 секунд. Выключил — всё как раньше; настройки соседей не меняются.\nГде: окно «Maestro» → «Настройки» → «Оформление»."]
 	},
 	{
 		key: "dock",
@@ -27078,8 +29244,8 @@ var MODULE_TOPICS = [
 			"блоки настроек",
 			"portrait bar"
 		],
-		en: ["Extensions dock (M32d)", "The settings blocks of CarrotKernel, Qvink, NAI Studio, DES-RU, Localizer and DES open right in the pult (the real blocks, everything works) and go back to their place when the pult closes or Maestro is off; optionally the DES portrait bar too. Shortcuts open the neighbours' windows.\nWhere: pult → Extensions."],
-		ru: ["Док «Расширения» (M32d)", "Блоки настроек CarrotKernel, Qvink, NAI Studio, DES-RU, Localizer и DES открываются прямо в пульте (настоящие блоки, всё работает) и возвращаются на место, когда пульт закрыт или Maestro выключен; по желанию — и полоса портретов DES. Ярлыки открывают окна соседей.\nГде: пульт → Расширения."]
+		en: ["Extensions dock (M32d)", "The settings blocks of CarrotKernel, Qvink, NAI Studio, DES-RU, Localizer and DES open right in the «Maestro» window, section «Extensions» (the real blocks, everything works) and go back to their place when that section is hidden, the window closes or Maestro is off; optionally the DES portrait bar too. Shortcuts open the neighbours' windows.\nWhere: the «Maestro» window → «Extensions»."],
+		ru: ["Док «Расширения» (M32d)", "Блоки настроек CarrotKernel, Qvink, NAI Studio, DES-RU, Localizer и DES открываются прямо в окне «Maestro», в разделе «Расширения» (настоящие блоки, всё работает), и возвращаются на место, когда раздел скрыт, окно закрыто или Maestro выключен; по желанию — и полоса портретов DES. Ярлыки открывают окна соседей.\nГде: окно «Maestro» → «Расширения»."]
 	},
 	{
 		key: "assistant",
@@ -27094,8 +29260,8 @@ var MODULE_TOPICS = [
 			"confirm",
 			"подтверждение"
 		],
-		en: ["Maestro assistant (M33)", "A conversation in the pult, apart from the role-play; the model comes from the connection profile of the «assistant» task (Settings → Connection profiles; empty = the main background profile). It reads the documentation, settings, health, journal, lore and regexes, the chat messages, the character card with its starting scenes and the persona, explains and diagnoses, and makes changes — module settings, mechanics, regexes with a test, preset flags and blocks, passports, lore entries — only after you confirm a before/after card. Chat and lore are data for it, never instructions; secrets, API keys, addresses and connection profiles are invisible to it; every change is journaled with undo; changes per hour are limited.\nWhere: pult → Assistant."],
-		ru: ["Ассистент Maestro (M33)", "Переписка в пульте, отдельно от РП; модель — из профиля подключения задачи «ассистент» (Настройки → Профили подключения; пусто — основной фоновый профиль). Читает документацию, настройки, здоровье, журнал, лор и регексы, сообщения чата, карточку персонажа со стартовыми сценами и персону, объясняет и диагностирует, а меняет — настройки модулей, механики, регексы с испытанием, флаги и блоки пресета, паспорта, записи лора — только после твоего подтверждения карточки «было/стало». Чат и лор для него — данные, не инструкции; секреты, ключи API, адреса и профили подключения ему не видны; каждое изменение — в журнале с откатом; число изменений в час ограничено.\nГде: пульт → Ассистент."]
+		en: ["Maestro assistant (M33)", "A conversation in its own window beside the chat, apart from the role-play; the model comes from the connection profile of the «assistant» task (Settings → Connection profiles; empty = the main background profile). It reads the documentation, settings, health, journal, lore and regexes, the chat messages, the character card with its starting scenes and the persona, explains and diagnoses, and makes changes — module settings, mechanics, regexes with a test, preset flags and blocks, passports, lore entries — only after you confirm a before/after card. Chat and lore are data for it, never instructions; secrets, API keys, addresses and connection profiles are invisible to it; every change is journaled with undo; changes per hour are limited.\nWhere: the «Assistant» window."],
+		ru: ["Ассистент Maestro (M33)", "Переписка в своём окне рядом с чатом, отдельно от РП; модель — из профиля подключения задачи «ассистент» (Настройки → Профили подключения; пусто — основной фоновый профиль). Читает документацию, настройки, здоровье, журнал, лор и регексы, сообщения чата, карточку персонажа со стартовыми сценами и персону, объясняет и диагностирует, а меняет — настройки модулей, механики, регексы с испытанием, флаги и блоки пресета, паспорта, записи лора — только после твоего подтверждения карточки «было/стало». Чат и лор для него — данные, не инструкции; секреты, ключи API, адреса и профили подключения ему не видны; каждое изменение — в журнале с откатом; число изменений в час ограничено.\nГде: окно «Ассистент»."]
 	}
 ].map((doc) => ({
 	id: `module.${doc.key}`,
@@ -27302,7 +29468,7 @@ function knowledgeBase() {
 }
 /** Maestro's version: the newest `## x.y.z` heading of the changelog (null when it cannot be read). */
 function maestroVersion() {
-	return /^##\s+(\d+\.\d+\.\d+)/m.exec("# Журнал изменений\n\n## 1.11.0 — понятные уведомления, гардероб, тёзки из разных историй (2026-10-06)\n\n- **Тёзки больше не сливаются.** Раньше новый персонаж с тем же именем, что у кого-то из другого чата (паспорт карточки, лист в общем архиве CarrotKernel, запись в общей книге), молча становился «тем же самым»: в новый чат приходили его внешность, наряды, характер, манера речи — и голос попадал в промпт. Теперь Maestro спрашивает во «Входящих» и значком у сообщения: «Офелия здесь — тот же персонаж, что в паспорте карточки?» [Тот же] [Другой]. Пока ты не ответил, старое не используется; «Другой» — в этом чате у неё всё своё, а паспорт карточки выключается только здесь (NAI Studio 0.14). Персонажи самой карточки (названные в её описании, сценарии, приветствиях или книге) — те же без вопросов. «Это разные» в модели мира теперь работает и для одинаковых имён. Решение можно поменять в досье. Данные Maestro удалённых чатов убираются вместе с чатом.\n- **Гардероб видит, во что все одеты сейчас.** Раньше в настоящих чатах он не срабатывал: DES пишет одежду внутри «Внешности», а гардероб ждал отдельного поля. Теперь:\n  - поле «Одежда» в трекер DES — одной кнопкой во вкладке «Гардероб» (только с твоего согласия, откат в журнале); пока его нет, одежда вычитывается из «Внешности»;\n  - каждый ход — сверка: знакомый наряд надевается сам, новый через два хода становится нарядом с русским названием («Шёлковое платье», «Блузка и юбка»); переодевания, раздевание, полотенце, бельё; пропущенный ход больше не «застревает»;\n  - «Кто в сцене и что на нём» во вкладке, «Сейчас: …» в досье, твой персонаж — по разговору об одежде (фоновая модель, не чаще раза в 6 ходов) или полем «Сейчас на тебе»;\n  - строка «кто во что одет» в конце промпта, чтобы модель не путала одежду (выключается);\n  - портрет DES перерисовывается при смене наряда (NAI Studio 0.14, выключается);\n  - NPC с паспортом только из лора получает паспорт чата при первом наряде.\n- **Понятные уведомления.** Каждое говорит словами истории: что случилось, что Maestro сделал или предлагает, что будет, если согласиться. Служебное (книги, номера записей, теги, английский текст канона) — под «Подробнее». У всех действий человеческие названия — в карточках, журнале и настройках автономии. Новое в настройках: «О чём сообщать» — всё (по умолчанию), важное, только срочное; «Показывать технические подробности». Однотипное за ход склеивается («Запомнил 3 новых факта о мире»). То, что Maestro делает сам, теперь видно: «Вера переоделась: «Шёлковое платье»» [Отменить]; живой канон сообщает, что запомнил, подтвердил и отбросил. Канон по-прежнему хранится по-английски, но в карточках — русская формулировка и цитата.\n- **Видно, как идёт локализация лорбука.** В шапке книги Лор-студии — «Локализую: 34 из 120 записей» с полосой и «Остановить»; «Жду: Localizer занят другой задачей»; итог «добавлено N ключей в M записей» и «Повторить неудачные»; ошибки — человеческими словами. Задача не теряется, если закрыть студию: она видна во вкладке «Задачи», а вокруг значка Maestro — кольцо прогресса. То же у кнопки «Русские ключи» записи. Живой счётчик и остановка — с Lorebook Localizer 0.3.\n- Исправлено: гардероб, режиссёр и закулисье переставали замечать новые ходы, если сообщения удалили, пока Maestro не видел (другая вкладка, выключенный Maestro); отмена правки «описание места» в журнале сообщала об успехе и ничего не меняла; номера сообщений в уведомлениях везде такие же, как в чате.\n- Для всех новых возможностей: NAI Studio 0.14.0, DES-RU 0.8.2, Lorebook Localizer 0.3.0; со старыми версиями соответствующие части просто не включаются.\n\n## 1.10.3 — закулисье только своих персонажей (2026-10-05)\n\n- «Закулисье» больше не придумывает события персонажам из других историй. Раньше важным считался любой отсутствующий персонаж с архивом CarrotKernel или записью лора — и персонаж из общей книги-архива получал события во всех чатах, а модель потом его упоминала. Теперь кандидат — только персонаж этой истории: из трекера DES этого чата, появлявшийся в сцене, упомянутый в сообщениях, из карточки, канона чата, книги чата или книги карточки.\n- Уже сохранённые события таких персонажей убираются из канона чата один раз при открытии чата (с откатом в журнале) и сообщаются уведомлением.\n\n## 1.10.2 — цвета реплик персонажей (2026-10-05)\n\n- «Стиль сообщений» больше не перекрашивает реплики, у которых есть свой цвет (раскраска реплик DES: `<font color=…>\"…\"</font>`): цвет персонажа остаётся, правило добавляет только курсив и жирный.\n\n## 1.10.1 — фоновые задачи без рассуждения (2026-10-05)\n\n- Фоновые задачи Maestro (режиссёр, ревизия, живой канон, летопись, закулисье…) на профилях OpenRouter теперь просят модель не рассуждать: пресет профиля к ним не применяется, и DeepSeek V4 тратил весь короткий бюджет на размышления — тип сцены у режиссёра не определялся ни разу, ревизия отвечала со второй-третьей попытки. Ассистент рассуждает как раньше.\n- Задачи со строгой схемой ответа получают не меньше 200 токенов.\n\n## 1.10.0 — правки по живым тестам (2026-10-05)\n\n- **Стиль сообщений** — новая вкладка в «Настройках»: редактор правил, как выглядят сообщения игрока и персонажей. Правило — что найти (\"…\", «…» ёлочками, реплики через тире, \\*мысли\\*, \\*\\*акцент\\*\\*, (…), […], свой регекс с проверкой) и как показать (цвет из темы, курсив, жирный, приглушение, шрифт, черта или подложка, вид кавычек — только на экране). Пресеты: «Классика» (по умолчанию: повествование обычным текстом, \"диалоги\" цветом цитат, \\*мысли\\* курсивом), «Книга», «Подсветка речи», «Мысли отдельно», «Ёлочки», «Сценарий», «Роман», «Контраст», «Игрок отдельно», «Минимум». Живой пример. Сохранённый текст сообщений не меняется. По желанию — «Подсказать модели этот формат».\n- **Сообщения игрока** — свой вид: акцентная черта, имя акцентным цветом, по желанию сдвиг вправо в «пузырях».\n- **Стартовая страница** в едином стиле: карточки недавних чатов, кнопки, приветствие. В превью чатов больше нет JSON трекера DES и сырых тегов вроде `<font color=…>` (только на экране; то же в «Управлении чатами» и боковой панели Top Info Bar).\n- **Оформлены**: панель персон игрока, «Управление чатами», панель чатов Top Info Bar, поле ввода (скругление, отступы, подсветка фокуса; на телефоне — крупные кнопки и шрифт 16 px без увеличения в iOS).\n- **Верхняя панель** снова с воздухом: высота подросла через собственную переменную ST, вся раскладка сдвигается вместе с ней (в iOS и в режиме «Плотно» — как в ST).\n- **Ассистент видит чат и карточку**: чтение и поиск по сообщениям текущего чата (трекер DES — коротко), карточка персонажа со всеми стартовыми сценами (первое сообщение и альтернативные приветствия), персона игрока и «обзор сценария» — одним вызовом всё, что нужно, чтобы предложить механики по этому чату.\n\n## 1.9.0 — ассистент (2026-10-05)\n\n- **Ассистент Maestro** — вкладка «Ассистент» в пульте, отдельно от ролевой игры: спрашивай про Maestro, этот чат и расширения. Модель — из своего профиля подключения (по умолчанию фоновый), свой цикл с инструментами, а не инструменты ST — модель РП их не видит. Дневной потолок фоновых трат ассистента не останавливает: его запускаешь ты.\n- **Читает и объясняет** — 27 инструментов: модули и их настройки, здоровье стека, журнал, «Входящие», промпт хода, почему запись лора сработала или нет («почему героиня не узнала сестру?» — ключи, глубина сканирования, падежи, вероятность, группы, задержки), почему ход дорогой (источники, кэш, перегенерации), регексы (объяснение и проверка на примере по правилам ST), досье, отношения, кто что знает, места, календарь, гардероб, паспорта, механики, режиссёр, блоки пресета. Встроенная справка: каждый модуль, каждый сосед и частые вопросы — на русском и английском.\n- **Делает — только с твоего согласия**: настройки модулей, включение модулей, уровни автономии, механики, регексы (только после проверки на примерах), блоки и условия в твоём слое пресета, записи лора, паспорта. Каждое изменение — карточкой «было/стало» с кнопками «Применить» и «Отклонить», всё в журнале с откатом.\n- **Безопасность**: текст чата, лора, карточек и пресетов для ассистента — только данные, не инструкции; ключи API, токены, адреса и профили подключения он не видит и не меняет; книги BunnyMo не трогает; не больше 10 шагов и 5 предложенных изменений на сообщение и 20 применённых изменений в час.\n\n## 1.8.0 — единый интерфейс (2026-10-05)\n\n- **Единый стиль** — SillyTavern, чат и расширения выглядят как одно приложение: одна таблица стилей Maestro за классом `maestro-theme` на странице. Цвета, размытие, тени, размер шрифта и ширину чата даёт твоя тема ST (смена темы подхватывается сама), скругления, отступы и элементы управления — общие с окнами Maestro. Выключил стиль или Maestro — всё выглядит как раньше; настройки соседей не меняются.\n- **Соседи в том же стиле**: Doom's Enhancement Suite (окна, полоса портретов, шапки сцены и мысли в чате — через его собственные переменные), CarrotKernel (самые заметные части), NAI Studio (панель, окна, картинки в чате), DES-RU, строки памяти Qvink, Lorebook Localizer.\n- **«Оформление» в настройках пульта**: стиль целиком и по частям (ST, чат, каждое расширение), плотность, скругления, «Показать, как было» на 10 секунд.\n- **Док «Расширения»** — блоки настроек CarrotKernel, Qvink, NAI Studio, DES-RU, Localizer и DES открываются прямо в пульте (настоящие блоки, всё работает) и возвращаются на своё место, когда пульт закрыт или Maestro выключен; по желанию — и полоса портретов DES. Ярлыки открывают окна соседей: настройки и каталог персонажей DES, редактор памяти Qvink, галерея и сцена NAI Studio, локализатор, менеджеры CarrotKernel.\n- **Пульт по разделам** — вкладки собраны в группы: Ход, Входящие, Канон, Досье, Мир, Механики, Здоровье, Журнал, Расширения, Настройки; группы сворачиваются, на телефоне — разделы в списке вкладок.\n\n## 1.7.0 — механики (2026-10-05)\n\n- **Конструктор механик** во вкладке «Механики»: свои игровые системы без возни через лор — атрибуты (числа, шкалы, списки, тексты), у кого они есть (персонажи, твой персонаж, фракции, мир), правила для модели, события на порогах («мана на нуле — заклинание срывается»), проверки с кубиками. Шаблоны: здоровье и выносливость, магия с маной и школами, репутация у фракций, деньги, навыки с проверками, отношения. Механика хранится записью типа «механика» в книге Maestro, действует для карточки, чата или везде и выключается в отдельном чате.\n- **Три способа учёта** — на выбор для каждой механики и атрибута: статы трекера DES (Maestro по твоему согласию добавляет их в DES, твои собственные статы не трогает), короткий служебный блок в конце ответа модели (Maestro читает его, чинит ошибки формата и прячет), фоновый разбор ответа. Изменения применяются, когда ты отправляешь следующее сообщение; свайп или удаление ответа откатывает его изменения. Правка значения в пульте — с откатом.\n- **Броски делает Maestro**: слово-триггер в твоём сообщении («убедить», «колдую», \"sneak\") — и проверка уходит в промпт фактом: «Spellcasting check (Элизабет): rolled 6, needed 100 or lower — success». Свайп не перебрасывает. Есть кнопка «Бросок» и команда `/maestro-roll`.\n- **В промпте** — только правила и значения механик, которые участвуют в сцене, ближе к концу; бюджет «механики» у архитектора. Флаги `maestro_mech_<механика>` для условных блоков пресета — в каталоге Пресет-студии. События на порогах — материал для поворотов режиссёра.\n- **Виджеты** — значения в пульте и строкой под портретами DES (на телефоне — одна строка с прокруткой).\n\n## 1.6.0 — визуальная связка (2026-10-05)\n\n- **Гардероб и состояния** — новый наряд из трекера DES (повторившийся два хода) становится именованным нарядом в паспорте NAI Studio уровня чата, а знакомый наряд узнаётся и надевается снова; состояния персонажей (мокрый, ранен, устал…) и мест (разрушено, украшено, пожар, ночь) включаются и выключаются в паспортах по трекеру. Персонаж, который появляется уже в новом наряде, тоже получает его. NAI Studio рисует узнанный наряд его тегами. Библиотека нарядов — во вкладке «Гардероб» и в досье, всё с откатом. Отложенные карточки нарядов из ревизии разбираются сами.\n- **Паспорта в лорбуках** — у записи лора может быть визуальный паспорт в формате NAI Studio: в книгах Maestro — в самой записи, у базовых книг — в реестре Maestro (файлы книг не меняются, книги BunnyMo не трогаются). Создаётся генератором NAI Studio или фоновой моделью по его схеме, правится в Лор-студии рядом с текстом. NAI Studio получает паспорта записей, сработавших или упомянутых в сцене.\n- **Фоны** — фон чата следует за местом: сначала подбор из библиотеки фонов SillyTavern (по названию, папкам, состоянию места, времени суток и погоде из DES), иначе — кнопка «Сгенерировать фон» в NAI Studio (с учётом режима «только бесплатно»). Только фон этого чата — общий фон и `settings.json` не меняются. Поставленный тобой фон Maestro не трогает, пока не разрешишь снова выбирать самому.\n- **«Оформить»** в досье — новый NPC или место получает всё одной кнопкой: запись канона с русскими ключами, архив CarrotKernel по словарю загруженных пакетов BunnyMo (в твою книгу-репозиторий или новую «Maestro · архив»), паспорт NAI Studio, если его нет. Весь план — одной карточкой во «Входящих», каждую часть можно откатить отдельно. «В книгу карточки» переносит запись канона в книгу карточки.\n- Нужен NAI Studio 0.12.1 (паспорта от Maestro, генерация паспорта и фона, наряды по формулировке трекера); со старыми версиями эти части просто не включаются.\n\n## 1.5.0 — живой мир (2026-10-05)\n\n- **Закулисье** — раз в несколько ходов (15 в «Сбалансированном», 10 и в конце сцен в «Кино», в «Экономном» только по кнопке) фоновая модель коротко рассказывает, чем были заняты до трёх важных персонажей, которых давно нет в сцене. События — в канон чата; смерть, плен, исчезновение и всё, что спорит с каноном, сначала ждёт тебя во «Входящих». Иногда присутствующие слышат слух.\n- **Календарь и обещания** — время истории по трекеру DES (обычные даты, «День N», выдуманные календари); договорённости и сроки из ревизии или вручную: «к закату», «через три дня», «by tomorrow». Наступивший срок — повод для заметки режиссёра; просроченное и нарушенное отмечается.\n- **Кто что знает** (экспериментально, выключено по умолчанию) — участники сцены знают её события, секреты из ревизии помечаются; голосовые карточки получают «не знает: …», когда тема всплыла.\n- Ревизия сразу отдаёт обещания календарю и секреты — модулю «Кто что знает»; отложенные карточки прошлых этапов разбираются сами.\n\n## 1.4.0 — режиссура (2026-10-05)\n\n- **Режиссёр сцены** — после каждого хода определяет тип сцены (диалог, бой, интимная, исследование, пропуск времени, светская, драма) по ответу, твоему сообщению и трекеру DES, с устойчивостью к случайным скачкам; при сомнении — дешёвая модель. Для следующей генерации ставит одноразовые флаги: `maestro_scene_<тип>`, длина ответа, откровенная сцена, язык, «момент для картинки». Тип можно задать самому.\n- **Темп и повороты** — если история встала (то же место, ничего не происходит, повторы, разговор по кругу), короткая заметка режиссёра ближе к концу промпта с поворотом из квестов DES и незакрытых нитей. Молчит, когда ты сам ведёшь сюжет; никогда не уводит от тёмных и откровенных сцен. «Встряхнуть» — заметка по кнопке.\n- **Голоса персонажей** — компактная карточка на каждого присутствующего: манера речи (LING и блок Linguistics), MBTI с состоянием, отношение к тебе сейчас, связи с другими присутствующими, цели. Когда карточки включены, вставка CarrotKernel «Character Consistency» гасится при сборке промпта (настройки CK не меняются), а DES-RU перестаёт её пересобирать. Выключено по умолчанию.\n- **Условные блоки пресета** — в Пресет-студии блок можно сделать «только когда …» / «кроме когда …» по флагу Maestro (`{{if .maestro_…}}`), с симулятором флагов, проверкой синтаксиса и предупреждением, если новый движок макросов выключен. «Подготовить к отключению» спрашивает, оставить ли такие блоки обычным текстом или выключить.\n\n## 1.3.0 — ресурсы: архитектор промпта и казначей (2026-10-05)\n\n- **Бюджеты по источникам** — общий потолок лора (поверх потолков книг), RAG CarrotKernel, краткосрочной памяти Qvink и необязательного блока контекста DES; при превышении уходят наименее важные куски, инструкции трекера DES и долгая память Qvink не трогаются никогда. По умолчанию всё выключено.\n- **Кто рядом** — записи об отсутствующих и далёких местах приглушаются, если о них не говорили последние сообщения; записи присутствующих и текущего места закрепляются (включается в «Архитекторе»).\n- **Повторы фактов** между лором, каноном, памятью Qvink, архивами CK и DES — отчёт, а по твоему согласию остаётся один источник.\n- **Кэш провайдера** — доля промпта из кэша и место, где промпт начинает меняться; проверка, что меняющиеся вставки Maestro стоят в конце.\n- **«До и после»** каждого правила — во «Промпте хода».\n- **Казначей** — сколько стоит игра: последний ход, сессия, сегодня и 14 дней, по источникам (основная модель, перегенерации, авто-свайпы, Qvink, задачи Maestro, NAI) и Anlas; при достижении общего дневного лимита — переход в «Экономный», если так настроено.\n- Учитываются кэшированные токены провайдеров.\n\n## 1.2.0 — контроль качества ответа (2026-10-04)\n\n- **Проверка каждого ответа** до того, как NAI Studio начнёт рисовать: уход в другой язык, кальки и штампы; реплики и действия за тебя; отказы, морализаторство, оговорки вне роли, смягчение и навязчивые вопросы; повторы прошлых ответов; обрезанный ответ; служебный мусор и протёкший HTML (JSON трекера DES и маркеры NAI — норма); нет трекера DES; граница контента. Сначала бесплатные правила, дешёвая модель-судья — только при сомнении (в «Экономном» — никогда).\n- **Действия по видам брака** — выкл / «Само» (очистить, попросить продолжить, один свайп за ход с точной инструкцией, ремонт трекера через Медика) / «Уведомить» (значки «Переделать» и «Не брак»). По умолчанию «Само» — только мусор и трекер, остальное — «Уведомить», пока не набрана статистика ложных срабатываний.\n- **Ранняя отсечка** служебных токенов модели прямо в потоке: остановка и один свайп.\n- **Граница контента** — настраиваемые правила с умолчанием (никакого сексуального контента с несовершеннолетними), тестовый режим.\n- **NAI Studio ждёт «качество ок»** (нужен NAI Studio 0.11.0): картинки не рисуются для ответа, ушедшего на переделку.\n\n## 1.1.0 — Пресет-студия (2026-10-04)\n\n- **Пресет-студия** — большое окно для пресета Chat Completion: «Карта» (как SillyTavern соберёт промпт: блоки по порядку, вставки расширений на своих местах, токены, блоки, которые включены, но не уйдут), «Блоки» (порядок перетаскиванием, массовое включение, поиск, предпросмотр с макросами), редактор блока, «Анализ» (несохранённые правки, пустые и неотправляемые блоки, противоречия, повторы с лором и вставками, особенности модели и провайдера), «Версии» (каждое сохранение — версия, откат), «Параметры» генерации и сценариев.\n- **Твой слой** — твои блоки и правки хранятся отдельно от базового пресета и накладываются при его выборе; новая версия базы (например, Marinara) ставится без потери правок, а при изменённом тексте блока — выбор из трёх версий. Перенос текущих правок в слой с предпросмотром (ключи подключения можно не переносить), перенос слоя на другой пресет, блоки из чужих пресетов.\n- **Безопасное сохранение** — пресет сохраняется только с явным телом, незнакомые ключи и расширения сохраняются, переименование переносит разрешения регексов и спрашивает о профилях подключения; несохранённые правки сохраняются версией перед переключением пресета.\n- **Сценарии генерации** — свои параметры для перевоплощения и продолжения (выключены по умолчанию).\n- Раздел Prompt Manager можно заменить кнопкой студии (настройка, по умолчанию выключена — до проверки паритета вживую).\n- **«Подготовить к отключению», экспорт и импорт данных Maestro** в настройках пульта.\n\n## 1.0.0 — выпуск R3, первая полная версия (2026-10-04)\n\nЭтап 4: ревизия и живой канон.\n\n- **Сигналы хода** — когда ты отправляешь сообщение, прошлый ответ фиксируется, и Maestro без ИИ сравнивает его с ходом раньше: смена отношения, стойкая внешность, место, пропуск времени, конец сцены, квесты, кто пришёл и ушёл, новые алиасы и имена, память Qvink. Свободный текст засчитывается, только если продержался два хода; свайп и правка откатывают ровно то, что дал ответ.\n- **Ревизия «сюжет → канон»** — по сигналам, раз в N сообщений, в конце сцены или командой `/maestro-revise` дешёвая модель смотрит, что изменилось у известных персонажей и мест, и предлагает обновить владельца: канон чата, теги архива CK (только из словаря паков), паспорт NAI уровня чата, прозвища чата, реестр мест. Наряды, обещания и секреты ждут своих этапов отложенными карточками.\n- **«Входящие»** — карточки по персонажам, ссылка на сообщение, «было/стало» по хранилищам, цитата и уверенность; принять, изменить на месте, отклонить, отложить, «Всегда так», принять всё.\n- **Проверка противоречий** — сначала правила (имена, числа, даты, отрицания), при сомнении — дешёвая модель; общий сервис для ревизии и живого канона.\n- **Живой канон** — то, что придумала модель (праздник, таверна, род), после фиксации хода становится пробной записью канона с русскими ключами; подтверждается, только если ты сам это упомянул, принял, если оно всплыло снова без подсказки или продержалось 10 ходов без противоречий. Пакетное извлечение пишет английский текст записей. Свайп убирает пробное, подтверждённое остаётся.\n- **Летопись и автопамять** — воспоминания Qvink, выпавшие из долгой памяти, становятся главами канона (срабатывают по двум ключам сразу); важные моменты сами получают отметку «запомнить» во всех свайпах; «Ранее в истории…» после перерыва.\n- **Замеры** — вкладка с критериями первой полной версии: задержка Maestro до запроса, доля фоновых расходов, лор на ход, выпавшие сообщения, роли записей, вкладки, ревизия, живой канон, листы, файлы паков. Скрипт стенда `tools/stand/measure.mjs`.\n- Исправлено: досье и листы брали архив «Александра» для «Александр» (падежная форма совпадала с другим именем); запросы NAI Studio записывались в расходы Qvink.\n\n## 0.2.0 — выпуск R2 (2026-10-04)\n\nЭтапы 2 и 3: Лор-студия, роли книг, доктор, канон; модель мира, досье, места.\n\n**Этап 3**\n\n- **Модель мира** — каждый персонаж, персона и место стека одной сущностью: карточки, состав DES, алиасы DES и DES-RU, падежи, паспорта NAI, архивы CK, записи лорбуков с типом, канон и места. Одно лицо под разными именами склеивается; сомнительные совпадения — во «Входящих». Прозвища, которые действуют только в этом чате.\n- **Досье** — одна страница на сущность: DES, лор, канон, архив CK и теги, паспорт NAI (с изменениями этого чата), падежи, воспоминания Qvink, RAG, последний лист. Сверка структуры (нет записи, паспорта или архива, алиас не стал ключом, имена расходятся), сверка внешности ИИ по кнопке, «Разнести» правку по хранилищам. Команда `/maestro-dossier`.\n- **Места** — реестр мест чата по локации DES: новое название становится местом, если продержалось два хода; вложенность, история визитов (кто был, когда), описание записью канона. NAI Studio держит непрерывность фона по id места.\n- **Граф отношений** — как персонажи относятся к твоей персоне, ход за ходом по трекеру DES.\n- **Режим BunnyMo** — словарь тегов всех паков (конфликты, дубли, теги без пака), паки по чатам, сравнение пака с новым файлом, проверка целостности, редактор листов архивов CK. Команда `/maestro-bunnymo`.\n- Нужен NAI Studio 0.10.0 для паспортов уровня чата и непрерывности по местам (без него всё остальное работает).\n\n**Этап 2**\n\n- **Лор-студия** — свой редактор лорбуков рядом со штатным: книги по ролям, все поля и действия штатного окна, канон рядом с базой, история версий, русские ключи, кампании DES. Кнопку «Миры и лорбуки» можно отдать студии настройкой.\n- **Роли книг** — Maestro знает, где ядро и паки BunnyMo, архивы CK, мир, карточка, NPC, канон; паки BunnyMo только для чтения.\n- **Канон чата** — изменения сюжета в отдельном лорбуке чата: переопределение, подавление, закрепление, добавление; бюджет, архив, слежение за базой, повышение до базы, экспорт, ветки. Срабатывает по русскому тексту.\n- **Доктор** — «Исправить в файле» для твоих книг (паки — никогда) и лечение регексов, всё с откатом.\n- **Правила** — кириллица и «целые слова», конфликт версий паков, `<NSFW>` в архивах, глубина сканирования архивов CK.\n- Нужны DES-RU 0.8.0 и Lorebook Localizer 0.2.0 (без них всё работает, но без склонений и локализации из студии).\n\n## 0.1.0 — выпуск R1 (2026-10-04)\n\nНаблюдение и быстрые исправления.\n\n- **Журнал лора** — какой лор ушёл в промпт на каждом ходу, почему, каким ключом и через какую запись; почему книга активна; «Что если» без генерации.\n- **Инспектор хода** — из чего собран промпт: пресет, лор по книгам, вставки соседей, история.\n- **Медик** — проверки соседей после каждого ответа; ремонт трекера DES; предупреждение о prefill с ролью assistant.\n- **Страж** — эталон настроек и пресета, дрейф во «Входящих»; устаревшая вкладка больше не перезаписывает настройки, пресеты и лорбуки.\n- **Доктор** — находки в лорбуках и регексах, испытание регексов.\n- **Правила на лету** — роль assistant → system, потолок и лимит рекурсии книги, дубли паков, «дыры» Qvink, картинки NAI вне пересказов, видимые теги BunnyMo, кнопка векторизации CK и полоса портретов DES на телефоне.\n- **Листы персонажей** — команды BunnyMo генерируются своей сборкой промпта, без хвоста сцены и трекера, сворачиваются и уходят из промпта после следующего хода.\n- **Мастер первого запуска.**\n\n## 0.0.0 — этап 0\n\nКаркас: слой ST, сервисы ядра, адаптеры соседей, пульт, стенд с имитацией модели.\n")?.[1] ?? null;
+	return /^##\s+(\d+\.\d+\.\d+)/m.exec("# Журнал изменений\n\n## 1.12.0 — окна вместо пульта, Maestro в чате (2026-10-07)\n\n- **Окна.** Всё, что раньше жило в одном модальном пульте, теперь в отдельных окнах, которые не мешают играть: «Ассистент», «Входящие», «Персонажи» (досье, гардероб, BunnyMo), «Механики», «Мир», «Канон», «Ход», «Здоровье» и «Maestro» (обзор, журнал, настройки, оформление, расширения). По умолчанию окно открывается боковой панелью рядом с чатом; его можно открепить в плавающее окно (перетаскивание, размер, свернуть в заголовок) и прикрепить обратно. Несколько окон сразу; где какое окно было — запоминается на этом устройстве. На телефоне окно занимает экран под верхней панелью, открытые окна переключаются кнопками.\n- **Лор-студия и Пресет-студия** — тоже окна: рядом можно держать чат или ассистента.\n- **Шестерёнка в окне** показывает настройки модулей этого раздела.\n- **Меню Maestro** — по значку в верхней панели (новых значков нет): все окна со счётчиками, студии, твои задачи с прогрессом, настройки. То же меню — в «волшебной палочке».\n- **Кнопка Maestro у сообщения** (в «…»): «Досье» говорящего и «Механики».\n- **Команды**: `/maestro [окно]`, `/maestro-undo` (отменить последнее действие Maestro в этом чате), `/maestro-mode экономный|сбалансированный|кино`, `/maestro-scene <тип сцены|авто>`.\n- **Строка Maestro под сообщением**: предложения «Входящих» по этому ответу, запомненные живым каноном факты ([Верно] [Забыть] [Это ошибка]), вопрос «тот же персонаж или другой?», брак ответа, броски — прямо в чате; нажатие раскрывает карточку с кнопками, окно открывать не нужно. Строки переживают перезагрузку и исчезают, когда всё решено; в текст сообщения, промпт и память Qvink ничего не попадает, «пузыри» DES не ломаются. Настройка «Строка Maestro под сообщениями»: всё / только то, что ждёт решения / ничего.\n- Переход к сообщению или открытие студии больше не закрывает окна на компьютере (на телефоне окно уступает место чату).\n\n## 1.11.0 — понятные уведомления, гардероб, тёзки из разных историй (2026-10-06)\n\n- **Тёзки больше не сливаются.** Раньше новый персонаж с тем же именем, что у кого-то из другого чата (паспорт карточки, лист в общем архиве CarrotKernel, запись в общей книге), молча становился «тем же самым»: в новый чат приходили его внешность, наряды, характер, манера речи — и голос попадал в промпт. Теперь Maestro спрашивает во «Входящих» и значком у сообщения: «Офелия здесь — тот же персонаж, что в паспорте карточки?» [Тот же] [Другой]. Пока ты не ответил, старое не используется; «Другой» — в этом чате у неё всё своё, а паспорт карточки выключается только здесь (NAI Studio 0.14). Персонажи самой карточки (названные в её описании, сценарии, приветствиях или книге) — те же без вопросов. «Это разные» в модели мира теперь работает и для одинаковых имён. Решение можно поменять в досье. Данные Maestro удалённых чатов убираются вместе с чатом.\n- **Гардероб видит, во что все одеты сейчас.** Раньше в настоящих чатах он не срабатывал: DES пишет одежду внутри «Внешности», а гардероб ждал отдельного поля. Теперь:\n  - поле «Одежда» в трекер DES — одной кнопкой во вкладке «Гардероб» (только с твоего согласия, откат в журнале); пока его нет, одежда вычитывается из «Внешности»;\n  - каждый ход — сверка: знакомый наряд надевается сам, новый через два хода становится нарядом с русским названием («Шёлковое платье», «Блузка и юбка»); переодевания, раздевание, полотенце, бельё; пропущенный ход больше не «застревает»;\n  - «Кто в сцене и что на нём» во вкладке, «Сейчас: …» в досье, твой персонаж — по разговору об одежде (фоновая модель, не чаще раза в 6 ходов) или полем «Сейчас на тебе»;\n  - строка «кто во что одет» в конце промпта, чтобы модель не путала одежду (выключается);\n  - портрет DES перерисовывается при смене наряда (NAI Studio 0.14, выключается);\n  - NPC с паспортом только из лора получает паспорт чата при первом наряде.\n- **Понятные уведомления.** Каждое говорит словами истории: что случилось, что Maestro сделал или предлагает, что будет, если согласиться. Служебное (книги, номера записей, теги, английский текст канона) — под «Подробнее». У всех действий человеческие названия — в карточках, журнале и настройках автономии. Новое в настройках: «О чём сообщать» — всё (по умолчанию), важное, только срочное; «Показывать технические подробности». Однотипное за ход склеивается («Запомнил 3 новых факта о мире»). То, что Maestro делает сам, теперь видно: «Вера переоделась: «Шёлковое платье»» [Отменить]; живой канон сообщает, что запомнил, подтвердил и отбросил. Канон по-прежнему хранится по-английски, но в карточках — русская формулировка и цитата.\n- **Видно, как идёт локализация лорбука.** В шапке книги Лор-студии — «Локализую: 34 из 120 записей» с полосой и «Остановить»; «Жду: Localizer занят другой задачей»; итог «добавлено N ключей в M записей» и «Повторить неудачные»; ошибки — человеческими словами. Задача не теряется, если закрыть студию: она видна во вкладке «Задачи», а вокруг значка Maestro — кольцо прогресса. То же у кнопки «Русские ключи» записи. Живой счётчик и остановка — с Lorebook Localizer 0.3.\n- Исправлено: гардероб, режиссёр и закулисье переставали замечать новые ходы, если сообщения удалили, пока Maestro не видел (другая вкладка, выключенный Maestro); отмена правки «описание места» в журнале сообщала об успехе и ничего не меняла; номера сообщений в уведомлениях везде такие же, как в чате.\n- Для всех новых возможностей: NAI Studio 0.14.0, DES-RU 0.8.2, Lorebook Localizer 0.3.0; со старыми версиями соответствующие части просто не включаются.\n\n## 1.10.3 — закулисье только своих персонажей (2026-10-05)\n\n- «Закулисье» больше не придумывает события персонажам из других историй. Раньше важным считался любой отсутствующий персонаж с архивом CarrotKernel или записью лора — и персонаж из общей книги-архива получал события во всех чатах, а модель потом его упоминала. Теперь кандидат — только персонаж этой истории: из трекера DES этого чата, появлявшийся в сцене, упомянутый в сообщениях, из карточки, канона чата, книги чата или книги карточки.\n- Уже сохранённые события таких персонажей убираются из канона чата один раз при открытии чата (с откатом в журнале) и сообщаются уведомлением.\n\n## 1.10.2 — цвета реплик персонажей (2026-10-05)\n\n- «Стиль сообщений» больше не перекрашивает реплики, у которых есть свой цвет (раскраска реплик DES: `<font color=…>\"…\"</font>`): цвет персонажа остаётся, правило добавляет только курсив и жирный.\n\n## 1.10.1 — фоновые задачи без рассуждения (2026-10-05)\n\n- Фоновые задачи Maestro (режиссёр, ревизия, живой канон, летопись, закулисье…) на профилях OpenRouter теперь просят модель не рассуждать: пресет профиля к ним не применяется, и DeepSeek V4 тратил весь короткий бюджет на размышления — тип сцены у режиссёра не определялся ни разу, ревизия отвечала со второй-третьей попытки. Ассистент рассуждает как раньше.\n- Задачи со строгой схемой ответа получают не меньше 200 токенов.\n\n## 1.10.0 — правки по живым тестам (2026-10-05)\n\n- **Стиль сообщений** — новая вкладка в «Настройках»: редактор правил, как выглядят сообщения игрока и персонажей. Правило — что найти (\"…\", «…» ёлочками, реплики через тире, \\*мысли\\*, \\*\\*акцент\\*\\*, (…), […], свой регекс с проверкой) и как показать (цвет из темы, курсив, жирный, приглушение, шрифт, черта или подложка, вид кавычек — только на экране). Пресеты: «Классика» (по умолчанию: повествование обычным текстом, \"диалоги\" цветом цитат, \\*мысли\\* курсивом), «Книга», «Подсветка речи», «Мысли отдельно», «Ёлочки», «Сценарий», «Роман», «Контраст», «Игрок отдельно», «Минимум». Живой пример. Сохранённый текст сообщений не меняется. По желанию — «Подсказать модели этот формат».\n- **Сообщения игрока** — свой вид: акцентная черта, имя акцентным цветом, по желанию сдвиг вправо в «пузырях».\n- **Стартовая страница** в едином стиле: карточки недавних чатов, кнопки, приветствие. В превью чатов больше нет JSON трекера DES и сырых тегов вроде `<font color=…>` (только на экране; то же в «Управлении чатами» и боковой панели Top Info Bar).\n- **Оформлены**: панель персон игрока, «Управление чатами», панель чатов Top Info Bar, поле ввода (скругление, отступы, подсветка фокуса; на телефоне — крупные кнопки и шрифт 16 px без увеличения в iOS).\n- **Верхняя панель** снова с воздухом: высота подросла через собственную переменную ST, вся раскладка сдвигается вместе с ней (в iOS и в режиме «Плотно» — как в ST).\n- **Ассистент видит чат и карточку**: чтение и поиск по сообщениям текущего чата (трекер DES — коротко), карточка персонажа со всеми стартовыми сценами (первое сообщение и альтернативные приветствия), персона игрока и «обзор сценария» — одним вызовом всё, что нужно, чтобы предложить механики по этому чату.\n\n## 1.9.0 — ассистент (2026-10-05)\n\n- **Ассистент Maestro** — вкладка «Ассистент» в пульте, отдельно от ролевой игры: спрашивай про Maestro, этот чат и расширения. Модель — из своего профиля подключения (по умолчанию фоновый), свой цикл с инструментами, а не инструменты ST — модель РП их не видит. Дневной потолок фоновых трат ассистента не останавливает: его запускаешь ты.\n- **Читает и объясняет** — 27 инструментов: модули и их настройки, здоровье стека, журнал, «Входящие», промпт хода, почему запись лора сработала или нет («почему героиня не узнала сестру?» — ключи, глубина сканирования, падежи, вероятность, группы, задержки), почему ход дорогой (источники, кэш, перегенерации), регексы (объяснение и проверка на примере по правилам ST), досье, отношения, кто что знает, места, календарь, гардероб, паспорта, механики, режиссёр, блоки пресета. Встроенная справка: каждый модуль, каждый сосед и частые вопросы — на русском и английском.\n- **Делает — только с твоего согласия**: настройки модулей, включение модулей, уровни автономии, механики, регексы (только после проверки на примерах), блоки и условия в твоём слое пресета, записи лора, паспорта. Каждое изменение — карточкой «было/стало» с кнопками «Применить» и «Отклонить», всё в журнале с откатом.\n- **Безопасность**: текст чата, лора, карточек и пресетов для ассистента — только данные, не инструкции; ключи API, токены, адреса и профили подключения он не видит и не меняет; книги BunnyMo не трогает; не больше 10 шагов и 5 предложенных изменений на сообщение и 20 применённых изменений в час.\n\n## 1.8.0 — единый интерфейс (2026-10-05)\n\n- **Единый стиль** — SillyTavern, чат и расширения выглядят как одно приложение: одна таблица стилей Maestro за классом `maestro-theme` на странице. Цвета, размытие, тени, размер шрифта и ширину чата даёт твоя тема ST (смена темы подхватывается сама), скругления, отступы и элементы управления — общие с окнами Maestro. Выключил стиль или Maestro — всё выглядит как раньше; настройки соседей не меняются.\n- **Соседи в том же стиле**: Doom's Enhancement Suite (окна, полоса портретов, шапки сцены и мысли в чате — через его собственные переменные), CarrotKernel (самые заметные части), NAI Studio (панель, окна, картинки в чате), DES-RU, строки памяти Qvink, Lorebook Localizer.\n- **«Оформление» в настройках пульта**: стиль целиком и по частям (ST, чат, каждое расширение), плотность, скругления, «Показать, как было» на 10 секунд.\n- **Док «Расширения»** — блоки настроек CarrotKernel, Qvink, NAI Studio, DES-RU, Localizer и DES открываются прямо в пульте (настоящие блоки, всё работает) и возвращаются на своё место, когда пульт закрыт или Maestro выключен; по желанию — и полоса портретов DES. Ярлыки открывают окна соседей: настройки и каталог персонажей DES, редактор памяти Qvink, галерея и сцена NAI Studio, локализатор, менеджеры CarrotKernel.\n- **Пульт по разделам** — вкладки собраны в группы: Ход, Входящие, Канон, Досье, Мир, Механики, Здоровье, Журнал, Расширения, Настройки; группы сворачиваются, на телефоне — разделы в списке вкладок.\n\n## 1.7.0 — механики (2026-10-05)\n\n- **Конструктор механик** во вкладке «Механики»: свои игровые системы без возни через лор — атрибуты (числа, шкалы, списки, тексты), у кого они есть (персонажи, твой персонаж, фракции, мир), правила для модели, события на порогах («мана на нуле — заклинание срывается»), проверки с кубиками. Шаблоны: здоровье и выносливость, магия с маной и школами, репутация у фракций, деньги, навыки с проверками, отношения. Механика хранится записью типа «механика» в книге Maestro, действует для карточки, чата или везде и выключается в отдельном чате.\n- **Три способа учёта** — на выбор для каждой механики и атрибута: статы трекера DES (Maestro по твоему согласию добавляет их в DES, твои собственные статы не трогает), короткий служебный блок в конце ответа модели (Maestro читает его, чинит ошибки формата и прячет), фоновый разбор ответа. Изменения применяются, когда ты отправляешь следующее сообщение; свайп или удаление ответа откатывает его изменения. Правка значения в пульте — с откатом.\n- **Броски делает Maestro**: слово-триггер в твоём сообщении («убедить», «колдую», \"sneak\") — и проверка уходит в промпт фактом: «Spellcasting check (Элизабет): rolled 6, needed 100 or lower — success». Свайп не перебрасывает. Есть кнопка «Бросок» и команда `/maestro-roll`.\n- **В промпте** — только правила и значения механик, которые участвуют в сцене, ближе к концу; бюджет «механики» у архитектора. Флаги `maestro_mech_<механика>` для условных блоков пресета — в каталоге Пресет-студии. События на порогах — материал для поворотов режиссёра.\n- **Виджеты** — значения в пульте и строкой под портретами DES (на телефоне — одна строка с прокруткой).\n\n## 1.6.0 — визуальная связка (2026-10-05)\n\n- **Гардероб и состояния** — новый наряд из трекера DES (повторившийся два хода) становится именованным нарядом в паспорте NAI Studio уровня чата, а знакомый наряд узнаётся и надевается снова; состояния персонажей (мокрый, ранен, устал…) и мест (разрушено, украшено, пожар, ночь) включаются и выключаются в паспортах по трекеру. Персонаж, который появляется уже в новом наряде, тоже получает его. NAI Studio рисует узнанный наряд его тегами. Библиотека нарядов — во вкладке «Гардероб» и в досье, всё с откатом. Отложенные карточки нарядов из ревизии разбираются сами.\n- **Паспорта в лорбуках** — у записи лора может быть визуальный паспорт в формате NAI Studio: в книгах Maestro — в самой записи, у базовых книг — в реестре Maestro (файлы книг не меняются, книги BunnyMo не трогаются). Создаётся генератором NAI Studio или фоновой моделью по его схеме, правится в Лор-студии рядом с текстом. NAI Studio получает паспорта записей, сработавших или упомянутых в сцене.\n- **Фоны** — фон чата следует за местом: сначала подбор из библиотеки фонов SillyTavern (по названию, папкам, состоянию места, времени суток и погоде из DES), иначе — кнопка «Сгенерировать фон» в NAI Studio (с учётом режима «только бесплатно»). Только фон этого чата — общий фон и `settings.json` не меняются. Поставленный тобой фон Maestro не трогает, пока не разрешишь снова выбирать самому.\n- **«Оформить»** в досье — новый NPC или место получает всё одной кнопкой: запись канона с русскими ключами, архив CarrotKernel по словарю загруженных пакетов BunnyMo (в твою книгу-репозиторий или новую «Maestro · архив»), паспорт NAI Studio, если его нет. Весь план — одной карточкой во «Входящих», каждую часть можно откатить отдельно. «В книгу карточки» переносит запись канона в книгу карточки.\n- Нужен NAI Studio 0.12.1 (паспорта от Maestro, генерация паспорта и фона, наряды по формулировке трекера); со старыми версиями эти части просто не включаются.\n\n## 1.5.0 — живой мир (2026-10-05)\n\n- **Закулисье** — раз в несколько ходов (15 в «Сбалансированном», 10 и в конце сцен в «Кино», в «Экономном» только по кнопке) фоновая модель коротко рассказывает, чем были заняты до трёх важных персонажей, которых давно нет в сцене. События — в канон чата; смерть, плен, исчезновение и всё, что спорит с каноном, сначала ждёт тебя во «Входящих». Иногда присутствующие слышат слух.\n- **Календарь и обещания** — время истории по трекеру DES (обычные даты, «День N», выдуманные календари); договорённости и сроки из ревизии или вручную: «к закату», «через три дня», «by tomorrow». Наступивший срок — повод для заметки режиссёра; просроченное и нарушенное отмечается.\n- **Кто что знает** (экспериментально, выключено по умолчанию) — участники сцены знают её события, секреты из ревизии помечаются; голосовые карточки получают «не знает: …», когда тема всплыла.\n- Ревизия сразу отдаёт обещания календарю и секреты — модулю «Кто что знает»; отложенные карточки прошлых этапов разбираются сами.\n\n## 1.4.0 — режиссура (2026-10-05)\n\n- **Режиссёр сцены** — после каждого хода определяет тип сцены (диалог, бой, интимная, исследование, пропуск времени, светская, драма) по ответу, твоему сообщению и трекеру DES, с устойчивостью к случайным скачкам; при сомнении — дешёвая модель. Для следующей генерации ставит одноразовые флаги: `maestro_scene_<тип>`, длина ответа, откровенная сцена, язык, «момент для картинки». Тип можно задать самому.\n- **Темп и повороты** — если история встала (то же место, ничего не происходит, повторы, разговор по кругу), короткая заметка режиссёра ближе к концу промпта с поворотом из квестов DES и незакрытых нитей. Молчит, когда ты сам ведёшь сюжет; никогда не уводит от тёмных и откровенных сцен. «Встряхнуть» — заметка по кнопке.\n- **Голоса персонажей** — компактная карточка на каждого присутствующего: манера речи (LING и блок Linguistics), MBTI с состоянием, отношение к тебе сейчас, связи с другими присутствующими, цели. Когда карточки включены, вставка CarrotKernel «Character Consistency» гасится при сборке промпта (настройки CK не меняются), а DES-RU перестаёт её пересобирать. Выключено по умолчанию.\n- **Условные блоки пресета** — в Пресет-студии блок можно сделать «только когда …» / «кроме когда …» по флагу Maestro (`{{if .maestro_…}}`), с симулятором флагов, проверкой синтаксиса и предупреждением, если новый движок макросов выключен. «Подготовить к отключению» спрашивает, оставить ли такие блоки обычным текстом или выключить.\n\n## 1.3.0 — ресурсы: архитектор промпта и казначей (2026-10-05)\n\n- **Бюджеты по источникам** — общий потолок лора (поверх потолков книг), RAG CarrotKernel, краткосрочной памяти Qvink и необязательного блока контекста DES; при превышении уходят наименее важные куски, инструкции трекера DES и долгая память Qvink не трогаются никогда. По умолчанию всё выключено.\n- **Кто рядом** — записи об отсутствующих и далёких местах приглушаются, если о них не говорили последние сообщения; записи присутствующих и текущего места закрепляются (включается в «Архитекторе»).\n- **Повторы фактов** между лором, каноном, памятью Qvink, архивами CK и DES — отчёт, а по твоему согласию остаётся один источник.\n- **Кэш провайдера** — доля промпта из кэша и место, где промпт начинает меняться; проверка, что меняющиеся вставки Maestro стоят в конце.\n- **«До и после»** каждого правила — во «Промпте хода».\n- **Казначей** — сколько стоит игра: последний ход, сессия, сегодня и 14 дней, по источникам (основная модель, перегенерации, авто-свайпы, Qvink, задачи Maestro, NAI) и Anlas; при достижении общего дневного лимита — переход в «Экономный», если так настроено.\n- Учитываются кэшированные токены провайдеров.\n\n## 1.2.0 — контроль качества ответа (2026-10-04)\n\n- **Проверка каждого ответа** до того, как NAI Studio начнёт рисовать: уход в другой язык, кальки и штампы; реплики и действия за тебя; отказы, морализаторство, оговорки вне роли, смягчение и навязчивые вопросы; повторы прошлых ответов; обрезанный ответ; служебный мусор и протёкший HTML (JSON трекера DES и маркеры NAI — норма); нет трекера DES; граница контента. Сначала бесплатные правила, дешёвая модель-судья — только при сомнении (в «Экономном» — никогда).\n- **Действия по видам брака** — выкл / «Само» (очистить, попросить продолжить, один свайп за ход с точной инструкцией, ремонт трекера через Медика) / «Уведомить» (значки «Переделать» и «Не брак»). По умолчанию «Само» — только мусор и трекер, остальное — «Уведомить», пока не набрана статистика ложных срабатываний.\n- **Ранняя отсечка** служебных токенов модели прямо в потоке: остановка и один свайп.\n- **Граница контента** — настраиваемые правила с умолчанием (никакого сексуального контента с несовершеннолетними), тестовый режим.\n- **NAI Studio ждёт «качество ок»** (нужен NAI Studio 0.11.0): картинки не рисуются для ответа, ушедшего на переделку.\n\n## 1.1.0 — Пресет-студия (2026-10-04)\n\n- **Пресет-студия** — большое окно для пресета Chat Completion: «Карта» (как SillyTavern соберёт промпт: блоки по порядку, вставки расширений на своих местах, токены, блоки, которые включены, но не уйдут), «Блоки» (порядок перетаскиванием, массовое включение, поиск, предпросмотр с макросами), редактор блока, «Анализ» (несохранённые правки, пустые и неотправляемые блоки, противоречия, повторы с лором и вставками, особенности модели и провайдера), «Версии» (каждое сохранение — версия, откат), «Параметры» генерации и сценариев.\n- **Твой слой** — твои блоки и правки хранятся отдельно от базового пресета и накладываются при его выборе; новая версия базы (например, Marinara) ставится без потери правок, а при изменённом тексте блока — выбор из трёх версий. Перенос текущих правок в слой с предпросмотром (ключи подключения можно не переносить), перенос слоя на другой пресет, блоки из чужих пресетов.\n- **Безопасное сохранение** — пресет сохраняется только с явным телом, незнакомые ключи и расширения сохраняются, переименование переносит разрешения регексов и спрашивает о профилях подключения; несохранённые правки сохраняются версией перед переключением пресета.\n- **Сценарии генерации** — свои параметры для перевоплощения и продолжения (выключены по умолчанию).\n- Раздел Prompt Manager можно заменить кнопкой студии (настройка, по умолчанию выключена — до проверки паритета вживую).\n- **«Подготовить к отключению», экспорт и импорт данных Maestro** в настройках пульта.\n\n## 1.0.0 — выпуск R3, первая полная версия (2026-10-04)\n\nЭтап 4: ревизия и живой канон.\n\n- **Сигналы хода** — когда ты отправляешь сообщение, прошлый ответ фиксируется, и Maestro без ИИ сравнивает его с ходом раньше: смена отношения, стойкая внешность, место, пропуск времени, конец сцены, квесты, кто пришёл и ушёл, новые алиасы и имена, память Qvink. Свободный текст засчитывается, только если продержался два хода; свайп и правка откатывают ровно то, что дал ответ.\n- **Ревизия «сюжет → канон»** — по сигналам, раз в N сообщений, в конце сцены или командой `/maestro-revise` дешёвая модель смотрит, что изменилось у известных персонажей и мест, и предлагает обновить владельца: канон чата, теги архива CK (только из словаря паков), паспорт NAI уровня чата, прозвища чата, реестр мест. Наряды, обещания и секреты ждут своих этапов отложенными карточками.\n- **«Входящие»** — карточки по персонажам, ссылка на сообщение, «было/стало» по хранилищам, цитата и уверенность; принять, изменить на месте, отклонить, отложить, «Всегда так», принять всё.\n- **Проверка противоречий** — сначала правила (имена, числа, даты, отрицания), при сомнении — дешёвая модель; общий сервис для ревизии и живого канона.\n- **Живой канон** — то, что придумала модель (праздник, таверна, род), после фиксации хода становится пробной записью канона с русскими ключами; подтверждается, только если ты сам это упомянул, принял, если оно всплыло снова без подсказки или продержалось 10 ходов без противоречий. Пакетное извлечение пишет английский текст записей. Свайп убирает пробное, подтверждённое остаётся.\n- **Летопись и автопамять** — воспоминания Qvink, выпавшие из долгой памяти, становятся главами канона (срабатывают по двум ключам сразу); важные моменты сами получают отметку «запомнить» во всех свайпах; «Ранее в истории…» после перерыва.\n- **Замеры** — вкладка с критериями первой полной версии: задержка Maestro до запроса, доля фоновых расходов, лор на ход, выпавшие сообщения, роли записей, вкладки, ревизия, живой канон, листы, файлы паков. Скрипт стенда `tools/stand/measure.mjs`.\n- Исправлено: досье и листы брали архив «Александра» для «Александр» (падежная форма совпадала с другим именем); запросы NAI Studio записывались в расходы Qvink.\n\n## 0.2.0 — выпуск R2 (2026-10-04)\n\nЭтапы 2 и 3: Лор-студия, роли книг, доктор, канон; модель мира, досье, места.\n\n**Этап 3**\n\n- **Модель мира** — каждый персонаж, персона и место стека одной сущностью: карточки, состав DES, алиасы DES и DES-RU, падежи, паспорта NAI, архивы CK, записи лорбуков с типом, канон и места. Одно лицо под разными именами склеивается; сомнительные совпадения — во «Входящих». Прозвища, которые действуют только в этом чате.\n- **Досье** — одна страница на сущность: DES, лор, канон, архив CK и теги, паспорт NAI (с изменениями этого чата), падежи, воспоминания Qvink, RAG, последний лист. Сверка структуры (нет записи, паспорта или архива, алиас не стал ключом, имена расходятся), сверка внешности ИИ по кнопке, «Разнести» правку по хранилищам. Команда `/maestro-dossier`.\n- **Места** — реестр мест чата по локации DES: новое название становится местом, если продержалось два хода; вложенность, история визитов (кто был, когда), описание записью канона. NAI Studio держит непрерывность фона по id места.\n- **Граф отношений** — как персонажи относятся к твоей персоне, ход за ходом по трекеру DES.\n- **Режим BunnyMo** — словарь тегов всех паков (конфликты, дубли, теги без пака), паки по чатам, сравнение пака с новым файлом, проверка целостности, редактор листов архивов CK. Команда `/maestro-bunnymo`.\n- Нужен NAI Studio 0.10.0 для паспортов уровня чата и непрерывности по местам (без него всё остальное работает).\n\n**Этап 2**\n\n- **Лор-студия** — свой редактор лорбуков рядом со штатным: книги по ролям, все поля и действия штатного окна, канон рядом с базой, история версий, русские ключи, кампании DES. Кнопку «Миры и лорбуки» можно отдать студии настройкой.\n- **Роли книг** — Maestro знает, где ядро и паки BunnyMo, архивы CK, мир, карточка, NPC, канон; паки BunnyMo только для чтения.\n- **Канон чата** — изменения сюжета в отдельном лорбуке чата: переопределение, подавление, закрепление, добавление; бюджет, архив, слежение за базой, повышение до базы, экспорт, ветки. Срабатывает по русскому тексту.\n- **Доктор** — «Исправить в файле» для твоих книг (паки — никогда) и лечение регексов, всё с откатом.\n- **Правила** — кириллица и «целые слова», конфликт версий паков, `<NSFW>` в архивах, глубина сканирования архивов CK.\n- Нужны DES-RU 0.8.0 и Lorebook Localizer 0.2.0 (без них всё работает, но без склонений и локализации из студии).\n\n## 0.1.0 — выпуск R1 (2026-10-04)\n\nНаблюдение и быстрые исправления.\n\n- **Журнал лора** — какой лор ушёл в промпт на каждом ходу, почему, каким ключом и через какую запись; почему книга активна; «Что если» без генерации.\n- **Инспектор хода** — из чего собран промпт: пресет, лор по книгам, вставки соседей, история.\n- **Медик** — проверки соседей после каждого ответа; ремонт трекера DES; предупреждение о prefill с ролью assistant.\n- **Страж** — эталон настроек и пресета, дрейф во «Входящих»; устаревшая вкладка больше не перезаписывает настройки, пресеты и лорбуки.\n- **Доктор** — находки в лорбуках и регексах, испытание регексов.\n- **Правила на лету** — роль assistant → system, потолок и лимит рекурсии книги, дубли паков, «дыры» Qvink, картинки NAI вне пересказов, видимые теги BunnyMo, кнопка векторизации CK и полоса портретов DES на телефоне.\n- **Листы персонажей** — команды BunnyMo генерируются своей сборкой промпта, без хвоста сцены и трекера, сворачиваются и уходят из промпта после следующего хода.\n- **Мастер первого запуска.**\n\n## 0.0.0 — этап 0\n\nКаркас: слой ST, сервисы ядра, адаптеры соседей, пульт, стенд с имитацией модели.\n")?.[1] ?? null;
 }
 //#endregion
 //#region src/features/assistant/tools/read/docs.ts
@@ -27315,7 +29481,7 @@ var KINDS$3 = [
 ];
 var docsSearch = () => readTool({
 	name: "docs_search",
-	description: "Search Maestro's documentation: modules (what each does, where it is in the pult, its settings, common questions), the extension stack (SillyTavern, DES, DES-RU, CarrotKernel, BunnyMo, Qvink, NAI Studio, Lorebook Localizer, the preset), diagnosis guides, README and the changelog. Russian or English query. Returns topic ids with a snippet; read one with docs_read.",
+	description: "Search Maestro's documentation: modules (what each does, which window holds it, its settings, common questions), the extension stack (SillyTavern, DES, DES-RU, CarrotKernel, BunnyMo, Qvink, NAI Studio, Lorebook Localizer, the preset), diagnosis guides, README and the changelog. Russian or English query. Returns topic ids with a snippet; read one with docs_read.",
 	parameters: objectSchema({
 		query: prop.string("What to look for, in any language."),
 		kind: prop.enum("Only this kind of topic.", KINDS$3),
@@ -39535,7 +41701,7 @@ function backgroundsTab(app, service, settings) {
 			};
 			const settingsSection = () => {
 				const current = settings();
-				return section$1(t("m29.settings.title"), [
+				return moduleSettingsSection(t("m29.settings.title"), [
 					toggle({
 						label: t("m29.settings.auto"),
 						hint: t("m29.settings.auto.hint"),
@@ -46228,7 +48394,7 @@ function calendarTab(app, service, settings) {
 	};
 	const settingsSection = () => {
 		const current = settings();
-		return section$1(t("m17.settings.title"), [field$1(t("m17.settings.days"), numberInput({
+		return moduleSettingsSection(t("m17.settings.title"), [field$1(t("m17.settings.days"), numberInput({
 			value: current.overdueDays,
 			min: 0,
 			max: 30,
@@ -53288,7 +55454,7 @@ function chronicleTab(deps) {
 			}
 		}));
 	};
-	const settingsSection = (settings) => section$1(t("m9.settings.title"), [
+	const settingsSection = (settings) => moduleSettingsSection(t("m9.settings.title"), [
 		toggle({
 			label: t("m9.settings.chapters"),
 			hint: t("m9.settings.chaptersHint"),
@@ -54563,6 +56729,315 @@ function parseSceneAnswer(raw) {
 	return {
 		type,
 		confidence: round$2(Math.min(1, Math.max(0, confidence)))
+	};
+}
+//#endregion
+//#region src/features/director/strings.ts
+var DIRECTOR_STRINGS = {
+	en: {
+		"m13.title": "Scene director",
+		"m13.tab": "Director",
+		"m13.profileTask": "Scene type when unsure (director)",
+		"m13.noChat": "No chat is open.",
+		"m13.hint": "The director reads every reply you answer: what kind of scene it is, who is there, whether the story moves. It tunes the next generation with one-shot flags for your preset and, when the story stalls, a short director’s note. It never softens a scene.",
+		"m13.scene.title": "Scene",
+		"m13.scene.none": "Not decided yet: the director reads the scene once you answer a reply.",
+		"m13.scene.type.dialogue": "Dialogue",
+		"m13.scene.type.combat": "Combat and danger",
+		"m13.scene.type.intimate": "Intimate scene",
+		"m13.scene.type.exploration": "Exploration and travel",
+		"m13.scene.type.timeskip": "Time skip",
+		"m13.scene.type.social": "Social scene",
+		"m13.scene.type.drama": "Drama and conflict",
+		"m13.scene.confidence": "confidence {value}%",
+		"m13.scene.held.one": "holds {count} turn",
+		"m13.scene.held.few": "holds {count} turns",
+		"m13.scene.held.many": "holds {count} turns",
+		"m13.scene.by.rules": "by the rules",
+		"m13.scene.by.model": "by the model",
+		"m13.scene.by.user": "chosen by you",
+		"m13.scene.by.userMessage": "by your message",
+		"m13.scene.candidate": "Waiting for confirmation: {type} ({value}%). It takes over if the next turn agrees.",
+		"m13.model.queued": "The rules hesitate: asking the background model…",
+		"m13.model.answered": "The background model says: {type}.",
+		"m13.model.failed": "The background model did not answer: the rules’ decision stays.",
+		"m13.override.label": "Scene type",
+		"m13.override.auto": "Automatic",
+		"m13.override.hint": "Your choice holds until you switch back to automatic.",
+		"m13.slash.help": "Sets the scene type for the next turns (dialogue, combat, intimate, exploration, time skip, social, drama), or “auto” to let the director decide again. Without a value: names the current one.",
+		"m13.slash.type": "scene type or “auto”",
+		"m13.slash.noChat": "Open a chat first: the scene type is set per chat.",
+		"m13.slash.current": "The scene now: {type} (the director decided). Types: {list}.",
+		"m13.slash.currentUser": "The scene now: {type} (your choice). Types: {list}; “auto” gives it back to the director.",
+		"m13.slash.none": "The scene type is not decided yet. Types: {list}.",
+		"m13.slash.unknown": "There is no scene type “{name}”. Types: {list}, or “auto”.",
+		"m13.slash.set": "Scene: {type}. It holds from the next reply until you switch back to automatic.",
+		"m13.slash.auto": "The director picks the scene type again.",
+		"m13.flags.title": "Flags for the next generation",
+		"m13.flags.hint": "One-shot chat variables for conditional preset blocks, for example {{if .maestro_scene_combat}}…{{/if}} (needs the new macro engine). Set right before the generation and cleared after it.",
+		"m13.flags.none": "No flags yet.",
+		"m13.picture.cues": "A picture fits: {cues}",
+		"m13.picture.cue.firstAppearance": "first appearance",
+		"m13.picture.cue.placeChange": "a new place",
+		"m13.picture.cue.climax": "a climax",
+		"m13.settings.model": "Ask the background model when the scene type is unclear",
+		"m13.settings.model.hint": "One short request, only when the two likeliest types are close; never in «Economy». Its profile is set in Settings → Profiles.",
+		"m13.settings.userWeight": "Weight of your message",
+		"m13.settings.userWeight.hint": "How much your message counts for the scene type against the reply: 0 ignores it, 0.6 by default. A clear move (\"I draw my sword\", \"I kiss her\", \"three days later\") changes the scene at once.",
+		"m13.settings.pictures": "Hint the moment for a picture (NAI Studio)",
+		"m13.settings.pictures.hint": "Sets maestro_picture_moment on a first appearance, a new place or a climax. Never in «Economy»; stricter when NAI Studio may spend Anlas.",
+		"m13.flag.scene_dialogue": "Scene: dialogue",
+		"m13.flag.scene_dialogue.hint": "The scene is a conversation without a stronger focus.",
+		"m13.flag.scene_combat": "Scene: combat and danger",
+		"m13.flag.scene_combat.hint": "A fight, a chase or immediate danger.",
+		"m13.flag.scene_intimate": "Scene: intimate",
+		"m13.flag.scene_intimate.hint": "Romance, seduction or an explicit scene.",
+		"m13.flag.scene_exploration": "Scene: exploration and travel",
+		"m13.flag.scene_exploration.hint": "Travel, exploring a place, searching.",
+		"m13.flag.scene_timeskip": "Scene: time skip",
+		"m13.flag.scene_timeskip.hint": "The story has just skipped forward in time.",
+		"m13.flag.scene_social": "Scene: social",
+		"m13.flag.scene_social.hint": "Many people: a feast, a ball, a court, a tavern, etiquette.",
+		"m13.flag.scene_drama": "Scene: drama and conflict",
+		"m13.flag.scene_drama.hint": "An argument, a confrontation or strong emotions.",
+		"m13.flag.explicit": "Explicit scene",
+		"m13.flag.explicit.hint": "The scene is intimate or the last reply was explicit.",
+		"m13.flag.lang_ru": "Chat language: Russian",
+		"m13.flag.lang_ru.hint": "The chat is written in Russian.",
+		"m13.flag.lang_en": "Chat language: English",
+		"m13.flag.lang_en.hint": "The chat is written in English.",
+		"m13.flag.picture_moment": "A moment for a picture",
+		"m13.flag.picture_moment.hint": "A picture fits the next reply: a first appearance, a new place or a climax (NAI Studio, within the Anlas settings).",
+		"m13.flag.reply_short": "Reply length: short",
+		"m13.flag.reply_short.hint": "Quick scenes: dialogue, combat.",
+		"m13.flag.reply_medium": "Reply length: medium",
+		"m13.flag.reply_medium.hint": "Social scenes, drama, a time skip.",
+		"m13.flag.reply_long": "Reply length: long",
+		"m13.flag.reply_long.hint": "Scenes that take their time: exploration, intimacy.",
+		"m14.title": "Pacing and twists",
+		"m14.stall.title": "Pacing",
+		"m14.stall.turns": "Turns without change: {count}",
+		"m14.stall.none": "No stall.",
+		"m14.stall.reasons": "Stall: {reasons}",
+		"m14.reason.samePlace": "the same place",
+		"m14.reason.noEvents": "nothing happens",
+		"m14.reason.repetition": "repetition",
+		"m14.reason.loop": "the conversation goes in circles",
+		"m14.pending.title": "Note for the next turn",
+		"m14.pending.hint": "It is added to the next generation unless you steer the plot yourself in your message.",
+		"m14.suppressed": "The note was not added: you steered the plot yourself ({reason}).",
+		"m14.steer.ooc": "an out-of-character direction",
+		"m14.steer.request": "a scene request",
+		"m14.steer.plot": "plot words",
+		"m14.steer.long": "a long description of events",
+		"m14.steer.action": "a clear move in the scene",
+		"m14.nudge": "Shake it up",
+		"m14.nudge.hint": "Prepare a director’s note for the next turn now, regardless of the frequency limit",
+		"m14.nudge.done": "The director's note is ready: it nudges the plot in the next reply unless you steer it yourself first.",
+		"m14.nudge.nothing": "Nothing to build a twist from: the story has no open quests or loose threads.",
+		"m14.mode.off": "In «{mode}» the director writes no notes by itself, only on «Shake it up».",
+		"m14.notes.title": "Director’s notes",
+		"m14.notes.empty": "No notes yet.",
+		"m14.notes.index": "reply #{index}",
+		"m14.notes.nudged": "on request",
+		"m14.source.quest": "Quest",
+		"m14.source.thread": "Unresolved thread",
+		"m14.source.deadline": "Deadline",
+		"m14.source.offscreen": "Offscreen",
+		"m14.source.mechanic": "Mechanic",
+		"m14.settings.title": "Settings",
+		"m14.settings.stall": "Stall after this many turns",
+		"m14.settings.stall.hint": "The same place and nothing happening for this many turns in a row, or repetition.",
+		"m14.settings.every": "A note at most once in N turns",
+		"m14.settings.every.hint": "0: the director writes no notes by itself in this mode."
+	},
+	ru: {
+		"m13.title": "Режиссёр сцены",
+		"m13.tab": "Режиссёр",
+		"m13.profileTask": "Тип сцены при сомнении (режиссёр)",
+		"m13.noChat": "Чат не открыт.",
+		"m13.hint": "Режиссёр читает каждый ответ, на который ты ответил: что за сцена, кто в ней, движется ли история. Он настраивает следующую генерацию одноразовыми флагами для пресета, а если история встала — короткой заметкой режиссёра. Сцены он никогда не смягчает.",
+		"m13.scene.title": "Сцена",
+		"m13.scene.none": "Пока не определена: режиссёр прочтёт сцену, когда ты ответишь на реплику.",
+		"m13.scene.type.dialogue": "Диалог",
+		"m13.scene.type.combat": "Бой и опасность",
+		"m13.scene.type.intimate": "Интимная сцена",
+		"m13.scene.type.exploration": "Исследование и путь",
+		"m13.scene.type.timeskip": "Пропуск времени",
+		"m13.scene.type.social": "Светская сцена",
+		"m13.scene.type.drama": "Драма и конфликт",
+		"m13.scene.confidence": "уверенность {value}%",
+		"m13.scene.held.one": "держится {count} ход",
+		"m13.scene.held.few": "держится {count} хода",
+		"m13.scene.held.many": "держится {count} ходов",
+		"m13.scene.by.rules": "по правилам",
+		"m13.scene.by.model": "по модели",
+		"m13.scene.by.user": "выбрана тобой",
+		"m13.scene.by.userMessage": "по твоему сообщению",
+		"m13.scene.candidate": "Ждёт подтверждения: {type} ({value}%). Сменит текущую, если следующий ход скажет то же.",
+		"m13.model.queued": "Правила сомневаются: уточняю у фоновой модели…",
+		"m13.model.answered": "Фоновая модель считает: {type}.",
+		"m13.model.failed": "Фоновая модель не ответила — остаётся решение правил.",
+		"m13.override.label": "Тип сцены",
+		"m13.override.auto": "Автоматически",
+		"m13.override.hint": "Твой выбор держится, пока не вернёшь «Автоматически».",
+		"m13.slash.help": "Задаёт тип сцены на следующие ходы (диалог, бой, интимная, исследование, пропуск времени, светская, драма) или «авто» — тогда снова решает режиссёр. Без значения — называет текущий.",
+		"m13.slash.type": "тип сцены или «авто»",
+		"m13.slash.noChat": "Сначала открой чат: тип сцены задаётся для чата.",
+		"m13.slash.current": "Сейчас сцена: {type} (решил режиссёр). Типы: {list}.",
+		"m13.slash.currentUser": "Сейчас сцена: {type} (твой выбор). Типы: {list}; «авто» вернёт выбор режиссёру.",
+		"m13.slash.none": "Тип сцены пока не определён. Типы: {list}.",
+		"m13.slash.unknown": "Типа сцены «{name}» нет. Есть: {list} или «авто».",
+		"m13.slash.set": "Сцена: {type}. Держится со следующего ответа, пока не вернёшь «авто».",
+		"m13.slash.auto": "Тип сцены снова выбирает режиссёр.",
+		"m13.flags.title": "Флаги на следующую генерацию",
+		"m13.flags.hint": "Одноразовые переменные чата для условных блоков пресета, например {{if .maestro_scene_combat}}…{{/if}} (нужен новый движок макросов). Ставятся прямо перед генерацией и снимаются после неё.",
+		"m13.flags.none": "Флагов пока нет.",
+		"m13.picture.cues": "Картинка к месту: {cues}",
+		"m13.picture.cue.firstAppearance": "первое появление",
+		"m13.picture.cue.placeChange": "новое место",
+		"m13.picture.cue.climax": "кульминация",
+		"m13.settings.model": "Спрашивать фоновую модель, когда тип сцены неясен",
+		"m13.settings.model.hint": "Один короткий запрос, только когда два самых вероятных типа близки; в «Экономном» — никогда. Профиль задаётся в «Настройки → Профили».",
+		"m13.settings.userWeight": "Вес твоего сообщения",
+		"m13.settings.userWeight.hint": "Насколько твоё сообщение влияет на тип сцены по сравнению с ответом: 0 — не учитывать, по умолчанию 0,6. Явный ход («выхватываю меч», «целую её», «прошло три дня») меняет сцену сразу.",
+		"m13.settings.pictures": "Подсказывать момент для картинки (NAI Studio)",
+		"m13.settings.pictures.hint": "Ставит maestro_picture_moment при первом появлении, смене места или кульминации. В «Экономном» — никогда; строже, если NAI Studio может тратить Anlas.",
+		"m13.flag.scene_dialogue": "Сцена: диалог",
+		"m13.flag.scene_dialogue.hint": "Разговор без более сильного акцента.",
+		"m13.flag.scene_combat": "Сцена: бой и опасность",
+		"m13.flag.scene_combat.hint": "Схватка, погоня или прямая опасность.",
+		"m13.flag.scene_intimate": "Сцена: интимная",
+		"m13.flag.scene_intimate.hint": "Романтика, соблазнение или откровенная сцена.",
+		"m13.flag.scene_exploration": "Сцена: исследование и путь",
+		"m13.flag.scene_exploration.hint": "Дорога, осмотр места, поиски.",
+		"m13.flag.scene_timeskip": "Сцена: пропуск времени",
+		"m13.flag.scene_timeskip.hint": "История только что перескочила вперёд во времени.",
+		"m13.flag.scene_social": "Сцена: светская",
+		"m13.flag.scene_social.hint": "Много людей: пир, бал, двор, таверна, этикет.",
+		"m13.flag.scene_drama": "Сцена: драма и конфликт",
+		"m13.flag.scene_drama.hint": "Ссора, противостояние или сильные чувства.",
+		"m13.flag.explicit": "Откровенная сцена",
+		"m13.flag.explicit.hint": "Сцена интимная, или прошлый ответ был откровенным.",
+		"m13.flag.lang_ru": "Язык чата: русский",
+		"m13.flag.lang_ru.hint": "Чат идёт на русском.",
+		"m13.flag.lang_en": "Язык чата: английский",
+		"m13.flag.lang_en.hint": "Чат идёт на английском.",
+		"m13.flag.picture_moment": "Момент для картинки",
+		"m13.flag.picture_moment.hint": "К следующему ответу уместна картинка: первое появление, новое место или кульминация (NAI Studio, в рамках настроек Anlas).",
+		"m13.flag.reply_short": "Длина ответа: короткий",
+		"m13.flag.reply_short.hint": "Быстрые сцены: диалог, бой.",
+		"m13.flag.reply_medium": "Длина ответа: средний",
+		"m13.flag.reply_medium.hint": "Светские сцены, драма, пропуск времени.",
+		"m13.flag.reply_long": "Длина ответа: длинный",
+		"m13.flag.reply_long.hint": "Неспешные сцены: исследование, близость.",
+		"m14.title": "Темп и повороты",
+		"m14.stall.title": "Темп",
+		"m14.stall.turns": "Ходов без перемен: {count}",
+		"m14.stall.none": "Застоя нет.",
+		"m14.stall.reasons": "Застой: {reasons}",
+		"m14.reason.samePlace": "одно и то же место",
+		"m14.reason.noEvents": "ничего не происходит",
+		"m14.reason.repetition": "повторы",
+		"m14.reason.loop": "разговор ходит по кругу",
+		"m14.pending.title": "Заметка на следующий ход",
+		"m14.pending.hint": "Она уйдёт в следующую генерацию, если в своём сообщении ты сам не направишь сюжет.",
+		"m14.suppressed": "Заметка не добавлена: ты сам направил сюжет ({reason}).",
+		"m14.steer.ooc": "указание вне роли",
+		"m14.steer.request": "просьба о сцене",
+		"m14.steer.plot": "сюжетные слова",
+		"m14.steer.action": "ясное действие в сцене",
+		"m14.steer.long": "длинное описание событий",
+		"m14.nudge": "Встряхнуть",
+		"m14.nudge.hint": "Подготовить заметку режиссёра к следующему ходу сейчас, без ограничения частоты",
+		"m14.nudge.done": "Заметка режиссёра готова: она подтолкнёт сюжет в следующем ответе, если ты сам не направишь его раньше.",
+		"m14.nudge.nothing": "Поворот не из чего строить: в истории нет открытых квестов и незакрытых сюжетных линий.",
+		"m14.mode.off": "В режиме «{mode}» режиссёр сам заметок не пишет — только по кнопке «Встряхнуть».",
+		"m14.notes.title": "Заметки режиссёра",
+		"m14.notes.empty": "Заметок пока нет.",
+		"m14.notes.index": "ответ №{index}",
+		"m14.notes.nudged": "по кнопке",
+		"m14.source.quest": "Квест",
+		"m14.source.thread": "Незакрытая нить",
+		"m14.source.deadline": "Срок",
+		"m14.source.offscreen": "Закулисье",
+		"m14.source.mechanic": "Механика",
+		"m14.settings.title": "Настройки",
+		"m14.settings.stall": "Застой — после стольких ходов",
+		"m14.settings.stall.hint": "Столько ходов подряд то же место и ничего не происходит, или повторы.",
+		"m14.settings.every": "Заметка не чаще раза в N ходов",
+		"m14.settings.every.hint": "0 — в этом режиме режиссёр сам заметок не пишет."
+	}
+};
+//#endregion
+//#region src/features/director/command.ts
+var AUTO = [
+	"auto",
+	"automatic",
+	"авто",
+	"автоматически"
+];
+function normalize$2(value) {
+	return value.toLowerCase().replace(/ё/g, "е").replace(/["'«»“”„]/g, "").replace(/[\s_-]+/g, " ").trim();
+}
+/** The type a name stands for, null for «auto», undefined when nothing answers to it. */
+function sceneOf(raw) {
+	const name = normalize$2(raw);
+	if (!name) return void 0;
+	if (AUTO.includes(name)) return null;
+	const names = (kind) => [
+		kind,
+		DIRECTOR_STRINGS.en[`m13.scene.type.${kind}`],
+		DIRECTOR_STRINGS.ru[`m13.scene.type.${kind}`]
+	].filter((value) => typeof value === "string").map(normalize$2);
+	const exact = SCENE_KINDS.find((kind) => names(kind).includes(name));
+	if (exact) return exact;
+	if (name.length < 3) return void 0;
+	return SCENE_KINDS.find((kind) => names(kind).some((label) => label.startsWith(name))) ?? void 0;
+}
+function sceneCommand(app, director) {
+	const t = (key, params) => app.i18n.t(key, params);
+	const label = (kind) => t(`m13.scene.type.${kind}`);
+	/** A reply to the user's own command: always shown (ST does not print a command's result). */
+	const answer = (text, level = "info") => {
+		app.ui.notice(text, {
+			level,
+			importance: "urgent"
+		});
+		return text;
+	};
+	return {
+		name: "maestro-scene",
+		helpKey: "m13.slash.help",
+		args: [{
+			name: "value",
+			descriptionKey: "m13.slash.type",
+			optional: true
+		}],
+		callback: async (_args, value) => {
+			const list = SCENE_KINDS.map(label).join(", ");
+			if (!app.host.chatId()) return answer(t("m13.slash.noChat"), "warn");
+			const raw = value.trim();
+			if (!raw) {
+				const chosen = director.override?.() ?? null;
+				if (chosen) return answer(t("m13.slash.currentUser", {
+					type: label(chosen),
+					list
+				}));
+				const scene = director.scene();
+				return answer(scene ? t("m13.slash.current", {
+					type: label(scene.type),
+					list
+				}) : t("m13.slash.none", { list }));
+			}
+			const kind = sceneOf(raw);
+			if (kind === void 0) return answer(t("m13.slash.unknown", {
+				name: raw,
+				list
+			}), "warn");
+			await director.setScene(kind);
+			return answer(kind ? t("m13.slash.set", { type: label(kind) }) : t("m13.slash.auto"));
+		}
 	};
 }
 //#endregion
@@ -56925,226 +59400,6 @@ function readDirectorSettings(slice) {
 	return slice;
 }
 //#endregion
-//#region src/features/director/strings.ts
-var DIRECTOR_STRINGS = {
-	en: {
-		"m13.title": "Scene director",
-		"m13.tab": "Director",
-		"m13.profileTask": "Scene type when unsure (director)",
-		"m13.noChat": "No chat is open.",
-		"m13.hint": "The director reads every reply you answer: what kind of scene it is, who is there, whether the story moves. It tunes the next generation with one-shot flags for your preset and, when the story stalls, a short director’s note. It never softens a scene.",
-		"m13.scene.title": "Scene",
-		"m13.scene.none": "Not decided yet: the director reads the scene once you answer a reply.",
-		"m13.scene.type.dialogue": "Dialogue",
-		"m13.scene.type.combat": "Combat and danger",
-		"m13.scene.type.intimate": "Intimate scene",
-		"m13.scene.type.exploration": "Exploration and travel",
-		"m13.scene.type.timeskip": "Time skip",
-		"m13.scene.type.social": "Social scene",
-		"m13.scene.type.drama": "Drama and conflict",
-		"m13.scene.confidence": "confidence {value}%",
-		"m13.scene.held.one": "holds {count} turn",
-		"m13.scene.held.few": "holds {count} turns",
-		"m13.scene.held.many": "holds {count} turns",
-		"m13.scene.by.rules": "by the rules",
-		"m13.scene.by.model": "by the model",
-		"m13.scene.by.user": "chosen by you",
-		"m13.scene.by.userMessage": "by your message",
-		"m13.scene.candidate": "Waiting for confirmation: {type} ({value}%). It takes over if the next turn agrees.",
-		"m13.model.queued": "The rules hesitate: asking the background model…",
-		"m13.model.answered": "The background model says: {type}.",
-		"m13.model.failed": "The background model did not answer: the rules’ decision stays.",
-		"m13.override.label": "Scene type",
-		"m13.override.auto": "Automatic",
-		"m13.override.hint": "Your choice holds until you switch back to automatic.",
-		"m13.flags.title": "Flags for the next generation",
-		"m13.flags.hint": "One-shot chat variables for conditional preset blocks, for example {{if .maestro_scene_combat}}…{{/if}} (needs the new macro engine). Set right before the generation and cleared after it.",
-		"m13.flags.none": "No flags yet.",
-		"m13.picture.cues": "A picture fits: {cues}",
-		"m13.picture.cue.firstAppearance": "first appearance",
-		"m13.picture.cue.placeChange": "a new place",
-		"m13.picture.cue.climax": "a climax",
-		"m13.settings.model": "Ask the background model when the scene type is unclear",
-		"m13.settings.model.hint": "One short request, only when the two likeliest types are close; never in «Economy». Its profile is set in Settings → Profiles.",
-		"m13.settings.userWeight": "Weight of your message",
-		"m13.settings.userWeight.hint": "How much your message counts for the scene type against the reply: 0 ignores it, 0.6 by default. A clear move (\"I draw my sword\", \"I kiss her\", \"three days later\") changes the scene at once.",
-		"m13.settings.pictures": "Hint the moment for a picture (NAI Studio)",
-		"m13.settings.pictures.hint": "Sets maestro_picture_moment on a first appearance, a new place or a climax. Never in «Economy»; stricter when NAI Studio may spend Anlas.",
-		"m13.flag.scene_dialogue": "Scene: dialogue",
-		"m13.flag.scene_dialogue.hint": "The scene is a conversation without a stronger focus.",
-		"m13.flag.scene_combat": "Scene: combat and danger",
-		"m13.flag.scene_combat.hint": "A fight, a chase or immediate danger.",
-		"m13.flag.scene_intimate": "Scene: intimate",
-		"m13.flag.scene_intimate.hint": "Romance, seduction or an explicit scene.",
-		"m13.flag.scene_exploration": "Scene: exploration and travel",
-		"m13.flag.scene_exploration.hint": "Travel, exploring a place, searching.",
-		"m13.flag.scene_timeskip": "Scene: time skip",
-		"m13.flag.scene_timeskip.hint": "The story has just skipped forward in time.",
-		"m13.flag.scene_social": "Scene: social",
-		"m13.flag.scene_social.hint": "Many people: a feast, a ball, a court, a tavern, etiquette.",
-		"m13.flag.scene_drama": "Scene: drama and conflict",
-		"m13.flag.scene_drama.hint": "An argument, a confrontation or strong emotions.",
-		"m13.flag.explicit": "Explicit scene",
-		"m13.flag.explicit.hint": "The scene is intimate or the last reply was explicit.",
-		"m13.flag.lang_ru": "Chat language: Russian",
-		"m13.flag.lang_ru.hint": "The chat is written in Russian.",
-		"m13.flag.lang_en": "Chat language: English",
-		"m13.flag.lang_en.hint": "The chat is written in English.",
-		"m13.flag.picture_moment": "A moment for a picture",
-		"m13.flag.picture_moment.hint": "A picture fits the next reply: a first appearance, a new place or a climax (NAI Studio, within the Anlas settings).",
-		"m13.flag.reply_short": "Reply length: short",
-		"m13.flag.reply_short.hint": "Quick scenes: dialogue, combat.",
-		"m13.flag.reply_medium": "Reply length: medium",
-		"m13.flag.reply_medium.hint": "Social scenes, drama, a time skip.",
-		"m13.flag.reply_long": "Reply length: long",
-		"m13.flag.reply_long.hint": "Scenes that take their time: exploration, intimacy.",
-		"m14.title": "Pacing and twists",
-		"m14.stall.title": "Pacing",
-		"m14.stall.turns": "Turns without change: {count}",
-		"m14.stall.none": "No stall.",
-		"m14.stall.reasons": "Stall: {reasons}",
-		"m14.reason.samePlace": "the same place",
-		"m14.reason.noEvents": "nothing happens",
-		"m14.reason.repetition": "repetition",
-		"m14.reason.loop": "the conversation goes in circles",
-		"m14.pending.title": "Note for the next turn",
-		"m14.pending.hint": "It is added to the next generation unless you steer the plot yourself in your message.",
-		"m14.suppressed": "The note was not added: you steered the plot yourself ({reason}).",
-		"m14.steer.ooc": "an out-of-character direction",
-		"m14.steer.request": "a scene request",
-		"m14.steer.plot": "plot words",
-		"m14.steer.long": "a long description of events",
-		"m14.steer.action": "a clear move in the scene",
-		"m14.nudge": "Shake it up",
-		"m14.nudge.hint": "Prepare a director’s note for the next turn now, regardless of the frequency limit",
-		"m14.nudge.done": "The director's note is ready: it nudges the plot in the next reply unless you steer it yourself first.",
-		"m14.nudge.nothing": "Nothing to build a twist from: the story has no open quests or loose threads.",
-		"m14.mode.off": "In «{mode}» the director writes no notes by itself, only on «Shake it up».",
-		"m14.notes.title": "Director’s notes",
-		"m14.notes.empty": "No notes yet.",
-		"m14.notes.index": "reply #{index}",
-		"m14.notes.nudged": "on request",
-		"m14.source.quest": "Quest",
-		"m14.source.thread": "Unresolved thread",
-		"m14.source.deadline": "Deadline",
-		"m14.source.offscreen": "Offscreen",
-		"m14.source.mechanic": "Mechanic",
-		"m14.settings.title": "Settings",
-		"m14.settings.stall": "Stall after this many turns",
-		"m14.settings.stall.hint": "The same place and nothing happening for this many turns in a row, or repetition.",
-		"m14.settings.every": "A note at most once in N turns",
-		"m14.settings.every.hint": "0: the director writes no notes by itself in this mode."
-	},
-	ru: {
-		"m13.title": "Режиссёр сцены",
-		"m13.tab": "Режиссёр",
-		"m13.profileTask": "Тип сцены при сомнении (режиссёр)",
-		"m13.noChat": "Чат не открыт.",
-		"m13.hint": "Режиссёр читает каждый ответ, на который ты ответил: что за сцена, кто в ней, движется ли история. Он настраивает следующую генерацию одноразовыми флагами для пресета, а если история встала — короткой заметкой режиссёра. Сцены он никогда не смягчает.",
-		"m13.scene.title": "Сцена",
-		"m13.scene.none": "Пока не определена: режиссёр прочтёт сцену, когда ты ответишь на реплику.",
-		"m13.scene.type.dialogue": "Диалог",
-		"m13.scene.type.combat": "Бой и опасность",
-		"m13.scene.type.intimate": "Интимная сцена",
-		"m13.scene.type.exploration": "Исследование и путь",
-		"m13.scene.type.timeskip": "Пропуск времени",
-		"m13.scene.type.social": "Светская сцена",
-		"m13.scene.type.drama": "Драма и конфликт",
-		"m13.scene.confidence": "уверенность {value}%",
-		"m13.scene.held.one": "держится {count} ход",
-		"m13.scene.held.few": "держится {count} хода",
-		"m13.scene.held.many": "держится {count} ходов",
-		"m13.scene.by.rules": "по правилам",
-		"m13.scene.by.model": "по модели",
-		"m13.scene.by.user": "выбрана тобой",
-		"m13.scene.by.userMessage": "по твоему сообщению",
-		"m13.scene.candidate": "Ждёт подтверждения: {type} ({value}%). Сменит текущую, если следующий ход скажет то же.",
-		"m13.model.queued": "Правила сомневаются: уточняю у фоновой модели…",
-		"m13.model.answered": "Фоновая модель считает: {type}.",
-		"m13.model.failed": "Фоновая модель не ответила — остаётся решение правил.",
-		"m13.override.label": "Тип сцены",
-		"m13.override.auto": "Автоматически",
-		"m13.override.hint": "Твой выбор держится, пока не вернёшь «Автоматически».",
-		"m13.flags.title": "Флаги на следующую генерацию",
-		"m13.flags.hint": "Одноразовые переменные чата для условных блоков пресета, например {{if .maestro_scene_combat}}…{{/if}} (нужен новый движок макросов). Ставятся прямо перед генерацией и снимаются после неё.",
-		"m13.flags.none": "Флагов пока нет.",
-		"m13.picture.cues": "Картинка к месту: {cues}",
-		"m13.picture.cue.firstAppearance": "первое появление",
-		"m13.picture.cue.placeChange": "новое место",
-		"m13.picture.cue.climax": "кульминация",
-		"m13.settings.model": "Спрашивать фоновую модель, когда тип сцены неясен",
-		"m13.settings.model.hint": "Один короткий запрос, только когда два самых вероятных типа близки; в «Экономном» — никогда. Профиль задаётся в «Настройки → Профили».",
-		"m13.settings.userWeight": "Вес твоего сообщения",
-		"m13.settings.userWeight.hint": "Насколько твоё сообщение влияет на тип сцены по сравнению с ответом: 0 — не учитывать, по умолчанию 0,6. Явный ход («выхватываю меч», «целую её», «прошло три дня») меняет сцену сразу.",
-		"m13.settings.pictures": "Подсказывать момент для картинки (NAI Studio)",
-		"m13.settings.pictures.hint": "Ставит maestro_picture_moment при первом появлении, смене места или кульминации. В «Экономном» — никогда; строже, если NAI Studio может тратить Anlas.",
-		"m13.flag.scene_dialogue": "Сцена: диалог",
-		"m13.flag.scene_dialogue.hint": "Разговор без более сильного акцента.",
-		"m13.flag.scene_combat": "Сцена: бой и опасность",
-		"m13.flag.scene_combat.hint": "Схватка, погоня или прямая опасность.",
-		"m13.flag.scene_intimate": "Сцена: интимная",
-		"m13.flag.scene_intimate.hint": "Романтика, соблазнение или откровенная сцена.",
-		"m13.flag.scene_exploration": "Сцена: исследование и путь",
-		"m13.flag.scene_exploration.hint": "Дорога, осмотр места, поиски.",
-		"m13.flag.scene_timeskip": "Сцена: пропуск времени",
-		"m13.flag.scene_timeskip.hint": "История только что перескочила вперёд во времени.",
-		"m13.flag.scene_social": "Сцена: светская",
-		"m13.flag.scene_social.hint": "Много людей: пир, бал, двор, таверна, этикет.",
-		"m13.flag.scene_drama": "Сцена: драма и конфликт",
-		"m13.flag.scene_drama.hint": "Ссора, противостояние или сильные чувства.",
-		"m13.flag.explicit": "Откровенная сцена",
-		"m13.flag.explicit.hint": "Сцена интимная, или прошлый ответ был откровенным.",
-		"m13.flag.lang_ru": "Язык чата: русский",
-		"m13.flag.lang_ru.hint": "Чат идёт на русском.",
-		"m13.flag.lang_en": "Язык чата: английский",
-		"m13.flag.lang_en.hint": "Чат идёт на английском.",
-		"m13.flag.picture_moment": "Момент для картинки",
-		"m13.flag.picture_moment.hint": "К следующему ответу уместна картинка: первое появление, новое место или кульминация (NAI Studio, в рамках настроек Anlas).",
-		"m13.flag.reply_short": "Длина ответа: короткий",
-		"m13.flag.reply_short.hint": "Быстрые сцены: диалог, бой.",
-		"m13.flag.reply_medium": "Длина ответа: средний",
-		"m13.flag.reply_medium.hint": "Светские сцены, драма, пропуск времени.",
-		"m13.flag.reply_long": "Длина ответа: длинный",
-		"m13.flag.reply_long.hint": "Неспешные сцены: исследование, близость.",
-		"m14.title": "Темп и повороты",
-		"m14.stall.title": "Темп",
-		"m14.stall.turns": "Ходов без перемен: {count}",
-		"m14.stall.none": "Застоя нет.",
-		"m14.stall.reasons": "Застой: {reasons}",
-		"m14.reason.samePlace": "одно и то же место",
-		"m14.reason.noEvents": "ничего не происходит",
-		"m14.reason.repetition": "повторы",
-		"m14.reason.loop": "разговор ходит по кругу",
-		"m14.pending.title": "Заметка на следующий ход",
-		"m14.pending.hint": "Она уйдёт в следующую генерацию, если в своём сообщении ты сам не направишь сюжет.",
-		"m14.suppressed": "Заметка не добавлена: ты сам направил сюжет ({reason}).",
-		"m14.steer.ooc": "указание вне роли",
-		"m14.steer.request": "просьба о сцене",
-		"m14.steer.plot": "сюжетные слова",
-		"m14.steer.action": "ясное действие в сцене",
-		"m14.steer.long": "длинное описание событий",
-		"m14.nudge": "Встряхнуть",
-		"m14.nudge.hint": "Подготовить заметку режиссёра к следующему ходу сейчас, без ограничения частоты",
-		"m14.nudge.done": "Заметка режиссёра готова: она подтолкнёт сюжет в следующем ответе, если ты сам не направишь его раньше.",
-		"m14.nudge.nothing": "Поворот не из чего строить: в истории нет открытых квестов и незакрытых сюжетных линий.",
-		"m14.mode.off": "В режиме «{mode}» режиссёр сам заметок не пишет — только по кнопке «Встряхнуть».",
-		"m14.notes.title": "Заметки режиссёра",
-		"m14.notes.empty": "Заметок пока нет.",
-		"m14.notes.index": "ответ №{index}",
-		"m14.notes.nudged": "по кнопке",
-		"m14.source.quest": "Квест",
-		"m14.source.thread": "Незакрытая нить",
-		"m14.source.deadline": "Срок",
-		"m14.source.offscreen": "Закулисье",
-		"m14.source.mechanic": "Механика",
-		"m14.settings.title": "Настройки",
-		"m14.settings.stall": "Застой — после стольких ходов",
-		"m14.settings.stall.hint": "Столько ходов подряд то же место и ничего не происходит, или повторы.",
-		"m14.settings.every": "Заметка не чаще раза в N ходов",
-		"m14.settings.every.hint": "0 — в этом режиме режиссёр сам заметок не пишет."
-	}
-};
-//#endregion
 //#region src/features/director/view.ts
 var DIRECTOR_TAB = "director";
 var DIRECTOR_CSS = `
@@ -57314,7 +59569,7 @@ function directorTab(app, service, settings) {
 	};
 	const settingsSection = () => {
 		const current = settings();
-		return section$1(t("m14.settings.title"), [
+		return moduleSettingsSection(t("m14.settings.title"), [
 			field$1(t("m14.settings.stall"), numberInput({
 				value: current.stallTurns,
 				min: 2,
@@ -57424,6 +59679,7 @@ var directorModule = {
 		own(registerProfileTask(SCENE_TASK, "m13.profileTask"));
 		own(app.ui.style("maestro-m13", DIRECTOR_CSS));
 		own(app.ui.addTab(directorTab(app, service, settings)));
+		own(app.ui.addSlashCommand(sceneCommand(app, service)));
 	}
 };
 //#endregion
@@ -57630,20 +59886,20 @@ var DOCK_STRINGS = {
 	en: {
 		"m32.dock.title": "Extensions dock",
 		"m32.dock.tab": "Extensions",
-		"m32.dock.intro": "The neighbour extensions' own settings blocks, gathered here while this tab is open. They keep working as usual; when the tab closes, each block goes back to its place in the Extensions panel. Maestro never changes their settings.",
+		"m32.dock.intro": "The neighbour extensions' own settings blocks, gathered here while this section is shown. They keep working as usual; when you switch the section, collapse or close the window, each block goes back to its place in the Extensions panel. Maestro never changes their settings.",
 		"m32.dock.none": "No neighbour extensions found.",
-		"m32.dock.keep": "Keep in the pult",
+		"m32.dock.keep": "Keep in the Maestro window",
 		"m32.dock.keepHint": "Off: the block stays in the Extensions panel.",
 		"m32.dock.atHome": "The block stays in the Extensions panel.",
 		"m32.dock.missing": "The settings block is not on the page: the extension has not drawn it yet or is turned off.",
 		"m32.dock.taken": "The extension took its block back — it is where the extension put it.",
 		"m32.dock.redrawn": "The extension keeps redrawing its block, so it stays in the Extensions panel this time.",
 		"m32.dock.shortcuts": "Shortcuts",
-		"m32.dock.shortcutsHint": "Open the extensions' own windows. The pult closes first so the window does not end up underneath it.",
+		"m32.dock.shortcutsHint": "Open the extensions' own windows. This window closes first, so the blocks are back home when they open.",
 		"m32.dock.shortcutMissing": "Could not open «{name}»: the extension does not show its button right now. It may be off or still loading.",
 		"m32.dock.portraits": "DES portrait bar",
 		"m32.dock.portraitsToggle": "Move the portrait bar here",
-		"m32.dock.portraitsHint": "It goes back above the chat input when the tab closes or Maestro is turned off. If it ever ends up in the wrong place, pick its position in DES's settings (Present Characters Panel → Position): DES puts it back itself.",
+		"m32.dock.portraitsHint": "It goes back above the chat input when the section is hidden, the window closes or Maestro is turned off. If it ever ends up in the wrong place, pick its position in DES's settings (Present Characters Panel → Position): DES puts it back itself.",
 		"m32.dock.portraitsMissing": "The portrait bar is not on the page (DES has it switched off).",
 		"m32.dock.n.des": "Doom's Enhancement Suite",
 		"m32.dock.n.desru": "DES-RU",
@@ -57668,20 +59924,20 @@ var DOCK_STRINGS = {
 	ru: {
 		"m32.dock.title": "Док расширений",
 		"m32.dock.tab": "Расширения",
-		"m32.dock.intro": "Собственные блоки настроек соседних расширений — здесь, пока открыта эта вкладка. Они работают как обычно, а когда вкладка закрывается, каждый блок возвращается на своё место в панели расширений. Их настройки Maestro не меняет.",
+		"m32.dock.intro": "Собственные блоки настроек соседних расширений — здесь, пока открыт этот раздел. Они работают как обычно, а когда ты переключаешь раздел, сворачиваешь или закрываешь окно, каждый блок возвращается на своё место в панели расширений. Их настройки Maestro не меняет.",
 		"m32.dock.none": "Соседних расширений не нашлось.",
-		"m32.dock.keep": "Держать в пульте",
+		"m32.dock.keep": "Держать в окне Maestro",
 		"m32.dock.keepHint": "Если выключить, блок останется в панели расширений.",
 		"m32.dock.atHome": "Блок остаётся в панели расширений.",
 		"m32.dock.missing": "Блока настроек нет на странице: расширение ещё не нарисовало его или выключено.",
 		"m32.dock.taken": "Расширение забрало свой блок — он там, куда его поставило расширение.",
 		"m32.dock.redrawn": "Расширение раз за разом перерисовывает свой блок, поэтому сейчас он остаётся в панели расширений.",
 		"m32.dock.shortcuts": "Ярлыки",
-		"m32.dock.shortcutsHint": "Открывают собственные окна расширений. Пульт сначала закрывается, чтобы окно не оказалось под ним.",
+		"m32.dock.shortcutsHint": "Открывают собственные окна расширений. Это окно сначала закрывается, чтобы блоки успели вернуться на место.",
 		"m32.dock.shortcutMissing": "Не получилось открыть «{name}»: расширение сейчас не показывает нужную кнопку. Возможно, оно выключено или ещё загружается.",
 		"m32.dock.portraits": "Полоса портретов DES",
 		"m32.dock.portraitsToggle": "Перенести полосу портретов сюда",
-		"m32.dock.portraitsHint": "Она вернётся на место над полем ввода, когда вкладка закроется или Maestro выключится. Если полоса всё же окажется не там, выбери её положение в настройках DES («Панель персонажей в сцене» → «Положение») — DES сам поставит её на место.",
+		"m32.dock.portraitsHint": "Она вернётся на место над полем ввода, когда раздел скроется, окно закроется или Maestro выключится. Если полоса всё же окажется не там, выбери её положение в настройках DES («Панель персонажей в сцене» → «Положение») — DES сам поставит её на место.",
 		"m32.dock.portraitsMissing": "Полосы портретов нет на странице (в DES она выключена).",
 		"m32.dock.n.des": "Doom's Enhancement Suite",
 		"m32.dock.n.desru": "DES-RU",
@@ -57976,9 +60232,14 @@ function dockTab(deps) {
 			failed(shortcut, error);
 		}
 	};
-	/** `close` shortcuts: the pult closes first (the blocks go home — some openers live in them), then the opener. */
+	/**
+	* `close` shortcuts: the window holding the dock closes first (the blocks go home — some openers live in them),
+	* then the opener.
+	*/
 	const openOutside = async (shortcut) => {
-		app.ui.closePult?.();
+		const holder = app.ui.windowOfTab?.(DOCK_TAB);
+		if (holder && app.ui.closeWindow) app.ui.closeWindow(holder);
+		else app.ui.closePult?.();
 		await run(shortcut);
 	};
 	/** CK draws its windows inside its block: open the block's drawer (ST's own toggle), then call the opener. */
@@ -63708,7 +65969,7 @@ var DossierService = class {
 		};
 	}
 	/** `/maestro-dossier [name]`: resolves the name (world model, else the fallback set) and opens the dossier. */
-	openByName(name) {
+	openNamed(name) {
 		const trimmed = name.trim();
 		if (!trimmed) {
 			this.app.ui.openPult(DOSSIER_TAB);
@@ -68057,7 +70318,8 @@ var dossierModule = {
 			compareWithAi: (entityId) => service.compareWithAi(entityId),
 			spread: (edit) => service.spread(edit),
 			open: (entityId) => service.open(entityId),
-			onChange: (listener) => service.onChange(listener)
+			onChange: (listener) => service.onChange(listener),
+			openByName: (name) => !!name.trim() && service.openNamed(name) !== null
 		});
 		own(app.ui.style("m7-dossier", DOSSIER_CSS));
 		own(app.ui.addTab(dossierTab(app, service, opener)));
@@ -68072,10 +70334,10 @@ var dossierModule = {
 			callback: (_args, value) => {
 				const name = String(value ?? "").trim();
 				if (!name) {
-					service.openByName("");
+					service.openNamed("");
 					return "";
 				}
-				return service.openByName(name) ? "" : app.i18n.t("m7.slash.notFound", { name });
+				return service.openNamed(name) ? "" : app.i18n.t("m7.slash.notFound", { name });
 			}
 		}));
 	}
@@ -70833,7 +73095,7 @@ function promptTab(app, inspector, settings) {
 					sourcesTable(rows)
 				], picker);
 			};
-			const settingsView = () => el("details", { class: "maestro-m2-details" }, [el("summary", { text: t("m2.settings.title") }), field$1(t("m2.settings.keepTurns"), numberInput({
+			const settingsView = () => el("details", { class: ["maestro-m2-details", MODULE_SETTINGS_CLASS] }, [el("summary", { text: t("m2.settings.title") }), field$1(t("m2.settings.keepTurns"), numberInput({
 				value: settings.keepTurns,
 				min: 10,
 				max: 1e3,
@@ -72968,7 +75230,7 @@ function knowledgeTab(app, service) {
 					app.settings.notify(path);
 					draw();
 				};
-				return section$1(t("m18.settings.title"), [field$1(t("m18.settings.maxFacts"), numberInput({
+				return moduleSettingsSection(t("m18.settings.title"), [field$1(t("m18.settings.maxFacts"), numberInput({
 					value: current.maxFacts,
 					min: 50,
 					max: MAX_MAX_FACTS,
@@ -74513,7 +76775,7 @@ function turnTab(app, journal, settings) {
 				}
 				return section$1(t("m1.sim.title"), body);
 			};
-			const settingsView = () => el("details", { class: "maestro-m1-details" }, [el("summary", { text: t("m1.settings.title") }), field$1(t("m1.settings.keepTurns"), numberInput({
+			const settingsView = () => el("details", { class: ["maestro-m1-details", MODULE_SETTINGS_CLASS] }, [el("summary", { text: t("m1.settings.title") }), field$1(t("m1.settings.keepTurns"), numberInput({
 				value: settings.keepTurns,
 				min: 10,
 				max: 2e3,
@@ -76481,6 +78743,8 @@ function factOf(raw) {
 	if (typeof raw.conflict === "string" && raw.conflict) fact.conflict = raw.conflict;
 	if (raw.dispute === "pending" || raw.dispute === "kept") fact.dispute = raw.dispute;
 	if (typeof raw.droppedBy === "string") fact.droppedBy = oneOf(DROP_REASONS$1, raw.droppedBy, "missing");
+	if (typeof raw.droppedAt === "number") fact.droppedAt = raw.droppedAt;
+	if (raw.wrong === true) fact.wrong = true;
 	if (typeof raw.countedTurn === "number") fact.countedTurn = raw.countedTurn;
 	if (raw.wasConfirmed === true) fact.wasConfirmed = true;
 	if (raw.wasContradicted === true) fact.wasContradicted = true;
@@ -76889,7 +79153,7 @@ function againstOf(hits) {
 	return uniqueStrings(hits.map((hit) => hit.label.trim()).filter(Boolean)).slice(0, 3);
 }
 /** A sentence without its final full stop (it goes into a longer line). */
-function bare(sentence) {
+function bare$1(sentence) {
 	return sentence.trim().replace(/[.。]+$/u, "");
 }
 /** Canon meta of an item (unknown fields such as `livingId` kept) without the bookkeeping put() fills in itself. */
@@ -77591,7 +79855,7 @@ var LivingCanonService = class {
 	factProposal(payload) {
 		const book = this.canon()?.bookName() ?? "";
 		const statement = this.statement(payload);
-		const what = payload.russian?.trim() ? bare(payload.russian) : this.t("m26.notice.what", {
+		const what = payload.russian?.trim() ? bare$1(payload.russian) : this.t("m26.notice.what", {
 			name: payload.name,
 			type: this.typeName(payload.type)
 		});
@@ -78432,11 +80696,11 @@ var LivingCanonService = class {
 			blocked: uids.length - confirmed
 		};
 	}
-	drop(uid) {
+	drop(uid, options = {}) {
 		return this.serial(async () => {
 			const fact = this.store.peek()?.facts.find((item) => item.uid === uid && item.status !== "dropped");
 			if (!fact) return;
-			await this.dropFact(fact.id, "user");
+			await this.dropFact(fact.id, "user", options.wrong === true);
 			this.app.autonomy.record(FACT_KIND, "rejected");
 			this.emit();
 		});
@@ -78448,13 +80712,20 @@ var LivingCanonService = class {
 			this.emit();
 		});
 	}
-	async dropFact(id, reason) {
+	async dropFact(id, reason, wrong = false) {
 		const fact = this.store.peek()?.facts.find((item) => item.id === id);
 		if (!fact || fact.status === "dropped") return;
 		if (fact.uid !== void 0 && (fact.status === "provisional" || fact.status === "active")) await this.canon()?.remove(fact.uid);
 		await this.store.mutate((doc) => {
 			const dropped = markDropped(doc, [id], reason) > 0;
-			if (dropped && reason === "user") bumpStat(doc, "droppedByUser");
+			if (dropped && reason === "user") {
+				bumpStat(doc, "droppedByUser");
+				const live = doc.facts.find((item) => item.id === id);
+				if (live) {
+					live.droppedAt = Date.now();
+					if (wrong) live.wrong = true;
+				}
+			}
 			return {
 				changed: dropped,
 				result: void 0
@@ -78850,7 +81121,16 @@ var LIVING_STRINGS = {
 		"m26.notice.duplicate": "Removed “{name}”: it is another name of “{other}”.",
 		"m26.error.noCanon": "“Chat canon” is off: there is nowhere to write the fact.",
 		"m26.error.stale": "The reply this fact came from has changed.",
-		"m26.error.payload": "This card cannot be read."
+		"m26.error.payload": "This card cannot be read.",
+		"m26.strip.named": "{name} — {type}",
+		"m26.strip.fact": "Remembered: {what} (provisional)",
+		"m26.strip.confirmed": "Fact confirmed: {what}",
+		"m26.strip.dropped": "Forgot: {what}",
+		"m26.strip.wrong": "Marked as my mistake and forgot: {what}",
+		"m26.strip.confirm": "Right",
+		"m26.strip.forget": "Forget",
+		"m26.strip.mistake": "A mistake",
+		"m26.strip.hint": "“Right” makes it confirmed canon. “Forget” takes it out of the canon. “A mistake” takes it out too and notes that I took it for a fact wrongly. Either way the name is not offered again in this chat."
 	},
 	ru: {
 		"m26.title": "Живой канон",
@@ -78950,7 +81230,16 @@ var LIVING_STRINGS = {
 		"m26.notice.duplicate": "Убрал «{name}»: это другое название «{other}».",
 		"m26.error.noCanon": "Выключен «Канон чата»: записать факт некуда.",
 		"m26.error.stale": "Ответ, из которого взят факт, изменился.",
-		"m26.error.payload": "Не удаётся прочитать эту карточку."
+		"m26.error.payload": "Не удаётся прочитать эту карточку.",
+		"m26.strip.named": "{name} — {type}",
+		"m26.strip.fact": "Запомнил: {what} (пробно)",
+		"m26.strip.confirmed": "Факт подтвердился: {what}",
+		"m26.strip.dropped": "Забыл: {what}",
+		"m26.strip.wrong": "Отметил как свою ошибку и забыл: {what}",
+		"m26.strip.confirm": "Верно",
+		"m26.strip.forget": "Забыть",
+		"m26.strip.mistake": "Это ошибка",
+		"m26.strip.hint": "«Верно» — сделать подтверждённым каноном. «Забыть» — убрать из канона. «Это ошибка» — тоже убрать и запомнить, что я принял это за факт по ошибке. В обоих случаях это название в этом чате больше не предлагаю."
 	}
 };
 //#endregion
@@ -78974,7 +81263,7 @@ var LIVING_CSS = `
 .maestro-m26-small { font-size: 0.85em; opacity: 0.8; }
 .maestro-m26-link { padding: 0 6px; min-height: 0; }
 `;
-function quoteText$1(quote) {
+function quoteText$2(quote) {
 	const text = quote.trim().replace(/^[«"“„]+|[»"”]+$/g, "");
 	return text ? `«${text}»` : "";
 }
@@ -79032,7 +81321,7 @@ function livingTab(app, service, settings) {
 					}) : null
 				]), el("div", {
 					class: "maestro-m26-quote",
-					text: quoteText$1(draft.quote)
+					text: quoteText$2(draft.quote)
 				})]);
 			};
 			const factBody = (fact) => {
@@ -79044,7 +81333,7 @@ function livingTab(app, service, settings) {
 					}) : null,
 					el("div", {
 						class: "maestro-m26-quote",
-						text: quoteText$1(fact.quote)
+						text: quoteText$2(fact.quote)
 					}),
 					fact.text ? el("div", {
 						class: "maestro-m26-small maestro-muted",
@@ -79127,7 +81416,7 @@ function livingTab(app, service, settings) {
 				text: fact.text
 			}) : el("div", {
 				class: "maestro-m26-quote",
-				text: quoteText$1(fact.quote)
+				text: quoteText$2(fact.quote)
 			})]);
 			const extractLine = () => {
 				const state = service.extractState();
@@ -79164,7 +81453,7 @@ function livingTab(app, service, settings) {
 					label,
 					onChange: (value) => save(key, value)
 				}), hint);
-				return el("details", {}, [
+				return el("details", { class: MODULE_SETTINGS_CLASS }, [
 					el("summary", { text: t("m26.settings") }),
 					number("maxPerTurn", t("m26.settings.k"), 10, t("m26.settings.kHint")),
 					number("surviveTurns", t("m26.settings.survive"), 100, t("m26.settings.surviveHint")),
@@ -79242,6 +81531,117 @@ function livingTab(app, service, settings) {
 	};
 }
 //#endregion
+//#region src/features/livingCanon/strip.ts
+var LIVING_STRIP = "livingCanon";
+var LIVING_STRIP_ORDER = 20;
+function quoteText$1(quote) {
+	const text = quote.trim().replace(/^[«"“„]+|[»"”]+$/g, "");
+	return text ? `«${text}»` : "";
+}
+/** A sentence without its final full stop (it goes into a longer line). */
+function bare(sentence) {
+	return sentence.trim().replace(/[.。]+$/u, "");
+}
+/** `since`: decisions made from this moment on are shown as muted lines (default: now, the module's start). */
+function livingStripProvider(app, service, since = Date.now()) {
+	const t = app.i18n.t.bind(app.i18n);
+	/** Items by message, built from one version of the document (every change replaces the facts array). */
+	let byMessage = null;
+	let builtFrom = null;
+	const what = (fact) => fact.russian?.trim() ? bare(fact.russian) : t("m26.strip.named", {
+		name: fact.name,
+		type: t(`m26.type.${fact.type}`)
+	});
+	const factItem = (fact, uid) => ({
+		id: fact.id,
+		kind: "fact",
+		text: t("m26.strip.fact", { what: what(fact) }),
+		icon: "fa-seedling",
+		actions: [
+			{
+				label: t("m26.strip.confirm"),
+				primary: true,
+				run: async () => {
+					await service.accept(uid);
+				}
+			},
+			{
+				label: t("m26.strip.forget"),
+				run: () => service.drop(uid)
+			},
+			{
+				label: t("m26.strip.mistake"),
+				run: () => service.drop(uid, { wrong: true })
+			}
+		],
+		body: (container) => {
+			const quote = quoteText$1(fact.quote);
+			if (quote) container.appendChild(el("div", {
+				class: "maestro-m26-quote",
+				text: quote
+			}));
+			container.appendChild(el("div", {
+				class: "maestro-m26-small maestro-muted",
+				text: t("m26.strip.hint")
+			}));
+		},
+		open: {
+			window: app.ui.windowOfTab?.("living") ?? "",
+			tab: LIVING_TAB
+		}
+	});
+	/** A decision of this session: a muted line without buttons. */
+	const doneItem = (fact) => {
+		if (fact.status === "active" && (fact.confirmedAt ?? 0) >= since) return {
+			id: `done:${fact.id}`,
+			kind: "info",
+			text: t("m26.strip.confirmed", { what: what(fact) })
+		};
+		if (fact.status === "dropped" && fact.droppedBy === "user" && (fact.droppedAt ?? 0) >= since) {
+			const key = fact.wrong ? "m26.strip.wrong" : "m26.strip.dropped";
+			return {
+				id: `done:${fact.id}`,
+				kind: "info",
+				text: t(key, { what: what(fact) }),
+				icon: "fa-eraser"
+			};
+		}
+		return null;
+	};
+	const indexed = () => {
+		const records = service.records();
+		if (byMessage && builtFrom === records) return byMessage;
+		const map = /* @__PURE__ */ new Map();
+		for (const fact of records) {
+			if (fact.sourceMessage < 0) continue;
+			const item = fact.status === "provisional" && fact.uid !== void 0 ? factItem(fact, fact.uid) : doneItem(fact);
+			if (!item) continue;
+			const list = map.get(fact.sourceMessage);
+			if (list) list.push(item);
+			else map.set(fact.sourceMessage, [item]);
+		}
+		byMessage = map;
+		builtFrom = records;
+		return map;
+	};
+	return {
+		id: LIVING_STRIP,
+		order: LIVING_STRIP_ORDER,
+		items: (messageIndex) => indexed().get(messageIndex) ?? [],
+		onChange(listener) {
+			return service.onChange(() => {
+				const before = byMessage;
+				byMessage = null;
+				if (!before) {
+					listener();
+					return;
+				}
+				listener([.../* @__PURE__ */ new Set([...before.keys(), ...indexed().keys()])]);
+			});
+		}
+	};
+}
+//#endregion
 //#region src/features/livingCanon/index.ts
 function count(value, fallback, max) {
 	return typeof value === "number" && Number.isFinite(value) && value >= 0 ? Math.min(max, Math.floor(value)) : fallback;
@@ -79290,6 +81690,8 @@ var livingCanonModule = {
 		own(registerProfileTask(EXTRACT_TASK$1, "m26.profileTask"));
 		own(app.ui.style("m26-living", LIVING_CSS));
 		own(app.ui.addTab(livingTab(app, service, settings)));
+		const offStrip = app.ui.addMessageStripProvider?.(livingStripProvider(app, service));
+		if (offStrip) own(offStrip);
 	}
 };
 //#endregion
@@ -91830,6 +94232,26 @@ function defaultStudioSettings() {
 		autoLinkAsked: false
 	};
 }
+/** Id of the studio's Maestro window (also the id of its launcher tab in the «Maestro» window). */
+var LORE_STUDIO_WINDOW = "loreStudio";
+/**
+* The studio's window (plan-2 §10): non-modal, floating and large the first time (full screen on phones), hidden from
+* the window list (opened by studio.open(), the launchers and the Maestro menu). The assistant can stay open beside it.
+*/
+function loreStudioWindow(studio) {
+	return {
+		id: LORE_STUDIO_WINDOW,
+		titleKey: "m23.title",
+		icon: "fa-book-atlas",
+		order: 200,
+		hidden: true,
+		defaultDock: "float",
+		defaultWidth: 1400,
+		defaultHeight: 900,
+		render: (container) => studio.mount(container),
+		canClose: () => studio.canClose()
+	};
+}
 var REFRESH_DELAY_MS$2 = 30;
 var FOCUS_CLASSES = ["maestro-m23-entry-search", "maestro-m23-book-search"];
 var LoreStudio = class {
@@ -91839,7 +94261,7 @@ var LoreStudio = class {
 	/** Localization jobs outlive the window: the book header draws them from here (plan-2 §8). */
 	jobs;
 	jobsOff = null;
-	popup = null;
+	/** The studio's body while its window is open (null: closed). */
 	root = null;
 	main = null;
 	columns = null;
@@ -91858,7 +94280,7 @@ var LoreStudio = class {
 	/** The open form's «may I leave?» (unsaved edits); set through EntryFormContext.setLeaveGuard. */
 	leaveGuard = null;
 	formToken = 0;
-	/** Per popup: a close we already allowed (or forced) skips the guard in ST's onClosing. */
+	/** Per opening: a close we already allowed (or forced) skips the guard in the window's canClose. */
 	closing = null;
 	booksState = {
 		search: "",
@@ -91891,43 +94313,20 @@ var LoreStudio = class {
 		return this.app.i18n.t(key, params);
 	}
 	isOpen() {
-		return this.popup !== null;
+		return this.root !== null;
 	}
 	currentBook() {
 		return this.book;
 	}
-	/** Opens the window (on a book and entry when given); a second call just switches to them. */
+	/** Opens the window (on a book and entry when given); a second call brings it forward and switches to them. */
 	open(book, uid) {
-		if (!this.popup) {
-			const ctx = this.app.host.ctx();
-			if (typeof ctx.Popup !== "function") {
-				this.deps.log.error("ST Popup is not available; cannot open the Lore Studio");
-				return;
-			}
-			this.root = this.buildChrome();
-			const closing = { allowed: false };
-			this.closing = closing;
-			const popup = new ctx.Popup(this.root, ctx.POPUP_TYPE.DISPLAY, "", {
-				wide: true,
-				large: true,
-				allowVerticalScrolling: false,
-				animation: prefersReducedMotion() ? "none" : "fast",
-				onClosing: () => closing.allowed ? true : this.canLeave()
-			});
-			popup.dlg.classList.add("maestro-m23-dialog");
-			this.popup = popup;
-			this.storeOff = this.deps.store.onChange((changed) => this.scheduleRefresh(changed));
-			this.jobsOff = this.jobs.on((_job, key) => {
-				if (this.book !== null && key === bookJobKey(this.book)) this.updateJobSlot();
-			});
-			const roles = this.app.modules.api("bookRoles");
-			if (roles) {
-				this.rolesOff = roles.onChange(() => this.scheduleRefresh(null));
-				roles.refresh().catch((error) => this.deps.log.warn("book roles refresh failed", error));
-			}
-			popup.show().then(() => this.handleClosed(popup), () => this.handleClosed(popup));
-			this.dirtyAll = true;
+		const fresh = this.root === null;
+		if (typeof this.app.ui.openWindow !== "function") {
+			this.deps.log.error("Maestro windows are not available; cannot open the Lore Studio");
+			return;
 		}
+		this.app.ui.openWindow(LORE_STUDIO_WINDOW);
+		if (!this.root) return;
 		if (book && this.deps.store.books().includes(book)) {
 			this.view = "library";
 			this.selectBook(book).then((selected) => {
@@ -91935,7 +94334,35 @@ var LoreStudio = class {
 			});
 			return;
 		}
+		if (!fresh) this.render();
+	}
+	/** The window body (MaestroWindowSpec.render): the studio lives here until the window closes. */
+	mount(container) {
+		if (this.root) this.handleClosed();
+		this.closing = { allowed: false };
+		this.root = this.buildChrome();
+		container.appendChild(this.root);
+		this.storeOff = this.deps.store.onChange((changed) => this.scheduleRefresh(changed));
+		this.jobsOff = this.jobs.on((_job, key) => {
+			if (this.book !== null && key === bookJobKey(this.book)) this.updateJobSlot();
+		});
+		const roles = this.app.modules.api("bookRoles");
+		if (roles) {
+			this.rolesOff = roles.onChange(() => this.scheduleRefresh(null));
+			roles.refresh().catch((error) => this.deps.log.warn("book roles refresh failed", error));
+		}
+		this.dirtyAll = true;
 		this.render();
+		const root = this.root;
+		return () => {
+			if (this.root === root) this.handleClosed();
+		};
+	}
+	/** The window's close guard (× , Escape): the open entry form may keep it open for unsaved edits. */
+	canClose() {
+		if (!this.root || this.closing?.allowed) return true;
+		if (!this.leaveGuard || this.entriesState.openUid === null) return true;
+		return this.canLeave();
 	}
 	/** True when nothing stops leaving the open entry (no form, no guard, or the form agreed). */
 	async canLeave() {
@@ -91948,26 +94375,24 @@ var LoreStudio = class {
 			return false;
 		}
 	}
-	/** A close the user asked for (× button, «Классический редактор»): the form is asked first. */
+	/** A close the user asked for («Классический редактор»): the form is asked first. */
 	async requestClose() {
-		if (!this.popup) return true;
+		if (!this.root) return true;
 		if (!await this.canLeave()) return false;
 		this.close();
 		return true;
 	}
 	/** Closes without asking (module disable, or after the guard agreed). */
 	close() {
-		const popup = this.popup;
-		if (!popup) return;
+		if (!this.root) return;
 		if (this.closing) this.closing.allowed = true;
-		this.handleClosed(popup);
-		popup.completeCancelled().catch((error) => this.deps.log.debug("lore studio close", error));
+		this.app.ui.closeWindow?.(LORE_STUDIO_WINDOW);
+		if (this.root) this.handleClosed();
 	}
 	dispose() {
 		this.close();
 	}
-	handleClosed(popup) {
-		if (this.popup !== popup) return;
+	handleClosed() {
 		this.closeForm(false);
 		this.storeOff?.();
 		this.storeOff = null;
@@ -91977,14 +94402,15 @@ var LoreStudio = class {
 		this.rolesOff = null;
 		if (this.refreshTimer) clearTimeout(this.refreshTimer);
 		this.refreshTimer = null;
-		this.popup = null;
+		this.root?.remove();
 		this.root = null;
 		this.main = null;
 		this.columns = null;
+		this.closing = null;
 	}
 	buildChrome() {
 		this.main = el("div", { class: "maestro-m23-main" });
-		const nav = segmented({
+		return el("div", { class: "maestro-m23 maestro-ui" }, [el("div", { class: "maestro-m23-header" }, [segmented({
 			value: this.view,
 			label: this.t("m23.nav.label"),
 			options: [
@@ -92009,27 +94435,13 @@ var LoreStudio = class {
 				this.view = view;
 				this.render();
 			}
-		});
-		return el("div", { class: "maestro-m23 maestro-ui" }, [el("div", { class: "maestro-m23-header" }, [
-			el("div", { class: "maestro-m23-brand" }, [icon("fa-book-atlas"), el("h3", { text: this.t("m23.title") })]),
-			nav,
-			button({
-				icon: "fa-book-open",
-				label: this.t("m23.classic"),
-				title: this.t("m23.classicHint"),
-				className: "maestro-m23-classic",
-				onClick: () => this.openClassic(this.book ?? void 0)
-			}),
-			button({
-				icon: "fa-xmark",
-				kind: "ghost",
-				title: this.t("m23.close"),
-				className: "maestro-m23-close",
-				onClick: async () => {
-					await this.requestClose();
-				}
-			})
-		]), this.main]);
+		}), button({
+			icon: "fa-book-open",
+			label: this.t("m23.classic"),
+			title: this.t("m23.classicHint"),
+			className: "maestro-m23-classic",
+			onClick: () => this.openClassic(this.book ?? void 0)
+		})]), this.main]);
 	}
 	/** The view switch follows programmatic view changes (a book opened from the campaigns view). */
 	markNav() {
@@ -92867,24 +95279,24 @@ var LoreStudio = class {
 };
 //#endregion
 //#region src/features/loreStudio/styles.ts
+/** Phones (≤1000px, ST's breakpoint) and narrow Maestro windows (plan-2 §10) share these rules. */
+var NARROW$1 = `
+    .maestro-m23-header { padding: 6px; padding-top: max(6px, env(safe-area-inset-top)); gap: 6px; }
+    .maestro-m23-classic span { display: none; }
+    .maestro-m23-layout, .maestro-m23-layout.maestro-m23-with-form { grid-template-columns: minmax(0, 1fr); }
+    .maestro-m23-layout .maestro-m23-col { display: none; border: 0; }
+    .maestro-m23-layout[data-pane='books'] .maestro-m23-col-books,
+    .maestro-m23-layout[data-pane='entries'] .maestro-m23-col-entries,
+    .maestro-m23-layout[data-pane='form'] .maestro-m23-col-form { display: block; }
+    .maestro-m23-back { display: inline-flex; }
+    .maestro-btn, .maestro-m23-book-name, .maestro-m23-entry-title, .maestro-m23-campaign-name { min-height: var(--maestro-tap); }
+    .maestro-m23-entry-main { flex-wrap: wrap; }
+    .maestro-m23-entry-title { flex-basis: 60%; }
+    .maestro-m23-bulk-row { grid-template-columns: auto 1fr; }
+    .maestro-m23-bulk-row > :nth-child(3) { display: none; }
+    .maestro-m23-bulk-row > :nth-child(4) { grid-column: 1 / -1; }
+`;
 var M23_CSS = `
-.popup.maestro-m23-dialog {
-    width: min(1500px, 98dvw);
-    height: min(940px, 94dvh);
-    max-height: 94dvh;
-    padding: 0;
-    overflow: hidden;
-}
-.popup.maestro-m23-dialog .popup-content {
-    margin: 0;
-    padding: 0;
-    display: flex;
-    min-height: 0;
-    height: 100%;
-    text-align: start;
-}
-.popup.maestro-m23-dialog .popup-body { height: 100%; }
-.popup.maestro-m23-dialog .popup-button-close { display: none !important; }
 .maestro-m23 {
     display: flex;
     flex-direction: column;
@@ -92916,7 +95328,7 @@ var M23_CSS = `
     grid-template-columns: minmax(220px, 280px) minmax(0, 1fr) minmax(360px, 44%);
 }
 /* Not enough room for three columns: the open form hides the book list (the entry list keeps its width). */
-@media screen and (min-width: 1001px) and (max-width: 1599px) {
+@container maestro-window (min-width: 1001px) and (max-width: 1599px) {
     .maestro-m23-layout.maestro-m23-with-form { grid-template-columns: minmax(0, 1fr) minmax(400px, 55%); }
     .maestro-m23-layout.maestro-m23-with-form .maestro-m23-col-books { display: none; }
 }
@@ -93123,32 +95535,9 @@ var M23_CSS = `
 .maestro-m23-bulk-row .text_pole { margin: 0; }
 .maestro-m23-order-form { display: flex; flex-direction: column; gap: 4px; }
 @media screen and (max-width: 1000px) {
-    .popup.maestro-m23-dialog,
-    .popup.maestro-m23-dialog.large_dialogue_popup {
-        width: 100dvw !important;
-        min-width: 100dvw !important;
-        max-width: 100dvw !important;
-        height: 100dvh !important;
-        max-height: 100dvh !important;
-        margin: 0;
-        border: 0;
-        border-radius: 0;
-    }
-    .maestro-m23-header { padding: 6px; padding-top: max(6px, env(safe-area-inset-top)); gap: 6px; }
-    .maestro-m23-classic span { display: none; }
-    .maestro-m23-layout, .maestro-m23-layout.maestro-m23-with-form { grid-template-columns: minmax(0, 1fr); }
-    .maestro-m23-layout .maestro-m23-col { display: none; border: 0; }
-    .maestro-m23-layout[data-pane='books'] .maestro-m23-col-books,
-    .maestro-m23-layout[data-pane='entries'] .maestro-m23-col-entries,
-    .maestro-m23-layout[data-pane='form'] .maestro-m23-col-form { display: block; }
-    .maestro-m23-back { display: inline-flex; }
-    .maestro-btn, .maestro-m23-book-name, .maestro-m23-entry-title, .maestro-m23-campaign-name { min-height: var(--maestro-tap); }
-    .maestro-m23-entry-main { flex-wrap: wrap; }
-    .maestro-m23-entry-title { flex-basis: 60%; }
-    .maestro-m23-bulk-row { grid-template-columns: auto 1fr; }
-    .maestro-m23-bulk-row > :nth-child(3) { display: none; }
-    .maestro-m23-bulk-row > :nth-child(4) { grid-column: 1 / -1; }
-}
+${NARROW$1}}
+@container maestro-window (max-width: 1000px) {
+${NARROW$1}}
 `;
 //#endregion
 //#region src/features/loreStudio/takeover.ts
@@ -93454,6 +95843,7 @@ function createLoreStudioModule(renderForm) {
 				for (const job of jobs.list()) if (job.module === "loreStudio" && job.state === "active") jobs.cancel(job.key);
 			});
 			own(app.ui.style("m23-lore-studio", M23_CSS));
+			if (typeof app.ui.addWindow === "function") own(app.ui.addWindow(loreStudioWindow(studio)));
 			const setTakeover = async (on) => {
 				settings.takeoverButton = on;
 				saveSettings();
@@ -94749,7 +97139,9 @@ var MechanicChecks = class {
 			const line = describeCheck(result, this.deps.app.i18n, checkNameOf(this.defs, result));
 			const off = this.deps.app.ui.messageBadge(result.messageIndex, {
 				id: `m25-check-${result.id}`,
-				text: this.t("m25.check.badge", { line })
+				text: this.t("m25.check.badge", { line }),
+				kind: "roll",
+				icon: "fa-dice-d20"
 			});
 			this.badges.set(result.id, off);
 		} catch (error) {
@@ -110563,7 +112955,7 @@ function offscreenTab(app, service, settings) {
 				commit(`sceneEnd.${mode}`);
 			}
 		});
-		return section$1(t("m16.settings.title"), [
+		return moduleSettingsSection(t("m16.settings.title"), [
 			el("div", {
 				class: "maestro-hint",
 				text: t("m16.settings.every.hint")
@@ -121311,6 +123703,269 @@ function parsePresetBody(text) {
 	}
 }
 //#endregion
+//#region src/ui/components/tabs.ts
+var instances = 0;
+/** localStorage may throw (private mode, blocked site data) or be missing: collapsing then just is not remembered. */
+function readCollapsed(key) {
+	if (!key) return /* @__PURE__ */ new Set();
+	try {
+		const raw = globalThis.localStorage?.getItem(key);
+		const parsed = raw ? JSON.parse(raw) : [];
+		return new Set(Array.isArray(parsed) ? parsed.filter((value) => typeof value === "string") : []);
+	} catch {
+		return /* @__PURE__ */ new Set();
+	}
+}
+function writeCollapsed(key, groups) {
+	if (!key) return;
+	try {
+		globalThis.localStorage?.setItem(key, JSON.stringify([...groups].sort()));
+	} catch {}
+}
+/** Splits items into plain tabs and groups of consecutive items (a group of one item is a plain tab). */
+function blocksOf(items) {
+	const blocks = [];
+	for (const item of items) {
+		const group = item.group && item.groupLabel ? item.group : null;
+		const last = blocks[blocks.length - 1];
+		if (group !== null && last && last.group === group) last.items.push(item);
+		else blocks.push({
+			group,
+			label: item.groupLabel ?? "",
+			items: [item]
+		});
+	}
+	return blocks.flatMap((block) => block.group !== null && block.items.length < 2 ? block.items.map((item) => ({
+		group: null,
+		label: "",
+		items: [item]
+	})) : [block]);
+}
+function tabs(options) {
+	const prefix = `maestro-tabs-${++instances}`;
+	const list = el("div", {
+		class: "maestro-tabs",
+		attrs: {
+			role: "tablist",
+			"aria-orientation": "vertical",
+			"aria-label": options.label
+		}
+	});
+	const picker = el("select", {
+		class: "text_pole maestro-tabs-picker",
+		attrs: { "aria-label": options.label }
+	});
+	let items = [];
+	let blocks = [];
+	let current = options.active ?? null;
+	const collapsedGroups = readCollapsed(options.storageKey);
+	const buttonOf = (id) => [...list.querySelectorAll(".maestro-tab")].find((node) => node.dataset.tab === id) ?? null;
+	const groupNodeOf = (group) => [...list.querySelectorAll(".maestro-tab-group")].find((node) => node.dataset.group === group) ?? null;
+	const blockOf = (id) => blocks.find((block) => block.items.some((item) => item.id === id));
+	const hidden = (item) => {
+		const block = blockOf(item.id);
+		return !!block?.group && collapsedGroups.has(block.group);
+	};
+	const pickerLabel = (item) => item.badge ? `${item.label} (${item.badge})` : item.label;
+	const tabButton = (item) => {
+		const badge = el("span", {
+			class: "maestro-tab-badge",
+			text: item.badge ? String(item.badge) : ""
+		});
+		badge.hidden = !item.badge;
+		const node = el("button", {
+			class: "maestro-tab",
+			data: { tab: item.id },
+			attrs: {
+				type: "button",
+				role: "tab",
+				"aria-selected": "false",
+				tabindex: "-1"
+			}
+		}, [
+			item.icon ? icon(item.icon) : null,
+			el("span", {
+				class: "maestro-tab-label",
+				text: item.label
+			}),
+			badge
+		]);
+		node.addEventListener("click", () => choose(item.id));
+		return node;
+	};
+	const groupBlock = (block, index) => {
+		const headId = `${prefix}-group-${index}`;
+		const bodyId = `${headId}-items`;
+		const head = el("button", {
+			class: "maestro-tab-group-head",
+			data: { group: block.group },
+			attrs: {
+				type: "button",
+				id: headId,
+				"aria-controls": bodyId
+			}
+		}, [
+			icon("fa-chevron-down", "maestro-tab-group-chevron"),
+			el("span", {
+				class: "maestro-tab-group-label",
+				text: block.label
+			}),
+			el("span", { class: "maestro-tab-badge" })
+		]);
+		head.addEventListener("click", () => toggle(block.group, !collapsedGroups.has(block.group)));
+		const body = el("div", {
+			class: "maestro-tab-group-items",
+			attrs: { id: bodyId }
+		}, block.items.map(tabButton));
+		return el("div", {
+			class: "maestro-tab-group",
+			data: { group: block.group },
+			attrs: {
+				role: "group",
+				"aria-labelledby": headId
+			}
+		}, [head, body]);
+	};
+	const render = () => {
+		blocks = blocksOf(items);
+		list.replaceChildren();
+		picker.replaceChildren();
+		blocks.forEach((block, index) => {
+			if (block.group === null) {
+				for (const item of block.items) list.appendChild(tabButton(item));
+				for (const item of block.items) picker.appendChild(el("option", {
+					text: pickerLabel(item),
+					attrs: { value: item.id }
+				}));
+				return;
+			}
+			list.appendChild(groupBlock(block, index));
+			picker.appendChild(el("optgroup", { attrs: { label: block.label } }, block.items.map((item) => el("option", {
+				text: pickerLabel(item),
+				attrs: { value: item.id }
+			}))));
+		});
+		mark();
+	};
+	/** Heading state: collapsed flag, rolled-up badge and «the active tab is inside» while collapsed. */
+	const markGroups = () => {
+		for (const block of blocks) {
+			if (block.group === null) continue;
+			const node = groupNodeOf(block.group);
+			if (!node) continue;
+			const collapsed = collapsedGroups.has(block.group);
+			const head = node.querySelector(".maestro-tab-group-head");
+			const body = node.querySelector(".maestro-tab-group-items");
+			node.classList.toggle("maestro-collapsed", collapsed);
+			node.classList.toggle("maestro-has-active", collapsed && block.items.some((item) => item.id === current));
+			if (body) body.hidden = collapsed;
+			if (head) {
+				head.setAttribute("aria-expanded", collapsed ? "false" : "true");
+				const title = options.groupTitle?.(collapsed);
+				if (title) head.title = title;
+				const total = collapsed ? block.items.reduce((sum, item) => sum + (item.badge ?? 0), 0) : 0;
+				const badge = head.querySelector(".maestro-tab-badge");
+				if (badge) {
+					badge.textContent = total ? String(total) : "";
+					badge.hidden = !total;
+				}
+			}
+		}
+	};
+	const mark = () => {
+		if (current === null || !items.some((item) => item.id === current)) current = items[0]?.id ?? null;
+		for (const node of list.querySelectorAll(".maestro-tab")) {
+			const on = node.dataset.tab === current;
+			node.classList.toggle("maestro-on", on);
+			node.setAttribute("aria-selected", on ? "true" : "false");
+			node.setAttribute("tabindex", on ? "0" : "-1");
+		}
+		if (current !== null) picker.value = current;
+		markGroups();
+	};
+	const toggle = (group, collapsed) => {
+		if (collapsedGroups.has(group) === collapsed) return;
+		if (collapsed) collapsedGroups.add(group);
+		else collapsedGroups.delete(group);
+		writeCollapsed(options.storageKey, collapsedGroups);
+		markGroups();
+	};
+	/** A tab chosen elsewhere (picker, openPult) inside a collapsed group opens that group. */
+	const reveal = (id) => {
+		const group = blockOf(id)?.group;
+		if (group && collapsedGroups.has(group)) toggle(group, false);
+	};
+	const choose = (id) => {
+		if (!items.some((item) => item.id === id)) return;
+		if (id !== current) reveal(id);
+		current = id;
+		mark();
+		options.onSelect(id);
+	};
+	/** The next visible tab from `from` in direction `step` (wrapping); tabs of collapsed groups are skipped. */
+	const step = (from, delta) => {
+		for (let offset = 1; offset <= items.length; offset++) {
+			const index = ((from + delta * offset) % items.length + items.length) % items.length;
+			const item = items[index];
+			if (item && !hidden(item)) return item;
+		}
+	};
+	list.addEventListener("keydown", (event) => {
+		if (![
+			"ArrowDown",
+			"ArrowUp",
+			"ArrowLeft",
+			"ArrowRight",
+			"Home",
+			"End"
+		].includes(event.key) || !items.length) return;
+		event.preventDefault();
+		const index = items.findIndex((item) => item.id === current);
+		const visible = items.filter((item) => !hidden(item));
+		let target;
+		if (event.key === "ArrowDown" || event.key === "ArrowRight") target = step(index < 0 ? -1 : index, 1);
+		else if (event.key === "ArrowUp" || event.key === "ArrowLeft") target = step(index < 0 ? 0 : index, -1);
+		else if (event.key === "Home") target = visible[0];
+		else target = visible[visible.length - 1];
+		if (!target) return;
+		choose(target.id);
+		buttonOf(target.id)?.focus();
+	});
+	picker.addEventListener("change", () => choose(picker.value));
+	const handle = {
+		list,
+		picker,
+		setItems(next) {
+			items = next.map((item) => ({ ...item }));
+			render();
+		},
+		setActive(id) {
+			if (!items.some((item) => item.id === id)) return;
+			if (id !== current) reveal(id);
+			current = id;
+			mark();
+		},
+		setBadge(id, value) {
+			const item = items.find((entry) => entry.id === id);
+			if (!item || (item.badge ?? 0) === value) return;
+			item.badge = value;
+			const badge = buttonOf(id)?.querySelector(".maestro-tab-badge");
+			if (badge) {
+				badge.textContent = value ? String(value) : "";
+				badge.hidden = !value;
+			}
+			const option = [...picker.options].find((entry) => entry.value === id);
+			if (option) option.textContent = pickerLabel(item);
+			markGroups();
+		},
+		active: () => current,
+		setCollapsed: (group, collapsed) => toggle(group, collapsed),
+		collapsed: () => [...collapsedGroups].sort()
+	};
+	handle.setItems(options.items);
+	return handle;
+}
+//#endregion
 //#region src/features/presetStudio/dialogs.ts
 /** Values our custom buttons resolve with (ST's AFFIRMATIVE is 1, NEGATIVE 0, CANCELLED null). */
 var CUSTOM_RESULT_BASE = 100;
@@ -123954,6 +126609,26 @@ function opTarget(op) {
 	if (op.op === "key") return null;
 	return op.identifier;
 }
+/** Id of the studio's Maestro window (also the id of its launcher tab in the «Maestro» window). */
+var PRESET_STUDIO_WINDOW = "presetStudio";
+/**
+* The studio's window (plan-2 §10): non-modal, floating and large the first time (full screen on phones), hidden from
+* the window list (opened by studio.open(), the launchers and the Maestro menu). The assistant can stay open beside it.
+*/
+function presetStudioWindow(studio) {
+	return {
+		id: PRESET_STUDIO_WINDOW,
+		titleKey: "m34.title",
+		icon: "fa-sliders",
+		order: 210,
+		hidden: true,
+		defaultDock: "float",
+		defaultWidth: 1400,
+		defaultHeight: 900,
+		render: (container) => studio.mount(container),
+		canClose: () => studio.canClose()
+	};
+}
 var REFRESH_DELAY_MS = 40;
 var SOURCE_KEYS = {
 	charDescription: "m34.source.charDescription",
@@ -123969,7 +126644,6 @@ var PresetStudio = class {
 	dialogs;
 	router;
 	started = /* @__PURE__ */ new Set();
-	popup = null;
 	closing = null;
 	root = null;
 	header = null;
@@ -124030,12 +126704,12 @@ var PresetStudio = class {
 		return this.deps.services.store();
 	}
 	isOpen() {
-		return this.popup !== null;
+		return this.root !== null;
 	}
 	currentTab() {
 		return this.tab;
 	}
-	/** Opens the window (on a block when given: identifier or name); a second call just switches to it. */
+	/** Opens the window (on a block when given: identifier or name); a second call brings it forward and switches. */
 	open(identifier) {
 		if (!this.app.host.isChatCompletion()) {
 			this.app.ui.notice(this.t("m34.error.textCompletion"), {
@@ -124044,45 +126718,58 @@ var PresetStudio = class {
 			});
 			return;
 		}
-		const store = this.store();
-		if (!store) {
+		if (!this.store()) {
 			this.app.ui.notice(this.t("m34.error.noStore"), {
 				urgent: true,
 				level: "error"
 			});
 			return;
 		}
-		if (!this.popup) {
-			const ctx = this.app.host.ctx();
-			if (typeof ctx.Popup !== "function") {
-				this.deps.log.error("ST Popup is not available; cannot open the Preset Studio");
-				return;
-			}
-			this.root = this.buildChrome();
-			const closing = { allowed: false };
-			this.closing = closing;
-			const popup = new ctx.Popup(this.root, ctx.POPUP_TYPE.DISPLAY, "", {
-				wide: true,
-				large: true,
-				allowVerticalScrolling: false,
-				animation: prefersReducedMotion() ? "none" : "fast",
-				onClosing: () => closing.allowed ? true : this.canLeave()
-			});
-			popup.dlg.classList.add("maestro-m34-dialog");
-			this.popup = popup;
-			this.offs.push(store.onChange((reason) => this.onStoreChange(reason)));
-			const layer = this.deps.services.layer();
-			if (layer) this.offs.push(layer.onChange(() => this.scheduleRefresh()));
-			popup.show().then(() => this.handleClosed(popup), () => this.handleClosed(popup));
-			this.deps.pm.load().then(() => this.scheduleRefresh());
+		if (typeof this.app.ui.openWindow !== "function") {
+			this.deps.log.error("Maestro windows are not available; cannot open the Preset Studio");
+			return;
 		}
+		const fresh = this.root === null;
+		this.app.ui.openWindow(PRESET_STUDIO_WINDOW);
+		if (!this.root) return;
 		const target = identifier ? this.resolveBlock(identifier) : null;
 		if (target) {
 			this.selectTab("blocks");
 			this.openEditor(target);
 			return;
 		}
+		if (!fresh) this.render();
+	}
+	/**
+	* The window body (MaestroWindowSpec.render). Opened straight from the menu while the studio cannot work (Text
+	* Completion, no preset store) it explains why instead.
+	*/
+	mount(container) {
+		if (this.root) this.handleClosed();
+		const store = this.store();
+		const unavailable = !this.app.host.isChatCompletion() ? "m34.error.textCompletion" : !store ? "m34.error.noStore" : null;
+		if (unavailable || !store) {
+			container.appendChild(el("div", { class: "maestro-m34-unavailable maestro-ui" }, [banner(this.t(unavailable ?? "m34.error.noStore"), "warn")]));
+			return () => {};
+		}
+		this.closing = { allowed: false };
+		this.root = this.buildChrome();
+		container.appendChild(this.root);
+		this.offs.push(store.onChange((reason) => this.onStoreChange(reason)));
+		const layer = this.deps.services.layer();
+		if (layer) this.offs.push(layer.onChange(() => this.scheduleRefresh()));
+		this.deps.pm.load().then(() => this.scheduleRefresh());
 		this.render();
+		const root = this.root;
+		return () => {
+			if (this.root === root) this.handleClosed();
+		};
+	}
+	/** The window's close guard (×, Escape): the block editor may keep it open for unsaved edits. */
+	canClose() {
+		if (!this.root || this.closing?.allowed) return true;
+		if (!this.editor || !this.editor.dirty()) return true;
+		return this.canLeave();
 	}
 	/** An identifier or a block name (the slash command takes either). */
 	resolveBlock(value) {
@@ -124108,30 +126795,29 @@ var PresetStudio = class {
 		return false;
 	}
 	async requestClose() {
-		if (!this.popup) return true;
+		if (!this.root) return true;
 		if (!await this.canLeave()) return false;
 		this.close();
 		return true;
 	}
 	/** Closes without asking (module disable, or after the guard agreed). */
 	close() {
-		const popup = this.popup;
-		if (!popup) return;
+		if (!this.root) return;
 		if (this.closing) this.closing.allowed = true;
-		this.handleClosed(popup);
-		popup.completeCancelled().catch((error) => this.deps.log.debug("preset studio close", error));
+		this.app.ui.closeWindow?.(PRESET_STUDIO_WINDOW);
+		if (this.root) this.handleClosed();
 	}
 	dispose() {
 		this.close();
 	}
-	handleClosed(popup) {
-		if (this.popup !== popup) return;
+	handleClosed() {
 		this.disposeEditor();
 		for (const off of this.offs.splice(0)) off();
 		if (this.refreshTimer) clearTimeout(this.refreshTimer);
 		this.refreshTimer = null;
-		this.popup = null;
+		this.root?.remove();
 		this.root = null;
+		this.closing = null;
 		this.header = null;
 		this.pane = null;
 		this.side = null;
@@ -124208,7 +126894,6 @@ var PresetStudio = class {
 		const hasLayer = !!layer && layer.get(current) !== null;
 		header.replaceChildren();
 		append(header, [
-			el("div", { class: "maestro-m34-brand" }, [icon("fa-sliders"), el("h3", { text: this.t("m34.title") })]),
 			select,
 			draft.dirty ? el("span", {
 				class: "maestro-m34-badge maestro-m34-badge-warn maestro-m34-unsaved",
@@ -124296,15 +126981,6 @@ var PresetStudio = class {
 					title: this.t("m34.classicHint"),
 					className: "maestro-m34-classic",
 					onClick: () => this.openClassic()
-				}),
-				button({
-					icon: "fa-xmark",
-					kind: "ghost",
-					title: this.t("m34.close"),
-					className: "maestro-m34-close",
-					onClick: async () => {
-						await this.requestClose();
-					}
 				})
 			])
 		]);
@@ -124337,10 +127013,10 @@ var PresetStudio = class {
 		this.scheduleRefresh();
 	}
 	scheduleRefresh() {
-		if (this.refreshTimer || !this.popup) return;
+		if (this.refreshTimer || !this.root) return;
 		this.refreshTimer = setTimeout(() => {
 			this.refreshTimer = null;
-			if (this.popup) this.render();
+			if (this.root) this.render();
 		}, REFRESH_DELAY_MS);
 	}
 	/** Re-renders the header and the current tab (the map, findings and versions load in the background). */
@@ -124459,7 +127135,7 @@ var PresetStudio = class {
 			this.scheduleRefresh();
 			return;
 		}
-		if (!this.popup) return;
+		if (!this.root) return;
 		if (kind === this.tab || kind === "map" && this.tab === "blocks") this.renderTab();
 	}
 	reducedMap() {
@@ -125451,6 +128127,31 @@ var TAB_ICONS = {
 };
 //#endregion
 //#region src/features/presetStudio/styles.ts
+/** Phones (≤1000px, ST's breakpoint) and narrow Maestro windows (plan-2 §10) share these rules. */
+var NARROW = `
+    .maestro-m34-header { padding: 6px; padding-top: max(6px, env(safe-area-inset-top)); gap: 6px; }
+    .maestro-m34-actions { margin-left: 0; }
+    .maestro-m34-actions .maestro-btn span, .maestro-m34-brand h3 { display: none; }
+    .maestro-m34-preset { flex: 1 1 140px; min-width: 0; max-width: none; }
+    .maestro-m34-nav { padding: 4px 6px; }
+    .maestro-m34-layout.maestro-m34-with-editor { grid-template-columns: minmax(0, 1fr); }
+    .maestro-m34-side {
+        position: absolute;
+        inset: 0;
+        z-index: 2;
+        border: 0;
+        background: var(--maestro-surface);
+        padding-bottom: max(8px, env(safe-area-inset-bottom));
+    }
+    .maestro-m34-handle { display: none; }
+    .maestro-btn, .maestro-m34-block-name, .maestro-m34-slot-name, .maestro-m34-version-pick { min-height: var(--maestro-tap); }
+    .maestro-m34-cond-flag { min-height: var(--maestro-tap); }
+    .maestro-m34-block-main { flex-wrap: wrap; }
+    .maestro-m34-block-name { flex-basis: 50%; }
+    .maestro-m34-conflict-cols { grid-template-columns: minmax(0, 1fr); }
+    .maestro-m34-diff-field { grid-template-columns: minmax(0, 1fr); }
+    .maestro-m34-text { max-height: 240px; }
+`;
 var M34_CSS = `
 body.maestro-pm-replaced #completion_prompt_manager { display: none !important; }
 .maestro-m34-launcher {
@@ -125474,23 +128175,6 @@ body.maestro-pm-replaced #completion_prompt_manager { display: none !important; 
 .maestro-m34-launcher-actions { display: flex; flex-wrap: wrap; gap: 6px; }
 .maestro-m34-launcher-actions .maestro-btn { margin: 0; }
 
-.popup.maestro-m34-dialog {
-    width: min(1500px, 98dvw);
-    height: min(940px, 94dvh);
-    max-height: 94dvh;
-    padding: 0;
-    overflow: hidden;
-}
-.popup.maestro-m34-dialog .popup-content {
-    margin: 0;
-    padding: 0;
-    display: flex;
-    min-height: 0;
-    height: 100%;
-    text-align: start;
-}
-.popup.maestro-m34-dialog .popup-body { height: 100%; }
-.popup.maestro-m34-dialog .popup-button-close { display: none !important; }
 .maestro-m34 {
     display: flex;
     flex-direction: column;
@@ -125743,40 +128427,9 @@ body.maestro-pm-replaced #completion_prompt_manager { display: none !important; 
 .maestro-m34-cond-actions { display: flex; flex-wrap: wrap; gap: 6px; }
 .maestro-m34-cond-actions .maestro-btn { margin: 0; }
 @media screen and (max-width: 1000px) {
-    .popup.maestro-m34-dialog,
-    .popup.maestro-m34-dialog.large_dialogue_popup {
-        width: 100dvw !important;
-        min-width: 100dvw !important;
-        max-width: 100dvw !important;
-        height: 100dvh !important;
-        max-height: 100dvh !important;
-        margin: 0;
-        border: 0;
-        border-radius: 0;
-    }
-    .maestro-m34-header { padding: 6px; padding-top: max(6px, env(safe-area-inset-top)); gap: 6px; }
-    .maestro-m34-actions { margin-left: 0; }
-    .maestro-m34-actions .maestro-btn span, .maestro-m34-brand h3 { display: none; }
-    .maestro-m34-preset { flex: 1 1 140px; min-width: 0; max-width: none; }
-    .maestro-m34-nav { padding: 4px 6px; }
-    .maestro-m34-layout.maestro-m34-with-editor { grid-template-columns: minmax(0, 1fr); }
-    .maestro-m34-side {
-        position: absolute;
-        inset: 0;
-        z-index: 2;
-        border: 0;
-        background: var(--maestro-surface);
-        padding-bottom: max(8px, env(safe-area-inset-bottom));
-    }
-    .maestro-m34-handle { display: none; }
-    .maestro-btn, .maestro-m34-block-name, .maestro-m34-slot-name, .maestro-m34-version-pick { min-height: var(--maestro-tap); }
-    .maestro-m34-cond-flag { min-height: var(--maestro-tap); }
-    .maestro-m34-block-main { flex-wrap: wrap; }
-    .maestro-m34-block-name { flex-basis: 50%; }
-    .maestro-m34-conflict-cols { grid-template-columns: minmax(0, 1fr); }
-    .maestro-m34-diff-field { grid-template-columns: minmax(0, 1fr); }
-    .maestro-m34-text { max-height: 240px; }
-}
+${NARROW}}
+@container maestro-window (max-width: 1000px) {
+${NARROW}}
 `;
 [...STORE_JOURNAL_KINDS];
 function isDict$23(value) {
@@ -126190,6 +128843,7 @@ function createPresetStudioModule(factories) {
 				if (runtime$1?.studio === studio) runtime$1 = null;
 			});
 			own(app.ui.style("m34-preset-studio", M34_CSS));
+			if (typeof app.ui.addWindow === "function") own(app.ui.addWindow(presetStudioWindow(studio)));
 			own(() => launcher.restore());
 			if (settings.replacePromptManager) launcher.install();
 			own(app.ui.addTab(presetStudioTab(app, {
@@ -129797,17 +132451,17 @@ var QualityService = class {
 		const offs = [this.app.ui.messageBadge(index, {
 			id: `${BADGE_PREFIX}${index}`,
 			text: this.t(possible ? "m12.badge.possible" : "m12.badge.text", { kinds: this.kindsText(open) }),
+			kind: "question",
+			icon: "fa-triangle-exclamation",
+			tone: "warn",
 			action: {
 				label: this.t("m12.badge.redo"),
 				run: () => void this.redo(index)
-			}
-		}), this.app.ui.messageBadge(index, {
-			id: `${BADGE_PREFIX}${index}-ok`,
-			text: this.t("m12.badge.falseText"),
-			action: {
+			},
+			actions: [{
 				label: this.t("m12.badge.dismiss"),
 				run: () => void this.dismissAll(index)
-			}
+			}]
 		})];
 		this.badges.set(index, offs);
 	}
@@ -130230,7 +132884,6 @@ var QUALITY_STRINGS = {
 		"m12.badge.text": "Defect in this reply: {kinds}",
 		"m12.badge.possible": "Possible defect: {kinds}",
 		"m12.badge.redo": "Redo",
-		"m12.badge.falseText": "False alarm?",
 		"m12.badge.dismiss": "Not a defect",
 		"m12.redo.notLast": "Only the last reply can be redone with a swipe.",
 		"m12.redo.failed": "SillyTavern is busy: the swipe did not start. Try again in a moment.",
@@ -130354,7 +133007,6 @@ var QUALITY_STRINGS = {
 		"m12.badge.text": "В ответе брак: {kinds}",
 		"m12.badge.possible": "Возможно, брак: {kinds}",
 		"m12.badge.redo": "Переделать",
-		"m12.badge.falseText": "Ложная тревога?",
 		"m12.badge.dismiss": "Не брак",
 		"m12.redo.notLast": "Свайпом можно переделать только последний ответ.",
 		"m12.redo.failed": "SillyTavern занят: свайп не начался. Попробуй ещё раз чуть позже.",
@@ -134180,7 +136832,7 @@ function revisionTab(app, service) {
 	]);
 	const settingsView = () => {
 		const current = settings();
-		return section$1(t("m8.settings.title"), [
+		return moduleSettingsSection(t("m8.settings.title"), [
 			field$1(t("m8.settings.threshold"), numberInput({
 				value: current.signalThreshold,
 				min: 1,
@@ -146695,7 +149347,7 @@ function voicesTab(app, service) {
 			const settingsView = () => {
 				const settings = service.settings();
 				const injection = service.injection();
-				return section$1(t("m15.settings.title"), [
+				return moduleSettingsSection(t("m15.settings.title"), [
 					field$1(t("m15.settings.cap"), numberInput({
 						value: settings.cap,
 						min: 100,
@@ -155420,7 +158072,7 @@ function wardrobeTab(app, service, settings, fieldOffer) {
 				save(key);
 			}
 		}));
-		return section$1(t("m27.settings.title"), [
+		return moduleSettingsSection(t("m27.settings.title"), [
 			el("div", {
 				class: "maestro-hint",
 				text: t("m27.settings.hint")
@@ -157385,7 +160037,6 @@ var IdentityDesk = class {
 	words = new WordIndex();
 	/** Per foreign group: the first message naming it, for which needles, at which word-index version. */
 	ledger = /* @__PURE__ */ new Map();
-	badges = /* @__PURE__ */ new Map();
 	asking = false;
 	disposed = false;
 	/** Passport switches Maestro asked for: their `passportExcludedChanged` events are echoes, not the user's. */
@@ -157407,13 +160058,11 @@ var IdentityDesk = class {
 	}
 	dispose() {
 		this.disposed = true;
-		this.clearBadges();
 	}
-	/** Chat switch: messages and badges belong to the old chat. */
+	/** Chat switch: the messages belong to the old chat. */
 	reset() {
 		this.words = new WordIndex();
 		this.ledger.clear();
-		this.clearBadges();
 	}
 	/**
 	* A message changed. A swipe adds its new text (the old swipe's words may stay: a name is at worst found early);
@@ -157430,10 +160079,7 @@ var IdentityDesk = class {
 	}
 	/** Called after every build; questions only once the lorebooks are read (their sources join the same card). */
 	afterBuild(loreReady) {
-		if (this.disposed || !this.app.host.chatId()) {
-			this.clearBadges();
-			return;
-		}
+		if (this.disposed || !this.app.host.chatId() || !loreReady) return;
 		let present;
 		try {
 			present = this.present();
@@ -157441,8 +160087,7 @@ var IdentityDesk = class {
 			this.log.warn("names of the chat could not be read", error);
 			return;
 		}
-		this.syncBadges(present);
-		if (loreReady) this.ask(present);
+		this.ask(present);
 	}
 	/** Waiting groups whose name this chat uses (a record of the chat, or a message names it). */
 	present() {
@@ -157540,7 +160185,6 @@ var IdentityDesk = class {
 					this.log.warn("identity question failed", error);
 				}
 			}
-			this.syncBadges(this.present());
 		} finally {
 			this.asking = false;
 		}
@@ -157880,50 +160524,6 @@ var IdentityDesk = class {
 		const refs = /* @__PURE__ */ new Set();
 		for (const group of this.host.build().foreign) for (const source of [...group.pending, ...group.apart]) if (source.world && typeof source.uid === "number") refs.add(`${source.world}#${source.uid}`);
 		return [...refs];
-	}
-	/** A badge on the message where a name with an open question first appears; gone once answered. */
-	syncBadges(present) {
-		if (this.disposed) return;
-		const doc = this.store.current();
-		const wanted = /* @__PURE__ */ new Map();
-		for (const item of present) {
-			const asked = new Set(doc.asked[item.group.key] ?? []);
-			if (item.first < 0 || !item.group.pending.some((source) => asked.has(sourceKeyOf(source)))) continue;
-			wanted.set(item.group.key, item);
-		}
-		for (const [key, badge] of [...this.badges]) {
-			if (wanted.get(key)?.first === badge.index) continue;
-			this.badges.delete(key);
-			this.unbadge(badge.off);
-		}
-		for (const [key, item] of wanted) {
-			if (this.badges.has(key)) continue;
-			try {
-				const off = this.app.ui.messageBadge(item.first, {
-					id: `maestro-m7w-same-${stableHash(key)}`,
-					text: this.t(`m7w.sameAs.badge.${nounOf(item.group.kind)}`, { name: item.group.name }),
-					action: {
-						label: this.t("m7w.sameAs.answer"),
-						run: () => this.app.ui.openPult("inbox")
-					}
-				});
-				this.badges.set(key, {
-					index: item.first,
-					off
-				});
-			} catch (error) {
-				this.log.debug("identity badge failed", error);
-			}
-		}
-	}
-	unbadge(off) {
-		try {
-			off();
-		} catch {}
-	}
-	clearBadges() {
-		for (const badge of this.badges.values()) this.unbadge(badge.off);
-		this.badges.clear();
 	}
 };
 //#endregion
@@ -159381,10 +161981,6 @@ var WORLD_STRINGS = {
 		"m7w.detail.entry": "entry #{uid} in «{book}»",
 		"m7w.detail.passport": "NAI Studio passport {id} ({card})",
 		"m7w.detail.workshop": "DES Workshop: {name}",
-		"m7w.sameAs.badge.being": "{name} — the same character as in another story?",
-		"m7w.sameAs.badge.place": "{name} — the same place as in another story?",
-		"m7w.sameAs.badge.other": "«{name}» — the same as in another story?",
-		"m7w.sameAs.answer": "Answer",
 		"m7w.journal.same.being": "Noted: {name} here is the same character as {where}",
 		"m7w.journal.same.place": "Noted: {name} here is the same place as {where}",
 		"m7w.journal.same.other": "Noted: «{name}» here is the same as {where}",
@@ -159504,10 +162100,6 @@ var WORLD_STRINGS = {
 		"m7w.detail.entry": "запись №{uid} в «{book}»",
 		"m7w.detail.passport": "паспорт NAI Studio {id} ({card})",
 		"m7w.detail.workshop": "мастерская DES: {name}",
-		"m7w.sameAs.badge.being": "{name} — тот же персонаж, что в другой истории?",
-		"m7w.sameAs.badge.place": "{name} — то же место, что в другой истории?",
-		"m7w.sameAs.badge.other": "«{name}» — то же самое, что в другой истории?",
-		"m7w.sameAs.answer": "Ответить",
 		"m7w.journal.same.being": "Запомнил: {name} здесь — тот же персонаж, что {where}",
 		"m7w.journal.same.place": "Запомнил: {name} здесь — то же место, что {where}",
 		"m7w.journal.same.other": "Запомнил: «{name}» здесь — то же самое, что {where}",
@@ -160038,6 +162630,7 @@ async function startMaestro() {
 	});
 	const offDataActions = installDataActions(app);
 	await modules.startAll(app);
+	ui.restoreWindows();
 	ui.runFirstRunWizardIfNeeded();
 	const appReady = host.events.name("APP_READY");
 	const offAppReady = appReady ? host.events.on(appReady, () => {

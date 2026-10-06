@@ -233,20 +233,13 @@
     align-self: flex-start;
 }
 
-/* ------------------------------------------------------------------ pult and wizard dialogs */
-
-.popup.maestro-pult-dialog {
-    width: min(1120px, 94dvw);
-    padding: 0;
-    overflow: hidden;
-}
+/* ------------------------------------------------------------------ wizard dialog */
 
 .popup.maestro-wizard-dialog {
     width: min(720px, 94dvw);
     padding: 0;
 }
 
-.popup.maestro-pult-dialog .popup-content,
 .popup.maestro-wizard-dialog .popup-content {
     margin: 0;
     padding: 0;
@@ -255,50 +248,9 @@
     text-align: start;
 }
 
-/* ST shows its close button with an inline style for DISPLAY popups; ours is in the header. */
-.popup.maestro-pult-dialog .popup-button-close,
+/* ST shows its close button with an inline style for DISPLAY popups; ours is in the content. */
 .popup.maestro-wizard-dialog .popup-button-close {
     display: none !important;
-}
-
-.maestro-pult {
-    display: flex;
-    flex-direction: column;
-    width: 100%;
-    height: 100%;
-    min-height: 0;
-    color: var(--maestro-text);
-    font-size: var(--maestro-font-size);
-}
-
-.maestro-pult-header {
-    display: flex;
-    align-items: center;
-    gap: var(--maestro-gap);
-    padding: 8px 10px 8px 16px;
-    border-bottom: 1px solid var(--maestro-border);
-}
-
-.maestro-pult-brand {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex: 1;
-    min-width: 0;
-    color: var(--maestro-accent);
-}
-
-.maestro-pult-title {
-    margin: 0;
-    padding: 0;
-    font-size: 1.15em;
-    color: var(--maestro-text);
-}
-
-.maestro-pult-main {
-    display: flex;
-    flex: 1;
-    min-height: 0;
 }
 
 .maestro-tabs {
@@ -443,18 +395,6 @@
 
 .maestro-tabs-picker {
     display: none;
-}
-
-.maestro-pult-body {
-    flex: 1;
-    min-width: 0;
-    padding: 14px 18px 24px;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-}
-
-.maestro-pult-body:focus {
-    outline: none;
 }
 
 /* ------------------------------------------------------------------ buttons and controls */
@@ -1094,44 +1034,230 @@
     border-top: 1px solid var(--maestro-border);
 }
 
-/* ------------------------------------------------------------------ message badges (in the chat) */
+/* ------------------------------------------------------------------ the strip under chat messages (plan-2 §5) */
 
-.maestro-badge {
-    display: inline-flex;
+.maestro-strip {
+    box-sizing: border-box;
+    min-width: 0;
+    max-width: 100%;
+    margin: 4px 0 2px;
+    border-left: 2px solid color-mix(in srgb, var(--maestro-accent) 55%, transparent);
+    border-radius: var(--maestro-radius-sm);
+    background: color-mix(in srgb, var(--maestro-accent) 6%, transparent);
+    color: var(--maestro-text);
+    font-size: 0.85em;
+    line-height: 1.4;
+}
+
+.maestro-strip [hidden] {
+    display: none !important;
+}
+
+.maestro-strip-line {
+    appearance: none;
+    box-sizing: border-box;
+    display: flex;
     align-items: center;
-    gap: 4px;
-    max-width: 22em;
-    padding: 1px 4px 1px 7px;
-    border: 1px solid color-mix(in srgb, var(--maestro-accent) 55%, transparent);
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--maestro-accent) 12%, transparent);
+    gap: 6px;
+    width: 100%;
+    min-height: 32px;
+    padding: 2px 8px;
+    border: 0;
+    border-radius: var(--maestro-radius-sm);
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: start;
+    cursor: pointer;
+}
+
+.maestro-strip-line:hover {
+    background: var(--maestro-raised);
+}
+
+.maestro-strip-line.maestro-strip-plain {
+    cursor: default;
+}
+
+.maestro-strip-line.maestro-strip-plain:hover {
+    background: transparent;
+}
+
+.maestro-strip-logo,
+.maestro-strip-item-icon {
+    flex-shrink: 0;
     color: var(--maestro-accent);
-    font-size: 0.8em;
-    line-height: 1.5;
+}
+
+.maestro-strip-summary {
+    display: flex;
+    flex: 1;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    overflow: hidden;
     white-space: nowrap;
 }
 
-.maestro-badge-text {
+.maestro-strip-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+}
+
+.maestro-strip-chip-text {
     overflow: hidden;
     text-overflow: ellipsis;
 }
 
-.maestro-badge-action {
-    appearance: none;
+.maestro-strip-chip-icon,
+.maestro-strip-dot,
+.maestro-strip-caret {
     flex-shrink: 0;
-    padding: 0 8px;
-    border: 0;
+    color: var(--maestro-muted);
+}
+
+.maestro-strip-dot {
+    margin-inline-end: 2px;
+}
+
+.maestro-strip-chip.maestro-strip-kind-proposal .maestro-strip-chip-icon,
+.maestro-strip-chip.maestro-strip-kind-question .maestro-strip-chip-icon {
+    color: var(--maestro-accent);
+}
+
+.maestro-strip-caret,
+.maestro-strip-toggle .fa-chevron-down {
+    transition: transform var(--maestro-duration);
+}
+
+.maestro-strip-open > .maestro-strip-line .maestro-strip-caret,
+.maestro-strip-toggle[aria-expanded='true'] .fa-chevron-down {
+    transform: rotate(180deg);
+}
+
+.maestro-strip-items {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 0 6px 6px;
+}
+
+.maestro-strip-item {
+    padding-top: 4px;
+    border-top: 1px solid color-mix(in srgb, var(--maestro-border) 60%, transparent);
+}
+
+.maestro-strip-item-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 8px;
+}
+
+.maestro-strip-item-text {
+    flex: 1 1 14em;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.maestro-strip-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-inline-start: auto;
+}
+
+.maestro-strip-action,
+.maestro-strip-toggle {
+    appearance: none;
+    min-width: 32px;
+    min-height: 32px;
+    padding: 2px 10px;
+    border: 1px solid var(--maestro-border);
     border-radius: 999px;
-    background: var(--maestro-accent);
-    color: var(--maestro-surface);
+    background: var(--maestro-raised);
+    color: inherit;
     font: inherit;
-    font-weight: 600;
+    white-space: nowrap;
     cursor: pointer;
 }
 
-.maestro-badge-action:focus-visible {
-    outline: 2px solid var(--maestro-text);
+.maestro-strip-toggle {
+    padding: 2px 8px;
+}
+
+.maestro-strip-action:hover,
+.maestro-strip-toggle:hover {
+    background: var(--maestro-raised-strong);
+}
+
+.maestro-strip-primary {
+    border-color: var(--maestro-accent);
+    background: var(--maestro-accent);
+    color: var(--maestro-surface);
+    font-weight: 600;
+}
+
+.maestro-strip-primary:hover {
+    background: color-mix(in srgb, var(--maestro-accent) 85%, var(--maestro-text));
+}
+
+.maestro-strip-action:disabled {
+    opacity: 0.6;
+    cursor: progress;
+}
+
+.maestro-strip-line:focus-visible,
+.maestro-strip-action:focus-visible,
+.maestro-strip-toggle:focus-visible {
+    outline: 2px solid var(--maestro-accent);
     outline-offset: 1px;
+}
+
+.maestro-strip-body {
+    margin-top: 4px;
+}
+
+/* Inbox cards: the Inbox and the strip draw the same card (views/inbox.ts inboxCardRenderer). */
+.maestro-inbox-evidence {
+    margin: 0;
+    padding: 2px 8px;
+    border-left: 3px solid var(--maestro-border);
+    color: var(--maestro-muted);
+    font-style: italic;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.maestro-inbox-edit {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.maestro-inbox-edit textarea {
+    width: 100%;
+    min-height: 4em;
+    box-sizing: border-box;
+    resize: vertical;
+}
+
+.maestro-strip-item.maestro-strip-kind-info {
+    color: var(--maestro-muted);
+}
+
+.maestro-strip-item.maestro-strip-kind-info .maestro-strip-item-icon {
+    color: var(--maestro-ok);
+}
+
+.maestro-strip-tone-accent .maestro-strip-item-text {
+    font-weight: 600;
+}
+
+.maestro-strip-tone-warn .maestro-strip-item-icon {
+    color: var(--maestro-warn);
 }
 
 #chat .mes.maestro-flash {
@@ -1150,11 +1276,450 @@
     }
 }
 
+/* ------------------------------------------------------------------ windows (plan-2 §10) */
+
+/*
+ * Side panels sit in the gaps beside ST's chat column (#sheld, z-index 30), over its edge when wider; floating
+ * windows above them. Both stay under ST's top bar and its drawers (#top-settings-holder, z-index 3005), so ST's own
+ * panels open over Maestro's. Phones: one full-screen sheet under the top bar.
+ */
+.maestro-window-side {
+    position: fixed;
+    top: var(--topBarBlockSize, 0px);
+    bottom: 0;
+    z-index: 2900;
+    display: flex;
+    flex-direction: column;
+    max-width: 100dvw;
+}
+
+.maestro-window-side-left {
+    left: 0;
+}
+
+.maestro-window-side-right {
+    right: 0;
+}
+
+.maestro-window-side[hidden],
+.maestro-window[hidden],
+.maestro-window-sections[hidden],
+.maestro-window-switcher[hidden],
+.maestro-window-btn[hidden],
+.maestro-window-section-badge[hidden] {
+    display: none !important;
+}
+
+/* All windows of a side collapsed: the side shrinks to their title bars and frees the chat below. */
+.maestro-window-side-collapsed {
+    bottom: auto;
+}
+
+.maestro-window-resizer {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 8px;
+    z-index: 1;
+    cursor: ew-resize;
+    touch-action: none;
+}
+
+.maestro-window-side-left > .maestro-window-resizer {
+    right: -4px;
+}
+
+.maestro-window-side-right > .maestro-window-resizer {
+    left: -4px;
+}
+
+.maestro-window-resizer:hover,
+.maestro-windows-dragging .maestro-window-resizer {
+    background: color-mix(in srgb, var(--maestro-accent) 35%, transparent);
+}
+
+.maestro-windows-dragging,
+.maestro-windows-dragging * {
+    user-select: none;
+}
+
+.maestro-window {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+    color: var(--maestro-text);
+    font-size: var(--maestro-font-size);
+    background-color: var(--maestro-surface);
+    backdrop-filter: blur(var(--SmartThemeBlurStrength, 0px));
+    -webkit-backdrop-filter: blur(var(--SmartThemeBlurStrength, 0px));
+    border: 1px solid var(--maestro-border);
+    box-shadow: 0 0 12px var(--maestro-shadow);
+    outline: none;
+}
+
+.maestro-window-docked {
+    flex: 1 1 0;
+}
+
+.maestro-window-docked + .maestro-window-docked {
+    border-top-width: 0;
+}
+
+.maestro-window-side-left > .maestro-window-docked {
+    border-left-width: 0;
+}
+
+.maestro-window-side-right > .maestro-window-docked {
+    border-right-width: 0;
+}
+
+.maestro-window-float {
+    position: fixed;
+    border-radius: var(--maestro-radius);
+    overflow: hidden;
+}
+
+.maestro-window-collapsed {
+    flex: 0 0 auto;
+}
+
+.maestro-window-collapsed > .maestro-window-sections,
+.maestro-window-collapsed > .maestro-window-body,
+.maestro-window-collapsed > .maestro-window-grip {
+    display: none !important;
+}
+
+.maestro-window-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 40px;
+    padding: 4px 6px 4px 12px;
+    border-bottom: 1px solid var(--maestro-border);
+    user-select: none;
+}
+
+.maestro-window-collapsed > .maestro-window-header {
+    border-bottom: 0;
+}
+
+.maestro-window-float > .maestro-window-header {
+    cursor: move;
+    touch-action: none;
+}
+
+.maestro-window-brand {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+    min-width: 0;
+    color: var(--maestro-accent);
+}
+
+.maestro-window-title {
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    color: var(--maestro-text);
+    font-size: 1.05em;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.maestro-window-controls {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    flex-shrink: 0;
+}
+
+.maestro-window-btn.maestro-btn {
+    min-width: 32px;
+    min-height: 32px;
+    padding: 4px 6px;
+}
+
+.maestro-window-gear[aria-pressed='true'] {
+    color: var(--maestro-accent);
+}
+
+.maestro-window-sections,
+.maestro-window-switcher {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 6px 8px;
+    border-bottom: 1px solid var(--maestro-border);
+}
+
+.maestro-window-section,
+.maestro-window-chip {
+    appearance: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 30px;
+    padding: 4px 10px;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    background: var(--maestro-raised);
+    color: inherit;
+    font: inherit;
+    font-size: 0.9em;
+    white-space: nowrap;
+    cursor: pointer;
+    opacity: 0.85;
+    transition:
+        background-color var(--maestro-duration),
+        opacity var(--maestro-duration);
+}
+
+.maestro-window-section:hover,
+.maestro-window-chip:hover {
+    background: var(--maestro-raised-strong);
+    opacity: 1;
+}
+
+.maestro-window-section.maestro-on,
+.maestro-window-chip.maestro-on {
+    border-color: var(--maestro-accent);
+    background: var(--maestro-accent-soft);
+    opacity: 1;
+}
+
+.maestro-window-section:focus-visible,
+.maestro-window-chip:focus-visible {
+    outline: 2px solid var(--maestro-accent);
+    outline-offset: 1px;
+}
+
+.maestro-window-section-badge {
+    min-width: 1.5em;
+    padding: 0 5px;
+    border-radius: 999px;
+    background: var(--maestro-accent);
+    color: var(--maestro-surface);
+    font-size: 0.8em;
+    font-weight: 700;
+    text-align: center;
+}
+
+.maestro-window-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    padding: 12px 14px 20px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+
+.maestro-window-body:focus {
+    outline: none;
+}
+
+/* A body of its own (the studios): their layout follows the window width (container queries). */
+.maestro-window-custom {
+    container: maestro-window / inline-size;
+    display: flex;
+    padding: 0;
+    overflow: hidden;
+}
+
+.maestro-window-custom > * {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+/* A module's own settings in its section wait behind the gear (plan-2 §10 п.4). */
+.maestro-window:not(.maestro-window-settings-on) .maestro-module-settings {
+    display: none !important;
+}
+
+.maestro-window-grip {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    width: 16px;
+    height: 16px;
+    cursor: nwse-resize;
+    touch-action: none;
+    background: linear-gradient(
+        135deg,
+        transparent 50%,
+        var(--maestro-muted) 50%,
+        var(--maestro-muted) 60%,
+        transparent 60%,
+        transparent 75%,
+        var(--maestro-muted) 75%,
+        var(--maestro-muted) 85%,
+        transparent 85%
+    );
+    opacity: 0.6;
+}
+
+.maestro-window:not(.maestro-window-float) > .maestro-window-grip {
+    display: none;
+}
+
+/* Phones (class set by the manager at ST's 1000px breakpoint): one full-screen window under the top bar. */
+.maestro-window.maestro-window-sheet {
+    position: fixed;
+    top: var(--topBarBlockSize, 0px);
+    right: 0;
+    bottom: auto;
+    left: 0;
+    height: calc(var(--maestro-viewport-h, 100dvh) - var(--topBarBlockSize, 0px));
+    z-index: 2950;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+}
+
+.maestro-window-sheet > .maestro-window-header {
+    min-height: var(--maestro-tap);
+}
+
+.maestro-window-sheet .maestro-window-btn.maestro-btn,
+.maestro-window-sheet .maestro-window-section,
+.maestro-window-sheet .maestro-window-chip {
+    min-width: var(--maestro-tap);
+    min-height: var(--maestro-tap);
+}
+
+.maestro-window-sheet > .maestro-window-switcher,
+.maestro-window-sheet > .maestro-window-sections {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+
+.maestro-window-sheet > .maestro-window-body {
+    padding: 10px 10px calc(24px + env(safe-area-inset-bottom));
+}
+
+/* ------------------------------------------------------------------ the Maestro menu */
+
+.maestro-menu {
+    position: fixed;
+    z-index: 4050;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 240px;
+    max-width: min(360px, calc(100dvw - 16px));
+    max-height: calc(100dvh - 16px);
+    padding: 6px;
+    overflow-y: auto;
+    color: var(--maestro-text);
+    font-size: var(--maestro-font-size);
+    background-color: var(--maestro-surface);
+    backdrop-filter: blur(var(--SmartThemeBlurStrength, 0px));
+    -webkit-backdrop-filter: blur(var(--SmartThemeBlurStrength, 0px));
+    border: 1px solid var(--maestro-border);
+    border-radius: var(--maestro-radius);
+    box-shadow: 0 4px 18px var(--maestro-shadow);
+}
+
+.maestro-menu:focus {
+    outline: none;
+}
+
+.maestro-menu-sheet {
+    max-width: none;
+    max-height: calc(100dvh - var(--topBarBlockSize, 0px) - 16px);
+}
+
+.maestro-menu-group {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.maestro-menu-group + .maestro-menu-group {
+    padding-top: 4px;
+    border-top: 1px solid var(--maestro-border);
+}
+
+.maestro-menu-heading {
+    padding: 2px 8px;
+    color: var(--maestro-muted);
+    font-size: 0.8em;
+    font-weight: 600;
+}
+
+.maestro-menu-item {
+    appearance: none;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    min-height: 34px;
+    padding: 6px 8px;
+    border: 0;
+    border-radius: var(--maestro-radius-sm);
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: start;
+    cursor: pointer;
+}
+
+.maestro-menu-item:hover,
+.maestro-menu-item:focus-visible {
+    background: var(--maestro-raised-strong);
+    outline: none;
+}
+
+.maestro-menu-icon {
+    color: var(--maestro-accent);
+}
+
+.maestro-menu-text {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.maestro-menu-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.maestro-menu-hint {
+    color: var(--maestro-muted);
+    font-size: 0.85em;
+}
+
+.maestro-menu-badge {
+    min-width: 1.6em;
+    padding: 0 6px;
+    border-radius: 999px;
+    background: var(--maestro-accent);
+    color: var(--maestro-surface);
+    font-size: 0.8em;
+    font-weight: 700;
+    text-align: center;
+}
+
+.maestro-menu-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--maestro-accent);
+}
+
+.maestro-menu-sheet .maestro-menu-item {
+    min-height: var(--maestro-tap);
+}
+
 /* ------------------------------------------------------------------ phones (ST breakpoint) */
 
 @media screen and (max-width: 1000px) {
-    .popup.maestro-pult-dialog,
-    .popup.maestro-pult-dialog.large_dialogue_popup,
     .popup.maestro-wizard-dialog {
         width: 100dvw !important;
         min-width: 100dvw !important;
@@ -1166,23 +1731,8 @@
         border-radius: 0;
     }
 
-    .popup.maestro-pult-dialog .popup-body,
     .popup.maestro-wizard-dialog .popup-body {
         max-height: 100dvh;
-    }
-
-    .maestro-pult-header {
-        gap: 8px;
-        padding: 6px 6px 6px 10px;
-        padding-top: max(6px, env(safe-area-inset-top));
-    }
-
-    .maestro-pult-brand {
-        flex: 0 0 auto;
-    }
-
-    .maestro-pult-title {
-        display: none;
     }
 
     .maestro-tabs {
@@ -1198,21 +1748,12 @@
         font-size: 1em;
     }
 
-    .maestro-pult-body {
-        padding: 10px 10px calc(24px + env(safe-area-inset-bottom));
-    }
-
     .maestro-btn,
     .maestro-tab,
     .maestro-segment,
-    .maestro-pult .text_pole,
+    .maestro-window .text_pole,
     .maestro-wizard .text_pole {
         min-height: var(--maestro-tap);
-    }
-
-    .maestro-pult-close {
-        min-width: var(--maestro-tap);
-        font-size: 1.2em;
     }
 
     .maestro-grid,
@@ -1285,12 +1826,35 @@
         padding: 8px;
     }
 
-    .maestro-badge {
-        max-width: 18em;
+    /* Phones: the collapsed strip is one line that scrolls sideways; buttons are a row that scrolls too. */
+    .maestro-strip-summary {
+        overflow-x: auto;
+        scrollbar-width: none;
     }
 
-    .maestro-badge-action {
-        padding: 4px 10px;
+    .maestro-strip-summary::-webkit-scrollbar {
+        display: none;
+    }
+
+    .maestro-strip-chip {
+        flex-shrink: 0;
+    }
+
+    .maestro-strip-chip-text {
+        overflow: visible;
+    }
+
+    .maestro-strip-actions {
+        flex-wrap: nowrap;
+        width: 100%;
+        margin-inline-start: 0;
+        overflow-x: auto;
+    }
+
+    .maestro-strip-action,
+    .maestro-strip-toggle {
+        flex-shrink: 0;
+        min-height: 36px;
     }
 }
 
@@ -1310,6 +1874,9 @@
     .maestro-ui *,
     .maestro-ui,
     .maestro-badge,
+    .maestro-mes-button,
+    .maestro-strip,
+    .maestro-strip *,
     .maestro-topbar *,
     #chat .mes.maestro-flash,
     .maestro-topbar-toggle::after,
