@@ -18,6 +18,18 @@ const NAMES = [
     'regex_toggle',
     'preset_block_add',
     'preset_block_condition',
+    'preset_block_edit',
+    'preset_block_toggle',
+    'preset_block_move',
+    'preset_block_remove',
+    'preset_params_set',
+    'preset_pack',
+    'preset_create',
+    'preset_bind',
+    'preset_unbind',
+    'preset_save',
+    'preset_version_restore',
+    'neighbour_prompt_set',
     'lore_entry_create',
     'lore_entry_update',
     'passport_set',
@@ -54,6 +66,8 @@ describe('write tools', () => {
         expect(offered(bare)).toEqual(['setting_set', 'module_toggle', 'autonomy_set']);
 
         const preset = fakePreset([]);
+        Object.assign(preset.store, { createFromBody: async () => 'New' });
+        Object.assign(preset.layer, { bind: async () => {}, bindings: () => null });
         const full = writeFake({
             caps: ['st.regex'],
             apis: {
@@ -62,6 +76,7 @@ describe('write tools', () => {
                 presetLayer: preset.layer,
                 loreStore: fakeLore({}).store,
                 lorePassports: fakePassports(),
+                neighbourPrompts: {},
             },
         });
         expect(offered(full)).toEqual(NAMES);
@@ -71,6 +86,9 @@ describe('write tools', () => {
 
         const noLayer = writeFake({ apis: { presetStore: preset.store } });
         expect(offered(noLayer)).not.toContain('preset_block_add');
+        // Saving and versions need only the store; binding needs a layer that binds.
+        expect(offered(noLayer)).toEqual(expect.arrayContaining(['preset_save', 'preset_version_restore']));
+        expect(offered(noLayer)).not.toContain('preset_bind');
 
         const old = writeFake();
         old.autonomy.withoutSetLevel();

@@ -74,6 +74,8 @@ export interface BlocksActions {
     resetOrder(): Promise<void>;
     substitute(identifier: string): Promise<void>;
     changed(): void;
+    /** «Обсудить с ассистентом» (plan-2 §1 п. 7): absent when the assistant is off. */
+    discuss?(identifier: string): void;
 }
 
 export function emptyBlocksState(): BlocksState {
@@ -396,6 +398,15 @@ export function renderBlocksPanel(
                           })
                         : null,
                     el('span', { class: 'maestro-m34-block-actions' }, [
+                        prompt && actions.discuss
+                            ? button({
+                                  icon: 'fa-comments',
+                                  kind: 'ghost',
+                                  title: t('m34.discuss.block'),
+                                  className: 'maestro-m34-discuss-block',
+                                  onClick: () => actions.discuss?.(identifier),
+                              })
+                            : null,
                         prompt && !isMarker(prompt)
                             ? button({
                                   icon: 'fa-paste',

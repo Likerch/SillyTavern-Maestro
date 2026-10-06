@@ -5,6 +5,8 @@ import type { I18nParts } from '../../shared/contracts';
 export const SCOPE_STRINGS: I18nParts = {
     en: {
         'm34.tab.neighbours': 'Neighbour prompts',
+        'm34.discuss.preset': 'Discuss the preset with the assistant',
+        'm34.discuss.block': 'Discuss with the assistant',
 
         'm34.scope.global': 'Everywhere',
         'm34.scope.character': 'This character',
@@ -85,6 +87,8 @@ export const SCOPE_STRINGS: I18nParts = {
     },
     ru: {
         'm34.tab.neighbours': 'Промпты соседей',
+        'm34.discuss.preset': 'Обсудить пресет с ассистентом',
+        'm34.discuss.block': 'Обсудить с ассистентом',
 
         'm34.scope.global': 'Везде',
         'm34.scope.character': 'Этот персонаж',

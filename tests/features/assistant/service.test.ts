@@ -333,7 +333,7 @@ describe('assistant loop: write tools', () => {
         expect(probe.applied).toHaveLength(MAX_WRITES);
         const last = records(service).at(-1)!;
         expect(last.status).toBe('error');
-        expect(last.error).toBe('Not proposed: at most 5 changes per message');
+        expect(last.error).toBe('Not proposed: at most 5 cards per message');
         expect(toolMessages(env.llm.requests[1]!.messages).at(-1)?.content).toContain(
             'ask the user whether to continue',
         );

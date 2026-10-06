@@ -42,6 +42,9 @@ export const ASSISTANT_TARGETS: TargetSpec[] = [
             value === null ? i18n.t('ui.settings.autonomyDefault') : formatEnum('ui.autonomy.')(value, i18n),
     },
     { target: UNDO_TARGETS.mechanicChat, format: onOff('m33.value.onF', 'm33.value.offF') },
+    // A card's changes journaled by other modules (a preset pack): the record's line says what it was; the ids of the
+    // records it gathers are technical.
+    { target: UNDO_TARGETS.group, technical: true },
     {
         target: UNDO_TARGETS.regex,
         fields: {

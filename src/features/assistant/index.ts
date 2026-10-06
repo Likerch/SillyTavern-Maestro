@@ -1,7 +1,9 @@
 // M33 «Ассистент Maestro» (plan M33, §4.13, §7): a conversation in the pult, apart from the role-play, through its
 // own connection profile (task kind 'assistant'; empty = the background profile). Its own tool loop (service.ts),
 // never ST's tool calling. Reads through tools; every change is a before/after card the user confirms; Maestro's
-// module settings only through the allowlist (safety.ts), journaled with undo; rate-limited per chat.
+// module settings only through the allowlist (safety.ts), journaled with undo; rate-limited per chat. Works with the
+// chat preset (plan-2 §1): reads it whole, edits it by scope, packs, new presets, dry runs; the Preset Studio's
+// «Обсудить с ассистентом» attaches a block or the preset to the next message (discuss()).
 import type { MaestroModule } from '../../shared/contracts';
 import { registerProfileTask } from '../../ui';
 import type { AssistantApi } from './api';
@@ -15,9 +17,13 @@ import { builtinTools } from './tools';
 import { ASSISTANT_SECTION_ORDER, M33_CSS, assistantTab, renderAssistantSettings } from './view';
 
 export type {
+    ApplyChoice,
     AssistantApi,
+    AssistantContextItem,
     AssistantMessage,
+    ScopeOption,
     SettingsAccess,
+    ToolCallItem,
     ToolCallRecord,
     ToolCallStatus,
     ToolContext,
@@ -25,11 +31,21 @@ export type {
     ToolKind,
     ToolOutput,
     ToolSpec,
+    WriteOutcome,
     WritePlan,
+    WritePlanItem,
 } from './api';
-export { ASSISTANT_KEY, ASSISTANT_TASK, defaultAssistantSettings, readAssistantSettings } from './settings';
+export { contextKey } from './api';
+export {
+    ASSISTANT_KEY,
+    ASSISTANT_TASK,
+    ASSISTANT_WINDOW,
+    PRESET_MAX_TOKENS,
+    defaultAssistantSettings,
+    readAssistantSettings,
+} from './settings';
 export type { AssistantSettings } from './settings';
-export { AssistantService, MAX_ROUNDS, MAX_WRITES } from './service';
+export { AssistantService, MAX_CHANGES, MAX_ROUNDS, MAX_WRITES } from './service';
 export { createSettingsAccess, registerSettingUndo, SETTING_KIND, SETTING_TARGET } from './safety';
 export { buildSystemPrompt } from './prompt';
 export { ASSISTANT_TAB } from './view';

@@ -205,7 +205,7 @@ const presetBlocks = (app: App): ToolSpec =>
     readTool({
         name: 'preset_blocks',
         description:
-            "Blocks of the active Chat Completion preset in prompt order (Preset Studio): identifier, name, on/off, role, marker, in-chat depth, size, and the condition of conditional blocks ({{if .maestro_<flag>}} «only when» / {{if !.flag}} «except when», or flags used inside); plus the flag catalogue (director, mechanics, the preset's own), the flags set now, the macro engine state (needed for {{if}}) and unsaved edits. `query` filters blocks and shows a text preview.",
+            "Blocks of the active Chat Completion preset in prompt order (Preset Studio): identifier, name, on/off, role, marker, in-chat depth, size, and the condition of conditional blocks ({{if .maestro_<flag>}} «only when» / {{if !.flag}} «except when», or flags used inside); plus the flag catalogue (director, mechanics, the preset's own), the flags set now, the macro engine state (needed for {{if}}) and unsaved edits. `query` filters blocks and shows a short text preview; the whole text of a block: preset_block_read.",
         parameters: objectSchema({
             query: prop.string('Only blocks whose name, identifier or text contains this; previews their text.'),
             conditional_only: prop.boolean('Only blocks with a condition or flags (default false).'),

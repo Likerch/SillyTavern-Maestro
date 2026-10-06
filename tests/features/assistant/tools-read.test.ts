@@ -37,6 +37,14 @@ const READ_NAMES = [
     'mechanics_state',
     'director_scene',
     'preset_blocks',
+    'preset_list',
+    'preset_block_read',
+    'preset_params',
+    'preset_findings',
+    'preset_compare',
+    'preset_versions',
+    'preset_dry_run',
+    'neighbour_prompts',
 ];
 
 /** Tool → the module API keys that switch it on. */
@@ -55,6 +63,14 @@ const GATES: Record<string, string[]> = {
     mechanics_state: ['mechanics'],
     director_scene: ['director'],
     preset_blocks: ['presetStore'],
+    preset_list: ['presetStore'],
+    preset_block_read: ['presetStore'],
+    preset_params: ['presetStore'],
+    preset_findings: ['presetAnalysis'],
+    preset_compare: ['presetStore'],
+    preset_versions: ['presetStore'],
+    preset_dry_run: ['presetAnalysis'],
+    neighbour_prompts: ['neighbourPrompts'],
     lore_search: ['loreStore'],
     lore_entry: ['loreStore'],
 };
