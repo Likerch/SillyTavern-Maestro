@@ -464,6 +464,9 @@ describe('prepare: the module', () => {
             command = spec;
             return () => {};
         };
+        // An older shell without windows: the module falls back to its pult tab (the window path: window.test.ts).
+        delete (env.ui as { addWindow?: unknown }).addWindow;
+        delete (env.ui as { openWindow?: unknown }).openWindow;
         await prepareModule.init({
             app: env.app,
             settings: prepareModule.defaults(),
