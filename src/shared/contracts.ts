@@ -50,7 +50,14 @@ export interface CoreSettings {
     notifyLevel: NotifyLevel;
     /** Technical details of cards and journal records (book, uid, raw data) start expanded. */
     showTechnical: boolean;
+    /**
+     * Maestro's strip under chat messages (plan-2 §5): everything, only what waits for a decision, or nothing.
+     * Optional until the release that adds it fills the default ('all').
+     */
+    chatNotices?: ChatNoticesLevel;
 }
+
+export type ChatNoticesLevel = 'all' | 'pending' | 'none';
 
 export type NotifyLevel = 'all' | 'important' | 'urgent';
 
@@ -704,6 +711,101 @@ export interface Ui {
     style(id: string, css: string): Unsubscribe;
     /** Adds a section to the Settings tab (same id replaces); the remover takes it away (own() it). */
     addSettingsSection?(section: SettingsSection): Unsubscribe;
+    /* Windows (plan-2 §10): non-modal side panels or floating windows instead of the modal pult. */
+    addWindow?(spec: MaestroWindowSpec): Unsubscribe;
+    /** Opens (or brings forward) a window; `tab` selects one of its sections. Unknown id: the Maestro window. */
+    openWindow?(id: string, options?: OpenWindowOptions): void;
+    closeWindow?(id: string): void;
+    isWindowOpen?(id: string): boolean;
+    /** The window that shows a pult tab (openPult(tab) opens that window on that section). */
+    windowOfTab?(tabId: string): string | undefined;
+    /** Lines under chat messages (plan-2 §5, §6.А): proposals, remembered facts, mechanics changes, rolls. */
+    addMessageStripProvider?(provider: MessageStripProvider): Unsubscribe;
+}
+
+/* ------------------------------------------------------------------ windows (plan-2 §10) */
+
+export type WindowDock = 'right' | 'left' | 'float';
+
+export interface MaestroWindowSpec {
+    id: string;
+    /** i18n key of the window title. */
+    titleKey: string;
+    icon: string;
+    order: number;
+    /**
+     * Pult tab groups (PultTab.group / the central map in pult-groups.ts) whose tabs become this window's sections.
+     * Tabs added later by modules join by their group.
+     */
+    groups?: string[];
+    /** Extra pult tab ids shown as sections (in this order, before the group tabs). */
+    tabs?: string[];
+    /** A body of its own instead of sections (Lore Studio, Preset Studio, the mechanics HUD…). */
+    render?(container: HTMLElement, ctx: WindowContext): void | Unsubscribe;
+    /** Where it opens the first time (afterwards the remembered place). Default 'right'. */
+    defaultDock?: WindowDock;
+    /** Width in px for side panels and floating windows the first time. */
+    defaultWidth?: number;
+    /** Floating windows only: height in px the first time. */
+    defaultHeight?: number;
+    /** Closing guard (unsaved edits): false keeps the window open. */
+    canClose?(): boolean | Promise<boolean>;
+    /** Badge of the window in the Maestro menu (default: the sum of its sections' badges). */
+    badge?(): number;
+    /** Hidden from the Maestro menu (opened by code only, e.g. a studio). */
+    hidden?: boolean;
+}
+
+export interface OpenWindowOptions {
+    tab?: string;
+    params?: Record<string, unknown>;
+    dock?: WindowDock;
+}
+
+export interface WindowContext {
+    close(): void;
+    setTitle(text: string): void;
+    /** Parameters of the last openWindow() call (e.g. { entityId } for the dossier). */
+    params(): Record<string, unknown>;
+    /** Called when openWindow() is called again while the window is open (new params). */
+    onParams(listener: (params: Record<string, unknown>) => void): Unsubscribe;
+}
+
+/* ------------------------------------------------------------------ the strip under chat messages (plan-2 §5) */
+
+export interface StripAction {
+    label: string;
+    run(): void | Promise<void>;
+    primary?: boolean;
+}
+
+export interface StripItem {
+    /** Stable id within the provider (a card id, a fact id…). */
+    id: string;
+    /**
+     * proposal / question: waits for a decision (counted as pending); fact: Maestro remembered something;
+     * change: values changed (mechanics, wardrobe); roll: a dice roll; info: done, nothing to decide.
+     */
+    kind: 'proposal' | 'question' | 'fact' | 'change' | 'roll' | 'info';
+    /** One short line in story words. */
+    text: string;
+    icon?: string;
+    tone?: 'normal' | 'accent' | 'warn';
+    actions?: StripAction[];
+    /** Expanded body (e.g. the full Inbox card), rendered on demand. */
+    body?(container: HTMLElement): void | Unsubscribe;
+    /** Opens a window section instead of expanding. */
+    open?: { window: string; tab?: string; params?: Record<string, unknown> };
+}
+
+export interface MessageStripProvider {
+    id: string;
+    /** Sort order of the provider's items in a strip (lower first). */
+    order: number;
+    /** Items for a message of the current chat (cheap: called on every repaint of that message). */
+    items(messageIndex: number): StripItem[];
+    /** Tells the strip to repaint the given messages (none = every visible message). */
+    onChange(listener: (indexes?: number[]) => void): Unsubscribe;
 }
 
 /* ------------------------------------------------------------------ adapters */
