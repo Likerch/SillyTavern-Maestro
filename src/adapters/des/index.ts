@@ -26,7 +26,38 @@ export const DES_MODULES = {
     // Statically reachable from DES only through lazy modules; its top level just creates a cache Map, so importing
     // it early is harmless and gives the instance the Lore Library will use.
     lorebookApi: { path: 'src/systems/lorebook/lorebookAPI.js', required: { invalidateWICache: 'function' } },
+    // Statically imported by DES's index.js (same instance): DES's built-in prompt texts and the assembled tracker
+    // block, for the neighbour prompts registry (M36). Optional: everything else works without it.
+    promptBuilder: {
+        path: 'src/systems/generation/promptBuilder.js',
+        required: { getAssembledTrackerPrompt: 'function' },
+    },
 } as const;
+
+/**
+ * DES prompt overrides (state.js; '' = DES's built-in text): the whole tracker block (sent verbatim when set, it
+ * outranks the instruction setting), the tracker instructions inside it and the continuation after it, the immersive
+ * HTML, dialogue colouring, context instructions and narrator prompts. DES's «Customize Prompts» editor writes the
+ * same keys and saves with persistence.js saveSettings.
+ */
+export const DES_PROMPT_KEYS = [
+    'customTrackerPrompt',
+    'customTrackerInstructionsPrompt',
+    'customTrackerContinuationPrompt',
+    'customHtmlPrompt',
+    'customDialogueColoringPrompt',
+    'customContextInstructionsPrompt',
+    'customNarratorPrompt',
+] as const;
+export type DesPromptKey = (typeof DES_PROMPT_KEYS)[number];
+
+/** promptBuilder.js exports with DES's built-in text of a prompt key (the tracker texts have none exported). */
+const DES_PROMPT_DEFAULTS: Partial<Record<DesPromptKey, string>> = {
+    customHtmlPrompt: 'DEFAULT_HTML_PROMPT',
+    customDialogueColoringPrompt: 'DEFAULT_DIALOGUE_COLORING_PROMPT',
+    customContextInstructionsPrompt: 'DEFAULT_CONTEXT_INSTRUCTIONS_PROMPT',
+    customNarratorPrompt: 'DEFAULT_NARRATOR_PROMPT',
+};
 
 export const DES_KEYS = {
     chatMetadata: 'dooms_tracker',
@@ -291,6 +322,51 @@ export class DesAdapter extends NeighbourBase<'des'> {
         change(live.trackerConfig);
         const preset = this.activePreset(live);
         if (preset) change(preset.trackerConfig);
+        this.persistSettings(live);
+        return true;
+    }
+
+    /** A DES prompt override as DES holds it now ('' = DES's built-in text); null without DES's live settings. */
+    promptOverride(key: DesPromptKey): string | null {
+        const live = this.modules.state?.extensionSettings;
+        if (!this.present() || !isDict(live)) return null;
+        const value = live[key];
+        return typeof value === 'string' ? value : '';
+    }
+
+    /**
+     * DES's built-in text of a prompt key, when DES exports it: the four plain prompts, and for the whole tracker
+     * block the block DES generates from its tracker settings (getAssembledTrackerPrompt, `{generatedOnly}`). The
+     * tracker instructions and continuation have no exported default (null).
+     */
+    promptBuiltin(key: DesPromptKey): string | null {
+        const builder = this.modules.promptBuilder;
+        if (!builder) return null;
+        if (key === 'customTrackerPrompt') {
+            try {
+                const text = (builder.getAssembledTrackerPrompt as (options: { generatedOnly: boolean }) => unknown)({
+                    generatedOnly: true,
+                });
+                return typeof text === 'string' ? text : null;
+            } catch (error) {
+                this.log.debug('DES tracker prompt could not be assembled', error);
+                return null;
+            }
+        }
+        const name = DES_PROMPT_DEFAULTS[key];
+        const value = name ? builder[name] : undefined;
+        return typeof value === 'string' ? value : null;
+    }
+
+    /**
+     * Writes a DES prompt override into DES's live settings and saves like DES's prompt editor does ('' = back to
+     * DES's built-in text). False when DES or its live state is not available. Callers check `isWorkshopOpen()`
+     * first (plan §10.8).
+     */
+    setPromptOverride(key: DesPromptKey, text: string): boolean {
+        const live = this.modules.state?.extensionSettings;
+        if (!this.present() || !isDict(live) || !(DES_PROMPT_KEYS as readonly string[]).includes(key)) return false;
+        live[key] = text;
         this.persistSettings(live);
         return true;
     }

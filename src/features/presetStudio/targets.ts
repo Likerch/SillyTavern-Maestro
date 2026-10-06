@@ -5,12 +5,16 @@
 import { formatEnum, formatPlain } from '../../core/labels';
 import { PARAMS } from '../../domain/preset-ui-params';
 import type { I18n, I18nParts, TargetFieldSpec, TargetSpec } from '../../shared/contracts';
-import { LAYER_JOURNAL_KIND, LAYER_TARGET } from './layer';
+import { BINDING_JOURNAL_KIND, BINDING_TARGET, LAYER_JOURNAL_KIND, LAYER_TARGET } from './layer';
 import { paramLabel, paramValue } from './param-labels';
 import { FILE_TARGET, KEYS_TARGET, PROMPT_TARGET, STORE_JOURNAL_KINDS } from './store';
 
 /** Every action kind the studio journals (the store's writes and «Твой слой»). */
-export const PRESET_JOURNAL_KINDS: readonly string[] = [...STORE_JOURNAL_KINDS, LAYER_JOURNAL_KIND];
+export const PRESET_JOURNAL_KINDS: readonly string[] = [
+    ...STORE_JOURNAL_KINDS,
+    LAYER_JOURNAL_KIND,
+    BINDING_JOURNAL_KIND,
+];
 
 type Dict = Record<string, unknown>;
 
@@ -115,6 +119,13 @@ export const PRESET_TARGETS: TargetSpec[] = [
             anchor: hidden('m34.target.field.anchor'),
         },
     },
+    {
+        // A whole preset bound to a card or a chat (null: no binding).
+        target: BINDING_TARGET,
+        valueLabelKey: 'm34.target.field.boundPreset',
+        nullable: true,
+        format: (value, i18n) => (typeof value === 'string' && value ? value : i18n.t('m34.target.binding.none')),
+    },
 ];
 
 export const TARGET_STRINGS: I18nParts = {
@@ -132,12 +143,17 @@ export const TARGET_STRINGS: I18nParts = {
         'kind.presetStudio.restore': 'Preset rollback',
         'kind.presetStudio.rename': 'Preset rename',
         'kind.presetStudio.remove': 'Preset deletion',
+        'kind.presetStudio.create': 'New preset',
         'kind.preset.layer': 'Edits in your layer',
+        'kind.preset.binding': 'Preset of a character or a chat',
 
         'target.preset-prompt': 'Preset block',
         'target.preset-keys': 'Preset parameters',
         'target.preset-file': 'Preset',
         'target.preset-layer': 'Your layer',
+        'target.preset-binding': 'Own preset',
+        'm34.target.field.boundPreset': 'Preset',
+        'm34.target.binding.none': 'none (the common preset)',
 
         'm34.target.field.name': 'Name',
         'm34.target.field.role': 'Role',
@@ -180,12 +196,17 @@ export const TARGET_STRINGS: I18nParts = {
         'kind.presetStudio.restore': 'Откат пресета к версии',
         'kind.presetStudio.rename': 'Переименование пресета',
         'kind.presetStudio.remove': 'Удаление пресета',
+        'kind.presetStudio.create': 'Новый пресет',
         'kind.preset.layer': 'Правки в твоём слое',
+        'kind.preset.binding': 'Свой пресет персонажа или чата',
 
         'target.preset-prompt': 'Блок пресета',
         'target.preset-keys': 'Параметры пресета',
         'target.preset-file': 'Пресет',
         'target.preset-layer': 'Твой слой',
+        'target.preset-binding': 'Свой пресет',
+        'm34.target.field.boundPreset': 'Пресет',
+        'm34.target.binding.none': 'нет (общий пресет)',
 
         'm34.target.field.name': 'Название',
         'm34.target.field.role': 'Роль',

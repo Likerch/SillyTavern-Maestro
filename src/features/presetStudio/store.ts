@@ -17,6 +17,10 @@
 //   switched away become a 'draft' version (snapped in OAI_PRESET_CHANGED_BEFORE, P-073).
 // Exposed by the studio shell as app.modules.api<PresetStore>(PRESET_STORE_KEY).
 import { tPlural } from '../../core/labels';
+import { comparePresets } from '../../domain/preset-compare';
+import type { PresetComparison } from '../../domain/preset-compare';
+import { globalOrder } from '../../domain/preset-layer-apply';
+import type { LayerBody } from '../../domain/preset-layer-apply';
 import {
     bodyHash,
     diffDraft,
@@ -99,6 +103,7 @@ export const STORE_JOURNAL_KINDS = [
     'presetStudio.restore',
     'presetStudio.rename',
     'presetStudio.remove',
+    'presetStudio.create',
 ] as const;
 type StoreJournalKind = (typeof STORE_JOURNAL_KINDS)[number];
 const MODULE_ID = 'M34';
@@ -117,7 +122,7 @@ export interface ExportOptions {
     withConnection?: boolean;
 }
 
-type FileOp = 'save' | 'saveAs' | 'import' | 'restore' | 'undo';
+type FileOp = 'save' | 'saveAs' | 'import' | 'restore' | 'undo' | 'create';
 
 interface WriteMeta {
     op: FileOp;
@@ -161,6 +166,7 @@ export const PRESET_STORE_STRINGS: I18nParts = {
         'm34.store.version.first': 'First snapshot',
         'm34.store.version.draft': 'Unsaved edits before the preset was switched',
         'm34.store.version.undo': 'Undone from the journal',
+        'm34.store.version.create': 'Made from a ready body',
         'm34.store.journal.prompt': 'Preset block «{name}» changed',
         'm34.store.journal.promptAdd': 'Preset block «{name}» added',
         'm34.store.journal.promptRemove': 'Preset block «{name}» deleted',
@@ -181,6 +187,7 @@ export const PRESET_STORE_STRINGS: I18nParts = {
         'm34.store.journal.restore': 'Preset «{name}» rolled back to an earlier version',
         'm34.store.journal.rename': 'Preset «{from}» renamed to «{to}»',
         'm34.store.journal.remove': 'Preset «{name}» deleted',
+        'm34.store.journal.create': 'Preset «{name}» created',
     },
     ru: {
         'm34.store.sensitive.title': 'В пресете есть настройки прокси или своего адреса',
@@ -206,6 +213,7 @@ export const PRESET_STORE_STRINGS: I18nParts = {
         'm34.store.version.first': 'Первый снимок',
         'm34.store.version.draft': 'Несохранённые правки перед сменой пресета',
         'm34.store.version.undo': 'Отменено из журнала',
+        'm34.store.version.create': 'Собран из готового текста пресета',
         'm34.store.journal.prompt': 'Изменён блок пресета «{name}»',
         'm34.store.journal.promptAdd': 'Добавлен блок пресета «{name}»',
         'm34.store.journal.promptRemove': 'Удалён блок пресета «{name}»',
@@ -226,6 +234,7 @@ export const PRESET_STORE_STRINGS: I18nParts = {
         'm34.store.journal.restore': 'Пресет «{name}» возвращён к прежней версии',
         'm34.store.journal.rename': 'Пресет «{from}» переименован в «{to}»',
         'm34.store.journal.remove': 'Удалён пресет «{name}»',
+        'm34.store.journal.create': 'Создан пресет «{name}»',
     },
 };
 
@@ -701,6 +710,117 @@ export class PresetStoreService implements PresetStore {
         return this.history.list(name);
     }
 
+    /**
+     * Brings the working copy to `next` without a journal record or a version (the character and chat parts of the
+     * layer on a chat switch): changed blocks are rewritten in place, blocks `next` lacks are removed, new ones added,
+     * the active order and the body keys set; Prompt Manager is saved and rendered once. Never writes the file.
+     */
+    async syncWorking(next: PresetBody): Promise<boolean> {
+        await this.st.ensure();
+        return this.serial(async () => {
+            const oai = this.st.oai();
+            if (!oai || !isDict(next)) return false;
+            const model = this.model(oai);
+            let prompts = false;
+            if (Array.isArray(next.prompts)) {
+                const wanted = next.prompts.filter(
+                    (prompt): prompt is PresetPrompt => isDict(prompt) && str(prompt.identifier) !== '',
+                );
+                const ids = new Set(wanted.map((prompt) => prompt.identifier));
+                for (const prompt of wanted) {
+                    const clean = jsonClean(prompt);
+                    const live = model.get(prompt.identifier);
+                    if (!live) {
+                        const rest: Dict = { ...clean };
+                        delete rest.identifier;
+                        model.add(rest, prompt.identifier);
+                        prompts = true;
+                    } else if (!promptsEqual(jsonClean(live), clean)) {
+                        replaceContents(live, clean);
+                        model.quickEdit(prompt.identifier);
+                        prompts = true;
+                    }
+                }
+                for (const live of [...model.list()]) {
+                    const id = isDict(live) ? str(live.identifier) : '';
+                    if (!id || ids.has(id)) continue;
+                    model.detach(id);
+                    model.remove(id);
+                    prompts = true;
+                }
+            }
+            const order = globalOrder(next as LayerBody);
+            if (order && !looseEqual(readOrder(model.order()), order)) {
+                model.setOrder(order);
+                prompts = true;
+            }
+            const working = this.working();
+            const patch: Dict = {};
+            for (const key of Object.keys(this.st.keyTable())) {
+                if ((PROMPT_KEYS as readonly string[]).includes(key)) continue;
+                if (!Object.hasOwn(next, key) && !Object.hasOwn(working, key)) continue;
+                if (!looseEqual(working[key] ?? null, next[key] ?? null)) patch[key] = next[key];
+            }
+            const keys = Object.keys(patch).length ? this.applyKeys(patch, true) : null;
+            if (prompts) this.persist(model);
+            if (prompts) this.changed('prompts');
+            else if (keys) this.changed('keys');
+            return prompts || keys !== null;
+        });
+    }
+
+    /**
+     * A new preset file from a body, without dialogs (explicit-body save rules, store-api.ts): missing keys from the
+     * current preset's saved body, addresses and passwords never from `body`, prompts typed strictly. Journaled.
+     */
+    async createFromBody(
+        name: string,
+        body: PresetBody,
+        options: { select?: boolean; overwrite?: boolean; summary?: string } = {},
+    ): Promise<string> {
+        await this.st.ensure();
+        return this.serial(async () => {
+            if (!isDict(body)) throw new PresetStoreError('invalid', 'the body is not a preset');
+            this.requireCache();
+            const typed = name.trim();
+            const wanted = typed ? await this.st.sanitizeName(typed) : '';
+            if (!wanted) throw new PresetStoreError('invalid', 'empty preset name');
+            const clash = collidingName(this.names(), wanted);
+            if (clash && !(options.overwrite === true && clash === wanted)) {
+                throw new PresetStoreError('exists', `«${clash}» exists`);
+            }
+            const source = withoutKeys(jsonClean(body), SENSITIVE_PRESET_KEYS);
+            if (Array.isArray(source.prompts)) {
+                // A block without a role would go as ST's default; the studio's own blocks always carry one.
+                source.prompts = source.prompts
+                    .filter(isDict)
+                    .map((prompt) => normalizePrompt(prompt.marker === true ? prompt : { role: 'system', ...prompt }));
+            }
+            const current = this.current();
+            const reference = this.savedRaw(current);
+            const full = mergeBodies(reference ? this.baseOf(current, jsonClean(reference)) : null, source);
+            const saved = await this.writeBody(wanted, full, {
+                op: 'create',
+                by: 'user',
+                summary: options.summary ?? this.t('m34.store.version.create'),
+                previous: current,
+            });
+            if (options.select === true || saved === this.current()) await this.switchTo(saved, false);
+            return saved;
+        });
+    }
+
+    /** What differs between two presets (names, or bodies); names are read from the saved bodies. */
+    compare(a: string | PresetBody, b: string | PresetBody): PresetComparison {
+        const body = (value: string | PresetBody): LayerBody => {
+            if (typeof value !== 'string') return value as LayerBody;
+            const saved = this.saved(value);
+            if (!saved) throw new PresetStoreError('not-found', `no preset ${value}`);
+            return saved as LayerBody;
+        };
+        return comparePresets(body(a), body(b));
+    }
+
     async restoreVersion(name: string, versionId: string): Promise<void> {
         await this.st.ensure();
         await this.serial(async () => {
@@ -728,7 +848,9 @@ export class PresetStoreService implements PresetStore {
         this.requireCache();
         const source = this.current();
         let body = this.working();
+        // The current file never gets the layer twice; another file never gets this card's or chat's edits.
         if (target === source) body = this.baseOf(source, body) as PresetBody;
+        else body = this.withoutScopes(source, body) as PresetBody;
         return this.writeBody(target, mergeBodies(this.savedRaw(source), body), meta);
     }
 
@@ -758,7 +880,10 @@ export class PresetStoreService implements PresetStore {
                 { by: meta.by, summary: meta.summary, body },
             ]);
             if (meta.journal !== false) {
-                const kind = meta.op === 'saveAs' || meta.op === 'import' || meta.op === 'restore' ? meta.op : 'save';
+                const kind =
+                    meta.op === 'saveAs' || meta.op === 'import' || meta.op === 'restore' || meta.op === 'create'
+                        ? meta.op
+                        : 'save';
                 const journalKind = `presetStudio.${kind}` as const;
                 await this.record(journalKind, this.t(`m34.store.journal.${kind}`, { name: savedName }), [
                     {
@@ -1219,6 +1344,18 @@ export class PresetStoreService implements PresetStore {
         if (!layer) return body;
         try {
             return layer.strip(name, jsonClean(body) as PresetBody);
+        } catch (error) {
+            this.log.warn('layer strip failed; the working copy is saved as it is', error);
+            return body;
+        }
+    }
+
+    /** The working copy without the layer's character and chat parts (they never go into a preset file). */
+    private withoutScopes(name: string, body: Dict): Dict {
+        const layer = this.hasLayer(name);
+        if (!layer) return body;
+        try {
+            return layer.strip(name, jsonClean(body) as PresetBody, ['character', 'chat']);
         } catch (error) {
             this.log.warn('layer strip failed; the working copy is saved as it is', error);
             return body;

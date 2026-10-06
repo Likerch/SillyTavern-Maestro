@@ -132,6 +132,25 @@ describe('QvinkAdapter', () => {
         for (const id of ['qvink.present', 'qvink.chat', 'qvink.removeMessages']) expect(stand.caps.has(id)).toBe(true);
     });
 
+    it('reads and writes its text settings, into the active profile too', async () => {
+        stand.install(NAME, MANIFEST, { loaded: true });
+        await adapters.qvink.ready();
+        globals.memory_intercept_messages = () => {};
+        stand.mock.extensionSettings.qvink_memory = {
+            prompt: 'Summarize.',
+            profile: 'Default',
+            profiles: { Default: { prompt: 'Summarize.' }, Other: { prompt: 'Other.' } },
+        };
+        expect(adapters.qvink.textSetting('prompt')).toBe('Summarize.');
+        expect(adapters.qvink.textSetting('short_template')).toBeNull();
+        expect(adapters.qvink.setTextSetting('prompt', 'Retell.')).toBe(true);
+        const settings = stand.mock.extensionSettings.qvink_memory as Record<string, unknown>;
+        expect(settings.prompt).toBe('Retell.');
+        expect(settings.profiles).toEqual({ Default: { prompt: 'Retell.' }, Other: { prompt: 'Other.' } });
+        delete globals.memory_intercept_messages;
+        expect(adapters.qvink.setTextSetting('prompt', 'x')).toBe(false);
+    });
+
     it('follows the per-chat and global toggles like chat_enabled()', () => {
         globals.memory_intercept_messages = () => {};
         stand.mock.extensionSettings.qvink_memory = {
@@ -211,6 +230,30 @@ describe('NaiAdapter', () => {
         await stand.caps.refresh();
         expect(stand.caps.has('nai.present')).toBe(true);
         expect(stand.caps.has('nai.api')).toBe(false);
+    });
+
+    it('reads and writes the marker instruction settings', async () => {
+        stand.install(NAME, MANIFEST, { loaded: true });
+        await adapters.nai.ready();
+        globals.NAIST_ProcessTriggers = () => {};
+        expect(adapters.nai.markerSettings()).toBeNull();
+        stand.mock.extensionSettings.nai_studio = {
+            markers: { enabled: true, preset: 'odd', template: 'T', min: 2, max: 'x', captionLanguage: 'Russian' },
+        };
+        expect(adapters.nai.markerSettings()).toEqual({
+            enabled: true,
+            inject: true,
+            preset: 'natural',
+            template: 'T',
+            min: 2,
+            max: 3,
+            captionLanguage: 'Russian',
+        });
+        expect(adapters.nai.setMarkerInstruction({ preset: 'custom', template: 'Mine' })).toBe(true);
+        expect((stand.mock.extensionSettings.nai_studio as { markers: unknown }).markers).toMatchObject({
+            preset: 'custom',
+            template: 'Mine',
+        });
     });
 
     it('reads passports as typed copies, with the legacy single passport as fallback', () => {

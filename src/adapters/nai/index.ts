@@ -47,6 +47,25 @@ export interface NaiPassport {
 
 const KINDS: readonly NaiPassportKind[] = ['character', 'world', 'location', 'scenario', 'object'];
 
+/**
+ * The image-marker instruction NAI Studio puts into the prompt (`settings.markers`, NAI src/integration/markers-setup.ts:
+ * extension prompt `nai_studio_markers`, rebuilt from these settings before every generation): its template is the
+ * custom preset's text, with NAI's own placeholders ({{count}}, {{min}}, {{max}}, {{captionLanguage}}, {{chars}},
+ * {{charsHint}}).
+ */
+export interface NaiMarkerSettings {
+    enabled: boolean;
+    inject: boolean;
+    preset: 'natural' | 'tags' | 'custom';
+    template: string;
+    min: number;
+    max: number;
+    captionLanguage: string;
+}
+
+/** NAI Studio's extension prompt key of the marker instruction. */
+export const NAI_MARKERS_SLOT = 'nai_studio_markers';
+
 /** The global NAI Studio publishes its API under. */
 export const NAI_API_GLOBAL = 'NAI_STUDIO_API';
 /** The API version this adapter speaks; within a version NAI Studio only adds members. */
@@ -522,6 +541,37 @@ export class NaiAdapter extends NeighbourBase<'nai'> {
     }
 
     /** `extension_settings.nai_studio` (live object, read-only for Maestro). */
+    /** The marker instruction settings (a copy); null without NAI Studio's settings. */
+    markerSettings(): NaiMarkerSettings | null {
+        const markers = this.settings()?.markers;
+        if (!isDict(markers)) return null;
+        const preset = markers.preset === 'tags' || markers.preset === 'custom' ? markers.preset : 'natural';
+        const number = (value: unknown, fallback: number) =>
+            typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+        return {
+            enabled: markers.enabled === true,
+            inject: markers.inject !== false,
+            preset,
+            template: typeof markers.template === 'string' ? markers.template : '',
+            min: number(markers.min, 1),
+            max: number(markers.max, 3),
+            captionLanguage: typeof markers.captionLanguage === 'string' ? markers.captionLanguage : '',
+        };
+    }
+
+    /**
+     * Writes the marker instruction (NAI Studio rebuilds its prompt from it before the next generation): the preset
+     * and the custom template, saved the way NAI Studio saves its settings. False without NAI Studio's settings.
+     */
+    setMarkerInstruction(next: { preset: NaiMarkerSettings['preset']; template: string }): boolean {
+        const markers = this.settings()?.markers;
+        if (!this.present() || !isDict(markers)) return false;
+        markers.preset = next.preset;
+        markers.template = next.template;
+        this.host.ctx().saveSettingsDebounced();
+        return true;
+    }
+
     settings(): Dict | null {
         return extensionSettingsOf(this.host, NAI_KEY);
     }

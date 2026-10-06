@@ -610,7 +610,7 @@ describe('Подготовить к отключению (P11)', () => {
         s.env.ui.notices[0]?.options?.action?.run();
         await flush();
         expect(s.selectPreset).toHaveBeenCalled();
-        expect(layer.install()).toHaveLength(7);
+        expect(layer.install()).toHaveLength(9);
         expect(layer.install()).toEqual([]);
     });
 });

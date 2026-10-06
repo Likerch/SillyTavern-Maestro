@@ -27,6 +27,16 @@ export const LAYER_STRINGS: I18nParts = {
         'm34.layerSvc.journal.transfer.one': '{count} edit copied from «{from}» into your layer of «{name}»',
         'm34.layerSvc.journal.transfer.few': '{count} edits copied from «{from}» into your layer of «{name}»',
         'm34.layerSvc.journal.transfer.many': '{count} edits copied from «{from}» into your layer of «{name}»',
+        'm34.layerSvc.scope.character': 'for {name}',
+        'm34.layerSvc.scope.chat': 'in this chat only',
+        'm34.layerSvc.journal.moveScope.global': 'Edit of «{block}» in «{name}» now works everywhere',
+        'm34.layerSvc.journal.moveScope.character': 'Edit of «{block}» in «{name}» now works only for {character}',
+        'm34.layerSvc.journal.moveScope.chat': 'Edit of «{block}» in «{name}» now works only in this chat',
+        'm34.layerSvc.journal.bind.character':
+            'Preset «{name}» bound to {character}: it is selected in all of their chats',
+        'm34.layerSvc.journal.bind.chat': 'Preset «{name}» bound to this chat: it is selected when the chat opens',
+        'm34.layerSvc.journal.unbind.character': 'Preset «{name}» is no longer bound to {character}',
+        'm34.layerSvc.journal.unbind.chat': 'Preset «{name}» is no longer bound to this chat',
     },
     ru: {
         'm34.layerSvc.offer.layerMissing':
@@ -53,5 +63,16 @@ export const LAYER_STRINGS: I18nParts = {
         'm34.layerSvc.journal.transfer.one': 'В слой «{name}» скопирована {count} правка из «{from}»',
         'm34.layerSvc.journal.transfer.few': 'В слой «{name}» скопированы {count} правки из «{from}»',
         'm34.layerSvc.journal.transfer.many': 'В слой «{name}» скопировано {count} правок из «{from}»',
+        'm34.layerSvc.scope.character': 'для персонажа {name}',
+        'm34.layerSvc.scope.chat': 'только в этом чате',
+        'm34.layerSvc.journal.moveScope.global': 'Правка блока «{block}» в «{name}» теперь действует везде',
+        'm34.layerSvc.journal.moveScope.character':
+            'Правка блока «{block}» в «{name}» теперь действует только для персонажа {character}',
+        'm34.layerSvc.journal.moveScope.chat': 'Правка блока «{block}» в «{name}» теперь действует только в этом чате',
+        'm34.layerSvc.journal.bind.character':
+            'Пресет «{name}» привязан к персонажу {character}: он включается во всех его чатах',
+        'm34.layerSvc.journal.bind.chat': 'Пресет «{name}» привязан к этому чату: он включается, когда чат открыт',
+        'm34.layerSvc.journal.unbind.character': 'Пресет «{name}» больше не привязан к персонажу {character}',
+        'm34.layerSvc.journal.unbind.chat': 'Пресет «{name}» больше не привязан к этому чату',
     },
 };

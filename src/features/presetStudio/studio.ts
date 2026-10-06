@@ -42,7 +42,10 @@ import { append, button, el } from '../../ui/components/dom';
 import type { App, Logger, MaestroWindowSpec, Unsubscribe } from '../../shared/contracts';
 import type { MapSlot, PresetAnalysisApi, PresetFinding, ProviderHint } from './analysis-api';
 import { Dialogs, downloadJson } from './dialogs';
-import type { LayerApplyReport, LayerConflict, LayerOp, PresetLayerApi } from './layer-api';
+import type { LayerApplyReport, LayerConflict, LayerOp, LayerScope, PresetLayerApi } from './layer-api';
+import type { NeighbourPromptsApi } from '../neighbourPrompts/api';
+import { renderNeighboursPanel } from './view-neighbours';
+import { availableScopes, bindingText, scopeLabel } from './view-scopes';
 import type { PmInfo } from './launcher';
 import type { PresetBody, PresetPrompt, PresetStore, PresetVersion } from './store-api';
 import { renderAnalysisPanel } from './view-analysis';
@@ -76,7 +79,7 @@ import type { FlagOption } from './view-conditional';
 
 /* ------------------------------------------------------------------ settings and services */
 
-export type StudioTab = 'map' | 'blocks' | 'analysis' | 'conditional' | 'layer' | 'versions' | 'params';
+export type StudioTab = 'map' | 'blocks' | 'analysis' | 'conditional' | 'layer' | 'versions' | 'params' | 'neighbours';
 export const STUDIO_TABS: readonly StudioTab[] = [
     'map',
     'blocks',
@@ -85,6 +88,7 @@ export const STUDIO_TABS: readonly StudioTab[] = [
     'layer',
     'versions',
     'params',
+    'neighbours',
 ];
 
 export interface PresetStudioSettings {
@@ -94,10 +98,17 @@ export interface PresetStudioSettings {
     editsToLayer: boolean;
     /** The tab the window opens on. */
     tab: StudioTab;
+    /**
+     * What the working copy holds of the layer's character and chat parts (written by the layer, layer.ts): page load
+     * has no OAI_PRESET_CHANGED_BEFORE, so the first chat switch must know what to strip.
+     */
+    scopeApplied?: { base: string; avatar: string | null; chatId: string | null } | null;
+    /** The preset that was active before a bound chat selected its own (binding.ts brings it back). */
+    bindingRestore?: string | null;
 }
 
 export function defaultPresetStudioSettings(): PresetStudioSettings {
-    return { replacePromptManager: false, editsToLayer: true, tab: 'blocks' };
+    return { replacePromptManager: false, editsToLayer: true, tab: 'blocks', scopeApplied: null, bindingRestore: null };
 }
 
 /** The parts of the studio built by other agents, found at run time (absent → the window degrades). */
@@ -107,6 +118,8 @@ export interface PresetServices {
     analysis(): PresetAnalysisApi | null;
     /** The generation-scenario engine (scenarios/api.ts): parameters per scenario (M34 п. 9). */
     scenarios(): ScenariosApi | null;
+    /** Neighbour prompts (M36, neighbourPrompts/api.ts): the «Промпты соседей» tab. */
+    neighbours?(): NeighbourPromptsApi | null;
 }
 
 export function servicesOf(app: App): PresetServices {
@@ -115,6 +128,7 @@ export function servicesOf(app: App): PresetServices {
         layer: () => app.modules.api<PresetLayerApi>('presetLayer') ?? null,
         analysis: () => app.modules.api<PresetAnalysisApi>('presetAnalysis') ?? null,
         scenarios: () => app.modules.api<ScenariosApi>('scenarios') ?? null,
+        neighbours: () => app.modules.api<NeighbourPromptsApi>('neighbourPrompts') ?? null,
     };
 }
 
@@ -144,6 +158,8 @@ export interface RouterDeps {
     /** Bases the user started a layer for in this session (the first record creates it). */
     started: Set<string>;
     newId(): string;
+    /** Where new edits go (the studio's scope switch, default «везде»). */
+    scope?(): LayerScope;
 }
 
 /**
@@ -165,6 +181,14 @@ export class EditRouter {
         return this.store().current();
     }
 
+    /** Where new edits go: the studio's choice when the chat open now has that scope, else «везде». */
+    scope(): LayerScope {
+        const wanted = this.deps.scope?.() ?? 'global';
+        if (wanted === 'global') return 'global';
+        const context = this.deps.services.layer()?.context?.() ?? null;
+        return availableScopes(context).includes(wanted) ? wanted : 'global';
+    }
+
     /** The layer, when edits go there now. */
     layer(): PresetLayerApi | null {
         const layer = this.deps.services.layer();
@@ -172,31 +196,46 @@ export class EditRouter {
         const store = this.deps.services.store();
         if (!store) return null;
         const base = store.current();
-        return layer.get(base) !== null || this.deps.started.has(base) ? layer : null;
+        return layer.get(base) !== null || this.deps.started.has(base) || this.scope() !== 'global' ? layer : null;
     }
 
     layerMode(): boolean {
         return this.layer() !== null;
     }
 
-    /** The saved base body (the layer stripped when the cache is missing). */
-    private baseBody(layer: PresetLayerApi): PresetBody {
+    /** What an edit of `scope` is made on: the saved base with the lower scopes (the layer stripped without a cache). */
+    private baseBody(layer: PresetLayerApi, scope: LayerScope = this.scope()): PresetBody {
         const store = this.store();
         const base = store.current();
+        if (scope !== 'global') {
+            const below = layer.below?.(base, scope);
+            if (below) return below;
+        }
         return store.saved(base) ?? layer.strip(base, store.working());
+    }
+
+    /** The scope whose layer added this block (null: a block of the base). */
+    private ownerScope(identifier: string): LayerScope | null {
+        const layer = this.deps.services.layer();
+        const store = this.deps.services.store();
+        if (!layer || !store) return null;
+        const own = (layer.get(store.current())?.ops ?? []).find(
+            (op) => op.op === 'add' && op.prompt.identifier === identifier,
+        );
+        return own ? (own.scope ?? 'global') : null;
     }
 
     /** True when the layer added this block. */
     ownBlock(identifier: string): boolean {
-        const layer = this.deps.services.layer();
-        const store = this.deps.services.store();
-        if (!layer || !store) return false;
-        return (layer.get(store.current())?.ops ?? []).some(
-            (op) => op.op === 'add' && op.prompt.identifier === identifier,
-        );
+        return this.ownerScope(identifier) !== null;
     }
 
-    /** The layer when this block can be recorded in it (in the saved base, or a block of the layer). */
+    /** The scope an edit of this block is recorded in: an own block's own scope, else where new edits go. */
+    private scopeFor(identifier: string): LayerScope {
+        return this.ownerScope(identifier) ?? this.scope();
+    }
+
+    /** The layer when this block can be recorded in it (in the base below the scope, or a block of the layer). */
     private layerFor(identifier: string): PresetLayerApi | null {
         const layer = this.layer();
         if (!layer) return null;
@@ -205,14 +244,14 @@ export class EditRouter {
     }
 
     /** The base text a block edit is made on ('' for the layer's own blocks). */
-    baseText(identifier: string, layer: PresetLayerApi): string {
-        const prompt = (this.baseBody(layer).prompts ?? []).find((item) => item.identifier === identifier);
+    baseText(identifier: string, layer: PresetLayerApi, scope: LayerScope = this.scope()): string {
+        const prompt = (this.baseBody(layer, scope).prompts ?? []).find((item) => item.identifier === identifier);
         return prompt ? promptText(prompt) : '';
     }
 
-    private async record(layer: PresetLayerApi, op: LayerOp): Promise<void> {
+    private async record(layer: PresetLayerApi, op: LayerOp, scope: LayerScope = this.scope()): Promise<void> {
         const base = this.base();
-        await layer.record(base, op);
+        await layer.record(base, op, scope);
         this.deps.started.add(base);
     }
 
@@ -220,8 +259,13 @@ export class EditRouter {
         if (!Object.keys(patch).length) return;
         const layer = this.layerFor(identifier);
         if (layer) {
-            const baseText = this.baseText(identifier, layer);
-            await this.record(layer, { op: 'edit', identifier, patch, baseHash: baseHashOf(baseText), baseText });
+            const scope = this.scopeFor(identifier);
+            const baseText = this.baseText(identifier, layer, scope);
+            await this.record(
+                layer,
+                { op: 'edit', identifier, patch, baseHash: baseHashOf(baseText), baseText },
+                scope,
+            );
         }
         await this.store().updatePrompt(identifier, patch);
     }
@@ -230,7 +274,7 @@ export class EditRouter {
         if (!identifiers.length) return;
         for (const identifier of identifiers) {
             const layer = this.layerFor(identifier);
-            if (layer) await this.record(layer, { op: 'toggle', identifier, enabled });
+            if (layer) await this.record(layer, { op: 'toggle', identifier, enabled }, this.scopeFor(identifier));
         }
         await this.store().setEnabled(identifiers, enabled);
     }
@@ -240,7 +284,7 @@ export class EditRouter {
         if (sameOrder(before, after)) return;
         for (const move of moveOps(before, after, moved)) {
             const layer = this.layerFor(move.identifier);
-            if (layer) await this.record(layer, { op: 'move', ...move });
+            if (layer) await this.record(layer, { op: 'move', ...move }, this.scopeFor(move.identifier));
         }
         await this.store().reorder(after);
     }
@@ -302,7 +346,7 @@ export class EditRouter {
         const store = this.store();
         if (typeof store.detachPrompt !== 'function') throw new Error('detach is not supported by the preset store');
         const layer = this.layerFor(identifier);
-        if (layer) await this.record(layer, { op: 'toggle', identifier, enabled: false });
+        if (layer) await this.record(layer, { op: 'toggle', identifier, enabled: false }, this.scopeFor(identifier));
         await store.detachPrompt(identifier);
     }
 
@@ -310,8 +354,9 @@ export class EditRouter {
     async insert(identifier: string): Promise<void> {
         const layer = this.layerFor(identifier);
         if (layer) {
-            await this.record(layer, { op: 'move', identifier, anchor: { kind: 'start' } });
-            await this.record(layer, { op: 'toggle', identifier, enabled: false });
+            const scope = this.scopeFor(identifier);
+            await this.record(layer, { op: 'move', identifier, anchor: { kind: 'start' } }, scope);
+            await this.record(layer, { op: 'toggle', identifier, enabled: false }, scope);
         }
         await this.store().setEnabled([identifier], false);
     }
@@ -413,6 +458,13 @@ export class PresetStudio {
     private foreign: ForeignPick | null = null;
     private layerResult: { kind: 'migrate' | 'transfer'; report: LayerApplyReport } | null = null;
     private loadedFor: string | null = null;
+    /** Where new edits go (plan-2 «Области действия»): «везде» by default, for this session only. */
+    private editScope: LayerScope = 'global';
+    /** «Промпты соседей»: the entry open for editing and the scope its copy goes to. */
+    private readonly neighbourState: { open: string | null; scope: 'global' | 'character' | 'chat' } = {
+        open: null,
+        scope: 'global',
+    };
     /** Loads in flight and invalidation counters: a load that an invalidation overtook is dropped. */
     private readonly loading = new Set<Loadable>();
     private readonly epoch: Record<Loadable, number> = { map: 0, analysis: 0, versions: 0 };
@@ -425,6 +477,7 @@ export class PresetStudio {
             settings: deps.settings,
             started: this.started,
             newId: () => newIdentifier(deps.app),
+            scope: () => this.editScope,
         });
         this.tab = STUDIO_TABS.includes(deps.settings.tab) ? deps.settings.tab : 'blocks';
     }
@@ -500,6 +553,8 @@ export class PresetStudio {
         this.offs.push(store.onChange((reason) => this.onStoreChange(reason)));
         const layer = this.deps.services.layer();
         if (layer) this.offs.push(layer.onChange(() => this.scheduleRefresh()));
+        const neighbours = this.deps.services.neighbours?.();
+        if (neighbours) this.offs.push(neighbours.onChange(() => this.scheduleRefresh()));
         void this.deps.pm.load().then(() => this.scheduleRefresh());
         void this.render();
         const root = this.root;
@@ -663,6 +718,16 @@ export class PresetStudio {
                     ? this.t('m34.header.modeLayerHint', { base: current })
                     : this.t('m34.header.modeStoreHint'),
             }),
+            layerMode && this.router.scope() !== 'global'
+                ? el('span', {
+                      class: 'maestro-m34-badge maestro-m34-badge-layer maestro-m34-scope-badge',
+                      text: this.t('m34.scope.badge', {
+                          scope: scopeLabel(this.app, this.router.scope(), layer?.context?.() ?? null),
+                      }),
+                      title: this.t('m34.scope.hint'),
+                  })
+                : null,
+            this.bindingBadge(),
             el(
                 'div',
                 {
@@ -697,6 +762,14 @@ export class PresetStudio {
                         className: 'maestro-m34-save-as',
                         onClick: () => this.saveAs(),
                     }),
+                    typeof layer?.bind === 'function'
+                        ? button({
+                              icon: 'fa-link',
+                              title: this.t('m34.binding.button'),
+                              className: 'maestro-m34-bind',
+                              onClick: () => this.bindDialog(),
+                          })
+                        : null,
                     button({
                         icon: 'fa-pen',
                         title: this.t('m34.header.rename'),
@@ -821,6 +894,17 @@ export class PresetStudio {
                     return;
                 case 'layer':
                     pane.replaceChildren(renderLayerPanel(this.app, this.layerModel(), this.layerActions()));
+                    return;
+                case 'neighbours':
+                    pane.replaceChildren(
+                        renderNeighboursPanel(this.app, {
+                            api: this.deps.services.neighbours?.() ?? null,
+                            state: this.neighbourState,
+                            run: (action) => this.run(action),
+                            confirm: (title, body) => this.dialogs.confirm(title, body),
+                            rerender: () => this.renderTab(),
+                        }),
+                    );
                     return;
                 case 'params':
                     pane.replaceChildren(
@@ -1425,6 +1509,7 @@ export class PresetStudio {
                     ? (SOURCE_KEYS[prompt.identifier] ?? null)
                     : null,
                 conditions: { flags: this.flagOptions(true), engine: macroEngineState(this.app) },
+                scope: this.scopeModel(),
             },
             {
                 save: (fields) => this.saveEditor(fields),
@@ -1524,8 +1609,11 @@ export class PresetStudio {
 
     /* ---------------------------------------------------------------- presets */
 
-    /** Switches the preset; with unsaved edits asks «Сохранить / Отбросить / Отмена» first (P-073). */
-    async switchPreset(name: string): Promise<boolean> {
+    /**
+     * Switches the preset; with unsaved edits asks «Сохранить / Отбросить / Отмена» first (P-073). `reason` (a bound
+     * chat selecting its preset) is said first in that question.
+     */
+    async switchPreset(name: string, options: { reason?: string } = {}): Promise<boolean> {
         const store = this.store();
         if (!store || name === store.current()) return false;
         if (!(await this.canLeave())) return false;
@@ -1541,9 +1629,13 @@ export class PresetStudio {
                       { value: 'base', label: this.t('m34.switch.save') },
                       { value: 'discard', label: this.t('m34.switch.discard') },
                   ];
+            const question = this.t(layerMode ? 'm34.switch.bodyLayer' : 'm34.switch.body', {
+                from: store.current(),
+                to: name,
+            });
             const choice = await this.dialogs.choose(
                 this.t('m34.switch.title'),
-                this.t(layerMode ? 'm34.switch.bodyLayer' : 'm34.switch.body', { from: store.current(), to: name }),
+                options.reason ? `${options.reason} ${question}` : question,
                 actions,
             );
             if (!choice) return false;
@@ -1594,12 +1686,19 @@ export class PresetStudio {
         const base = store.current();
         const layer = this.deps.services.layer();
         if (target === 'layer' && layer) {
-            const reference = store.saved(base) ?? layer.strip(base, store.working());
+            // Into the scope new edits go to: compared with the base below it, without the scopes above it.
+            const scope = this.router.scope();
+            const reference =
+                (scope === 'global' ? null : layer.below?.(base, scope)) ??
+                store.saved(base) ??
+                layer.strip(base, store.working());
+            const edited = layer.strip(base, store.working(), scopesAbove(scope));
             const report = await this.migrateInto(
                 base,
                 reference,
-                store.working(),
+                edited,
                 this.t('m34.save.layerIntro', { base }),
+                scope,
             );
             if (!report) return false;
             const conflicts = report.conflicts.length;
@@ -1746,7 +1845,102 @@ export class PresetStudio {
             result: this.layerResult,
             canReselect: typeof layer?.reselect === 'function',
             canPrepare: typeof layer?.prepareDisable === 'function',
+            scopes:
+                typeof layer?.context === 'function'
+                    ? {
+                          context: layer.context(),
+                          editScope: this.router.scope(),
+                          canMove: typeof layer.moveOp === 'function',
+                      }
+                    : undefined,
         };
+    }
+
+    /** The scope switch of the block editor (null without the scoped layer). */
+    private scopeModel():
+        | {
+              value: LayerScope;
+              context: ReturnType<NonNullable<PresetLayerApi['context']>>;
+              onChange(scope: LayerScope): void;
+          }
+        | undefined {
+        const layer = this.deps.services.layer();
+        if (typeof layer?.context !== 'function' || !this.deps.settings.editsToLayer) return undefined;
+        return {
+            value: this.router.scope(),
+            context: layer.context(),
+            onChange: (scope) => this.setEditScope(scope),
+        };
+    }
+
+    /** Where new edits go from now on (the editor's and the «Слой» tab's switch). */
+    setEditScope(scope: LayerScope): void {
+        this.editScope = scope;
+        this.renderHeader();
+        if (this.tab === 'layer') this.renderTab();
+    }
+
+    /** «Пресет этого чата: X» in the header (null without a binding). */
+    private bindingBadge(): HTMLElement | null {
+        const layer = this.deps.services.layer();
+        const text = bindingText(this.app, layer?.bindings?.() ?? null);
+        if (!text) return null;
+        return el('span', {
+            class: 'maestro-m34-badge maestro-m34-badge-layer maestro-m34-binding',
+            text,
+            title: this.t('m34.binding.hint'),
+        });
+    }
+
+    /** «Привязать пресет»: binds the current preset to the card or the chat open now, or takes a binding off. */
+    async bindDialog(): Promise<void> {
+        const layer = this.deps.services.layer();
+        const store = this.store();
+        if (!layer?.bind || !layer.bindings || !store) return;
+        await layer.whenContext?.();
+        const current = store.current();
+        const bindings = layer.bindings();
+        const context = bindings.context;
+        const actions: { value: string; label: string }[] = [];
+        if (context.chat && bindings.chat !== current)
+            actions.push({ value: 'chat', label: this.t('m34.binding.toChat') });
+        if (context.character && bindings.character !== current) {
+            actions.push({
+                value: 'character',
+                label: this.t('m34.binding.toCharacter', { character: context.character.name }),
+            });
+        }
+        if (bindings.chat) actions.push({ value: 'unchat', label: this.t('m34.binding.offChat') });
+        if (bindings.character) actions.push({ value: 'uncharacter', label: this.t('m34.binding.offCharacter') });
+        if (!actions.length) {
+            this.app.ui.notice(this.t('m34.binding.noChat'), { urgent: true });
+            return;
+        }
+        const lines = [this.t('m34.binding.body', { name: current })];
+        if (bindings.chat) lines.push(this.t('m34.binding.nowChat', { name: bindings.chat }));
+        if (bindings.character && context.character) {
+            lines.push(
+                this.t('m34.binding.nowCharacter', { name: bindings.character, character: context.character.name }),
+            );
+        }
+        const choice = await this.dialogs.choose(this.t('m34.binding.title'), lines.join(' '), actions);
+        if (!choice) return;
+        const scope = choice === 'chat' || choice === 'unchat' ? 'chat' : 'character';
+        const preset = choice === 'chat' || choice === 'character' ? current : null;
+        const done = await this.run(async () => {
+            await layer.bind?.(scope, preset);
+            return true;
+        });
+        if (done) {
+            this.app.ui.notice(
+                this.t(preset ? `m34.binding.done.${scope}` : `m34.binding.removed.${scope}`, {
+                    name: preset ?? current,
+                    character: context.character?.name ?? '',
+                }),
+                { urgent: true },
+            );
+        }
+        this.rerender();
     }
 
     layerActions(): LayerActions {
@@ -1791,7 +1985,8 @@ export class PresetStudio {
                     return;
                 }
                 const intro = this.t('m34.layer.migrateBody', { base: base(), reference });
-                const report = await this.migrateInto(base(), body, store.working(), intro);
+                const edited = api.strip(base(), store.working(), scopesAbove('global'));
+                const report = await this.migrateInto(base(), body, edited, intro);
                 if (report) this.layerResult = { kind: 'migrate', report };
                 this.rerender();
             },
@@ -1838,6 +2033,13 @@ export class PresetStudio {
                 this.rerender();
             },
             open: (identifier) => void this.openEditor(identifier),
+            setEditScope: (scope) => this.setEditScope(scope),
+            moveOp: async (index, scope) => {
+                const api = layer();
+                if (!api?.moveOp) return;
+                await this.run(() => api.moveOp?.(base(), index, scope) ?? Promise.resolve());
+                this.rerender();
+            },
             reselect: async () => {
                 const api = layer();
                 const store = this.store();
@@ -1888,6 +2090,7 @@ export class PresetStudio {
         reference: PresetBody,
         edited: PresetBody,
         intro: string,
+        scope: LayerScope = 'global',
     ): Promise<LayerApplyReport | null> {
         const layer = this.deps.services.layer();
         if (!layer) return null;
@@ -1913,8 +2116,8 @@ export class PresetStudio {
                     .filter((op): op is Extract<LayerOp, { op: 'key' }> => op.op === 'key')
                     .map((op) => [op.key, op] as const),
             );
-        const before = keyOps(layer.get(base)?.ops ?? []);
-        const report = await this.run(() => layer.migrateFrom(base, reference, edited));
+        const before = keyOps(layer.get(base, { scope })?.ops ?? []);
+        const report = await this.run(() => layer.migrateFrom(base, reference, edited, scope));
         if (!report) return null;
         this.started.add(base);
         if (excluded.size) {
@@ -1923,6 +2126,7 @@ export class PresetStudio {
                 const drop = ops
                     .map((op, index) => ({ op, index }))
                     .filter(({ op }) => {
+                        if ((op.scope ?? 'global') !== scope) return false;
                         if (op.op !== 'key' || !excluded.has(op.key)) return false;
                         const old = before.get(op.key);
                         return !old || JSON.stringify(old.value) !== JSON.stringify(op.value);
@@ -1931,7 +2135,7 @@ export class PresetStudio {
                 for (const { op, index } of drop) {
                     await layer.remove(base, index);
                     const old = op.op === 'key' ? before.get(op.key) : undefined;
-                    if (old) await layer.record(base, { op: 'key', key: old.key, value: old.value });
+                    if (old) await layer.record(base, { op: 'key', key: old.key, value: old.value }, scope);
                 }
             });
         }
@@ -1994,6 +2198,12 @@ export class PresetStudio {
 
 type Loadable = 'map' | 'analysis' | 'versions';
 
+/** The scopes laid over the working copy above `scope` (they stay out of what is moved into it). */
+function scopesAbove(scope: LayerScope): LayerScope[] {
+    if (scope === 'global') return ['character', 'chat'];
+    return scope === 'character' ? ['chat'] : [];
+}
+
 /** Touch screens: HTML5 drag would fight scrolling (P-017) — ↑/↓ only. */
 function coarsePointer(): boolean {
     try {
@@ -2044,4 +2254,5 @@ const TAB_ICONS: Record<StudioTab, string> = {
     layer: 'fa-layer-group',
     versions: 'fa-clock-rotate-left',
     params: 'fa-sliders',
+    neighbours: 'fa-puzzle-piece',
 };

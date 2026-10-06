@@ -5,6 +5,7 @@
 // and <option> list by hand; never PresetManager.savePreset(name) without a body, updatePreset(), renamePreset() or
 // event.savePreset(...) for openai. Prompt edits go through Prompt Manager's own methods, then saveServiceSettings +
 // render. Exposed as app.modules.api<PresetStore>('presetStore').
+import type { PresetComparison } from '../../domain/preset-compare';
 import type { Unsubscribe } from '../../shared/contracts';
 
 /** One prompt block of Prompt Manager (`prompts[]` item), unknown fields kept. */
@@ -89,4 +90,30 @@ export interface PresetStore {
     ready?(): Promise<void>;
     whenIdle?(): Promise<void>;
     checkOutsideSave?(): Promise<void>;
+
+    /* ---------------------------------------------------------------- release 1.13 (second-wave tools use these) */
+
+    /**
+     * Brings the working copy to `next` without a journal record or a version: what the layer's character and chat
+     * parts change on a chat switch (blocks rewritten, added or removed, the active order and the body keys set,
+     * Prompt Manager saved and rendered once). Never writes the preset file. False when nothing changed.
+     */
+    syncWorking?(next: PresetBody): Promise<boolean>;
+    /**
+     * A new preset file from a body, without dialogs (explicit-body save rules): keys the body lacks come from the
+     * saved body of the current preset; addresses and passwords are never taken from `body`; prompts get strict types.
+     * Cache, list and versions are updated, the write is journaled (undo deletes the new file, or restores an
+     * overwritten one). `select` switches to it afterwards (callers warn about unsaved edits first; the store snaps them
+     * as a draft version anyway). Throws PresetStoreError 'exists' for a taken name unless `overwrite`. Resolves to the
+     * name the server used.
+     */
+    createFromBody?(
+        name: string,
+        body: PresetBody,
+        options?: { select?: boolean; overwrite?: boolean; summary?: string },
+    ): Promise<string>;
+    /** Blocks added, removed and changed, blocks switched, order and parameters between two presets (names or bodies). */
+    compare?(a: string | PresetBody, b: string | PresetBody): PresetComparison;
 }
+
+export type { PresetComparison } from '../../domain/preset-compare';

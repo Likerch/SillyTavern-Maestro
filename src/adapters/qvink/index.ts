@@ -46,6 +46,10 @@ export function isQvinkManifest(manifest: ExtensionManifest): boolean {
     );
 }
 
+/** Qvink's text settings Maestro may edit (neighbour prompts, M36). */
+export const QVINK_TEXT_KEYS = ['prompt', 'short_template', 'long_template'] as const;
+export type QvinkTextKey = (typeof QVINK_TEXT_KEYS)[number];
+
 /** Texts Qvink shows under a message while a summary is pending (SummaryQueue, Q:3238, 3303, 3381). */
 const PENDING_TEXT_RE = /^(?:Summary queued|Delaying summary|Summarizing)/;
 
@@ -72,6 +76,31 @@ export class QvinkAdapter extends NeighbourBase<'qvink'> {
     /** `extension_settings.qvink_memory` (live object, read-only for Maestro). */
     settings(): Dict | null {
         return extensionSettingsOf(this.host, QVINK_KEY);
+    }
+
+    /**
+     * A text setting of the active Qvink profile ('prompt' = the summary prompt of its own requests, 'short_template'
+     * and 'long_template' = the headers its memories are injected with, `{{memories}}` inside); null when Qvink has not
+     * stored it (Qvink then uses its built-in text).
+     */
+    textSetting(key: QvinkTextKey): string | null {
+        const value = this.settings()?.[key];
+        return typeof value === 'string' ? value : null;
+    }
+
+    /**
+     * Writes a text setting like Qvink's own `set_settings` (active settings, then ST's debounced save) and into the
+     * saved copy of the active profile too, so a profile reload keeps it. False without Qvink's settings.
+     */
+    setTextSetting(key: QvinkTextKey, text: string): boolean {
+        const settings = this.settings();
+        if (!this.present() || !settings) return false;
+        settings[key] = text;
+        const profiles = settings.profiles;
+        const profile = typeof settings.profile === 'string' ? settings.profile : '';
+        if (isDict(profiles) && profile && isDict(profiles[profile])) (profiles[profile] as Dict)[key] = text;
+        this.host.ctx().saveSettingsDebounced();
+        return true;
     }
 
     /** Qvink is on for this chat, as its `chat_enabled()` decides. */

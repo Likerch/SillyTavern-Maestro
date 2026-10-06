@@ -5,14 +5,14 @@ import { describe, expect, it } from 'vitest';
 import { createI18n } from '../../../src/core/i18n';
 import { createLabels, describeChange } from '../../../src/core/labels';
 import { CORE_STRINGS } from '../../../src/core/strings';
-import { LAYER_TARGET } from '../../../src/features/presetStudio/layer';
+import { BINDING_TARGET, LAYER_TARGET } from '../../../src/features/presetStudio/layer';
 import { LAYER_STRINGS } from '../../../src/features/presetStudio/layer-strings';
 import { PRESET_STUDIO_STRINGS, createPresetStudioModule } from '../../../src/features/presetStudio/module';
 import { FILE_TARGET, KEYS_TARGET, PROMPT_TARGET } from '../../../src/features/presetStudio/store';
 import { PRESET_JOURNAL_KINDS, PRESET_TARGETS, TARGET_STRINGS } from '../../../src/features/presetStudio/targets';
 import type { JournalChange } from '../../../src/shared/contracts';
 
-const TARGETS = [PROMPT_TARGET, KEYS_TARGET, FILE_TARGET, LAYER_TARGET];
+const TARGETS = [PROMPT_TARGET, KEYS_TARGET, FILE_TARGET, LAYER_TARGET, BINDING_TARGET];
 
 function i18n(locale: 'ru' | 'en') {
     const translations = createI18n(() => locale);

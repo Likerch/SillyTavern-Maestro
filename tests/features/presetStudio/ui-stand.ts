@@ -314,7 +314,9 @@ export class FakeLayer implements PresetLayerApi {
 
     get(base: string): Layer | null {
         const ops = this.layers.get(base);
-        return ops && ops.length ? { base, ops: clone(ops), updatedAt: 1 } : null;
+        return ops && ops.length
+            ? { base, ops: clone(ops).map((op) => ({ ...op, scope: 'global' as const })), updatedAt: 1 }
+            : null;
     }
     async record(base: string, op: LayerOp): Promise<void> {
         this.recorded.push({ base, op: clone(op) });

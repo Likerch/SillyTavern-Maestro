@@ -9,6 +9,7 @@ import { activeOrderOf, promptsOf } from '../../domain/preset-ui-diff';
 import { button, el, icon } from '../../ui/components/dom';
 import type { App, Logger, Unsubscribe } from '../../shared/contracts';
 import type { PresetServices } from './studio';
+import { bindingText } from './view-scopes';
 
 export const LAUNCHER_ID = 'maestro-preset-launcher';
 export const PM_CONTAINER_ID = 'completion_prompt_manager';
@@ -94,6 +95,8 @@ export interface LauncherSummary {
     tokens: number | null;
     error: string | null;
     dirty: boolean;
+    /** «Пресет этого чата: X» when the chat or the card has a bound preset (release 1.13). */
+    binding?: string | null;
 }
 
 export interface LauncherDeps {
@@ -136,6 +139,8 @@ export class PmLauncher {
             }
             const store = this.deps.services.store();
             if (store) this.offs.push(store.onChange(() => this.schedule()));
+            const layer = this.deps.services.layer();
+            if (layer) this.offs.push(layer.onChange(() => this.schedule()));
             void this.deps.pm.load().then(() => this.schedule());
         }
         const placed = this.place();
@@ -272,6 +277,7 @@ export class PmLauncher {
                 tokens: pm.tokenUsage(),
                 error: pm.error(),
                 dirty: store.draft().dirty,
+                binding: bindingText(this.deps.app, this.deps.services.layer()?.bindings?.() ?? null),
             };
         }
         const settings = this.deps.app.host.ctx().chatCompletionSettings ?? {};
@@ -306,7 +312,10 @@ export class PmLauncher {
             summary.tokens === null
                 ? this.t('m34.launcher.noTokens')
                 : this.t('m34.launcher.tokens', { count: summary.tokens.toLocaleString() }),
-        ].join(' · ');
+            summary.binding ?? null,
+        ]
+            .filter(Boolean)
+            .join(' · ');
         parts.error.hidden = !summary.error;
         parts.error.replaceChildren(
             ...(summary.error ? [icon('fa-triangle-exclamation'), el('span', { text: summary.error })] : []),
