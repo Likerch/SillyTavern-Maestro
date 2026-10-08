@@ -46,6 +46,13 @@ const STEPS: readonly PrepareStep[] = ['start', 'running', 'review', 'done'];
 
 export const PREPARE_CSS = `
 .maestro-m37w { overflow-wrap: anywhere; }
+/* A window body of its own does not scroll (the studios scroll inside): this one scrolls itself. */
+.maestro-window-custom > .maestro-m37w {
+    min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 12px 14px 20px;
+}
+.maestro-window-sheet > .maestro-window-custom > .maestro-m37w {
+    padding: 10px 10px calc(24px + env(safe-area-inset-bottom));
+}
 .maestro-m37w-steps { display: flex; flex-wrap: wrap; gap: 2px 14px; font-size: 0.9em; color: var(--maestro-muted); }
 .maestro-m37w-steps .maestro-on { color: var(--maestro-accent); font-weight: 600; }
 .maestro-m37w-nav { display: flex; flex-wrap: wrap; gap: 4px; }
@@ -560,7 +567,8 @@ export function renderPrepare(container: HTMLElement, ui: PrepareUi, ctx?: Windo
             return;
         }
         signature = next;
-        const scroller = container;
+        // In a window the body scrolls itself (custom window bodies do not); in the pult tab the tab does.
+        const scroller = ctx ? root : container;
         const scrollTop = scroller.scrollTop;
         jobBlock = null;
         clear(root);
