@@ -308,10 +308,15 @@ describe('prepare: apply for the chat', () => {
         expect(again.skipped[0]?.text).toBe('Серебряная Гавань: место уже есть; уже есть в каноне');
     });
 
-    it('releases the first scene after the first turn', async () => {
+    it('keeps the first scene for the first reply and releases it once that reply is committed', async () => {
         await started.service.apply([{ id: 'direction' }]);
         expect(env.director.overrideType).toBe('dialogue');
+        // The player's first message commits the greeting: the first reply is still written with the first scene.
         await env.app.bus.emit('turn:committed', { messageIndex: 0 });
+        await settle(10);
+        expect(env.director.overrideType).toBe('dialogue');
+        // The next message commits that reply.
+        await env.app.bus.emit('turn:committed', { messageIndex: 2 });
         await settle(10);
         expect(env.director.overrideType).toBeNull();
         expect(env.director.calls).toEqual(['dialogue', null]);

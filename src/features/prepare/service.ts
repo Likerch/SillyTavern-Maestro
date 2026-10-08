@@ -175,10 +175,17 @@ export class PrepareService {
                 void this.load().catch((error: unknown) => this.log.debug('prepare: the plan did not load', error));
             }),
         );
-        // The first committed turn locks the start and releases the director's first-scene overrides: the start's first
-        // (it may hand back to the direction's), then the direction's.
+        // The player's first message commits the greeting (index 0): the start locks, but the first scene's type must
+        // still reach the first reply. Once that reply is committed (the next message), the director's first-scene
+        // overrides are released: the start's first (it may hand back to the direction's), then the direction's.
         offs.push(
-            this.app.bus.on('turn:committed', () => {
+            this.app.bus.on('turn:committed', ({ messageIndex }) => {
+                if (messageIndex <= 0) {
+                    void this.scenes
+                        .lock()
+                        .catch((error: unknown) => this.log.debug('prepare: the start was not locked', error));
+                    return;
+                }
                 void this.scenes
                     .release()
                     .catch((error: unknown) => this.log.debug('prepare: the start was not released', error))

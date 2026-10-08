@@ -542,8 +542,23 @@ export class StartScenes {
     }
 
     /**
-     * The first committed turn (the player wrote): the start is locked and the director's override of its first scene
-     * is released (the outfits and the note stay: they are the story now).
+     * The player's first message: the start no longer follows the greeting swipe. The director's override of its
+     * first scene stays — the first reply is written with it; release() takes it off once that reply is committed.
+     */
+    lock(): Promise<void> {
+        return this.exclusive(async () => {
+            const chatId = this.app.host.chatId();
+            if (!chatId) return;
+            const doc = clonePlan(await this.load());
+            if (doc.locked || (!doc.scenes.length && !doc.active)) return;
+            doc.locked = true;
+            await this.save(doc, chatId);
+        });
+    }
+
+    /**
+     * The first reply is committed: the start is locked (if it was not yet) and the director's override of its first
+     * scene is released (the outfits and the note stay: they are the story now).
      */
     release(): Promise<void> {
         return this.exclusive(async () => {

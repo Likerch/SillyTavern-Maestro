@@ -215,7 +215,11 @@ describe('prepare: every starting scene', () => {
         expect(service.startScenes()).toMatchObject({ active: 0, locked: true });
         expect(env.director.overrideType).toBe('dialogue');
         expect(env.ui.notices.length).toBe(notices);
+        // The greeting is committed by the first message: the first reply still gets the first scene's type.
         await env.app.bus.emit('turn:committed', { messageIndex: 0 });
+        await settle(20);
+        expect(env.director.overrideType).toBe('dialogue');
+        await env.app.bus.emit('turn:committed', { messageIndex: 2 });
         await until(() => env.director.overrideType === null);
         expect(env.director.calls).toEqual(['dialogue', null]);
         // The outfits and the note stay: they are the story now.
@@ -234,7 +238,8 @@ describe('prepare: every starting scene', () => {
         await swipe(2);
         await settle(20);
         expect(service.startScenes().active).toBe(0);
-        expect(env.director.overrideType).toBeNull();
+        // Locked, but the first reply has not been committed yet: the first scene's type is still on.
+        expect(env.director.overrideType).toBe('dialogue');
     });
 
     it('undoing a scene takes it out; undoing the active one takes its parts back', async () => {
