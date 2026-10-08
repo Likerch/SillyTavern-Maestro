@@ -256,7 +256,9 @@ export class Applier {
     /** The canon draft: from the card book on import (the user may have edited it), else from the item. */
     private async draftOf(item: AnyPrepareItem, env: ApplyEnv): Promise<CanonEntryDraft | null> {
         const saved = env.imported?.get(item.id);
-        let draft: CanonEntryDraft | null = canonDraftOf(item);
+        let draft: CanonEntryDraft | null = canonDraftOf(item, {
+            scenes: env.plan.some((candidate) => candidate.kind === 'scene'),
+        });
         if (saved && saved.content.trim()) {
             draft = {
                 type: (saved.type || draft?.type || 'note') as CanonEntryDraft['type'],

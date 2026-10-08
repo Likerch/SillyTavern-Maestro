@@ -119,6 +119,12 @@ describe('prepare apply: canon entries', () => {
         expect(time!.content).toBe(
             'Note: Story calendar\nText:\nThe story starts: 12 Зимня, вечер\nCalendar: Twelve moons.',
         );
+        // With starting scenes each scene writes its own «Story start»: the calendar note keeps the calendar only.
+        const withScenes = { date: '12 Зимня', time: 'вечер', calendar: 'Twelve moons.' };
+        expect(canonDraftOf(item('time', withScenes), { scenes: true })!.content).toBe(
+            'Note: Story calendar\nText: Calendar: Twelve moons.',
+        );
+        expect(canonDraftOf(item('time', { date: '12 Зимня', time: 'вечер' }), { scenes: true })).toBeNull();
         expect(canonDraftOf(item('secret', { text: 'x' }))).toBeNull();
     });
 });

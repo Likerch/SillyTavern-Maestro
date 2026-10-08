@@ -115,7 +115,11 @@ function lines(rows: readonly [string, string][]): string {
 }
 
 /** The typed canon entry of an item; null for kinds that are not canon (secrets, mechanics…) and the persona. */
-export function canonDraftOf(item: AnyPrepareItem): CanonEntryDraft | null {
+export function canonDraftOf(
+    item: AnyPrepareItem,
+    /** The plan has starting scenes: each writes its own «Story start», so the calendar note leaves the start out. */
+    options: { scenes?: boolean } = {},
+): CanonEntryDraft | null {
     switch (item.kind) {
         case 'character': {
             if (item.data.persona) return null;
@@ -194,7 +198,7 @@ export function canonDraftOf(item: AnyPrepareItem): CanonEntryDraft | null {
         }
         case 'time': {
             const data = item.data;
-            const start = [data.date, data.time].filter(Boolean).join(', ');
+            const start = options.scenes ? '' : [data.date, data.time].filter(Boolean).join(', ');
             const text = lines([
                 ['The story starts', start],
                 ['Calendar', data.calendar],
