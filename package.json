@@ -1,6 +1,6 @@
 {
   "name": "sillytavern-maestro",
-  "version": "1.15.0",
+  "version": "1.16.0",
   "private": true,
   "description": "Conductor extension for SillyTavern: one canon, one prompt, one UI over the whole extension stack",
   "license": "AGPL-3.0-only",
