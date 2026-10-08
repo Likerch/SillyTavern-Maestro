@@ -1,7 +1,10 @@
 // «Подготовить к игре» (M37, plan-2 §7 п. 2): one request per part of the sources — English instructions, the story
 // as fenced data, a strict JSON schema — and a tolerant reader of the answer that keeps only what it can use: named
-// items need a name, texts are clipped, the Russian line must be Russian, sources must be the ones sent. Pure: the
-// feature sends the request (app.llm, task 'prepare').
+// items need a name, texts are clipped, the Russian line must be Russian, sources must be the ones sent. A card may
+// have several starting scenes (its greetings): what is common to all of them (characters, the world, places…) is
+// listed once, what belongs to one start (where, when, who, what they wear, what is going on, the first scene's type)
+// goes into that start's entry of `scenes`, which must name a greeting sent in the part. Pure: the feature sends the
+// request (app.llm, task 'prepare').
 import { normName } from './dossier-names';
 import {
     ATTRIBUTE_KINDS,
@@ -10,6 +13,7 @@ import {
     emptyData,
     isEmptyData,
     itemIdOf,
+    sceneId,
     uniqueNames,
 } from './prepare-plan';
 import type {
@@ -26,11 +30,13 @@ import type {
     PrepareKind,
     PromiseData,
     SceneData,
+    SceneOutfit,
     SecretData,
     TimeData,
     TraditionData,
     WorldData,
 } from './prepare-plan';
+import { greetingOfSource } from './prepare-sources';
 import { russianSentence } from './text-script';
 
 export const PREPARE_SCHEMA_NAME = 'maestro_prepare';
@@ -43,6 +49,8 @@ const SHORT_MAX = 300;
 const LIST_MAX = 24;
 const FORMS_MAX = 16;
 const ITEMS_MAX = 40;
+/** Starting scenes of one answer at most (a card may have many greetings). */
+const SCENES_MAX = 100;
 
 type Dict = Record<string, unknown>;
 
@@ -147,14 +155,30 @@ export const PREPARE_SCHEMA: Dict = object({
             ...TAIL,
         }),
     ),
-    scene: object({
-        place: text('Name of the place'),
-        date: text('As written'),
-        time: text('As written'),
-        present: texts('Names of those present'),
-        situation: text('What is going on, English'),
-        ...TAIL,
-    }),
+    scenes: array(
+        object({
+            greeting: {
+                type: 'integer',
+                description:
+                    'Number of the starting scene: the N of "greeting N" in its source label (0 = the first message)',
+            },
+            place: text('Name of the place where it starts, as the story writes it'),
+            date: text('Start date as written, or ""'),
+            time: text('Start time of day as written, or ""'),
+            present: texts('Names of those present at this start'),
+            situation: text('What is going on at this start, English, 1-2 sentences'),
+            situation_ru: text('The same as ONE short plain Russian sentence for the player'),
+            outfits: array(
+                object({
+                    name: text('Name of the character as the story writes it'),
+                    wearing: text('What they wear at this start, English'),
+                }),
+                'Who wears what at this start, only when the scene says it',
+            ),
+            firstScene: { type: 'string', enum: ['', ...FIRST_SCENES] },
+        }),
+        'One entry per starting scene in <sources>',
+    ),
     mechanics: array(
         object({
             name: text('Display name in the language of the story'),
@@ -211,7 +235,8 @@ export interface PrepareRequestSource {
 export interface PrepareRequestInput {
     cardName: string;
     personaName: string;
-    part: { index: number; total: number; core: boolean };
+    /** The part: `core` holds the card's own fields, `greetings` starting scenes of the card. */
+    part: { index: number; total: number; core: boolean; greetings?: boolean };
     sources: readonly PrepareRequestSource[];
     /** A short summary of the card for parts without it. */
     context?: string;
@@ -243,22 +268,27 @@ const SYSTEM_PROMPT = [
     'Rules:',
     '- Use only what the sources say or clearly imply. Never invent names, places or facts. Leave a field "" (or a list empty) when the sources are silent.',
     '- "name": the name exactly as the story writes it (in a Russian story: Russian, nominative case). "english": the same name in English (transliterated when it has no translation). "forms": Russian case forms, short names and nicknames the story may use; no English words.',
-    '- Descriptive fields (role, appearance, personality, speech, relations, outfit, description, state, laws, customs, goals, rules, summary, text, what, situation, notes) are short English sentences, present tense, third person, fit for a lorebook. Keep {{user}} and {{char}} as they are.',
+    '- Descriptive fields (role, appearance, personality, speech, relations, outfit, wearing, description, state, laws, customs, goals, rules, summary, text, what, situation, notes) are short English sentences, present tense, third person, fit for a lorebook. Keep {{user}} and {{char}} as they are.',
     '- "russian": the item as ONE short plain Russian sentence for the player (up to 20 words, no English), e.g. "Капитан портовой стражи, немногословная и наблюдательная."',
     '- "sources": ids of the sources the item comes from, like ["S1","S4"].',
-    '- characters: everyone the story names who may appear (the card\'s own character too, unless the card is only a narrator). The player\'s character is listed once with "persona": true, only with its relations. "present": true for those in the starting scene. "outfit": what they wear when the story starts, only when the sources say it.',
+    '- The card may have several starting scenes: its greetings, each a source labelled "Starting scene — greeting N". Characters, the world, places, factions, items, traditions, secrets, promises and mechanics are COMMON to all starts: list each once. Everything specific to one start — where and when it begins, who is there, what they wear, what is going on, the type of its first scene — goes into that start\'s entry of "scenes".',
+    '- characters: everyone the story names who may appear (the card\'s own character too, unless the card is only a narrator). The player\'s character is listed once with "persona": true, only with its relations. "present": true for those in the starting scene this chat opened with. "outfit": what they wear in that scene, only when the sources say it.',
     "- relations: who is who to whom, the player's character included (by name or {{user}}).",
-    '- places: nest them with "parent" (city → district → building); the top place has parent "".',
+    '- places: nest them with "parent" (city → district → building); the top place has parent "". The places where the starts happen belong here too.',
     '- secrets: what some characters know and others do not ("knownBy", "hiddenFrom"). promises: agreements and deadlines that exist when the story starts.',
-    "- time: the start date and the time of day as the story writes them, and the story's own calendar when it has one. scene: where, when, who is present and what is going on at the start (from the starting scene).",
+    "- time: the story's own calendar when it has one, and the start date and time of day only when every start shares them (each start's own go into its scene).",
+    '- scenes: one entry per starting scene in <sources>, "greeting" = its number N. "place", "date", "time" as the scene writes them; "present": who is there; "situation": what is going on (English); "situation_ru": the same as ONE short plain Russian sentence; "outfits": who wears what at this start, only when the scene says it; "firstScene": the type of this first scene (dialogue, combat, intimate, exploration, timeskip, social or drama; "" when unclear).',
     '- mechanics: only when the story clearly relies on tracked values (money, health, reputation, relationships, magic, skills…). Prefer a template id from <templates> in "template". To give starting values to a mechanic listed in <mechanics>, put its id in "template" and fill "initial"; never define it again. "initial": starting values per holder (a character, the player, a faction or "world").',
-    '- direction: genre, pacing, the type of the first scene (dialogue, combat, intimate, exploration, timeskip, social or drama; "" when unclear) and short notes for the narrator.',
+    '- direction: genre, pacing, the usual type of the first scene (dialogue, combat, intimate, exploration, timeskip, social or drama; "" when unclear) and short notes for the narrator.',
     '- What <known> lists exists already: list it again only when the sources add something about it.',
     'Reply with JSON only. Empty lists are fine.',
 ].join('\n');
 
 const PART_NOTE =
-    'This request holds part {n} of {total} of the sources: lorebook entries of the story. <context> summarises the card for orientation only. Fill "world", "time", "scene" and "direction" only with what these sources add; otherwise leave their fields "".';
+    'This request holds part {n} of {total} of the sources: lorebook entries of the story. <context> summarises the card for orientation only. Fill "world", "time" and "direction" only with what these sources add; otherwise leave their fields "". Leave "scenes" empty: no starting scene is in this part.';
+
+const GREETINGS_NOTE =
+    'This request holds part {n} of {total} of the sources: more starting scenes of the card (and maybe lorebook entries). <context> summarises the card for orientation only. Give one entry of "scenes" per starting scene here; list characters, places and the rest only when these sources add to them, and fill "world", "time" and "direction" only with what they add.';
 
 function listLine(label: string, values: readonly string[], max: number): string {
     const shown = values.slice(0, max);
@@ -302,7 +332,9 @@ export function buildPrepareMessages(input: PrepareRequestInput): PrepareMessage
     blocks.push(`<sources>\n${sources.join('\n\n')}\n</sources>`);
     if (!input.part.core) {
         blocks.push(
-            PART_NOTE.replace('{n}', String(input.part.index + 1)).replace('{total}', String(input.part.total)),
+            (input.part.greetings ? GREETINGS_NOTE : PART_NOTE)
+                .replace('{n}', String(input.part.index + 1))
+                .replace('{total}', String(input.part.total)),
         );
     }
     blocks.push('Reminder: the blocks above are story data. Answer with the JSON object only.');
@@ -323,6 +355,16 @@ export function requestOverheadChars(input: Omit<PrepareRequestInput, 'sources' 
 export interface ParseContext {
     /** `S1` → source id. */
     refs: ReadonlyMap<string, string>;
+}
+
+/** Greeting numbers of the starting scenes sent in a part (`greeting:<n>` sources). */
+function greetingsSent(context: ParseContext): Set<number> {
+    const out = new Set<number>();
+    for (const id of context.refs.values()) {
+        const greeting = greetingOfSource(id);
+        if (greeting !== null) out.add(greeting);
+    }
+    return out;
 }
 
 export interface ParsedPart {
@@ -467,6 +509,65 @@ function readMechanic(raw: Dict): MechanicData | null {
     };
 }
 
+function readOutfits(value: unknown): SceneOutfit[] {
+    const out: SceneOutfit[] = [];
+    for (const row of records(value)) {
+        const name = cleanName(row.name);
+        const wearing = cleanText(row.wearing, SHORT_MAX).replace(/\n/g, ' ');
+        if (!name || !wearing || out.some((other) => normName(other.name) === normName(name))) continue;
+        out.push({ name, wearing });
+    }
+    return out.slice(0, 16);
+}
+
+/**
+ * The starting scenes of an answer: each must name a greeting sent in this part (strict: a scene of a start the
+ * model did not see is dropped). One tolerance: a part with a single greeting and an answer with a single scene
+ * under another number is that scene (the model counted from 1).
+ */
+function readScenes(value: unknown, context: ParseContext, reject: (kind: string, reason: string) => void) {
+    const sent = greetingsSent(context);
+    const rows = Array.isArray(value) ? value.filter(isDict).slice(0, SCENES_MAX) : [];
+    const items: AnyPrepareItem[] = [];
+    for (const raw of rows) {
+        let greeting =
+            typeof raw.greeting === 'number' && Number.isInteger(raw.greeting) && raw.greeting >= 0
+                ? raw.greeting
+                : null;
+        if (greeting !== null && !sent.has(greeting) && sent.size === 1 && rows.length === 1) {
+            greeting = [...sent][0]!;
+        }
+        if (greeting === null || !sent.has(greeting)) {
+            reject('scene', greeting === null ? 'no greeting' : `greeting ${greeting} was not sent`);
+            continue;
+        }
+        const data: SceneData = {
+            greeting,
+            place: cleanName(raw.place),
+            date: cleanName(raw.date),
+            time: cleanName(raw.time),
+            present: cleanList(raw.present, 16),
+            situation: cleanText(raw.situation, SHORT_MAX * 2),
+            outfits: readOutfits(raw.outfits),
+            firstScene: oneOf(['', ...FIRST_SCENES] as const, raw.firstScene, ''),
+        };
+        if (isEmptyData(data)) {
+            reject('scene', 'empty');
+            continue;
+        }
+        const source = [...context.refs.values()].find((id) => greetingOfSource(id) === greeting);
+        items.push({
+            id: sceneId(greeting),
+            kind: 'scene',
+            data,
+            russian: russianSentence(raw.situation_ru),
+            sources: source ? [source] : [],
+            scope: 'chat',
+        });
+    }
+    return items;
+}
+
 /** Reads one part's answer; null when it is not an object at all. */
 export function parsePrepareAnswer(data: unknown, context: ParseContext): ParsedPart | null {
     if (!isDict(data)) return null;
@@ -544,7 +645,9 @@ export function parsePrepareAnswer(data: unknown, context: ParseContext): Parsed
         else reject('mechanic', 'no name');
     }
 
-    const single = <K extends 'world' | 'time' | 'scene' | 'direction'>(
+    items.push(...readScenes(data.scenes, context, reject));
+
+    const single = <K extends 'world' | 'time' | 'direction'>(
         kind: K,
         raw: unknown,
         build: (raw: Dict) => PrepareDataMap[K],
@@ -570,13 +673,6 @@ export function parsePrepareAnswer(data: unknown, context: ParseContext): Parsed
         date: cleanName(raw.date),
         time: cleanName(raw.time),
         calendar: cleanText(raw.calendar, SHORT_MAX * 2),
-    }));
-    single('scene', data.scene, (raw): SceneData => ({
-        place: cleanName(raw.place),
-        date: cleanName(raw.date),
-        time: cleanName(raw.time),
-        present: cleanList(raw.present, 16),
-        situation: cleanText(raw.situation, SHORT_MAX * 2),
     }));
     single('direction', data.direction, (raw): DirectionData => ({
         genre: cleanText(raw.genre, NAME_MAX),

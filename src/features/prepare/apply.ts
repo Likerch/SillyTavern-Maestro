@@ -7,8 +7,10 @@
 // - NAI passports of characters without one: NAI Studio's text generator (never Anlas), saved for the chat or, «для
 //   персонажа», into the card;
 // - secrets → «Кто что знает», promises → the calendar, mechanics → the mechanics module (a definition for this chat
-//   or this card, starting values per holder), the first scene type → the director (released after the first turn),
-//   starting outfits → the wardrobe (its own journal record is linked);
+//   or this card, starting values per holder), the first scene type → the director (released after the first turn);
+// - starting scenes (one per greeting of the card) → the chat's starting scenes (scenes.ts); the one of the greeting
+//   shown now becomes the active one: its outfits → the wardrobe, its type of the first scene → the director, the
+//   canon note of the start (the direction's own type then stays out);
 // - backgrounds are only proposed (a library pick or «generate» in the backgrounds window), never generated here.
 import { adaptersOf } from '../../adapters';
 import { readPassport } from '../../adapters/nai';
@@ -16,10 +18,10 @@ import { hasCyrillic, uniqueStrings } from '../../domain/canon-keys';
 import { normName } from '../../domain/dossier-names';
 import { freeId } from '../../domain/dossier-styleup';
 import { TYPED_FIELDS_KEY } from '../../domain/entry-types';
-import { canonDraftOf } from '../../domain/prepare-apply';
+import { canonDraftOf, outfitAtStart, sceneFirstScene, sceneOutfits } from '../../domain/prepare-apply';
 import type { CanonEntryDraft } from '../../domain/prepare-apply';
-import { itemTitle } from '../../domain/prepare-plan';
-import type { AnyPrepareItem, PrepareItem, PrepareScope } from '../../domain/prepare-plan';
+import { clonePlan, itemTitle } from '../../domain/prepare-plan';
+import type { AnyPrepareItem, PrepareItem, PrepareScope, SceneData } from '../../domain/prepare-plan';
 import type { App, JournalChange, Logger } from '../../shared/contracts';
 import type { BackgroundsApi } from '../backgrounds/api';
 import type { CalendarApi } from '../calendar/api';
@@ -27,12 +29,12 @@ import type { CanonApi, CanonDraft } from '../canon/api';
 import type { DirectorApi, SceneType } from '../director/api';
 import type { KnowledgeApi } from '../knowledge/api';
 import type { PlacesApi } from '../places/api';
-import type { WardrobeApi } from '../wardrobe/api';
 import { CardBook } from './card-book';
 import type { CardBookItem } from './card-book';
 import type { CardRef } from './collect';
-import { apiOf, isDict, safely, withTimeout } from './collect';
+import { apiOf, isDict, linkedRecords, safely, withTimeout } from './collect';
 import { mechanicsPort } from './mechanics-adapter';
+import type { StartScenes, StoredScene } from './scenes';
 import { APPLY_KIND, IMPORT_KIND, PREPARE_ID, PREPARE_STEP_TARGET } from './settings';
 
 type Dict = Record<string, unknown>;
@@ -49,23 +51,36 @@ export interface ApplyEnv {
     mode: 'apply' | 'import';
     /** Card-book entries by item id (import). */
     imported?: ReadonlyMap<string, CardBookItem>;
-    /** Every item of the plan (the scene looks up the characters' outfits). */
+    /** Every item of the plan with the chosen edits (scenes look up the characters and the direction). */
     plan: readonly AnyPrepareItem[];
+    /** The greeting shown now: its scene becomes the active one (null: none, e.g. the player has written). */
+    shown: number | null;
 }
 
 /** State shared by the items of one pack. */
 export interface PackState {
     /** Normalised place name → place id (created now or found). */
     placeIds: Map<string, string>;
-    /** Characters whose passport was generated now (their outfit went into it). */
-    passported: Set<string>;
+    /** Characters whose passport was generated now → the outfit that went into it (normalised name → outfit). */
+    passported: Map<string, string>;
     proposals: string[];
     /** The director's first scene set now (released after the first turn). */
     firstScene?: { type: string; previous: string | null };
+    /** The active starting scene set the type of the first scene now. */
+    typed?: boolean;
 }
 
 export function newPack(): PackState {
-    return { placeIds: new Map(), passported: new Set(), proposals: [] };
+    return { placeIds: new Map(), passported: new Map(), proposals: [] };
+}
+
+/** «Сцена 2 (Гавань)»: a starting scene in story words. */
+export function sceneName(
+    t: (key: string, params?: Record<string, string | number>) => string,
+    data: SceneData,
+): string {
+    const n = data.greeting + 1;
+    return data.place.trim() ? t('m37.sceneTitle', { n, place: data.place.trim() }) : t('m37.sceneNumber', { n });
 }
 
 export interface ItemOutcome {
@@ -106,6 +121,8 @@ export class Applier {
     constructor(
         private readonly app: App,
         private readonly log: Logger,
+        /** The chat's starting scenes (stored, the active one). */
+        private readonly scenes: StartScenes,
         /** A card-book entry of an item was undone: the saved preparation forgets the item. */
         private readonly onCardItemUndone: (avatar: string, itemId: string) => Promise<void>,
     ) {
@@ -126,7 +143,10 @@ export class Applier {
         const outcome: ItemOutcome = {
             itemId: item.id,
             kind: item.kind,
-            title: itemTitle(item) || this.t(`m37.section.${item.kind}`),
+            title:
+                item.kind === 'scene'
+                    ? sceneName(this.t.bind(this), item.data)
+                    : itemTitle(item) || this.t(`m37.section.${item.kind}`),
             done: [],
             skipped: [],
             failed: [],
@@ -184,9 +204,14 @@ export class Applier {
                 await this.mechanic(item as PrepareItem<'mechanic'>, env, forCard, outcome, steps);
                 break;
             case 'scene':
-                await step(this.t('m37.part.outfits'), () => this.outfits(item as PrepareItem<'scene'>, env, pack));
+                await this.scene(item as PrepareItem<'scene'>, env, pack, forCard, outcome, steps);
                 break;
             case 'direction':
+                // The active starting scene set the type of its first scene (its own or this one as the fallback).
+                if (pack.typed || (await this.scenes.typed())) {
+                    outcome.skipped.push(this.t('m37.skip.sceneSetsType'));
+                    break;
+                }
                 await step(this.t('m37.part.firstScene'), () => this.direction(item as PrepareItem<'direction'>, pack));
                 break;
         }
@@ -395,11 +420,17 @@ export class Applier {
         const api = nai?.api();
         if (!nai || !api || typeof api.generatePassport !== 'function') return this.t('m37.skip.noPassportGen');
         const data = item.data;
+        // What they wear at the start shown now (the scene's outfit, else their own): the passport is drawn in it.
+        const start = env.plan.find(
+            (candidate): candidate is PrepareItem<'scene'> =>
+                candidate.kind === 'scene' && candidate.data.greeting === env.shown,
+        );
+        const outfit = outfitAtStart(item, start?.data ?? null, env.plan);
         const description = [
             data.appearance ? `Appearance: ${data.appearance}` : '',
             data.role ? `Role: ${data.role}` : '',
             data.personality ? `Personality: ${data.personality}` : '',
-            data.outfit ? `Wearing when the story starts: ${data.outfit}` : '',
+            outfit ? `Wearing when the story starts: ${outfit}` : '',
         ]
             .filter(Boolean)
             .join('\n');
@@ -425,7 +456,7 @@ export class Applier {
         );
         if (forCard) await api.savePassport(passport, 'card', { avatar: env.card.avatar });
         else await api.savePassport(passport, 'chat');
-        pack.passported.add(normName(data.name));
+        pack.passported.set(normName(data.name), outfit);
         return [
             this.change(
                 {
@@ -451,7 +482,7 @@ export class Applier {
         if (!knowledge) return this.t('m37.skip.moduleOff', { module: this.t('m37.module.knowledge') });
         if (item.exists) return this.t('m37.skip.exists');
         const data = item.data;
-        const linked = await this.linkedRecords('M18', () =>
+        const linked = await linkedRecords(this.app, 'M18', () =>
             knowledge.addSecret({
                 text: data.text,
                 topics: uniqueStrings([data.about, ...data.knownBy, ...data.hiddenFrom]),
@@ -565,44 +596,55 @@ export class Applier {
 
     /* ---------------------------------------------------------------- the starting scene and direction */
 
-    private async outfits(
+    /**
+     * A starting scene: kept for the chat (a step of its own: undone, it leaves the chat's scenes and takes its parts
+     * back when it is the active one); the scene of the greeting shown now becomes the active one at once.
+     */
+    private async scene(
         item: PrepareItem<'scene'>,
         env: ApplyEnv,
         pack: PackState,
-    ): Promise<JournalChange[] | string> {
-        const wardrobe = apiOf<WardrobeApi>(this.app, 'wardrobe');
-        if (!wardrobe?.intakeOutfit) return this.t('m37.skip.moduleOff', { module: this.t('m37.module.wardrobe') });
-        const present = new Set(item.data.present.map((name) => normName(name)));
-        const characters = env.plan.filter(
-            (candidate): candidate is PrepareItem<'character'> =>
-                candidate.kind === 'character' &&
-                !candidate.data.persona &&
-                !!candidate.data.outfit &&
-                (candidate.data.present || present.has(normName(candidate.data.name))),
-        );
-        const changes: JournalChange[] = [];
-        for (const character of characters) {
-            if (pack.passported.has(normName(character.data.name))) continue;
-            const data = character.data;
-            const linked = await this.linkedRecords('M27', async () =>
-                wardrobe.intakeOutfit?.({
-                    entityName: data.name,
-                    value: `${data.english || data.name} wears ${data.outfit}`,
-                    evidence: '',
-                    sourceMessage: 0,
-                }),
-            );
-            for (const journalId of linked) {
-                changes.push(
-                    this.change({ step: 'record', journalId }, null, {
-                        what: this.t('m37.part.outfit'),
-                        name: data.name,
-                        detail: data.outfit,
-                    }),
-                );
-            }
+        forCard: boolean,
+        outcome: ItemOutcome,
+        steps: JournalChange[],
+    ): Promise<void> {
+        const data = item.data;
+        const stored: StoredScene = {
+            greeting: data.greeting,
+            itemId: item.id,
+            data: clonePlan(data),
+            russian: item.russian,
+            outfits: sceneOutfits(data, env.plan),
+            firstScene: sceneFirstScene(data, env.plan),
+        };
+        const label = this.t('m37.part.sceneStored');
+        let before: StoredScene | null;
+        try {
+            before = await this.scenes.store(stored);
+        } catch (error) {
+            this.log.warn(`prepare: ${item.id} was not stored`, error);
+            outcome.failed.push(this.t('m37.result.failedPart', { part: label, error: message(error) }));
+            return;
         }
-        return changes.length ? changes : this.t('m37.skip.noOutfits');
+        steps.push(
+            this.change(
+                {
+                    step: 'sceneStore',
+                    greeting: data.greeting,
+                    itemId: item.id,
+                    ...(forCard ? { forCard: true, avatar: env.card.avatar } : {}),
+                },
+                before,
+                { what: label, name: outcome.title, detail: data.situation },
+            ),
+        );
+        outcome.done.push(label);
+        if (env.shown !== data.greeting) return;
+        const result = await this.scenes.activate(data.greeting, { passported: pack.passported });
+        outcome.done.push(...result.done);
+        outcome.skipped.push(...result.skipped);
+        outcome.failed.push(...result.failed);
+        if (await this.scenes.typed()) pack.typed = true;
     }
 
     private async direction(item: PrepareItem<'direction'>, pack: PackState): Promise<JournalChange[] | string> {
@@ -625,18 +667,6 @@ export class Applier {
 
     private change(ref: Dict, before: unknown, after: StepAfter): JournalChange {
         return { target: PREPARE_STEP_TARGET, ref, before: before ?? null, after };
-    }
-
-    /** Runs a call that journals itself and returns the ids of the records it added (module's own undo). */
-    private async linkedRecords(module: string, run: () => Promise<unknown>): Promise<string[]> {
-        const before = new Set(
-            safely(() => this.app.journal.list({ module, limit: 20 }), []).map((record) => record.id),
-        );
-        const result = await run();
-        if (result === null || result === undefined || result === '') return [];
-        return safely(() => this.app.journal.list({ module, limit: 20 }), [])
-            .filter((record) => !before.has(record.id) && !record.undone)
-            .map((record) => record.id);
     }
 
     /* ---------------------------------------------------------------- undo */
@@ -725,6 +755,15 @@ export class Applier {
                 const record = safely(() => this.app.journal.list(), []).find((item) => item.id === id);
                 if (!record || record.undone) return true;
                 return this.app.journal.undo(id);
+            }
+            case 'sceneStore': {
+                const greeting = Number(ref.greeting);
+                if (!Number.isInteger(greeting) || greeting < 0) return false;
+                const ok = await this.scenes.unstore(greeting, change.before);
+                if (ok && ref.forCard === true && !change.before) {
+                    await this.onCardItemUndone(str(ref.avatar), str(ref.itemId));
+                }
+                return ok;
             }
             case 'scene': {
                 const director = apiOf<DirectorApi>(this.app, 'director');

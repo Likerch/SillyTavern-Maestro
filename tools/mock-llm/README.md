@@ -59,9 +59,12 @@ Markers combine: `[mock:english][mock:truncate]`. A marker can also be forced fo
 `MOCK_SCENARIO=english,nojson`, the `x-mock-scenario` header or `/__config`.
 
 `maestro_prepare` (scenario preparation) reads the request's `<sources>`: the card part gives characters from
-«- Имя — описание» lines, places from «…» quotes, the house as a faction, a secret, the start time, the starting scene, a
-«Доверие» mechanic with a starting value and the direction; a lorebook part gives one place, faction, tradition or item
-per entry (its Russian key as the name).
+«- Имя — описание» lines, places from «…» quotes, the house as a faction, a secret, the start time, a «Доверие» mechanic
+with a starting value and the direction; every starting scene of the part (a source labelled `Starting scene — greeting
+N`, in the card part or a part of its own) gives one entry of `scenes` with that `greeting`: its place (a short «…»
+quote, else the guild archive or the harbour it names), its time of day (night, dawn, evening, else morning), the cast it
+names, what they wear (a jacket, a robe or a cloak) and the type of its first scene (night → drama, dawn → exploration,
+else dialogue); a lorebook part gives one place, faction, tradition or item per entry (its Russian key as the name).
 
 Add replies for Maestro's own schemas in `scenarios.mjs` with `registerSchema(name, (ctx, rng) => partialObject)`;
 missing required fields are filled from the schema. `registerTool(name, ...)` does the same for tool arguments.

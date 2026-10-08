@@ -1,5 +1,6 @@
 // «Подготовить к игре» (M37, plan-2 §7 п. 1): reading what the analysis needs from the host and the modules — the card
-// (loaded fully: ST keeps characters shallow), the starting scene the chat opened with, the persona, the card's books
+// (loaded fully: ST keeps characters shallow) with every starting scene (the alternate greetings are the swipes of
+// message 0; which one it shows now), the persona, the card's books
 // (primary and extra, or the embedded book), the chat book, the persona book, the active DES Lore Library campaign,
 // the CarrotKernel archives of the characters this card names, the BunnyMo tag vocabulary (a hint only; packs are
 // never read as sources and never written), and what the chat already has (canon, places, mechanics, NAI passports,
@@ -13,7 +14,7 @@ import { normName } from '../../domain/dossier-names';
 import { libraryView } from '../../domain/lore-studio-campaigns';
 import { isBackupBookName, isCanonBookName, isMaestroBookName } from '../../domain/roles-detect';
 import type { ExistingEntry, ExistingSnapshot } from '../../domain/prepare-merge';
-import { bookSources, cardSources, clipText } from '../../domain/prepare-sources';
+import { bookSources, cardSources, clipText, greetingOpening } from '../../domain/prepare-sources';
 import type { BookEntryInput, PrepareSource, SourceOrigin } from '../../domain/prepare-sources';
 import type { App, Logger } from '../../shared/contracts';
 import type { BookRolesApi } from '../bookRoles/api';
@@ -113,6 +114,46 @@ export function hasUserMessages(chat: readonly unknown[]): boolean {
     return chat.some((message) => isDict(message) && message.is_user === true);
 }
 
+/**
+ * The greeting message 0 shows now (0 the first message, n alternate greeting n; the alternate greetings are the swipes
+ * of message 0), from the card as ST holds it — no load. Null when unknown (no card, a shallow card, a text that is no
+ * greeting of the card).
+ */
+export function shownGreetingNow(app: App): number | null {
+    return safely(() => {
+        const card = currentCard(app);
+        if (!card) return null;
+        const ctx = app.host.ctx();
+        const view = cardView(ctx.characters?.[card.index] as unknown);
+        if (!view) return null;
+        return greetingInChat(Array.isArray(ctx.chat) ? ctx.chat : [], view) ?? null;
+    }, null);
+}
+
+/** The greeting message 0 shows now, the card loaded fully first when ST keeps it shallow. */
+export async function shownGreeting(app: App): Promise<number | null> {
+    const card = currentCard(app);
+    if (!card) return null;
+    try {
+        const view = cardView(await loadCharacter(app, card));
+        if (!view) return null;
+        const chat = safely(() => app.host.ctx().chat ?? [], [] as STChatMessage[]);
+        return greetingInChat(Array.isArray(chat) ? chat : [], view) ?? null;
+    } catch {
+        return null;
+    }
+}
+
+/** Runs a call that journals itself and returns the ids of the records it added (the module's own undo). */
+export async function linkedRecords(app: App, module: string, run: () => Promise<unknown>): Promise<string[]> {
+    const before = new Set(safely(() => app.journal.list({ module, limit: 20 }), []).map((record) => record.id));
+    const result = await run();
+    if (result === null || result === undefined || result === '') return [];
+    return safely(() => app.journal.list({ module, limit: 20 }), [])
+        .filter((record) => !before.has(record.id) && !record.undone)
+        .map((record) => record.id);
+}
+
 /** The full card: a shallow character is loaded from the server first (read-only). */
 export async function loadCharacter(app: App, card: CardRef): Promise<Dict | null> {
     const ctx = app.host.ctx();
@@ -196,6 +237,8 @@ export interface Collected {
     view: CardView;
     personaName: string;
     greeting: number;
+    /** The first words of every greeting of the card (index = greeting number). */
+    openings: string[];
     sources: PrepareSource[];
     books: CollectedBook[];
     /** A short summary of the card for parts without the card itself. */
@@ -255,11 +298,13 @@ export class Collector {
         const coreText = normName(sources.map((item) => item.text).join('\n'));
         await this.collectBooks(view, character, metadata, coreText, sources, books);
         const [snapshot, vocabulary] = await Promise.all([this.snapshot(personaName), this.vocabulary()]);
+        const names = { user: personaName, char: view.name };
         return {
             card,
             view,
             personaName,
             greeting,
+            openings: [view.firstMessage, ...view.alternateGreetings].map((text) => greetingOpening(text, names)),
             sources,
             books,
             context: clipText(`${view.name}: ${view.description}\n${view.scenario}`, CONTEXT_CHARS),

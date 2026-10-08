@@ -2,6 +2,7 @@
 import { PREPARE_SECTIONS } from '../../domain/prepare-plan';
 import type { AnyPrepareItem, PreparePlan } from '../../domain/prepare-plan';
 import type { App } from '../../shared/contracts';
+import { sceneName } from './apply';
 import type { PrepareService } from './service';
 
 /** Lines of the plan by section, for the slash command. */
@@ -27,5 +28,6 @@ function itemLine(app: App, service: PrepareService, item: AnyPrepareItem): stri
         );
     }
     if (item.scope === 'character') marks.push(t('m37.scope.character'));
-    return `${service.describe(item)}${marks.length ? ` [${marks.join('; ')}]` : ''}`;
+    const prefix = item.kind === 'scene' ? `${sceneName(t, item.data)}: ` : '';
+    return `${prefix}${service.describe(item)}${marks.length ? ` [${marks.join('; ')}]` : ''}`;
 }

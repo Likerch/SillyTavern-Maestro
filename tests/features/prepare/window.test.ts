@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { SelectionRow } from '../../../src/features/prepare/api';
 import { renderPrepare } from '../../../src/features/prepare/window';
 import type { Unsubscribe } from '../../../src/shared/contracts';
-import { buttonOf, card, fakeStand, hasButton, samplePlan, tick, windowContext } from './ui-helpers';
+import { buttonOf, card, fakeStand, hasButton, item, samplePlan, tick, windowContext } from './ui-helpers';
 import type { FakeStand } from './ui-helpers';
 
 let stand: FakeStand;
@@ -281,6 +281,118 @@ describe('prepare window: the review', () => {
         buttonOf(container, 'Вернуться к плану').click();
         await tick();
         expect(text()).toContain('3. Просмотр');
+    });
+});
+
+describe('prepare window: the starting scenes', () => {
+    function scenesPlan() {
+        const plan = samplePlan();
+        plan.openings = ['Дождь барабанит по ставням таверны…', 'Рассвет над Серебряной Гаванью…', ''];
+        plan.items.push(
+            item(
+                'scene',
+                {
+                    greeting: 0,
+                    place: 'Ржавый якорь',
+                    date: 'День 1',
+                    time: 'вечер',
+                    present: ['Элизабет'],
+                    outfits: [{ name: 'Элизабет', wearing: 'a dark green cloak' }],
+                    firstScene: 'dialogue',
+                },
+                { id: 'scene:0', russian: 'Элизабет ждёт героя в таверне.' },
+            ),
+            item(
+                'scene',
+                {
+                    greeting: 1,
+                    place: 'Серебряная Гавань',
+                    time: 'рассвет',
+                    present: ['Вера'],
+                    firstScene: 'exploration',
+                },
+                { id: 'scene:1', russian: 'Вера показывает пустой трюм.' },
+            ),
+            item(
+                'scene',
+                { greeting: 2, place: 'Архив гильдии картографов', time: 'ночь', present: ['Мартин'] },
+                { id: 'scene:2', russian: 'Мартин нашёл лишнюю запись.' },
+            ),
+        );
+        return plan;
+    }
+
+    it('shows «Стартовые сцены (3)» with a card per greeting and marks the one in the chat now', async () => {
+        stand.engine.scenesInfo = { shown: 1, prepared: [], active: null, locked: false };
+        stand.engine.planValue = scenesPlan();
+        stand.engine.current = { stage: 'ready', jobKey: 'prepare:chat-1' };
+        await open();
+        const nav = container.querySelector('.maestro-m37w-nav')!.textContent;
+        expect(nav).toContain('Стартовые сцены (3)');
+        const section = container.querySelector<HTMLElement>('.maestro-m37w-section[data-kind="scene"]')!;
+        expect(section.textContent).toContain('Действует та, что сейчас в чате');
+        const titles = [...section.querySelectorAll('.maestro-m37w-title')].map((node) => node.textContent);
+        expect(titles).toEqual([
+            'Сцена 1 · «Дождь барабанит по ставням таверны…»',
+            'Сцена 2 · «Рассвет над Серебряной Гаванью…»',
+            'Сцена 3 (Архив гильдии картографов)',
+        ]);
+        const shown = card(container, 'scene:1');
+        expect(shown.textContent).toContain('сейчас в чате');
+        expect(shown.classList.contains('maestro-m37w-shown')).toBe(true);
+        expect(card(container, 'scene:0').textContent).not.toContain('сейчас в чате');
+        const first = card(container, 'scene:0');
+        expect(first.textContent).toContain('Элизабет ждёт героя в таверне.');
+        expect(first.textContent).toContain('Место: Ржавый якорь');
+        expect(first.textContent).toContain('Начало: День 1, вечер');
+        expect(first.textContent).toContain('В сцене: Элизабет');
+        expect(first.textContent).toContain('Наряды: Элизабет');
+        expect(first.textContent).toContain('Первая сцена: разговор');
+        expect(first.textContent).not.toContain('dark green cloak');
+        // The English outfits and the type are under «Подробнее».
+        const details = first.querySelector('details')!;
+        details.open = true;
+        details.dispatchEvent(new Event('toggle'));
+        expect(details.textContent).toContain('Наряды в начале: Элизабет: a dark green cloak');
+        const type = details.querySelector<HTMLSelectElement>('select')!;
+        expect(type.value).toBe('dialogue');
+        type.value = 'combat';
+        type.dispatchEvent(new Event('change'));
+        // Every scene is chosen; the swipe moves the mark.
+        expect(text()).toContain('Выбрано: 8 из 10');
+        stand.engine.scenesInfo = { shown: 2, prepared: [], active: null, locked: false };
+        stand.engine.emit();
+        await tick();
+        expect(card(container, 'scene:2').textContent).toContain('сейчас в чате');
+        expect(card(container, 'scene:1').textContent).not.toContain('сейчас в чате');
+        buttonOf(container, 'Применить выбранное').click();
+        await tick();
+        const rows = stand.engine.applies[0]!.selection as SelectionRow[];
+        expect(rows.filter((row) => row.id.startsWith('scene:'))).toEqual([
+            { id: 'scene:0', scope: 'chat', data: { firstScene: 'combat' } },
+            { id: 'scene:1', scope: 'chat' },
+            { id: 'scene:2', scope: 'chat' },
+        ]);
+    });
+
+    it('«Готово к игре» says how many starts are prepared and which one is active', async () => {
+        stand.engine.statusValue = {
+            ready: true,
+            missing: [],
+            lines: [],
+            scenes: {
+                prepared: 3,
+                active: 1,
+                line: 'Подготовлено стартовых сцен: 3. Сейчас в чате: Сцена 2 (Серебряная Гавань).',
+            },
+        };
+        stand.engine.planValue = scenesPlan();
+        stand.engine.current = { stage: 'applied', jobKey: 'prepare:chat-1', appliedAt: Date.now() };
+        await open();
+        expect(text()).toContain('4. Итог');
+        const line = container.querySelector<HTMLElement>('.maestro-m37w-line[data-scenes="3"]')!;
+        expect(line.textContent).toBe('Подготовлено стартовых сцен: 3. Сейчас в чате: Сцена 2 (Серебряная Гавань).');
+        expect(text()).toContain('Всё важное на месте.');
     });
 });
 

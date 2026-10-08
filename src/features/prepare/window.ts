@@ -7,7 +7,8 @@
 // 2. the run — the job's progress («Читаю часть 2 из 3…») and «Остановить»;
 // 3. the review (review.ts) — sections, cards, choices, edits, scopes;
 // 4. the result — what was done in story words, each with «Отменить» and a link to the window that now holds it;
-// 5. «Готово к игре» — what is still missing, with a button for each (a passport, the place, a background…).
+// 5. «Готово к игре» — how many starting scenes are prepared and which one is active, what is still missing, with a
+//    button for each (a passport, the place, a background…).
 import type { AnyPrepareItem, PrepareKind } from '../../domain/prepare-plan';
 import { pluralForm } from '../../domain/plural';
 import type { MaestroWindowSpec, PultTab, Unsubscribe, WindowContext } from '../../shared/contracts';
@@ -67,6 +68,7 @@ export const PREPARE_CSS = `
 }
 .maestro-m37w-item.maestro-m37w-off { opacity: 0.6; }
 .maestro-m37w-item.maestro-m37w-conflict { border-color: var(--maestro-warn); }
+.maestro-m37w-item.maestro-m37w-shown { border-color: var(--maestro-accent); }
 .maestro-m37w-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--maestro-gap-sm); }
 .maestro-m37w-check { display: flex; align-items: center; gap: 8px; flex: 1 1 12em; min-width: 0; cursor: pointer; }
 .maestro-m37w-check input { margin: 0; flex: none; }
@@ -469,6 +471,13 @@ export function renderPrepare(container: HTMLElement, ui: PrepareUi, ctx?: Windo
         }
         const value = status.value;
         const body: HTMLElement[] = [];
+        if (value?.scenes) {
+            body.push(
+                el('div', { class: 'maestro-m37w-line', data: { scenes: String(value.scenes.prepared) } }, [
+                    el('span', { class: 'maestro-m37w-text', text: value.scenes.line }),
+                ]),
+            );
+        }
         if (value === undefined) body.push(el('div', { class: 'maestro-muted', text: t('m37.ui.statusLoading') }));
         else if (!value || !value.lines.length) body.push(emptyState(t('m37.view.ready')));
         else {
@@ -492,12 +501,16 @@ export function renderPrepare(container: HTMLElement, ui: PrepareUi, ctx?: Windo
             out.push(el('p', { text: t('m37.ui.appliedAt', { time: formatTime(appliedAt, app.i18n) }) }));
         }
         const summary = draft.summary;
+        const scenes = engine.startScenes();
         const statusKey = JSON.stringify([
             ui.chatId(),
             appliedAt ?? 0,
             summary?.done.length ?? 0,
             summary?.failed.length ?? 0,
             draft.undone.size,
+            scenes.prepared,
+            scenes.active,
+            scenes.locked,
         ]);
         out.push(statusSection(draft, statusKey, engine.plan()?.items ?? []));
         out.push(
@@ -541,6 +554,7 @@ export function renderPrepare(container: HTMLElement, ui: PrepareUi, ctx?: Windo
         syncDraft(draft, plan);
         const step = stepOf({ eligible: eligibility.ok, stage: state.stage, hasPlan: !!plan, draft });
         const saved = step === 'start' ? ui.savedInfo() : null;
+        const scenes = engine.startScenes();
         const next = JSON.stringify([
             ui.chatId(),
             app.i18n.locale(),
@@ -561,6 +575,8 @@ export function renderPrepare(container: HTMLElement, ui: PrepareUi, ctx?: Windo
             [...draft.undone],
             status?.key ?? '',
             status?.value === undefined ? 'loading' : (status.value?.lines ?? null),
+            status?.value?.scenes?.line ?? '',
+            [scenes.shown, scenes.active, scenes.prepared, scenes.locked],
         ]);
         if (next === signature) {
             jobBlock?.update();

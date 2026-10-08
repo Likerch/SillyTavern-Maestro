@@ -13,6 +13,7 @@ import type {
     ReadyStatus,
     SavedPreparationInfo,
     SelectionRow,
+    StartScenesInfo,
 } from '../../../src/features/prepare/api';
 import { PrepareUi } from '../../../src/features/prepare/controller';
 import type { PrepareEngine } from '../../../src/features/prepare/controller';
@@ -165,6 +166,7 @@ export class FakeEngine implements PrepareEngine {
     cancelled = 0;
     watching = 0;
     statusValue: ReadyStatus = { ready: true, missing: [], lines: [] };
+    scenesInfo: StartScenesInfo = { shown: 0, prepared: [], active: null, locked: false };
     /** What apply() answers (default: every row done with its own journal record). */
     applyAnswer: ((rows: readonly SelectionRow[]) => PrepareApplySummary) | null = null;
     private handle: UserJobHandle | null = null;
@@ -276,6 +278,9 @@ export class FakeEngine implements PrepareEngine {
     }
     async status(): Promise<ReadyStatus> {
         return this.statusValue;
+    }
+    startScenes(): StartScenesInfo {
+        return { ...this.scenesInfo, prepared: [...this.scenesInfo.prepared] };
     }
     describe(target: AnyPrepareItem): string {
         return target.russian || target.id;

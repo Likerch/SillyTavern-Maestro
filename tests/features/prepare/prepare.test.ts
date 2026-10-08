@@ -68,7 +68,9 @@ describe('prepare: what is read and what it costs', () => {
         expect(estimate.labels).toEqual(
             expect.arrayContaining([
                 'Описание карточки',
-                'Выбранное приветствие',
+                'Стартовая сцена 1 (первое сообщение)',
+                'Стартовая сцена 2',
+                'Стартовая сцена 3',
                 'Твоя персона',
                 `${WORLD} · Silver Harbor`,
             ]),
@@ -155,7 +157,9 @@ describe('prepare: the analysis', () => {
                 'faction:house arden',
                 'mechanic:trust',
                 'time',
-                'scene',
+                'scene:0',
+                'scene:1',
+                'scene:2',
                 'direction',
             ]),
         );

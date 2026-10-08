@@ -1,6 +1,7 @@
 // M37 «Подготовить к игре», release 1.15 (plan-2 §7): in a new chat Maestro reads the card, its books, the persona and
 // the DES campaign with the background model and proposes what the story needs before the first move — characters,
-// the world, places, factions, items, traditions, time, promises, secrets, the starting scene, mechanics and direction;
+// the world, places, factions, items, traditions, time, promises, secrets, every starting scene of the card (the shown
+// greeting's one is active and follows the greeting swipe until the player writes), mechanics and direction;
 // the chosen items are written through the modules' APIs, each as one part with its own undo, «для чата» or «для
 // персонажа» (reused by the card's next new chats). Maestro offers it by itself in a line under the greeting
 // (offer.ts); the window «Подготовка к игре» (window.ts: what will be read and the price, the run, the review with
@@ -47,7 +48,8 @@ function slashCommand(app: App, service: PrepareService, ui: PrepareUi): SlashCo
                 }
                 if (command === 'status') {
                     const status = await service.status();
-                    return say(status.lines.join('\n') || t('m37.view.ready'));
+                    const lines = status.lines.length ? status.lines : [t('m37.view.ready')];
+                    return say([...(status.scenes ? [status.scenes.line] : []), ...lines].join('\n'));
                 }
                 if (service.state().stage === 'running') return say(t('m37.slash.running'));
                 if (command !== 'again' && service.plan()) return listPlan();

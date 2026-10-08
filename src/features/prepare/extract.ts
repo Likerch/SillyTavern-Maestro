@@ -1,7 +1,7 @@
 // The analysis of M37 «Подготовить к игре» (plan-2 §7 п. 2): the sources packed into parts, one background request per
-// part (task 'prepare', the strict schema of prepare-extract), the answers merged. Runs inside the user job the service
-// started: progress after every part, «Stop» between parts (and inside the request through the job's signal); what was
-// read before a stop is kept as a partial plan.
+// part (task 'prepare', the strict schema of prepare-extract), the answers merged (starting scenes by their greeting).
+// Runs inside the user job the service started: progress after every part, «Stop» between parts (and inside the
+// request through the job's signal); what was read before a stop is kept as a partial plan.
 import { mergeItems } from '../../domain/prepare-merge';
 import {
     PREPARE_TASK,
@@ -106,7 +106,7 @@ export async function runExtraction(
         const messages = buildPrepareMessages({
             ...base,
             sources,
-            part: { index: chunk.index, total: parts.chunks.length, core: chunk.core },
+            part: { index: chunk.index, total: parts.chunks.length, core: chunk.core, greetings: chunk.greetings },
         });
         let result;
         try {

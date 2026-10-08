@@ -1,16 +1,17 @@
 // M37 «Подготовить к игре» (plan-2 §7): the service behind PrepareApi — eligibility of a new chat, the estimate, the
 // analysis as a user job (app.jobs: progress, «Stop»), the chat's plan document (app.chat 'prepare'), the apply step
-// (apply.ts), the saved character-level preparation (a Maestro file per card avatar with the source hashes, the whole
-// analysis and the items saved «для персонажа»; their texts live in the card's Maestro book), the «Готово к игре»
-// status, and the director's first-scene override released after the first committed turn.
+// (apply.ts), the chat's starting scenes (scenes.ts: one per greeting, the shown one active, following the greeting
+// swipe until the player writes), the saved character-level preparation (a Maestro file per card avatar with the
+// source hashes, the whole analysis and the items saved «для персонажа»; their texts live in the card's Maestro book),
+// the «Готово к игре» status, and the director's first-scene override released after the first committed turn.
 import { adaptersOf } from '../../adapters';
 import { createUserJobs } from '../../core/jobs';
 import { applyOrder, missingForPlay, selectItems } from '../../domain/prepare-apply';
 import type { MissingItem, ReadyFacts, SelectionRow } from '../../domain/prepare-apply';
 import { normName } from '../../domain/dossier-names';
 import { markExisting, mergeItems, reusePlan } from '../../domain/prepare-merge';
-import { clonePlan, isPrepareKind, itemNames, itemTitle } from '../../domain/prepare-plan';
-import type { AnyPrepareItem, PlanSource, PreparePlan, PrepareScope } from '../../domain/prepare-plan';
+import { clonePlan, isPrepareKind, itemNames, itemTitle, migrateScenes } from '../../domain/prepare-plan';
+import type { AnyPrepareItem, PlanSource, PreparePlan, PrepareItem, PrepareScope } from '../../domain/prepare-plan';
 import { diffSources, fingerprintOf, sourceHashes } from '../../domain/prepare-sources';
 import type { PrepareSource } from '../../domain/prepare-sources';
 import type { App, JournalChange, Logger, Unsubscribe, UserJobHandle, UserJobs } from '../../shared/contracts';
@@ -27,14 +28,16 @@ import type {
     PrepareState,
     ReadyStatus,
     SavedPreparationInfo,
+    StartScenesInfo,
 } from './api';
-import { Applier, newPack } from './apply';
+import { Applier, newPack, sceneName } from './apply';
 import type { ItemOutcome } from './apply';
 import { CardBook } from './card-book';
 import type { CardBookItem } from './card-book';
 import { Collector, apiOf, currentCard, hasUserMessages, isDict, safely } from './collect';
 import type { Collected } from './collect';
 import { estimateRun, partsOf, runExtraction } from './extract';
+import { StartScenes } from './scenes';
 import { PREPARE_DOC, PREPARE_KEY, PREPARE_STEP_TARGET, PREPARE_TAB, SAVED_FILE_KIND } from './settings';
 import type { PrepareSettings } from './settings';
 
@@ -66,6 +69,8 @@ export interface SavedFile {
     labels: Record<string, string>;
     fingerprint: string;
     greeting: number;
+    /** The first words of every greeting of the card (the review's scene cards). */
+    openings?: string[];
     /** Items saved «для персонажа». */
     items: AnyPrepareItem[];
     /** The whole analysis (unchanged parts are reused by the next new chat). */
@@ -81,7 +86,10 @@ function readDoc(raw: unknown): PrepareDoc {
     if (!isDict(raw)) return doc;
     if (isDict(raw.plan) && Array.isArray(raw.plan.items)) {
         const plan = raw.plan as unknown as PreparePlan;
-        doc.plan = { ...plan, items: plan.items.filter((item) => isDict(item) && isPrepareKind(item.kind)) };
+        const greeting = typeof plan.greeting === 'number' ? plan.greeting : 0;
+        const items = plan.items.filter((item) => isDict(item) && isPrepareKind(item.kind));
+        // 1.15 kept one starting scene: it becomes the scene of the greeting the chat opened with.
+        doc.plan = { ...plan, greeting, items: migrateScenes(items, greeting) };
     }
     if (raw.stage === 'ready' || raw.stage === 'applied' || raw.stage === 'failed') doc.stage = raw.stage;
     if (typeof raw.error === 'string') doc.error = raw.error;
@@ -100,6 +108,12 @@ function readSavedFile(raw: unknown): SavedFile | null {
     if (!isDict(raw) || raw.version !== 1 || typeof raw.avatar !== 'string') return null;
     const items = Array.isArray(raw.items) ? (raw.items.filter(isDict) as unknown as AnyPrepareItem[]) : [];
     const analysis = Array.isArray(raw.analysis) ? (raw.analysis.filter(isDict) as unknown as AnyPrepareItem[]) : [];
+    const greeting = typeof raw.greeting === 'number' ? raw.greeting : 0;
+    const known = (list: AnyPrepareItem[]) =>
+        migrateScenes(
+            list.filter((item) => isPrepareKind(item.kind)),
+            greeting,
+        );
     return {
         version: 1,
         avatar: raw.avatar,
@@ -109,9 +123,12 @@ function readSavedFile(raw: unknown): SavedFile | null {
         hashes: isDict(raw.hashes) ? (raw.hashes as Record<string, string>) : {},
         labels: isDict(raw.labels) ? (raw.labels as Record<string, string>) : {},
         fingerprint: typeof raw.fingerprint === 'string' ? raw.fingerprint : '',
-        greeting: typeof raw.greeting === 'number' ? raw.greeting : 0,
-        items: items.filter((item) => isPrepareKind(item.kind)),
-        analysis: analysis.filter((item) => isPrepareKind(item.kind)),
+        greeting,
+        ...(Array.isArray(raw.openings)
+            ? { openings: raw.openings.map((text) => (typeof text === 'string' ? text : '')) }
+            : {}),
+        items: known(items),
+        analysis: known(analysis),
     };
 }
 
@@ -124,6 +141,7 @@ export class PrepareService {
     private watchers = 0;
     private readonly listeners = new Set<() => void>();
     private readonly collector: Collector;
+    private readonly scenes: StartScenes;
     private readonly applier: Applier;
     private readonly cardBook: CardBook;
     private writeChain: Promise<unknown> = Promise.resolve();
@@ -136,7 +154,8 @@ export class PrepareService {
         private readonly settings: () => PrepareSettings,
     ) {
         this.collector = new Collector(app, log, settings);
-        this.applier = new Applier(app, log, (avatar, itemId) => this.forgetSavedItem(avatar, itemId));
+        this.scenes = new StartScenes(app, log);
+        this.applier = new Applier(app, log, this.scenes, (avatar, itemId) => this.forgetSavedItem(avatar, itemId));
         this.cardBook = new CardBook(app, log);
     }
 
@@ -156,7 +175,18 @@ export class PrepareService {
                 void this.load().catch((error: unknown) => this.log.debug('prepare: the plan did not load', error));
             }),
         );
-        offs.push(this.app.bus.on('turn:committed', () => this.releaseFirstScene()));
+        // The first committed turn locks the start and releases the director's first-scene overrides: the start's first
+        // (it may hand back to the direction's), then the direction's.
+        offs.push(
+            this.app.bus.on('turn:committed', () => {
+                void this.scenes
+                    .release()
+                    .catch((error: unknown) => this.log.debug('prepare: the start was not released', error))
+                    .then(() => this.releaseFirstScene());
+            }),
+        );
+        offs.push(...this.scenes.install());
+        offs.push(this.scenes.onChange(() => this.emit()));
         offs.push(() => {
             if (this.running) this.jobs().cancel(this.running.key);
             this.listeners.clear();
@@ -288,8 +318,13 @@ export class PrepareService {
         return this.t(`m37.describe.${item.kind}`, { name: title || this.t(`m37.section.${item.kind}`) });
     }
 
-    /** The user's label of a source («Описание карточки», «Книга · запись»). */
-    sourceLabel(source: Pick<PrepareSource, 'field' | 'origin' | 'label'>): string {
+    /** The user's label of a source («Описание карточки», «Стартовая сцена 2», «Книга · запись»). */
+    sourceLabel(source: Pick<PrepareSource, 'field' | 'origin' | 'label' | 'greeting'>): string {
+        if (typeof source.greeting === 'number') {
+            return source.greeting === 0
+                ? this.t('m37.source.greetingFirst')
+                : this.t('m37.source.greetingN', { n: source.greeting + 1 });
+        }
         if (source.field) return this.t(`m37.source.${source.field}`);
         if (source.origin === 'persona') return this.t('m37.source.persona');
         return source.label;
@@ -486,6 +521,7 @@ export class PrepareService {
             createdAt: Date.now(),
             card: { avatar: collected.card.avatar, name: collected.view.name },
             greeting: collected.greeting,
+            openings: collected.openings,
             items,
             sources: collected.sources.map(planSource),
             skipped: outcome.skipped.flatMap((id) => {
@@ -542,6 +578,7 @@ export class PrepareService {
                 createdAt: Date.now(),
                 card: { avatar: card.avatar, name: saved.cardName || card.name },
                 greeting: saved.greeting,
+                ...(saved.openings ? { openings: saved.openings } : {}),
                 items,
                 sources: [],
                 skipped: [],
@@ -581,13 +618,22 @@ export class PrepareService {
         const saved = await this.readSaved(card.avatar);
         const book = this.cardBook.nameFor(card.name, saved?.book);
         const pack = newPack();
+        // The plan as chosen (edits laid over), so scenes find the characters' and the direction's edited texts.
+        const planItems = (doc.plan?.items ?? []).map(
+            (item) => chosen.find((candidate) => candidate.id === item.id) ?? item,
+        );
+        for (const item of chosen) if (!planItems.some((candidate) => candidate.id === item.id)) planItems.push(item);
+        // The scene of the greeting shown now becomes the active one; none once the player has written.
+        const chat = safely(() => this.app.host.ctx().chat ?? [], [] as STChatMessage[]);
+        const shown = hasUserMessages(chat) ? null : ((await this.scenes.shown()) ?? doc.plan?.greeting ?? null);
         const env = {
             card,
             cardBook: book,
             passports: options.passports ?? this.settings().passports,
             mode,
             ...(imported ? { imported } : {}),
-            plan: doc.plan?.items ?? chosen,
+            plan: planItems,
+            shown,
         };
         const outcomes: { item: AnyPrepareItem; outcome: ItemOutcome }[] = [];
         for (const item of chosen) {
@@ -716,6 +762,7 @@ export class PrepareService {
             labels: Object.keys(labels).length ? labels : (previous?.labels ?? {}),
             fingerprint: plan?.fingerprint || previous?.fingerprint || '',
             greeting: plan?.greeting ?? 0,
+            ...(plan?.openings || previous?.openings ? { openings: plan?.openings ?? previous?.openings ?? [] } : {}),
             items: [...kept, ...items.map((item) => ({ ...clonePlan(item), scope: 'character' as const }))],
             analysis: plan?.items.length ? clonePlan(plan.items) : (previous?.analysis ?? []),
         };
@@ -750,9 +797,22 @@ export class PrepareService {
 
     /* ---------------------------------------------------------------- «Готово к игре» */
 
+    /** The starting scenes of this chat (the document is read on first use). */
+    startScenes(): StartScenesInfo {
+        return this.scenes.info();
+    }
+
     async status(): Promise<ReadyStatus> {
         const doc = await this.loadDoc();
+        await this.scenes.load();
         const items = doc.plan?.items ?? [];
+        const scenes = this.scenes.info();
+        // Who is present at the start: the active scene's people (scenes win), else the characters' own mark.
+        const startGreeting = scenes.active ?? scenes.shown ?? doc.plan?.greeting ?? null;
+        const start = items.find(
+            (item): item is PrepareItem<'scene'> => item.kind === 'scene' && item.data.greeting === startGreeting,
+        );
+        const startPresent = new Set((start?.data.present ?? []).map((name) => normName(name)));
         const passports = safely(() => adaptersOf(this.app).nai.chatPassports(), []);
         const passportNames = new Set(
             passports.flatMap((passport) => [passport.name, ...passport.aliases]).map((name) => normName(name)),
@@ -771,7 +831,7 @@ export class PrepareService {
                     const names = itemNames(item).map((name) => normName(name));
                     return {
                         name: item.data.name,
-                        present: item.data.present,
+                        present: startPresent.size ? names.some((name) => startPresent.has(name)) : item.data.present,
                         passport: !!item.links?.passportId || names.some((name) => passportNames.has(name)),
                         portrait: names.some((name) => portraitNames.has(name)),
                     };
@@ -786,11 +846,26 @@ export class PrepareService {
                 }),
         };
         const missing: MissingItem[] = doc.plan ? missingForPlay(facts) : [{ kind: 'plan', name: '' }];
-        return {
+        const status: ReadyStatus = {
             ready: !missing.some((item) => item.kind === 'plan' || item.kind === 'place' || item.kind === 'passport'),
             missing,
             lines: missing.map((item) => this.t(`m37.ready.${item.kind}`, { name: item.name })),
         };
+        const line = this.scenesLine(scenes);
+        if (line) status.scenes = { prepared: scenes.prepared.length, active: scenes.active, line };
+        return status;
+    }
+
+    /** «Подготовлено стартовых сцен: 3. Сейчас в чате: Сцена 2 (Гавань).» ('' when none is prepared). */
+    private scenesLine(info: StartScenesInfo): string {
+        const count = info.prepared.length;
+        if (!count) return '';
+        if (info.active === null) return this.t('m37.ready.scenesNone', { count });
+        const stored = this.scenes.scene(info.active);
+        const scene = stored
+            ? sceneName(this.t.bind(this), stored.data)
+            : this.t('m37.sceneNumber', { n: info.active + 1 });
+        return this.t(info.locked ? 'm37.ready.scenesLocked' : 'm37.ready.scenes', { count, scene });
     }
 
     /* ---------------------------------------------------------------- the director's first scene */
@@ -832,6 +907,7 @@ export class PrepareService {
             applySaved: (options) => this.applySaved(options),
             discard: () => this.discard(),
             status: () => this.status(),
+            startScenes: () => this.startScenes(),
             describe: (item) => this.describe(item),
             onChange: (listener) => this.onChange(listener),
         };

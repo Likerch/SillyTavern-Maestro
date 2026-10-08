@@ -70,8 +70,8 @@ describe('prepare edges: names and titles', () => {
             { name: '', description: 'Only a description.' },
         );
         expect(sources.map((source) => [source.id, source.text])).toEqual([
-            ['card.greetings', 'Alternate greeting 1: Second.'],
             ['persona', 'Only a description.'],
+            ['greeting:1', 'Second.'],
         ]);
         expect(greetingText({ firstMessage: 'First', alternateGreetings: [] }, 1)).toBe('First');
         const book = bookSources('B', [{ uid: 3, title: '', keys: [], content: 'Text.' }], 'chat', 100);
@@ -97,10 +97,10 @@ describe('prepare edges: the reader and the request', () => {
                 ],
                 world: 'none',
                 time: { date: '', time: '', calendar: '' },
-                scene: { place: 'Таверна', present: ['Вера'], sources: ['S1'] },
+                scenes: [{ greeting: 0, place: 'Таверна', present: ['Вера'], outfits: 'none' }, 'junk'],
                 direction: { firstScene: 'drama' },
             },
-            { refs: new Map([['S1', 'card.greeting']]) },
+            { refs: new Map([['S1', 'greeting:0']]) },
         );
         const items = parsed!.items;
         const byKind = (kind: string) => items.filter((row) => row.kind === kind);
@@ -119,7 +119,7 @@ describe('prepare edges: the reader and the request', () => {
         expect(trust.kind === 'mechanic' && trust.data.attributes.map((row) => [row.name, row.english])).toEqual([
             ['Trust Level', 'Trust Level'],
         ]);
-        expect(byKind('scene')[0]!.sources).toEqual(['card.greeting']);
+        expect(byKind('scene')[0]).toMatchObject({ id: 'scene:0', sources: ['greeting:0'] });
         const direction = byKind('direction')[0]!;
         expect(direction.kind === 'direction' && direction.data.firstScene).toBe('drama');
         expect(byKind('time')).toEqual([]);

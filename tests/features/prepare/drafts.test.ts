@@ -7,12 +7,13 @@ import {
     emptyDraft,
     fieldValue,
     mergeSummary,
+    sectionsOf,
     selectionRows,
     setEdit,
     stepOf,
     syncDraft,
 } from '../../../src/features/prepare/drafts';
-import { samplePlan } from './ui-helpers';
+import { item, samplePlan } from './ui-helpers';
 
 describe('prepare drafts: the step', () => {
     const draft = emptyDraft();
@@ -90,6 +91,17 @@ describe('prepare drafts: choices', () => {
         expect(draft.choices.size).toBe(1);
         syncDraft(draft, samplePlan(2));
         expect(draft.choices.size).toBe(0);
+    });
+
+    it('lists the starting scenes by greeting, every one chosen', () => {
+        const plan = samplePlan();
+        plan.items.push(
+            item('scene', { greeting: 2, place: 'Архив' }, { id: 'scene:2' }),
+            item('scene', { greeting: 0, place: 'Таверна' }, { id: 'scene:0' }),
+        );
+        const scenes = sectionsOf(plan.items).find((section) => section.kind === 'scene')!;
+        expect(scenes.items.map((row) => row.id)).toEqual(['scene:0', 'scene:2']);
+        expect(selectionRows(plan, emptyDraft()).filter((row) => row.id.startsWith('scene:'))).toHaveLength(2);
     });
 
     it('a later apply replaces the lines of the same item', () => {

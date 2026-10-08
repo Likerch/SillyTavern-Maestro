@@ -1,9 +1,11 @@
-// «Подготовить к игре» (M37, plan-2 §7 п. 1–2): what the background model reads — the card's fields (the chosen
-// starting scene in full, the other greetings in short), the persona, and the entries of the card's books, the chat
-// book, the DES campaign and the CarrotKernel archives of this story's characters — as numbered sources packed into
-// parts that fit one request each. The card's own fields always go into the first part; book entries fill the parts
-// in order; what does not fit the budget is left out and listed. Every source has a hash: the card's fingerprint for
-// the character-level reuse is made of them, and only changed sources are read again. Pure.
+// «Подготовить к игре» (M37, plan-2 §7 п. 1–2): what the background model reads — the card's fields, every starting
+// scene of the card (the first message and each alternate greeting, in full, a source each: `greeting:<n>`), the
+// persona, and the entries of the card's books, the chat book, the DES campaign and the CarrotKernel archives of this
+// story's characters — as numbered sources packed into parts that fit one request each. The card's own fields and the
+// greeting the chat opened with always go into the first part; the other greetings follow (spread over as many parts as
+// they need, never shortened or left out); book entries fill the parts after them; what does not fit the budget is left
+// out and listed. Every source has a hash: the card's fingerprint for the character-level reuse is made of them (a
+// changed greeting is read again on its own), and only changed sources are read again. Pure.
 import { charsToTokens, bootstrapCostUsd } from './doctor-budget';
 import { stableHash } from './hash';
 
@@ -11,16 +13,7 @@ import { stableHash } from './hash';
 export type SourceOrigin = 'card' | 'persona' | 'book' | 'chat' | 'campaign' | 'archive';
 
 /** Card fields read as sources (the id is `card.<field>`). */
-export const CARD_FIELDS = [
-    'description',
-    'personality',
-    'scenario',
-    'greeting',
-    'greetings',
-    'examples',
-    'notes',
-    'system',
-] as const;
+export const CARD_FIELDS = ['description', 'personality', 'scenario', 'examples', 'notes', 'system'] as const;
 
 export type CardField = (typeof CARD_FIELDS)[number];
 
@@ -29,8 +22,6 @@ const CARD_FIELD_LABELS: Record<CardField, string> = {
     description: 'Card description',
     personality: 'Card personality',
     scenario: 'Scenario',
-    greeting: 'Starting scene (the greeting this chat opened with)',
-    greetings: 'Other starting scenes of the card (alternate greetings, shortened)',
     examples: 'Dialogue examples',
     notes: "Creator's notes",
     system: 'System prompt, post-history instructions and depth prompt of the card',
@@ -41,24 +32,27 @@ const CARD_FIELD_CHARS: Record<CardField, number> = {
     description: 12000,
     personality: 3000,
     scenario: 4000,
-    greeting: 8000,
-    greetings: 4000,
     examples: 3000,
     notes: 2000,
     system: 3000,
 };
 
 const PERSONA_CHARS = 3000;
-const ALTERNATE_CHARS = 700;
+/** A starting scene is read in full: this only stops a runaway greeting (a part of its own holds one this long). */
+export const GREETING_CHARS = 20000;
+/** Characters of a greeting's first words in the review («Сцена 2 · «Утро в гавани…»»). */
+const OPENING_CHARS = 60;
 
 export interface PrepareSource {
-    /** `card.<field>`, `persona`, `book:<book>#<uid>`. */
+    /** `card.<field>`, `greeting:<n>`, `persona`, `book:<book>#<uid>`. */
     id: string;
     origin: SourceOrigin;
     /** English label for the model («Card description», «World · Harbour»). */
     label: string;
     /** Card field of a card source (the feature translates it for the user). */
     field?: CardField;
+    /** Starting scene of a greeting source: 0 the first message, n alternate greeting n. */
+    greeting?: number;
     book?: string;
     uid?: number;
     /** Entry title of a book source. */
@@ -66,7 +60,7 @@ export interface PrepareSource {
     text: string;
     /** Hash of the text (reuse: a changed source is read again). */
     hash: string;
-    /** Card fields and the persona: always in the first part. */
+    /** Card fields, the persona and the greeting the chat opened with: always in the first part. */
     core: boolean;
 }
 
@@ -119,7 +113,38 @@ export function greetingText(card: Pick<CardInput, 'firstMessage' | 'alternateGr
     return card.firstMessage;
 }
 
-/** Sources of the card itself and of the persona (all core). Empty fields are left out. */
+/** Id of the source of a starting scene. */
+export function greetingSourceId(greeting: number): string {
+    return `greeting:${greeting}`;
+}
+
+/** The greeting number of a source id (`greeting:2` → 2), null for other sources. */
+export function greetingOfSource(id: string): number | null {
+    const match = /^greeting:(\d+)$/.exec(id);
+    return match ? Number(match[1]) : null;
+}
+
+/** English label of a starting scene for the model: its number is what the answer's `scenes[].greeting` names. */
+export function greetingLabel(greeting: number, shown: boolean): string {
+    const which = greeting === 0 ? 'the first message' : `alternate greeting ${greeting}`;
+    return `Starting scene — greeting ${greeting} (${which}${shown ? ', the one this chat opened with' : ''})`;
+}
+
+/** The first words of a greeting for the player ({{user}} and {{char}} named, clipped at a word). */
+export function greetingOpening(text: string, names: { user: string; char: string }): string {
+    const value = text
+        .replace(/\{\{user\}\}/gi, names.user.trim() || '…')
+        .replace(/\{\{char\}\}/gi, names.char.trim() || '…')
+        .replace(/\s+/g, ' ')
+        .trim();
+    return clipText(value, OPENING_CHARS);
+}
+
+/**
+ * Sources of the card itself and of the persona: the fields (core), the greeting the chat opened with in full (core),
+ * the persona (core), then every other greeting in full (not core: they follow in the next parts when the first one is
+ * full). Empty fields and greetings are left out.
+ */
 export function cardSources(card: CardInput, persona: PersonaInput | null): PrepareSource[] {
     const out: PrepareSource[] = [];
     const add = (field: CardField, text: string) => {
@@ -136,19 +161,26 @@ export function cardSources(card: CardInput, persona: PersonaInput | null): Prep
             }),
         );
     };
+    const greetings = [card.firstMessage, ...card.alternateGreetings];
+    const requested = Math.max(0, Math.floor(card.greeting));
+    const shown = requested < greetings.length ? requested : 0;
+    const greeting = (index: number, core: boolean): PrepareSource | null => {
+        const value = clipText(greetings[index] ?? '', GREETING_CHARS);
+        if (!value) return null;
+        return source({
+            id: greetingSourceId(index),
+            origin: 'card',
+            label: greetingLabel(index, index === shown),
+            greeting: index,
+            text: value,
+            core,
+        });
+    };
     add('description', card.description);
     add('personality', card.personality);
     add('scenario', card.scenario);
-    const selected = Math.max(0, Math.floor(card.greeting));
-    add('greeting', greetingText(card, selected));
-    const others = [card.firstMessage, ...card.alternateGreetings]
-        .map((text, index) => ({ text: text.trim(), index }))
-        .filter((greeting) => greeting.text && greeting.index !== selected)
-        .map(
-            (greeting) =>
-                `${greeting.index === 0 ? 'First message' : `Alternate greeting ${greeting.index}`}: ${clipText(greeting.text, ALTERNATE_CHARS)}`,
-        );
-    add('greetings', others.join('\n\n'));
+    const opened = greeting(shown, true);
+    if (opened) out.push(opened);
     add('examples', card.examples);
     add('notes', card.creatorNotes);
     add(
@@ -169,6 +201,11 @@ export function cardSources(card: CardInput, persona: PersonaInput | null): Prep
             source({ id: 'persona', origin: 'persona', label: "The player's character (persona)", text, core: true }),
         );
     }
+    greetings.forEach((_text, index) => {
+        if (index === shown) return;
+        const other = greeting(index, false);
+        if (other) out.push(other);
+    });
     return out;
 }
 
@@ -221,6 +258,8 @@ export interface PrepareChunk {
     chars: number;
     /** Holds the card's own fields (the first part). */
     core: boolean;
+    /** Holds starting scenes (greetings) of the card. */
+    greetings: boolean;
 }
 
 export interface ChunkResult {
@@ -237,9 +276,10 @@ export function sourceChars(item: Pick<PrepareSource, 'label' | 'text'>): number
 }
 
 /**
- * Packs sources into parts: every core source into the first part, then the others in order, a new part when the
- * current one would grow past `chunkChars`. Sources after the last allowed part are skipped; a text seen already (same
- * hash) is read once.
+ * Packs sources into parts: every core source into the first part; then the other starting scenes (greetings) after it,
+ * a new part when the current one would grow past `chunkChars` — they are the card, so they are never left out, even
+ * past `maxChunks`; then the book entries in order the same way, skipped after the last allowed part. A text seen
+ * already (same hash) is read once.
  */
 export function chunkSources(sources: readonly PrepareSource[], limits: ChunkLimits): ChunkResult {
     const maxChunks = Math.max(1, Math.floor(limits.maxChunks));
@@ -256,6 +296,7 @@ export function chunkSources(sources: readonly PrepareSource[], limits: ChunkLim
         seen.add(item.hash);
         return true;
     });
+    const isGreeting = (item: PrepareSource) => typeof item.greeting === 'number';
     const core = fresh.filter((item) => item.core);
     if (core.length) {
         chunks.push({
@@ -263,22 +304,26 @@ export function chunkSources(sources: readonly PrepareSource[], limits: ChunkLim
             sourceIds: core.map((item) => item.id),
             chars: core.reduce((sum, item) => sum + sourceChars(item), 0),
             core: true,
+            greetings: core.some(isGreeting),
         });
     }
-    for (const item of fresh.filter((candidate) => !candidate.core)) {
+    const place = (item: PrepareSource, mandatory: boolean): void => {
         const size = sourceChars(item);
         let current = chunks[chunks.length - 1];
         if (!current || (current.chars + size > budget && current.sourceIds.length)) {
-            if (chunks.length >= maxChunks) {
+            if (!mandatory && chunks.length >= maxChunks) {
                 skipped.push(item.id);
-                continue;
+                return;
             }
-            current = { index: chunks.length, sourceIds: [], chars: 0, core: false };
+            current = { index: chunks.length, sourceIds: [], chars: 0, core: false, greetings: false };
             chunks.push(current);
         }
         current.sourceIds.push(item.id);
         current.chars += size;
-    }
+        if (isGreeting(item)) current.greetings = true;
+    };
+    for (const item of fresh.filter((candidate) => !candidate.core && isGreeting(candidate))) place(item, true);
+    for (const item of fresh.filter((candidate) => !candidate.core && !isGreeting(candidate))) place(item, false);
     return { chunks, skipped, duplicates };
 }
 

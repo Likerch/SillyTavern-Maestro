@@ -54,7 +54,7 @@ function answer(overrides: Dict = {}): Dict {
         time: empty(['date', 'time', 'calendar']),
         promises: [],
         secrets: [],
-        scene: { ...empty(['place', 'date', 'time', 'situation']), present: [] },
+        scenes: [],
         mechanics: [],
         direction: empty(['genre', 'pacing', 'firstScene', 'notes']),
         ...overrides,
@@ -212,6 +212,126 @@ describe('prepare extract: the reader', () => {
         const direction = items[4]!;
         expect(direction.kind === 'direction' && direction.data.firstScene).toBe('');
         expect(parsed!.rejected.map((row) => row.kind).sort()).toEqual(['character', 'secret']);
+    });
+
+    it('reads one starting scene per greeting sent in the part, strictly', () => {
+        const refs = new Map([
+            ['S1', 'card.description'],
+            ['S2', 'greeting:0'],
+            ['S3', 'greeting:2'],
+        ]);
+        const scene = (patch: Dict): Dict => ({
+            greeting: 0,
+            place: 'Солёный якорь',
+            date: 'День 1',
+            time: 'вечер',
+            present: ['Элизабет', 'Вера', 'Элизабет'],
+            situation: 'Elizabeth asks {{user}} for help.',
+            situation_ru: 'Элизабет просит героя о помощи.',
+            outfits: [
+                { name: 'Элизабет', wearing: 'A dark green\ncloak.' },
+                { name: 'элизабет', wearing: 'Twice.' },
+                { name: 'Вера', wearing: '' },
+            ],
+            firstScene: 'dialogue',
+            ...patch,
+        });
+        const parsed = parsePrepareAnswer(
+            answer({
+                scenes: [
+                    scene({}),
+                    scene({ greeting: 2, place: 'Архив', situation_ru: 'English only', firstScene: 'brawl' }),
+                    scene({ greeting: 1, place: 'Рынок' }),
+                    scene({ greeting: '2' }),
+                    scene({ greeting: 0.5 }),
+                    {
+                        greeting: 0,
+                        place: '',
+                        date: '',
+                        time: '',
+                        present: [],
+                        situation: '',
+                        situation_ru: '',
+                        outfits: [],
+                        firstScene: '',
+                    },
+                ],
+            }),
+            { refs },
+        )!;
+        expect(parsed.items.map((item) => item.id)).toEqual(['scene:0', 'scene:2']);
+        const first = parsed.items[0]!;
+        if (first.kind !== 'scene') throw new Error('scene expected');
+        expect(first.data).toEqual({
+            greeting: 0,
+            place: 'Солёный якорь',
+            date: 'День 1',
+            time: 'вечер',
+            present: ['Элизабет', 'Вера'],
+            situation: 'Elizabeth asks {{user}} for help.',
+            outfits: [{ name: 'Элизабет', wearing: 'A dark green cloak.' }],
+            firstScene: 'dialogue',
+        });
+        expect(first.russian).toBe('Элизабет просит героя о помощи.');
+        expect(first.sources).toEqual(['greeting:0']);
+        expect(first.scope).toBe('chat');
+        const second = parsed.items[1]!;
+        expect(second.kind === 'scene' && [second.data.firstScene, second.russian]).toEqual(['', '']);
+        expect(parsed.rejected.map((row) => row.reason)).toEqual([
+            'greeting 1 was not sent',
+            'no greeting',
+            'no greeting',
+            'empty',
+        ]);
+    });
+
+    it('takes a lone scene under another number for the lone greeting of the part', () => {
+        const refs = new Map([['S1', 'greeting:3']]);
+        const one = parsePrepareAnswer(
+            answer({
+                scenes: [
+                    {
+                        greeting: 4,
+                        place: 'Форт',
+                        date: '',
+                        time: 'ночь',
+                        present: [],
+                        situation: '',
+                        situation_ru: '',
+                        outfits: [],
+                        firstScene: 'drama',
+                    },
+                ],
+            }),
+            { refs },
+        )!;
+        expect(one.items.map((item) => item.id)).toEqual(['scene:3']);
+        // A book part has no greeting: its scenes are dropped.
+        const book = parsePrepareAnswer(
+            answer({ scenes: [{ greeting: 0, place: 'Форт', present: [], outfits: [] }] }),
+            { refs: REFS },
+        )!;
+        expect(book.items).toEqual([]);
+    });
+
+    it('tells a part of starting scenes what to do with them', () => {
+        const user = buildPrepareMessages({
+            ...BASE,
+            sources: [{ ref: 'S1', label: 'Starting scene — greeting 1 (alternate greeting 1)', text: 'Утро.' }],
+            part: { index: 1, total: 3, core: false, greetings: true },
+        })[1]!.content;
+        expect(user).toContain('more starting scenes of the card');
+        expect(user).not.toContain('Leave "scenes" empty');
+        const book = buildPrepareMessages({
+            ...BASE,
+            sources: [{ ref: 'S1', label: 'World · Harbor', text: 'A port.' }],
+            part: { index: 2, total: 3, core: false },
+        })[1]!.content;
+        expect(book).toContain('Leave "scenes" empty');
+        const system = buildPrepareMessages({ ...BASE, sources: [], part: { index: 0, total: 1, core: true } })[0]!
+            .content;
+        expect(system).toContain('COMMON to all starts');
+        expect(system).toContain('"situation_ru"');
     });
 
     it('returns null for junk and leaves empty single sections out', () => {

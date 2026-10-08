@@ -880,8 +880,11 @@ registerTool('search_lore', (ctx) => ({ query: ctx.names[0] ?? DEFAULT_LOCATION,
 
 // Scenario preparation (src/domain/prepare-extract.ts, schema 'maestro_prepare'): a plan read from the sources of the
 // request. The card part: characters from «- Имя — описание» lines, places from «…» quotes, a house as a faction, a
-// secret, the start time, the starting scene, a mechanic with a starting value and the direction. A book part: one
-// place, faction, tradition or item per entry («[S2] Book · Title» with its Russian key).
+// secret, the start time, a mechanic with a starting value and the direction. Every starting scene in the part
+// («Starting scene — greeting N»): one entry of `scenes` — its place (a short «…» quote, else the archive or the
+// harbour it names), its time of day, the cast it names, what they wear (a jacket, a robe or a cloak) and the type of
+// its first scene. A book part: one place, faction, tradition or item per entry («[S2] Book · Title» with its Russian
+// key).
 // prettier-ignore
 const PREP_TRANSLIT = {
     а: 'a', б: 'b', в: 'v', г: 'g', д: 'd', е: 'e', ё: 'e', ж: 'zh', з: 'z', и: 'i', й: 'y', к: 'k', л: 'l', м: 'm',
@@ -915,6 +918,44 @@ const PREP_PLACE_WORDS =
     /tavern|harbou?r|market|fort|fens?\b|pass\b|lighthouse|hall\b|monastery|hut\b|archive|coast|reaches/i;
 const PREP_FACTION_WORDS = /\bhouse\b|order\b|guild|brotherhood|council|watch\b|smugglers|cult\b/i;
 const PREP_TRADITION_WORDS = /festival|oath|tradition|custom|leave bread|spirits/i;
+/** What the cast of a starting scene wears: the first garment its text names. */
+const PREP_CLOTHES = [
+    [/куртк/i, 'a quilted watch jacket'],
+    [/мантии|мантия/i, "an archivist's robe"],
+    [/плащ/i, 'a dark green cloak'],
+];
+const PREP_TIMES = [
+    [/ноч/i, 'ночь', 'night'],
+    [/рассвет/i, 'рассвет', 'dawn'],
+    [/дожд|вечер/i, 'вечер', 'evening'],
+];
+
+/** One `scenes` entry of the mock for a starting scene of the request. */
+function prepareScene(start, cast, persona, top) {
+    const greeting = Number(/greeting (\d+)/.exec(start.label)?.[1] ?? 0);
+    const text = start.text;
+    const quoted = [...text.matchAll(/«([^»\n]{3,40})»/g)]
+        .map((match) => match[1])
+        .find((name) => /^[А-ЯЁ]/.test(name));
+    const place =
+        quoted ??
+        (/архив/i.test(text) ? 'Архив гильдии картографов' : /гаван|причал/i.test(text) ? 'Серебряная Гавань' : top);
+    const [, time, timeEnglish] = PREP_TIMES.find(([pattern]) => pattern.test(text)) ?? [null, 'утро', 'morning'];
+    const present = cast.filter((name) => text.includes(name.slice(0, 4)));
+    const wearing = PREP_CLOTHES.find(([pattern]) => pattern.test(text))?.[1] ?? '';
+    const who = present.map((name) => translit(name)).join(' and ') || 'nobody yet';
+    return {
+        greeting,
+        place,
+        date: 'День 1',
+        time,
+        present,
+        situation: `${persona} meets ${who} at ${translit(place)} at ${timeEnglish}.`,
+        situation_ru: `${place}, ${time}: ${present.join(' и ') || 'пока никого'} — так начинается история.`,
+        outfits: wearing ? present.map((name) => ({ name, wearing })) : [],
+        firstScene: time === 'ночь' ? 'drama' : time === 'рассвет' ? 'exploration' : 'dialogue',
+    };
+}
 
 registerSchema('maestro_prepare', (ctx) => {
     const request = ctx.lastUserText;
@@ -935,14 +976,19 @@ registerSchema('maestro_prepare', (ctx) => {
         ...empty,
         world: { ...blank(['name', 'english', 'setting', 'era', 'tone', 'laws', 'customs']), forms: [] },
         time: blank(['date', 'time', 'calendar']),
-        scene: { ...blank(['place', 'date', 'time', 'situation']), present: [] },
+        scenes: [],
         direction: blank(['genre', 'pacing', 'firstScene', 'notes']),
     };
     const card = sources.filter((source) => !source.label.includes(' · '));
-    if (card.length) {
+    const starts = card.filter((source) => /^Starting scene/.test(source.label));
+    const fields = card.filter((source) => !starts.includes(source));
+    // The cast as the card lists it (its description, or the <context> summary of a part without it).
+    const cast = [...new Set([...request.matchAll(/^- ([А-ЯЁA-Z][\p{L}-]+) — /gmu)].map((match) => match[1]))];
+    const city = /Серебрян\S+ Гаван\S+/.test(request) ? 'Серебряная Гавань' : '';
+    if (fields.length) {
         const all = card.map((source) => source.text).join('\n');
         const refs = card.map((source) => source.ref);
-        const greeting = card.find((source) => /Starting scene/.test(source.label));
+        const greeting = starts[0];
         for (const match of all.matchAll(/^- ([А-ЯЁA-Z][\p{L}-]+) — ([^\n]+)$/gmu)) {
             const name = match[1];
             const english = translit(name);
@@ -1020,15 +1066,6 @@ registerSchema('maestro_prepare', (ctx) => {
             russian: 'История начинается в первый день, вечером.',
             sources: refs.slice(0, 1),
         };
-        result.scene = {
-            place: places[0] ?? top,
-            date: 'День 1',
-            time: result.time.time,
-            present: result.characters.filter((item) => item.present).map((item) => item.name),
-            situation: `${persona} arrives as the story begins.`,
-            russian: 'Герой входит, и история начинается.',
-            sources: greeting ? [greeting.ref] : refs.slice(0, 1),
-        };
         result.mechanics.push({
             name: 'Доверие',
             english: 'Trust',
@@ -1077,6 +1114,7 @@ registerSchema('maestro_prepare', (ctx) => {
             };
         }
     }
+    for (const start of starts) result.scenes.push(prepareScene(start, cast, persona, city));
     for (const source of sources.filter((item) => item.label.includes(' · '))) {
         const title = source.label.split(' · ').slice(1).join(' · ').trim();
         const russian = /Keys: ([^\n]*)/

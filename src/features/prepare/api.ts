@@ -14,7 +14,11 @@
 // 5. `apply(selection, options)` — the chosen items, each with its scope 'chat' (default, plan-2 В20) or 'character';
 //    every item is written as one part with its own journal record (undo per part: `undoItem(id)` or the journal),
 //    the summary lists what was done, skipped and failed in story words.
-// 6. `status()` — «Готово к игре»: what is still missing (passports, DES portraits, places, backgrounds).
+// 6. `status()` — «Готово к игре»: what is still missing (passports, DES portraits, places, backgrounds) and how many
+//    starting scenes are prepared, which one is active.
+// 7. `startScenes()` — every greeting of the card is a start of its own (the alternate greetings are the swipes of
+//    message 0): the greeting shown now, the scenes prepared for this chat, the active one (its outfits, type of the
+//    first scene and canon note are applied; it follows the greeting swipe until the player's first message), the lock.
 // The module's own face uses nothing but this API (plus the service's `watch()` while the window shows the job):
 // controller.ts (shared actions, per-chat drafts), offer.ts (the strip line under the greeting, the quiet notice),
 // window.ts + review.ts (the window «Подготовка к игре», or the pult tab «Подготовка» in a shell without windows).
@@ -122,6 +126,20 @@ export interface ReadyStatus {
     missing: MissingItem[];
     /** One line per missing thing, in story words. */
     lines: string[];
+    /** The starting scenes prepared for this chat and the active one, in one line (none prepared: absent). */
+    scenes?: { prepared: number; active: number | null; line: string };
+}
+
+/** The starting scenes of the chat (every greeting of the card is a start of its own). */
+export interface StartScenesInfo {
+    /** The greeting message 0 shows now: 0 the first message, n alternate greeting n (null: unknown). */
+    shown: number | null;
+    /** Greetings whose scene is prepared for this chat, in order. */
+    prepared: number[];
+    /** The active one (its outfits, type of the first scene and canon note are applied), null when none. */
+    active: number | null;
+    /** The player wrote: the start no longer follows the greeting swipe. */
+    locked: boolean;
 }
 
 export interface PrepareApi {
@@ -147,6 +165,8 @@ export interface PrepareApi {
     /** Forgets the chat's plan (applied parts stay; undo them through the journal). */
     discard(): Promise<void>;
     status(): Promise<ReadyStatus>;
+    /** The starting scenes of this chat (sync; empty until the chat's document is read). */
+    startScenes(): StartScenesInfo;
     /** The item as one Russian line (its own line, else a made-up one from the data). */
     describe(item: AnyPrepareItem): string;
     onChange(listener: () => void): Unsubscribe;

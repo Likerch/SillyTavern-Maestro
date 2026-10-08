@@ -1,15 +1,16 @@
 // «Подготовить к игре» (M37, plan-2 §7 п. 4–5): pure parts of the apply step — the order items are written in
 // (places from the top down, so a district finds its city), typed canon entries made of the items (English, the
-// card-book and chat-canon routes share them), mechanic definitions from a template or from scratch with their
-// starting values, the selection a caller passes, and the «Готово к игре» list of what is still missing. The feature
-// writes through the modules' APIs.
+// card-book and chat-canon routes share them), what a starting scene brings when it becomes the active one (its
+// outfits, the type of its first scene, the canon note of the start), mechanic definitions from a template or from
+// scratch with their starting values, the selection a caller passes, and the «Готово к игре» list of what is still
+// missing. The feature writes through the modules' APIs.
 import { normName } from './dossier-names';
 import { composeContent } from './entry-types';
 import type { EntryTypeId } from './entry-types';
 import { cleanList, newMechanicId, snakeId, uniqueId } from './mechanics-defs';
 import type { AttributeDef, AttributeValue, HolderSpec, MechanicDef, MechanicScope } from './mechanics-defs';
 import { isPrepareScope, sectionOrder, uniqueNames } from './prepare-plan';
-import type { AnyPrepareItem, MechanicData, PrepareItem, PrepareScope } from './prepare-plan';
+import type { AnyPrepareItem, FirstScene, MechanicData, PrepareItem, PrepareScope, SceneData } from './prepare-plan';
 
 /* ------------------------------------------------------------------ order */
 
@@ -224,6 +225,96 @@ function draft(
         content: composeContent({ type, fields: clean }),
         keys: uniqueNames(keys.filter((key) => key && key.length <= 80)),
     };
+}
+
+/* ------------------------------------------------------------------ starting scenes */
+
+/** A starting outfit as the wardrobe takes it: who (as the story writes it), their English name, what they wear. */
+export interface StartOutfit {
+    name: string;
+    english: string;
+    wearing: string;
+}
+
+function characterItems(plan: readonly AnyPrepareItem[]): PrepareItem<'character'>[] {
+    return plan.filter((item): item is PrepareItem<'character'> => item.kind === 'character');
+}
+
+function namesOf(character: PrepareItem<'character'>): string[] {
+    return [character.data.name, character.data.english, ...character.data.forms].map((name) => normName(name));
+}
+
+/** The plan's character a name points at (name, English name or a form). */
+export function characterNamed(plan: readonly AnyPrepareItem[], name: string): PrepareItem<'character'> | undefined {
+    const wanted = normName(name);
+    if (!wanted) return undefined;
+    return characterItems(plan).find((character) => namesOf(character).includes(wanted));
+}
+
+/**
+ * The starting outfits of a scene: its own when it lists any (scenes win), else the outfits of the characters present
+ * in it (or marked present) — plans read before every greeting had a scene of its own. Never the player's character.
+ */
+export function sceneOutfits(scene: SceneData, plan: readonly AnyPrepareItem[]): StartOutfit[] {
+    const out: StartOutfit[] = [];
+    if (scene.outfits.length) {
+        for (const row of scene.outfits) {
+            const character = characterNamed(plan, row.name);
+            if (character?.data.persona || !row.wearing.trim()) continue;
+            const name = character?.data.name || row.name;
+            if (out.some((other) => normName(other.name) === normName(name))) continue;
+            out.push({ name, english: character?.data.english ?? '', wearing: row.wearing.trim() });
+        }
+        return out;
+    }
+    const present = new Set(scene.present.map((name) => normName(name)));
+    for (const character of characterItems(plan)) {
+        const data = character.data;
+        if (data.persona || !data.outfit.trim()) continue;
+        if (!data.present && !namesOf(character).some((name) => present.has(name))) continue;
+        out.push({ name: data.name, english: data.english, wearing: data.outfit.trim() });
+    }
+    return out;
+}
+
+/** The type of a start's first scene: its own, else the direction's (the plan's fallback). */
+export function sceneFirstScene(scene: SceneData, plan: readonly AnyPrepareItem[]): FirstScene | '' {
+    if (scene.firstScene) return scene.firstScene;
+    const direction = plan.find((item): item is PrepareItem<'direction'> => item.kind === 'direction');
+    return direction?.data.firstScene ?? '';
+}
+
+/** What a character wears when a start begins: the scene's outfit for them, else their own `outfit`. */
+export function outfitAtStart(
+    character: PrepareItem<'character'>,
+    scene: SceneData | null,
+    plan: readonly AnyPrepareItem[],
+): string {
+    if (scene) {
+        const names = namesOf(character);
+        const found = sceneOutfits(scene, plan).find((row) => names.includes(normName(row.name)));
+        if (found) return found.wearing;
+    }
+    return character.data.outfit.trim();
+}
+
+/** Title of the canon note of the start (one per chat: replaced when the start changes). */
+export const START_NOTE_TITLE = 'Story start';
+
+/** The canon note of a start: when, where, who and what is going on (English); null when the scene says nothing. */
+export function startNoteDraft(scene: SceneData): CanonEntryDraft | null {
+    const text = lines([
+        ['When', [scene.date, scene.time].filter((part) => part.trim()).join(', ')],
+        ['Where', scene.place],
+        ['Present', scene.present.join(', ')],
+        ['Situation', scene.situation],
+    ]);
+    if (!text) return null;
+    return draft('note', START_NOTE_TITLE, { name: START_NOTE_TITLE, text }, [
+        'story start',
+        'начало истории',
+        scene.place,
+    ]);
 }
 
 /* ------------------------------------------------------------------ mechanics */

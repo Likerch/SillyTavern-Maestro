@@ -12,6 +12,7 @@ import { fileURLToPath } from 'node:url';
 import { makeRng, sheetText } from '../mock-llm/scenarios.mjs';
 import {
     ACTIONS,
+    ALTERNATE_GREETINGS,
     ARCHIVE_NAME,
     ARCS,
     CARD_NAME,
@@ -527,7 +528,7 @@ function buildCard() {
         tags: ['fantasy', 'ru', 'maestro-fixture'],
         creator: 'Maestro test bench',
         character_version: '1.0',
-        alternate_greetings: [],
+        alternate_greetings: [...ALTERNATE_GREETINGS],
         extensions: {
             talkativeness: '0.5',
             fav: false,

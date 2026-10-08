@@ -1,12 +1,21 @@
 // «Подготовить к игре» (M37, plan-2 §7 п. 2–3, п. 6): the parts' answers become one plan — the same character or
-// place found in several parts is merged (names, forms and sources joined, texts kept or joined), what the chat
+// place found in several parts is merged (names, forms and sources joined, texts kept or joined; a starting scene is
+// the same one when it names the same greeting), what the chat
 // already has is marked «уже есть» (canon by names and keys, the place registry, mechanics, NAI passports, the
 // persona, promises, secrets) and a typed canon entry that says otherwise is reported as a conflict. The saved
 // character-level preparation is reused: items whose sources did not change stay, the rest is read again. Pure.
 import { normName } from './dossier-names';
 import { ENTRY_TYPES, fieldsFromContent, isEntryType } from './entry-types';
 import type { EntryTypeId } from './entry-types';
-import { NAMED_SECTIONS, SINGLE_SECTIONS, clonePlan, itemNames, sectionOrder, uniqueNames } from './prepare-plan';
+import {
+    NAMED_SECTIONS,
+    SINGLE_SECTIONS,
+    clonePlan,
+    itemNames,
+    sceneGreeting,
+    sectionOrder,
+    uniqueNames,
+} from './prepare-plan';
 import type {
     AnyPrepareItem,
     ConflictInfo,
@@ -104,6 +113,8 @@ export function mergeData<K extends PrepareKind>(
                 out[key] = mergeObjectList(list, value, (row) => normName(row.english || row.name));
             } else if (key === 'initial') {
                 out[key] = mergeObjectList(list, value, (row) => `${normName(row.holder)}|${normName(row.attribute)}`);
+            } else if (key === 'outfits') {
+                out[key] = mergeObjectList(list, value, (row) => normName(row.name), 'wearing');
             } else out[key] = uniqueNames([...list, ...value]);
         }
     }
@@ -173,7 +184,12 @@ export function mergeItems(lists: readonly (readonly AnyPrepareItem[])[]): AnyPr
     }
     return out
         .map((item, index) => ({ item, index }))
-        .sort((a, b) => sectionOrder(a.item.kind) - sectionOrder(b.item.kind) || a.index - b.index)
+        .sort(
+            (a, b) =>
+                sectionOrder(a.item.kind) - sectionOrder(b.item.kind) ||
+                sceneGreeting(a.item) - sceneGreeting(b.item) ||
+                a.index - b.index,
+        )
         .map(({ item }) => item);
 }
 

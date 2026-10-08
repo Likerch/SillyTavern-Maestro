@@ -1,9 +1,10 @@
 // Step 3 of the preparation window (plan-2 §7 п. 3): the plan by sections — «Персонажи (7) · Места (5) · …» — each item a
 // card with its Russian line, key facts, a checkbox (on unless it exists already), «уже есть» with what exists, where
 // the canon says otherwise, and «для чата / для персонажа»; per section: all or nothing and one scope for the whole
-// section. The texts are edited under «Подробнее» (the name as the story writes it, the English canon texts). Choices
-// and edits live in the chat's draft, so a redraw, a closed window or another chat loses nothing; the footer applies
-// the chosen items.
+// section. «Стартовые сцены (N)» has a card per greeting of the card («Сцена 2 · «первые слова…»», the one in the chat
+// now marked «сейчас в чате»: it is the active one once applied). The texts are edited under «Подробнее» (the name as
+// the story writes it, the English canon texts). Choices and edits live in the chat's draft, so a redraw, a closed
+// window or another chat loses nothing; the footer applies the chosen items.
 import { FIRST_SCENES, itemTitle } from '../../domain/prepare-plan';
 import type { AnyPrepareItem, PrepareKind, PreparePlan, PrepareScope } from '../../domain/prepare-plan';
 import { badge, banner, emptyState } from '../../ui/components/card';
@@ -34,8 +35,20 @@ function names(list: readonly string[], max = 6): string {
     return clean.length > max ? `${clean.slice(0, max).join(', ')}…` : clean.join(', ');
 }
 
-/** The item's title as the window shows it (an edited name wins). */
-export function titleOf(ui: PrepareUi, item: AnyPrepareItem, choice?: ItemChoice): string {
+/** The item's title as the window shows it (an edited name wins; a scene by its greeting's first words). */
+export function titleOf(
+    ui: PrepareUi,
+    item: AnyPrepareItem,
+    choice?: ItemChoice,
+    openings?: readonly string[],
+): string {
+    if (item.kind === 'scene') {
+        const n = item.data.greeting + 1;
+        const opening = openings?.[item.data.greeting]?.trim();
+        if (opening) return ui.t('m37.ui.sceneTitle', { n, opening });
+        const place = fieldValue(item, choice, 'place').trim();
+        return place ? ui.t('m37.sceneTitle', { n, place }) : ui.t('m37.sceneNumber', { n });
+    }
     if (EDIT_FIELDS[item.kind].includes('name')) {
         const name = fieldValue(item, choice, 'name').trim();
         if (name) return name;
@@ -79,10 +92,15 @@ export function factsOf(ui: PrepareUi, item: AnyPrepareItem): string[] {
             if (item.data.due) add('m37.fact.due', { due: item.data.due });
             break;
         case 'scene':
+            if (item.data.place) add('m37.fact.place', { name: item.data.place });
             if (item.data.date || item.data.time) {
                 add('m37.fact.date', { date: [item.data.date, item.data.time].filter(Boolean).join(', ') });
             }
             if (item.data.present.length) add('m37.fact.presentList', { list: names(item.data.present) });
+            if (item.data.outfits.length) {
+                add('m37.fact.outfits', { list: names(item.data.outfits.map((row) => row.name)) });
+            }
+            if (item.data.firstScene) add('m37.fact.firstScene', { type: t(`m37.scene.${item.data.firstScene}`) });
             break;
         case 'mechanic': {
             const attributes = item.data.attributes.map((row) => row.name || row.english);
@@ -152,6 +170,7 @@ export function reviewStep(ui: PrepareUi, plan: PreparePlan, draft: ChatDraft, o
 
     const sources = new Map(plan.sources.map((source) => [source.id, source.label]));
     const sections = sectionsOf(plan.items);
+    const view: SceneContext = { openings: plan.openings ?? [], shown: ui.engine.startScenes().shown };
     const refs: SectionRefs[] = [];
     const counter = el('span', { class: 'maestro-m37w-count' });
     const applyButton = button({
@@ -209,8 +228,11 @@ export function reviewStep(ui: PrepareUi, plan: PreparePlan, draft: ChatDraft, o
             refresh();
         });
         const list = el('div', { class: 'maestro-m37w-items' });
+        if (section.kind === 'scene') {
+            list.appendChild(el('div', { class: 'maestro-hint', text: t('m37.ui.scenesHint') }));
+        }
         for (const item of section.items) {
-            const row = itemCard(ui, draft, item, sources, refresh);
+            const row = itemCard(ui, draft, item, sources, view, refresh);
             sectionRefs.items.push(row);
             list.appendChild(row.card);
         }
@@ -240,16 +262,23 @@ export function reviewStep(ui: PrepareUi, plan: PreparePlan, draft: ChatDraft, o
     return out;
 }
 
+/** What the cards need beyond the item: the greetings' first words, the greeting shown now. */
+interface SceneContext {
+    openings: readonly string[];
+    shown: number | null;
+}
+
 function itemCard(
     ui: PrepareUi,
     draft: ChatDraft,
     item: AnyPrepareItem,
     sources: ReadonlyMap<string, string>,
+    view: SceneContext,
     refresh: () => void,
 ): ItemRefs {
     const t = ui.t.bind(ui);
     const choice = choiceOf(draft, item);
-    const title = el('span', { class: 'maestro-m37w-title', text: titleOf(ui, item, choice) });
+    const title = el('span', { class: 'maestro-m37w-title', text: titleOf(ui, item, choice, view.openings) });
     const box = el('input', { attrs: { type: 'checkbox' } });
     box.checked = choice.checked;
     box.addEventListener('change', () => {
@@ -265,6 +294,7 @@ function itemCard(
     edited.hidden = !Object.keys(choice.edits).length;
 
     const marks: HTMLElement[] = [];
+    if (item.kind === 'scene' && item.data.greeting === view.shown) marks.push(badge(t('m37.ui.sceneShown'), 'ok'));
     if (item.exists) {
         const where = t(`m37.exists.${item.exists.where}`);
         const label = item.exists.label && item.exists.label !== titleOf(ui, item) ? item.exists.label : '';
@@ -278,7 +308,11 @@ function itemCard(
     const card = el(
         'div',
         {
-            class: ['maestro-m37w-item', item.conflicts?.length ? 'maestro-m37w-conflict' : null],
+            class: [
+                'maestro-m37w-item',
+                item.conflicts?.length ? 'maestro-m37w-conflict' : null,
+                item.kind === 'scene' && item.data.greeting === view.shown ? 'maestro-m37w-shown' : null,
+            ],
             data: { item: item.id },
         },
         [
@@ -316,7 +350,7 @@ function itemCard(
                   )
                 : null,
             detailsOf(ui, draft, item, sources, () => {
-                title.textContent = titleOf(ui, item, choiceOf(draft, item));
+                title.textContent = titleOf(ui, item, choiceOf(draft, item), view.openings);
                 refresh();
             }),
         ],
@@ -369,6 +403,10 @@ function detailsOf(
             };
             input.addEventListener(field === 'firstScene' ? 'change' : 'input', commit);
             box.appendChild(el('label', { class: 'maestro-m37w-field' }, [el('span', { text: label }), input]));
+        }
+        if (item.kind === 'scene' && item.data.outfits.length) {
+            const list = item.data.outfits.map((row) => `${row.name}: ${row.wearing}`).join('; ');
+            box.appendChild(el('div', { class: 'maestro-hint', text: t('m37.ui.sceneOutfits', { list }) }));
         }
         const from = item.sources.map((id) => sources.get(id) ?? '').filter(Boolean);
         if (from.length)

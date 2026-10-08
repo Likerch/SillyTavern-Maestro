@@ -24,8 +24,8 @@ export const PREPARE_SECTIONS = [
 
 export type PrepareKind = (typeof PREPARE_SECTIONS)[number];
 
-/** Kinds with one item per plan. */
-export const SINGLE_SECTIONS: ReadonlySet<PrepareKind> = new Set(['world', 'time', 'scene', 'direction']);
+/** Kinds with one item per plan (a starting scene is one item per greeting of the card: `scene:<n>`). */
+export const SINGLE_SECTIONS: ReadonlySet<PrepareKind> = new Set(['world', 'time', 'direction']);
 
 /** Kinds identified by a name (merged by names, matched against the canon by names and keys). */
 export const NAMED_SECTIONS: ReadonlySet<PrepareKind> = new Set(['character', 'place', 'faction', 'item', 'tradition']);
@@ -38,6 +38,10 @@ export const PREPARE_SCOPES: readonly PrepareScope[] = ['chat', 'character'];
 /** Director scene types (src/features/director/api.ts SceneType). */
 export const FIRST_SCENES = ['dialogue', 'combat', 'intimate', 'exploration', 'timeskip', 'social', 'drama'] as const;
 export type FirstScene = (typeof FIRST_SCENES)[number];
+
+export function isFirstScene(value: unknown): value is FirstScene {
+    return typeof value === 'string' && (FIRST_SCENES as readonly string[]).includes(value);
+}
 
 export const ATTRIBUTE_KINDS = ['number', 'scale', 'list', 'text'] as const;
 export type PrepareAttributeKind = (typeof ATTRIBUTE_KINDS)[number];
@@ -132,7 +136,22 @@ export interface SecretData {
     hiddenFrom: string[];
 }
 
+/** What one character wears when a starting scene begins. */
+export interface SceneOutfit {
+    /** The character's name as the story writes it. */
+    name: string;
+    /** What they wear, English. */
+    wearing: string;
+}
+
+/**
+ * One starting scene of the card: in SillyTavern the alternate greetings are the swipes of message 0, so every greeting
+ * is a start of its own — where and when it begins, who is there, what they wear, what is going on, the type of the
+ * first scene. Characters, the world, places and the rest are common to all starts.
+ */
 export interface SceneData {
+    /** The greeting it belongs to: 0 the first message, n alternate greeting n. */
+    greeting: number;
     place: string;
     date: string;
     time: string;
@@ -140,6 +159,10 @@ export interface SceneData {
     present: string[];
     /** What is going on, English. */
     situation: string;
+    /** Who wears what at this start (empty: the characters' own `outfit`, older plans). */
+    outfits: SceneOutfit[];
+    /** Director scene type of this start ('' leaves it to the direction's `firstScene`). */
+    firstScene: FirstScene | '';
 }
 
 export interface MechanicAttributeData {
@@ -257,6 +280,8 @@ export interface PreparePlan {
     card: { avatar: string; name: string };
     /** Starting scene the chat opened with: 0 the first message, n an alternate greeting. */
     greeting: number;
+    /** The first words of every greeting of the card (index = greeting number), for the review's scene cards. */
+    openings?: string[];
     items: AnyPrepareItem[];
     sources: PlanSource[];
     /** Sources left out (budget). */
@@ -338,6 +363,7 @@ export function uniqueNames(values: Iterable<unknown>): string[] {
 /** Stable id of an item. */
 export function itemIdOf(kind: PrepareKind, data: PrepareDataMap[PrepareKind]): string {
     if (SINGLE_SECTIONS.has(kind)) return kind;
+    if (kind === 'scene') return sceneId((data as SceneData).greeting);
     if (NAMED_SECTIONS.has(kind)) {
         const named = data as NamedData;
         return `${kind}:${normName(named.english || named.name)}`;
@@ -373,7 +399,7 @@ export function emptyData<K extends PrepareKind>(kind: K): PrepareDataMap[K] {
         time: { date: '', time: '', calendar: '' },
         promise: { who: [], toWhom: [], what: '', due: '' },
         secret: { text: '', about: '', knownBy: [], hiddenFrom: [] },
-        scene: { place: '', date: '', time: '', present: [], situation: '' },
+        scene: { greeting: 0, place: '', date: '', time: '', present: [], situation: '', outfits: [], firstScene: '' },
         mechanic: {
             name: '',
             english: '',
@@ -404,6 +430,58 @@ export function sectionCounts(items: readonly AnyPrepareItem[]): Partial<Record<
     const counts: Partial<Record<PrepareKind, number>> = {};
     for (const item of items) counts[item.kind] = (counts[item.kind] ?? 0) + 1;
     return counts;
+}
+
+/** Id of the starting scene of a greeting. */
+export function sceneId(greeting: number): string {
+    return `scene:${greeting}`;
+}
+
+/** The greeting of a scene item (0 for anything else). */
+export function sceneGreeting(item: AnyPrepareItem): number {
+    return item.kind === 'scene' && Number.isInteger(item.data.greeting) ? item.data.greeting : 0;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/**
+ * Stored plans of 1.15 had one starting scene (id 'scene', no greeting): it becomes the scene of the greeting the
+ * chat opened with (`greeting`), with no outfits of its own and no type (the characters' outfits and the direction's
+ * type stay its fallbacks). Scenes of this version get their missing fields filled. Other items are kept as they are.
+ */
+export function migrateScenes(items: readonly AnyPrepareItem[], greeting: number): AnyPrepareItem[] {
+    return items.map((item) => {
+        if (item.kind !== 'scene') return item;
+        const raw = (isRecord(item.data) ? item.data : {}) as Record<string, unknown>;
+        const number =
+            typeof raw.greeting === 'number' && Number.isInteger(raw.greeting) && raw.greeting >= 0
+                ? raw.greeting
+                : Math.max(0, Math.floor(greeting) || 0);
+        const text = (key: string) => (typeof raw[key] === 'string' ? (raw[key] as string) : '');
+        const data: SceneData = {
+            greeting: number,
+            place: text('place'),
+            date: text('date'),
+            time: text('time'),
+            present: Array.isArray(raw.present)
+                ? raw.present.filter((name): name is string => typeof name === 'string')
+                : [],
+            situation: text('situation'),
+            outfits: Array.isArray(raw.outfits)
+                ? raw.outfits
+                      .filter(isRecord)
+                      .map((row) => ({
+                          name: typeof row.name === 'string' ? row.name : '',
+                          wearing: typeof row.wearing === 'string' ? row.wearing : '',
+                      }))
+                      .filter((row) => row.name && row.wearing)
+                : [],
+            firstScene: isFirstScene(raw.firstScene) ? raw.firstScene : '',
+        };
+        return { ...item, id: sceneId(number), data };
+    });
 }
 
 /** A deep copy (plans are JSON). */

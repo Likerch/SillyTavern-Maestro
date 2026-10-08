@@ -3,7 +3,7 @@
 // items are chosen, where each is kept («для чата» / «для персонажа»), his edits of the texts, the estimate shown before
 // the run, the result of the last apply with what was undone since. Pure: no DOM, no app.
 import type { SelectionRow } from '../../domain/prepare-apply';
-import { PREPARE_SECTIONS } from '../../domain/prepare-plan';
+import { PREPARE_SECTIONS, sceneGreeting } from '../../domain/prepare-plan';
 import type { AnyPrepareItem, PrepareKind, PreparePlan, PrepareScope } from '../../domain/prepare-plan';
 import type { ApplyLine, PrepareApplySummary, PrepareEstimateResult, PrepareStage } from './api';
 
@@ -95,7 +95,7 @@ export const EDIT_FIELDS: Readonly<Record<PrepareKind, readonly string[]>> = {
     time: ['date', 'time', 'calendar'],
     promise: ['what', 'due'],
     secret: ['text', 'about'],
-    scene: ['place', 'date', 'time', 'situation'],
+    scene: ['place', 'date', 'time', 'situation', 'firstScene'],
     mechanic: ['name', 'english', 'summary', 'rules'],
     direction: ['genre', 'pacing', 'firstScene', 'notes'],
 };
@@ -175,11 +175,15 @@ export const WINDOW_SECTIONS: readonly PrepareKind[] = [
     'direction',
 ];
 
-/** The plan by sections in the window's order (empty sections left out). */
+/** The plan by sections in the window's order (empty sections left out; starting scenes by greeting). */
 export function sectionsOf(items: readonly AnyPrepareItem[]): PlanSection[] {
     const order = [...WINDOW_SECTIONS, ...PREPARE_SECTIONS.filter((kind) => !WINDOW_SECTIONS.includes(kind))];
     return order
-        .map((kind) => ({ kind, items: items.filter((item) => item.kind === kind) }))
+        .map((kind) => {
+            const list = items.filter((item) => item.kind === kind);
+            if (kind === 'scene') list.sort((a, b) => sceneGreeting(a) - sceneGreeting(b));
+            return { kind, items: list };
+        })
         .filter((section) => section.items.length > 0);
 }
 
