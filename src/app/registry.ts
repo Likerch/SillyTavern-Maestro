@@ -3,6 +3,7 @@ import { architectModule } from '../features/architect';
 import { assistantModule } from '../features/assistant';
 import { backgroundsModule } from '../features/backgrounds';
 import { bookRolesModule } from '../features/bookRoles';
+import { bunnymoCommandsModule } from '../features/bunnymoCommands';
 import { bunnymoModeModule } from '../features/bunnymoMode';
 import { calendarModule } from '../features/calendar';
 import { canonModule } from '../features/canon';
@@ -110,4 +111,6 @@ export const MODULES: MaestroModule[] = [
     desDramatisModule,
     // M41: the player's persona for a character, from ST's character editor.
     personaCreatorModule,
+    // M40: BunnyMo's sheet commands at the message box.
+    bunnymoCommandsModule,
 ];
