@@ -18,6 +18,9 @@ export const ST_MODULE_PATHS = {
     utils: '/scripts/utils.js',
 } as const;
 
+/** personas.js (M41 «Персона для персонажа»): loaded through `load()`, HostModules keeps its methods. */
+export const ST_PERSONAS_PATH = '/scripts/personas.js';
+
 export interface HostModulesImpl extends HostModules {
     /** Absolute URL a path resolves to (diagnostics). */
     url(path: string): string;

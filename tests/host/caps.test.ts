@@ -80,6 +80,7 @@ describe('built-in probes', () => {
 
     function fakeModules(
         overrides: Partial<Record<keyof HostModules, Record<string, unknown> | Error>> = {},
+        loaded: Record<string, Record<string, unknown> | Error> = {},
     ): HostModules {
         const defaults: Record<string, Record<string, unknown>> = {
             worldInfo: { getSortedEntries: () => [], checkWorldInfo: () => ({}), world_info_position: { before: 0 } },
@@ -103,7 +104,20 @@ describe('built-in probes', () => {
             chats: get('chats'),
             regexEngine: get('regexEngine'),
             utils: get('utils'),
-            load: async () => ({}),
+            load: async (path: string) => {
+                const byPath: Record<string, Record<string, unknown> | Error> = {
+                    '/scripts/personas.js': {
+                        initPersona: async () => {},
+                        getUserAvatars: async () => [],
+                        setUserAvatar: async () => {},
+                        user_avatar: 'user-default.png',
+                    },
+                    ...loaded,
+                };
+                const value = byPath[path] ?? {};
+                if (value instanceof Error) throw value;
+                return value;
+            },
         };
     }
 
@@ -142,10 +156,13 @@ describe('built-in probes', () => {
         context['powerUserSettings'] = { experimental_macro_engine: false };
         mock.extensionSettings['disabledExtensions'] = ['connection-manager'];
         const caps = await probe(
-            fakeModules({
-                worldInfo: { getSortedEntries: () => [], checkWorldInfo: 'not a function' },
-                regexEngine: new Error('404'),
-            }),
+            fakeModules(
+                {
+                    worldInfo: { getSortedEntries: () => [], checkWorldInfo: 'not a function' },
+                    regexEngine: new Error('404'),
+                },
+                { '/scripts/personas.js': { initPersona: async () => {}, user_avatar: '' } },
+            ),
             '1.20.1',
         );
         const byId = new Map(caps.report().map((entry) => [entry.id, entry]));
@@ -172,6 +189,11 @@ describe('built-in probes', () => {
             detail: 'ST 1.20.1; Maestro is tested with 1.19',
         });
         expect(byId.get('st.files')?.ok).toBe(true);
+        expect(byId.get('st.personas')).toEqual({
+            id: 'st.personas',
+            ok: false,
+            detail: 'missing exports: getUserAvatars, setUserAvatar',
+        });
     });
 
     it('assumes 1.19 when the version is unknown', async () => {

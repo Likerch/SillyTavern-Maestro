@@ -2,6 +2,7 @@
 // neighbour version switches off only what depends on the missing piece (plan §4.3). Probes never throw:
 // an exception or rejection is reported as a missing capability with the error as detail.
 import type { Capabilities, CapabilityReport, HostModules, Logger } from '../shared/contracts';
+import { ST_PERSONAS_PATH } from './modules';
 
 export type ProbeOutcome = boolean | { ok: boolean; detail?: string };
 export type Probe = () => ProbeOutcome | Promise<ProbeOutcome>;
@@ -120,6 +121,7 @@ function errorText(error: unknown): string {
  * | `st.regex` | extensions/regex/engine.js exports `getRegexScripts` |
  * | `st.macros.newEngine` | `power_user.experimental_macro_engine === true` (public/scripts/power-user.js; default true in 1.19) |
  * | `st.version.1.19` | the server version (`GET /version` → `pkgVersion`) starts with `1.19`; unknown → true with a detail |
+ * | `st.personas` | personas.js exports `initPersona`, `getUserAvatars`, `setUserAvatar` and `user_avatar` (M41) |
  */
 export const BUILTIN_CAPABILITIES = [
     'st.events.scanDone',
@@ -141,6 +143,7 @@ export const BUILTIN_CAPABILITIES = [
     'st.regex',
     'st.macros.newEngine',
     'st.version.1.19',
+    'st.personas',
 ] as const;
 
 export type BuiltinCapability = (typeof BUILTIN_CAPABILITIES)[number];
@@ -260,6 +263,16 @@ export function registerBuiltinProbes(caps: CapabilityRegistry, deps: BuiltinPro
         if (version.startsWith('1.19')) return { ok: true, detail: version };
         return { ok: false, detail: `ST ${version}; Maestro is tested with 1.19` };
     });
+
+    caps.probe(
+        'st.personas',
+        exportsProbe(() => modules.load(ST_PERSONAS_PATH), {
+            initPersona: 'function',
+            getUserAvatars: 'function',
+            setUserAvatar: 'function',
+            user_avatar: 'present',
+        }),
+    );
 }
 
 function hasExport(namespace: Record<string, unknown>, name: string, kind: ExportKind): boolean {
