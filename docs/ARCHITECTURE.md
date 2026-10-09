@@ -10,7 +10,7 @@ This file is the contract for everyone writing Maestro code (humans and agents).
 | `src/shared/` | `contracts.ts` (all service interfaces, `App`, `MaestroModule`) and constants | nothing |
 | `src/domain/` | pure logic: no DOM, network, `SillyTavern`, `console` | `shared` |
 | `src/host/` | the only door to SillyTavern: context, events with ordering, runtime imports of ST modules, capabilities, fetch gate | `shared`, `domain` |
-| `src/core/` | services: settings, i18n, logger, files, chat store, leader, tasks, user jobs, LLM client, cost, journal, autonomy, inbox, ephemeral, bus, turn pipeline | `shared`, `domain`, `host` |
+| `src/core/` | services: settings, i18n, the story language, logger, files, chat store, leader, tasks, user jobs, LLM client, cost, journal, autonomy, inbox, ephemeral, bus, turn pipeline | `shared`, `domain`, `host` |
 | `src/adapters/<id>/` | one neighbour extension each (des, desru, ck, bunnymo, qvink, nai, localizer, preset, dramatis) | `shared`, `domain`, `host`, `core` |
 | `src/ui/` | generic components, the windows shell (side panels, floating windows, menu), styles | `shared`, `domain`, `host`, `core` |
 | `src/features/<key>/` | modules M1–M35 | everything except `app` |
@@ -79,6 +79,10 @@ Rules:
 - Long jobs the user starts himself (localize a book …) run through `app.jobs` (core/jobs.ts): one job per key,
   progress and «Stop», visible in the Tasks tab and as a ring on the top-bar icon; the view that started it draws
   its state from the job, so closing and reopening it loses nothing. Background work stays in `app.tasks`.
+- The story language («Язык истории», 1.20): whatever Maestro writes in the story's language for the player (prepared
+  names and texts, DES seeds, the recap, the format hint) asks `storyLanguage(app)` (core/language.ts: the core
+  setting, else the player's messages, else the interface language), never its own script detector. Detectors that
+  must follow the words actually written (chronicle keys) stay on the chat.
 - Performance: nothing heavy on the send path (P15). Listeners on `WORLDINFO_ENTRIES_LOADED` /
   `WORLDINFO_SCAN_DONE` must be idempotent and cheap; cache by entry hash.
 
