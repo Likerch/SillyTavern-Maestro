@@ -45,6 +45,14 @@ export const UI_STRINGS: I18nParts = {
         'ui.menu.studios': 'Studios',
         'ui.menu.jobs': 'Your tasks',
         'ui.menu.settings': 'Settings',
+        'ui.menu.back': 'Back',
+
+        'ui.composer.title': 'Maestro: quick actions',
+        'ui.prompt.ok': 'OK',
+        'ui.prompt.cancel': 'Cancel',
+        'ui.settings.composerButton': 'Maestro button at the message box',
+        'ui.settings.composerButtonHint':
+            'One icon next to the wand under the message box: BunnyMo commands, changing clothes and other quick actions. The same actions are in the Maestro menu.',
 
         'ui.mesButton.title': 'Maestro: dossier, mechanics',
         'ui.mesButton.dossier': 'Dossier: {name}',
@@ -421,6 +429,14 @@ export const UI_STRINGS: I18nParts = {
         'ui.menu.studios': 'Студии',
         'ui.menu.jobs': 'Твои задачи',
         'ui.menu.settings': 'Настройки',
+        'ui.menu.back': 'Назад',
+
+        'ui.composer.title': 'Maestro: быстрые действия',
+        'ui.prompt.ok': 'Готово',
+        'ui.prompt.cancel': 'Отмена',
+        'ui.settings.composerButton': 'Кнопка Maestro у поля ввода',
+        'ui.settings.composerButtonHint':
+            'Один значок рядом с волшебной палочкой под полем ввода: команды BunnyMo, переодевание и другие быстрые действия. Те же действия есть в меню Maestro.',
 
         'ui.mesButton.title': 'Maestro: досье, механики',
         'ui.mesButton.dossier': 'Досье: {name}',

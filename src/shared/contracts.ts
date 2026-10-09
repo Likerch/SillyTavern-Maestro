@@ -61,6 +61,8 @@ export interface CoreSettings {
      * it fills the default ('auto').
      */
     storyLanguage?: 'auto' | 'ru' | 'en';
+    /** The Maestro button at the message box with quick actions (M40). Optional until filled with the default (on). */
+    composerButton?: boolean;
 }
 
 export type ChatNoticesLevel = 'all' | 'pending' | 'none';
@@ -738,6 +740,47 @@ export interface Ui {
     windowOfTab?(tabId: string): string | undefined;
     /** Lines under chat messages (plan-2 §5, §6.А): proposals, remembered facts, mechanics changes, rolls. */
     addMessageStripProvider?(provider: MessageStripProvider): Unsubscribe;
+    /**
+     * Quick actions of the Maestro button at the message box (M40; also listed in the Maestro menu): a module adds its
+     * group of items with visibility predicates. The button hides while no group has items.
+     */
+    addComposerAction?(group: ComposerGroup): Unsubscribe;
+    /** A line of text from the user through ST's input popup; null when cancelled or left empty. */
+    prompt?(title: string, options?: { value?: string; hint?: string }): Promise<string | null>;
+}
+
+/* ------------------------------------------------------------------ quick actions at the message box (M40) */
+
+/** One action of the Maestro button at the message box (and of the Maestro menu). */
+export interface ComposerItem {
+    /** Stable id within its group. */
+    id: string;
+    /** Translated label. */
+    label: string;
+    icon?: string;
+    /** A second, quieter line («психологический разбор персонажа, долго»). */
+    hint?: string;
+    /** Marks the current choice (the outfit on). */
+    active?: boolean;
+    /** Runs the action (the menu closes first); a rejection is shown as an error notice. */
+    run?(): void | Promise<void>;
+    /** A nested list instead of an action, built when it is opened. */
+    submenu?(): ComposerItem[];
+}
+
+/** A group of quick actions a module adds to the Maestro button at the message box (Ui.addComposerAction). */
+export interface ComposerGroup {
+    id: string;
+    /** Sort order of the group (lower first). */
+    order: number;
+    /** Translated heading, read on every open. */
+    label(): string;
+    /** False hides the whole group (no BunnyMo core, no chat, switched off in the settings). */
+    visible?(): boolean;
+    /** The items now: cheap, called when the menu opens and when the button checks whether it has anything to show. */
+    items(): ComposerItem[];
+    /** Asks the button to check again whether it has anything to show. */
+    onChange?(listener: () => void): Unsubscribe;
 }
 
 /* ------------------------------------------------------------------ windows (plan-2 §10) */

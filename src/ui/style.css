@@ -1717,6 +1717,26 @@
     min-height: var(--maestro-tap);
 }
 
+/* Submenus: the chevron of an item that opens one, the title of the open one next to «Назад». */
+.maestro-menu-more {
+    margin-inline-start: auto;
+    color: var(--maestro-muted);
+    font-size: 0.8em;
+}
+
+.maestro-menu-back-group .maestro-menu-title {
+    padding-top: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* The button at the message box (M40) takes ST's own look of #leftSendForm icons; only the open state is ours. */
+#maestro-composer-button[aria-expanded='true'] {
+    opacity: 1;
+    color: var(--maestro-accent);
+}
+
 /* ------------------------------------------------------------------ phones (ST breakpoint) */
 
 @media screen and (max-width: 1000px) {

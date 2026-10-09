@@ -94,6 +94,15 @@ export function settingsTab(env: ViewEnv): PultTab {
                 t('ui.settings.modeHint'),
             ),
             toggle({
+                label: t('ui.settings.composerButton'),
+                hint: t('ui.settings.composerButtonHint'),
+                checked: core().composerButton !== false,
+                onChange: (checked) => {
+                    core().composerButton = checked;
+                    commit('core.composerButton');
+                },
+            }),
+            toggle({
                 label: t('ui.settings.debug'),
                 hint: t('ui.settings.debugHint'),
                 checked: core().debug,

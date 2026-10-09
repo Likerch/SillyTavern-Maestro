@@ -1,6 +1,7 @@
 // The Maestro menu (plan-2 §10 п.3): what the top-bar icon, the wand item and `/maestro` open. Windows with their
 // badges (open ones marked), the studios as launchers, the jobs the user started (progress; a click opens the job's
-// own view) and «Настройки». The top bar gets no icons of its own (plan-2 В18).
+// own view), the quick actions of the button at the message box (M40) and «Настройки». The top bar gets no icons of
+// its own (plan-2 В18).
 import type { I18n, UserJobs } from '../../shared/contracts';
 import { jobStatus } from '../views/jobs';
 import { STUDIO_WINDOWS } from './builtin';
@@ -12,6 +13,8 @@ export interface MainMenuDeps {
     windows: WindowManager;
     menu: FloatingMenu;
     jobs(): UserJobs | undefined;
+    /** More groups before «Настройки» (the quick actions of the button at the message box). */
+    extra?(): MenuGroup[];
 }
 
 export class MainMenu {
@@ -36,6 +39,7 @@ export class MainMenu {
         this.deps.menu.open(anchor, this.groups(), {
             label: this.deps.i18n.t('ui.menu.label'),
             className: 'maestro-main-menu',
+            backLabel: this.deps.i18n.t('ui.menu.back'),
             onClose: () => anchor.setAttribute('aria-expanded', 'false'),
         });
     }
@@ -93,6 +97,7 @@ export class MainMenu {
             { label: t('ui.menu.windows'), items: windowItems },
             { label: t('ui.menu.studios'), items: studioItems },
             { label: t('ui.menu.jobs'), items: jobItems },
+            ...(this.deps.extra?.() ?? []),
             {
                 items: [
                     {

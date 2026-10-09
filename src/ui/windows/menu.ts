@@ -1,6 +1,8 @@
-// A small drop-down menu anchored to a button (the top-bar icon, the wand item, a message's Maestro button). It is
-// Maestro's own body-level node: closed by a click elsewhere, Escape, choosing an item or a resize; arrow keys move
-// between items. Phones (≤1000px) get it full width under the top bar with 44px rows.
+// A small drop-down menu anchored to a button (the top-bar icon, the wand item, a message's Maestro button, the button
+// at the message box). It is Maestro's own body-level node: closed by a click elsewhere, Escape, choosing an item or a
+// resize; arrow keys move between items. An item with a submenu opens it in place, with «Назад» on top (ArrowLeft goes
+// back). Phones (≤1000px) get it full width with 44px rows: under the anchor, or above it when the anchor sits low
+// (the message box).
 import type { Logger } from '../../shared/contracts';
 import { el, icon } from '../components/dom';
 import { progressBar } from '../components/progress';
@@ -18,6 +20,8 @@ export interface MenuItem {
     /** A job's progress bar: done/total, or indeterminate with `total` undefined. */
     progress?: { done?: number; total?: number };
     run(): void;
+    /** A nested list opened in place instead of running (built when opened). */
+    submenu?(): MenuGroup[];
 }
 
 export interface MenuGroup {
@@ -31,6 +35,8 @@ export interface MenuOptions {
     className?: string;
     /** Called once when the menu closes (for aria-expanded on the anchor). */
     onClose?(): void;
+    /** Label of the item that leaves a submenu (translated). */
+    backLabel?: string;
 }
 
 const MARGIN = 8;
@@ -39,6 +45,9 @@ export class FloatingMenu {
     private node: HTMLElement | null = null;
     private anchor: HTMLElement | null = null;
     private options: MenuOptions | null = null;
+    /** The root groups (kept up to date by update()) and the open submenus, innermost last. */
+    private root: MenuGroup[] = [];
+    private readonly stack: { item: MenuItem; groups: MenuGroup[] }[] = [];
     private readonly offs: (() => void)[] = [];
 
     constructor(private readonly log: Logger) {}
@@ -60,6 +69,8 @@ export class FloatingMenu {
             attrs: { role: 'menu', 'aria-label': options.label, tabindex: '-1' },
         });
         this.node = node;
+        this.root = groups;
+        this.stack.length = 0;
         this.fill(groups);
         document.body.appendChild(node);
         this.place();
@@ -80,9 +91,11 @@ export class FloatingMenu {
         this.focusItem(0);
     }
 
-    /** Re-renders the items of the open menu (badges, jobs) without moving it. */
+    /** Re-renders the items of the open menu (badges, jobs) without moving it; an open submenu stays. */
     update(groups: MenuGroup[]): void {
         if (!this.node) return;
+        this.root = groups;
+        if (this.stack.length) return;
         const focused = document.activeElement instanceof HTMLElement ? document.activeElement.dataset.item : undefined;
         this.fill(groups);
         if (focused)
@@ -98,6 +111,8 @@ export class FloatingMenu {
         const hadFocus = node.contains(document.activeElement);
         node.remove();
         this.node = null;
+        this.root = [];
+        this.stack.length = 0;
         const anchor = this.anchor;
         const onClose = this.options?.onClose;
         this.anchor = null;
@@ -114,10 +129,52 @@ export class FloatingMenu {
         this.close();
     }
 
+    /** The id of the item whose submenu is open (the innermost), null at the top level. */
+    submenuOf(): string | null {
+        return this.stack[this.stack.length - 1]?.item.id ?? null;
+    }
+
+    private openSubmenu(item: MenuItem): void {
+        let groups: MenuGroup[] = [];
+        try {
+            groups = item.submenu?.() ?? [];
+        } catch (error) {
+            this.log.error(`submenu "${item.id}" failed`, error);
+        }
+        this.stack.push({ item, groups });
+        this.fill(groups);
+        this.place();
+        this.focusItem(1);
+    }
+
+    private back(): void {
+        if (!this.stack.length) return;
+        this.stack.pop();
+        const top = this.stack[this.stack.length - 1];
+        this.fill(top ? top.groups : this.root);
+        this.place();
+        this.focusItem(0);
+    }
+
     private fill(groups: MenuGroup[]): void {
         const node = this.node;
         if (!node) return;
+        const top = this.stack[this.stack.length - 1];
+        const head = top
+            ? [
+                  el('div', { class: 'maestro-menu-group maestro-menu-back-group' }, [
+                      this.itemNode({
+                          id: '__back',
+                          label: this.options?.backLabel ?? '←',
+                          icon: 'fa-arrow-left',
+                          run: () => this.back(),
+                      }),
+                      el('div', { class: 'maestro-menu-heading maestro-menu-title', text: top.item.label }),
+                  ]),
+              ]
+            : [];
         node.replaceChildren(
+            ...head,
             ...groups
                 .filter((group) => group.items.length)
                 .map((group) =>
@@ -149,10 +206,20 @@ export class FloatingMenu {
                 ]),
                 badge ? el('span', { class: 'maestro-menu-badge', text: badge }) : null,
                 item.active ? el('span', { class: 'maestro-menu-dot', attrs: { 'aria-hidden': 'true' } }) : null,
+                item.submenu ? icon('fa-chevron-right', 'maestro-menu-more') : null,
             ],
         );
+        if (item.submenu) node.setAttribute('aria-haspopup', 'menu');
         node.addEventListener('click', (event) => {
             event.stopPropagation();
+            if (item.id === '__back') {
+                this.back();
+                return;
+            }
+            if (item.submenu) {
+                this.openSubmenu(item);
+                return;
+            }
             this.close();
             try {
                 item.run();
@@ -201,6 +268,19 @@ export class FloatingMenu {
                 event.preventDefault();
                 this.focusItem(items.length - 1);
                 return;
+            case 'ArrowLeft':
+            case 'Backspace':
+                if (!this.stack.length) return;
+                event.preventDefault();
+                this.back();
+                return;
+            case 'ArrowRight': {
+                const item = items[current];
+                if (!item?.getAttribute('aria-haspopup')) return;
+                event.preventDefault();
+                item.click();
+                return;
+            }
             case 'Tab':
                 this.close();
                 return;
@@ -208,7 +288,10 @@ export class FloatingMenu {
         }
     }
 
-    /** Under the anchor (above it when there is no room below), inside the screen; full width on phones. */
+    /**
+     * Under the anchor (above it when there is no room below), inside the screen; full width on phones, above the
+     * anchor when it sits in the lower half (the message box).
+     */
     private place(): void {
         const node = this.node;
         const anchor = this.anchor;
@@ -219,7 +302,17 @@ export class FloatingMenu {
             node.classList.add('maestro-menu-sheet');
             node.style.left = `${MARGIN}px`;
             node.style.right = `${MARGIN}px`;
-            node.style.top = `${Math.max(MARGIN, Math.round(rect.bottom + 4))}px`;
+            const low = view.height > 0 && rect.top > view.height / 2;
+            node.classList.toggle('maestro-menu-up', low);
+            if (low) {
+                node.style.top = '';
+                node.style.bottom = `${Math.max(MARGIN, Math.round(view.height - rect.top + 4))}px`;
+                node.style.maxHeight = `${Math.max(120, Math.round(rect.top - 4 - MARGIN))}px`;
+            } else {
+                node.style.bottom = '';
+                node.style.maxHeight = '';
+                node.style.top = `${Math.max(MARGIN, Math.round(rect.bottom + 4))}px`;
+            }
             return;
         }
         const width = node.offsetWidth || 300;

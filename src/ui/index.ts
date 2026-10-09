@@ -3,6 +3,7 @@
 // button, styles, slash commands, health checks and the first-run wizard. Core views and the Inbox's strip provider are
 // registered by app.ts after mount().
 import type {
+    ComposerGroup,
     HealthCheck,
     Host,
     I18n,
@@ -25,6 +26,7 @@ import type {
 } from '../shared/contracts';
 import { detailsView } from './components/diff';
 import { el, prefersReducedMotion, setButtonErrorHandler } from './components/dom';
+import { ComposerActions } from './views/composer';
 import { coreCommands } from './views/core-commands';
 import { EntryPoints } from './views/entry-points';
 import { healthTab } from './views/health';
@@ -80,6 +82,8 @@ export interface UiImpl extends Ui {
     isWindowOpen(id: string): boolean;
     windowOfTab(tabId: string): string | undefined;
     addMessageStripProvider(provider: MessageStripProvider): Unsubscribe;
+    addComposerAction(group: ComposerGroup): Unsubscribe;
+    prompt(title: string, options?: { value?: string; hint?: string }): Promise<string | null>;
     /** Opens the first-run wizard if it has not been completed (also runs by itself after APP_READY). */
     runFirstRunWizardIfNeeded(): boolean;
     /** Re-opens the windows that were open on this device (app.ts, once, after the modules started). */
@@ -133,6 +137,7 @@ class MaestroUi implements UiImpl, Shell {
     private readonly entries: EntryPoints;
     private readonly messageButtons: MessageButtons;
     private readonly strip: MessageStrip;
+    private readonly composer: ComposerActions;
     private readonly slash: SlashCommands;
     /** Services of the core views (jobs, modules…), known after registerCoreViews. */
     private coreDeps: CoreViewDeps | null = null;
@@ -173,6 +178,8 @@ class MaestroUi implements UiImpl, Shell {
             windows: this.windows,
             menu: this.menu,
             jobs: () => this.coreDeps?.jobs,
+            // The quick actions of the button at the message box are listed in the Maestro menu as well.
+            extra: () => this.composer.menuGroups(),
         });
         this.wizard = new Wizard({
             host: this.host,
@@ -211,6 +218,14 @@ class MaestroUi implements UiImpl, Shell {
             open: (target) => this.openTarget(target),
             onError: actionFailed,
         });
+        this.composer = new ComposerActions({
+            host: this.host,
+            i18n: this.i18n,
+            log: this.log,
+            settings: this.settings,
+            menu: this.menu,
+            onError: actionFailed,
+        });
         this.slash = new SlashCommands(this.host, this.i18n, this.log);
         setButtonErrorHandler((error) => {
             this.log.error('action failed', error);
@@ -227,12 +242,14 @@ class MaestroUi implements UiImpl, Shell {
         this.mounted = true;
         this.entries.mount();
         this.messageButtons.mount();
+        this.composer.mount();
         this.updateBadges();
         for (const event of TURN_EVENTS) this.listen(event, () => this.nextTurn());
         this.listen('APP_READY', () => {
             // ST builds some containers late; and APP_READY auto-fires for late listeners (lib/eventemitter.js).
             this.entries.mount();
             this.messageButtons.mount();
+            this.composer.mount();
             this.updateBadges();
             if (this.wizardTimer === null && !this.wizardChecked && !this.settings.core().firstRunDone) {
                 this.wizardTimer = setTimeout(() => {
@@ -308,6 +325,7 @@ class MaestroUi implements UiImpl, Shell {
         this.tabs.clear();
         this.entries.dispose();
         this.messageButtons.dispose();
+        this.composer.dispose();
         this.strip.dispose();
         this.slash.dispose();
         for (const node of this.styles.values()) node.remove();
@@ -458,6 +476,37 @@ class MaestroUi implements UiImpl, Shell {
         return this.strip.addProvider(provider);
     }
 
+    addComposerAction(group: ComposerGroup): Unsubscribe {
+        if (this.disposed) return () => {};
+        const off = this.composer.add(group);
+        this.mainMenu.refresh();
+        return () => {
+            off();
+            this.mainMenu.refresh();
+        };
+    }
+
+    async prompt(title: string, options: { value?: string; hint?: string } = {}): Promise<string | null> {
+        try {
+            const c = this.host.ctx();
+            const content = el('div', { class: 'maestro-confirm maestro-prompt' }, [
+                el('h3', { class: 'maestro-confirm-title', text: title }),
+                options.hint ? el('div', { class: 'maestro-confirm-body maestro-muted', text: options.hint }) : null,
+            ]);
+            const result = await c.callGenericPopup(content, c.POPUP_TYPE.INPUT, options.value ?? '', {
+                okButton: this.i18n.t('ui.prompt.ok'),
+                cancelButton: this.i18n.t('ui.prompt.cancel'),
+                leftAlign: true,
+            });
+            if (typeof result !== 'string') return null;
+            const text = result.trim();
+            return text || null;
+        } catch (error) {
+            this.log.error('prompt failed', error);
+            return null;
+        }
+    }
+
     style(id: string, css: string): Unsubscribe {
         if (this.disposed) return () => {};
         let node = this.styles.get(id);
@@ -556,6 +605,7 @@ class MaestroUi implements UiImpl, Shell {
         this.menu.close();
         this.entries.relocalize();
         this.messageButtons.relocalize();
+        this.composer.relocalize();
         this.windows.relocalize();
         this.strip.repaintAll();
     }

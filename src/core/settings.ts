@@ -23,6 +23,7 @@ export function defaultCoreSettings(): CoreSettings {
         showTechnical: false,
         chatNotices: 'all',
         storyLanguage: 'auto',
+        composerButton: true,
     };
 }
 
@@ -157,5 +158,6 @@ export function migrateCore(settings: CoreSettings): CoreSettings {
     if (typeof settings.showTechnical !== 'boolean') settings.showTechnical = false;
     if (!CHAT_NOTICES.includes(settings.chatNotices as ChatNoticesLevel)) settings.chatNotices = 'all';
     if (!STORY_LANGUAGES.includes(settings.storyLanguage as StoryLanguageChoice)) settings.storyLanguage = 'auto';
+    if (typeof settings.composerButton !== 'boolean') settings.composerButton = true;
     return settings;
 }
