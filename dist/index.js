@@ -111869,6 +111869,14 @@ var MechanicState = class {
 		if (this.app.host.isGroupChat()) return ((ctx.groups ?? []).find((item) => item.id === ctx.groupId)?.members ?? []).map((avatar) => ctx.characters.find((character) => character.avatar === avatar)?.name ?? "").filter(Boolean);
 		return ctx.name2 ? [ctx.name2] : [];
 	}
+	/** The tracker's name of a holder in the scene (DES writes it as the story does), else the holder. */
+	shownName(holder) {
+		const names = this.trackerCharacters();
+		if (!names?.length) return holder;
+		const world = worldOf(this.app);
+		for (const name of names) if (safe$4(() => world?.resolve(name, "character")?.name ?? name, name) === holder) return name;
+		return holder;
+	}
 	presentCharacters() {
 		const names = this.trackerCharacters() ?? this.fallbackCharacters();
 		const world = worldOf(this.app);
@@ -116950,6 +116958,13 @@ var MechanicsService = class {
 	onEvent(listener) {
 		return this.statePart.onEvent?.(listener) ?? (() => void 0);
 	}
+	shownName(holder) {
+		try {
+			return this.statePart.shownName?.(holder) ?? holder;
+		} catch {
+			return holder;
+		}
+	}
 	holdersInScene(mechanicId) {
 		const def = this.defs.get(mechanicId);
 		if (!def) return [];
@@ -117169,7 +117184,7 @@ function sideHolder(i18n, api, holder, open, onToggle) {
 	const view = holderView(i18n, api, holder, "hud", { full: true });
 	if (!view) return null;
 	const summary = el("summary", {
-		text: holder,
+		text: api.shownName?.(holder) ?? holder,
 		data: { focusKey: `holder:${holder}` }
 	});
 	const details = el("details", { attrs: { open } }, [summary, view]);
@@ -117906,7 +117921,7 @@ var MechanicsHud = class {
 		}, [
 			el("span", {
 				class: "maestro-m25-hud-name",
-				text: holder
+				text: this.api.shownName?.(holder) ?? holder
 			}),
 			...values,
 			...statuses,
@@ -124801,7 +124816,7 @@ var MechanicStrip = class {
 			data: { holder: row.holder }
 		}, [el("span", {
 			class: "maestro-m25-strip-name",
-			text: row.holder
+			text: this.state.shownName?.(row.holder) ?? row.holder
 		}), ...row.stats.map((stat) => stat.shown && stat.attribute && stat.shown.view !== "number" && stat.shown.view !== "bar" ? el("span", {
 			class: "maestro-m25-strip-stat",
 			title: stat.label
