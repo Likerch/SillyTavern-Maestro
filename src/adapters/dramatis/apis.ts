@@ -178,6 +178,45 @@ export interface DramatisStartMember {
     gender?: 'female' | 'male';
 }
 
+/** One line of a character summary; `secret` lines are hidden or blurred as `DramatisCharacterView.secrets` says. */
+export interface DramatisViewLine {
+    text: string;
+    secret?: boolean;
+}
+
+/** A display-ready summary of one character in the UI language (DRAMATIS_API.describe). */
+export interface DramatisCharacterView {
+    name: string;
+    /** One line under the name: the concept, else the role. */
+    headline?: string;
+    /** «эскиз / набросок / портрет». */
+    detail?: string;
+    sections: { id: string; title: string; lines: DramatisViewLine[] }[];
+    /** The user's choice for hidden things: show all, blur until clicked, or leave them out. */
+    secrets: 'open' | 'spoiler' | 'known';
+}
+
+/** Where the author-intent reading of the current card stands (DRAMATIS_API.intentState). */
+export interface DramatisIntentState {
+    /** The current card has been read. */
+    read: boolean;
+    /** When (ms since epoch). */
+    at?: number;
+    characters: number;
+    groups: number;
+    running: boolean;
+}
+
+export interface DramatisReadOutcome {
+    ok: boolean;
+    characters: number;
+    /** The summary the user would see («Замысел прочитан: 3 персонажа…»). */
+    message?: string;
+    error?: string;
+    /** Nothing to do: the card did not change since the last reading. */
+    skipped?: boolean;
+}
+
 export interface DramatisApiV1 {
     version: 1;
     dramatisVersion: string;
@@ -202,6 +241,17 @@ export interface DramatisApiV1 {
      * and their stance toward the player; [] when Dramatis has not read the card. Maestro seeds DES from it.
      */
     startCast?(greeting: number): DramatisStartMember[];
+    /** Optional (1.3+): where the author-intent reading of the current card stands; null outside a solo chat. */
+    intentState?(): DramatisIntentState | null;
+    /**
+     * Optional (1.3+): reads the author's intent of the current card now (the user's action — interactive, not capped).
+     * Without `force` a card whose sources did not change is skipped.
+     */
+    readIntent?(options?: { force?: boolean }): Promise<DramatisReadOutcome>;
+    /** Optional (1.3+): a display-ready summary of a character of the current chat, null when Dramatis has none. */
+    describe?(name: string): DramatisCharacterView | null;
+    /** Optional (1.3+): opens Dramatis' «Лист замысла» window, on that character when a name is given. */
+    openSheet?(name?: string): void;
     /** Fired when stances, goals or the cast changed. */
     onChange(listener: () => void): ApiUnsubscribe;
 }
