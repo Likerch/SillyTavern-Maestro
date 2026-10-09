@@ -15,14 +15,15 @@
 // Autonomy kind 'medic.trackerRepair' (default 'auto'); every repair is journaled and can be undone. An automatic
 // repair is announced by autonomy itself (Proposal.appliedNotice, grouped per turn).
 import { adaptersOf } from '../../adapters';
+import { loadDesKit } from '../../adapters/des/kit';
+import type { DesKit, DesSections } from '../../adapters/des/kit';
 import { tPlural } from '../../core/labels';
 import { desSwipeRecord } from '../../domain/des-tracker';
 import { stableHash } from '../../domain/hash';
 import { buildCompactRepairPrompt, sameTrackerRecord, trackerMissing } from '../../domain/medic-des';
 import type { App, JournalChange, LlmMessage, Logger, Proposal } from '../../shared/contracts';
-import { loadDesKit } from './des-kit';
+import type { PrepareApi } from '../prepare/api';
 import { isPicturePost } from './sources';
-import type { DesKit, DesSections } from './des-kit';
 
 export const REPAIR_KIND = 'medic.trackerRepair';
 export const TRACKER_TARGET = 'des-tracker-swipe';
@@ -108,7 +109,7 @@ export class TrackerRepair {
         const chat = this.app.host.ctx().chat;
         const message = chat[index];
         if (!message || message.is_user || message.is_system || !this.isLatestTurn(index)) return { block: 'message' };
-        if (!trackerMissing(desSwipeRecord(message))) return { block: 'present' };
+        if (!trackerMissing(desSwipeRecord(message)) || preparedStart(this.app, index)) return { block: 'present' };
         if (des.isWorkshopOpen()) return { block: 'workshop' };
         if (this.app.turn.current() !== null) return { block: 'busy' };
         const kit = await this.kit();
@@ -403,6 +404,19 @@ export class TrackerRepair {
                   }
                 : { level: 'warn', importance },
         );
+    }
+}
+
+/**
+ * The greeting (message 0, before the player's first message) carries the DES tracker M37 «Подготовить к игре»
+ * prepared for it (1.18): never repaired — DES writes an empty record over it on its own events and M37 puts it back.
+ */
+export function preparedStart(app: App, index: number): boolean {
+    if (index !== 0) return false;
+    try {
+        return app.modules.api<Pick<PrepareApi, 'desSeeded'>>('prepare')?.desSeeded?.() === true;
+    } catch {
+        return false;
     }
 }
 

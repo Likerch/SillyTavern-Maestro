@@ -31,6 +31,8 @@ export interface PrepareSettings {
     maxTokens: number;
     /** Generate NAI passports (text, never Anlas) for characters without one. */
     passports: boolean;
+    /** Put the prepared starting scenes into DES's tracker of the greetings (release 1.18). */
+    desSeed: boolean;
 }
 
 export const LIMITS = {
@@ -49,6 +51,7 @@ export function defaultPrepareSettings(): PrepareSettings {
         entryChars: 2500,
         maxTokens: 6000,
         passports: true,
+        desSeed: true,
     };
 }
 
@@ -68,5 +71,6 @@ export function readPrepareSettings(slice: Partial<PrepareSettings>): PrepareSet
         if (raw[key] !== value) raw[key] = value;
     }
     if (typeof raw.passports !== 'boolean') raw.passports = defaults.passports;
+    if (typeof raw.desSeed !== 'boolean') raw.desSeed = defaults.desSeed;
     return slice as PrepareSettings;
 }

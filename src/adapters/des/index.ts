@@ -177,6 +177,14 @@ export class DesAdapter extends NeighbourBase<'des'> {
         return isDict(roster) ? Object.keys(roster) : [];
     }
 
+    /**
+     * DES keeps this chat's roster in the chat (`perChatCharacterTracking` on and the chat's tracker state there): its
+     * accessor (persistence.js getActiveKnownCharacters) then hands out the chat's roster, not DES's global one.
+     */
+    rosterPerChat(): boolean {
+        return this.settings()?.perChatCharacterTracking === true && this.chatState() !== null;
+    }
+
     /** Names hidden from "Present Characters" in this chat (DES compares them case-insensitively). */
     removedCharacters(): string[] {
         return stringList(this.chatState()?.removedCharacters);

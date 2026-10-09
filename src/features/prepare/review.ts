@@ -441,6 +441,15 @@ function detailsOf(
     return details;
 }
 
+/** DES is there and shows what the starting scenes would fill (the switch «Персонажи в DES» is offered). */
+function desOffered(ui: PrepareUi): boolean {
+    try {
+        return ui.engine.desSeedOffered();
+    } catch {
+        return false;
+    }
+}
+
 function footerOf(
     ui: PrepareUi,
     plan: PreparePlan,
@@ -451,6 +460,9 @@ function footerOf(
     const t = ui.t.bind(ui);
     const passports = draft.passports ?? ui.settings().passports;
     const hasCharacters = plan.items.some((item) => item.kind === 'character' && !isPersona(item));
+    // «Персонажи в DES» (1.18): the starting scenes go into DES's tracker of the greetings.
+    const desSeed = draft.desSeed ?? ui.settings().desSeed;
+    const offerDes = plan.items.some((item) => item.kind === 'scene') && desOffered(ui);
     return el('div', { class: 'maestro-m37w-footer' }, [
         apply ? apply.counter : null,
         hasCharacters
@@ -459,6 +471,15 @@ function footerOf(
                   checked: passports,
                   onChange: (checked) => {
                       draft.passports = checked;
+                  },
+              })
+            : null,
+        offerDes
+            ? toggle({
+                  label: t('m37.ui.desSeed'),
+                  checked: desSeed,
+                  onChange: (checked) => {
+                      draft.desSeed = checked;
                   },
               })
             : null,

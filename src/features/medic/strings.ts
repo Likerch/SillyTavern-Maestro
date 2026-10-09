@@ -34,6 +34,7 @@ export const MEDIC_STRINGS: I18nParts = {
         'm3.des.absent': "Doom's Enhancement Suite is not active.",
         'm3.tracker.notTogether': 'DES does not write the tracker together with the reply.',
         'm3.tracker.ok': 'DES read the tracker of the last reply.',
+        'm3.tracker.prepared': 'The opening message carries the tracker the story preparation made for it.',
         'm3.tracker.missing': 'Reply #{index} has no DES tracker. The fix asks the model for it in the background.',
         'm3.regex.ok': 'No sign of a damaged tracker.',
         'm3.regex.damage':
@@ -128,6 +129,7 @@ export const MEDIC_STRINGS: I18nParts = {
         'm3.des.absent': "Doom's Enhancement Suite не активен.",
         'm3.tracker.notTogether': 'DES пишет трекер не вместе с ответом.',
         'm3.tracker.ok': 'DES разобрал трекер последнего ответа.',
+        'm3.tracker.prepared': 'В первом сообщении — трекер, подготовленный к игре.',
         'm3.tracker.missing': 'В ответе №{index} нет трекера DES. Исправление попросит модель восстановить его в фоне.',
         'm3.regex.ok': 'Признаков испорченного трекера нет.',
         'm3.regex.damage':

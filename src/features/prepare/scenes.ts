@@ -280,6 +280,11 @@ export class StartScenes {
         return found ? clonePlan(found) : undefined;
     }
 
+    /** Every stored scene of this chat (copies; the document is read first). */
+    async all(): Promise<StoredScene[]> {
+        return clonePlan((await this.load()).scenes);
+    }
+
     /** The active scene set the director's type (the direction's own type then stays out). */
     async typed(): Promise<boolean> {
         return !!(await this.load()).active?.director;

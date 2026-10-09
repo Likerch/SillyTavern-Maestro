@@ -19,6 +19,9 @@
 // 7. `startScenes()` — every greeting of the card is a start of its own (the alternate greetings are the swipes of
 //    message 0): the greeting shown now, the scenes prepared for this chat, the active one (its outfits, type of the
 //    first scene and canon note are applied; it follows the greeting swipe until the player's first message), the lock.
+// 8. «Персонажи в DES» (1.18): `apply(…, { desSeed })` also gives every prepared greeting its DES tracker (one line of
+//    the summary, item id 'des', kind 'des', with its own undo); `desSeedOffered()` tells the review to show the switch,
+//    `desSeeded()` that the greeting on screen carries a prepared tracker.
 // The module's own face uses nothing but this API (plus the service's `watch()` while the window shows the job):
 // controller.ts (shared actions, per-chat drafts), offer.ts (the strip line under the greeting, the quiet notice),
 // window.ts + review.ts (the window «Подготовка к игре», or the pult tab «Подготовка» in a shell without windows).
@@ -81,16 +84,24 @@ export interface PrepareApplyOptions {
     /** Generate NAI passports (text only, never Anlas) for characters without one (default: the module setting). */
     passports?: boolean;
     /**
+     * Put the prepared starting scenes into DES (release 1.18): who is in each one, their looks, behaviour, clothes,
+     * relationship, thoughts and stats, the scene's date, time, place and weather (default: the module setting).
+     */
+    desSeed?: boolean;
+    /**
      * Items «для персонажа» write into the card's own Maestro book and the card's passports; the user is asked once
      * unless the caller already asked (its own dialog): `confirmed: true`.
      */
     confirmed?: boolean;
 }
 
+/** What a line of the summary is about: an item of the plan, or 'des' — the starting scenes in DES (release 1.18). */
+export type ApplyLineKind = PrepareKind | 'des';
+
 /** One applied item in story words. */
 export interface ApplyLine {
     itemId: string;
-    kind: PrepareKind;
+    kind: ApplyLineKind;
     /** «Вера — в канон, паспорт» / «Механика «Репутация» с начальными значениями». */
     text: string;
     /** Journal record of the part (undo). */
@@ -167,6 +178,13 @@ export interface PrepareApi {
     status(): Promise<ReadyStatus>;
     /** The starting scenes of this chat (sync; empty until the chat's document is read). */
     startScenes(): StartScenesInfo;
+    /** DES is there, on and shows something the prepared starting scenes would fill (the switch «Персонажи в DES»). */
+    desSeedOffered(): boolean;
+    /**
+     * The greeting message 0 shows now carries the DES tracker Maestro prepared for it (sync; false until the chat's
+     * document is read). M3 «Медик» never repairs it.
+     */
+    desSeeded(): boolean;
     /** The item as one Russian line (its own line, else a made-up one from the data). */
     describe(item: AnyPrepareItem): string;
     onChange(listener: () => void): Unsubscribe;

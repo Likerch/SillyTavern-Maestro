@@ -44,6 +44,7 @@ export type {
     DramatisAgenda,
     DramatisApiV1,
     DramatisStanceInfo,
+    DramatisStartMember,
     MaestroApiV1,
     MaestroQuietFunction,
     QuietClaim,

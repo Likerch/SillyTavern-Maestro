@@ -1,8 +1,10 @@
-// DES's own ES modules for the tracker repair (research/des.md §4 "Importing DES modules", §8). They are imported
-// by the same URL DES's index.js uses, so ST's module map hands back DES's live instances: `export let` values
-// (lastGeneratedData, committedTrackerData, isGenerating) are read through the namespace every time, never cached.
-// Every module below is statically imported by DES's index.js, so importing it runs no DES code a second time.
-import { adaptersOf } from '../../adapters';
+// DES's own ES modules for writing its tracker the way DES does (research/des.md §4 "Importing DES modules", §8): the
+// tracker repair of M3 «Медик» and the prepared starting scenes of M37 «Подготовить к игре» (release 1.18). They are
+// imported by the same URL DES's index.js uses, so ST's module map hands back DES's live instances: `export let`
+// values (lastGeneratedData, committedTrackerData, isGenerating) are read through the namespace every time, never
+// cached. Every module below is statically imported by DES's index.js, so importing it runs no DES code a second time.
+// Plan §10.8–9: callers check the Workshop first; the roster goes through DES's accessors (persistence.js
+// getActiveKnownCharacters / saveCharacterRosterChange), never `chat_metadata.dooms_tracker` directly.
 import type { App, Logger } from '../../shared/contracts';
 
 type Namespace = Record<string, unknown>;
@@ -33,6 +35,7 @@ export const DES_KIT_MODULES = {
     quests: { path: 'src/systems/rendering/quests.js', required: ['renderQuests'] },
     sceneHeaders: { path: 'src/systems/rendering/sceneHeaders.js', required: ['updateChatSceneHeaders'] },
     portraitBar: { path: 'src/systems/ui/portraitBar.js', required: ['updatePortraitBar'] },
+    weather: { path: 'src/systems/ui/weatherEffects.js', required: ['updateWeatherEffect'] },
     bubbles: { path: 'src/systems/rendering/chatBubbles.js', required: ['harvestNewSpeakerColors'] },
     trackerJson: { path: 'src/systems/rendering/trackerJsonInline.js', required: ['syncTrackerJsonForMessage'] },
     injector: { path: 'src/systems/generation/injector.js', required: ['clearBoostForAppearedFields'] },
@@ -40,7 +43,7 @@ export const DES_KIT_MODULES = {
 
 export type DesKitKey = keyof typeof DES_KIT_MODULES;
 
-/** Without these the repair cannot write DES's state the way DES does. */
+/** Without these the kit cannot write DES's state the way DES does. */
 const REQUIRED: readonly DesKitKey[] = ['state', 'persistence', 'parser'];
 
 /**
@@ -49,6 +52,16 @@ const REQUIRED: readonly DesKitKey[] = ['state', 'persistence', 'parser'];
  */
 export function desFolderPath(extensionName: string): string {
     return `/scripts/extensions/${extensionName.split('/').map(encodeURIComponent).join('/')}/`;
+}
+
+/** The display/generation sections of a prepared start (quests are never written). */
+export interface DesStartSections {
+    infoBox: string | null;
+    characterThoughts: string | null;
+}
+
+function sectionText(value: unknown): string | null {
+    return typeof value === 'string' ? value : null;
 }
 
 export class DesKit {
@@ -204,6 +217,68 @@ export class DesKit {
         this.call('trackerJson', 'syncTrackerJsonForMessage', messageIndex);
     }
 
+    /* ---------------------------------------------------------------- a prepared start (M37, release 1.18) */
+
+    /** The scene and characters sections DES shows and generates from now (copies of the strings). */
+    startState(): { last: DesStartSections | null; committed: DesStartSections | null } {
+        const pick = (value: Record<string, unknown> | null): DesStartSections | null =>
+            value
+                ? { infoBox: sectionText(value.infoBox), characterThoughts: sectionText(value.characterThoughts) }
+                : null;
+        return { last: pick(this.lastGenerated()), committed: pick(this.committed()) };
+    }
+
+    /**
+     * Makes a starting scene's record what DES shows and generates from: `lastGeneratedData` and
+     * `committedTrackerData` both get its scene and characters sections, nulls included (a swipe to a greeting without
+     * a prepared scene clears the previous cast: DES's renderers fall back to the committed data). Quests stay. Through
+     * DES's setters (state.js updateLastGeneratedData / updateCommittedTrackerData) when it exports them.
+     */
+    setStart(sections: DesStartSections, committed: DesStartSections = sections): void {
+        const write = (setter: string, target: Record<string, unknown> | null, value: DesStartSections) => {
+            const patch = { infoBox: value.infoBox, characterThoughts: value.characterThoughts };
+            const fn = this.fn('state', setter);
+            if (fn) {
+                try {
+                    fn(patch);
+                    return;
+                } catch (error) {
+                    this.log.warn(`DES ${setter} failed`, error);
+                }
+            }
+            if (target) Object.assign(target, patch);
+        };
+        write('updateLastGeneratedData', this.lastGenerated(), sections);
+        write('updateCommittedTrackerData', this.committed(), committed);
+    }
+
+    /**
+     * Redraws everything a starting scene's record shows (sillytavern.js onMessageSwiped does the same): the panels,
+     * the scene headers (cache reset first), the portrait bar (it also adds present names to DES's roster), the weather
+     * effect, the inline thoughts and the JSON dropdown of message `messageIndex`.
+     */
+    renderStart(messageIndex: number): void {
+        this.call('infoBox', 'renderInfoBox');
+        this.call('thoughts', 'renderThoughts');
+        this.call('sceneHeaders', 'resetSceneHeaderCache');
+        this.call('sceneHeaders', 'updateChatSceneHeaders');
+        this.call('portraitBar', 'updatePortraitBar');
+        this.call('weather', 'updateWeatherEffect');
+        this.call('thoughts', 'updateChatThoughts');
+        this.call('trackerJson', 'syncTrackerJsonForMessage', messageIndex);
+    }
+
+    /** DES's roster of this chat (persistence.js getActiveKnownCharacters: the live object), null without it. */
+    roster(): Record<string, unknown> | null {
+        const value = this.call('persistence', 'getActiveKnownCharacters');
+        return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
+    }
+
+    /** Saves a roster change where DES keeps it (persistence.js saveCharacterRosterChange). */
+    saveRoster(): void {
+        this.call('persistence', 'saveCharacterRosterChange');
+    }
+
     /** persistence.saveChatData({immediate: true}): rebuilds chat_metadata.dooms_tracker and saves the chat. */
     async save(): Promise<void> {
         const save = this.fn('persistence', 'saveChatData');
@@ -227,7 +302,8 @@ function hasCommittedContent(committed: Record<string, unknown>): boolean {
  * located or one of the required modules fails; optional modules are simply left out.
  */
 export async function loadDesKit(app: App, log: Logger): Promise<DesKit | null> {
-    const name = adaptersOf(app).des.extensionName();
+    const adapter = app.adapters.des as unknown as { extensionName?(): string | undefined };
+    const name = typeof adapter.extensionName === 'function' ? adapter.extensionName() : undefined;
     if (!name) return null;
     const base = desFolderPath(name);
     const modules: Partial<Record<DesKitKey, Namespace>> = {};
@@ -245,7 +321,7 @@ export async function loadDesKit(app: App, log: Logger): Promise<DesKit | null> 
     );
     const missing = REQUIRED.filter((key) => !modules[key]);
     if (missing.length) {
-        log.warn(`DES modules missing for the tracker repair: ${missing.join(', ')}`);
+        log.warn(`DES modules missing for writing the tracker: ${missing.join(', ')}`);
         return null;
     }
     return new DesKit(modules, log);

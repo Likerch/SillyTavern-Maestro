@@ -93,6 +93,23 @@ describe('DES tracker and regexes', () => {
         expect((await check('regexDamage').run()).status).toBe('ok');
     });
 
+    it('never repairs a greeting with the tracker «Подготовить к игре» prepared (M37, 1.18)', async () => {
+        // DES has just written its empty record over the greeting; preparation puts its own back.
+        env.mock.chat.push(withTracker(message('Greeting'), { quests: null, infoBox: null, characterThoughts: null }));
+        expect((await check('desTracker').run()).status).toBe('warn');
+        env.apis.set('prepare', { desSeeded: () => true });
+        const result = await check('desTracker').run();
+        expect(result.status).toBe('ok');
+        expect(result.message).toBe('The opening message carries the tracker the story preparation made for it.');
+        expect(result.fix).toBeUndefined();
+        // Its repair is refused as «there is a tracker».
+        const repairs = env.llm.request.mock.calls.length;
+        expect(
+            await (env.apis.get('medic') as { repairTracker(index: number): Promise<boolean> }).repairTracker(0),
+        ).toBe(true);
+        expect(env.llm.request.mock.calls.length).toBe(repairs);
+    });
+
     it('repairs a reply that a NAI picture post follows', async () => {
         env.mock.chat.push(
             message('Hi', { is_user: true }),

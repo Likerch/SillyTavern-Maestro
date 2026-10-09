@@ -16,7 +16,7 @@ import { detectPrefill } from './prefill';
 import type { PrefillFix } from './prefill';
 import { activeBookNames, lastStoryReply, loadBook, qvinkGapOptions, qvinkViews } from './sources';
 import type { TrackerRepair } from './tracker-repair';
-import { expectsTracker } from './tracker-repair';
+import { expectsTracker, preparedStart } from './tracker-repair';
 
 type Dict = Record<string, unknown>;
 type Translate = (key: string, params?: Record<string, string | number>) => string;
@@ -100,6 +100,8 @@ export function medicHealthChecks(deps: HealthDeps): HealthCheck[] {
                 return { status: 'skip', message: t('m3.tracker.notTogether') };
             const index = lastStoryReply(app);
             if (index < 0) return { status: 'skip', message: t('m3.noReply') };
+            // The greeting with the tracker «Подготовить к игре» prepared (M37, 1.18): nothing to repair.
+            if (preparedStart(app, index)) return { status: 'ok', message: t('m3.tracker.prepared') };
             const message = app.host.ctx().chat[index];
             if (!trackerMissing(desSwipeRecord(message))) return { status: 'ok', message: t('m3.tracker.ok') };
             return {

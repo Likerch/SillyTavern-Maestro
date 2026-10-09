@@ -1220,6 +1220,102 @@ registerSchema('maestro_prepare', (ctx) => {
     return result;
 });
 
+// «Персонажи в DES» of the preparation (src/domain/prepare-des-seed.ts, schema 'maestro_des_seed', task
+// 'prepare.desSeed'): the opening tracker of one greeting. Everyone the request marks present, with an emoji, the DES
+// fields the schema asks for (the clothing field gets the starting outfit, in Russian for the stand's garments), the
+// relationship option the stance points at, stats copied from the request, a short thought; the scene from the prepared
+// place, date and time word, the weather from the greeting's words.
+const SEED_EMOJIS = ['🛡️', '🍺', '📜', '⚓', '🗺️', '🎩'];
+const SEED_CLOTHES_RU = [
+    [/quilted watch jacket/i, 'стёганая куртка портовой стражи'],
+    [/archivist's robe/i, 'потёртая мантия архивариуса'],
+    [/dark green cloak/i, 'тёмно-зелёный плащ'],
+];
+const SEED_HOURS = [
+    [/ноч|night/i, '23:00'],
+    [/рассвет|dawn/i, '06:00'],
+    [/вечер|evening/i, '19:00'],
+];
+
+function seedRelationship(options, stance) {
+    const pick = (pattern) => options.find((option) => pattern.test(option));
+    if (stance >= 2) return pick(/friend|друг/i) ?? pick(/ally|союз/i);
+    if (stance <= -2) return pick(/enemy|враг/i);
+    return pick(/neutral|нейтрал/i);
+}
+
+registerSchema('maestro_des_seed', (ctx, rng) => {
+    const request = ctx.lastUserText;
+    const root = ctx.schema?.schema ?? {};
+    const russian = /Story language: Russian/.test(request);
+    const item = root.properties?.characters?.items?.properties ?? {};
+    const detailProps = item.details?.properties ?? {};
+    const statProps = item.stats?.properties ?? {};
+    const options = item.relationship?.enum ?? [];
+    const opening = /<opening_message>\n([\s\S]*?)\n<\/opening_message>/.exec(request)?.[1] ?? '';
+    const characters = [];
+    for (const match of request.matchAll(/^- (.+?) — present\.(.*)$/gm)) {
+        const [, name, rest] = match;
+        const wears = /Wears now: ([^.]+)\./.exec(rest)?.[1] ?? '';
+        const stance = Number(/\(([+-]?\d) of -3\.\.\+3\)/.exec(rest)?.[1] ?? 0);
+        const stats = Object.fromEntries(
+            [...(/DES stats: ([^.]+)\./.exec(rest)?.[1] ?? '').matchAll(/([^,\d]+?) (-?\d+)/g)].map((stat) => [
+                stat[1].trim(),
+                Number(stat[2]),
+            ]),
+        );
+        const details = {};
+        for (const [key, prop] of Object.entries(detailProps)) {
+            const label = String(prop.description ?? '');
+            if (/одежд|наряд|outfit|cloth|attire/i.test(label)) {
+                const ru = SEED_CLOTHES_RU.find(([pattern]) => pattern.test(wears))?.[1];
+                details[key] = russian ? (ru ?? wears) : wears;
+            } else if (/appear|внешн/i.test(label)) {
+                details[key] = russian ? 'внимательный взгляд, промокшие волосы' : 'watchful eyes, rain-soaked hair';
+            } else {
+                details[key] = russian ? 'настороженно, но вежливо' : 'wary but polite';
+            }
+        }
+        const statValues = {};
+        for (const [key, prop] of Object.entries(statProps)) {
+            const label = String(prop.description ?? '')
+                .split(':')[0]
+                .trim();
+            statValues[key] = stats[label] ?? 70;
+        }
+        characters.push({
+            name,
+            present: true,
+            emoji: SEED_EMOJIS[characters.length % SEED_EMOJIS.length],
+            details,
+            relationship: seedRelationship(options, stance) ?? options[0] ?? '',
+            stats: statValues,
+            thoughts: russian
+                ? `${name} думает: посмотрим, чего стоит этот наёмник.`
+                : `Let us see what this sellsword is worth.`,
+        });
+    }
+    const time = /^Time: (.+)$/m.exec(request)?.[1] ?? '';
+    const hour = SEED_HOURS.find(([pattern]) => pattern.test(time))?.[1] ?? '09:00';
+    const weathers = root.properties?.scene?.properties?.weather?.enum ?? [];
+    const rainy = /дожд|rain/i.test(opening);
+    const weather = weathers.find((word) => (rainy ? /дождь|rain/ : /ясно|clear/).test(word)) ?? weathers[0];
+    const persona = /The player's character: ([^.\n]+)\./.exec(request)?.[1]?.trim() || ctx.userName;
+    return {
+        characters,
+        scene: {
+            date: /^Date: (.+)$/m.exec(request)?.[1] ?? (russian ? 'День 1' : 'Day 1'),
+            time_start: hour,
+            time_end: hour,
+            location: /^Place: (.+)$/m.exec(request)?.[1] ?? '',
+            recent_events: [russian ? `${persona} пришёл на встречу` : `${persona} arrived`],
+            weather_emoji: rainy ? '🌧️' : '☀️',
+            weather,
+            temperature: Math.round(4 + rng() * 10),
+        },
+    };
+});
+
 /* ------------------------------------------------------------------ reply builders */
 
 /**

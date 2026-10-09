@@ -1,7 +1,7 @@
 // Dramatis for tests (release 1.17): a DRAMATIS_API v1 double with settable answers, and the real Dramatis adapter
 // installed into a test App reading it from the global (as Maestro does in SillyTavern).
 import { DRAMATIS_API_GLOBAL, DramatisAdapter, ExtensionLocator } from '../../src/adapters';
-import type { DramatisApiV1, DramatisStanceInfo } from '../../src/adapters';
+import type { DramatisApiV1, DramatisStanceInfo, DramatisStartMember } from '../../src/adapters';
 import type { App, Logger } from '../../src/shared/contracts';
 
 const globals = globalThis as unknown as Record<string, unknown>;
@@ -25,6 +25,8 @@ export class FakeDramatisApi implements DramatisApiV1 {
     goalMap: Record<string, string[]> = {};
     agendas: { text: string; weight: number }[] = [];
     replaces = false;
+    /** Dramatis 1.2's starting scenes by greeting (startCast). */
+    starts: Record<number, DramatisStartMember[]> = {};
     readonly listeners = new Set<() => void>();
     calls: string[] = [];
 
@@ -53,6 +55,9 @@ export class FakeDramatisApi implements DramatisApiV1 {
     replacesSocialMechanics(): boolean {
         return this.replaces;
     }
+    /** An own property: `delete api.startCast` gives a Dramatis older than 1.2. */
+    startCast?: (greeting: number) => DramatisStartMember[] = (greeting) =>
+        (this.starts[greeting] ?? []).map((item) => ({ ...item }));
     onChange(listener: () => void): () => void {
         this.listeners.add(listener);
         return () => this.listeners.delete(listener);

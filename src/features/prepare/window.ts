@@ -342,7 +342,7 @@ export function renderPrepare(container: HTMLElement, ui: PrepareUi, ctx?: Windo
             [
                 el('span', { class: 'maestro-m37w-text', text: line.text }),
                 undone ? badge(t('m37.ui.undone'), 'muted') : null,
-                !undone ? openButton(line.kind) : null,
+                !undone && line.kind !== 'des' ? openButton(line.kind) : null,
                 kind === 'done' && line.journalId && !undone
                     ? button({
                           label: t('m37.ui.undo'),

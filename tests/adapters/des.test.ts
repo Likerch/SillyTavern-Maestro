@@ -245,6 +245,17 @@ describe('DesAdapter', () => {
         expect(adapters.des.trackerFor(5)).toBeNull();
     });
 
+    it("tells whether DES keeps the roster in the chat (its accessor else hands out DES's global one)", async () => {
+        stand.install(DES, DES_MANIFEST, { loaded: true });
+        const { settings } = desModules(stand);
+        await adapters.des.ready();
+        expect(adapters.des.rosterPerChat()).toBe(false);
+        settings.perChatCharacterTracking = true;
+        expect(adapters.des.rosterPerChat()).toBe(false);
+        stand.mock.chatMetadata.dooms_tracker = { knownCharacters: {} };
+        expect(adapters.des.rosterPerChat()).toBe(true);
+    });
+
     it('reads the chat roster and the Workshop state', () => {
         stand.mock.chatMetadata.dooms_tracker = {
             knownCharacters: { Аня: { emoji: '😊' }, Борис: {} },

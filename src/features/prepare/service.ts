@@ -3,7 +3,8 @@
 // (apply.ts), the chat's starting scenes (scenes.ts: one per greeting, the shown one active, following the greeting
 // swipe until the player writes), the saved character-level preparation (a Maestro file per card avatar with the
 // source hashes, the whole analysis and the items saved «для персонажа»; their texts live in the card's Maestro book),
-// the «Готово к игре» status, and the director's first-scene override released after the first committed turn.
+// the «Готово к игре» status, the director's first-scene override released after the first committed turn, and
+// (1.18) the prepared starting scenes in DES (des-seed.ts: one tracker record per greeting, kept and put back).
 import { adaptersOf } from '../../adapters';
 import { createUserJobs } from '../../core/jobs';
 import { applyOrder, missingForPlay, selectItems } from '../../domain/prepare-apply';
@@ -36,6 +37,7 @@ import { CardBook } from './card-book';
 import type { CardBookItem } from './card-book';
 import { Collector, apiOf, currentCard, hasUserMessages, isDict, safely } from './collect';
 import type { Collected } from './collect';
+import { DES_ITEM, DesSeeder } from './des-seed';
 import { estimateRun, partsOf, runExtraction } from './extract';
 import { StartScenes } from './scenes';
 import { PREPARE_DOC, PREPARE_KEY, PREPARE_STEP_TARGET, PREPARE_TAB, SAVED_FILE_KIND } from './settings';
@@ -144,6 +146,7 @@ export class PrepareService {
     private readonly scenes: StartScenes;
     private readonly applier: Applier;
     private readonly cardBook: CardBook;
+    private readonly desSeeder: DesSeeder;
     private writeChain: Promise<unknown> = Promise.resolve();
     /** Opens the preparation window (the job's «Открыть», the notice after applying); set by the module's face. */
     private openView: () => void = () => this.app.ui.openPult(PREPARE_TAB);
@@ -157,6 +160,7 @@ export class PrepareService {
         this.scenes = new StartScenes(app, log);
         this.applier = new Applier(app, log, this.scenes, (avatar, itemId) => this.forgetSavedItem(avatar, itemId));
         this.cardBook = new CardBook(app, log);
+        this.desSeeder = new DesSeeder(app, log);
     }
 
     private t(key: string, params?: Record<string, string | number>): string {
@@ -165,7 +169,9 @@ export class PrepareService {
 
     install(): Unsubscribe[] {
         const offs: Unsubscribe[] = [];
-        this.app.journal.registerUndo(PREPARE_STEP_TARGET, (change: JournalChange) => this.applier.undo(change));
+        this.app.journal.registerUndo(PREPARE_STEP_TARGET, (change: JournalChange) =>
+            change.ref.step === 'desSeed' ? this.desSeeder.undo(change) : this.applier.undo(change),
+        );
         offs.push(
             this.app.bus.on('chat:changed', () => {
                 this.doc = null;
@@ -193,6 +199,7 @@ export class PrepareService {
             }),
         );
         offs.push(...this.scenes.install());
+        offs.push(...this.desSeeder.install());
         offs.push(this.scenes.onChange(() => this.emit()));
         offs.push(() => {
             if (this.running) this.jobs().cancel(this.running.key);
@@ -658,6 +665,39 @@ export class PrepareService {
                 });
             }
         }
+        // The starting scenes into DES: after every item (passports, places, mechanics, the active scene's outfits).
+        if ((options.desSeed ?? this.settings().desSeed) && this.app.host.chatId() === chatId) {
+            const fresh = outcomes
+                .filter(({ item, outcome }) => item.kind === 'scene' && outcome.done.length > 0)
+                .map(({ item }) => (item as PrepareItem<'scene'>).data.greeting);
+            try {
+                const seeded = await this.desSeeder.seed({
+                    plan: planItems,
+                    scenes: await this.scenes.all(),
+                    fresh,
+                    useModel: mode === 'apply',
+                });
+                if (seeded) {
+                    this.report(summary, seeded);
+                    if (seeded.journalId || seeded.done.length) {
+                        doc.applied.push({
+                            itemId: DES_ITEM,
+                            ...(seeded.journalId ? { journalId: seeded.journalId } : {}),
+                            scope: 'chat',
+                            at: Date.now(),
+                            text: this.lineText(seeded),
+                        });
+                    }
+                }
+            } catch (error) {
+                this.log.warn('prepare: the starting scenes did not reach DES', error);
+                summary.failed.push({
+                    itemId: DES_ITEM,
+                    kind: 'des',
+                    text: `${this.t('m37.des.title')}: ${error instanceof Error ? error.message : String(error)}`,
+                });
+            }
+        }
         summary.proposals.push(...pack.proposals);
         if (pack.firstScene) doc.firstScene = pack.firstScene;
         if (summary.done.length) {
@@ -915,6 +955,8 @@ export class PrepareService {
             discard: () => this.discard(),
             status: () => this.status(),
             startScenes: () => this.startScenes(),
+            desSeedOffered: () => this.desSeeder.offered(),
+            desSeeded: () => this.desSeeder.seeded(),
             describe: (item) => this.describe(item),
             onChange: (listener) => this.onChange(listener),
         };

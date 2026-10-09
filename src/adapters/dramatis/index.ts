@@ -19,7 +19,13 @@
 import { NeighbourBase, homePageHas, isDict } from '../base';
 import type { AdapterDeps, Dict, ExtensionManifest } from '../base';
 import { DRAMATIS_API_GLOBAL, DRAMATIS_API_READY_EVENT } from './apis';
-import type { ApiUnsubscribe, DramatisApiV1, DramatisStanceInfo, MaestroQuietFunction } from './apis';
+import type {
+    ApiUnsubscribe,
+    DramatisApiV1,
+    DramatisStanceInfo,
+    DramatisStartMember,
+    MaestroQuietFunction,
+} from './apis';
 
 export * from './apis';
 
@@ -99,6 +105,27 @@ export function readStance(value: unknown): DramatisStanceInfo | null {
         label: cleanText(value.label),
         reasons: cleanList(value.reasons).slice(0, 6),
     };
+}
+
+/**
+ * One character of a starting scene (`startCast`) as Maestro uses it: a name, presence, texts cleaned, the stance
+ * clamped to −3…+3 (dropped when not a number), the gender only when Dramatis knows it; null for junk.
+ */
+export function readStartMember(value: unknown): DramatisStartMember | null {
+    if (!isDict(value)) return null;
+    const name = cleanText(value.name);
+    if (!name) return null;
+    const member: DramatisStartMember = { name, present: value.present === true };
+    for (const key of ['doing', 'goal', 'stanceLabel', 'reason', 'mood'] as const) {
+        const text = cleanText(value[key]);
+        if (text) member[key] = text;
+    }
+    const stance = Number(value.stance);
+    if (value.stance !== undefined && value.stance !== null && Number.isFinite(stance)) {
+        member.stance = Math.max(-3, Math.min(3, Math.round(stance)));
+    }
+    if (value.gender === 'female' || value.gender === 'male') member.gender = value.gender;
+    return member;
 }
 
 /** A mature agenda with a positive finite weight; null for junk. */
@@ -255,6 +282,32 @@ export class DramatisAdapter extends NeighbourBase<'dramatis'> {
     /** Dramatis replaces the «relationships» / «social» mechanics templates now. */
     replacesSocialMechanics(): boolean {
         return this.call('replacesSocialMechanics', (api) => api.replacesSocialMechanics() === true, false);
+    }
+
+    /**
+     * The cast of a starting scene (greeting n, 0 = first_mes) as Dramatis read the card — presence, what they do and
+     * want, the stance toward the player — cleaned, each name once. [] without Dramatis 1.2 (the method is optional
+     * within API v1), before it has read the card, or for junk (M37 seeds DES's starting scenes from it).
+     */
+    startCast(greeting: number): DramatisStartMember[] {
+        if (!Number.isInteger(greeting) || greeting < 0) return [];
+        return this.call(
+            'startCast',
+            (api) => {
+                if (typeof api.startCast !== 'function') return [];
+                const list = api.startCast(greeting);
+                if (!Array.isArray(list)) return [];
+                const out: DramatisStartMember[] = [];
+                for (const item of list) {
+                    const member = readStartMember(item);
+                    if (member && !out.some((other) => other.name.toLowerCase() === member.name.toLowerCase())) {
+                        out.push(member);
+                    }
+                }
+                return out;
+            },
+            [],
+        );
     }
 
     /* ---------------------------------------------------------------- changes */

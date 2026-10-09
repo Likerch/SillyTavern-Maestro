@@ -30,6 +30,8 @@ export interface ChatDraft {
     reuse: boolean | null;
     /** Generate NAI passports when applying (null: the module setting). */
     passports: boolean | null;
+    /** Put the starting scenes into DES when applying (null: the module setting). */
+    desSeed: boolean | null;
     estimate: EstimateSlot | null;
     /** What the applies of this session did (lines of later applies replace those of the same item). */
     summary: PrepareApplySummary | null;
@@ -47,6 +49,7 @@ export function emptyDraft(): ChatDraft {
         choices: new Map(),
         reuse: null,
         passports: null,
+        desSeed: null,
         estimate: null,
         summary: null,
         undone: new Set(),

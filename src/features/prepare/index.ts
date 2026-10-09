@@ -6,8 +6,11 @@
 // персонажа» (reused by the card's next new chats). Maestro offers it by itself in a line under the greeting
 // (offer.ts); the window «Подготовка к игре» (window.ts: what will be read and the price, the run, the review with
 // choices, edits and scopes, the result with undo, «Готово к игре») — a window of its own, or the pult tab without
-// windows; `/maestro-prepare`. Exposed as app.modules.api<PrepareApi>('prepare').
+// windows; `/maestro-prepare`. Exposed as app.modules.api<PrepareApi>('prepare'). Since 1.18 the prepared starting
+// scenes also become DES's tracker of the greetings («Персонажи в DES», des-seed.ts; model task 'prepare.desSeed').
+import { DES_SEED_TASK } from '../../domain/prepare-des-seed';
 import type { App, MaestroModule, SlashCommandSpec } from '../../shared/contracts';
+import { registerProfileTask } from '../../ui';
 import type { PrepareApi } from './api';
 import { PrepareUi } from './controller';
 import { PrepareOffer } from './offer';
@@ -90,6 +93,7 @@ export const prepareModule: MaestroModule<PrepareSettings> = {
         app.modules.expose(PREPARE_KEY, api satisfies PrepareApi);
         const ui = new PrepareUi(app, { ...api, watch: () => service.watch() }, settings);
         service.setOpener(() => ui.open());
+        own(registerProfileTask(DES_SEED_TASK, 'm37.des.profileTask'));
         own(app.ui.style('maestro-m37', PREPARE_CSS));
         own(registerPrepareView(ui));
         // The offer under the greeting; a shell without the strip gets the quiet notice only.

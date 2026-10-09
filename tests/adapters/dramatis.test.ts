@@ -11,6 +11,7 @@ import {
     readAgenda,
     readDramatisApi,
     readStance,
+    readStartMember,
 } from '../../src/adapters/dramatis';
 import { clearScripts, createStand, silentLog } from '../helpers/adapters-host';
 import type { AdapterStand } from '../helpers/adapters-host';
@@ -166,6 +167,54 @@ describe('reads', () => {
         expect(dramatis.stances()).toEqual([]);
         expect(readStance({ from: 'a', to: 'b', stance: 'x' })).toBeNull();
         expect(readAgenda({ text: 'x', weight: Number.NaN })).toBeNull();
+    });
+});
+
+describe('starting scenes (Dramatis 1.2, startCast)', () => {
+    it('reads the cast of a greeting, cleaned, and nothing without the optional method', () => {
+        const api = new FakeDramatisApi();
+        api.starts = {
+            1: [
+                {
+                    name: ' Вера ',
+                    present: true,
+                    doing: ' checks the hold ',
+                    goal: '',
+                    stance: 7,
+                    stanceLabel: 'Союзница',
+                    reason: 'saved her brother',
+                    mood: 'tired',
+                    gender: 'female',
+                },
+                { name: 'вера', present: false },
+                { name: '', present: true },
+                { name: 'Томас', present: 'yes', stance: 'x', gender: 'other' } as never,
+            ],
+        };
+        globals[DRAMATIS_API_GLOBAL] = api;
+        const dramatis = adapters.dramatis;
+        expect(dramatis.startCast(1)).toEqual([
+            {
+                name: 'Вера',
+                present: true,
+                doing: 'checks the hold',
+                stance: 3,
+                stanceLabel: 'Союзница',
+                reason: 'saved her brother',
+                mood: 'tired',
+                gender: 'female',
+            },
+            { name: 'Томас', present: false },
+        ]);
+        expect(dramatis.startCast(0)).toEqual([]);
+        expect(dramatis.startCast(-1)).toEqual([]);
+        expect(readStartMember('junk')).toBeNull();
+        delete api.startCast;
+        expect(dramatis.startCast(1)).toEqual([]);
+        api.startCast = () => {
+            throw new Error('broken');
+        };
+        expect(dramatis.startCast(1)).toEqual([]);
     });
 });
 

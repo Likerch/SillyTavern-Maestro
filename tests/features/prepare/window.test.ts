@@ -396,6 +396,54 @@ describe('prepare window: the starting scenes', () => {
     });
 });
 
+describe('prepare window: «Персонажи в DES» (1.18)', () => {
+    function desSwitch(): HTMLInputElement | undefined {
+        return [...container.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')].find((box) =>
+            box.closest('label')?.textContent?.startsWith('Персонажи в DES'),
+        );
+    }
+
+    it('offers the switch when DES is there and the plan has starting scenes, and passes the choice', async () => {
+        const plan = samplePlan();
+        plan.items.push(
+            item('scene', { greeting: 0, place: 'Ржавый якорь', present: ['Элизабет'] }, { id: 'scene:0' }),
+        );
+        stand.engine.planValue = plan;
+        stand.engine.current = { stage: 'ready', jobKey: 'prepare:chat-1' };
+        await open();
+        expect(desSwitch()).toBeUndefined();
+        close?.();
+        container.replaceChildren();
+        stand.engine.desOffered = true;
+        await open();
+        const box = desSwitch()!;
+        expect(box.checked).toBe(true);
+        box.checked = false;
+        box.dispatchEvent(new Event('change'));
+        stand.engine.applyAnswer = () => ({
+            done: [
+                {
+                    itemId: 'des',
+                    kind: 'des',
+                    text: 'Персонажи в DES: Сцена 1 (Ржавый якорь) — Элизабет',
+                    journalId: 'j9',
+                },
+            ],
+            skipped: [],
+            failed: [],
+            proposals: [],
+        });
+        buttonOf(container, 'Применить выбранное').click();
+        await tick();
+        expect(stand.engine.applies[0]?.options).toMatchObject({ desSeed: false, confirmed: true });
+        // The DES line: undo, no window to open.
+        const line = container.querySelector<HTMLElement>('.maestro-m37w-line[data-item="des"]')!;
+        expect(line.textContent).toContain('Персонажи в DES: Сцена 1 (Ржавый якорь) — Элизабет');
+        expect(hasButton(line, 'Отменить')).toBe(true);
+        expect(line.querySelectorAll('button')).toHaveLength(1);
+    });
+});
+
 describe('prepare window: the result and «Готово к игре»', () => {
     it('lists what was done with undo and links, then what is still missing with buttons', async () => {
         stand.engine.statusValue = {

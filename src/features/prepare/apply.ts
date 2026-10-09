@@ -29,6 +29,7 @@ import type { CanonApi, CanonDraft } from '../canon/api';
 import type { DirectorApi, SceneType } from '../director/api';
 import type { KnowledgeApi } from '../knowledge/api';
 import type { PlacesApi } from '../places/api';
+import type { ApplyLineKind } from './api';
 import { CardBook } from './card-book';
 import type { CardBookItem } from './card-book';
 import type { CardRef } from './collect';
@@ -85,7 +86,7 @@ export function sceneName(
 
 export interface ItemOutcome {
     itemId: string;
-    kind: AnyPrepareItem['kind'];
+    kind: ApplyLineKind;
     title: string;
     /** Parts written, in story words. */
     done: string[];

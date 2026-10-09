@@ -165,7 +165,7 @@ export class PrepareUi {
     /** The saved character-level preparation into this chat (no model call). */
     async applySaved(): Promise<PrepareApplySummary> {
         const draft = this.draft();
-        const summary = await this.engine.applySaved(this.passportOption());
+        const summary = await this.engine.applySaved(this.applyOptions());
         draft.summary = mergeSummary(draft.summary, summary);
         draft.review = false;
         draft.restart = false;
@@ -173,9 +173,13 @@ export class PrepareUi {
         return summary;
     }
 
-    passportOption(): PrepareApplyOptions {
-        const passports = this.draft().passports;
-        return passports === null ? {} : { passports };
+    /** The window's switches for this apply (passports, «Персонажи в DES»); unset ones follow the module settings. */
+    applyOptions(): PrepareApplyOptions {
+        const { passports, desSeed } = this.draft();
+        return {
+            ...(passports === null ? {} : { passports }),
+            ...(desSeed === null ? {} : { desSeed }),
+        };
     }
 
     /**
@@ -193,7 +197,7 @@ export class PrepareUi {
             if (!ok) return null;
         }
         const draft = this.draft();
-        const summary = await this.engine.apply(rows, { ...this.passportOption(), confirmed: true });
+        const summary = await this.engine.apply(rows, { ...this.applyOptions(), confirmed: true });
         if (summary.cancelled) return null;
         // What was written now exists: its choice starts over (off, «уже есть»).
         for (const line of summary.done) {

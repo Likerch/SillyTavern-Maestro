@@ -22,9 +22,10 @@ import { readUsage, tokensOf } from './cost';
 
 /**
  * Tasks the user starts and watches — the assistant, «Подготовить к игре» (task 'prepare', src/domain/prepare-extract.ts;
- * its price is shown before he presses «Начать»): the daily cap of background spending does not stop them.
+ * its price is shown before he presses «Начать»; 'prepare.desSeed', the starting scenes for DES when he applies it):
+ * the daily cap of background spending does not stop them.
  */
-export const INTERACTIVE_TASKS: ReadonlySet<string> = new Set(['assistant', 'prepare']);
+export const INTERACTIVE_TASKS: ReadonlySet<string> = new Set(['assistant', 'prepare', 'prepare.desSeed']);
 
 /**
  * Tasks that keep the model's own reasoning (the assistant's conversation). Preparation is interactive but a structured

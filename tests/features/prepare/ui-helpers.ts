@@ -282,6 +282,14 @@ export class FakeEngine implements PrepareEngine {
     startScenes(): StartScenesInfo {
         return { ...this.scenesInfo, prepared: [...this.scenesInfo.prepared] };
     }
+    /** DES is there: the review offers «Персонажи в DES». */
+    desOffered = false;
+    desSeedOffered(): boolean {
+        return this.desOffered;
+    }
+    desSeeded(): boolean {
+        return false;
+    }
     describe(target: AnyPrepareItem): string {
         return target.russian || target.id;
     }
