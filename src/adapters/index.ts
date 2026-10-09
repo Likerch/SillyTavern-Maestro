@@ -19,7 +19,7 @@ export { BunnyMoAdapter } from './bunnymo';
 export type { BunnyMoBooks } from './bunnymo';
 export { CkAdapter } from './ck';
 export type { CarrotKernelGlobal } from './ck';
-export { DES_PROMPT_KEYS, DesAdapter } from './des';
+export { DES_PROMPT_KEYS, DES_UI, DES_UI_MODULES, DesAdapter } from './des';
 export type { DesCharacterField, DesGenerationMode, DesPromptKey } from './des';
 export { DesRuAdapter } from './desru';
 export type { DesRuApi, DesRuFunction, DesRuModule } from './desru';
@@ -43,8 +43,12 @@ export type {
     ApiTurnEvent,
     DramatisAgenda,
     DramatisApiV1,
+    DramatisCharacterView,
+    DramatisIntentState,
+    DramatisReadOutcome,
     DramatisStanceInfo,
     DramatisStartMember,
+    DramatisViewLine,
     MaestroApiV1,
     MaestroQuietFunction,
     QuietClaim,

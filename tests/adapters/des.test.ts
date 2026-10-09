@@ -270,4 +270,39 @@ describe('DesAdapter', () => {
         document.body.append(popup);
         expect(adapters.des.isWorkshopOpen()).toBe(true);
     });
+
+    it("opens DES's character sheet the way its portrait menu does (M39)", async () => {
+        expect(await adapters.des.openCharacterSheet('Аня')).toBe(false);
+        stand.install(DES, DES_MANIFEST, { loaded: true });
+        desModules(stand);
+        await adapters.des.ready();
+        const base = scriptUrl(DES).replace('index.js', '');
+        const calls: string[] = [];
+        stand.imports.set(`${base}src/core/lazyUI.js`, {
+            ensureSettingsUI: async () => void calls.push('ensureSettingsUI'),
+        });
+        // DES imports characterSheet.js lazily: Maestro asks for it after ensureSettingsUI, by the same URL.
+        stand.imports.set(`${base}src/systems/ui/characterSheet.js`, {
+            openCharacterSheet: (name: string) => void calls.push(`open:${name}`),
+        });
+        const before = stand.importedUrls.length;
+        expect(await adapters.des.openCharacterSheet('  ')).toBe(false);
+        expect(await adapters.des.openCharacterSheet(' Аня ')).toBe(true);
+        expect(calls).toEqual(['ensureSettingsUI', 'open:Аня']);
+        expect(stand.importedUrls.slice(before)).toEqual([
+            `${base}src/core/lazyUI.js`,
+            `${base}src/systems/ui/characterSheet.js`,
+        ]);
+        // A DES without the export, or whose modal UI fails to load, says no.
+        stand.imports.set(`${base}src/systems/ui/characterSheet.js`, {});
+        expect(await adapters.des.openCharacterSheet('Аня')).toBe(false);
+        stand.imports.set(`${base}src/core/lazyUI.js`, {
+            ensureSettingsUI: async () => {
+                throw new Error('template missing');
+            },
+        });
+        expect(await adapters.des.openCharacterSheet('Аня')).toBe(false);
+        stand.disable(DES);
+        expect(await adapters.des.openCharacterSheet('Аня')).toBe(false);
+    });
 });

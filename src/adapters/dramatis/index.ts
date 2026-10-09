@@ -3,7 +3,10 @@
 // and announces it with the window event `dramatis-api-ready` (it may load after Maestro). Maestro pulls from it:
 // stances for the relations graph (M19), goals and outcomes for the offscreen brief (M16), mature agendas for the
 // director (M14), whether it replaces the social mechanics templates (M25), whether this generation gets its cast block
-// and which characters' dependence it owns.
+// and which characters' dependence it owns. Dramatis 1.3 adds optional members, each checked before use (an older
+// Dramatis keeps working): `intentState` / `readIntent` — where the reading of the card's intent stands and reading it
+// on the user's request (M37 «Подготовить к игре»), `describe` — a display-ready summary of a character (the Dramatis
+// tab of DES's character sheet, M39), `openSheet` — Dramatis' own «Лист замысла».
 //
 // Quiet modes (plan §2.2, P8, P11): Dramatis claims functions of Maestro's side through MAESTRO_API.quiet(); the claims
 // live here, in memory only (Dramatis claims again after a reload, on `maestro-api-ready`). Maestro silences a function
@@ -22,8 +25,12 @@ import { DRAMATIS_API_GLOBAL, DRAMATIS_API_READY_EVENT } from './apis';
 import type {
     ApiUnsubscribe,
     DramatisApiV1,
+    DramatisCharacterView,
+    DramatisIntentState,
+    DramatisReadOutcome,
     DramatisStanceInfo,
     DramatisStartMember,
+    DramatisViewLine,
     MaestroQuietFunction,
 } from './apis';
 
@@ -135,6 +142,72 @@ export function readAgenda(value: unknown): DramatisAgenda | null {
     const weight = Number(value.weight);
     if (!text || !Number.isFinite(weight) || weight <= 0) return null;
     return { text, weight };
+}
+
+function count(value: unknown): number {
+    const number = Number(value);
+    return Number.isFinite(number) && number > 0 ? Math.floor(number) : 0;
+}
+
+/** Where the reading of the card stands (intentState), counts made whole and non-negative; null for junk. */
+export function readIntentState(value: unknown): DramatisIntentState | null {
+    if (!isDict(value)) return null;
+    const state: DramatisIntentState = {
+        read: value.read === true,
+        characters: count(value.characters),
+        groups: count(value.groups),
+        running: value.running === true,
+    };
+    const at = Number(value.at);
+    if (value.at !== undefined && value.at !== null && Number.isFinite(at) && at > 0) state.at = at;
+    return state;
+}
+
+/** The outcome of a reading (readIntent) as Maestro reports it; junk is a failure. */
+export function readReadOutcome(value: unknown): DramatisReadOutcome {
+    if (!isDict(value)) return { ok: false, characters: 0, error: 'bad-answer' };
+    const outcome: DramatisReadOutcome = { ok: value.ok === true, characters: count(value.characters) };
+    const message = cleanText(value.message);
+    const error = cleanText(value.error);
+    if (message) outcome.message = message;
+    if (error) outcome.error = error;
+    if (value.skipped === true) outcome.skipped = true;
+    return outcome;
+}
+
+/** One line of a summary: the text trimmed (its own line breaks kept), the secret mark only when set; null when empty. */
+function readViewLine(value: unknown): DramatisViewLine | null {
+    const raw = isDict(value) ? value.text : value;
+    const text = typeof raw === 'string' ? raw.replace(/[ \t]+/g, ' ').trim() : '';
+    if (!text) return null;
+    return isDict(value) && value.secret === true ? { text, secret: true } : { text };
+}
+
+/**
+ * A character summary (describe) as Maestro shows it: texts trimmed, empty lines and sections dropped, the secrets mode
+ * one of the three (unknown: 'spoiler' — never show a secret by mistake); null without a name or for junk.
+ */
+export function readCharacterView(value: unknown): DramatisCharacterView | null {
+    if (!isDict(value)) return null;
+    const name = cleanText(value.name);
+    if (!name) return null;
+    const sections: DramatisCharacterView['sections'] = [];
+    for (const raw of Array.isArray(value.sections) ? value.sections : []) {
+        if (!isDict(raw)) continue;
+        const lines = (Array.isArray(raw.lines) ? raw.lines : [])
+            .map(readViewLine)
+            .filter((line): line is DramatisViewLine => line !== null);
+        const title = cleanText(raw.title);
+        if (!lines.length) continue;
+        sections.push({ id: cleanText(raw.id) || `section-${sections.length + 1}`, title, lines });
+    }
+    const secrets = value.secrets === 'open' || value.secrets === 'known' ? value.secrets : 'spoiler';
+    const view: DramatisCharacterView = { name, sections, secrets };
+    const headline = cleanText(value.headline);
+    const detail = cleanText(value.detail);
+    if (headline) view.headline = headline;
+    if (detail) view.detail = detail;
+    return view;
 }
 
 export class DramatisAdapter extends NeighbourBase<'dramatis'> {
@@ -307,6 +380,81 @@ export class DramatisAdapter extends NeighbourBase<'dramatis'> {
                 return out;
             },
             [],
+        );
+    }
+
+    /* ---------------------------------------------------------------- the card's intent and the summaries (1.3) */
+
+    /** Dramatis 1.3 tells where its reading of the card stands and reads it on request (both methods are there). */
+    canReadIntent(): boolean {
+        const api = this.api();
+        return typeof api?.intentState === 'function' && typeof api.readIntent === 'function';
+    }
+
+    /**
+     * Where the author-intent reading of the current card stands, cleaned; null without Dramatis 1.3, outside a solo
+     * chat (Dramatis says null) or for junk.
+     */
+    intentState(): DramatisIntentState | null {
+        return this.call(
+            'intentState',
+            (api) => (typeof api.intentState === 'function' ? readIntentState(api.intentState()) : null),
+            null,
+        );
+    }
+
+    /**
+     * Reads the card's intent now — the user's own action (interactive, never capped); `force` reads a card whose
+     * sources did not change. Never throws: without Dramatis 1.3 `{ ok: false, error: 'unsupported' }`, a failure as
+     * its error.
+     */
+    async readIntent(options: { force?: boolean } = {}): Promise<DramatisReadOutcome> {
+        const api = this.api();
+        if (!api || typeof api.readIntent !== 'function') return { ok: false, characters: 0, error: 'unsupported' };
+        try {
+            return readReadOutcome(await api.readIntent(options.force ? { force: true } : {}));
+        } catch (error) {
+            this.log.warn('DRAMATIS_API.readIntent failed', error);
+            return { ok: false, characters: 0, error: error instanceof Error ? error.message : String(error) };
+        }
+    }
+
+    /** Dramatis 1.3 gives display-ready summaries of characters (describe). */
+    canDescribe(): boolean {
+        return typeof this.api()?.describe === 'function';
+    }
+
+    /**
+     * A display-ready summary of a character of the current chat in the UI language, cleaned; null when Dramatis does
+     * not know them, without Dramatis 1.3 or for junk. Dramatis resolves aliases and forms itself.
+     */
+    describe(name: string): DramatisCharacterView | null {
+        const wanted = cleanText(name);
+        if (!wanted) return null;
+        return this.call(
+            'describe',
+            (api) => (typeof api.describe === 'function' ? readCharacterView(api.describe(wanted)) : null),
+            null,
+        );
+    }
+
+    /** Dramatis 1.3 opens its «Лист замысла» window (openSheet). */
+    canOpenSheet(): boolean {
+        return typeof this.api()?.openSheet === 'function';
+    }
+
+    /** Opens Dramatis' «Лист замысла», on that character when named; false when it cannot. */
+    openSheet(name?: string): boolean {
+        const wanted = cleanText(name);
+        return this.call(
+            'openSheet',
+            (api) => {
+                if (typeof api.openSheet !== 'function') return false;
+                if (wanted) api.openSheet(wanted);
+                else api.openSheet();
+                return true;
+            },
+            false,
         );
     }
 

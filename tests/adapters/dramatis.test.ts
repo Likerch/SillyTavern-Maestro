@@ -9,7 +9,10 @@ import {
     DRAMATIS_API_READY_EVENT,
     isDramatisManifest,
     readAgenda,
+    readCharacterView,
     readDramatisApi,
+    readIntentState,
+    readReadOutcome,
     readStance,
     readStartMember,
 } from '../../src/adapters/dramatis';
@@ -215,6 +218,135 @@ describe('starting scenes (Dramatis 1.2, startCast)', () => {
             throw new Error('broken');
         };
         expect(dramatis.startCast(1)).toEqual([]);
+    });
+});
+
+describe("the card's intent and the summaries (Dramatis 1.3)", () => {
+    it('does without them on an older Dramatis and without Dramatis', async () => {
+        const dramatis = adapters.dramatis;
+        expect(dramatis.canReadIntent()).toBe(false);
+        expect(dramatis.intentState()).toBeNull();
+        expect(await dramatis.readIntent()).toEqual({ ok: false, characters: 0, error: 'unsupported' });
+        expect(dramatis.canDescribe()).toBe(false);
+        expect(dramatis.describe('Вера')).toBeNull();
+        expect(dramatis.canOpenSheet()).toBe(false);
+        expect(dramatis.openSheet('Вера')).toBe(false);
+        globals[DRAMATIS_API_GLOBAL] = new FakeDramatisApi();
+        expect(dramatis.canReadIntent()).toBe(false);
+        expect(dramatis.intentState()).toBeNull();
+        expect(await dramatis.readIntent({ force: true })).toMatchObject({ ok: false, error: 'unsupported' });
+        expect(dramatis.canDescribe()).toBe(false);
+        expect(dramatis.describe('Вера')).toBeNull();
+        expect(dramatis.openSheet()).toBe(false);
+    });
+
+    it('reads where the reading stands and reads the card on request, force passed on', async () => {
+        const api = new FakeDramatisApi().upgrade();
+        globals[DRAMATIS_API_GLOBAL] = api;
+        const dramatis = adapters.dramatis;
+        expect(dramatis.canReadIntent()).toBe(true);
+        api.intent = { read: false, characters: -2, groups: 1.7, running: 'yes' as never, at: Number.NaN };
+        expect(dramatis.intentState()).toEqual({ read: false, characters: 0, groups: 1, running: false });
+        api.intent = null;
+        expect(dramatis.intentState()).toBeNull();
+        api.intent = { read: false, characters: 0, groups: 0, running: false };
+        expect(await dramatis.readIntent()).toEqual({
+            ok: true,
+            characters: 3,
+            message: 'Замысел прочитан: 3 персонажа',
+        });
+        expect(dramatis.intentState()).toMatchObject({ read: true, characters: 3, at: 1 });
+        await dramatis.readIntent({ force: true });
+        expect(api.readCalls).toEqual([{}, { force: true }]);
+        api.readAnswer = { ok: false, characters: 0, error: ' no-profile ' };
+        expect(await dramatis.readIntent()).toEqual({ ok: false, characters: 0, error: 'no-profile' });
+        api.readIntent = async () => {
+            throw new Error('model down');
+        };
+        expect(await dramatis.readIntent()).toEqual({ ok: false, characters: 0, error: 'model down' });
+        api.readIntent = async () => 'junk' as never;
+        expect(await dramatis.readIntent()).toEqual({ ok: false, characters: 0, error: 'bad-answer' });
+        api.intentState = () => {
+            throw new Error('broken');
+        };
+        expect(dramatis.intentState()).toBeNull();
+        delete api.readIntent;
+        expect(dramatis.canReadIntent()).toBe(false);
+    });
+
+    it('describes a character, cleaned, and opens the sheet', () => {
+        const api = new FakeDramatisApi().upgrade();
+        globals[DRAMATIS_API_GLOBAL] = api;
+        api.views['Вера'] = {
+            name: ' Вера ',
+            headline: ' Капитан «Чайки» ',
+            detail: '',
+            secrets: 'whatever' as never,
+            sections: [
+                {
+                    id: 'motives',
+                    title: 'Мотивы',
+                    lines: [
+                        { text: '  Хочет вернуть корабль  ' },
+                        { text: '   ' },
+                        { text: 'Боится моря', secret: true },
+                    ],
+                },
+                { id: 'empty', title: 'Пусто', lines: [{ text: '' }] },
+                { id: '', title: '', lines: ['Строка как текст'] as never },
+                'junk' as never,
+            ],
+        };
+        const dramatis = adapters.dramatis;
+        expect(dramatis.canDescribe()).toBe(true);
+        expect(dramatis.describe(' Вера ')).toEqual({
+            name: 'Вера',
+            headline: 'Капитан «Чайки»',
+            secrets: 'spoiler',
+            sections: [
+                {
+                    id: 'motives',
+                    title: 'Мотивы',
+                    lines: [{ text: 'Хочет вернуть корабль' }, { text: 'Боится моря', secret: true }],
+                },
+                { id: 'section-2', title: '', lines: [{ text: 'Строка как текст' }] },
+            ],
+        });
+        expect(api.described).toEqual(['Вера']);
+        expect(dramatis.describe('  ')).toBeNull();
+        expect(dramatis.describe('Томас')).toBeNull();
+        api.describe = () => {
+            throw new Error('broken');
+        };
+        expect(dramatis.describe('Вера')).toBeNull();
+        expect(dramatis.canOpenSheet()).toBe(true);
+        expect(dramatis.openSheet(' Вера ')).toBe(true);
+        expect(dramatis.openSheet()).toBe(true);
+        expect(api.opened).toEqual(['Вера', undefined]);
+    });
+
+    it('cleans the 1.3 answers', () => {
+        expect(readIntentState('x')).toBeNull();
+        expect(readIntentState({ read: true, characters: '4', groups: null, running: true, at: 5 })).toEqual({
+            read: true,
+            characters: 4,
+            groups: 0,
+            running: true,
+            at: 5,
+        });
+        expect(readReadOutcome(null)).toEqual({ ok: false, characters: 0, error: 'bad-answer' });
+        expect(readReadOutcome({ ok: true, characters: 2, skipped: true, message: ' ' })).toEqual({
+            ok: true,
+            characters: 2,
+            skipped: true,
+        });
+        expect(readCharacterView({ name: '' })).toBeNull();
+        expect(readCharacterView({ name: 'Вера', secrets: 'known' })).toEqual({
+            name: 'Вера',
+            sections: [],
+            secrets: 'known',
+        });
+        expect(readCharacterView({ name: 'Вера', secrets: 'open', sections: 'x' })?.secrets).toBe('open');
     });
 });
 

@@ -72,6 +72,26 @@ export const DES_SELECTORS = {
     workshopOpen: '#character-workshop-popup.is-open',
 } as const;
 
+/**
+ * DES's own windows and menus Maestro adds to (M39, the Dramatis tab; research: DES template.html, characterSheet.js,
+ * characterWorkshop.js, portraitBar.js). The sheet and the Workshop come with DES's lazy template (appended to body the
+ * first time a DES modal opens) and stay; the portrait context menu is moved into body on its first use.
+ */
+export const DES_UI = {
+    /** «Character Sheet»: `.rpg-cs-sections` is emptied and rebuilt on every open and Notes Mode toggle. */
+    sheet: 'rpg-character-sheet-popup',
+    /** The Workshop: `.is-open` while open, `data-mode` user / npc, `#cw-char-title` the name. */
+    workshop: 'character-workshop-popup',
+    /** The portrait card menu; the card's name is jQuery data `character` of the menu. */
+    contextMenu: 'dooms-pb-context-menu',
+} as const;
+
+/** DES's lazy modal modules (statically imported by nothing at start; DES imports them on the first modal). */
+export const DES_UI_MODULES = {
+    lazyUI: 'src/core/lazyUI.js',
+    characterSheet: 'src/systems/ui/characterSheet.js',
+} as const;
+
 export type DesGenerationMode = 'together' | 'separate' | 'external';
 
 /** One per-character field of DES's tracker (trackerConfig.presentCharacters.customFields). */
@@ -406,6 +426,34 @@ export class DesAdapter extends NeighbourBase<'des'> {
     /** The Workshop is open: Maestro must not write DES stores until it closes (plan §10.8). */
     isWorkshopOpen(): boolean {
         return hasElement(DES_SELECTORS.workshopOpen);
+    }
+
+    /**
+     * Opens DES's «Character Sheet» of a character the way its portrait menu does (portraitBar.js): lazyUI.js
+     * `ensureSettingsUI()` loads DES's modal template once, then characterSheet.js `openCharacterSheet(name)` fills and
+     * shows the popup in one synchronous pass. Both are imported by the URL DES's own index.js resolves them to, so they
+     * are DES's live instances (DES imports characterSheet.js lazily: by then it has). Opening a window writes nothing.
+     * False when DES is not on the page or its modules do not load.
+     */
+    async openCharacterSheet(name: string): Promise<boolean> {
+        const wanted = name.trim();
+        const script = this.scriptUrl();
+        if (!wanted || !script || !this.enabledInSt()) return false;
+        try {
+            const lazy = await this.deps.importModule(new URL(DES_UI_MODULES.lazyUI, script).href);
+            // A DES without lazy modals has its template on the page already.
+            if (typeof lazy.ensureSettingsUI === 'function') await (lazy.ensureSettingsUI as () => Promise<void>)();
+            const sheet = await this.deps.importModule(new URL(DES_UI_MODULES.characterSheet, script).href);
+            if (typeof sheet.openCharacterSheet !== 'function') {
+                this.log.warn(`${DES_UI_MODULES.characterSheet} lacks openCharacterSheet`);
+                return false;
+            }
+            (sheet.openCharacterSheet as (character: string) => void)(wanted);
+            return true;
+        } catch (error) {
+            this.log.warn('the character sheet did not open', error);
+            return false;
+        }
     }
 
     /**
