@@ -124,9 +124,17 @@ const RU_WEAR_STEMS: readonly string[] = [
     'носит',
     'носил',
     'переодел',
+    'переодева',
+    'переоден',
     'наряжен',
     'наряди',
     'накинул',
+    'накидыва',
+    'надел',
+    'надева',
+    'наден',
+    'натянул',
+    'натягива',
 ];
 const EN_WEAR = new Set(['wearing', 'wears', 'wore', 'dressed', 'clad', 'donning', 'dons', 'donned', 'sporting']);
 const RU_VERB_STEMS: readonly string[] = [
@@ -493,10 +501,16 @@ export function clothingOf(text: unknown): ClothingText | null {
     return { text: unique.join(', ') || (undress?.phrase ?? ''), undress };
 }
 
-/** True when a text mentions clothes or undressing at all (the cheap gate of the persona check). */
+// Verbs of changing, putting on, taking off and undressing (the change detector, wardrobe-change.ts, reads them closely):
+// «переодеваюсь в домашнее» speaks of clothes though «домашнее» names none.
+const CHANGE_VERB_RE =
+    /(?<!\p{L})(?:переоде|переодева|разде[влн]|раздева|оде(?:лс|лас|лис|нус|нет|ва[юел])|одева(?:юс|ет|ют|лс|лас)|наде[влн]|надева|сн(?:ял|яв|има)|стянул|стягива|скинул|скидыва|накинул|накидыва|натянул|натягива|облачи|облача|наряди|наряжа)\p{L}*|\b(?:chang(?:e|es|ed|ing)\s+(?:into|clothes|outfits?)|(?:get|gets|got|getting)\s+(?:dressed|changed|undressed)|undress\w*|strip(?:s|ped|ping)?\s+(?:off|naked|down)|(?:take|takes|took|taking)\s+off|(?:put|puts|putting)\s+on|slip(?:s|ped|ping)?\s+(?:into|on|off))\b/iu;
+
+/** True when a text mentions clothes, changing or undressing at all (the cheap gate of the persona check). */
 export function mentionsClothing(text: string): boolean {
     const source = String(text ?? '');
     if (detectUndress(source)) return true;
+    if (CHANGE_VERB_RE.test(norm(source))) return true;
     for (const match of source.matchAll(WORD_RE)) {
         if (classOf(match[0]) === 'garment') return true;
     }
