@@ -7,6 +7,7 @@ import { bunnymoModeModule } from '../features/bunnymoMode';
 import { calendarModule } from '../features/calendar';
 import { canonModule } from '../features/canon';
 import { contradictionsModule } from '../features/contradictions';
+import { desDramatisModule } from '../features/desDramatis';
 import { chronicleModule } from '../features/chronicle';
 import { directorModule } from '../features/director';
 import { dockModule } from '../features/dock';
@@ -104,4 +105,6 @@ export const MODULES: MaestroModule[] = [
     promptAuditModule,
     // Release 1.15: scenario preparation.
     prepareModule,
+    // Release 1.19: the Dramatis section of DES's character sheet and Workshop.
+    desDramatisModule,
 ];
