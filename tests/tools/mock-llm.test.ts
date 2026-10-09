@@ -310,6 +310,41 @@ describe('mock LLM', () => {
         ]);
     });
 
+    it('answers Dramatis’s translation of descriptions with Cyrillic text for every id', async () => {
+        const reply = await complete({
+            messages: [
+                { role: 'system', content: 'Translate.' },
+                { role: 'user', content: JSON.stringify({ items: [{ id: '1', text: 'stands by the table' }] }) },
+            ],
+            response_format: {
+                type: 'json_schema',
+                json_schema: {
+                    name: 'dramatis_translate',
+                    strict: true,
+                    schema: {
+                        type: 'object',
+                        additionalProperties: false,
+                        required: ['items'],
+                        properties: {
+                            items: {
+                                type: 'array',
+                                items: {
+                                    type: 'object',
+                                    additionalProperties: false,
+                                    required: ['id', 'ru'],
+                                    properties: { id: { type: 'string' }, ru: { type: 'string' } },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        });
+        expect(JSON.parse(reply.choices[0]!.message.content)).toEqual({
+            items: [{ id: '1', ru: 'стандс бй тхе табле' }],
+        });
+    });
+
     it('answers the dossier step of Dramatis’s reading with plain text per character', async () => {
         const reply = await complete({
             messages: [

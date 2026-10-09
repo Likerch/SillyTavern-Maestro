@@ -123994,6 +123994,8 @@ var WIDGETS_CSS = `
 #${DES_WRAPPER_ID}.dooms-pb-position-left + .maestro-m25-strip,
 #${DES_WRAPPER_ID}.dooms-pb-position-right + .maestro-m25-strip,
 #${DES_WRAPPER_ID}[style*="display: none"] + .maestro-m25-strip { display: none; }
+/* The HUD left of the chat shows the same values in full: no second copy under DES's portraits. */
+body:has(#maestro-m25-hud.maestro-m25-hud-side:not([hidden])) .maestro-m25-strip { display: none; }
 .maestro-m25-strip-title { flex: none; font-weight: 600; opacity: 0.8; }
 .maestro-m25-strip-list { flex: 1 1 auto; min-width: 0; display: flex; flex-wrap: wrap; gap: 2px 14px; }
 .maestro-m25-strip-holder { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }

@@ -535,6 +535,13 @@ export function analyseRequest(body, overrides = {}) {
         tools: Array.isArray(body?.tools) ? body.tools : [],
         toolChoice: body?.tool_choice,
         summary: isSummaryRequest(trailingText) || markers.has('summary'),
+        // Lorebook Localizer 0.5 «Расширить мир» (LoreBook Creator): one click or a dialog turn, JSON without a schema.
+        lbcExpand:
+            messages[0]?.role === 'system' && /^You are a worldbuilding assistant that extends/.test(texts[0] ?? '')
+                ? texts.join('\n').includes('{"reply":"...","proposals"')
+                    ? 'dialog'
+                    : 'oneshot'
+                : null,
         // Dramatis 1.4 reads a card in two steps; the first one (no schema) asks for a plain-text dossier.
         dossier:
             messages[0]?.role === 'system' && /^You are a literary analyst preparing to describe/.test(texts[0] ?? ''),
@@ -622,6 +629,45 @@ export function taskFixture(name) {
     return value;
 }
 
+/** Lorebook Localizer's «Расширить мир»: two new entries (one click) or a reply with one proposal (dialog). */
+export function lbcExpandReply(ctx) {
+    const entry = (comment, keys, content, category) => ({
+        comment,
+        key: keys,
+        keysecondary: [],
+        content,
+        category,
+        constant: false,
+        order: 100,
+        position: 0,
+    });
+    const harbour = entry(
+        'Гильдия фонарщиков',
+        ['фонарщики', 'гильдия фонарщиков', 'фонарщик'],
+        'Гильдия фонарщиков зажигает маяки и уличные фонари Серебряной Гавани. Её мастера знают все тайные ходы порта.',
+        'Faction',
+    );
+    if (ctx.lbcExpand === 'dialog') {
+        return {
+            reply: 'Можно развить порт через гильдию фонарщиков: они видят всё, что происходит ночью. Добавить её?',
+            proposals: [{ op: 'add', entry: harbour }],
+        };
+    }
+    return {
+        entries: [
+            harbour,
+            entry(
+                'Ночной рынок',
+                ['ночной рынок', 'рынок у маяка'],
+                'После полуночи у старого маяка торгуют тем, что не прошло таможню.',
+                'Location',
+            ),
+        ],
+        updates: [],
+        summary: 'Добавила гильдию фонарщиков и ночной рынок — оба связаны с ночной жизнью порта.',
+    };
+}
+
 /**
  * The dossier step of Dramatis' intent reading (plain text, no schema): one short section per character of the intent
  * fixture (or the names of the request), each with a line quoted from the sources when one names the character.
@@ -641,6 +687,55 @@ export function dossierText(ctx) {
         })
         .join('\n\n');
 }
+
+/**
+ * Dramatis 1.4 «перевод описаний» (`dramatis.translate`): every item comes back «in Russian» — a letter-by-letter
+ * Cyrillic rendering of the English, about as long as the original, so the stand shows Russian text in the windows.
+ */
+const MOCK_CYRILLIC = {
+    a: 'а',
+    b: 'б',
+    c: 'к',
+    d: 'д',
+    e: 'е',
+    f: 'ф',
+    g: 'г',
+    h: 'х',
+    i: 'и',
+    j: 'дж',
+    k: 'к',
+    l: 'л',
+    m: 'м',
+    n: 'н',
+    o: 'о',
+    p: 'п',
+    q: 'к',
+    r: 'р',
+    s: 'с',
+    t: 'т',
+    u: 'у',
+    v: 'в',
+    w: 'в',
+    x: 'кс',
+    y: 'й',
+    z: 'з',
+};
+export function mockCyrillic(text) {
+    return String(text).replace(/[A-Za-z]/g, (letter) => {
+        const out = MOCK_CYRILLIC[letter.toLowerCase()] ?? letter;
+        return letter === letter.toUpperCase() ? out.charAt(0).toUpperCase() + out.slice(1) : out;
+    });
+}
+registerTask('dramatis.translate', (ctx) => {
+    let payload = null;
+    try {
+        payload = JSON.parse(ctx.lastUserText);
+    } catch {
+        payload = null;
+    }
+    const items = Array.isArray(payload?.items) ? payload.items : [];
+    return { items: items.map((item) => ({ id: String(item.id), ru: mockCyrillic(item.text ?? '') })) };
+});
 
 /** The reply source of a Dramatis schema: a registered handler, a fixture, or the walker ('walker'). */
 function dramatisHandler(name) {
@@ -1751,6 +1846,15 @@ export function buildReply(ctx, n = 0) {
 
     let kind = 'story';
     let content;
+    if (ctx.lbcExpand) {
+        return {
+            scenario: label(`lbc-expand-${ctx.lbcExpand}`),
+            content: JSON.stringify(lbcExpandReply(ctx), null, 2),
+            finishReason: 'stop',
+            toolCalls: null,
+            reasoning,
+        };
+    }
     if (ctx.dossier) {
         return {
             scenario: label('dramatis-dossier'),
