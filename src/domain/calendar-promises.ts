@@ -127,8 +127,14 @@ export function sharePeople(a: readonly string[], b: readonly string[]): boolean
     return b.some((name) => keys.has(nameKey(name)));
 }
 
+/** How close a statement is to a promise: its wording or its English copy (a Russian story's prepared promise). */
+function promiseSimilarity(item: { what: string; english?: string }, text: string): number {
+    const own = similarity(item.what, text);
+    return item.english ? Math.max(own, similarity(item.english, text)) : own;
+}
+
 /** The active promise a statement is about (same promiser, most similar wording above `min`). */
-export function findPromiseMatch<T extends { who: string[]; what: string; status: PromiseState }>(
+export function findPromiseMatch<T extends { who: string[]; what: string; english?: string; status: PromiseState }>(
     list: readonly T[],
     who: readonly string[],
     text: string,
@@ -138,7 +144,7 @@ export function findPromiseMatch<T extends { who: string[]; what: string; status
     let bestScore = min;
     for (const item of list) {
         if (!isActive(item.status) || !sharePeople(item.who, who)) continue;
-        const score = similarity(item.what, text);
+        const score = promiseSimilarity(item, text);
         if (score >= bestScore) {
             best = item;
             bestScore = score;
@@ -147,14 +153,16 @@ export function findPromiseMatch<T extends { who: string[]; what: string; status
     return best;
 }
 
-/** The same promise found again (the next revision often reports it once more). */
+/** The same promise found again (the next revision often reports it once more; either may carry an English copy). */
 export function samePromise(
-    a: { who: readonly string[]; what: string; quote?: string },
-    b: { who: readonly string[]; what: string; quote?: string },
+    a: { who: readonly string[]; what: string; english?: string; quote?: string },
+    b: { who: readonly string[]; what: string; english?: string; quote?: string },
 ): boolean {
     if (!sharePeople(a.who, b.who)) return false;
     if (a.quote && b.quote && normalizeText(a.quote) === normalizeText(b.quote)) return true;
-    return similarity(a.what, b.what) >= 0.75;
+    const left = [a.what, a.english ?? ''].filter(Boolean);
+    const right = [b.what, b.english ?? ''].filter(Boolean);
+    return left.some((x) => right.some((y) => similarity(x, y) >= 0.75));
 }
 
 const MAX_WHAT = 240;

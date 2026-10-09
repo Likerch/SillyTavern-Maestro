@@ -286,6 +286,29 @@ describe('secrets', () => {
         );
     });
 
+    it("keeps a Russian story's prepared secret in Russian; the revision's English statement finds it", async () => {
+        const env = createKnowledgeTestApp();
+        env.mock.chat.push(userMessage('Hi.'), sceneReply('…'), userMessage('Hm.'));
+        const { api } = start(env);
+        const id = await api.addSecret({
+            text: 'Амулет проклят.',
+            english: 'The amulet is cursed.',
+            topics: ['амулет'],
+            knownBy: ['Bob'],
+            sourceMessage: 0,
+        });
+        expect(api.facts()).toMatchObject([{ id, text: 'Амулет проклят.', english: 'The amulet is cursed.' }]);
+        const again = await api.intakeSecret!({
+            entityName: 'the amulet',
+            value: 'The amulet is cursed.',
+            evidence: '',
+            sourceMessage: 1,
+        });
+        expect(again).toBe(id);
+        expect(api.facts()).toHaveLength(1);
+        expect(api.facts()[0]!.knownBy).toContain('Bob');
+    });
+
     it('a secret can be undone from the journal', async () => {
         const env = createKnowledgeTestApp();
         const { api } = start(env);

@@ -6,8 +6,13 @@ import type { Unsubscribe } from '../../shared/contracts';
 
 export interface KnowledgeFact {
     id: string;
-    /** English, short. */
+    /** English, short (the player's language for a secret the preparation of a Russian story made). */
     text: string;
+    /**
+     * The English statement when `text` is in the story's language (a Russian story's prepared secret): the revision's
+     * English statements of the same secret find it. Optional: older documents and fakes have none.
+     */
+    english?: string;
     /** Topic words (RU/EN) used to decide whether the topic «came up». */
     topics: string[];
     /** Canonical names of characters who know it. */

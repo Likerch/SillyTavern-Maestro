@@ -281,6 +281,34 @@ describe('deferred cards', () => {
         expect(await service.intake({ entityName: 'Anna', value: SWORD, evidence: '', sourceMessage: 0 })).toBeNull();
     });
 
+    it("keeps a Russian story's prepared promise in Russian with its English copy, and the revision finds it", async () => {
+        const service = await env.start();
+        const index = await env.turn({ date: 'Day 1', start: '10:00' });
+        const id = await service.add({
+            who: ['Anna'],
+            toWhom: ['Boris'],
+            what: 'Анна вернёт меч Борису до заката.',
+            english: SWORD,
+            quote: '',
+            due: null,
+            sourceMessage: 0,
+        });
+        expect(service.promises()).toMatchObject([{ id, what: 'Анна вернёт меч Борису до заката.', english: SWORD }]);
+        // The revision reports it again in English: the same promise, not a second one.
+        expect(
+            await service.intake({ entityName: 'Anna', value: SWORD, evidence: SWORD_QUOTE, sourceMessage: index }),
+        ).toBe(id);
+        expect(service.promises()).toHaveLength(1);
+        // …and its outcome closes it.
+        await service.intake({
+            entityName: 'Anna',
+            value: 'Anna kept her promise and returned the sword to Boris.',
+            evidence: '',
+            sourceMessage: index,
+        });
+        expect(service.promises()[0]!.status).toBe('done');
+    });
+
     it('reads the addressee from the persona and defaults to the card character for the persona', async () => {
         const service = await env.start();
         await env.turn({ date: 'Day 1' });

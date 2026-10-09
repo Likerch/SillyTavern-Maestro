@@ -483,10 +483,17 @@ export class KnowledgeService {
         if (!this.app.host.chatId()) throw new Error(t('m18.error.noChat'));
         const text = (input.text ?? '').trim();
         if (!text) throw new Error(t('m18.error.empty'));
+        // A secret stored in the story's language keeps its English statement: the revision reports it in English.
+        const english = typeof input.english === 'string' ? input.english.trim() : '';
+        const statements = new Set([text, english].filter(Boolean).map((value) => normalizeName(value)));
         const knownBy = nameList(Array.isArray(input.knownBy) ? input.knownBy : []);
         const topics = Array.isArray(input.topics) ? input.topics.filter((item) => typeof item === 'string') : [];
         const outcome = await this.store.mutate((doc) => {
-            const existing = doc.facts.find((fact) => fact.secret && normalizeName(fact.text) === normalizeName(text));
+            const existing = doc.facts.find(
+                (fact) =>
+                    fact.secret &&
+                    [fact.text, fact.english ?? ''].some((value) => !!value && statements.has(normalizeName(value))),
+            );
             if (existing) {
                 const before = existing.knownBy.length + existing.topics.length;
                 existing.knownBy = nameList([...existing.knownBy, ...knownBy]);
@@ -504,6 +511,7 @@ export class KnowledgeService {
                 at: Date.now(),
             };
             if (input.quote?.trim()) fact.quote = input.quote.trim();
+            if (english && english !== text) fact.english = english;
             doc.facts.push(fact);
             doc.facts = capFacts(doc.facts, this.settings().maxFacts);
             return { changed: true, result: { fact, created: true } };

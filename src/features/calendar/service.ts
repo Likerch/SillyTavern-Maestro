@@ -170,6 +170,9 @@ export function normaliseCalendarDoc(doc: CalendarDoc): CalendarDoc {
         promise.who = stringList(promise.who);
         promise.toWhom = stringList(promise.toWhom);
         if (typeof promise.quote !== 'string') promise.quote = '';
+        if (promise.english !== undefined && (typeof promise.english !== 'string' || !promise.english.trim())) {
+            delete promise.english;
+        }
         if (!isMoment(promise.due)) promise.due = null;
         if (!isPromiseState(promise.status)) promise.status = 'open';
         if (typeof promise.sourceMessage !== 'number') promise.sourceMessage = -1;
@@ -218,6 +221,7 @@ function publicPromise(promise: StoredPromise): StoryPromise {
         who: [...promise.who],
         toWhom: [...promise.toWhom],
         what: promise.what,
+        ...(promise.english ? { english: promise.english } : {}),
         quote: promise.quote,
         due: copyMoment(promise.due),
         status: promise.status,
@@ -326,12 +330,14 @@ export class CalendarService implements Required<CalendarApi> {
         if (!what) throw new Error(this.app.i18n.t('m17.error.what'));
         if (!this.app.host.chatId()) throw new Error(this.app.i18n.t('m17.error.noChat'));
         const sourceMessage = Number.isInteger(promise.sourceMessage) ? promise.sourceMessage : -1;
+        const english = cleanStatement(promise.english);
         const id = await this.enqueue(() =>
             this.store(
                 {
                     who: stringList(promise.who).map((name) => name.trim()),
                     toWhom: stringList(promise.toWhom).map((name) => name.trim()),
                     what,
+                    ...(english && english !== what ? { english } : {}),
                     quote: cleanStatement(promise.quote, MAX_QUOTE, false),
                     due: isMoment(promise.due) ? copyMoment(promise.due) : null,
                     sourceMessage,
@@ -726,6 +732,7 @@ export class CalendarService implements Required<CalendarApi> {
             who: [...promise.who],
             toWhom: [...promise.toWhom],
             what: promise.what,
+            ...(promise.english ? { english: promise.english } : {}),
             quote: promise.quote,
             due: copyMoment(promise.due),
             status: 'open',

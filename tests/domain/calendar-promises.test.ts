@@ -126,6 +126,20 @@ describe('matching', () => {
         expect(samePromise(a, { who: ['Anna'], what: 'Promised to bake bread.' })).toBe(false);
     });
 
+    it("matches a Russian story's prepared promise by its English copy", () => {
+        const prepared = {
+            id: 'r',
+            who: ['Anna'],
+            what: 'Анна вернёт меч Борису до заката.',
+            english: 'Promised to return the sword to Boris by sunset.',
+            status: 'open' as PromiseState,
+        };
+        expect(findPromiseMatch([prepared], ['Anna'], 'Kept her promise to return the sword to Boris.')?.id).toBe('r');
+        expect(samePromise(prepared, { who: ['Anna'], what: 'Will return the sword to Boris by sunset.' })).toBe(true);
+        expect(samePromise({ who: ['Anna'], what: 'Will return the sword to Boris by sunset.' }, prepared)).toBe(true);
+        expect(samePromise(prepared, { who: ['Anna'], what: 'Promised to bake bread.' })).toBe(false);
+    });
+
     it('compares people lists', () => {
         expect(sharePeople([], ['Anna'])).toBe(true);
         expect(sharePeople(['Анна'], ['анна'])).toBe(true);

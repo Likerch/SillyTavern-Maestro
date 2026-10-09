@@ -21,8 +21,13 @@ export interface StoryPromise {
     who: string[];
     /** To whom (canonical names; the persona included). */
     toWhom: string[];
-    /** English, short. */
+    /** English, short (the player's language for a promise the preparation of a Russian story made). */
     what: string;
+    /**
+     * The English statement when `what` is in the story's language (a Russian story's prepared promise): the revision's
+     * English statements are matched against it too. Optional: older documents and fakes have none.
+     */
+    english?: string;
     /** Russian quote from the chat (as written). */
     quote: string;
     due: StoryMoment | null;

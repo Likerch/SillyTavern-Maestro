@@ -11,8 +11,10 @@ import { buildMentionMatcher, findMentions, mentionNeedles, nameList, normalizeN
 /** One fact (the same fields as `KnowledgeFact` in src/features/knowledge/api.ts). */
 export interface KnowledgeFactData {
     id: string;
-    /** English, short. */
+    /** English, short (the player's language for a secret the preparation of a Russian story made). */
     text: string;
+    /** The English statement beside a `text` in the story's language (a Russian story's prepared secret). */
+    english?: string;
     /** Topic words (RU/EN): capitalised ones are names, lower-case ones keywords. */
     topics: string[];
     /** Canonical names of the characters who know it. */
@@ -76,6 +78,8 @@ export function normalizeFact(raw: unknown): KnowledgeFactData | null {
     };
     const quote = str(raw.quote);
     if (quote) fact.quote = quote;
+    const english = str(raw.english);
+    if (english && english !== text) fact.english = english;
     return fact;
 }
 
