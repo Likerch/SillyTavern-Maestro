@@ -32,6 +32,7 @@ const ALL_CAPABILITIES = [
     'nai.lorePassports',
     'nai.passportGen',
     'nai.backgrounds',
+    'nai.personaKeys',
     'localizer.present',
     'localizer.api',
     'preset.cc',

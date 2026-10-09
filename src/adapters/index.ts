@@ -61,7 +61,7 @@ export type {
     LocalizerLanguageState,
     LocalizerMarker,
 } from './localizer';
-export { NAI_MARKERS_SLOT, NaiAdapter } from './nai';
+export { NAI_MARKERS_SLOT, NAI_PERSONA_FEATURE, NaiAdapter } from './nai';
 export type {
     NaiBackgroundInput,
     NaiBackgroundResult,
@@ -76,6 +76,8 @@ export type {
     NaiPassportScope,
     NaiPassportTarget,
     NaiPassportsSavedDetail,
+    NaiPersonaAvatarInput,
+    NaiPersonaAvatarResult,
     NaiQualityGate,
     NaiQualityGateDetail,
     NaiRequestFailedDetail,

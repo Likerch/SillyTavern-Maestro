@@ -16,7 +16,9 @@
 // - `nai.qualityGate`  that API takes quality gates (`registerQualityGate`, NAI Studio 0.11.0+);
 // - `nai.lorePassports` it takes passport providers (`registerPassportProvider`, NAI Studio 0.12.0+);
 // - `nai.passportGen`  it writes a passport from a description (`generatePassport`, NAI Studio 0.12.0+);
-// - `nai.backgrounds`  it draws backgrounds of places (`generateBackground`, NAI Studio 0.12.0+).
+// - `nai.backgrounds`  it draws backgrounds of places (`generateBackground`, NAI Studio 0.12.0+);
+// - `nai.personaKeys`  passports and avatars of any persona by its avatar file key (`features` lists 'personaKeys':
+//                      `getPersonaPassport`, `savePassport(…, { personaKey })`, `generatePersonaAvatar`; M41).
 import { NeighbourBase, extensionSettingsOf, homePageHas, isDict, stringList } from '../base';
 import type { AdapterDeps, Dict, ExtensionManifest } from '../base';
 
@@ -85,6 +87,8 @@ export interface NaiPassportScope {
 export interface NaiPassportTarget {
     avatar?: string;
     persona?: boolean;
+    /** NAI Studio with 'personaKeys' (M41): the persona by its avatar file key, current or not. */
+    personaKey?: string;
 }
 
 /** `card`: the card (or the persona settings); `chat`: the current chat only, kept over the card. */
@@ -180,6 +184,11 @@ export interface NaiPassportGenInput {
     description: string;
     /** Language of the story (`ru`): the name as it spells it goes to the aliases. */
     language?: string;
+    /**
+     * NAI Studio with 'personaKeys' (M41): the player's character — its persona prompt, with named outfits and room for
+     * five or six of them. An older NAI Studio ignores it.
+     */
+    persona?: boolean;
 }
 
 /** `generateBackground` input (NAI Studio 0.12.0+). */
@@ -372,6 +381,7 @@ export class NaiAdapter extends NeighbourBase<'nai'> {
             'nai.backgrounds',
             () => this.present() && typeof this.api()?.generateBackground === 'function',
         );
+        this.capability('nai.personaKeys', () => this.present() && this.canUsePersonaKeys());
     }
 
     present(): boolean {
@@ -587,6 +597,72 @@ export class NaiAdapter extends NeighbourBase<'nai'> {
         return list.map(readPassport).filter((passport): passport is NaiPassport => passport !== null);
     }
 
+    /* ---------------------------------------------------------------- personas by key (M41, 'personaKeys') */
+    // «Персона для персонажа»: the passport and the avatar of a persona that is not the current one (a persona Maestro
+    // has just created for a card). Feature-detected through `features`; every member answers «no» without it.
+
+    /** NAI Studio's API with the persona members, when `features` lists 'personaKeys'. */
+    private personaApi(): (NaiStudioApi & NaiPersonaKeys) | undefined {
+        const api = this.api() as (NaiStudioApi & NaiPersonaKeys) | undefined;
+        if (!api || !Array.isArray(api.features) || !api.features.includes(NAI_PERSONA_FEATURE)) return undefined;
+        return typeof api.getPersonaPassport === 'function' && typeof api.generatePersonaAvatar === 'function'
+            ? api
+            : undefined;
+    }
+
+    /** NAI Studio keeps passports and draws avatars for any persona by its key. */
+    canUsePersonaKeys(): boolean {
+        return this.personaApi() !== undefined;
+    }
+
+    /** The passport of a persona by its avatar file key (a typed copy); null without the feature or a passport. */
+    personaPassport(personaKey: string): NaiPassport | null {
+        const api = this.personaApi();
+        if (!api?.getPersonaPassport || !personaKey) return null;
+        try {
+            return readPassport(api.getPersonaPassport(personaKey));
+        } catch (error) {
+            this.log.warn('NAI_STUDIO_API.getPersonaPassport failed', error);
+            return null;
+        }
+    }
+
+    /**
+     * Saves the passport of a persona by its avatar file key (its settings, like NAI Studio's own persona passport).
+     * True when saved; false without the feature, for an empty key or when NAI Studio refused.
+     */
+    async savePersonaPassport(personaKey: string, passport: NaiPassport): Promise<boolean> {
+        const api = this.personaApi();
+        if (!api || !personaKey) return false;
+        try {
+            await api.savePassport(passport, 'card', { personaKey });
+            return true;
+        } catch (error) {
+            this.log.warn('NAI_STUDIO_API.savePassport (persona) failed', error);
+            return false;
+        }
+    }
+
+    /**
+     * Draws the avatar of a persona from its passport (the given one, else the saved one) and stores it as that
+     * persona's avatar. `{ ok: false, error: 'unavailable' }` without the feature; NAI Studio's error text otherwise.
+     */
+    async generatePersonaAvatar(input: NaiPersonaAvatarInput): Promise<NaiPersonaAvatarResult> {
+        const api = this.personaApi();
+        if (!api?.generatePersonaAvatar || !input.personaKey) return { ok: false, error: 'unavailable' };
+        try {
+            const result: unknown = await api.generatePersonaAvatar(input);
+            if (!isDict(result)) return { ok: false, error: 'no answer' };
+            const path = typeof result.path === 'string' && result.path.trim() ? result.path.trim() : undefined;
+            const error = typeof result.error === 'string' && result.error.trim() ? result.error.trim() : undefined;
+            if (result.ok === true) return path ? { ok: true, path } : { ok: true };
+            return { ok: false, error: error ?? 'failed' };
+        } catch (error) {
+            this.log.warn('NAI_STUDIO_API.generatePersonaAvatar failed', error);
+            return { ok: false, error: error instanceof Error ? error.message : String(error) };
+        }
+    }
+
     /* ---------------------------------------------------------------- passport exclusion (NAI Studio 0.14.0+) */
     // Plan-2 §9: a card passport the user declared another one's («Другой») is switched off in the current chat only;
     // NAI Studio then treats it as absent everywhere in that chat. Feature-detected through `features`.
@@ -662,4 +738,30 @@ export interface NaiPassportExclusion {
     /** Current chat only (a chat_metadata flag); an excluded passport is invisible to every NAI Studio feature there. */
     setPassportExcluded?(passportId: string, excluded: boolean): Promise<void>;
     isPassportExcluded?(passportId: string): boolean;
+}
+
+/* ------------------------------------------------------------------ personas by key (M41) */
+
+/** The `features` entry that announces passports and avatars of any persona by its avatar file key. */
+export const NAI_PERSONA_FEATURE = 'personaKeys';
+
+/** `generatePersonaAvatar` input: the persona by its avatar file key; the passport to draw (else its saved one). */
+export interface NaiPersonaAvatarInput {
+    personaKey: string;
+    passport?: NaiPassport;
+    signal?: AbortSignal;
+}
+
+/** What `generatePersonaAvatar` answers: `path` of the stored avatar, or NAI Studio's error text. */
+export interface NaiPersonaAvatarResult {
+    ok: boolean;
+    path?: string;
+    error?: string;
+}
+
+/** Members of `NAI_STUDIO_API` v1 for personas by key (feature 'personaKeys'); all optional. */
+export interface NaiPersonaKeys {
+    features?: readonly string[];
+    getPersonaPassport?(personaKey: string): unknown;
+    generatePersonaAvatar?(options: NaiPersonaAvatarInput): Promise<unknown>;
 }
