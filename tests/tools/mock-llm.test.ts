@@ -310,6 +310,21 @@ describe('mock LLM', () => {
         ]);
     });
 
+    it('answers the dossier step of Dramatis’s reading with plain text per character', async () => {
+        const reply = await complete({
+            messages: [
+                {
+                    role: 'system',
+                    content: 'You are a literary analyst preparing to describe the characters of a role-play story.',
+                },
+                { role: 'user', content: '<sources>\n[S1] Вера стоит у стола.\n</sources>' },
+            ],
+        });
+        const text = reply.choices[0]!.message.content;
+        expect(text).toMatch(/^## /m);
+        expect(text).not.toContain('"quests"');
+    });
+
     it('answers Dramatis tasks by the schema MAESTRO_API names after the task: handler, fixture, walker', async () => {
         const schemaOf = (name: string, schema: Record<string, unknown>) => ({
             type: 'json_schema',

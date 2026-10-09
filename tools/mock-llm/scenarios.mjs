@@ -535,6 +535,9 @@ export function analyseRequest(body, overrides = {}) {
         tools: Array.isArray(body?.tools) ? body.tools : [],
         toolChoice: body?.tool_choice,
         summary: isSummaryRequest(trailingText) || markers.has('summary'),
+        // Dramatis 1.4 reads a card in two steps; the first one (no schema) asks for a plain-text dossier.
+        dossier:
+            messages[0]?.role === 'system' && /^You are a literary analyst preparing to describe/.test(texts[0] ?? ''),
         sheetTarget: markers.has('sheet')
             ? markers.get('sheet') || null
             : sheetMatch
@@ -617,6 +620,26 @@ export function taskFixture(name) {
     }
     fixtureCache.set(key, value);
     return value;
+}
+
+/**
+ * The dossier step of Dramatis' intent reading (plain text, no schema): one short section per character of the intent
+ * fixture (or the names of the request), each with a line quoted from the sources when one names the character.
+ */
+export function dossierText(ctx) {
+    const fixture = taskFixture('dramatis_intent');
+    const fromFixture = Array.isArray(fixture?.characters)
+        ? fixture.characters.map((item) => item?.name).filter(Boolean)
+        : [];
+    const names = fromFixture.length ? fromFixture : ctx.names.length ? ctx.names : DEFAULT_NAMES;
+    const sources = ctx.texts.join('\n');
+    return names
+        .map((name) => {
+            const line = sources.split('\n').find((text) => text.includes(name) && text.length < 300) ?? '';
+            const quote = line ? ` «${line.trim().slice(0, 140)}» [S1]` : '';
+            return `## ${name}\n- Core: as the card describes them.${quote}\n- Toward the player: as the opening scene shows.`;
+        })
+        .join('\n\n');
 }
 
 /** The reply source of a Dramatis schema: a registered handler, a fixture, or the walker ('walker'). */
@@ -1728,6 +1751,15 @@ export function buildReply(ctx, n = 0) {
 
     let kind = 'story';
     let content;
+    if (ctx.dossier) {
+        return {
+            scenario: label('dramatis-dossier'),
+            content: dossierText(ctx),
+            finishReason: 'stop',
+            toolCalls: null,
+            reasoning,
+        };
+    }
     if (ctx.summary) {
         kind = 'summary';
         const names = ctx.names.length ? ctx.names : DEFAULT_NAMES;
