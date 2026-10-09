@@ -84,9 +84,14 @@ export function exportCommit(repoDir, commit, destDir, filter = () => true) {
     return entries.length;
 }
 
-/** Copies the tracked files of the working tree (uncommitted edits included) into `destDir`. */
-export function exportWorktree(repoDir, destDir, filter = () => true) {
-    const listing = git(['-C', repoDir, 'ls-files', '-z', '--cached']);
+/**
+ * Copies the tracked files of the working tree (uncommitted edits included) into `destDir`; with `untracked` also the
+ * new files git does not ignore (a fresh build of a neighbour that commits its dist/).
+ */
+export function exportWorktree(repoDir, destDir, filter = () => true, options = {}) {
+    const args = ['-C', repoDir, 'ls-files', '-z', '--cached'];
+    if (options.untracked) args.push('--others', '--exclude-standard');
+    const listing = git(args);
     removeTree(destDir);
     ensureDir(destDir);
     let count = 0;

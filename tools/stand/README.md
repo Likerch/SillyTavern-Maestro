@@ -40,18 +40,21 @@ custom`, `custom_url: http://127.0.0.1:5199/v1`, `custom_model: mock-deepseek-v4
 - **Neighbours** — per-user extensions in `runtime/data/default-user/extensions/<folder>` (ST 1.19 serves
   `/scripts/extensions/third-party/<folder>` from there). Pins are in `sources.mjs`:
 
-  | Folder                                | Version | Source                                                                      |
-  | ------------------------------------- | ------- | --------------------------------------------------------------------------- |
-  | SillyTavern-MessageSummarize (Qvink)  | 1.3.29  | github clone at `81b3326` in `runtime/vendor/qvink`                         |
-  | Dooms-Enhancement-Suite               | 2.6.0   | `../SillyTavern-DES-RU/vendor/des` @ `10ad241`                              |
-  | CarrotKernel                          | 1.0.0   | `../SillyTavern-DES-RU/vendor/CarrotKernel` @ `145c273`                     |
-  | SillyTavern-Doom-Enhancement-Suite-RU | 0.7.0   | `../SillyTavern-DES-RU` @ `2128441`                                         |
-  | SillyTavern-NAI-Studio                | current | `../SillyTavern-NAI-Studio` @ `HEAD` (dist/ is committed; no server plugin) |
-  | SillyTavern-LorebookLocalizer         | 0.1.0   | `../SillyTavern-LorebookLocalizer` @ `ae00f4b`                              |
+  | Folder                                | Version | Source                                                                        |
+  | ------------------------------------- | ------- | ----------------------------------------------------------------------------- |
+  | SillyTavern-MessageSummarize (Qvink)  | 1.3.29  | github clone at `81b3326` in `runtime/vendor/qvink`                           |
+  | Dooms-Enhancement-Suite               | 2.6.0   | `../SillyTavern-DES-RU/vendor/des` @ `10ad241`                                |
+  | CarrotKernel                          | 1.0.0   | `../SillyTavern-DES-RU/vendor/CarrotKernel` @ `145c273`                       |
+  | SillyTavern-Doom-Enhancement-Suite-RU | 0.7.0   | `../SillyTavern-DES-RU` @ `2128441`                                           |
+  | SillyTavern-NAI-Studio                | current | `../SillyTavern-NAI-Studio` @ `HEAD` (dist/ is committed; no server plugin)   |
+  | SillyTavern-LorebookLocalizer         | 0.1.0   | `../SillyTavern-LorebookLocalizer` @ `ae00f4b`                                |
+  | SillyTavern-Dramatis (optional)       | current | `../SillyTavern-Dramatis` @ `WORKTREE` (skipped until `dist/index.js` exists) |
 
   Commits are exported with `git ls-tree` + `git cat-file --batch` into `runtime/vendor/exports/<folder>@<sha>` (no
   `.git`), then copied. Override a pin with `STAND_REF_<ID>=<sha|HEAD|WORKTREE>` (ids: qvink, des, ck, desru, nai,
-  localizer); `WORKTREE` copies tracked files including uncommitted edits.
+  localizer, dramatis); `WORKTREE` copies tracked files including uncommitted edits, and new files git does not
+  ignore. An `optional` neighbour (Dramatis, written alongside Maestro 1.17) without a repository or without its
+  required files is skipped with a warning (`status` shows `skip`) instead of failing the setup.
 
 - **BunnyMo V3.0 lorebooks** — 13 books from `../SillyTavern-DES-RU/vendor/BunnyMo` @ `7a61c9f` into `worlds/`.
 - **Fixtures** (`tools/fixtures/`, see below) — lorebooks, the card as a PNG (`chara` + `ccv3` chunks), chats,

@@ -1,6 +1,6 @@
 // The mock LLM of the bench (tools/mock-llm/server.mjs), started as a real process on a random port.
 import { spawn, type ChildProcess } from 'node:child_process';
-import { mkdtempSync, readdirSync, rmSync } from 'node:fs';
+import { mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -62,12 +62,23 @@ interface Message {
 let child: ChildProcess;
 let base = '';
 let recordDir = '';
+let fixtureDir = '';
 
 beforeAll(async () => {
     recordDir = mkdtempSync(path.join(tmpdir(), 'maestro-mock-'));
+    // Dramatis task fixtures (tools/mock-llm/README.md «Dramatis tasks»).
+    fixtureDir = mkdtempSync(path.join(tmpdir(), 'maestro-mock-dramatis-'));
+    writeFileSync(
+        path.join(fixtureDir, 'dramatis.scene.json'),
+        JSON.stringify([
+            { verdict: 'calm', dilemmas: ['stay or go'] },
+            { verdict: 'tense', dilemmas: [] },
+        ]),
+    );
+    writeFileSync(path.join(fixtureDir, 'dramatis_world.json'), JSON.stringify({ ticks: 2, extra: 'dropped' }));
     child = spawn(process.execPath, [SERVER, '--port', '0', '--record-dir', recordDir, '--quiet'], {
         stdio: ['ignore', 'pipe', 'pipe'],
-        env: { ...process.env, MOCK_CHUNK_DELAY_MS: '0' },
+        env: { ...process.env, MOCK_CHUNK_DELAY_MS: '0', MOCK_DRAMATIS_FIXTURES: fixtureDir },
     });
     const port = await new Promise<number>((resolve, reject) => {
         let output = '';
@@ -88,6 +99,7 @@ beforeAll(async () => {
 afterAll(() => {
     child?.kill();
     rmSync(recordDir, { recursive: true, force: true });
+    rmSync(fixtureDir, { recursive: true, force: true });
 });
 
 const story: Message[] = [
@@ -238,6 +250,68 @@ describe('mock LLM', () => {
         expect(result?.updates).toEqual([
             expect.objectContaining({ uid: 4, russian: expect.stringContaining('Праздник Фонарей') }),
         ]);
+    });
+
+    it('answers Dramatis tasks by the schema MAESTRO_API names after the task: handler, fixture, walker', async () => {
+        const schemaOf = (name: string, schema: Record<string, unknown>) => ({
+            type: 'json_schema',
+            json_schema: { name, strict: true, schema },
+        });
+        const ping = await complete({
+            messages: [{ role: 'user', content: 'wiring check' }],
+            response_format: schemaOf('dramatis_ping', {
+                type: 'object',
+                required: ['ok', 'task'],
+                properties: { ok: { type: 'boolean' }, task: { type: 'string' }, echo: { type: 'string' } },
+            }),
+        });
+        expect(JSON.parse(ping.choices[0]!.message.content)).toEqual({
+            ok: true,
+            task: 'dramatis.ping',
+            echo: 'wiring check',
+        });
+
+        const sceneSchema = {
+            type: 'object',
+            additionalProperties: false,
+            required: ['verdict', 'dilemmas'],
+            properties: {
+                verdict: { type: 'string', enum: ['calm', 'tense'] },
+                dilemmas: { type: 'array', items: { type: 'string' } },
+            },
+        };
+        const scene = JSON.parse(
+            (
+                await complete({
+                    messages: [{ role: 'user', content: 'scene 1' }],
+                    response_format: schemaOf('dramatis_scene', sceneSchema),
+                })
+            ).choices[0]!.message.content,
+        ) as { verdict: string };
+        expect(['calm', 'tense']).toContain(scene.verdict);
+
+        const world = await complete({
+            messages: [{ role: 'user', content: 'tick' }],
+            response_format: schemaOf('dramatis_world', {
+                type: 'object',
+                additionalProperties: false,
+                required: ['ticks', 'rumours'],
+                properties: { ticks: { type: 'integer' }, rumours: { type: 'array', items: { type: 'string' } } },
+            }),
+        });
+        expect(JSON.parse(world.choices[0]!.message.content)).toEqual({ ticks: 2, rumours: [] });
+
+        const walked = await complete({
+            messages: [{ role: 'user', content: 'x' }],
+            response_format: schemaOf('dramatis_turn', {
+                type: 'object',
+                required: ['intents', 'mood'],
+                properties: { intents: { type: 'array', items: { type: 'string' } }, mood: { type: 'string' } },
+            }),
+        });
+        expect(JSON.parse(walked.choices[0]!.message.content)).toEqual({ intents: [], mood: expect.any(String) });
+        const recorded = (await (await fetch(`${base}/__requests/last`)).json()) as { scenario: string };
+        expect(recorded.scenario).toBe('schema:dramatis_turn(walker)');
     });
 
     it('fills a registered json_schema and walks an unknown one', async () => {

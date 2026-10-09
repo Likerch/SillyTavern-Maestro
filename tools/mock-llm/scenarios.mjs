@@ -6,6 +6,9 @@
 // - `response_format: json_schema` requests get JSON for the schema (registered handlers or a schema walker);
 // - `tools` requests get a tool call when the message asks for one.
 // Everything is deterministic for the same request: the random generator is seeded from the request text.
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 /* ------------------------------------------------------------------ small helpers */
 
@@ -562,6 +565,75 @@ export function registerTool(name, handler) {
     toolHandlers.set(name, handler);
 }
 
+/* ------------------------------------------------------------------ Dramatis tasks (Maestro 1.17) */
+
+// MAESTRO_API names the JSON schema of a neighbour's request after its task (`dramatis.turn` → `dramatis_turn`,
+// src/app/public-api.ts schemaNameOf), so the mock knows the task. The reply for a `dramatis_*` schema comes from, in
+// this order: a handler registered with registerTask(task, handler); a fixture file
+// `tools/mock-llm/fixtures/dramatis/<task>.json` (or `<schema name>.json`; MOCK_DRAMATIS_FIXTURES moves the folder)
+// holding a partial object, or an array of them (one is picked per request); else the schema walker alone — a valid
+// object with every required field. Missing required fields are always filled from the schema.
+
+const taskHandlers = new Map();
+const fixtureCache = new Map();
+
+/** The JSON schema name MAESTRO_API sends for a task. */
+export function taskSchemaName(task) {
+    return String(task)
+        .replace(/[^A-Za-z0-9_-]/g, '_')
+        .slice(0, 64);
+}
+
+/** True for a schema MAESTRO_API sent for a Dramatis task. */
+export function isDramatisSchema(name) {
+    return typeof name === 'string' && name.startsWith('dramatis_');
+}
+
+/** Registers a reply for a Dramatis task id (`dramatis.turn`); same filling rules as registerSchema. */
+export function registerTask(task, handler) {
+    taskHandlers.set(taskSchemaName(task), handler);
+}
+
+function fixtureDir() {
+    return process.env.MOCK_DRAMATIS_FIXTURES || fileURLToPath(new URL('./fixtures/dramatis/', import.meta.url));
+}
+
+/** The fixture of a schema name: `<task>.json` (dots) or `<schema name>.json`; null when there is none. */
+export function taskFixture(name) {
+    const dir = fixtureDir();
+    const key = `${dir}|${name}`;
+    if (fixtureCache.has(key)) return fixtureCache.get(key);
+    let value = null;
+    const task = name.replace(/^dramatis_/, 'dramatis.');
+    for (const file of [`${name}.json`, `${task}.json`]) {
+        const full = path.join(dir, file);
+        if (!fs.existsSync(full)) continue;
+        try {
+            value = JSON.parse(fs.readFileSync(full, 'utf8'));
+        } catch (error) {
+            console.error(`[mock-llm] fixture ${full} is not valid JSON: ${error.message}`);
+        }
+        break;
+    }
+    fixtureCache.set(key, value);
+    return value;
+}
+
+/** The reply source of a Dramatis schema: a registered handler, a fixture, or the walker ('walker'). */
+function dramatisHandler(name) {
+    const registered = taskHandlers.get(name);
+    if (registered) return { handler: registered, how: 'task' };
+    const fixture = taskFixture(name);
+    if (fixture !== null && fixture !== undefined) {
+        const handler = (ctx, rng) => {
+            const value = Array.isArray(fixture) ? fixture[Math.floor(rng() * fixture.length)] : fixture;
+            return JSON.parse(JSON.stringify(value ?? {}));
+        };
+        return { handler, how: 'fixture' };
+    }
+    return { handler: null, how: 'walker' };
+}
+
 function resolveRef(ref, root) {
     if (typeof ref !== 'string' || !ref.startsWith('#/')) return {};
     let node = root;
@@ -701,6 +773,8 @@ export function conformToSchema(value, schema, root = schema, depth = 0, hint = 
 // Example handlers for Maestro background tasks. The real schemas are defined by src/ (stage 2+); the
 // filling rules above keep these replies valid even when the real schema differs.
 registerSchema('maestro_ping', (ctx) => ({ ok: true, model: ctx.model, echo: ctx.lastUserText.slice(0, 120) }));
+// A wiring check for Dramatis through MAESTRO_API (task `dramatis.ping`).
+registerTask('dramatis.ping', (ctx) => ({ ok: true, task: 'dramatis.ping', echo: ctx.lastUserText.slice(0, 120) }));
 
 /** The last `#N` / `[N]` message number of the request (revision and living canon number their messages). */
 function lastMessageIndex(text) {
@@ -1441,7 +1515,13 @@ export function buildReply(ctx, n = 0) {
                 reasoning,
             };
         }
-        const handler = ctx.schema ? schemaHandlers.get(ctx.schema.name) : null;
+        let handler = ctx.schema ? schemaHandlers.get(ctx.schema.name) : null;
+        let dramatis = '';
+        if (!handler && ctx.schema && isDramatisSchema(ctx.schema.name)) {
+            const found = dramatisHandler(ctx.schema.name);
+            handler = found.handler;
+            dramatis = found.how;
+        }
         const raw = handler ? handler(ctx, rng) : {};
         const value = ctx.schema ? conformToSchema(raw, ctx.schema.schema) : raw;
         let content = JSON.stringify(value, null, 2);
@@ -1452,7 +1532,9 @@ export function buildReply(ctx, n = 0) {
             content = content.slice(0, Math.max(2, Math.floor(content.length * 0.6)));
             finishReason = 'length';
         }
-        const kind = ctx.schema ? `schema:${ctx.schema.name}${handler ? '' : '(walker)'}` : 'json-object';
+        const kind = ctx.schema
+            ? `schema:${ctx.schema.name}${dramatis ? `(${dramatis})` : handler ? '' : '(walker)'}`
+            : 'json-object';
         return { scenario: label(kind), content, finishReason, toolCalls: null, reasoning };
     }
 

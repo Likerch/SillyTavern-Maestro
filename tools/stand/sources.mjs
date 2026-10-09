@@ -12,6 +12,8 @@
  * @property {string} [cache] clone folder under runtime/vendor
  * @property {string} ref commit sha, HEAD or WORKTREE
  * @property {string[]} [requires] files that must exist in the export
+ * @property {boolean} [optional] a missing repository or required file skips the neighbour with a warning instead of
+ *   failing it (a neighbour still being written)
  * @property {string} note
  */
 
@@ -66,6 +68,17 @@ export const NEIGHBOURS = [
         repo: 'SillyTavern-LorebookLocalizer',
         ref: 'df55ab0060ba7f8f95da0661144b155296dad4c4',
         note: 'Lorebook Localizer',
+    },
+    {
+        id: 'dramatis',
+        folder: 'SillyTavern-Dramatis',
+        version: null,
+        repo: 'SillyTavern-Dramatis',
+        // Written alongside Maestro 1.17: the working tree (tracked files and new ones git does not ignore).
+        ref: 'WORKTREE',
+        requires: ['manifest.json', 'dist/index.js'],
+        optional: true,
+        note: 'Dramatis personality engine (dist/ is committed); skipped until it has a build',
     },
 ];
 

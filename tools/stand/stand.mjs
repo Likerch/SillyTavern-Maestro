@@ -291,7 +291,7 @@ function exportNeighbour(neighbour) {
     if (!isGitRepo(repoDir)) throw new Error(`not a git repository: ${repoDir}`);
     if (ref === 'WORKTREE') {
         const dir = path.join(exportsDir, `${neighbour.folder}@worktree`);
-        exportWorktree(repoDir, dir);
+        exportWorktree(repoDir, dir, undefined, { untracked: true });
         writeJson(path.join(dir, '.stand-export.json'), { repo: repoDir, ref, at: new Date().toISOString() });
         return { dir, commit: 'WORKTREE', dirty: worktreeStatus(repoDir) };
     }
@@ -308,8 +308,20 @@ function installNeighbours() {
     const installed = [];
     for (const neighbour of NEIGHBOURS) {
         try {
+            // An optional neighbour still being written (Dramatis) is skipped while it has no repository or build.
+            if (neighbour.optional && neighbour.repo && !isGitRepo(path.join(NEIGHBOURS_ROOT, neighbour.repo))) {
+                warn(`${neighbour.folder}: no repository at ${path.join(NEIGHBOURS_ROOT, neighbour.repo)}; skipped`);
+                installed.push({ id: neighbour.id, folder: neighbour.folder, skipped: 'no repository' });
+                continue;
+            }
             const source = exportNeighbour(neighbour);
             const missing = (neighbour.requires ?? []).filter((file) => !fs.existsSync(path.join(source.dir, file)));
+            if (missing.length && neighbour.optional) {
+                warn(`${neighbour.folder}: export lacks ${missing.join(', ')}; skipped (build it first)`);
+                removeTree(path.join(EXT_DIR, neighbour.folder));
+                installed.push({ id: neighbour.id, folder: neighbour.folder, skipped: `lacks ${missing.join(', ')}` });
+                continue;
+            }
             if (missing.length) throw new Error(`export lacks ${missing.join(', ')}`);
             const manifest = readJson(path.join(source.dir, 'manifest.json'), {});
             const dest = path.join(EXT_DIR, neighbour.folder);
@@ -669,7 +681,7 @@ async function status() {
         for (const n of state.neighbours ?? []) {
             const installed = fs.existsSync(path.join(EXT_DIR, n.folder, 'manifest.json'));
             say(
-                `    ${n.error ? 'FAIL' : installed ? 'ok  ' : 'gone'}  ${n.folder} ${n.version ?? ''} ${n.commit ? `@${String(n.commit).slice(0, 7)}` : (n.error ?? '')}`,
+                `    ${n.error ? 'FAIL' : n.skipped ? 'skip' : installed ? 'ok  ' : 'gone'}  ${n.folder} ${n.version ?? ''} ${n.commit ? `@${String(n.commit).slice(0, 7)}` : (n.error ?? n.skipped ?? '')}`,
             );
         }
         if (state.bunnymo?.books) say(`    ok    BunnyMo ${state.bunnymo.version}: ${state.bunnymo.books} lorebooks`);
