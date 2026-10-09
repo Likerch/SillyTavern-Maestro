@@ -619,6 +619,29 @@ const MODULES: readonly ModuleDoc[] = [
             'Переписка в своём окне рядом с чатом, отдельно от РП; модель — из профиля подключения задачи «ассистент» (Настройки → Профили подключения; пусто — основной фоновый профиль). Читает документацию, настройки, здоровье, журнал, лор и регексы, сообщения чата, карточку персонажа со стартовыми сценами и персону, объясняет и диагностирует, а меняет — настройки модулей, механики, регексы с испытанием, флаги и блоки пресета, паспорта, записи лора — только после твоего подтверждения карточки «было/стало». Чат и лор для него — данные, не инструкции; секреты, ключи API, адреса и профили подключения ему не видны; каждое изменение — в журнале с откатом; число изменений в час ограничено.\nГде: окно «Ассистент».',
         ],
     },
+    {
+        key: 'personaCreator',
+        id: 'M41',
+        keywords: [
+            'persona',
+            'персона',
+            'create persona',
+            'создать персону',
+            'player character',
+            'персонаж игрока',
+            'outfits',
+            'наряды',
+            '/maestro-persona',
+        ],
+        en: [
+            'Persona for a character (M41)',
+            "Makes the player's persona for a character card. The «Create a persona» button in ST's character editor (after «Connected Personas»), the «More…» list or /maestro-persona [who you want to be] open a window: an optional comment and checkboxes (NAI passport, free picture, link to this character — on; make current in this chat — off). The background model (task «persona.create», its own row in Profiles) reads the card, the scenario, the starting scene, what the card says about {{user}}, the player's personas and the card's lore (Maestro's and BunnyMo's books are not read) and proposes a name, a title, the look, a background and 5–6 outfits; you edit them («Once more» asks for another). Then Maestro creates the persona in ST (a Russian description with a «Гардероб» line, the default avatar), links it to the card and, with a NAI Studio that keeps passports for any persona, saves its passport with these outfits (its wardrobe) and draws its avatar. No undo: an unneeded persona is deleted in ST's persona window.",
+        ],
+        ru: [
+            'Персона для персонажа (M41)',
+            'Создаёт персону игрока для карточки персонажа. Кнопка «Создать персону» в редакторе персонажа ST (после «Связанных персон»), пункт в списке «Ещё…» или /maestro-persona [кем ты хочешь быть] открывают окно: необязательный комментарий и галочки (паспорт NAI, бесплатная картинка, связь с этим персонажем — включены; сделать текущей в этом чате — выключено). Фоновая модель (задача «persona.create», своя строка в профилях) читает карточку, сценарий, стартовую сцену, что карточка говорит о {{user}}, персоны игрока и лор карточки (книги Maestro и BunnyMo не читаются) и предлагает имя, подпись, внешность, предысторию и 5–6 нарядов; правишь их сам («Ещё раз» — другой вариант). Потом Maestro создаёт персону в ST (описание по-русски со строкой «Гардероб», аватар по умолчанию), связывает её с карточкой, а с NAI Studio, которая хранит паспорта любой персоны, сохраняет паспорт с этими нарядами (её гардероб) и рисует аватар. Отмены нет: лишнюю персону удаляют в окне персон ST.',
+        ],
+    },
 ];
 
 export const MODULE_TOPICS: DocTopic[] = MODULES.map((doc) => ({

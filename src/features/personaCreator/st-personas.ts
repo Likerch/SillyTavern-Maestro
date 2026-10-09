@@ -178,7 +178,12 @@ export class StPersonas implements PersonaHost {
         );
         if (!linked) connections.push({ type: 'character', id: characterAvatar });
         descriptor.connections = connections;
-        this.app.host.ctx().saveSettingsDebounced();
+        try {
+            this.app.host.ctx().saveSettingsDebounced();
+        } catch (error) {
+            this.log.warn('persona link was not saved', error);
+            return false;
+        }
         try {
             this.module?.updatePersonaConnectionsAvatarList?.();
         } catch (error) {

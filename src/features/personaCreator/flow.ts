@@ -189,6 +189,11 @@ export class PersonaUi {
         this.render(flow);
     }
 
+    /** «Показать» of a job's notice: that flow's window, while it is still the one on hand. */
+    private showFlow(flow: Flow): void {
+        if (this.current === flow) this.show();
+    }
+
     private closedByUser(flow: Flow): void {
         flow.dialog = null;
         if (this.current !== flow) return;
@@ -227,7 +232,7 @@ export class PersonaUi {
             module: PERSONA_CREATOR_KEY,
             cancellable: true,
             visible: () => flow.dialog?.open === true,
-            open: { label: this.t('m41.job.show'), run: () => this.show() },
+            open: { label: this.t('m41.job.show'), run: () => this.showFlow(flow) },
         });
         if (!handle) {
             flow.error = this.t('m41.busy', { name: flow.card.name });
@@ -308,7 +313,7 @@ export class PersonaUi {
             module: PERSONA_CREATOR_KEY,
             cancellable: true,
             visible: () => flow.dialog?.open === true,
-            open: { label: this.t('m41.job.show'), run: () => this.show() },
+            open: { label: this.t('m41.job.show'), run: () => this.showFlow(flow) },
         });
         if (!handle) {
             flow.error = this.t('m41.busy', { name: flow.card.name });
