@@ -55,6 +55,12 @@ export interface CoreSettings {
      * Optional until the release that adds it fills the default ('all').
      */
     chatNotices?: ChatNoticesLevel;
+    /**
+     * «Язык истории»: the language the story is told in (prepared names and texts, DES seeds, the recap, the format
+     * hint); 'auto' reads the chat and the interface language (core/language.ts). Optional until the release that adds
+     * it fills the default ('auto').
+     */
+    storyLanguage?: 'auto' | 'ru' | 'en';
 }
 
 export type ChatNoticesLevel = 'all' | 'pending' | 'none';

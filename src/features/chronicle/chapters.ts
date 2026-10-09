@@ -571,6 +571,10 @@ export class ChapterService {
         return memory;
     }
 
+    /**
+     * The language the chat is actually written in (not «Язык истории»): a chapter's keys must match the words of the
+     * messages the lorebook scan reads, whatever language the player prefers.
+     */
     private chatLanguage(chat: readonly STChatMessage[]): 'ru' | 'en' {
         const texts: string[] = [];
         for (let i = chat.length - 1; i >= 0 && texts.length < LANGUAGE_MESSAGES; i--) {

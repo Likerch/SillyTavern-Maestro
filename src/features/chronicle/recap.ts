@@ -1,14 +1,14 @@
 // M9 п. 4 «Ранее в истории…» (plan M9, §5 phase 0, P15, P16). After a break (default: more than 12 hours since the
 // last message and the last recap) the chat opened or the tab came back (visibilitychange) → a short recap:
 // - source 'memory' (default, free): recent chronicle chapters, Qvink's long-term memories, the latest memories;
-// - source 'ai': a background task 'chronicle.recap' asks the cheap model for ≤ 120 words in the chat's language
-//   (the free text is the fallback);
+// - source 'ai': a background task 'chronicle.recap' asks the cheap model for ≤ 120 words in the story's language
+//   («Язык истории», core/language: the setting, else the player's messages; the free text is the fallback);
 // - target 'user': a dismissible panel above the chat input (mobile friendly; a notice when ST's input is not found);
 //   'userAndPrompt': also a one-generation injection near the end of the prompt; 'off': nothing.
 // Shown once: the leader tab claims the stamp in the chat document BEFORE showing (compare-and-swap), so other tabs,
 // reloads and devices do not repeat it. recapNow() ignores the timer.
+import { storyLanguage } from '../../core/language';
 import {
-    chatLanguage,
     freeRecap,
     hasMaterial,
     lastMessageTime,
@@ -18,7 +18,6 @@ import {
     tidyRecap,
 } from '../../domain/chronicle-recap';
 import type { RecapMaterial } from '../../domain/chronicle-recap';
-import { cleanForAnalysis } from '../../domain/text-clean';
 import type { GenerationInfo, TaskInfo, Unsubscribe } from '../../shared/contracts';
 import { button, el, icon } from '../../ui/components/dom';
 import type { ChapterService } from './chapters';
@@ -36,7 +35,6 @@ const RETURN_DELAY_MS = 400;
 const LEADER_DELAY_MS = 500;
 /** A chat this short has nothing to recap. */
 const MIN_MESSAGES = 4;
-const LANGUAGE_MESSAGES = 6;
 const TASK_TTL_MS = 30 * 60_000;
 
 export class RecapService {
@@ -196,16 +194,9 @@ export class RecapService {
         });
     }
 
+    /** The recap is for the player: in the story's language. */
     private language(): 'ru' | 'en' {
-        const chat = this.app.host.ctx().chat ?? [];
-        const texts: string[] = [];
-        for (let i = chat.length - 1; i >= 0 && texts.length < LANGUAGE_MESSAGES; i--) {
-            const message = chat[i];
-            if (!message || message.is_system) continue;
-            const text = cleanForAnalysis(message);
-            if (text) texts.push(text);
-        }
-        return chatLanguage(texts);
+        return storyLanguage(this.app);
     }
 
     /** The background model's recap; null when it is unavailable or failed. */

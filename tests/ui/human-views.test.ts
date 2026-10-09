@@ -229,4 +229,25 @@ describe('Settings in words', () => {
         expect(body().querySelector('.maestro-module-row')?.textContent).toContain('(M26)');
         expect(body().textContent).toContain('living.fact');
     });
+
+    it('chooses the story language («Язык истории»): automatic by default, then Russian or English', () => {
+        start();
+        ui.openPult('settings');
+        const story = [...body().querySelectorAll<HTMLSelectElement>('select')].find(
+            (node) => node.getAttribute('aria-label') === 'Язык истории',
+        )!;
+        expect([...story.options].map((option) => option.textContent)).toEqual([
+            'Автоматически',
+            'Русский',
+            'Английский',
+        ]);
+        expect(story.value).toBe('auto');
+        expect(body().textContent).toContain('Язык, на котором ты играешь');
+        const notified: string[] = [];
+        env.settings.onChange((path) => notified.push(path));
+        story.value = 'ru';
+        story.dispatchEvent(new Event('change'));
+        expect(env.settings.core().storyLanguage).toBe('ru');
+        expect(notified).toContain('core.storyLanguage');
+    });
 });

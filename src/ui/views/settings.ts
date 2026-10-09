@@ -5,6 +5,8 @@
 import { kindLabel } from '../../core/labels';
 import { ConsoleLogger } from '../../core/logger';
 import { CHAT_NOTICES } from '../../core/settings';
+import { STORY_LANGUAGES } from '../../domain/story-language';
+import type { StoryLanguageChoice } from '../../domain/story-language';
 import type {
     AutonomyLevel,
     ChatNoticesLevel,
@@ -61,6 +63,22 @@ export function settingsTab(env: ViewEnv): PultTab {
                         shell.relocalize();
                     },
                 }),
+            ),
+            field(
+                t('ui.settings.storyLanguage'),
+                select<StoryLanguageChoice>({
+                    value: core().storyLanguage ?? 'auto',
+                    label: t('ui.settings.storyLanguage'),
+                    options: STORY_LANGUAGES.map((value) => ({
+                        value,
+                        label: t(`ui.settings.storyLanguage.${value}`),
+                    })),
+                    onChange: (value) => {
+                        core().storyLanguage = value;
+                        commit('core.storyLanguage');
+                    },
+                }),
+                t('ui.settings.storyLanguageHint'),
             ),
             field(
                 t('ui.settings.mode'),

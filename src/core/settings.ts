@@ -1,3 +1,5 @@
+import { STORY_LANGUAGES } from '../domain/story-language';
+import type { StoryLanguageChoice } from '../domain/story-language';
 import type { ChatNoticesLevel, CoreSettings, Logger, SettingsService, Unsubscribe } from '../shared/contracts';
 
 export const SETTINGS_KEY = 'maestro';
@@ -20,6 +22,7 @@ export function defaultCoreSettings(): CoreSettings {
         notifyLevel: 'all',
         showTechnical: false,
         chatNotices: 'all',
+        storyLanguage: 'auto',
     };
 }
 
@@ -153,5 +156,6 @@ export function migrateCore(settings: CoreSettings): CoreSettings {
     if (!(['all', 'important', 'urgent'] as const).includes(settings.notifyLevel)) settings.notifyLevel = 'all';
     if (typeof settings.showTechnical !== 'boolean') settings.showTechnical = false;
     if (!CHAT_NOTICES.includes(settings.chatNotices as ChatNoticesLevel)) settings.chatNotices = 'all';
+    if (!STORY_LANGUAGES.includes(settings.storyLanguage as StoryLanguageChoice)) settings.storyLanguage = 'auto';
     return settings;
 }

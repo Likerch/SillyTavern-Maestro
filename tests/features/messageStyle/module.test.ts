@@ -254,7 +254,7 @@ describe('the hint to the model', () => {
         ]);
     });
 
-    it('follows an English chat, and skips quiet, dry and disabled runs', async () => {
+    it('follows the story language: an English player under a Russian interface; skips quiet, dry and disabled runs', async () => {
         await boot({ locale: 'ru' });
         edit((value) => {
             value.hint = true;
@@ -265,6 +265,18 @@ describe('the hint to the model', () => {
             is_system: false,
             send_date: '',
             mes: 'The rain drummed on the tavern roof and nobody wanted to go outside.',
+        });
+        // «Язык истории» auto: an English greeting alone is a Russian story under a Russian interface…
+        await env.generate();
+        expect(env.injections[0]!.spec.text).toBe('Прямую речь пиши в кавычках "…", мысли и выделения — *курсивом*.');
+        env.injections.length = 0;
+        // …the player's own English messages make it English.
+        env.chat.push({
+            name: 'Kai',
+            is_user: true,
+            is_system: false,
+            send_date: '',
+            mes: 'I shake the rain off my cloak and look for a free table near the fire.',
         });
         await env.generate({ quiet: true });
         await env.generate({ dryRun: true });
