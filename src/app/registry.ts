@@ -26,6 +26,7 @@ import { messageStyleModule } from '../features/messageStyle';
 import { metricsModule } from '../features/metrics';
 import { neighbourPromptsModule } from '../features/neighbourPrompts';
 import { offscreenModule } from '../features/offscreen';
+import { personaCreatorModule } from '../features/personaCreator';
 import { placesModule } from '../features/places';
 import { prepareModule } from '../features/prepare';
 import { presetStudioModule } from '../features/presetStudio';
@@ -107,4 +108,6 @@ export const MODULES: MaestroModule[] = [
     prepareModule,
     // Release 1.19: the Dramatis section of DES's character sheet and Workshop.
     desDramatisModule,
+    // M41: the player's persona for a character, from ST's character editor.
+    personaCreatorModule,
 ];
