@@ -727,7 +727,7 @@ export function mockCyrillic(text) {
     });
 }
 registerTask('dramatis.translate', (ctx) => {
-    let payload = null;
+    let payload;
     try {
         payload = JSON.parse(ctx.lastUserText);
     } catch {
