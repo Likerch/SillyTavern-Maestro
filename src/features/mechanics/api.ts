@@ -609,6 +609,12 @@ export interface MechanicsApi {
     /** The user's character's name ('' without one). */
     persona?(): string;
     /**
+     * A holder as the story writes the name now: DES's tracker name of that person while they are in the scene («Вера»
+     * for the world model's canonical «Vera»); the holder itself otherwise. Only for showing — values stay keyed by the
+     * canonical name (1.20).
+     */
+    shownName?(holder: string): string;
+    /**
      * Draws a holder's mechanics as the player may see them in a place (the dossier's «Механики» section): values in
      * their view, statuses with what is left, items. Nothing is drawn (null) when there is nothing to show.
      */

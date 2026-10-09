@@ -81,7 +81,7 @@ export function sideHolder(
 ): HTMLElement | null {
     const view = holderView(i18n, api, holder, 'hud', { full: true });
     if (!view) return null;
-    const summary = el('summary', { text: holder, data: { focusKey: `holder:${holder}` } });
+    const summary = el('summary', { text: api.shownName?.(holder) ?? holder, data: { focusKey: `holder:${holder}` } });
     const details = el('details', { attrs: { open } }, [summary, view]);
     details.addEventListener('toggle', () => onToggle(details.open));
     // <details> is a group named by its <summary>: no landmark per character.

@@ -58496,7 +58496,7 @@ var BunnyMoCommands = class {
 				hidden,
 				resolve
 			});
-			for (const member of cast) add(member.name);
+			for (const member of cast) add(member.character.name || member.name);
 		} catch (error) {
 			this.log.debug("BunnyMo commands: the scene is not readable", error);
 		}

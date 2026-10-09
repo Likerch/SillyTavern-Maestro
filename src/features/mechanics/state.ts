@@ -650,6 +650,18 @@ export class MechanicState implements StatePart {
         return ctx.name2 ? [ctx.name2] : [];
     }
 
+    /** The tracker's name of a holder in the scene (DES writes it as the story does), else the holder. */
+    shownName(holder: string): string {
+        const names = this.trackerCharacters();
+        if (!names?.length) return holder;
+        const world = worldOf(this.app);
+        for (const name of names) {
+            const canonical = safe(() => world?.resolve(name, 'character')?.name ?? name, name);
+            if (canonical === holder) return name;
+        }
+        return holder;
+    }
+
     private presentCharacters(): string[] {
         const names = this.trackerCharacters() ?? this.fallbackCharacters();
         const world = worldOf(this.app);

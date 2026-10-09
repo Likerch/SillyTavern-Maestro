@@ -999,7 +999,10 @@ export class MechanicStrip {
             { class: 'maestro-m25-strip-list' },
             rows.map((row) =>
                 el('span', { class: 'maestro-m25-strip-holder', data: { holder: row.holder } }, [
-                    el('span', { class: 'maestro-m25-strip-name', text: row.holder }),
+                    el('span', {
+                        class: 'maestro-m25-strip-name',
+                        text: this.state.shownName?.(row.holder) ?? row.holder,
+                    }),
                     ...row.stats.map((stat) =>
                         stat.shown && stat.attribute && stat.shown.view !== 'number' && stat.shown.view !== 'bar'
                             ? el('span', { class: 'maestro-m25-strip-stat', title: stat.label }, [

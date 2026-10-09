@@ -496,6 +496,14 @@ export class MechanicsService implements MechanicsApi {
 
     /* ---------------------------------------------------------------- the play surfaces (plan-2 §6.А) */
 
+    shownName(holder: string): string {
+        try {
+            return this.statePart.shownName?.(holder) ?? holder;
+        } catch {
+            return holder;
+        }
+    }
+
     holdersInScene(mechanicId: string): string[] {
         const def = this.defs.get(mechanicId);
         if (!def) return [];

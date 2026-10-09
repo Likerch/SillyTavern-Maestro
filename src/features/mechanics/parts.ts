@@ -154,6 +154,8 @@ export interface StatePart {
     markEventsDelivered(events: FiredEvent[]): Promise<void>;
     /** Holders of a mechanic in the current scene: present characters (DES), the persona, 'world', faction names. */
     holdersInScene(def: MechanicDef): string[];
+    /** The tracker's name of a holder in the scene, else the holder (MechanicsApi.shownName). */
+    shownName?(holder: string): string;
     onChange(listener: () => void): Unsubscribe;
     /** Resolves when the queued writes are done (tracking waits for a rollback before deriving a reply again). */
     settled?(): Promise<void>;

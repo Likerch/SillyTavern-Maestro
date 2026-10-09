@@ -285,7 +285,7 @@ export class MechanicsHud {
             .map((item) => itemChip(t, item));
         if (!values.length && !statuses.length && !worn.length) return null;
         return el('span', { class: 'maestro-m25-hud-holder', data: { holder } }, [
-            el('span', { class: 'maestro-m25-hud-name', text: holder }),
+            el('span', { class: 'maestro-m25-hud-name', text: this.api.shownName?.(holder) ?? holder }),
             ...values,
             ...statuses,
             ...worn,
