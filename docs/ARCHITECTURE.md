@@ -11,10 +11,10 @@ This file is the contract for everyone writing Maestro code (humans and agents).
 | `src/domain/` | pure logic: no DOM, network, `SillyTavern`, `console` | `shared` |
 | `src/host/` | the only door to SillyTavern: context, events with ordering, runtime imports of ST modules, capabilities, fetch gate | `shared`, `domain` |
 | `src/core/` | services: settings, i18n, logger, files, chat store, leader, tasks, user jobs, LLM client, cost, journal, autonomy, inbox, ephemeral, bus, turn pipeline | `shared`, `domain`, `host` |
-| `src/adapters/<id>/` | one neighbour extension each (des, desru, ck, bunnymo, qvink, nai, localizer, preset) | `shared`, `domain`, `host`, `core` |
+| `src/adapters/<id>/` | one neighbour extension each (des, desru, ck, bunnymo, qvink, nai, localizer, preset, dramatis) | `shared`, `domain`, `host`, `core` |
 | `src/ui/` | generic components, the windows shell (side panels, floating windows, menu), styles | `shared`, `domain`, `host`, `core` |
 | `src/features/<key>/` | modules M1–M35 | everything except `app` |
-| `src/app/` | wiring: builds the `App`, registers modules, lifecycle | everything |
+| `src/app/` | wiring: builds the `App`, registers modules, lifecycle; `MAESTRO_API` for neighbours (`public-api.ts`, docs/integration-dramatis.md) | everything |
 
 ESLint enforces these zones (`npm run lint`).
 
