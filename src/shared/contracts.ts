@@ -320,6 +320,11 @@ export interface LlmRequest {
     /** Tool definitions (assistant loop). */
     tools?: unknown[];
     signal?: AbortSignal;
+    /**
+     * The user started this request himself and waits for it (a neighbour's button through MAESTRO_API): the daily
+     * background cap does not stop it, like the tasks in INTERACTIVE_TASKS (core/llm.ts).
+     */
+    interactive?: boolean;
 }
 
 export interface LlmResult<T = unknown> {
@@ -832,7 +837,7 @@ export interface MessageStripProvider {
 /* ------------------------------------------------------------------ adapters */
 
 export interface NeighbourAdapter {
-    readonly id: 'des' | 'desru' | 'ck' | 'bunnymo' | 'qvink' | 'nai' | 'localizer' | 'preset';
+    readonly id: 'des' | 'desru' | 'ck' | 'bunnymo' | 'qvink' | 'nai' | 'localizer' | 'preset' | 'dramatis';
     /** Installed and enabled in this ST. */
     present(): boolean;
     version(): string | undefined;

@@ -18,7 +18,16 @@ export const MAESTRO_SWITCHES: Readonly<Record<string, { path: string; off: unkn
 const TEXT_OWNERS = new Set(['des', 'nai', 'qvink', 'desru', 'ck']);
 
 export type AdviceReason =
-    'bunnymo' | 'lore' | 'card' | 'authorsNote' | 'neighbourSetting' | 'maestro' | 'risky' | 'other' | 'missing';
+    | 'bunnymo'
+    | 'lore'
+    | 'card'
+    | 'authorsNote'
+    | 'neighbourSetting'
+    | 'maestro'
+    | 'dramatis'
+    | 'risky'
+    | 'other'
+    | 'missing';
 
 export type FixRoute =
     | { route: 'preset'; identifier: string }
@@ -50,6 +59,9 @@ export function routeOf(item: AuditItem | undefined, fix: AuditFix, quirks: read
             return { route: 'advice', reason: 'card' };
         case 'authorsNote':
             return { route: 'advice', reason: 'authorsNote' };
+        case 'dramatis':
+            // Dramatis's own block (release 1.17): Maestro never changes it, it only says where to change it.
+            return { route: 'advice', reason: 'dramatis' };
         case 'maestro': {
             const module = item.module ?? '';
             const spec = MAESTRO_SWITCHES[module];

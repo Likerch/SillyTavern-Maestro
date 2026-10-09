@@ -124,6 +124,9 @@ export const RULES_STRINGS: I18nParts = {
         'm22.rule.ck.archiveDepth.title': 'CK archives that fire only on the last message',
         'm22.rule.ck.archiveDepth.description':
             'Baby Bunny saves archives with scan depth 1, so a character fires only when the name is in the very last message. For each of your archive books the Inbox gets one proposal: switch them to the global scan depth and, with DES-RU, add Russian case forms to the name keys. BunnyMo packs are never touched.',
+        'm22.rule.bunnymo.medicineQuiet.title': 'BunnyMo Medicine Check while Dramatis keeps the habits',
+        'm22.rule.bunnymo.medicineQuiet.description':
+            'When Dramatis asks for it and keeps the drink and drug habits of every character in the scene whose CK archive has MED or REC tags, BunnyMo’s “Medicine Check” is switched off for that turn, so the model does not get two different instructions about the same habit. In every other case the entry works as usual; the BunnyMo file does not change.',
         'm22.packVersion.title': 'Several versions of one BunnyMo pack — keep “{book}”?',
         'm22.packVersion.description':
             '{books}: {count} entries with the same keys but different text, so one tag fires both texts and the model gets two different descriptions.\n\nYes: keep “{book}” (looks newest); the copies from {others} are switched off on the fly, the files do not change.\nNo: keep every version.\n\nYou can change the choice on the “Rules” tab at any time.',
@@ -272,6 +275,9 @@ export const RULES_STRINGS: I18nParts = {
         'm22.rule.ck.archiveDepth.title': 'Архивы CK по последнему сообщению',
         'm22.rule.ck.archiveDepth.description':
             'Baby Bunny сохраняет архивы с глубиной сканирования 1 — персонаж срабатывает, только если имя есть в самом последнем сообщении. Для каждой твоей книги архивов во «Входящие» приходит одно предложение: перевести их на общую глубину сканирования, а с DES-RU — ещё и добавить ключам имён русские падежи. Паки BunnyMo не трогаются никогда.',
+        'm22.rule.bunnymo.medicineQuiet.title': '«Проверка лекарств» BunnyMo, пока привычки ведёт Dramatis',
+        'm22.rule.bunnymo.medicineQuiet.description':
+            'Когда Dramatis об этом просит и сам ведёт зависимости всех персонажей сцены, у кого в архиве CK есть теги MED или REC, запись «Medicine Check» из BunnyMo на этот ход выключается — модель не получает двух разных указаний об одной привычке. Во всех остальных случаях запись работает как обычно; файл BunnyMo не меняется.',
         'm22.packVersion.title': 'Несколько версий одного пака BunnyMo — оставить «{book}»?',
         'm22.packVersion.description':
             '{books}: записей с одинаковыми ключами, но разным текстом — {count}. На один тег срабатывают оба текста, и модель получает два разных описания.\n\nДа — оставить «{book}» (похоже, самую новую): копии из {others} выключаются на лету, файлы не меняются.\nНет — оставить все версии.\n\nВыбор можно поменять в любой момент во вкладке «Правила».',

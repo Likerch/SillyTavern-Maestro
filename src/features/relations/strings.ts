@@ -23,6 +23,12 @@ export const RELATIONS_STRINGS: I18nParts = {
         'm19.earlier': '+{count} earlier',
         'm19.source.canon': 'canon',
         'm19.source.user': 'by you',
+        'm19.engine.title': 'Relationships by Dramatis',
+        'm19.engine.hint':
+            'What Dramatis’s personality engine thinks of each other right now: characters toward your persona and toward one another, with the reasons it keeps. Dramatis owns these; Maestro only shows them.',
+        'm19.engine.source': 'Dramatis',
+        'm19.engine.stance': '{label} ({value})',
+        'm19.engine.col.reasons': 'Why',
     },
     ru: {
         'm19.title': 'Граф отношений',
@@ -45,5 +51,11 @@ export const RELATIONS_STRINGS: I18nParts = {
         'm19.earlier': 'ещё раньше: {count}',
         'm19.source.canon': 'канон',
         'm19.source.user': 'вручную',
+        'm19.engine.title': 'Отношения по Dramatis',
+        'm19.engine.hint':
+            'Что движок личностей Dramatis думает сейчас: как персонажи относятся к твоей персоне и друг к другу и почему. Ведёт их Dramatis, Maestro только показывает.',
+        'm19.engine.source': 'Dramatis',
+        'm19.engine.stance': '{label} ({value})',
+        'm19.engine.col.reasons': 'Почему',
     },
 };

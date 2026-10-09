@@ -32,6 +32,12 @@ function moduleTitle(app: App, key: string | undefined): string {
     return module ? app.i18n.t(module.titleKey) : key;
 }
 
+/** A part of Dramatis (its slot `dramatis_<part>`) in words; unknown parts as they are. */
+function dramatisPart(app: App, part: string | undefined): string {
+    if (!part) return '';
+    return maybe(app, `m38.dramatis.${part}`) ?? part;
+}
+
 /** Who an instruction belongs to, in plain words. */
 export function ownerLabel(app: App, item: AuditItem | undefined, preset?: string): string {
     const t = translator(app);
@@ -45,6 +51,8 @@ export function ownerLabel(app: App, item: AuditItem | undefined, preset?: strin
             return t('m38.owner.authorsNote');
         case 'maestro':
             return t('m38.owner.maestro', { module: moduleTitle(app, item.module) });
+        case 'dramatis':
+            return t('m38.owner.dramatis', { part: dramatisPart(app, item.module) });
         case 'bunnymo':
             return t('m38.owner.bunnymo', { entry: item.label });
         case 'lore':
@@ -196,7 +204,7 @@ export function adviceText(
     return t(`m38.advice.${reason}`, {
         target: params.target,
         change,
-        module: moduleTitle(app, item?.module),
+        module: reason === 'dramatis' ? dramatisPart(app, item?.module) : moduleTitle(app, item?.module),
         book: item?.book ?? '',
         risk: params.risk ?? '',
     });

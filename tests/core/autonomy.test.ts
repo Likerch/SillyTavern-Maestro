@@ -23,6 +23,7 @@ let settings: Settings;
 let saves: number;
 let ui: FakeUi;
 let added: Proposal[];
+let addOptions: unknown[];
 let inbox: Inbox;
 let autonomy: AutonomyService;
 
@@ -68,10 +69,12 @@ beforeEach(() => {
     );
     ui = createFakeUi();
     added = [];
+    addOptions = [];
     inbox = {
         registerApplier: () => () => {},
-        add: async (item) => {
+        add: async (item, options) => {
             added.push(item);
+            addOptions.push(options);
             return `card-${added.length}`;
         },
         list: () => [],
@@ -255,6 +258,13 @@ describe('decide', () => {
         const item = proposal();
         expect(await autonomy.decide(item, 'inbox')).toBe('queued');
         expect(added).toEqual([item]);
+        expect(addOptions).toEqual([undefined]);
+    });
+
+    it('inbox: the card lives as long as the proposal says (MAESTRO_API ttlMs)', async () => {
+        await autonomy.decide(proposal({ ttlMs: 3_600_000 }), 'inbox');
+        await autonomy.decide(proposal({ ttlMs: 0 }), 'inbox');
+        expect(addOptions).toEqual([{ ttlMs: 3_600_000 }, undefined]);
     });
 
     it('ask: applies on yes, rejects on no', async () => {

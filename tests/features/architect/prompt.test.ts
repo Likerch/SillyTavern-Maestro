@@ -158,6 +158,7 @@ describe('Qvink and DES budgets', () => {
             'voices',
             'mechanics',
             'director',
+            'dramatis',
         ]);
         expect(rows.find((row) => row.source === 'voices')?.status).toBe('empty');
         expect(rows.find((row) => row.source === 'director')?.status).toBe('off');
@@ -366,6 +367,7 @@ describe('P16 order check and the report', () => {
             { source: 'voices', tokens: 0 },
             { source: 'mechanics', tokens: 0 },
             { source: 'director', tokens: 0 },
+            { source: 'dramatis', tokens: 0 },
         ]);
     });
 });

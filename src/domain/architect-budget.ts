@@ -3,7 +3,16 @@
 // limits stay M22's rule 'book.cap' (п. 2); this budget runs after them, over every book at once.
 // Pure: no DOM, no SillyTavern.
 
-export const BUDGET_SOURCE_IDS = ['lore', 'ckRag', 'qvink', 'des', 'voices', 'mechanics', 'director'] as const;
+export const BUDGET_SOURCE_IDS = [
+    'lore',
+    'ckRag',
+    'qvink',
+    'des',
+    'voices',
+    'mechanics',
+    'director',
+    'dramatis',
+] as const;
 export type BudgetSourceId = (typeof BUDGET_SOURCE_IDS)[number];
 
 /** Upper bound of one budget (tokens): anything larger is a typo. */

@@ -33,6 +33,9 @@ export const CORE_STRINGS: I18nParts = {
 
         'core.value.yes': 'yes',
         'core.value.no': 'no',
+
+        'core.dramatis.target': 'Dramatis',
+        'core.module.dramatis': 'Dramatis',
     },
     ru: {
         'core.name': 'Maestro',
@@ -64,5 +67,8 @@ export const CORE_STRINGS: I18nParts = {
 
         'core.value.yes': 'да',
         'core.value.no': 'нет',
+
+        'core.dramatis.target': 'Dramatis',
+        'core.module.dramatis': 'Dramatis',
     },
 };

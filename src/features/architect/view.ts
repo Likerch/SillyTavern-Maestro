@@ -2,6 +2,7 @@
 // place settings with what was damped / pinned / cut, repeated facts with «Оставить только …», the provider cache
 // and the P16 order check, and the before/after of every rule in the last turn. Also the section M20 offers the
 // turn inspector (M2) when it accepts extra sections.
+import { dramatisOf } from '../../adapters';
 import { budgetShare } from '../../domain/architect-budget';
 import type { App, PultTab } from '../../shared/contracts';
 import { badge, banner, emptyState, section } from '../../ui/components/card';
@@ -111,13 +112,26 @@ export function architectTab(app: App, service: ArchitectService): PultTab {
                 ]);
             };
 
+            /** Dramatis's row only where it means something: Dramatis is here, a budget is set, or its block went out. */
+            const dramatisShown = (report: ArchitectReport | null): boolean => {
+                if (service.settings().budgets.dramatis > 0) return true;
+                if ((report?.budgets.find((item) => item.source === 'dramatis')?.used ?? 0) > 0) return true;
+                try {
+                    return dramatisOf(app)?.present() === true;
+                } catch {
+                    return false;
+                }
+            };
+
             const budgetsView = (report: ArchitectReport | null): HTMLElement =>
                 section(t('m20.budgets.title'), [
                     el('div', { class: 'maestro-hint', text: t('m20.budgets.hint') }),
                     el(
                         'div',
                         { class: 'maestro-m20-budgets' },
-                        BUDGET_SOURCES.map((source) => budgetRow(source, report)),
+                        BUDGET_SOURCES.filter((source) => source !== 'dramatis' || dramatisShown(report)).map(
+                            (source) => budgetRow(source, report),
+                        ),
                     ),
                 ]);
 

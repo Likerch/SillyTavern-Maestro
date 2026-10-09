@@ -37,6 +37,7 @@ import type {
 } from './api';
 import type { MechanicCombat } from './combat';
 import { scopeContextOf } from './definitions';
+import { offeredTemplates } from './dramatis';
 import { mechanicFlag, mechanicFlags } from './prompt';
 import type { MechanicPrompt } from './prompt';
 import type { ChecksPart, DefinitionsPart, PartDeps, RollOptions, StateOp, StatePart } from './parts';
@@ -87,8 +88,10 @@ export class MechanicsService implements MechanicsApi {
         return this.defs.remove(id);
     }
 
+    /** The ready-made templates; «relationships» and «social» leave while Dramatis replaces them (release 1.17). */
     templates(): MechanicTemplate[] {
-        return [...MECHANIC_TEMPLATES];
+        const app = this.deps?.app;
+        return app ? offeredTemplates(app, MECHANIC_TEMPLATES) : [...MECHANIC_TEMPLATES];
     }
 
     /** Factions of the lore (world model entities of type faction). */

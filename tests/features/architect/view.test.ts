@@ -192,7 +192,7 @@ describe('architectModule', () => {
         });
         expect(architectModule).toMatchObject({ id: 'M20', key: 'architect', stage: 7, titleKey: 'm20.title' });
         const api = env.modules.api<ArchitectApi>('architect');
-        expect(api?.budgets()).toHaveLength(7);
+        expect(api?.budgets()).toHaveLength(8);
         const tab = env.ui.tabs.find((item) => item.id === ARCHITECT_TAB);
         expect(tab).toMatchObject({ titleKey: 'm20.tab', order: 53 });
         expect(env.ui.styles.has('maestro-m20')).toBe(true);

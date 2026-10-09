@@ -19,6 +19,24 @@ export interface Relation {
     history: RelationPoint[];
 }
 
+/**
+ * A stance of Dramatis's personality engine (release 1.17): what one character thinks of another now, NPC → the
+ * player's persona and NPC ↔ NPC, with the engine's reasons. Read live from DRAMATIS_API; Maestro stores nothing.
+ */
+export interface EngineStance {
+    /** Canonical names (world model) when resolved. */
+    from: string;
+    to: string;
+    /** −3 … +3. */
+    stance: number;
+    /** The engine's ladder word in the UI language («Враждебен»). */
+    label: string;
+    reasons: string[];
+    /** Toward the user's persona (else between two characters). */
+    toPersona: boolean;
+    source: 'dramatis';
+}
+
 export interface RelationsApi {
     all(): Relation[];
     of(name: string): Relation[];
@@ -26,4 +44,7 @@ export interface RelationsApi {
     /** Re-reads every committed DES tracker of the chat (cheap; used after import or a long gap). */
     rebuild(): Promise<void>;
     onChange(listener: () => void): Unsubscribe;
+    // Addition of release 1.17 (optional so that fakes stay valid).
+    /** Dramatis's stances (empty without Dramatis); onChange fires when they change. */
+    engine?(): EngineStance[];
 }

@@ -25,6 +25,8 @@ const EN: Record<string, string> = {
     'm38.owner.qvink': 'Qvink memory',
     'm38.owner.desru': 'DES-RU language rule',
     'm38.owner.ck': 'CarrotKernel character data',
+    'm38.owner.dramatis': 'Dramatis: {part}',
+    'm38.dramatis.cast': 'motive card of the characters',
 
     /* values */
     'm38.unit.words': 'words',
@@ -138,6 +140,8 @@ const EN: Record<string, string> = {
         'This is a setting of the extension, not its text. Change it in its settings: {change}.',
     'm38.advice.desRole': 'In DES: tracker settings → prompt injection → role of the tracker instructions → «{role}».',
     'm38.advice.maestro': 'This is a Maestro insert. It is set up in the settings of «{module}».',
+    'm38.advice.dramatis':
+        'This is part of Dramatis («{module}»): Maestro does not change it. Change it in the Dramatis settings: {change}.',
     'm38.advice.risky': 'Better not change the role like this on your model: {risk}',
     'm38.advice.other': 'Change it by hand in «{target}»: {change}.',
     'm38.advice.missing': 'This instruction is no longer in the prompt map. Run the check again.',
@@ -279,6 +283,8 @@ const RU: Record<string, string> = {
     'm38.owner.qvink': 'Память Qvink',
     'm38.owner.desru': 'Языковое правило DES-RU',
     'm38.owner.ck': 'Данные персонажей CarrotKernel',
+    'm38.owner.dramatis': 'Dramatis: {part}',
+    'm38.dramatis.cast': 'карточка мотивов персонажей',
 
     'm38.unit.words': 'слов',
     'm38.unit.paragraphs': 'абзацев',
@@ -384,6 +390,8 @@ const RU: Record<string, string> = {
     'm38.advice.neighbourSetting': 'Это настройка расширения, а не его текст. Поменяй в его настройках: {change}.',
     'm38.advice.desRole': 'В DES: настройки трекера → внедрение промпта → роль инструкций трекера → «{role}».',
     'm38.advice.maestro': 'Это вставка Maestro. Она настраивается в разделе «{module}».',
+    'm38.advice.dramatis':
+        'Это часть Dramatis («{module}») — Maestro её не меняет. Поправь в настройках Dramatis: {change}.',
     'm38.advice.risky': 'Так менять роль на твоей модели не стоит: {risk}',
     'm38.advice.other': 'Поправь вручную в «{target}»: {change}.',
     'm38.advice.missing': 'Этой инструкции уже нет в карте промпта. Запусти проверку заново.',

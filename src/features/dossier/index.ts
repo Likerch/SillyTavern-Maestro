@@ -110,6 +110,7 @@ export const dossierModule: MaestroModule<DossierSettings> = {
             open: (entityId) => service.open(entityId),
             onChange: (listener) => service.onChange(listener),
             openByName: (name) => !!name.trim() && service.openNamed(name) !== null,
+            styleUpArchive: (name, tags) => styleUp.archiveWithTags(name, tags),
         };
         app.modules.expose(DOSSIER_KEY, api);
 

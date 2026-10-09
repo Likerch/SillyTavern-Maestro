@@ -183,6 +183,40 @@ export function archiveNameWords(archives: Iterable<BunnyMoEntryLike>): Set<stri
     return words;
 }
 
+/* ------------------------------------------------------------------ Medicine Check (core #41) */
+
+/** Title of the core's Medicine Check entry (V3.0 uid 41: «💉 Master - Medicine Check»). */
+const MEDICINE_COMMENT_RE = /Master\s*-\s*Medicine\s+Check/i;
+/** Its wrapper `<BunnymoTags:Master - Medicine Check>` at the start of the content. */
+const MEDICINE_WRAPPER_RE = /^<BunnymoTags:\s*Master\s*-\s*Medicine\s+Check\s*>/i;
+/** The always-firing key the entry carries (`/^/`). */
+const MATCH_ALL_KEY = '/^/';
+
+/**
+ * BunnyMo core's «Medicine Check» (V3.0 #41): a per-turn instruction for every present character with `<MED:…>` /
+ * `<REC:…>` tags. Recognised by its title or its `<BunnymoTags:…>` wrapper, and by firing on every turn (the key `/^/`
+ * or `constant`); the caller checks that the book is the BunnyMo core (book role, adapter, classification). Uids
+ * change between versions, titles do not.
+ */
+export function isMedicineCheckEntry(entry: (BunnyMoEntryLike & { constant?: unknown }) | null | undefined): boolean {
+    if (!entry) return false;
+    const titled = MEDICINE_COMMENT_RE.test(text(entry.comment));
+    const wrapped = MEDICINE_WRAPPER_RE.test(text(entry.content).trimStart());
+    if (!titled && !wrapped) return false;
+    return entry.constant === true || entryKeys(entry).includes(MATCH_ALL_KEY);
+}
+
+/** Tag categories the Medicine Check reads (core #41: «characters … who have <MED:> or <REC:> tags»). */
+export const DEPENDENCE_CATEGORIES: readonly string[] = ['MED', 'REC'];
+
+/** The archive tags carry a medication or a recreational substance (`<MED:…>`, `<REC:…>`). */
+export function hasDependenceTags(tags: readonly string[]): boolean {
+    return tags.some((tag) => {
+        const match = /^<\s*([A-Za-z]+)\s*:/.exec(tag);
+        return !!match?.[1] && DEPENDENCE_CATEGORIES.includes(match[1].toUpperCase());
+    });
+}
+
 /** Books that hold at least one character archive (by `world`). */
 export function archiveWorlds(entries: Iterable<BunnyMoEntryLike>): Set<string> {
     const worlds = new Set<string>();

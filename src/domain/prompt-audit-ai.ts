@@ -83,6 +83,7 @@ const OWNER_NAMES: Record<AuditOwner, string> = {
     bunnymo: 'BunnyMo lorebook (read-only)',
     lore: 'Lorebook entry',
     maestro: 'Maestro (conductor extension)',
+    dramatis: 'Dramatis (personality engine extension)',
     other: 'Another extension',
 };
 
@@ -93,6 +94,8 @@ export function ownerText(item: AuditItem, preset?: string): string {
             return `${OWNER_NAMES.preset} «${preset ?? '?'}», block «${item.label}»`;
         case 'maestro':
             return `${OWNER_NAMES.maestro}: ${item.module ?? item.label}`;
+        case 'dramatis':
+            return `${OWNER_NAMES.dramatis}: ${item.module ?? item.label}`;
         case 'lore':
         case 'bunnymo':
             return `${OWNER_NAMES[item.owner]} «${item.book ?? '?'}» → «${item.label}»`;

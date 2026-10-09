@@ -5,7 +5,7 @@ import { badge, emptyState, section } from '../../ui/components/card';
 import { button, clear, el } from '../../ui/components/dom';
 import { table } from '../../ui/components/table';
 import { coalesce } from '../../ui/views/format';
-import type { Relation, RelationPoint } from './api';
+import type { EngineStance, Relation, RelationPoint } from './api';
 import type { RelationsService } from './service';
 
 export const RELATIONS_TAB = 'relations';
@@ -21,6 +21,7 @@ export const RELATIONS_CSS = `
 .maestro-m19-point-index { font-size: 0.8em; opacity: 0.7; }
 .maestro-m19-arrow { opacity: 0.6; }
 .maestro-m19-last { border-color: var(--maestro-accent); }
+.maestro-m19-reasons { overflow-wrap: anywhere; font-size: 0.9em; }
 `;
 
 export function relationsTab(app: App, service: RelationsService): PultTab {
@@ -56,6 +57,51 @@ export function relationsTab(app: App, service: RelationsService): PultTab {
         });
         return el('div', { class: 'maestro-m19-timeline' }, children);
     };
+
+    /** «−3 … +3» as a signed number. */
+    const signed = (value: number): string => (value > 0 ? `+${value}` : String(value));
+
+    /** Release 1.17: what Dramatis's engine says, marked as its own (Maestro stores none of it). */
+    const engineSection = (stances: EngineStance[]): HTMLElement =>
+        section(t('m19.engine.title'), [
+            el('div', { class: 'maestro-hint', text: t('m19.engine.hint') }),
+            table<EngineStance>(
+                [
+                    {
+                        key: 'pair',
+                        label: t('m19.col.pair'),
+                        cell: (stance) =>
+                            el('span', { class: 'maestro-m19-pair' }, [
+                                el('span', { text: t('m19.pair', { from: stance.from, to: stance.to }) }),
+                                ' ',
+                                badge(t('m19.engine.source'), 'muted'),
+                            ]),
+                    },
+                    {
+                        key: 'current',
+                        label: t('m19.col.current'),
+                        cell: (stance) =>
+                            badge(
+                                stance.label
+                                    ? t('m19.engine.stance', { label: stance.label, value: signed(stance.stance) })
+                                    : signed(stance.stance),
+                                stance.stance > 0 ? 'ok' : stance.stance < 0 ? 'warn' : 'info',
+                            ),
+                    },
+                    {
+                        key: 'reasons',
+                        label: t('m19.engine.col.reasons'),
+                        cell: (stance) =>
+                            el('span', {
+                                class: 'maestro-m19-reasons',
+                                text: stance.reasons.length ? stance.reasons.join('; ') : '—',
+                            }),
+                    },
+                ],
+                stances,
+                { caption: t('m19.engine.title') },
+            ),
+        ]);
 
     return {
         id: RELATIONS_TAB,
@@ -98,6 +144,8 @@ export function relationsTab(app: App, service: RelationsService): PultTab {
                         }),
                     ]),
                 );
+                const engine = service.engine();
+                if (engine.length) root.appendChild(engineSection(engine));
                 if (!service.loaded()) {
                     root.appendChild(el('div', { class: 'maestro-muted', text: t('m19.loading') }));
                     return;

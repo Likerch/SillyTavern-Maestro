@@ -36,6 +36,7 @@ describe('module lifecycle', () => {
             'pack.versionConflict',
             'wrapper.nsfwCollision',
             'ck.archiveDepth',
+            'bunnymo.medicineQuiet',
         ]);
         const tab = env.ui.tabs.find((item) => item.id === 'rules');
         expect(tab).toMatchObject({ titleKey: 'm22.tab', order: 60 });
@@ -100,6 +101,7 @@ describe('enabled state', () => {
             'pack.versionConflict': true,
             'wrapper.nsfwCollision': true,
             'ck.archiveDepth': true,
+            'bunnymo.medicineQuiet': false,
         });
         expect(env.turn.handlers.size).toBe(0);
         const lists = listsOf([book('Pack', [entry(1, { position: 4, role: 2 })])]);

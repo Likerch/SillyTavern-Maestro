@@ -36,17 +36,29 @@ const ALL_CAPABILITIES = [
     'localizer.api',
     'preset.cc',
     'preset.marinara',
+    'dramatis.present',
+    'dramatis.api',
 ];
 
 describe('createAdapters', () => {
-    it('builds all eight adapters and registers every capability', async () => {
+    it('builds all nine adapters and registers every capability', async () => {
         const stand = createStand();
         const adapters = createAdapters(stand.host, silentLog, {
             importModule: stand.importModule,
             fetch: stand.fetchManifest,
         });
         const record: Record<NeighbourAdapter['id'], NeighbourAdapter> = adapters;
-        expect(Object.keys(record)).toEqual(['des', 'desru', 'ck', 'bunnymo', 'qvink', 'nai', 'localizer', 'preset']);
+        expect(Object.keys(record)).toEqual([
+            'des',
+            'desru',
+            'ck',
+            'bunnymo',
+            'qvink',
+            'nai',
+            'localizer',
+            'preset',
+            'dramatis',
+        ]);
         for (const [id, adapter] of Object.entries(record)) expect(adapter.id).toBe(id);
         expect([...stand.caps.probes.keys()]).toEqual(ALL_CAPABILITIES);
         expect(Object.values(adapters).flatMap((adapter) => adapter.capabilityIds())).toEqual(ALL_CAPABILITIES);

@@ -13,14 +13,20 @@
 //   four messages (up to the user's answer); rebuilt in the background when M18's facts change.
 // - Quiet mode (§2.2): while cards go out, CK's «Character Consistency» text is taken out of the assembled prompt at
 //   CHAT_COMPLETION_PROMPT_READY (CK's slot and settings are never touched), and DES-RU is told to stop rebuilding it
-//   (`ck.consistencyRebuild`, given back when the module stops — P11).
-import { adaptersOf } from '../../adapters';
-import type { DesRuAdapter, DesRuApi, DesRuFunction } from '../../adapters';
+//   (`ck.consistencyRebuild`, given back when the module stops — P11). The code is shared with the Dramatis bridge
+//   (./ck-quiet.ts).
+// - Dramatis (1.17, docs/integration-dramatis.md): while Dramatis is present, claims 'voices' and says this generation
+//   gets its cast block, the cards do not go out as `maestro_voices` — Dramatis renders one combined block with the
+//   speech from MAESTRO_API.speech(). CK's insert still leaves the prompt while cards exist (their speech is in that
+//   block), and also without cards when Dramatis claims 'ck.consistency'. Dramatis may decide its block after Maestro's
+//   producers ran, so the choice is checked again at PROMPT_READY: cards already injected leave the prompt then.
+import { adaptersOf, dramatisOf } from '../../adapters';
 import { estimateTokens } from '../../domain/rules-lore';
 import { desSwipeRecord, parseDesCharacters } from '../../domain/des-tracker';
 import type { DesCharacter, DesQuests } from '../../domain/des-tracker';
 import { lastUserIndex, recentStoryText, unknownLine } from '../../domain/knowledge-match';
 import { lastCommittedIndex } from '../../domain/relations-history';
+import { sceneCast } from '../../domain/scene-cast';
 import {
     attitudeNow,
     detailGoals,
@@ -33,24 +39,24 @@ import {
     sceneTracker,
 } from '../../domain/voices-cards';
 import type { FittedVoices, RelationLike, VoiceInput } from '../../domain/voices-cards';
-import { CK_CONSISTENCY_SLOT, removeSlotText, slotText } from '../../domain/voices-prompt';
+import { removeSlotText } from '../../domain/voices-prompt';
 import { archiveVoiceFromSheet, archiveVoiceOf } from '../../domain/voices-speech';
 import type { ArchiveVoice } from '../../domain/voices-speech';
-import { normalizeName } from '../../domain/world-names';
 import type { App, GenerationInfo, Logger, Unsubscribe } from '../../shared/contracts';
 import type { ArchitectApi } from '../architect/api';
 import type { BunnyMoModeApi } from '../bunnymoMode/api';
 import type { KnowledgeApi } from '../knowledge/api';
 import type { RelationsApi } from '../relations/api';
 import type { Entity, WorldModelApi } from '../world/api';
-import type { CkInsertOutcome, VoiceCard, VoicesApi, VoicesInjection, VoicesQuietState } from './api';
+import type { VoiceCard, VoicesApi, VoicesInjection, VoicesQuietState } from './api';
+import { CkQuiet } from './ck-quiet';
 import { DEFAULT_CAP, VOICES_KEY, readVoicesSettings } from './settings';
 import type { VoicesSettings } from './settings';
 
+export { CK_FUNCTION } from './ck-quiet';
+
 /** Ephemeral injection key (extension prompt `maestro_voices`). */
 export const VOICES_INJECTION = 'voices';
-/** The DES-RU function the cards replace. */
-export const CK_FUNCTION: DesRuFunction = 'ck.consistencyRebuild';
 const ARCHIVE_CACHE_LIMIT = 300;
 /** A saved book is read again a moment later: M35 drops its own copy on the same event. */
 const RELOAD_DELAY_MS = 200;
@@ -108,7 +114,14 @@ export class VoicesService {
     private readonly relations: Bound<RelationsApi> = { api: undefined, off: null };
     private readonly knowledge: Bound<KnowledgeApi> = { api: undefined, off: null };
     private armed = false;
+    /** A real generation is running (its producer ran): PROMPT_READY may change its prompt. */
+    private live = false;
+    /** The cards text injected into the running generation ('' when none went out as `maestro_voices`). */
+    private injected = '';
+    /** The last real generation's cards went into Dramatis's block instead of `maestro_voices`. */
+    private merged = false;
     private lastCk: VoicesQuietState['ck'] = null;
+    private readonly ck: CkQuiet;
     private readonly listeners = new Set<() => void>();
     private readonly timers = new Set<ReturnType<typeof setTimeout>>();
     private disposed = false;
@@ -116,7 +129,9 @@ export class VoicesService {
     constructor(
         private readonly app: App,
         private readonly log: Logger,
-    ) {}
+    ) {
+        this.ck = new CkQuiet(app, log);
+    }
 
     settings(): VoicesSettings {
         return readVoicesSettings(this.app.settings.module<Partial<VoicesSettings>>(VOICES_KEY));
@@ -141,6 +156,8 @@ export class VoicesService {
         own(
             bus.on('chat:changed', () => {
                 this.armed = false;
+                this.live = false;
+                this.injected = '';
                 this.scene = null;
                 this.built = null;
                 this.claimDesRu();
@@ -153,6 +170,8 @@ export class VoicesService {
         own(
             bus.on('generation:ended', () => {
                 this.armed = false;
+                this.live = false;
+                this.injected = '';
             }),
         );
         own(
@@ -161,6 +180,12 @@ export class VoicesService {
             }),
         );
         own(() => this.dispose());
+        // Dramatis's claims and its cast change what goes out: the view follows them.
+        const dramatis = dramatisOf(this.app);
+        if (dramatis) {
+            own(dramatis.onQuietChange(() => this.changed()));
+            own(dramatis.onChange(() => this.changed()));
+        }
         this.claimDesRu();
         this.refresh();
     }
@@ -168,6 +193,7 @@ export class VoicesService {
     private dispose(): void {
         this.disposed = true;
         this.armed = false;
+        this.live = false;
         for (const timer of this.timers) clearTimeout(timer);
         this.timers.clear();
         for (const bound of [this.world, this.relations, this.knowledge] as Bound<unknown>[]) {
@@ -443,21 +469,12 @@ export class VoicesService {
         if (this.scene?.key === key) return this.scene;
 
         const tracker = chatId ? sceneTracker(chat) : null;
-        const self = normalizeName(persona);
-        const own = normalizeName(this.app.host.ctx().name1 ?? '');
-        const members: SceneMember[] = [];
-        const seen = new Set<string>();
-        for (const character of presentCharacters(tracker?.snapshot.characters ?? [], hidden)) {
-            const plain = normalizeName(character.name);
-            if (plain === self || plain === own) continue;
-            const entity = this.resolve(character.name);
-            if (entity?.kind === 'persona') continue;
-            const name = entity?.name ?? character.name;
-            const id = entity?.id ?? `name:${plain}`;
-            if (normalizeName(name) === self || seen.has(id)) continue;
-            seen.add(id);
-            members.push(entity ? { name, entity, character } : { name, character });
-        }
+        const members: SceneMember[] = sceneCast<Entity>(tracker, {
+            persona,
+            ownName: this.app.host.ctx().name1 ?? '',
+            hidden,
+            resolve: (name) => this.resolve(name),
+        });
         this.scene = {
             key,
             base: tracker?.index ?? -1,
@@ -556,13 +573,36 @@ export class VoicesService {
 
     /* ---------------------------------------------------------------- generation */
 
-    /** Ephemeral producer: the cached cards go into every real generation (not quiet, dry or a sheet command). */
+    /** Dramatis silences this function for the generation (present, claims it, its cast block goes out). */
+    private dramatisSilences(fn: 'voices' | 'ck.consistency'): boolean {
+        try {
+            return dramatisOf(this.app)?.silences(fn) === true;
+        } catch (error) {
+            this.log.debug('Dramatis is not readable', error);
+            return false;
+        }
+    }
+
+    /**
+     * Ephemeral producer: the cached cards go into every real generation (not quiet, dry or a sheet command) — unless
+     * Dramatis takes them into its own block.
+     */
     private produce(gen: GenerationInfo): void {
         this.armed = false;
+        this.live = false;
+        this.injected = '';
         if (this.disposed || gen.quiet || gen.dryRun || gen.sheetCommand || !this.app.host.chatId()) return;
+        this.live = true;
         this.claimDesRu();
         const { fitted } = this.ensureFresh();
+        this.merged = false;
         if (!fitted.text) return;
+        // Cards exist: CK's insert leaves the prompt whether they go out here or in Dramatis's block.
+        this.armed = true;
+        if (this.dramatisSilences('voices')) {
+            this.merged = true;
+            return;
+        }
         // P16: in chat at depth 1 (right before the last message), system role, never scanned.
         this.app.ephemeral.setInjection(VOICES_INJECTION, {
             text: fitted.text,
@@ -571,7 +611,7 @@ export class VoicesService {
             role: 0,
             scan: false,
         });
-        this.armed = true;
+        this.injected = fitted.text;
     }
 
     private substitute(text: string): string {
@@ -582,80 +622,65 @@ export class VoicesService {
         }
     }
 
-    /** CHAT_COMPLETION_PROMPT_READY: CK's «Character Consistency» text leaves the prompt of a generation with cards. */
+    /**
+     * CHAT_COMPLETION_PROMPT_READY of a real generation: CK's «Character Consistency» text leaves the prompt when cards
+     * exist or Dramatis claims it; cards that went out leave it again when Dramatis took them over after the producer.
+     */
     private onPromptReady(data: unknown): void {
-        if (!this.armed || !isDict(data) || data.dryRun !== false || !Array.isArray(data.chat)) return;
-        const value = slotText(this.app.host.ctx().extensionPrompts, CK_CONSISTENCY_SLOT);
-        let outcome: CkInsertOutcome = 'absent';
-        let tokens = 0;
-        if (value) {
+        if (!this.live || !isDict(data) || data.dryRun !== false || !Array.isArray(data.chat)) return;
+        const messages = data.chat as unknown[];
+        if (this.injected && this.dramatisSilences('voices')) {
             try {
-                const result = removeSlotText(data.chat as unknown[], value, (text) => this.substitute(text));
-                outcome = result.removed ? 'removed' : 'notFound';
-                tokens = estimateTokens(result.chars);
+                const result = removeSlotText(messages, this.injected, (text) => this.substitute(text));
+                if (result.removed) {
+                    this.merged = true;
+                    this.log.debug(
+                        `voice cards left the prompt for the Dramatis block (${estimateTokens(result.chars)})`,
+                    );
+                }
             } catch (error) {
-                this.log.warn('CK consistency insert could not be removed', error);
-                outcome = 'notFound';
+                this.log.warn('voice cards could not be taken out for Dramatis', error);
             }
-            if (outcome === 'notFound') this.log.warn('CK consistency insert is not in the assembled prompt');
+            this.injected = '';
         }
-        this.lastCk = { outcome, at: Date.now(), tokens };
+        if (!this.armed && !this.dramatisSilences('ck.consistency')) return;
+        this.lastCk = this.ck.remove(messages);
         this.changed();
     }
 
     /* ---------------------------------------------------------------- DES-RU */
 
-    /** DES-RU's adapter and published API (0.8+), read live: the API comes and goes with DES-RU. */
-    private desRu(): { adapter: DesRuAdapter; api: DesRuApi } | null {
-        try {
-            const adapter = adaptersOf(this.app).desru as Partial<DesRuAdapter> | undefined;
-            if (typeof adapter?.api !== 'function' || typeof adapter.setMaestroOwned !== 'function') return null;
-            const api = adapter.api();
-            return api ? { adapter: adapter as DesRuAdapter, api } : null;
-        } catch {
-            return null;
-        }
-    }
-
     /** DES-RU stops rebuilding CK's insert (its other functions Maestro owns stay as they are). */
     private claimDesRu(): void {
-        const desru = this.desRu();
-        if (!desru || this.disposed) return;
-        try {
-            const owned = desru.api.maestroOwned();
-            if (owned.includes(CK_FUNCTION)) return;
-            desru.adapter.setMaestroOwned([...owned, CK_FUNCTION] as DesRuFunction[]);
-        } catch (error) {
-            this.log.debug('DES-RU ownership could not be set', error);
-        }
+        if (this.disposed) return;
+        this.ck.claimDesRu();
     }
 
     /** P11: the function goes back to DES-RU when the module stops. */
     private releaseDesRu(): void {
-        const desru = this.desRu();
-        if (!desru) return;
-        try {
-            const owned = desru.api.maestroOwned();
-            if (!owned.includes(CK_FUNCTION)) return;
-            desru.adapter.setMaestroOwned(owned.filter((id) => id !== CK_FUNCTION) as DesRuFunction[]);
-        } catch (error) {
-            this.log.debug('DES-RU ownership could not be released', error);
-        }
-    }
-
-    private desRuState(): VoicesQuietState['desru'] {
-        const desru = this.desRu();
-        if (!desru) return 'absent';
-        try {
-            return desru.api.maestroOwned().includes(CK_FUNCTION) ? 'told' : 'notTold';
-        } catch {
-            return 'notTold';
-        }
+        this.ck.releaseDesRu();
     }
 
     quiet(): VoicesQuietState {
         const armed = !this.disposed && this.ensureFresh().fitted.cards.length > 0;
-        return { armed, ck: this.lastCk ? { ...this.lastCk } : null, desru: this.desRuState() };
+        return {
+            armed,
+            ck: this.lastCk ? { ...this.lastCk } : null,
+            desru: this.ck.desRuState(),
+            dramatis: this.dramatisState(),
+        };
+    }
+
+    /** What Dramatis does with the cards now: they go into its block, or Maestro sends them itself. */
+    private dramatisState(): NonNullable<VoicesQuietState['dramatis']> {
+        const present = ((): boolean => {
+            try {
+                return dramatisOf(this.app)?.present() === true;
+            } catch {
+                return false;
+            }
+        })();
+        return { present, merged: present && this.dramatisSilences('voices'), lastMerged: this.merged };
     }
 
     /** Quiet mode works: cards go out, CK's insert was not left in the last prompt, DES-RU (when there) was told. */

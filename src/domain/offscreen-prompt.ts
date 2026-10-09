@@ -24,6 +24,11 @@ export interface OffscreenBrief {
     quests: string[];
     /** Earlier offscreen events of the character, oldest first. */
     earlier: string[];
+    /**
+     * Release 1.17: what Dramatis's personality engine says of the character off screen — goals, what they attempted,
+     * the outcome of its roll. The event should follow it.
+     */
+    engine?: string[];
 }
 
 export interface OffscreenInput {
@@ -153,6 +158,13 @@ export function formatBrief(brief: OffscreenBrief, limits: OffscreenLimits = DEF
     if (brief.quests.length) lines.push(`Open quests and promises: ${brief.quests.map((q) => cut(q, 200)).join('; ')}`);
     if (brief.earlier.length) {
         lines.push(`Earlier off-screen: ${brief.earlier.map((item) => cut(item, 300)).join(' ')}`);
+    }
+    if (brief.engine?.length) {
+        lines.push(
+            `Their own plans (from the personality engine; the event follows them): ${brief.engine
+                .map((item) => cut(item, 240))
+                .join('; ')}`,
+        );
     }
     const head = lines.join('\n');
     let room = limits.maxBriefChars - head.length - '\nDossier:'.length;

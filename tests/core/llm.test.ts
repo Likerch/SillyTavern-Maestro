@@ -336,6 +336,15 @@ describe('llm client: failures', () => {
         expect(calls).toHaveLength(0);
     });
 
+    it('lets a request the user started himself through the cap (MAESTRO_API interactive tasks)', async () => {
+        const { client } = setup({ capped: true, profiles: { default: 'p-judge' } });
+        replies.push(completion('Hello.'));
+        const result = await client.request(ask({ task: 'dramatis.read', interactive: true }));
+        expect(calls).toHaveLength(1);
+        expect(result).not.toEqual({ ok: false, error: 'cap' });
+        expect(await client.request(ask({ task: 'dramatis.turn' }))).toEqual({ ok: false, error: 'cap' });
+    });
+
     it('lets the assistant (started by the user) through the background cap', async () => {
         const { client } = setup({ capped: true, profiles: { assistant: 'p-judge', judge: 'p-judge' } });
         replies.push(completion('Hello.'));

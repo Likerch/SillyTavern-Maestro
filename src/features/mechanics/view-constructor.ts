@@ -59,6 +59,7 @@ import type {
     TrackingMode,
 } from './api';
 import { scopeContextOf } from './definitions';
+import { offeredTemplates, replacedByEngine } from './dramatis';
 import type { DefinitionsPart, PartDeps, SectionRenderer, TrackingPart } from './parts';
 import type { MechanicTranslator } from './translate';
 import {
@@ -199,6 +200,7 @@ export function constructorSection(
                     def.summarySource || def.summary
                         ? el('div', { class: 'maestro-m25-summary', text: def.summarySource || def.summary })
                         : null,
+                    replacedByEngine(app, def) ? banner(t('m25.def.dramatisNote'), 'muted', 'fa-masks-theater') : null,
                     toggle({
                         label: t('m25.def.enabled'),
                         checked: enabled,
@@ -422,7 +424,7 @@ export function constructorSection(
                 el(
                     'div',
                     { class: 'maestro-m25-list' },
-                    MECHANIC_TEMPLATES.map((item) =>
+                    offeredTemplates(app, MECHANIC_TEMPLATES).map((item) =>
                         card({
                             className: 'maestro-m25-template',
                             title: t(item.titleKey),

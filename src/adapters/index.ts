@@ -1,4 +1,4 @@
-// The eight neighbour adapters (plan §4.3). Each one detects its neighbour, reports capabilities into
+// The neighbour adapters (plan §4.3; Dramatis since 1.17). Each one detects its neighbour, reports capabilities into
 // `host.caps` and offers read-only helpers; writes follow in later stages, by the owner's rules (plan §10).
 import type { Host, Logger, NeighbourAdapter } from '../shared/contracts';
 import { ExtensionLocator } from './base';
@@ -7,6 +7,7 @@ import { BunnyMoAdapter } from './bunnymo';
 import { CkAdapter } from './ck';
 import { DesAdapter } from './des';
 import { DesRuAdapter } from './desru';
+import { DramatisAdapter } from './dramatis';
 import { LocalizerAdapter } from './localizer';
 import { NaiAdapter } from './nai';
 import { PresetAdapter } from './preset';
@@ -22,6 +23,31 @@ export { DES_PROMPT_KEYS, DesAdapter } from './des';
 export type { DesCharacterField, DesGenerationMode, DesPromptKey } from './des';
 export { DesRuAdapter } from './desru';
 export type { DesRuApi, DesRuFunction, DesRuModule } from './desru';
+export {
+    DRAMATIS_API_GLOBAL,
+    DRAMATIS_API_READY_EVENT,
+    DramatisAdapter,
+    MAESTRO_API_GLOBAL,
+    MAESTRO_API_READY_EVENT,
+    QUIET_FUNCTIONS,
+    dramatisOf,
+    isQuietFunction,
+} from './dramatis';
+export type {
+    ApiDecision,
+    ApiEntityRef,
+    ApiJournalChange,
+    ApiLlmRequest,
+    ApiLlmResult,
+    ApiProposal,
+    ApiTurnEvent,
+    DramatisAgenda,
+    DramatisApiV1,
+    DramatisStanceInfo,
+    MaestroApiV1,
+    MaestroQuietFunction,
+    QuietClaim,
+} from './dramatis';
 export { LocalizerAdapter } from './localizer';
 export type {
     LocalizeEntriesOptions,
@@ -72,6 +98,7 @@ export interface Adapters {
     nai: NaiAdapter;
     localizer: LocalizerAdapter;
     preset: PresetAdapter;
+    dramatis: DramatisAdapter;
 }
 
 // Compile-time check that every NeighbourAdapter id has exactly its adapter.
@@ -109,5 +136,6 @@ export function createAdapters(host: Host, log: Logger, options: AdapterOptions 
         nai: new NaiAdapter(deps('nai')),
         localizer: new LocalizerAdapter(deps('localizer')),
         preset: new PresetAdapter(deps('preset')),
+        dramatis: new DramatisAdapter(deps('dramatis')),
     };
 }

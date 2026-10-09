@@ -4,7 +4,7 @@
 // relationships from the graph, the place of the last sighting, quests and promises, earlier offscreen events), and a
 // short story summary (Qvink long memories, the last chronicle chapter). Every reader degrades: a module or neighbour
 // that is off gives nothing.
-import { adaptersOf } from '../../adapters';
+import { adaptersOf, dramatisOf } from '../../adapters';
 import { containsWithLeftBoundary, normalizeForMatch, uniqueStrings } from '../../domain/canon-keys';
 import type { DesTrackerSnapshot } from '../../domain/des-tracker';
 import { presentNames } from '../../domain/director-scene';
@@ -40,6 +40,8 @@ const MAX_FACTS = 6;
 const MAX_RELATIONS = 4;
 const MAX_QUESTS = 5;
 const EARLIER_EVENTS = 2;
+/** Lines of Dramatis's offscreen brief per character at most. */
+const ENGINE_LINES = 6;
 const MEMORY_SCAN = 400;
 const LONG_MEMORIES = 5;
 const RECENT_MEMORIES = 3;
@@ -357,6 +359,18 @@ export class OffscreenSources {
 
     /* ---------------------------------------------------------------- dossiers */
 
+    /** Dramatis's offscreen lines of a character (DRAMATIS_API.offscreenBrief), at most a few; [] without Dramatis. */
+    engineLines(name: string): string[] {
+        try {
+            const dramatis = dramatisOf(this.app);
+            if (!dramatis?.present()) return [];
+            return dramatis.offscreenBrief(name).slice(0, ENGINE_LINES);
+        } catch (error) {
+            this.log.debug('Dramatis is not readable', error);
+            return [];
+        }
+    }
+
     /** What the model learns about a character, and what the event must not contradict. */
     async brief(name: string, doc: OffscreenDoc, scene: SceneInfo | null): Promise<CharacterBrief> {
         const entity = this.resolve(name);
@@ -375,6 +389,9 @@ export class OffscreenSources {
                 .slice(-EARLIER_EVENTS)
                 .map((event) => event.text),
         };
+        // Release 1.17: what Dramatis's engine knows of this character off screen — goals, what they tried, the outcome.
+        const engine = this.engineLines(canonicalName);
+        if (engine.length) brief.engine = engine;
         const names = entity ? [entity.name, ...entity.aliases, ...entity.forms].map(normalizeName) : [key];
         const seen = names.map((item) => doc.seen[item]).find((record) => record !== undefined);
         if (seen) {
@@ -388,6 +405,7 @@ export class OffscreenSources {
             ...facts,
             ...brief.earlier.map((text) => ({ label: `offscreen: ${canonicalName}`, text })),
             ...brief.quests.map((text) => ({ label: 'quest', text })),
+            ...engine.map((text) => ({ label: `dramatis: ${canonicalName}`, text })),
         ];
         return entity ? { brief, against, entity } : { brief, against };
     }

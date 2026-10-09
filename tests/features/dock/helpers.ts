@@ -112,6 +112,7 @@ export async function startDock(options: { presence?: Partial<NeighbourPresence>
         localizer: true,
         bunnymo: false,
         preset: false,
+        dramatis: false,
         ...options.presence,
     };
     const kernel: Record<string, unknown> = {

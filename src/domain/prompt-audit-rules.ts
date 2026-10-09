@@ -422,6 +422,7 @@ const EDIT_RANK: Record<AuditOwner, number> = {
     nai: 1,
     qvink: 2,
     maestro: 3,
+    dramatis: 6,
     card: 5,
     authorsNote: 5,
     desru: 6,

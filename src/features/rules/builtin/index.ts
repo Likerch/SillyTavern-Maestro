@@ -1,4 +1,5 @@
-// Built-in rules of stages 1–2, in the order the pult lists them (plan M22 table; dev-plan 1.7, 1.8, 1.11, 2.6).
+// Built-in rules of stages 1–2, in the order the pult lists them (plan M22 table; dev-plan 1.7, 1.8, 1.11, 2.6), and
+// the Medicine Check quiet mode for Dramatis (release 1.17).
 import type { Unsubscribe } from '../../../shared/contracts';
 import type { RuleDefinition } from '../api';
 import type { RuleEnv } from '../env';
@@ -7,6 +8,7 @@ import { archiveDepthRule, registerArchiveHandlers } from './archives';
 import { bunnymoTagsRule, ckDumpsRule } from './display';
 import { cyrillicRule } from './keys';
 import { capRule, duplicatesRule, roleRule } from './lore';
+import { medicineRule } from './medicine';
 import { nsfwRule, packVersionRule, registerPackHandlers } from './packs';
 import { gapGuardRule, imagePostsRule } from './qvink';
 import { ckButtonRule, desPortraitBarRule } from './ui';
@@ -26,6 +28,7 @@ export function builtinRules(env: RuleEnv): RuleDefinition[] {
         packVersionRule(env),
         nsfwRule(),
         archiveDepthRule(env),
+        medicineRule(env),
     ];
 }
 
@@ -39,6 +42,8 @@ export { ARCHIVE_DEPTH_KIND, ARCHIVE_DEPTH_RULE_ID, proposeArchiveFixes } from '
 export { BUNNYMO_TAGS_RULE_ID, CK_DUMPS_RULE_ID } from './display';
 export { CYRILLIC_RULE_ID } from './keys';
 export { CAP_RULE_ID, DUPLICATES_RULE_ID, ROLE_RULE_ID } from './lore';
+export { MEDICINE_RULE_ID } from './medicine';
+export type { MedicineState, MedicineVerdict } from './medicine';
 export { NSFW_RULE_ID, PACK_CHOICE_TARGET, PACK_VERSION_KIND, PACK_VERSION_RULE_ID } from './packs';
 export { GAP_RULE_ID, IMAGE_POSTS_RULE_ID, QVINK_SUMMARIZE_TASK, registerQvinkHandlers } from './qvink';
 export { CK_BUTTON_RULE_ID, DES_BAR_RULE_ID } from './ui';

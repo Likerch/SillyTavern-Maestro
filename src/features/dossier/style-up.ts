@@ -28,6 +28,7 @@ import {
     buildArchiveMessages,
     formatArchiveTags,
     isEmptyVocabulary,
+    MAX_ARCHIVE_TAGS,
     parseArchiveAnswer,
 } from '../../domain/dossier-archive';
 import type { ArchiveMbti, ArchiveTag } from '../../domain/dossier-archive';
@@ -58,6 +59,7 @@ import type { BookData } from '../../domain/doctor-fixes';
 import { TYPED_FIELDS_KEY } from '../../domain/entry-types';
 import { freeUid, templateEntry } from '../../domain/lore-studio-entries';
 import { archiveMatch } from '../../domain/sheet-context';
+import { entityIdOf } from '../../domain/world-names';
 import { chatOriginTag } from '../../domain/world-scope';
 import type { App, Decision, JournalChange, Logger, Proposal, Unsubscribe } from '../../shared/contracts';
 import type { BookRolesApi } from '../bookRoles/api';
@@ -202,6 +204,26 @@ function message(error: unknown): string {
 
 function newId(prefix: string): string {
     return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+}
+
+/**
+ * A checked tag as the archive writes it: `<SPECIES:ELF>` → a tag, `<INFP-H>` → the MBTI archetype; null for a bare
+ * flag (`<DEPRESSION>`: CK reads only `<KEY:VALUE>` from archives).
+ */
+export function archiveTagOf(tag: string): ArchiveTag | ArchiveMbti | null {
+    const value = tag.trim();
+    const mbti = /^<\s*([EI][NS][FT][JP])-([HU])\s*>$/i.exec(value);
+    if (mbti?.[1] && mbti[2])
+        return { type: mbti[1].toUpperCase(), variant: mbti[2].toUpperCase() === 'H' ? 'H' : 'U' };
+    const pair = /^<\s*([A-Za-z][A-Za-z0-9_-]*)\s*:\s*([^<>]+?)\s*>$/.exec(value);
+    if (!pair?.[1] || !pair[2]) return null;
+    const category = pair[1].toUpperCase();
+    const named = pair[2].toUpperCase().replace(/\s+/g, '_');
+    if (category === 'MBTI') {
+        const inner = /^([EI][NS][FT][JP])-([HU])$/.exec(named);
+        return inner?.[1] && inner[2] ? { type: inner[1], variant: inner[2] === 'H' ? 'H' : 'U' } : null;
+    }
+    return { category, value: named };
 }
 
 export function isStyleUpPayload(value: unknown): value is StyleUpPayload {
@@ -606,6 +628,88 @@ export class DossierStyleUp {
         });
     }
 
+    /**
+     * MAESTRO_API.styleUp (release 1.17): «Оформить» with BunnyMo tags chosen by Dramatis instead of the model — an
+     * archive with exactly the tags that pass the BunnyMo mode's check against the loaded packs (P13: packs untouched),
+     * proposed as one «Оформить» card. False when it cannot be done (no BunnyMo mode or chat, an archive already exists,
+     * nothing passed, no book can take it); true once applied, queued or offered.
+     */
+    async archiveWithTags(name: string, tags: readonly string[]): Promise<boolean> {
+        const wanted = name.trim();
+        const bunnymo = this.bunnymo();
+        if (!wanted || !bunnymo || !this.app.host.chatId()) return false;
+        const entity = this.safe(
+            () => this.sources.world()?.resolve(wanted, 'character') ?? this.sources.world()?.resolve(wanted),
+            undefined,
+        );
+        if (entity && entity.kind !== 'character') return false;
+        if (entity?.sources.some((source) => source.kind === 'ck.archive')) return false;
+        const canonical = entity?.name ?? wanted;
+        const written = uniqueStrings(tags.map((tag) => String(tag).trim()).filter(Boolean));
+        if (!written.length) return false;
+        const checks = await this.safeAsync(() => bunnymo.validateTags(written), []);
+        const picked: ArchiveTag[] = [];
+        const dropped: { tag: string; reason: string }[] = [];
+        let mbti: ArchiveMbti | null = null;
+        written.forEach((tag, index) => {
+            const check = checks[index];
+            if (!check?.ok) {
+                dropped.push({ tag, reason: check?.reason ?? 'unchecked' });
+                return;
+            }
+            const parsed = archiveTagOf(check.tag || tag);
+            if (!parsed) dropped.push({ tag, reason: 'flag' });
+            else if ('variant' in parsed) {
+                if (mbti) dropped.push({ tag, reason: 'duplicate' });
+                else mbti = parsed;
+            } else if (picked.length >= MAX_ARCHIVE_TAGS) dropped.push({ tag, reason: 'duplicate' });
+            else picked.push(parsed);
+        });
+        if (!picked.length && !mbti) return false;
+        const choice = await this.archiveBooks();
+        const book = choice.books[0] ?? choice.create;
+        if (!book) return false;
+        // The world model may not know the archive yet (or not run): the book itself must not hold one by that name.
+        for (const repo of choice.books) {
+            const data = (await this.sources.bookState(repo)).data;
+            const taken = Object.values(data?.entries ?? {}).some(
+                (entry) => isDict(entry) && entry.disable !== true && archiveMatch(entry, canonical) === 'exact',
+            );
+            if (taken) return false;
+        }
+        const aliases = entity ? entity.aliases.filter((alias) => normName(alias) !== normName(canonical)) : [];
+        const plan: StyleUpPlan = {
+            planId: newId('su'),
+            entityId: entity?.id ?? entityIdOf('character', canonical),
+            name: canonical,
+            kind: 'character',
+            parts: [
+                {
+                    part: 'archive',
+                    book,
+                    books: choice.books,
+                    create: !choice.books.length,
+                    name: canonical,
+                    keys: archiveKeys(canonical, aliases),
+                    content: buildArchiveContent({ name: canonical, tags: picked, mbti }),
+                    tags: formatArchiveTags(picked, mbti),
+                    rejected: dropped,
+                },
+            ],
+            hints: [],
+        };
+        if (!choice.books.length) plan.hints.push({ part: 'archive', key: 'archiveNewBook', params: { book } });
+        if (dropped.length) {
+            plan.hints.push({
+                part: 'archive',
+                key: 'archiveDropped',
+                params: { tags: dropped.map((item) => item.tag).join(', ') },
+            });
+        }
+        const decision = await this.propose(plan);
+        return decision === 'applied' || decision === 'queued' || decision === 'notified';
+    }
+
     private async planPassport(plan: StyleUpPlan, facts: EntityFacts, knowledge: CharacterKnowledge): Promise<void> {
         const hint = (key: string, params?: Record<string, string | number>) =>
             plan.hints.push(params ? { part: 'passport', key, params } : { part: 'passport', key });
@@ -758,7 +862,11 @@ export class DossierStyleUp {
             .filter((hint) => hint.key === 'archiveNewBook' || hint.key === 'passportAuto')
             .map((hint) => this.hintText(hint));
         const place = plan.kind === 'place';
-        const details = payload.parts.map((part) => this.partDetails(part)).filter((line) => line !== null);
+        const details = [
+            ...payload.parts.map((part) => this.partDetails(part)).filter((line) => line !== null),
+            // Tags are technical (BunnyMo markup): the ones Dramatis offered and the packs do not know go here.
+            ...plan.hints.filter((hint) => hint.key === 'archiveDropped').map((hint) => this.hintText(hint)),
+        ];
         const proposal: Proposal<StyleUpPayload> = {
             module: DOSSIER_ID,
             kind: STYLE_UP_KIND,

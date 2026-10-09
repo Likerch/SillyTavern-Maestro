@@ -342,7 +342,11 @@ export function createAutonomy(deps: AutonomyDeps, options: AutonomyOptions = {}
                         log.warn(`${proposal.kind}: Inbox is not ready; proposal skipped`);
                         return 'skipped';
                     }
-                    await bound.inbox.add(proposal as Proposal);
+                    // The proposal's own card lifetime (Proposal.ttlMs), else the Inbox default.
+                    await bound.inbox.add(
+                        proposal as Proposal,
+                        proposal.ttlMs !== undefined && proposal.ttlMs > 0 ? { ttlMs: proposal.ttlMs } : undefined,
+                    );
                     return 'queued';
                 case 'ask': {
                     if (!bound) return 'skipped';

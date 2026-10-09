@@ -4,7 +4,8 @@
 // after `turn:committed`, later and after the generation (P15). A swiped, edited or deleted message loses its points;
 // an edited committed message is read again (with the next one, whose «no change» may now be a change). A chat with
 // no document yet is read in full in the background. Only the leader tab writes.
-import { adaptersOf } from '../../adapters';
+import { adaptersOf, dramatisOf } from '../../adapters';
+import type { DramatisStanceInfo } from '../../adapters';
 import {
     applyMessage,
     currentStatus,
@@ -22,7 +23,7 @@ import type { RelationObservation, RelationPointData, StoredRelation } from '../
 import { normalizeName } from '../../domain/world-names';
 import type { App, Logger, Unsubscribe } from '../../shared/contracts';
 import type { WorldModelApi } from '../world/api';
-import type { Relation, RelationsApi } from './api';
+import type { EngineStance, Relation, RelationsApi } from './api';
 
 export const RELATIONS_ID = 'M19';
 export const RELATIONS_KEY = 'relations';
@@ -99,6 +100,8 @@ export class RelationsService {
             app.leader.onChange((leader) => {
                 if (leader) void this.open();
             }),
+            // Release 1.17: Dramatis's stances join the graph; the view follows their changes.
+            dramatisOf(app)?.onChange(() => this.emit()) ?? (() => {}),
             () => this.dispose(),
         ];
     }
@@ -417,6 +420,44 @@ export class RelationsService {
         return this.all().find((relation) => normalizeName(relation.from) === a && normalizeName(relation.to) === b);
     }
 
+    /**
+     * Dramatis's stances (release 1.17), names made canonical: toward the persona first, then between characters,
+     * strongest first. Empty without Dramatis or a chat.
+     */
+    engine(): EngineStance[] {
+        const dramatis = dramatisOf(this.app);
+        if (!dramatis || !this.app.host.chatId()) return [];
+        let list: DramatisStanceInfo[];
+        try {
+            list = dramatis.present() ? dramatis.stances() : [];
+        } catch (error) {
+            this.log.debug('Dramatis stances are not readable', error);
+            return [];
+        }
+        const ownName = String(this.app.host.ctx().name1 ?? '').trim();
+        const persona = new Set([normalizeName(ownName), normalizeName(this.canonical(ownName))].filter(Boolean));
+        return list
+            .map((item): EngineStance => {
+                const to = this.canonical(item.to);
+                return {
+                    from: this.canonical(item.from),
+                    to,
+                    stance: item.stance,
+                    label: item.label,
+                    reasons: [...item.reasons],
+                    toPersona: persona.has(normalizeName(item.to)) || persona.has(normalizeName(to)),
+                    source: 'dramatis',
+                };
+            })
+            .sort(
+                (a, b) =>
+                    Number(b.toPersona) - Number(a.toPersona) ||
+                    Math.abs(b.stance) - Math.abs(a.stance) ||
+                    a.from.localeCompare(b.from, 'ru') ||
+                    a.to.localeCompare(b.to, 'ru'),
+            );
+    }
+
     api(): RelationsApi {
         return {
             all: () => this.all(),
@@ -424,6 +465,7 @@ export class RelationsService {
             between: (from, to) => this.between(from, to),
             rebuild: () => this.rebuild(),
             onChange: (listener) => this.onChange(listener),
+            engine: () => this.engine(),
         };
     }
 }

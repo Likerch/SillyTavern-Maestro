@@ -110,7 +110,7 @@ function turnOf(value: unknown): TurnRecord | null {
     };
 }
 
-const NOTE_SOURCES = ['quest', 'thread', 'deadline', 'offscreen', 'mechanic'] as const;
+const NOTE_SOURCES = ['quest', 'thread', 'deadline', 'offscreen', 'mechanic', 'agenda'] as const;
 const REASONS = ['samePlace', 'noEvents', 'repetition', 'loop'] as const;
 
 function noteOf(value: unknown): DirectorNote | null {

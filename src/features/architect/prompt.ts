@@ -37,13 +37,15 @@ export const BUDGET_SLOTS: Partial<Record<BudgetSource, string>> = {
     des: 'dooms-tracker-context',
     voices: 'maestro_voices',
     mechanics: 'maestro_mechanics',
+    // Dramatis's cast block (release 1.17): measured against its budget, never shortened by Maestro.
+    dramatis: 'dramatis_cast',
 };
 
 /** Sources of later stages: the budget is stored, there is nothing to measure yet. */
 export const FUTURE_SOURCES: ReadonlySet<BudgetSource> = new Set(['director']);
 
-/** Sources that fit themselves to the budget (M15 reads it): measured here, never shortened. */
-export const SELF_FITTING: ReadonlySet<BudgetSource> = new Set(['voices', 'mechanics']);
+/** Sources that fit themselves to the budget (M15 reads it) or belong to a neighbour (Dramatis): measured, never shortened. */
+export const SELF_FITTING: ReadonlySet<BudgetSource> = new Set(['voices', 'mechanics', 'dramatis']);
 
 /** ST extension_prompt_types.NONE: never injected. */
 const POSITION_NONE = -1;

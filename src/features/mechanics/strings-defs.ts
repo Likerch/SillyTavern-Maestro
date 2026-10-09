@@ -12,6 +12,8 @@ export const DEF_STRINGS: I18nParts = {
         'm25.def.hint':
             'Your own game systems: health, magic, reputation, money, skills — attributes, who has them, rules for the model, events and dice checks. A mechanic lives in a Maestro book and never activates as lore: Maestro gives the model its rules and the current values only when it takes part in the scene.',
         'm25.def.empty': 'No mechanics yet — start from a template.',
+        'm25.def.dramatisNote':
+            'Dramatis now keeps attitudes and social standing itself, so this template is no longer offered. This mechanic stays as it is: switch it off in this chat if the two disagree.',
         'm25.def.noChat': 'No chat is open: only mechanics for every chat are shown.',
         'm25.def.fromTemplate': 'From a template',
         'm25.def.new': 'New mechanic',
@@ -234,6 +236,8 @@ export const DEF_STRINGS: I18nParts = {
         'm25.def.hint':
             'Свои игровые системы: здоровье, магия, репутация, деньги, навыки — атрибуты, у кого они есть, правила для модели, события и броски. Механика хранится в книге Maestro и никогда не срабатывает как лор: Maestro сам даёт модели её правила и текущие значения, только когда она участвует в сцене.',
         'm25.def.empty': 'Механик пока нет — начни с шаблона.',
+        'm25.def.dramatisNote':
+            'Отношения и положение в обществе теперь ведёт Dramatis, поэтому этот шаблон больше не предлагается. Сама механика остаётся как есть — выключи её в этом чате, если они начнут спорить.',
         'm25.def.noChat': 'Чат не открыт: показаны только механики для всех чатов.',
         'm25.def.fromTemplate': 'Из шаблона',
         'm25.def.new': 'Новая механика',

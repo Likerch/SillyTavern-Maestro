@@ -38,6 +38,11 @@ export const ARCHITECT_STRINGS: I18nParts = {
             'format and the example tracker are never cut.',
         'm20.source.voices.hint':
             'Voice cards fit themselves to this budget (dropping goals, bonds, then speech details).',
+        'm20.source.mechanics.hint':
+            'The mechanics block fits itself to this budget (the least important lines go first).',
+        'm20.source.dramatis': 'Dramatis: motive card',
+        'm20.source.dramatis.hint':
+            'Dramatis’s block about who is in the scene and what drives them (with voice speech when they are merged). Maestro only measures it; its size is set in Dramatis.',
         'm20.source.noSource': 'No source yet: the value is kept and works once the source arrives.',
         'm20.usage': '{used} of {limit}',
         'm20.usage.free': 'last turn: {used}',
@@ -188,6 +193,11 @@ export const ARCHITECT_STRINGS: I18nParts = {
             'формат и пример трекера не трогаются никогда.',
         'm20.source.voices.hint':
             'Голосовые карточки сами укладываются в этот бюджет (сначала уходят цели, потом связи, потом детали речи).',
+        'm20.source.mechanics.hint':
+            'Блок механик сам укладывается в этот бюджет (сначала уходят самые неважные строки).',
+        'm20.source.dramatis': 'Dramatis: карточка мотивов',
+        'm20.source.dramatis.hint':
+            'Блок Dramatis о том, кто в сцене и что им движет (вместе с речью из голосовых карточек, если они слиты). Maestro его только измеряет, размер настраивается в Dramatis.',
         'm20.source.noSource': 'Источника пока нет: значение сохранится и заработает, когда он появится.',
         'm20.usage': '{used} из {limit}',
         'm20.usage.free': 'в прошлом ходе: {used}',

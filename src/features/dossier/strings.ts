@@ -425,6 +425,7 @@ export const DOSSIER_STRINGS: I18nParts = {
         'm7.styleUp.hint.archiveFailed': 'The model did not pick traits: {error}.',
         'm7.styleUp.hint.archiveParse': 'The model answered in a form I cannot use.',
         'm7.styleUp.hint.archiveRejected': 'Did not pass the BunnyMo dictionary check: {tags}.',
+        'm7.styleUp.hint.archiveDropped': 'Dramatis also offered traits the loaded BunnyMo packs do not know: {tags}.',
         'm7.styleUp.hint.archiveEmpty': 'None of the model’s traits passed the check: no character sheet.',
         'm7.styleUp.hint.archiveNewBook':
             'No book can take character sheets, so I will start a new one, «{book}». CarrotKernel sees it once you mark it there as a Character Repo and attach it (globally or to the card).',
@@ -869,6 +870,8 @@ export const DOSSIER_STRINGS: I18nParts = {
         'm7.styleUp.hint.archiveFailed': 'Модель не подобрала черты: {error}.',
         'm7.styleUp.hint.archiveParse': 'Модель ответила не в том виде, который нужен.',
         'm7.styleUp.hint.archiveRejected': 'Не прошли проверку словаря BunnyMo: {tags}.',
+        'm7.styleUp.hint.archiveDropped':
+            'Dramatis предложил ещё и черты, которых нет в подключённых паках BunnyMo: {tags}.',
         'm7.styleUp.hint.archiveEmpty': 'Ни одна черта от модели не прошла проверку — листа характера не будет.',
         'm7.styleUp.hint.archiveNewBook':
             'Подходящей книги для листов характера нет, поэтому заведу новую — «{book}». CarrotKernel увидит её, когда ты отметишь её там как Character Repo и подключишь (глобально или к карточке).',

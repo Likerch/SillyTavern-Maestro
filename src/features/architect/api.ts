@@ -5,7 +5,7 @@
 import type { Unsubscribe } from '../../shared/contracts';
 
 /** Prompt sources with a budget (plan M20 п.1). Tokens; 0 = no budget. */
-export type BudgetSource = 'lore' | 'ckRag' | 'qvink' | 'des' | 'voices' | 'mechanics' | 'director';
+export type BudgetSource = 'lore' | 'ckRag' | 'qvink' | 'des' | 'voices' | 'mechanics' | 'director' | 'dramatis';
 
 export interface SourceBudget {
     source: BudgetSource;

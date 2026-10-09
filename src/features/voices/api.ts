@@ -38,6 +38,11 @@ export interface VoicesQuietState {
     ck: { outcome: CkInsertOutcome; at: number; tokens: number } | null;
     /** DES-RU was told to stop rebuilding CK's insert; 'absent' — no DES-RU API (DES-RU older than 0.8 or off). */
     desru: 'told' | 'notTold' | 'absent';
+    /**
+     * Dramatis (1.17): present; its cast block takes the cards now (it claims 'voices' and its block goes out); the
+     * last real generation's cards went into its block. Optional so that fakes stay valid.
+     */
+    dramatis?: { present: boolean; merged: boolean; lastMerged: boolean };
 }
 
 /** The injection for the next generation. */

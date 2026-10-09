@@ -38,7 +38,7 @@ export interface DirectorNote {
     /** English note for the model (one-shot injection). */
     text: string;
     /** Where the twist comes from: DES quest, open thread from memory/canon, (stage 9) deadline / offscreen, (11) mechanic. */
-    source: 'quest' | 'thread' | 'deadline' | 'offscreen' | 'mechanic';
+    source: 'quest' | 'thread' | 'deadline' | 'offscreen' | 'mechanic' | 'agenda';
     // Additions of the M13/M14 implementation (optional so that fakes of the stage-8 contract stay valid).
     /** The twist itself: the quest title, the memory, the promise, the offscreen event (as found). */
     detail?: string;

@@ -274,7 +274,8 @@ export function createLlmClient(deps: LlmClientDeps): LlmClientImpl {
 
     return {
         async request<T = unknown>(request: LlmRequest): Promise<LlmResult<T>> {
-            if (!INTERACTIVE_TASKS.has(request.task) && cost.backgroundCapReached()) return { ok: false, error: 'cap' };
+            const interactive = request.interactive === true || INTERACTIVE_TASKS.has(request.task);
+            if (!interactive && cost.backgroundCapReached()) return { ok: false, error: 'cap' };
             const service = connectionManager();
             if (!service) return { ok: false, error: 'no-cm' };
             const profiles = candidates(request.task);

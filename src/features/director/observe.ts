@@ -4,7 +4,7 @@
 // reply before it (place, quests, characters, relationships, time), the place registry and the world model for
 // identities, the quality check's repetition verdict; twist sources for a note: DES quests, unresolved threads from the
 // living canon, the chronicle and Qvink's long memories, and (stage 9+) due promises, offscreen events, mechanics.
-import { adaptersOf } from '../../adapters';
+import { adaptersOf, dramatisOf } from '../../adapters';
 import type { DesTrackerSnapshot } from '../../domain/des-tracker';
 import { climaxWords, dominantLanguage } from '../../domain/director-flags';
 import type { PictureCue } from '../../domain/director-flags';
@@ -318,7 +318,8 @@ interface MechanicsTwists {
 /**
  * Twist sources for a director's note at a committed reply: open DES quests (optional first), unresolved threads
  * (provisional living-canon facts the story left behind, chronicle chapters and Qvink long memories with open
- * business), due or overdue promises (M17), recent offscreen events (M16) and mechanics (M25) when those exist.
+ * business), due or overdue promises (M17), recent offscreen events (M16), mature agendas of Dramatis (1.17) and
+ * mechanics (M25) when those exist.
  */
 export async function collectTwistSources(
     app: App,
@@ -405,6 +406,15 @@ export async function collectTwistSources(
         for (const event of offscreen.events(MAX_PER_KIND)) {
             if (event.status !== 'saved' || event.messageIndex < index - OFFSCREEN_RECENT) continue;
             sources.push(source('offscreen', `${event.character}: ${event.text}`, 2.5));
+        }
+    });
+
+    // Release 1.17: agendas of Dramatis's characters whose clocks are full or close, with Dramatis's own weights.
+    await guard('dramatis', () => {
+        const dramatis = dramatisOf(app);
+        if (!dramatis?.present()) return;
+        for (const agenda of dramatis.matureAgendas().slice(0, MAX_PER_KIND)) {
+            sources.push(source('agenda', agenda.text, agenda.weight));
         }
     });
 

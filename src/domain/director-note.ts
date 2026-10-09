@@ -7,7 +7,7 @@ import type { StallReason } from './director-pacing';
 import type { SceneKind } from './director-scene';
 import { normalizeText } from './signals-tokens';
 
-export type TwistKind = 'quest' | 'thread' | 'deadline' | 'offscreen' | 'mechanic';
+export type TwistKind = 'quest' | 'thread' | 'deadline' | 'offscreen' | 'mechanic' | 'agenda';
 
 export interface TwistSource {
     kind: TwistKind;
@@ -79,6 +79,8 @@ function twistText(twist: TwistSource): string {
             return `what happened offscreen reaches the scene: ${text}`;
         case 'mechanic':
             return text;
+        case 'agenda':
+            return `a character's own plan comes to a head now: ${text} — they act on it, and the scene feels it`;
     }
 }
 

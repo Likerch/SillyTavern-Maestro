@@ -23,6 +23,8 @@ import type { App } from '../shared/contracts';
 import { createUi } from '../ui';
 import { Modules } from './module-manager';
 import { installDataActions } from './data-actions';
+import { installDramatisBridge } from './dramatis-bridge';
+import { installMaestroApi } from './public-api';
 import { MODULES } from './registry';
 
 export interface Runtime {
@@ -134,6 +136,10 @@ export async function startMaestro(): Promise<Runtime> {
     });
     const offDataActions = installDataActions(app);
     await modules.startAll(app);
+    // Release 1.17: Dramatis's quiet modes no module covers, then MAESTRO_API for neighbours (after the modules, so a
+    // neighbour that reacts to `maestro-api-ready` finds the world model, the dossier and the canon running).
+    const dramatisBridge = installDramatisBridge(app);
+    const publicApi = installMaestroApi({ app, labels });
     // Windows left open on this device come back once their modules registered their sections (plan-2 §10).
     ui.restoreWindows();
     ui.runFirstRunWizardIfNeeded();
@@ -153,6 +159,10 @@ export async function startMaestro(): Promise<Runtime> {
         modules,
         async stop() {
             offAppReady();
+            // Neighbours lose MAESTRO_API first: nothing they register outlives the modules it reaches.
+            publicApi.remove();
+            dramatisBridge.dispose();
+            adapters.dramatis.dispose();
             for (const off of offDataActions) off();
             await modules.stopAll();
             ui.dispose();

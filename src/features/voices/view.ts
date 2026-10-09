@@ -130,6 +130,13 @@ export function voicesTab(app: App, service: VoicesService): PultTab {
                     el('div', { class: 'maestro-hint', text: t('m15.quiet.hint') }),
                     ckLine(quiet),
                     desruLine(quiet),
+                    // Release 1.17: the cards go into Dramatis's own block while it claims them.
+                    quiet.dramatis?.present
+                        ? status(
+                              quiet.dramatis.merged ? 'ok' : 'off',
+                              t(quiet.dramatis.merged ? 'm15.quiet.dramatis.merged' : 'm15.quiet.dramatis.separate'),
+                          )
+                        : null,
                 ]);
             };
 

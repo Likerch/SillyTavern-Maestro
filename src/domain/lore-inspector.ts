@@ -11,6 +11,7 @@ export type SlotOwner =
     | 'nai'
     | 'desru'
     | 'maestro'
+    | 'dramatis'
     | 'wiOutlet'
     | 'wiDepth'
     | 'summary'
@@ -25,6 +26,8 @@ const OWNER_PATTERNS: readonly [RegExp, SlotOwner][] = [
     [/^nai_studio/i, 'nai'],
     [/^desru_/i, 'desru'],
     [/^maestro_/i, 'maestro'],
+    // Dramatis's cast block (release 1.17).
+    [/^dramatis_/i, 'dramatis'],
     [/^customWIOutlet_/, 'wiOutlet'],
     [/^customDepthWI/, 'wiDepth'],
     [/^1_memory$/, 'summary'],

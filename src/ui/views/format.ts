@@ -40,10 +40,13 @@ export function tOr(i18n: I18n, key: string, fallback: string, params?: Record<s
     return text === key ? fallback : text;
 }
 
-/** Module title by plan id ('M1') or settings key ('loreJournal'); unknown ids are shown as is. */
+/**
+ * Module title by plan id ('M1') or settings key ('loreJournal'); a neighbour writing through MAESTRO_API by its
+ * `core.module.<id>` name ('dramatis' → «Dramatis»); unknown ids are shown as is.
+ */
 export function moduleTitle(modules: ModuleManager | undefined, i18n: I18n, id: string): string {
     const entry = modules?.list().find((item) => item.module.id === id || item.module.key === id);
-    return entry ? i18n.t(entry.module.titleKey) : id;
+    return entry ? i18n.t(entry.module.titleKey) : tOr(i18n, `core.module.${id}`, id);
 }
 
 /**

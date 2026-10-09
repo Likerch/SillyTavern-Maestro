@@ -74,4 +74,11 @@ export interface DossierApi {
      * «Досье» of a speaker; false when nobody does (nothing is opened then).
      */
     openByName?(name: string): boolean;
+    /**
+     * Release 1.17 (MAESTRO_API.styleUp, Dramatis's generator): «Оформить» for a new NPC with given BunnyMo tags — a CK
+     * archive with exactly the tags that pass the BunnyMo mode's check against the loaded packs (others are dropped and
+     * named in the card's details), proposed as one «Оформить» card through autonomy (the Inbox by default). False when
+     * it cannot be done: no BunnyMo mode, no chat, the character already has an archive, or no tag passed.
+     */
+    styleUpArchive?(name: string, tags: readonly string[]): Promise<boolean>;
 }

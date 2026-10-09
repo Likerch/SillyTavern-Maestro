@@ -37,6 +37,9 @@ export const VOICES_STRINGS: I18nParts = {
         'm15.quiet.desru.told': 'DES-RU knows ✓ — it no longer rebuilds the hint',
         'm15.quiet.desru.notTold': 'DES-RU does not know ✗ — the request did not get through',
         'm15.quiet.desru.absent': 'No need to tell DES-RU (no DES-RU 0.8+)',
+        'm15.quiet.dramatis.merged': 'The cards go into the Dramatis block now (one block with motives and speech) ✓',
+        'm15.quiet.dramatis.separate':
+            'Dramatis is here, but the cards go out on their own (it does not take them now)',
         'm15.settings.title': 'Settings',
         'm15.settings.cap': 'Token limit for all cards',
         'm15.settings.cap.hint':
@@ -79,6 +82,8 @@ export const VOICES_STRINGS: I18nParts = {
         'm15.quiet.desru.told': 'DES-RU в курсе ✓ — больше не пересобирает подсказку',
         'm15.quiet.desru.notTold': 'DES-RU не в курсе ✗ — просьба не дошла',
         'm15.quiet.desru.absent': 'Предупреждать DES-RU не нужно (нет DES-RU 0.8+)',
+        'm15.quiet.dramatis.merged': 'Карточки сейчас уходят в блок Dramatis (один блок с мотивами и речью) ✓',
+        'm15.quiet.dramatis.separate': 'Dramatis подключён, но карточки уходят отдельно (сейчас он их не берёт)',
         'm15.settings.title': 'Настройки',
         'm15.settings.cap': 'Предел токенов на все карточки',
         'm15.settings.cap.hint':

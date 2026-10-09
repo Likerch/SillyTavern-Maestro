@@ -21,6 +21,7 @@ export type AuditOwner =
     | 'bunnymo'
     | 'lore'
     | 'maestro'
+    | 'dramatis'
     | 'other';
 
 export type AuditRole = 'system' | 'user' | 'assistant';
@@ -197,6 +198,22 @@ export function maestroModuleOf(key: string): string {
     return rest.split(/[._]/)[0] || rest;
 }
 
+/**
+ * Dramatis's injections (release 1.17; slots `dramatis_<part>`, owner 'dramatis') by the part that writes them. Maestro
+ * never changes them: a fix is advice («change it in Dramatis»).
+ */
+export const DRAMATIS_SLOTS: Readonly<Record<string, string>> = {
+    dramatis_cast: 'cast',
+};
+
+/** The part of a Dramatis slot: the table, else the word after `dramatis_`. */
+export function dramatisPartOf(key: string): string {
+    const known = DRAMATIS_SLOTS[key];
+    if (known) return known;
+    const rest = key.replace(/^dramatis_/, '');
+    return rest.split(/[._]/)[0] || rest;
+}
+
 /** Slots whose text is data, not an instruction (memories, previous trackers, vectors, the persona). */
 const DATA_SLOTS: readonly RegExp[] = [
     /^dooms[-_]tracker[-_]example$/i,
@@ -227,6 +244,7 @@ export function auditOwnerOfSlot(key: string): AuditOwner | null {
         case 'nai':
         case 'desru':
         case 'maestro':
+        case 'dramatis':
         case 'authorsNote':
         case 'other':
             return owner;
@@ -410,6 +428,7 @@ export function buildCapture(input: CaptureInput): AuditCapture {
         };
         if (place === 'chat') entry.depth = Math.max(0, Math.floor(Number(slot.depth) || 0));
         if (owner === 'maestro') entry.module = maestroModuleOf(slot.key);
+        if (owner === 'dramatis') entry.module = dramatisPartOf(slot.key);
         const neighbours = neighboursIn(value, input.neighbours, slot.key);
         if (neighbours.length) entry.neighbours = neighbours;
         let text = value;
@@ -542,6 +561,7 @@ const OWNERS: readonly AuditOwner[] = [
     'bunnymo',
     'lore',
     'maestro',
+    'dramatis',
     'other',
 ];
 const ROLES: readonly AuditRole[] = ['system', 'user', 'assistant'];
