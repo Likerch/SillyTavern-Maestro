@@ -115,8 +115,22 @@ function omitKeys(value: unknown, omit: readonly string[] | undefined): unknown 
 }
 
 /**
- * Picks the tracked keys of `source` under `prefix` (`qvink.auto_summarize`). Missing keys are skipped, so a
- * key that appears or disappears shows as added or removed drift. Values are JSON copies.
+ * The tracked form of one key's full value: a JSON copy without `spec.omit`, or (for `spec.hash`) a hash of it
+ * with the copy kept for restore. Null when the value cannot be copied.
+ */
+export function trackedValue(raw: unknown, spec: KeySpec): { value: unknown; restore?: unknown } | null {
+    let value: unknown;
+    try {
+        value = jsonCopy(omitKeys(raw, spec.omit));
+    } catch {
+        return null;
+    }
+    return spec.hash ? { value: valueHash(value), restore: value } : { value };
+}
+
+/**
+ * Picks the tracked keys of `source` under `prefix` (`ck.enabled`). Missing keys are skipped, so a key that
+ * appears or disappears shows as added or removed drift. Values are JSON copies.
  */
 export function pickTracked(source: unknown, specs: readonly KeySpec[], prefix: string): TrackedPart {
     const part: TrackedPart = { values: {}, restore: {} };
@@ -124,30 +138,19 @@ export function pickTracked(source: unknown, specs: readonly KeySpec[], prefix: 
     for (const spec of specs) {
         const raw = getPath(source, spec.path);
         if (raw === undefined) continue;
-        let value: unknown;
-        try {
-            value = jsonCopy(omitKeys(raw, spec.omit));
-        } catch {
-            continue;
-        }
+        const tracked = trackedValue(raw, spec);
+        if (!tracked) continue;
         const path = `${prefix}.${spec.path}`;
-        if (spec.hash) {
-            part.values[path] = valueHash(value);
-            part.restore[path] = value;
-        } else {
-            part.values[path] = value;
-        }
+        part.values[path] = tracked.value;
+        if (spec.hash) part.restore[path] = tracked.restore;
     }
     return part;
 }
 
-/** Every own key of `source` except `deny` (and keys starting with `_`), for neighbours without a fixed schema. */
-export function keysExcept(source: unknown, deny: readonly string[]): KeySpec[] {
-    if (!isDict(source)) return [];
-    return Object.keys(source)
-        .filter((key) => !deny.includes(key) && !key.startsWith('_') && !key.includes('.'))
-        .sort()
-        .map((key) => ({ path: key }));
+/** A copy of `part` with only the paths `keep` accepts (in `values` and in `restore`). */
+export function filterTracked(part: TrackedPart, keep: (path: string) => boolean): TrackedPart {
+    const pick = (source: Dict): Dict => Object.fromEntries(Object.entries(source).filter(([path]) => keep(path)));
+    return { values: pick(part.values), restore: pick(part.restore) };
 }
 
 /** Merges tracked parts (later parts win on equal paths). */

@@ -3,11 +3,11 @@ import {
     acknowledgePaths,
     diffTracked,
     driftHash,
+    filterTracked,
     getPath,
     groupOf,
     isTabFresh,
     jsonCopy,
-    keysExcept,
     mergeTracked,
     parseSettingsText,
     pathMatches,
@@ -18,6 +18,7 @@ import {
     stableStringify,
     stampFromSettingsText,
     topLevelDiff,
+    trackedValue,
     valueHash,
     valuesEqual,
 } from '../../src/domain/settings-diff';
@@ -97,12 +98,26 @@ describe('tracked keys', () => {
         expect(pickTracked({ c: cyclic }, [{ path: 'c' }], 'x').values).toEqual({});
     });
 
-    it('lists keys of an object except denied and private ones', () => {
-        expect(keysExcept({ b: 1, a: 2, profiles: {}, _x: 1, 'd.e': 1 }, ['profiles'])).toEqual([
-            { path: 'a' },
-            { path: 'b' },
-        ]);
-        expect(keysExcept('nope', [])).toEqual([]);
+    it('derives the tracked form of a full value', () => {
+        expect(trackedValue({ on: true, secret: 's' }, { path: 'n', omit: ['secret'] })).toEqual({
+            value: { on: true },
+        });
+        expect(trackedValue({ a: 1, b: 2 }, { path: 't', hash: true, omit: ['b'] })).toEqual({
+            value: valueHash({ a: 1 }),
+            restore: { a: 1 },
+        });
+        const cyclic: Record<string, unknown> = {};
+        cyclic.self = cyclic;
+        expect(trackedValue(cyclic, { path: 'c' })).toBeNull();
+    });
+
+    it('filters a part by path', () => {
+        const part = { values: { 'a.x': 1, 'b.y': 2 }, restore: { 'a.x': 'X', 'b.y': 'Y' } };
+        expect(filterTracked(part, (path) => path.startsWith('a.'))).toEqual({
+            values: { 'a.x': 1 },
+            restore: { 'a.x': 'X' },
+        });
+        expect(part.values).toHaveProperty('b.y');
     });
 
     it('merges parts', () => {

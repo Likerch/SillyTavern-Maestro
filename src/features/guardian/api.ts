@@ -2,7 +2,7 @@
 
 export interface DriftItem {
     path: string;
-    /** Group shown in the UI: preset, regex, qvink, ck, nai, des, worldInfo, profiles, extensions. */
+    /** Group shown in the UI: preset, api, regex, qvink, ck, nai, des, worldInfo, profiles, extensions. */
     group: string;
     baseline: unknown;
     current: unknown;
@@ -19,7 +19,9 @@ export interface GuardianApi {
     drift(): Promise<DriftItem[]>;
     /**
      * Changes applied through Maestro update the baseline without being reported as drift. A path also covers
-     * everything under it ('preset' acknowledges 'preset.order', 'preset.body', …).
+     * everything under it ('preset' acknowledges 'preset.order', 'preset.body', …); 'preset.body' also covers the
+     * connection fields the preset carries ('api.model', 'api.maxTokens', …). Only system settings are kept
+     * (tracked.ts SCOPE): other paths are ignored.
      */
     acknowledge(paths: string[]): Promise<void>;
     /** 'fresh' = this tab's settings match the server; 'stale' = another tab/device saved later. */

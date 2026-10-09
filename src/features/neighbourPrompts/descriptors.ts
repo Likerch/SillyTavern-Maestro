@@ -191,7 +191,8 @@ function qvinkText(app: App, id: string, key: QvinkTextKey, usedIn: 'prompt' | '
         present: () => qvink(app).present() && typeof qvink(app).textSetting === 'function',
         setting: () => qvink(app).textSetting?.(key) ?? '',
         write: (text) => qvink(app).setTextSetting?.(key, text) === true,
-        guardPaths: [`qvink.${key}`],
+        // M4 keeps Qvink's saved profiles (the active one is written too), not its live copy.
+        guardPaths: ['qvink.profiles'],
         scopable: false,
         noteKey: usedIn === 'background' ? 'm36.note.background' : 'm36.note.memories',
         outgoing: () => null,

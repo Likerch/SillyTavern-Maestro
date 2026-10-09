@@ -65,14 +65,18 @@ export function guardianTab(app: App, service: GuardianService, t: Translate): P
                 const reason = baseline ? t(reasonKey) : '';
                 return section(
                     t('m4.view.baseline'),
-                    baseline
-                        ? el('div', {
-                              text: t('m4.view.baselineAt', {
-                                  time: formatTime(baseline.takenAt, app.i18n),
-                                  reason: reason === reasonKey ? baseline.reason : reason,
-                              }),
-                          })
-                        : emptyState(t('m4.view.noBaseline'), 'fa-shield-halved'),
+                    [
+                        baseline
+                            ? el('div', {
+                                  text: t('m4.view.baselineAt', {
+                                      time: formatTime(baseline.takenAt, app.i18n),
+                                      reason: reason === reasonKey ? baseline.reason : reason,
+                                  }),
+                              })
+                            : emptyState(t('m4.view.noBaseline'), 'fa-shield-halved'),
+                        // What the baseline covers, in words: system settings, not what changes in play.
+                        el('div', { class: 'maestro-muted', text: t('m4.view.scope') }),
+                    ],
                     button({
                         label: t('m4.view.take'),
                         icon: 'fa-camera',

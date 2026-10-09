@@ -13,10 +13,18 @@ import {
 import type { DriftEntry, TrackedPart } from '../../domain/settings-diff';
 import type { App, JournalChange, Logger, Proposal, Unsubscribe } from '../../shared/contracts';
 import type { DriftItem, GuardianApi } from './api';
-import { BaselineStore } from './baseline';
+import { BASELINE_SCHEMA, BaselineStore, settleBaseline } from './baseline';
 import type { BaselineFile } from './baseline';
 import type { TabGuard } from './tab-guard';
-import { collectTracked, fullValue, isPresetBodyPath, isRestorable, writeTracked } from './tracked';
+import {
+    acknowledgeTargets,
+    collectTracked,
+    fullValue,
+    isPresetBodyPath,
+    isRestorable,
+    scoped,
+    writeTracked,
+} from './tracked';
 
 export const DRIFT_KIND = 'guardian.drift';
 export const RESTORE_KIND = 'guardian.restore';
@@ -24,7 +32,8 @@ export const SETTING_TARGET = 'guardian-setting';
 /** Version changes are shown in the Pult but never become Inbox cards (updates are expected). */
 const PULT_ONLY = ['extensions.versions'];
 const DESCRIBE_LIMIT = 12;
-const VALUE_CHARS = 40;
+/** Longest value shown as is in the card («deepseek-v4-pro (deepseek)»); longer ones read «changed». */
+const VALUE_CHARS = 60;
 
 type Translate = (key: string, params?: Record<string, string | number>) => string;
 
@@ -91,7 +100,7 @@ export class GuardianService implements GuardianApi {
     async takeBaseline(reason: string): Promise<void> {
         const snapshot = await collectTracked(this.app, this.log);
         await this.store.save({
-            schema: 1,
+            schema: BASELINE_SCHEMA,
             takenAt: Date.now(),
             reason,
             values: snapshot.values,
@@ -119,7 +128,11 @@ export class GuardianService implements GuardianApi {
     async acknowledge(paths: string[]): Promise<void> {
         if (!paths.length) return;
         const current = await collectTracked(this.app, this.log);
-        const file = await this.store.update((baseline) => acknowledgePaths(baseline, current, paths).length > 0);
+        const targets = acknowledgeTargets(paths);
+        const file = await this.store.update((baseline) => {
+            const settled = settleBaseline(baseline, current);
+            return acknowledgePaths(baseline, current, targets).length > 0 || settled;
+        });
         if (file) this.emit();
     }
 
@@ -149,18 +162,25 @@ export class GuardianService implements GuardianApi {
         }
     }
 
-    /** Baseline, live snapshot and their difference. */
+    /** Baseline, live snapshot and their difference (system settings only, tracked.ts SCOPE). */
     async detail(fresh = false): Promise<DriftDetail> {
-        const baseline = await this.store.load(fresh);
+        let baseline = await this.store.load(fresh);
         const current = await collectTracked(this.app, this.log);
-        return { baseline, current, entries: baseline ? diffTracked(baseline.values, current.values) : [] };
+        // A migrated baseline takes the live values of paths it could not hold before it is compared.
+        if (baseline?.adoptMissing) baseline = await this.store.update((file) => settleBaseline(file, current));
+        const entries = baseline ? diffTracked(scoped(baseline).values, current.values) : [];
+        return { baseline, current, entries };
     }
 
-    /** Loads the baseline; takes the first one when there is none yet. */
+    /** Loads the baseline (settling a migrated one); takes the first one when there is none yet. */
     async start(): Promise<void> {
         const baseline = await this.store.load(true);
-        if (!baseline) await this.takeBaseline('first-start');
-        else this.emit();
+        if (!baseline) {
+            await this.takeBaseline('first-start');
+            return;
+        }
+        if (baseline.adoptMissing) await this.detail();
+        this.emit();
     }
 
     /* ---------------------------------------------------------------- restore */
@@ -356,22 +376,15 @@ export class GuardianService implements GuardianApi {
     }
 
     /**
-     * Where the changes are, in words: «Пресет · роли блоков, Регекс · Clean HTML, Qvink». Regexes and known preset
-     * parts are named; other settings only by their extension (their keys stay under «Подробнее»).
+     * Where the changes are, in words: «Пресет · роли блоков, Подключение · источник и модель, Регекс · Clean HTML,
+     * Qvink · профиль «Default», CarrotKernel». Regexes, Qvink profiles and settings with a name in words are named;
+     * other settings only by their extension (their keys stay under «Подробнее»).
      */
     where(entries: readonly DriftEntry[]): string {
         const names = new Set<string>();
         for (const entry of entries) {
-            const group = groupOf(entry.path);
-            const rest = entry.path.slice(group.length + 1);
-            const named =
-                group === 'regex' || (group === 'preset' && this.t(`m4.preset.${rest}`) !== `m4.preset.${rest}`);
-            if (named) {
-                names.add(this.label(entry));
-            } else {
-                const title = this.t(`m4.group.${group}`);
-                names.add(title === `m4.group.${group}` ? group : title);
-            }
+            const parts = this.labelParts(entry);
+            names.add(parts.named ? parts.text : parts.title);
         }
         const list = [...names];
         const shown = list.slice(0, DESCRIBE_LIMIT);
@@ -379,21 +392,41 @@ export class GuardianService implements GuardianApi {
         return shown.join(', ');
     }
 
-    /** "Регекс · Clean HTML", "Qvink · auto_summarize". */
+    /** "Регекс · Clean HTML", "Подключение · источник и модель", "Qvink · профиль «Default»", "DES · showInfoBox". */
     label(entry: { path: string; baseline?: unknown; current?: unknown }): string {
+        return this.labelParts(entry).text;
+    }
+
+    /** The label, its group title, and whether the setting has a name in words (`m4.<group>.<key>`). */
+    private labelParts(entry: { path: string; baseline?: unknown; current?: unknown }): {
+        text: string;
+        title: string;
+        named: boolean;
+    } {
         const group = groupOf(entry.path);
         const rest = entry.path.slice(group.length + 1);
         const key = `m4.group.${group}`;
-        const title = this.t(key);
+        const groupTitle = this.t(key);
+        const title = groupTitle === key ? group : groupTitle;
         let name = rest;
+        let named = false;
         if (group === 'regex') {
             const value = isDict(entry.current) ? entry.current : isDict(entry.baseline) ? entry.baseline : null;
             if (value && typeof value.name === 'string' && value.name) name = value.name;
-        } else if (group === 'preset') {
-            const known = this.t(`m4.preset.${rest}`);
-            if (known !== `m4.preset.${rest}`) name = known;
+            named = true;
+        } else if (group === 'qvink' && rest.startsWith('profiles.')) {
+            name = this.t('m4.qvink.profile', { name: rest.slice('profiles.'.length) });
+            named = true;
+        } else if (group === 'extensions' && rest.startsWith('versions.')) {
+            name = this.t('m4.extensions.version', { name: rest.slice('versions.'.length) });
+        } else if (rest) {
+            const known = this.t(`m4.${group}.${rest}`);
+            if (known !== `m4.${group}.${rest}`) {
+                name = known;
+                named = true;
+            }
         }
-        return `${title === key ? group : title}${name ? ` · ${name}` : ''}`;
+        return { text: `${title}${name ? ` · ${name}` : ''}`, title, named };
     }
 
     /** "было 25 → стало 40", "изменено", "добавлено", "удалено". */

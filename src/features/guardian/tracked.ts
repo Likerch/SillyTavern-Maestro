@@ -1,7 +1,9 @@
-// What M4 tracks (plan M4 п. 1, audit A17): a CURATED list of settings, read from the live objects, and how each
-// tracked path is written back. Volatile data (DES quests and lastGeneratedData, Qvink profile copies, CK RAG
-// chunks, NAI galleries and persona passports, connection secrets) is deliberately left out, otherwise every turn
-// would look like drift.
+// What M4 tracks (plan M4 п. 1, audit A17): SYSTEM settings only — how the model is called and how the stack
+// behaves — read from the live objects, and how each tracked path is written back. Content and play state stay
+// out, otherwise every chat switch or turn would look like drift: which lorebooks are on, copies that follow the
+// chat or the character (Qvink's live settings, DES's tracker preset), what panels remember (NAI Studio's picked
+// style, the composer's last choices), caches, quests, passports, secrets. SCOPE is the one definition of what is
+// system: collection, comparison, acknowledge and restore all go through inScope().
 //
 // | Path | Source | Restore |
 // |---|---|---|
@@ -9,26 +11,35 @@
 // | preset.order / preset.toggles | active prompt order (global dummy 100001) | rewrite the live order |
 // | preset.roles | role of every Prompt Manager prompt | rewrite live roles |
 // | preset.contents | hash of each prompt's text and placement | whole preset body ('ask') |
-// | preset.body | hash of the rest of getChatCompletionPreset() (samplers, formats, …) | whole preset body ('ask'): saved to the preset file, then selected |
+// | preset.body | hash of the rest of getChatCompletionPreset() (samplers, formats, …) without the api.* fields | whole preset body ('ask'): saved to the preset file, then selected |
+// | api.model | chat_completion_source and its model: «deepseek-v4-pro (deepseek)» | whole preset body ('ask'): ST keeps the connection in the preset |
+// | api.maxContext / maxTokens / reasoningEffort / showThoughts / stream | oai_settings fields | the field and its ST control |
+// | api.mainApi / api.profile | main_api, Connection Manager's selected profile (by name) | report only (switching back is ST's job) |
+// | api.instruct / context / sysprompt | Text Completion template names (power_user) | report only |
+// | api.reasoningTemplate / reasoningParse / reasoningAddToPrompts | power_user.reasoning | report only |
 // | regex.<id> | extension_settings.regex: name, disabled, placement, flags, hashes of find/replace | the stored script |
-// | qvink.<key> | extension_settings.qvink_memory, every key except the profile copies | live settings |
-// | ck.<key> | extension_settings.CarrotKernel, switches and repo lists (templates hashed) | live settings |
-// | nai.<key> | extension_settings.nai_studio sections (prompts hashed; no persona passports) | live settings |
-// | des.<key> | DES settings: mode, sections, injection, prompt overrides (hashed) | live settings |
+// | qvink.profiles.<name> | hash of each saved Qvink profile | the profile (and the live settings when it is the active one) |
+// | qvink.notify_on_profile_switch | Qvink's global switch | live settings |
+// | ck.<key> | CK_KEYS: switches, injection, templates (hashed) | live settings |
+// | nai.<key> | NAI_KEYS: sections without the panel's play state (prompts hashed) | live settings |
+// | des.<key> | DES_KEYS: mode, sections, injection, prompt overrides (hashed) | live settings |
 // | worldInfo.<key> | world-info.js getWorldInfoSettings(): budget, cap, depth, recursion, strategy… | updateWorldInfoSettings |
-// | worldInfo.globalSelect | active global lorebooks | report only (books are toggled through ST's handler) |
 // | profiles.list | Connection Manager profiles (name#id) | report only |
 // | extensions.disabled, extensions.versions.* | ST's disabled extensions, neighbour and ST versions | report only |
 import { adaptersOf } from '../../adapters';
 import { activePromptOrder, GLOBAL_ORDER_ID, promptIndex } from '../../domain/medic-prefill';
+import { connectionFrom } from '../../domain/preset-analysis-hints';
+import { normalizeKeyValue, PRESET_KEY_TABLE } from '../../domain/preset-store-keys';
 import {
+    filterTracked,
     getPath,
     groupOf,
     jsonCopy,
-    keysExcept,
     mergeTracked,
+    pathMatches,
     pickTracked,
     setPath,
+    trackedValue,
     valueHash,
 } from '../../domain/settings-diff';
 import type { DriftEntry, KeySpec, TrackedPart } from '../../domain/settings-diff';
@@ -53,8 +64,23 @@ export const PRESET_SECRET_KEYS = [
     'workers_ai_account_id',
 ] as const;
 
-/** Qvink keeps full copies of every profile next to the active settings; those change on every profile save. */
-export const QVINK_DENY = ['profiles', 'character_profiles', 'chat_profiles'] as const;
+/**
+ * Qvink's global keys (index.js `global_settings`): everything else at the top level of its settings is a copy of
+ * a profile that load_profile overwrites on every chat switch (auto_load_profile → Object.assign).
+ */
+export const QVINK_GLOBAL_KEYS = [
+    'profiles',
+    'character_profiles',
+    'profile',
+    'notify_on_profile_switch',
+    'global_toggle_state',
+    'disabled_group_characters',
+    'memory_edit_interface_settings',
+] as const;
+/** Saved Qvink profiles, one hashed path per profile name. */
+const QVINK_PROFILES = 'qvink.profiles.';
+/** Qvink's global behaviour switches; the other global keys are per chat or remembered UI state. */
+const QVINK_SWITCHES = ['notify_on_profile_switch'] as const;
 
 export const CK_KEYS: readonly KeySpec[] = [
     { path: 'enabled' },
@@ -68,9 +94,6 @@ export const CK_KEYS: readonly KeySpec[] = [
     { path: 'autoRescanOnChatLoad' },
     { path: 'bunnymoTagWrapping' },
     { path: 'excludeTagSynthesis' },
-    { path: 'selectedLorebooks' },
-    { path: 'characterRepoBooks' },
-    { path: 'tagLibraries' },
     { path: 'primaryTemplate' },
     { path: 'templates', hash: true },
     { path: 'rag.enabled' },
@@ -78,19 +101,23 @@ export const CK_KEYS: readonly KeySpec[] = [
 
 export const NAI_KEYS: readonly KeySpec[] = [
     { path: 'transport' },
-    { path: 'generation' },
-    { path: 'prompts', hash: true },
+    // The panel's own prompt and character slots, and the undesired content and UC preset the picked style sets.
+    { path: 'generation', omit: ['prompt', 'negativePrompt', 'ucPreset', 'seed', 'characters'] },
+    // Prompt templates; the style library, the picked style and per-character prompts are content.
+    { path: 'prompts', hash: true, omit: ['styles', 'activeStyle', 'negativeMode', 'characterPrompts'] },
     { path: 'modes' },
     { path: 'chat' },
     { path: 'auto' },
     { path: 'anlas' },
-    { path: 'inline' },
+    // The insert dialog remembers its last mode; reading mode is a toggle of the chat view.
+    { path: 'inline', omit: ['insertMode', 'readingMode'] },
     { path: 'markers' },
     { path: 'language' },
     { path: 'continuity' },
     { path: 'rawOverride', hash: true },
-    { path: 'des', omit: ['saved'] },
-    { path: 'scene', omit: ['personaPassports'] },
+    { path: 'des', omit: ['saved', 'legacyPortraits'] },
+    // The composer remembers its last framing, camera, distance, coordinates and target (composer.ts).
+    { path: 'scene', omit: ['personaPassports', 'framing', 'camera', 'distance', 'useCoords', 'target'] },
 ];
 
 export const DES_KEYS: readonly KeySpec[] = [
@@ -108,8 +135,8 @@ export const DES_KEYS: readonly KeySpec[] = [
     { path: 'enableHtmlPrompt' },
     { path: 'enableDialogueColoring' },
     { path: 'skipInjectionsForGuided' },
-    { path: 'historyPersistence' },
-    { path: 'externalApiSettings' },
+    // Address and key of the external API are secrets (the key lives in localStorage since DES 2.x).
+    { path: 'externalApiSettings', omit: ['apiKey', 'baseUrl'] },
     { path: 'autoPortraitMode' },
     { path: 'autoGenerateAvatars' },
     { path: 'portraitEnhancementMode' },
@@ -142,6 +169,127 @@ export const WI_KEYS = [
     'world_info_max_recursion_steps',
 ] as const;
 
+/** Chat Completion fields with a readable path of their own, written back directly (the field and its control). */
+export const API_FIELDS: Readonly<Record<string, string>> = {
+    'api.maxContext': 'openai_max_context',
+    'api.maxTokens': 'openai_max_tokens',
+    'api.reasoningEffort': 'reasoning_effort',
+    'api.showThoughts': 'show_thoughts',
+    'api.stream': 'stream_openai',
+};
+
+/** Every api.* path. */
+export const API_PATHS = [
+    'api.mainApi',
+    'api.profile',
+    'api.model',
+    ...Object.keys(API_FIELDS),
+    'api.instruct',
+    'api.context',
+    'api.sysprompt',
+    'api.reasoningTemplate',
+    'api.reasoningParse',
+    'api.reasoningAddToPrompts',
+] as const;
+
+/** Paths whose restore value is the whole preset: prompt texts, the rest of the body and the model it carries. */
+const PRESET_BACKED = ['preset.body', 'preset.contents', 'api.model'];
+
+const NEIGHBOUR_SPECS: readonly (readonly [prefix: string, specs: readonly KeySpec[]])[] = [
+    ['ck', CK_KEYS],
+    ['nai', NAI_KEYS],
+    ['des', DES_KEYS],
+];
+
+/* ------------------------------------------------------------------ scope */
+
+/** A group of system settings: exact paths, or `prefix.*` for every path under the prefix. */
+export interface ScopeGroup {
+    group: string;
+    paths: readonly string[];
+}
+
+const specPaths = (prefix: string, specs: readonly KeySpec[]): string[] =>
+    specs.map((spec) => `${prefix}.${spec.path}`);
+
+/** M4's scope: the system settings it keeps. Anything else is never collected, compared, acknowledged or restored. */
+export const SCOPE: readonly ScopeGroup[] = [
+    // The active Chat Completion preset: which prompts go into every request, in what order and role, and samplers.
+    {
+        group: 'preset',
+        paths: ['preset.name', 'preset.order', 'preset.toggles', 'preset.roles', 'preset.contents', 'preset.body'],
+    },
+    // How the model is called: API type, source and model, context and reply size, reasoning, streaming, the
+    // connection profile, Text Completion templates.
+    { group: 'api', paths: API_PATHS },
+    // Global regex scripts rewrite every prompt and reply.
+    { group: 'regex', paths: ['regex.*'] },
+    // The lorebook engine (budget, depth, recursion…). Which books are on is content: Lore Studio and DES
+    // campaigns switch them during play.
+    { group: 'worldInfo', paths: WI_KEYS.map((key) => `worldInfo.${key}`) },
+    // Saved Qvink profiles define how Qvink summarises and injects; the live copy follows the chat's profile.
+    { group: 'qvink', paths: [`${QVINK_PROFILES}*`, ...QVINK_SWITCHES.map((key) => `qvink.${key}`)] },
+    // CarrotKernel's switches, injection and templates; its book lists and tag libraries are content it fills itself.
+    { group: 'ck', paths: specPaths('ck', CK_KEYS) },
+    // NAI Studio's switches and prompt templates; the panel's prompt, picked style and composer choices are play.
+    { group: 'nai', paths: specPaths('nai', NAI_KEYS) },
+    // DES's mode, sections and prompts; quests and the tracker preset of the current character are play.
+    { group: 'des', paths: specPaths('des', DES_KEYS) },
+    // The saved ways to connect (Connection Manager).
+    { group: 'profiles', paths: ['profiles.list'] },
+    // Which extensions are on; versions are shown in the Pult only.
+    { group: 'extensions', paths: ['extensions.disabled', 'extensions.versions.*'] },
+];
+
+const SCOPE_EXACT = new Set(SCOPE.flatMap((group) => group.paths.filter((path) => !path.endsWith('.*'))));
+const SCOPE_PREFIXES = SCOPE.flatMap((group) =>
+    group.paths.filter((path) => path.endsWith('.*')).map((path) => path.slice(0, -1)),
+);
+
+/** The path is a system setting M4 keeps. */
+export function inScope(path: string): boolean {
+    return (
+        SCOPE_EXACT.has(path) || SCOPE_PREFIXES.some((prefix) => path.length > prefix.length && path.startsWith(prefix))
+    );
+}
+
+/** `part` without paths outside the scope. */
+export function scoped(part: TrackedPart): TrackedPart {
+    return filterTracked(part, inScope);
+}
+
+/**
+ * Removes paths outside the scope from a stored snapshot (in place). True when something was removed.
+ */
+export function pruneScope(part: TrackedPart): boolean {
+    let pruned = false;
+    for (const map of [part.values, part.restore]) {
+        for (const path of Object.keys(map)) {
+            if (inScope(path)) continue;
+            delete map[path];
+            pruned = true;
+        }
+    }
+    return pruned;
+}
+
+/**
+ * Patterns of paths schema 1 baselines could not hold. A live value of such a path that the baseline lacks is
+ * taken into the baseline silently (once, when the old file is settled), not shown as «added».
+ */
+export const ADOPT_WHEN_MISSING = ['api', 'qvink.profiles'] as const;
+
+/**
+ * acknowledge() patterns with the paths they imply: the preset body carries the connection fields, so whoever
+ * acknowledges the preset (or its body) acknowledges api.model and the API_FIELDS too.
+ */
+export function acknowledgeTargets(patterns: readonly string[]): string[] {
+    const covers = patterns.some((pattern) => pathMatches('preset.body', [pattern]));
+    return covers ? [...new Set([...patterns, 'api.model', ...Object.keys(API_FIELDS)])] : [...patterns];
+}
+
+/* ------------------------------------------------------------------ collection */
+
 const NEIGHBOUR_GROUPS = ['des', 'qvink', 'ck', 'nai'] as const;
 type NeighbourGroup = (typeof NEIGHBOUR_GROUPS)[number];
 
@@ -158,6 +306,23 @@ function withoutKeys(source: Dict, keys: readonly string[]): Dict {
     const copy: Dict = { ...source };
     for (const key of keys) delete copy[key];
     return copy;
+}
+
+/** Preset body keys reported by api.* paths instead of the body hash: the source, every model, API_FIELDS. */
+function isApiBodyKey(key: string): boolean {
+    return key === 'chat_completion_source' || key.endsWith('_model') || Object.values(API_FIELDS).includes(key);
+}
+
+/**
+ * Hash of a preset body without what other paths track: prompts and their order (preset.*), the connection
+ * fields (api.*). The full body stays the restore value of preset.body.
+ */
+export function presetBodyHash(body: Dict): string {
+    const rest: Dict = {};
+    for (const [key, value] of Object.entries(body)) {
+        if (key !== 'prompts' && key !== 'prompt_order' && !isApiBodyKey(key)) rest[key] = value;
+    }
+    return valueHash(rest);
 }
 
 /** The live preset body without secrets (openai.js getChatCompletionPreset), or null. */
@@ -204,9 +369,57 @@ async function presetPart(app: App, log: Logger): Promise<TrackedPart> {
     );
     const body = await livePresetBody(app, log);
     if (body) {
-        // Prompts and their order are tracked above; the body hash covers everything else.
-        part.values['preset.body'] = valueHash(withoutKeys(body, ['prompts', 'prompt_order']));
+        part.values['preset.body'] = presetBodyHash(body);
         part.restore['preset.body'] = { name, body };
+    }
+    return part;
+}
+
+/** How the model is called, in readable values. */
+function apiPart(app: App): TrackedPart {
+    const part = empty();
+    const ctx = app.host.ctx();
+    if (typeof ctx.mainApi === 'string' && ctx.mainApi) part.values['api.mainApi'] = ctx.mainApi;
+    const manager = ctx.extensionSettings.connectionManager;
+    if (isDict(manager) && typeof manager.selectedProfile === 'string' && manager.selectedProfile) {
+        const id = manager.selectedProfile;
+        const profile = Array.isArray(manager.profiles)
+            ? manager.profiles.filter(isDict).find((item) => item.id === id)
+            : undefined;
+        part.values['api.profile'] = typeof profile?.name === 'string' && profile.name ? profile.name : id;
+    }
+    const power = isDict(ctx.powerUserSettings) ? ctx.powerUserSettings : {};
+    if (app.host.isChatCompletion()) {
+        const oai = liveOai(app);
+        const connection = connectionFrom(oai);
+        if (connection) {
+            part.values['api.model'] = connection.model
+                ? `${connection.model} (${connection.source})`
+                : connection.source;
+        }
+        if (oai) {
+            for (const [path, key] of Object.entries(API_FIELDS)) {
+                if (oai[key] !== undefined && oai[key] !== null) part.values[path] = jsonCopy(oai[key]);
+            }
+        }
+    } else {
+        // Text Completion: the templates that shape the prompt (an instruct or system prompt that is off is absent).
+        const { instruct, context, sysprompt } = power;
+        if (isDict(instruct) && instruct.enabled === true && typeof instruct.preset === 'string') {
+            part.values['api.instruct'] = instruct.preset;
+        }
+        if (isDict(context) && typeof context.preset === 'string') part.values['api.context'] = context.preset;
+        if (isDict(sysprompt) && sysprompt.enabled !== false && typeof sysprompt.name === 'string') {
+            part.values['api.sysprompt'] = sysprompt.name;
+        }
+    }
+    const reasoning = power.reasoning;
+    if (isDict(reasoning)) {
+        if (typeof reasoning.name === 'string') part.values['api.reasoningTemplate'] = reasoning.name;
+        if (typeof reasoning.auto_parse === 'boolean') part.values['api.reasoningParse'] = reasoning.auto_parse;
+        if (typeof reasoning.add_to_prompts === 'boolean') {
+            part.values['api.reasoningAddToPrompts'] = reasoning.add_to_prompts;
+        }
     }
     return part;
 }
@@ -232,6 +445,30 @@ function regexPart(app: App): TrackedPart {
     return part;
 }
 
+/** Qvink: each saved profile (hashed) and the global switches, never the live copy of the chat's profile. */
+function qvinkPart(app: App): TrackedPart {
+    const part = empty();
+    const qvink = neighbourSettings(app, 'qvink');
+    if (!qvink) return part;
+    if (isDict(qvink.profiles)) {
+        for (const [name, profile] of Object.entries(qvink.profiles)) {
+            if (!isDict(profile)) continue;
+            const tracked = trackedValue(profile, { path: name, hash: true });
+            if (!tracked) continue;
+            part.values[`${QVINK_PROFILES}${name}`] = tracked.value;
+            part.restore[`${QVINK_PROFILES}${name}`] = tracked.restore;
+        }
+    }
+    return mergeTracked(
+        part,
+        pickTracked(
+            qvink,
+            QVINK_SWITCHES.map((key) => ({ path: key })),
+            'qvink',
+        ),
+    );
+}
+
 async function worldInfoPart(app: App, log: Logger): Promise<TrackedPart> {
     const part = empty();
     if (!app.host.caps.has('st.wi.module')) return part;
@@ -241,11 +478,6 @@ async function worldInfoPart(app: App, log: Logger): Promise<TrackedPart> {
         const settings = typeof get === 'function' ? (get as () => unknown)() : null;
         if (isDict(settings)) {
             for (const key of WI_KEYS) if (settings[key] !== undefined) part.values[`worldInfo.${key}`] = settings[key];
-        }
-        if (Array.isArray(wi.selected_world_info)) {
-            part.values['worldInfo.globalSelect'] = wi.selected_world_info
-                .filter((item) => typeof item === 'string')
-                .sort();
         }
     } catch (error) {
         log.debug('world info settings unavailable', error);
@@ -294,25 +526,55 @@ function neighbourSettings(app: App, group: NeighbourGroup): Dict | null {
     }
 }
 
-/** Snapshot of every tracked path, read from the live objects now. */
+/** Snapshot of every tracked path (system settings only), read from the live objects now. */
 export async function collectTracked(app: App, log: Logger): Promise<TrackedPart> {
-    const qvink = neighbourSettings(app, 'qvink');
-    return mergeTracked(
-        await presetPart(app, log),
-        regexPart(app),
-        pickTracked(qvink, keysExcept(qvink, QVINK_DENY), 'qvink'),
-        pickTracked(neighbourSettings(app, 'ck'), CK_KEYS, 'ck'),
-        pickTracked(neighbourSettings(app, 'nai'), NAI_KEYS, 'nai'),
-        pickTracked(neighbourSettings(app, 'des'), DES_KEYS, 'des'),
-        await worldInfoPart(app, log),
-        profilesPart(app),
-        extensionsPart(app),
+    return scoped(
+        mergeTracked(
+            await presetPart(app, log),
+            apiPart(app),
+            regexPart(app),
+            qvinkPart(app),
+            pickTracked(neighbourSettings(app, 'ck'), CK_KEYS, 'ck'),
+            pickTracked(neighbourSettings(app, 'nai'), NAI_KEYS, 'nai'),
+            pickTracked(neighbourSettings(app, 'des'), DES_KEYS, 'des'),
+            await worldInfoPart(app, log),
+            profilesPart(app),
+            extensionsPart(app),
+        ),
     );
 }
 
-/** Paths whose restore value is the whole preset (body and prompt texts). */
+/**
+ * A snapshot stored by M4 1.x (baseline schema 1) under today's rules: values re-derived where the rules changed
+ * (omitted keys, hashes, the preset body hash without the api.* fields) and paths outside the scope dropped.
+ * Pure; paths the old snapshot could not hold are not invented here (ADOPT_WHEN_MISSING).
+ */
+export function migrateTracked(part: TrackedPart): TrackedPart {
+    const values: Dict = { ...part.values };
+    const restore: Dict = { ...part.restore };
+    for (const [prefix, specs] of NEIGHBOUR_SPECS) {
+        for (const spec of specs) {
+            const path = `${prefix}.${spec.path}`;
+            if (!Object.hasOwn(values, path)) continue;
+            // A hashed key keeps its full value in `restore`: derive both again from it.
+            const full = spec.hash ? restore[path] : values[path];
+            if (full === undefined) continue;
+            const tracked = trackedValue(full, spec);
+            if (!tracked) continue;
+            values[path] = tracked.value;
+            if (spec.hash) restore[path] = tracked.restore;
+        }
+    }
+    const preset = restore['preset.body'];
+    if (Object.hasOwn(values, 'preset.body') && isDict(preset) && isDict(preset.body)) {
+        values['preset.body'] = presetBodyHash(preset.body);
+    }
+    return scoped({ values, restore });
+}
+
+/** Paths whose restore value is the whole preset (body, prompt texts, the model it carries). */
 export function isPresetBodyPath(path: string): boolean {
-    return path === 'preset.body' || path === 'preset.contents';
+    return PRESET_BACKED.includes(path);
 }
 
 /** The full value used to write a path back (hash-tracked paths keep it in `restore`). */
@@ -323,12 +585,11 @@ export function fullValue(part: TrackedPart, path: string): unknown {
 
 /** Maestro can write the baseline value of this drift entry back. */
 export function isRestorable(entry: DriftEntry, baseline: TrackedPart): boolean {
+    if (!inScope(entry.path)) return false;
+    if (isPresetBodyPath(entry.path)) return isDict(baseline.restore['preset.body']);
     const group = groupOf(entry.path);
-    if (group === 'preset') {
-        if (isPresetBodyPath(entry.path)) return isDict(baseline.restore['preset.body']);
-        return entry.baseline !== undefined;
-    }
-    if (group === 'worldInfo') return entry.path !== 'worldInfo.globalSelect' && entry.baseline !== undefined;
+    if (group === 'preset' || group === 'worldInfo') return entry.baseline !== undefined;
+    if (group === 'api') return Object.hasOwn(API_FIELDS, entry.path) && entry.baseline !== undefined;
     if (group === 'regex') return entry.kind !== 'added';
     if ((NEIGHBOUR_GROUPS as readonly string[]).includes(group)) return entry.kind !== 'added';
     return false;
@@ -433,6 +694,42 @@ async function writePreset(app: App, log: Logger, path: string, value: unknown):
     return true;
 }
 
+interface JQueryLike {
+    (selector: string): {
+        length: number;
+        val(value: unknown): unknown;
+        prop(name: string, value: unknown): unknown;
+        trigger(type: string): unknown;
+    };
+}
+
+/**
+ * Sets an ST drawer control and fires its `input` handler, as ST does when it applies a preset (openai.js
+ * onSettingsPresetChange): the handler keeps counters and dependent controls in step.
+ */
+function setControl(selector: string, value: unknown, checkbox: boolean): void {
+    const candidate = (globalThis as { jQuery?: unknown }).jQuery;
+    if (typeof candidate !== 'function') return;
+    const element = (candidate as JQueryLike)(selector);
+    if (!element.length) return;
+    if (checkbox) element.prop('checked', Boolean(value));
+    else element.val(value);
+    element.trigger('input');
+}
+
+/** One Chat Completion field of API_FIELDS: the live setting, then its control (ST's handler reads it back). */
+function writeApi(app: App, path: string, value: unknown): boolean {
+    const key = API_FIELDS[path];
+    const spec = key ? PRESET_KEY_TABLE[key] : undefined;
+    if (!spec || value === undefined || value === null) return false;
+    const oai = liveOai(app);
+    if (!oai || !app.host.isChatCompletion()) return false;
+    const [selector, setting, checkbox] = spec;
+    oai[setting] = normalizeKeyValue(value, oai[setting], checkbox);
+    setControl(selector, oai[setting], checkbox);
+    return true;
+}
+
 function writeRegex(app: App, path: string, value: unknown): boolean {
     const id = path.slice('regex.'.length);
     const settings = app.host.ctx().extensionSettings;
@@ -460,7 +757,28 @@ async function writeWorldInfo(app: App, path: string, value: unknown): Promise<b
     return true;
 }
 
+/**
+ * One saved Qvink profile (a name may hold dots, so no dotted path). The active profile is also loaded into the
+ * live settings the way Qvink's load_profile does, so it applies at once rather than on the next chat switch.
+ */
+function writeQvinkProfile(app: App, path: string, value: unknown): boolean {
+    const target = neighbourSettings(app, 'qvink');
+    const name = path.slice(QVINK_PROFILES.length);
+    if (!target || !name) return false;
+    const profiles: Dict = isDict(target.profiles) ? target.profiles : {};
+    target.profiles = profiles;
+    if (value === undefined || value === null) {
+        delete profiles[name];
+        return true;
+    }
+    if (!isDict(value)) return false;
+    profiles[name] = jsonCopy(value);
+    if (target.profile === name) Object.assign(target, withoutKeys(jsonCopy(value), QVINK_GLOBAL_KEYS));
+    return true;
+}
+
 function writeNeighbour(app: App, group: NeighbourGroup, path: string, value: unknown): boolean {
+    if (path.startsWith(QVINK_PROFILES)) return writeQvinkProfile(app, path, value);
     const target = neighbourSettings(app, group);
     if (!target) return false;
     setPath(target, path.slice(group.length + 1), value === undefined ? undefined : jsonCopy(value));
@@ -474,12 +792,14 @@ function writeNeighbour(app: App, group: NeighbourGroup, path: string, value: un
 
 /**
  * Writes one tracked path (its full value; undefined removes it where that makes sense). Settings are saved by
- * the caller (one save per batch). Returns false when the path cannot be written.
+ * the caller (one save per batch). Returns false when the path cannot be written or is outside the scope.
  */
 export async function writeTracked(app: App, log: Logger, path: string, value: unknown): Promise<boolean> {
+    if (!inScope(path)) return false;
     const group = groupOf(path);
     try {
-        if (group === 'preset') return await writePreset(app, log, path, value);
+        if (group === 'preset' || isPresetBodyPath(path)) return await writePreset(app, log, path, value);
+        if (group === 'api') return writeApi(app, path, value);
         if (group === 'regex') return writeRegex(app, path, value);
         if (group === 'worldInfo') return await writeWorldInfo(app, path, value);
         if ((NEIGHBOUR_GROUPS as readonly string[]).includes(group)) {

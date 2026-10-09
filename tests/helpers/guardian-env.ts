@@ -1,6 +1,7 @@
 // Stand for M4 tests: a fake settings.json on the "server" (POST /api/settings/get through the global fetch, and
 // /api/settings/save through the fetch gate, which stores the body like ST's endpoint does), a tracked stack
-// (preset, regexes, Qvink, CK, NAI, DES, world info) and helpers to simulate another tab.
+// (preset and connection, regexes, Qvink, CK, NAI, DES, world info) with the content and play state M4 must leave
+// alone, and helpers to simulate another tab.
 import { vi } from 'vitest';
 import type { Mock } from 'vitest';
 import type { FeatureEnv } from './medic-app';
@@ -93,29 +94,59 @@ export function trackedStack(env: FeatureEnv): TrackedStack {
         markdownOnly: false,
     };
     ext.regex = [structuredClone(regex)];
-    ext.qvink_memory = { auto_summarize: true, prompt: 'Summarise', profiles: { Default: { auto_summarize: true } } };
+    // Qvink (index.js): the live top level is a copy of the chat's profile next to the global keys.
+    ext.qvink_memory = {
+        auto_summarize: true,
+        prompt: 'Summarise',
+        profile: 'Default',
+        notify_on_profile_switch: false,
+        global_toggle_state: true,
+        character_profiles: {},
+        disabled_group_characters: {},
+        memory_edit_interface_settings: {},
+        profiles: {
+            Default: { auto_summarize: true, prompt: 'Summarise' },
+            Short: { auto_summarize: false, prompt: 'Brief' },
+        },
+    };
     ext.CarrotKernel = {
         enabled: true,
+        selectedLorebooks: ['Pack'],
         characterRepoBooks: ['Archive'],
+        tagLibraries: ['Tags'],
         templates: { a: 'long template' },
         rag: { enabled: false, libraries: { global: { c: { h: { text: 'chunk' } } } } },
         scannedCache: { x: 1 },
     };
     ext.nai_studio = {
+        generation: { model: 'nai-diffusion-4-5-full', steps: 23, prompt: 'a cat', ucPreset: 'heavy', seed: 7 },
+        prompts: { prefix: 'best quality', activeStyle: 'Ink', styles: [{ name: 'Ink' }], characterPrompts: {} },
+        inline: { saveToServer: true, insertMode: 'face', readingMode: false },
         markers: { enabled: true, depth: 1 },
-        scene: { framing: 'auto', personaPassports: { me: { id: 'p1' } } },
-        des: { enabled: true, saved: { autoPortraitMode: 'state_changed' } },
+        scene: { allowNsfw: false, framing: 'auto', camera: 'front', personaPassports: { me: { id: 'p1' } } },
+        des: { enabled: true, saved: { autoPortraitMode: 'state_changed' }, legacyPortraits: { Kai: 'kai.png' } },
         vibes: { items: [1, 2, 3] },
     };
-    ext.connectionManager = { profiles: [{ id: 'p1', name: 'Flash', api: 'openai', secret: 'x' }] };
+    ext.connectionManager = {
+        selectedProfile: 'p1',
+        profiles: [{ id: 'p1', name: 'Flash', api: 'openai', secret: 'x' }],
+    };
     ext.disabledExtensions = [];
     env.adapters.des.settings = {
         enabled: true,
         generationMode: 'together',
         showInfoBox: true,
         quests: { main: 'Find the key' },
+        historyPersistence: { enabled: false, messageCount: 5 },
+        externalApiSettings: { baseUrl: 'http://tracker', apiKey: 'sk-tracker', model: 'small', maxTokens: 8192 },
         customTrackerPrompt: 'A long custom prompt',
         lorebook: { enabled: true, campaigns: { c1: {} } },
+    };
+    (env.mock.context as unknown as Dict).powerUserSettings = {
+        instruct: { enabled: false, preset: 'Alpaca' },
+        context: { preset: 'Default' },
+        sysprompt: { enabled: true, name: 'Neutral - Chat' },
+        reasoning: { name: 'DeepSeek', auto_parse: true, add_to_prompts: false },
     };
     const prompts = (): Dict[] => [
         { identifier: 'main', name: 'Main', role: 'system', content: 'Main prompt' },
@@ -126,6 +157,13 @@ export function trackedStack(env: FeatureEnv): TrackedStack {
         preset_settings_openai: 'Marinara',
         temp_openai: 1,
         proxy_password: 'secret',
+        chat_completion_source: 'deepseek',
+        deepseek_model: 'deepseek-v4-flash',
+        openai_max_context: 65536,
+        openai_max_tokens: 300,
+        reasoning_effort: 'auto',
+        show_thoughts: true,
+        stream_openai: true,
         prompts: prompts(),
         prompt_order: [
             {
@@ -148,6 +186,13 @@ export function trackedStack(env: FeatureEnv): TrackedStack {
             temperature: live.temp_openai,
             proxy_password: live.proxy_password,
             reverse_proxy: 'http://proxy',
+            chat_completion_source: live.chat_completion_source,
+            deepseek_model: live.deepseek_model,
+            openai_max_context: live.openai_max_context,
+            openai_max_tokens: live.openai_max_tokens,
+            reasoning_effort: live.reasoning_effort,
+            show_thoughts: live.show_thoughts,
+            stream_openai: live.stream_openai,
             prompts: structuredClone(live.prompts),
             prompt_order: structuredClone(live.prompt_order),
         }),
