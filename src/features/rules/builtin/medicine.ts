@@ -3,11 +3,19 @@
 // `/^/`) overlaps with the dependence state Dramatis keeps for its characters. While Dramatis claims
 // 'bunnymo.medicineCheck' (MAESTRO_API.quiet) and every character of the scene whose CK archive carries `<MED:…>` /
 // `<REC:…>` tags — the present characters of the committed reply, and the persona — is one whose dependence Dramatis
-// owns (DRAMATIS_API.dependenceOwned), the entry's scan copy is switched off. Nobody tagged in the scene, an archive not
-// read yet, or one tagged character Dramatis does not own: the entry stays. The pack file is never touched (P13); without
-// the claim, without Dramatis or with the rule off BunnyMo works as before.
+// owns (DRAMATIS_API.dependenceOwned), the entry's scan copy is switched off. It is also switched off, with or without
+// Dramatis, when nobody needs it: no character of the scene and no archive in the scan carries MED/REC tags, so the
+// instruction would only cost ~4.5K characters every turn (1.20). An archive not read yet, a tagged archive in the scan
+// whose character is not in the scene, or one tagged character Dramatis does not own: the entry stays. The pack file is
+// never touched (P13); with the rule off BunnyMo works as before.
 import { adaptersOf, dramatisOf } from '../../../adapters';
-import { archiveTags, classifyWorlds, hasDependenceTags, isMedicineCheckEntry } from '../../../domain/bunnymo';
+import {
+    archiveTags,
+    classifyWorlds,
+    hasDependenceTags,
+    isCharacterArchive,
+    isMedicineCheckEntry,
+} from '../../../domain/bunnymo';
 import { sceneCast } from '../../../domain/scene-cast';
 import { sceneTracker } from '../../../domain/voices-cards';
 import { normalizeName } from '../../../domain/world-names';
@@ -27,8 +35,13 @@ function isDict(value: unknown): value is Dict {
     return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-/** Why the entry stayed or left in the latest real scan (the pult shows it through options()). */
-export type MedicineVerdict = 'off' | 'noEntry' | 'none' | 'loading' | 'notOwned' | 'dropped';
+/**
+ * Why the entry stayed or left in the latest real scan (the pult shows it through options()). 'unused': nobody in the
+ * scene and no archive in the scan has MED/REC tags, so it left; 'none': nobody in the scene is tagged but a tagged
+ * archive is in the scan (its character may come in), so it stayed; 'off': tagged characters are here and Dramatis does
+ * not claim the check.
+ */
+export type MedicineVerdict = 'off' | 'noEntry' | 'none' | 'unused' | 'loading' | 'notOwned' | 'dropped';
 
 export interface MedicineState {
     verdict: MedicineVerdict;
@@ -140,7 +153,6 @@ export function medicineRule(env: RuleEnv): RuleDefinition {
 
     /** Reads the archives of the scene ahead of the next scan (P15: nothing is awaited on a scan). */
     const warm = (): void => {
-        if (!dramatisOf(env.app)?.claimsMedicineCheck()) return;
         try {
             for (const member of scene()) if (member.archive) load(member.archive);
         } catch (error) {
@@ -185,7 +197,6 @@ export function medicineRule(env: RuleEnv): RuleDefinition {
 
     const decide = (entries: EntryCopy[]): MedicineState => {
         const dramatis = dramatisOf(env.app);
-        if (!dramatis) return { verdict: 'off', tagged: [], notOwned: [] };
         const copies = new Map(entries.map((entry) => [`${entry.world}#${entry.uid}`, entry]));
         const tagged: Member[] = [];
         let unknown = false;
@@ -197,7 +208,14 @@ export function medicineRule(env: RuleEnv): RuleDefinition {
         }
         const names = tagged.map((member) => member.name);
         if (unknown) return { verdict: 'loading', tagged: names, notOwned: [] };
-        if (!tagged.length) return { verdict: 'none', tagged: [], notOwned: [] };
+        if (!tagged.length) {
+            const taggedInScan = entries.some(
+                (entry) =>
+                    entry.disable !== true && isCharacterArchive(entry) && hasDependenceTags(archiveTags(entry).tags),
+            );
+            return { verdict: taggedInScan ? 'none' : 'unused', tagged: [], notOwned: [] };
+        }
+        if (!dramatis?.claimsMedicineCheck()) return { verdict: 'off', tagged: names, notOwned: [] };
         const owned = dramatis.dependenceOwned();
         const notOwned = tagged.filter((member) => !owns(owned, member)).map((member) => member.name);
         return { verdict: notOwned.length ? 'notOwned' : 'dropped', tagged: names, notOwned };
@@ -212,17 +230,14 @@ export function medicineRule(env: RuleEnv): RuleDefinition {
         kind: 'lore',
         defaultLevel: 'auto',
         enabledByDefault: true,
-        // It acts only when Dramatis asks for it (its claim is the user's choice in Dramatis).
+        // It drops the entry only when nobody can need it, or when Dramatis asks for it (its claim is the user's
+        // choice in Dramatis).
         safeBeforeWizard: true,
-        requires: ['st.events.entriesLoaded', 'dramatis.api'],
+        requires: ['st.events.entriesLoaded'],
         // After the pack rules: a suppressed pack copy is no longer there.
         order: 60,
         applyEntries(lists: EntryLists, changes: RuleChange[]): void {
             const simulated = env.simulating();
-            if (!dramatisOf(env.app)?.claimsMedicineCheck()) {
-                if (!simulated) state = { verdict: 'off', tagged: [], notOwned: [] };
-                return;
-            }
             const entries = entriesOf(lists);
             const core = coreBooks(entries);
             const targets = entries.filter(
@@ -234,7 +249,7 @@ export function medicineRule(env: RuleEnv): RuleDefinition {
             }
             const verdict = decide(entries);
             if (!simulated) state = verdict;
-            if (verdict.verdict !== 'dropped') return;
+            if (verdict.verdict !== 'dropped' && verdict.verdict !== 'unused') return;
             for (const entry of targets) {
                 changes.push({ world: entry.world, uid: entry.uid, field: 'disable', before: false, after: true });
                 entry.disable = true;

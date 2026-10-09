@@ -1,5 +1,6 @@
-// M22 rule 'bunnymo.medicineQuiet' (release 1.17): BunnyMo's «Medicine Check» leaves the scan while Dramatis claims it
-// and owns the dependence of every character of the scene whose CK archive carries MED/REC tags; otherwise it stays.
+// M22 rule 'bunnymo.medicineQuiet' (release 1.17, 1.20): BunnyMo's «Medicine Check» leaves the scan when nobody can
+// need it (no MED/REC tags in the scene or in any archive of the scan), or while Dramatis claims it and owns the
+// dependence of every character of the scene whose CK archive carries MED/REC tags; otherwise it stays.
 // The pack file is never touched: only the scan copy is switched off.
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { MEDICINE_RULE_ID } from '../../../src/features/rules/builtin';
@@ -98,18 +99,35 @@ function state(): Record<string, unknown> | undefined {
 }
 
 describe('BunnyMo Medicine Check quiet mode', () => {
-    it('is a lore rule on by default that needs Dramatis’s API', () => {
+    it('is a lore rule on by default that works without Dramatis too', () => {
         const rule = rules.api.list().find((item) => item.id === MEDICINE_RULE_ID);
         expect(rule).toMatchObject({ enabled: true, waiting: false, available: true });
         dramatis.remove();
-        expect(rules.api.list().find((item) => item.id === MEDICINE_RULE_ID)?.missing).toEqual(['dramatis.api']);
+        expect(rules.api.list().find((item) => item.id === MEDICINE_RULE_ID)).toMatchObject({ available: true });
+    });
+
+    it('drops the entry when nobody in the scene and no archive in the scan has MED or REC tags', async () => {
+        dramatis.remove();
+        const books = [coreBook(), archiveBook()];
+        books[1]!.entries[0]!.content = '<BunnymoTags><Name:Ilva>, <TRAIT:STERN></BunnymoTags>';
+        books[1]!.entries[1]!.content = '<BunnymoTags><Name:Bram>, <TRAIT:LOUD></BunnymoTags>';
+        const lists = await scan(books);
+        expect(medicine(lists)?.disable).toBe(true);
+        expect(state()).toEqual({ verdict: 'unused', tagged: [], notOwned: [] });
+    });
+
+    it('without Dramatis keeps the entry for a tagged character of the scene', async () => {
+        dramatis.remove();
+        const lists = await scan();
+        expect(medicine(lists)?.disable).toBeUndefined();
+        expect(state()).toMatchObject({ verdict: 'off', tagged: ['Ilva', 'Bram'] });
     });
 
     it('leaves the entry while Dramatis does not claim it', async () => {
         dramatis.api.owned = ['Ilva', 'Bram'];
         const lists = await scan();
         expect(medicine(lists)?.disable).toBeUndefined();
-        expect(state()).toMatchObject({ verdict: 'off' });
+        expect(state()).toMatchObject({ verdict: 'off', tagged: ['Ilva', 'Bram'] });
     });
 
     it('switches the scan copy off when Dramatis owns every tagged character of the scene', async () => {
@@ -160,8 +178,11 @@ describe('BunnyMo Medicine Check quiet mode', () => {
             await gate;
             return read(name);
         };
+        // The rule warms the archives of the scene when it starts; the scan does not wait for them (P15).
+        await rules.stop();
+        loads.length = 0;
+        rules = await startRules(env);
         dramatis.api.owned = ['Ilva', 'Bram'];
-        // The claim warms the archives of the scene; the scan does not wait for them (P15).
         dramatis.adapter.quiet('bunnymo.medicineCheck', 'dramatis');
         let lists = await scan([coreBook()]);
         expect(state()).toMatchObject({ verdict: 'loading' });
