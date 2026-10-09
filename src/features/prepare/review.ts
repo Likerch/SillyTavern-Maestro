@@ -4,7 +4,9 @@
 // section. «Стартовые сцены (N)» has a card per greeting of the card («Сцена 2 · «первые слова…»», the one in the chat
 // now marked «сейчас в чате»: it is the active one once applied). The texts are edited under «Подробнее» (the name as
 // the story writes it, the English canon texts). Choices and edits live in the chat's draft, so a redraw, a closed
-// window or another chat loses nothing; the footer applies the chosen items.
+// window or another chat loses nothing; the footer applies the chosen items, with the switches for NAI passports,
+// «Персонажи в DES» (1.18) and «Личности в Dramatis» (1.19: Dramatis reads the card's intent as part of applying).
+import { pluralForm } from '../../domain/plural';
 import { FIRST_SCENES, itemTitle } from '../../domain/prepare-plan';
 import type { AnyPrepareItem, PrepareKind, PreparePlan, PrepareScope } from '../../domain/prepare-plan';
 import { badge, banner, emptyState } from '../../ui/components/card';
@@ -450,6 +452,40 @@ function desOffered(ui: PrepareUi): boolean {
     }
 }
 
+/**
+ * «Личности в Dramatis» (1.19, Dramatis 1.3+): read the card's intent when applying — on by default while Dramatis has
+ * not read this card; once it has, what it read and the switch reads it again. Nothing without Dramatis 1.3.
+ */
+function dramatisSwitch(ui: PrepareUi, draft: ChatDraft): HTMLElement[] {
+    let intent: ReturnType<PrepareUi['engine']['dramatisIntent']>;
+    try {
+        intent = typeof ui.engine.dramatisIntent === 'function' ? ui.engine.dramatisIntent() : null;
+    } catch {
+        intent = null;
+    }
+    if (!intent) return [];
+    const t = ui.t.bind(ui);
+    const note = intent.read
+        ? t(`m37.ui.dramatis.already.${pluralForm(intent.characters, ui.app.i18n.locale())}`, {
+              count: intent.characters,
+          })
+        : intent.running
+          ? t('m37.ui.dramatis.running')
+          : '';
+    return [
+        el('div', { class: 'maestro-m37w-dramatis', data: { read: String(intent.read) } }, [
+            toggle({
+                label: t(intent.read ? 'm37.ui.dramatis.reread' : 'm37.ui.dramatis.read'),
+                checked: draft.dramatis ?? !intent.read,
+                onChange: (checked) => {
+                    draft.dramatis = checked;
+                },
+            }),
+            note ? el('div', { class: 'maestro-hint', text: note }) : null,
+        ]),
+    ];
+}
+
 function footerOf(
     ui: PrepareUi,
     plan: PreparePlan,
@@ -483,6 +519,7 @@ function footerOf(
                   },
               })
             : null,
+        ...(apply ? dramatisSwitch(ui, draft) : []),
         el('div', { class: 'maestro-actions maestro-m37w-buttons' }, [
             apply ? apply.applyButton : null,
             options.eligible

@@ -173,12 +173,16 @@ export class PrepareUi {
         return summary;
     }
 
-    /** The window's switches for this apply (passports, «Персонажи в DES»); unset ones follow the module settings. */
+    /**
+     * The window's switches for this apply (passports, «Персонажи в DES», «Личности в Dramatis»); unset ones follow the
+     * module settings (Dramatis: it reads a card it has not read yet).
+     */
     applyOptions(): PrepareApplyOptions {
-        const { passports, desSeed } = this.draft();
+        const { passports, desSeed, dramatis } = this.draft();
         return {
             ...(passports === null ? {} : { passports }),
             ...(desSeed === null ? {} : { desSeed }),
+            ...(dramatis === null ? {} : { dramatis }),
         };
     }
 

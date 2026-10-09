@@ -6,9 +6,10 @@
 //    character (apply it, or read only what changed), [Начать];
 // 2. the run — the job's progress («Читаю часть 2 из 3…») and «Остановить»;
 // 3. the review (review.ts) — sections, cards, choices, edits, scopes;
-// 4. the result — what was done in story words, each with «Отменить» and a link to the window that now holds it;
-// 5. «Готово к игре» — how many starting scenes are prepared and which one is active, what is still missing, with a
-//    button for each (a passport, the place, a background…).
+// 4. the result — what was done in story words, each with «Отменить» and a link to the window that now holds it
+//    (Dramatis' reading of the card: «Открыть» its «Лист замысла», no undo — Dramatis journals it);
+// 5. «Готово к игре» — how many starting scenes are prepared and which one is active, what Dramatis has read, what is
+//    still missing, with a button for each (a passport, the place, a background…).
 import type { AnyPrepareItem, PrepareKind } from '../../domain/prepare-plan';
 import { pluralForm } from '../../domain/plural';
 import type { MaestroWindowSpec, PultTab, Unsubscribe, WindowContext } from '../../shared/contracts';
@@ -327,8 +328,37 @@ export function renderPrepare(container: HTMLElement, ui: PrepareUi, ctx?: Windo
         });
     };
 
+    /** «Открыть» Dramatis' «Лист замысла» (when Dramatis can). */
+    const dramatisButton = (): HTMLElement | null => {
+        let canOpen: boolean;
+        try {
+            canOpen = engine.dramatisIntent()?.canOpen === true;
+        } catch {
+            canOpen = false;
+        }
+        return canOpen
+            ? button({
+                  label: t('m37.ui.open.dramatis'),
+                  icon: 'fa-masks-theater',
+                  kind: 'ghost',
+                  onClick: () => {
+                      if (!engine.openDramatis()) {
+                          app.ui.notice(t('m37.ui.dramatisNotOpened'), { urgent: true, level: 'warn' });
+                      }
+                  },
+              })
+            : null;
+    };
+
     const resultLine = (line: ApplyLine, draft: ChatDraft, kind: 'done' | 'failed'): HTMLElement => {
         const undone = kind === 'done' && draft.undone.has(line.itemId);
+        const open = undone
+            ? null
+            : line.kind === 'dramatis'
+              ? dramatisButton()
+              : line.kind === 'des'
+                ? null
+                : openButton(line.kind);
         return el(
             'div',
             {
@@ -342,7 +372,7 @@ export function renderPrepare(container: HTMLElement, ui: PrepareUi, ctx?: Windo
             [
                 el('span', { class: 'maestro-m37w-text', text: line.text }),
                 undone ? badge(t('m37.ui.undone'), 'muted') : null,
-                !undone && line.kind !== 'des' ? openButton(line.kind) : null,
+                open,
                 kind === 'done' && line.journalId && !undone
                     ? button({
                           label: t('m37.ui.undo'),
@@ -405,7 +435,11 @@ export function renderPrepare(container: HTMLElement, ui: PrepareUi, ctx?: Windo
     };
 
     const fix = async (item: AnyPrepareItem, draft: ChatDraft): Promise<void> => {
-        const summary = await engine.apply([{ id: item.id, scope: 'chat' }], { passports: true, confirmed: true });
+        const summary = await engine.apply([{ id: item.id, scope: 'chat' }], {
+            passports: true,
+            confirmed: true,
+            dramatis: false,
+        });
         draft.summary = mergeSummary(draft.summary, summary);
         if (!summary.done.length) {
             const why = [...summary.failed, ...summary.skipped].map((line) => line.text).join('\n');
@@ -478,6 +512,14 @@ export function renderPrepare(container: HTMLElement, ui: PrepareUi, ctx?: Windo
                 ]),
             );
         }
+        if (value?.dramatis) {
+            body.push(
+                el('div', { class: 'maestro-m37w-line', data: { dramatis: String(value.dramatis.characters) } }, [
+                    el('span', { class: 'maestro-m37w-text', text: value.dramatis.line }),
+                    dramatisButton(),
+                ]),
+            );
+        }
         if (value === undefined) body.push(el('div', { class: 'maestro-muted', text: t('m37.ui.statusLoading') }));
         else if (!value || !value.lines.length) body.push(emptyState(t('m37.view.ready')));
         else {
@@ -511,6 +553,7 @@ export function renderPrepare(container: HTMLElement, ui: PrepareUi, ctx?: Windo
             scenes.prepared,
             scenes.active,
             scenes.locked,
+            dramatisState(),
         ]);
         out.push(statusSection(draft, statusKey, engine.plan()?.items ?? []));
         out.push(
@@ -576,7 +619,9 @@ export function renderPrepare(container: HTMLElement, ui: PrepareUi, ctx?: Windo
             status?.key ?? '',
             status?.value === undefined ? 'loading' : (status.value?.lines ?? null),
             status?.value?.scenes?.line ?? '',
+            status?.value?.dramatis?.line ?? '',
             [scenes.shown, scenes.active, scenes.prepared, scenes.locked],
+            dramatisState(),
         ]);
         if (next === signature) {
             jobBlock?.update();
@@ -630,6 +675,15 @@ export function renderPrepare(container: HTMLElement, ui: PrepareUi, ctx?: Windo
         for (const part of parts) root.appendChild(part);
         scroller.scrollTop = scrollTop;
     };
+
+    /** Where Dramatis' reading stands (the review's switch and the result's «Открыть» follow it). */
+    function dramatisState(): unknown {
+        try {
+            return typeof engine.dramatisIntent === 'function' ? engine.dramatisIntent() : null;
+        } catch {
+            return null;
+        }
+    }
 
     const redraw = coalesce(draw, 40);
     const offEngine = engine.onChange(() => redraw());

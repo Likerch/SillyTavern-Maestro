@@ -32,6 +32,8 @@ export interface ChatDraft {
     passports: boolean | null;
     /** Put the starting scenes into DES when applying (null: the module setting). */
     desSeed: boolean | null;
+    /** Dramatis reads the card's intent when applying (null: when it has not read this card yet). */
+    dramatis: boolean | null;
     estimate: EstimateSlot | null;
     /** What the applies of this session did (lines of later applies replace those of the same item). */
     summary: PrepareApplySummary | null;
@@ -50,6 +52,7 @@ export function emptyDraft(): ChatDraft {
         reuse: null,
         passports: null,
         desSeed: null,
+        dramatis: null,
         estimate: null,
         summary: null,
         undone: new Set(),

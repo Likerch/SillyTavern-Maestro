@@ -22,6 +22,10 @@
 // 8. «Персонажи в DES» (1.18): `apply(…, { desSeed })` also gives every prepared greeting its DES tracker (one line of
 //    the summary, item id 'des', kind 'des', with its own undo); `desSeedOffered()` tells the review to show the switch,
 //    `desSeeded()` that the greeting on screen carries a prepared tracker.
+// 9. Dramatis (1.19, Dramatis 1.3+): `dramatisIntent()` — where Dramatis' reading of the card's intent stands (the review
+//    shows the switch «Личности в Dramatis»); `apply(…, { dramatis })` has Dramatis read the card (again) before the DES
+//    seeding, as the user's action — one line of the summary, item id 'dramatis', kind 'dramatis', no undo (Dramatis
+//    journals its own reading); `openDramatis()` opens Dramatis' «Лист замысла» (the line's «Открыть»).
 // The module's own face uses nothing but this API (plus the service's `watch()` while the window shows the job):
 // controller.ts (shared actions, per-chat drafts), offer.ts (the strip line under the greeting, the quiet notice),
 // window.ts + review.ts (the window «Подготовка к игре», or the pult tab «Подготовка» in a shell without windows).
@@ -89,14 +93,23 @@ export interface PrepareApplyOptions {
      */
     desSeed?: boolean;
     /**
+     * Dramatis 1.3 reads the author's intent of the card — the characters' personalities — before the DES seeding (its
+     * starting cast feeds the seeds). Default: a full apply when Dramatis has not read this card yet; true on a card it
+     * has read reads it again. Without it the summary still says what Dramatis has (release 1.19).
+     */
+    dramatis?: boolean;
+    /**
      * Items «для персонажа» write into the card's own Maestro book and the card's passports; the user is asked once
      * unless the caller already asked (its own dialog): `confirmed: true`.
      */
     confirmed?: boolean;
 }
 
-/** What a line of the summary is about: an item of the plan, or 'des' — the starting scenes in DES (release 1.18). */
-export type ApplyLineKind = PrepareKind | 'des';
+/**
+ * What a line of the summary is about: an item of the plan, 'des' — the starting scenes in DES (release 1.18), or
+ * 'dramatis' — Dramatis' reading of the card (release 1.19).
+ */
+export type ApplyLineKind = PrepareKind | 'des' | 'dramatis';
 
 /** One applied item in story words. */
 export interface ApplyLine {
@@ -106,6 +119,20 @@ export interface ApplyLine {
     text: string;
     /** Journal record of the part (undo). */
     journalId?: string;
+    /** Says what is there, nothing was written now (counts neither for «applied» nor in the notice). */
+    info?: boolean;
+}
+
+/** Where Dramatis' reading of the card's intent stands (Dramatis 1.3+). */
+export interface DramatisIntentInfo {
+    /** Dramatis has read this card. */
+    read: boolean;
+    /** Characters it read. */
+    characters: number;
+    /** A reading runs now. */
+    running: boolean;
+    /** Dramatis can open its «Лист замысла». */
+    canOpen: boolean;
 }
 
 export interface PrepareApplySummary {
@@ -139,6 +166,8 @@ export interface ReadyStatus {
     lines: string[];
     /** The starting scenes prepared for this chat and the active one, in one line (none prepared: absent). */
     scenes?: { prepared: number; active: number | null; line: string };
+    /** What Dramatis has read of the card, in one line (Dramatis 1.3 absent or nothing read: absent). */
+    dramatis?: { characters: number; line: string };
 }
 
 /** The starting scenes of the chat (every greeting of the card is a start of its own). */
@@ -185,6 +214,13 @@ export interface PrepareApi {
      * document is read). M3 «Медик» never repairs it.
      */
     desSeeded(): boolean;
+    /**
+     * Dramatis 1.3+ is there and reads cards: where its reading of this card stands (sync). Null without Dramatis, with
+     * an older one, or outside a solo chat.
+     */
+    dramatisIntent(): DramatisIntentInfo | null;
+    /** Opens Dramatis' «Лист замысла» (on a character when named); false when Dramatis cannot. */
+    openDramatis(name?: string): boolean;
     /** The item as one Russian line (its own line, else a made-up one from the data). */
     describe(item: AnyPrepareItem): string;
     onChange(listener: () => void): Unsubscribe;

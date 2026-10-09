@@ -4,7 +4,8 @@
 // swipe until the player writes), the saved character-level preparation (a Maestro file per card avatar with the
 // source hashes, the whole analysis and the items saved «для персонажа»; their texts live in the card's Maestro book),
 // the «Готово к игре» status, the director's first-scene override released after the first committed turn, and
-// (1.18) the prepared starting scenes in DES (des-seed.ts: one tracker record per greeting, kept and put back).
+// (1.18) the prepared starting scenes in DES (des-seed.ts: one tracker record per greeting, kept and put back), and
+// (1.19) Dramatis reading the card's intent as part of applying (dramatis-step.ts).
 import { adaptersOf } from '../../adapters';
 import { createUserJobs } from '../../core/jobs';
 import { applyOrder, missingForPlay, selectItems } from '../../domain/prepare-apply';
@@ -38,6 +39,7 @@ import type { CardBookItem } from './card-book';
 import { Collector, apiOf, currentCard, hasUserMessages, isDict, safely } from './collect';
 import type { Collected } from './collect';
 import { DES_ITEM, DesSeeder } from './des-seed';
+import { DramatisStep } from './dramatis-step';
 import { estimateRun, partsOf, runExtraction } from './extract';
 import { StartScenes } from './scenes';
 import { PREPARE_DOC, PREPARE_KEY, PREPARE_STEP_TARGET, PREPARE_TAB, SAVED_FILE_KIND } from './settings';
@@ -147,6 +149,7 @@ export class PrepareService {
     private readonly applier: Applier;
     private readonly cardBook: CardBook;
     private readonly desSeeder: DesSeeder;
+    private readonly dramatis: DramatisStep;
     private writeChain: Promise<unknown> = Promise.resolve();
     /** Opens the preparation window (the job's «Открыть», the notice after applying); set by the module's face. */
     private openView: () => void = () => this.app.ui.openPult(PREPARE_TAB);
@@ -161,6 +164,7 @@ export class PrepareService {
         this.applier = new Applier(app, log, this.scenes, (avatar, itemId) => this.forgetSavedItem(avatar, itemId));
         this.cardBook = new CardBook(app, log);
         this.desSeeder = new DesSeeder(app, log);
+        this.dramatis = new DramatisStep(app, log);
     }
 
     private t(key: string, params?: Record<string, string | number>): string {
@@ -201,6 +205,7 @@ export class PrepareService {
         offs.push(...this.scenes.install());
         offs.push(...this.desSeeder.install());
         offs.push(this.scenes.onChange(() => this.emit()));
+        offs.push(this.dramatis.onChange(() => this.emit()));
         offs.push(() => {
             if (this.running) this.jobs().cancel(this.running.key);
             this.listeners.clear();
@@ -665,6 +670,15 @@ export class PrepareService {
                 });
             }
         }
+        // Dramatis reads the card's intent (the user's action) before the DES seeding: its starting cast feeds the seeds.
+        if (this.app.host.chatId() === chatId) {
+            try {
+                const dramatis = await this.dramatis.run(options, mode);
+                if (dramatis) summary[dramatis.list].push(dramatis.line);
+            } catch (error) {
+                this.log.warn('prepare: Dramatis did not read the card', error);
+            }
+        }
         // The starting scenes into DES: after every item (passports, places, mechanics, the active scene's outfits).
         if ((options.desSeed ?? this.settings().desSeed) && this.app.host.chatId() === chatId) {
             const fresh = outcomes
@@ -700,7 +714,9 @@ export class PrepareService {
         }
         summary.proposals.push(...pack.proposals);
         if (pack.firstScene) doc.firstScene = pack.firstScene;
-        if (summary.done.length) {
+        // Lines that only say what is there (Dramatis' reading kept as it was) are not a part written now.
+        const written = summary.done.filter((line) => !line.info).length;
+        if (written) {
             doc.stage = 'applied';
             doc.appliedAt = Date.now();
         }
@@ -720,10 +736,10 @@ export class PrepareService {
                 cardItems.map(({ item }) => item),
                 saved,
             );
-        if (summary.done.length || summary.failed.length) {
+        if (written || summary.failed.length) {
             this.app.ui.notice(
                 this.t(summary.failed.length ? 'm37.notice.appliedWithErrors' : 'm37.notice.applied', {
-                    count: summary.done.length,
+                    count: written,
                     failed: summary.failed.length,
                 }),
                 {
@@ -900,6 +916,8 @@ export class PrepareService {
         };
         const line = this.scenesLine(scenes);
         if (line) status.scenes = { prepared: scenes.prepared.length, active: scenes.active, line };
+        const dramatis = this.dramatis.status();
+        if (dramatis) status.dramatis = dramatis;
         return status;
     }
 
@@ -957,6 +975,8 @@ export class PrepareService {
             startScenes: () => this.startScenes(),
             desSeedOffered: () => this.desSeeder.offered(),
             desSeeded: () => this.desSeeder.seeded(),
+            dramatisIntent: () => this.dramatis.info(),
+            openDramatis: (name) => this.dramatis.open(name),
             describe: (item) => this.describe(item),
             onChange: (listener) => this.onChange(listener),
         };

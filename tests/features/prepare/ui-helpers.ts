@@ -4,6 +4,7 @@
 import { SINGLE_SECTIONS, emptyData } from '../../../src/domain/prepare-plan';
 import type { AnyPrepareItem, PrepareKind, PreparePlan } from '../../../src/domain/prepare-plan';
 import type {
+    DramatisIntentInfo,
     PrepareApplyOptions,
     PrepareApplySummary,
     PrepareEligibility,
@@ -289,6 +290,16 @@ export class FakeEngine implements PrepareEngine {
     }
     desSeeded(): boolean {
         return false;
+    }
+    /** Dramatis 1.3 is there: the review offers «Личности в Dramatis» (null: absent or older). */
+    dramatisInfo: DramatisIntentInfo | null = null;
+    readonly dramatisOpened: (string | undefined)[] = [];
+    dramatisIntent(): DramatisIntentInfo | null {
+        return this.dramatisInfo ? { ...this.dramatisInfo } : null;
+    }
+    openDramatis(name?: string): boolean {
+        this.dramatisOpened.push(name);
+        return this.dramatisInfo?.canOpen === true;
     }
     describe(target: AnyPrepareItem): string {
         return target.russian || target.id;

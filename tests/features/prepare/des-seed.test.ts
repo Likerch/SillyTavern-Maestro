@@ -13,7 +13,7 @@ import { SCENES_DOC } from '../../../src/features/prepare/scenes';
 import { preparedStart } from '../../../src/features/medic/tracker-repair';
 import type { GenerationInfo, InjectionSpec } from '../../../src/shared/contracts';
 import { switchChat } from '../../helpers/core-host';
-import { installDramatis } from '../../helpers/dramatis';
+import { FakeDramatisApi, installDramatis } from '../../helpers/dramatis';
 import type { InstalledDramatis } from '../../helpers/dramatis';
 import { analyse, createPrepareEnv, settle, startPrepare } from './helpers';
 import type { PrepareEnv, Started } from './helpers';
@@ -388,6 +388,34 @@ describe('applying: every greeting gets its DES record', () => {
         expect(text).toContain('Stance toward Кай: Враждебен (-2 of -3..+3).');
     });
 
+    it('has Dramatis 1.3 read the card first, so the seeds get the starting cast it just read', async () => {
+        const order: string[] = [];
+        const api = new FakeDramatisApi().upgrade();
+        dramatis = installDramatis(env.app, api);
+        const startCast = api.startCast!;
+        api.startCast = (greeting) => {
+            order.push(`startCast:${greeting}`);
+            return startCast(greeting);
+        };
+        api.readIntent = async (options) => {
+            order.push('read');
+            api.readCalls.push(options);
+            api.starts = { 0: [{ name: 'Томас', present: true, stance: -2, stanceLabel: 'Враждебен' }] };
+            api.intent = { read: true, characters: 2, groups: 0, running: false };
+            return { ok: true, characters: 2 };
+        };
+        const summary = await applyAll();
+        expect(order[0]).toBe('read');
+        expect(order).toContain('startCast:0');
+        expect(api.readCalls).toEqual([{}]);
+        expect(charactersOf(recordOf(0)).find((item) => item.name === 'Томас')?.relationship).toEqual({
+            status: 'Враг',
+        });
+        expect(summary.done.find((line) => line.kind === 'dramatis')?.text).toBe(
+            'Dramatis: прочитал личности — 2 персонажа',
+        );
+    });
+
     it('gives a greeting the model failed for its names only and says so', async () => {
         await analyse(started.service);
         env.llm.fail = true;
@@ -405,9 +433,12 @@ describe('applying: every greeting gets its DES record', () => {
     it('the saved preparation of the character seeds the next new chat without the model', async () => {
         const { service } = started;
         await analyse(service);
-        await service.apply(['scene:0', 'scene:1', 'scene:2'].map((id) => ({ id, scope: 'character' as const })), {
-            passports: false,
-        });
+        await service.apply(
+            ['scene:0', 'scene:1', 'scene:2'].map((id) => ({ id, scope: 'character' as const })),
+            {
+                passports: false,
+            },
+        );
         await settle(30);
         // A new chat of the card that opened on the archive at night.
         env.mock.chat.splice(0, env.mock.chat.length, { ...env.mock.chat[0]!, extra: {} });

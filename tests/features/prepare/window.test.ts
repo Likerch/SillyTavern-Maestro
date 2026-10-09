@@ -444,6 +444,95 @@ describe('prepare window: «Персонажи в DES» (1.18)', () => {
     });
 });
 
+describe('prepare window: «Личности в Dramatis» (Dramatis 1.3)', () => {
+    function dramatisBlock(): HTMLElement | null {
+        return container.querySelector<HTMLElement>('.maestro-m37w-dramatis');
+    }
+
+    function dramatisSwitch(): HTMLInputElement {
+        return dramatisBlock()!.querySelector<HTMLInputElement>('input[type="checkbox"]')!;
+    }
+
+    it('is not offered without Dramatis 1.3', async () => {
+        await toReview();
+        expect(dramatisBlock()).toBeNull();
+        expect(text()).not.toContain('Dramatis');
+    });
+
+    it('is on for a card Dramatis has not read; the apply passes the choice', async () => {
+        stand.engine.dramatisInfo = { read: false, characters: 0, running: false, canOpen: true };
+        await toReview();
+        expect(dramatisBlock()!.textContent).toContain('Личности в Dramatis: прочитать замысел карточки');
+        expect(dramatisSwitch().checked).toBe(true);
+        // Unset, the engine decides (it reads a card Dramatis has not read).
+        buttonOf(container, 'Применить выбранное').click();
+        await tick();
+        expect(stand.engine.applies[0]?.options).not.toHaveProperty('dramatis');
+    });
+
+    it('passes the switch turned off', async () => {
+        stand.engine.dramatisInfo = { read: false, characters: 0, running: false, canOpen: true };
+        await toReview();
+        dramatisSwitch().checked = false;
+        dramatisSwitch().dispatchEvent(new Event('change'));
+        buttonOf(container, 'Применить выбранное').click();
+        await tick();
+        expect(stand.engine.applies[0]?.options).toMatchObject({ dramatis: false });
+    });
+
+    it('says what Dramatis has read; the switch then reads it again and starts off', async () => {
+        stand.engine.dramatisInfo = { read: true, characters: 3, running: false, canOpen: true };
+        await toReview();
+        expect(dramatisBlock()!.textContent).toContain('Личности в Dramatis: перечитать замысел карточки');
+        expect(dramatisBlock()!.textContent).toContain('Dramatis уже прочитал: 3 персонажа');
+        expect(dramatisSwitch().checked).toBe(false);
+        dramatisSwitch().checked = true;
+        dramatisSwitch().dispatchEvent(new Event('change'));
+        buttonOf(container, 'Применить выбранное').click();
+        await tick();
+        expect(stand.engine.applies[0]?.options).toMatchObject({ dramatis: true, confirmed: true });
+    });
+
+    it('shows Dramatis in «Итог» and «Готово к игре» with «Открыть», without undo', async () => {
+        stand.engine.dramatisInfo = { read: false, characters: 0, running: true, canOpen: true };
+        stand.engine.statusValue = {
+            ready: true,
+            missing: [],
+            lines: [],
+            dramatis: { characters: 3, line: 'Dramatis: личности из карточки — 3 персонажа' },
+        };
+        stand.engine.applyAnswer = () => ({
+            done: [
+                { itemId: 'world', kind: 'world', text: 'Мир: в канон', journalId: 'j1' },
+                { itemId: 'dramatis', kind: 'dramatis', text: 'Dramatis: прочитал личности — 3 персонажа' },
+            ],
+            failed: [],
+            skipped: [],
+            proposals: [],
+        });
+        await toReview();
+        expect(dramatisBlock()!.textContent).toContain('Dramatis сейчас читает замысел карточки');
+        buttonOf(container, 'Применить выбранное').click();
+        await tick();
+        const line = container.querySelector<HTMLElement>('.maestro-m37w-line[data-item="dramatis"]')!;
+        expect(line.textContent).toContain('Dramatis: прочитал личности — 3 персонажа');
+        expect(hasButton(line, 'Отменить')).toBe(false);
+        buttonOf(line, 'Открыть').click();
+        expect(stand.engine.dramatisOpened).toEqual([undefined]);
+        const status = container.querySelector<HTMLElement>('.maestro-m37w-line[data-dramatis="3"]')!;
+        expect(status.textContent).toContain('Dramatis: личности из карточки — 3 персонажа');
+        buttonOf(status, 'Открыть').click();
+        expect(stand.engine.dramatisOpened).toHaveLength(2);
+        // Dramatis cannot open its sheet: no button, the line stays.
+        stand.engine.dramatisInfo = { read: true, characters: 3, running: false, canOpen: false };
+        stand.engine.emit();
+        await tick();
+        const again = container.querySelector<HTMLElement>('.maestro-m37w-line[data-item="dramatis"]')!;
+        expect(again.textContent).toContain('Dramatis: прочитал личности — 3 персонажа');
+        expect(again.querySelectorAll('button')).toHaveLength(0);
+    });
+});
+
 describe('prepare window: the result and «Готово к игре»', () => {
     it('lists what was done with undo and links, then what is still missing with buttons', async () => {
         stand.engine.statusValue = {
@@ -507,7 +596,7 @@ describe('prepare window: the result and «Готово к игре»', () => {
         await tick();
         expect(stand.engine.applies[1]).toEqual({
             selection: [{ id: 'character:elizabeth', scope: 'chat' }],
-            options: { passports: true, confirmed: true },
+            options: { passports: true, confirmed: true, dramatis: false },
         });
         const place = container.querySelector<HTMLElement>('.maestro-m37w-line[data-missing="place"]')!;
         buttonOf(place, 'Создать место').click();
