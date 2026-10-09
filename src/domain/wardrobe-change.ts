@@ -18,14 +18,22 @@ export type ChangeKind = 'change' | 'remove' | 'undress' | 'dress';
 
 export interface ChangeCastMember {
     name: string;
-    /** Aliases and case forms (world model, DES-RU): «Веру», «Верой», «Vera». */
+    /** Other names in the nominative (world model aliases: «Vera», «Верочка»): they can be the subject. */
+    aliases?: readonly string[];
+    /** Case forms (world model, DES-RU): «Веру», «Верой» — recognised, but no subject. */
     forms?: readonly string[];
     /** Grammatical gender; guessed from the name when absent. */
     gender?: 'f' | 'm' | null;
+    /**
+     * In the scene now (default). Someone known but away is still recognised by name, but «он», «она» and «ты» are
+     * only the people present.
+     */
+    present?: boolean;
 }
 
 export interface ChangePersona {
     name: string;
+    aliases?: readonly string[];
     forms?: readonly string[];
 }
 
@@ -284,6 +292,7 @@ interface Person {
     names: string[];
     forms: string[];
     gender: 'f' | 'm' | null;
+    present: boolean;
 }
 
 function escapeRe(text: string): string {
@@ -409,7 +418,7 @@ function objectParts(text: string): { parts: string[]; length: number } {
         if (part.trim() && (first || startsClothing(part))) {
             parts.push(part);
             length = bound.start;
-        } else if (!first || part.trim()) break;
+        } else break;
         from = bound.end;
     }
     return { parts, length };
@@ -580,7 +589,7 @@ interface Context {
 /** The present character of a gender, when exactly one fits. */
 function onlyOfGender(context: Context, gender: 'f' | 'm' | 'pl' | null): string | null {
     if (gender !== 'f' && gender !== 'm') return null;
-    const fit = context.cast.filter((person) => person.gender === gender);
+    const fit = context.cast.filter((person) => person.present && person.gender === gender);
     return fit.length === 1 ? fit[0]!.who : null;
 }
 
@@ -588,7 +597,8 @@ function onlyOfGender(context: Context, gender: 'f' | 'm' | 'pl' | null): string
 function personWho(person: 1 | 2, context: Context): string {
     if (person === 1) return context.speaker === 'player' ? 'persona' : context.narrator || '?';
     if (context.speaker === 'narrator') return 'persona';
-    return context.cast.length === 1 ? context.cast[0]!.who : '?';
+    const present = context.cast.filter((person) => person.present);
+    return present.length === 1 ? present[0]!.who : '?';
 }
 
 function personOf(form: Form): 1 | 2 | 3 | null {
@@ -619,9 +629,10 @@ export function detectOutfitChange(
             .filter((member) => member?.name?.trim() && normalizeName(member.name) !== normalizeName(personaName))
             .map((member) => ({
                 who: member.name.trim(),
-                names: [member.name],
+                names: [member.name, ...(member.aliases ?? [])],
                 forms: [...(member.forms ?? [])],
                 gender: member.gender === undefined ? nameGender(member.name) : member.gender,
+                present: member.present !== false,
             })),
         speaker: options.speaker ?? 'player',
         narrator: options.narrator?.trim() ?? '',
@@ -630,9 +641,10 @@ export function detectOutfitChange(
     const persona: Person | null = personaName
         ? {
               who: 'persona',
-              names: [personaName],
+              names: [personaName, ...(personaSpec?.aliases ?? [])],
               forms: [...(personaSpec?.forms ?? [])],
               gender: nameGender(personaName),
+              present: true,
           }
         : null;
     const people = [...context.cast, ...(persona ? [persona] : [])];
@@ -879,4 +891,38 @@ export function withoutGarments(wording: string, removed: readonly string[]): st
     const kept = parts.filter((part) => !garmentTerms(part).some((term) => gone.has(term)));
     if (kept.length === parts.length || !kept.length) return null;
     return kept.join(', ');
+}
+
+/** A person a command can name: its key ('persona' or a character's name) and the names it answers to. */
+export interface WhoCandidate {
+    who: string;
+    names: readonly string[];
+}
+
+/**
+ * The person a command starts with (the longest matching name, a quoted one too) and the rest of it:
+ * «Офелия Грей вечернее платье» → Офелия Грей + «вечернее платье». Null when it starts with nobody known.
+ */
+export function splitWho(text: string, candidates: readonly WhoCandidate[]): { who: string; rest: string } | null {
+    const value = String(text ?? '').trim();
+    const quoted = /^["«“]([^"»”]+)["»”]\s*(.*)$/su.exec(value);
+    const known = (name: string) =>
+        candidates.find((candidate) =>
+            candidate.names.some((item) => item.trim() && normalizeName(item) === normalizeName(name)),
+        );
+    if (quoted?.[1]) {
+        const found = known(quoted[1]);
+        return found ? { who: found.who, rest: (quoted[2] ?? '').trim() } : null;
+    }
+    const words = value.split(/\s+/).filter(Boolean);
+    for (let count = Math.min(4, words.length); count >= 1; count--) {
+        const found = known(
+            words
+                .slice(0, count)
+                .join(' ')
+                .replace(/[,:]+$/, ''),
+        );
+        if (found) return { who: found.who, rest: words.slice(count).join(' ').trim() };
+    }
+    return null;
 }

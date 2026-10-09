@@ -17,6 +17,12 @@ export const WARDROBE_KINDS = {
 /** Journal kind of an outfit put on by hand in the pult. */
 export const WARDROBE_WEAR_KIND = 'wardrobe.wear';
 
+/** Journal kind of «Переодеть сейчас» (by hand, from a message, from the model). */
+export const WARDROBE_WEAR_NOW_KIND = 'wardrobe.wearNow';
+
+/** Journal target of «что надето сейчас» changed by «Переодеть сейчас». */
+export const WARDROBE_CURRENT_TARGET = 'wardrobe.current';
+
 /** Journal target of every passport change of the wardrobe (one undo handler). */
 export const WARDROBE_UNDO_TARGET = 'wardrobe.passport';
 
@@ -25,6 +31,9 @@ export const DES_FIELD_UNDO_TARGET = 'wardrobe.desField';
 
 /** Background task: what the user's character wears, from the chat (strict JSON). */
 export const PERSONA_TASK = 'wardrobe.persona';
+
+/** Background task: what the people of a change of clothes a message said wear now (strict JSON). */
+export const CHANGE_TASK = 'wardrobe.change';
 
 /** «Что надето сейчас» record key of the user's character. */
 export const PERSONA_KEY = 'persona';
@@ -47,8 +56,17 @@ export interface WardrobeSettings {
     redrawPortrait: boolean;
     /** The background model reads what the user's character wears (only when the chat speaks of clothes). */
     persona: boolean;
-    /** At most every this many committed turns. */
+    /** At most every this many committed turns (only while «Переодевание по сообщениям» is off). */
     personaEvery: number;
+    /**
+     * «Переодевание по сообщениям»: a change of clothes the player's message or the narration says is applied at once
+     * (the reply is written in the new clothes); what the text does not tell, the model reads after the reply.
+     */
+    triggers: boolean;
+    /** «Записывать одежду в трекер DES»: the clothing field (or the appearance with clothes) of the character. */
+    desWrite: boolean;
+    /** «Переодеться» at the Maestro button at the message box. */
+    composer: boolean;
 }
 
 export function defaultWardrobeSettings(): WardrobeSettings {
@@ -61,6 +79,9 @@ export function defaultWardrobeSettings(): WardrobeSettings {
         redrawPortrait: true,
         persona: true,
         personaEvery: 6,
+        triggers: true,
+        desWrite: true,
+        composer: true,
     };
 }
 

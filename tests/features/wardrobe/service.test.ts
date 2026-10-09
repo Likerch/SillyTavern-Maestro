@@ -67,6 +67,9 @@ describe('module', () => {
             redrawPortrait: true,
             persona: true,
             personaEvery: 6,
+            triggers: true,
+            desWrite: true,
+            composer: true,
         });
         const slice: Record<string, unknown> = { outfits: 'yes', states: false, promptDepth: 99.4, personaEvery: 'x' };
         expect(readWardrobeSettings(slice)).toEqual({
@@ -88,6 +91,9 @@ describe('module', () => {
             redrawPortrait: true,
             persona: true,
             personaEvery: 6,
+            triggers: true,
+            desWrite: true,
+            composer: true,
         });
     });
 

@@ -715,6 +715,29 @@ export function dossierTab(app: App, service: DossierService, opener: DossierOpe
                                       if (alive) fillWardrobe();
                                   },
                               }),
+                        // «Переодеть сейчас»: everywhere at once (DES's tracker, the portrait, the prompt line).
+                        typeof wardrobe.wearNow === 'function'
+                            ? button({
+                                  label: t('m7.wardrobe.wearNow'),
+                                  icon: 'fa-person-booth',
+                                  kind: 'ghost',
+                                  className: 'maestro-m7-outfit-wear-now',
+                                  title: t('m7.wardrobe.wearNowHint'),
+                                  onClick: async () => {
+                                      try {
+                                          const who =
+                                              wardrobeFor?.facts.entity.kind === 'persona'
+                                                  ? 'persona'
+                                                  : outfit.character;
+                                          await wardrobe.wearNow?.(who, { outfit: outfit.name }, 'user');
+                                          reply(t('m7.wardrobe.wornNow', { name: outfit.name }));
+                                      } catch (problem) {
+                                          notifyError(problem);
+                                      }
+                                      if (alive) fillWardrobe();
+                                  },
+                              })
+                            : null,
                     ]),
                     outfit.tags ? el('div', { class: 'maestro-m7-outfit-tags', text: outfit.tags }) : null,
                 ]);

@@ -33,7 +33,13 @@ import { normalizePassport } from '../../domain/lore-passport';
 import { genderKey } from '../../domain/name-gender';
 import { committedIndices } from '../../domain/places-registry';
 import { fieldAspect } from '../../domain/signals-diff';
-import { observeWear, revertWear, sameWearing } from '../../domain/wardrobe-current';
+import {
+    normalizeWearRecord,
+    observeWear,
+    revertWear,
+    sameWearing,
+    staleObservation,
+} from '../../domain/wardrobe-current';
 import type { WearObservation, WearRecord } from '../../domain/wardrobe-current';
 import {
     dropOutfit,
@@ -44,10 +50,19 @@ import {
     noteOutfit,
     pushDropped,
     pushHistory,
+    pushStrip,
     recentHistory,
     KEEP_TAKEN,
 } from '../../domain/wardrobe-doc';
-import type { DroppedCard, HistoryEntry, HistoryKind, OutfitOrigin, WardrobeDoc } from '../../domain/wardrobe-doc';
+import type {
+    DroppedCard,
+    HistoryEntry,
+    HistoryKind,
+    OutfitOrigin,
+    PendingChange,
+    StripEntry,
+    WardrobeDoc,
+} from '../../domain/wardrobe-doc';
 import { addedLooks, outfitWithLooks, withLook, withoutLooks } from '../../domain/wardrobe-looks';
 import { matchOutfit, outfitScore } from '../../domain/wardrobe-match';
 import type { OutfitLike } from '../../domain/wardrobe-match';
@@ -81,14 +96,27 @@ import type { LorePassportsApi } from '../lorePassports/api';
 import type { Place, PlacesApi } from '../places/api';
 import type { DeferredCard, RevisionApi } from '../revision/api';
 import type { Entity, EntitySource, WorldModelApi } from '../world/api';
-import type { Outfit, OutfitIntake, StateChange, WardrobeApi, Wearing } from './api';
+import type {
+    Outfit,
+    OutfitIntake,
+    StateChange,
+    WardrobeApi,
+    Wearing,
+    WearNowOptions,
+    WearNowResult,
+    WearNowSource,
+    WearNowWhat,
+} from './api';
+import { DES_TRACKER_TARGET, DesOutfitWriter } from './des-write';
 import {
     PERSONA_KEY,
+    WARDROBE_CURRENT_TARGET,
     WARDROBE_DOC,
     WARDROBE_ID,
     WARDROBE_KINDS,
     WARDROBE_UNDO_TARGET,
     WARDROBE_WEAR_KIND,
+    WARDROBE_WEAR_NOW_KIND,
 } from './settings';
 import type { WardrobeSettings } from './settings';
 import { freshMark } from '../../domain/turn-mark';
@@ -329,6 +357,8 @@ export class WardrobeService implements Required<WardrobeApi> {
     private readonly settleMs: number;
     private readonly intakeMs: number;
     private readonly t: App['i18n']['t'];
+    /** «Записывать одежду в трекер DES» (des-write.ts). */
+    readonly desWriter: DesOutfitWriter;
 
     constructor(
         private readonly app: App,
@@ -339,6 +369,7 @@ export class WardrobeService implements Required<WardrobeApi> {
         this.settleMs = options.settleMs ?? SETTLE_MS;
         this.intakeMs = options.intakeMs ?? INTAKE_MS;
         this.t = app.i18n.t.bind(app.i18n);
+        this.desWriter = new DesOutfitWriter(app, log);
     }
 
     /* ---------------------------------------------------------------- lifecycle */
@@ -348,6 +379,8 @@ export class WardrobeService implements Required<WardrobeApi> {
         const { bus, inbox, journal } = this.app;
         // Journal records outlive the module: undo keeps working when it is off.
         journal.registerUndo(WARDROBE_UNDO_TARGET, (change) => this.undo(change));
+        journal.registerUndo(WARDROBE_CURRENT_TARGET, (change) => this.undoCurrent(change));
+        journal.registerUndo(DES_TRACKER_TARGET, (change) => this.desWriter.undo(change));
         const apply = async (payload: unknown) => {
             if (!isWardrobePayload(payload)) throw new Error('bad wardrobe card');
             await this.apply(payload);
@@ -556,6 +589,11 @@ export class WardrobeService implements Required<WardrobeApi> {
             this.log.debug('NAI passport is not readable', error);
             return null;
         }
+    }
+
+    /** A passport as this chat sees it now (null when it is gone or NAI Studio is not there). */
+    resolvePassport(id: string): NaiPassport | null {
+        return this.passportOf(id);
     }
 
     /** Passports of the current chat with their owners: the card's, the persona's, the chat's own. */
@@ -1671,6 +1709,8 @@ export class WardrobeService implements Required<WardrobeApi> {
     ): Promise<void> {
         const updated = await this.mutate((doc) => {
             let previous = doc.current[key];
+            // «Переодеть сейчас» is newer than a tracker that still says the clothes from before.
+            if (!options.immediate && staleObservation(previous, observation, at.index)) return NO_WRITE;
             if (!previous && target) {
                 // A character who got a passport since: the record kept under the name moves to it.
                 const byName = doc.current[nameKey(observation.name)];
@@ -2166,7 +2206,8 @@ export class WardrobeService implements Required<WardrobeApi> {
     promptEntries(): { name: string; wording: string }[] {
         const doc = this.cached();
         const out: { name: string; wording: string }[] = [];
-        const snapshot = this.tracker(this.lastCommitted());
+        const committed = this.lastCommitted();
+        const snapshot = this.tracker(committed);
         const records = doc ? Object.values(doc.current) : [];
         const recordOf = (name: string) => {
             const key = normalizeName(name);
@@ -2178,8 +2219,10 @@ export class WardrobeService implements Required<WardrobeApi> {
                 const key = normalizeName(character.name);
                 if (character.offScene || seen.has(key)) continue;
                 seen.add(key);
-                const wording =
-                    wearOfDetails(character.name, character.details)?.wording || recordOf(character.name)?.wording;
+                const record = recordOf(character.name);
+                // «Переодеть сейчас» after the committed reply (the player's message, a button) is newer than its tracker.
+                const fresh = record?.changedAt !== undefined && record.seen > committed ? record.wording : '';
+                const wording = fresh || wearOfDetails(character.name, character.details)?.wording || record?.wording;
                 if (wording) out.push({ name: character.name, wording });
             }
         } else {
@@ -2188,6 +2231,326 @@ export class WardrobeService implements Required<WardrobeApi> {
         const persona = doc?.current[PERSONA_KEY];
         if (persona?.wording) out.push({ name: persona.name || this.app.host.ctx().name1, wording: persona.wording });
         return out.map(({ name, wording }) => ({ name, wording }));
+    }
+
+    /* ---------------------------------------------------------------- «Переодеть сейчас» */
+
+    /** 'persona' or a name of the user's character. */
+    isPersona(who: string): boolean {
+        if (who === PERSONA_KEY) return true;
+        const own = normalizeName(this.app.host.ctx().name1 ?? '');
+        if (own && normalizeName(who) === own) return true;
+        try {
+            return (
+                this.world()?.resolve(who, 'persona') !== undefined &&
+                this.world()?.resolve(who, 'character') === undefined
+            );
+        } catch {
+            return false;
+        }
+    }
+
+    /** The newest message of the chat (a change by hand belongs there), -1 without one. */
+    private newestIndex(): number {
+        return this.chat().length - 1;
+    }
+
+    /** What an outfit looks like in words: its newest DES wording, else the name (own clothes: their wording). */
+    private outfitWording(target: PassportTarget, outfit: string, doc: WardrobeDoc): string {
+        const carrier = outfit
+            ? target.passport.outfits.find((item) => sameName(item.name, outfit))
+            : target.passport.outfits.find((item) => isOwnClothes(item.name));
+        const look = carrier?.looks?.[carrier.looks.length - 1];
+        if (look?.trim()) return look.trim();
+        const seen = findOutfit(doc, target.passportId, outfit)?.seenAs;
+        const last = seen?.[seen.length - 1];
+        if (last?.trim()) return last.trim();
+        return outfit || this.t('m27.value.own');
+    }
+
+    /**
+     * «Переодеть сейчас»: `who` ('persona' or a character's name) wears this now — an outfit of the passport (by name,
+     * '' the own clothes) or clothes in words. The record of «что надето сейчас» takes it at once (newer than a tracker
+     * that still says the old clothes), the chat-level passport puts the outfit on (a new one is made for clothes no
+     * outfit fits) and learns the wording as a look, NAI Studio redraws an NPC's DES portrait (setting), DES's tracker
+     * gets the wording in the character's clothing field (setting), the prompt line says it from the next generation.
+     * One journal record takes it all back; changes from a message carry it as their source (a deleted message takes
+     * them back) and get a line under it. Null when there is nothing to do; by hand (source 'user') errors are thrown.
+     */
+    wearNow(
+        who: string,
+        what: WearNowWhat,
+        source: WearNowSource = 'user',
+        messageIndex?: number,
+        options: WearNowOptions = {},
+    ): Promise<WearNowResult | null> {
+        return this.enqueue(async () => {
+            try {
+                return await this.doWearNow(who, what, source, messageIndex, options);
+            } catch (error) {
+                if (source === 'user') throw error;
+                this.log.warn('wardrobe: the change of clothes was not applied', error);
+                return null;
+            }
+        });
+    }
+
+    private async doWearNow(
+        who: string,
+        what: WearNowWhat,
+        source: WearNowSource,
+        messageIndex: number | undefined,
+        options: WearNowOptions,
+    ): Promise<WearNowResult | null> {
+        if (!this.app.host.chatId()) throw new Error(this.t('m27.error.noChat'));
+        if (this.app.host.isGroupChat()) return null;
+        const ctx = this.app.host.ctx();
+        const persona = this.isPersona(who);
+        const asked = persona ? ctx.name1 || 'User' : String(who ?? '').trim();
+        if (!asked) return null;
+        const target = persona ? this.personaTarget() : this.resolveCharacter(asked);
+        const key = persona ? PERSONA_KEY : target ? target.passportId : nameKey(asked);
+        const name = persona ? asked : (target?.name ?? asked);
+        const index =
+            messageIndex !== undefined && Number.isInteger(messageIndex) && messageIndex >= 0
+                ? messageIndex
+                : this.newestIndex();
+        const doc = await this.loadDoc();
+
+        // What: an outfit of the passport, or clothes in words.
+        let outfit: string | null = null;
+        let wording = cleanOutfitText(what.wording ?? '') ?? '';
+        // Words given by the user or the text become a look of the outfit; the outfit's own wording is no news.
+        const given = !!wording;
+        if (what.outfit !== undefined) {
+            const wanted = isOwnClothes(what.outfit.trim()) ? '' : what.outfit.trim();
+            if (target) {
+                const found = wanted ? target.passport.outfits.find((item) => sameName(item.name, wanted)) : undefined;
+                if (wanted && !found) throw new Error(this.t('m27.error.noOutfit', { name: wanted }));
+                outfit = found?.name ?? '';
+                if (!wording) wording = this.outfitWording(target, outfit, doc);
+            } else if (!wording) wording = wanted || this.t('m27.value.own');
+        }
+        if (!wording && what.undress) wording = this.t(`m27.undress.${what.undress}`);
+        if (!wording) return null;
+        const undress = what.undress ?? clothingOf(wording)?.undress?.kind ?? '';
+        const origin: OutfitOrigin = source === 'reply' || source === 'model' ? 'des' : 'user';
+        const op = newOp();
+
+        // The record: newest wins.
+        const recorded = await this.mutate((fresh) => {
+            let previous = fresh.current[key];
+            if (!previous && target && !persona) {
+                const byName = fresh.current[nameKey(asked)];
+                if (byName) {
+                    previous = byName;
+                    delete fresh.current[byName.key];
+                }
+            }
+            const before = previous ? (JSON.parse(JSON.stringify(previous)) as WearRecord) : null;
+            const observation: WearObservation = {
+                name,
+                wording,
+                tags: outfitTags(wording),
+                undress,
+                source: source === 'model' ? 'model' : source,
+            };
+            const place = {
+                key,
+                passportId: target?.passportId ?? '',
+                index,
+                swipe: 0,
+                now: Date.now(),
+            };
+            const next = observeWear(previous, observation, persona ? { ...place, persona: true } : place);
+            next.changedAt = index;
+            next.was = previous?.wording ?? '';
+            next.wasUndress = previous?.undress ?? '';
+            if (outfit !== null && target) {
+                next.outfit = outfit;
+                next.applied = outfit;
+                delete next.queued;
+            }
+            fresh.current[key] = next;
+            return { before, after: { ...next } as WearRecord };
+        });
+        if (!recorded) return null;
+        const changes: JournalChange[] = [
+            {
+                target: WARDROBE_CURRENT_TARGET,
+                ref: { op, key, subject: name },
+                before: recorded.before,
+                after: { wording, seen: recorded.after.seen, undress, outfit },
+            },
+        ];
+
+        // The passport: the outfit on, a new one for new clothes, the wording as its look.
+        let putOn: string | null = outfit;
+        if (target && this.naiApi() && (this.settings().outfits || source === 'user')) {
+            const input = { messageIndex: index, origin };
+            const portrait = !persona && this.settings().redrawPortrait ? name : '';
+            const passport = this.passportOf(target.passportId) ?? target.passport;
+            const current = { ...target, passport };
+            const plan: Plan =
+                outfit !== null
+                    ? { kind: 'wear', name: outfit }
+                    : this.decide(current, recorded.after, true, await this.loadDoc());
+            const look = !given || (undress && UNDRESS_OUTFITS.includes(undress)) ? '' : wording;
+            const extra: Partial<WardrobePayload> = { wording, look, record: key, ...(portrait ? { portrait } : {}) };
+            if (plan.kind === 'wear') {
+                const looks = this.wearLooks(passport, plan.name, look);
+                putOn = plan.name;
+                if (!sameName(passport.activeOutfit, plan.name) || looks) {
+                    const payload = {
+                        ...this.payload('outfit.wear', current, input, { ...extra, name: plan.name }),
+                        op,
+                    };
+                    await this.apply(payload);
+                    changes.push(this.outfitChange(payload, passport.activeOutfit, plan.name, undefined, looks));
+                } else await this.markOutfit(key, plan.name);
+            } else if (plan.kind === 'create') {
+                const payload = {
+                    ...this.payload('outfit.create', current, input, {
+                        ...extra,
+                        name: plan.name,
+                        tags: plan.tags,
+                        activate: true,
+                    }),
+                    op,
+                };
+                await this.apply(payload);
+                changes.push(this.outfitChange(payload, passport.activeOutfit, plan.name, plan.tags));
+                putOn = plan.name;
+            }
+        }
+
+        // DES's tracker: what the character wears now, in its clothing field.
+        let des = false;
+        if (!persona && this.settings().desWrite) {
+            const names = [
+                ...new Set(
+                    [
+                        asked,
+                        name,
+                        recorded.before?.name ?? '',
+                        target?.passport.name ?? '',
+                        ...(target?.passport.aliases ?? []),
+                    ]
+                        .map((item) => item.trim())
+                        .filter(Boolean),
+                ),
+            ];
+            try {
+                const change = await this.desWriter.write(names, wording, { generating: options.generating === true });
+                if (change) {
+                    changes.push(change);
+                    des = true;
+                }
+            } catch (error) {
+                this.log.warn('wardrobe: the DES tracker was not written', error);
+            }
+        }
+
+        const label = putOn === null ? wording : putOn || this.t('m27.now.own');
+        let journalId: string | null = null;
+        try {
+            journalId = await this.app.journal.record({
+                module: WARDROBE_ID,
+                kind: WARDROBE_WEAR_NOW_KIND,
+                summary: this.t('m27.journal.wearNow', { name, outfit: label }),
+                changes,
+                ...(source !== 'user' && index >= 0 ? { sourceMessage: options.sourceMessage ?? index } : {}),
+            });
+        } catch (error) {
+            this.log.error('clothes changed but not journaled', error);
+        }
+        if (source !== 'user' && journalId) {
+            const entry: StripEntry = {
+                op,
+                index: options.stripIndex ?? index,
+                who: name,
+                target: persona ? PERSONA_KEY : name,
+                label,
+                journalId,
+                source,
+                at: Date.now(),
+            };
+            await this.mutate((fresh) => {
+                pushStrip(fresh, entry);
+                return true;
+            });
+        }
+        this.emitChange();
+        return { who: name, key, outfit: putOn, wording, journalId, des };
+    }
+
+    /** Journal undo of «что надето сейчас»: the record from before, while it still says what the change made. */
+    private async undoCurrent(change: JournalChange): Promise<boolean> {
+        const ref = change.ref;
+        const key = typeof ref.key === 'string' ? ref.key : '';
+        const op = typeof ref.op === 'string' ? ref.op : '';
+        const after = isDict(change.after) ? change.after : {};
+        const before = normalizeWearRecord(change.before);
+        if (!key) return false;
+        await this.mutate((doc) => {
+            const current = doc.current[key];
+            if (current && current.wording === after.wording && current.seen === after.seen) {
+                delete doc.current[key];
+                if (before) doc.current[before.key] = before;
+            }
+            for (const entry of doc.strip) if (entry.op === op) entry.undone = true;
+            return true;
+        });
+        this.emitChange();
+        return true;
+    }
+
+    /** Lines under messages: changes of clothes made by themselves from that message (newest last). */
+    stripEntries(index?: number): StripEntry[] {
+        const doc = this.cached();
+        if (!doc) return [];
+        return doc.strip.filter((entry) => index === undefined || entry.index === index).map((entry) => ({ ...entry }));
+    }
+
+    /** Changes of the player's messages waiting for the model (after the reply). */
+    pendingChanges(): PendingChange[] {
+        return [...(this.cached()?.pending ?? [])].map((item) => ({ ...item }));
+    }
+
+    /** Remembers (or with [] forgets) what the player's message `index` said and the model should tell after the reply. */
+    async setPending(index: number, changes: readonly Omit<PendingChange, 'index' | 'at'>[]): Promise<void> {
+        await this.mutate((doc) => {
+            const kept = doc.pending.filter((item) => item.index !== index);
+            if (!changes.length && kept.length === doc.pending.length) return NO_WRITE;
+            doc.pending = [...kept, ...changes.map((item) => ({ ...item, index, at: Date.now() }))].slice(-10);
+            return true;
+        });
+    }
+
+    /** The player's message the trigger read last. */
+    async triggerMark(): Promise<{ index: number; hash: string } | null> {
+        return (await this.loadDoc()).trigger;
+    }
+
+    async setTriggerMark(mark: { index: number; hash: string } | null): Promise<void> {
+        await this.mutate((doc) => {
+            doc.trigger = mark ? { ...mark } : null;
+            return true;
+        });
+    }
+
+    /** Outfit names per who for the change detector ('persona' and the characters with a passport in this chat). */
+    outfitNames(): Record<string, string[]> {
+        const out: Record<string, string[]> = {};
+        const named = (passport: NaiPassport) =>
+            passport.outfits.map((item) => item.name).filter((item) => item && !isOwnClothes(item));
+        const persona = this.personaTarget();
+        if (persona) out[PERSONA_KEY] = named(persona.passport);
+        for (const item of this.chatPassports()) {
+            if (item.passport.kind !== 'character' || item.owner?.persona) continue;
+            out[item.name] = named(item.passport);
+        }
+        return out;
     }
 
     /** The persona check's last committed message (-1: never). */
@@ -2627,7 +2990,11 @@ export class WardrobeService implements Required<WardrobeApi> {
 
     /* ---------------------------------------------------------------- invalidation */
 
-    /** A swiped or deleted committed reply takes what Maestro derived from it (P14); an edit keeps it. */
+    /**
+     * A swiped or deleted committed reply takes what Maestro derived from it (P14); a deletion takes what came from every
+     * message from there on (a change of clothes the player's message said goes with it), a swipe only what that reply
+     * said. An edit keeps it (the triggers read an edited player's message again).
+     */
     private onInvalidated(index: number, reason: 'swiped' | 'deleted' | 'edited'): void {
         if (reason === 'edited' || !this.writable()) return;
         const generation = this.generation;
@@ -2655,13 +3022,26 @@ export class WardrobeService implements Required<WardrobeApi> {
                     doc.personaCheck = index - 1;
                     changed = true;
                 }
+                if (reason === 'deleted') {
+                    const pending = doc.pending.filter((item) => item.index < index);
+                    if (pending.length !== doc.pending.length) {
+                        doc.pending = pending;
+                        changed = true;
+                    }
+                    if (doc.trigger && doc.trigger.index >= index) {
+                        doc.trigger = null;
+                        changed = true;
+                    }
+                }
                 return changed ? true : NO_WRITE;
             });
             let records: { id: string }[] = [];
+            const gone = (at: number | undefined) =>
+                at !== undefined && (reason === 'deleted' ? at >= index : at === index);
             try {
                 records = this.app.journal
                     .list({ module: WARDROBE_ID })
-                    .filter((record) => record.sourceMessage === index && !record.undone);
+                    .filter((record) => gone(record.sourceMessage) && !record.undone);
             } catch (error) {
                 this.log.debug('journal is not readable', error);
             }

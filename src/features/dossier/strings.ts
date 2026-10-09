@@ -449,6 +449,10 @@ export const DOSSIER_STRINGS: I18nParts = {
         'm7.wardrobe.wear': 'Put on',
         'm7.wardrobe.wearHint': 'Make this the active outfit in this chat (the card is not changed).',
         'm7.wardrobe.worn': '«{name}» is on now.',
+        'm7.wardrobe.wearNow': 'Change now',
+        'm7.wardrobe.wearNowHint':
+            'Put it on everywhere at once: the DES tracker, the portrait and the prompt line say it from the next reply.',
+        'm7.wardrobe.wornNow': '«{name}» is on now, everywhere.',
     },
     ru: {
         'm7.title': 'Досье',
@@ -895,5 +899,9 @@ export const DOSSIER_STRINGS: I18nParts = {
         'm7.wardrobe.wear': 'Надеть',
         'm7.wardrobe.wearHint': 'Сделать этот наряд активным в этом чате (карточка не меняется).',
         'm7.wardrobe.worn': 'Теперь надет наряд «{name}».',
+        'm7.wardrobe.wearNow': 'Переодеть сейчас',
+        'm7.wardrobe.wearNowHint':
+            'Переодеть сразу везде: трекер DES, портрет и строка для модели скажут это со следующего ответа.',
+        'm7.wardrobe.wornNow': 'Наряд «{name}» надет — везде.',
     },
 };

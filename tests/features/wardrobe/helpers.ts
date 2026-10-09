@@ -29,16 +29,19 @@ import type { Entity, WorldModelApi } from '../../../src/features/world/api';
 import type {
     App,
     AutonomyLevel,
+    ComposerGroup,
     Decision,
     GenerationInfo,
     HealthCheck,
     InjectionSpec,
     LlmRequest,
     LlmResult,
+    MessageStripProvider,
     Proposal,
     PultTab,
     SettingsService,
     Signal,
+    SlashCommandSpec,
     Unsubscribe,
 } from '../../../src/shared/contracts';
 import { createFakeUi, createTestHost, createTestLogger, switchChat } from '../../helpers/core-host';
@@ -482,7 +485,18 @@ export interface WardrobeEnv {
     mock: StMock;
     host: TestHost;
     modules: FakeModules;
-    ui: FakeUi & { tabs: PultTab[]; styles: Map<string, string>; checks: HealthCheck[] };
+    ui: FakeUi & {
+        tabs: PultTab[];
+        styles: Map<string, string>;
+        checks: HealthCheck[];
+        composer: ComposerGroup[];
+        strips: MessageStripProvider[];
+        slash: SlashCommandSpec[];
+        /** Titles asked through Ui.prompt and the answers given (oldest first). */
+        prompts: string[];
+        answers: (string | null)[];
+        opened: (string | undefined)[];
+    };
     leader: { value: boolean };
     slices: Record<string, Record<string, unknown>>;
     nai: FakeNai;
@@ -624,7 +638,38 @@ export function createWardrobeEnv(locale: 'en' | 'ru' = 'en'): WardrobeEnv {
         tabs: [] as PultTab[],
         styles: new Map<string, string>(),
         checks: [] as HealthCheck[],
+        composer: [] as ComposerGroup[],
+        strips: [] as MessageStripProvider[],
+        slash: [] as SlashCommandSpec[],
+        prompts: [] as string[],
+        answers: [] as (string | null)[],
+        opened: [] as (string | undefined)[],
     });
+    ui.addComposerAction = (group) => {
+        ui.composer.push(group);
+        return () => {
+            ui.composer = ui.composer.filter((item) => item !== group);
+        };
+    };
+    ui.addMessageStripProvider = (provider) => {
+        ui.strips.push(provider);
+        return () => {
+            ui.strips = ui.strips.filter((item) => item !== provider);
+        };
+    };
+    ui.addSlashCommand = (command) => {
+        ui.slash.push(command);
+        return () => {
+            ui.slash = ui.slash.filter((item) => item !== command);
+        };
+    };
+    ui.prompt = async (title) => {
+        ui.prompts.push(title);
+        return ui.answers.shift() ?? null;
+    };
+    ui.openPult = (tab) => {
+        ui.opened.push(tab);
+    };
     ui.addHealthCheck = (check) => {
         ui.checks.push(check);
         return () => {
@@ -651,6 +696,7 @@ export function createWardrobeEnv(locale: 'en' | 'ru' = 'en'): WardrobeEnv {
     const adapters = {
         des: adapter('des', {
             present: () => des.present,
+            enabled: () => des.present,
             trackerFor: (index: number) => {
                 const record = desSwipeRecord(mock.chat[index]);
                 return record ? parseDesTracker(record) : null;

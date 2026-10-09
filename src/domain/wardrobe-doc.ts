@@ -68,6 +68,41 @@ export interface WardrobeDoc {
     dropped: DroppedCard[];
     /** The persona check: last committed message it looked at (-1: never). */
     personaCheck: number;
+    /** Changes made by themselves from a message (the line under it: «Офелия → Домашнее · Отменить»), newest last. */
+    strip: StripEntry[];
+    /** Changes the player's message said that need the model after the reply (who, what was said). */
+    pending: PendingChange[];
+    /** The player's message the trigger read last (its index and text hash): a swipe does not read it again. */
+    trigger: { index: number; hash: string } | null;
+}
+
+/** A change of clothes made by itself from a message (the strip line under that message). */
+export interface StripEntry {
+    op: string;
+    /** The message it came from. */
+    index: number;
+    /** Who, as shown. */
+    who: string;
+    /** «Переодеть сейчас» target: 'persona' or the character's name. */
+    target: string;
+    /** The outfit put on, or the wording. */
+    label: string;
+    journalId: string;
+    source: 'player' | 'reply' | 'model';
+    at: number;
+    undone?: boolean;
+}
+
+/** A change from the player's message whose clothes the text did not tell (the model is asked after the reply). */
+export interface PendingChange {
+    /** The player's message. */
+    index: number;
+    /** 'persona', a character's name or '?'. */
+    who: string;
+    /** The words that said it. */
+    phrase: string;
+    kind: 'change' | 'remove' | 'undress' | 'dress';
+    at: number;
 }
 
 /** A revision outfit card that was dismissed because it cannot be taken. */
@@ -86,6 +121,8 @@ export const KEEP_SEEN = 8;
 export const KEEP_TAKEN = 500;
 export const KEEP_DROPPED = 50;
 export const KEEP_CURRENT = 100;
+export const KEEP_STRIP = 40;
+export const KEEP_PENDING = 10;
 /** A wording this close to a remembered one is not stored again. */
 const SAME_WORDING = 0.9;
 
@@ -102,6 +139,9 @@ export function emptyWardrobeDoc(): WardrobeDoc {
         current: {},
         dropped: [],
         personaCheck: -1,
+        strip: [],
+        pending: [],
+        trigger: null,
     };
 }
 
@@ -231,7 +271,55 @@ export function normalizeWardrobeDoc(raw: unknown): WardrobeDoc {
         .filter((item): item is DroppedCard => item !== null)
         .slice(-KEEP_DROPPED);
     doc.personaCheck = num(raw.personaCheck, -1);
+    doc.strip = (Array.isArray(raw.strip) ? raw.strip : [])
+        .map(stripOf)
+        .filter((item): item is StripEntry => item !== null)
+        .slice(-KEEP_STRIP);
+    doc.pending = (Array.isArray(raw.pending) ? raw.pending : [])
+        .map(pendingOf)
+        .filter((item): item is PendingChange => item !== null)
+        .slice(-KEEP_PENDING);
+    if (isDict(raw.trigger) && typeof raw.trigger.index === 'number' && typeof raw.trigger.hash === 'string') {
+        doc.trigger = { index: raw.trigger.index, hash: raw.trigger.hash };
+    }
     return doc;
+}
+
+const STRIP_SOURCES: readonly StripEntry['source'][] = ['player', 'reply', 'model'];
+const CHANGE_KINDS: readonly PendingChange['kind'][] = ['change', 'remove', 'undress', 'dress'];
+
+function stripOf(raw: unknown): StripEntry | null {
+    if (!isDict(raw) || !str(raw.op) || !str(raw.journalId)) return null;
+    const entry: StripEntry = {
+        op: str(raw.op),
+        index: num(raw.index, -1),
+        who: str(raw.who),
+        target: str(raw.target),
+        label: str(raw.label),
+        journalId: str(raw.journalId),
+        source: STRIP_SOURCES.find((item) => item === raw.source) ?? 'player',
+        at: num(raw.at, 0),
+    };
+    if (raw.undone === true) entry.undone = true;
+    return entry;
+}
+
+function pendingOf(raw: unknown): PendingChange | null {
+    if (!isDict(raw) || typeof raw.index !== 'number') return null;
+    return {
+        index: raw.index,
+        who: str(raw.who, '?'),
+        phrase: str(raw.phrase),
+        kind: CHANGE_KINDS.find((item) => item === raw.kind) ?? 'change',
+        at: num(raw.at, 0),
+    };
+}
+
+/** Remembers a change made by itself from a message (the oldest go beyond KEEP_STRIP). */
+export function pushStrip(doc: WardrobeDoc, entry: StripEntry): void {
+    doc.strip = doc.strip.filter((item) => item.op !== entry.op);
+    doc.strip.push(entry);
+    if (doc.strip.length > KEEP_STRIP) doc.strip.splice(0, doc.strip.length - KEEP_STRIP);
 }
 
 const DROP_REASONS: readonly DroppedCard['reason'][] = ['unknown', 'noGarment', 'removal', 'noPassport'];

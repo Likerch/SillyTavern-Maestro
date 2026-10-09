@@ -268,6 +268,39 @@ export class DesKit {
         this.call('trackerJson', 'syncTrackerJsonForMessage', messageIndex);
     }
 
+    /* ---------------------------------------------------------------- one character's clothes (M27, «Переодеть сейчас») */
+
+    /**
+     * Replaces the characters section of DES's display state and committed state where it still is `before` (Maestro
+     * edited the newest reply's tracker): through DES's setters when exported, else on the live objects. Which changed.
+     */
+    replaceCharacters(before: string, after: string): { last: boolean; committed: boolean } {
+        const swap = (setter: string, target: Record<string, unknown> | null): boolean => {
+            if (!target || target.characterThoughts !== before) return false;
+            const fn = this.fn('state', setter);
+            if (fn) {
+                try {
+                    fn({ characterThoughts: after });
+                    return true;
+                } catch (error) {
+                    this.log.warn(`DES ${setter} failed`, error);
+                }
+            }
+            target.characterThoughts = after;
+            return true;
+        };
+        return {
+            last: swap('updateLastGeneratedData', this.lastGenerated()),
+            committed: swap('updateCommittedTrackerData', this.committed()),
+        };
+    }
+
+    /** DES's example block of the committed tracker as its injector builds it (promptBuilder.generateTrackerExample). */
+    trackerExample(): string | null {
+        const value = this.call('promptBuilder', 'generateTrackerExample');
+        return typeof value === 'string' && value.trim() ? value : null;
+    }
+
     /** DES's roster of this chat (persistence.js getActiveKnownCharacters: the live object), null without it. */
     roster(): Record<string, unknown> | null {
         const value = this.call('persistence', 'getActiveKnownCharacters');

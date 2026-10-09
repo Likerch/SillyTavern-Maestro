@@ -338,7 +338,8 @@ describe('the persona', () => {
     });
 
     it('asks the background model when the chat speaks of clothes, at most every N turns', async () => {
-        env.slices.wardrobe = { personaEvery: 2 };
+        // The check every N turns is the fallback while «Переодевание по сообщениям» is off.
+        env.slices.wardrobe = { personaEvery: 2, triggers: false };
         env.llm.answer = () => ({ ok: true, data: { wearing: 'кожаная куртка' } });
         const service = await env.start();
         env.mock.chat.push({ ...env.mock.chat[0]!, mes: 'Алекс накинул кожаную куртку.', is_user: true } as never);
@@ -359,7 +360,7 @@ describe('the persona', () => {
     });
 
     it('does not ask in economy mode, without a profile or when switched off', async () => {
-        env.slices.wardrobe = { personaEvery: 1 };
+        env.slices.wardrobe = { personaEvery: 1, triggers: false };
         await env.start();
         env.core.mode = 'economy';
         await env.turn({ text: 'Она надела платье.' });

@@ -145,7 +145,7 @@ describe('wardrobe tab', () => {
         await render();
         expect(text()).toContain('Another Maestro tab follows the story');
         const toggles = [...container.querySelectorAll<HTMLInputElement>('.maestro-toggle input')];
-        expect(toggles.map((node) => node.checked)).toEqual([true, true, true, true, true, true]);
+        expect(toggles.map((node) => node.checked)).toEqual([true, true, true, true, true, true, true, true, true]);
         toggles[1]!.checked = false;
         toggles[1]!.dispatchEvent(new Event('change'));
         toggles[3]!.checked = false;

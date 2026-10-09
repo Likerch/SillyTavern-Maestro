@@ -7,8 +7,11 @@ import { normalizeText } from './signals-tokens';
 import { wordingScore } from './wardrobe-match';
 import type { UndressKind } from './wardrobe-wear';
 
-/** Where the clothing came from: the tracker's outfit field, its appearance text, the persona check, by hand, revision. */
-export type WearSource = 'field' | 'appearance' | 'model' | 'user' | 'revision';
+/**
+ * Where the clothing came from: the tracker's outfit field, its appearance text, the background model, by hand, the
+ * revision, the player's message, the narration of a reply.
+ */
+export type WearSource = 'field' | 'appearance' | 'model' | 'user' | 'revision' | 'player' | 'reply';
 
 export interface WearState {
     /** Document key: the passport id, `name:<normalised name>` without one, `persona` for the user's character. */
@@ -40,6 +43,13 @@ export interface WearState {
     /** In the scene at the last committed turn. */
     present: boolean;
     at: number;
+    /**
+     * «Переодеть сейчас» (by hand, the player's message, the narration, the model) at this message: a tracker that still
+     * says the clothes from before (`was`) for the next replies is stale and does not undo it.
+     */
+    changedAt?: number;
+    was?: string;
+    wasUndress?: UndressKind | '';
 }
 
 export interface WearRecord extends WearState {
@@ -66,7 +76,9 @@ export interface WearPlace {
 
 /** Two wordings of the same clothing (any language: words or garments and colours). */
 export const SAME_WEARING = 0.6;
-const SOURCES: readonly WearSource[] = ['field', 'appearance', 'model', 'user', 'revision'];
+const SOURCES: readonly WearSource[] = ['field', 'appearance', 'model', 'user', 'revision', 'player', 'reply'];
+/** A tracker repeating the clothes from before a change is stale for this many messages after it. */
+export const STALE_SPAN = 4;
 const UNDRESS: readonly string[] = ['naked', 'towel', 'underwear', 'partial'];
 
 /** The clothing did not change: the same undressing and the same clothes in other words. */
@@ -124,6 +136,21 @@ export function observeWear(previous: WearRecord | undefined, observation: WearO
     return record;
 }
 
+/**
+ * A tracker observation that must not undo a change made at the record's `changedAt`: it is of a message at or
+ * before the change, or it repeats the clothes from before the change within STALE_SPAN messages after it.
+ */
+export function staleObservation(
+    record: WearRecord | undefined,
+    observation: { wording: string; undress: UndressKind | '' },
+    index: number,
+): boolean {
+    if (!record || record.changedAt === undefined || index < 0) return false;
+    if (index <= record.changedAt) return !sameWearing(record, observation);
+    if (index - record.changedAt > STALE_SPAN || record.was === undefined || !record.was.trim()) return false;
+    return sameWearing({ wording: record.was, undress: record.wasUndress ?? '' }, observation);
+}
+
 /** A swiped or deleted committed reply `index`: the record as it was before it (null: there was none). */
 export function revertWear(record: WearRecord, index: number): WearRecord | null {
     if (record.seen < index) return record;
@@ -159,6 +186,11 @@ function stateOf(raw: unknown): WearState | null {
     if (raw.persona === true) out.persona = true;
     if (typeof raw.applied === 'string') out.applied = raw.applied;
     if (typeof raw.queued === 'string') out.queued = raw.queued;
+    if (typeof raw.changedAt === 'number' && Number.isFinite(raw.changedAt)) out.changedAt = raw.changedAt;
+    if (typeof raw.was === 'string') out.was = raw.was;
+    if (UNDRESS.includes(str(raw.wasUndress)) || raw.wasUndress === '') {
+        out.wasUndress = str(raw.wasUndress) as UndressKind | '';
+    }
     return out;
 }
 

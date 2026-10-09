@@ -1,8 +1,10 @@
 // Pult tab «Гардероб» (plan M27; plan-2 §4): «Кто в сцене и что на нём» — what everyone of the scene wears now, which
 // outfit it is, since which message, with «Надеть другое» and «Это новый наряд»; «Сейчас на тебе» for the user's
 // character; the offer of the clothing field in DES; per character with a passport the outfit library, states and
-// recent changes with «Отменить»; the current place with its location passport and states; revision cards that could
-// not be taken; which parts work by themselves. Cards and wrapped rows: readable on a phone.
+// recent changes with «Отменить»; «Переодеть сейчас» next to «Надеть» (the clothes change everywhere at once: the
+// record, the passport, the DES portrait and tracker, the prompt line); the current place with its location passport
+// and states; revision cards that could not be taken; which parts work by themselves. Cards and wrapped rows: readable
+// on a phone.
 import type { HistoryEntry } from '../../domain/wardrobe-doc';
 import type { App, PultTab } from '../../shared/contracts';
 import { badge, banner, card, emptyState, section, moduleSettingsSection } from '../../ui/components/card';
@@ -12,7 +14,7 @@ import { coalesce, formatTime } from '../../ui/views/format';
 import type { Wearing } from './api';
 import type { DesFieldOffer } from './des-field';
 import type { PassportTarget, WardrobeService } from './service';
-import { WARDROBE_KEY } from './settings';
+import { PERSONA_KEY, WARDROBE_KEY } from './settings';
 import type { WardrobeSettings } from './settings';
 
 export const WARDROBE_TAB = 'wardrobe';
@@ -257,6 +259,25 @@ export function wardrobeTab(
         const outfits = service.outfits().filter((outfit) => outfit.passportId === target.passportId);
         const states = passport.states.filter((state) => state.enabled).map((state) => stateLabel(state.id));
         const wear = (name: string) => run(() => service.wear(target.passportId, name));
+        const who = target.owner?.persona ? PERSONA_KEY : target.name;
+        // «Переодеть сейчас»: the outfit on everywhere at once (DES's tracker, the portrait, the prompt line).
+        const wearNow = (name: string) =>
+            run(async () => {
+                const done = await service.wearNow(who, { outfit: name }, 'user');
+                if (done) {
+                    const outfit = done.outfit === null ? done.wording : done.outfit || t('m27.now.own');
+                    app.ui.notice(t('m27.quick.done', { name: done.who, outfit }), { importance: 'urgent' });
+                }
+            });
+        const wearNowButton = (name: string) =>
+            button({
+                label: t('m27.wearNow'),
+                title: t('m27.wearNow.hint'),
+                icon: 'fa-person-booth',
+                kind: 'ghost',
+                className: 'maestro-m27-wear-now',
+                onClick: () => wearNow(name),
+            });
         const outfitRows = outfits.map((outfit) =>
             el('div', { class: 'maestro-m27-outfit' }, [
                 el('div', { class: 'maestro-m27-row' }, [
@@ -273,6 +294,7 @@ export function wardrobeTab(
                               className: 'maestro-m27-wear',
                               onClick: () => wear(outfit.name),
                           }),
+                    wearNowButton(outfit.name),
                 ]),
                 outfit.tags ? el('div', { class: 'maestro-m27-tags', text: outfit.tags }) : null,
                 outfit.seenAs.length
@@ -301,18 +323,26 @@ export function wardrobeTab(
                 outfitRows.length
                     ? el('div', { class: 'maestro-m27-list' }, outfitRows)
                     : el('div', { class: 'maestro-muted', text: t('m27.outfits.empty') }),
-                active
-                    ? el('div', { class: 'maestro-m27-row' }, [
-                          button({
+                el('div', { class: 'maestro-m27-row' }, [
+                    active
+                        ? button({
                               label: t('m27.wear.clothing'),
                               title: t('m27.wear.clothing.hint'),
                               icon: 'fa-user',
                               kind: 'ghost',
                               className: 'maestro-m27-clothing',
                               onClick: () => wear(''),
-                          }),
-                      ])
-                    : null,
+                          })
+                        : null,
+                    button({
+                        label: t('m27.wearNow.own'),
+                        title: t('m27.wearNow.hint'),
+                        icon: 'fa-person-booth',
+                        kind: 'ghost',
+                        className: 'maestro-m27-wear-now-own',
+                        onClick: () => wearNow(''),
+                    }),
+                ]),
                 el('div', { class: 'maestro-m27-sub', text: t('m27.recent') }),
                 changes(service.history({ passportId: target.passportId, limit: RECENT_SHOWN })),
             ],
@@ -379,7 +409,16 @@ export function wardrobeTab(
             app.settings.notify(`modules.${WARDROBE_KEY}.${key}`);
             app.settings.save();
         };
-        type Flag = 'outfits' | 'states' | 'places' | 'promptLine' | 'redrawPortrait' | 'persona';
+        type Flag =
+            | 'outfits'
+            | 'states'
+            | 'places'
+            | 'promptLine'
+            | 'redrawPortrait'
+            | 'persona'
+            | 'triggers'
+            | 'desWrite'
+            | 'composer';
         const option = (key: Flag, hint?: string) =>
             toggle({
                 label: t(`m27.settings.${key}`),
@@ -414,8 +453,14 @@ export function wardrobeTab(
             el('div', { class: 'maestro-hint', text: t('m27.settings.promptLine.hint') }),
             number('promptDepth', 0, 20),
             option('redrawPortrait'),
+            option('triggers'),
+            el('div', { class: 'maestro-hint', text: t('m27.settings.triggers.hint') }),
+            option('desWrite'),
+            el('div', { class: 'maestro-hint', text: t('m27.settings.desWrite.hint') }),
+            option('composer'),
             option('persona'),
             number('personaEvery', 1, 50),
+            el('div', { class: 'maestro-hint', text: t('m27.settings.personaEvery.hint') }),
         ]);
     };
 

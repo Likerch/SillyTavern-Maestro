@@ -3,6 +3,7 @@
 // passport; when it shows up again it is recognised and drawn the same. Character states (wet, wounded, tired …) and
 // place states (ruined, decorated, on fire, night) become passport states / place passport tags. Writes go through
 // NAI Studio's API at chat scope only (the card is never changed). Exposed as app.modules.api<WardrobeApi>('wardrobe').
+import type { UndressKind } from '../../domain/wardrobe-wear';
 import type { Unsubscribe } from '../../shared/contracts';
 
 export interface Outfit {
@@ -65,8 +66,41 @@ export interface Wearing {
     seen: number;
     turns: number;
     present: boolean;
-    /** 'field' | 'appearance' | 'model' | 'user' | 'revision'. */
+    /** 'field' | 'appearance' | 'model' | 'user' | 'revision' | 'player' | 'reply'. */
     source: string;
+}
+
+/** What «Переодеть сейчас» puts on: an outfit of the passport (by name, '' the own clothes), or clothes in words. */
+export interface WearNowWhat {
+    outfit?: string;
+    wording?: string;
+    /** Undressing (naked, towel, underwear, partial) when the words do not say it themselves. */
+    undress?: UndressKind;
+}
+
+/** Who asked for it: by hand, the player's message, the narration of a reply, the background model. */
+export type WearNowSource = 'user' | 'player' | 'reply' | 'model';
+
+export interface WearNowOptions {
+    /** Called inside a generation (the player's message): DES's prompt slot is rebuilt, its save is not waited for. */
+    generating?: boolean;
+    /** The message the journal record belongs to when it is not `messageIndex` (the model reading a player's change). */
+    sourceMessage?: number;
+    /** The message the line under it goes to when it is not `messageIndex`. */
+    stripIndex?: number;
+}
+
+export interface WearNowResult {
+    /** Who, as shown. */
+    who: string;
+    /** Record key. */
+    key: string;
+    /** The outfit put on ('' the own clothes), null when no passport outfit was put on. */
+    outfit: string | null;
+    wording: string;
+    journalId: string | null;
+    /** DES's tracker got the wording. */
+    des: boolean;
 }
 
 export interface WardrobeApi {
@@ -90,4 +124,16 @@ export interface WardrobeApi {
     // Release 1.11 «что надето сейчас» (optional for the same reason).
     /** What everyone of the chat wears now (or one character / the persona by name): the scene first. */
     current?(character?: string): Wearing[];
+    // «Переодеть сейчас» (optional for the same reason).
+    /**
+     * `who` ('persona' or a character's name) wears this now: the record, the passport (outfit and looks), the DES
+     * portrait and tracker, the prompt line; one journal record undoes it.
+     */
+    wearNow?(
+        who: string,
+        what: WearNowWhat,
+        source?: WearNowSource,
+        messageIndex?: number,
+        options?: WearNowOptions,
+    ): Promise<WearNowResult | null>;
 }

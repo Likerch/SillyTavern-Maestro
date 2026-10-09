@@ -6,10 +6,13 @@ import { createLabels, describeChange } from '../../../src/core/labels';
 import { CORE_STRINGS } from '../../../src/core/strings';
 import {
     DES_FIELD_UNDO_TARGET,
+    DES_TRACKER_TARGET,
+    WARDROBE_CURRENT_TARGET,
     WARDROBE_KINDS,
     WARDROBE_STRINGS,
     WARDROBE_UNDO_TARGET,
     WARDROBE_WEAR_KIND,
+    WARDROBE_WEAR_NOW_KIND,
     wardrobeModule,
 } from '../../../src/features/wardrobe';
 import type { I18n } from '../../../src/shared/contracts';
@@ -44,17 +47,15 @@ describe('M27 labels', () => {
     });
 
     it('names every kind and describes both targets', () => {
-        expect(wardrobeModule.targets?.map((spec) => spec.target)).toEqual([
-            WARDROBE_UNDO_TARGET,
-            DES_FIELD_UNDO_TARGET,
-        ]);
+        const targets = [WARDROBE_UNDO_TARGET, DES_FIELD_UNDO_TARGET, WARDROBE_CURRENT_TARGET, DES_TRACKER_TARGET];
+        expect(wardrobeModule.targets?.map((spec) => spec.target)).toEqual(targets);
         for (const locale of ['en', 'ru'] as const) {
-            for (const kind of [...Object.values(WARDROBE_KINDS), WARDROBE_WEAR_KIND]) {
+            for (const kind of [...Object.values(WARDROBE_KINDS), WARDROBE_WEAR_KIND, WARDROBE_WEAR_NOW_KIND]) {
                 const label = WARDROBE_STRINGS[locale][`kind.${kind}`];
                 expect(label, `${locale} ${kind}`).toBeTruthy();
                 expect(label).not.toContain(kind);
             }
-            for (const target of [WARDROBE_UNDO_TARGET, DES_FIELD_UNDO_TARGET]) {
+            for (const target of targets) {
                 expect(WARDROBE_STRINGS[locale][`target.${target}`], `${locale} ${target}`).toBeTruthy();
             }
         }
