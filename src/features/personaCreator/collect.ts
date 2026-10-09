@@ -230,11 +230,11 @@ export class PersonaCollector {
     ) {}
 
     /**
-     * Maestro's «Язык истории» when it is set.
-     * TODO(story language): another branch adds the setting; read it from there once it lands (the field name may differ).
+     * Maestro's «Язык истории» when it is set to a language. On «авто» the card decides here, not the open chat: the
+     * button works from the character editor, often for a card whose chat is not the one open.
      */
     private languageSetting(): unknown {
-        return safely(() => (this.app.settings.core() as unknown as Dict).storyLanguage, undefined);
+        return safely(() => this.app.settings.core().storyLanguage, undefined);
     }
 
     async collect(card: CardRef, loreChars: number): Promise<Collected | null> {
