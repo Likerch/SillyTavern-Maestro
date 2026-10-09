@@ -1,0 +1,242 @@
+{
+  "worldTone": {
+    "tone": "indifferent",
+    "evidence": [{ "path": "worldTone", "quote": "Местным я больше не доверяю.", "source": "S4" }]
+  },
+  "characters": [
+    {
+      "name": "Вера",
+      "english": "Vera",
+      "aliases": [],
+      "kind": "character",
+      "gender": "female",
+      "minor": false,
+      "role": "captain of the harbour guard",
+      "species": "",
+      "core": {
+        "concept": "Harbour guard captain loyal to people, not titles",
+        "values": ["security", "benevolence", "conformity"],
+        "sacrifice": "power",
+        "temperament": {
+          "honesty": 2,
+          "emotionality": -1,
+          "extraversion": -2,
+          "agreeableness": 0,
+          "conscientiousness": 2,
+          "openness": 0
+        },
+        "drivesHigh": ["order", "honor"],
+        "drivesLow": ["status"],
+        "signatures": ["if a stranger asks too many questions → answers in one word and watches his hands"],
+        "tactics": ["silence", "observation"],
+        "proactivity": 5,
+        "mood": { "octant": "disdainful", "label": "cold watchfulness" },
+        "keys": ["deeds that protect the harbour's people"]
+      },
+      "agenda": {
+        "goals": [
+          {
+            "text": "Prove the guard did not steal the cargo of the Northern Star, because her people are blamed, but the harbour master hides the register",
+            "kind": "external",
+            "priority": 1
+          }
+        ],
+        "intentions": [
+          {
+            "text": "Find out who emptied the Northern Star",
+            "nextStep": "watch the stranger Элизабет hired",
+            "dropIf": ["the cargo is found"]
+          }
+        ]
+      },
+      "ties": [
+        {
+          "target": "PLAYER",
+          "stance": -1,
+          "reasons": ["a hired stranger in a matter of her guard"],
+          "behaviour": "keeps him at arm's length, answers in single words",
+          "intent": "extract",
+          "changeIf": ["he protects the harbour's people"],
+          "want": 0,
+          "gaze": "",
+          "appetite": ""
+        },
+        {
+          "target": "Элизабет",
+          "stance": -1,
+          "reasons": ["she accuses the guard"],
+          "behaviour": "cold courtesy",
+          "intent": "none",
+          "changeIf": [],
+          "want": 0,
+          "gaze": "",
+          "appetite": ""
+        }
+      ],
+      "starts": [
+        {
+          "greeting": 0,
+          "present": true,
+          "doing": "stands by the table without taking off her wet cloak",
+          "goal": "learn what the stranger will be told"
+        }
+      ],
+      "evidence": [
+        { "path": "core.values", "quote": "верна людям, а не титулам", "source": "S1" },
+        { "path": "core.temperament", "quote": "немногословная, наблюдательная", "source": "S1" },
+        { "path": "core.signatures", "quote": "немногословная, наблюдательная", "source": "S1" },
+        { "path": "core.tactics", "quote": "немногословная, наблюдательная", "source": "S1" },
+        { "path": "core.mood", "quote": "немногословная, наблюдательная", "source": "S1" },
+        { "path": "core.concept", "quote": "Вера — капитан портовой стражи", "source": "S1" },
+        { "path": "core.keys", "quote": "верна людям, а не титулам", "source": "S1" },
+        { "path": "agenda.goals", "quote": "уверяет, что корабль пришёл пустым", "source": "S4" },
+        { "path": "agenda.intentions", "quote": "уверяет, что корабль пришёл пустым", "source": "S4" },
+        { "path": "ties.PLAYER", "quote": "Вы ведь не из местных", "source": "S4" },
+        { "path": "ties.Элизабет", "quote": "она бросает короткий взгляд на Веру", "source": "S4" },
+        {
+          "path": "starts.0",
+          "quote": "Рядом, не снимая мокрого плаща, стоит капитан портовой стражи.",
+          "source": "S4"
+        }
+      ]
+    },
+    {
+      "name": "Томас",
+      "english": "Thomas",
+      "aliases": [],
+      "kind": "character",
+      "gender": "male",
+      "minor": false,
+      "role": "tavern keeper",
+      "species": "",
+      "core": {
+        "concept": "Tavern keeper who knows every rumour of the city",
+        "values": ["security", "achievement"],
+        "drivesHigh": ["saving", "curiosity"],
+        "tactics": ["trades rumours for coin"],
+        "proactivity": 3,
+        "mood": { "octant": "anxious", "label": "waiting for trouble" }
+      },
+      "agenda": {
+        "goals": [
+          { "text": "Keep trouble out of the Salt Anchor because it is all he has", "kind": "external", "priority": 1 }
+        ]
+      },
+      "ties": [
+        {
+          "target": "PLAYER",
+          "stance": 0,
+          "reasons": ["a paying guest"],
+          "behaviour": "serves, listens, sells a rumour for coin",
+          "intent": "use",
+          "changeIf": [],
+          "want": 0,
+          "gaze": "",
+          "appetite": ""
+        }
+      ],
+      "starts": [
+        {
+          "greeting": 0,
+          "present": true,
+          "doing": "wipes mugs and glances at the door",
+          "goal": "keep the evening quiet"
+        }
+      ],
+      "evidence": [
+        { "path": "core.concept", "quote": "знает все слухи города", "source": "S1" },
+        { "path": "core.values", "quote": "знает все слухи города", "source": "S1" },
+        { "path": "core.tactics", "quote": "знает все слухи города", "source": "S1" },
+        { "path": "core.mood", "quote": "косится на дверь, будто ждёт неприятностей", "source": "S4" },
+        { "path": "agenda.goals", "quote": "косится на дверь, будто ждёт неприятностей", "source": "S4" },
+        { "path": "ties.PLAYER", "quote": "Томас протирает кружки", "source": "S4" },
+        { "path": "starts.0", "quote": "Томас протирает кружки и косится на дверь", "source": "S4" }
+      ]
+    },
+    {
+      "name": "Александр",
+      "english": "Alexander",
+      "aliases": [],
+      "kind": "character",
+      "gender": "male",
+      "minor": false,
+      "role": "harbour master",
+      "species": "",
+      "core": {
+        "concept": "Domineering harbour master guarding the ship register",
+        "values": ["power", "security"],
+        "temperament": { "agreeableness": -2, "honesty": -1 },
+        "drivesHigh": ["power", "status"],
+        "tactics": ["pressure", "lies by omission"],
+        "proactivity": 7,
+        "mood": { "octant": "hostile", "label": "" }
+      },
+      "appetites": [
+        {
+          "kind": "dominance",
+          "label": "control over the harbour",
+          "sources": ["individual"],
+          "target": "thing",
+          "targetClass": "",
+          "baseline": 3,
+          "triggers": ["questions about the register"],
+          "satisfiers": ["people yielding to him"],
+          "drift": "opportunity",
+          "dependence": 0,
+          "endorsement": "proud",
+          "vow": "none",
+          "visibility": "open",
+          "style": "",
+          "affectionOnset": "",
+          "excuse": "the harbour needs one hand",
+          "restraints": ["the council of nine"],
+          "rule": ""
+        }
+      ],
+      "agenda": {
+        "goals": [
+          {
+            "text": "Keep the register closed because it would show what came in on the Northern Star",
+            "kind": "external",
+            "priority": 1
+          }
+        ]
+      },
+      "ties": [
+        {
+          "target": "PLAYER",
+          "stance": -2,
+          "reasons": ["a stranger digging into his harbour"],
+          "behaviour": "orders him off the quays, sends guards after him",
+          "intent": "avoid",
+          "changeIf": [],
+          "want": 0,
+          "gaze": "",
+          "appetite": ""
+        }
+      ],
+      "starts": [{ "greeting": 0, "present": false, "doing": "", "goal": "" }],
+      "evidence": [
+        { "path": "core.concept", "quote": "начальник порта, властный и упрямый", "source": "S1" },
+        { "path": "core.values", "quote": "властный и упрямый", "source": "S1" },
+        { "path": "core.temperament", "quote": "властный и упрямый", "source": "S1" },
+        { "path": "core.tactics", "quote": "властный и упрямый", "source": "S1" },
+        { "path": "core.mood", "quote": "властный и упрямый", "source": "S1" },
+        { "path": "appetites.dominance", "quote": "властный и упрямый, охраняет реестр кораблей", "source": "S1" },
+        { "path": "agenda.goals", "quote": "охраняет реестр кораблей", "source": "S1" },
+        { "path": "ties.PLAYER", "quote": "властный и упрямый", "source": "S1" }
+      ]
+    }
+  ],
+  "rules": [],
+  "reputation": [
+    {
+      "greeting": -1,
+      "among": "*",
+      "label": "a hired stranger",
+      "stance": 0,
+      "evidence": [{ "path": "reputation", "quote": "Вы ведь не из местных", "source": "S4" }]
+    }
+  ],
+  "invariants": []
+}
