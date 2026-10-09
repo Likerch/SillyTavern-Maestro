@@ -12,6 +12,7 @@
 // - names (world model + DES-RU forms), present() (the cast the voice cards see), speech() (the voice cards' digest of
 //   the CK archive, also while the voice cards are off), quiet() (claims kept by the Dramatis adapter).
 // - stage 3: styleUp() (the dossier's «Оформить» with given BunnyMo tags), setCanonGoals() (the chat canon's `goals`).
+// - 1.20: storyLanguage() — «Язык истории» (the setting, else the player's messages, else the interface language).
 import manifest from '../../manifest.json';
 import { MAESTRO_API_GLOBAL, MAESTRO_API_READY_EVENT, adaptersOf, dramatisOf, isQuietFunction } from '../adapters';
 import type {
@@ -25,6 +26,7 @@ import type {
     MaestroApiV1,
     MaestroQuietFunction,
 } from '../adapters';
+import { storyLanguage } from '../core/language';
 import type { Labels } from '../core/labels';
 import { uniqueStrings } from '../domain/canon-keys';
 import { composeContent, fieldsFromContent, readTypedMeta, TYPED_FIELDS_KEY } from '../domain/entry-types';
@@ -667,6 +669,7 @@ export function createMaestroApi(deps: MaestroApiDeps): MaestroApiHandle {
         },
         styleUp,
         setCanonGoals,
+        storyLanguage: () => storyLanguage(app),
     };
 
     return {

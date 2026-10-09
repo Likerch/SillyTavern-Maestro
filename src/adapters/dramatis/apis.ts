@@ -145,6 +145,8 @@ export interface MaestroApiV1 {
     styleUp?(name: string, tags: string[]): Promise<boolean>;
     /** Stage 3: write goals into the chat canon entry of this character (canon `goals` field). */
     setCanonGoals?(name: string, goals: string[]): Promise<boolean>;
+    /** Optional (Maestro 1.20+): the language the story is told in — Maestro's «Язык истории» setting, auto-detected. */
+    storyLanguage?(): 'ru' | 'en';
 }
 
 /* ------------------------------------------------------------------ DRAMATIS_API v1 */

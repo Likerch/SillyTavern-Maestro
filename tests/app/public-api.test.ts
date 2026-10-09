@@ -693,6 +693,18 @@ describe('stage 3', () => {
     });
 });
 
+describe('the story language (1.20)', () => {
+    it("tells «Язык истории»: the setting, else the player's messages, else the interface language", () => {
+        // A new chat under a Russian interface (no settings in this app: «Авто»).
+        env.mock.chat = [];
+        expect(env.api.storyLanguage?.()).toBe('ru');
+        env.mock.chat = [userMessage('I shake the rain off my cloak and sit down by the fire, saying nothing.')];
+        expect(env.api.storyLanguage?.()).toBe('en');
+        (env.app as { settings?: unknown }).settings = { core: () => ({ storyLanguage: 'ru' }) };
+        expect(env.api.storyLanguage?.()).toBe('ru');
+    });
+});
+
 describe('the global', () => {
     it('is published with maestro-api-ready and removed when Maestro stops', () => {
         const seen: unknown[] = [];
