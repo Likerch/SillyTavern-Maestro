@@ -193,11 +193,13 @@ export const DES_DRAMATIS_CSS = `
 .maestro-m39-workshop .maestro-m39-name { display: none; }
 .maestro-m39-workshop .maestro-m39-head, .maestro-m39-workshop .maestro-m39-actions { padding: 0; }
 .maestro-m39-workshop .maestro-m39-empty { padding: 32px 16px; }
+/* DES's row is sized for its own two tabs: with ours the toggle would leave the narrow column of a 769–900px sheet. */
+#rpg-character-sheet-popup .rpg-cs-tabs:has(.maestro-m39-tab) { flex-wrap: wrap; }
 @media (min-width: 769px) {
     #rpg-character-sheet-popup .maestro-m39-name { display: none; }
 }
 @media (max-width: 768px) {
-    #rpg-character-sheet-popup .rpg-cs-tabs:has(.maestro-m39-tab) { flex-wrap: wrap; padding: 0 8px; }
+    #rpg-character-sheet-popup .rpg-cs-tabs:has(.maestro-m39-tab) { padding: 0 8px; }
     #rpg-character-sheet-popup .rpg-cs-tabs:has(.maestro-m39-tab) .rpg-cs-tab { padding: 8px 12px; }
     .maestro-m39-head, .maestro-m39-actions { padding: 0 4px; }
 }
