@@ -485,9 +485,9 @@ function nameKey(name: string): string {
 
 /**
  * Reads the model's answer (parsed JSON or text): the fields cleaned; outfits without a Russian name and wording or
- * without English tags are dropped, repeated names once, at most six; fewer than five is an error (`language` when
- * outfits were dropped for not being Russian). The appearance and the background must be Russian; a non-Russian
- * personality is dropped, an appearance_en in Cyrillic too.
+ * without English tags are dropped, repeated names once, at most six; fewer than five usable ones is an error. The
+ * appearance and the background must be Russian; a non-Russian personality is dropped, an appearance_en in Cyrillic
+ * too.
  */
 export function parsePersonaAnswer(raw: unknown): PersonaParseResult {
     let data = typeof raw === 'string' ? jsonOf(raw) : raw;
@@ -506,25 +506,18 @@ export function parsePersonaAnswer(raw: unknown): PersonaParseResult {
     const appearanceEn = appearanceEnRaw && !hasCyrillic(appearanceEnRaw) ? appearanceEnRaw : '';
     const outfits: PersonaOutfit[] = [];
     const seen = new Set<string>();
-    let notRussian = 0;
     for (const item of Array.isArray(data.outfits) ? data.outfits : []) {
         if (!isDict(item)) continue;
         const outfitName = cleanLabel(item.name, 40);
         const wording = oneLine(str(item.wording)).slice(0, 300).trim();
         const tags = sanitizeTags(str(item.tags));
-        if (!outfitName || !wording || !tags) continue;
-        if (!isRussianText(outfitName) || !isRussianText(wording)) {
-            notRussian++;
-            continue;
-        }
+        if (!outfitName || !wording || !tags || !isRussianText(outfitName) || !isRussianText(wording)) continue;
         const key = nameKey(outfitName);
         if (seen.has(key)) continue;
         seen.add(key);
         outfits.push({ name: outfitName, wording, tags });
     }
-    if (outfits.length < MIN_OUTFITS) {
-        return { ok: false, reason: notRussian ? 'language' : 'outfits', outfits: outfits.length };
-    }
+    if (outfits.length < MIN_OUTFITS) return { ok: false, reason: 'outfits', outfits: outfits.length };
     return {
         ok: true,
         draft: {

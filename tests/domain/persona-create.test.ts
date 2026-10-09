@@ -305,7 +305,7 @@ describe('the answer', () => {
         expect(parsed.draft.outfits.map((outfit) => outfit.name)).toEqual(OUTFITS.map((outfit) => outfit.name));
     });
 
-    it('rejects fewer than five usable outfits, and says when they were not Russian', () => {
+    it('rejects fewer than five usable outfits: English or tagless ones do not count', () => {
         expect(parsePersonaAnswer(answer({ outfits: OUTFITS.slice(0, 4) }))).toEqual({
             ok: false,
             reason: 'outfits',
@@ -315,7 +315,7 @@ describe('the answer', () => {
             parsePersonaAnswer(
                 answer({ outfits: [...OUTFITS.slice(0, 4), { name: 'Travel', wording: 'a cloak', tags: 'cloak' }] }),
             ),
-        ).toEqual({ ok: false, reason: 'language', outfits: 4 });
+        ).toEqual({ ok: false, reason: 'outfits', outfits: 4 });
         expect(
             parsePersonaAnswer(
                 answer({ outfits: [...OUTFITS.slice(0, 4), { name: 'Плащ', wording: 'плащ', tags: 'плащ' }] }),
