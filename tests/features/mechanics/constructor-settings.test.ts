@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { MECHANICS_STRINGS } from '../../../src/features/mechanics/strings';
 import { settingsSection } from '../../../src/features/mechanics/view-constructor-settings';
 import { BOOK, createDefsEnv } from './helpers-defs';
 import type { DefsEnv } from './helpers-defs';
@@ -61,5 +62,22 @@ describe('mechanics settings section', () => {
 
         if (typeof off === 'function') off();
         expect(container.children).toHaveLength(0);
+    });
+
+    it('chooses where the HUD shows: over the chat or left of it', () => {
+        env.app.i18n.register(MECHANICS_STRINGS);
+        const notify = vi.spyOn(env.app.settings, 'notify');
+        settingsSection(env.deps)(container);
+        const place = container.querySelector<HTMLSelectElement>('select[aria-label="Where the HUD shows"]')!;
+        expect([...place.options].map((option) => [option.value, option.textContent])).toEqual([
+            ['chat', 'Over the chat (top or bottom)'],
+            ['left', 'Left of the chat (on a wide screen)'],
+        ]);
+        expect(place.value).toBe('chat');
+        expect(place.closest('.maestro-field')?.textContent).toContain('at least 1200 px wide');
+        place.value = 'left';
+        place.dispatchEvent(new Event('change'));
+        expect(env.slice.hudPlacement).toBe('left');
+        expect(notify).toHaveBeenCalledWith('modules.mechanics.hudPlacement');
     });
 });

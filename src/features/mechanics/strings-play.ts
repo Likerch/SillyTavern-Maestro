@@ -92,6 +92,8 @@ export const PLAY_STRINGS: I18nParts = {
         'm25.hud.more': 'Everything…',
         'm25.hud.mode.adv': 'Advantage',
         'm25.hud.mode.dis': 'Disadvantage',
+        'm25.hud.side.body': 'Characters of the scene',
+        'm25.hud.side.fight': 'Fight · round {round} · {name}’s turn',
 
         // the window
         'm25.win.peek': 'Peek',
@@ -375,9 +377,14 @@ export const PLAY_STRINGS: I18nParts = {
         'm25.ctor.combat.enemy': 'A new enemy starts with',
         'm25.ctor.combat.enemy.hint': 'Health 10, attack 3',
 
-        'm25.ctor.settings.hud': 'HUD over the chat',
+        'm25.ctor.settings.hud': 'Mechanics HUD',
         'm25.ctor.settings.hud.hint':
-            'Your character’s values, conditions and money; pin values and characters in the «In play» section. Drag it to the top or the bottom.',
+            'Your character’s values, conditions and money; pin values and characters in the «In play» section. Over the chat it can be dragged to the top or the bottom.',
+        'm25.ctor.settings.hudPlacement': 'Where the HUD shows',
+        'm25.ctor.settings.hudPlacement.chat': 'Over the chat (top or bottom)',
+        'm25.ctor.settings.hudPlacement.left': 'Left of the chat (on a wide screen)',
+        'm25.ctor.settings.hudPlacement.hint':
+            'On the left there is more room: every character of the scene with all the values the HUD may show, conditions and items. The panel shows when the window is at least 1200 px wide and at least 220 px are free left of the chat. If a Maestro window or the DES portrait panel is on the left, it stands to their right. On a phone, in a narrower window, while ST’s left panel is open or when there is no room, the HUD shows over the chat; the setting stays as it is.',
         'm25.ctor.settings.desPersona': 'Your character under the DES portraits',
         'm25.ctor.settings.desAttrs': 'Under the DES portraits',
         'm25.ctor.settings.desAttrs.hint': 'Which values show there (all of them when none is chosen).',
@@ -464,6 +471,8 @@ export const PLAY_STRINGS: I18nParts = {
         'm25.hud.more': 'Всё…',
         'm25.hud.mode.adv': 'Преимущество',
         'm25.hud.mode.dis': 'Помеха',
+        'm25.hud.side.body': 'Персонажи сцены',
+        'm25.hud.side.fight': 'Бой · раунд {round} · ходит {name}',
 
         'm25.win.peek': 'Подсмотреть',
         'm25.win.peek.title': 'Подсмотреть скрытое?',
@@ -747,9 +756,14 @@ export const PLAY_STRINGS: I18nParts = {
         'm25.ctor.combat.enemy': 'Новый противник начинает с',
         'm25.ctor.combat.enemy.hint': 'Здоровье 10, атака 3',
 
-        'm25.ctor.settings.hud': 'HUD поверх чата',
+        'm25.ctor.settings.hud': 'HUD механик',
         'm25.ctor.settings.hud.hint':
-            'Значения, состояния и деньги твоего персонажа; что показывать, закрепляешь в разделе «В игре». Можно перетащить к верху или к низу.',
+            'Значения, состояния и деньги твоего персонажа; что показывать, закрепляешь в разделе «В игре». Над чатом его можно перетащить к верху или к низу.',
+        'm25.ctor.settings.hudPlacement': 'Где показывать HUD',
+        'm25.ctor.settings.hudPlacement.chat': 'Над чатом (сверху или снизу)',
+        'm25.ctor.settings.hudPlacement.left': 'Слева от чата (на широком экране)',
+        'm25.ctor.settings.hudPlacement.hint':
+            'Слева места больше: все персонажи сцены со всеми значениями, которые можно показывать в HUD, состояниями и вещами. Панель появляется, когда окно шириной от 1200 px и слева от чата свободно не меньше 220 px. Если слева стоит окно Maestro или панель портретов DES, она встаёт правее них. На телефоне, в окне поуже, пока открыта левая панель ST или без места HUD показывается над чатом; настройка при этом не меняется.',
         'm25.ctor.settings.desPersona': 'Твой персонаж под портретами DES',
         'm25.ctor.settings.desAttrs': 'Под портретами DES',
         'm25.ctor.settings.desAttrs.hint': 'Какие значения там видны (все, если ничего не выбрано).',

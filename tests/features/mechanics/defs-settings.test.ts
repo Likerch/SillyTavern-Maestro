@@ -35,6 +35,7 @@ describe('mechanics settings', () => {
             personaFallback: 'background',
             relevance: 4,
             hud: true,
+            hudPlacement: 'chat',
             hudAttrs: [],
             hudHolders: [],
             desAttrs: [],
@@ -46,7 +47,12 @@ describe('mechanics settings', () => {
                 hudAttrs: ['magic.mana', 'magic.mana', '', 3, ' magic.hp '] as unknown as string[],
                 hudHolders: 'Kai' as unknown as string[],
             }),
-        ).toMatchObject({ hud: false, hudAttrs: ['magic.mana', 'magic.hp'], hudHolders: [] });
+        ).toMatchObject({ hud: false, hudPlacement: 'chat', hudAttrs: ['magic.mana', 'magic.hp'], hudHolders: [] });
+        expect(readMechanicsSettings({ hudPlacement: 'left' }).hudPlacement).toBe('left');
+        expect(
+            readMechanicsSettings({ hudPlacement: 'right' as unknown as MechanicsSettings['hudPlacement'] })
+                .hudPlacement,
+        ).toBe('chat');
         expect(readMechanicsSettings({ book: ' Мои ', promptBudget: 333.4, depth: Number.NaN })).toMatchObject({
             book: 'Мои',
             promptBudget: 333,

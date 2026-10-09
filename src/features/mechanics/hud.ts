@@ -11,11 +11,17 @@
 //   the chat column between the side panels. Dragged by its grip; dropped in the upper half it sticks to the top,
 //   else to the bottom; the edge and distance are remembered per device (localStorage). Phones (ST's 1000px
 //   breakpoint): one line that scrolls sideways; a tap expands it.
+// - Or, with the setting «Слева от чата» on a wide screen, a fuller panel in the free space left of the chat column
+//   (hud-place.ts: when; hud-side.ts: what). Without the room there it is the overlay above, the setting unchanged;
+//   while it is the left panel the page's layout is watched (#sheld, <body>, ST's left drawer; ST's movable UI).
 // - Off with the setting, without a chat or when no mechanic is on. Everything is removed on dispose.
 import type { App, Logger, Unsubscribe } from '../../shared/contracts';
 import { button, clear, el, icon } from '../../ui/components/dom';
 import { coalesce } from '../../ui/views/format';
 import type { AttributeDef, CheckDef, MechanicDef, MechanicsApi } from './api';
+import { measureSideRoom, phone, resolveHudLayout } from './hud-place';
+import type { HudLayout } from './hud-place';
+import { SIDE_CLASS, sideCss, sideFight, sideHolder, sideHolders } from './hud-side';
 import { rollLine } from './play-strip';
 import type { MechanicsSettings } from './parts';
 import {
@@ -34,9 +40,10 @@ import {
 
 export const HUD_ID = 'maestro-m25-hud';
 export const HUD_STORAGE_KEY = 'maestro.m25.hud';
-const PHONE_QUERY = '(max-width: 1000px)';
 const PLACE_POLL_MS = 1500;
 const EDGE_GAP = 4;
+/** The left panel follows layout changes this soon (ResizeObserver / MutationObserver bursts are merged). */
+const LAYOUT_NUDGE_MS = 50;
 
 export const HUD_CSS = `
 #${HUD_ID} { position: fixed; z-index: 2890; box-sizing: border-box; display: flex; flex-direction: column; gap: 4px;
@@ -60,7 +67,7 @@ export const HUD_CSS = `
 #${HUD_ID}.maestro-m25-hud-line .maestro-m25-hud-rows::-webkit-scrollbar { display: none; }
 #${HUD_ID}.maestro-m25-hud-line .maestro-m25-hud-holder { flex: none; flex-wrap: nowrap; }
 #${HUD_ID}.maestro-m25-hud-dragging { opacity: 0.85; cursor: grabbing; }
-`;
+${sideCss(HUD_ID)}`;
 
 export type HudEdge = 'top' | 'bottom';
 
@@ -152,14 +159,6 @@ function storage(): Storage | null {
     }
 }
 
-function phone(): boolean {
-    try {
-        return globalThis.matchMedia?.(PHONE_QUERY).matches ?? false;
-    } catch {
-        return false;
-    }
-}
-
 export interface HudDeps {
     app: App;
     log: Logger;
@@ -181,6 +180,13 @@ export class MechanicsHud {
     private drag: { startY: number; startTop: number; pointer: number } | null = null;
     /** Removes the document listeners of a drag in progress. */
     private dragOff: (() => void) | null = null;
+    /** Where it is drawn now: over the chat or the left panel (and why over the chat). */
+    private layout: HudLayout = { mode: 'chat', reason: 'setting' };
+    /** Characters whose section of the left panel is folded (lower case; for the page's life). */
+    private readonly folded = new Set<string>();
+    /** Observers of the page's layout while the left panel is wanted. */
+    private watchers: { disconnect(): void }[] = [];
+    private readonly nudge = coalesce(() => this.position(), LAYOUT_NUDGE_MS);
 
     constructor(
         private readonly deps: HudDeps,
@@ -212,6 +218,7 @@ export class MechanicsHud {
         if (this.disposed) return;
         this.disposed = true;
         this.redraw.cancel();
+        this.nudge.cancel();
         this.stopPolling();
         this.dragOff?.();
         this.node?.remove();
@@ -311,7 +318,28 @@ export class MechanicsHud {
         return !this.disposed && this.deps.settings().hud !== false && !!app.host.chatId() && this.active().length > 0;
     }
 
+    /** The characters of the left panel, each a section that folds. */
+    private sideSections(): HTMLElement[] {
+        const i18n = this.deps.app.i18n;
+        return sideHolders(this.api, this.active(), this.deps.settings().hudHolders ?? [])
+            .map((holder) => {
+                const key = holder.trim().toLowerCase();
+                return sideHolder(i18n, this.api, holder, !this.folded.has(key), (open) => {
+                    if (open) this.folded.delete(key);
+                    else this.folded.add(key);
+                });
+            })
+            .filter((node): node is HTMLElement => node !== null);
+    }
+
     /* ---------------------------------------------------------------- drawing */
+
+    /** Where it goes now: the setting, and for «left» whether the page has the room (hud-place.ts). */
+    private resolveLayout(): HudLayout {
+        const placement = this.deps.settings().hudPlacement;
+        if (placement !== 'left' || typeof document === 'undefined') return { mode: 'chat', reason: 'setting' };
+        return resolveHudLayout(placement, measureSideRoom(document));
+    }
 
     render(): void {
         if (this.disposed || typeof document === 'undefined') return;
@@ -319,22 +347,46 @@ export class MechanicsHud {
             this.hide();
             return;
         }
-        const rows = this.holders()
-            .map((holder) => this.holderRow(holder))
-            .filter((row): row is HTMLElement => row !== null);
+        const layout = this.resolveLayout();
+        this.layout = layout;
+        const side = layout.mode === 'side';
+        const content = side
+            ? this.sideSections()
+            : this.holders()
+                  .map((holder) => this.holderRow(holder))
+                  .filter((row): row is HTMLElement => row !== null);
         const checks = this.checks();
         const persona = personaOf(this.api);
         const hasItems = !!persona && itemsOf(this.api, persona).length > 0;
-        if (!rows.length && !checks.length && !hasItems) {
-            this.hide();
+        if (!content.length && !checks.length && !hasItems) {
+            // «Left»: the left panel shows more characters than the line over the chat; when the room comes back it
+            // may have something to show, so the page stays watched.
+            this.hide(this.deps.settings().hudPlacement === 'left');
             return;
         }
         const node = this.node ?? this.create();
         if (!node.isConnected) document.body.appendChild(node);
         node.hidden = false;
-        const line = phone() && !this.expanded;
-        node.classList.toggle('maestro-m25-hud-line', line);
+        const focus = focusKeyIn(node);
+        const scroll = node.querySelector('.maestro-m25-hud-side-body')?.scrollTop ?? 0;
         clear(node);
+        node.dataset.layout = layout.mode;
+        node.classList.toggle(SIDE_CLASS, side);
+        node.classList.toggle('maestro-m25-hud-line', !side && phone() && !this.expanded);
+        if (side) this.drawSide(node, content, checks);
+        else this.drawChat(node, content, checks, hasItems);
+        this.position(true);
+        restoreIn(node, focus, scroll);
+        this.startPolling();
+    }
+
+    /** Over the chat: the grip, the characters in one wrapping line, the quick buttons. */
+    private drawChat(
+        node: HTMLElement,
+        rows: HTMLElement[],
+        checks: { def: MechanicDef; check: CheckDef }[],
+        hasItems: boolean,
+    ): void {
         const t = this.t;
         const grip = el(
             'button',
@@ -352,38 +404,87 @@ export class MechanicsHud {
             this.expanded = !this.expanded;
             this.render();
         });
-        const actions = el('div', { class: 'maestro-m25-hud-actions' }, [
-            checks.length
-                ? button({
-                      icon: 'fa-dice-d20',
-                      title: t('m25.hud.roll'),
-                      kind: this.panel === 'roll' ? 'primary' : 'ghost',
-                      className: 'maestro-m25-hud-roll',
-                      onClick: () => this.toggle('roll'),
-                  })
-                : null,
-            hasItems
-                ? button({
-                      icon: 'fa-sack-dollar',
-                      title: t('m25.hud.items'),
-                      kind: this.panel === 'items' ? 'primary' : 'ghost',
-                      className: 'maestro-m25-hud-items',
-                      onClick: () => this.toggle('items'),
-                  })
-                : null,
-            button({
-                icon: 'fa-up-right-from-square',
-                title: t('m25.hud.window'),
-                kind: 'ghost',
-                className: 'maestro-m25-hud-open',
-                onClick: () => this.openWindow(),
-            }),
-        ]);
-        node.append(el('div', { class: 'maestro-m25-hud-bar' }, [grip, rowsBox, actions]));
+        node.append(el('div', { class: 'maestro-m25-hud-bar' }, [grip, rowsBox, this.actions(checks, hasItems)]));
         const panel = this.panelNode(checks);
         if (panel) node.append(panel);
-        this.position();
-        this.startPolling();
+    }
+
+    /** The left panel: the title with the quick buttons, the roll panel, the fight, the characters (scrolls). */
+    private drawSide(
+        node: HTMLElement,
+        sections: HTMLElement[],
+        checks: { def: MechanicDef; check: CheckDef }[],
+    ): void {
+        const t = this.t;
+        // Every item of every character is in its section: no «Инвентарь» panel here.
+        if (this.panel === 'items') this.panel = null;
+        node.append(
+            el('div', { class: 'maestro-m25-hud-side-head' }, [
+                el('span', { class: 'maestro-m25-hud-side-title', text: t('m25.hud.title') }),
+                this.actions(checks, false),
+            ]),
+        );
+        const panel = this.panelNode(checks);
+        if (panel) node.append(panel);
+        const fight = sideFight(this.deps.app.i18n, this.api);
+        if (fight) node.append(fight);
+        if (!sections.length) return;
+        node.append(
+            el(
+                'div',
+                {
+                    class: 'maestro-m25-hud-side-body',
+                    data: { focusKey: 'body' },
+                    attrs: { tabindex: 0, role: 'group', 'aria-label': t('m25.hud.side.body') },
+                },
+                sections,
+            ),
+        );
+    }
+
+    /** «Бросок», «Инвентарь» (when he has items) and the mechanics window. */
+    private actions(checks: { def: MechanicDef; check: CheckDef }[], hasItems: boolean): HTMLElement {
+        const t = this.t;
+        const keyed = (node: HTMLButtonElement, key: string) => {
+            node.dataset.focusKey = key;
+            return node;
+        };
+        return el('div', { class: 'maestro-m25-hud-actions' }, [
+            checks.length
+                ? keyed(
+                      button({
+                          icon: 'fa-dice-d20',
+                          title: t('m25.hud.roll'),
+                          kind: this.panel === 'roll' ? 'primary' : 'ghost',
+                          className: 'maestro-m25-hud-roll',
+                          onClick: () => this.toggle('roll'),
+                      }),
+                      'roll',
+                  )
+                : null,
+            hasItems
+                ? keyed(
+                      button({
+                          icon: 'fa-sack-dollar',
+                          title: t('m25.hud.items'),
+                          kind: this.panel === 'items' ? 'primary' : 'ghost',
+                          className: 'maestro-m25-hud-items',
+                          onClick: () => this.toggle('items'),
+                      }),
+                      'items',
+                  )
+                : null,
+            keyed(
+                button({
+                    icon: 'fa-up-right-from-square',
+                    title: t('m25.hud.window'),
+                    kind: 'ghost',
+                    className: 'maestro-m25-hud-open',
+                    onClick: () => this.openWindow(),
+                }),
+                'window',
+            ),
+        ]);
     }
 
     private create(): HTMLElement {
@@ -393,8 +494,10 @@ export class MechanicsHud {
         return this.node;
     }
 
-    private hide(): void {
-        this.stopPolling();
+    /** Takes it off the page; `watch`: the layout is still followed (it may show again in the other place). */
+    private hide(watch = false): void {
+        if (watch) this.startPolling();
+        else this.stopPolling();
         if (this.node) {
             this.node.hidden = true;
             this.node.remove();
@@ -468,9 +571,28 @@ export class MechanicsHud {
 
     /* ---------------------------------------------------------------- placing and dragging */
 
-    position(): void {
+    /** Places it; a change between over the chat and the left panel draws it again. */
+    position(fromRender = false): void {
+        if (this.disposed) return;
+        if (!fromRender && this.deps.settings().hudPlacement === 'left' && this.wanted()) {
+            const layout = this.resolveLayout();
+            if (layout.mode !== this.layout.mode) {
+                this.render();
+                return;
+            }
+            this.layout = layout;
+        }
         const node = this.node;
         if (!node?.isConnected || node.hidden) return;
+        const layout = this.layout;
+        if (layout.mode === 'side') {
+            node.style.left = `${layout.left}px`;
+            node.style.top = `${layout.top}px`;
+            node.style.width = `${layout.width}px`;
+            node.style.maxHeight = `${layout.maxHeight}px`;
+            return;
+        }
+        node.style.maxHeight = '';
         const area = chatArea();
         node.style.left = `${Math.round(area.left + EDGE_GAP)}px`;
         node.style.width = `${Math.max(120, Math.round(area.right - area.left - EDGE_GAP * 2))}px`;
@@ -480,15 +602,55 @@ export class MechanicsHud {
     }
 
     private startPolling(): void {
-        if (this.poll !== null || this.disposed) return;
+        if (this.disposed) return;
         // ST's panels and Maestro's windows open and close without telling: a cheap look keeps the HUD in the gap.
-        this.poll = setInterval(() => this.position(), PLACE_POLL_MS);
+        if (this.poll === null) this.poll = setInterval(() => this.position(), PLACE_POLL_MS);
+        if (this.deps.settings().hudPlacement === 'left') this.watchLayout();
+        else this.unwatchLayout();
     }
 
     private stopPolling(): void {
+        this.unwatchLayout();
         if (this.poll === null) return;
         clearInterval(this.poll);
         this.poll = null;
+    }
+
+    /**
+     * The left panel follows the page at once: the chat column resized or moved (ST's chat width, its movable UI),
+     * <body> resized, ST's left drawer opened, pinned or closed. The poll catches the rest (DES's portrait panel,
+     * Maestro's windows docked to the left).
+     */
+    private watchLayout(): void {
+        if (this.watchers.length || this.disposed || typeof document === 'undefined') return;
+        const nudge = () => this.nudge();
+        const sheld = document.getElementById('sheld');
+        const drawer = document.getElementById('left-nav-panel');
+        if (typeof ResizeObserver === 'function') {
+            const resized = new ResizeObserver(nudge);
+            if (sheld) resized.observe(sheld);
+            resized.observe(document.body);
+            this.watchers.push(resized);
+        }
+        if (typeof MutationObserver === 'function') {
+            const changed = new MutationObserver(nudge);
+            const attributes = { attributes: true, attributeFilter: ['class', 'style'] };
+            if (sheld) changed.observe(sheld, attributes);
+            if (drawer) changed.observe(drawer, attributes);
+            changed.observe(document.body, attributes);
+            this.watchers.push(changed);
+        }
+    }
+
+    private unwatchLayout(): void {
+        this.nudge.cancel();
+        for (const watcher of this.watchers.splice(0)) {
+            try {
+                watcher.disconnect();
+            } catch (error) {
+                this.deps.log.debug('mechanics HUD: observer release failed', error);
+            }
+        }
     }
 
     private startDrag(event: PointerEvent): void {
@@ -536,5 +698,29 @@ export class MechanicsHud {
     /** The remembered place (tests, the window). */
     placeNow(): HudPlace {
         return { ...this.place };
+    }
+
+    /** Where it is drawn now (tests). */
+    layoutNow(): HudLayout {
+        return { ...this.layout };
+    }
+}
+
+/** What has the keyboard focus inside the HUD (a `data-focus-key`), to give it back after a redraw. */
+function focusKeyIn(node: HTMLElement): string | null {
+    const active = document.activeElement;
+    if (!(active instanceof HTMLElement) || !node.contains(active)) return null;
+    return active.closest<HTMLElement>('[data-focus-key]')?.dataset.focusKey ?? null;
+}
+
+/** Gives back the focus and the scroll of the left panel's characters after a redraw. */
+function restoreIn(node: HTMLElement, focus: string | null, scroll: number): void {
+    const body = node.querySelector<HTMLElement>('.maestro-m25-hud-side-body');
+    if (body && scroll > 0) body.scrollTop = scroll;
+    if (!focus) return;
+    for (const item of node.querySelectorAll<HTMLElement>('[data-focus-key]')) {
+        if (item.dataset.focusKey !== focus) continue;
+        item.focus({ preventScroll: true });
+        return;
     }
 }

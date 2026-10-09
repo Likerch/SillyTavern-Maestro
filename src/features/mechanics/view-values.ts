@@ -133,24 +133,31 @@ function band(share: number | undefined): 'low' | 'mid' | 'high' | 'none' {
     return 'high';
 }
 
-/** One value drawn in its view; `withName` puts the attribute's name (or sign) before it. */
+/**
+ * One value drawn in its view; `withName` puts the attribute's name (or sign) before it; `full` puts both the sign and
+ * the name, and the «icon» view keeps its coloured dot (the left panel of the HUD: one value per line).
+ */
 export function valueNode(
     t: T,
     attribute: Pick<AttributeDef, 'name' | 'icon'>,
     shown: ShownValue,
-    options: { withName?: boolean; nameOnly?: boolean } = {},
+    options: { withName?: boolean; nameOnly?: boolean; full?: boolean } = {},
 ): HTMLElement {
     const sign = signOf(attribute);
     const words = wordsText(t, shown.words);
     const title = [attribute.name, shown.view === 'words' ? words : shown.text, shown.view === 'words' ? '' : words]
         .filter(Boolean)
         .join(' · ');
+    const signNode = sign
+        ? el('span', { class: 'maestro-m25-v-sign', text: sign, attrs: { 'aria-hidden': 'true' } })
+        : null;
+    const nameNode = () => el('span', { class: 'maestro-m25-v-name', text: attribute.name });
     const label =
         options.withName === false
             ? null
-            : sign
-              ? el('span', { class: 'maestro-m25-v-sign', text: sign, attrs: { 'aria-hidden': 'true' } })
-              : el('span', { class: 'maestro-m25-v-name', text: attribute.name });
+            : options.full
+              ? el('span', { class: 'maestro-m25-v-label' }, [signNode, nameNode()])
+              : (signNode ?? nameNode());
     const parts: (HTMLElement | null)[] = [label];
     switch (shown.view) {
         case 'bar':
@@ -163,7 +170,9 @@ export function valueNode(
             parts.push(el('span', { class: 'maestro-m25-v-words', text: words }));
             break;
         case 'icon':
-            if (!sign) parts.push(el('span', { class: 'maestro-m25-v-dot', data: { band: band(shown.share) } }));
+            if (!sign || options.full) {
+                parts.push(el('span', { class: 'maestro-m25-v-dot', data: { band: band(shown.share) } }));
+            }
             break;
         default:
             parts.push(el('span', { class: 'maestro-m25-v-number', text: shown.text }));
@@ -482,13 +491,14 @@ function valueSegment(t: T, api: MechanicsApi, change: StateChange, raw: boolean
 
 /**
  * A holder's mechanics as the player may see them in a place: per mechanic the values in their view, then the
- * statuses and items. Null when nothing shows.
+ * statuses and items. Null when nothing shows. `full`: each value with its sign and name (the HUD's left panel).
  */
 export function holderView(
     i18n: Pick<I18n, 't' | 'locale'>,
     api: MechanicsApi,
     holder: string,
     place: VisibilityPlace,
+    options: { full?: boolean } = {},
 ): HTMLElement | null {
     const t = translator(i18n);
     const rows: HTMLElement[] = [];
@@ -513,7 +523,7 @@ export function holderView(
         const values = def.attributes
             .map((attribute) => {
                 const shown = shownIn(api, def, attribute, holder, place, effective);
-                return shown ? valueNode(t, attribute, shown) : null;
+                return shown ? valueNode(t, attribute, shown, { full: options.full === true }) : null;
             })
             .filter((node): node is HTMLElement => node !== null);
         if (!values.length) continue;

@@ -62,6 +62,7 @@ export function readMechanicsSettings(slice: Partial<MechanicsSettings>): Mechan
     for (const key of ['hud', 'desPersona'] as const) {
         if (typeof slice[key] !== 'boolean') slice[key] = defaults[key];
     }
+    if (slice.hudPlacement !== 'chat' && slice.hudPlacement !== 'left') slice.hudPlacement = defaults.hudPlacement;
     for (const key of ['hudAttrs', 'hudHolders', 'desAttrs'] as const) {
         const clean = pins(slice[key]);
         if (!Array.isArray(slice[key]) || clean.length !== slice[key].length) slice[key] = clean;

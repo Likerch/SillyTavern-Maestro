@@ -112,6 +112,7 @@ describe('mechanics module', () => {
             personaFallback: 'background',
             relevance: 4,
             hud: true,
+            hudPlacement: 'chat',
             hudAttrs: [],
             hudHolders: [],
             desAttrs: [],

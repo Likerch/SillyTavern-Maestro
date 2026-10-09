@@ -2,14 +2,15 @@
 // definitions, auto checks, the widgets strip, the background parse, the prompt budget and depth (the live slice of
 // settings.ts; P16: the depth keeps the injection near the end); plan-2 §6: rolls asked by the model, fights by the
 // director's scene, how the user's own character's DES stats are read, and how far back factions are looked for;
-// plan-2 §6.А: the HUD, the user's character under the DES portraits and which values show there. Narrator messages
-// and the status block are places of each mechanic («Где видно» in the constructor; В22: off by default).
+// plan-2 §6.А: the HUD (over the chat or, on a wide screen, left of it), the user's character under the DES portraits
+// and which values show there. Narrator messages and the status block are places of each mechanic («Где видно» in the
+// constructor; В22: off by default).
 import { resolveVisibility } from '../../domain/mechanics-visibility';
 import { moduleSettingsSection } from '../../ui/components/card';
 import { field, numberInput, select, toggle } from '../../ui/components/controls';
 import { el } from '../../ui/components/dom';
 import { DEFAULT_MECHANICS_BOOK, MECHANICS_KEY } from './parts';
-import type { DefinitionsPart, MechanicsSettings, PartDeps, SectionRenderer } from './parts';
+import type { DefinitionsPart, HudPlacement, MechanicsSettings, PartDeps, SectionRenderer } from './parts';
 import { DEPTH_LIMITS, PROMPT_BUDGET_LIMITS, RELEVANCE_LIMITS } from './settings';
 import { nextPins, pinKey } from './widgets';
 
@@ -110,12 +111,27 @@ export function settingsSection(deps: PartDeps, defs?: Pick<DefinitionsPart, 'ac
             }),
             t('m25.def.settings.personaFallback.hint'),
         );
+        const placement = field(
+            t('m25.ctor.settings.hudPlacement'),
+            select<HudPlacement>({
+                value: current.hudPlacement === 'left' ? 'left' : 'chat',
+                options: (['chat', 'left'] as const).map((value) => ({
+                    value,
+                    label: t(`m25.ctor.settings.hudPlacement.${value}`),
+                })),
+                label: t('m25.ctor.settings.hudPlacement'),
+                onChange: (value) => commit('hudPlacement', value === 'left' ? 'left' : 'chat'),
+            }),
+            t('m25.ctor.settings.hudPlacement.hint'),
+        );
+        placement.classList.add('maestro-m25-hud-placement');
         const node = moduleSettingsSection(t('m25.def.settings.title'), [
             flag('autoChecks'),
             flag('modelRolls'),
             flag('autoCombat'),
             flag('hud', 'm25.ctor.settings.hud'),
             el('div', { class: 'maestro-hint', text: t('m25.ctor.settings.hud.hint') }),
+            placement,
             flag('strip'),
             flag('desPersona', 'm25.ctor.settings.desPersona'),
             desChoice(),
