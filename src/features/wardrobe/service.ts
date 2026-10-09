@@ -885,7 +885,9 @@ export class WardrobeService implements Required<WardrobeApi> {
         for (const character of snapshot?.characters ?? []) {
             if (character.offScene) continue;
             const target = this.resolveCharacter(character.name);
-            if (target && !targets.some((item) => item.passportId === target.passportId)) targets.push(target);
+            // Shown as the story writes the name (the tracker's «Вера»), not the world model's canonical «Vera».
+            if (target && !targets.some((item) => item.passportId === target.passportId))
+                targets.push({ ...target, name: character.name.trim() || target.name });
         }
         if (targets.length) return { targets, present: true };
         for (const item of this.chatPassports()) {

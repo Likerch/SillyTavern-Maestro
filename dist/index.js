@@ -195708,7 +195708,10 @@ var WardrobeService = class {
 		for (const character of snapshot?.characters ?? []) {
 			if (character.offScene) continue;
 			const target = this.resolveCharacter(character.name);
-			if (target && !targets.some((item) => item.passportId === target.passportId)) targets.push(target);
+			if (target && !targets.some((item) => item.passportId === target.passportId)) targets.push({
+				...target,
+				name: character.name.trim() || target.name
+			});
 		}
 		if (targets.length) return {
 			targets,

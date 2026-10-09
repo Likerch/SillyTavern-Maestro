@@ -111,6 +111,12 @@ export class PersonaCreator {
         this.collector = new PersonaCollector(app, log, personas);
     }
 
+    /** NAI Studio's picture error code in words (codes: cost, aborted, no-passport, inactive, upload, or a generation error). */
+    private pictureReason(code: string | undefined): string {
+        const known = ['cost', 'no-passport', 'inactive', 'upload', 'unauthorized', 'rate-limited'];
+        return code && known.includes(code) ? this.t(`m41.picture.${code}`) : code || this.t('m41.detail.unknown');
+    }
+
     private t(key: string, params?: Record<string, string | number>): string {
         return this.app.i18n.t(key, params);
     }
@@ -287,7 +293,12 @@ export class PersonaCreator {
                 set('picture', 'done');
                 await this.personas.refresh(avatarId);
             } else if (stopped()) set('picture', 'skipped', this.t('m41.detail.cancelled'));
-            else set('picture', 'failed', this.t('m41.detail.pictureFailed', { reason: drawn.error ?? '?' }));
+            else
+                set(
+                    'picture',
+                    'failed',
+                    this.t('m41.detail.pictureFailed', { reason: this.pictureReason(drawn.error) }),
+                );
         }
         outcome.outfits = passport?.outfits.length ?? 0;
 
