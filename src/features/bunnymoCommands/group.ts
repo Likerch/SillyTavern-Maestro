@@ -183,7 +183,10 @@ export class BunnyMoCommands {
         };
         const card = String(ctx.name2 ?? '').trim();
         try {
-            const cast = sceneCast(sceneTracker((ctx.chat ?? []) as unknown[]), { persona, ownName, hidden, resolve });
+            // The scene the player sees: the latest reply counts before it is answered (a fresh chat has only the
+            // greeting, whose DES tracker the preparation filled), so the chat is read as if the next message were sent.
+            const chat = [...((ctx.chat ?? []) as unknown[]), { is_user: true }];
+            const cast = sceneCast(sceneTracker(chat), { persona, ownName, hidden, resolve });
             for (const member of cast) add(member.name);
         } catch (error) {
             this.log.debug('BunnyMo commands: the scene is not readable', error);

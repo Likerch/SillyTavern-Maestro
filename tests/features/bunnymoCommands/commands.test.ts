@@ -169,6 +169,12 @@ describe('the BunnyMo group', () => {
         expect(targets.map((entry) => entry.label)).toEqual(['Офелия', 'Кай', 'Вера', 'Алекс (ты)', 'Другой…']);
     });
 
+    it('offers the scene of a fresh chat: the greeting’s tracker before anyone answered it', () => {
+        env.mock.chat = [tracker(['Элизабет', 'Томас'])];
+        const fresh = item(env.groups[0]!.items(), 'fullsheet').submenu!();
+        expect(fresh.map((entry) => entry.label)).toEqual(['Элизабет', 'Томас', 'Вера', 'Алекс (ты)', 'Другой…']);
+    });
+
     it('puts the command at the start of the message box and keeps the typed text', async () => {
         box().value = 'Как ты?';
         const input = vi.fn();

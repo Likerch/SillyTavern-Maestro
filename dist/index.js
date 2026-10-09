@@ -58490,7 +58490,7 @@ var BunnyMoCommands = class {
 		};
 		const card = String(ctx.name2 ?? "").trim();
 		try {
-			const cast = sceneCast(sceneTracker(ctx.chat ?? []), {
+			const cast = sceneCast(sceneTracker([...ctx.chat ?? [], { is_user: true }]), {
 				persona,
 				ownName,
 				hidden,
