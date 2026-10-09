@@ -19,6 +19,13 @@ import {
     prepareSchema,
     PREPARE_SCHEMA,
 } from '../../src/domain/prepare-extract';
+import {
+    buildPersonaMessages,
+    parsePersonaAnswer,
+    personaSchema,
+    PERSONA_SCHEMA,
+} from '../../src/domain/persona-create';
+import type { PersonaRequest } from '../../src/domain/persona-create';
 import { buildRevisionMessages, revisionSchema } from '../../src/domain/revision-prompt';
 import {
     parseTranslation,
@@ -206,6 +213,51 @@ describe('mock LLM', () => {
         expect(vera.kind === 'character' && vera.data.present).toBe(true);
         expect(vera.russian).toContain('капитан');
         expect(parsed!.items.find((item) => item.id === 'place:old fort')?.sources).toEqual(['book:World#7']);
+    });
+
+    it('answers the persona schema (M41): a persona by the comment, fewer outfits on a marker, fixed on the retry', async () => {
+        const request = (comment: string, extra: Partial<PersonaRequest> = {}): PersonaRequest => ({
+            card: {
+                name: 'Вера',
+                description: 'Вера — капитан портовой стражи.',
+                personality: '',
+                scenario: '',
+                firstMessage: 'Вера ждёт {{user}}.',
+                greeting: null,
+                creatorNotes: '',
+            },
+            userLines: [],
+            lore: [{ book: 'Гавань', title: 'Старый форт', text: 'Руины над гаванью.' }],
+            comment,
+            language: 'ru',
+            ...extra,
+        });
+        const ask = async (input: PersonaRequest) => {
+            const reply = await complete({
+                messages: buildPersonaMessages(input),
+                response_format: { type: 'json_schema', json_schema: { ...personaSchema(), strict: true } },
+            });
+            return JSON.parse(reply.choices[0]!.message.content) as unknown;
+        };
+        const first = await ask(request('наёмница с севера, зовут Рената'));
+        expect(matchesSchema(first, PERSONA_SCHEMA)).toBe(true);
+        const parsed = parsePersonaAnswer(first);
+        expect(parsed.ok).toBe(true);
+        if (!parsed.ok) return;
+        expect(parsed.draft.name).toBe('Рената');
+        expect(parsed.draft.title).toBe('наёмница с севера');
+        expect(parsed.draft.outfits).toHaveLength(6);
+        expect(parsed.draft.background).toContain('с Вера');
+        expect(parsed.draft.background).toContain('«Старый форт»');
+
+        const other = parsePersonaAnswer(await ask(request('', { avoid: ['Мира'] })));
+        expect(other.ok && other.draft.name).toBe('Ярослава');
+
+        const short = parsePersonaAnswer(await ask(request('маг [mock:outfits:3]')));
+        expect(short).toEqual({ ok: false, reason: 'outfits', outfits: 3 });
+        const fixed = parsePersonaAnswer(await ask(request('маг [mock:outfits:3]', { fix: 'give 5 or 6 outfits.' })));
+        expect(fixed.ok && fixed.draft.outfits.length).toBe(6);
+        expect(parsePersonaAnswer(await ask(request('маг [mock:english]')))).toEqual({ ok: false, reason: 'language' });
     });
 
     it('answers the real revision and living canon schemas with a Russian sentence for the cards', async () => {

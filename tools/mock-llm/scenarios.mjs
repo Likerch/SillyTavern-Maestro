@@ -1316,6 +1316,74 @@ registerSchema('maestro_des_seed', (ctx, rng) => {
     };
 });
 
+// «Персона для персонажа» (M41, src/domain/persona-create.ts, schema 'maestro_persona_create', task
+// 'persona.create'): the player's character for the card of the request. The name comes from the player's comment
+// («зовут Мира»), else the first stand name no earlier attempt took; the title is the comment's first phrase; the
+// background names the card's character and the first lore entry the request gives; six outfits (Russian names and
+// wordings, English tags). `[mock:outfits:N]` in the comment gives N outfits (fewer than five makes Maestro ask once
+// more, and the retry gets six); `[mock:english]` writes the look in English (rejected as not Russian, then fixed).
+const PERSONA_NAMES = { ru: ['Мира', 'Ярослава', 'Рената', 'Тамара'], en: ['Mira', 'Yaroslava', 'Renata', 'Tamara'] };
+const PERSONA_OUTFITS = [
+    [
+        'Повседневный',
+        'льняная рубаха, кожаный жилет, тёмные штаны и сапоги',
+        'white linen shirt, brown leather vest, dark trousers, leather boots',
+    ],
+    ['Домашний', 'широкая шерстяная туника и мягкие туфли', 'loose wool tunic, soft slippers'],
+    [
+        'Парадный',
+        'тёмно-синий камзол с серебряной вышивкой и белый шейный платок',
+        'navy blue doublet, silver embroidery, white cravat',
+    ],
+    [
+        'Рабочий',
+        'стёганая куртка наёмника, кожаные наручи и пояс с ножнами',
+        'quilted gambeson, leather bracers, sword belt',
+    ],
+    [
+        'Дорожный',
+        'серый плащ с капюшоном, высокие сапоги и сумка через плечо',
+        'grey hooded cloak, knee boots, shoulder bag',
+    ],
+    ['Ночной', 'длинная льняная сорочка', 'white linen nightgown'],
+];
+
+registerSchema('maestro_persona_create', (ctx) => {
+    const request = String(ctx.lastUserText ?? '');
+    const russian = /Story language: Russian/.test(request);
+    const retry = /Your previous answer was rejected/.test(request);
+    const card = /<card>\nName: ([^\n]+)/.exec(request)?.[1]?.trim() || (russian ? 'хозяин' : 'the host');
+    const comment = (/<player_comment>\n([\s\S]*?)\n<\/player_comment>/.exec(request)?.[1] ?? '')
+        .replace(/\[mock:[^\]]*\]/gi, '')
+        .trim();
+    const avoid = (/Earlier attempts were: (.+?)\. Make a different/.exec(request)?.[1] ?? '').split(', ');
+    const lore = /<lore>\n\[[^\]·]+· ([^\]]+)\]/.exec(request)?.[1]?.trim() ?? '';
+    const names = PERSONA_NAMES[russian ? 'ru' : 'en'];
+    const name =
+        /(?:зовут|name is)\s+([\p{Lu}][\p{L}-]+)/u.exec(comment)?.[1] ??
+        names.find((item) => !avoid.includes(item)) ??
+        names[0];
+    const title = comment ? comment.split(/[,.;]/)[0].trim().slice(0, 60) : russian ? 'странница' : 'a wanderer';
+    const requested = Number.parseInt(ctx.markers?.get('outfits') ?? '', 10);
+    const count = retry || !Number.isFinite(requested) ? 6 : Math.max(0, Math.min(8, requested));
+    const english = ctx.markers?.has('english') && !retry;
+    const outfits = Array.from({ length: count }, (_, index) => {
+        const [outfitName, wording, tags] = PERSONA_OUTFITS[index % PERSONA_OUTFITS.length];
+        return { name: index < PERSONA_OUTFITS.length ? outfitName : `${outfitName} ${index + 1}`, wording, tags };
+    });
+    return {
+        name,
+        title,
+        appearance: english
+            ? 'A tall, lean woman of about twenty-five with a light braid, grey eyes and a thin scar on her cheek.'
+            : 'Высокая поджарая женщина лет двадцати пяти: светлая коса до лопаток, серые внимательные глаза, тонкий шрам на левой щеке. Держится прямо и чуть настороженно.',
+        appearance_en: 'adult woman, tall, lean, light blonde braid, grey eyes, thin scar on left cheek',
+        background: `Выросла на севере и рано ушла в вольные отряды; с ${card} её связывает старый долг.${lore ? ` О «${lore}» знает не понаслышке.` : ''}`,
+        personality: 'Немногословна, упряма, держит слово.',
+        outfits,
+    };
+});
+
 /* ------------------------------------------------------------------ reply builders */
 
 /**
