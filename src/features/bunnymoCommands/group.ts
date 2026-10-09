@@ -187,7 +187,8 @@ export class BunnyMoCommands {
             // greeting, whose DES tracker the preparation filled), so the chat is read as if the next message were sent.
             const chat = [...((ctx.chat ?? []) as unknown[]), { is_user: true }];
             const cast = sceneCast(sceneTracker(chat), { persona, ownName, hidden, resolve });
-            for (const member of cast) add(member.name);
+            // As the story writes the name (the tracker's «Вера»), not the world model's canonical «Vera».
+            for (const member of cast) add(member.character.name || member.name);
         } catch (error) {
             this.log.debug('BunnyMo commands: the scene is not readable', error);
         }
