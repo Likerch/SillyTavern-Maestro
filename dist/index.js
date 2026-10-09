@@ -140873,6 +140873,17 @@ var PersonaCreator = class {
 		this.settings = settings;
 		this.collector = new PersonaCollector(app, log, personas);
 	}
+	/** NAI Studio's picture error code in words (codes: cost, aborted, no-passport, inactive, upload, or a generation error). */
+	pictureReason(code) {
+		return code && [
+			"cost",
+			"no-passport",
+			"inactive",
+			"upload",
+			"unauthorized",
+			"rate-limited"
+		].includes(code) ? this.t(`m41.picture.${code}`) : code || this.t("m41.detail.unknown");
+	}
 	t(key, params) {
 		return this.app.i18n.t(key, params);
 	}
@@ -141067,7 +141078,7 @@ var PersonaCreator = class {
 				set("picture", "done");
 				await this.personas.refresh(avatarId);
 			} else if (stopped()) set("picture", "skipped", this.t("m41.detail.cancelled"));
-			else set("picture", "failed", this.t("m41.detail.pictureFailed", { reason: drawn.error ?? "?" }));
+			else set("picture", "failed", this.t("m41.detail.pictureFailed", { reason: this.pictureReason(drawn.error) }));
 		}
 		outcome.outfits = passport?.outfits.length ?? 0;
 		if (stopped()) skipRest(["current"]);
@@ -141203,6 +141214,12 @@ var PERSONA_CREATOR_STRINGS = {
 		"m41.detail.outfits.few": "{count} outfits",
 		"m41.detail.outfits.many": "{count} outfits",
 		"m41.detail.pictureFailed": "NAI Studio did not draw: {reason}",
+		"m41.picture.cost": "the picture would cost Anlas, and only free pictures are drawn (an Opus subscription draws for free)",
+		"m41.picture.no-passport": "the persona has no passport to draw from",
+		"m41.picture.inactive": "NAI Studio is off",
+		"m41.picture.upload": "the picture was drawn but could not be set as the avatar",
+		"m41.picture.unauthorized": "NovelAI does not accept the key: check it in NAI Studio",
+		"m41.picture.rate-limited": "NovelAI asks to wait: try «Картинка» in NAI Studio’s persona panel later",
 		"m41.detail.avatarFailed": "did not upload: set a picture in the persona window",
 		"m41.detail.cancelled": "stopped",
 		"m41.detail.unknown": "reason unknown",
@@ -141304,6 +141321,12 @@ var PERSONA_CREATOR_STRINGS = {
 		"m41.detail.outfits.few": "{count} наряда",
 		"m41.detail.outfits.many": "{count} нарядов",
 		"m41.detail.pictureFailed": "NAI Studio не нарисовал: {reason}",
+		"m41.picture.cost": "картинка стоила бы Anlas, а рисую только бесплатно (с подпиской Opus — бесплатно)",
+		"m41.picture.no-passport": "у персоны нет паспорта, не по чему рисовать",
+		"m41.picture.inactive": "NAI Studio выключена",
+		"m41.picture.upload": "картинка нарисована, но не поставилась аватаром",
+		"m41.picture.unauthorized": "NovelAI не принимает ключ — проверь его в NAI Studio",
+		"m41.picture.rate-limited": "NovelAI просит подождать — нарисуй позже кнопкой в панели персоны NAI Studio",
 		"m41.detail.avatarFailed": "не загрузился — поставь картинку в окне персон",
 		"m41.detail.cancelled": "остановлено",
 		"m41.detail.unknown": "причина неизвестна",
