@@ -350,6 +350,30 @@ describe('applying: every greeting gets its DES record', () => {
         expect(preparedStart(env.app, 2)).toBe(false);
     });
 
+    it('speaks «Язык истории», not the greeting: Russian with the prepared Russian names by default', async () => {
+        await applyAll();
+        const request = seedRequests()[0]!;
+        const user = request.messages.find((message) => message.role === 'user')!.content;
+        expect(user).toContain('Story language: Russian.');
+        expect(user).toContain('translate what you take from the English notes');
+        const schema = request.schema!.schema as Dict;
+        const character = (((schema.properties as Dict).characters as Dict).items as Dict).properties as Dict;
+        const names = (character.name as Dict).enum as string[];
+        expect(names).toEqual(expect.arrayContaining(['Элизабет', 'Вера', 'Томас']));
+        expect(names.every((name) => /^[А-ЯЁ]/.test(name))).toBe(true);
+    });
+
+    it('an explicit «Язык истории» wins over the Russian greeting', async () => {
+        env.settings.core().storyLanguage = 'en';
+        await applyAll();
+        const user = seedRequests()[0]!.messages.find((message) => message.role === 'user')!.content;
+        expect(user).toContain('Story language: English.');
+        expect(user).toContain('Write every text value in English');
+        const schema = seedRequests()[0]!.schema!.schema as Dict;
+        const scene = ((schema.properties as Dict).scene as Dict).properties as Dict;
+        expect((scene.weather as Dict).enum).toContain('rain');
+    });
+
     it('takes stats from the mechanics and asks NAI Studio for the portraits of new faces only', async () => {
         await applyAll();
         const tavern = charactersOf(recordOf(0));
@@ -416,14 +440,22 @@ describe('applying: every greeting gets its DES record', () => {
         );
     });
 
-    it('gives a greeting the model failed for its names only and says so', async () => {
+    it('gives a greeting the model failed for its names (and prepared outfits) only and says so', async () => {
         await analyse(started.service);
         env.llm.fail = true;
         const summary = await started.service.apply('all', { passports: false });
         await settle(30);
         const record = recordOf(1);
         const scene = (await scenes()).find((item) => item.greeting === 1)!;
-        expect(charactersOf(record).every((item) => item.emoji === '👤' && !item.details)).toBe(true);
+        // A Russian story's prepared outfit is in the story's language: it goes in as prepared, nothing else.
+        expect(
+            charactersOf(record).every(
+                (item) => item.emoji === '👤' && (!item.details || Object.keys(item.details).join() === 'Одежда'),
+            ),
+        ).toBe(true);
+        expect(charactersOf(record).find((item) => item.name === 'Вера')?.details).toEqual({
+            Одежда: 'стёганая куртка портовой стражи',
+        });
         expect(presentOf(record).sort()).toEqual(scene.data.present.filter((name) => name !== 'Кай').sort());
         expect(summary.failed.some((line) => line.itemId === DES_ITEM && /модель не ответила/.test(line.text))).toBe(
             true,
@@ -453,7 +485,7 @@ describe('applying: every greeting gets its DES record', () => {
         const archive = charactersOf(recordOf(2));
         expect(archive.map((item) => item.name)).toEqual(['Мартин']);
         expect(archive[0]).toMatchObject({ emoji: '👤' });
-        expect(archive[0]!.details).toBeUndefined();
+        expect(archive[0]!.details).toEqual({ Одежда: 'потёртая мантия архивариуса' });
         expect(des.state.lastGeneratedData.characterThoughts).toBe(recordOf(2)?.characterThoughts);
     });
 

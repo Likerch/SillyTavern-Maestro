@@ -12,16 +12,27 @@
 //   shown now becomes the active one: its outfits → the wardrobe, its type of the first scene → the director, the
 //   canon note of the start (the direction's own type then stays out);
 // - backgrounds are only proposed (a library pick or «generate» in the backgrounds window), never generated here.
+// «Язык истории» (1.20): the canon stays English (other items named by their English names, the Russian names are keys
+// and aliases); in a Russian story secrets and promises are stored in Russian for the Knowledge and Calendar windows,
+// with the English text kept for the model and the revision; passports are generated for the story's language.
 import { adaptersOf } from '../../adapters';
 import { readPassport } from '../../adapters/nai';
 import { hasCyrillic, uniqueStrings } from '../../domain/canon-keys';
 import { normName } from '../../domain/dossier-names';
 import { freeId } from '../../domain/dossier-styleup';
 import { TYPED_FIELDS_KEY } from '../../domain/entry-types';
-import { canonDraftOf, outfitAtStart, sceneFirstScene, sceneOutfits } from '../../domain/prepare-apply';
-import type { CanonEntryDraft } from '../../domain/prepare-apply';
-import { clonePlan, itemTitle } from '../../domain/prepare-plan';
+import {
+    canonDraftOf,
+    englishNames,
+    outfitAtStart,
+    sceneFirstScene,
+    sceneOutfits,
+    startNames,
+} from '../../domain/prepare-apply';
+import type { CanonEntryDraft, EnglishName } from '../../domain/prepare-apply';
+import { clonePlan, itemTitle, playerText } from '../../domain/prepare-plan';
 import type { AnyPrepareItem, PrepareItem, PrepareScope, SceneData } from '../../domain/prepare-plan';
+import type { StoryLanguage } from '../../domain/story-language';
 import type { App, JournalChange, Logger } from '../../shared/contracts';
 import type { BackgroundsApi } from '../backgrounds/api';
 import type { CalendarApi } from '../calendar/api';
@@ -56,6 +67,8 @@ export interface ApplyEnv {
     plan: readonly AnyPrepareItem[];
     /** The greeting shown now: its scene becomes the active one (null: none, e.g. the player has written). */
     shown: number | null;
+    /** «Язык истории» now (English when missing: the texts as they are). */
+    language?: StoryLanguage;
 }
 
 /** State shared by the items of one pack. */
@@ -147,7 +160,7 @@ export class Applier {
             title:
                 item.kind === 'scene'
                     ? sceneName(this.t.bind(this), item.data)
-                    : itemTitle(item) || this.t(`m37.section.${item.kind}`),
+                    : itemTitle(item, env.language) || this.t(`m37.section.${item.kind}`),
             done: [],
             skipped: [],
             failed: [],
@@ -194,11 +207,11 @@ export class Applier {
                 await this.canonParts(item, env, forCard, step);
                 break;
             case 'secret':
-                await step(this.t('m37.part.secret'), () => this.secret(item as PrepareItem<'secret'>));
+                await step(this.t('m37.part.secret'), () => this.secret(item as PrepareItem<'secret'>, env));
                 if (forCard) await step(this.t('m37.part.cardBook'), () => this.cardBookPart(item, env, null));
                 break;
             case 'promise':
-                await step(this.t('m37.part.promise'), () => this.promise(item as PrepareItem<'promise'>));
+                await step(this.t('m37.part.promise'), () => this.promise(item as PrepareItem<'promise'>, env));
                 if (forCard) await step(this.t('m37.part.cardBook'), () => this.cardBookPart(item, env, null));
                 break;
             case 'mechanic':
@@ -259,6 +272,7 @@ export class Applier {
         const saved = env.imported?.get(item.id);
         let draft: CanonEntryDraft | null = canonDraftOf(item, {
             scenes: env.plan.some((candidate) => candidate.kind === 'scene'),
+            english: this.englishOf(env),
         });
         if (saved && saved.content.trim()) {
             draft = {
@@ -281,6 +295,16 @@ export class Applier {
             }
         }
         return draft;
+    }
+
+    /** The plan's names → English names (once per plan of an apply). */
+    private english: { plan: readonly AnyPrepareItem[]; names: EnglishName } | null = null;
+
+    /** How the canon names other items: by their English names in a Russian story, as written otherwise. */
+    private englishOf(env: ApplyEnv): EnglishName {
+        if (env.language !== 'ru') return (name: string) => name;
+        if (this.english?.plan !== env.plan) this.english = { plan: env.plan, names: englishNames(env.plan) };
+        return this.english.names;
     }
 
     private async canonEntry(
@@ -331,7 +355,7 @@ export class Applier {
         env: ApplyEnv,
         draft: CanonEntryDraft | null,
     ): Promise<JournalChange[] | string> {
-        const note = draft ?? noteDraft(item);
+        const note = draft ?? noteDraft(item, this.englishOf(env));
         const written = await this.cardBook.put(env.cardBook, env.card.avatar, item, note);
         return [
             this.change(
@@ -360,7 +384,13 @@ export class Applier {
                 if (name.trim()) pack.placeIds.set(normName(name), id);
             }
         };
-        const known = item.links?.placeId ? places.get(item.links.placeId) : places.resolve(item.data.name);
+        // A place known by any of its names (a Russian story's place made before under its English name is the same).
+        const known = item.links?.placeId
+            ? places.get(item.links.placeId)
+            : [item.data.name, item.data.english, ...item.data.forms]
+                  .filter((name) => name.trim())
+                  .map((name) => places.resolve(name))
+                  .find((place) => !!place);
         if (known) {
             remember(known.id);
             return this.t('m37.skip.placeExists');
@@ -442,7 +472,7 @@ export class Applier {
             name: data.english || data.name,
             kind: 'character',
             description,
-            language: hasCyrillic(data.name) ? 'ru' : 'en',
+            language: env.language ?? (hasCyrillic(data.name) ? 'ru' : 'en'),
         });
         const passport = generated ? readPassport(generated) : null;
         if (!passport) throw new Error(this.t('m37.error.passport'));
@@ -480,15 +510,24 @@ export class Applier {
 
     /* ---------------------------------------------------------------- secrets, promises */
 
-    private async secret(item: PrepareItem<'secret'>): Promise<JournalChange[] | string> {
+    /**
+     * A secret for «Кто что знает»: in the story's language (a Russian story: its Russian line), the English statement
+     * kept beside it for the voice cards' matching and the revision. Topics carry every name of the people it is about.
+     */
+    private async secret(item: PrepareItem<'secret'>, env: ApplyEnv): Promise<JournalChange[] | string> {
         const knowledge = apiOf<KnowledgeApi>(this.app, 'knowledge');
         if (!knowledge) return this.t('m37.skip.moduleOff', { module: this.t('m37.module.knowledge') });
         if (item.exists) return this.t('m37.skip.exists');
         const data = item.data;
+        const text = playerText(item, env.language);
+        const english = text !== data.text ? data.text : '';
+        const en = this.englishOf(env);
+        const people = [data.about, ...data.knownBy, ...data.hiddenFrom];
         const linked = await linkedRecords(this.app, 'M18', () =>
             knowledge.addSecret({
-                text: data.text,
-                topics: uniqueStrings([data.about, ...data.knownBy, ...data.hiddenFrom]),
+                text,
+                ...(english ? { english } : {}),
+                topics: uniqueStrings([...people, ...people.map((name) => en(name))]),
                 knownBy: [...data.knownBy],
                 sourceMessage: 0,
                 quote: '',
@@ -497,26 +536,30 @@ export class Applier {
         return linked.map((journalId) =>
             this.change({ step: 'record', journalId }, null, {
                 what: this.t('m37.part.secret'),
-                name: data.about || data.text,
-                detail: data.text,
+                name: data.about || text,
+                detail: english ? `${text}\n${english}` : text,
             }),
         );
     }
 
-    private async promise(item: PrepareItem<'promise'>): Promise<JournalChange[] | string> {
+    /** A promise for the calendar: in the story's language, the English statement kept for the revision's matching. */
+    private async promise(item: PrepareItem<'promise'>, env: ApplyEnv): Promise<JournalChange[] | string> {
         const calendar = apiOf<CalendarApi>(this.app, 'calendar');
         if (!calendar) return this.t('m37.skip.moduleOff', { module: this.t('m37.module.calendar') });
         if (item.exists) return this.t('m37.skip.exists');
         const data = item.data;
+        const what = playerText(item, env.language);
+        const english = what !== data.what ? data.what : '';
         const id = await calendar.add({
             who: [...data.who],
             toWhom: [...data.toWhom],
-            what: data.what,
+            what,
+            ...(english ? { english } : {}),
             quote: '',
             due: data.due ? { label: data.due, day: null } : null,
             sourceMessage: 0,
         });
-        return [this.change({ step: 'promise', id }, null, { what: this.t('m37.part.promise'), name: data.what })];
+        return [this.change({ step: 'promise', id }, null, { what: this.t('m37.part.promise'), name: what })];
     }
 
     /* ---------------------------------------------------------------- mechanics */
@@ -612,6 +655,7 @@ export class Applier {
         steps: JournalChange[],
     ): Promise<void> {
         const data = item.data;
+        const names = startNames(data, this.englishOf(env));
         const stored: StoredScene = {
             greeting: data.greeting,
             itemId: item.id,
@@ -619,6 +663,7 @@ export class Applier {
             russian: item.russian,
             outfits: sceneOutfits(data, env.plan),
             firstScene: sceneFirstScene(data, env.plan),
+            ...(names ? { names } : {}),
         };
         const label = this.t('m37.part.sceneStored');
         let before: StoredScene | null;
@@ -786,14 +831,15 @@ function isCardPassport(change: JournalChange): boolean {
     return change.ref.step === 'passport' && change.ref.scope === 'card';
 }
 
-/** A card-book note for an item without a canon text (secrets, promises). */
-function noteDraft(item: AnyPrepareItem): CanonEntryDraft {
-    const title = itemTitle(item) || item.id;
+/** A card-book note for an item without a canon text (secrets, promises): English, people by their English names. */
+function noteDraft(item: AnyPrepareItem, en: EnglishName): CanonEntryDraft {
+    const title = (item.kind === 'secret' && item.data.about ? en(item.data.about) : itemTitle(item)) || item.id;
+    const names = (list: readonly string[]) => list.map((name) => en(name)).join(', ');
     const text =
         item.kind === 'secret'
-            ? `${item.data.text}${item.data.knownBy.length ? `\nKnown by: ${item.data.knownBy.join(', ')}` : ''}`
+            ? `${item.data.text}${item.data.knownBy.length ? `\nKnown by: ${names(item.data.knownBy)}` : ''}`
             : item.kind === 'promise'
-              ? `${item.data.who.join(', ')} → ${item.data.toWhom.join(', ')}: ${item.data.what}${item.data.due ? ` (due: ${item.data.due})` : ''}`
+              ? `${names(item.data.who)} → ${names(item.data.toWhom)}: ${item.data.what}${item.data.due ? ` (due: ${item.data.due})` : ''}`
               : title;
     return { type: 'note', title, fields: { name: title, text }, content: `Note: ${title}\nText: ${text}`, keys: [] };
 }

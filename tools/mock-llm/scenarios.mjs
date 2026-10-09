@@ -958,7 +958,8 @@ registerTool('search_lore', (ctx) => ({ query: ctx.names[0] ?? DEFAULT_LOCATION,
 // («Starting scene — greeting N»): one entry of `scenes` — its place (a short «…» quote, else the archive or the
 // harbour it names), its time of day, the cast it names, what they wear (a jacket, a robe or a cloak) and the type of
 // its first scene. A book part: one place, faction, tradition or item per entry («[S2] Book · Title» with its Russian
-// key).
+// key). A request for a Russian story («Story language: Russian», «Язык истории») gets Russian outfits and genre (the
+// stand's card is Russian, so its names are Russian anyway).
 // prettier-ignore
 const PREP_TRANSLIT = {
     а: 'a', б: 'b', в: 'v', г: 'g', д: 'd', е: 'e', ё: 'e', ж: 'zh', з: 'z', и: 'i', й: 'y', к: 'k', л: 'l', м: 'm',
@@ -992,12 +993,13 @@ const PREP_PLACE_WORDS =
     /tavern|harbou?r|market|fort|fens?\b|pass\b|lighthouse|hall\b|monastery|hut\b|archive|coast|reaches/i;
 const PREP_FACTION_WORDS = /\bhouse\b|order\b|guild|brotherhood|council|watch\b|smugglers|cult\b/i;
 const PREP_TRADITION_WORDS = /festival|oath|tradition|custom|leave bread|spirits/i;
-/** What the cast of a starting scene wears: the first garment its text names. */
+/** What the cast of a starting scene wears: the first garment its text names (English, Russian). */
 const PREP_CLOTHES = [
-    [/куртк/i, 'a quilted watch jacket'],
-    [/мантии|мантия/i, "an archivist's robe"],
-    [/плащ/i, 'a dark green cloak'],
+    [/куртк/i, 'a quilted watch jacket', 'стёганая куртка портовой стражи'],
+    [/мантии|мантия/i, "an archivist's robe", 'потёртая мантия архивариуса'],
+    [/плащ/i, 'a dark green cloak', 'тёмно-зелёный плащ'],
 ];
+const PREP_CLOAK = { en: 'a dark green cloak', ru: 'тёмно-зелёный плащ' };
 const PREP_TIMES = [
     [/ноч/i, 'ночь', 'night'],
     [/рассвет/i, 'рассвет', 'dawn'],
@@ -1005,7 +1007,7 @@ const PREP_TIMES = [
 ];
 
 /** One `scenes` entry of the mock for a starting scene of the request. */
-function prepareScene(start, cast, persona, top) {
+function prepareScene(start, cast, persona, top, russianStory = false) {
     const greeting = Number(/greeting (\d+)/.exec(start.label)?.[1] ?? 0);
     const text = start.text;
     const quoted = [...text.matchAll(/«([^»\n]{3,40})»/g)]
@@ -1016,7 +1018,8 @@ function prepareScene(start, cast, persona, top) {
         (/архив/i.test(text) ? 'Архив гильдии картографов' : /гаван|причал/i.test(text) ? 'Серебряная Гавань' : top);
     const [, time, timeEnglish] = PREP_TIMES.find(([pattern]) => pattern.test(text)) ?? [null, 'утро', 'morning'];
     const present = cast.filter((name) => text.includes(name.slice(0, 4)));
-    const wearing = PREP_CLOTHES.find(([pattern]) => pattern.test(text))?.[1] ?? '';
+    const clothes = PREP_CLOTHES.find(([pattern]) => pattern.test(text));
+    const wearing = (russianStory ? clothes?.[2] : clothes?.[1]) ?? '';
     const who = present.map((name) => translit(name)).join(' and ') || 'nobody yet';
     return {
         greeting,
@@ -1033,6 +1036,7 @@ function prepareScene(start, cast, persona, top) {
 
 registerSchema('maestro_prepare', (ctx) => {
     const request = ctx.lastUserText;
+    const russianStory = /^Story language: Russian/m.test(request);
     const persona = /The player's character: ([^.\n]+)\./.exec(request)?.[1]?.trim() || ctx.userName;
     const sources = prepareSources(request);
     const empty = {
@@ -1075,7 +1079,7 @@ registerSchema('maestro_prepare', (ctx) => {
                 personality: `${english} acts as the card describes.`,
                 speech: 'Speaks plainly.',
                 relations: [{ to: persona, relation: `${english} has just met ${persona}.` }],
-                outfit: greeting?.text.includes(name.slice(0, 4)) ? 'a dark green cloak' : '',
+                outfit: greeting?.text.includes(name.slice(0, 4)) ? PREP_CLOAK[russianStory ? 'ru' : 'en'] : '',
                 present: !!greeting?.text.includes(name.slice(0, 4)),
                 persona: false,
                 russian: match[2].trim().slice(0, 150),
@@ -1165,7 +1169,7 @@ registerSchema('maestro_prepare', (ctx) => {
             sources: refs.slice(0, 1),
         });
         result.direction = {
-            genre: 'Mystery',
+            genre: russianStory ? 'Детектив' : 'Mystery',
             pacing: 'Measured, with room for conversation.',
             firstScene: 'dialogue',
             notes: 'Open with talk, keep the threat off screen.',
@@ -1188,7 +1192,7 @@ registerSchema('maestro_prepare', (ctx) => {
             };
         }
     }
-    for (const start of starts) result.scenes.push(prepareScene(start, cast, persona, city));
+    for (const start of starts) result.scenes.push(prepareScene(start, cast, persona, city, russianStory));
     for (const source of sources.filter((item) => item.label.includes(' · '))) {
         const title = source.label.split(' · ').slice(1).join(' · ').trim();
         const russian = /Keys: ([^\n]*)/

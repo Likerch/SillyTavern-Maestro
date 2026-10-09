@@ -5,17 +5,29 @@
 // source hashes, the whole analysis and the items saved «для персонажа»; their texts live in the card's Maestro book),
 // the «Готово к игре» status, the director's first-scene override released after the first committed turn, and
 // (1.18) the prepared starting scenes in DES (des-seed.ts: one tracker record per greeting, kept and put back), and
-// (1.19) Dramatis reading the card's intent as part of applying (dramatis-step.ts).
+// (1.19) Dramatis reading the card's intent as part of applying (dramatis-step.ts). «Язык истории» (1.20): the plan
+// remembers the language it was read for; a saved analysis of another language is read again in full on reuse.
 import { adaptersOf } from '../../adapters';
 import { createUserJobs } from '../../core/jobs';
+import { storyLanguage } from '../../core/language';
+import { hasCyrillic } from '../../domain/canon-keys';
 import { applyOrder, missingForPlay, selectItems } from '../../domain/prepare-apply';
 import type { MissingItem, ReadyFacts, SelectionRow } from '../../domain/prepare-apply';
 import { normName } from '../../domain/dossier-names';
 import { markExisting, mergeItems, reusePlan } from '../../domain/prepare-merge';
-import { clonePlan, isPrepareKind, itemNames, itemTitle, migrateScenes } from '../../domain/prepare-plan';
+import {
+    NAMED_SECTIONS,
+    clonePlan,
+    isPrepareKind,
+    itemNames,
+    itemTitle,
+    migrateScenes,
+} from '../../domain/prepare-plan';
 import type { AnyPrepareItem, PlanSource, PreparePlan, PrepareItem, PrepareScope } from '../../domain/prepare-plan';
 import { diffSources, fingerprintOf, sourceHashes } from '../../domain/prepare-sources';
 import type { PrepareSource } from '../../domain/prepare-sources';
+import { isStoryLanguage } from '../../domain/story-language';
+import type { StoryLanguage } from '../../domain/story-language';
 import type { App, JournalChange, Logger, Unsubscribe, UserJobHandle, UserJobs } from '../../shared/contracts';
 import type { DirectorApi, SceneType } from '../director/api';
 import type { PlacesApi } from '../places/api';
@@ -79,6 +91,8 @@ export interface SavedFile {
     items: AnyPrepareItem[];
     /** The whole analysis (unchanged parts are reused by the next new chat). */
     analysis: AnyPrepareItem[];
+    /** «Язык истории» the analysis was read for (missing: 1.19 or older). */
+    language?: StoryLanguage;
 }
 
 export function emptyDoc(): PrepareDoc {
@@ -94,6 +108,7 @@ function readDoc(raw: unknown): PrepareDoc {
         const items = plan.items.filter((item) => isDict(item) && isPrepareKind(item.kind));
         // 1.15 kept one starting scene: it becomes the scene of the greeting the chat opened with.
         doc.plan = { ...plan, greeting, items: migrateScenes(items, greeting) };
+        if (!isStoryLanguage(doc.plan.language)) delete doc.plan.language;
     }
     if (raw.stage === 'ready' || raw.stage === 'applied' || raw.stage === 'failed') doc.stage = raw.stage;
     if (typeof raw.error === 'string') doc.error = raw.error;
@@ -133,7 +148,23 @@ function readSavedFile(raw: unknown): SavedFile | null {
             : {}),
         items: known(items),
         analysis: known(analysis),
+        ...(isStoryLanguage(raw.language) ? { language: raw.language } : {}),
     };
+}
+
+/**
+ * The saved analysis was read for this story language: its kept items can stand in a new plan. A file of 1.19 or
+ * older (no language) held names as the story writes them — right for an English story, and for a Russian one only
+ * when its names are Russian already.
+ */
+export function savedLanguageFits(saved: Pick<SavedFile, 'analysis' | 'language'>, language: StoryLanguage): boolean {
+    if (saved.language) return saved.language === language;
+    if (language === 'en') return true;
+    return saved.analysis.every((item) => {
+        if (!NAMED_SECTIONS.has(item.kind) && item.kind !== 'world') return true;
+        const name = (item.data as { name?: unknown }).name;
+        return typeof name !== 'string' || !name.trim() || hasCyrillic(name);
+    });
 }
 
 export class PrepareService {
@@ -333,7 +364,7 @@ export class PrepareService {
 
     describe(item: AnyPrepareItem): string {
         if (item.russian) return item.russian;
-        const title = itemTitle(item);
+        const title = itemTitle(item, storyLanguage(this.app));
         return this.t(`m37.describe.${item.kind}`, { name: title || this.t(`m37.section.${item.kind}`) });
     }
 
@@ -405,13 +436,20 @@ export class PrepareService {
 
     /* ---------------------------------------------------------------- estimate and the analysis */
 
-    /** The sources a run reads: all, or (reuse) the changed ones of the saved preparation and the items they touch. */
+    /**
+     * The sources a run reads: all, or (reuse) the changed ones of the saved preparation and the items they touch.
+     * `reused`: the saved preparation stands in the plan (false when it was read for another story language: then
+     * everything is read again — its names would stay in that language — and only its «для персонажа» marks stay).
+     */
     private async runSources(
         collected: Collected,
         reuse: boolean,
-    ): Promise<{ sources: PrepareSource[]; kept: AnyPrepareItem[]; saved: SavedFile | null }> {
+    ): Promise<{ sources: PrepareSource[]; kept: AnyPrepareItem[]; saved: SavedFile | null; reused: boolean }> {
         const saved = reuse ? await this.readSaved(collected.card.avatar) : null;
-        if (!saved || !saved.analysis.length) return { sources: collected.sources, kept: [], saved };
+        const fits = !!saved && savedLanguageFits(saved, collected.language);
+        if (!saved || !saved.analysis.length || !fits) {
+            return { sources: collected.sources, kept: [], saved, reused: fits };
+        }
         const savedIds = new Set(saved.items.map((item) => item.id));
         const analysis = saved.analysis.map((item) =>
             savedIds.has(item.id) ? { ...item, scope: 'character' as const } : item,
@@ -423,14 +461,19 @@ export class PrepareService {
             collected.sources.map((item) => item.id),
         );
         const reread = new Set(plan.reread);
-        return { sources: collected.sources.filter((item) => reread.has(item.id)), kept: plan.kept, saved };
+        return {
+            sources: collected.sources.filter((item) => reread.has(item.id)),
+            kept: plan.kept,
+            saved,
+            reused: true,
+        };
     }
 
     async estimate(options: PrepareStartOptions = {}): Promise<PrepareEstimateResult> {
         const collected = await this.collector.collect();
         if (!collected) throw new Error(this.t('m37.error.noCard'));
         const settings = this.settings();
-        const { sources, saved } = await this.runSources(collected, options.reuse === true);
+        const { sources, reused } = await this.runSources(collected, options.reuse === true);
         const parts = partsOf(sources, settings);
         const estimate = estimateRun(collected, parts, settings);
         const byId = new Map(collected.sources.map((item) => [item.id, item]));
@@ -443,7 +486,7 @@ export class PrepareService {
             ...estimate,
             labels: [...read].map(label),
             skippedLabels: parts.skipped.map(label),
-            reuse: !!saved,
+            reuse: reused,
         };
     }
 
@@ -498,7 +541,7 @@ export class PrepareService {
             return;
         }
         const settings = this.settings();
-        const { sources, kept, saved } = await this.runSources(collected, options.reuse === true);
+        const { sources, kept, saved, reused } = await this.runSources(collected, options.reuse === true);
         const outcome = sources.length
             ? await runExtraction(this.app, this.log, {
                   collected,
@@ -551,9 +594,10 @@ export class PrepareService {
             chunks: outcome.chunks,
             failedChunks: outcome.failedChunks,
             costUsd: outcome.costUsd,
+            language: collected.language,
         };
         if (outcome.partial) plan.partial = true;
-        if (saved) plan.reused = true;
+        if (reused) plan.reused = true;
         doc.plan = plan;
         doc.stage = 'ready';
         delete doc.error;
@@ -653,6 +697,7 @@ export class PrepareService {
             ...(imported ? { imported } : {}),
             plan: planItems,
             shown,
+            language: storyLanguage(this.app),
         };
         const outcomes: { item: AnyPrepareItem; outcome: ItemOutcome }[] = [];
         for (const item of chosen) {
@@ -829,6 +874,8 @@ export class PrepareService {
             items: [...kept, ...items.map((item) => ({ ...clonePlan(item), scope: 'character' as const }))],
             analysis: plan?.items.length ? clonePlan(plan.items) : (previous?.analysis ?? []),
         };
+        const language = plan?.items.length ? plan.language : previous?.language;
+        if (language) file.language = language;
         try {
             await this.writeSaved(file);
         } catch (error) {

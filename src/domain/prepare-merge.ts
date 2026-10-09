@@ -212,7 +212,7 @@ export interface ExistingSnapshot {
     /** NAI passports this chat sees (card, chat, persona). */
     passports: readonly { id: string; name: string; aliases: readonly string[] }[];
     personaName: string;
-    /** Texts of the chat's promises and secrets. */
+    /** Texts of the chat's promises and secrets (and their English copies). */
     promises: readonly string[];
     secrets: readonly string[];
 }
@@ -359,10 +359,13 @@ export function markExisting(items: readonly AnyPrepareItem[], snapshot: Existin
                 item.exists = { where: 'mechanics', label: def.name, ref: def.id };
             }
         }
-        if (item.kind === 'promise' && promiseTexts.has(normName(item.data.what))) {
+        // A Russian story stores a secret or a promise by its Russian line (the English text kept beside it).
+        const stored = (texts: Set<string>, text: string) =>
+            [text, item.russian ?? ''].some((value) => !!value.trim() && texts.has(normName(value)));
+        if (item.kind === 'promise' && stored(promiseTexts, item.data.what)) {
             item.exists = { where: 'calendar', label: item.data.what };
         }
-        if (item.kind === 'secret' && secretTexts.has(normName(item.data.text))) {
+        if (item.kind === 'secret' && stored(secretTexts, item.data.text)) {
             item.exists = { where: 'knowledge', label: item.data.text };
         }
         if (Object.keys(links).length) item.links = links;

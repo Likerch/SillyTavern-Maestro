@@ -1,7 +1,8 @@
 // The analysis of M37 «Подготовить к игре» (plan-2 §7 п. 2): the sources packed into parts, one background request per
 // part (task 'prepare', the strict schema of prepare-extract), the answers merged (starting scenes by their greeting).
 // Runs inside the user job the service started: progress after every part, «Stop» between parts (and inside the
-// request through the job's signal); what was read before a stop is kept as a partial plan.
+// request through the job's signal); what was read before a stop is kept as a partial plan. The prompt and the schema
+// follow «Язык истории» (a Russian story gets Russian names and player-facing texts in the same request).
 import { mergeItems } from '../../domain/prepare-merge';
 import {
     PREPARE_TASK,
@@ -54,6 +55,7 @@ export function requestBase(collected: Collected): Omit<PrepareRequestInput, 'so
         templates: collected.templates,
         mechanics: collected.mechanics,
         vocabulary: collected.vocabulary,
+        language: collected.language,
     };
 }
 
@@ -115,7 +117,7 @@ export async function runExtraction(
                 messages,
                 maxTokens: settings.maxTokens,
                 temperature: 0.2,
-                schema: prepareSchema(),
+                schema: prepareSchema(collected.language),
                 signal,
             });
         } catch (error) {

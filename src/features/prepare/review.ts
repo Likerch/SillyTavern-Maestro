@@ -6,6 +6,7 @@
 // the story writes it, the English canon texts). Choices and edits live in the chat's draft, so a redraw, a closed
 // window or another chat loses nothing; the footer applies the chosen items, with the switches for NAI passports,
 // «Персонажи в DES» (1.18) and «Личности в Dramatis» (1.19: Dramatis reads the card's intent as part of applying).
+import { storyLanguage } from '../../core/language';
 import { pluralForm } from '../../domain/plural';
 import { FIRST_SCENES, itemTitle } from '../../domain/prepare-plan';
 import type { AnyPrepareItem, PrepareKind, PreparePlan, PrepareScope } from '../../domain/prepare-plan';
@@ -55,7 +56,8 @@ export function titleOf(
         const name = fieldValue(item, choice, 'name').trim();
         if (name) return name;
     }
-    return itemTitle(item) || ui.t(`m37.section.${item.kind}`);
+    // A secret or a promise in the story's language (a Russian story: its Russian line).
+    return itemTitle(item, storyLanguage(ui.app)) || ui.t(`m37.section.${item.kind}`);
 }
 
 /** Short facts of a card in story words: names, places, counts — never the English canon prose. */
@@ -299,7 +301,9 @@ function itemCard(
     if (item.kind === 'scene' && item.data.greeting === view.shown) marks.push(badge(t('m37.ui.sceneShown'), 'ok'));
     if (item.exists) {
         const where = t(`m37.exists.${item.exists.where}`);
-        const label = item.exists.label && item.exists.label !== titleOf(ui, item) ? item.exists.label : '';
+        // A stored secret or promise is the item itself (maybe in the other language): only where it is.
+        const labelled = item.kind !== 'secret' && item.kind !== 'promise';
+        const label = labelled && item.exists.label && item.exists.label !== titleOf(ui, item) ? item.exists.label : '';
         marks.push(badge(label ? t('m37.ui.exists', { where, label }) : where, 'muted'));
     }
     if (item.conflicts?.length) marks.push(badge(t('m37.ui.conflictBadge'), 'warn'));

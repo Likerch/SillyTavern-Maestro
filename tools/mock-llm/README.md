@@ -64,7 +64,10 @@ with a starting value and the direction; every starting scene of the part (a sou
 N`, in the card part or a part of its own) gives one entry of `scenes` with that `greeting`: its place (a short «…»
 quote, else the guild archive or the harbour it names), its time of day (night, dawn, evening, else morning), the cast it
 names, what they wear (a jacket, a robe or a cloak) and the type of its first scene (night → drama, dawn → exploration,
-else dialogue); a lorebook part gives one place, faction, tradition or item per entry (its Russian key as the name).
+else dialogue); a lorebook part gives one place, faction, tradition or item per entry (its Russian key as the name). A
+request for a Russian story (Maestro 1.20 «Язык истории»: its first line is `Story language: Russian…`) gets the outfits
+in Russian («стёганая куртка портовой стражи», «потёртая мантия архивариуса», «тёмно-зелёный плащ») and the genre
+«Детектив»; without that line they stay English, as before.
 
 `maestro_des_seed` (Maestro 1.18, «Персонажи в DES» of the preparation, task `prepare.desSeed`) answers the opening
 tracker of one greeting: every character the request's `<characters>` marks `present`, with an emoji, the DES fields of

@@ -647,12 +647,15 @@ const REMOVAL_RE =
 const WEAR_RE =
     /\b(?:(?:is|was|now)\s+)*(?:wears|wearing|wore|worn|dressed\s+(?:up\s+)?(?:in|as)|clad\s+in|chang(?:ed|es|ing)\s+into|switch(?:ed|es)?\s+(?:to|into)|puts?\s+on|putting\s+on|has\s+on|don(?:s|ned)?|in\s+(?:a|an|her|his|their))\b/i;
 const OUTFIT_LABEL_RE = /\b(?:outfit|attire|clothes|clothing)\s*(?:is|:|-)\s*/i;
+/** Russian: «носит: …», «одета в …», «надел …», «переоделась в …», «одежда: …» (the preparation's starting outfits). */
+const RU_WEAR_RE =
+    /(?<!\p{L})(?:(?:сейчас|теперь)\s+)?(?:носит|одет[аоы]?(?:\s+в)?|надел[аи]?|переодел(?:ся|ась|ись)(?:\s+в)?|(?:одежда|наряд)(?=\s*[:—-]))(?!\p{L})\s*[:—-]?\s*/iu;
 const TAIL_RE = /\s(?:for|to|at|because|while|since|after|before|when|during|so\s+that)\s.*$/i;
 
 /**
  * The outfit wording of a revision statement (M8 'deferred.outfit': «Anna now wears a black leather jacket and torn
- * jeans.»): the part after the verb of wearing, without a trailing purpose or time clause. Null for a removal
- * («took off her armor») or when nothing is left.
+ * jeans.»; the preparation's Russian «Вера носит: стёганая куртка»): the part after the verb of wearing, without a
+ * trailing purpose or time clause. Null for a removal («took off her armor») or when nothing is left.
  */
 export function outfitFromStatement(statement: string): string | null {
     const text = cleanOutfitText(statement);
@@ -660,7 +663,9 @@ export function outfitFromStatement(statement: string): string | null {
     if (REMOVAL_RE.test(text)) return null;
     let rest = text;
     const label = OUTFIT_LABEL_RE.exec(rest);
-    const wear = WEAR_RE.exec(rest);
+    const english = WEAR_RE.exec(rest);
+    const russian = RU_WEAR_RE.exec(rest);
+    const wear = russian && (!english || russian.index < english.index) ? russian : english;
     if (label && (!wear || label.index <= wear.index)) rest = rest.slice(label.index + label[0].length);
     else if (wear) rest = rest.slice(wear.index + wear[0].length);
     rest = rest

@@ -8,10 +8,12 @@
 // one's parts are taken back (the wardrobe's records undone, the director's override handed on, the note rewritten) and
 // the new one's applied, with one info notice. The first user message locks the start; later swipes change nothing.
 // Undoing a scene's apply takes it out of the document and, when it was the active one, takes its parts back.
+// A Russian story's outfits reach the wardrobe as Russian statements (prepare-apply outfitStatement); its start note names
+// the place and the cast in English (the names kept with the scene when it was stored).
 import { normName } from '../../domain/dossier-names';
 import { TYPED_FIELDS_KEY } from '../../domain/entry-types';
-import { startNoteDraft } from '../../domain/prepare-apply';
-import type { StartOutfit } from '../../domain/prepare-apply';
+import { outfitStatement, startNoteDraft } from '../../domain/prepare-apply';
+import type { StartNames, StartOutfit } from '../../domain/prepare-apply';
 import { clonePlan, isFirstScene, migrateScenes } from '../../domain/prepare-plan';
 import type { AnyPrepareItem, FirstScene, SceneData } from '../../domain/prepare-plan';
 import type { App, Logger, Unsubscribe } from '../../shared/contracts';
@@ -36,6 +38,8 @@ export interface StoredScene {
     outfits: StartOutfit[];
     /** Its type of the first scene, else the direction's. */
     firstScene: FirstScene | '';
+    /** The English names of its place and cast for the canon note (a Russian story); missing: the scene's own. */
+    names?: StartNames;
 }
 
 /** What the active scene has applied (taken back when the start changes or its apply is undone). */
@@ -83,6 +87,15 @@ function readOutfits(value: unknown): StartOutfit[] {
         .filter((row) => row.name && row.wearing);
 }
 
+function readNames(raw: unknown): StartNames | undefined {
+    if (!isDict(raw)) return undefined;
+    const present = Array.isArray(raw.present)
+        ? raw.present.filter((name): name is string => typeof name === 'string')
+        : [];
+    const place = str(raw.place);
+    return place || present.length ? { place, present } : undefined;
+}
+
 function readStored(raw: unknown): StoredScene | null {
     if (!isDict(raw) || typeof raw.greeting !== 'number' || !Number.isInteger(raw.greeting) || raw.greeting < 0) {
         return null;
@@ -103,6 +116,7 @@ function readStored(raw: unknown): StoredScene | null {
     );
     const data = (item as AnyPrepareItem & { kind: 'scene' }).data;
     data.greeting = greeting;
+    const names = readNames(raw.names);
     return {
         greeting,
         itemId: str(raw.itemId) || `scene:${greeting}`,
@@ -110,6 +124,7 @@ function readStored(raw: unknown): StoredScene | null {
         russian: str(raw.russian),
         outfits: readOutfits(raw.outfits),
         firstScene: isFirstScene(raw.firstScene) ? raw.firstScene : '',
+        ...(names ? { names } : {}),
     };
 }
 
@@ -387,7 +402,7 @@ export class StartScenes {
                         const ids = await linkedRecords(this.app, 'M27', async () =>
                             wardrobe.intakeOutfit?.({
                                 entityName: outfit.name,
-                                value: `${outfit.english || outfit.name} wears ${outfit.wearing}`,
+                                value: outfitStatement(outfit),
                                 evidence: '',
                                 sourceMessage: 0,
                             }),
@@ -424,7 +439,7 @@ export class StartScenes {
         }
 
         // The canon note of the start: the previous start's note is rewritten in place.
-        const draft = startNoteDraft(scene.data);
+        const draft = startNoteDraft(scene.data, scene.names);
         const canon = apiOf<CanonApi>(this.app, 'canon');
         const kept = previous?.note;
         if (draft && canon) {

@@ -233,8 +233,13 @@ describe('prepare: apply for the chat', () => {
         expect(env.nai.generated[0]!.description).toContain('Appearance:');
         expect(env.nai.saves.every((save) => save.scope === 'chat')).toBe(true);
         expect(env.nai.chat.map((passport) => passport.name)).toContain('Элизабет');
-        // Secret, mechanic with its starting value, director's first scene.
-        expect(env.knowledge.facts()[0]?.text).toContain('missing cargo');
+        // Secret (a Russian story: the Russian line for «Кто что знает», the English statement kept beside it),
+        // mechanic with its starting value, director's first scene.
+        expect(env.knowledge.facts()[0]).toMatchObject({
+            text: 'Элизабет знает о пропавшем грузе больше, чем говорит.',
+            english: expect.stringContaining('missing cargo'),
+        });
+        expect(env.nai.generated.every((input) => input.language === 'ru')).toBe(true);
         const trust = env.mechanics.list().find((def) => def.promptName === 'Trust')!;
         expect(trust.scope).toEqual({ kind: 'chat', chatId: 'chat-1' });
         expect(env.mechanics.value(trust.id, 'Элизабет', 'trust')).toBe(40);

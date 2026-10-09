@@ -6,7 +6,8 @@
 //   there): one interactive model task per prepared greeting ('prepare.desSeed', strict schema made from DES's live
 //   config, src/domain/prepare-des-seed.ts), validated and completed in code (presence from the scene ∪ Dramatis's
 //   startCast, stats from the mechanics, the place as the places registry names it); a failed or absent model gives a
-//   record of names only. The saved character-level preparation never calls the model.
+//   record of names only. The saved character-level preparation never calls the model. The language is «Язык
+//   истории» (core/language), the names the prepared ones (Russian in a Russian story).
 // - Writing the way DES does (adapters/des/kit.ts): the shown greeting's record into `extra.dooms_tracker_swipes`, the
 //   others into `swipe_info[n].extra` (ST swaps the whole `extra` on a swipe), an explicit empty record for greetings
 //   without a prepared scene; the shown one adopted into lastGeneratedData and committedTrackerData; present names into
@@ -27,6 +28,7 @@
 //   and the roster names it added come back.
 import { adaptersOf, dramatisOf } from '../../adapters';
 import { loadDesKit } from '../../adapters/des/kit';
+import { storyLanguage } from '../../core/language';
 import type { DesKit, DesStartSections } from '../../adapters/des/kit';
 import { cardView } from '../../domain/assistant-chat';
 import { normName } from '../../domain/dossier-names';
@@ -46,7 +48,6 @@ import {
     readDesSeedConfig,
     readRecord,
     sameRecord,
-    seedLanguage,
     seedSwipe,
     seedsAnything,
     shownSwipe,
@@ -601,7 +602,7 @@ export class DesSeeder {
         return {
             greeting: scene.greeting,
             text,
-            language: seedLanguage(text || scene.russian || scene.data.situation),
+            language: storyLanguage(this.app),
             persona,
             scene: { place, date: scene.data.date, time: scene.data.time, situation: scene.data.situation },
             cast: ordered,

@@ -6,6 +6,7 @@
 // never read as sources and never written), and what the chat already has (canon, places, mechanics, NAI passports,
 // promises, secrets). Read only: nothing here writes.
 import { adaptersOf } from '../../adapters';
+import { storyLanguage } from '../../core/language';
 import { cardView, greetingInChat } from '../../domain/assistant-chat';
 import type { CardView } from '../../domain/assistant-chat';
 import { isBunnyMoBook } from '../../domain/doctor-fixes';
@@ -16,6 +17,7 @@ import { isBackupBookName, isCanonBookName, isMaestroBookName } from '../../doma
 import type { ExistingEntry, ExistingSnapshot } from '../../domain/prepare-merge';
 import { bookSources, cardSources, clipText, greetingOpening } from '../../domain/prepare-sources';
 import type { BookEntryInput, PrepareSource, SourceOrigin } from '../../domain/prepare-sources';
+import type { StoryLanguage } from '../../domain/story-language';
 import type { App, Logger } from '../../shared/contracts';
 import type { BookRolesApi } from '../bookRoles/api';
 import type { BunnyMoModeApi } from '../bunnymoMode/api';
@@ -247,6 +249,8 @@ export interface Collected {
     snapshot: ExistingSnapshot;
     templates: { id: string; title: string }[];
     mechanics: { id: string; name: string; attributes: string[] }[];
+    /** «Язык истории» the plan is read for (core/language). */
+    language: StoryLanguage;
 }
 
 export class Collector {
@@ -312,6 +316,7 @@ export class Collector {
             snapshot,
             templates: this.templates(),
             mechanics: this.mechanics(),
+            language: storyLanguage(this.app),
         };
     }
 
@@ -461,8 +466,11 @@ export class Collector {
                 aliases: passport.aliases,
             })),
             personaName,
-            promises: promises.map((promise) => promise.what),
-            secrets: facts.filter((fact) => fact.secret).map((fact) => fact.text),
+            // The stored texts and their English copies (a Russian story keeps both): a plan matches either.
+            promises: promises.flatMap((promise) => [promise.what, promise.english ?? ''].filter(Boolean)),
+            secrets: facts
+                .filter((fact) => fact.secret)
+                .flatMap((fact) => [fact.text, fact.english ?? ''].filter(Boolean)),
         };
     }
 

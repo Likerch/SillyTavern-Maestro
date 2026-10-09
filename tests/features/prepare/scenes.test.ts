@@ -74,7 +74,8 @@ describe('prepare: every starting scene', () => {
             ['scene:1', 'Серебряная Гавань', 'рассвет', 'exploration'],
             ['scene:2', 'Архив гильдии картографов', 'ночь', 'drama'],
         ]);
-        expect(scenes[1]!.data.outfits).toEqual([{ name: 'Вера', wearing: 'a quilted watch jacket' }]);
+        // A Russian story («Язык истории» auto: a Russian greeting): the outfits are Russian.
+        expect(scenes[1]!.data.outfits).toEqual([{ name: 'Вера', wearing: 'стёганая куртка портовой стражи' }]);
         expect(scenes[2]!.sources).toEqual(['greeting:2']);
         expect(scenes[2]!.russian).toContain('Архив гильдии картографов, ночь: Мартин');
         expect(plan.openings).toHaveLength(3);
@@ -107,12 +108,16 @@ describe('prepare: every starting scene', () => {
         expect(service.startScenes()).toEqual({ shown: 0, prepared: [0, 1, 2], active: 0, locked: false });
         expect(env.director.overrideType).toBe('dialogue');
         expect(env.wardrobe.intakes).toEqual([]);
-        expect(env.nai.generated.find((input) => input.name === 'Elizabet')?.description).toContain(
-            'Wearing when the story starts: a dark green cloak',
-        );
+        expect(env.nai.generated.find((input) => input.name === 'Elizabet')).toMatchObject({
+            language: 'ru',
+            description: expect.stringContaining('Wearing when the story starts: тёмно-зелёный плащ'),
+        });
         const notes = await startNotes();
         expect(notes).toHaveLength(1);
-        expect(String(notes[0]!.entry.content)).toContain('Where: Солёный якорь');
+        // The canon note names the place and the cast in English; the Russian place name is a key.
+        expect(String(notes[0]!.entry.content)).toContain('Where: Solenyy yakor');
+        expect(String(notes[0]!.entry.content)).toContain('Present: Elizabet');
+        expect(notes[0]!.entry.key).toContain('Солёный якорь');
         // Every scene is kept in the chat's document, each journaled as a part of its own.
         const doc = await env.app.chat.get<Dict>(SCENES_DOC, () => ({}));
         expect((doc.scenes as Dict[]).map((scene) => scene.greeting)).toEqual([0, 1, 2]);
@@ -142,14 +147,20 @@ describe('prepare: every starting scene', () => {
         await until(() => service.startScenes().active === 1);
         expect(service.startScenes()).toMatchObject({ shown: 1, active: 1 });
         expect(env.director.overrideType).toBe('exploration');
+        // A Russian outfit goes to the wardrobe as a Russian statement its parser reads.
         expect(env.wardrobe.intakes).toEqual([
-            { entityName: 'Вера', value: 'Vera wears a quilted watch jacket', evidence: '', sourceMessage: 0 },
+            {
+                entityName: 'Вера',
+                value: 'Вера носит: стёганая куртка портовой стражи',
+                evidence: '',
+                sourceMessage: 0,
+            },
         ]);
         // The note of the start is rewritten in place, not doubled.
         let notes = await startNotes();
         expect(notes).toHaveLength(1);
         expect(notes[0]!.uid).toBe(first!.uid);
-        expect(String(notes[0]!.entry.content)).toContain('Where: Серебряная Гавань');
+        expect(String(notes[0]!.entry.content)).toContain('Where: Silver Harbor');
         expect(env.ui.notices.slice(notices).map((notice) => notice.text)).toEqual([
             'Стартовая сцена: Серебряная Гавань, рассвет',
         ]);
@@ -273,7 +284,7 @@ describe('prepare: every starting scene', () => {
         expect(env.director.overrideType).toBe('dialogue');
         notes = await startNotes();
         expect(notes).toHaveLength(1);
-        expect(String(notes[0]!.entry.content)).toContain('Where: Солёный якорь');
+        expect(String(notes[0]!.entry.content)).toContain('Where: Solenyy yakor');
     });
 
     it('for the character: every scene comes into the next new chat, the active one follows the greeting shown', async () => {

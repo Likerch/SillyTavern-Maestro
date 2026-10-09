@@ -2,9 +2,13 @@
 // books, the persona and the DES campaign, item by item: characters, the world, places, factions, items, traditions,
 // time, promises, secrets, the starting scene, mechanics and direction. Canon texts are English (P6); every item also
 // carries one short Russian line for the player (plan-2 §3). Each item knows its sources, whether it already exists
-// (canon, places, mechanics, passports) and where it disagrees with the canon. Pure types and small helpers.
+// (canon, places, mechanics, passports) and where it disagrees with the canon. «Язык истории» (1.20): a plan read for a
+// Russian story has Russian names (`english` keeps the original spelling), outfits and dates; its secrets and promises
+// keep English texts for the model and show the player their Russian lines. Pure types and small helpers.
+import { hasCyrillic } from './canon-keys';
 import { normName } from './dossier-names';
 import { stableHash } from './hash';
+import type { StoryLanguage } from './story-language';
 
 /** Sections of the plan, in the order the window lists them and the apply step writes them. */
 export const PREPARE_SECTIONS = [
@@ -49,7 +53,10 @@ export type PrepareAttributeKind = (typeof ATTRIBUTE_KINDS)[number];
 export const HOLDER_KINDS = ['persona', 'characters', 'named', 'world', 'factions'] as const;
 export type PrepareHolderKind = (typeof HOLDER_KINDS)[number];
 
-/** A name as the story writes it (Russian allowed), its English form for the canon and its Russian forms. */
+/**
+ * A name as the player reads it (a Russian story: Russian — transliterated or translated; an English story: as the story
+ * writes it), its English form for the canon (the original spelling) and its Russian forms.
+ */
 export interface NamedData {
     name: string;
     english: string;
@@ -65,7 +72,7 @@ export interface CharacterData extends NamedData {
     speech: string;
     /** Relations to other characters and to the persona, English. */
     relations: { to: string; relation: string }[];
-    /** What the character wears when the story starts, English. */
+    /** What the character wears when the story starts (English; Russian in a plan read for a Russian story). */
     outfit: string;
     /** In the starting scene. */
     present: boolean;
@@ -140,7 +147,7 @@ export interface SecretData {
 export interface SceneOutfit {
     /** The character's name as the story writes it. */
     name: string;
-    /** What they wear, English. */
+    /** What they wear (English; Russian in a plan read for a Russian story). */
     wearing: string;
 }
 
@@ -292,6 +299,8 @@ export interface PreparePlan {
     failedChunks: number;
     /** The analysis was stopped before every part was read. */
     partial?: boolean;
+    /** «Язык истории» it was read for (missing: a plan of 1.19 or older, names as the story writes them). */
+    language?: StoryLanguage;
     costUsd?: number;
     /** The saved character-level preparation was reused (only changed sources were read). */
     reused?: boolean;
@@ -315,17 +324,27 @@ function namedData(item: AnyPrepareItem): NamedData | null {
     return NAMED_SECTIONS.has(item.kind) || item.kind === 'world' ? (item.data as NamedData) : null;
 }
 
-/** The item's title: its name (Russian when the story writes it so), else a short text. */
-export function itemTitle(item: AnyPrepareItem): string {
+/**
+ * The text of a secret or a promise as the player reads it: in a Russian story its Russian line (the texts are English
+ * for the model and the revision), unless the text is Russian already (an edit); else the text.
+ */
+export function playerText(item: PrepareItem<'secret'> | PrepareItem<'promise'>, language?: StoryLanguage): string {
+    const text = item.kind === 'secret' ? item.data.text : item.data.what;
+    if (language !== 'ru' || hasCyrillic(text) || !item.russian.trim()) return text;
+    return item.russian.trim();
+}
+
+/** The item's title: its name, else a short text (a secret's or a promise's in the story's language). */
+export function itemTitle(item: AnyPrepareItem, language?: StoryLanguage): string {
     const named = namedData(item);
     if (named) return named.name || named.english;
     switch (item.kind) {
         case 'mechanic':
             return item.data.name || item.data.english;
         case 'secret':
-            return item.data.about || item.data.text;
+            return item.data.about || playerText(item, language);
         case 'promise':
-            return item.data.what;
+            return playerText(item, language);
         case 'time':
             return [item.data.date, item.data.time].filter(Boolean).join(', ');
         case 'scene':

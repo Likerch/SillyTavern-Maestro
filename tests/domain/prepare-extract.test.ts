@@ -106,6 +106,55 @@ describe('prepare extract: the request', () => {
         expect(requestOverheadChars(BASE)).toBeGreaterThan(1500);
     });
 
+    it('a Russian story: Russian names (transliterated or translated), the original in "english", Russian forms', () => {
+        const part = { index: 0, total: 1, core: true };
+        const [system, user] = buildPrepareMessages({ ...BASE, language: 'ru', sources: [], part });
+        const rules = system!.content;
+        expect(rules).toContain('Ophelia → Офелия, Elizabeth → Элизабет, Thomas → Томас');
+        expect(rules).toContain('The Long Winter → Долгая зима, Velmar Reaches → Вельмарские пределы');
+        expect(rules).toContain('Salt Anchor Tavern → таверна «Солёный якорь»');
+        expect(rules).toContain('A name the sources already write in Russian stays as written');
+        expect(rules).toContain('"english": the original spelling of the name');
+        expect(rules).toContain('"forms": Russian case forms of the Russian name');
+        expect(rules).toContain('uses that one\'s Russian "name"');
+        // Player-facing texts are Russian, the canon texts stay English; secrets and promises get a Russian line.
+        expect(rules).toContain('"outfit" and "wearing" (what they wear, a short phrase in the nominative case');
+        expect(rules).toContain('"genre", and the display "name" of mechanics and of their attributes');
+        expect(rules).toContain('For a secret or a promise it is the secret or the promise itself, in Russian');
+        expect(rules).toMatch(/Descriptive fields \(role, appearance, .*\) are short English sentences/);
+        expect(rules).not.toContain('"name": the name exactly as the story writes it');
+        expect(user!.content.startsWith('Story language: Russian')).toBe(true);
+        expect(requestOverheadChars({ ...BASE, language: 'ru' })).toBeGreaterThan(requestOverheadChars(BASE));
+    });
+
+    it("an English story keeps today's request: names as the story writes them, no language line", () => {
+        const part = { index: 0, total: 1, core: true };
+        const english = buildPrepareMessages({ ...BASE, language: 'en', sources: [], part });
+        expect(english).toEqual(buildPrepareMessages({ ...BASE, sources: [], part }));
+        expect(english[0]!.content).toContain('"name": the name exactly as the story writes it');
+        expect(english[0]!.content).not.toContain('Ophelia → Офелия');
+        expect(english[1]!.content).not.toContain('Story language');
+    });
+
+    it('the schema says the same per language (strict in both); the English one is the default', () => {
+        const ru = prepareSchema('ru');
+        expect(ru.name).toBe(PREPARE_SCHEMA_NAME);
+        expect(strictObjects(ru.schema)).toEqual([]);
+        expect(matchesSchema(answer(), ru.schema)).toBe(true);
+        expect(prepareSchema('en').schema).toBe(PREPARE_SCHEMA);
+        expect(prepareSchema().schema).toBe(PREPARE_SCHEMA);
+        const character = (schema: Dict) =>
+            (((schema.properties as Dict).characters as Dict).items as Dict).properties as Dict;
+        expect((character(ru.schema).name as Dict).description).toContain('Russian name');
+        expect((character(ru.schema).english as Dict).description).toContain('original spelling');
+        expect((character(ru.schema).outfit as Dict).description).toContain('Russian');
+        expect((character(PREPARE_SCHEMA).name as Dict).description).toBe(
+            'Name exactly as the story writes it (nominative case)',
+        );
+        const mechanic = (((ru.schema.properties as Dict).mechanics as Dict).items as Dict).properties as Dict;
+        expect((mechanic.name as Dict).description).toBe('Display name in Russian');
+    });
+
     it('neutralizes only its own section tags', () => {
         expect(neutralizeData('<b>x</b> <sources a="1"> </card>')).toBe('<b>x</b> [sources] [/card]');
     });

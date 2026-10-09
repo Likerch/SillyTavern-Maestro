@@ -8,6 +8,10 @@
 // the model, the stance → relationship label mapping, greeting ↔ swipe indexes and the opening tracker as DES's own
 // example block (the first turn in together mode). DES 2.6.0 sources: jsonPromptHelpers.js (keys, the FORMAT spec),
 // thoughts.js (details lookup), portraitBar.js (off-scene), weatherEffects.js (keywords), parser.js (stored shapes).
+// The language is «Язык истории» (core/language), not the greeting's: an English card played in Russian gets a Russian
+// tracker — the prepared Russian names (the ones DES-RU's tracker writes, «Имя в именительном падеже»), Russian
+// details, thoughts and clothes.
+import { hasCyrillic } from './canon-keys';
 import { normName } from './dossier-names';
 import { desFieldKey } from './medic-des';
 import { fieldAspect } from './signals-diff';
@@ -284,14 +288,8 @@ export function seedsAnything(config: DesSeedConfig): boolean {
 
 /* ------------------------------------------------------------------ language, weather, time */
 
+/** «Язык истории» of the seed (core/language decides it). */
 export type SeedLanguage = 'ru' | 'en';
-
-/** The story's language by the opening message's script: Russian when Cyrillic letters are at least half. */
-export function seedLanguage(text: string): SeedLanguage {
-    const cyrillic = (text.match(/\p{Script=Cyrillic}/gu) ?? []).length;
-    const latin = (text.match(/[A-Za-z]/g) ?? []).length;
-    return cyrillic > 0 && cyrillic >= latin ? 'ru' : 'en';
-}
 
 /** DES 2.6 weather keywords (weatherEffects.js WEATHER_PATTERNS_BY_LANGUAGE): the effect follows the forecast word. */
 export const WEATHER_KEYWORDS: Readonly<Record<SeedLanguage, readonly string[]>> = {
@@ -526,7 +524,7 @@ export function seedSwipe(first: unknown, seed: { swipe: number; piece: string }
 
 /** One character of a starting scene as the seed task gets it. */
 export interface SeedCast {
-    /** As the story writes it: the prepared character's name (NAI passports use the same). */
+    /** The prepared character's name as the player reads it (Russian in a Russian story; NAI passports use the same). */
     name: string;
     /** In the scene when it starts (the prepared scene's present ∪ Dramatis's). */
     present: boolean;
@@ -534,7 +532,7 @@ export interface SeedCast {
     role: string;
     appearance: string;
     personality: string;
-    /** What they wear at this start (English). */
+    /** What they wear at this start (English, or Russian in a plan read for a Russian story). */
     outfit: string;
     /** Their relation to the player's character (English). */
     relation: string;
@@ -735,7 +733,9 @@ export function buildDesSeedMessages(input: SeedInput, config: DesSeedConfig): S
         input.scene.situation ? `Situation (English notes): ${clip(input.scene.situation, 800)}` : '',
     ].filter(Boolean);
     const rules = [
-        `Write every text value in ${language}, the language of the story; names exactly as listed.`,
+        input.language === 'ru'
+            ? 'Write every text value in Russian, the language of the story — looks, behaviour, mood, clothes, thoughts, the place and events: translate what you take from the English notes; names exactly as listed.'
+            : `Write every text value in ${language}, the language of the story; names exactly as listed.`,
         `${persona} is the player's character: never list them in "characters".`,
         'List every character marked present, with "present": true. A character marked "not in this scene" may be listed only when the opening message mentions them, with "present": false.',
         'The opening message wins over the notes: what it shows about time, place, weather, looks and clothes is right.',
@@ -1010,8 +1010,8 @@ function infoBoxOf(input: SeedInput, config: DesSeedConfig, scene: SeedSceneAnsw
  * mentioned are off-scene (DES-RU's marker in their thoughts; without thoughts DES cannot tell, so they are left
  * out). Stats the mechanics hold win over the model's; the relationship follows the Dramatis stance when the model's
  * says the opposite. Without an answer (no model, a failed request) the record is built from the cast alone: names, the
- * default emoji, the relationship of the stance, the stats, the place, date and time — no details. Never the player's
- * character.
+ * default emoji, the relationship of the stance, the stats, the place, date and time — no details but the prepared
+ * outfit when it is in the story's language. Never the player's character.
  */
 export function composeDesSeed(input: SeedInput, config: DesSeedConfig, answer: SeedAnswer | null): ComposedSeed {
     const persona = normName(input.persona);
@@ -1023,8 +1023,10 @@ export function composeDesSeed(input: SeedInput, config: DesSeedConfig, answer: 
     const build = (member: SeedCast, item: SeedCharacterAnswer | undefined, onScene: boolean): Dict | null => {
         const entry: Dict = { name: member.name, emoji: item?.emoji ?? DEFAULT_EMOJI };
         const details: Record<string, string> = { ...(item?.details ?? {}) };
-        // An English story gets the starting outfit as prepared (the wardrobe put on the same words).
-        if (outfitField && input.language === 'en' && onScene && member.outfit.trim()) {
+        // The starting outfit as prepared when it is in the story's language (the wardrobe put on the same words): an
+        // English story's, a Russian story's in Russian; an English outfit of a Russian story is the model's to translate.
+        const outfitFits = input.language === 'en' || hasCyrillic(member.outfit);
+        if (outfitField && outfitFits && onScene && member.outfit.trim()) {
             details[outfitField.key] = clip(member.outfit, DETAIL_MAX);
         }
         if (config.fields.length && Object.keys(details).length) entry.details = details;

@@ -26,7 +26,6 @@ import {
     relationshipValence,
     sameRecord,
     sceneFieldProp,
-    seedLanguage,
     seedNames,
     seedSwipe,
     seedsAnything,
@@ -185,13 +184,7 @@ describe('DES seed: what DES asks for', () => {
     });
 });
 
-describe('DES seed: language, weather and time', () => {
-    it('tells the story language by the script', () => {
-        expect(seedLanguage('Дождь барабанит по ставням, Tom.')).toBe('ru');
-        expect(seedLanguage('Rain drums on the shutters.')).toBe('en');
-        expect(seedLanguage('')).toBe('en');
-    });
-
+describe('DES seed: weather and time', () => {
     it('reads clock times and words of the day', () => {
         expect(clockOf('19:40')).toBe('19:40');
         expect(clockOf('7.05 утра')).toBe('07:05');
@@ -493,6 +486,45 @@ describe('DES seed: the answer and the record', () => {
             time: { start: '19:00', end: '19:00' },
             location: { value: 'Солёный якорь' },
         });
+    });
+
+    it('a Russian story («Язык истории»): Russian names in the schema, Russian rules, Russian weather words', () => {
+        const story = input({
+            cast: [member('Офелия', { appearance: 'Tall, red-haired', outfit: 'тёмно-зелёный плащ' }), member('Томас')],
+        });
+        const schema = desSeedSchema(config, story)!.schema as Dict;
+        const props = schema.properties as Dict;
+        const character = ((props.characters as Dict).items as Dict).properties as Dict;
+        expect((character.name as Dict).enum).toEqual(['Офелия', 'Томас']);
+        expect(((props.scene as Dict).properties as Dict).weather).toMatchObject({ enum: WEATHER_KEYWORDS.ru });
+        const user = buildDesSeedMessages(story, config)[1]!.content;
+        expect(user).toContain('Story language: Russian.');
+        expect(user).toContain(
+            'Write every text value in Russian, the language of the story — looks, behaviour, mood, clothes, thoughts, the place and events: translate what you take from the English notes; names exactly as listed.',
+        );
+        expect(user).toContain('- Офелия — present. Appearance: Tall, red-haired. Wears now: тёмно-зелёный плащ.');
+        const english = buildDesSeedMessages(input({ language: 'en' }), config)[1]!.content;
+        expect(english).toContain(
+            'Write every text value in English, the language of the story; names exactly as listed.',
+        );
+        expect(english).not.toContain('translate what you take');
+    });
+
+    it("puts a Russian story's Russian outfit in as prepared and leaves an English one to the model", () => {
+        const seed = composeDesSeed(
+            input({
+                cast: [
+                    member('Офелия', { outfit: 'тёмно-зелёный плащ' }),
+                    member('Томас', { outfit: 'a leather apron' }),
+                ],
+            }),
+            config,
+            null,
+        );
+        expect(JSON.parse(seed.record.characterThoughts!)).toEqual([
+            { name: 'Офелия', emoji: DEFAULT_EMOJI, details: { Одежда: 'тёмно-зелёный плащ' } },
+            { name: 'Томас', emoji: DEFAULT_EMOJI },
+        ]);
     });
 
     it('gives an English story the prepared outfit and drops off-scene people without thoughts', () => {

@@ -3,14 +3,26 @@
 // card-book and chat-canon routes share them), what a starting scene brings when it becomes the active one (its
 // outfits, the type of its first scene, the canon note of the start), mechanic definitions from a template or from
 // scratch with their starting values, the selection a caller passes, and the «Готово к игре» list of what is still
-// missing. The feature writes through the modules' APIs.
+// missing. The feature writes through the modules' APIs. In a plan read for a Russian story the names are Russian: the
+// canon texts name other items by their English names (the canon stays English; the Russian names are keys and aliases),
+// and a starting outfit goes to the wardrobe as a Russian statement its parser reads.
+import { hasCyrillic } from './canon-keys';
 import { normName } from './dossier-names';
 import { composeContent } from './entry-types';
 import type { EntryTypeId } from './entry-types';
 import { cleanList, newMechanicId, snakeId, uniqueId } from './mechanics-defs';
 import type { AttributeDef, AttributeValue, HolderSpec, MechanicDef, MechanicScope } from './mechanics-defs';
-import { isPrepareScope, sectionOrder, uniqueNames } from './prepare-plan';
-import type { AnyPrepareItem, FirstScene, MechanicData, PrepareItem, PrepareScope, SceneData } from './prepare-plan';
+import { NAMED_SECTIONS, isPrepareScope, sectionOrder, uniqueNames } from './prepare-plan';
+import type {
+    AnyPrepareItem,
+    FirstScene,
+    MechanicData,
+    NamedData,
+    PrepareItem,
+    PrepareKind,
+    PrepareScope,
+    SceneData,
+} from './prepare-plan';
 
 /* ------------------------------------------------------------------ order */
 
@@ -107,6 +119,51 @@ export interface CanonEntryDraft {
     keys: string[];
 }
 
+/** What a name in a field points at: a person (relations, leaders, owners, the cast) or a place (parents, scenes). */
+export type NameRef = 'person' | 'place';
+
+/**
+ * A name as the canon writes it: the English name of the plan's item it points at (of the kind the field names first:
+ * characters for people, places for places), else as given.
+ */
+export type EnglishName = (name: string, ref?: NameRef) => string;
+
+const asGiven: EnglishName = (name) => name;
+
+const REF_KINDS: Record<NameRef, readonly PrepareKind[]> = {
+    person: ['character', 'faction', 'place', 'item', 'tradition', 'world'],
+    place: ['place', 'world', 'faction', 'character', 'item', 'tradition'],
+};
+
+/**
+ * The plan's names → their English names (characters, places, factions, items, traditions, the world: by name, English
+ * name or form), so canon texts of a Russian story name other items in English.
+ */
+export function englishNames(plan: readonly AnyPrepareItem[]): EnglishName {
+    const maps = new Map<PrepareKind, Map<string, string>>();
+    for (const item of plan) {
+        if (!NAMED_SECTIONS.has(item.kind) && item.kind !== 'world') continue;
+        const data = item.data as NamedData;
+        const english = data.english.trim();
+        if (!english) continue;
+        let map = maps.get(item.kind);
+        if (!map) maps.set(item.kind, (map = new Map()));
+        for (const name of [data.name, english, ...data.forms]) {
+            const key = normName(name);
+            if (key && !map.has(key)) map.set(key, english);
+        }
+    }
+    return (name, ref = 'person') => {
+        const value = String(name ?? '').trim();
+        const key = normName(value);
+        for (const kind of REF_KINDS[ref]) {
+            const found = maps.get(kind)?.get(key);
+            if (found) return found;
+        }
+        return value;
+    };
+}
+
 function lines(rows: readonly [string, string][]): string {
     return rows
         .filter(([, value]) => value.trim())
@@ -117,9 +174,14 @@ function lines(rows: readonly [string, string][]): string {
 /** The typed canon entry of an item; null for kinds that are not canon (secrets, mechanics…) and the persona. */
 export function canonDraftOf(
     item: AnyPrepareItem,
-    /** The plan has starting scenes: each writes its own «Story start», so the calendar note leaves the start out. */
-    options: { scenes?: boolean } = {},
+    options: {
+        /** The plan has starting scenes: each writes its own «Story start», so the calendar note leaves the start out. */
+        scenes?: boolean;
+        /** Other items' names as the canon writes them (englishNames of the plan); as given without it. */
+        english?: EnglishName;
+    } = {},
 ): CanonEntryDraft | null {
+    const en = options.english ?? asGiven;
     switch (item.kind) {
         case 'character': {
             if (item.data.persona) return null;
@@ -131,7 +193,7 @@ export function canonDraftOf(
                 role: data.role,
                 appearance: data.appearance,
                 personality: data.personality,
-                relationships: data.relations.map((row) => `${row.to}: ${row.relation}`).join('\n'),
+                relationships: data.relations.map((row) => `${en(row.to)}: ${row.relation}`).join('\n'),
                 speech: data.speech,
             };
             return draft('character', title, fields, [data.name, data.english, ...data.forms]);
@@ -143,7 +205,7 @@ export function canonDraftOf(
                 name: title,
                 aliases: data.english && data.name !== data.english ? data.name : '',
                 kind: data.kind,
-                location: data.parent,
+                location: data.parent ? en(data.parent, 'place') : '',
                 description: data.description,
                 atmosphere: data.state ? `At the start of the story: ${data.state}` : '',
             };
@@ -155,7 +217,7 @@ export function canonDraftOf(
             const fields: Record<string, string> = {
                 name: title,
                 aliases: data.english && data.name !== data.english ? data.name : '',
-                leader: data.leader,
+                leader: data.leader ? en(data.leader) : '',
                 goals: data.goals,
                 symbols: data.description,
             };
@@ -168,7 +230,7 @@ export function canonDraftOf(
                 name: title,
                 aliases: data.english && data.name !== data.english ? data.name : '',
                 properties: data.description,
-                owner: data.owner,
+                owner: data.owner ? en(data.owner) : '',
             };
             return draft('item', title, fields, [data.name, data.english, ...data.forms]);
         }
@@ -305,12 +367,34 @@ export function outfitAtStart(
 /** Title of the canon note of the start (one per chat: replaced when the start changes). */
 export const START_NOTE_TITLE = 'Story start';
 
-/** The canon note of a start: when, where, who and what is going on (English); null when the scene says nothing. */
-export function startNoteDraft(scene: SceneData): CanonEntryDraft | null {
+/** English names of a start's place and cast, kept with the stored scene (the canon note names them in English). */
+export interface StartNames {
+    place: string;
+    present: string[];
+}
+
+/** The English names of a scene's place and cast (englishNames of the plan); null when they are the scene's own. */
+export function startNames(scene: SceneData, english: EnglishName): StartNames | null {
+    const names: StartNames = {
+        place: scene.place.trim() ? english(scene.place, 'place') : '',
+        present: scene.present.map((name) => english(name)),
+    };
+    const same =
+        names.place === scene.place.trim() && names.present.every((name, index) => name === scene.present[index]);
+    return same ? null : names;
+}
+
+/**
+ * The canon note of a start: when, where, who and what is going on (English; the place and the cast by their English
+ * names when known, the place's own name stays a key); null when the scene says nothing.
+ */
+export function startNoteDraft(scene: SceneData, names?: StartNames | null): CanonEntryDraft | null {
+    const place = names?.place || scene.place;
+    const present = names?.present.length ? names.present : scene.present;
     const text = lines([
         ['When', [scene.date, scene.time].filter((part) => part.trim()).join(', ')],
-        ['Where', scene.place],
-        ['Present', scene.present.join(', ')],
+        ['Where', place],
+        ['Present', present.join(', ')],
         ['Situation', scene.situation],
     ]);
     if (!text) return null;
@@ -318,7 +402,19 @@ export function startNoteDraft(scene: SceneData): CanonEntryDraft | null {
         'story start',
         'начало истории',
         scene.place,
+        place,
     ]);
+}
+
+/**
+ * What the wardrobe is told about a starting outfit (its revision route, wardrobe-tags outfitFromStatement): an English
+ * sentence for an English wording («Vera wears a quilted watch jacket»), a Russian one for a Russian wording («Вера
+ * носит: стёганая куртка портовой стражи») — the wardrobe keeps the wording after the verb as the player reads it.
+ */
+export function outfitStatement(outfit: StartOutfit): string {
+    const wearing = outfit.wearing.trim();
+    if (hasCyrillic(wearing)) return `${outfit.name} носит: ${wearing}`;
+    return `${outfit.english || outfit.name} wears ${wearing}`;
 }
 
 /* ------------------------------------------------------------------ mechanics */
