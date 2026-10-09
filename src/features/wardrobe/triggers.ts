@@ -15,7 +15,13 @@ import { adaptersOf } from '../../adapters';
 import { stableHash } from '../../domain/hash';
 import { cleanForAnalysis } from '../../domain/text-clean';
 import { presentCharacters, sceneTracker } from '../../domain/voices-cards';
-import { detectOutfitChange, finalChanges, matchOutfitName, withoutGarments } from '../../domain/wardrobe-change';
+import {
+    detectOutfitChange,
+    finalChanges,
+    matchOutfitName,
+    mentionsChange,
+    withoutGarments,
+} from '../../domain/wardrobe-change';
 import type { ChangeCastMember, OutfitChange } from '../../domain/wardrobe-change';
 import {
     CHANGE_EXCERPT_CHARS,
@@ -198,13 +204,16 @@ export class WardrobeTriggers {
         return -1;
     }
 
-    /** The ephemeral producer: changes of the player's message applied now, the rest a hint for this generation. */
+    /**
+     * The ephemeral producer: changes of the player's message applied now, the rest a hint for this generation. A
+     * message without a verb of changing clothes costs a regular expression and nothing is written (the send path).
+     */
     private async produce(gen: GenerationInfo): Promise<void> {
         if (gen.quiet || gen.dryRun || gen.sheetCommand || !this.on()) return;
         const index = this.playerMessage(gen);
         if (index < 0) return;
         const text = cleanForAnalysis(this.chat()[index]);
-        if (!text) return;
+        if (!text || !mentionsChange(text)) return;
         const hash = stableHash(text);
         const mark = await this.service.triggerMark();
         if (mark && mark.index === index && mark.hash === hash) {
@@ -212,13 +221,15 @@ export class WardrobeTriggers {
             this.hint(this.service.pendingChanges().filter((item) => item.index === index));
             return;
         }
-        await this.service.setTriggerMark({ index, hash });
-        const pending = await this.readPlayer(index, text, true);
+        const pending = await this.readPlayer(index, text, true, hash);
         this.hint(pending);
     }
 
-    /** Reads one player's message: applies what can be told now; what waits for the model, remembered and returned. */
-    private async readPlayer(index: number, text: string, generating: boolean): Promise<PendingChange[]> {
+    /**
+     * Reads one player's message: applies what can be told now; what waits for the model, remembered and returned. The
+     * message is marked read (a swipe does not read it again) once it said a change.
+     */
+    private async readPlayer(index: number, text: string, generating: boolean, hash: string): Promise<PendingChange[]> {
         const changes = finalChanges(
             detectOutfitChange(text, this.cast(), {
                 persona: this.personaOption(),
@@ -226,6 +237,8 @@ export class WardrobeTriggers {
                 outfits: this.service.outfitNames(),
             }),
         );
+        if (!changes.length) return [];
+        await this.service.setTriggerMark({ index, hash });
         const waiting: Omit<PendingChange, 'index' | 'at'>[] = [];
         for (const change of changes) {
             const what = this.resolvable(change);
@@ -268,6 +281,8 @@ export class WardrobeTriggers {
         const hash = stableHash(text);
         const mark = await this.service.triggerMark();
         if (mark?.index === index && mark.hash === hash) return;
+        // Only a message the trigger read (or one that says a change now) has anything to take back or apply.
+        if (mark?.index !== index && !mentionsChange(text)) return;
         for (const record of this.app.journal.list({ module: WARDROBE_ID })) {
             if (record.sourceMessage !== index || record.undone || record.kind !== WARDROBE_WEAR_NOW_KIND) continue;
             try {
@@ -276,8 +291,9 @@ export class WardrobeTriggers {
                 this.log.warn('wardrobe: the change of the edited message was not undone', error);
             }
         }
-        await this.service.setTriggerMark({ index, hash });
-        await this.readPlayer(index, text, false);
+        await this.service.setPending(index, []);
+        if (mark?.index === index) await this.service.setTriggerMark(null);
+        await this.readPlayer(index, text, false, hash);
     }
 
     /* ---------------------------------------------------------------- the narration of a reply */
@@ -288,7 +304,7 @@ export class WardrobeTriggers {
         const message = this.chat()[index];
         if (!message || message.is_user || message.is_system) return;
         const text = cleanForAnalysis(message);
-        if (!text) return;
+        if (!text || !mentionsChange(text)) return;
         const cast = this.cast();
         const changes = finalChanges(
             detectOutfitChange(text, cast, {

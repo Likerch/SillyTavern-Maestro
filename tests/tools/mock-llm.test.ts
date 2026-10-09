@@ -34,6 +34,12 @@ import {
     translateMessages,
 } from '../../src/features/mechanics/translate';
 import { parseRevisionChanges } from '../../src/domain/revision-parse';
+import {
+    CHANGE_SCHEMA,
+    CHANGE_SCHEMA_NAME,
+    changeMessages,
+    parseChangeAnswer,
+} from '../../src/domain/wardrobe-change-model';
 
 const SERVER = fileURLToPath(new URL('../../tools/mock-llm/server.mjs', import.meta.url));
 
@@ -572,6 +578,34 @@ describe('mock LLM', () => {
             },
         });
         expect(Object.keys(JSON.parse(plain.choices[0]!.message.content) as object)).toEqual(['changes']);
+    });
+
+    it('answers the wardrobe change check for every listed person', async () => {
+        const request = (excerpt: string) =>
+            complete({
+                messages: changeMessages({
+                    people: [
+                        { name: 'Алекс', persona: true, outfits: [], current: '' },
+                        { name: 'Вера', outfits: ['Домашнее', 'Пижама'], current: 'плащ' },
+                    ],
+                    said: ['Алекс: переодеваюсь'],
+                    excerpt,
+                }),
+                response_format: {
+                    type: 'json_schema',
+                    json_schema: { name: CHANGE_SCHEMA_NAME, strict: true, schema: CHANGE_SCHEMA },
+                },
+            });
+        const plain = JSON.parse((await request('Алекс: переодеваюсь')).choices[0]!.message.content) as unknown;
+        expect(matchesSchema(plain, CHANGE_SCHEMA)).toBe(true);
+        expect(parseChangeAnswer(plain)).toEqual([
+            { name: 'Алекс', wearing: 'домашняя одежда', outfit: null },
+            { name: 'Вера', wearing: null, outfit: 'Домашнее' },
+        ]);
+        const marked = JSON.parse(
+            (await request('Алекс: переодеваюсь [mock:wear:серый плащ]')).choices[0]!.message.content,
+        ) as unknown;
+        expect(parseChangeAnswer(marked).map((item) => item.wearing)).toEqual(['серый плащ', 'серый плащ']);
     });
 
     it('translates the texts of a mechanic for the model', async () => {

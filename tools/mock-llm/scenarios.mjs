@@ -873,6 +873,26 @@ registerSchema('nai_passports', (ctx) => {
 // The wardrobe asks what the user's character wears: `[mock:wear:phrase]` in the chat is the answer, else null.
 registerSchema('wardrobe_persona', (ctx) => ({ wearing: ctx.markers?.get('wear') || null }));
 
+// The wardrobe asks what the people of a change of clothes wear now (src/domain/wardrobe-change-model.ts): every person
+// of the «People:» list wears `[mock:wear:phrase]` when the chat has it, else their first known outfit, else «домашняя
+// одежда» — so the stand shows a change after «переодеваюсь».
+registerSchema('wardrobe_change', (ctx) => {
+    const text = String(ctx.lastUserText ?? '');
+    const block = /People:\n([\s\S]*?)\n\n/.exec(text)?.[1] ?? '';
+    const marker = ctx.markers?.get('wear') || '';
+    const changes = block
+        .split('\n')
+        .map((line) => /^- ([^;(]+?)(?: \(the user's character\))?(?:;|$)/.exec(line.trim()))
+        .filter(Boolean)
+        .map((match) => {
+            const line = match.input;
+            const outfit = /known outfits: ([^;]+)/.exec(line)?.[1]?.split(',')[0]?.trim() || null;
+            const wearing = marker || (outfit ? null : 'домашняя одежда');
+            return { name: match[1].trim(), wearing, outfit: marker ? null : outfit };
+        });
+    return { changes };
+});
+
 // The prompt audit (M38, src/domain/prompt-audit-ai.ts) sends a map of instructions (`[I1] owner · role…`, then the
 // text between `<<<` and `>>>` lines): the answer is one conflict between the first two instructions, quoting the
 // first sentence of each exactly, with an edit fix on the first one (none when the map has fewer than two).

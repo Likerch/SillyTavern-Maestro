@@ -141,6 +141,15 @@ describe('the player’s message', () => {
         expect(alex().activeOutfit).not.toBe('Домашнее');
     });
 
+    it('writes nothing on the send path for a message without a change of clothes', async () => {
+        scene('Я подхожу к окну и смотрю на дождь.');
+        const uploads = () => env.mock.requests.filter((request) => request.url.includes('/api/files/upload')).length;
+        const before = uploads();
+        await env.ephemeral.generate();
+        expect(uploads()).toBe(before);
+        expect(wearNows()).toHaveLength(0);
+    });
+
     it('does nothing while switched off, for quiet or dry generations, sheets and impersonation', async () => {
         env.slices.wardrobe!.triggers = false;
         scene('Переодеваюсь в домашнее.');
