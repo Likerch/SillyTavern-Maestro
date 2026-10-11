@@ -364,6 +364,11 @@ describe('sheet reply', () => {
     it('cuts the mock’s scene and tracker, keeps swipes consistent, marks and journals', async () => {
         fx.adapters.qvink.present = true;
         await startAll();
+        // The trim re-renders a reply already on screen: announced like ST's editor does (1.21.1), DES lays it out.
+        const updated: number[] = [];
+        fx.mock.eventSource.on('message_updated', (messageId) => {
+            updated.push(Number(messageId));
+        });
         const { prompt } = await sheetGeneration();
         const index = await receive(prompt);
         const expected = sheetText('Вера', analyseRequest({ messages: prompt }));
@@ -378,6 +383,7 @@ describe('sheet reply', () => {
             sheet: { command: 'fullsheet', target: 'Вера', part: 'command' },
         });
         expect(renders).toContain(index);
+        expect(updated).toEqual([index]);
         expect(saves).toBeGreaterThan(0);
         expect(fx.journal.records.map((record) => record.kind)).toEqual(['sheets.trim']);
         // Excluded in Qvink on MESSAGE_RECEIVED, before its auto-summary.
@@ -394,6 +400,7 @@ describe('sheet reply', () => {
         expect(await fx.journal.undo(fx.journal.records[0]!.id)).toBe(true);
         expect(reply.mes).not.toBe(raw);
         expect(reply.mes).toContain('```json');
+        expect(updated).toEqual([index, index]);
         expect(await fx.journal.undo(fx.journal.records[0]!.id)).toBe(false);
     });
 

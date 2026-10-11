@@ -56,6 +56,7 @@ import {
 import type { Edit } from '../../domain/mechanics-state';
 import { committedIndices } from '../../domain/places-registry';
 import { cleanForAnalysis } from '../../domain/text-clean';
+import { rerenderMessage } from '../../host/messages';
 import type { App, JournalChange, Proposal, TaskInfo, Unsubscribe } from '../../shared/contracts';
 import type { AttributeValue, MechanicDef } from './api';
 import { MECHANICS_ID } from './parts';
@@ -299,12 +300,12 @@ export class MechanicTracking implements TrackingPart {
             'MESSAGE_RECEIVED',
             (messageId, type) => {
                 const kind = String(type ?? '') || 'normal';
-                if (!FOREIGN_TYPES.has(kind)) this.takeBlock(Number(messageId), APPEND_TYPES.has(kind));
+                if (!FOREIGN_TYPES.has(kind)) this.takeBlock(Number(messageId), APPEND_TYPES.has(kind), false);
             },
             'last',
         );
         this.onSt('MESSAGE_EDITED', (messageId) => {
-            this.takeBlock(Number(messageId), false);
+            this.takeBlock(Number(messageId), false, false);
         });
         this.onSt('CHAT_COMPLETION_PROMPT_READY', (data) => this.onPromptReady(data));
         this.installDisplayHook();
@@ -389,9 +390,11 @@ export class MechanicTracking implements TrackingPart {
 
     /**
      * Parses and strips the block of a reply (arrival, edit, the reply:ready safety net). `merge`: a continuation adds
-     * its lines to the record of the same swipe. True when a block was taken.
+     * its lines to the record of the same swipe. `announce`: the re-render is followed by MESSAGE_UPDATED, so the
+     * neighbours that decorate the text (DES speaker cards) redo it — not on arrival (CHARACTER_MESSAGE_RENDERED
+     * follows) and not on an edit (ST re-renders and announces after MESSAGE_EDITED). True when a block was taken.
      */
-    takeBlock(index: number, merge: boolean): boolean {
+    takeBlock(index: number, merge: boolean, announce = true): boolean {
         if (this.disposed || !Number.isInteger(index) || index < 0) return false;
         const ctx = this.app.host.ctx();
         const message = ctx.chat[index];
@@ -425,11 +428,7 @@ export class MechanicTracking implements TrackingPart {
                 }
             }
         }
-        try {
-            ctx.updateMessageBlock?.(index, message);
-        } catch (error) {
-            this.deps.log.debug('mechanics: the message could not be re-rendered', error);
-        }
+        void rerenderMessage(this.app.host, index, message, { announce, log: this.deps.log });
         if (parsed.repaired.length) this.deps.log.debug(`mechanics: block of #${index} repaired`, parsed.repaired);
         if (parsed.dropped.length) {
             this.deps.log.debug(`mechanics: ${parsed.dropped.length} block lines of #${index} dropped`, parsed.dropped);

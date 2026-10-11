@@ -22,6 +22,7 @@ import {
 import { compareSheetTags, trimSheetReply } from '../../domain/sheet-reply';
 import type { SheetTagReport } from '../../domain/sheet-reply';
 import type { SheetCommand } from '../../domain/sheets';
+import { rerenderMessage } from '../../host/messages';
 import type { GenerationInfo, JournalChange, MaestroModule, TargetSpec, Unsubscribe } from '../../shared/contracts';
 import type { Scenario, ScenarioContext, ScenarioPlan, ScenariosApi } from '../scenarios/api';
 import type { SheetMark, SheetsApi } from './api';
@@ -175,13 +176,9 @@ export const sheetsModule: MaestroModule<SheetsSettings> = {
             return fn as (start: number, end: number, unhide: boolean) => Promise<void>;
         };
 
-        const rerender = (index: number, message: STChatMessage): void => {
-            try {
-                ctx().updateMessageBlock?.(index, message);
-            } catch (error) {
-                log.warn('could not re-render the sheet message', error);
-            }
-        };
+        // Announced with MESSAGE_UPDATED (host/messages.ts): DES lays the trimmed text out again.
+        const rerender = (index: number, message: STChatMessage): Promise<void> =>
+            rerenderMessage(app.host, index, message, { log });
         const save = async (): Promise<void> => {
             try {
                 await ctx().saveChat();
@@ -217,7 +214,7 @@ export const sheetsModule: MaestroModule<SheetsSettings> = {
             const message = ctx().chat[payload.index];
             if (!message) return;
             setMessageText(message, payload.after);
-            rerender(payload.index, message);
+            await rerender(payload.index, message);
             await save();
         };
         const trimStillValid = (payload: TrimPayload): boolean => {
@@ -593,7 +590,7 @@ export const sheetsModule: MaestroModule<SheetsSettings> = {
                 return false;
             }
             setMessageText(message, String(change.before ?? ''));
-            rerender(index, message);
+            await rerender(index, message);
             await save();
             return true;
         });

@@ -1,11 +1,13 @@
 // What M12 asks SillyTavern to do (ST 1.19, public/scripts/st-context.js):
-// - rewrite a reply: chat[i].mes + swipes[swipe_id], updateMessageBlock(), saveChat();
+// - rewrite a reply: chat[i].mes + swipes[swipe_id], updateMessageBlock() + MESSAGE_UPDATED (host/messages.ts),
+//   saveChat();
 // - swipe: ctx.swipe.right(null, { message }) — an overswipe on the last message regenerates it (script.js swipe(),
 //   OVERSWIPE_BEHAVIOR.REGENERATE); only when ctx.swipe.isAllowed() (no generation, no swipe in progress);
 // - swipe back (undo): ctx.swipe.to(null, 'left', { forceMesId, forceSwipeId });
 // - continue: `/continue` (slash-commands.js continueChatCallback waits for the generation lock itself; it clears
 //   the send box, so it runs only while the box is empty);
 // - stop: ctx.stopGeneration() (script.js; the partial reply is still saved and rendered).
+import { rerenderMessage } from '../../host/messages';
 import type { App, Logger } from '../../shared/contracts';
 
 interface StSwipeApi {
@@ -99,11 +101,8 @@ export class StActions {
         message.mes = after;
         const swipes = message.swipes;
         if (Array.isArray(swipes) && typeof swipes[swipeId] === 'string') swipes[swipeId] = after;
-        try {
-            if (typeof ctx.updateMessageBlock === 'function') ctx.updateMessageBlock(index, message);
-        } catch (error) {
-            this.log.warn('updateMessageBlock failed', error);
-        }
+        // Announced with MESSAGE_UPDATED: the reply was laid out long ago, DES must lay out the new text again.
+        await rerenderMessage(this.app.host, index, message, { log: this.log });
         await ctx.saveChat();
         return true;
     }

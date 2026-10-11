@@ -102,6 +102,11 @@ Rules:
 - Never use `/bg`; never toggle neighbour settings for quiet modes — suppress at prompt assembly instead.
 - BunnyMo packs: never edit files, never add Russian keys, only technical runtime fixes (P13).
 - Style neighbour DOM only with stylesheets (never inline styles on DES nodes).
+- A message whose text Maestro changed is re-rendered with `rerenderMessage()` (`src/host/messages.ts`):
+  `updateMessageBlock()` and then `MESSAGE_UPDATED`, as ST's message editor does — DES keeps its "bubbles laid out"
+  mark on `.mes_text`, so a bare re-render leaves the reply without speaker cards. Inside `MESSAGE_RECEIVED` and
+  `MESSAGE_EDITED` pass `announce: false` (ST announces the message itself). Never emit `MESSAGE_EDITED` for
+  Maestro's own changes: the turn pipeline reads it as the player's edit and Qvink summarises again.
 
 ## Tests
 
