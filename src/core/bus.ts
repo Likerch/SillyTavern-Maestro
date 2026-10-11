@@ -24,6 +24,8 @@ export class EventBus implements Bus {
         const set = this.handlers.get(event);
         if (!set) return;
         for (const handler of [...set]) {
+            // A handler removed by an earlier one of this emit (its module paused by «Мастерская») is skipped.
+            if (!set.has(handler)) continue;
             try {
                 await (handler as Handler<K>)(payload);
             } catch (error) {

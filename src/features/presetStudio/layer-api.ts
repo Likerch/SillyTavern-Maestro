@@ -116,8 +116,11 @@ export interface LayerScopeInfo {
 export interface PresetBindings {
     character: string | null;
     chat: string | null;
-    /** The binding that wins now (the chat's over the card's), null when none. */
-    active: { scope: 'character' | 'chat'; preset: string } | null;
+    /**
+     * The binding that wins now (the chat's over the card's, either over «Мастерская»'s preset of a workshop chat),
+     * null when none.
+     */
+    active: { scope: 'character' | 'chat' | 'workshop'; preset: string } | null;
     context: LayerScopeInfo;
 }
 

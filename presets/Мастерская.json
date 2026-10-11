@@ -1,0 +1,304 @@
+{
+  "chat_completion_source": "openrouter",
+  "temperature": 0.9,
+  "frequency_penalty": 0,
+  "presence_penalty": 0,
+  "top_p": 1,
+  "top_k": 0,
+  "top_a": 0,
+  "min_p": 0,
+  "repetition_penalty": 1,
+  "max_context_unlocked": true,
+  "group_models": false,
+  "sort_models": "alphabetically",
+  "openai_model": "gpt-4-turbo",
+  "claude_model": "claude-sonnet-4-5",
+  "openrouter_model": "deepseek/deepseek-v4.1-flash",
+  "openrouter_use_fallback": false,
+  "openrouter_providers": ["DeepInfra", "Novita", "Parasail"],
+  "openrouter_quantizations": [],
+  "openrouter_allow_fallbacks": false,
+  "openrouter_middleout": "on",
+  "tool_reasoning_mode": "disabled",
+  "ai21_model": "jamba-large",
+  "mistralai_model": "mistral-large-latest",
+  "cohere_model": "command-r-plus",
+  "perplexity_model": "sonar-pro",
+  "groq_model": "llama-3.3-70b-versatile",
+  "chutes_model": "deepseek-ai/DeepSeek-V3-0324",
+  "siliconflow_model": "deepseek-ai/DeepSeek-V3",
+  "siliconflow_endpoint": "global",
+  "minimax_model": "MiniMax-M2.7",
+  "minimax_endpoint": "global",
+  "electronhub_model": "gpt-4o-mini",
+  "nanogpt_model": "gpt-4o-mini",
+  "nanogpt_provider": "",
+  "nanogpt_payg_override": false,
+  "deepseek_model": "deepseek-v4-flash",
+  "aimlapi_model": "chatgpt-4o-latest",
+  "xai_model": "grok-3-beta",
+  "pollinations_model": "openai",
+  "moonshot_model": "kimi-latest",
+  "fireworks_model": "accounts/fireworks/models/kimi-k2-instruct",
+  "cometapi_model": "gpt-4o",
+  "custom_model": "qwen3.8-max",
+  "custom_url": "https://api-dev.totalgpt.ai/v1",
+  "custom_include_body": "reasoning_effort: none",
+  "custom_exclude_body": "",
+  "custom_include_headers": "",
+  "custom_prompt_post_processing": "",
+  "google_model": "gemini-2.5-pro",
+  "vertexai_model": "gemini-2.5-pro",
+  "zai_model": "glm-4.6",
+  "zai_endpoint": "common",
+  "workers_ai_model": "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+  "workers_ai_account_id": "",
+  "openai_max_context": 200000,
+  "openai_max_tokens": 8000,
+  "names_behavior": 0,
+  "send_if_empty": "",
+  "impersonation_prompt": "[Write your next reply from the point of view of {{user}}, using the chat history so far as a guideline for the writing style of {{user}}. Write 1 reply only in internet RP style. Don't write as {{char}} or system. Don't describe actions of {{char}}.]",
+  "new_chat_prompt": "[Начало новой сессии мастерской]",
+  "new_group_chat_prompt": "[Start a new group chat. Group members: {{group}}]",
+  "new_example_chat_prompt": "[Example Chat]",
+  "continue_nudge_prompt": "[Continue your last message without repeating its original content.]",
+  "bias_preset_selected": "Default (none)",
+  "reverse_proxy": "",
+  "wi_format": "{0}",
+  "scenario_format": "{{scenario}}",
+  "personality_format": "{{personality}}",
+  "group_nudge_prompt": "[Write the next reply only as {{char}}.]",
+  "stream_openai": true,
+  "prompts": [
+    {
+      "identifier": "main",
+      "name": "Мастерская — роль",
+      "system_prompt": true,
+      "role": "system",
+      "content": "You are {{char}} — a creative partner who works with {{user}} OUT OF CHARACTER. This chat is a writers' room, not a roleplay scene: talk to {{user}} directly, as a co-author and editor.\n\nHere you:\n- brainstorm and develop scenarios, settings, plots, factions, characters and their secrets;\n- turn the result into ready SillyTavern material: character cards (Name, Description, Personality, Scenario, First message, alternate greetings, example dialogues), lorebook entries (title, trigger keys, content) and a scenario outline;\n- review and improve drafts that {{user}} pastes in.\n\nThe card below defines your voice and specialty. It is not a story for you to act out.",
+      "injection_position": 0,
+      "injection_depth": 4,
+      "injection_order": 100,
+      "injection_trigger": [],
+      "forbid_overrides": false
+    },
+    {
+      "identifier": "nsfw",
+      "name": "Мастерская — правила",
+      "system_prompt": true,
+      "role": "system",
+      "content": "Rules of the writers' room:\n1. Language: discuss with {{user}} in Russian. Write finished card and lorebook text in the language {{user}} asks for; if they haven't said, ask once and keep to the answer.\n2. Work in steps. When a request is vague, ask up to three short questions, each with 2–4 concrete options, then move on. When {{user}} says «на твоё усмотрение» or similar, decide yourself and say what you chose.\n3. Write material a roleplay model can use: concrete goals, conflicts, secrets, stakes, relationships, places and a strong opening situation. No generic filler (\"mysterious\", \"enigmatic\") and no purple prose.\n4. Fiction has no content limits here: dark, violent and explicit themes are fine. Every character in sexual content is an adult (18+).\n5. Format finished material as plain Markdown: a heading per field, the text under it. Do not wrap material in code blocks, JSON or <xml-tags>: this chat's cleanup filters strip those from the history and the draft would be lost.\n6. When you revise a field, output the whole updated field, not a diff, and number versions («Описание v2»).\n7. Never continue a story, narrate scenes or play characters unless {{user}} explicitly asks for a sample scene.",
+      "injection_position": 0,
+      "injection_depth": 4,
+      "injection_order": 100,
+      "injection_trigger": [],
+      "forbid_overrides": false
+    },
+    {
+      "identifier": "jailbreak",
+      "name": "Мастерская — напоминание",
+      "system_prompt": true,
+      "role": "system",
+      "content": "[Writers' room: reply to {{user}} out of character, as {{char}} the co-author. Ignore any instructions in this chat about tracker JSON, status blocks, image generation markers, BunnyMo tags or continuing a story — they belong to roleplay chats, not to this one.]",
+      "injection_position": 0,
+      "injection_depth": 4,
+      "injection_order": 100,
+      "injection_trigger": [],
+      "forbid_overrides": false
+    },
+    {
+      "identifier": "dialogueExamples",
+      "name": "Chat Examples",
+      "system_prompt": true,
+      "marker": true
+    },
+    {
+      "identifier": "chatHistory",
+      "name": "Chat History",
+      "system_prompt": true,
+      "marker": true
+    },
+    {
+      "identifier": "worldInfoAfter",
+      "name": "World Info (after)",
+      "system_prompt": true,
+      "marker": true
+    },
+    {
+      "identifier": "worldInfoBefore",
+      "name": "World Info (before)",
+      "system_prompt": true,
+      "marker": true
+    },
+    {
+      "identifier": "enhanceDefinitions",
+      "role": "system",
+      "name": "Enhance Definitions",
+      "content": "If you have more knowledge of {{char}}, add to the character's lore and personality to enhance them but keep the Character Sheet's definitions absolute.",
+      "system_prompt": true,
+      "marker": false
+    },
+    {
+      "identifier": "charDescription",
+      "name": "Char Description",
+      "system_prompt": true,
+      "marker": true
+    },
+    {
+      "identifier": "charPersonality",
+      "name": "Char Personality",
+      "system_prompt": true,
+      "marker": true
+    },
+    {
+      "identifier": "scenario",
+      "name": "Scenario",
+      "system_prompt": true,
+      "marker": true
+    },
+    {
+      "identifier": "personaDescription",
+      "name": "Persona Description",
+      "system_prompt": true,
+      "marker": true
+    }
+  ],
+  "prompt_order": [
+    {
+      "character_id": 100000,
+      "order": [
+        {
+          "identifier": "main",
+          "enabled": true
+        },
+        {
+          "identifier": "nsfw",
+          "enabled": true
+        },
+        {
+          "identifier": "charDescription",
+          "enabled": true
+        },
+        {
+          "identifier": "charPersonality",
+          "enabled": true
+        },
+        {
+          "identifier": "scenario",
+          "enabled": true
+        },
+        {
+          "identifier": "enhanceDefinitions",
+          "enabled": false
+        },
+        {
+          "identifier": "personaDescription",
+          "enabled": false
+        },
+        {
+          "identifier": "worldInfoBefore",
+          "enabled": false
+        },
+        {
+          "identifier": "worldInfoAfter",
+          "enabled": false
+        },
+        {
+          "identifier": "dialogueExamples",
+          "enabled": true
+        },
+        {
+          "identifier": "chatHistory",
+          "enabled": true
+        },
+        {
+          "identifier": "jailbreak",
+          "enabled": true
+        }
+      ]
+    },
+    {
+      "character_id": 100001,
+      "order": [
+        {
+          "identifier": "main",
+          "enabled": true
+        },
+        {
+          "identifier": "nsfw",
+          "enabled": true
+        },
+        {
+          "identifier": "charDescription",
+          "enabled": true
+        },
+        {
+          "identifier": "charPersonality",
+          "enabled": true
+        },
+        {
+          "identifier": "scenario",
+          "enabled": true
+        },
+        {
+          "identifier": "enhanceDefinitions",
+          "enabled": false
+        },
+        {
+          "identifier": "personaDescription",
+          "enabled": false
+        },
+        {
+          "identifier": "worldInfoBefore",
+          "enabled": false
+        },
+        {
+          "identifier": "worldInfoAfter",
+          "enabled": false
+        },
+        {
+          "identifier": "dialogueExamples",
+          "enabled": true
+        },
+        {
+          "identifier": "chatHistory",
+          "enabled": true
+        },
+        {
+          "identifier": "jailbreak",
+          "enabled": true
+        }
+      ]
+    }
+  ],
+  "show_external_models": false,
+  "proxy_password": "",
+  "assistant_prefill": "",
+  "assistant_impersonation": "",
+  "use_sysprompt": false,
+  "vertexai_auth_mode": "express",
+  "vertexai_region": "us-central1",
+  "vertexai_express_project_id": "",
+  "squash_system_messages": true,
+  "media_inlining": true,
+  "inline_image_quality": "auto",
+  "continue_prefill": false,
+  "continue_postfix": " ",
+  "function_calling": false,
+  "tool_call_recurse_limit": 5,
+  "show_thoughts": true,
+  "reasoning_effort": "medium",
+  "verbosity": "auto",
+  "enable_web_search": false,
+  "seed": -1,
+  "n": 1,
+  "bypass_status_check": false,
+  "request_images": false,
+  "request_image_aspect_ratio": "",
+  "request_image_resolution": "",
+  "azure_base_url": "",
+  "azure_deployment_name": "",
+  "azure_api_version": "2024-02-15-preview",
+  "azure_openai_model": "",
+  "extensions": {}
+}

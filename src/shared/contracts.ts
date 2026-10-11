@@ -573,6 +573,11 @@ export interface MaestroEvents {
     signal: Signal;
     'settings:changed': { path: string };
     'leader:changed': { leader: boolean };
+    /**
+     * «Мастерская» (M42) flipped: the chat open now belongs (or stopped belonging) to a helper card. Emitted inside the
+     * first CHAT_CHANGED listener on a chat switch (before `chat:changed`), or when the card's tag changes in the chat.
+     */
+    'workshop:changed': { active: boolean; chatId: string | null };
 }
 
 export interface Signal {
@@ -927,9 +932,19 @@ export interface MaestroModule<S extends object = object> {
 }
 
 export interface ModuleManager {
-    list(): { module: MaestroModule; enabled: boolean; running: boolean; missing: string[] }[];
+    /** `suspended`: enabled, but held off by «Мастерская» (suspend()); it starts again on resume(). */
+    list(): { module: MaestroModule; enabled: boolean; running: boolean; missing: string[]; suspended?: boolean }[];
     enable(key: string): Promise<void>;
     disable(key: string): Promise<void>;
+    /**
+     * «Мастерская» (M42): stops every running module whose key is not in `keep` without touching its switch, and keeps
+     * the others from starting until resume(). Optional: older test apps.
+     */
+    suspend?(keep: readonly string[]): Promise<void>;
+    /** Starts again what suspend() held off (when still enabled and its capabilities are present). */
+    resume?(): Promise<void>;
+    /** suspend() is in force. */
+    isSuspended?(): boolean;
     /** Typed access to another module's public API (registered with expose()). */
     api<T>(key: string): T | undefined;
     expose(key: string, api: unknown): void;

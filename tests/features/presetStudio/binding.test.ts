@@ -14,8 +14,10 @@ import type { FeatureEnv } from '../../helpers/medic-app';
 let env: FeatureEnv;
 let current: string;
 let bound: { chat: string | null; character: string | null };
+/** M42: the workshop preset the layer reports for a workshop chat without a binding (null: a story chat). */
+let workshop: string | null;
 let settings: PresetStudioSettings;
-let switchPreset: Mock<(name: string, options: { reason?: string }) => Promise<boolean>>;
+let switchPreset: Mock<(name: string, options: { reason?: string; keepConnection?: boolean }) => Promise<boolean>>;
 let answer: boolean;
 const layerListeners = new Set<(change?: LayerChange) => void>();
 let binder: PresetBinder;
@@ -25,7 +27,9 @@ function bindings(): PresetBindings {
         ? { scope: 'chat' as const, preset: bound.chat }
         : bound.character
           ? { scope: 'character' as const, preset: bound.character }
-          : null;
+          : workshop
+            ? { scope: 'workshop' as const, preset: workshop }
+            : null;
     return { ...bound, active, context: { character: { avatar: 'alice.png', name: 'Alice' }, chat: { id: 'c' } } };
 }
 
@@ -39,6 +43,7 @@ beforeEach(async () => {
     env = await createFeatureEnv([PRESET_STUDIO_STRINGS]);
     current = 'General';
     bound = { chat: null, character: null };
+    workshop = null;
     settings = defaultPresetStudioSettings();
     answer = true;
     switchPreset = vi.fn(async (name: string) => {
@@ -56,7 +61,7 @@ beforeEach(async () => {
     } as unknown as PresetLayerApi;
     const store = {
         current: () => current,
-        names: () => ['General', 'Dark', 'Light'],
+        names: () => ['General', 'Dark', 'Light', 'Мастерская'],
     } as unknown as PresetStore;
     binder = new PresetBinder({
         app: env.app,
@@ -75,7 +80,11 @@ describe('PresetBinder', () => {
     it('selects the chat’s preset on entering, keeps it between bound chats, brings the old one back on leaving', async () => {
         await openChat({ chat: 'Dark', character: null });
         expect(current).toBe('Dark');
-        expect(switchPreset).toHaveBeenLastCalledWith('Dark', { reason: expect.stringContaining('Dark') });
+        // An automatic switch keeps the model and providers the user chose.
+        expect(switchPreset).toHaveBeenLastCalledWith('Dark', {
+            reason: expect.stringContaining('Dark'),
+            keepConnection: true,
+        });
         expect(settings.bindingRestore).toBe('General');
         await openChat({ chat: null, character: 'Light' });
         expect(current).toBe('Light');
@@ -114,5 +123,40 @@ describe('PresetBinder', () => {
         expect(settings.bindingRestore).toBe('General');
         await openChat({ chat: null, character: null });
         expect(current).toBe('General');
+    });
+
+    it('M42: a workshop chat takes the workshop preset and gives the old one back, naming the workshop', async () => {
+        workshop = 'Мастерская';
+        await openChat({ chat: null, character: null });
+        expect(current).toBe('Мастерская');
+        expect(switchPreset).toHaveBeenLastCalledWith('Мастерская', {
+            reason: expect.stringContaining('workshop'),
+            keepConnection: true,
+        });
+        expect(settings.bindingRestore).toBe('General');
+        workshop = null;
+        await openChat({ chat: null, character: null });
+        expect(current).toBe('General');
+        expect(env.ui.notices.at(-1)?.text).toContain('before the workshop');
+    });
+
+    it('M42: a binding of the chat wins over the workshop; the tag set in an open chat switches at once', async () => {
+        workshop = 'Мастерская';
+        await openChat({ chat: 'Dark', character: null });
+        expect(current).toBe('Dark');
+        bound = { chat: null, character: null };
+        await openChat({ chat: null, character: null });
+        expect(current).toBe('Мастерская');
+        workshop = null;
+        await env.app.bus.emit('workshop:changed', { active: false, chatId: 'c' });
+        await binder.idle();
+        expect(current).toBe('General');
+    });
+
+    it('M42: a missing workshop preset says where to name another one', async () => {
+        workshop = 'Нет такого';
+        await openChat({ chat: null, character: null });
+        expect(switchPreset).not.toHaveBeenCalled();
+        expect(env.ui.notices.at(-1)?.text).toContain('«Workshop»');
     });
 });

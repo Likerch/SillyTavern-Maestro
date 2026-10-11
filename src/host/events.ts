@@ -98,7 +98,11 @@ export function createHostEvents(ctx: () => STContext, log: Logger): HostEventsI
             const order = options?.order ?? 'normal';
             // A wrapper gives every subscription its own identity (the same handler may subscribe twice) and
             // reports failures under Maestro's logger; ST would only print them to the console.
+            let active = true;
             const listener: Listener = (...args: unknown[]) => {
+                // ST's emit walks a copy of the listener list: one removed during this emit (its module paused by
+                // «Мастерская» in an earlier CHAT_CHANGED listener) is still called — and must do nothing.
+                if (!active) return undefined;
                 const sink = timer;
                 const start = sink ? performance.now() : 0;
                 const done = () => {
@@ -126,7 +130,6 @@ export function createHostEvents(ctx: () => STContext, log: Logger): HostEventsI
             else es.on(raw, listener);
             registrations.add(registration);
 
-            let active = true;
             return () => {
                 if (!active) return;
                 active = false;

@@ -38,10 +38,15 @@ export const SCOPE_STRINGS: I18nParts = {
         'm34.binding.removed.character': '{character} has no own preset any more.',
         'm34.binding.activeChat': 'Preset of this chat: {name}',
         'm34.binding.activeCharacter': 'Preset of {character}: {name}',
+        'm34.binding.activeWorkshop': 'Workshop preset: {name}',
         'm34.binding.hint': 'Selected when this chat opens; the preset that was on before comes back when you leave.',
         'm34.binding.reason.chat': 'This chat has its own preset «{name}»: I switched to it.',
         'm34.binding.reason.character': '{character} has an own preset «{name}»: I switched to it.',
+        'm34.binding.reason.workshop': 'A workshop chat: I switched to the preset «{name}».',
         'm34.binding.reason.restore': 'Back to the preset «{name}» that was on before the bound chat.',
+        'm34.binding.reason.restoreWorkshop': 'Back to the preset «{name}» that was on before the workshop.',
+        'm34.binding.missingWorkshop':
+            'The workshop preset «{name}» is not in the list: the current preset stays. Import it or name another one in Maestro’s settings → «Workshop».',
         'm34.binding.missing': 'The preset «{name}» bound to this chat is gone: the current preset stays.',
 
         'm34.neighbours.unavailable': 'The neighbour prompts module is off.',
@@ -122,10 +127,15 @@ export const SCOPE_STRINGS: I18nParts = {
         'm34.binding.removed.character': 'У персонажа {character} больше нет своего пресета.',
         'm34.binding.activeChat': 'Пресет этого чата: {name}',
         'm34.binding.activeCharacter': 'Пресет персонажа {character}: {name}',
+        'm34.binding.activeWorkshop': 'Пресет мастерской: {name}',
         'm34.binding.hint': 'Включается, когда открываешь этот чат; при выходе возвращается прежний пресет.',
         'm34.binding.reason.chat': 'У этого чата свой пресет «{name}» — включил его.',
         'm34.binding.reason.character': 'У персонажа {character} свой пресет «{name}» — включил его.',
+        'm34.binding.reason.workshop': 'Чат мастерской — включил пресет «{name}».',
         'm34.binding.reason.restore': 'Вернул пресет «{name}», который был до чата со своим пресетом.',
+        'm34.binding.reason.restoreWorkshop': 'Вернул пресет «{name}», который был до мастерской.',
+        'm34.binding.missingWorkshop':
+            'Пресета мастерской «{name}» нет в списке — оставил текущий. Импортируй его или укажи другой в настройках Maestro → «Мастерская».',
         'm34.binding.missing': 'Пресета «{name}», привязанного к этому чату, больше нет — оставил текущий.',
 
         'm34.neighbours.unavailable': 'Модуль «Промпты соседей» выключен.',

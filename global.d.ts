@@ -102,6 +102,8 @@ declare global {
         chat: STChatMessage[];
         characters: STCharacter[];
         tags?: { id: string; name: string }[];
+        /** Tag ids of each character (avatar file) and group (id). */
+        tagMap?: Record<string, string[]>;
         characterId: string | number | undefined;
         groupId: string | null;
         name1: string;

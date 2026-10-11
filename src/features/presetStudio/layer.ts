@@ -82,6 +82,7 @@ import type { ScopeLayerDoc, ScopeOps } from '../../domain/preset-layer-scopes';
 import { jsonCopy, valuesEqual } from '../../domain/settings-diff';
 import type { App, JournalChange, Logger, Unsubscribe } from '../../shared/contracts';
 import type { GuardianApi } from '../guardian/api';
+import type { WorkshopApi } from '../workshop/api';
 import type {
     Layer,
     LayerApplyReport,
@@ -1322,11 +1323,15 @@ export function createPresetLayer(app: App, log: Logger, store?: PresetStore): P
                 ? (scoped.get('character', applied.avatar)?.binding?.preset ?? null)
                 : null;
             const chat = applied.chatId ? (scoped.get('chat', applied.chatId)?.binding?.preset ?? null) : null;
+            // M42: a workshop chat without a binding of its own takes «Мастерская»'s preset.
+            const workshop = chat || character ? null : (app.modules.api<WorkshopApi>('workshop')?.preset() ?? null);
             const active = chat
                 ? { scope: 'chat' as const, preset: chat }
                 : character
                   ? { scope: 'character' as const, preset: character }
-                  : null;
+                  : workshop
+                    ? { scope: 'workshop' as const, preset: workshop }
+                    : null;
             return { character, chat, active, context: info() };
         },
 

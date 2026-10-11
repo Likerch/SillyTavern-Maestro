@@ -3,6 +3,10 @@
 // about unsaved edits first — and leaving the bound chats brings back the preset that was active before. That preset
 // is kept in the module's settings (`bindingRestore`), so a page reload inside a bound chat still knows it. A binding
 // made inside a chat remembers the preset the chat opened with, so leaving it goes back to that one too.
+// M42 «Мастерская»: a workshop chat without a binding of its own selects the workshop preset the same way (the layer
+// reports it as the active binding), and the binder follows the workshop flipping inside an open chat.
+// These switches keep the connection: with ST's «Bind presets to API connections» a preset file carries a model and
+// providers, and an automatic switch must not change the model the user chose (keepConnection).
 import type { App, Logger, Unsubscribe } from '../../shared/contracts';
 import type { PresetLayerApi } from './layer-api';
 import type { PresetStore } from './store-api';
@@ -16,13 +20,15 @@ export interface BinderDeps {
     settings: PresetStudioSettings;
     saveSettings(): void;
     /** The studio's guarded switch (asks about unsaved edits first); false when the user stayed. */
-    switchPreset(name: string, options: { reason?: string }): Promise<boolean>;
+    switchPreset(name: string, options: { reason?: string; keepConnection?: boolean }): Promise<boolean>;
 }
 
 export class PresetBinder {
     private chain: Promise<void> = Promise.resolve();
     /** The preset an unbound chat opened with (a binding made in it goes back to this one). */
     private entered: string | null = null;
+    /** Scope of the binding acted on last (the text of the way back names the workshop). */
+    private lastScope: 'character' | 'chat' | 'workshop' | null = null;
     private missingShown = new Set<string>();
     private disposed = false;
 
@@ -34,7 +40,12 @@ export class PresetBinder {
 
     install(): Unsubscribe[] {
         this.disposed = false;
-        const offs: Unsubscribe[] = [this.deps.app.bus.on('chat:changed', () => this.schedule('chat'))];
+        const offs: Unsubscribe[] = [
+            this.deps.app.bus.on('chat:changed', () => this.schedule('chat')),
+            // A chat switch is covered by chat:changed (the workshop decides before it); this is the tag set or removed
+            // while the chat stays open.
+            this.deps.app.bus.on('workshop:changed', () => this.schedule('binding')),
+        ];
         const layer = this.deps.layer();
         if (layer) {
             offs.push(
@@ -82,13 +93,15 @@ export class PresetBinder {
             if (!names.includes(active.preset)) {
                 if (!this.missingShown.has(active.preset)) {
                     this.missingShown.add(active.preset);
-                    this.deps.app.ui.notice(this.t('m34.binding.missing', { name: active.preset }), {
+                    const key = active.scope === 'workshop' ? 'm34.binding.missingWorkshop' : 'm34.binding.missing';
+                    this.deps.app.ui.notice(this.t(key, { name: active.preset }), {
                         importance: 'important',
                         level: 'warn',
                     });
                 }
                 return;
             }
+            this.lastScope = active.scope;
             if (active.preset === current) {
                 // Bound right here to what is selected: leaving goes back to what the chat opened with.
                 if (
@@ -106,7 +119,7 @@ export class PresetBinder {
                 name: active.preset,
                 character: bindings.context.character?.name ?? '',
             });
-            const switched = await this.deps.switchPreset(active.preset, { reason: reasonText });
+            const switched = await this.deps.switchPreset(active.preset, { reason: reasonText, keepConnection: true });
             if (!switched) return;
             this.setRestore(restore);
             this.deps.app.ui.notice(reasonText, { importance: 'info' });
@@ -116,11 +129,14 @@ export class PresetBinder {
         if (restore) {
             this.setRestore(null);
             if (restore !== current && names.includes(restore)) {
-                const text = this.t('m34.binding.reason.restore', { name: restore });
-                const switched = await this.deps.switchPreset(restore, { reason: text });
+                const key =
+                    this.lastScope === 'workshop' ? 'm34.binding.reason.restoreWorkshop' : 'm34.binding.reason.restore';
+                const text = this.t(key, { name: restore });
+                const switched = await this.deps.switchPreset(restore, { reason: text, keepConnection: true });
                 if (switched) this.deps.app.ui.notice(text, { importance: 'info' });
             }
         }
+        this.lastScope = null;
         this.entered = store.current();
     }
 }

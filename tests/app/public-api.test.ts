@@ -705,6 +705,56 @@ describe('the story language (1.20)', () => {
     });
 });
 
+describe('«Мастерская» (1.21)', () => {
+    function workshop(active: boolean) {
+        env.apis.set('workshop', { active: () => active, preset: () => (active ? 'Мастерская' : null) });
+    }
+
+    it('tells whether a workshop chat is open', () => {
+        expect(env.api.workshop?.active()).toBe(false);
+        workshop(true);
+        expect(env.api.workshop?.active()).toBe(true);
+    });
+
+    it('passes flips from the bus and waits for a slow listener at most a moment', async () => {
+        vi.useFakeTimers();
+        try {
+            const seen: boolean[] = [];
+            env.api.workshop?.onChange(async (active) => {
+                seen.push(active);
+                await new Promise(() => {});
+            });
+            const emitted = env.app.bus.emit('workshop:changed', { active: true, chatId: 'c' });
+            await vi.advanceTimersByTimeAsync(1600);
+            await emitted;
+            expect(seen).toEqual([true]);
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it('in a workshop chat refuses LLM work and keeps the turn events to itself', async () => {
+        workshop(true);
+        const result = await env.api.llm.request({
+            task: 'dramatis.turn',
+            messages: [{ role: 'user', content: 'Who acts?' }],
+            maxTokens: 100,
+            background: true,
+        });
+        expect(result).toEqual({ ok: false, error: 'workshop' });
+        expect(env.llm.requests).toHaveLength(0);
+        const events: ApiTurnEvent[] = [];
+        env.api.onTurn((event) => {
+            events.push(event);
+        });
+        await env.app.bus.emit('turn:committed', { messageIndex: 3 });
+        expect(events).toEqual([]);
+        workshop(false);
+        await env.app.bus.emit('turn:committed', { messageIndex: 4 });
+        expect(events).toEqual([{ type: 'turn:committed', messageIndex: 4 }]);
+    });
+});
+
 describe('the global', () => {
     it('is published with maestro-api-ready and removed when Maestro stops', () => {
         const seen: unknown[] = [];

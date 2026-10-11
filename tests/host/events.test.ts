@@ -78,6 +78,25 @@ describe('host events', () => {
         expect(mock.eventSource.events.get('message_sent')).toHaveLength(0);
     });
 
+    it('a listener removed by an earlier one of the same emit does nothing (ST walks a copy of the list)', async () => {
+        const { events } = makeEvents();
+        const seen: string[] = [];
+        let offLater: () => void = () => {};
+        events.on(
+            'CHAT_CHANGED',
+            () => {
+                seen.push('first');
+                offLater();
+            },
+            { order: 'first' },
+        );
+        offLater = events.on('CHAT_CHANGED', () => {
+            seen.push('later');
+        });
+        await mock.eventSource.emit('chat_id_changed');
+        expect(seen).toEqual(['first']);
+    });
+
     it('places first and last listeners and keeps them there after reassertOrder', async () => {
         const { events } = makeEvents();
         const es = mock.eventSource;

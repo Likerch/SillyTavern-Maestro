@@ -60,6 +60,7 @@ export function bindingText(app: App, bindings: PresetBindings | null): string |
     const active = bindings?.active;
     if (!active) return null;
     if (active.scope === 'chat') return app.i18n.t('m34.binding.activeChat', { name: active.preset });
+    if (active.scope === 'workshop') return app.i18n.t('m34.binding.activeWorkshop', { name: active.preset });
     const who = bindings.context.character?.name ?? '';
     return app.i18n.t('m34.binding.activeCharacter', { name: active.preset, character: who });
 }

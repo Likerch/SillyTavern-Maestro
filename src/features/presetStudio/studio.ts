@@ -1665,13 +1665,15 @@ export class PresetStudio {
 
     /**
      * Switches the preset; with unsaved edits asks «Сохранить / Отбросить / Отмена» first (P-073). `reason` (a bound
-     * chat selecting its preset) is said first in that question.
+     * chat selecting its preset) is said first in that question. `keepConnection` (automatic switches): the model and
+     * providers stay as they are.
      */
-    async switchPreset(name: string, options: { reason?: string } = {}): Promise<boolean> {
+    async switchPreset(name: string, options: { reason?: string; keepConnection?: boolean } = {}): Promise<boolean> {
         const store = this.store();
         if (!store || name === store.current()) return false;
         if (!(await this.canLeave())) return false;
-        if (store.draft().dirty) {
+        // A switch that keeps the connection loses nothing of a model or provider changed by hand.
+        if (store.draft(options.keepConnection ? { ignoreConnection: true } : {}).dirty) {
             const layerMode = this.router.layerMode();
             const actions: { value: 'layer' | 'base' | 'discard'; label: string }[] = layerMode
                 ? [
@@ -1696,7 +1698,7 @@ export class PresetStudio {
             if (choice !== 'discard' && !(await this.saveTo(choice))) return false;
         }
         const done = await this.run(async () => {
-            await store.select(name);
+            await store.select(name, options.keepConnection ? { keepConnection: true } : {});
             return true;
         });
         this.closeEditor();

@@ -18,6 +18,13 @@ export class Modules implements ModuleManager {
     private readonly apis = new Map<string, unknown>();
     private app: App | null = null;
     private starting: Entry | null = null;
+    /**
+     * «Мастерская» (M42): while set, only these modules run; the others stay off without their switch changing and
+     * start again on resume(). null = no pause.
+     */
+    private keep: ReadonlySet<string> | null = null;
+    /** Enabled modules the pause stopped or kept from starting (resume() starts them). */
+    private readonly held = new Set<string>();
 
     constructor(
         private readonly settings: Settings,
@@ -43,16 +50,20 @@ export class Modules implements ModuleManager {
     }
 
     async stopAll(): Promise<void> {
+        // Maestro stops: nothing is held for a resume() any more (the workshop's own stop must not start modules).
+        this.keep = null;
+        this.held.clear();
         const ordered = [...this.entries.values()].sort((a, b) => b.module.stage - a.module.stage);
         for (const entry of ordered) await this.stop(entry);
     }
 
-    list(): { module: MaestroModule; enabled: boolean; running: boolean; missing: string[] }[] {
+    list(): { module: MaestroModule; enabled: boolean; running: boolean; missing: string[]; suspended?: boolean }[] {
         return [...this.entries.values()].map((entry) => ({
             module: entry.module,
             enabled: this.settings.isModuleEnabled(entry.module.key),
             running: entry.running,
             missing: this.missing(entry.module),
+            ...(this.held.has(entry.module.key) ? { suspended: true } : {}),
         }));
     }
 
@@ -67,7 +78,38 @@ export class Modules implements ModuleManager {
         const entry = this.entries.get(key);
         if (!entry) return;
         this.settings.setModuleEnabled(key, false);
+        this.held.delete(key);
         await this.stop(entry);
+    }
+
+    async suspend(keep: readonly string[]): Promise<void> {
+        this.keep = new Set(keep);
+        // Reverse stage order, as stopAll(): a module stops before the ones it was built on.
+        const ordered = [...this.entries.values()].sort((a, b) => b.module.stage - a.module.stage);
+        for (const entry of ordered) {
+            if (this.keep.has(entry.module.key)) continue;
+            if (entry.running) {
+                await this.stop(entry);
+                this.held.add(entry.module.key);
+            } else if (this.settings.isModuleEnabled(entry.module.key)) {
+                this.held.add(entry.module.key);
+            }
+        }
+    }
+
+    async resume(): Promise<void> {
+        if (!this.keep) return;
+        this.keep = null;
+        const ordered = [...this.entries.values()].sort((a, b) => a.module.stage - b.module.stage);
+        for (const entry of ordered) {
+            if (!this.held.delete(entry.module.key)) continue;
+            if (this.settings.isModuleEnabled(entry.module.key)) await this.start(entry);
+        }
+        this.held.clear();
+    }
+
+    isSuspended(): boolean {
+        return this.keep !== null;
     }
 
     api<T>(key: string): T | undefined {
@@ -91,6 +133,11 @@ export class Modules implements ModuleManager {
     private async start(entry: Entry): Promise<void> {
         const app = this.app;
         if (!app || entry.running) return;
+        if (this.keep && !this.keep.has(entry.module.key)) {
+            // Paused by «Мастерская»: it starts on resume().
+            this.held.add(entry.module.key);
+            return;
+        }
         const missing = this.missing(entry.module);
         if (missing.length) {
             this.log.warn(`module ${entry.module.key} not started, missing: ${missing.join(', ')}`);

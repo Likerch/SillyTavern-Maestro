@@ -62,7 +62,8 @@ export interface PresetStore {
     working(): PresetBody;
     /** The saved body of a preset (ST's cache, refreshed by the store). */
     saved(name: string): PresetBody | null;
-    draft(): PresetDraftState;
+    /** `ignoreConnection`: a model or provider different from the file does not count (switches that keep them). */
+    draft(options?: { ignoreConnection?: boolean }): PresetDraftState;
     /** The active prompt list (resolved order for the current character list) with the prompt objects. */
     prompts(): { item: PresetOrderItem; prompt: PresetPrompt | null }[];
     /** Prompt edits through Prompt Manager (saveServiceSettings + render); never writes the preset file. */
@@ -80,8 +81,11 @@ export interface PresetStore {
     saveAs(name: string): Promise<string>;
     rename(oldName: string, newName: string): Promise<void>;
     remove(name: string): Promise<void>;
-    /** Switches the preset through ST (warns about the draft first — the caller decides). */
-    select(name: string): Promise<void>;
+    /**
+     * Switches the preset through ST (warns about the draft first — the caller decides). `keepConnection`: the model,
+     * source and providers stay as they are even when the preset file carries others (automatic switches).
+     */
+    select(name: string, options?: { keepConnection?: boolean }): Promise<void>;
     importFile(file: File): Promise<string>;
     exportPreset(name: string, options?: { withSensitive?: boolean; withConnection?: boolean }): Promise<void>;
     versions(name: string): Promise<PresetVersion[]>;

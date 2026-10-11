@@ -19,6 +19,7 @@
 import { tPlural } from '../../core/labels';
 import { comparePresets } from '../../domain/preset-compare';
 import type { PresetComparison } from '../../domain/preset-compare';
+import { keepConnection } from '../../domain/preset-connection';
 import { globalOrder } from '../../domain/preset-layer-apply';
 import type { LayerBody } from '../../domain/preset-layer-apply';
 import {
@@ -34,6 +35,7 @@ import {
     SENSITIVE_PRESET_KEYS,
     bodyFromSettings,
     collidingName,
+    connectionKeys,
     hasControl,
     jsonClean,
     normalizeKeyValue,
@@ -261,6 +263,8 @@ export class PresetStoreService implements PresetStore {
     private ownOps = 0;
     /** Preset switches of the store's own that must not snap a draft (save as, delete, restore of a clean copy). */
     private quietSwitch = 0;
+    /** Switches in progress that keep the connection (select with keepConnection). */
+    private keepingConnection = 0;
     private signature: Signature | null = null;
     private readonly timers = new Map<string, ReturnType<typeof setTimeout>>();
     /** Sensitive values of presets deleted in this session, by version id (versions never store them). */
@@ -288,7 +292,10 @@ export class PresetStoreService implements PresetStore {
         const on = (event: string, handler: (...args: unknown[]) => unknown) => this.app.host.events.on(event, handler);
         const disposers: Unsubscribe[] = [
             on('SETTINGS_UPDATED', () => this.later('signature', SIGNATURE_DELAY_MS, () => this.onSettingsUpdated())),
-            on('OAI_PRESET_CHANGED_BEFORE', (data) => this.onPresetBefore(data)),
+            on('OAI_PRESET_CHANGED_BEFORE', (data) => {
+                this.keepConnectionOf(data);
+                this.onPresetBefore(data);
+            }),
             on('OAI_PRESET_CHANGED_AFTER', () => this.onPresetAfter()),
             on('PRESET_RENAMED', (data) => this.onPresetRenamed(data)),
             on('PRESET_DELETED', (data) => this.onPresetDeleted(data)),
@@ -353,11 +360,15 @@ export class PresetStoreService implements PresetStore {
         return body ? (jsonClean(body) as PresetBody) : null;
     }
 
-    draft(): PresetDraftState {
+    draft(options: { ignoreConnection?: boolean } = {}): PresetDraftState {
         const name = this.current();
         const saved = this.savedRaw(name);
         if (!saved) return { dirty: false, changedPrompts: [], changedKeys: [] };
-        return diffDraft(this.working(), this.expectedWorking(name, saved), Object.keys(this.st.keyTable()));
+        const table = this.st.keyTable();
+        const keys = options.ignoreConnection
+            ? Object.keys(table).filter((key) => !connectionKeys(table).includes(key))
+            : Object.keys(table);
+        return diffDraft(this.working(), this.expectedWorking(name, saved), keys);
     }
 
     prompts(): { item: PresetOrderItem; prompt: PresetPrompt | null }[] {
@@ -635,9 +646,23 @@ export class PresetStoreService implements PresetStore {
         });
     }
 
-    async select(name: string): Promise<void> {
+    async select(name: string, options: { keepConnection?: boolean } = {}): Promise<void> {
         await this.st.ensure();
-        await this.serial(() => this.switchTo(name, false));
+        await this.serial(async () => {
+            if (options.keepConnection) this.keepingConnection++;
+            try {
+                await this.switchTo(name, false);
+            } finally {
+                if (options.keepConnection) this.keepingConnection--;
+            }
+        });
+    }
+
+    /** An automatic switch (bindings, «Мастерская») keeps the model and providers the user chose. */
+    private keepConnectionOf(data: unknown): void {
+        if (this.keepingConnection <= 0 || !isDict(data)) return;
+        const kept = keepConnection(data.preset, data.settingsToUpdate, data.settings);
+        if (kept.length) this.log.debug(`preset switch keeps the connection: ${kept.join(', ')}`);
     }
 
     async importFile(file: File): Promise<string> {

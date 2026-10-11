@@ -44,10 +44,13 @@ import { treasurerModule } from '../features/treasurer';
 import { voicesModule } from '../features/voices';
 import { wardrobeModule } from '../features/wardrobe';
 import { wizardModule } from '../features/wizard';
+import { workshopModule } from '../features/workshop';
 import { worldModule } from '../features/world';
 import type { MaestroModule } from '../shared/contracts';
 
 export const MODULES: MaestroModule[] = [
+    // Release 1.21: «Мастерская» (M42), stage 0 — it decides first whether the story modules may start in this chat.
+    workshopModule,
     // Stage 1: observation and quick fixes.
     loreJournalModule,
     inspectorModule,

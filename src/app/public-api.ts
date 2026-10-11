@@ -13,6 +13,8 @@
 //   the CK archive, also while the voice cards are off), quiet() (claims kept by the Dramatis adapter).
 // - stage 3: styleUp() (the dossier's «Оформить» with given BunnyMo tags), setCanonGoals() (the chat canon's `goals`).
 // - 1.20: storyLanguage() — «Язык истории» (the setting, else the player's messages, else the interface language).
+// - 1.21: workshop — «Мастерская» (M42): active() and onChange(); while a workshop chat is open llm.request answers
+//   'workshop' and onTurn stays quiet (a neighbour that does not know the member still makes no story calls).
 import manifest from '../../manifest.json';
 import { MAESTRO_API_GLOBAL, MAESTRO_API_READY_EVENT, adaptersOf, dramatisOf, isQuietFunction } from '../adapters';
 import type {
@@ -37,6 +39,8 @@ import { normalizeName } from '../domain/world-names';
 import type { CanonApi, CanonDraft, CanonItem } from '../features/canon/api';
 import type { DossierApi } from '../features/dossier/api';
 import type { Entity, WorldModelApi } from '../features/world/api';
+import { WORKSHOP_LISTENER_TIMEOUT_MS } from '../features/workshop/api';
+import type { WorkshopApi } from '../features/workshop/api';
 import type {
     App,
     AutonomyLevel,
@@ -187,6 +191,42 @@ export function createMaestroApi(deps: MaestroApiDeps): MaestroApiHandle {
 
     for (const off of speech.install()) disposers.add(off);
 
+    /* ---------------------------------------------------------------- «Мастерская» (M42) */
+
+    const workshopActive = (): boolean => {
+        try {
+            return app.modules.api<WorkshopApi>('workshop')?.active() === true;
+        } catch {
+            return false;
+        }
+    };
+
+    /** Flips come on the bus (the module emits them inside the first CHAT_CHANGED listener and awaits them). */
+    const onWorkshopChange = (listener: (active: boolean) => void | Promise<void>): Unsubscribe => {
+        if (disposed || typeof listener !== 'function') return () => {};
+        return own(
+            app.bus.on('workshop:changed', ({ active }) => {
+                let result: unknown;
+                try {
+                    result = listener(active);
+                } catch (error) {
+                    log.warn('MAESTRO_API workshop listener failed', error);
+                    return undefined;
+                }
+                if (!(result instanceof Promise)) return undefined;
+                return within(
+                    result.then(
+                        () => undefined,
+                        (error: unknown) => log.warn('MAESTRO_API workshop listener failed', error),
+                    ),
+                    WORKSHOP_LISTENER_TIMEOUT_MS,
+                    log,
+                    'workshop',
+                );
+            }),
+        );
+    };
+
     /* ---------------------------------------------------------------- the world model */
 
     const world = (): WorldModelApi | undefined => app.modules.api<WorldModelApi>('world');
@@ -295,7 +335,7 @@ export function createMaestroApi(deps: MaestroApiDeps): MaestroApiHandle {
         if (warmTimer !== null) return;
         warmTimer = setTimeout(() => {
             warmTimer = null;
-            if (disposed) return;
+            if (disposed || workshopActive()) return;
             try {
                 speech.warm(present());
             } catch (error) {
@@ -322,6 +362,8 @@ export function createMaestroApi(deps: MaestroApiDeps): MaestroApiHandle {
         if (disposed || typeof listener !== 'function') return () => {};
         /** Calls the listener; its promise (if any) settles without throwing. */
         const call = (event: ApiTurnEvent): Promise<void> | undefined => {
+            // A workshop chat (M42) has no story turns for a neighbour to follow.
+            if (workshopActive()) return undefined;
             const failed = (error: unknown) => log.warn(`MAESTRO_API ${event.type} listener failed`, error);
             try {
                 const result: unknown = listener(event);
@@ -360,6 +402,7 @@ export function createMaestroApi(deps: MaestroApiDeps): MaestroApiHandle {
     const request = async <T>(input: ApiLlmRequest): Promise<ApiLlmResult<T>> => {
         if (disposed) return { ok: false, error: 'maestro-stopped' };
         if (!isDict(input) || !isExternalId(input.task)) return { ok: false, error: 'bad-task' };
+        if (workshopActive()) return { ok: false, error: 'workshop' };
         const messages: LlmMessage[] = (Array.isArray(input.messages) ? input.messages : [])
             .filter((message) => isDict(message) && typeof message.content === 'string')
             .map((message) => ({
@@ -670,6 +713,10 @@ export function createMaestroApi(deps: MaestroApiDeps): MaestroApiHandle {
         styleUp,
         setCanonGoals,
         storyLanguage: () => storyLanguage(app),
+        workshop: {
+            active: () => !disposed && workshopActive(),
+            onChange: onWorkshopChange,
+        },
     };
 
     return {

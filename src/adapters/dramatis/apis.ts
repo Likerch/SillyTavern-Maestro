@@ -32,7 +32,8 @@ export interface ApiLlmRequest {
     schema?: { name: string; schema: Record<string, unknown> };
     /**
      * Background work: refused (ok:false, error 'not-leader' / 'cap') when this tab is not the chat's leader or the
-     * daily background cap is reached. Interactive tasks (the user pressed a button) pass false.
+     * daily background cap is reached. Interactive tasks (the user pressed a button) pass false. In a workshop chat
+     * (Maestro 1.21+) every request is refused with 'workshop'.
      */
     background: boolean;
     signal?: AbortSignal;
@@ -43,7 +44,7 @@ export interface ApiLlmResult<T = unknown> {
     data?: T;
     text?: string;
     refusal?: boolean;
-    /** 'not-leader' | 'cap' | 'no-profile' | 'breaker' | free text. */
+    /** 'not-leader' | 'cap' | 'no-profile' | 'breaker' | 'workshop' | free text. */
     error?: string;
     costUsd?: number;
     tokens?: { prompt: number; completion: number };
@@ -127,7 +128,7 @@ export interface MaestroApiV1 {
         text: string,
         options?: { importance?: 'info' | 'important' | 'urgent'; action?: { label: string; run: () => void } },
     ): void;
-    /** Maestro's turn pipeline (swipes, edits and branches already handled). */
+    /** Maestro's turn pipeline (swipes, edits and branches already handled); silent in a workshop chat (1.21+). */
     onTurn(listener: (event: ApiTurnEvent) => void | Promise<void>): ApiUnsubscribe;
     names: {
         /** The world-model entity for a name in the current chat (aliases, Russian forms), or null. */
@@ -147,6 +148,17 @@ export interface MaestroApiV1 {
     setCanonGoals?(name: string, goals: string[]): Promise<boolean>;
     /** Optional (Maestro 1.20+): the language the story is told in — Maestro's «Язык истории» setting, auto-detected. */
     storyLanguage?(): 'ru' | 'en';
+    /**
+     * Optional (Maestro 1.21+): «Мастерская». The chat open now belongs to a helper card (a card with Maestro's
+     * workshop tag, «мастерская» by default): the story machinery stays silent there. `active()` is current from the
+     * very start of ST's CHAT_CHANGED (Maestro decides in its first CHAT_CHANGED listener); `onChange` fires when it
+     * flips — on a chat switch (inside that first CHAT_CHANGED listener, awaited up to 1.5 s) and when the tag is set
+     * or removed while the chat is open. A listener may return a promise.
+     */
+    workshop?: {
+        active(): boolean;
+        onChange(listener: (active: boolean) => void | Promise<void>): ApiUnsubscribe;
+    };
 }
 
 /* ------------------------------------------------------------------ DRAMATIS_API v1 */
