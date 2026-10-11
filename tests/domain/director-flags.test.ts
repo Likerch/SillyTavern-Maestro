@@ -6,6 +6,7 @@ import {
     REPLY_LENGTH,
     buildDirectorFlags,
     climaxWords,
+    replyLength,
     dominantLanguage,
     languageFlag,
     pictureBudget,
@@ -74,6 +75,42 @@ describe('director flags: building', () => {
         expect(buildDirectorFlags({ scene: null, explicit: false, language: 'de', picture: false })).toEqual({});
         expect(sceneFlag('drama')).toBe('maestro_scene_drama');
         expect(replyFlag(REPLY_LENGTH.exploration)).toBe('maestro_reply_long');
+    });
+});
+
+describe('director flags: soft reply length and mixed scenes (1.22)', () => {
+    const base = { explicit: false, language: null, picture: false } as const;
+
+    it('a conversation is medium, not short', () => {
+        expect(REPLY_LENGTH.dialogue).toBe('medium');
+        expect(replyLength({ ...base, scene: 'dialogue' })).toBe('medium');
+    });
+
+    it('the length waits for a sure decision: confidence ≥ 0.7 held a second turn, or ≥ 0.85 at once', () => {
+        expect(replyLength({ ...base, scene: 'combat', confidence: 0.6, held: 5 })).toBeNull();
+        expect(replyLength({ ...base, scene: 'combat', confidence: 0.75, held: 1 })).toBeNull();
+        expect(replyLength({ ...base, scene: 'combat', confidence: 0.75, held: 2 })).toBe('short');
+        expect(replyLength({ ...base, scene: 'combat', confidence: 0.9, held: 1 })).toBe('short');
+        // The user's own choice of the type sets it at once.
+        expect(replyLength({ ...base, scene: 'combat', confidence: 0.1, held: 1, byUser: true })).toBe('short');
+        expect(buildDirectorFlags({ ...base, scene: 'combat', confidence: 0.75, held: 1 })).toEqual({
+            maestro_scene_combat: '1',
+        });
+    });
+
+    it('a mixed scene sends both types and the longer length', () => {
+        expect(replyLength({ ...base, scene: 'combat', secondary: 'intimate', confidence: 0.9, held: 1 })).toBe('long');
+        expect(replyLength({ ...base, scene: 'combat', secondary: 'dialogue', confidence: 0.9, held: 1 })).toBe(
+            'medium',
+        );
+        expect(
+            buildDirectorFlags({ ...base, scene: 'dialogue', secondary: 'intimate', confidence: 0.9, held: 2 }),
+        ).toEqual({ maestro_scene_dialogue: '1', maestro_scene_intimate: '1', maestro_reply_long: '1' });
+        // The same type twice is one type.
+        expect(buildDirectorFlags({ ...base, scene: 'drama', secondary: 'drama' })).toEqual({
+            maestro_scene_drama: '1',
+            maestro_reply_medium: '1',
+        });
     });
 });
 

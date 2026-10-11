@@ -35,82 +35,101 @@ interface Lexicon {
     words: readonly string[];
     /** Lighter cues: half weight. */
     light?: readonly string[];
+    /** Lighter whole words: half weight. */
+    lightWords?: readonly string[];
 }
 
+// Full weight: what happens (actions, events). Light (half): what is around — places, objects, titles, people — so a
+// bedroom, a tavern or a sword on the wall does not make the scene by itself (1.22).
 // prettier-ignore
 const LEXICONS: Record<WordKind, Lexicon> = {
     combat: {
         stems: [
-            'сраж', 'бандит', 'разбойник', 'отбива', 'застрел', 'зарыч', 'атак', 'удар', 'нападе', 'напал', 'напада',
-            'клинок', 'клинк', 'кинжал',
-            'лезви', 'топор', 'копье', 'арбалет', 'пистолет', 'револьвер', 'винтовк', 'ружь', 'выстрел', 'стреля',
-            'окровав', 'кровоточ', 'кровав', 'ранен', 'враг', 'враж', 'противник', 'опасн', 'засад', 'погон', 'убий',
-            'убива', 'убил', 'смерт', 'погиб', 'монстр', 'чудовищ', 'когт', 'клык', 'взрыв', 'боев', 'битв', 'схватк',
-            'поедин', 'дуэл', 'драк', 'уверн', 'уклон', 'парир', 'блокир', 'рыч', 'ловушк', 'спасайс', 'оружи', 'воин',
-            'войн', 'солдат', 'кулак', 'attack', 'strik', 'struck', 'slash', 'sword', 'blade', 'dagger', 'punch',
-            'dodg', 'parri', 'shoot', 'gunfire', 'gunshot', 'bullet', 'arrow', 'bleed', 'blood', 'wound', 'enem',
-            'fight', 'battle', 'combat', 'duel', 'ambush', 'kill', 'slay', 'monster', 'beast', 'claw', 'fang',
-            'explosion', 'explod', 'danger', 'threat', 'weapon', 'spear', 'shield', 'armor', 'armour', 'trapped',
-            'poison', 'assassin', 'soldier', 'warrior', 'bandit', 'raider', 'growl', 'snarl', 'lunge', 'pistol', 'rifle',
-            'injur', 'corpse',
+            'сраж', 'отбива', 'застрел', 'атак', 'удар', 'нападе', 'напал', 'напада', 'выстрел', 'стреля', 'окровав',
+            'кровоточ', 'ранен', 'засад', 'погон', 'убий', 'убива', 'убил', 'погиб', 'взрыв', 'боев', 'битв', 'схватк',
+            'поедин', 'дуэл', 'уверн', 'уклон', 'парир', 'блокир', 'спасайс', 'attack', 'strik', 'struck',
+            'slash', 'punch', 'dodg', 'parri', 'shoot', 'gunfire', 'gunshot', 'bleed', 'wound', 'fight', 'battle',
+            'combat', 'duel', 'ambush', 'kill', 'slay', 'explosion', 'explod', 'lunge', 'injur',
         ],
         words: [
-            'меч', 'меча', 'мечом', 'мечи', 'мечей', 'щит', 'щита', 'щитом', 'бой', 'боя', 'бою', 'боем', 'бои', 'яд',
-            'яда', 'ядом', 'кровь', 'крови', 'кровью', 'рана', 'раны', 'рану', 'раной', 'убить', 'убей', 'убью', 'пуля',
-            'пули', 'пулю', 'пулей', 'тварь', 'твари', 'беги', 'бегите', 'бежим', 'пнул', 'пинок', 'foe', 'foes', 'gun',
-            'guns', 'axe', 'trap', 'slain', 'fled', 'flee', 'death', 'dead', 'die', 'dies', 'died', 'dying', 'stab',
-            'stabs', 'stabbed', 'stabbing',
+            // «драк» as a stem caught «дракон», «драконица» (1.22): whole words only.
+            'драка', 'драки', 'драке', 'драку', 'дракой', 'драк', 'драками', 'драках', 'бой', 'боя', 'бою', 'боем',
+            'бои', 'рана', 'раны', 'рану', 'раной', 'убить', 'убей', 'убью', 'беги', 'бегите', 'бежим', 'пнул', 'пинок',
+            'fled', 'flee', 'slain', 'died', 'dying', 'stab', 'stabs', 'stabbed', 'stabbing',
         ],
-        light: ['угроз', 'угрож'],
+        light: [
+            'угроз', 'угрож', 'бандит', 'разбойник', 'зарыч', 'клинок', 'клинк', 'кинжал', 'лезви', 'топор', 'копье',
+            'арбалет', 'пистолет', 'револьвер', 'винтовк', 'ружь', 'кровав', 'враг', 'враж', 'противник', 'опасн',
+            'смерт', 'монстр', 'чудовищ', 'когт', 'клык', 'рыч', 'ловушк', 'оружи', 'воин', 'войн', 'солдат', 'кулак',
+            'sword', 'blade', 'dagger', 'bullet', 'arrow', 'blood', 'enem', 'monster', 'beast', 'claw', 'fang', 'danger',
+            'threat', 'weapon', 'spear', 'shield', 'armor', 'armour', 'trapped', 'poison', 'assassin', 'soldier',
+            'warrior', 'bandit', 'raider', 'growl', 'snarl', 'pistol', 'rifle', 'corpse',
+        ],
+        lightWords: [
+            'меч', 'меча', 'мечом', 'мечи', 'мечей', 'щит', 'щита', 'щитом', 'яд', 'яда', 'ядом', 'кровь', 'крови',
+            'кровью', 'пуля', 'пули', 'пулю', 'пулей', 'тварь', 'твари', 'foe', 'foes', 'gun', 'guns', 'axe', 'trap',
+            'death', 'dead', 'die', 'dies',
+        ],
     },
     intimate: {
         stems: [
             'поцел', 'застон', 'простон', 'целов', 'целуе', 'целуя', 'ласк', 'обним', 'обнял', 'объят', 'страст',
-            'возбужд', 'стон', 'постел', 'кроват', 'спальн', 'раздева', 'нагот', 'интим', 'прикосновен', 'прикоснул',
-            'соблазн', 'похот', 'вожделен', 'бедр', 'kiss', 'caress', 'embrac', 'moan', 'passion', 'arous', 'lust',
-            'seduc', 'sensual', 'intimat', 'undress', 'bedroom', 'thigh',
+            'возбужд', 'стон', 'раздева', 'нагот', 'интим', 'прикосновен', 'прикоснул', 'соблазн', 'похот', 'вожделен',
+            'kiss', 'caress', 'embrac', 'moan', 'passion', 'arous', 'lust', 'seduc', 'sensual', 'intimat', 'undress',
         ],
+        // Whole words (1.22): the Russian explicit scene had almost no words of its own («Лиза» must not match «лиз»).
         words: [
-            'губы', 'губами', 'губ', 'губам', 'губах', 'разделась', 'разделся', 'hug', 'hugs', 'hugged', 'hugging',
-            'lips', 'bed',
+            'разделась', 'разделся', 'лизать', 'лизал', 'лизала', 'лижет', 'лижу', 'вылизывать', 'вылизывал',
+            'вылизывала', 'вылизываю', 'киска', 'киску', 'киски', 'киской', 'стояк', 'стояка', 'кончил', 'кончила',
+            'кончить', 'кончаю', 'кончает', 'hug', 'hugs', 'hugged', 'hugging',
         ],
-        light: ['нежн', 'желани', 'грудь', 'груди', 'desir', 'tender', 'breast'],
+        light: [
+            'нежн', 'желани', 'грудь', 'груди', 'постел', 'кроват', 'спальн', 'бедр', 'desir', 'tender', 'breast',
+            'bedroom', 'thigh',
+        ],
+        lightWords: ['губы', 'губами', 'губ', 'губам', 'губах', 'lips', 'bed'],
     },
     exploration: {
         stems: [
-            'троп', 'путешеств', 'путник', 'странств', 'лесн', 'пещер', 'руин', 'подземел', 'заброшен', 'холм', 'долин',
-            'ущель', 'перевал', 'побережь', 'компас', 'горизонт', 'пейзаж', 'тоннел', 'туннел', 'исследова',
-            'осматрива', 'разведк', 'разведыва', 'разведчик', 'лагер', 'привал', 'костер', 'поскака', 'скака',
-            'местност', 'окрестн', 'джунгл', 'пустын', 'болот', 'path', 'trail', 'road', 'journey', 'travel', 'explor',
-            'forest', 'woods', 'cave', 'ruin', 'dungeon', 'tunnel', 'mountain', 'hill', 'valley', 'ravine', 'river',
-            'bridge', 'compass', 'horizon', 'landscape', 'abandoned', 'footprint', 'wander', 'venture', 'campfire',
-            'trek', 'hike', 'swamp', 'desert', 'jungle', 'wilderness', 'terrain', 'scout',
+            'путешеств', 'странств', 'исследова', 'осматрива', 'разведк', 'разведыва', 'поскака', 'скака', 'journey',
+            'travel', 'explor', 'wander', 'venture', 'trek', 'hike', 'scout',
         ],
         words: [
+            'добрались', 'добрался', 'добралась', 'прибыли', 'прибыл', 'бродил', 'бродить', 'rode', 'ride', 'riding',
+        ],
+        light: [
+            'коридор', 'троп', 'путник', 'лесн', 'пещер', 'руин', 'подземел', 'заброшен', 'холм', 'долин', 'ущель',
+            'перевал', 'побережь', 'компас', 'горизонт', 'пейзаж', 'тоннел', 'туннел', 'разведчик', 'лагер', 'привал',
+            'костер', 'местност', 'окрестн', 'джунгл', 'пустын', 'болот', 'corridor', 'arriv', 'search', 'discover',
+            'path', 'trail', 'road', 'forest', 'woods', 'cave', 'ruin', 'dungeon', 'tunnel', 'mountain', 'hill',
+            'valley', 'ravine', 'river', 'bridge', 'compass', 'horizon', 'landscape', 'abandoned', 'footprint',
+            'campfire', 'swamp', 'desert', 'jungle', 'wilderness', 'terrain',
+        ],
+        lightWords: [
             'лес', 'леса', 'лесу', 'лесом', 'чаща', 'чащу', 'чащи', 'чащей', 'горы', 'гор', 'горах', 'горам', 'горами',
             'река', 'реки', 'реку', 'рекой', 'реке', 'мост', 'моста', 'мосту', 'карта', 'карту', 'карте', 'картой',
-            'дорога', 'дорогу', 'дороге', 'следы', 'следам', 'добрались', 'добрался', 'добралась', 'прибыли', 'прибыл',
-            'вдали', 'вдалеке', 'верхом', 'бродил', 'бродить', 'степь', 'степи', 'степью', 'берег', 'берега', 'берегом',
-            'береге', 'берегов', 'map', 'maps', 'camp', 'rode', 'ride', 'riding',
+            'дорога', 'дорогу', 'дороге', 'следы', 'следам', 'вдали', 'вдалеке', 'верхом', 'степь', 'степи', 'степью',
+            'берег', 'берега', 'берегом', 'береге', 'берегов', 'map', 'maps', 'camp',
         ],
-        light: ['коридор', 'corridor', 'arriv', 'search', 'discover'],
     },
     social: {
         stems: [
-            'пиршеств', 'кланя', 'поклон', 'реверанс', 'этикет', 'вежлив', 'светск', 'придворн', 'аристократ', 'дворян',
-            'барон', 'герцог', 'княз', 'княгин', 'корол', 'принц', 'бокал', 'танц', 'музык', 'толп', 'собравш',
-            'представил', 'знакомит', 'церемон', 'торжеств', 'праздн', 'таверн', 'трактир', 'рынк', 'ярмарк', 'банкет',
-            'фуршет', 'дворц', 'дворец', 'тронн', 'бальн', 'ballroom', 'banquet', 'feast', 'guest', 'curtsy',
-            'etiquette', 'polite', 'courtier', 'noble', 'aristocra', 'duke', 'duchess', 'baron', 'king', 'queen',
-            'prince', 'danc', 'music', 'crowd', 'introduc', 'ceremon', 'celebrat', 'festival', 'tavern', 'market',
-            'reception', 'gala', 'salon', 'courtesy', 'palace', 'throne',
+            'пиршеств', 'кланя', 'поклон', 'реверанс', 'этикет', 'танц', 'представил', 'знакомит', 'церемон',
+            'торжеств', 'праздн', 'банкет', 'фуршет', 'banquet', 'feast', 'curtsy', 'etiquette', 'danc', 'introduc',
+            'ceremon', 'celebrat', 'festival', 'reception', 'gala',
         ],
-        words: [
-            'бал', 'бала', 'балу', 'балом', 'пир', 'пира', 'пиру', 'зал', 'зале', 'зала', 'залу', 'прием', 'приеме',
-            'приема', 'леди', 'лорд', 'лорда', 'тост', 'тосты', 'рынок', 'lord', 'lords', 'lady', 'ladies', 'toast',
-            'hall', 'inn',
+        words: ['бал', 'бала', 'балу', 'балом', 'пир', 'пира', 'пиру', 'прием', 'приеме', 'приема', 'тост', 'тосты', 'toast'],
+        light: [
+            'гост', 'господ', 'вежлив', 'светск', 'придворн', 'аристократ', 'дворян', 'барон', 'герцог', 'княз',
+            'княгин', 'корол', 'принц', 'бокал', 'музык', 'толп', 'собравш', 'таверн', 'трактир', 'рынк', 'ярмарк',
+            'дворц', 'дворец', 'тронн', 'бальн', 'gather', 'party', 'ballroom', 'guest', 'polite', 'courtier', 'noble',
+            'aristocra', 'duke', 'duchess', 'baron', 'king', 'queen', 'prince', 'music', 'crowd', 'tavern', 'market',
+            'salon', 'courtesy', 'palace', 'throne',
         ],
-        light: ['гост', 'господ', 'gather', 'party'],
+        lightWords: [
+            'зал', 'зале', 'зала', 'залу', 'леди', 'лорд', 'лорда', 'рынок', 'lord', 'lords', 'lady', 'ladies', 'hall',
+            'inn',
+        ],
     },
     drama: {
         stems: [
@@ -181,6 +200,7 @@ function indexLexicon(kind: WordKind | 'explicit', lexicon: Lexicon): void {
     for (const stem of lexicon.stems) addEntry(STEM_INDEX, stem[0] ?? '', { stem, kind, weight: 1 });
     for (const stem of lexicon.light ?? []) addEntry(STEM_INDEX, stem[0] ?? '', { stem, kind, weight: 0.5 });
     for (const word of lexicon.words) addEntry(WORD_INDEX, word, { stem: word, kind, weight: 1 });
+    for (const word of lexicon.lightWords ?? []) addEntry(WORD_INDEX, word, { stem: word, kind, weight: 0.5 });
 }
 
 for (const kind of WORD_KINDS) indexLexicon(kind, LEXICONS[kind]);
@@ -216,35 +236,78 @@ function emptyScores(): Record<WordKind, number> {
     return { combat: 0, intimate: 0, exploration: 0, social: 0, drama: 0 };
 }
 
-/** Counts dictionary hits of a text: per type (weighted, repeats of a stem capped) and explicit words. */
-export function lexiconHits(text: string): LexiconHits {
-    const words = sceneWords(text);
+/** Weight of words said aloud (1.22): talking about a sword is not a fight, saying «кровать» is not a bedroom scene. */
+export const SPEECH_WEIGHT = 0.5;
+
+const QUOTE_RE = /«[^«»]*»|“[^“”]*”|„[^„“”]*[“”]|"[^"\n]*"/g;
+const DASH_OPEN_RE = /^[ \t]*[—–-][ \t]*(?=\S)/;
+const DASH_SPLIT_RE = /\s[—–]\s/;
+
+/**
+ * The text cut into narration and direct speech: quotes, and Russian dash dialogue — a line opening with a dash is
+ * speech, the author's remark between « — » marks is narration, the next part speech again («— Беги, — крикнул он. —
+ * Сейчас!»).
+ */
+export function speechSegments(text: string): { text: string; speech: boolean }[] {
+    const out: { text: string; speech: boolean }[] = [];
+    for (const line of String(text ?? '').split('\n')) {
+        const dash = DASH_OPEN_RE.exec(line);
+        if (dash) {
+            line.slice(dash[0].length)
+                .split(DASH_SPLIT_RE)
+                .forEach((part, index) => out.push({ text: part, speech: index % 2 === 0 }));
+            continue;
+        }
+        let last = 0;
+        for (const match of line.matchAll(QUOTE_RE)) {
+            const at = match.index ?? 0;
+            if (at > last) out.push({ text: line.slice(last, at), speech: false });
+            out.push({ text: match[0], speech: true });
+            last = at + match[0].length;
+        }
+        if (last < line.length) out.push({ text: line.slice(last), speech: false });
+    }
+    return out;
+}
+
+/**
+ * Counts dictionary hits of a text: per type (weighted, repeats of a stem capped) and explicit words. `speech` (the
+ * reply, the user's message): words inside direct speech count at SPEECH_WEIGHT.
+ */
+export function lexiconHits(text: string, options: { speech?: boolean } = {}): LexiconHits {
+    const parts = options.speech ? speechSegments(text) : [{ text, speech: false }];
     const scores = emptyScores();
     const seen = new Map<string, number>();
     let explicit = 0;
-    const take = (entry: StemEntry): void => {
+    let total = 0;
+    const take = (entry: StemEntry, factor: number): void => {
         const key = `${entry.kind}|${entry.stem}`;
         const count = seen.get(key) ?? 0;
         if (count >= MAX_REPEATS) return;
         seen.set(key, count + 1);
         if (entry.kind === 'explicit') {
             explicit++;
-            scores.intimate += 2;
+            scores.intimate += 2 * factor;
         } else {
-            scores[entry.kind] += entry.weight;
+            scores[entry.kind] += entry.weight * factor;
         }
     };
-    for (const word of words) {
-        const exact = WORD_INDEX.get(word);
-        if (exact) {
-            for (const entry of exact) take(entry);
-            continue;
-        }
-        for (const entry of STEM_INDEX.get(word[0] ?? '') ?? []) {
-            if (word.length >= entry.stem.length && word.startsWith(entry.stem)) take(entry);
+    for (const part of parts) {
+        const factor = part.speech ? SPEECH_WEIGHT : 1;
+        const words = sceneWords(part.text);
+        total += words.length;
+        for (const word of words) {
+            const exact = WORD_INDEX.get(word);
+            if (exact) {
+                for (const entry of exact) take(entry, factor);
+                continue;
+            }
+            for (const entry of STEM_INDEX.get(word[0] ?? '') ?? []) {
+                if (word.length >= entry.stem.length && word.startsWith(entry.stem)) take(entry, factor);
+            }
         }
     }
-    return { scores, explicit, words: words.length };
+    return { scores, explicit, words: total };
 }
 
 /** Number of explicit-scene words in a text. */
@@ -340,6 +403,23 @@ export interface SceneVerdict {
     unsure: boolean;
     /** Explicit-scene words in the reply and the characters' outfit. */
     explicit: number;
+    /** A mixed scene (1.22): the runner-up scored close to the winner, so the scene is both. Null otherwise. */
+    secondary: SceneKind | null;
+}
+
+/** The model settles a race whose two best scores are closer than this share of the top (1.22: was 0.25). */
+export const UNSURE_GAP = 0.4;
+/** A runner-up with at least this share of the winner's score makes a mixed scene (1.22). */
+export const MIX_SHARE = 0.7;
+/** …and at least this score: the dialogue's baseline alone never mixes in. */
+const MIX_MIN = 1;
+
+/** The second type of a mixed scene, or null. */
+export function secondaryOf(scores: Record<SceneKind, number>, type: SceneKind, second: SceneKind): SceneKind | null {
+    if (second === type) return null;
+    const top = scores[type];
+    const runnerUp = scores[second];
+    return runnerUp >= MIX_MIN && runnerUp >= MIX_SHARE * top ? second : null;
 }
 
 /** Hits are a density: per this many words (short replies are not punished, long ones not favoured). */
@@ -375,16 +455,19 @@ export function classifyScene(input: SceneInput): SceneVerdict {
         drama: 0,
     };
     const text = String(input.text ?? '');
-    const main = lexiconHits(text);
+    const main = lexiconHits(text, { speech: true });
     addScaled(scores, main, density(main), Number.POSITIVE_INFINITY);
     let explicit = main.explicit;
 
     if (input.userText) {
-        const user = lexiconHits(input.userText);
+        const user = lexiconHits(input.userText, { speech: true });
         addScaled(scores, user, 0.4 * density(user), 1.5);
     }
 
-    scores.dialogue = 0.8 + 2.2 * speechShare(text);
+    // Without a single line of speech the dialogue is only the fallback type (1.22): its 0.8 baseline used to keep an
+    // unmistakable fight just under the switch threshold.
+    const speech = speechShare(text);
+    scores.dialogue = speech > 0 ? 0.8 + 2.2 * speech : 0.4;
     scores.timeskip = 1.5 * Math.min(2, timeSkipHits(text)) + (input.timeSkipped ? 4 : 0);
 
     const tracker = input.tracker ?? null;
@@ -428,12 +511,13 @@ function rankScores(scores: Record<SceneKind, number>, explicit: number, timeSki
     const second = ranked[1] as SceneKind;
     const top = scores[type];
     const runnerUp = scores[second];
-    const unsure = runnerUp >= 0.8 && (top - runnerUp) / Math.max(top, 1e-9) < 0.25;
+    // Unambiguous evidence — explicit words in an intimate scene, a story time jump the tracker shows — is never a close
+    // race, however near the runner-up scored (1.22: with the wider model gate a time jump read as «unsure»).
+    const evident = (type === 'intimate' && explicit >= 2) || (type === 'timeskip' && timeSkipped);
+    const unsure = !evident && runnerUp >= 0.8 && (top - runnerUp) / Math.max(top, 1e-9) < UNSURE_GAP;
     let confidence = confidenceOf(top, runnerUp);
-    // Unambiguous evidence: explicit words in an intimate scene, a story time jump the tracker shows.
-    if (!unsure && type === 'intimate' && explicit >= 2) confidence = Math.max(confidence, STRONG_CONFIDENCE);
-    if (!unsure && type === 'timeskip' && timeSkipped) confidence = Math.max(confidence, STRONG_CONFIDENCE);
-    return { type, confidence, second, scores, unsure, explicit };
+    if (evident) confidence = Math.max(confidence, STRONG_CONFIDENCE);
+    return { type, confidence, second, scores, unsure, explicit, secondary: secondaryOf(scores, type, second) };
 }
 
 /* ------------------------------------------------------------------ the user's message */
@@ -486,7 +570,7 @@ export function userCue(text: string): UserCue {
         social: 0,
         drama: 0,
     };
-    const hits = lexiconHits(source);
+    const hits = lexiconHits(source, { speech: true });
     addScaled(scores, hits, density(hits), Number.POSITIVE_INFINITY);
     const skips = timeSkipHits(source);
     scores.timeskip = 1.5 * Math.min(2, skips);
@@ -530,7 +614,15 @@ export function combineScene(reply: SceneVerdict, cue: UserCue | null | undefine
     const ranked = rankScores(scores, explicit, false);
     if (cue.strong) {
         const second = ranked.type === cue.type ? ranked.second : ranked.type;
-        return { ...ranked, type: cue.type, second, confidence: cue.confidence, unsure: false, byUser: true };
+        return {
+            ...ranked,
+            type: cue.type,
+            second,
+            confidence: cue.confidence,
+            unsure: false,
+            byUser: true,
+            secondary: secondaryOf(ranked.scores, cue.type, second),
+        };
     }
     return { ...ranked, byUser: ranked.type !== reply.type };
 }
@@ -546,6 +638,11 @@ export interface SceneDecision {
     held: number;
     /** The cue of the user's message decided this turn's reading (by 'rules'). */
     fromUserMessage?: boolean;
+    /**
+     * A mixed scene (1.22): the other type the latest reply showed nearly as strongly — or the newcomer the hysteresis
+     * still holds back (a scene in transition is both).
+     */
+    secondary?: SceneKind;
 }
 
 export interface SceneMemory {
@@ -560,6 +657,8 @@ export interface SceneObservation {
     by: 'rules' | 'model';
     messageIndex: number;
     fromUserMessage?: boolean;
+    /** The close runner-up of this reading (CombinedVerdict.secondary). */
+    secondary?: SceneKind | null;
 }
 
 export function emptySceneMemory(): SceneMemory {
@@ -568,9 +667,11 @@ export function emptySceneMemory(): SceneMemory {
 
 /**
  * One committed turn through the hysteresis: the same type holds one more turn; another type takes over at once with
- * confidence ≥ 0.85, or when it wins twice in a row; otherwise it waits as the candidate. Returns a new memory.
+ * confidence ≥ 0.85, or when it wins twice in a row; otherwise it waits as the candidate (and is the scene's second type
+ * meanwhile). The decision carries the reading's mixed type. Returns a new memory.
  */
 export function stepScene(memory: SceneMemory, observation: SceneObservation): SceneMemory {
+    const mixed = observation.secondary && observation.secondary !== observation.type ? observation.secondary : null;
     const decision = (held: number): SceneDecision => ({
         type: observation.type,
         confidence: round(observation.confidence),
@@ -578,6 +679,7 @@ export function stepScene(memory: SceneMemory, observation: SceneObservation): S
         by: observation.by,
         held,
         ...(observation.fromUserMessage ? { fromUserMessage: true } : {}),
+        ...(mixed ? { secondary: mixed } : {}),
     });
     const current = memory.current;
     if (!current) return { current: decision(1), candidate: null };
@@ -590,8 +692,9 @@ export function stepScene(memory: SceneMemory, observation: SceneObservation): S
     if (observation.confidence >= SWITCH_CONFIDENCE || memory.candidate?.type === observation.type) {
         return { current: decision(1), candidate: null };
     }
+    // Held back by the hysteresis: the newcomer is already part of the scene (a transition is both).
     return {
-        current: { ...current, held: current.held + 1 },
+        current: { ...current, held: current.held + 1, secondary: observation.type },
         candidate: {
             type: observation.type,
             confidence: round(observation.confidence),

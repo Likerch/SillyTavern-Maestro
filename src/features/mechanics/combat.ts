@@ -6,6 +6,7 @@
 // longer a fight (only for fights the director started). Initiative is rolled for everyone in the scene and the
 // enemies; each committed reply is a round (the state's turn); the order goes into the prompt as one line.
 // Every step is a change of the state's log (rolled back with its message) — the user's own steps are journaled.
+import { SWITCH_CONFIDENCE } from '../../domain/director-scene';
 import { parseDice } from '../../domain/mechanics-defs';
 import { rollDice } from '../../domain/mechanics-dice';
 import type { Rng } from '../../domain/mechanics-dice';
@@ -289,7 +290,11 @@ export class MechanicCombat {
         }
     }
 
-    /** The director decided the scene: a fight starts when it becomes one, a director's fight ends when it stops. */
+    /**
+     * The director decided the scene: a fight starts when it surely becomes one (1.22: the user's choice, confidence
+     * ≥ the switch threshold, or held a second turn — a sword in the room or a combat word in a mixed scene is not
+     * enough), a director's fight ends when it stops.
+     */
     private async followDirector(): Promise<void> {
         if (this.disposed || !this.deps.settings().autoCombat || !this.isLeader()) return;
         if (!this.deps.app.host.chatId() || !this.mechanic()) return;
@@ -303,7 +308,8 @@ export class MechanicCombat {
         const current = this.combat();
         const step: CombatStep = { by: 'director', source: 'event', messageIndex: scene.messageIndex };
         try {
-            if (scene.type === 'combat' && !current?.active && scene.messageIndex !== this.dismissed) {
+            const sure = scene.by === 'user' || scene.confidence >= SWITCH_CONFIDENCE || scene.held >= 2;
+            if (scene.type === 'combat' && sure && !current?.active && scene.messageIndex !== this.dismissed) {
                 if (current && current.startedAt >= scene.messageIndex) return;
                 await this.start({}, step);
             } else if (scene.type !== 'combat' && current?.active && current.by === 'director') {

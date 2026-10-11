@@ -5,7 +5,7 @@
 // Also here: the reply-length hint per scene type, picture moments (first appearance, place change, climax; NAI
 // Studio's Anlas settings make the rule stricter when pictures are paid) and the chat language.
 // Pure: no DOM, no SillyTavern.
-import { SCENE_KINDS } from './director-scene';
+import { SCENE_KINDS, SWITCH_CONFIDENCE } from './director-scene';
 import type { SceneKind } from './director-scene';
 import { normalizeText } from './signals-tokens';
 
@@ -18,9 +18,12 @@ export interface DirectorFlagInfo {
 
 export type ReplyLength = 'short' | 'medium' | 'long';
 
-/** Reply length that suits a scene type: action is quick, description and intimacy take their time. */
+/**
+ * Reply length that suits a scene type: action is quick, description and intimacy take their time. A conversation is
+ * medium (1.22: was short — talk is not a reason to cut a reply).
+ */
 export const REPLY_LENGTH: Record<SceneKind, ReplyLength> = {
-    dialogue: 'short',
+    dialogue: 'medium',
     combat: 'short',
     intimate: 'long',
     exploration: 'long',
@@ -30,6 +33,11 @@ export const REPLY_LENGTH: Record<SceneKind, ReplyLength> = {
 };
 
 export const REPLY_LENGTHS: readonly ReplyLength[] = ['short', 'medium', 'long'];
+
+/** A length hint needs this much confidence (1.22)… */
+export const LENGTH_CONFIDENCE = 0.7;
+/** …and the type held for this many turns, unless the confidence reaches the hysteresis' switch threshold. */
+export const LENGTH_HELD = 2;
 
 /** Chat languages the director can tell apart (by letters). */
 export const DIRECTOR_LANGUAGES: readonly ('ru' | 'en')[] = ['ru', 'en'];
@@ -66,9 +74,36 @@ export const DIRECTOR_FLAGS: readonly DirectorFlagInfo[] = [
 export interface FlagState {
     /** Effective scene type (the user's override first); null before the first decision. */
     scene: SceneKind | null;
+    /** The second type of a mixed scene (1.22); not with the user's override. */
+    secondary?: SceneKind | null;
+    /** Confidence of the decision (absent: sure — older callers). */
+    confidence?: number;
+    /** Turns the type has held (absent: 1). */
+    held?: number;
+    /** The user chose the type himself: his choice sets the length at once. */
+    byUser?: boolean;
     explicit: boolean;
     language: string | null;
     picture: boolean;
+}
+
+/**
+ * The reply length the scene asks for, or null when the decision is not sure enough to steer it (1.22): a mixed scene
+ * takes the longer of its two types; the hint needs confidence ≥ LENGTH_CONFIDENCE and the type held LENGTH_HELD turns
+ * — or a sure decision (≥ the switch threshold, e.g. the user's own move), or the user's override.
+ */
+export function replyLength(state: FlagState): ReplyLength | null {
+    if (!state.scene) return null;
+    const types = state.secondary && state.secondary !== state.scene ? [state.scene, state.secondary] : [state.scene];
+    const length = types
+        .map((type) => REPLY_LENGTH[type])
+        .reduce((a, b) => (REPLY_LENGTHS.indexOf(b) > REPLY_LENGTHS.indexOf(a) ? b : a));
+    if (state.byUser) return length;
+    const confidence = state.confidence ?? 1;
+    const held = state.held ?? 1;
+    if (confidence < LENGTH_CONFIDENCE) return null;
+    if (held < LENGTH_HELD && confidence < SWITCH_CONFIDENCE) return null;
+    return length;
 }
 
 /** Flags for the next generation, all with the value '1' (ST variables are strings; absent means false). */
@@ -76,7 +111,9 @@ export function buildDirectorFlags(state: FlagState): Record<string, string> {
     const flags: Record<string, string> = {};
     if (state.scene) {
         flags[sceneFlag(state.scene)] = '1';
-        flags[replyFlag(REPLY_LENGTH[state.scene])] = '1';
+        if (state.secondary && state.secondary !== state.scene) flags[sceneFlag(state.secondary)] = '1';
+        const length = replyLength(state);
+        if (length) flags[replyFlag(length)] = '1';
     }
     if (state.explicit) flags[FLAG_EXPLICIT] = '1';
     if (state.language && (DIRECTOR_LANGUAGES as readonly string[]).includes(state.language)) {

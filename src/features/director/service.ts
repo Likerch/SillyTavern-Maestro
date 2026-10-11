@@ -398,6 +398,7 @@ export class DirectorService implements Required<DirectorApi> {
             messageIndex,
         };
         if (verdict.byUser) observation.fromUserMessage = true;
+        if (verdict.secondary) observation.secondary = verdict.secondary;
         return observation;
     }
 
@@ -613,7 +614,13 @@ export class DirectorService implements Required<DirectorApi> {
             return;
         }
         this.model = { messageIndex: index, state: 'answered', type: answer.type };
-        this.redecide(index, { ...answer, by: 'model', messageIndex: index });
+        // The rules hesitated: where the model agrees, their close runner-up stays the second type; where it picks the
+        // other one, the rules' choice is (the scene is both).
+        const rules = this.lastCommit
+            ? combineScene(this.lastCommit.draft.verdict, this.lastCommit.cue?.cue, this.settings().userWeight)
+            : null;
+        const secondary = rules ? (rules.type === answer.type ? rules.secondary : rules.type) : null;
+        this.redecide(index, { ...answer, by: 'model', messageIndex: index, secondary });
     }
 
     /** The latest committed turn decided again (the model's answer, a late time skip). */
@@ -799,6 +806,13 @@ export class DirectorService implements Required<DirectorApi> {
         return current ? { ...current } : null;
     }
 
+    /** The second type of a mixed scene (none with the user's override). */
+    private secondary(doc: DirectorDoc): SceneKind | null {
+        if (doc.override) return null;
+        const current = doc.memory.current;
+        return current?.secondary && current.secondary !== current.type ? current.secondary : null;
+    }
+
     async setScene(type: SceneType | null): Promise<void> {
         const doc = this.current();
         if (!doc) return;
@@ -862,8 +876,13 @@ export class DirectorService implements Required<DirectorApi> {
         const scene = this.effectiveType();
         const settings = this.settings();
         const picture = !!doc.picture && settings.pictures && this.mode() !== 'economy' && this.naiPresent();
+        const current = doc.memory.current;
         return buildDirectorFlags({
             scene,
+            secondary: this.secondary(doc),
+            confidence: doc.override ? 1 : current?.confidence,
+            held: doc.override ? Math.max(1, doc.overrideHeld) : current?.held,
+            byUser: !!doc.override,
             explicit: scene === 'intimate' || doc.explicitHits >= 2,
             language: doc.language,
             picture,

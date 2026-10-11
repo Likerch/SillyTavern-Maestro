@@ -24,6 +24,8 @@ export interface SceneState {
      * «Прошло три дня»); `by` stays 'rules'. Shown as «по твоему сообщению».
      */
     fromUserMessage?: boolean;
+    /** A mixed scene (1.22): the other type the scene is nearly as much (never with the user's override). */
+    secondary?: SceneType;
 }
 
 export interface StallState {

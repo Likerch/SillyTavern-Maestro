@@ -14,6 +14,8 @@ import {
     explicitHits,
     lexiconHits,
     parseSceneAnswer,
+    speechSegments,
+    UNSURE_GAP,
     presentNames,
     sceneWords,
     speechShare,
@@ -73,9 +75,11 @@ describe('director scene: dictionaries', () => {
     });
 
     it('counts dictionary hits with capped repeats and explicit words', () => {
-        const hits = lexiconHits('меч меч меч меч меч');
+        const hits = lexiconHits('удар удар удар удар удар');
         expect(hits.scores.combat).toBe(3);
         expect(hits.words).toBe(5);
+        // 1.22: a sword is an object around the scene, not the scene — a light cue, capped all the same.
+        expect(lexiconHits('меч меч меч меч меч').scores.combat).toBe(1.5);
         const light = lexiconHits('угроза');
         expect(light.scores.combat).toBe(0.5);
         expect(explicitHits('Она была голая, соски напряглись, оргазм накрыл её.')).toBe(3);
@@ -99,6 +103,76 @@ describe('director scene: dictionaries', () => {
         expect(speechShare('«Привет», — сказал он.')).toBeGreaterThan(0.3);
         expect(speechShare('— Привет!\n— И тебе.')).toBe(1);
         expect(speechShare('"Hello there," he said.')).toBeGreaterThan(0.4);
+    });
+});
+
+describe('director scene: speech, mixed scenes, the model gate (1.22)', () => {
+    it('cuts quotes and Russian dash dialogue into speech, the remarks between dashes into narration', () => {
+        const text = 'Он сказал: «Беги!» и ударил.\n— Стой, — крикнула она и выхватила кинжал. — Сейчас же!';
+        expect(speechSegments(text)).toEqual([
+            { text: 'Он сказал: ', speech: false },
+            { text: '«Беги!»', speech: true },
+            { text: ' и ударил.', speech: false },
+            { text: 'Стой,', speech: true },
+            { text: 'крикнула она и выхватила кинжал.', speech: false },
+            { text: 'Сейчас же!', speech: true },
+        ]);
+    });
+
+    it('a dragon is no fight; Russian explicit verbs count; a name «Лиза» is not «лизать»', () => {
+        expect(lexiconHits('Драконица фыркнула по-драконьи.').scores.combat).toBe(0);
+        expect(lexiconHits('Драка в таверне.').scores.combat).toBe(1);
+        expect(userCue('Я продолжал лизать, ища её самые чувствительные места.')).toMatchObject({ type: 'intimate' });
+        expect(lexiconHits('Лиза улыбнулась.').scores.intimate).toBe(0);
+    });
+
+    it('words said aloud count half: talking about a fight is not a fight', () => {
+        const told = lexiconHits('«Вчера была драка, удар за ударом», — сказал он.', { speech: true });
+        const done = lexiconHits('Вчера была драка, удар за ударом.', { speech: true });
+        expect(told.scores.combat).toBeCloseTo(done.scores.combat / 2);
+        // Without the option every word counts in full (tracker fields, locations).
+        expect(lexiconHits('«Драка», — сказал он.').scores.combat).toBe(1);
+    });
+
+    it('a runner-up close to the winner makes a mixed scene; a far one or the bare dialogue baseline does not', () => {
+        const mixed = classifyScene({
+            text: 'Она поцеловала его, страстно, ласково, и в тот же миг дверь вышибли: удар, бандиты атаковали.',
+        });
+        expect(mixed.secondary).not.toBeNull();
+        expect([mixed.type, mixed.secondary]).toEqual(expect.arrayContaining(['combat', 'intimate']));
+        const fight = classifyScene({
+            text: 'Орк бросился в атаку. Удар, ещё удар, она уклонилась и парировала, выстрел, засада, бой закипел.',
+        });
+        expect(fight).toMatchObject({ type: 'combat', secondary: null });
+        // No speech at all: the dialogue is only the fallback (0.4) and never holds an unmistakable fight back.
+        expect(fight.scores.dialogue).toBe(0.4);
+        expect(fight.confidence).toBeGreaterThanOrEqual(SWITCH_CONFIDENCE);
+    });
+
+    it('the model is asked when the two best are within 40%; tracker evidence is never a close race', () => {
+        expect(UNSURE_GAP).toBe(0.4);
+        const close = classifyScene({ text: 'Поцелуй. Ласка. Удар, атака.' });
+        expect(close.unsure).toBe(true);
+        const jump = classifyScene({ text: '«Доброе утро», — сказала она. «Ну что, пойдём?»', timeSkipped: true });
+        expect(jump).toMatchObject({ type: 'timeskip', unsure: false });
+        expect(jump.confidence).toBeGreaterThanOrEqual(0.9);
+    });
+
+    it('the decision carries the mixed type; a newcomer held back by the hysteresis is the second type meanwhile', () => {
+        let memory = stepScene(emptySceneMemory(), {
+            type: 'dialogue',
+            confidence: 0.7,
+            by: 'rules',
+            messageIndex: 1,
+            secondary: 'intimate',
+        });
+        expect(memory.current).toMatchObject({ type: 'dialogue', secondary: 'intimate' });
+        memory = stepScene(memory, { type: 'combat', confidence: 0.6, by: 'rules', messageIndex: 3 });
+        expect(memory.current).toMatchObject({ type: 'dialogue', held: 2, secondary: 'combat' });
+        expect(memory.candidate?.type).toBe('combat');
+        memory = stepScene(memory, { type: 'combat', confidence: 0.6, by: 'rules', messageIndex: 5 });
+        expect(memory.current).toMatchObject({ type: 'combat', held: 1 });
+        expect(memory.current?.secondary).toBeUndefined();
     });
 });
 
@@ -318,7 +392,8 @@ describe('director scene: the user message that commits the turn', () => {
 
     it('weak cues and no cues', () => {
         expect(userCue('Обнимаю её за плечи.')).toMatchObject({ type: 'intimate', strong: false });
-        expect(userCue('Бросаюсь на кровать и смеюсь.')).toMatchObject({ type: 'intimate', strong: false });
+        // 1.22: a bed is where it happens, not what happens.
+        expect(userCue('Бросаюсь на кровать и смеюсь.')).toMatchObject({ type: null, strong: false });
         expect(userCue('Хорошо, согласен.')).toMatchObject({ type: null, strong: false, confidence: 0 });
         expect(userCue('')).toMatchObject({ type: null, strong: false });
     });
@@ -348,6 +423,7 @@ describe('director scene: the user message that commits the turn', () => {
             scores: { dialogue: 1.6, combat: 0, intimate: 0, exploration: 0, timeskip: 0, social: 0, drama: 1.2 },
             unsure: false,
             explicit: 1,
+            secondary: null,
         };
         const tipped = combineScene(close, userCue('Кричу на него.'), 0.6);
         expect(tipped).toMatchObject({ type: 'drama', byUser: true });

@@ -71,8 +71,8 @@ class FakeDirector {
             },
         };
     }
-    set(type: SceneState['type'], messageIndex: number): void {
-        this.scene = { type, confidence: 0.9, messageIndex, by: 'rules', held: 1 };
+    set(type: SceneState['type'], messageIndex: number, sure: { confidence?: number; held?: number } = {}): void {
+        this.scene = { type, confidence: sure.confidence ?? 0.9, messageIndex, by: 'rules', held: sure.held ?? 1 };
         for (const listener of [...this.listeners]) listener();
     }
 }
@@ -212,6 +212,16 @@ describe('fights from the block and the director', () => {
         director.set('combat', 9);
         await env.tick(20);
         expect(combat.combat()?.active).toBe(false);
+    });
+
+    it('1.22: an unsure fight does not start one; it starts once the director is sure or the type holds', async () => {
+        await start();
+        director.set('combat', 4, { confidence: 0.7, held: 1 });
+        await env.tick(20);
+        expect(combat.combat()).toBeNull();
+        director.set('combat', 5, { confidence: 0.7, held: 2 });
+        await env.tick(20);
+        expect(combat.combat()).toMatchObject({ active: true, by: 'director', startedAt: 5 });
     });
 
     it('the director’s fights are not followed in another tab', async () => {

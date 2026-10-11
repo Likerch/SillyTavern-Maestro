@@ -20,6 +20,9 @@ export const DIRECTOR_STRINGS: I18nParts = {
         'm13.scene.type.social': 'Social scene',
         'm13.scene.type.drama': 'Drama and conflict',
         'm13.scene.confidence': 'confidence {value}%',
+        'm13.scene.secondary': '+ {type}',
+        'm13.scene.secondary.hint':
+            'A mixed scene: the reply was nearly as much this too. Both types reach the preset, the reply length follows the longer one.',
         'm13.scene.held.one': 'holds {count} turn',
         'm13.scene.held.few': 'holds {count} turns',
         'm13.scene.held.many': 'holds {count} turns',
@@ -147,6 +150,9 @@ export const DIRECTOR_STRINGS: I18nParts = {
         'm13.scene.type.social': 'Светская сцена',
         'm13.scene.type.drama': 'Драма и конфликт',
         'm13.scene.confidence': 'уверенность {value}%',
+        'm13.scene.secondary': '+ {type}',
+        'm13.scene.secondary.hint':
+            'Смешанная сцена: ответ был почти в той же мере и этим. В пресет уходят оба вида, длина ответа — по более длинному.',
         'm13.scene.held.one': 'держится {count} ход',
         'm13.scene.held.few': 'держится {count} хода',
         'm13.scene.held.many': 'держится {count} ходов',

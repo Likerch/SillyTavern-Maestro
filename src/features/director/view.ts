@@ -56,6 +56,13 @@ export function directorTab(app: App, service: DirectorService, settings: () => 
             rows.push(
                 el('div', { class: 'maestro-m13-row maestro-m13-scene' }, [
                     badge(typeName(scene.type), scene.by === 'user' ? 'warn' : 'info'),
+                    scene.secondary
+                        ? el('span', {
+                              class: 'maestro-m13-secondary',
+                              text: t('m13.scene.secondary', { type: typeName(scene.secondary) }),
+                              title: t('m13.scene.secondary.hint'),
+                          })
+                        : null,
                     scene.by !== 'user'
                         ? el('span', { text: t('m13.scene.confidence', { value: Math.round(scene.confidence * 100) }) })
                         : null,

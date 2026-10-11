@@ -80,6 +80,7 @@ function decisionOf(value: unknown): SceneDecision | null {
         held: Math.max(1, Math.floor(num(value.held, 1))),
     };
     if (value.fromUserMessage === true) decision.fromUserMessage = true;
+    if (isSceneKind(value.secondary) && value.secondary !== decision.type) decision.secondary = value.secondary;
     return decision;
 }
 

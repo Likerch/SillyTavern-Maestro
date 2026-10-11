@@ -184,7 +184,13 @@ describe('M13 director: the user message that commits the turn', () => {
         expect(env.service().scene()?.type).toBe('dialogue');
         await env.reply(CALM);
         const flags = await env.send('Я выхватываю меч и бросаюсь на бандитов!');
-        expect(flags).toMatchObject({ maestro_scene_combat: '1', maestro_reply_short: '1' });
+        // 1.22: a fight breaking into a conversation is a mixed scene — both types, the longer length (medium).
+        expect(flags).toMatchObject({
+            maestro_scene_combat: '1',
+            maestro_scene_dialogue: '1',
+            maestro_reply_medium: '1',
+        });
+        expect(flags.maestro_reply_short).toBeUndefined();
         expect(env.service().scene()).toMatchObject({ type: 'combat', by: 'rules', fromUserMessage: true, held: 1 });
         expect(env.service().scene()!.confidence).toBeGreaterThanOrEqual(0.85);
         await env.reply(CALM);
