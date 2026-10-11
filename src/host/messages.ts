@@ -30,9 +30,21 @@ function isRendered(index: number): boolean {
     }
 }
 
+/** ST's message editor (or its reasoning editor) is open on this message: its textarea sits inside the block. */
+export function isEditing(index: number): boolean {
+    if (typeof document === 'undefined') return false;
+    try {
+        const block = `#chat .mes[mesid="${index}"]`;
+        return document.querySelector(`${block} .edit_textarea, ${block} .reasoning_edit_textarea`) !== null;
+    } catch {
+        return false;
+    }
+}
+
 /**
  * Re-renders message `index` (updateMessageBlock runs synchronously, before the first await) and, when the message is
- * on screen, announces it with MESSAGE_UPDATED. Never throws.
+ * on screen, announces it with MESSAGE_UPDATED. Never throws. Not while the user edits that message: the re-render
+ * would replace the editor and lose what he typed; ST re-renders the message from the chat when the editor closes.
  */
 export async function rerenderMessage(
     host: Host,
@@ -41,6 +53,10 @@ export async function rerenderMessage(
     options: RerenderOptions = {},
 ): Promise<void> {
     const { announce = true, log } = options;
+    if (isEditing(index)) {
+        log?.debug(`message ${index} is being edited: shown when the editor closes`);
+        return;
+    }
     try {
         const ctx = host.ctx();
         if (typeof ctx.updateMessageBlock !== 'function') return;

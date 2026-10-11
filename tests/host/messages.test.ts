@@ -45,6 +45,19 @@ describe('rerenderMessage', () => {
         expect(calls).toEqual(['render:0', 'render:1']);
     });
 
+    it('leaves a message whose editor is open alone, so the typed text survives (1.21.2)', async () => {
+        const host = createHost(memoryLogger());
+        document.querySelector('#chat .mes[mesid="1"] .mes_text')!.innerHTML =
+            '<textarea id="curEditTextarea" class="edit_textarea">typing…</textarea>';
+        await rerenderMessage(host, 1, mock.chat[1]!);
+        expect(calls).toEqual([]);
+        expect(document.querySelector<HTMLTextAreaElement>('#curEditTextarea')?.value).toBe('typing…');
+        document.querySelector('#chat .mes[mesid="1"]')!.innerHTML =
+            '<div class="mes_text"></div><textarea class="reasoning_edit_textarea"></textarea>';
+        await rerenderMessage(host, 1, mock.chat[1]!);
+        expect(calls).toEqual([]);
+    });
+
     it('does nothing without updateMessageBlock and logs a failing one without announcing', async () => {
         const log = memoryLogger();
         const host = createHost(log);
