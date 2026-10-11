@@ -47,6 +47,7 @@ import type { ArchitectApi } from '../architect/api';
 import type { BunnyMoModeApi } from '../bunnymoMode/api';
 import type { KnowledgeApi } from '../knowledge/api';
 import type { RelationsApi } from '../relations/api';
+import type { SceneSplitApi } from '../sceneSplit/api';
 import type { Entity, WorldModelApi } from '../world/api';
 import type { VoiceCard, VoicesApi, VoicesInjection, VoicesQuietState } from './api';
 import { CkQuiet } from './ck-quiet';
@@ -326,13 +327,22 @@ export class VoicesService {
         return resolved;
     }
 
-    /** Names hidden from DES's «Present Characters» in this chat. */
-    private hiddenNames(): string[] {
+    /**
+     * Names out of the scene: hidden from DES's «Present Characters» in this chat, and (M43 «Сцена и вокруг») shown
+     * leaving by the narration while DES's tracker still lists them.
+     */
+    private hiddenNames(chat: readonly unknown[]): string[] {
+        let removed: string[];
         try {
             const des = adaptersOf(this.app).des as { removedCharacters?: () => string[] } | undefined;
-            return typeof des?.removedCharacters === 'function' ? des.removedCharacters() : [];
+            removed = typeof des?.removedCharacters === 'function' ? des.removedCharacters() : [];
         } catch {
-            return [];
+            removed = [];
+        }
+        try {
+            return [...removed, ...(this.app.modules.api<SceneSplitApi>('sceneSplit')?.departed(chat) ?? [])];
+        } catch {
+            return removed;
         }
     }
 
@@ -450,7 +460,7 @@ export class VoicesService {
         const chatId = this.app.host.chatId();
         const committed = lastCommittedIndex(chat as STChatMessage[]);
         const message = chat[committed];
-        const hidden = this.hiddenNames();
+        const hidden = this.hiddenNames(chat);
         const persona = this.personaName();
         // M18 reads the user's answer too: an edit of it changes the topics.
         const knowing = !!this.knowledge.api;

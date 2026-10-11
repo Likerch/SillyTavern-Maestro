@@ -188,6 +188,7 @@ export const MAESTRO_SLOTS: Readonly<Record<string, string>> = {
     maestro_chronicle_recap: 'chronicle',
     'maestro_messageStyle.hint': 'messageStyle',
     maestro_quality_fix: 'quality',
+    maestro_sceneSplit: 'sceneSplit',
 };
 
 /** The module of a Maestro slot: the table, else the word after `maestro_`. */

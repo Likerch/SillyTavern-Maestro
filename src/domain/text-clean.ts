@@ -6,9 +6,12 @@
 // - NAI Studio: `[nai:img:<id>]` placeholders of inline images, and whole picture posts (research/
 //   qvink-nai-studio.md §B5);
 // - HTML from models, DES-RU and regexes;
-// - a mechanics service block (M25) the mechanics module has not stripped yet.
+// - a mechanics service block (M25) the mechanics module has not stripped yet;
+// - the `<offscreen>` block of M43 «Сцена и вокруг»: what happens elsewhere is not the scene (who is in it, what
+//   happened in it), so analysis never reads it (src/domain/scene-split.ts).
 // Pure: no DOM, no SillyTavern.
 import { stripBlock } from './mechanics-block';
+import { stripOffscreen } from './scene-split';
 
 type Dict = Record<string, unknown>;
 
@@ -230,13 +233,14 @@ function normalizeWhitespace(text: string): string {
 
 /**
  * Story text of a message (or of a raw string) for analysis: picture posts give '', otherwise the text without
- * the DES tracker JSON, CK dumps, NAI placeholders and HTML, with tidy whitespace.
+ * the DES tracker JSON, CK dumps, NAI placeholders, the offscreen block and HTML, with tidy whitespace.
  */
 export function cleanForAnalysis(message: unknown): string {
     if (typeof message !== 'string' && isImagePost(message)) return '';
     const raw = typeof message === 'string' ? message : isDict(message) ? message.mes : undefined;
     if (typeof raw !== 'string' || !raw) return '';
     let text = stripDesTrackerJson(raw);
+    text = stripOffscreen(text);
     text = stripCkDumps(text);
     text = stripNaiPlaceholders(text);
     text = stripBlock(text);
@@ -278,9 +282,17 @@ export function stripTrackerTail(text: string): string {
     return text;
 }
 
+/** A preview cut inside an offscreen block (`…the herbalist got rich.</offscreen>`): the part before the close goes. */
+function stripOffscreenTail(text: string): string {
+    const close = /<\/offscreen\s*>/i.exec(text);
+    if (!close) return text;
+    const open = /<offscreen\b/i.exec(text);
+    return open && open.index < close.index ? text : text.slice(close.index + close[0].length);
+}
+
 /**
  * The text of a last-message preview in a chat list (ST's recent chats, «Manage chat files», chat side bars) without
- * the service noise cleanForAnalysis removes. HTML is stripped twice: the first pass decodes what ST or a regex
+ * the service noise cleanForAnalysis removes (the offscreen block too: the preview shows how the scene ended). HTML is stripped twice: the first pass decodes what ST or a regex
  * escaped into text (`&lt;font color=…&gt;`), the second removes those tags too. Whitespace collapses to single
  * spaces (`keepLines`: paragraphs are kept, for tooltips); a leading `...` of a cut preview stays. Empty when nothing
  * but noise was there.
@@ -295,6 +307,7 @@ export function cleanPreviewText(text: string, options: { keepLines?: boolean } 
         body = stripTrackerTail(body.slice(ellipsis[0].length).replace(/^[ \t]+/, ''));
     }
     body = stripDesTrackerJson(body);
+    body = stripOffscreen(stripOffscreenTail(body));
     body = stripCkDumps(body);
     body = stripNaiPlaceholders(body);
     body = stripBlock(body);

@@ -36,6 +36,7 @@ import { qualityModule } from '../features/quality';
 import { relationsModule } from '../features/relations';
 import { revisionModule } from '../features/revision';
 import { rulesModule } from '../features/rules';
+import { sceneSplitModule } from '../features/sceneSplit';
 import { scenariosModule } from '../features/scenarios';
 import { sheetsModule } from '../features/sheets';
 import { signalsModule } from '../features/signals';
@@ -116,4 +117,6 @@ export const MODULES: MaestroModule[] = [
     personaCreatorModule,
     // M40: BunnyMo's sheet commands at the message box.
     bunnymoCommandsModule,
+    // Release 1.23: M43 «Сцена и вокруг» — the scene apart from what goes on around it.
+    sceneSplitModule,
 ];

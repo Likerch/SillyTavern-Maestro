@@ -577,6 +577,24 @@ describe('mock LLM', () => {
         expect(nextTracker.characters.map((ch) => ch.name)).not.toContain('Mana');
     });
 
+    it('stages a departure and an offscreen block (M43)', async () => {
+        const reply = await complete({
+            messages: [
+                ...story.slice(0, 1),
+                {
+                    role: 'user',
+                    content: 'Жду. [mock:say:Вера кивнула и вышла из таверны.][mock:offscreen:Мира ушла.]',
+                },
+            ],
+        });
+        const text = reply.choices[0]!.message.content;
+        expect(text.endsWith('Вера кивнула и вышла из таверны.\n\n<offscreen>Мира ушла.</offscreen>')).toBe(true);
+        const plain = await complete({
+            messages: [...story.slice(0, 1), { role: 'user', content: '[mock:offscreen]' }],
+        });
+        expect(plain.choices[0]!.message.content).toMatch(/<offscreen>Тем временем [^<]+<\/offscreen>$/);
+    });
+
     it('answers the mechanics background parse from the marker its reply repeats', async () => {
         const marker = '[mock:mechextract:Кай.Mana=-10; Кай.status+=poisoned 3 turns; Кай.items+=rope 2]';
         const reply = await complete({ messages: [...story.slice(0, 1), { role: 'user', content: `Иду. ${marker}` }] });

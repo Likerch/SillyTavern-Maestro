@@ -27,6 +27,7 @@ import type { App, Logger, Unsubscribe } from '../../shared/contracts';
 import type { BookRolesApi } from '../bookRoles/api';
 import type { CanonApi } from '../canon/api';
 import type { PlacesApi } from '../places/api';
+import type { SceneSplitApi } from '../sceneSplit/api';
 import type { Entity, WorldModelApi } from '../world/api';
 import type { ArchitectSettings } from './settings';
 
@@ -323,6 +324,7 @@ export class SceneContext {
         if (type === 'swipe' && isDict(last) && last.is_user !== true && last.is_system !== true) end--;
         const committed = lastCommittedIndex(chat as STChatMessage[]);
         const lastText = isDict(last) && typeof last.mes === 'string' ? last.mes : '';
+        const away = this.departed(chat);
         const key = [
             this.app.host.chatId() ?? '',
             end,
@@ -333,11 +335,14 @@ export class SceneContext {
             window,
             this.versions.world,
             this.versions.places,
+            away.join('\u0001'),
         ].join('|');
         if (this.snap?.key === key) return this.snap;
 
         const cast = this.castOf(world);
-        const names = this.trackerNames(chat, committed);
+        const gone = new Set(away.map((name) => name.trim().toLowerCase()));
+        const names =
+            this.trackerNames(chat, committed)?.filter((name) => !gone.has(name.trim().toLowerCase())) ?? null;
         let present: Set<string>;
         let absent: Set<string>;
         if (names) {
@@ -384,6 +389,15 @@ export class SceneContext {
         }
         this.cast = { version: this.versions.world, roster, present, absent };
         return this.cast;
+    }
+
+    /** M43 «Сцена и вокруг»: characters the committed narration showed leaving (DES's tracker still lists them). */
+    private departed(chat: readonly unknown[]): string[] {
+        try {
+            return this.app.modules.api<SceneSplitApi>('sceneSplit')?.departed(chat) ?? [];
+        } catch {
+            return [];
+        }
     }
 
     /** Names of the characters in the scene of the committed reply; null when it has no DES characters. */

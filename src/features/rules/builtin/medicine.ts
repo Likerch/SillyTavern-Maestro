@@ -21,6 +21,7 @@ import { sceneTracker } from '../../../domain/voices-cards';
 import { normalizeName } from '../../../domain/world-names';
 import type { Unsubscribe } from '../../../shared/contracts';
 import type { BookRolesApi } from '../../bookRoles/api';
+import type { SceneSplitApi } from '../../sceneSplit/api';
 import type { Entity, WorldModelApi } from '../../world/api';
 import type { EntryCopy, EntryLists, RuleChange, RuleDefinition } from '../api';
 import { entriesOf } from '../env';
@@ -100,15 +101,22 @@ export function medicineRule(env: RuleEnv): RuleDefinition {
         } catch {
             persona = undefined;
         }
+        const chat = (ctx.chat ?? []) as unknown[];
         const hidden = ((): string[] => {
+            let removed: string[];
             try {
                 const des = adaptersOf(env.app).des as { removedCharacters?: () => string[] } | undefined;
-                return typeof des?.removedCharacters === 'function' ? des.removedCharacters() : [];
+                removed = typeof des?.removedCharacters === 'function' ? des.removedCharacters() : [];
             } catch {
-                return [];
+                removed = [];
+            }
+            // M43: the ones the narration showed leaving are out of the scene too.
+            try {
+                return [...removed, ...(env.app.modules.api<SceneSplitApi>('sceneSplit')?.departed(chat) ?? [])];
+            } catch {
+                return removed;
             }
         })();
-        const chat = (ctx.chat ?? []) as unknown[];
         const tracker = env.app.host.chatId() ? sceneTracker(chat) : null;
         const members: Member[] = [];
         for (const member of sceneCast<Entity>(tracker, {

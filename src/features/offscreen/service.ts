@@ -76,8 +76,12 @@ export interface OffscreenTimings {
 
 export const DEFAULT_TIMINGS: OffscreenTimings = { settleMs: 1500, sceneMs: 700, saveMs: 300 };
 
-/** The note a rumour becomes (one-shot, in-chat, system, near the end: P16). */
-export const RUMOUR_PREFIX = 'Rumor the characters may have heard:';
+/**
+ * The note a rumour becomes (one-shot, in-chat, system, near the end: P16). Worded for M43 «Сцена и вокруг»: the absent
+ * character's doings are only something the characters present may talk about, never a scene of their own.
+ */
+export const RUMOUR_PREFIX =
+    'Rumor the characters present may have heard (something they may mention; it does not happen in this scene):';
 
 const PRODUCER = 'offscreen';
 const MAX_TOKENS = 900;

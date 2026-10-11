@@ -672,6 +672,31 @@ const MODULES: readonly ModuleDoc[] = [
             'Создаёт персону игрока для карточки персонажа. Кнопка «Создать персону» в редакторе персонажа ST (после «Связанных персон»), пункт в списке «Ещё…» или /maestro-persona [кем ты хочешь быть] открывают окно: необязательный комментарий и галочки (паспорт NAI, бесплатная картинка, связь с этим персонажем — включены; сделать текущей в этом чате — выключено). Фоновая модель (задача «persona.create», своя строка в профилях) читает карточку, сценарий, стартовую сцену, что карточка говорит о {{user}}, персоны игрока и лор карточки (книги Maestro и BunnyMo не читаются) и предлагает имя, подпись, внешность, предысторию и 5–6 нарядов; правишь их сам («Ещё раз» — другой вариант). Потом Maestro создаёт персону в ST (описание по-русски со строкой «Гардероб», аватар по умолчанию), связывает её с карточкой, а с NAI Studio, которая хранит паспорта любой персоны, сохраняет паспорт с этими нарядами (её гардероб) и рисует аватар. Отмены нет: лишнюю персону удаляют в окне персон ST.',
         ],
     },
+    {
+        key: 'sceneSplit',
+        id: 'M43',
+        keywords: [
+            'scene',
+            'сцена',
+            'around',
+            'вокруг',
+            'offscreen',
+            'elsewhere',
+            'left the scene',
+            'ушёл',
+            'ушла',
+            'absent',
+            'отсутствующие',
+        ],
+        en: [
+            'Scene and around (M43)',
+            "Keeps the reply on the scene. Every normal generation gets a short note at the very end of the prompt: narrate only the characters present; a character who left is out of the scene; what happens elsewhere this turn goes after the scene as one <offscreen>…</offscreen> block (1–3 sentences in the story's language) or nowhere. The block shows folded under the reply («Around»/«Вокруг»; with DES cards it stays one block after the cards); the saved message keeps it. In the prompt the two latest replies (setting) keep it as one line «[Elsewhere, not in the scene: …]», older ones lose it. Analysis (signals, director, quality, chronicle…) ignores it. Who the narration shows leaving («Вера вышла», «дверь за ней закрылась») is out of the voice cards, the wardrobe line, mechanics, knowledge and MAESTRO_API.present() from the next turn, though DES's tracker still lists them; they come back when a reply has them act or speak, or the player names them. M16's rumours are worded as something present characters may mention.\nWhere: Settings → «Scene and around» (on/off, replies that keep the block, the label). Paused in workshop chats.",
+        ],
+        ru: [
+            'Сцена и вокруг (M43)',
+            'Держит ответ на сцене. Каждая обычная генерация получает короткую заметку в самом конце промпта: рассказывать только о тех, кто в сцене; ушедший из сцены выбывает; что происходит в других местах за этот ход — после сцены одним блоком <offscreen>…</offscreen> (1–3 фразы на языке истории) или нигде. Блок показан свёрнутым под ответом («Вокруг»; с карточками DES — один блок после карточек); в сохранённом сообщении он остаётся. В промпте два последних ответа (настройка) держат его одной строкой «[Elsewhere, not in the scene: …]», старые его теряют. Анализ (сигналы, режиссёр, качество, хроника…) его не читает. Кого рассказ показал уходящим («Вера вышла», «дверь за ней закрылась»), со следующего хода нет в голосовых карточках, строке «кто во что одет», механиках, знаниях и MAESTRO_API.present(), хотя трекер DES его ещё держит; персонаж возвращается, когда в ответе снова действует или говорит, или когда игрок его называет. Слухи «Закулисья» (M16) поданы как то, что присутствующие могут упомянуть.\nГде: Настройки → «Сцена и вокруг» (включение, сколько ответов держат блок, подпись). В чатах мастерской — на паузе.',
+        ],
+    },
 ];
 
 export const MODULE_TOPICS: DocTopic[] = MODULES.map((doc) => ({

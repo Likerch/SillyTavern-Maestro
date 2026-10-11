@@ -36,6 +36,7 @@ import { sceneTracker, presentCharacters } from '../../domain/voices-cards';
 import { nameList, normalizeName } from '../../domain/world-names';
 import type { App, JournalChange, Logger, Signal, Unsubscribe } from '../../shared/contracts';
 import type { DeferredCard, RevisionApi } from '../revision/api';
+import type { SceneSplitApi } from '../sceneSplit/api';
 import type { SignalBatch, SignalsApi } from '../signals/api';
 import type { Entity, WorldModelApi } from '../world/api';
 import type { KnowledgeApi, KnowledgeFact, SecretIntake } from './api';
@@ -269,17 +270,30 @@ export class KnowledgeService {
         }
     }
 
+    private departed(chat: readonly unknown[]): string[] {
+        try {
+            return this.app.modules.api<SceneSplitApi>('sceneSplit')?.departed(chat) ?? [];
+        } catch {
+            return [];
+        }
+    }
+
     /** The DES cast at a reply (canonical names). */
     castOf(index: number): string[] {
         const names = castAt((this.app.host.ctx().chat ?? []) as unknown[], index, this.hidden()) ?? [];
         return nameList(names.map((name) => this.canonical(name)));
     }
 
-    /** Characters in the scene now (the committed reply's tracker), the persona left out. */
+    /**
+     * Characters in the scene now (the committed reply's tracker), the persona left out, and (M43 «Сцена и вокруг») the
+     * ones the narration showed leaving.
+     */
     castNow(): string[] {
-        const tracker = this.app.host.chatId() ? sceneTracker((this.app.host.ctx().chat ?? []) as unknown[]) : null;
+        const chat = (this.app.host.ctx().chat ?? []) as unknown[];
+        const tracker = this.app.host.chatId() ? sceneTracker(chat) : null;
         const self = normalizeName(this.persona());
-        const names = presentCharacters(tracker?.snapshot.characters ?? [], this.hidden()).map((item) =>
+        const hidden = [...this.hidden(), ...this.departed(chat)];
+        const names = presentCharacters(tracker?.snapshot.characters ?? [], hidden).map((item) =>
             this.canonical(item.name),
         );
         return nameList(names).filter((name) => normalizeName(name) !== self);

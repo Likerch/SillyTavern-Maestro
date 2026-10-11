@@ -15,6 +15,8 @@
 // - 1.20: storyLanguage() — «Язык истории» (the setting, else the player's messages, else the interface language).
 // - 1.21: workshop — «Мастерская» (M42): active() and onChange(); while a workshop chat is open llm.request answers
 //   'workshop' and onTurn stays quiet (a neighbour that does not know the member still makes no story calls).
+// - 1.23: sceneSplit — «Сцена и вокруг» (M43): active() and the tag of the block ('offscreen'); present() leaves out
+//   the characters the narration showed leaving.
 import manifest from '../../manifest.json';
 import { MAESTRO_API_GLOBAL, MAESTRO_API_READY_EVENT, adaptersOf, dramatisOf, isQuietFunction } from '../adapters';
 import type {
@@ -34,11 +36,13 @@ import { uniqueStrings } from '../domain/canon-keys';
 import { composeContent, fieldsFromContent, readTypedMeta, TYPED_FIELDS_KEY } from '../domain/entry-types';
 import { lastCommittedIndex } from '../domain/relations-history';
 import { sceneCast } from '../domain/scene-cast';
+import { OFFSCREEN_TAG } from '../domain/scene-split';
 import { sceneTracker } from '../domain/voices-cards';
 import { normalizeName } from '../domain/world-names';
 import type { CanonApi, CanonDraft, CanonItem } from '../features/canon/api';
 import type { DossierApi } from '../features/dossier/api';
 import type { Entity, WorldModelApi } from '../features/world/api';
+import type { SceneSplitApi } from '../features/sceneSplit/api';
 import { WORKSHOP_LISTENER_TIMEOUT_MS } from '../features/workshop/api';
 import type { WorkshopApi } from '../features/workshop/api';
 import type {
@@ -227,6 +231,24 @@ export function createMaestroApi(deps: MaestroApiDeps): MaestroApiHandle {
         );
     };
 
+    /* ---------------------------------------------------------------- «Сцена и вокруг» (M43) */
+
+    const sceneSplit = (): SceneSplitApi | undefined => {
+        try {
+            return app.modules.api<SceneSplitApi>('sceneSplit');
+        } catch {
+            return undefined;
+        }
+    };
+
+    const sceneSplitActive = (): boolean => {
+        try {
+            return sceneSplit()?.active() === true;
+        } catch {
+            return false;
+        }
+    };
+
     /* ---------------------------------------------------------------- the world model */
 
     const world = (): WorldModelApi | undefined => app.modules.api<WorldModelApi>('world');
@@ -293,11 +315,18 @@ export function createMaestroApi(deps: MaestroApiDeps): MaestroApiHandle {
         const committed = lastCommittedIndex(chat as STChatMessage[]);
         const message = chat[committed];
         const hidden = ((): string[] => {
+            let removed: string[];
             try {
                 const des = adaptersOf(app).des as { removedCharacters?: () => string[] } | undefined;
-                return typeof des?.removedCharacters === 'function' ? des.removedCharacters() : [];
+                removed = typeof des?.removedCharacters === 'function' ? des.removedCharacters() : [];
             } catch {
-                return [];
+                removed = [];
+            }
+            // M43: who the narration showed leaving is out of the scene, though DES's tracker still lists them.
+            try {
+                return [...removed, ...(sceneSplit()?.departed(chat) ?? [])];
+            } catch {
+                return removed;
             }
         })();
         const ownName = String(ctx.name1 ?? '').trim();
@@ -716,6 +745,10 @@ export function createMaestroApi(deps: MaestroApiDeps): MaestroApiHandle {
         workshop: {
             active: () => !disposed && workshopActive(),
             onChange: onWorkshopChange,
+        },
+        sceneSplit: {
+            active: () => !disposed && sceneSplitActive(),
+            tag: OFFSCREEN_TAG,
         },
     };
 

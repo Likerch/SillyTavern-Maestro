@@ -265,6 +265,7 @@ export const MAESTRO_INJECTIONS: readonly { id: string; moduleKey: string; slot:
     { id: 'maestro.recap', moduleKey: 'chronicle', slot: 'maestro_chronicle_recap' },
     { id: 'maestro.messageStyle', moduleKey: 'messageStyle', slot: 'maestro_messageStyle.hint' },
     { id: 'maestro.qualityFix', moduleKey: 'quality', slot: 'maestro_quality_fix' },
+    { id: 'maestro.sceneSplit', moduleKey: 'sceneSplit', slot: 'maestro_sceneSplit' },
 ];
 
 function maestroInjection(app: App, spec: (typeof MAESTRO_INJECTIONS)[number]): Descriptor {

@@ -102,6 +102,24 @@ describe('cards', () => {
         expect(names).not.toContain('Kai');
     });
 
+    it('leaves out characters the narration showed leaving (M43 «Сцена и вокруг»)', async () => {
+        const asked: unknown[] = [];
+        const started = await start({
+            before(test) {
+                test.env.modules.expose('sceneSplit', {
+                    active: () => true,
+                    tag: 'offscreen',
+                    departed: (chat: unknown) => {
+                        asked.push(chat);
+                        return ['Stranger'];
+                    },
+                });
+            },
+        });
+        expect(started.api.cards().map((item) => item.name)).not.toContain('Stranger');
+        expect(asked[0]).toBe(started.env.mock.chat);
+    });
+
     it('has no cards without a chat or a DES tracker', async () => {
         const started = await start({ chat: [userMessage('Hi.'), userMessage('Hello?')] });
         expect(started.api.cards()).toEqual([]);

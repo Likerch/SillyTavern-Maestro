@@ -95,6 +95,7 @@ import type { App, Decision, JournalChange, Logger, Proposal, Signal, Unsubscrib
 import type { LorePassportsApi } from '../lorePassports/api';
 import type { Place, PlacesApi } from '../places/api';
 import type { DeferredCard, RevisionApi } from '../revision/api';
+import type { SceneSplitApi } from '../sceneSplit/api';
 import type { Entity, EntitySource, WorldModelApi } from '../world/api';
 import type {
     Outfit,
@@ -568,6 +569,15 @@ export class WardrobeService implements Required<WardrobeApi> {
     private lastCommitted(): number {
         const list = committedIndices(this.chat());
         return list[list.length - 1] ?? -1;
+    }
+
+    /** M43 «Сцена и вокруг»: characters the committed narration showed leaving (still in DES's tracker). */
+    private departed(): string[] {
+        try {
+            return this.app.modules.api<SceneSplitApi>('sceneSplit')?.departed(this.chat()) ?? [];
+        } catch {
+            return [];
+        }
     }
 
     private tracker(index: number): DesTrackerSnapshot | null {
@@ -2217,9 +2227,10 @@ export class WardrobeService implements Required<WardrobeApi> {
         };
         if (snapshot?.characters.length) {
             const seen = new Set<string>();
+            const away = new Set(this.departed().map(normalizeName));
             for (const character of snapshot.characters) {
                 const key = normalizeName(character.name);
-                if (character.offScene || seen.has(key)) continue;
+                if (character.offScene || seen.has(key) || away.has(key)) continue;
                 seen.add(key);
                 const record = recordOf(character.name);
                 // «Переодеть сейчас» after the committed reply (the player's message, a button) is newer than its tracker.

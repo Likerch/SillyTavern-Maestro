@@ -18,6 +18,7 @@ import {
 } from '../../domain/lore-passport';
 import type { PassportKind, PassportRecord } from '../../domain/lore-passport';
 import { entryMetaKey, parseEntryMetaKey } from '../../domain/roles-meta';
+import { stripOffscreen } from '../../domain/scene-split';
 import type { App, Logger } from '../../shared/contracts';
 import type { LoreJournalApi, TurnLoreRecord } from '../loreJournal/api';
 import type { WorldModelApi } from '../world/api';
@@ -261,11 +262,14 @@ export class ScenePassports {
         const count = Math.max(1, Math.floor(this.settings().lastMessages || 1));
         try {
             const chat = this.app.host.ctx().chat ?? [];
-            return chat
-                .filter((message) => message && !message.is_system && typeof message.mes === 'string')
-                .slice(-count)
-                .map((message) => message.mes)
-                .join('\n');
+            return (
+                chat
+                    .filter((message) => message && !message.is_system && typeof message.mes === 'string')
+                    .slice(-count)
+                    // What happens elsewhere (M43 «Сцена и вокруг») is not in the picture of this scene.
+                    .map((message) => stripOffscreen(message.mes))
+                    .join('\n')
+            );
         } catch {
             return '';
         }

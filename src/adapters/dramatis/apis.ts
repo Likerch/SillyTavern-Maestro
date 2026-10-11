@@ -159,6 +159,17 @@ export interface MaestroApiV1 {
         active(): boolean;
         onChange(listener: (active: boolean) => void | Promise<void>): ApiUnsubscribe;
     };
+    /**
+     * Optional (Maestro 1.23+): the scene and the world around it are kept apart. While `active()`, the model is told
+     * to narrate only the characters present and to put what happens elsewhere into one block at the end of the reply,
+     * `<offscreen>…</offscreen>`, which Maestro shows folded under the reply («Вокруг»). A neighbour that adds notes
+     * about absent characters should ask them to go only into that block.
+     */
+    sceneSplit?: {
+        active(): boolean;
+        /** The tag of the block: 'offscreen'. */
+        tag: string;
+    };
 }
 
 /* ------------------------------------------------------------------ DRAMATIS_API v1 */

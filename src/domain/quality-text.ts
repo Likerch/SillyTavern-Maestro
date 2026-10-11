@@ -5,10 +5,12 @@
 //   formats (`[IMG:GEN:{…}]`, `<!--img-prompt="…"-->`, `/gen?prompt=` image URLs) and the `[nai:img:<id>]`
 //   placeholders the finaliser leaves (research/qvink-nai-studio.md §B5);
 // - CarrotKernel `<BunnyMoTags>` dumps, BunnyMo `<KEY:VALUE>` tags, folded `<details>` blocks, reasoning blocks
-//   that presets hide with regexes, and tracker blocks of other extensions.
+//   that presets hide with regexes, and tracker blocks of other extensions;
+// - the `<offscreen>` block of M43 «Сцена и вокруг» (what happens elsewhere, src/domain/scene-split.ts).
 // The story text («prose») is what is left; it is split into paragraphs, sentences, narration and dialogue.
 // Pure: no DOM, no SillyTavern.
 import type { QualityInput, QualityMessage } from './quality-types';
+import { stripOffscreen } from './scene-split';
 import { stripCkDumps, stripDesTrackerJson, stripHtml, stripNaiPlaceholders } from './text-clean';
 
 /** Longest quote of a defect. */
@@ -139,6 +141,8 @@ export function storyText(raw: string): string {
         .replace(/\r\n?/g, '\n')
         .replace(SERVICE_TOKEN_RE, '');
     text = stripDesTrackerJson(text);
+    // M43: what happens elsewhere is not the scene's prose.
+    text = stripOffscreen(text);
     text = removeFences(text);
     if (!THINK_OPEN_RE.test(text)) text = text.replace(LONE_THINK_END_RE, '');
     text = text.replace(HIDDEN_BLOCK_RE, '\n');

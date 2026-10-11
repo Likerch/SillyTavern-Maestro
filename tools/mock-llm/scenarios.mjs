@@ -365,6 +365,8 @@ const FLAG_MARKERS = [
     'stat',
     'mechblock',
     'mechextract',
+    'say',
+    'offscreen',
 ];
 
 /** Marker names this engine understands (for README and the /__config validation). */
@@ -1886,6 +1888,22 @@ export function buildReply(ctx, n = 0) {
         content = m.has('nojson') ? body : `${trackerBlock(ctx, rng, lang)}\n\n${body}`;
     }
 
+    // [mock:say:Вера кивнула и вышла.] adds that paragraph at the end of the prose (a character leaving, M43).
+    if (kind === 'story' && m.get('say'))
+        content += `
+
+${m.get('say')}`;
+    // [mock:offscreen:text] / [mock:offscreen] ends the reply with the block of M43 «Сцена и вокруг».
+    if (kind === 'story' && m.has('offscreen')) {
+        const around =
+            m.get('offscreen') ||
+            (lang === 'en'
+                ? 'Meanwhile, across the harbour, the herbalist sold the last of her stock to a ship captain.'
+                : 'Тем временем на другом конце гавани травница продала остатки товара капитану корабля.');
+        content += `
+
+<offscreen>${around}</offscreen>`;
+    }
     // [mock:mechblock:Кай.Mana: -10; Кай.Schools += fire] ends the reply with a mechanics service block (M25).
     if (kind === 'story' && m.get('mechblock')) {
         const lines = m

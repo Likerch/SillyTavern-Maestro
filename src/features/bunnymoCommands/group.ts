@@ -14,6 +14,7 @@ import { normalizeName } from '../../domain/world-names';
 import type { App, ComposerGroup, ComposerItem, Logger } from '../../shared/contracts';
 import type { BunnyMoModeApi } from '../bunnymoMode/api';
 import type { DossierApi } from '../dossier/api';
+import type { SceneSplitApi } from '../sceneSplit/api';
 import type { Entity, WorldModelApi } from '../world/api';
 
 export const BUNNYMO_GROUP = 'bunnymo';
@@ -162,11 +163,19 @@ export class BunnyMoCommands {
             }
         };
         const hidden = ((): string[] => {
+            let removed: string[];
             try {
                 const des = adaptersOf(this.app).des as { removedCharacters?: () => string[] };
-                return typeof des.removedCharacters === 'function' ? des.removedCharacters() : [];
+                removed = typeof des.removedCharacters === 'function' ? des.removedCharacters() : [];
             } catch {
-                return [];
+                removed = [];
+            }
+            // M43: the ones the latest reply showed leaving are not offered (the newest reply counts here).
+            try {
+                const away = this.api<SceneSplitApi>('sceneSplit')?.departed(undefined, { latest: true }) ?? [];
+                return [...removed, ...away];
+            } catch {
+                return removed;
             }
         })();
         const persona = ((): string => {

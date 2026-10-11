@@ -755,6 +755,56 @@ describe('«Мастерская» (1.21)', () => {
     });
 });
 
+describe('«Сцена и вокруг» (1.23)', () => {
+    function sceneSplit(active: boolean, departed: string[] = []) {
+        const calls: unknown[][] = [];
+        env.apis.set('sceneSplit', {
+            active: () => active,
+            tag: 'offscreen',
+            departed: (...args: unknown[]) => {
+                calls.push(args);
+                return departed;
+            },
+        });
+        return calls;
+    }
+
+    it('tells whether the scene is kept apart and names the tag of the block', () => {
+        expect(env.api.sceneSplit?.active()).toBe(false);
+        expect(env.api.sceneSplit?.tag).toBe('offscreen');
+        sceneSplit(true);
+        expect(env.api.sceneSplit?.active()).toBe(true);
+        env.apis.set('sceneSplit', {
+            active: () => {
+                throw new Error('broken');
+            },
+        });
+        expect(env.api.sceneSplit?.active()).toBe(false);
+        env.handle.dispose();
+        sceneSplit(true);
+        expect(env.api.sceneSplit?.active()).toBe(false);
+    });
+
+    it('present() leaves out the characters the narration showed leaving', () => {
+        env.mock.chat = [
+            userMessage('Hello.'),
+            trackerReply([{ name: 'Ильва' }, { name: 'Stranger' }]),
+            userMessage('Well?'),
+        ];
+        expect(env.api.present()).toEqual(['Ilva', 'Stranger']);
+        const calls = sceneSplit(true, ['Ильва']);
+        expect(env.api.present()).toEqual(['Stranger']);
+        expect(calls[0]?.[0]).toBe(env.mock.chat);
+        env.apis.set('sceneSplit', {
+            active: () => true,
+            departed: () => {
+                throw new Error('broken');
+            },
+        });
+        expect(env.api.present()).toEqual(['Ilva', 'Stranger']);
+    });
+});
+
 describe('the global', () => {
     it('is published with maestro-api-ready and removed when Maestro stops', () => {
         const seen: unknown[] = [];

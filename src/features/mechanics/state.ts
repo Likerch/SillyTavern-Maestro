@@ -63,8 +63,10 @@ import { modifierSum } from '../../domain/mechanics-status';
 import { turnOps } from '../../domain/mechanics-turn';
 import { resolveVisibility, shownIn } from '../../domain/mechanics-visibility';
 import { committedIndices } from '../../domain/places-registry';
+import { stripOffscreen } from '../../domain/scene-split';
 import type { App, JournalChange, Unsubscribe } from '../../shared/contracts';
 import type { DirectorApi } from '../director/api';
+import type { SceneSplitApi } from '../sceneSplit/api';
 import type {
     AttributeValue,
     ChangeSource,
@@ -638,6 +640,15 @@ export class MechanicState implements StatePart {
         return null;
     }
 
+    /** Characters the newest reply's narration showed leaving (the module «Сцена и вокруг»; [] without it). */
+    private departed(): string[] {
+        try {
+            return this.app.modules.api<SceneSplitApi>('sceneSplit')?.departed(undefined, { latest: true }) ?? [];
+        } catch {
+            return [];
+        }
+    }
+
     /** Without a DES tracker: the card's character, or the group's members. */
     private fallbackCharacters(): string[] {
         const ctx = this.app.host.ctx();
@@ -663,7 +674,10 @@ export class MechanicState implements StatePart {
     }
 
     private presentCharacters(): string[] {
-        const names = this.trackerCharacters() ?? this.fallbackCharacters();
+        const tracked = this.trackerCharacters();
+        // M43 «Сцена и вокруг»: who the newest narration showed leaving is out, though DES's tracker still lists them.
+        const away = tracked ? new Set(this.departed().map(nameKey)) : null;
+        const names = tracked ? tracked.filter((name) => !away?.has(nameKey(name))) : this.fallbackCharacters();
         const world = worldOf(this.app);
         return unique(
             names.map((name) => {
@@ -687,7 +701,8 @@ export class MechanicState implements StatePart {
         for (let i = Math.max(0, chat.length - window); i < chat.length; i++) {
             const message = chat[i];
             if (!message || message.is_system || typeof message.mes !== 'string') continue;
-            parts.push(message.mes);
+            // What happens elsewhere (M43) does not make a holder part of this scene.
+            parts.push(stripOffscreen(message.mes));
             const record = desSwipeRecord(message);
             if (record?.infoBox && typeof record.infoBox === 'string') parts.push(record.infoBox);
         }

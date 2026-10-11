@@ -59,6 +59,10 @@ const ENTRIES_EN: Record<string, [string, string]> = {
     'maestro.recap': ['Maestro: story so far', 'The recap of earlier chapters.'],
     'maestro.messageStyle': ['Maestro: message style', 'The hint about the look of replies.'],
     'maestro.qualityFix': ['Maestro: reply fix', 'The instruction for redoing a reply that failed the quality check.'],
+    'maestro.sceneSplit': [
+        'Maestro: scene and around',
+        'Narrate only the characters of the scene; what happens elsewhere goes into one block after it, folded under the reply.',
+    ],
 };
 
 const ENTRIES_RU: Record<string, [string, string]> = {
@@ -112,6 +116,10 @@ const ENTRIES_RU: Record<string, [string, string]> = {
     'maestro.recap': ['Maestro: ранее в истории', 'Пересказ прошлых глав.'],
     'maestro.messageStyle': ['Maestro: стиль сообщений', 'Подсказка о том, как оформлять ответ.'],
     'maestro.qualityFix': ['Maestro: исправление ответа', 'Указание переписать ответ, не прошедший проверку качества.'],
+    'maestro.sceneSplit': [
+        'Maestro: сцена и вокруг',
+        'Рассказывать только о тех, кто в сцене; что происходит в других местах — одним блоком после неё, он свёрнут под ответом.',
+    ],
 };
 
 function entries(source: Record<string, [string, string]>): Record<string, string> {
