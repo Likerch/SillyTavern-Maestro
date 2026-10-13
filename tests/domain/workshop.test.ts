@@ -1,10 +1,12 @@
-// M42 «Мастерская», pure helpers: which card is a workshop card, which prompt slots stay, how the others are cut out
-// of the outgoing messages, which lorebooks stay.
+// M42 «Служебный режим» (ex-«Мастерская»), pure helpers: which card is a service card, the default tags and their
+// migration, which prompt slots stay, how the others are cut out of the outgoing messages, which lorebooks stay.
 import { describe, expect, it } from 'vitest';
 import {
+    DEFAULT_WORKSHOP_TAGS,
     cutTexts,
     filterLore,
     keepsSlot,
+    migrateWorkshopTags,
     normalizeTagName,
     parseTagList,
     slotsToCut,
@@ -41,6 +43,24 @@ describe('workshop tags', () => {
             'помощник',
         ]);
         expect(parseTagList('  ')).toEqual([]);
+    });
+
+    it('defaults to «служебная» first; the old names still count', () => {
+        expect(DEFAULT_WORKSHOP_TAGS).toEqual(['служебная', 'мастерская', 'workshop']);
+        expect(workshopTagOf(['t2'], TAGS, DEFAULT_WORKSHOP_TAGS)).toEqual({ id: 't2', name: 'Мастерская' });
+        expect(workshopTagOf(['t3'], TAGS, DEFAULT_WORKSHOP_TAGS)).toEqual({ id: 't3', name: '#Workshop ' });
+    });
+
+    it('turns the old default list (any order or case) into the new one and leaves a list of one’s own', () => {
+        expect(migrateWorkshopTags(['мастерская', 'workshop'])).toEqual(['служебная', 'мастерская', 'workshop']);
+        expect(migrateWorkshopTags(['Workshop', ' Мастерская'])).toEqual(['служебная', 'мастерская', 'workshop']);
+        expect(migrateWorkshopTags(['мастерская'])).toEqual(['мастерская']);
+        expect(migrateWorkshopTags(['мастерская', 'workshop', 'помощник'])).toEqual([
+            'мастерская',
+            'workshop',
+            'помощник',
+        ]);
+        expect(migrateWorkshopTags(['служебная', 'мастерская', 'workshop'])).toEqual(DEFAULT_WORKSHOP_TAGS);
     });
 });
 

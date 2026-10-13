@@ -4,7 +4,8 @@
 // Exposed as app.modules.api<TreasurerApi>('treasurer').
 import type { Unsubscribe } from '../../shared/contracts';
 
-export type SpendSource = 'main' | 'regeneration' | 'autoSwipe' | 'qvink' | 'maestro' | 'nai' | 'other';
+/** 'officina': a neighbour's own LLM channel (MAESTRO_API.cost.record, release 1.24), shown only when it spent. */
+export type SpendSource = 'main' | 'regeneration' | 'autoSwipe' | 'qvink' | 'maestro' | 'officina' | 'nai' | 'other';
 
 export interface SpendLine {
     source: SpendSource;

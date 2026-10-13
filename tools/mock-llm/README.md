@@ -88,22 +88,28 @@ retry gets six), `[mock:english]` writes the look in English (rejected as not Ru
 Add replies for Maestro's own schemas in `scenarios.mjs` with `registerSchema(name, (ctx, rng) => partialObject)`;
 missing required fields are filled from the schema. `registerTool(name, ...)` does the same for tool arguments.
 
-### Dramatis tasks (Maestro 1.17)
+### Neighbour tasks: Dramatis (Maestro 1.17) and Officina (Maestro 1.24)
 
-Dramatis's background calls go through `MAESTRO_API.llm.request`, which names the JSON schema after the task:
-`dramatis.turn` → `dramatis_turn`. A request with a `dramatis_*` schema is answered from, in this order:
+A neighbour names the JSON schema of its request after the task. Dramatis's background calls go through
+`MAESTRO_API.llm.request`, which does it for them: `dramatis.turn` → `dramatis_turn`. Officina calls the model on its own
+channel (ST's Connection Manager) with `response_format: { type: 'json_schema', json_schema: { name: 'officina_<task with
+dots → _>', schema } }`: `officina.bible` → `officina_bible`. A request with a `dramatis_*` or `officina_*` schema is
+answered from, in this order:
 
-1. a handler in `scenarios.mjs`: `registerTask('dramatis.turn', (ctx, rng) => partialObject)` (there is one for
-   `dramatis.ping`, a wiring check that echoes the last user message);
-2. a fixture file `tools/mock-llm/fixtures/dramatis/<task>.json` — `dramatis.turn.json` (or `dramatis_turn.json`) —
-   holding a partial reply object, or an array of them (one is picked per request, deterministically). Create the
-   folder when you add the first fixture; `MOCK_DRAMATIS_FIXTURES=<dir>` reads fixtures from another folder. Files are
-   read once per server process: restart the mock after editing one;
+1. a handler in `scenarios.mjs`: `registerTask('dramatis.turn', (ctx, rng) => partialObject)` — for either neighbour's
+   task ids (there is one for `dramatis.ping`, a wiring check that echoes the last user message);
+2. a fixture file `tools/mock-llm/fixtures/<neighbour>/<task>.json` — `dramatis.turn.json` (or `dramatis_turn.json`),
+   `officina.bible.json` (or `officina_bible.json`) — holding a partial reply object, or an array of them (one is picked
+   per request, deterministically). Create the folder when you add the first fixture; `MOCK_DRAMATIS_FIXTURES=<dir>`
+   and `MOCK_OFFICINA_FIXTURES=<dir>` read the fixtures from other folders. Files are read once per server process:
+   restart the mock after editing one;
 3. otherwise the schema walker alone: a valid object with every required field (`[]`, `""`, `0`, the first enum value).
 
 Whatever the source, missing required fields are filled from the schema and unknown keys are dropped when the schema
-forbids them; the markers `[mock:fenced]`, `[mock:badjson]`, `[mock:truncate]`, `[mock:refusal]` work as for any schema.
-The recorded scenario names the source: `schema:dramatis_turn(task|fixture|walker)`.
+forbids them; the markers `[mock:fenced]`, `[mock:badjson]`, `[mock:truncate]`, `[mock:refusal]` work as for any schema
+(and the failure flags `MOCK_FAIL`, `MOCK_STREAM_DROP` with the scope `schema`), so Officina's failure scenarios — bad
+JSON, a refusal, a cut stream, 429 — need no code of their own. The recorded scenario names the source:
+`schema:officina_bible(task|fixture|walker)`.
 
 ## Flags
 
@@ -120,6 +126,7 @@ Environment variable / request header (header wins) / `/__config` key:
 | `MOCK_USER_NAME`                                                | `x-mock-user` (URI-encoded) | {{user}} name for `[mock:user]`                                                                                                            |
 | `MOCK_SEED`                                                     | —                           | seeds the random draws of the failure flags                                                                                                |
 | `MOCK_DRAMATIS_FIXTURES`                                        | —                           | folder of the Dramatis task fixtures (default `tools/mock-llm/fixtures/dramatis/`)                                                         |
+| `MOCK_OFFICINA_FIXTURES`                                        | —                           | folder of the Officina task fixtures (default `tools/mock-llm/fixtures/officina/`)                                                         |
 | `MOCK_PORT`, `MOCK_HOST`, `MOCK_RECORD_DIR`, `MOCK_NO_RECORD=1` | —                           | server options                                                                                                                             |
 
 SillyTavern can send the headers through the Custom source's "Include headers" field (`custom_include_headers`).

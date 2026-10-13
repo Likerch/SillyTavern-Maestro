@@ -130,6 +130,9 @@ interface WriteMeta {
     op: FileOp;
     by: string;
     summary: string;
+    /** The journal module of the write (default M34; a neighbour's through MAESTRO_API) and its journal summary. */
+    module?: string;
+    journalSummary?: string;
     journal?: boolean;
     /** The preset that was current before the operation (undo of a created file goes back to it). */
     previous?: string;
@@ -611,7 +614,7 @@ export class PresetStoreService implements PresetStore {
         });
     }
 
-    async saveAs(name: string): Promise<string> {
+    async saveAs(name: string, options: { module?: string; summary?: string } = {}): Promise<string> {
         await this.st.ensure();
         return this.serial(async () => {
             const typed = name.trim();
@@ -625,6 +628,8 @@ export class PresetStoreService implements PresetStore {
                 by: 'user',
                 summary: this.t('m34.store.version.saveAs', { from: source }),
                 previous: source,
+                ...(options.module ? { module: options.module } : {}),
+                ...(options.summary ? { journalSummary: options.summary } : {}),
             });
             // ST's «Save as» selects the preset and applies it again (P-066); nothing of the working copy is lost.
             if (saved !== source) await this.switchTo(saved, true);
@@ -801,7 +806,7 @@ export class PresetStoreService implements PresetStore {
     async createFromBody(
         name: string,
         body: PresetBody,
-        options: { select?: boolean; overwrite?: boolean; summary?: string } = {},
+        options: { select?: boolean; overwrite?: boolean; summary?: string; module?: string } = {},
     ): Promise<string> {
         await this.st.ensure();
         return this.serial(async () => {
@@ -829,6 +834,8 @@ export class PresetStoreService implements PresetStore {
                 by: 'user',
                 summary: options.summary ?? this.t('m34.store.version.create'),
                 previous: current,
+                // A neighbour's write: its module, and its summary for the journal too.
+                ...(options.module ? { module: options.module, journalSummary: options.summary ?? '' } : {}),
             });
             if (options.select === true || saved === this.current()) await this.switchTo(saved, false);
             return saved;
@@ -910,19 +917,25 @@ export class PresetStoreService implements PresetStore {
                         ? meta.op
                         : 'save';
                 const journalKind = `presetStudio.${kind}` as const;
-                await this.record(journalKind, this.t(`m34.store.journal.${kind}`, { name: savedName }), [
-                    {
-                        target: FILE_TARGET,
-                        ref: {
-                            op: meta.op,
-                            name: savedName,
-                            created: !existed,
-                            previous: meta.previous ?? null,
+                const summary = meta.journalSummary || this.t(`m34.store.journal.${kind}`, { name: savedName });
+                await this.record(
+                    journalKind,
+                    summary,
+                    [
+                        {
+                            target: FILE_TARGET,
+                            ref: {
+                                op: meta.op,
+                                name: savedName,
+                                created: !existed,
+                                previous: meta.previous ?? null,
+                            },
+                            before: versionRef(versionBefore),
+                            after: versionRef(versionAfter) ?? { hash: bodyHash(body) },
                         },
-                        before: versionRef(versionBefore),
-                        after: versionRef(versionAfter) ?? { hash: bodyHash(body) },
-                    },
-                ]);
+                    ],
+                    meta.module,
+                );
             }
             await this.acknowledge();
             this.changed(existed ? 'preset' : 'list');
@@ -1440,9 +1453,15 @@ export class PresetStoreService implements PresetStore {
         });
     }
 
-    private async record(kind: StoreJournalKind, summary: string, changes: JournalChange[]): Promise<void> {
+    /** `module`: a neighbour's write through MAESTRO_API is journaled under its module. */
+    private async record(
+        kind: StoreJournalKind,
+        summary: string,
+        changes: JournalChange[],
+        module: string = MODULE_ID,
+    ): Promise<void> {
         try {
-            await this.app.journal.record({ module: MODULE_ID, kind, summary, changes });
+            await this.app.journal.record({ module, kind, summary, changes });
         } catch (error) {
             this.log.warn('journal record failed', error);
         }

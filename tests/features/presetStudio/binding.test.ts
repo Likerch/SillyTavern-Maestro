@@ -125,19 +125,19 @@ describe('PresetBinder', () => {
         expect(current).toBe('General');
     });
 
-    it('M42: a workshop chat takes the workshop preset and gives the old one back, naming the workshop', async () => {
+    it('M42: a service chat takes the service mode preset and gives the old one back, naming it', async () => {
         workshop = 'Мастерская';
         await openChat({ chat: null, character: null });
         expect(current).toBe('Мастерская');
         expect(switchPreset).toHaveBeenLastCalledWith('Мастерская', {
-            reason: expect.stringContaining('workshop'),
+            reason: expect.stringContaining('service chat'),
             keepConnection: true,
         });
         expect(settings.bindingRestore).toBe('General');
         workshop = null;
         await openChat({ chat: null, character: null });
         expect(current).toBe('General');
-        expect(env.ui.notices.at(-1)?.text).toContain('before the workshop');
+        expect(env.ui.notices.at(-1)?.text).toContain('before the service chat');
     });
 
     it('M42: a binding of the chat wins over the workshop; the tag set in an open chat switches at once', async () => {
@@ -157,6 +157,6 @@ describe('PresetBinder', () => {
         workshop = 'Нет такого';
         await openChat({ chat: null, character: null });
         expect(switchPreset).not.toHaveBeenCalled();
-        expect(env.ui.notices.at(-1)?.text).toContain('«Workshop»');
+        expect(env.ui.notices.at(-1)?.text).toContain('«Service mode»');
     });
 });

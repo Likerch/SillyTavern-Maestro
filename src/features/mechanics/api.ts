@@ -510,9 +510,14 @@ export interface MechanicsApi {
     /** The ones on in this chat. */
     active(): MechanicDef[];
     get(id: string): MechanicDef | null;
-    /** Creates or updates a definition (writes its Maestro book entry; journaled with undo). */
-    save(def: MechanicDef): Promise<MechanicDef>;
-    remove(id: string): Promise<void>;
+    /**
+     * Creates or updates a definition (writes its Maestro book entry; journaled with undo). `by`: the journal module
+     * (default M25; MAESTRO_API passes the neighbour's, release 1.24).
+     */
+    save(def: MechanicDef, by?: string): Promise<MechanicDef>;
+    remove(id: string, by?: string): Promise<void>;
+    /** Every definition of every scope, wherever it applies (release 1.24; optional for older fakes). */
+    all?(): MechanicDef[];
     templates(): MechanicTemplate[];
     /** An unsaved definition from a template (id generated, scope: this card; reputation: factions of the lore). */
     fromTemplate(templateId: string): MechanicDef | null;

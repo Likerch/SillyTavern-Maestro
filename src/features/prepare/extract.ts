@@ -2,7 +2,9 @@
 // part (task 'prepare', the strict schema of prepare-extract), the answers merged (starting scenes by their greeting).
 // Runs inside the user job the service started: progress after every part, «Stop» between parts (and inside the
 // request through the job's signal); what was read before a stop is kept as a partial plan. The prompt and the schema
-// follow «Язык истории» (a Russian story gets Russian names and player-facing texts in the same request).
+// follow «Язык истории» (a Russian story gets Russian names and player-facing texts in the same request). A part that
+// sends greetings with a starting scene of the card's author (Officina) gets those scenes as authoritative hints.
+import { scenesOf } from '../../domain/prepare-author-scenes';
 import { mergeItems } from '../../domain/prepare-merge';
 import {
     PREPARE_TASK,
@@ -13,7 +15,7 @@ import {
 } from '../../domain/prepare-extract';
 import type { PrepareRequestInput } from '../../domain/prepare-extract';
 import type { AnyPrepareItem } from '../../domain/prepare-plan';
-import { chunkSources, estimateChunks } from '../../domain/prepare-sources';
+import { chunkSources, estimateChunks, greetingOfSource } from '../../domain/prepare-sources';
 import type { ChunkResult, PrepareEstimate, PrepareSource } from '../../domain/prepare-sources';
 import type { App, Logger } from '../../shared/contracts';
 import type { Collected } from './collect';
@@ -105,10 +107,15 @@ export async function runExtraction(
             refs.set(ref, id);
             return [{ ref, label: item.label, text: item.text }];
         });
+        const greetings = chunk.sourceIds
+            .map((id) => greetingOfSource(id))
+            .filter((greeting): greeting is number => greeting !== null);
+        const authorScenes = scenesOf(collected.authorScenes ?? [], greetings);
         const messages = buildPrepareMessages({
             ...base,
             sources,
             part: { index: chunk.index, total: parts.chunks.length, core: chunk.core, greetings: chunk.greetings },
+            ...(authorScenes.length ? { authorScenes } : {}),
         });
         let result;
         try {

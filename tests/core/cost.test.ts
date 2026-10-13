@@ -206,6 +206,20 @@ describe('cost meter: fetch-level capture', () => {
         await generate();
         expect(meter.summary().todayUsd).toBe(2);
     });
+
+    it("leaves a neighbour's own channel to its report: an `officina_*` schema, even inside a generation", async () => {
+        const { meter, bus } = setup();
+        await bus.emit('generation:before', { type: 'normal', dryRun: false, quiet: false });
+        answers.push(json(completion('{}', { prompt_tokens: 1, completion_tokens: 1, cost: 0.4 })));
+        await generate({ stream: false, json_schema: { name: 'officina_bible', value: {} } });
+        // The generation's own request is still the main one.
+        answers.push(json(completion('reply', { prompt_tokens: 1, completion_tokens: 1, cost: 0.1 })));
+        await generate();
+        expect(meter.summary().todayBySource).toEqual({ main: 0.1 });
+        // What Officina reports through MAESTRO_API.cost.record.
+        meter.record({ source: 'officina', task: 'officina.bible', usd: 0.4, chatId: null });
+        expect(meter.summary().todayBySource).toEqual({ main: 0.1, officina: 0.4 });
+    });
 });
 
 describe('cost meter: caps and limits', () => {
@@ -225,6 +239,32 @@ describe('cost meter: caps and limits', () => {
         const { meter } = setup({ cap: 0 });
         meter.record({ source: 'maestro', usd: 100 });
         expect(meter.backgroundCapReached()).toBe(false);
+        expect(meter.backgroundBudget()).toEqual({ capUsd: null, spentUsd: 100, remainingUsd: null });
+    });
+
+    it("counts a neighbour's own spends toward the same cap and tells what is left", () => {
+        const { meter } = setup({ cap: 1 });
+        meter.record({ source: 'maestro', task: 'revision', usd: 0.25 });
+        meter.record({ source: 'officina', task: 'officina.bible', usd: 0.5, chatId: null });
+        expect(meter.summary().backgroundTodayUsd).toBe(0.75);
+        expect(meter.backgroundBudget()).toEqual({ capUsd: 1, spentUsd: 0.75, remainingUsd: 0.25 });
+        expect(meter.backgroundCapReached()).toBe(false);
+        meter.record({ source: 'officina', task: 'officina.card', usd: 0.3, chatId: null });
+        expect(meter.backgroundCapReached()).toBe(true);
+        expect(meter.backgroundBudget().remainingUsd).toBe(0);
+        // The overall limit that stops background work lowers what is left too.
+        const both = setup({ cap: 5, limit: { enabled: true, usd: 2, action: 'stopBackground' } });
+        both.meter.record({ source: 'main', usd: 1.5 });
+        both.meter.record({ source: 'officina', task: 'officina.card', usd: 0.25 });
+        expect(both.meter.backgroundBudget()).toEqual({ capUsd: 5, spentUsd: 0.25, remainingUsd: 0.25 });
+    });
+
+    it('keeps a reported moment of today; another one counts as now', () => {
+        const { meter } = setup();
+        meter.record({ source: 'officina', task: 'officina.bible', usd: 0.1, at: DAY - 60_000 });
+        meter.record({ source: 'officina', task: 'officina.bible', usd: 0.1, at: DAY - 24 * 3_600_000 });
+        meter.record({ source: 'officina', task: 'officina.bible', usd: 0.1, at: DAY + 60_000 });
+        expect(meter.recent!().map((entry) => entry.at)).toEqual([DAY - 60_000, DAY, DAY]);
     });
 
     it('the overall daily limit notifies once and stops background work only when asked to', () => {

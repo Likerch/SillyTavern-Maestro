@@ -1,5 +1,7 @@
-// M42 «Мастерская»: a card with a workshop tag (ST's tag list, «мастерская» by default) is a helper — a scenario or
-// character creator, an editor — and its chats are workshop chats, where the story machinery of the stack stays silent:
+// M42 «Служебный режим» (ex-«Мастерская»; in code still `workshop`): a card with a service tag (ST's tag list:
+// «служебная», and the older «мастерская» and «workshop», by default) is a helper — a scenario or character creator, an
+// editor, a co-author (Officina's co-author chat) — and its chats are service chats, where the story machinery of the
+// stack stays silent:
 // - Maestro's story modules are paused (ModuleManager.suspend: stopped without touching their switches, started again
 //   when a story chat opens); tools and looks keep running (WORKSHOP_KEEPS);
 // - the outgoing prompt loses every extension's injection but ST's own (DES tracker texts, NAI markers, CarrotKernel,
@@ -13,7 +15,7 @@
 // ST's emit still holds in its copy of the list); the tag set or removed while the chat is open is noticed on
 // SETTINGS_UPDATED (ST saves its tag map), CHARACTER_EDITED and before every generation.
 import { adaptersOf } from '../../adapters';
-import { cutTexts, filterLore, slotsToCut, workshopTagOf } from '../../domain/workshop';
+import { DEFAULT_WORKSHOP_TAGS, cutTexts, filterLore, slotsToCut, workshopTagOf } from '../../domain/workshop';
 import type { App, JournalChange, Logger, Unsubscribe } from '../../shared/contracts';
 import { WORKSHOP_ID, WORKSHOP_KEEPS, WORKSHOP_LISTENER_TIMEOUT_MS } from './api';
 import type { WorkshopApi, WorkshopSettings } from './api';
@@ -241,23 +243,25 @@ export class WorkshopService implements WorkshopApi {
 
     /* ---------------------------------------------------------------- the card's tag */
 
-    async setCard(avatar: string, on: boolean): Promise<boolean> {
+    async setCard(avatar: string, on: boolean, options: { by?: string; quiet?: boolean } = {}): Promise<boolean> {
         if (this.disposed || !avatar) return false;
         const before = this.tagOf(avatar);
         if (on === (before !== null)) return true;
         const ok = on ? await this.addTag(avatar) : await this.removeTags(avatar);
         const after = this.tagOf(avatar);
         if (!ok || on !== (after !== null)) {
-            this.app.ui.notice(this.t(on ? 'm42.tag.addFailed' : 'm42.tag.removeFailed'), {
-                level: 'warn',
-                urgent: true,
-            });
+            if (!options.quiet) {
+                this.app.ui.notice(this.t(on ? 'm42.tag.addFailed' : 'm42.tag.removeFailed'), {
+                    level: 'warn',
+                    urgent: true,
+                });
+            }
             return false;
         }
         const name = this.cardName(avatar);
         try {
             await this.app.journal.record({
-                module: WORKSHOP_ID,
+                module: options.by ?? WORKSHOP_ID,
                 kind: WORKSHOP_CARD_KIND,
                 summary: this.t(on ? 'm42.journal.on' : 'm42.journal.off', { name }),
                 changes: [{ target: CARD_TARGET, ref: { avatar }, before: !on, after: on }],
@@ -278,18 +282,16 @@ export class WorkshopService implements WorkshopApi {
         }
     }
 
-    /** The tag the button sets: an existing tag with a workshop name, else the first name of the setting. */
+    /** The tag the button sets: the first name of the setting, spelled as an existing tag of that name is (no twin). */
     private tagToSet(): string {
-        const tags = this.settings().tags;
+        const first = this.settings().tags[0] ?? DEFAULT_WORKSHOP_TAGS[0] ?? 'служебная';
         try {
-            const ctx = this.app.host.ctx();
-            for (const tag of ctx.tags ?? []) {
-                if (workshopTagOf([tag.id], [tag], tags)) return tag.name;
-            }
+            const same = (this.app.host.ctx().tags ?? []).find((tag) => workshopTagOf([tag.id], [tag], [first]));
+            if (same) return same.name;
         } catch {
             // fall through to the setting
         }
-        return tags[0] ?? 'мастерская';
+        return first;
     }
 
     private async addTag(avatar: string): Promise<boolean> {
@@ -301,7 +303,7 @@ export class WorkshopService implements WorkshopApi {
 
     private async removeTags(avatar: string): Promise<boolean> {
         let ok = true;
-        // Every workshop tag the card has (it may carry «мастерская» and «workshop» both).
+        // Every service tag the card has (it may carry «служебная», «мастерская» and «workshop» at once).
         for (let guard = 0; guard < 8; guard++) {
             const tag = this.tagOf(avatar);
             if (!tag) break;

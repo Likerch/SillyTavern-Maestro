@@ -6,7 +6,8 @@
 // - Maestro publishes MAESTRO_API v1 (infrastructure: background LLM, Inbox, journal, names, turn events,
 //   quiet modes). Dramatis uses it when present; without it only the standalone features work.
 // - Dramatis publishes DRAMATIS_API v1. Maestro's adapter pulls from it (voices merge, CK / Medicine Check
-//   quiet modes, relations graph, mechanics templates, offscreen briefs, director twists, prompt audit).
+//   quiet modes, relations graph, mechanics templates, offscreen briefs, director twists, prompt audit). An authoring
+//   workshop (Officina) checks a card intent with it before writing it into a card (1.6+, `features: ['cardIntent']`).
 // Both are versioned: a consumer checks `version` and the presence of each optional method.
 
 export const MAESTRO_API_GLOBAL = 'MAESTRO_API';
@@ -230,6 +231,8 @@ export interface DramatisIntentState {
     characters: number;
     groups: number;
     running: boolean;
+    /** Optional (1.6+): the reading took the card's own structured intent (`data.extensions.dramatis.intent`). */
+    fromCard?: boolean;
 }
 
 export interface DramatisReadOutcome {
@@ -240,6 +243,34 @@ export interface DramatisReadOutcome {
     error?: string;
     /** Nothing to do: the card did not change since the last reading. */
     skipped?: boolean;
+}
+
+/**
+ * The card intent format (1.6+): the author's intent written into the card at `data.extensions.dramatis.intent`,
+ * read by Dramatis as the author's word. Its types, JSON Schema and checks are in Dramatis' src/shared/card-intent.ts
+ * (self-contained, to be copied verbatim); here only the shape the API returns.
+ */
+export type DramatisCardIntent = { version: 1; world?: object; characters?: Record<string, object> };
+
+/** One problem of a card intent: where (`characters["Ильва"].ties[0].stance`), what kind, in English words. */
+export interface DramatisCardIntentError {
+    path: string;
+    /** format, version, type, enum, range, unknown, missing, duplicate, length, size or conflict. */
+    code: string;
+    message: string;
+}
+
+/** DRAMATIS_API.validateCardIntent: what Dramatis would take from a card intent. */
+export interface DramatisCardIntentCheck {
+    /** Nothing had to be dropped or cut. */
+    ok: boolean;
+    errors: DramatisCardIntentError[];
+    /** The valid parts Dramatis would take; null when nothing is usable. */
+    intent: DramatisCardIntent | null;
+    /** The intent covers what the motive card needs: Dramatis would not read the card's text with the model. */
+    complete: boolean;
+    /** What `complete` still lacks, as paths. */
+    missing: string[];
 }
 
 export interface DramatisApiV1 {
@@ -277,6 +308,15 @@ export interface DramatisApiV1 {
     describe?(name: string): DramatisCharacterView | null;
     /** Optional (1.3+): opens Dramatis' «Лист замысла» window, on that character when a name is given. */
     openSheet?(name?: string): void;
+    /**
+     * Optional (1.6+): what this Dramatis understands beyond the members above — 'cardIntent': it reads the card's
+     * structured intent (`data.extensions.dramatis.intent`, version `cardIntentVersion`).
+     */
+    features?: readonly string[];
+    /** Optional (1.6+): the card intent version this Dramatis reads. */
+    cardIntentVersion?: 1;
+    /** Optional (1.6+): checks a card intent before it is written into a card (pure; works while Dramatis is off). */
+    validateCardIntent?(value: unknown): DramatisCardIntentCheck;
     /** Fired when stances, goals or the cast changed. */
     onChange(listener: () => void): ApiUnsubscribe;
 }

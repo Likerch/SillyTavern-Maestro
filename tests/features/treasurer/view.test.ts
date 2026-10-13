@@ -145,7 +145,7 @@ describe('M21 tab «Расходы»', () => {
         env.core.dailyLimit = { enabled: false, usd: 2, action: 'warn' };
         dispose = tab.render(container);
         const limits = sections(container).get('Caps and limits')!;
-        expect(limits.textContent).toContain("Maestro's background today$0.00 of $0.50");
+        expect(limits.textContent).toContain('Background today (Maestro and neighbours)$0.00 of $0.50');
         const [cap, limitUsd] = [...limits.querySelectorAll<HTMLInputElement>('input[type="number"]')];
         cap!.value = '1.25';
         cap!.dispatchEvent(new Event('change'));
@@ -183,7 +183,7 @@ describe('M21 tab «Расходы»', () => {
         env.core.dailyLimit = { enabled: true, usd: 0.5, action: 'warn' };
         dispose = tab.render(container);
         expect(container.textContent).toContain(
-            "The background cap is reached: Maestro's own tasks wait until tomorrow.",
+            "The background cap is reached: Maestro's own tasks and the neighbours sharing the cap wait until tomorrow.",
         );
         expect(container.textContent).toContain('The overall daily limit is reached: $0.60 of $0.50.');
         expect(container.textContent).toContain('No spend recorded in this chat yet.');
@@ -193,6 +193,26 @@ describe('M21 tab «Расходы»', () => {
         if (typeof dispose === 'function') dispose();
         dispose = tab.render(container);
         expect(container.textContent).toContain('Open a chat to see the spend per turn.');
+    });
+
+    it('shows a neighbour’s own channel (Officina) as a row of its own once it spent, in no turn', async () => {
+        await turn(0.01, () => {
+            env.record({
+                source: 'officina',
+                task: 'officina.bible',
+                usd: 0.04,
+                tokens: { prompt: 900, completion: 300 },
+                chatId: null,
+            });
+        });
+        dispose = tab.render(container);
+        await until(() => rowTexts(sections(container).get('Totals')).length > 0);
+        const totals = rowTexts(sections(container).get('Totals'));
+        expect(totals.map((row) => row[0])).toContain('Officina');
+        expect(totals.find((row) => row[0] === 'Officina')).toEqual(['Officina', '—', '—', '$0.04']);
+        const turns = rowTexts(sections(container).get('By turn'));
+        expect(turns[0]).toHaveLength(10);
+        expect(sections(container).get('By turn')?.textContent).not.toContain('Officina');
     });
 
     it('redraws after new spend', async () => {

@@ -6,15 +6,20 @@
 // - Maestro's own requests (LlmClient) are skipped: the client records them itself with the task name.
 //   They are recognised by their AbortSignal (ST passes custom.signal straight to fetch, custom-request.js),
 //   or — for callers that pass no signal — by the beginOwn/endOwn counter;
+// - a neighbour's own channel (Officina, release 1.24) reports its spends through MAESTRO_API.cost.record (source
+//   'officina'): its requests are skipped too — by the signal it claimed, or by its JSON schema named `officina_*`;
 // - 'main' for the first request after bus generation:before (cleared by generation:ended). The window is
 //   consumed by that request because ST emits GENERATION_ENDED only from hideStopButton() (script.js), so a
 //   quiet generation without the stop button may never close it;
 // - 'qvink' when Qvink Memory is installed (its summaries run between generations);
 // - 'other' otherwise (DES tracker generateRaw, other extensions).
 //
+// The background cap counts Maestro's background tasks and the neighbours' own spends (BACKGROUND_SOURCES).
+//
 // Several tabs may write the same day file: each tab keeps the delta it has not written yet and merges it
 // into what is on disk at write time, so totals from other tabs are not lost (a tiny read→write race remains).
 import type {
+    BackgroundBudget,
     Bus,
     CostEntry,
     CostMeter,
@@ -35,6 +40,12 @@ const MAX_SEEN = 5000;
 const DOC_VERSION = 1;
 
 export type CostSource = CostEntry['source'];
+
+/** Sources the background cap counts: Maestro's own background tasks and the neighbours' channels. */
+export const BACKGROUND_SOURCES: readonly CostSource[] = ['maestro', 'officina'];
+
+/** A JSON schema a neighbour's own channel names its requests with: the neighbour reports their cost itself. */
+const NEIGHBOUR_SCHEMA_RE = /"name"\s*:\s*"officina_/;
 
 type Attribution = { own: true } | { own: false; source: CostSource; task?: string };
 
@@ -81,6 +92,7 @@ export interface CostMeterImpl extends CostMeter {
     today(): Readonly<DayTotals>;
     /** Overall daily limit enabled and reached. */
     dailyLimitReached(): boolean;
+    backgroundBudget(): BackgroundBudget;
     /** Called once per day when the overall daily limit is reached; the UI decides what to show. */
     onLimitReached(listener: (info: LimitInfo) => void): Unsubscribe;
     /** Writes pending totals now. */
@@ -231,6 +243,8 @@ export function createCostMeter(deps: CostMeterDeps): CostMeterImpl {
     /** Decided when the request leaves; the first generate request after generation:before is the main one. */
     function attribute(init: RequestInit | undefined): Attribution {
         if (isOwn(init)) return { own: true };
+        // Before the generation window: a neighbour's request sent during a generation must not take the main one's place.
+        if (typeof init?.body === 'string' && NEIGHBOUR_SCHEMA_RE.test(init.body)) return { own: true };
         const armed = generation;
         if (armed) {
             generation = null;
@@ -307,12 +321,21 @@ export function createCostMeter(deps: CostMeterDeps): CostMeterImpl {
     }
 
     const meter: CostMeterImpl = {
-        record(entry: Omit<CostEntry, 'at'>): void {
+        record(entry: Omit<CostEntry, 'at'> & { at?: number }): void {
             rollIfNeeded();
+            const moment = now();
+            // A reported moment counts only when it is today and not ahead of the clock (the day files are per day).
+            const at =
+                typeof entry.at === 'number' &&
+                Number.isFinite(entry.at) &&
+                entry.at <= moment &&
+                dateKey(entry.at) === doc.date
+                    ? entry.at
+                    : moment;
             const full: RecentCost = {
                 ...entry,
                 usd: nonNegative(entry.usd),
-                at: now(),
+                at,
                 chatId: entry.chatId === undefined ? safeChatId() : entry.chatId,
             };
             if (full.task === undefined) delete full.task;
@@ -331,7 +354,7 @@ export function createCostMeter(deps: CostMeterDeps): CostMeterImpl {
             return {
                 todayUsd: doc.totalUsd,
                 todayBySource: { ...doc.bySource },
-                backgroundTodayUsd: doc.bySource['maestro'] ?? 0,
+                backgroundTodayUsd: backgroundSpent(doc),
                 anlasToday: doc.anlas,
             };
         },
@@ -340,9 +363,26 @@ export function createCostMeter(deps: CostMeterDeps): CostMeterImpl {
             rollIfNeeded();
             const core = settings.core();
             const cap = core.backgroundDailyCapUsd;
-            if (cap > 0 && (doc.bySource['maestro'] ?? 0) >= cap) return true;
+            if (cap > 0 && backgroundSpent(doc) >= cap) return true;
             // The overall limit with action "stop background tasks" stops Maestro's own work, never the chat.
             return core.dailyLimit.action === 'stopBackground' && limitReached(core.dailyLimit, doc.totalUsd);
+        },
+
+        backgroundBudget(): BackgroundBudget {
+            rollIfNeeded();
+            const core = settings.core();
+            const cap = core.backgroundDailyCapUsd > 0 ? core.backgroundDailyCapUsd : null;
+            const spent = backgroundSpent(doc);
+            const left: number[] = [];
+            if (cap !== null) left.push(cap - spent);
+            const limit = core.dailyLimit;
+            if (limit.action === 'stopBackground' && limit.enabled && limit.usd > 0)
+                left.push(limit.usd - doc.totalUsd);
+            return {
+                capUsd: cap,
+                spentUsd: spent,
+                remainingUsd: left.length ? Math.max(0, Math.min(...left)) : null,
+            };
         },
 
         dailyLimitReached(): boolean {
@@ -587,6 +627,11 @@ function sanitizeDay(raw: unknown, date: string): DayTotals {
               .slice(-MAX_RECENT)
         : [];
     return day;
+}
+
+/** What the background cap is counted against: Maestro's background tasks and the neighbours' own spends. */
+function backgroundSpent(day: DayTotals): number {
+    return BACKGROUND_SOURCES.reduce((sum, source) => sum + (day.bySource[source] ?? 0), 0);
 }
 
 function limitReached(limit: CoreSettings['dailyLimit'] | undefined, totalUsd: number): boolean {

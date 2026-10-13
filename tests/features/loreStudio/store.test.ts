@@ -519,6 +519,31 @@ describe('bindings', () => {
         expect(s.power.persona_description_lorebook).toBe('');
     });
 
+    it('sets the primary book of a card that is not open for a neighbour, journaled under it, with undo', async () => {
+        await s.store.setCharacterPrimaryOf('bob.png', 'B', 'officina');
+        const characters = s.mock.context.characters as unknown as { data: { extensions: { world: string } } }[];
+        expect(characters[1]!.data.extensions.world).toBe('B');
+        expect(characters[0]!.data.extensions.world).toBe('');
+        const record = s.journal.last();
+        expect(record).toMatchObject({ module: 'officina', kind: 'lore.binding.primary' });
+        expect(record.changes[0]).toMatchObject({
+            ref: { avatar: 'bob.png', characterId: 1 },
+            before: null,
+            after: 'B',
+        });
+        // Undone while another card is open.
+        expect(await s.journal.undo(record.id)).toBe(true);
+        expect(characters[1]!.data.extensions.world).toBe('');
+        await expect(s.store.setCharacterPrimaryOf('ghost.png', 'B')).rejects.toMatchObject({ code: 'noCharacter' });
+        // A new book of a neighbour is journaled under it, in its words.
+        await s.store.createBook('Officina Book', { module: 'officina', summary: 'Книга проекта' });
+        expect(s.journal.last()).toMatchObject({
+            module: 'officina',
+            kind: 'lore.book.create',
+            summary: 'Книга проекта',
+        });
+    });
+
     it('refuses persona books for a persona without a name and character books in group chats', async () => {
         s.power.personas = {};
         await expect(s.store.setPersonaBook('A')).rejects.toMatchObject({ code: 'personaName' });

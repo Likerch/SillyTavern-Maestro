@@ -1,7 +1,7 @@
 // Pult tab «Расходы» (M21): totals of the last turn, the session and today by source (USD and Anlas), the per-turn
 // table of the chat, a plain HTML/CSS bar chart of the last days, and the background cap / overall daily limit
 // (the same core settings paths the Settings tab writes). Estimated entries (no cost in the answer) are marked.
-import { lineOf } from '../../domain/treasurer-spend';
+import { NEIGHBOUR_SOURCES, lineOf } from '../../domain/treasurer-spend';
 import type { App, CoreSettings, PultTab } from '../../shared/contracts';
 import { banner, emptyState, section } from '../../ui/components/card';
 import { field, numberInput, select, toggle } from '../../ui/components/controls';
@@ -16,9 +16,23 @@ export const TREASURER_TAB = 'treasurer';
 const SETTINGS_TAB = 'settings';
 const LIMIT_ACTIONS: readonly CoreSettings['dailyLimit']['action'][] = ['warn', 'economy', 'stopBackground'];
 
-/** Rows of the totals table and columns of the turn table: the NAI line splits into its LLM cost and Anlas. */
+/**
+ * Rows of the totals table and columns of the turn table: the NAI line splits into its LLM cost and Anlas. A
+ * neighbour's own channel (Officina) is a row of its own when it spent something; its spends belong to no turn.
+ */
 type Column = SpendSource | 'anlas';
-const COLUMNS: readonly Column[] = ['main', 'regeneration', 'autoSwipe', 'qvink', 'maestro', 'nai', 'anlas', 'other'];
+const COLUMNS: readonly Column[] = [
+    'main',
+    'regeneration',
+    'autoSwipe',
+    'qvink',
+    'maestro',
+    'officina',
+    'nai',
+    'anlas',
+    'other',
+];
+const TURN_COLUMNS: readonly Column[] = COLUMNS.filter((column) => !NEIGHBOUR_SOURCES.includes(column as SpendSource));
 
 export const M21_CSS = `
 .maestro-m21-actions { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; align-items: center; }
@@ -105,7 +119,13 @@ export function treasurerTab(app: App, service: TreasurerService): PultTab {
             { key: 'm21.col.day', summary: service.summary('day') },
         ];
         type Row = { column: Column | 'total' };
-        const rows: Row[] = [...COLUMNS.map((column) => ({ column })), { column: 'total' }];
+        const spent = (column: Column) =>
+            periods.some((period) => {
+                const line = lineOf(period.summary.lines, column as SpendSource);
+                return !!line && (line.usd > 0 || line.requests > 0);
+            });
+        const shown = COLUMNS.filter((column) => !NEIGHBOUR_SOURCES.includes(column as SpendSource) || spent(column));
+        const rows: Row[] = [...shown.map((column) => ({ column })), { column: 'total' }];
         const node = table<Row>(
             [
                 {
@@ -148,7 +168,7 @@ export function treasurerTab(app: App, service: TreasurerService): PultTab {
                         numeric: true,
                         cell: (turn) => t('m21.turn.number', { index: turn.messageIndex }),
                     },
-                    ...COLUMNS.map((column) => ({
+                    ...TURN_COLUMNS.map((column) => ({
                         key: column,
                         label: t(`m21.source.${column}Short`),
                         numeric: true,

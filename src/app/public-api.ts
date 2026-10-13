@@ -1,35 +1,34 @@
-// Maestro's public API for neighbours (release 1.17, docs/integration-dramatis.md): `globalThis.MAESTRO_API`, version 1,
-// the contract of src/adapters/dramatis/apis.ts (copied from Dramatis). Installed after the modules started, removed
-// when Maestro stops; `maestro-api-ready` ({ detail: { version: 1 } }) is dispatched on window each time it appears.
+// Maestro's public API for neighbours (release 1.17, docs/integration-dramatis.md, docs/integration-officina.md):
+// `globalThis.MAESTRO_API`, version 1. Its whole type is src/shared/public-api-types.ts (MaestroApi, a superset of the
+// Dramatis contract src/adapters/dramatis/apis.ts). Installed after the modules started, removed when Maestro stops;
+// `maestro-api-ready` ({ detail: { version: 1 } }) is dispatched on window each time it appears.
+//
+// Neighbours (1.24): ids of tasks, action kinds and journal kinds start with a prefix of EXTERNAL_PREFIXES
+// ('dramatis.', 'officina.'), journal targets also with 'dramatis-' / 'officina-'; journal records and Inbox cards go
+// under the module of that prefix ('dramatis', 'officina').
 //
 // What it gives (each through Maestro's own services, so the rules of the stack hold for the neighbour too):
 // - llm: Maestro's LLM client — per-task connection profile, cost recorded as Maestro's background spend (source
-//   'maestro', task label), the circuit breaker; background work only in the leader tab and under the daily cap. Task
-//   ids start with `dramatis.`; the JSON schema goes out named after the task (`dramatis.turn` → `dramatis_turn`).
+//   'maestro', task label), the circuit breaker; background work only in the leader tab and under the daily cap. The
+//   JSON schema goes out named after the task (`dramatis.turn` → `dramatis_turn`, `officina.bible` → `officina_bible`).
 // - propose / registerApplier: autonomy levels and the Inbox; the applier makes stored cards work after a reload, its
 //   label names the kind in Settings, the Inbox and the journal (`kind.<kind>`).
-// - journal (module 'dramatis') with undo handlers per target; notices; the turn pipeline's events.
+// - journal (the module of the prefix) with undo handlers per target; notices; the turn pipeline's events.
 // - names (world model + DES-RU forms), present() (the cast the voice cards see), speech() (the voice cards' digest of
 //   the CK archive, also while the voice cards are off), quiet() (claims kept by the Dramatis adapter).
 // - stage 3: styleUp() (the dossier's «Оформить» with given BunnyMo tags), setCanonGoals() (the chat canon's `goals`).
 // - 1.20: storyLanguage() — «Язык истории» (the setting, else the player's messages, else the interface language).
-// - 1.21: workshop — «Мастерская» (M42): active() and onChange(); while a workshop chat is open llm.request answers
-//   'workshop' and onTurn stays quiet (a neighbour that does not know the member still makes no story calls).
+// - 1.21: workshop — «Служебный режим» (M42, «Мастерская» before 1.24): active() and onChange(); while a service chat
+//   is open llm.request answers 'workshop' to `dramatis.*` tasks (a neighbour that does not know the member still
+//   makes no story calls; Officina's co-author chat is a service chat, so `officina.*` go through) and onTurn stays
+//   quiet. 1.24: isServiceCard() and setCard().
 // - 1.23: sceneSplit — «Сцена и вокруг» (M43): active() and the tag of the block ('offscreen'); present() leaves out
 //   the characters the narration showed leaving.
+// - 1.24: features; cost (the shared daily cap for a neighbour's own channel); the service facades lore, bookRoles,
+//   mechanics, presets, promptAudit, persona (public-api-services.ts).
 import manifest from '../../manifest.json';
 import { MAESTRO_API_GLOBAL, MAESTRO_API_READY_EVENT, adaptersOf, dramatisOf, isQuietFunction } from '../adapters';
-import type {
-    ApiDecision,
-    ApiEntityRef,
-    ApiJournalChange,
-    ApiLlmRequest,
-    ApiLlmResult,
-    ApiProposal,
-    ApiTurnEvent,
-    MaestroApiV1,
-    MaestroQuietFunction,
-} from '../adapters';
+import type { MaestroApiV1 } from '../adapters';
 import { storyLanguage } from '../core/language';
 import type { Labels } from '../core/labels';
 import { uniqueStrings } from '../domain/canon-keys';
@@ -55,22 +54,49 @@ import type {
     Proposal,
     Unsubscribe,
 } from '../shared/contracts';
+import type {
+    ApiDecision,
+    ApiEntityRef,
+    ApiJournalChange,
+    ApiLlmRequest,
+    ApiLlmResult,
+    ApiProposal,
+    ApiTurnEvent,
+    MaestroApi,
+    MaestroApiFeature,
+    MaestroQuietFunction,
+} from '../shared/public-api-types';
 import { registerProfileTask as registerProfileTaskUi } from '../ui';
 import { ArchiveSpeech } from './archive-speech';
+import { createServiceFacades } from './public-api-services';
 
-/** Ids of tasks and action kinds a neighbour may use (one neighbour so far). */
-export const EXTERNAL_PREFIX = 'dramatis.';
-/** The journal and Inbox module of everything that comes through the API. */
-export const API_MODULE = 'dramatis';
-/** The label of journal targets registered through the API (their values are technical: shown under «Подробнее»). */
-export const API_TARGET_LABEL = 'core.dramatis.target';
+/** The neighbours: the journal and Inbox module of everything that comes through the API with their prefix. */
+export const EXTERNAL_MODULES = ['dramatis', 'officina'] as const;
+export type ExternalModule = (typeof EXTERNAL_MODULES)[number];
+/** Prefixes of the ids of tasks, action kinds and journal kinds a neighbour may use: one per neighbour. */
+export const EXTERNAL_PREFIXES: readonly string[] = EXTERNAL_MODULES.map((module) => `${module}.`);
+/** What this build offers (MAESTRO_API.features). */
+export const API_FEATURES: readonly MaestroApiFeature[] = [
+    'prefix:dramatis',
+    'prefix:officina',
+    'cost',
+    'lore',
+    'bookRoles',
+    'mechanics',
+    'presets',
+    'promptAudit',
+    'persona',
+    'serviceCard',
+    'prepareScenes',
+];
 /** `generation:before` runs inside Maestro's generate interceptor: a listener is awaited at most this long (P15). */
 export const BEFORE_TIMEOUT_MS = 1500;
 const MAX_TOKENS = 32_000;
 const LEVELS: readonly AutonomyLevel[] = ['auto', 'notify', 'inbox', 'ask', 'off'];
 
-const ID_RE = /^dramatis\.[A-Za-z0-9_][A-Za-z0-9_.-]{0,80}$/;
-const TARGET_RE = /^dramatis[.-][A-Za-z0-9_][A-Za-z0-9_.-]{0,80}$/;
+const NAMES = EXTERNAL_MODULES.join('|');
+const ID_RE = new RegExp(`^(${NAMES})\\.[A-Za-z0-9_][A-Za-z0-9_.-]{0,80}$`);
+const TARGET_RE = new RegExp(`^(${NAMES})[.-][A-Za-z0-9_][A-Za-z0-9_.-]{0,80}$`);
 
 type Dict = Record<string, unknown>;
 
@@ -78,15 +104,28 @@ function isDict(value: unknown): value is Dict {
     return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-/** A task or kind id a neighbour may use (`dramatis.turn`). */
+/** A task or kind id a neighbour may use (`dramatis.turn`, `officina.bible`). */
 export function isExternalId(value: unknown): value is string {
     return typeof value === 'string' && ID_RE.test(value);
 }
 
-/** A journal target id a neighbour may use (`dramatis.intent`, `dramatis-stance`). */
+/** A journal target id a neighbour may use (`dramatis.intent`, `dramatis-stance`, `officina-release`). */
 export function isExternalTarget(value: unknown): value is string {
     return typeof value === 'string' && TARGET_RE.test(value);
 }
+
+/** The neighbour of an id or a target: its prefix's module ('dramatis' when unknown — the first neighbour). */
+export function externalModuleOf(id: string): ExternalModule {
+    return EXTERNAL_MODULES.find((module) => id.startsWith(`${module}.`) || id.startsWith(`${module}-`)) ?? 'dramatis';
+}
+
+/** The label of journal targets a neighbour registers (their values are technical: shown under «Подробнее»). */
+export function apiTargetLabel(target: string): string {
+    return `core.${externalModuleOf(target)}.target`;
+}
+
+/** Whose prefixes, for the warnings. */
+const PREFIX_WORDS = EXTERNAL_PREFIXES.map((prefix) => `"${prefix}"`).join(' or ');
 
 /** The JSON schema name of a task: `dramatis.turn` → `dramatis_turn` (the bench's mock model picks its reply by it). */
 export function schemaNameOf(task: string): string {
@@ -160,7 +199,7 @@ export interface MaestroApiDeps {
 }
 
 export interface MaestroApiHandle {
-    api: MaestroApiV1;
+    api: MaestroApi;
     speech: ArchiveSpeech;
     dispose(): void;
 }
@@ -431,7 +470,8 @@ export function createMaestroApi(deps: MaestroApiDeps): MaestroApiHandle {
     const request = async <T>(input: ApiLlmRequest): Promise<ApiLlmResult<T>> => {
         if (disposed) return { ok: false, error: 'maestro-stopped' };
         if (!isDict(input) || !isExternalId(input.task)) return { ok: false, error: 'bad-task' };
-        if (workshopActive()) return { ok: false, error: 'workshop' };
+        // A service chat has no story for Dramatis; Officina's co-author chat is one, its tasks go through.
+        if (externalModuleOf(input.task) === 'dramatis' && workshopActive()) return { ok: false, error: 'workshop' };
         const messages: LlmMessage[] = (Array.isArray(input.messages) ? input.messages : [])
             .filter((message) => isDict(message) && typeof message.content === 'string')
             .map((message) => ({
@@ -476,10 +516,10 @@ export function createMaestroApi(deps: MaestroApiDeps): MaestroApiHandle {
     const registerTask = (id: string, value: { ru: string; en: string }): Unsubscribe => {
         const words = label(value);
         if (disposed || !isExternalId(id) || !words) {
-            log.warn(`task ${String(id)} refused: ids start with "${EXTERNAL_PREFIX}" and need a label`);
+            log.warn(`task ${String(id)} refused: ids start with ${PREFIX_WORDS} and need a label`);
             return () => {};
         }
-        const key = `core.dramatis.task.${id}`;
+        const key = `core.${externalModuleOf(id)}.task.${id}`;
         app.i18n.register({ en: { [key]: words.en }, ru: { [key]: words.ru } });
         return own(profileTask(id, key));
     };
@@ -494,7 +534,7 @@ export function createMaestroApi(deps: MaestroApiDeps): MaestroApiHandle {
     ): Unsubscribe => {
         const words = label(value);
         if (disposed || !isExternalId(kind) || !words || typeof apply !== 'function') {
-            log.warn(`applier ${String(kind)} refused: kinds start with "${EXTERNAL_PREFIX}" and need a label`);
+            log.warn(`applier ${String(kind)} refused: kinds start with ${PREFIX_WORDS} and need a label`);
             return () => {};
         }
         // The kind reads in words wherever Maestro shows it (Settings, the Inbox, the journal, «Сделал: …»).
@@ -528,7 +568,7 @@ export function createMaestroApi(deps: MaestroApiDeps): MaestroApiHandle {
         const title = text(input.title) || app.i18n.t(`kind.${input.kind}`);
         const payload = jsonCopy(input.payload);
         const proposal: Proposal = {
-            module: API_MODULE,
+            module: externalModuleOf(input.kind),
             kind: input.kind,
             title,
             changes: cleanChanges(input.changes),
@@ -559,10 +599,10 @@ export function createMaestroApi(deps: MaestroApiDeps): MaestroApiHandle {
     }): Promise<string> => {
         if (disposed) throw new Error('MAESTRO_API: Maestro stopped');
         if (!isDict(action) || !isExternalId(action.kind)) {
-            throw new Error(`MAESTRO_API: journal kinds start with "${EXTERNAL_PREFIX}"`);
+            throw new Error(`MAESTRO_API: journal kinds start with ${PREFIX_WORDS}`);
         }
         return app.journal.record({
-            module: API_MODULE,
+            module: externalModuleOf(action.kind),
             kind: action.kind,
             summary: text(action.summary) || app.i18n.t(`kind.${action.kind}`),
             changes: cleanChanges(action.changes),
@@ -574,7 +614,7 @@ export function createMaestroApi(deps: MaestroApiDeps): MaestroApiHandle {
 
     const registerUndo = (target: string, handler: (change: ApiJournalChange) => Promise<boolean>): Unsubscribe => {
         if (disposed || !isExternalTarget(target) || typeof handler !== 'function') {
-            log.warn(`undo handler for ${String(target)} refused: targets start with "dramatis."`);
+            log.warn(`undo handler for ${String(target)} refused: targets start with ${PREFIX_WORDS}`);
             return () => {};
         }
         undoHandlers.set(target, handler);
@@ -586,7 +626,7 @@ export function createMaestroApi(deps: MaestroApiDeps): MaestroApiHandle {
                 if (!current) return false;
                 return (await current(change)) === true;
             });
-            deps.labels?.register([{ target, labelKey: API_TARGET_LABEL, technical: true }]);
+            deps.labels?.register([{ target, labelKey: apiTargetLabel(target), technical: true }]);
         }
         return own(() => {
             if (undoHandlers.get(target) === handler) undoHandlers.delete(target);
@@ -674,11 +714,16 @@ export function createMaestroApi(deps: MaestroApiDeps): MaestroApiHandle {
         }
     };
 
+    /* ---------------------------------------------------------------- the service facades (1.24) */
+
+    const services = createServiceFacades({ app, log, disposed: () => disposed, own });
+
     /* ---------------------------------------------------------------- the object */
 
-    const api: MaestroApiV1 = {
+    const api: MaestroApi = {
         version: 1,
         maestroVersion: deps.version ?? String(manifest.version ?? ''),
+        features: API_FEATURES,
         llm: {
             request,
             available: (task: string) => !disposed && isExternalId(task) && app.llm.available(task),
@@ -745,12 +790,24 @@ export function createMaestroApi(deps: MaestroApiDeps): MaestroApiHandle {
         workshop: {
             active: () => !disposed && workshopActive(),
             onChange: onWorkshopChange,
+            isServiceCard: services.serviceCard.isServiceCard,
+            setCard: services.serviceCard.setCard,
         },
         sceneSplit: {
             active: () => !disposed && sceneSplitActive(),
             tag: OFFSCREEN_TAG,
         },
+        cost: services.cost,
+        lore: services.lore,
+        bookRoles: services.bookRoles,
+        mechanics: services.mechanics,
+        presets: services.presets,
+        promptAudit: services.promptAudit,
+        persona: services.persona,
     };
+    // The Dramatis contract stays a part of it (Dramatis reads MAESTRO_API as its MaestroApiV1).
+    const asDramatisSees: MaestroApiV1 = api;
+    void asDramatisSees;
 
     return {
         api,

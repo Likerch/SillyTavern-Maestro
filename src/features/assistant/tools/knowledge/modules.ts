@@ -673,6 +673,31 @@ const MODULES: readonly ModuleDoc[] = [
         ],
     },
     {
+        key: 'workshop',
+        id: 'M42',
+        keywords: [
+            'service mode',
+            'служебный режим',
+            'service card',
+            'служебная',
+            'workshop',
+            'мастерская',
+            'helper',
+            'помощник',
+            'co-author',
+            'соавтор',
+            '/maestro-workshop',
+        ],
+        en: [
+            'Service mode (M42)',
+            "Cards for helpers — scenario and character creators, editors, a co-author (Officina's co-author chat uses it) — carry a service tag of ST's tag list («служебная»; «мастерская» and «workshop» count too, the list is in the settings). In their chats DES trackers, pictures, CarrotKernel, Dramatis, Qvink memory (its per-chat switch), global and persona lorebooks and Maestro's story modules are silent: the story modules are paused, the neighbours' texts are cut out of the outgoing prompt. The card, the chat, the Author's Note, the card's own lore and the preset «Мастерская» (switched on there, the model stays) remain. Before 1.24 the mode was called «Workshop»; the Officina extension («Officina — мастерская») is something else.\nWhere: the wrench button in ST's character editor, the «More…» list, /maestro-workshop [on|off]; Settings → «Service mode».",
+        ],
+        ru: [
+            'Служебный режим (M42)',
+            'Карточки помощников — генераторов сценариев и персонажей, редакторов, соавтора (им пользуется чат соавтора Officina) — несут служебный тег из списка тегов ST («служебная»; «мастерская» и «workshop» тоже считаются, список — в настройках). В их чатах молчат трекеры DES, картинки, CarrotKernel, Dramatis, память Qvink (его переключатель для чата), глобальные лорбуки и лорбук персоны, сюжетные модули Maestro: сюжетные модули на паузе, тексты соседей вырезаются из уходящего промпта. Остаются карточка, чат, заметка автора, лорбуки самой карточки и пресет «Мастерская» (включается сам, модель не меняется). До 1.24 режим назывался «Мастерская»; расширение Officina («Officina — мастерская») — другое.\nГде: кнопка с гаечным ключом в редакторе персонажа ST, список «Ещё…», /maestro-workshop [on|off]; Настройки → «Служебный режим».',
+        ],
+    },
+    {
         key: 'sceneSplit',
         id: 'M43',
         keywords: [
@@ -690,11 +715,11 @@ const MODULES: readonly ModuleDoc[] = [
         ],
         en: [
             'Scene and around (M43)',
-            "Keeps the reply on the scene. Every normal generation gets a short note at the very end of the prompt: narrate only the characters present; a character who left is out of the scene; what happens elsewhere this turn goes after the scene as one <offscreen>…</offscreen> block (1–3 sentences in the story's language) or nowhere. The block shows folded under the reply («Around»/«Вокруг»; with DES cards it stays one block after the cards); the saved message keeps it. In the prompt the two latest replies (setting) keep it as one line «[Elsewhere, not in the scene: …]», older ones lose it. Analysis (signals, director, quality, chronicle…) ignores it. Who the narration shows leaving («Вера вышла», «дверь за ней закрылась») is out of the voice cards, the wardrobe line, mechanics, knowledge and MAESTRO_API.present() from the next turn, though DES's tracker still lists them; they come back when a reply has them act or speak, or the player names them. M16's rumours are worded as something present characters may mention.\nWhere: Settings → «Scene and around» (on/off, replies that keep the block, the label). Paused in workshop chats.",
+            "Keeps the reply on the scene. Every normal generation gets a short note at the very end of the prompt: narrate only the characters present; a character who left is out of the scene; what happens elsewhere this turn goes after the scene as one <offscreen>…</offscreen> block (1–3 sentences in the story's language) or nowhere. The block shows folded under the reply («Around»/«Вокруг»; with DES cards it stays one block after the cards); the saved message keeps it. In the prompt the two latest replies (setting) keep it as one line «[Elsewhere, not in the scene: …]», older ones lose it. Analysis (signals, director, quality, chronicle…) ignores it. Who the narration shows leaving («Вера вышла», «дверь за ней закрылась») is out of the voice cards, the wardrobe line, mechanics, knowledge and MAESTRO_API.present() from the next turn, though DES's tracker still lists them; they come back when a reply has them act or speak, or the player names them. M16's rumours are worded as something present characters may mention.\nWhere: Settings → «Scene and around» (on/off, replies that keep the block, the label). Paused in service chats.",
         ],
         ru: [
             'Сцена и вокруг (M43)',
-            'Держит ответ на сцене. Каждая обычная генерация получает короткую заметку в самом конце промпта: рассказывать только о тех, кто в сцене; ушедший из сцены выбывает; что происходит в других местах за этот ход — после сцены одним блоком <offscreen>…</offscreen> (1–3 фразы на языке истории) или нигде. Блок показан свёрнутым под ответом («Вокруг»; с карточками DES — один блок после карточек); в сохранённом сообщении он остаётся. В промпте два последних ответа (настройка) держат его одной строкой «[Elsewhere, not in the scene: …]», старые его теряют. Анализ (сигналы, режиссёр, качество, хроника…) его не читает. Кого рассказ показал уходящим («Вера вышла», «дверь за ней закрылась»), со следующего хода нет в голосовых карточках, строке «кто во что одет», механиках, знаниях и MAESTRO_API.present(), хотя трекер DES его ещё держит; персонаж возвращается, когда в ответе снова действует или говорит, или когда игрок его называет. Слухи «Закулисья» (M16) поданы как то, что присутствующие могут упомянуть.\nГде: Настройки → «Сцена и вокруг» (включение, сколько ответов держат блок, подпись). В чатах мастерской — на паузе.',
+            'Держит ответ на сцене. Каждая обычная генерация получает короткую заметку в самом конце промпта: рассказывать только о тех, кто в сцене; ушедший из сцены выбывает; что происходит в других местах за этот ход — после сцены одним блоком <offscreen>…</offscreen> (1–3 фразы на языке истории) или нигде. Блок показан свёрнутым под ответом («Вокруг»; с карточками DES — один блок после карточек); в сохранённом сообщении он остаётся. В промпте два последних ответа (настройка) держат его одной строкой «[Elsewhere, not in the scene: …]», старые его теряют. Анализ (сигналы, режиссёр, качество, хроника…) его не читает. Кого рассказ показал уходящим («Вера вышла», «дверь за ней закрылась»), со следующего хода нет в голосовых карточках, строке «кто во что одет», механиках, знаниях и MAESTRO_API.present(), хотя трекер DES его ещё держит; персонаж возвращается, когда в ответе снова действует или говорит, или когда игрок его называет. Слухи «Закулисья» (M16) поданы как то, что присутствующие могут упомянуть.\nГде: Настройки → «Сцена и вокруг» (включение, сколько ответов держат блок, подпись). В служебных чатах — на паузе.',
         ],
     },
 ];

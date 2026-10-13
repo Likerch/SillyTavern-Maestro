@@ -2,7 +2,8 @@
 // MAESTRO_API v1 (release 1.17) with fakes of Maestro's services: the LLM wrapper (leader, cap, interactive tasks,
 // schema names, error words), task and kind labels, proposals through autonomy with appliers that survive a reload,
 // the journal with neighbour undo handlers, notices, turn events, names, the cast, the speech digest, quiet claims,
-// «Оформить» with tags, canon goals, and publishing the global.
+// «Оформить» with tags, canon goals, and publishing the global; 1.24: the second neighbour's prefix ('officina.'),
+// `features`, the service chat letting Officina's tasks through (the facades: public-api-services.test.ts).
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MAESTRO_API_GLOBAL, MAESTRO_API_READY_EVENT } from '../../src/adapters';
 import type { ApiTurnEvent, MaestroApiV1 } from '../../src/adapters';
@@ -752,6 +753,96 @@ describe('«Мастерская» (1.21)', () => {
         workshop(false);
         await env.app.bus.emit('turn:committed', { messageIndex: 4 });
         expect(events).toEqual([{ type: 'turn:committed', messageIndex: 4 }]);
+    });
+});
+
+describe('neighbours (1.24): Officina beside Dramatis', () => {
+    const messages = [{ role: 'user' as const, content: 'Write the bible.' }];
+
+    it('takes `officina.` ids and `officina.`/`officina-` targets too; others stay refused', () => {
+        expect(isExternalId('officina.bible')).toBe(true);
+        expect(isExternalId('officina.lore.batch_2')).toBe(true);
+        expect(isExternalId('officina.')).toBe(false);
+        expect(isExternalId('officinas.bible')).toBe(false);
+        expect(isExternalId('maestro.bible')).toBe(false);
+        expect(isExternalTarget('officina-release')).toBe(true);
+        expect(isExternalTarget('officina.project')).toBe(true);
+        expect(isExternalTarget('officina')).toBe(false);
+        expect(schemaNameOf('officina.bible')).toBe('officina_bible');
+    });
+
+    it('records, proposes and labels under the module of the prefix', async () => {
+        await env.api.journal.record({
+            kind: 'officina.release',
+            summary: 'Выпуск «Хроник»',
+            changes: [{ target: 'officina-release', ref: { project: 'p1' }, before: null, after: 'r1' }],
+        });
+        expect(env.journal.records.at(-1)).toMatchObject({ module: 'officina', kind: 'officina.release' });
+        env.api.journal.registerUndo('officina-release', async () => true);
+        expect(env.labels.target('officina-release')).toMatchObject({ labelKey: 'core.officina.target' });
+        expect(env.app.i18n.t('core.officina.target')).toBe('Officina');
+        expect(env.app.i18n.t('core.module.officina')).toBe('Officina');
+
+        env.api.registerApplier('officina.release', { ru: 'Выпуск карточки', en: 'Card release' }, async () => {});
+        await env.api.propose({
+            kind: 'officina.release',
+            title: 'Выпустить',
+            changes: [],
+            payload: {},
+            fallback: 'ask',
+        });
+        expect(env.autonomy.proposals.at(-1)?.proposal.module).toBe('officina');
+        expect(env.app.i18n.t('kind.officina.release')).toBe('Выпуск карточки');
+
+        env.api.llm.registerTask('officina.bible', { ru: 'Officina: библия', en: 'Officina: bible' });
+        expect(env.profiles.at(-1)).toEqual({
+            id: 'officina.bible',
+            labelKey: 'core.officina.task.officina.bible',
+            removed: false,
+        });
+        expect(env.app.i18n.t('core.officina.task.officina.bible')).toBe('Officina: библия');
+    });
+
+    it('runs Officina’s tasks in a service chat, where Dramatis’s are refused', async () => {
+        env.apis.set('workshop', { active: () => true, preset: () => 'Мастерская' });
+        expect(
+            await env.api.llm.request({ task: 'dramatis.turn', messages, maxTokens: 100, background: true }),
+        ).toEqual({ ok: false, error: 'workshop' });
+        const result = await env.api.llm.request({
+            task: 'officina.bible',
+            messages,
+            maxTokens: 100,
+            background: false,
+            schema: { name: 'whatever', schema: { type: 'object' } },
+        });
+        expect(result.ok).toBe(true);
+        expect(env.llm.requests.at(-1)).toMatchObject({
+            task: 'officina.bible',
+            interactive: true,
+            schema: { name: 'officina_bible' },
+        });
+    });
+
+    it('says what this build offers', () => {
+        const api = env.handle.api;
+        expect(api.features).toEqual([
+            'prefix:dramatis',
+            'prefix:officina',
+            'cost',
+            'lore',
+            'bookRoles',
+            'mechanics',
+            'presets',
+            'promptAudit',
+            'persona',
+            'serviceCard',
+            'prepareScenes',
+        ]);
+        for (const member of ['cost', 'lore', 'bookRoles', 'mechanics', 'presets', 'promptAudit', 'persona'] as const) {
+            expect(api[member], member).toBeDefined();
+        }
+        expect(typeof api.workshop?.setCard).toBe('function');
+        expect(typeof api.workshop?.isServiceCard).toBe('function');
     });
 });
 

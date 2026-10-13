@@ -80,6 +80,17 @@ export const NEIGHBOURS = [
         optional: true,
         note: 'Dramatis personality engine (dist/ is committed); skipped until it has a build',
     },
+    {
+        id: 'officina',
+        folder: 'SillyTavern-Officina',
+        version: null,
+        repo: 'SillyTavern-Officina',
+        // Written alongside Maestro 1.24: the working tree, like Dramatis.
+        ref: 'WORKTREE',
+        requires: ['manifest.json', 'dist/index.js'],
+        optional: true,
+        note: 'Officina, the card workshop (dist/ is committed); skipped until it has a build',
+    },
 ];
 
 /** BunnyMo V3.0 lorebooks, copied into default-user/worlds at setup (never stored in this repository). */

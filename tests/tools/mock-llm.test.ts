@@ -41,6 +41,15 @@ import {
     parseChangeAnswer,
 } from '../../src/domain/wardrobe-change-model';
 
+import {
+    analyseRequest,
+    buildReply,
+    isDramatisSchema,
+    isNeighbourSchema,
+    neighbourOfSchema,
+    registerTask,
+} from '../../tools/mock-llm/scenarios.mjs';
+
 const SERVER = fileURLToPath(new URL('../../tools/mock-llm/server.mjs', import.meta.url));
 
 interface Usage {
@@ -76,6 +85,7 @@ let child: ChildProcess;
 let base = '';
 let recordDir = '';
 let fixtureDir = '';
+let officinaDir = '';
 
 beforeAll(async () => {
     recordDir = mkdtempSync(path.join(tmpdir(), 'maestro-mock-'));
@@ -89,9 +99,21 @@ beforeAll(async () => {
         ]),
     );
     writeFileSync(path.join(fixtureDir, 'dramatis_world.json'), JSON.stringify({ ticks: 2, extra: 'dropped' }));
+    // Officina's task fixtures (release 1.24): the same mechanism, its own folder.
+    officinaDir = mkdtempSync(path.join(tmpdir(), 'maestro-mock-officina-'));
+    writeFileSync(
+        path.join(officinaDir, 'officina.bible.json'),
+        JSON.stringify({ title: 'Хроники', genre: 'фэнтези' }),
+    );
+    writeFileSync(path.join(officinaDir, 'officina_questions.json'), JSON.stringify([{ questions: ['Где?'] }]));
     child = spawn(process.execPath, [SERVER, '--port', '0', '--record-dir', recordDir, '--quiet'], {
         stdio: ['ignore', 'pipe', 'pipe'],
-        env: { ...process.env, MOCK_CHUNK_DELAY_MS: '0', MOCK_DRAMATIS_FIXTURES: fixtureDir },
+        env: {
+            ...process.env,
+            MOCK_CHUNK_DELAY_MS: '0',
+            MOCK_DRAMATIS_FIXTURES: fixtureDir,
+            MOCK_OFFICINA_FIXTURES: officinaDir,
+        },
     });
     const port = await new Promise<number>((resolve, reject) => {
         let output = '';
@@ -113,6 +135,7 @@ afterAll(() => {
     child?.kill();
     rmSync(recordDir, { recursive: true, force: true });
     rmSync(fixtureDir, { recursive: true, force: true });
+    rmSync(officinaDir, { recursive: true, force: true });
 });
 
 const story: Message[] = [
@@ -420,6 +443,79 @@ describe('mock LLM', () => {
         expect(JSON.parse(walked.choices[0]!.message.content)).toEqual({ intents: [], mood: expect.any(String) });
         const recorded = (await (await fetch(`${base}/__requests/last`)).json()) as { scenario: string };
         expect(recorded.scenario).toBe('schema:dramatis_turn(walker)');
+    });
+
+    it('answers Officina’s tasks the same way: its fixtures folder, else the walker', async () => {
+        const schemaOf = (name: string, schema: Record<string, unknown>) => ({
+            type: 'json_schema',
+            json_schema: { name, strict: true, schema },
+        });
+        const bible = await complete({
+            messages: [
+                { role: 'system', content: 'You write the story bible.' },
+                { role: 'user', content: 'Idea: a harbour city.' },
+            ],
+            response_format: schemaOf('officina_bible', {
+                type: 'object',
+                additionalProperties: false,
+                required: ['title', 'genre', 'themes'],
+                properties: {
+                    title: { type: 'string' },
+                    genre: { type: 'string' },
+                    themes: { type: 'array', items: { type: 'string' } },
+                },
+            }),
+        });
+        expect(JSON.parse(bible.choices[0]!.message.content)).toEqual({
+            title: 'Хроники',
+            genre: 'фэнтези',
+            themes: [],
+        });
+        let recorded = (await (await fetch(`${base}/__requests/last`)).json()) as { scenario: string };
+        expect(recorded.scenario).toBe('schema:officina_bible(fixture)');
+        const questions = await complete({
+            messages: [{ role: 'user', content: 'Ask.' }],
+            response_format: schemaOf('officina_questions', {
+                type: 'object',
+                required: ['questions'],
+                properties: { questions: { type: 'array', items: { type: 'string' } } },
+            }),
+        });
+        expect(JSON.parse(questions.choices[0]!.message.content)).toEqual({ questions: ['Где?'] });
+        const card = await complete({
+            messages: [{ role: 'user', content: 'Write the card.' }],
+            response_format: schemaOf('officina_card', {
+                type: 'object',
+                required: ['name'],
+                properties: { name: { type: 'string' } },
+            }),
+        });
+        expect(JSON.parse(card.choices[0]!.message.content)).toEqual({ name: expect.any(String) });
+        recorded = (await (await fetch(`${base}/__requests/last`)).json()) as { scenario: string };
+        expect(recorded.scenario).toBe('schema:officina_card(walker)');
+    });
+
+    it('tells the neighbour of a schema and lets a handler answer either neighbour’s task', () => {
+        expect(neighbourOfSchema('officina_bible')).toBe('officina');
+        expect(neighbourOfSchema('dramatis_turn')).toBe('dramatis');
+        expect(neighbourOfSchema('maestro_prepare')).toBeNull();
+        expect(isNeighbourSchema('officina_card')).toBe(true);
+        expect(isDramatisSchema('officina_card')).toBe(false);
+        registerTask('officina.ping', (ctx: { lastUserText: string }) => ({ echo: ctx.lastUserText }));
+        const reply = buildReply(
+            analyseRequest({
+                messages: [{ role: 'user', content: 'wiring' }],
+                response_format: {
+                    type: 'json_schema',
+                    json_schema: {
+                        name: 'officina_ping',
+                        schema: { type: 'object', required: ['echo'], properties: { echo: { type: 'string' } } },
+                    },
+                },
+            }),
+        );
+        expect(JSON.parse(reply.content)).toEqual({ echo: 'wiring' });
+        expect(reply.scenario).toBe('schema:officina_ping(task)');
     });
 
     it('fills a registered json_schema and walks an unknown one', async () => {

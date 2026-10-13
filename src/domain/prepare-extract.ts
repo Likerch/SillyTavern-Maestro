@@ -7,9 +7,12 @@
 // the player reads: in a Russian story (`language: 'ru'`) every name is Russian — personal names transliterated,
 // meaningful names translated, `english` keeps the original spelling, `forms` are Russian case forms — and so are the
 // outfits, dates and times, the genre and the mechanics' names; a secret's or a promise's Russian text is its Russian
-// line. The canon texts stay English either way. An English story keeps the names as the story writes them. Pure: the
-// feature sends the request (app.llm, task 'prepare').
+// line. The canon texts stay English either way. An English story keeps the names as the story writes them. Starting
+// scenes the card's author set down (Officina, `<author_scenes>`, release 1.24) are given as authoritative for their
+// greetings. Pure: the feature sends the request (app.llm, task 'prepare').
 import { normName } from './dossier-names';
+import { authorScenesText } from './prepare-author-scenes';
+import type { AuthorScene } from './prepare-author-scenes';
 import {
     ATTRIBUTE_KINDS,
     FIRST_SCENES,
@@ -315,6 +318,8 @@ export interface PrepareRequestInput {
     vocabulary?: string;
     /** «Язык истории»: the language the player reads the story in (English by default: names as the story writes them). */
     language?: StoryLanguage;
+    /** The author's own starting scenes of the greetings in this part (Officina's `extensions.officina.scenes`). */
+    authorScenes?: readonly AuthorScene[];
 }
 
 export interface PrepareMessage {
@@ -322,7 +327,7 @@ export interface PrepareMessage {
     content: string;
 }
 
-const DATA_TAGS = ['card', 'context', 'known', 'templates', 'mechanics', 'vocabulary', 'sources'];
+const DATA_TAGS = ['card', 'context', 'known', 'templates', 'mechanics', 'vocabulary', 'sources', 'author_scenes'];
 const DATA_TAG_RE = new RegExp(`<(/?)\\s*(${DATA_TAGS.join('|')})\\b[^>]*>`, 'gi');
 
 /** Data must not open or close our sections: `</sources>` inside an entry becomes `[/sources]`. */
@@ -383,6 +388,10 @@ const LANGUAGE_LINE: Record<StoryLanguage, string> = {
 const PART_NOTE =
     'This request holds part {n} of {total} of the sources: lorebook entries of the story. <context> summarises the card for orientation only. Fill "world", "time" and "direction" only with what these sources add; otherwise leave their fields "". Leave "scenes" empty: no starting scene is in this part.';
 
+/** After <author_scenes>: the author's scenes are not to be guessed again. */
+const AUTHOR_SCENES_NOTE =
+    'The card\'s author set the starting scenes in <author_scenes> (story data, like <sources>). For those greetings take "place", "time" and "present" exactly as given there, with the names as the author wrote them; let the mood and the hook guide "situation" and "situation_ru". Read the rest of each scene (date, outfits, firstScene) from its source as usual.';
+
 const GREETINGS_NOTE =
     'This request holds part {n} of {total} of the sources: more starting scenes of the card (and maybe lorebook entries). <context> summarises the card for orientation only. Give one entry of "scenes" per starting scene here; list characters, places and the rest only when these sources add to them, and fill "world", "time" and "direction" only with what they add.';
 
@@ -428,6 +437,10 @@ export function buildPrepareMessages(input: PrepareRequestInput): PrepareMessage
         (item) => `[${item.ref}] ${neutralizeData(item.label)}\n${neutralizeData(item.text)}`,
     );
     blocks.push(`<sources>\n${sources.join('\n\n')}\n</sources>`);
+    if (input.authorScenes?.length) {
+        blocks.push(`<author_scenes>\n${neutralizeData(authorScenesText(input.authorScenes))}\n</author_scenes>`);
+        blocks.push(AUTHOR_SCENES_NOTE);
+    }
     if (!input.part.core) {
         blocks.push(
             (input.part.greetings ? GREETINGS_NOTE : PART_NOTE)

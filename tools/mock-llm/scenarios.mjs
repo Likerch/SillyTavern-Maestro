@@ -577,46 +577,67 @@ export function registerTool(name, handler) {
     toolHandlers.set(name, handler);
 }
 
-/* ------------------------------------------------------------------ Dramatis tasks (Maestro 1.17) */
+/* ------------------------------------------------------------------ neighbour tasks (Dramatis 1.17, Officina 1.24) */
 
-// MAESTRO_API names the JSON schema of a neighbour's request after its task (`dramatis.turn` → `dramatis_turn`,
-// src/app/public-api.ts schemaNameOf), so the mock knows the task. The reply for a `dramatis_*` schema comes from, in
-// this order: a handler registered with registerTask(task, handler); a fixture file
-// `tools/mock-llm/fixtures/dramatis/<task>.json` (or `<schema name>.json`; MOCK_DRAMATIS_FIXTURES moves the folder)
-// holding a partial object, or an array of them (one is picked per request); else the schema walker alone — a valid
-// object with every required field. Missing required fields are always filled from the schema.
+// A neighbour's request names its JSON schema after its task, so the mock knows the task: MAESTRO_API does it for
+// Dramatis (`dramatis.turn` → `dramatis_turn`, src/app/public-api.ts schemaNameOf); Officina does the same on its own
+// channel through ST's Connection Manager (`officina.bible` → `officina_bible`). The reply for a `<neighbour>_*` schema
+// comes from, in this order: a handler registered with registerTask(task, handler); a fixture file
+// `tools/mock-llm/fixtures/<neighbour>/<task>.json` (or `<schema name>.json`; MOCK_DRAMATIS_FIXTURES and
+// MOCK_OFFICINA_FIXTURES move the folders) holding a partial object, or an array of them (one is picked per request);
+// else the schema walker alone — a valid object with every required field. Missing required fields are always filled
+// from the schema.
+
+/** Neighbours whose schemas are named after their tasks (the prefix of the task id). */
+export const NEIGHBOUR_PREFIXES = ['dramatis', 'officina'];
 
 const taskHandlers = new Map();
 const fixtureCache = new Map();
 
-/** The JSON schema name MAESTRO_API sends for a task. */
+/** The JSON schema name a neighbour sends for a task. */
 export function taskSchemaName(task) {
     return String(task)
         .replace(/[^A-Za-z0-9_-]/g, '_')
         .slice(0, 64);
 }
 
-/** True for a schema MAESTRO_API sent for a Dramatis task. */
-export function isDramatisSchema(name) {
-    return typeof name === 'string' && name.startsWith('dramatis_');
+/** The neighbour whose task a schema name names ('dramatis', 'officina'), or null. */
+export function neighbourOfSchema(name) {
+    if (typeof name !== 'string') return null;
+    return NEIGHBOUR_PREFIXES.find((prefix) => name.startsWith(`${prefix}_`)) ?? null;
 }
 
-/** Registers a reply for a Dramatis task id (`dramatis.turn`); same filling rules as registerSchema. */
+/** True for a schema MAESTRO_API sent for a Dramatis task. */
+export function isDramatisSchema(name) {
+    return neighbourOfSchema(name) === 'dramatis';
+}
+
+/** True for a schema of any neighbour's task (Dramatis, Officina). */
+export function isNeighbourSchema(name) {
+    return neighbourOfSchema(name) !== null;
+}
+
+/** Registers a reply for a neighbour's task id (`dramatis.turn`, `officina.bible`); same filling rules as registerSchema. */
 export function registerTask(task, handler) {
     taskHandlers.set(taskSchemaName(task), handler);
 }
 
-function fixtureDir() {
-    return process.env.MOCK_DRAMATIS_FIXTURES || fileURLToPath(new URL('./fixtures/dramatis/', import.meta.url));
+/** The fixture folder of a neighbour: MOCK_<NEIGHBOUR>_FIXTURES, else `fixtures/<neighbour>/`. */
+function fixtureDir(neighbour) {
+    return (
+        process.env[`MOCK_${neighbour.toUpperCase()}_FIXTURES`] ||
+        fileURLToPath(new URL(`./fixtures/${neighbour}/`, import.meta.url))
+    );
 }
 
 /** The fixture of a schema name: `<task>.json` (dots) or `<schema name>.json`; null when there is none. */
 export function taskFixture(name) {
-    const dir = fixtureDir();
+    const neighbour = neighbourOfSchema(name) ?? 'dramatis';
+    const dir = fixtureDir(neighbour);
     const key = `${dir}|${name}`;
     if (fixtureCache.has(key)) return fixtureCache.get(key);
     let value = null;
-    const task = name.replace(/^dramatis_/, 'dramatis.');
+    const task = name.replace(`${neighbour}_`, `${neighbour}.`);
     for (const file of [`${name}.json`, `${task}.json`]) {
         const full = path.join(dir, file);
         if (!fs.existsSync(full)) continue;
@@ -739,8 +760,8 @@ registerTask('dramatis.translate', (ctx) => {
     return { items: items.map((item) => ({ id: String(item.id), ru: mockCyrillic(item.text ?? '') })) };
 });
 
-/** The reply source of a Dramatis schema: a registered handler, a fixture, or the walker ('walker'). */
-function dramatisHandler(name) {
+/** The reply source of a neighbour's schema: a registered handler, a fixture, or the walker ('walker'). */
+function neighbourHandler(name) {
     const registered = taskHandlers.get(name);
     if (registered) return { handler: registered, how: 'task' };
     const fixture = taskFixture(name);
@@ -1824,11 +1845,11 @@ export function buildReply(ctx, n = 0) {
             };
         }
         let handler = ctx.schema ? schemaHandlers.get(ctx.schema.name) : null;
-        let dramatis = '';
-        if (!handler && ctx.schema && isDramatisSchema(ctx.schema.name)) {
-            const found = dramatisHandler(ctx.schema.name);
+        let neighbour = '';
+        if (!handler && ctx.schema && isNeighbourSchema(ctx.schema.name)) {
+            const found = neighbourHandler(ctx.schema.name);
             handler = found.handler;
-            dramatis = found.how;
+            neighbour = found.how;
         }
         const raw = handler ? handler(ctx, rng) : {};
         const value = ctx.schema ? conformToSchema(raw, ctx.schema.schema) : raw;
@@ -1841,7 +1862,7 @@ export function buildReply(ctx, n = 0) {
             finishReason = 'length';
         }
         const kind = ctx.schema
-            ? `schema:${ctx.schema.name}${dramatis ? `(${dramatis})` : handler ? '' : '(walker)'}`
+            ? `schema:${ctx.schema.name}${neighbour ? `(${neighbour})` : handler ? '' : '(walker)'}`
             : 'json-object';
         return { scenario: label(kind), content, finishReason, toolCalls: null, reasoning };
     }

@@ -63,6 +63,9 @@ export const personaCreatorModule: MaestroModule<PersonaCreatorSettings> = {
             readPersonaCreatorSettings(app.settings.module<Partial<PersonaCreatorSettings>>(PERSONA_CREATOR_KEY));
         const personas = new StPersonas(app, log);
         const service = new PersonaCreator(app, log, personas, settings);
+        // MAESTRO_API.persona (release 1.24) creates a persona from a ready description through the same steps.
+        app.modules.expose(PERSONA_CREATOR_KEY, service);
+        own(() => app.modules.expose(PERSONA_CREATOR_KEY, undefined));
         const ui = new PersonaUi(app, log, service, settings, stDialog(app));
         own(() => ui.dispose());
         own(registerProfileTask(PERSONA_TASK, 'm41.profileTask'));

@@ -46,7 +46,8 @@ export interface LoreStore {
     load(name: string): Promise<WiBookData | null>;
     /** Queued immediate save; reloads ST's editor and resets DES Lore Library cache; journals the change. */
     save(name: string, data: WiBookData, reason: SaveReason): Promise<void>;
-    createBook(name: string): Promise<string>;
+    /** `reason`: the journal module and summary (MAESTRO_API passes the neighbour's); default the studio's. */
+    createBook(name: string, reason?: Partial<SaveReason>): Promise<string>;
     renameBook(oldName: string, newName: string): Promise<void>;
     duplicateBook(name: string, newName: string): Promise<void>;
     deleteBook(name: string): Promise<void>;
@@ -60,6 +61,10 @@ export interface LoreStore {
     bindings(): Promise<WiBindings>;
     setGlobal(name: string, active: boolean): Promise<void>;
     setCharacterPrimary(name: string | null): Promise<void>;
+    /** The primary book of any card by its avatar file (release 1.24); `by` is the journal module (default M23). */
+    setCharacterPrimaryOf?(avatar: string, name: string | null, by?: string): Promise<void>;
+    /** BunnyMo books and books M35 has not detected yet are never written (P13). */
+    isReadOnly?(book: string): boolean;
     setCharacterExtra(names: string[]): Promise<void>;
     setChatBook(name: string | null): Promise<void>;
     setPersonaBook(name: string | null): Promise<void>;

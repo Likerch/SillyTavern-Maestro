@@ -1,6 +1,6 @@
 // M42's switch in ST's character editor (ST 1.19 index.html `#avatar_controls .form_create_bottom_buttons_block` and
 // the «More…» list `#char-management-dropdown`, the same places M41 uses): a wrench button lit while the card is a
-// workshop card, and an option of the list. Both show only while the editor holds one existing character
+// service card, and an option of the list. Both show only while the editor holds one existing character
 // (`#form_create[actiontype=editcharacter]`, no group); a MutationObserver follows the form's `actiontype` and the card
 // it holds (`#avatar_url_pole`), the nodes are put back on APP_READY and CHARACTER_EDITOR_OPENED (ST may rebuild the
 // block). dispose() takes everything back.

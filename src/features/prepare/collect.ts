@@ -4,7 +4,8 @@
 // (primary and extra, or the embedded book), the chat book, the persona book, the active DES Lore Library campaign,
 // the CarrotKernel archives of the characters this card names, the BunnyMo tag vocabulary (a hint only; packs are
 // never read as sources and never written), and what the chat already has (canon, places, mechanics, NAI passports,
-// promises, secrets). Read only: nothing here writes.
+// promises, secrets), and the starting scenes the card's author set down (Officina's `extensions.officina.scenes`,
+// release 1.24). Read only: nothing here writes.
 import { adaptersOf } from '../../adapters';
 import { storyLanguage } from '../../core/language';
 import { cardView, greetingInChat } from '../../domain/assistant-chat';
@@ -14,6 +15,8 @@ import type { BookData } from '../../domain/doctor-fixes';
 import { normName } from '../../domain/dossier-names';
 import { libraryView } from '../../domain/lore-studio-campaigns';
 import { isBackupBookName, isCanonBookName, isMaestroBookName } from '../../domain/roles-detect';
+import { readAuthorScenes } from '../../domain/prepare-author-scenes';
+import type { AuthorScene } from '../../domain/prepare-author-scenes';
 import type { ExistingEntry, ExistingSnapshot } from '../../domain/prepare-merge';
 import { bookSources, cardSources, clipText, greetingOpening } from '../../domain/prepare-sources';
 import type { BookEntryInput, PrepareSource, SourceOrigin } from '../../domain/prepare-sources';
@@ -251,6 +254,8 @@ export interface Collected {
     mechanics: { id: string; name: string; attributes: string[] }[];
     /** «Язык истории» the plan is read for (core/language). */
     language: StoryLanguage;
+    /** The author's starting scenes of the card's greetings (Officina), authoritative where given. */
+    authorScenes?: AuthorScene[];
 }
 
 export class Collector {
@@ -317,6 +322,7 @@ export class Collector {
             templates: this.templates(),
             mechanics: this.mechanics(),
             language: storyLanguage(this.app),
+            authorScenes: readAuthorScenes(character, 1 + view.alternateGreetings.length),
         };
     }
 

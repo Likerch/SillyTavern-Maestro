@@ -36,6 +36,10 @@ export const CORE_STRINGS: I18nParts = {
 
         'core.dramatis.target': 'Dramatis',
         'core.module.dramatis': 'Dramatis',
+        'core.officina.target': 'Officina',
+        'core.module.officina': 'Officina',
+        'core.api.lore.update': 'Changed entry #{uid} in «{book}»',
+        'core.api.lore.delete': 'Deleted entry #{uid} in «{book}»',
     },
     ru: {
         'core.name': 'Maestro',
@@ -70,5 +74,9 @@ export const CORE_STRINGS: I18nParts = {
 
         'core.dramatis.target': 'Dramatis',
         'core.module.dramatis': 'Dramatis',
+        'core.officina.target': 'Officina',
+        'core.module.officina': 'Officina',
+        'core.api.lore.update': 'Изменена запись №{uid} в «{book}»',
+        'core.api.lore.delete': 'Удалена запись №{uid} в «{book}»',
     },
 };

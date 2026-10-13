@@ -1,11 +1,17 @@
 // @vitest-environment happy-dom
-// M42 «Мастерская» over the ST mock: a card with a workshop tag pauses Maestro's story modules in its chats (and only
-// there), says so, switches Qvink off for the chat (and back when the card leaves the workshop), cuts every
-// extension's text but ST's own out of the outgoing prompt and drops the global lore; the card's tag is set and
-// removed through ST's /tag-add and /tag-remove, journaled with undo; MAESTRO_API-facing state and the slash command.
+// M42 «Служебный режим» (ex-«Мастерская») over the ST mock: a card with a service tag pauses Maestro's story modules in
+// its chats (and only there), says so, switches Qvink off for the chat (and back when the card is a story card again),
+// cuts every extension's text but ST's own out of the outgoing prompt and drops the global lore; the card's tag is set
+// and removed through ST's /tag-add and /tag-remove, journaled with undo; a card with the old «Мастерская» tag stays a
+// service card, the old default tag list becomes the new one once; MAESTRO_API-facing state and the slash command.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Mock } from 'vitest';
-import { WORKSHOP_KEEPS, workshopModule } from '../../../src/features/workshop';
+import {
+    WORKSHOP_KEEPS,
+    defaultWorkshopSettings,
+    readWorkshopSettings,
+    workshopModule,
+} from '../../../src/features/workshop';
 import type { WorkshopApi } from '../../../src/features/workshop';
 import { workshopCommand } from '../../../src/features/workshop/index';
 import { QVINK_POINTER, WORKSHOP_CARD_KIND, WORKSHOP_QVINK_KIND } from '../../../src/features/workshop/service';
@@ -209,7 +215,8 @@ describe('the card’s tag', () => {
     it('is set through /tag-add (journaled), the open chat follows at once, and undo takes it away', async () => {
         await openChat(1, 'alice-1');
         expect(await api.setCard('alice.png', true)).toBe(true);
-        expect(slash).toContain('/tag-add name="alice.png" Мастерская');
+        // The first tag of the setting, «служебная» by default (a new tag of ST's list).
+        expect(slash).toContain('/tag-add name="alice.png" служебная');
         expect(api.isWorkshopCard('alice.png')).toBe(true);
         await flush();
         expect(api.active()).toBe(true);
@@ -234,6 +241,20 @@ describe('the card’s tag', () => {
         expect(env.app.chat.pointer(QVINK_POINTER) ?? null).toBeNull();
     });
 
+    it('reuses a service tag of ST’s list spelled its own way and journals a neighbour’s change under it', async () => {
+        tags.push({ id: 's', name: 'Служебная' });
+        await openChat(1, 'alice-1');
+        expect(await api.setCard('alice.png', true, { by: 'officina' })).toBe(true);
+        expect(slash).toContain('/tag-add name="alice.png" Служебная');
+        expect(tags.filter((tag) => tag.name.toLowerCase() === 'служебная')).toHaveLength(1);
+        const record = env.journal.list().find((item) => item.kind === WORKSHOP_CARD_KIND);
+        expect(record?.module).toBe('officina');
+        // Removing takes every service tag of the card, the old ones too.
+        tagMap['alice.png'] = [...(tagMap['alice.png'] ?? []), 'w'];
+        expect(await api.setCard('alice.png', false)).toBe(true);
+        expect(tagMap['alice.png']).toEqual(['f']);
+    });
+
     it('the slash command switches the card of the open chat', async () => {
         await openChat(1, 'alice-1');
         const command = workshopCommand(env.app, api as unknown as WorkshopService);
@@ -241,6 +262,25 @@ describe('the card’s tag', () => {
         expect(api.isWorkshopCard('alice.png')).toBe(true);
         expect(await command.callback({}, '')).toBe('false');
         expect(api.isWorkshopCard('alice.png')).toBe(false);
+    });
+});
+
+describe('the setting of the tags', () => {
+    it('turns the old default list into the new one once and leaves a list of one’s own', () => {
+        const old = { tags: ['workshop', 'Мастерская'] };
+        expect(readWorkshopSettings(old).tags).toEqual(['служебная', 'мастерская', 'workshop']);
+        // Once: the same old list chosen again later stays.
+        old.tags = ['мастерская', 'workshop'];
+        expect(readWorkshopSettings(old).tags).toEqual(['мастерская', 'workshop']);
+        expect(readWorkshopSettings({ tags: ['помощник'] }).tags).toEqual(['помощник']);
+        expect(readWorkshopSettings({}).tags).toEqual(['служебная', 'мастерская', 'workshop']);
+        expect(defaultWorkshopSettings().tags).toEqual(['служебная', 'мастерская', 'workshop']);
+        expect(defaultWorkshopSettings().preset).toBe('Мастерская');
+    });
+
+    it('a card with the old «Мастерская» tag is still a service card', async () => {
+        expect(api.isWorkshopCard('celestia.png')).toBe(true);
+        expect((env.settings.module('workshop') as Dict).tags).toEqual(['служебная', 'мастерская', 'workshop']);
     });
 });
 

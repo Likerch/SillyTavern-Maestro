@@ -1,8 +1,9 @@
-// M42 «Мастерская», pure helpers. A helper card (scenario or character creator, an editor) carries a workshop tag of
-// ST's tag list; its chats are workshop chats: the story machinery of the stack stays silent there. This file decides
-// which card is a workshop card, which extension prompt slots stay in such a chat (ST's own: the card's depth prompt,
-// the Author's Note, lore that is left, vectors), how the other slots' texts are cut out of the outgoing Chat
-// Completion messages, and which lorebooks stay. Pure: no DOM, no SillyTavern.
+// M42 «Служебный режим» (ex-«Мастерская»), pure helpers. A helper card (scenario or character creator, an editor, a
+// co-author) carries a service tag of ST's tag list; its chats are service chats: the story machinery of the stack stays
+// silent there (in code the mode keeps its old key, `workshop`). This file decides which card is a service card, which
+// extension prompt slots stay in such a chat (ST's own: the card's depth prompt, the Author's Note, lore that is left,
+// vectors), how the other slots' texts are cut out of the outgoing Chat Completion messages, and which lorebooks stay.
+// Pure: no DOM, no SillyTavern.
 import { messageTextParts, slotNeedles } from './architect-prompt';
 import { MIN_NEEDLE_LENGTH } from './neighbour-prompts';
 
@@ -12,12 +13,26 @@ function isDict(value: unknown): value is Dict {
     return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-/** Tag names that make a card a workshop card, by default. */
-export const DEFAULT_WORKSHOP_TAGS: readonly string[] = ['мастерская', 'workshop'];
+/** Tag names that make a card a service card, by default; the button sets the first. */
+export const DEFAULT_WORKSHOP_TAGS: readonly string[] = ['служебная', 'мастерская', 'workshop'];
 
 /** How a tag name is compared: case, «ё», the spaces and a leading «#» do not matter. */
 export function normalizeTagName(name: string): string {
     return name.normalize('NFKC').toLowerCase().replace(/ё/g, 'е').trim().replace(/^#/, '').replace(/\s+/g, ' ').trim();
+}
+
+/** The default of releases 1.21–1.23 (before the rename): a stored list equal to it is the old default. */
+export const OLD_DEFAULT_WORKSHOP_TAGS: readonly string[] = ['мастерская', 'workshop'];
+
+/**
+ * The stored tag list as it should be now: the old default (any order or case) becomes the new one, a list of the
+ * user's own stays as it is. A card tagged «мастерская» stays a service card either way.
+ */
+export function migrateWorkshopTags(tags: readonly string[]): string[] {
+    const stored = new Set(tags.map(normalizeTagName).filter(Boolean));
+    const old = new Set(OLD_DEFAULT_WORKSHOP_TAGS.map(normalizeTagName));
+    const same = stored.size === old.size && [...stored].every((tag) => old.has(tag));
+    return same ? [...DEFAULT_WORKSHOP_TAGS] : [...tags];
 }
 
 /**

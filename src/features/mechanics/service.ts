@@ -80,12 +80,16 @@ export class MechanicsService implements MechanicsApi {
         return this.defs.get(id);
     }
 
-    save(def: MechanicDef): Promise<MechanicDef> {
-        return this.defs.save(def);
+    save(def: MechanicDef, by?: string): Promise<MechanicDef> {
+        return this.defs.save(def, by);
     }
 
-    remove(id: string): Promise<void> {
-        return this.defs.remove(id);
+    remove(id: string, by?: string): Promise<void> {
+        return this.defs.remove(id, by);
+    }
+
+    all(): MechanicDef[] {
+        return this.defs.all?.() ?? this.defs.list();
     }
 
     /** The ready-made templates; «relationships» and «social» leave while Dramatis replaces them (release 1.17). */

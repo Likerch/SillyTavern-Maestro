@@ -105,8 +105,9 @@ export interface DefinitionsPart {
     /** Visible and not switched off in this chat. */
     active(): MechanicDef[];
     get(id: string): MechanicDef | null;
-    save(def: MechanicDef): Promise<MechanicDef>;
-    remove(id: string): Promise<void>;
+    /** `by`: the journal module of the change (default M25; MAESTRO_API passes the neighbour's). */
+    save(def: MechanicDef, by?: string): Promise<MechanicDef>;
+    remove(id: string, by?: string): Promise<void>;
     setEnabledInChat(id: string, on: boolean): Promise<void>;
     onChange(listener: () => void): Unsubscribe;
     dispose(): void;

@@ -49,12 +49,14 @@ custom`, `custom_url: http://127.0.0.1:5199/v1`, `custom_model: mock-deepseek-v4
   | SillyTavern-NAI-Studio                | current | `../SillyTavern-NAI-Studio` @ `HEAD` (dist/ is committed; no server plugin)   |
   | SillyTavern-LorebookLocalizer         | 0.1.0   | `../SillyTavern-LorebookLocalizer` @ `ae00f4b`                                |
   | SillyTavern-Dramatis (optional)       | current | `../SillyTavern-Dramatis` @ `WORKTREE` (skipped until `dist/index.js` exists) |
+  | SillyTavern-Officina (optional)       | current | `../SillyTavern-Officina` @ `WORKTREE` (skipped until `dist/index.js` exists) |
 
   Commits are exported with `git ls-tree` + `git cat-file --batch` into `runtime/vendor/exports/<folder>@<sha>` (no
   `.git`), then copied. Override a pin with `STAND_REF_<ID>=<sha|HEAD|WORKTREE>` (ids: qvink, des, ck, desru, nai,
-  localizer, dramatis); `WORKTREE` copies tracked files including uncommitted edits, and new files git does not
-  ignore. An `optional` neighbour (Dramatis, written alongside Maestro 1.17) without a repository or without its
-  required files is skipped with a warning (`status` shows `skip`) instead of failing the setup.
+  localizer, dramatis, officina); `WORKTREE` copies tracked files including uncommitted edits, and new files git does
+  not ignore. An `optional` neighbour (Dramatis, written alongside Maestro 1.17; Officina, alongside 1.24) without a
+  repository or without its required files is skipped with a warning (`status` shows `skip`) instead of failing the
+  setup.
 
 - **BunnyMo V3.0 lorebooks** — 13 books from `../SillyTavern-DES-RU/vendor/BunnyMo` @ `7a61c9f` into `worlds/`.
 - **Fixtures** (`tools/fixtures/`, see below) — lorebooks, the card as a PNG (`chara` + `ccv3` chunks), chats,

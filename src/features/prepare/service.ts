@@ -14,6 +14,7 @@ import { hasCyrillic } from '../../domain/canon-keys';
 import { applyOrder, missingForPlay, selectItems } from '../../domain/prepare-apply';
 import type { MissingItem, ReadyFacts, SelectionRow } from '../../domain/prepare-apply';
 import { normName } from '../../domain/dossier-names';
+import { withAuthorScenes } from '../../domain/prepare-author-scenes';
 import { markExisting, mergeItems, reusePlan } from '../../domain/prepare-merge';
 import {
     NAMED_SECTIONS,
@@ -568,7 +569,8 @@ export class PrepareService {
             return;
         }
         const savedIds = new Set((saved?.items ?? []).map((item) => item.id));
-        const merged = mergeItems([outcome.items, kept]).map((item) =>
+        // The author's starting scenes (Officina) win over what the analysis read for their greetings.
+        const merged = withAuthorScenes(mergeItems([outcome.items, kept]), collected.authorScenes ?? []).map((item) =>
             savedIds.has(item.id) ? { ...item, scope: 'character' as const } : item,
         );
         const items = markExisting(merged, collected.snapshot);

@@ -3,7 +3,7 @@
 // The shapes mirror src/features/treasurer/api.ts structurally (domain cannot import features).
 
 /** Same union as TreasurerApi's SpendSource. */
-export type SpendSource = 'main' | 'regeneration' | 'autoSwipe' | 'qvink' | 'maestro' | 'nai' | 'other';
+export type SpendSource = 'main' | 'regeneration' | 'autoSwipe' | 'qvink' | 'maestro' | 'officina' | 'nai' | 'other';
 
 /** Display and summary order. */
 export const SPEND_SOURCES: readonly SpendSource[] = [
@@ -12,9 +12,13 @@ export const SPEND_SOURCES: readonly SpendSource[] = [
     'autoSwipe',
     'qvink',
     'maestro',
+    'officina',
     'nai',
     'other',
 ];
+
+/** Neighbours' own channels (MAESTRO_API.cost.record): their rows are shown only when they spent something. */
+export const NEIGHBOUR_SOURCES: readonly SpendSource[] = ['officina'];
 
 /** Generation types that redo the last reply (ST swipe and regenerate); M12's auto-swipes are swipes too. */
 export const REDO_TYPES: ReadonlySet<string> = new Set(['swipe', 'regenerate']);
@@ -111,6 +115,7 @@ export function classifyEntry(entry: Pick<LedgerEntry, 'source' | 'task' | 'anla
             return classifyGeneration(entry.task, auto);
         case 'qvink':
         case 'maestro':
+        case 'officina':
         case 'nai':
             return entry.source;
         default:
@@ -413,7 +418,7 @@ export function daySummary(day: DayData | null, date: string, auto?: AutoDay): S
     const autoUsd = Math.min(redo, positive(auto?.usd));
     let unknown = 0;
     for (const [source, usd] of Object.entries(by)) {
-        if (!['main', 'qvink', 'maestro', 'nai', 'other'].includes(source)) unknown += usd;
+        if (!['main', 'qvink', 'maestro', 'officina', 'nai', 'other'].includes(source)) unknown += usd;
     }
     const usd: Record<SpendSource, number> = {
         main: clean(mainTotal - quiet - redo),
@@ -421,6 +426,7 @@ export function daySummary(day: DayData | null, date: string, auto?: AutoDay): S
         autoSwipe: clean(autoUsd),
         qvink: by['qvink'] ?? 0,
         maestro: by['maestro'] ?? 0,
+        officina: by['officina'] ?? 0,
         nai: by['nai'] ?? 0,
         other: (by['other'] ?? 0) + quiet + unknown,
     };

@@ -354,8 +354,12 @@ export interface LlmClient {
 }
 
 export interface CostEntry {
-    source: 'main' | 'qvink' | 'maestro' | 'nai' | 'other';
+    /** 'officina': a neighbour's own channel, reported through MAESTRO_API.cost.record (release 1.24). */
+    source: 'main' | 'qvink' | 'maestro' | 'nai' | 'officina' | 'other';
     task?: string;
+    /** A neighbour's own channel names its model and provider. */
+    model?: string;
+    provider?: string;
     usd: number;
     /** `cached`: prompt tokens served from the provider's prompt cache, when it reports them. */
     tokens?: { prompt: number; completion: number; cached?: number };
@@ -367,15 +371,29 @@ export interface CostEntry {
 export interface CostSummary {
     todayUsd: number;
     todayBySource: Record<string, number>;
+    /** Maestro's background tasks and the neighbours' own spends: what the background cap is counted against. */
     backgroundTodayUsd: number;
     anlasToday: number;
 }
 
+/** The background cap of today: the cap (null: none), what counts against it, what is left (null: no limit). */
+export interface BackgroundBudget {
+    capUsd: number | null;
+    spentUsd: number;
+    remainingUsd: number | null;
+}
+
 export interface CostMeter {
-    record(entry: Omit<CostEntry, 'at'>): void;
+    /** `at`: a moment of today the spend was made (a neighbour's report); otherwise now. */
+    record(entry: Omit<CostEntry, 'at'> & { at?: number }): void;
     recordAnlas(amount: number): void;
     summary(): CostSummary;
     backgroundCapReached(): boolean;
+    /** What is left of today's background cap (release 1.24; optional for older fakes). */
+    backgroundBudget?(): BackgroundBudget;
+    /** Requests sent with this signal are someone else's to report (Maestro's own client, a neighbour's claim). */
+    beginOwn?(signal?: AbortSignal): void;
+    endOwn?(signal?: AbortSignal): void;
     /** Today's recent cost entries, oldest first (metrics). */
     recent?(): readonly CostEntry[];
     onChange(listener: () => void): Unsubscribe;

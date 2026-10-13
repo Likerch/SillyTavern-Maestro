@@ -449,10 +449,10 @@ export class LoreStoreService implements LoreStore {
         }
     }
 
-    private async journalBook(ref: BookRef, summary: string): Promise<void> {
+    private async journalBook(ref: BookRef, summary: string, by: string = STUDIO_MODULE): Promise<void> {
         try {
             await this.app.journal.record({
-                module: STUDIO_MODULE,
+                module: by,
                 kind: `lore.book.${ref.op}`,
                 summary,
                 changes: [{ target: UNDO_BOOK, ref: { ...ref }, before: null, after: null }],
@@ -467,10 +467,11 @@ export class LoreStoreService implements LoreStore {
         ref: Record<string, unknown>,
         before: unknown,
         after: unknown,
+        by: string = STUDIO_MODULE,
     ): Promise<void> {
         try {
             await this.app.journal.record({
-                module: STUDIO_MODULE,
+                module: by,
                 kind: `lore.binding.${kind}`,
                 summary: this.app.i18n.t(`m23.journal.binding.${kind}`),
                 changes: [{ target: UNDO_BINDING, ref: { kind, ...ref }, before, after }],
@@ -520,7 +521,7 @@ export class LoreStoreService implements LoreStore {
         });
     }
 
-    async createBook(name: string): Promise<string> {
+    async createBook(name: string, reason?: Partial<SaveReason>): Promise<string> {
         const clean = await this.cleanName(name);
         this.assertFree(clean);
         return this.enqueue(clean, async () => {
@@ -528,7 +529,8 @@ export class LoreStoreService implements LoreStore {
             await this.st.updateList();
             await this.journalBook(
                 { op: 'create', book: clean },
-                this.app.i18n.t('m23.journal.createBook', { book: clean }),
+                reason?.summary || this.app.i18n.t('m23.journal.createBook', { book: clean }),
+                reason?.module || STUDIO_MODULE,
             );
             this.emit(null);
             return clean;
@@ -945,6 +947,21 @@ export class LoreStoreService implements LoreStore {
         this.emit(null);
     }
 
+    /**
+     * The primary book of any card by its avatar file (MAESTRO_API, release 1.24): the open card goes through ST's own
+     * editor path, another one through writeExtensionField. Journaled under `by`.
+     */
+    async setCharacterPrimaryOf(avatar: string, name: string | null, by: string = STUDIO_MODULE): Promise<void> {
+        const open = this.st.currentCharacter();
+        const character = open?.avatar === avatar ? open : this.st.characters().find((item) => item.avatar === avatar);
+        if (!character) throw new LoreStudioError('noCharacter');
+        const before = 'primary' in character ? character.primary : character.world;
+        if (before === name) return;
+        await this.st.setPrimaryBook(character.id, name);
+        await this.journalBinding('primary', { characterId: character.id, avatar }, before, name, by);
+        this.emit(null);
+    }
+
     async setCharacterExtra(names: string[]): Promise<void> {
         const character = this.st.currentCharacter();
         if (!character) throw new LoreStudioError('noCharacter');
@@ -1084,8 +1101,13 @@ export class LoreStoreService implements LoreStore {
                 return true;
             }
             case 'primary': {
-                const character = this.st.currentCharacter();
-                if (!character || character.avatar !== change.ref.avatar) return false;
+                // The open card, or (a neighbour's change, release 1.24) any card found by its avatar.
+                const open = this.st.currentCharacter();
+                const character =
+                    open && open.avatar === change.ref.avatar
+                        ? open
+                        : this.st.characters().find((item) => item.avatar === change.ref.avatar);
+                if (!character) return false;
                 await this.st.setPrimaryBook(character.id, typeof before === 'string' ? before : null);
                 this.emit(null);
                 return true;

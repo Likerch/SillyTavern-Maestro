@@ -93,7 +93,8 @@ describe('lines', () => {
         expect(lineOf(list, 'qvink')?.usd).toBe(0.002);
         expect(lineOf(list, 'maestro')).toBeUndefined();
         expect(toSpendLine('other', emptyLine()).anlas).toBeUndefined();
-        expect(SPEND_SOURCES).toHaveLength(7);
+        expect(SPEND_SOURCES).toHaveLength(8);
+        expect(SPEND_SOURCES).toContain('officina');
     });
 });
 

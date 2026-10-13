@@ -1,7 +1,9 @@
-// M42 «Мастерская» (release 1.21): helper cards (scenario and character creators, editors) carry a workshop tag, and
-// their chats run without the story machinery of the stack — service.ts says what goes silent and how. Here: the
-// module, its block of the Settings tab, the wrench button of the card editor and `/maestro-workshop [on|off]`.
-// Exposed as app.modules.api<WorkshopApi>('workshop') and, for neighbours, as MAESTRO_API.workshop.
+// M42 «Служебный режим» (release 1.21 as «Мастерская», renamed in 1.24; the key, the id, the slash command and the
+// MAESTRO_API member keep the old `workshop` name): helper cards (scenario and character creators, editors, a co-author)
+// carry a service tag, and their chats run without the story machinery of the stack — service.ts says what goes silent
+// and how. Here: the module, its block of the Settings tab, the wrench button of the card editor and
+// `/maestro-workshop [on|off]`. Exposed as app.modules.api<WorkshopApi>('workshop') and, for neighbours, as
+// MAESTRO_API.workshop.
 import { WORKSHOP_LORE_MODES, parseTagList } from '../../domain/workshop';
 import type { WorkshopLore } from '../../domain/workshop';
 import type { App, I18n, MaestroModule, SlashCommandSpec, TargetSpec } from '../../shared/contracts';

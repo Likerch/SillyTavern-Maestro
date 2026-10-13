@@ -78,7 +78,8 @@ export interface PresetStore {
     setKeys(patch: Record<string, unknown>): Promise<void>;
     /** Explicit-body save of the working copy into `name` (default current), cache + list updated, version written. */
     save(name?: string, summary?: string, by?: string): Promise<void>;
-    saveAs(name: string): Promise<string>;
+    /** `module` / `summary`: the journal module and summary of the write (a neighbour's, release 1.24). */
+    saveAs(name: string, options?: { module?: string; summary?: string }): Promise<string>;
     rename(oldName: string, newName: string): Promise<void>;
     remove(name: string): Promise<void>;
     /**
@@ -114,7 +115,7 @@ export interface PresetStore {
     createFromBody?(
         name: string,
         body: PresetBody,
-        options?: { select?: boolean; overwrite?: boolean; summary?: string },
+        options?: { select?: boolean; overwrite?: boolean; summary?: string; module?: string },
     ): Promise<string>;
     /** Blocks added, removed and changed, blocks switched, order and parameters between two presets (names or bodies). */
     compare?(a: string | PresetBody, b: string | PresetBody): PresetComparison;

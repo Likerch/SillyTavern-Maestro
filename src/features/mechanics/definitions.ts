@@ -367,9 +367,12 @@ export class MechanicDefinitions implements DefinitionsPart {
         return this.t(`m25.def.issue.${issue.code}`, issue.params);
     }
 
-    private async journal(action: { kind: string; summary: string; changes: JournalChange[] }): Promise<void> {
+    private async journal(
+        action: { kind: string; summary: string; changes: JournalChange[] },
+        by: string = MECHANICS_ID,
+    ): Promise<void> {
         try {
-            await this.app.journal.record({ module: MECHANICS_ID, ...action });
+            await this.app.journal.record({ module: by, ...action });
         } catch (error) {
             this.deps.log.warn(`mechanics: ${action.kind} was not journaled`, error);
         }
@@ -379,7 +382,7 @@ export class MechanicDefinitions implements DefinitionsPart {
      * Creates or updates a definition: validated, written into its book (or the settings' book, created with the
      * role 'maestro' when missing), updated in place by uid, journaled with undo. Returns the stored definition.
      */
-    save(def: MechanicDef): Promise<MechanicDef> {
+    save(def: MechanicDef, by?: string): Promise<MechanicDef> {
         const draft = normalizeDef(def);
         if (!draft)
             return Promise.reject(new Error(this.t('m25.def.error.invalid', { issue: this.t('m25.def.issue.id') })));
@@ -439,13 +442,23 @@ export class MechanicDefinitions implements DefinitionsPart {
             this.bump(book);
             await io.save(book, data);
             this.store(book, data);
-            await this.journal({
-                kind: before ? 'mechanics.def.update' : 'mechanics.def.create',
-                summary: this.t(before ? 'm25.def.journal.update' : 'm25.def.journal.create', { name: draft.name }),
-                changes: [
-                    { target: MECHANICS_DEF_TARGET, ref: { book, uid, id: draft.id }, before, after: cloneDef(after) },
-                ],
-            });
+            await this.journal(
+                {
+                    kind: before ? 'mechanics.def.update' : 'mechanics.def.create',
+                    summary: this.t(before ? 'm25.def.journal.update' : 'm25.def.journal.create', {
+                        name: draft.name,
+                    }),
+                    changes: [
+                        {
+                            target: MECHANICS_DEF_TARGET,
+                            ref: { book, uid, id: draft.id },
+                            before,
+                            after: cloneDef(after),
+                        },
+                    ],
+                },
+                by,
+            );
             const saved = entryToDef(after, book);
             if (!saved) throw new Error(this.t('m25.def.error.invalid', { issue: this.t('m25.def.issue.id') }));
             return saved;
@@ -453,7 +466,7 @@ export class MechanicDefinitions implements DefinitionsPart {
     }
 
     /** Removes a definition's entry (journaled; undo brings it back). */
-    remove(id: string): Promise<void> {
+    remove(id: string, by?: string): Promise<void> {
         const def = this.list().find((item) => item.id === id) ?? this.merged.find((item) => item.id === id);
         const book = def?.book;
         const uid = def?.uid;
@@ -470,11 +483,14 @@ export class MechanicDefinitions implements DefinitionsPart {
             this.bump(book);
             await io.save(book, data);
             this.store(book, data);
-            await this.journal({
-                kind: 'mechanics.def.remove',
-                summary: this.t('m25.def.journal.remove', { name: def.name }),
-                changes: [{ target: MECHANICS_DEF_TARGET, ref: { book, uid, id: def.id }, before, after: null }],
-            });
+            await this.journal(
+                {
+                    kind: 'mechanics.def.remove',
+                    summary: this.t('m25.def.journal.remove', { name: def.name }),
+                    changes: [{ target: MECHANICS_DEF_TARGET, ref: { book, uid, id: def.id }, before, after: null }],
+                },
+                by,
+            );
         });
     }
 

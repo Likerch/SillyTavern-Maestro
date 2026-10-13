@@ -354,3 +354,58 @@ describe('a whole preset bound to the card or the chat', () => {
         expect(layer.bindings?.().active).toBeNull();
     });
 });
+
+describe('a neighbour’s edits of any card (MAESTRO_API, release 1.24)', () => {
+    it('records into the part of a card that is not open, journaled under the neighbour, and undoes it', async () => {
+        await layer.recordFor?.('Marinara', { op: 'toggle', identifier: 'style', enabled: false }, 'character', {
+            owner: 'bob.png',
+            by: 'officina',
+        });
+        // The open card's working copy is not touched.
+        expect(findPrompt({ prompts: stand.oai.prompts }, 'style')).toBeDefined();
+        expect(layer.get('Marinara')).toBeNull();
+        expect(await layer.part?.('character', 'bob.png')).toEqual({
+            layers: { Marinara: [expect.objectContaining({ op: 'toggle', identifier: 'style', enabled: false })] },
+            binding: null,
+        });
+        const record = stand.env.journal.list({ module: 'officina' }).find((item) => item.kind === 'preset.layer');
+        expect(record?.summary).toContain('Bob');
+        expect(record?.changes[0]?.ref).toMatchObject({ scope: 'character', owner: 'bob.png' });
+        // Bob's chat gets it.
+        await openChat('chat-bob', 1);
+        expect(layer.get('Marinara')?.ops).toEqual([expect.objectContaining({ scope: 'character', owner: 'bob.png' })]);
+        await openChat('chat-1');
+        expect(await stand.env.journal.undo(record?.id ?? '')).toBe(true);
+        expect((await layer.part?.('character', 'bob.png'))?.layers).toEqual({});
+    });
+
+    it('the open card’s working copy follows a neighbour’s edit of it at once; removing takes it back', async () => {
+        const baseText = String(mainOf(layer.below?.('Marinara', 'character')) ?? '');
+        await layer.recordFor?.(
+            'Marinara',
+            { op: 'edit', identifier: 'main', patch: { content: 'Alice GM' }, baseHash: textHash(baseText), baseText },
+            'character',
+            { owner: 'alice.png', by: 'officina', summary: 'Officina: блок соавтора' },
+        );
+        expect(liveMain()).toBe('Alice GM');
+        expect(stand.store.draft().dirty).toBe(false);
+        expect(stand.env.journal.list({ module: 'officina' })[0]?.summary).toBe('Officina: блок соавтора');
+        await layer.removeFor?.('Marinara', 0, 'character', { owner: 'alice.png', by: 'officina' });
+        expect(liveMain()).toBe('You are the GM.');
+        await expect(layer.removeFor?.('Marinara', 0, 'character', { owner: 'alice.png' })).rejects.toThrow(/no op/);
+    });
+
+    it('binds a preset to a card that is not open and refuses a chat part of another chat', async () => {
+        await layer.bindFor?.('character', 'Other', { owner: 'bob.png', by: 'officina' });
+        expect((await layer.part?.('character', 'bob.png'))?.binding).toBe('Other');
+        expect(layer.bindings?.().character).toBeNull();
+        await openChat('chat-bob', 1);
+        expect(layer.bindings?.()).toMatchObject({
+            character: 'Other',
+            active: { scope: 'character', preset: 'Other' },
+        });
+        await expect(
+            layer.recordFor?.('Marinara', { op: 'key', key: 'temperature', value: 0.4 }, 'chat', { owner: 'chat-x' }),
+        ).rejects.toThrow(/chat open now/);
+    });
+});

@@ -90,6 +90,7 @@ import type {
     LayerOp,
     LayerScope,
     LayerScopeInfo,
+    LayerTarget,
     PresetBindings,
     PresetLayerApi,
     ScopedLayerOp,
@@ -492,11 +493,16 @@ export function createPresetLayer(app: App, log: Logger, store?: PresetStore): P
 
     /* ------------------------------------------------------------ journal */
 
-    const journal = async (summary: string, base: string, changes: readonly OpChange[]): Promise<void> => {
+    const journal = async (
+        summary: string,
+        base: string,
+        changes: readonly OpChange[],
+        by: string = MODULE_ID,
+    ): Promise<void> => {
         if (!changes.length) return;
         try {
             await app.journal.record({
-                module: MODULE_ID,
+                module: by,
                 kind: LAYER_JOURNAL_KIND,
                 summary,
                 changes: changes.map((change) => ({
@@ -582,25 +588,38 @@ export function createPresetLayer(app: App, log: Logger, store?: PresetStore): P
     const paramName = (key: string): string => paramLabel(key, app.i18n) ?? key;
 
     /** «(только в этом чате)»: where an edit lives, for journal summaries of the character and chat scopes. */
-    const scopeSuffix = (scope: LayerScope): string => {
+    /** The name of a card by its avatar file: the one laid now, else ST's character list (the avatar at worst). */
+    const cardName = (avatar: string | null | undefined): string => {
+        if (!avatar) return '';
+        if (avatar === applied.avatar && applied.characterName) return applied.characterName;
+        try {
+            const found = app.host.ctx().characters?.find((item) => item?.avatar === avatar);
+            if (typeof found?.name === 'string' && found.name) return found.name;
+        } catch {
+            // the avatar then
+        }
+        return avatar;
+    };
+
+    const scopeSuffix = (scope: LayerScope, owner?: string | null): string => {
         if (scope === 'global') return '';
         if (scope === 'chat') return ` (${t('m34.layerSvc.scope.chat')})`;
-        return ` (${t('m34.layerSvc.scope.character', { name: applied.characterName ?? applied.avatar ?? '' })})`;
+        return ` (${t('m34.layerSvc.scope.character', { name: cardName(owner ?? applied.avatar) })})`;
     };
 
     /** «В слое «Marinara» выключен блок «Main»»: what one recorded operation does, in words. */
-    const recordSummary = (base: string, op: DomainOp, scope: LayerScope): string => {
+    const recordSummary = (base: string, op: DomainOp, scope: LayerScope, owner?: string | null): string => {
         if (op.op === 'key') {
-            return t('m34.layerSvc.journal.key', { name: base, param: paramName(op.key) }) + scopeSuffix(scope);
+            return t('m34.layerSvc.journal.key', { name: base, param: paramName(op.key) }) + scopeSuffix(scope, owner);
         }
         const what = op.op === 'toggle' ? (op.enabled ? 'on' : 'off') : op.op;
-        return t(`m34.layerSvc.journal.${what}`, { name: base, block: opBlock(base, op) }) + scopeSuffix(scope);
+        return t(`m34.layerSvc.journal.${what}`, { name: base, block: opBlock(base, op) }) + scopeSuffix(scope, owner);
     };
 
-    const removeSummary = (base: string, op: DomainOp, scope: LayerScope): string =>
+    const removeSummary = (base: string, op: DomainOp, scope: LayerScope, owner?: string | null): string =>
         (op.op === 'key'
             ? t('m34.layerSvc.journal.removeKey', { name: base, param: paramName(op.key) })
-            : t('m34.layerSvc.journal.remove', { name: base, block: opBlock(base, op) })) + scopeSuffix(scope);
+            : t('m34.layerSvc.journal.remove', { name: base, block: opBlock(base, op) })) + scopeSuffix(scope, owner);
 
     /* ------------------------------------------------------------ ST's preset manager */
 
@@ -1004,6 +1023,121 @@ export function createPresetLayer(app: App, log: Logger, store?: PresetStore): P
         return null;
     };
 
+    /**
+     * Records an op into the part of `owner` (validated; an edit takes its base values from the base under the scope).
+     * `relay`: when that part is laid over the working copy now, the working copy follows (a neighbour's change —
+     * the studio's own edits change the working copy themselves).
+     */
+    const recordIn = async (
+        base: string,
+        op: LayerOp,
+        scope: LayerScope,
+        owner: string | null,
+        options: { by?: string; summary?: string; relay?: boolean },
+    ): Promise<void> => {
+        const error = validateOp(op);
+        if (error) throw new Error(`preset layer: ${error}`);
+        await savedBody(base);
+        const body = bodyBelow(base, scope);
+        const current = opsIn(base, scope, owner);
+        let incoming = withOrigins(plainOp(op as DomainOp), body);
+        if (incoming.op === 'add') {
+            incoming = ownIdentifier(current, incoming, body);
+        } else if (incoming.op !== 'key') {
+            const id = incoming.identifier;
+            const own = current.some((item) => item.op === 'add' && item.prompt.identifier === id);
+            if (!own && body && !baseHas(body, id)) {
+                throw new Error(`preset layer: no block ${id} in ${base}`);
+            }
+            if (incoming.op === 'edit' && !own && !incoming.baseHash) {
+                throw new Error(`preset layer: the base text of ${id} is unknown`);
+            }
+        }
+        const merged = mergeOp(current, incoming);
+        if (!merged.before && !merged.after) return;
+        const change = incoming;
+        const summary = options.summary || recordSummary(base, change, scope, owner);
+        const laid = options.relay ? laidParts(base, scope, owner) : null;
+        await mutateOps(base, scope, owner, (ops) => mergeOp(ops, change).ops);
+        await journal(
+            summary,
+            base,
+            [{ key: merged.key, index: merged.index, before: merged.before, after: merged.after, scope, owner }],
+            options.by,
+        );
+        if (laid) await relay(base, laid);
+        refreshReport(base);
+        emit();
+    };
+
+    /**
+     * The owner a neighbour's call means (MAESTRO_API, release 1.24): any card for 'character' (the open one when
+     * absent), the open chat only for 'chat'; null for 'global'.
+     */
+    const ownerFor = (scope: LayerScope, owner?: string): string | null => {
+        if (scope === 'global') return null;
+        if (!owner) return ownerOf(scope);
+        if (scope === 'chat' && owner !== scopeOwner(applied, 'chat')) {
+            throw new Error('preset layer: a chat part only of the chat open now');
+        }
+        return owner;
+    };
+
+    /** The parts laid over the working copy before a change of this part, or null when it is not laid now. */
+    const laidParts = (base: string, scope: LayerScope, owner: string | null): ScopeOps[] | null => {
+        if (base !== currentName()) return null;
+        if (scope !== 'global' && owner !== scopeOwner(applied, scope)) return null;
+        return partsFor(base, applied);
+    };
+
+    /**
+     * The working copy follows a changed part laid over it now: the parts as they were are stripped, as they are now
+     * laid on (through the store, like a chat switch: no journal, no version).
+     */
+    const relay = async (base: string, before: ScopeOps[]): Promise<void> => {
+        if (typeof store?.syncWorking !== 'function' || !app.host.isChatCompletion()) return;
+        const after = partsFor(base, applied);
+        if (valuesEqual(flatOps(before), flatOps(after))) return;
+        const working = await workingBody();
+        if (!working) return;
+        try {
+            await store.syncWorking(applyScoped(stripScoped(working, before, []), after).body as PresetBody);
+        } catch (error) {
+            log.warn('the working copy did not take the changed layer', error);
+        }
+    };
+
+    /** Binds a preset to the part of `owner` (null unbinds), journaled under `by`; the binder acts on 'binding'. */
+    const bindIn = async (
+        scope: 'character' | 'chat',
+        owner: string,
+        preset: string | null,
+        by: string,
+    ): Promise<void> => {
+        await scoped.loadOne(scope, owner);
+        const before = scoped.get(scope, owner)?.binding?.preset ?? null;
+        const next = preset?.trim() || null;
+        if (before === next) return;
+        await scoped.mutate(scope, owner, (doc) => {
+            doc.binding = next ? { preset: next, at: Date.now() } : null;
+        });
+        const who = scope === 'character' ? cardName(owner) : '';
+        const summary = next
+            ? t(`m34.layerSvc.journal.bind.${scope}`, { name: next, character: who })
+            : t(`m34.layerSvc.journal.unbind.${scope}`, { name: before ?? '', character: who });
+        try {
+            await app.journal.record({
+                module: by,
+                kind: BINDING_JOURNAL_KIND,
+                summary,
+                changes: [{ target: BINDING_TARGET, ref: { scope, owner }, before, after: next }],
+            });
+        } catch (error) {
+            log.warn('binding was not journaled', error);
+        }
+        emit('binding');
+    };
+
     /* ------------------------------------------------------------ the API */
 
     const api: PresetLayerApi = {
@@ -1029,35 +1163,7 @@ export function createPresetLayer(app: App, log: Logger, store?: PresetStore): P
 
         async record(base: string, op: LayerOp, scope: LayerScope = 'global'): Promise<void> {
             await load();
-            const error = validateOp(op);
-            if (error) throw new Error(`preset layer: ${error}`);
-            const owner = ownerOf(scope);
-            await savedBody(base);
-            const body = bodyBelow(base, scope);
-            const current = opsIn(base, scope, owner);
-            let incoming = withOrigins(plainOp(op as DomainOp), body);
-            if (incoming.op === 'add') {
-                incoming = ownIdentifier(current, incoming, body);
-            } else if (incoming.op !== 'key') {
-                const id = incoming.identifier;
-                const own = current.some((item) => item.op === 'add' && item.prompt.identifier === id);
-                if (!own && body && !baseHas(body, id)) {
-                    throw new Error(`preset layer: no block ${id} in ${base}`);
-                }
-                if (incoming.op === 'edit' && !own && !incoming.baseHash) {
-                    throw new Error(`preset layer: the base text of ${id} is unknown`);
-                }
-            }
-            const merged = mergeOp(current, incoming);
-            if (!merged.before && !merged.after) return;
-            const change = incoming;
-            const summary = recordSummary(base, change, scope);
-            await mutateOps(base, scope, owner, (ops) => mergeOp(ops, change).ops);
-            await journal(summary, base, [
-                { key: merged.key, index: merged.index, before: merged.before, after: merged.after, scope, owner },
-            ]);
-            refreshReport(base);
-            emit();
+            await recordIn(base, op, scope, ownerOf(scope), {});
         },
 
         async remove(base: string, index: number): Promise<void> {
@@ -1339,28 +1445,62 @@ export function createPresetLayer(app: App, log: Logger, store?: PresetStore): P
             await contextChain;
             const owner = ownerOf(scope);
             if (!owner) return;
-            await scoped.loadOne(scope, owner);
-            const before = scoped.get(scope, owner)?.binding?.preset ?? null;
-            const next = preset?.trim() || null;
-            if (before === next) return;
-            await scoped.mutate(scope, owner, (doc) => {
-                doc.binding = next ? { preset: next, at: Date.now() } : null;
-            });
-            const who = applied.characterName ?? applied.avatar ?? '';
-            const summary = next
-                ? t(`m34.layerSvc.journal.bind.${scope}`, { name: next, character: who })
-                : t(`m34.layerSvc.journal.unbind.${scope}`, { name: before ?? '', character: who });
-            try {
-                await app.journal.record({
-                    module: MODULE_ID,
-                    kind: BINDING_JOURNAL_KIND,
-                    summary,
-                    changes: [{ target: BINDING_TARGET, ref: { scope, owner }, before, after: next }],
-                });
-            } catch (error) {
-                log.warn('binding was not journaled', error);
+            await bindIn(scope, owner, preset, MODULE_ID);
+        },
+
+        async part(scope: LayerScope, owner?: string) {
+            await load();
+            const who = ownerFor(scope, owner);
+            const layers: Record<string, LayerOp[]> = {};
+            if (scope === 'global') {
+                for (const base of files.bases()) layers[base] = jsonCopy(opsOf(base)) as LayerOp[];
+                return { layers, binding: null };
             }
-            emit('binding');
+            if (!who) return { layers, binding: null };
+            await scoped.loadOne(scope, who);
+            const doc = scoped.get(scope, who);
+            for (const [base, entry] of Object.entries(doc?.layers ?? {})) {
+                if (entry.ops.length) layers[base] = jsonCopy(entry.ops) as LayerOp[];
+            }
+            return { layers, binding: doc?.binding?.preset ?? null };
+        },
+
+        async recordFor(base: string, op: LayerOp, scope: LayerScope, target: LayerTarget = {}): Promise<void> {
+            await load();
+            const owner = ownerFor(scope, target.owner);
+            if (scope !== 'global' && owner) await scoped.loadOne(scope, owner);
+            await recordIn(base, op, scope, owner, {
+                relay: true,
+                ...(target.by ? { by: target.by } : {}),
+                ...(target.summary ? { summary: target.summary } : {}),
+            });
+        },
+
+        async removeFor(base: string, index: number, scope: LayerScope, target: LayerTarget = {}): Promise<void> {
+            await load();
+            const owner = ownerFor(scope, target.owner);
+            if (scope !== 'global' && owner) await scoped.loadOne(scope, owner);
+            const op = opsIn(base, scope, owner)[index];
+            if (!op) throw new Error(`preset layer: no op ${index} in ${base}`);
+            const key = opKey(op);
+            const summary = target.summary || removeSummary(base, op, scope, owner);
+            const laid = laidParts(base, scope, owner);
+            await mutateOps(base, scope, owner, (ops) => setOpAt(ops, key, null));
+            await journal(summary, base, [{ key, index, before: op, after: null, scope, owner }], target.by);
+            if (laid) await relay(base, laid);
+            refreshReport(base);
+            emit();
+        },
+
+        async bindFor(
+            scope: 'character' | 'chat',
+            preset: string | null,
+            target: Omit<LayerTarget, 'summary'> = {},
+        ): Promise<void> {
+            await contextChain;
+            const owner = ownerFor(scope, target.owner);
+            if (!owner) return;
+            await bindIn(scope, owner, preset, target.by ?? MODULE_ID);
         },
     };
 

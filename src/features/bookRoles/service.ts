@@ -191,9 +191,9 @@ export class BookRolesService {
             .sort((a, b) => (a.book < b.book ? -1 : a.book > b.book ? 1 : 0));
     }
 
-    async setRole(book: string, role: BookRole): Promise<void> {
+    async setRole(book: string, role: BookRole, by?: string): Promise<void> {
         if (!book) return;
-        if (role === 'unknown') return this.resetRole(book);
+        if (role === 'unknown') return this.resetRole(book, by);
         await this.load();
         const before = this.registry.books[book];
         const after: RoleRecord = {
@@ -205,17 +205,17 @@ export class BookRolesService {
         if (before?.facts) after.facts = before.facts;
         if (role === 'bunnymo.core' || role === 'bunnymo.pack') after.pack = before?.pack ?? packInfo(book);
         this.put(book, after);
-        await this.journal(book, before, after);
+        await this.journal(book, before, after, by);
     }
 
-    async resetRole(book: string): Promise<void> {
+    async resetRole(book: string, by?: string): Promise<void> {
         await this.load();
         const before = this.registry.books[book];
         if (!before || before.source !== 'user') return;
         const auto: RoleRecord = { ...before, source: 'auto' };
         this.put(book, auto);
         await this.detectBooks([book], true);
-        await this.journal(book, before, this.registry.books[book] ?? null);
+        await this.journal(book, before, this.registry.books[book] ?? null, by);
     }
 
     /** Every lorebook (lazily: a full pass reads each book once; facts are reused while fingerprints match). */
@@ -235,13 +235,19 @@ export class BookRolesService {
         this.emit();
     }
 
-    private async journal(book: string, before: RoleRecord | undefined | null, after: RoleRecord | null) {
+    /** `by`: the journal module (a neighbour's through MAESTRO_API), default M35. */
+    private async journal(
+        book: string,
+        before: RoleRecord | undefined | null,
+        after: RoleRecord | null,
+        by: string = BOOK_ROLES_ID,
+    ) {
         if (sameRecord(before ?? undefined, after ?? undefined)) return;
         const t = this.app.i18n.t.bind(this.app.i18n);
         const role = after ? t(`m35r.role.${after.role}`) : t('m35r.role.unknown');
         try {
             await this.app.journal.record({
-                module: BOOK_ROLES_ID,
+                module: by,
                 kind: 'bookRoles.set',
                 summary: t(after?.source === 'user' ? 'm35r.journal.set' : 'm35r.journal.reset', { book, role }),
                 changes: [{ target: ROLE_TARGET, ref: { book }, before: before ?? null, after }],
@@ -550,15 +556,16 @@ export class BookRolesService {
         return {
             roleOf: (book) => this.roleOf(book),
             all: () => this.all(),
-            setRole: (book, role) => this.setRole(book, role),
+            setRole: (book, role, by) => this.setRole(book, role, by),
             refresh: () => this.refresh(),
             entryMeta: <T = Record<string, unknown>>(book: string, uid: number) => this.entryMeta<T>(book, uid),
             setEntryMeta: (book, uid, meta) => this.setEntryMeta(book, uid, meta),
             onChange: (listener) => this.onChange(listener),
-            resetRole: (book) => this.resetRole(book),
+            resetRole: (book, by) => this.resetRole(book, by),
             loadEntryMeta: <T = Record<string, unknown>>(book: string, uid: number) => this.loadEntryMeta<T>(book, uid),
             staleEntryMeta: () => this.staleEntryMeta(),
             renameBook: (oldName, newName) => this.renameBook(oldName, newName),
+            detect: (books) => this.detectBooks(books, false),
         };
     }
 }

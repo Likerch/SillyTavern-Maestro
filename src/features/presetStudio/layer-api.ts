@@ -200,4 +200,28 @@ export interface PresetLayerApi {
      * the preset itself: the studio's binder does that, through the unsaved-changes guard.
      */
     bind?(scope: 'character' | 'chat', preset: string | null): Promise<void>;
+
+    /* ---------------------------------------------------------------- neighbours (release 1.24, MAESTRO_API) */
+
+    /**
+     * The ops of one part by base and the preset bound there: 'global' (every base with a layer), 'character' of any
+     * card (`owner` = its avatar; the open card when absent), 'chat' (the open chat only).
+     */
+    part?(scope: LayerScope, owner?: string): Promise<{ layers: Record<string, LayerOp[]>; binding: string | null }>;
+    /**
+     * record() into the part of `owner` (as part()); when that part is laid over the working copy now, the working copy
+     * follows. `by`: the journal module (default M34), `summary`: its words.
+     */
+    recordFor?(base: string, op: LayerOp, scope: LayerScope, target?: LayerTarget): Promise<void>;
+    /** Removes the op at `index` of `part(scope, owner).layers[base]` (throws when there is none). */
+    removeFor?(base: string, index: number, scope: LayerScope, target?: LayerTarget): Promise<void>;
+    /** bind() for the part of `owner` (any card; the open chat). */
+    bindFor?(scope: 'character' | 'chat', preset: string | null, target?: Omit<LayerTarget, 'summary'>): Promise<void>;
+}
+
+/** Whose part a neighbour's change goes to and how it is journaled (release 1.24). */
+export interface LayerTarget {
+    owner?: string;
+    by?: string;
+    summary?: string;
 }
