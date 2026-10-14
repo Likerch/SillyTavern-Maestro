@@ -760,6 +760,189 @@ registerTask('dramatis.translate', (ctx) => {
     return { items: items.map((item) => ({ id: String(item.id), ru: mockCyrillic(item.text ?? '') })) };
 });
 
+/* ------------------------------------------------------------------ Dramatis: new faces on the story */
+
+/** Kinship, household and partner words the mock looks for next to a newcomer's name (Russian stems, English words). */
+const MOCK_KIN = [
+    {
+        relation: 'family',
+        role: 'daughter',
+        words: ['дочь', 'дочк', 'дочер', 'daughter'],
+    },
+    { relation: 'family', role: 'son', words: ['сын', 'son'] },
+    { relation: 'family', role: 'sister', words: ['сестр', 'sister'] },
+    { relation: 'family', role: 'brother', words: ['брат', 'brother'] },
+    { relation: 'family', role: 'mother', words: ['мать', 'мама', 'матер', 'mother'] },
+    { relation: 'family', role: 'father', words: ['отец', 'отца', 'папа', 'father'] },
+    { relation: 'servant', role: 'maid', words: ['служанк', 'слуг', 'рабын', 'maid', 'servant', 'slave'] },
+    { relation: 'partner', role: 'wife', words: ['жена', 'жену', 'жены', 'wife', 'husband'] },
+    { relation: 'master', role: 'mistress', words: ['хозяйк', 'госпож', 'mistress'] },
+];
+
+/** The text of a tagged block of a Dramatis prompt (`<reply>…</reply>`), '' when absent. */
+function dramatisBlock(text, tag) {
+    const match = String(text ?? '').match(new RegExp(`<${tag}>\\n?([\\s\\S]*?)\\n?</${tag}>`));
+    return match ? match[1] : '';
+}
+
+/** The comma or semicolon list of a `Label: a, b` line of a Dramatis prompt. */
+function dramatisList(text, label, separator) {
+    const match = String(text ?? '').match(new RegExp(`^${label}: (.+)$`, 'm'));
+    return match
+        ? match[1]
+              .split(separator)
+              .map((item) => item.trim())
+              .filter(Boolean)
+        : [];
+}
+
+/**
+ * What the story text shows about one newcomer: a kinship (household, partner) word in a sentence that names them —
+ * relation, the word with the name it belongs to («дочь Джона») and an English role; else 'unknown'.
+ */
+export function mockNewcomer(name, story, groups = []) {
+    const lower = String(name).toLowerCase();
+    const stem = lower.length > 4 ? lower.slice(0, -1) : lower;
+    const sentences = String(story ?? '')
+        .split(/(?<=[.!?…])\s+|\n+/u)
+        .filter((sentence) => sentence.toLowerCase().includes(stem));
+    for (const sentence of sentences) {
+        const words = sentence.split(/[\s,;:—–-]+/u).filter(Boolean);
+        for (let i = 0; i < words.length; i++) {
+            const word = words[i].toLowerCase().replace(/[«»"'.!?…]/g, '');
+            const kin = MOCK_KIN.find((entry) => entry.words.some((stemWord) => word.startsWith(stemWord)));
+            if (!kin) continue;
+            const next = words[i + 1]?.replace(/[«»"'.!?…]/g, '') ?? '';
+            const owner =
+                next && next.charAt(0) !== next.charAt(0).toLowerCase() && !next.toLowerCase().startsWith(stem);
+            const note = owner ? `${words[i].replace(/[«»"'.!?…]/g, '')} ${next}` : words[i].replace(/[«»"'.!?…]/g, '');
+            const family = kin.relation === 'family' ? groups.filter((group) => /famil|сем|kin|родн/i.test(group)) : [];
+            return {
+                name,
+                role: kin.role,
+                species: '',
+                relation: kin.relation,
+                relationNote: note,
+                stanceHint: null,
+                reason: `the story calls them ${note}`,
+                groups: family,
+            };
+        }
+    }
+    return {
+        name,
+        role: '',
+        species: '',
+        relation: 'unknown',
+        relationNote: '',
+        stanceHint: null,
+        reason: '',
+        groups: [],
+    };
+}
+
+/**
+ * Dramatis «Эскиз по истории» (`dramatis.turn`): the turn pass also reports the newcomers its prompt lists under
+ * «Newcomers:». Each gets an entry from the player's message and the reply (mockNewcomer): «дочь», «сестра», "maid"…
+ * next to the name → family, servant…; the world group that names a family when there is one. Every other field of
+ * the pass comes from the schema walker, as before.
+ */
+registerTask('dramatis.turn', (ctx) => {
+    const text = ctx.lastUserText;
+    const names = dramatisList(text, 'Newcomers', ',');
+    const groups = dramatisList(text, 'World groups', ';');
+    const story = [dramatisBlock(text, 'player'), dramatisBlock(text, 'reply')].join('\n');
+    return { newcomers: names.map((name) => mockNewcomer(name, story, groups)) };
+});
+
+/** One take on a face for Dramatis' generator: every field a draft, a portrait or a rebuild may ask for. */
+function mockFaceTake(name, n, family) {
+    return {
+        name,
+        concept: `${name}: ${family ? 'one of the household, with a life of their own' : 'a local with business of their own'} (take ${n})`,
+        want: family ? 'to keep the household together' : 'to finish the day without trouble',
+        need: 'to be heard',
+        wound: {
+            ghost: 'a promise broken long ago',
+            lie: 'nobody keeps their word',
+            triggers: ['broken promises'],
+            coping: 'avoid',
+        },
+        goals: [
+            {
+                text: 'wants the evening to go well because it matters to them, but someone keeps spoiling it',
+                kind: 'external',
+                priority: 1,
+            },
+        ],
+        dream: 'a quiet life',
+        intentions: [{ text: 'settle the quarrel', nextStep: 'talk to the others', dropIf: ['it gets violent'] }],
+        signatures: ['if praised → looks away and smiles', 'if pushed → digs in'],
+        keys: ['a kept promise'],
+        redLinesNever: ['betray their own'],
+        redLinesWould: ['lie to protect someone'],
+        voice: 'Ну, раз так — так.',
+        moodLabel: 'calm',
+        doing: 'going about their evening',
+        sceneGoal: 'to get things done before dark',
+        stanceBehaviour: family ? 'treats them as one of the family' : 'keeps a polite distance',
+        stanceReason: family ? 'family' : 'not known yet',
+        playerStance: family ? 1 : 0,
+        secrets: [],
+        leverage: [],
+        resources: [],
+        ifIgnored: 'gets on with their own business',
+        appetites: [],
+        values: ['benevolence', 'security', 'tradition'],
+        sacrifice: 'power',
+        temperament: {
+            honesty: 1,
+            emotionality: 0,
+            extraversion: 0,
+            agreeableness: 1,
+            conscientiousness: 0,
+            openness: 0,
+        },
+        drivesHigh: ['family', 'order'],
+        drivesLow: ['power'],
+        tactics: ['charm'],
+        proactivity: 5,
+        moodOctant: 'relaxed',
+        role: family ? 'family member' : 'local',
+        species: '',
+        summary: `${name}: rebuilt on the story (take ${n})`,
+        fit: 4 + (n % 2),
+        typicality: 2 + (n % 2),
+    };
+}
+
+/**
+ * Dramatis' generator (`dramatis.generate`): three candidates for a draft, a portrait or a fill — a new face grounded in
+ * the story gets its core back too. The walker alone would answer an empty list (no candidate at all).
+ */
+registerTask('dramatis.generate', (ctx) => {
+    const text = ctx.lastUserText;
+    const name = dramatisList(text, 'Name', /\s\(also:/)[0] ?? 'Someone';
+    const family = /To the player.s character: family/.test(text);
+    return { candidates: [1, 2, 3].map((n) => mockFaceTake(name, n, family)) };
+});
+
+/**
+ * Dramatis' rebuild of dice-made faces (`dramatis.reground`): one take per «Name:» of the request, each on its own
+ * story facts (family when the facts say so).
+ */
+registerTask('dramatis.reground', (ctx) => {
+    const blocks = String(ctx.lastUserText ?? '')
+        .split('<character>')
+        .slice(1);
+    return {
+        characters: blocks.map((block, index) => {
+            const name = (block.match(/^Name: (.+?)(?: \(also: .*\))?$/m)?.[1] ?? `Someone ${index + 1}`).trim();
+            return mockFaceTake(name, index + 1, /To the player.s character: family/.test(block));
+        }),
+    };
+});
+
 /** The reply source of a neighbour's schema: a registered handler, a fixture, or the walker ('walker'). */
 function neighbourHandler(name) {
     const registered = taskHandlers.get(name);

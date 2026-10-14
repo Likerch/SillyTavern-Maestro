@@ -434,7 +434,7 @@ describe('mock LLM', () => {
 
         const walked = await complete({
             messages: [{ role: 'user', content: 'x' }],
-            response_format: schemaOf('dramatis_turn', {
+            response_format: schemaOf('dramatis_director', {
                 type: 'object',
                 required: ['intents', 'mood'],
                 properties: { intents: { type: 'array', items: { type: 'string' } }, mood: { type: 'string' } },
@@ -442,7 +442,169 @@ describe('mock LLM', () => {
         });
         expect(JSON.parse(walked.choices[0]!.message.content)).toEqual({ intents: [], mood: expect.any(String) });
         const recorded = (await (await fetch(`${base}/__requests/last`)).json()) as { scenario: string };
-        expect(recorded.scenario).toBe('schema:dramatis_turn(walker)');
+        expect(recorded.scenario).toBe('schema:dramatis_director(walker)');
+    });
+
+    it('answers Dramatis’s turn pass with a newcomer the player’s message calls «дочь» (new faces on the story)', async () => {
+        const newcomer = {
+            type: 'object',
+            additionalProperties: false,
+            required: ['name', 'role', 'species', 'relation', 'relationNote', 'stanceHint', 'reason', 'groups'],
+            properties: {
+                name: { type: 'string', enum: ['Лиза', 'Гроа'] },
+                role: { type: 'string' },
+                species: { type: 'string' },
+                relation: {
+                    type: 'string',
+                    enum: ['stranger', 'acquaintance', 'family', 'partner', 'friend', 'servant', 'master', 'unknown'],
+                },
+                relationNote: { type: 'string' },
+                stanceHint: { type: ['integer', 'null'], enum: [-3, -2, -1, 0, 1, 2, 3, null] },
+                reason: { type: 'string' },
+                groups: { type: 'array', items: { type: 'string' } },
+            },
+        };
+        const reply = await complete({
+            messages: [
+                { role: 'system', content: 'You are a literary analyst of a role-play story.' },
+                {
+                    role: 'user',
+                    content: [
+                        '<scene>\nPlace: кухня\nNewcomers: Лиза, Гроа\nWorld groups: family members; Beasts\n</scene>',
+                        '<player>\nThe player\'s character: Курьер ("PLAYER"). Their last message:\nЛиза, дочь Джона, садись ужинать.\n</player>',
+                        '<reply>\nЛиза кивает и садится. Гроа рычит за окном.\n</reply>',
+                    ].join('\n\n'),
+                },
+            ],
+            response_format: {
+                type: 'json_schema',
+                json_schema: {
+                    name: 'dramatis_turn',
+                    strict: true,
+                    schema: {
+                        type: 'object',
+                        additionalProperties: false,
+                        required: ['events', 'newNames', 'newcomers'],
+                        properties: {
+                            events: { type: 'array', items: { type: 'string' } },
+                            newNames: { type: 'array', items: { type: 'string' } },
+                            newcomers: { type: 'array', items: newcomer },
+                        },
+                    },
+                },
+            },
+        });
+        const answer = JSON.parse(reply.choices[0]!.message.content) as {
+            events: unknown[];
+            newcomers: Record<string, unknown>[];
+        };
+        expect(answer.events).toEqual([]);
+        expect(answer.newcomers).toEqual([
+            {
+                name: 'Лиза',
+                role: 'daughter',
+                species: '',
+                relation: 'family',
+                relationNote: 'дочь Джона',
+                stanceHint: null,
+                reason: 'the story calls them дочь Джона',
+                groups: ['family members'],
+            },
+            {
+                name: 'Гроа',
+                role: '',
+                species: '',
+                relation: 'unknown',
+                relationNote: '',
+                stanceHint: null,
+                reason: '',
+                groups: [],
+            },
+        ]);
+        const recorded = (await (await fetch(`${base}/__requests/last`)).json()) as { scenario: string };
+        expect(recorded.scenario).toBe('schema:dramatis_turn(task)');
+    });
+
+    it('answers Dramatis’s generator with three candidates and its rebuild with one take per face', async () => {
+        const take = {
+            type: 'object',
+            additionalProperties: false,
+            required: ['concept', 'values', 'playerStance', 'fit'],
+            properties: {
+                concept: { type: 'string' },
+                values: {
+                    type: 'array',
+                    items: { type: 'string', enum: ['benevolence', 'security', 'tradition', 'power'] },
+                },
+                playerStance: { type: ['integer', 'null'], enum: [-3, -2, -1, 0, 1, 2, 3, null] },
+                fit: { type: 'integer', enum: [1, 2, 3, 4, 5] },
+            },
+        };
+        const draft = await complete({
+            messages: [
+                { role: 'system', content: 'You are a character writer.' },
+                {
+                    role: 'user',
+                    content:
+                        "<character>\nName: Лиза\nStory facts (canon):\n- To the player's character: family — «дочь Джона»\n</character>",
+                },
+            ],
+            response_format: {
+                type: 'json_schema',
+                json_schema: {
+                    name: 'dramatis_generate',
+                    strict: true,
+                    schema: {
+                        type: 'object',
+                        additionalProperties: false,
+                        required: ['candidates'],
+                        properties: { candidates: { type: 'array', items: take } },
+                    },
+                },
+            },
+        });
+        const candidates = (JSON.parse(draft.choices[0]!.message.content) as { candidates: Record<string, unknown>[] })
+            .candidates;
+        expect(candidates).toHaveLength(3);
+        expect(candidates[0]).toEqual({
+            concept: expect.stringContaining('Лиза: one of the household'),
+            values: ['benevolence', 'security', 'tradition'],
+            playerStance: 1,
+            fit: expect.any(Number),
+        });
+
+        const named = {
+            ...take,
+            required: ['name', ...take.required],
+            properties: { name: { type: 'string' }, ...take.properties },
+        };
+        const rebuild = await complete({
+            messages: [
+                { role: 'system', content: 'You rebuild each listed character.' },
+                {
+                    role: 'user',
+                    content:
+                        '<character>\nName: Вера\nLevel: a DRAFT\n</character>\n\n<character>\nName: Кира (also: Кирочка)\n</character>',
+                },
+            ],
+            response_format: {
+                type: 'json_schema',
+                json_schema: {
+                    name: 'dramatis_reground',
+                    strict: true,
+                    schema: {
+                        type: 'object',
+                        additionalProperties: false,
+                        required: ['characters'],
+                        properties: { characters: { type: 'array', items: named } },
+                    },
+                },
+            },
+        });
+        const characters = (JSON.parse(rebuild.choices[0]!.message.content) as { characters: { name: string }[] })
+            .characters;
+        expect(characters.map((item) => item.name)).toEqual(['Вера', 'Кира']);
+        expect(characters[0]).toMatchObject({ playerStance: 0, values: ['benevolence', 'security', 'tradition'] });
     });
 
     it('answers Officina’s tasks the same way: its fixtures folder, else the walker', async () => {

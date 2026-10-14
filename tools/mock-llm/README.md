@@ -111,6 +111,16 @@ forbids them; the markers `[mock:fenced]`, `[mock:badjson]`, `[mock:truncate]`, 
 JSON, a refusal, a cut stream, 429 — need no code of their own. The recorded scenario names the source:
 `schema:officina_bible(task|fixture|walker)`.
 
+Dramatis (new faces on the story, after its 1.6.0) has handlers of its own:
+
+- `dramatis.turn` — the turn pass; besides the walker's fields it reports a `newcomers` entry for every name of the
+  prompt's «Newcomers:» line: a kinship, household or partner word next to the name in the player's message or the
+  reply («Лиза, дочь Джона…», «служанка», "maid") gives the relation (`family`, `servant`, `partner`, `master`), the
+  words («дочь Джона») and, for family, the «World groups:» entry that names a family; otherwise `unknown`;
+- `dramatis.generate` — three candidates for a draft, a portrait or a fill, the core of a new face included (the walker
+  alone would answer an empty list); a «To the player's character: family» fact gives a warm stance;
+- `dramatis.reground` — the rebuild of faces an older Dramatis drew from dice: one take per «Name:» of the request.
+
 ## Flags
 
 Environment variable / request header (header wins) / `/__config` key:
