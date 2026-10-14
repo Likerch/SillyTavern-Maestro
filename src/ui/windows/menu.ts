@@ -299,17 +299,21 @@ export class FloatingMenu {
         const view = viewport();
         const rect = anchor.getBoundingClientRect();
         if (isSheetViewport()) {
+            // A width and `top` only: on phones ST fixes `html` at zero size with a transform, which makes it the box of
+            // fixed elements, so `right` and `bottom` would count from its top-left corner (off the screen).
             node.classList.add('maestro-menu-sheet');
             node.style.left = `${MARGIN}px`;
-            node.style.right = `${MARGIN}px`;
+            node.style.right = '';
+            node.style.bottom = '';
+            node.style.width = `${Math.max(0, view.width - 2 * MARGIN)}px`;
             const low = view.height > 0 && rect.top > view.height / 2;
             node.classList.toggle('maestro-menu-up', low);
             if (low) {
-                node.style.top = '';
-                node.style.bottom = `${Math.max(MARGIN, Math.round(view.height - rect.top + 4))}px`;
-                node.style.maxHeight = `${Math.max(120, Math.round(rect.top - 4 - MARGIN))}px`;
+                const room = Math.max(120, Math.round(rect.top - 4 - MARGIN));
+                node.style.maxHeight = `${room}px`;
+                const height = Math.min(node.offsetHeight || room, room);
+                node.style.top = `${Math.max(MARGIN, Math.round(rect.top - 4 - height))}px`;
             } else {
-                node.style.bottom = '';
                 node.style.maxHeight = '';
                 node.style.top = `${Math.max(MARGIN, Math.round(rect.bottom + 4))}px`;
             }

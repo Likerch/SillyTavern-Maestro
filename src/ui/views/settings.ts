@@ -103,6 +103,15 @@ export function settingsTab(env: ViewEnv): PultTab {
                 },
             }),
             toggle({
+                label: t('ui.settings.composerMerge'),
+                hint: t('ui.settings.composerMergeHint'),
+                checked: core().composerMerge !== false,
+                onChange: (checked) => {
+                    core().composerMerge = checked;
+                    commit('core.composerMerge');
+                },
+            }),
+            toggle({
                 label: t('ui.settings.debug'),
                 hint: t('ui.settings.debugHint'),
                 checked: core().debug,

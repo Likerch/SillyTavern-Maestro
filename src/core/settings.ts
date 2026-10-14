@@ -24,6 +24,7 @@ export function defaultCoreSettings(): CoreSettings {
         chatNotices: 'all',
         storyLanguage: 'auto',
         composerButton: true,
+        composerMerge: true,
     };
 }
 
@@ -159,5 +160,6 @@ export function migrateCore(settings: CoreSettings): CoreSettings {
     if (!CHAT_NOTICES.includes(settings.chatNotices as ChatNoticesLevel)) settings.chatNotices = 'all';
     if (!STORY_LANGUAGES.includes(settings.storyLanguage as StoryLanguageChoice)) settings.storyLanguage = 'auto';
     if (typeof settings.composerButton !== 'boolean') settings.composerButton = true;
+    if (typeof settings.composerMerge !== 'boolean') settings.composerMerge = true;
     return settings;
 }

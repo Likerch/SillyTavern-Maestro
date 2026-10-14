@@ -2,12 +2,13 @@
 // The Maestro button at the message box (M40): mounted once right after ST's wand in #leftSendForm (next to other
 // extensions' icons), hidden while no group has items or when switched off, re-mounted when ST rebuilds the box; the
 // registry of quick actions (groups, visibility, submenus with «Назад», errors), the same groups in the Maestro menu,
-// and Ui.prompt over ST's input popup.
+// «Одна кнопка» (ST's menu, the wand, LoreBook Creator and, on phones, QuickPersona opened from the button), and
+// Ui.prompt over ST's input popup.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ComposerGroup, ComposerItem } from '../../src/shared/contracts';
 import { createUi } from '../../src/ui';
 import type { UiImpl } from '../../src/ui';
-import { COMPOSER_BUTTON_ID } from '../../src/ui/views/composer';
+import { COMPOSER_BUTTON_ID, MERGED_CLASS } from '../../src/ui/views/composer';
 import { resetRegistries } from '../../src/ui/views/registries';
 import { resetSlashSlots } from '../../src/ui/views/slash-commands';
 import { buildStDom, installUiEnv } from '../helpers/ui-env';
@@ -42,6 +43,8 @@ beforeEach(() => {
     buildBox();
     env = installUiEnv('ru');
     env.settings.core().firstRunDone = true;
+    // The button alone; «Одна кнопка» has its own block below.
+    env.settings.core().composerMerge = false;
     ui = createUi({ host: env.host, i18n: env.i18n, settings: env.settings, log: env.log });
     ui.mount();
     ui.registerCoreViews(coreFakes(env));
@@ -156,6 +159,111 @@ describe('the button at the message box', () => {
         expect(headings()).toContain('Группа a');
         expect(menuIds()).toContain('a:x');
         expect(menuIds().at(-1)).toBe('settings');
+    });
+});
+
+describe('one button at the message box', () => {
+    const form = () => document.getElementById('leftSendForm')!;
+    const merge = (on: boolean) => {
+        env.settings.core().composerMerge = on;
+        env.settings.notify('core.composerMerge');
+    };
+    const addPersona = (name: string) =>
+        form().insertAdjacentHTML(
+            'beforeend',
+            `<div id="quickPersona" class="interactable"><img id="quickPersonaImg" title="${name}"></div>`,
+        );
+
+    afterEach(() => {
+        vi.unstubAllGlobals();
+    });
+
+    it('takes in ST’s menu, the wand and LoreBook Creator: a general menu icon, shown with no Maestro actions', () => {
+        merge(true);
+        expect(form().classList.contains(MERGED_CLASS)).toBe(true);
+        expect(button()!.style.display).toBe('');
+        expect(button()!.classList.contains('fa-bars')).toBe(true);
+        expect(button()!.classList.contains('fa-masks-theater')).toBe(false);
+        expect(button()!.getAttribute('title')).toBe('Меню: SillyTavern, расширения, Maestro');
+        ui.addComposerAction(group('a', () => [{ id: 'x', label: 'Икс', run: () => {} }]));
+        button()!.click();
+        expect(menuIds()).toEqual([
+            'merged:options_button',
+            'merged:extensionsMenuButton',
+            'merged:lbc-trigger',
+            'a:x',
+        ]);
+        expect(menuItem('merged:options_button')!.textContent).toContain('Меню SillyTavern');
+        expect(headings()).toEqual(['Группа a']);
+    });
+
+    it('opens the icons’ own menus: a click that does not bubble for ST, one that does for LoreBook Creator', () => {
+        merge(true);
+        const onOptions = vi.fn();
+        const onLbc = vi.fn();
+        const onDocument = vi.fn();
+        document.getElementById('options_button')!.addEventListener('click', onOptions);
+        document.addEventListener('click', (event) => {
+            onDocument((event.target as HTMLElement).id);
+            if ((event.target as HTMLElement).closest('#lbc-trigger')) onLbc();
+        });
+        button()!.click();
+        menuItem('merged:options_button')!.click();
+        expect(onOptions).toHaveBeenCalledTimes(1);
+        expect(document.querySelector('.maestro-menu')).toBeNull();
+        // ST's «a click elsewhere closes the menu» on the document never sees it.
+        expect(onDocument).not.toHaveBeenCalledWith('options_button');
+        button()!.click();
+        menuItem('merged:lbc-trigger')!.click();
+        expect(onLbc).toHaveBeenCalledTimes(1);
+    });
+
+    it('leaves out icons their owners hide; the persona picker only on phones, with its name', () => {
+        merge(true);
+        document.getElementById('extensionsMenuButton')!.style.display = 'none';
+        addPersona('Кай');
+        button()!.click();
+        expect(menuIds()).toEqual(['merged:options_button', 'merged:lbc-trigger']);
+        button()!.click();
+        vi.stubGlobal('matchMedia', (query: string) => ({ matches: query.includes('1000px'), media: query }));
+        button()!.click();
+        expect(menuIds()).toEqual(['merged:options_button', 'merged:lbc-trigger', 'merged:quickPersona']);
+        expect(menuItem('merged:quickPersona')!.querySelector('.maestro-menu-hint')?.textContent).toBe('Кай');
+    });
+
+    it('opens above the box on phones with a width and a top only (ST fixes html at zero size there)', () => {
+        merge(true);
+        vi.stubGlobal('matchMedia', (query: string) => ({ matches: query.includes('1000px'), media: query }));
+        vi.stubGlobal('innerWidth', 375);
+        vi.stubGlobal('innerHeight', 812);
+        button()!.getBoundingClientRect = () => new DOMRect(3, 770, 35, 40);
+        button()!.click();
+        const menu = document.querySelector<HTMLElement>('.maestro-composer-menu')!;
+        expect(menu.classList.contains('maestro-menu-up')).toBe(true);
+        expect(menu.style.bottom).toBe('');
+        expect(menu.style.right).toBe('');
+        expect(menu.style.width).toBe('359px');
+        expect(menu.style.maxHeight).toBe('758px');
+        expect(parseInt(menu.style.top, 10)).toBeGreaterThanOrEqual(8);
+        expect(parseInt(menu.style.top, 10)).toBeLessThan(770);
+    });
+
+    it('gives the icons back when switched off, with the button or on its own', () => {
+        merge(true);
+        merge(false);
+        expect(form().classList.contains(MERGED_CLASS)).toBe(false);
+        expect(button()!.classList.contains('fa-masks-theater')).toBe(true);
+        expect(button()!.style.display).toBe('none');
+        merge(true);
+        env.settings.core().composerButton = false;
+        env.settings.notify('core.composerButton');
+        expect(form().classList.contains(MERGED_CLASS)).toBe(false);
+        expect(button()).toBeNull();
+        env.settings.core().composerButton = true;
+        env.settings.notify('core.composerButton');
+        expect(form().classList.contains(MERGED_CLASS)).toBe(true);
+        ui.dispose();
+        expect(form().classList.contains(MERGED_CLASS)).toBe(false);
     });
 });
 

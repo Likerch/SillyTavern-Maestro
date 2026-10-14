@@ -1737,9 +1737,51 @@
     color: var(--maestro-accent);
 }
 
+/*
+ * «Одна кнопка» (views/composer.ts): the merged icons stay in the box, hidden at zero width right before the button,
+ * so the menus their owners anchor to them (ST's menu and wand, QuickPersona's picker) open over the button. Their
+ * owners show and hide them with an inline `display`, which is left alone.
+ */
+#leftSendForm.maestro-composer-merged > #options_button,
+#leftSendForm.maestro-composer-merged > #extensionsMenuButton,
+#leftSendForm.maestro-composer-merged > #lbc-trigger {
+    order: 10;
+    width: 0 !important;
+    min-width: 0 !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    border-width: 0 !important;
+    overflow: hidden !important;
+    visibility: hidden !important;
+}
+
+#leftSendForm.maestro-composer-merged > #maestro-composer-button {
+    order: 11;
+}
+
+#leftSendForm.maestro-composer-merged > #quickPersona {
+    order: 12;
+}
+
 /* ------------------------------------------------------------------ phones (ST breakpoint) */
 
 @media screen and (max-width: 1000px) {
+    /* Phones: the persona picker goes into the merged button too. */
+    #leftSendForm.maestro-composer-merged > #quickPersona {
+        order: 10;
+        width: 0 !important;
+        min-width: 0 !important;
+        margin-left: 0 !important;
+        margin-right: 0 !important;
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+        border-width: 0 !important;
+        overflow: hidden !important;
+        visibility: hidden !important;
+    }
+
     .popup.maestro-wizard-dialog {
         width: 100dvw !important;
         min-width: 100dvw !important;

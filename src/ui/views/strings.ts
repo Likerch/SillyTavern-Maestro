@@ -48,11 +48,19 @@ export const UI_STRINGS: I18nParts = {
         'ui.menu.back': 'Back',
 
         'ui.composer.title': 'Maestro: quick actions',
+        'ui.composer.menuTitle': 'Menu: SillyTavern, extensions, Maestro',
+        'ui.composer.merged.options': 'SillyTavern menu',
+        'ui.composer.merged.extensions': 'Extensions',
+        'ui.composer.merged.lbc': 'LoreBook Creator',
+        'ui.composer.merged.persona': 'Persona',
         'ui.prompt.ok': 'OK',
         'ui.prompt.cancel': 'Cancel',
         'ui.settings.composerButton': 'Maestro button at the message box',
         'ui.settings.composerButtonHint':
             'One icon next to the wand under the message box: BunnyMo commands, changing clothes and other quick actions. The same actions are in the Maestro menu.',
+        'ui.settings.composerMerge': 'One button at the message box',
+        'ui.settings.composerMergeHint':
+            'SillyTavern’s menu, the wand, LoreBook Creator and, on phones, the persona picker open from the Maestro button instead of standing next to it.',
 
         'ui.mesButton.title': 'Maestro: dossier, mechanics',
         'ui.mesButton.dossier': 'Dossier: {name}',
@@ -432,11 +440,19 @@ export const UI_STRINGS: I18nParts = {
         'ui.menu.back': 'Назад',
 
         'ui.composer.title': 'Maestro: быстрые действия',
+        'ui.composer.menuTitle': 'Меню: SillyTavern, расширения, Maestro',
+        'ui.composer.merged.options': 'Меню SillyTavern',
+        'ui.composer.merged.extensions': 'Расширения',
+        'ui.composer.merged.lbc': 'LoreBook Creator',
+        'ui.composer.merged.persona': 'Персона',
         'ui.prompt.ok': 'Готово',
         'ui.prompt.cancel': 'Отмена',
         'ui.settings.composerButton': 'Кнопка Maestro у поля ввода',
         'ui.settings.composerButtonHint':
             'Один значок рядом с волшебной палочкой под полем ввода: команды BunnyMo, переодевание и другие быстрые действия. Те же действия есть в меню Maestro.',
+        'ui.settings.composerMerge': 'Одна кнопка у поля ввода',
+        'ui.settings.composerMergeHint':
+            'Меню SillyTavern, волшебная палочка, LoreBook Creator, а на телефоне и выбор персоны открываются из кнопки Maestro, а не стоят рядом с ней.',
 
         'ui.mesButton.title': 'Maestro: досье, механики',
         'ui.mesButton.dossier': 'Досье: {name}',

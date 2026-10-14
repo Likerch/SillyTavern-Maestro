@@ -5,6 +5,11 @@
 // the same groups are listed in the Maestro menu. The button hides while no group has items, and when switched off in
 // the settings (CoreSettings.composerButton). Mounting is idempotent (LoreBook Creator's `#lbc-trigger` and other
 // neighbours' icons stay where they are); ST's render events re-check whether the node is still there.
+//
+// «Одна кнопка» (CoreSettings.composerMerge): the button also takes in ST's menu, the wand, LoreBook Creator and, on
+// phones, QuickPersona's picker. Their icons stay in the box at zero width, hidden (style.css, `.maestro-composer-merged`
+// on the form), and the menu opens them with a click on the icon itself: ST's and the neighbours' own menus open where
+// they belong (anchored to the icon, which sits right before this button), with everything they do.
 import type {
     ComposerGroup,
     ComposerItem,
@@ -14,12 +19,41 @@ import type {
     SettingsService,
     Unsubscribe,
 } from '../../shared/contracts';
+import { isSheetViewport } from '../windows/layout';
 import type { FloatingMenu, MenuGroup, MenuItem } from '../windows/menu';
 
 export const COMPOSER_BUTTON_ID = 'maestro-composer-button';
 export const COMPOSER_ICON = 'fa-masks-theater';
+/** The icon of the merged button: a general menu. */
+export const MERGED_ICON = 'fa-bars';
+/** On `#leftSendForm` while the icons are merged into the button. */
+export const MERGED_CLASS = 'maestro-composer-merged';
 const FORM = '#leftSendForm';
 const WAND = 'extensionsMenuButton';
+
+interface MergedIcon {
+    /** The icon's id in `#leftSendForm`. */
+    id: string;
+    icon: string;
+    /** String key of the menu item. */
+    label: string;
+    /** Phones only (≤1000px, style.css): on wide screens the icon keeps its own place. */
+    phoneOnly?: boolean;
+    /**
+     * The neighbour listens on the document (a delegated handler), so the click has to bubble. The others get a click
+     * that does not bubble: their own «a click elsewhere closes it» handlers on the document would close at once the
+     * menu that click opened.
+     */
+    bubbles?: boolean;
+}
+
+/** In menu order; style.css collapses the same ids. */
+const MERGED: readonly MergedIcon[] = [
+    { id: 'options_button', icon: 'fa-bars', label: 'ui.composer.merged.options' },
+    { id: WAND, icon: 'fa-magic-wand-sparkles', label: 'ui.composer.merged.extensions' },
+    { id: 'lbc-trigger', icon: 'fa-book-atlas', label: 'ui.composer.merged.lbc', bubbles: true },
+    { id: 'quickPersona', icon: 'fa-user', label: 'ui.composer.merged.persona', phoneOnly: true },
+];
 /** ST events after which the box may have been rebuilt, the chat or the active books changed (keys of eventTypes). */
 const EVENTS = [
     'APP_READY',
@@ -135,7 +169,9 @@ export class ComposerActions {
         }
         this.offs.push(
             this.deps.settings.onChange((path) => {
-                if (path === 'core.composerButton' || path.startsWith('modules.')) this.refresh();
+                if (path === 'core.composerButton' || path === 'core.composerMerge' || path.startsWith('modules.')) {
+                    this.refresh();
+                }
             }),
         );
     }
@@ -157,9 +193,14 @@ export class ComposerActions {
         this.node?.remove();
         this.node = null;
         document.getElementById(COMPOSER_BUTTON_ID)?.remove();
+        document.querySelector(FORM)?.classList.remove(MERGED_CLASS);
     }
 
-    /** The button is there (or not) and shown while switched on and a group has items. */
+    /**
+     * The button is there (or not) and shown while switched on and a group has items, or (merged) while one of the
+     * merged icons is in the box: their own visibility changes without telling anyone (ST checks the wand's every
+     * second), and a hidden button would leave them out of reach.
+     */
     refresh(): void {
         if (this.disposed) return;
         const enabled = this.deps.settings.core().composerButton !== false;
@@ -167,13 +208,59 @@ export class ComposerActions {
             if (this.deps.menu.anchorNode() === this.node) this.deps.menu.close();
             this.node?.remove();
             this.node = null;
+            document.querySelector(FORM)?.classList.remove(MERGED_CLASS);
             return;
         }
         const node = this.ensure();
         if (!node) return;
-        const shown = this.menuGroups().length > 0;
+        const merged = this.merged();
+        node.parentElement?.classList.toggle(MERGED_CLASS, merged);
+        node.classList.toggle(MERGED_ICON, merged);
+        node.classList.toggle(COMPOSER_ICON, !merged);
+        this.label(node);
+        const shown = this.menuGroups().length > 0 || (merged && this.mergedIcons().length > 0);
         node.style.display = shown ? '' : 'none';
         if (!shown && this.deps.menu.anchorNode() === node) this.deps.menu.close();
+    }
+
+    /** Whether the button takes in the neighbours' icons (on by default). */
+    private merged(): boolean {
+        return this.deps.settings.core().composerMerge !== false;
+    }
+
+    /** The merged icons that are in the box (shown or not). */
+    private mergedIcons(): { spec: MergedIcon; node: HTMLElement }[] {
+        const form = document.querySelector<HTMLElement>(FORM);
+        if (!form) return [];
+        const out: { spec: MergedIcon; node: HTMLElement }[] = [];
+        for (const spec of MERGED) {
+            const node = document.getElementById(spec.id);
+            if (node && node.parentElement === form) out.push({ spec, node });
+        }
+        return out;
+    }
+
+    /** The merged icons their owners show now, as one group on top of the menu. */
+    private mergedGroups(): MenuGroup[] {
+        if (!this.merged()) return [];
+        const phone = isSheetViewport();
+        const items: MenuItem[] = [];
+        for (const { spec, node } of this.mergedIcons()) {
+            if (spec.phoneOnly && !phone) continue;
+            // ST and LoreBook Creator hide their icons with an inline `display: none` (style.css never does).
+            if (node.style.display === 'none' || globalThis.getComputedStyle?.(node).display === 'none') continue;
+            const item: MenuItem = {
+                id: `merged:${spec.id}`,
+                label: this.deps.i18n.t(spec.label),
+                icon: spec.icon,
+                run: () => press(node, spec.bubbles === true),
+            };
+            // QuickPersona keeps the current persona's name in its picture's title.
+            const hint = node.querySelector('img')?.getAttribute('title');
+            if (hint) item.hint = hint;
+            items.push(item);
+        }
+        return items.length ? [{ items }] : [];
     }
 
     /** Now and once more after the neighbours' own async work. */
@@ -222,9 +309,13 @@ export class ComposerActions {
     }
 
     private label(node: HTMLElement): void {
-        const text = this.deps.i18n.t('ui.composer.title');
+        const text = this.title();
         node.title = text;
         node.setAttribute('aria-label', text);
+    }
+
+    private title(): string {
+        return this.deps.i18n.t(this.merged() ? 'ui.composer.menuTitle' : 'ui.composer.title');
     }
 
     /** Opens the menu of quick actions above the box (a second click closes it). */
@@ -234,17 +325,26 @@ export class ComposerActions {
             menu.close();
             return;
         }
-        const groups = this.menuGroups();
+        const groups = [...this.mergedGroups(), ...this.menuGroups()];
         if (!groups.length) {
             this.refresh();
             return;
         }
         anchor.setAttribute('aria-expanded', 'true');
         menu.open(anchor, groups, {
-            label: this.deps.i18n.t('ui.composer.title'),
+            label: this.title(),
             className: 'maestro-composer-menu',
             backLabel: this.deps.i18n.t('ui.menu.back'),
             onClose: () => anchor.setAttribute('aria-expanded', 'false'),
         });
     }
+}
+
+/** Clicks a merged icon so that its owner's handler opens its menu (see MergedIcon.bubbles). */
+function press(node: HTMLElement, bubbles: boolean): void {
+    if (bubbles) {
+        node.click();
+        return;
+    }
+    node.dispatchEvent(new MouseEvent('click', { bubbles: false, cancelable: true }));
 }

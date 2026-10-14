@@ -63,6 +63,11 @@ export interface CoreSettings {
     storyLanguage?: 'auto' | 'ru' | 'en';
     /** The Maestro button at the message box with quick actions (M40). Optional until filled with the default (on). */
     composerButton?: boolean;
+    /**
+     * «Одна кнопка»: the button also opens ST's menu, the wand, LoreBook Creator and, on phones, the persona picker,
+     * whose icons leave the box. Optional until filled with the default (on).
+     */
+    composerMerge?: boolean;
 }
 
 export type ChatNoticesLevel = 'all' | 'pending' | 'none';
