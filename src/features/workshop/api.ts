@@ -9,7 +9,8 @@ export const WORKSHOP_ID = 'M42';
 
 /**
  * Modules that keep running in a workshop chat: tools and looks, nothing that reads or shapes the story. Every other
- * module (a later one too) is paused there — it starts again when a story chat opens.
+ * module (a later one too) is paused there — it starts again when a story chat opens. A paused module may keep a narrow
+ * part that has nothing to do with the chat (MaestroModule.whileSuspended): M25 keeps its definitions (1.24.1).
  */
 export const WORKSHOP_KEEPS: readonly string[] = [
     WORKSHOP_KEY,

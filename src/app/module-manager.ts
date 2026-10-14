@@ -1,12 +1,23 @@
 import type { App, Logger, MaestroModule, ModuleManager, Unsubscribe } from '../shared/contracts';
 import type { Settings } from '../core/settings';
 
+type Disposer = Unsubscribe | (() => void | Promise<void>);
+
+/** A module's `whileSuspended` part while it runs. */
+interface HeldPart {
+    disposers: Disposer[];
+    /** API keys it exposed while starting; dropped when it is released. */
+    exposed: Set<string>;
+}
+
 interface Entry {
     module: MaestroModule;
     running: boolean;
-    disposers: (Unsubscribe | (() => void | Promise<void>))[];
+    disposers: Disposer[];
     /** API keys the module exposed while starting (besides its own key); dropped when it stops. */
     exposed: Set<string>;
+    /** Its `whileSuspended` part, while the pause holds the module off; never together with `running`. */
+    held: HeldPart | null;
 }
 
 /**
@@ -18,6 +29,13 @@ export class Modules implements ModuleManager {
     private readonly apis = new Map<string, unknown>();
     private app: App | null = null;
     private starting: Entry | null = null;
+    /** The `whileSuspended` part being started (its exposures are collected like a module's). */
+    private holding: HeldPart | null = null;
+    /**
+     * startAll() is running: held parts wait for its end (in a service chat opened at page load the pause comes while
+     * the modules start, and a held part must find the kept modules it builds on running).
+     */
+    private booting = false;
     /**
      * «Мастерская» (M42): while set, only these modules run; the others stay off without their switch changing and
      * start again on resume(). null = no pause.
@@ -34,7 +52,7 @@ export class Modules implements ModuleManager {
     register(modules: MaestroModule[], registerStrings: (module: MaestroModule) => void): void {
         for (const module of modules) {
             if (this.entries.has(module.key)) throw new Error(`duplicate module key ${module.key}`);
-            this.entries.set(module.key, { module, running: false, disposers: [], exposed: new Set() });
+            this.entries.set(module.key, { module, running: false, disposers: [], exposed: new Set(), held: null });
             this.settings.registerModule(module.key, module.defaults as () => object, module.enabledByDefault);
             registerStrings(module);
         }
@@ -44,9 +62,15 @@ export class Modules implements ModuleManager {
     async startAll(app: App): Promise<void> {
         this.app = app;
         const ordered = [...this.entries.values()].sort((a, b) => a.module.stage - b.module.stage);
-        for (const entry of ordered) {
-            if (this.settings.isModuleEnabled(entry.module.key)) await this.start(entry);
+        this.booting = true;
+        try {
+            for (const entry of ordered) {
+                if (this.settings.isModuleEnabled(entry.module.key)) await this.start(entry);
+            }
+        } finally {
+            this.booting = false;
         }
+        await this.startHeldParts();
     }
 
     async stopAll(): Promise<void> {
@@ -54,7 +78,10 @@ export class Modules implements ModuleManager {
         this.keep = null;
         this.held.clear();
         const ordered = [...this.entries.values()].sort((a, b) => b.module.stage - a.module.stage);
-        for (const entry of ordered) await this.stop(entry);
+        for (const entry of ordered) {
+            await this.stopHeld(entry);
+            await this.stop(entry);
+        }
     }
 
     list(): { module: MaestroModule; enabled: boolean; running: boolean; missing: string[]; suspended?: boolean }[] {
@@ -79,6 +106,7 @@ export class Modules implements ModuleManager {
         if (!entry) return;
         this.settings.setModuleEnabled(key, false);
         this.held.delete(key);
+        await this.stopHeld(entry);
         await this.stop(entry);
     }
 
@@ -95,6 +123,8 @@ export class Modules implements ModuleManager {
                 this.held.add(entry.module.key);
             }
         }
+        // After every stop, in stage order: a held part never sees a module that is about to stop.
+        if (!this.booting) await this.startHeldParts();
     }
 
     async resume(): Promise<void> {
@@ -103,6 +133,8 @@ export class Modules implements ModuleManager {
         const ordered = [...this.entries.values()].sort((a, b) => a.module.stage - b.module.stage);
         for (const entry of ordered) {
             if (!this.held.delete(entry.module.key)) continue;
+            // Released first: the module starts afresh and reads its data again (what the part wrote meanwhile too).
+            await this.stopHeld(entry);
             if (this.settings.isModuleEnabled(entry.module.key)) await this.start(entry);
         }
         this.held.clear();
@@ -123,6 +155,7 @@ export class Modules implements ModuleManager {
         }
         this.apis.set(key, api);
         this.starting?.exposed.add(key);
+        this.holding?.exposed.add(key);
     }
 
     private missing(module: MaestroModule): string[] {
@@ -134,8 +167,9 @@ export class Modules implements ModuleManager {
         const app = this.app;
         if (!app || entry.running) return;
         if (this.keep && !this.keep.has(entry.module.key)) {
-            // Paused by «Мастерская»: it starts on resume().
+            // Paused by «Мастерская»: it starts on resume(); its `whileSuspended` part runs meanwhile.
             this.held.add(entry.module.key);
+            if (!this.booting) await this.startHeld(entry);
             return;
         }
         const missing = this.missing(entry.module);
@@ -182,12 +216,58 @@ export class Modules implements ModuleManager {
     }
 
     private async release(entry: Entry): Promise<void> {
-        for (const dispose of entry.disposers.splice(0).reverse()) {
+        await this.runDisposers(entry.module.key, entry.disposers);
+    }
+
+    private async runDisposers(key: string, disposers: Disposer[]): Promise<void> {
+        for (const dispose of disposers.splice(0).reverse()) {
             try {
                 await dispose();
             } catch (error) {
-                this.log.error(`release in ${entry.module.key} failed`, error);
+                this.log.error(`release in ${key} failed`, error);
             }
         }
+    }
+
+    /** Starts the parts of the held modules that keep running during the pause, in stage order. */
+    private async startHeldParts(): Promise<void> {
+        if (!this.keep) return;
+        const ordered = [...this.entries.values()].sort((a, b) => a.module.stage - b.module.stage);
+        for (const entry of ordered) if (this.held.has(entry.module.key)) await this.startHeld(entry);
+    }
+
+    private async startHeld(entry: Entry): Promise<void> {
+        const app = this.app;
+        const part = entry.module.whileSuspended;
+        if (!app || !part || entry.held || entry.running || !this.keep) return;
+        if (!this.held.has(entry.module.key) || !this.settings.isModuleEnabled(entry.module.key)) return;
+        if (this.missing(entry.module).length) return;
+        const held: HeldPart = { disposers: [], exposed: new Set() };
+        entry.held = held;
+        const log = this.log.scope(entry.module.id);
+        this.holding = held;
+        try {
+            await part.call(entry.module, {
+                app,
+                settings: this.settings.module(entry.module.key),
+                log,
+                own: (dispose) => held.disposers.push(dispose),
+            });
+            log.debug('kept while suspended');
+        } catch (error) {
+            log.error('the part kept while suspended failed', error);
+            await this.stopHeld(entry);
+        } finally {
+            if (this.holding === held) this.holding = null;
+        }
+    }
+
+    private async stopHeld(entry: Entry): Promise<void> {
+        const held = entry.held;
+        if (!held) return;
+        entry.held = null;
+        await this.runDisposers(entry.module.key, held.disposers);
+        for (const key of held.exposed) this.apis.delete(key);
+        held.exposed.clear();
     }
 }

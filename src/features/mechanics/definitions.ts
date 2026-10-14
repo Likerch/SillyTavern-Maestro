@@ -3,7 +3,9 @@
 // `extensions.maestro.mechanic`. The entries are disabled — ST never scans them; Maestro injects the rules itself, near
 // the end of the prompt. Here: the cache of every definition (refreshed on WORLDINFO_UPDATED, chat change and role
 // changes — never on the send path), scope filtering, the per-chat switch (a pointer in chat metadata), saves into the
-// settings' book (created with the role 'maestro' and never activated), removal, and the journal undo.
+// settings' book (created with the role 'maestro' and never activated), removal, and the journal undo. A service chat
+// (M42) keeps this part alone, as a fresh instance (index.ts `whileSuspended`); the module reads the books again when
+// it starts after the pause.
 //
 // Host rules (ARCHITECTURE «Lorebook writes»): a fresh copy is loaded, changed and saved at once with
 // saveWorldInfo(name, data, true); then ST's editor is reloaded and DES's Lore Library cache reset (dossier/book-io).
@@ -146,6 +148,11 @@ export class MechanicDefinitions implements DefinitionsPart {
     /** Resolves when the books known now are read (tests, the constructor's first draw). */
     ready(): Promise<void> {
         return this.syncing ?? Promise.resolve();
+    }
+
+    /** Resolves when the queued writes are done (the part a service chat keeps lets them land before it goes). */
+    idle(): Promise<void> {
+        return this.chain.then(() => undefined);
     }
 
     onChange(listener: () => void): Unsubscribe {
@@ -392,6 +399,9 @@ export class MechanicDefinitions implements DefinitionsPart {
             return Promise.reject(new Error(this.t('m25.def.error.invalid', { issue: this.issueText(first) })));
         }
         return this.enqueue(async () => {
+            // The books are read first: a part started a moment ago (a service chat just opened) must not miss a
+            // definition of the same id elsewhere.
+            await this.ready();
             const io = this.io();
             const known = draft.book && this.byBook.has(draft.book) ? draft.book : '';
             const book = known || this.deps.settings().book.trim() || DEFAULT_MECHANICS_BOOK;

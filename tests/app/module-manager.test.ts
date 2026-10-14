@@ -117,6 +117,122 @@ describe('Modules', () => {
             expect(log).toEqual(['stop theme', 'stop canon', 'start off', 'start theme']);
         });
 
+        describe('whileSuspended (1.24.1)', () => {
+            /** A module with a part kept during the pause; both log, both expose an API. */
+            function kept(key: string, log: string[], stage = 5, fail = false): MaestroModule {
+                return {
+                    ...counted(key, log, stage),
+                    init: ({ app, own }) => {
+                        log.push(`start ${key}`);
+                        app.modules.expose(key, { full: true });
+                        app.modules.expose(`${key}Defs`, { from: 'module' });
+                        own(() => {
+                            log.push(`stop ${key}`);
+                        });
+                    },
+                    whileSuspended: ({ app, own }) => {
+                        log.push(`keep ${key} (roles ${app.modules.api('roles') ? 'up' : 'down'})`);
+                        app.modules.expose(`${key}Defs`, { from: 'part' });
+                        own(() => {
+                            log.push(`release ${key}`);
+                        });
+                        if (fail) throw new Error('boom');
+                    },
+                };
+            }
+
+            async function setupKept(log: string[], fail = false) {
+                const { modules, app } = setup();
+                (app as unknown as { modules: Modules }).modules = modules;
+                modules.register(
+                    [
+                        counted('workshop', log, 0),
+                        {
+                            ...counted('roles', log, 2),
+                            init: ({ app, own }) => {
+                                log.push('start roles');
+                                app.modules.expose('roles', {});
+                                own(() => log.push('stop roles'));
+                            },
+                        },
+                        kept('mech', log, 11, fail),
+                        counted('late', log, 13),
+                    ],
+                    () => {},
+                );
+                return { modules, app };
+            }
+
+            it('runs only while the pause holds the module, after the stops, released before it starts again', async () => {
+                const log: string[] = [];
+                const { modules, app } = await setupKept(log);
+                await modules.startAll(app);
+                log.length = 0;
+                await modules.suspend(['workshop', 'roles']);
+                expect(log).toEqual(['stop late', 'stop mech', 'keep mech (roles up)']);
+                expect(modules.api('mech')).toBeUndefined();
+                expect(modules.api('mechDefs')).toEqual({ from: 'part' });
+                // A second suspend (another service chat) keeps the same part.
+                await modules.suspend(['workshop', 'roles']);
+                expect(log).toHaveLength(3);
+                log.length = 0;
+                await modules.resume();
+                expect(log).toEqual(['release mech', 'start mech', 'start late']);
+                expect(modules.api('mechDefs')).toEqual({ from: 'module' });
+                expect(modules.api('mech')).toEqual({ full: true });
+            });
+
+            it('follows the switch: not for a module off, released when switched off, started when switched on', async () => {
+                const log: string[] = [];
+                const { modules, app } = await setupKept(log);
+                await modules.startAll(app);
+                await modules.suspend(['workshop', 'roles']);
+                log.length = 0;
+                await modules.disable('mech');
+                expect(log).toEqual(['release mech']);
+                expect(modules.api('mechDefs')).toBeUndefined();
+                await modules.resume();
+                await modules.suspend(['workshop', 'roles']);
+                expect(log).toEqual(['release mech', 'start late', 'stop late']);
+                log.length = 0;
+                await modules.enable('mech');
+                expect(log).toEqual(['keep mech (roles up)']);
+                await modules.stopAll();
+                expect(log).toContain('release mech');
+                expect(log).not.toContain('start mech');
+                expect(modules.api('mechDefs')).toBeUndefined();
+            });
+
+            it('a part that fails is released with its API', async () => {
+                const log: string[] = [];
+                const { modules, app } = await setupKept(log, true);
+                await modules.startAll(app);
+                await modules.suspend(['workshop', 'roles']);
+                expect(log.slice(-2)).toEqual(['keep mech (roles up)', 'release mech']);
+                expect(modules.api('mechDefs')).toBeUndefined();
+                log.length = 0;
+                await modules.resume();
+                expect(log).toEqual(['start mech', 'start late']);
+            });
+
+            it('a pause that comes while the modules start: the part waits for the kept modules to be up', async () => {
+                const log: string[] = [];
+                const { modules, app } = await setupKept(log);
+                // The workshop decides during startAll (as at page load in a service chat).
+                const entry = modules.list().find((item) => item.module.key === 'workshop')!.module;
+                entry.init = async () => {
+                    log.push('start workshop');
+                    await modules.suspend(['workshop', 'roles']);
+                };
+                await modules.startAll(app);
+                expect(log).toEqual(['start workshop', 'start roles', 'keep mech (roles up)']);
+                expect(modules.list().find((item) => item.module.key === 'mech')).toMatchObject({
+                    running: false,
+                    suspended: true,
+                });
+            });
+        });
+
         it('stopAll forgets the pause: a stop of the workshop module afterwards starts nothing', async () => {
             const log: string[] = [];
             const modules = await started(log);

@@ -1,8 +1,8 @@
 // MAESTRO_API service facades (release 1.24) over fakes of Maestro's services: validation ('bad-args'), modules that
 // are off ('off'), the services' errors in the contract's words, journaling under the neighbour's module, the shared
 // daily cap, BunnyMo books refused, typed lore fields in the entry or the sidecar, mechanics with the module off
-// (templates, the block parser), the preset store and layer of any card, the prompt audit's findings, the persona from
-// a ready description and the service card.
+// (templates, the block parser) and in a service chat (the definitions door alone), the preset store and layer of any
+// card, the prompt audit's findings, the persona from a ready description and the service card.
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createServiceFacades } from '../../src/app/public-api-services';
 import type { ServiceFacades } from '../../src/app/public-api-services';
@@ -468,6 +468,43 @@ describe('mechanics', () => {
         expect(await env.facades.mechanics.setEnabledInChat('fame', false)).toEqual({ ok: true });
         env.chatId = null;
         expect(await env.facades.mechanics.setEnabledInChat('fame', true)).toMatchObject({ error: 'no-chat' });
+    });
+
+    it('in a service chat (1.24.1): the definitions through their own door, the per-chat switch off', async () => {
+        const defs = [mechanicDef('trust', { kind: 'card', avatar: 'vera.png' })];
+        // M25 is paused: only the definitions door it keeps there (no 'mechanics').
+        const door = {
+            all: () => defs,
+            list: () => [],
+            get: (id: string) => defs.find((def) => def.id === id) ?? null,
+            save: vi.fn(async (def: ApiMechanicDef) => ({ ...def, book: 'Maestro · механики', uid: 1 })),
+            remove: vi.fn(async () => {}),
+            templates: () => [{ id: 'health', titleKey: 'm25.def.template.health', descriptionKey: 'x' }],
+            fromTemplate: vi.fn(() => ({ ...mechanicDef('trust_2', { kind: 'chat', chatId: 'chat-1' }) })),
+            onChange: () => () => {},
+        };
+        env.apis.set('mechanicsDefinitions', door);
+        expect(env.facades.mechanics.list()).toMatchObject({ ok: true, defs: [{ id: 'trust' }] });
+        expect(env.facades.mechanics.get('trust')).toMatchObject({ ok: true, def: { id: 'trust' } });
+        expect(
+            await env.facades.mechanics.save(mechanicDef('debt', { kind: 'global' }), {
+                scope: { kind: 'card', avatar: 'officina.png' },
+                by: 'officina',
+            }),
+        ).toMatchObject({ ok: true, def: { id: 'debt', scope: { avatar: 'officina.png' }, uid: 1 } });
+        expect(door.save).toHaveBeenCalledWith(expect.objectContaining({ id: 'debt' }), 'officina');
+        expect(await env.facades.mechanics.remove('trust')).toEqual({ ok: true });
+        expect(door.remove).toHaveBeenCalledWith('trust', 'officina');
+        expect(env.facades.mechanics.templates()).toMatchObject({ ok: true, templates: [{ id: 'health' }] });
+        // The module's own template (its fresh id), the caller's scope.
+        expect(env.facades.mechanics.fromTemplate('health', { scope: { kind: 'global' } })).toMatchObject({
+            ok: true,
+            def: { id: 'trust_2', scope: { kind: 'global' } },
+        });
+        expect(await env.facades.mechanics.setEnabledInChat('trust', false)).toEqual({ ok: false, error: 'off' });
+        // The door goes with the module (switched off): off again.
+        env.apis.delete('mechanicsDefinitions');
+        expect(env.facades.mechanics.list()).toEqual({ ok: false, error: 'off' });
     });
 });
 

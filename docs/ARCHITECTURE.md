@@ -38,6 +38,11 @@ Rules:
 - Modules talk to each other only through `app.modules.expose(key, api)` / `app.modules.api<T>(key)` or the
   Maestro bus (`app.bus`). No imports of another feature's internals; a feature may import another feature's
   `api.ts` *types* only.
+- «Служебный режим» (M42) pauses every module not in `WORKSHOP_KEEPS` (`ModuleManager.suspend`). A paused module may
+  keep a narrow part that has nothing to do with the open chat in `MaestroModule.whileSuspended(ctx)` (M25: the
+  mechanics definitions for `MAESTRO_API`, exposed as `mechanicsDefinitions`). It runs only while the pause holds the
+  module off — never together with `init()` — under the same `own(...)` rules, and the module reads its data afresh
+  when it starts again. Nothing chat-level goes there (prompt, message listeners, tabs, per-chat state).
 - Settings slice: `defaults()` returns the full slice; stored at `extensionSettings.maestro.modules[key]`.
   Never store large data in settings — use `app.chat` (per-chat documents) or `app.files`.
 - Strings: every user-visible string goes through `app.i18n.t('m1.something')`. Keys are prefixed by module id

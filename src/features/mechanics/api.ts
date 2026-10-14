@@ -504,6 +504,17 @@ export interface MechanicsPromptPreview {
     facts: string;
 }
 
+/**
+ * The definitions alone (release 1.24.1): app.modules.api<MechanicDefinitionsApi>('mechanicsDefinitions'). They live in
+ * Maestro books and have nothing to do with the open chat, so the module keeps this door while a service chat (M42)
+ * pauses everything chat-level of it (prompt, replies, checks, HUD, state): MAESTRO_API.mechanics reads and writes
+ * through it, and Officina publishes mechanics from its co-author chat. `list()` there is what the service card sees.
+ */
+export type MechanicDefinitionsApi = Pick<
+    MechanicsApi,
+    'list' | 'get' | 'save' | 'remove' | 'all' | 'templates' | 'fromTemplate' | 'onChange'
+>;
+
 export interface MechanicsApi {
     /** Definitions visible in this chat (global, this card's, this chat's), enabled or not. */
     list(): MechanicDef[];

@@ -1,6 +1,7 @@
 // M25 «Механики», the public API (app.modules.api<MechanicsApi>('mechanics')): a thin façade over the parts —
 // definitions (definitions.ts), state (state.ts), checks (checks.ts), the prompt (prompt.ts) and fights (combat.ts) —
-// plus the templates of the domain. Everything the UI wave needs (plan-2 §6.А surfaces) is read here; see api.ts.
+// plus the templates of the domain (the definitions door, definitions-service.ts, which a service chat keeps alone).
+// Everything the UI wave needs (plan-2 §6.А surfaces) is read here; see api.ts.
 import {
     resolveVisibility,
     shownIn,
@@ -10,8 +11,6 @@ import {
 } from '../../domain/mechanics-visibility';
 import type { VisibilityInput, VisibilityPreset } from '../../domain/mechanics-visibility';
 import { findAttribute, nameKey, resolveHolder } from '../../domain/mechanics-state';
-import { scopeForNew } from '../../domain/mechanics-defs';
-import { defFromTemplate, MECHANIC_TEMPLATES, templateById } from '../../domain/mechanics-templates';
 import type { Unsubscribe } from '../../shared/contracts';
 import type {
     AttributeValue,
@@ -36,22 +35,17 @@ import type {
     VisibilityPlace,
 } from './api';
 import type { MechanicCombat } from './combat';
-import { scopeContextOf } from './definitions';
-import { offeredTemplates } from './dramatis';
+import { MechanicDefinitionsService } from './definitions-service';
+import type { Definitions } from './definitions-service';
 import { mechanicFlag, mechanicFlags } from './prompt';
 import type { MechanicPrompt } from './prompt';
-import type { ChecksPart, DefinitionsPart, PartDeps, RollOptions, StateOp, StatePart } from './parts';
+import type { ChecksPart, PartDeps, RollOptions, StateOp, StatePart } from './parts';
 import { ITEM_KIND, REVEAL_KIND, STATUS_KIND } from './state';
-import { holderContextOf, personaOf, worldOf } from './state-holders';
+import { holderContextOf, personaOf } from './state-holders';
 import { renderHolderInto } from './view-values';
 
 /** Recent threshold events offered to the director as twist sources. */
 const TWIST_EVENTS = 5;
-/** Factions of the lore a reputation template starts with. */
-const TEMPLATE_FACTIONS = 12;
-
-/** The definitions part, optionally with every definition of every scope (fresh ids must not repeat any of them). */
-type Definitions = DefinitionsPart & { all?(): MechanicDef[] };
 
 export interface ServiceExtras {
     prompt?: Pick<MechanicPrompt, 'preview'>;
@@ -59,6 +53,9 @@ export interface ServiceExtras {
 }
 
 export class MechanicsService implements MechanicsApi {
+    /** The definition calls (the same door a service chat keeps alone). */
+    private readonly door: MechanicDefinitionsService;
+
     constructor(
         private readonly defs: Definitions,
         private readonly statePart: StatePart,
@@ -66,10 +63,12 @@ export class MechanicsService implements MechanicsApi {
         /** The app (locale and the open chat for fromTemplate); without it templates are English and global. */
         private readonly deps?: Pick<PartDeps, 'app'>,
         private readonly extras: ServiceExtras = {},
-    ) {}
+    ) {
+        this.door = new MechanicDefinitionsService(defs, deps?.app);
+    }
 
     list(): MechanicDef[] {
-        return this.defs.list();
+        return this.door.list();
     }
 
     active(): MechanicDef[] {
@@ -77,36 +76,24 @@ export class MechanicsService implements MechanicsApi {
     }
 
     get(id: string): MechanicDef | null {
-        return this.defs.get(id);
+        return this.door.get(id);
     }
 
     save(def: MechanicDef, by?: string): Promise<MechanicDef> {
-        return this.defs.save(def, by);
+        return this.door.save(def, by);
     }
 
     remove(id: string, by?: string): Promise<void> {
-        return this.defs.remove(id, by);
+        return this.door.remove(id, by);
     }
 
     all(): MechanicDef[] {
-        return this.defs.all?.() ?? this.defs.list();
+        return this.door.all();
     }
 
     /** The ready-made templates; «relationships» and «social» leave while Dramatis replaces them (release 1.17). */
     templates(): MechanicTemplate[] {
-        const app = this.deps?.app;
-        return app ? offeredTemplates(app, MECHANIC_TEMPLATES) : [...MECHANIC_TEMPLATES];
-    }
-
-    /** Factions of the lore (world model entities of type faction). */
-    private factions(): string[] {
-        const app = this.deps?.app;
-        if (!app) return [];
-        try {
-            return (worldOf(app)?.entities('faction') ?? []).map((entity) => entity.name).slice(0, TEMPLATE_FACTIONS);
-        } catch {
-            return [];
-        }
+        return this.door.templates();
     }
 
     /**
@@ -114,15 +101,7 @@ export class MechanicsService implements MechanicsApi {
      * reputation template gets the factions of the lore.
      */
     fromTemplate(templateId: string): MechanicDef | null {
-        const item = templateById(templateId);
-        if (!item) return null;
-        const app = this.deps?.app;
-        const locale = app?.i18n.locale() ?? 'en';
-        const context = app ? scopeContextOf(app) : { avatars: [], chatId: null };
-        const taken = [...(this.defs.all?.() ?? []), ...this.defs.list()].map((def) => def.id);
-        return defFromTemplate(item, locale, app ? scopeForNew(context) : { kind: 'global' }, taken, {
-            factions: this.factions(),
-        });
+        return this.door.fromTemplate(templateId);
     }
 
     setEnabledInChat(id: string, on: boolean): Promise<void> {

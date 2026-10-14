@@ -3,7 +3,8 @@
 // editor, a co-author (Officina's co-author chat) — and its chats are service chats, where the story machinery of the
 // stack stays silent:
 // - Maestro's story modules are paused (ModuleManager.suspend: stopped without touching their switches, started again
-//   when a story chat opens); tools and looks keep running (WORKSHOP_KEEPS);
+//   when a story chat opens); tools and looks keep running (WORKSHOP_KEEPS), and so do the narrow parts a paused module
+//   keeps (MaestroModule.whileSuspended: the mechanics definitions of M25);
 // - the outgoing prompt loses every extension's injection but ST's own (DES tracker texts, NAI markers, CarrotKernel,
 //   Dramatis, DES-RU, Qvink, Maestro's own — domain/workshop.ts keepsSlot), cut at CHAT_COMPLETION_PROMPT_READY after
 //   everyone else (the slot texts are read there, so it does not matter when a neighbour set them);

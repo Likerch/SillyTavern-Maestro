@@ -29,10 +29,10 @@ export type MaestroApiFeature =
 
 /**
  * Errors of the service facades (1.24): 'off' — the module that owns it is switched off or paused (a service chat
- * pauses the story modules, mechanics among them); 'bad-args' — the call did not pass validation; 'read-only' — a
- * BunnyMo book or another book Maestro never writes; 'not-found'; 'exists' — the name is taken; 'unsaved' — the
- * working preset has unsaved edits; 'no-chat' — it needs an open chat; 'unavailable' — the host cannot do it now;
- * 'maestro-stopped'; 'failed' — anything else (`message` says what).
+ * pauses the story modules; the mechanics definitions stay, 1.24.1); 'bad-args' — the call did not pass validation;
+ * 'read-only' — a BunnyMo book or another book Maestro never writes; 'not-found'; 'exists' — the name is taken;
+ * 'unsaved' — the working preset has unsaved edits; 'no-chat' — it needs an open chat; 'unavailable' — the host cannot
+ * do it now; 'maestro-stopped'; 'failed' — anything else (`message` says what).
  */
 export type ApiError =
     | 'off'
@@ -677,7 +677,10 @@ export interface MaestroApi {
         /** 'unknown' gives the book back to detection. BunnyMo books cannot be changed ('read-only'). */
         set(book: string, role: ApiBookRole, options?: ApiWriteOptions): Promise<ApiResult>;
     };
-    /** 1.24+: mechanics (M25), definitions only. 'off' while the module is off or a service chat is open. */
+    /**
+     * 1.24+: mechanics (M25), definitions only. 'off' while the module is off; in a service chat (1.24.1+) the
+     * definitions stay (list, get, save, remove, templates, fromTemplate) and only `setEnabledInChat` answers 'off'.
+     */
     mechanics?: {
         /** Every definition whatever its scope, or those of one scope (a card's by avatar, a chat's by id). */
         list(filter?: { scope?: ApiMechanicScope['kind']; avatar?: string; chatId?: string }): ApiResult<{
@@ -696,7 +699,7 @@ export interface MaestroApi {
         fromTemplate(id: string, options?: { scope?: ApiMechanicScope }): ApiResult<{ def: ApiMechanicDef }>;
         /** Pure: a reply's `<mechanics>` block as Maestro reads it (works while the module is off). */
         parseBlock(text: string): ApiMechanicsBlock;
-        /** The per-chat switch of the chat open now. */
+        /** The per-chat switch of the chat open now ('off' in a service chat: the module is paused there). */
         setEnabledInChat(id: string, on: boolean): Promise<ApiResult>;
     };
     /** 1.24+: the Preset Studio's store and the user's layer (M34). */

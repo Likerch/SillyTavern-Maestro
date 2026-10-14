@@ -25,6 +25,11 @@ import type {
 
 export const MECHANICS_KEY = 'mechanics';
 export const MECHANICS_ID = 'M25';
+/**
+ * The definitions alone (MechanicDefinitionsApi, release 1.24.1): exposed while the module is on — in a service chat
+ * too, where the rest of the module is paused (index.ts `whileSuspended`).
+ */
+export const MECHANICS_DEFS_KEY = 'mechanicsDefinitions';
 /** Default Maestro book of the definitions (role 'maestro', never active: Maestro injects the rules itself). */
 export const DEFAULT_MECHANICS_BOOK = 'Maestro · механики';
 /** Ephemeral injection keys (one generation each). */

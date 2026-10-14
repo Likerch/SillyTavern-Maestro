@@ -2,13 +2,17 @@
 // tricks. Three parts are built side by side and wired here (parts.ts): definitions in Maestro books with the
 // constructor, the state per chat with its three tracking modes, and the checks with the prompt injection and the
 // widgets. Every part's listeners are owned, so switching the module off leaves nothing behind (P11).
-// Exposed as app.modules.api<MechanicsApi>('mechanics').
-import type { MaestroModule } from '../../shared/contracts';
-import type { MechanicsApi } from './api';
+// Exposed as app.modules.api<MechanicsApi>('mechanics'), the definitions alone also as
+// app.modules.api<MechanicDefinitionsApi>('mechanicsDefinitions'). A service chat (M42) pauses the module but keeps
+// the definitions (`whileSuspended`, release 1.24.1): they have nothing to do with the open chat, and Officina publishes
+// mechanics from its co-author chat through MAESTRO_API.mechanics.
+import type { App, Logger, MaestroModule } from '../../shared/contracts';
+import type { MechanicDefinitionsApi, MechanicsApi } from './api';
 import { MechanicChecks, secureRng } from './checks';
 import { MechanicCombat } from './combat';
 import { MechanicDefinitions, MECHANICS_DEF_TARGET } from './definitions';
-import { MECHANICS_ID, MECHANICS_KEY } from './parts';
+import { MechanicDefinitionsService } from './definitions-service';
+import { MECHANICS_DEFS_KEY, MECHANICS_ID, MECHANICS_KEY } from './parts';
 import type { MechanicsSettings, PartDeps } from './parts';
 import { MechanicPrompt } from './prompt';
 import { MechanicsService } from './service';
@@ -25,6 +29,24 @@ import { MECHANICS_DEF_CSS } from './view-constructor';
 import { PLAY_CSS } from './view-play';
 import { VALUES_CSS } from './view-values';
 import { MechanicStrip } from './widgets';
+
+/** How long the definitions kept in a service chat wait for a write in flight when the story chat opens. */
+export const HELD_WRITES_WAIT_MS = 3000;
+
+function partDeps(app: App, log: Logger): PartDeps {
+    const settings = () => readMechanicsSettings(app.settings.module<Partial<MechanicsSettings>>(MECHANICS_KEY));
+    return { app, log: log.scope('mechanics'), settings };
+}
+
+/** Resolves when `done` does or after `ms`, whichever is first (the timer never outlives it). */
+async function bounded(done: Promise<void>, ms: number): Promise<void> {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+        await Promise.race([done, new Promise<void>((resolve) => (timer = setTimeout(resolve, ms)))]);
+    } finally {
+        clearTimeout(timer);
+    }
+}
 
 export const mechanicsModule: MaestroModule<MechanicsSettings> = {
     id: MECHANICS_ID,
@@ -44,8 +66,7 @@ export const mechanicsModule: MaestroModule<MechanicsSettings> = {
         { target: DES_STATS_UNDO_TARGET, technical: true },
     ],
     init({ app, log, own }) {
-        const settings = () => readMechanicsSettings(app.settings.module<Partial<MechanicsSettings>>(MECHANICS_KEY));
-        const deps: PartDeps = { app, log: log.scope('mechanics'), settings };
+        const deps = partDeps(app, log);
 
         const defs = new MechanicDefinitions(deps);
         own(() => defs.dispose());
@@ -81,6 +102,7 @@ export const mechanicsModule: MaestroModule<MechanicsSettings> = {
 
         const api = new MechanicsService(defs, state, checks, deps, { prompt, combat }) satisfies MechanicsApi;
         app.modules.expose(MECHANICS_KEY, api);
+        app.modules.expose(MECHANICS_DEFS_KEY, api satisfies MechanicDefinitionsApi);
 
         // plan-2 §6.А: under the replies (change lines, roll cards, events, the status block), the HUD, narrator
         // messages, and the English for the model of what the user writes in his language.
@@ -107,12 +129,28 @@ export const mechanicsModule: MaestroModule<MechanicsSettings> = {
         own(app.ui.addTab(mechanicsLogTab(deps, api)));
         own(app.ui.addTab(mechanicsBuildTab(deps, defs, tracking, api, translator)));
     },
+    // A service chat: only the definitions, as a part of their own (the Maestro books, the journal undo of an entry);
+    // no prompt, no reply or message listeners, no HUD, tabs or state. Its writes are journaled like the module's, and
+    // the module, starting again in a story chat, reads the books afresh (a write still in flight lands first).
+    whileSuspended({ app, log, own }) {
+        const defs = new MechanicDefinitions(partDeps(app, log));
+        own(async () => {
+            await bounded(defs.idle(), HELD_WRITES_WAIT_MS);
+            defs.dispose();
+        });
+        defs.install();
+        app.modules.expose(
+            MECHANICS_DEFS_KEY,
+            new MechanicDefinitionsService(defs, app) satisfies MechanicDefinitionsApi,
+        );
+    },
 };
 
 export { DEF_STRINGS, MECHANICS_STRINGS } from './strings';
 export { defaultMechanicsSettings, readMechanicsSettings } from './settings';
 export { MechanicDefinitions, MECHANICS_DEF_TARGET, MECHANICS_OFF_POINTER, scopeContextOf } from './definitions';
 export { MechanicsService } from './service';
+export { MechanicDefinitionsService } from './definitions-service';
 export { MechanicCombat, COMBAT_KIND } from './combat';
 export { MECHANICS_BUILD_TAB, MECHANICS_LOG_TAB, MECHANICS_TAB, mechanicsTab } from './view';
 export { MechanicsHud } from './hud';
@@ -121,6 +159,12 @@ export { MechanicsPlayStrip } from './play-strip';
 export { MechanicTranslator, TRANSLATE_TASK } from './translate';
 export { constructorSection, MECHANICS_DEF_CSS } from './view-constructor';
 export { settingsSection } from './view-constructor-settings';
-export { DEFAULT_MECHANICS_BOOK, DEFAULT_MECHANICS_SETTINGS, MECHANICS_ID, MECHANICS_KEY } from './parts';
+export {
+    DEFAULT_MECHANICS_BOOK,
+    DEFAULT_MECHANICS_SETTINGS,
+    MECHANICS_DEFS_KEY,
+    MECHANICS_ID,
+    MECHANICS_KEY,
+} from './parts';
 export type { MechanicsSettings } from './parts';
 export type * from './api';

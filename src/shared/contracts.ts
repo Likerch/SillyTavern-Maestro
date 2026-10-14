@@ -947,6 +947,14 @@ export interface MaestroModule<S extends object = object> {
     init(ctx: ModuleContext<S>): void | Promise<void>;
     /** Optional extra cleanup; owned disposers run anyway. */
     dispose?(): void | Promise<void>;
+    /**
+     * What keeps running while «Служебный режим» (M42) holds the module off (ModuleManager.suspend): a narrow part that
+     * has nothing to do with the open chat (M25: the mechanics definitions for MAESTRO_API, release 1.24.1). It never
+     * runs together with init(): started after the pause stopped the module (or kept it from starting), released before
+     * the module starts again on resume(), when its switch goes off and when Maestro stops. Same rules as init(): every
+     * registration through `own`, every API exposed is dropped when it is released.
+     */
+    whileSuspended?(ctx: ModuleContext<S>): void | Promise<void>;
 }
 
 export interface ModuleManager {
@@ -956,7 +964,8 @@ export interface ModuleManager {
     disable(key: string): Promise<void>;
     /**
      * «Мастерская» (M42): stops every running module whose key is not in `keep` without touching its switch, and keeps
-     * the others from starting until resume(). Optional: older test apps.
+     * the others from starting until resume(); a held module's `whileSuspended` part runs meanwhile. Optional: older
+     * test apps.
      */
     suspend?(keep: readonly string[]): Promise<void>;
     /** Starts again what suspend() held off (when still enabled and its capabilities are present). */

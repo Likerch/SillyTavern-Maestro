@@ -4,8 +4,8 @@
 // M42. Each one validates its arguments, goes through the very service the studios use (so the rules of the stack hold:
 // one save queue per book, BunnyMo never written, ST's editors refreshed, the working preset kept), journals with undo
 // under the neighbour's module ('officina' unless `by` says 'dramatis') and answers `{ok: true, …}` or
-// `{ok: false, error}`: 'off' while the owning module is off or paused (a service chat pauses the story modules),
-// 'bad-args' when validation fails. Types: src/shared/public-api-types.ts.
+// `{ok: false, error}`: 'off' while the owning module is off or paused (a service chat pauses the story modules; the
+// mechanics definitions stay, 1.24.1), 'bad-args' when validation fails. Types: src/shared/public-api-types.ts.
 import {
     ENTRY_TYPES,
     ENTRY_TYPE_IDS,
@@ -24,7 +24,8 @@ import type { BookRole, BookRolesApi } from '../features/bookRoles/api';
 import { canonMetaOf } from '../features/loreStudio/form/canon-panel';
 import { LoreStudioError } from '../features/loreStudio/st-lore';
 import type { LoreStore, WiEntry } from '../features/loreStudio/store-api';
-import type { MechanicDef, MechanicScope, MechanicsApi } from '../features/mechanics/api';
+import type { MechanicDef, MechanicDefinitionsApi, MechanicScope, MechanicsApi } from '../features/mechanics/api';
+import { MECHANICS_DEFS_KEY, MECHANICS_KEY } from '../features/mechanics/parts';
 import type { PersonaCreator } from '../features/personaCreator/service';
 import type { LayerOp, LayerScope, PresetLayerApi } from '../features/presetStudio/layer-api';
 import { PresetStoreError } from '../features/presetStudio/st-preset';
@@ -513,14 +514,20 @@ export function createServiceFacades(deps: ServiceFacadeDeps): ServiceFacades {
 
     /* ---------------------------------------------------------------- mechanics */
 
-    const mechanicsApi = () => api<MechanicsApi>('mechanics');
-    const allDefs = (mechanics: MechanicsApi): MechanicDef[] => mechanics.all?.() ?? mechanics.list();
+    /** The whole module: only in a story chat (setEnabledInChat is chat-level). */
+    const mechanicsApi = () => api<MechanicsApi>(MECHANICS_KEY);
+    /**
+     * The definitions: M25 exposes them while it is switched on, in a service chat too (release 1.24.1: the books have
+     * nothing to do with the open chat, and Officina publishes from its co-author chat). Off only with the module off.
+     */
+    const definitionsApi = () => api<MechanicDefinitionsApi>(MECHANICS_DEFS_KEY) ?? mechanicsApi();
+    const allDefs = (mechanics: MechanicDefinitionsApi): MechanicDef[] => mechanics.all?.() ?? mechanics.list();
 
     const mechanics: ServiceFacades['mechanics'] = {
         list(filter) {
             const halt = stopped();
             if (halt) return halt;
-            const mechanics = mechanicsApi();
+            const mechanics = definitionsApi();
             if (!mechanics) return fail('off');
             const kind = filter?.scope;
             const defs = allDefs(mechanics).filter((def) => {
@@ -535,7 +542,7 @@ export function createServiceFacades(deps: ServiceFacadeDeps): ServiceFacades {
         get(id) {
             const halt = stopped();
             if (halt) return halt;
-            const mechanics = mechanicsApi();
+            const mechanics = definitionsApi();
             if (!mechanics) return fail('off');
             if (!text(id)) return fail('bad-args');
             const def = mechanics.get(id);
@@ -543,7 +550,7 @@ export function createServiceFacades(deps: ServiceFacadeDeps): ServiceFacades {
         },
         save: (def, options) =>
             attempt('mechanics.save', async () => {
-                const mechanics = mechanicsApi();
+                const mechanics = definitionsApi();
                 if (!mechanics) return fail('off');
                 if (!isDict(def) || !isScope(options?.scope)) return fail('bad-args', 'scope');
                 const draft = normalizeDef({ ...jsonCopy(def), scope: jsonCopy(options.scope) });
@@ -555,7 +562,7 @@ export function createServiceFacades(deps: ServiceFacadeDeps): ServiceFacades {
             }),
         remove: (id, options) =>
             attempt('mechanics.remove', async () => {
-                const mechanics = mechanicsApi();
+                const mechanics = definitionsApi();
                 if (!mechanics) return fail('off');
                 if (!text(id)) return fail('bad-args');
                 if (!mechanics.get(id)) return fail('not-found');
@@ -565,7 +572,7 @@ export function createServiceFacades(deps: ServiceFacadeDeps): ServiceFacades {
         templates() {
             const halt = stopped();
             if (halt) return halt;
-            const list = mechanicsApi()?.templates() ?? [...MECHANIC_TEMPLATES];
+            const list = definitionsApi()?.templates() ?? [...MECHANIC_TEMPLATES];
             return {
                 ok: true,
                 templates: list.map((item) => ({
@@ -582,7 +589,7 @@ export function createServiceFacades(deps: ServiceFacadeDeps): ServiceFacades {
             if (!item) return fail('not-found');
             if (options?.scope !== undefined && !isScope(options.scope)) return fail('bad-args', 'scope');
             const scope: MechanicScope = options?.scope ? jsonCopy(options.scope) : { kind: 'global' };
-            const mechanics = mechanicsApi();
+            const mechanics = definitionsApi();
             // The module's own (lore factions for a reputation template); the scope is the caller's.
             const made = mechanics?.fromTemplate(item.id);
             if (made) return { ok: true, def: { ...made, scope } };
@@ -591,6 +598,7 @@ export function createServiceFacades(deps: ServiceFacadeDeps): ServiceFacades {
             return { ok: true, def: defFromTemplate(item, locale, scope, taken) };
         },
         parseBlock: (value) => parseBlock(typeof value === 'string' ? value : ''),
+        // Chat-level: 'off' in a service chat, where the module is paused.
         setEnabledInChat: (id, on) =>
             attempt('mechanics.setEnabledInChat', async () => {
                 const mechanics = mechanicsApi();
