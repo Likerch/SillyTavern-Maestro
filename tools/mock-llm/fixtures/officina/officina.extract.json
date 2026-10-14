@@ -1,5 +1,5 @@
 {
-    "summary": "Взял отца Сильвестра, часовню на молу и Нору Сельм; про колокол — заметкой.",
+    "summary": "Взял отца Сильвестра, часовню на молу и Нору Сельм; колокол — механикой «Удары колокола» и заметкой.",
     "card": {
         "name": "Отец Сильвестр",
         "role": "character",
@@ -94,5 +94,112 @@
             "weight": "npc"
         }
     ],
-    "note": "Колокол часовни звонит сам, когда кто-то в городе уходит в туман. Сильвестр считает удары и вписывает в книгу столько же строк — иногда раньше, чем узнаёт имена."
+    "note": "Колокол часовни звонит сам, когда кто-то в городе уходит в туман. Сильвестр считает удары и вписывает в книгу столько же строк — иногда раньше, чем узнаёт имена.",
+    "mechanic": {
+        "name": "Удары колокола",
+        "promptName": "Bell strikes",
+        "summaryRu": "Сколько раз за ночь колокол часовни звонил сам: каждый удар — кто-то ушёл в туман.",
+        "summaryEn": "How many times tonight the chapel bell has rung by itself: every strike is someone lost to the fog.",
+        "rulesRu": "Удары считаются за ночь: от 0 до 6, с рассветом снова 0.\nКто-то в городе ушёл в туман — плюс 1 удар.\nСмотритель держит огонь маяка всю ночь — минус 1 к следующему удару (колокол молчит до полуночи).\nНа 3 ударах утонувшие выходят на мол и ждут у часовни.\nНа 6 ударах туман входит в город до рассвета.\nРасслышать в звоне имя — проверка «Счесть удары»: d20 плюс память против 12; отец Сильвестр вписывает имя в книгу ушедших.",
+        "rulesEn": "Strikes are counted per night: 0 to 6, back to 0 at dawn.\nSomeone in the town is lost to the fog: +1 strike.\nThe keeper keeps the lighthouse fire burning all night: the next strike waits until midnight.\nAt 3 strikes the drowned walk out onto the mole and wait by the chapel.\nAt 6 strikes the fog comes into the town until dawn.\nHearing a name in the ringing is the check Count the strikes: d20 plus memory against 12; Father Silvester writes the name into the book of the lost.",
+        "holders": {
+            "kind": "world",
+            "names": []
+        },
+        "tracking": "block",
+        "pinned": false,
+        "keys": [
+            "колокол",
+            "звон",
+            "удар",
+            "bell"
+        ],
+        "attributes": [
+            {
+                "id": "strikes",
+                "name": "Удары колокола",
+                "promptName": "Bell strikes",
+                "kind": "number",
+                "min": 0,
+                "max": 6,
+                "initial": "0",
+                "levels": [],
+                "options": [],
+                "tracking": "",
+                "events": [
+                    {
+                        "id": "drowned_wait",
+                        "op": ">=",
+                        "value": "3",
+                        "text": "The drowned walk out onto the mole and wait by the chapel."
+                    },
+                    {
+                        "id": "fog_in_town",
+                        "op": ">=",
+                        "value": "6",
+                        "text": "The fog comes into the town until dawn."
+                    }
+                ]
+            },
+            {
+                "id": "memory",
+                "name": "Память",
+                "promptName": "Memory",
+                "kind": "number",
+                "min": 0,
+                "max": 5,
+                "initial": "1",
+                "levels": [],
+                "options": [],
+                "tracking": "",
+                "events": []
+            }
+        ],
+        "checks": [
+            {
+                "id": "count_strikes",
+                "name": "Счесть удары",
+                "promptName": "Count the strikes",
+                "dice": "1d20+@memory",
+                "difficulty": 12,
+                "triggers": [
+                    "колокол",
+                    "звон",
+                    "считать удары",
+                    "bell",
+                    "ringing"
+                ],
+                "effects": [
+                    {
+                        "on": "critical",
+                        "who": "self",
+                        "attr": "memory",
+                        "op": "add",
+                        "value": "1",
+                        "text": "the keeper hears whose name the bell rang"
+                    },
+                    {
+                        "on": "fumble",
+                        "who": "world",
+                        "attr": "strikes",
+                        "op": "add",
+                        "value": "1",
+                        "text": ""
+                    }
+                ]
+            }
+        ],
+        "statuses": [],
+        "tracker": {
+            "presentFields": [],
+            "sceneFields": [
+                {
+                    "key": "Bell",
+                    "label": "Колокол",
+                    "description": "сколько раз колокол звонил этой ночью"
+                }
+            ]
+        },
+        "notes": "Из чата-моста: колокол как часы ночи. Отец Сильвестр считает удары и вписывает имена в книгу ушедших."
+    }
 }

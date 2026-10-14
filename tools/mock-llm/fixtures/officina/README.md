@@ -12,7 +12,9 @@ args}]}`, args as JSON text) — read the map and the bible; read the first card
 description; propose a darker secret, a lore event and a new cast member. The mock picks one per request, so each stands
 on its own: Officina stops asking once a round brings nothing new to read, and drops a proposal it already holds. Node
 ids are `card:#1`, `cast:#1`, `bible` (any project). `officina.extract.json` fills every part (card, entries, cast,
-note) — the bridge takes the part of the kind the author chose; `officina.check.json` names places by `bible`,
+note, and since Officina 0.5 `mechanic` — «Удары колокола» in officina.mechanic's shape) — the bridge takes the part of
+the kind the author chose (a mechanic request has a schema of its own, `{summary, mechanic}`: the mock drops the other
+parts and keeps that one); `officina.check.json` names places by `bible`,
 `skeleton`, `cast:#1`, `card:#1` and by names of the stand's skeleton (`cast:Эдвин Морр`, `place:Старый маяк`).
 
 Stage 5 (playtest, adaptation): `officina.player.json` holds five player messages of the auto-player (`{message,
