@@ -1,0 +1,100 @@
+[
+    {
+        "name": "Долг туману",
+        "promptName": "Debt to the fog",
+        "summaryRu": "Сколько смотритель маяка задолжал туману: долг растёт от каждой ночи, когда огонь гаснет, и от каждой сделки с гильдией.",
+        "summaryEn": "How much the lighthouse keeper owes the fog: the debt grows with every night the fire goes out and every bargain with the guild.",
+        "rulesRu": "Долг — шкала от 0 до 10; в начале истории он 2.\nНочь, когда огонь маяка погас или ослаб, — плюс 1 к долгу.\nСделка с Гильдией фонарщиков (свет в обмен на услугу) — плюс 2.\nСпасённый из тумана человек — минус 1.\nНа 5 туман начинает звать смотрителя по имени: шёпот в шуме прибоя, мокрые следы у двери.\nНа 8 утонувшие приходят к маяку и ждут у порога.\nНа 10 туман забирает того, кого смотритель любит больше всех, — так же, как когда-то забрал брата Ирмы Вельс.\nВыдержать зов тумана — проверка «Устоять перед зовом»: d20 плюс решимость против 14.",
+        "rulesEn": "The debt is a scale from 0 to 10; it starts at 2.\nA night when the lighthouse fire went out or burned low adds 1 to the debt.\nA bargain with the Lamplighters' Guild (light in exchange for a favour) adds 2.\nEvery person saved from the fog takes 1 off.\nAt 5 the fog starts calling the keeper by name: a whisper in the surf, wet footprints at the door.\nAt 8 the drowned come to the lighthouse and wait at the threshold.\nAt 10 the fog takes the one the keeper loves most, the way it once took Irma Wels' brother.\nResisting the fog's call is the check Resist the call: d20 plus resolve against 14.",
+        "holders": { "kind": "persona", "names": [] },
+        "tracking": "block",
+        "pinned": true,
+        "keys": ["туман", "долг", "утонувш", "fog", "debt"],
+        "attributes": [
+            {
+                "id": "debt",
+                "name": "Долг туману",
+                "promptName": "Debt to the fog",
+                "kind": "number",
+                "min": 0,
+                "max": 10,
+                "initial": "2",
+                "levels": [],
+                "options": [],
+                "tracking": "",
+                "events": [
+                    { "id": "calls", "op": ">=", "value": "5", "text": "The fog calls the keeper by name: whispers in the surf, wet footprints at the door." },
+                    { "id": "waiting", "op": ">=", "value": "8", "text": "The drowned come to the lighthouse and wait at the threshold." },
+                    { "id": "taken", "op": ">=", "value": "10", "text": "The fog takes the one the keeper loves most, in this very scene." }
+                ]
+            },
+            {
+                "id": "resolve",
+                "name": "Решимость",
+                "promptName": "Resolve",
+                "kind": "number",
+                "min": 0,
+                "max": 5,
+                "initial": "2",
+                "levels": [],
+                "options": [],
+                "tracking": "",
+                "events": []
+            }
+        ],
+        "checks": [
+            {
+                "id": "resist_call",
+                "name": "Устоять перед зовом",
+                "promptName": "Resist the call",
+                "dice": "1d20+@resolve",
+                "difficulty": 14,
+                "triggers": ["зов", "шёпот", "туман зовёт", "устоять", "resist", "whisper"],
+                "effects": [
+                    { "on": "failure", "who": "self", "attr": "debt", "op": "add", "value": "1", "text": "the keeper takes a step towards the water" },
+                    { "on": "fumble", "who": "self", "attr": "debt", "op": "add", "value": "2", "text": "the keeper walks into the fog before waking" },
+                    { "on": "critical", "who": "self", "attr": "resolve", "op": "add", "value": "1", "text": "" }
+                ]
+            }
+        ],
+        "statuses": [
+            { "name": "Мокрые следы", "promptName": "Wet footprints", "turns": 0, "text": "Something from the sea follows the keeper; others notice the smell of brine." }
+        ],
+        "tracker": {
+            "presentFields": [{ "name": "Что знает о тумане", "description": "что персонаж знает или скрывает о договоре с туманом, одной фразой" }],
+            "sceneFields": [{ "key": "Fog", "label": "Туман", "description": "насколько близко туман: далеко, у мола, на улицах, у порога" }]
+        },
+        "notes": "Долг — часы этой истории: он держит смотрителя на крючке и не даёт гильдии быть просто злодеями — сделки с ней спасают людей, но приближают туман. Блок механик Maestro ведёт значение сам; HUD показывает долг игроку."
+    },
+    {
+        "name": "Доверие гильдии",
+        "promptName": "Guild trust",
+        "summaryRu": "Насколько Гильдия фонарщиков доверяет смотрителю: от «чужак» до «свой человек».",
+        "summaryEn": "How far the Lamplighters' Guild trusts the keeper: from outsider to one of their own.",
+        "rulesRu": "Доверие — шкала: чужак, должник, полезный, свой человек.\nВыполненное поручение гильдии — на ступень выше.\nВопрос о договоре с туманом при фонарщиках — на ступень ниже.\nСвоему человеку Ирма Вельс говорит правду о брате.",
+        "rulesEn": "Trust is a scale: outsider, debtor, useful, one of us.\nA guild errand done raises it one step.\nAsking about the pact with the fog in front of lamplighters lowers it one step.\nTo one of their own Irma Wels tells the truth about her brother.",
+        "holders": { "kind": "factions", "names": ["Гильдия фонарщиков"] },
+        "tracking": "background",
+        "pinned": false,
+        "keys": ["гильди", "фонарщик", "guild"],
+        "attributes": [
+            {
+                "id": "trust",
+                "name": "Доверие",
+                "promptName": "Trust",
+                "kind": "scale",
+                "min": 0,
+                "max": 0,
+                "initial": "outsider",
+                "levels": ["outsider", "debtor", "useful", "one of us"],
+                "options": [],
+                "tracking": "",
+                "events": [{ "id": "insider", "op": ">=", "value": "one of us", "text": "Irma Wels tells the keeper the truth about her brother and the pact." }]
+            }
+        ],
+        "checks": [],
+        "statuses": [],
+        "tracker": { "presentFields": [], "sceneFields": [] },
+        "notes": "Фоновый разбор: Maestro сам вычитает из ответов, когда доверие сдвинулось."
+    }
+]
