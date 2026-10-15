@@ -46,7 +46,7 @@
 //   is marked `recounted` and the chat saved: no later pass counts both).
 // health() says what keeps the values from following the story (no profile, the cap, DES stats not set up, another
 // tab, a failed parse): the HUD's ⚠ — a warning when the background parse is the only way, a note when it is only the
-// safety net of 'auto'.
+// safety net of 'auto'. desTracked() names the stats DES keeps now, for the prompt's tracker line (release 1.27).
 import { adaptersOf } from '../../adapters';
 import { parseDueExpression, resolveDue } from '../../domain/calendar-time';
 import {
@@ -905,6 +905,19 @@ export class MechanicTracking implements TrackingPart {
     desStatsStatus(def: MechanicDef): { attribute: string; inDes: boolean }[] {
         const enabled = this.desStatus();
         return desStatCandidates(def).map((attr) => ({ attribute: attr.id, inDes: this.inDes(attr, enabled) }));
+    }
+
+    /** The attributes DES keeps as character stats now and the stat's name there (the prompt's tracker line, 1.27). */
+    desTracked(def: MechanicDef): { attribute: string; stat: string }[] {
+        const stats = this.characterStats();
+        if (!stats?.enabled) return [];
+        const enabled = stats.customStats.filter((stat) => stat.enabled);
+        return desStatCandidates(def).flatMap((attr) => {
+            if (!this.known(def, attr)) return [];
+            const names = [attr.promptName, attr.name, attr.id].filter(Boolean).map(nameKey);
+            const stat = enabled.find((item) => names.includes(nameKey(item.name)));
+            return stat ? [{ attribute: attr.id, stat: stat.name }] : [];
+        });
     }
 
     /** DES's tracker of a message; null without one. */

@@ -8,7 +8,8 @@
 // - a change of a holder that is not stored yet first creates it with the initial values of every attribute;
 // - events: '<=', '>=', '=' compare the new value (numbers, scale levels by order, list membership or size, texts);
 //   'changed' fires on every change (to its value, when it names one). A `once` event (the default) fires once and
-//   re-arms when a later change makes its condition false. A fired event's actions (values, statuses, items,
+//   re-arms when a later change makes its condition false (the prompt also shows a lasting event's note while its
+//   condition holds: eventCondition, release 1.27). A fired event's actions (values, statuses, items,
 //   revealing) and its chained event follow in the same application — each event at most once per application, at
 //   most OPS_LIMIT operations, nesting at most DEPTH_LIMIT deep (loop guard);
 // - experience: a change of a progression's XP sets the level and runs `onLevelUp` once per level gained;
@@ -345,7 +346,7 @@ function listItems(attr: AttributeDef, raw: unknown): string[] | null {
     return items.map((item) => item.replace(/^["'«»“”]+|["'«»“”]+$/g, '').trim()).filter(Boolean);
 }
 
-function scaleIndex(attr: AttributeDef, raw: unknown): number | null {
+function scaleIndex(attr: Pick<AttributeDef, 'levels'>, raw: unknown): number | null {
     const levels = attr.levels ?? [];
     if (typeof raw === 'string') {
         const index = levels.findIndex((level) => sameName(level, raw));
@@ -670,8 +671,12 @@ function compare(op: '<=' | '>=' | '=', left: number, right: number): boolean {
     return left === right;
 }
 
-/** The condition of an event for a value. */
-export function eventCondition(attr: AttributeDef, when: AttributeEvent['when'], value: AttributeValue): boolean {
+/** The condition of an event for a value (only the kind and the levels of the attribute matter: the prompt uses it too). */
+export function eventCondition(
+    attr: Pick<AttributeDef, 'kind' | 'levels'>,
+    when: AttributeEvent['when'],
+    value: AttributeValue,
+): boolean {
     if (when.op === 'changed') {
         if (when.value === undefined || when.value === '') return true;
         if (attr.kind === 'list')

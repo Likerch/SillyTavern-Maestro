@@ -6,6 +6,8 @@
 // - 'qvink'  → `qvink_memory_short` (oldest memories first; `qvink_memory_long` is never touched);
 // - 'des'    → `dooms-tracker-context` only (DES's optional <context> summary; instructions, format, the example
 //              tracker, HTML/colour prompts, Doom Counter and Workshop slots are never cut).
+// Self-fitting sources (voices, mechanics, Dramatis) are only measured; the mechanics budget measures its two slots
+// together (release 1.27: the state `maestro_mechanics` and the rules `maestro_mechanics_rules`).
 // Counts are estimates (P15: nothing awaits the tokenizer here).
 import { qvinkShortMemories, findInMessages, messageTextParts, spliceText } from '../../domain/architect-prompt';
 import type { TextHit } from '../../domain/architect-prompt';
@@ -39,6 +41,11 @@ export const BUDGET_SLOTS: Partial<Record<BudgetSource, string>> = {
     mechanics: 'maestro_mechanics',
     // Dramatis's cast block (release 1.17): measured against its budget, never shortened by Maestro.
     dramatis: 'dramatis_cast',
+};
+
+/** More slots a self-fitting source writes: measured together with its own slot (release 1.27). */
+export const EXTRA_SLOTS: Partial<Record<BudgetSource, readonly string[]>> = {
+    mechanics: ['maestro_mechanics_rules'],
 };
 
 /** Sources of later stages: the budget is stored, there is nothing to measure yet. */
@@ -190,9 +197,17 @@ export class PromptStage {
                 continue;
             }
             const key = BUDGET_SLOTS[source] as string;
-            const slot = prompts[key];
-            const value =
-                slot && Number(slot.position) !== POSITION_NONE && typeof slot.value === 'string' ? slot.value : '';
+            const slotText = (name: string): string => {
+                const slot = prompts[name];
+                return slot && Number(slot.position) !== POSITION_NONE && typeof slot.value === 'string'
+                    ? slot.value
+                    : '';
+            };
+            const own = slotText(key);
+            // A self-fitting source is measured over every slot it writes (never shortened, so never located).
+            const value = SELF_FITTING.has(source)
+                ? [own, ...(EXTRA_SLOTS[source] ?? []).map(slotText)].filter((text) => text.trim()).join('\n')
+                : own;
             if (!value.trim()) {
                 budgets.push({ source, limit, used: 0, cut: 0, status: limit > 0 ? 'empty' : 'off' });
                 continue;

@@ -294,8 +294,15 @@ describe('normalizeDef', () => {
                     id: 'hp',
                     name: 'HP',
                     events: [
-                        { id: 'down', when: { op: '<=', value: 0 }, text: ' {holder} falls. ', once: false },
-                        { when: { op: 'changed', value: 4 }, text: 'Changed.' },
+                        {
+                            id: 'down',
+                            when: { op: '<=', value: 0 },
+                            text: ' {holder} falls. ',
+                            once: false,
+                            lasting: false,
+                        },
+                        { when: { op: 'changed', value: 4 }, text: 'Changed.', lasting: true },
+                        { id: 'low', when: { op: '<=', value: 3 }, text: 'Low.', lasting: 'yes' },
                         { id: 'lvl', when: { op: '=', value: ' max ' }, text: 'x' },
                         { id: 'bad', when: { op: '<' }, text: 'x' },
                         { id: 'nan', when: { op: '>=', value: Number.NaN }, text: 'x' },
@@ -306,8 +313,10 @@ describe('normalizeDef', () => {
             ],
         })!;
         expect(value.attributes[0]!.events).toEqual([
-            { id: 'down', when: { op: '<=', value: 0 }, text: '{holder} falls.', once: false },
+            { id: 'down', when: { op: '<=', value: 0 }, text: '{holder} falls.', once: false, lasting: false },
+            // Release 1.27: a 'changed' event never lasts; a broken switch is dropped (lasting by default).
             { id: 'event_2', when: { op: 'changed' }, text: 'Changed.' },
+            { id: 'low', when: { op: '<=', value: 3 }, text: 'Low.' },
             { id: 'lvl', when: { op: '=', value: 'max' }, text: 'x' },
             { id: 'nan', when: { op: '>=' }, text: 'x' },
         ]);

@@ -2,7 +2,8 @@
 // from chat-completion responses (OpenRouter/OpenAI `usage.prompt_tokens_details.cached_tokens`, DeepSeek
 // `prompt_cache_hit_tokens` / `prompt_cache_miss_tokens`, Claude `cache_read_input_tokens`, Gemini
 // `cachedContentTokenCount`), cheap per-message hashes of the outgoing prompt, the first message that differs from
-// the previous request, and the P16 check «Maestro's volatile injections sit after stable content».
+// the previous request, and the P16 check «Maestro's volatile injections sit after stable content» (release 1.27: a
+// slot that is stable by design — the mechanics rules at the top of the prompt — is never reported).
 // Pure: no DOM, no SillyTavern.
 
 type Dict = Record<string, unknown>;
@@ -209,7 +210,15 @@ export interface LocatedSlot {
     index: number;
     position: number;
     depth: number;
+    /** Stable by design (changes only with the scene's setup, not per turn): never a P16 violation. */
+    stable?: boolean;
 }
+
+/**
+ * Maestro's slots that stay the same from turn to turn by design and may sit in the prompt's head: the mechanics rules
+ * (`<game_rules>`, release 1.27) change only when the mechanics of the scene do.
+ */
+export const STABLE_SLOTS: ReadonlySet<string> = new Set(['maestro_mechanics_rules']);
 
 export interface OrderViolation {
     key: string;
@@ -232,7 +241,7 @@ export function findOrderViolations(
 ): OrderViolation[] {
     const violations: OrderViolation[] = [];
     for (const slot of slots) {
-        if (slot.index < 0 || slot.index >= hashes.length) continue;
+        if (slot.index < 0 || slot.index >= hashes.length || slot.stable) continue;
         let stableAfter = 0;
         if (previous) {
             for (let i = slot.index + 1; i < hashes.length; i++) if (previous.has(hashes[i] as number)) stableAfter++;

@@ -7,6 +7,7 @@ import {
     trackingOf,
     validateDef,
 } from '../../src/domain/mechanics-defs';
+import { isLasting, lastingLines, valueText } from '../../src/domain/mechanics-prompt';
 import { defFromTemplate, MECHANIC_TEMPLATES, templateById } from '../../src/domain/mechanics-templates';
 import { DEF_STRINGS } from '../../src/features/mechanics/strings-defs';
 
@@ -252,5 +253,82 @@ describe('templates of plan-2 §6', () => {
         ).toEqual({
             kind: 'persona',
         });
+    });
+});
+
+describe('templates of release 1.27: what the model is reminded of', () => {
+    const build = (id: string, locale: 'en' | 'ru' = 'en') =>
+        defFromTemplate(templateById(id)!, locale, { kind: 'global' }, []);
+    const holder = (values: Record<string, number | string | string[]>) => ({ name: 'Kai', values });
+
+    it('threshold notes read as a standing state and last while they hold', () => {
+        for (const item of MECHANIC_TEMPLATES) {
+            for (const attribute of build(item.id).attributes) {
+                for (const event of attribute.events ?? []) {
+                    if (!event.text.trim()) continue;
+                    const where = `${item.id}.${attribute.id}.${event.id}`;
+                    expect(isLasting(event), where).toBe(event.when.op !== 'changed');
+                    expect(event.text, where).not.toMatch(/\bnow\b|\bfalls\b|\bstarts\b|\bturned\b|\bbreaks\b/);
+                    expect(event.text.trim(), where).toMatch(/[.!]$/);
+                }
+            }
+        }
+    });
+
+    it('the obvious middle stages are there, and the most extreme one holding is the one said', () => {
+        const ids = (id: string, attribute: string) =>
+            build(id)
+                .attributes.find((item) => item.id === attribute)
+                ?.events?.map((event) => event.id);
+        expect(ids('health', 'health')).toEqual(['unconscious', 'badly_wounded']);
+        expect(ids('health', 'stamina')).toEqual(['exhausted', 'winded']);
+        expect(ids('magic', 'mana')).toEqual(['drained', 'low_mana']);
+        expect(ids('survival', 'hunger')).toEqual(['starving', 'fed', 'famished']);
+        expect(ids('survival', 'thirst')).toEqual(['parched', 'watered', 'dying_of_thirst']);
+        expect(ids('survival', 'fatigue')).toEqual(['collapsing', 'worn_out']);
+        expect(ids('combat', 'hp')).toEqual(['down', 'bloodied']);
+        const health = build('health');
+        expect(lastingLines(health, holder({ health: 0, stamina: 20 }))).toEqual([
+            'Kai is unconscious and cannot act.',
+            'Kai is winded and tiring fast.',
+        ]);
+        expect(lastingLines(health, holder({ health: 20, stamina: 100 }))).toEqual([
+            'Kai is badly wounded: every move hurts and blood loss slows them down.',
+        ]);
+        expect(lastingLines(build('magic'), holder({ mana: 0 }))).toEqual(['Kai has no mana left and cannot cast.']);
+        expect(lastingLines(build('survival'), holder({ hunger: 100, thirst: 40, fatigue: 75 }))).toEqual([
+            'Kai is starving to death and can think of nothing but food.',
+            'Kai is worn out: slow and clumsy.',
+        ]);
+        expect(lastingLines(build('relationships'), { name: 'Mira', values: { attitude: 'hostile' } })).toEqual([
+            "Mira is hostile toward the user's character.",
+        ]);
+    });
+
+    it('skills and survival carry words the model gets next to the number', () => {
+        const skills = build('skills', 'ru');
+        const stealth = skills.attributes.find((item) => item.id === 'stealth')!;
+        expect(valueText(skills, stealth, 6)).toBe('stealth 6/10 (professional)');
+        expect(valueText(skills, stealth, 2)).toBe('stealth 2/10 (ordinary)');
+        expect(stealth.visibility?.words?.[0]).toEqual({ upTo: 1, label: 'untrained', display: 'не обучен' });
+        const level = skills.attributes.find((item) => item.id === 'level')!;
+        expect(valueText(skills, level, 2)).toBe('level 2 (1..5)');
+        const magic = build('magic');
+        expect(
+            valueText(
+                magic,
+                magic.attributes.find((item) => item.id === 'arcana')!,
+                8,
+            ),
+        ).toBe('arcana 8/10 (master)');
+        const survival = build('survival');
+        const [hunger, thirst, fatigue] = survival.attributes;
+        expect(valueText(survival, hunger!, 10)).toBe('hunger 10/100 (fed)');
+        expect(valueText(survival, hunger!, 85)).toBe('hunger 85/100 (starving)');
+        expect(valueText(survival, thirst!, 60)).toBe('thirst 60/100 (very thirsty)');
+        expect(valueText(survival, fatigue!, 0)).toBe('fatigue 0/100 (rested)');
+        // Bands without their own words keep the default ones.
+        const health = build('health');
+        expect(valueText(health, health.attributes[0]!, 64)).toBe('health 64/100 (moderate)');
     });
 });

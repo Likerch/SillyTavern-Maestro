@@ -35,9 +35,10 @@ describe('presets', () => {
         expect(presetVisibility('game').view).toBe('number');
     });
 
-    it('book: words, no HUD values; hidden like book once revealed; secret nowhere', () => {
+    it('book: words, no HUD values, the model gets words too; hidden like book once revealed; secret nowhere', () => {
         const book = presetVisibility('book', health);
-        expect(book).toMatchObject({ prompt: 'value', mention: 'words', view: 'words' });
+        // Release 1.27: the model gets words as well, never the numbers.
+        expect(book).toMatchObject({ prompt: 'words', mention: 'words', view: 'words' });
         expect(book.places).toMatchObject({
             hud: false,
             strip: true,
@@ -58,14 +59,15 @@ describe('resolveVisibility', () => {
     it('defaults to game, takes the mechanic preset and its fields, then the attribute', () => {
         expect(resolveVisibility(undefined, health).preset).toBe('game');
         expect(resolveVisibility({ visibility: { preset: 'book' } }, health).view).toBe('words');
-        const mechanic = { visibility: { preset: 'book' as const, prompt: 'words' as const, places: { hud: true } } };
+        expect(resolveVisibility({ visibility: { preset: 'book' } }, health).prompt).toBe('words');
+        const mechanic = { visibility: { preset: 'book' as const, prompt: 'value' as const, places: { hud: true } } };
         expect(resolveVisibility(mechanic, health)).toMatchObject({
-            prompt: 'words',
+            prompt: 'value',
             places: { hud: true, strip: true },
         });
         const own = { ...health, visibility: { mention: 'none' as const, places: { strip: false } } };
         expect(resolveVisibility(mechanic, own)).toMatchObject({
-            prompt: 'words',
+            prompt: 'value',
             mention: 'none',
             places: { strip: false },
         });

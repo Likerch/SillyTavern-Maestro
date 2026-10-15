@@ -18,7 +18,8 @@ describe('mechanics settings', () => {
             autoChecks: 'yes',
             strip: false,
             promptBudget: 10_000,
-            depth: -3,
+            stateDepth: -3,
+            rulesPlace: 'middle',
             background: undefined,
         } as unknown as Partial<MechanicsSettings>;
         const value = readMechanicsSettings(slice);
@@ -28,7 +29,9 @@ describe('mechanics settings', () => {
             autoChecks: true,
             strip: false,
             promptBudget: 4000,
-            depth: 0,
+            rulesPlace: 'top',
+            stateDepth: 0,
+            settingsRev: 1,
             background: true,
             modelRolls: true,
             autoCombat: true,
@@ -61,11 +64,34 @@ describe('mechanics settings', () => {
                     .hudSideView,
             ).toBe('compact');
         }
-        expect(readMechanicsSettings({ book: ' Мои ', promptBudget: 333.4, depth: Number.NaN })).toMatchObject({
+        expect(
+            readMechanicsSettings({ book: ' Мои ', promptBudget: 333.4, stateDepth: Number.NaN, rulesPlace: 'end' }),
+        ).toMatchObject({
             book: 'Мои',
             promptBudget: 333,
-            depth: 1,
+            stateDepth: 0,
+            rulesPlace: 'end',
         });
+        expect(readMechanicsSettings({ stateDepth: 3.6 }).stateDepth).toBe(4);
+    });
+
+    it('release 1.27: the old default budget of 400 becomes 1200 once; the old depth is not read', () => {
+        expect(defaultMechanicsSettings()).toMatchObject({
+            promptBudget: 1200,
+            rulesPlace: 'top',
+            stateDepth: 0,
+            settingsRev: 1,
+        });
+        const old = { promptBudget: 400, depth: 3 } as unknown as Partial<MechanicsSettings>;
+        expect(readMechanicsSettings(old)).toMatchObject({ promptBudget: 1200, stateDepth: 0, settingsRev: 1 });
+        // Once: a budget of 400 chosen after the migration stays.
+        old.promptBudget = 400;
+        expect(readMechanicsSettings(old).promptBudget).toBe(400);
+        // Another saved budget is the user's own: kept, the revision is stored.
+        const own = { promptBudget: 650 } as Partial<MechanicsSettings>;
+        expect(readMechanicsSettings(own)).toMatchObject({ promptBudget: 650, settingsRev: 1 });
+        // A fresh slice gets the new defaults.
+        expect(readMechanicsSettings({})).toMatchObject({ promptBudget: 1200, settingsRev: 1 });
     });
 });
 

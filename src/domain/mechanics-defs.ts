@@ -84,6 +84,8 @@ export interface AttributeEvent {
     when: { op: '<=' | '>=' | '=' | 'changed'; value?: number | string };
     text: string;
     once?: boolean;
+    /** Stays in the prompt's state while the condition holds (default true; never for 'changed'; release 1.27). */
+    lasting?: boolean;
     /** What else happens: value changes, a status, an item, revealing a hidden attribute. */
     actions?: ChangeAction[];
     /** Another event of this mechanic (`eventId` or `attribute.eventId`) that fires right after. */
@@ -753,6 +755,7 @@ function normalizeEvent(raw: unknown, index: number): AttributeEvent | null {
     const value = typeof when.value === 'string' ? when.value.trim() : finite(when.value);
     if (op !== 'changed' && value !== undefined) event.when.value = value;
     if (typeof raw.once === 'boolean') event.once = raw.once;
+    if (typeof raw.lasting === 'boolean' && op !== 'changed') event.lasting = raw.lasting;
     const actions = normalizeActions(raw.actions);
     if (actions) event.actions = actions;
     if (str(raw.chain)) event.chain = str(raw.chain);

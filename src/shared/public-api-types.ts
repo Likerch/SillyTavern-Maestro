@@ -317,6 +317,8 @@ export interface ApiAttributeDef {
         when: { op: '<=' | '>=' | '=' | 'changed'; value?: number | string };
         text: string;
         once?: boolean;
+        /** Stays in the prompt's state while the condition holds (default true; never for 'changed'). */
+        lasting?: boolean;
         actions?: ApiChangeAction[];
         chain?: string;
     }[];

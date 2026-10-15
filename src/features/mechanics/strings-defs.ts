@@ -133,6 +133,8 @@ export const DEF_STRINGS: I18nParts = {
         'm25.def.event.value': 'Value',
         'm25.def.event.text': 'Note for the model (English; {holder} and {value} are filled in)',
         'm25.def.event.once': 'Once, until the condition is false again',
+        'm25.def.event.lasting': 'Lasts while the condition holds',
+        'm25.def.event.lasting.hint': 'the model is reminded of it every turn',
         'm25.def.event.remove': 'Remove the event',
 
         'm25.def.checks': 'Checks',
@@ -231,10 +233,15 @@ export const DEF_STRINGS: I18nParts = {
         'm25.def.settings.background': 'Background parse of replies',
         'm25.def.settings.promptBudget': 'Prompt budget, tokens',
         'm25.def.settings.promptBudget.hint':
-            "Rules and values of the mechanics in the scene. The architect's budget for mechanics wins when it is set.",
-        'm25.def.settings.depth': 'Depth in the chat',
-        'm25.def.settings.depth.hint':
-            'How many messages from the end the rules go. Close to the end keeps the provider cache intact.',
+            "The rules and the values of the mechanics in the scene together; when they do not fit, the rules get shorter first, your character's values go last. 1200 is enough for three or four mechanics. The architect's budget for mechanics wins when it is set.",
+        'm25.def.settings.rulesPlace': 'Rules of the mechanics',
+        'm25.def.settings.rulesPlace.top': 'at the start of the prompt',
+        'm25.def.settings.rulesPlace.end': 'next to the values',
+        'm25.def.settings.rulesPlace.hint':
+            'At the start they stay the same from turn to turn, so the provider cache keeps them; next to the values the model reads them right before it writes.',
+        'm25.def.settings.stateDepth': 'Depth of the values',
+        'm25.def.settings.stateDepth.hint':
+            'How many messages from the end the current values go: 0 is right before the reply. Close to the end keeps the provider cache intact.',
     },
     ru: {
         'm25.title': 'Механики',
@@ -363,6 +370,8 @@ export const DEF_STRINGS: I18nParts = {
         'm25.def.event.value': 'Значение',
         'm25.def.event.text': 'Заметка для модели (по-английски; {holder} и {value} подставятся)',
         'm25.def.event.once': 'Один раз, пока условие снова не станет ложным',
+        'm25.def.event.lasting': 'Держится, пока условие верно',
+        'm25.def.event.lasting.hint': 'модель помнит об этом каждый ход',
         'm25.def.event.remove': 'Убрать событие',
 
         'm25.def.checks': 'Проверки',
@@ -461,9 +470,14 @@ export const DEF_STRINGS: I18nParts = {
         'm25.def.settings.background': 'Фоновый разбор ответов',
         'm25.def.settings.promptBudget': 'Бюджет в промпте, токенов',
         'm25.def.settings.promptBudget.hint':
-            'Правила и значения механик, участвующих в сцене. Если у архитектора задан бюджет механик, действует он.',
-        'm25.def.settings.depth': 'Глубина в чате',
-        'm25.def.settings.depth.hint':
-            'За сколько сообщений от конца ставятся правила. Ближе к концу — кэш провайдера не ломается.',
+            'Правила и значения механик сцены вместе; если не влезают, сначала сокращаются правила, значения твоего персонажа — в последнюю очередь. 1200 хватает на три-четыре механики. Если у архитектора задан бюджет механик, действует он.',
+        'm25.def.settings.rulesPlace': 'Правила механик',
+        'm25.def.settings.rulesPlace.top': 'в начале промпта',
+        'm25.def.settings.rulesPlace.end': 'рядом с состоянием',
+        'm25.def.settings.rulesPlace.hint':
+            'В начале они не меняются от хода к ходу, и кэш провайдера их держит; рядом с состоянием модель читает их прямо перед ответом.',
+        'm25.def.settings.stateDepth': 'Глубина состояния',
+        'm25.def.settings.stateDepth.hint':
+            'За сколько сообщений от конца ставятся текущие значения: 0 — прямо перед ответом. Ближе к концу — кэш провайдера не ломается.',
     },
 };
