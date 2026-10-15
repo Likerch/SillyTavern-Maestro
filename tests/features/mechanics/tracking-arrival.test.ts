@@ -151,6 +151,17 @@ describe('tracking health', () => {
         expect(listener).toHaveBeenCalledTimes(2);
     });
 
+    it('tells the listeners when the leadership moves', async () => {
+        await env.receive(STORY, [{ name: 'Kai' }]);
+        const listener = vi.fn();
+        env.tracking.onHealthChange(listener);
+        env.leader.set(false);
+        expect(listener).toHaveBeenCalledTimes(1);
+        expect(env.tracking.health().map((problem) => problem.code)).toEqual(['otherTab']);
+        env.leader.set(true);
+        expect(env.tracking.health()).toEqual([]);
+    });
+
     it('notes DES stats DES does not track yet', async () => {
         env.defs.defs = [healthDef()];
         await env.receive(STORY, [{ name: 'Kai' }]);

@@ -335,7 +335,8 @@ export interface MechanicsEnv {
     mock: StMock;
     host: TestHost;
     ui: FakeUi;
-    leader: { value: boolean };
+    /** `value` switches the leadership silently; `set` also tells the listeners (as the real leader does). */
+    leader: { value: boolean; set(value: boolean): void };
     settings: MechanicsSettings;
     defs: FakeDefs;
     des: FakeDes;
@@ -382,7 +383,14 @@ export function createMechanicsEnv(locale: 'en' | 'ru' = 'en'): MechanicsEnv {
     const modules = new FakeModules();
     modules.expose('world', fakeWorld());
     const des = new FakeDes(mock);
-    const leader = { value: true };
+    const leaderListeners = new Set<(value: boolean) => void>();
+    const leader = {
+        value: true,
+        set(value: boolean) {
+            leader.value = value;
+            for (const listener of [...leaderListeners]) listener(value);
+        },
+    };
     const ui = createFakeUi();
     const bus = createBus(log);
     const journal = new FakeJournal();
@@ -410,7 +418,13 @@ export function createMechanicsEnv(locale: 'en' | 'ru' = 'en'): MechanicsEnv {
         settings: { core: () => ({ mode: 'balanced' }) } as unknown as SettingsService,
         files,
         chat,
-        leader: { isLeader: () => leader.value, onChange: () => () => {} },
+        leader: {
+            isLeader: () => leader.value,
+            onChange: (listener: (value: boolean) => void) => {
+                leaderListeners.add(listener);
+                return () => leaderListeners.delete(listener);
+            },
+        },
         tasks,
         llm,
         cost: { backgroundCapReached: () => cost.cap } as unknown as App['cost'],

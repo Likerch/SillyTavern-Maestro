@@ -306,6 +306,8 @@ export class MechanicTracking implements TrackingPart {
             }),
             app.bus.on('message:invalidated', ({ messageIndex, reason }) => this.onInvalidated(messageIndex, reason)),
             app.bus.on('chat:changed', () => this.onChatChanged()),
+            // «Another tab counts the values» comes and goes with the leadership.
+            app.leader.onChange(() => this.notifyHealth()),
         );
         this.onSt(
             'MESSAGE_RECEIVED',
@@ -981,6 +983,10 @@ export class MechanicTracking implements TrackingPart {
     private setExtractError(error: string | null): void {
         if (this.extractError === error) return;
         this.extractError = error;
+        this.notifyHealth();
+    }
+
+    private notifyHealth(): void {
         for (const listener of [...this.healthListeners]) {
             try {
                 listener();
