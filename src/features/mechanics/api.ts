@@ -3,10 +3,12 @@
 // assistant): attributes (numbers, scales, lists, texts, derived formulas), who has them, rules for the model, change
 // events with actions, checks with consequences, statuses, inventories, time rules, levels, fights, visibility.
 // Definitions are lore entries of type 'mechanic' in a Maestro book (typed fields + `extensions.maestro.mechanic`); the
-// state is a Maestro file per chat. Changes are tracked in one of three ways per attribute: DES stats (the tracker's
-// `stats`; the user's own character, whom DES does not list, falls back to the background parse or the block), a
-// short service block in the reply (parsed and hidden by Maestro; it can also ask for rolls and run fights), or a
-// background parse of the reply. Checks are rolled by Maestro — on the user's words, by hand, or when the model asks —
+// state is a Maestro file per chat. Changes are tracked per attribute: DES stats (the tracker's `stats`, counted as
+// changes; the user's own character, whom DES does not list, falls back to the background parse or the block), a
+// short service block in the reply (parsed and hidden by Maestro; it can also ask for rolls, run fights and say how
+// much story time passes), a background parse of the reply, or — the default since 1.26 — 'auto': DES for the numbers
+// it keeps, the block for the rest, the background parse when the model forgot the block. Checks are rolled by
+// Maestro — on the user's words, by hand, or when the model asks —
 // their consequences are applied at once, and the result reaches the next generation as a fact. Only the rules and the
 // state of what takes part in the scene go into the prompt, near the end (P16), as each mechanic's visibility allows.
 // Exposed as app.modules.api<MechanicsApi>('mechanics').
@@ -20,12 +22,16 @@ export type AttributeKind = 'number' | 'scale' | 'list' | 'text';
 
 /**
  * How changes of an attribute are noticed:
+ * - 'auto' (release 1.26, the default): decided per holder — a character's (not the user's character's) number that
+ *   DES keeps as a stat comes from DES; everything else, statuses and items too, from the service block, which the
+ *   model then always writes (`<mechanics>none</mechanics>` when nothing changed); when a reply has no readable block,
+ *   the background parse reads it instead;
  * - 'desStats': a DES character stat (numbers of characters only; Maestro adds the stat to DES's tracker config);
  * - 'block': a short service block the model writes at the end of its reply (Maestro parses, repairs and hides it);
  * - 'background': a cheap background parse of the committed reply;
  * - 'manual': only the user (and checks/events/time) change it.
  */
-export type TrackingMode = 'desStats' | 'block' | 'background' | 'manual';
+export type TrackingMode = 'auto' | 'desStats' | 'block' | 'background' | 'manual';
 
 export type AttributeValue = number | string | string[];
 
@@ -400,6 +406,11 @@ export interface MechanicsClock {
     minutes?: number;
     /** The date as DES wrote it. */
     label: string;
+    /**
+     * Counted from the service block's `time: +3h` or the background parse (no DES time, release 1.26): day and minutes
+     * since the count started, not a real time of day.
+     */
+    relative?: boolean;
 }
 
 /** A number with its parts: the stored (or derived) base and the modifiers of statuses and equipped items. */
@@ -516,13 +527,7 @@ export type MechanicsEvent =
  * - extractFailed: the latest background parse failed (the error is in `detail`).
  */
 export type TrackingProblemCode =
-    | 'noProfile'
-    | 'cap'
-    | 'backgroundOff'
-    | 'desStatsPending'
-    | 'noDes'
-    | 'otherTab'
-    | 'extractFailed';
+    'noProfile' | 'cap' | 'backgroundOff' | 'desStatsPending' | 'noDes' | 'otherTab' | 'extractFailed';
 
 export interface TrackingProblem {
     code: TrackingProblemCode;
@@ -693,4 +698,13 @@ export interface MechanicsApi {
      * it): a swipe, a regeneration or an edit takes them back. -1 when there is none.
      */
     provisionalIndex?(): number;
+
+    // ---- release 1.26: tracking that keeps up.
+    /**
+     * «Пересчитать ход»: takes back what the tracking took from a story reply (DES stats, the service block, the
+     * background parse, its events) and reads the reply again — the block record, DES, and the background parse run
+     * anew; when the parse can run, it reads the 'auto' attributes afresh instead of a block (which would only say the
+     * same again). False when it is not a story reply of the model or this tab does not count the values.
+     */
+    retrack?(messageIndex: number): Promise<boolean>;
 }

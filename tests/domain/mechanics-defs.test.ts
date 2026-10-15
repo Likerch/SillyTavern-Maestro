@@ -248,7 +248,8 @@ describe('normalizeDef', () => {
             name: 'luck',
             summary: 'Luck.',
             rules: '',
-            tracking: 'background',
+            // An unknown mode falls back to 'auto', the default since 1.26 (was 'background').
+            tracking: 'auto',
             scope: { kind: 'global' },
             holders: { kind: 'factions', names: ['Guild', 'Crown'] },
             template: 'x',

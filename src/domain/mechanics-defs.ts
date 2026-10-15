@@ -17,7 +17,7 @@ type Dict = Record<string, unknown>;
 /* ------------------------------------------------------------------ types (same shape as the public API) */
 
 export type AttributeKind = 'number' | 'scale' | 'list' | 'text';
-export type TrackingMode = 'desStats' | 'block' | 'background' | 'manual';
+export type TrackingMode = 'auto' | 'desStats' | 'block' | 'background' | 'manual';
 export type AttributeValue = number | string | string[];
 
 /** What a change does: numbers add/sub/set/mul; lists, statuses and items push (add, give) or pull (remove, take). */
@@ -236,7 +236,8 @@ export interface MechanicTemplate {
 /* ------------------------------------------------------------------ constants */
 
 export const ATTRIBUTE_KINDS: readonly AttributeKind[] = ['number', 'scale', 'list', 'text'];
-export const TRACKING_MODES: readonly TrackingMode[] = ['desStats', 'block', 'background', 'manual'];
+/** 'auto' first: the default (release 1.26) and the constructor's recommended choice. */
+export const TRACKING_MODES: readonly TrackingMode[] = ['auto', 'desStats', 'block', 'background', 'manual'];
 export const HOLDER_KINDS: readonly HolderSpec['kind'][] = ['persona', 'characters', 'named', 'world', 'factions'];
 export const EVENT_OPS: readonly AttributeEvent['when']['op'][] = ['<=', '>=', '=', 'changed'];
 export const SCOPE_KINDS: readonly MechanicScope['kind'][] = ['global', 'card', 'chat'];
@@ -586,6 +587,9 @@ export function holdsCharacters(holders: HolderSpec): boolean {
 /**
  * Effective tracking of an attribute: its own mode, else the mechanic's. DES stats exist only for numbers of
  * characters; anything else that would be 'desStats' falls back to 'background' (validateDef reports an explicit one).
+ * 'auto' (release 1.26, the default) stays 'auto': the tracking decides per holder at runtime — a character's number
+ * that DES keeps as a stat comes from DES, everything else from the service block, with the background parse as the
+ * safety net when the block is missing.
  */
 export function trackingOf(def: Pick<MechanicDef, 'tracking' | 'holders'>, attribute: AttributeDef): TrackingMode {
     const mode = attribute.tracking ?? def.tracking;
@@ -596,6 +600,18 @@ export function trackingOf(def: Pick<MechanicDef, 'tracking' | 'holders'>, attri
 /** Number attributes tracked as DES stats. */
 export function desStatsAttributes(def: Pick<MechanicDef, 'tracking' | 'holders' | 'attributes'>): AttributeDef[] {
     return def.attributes.filter((attribute) => trackingOf(def, attribute) === 'desStats');
+}
+
+/**
+ * Number attributes DES may keep as character stats: the 'desStats' ones and, in 'auto', the stored numbers of
+ * character mechanics (DES then gives them for the characters; the block keeps the rest).
+ */
+export function desStatCandidates(def: Pick<MechanicDef, 'tracking' | 'holders' | 'attributes'>): AttributeDef[] {
+    return def.attributes.filter((attribute) => {
+        const mode = trackingOf(def, attribute);
+        if (mode === 'desStats') return true;
+        return mode === 'auto' && attribute.kind === 'number' && !attribute.formula && holdsCharacters(def.holders);
+    });
 }
 
 /** Initial value of an attribute for a new holder (bounds and levels respected). */
@@ -934,7 +950,8 @@ export function normalizeDef(raw: unknown): MechanicDef | null {
         checks: (Array.isArray(raw.checks) ? raw.checks : [])
             .map((item, index) => normalizeCheck(item, index))
             .filter((item): item is CheckDef => item !== null),
-        tracking: oneOf(TRACKING_MODES, raw.tracking) ?? 'background',
+        // Missing or unknown: 'auto' (release 1.26); a saved explicit mode stays as it is.
+        tracking: oneOf(TRACKING_MODES, raw.tracking) ?? 'auto',
         scope: normalizeScope(raw.scope),
     };
     if (str(raw.template)) def.template = str(raw.template);

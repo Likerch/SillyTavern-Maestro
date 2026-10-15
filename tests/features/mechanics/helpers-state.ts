@@ -359,6 +359,8 @@ export interface MechanicsEnv {
     receive(text: string, cast?: CastMember[], type?: string): Promise<number>;
     /** The user answers: a user message, then turn:committed for the reply and the settle pause. */
     commit(index: number): Promise<void>;
+    /** This tab becomes (or stops being) the leader; the leader's listeners hear it. */
+    setLeader(value: boolean): void;
     switchTo(chatId: string | undefined, chat?: STChatMessage[]): Promise<void>;
 }
 
@@ -497,6 +499,10 @@ export function createMechanicsEnv(locale: 'en' | 'ru' = 'en'): MechanicsEnv {
             mock.chat.push(userMessage());
             await bus.emit('turn:committed', { messageIndex: index });
             await tick(SETTLE);
+        },
+        setLeader(value) {
+            leader.value = value;
+            for (const listener of [...leaderListeners]) listener(value);
         },
         async switchTo(chatId, messages = []) {
             mock.chat = messages;

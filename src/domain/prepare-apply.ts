@@ -489,7 +489,7 @@ export function mechanicDefOf(
         attributes: data.attributes.map((row) => attributeOf(row, taken)),
         holders: holdersOf(data),
         checks: [],
-        tracking: 'background',
+        tracking: 'auto',
         scope: JSON.parse(JSON.stringify(scope)) as MechanicScope,
     };
 }

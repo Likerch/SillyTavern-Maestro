@@ -91,13 +91,16 @@ export const DEF_STRINGS: I18nParts = {
         'm25.def.holders.includePersona': 'Your character too',
         'm25.def.holders.names': 'Names, comma-separated',
         'm25.def.field.tracking': 'How changes are noticed',
+        'm25.def.tracking.auto': 'Auto (recommended)',
+        'm25.def.tracking.auto.hint':
+            'DES keeps the stats, the model writes the rest in a service block; if it forgets, the background parse covers.',
         'm25.def.tracking.desStats': 'DES stats',
         'm25.def.tracking.block': 'Service block in the reply',
         'm25.def.tracking.background': 'Background parse',
         'm25.def.tracking.manual': 'By hand only',
         'm25.def.tracking.inherit': 'As the mechanic ({mode})',
         'm25.def.tracking.hint':
-            "DES stats: numbers of characters live in DES's tracker. Service block: the model ends its reply with a short block that Maestro reads and hides. Background parse: Maestro reads the reply after you send the next message. Checks are always rolled by Maestro.",
+            "Auto: DES keeps the stats, the model writes the rest in a service block; if it forgets, the background parse covers. DES stats: numbers of characters live in DES's tracker. Service block: the model ends its reply with a short block that Maestro reads and hides. Background parse: Maestro reads the reply as soon as it is shown. Checks are always rolled by Maestro.",
 
         'm25.def.attributes': 'Attributes',
         'm25.def.attributes.empty': 'No attributes.',
@@ -163,6 +166,8 @@ export const DEF_STRINGS: I18nParts = {
         'm25.def.des.done': 'The stats were added to DES.',
         'm25.def.des.notDone': 'DES stats were not changed.',
         'm25.def.des.saveFirst': 'Save the mechanic first.',
+        'm25.def.des.hint.auto':
+            "In «Auto» DES may keep these numbers for the characters (the user's character's still go through the service block): make them DES stats to read them from DES's tracker.",
 
         'm25.def.save': 'Save',
         'm25.def.cancel': 'Cancel',
@@ -316,13 +321,16 @@ export const DEF_STRINGS: I18nParts = {
         'm25.def.holders.includePersona': 'И твой персонаж тоже',
         'm25.def.holders.names': 'Имена через запятую',
         'm25.def.field.tracking': 'Как замечать изменения',
+        'm25.def.tracking.auto': 'Авто (рекомендуется)',
+        'm25.def.tracking.auto.hint':
+            'DES ведёт статы, остальное модель пишет в служебном блоке; забыла — подстрахует фоновый разбор.',
         'm25.def.tracking.desStats': 'Статы DES',
         'm25.def.tracking.block': 'Служебный блок в ответе',
         'm25.def.tracking.background': 'Фоновый разбор',
         'm25.def.tracking.manual': 'Только вручную',
         'm25.def.tracking.inherit': 'Как у механики ({mode})',
         'm25.def.tracking.hint':
-            'Статы DES: числа персонажей живут в трекере DES. Служебный блок: модель заканчивает ответ коротким блоком, Maestro его читает и прячет. Фоновый разбор: Maestro читает ответ, когда ты отправишь следующее сообщение. Броски всегда делает Maestro.',
+            'Авто: DES ведёт статы, остальное модель пишет в служебном блоке; забыла — подстрахует фоновый разбор. Статы DES: числа персонажей живут в трекере DES. Служебный блок: модель заканчивает ответ коротким блоком, Maestro его читает и прячет. Фоновый разбор: Maestro читает ответ, как только он показан. Броски всегда делает Maestro.',
 
         'm25.def.attributes': 'Атрибуты',
         'm25.def.attributes.empty': 'Атрибутов нет.',
@@ -388,6 +396,8 @@ export const DEF_STRINGS: I18nParts = {
         'm25.def.des.done': 'Статы добавлены в DES.',
         'm25.def.des.notDone': 'Статы DES не изменились.',
         'm25.def.des.saveFirst': 'Сначала сохрани механику.',
+        'm25.def.des.hint.auto':
+            'В режиме «Авто» эти числа персонажей может вести DES (числа твоего персонажа всё равно идут через служебный блок): сделай их статами DES, чтобы брать их из трекера.',
 
         'm25.def.save': 'Сохранить',
         'm25.def.cancel': 'Отмена',

@@ -152,7 +152,8 @@ describe('templates', () => {
             name: 'Magic',
             template: 'magic',
             scope: { kind: 'card', avatar: AVATAR },
-            tracking: 'desStats',
+            // The templates are 'auto' since 1.26 (was 'desStats' for magic).
+            tracking: 'auto',
         });
         expect(notices()).toContain('Mechanic «Magic» saved.');
         expect(container.querySelectorAll('.maestro-m25-def')).toHaveLength(2);
@@ -315,6 +316,24 @@ describe('editor', () => {
         type(one<HTMLTextAreaElement>('textarea[aria-label="Rules for the model"]'), 'Luck decides.');
         await click(buttonByText('Save'));
         expect(defs.saved[0]).toMatchObject({ id: 'udacha', name: 'Удача', rules: 'Luck decides.' });
+    });
+
+    it('starts a blank mechanic in «Auto», offered first with its hint (1.26)', async () => {
+        render();
+        await click(buttonByText('New mechanic'));
+        const select = one<HTMLSelectElement>('select[aria-label="Tracking"]');
+        expect(select.value).toBe('auto');
+        expect(select.options[0]).toMatchObject({ value: 'auto', textContent: 'Auto (recommended)' });
+        expect(text()).toContain(
+            'DES keeps the stats, the model writes the rest in a service block; if it forgets, the background parse covers.',
+        );
+        choose(select, 'block');
+        expect(text()).toContain('Service block: the model ends its reply');
+        choose(one<HTMLSelectElement>('select[aria-label="Tracking"]'), 'auto');
+        type(one<HTMLInputElement>('.maestro-m25-def-name'), 'Удача');
+        type(one<HTMLTextAreaElement>('textarea[aria-label="Rules for the model"]'), 'Luck decides.');
+        await click(buttonByText('Save'));
+        expect(defs.saved[0]).toMatchObject({ name: 'Удача', tracking: 'auto' });
     });
 
     it('reports save errors and keeps the editor; changes elsewhere do not redraw it', async () => {

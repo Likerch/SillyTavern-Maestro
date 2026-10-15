@@ -12,7 +12,8 @@
 //   (Kai) against Bandit: …"), the roll lines show «Kai → Bandit»;
 // - the roll belongs to the user message: swipes, regenerations and continues never roll again (MESSAGE_SENT does not
 //   fire for them; the prompt part repeats the delivered fact); an edit of the last user message keeps the roll while
-//   the same check is called for and replaces it otherwise; deleting the message drops its undelivered roll;
+//   the same check is called for and replaces it otherwise; deleting the message drops its undelivered roll
+//   (release 1.26: messages deleted from the middle move the rolls of later messages down with them);
 // - rolls by the pult button and `/maestro-roll <check> [who] [difficulty]` are 'user' rolls; one made before the
 //   message is sent belongs to that message and stops the auto roll for it;
 // - the log is a small per-chat Maestro document `mechanics-checks` (newest last, bounded); results not yet given to
@@ -322,7 +323,9 @@ export class MechanicChecks implements ChecksPart {
         else this.deps.log.warn('ST event MESSAGE_SENT is missing: no auto checks');
         this.offs.push(app.bus.on('chat:changed', () => this.open()));
         this.offs.push(
-            app.bus.on('message:invalidated', ({ messageIndex, reason }) => this.onInvalidated(messageIndex, reason)),
+            app.bus.on('message:invalidated', ({ messageIndex, reason, removedAt, removed }) =>
+                this.onInvalidated(messageIndex, reason, removedAt, removed),
+            ),
         );
         this.offs.push(app.ui.addSlashCommand(this.command()));
         this.open();
@@ -1182,10 +1185,17 @@ export class MechanicChecks implements ChecksPart {
 
     /* ---------------------------------------------------------------- swipes, edits, deletions */
 
-    private onInvalidated(index: number, reason: 'swiped' | 'deleted' | 'edited'): void {
+    private onInvalidated(
+        index: number,
+        reason: 'swiped' | 'deleted' | 'edited',
+        removedAt?: number,
+        removed?: number,
+    ): void {
         if (this.disposed || !Number.isInteger(index) || index < 0) return;
         try {
-            if (reason === 'deleted') this.deleted(index);
+            if (reason === 'deleted' && removedAt !== undefined && removed && removedAt >= 0 && removedAt < index)
+                this.deletedRange(removedAt, removed);
+            else if (reason === 'deleted') this.deleted(index);
             else if (reason === 'edited') this.edited(index);
             else this.swiped(index);
         } catch (error) {
@@ -1212,6 +1222,28 @@ export class MechanicChecks implements ChecksPart {
             if (!pending(result)) return true;
             touched = true;
             return false;
+        });
+        if (!touched) return;
+        this.saveSoon();
+        this.changed();
+    }
+
+    /**
+     * Messages deleted from the middle (release 1.26): their undelivered rolls go, delivered ones stay as history
+     * under no message; the rolls of later messages move down with them.
+     */
+    private deletedRange(at: number, count: number): void {
+        let touched = false;
+        this.results = this.results.filter((result) => {
+            if (result.messageIndex < at) return true;
+            touched = true;
+            if (result.messageIndex >= at + count) {
+                result.messageIndex -= count;
+                return true;
+            }
+            if (pending(result)) return false;
+            result.messageIndex = -1;
+            return true;
         });
         if (!touched) return;
         this.saveSoon();

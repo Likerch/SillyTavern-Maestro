@@ -197,19 +197,24 @@ export interface StatePart {
         journal?: { kind: string; summary: string },
     ): Promise<StateChange[]>;
     reset?(target: { mechanicId?: string; holder?: string }): Promise<number>;
-    /** The committed reply's turn: the story clock, statuses, time rules, the fight's round (leader, once). */
-    processTurn?(index: number): Promise<void>;
-    /** Takes back the tracked changes of a reply whose text changed (a continuation), so it is processed again. */
+    /**
+     * The reply's turn: the story clock, statuses, time rules, the fight's round (leader, once). `elapsed`: the story
+     * minutes the service block or the background parse say pass, used when DES gives no time (release 1.26).
+     */
+    processTurn?(index: number, options?: { elapsed?: number }): Promise<void>;
+    /** DES gives a date or a time for the reply (release 1.26: then the block's and the parse's minutes are not used). */
+    hasObservedTime?(index: number): boolean;
+    /** Takes back the tracked changes of a reply (a continuation, «Пересчитать»), so it is processed again. */
     retrack?(index: number): Promise<void>;
     onEvent?(listener: (event: MechanicsEvent) => void): Unsubscribe;
     emitEvent?(event: MechanicsEvent): void;
 }
 
-/** Tracking part: the three ways changes are noticed. */
+/** Tracking part: the ways changes are noticed ('auto' combines them, release 1.26). */
 export interface TrackingPart {
     /**
-     * English instruction for the 'block' attributes of the mechanics in the scene (format of the service block,
-     * the holders and attributes it may change), '' when none uses the block. The prompt part appends it.
+     * English instruction for the 'block' and 'auto' attributes of the mechanics in the scene (format of the service
+     * block, the holders and attributes it may change), '' when none uses the block. The prompt part appends it.
      */
     blockInstruction(
         defs: MechanicDef[],

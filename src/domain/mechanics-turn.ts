@@ -1,7 +1,8 @@
 // M25 «Механики», what a committed turn does by itself (plan-2 §6 п. 3, 5, 11): the story clock moves to the time DES
-// wrote for the reply; statuses lose a turn and the story minutes that passed, and the ones that ran out (or whose
-// moment came) end with an event for the model; regeneration and decay rules run per turn, per story hour and per
-// story day (only while resting / awake when they say so); a fight goes to its next round. Everything is returned as
+// wrote for the reply (without it, by the minutes the service block or the background parse say pass, release 1.26);
+// statuses lose a turn and the story minutes that passed, and the ones that ran out (or whose moment came) end with an
+// event for the model; regeneration and decay rules run per turn, per story hour and per story day (only while
+// resting / awake when they say so); a fight goes to its next round. Everything is returned as
 // operations of one batch for the committed reply (source 'time'): a swipe, deletion or edit of that reply takes it
 // all back. A status that started in this very reply does not lose its first turn.
 // Pure: no DOM, no SillyTavern.
@@ -19,8 +20,15 @@ import type { TimeStep } from './mechanics-time';
 export interface TurnInput {
     /** The committed reply. */
     index: number;
-    /** The clock the reply's DES time gives (null: unknown, the clock stays). */
+    /** The clock the reply's DES time gives, or the minutes the block / parse say pass (null: unknown, it stays). */
     clock: ClockRecord | null;
+    /** Where the step starts (default: the document's clock); a clock started by the minutes advance starts there. */
+    from?: ClockRecord | null;
+    /**
+     * Committed turns the step holds (default 1). 0: only story time passes (the background parse said how long the
+     * reply took after its turn ran) — per-turn rules, turn-counted statuses and the fight's round stay.
+     */
+    turns?: number;
     /** Mechanics on in the chat. */
     defs: readonly MechanicDef[];
     /** Holders whose time rules run (those in the scene). */
@@ -46,7 +54,8 @@ export function turnOps(
 ): { ops: OpInput[]; step: TimeStep } {
     const base: OpBase = { source: 'time', messageIndex: input.index };
     const clock = input.clock ?? doc.clock;
-    const step = timeStep(doc.clock, clock, 1);
+    const turns = input.turns ?? 1;
+    const step = timeStep(input.from !== undefined ? input.from : doc.clock, clock, turns);
     const ops: OpInput[] = [{ ...base, kind: 'clock', index: input.index, clock: input.clock }];
     const now = clock ? { day: clock.day, ...(clock.minutes !== undefined ? { minutes: clock.minutes } : {}) } : null;
 
@@ -115,7 +124,7 @@ export function turnOps(
         }
     }
 
-    if (doc.combat?.active && doc.combat.startedAt < input.index) {
+    if (turns > 0 && doc.combat?.active && doc.combat.startedAt < input.index) {
         ops.push({
             ...base,
             kind: 'combat',

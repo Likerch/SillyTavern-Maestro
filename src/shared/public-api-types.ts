@@ -243,7 +243,7 @@ export interface ApiTypedEntry {
 /* ------------------------------------------------------------------ mechanics (1.24) */
 
 export type ApiAttributeKind = 'number' | 'scale' | 'list' | 'text';
-export type ApiTrackingMode = 'desStats' | 'block' | 'background' | 'manual';
+export type ApiTrackingMode = 'auto' | 'desStats' | 'block' | 'background' | 'manual';
 export type ApiAttributeValue = number | string | string[];
 export type ApiChangeOp = 'add' | 'sub' | 'set' | 'mul' | 'push' | 'pull';
 export type ApiVisibilityPreset = 'game' | 'book' | 'hidden' | 'secret';

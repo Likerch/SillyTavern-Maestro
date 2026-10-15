@@ -113,6 +113,36 @@ describe('the change line', () => {
         expect(byKind(strip.items(reply), 'change')).toEqual([]);
     });
 
+    it('offers «Пересчитать» under a story reply (1.26) and says how it went', async () => {
+        await setup();
+        const reply = env.pushReply();
+        await block(reply);
+        const retrack = vi.fn(async (index: number) => index === reply);
+        env.api.retrack = retrack;
+        const details = body(byKind(strip.items(reply), 'change')[0]!);
+        const button = details.querySelector<HTMLButtonElement>('.maestro-m25-recount')!;
+        expect(button.textContent).toBe('Пересчитать');
+        // Not one of the change rows.
+        expect(details.querySelectorAll('.maestro-m25-change-item')).toHaveLength(4);
+        button.click();
+        await settlePlay(env);
+        expect(retrack).toHaveBeenCalledWith(reply);
+        expect(env.ui.notices.at(-1)?.text).toBe(`Ответ #${reply}: механики пересчитаны.`);
+        retrack.mockResolvedValueOnce(false);
+        button.click();
+        await settlePlay(env);
+        expect(env.ui.notices.at(-1)?.options).toMatchObject({ level: 'warn' });
+        expect(env.ui.notices.at(-1)?.text).toContain(`Не получилось пересчитать ответ #${reply}`);
+        // Under the user's own message: no button.
+        const own = await env.sendUser('Колдую.');
+        await env.state.apply([
+            { mechanicId: 'vitals', holder: 'Kai', attribute: 'hp', value: 60, source: 'check', messageIndex: own },
+        ]);
+        await settlePlay(env);
+        const mine = body(byKind(strip.items(own), 'change')[0]!);
+        expect(mine.querySelector('.maestro-m25-recount')).toBeNull();
+    });
+
     it('tells the listeners which message to repaint', async () => {
         await setup();
         const reply = env.pushReply();

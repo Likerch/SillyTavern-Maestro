@@ -1,32 +1,52 @@
-// M25 «Механики», the tracking part (plan M25 п. 4; §5; §10; P8, P14, P15): the three ways changes are noticed.
+// M25 «Механики», the tracking part (plan M25 п. 4; §5; §10; P8, P14, P15): how changes are noticed.
 // - when: a story reply is processed as soon as it is shown (reply:ready + a settle pause, leader tab only; release
 //   1.25 — before, only at the user's next message, so the model and the HUD saw every change a turn late). Its
 //   changes are provisional until the user answers: a swipe, a regeneration, a continuation or an edit takes them
 //   back and the reply is processed again (a swipe back to an older variant too). The commit (turn:committed, P14)
 //   stays as the safety net: what was not processed yet (DES's tracker of the separate mode, a missed tab) runs then;
-// - 'desStats': DES's tracker of the reply `characters[].stats` are read for the attributes tracked as DES stats
-//   (stat name = the attribute's prompt name, name or id, any case) → state.apply(source 'desStats').
-//   enableDesStats() adds the attributes to DES's `trackerConfig.presentCharacters.characterStats` (the user's own
-//   stats stay) through autonomy 'mechanics.desStats' (fallback 'ask', never auto), journaled with an undo that takes
-//   back only what it added;
+//   a tab that becomes the leader processes the replies it skipped while another tab led (release 1.26: the latest
+//   reply never stays unread because the leader changed while it arrived). Processing is idempotent per source;
+// - 'auto' (release 1.26, the default): per attribute and holder — a character's (not the user's character's) number
+//   DES keeps as a stat comes from DES; everything else (the user's character, scales, lists, texts, statuses, items)
+//   from the service block, which the model then always writes (`<mechanics>none</mechanics>` when nothing changed).
+//   A reply without a block record, or with an unreadable one (lines dropped, none read), is the safety net's: the
+//   background parse reads its 'auto' attributes, statuses and items. A block that is there (even `none`) is
+//   authoritative for them;
+// - 'desStats': DES's tracker of the reply `characters[].stats` are read for the attributes DES keeps (stat name = the
+//   attribute's prompt name, name or id, any case). Release 1.26: as changes, not absolute values — the difference to
+//   the same character's stat in the latest earlier reply whose tracker has it (looking back up to DES_LOOKBACK
+//   messages) is added to Maestro's value (source 'desStats'), so Maestro-side changes (roll costs, regeneration)
+//   survive; without an earlier value the stat is set (first sight). enableDesStats() adds the attributes ('desStats'
+//   and the 'auto' numbers of character mechanics) to DES's `trackerConfig.presentCharacters.characterStats` (the
+//   user's own stats stay) through autonomy 'mechanics.desStats' (fallback 'ask', never auto), journaled with an undo
+//   that takes back only what it added;
 // - 'block': the model ends its reply with `<mechanics>…</mechanics>`. On MESSAGE_RECEIVED (last listener: after
 //   NAI Studio's markers and DES's tracker parse, before CHARACTER_MESSAGE_RENDERED → reply:ready, so the quality
 //   check never sees it) the block is parsed (repairs in the domain), the lines are kept in
-//   `extra.maestro_mechanics` of the message and its swipe (with the swipe id), and the block leaves the stored text
-//   and the render. A display hook of ST's message formatter hides it while it streams. Leftover blocks of older
-//   replies never reach the prompt (CHAT_COMPLETION_PROMPT_READY, assistant messages only — the block instruction
-//   itself is a system message);
+//   `extra.maestro_mechanics` of the message and its swipe (with the swipe id, `none` and the story minutes of a
+//   `time: +3h` line), and the block leaves the stored text and the render. A display hook of ST's message formatter
+//   hides it while it streams. Leftover blocks of older replies never reach the prompt (CHAT_COMPLETION_PROMPT_READY,
+//   assistant messages only — the block instruction itself is a system message);
 // - 'background': when a mechanic in the scene has background attributes (or DES-stat attributes DES does not track
-//   yet), one cheap task 'mechanics.extract' with a strict JSON schema reads the reply (under the background cost cap)
-//   → validated edits → autonomy 'mechanics.change' (fallback 'auto') → state.apply;
+//   yet, or 'auto' ones of a reply without a block), one cheap task 'mechanics.extract' with a strict JSON schema
+//   reads the reply with the user's action before it and who «you» is (under the background cost cap) → validated
+//   edits → autonomy 'mechanics.change' (fallback 'auto') → state.apply;
 // - the block also carries statuses (`Kai.status += Poisoned (3 turns)`), items (`Kai.items += rope x2`), roll requests
-//   (`roll: Stealth Kai vs Guard.Perception adv`, rolled by the checks part as soon as the reply arrives) and fights
-//   (`combat: start|enemy|out|end`, run by the combat part with the other changes);
+//   (`roll: Stealth Kai vs Guard.Perception adv`, rolled by the checks part as soon as the reply arrives), fights
+//   (`combat: start|enemy|out|end`, run by the combat part with the other changes) and story time (`time: +30m`,
+//   asked only when hour / day rules or timed statuses are in the scene and DES gives no time);
 // - the user's character: DES does not list {{user}}, so his DES-stat attributes are read by the background parse (or
-//   the block, settings.personaFallback);
-// - after the tracking of a reply its turn runs (state.processTurn: the clock, statuses, time rules, rounds).
-// A reply is processed once per source (the state's change log tells). health() says what keeps the values from
-// following the story (no profile, the cap, DES stats not set up, another tab, a failed parse): the HUD's ⚠.
+//   the block, settings.personaFallback); his 'auto' ones by the block;
+// - after the tracking of a reply its turn runs (state.processTurn: the clock — DES's time, else the block's or the
+//   parse's minutes —, statuses, time rules, rounds). A duration «until sunset» that cannot be placed without a real
+//   clock lasts UNTIL_FALLBACK_TURNS turns;
+// - «Пересчитать» (recount, release 1.26): the reply's tracked changes are taken back and it is read again, the
+//   background parse included (its dedupe cleared). Reading a readable block again would only repeat it, so when the
+//   parse can run it reads the reply's 'auto' attributes, statuses and items afresh instead of the block (the record
+//   is marked `recounted` and the chat saved: no later pass counts both).
+// health() says what keeps the values from following the story (no profile, the cap, DES stats not set up, another
+// tab, a failed parse): the HUD's ⚠ — a warning when the background parse is the only way, a note when it is only the
+// safety net of 'auto'.
 import { adaptersOf } from '../../adapters';
 import { parseDueExpression, resolveDue } from '../../domain/calendar-time';
 import {
@@ -37,7 +57,13 @@ import {
     blockInstruction as buildBlockInstruction,
 } from '../../domain/mechanics-block';
 import type { BlockCombat, BlockItem, BlockRoll } from '../../domain/mechanics-block';
-import { desStatsAttributes, initialValueOf, trackingOf } from '../../domain/mechanics-defs';
+import {
+    desStatCandidates,
+    desStatsAttributes,
+    holdsCharacters,
+    initialValueOf,
+    trackingOf,
+} from '../../domain/mechanics-defs';
 import type { AttributeDef, StatusDuration } from '../../domain/mechanics-defs';
 import {
     buildExtractMessages,
@@ -78,7 +104,14 @@ export const DES_STATS_UNDO_TARGET = 'mechanics.desStats';
 
 const SETTLE_MS = 500;
 const EXTRACT_TTL_MS = 10 * 60 * 1000;
-const EXTRACT_MAX_TOKENS = 700;
+/** Release 1.26: room for the action, the longer rules and the elapsed time (700 cut answers short). */
+const EXTRACT_MAX_TOKENS = 1200;
+/** Messages looked back for a character's earlier DES stat (its change is the difference). */
+const DES_LOOKBACK = 40;
+/** Messages looked back for the latest DES time (does DES give the story clock now?). */
+const DES_TIME_LOOKBACK = 10;
+/** «Until sunset» without a real clock to place it on: it lasts this many turns instead of forever. */
+export const UNTIL_FALLBACK_TURNS = 8;
 /** Changes of the log looked at to tell whether a reply was processed. */
 const HISTORY_LOOKUP = 1000;
 /** MESSAGE_RECEIVED types that are no story reply of the model. */
@@ -98,6 +131,30 @@ export interface BlockRecord {
     rolls?: BlockRoll[];
     /** Fight lines (run at the commit). */
     combat?: BlockCombat[];
+    /** The model wrote that nothing changed (`<mechanics>none</mechanics>`, release 1.26). */
+    none?: true;
+    /** Story minutes the block says pass (`time: +3h`, release 1.26). */
+    elapsed?: number;
+    /**
+     * «Пересчитать» handed the reply's 'auto' attributes, statuses and items to the background parse (release 1.26):
+     * the block's lines for them are no longer applied (the parse would count them twice).
+     */
+    recounted?: true;
+}
+
+/**
+ * The record says nothing: lines were dropped and none was read (nor a roll, a fight, the time or «none»). Such a
+ * reply is the background parse's like a reply without a block (release 1.26).
+ */
+export function unreadableRecord(record: BlockRecord): boolean {
+    return (
+        !record.none &&
+        !record.items.length &&
+        (record.dropped ?? 0) > 0 &&
+        !record.rolls?.length &&
+        !record.combat?.length &&
+        record.elapsed === undefined
+    );
 }
 
 export interface DesStat {
@@ -132,13 +189,17 @@ export interface TrackingOptions {
     settleMs?: number;
 }
 
+/** What the tracking reads of the DES adapter's tracker of a reply. */
+interface DesSnapshot {
+    characters: { name: string; stats: { name: string; value: number | string }[] }[];
+    infoBox?: { date?: string; time?: { start?: string; end?: string } } | null;
+}
+
 /** What the tracking reads of the DES adapter (duck-typed: fakes in tests, older adapters). */
 interface DesLike {
     present(): boolean;
     settings?(): Record<string, unknown> | null;
-    trackerFor?(
-        index: number,
-    ): { characters: { name: string; stats: { name: string; value: number | string }[] }[] } | null;
+    trackerFor?(index: number): DesSnapshot | null;
     setCharacterStats?(next: DesStat[], options?: { enable?: boolean }): boolean;
     isWorkshopOpen?(): boolean;
 }
@@ -169,6 +230,10 @@ export function readBlockRecord(message: STChatMessage | null | undefined): Bloc
         if (Array.isArray(raw.repaired))
             record.repaired = raw.repaired.filter((item): item is string => typeof item === 'string');
         if (typeof raw.dropped === 'number') record.dropped = raw.dropped;
+        if (raw.none === true) record.none = true;
+        if (raw.recounted === true) record.recounted = true;
+        if (typeof raw.elapsed === 'number' && Number.isFinite(raw.elapsed) && raw.elapsed > 0)
+            record.elapsed = raw.elapsed;
         if (Array.isArray(raw.rolls)) {
             record.rolls = raw.rolls.filter(
                 (item): item is BlockRoll =>
@@ -255,6 +320,8 @@ export class MechanicTracking implements TrackingPart {
     private queue: Promise<unknown> = Promise.resolve();
     private timer: ReturnType<typeof setTimeout> | null = null;
     private pending = new Set<number>();
+    /** Replies this tab did not read because another tab was the leader then (read when it becomes the leader). */
+    private readonly missed = new Set<number>();
     /** Background parses enqueued in this page session (chat|message|swipe). */
     private readonly enqueued = new Set<string>();
     /** Bumped on chat change: work of the previous chat stops. */
@@ -304,11 +371,23 @@ export class MechanicTracking implements TrackingPart {
                 this.takeBlock(messageIndex, false);
                 this.onReplyReady(messageIndex, type);
             }),
-            app.bus.on('message:invalidated', ({ messageIndex, reason }) => this.onInvalidated(messageIndex, reason)),
+            app.bus.on('message:invalidated', ({ messageIndex, reason, removedAt }) =>
+                this.onInvalidated(messageIndex, reason, removedAt),
+            ),
             app.bus.on('chat:changed', () => this.onChatChanged()),
-            // «Another tab counts the values» comes and goes with the leadership.
-            app.leader.onChange(() => this.notifyHealth()),
         );
+        // Release 1.26: a tab that becomes the leader reads the latest reply (another tab was the leader when it came).
+        // «Another tab counts the values» (health) comes and goes with the leadership too.
+        try {
+            this.offs.push(
+                app.leader.onChange((leader) => {
+                    if (leader) this.onLeader();
+                    this.notifyHealth();
+                }),
+            );
+        } catch (error) {
+            this.deps.log.debug('mechanics: leader changes are not available', error);
+        }
         this.onSt(
             'MESSAGE_RECEIVED',
             (messageId, type) => {
@@ -369,6 +448,7 @@ export class MechanicTracking implements TrackingPart {
         if (this.swipeTimer !== null) clearTimeout(this.swipeTimer);
         this.swipeTimer = null;
         this.pending.clear();
+        this.missed.clear();
         this.enqueued.clear();
         this.setExtractError(null);
     }
@@ -436,6 +516,12 @@ export class MechanicTracking implements TrackingPart {
         if (rolls.length) record.rolls = rolls;
         const combat = [...(previous?.combat ?? []), ...parsed.combat];
         if (combat.length) record.combat = combat;
+        const elapsed = (previous?.elapsed ?? 0) + (parsed.elapsed ?? 0);
+        if (elapsed > 0) record.elapsed = elapsed;
+        // «Nothing changed» holds while the block (with a continuation's) says nothing else.
+        if ((parsed.none || previous?.none) && !record.items.length && !rolls.length && !combat.length && !elapsed) {
+            if (!parsed.dropped.length) record.none = true;
+        }
         setMessageText(message, stripped);
         writeBlockRecord(message, record);
         if (parsed.rolls.length) {
@@ -521,7 +607,7 @@ export class MechanicTracking implements TrackingPart {
         const message = this.app.host.ctx().chat[index];
         if (!message || message.is_user || message.is_system) return;
         if (APPEND_TYPES.has(type)) {
-            void this.retrack(index);
+            void this.reread(index);
             return;
         }
         this.schedule(index);
@@ -532,16 +618,92 @@ export class MechanicTracking implements TrackingPart {
         this.schedule(index);
     }
 
-    /** The changes of a reply are taken back (the state) and the reply is processed again. */
-    private async retrack(index: number): Promise<void> {
-        const chatId = this.app.host.chatId() ?? '';
-        for (const key of [...this.enqueued]) if (key.startsWith(`${chatId}|${index}|`)) this.enqueued.delete(key);
+    /** The changes of a continued reply are taken back (the state) and the reply is processed again. */
+    private async reread(index: number): Promise<void> {
+        this.forget(index);
         try {
             await this.state.retrack?.(index);
         } catch (error) {
             this.deps.log.warn('mechanics: the changes of a continued reply were not taken back', error);
         }
         this.schedule(index);
+    }
+
+    /** Saves the chat (a block record changed outside ST's own saves); not while a reply is generated. */
+    private async saveChat(): Promise<void> {
+        try {
+            if (this.app.turn.current() !== null) return;
+            await this.app.host.ctx().saveChat?.();
+        } catch (error) {
+            this.deps.log.debug('mechanics: the chat was not saved', error);
+        }
+    }
+
+    /** The background parse of a reply may be enqueued again. */
+    private forget(index: number): void {
+        const chatId = this.app.host.chatId() ?? '';
+        for (const key of [...this.enqueued]) if (key.startsWith(`${chatId}|${index}|`)) this.enqueued.delete(key);
+    }
+
+    /** The latest story reply of the chat (-1: none). */
+    private latestReply(): number {
+        const chat = this.app.host.ctx().chat ?? [];
+        for (let i = chat.length - 1; i >= 0; i--) {
+            const message = chat[i];
+            if (message && !message.is_user && !message.is_system) return i;
+        }
+        return -1;
+    }
+
+    /**
+     * This tab became the leader: the replies it skipped while another tab led are read now — the latest one first of
+     * all (idempotent per source: what the other tab took already is not taken twice). Only those: the election on
+     * every chat open must not read the latest reply of each chat again.
+     */
+    private onLeader(): void {
+        if (this.disposed || !this.missed.size) return;
+        const chat = this.app.host.ctx().chat ?? [];
+        const latest = this.latestReply();
+        const indexes = [...this.missed].filter((index) => {
+            const message = chat[index];
+            return index <= latest && !!message && !message.is_user && !message.is_system;
+        });
+        this.missed.clear();
+        for (const index of indexes) this.schedule(index);
+    }
+
+    /**
+     * «Пересчитать ход» (release 1.26): the reply's tracked changes are taken back and it is read again — the block
+     * record, DES, and the background parse (its dedupe cleared, so it runs again). False when it is not a story reply
+     * of the model, this tab is not the leader, or the chat changed meanwhile.
+     */
+    async recount(index: number): Promise<boolean> {
+        if (this.disposed || !Number.isInteger(index) || index < 0) return false;
+        const message = this.app.host.ctx().chat?.[index];
+        if (!message || message.is_user || message.is_system || typeof message.mes !== 'string') return false;
+        if (!this.isLeader() || !this.app.host.chatId()) return false;
+        const generation = this.generation;
+        this.forget(index);
+        this.pending.delete(index);
+        // A reply with a readable block would read the same again: when the background parse can run, it reads the
+        // reply's 'auto' attributes afresh instead of the block (marked on the record, so no later pass counts both).
+        const record = readBlockRecord(message);
+        if (record && !record.recounted && !unreadableRecord(record) && this.deps.settings().background) {
+            if (this.canSpend()) {
+                record.recounted = true;
+                writeBlockRecord(message, record);
+                await this.saveChat();
+            }
+        }
+        try {
+            await this.state.retrack?.(index);
+        } catch (error) {
+            this.deps.log.warn('mechanics: the changes of a recounted reply were not taken back', error);
+            return false;
+        }
+        if (generation !== this.generation) return false;
+        await this.enqueue(() => this.processCommitted(index, generation, true));
+        return generation === this.generation;
     }
 
     /**
@@ -581,8 +743,14 @@ export class MechanicTracking implements TrackingPart {
         }, this.settleMs);
     }
 
-    private async processCommitted(index: number, generation: number): Promise<void> {
-        if (generation !== this.generation || this.disposed || !this.isLeader()) return;
+    /** `force`: «Пересчитать» — the background parse runs even when this page enqueued it for the reply already. */
+    private async processCommitted(index: number, generation: number, force = false): Promise<void> {
+        if (generation !== this.generation || this.disposed) return;
+        if (!this.isLeader()) {
+            // Another tab leads: it reads the reply; should this tab become the leader first, it reads it then.
+            this.missed.add(index);
+            return;
+        }
         const message = this.app.host.ctx().chat[index];
         if (!message || message.is_user || message.is_system) return;
         // A block still in the text: it arrived while the module was off.
@@ -609,11 +777,13 @@ export class MechanicTracking implements TrackingPart {
             if (lines.length) await this.runCombatLines(index, lines);
         }
         if (!done.has('background') && generation === this.generation) {
-            await this.maybeExtract(defs, index, swipeIdOf(message), desStats);
+            await this.maybeExtract(defs, index, message, desStats, force);
         }
         if (generation === this.generation) {
+            // The block's story time moves the clock when DES gives none for the reply (the state checks).
+            const elapsed = readBlockRecord(message)?.elapsed;
             try {
-                await this.state.processTurn?.(index);
+                await this.state.processTurn?.(index, elapsed ? { elapsed } : {});
             } catch (error) {
                 this.deps.log.warn('mechanics: the turn could not be processed', error);
             }
@@ -670,17 +840,30 @@ export class MechanicTracking implements TrackingPart {
         return [attr.promptName, attr.name, attr.id].some((name) => !!name && enabled.has(nameKey(name)));
     }
 
-    /** Effective mode: a DES-stat attribute DES does not track (yet) is parsed in the background. */
-    private modeOf(def: MechanicDef, attr: AttributeDef, enabled: ReadonlySet<string>) {
+    /**
+     * How an attribute of a holder is tracked now. 'desStats': a character's stat DES keeps (explicit, or an 'auto'
+     * number of a character mechanic DES tracks); an explicit DES-stat attribute DES does not track (yet) is parsed in
+     * the background, the user's character's goes to settings.personaFallback (DES never lists him); 'auto': the
+     * service block, with the background parse as the safety net; else the mode itself.
+     */
+    private route(
+        def: MechanicDef,
+        attr: AttributeDef,
+        enabled: ReadonlySet<string>,
+        persona: boolean,
+    ): 'desStats' | 'block' | 'background' | 'manual' | 'auto' {
         const mode = trackingOf(def, attr);
-        return mode === 'desStats' && !this.inDes(attr, enabled) ? 'background' : mode;
+        if (mode === 'desStats') {
+            if (persona) return this.deps.settings().personaFallback;
+            return this.inDes(attr, enabled) ? 'desStats' : 'background';
+        }
+        if (mode === 'auto' && !persona && this.desKeeps(def, attr, enabled)) return 'desStats';
+        return mode;
     }
 
-    /** The persona's DES-stat attributes go to the fallback (DES never lists the user's character). */
-    private personaMode(def: MechanicDef, attr: AttributeDef, enabled: ReadonlySet<string>) {
-        return trackingOf(def, attr) === 'desStats'
-            ? this.deps.settings().personaFallback
-            : this.modeOf(def, attr, enabled);
+    /** DES keeps this 'auto' attribute as a character stat now. */
+    private desKeeps(def: MechanicDef, attr: AttributeDef, enabled: ReadonlySet<string>): boolean {
+        return attr.kind === 'number' && !attr.formula && holdsCharacters(def.holders) && this.inDes(attr, enabled);
     }
 
     /** The model knows the attribute (secret ones are Maestro's alone). */
@@ -688,38 +871,80 @@ export class MechanicTracking implements TrackingPart {
         return !attr.formula && resolveVisibility(def, attr).prompt !== 'none';
     }
 
+    /** The numbers of a mechanic DES may keep ('desStats', and 'auto' numbers of characters) and whether it does. */
     desStatsStatus(def: MechanicDef): { attribute: string; inDes: boolean }[] {
         const enabled = this.desStatus();
-        return desStatsAttributes(def).map((attr) => ({ attribute: attr.id, inDes: this.inDes(attr, enabled) }));
+        return desStatCandidates(def).map((attr) => ({ attribute: attr.id, inDes: this.inDes(attr, enabled) }));
     }
 
-    private desStatsChanges(defs: readonly MechanicDef[], index: number, enabled: ReadonlySet<string>): ChangeInput[] {
-        const des = this.des();
-        if (!des || typeof des.trackerFor !== 'function') return [];
-        let snapshot: ReturnType<NonNullable<DesLike['trackerFor']>> = null;
+    /** DES's tracker of a message; null without one. */
+    private snapshotOf(des: DesLike, index: number): DesSnapshot | null {
+        if (typeof des.trackerFor !== 'function') return null;
         try {
-            snapshot = des.trackerFor(index);
+            return des.trackerFor(index);
         } catch (error) {
             this.deps.log.debug('mechanics: the DES tracker is not readable', error);
+            return null;
         }
+    }
+
+    /**
+     * Release 1.26: DES stats as changes. For each stat of a character in the reply's tracker, the difference to the
+     * same character's same stat in the latest earlier reply whose tracker has it (up to DES_LOOKBACK messages back)
+     * is added to Maestro's value — roll costs, regeneration and other changes Maestro made in between stay. Without an
+     * earlier value the stat is set (first sight). No difference, no change.
+     */
+    private desStatsChanges(defs: readonly MechanicDef[], index: number, enabled: ReadonlySet<string>): ChangeInput[] {
+        const des = this.des();
+        if (!des) return [];
+        const snapshot = this.snapshotOf(des, index);
         if (!snapshot?.characters.length) return [];
+        const context = holderContextOf(this.app);
+        const persona = personaOf(this.app);
+        const chat = this.app.host.ctx().chat ?? [];
+        const earlier = new Map<number, DesSnapshot | null>();
+        const snapshotAt = (at: number): DesSnapshot | null => {
+            if (!earlier.has(at)) earlier.set(at, this.snapshotOf(des, at));
+            return earlier.get(at) ?? null;
+        };
+        /** The stat of the same holder in the latest earlier reply that has it; null when none does. */
+        const previous = (def: MechanicDef, holder: string, attr: AttributeDef): number | null => {
+            for (let at = index - 1; at >= 0 && at >= index - DES_LOOKBACK; at--) {
+                const message = chat[at];
+                if (!message || message.is_user || message.is_system) continue;
+                for (const character of snapshotAt(at)?.characters ?? []) {
+                    const name = resolveHolder(def, character.name, context) ?? character.name;
+                    if (nameKey(name) !== nameKey(holder)) continue;
+                    const stat = (character.stats ?? []).find((item) => statMatches(item.name, attr));
+                    const value = stat ? toNumber(stat.value) : null;
+                    if (value !== null) return value;
+                }
+            }
+            return null;
+        };
         const changes: ChangeInput[] = [];
         for (const def of defs) {
-            const attributes = desStatsAttributes(def).filter((attr) => this.inDes(attr, enabled));
+            const attributes = desStatCandidates(def).filter((attr) => !attr.formula && this.inDes(attr, enabled));
             if (!attributes.length) continue;
             for (const character of snapshot.characters) {
+                const holder = resolveHolder(def, character.name, context) ?? character.name;
+                const isPersona = !!persona && nameKey(holder) === nameKey(persona);
                 for (const stat of character.stats ?? []) {
                     const attr = attributes.find((item) => statMatches(stat.name, item));
                     const value = toNumber(stat.value);
                     if (!attr || value === null) continue;
-                    changes.push({
+                    // 'auto': DES keeps the characters' numbers; the user's character's come from the block.
+                    if (isPersona && trackingOf(def, attr) === 'auto') continue;
+                    const before = previous(def, holder, attr);
+                    const base = {
                         mechanicId: def.id,
                         holder: character.name,
                         attribute: attr.id,
-                        value,
-                        source: 'desStats',
+                        source: 'desStats' as const,
                         messageIndex: index,
-                    });
+                    };
+                    if (before === null) changes.push({ ...base, value });
+                    else if (value !== before) changes.push({ ...base, value: value - before, delta: true });
                 }
             }
         }
@@ -737,7 +962,7 @@ export class MechanicTracking implements TrackingPart {
             this.app.ui.notice(this.t('m25.track.desStats.workshop'), { level: 'warn' });
             return false;
         }
-        const attributes = desStatsAttributes(def);
+        const attributes = desStatCandidates(def);
         if (!attributes.length) return false;
         const stats = attributes.map((attr) => ({
             id: `maestro_${def.id}_${attr.id}`,
@@ -811,16 +1036,24 @@ export class MechanicTracking implements TrackingPart {
         if (!record?.items.length) return [];
         const context = holderContextOf(this.app);
         const persona = personaOf(this.app);
-        const fallback = this.deps.settings().personaFallback === 'block';
+        const enabled = this.desStatus();
+        // 'block' attributes, 'auto' ones DES does not keep for that holder, the persona's DES-stat fallback. A
+        // recounted reply's 'auto' ones (and the statuses and items of 'auto' mechanics) are the background parse's.
+        const recounted = record.recounted === true;
         const resolved = resolveBlock(record.items, defs, {
             resolveHolder: (def, raw) => resolveHolder(def, raw, context),
             allows: (def, attr, holder) => {
                 if (!this.known(def, attr)) return false;
-                const mode = trackingOf(def, attr);
-                if (mode === 'block') return true;
-                return fallback && mode === 'desStats' && !!persona && nameKey(holder ?? '') === nameKey(persona);
+                const isPersona = !!persona && nameKey(holder ?? '') === nameKey(persona);
+                const route = this.route(def, attr, enabled, isPersona);
+                return route === 'block' || (route === 'auto' && !recounted);
             },
         });
+        if (recounted) {
+            const parsedByNet = (mechanicId: string) => this.defs.get(mechanicId)?.tracking === 'auto';
+            resolved.statuses = resolved.statuses.filter((edit) => !parsedByNet(edit.mechanicId));
+            resolved.inventory = resolved.inventory.filter((edit) => !parsedByNet(edit.mechanicId));
+        }
         if (resolved.rejected.length) {
             this.deps.log.debug(
                 `mechanics: ${resolved.rejected.length} block lines of #${index} not applied`,
@@ -874,15 +1107,20 @@ export class MechanicTracking implements TrackingPart {
         return ops;
     }
 
-    /** A duration from parsed words, else a phrase placed in story time by the calendar («до заката» → until). */
+    /**
+     * A duration from parsed words, else a phrase placed in story time by the calendar («до заката» → until). A phrase
+     * the calendar understands but cannot place — no clock, a clock counted only from the block's or the parse's minutes
+     * (no real time of day), a weekday it does not know — lasts UNTIL_FALLBACK_TURNS turns instead of forever (1.26).
+     */
     private durationOf(parsed: StatusDuration | null, text: string | undefined): StatusDuration | null {
         if (parsed) return parsed;
         if (!text) return null;
         const due = parseDueExpression(text);
+        if (!due) return null;
         const clock = this.state.clock?.() ?? null;
-        if (!due || !clock) return null;
-        const moment = resolveDue(due, { ...clock });
-        if (moment.day === null) return null;
+        if (!clock || clock.relative) return { turns: UNTIL_FALLBACK_TURNS };
+        const moment = resolveDue(due, { day: clock.day, label: clock.label, ...minutesOf(clock) });
+        if (moment.day === null) return { turns: UNTIL_FALLBACK_TURNS };
         return { until: { day: moment.day, ...(moment.minutes !== undefined ? { minutes: moment.minutes } : {}) } };
     }
 
@@ -903,30 +1141,76 @@ export class MechanicTracking implements TrackingPart {
     ): string {
         const persona = personaOf(this.app);
         const enabled = this.desStatus();
-        const fallback = this.deps.settings().personaFallback === 'block';
+        const inScene = defs.filter((def) => (holdersByMechanic[def.id] ?? []).length > 0);
         return buildBlockInstruction(defs, holdersByMechanic, {
             ...(options.checks?.length ? { checks: options.checks } : {}),
             ...(options.combat ? { combat: true } : {}),
-            ...(fallback && persona
+            // 'auto' numbers DES keeps for the characters leave the block; the user's character's stay.
+            desTracked: (def, attr) => this.desKeeps(def, attr, enabled),
+            ...(persona
                 ? {
                       persona: {
                           name: persona,
                           attributes: (def: MechanicDef) =>
-                              def.attributes.filter(
-                                  (attr) => this.known(def, attr) && this.personaMode(def, attr, enabled) === 'block',
-                              ),
+                              def.attributes.filter((attr) => {
+                                  if (!this.known(def, attr)) return false;
+                                  const route = this.route(def, attr, enabled, true);
+                                  return route === 'block' || route === 'auto';
+                              }),
                       },
                   }
                 : {}),
+            ...(this.clockMatters(inScene) && !this.desGivesTime() ? { time: true } : {}),
         });
+    }
+
+    /** The story clock matters for these mechanics: rules by the hour or day, or statuses counted in story time. */
+    private clockMatters(defs: readonly MechanicDef[]): boolean {
+        if (defs.some((def) => def.time?.some((rule) => rule.per !== 'turn'))) return true;
+        const timed = (duration: StatusDuration | null | undefined) => !!duration?.minutes || !!duration?.until;
+        if (defs.some((def) => def.statuses?.some((status) => timed(status.duration)))) return true;
+        if (!defs.length) return false;
+        const current = safely(() => this.state.statuses?.() ?? [], []);
+        return current.some((entry) => entry.statuses.some((status) => !!status.remaining?.minutes || !!status.until));
+    }
+
+    /** DES gives the story time now: the latest reply with a DES tracker (a few back) has a date or a time. */
+    private desGivesTime(): boolean {
+        const des = this.des();
+        if (!des) return false;
+        const chat = this.app.host.ctx().chat ?? [];
+        for (let i = chat.length - 1; i >= 0 && i >= chat.length - DES_TIME_LOOKBACK; i--) {
+            const message = chat[i];
+            if (!message || message.is_user || message.is_system) continue;
+            const snapshot = this.snapshotOf(des, i);
+            if (!snapshot) continue;
+            const box = snapshot.infoBox;
+            return !!(box?.date || box?.time?.start || box?.time?.end);
+        }
+        return false;
+    }
+
+    /** The mechanics on in the chat with holders in the scene now. */
+    private sceneDefs(): MechanicDef[] {
+        return this.activeDefs().filter((def) => safely(() => this.state.holdersInScene(def).length > 0, false));
     }
 
     /* ---------------------------------------------------------------- background parse */
 
-    private backgroundTargets(defs: readonly MechanicDef[], enabled: ReadonlySet<string>): ExtractTarget[] {
+    /**
+     * What the background parse reads: 'background' attributes (and explicit DES-stat ones DES does not keep, the
+     * persona's per settings.personaFallback), statuses and items of 'background' mechanics; with `auto` (a reply
+     * without a readable block, release 1.26) also the 'auto' attributes DES does not keep and 'auto' statuses / items.
+     */
+    private backgroundTargets(
+        defs: readonly MechanicDef[],
+        enabled: ReadonlySet<string>,
+        options: { auto?: boolean } = {},
+    ): ExtractTarget[] {
         const targets: ExtractTarget[] = [];
         const persona = personaOf(this.app);
         const isPersona = (name: string) => !!persona && nameKey(name) === nameKey(persona);
+        const wanted = (route: string) => route === 'background' || (options.auto === true && route === 'auto');
         for (const def of defs) {
             // A secret mechanic is Maestro's alone: never sent to the model, the background one included.
             if (resolveVisibility(def).prompt === 'none') continue;
@@ -938,13 +1222,14 @@ export class MechanicTracking implements TrackingPart {
             }
             if (!holders.length) continue;
             const attributes = def.attributes.filter(
-                (attr) => this.known(def, attr) && this.modeOf(def, attr, enabled) === 'background',
+                (attr) => this.known(def, attr) && wanted(this.route(def, attr, enabled, false)),
             );
             const own = def.attributes.filter(
-                (attr) => this.known(def, attr) && this.personaMode(def, attr, enabled) === 'background',
+                (attr) => this.known(def, attr) && wanted(this.route(def, attr, enabled, true)),
             );
-            const statuses = def.statuses !== undefined && def.tracking === 'background';
-            const inventory = def.inventory !== undefined && def.tracking === 'background';
+            const partsParsed = def.tracking === 'background' || (options.auto === true && def.tracking === 'auto');
+            const statuses = def.statuses !== undefined && partsParsed;
+            const inventory = def.inventory !== undefined && partsParsed;
             const holderOf = (name: string, list: AttributeDef[]) => {
                 const entry: ExtractTarget['holders'][number] = {
                     name,
@@ -971,6 +1256,15 @@ export class MechanicTracking implements TrackingPart {
             }
         }
         return targets;
+    }
+
+    /**
+     * The reply's block is missing or unreadable, or «Пересчитать» handed it to the parse: the background parse reads
+     * its 'auto' attributes (release 1.26).
+     */
+    private needsSafetyNet(message: STChatMessage): boolean {
+        const record = readBlockRecord(message);
+        return !record || unreadableRecord(record) || record.recounted === true;
     }
 
     /* ---------------------------------------------------------------- health */
@@ -1011,38 +1305,41 @@ export class MechanicTracking implements TrackingPart {
         const names = (ids: readonly string[]) =>
             ids.map((id) => defs.find((def) => def.id === id)?.name ?? id).join(', ');
         const enabled = this.desStatus();
-        const background = [...new Set(this.backgroundTargets(defs, enabled).map((target) => target.def.id))];
-        if (background.length) {
-            const list = names(background);
+        const ids = (targets: ExtractTarget[]) => [...new Set(targets.map((target) => target.def.id))];
+        // The parse is the only way for 'background' attributes; for 'auto' ones only the safety net (release 1.26):
+        // a warning for the first, a note for the second.
+        const background = ids(this.backgroundTargets(defs, enabled));
+        const net = ids(this.backgroundTargets(defs, enabled, { auto: true })).filter((id) => !background.includes(id));
+        const affected = [...background, ...net];
+        const primary = background.length > 0;
+        const level: TrackingProblem['level'] = primary ? 'warn' : 'info';
+        const key = (code: string) => `m25.health.${code}${primary ? '' : '.auto'}`;
+        if (affected.length) {
+            const list = names(primary ? background : net);
             const settings = this.deps.settings();
             if (!settings.background) {
                 problems.push({
                     code: 'backgroundOff',
-                    level: 'warn',
-                    mechanics: background,
-                    text: this.t('m25.health.backgroundOff', { list }),
+                    level,
+                    mechanics: affected,
+                    text: this.t(key('backgroundOff'), { list }),
                 });
             } else if (!safely(() => this.app.llm.available(EXTRACT_TASK), false)) {
                 problems.push({
                     code: 'noProfile',
-                    level: 'warn',
-                    mechanics: background,
-                    text: this.t('m25.health.noProfile', { list }),
+                    level,
+                    mechanics: affected,
+                    text: this.t(key('noProfile'), { list }),
                 });
             } else if (safely(() => this.app.cost.backgroundCapReached(), false)) {
-                problems.push({
-                    code: 'cap',
-                    level: 'warn',
-                    mechanics: background,
-                    text: this.t('m25.health.cap', { list }),
-                });
+                problems.push({ code: 'cap', level, mechanics: affected, text: this.t(key('cap'), { list }) });
             }
         }
-        if (this.extractError !== null && background.length) {
+        if (this.extractError !== null && affected.length) {
             problems.push({
                 code: 'extractFailed',
-                level: 'warn',
-                mechanics: background,
+                level,
+                mechanics: affected,
                 text: this.t('m25.health.extractFailed'),
                 detail: this.extractError,
             });
@@ -1083,25 +1380,35 @@ export class MechanicTracking implements TrackingPart {
         }
     }
 
+    /**
+     * Enqueues the background parse of a reply when it has something to read: 'background' attributes, or (release
+     * 1.26) the 'auto' ones of a reply whose block is missing or unreadable. Once per reply and swipe in this page
+     * session unless `force` («Пересчитать»).
+     */
     private async maybeExtract(
         defs: readonly MechanicDef[],
         index: number,
-        swipeId: number,
+        message: STChatMessage,
         enabled: ReadonlySet<string>,
+        force = false,
     ): Promise<void> {
         if (!this.deps.settings().background) return;
-        if (!this.backgroundTargets(defs, enabled).length) return;
+        const auto = this.needsSafetyNet(message);
+        if (!this.backgroundTargets(defs, enabled, { auto }).length) return;
+        const swipeId = swipeIdOf(message);
         const key = `${this.app.host.chatId() ?? ''}|${index}|${swipeId}`;
-        if (this.enqueued.has(key)) return;
+        if (this.enqueued.has(key) && !force) return;
         if (!this.canSpend()) {
             this.deps.log.debug('mechanics: the background parse is not available or over the cap');
             return;
         }
         this.enqueued.add(key);
+        // The send date pins the message: a deletion above it moves the index, the task must not read another reply.
+        const sent = typeof message.send_date === 'string' && message.send_date ? { sent: message.send_date } : {};
         await this.app.tasks.enqueue({
             kind: EXTRACT_TASK,
             dedupeKey: `mechanics:${index}`,
-            payload: { messageIndex: index, swipeId },
+            payload: { messageIndex: index, swipeId, ...sent },
             ttlMs: EXTRACT_TTL_MS,
         });
     }
@@ -1121,6 +1428,7 @@ export class MechanicTracking implements TrackingPart {
         const swipeId = Number(payload.swipeId);
         const message = Number.isInteger(index) ? this.replyOf(index, swipeId) : null;
         if (!message) return;
+        if (typeof payload.sent === 'string' && payload.sent && message.send_date !== payload.sent) return;
         await this.stateReady();
         if (
             this.state
@@ -1129,18 +1437,34 @@ export class MechanicTracking implements TrackingPart {
         ) {
             return;
         }
-        const targets = this.backgroundTargets(this.activeDefs(), this.desStatus());
+        const targets = this.backgroundTargets(this.activeDefs(), this.desStatus(), {
+            auto: this.needsSafetyNet(message),
+        });
         if (!targets.length || !this.canSpend()) return;
         const reply = stripBlock(cleanForAnalysis(message));
         if (!reply.trim()) return;
         const generation = this.generation;
+        // Story time is asked only when the clock matters and neither DES nor the block says it (release 1.26).
+        const elapsed =
+            this.clockMatters(this.sceneDefs()) &&
+            !safely(() => this.state.hasObservedTime?.(index) ?? false, false) &&
+            readBlockRecord(message)?.elapsed === undefined;
         const schema = extractSchemaFor({
             statuses: targets.some((target) => target.statuses),
             items: targets.some((target) => target.inventory),
+            elapsed,
         });
+        const action = this.actionBefore(index);
+        const persona = personaOf(this.app);
         const response = await this.app.llm.request<unknown>({
             task: EXTRACT_TASK,
-            messages: buildExtractMessages({ targets, reply }),
+            messages: buildExtractMessages({
+                targets,
+                reply,
+                ...(action ? { action } : {}),
+                ...(persona ? { persona } : {}),
+                ...(elapsed ? { elapsed: true } : {}),
+            }),
             maxTokens: EXTRACT_MAX_TOKENS,
             temperature: 0.1,
             schema: { name: EXTRACT_SCHEMA_NAME, schema },
@@ -1166,6 +1490,26 @@ export class MechanicTracking implements TrackingPart {
         const changes = this.toChanges(parsed.edits, 'background', index);
         const ops = this.extractOps(parsed.statuses, parsed.items, index);
         if (changes.length || ops.length) await this.propose(changes, index, swipeId, chatId, ops);
+        // The story time it took: the turn (or, when the turn ran already, the latest turn's clock) moves by it.
+        if (elapsed && parsed.elapsed !== null && generation === this.generation) {
+            try {
+                await this.state.processTurn?.(index, { elapsed: parsed.elapsed });
+            } catch (error) {
+                this.deps.log.warn('mechanics: the story time of a reply was not applied', error);
+            }
+        }
+    }
+
+    /** The user's message right before a reply (narrator messages skipped); '' when another reply comes first. */
+    private actionBefore(index: number): string {
+        const chat = this.app.host.ctx().chat ?? [];
+        for (let i = index - 1; i >= 0; i--) {
+            const message = chat[i];
+            if (!message || message.is_system) continue;
+            if (!message.is_user) return '';
+            return cleanForAnalysis(message).trim();
+        }
+        return '';
     }
 
     private extractOps(statuses: readonly ExtractStatus[], items: readonly ExtractItem[], index: number): StateOp[] {
@@ -1315,14 +1659,20 @@ export class MechanicTracking implements TrackingPart {
 
     /* ---------------------------------------------------------------- invalidation */
 
-    private onInvalidated(index: number, reason: 'swiped' | 'deleted' | 'edited'): void {
+    private onInvalidated(index: number, reason: 'swiped' | 'deleted' | 'edited', removedAt?: number): void {
         if (this.disposed || !Number.isInteger(index) || index < 0) return;
         if (reason !== 'edited') {
-            for (const pending of [...this.pending]) if (pending >= index) this.pending.delete(pending);
+            // Messages deleted from the middle (release 1.26): everything from the first deleted one on is stale here.
+            const from =
+                reason === 'deleted' && removedAt !== undefined && Number.isInteger(removedAt) && removedAt >= 0
+                    ? Math.min(index, removedAt)
+                    : index;
+            for (const pending of [...this.pending]) if (pending >= from) this.pending.delete(pending);
+            for (const missed of [...this.missed]) if (missed >= from) this.missed.delete(missed);
             const chatId = this.app.host.chatId() ?? '';
             for (const key of [...this.enqueued]) {
                 const [chat, at] = key.split('|');
-                if (chat === chatId && Number(at) >= index) this.enqueued.delete(key);
+                if (chat === chatId && Number(at) >= from) this.enqueued.delete(key);
             }
             if (reason === 'swiped') this.afterSwipe(index);
             return;
@@ -1356,6 +1706,11 @@ export class MechanicTracking implements TrackingPart {
             this.schedule(index);
         }, this.settleMs * 2);
     }
+}
+
+/** The minutes of a clock as an optional field. */
+function minutesOf(clock: { minutes?: number }): { minutes?: number } {
+    return clock.minutes !== undefined ? { minutes: clock.minutes } : {};
 }
 
 function safely<T>(run: () => T, fallback: T): T {

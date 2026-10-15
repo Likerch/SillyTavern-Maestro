@@ -52,7 +52,7 @@ const TWIST_EVENTS = 5;
 export interface ServiceExtras {
     prompt?: Pick<MechanicPrompt, 'preview'>;
     combat?: MechanicCombat;
-    tracking?: Partial<Pick<MechanicTracking, 'health' | 'provisionalIndex' | 'onHealthChange'>>;
+    tracking?: Partial<Pick<MechanicTracking, 'health' | 'provisionalIndex' | 'onHealthChange' | 'recount'>>;
 }
 
 export class MechanicsService implements MechanicsApi {
@@ -177,6 +177,13 @@ export class MechanicsService implements MechanicsApi {
 
     provisionalIndex(): number {
         return this.extras.tracking?.provisionalIndex?.() ?? -1;
+    }
+
+    /* ---------------------------------------------------------------- release 1.26: «Пересчитать ход» */
+
+    async retrack(messageIndex: number): Promise<boolean> {
+        const recount = this.extras.tracking?.recount;
+        return recount ? recount.call(this.extras.tracking, messageIndex) : false;
     }
 
     /* ---------------------------------------------------------------- plan-2 §6: per message, undo, reset */

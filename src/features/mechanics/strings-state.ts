@@ -32,6 +32,11 @@ export const STATE_STRINGS: I18nParts = {
             'DES will ask the model for these stats of every character in the scene: {list}. Your own DES stats stay as they are; the character stats of DES are switched on.',
         'm25.track.desStats.noDes': 'DES is not available: the stats cannot be added.',
         'm25.track.desStats.workshop': 'The DES Workshop is open: close it and try again.',
+        'm25.track.recount': 'Recount',
+        'm25.track.recount.hint': 'Take back what the mechanics took from this reply and read it again',
+        'm25.track.recount.done': 'Reply #{index}: the mechanics were read again.',
+        'm25.track.recount.failed':
+            'Reply #{index} could not be read again: only a story reply can be, and only in the tab that counts the values.',
 
         'kind.mechanics.change': 'Mechanics changes from replies',
         'kind.mechanics.desStats': 'Mechanics stats in the DES tracker',
@@ -90,6 +95,11 @@ export const STATE_STRINGS: I18nParts = {
             'DES будет просить у модели эти статы для каждого персонажа в сцене: {list}. Твои собственные статы DES останутся как есть, а статы персонажей в DES включатся.',
         'm25.track.desStats.noDes': 'DES недоступен: статы добавить нельзя.',
         'm25.track.desStats.workshop': 'Открыта Мастерская DES: закрой её и попробуй ещё раз.',
+        'm25.track.recount': 'Пересчитать',
+        'm25.track.recount.hint': 'Отменить то, что механики взяли из этого ответа, и прочитать его заново',
+        'm25.track.recount.done': 'Ответ #{index}: механики пересчитаны.',
+        'm25.track.recount.failed':
+            'Не получилось пересчитать ответ #{index}: это можно только для ответа истории и только во вкладке, которая считает значения.',
 
         'kind.mechanics.change': 'Изменения механик по ответам',
         'kind.mechanics.desStats': 'Статы механик в трекере DES',

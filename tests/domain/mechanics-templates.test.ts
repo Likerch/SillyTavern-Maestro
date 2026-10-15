@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { desStatsAttributes, normalizeDef, parseDice, trackingOf, validateDef } from '../../src/domain/mechanics-defs';
+import {
+    desStatCandidates,
+    desStatsAttributes,
+    normalizeDef,
+    parseDice,
+    trackingOf,
+    validateDef,
+} from '../../src/domain/mechanics-defs';
 import { defFromTemplate, MECHANIC_TEMPLATES, templateById } from '../../src/domain/mechanics-templates';
 import { DEF_STRINGS } from '../../src/features/mechanics/strings-defs';
 
@@ -66,12 +73,19 @@ describe('mechanic templates', () => {
             const value = defFromTemplate(templateById(id)!, 'en', { kind: 'global' }, []);
             return Object.fromEntries(value.attributes.map((item) => [item.id, trackingOf(value, item)]));
         };
-        expect(tracking('health')).toEqual({ health: 'desStats', stamina: 'desStats' });
-        expect(tracking('magic')).toEqual({ mana: 'desStats', schools: 'background', arcana: 'background' });
-        expect(tracking('reputation')).toEqual({ standing: 'background' });
-        expect(tracking('money')).toEqual({ coins: 'background' });
-        expect(new Set(Object.values(tracking('skills')))).toEqual(new Set(['background']));
-        expect(tracking('relationships')).toEqual({ attitude: 'background' });
+        // 1.26: every template but combat is 'auto' (DES stats when DES keeps them, else the service block, the
+        // background parse as the safety net); arcana lost its 'background' override (one parse per reply for a rare
+        // change). Combat stays 'block' (its fight lines need the block).
+        expect(tracking('health')).toEqual({ health: 'auto', stamina: 'auto' });
+        expect(tracking('magic')).toEqual({ mana: 'auto', schools: 'auto', arcana: 'auto' });
+        expect(tracking('reputation')).toEqual({ standing: 'auto' });
+        expect(tracking('money')).toEqual({ coins: 'auto' });
+        // Skills, experience and level move by Maestro alone (growth by use, experience per roll): 'manual'.
+        expect(new Set(Object.values(tracking('skills')))).toEqual(new Set(['manual']));
+        expect(tracking('relationships')).toEqual({ attitude: 'auto' });
+        for (const id of ['survival', 'sanity', 'trade', 'social'])
+            expect(new Set(Object.values(tracking(id)))).toEqual(new Set(['auto']));
+        expect(new Set(Object.values(tracking('combat')))).toEqual(new Set(['block']));
     });
 
     it('carry the events and holders the plan asks for', () => {
@@ -80,7 +94,9 @@ describe('mechanic templates', () => {
             { op: '<=', value: 0 },
             { op: '<=', value: 0 },
         ]);
-        expect(desStatsAttributes(health).map((item) => item.id)).toEqual(['health', 'stamina']);
+        // 1.26: 'auto', no explicit DES stats; both numbers may still become DES stats (DES keeps them then).
+        expect(desStatsAttributes(health)).toEqual([]);
+        expect(desStatCandidates(health).map((item) => item.id)).toEqual(['health', 'stamina']);
         const reputation = defFromTemplate(templateById('reputation')!, 'en', { kind: 'global' }, []);
         expect(reputation.holders).toEqual({ kind: 'factions', names: [] });
         expect(reputation.attributes[0]?.levels?.[0]).toBe('hostile');

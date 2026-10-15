@@ -130,6 +130,7 @@ describe('parseBlock and stripBlock', () => {
         expect(stripBlock(text)).toBe(story);
         expect(hasBlockMarker(story)).toBe(false);
         expect(stripBlock(story)).toBe(story);
+        // 1.26: `none` is part of the result (a text without a block is not a «nothing changed» block).
         expect(parseBlock(story)).toEqual({
             found: false,
             items: [],
@@ -137,6 +138,7 @@ describe('parseBlock and stripBlock', () => {
             dropped: [],
             rolls: [],
             combat: [],
+            none: false,
         });
     });
 
