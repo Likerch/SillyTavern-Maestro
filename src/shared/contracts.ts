@@ -592,7 +592,18 @@ export interface MaestroEvents {
     'reply:ready': { messageIndex: number; type: string };
     /** Quality check passed for this reply (NAI Studio waits for it from stage 6). */
     'reply:ok': { messageIndex: number };
-    'message:invalidated': { messageIndex: number; reason: 'swiped' | 'deleted' | 'edited' };
+    /**
+     * A message changed or went. `messageIndex`: the swiped / edited message; for a deletion what ST gives — the new
+     * chat length, so «everything from there on» is gone. Release 1.26: when messages were deleted from the middle, the
+     * turn pipeline adds where (`removedAt`, the first deleted index) and how many (`removed`); later messages moved
+     * down by `removed`. Absent when it could not tell (the old meaning stands).
+     */
+    'message:invalidated': {
+        messageIndex: number;
+        reason: 'swiped' | 'deleted' | 'edited';
+        removedAt?: number;
+        removed?: number;
+    };
     signal: Signal;
     'settings:changed': { path: string };
     'leader:changed': { leader: boolean };
