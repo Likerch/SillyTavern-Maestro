@@ -106,6 +106,26 @@ describe('values follow the reply at once', () => {
     });
 });
 
+describe('the background parse is done once per reply', () => {
+    it('does not read a parsed reply again after a reload, but does after an edit', async () => {
+        env.defs.defs = [magicDef({ tracking: 'background' })];
+        const index = await env.receive(STORY, [{ name: 'Kai' }]);
+        await shown(index);
+        env.llm.responses.push({ ok: true, data: { changes: [] } });
+        await env.tasks.runLatest(EXTRACT_TASK);
+        expect(env.tasks.queued).toHaveLength(1);
+        // A reload forgets what this page enqueued; the mark on the message stays.
+        (env.tracking as unknown as { enqueued: Set<string> }).enqueued.clear();
+        await env.commit(index);
+        expect(env.tasks.queued).toHaveLength(1);
+        // The text changed: read again.
+        env.mock.chat[index]!.mes = 'Пламя погасло.';
+        await env.app.bus.emit('message:invalidated', { messageIndex: index, reason: 'edited' });
+        await env.tick(SETTLE);
+        expect(env.tasks.queued).toHaveLength(2);
+    });
+});
+
 describe('tracking health', () => {
     it('is quiet while all is well', async () => {
         await env.receive(STORY, [{ name: 'Kai' }]);

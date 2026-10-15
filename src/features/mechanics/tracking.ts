@@ -97,6 +97,8 @@ import { VALUE_UNDO_TARGET } from './state';
 
 /** Maestro's record of the parsed service block on a chat message (and its swipe). */
 export const EXTRA_KEY = 'maestro_mechanics';
+/** The background parse read this reply (variant): a reload does not send it again (release 1.26). */
+export const PARSED_KEY = 'maestro_mechanics_parsed';
 export const EXTRACT_TASK = 'mechanics.extract';
 export const CHANGE_KIND = 'mechanics.change';
 export const DES_STATS_KIND = 'mechanics.desStats';
@@ -254,6 +256,27 @@ export function readBlockRecord(message: STChatMessage | null | undefined): Bloc
 }
 
 /** Writes the record on the message and on its current swipe (ST copies `swipe_info[i].extra` back on swipes). */
+/** The variants of a message whose background parse is done (kept on the message and its swipe, like the block). */
+export function parsedSwipe(message: STChatMessage): boolean {
+    const swipeId = swipeIdOf(message);
+    const info = Array.isArray(message.swipe_info) ? (message.swipe_info[swipeId] as unknown) : undefined;
+    return [message.extra?.[PARSED_KEY], isDict(info) && isDict(info.extra) ? info.extra[PARSED_KEY] : undefined].some(
+        (raw) => isDict(raw) && raw.swipeId === swipeId,
+    );
+}
+
+function markParsed(message: STChatMessage, on: boolean): void {
+    const swipeId = swipeIdOf(message);
+    const info = Array.isArray(message.swipe_info) ? (message.swipe_info[swipeId] as unknown) : undefined;
+    const targets = [isDict(message.extra) ? message.extra : on ? (message.extra = {}) : null];
+    if (isDict(info)) targets.push(isDict(info.extra) ? info.extra : on ? (info.extra = {}) : null);
+    for (const extra of targets) {
+        if (!extra) continue;
+        if (on) extra[PARSED_KEY] = { swipeId, at: Date.now() };
+        else delete extra[PARSED_KEY];
+    }
+}
+
 export function writeBlockRecord(message: STChatMessage, record: BlockRecord): void {
     const extra = isDict(message.extra) ? message.extra : (message.extra = {});
     extra[EXTRA_KEY] = record;
@@ -629,6 +652,13 @@ export class MechanicTracking implements TrackingPart {
         this.schedule(index);
     }
 
+    /** The reply's text changed (an edit, a continuation, a recount): its background parse is to be done again. */
+    private forgetParse(chatId: string, index: number): void {
+        for (const key of [...this.enqueued]) if (key.startsWith(`${chatId}|${index}|`)) this.enqueued.delete(key);
+        const message = this.app.host.ctx().chat[index];
+        if (message && !message.is_user) markParsed(message, false);
+    }
+
     /** Saves the chat (a block record changed outside ST's own saves); not while a reply is generated. */
     private async saveChat(): Promise<void> {
         try {
@@ -642,7 +672,7 @@ export class MechanicTracking implements TrackingPart {
     /** The background parse of a reply may be enqueued again. */
     private forget(index: number): void {
         const chatId = this.app.host.chatId() ?? '';
-        for (const key of [...this.enqueued]) if (key.startsWith(`${chatId}|${index}|`)) this.enqueued.delete(key);
+        this.forgetParse(chatId, index);
     }
 
     /** The latest story reply of the chat (-1: none). */
@@ -1397,7 +1427,7 @@ export class MechanicTracking implements TrackingPart {
         if (!this.backgroundTargets(defs, enabled, { auto }).length) return;
         const swipeId = swipeIdOf(message);
         const key = `${this.app.host.chatId() ?? ''}|${index}|${swipeId}`;
-        if (this.enqueued.has(key) && !force) return;
+        if ((this.enqueued.has(key) || parsedSwipe(message)) && !force) return;
         if (!this.canSpend()) {
             this.deps.log.debug('mechanics: the background parse is not available or over the cap');
             return;
@@ -1486,6 +1516,8 @@ export class MechanicTracking implements TrackingPart {
             return;
         }
         this.setExtractError(null);
+        markParsed(message, true);
+        void this.saveChat();
         if (parsed.rejected.length) this.deps.log.debug('mechanics: background items dropped', parsed.rejected);
         const changes = this.toChanges(parsed.edits, 'background', index);
         const ops = this.extractOps(parsed.statuses, parsed.items, index);
@@ -1683,7 +1715,7 @@ export class MechanicTracking implements TrackingPart {
         const last = committed[committed.length - 1];
         if (last !== undefined && index < last) return;
         const chatId = this.app.host.chatId() ?? '';
-        for (const key of [...this.enqueued]) if (key.startsWith(`${chatId}|${index}|`)) this.enqueued.delete(key);
+        this.forgetParse(chatId, index);
         this.schedule(index);
     }
 
