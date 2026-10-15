@@ -1,6 +1,7 @@
 // Settings slice of M25 «Механики» (`extensionSettings.maestro.modules.mechanics`): the book of new definitions, auto
-// checks, the widgets strip, the prompt budget and depth, the background parse. Read and repaired in place (the
-// returned object is the live slice the pult edits).
+// checks, the widgets strip, the prompt budget and depth, the background parse, rolls the model asks for and (1.27)
+// whether the same reply continues with their result. Read and repaired in place (the returned object is the live
+// slice the pult edits).
 import { DEFAULT_MECHANICS_BOOK, DEFAULT_MECHANICS_SETTINGS } from './parts';
 import type { MechanicsSettings } from './parts';
 
@@ -55,6 +56,7 @@ export function readMechanicsSettings(slice: Partial<MechanicsSettings>): Mechan
     for (const key of ['modelRolls', 'autoCombat'] as const) {
         if (typeof slice[key] !== 'boolean') slice[key] = defaults[key];
     }
+    if (typeof slice.rollContinue !== 'boolean') slice.rollContinue = defaults.rollContinue;
     if (slice.personaFallback !== 'background' && slice.personaFallback !== 'block') {
         slice.personaFallback = defaults.personaFallback;
     }

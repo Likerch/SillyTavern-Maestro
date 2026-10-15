@@ -7,7 +7,8 @@
 //               under the background cap, 15 s at most; never in «Экономный» or with the judge switched off;
 //   4. act    — per kind off / auto / notify («Экономный»: notify only): one auto-swipe per turn with a one-shot
 //               «[Fix for this reply: …]» injection, clean (DES JSON and NAI markers kept), /continue, the DES tracker
-//               repair of M3; notify = message badges «Переделать» / «Не брак»;
+//               repair of M3; notify = message badges «Переделать» / «Не брак»; a reply the mechanics continue
+//               themselves (a roll the model asked for, release 1.27) gets no cut-off fix of ours;
 //   5. signal — the verdict is stored per message and swipe, 'reply:ok' goes out when nothing is left, and NAI
 //               Studio's wait resolves (true = draw, false = the reply is being redone; 20 s at most → true).
 // Group chats sleep (plan §4.14); quiet generations, sheets, picture posts and first messages are skipped.
@@ -29,6 +30,7 @@ import type {
     Proposal,
     Unsubscribe,
 } from '../../shared/contracts';
+import type { MechanicsApi } from '../mechanics/api';
 import type { MetricsApi } from '../metrics/api';
 import type { TreasurerApi } from '../treasurer/api';
 import type { SheetsApi } from '../sheets/api';
@@ -37,6 +39,7 @@ import type { BoundaryRule, Defect, DefectAction, DefectKind, QualityApi, Qualit
 import { buildJudgeMessages, JUDGE_MAX_TOKENS, JUDGE_SCHEMA, JUDGE_TASK, parseJudge } from './judge';
 import type { JudgeItem } from './judge';
 import {
+    defaultFix,
     expectedLanguage,
     fixNote,
     gateValue,
@@ -355,6 +358,15 @@ export class QualityService implements QualityApi {
         return false;
     }
 
+    /** The mechanics continue this reply with a roll's result (MechanicsApi.continuing, release 1.27). */
+    private mechanicsContinue(index: number): boolean {
+        try {
+            return this.app.modules.api<MechanicsApi>('mechanics')?.continuing?.(index) === true;
+        } catch {
+            return false;
+        }
+    }
+
     /** A story reply the checks apply to (type: the reply:ready type when known). */
     checkable(index: number, type?: string): boolean {
         if (type !== undefined && !CHECKED_TYPES.has(type || 'normal')) return false;
@@ -531,6 +543,10 @@ export class QualityService implements QualityApi {
             defects.unshift({ kind: 'junk', confidence: 1, quote: cutoff.token, by: 'cutoff', fix: { kind: 'swipe' } });
         }
         defects = defects.filter((defect) => this.action(defect.kind) !== 'off');
+        // Release 1.27: the mechanics continue this reply themselves (a roll it asked for): it is not ours to continue.
+        if (mode !== 'manual' && this.mechanicsContinue(index)) {
+            defects = defects.filter((defect) => (defect.fix?.kind ?? defaultFix(defect.kind)) !== 'continue');
+        }
 
         let judged = false;
         let costUsd = 0;
@@ -605,7 +621,8 @@ export class QualityService implements QualityApi {
             this.autoContinuedTurn !== this.turn &&
             this.actions.canContinue() &&
             this.actions.isLast(index) &&
-            this.actions.sendBoxEmpty();
+            this.actions.sendBoxEmpty() &&
+            !this.mechanicsContinue(index);
         for (const defect of plan.continue) defect.status = canContinue ? 'continued' : 'notified';
         if (plan.repair.length) this.repair(verdict, plan.repair);
         for (const defect of plan.notify) defect.status = 'notified';

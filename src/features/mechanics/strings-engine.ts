@@ -1,5 +1,6 @@
 // Strings of M25 «Механики», the engine of plan-2 §6 (release 1.14): consequences, statuses, items, formulas, levels,
-// time, fights, visibility, new templates and the settings for them. Russian is the primary UI language; the user is
+// time, fights, visibility, new templates and the settings for them; release 1.27: what a check needs to be tried
+// («Нужно для броска») and the roll in the middle of a reply. Russian is the primary UI language; the user is
 // addressed as «ты» (male).
 import type { I18nParts } from '../../shared/contracts';
 
@@ -38,6 +39,21 @@ export const ENGINE_STRINGS: I18nParts = {
         'm25.ctor.progression.award.failure': 'failure',
         'm25.ctor.progression.award.fumble': 'critical failure',
         'm25.def.issue.combatInitiative': 'The initiative check «{check}» is not among the checks.',
+        // release 1.27: what a check needs to be tried at all
+        'm25.def.issue.requireAttr':
+            '«{check}»: it needs «{attribute}», but there is no such attribute — the roll goes ahead.',
+        'm25.def.issue.requireKind': '«{check}»: «{attribute}» has no number to compare — the roll goes ahead.',
+        'm25.ctor.requires': 'Needed for the roll',
+        'm25.ctor.requires.hint':
+            'Without it the attempt fails and there is no roll: «a spell — mana at least 5». The model is told why.',
+        'm25.ctor.requires.none': 'The mechanic has no numbers or scales to require.',
+        'm25.ctor.require.attr': 'What is needed',
+        'm25.ctor.require.atLeast': 'at least',
+        'm25.ctor.require.min': 'The least value',
+        'm25.ctor.require.note': 'Why, for the model (English)',
+        'm25.ctor.require.note.hint': 'a spell costs at least 5 mana',
+        'm25.ctor.require.add': 'Add a requirement',
+        'm25.ctor.require.remove': 'Remove the requirement',
         'm25.def.issue.inventoryMoney': 'The money of the inventory is «{attribute}», but there is no such number.',
 
         // formula errors for the constructor
@@ -78,6 +94,9 @@ export const ENGINE_STRINGS: I18nParts = {
 
         // settings
         'm25.def.settings.modelRolls': 'The model may ask me for rolls in the service block',
+        'm25.def.settings.rollContinue': 'Roll in the middle of a reply',
+        'm25.def.settings.rollContinue.hint':
+            'The model stops at the risky moment and asks for a roll; I roll at once and the same reply goes on with the result (one automatic continue). Off: the result comes only in the next reply.',
         'm25.def.settings.autoCombat': 'Start and end fights with the director’s scene',
         'm25.def.settings.personaFallback': 'Your character’s DES stats',
         'm25.def.settings.personaFallback.hint':
@@ -121,6 +140,20 @@ export const ENGINE_STRINGS: I18nParts = {
         'm25.ctor.progression.award.failure': 'провал',
         'm25.ctor.progression.award.fumble': 'критический провал',
         'm25.def.issue.combatInitiative': 'Проверки инициативы «{check}» нет среди проверок.',
+        'm25.def.issue.requireAttr':
+            '«{check}»: нужно «{attribute}», но такого атрибута нет — бросок пойдёт без условия.',
+        'm25.def.issue.requireKind': '«{check}»: у «{attribute}» нет числа для сравнения — бросок пойдёт без условия.',
+        'm25.ctor.requires': 'Нужно для броска',
+        'm25.ctor.requires.hint':
+            'Без этого попытка не удаётся и броска нет: «заклинание — мана не меньше 5». Модель узнает почему.',
+        'm25.ctor.requires.none': 'У механики нет чисел или шкал, которые можно потребовать.',
+        'm25.ctor.require.attr': 'Что нужно',
+        'm25.ctor.require.atLeast': 'не меньше',
+        'm25.ctor.require.min': 'Наименьшее значение',
+        'm25.ctor.require.note': 'Почему — для модели (по-английски)',
+        'm25.ctor.require.note.hint': 'a spell costs at least 5 mana',
+        'm25.ctor.require.add': 'Добавить условие',
+        'm25.ctor.require.remove': 'Убрать условие',
         'm25.def.issue.inventoryMoney': 'Деньги инвентаря — «{attribute}», а такого числа нет.',
 
         'm25.formula.error.empty': 'формула пустая',
@@ -156,6 +189,9 @@ export const ENGINE_STRINGS: I18nParts = {
         'm25.combat.error.noMechanic': 'Ни одна механика этого чата не ведёт бой: сначала добавь шаблон «Бой».',
 
         'm25.def.settings.modelRolls': 'Модель может просить меня о бросках в служебном блоке',
+        'm25.def.settings.rollContinue': 'Бросок посреди ответа',
+        'm25.def.settings.rollContinue.hint':
+            'Модель останавливается на рискованном моменте и просит бросок; я бросаю сразу, и тот же ответ продолжается с результатом (одно автоматическое продолжение). Выключено — результат придёт только в следующем ответе.',
         'm25.def.settings.autoCombat': 'Начинать и заканчивать бой по сцене режиссёра',
         'm25.def.settings.personaFallback': 'Статы DES твоего персонажа',
         'm25.def.settings.personaFallback.hint':

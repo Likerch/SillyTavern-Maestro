@@ -34,7 +34,8 @@ async function start(rng: () => number = faces(20, 14, 9, 17, 3, 5, 6, 7, 8, 10,
     prompt.install();
 }
 
-const PERSUASION_FACT = 'Persuasion check (Kai): rolled 14 vs 15 — failure.';
+const PERSUASION_FACT =
+    'Persuasion check (Kai): rolled 14 vs 15 — failure. In the scene: it barely fails — it nearly works; show what goes wrong and what it costs.';
 
 function event(text: string): FiredEvent {
     return { mechanicId: 'magic', holder: 'Kai', attribute: 'mana', eventId: 'empty', text, messageIndex: 2, at: 7 };

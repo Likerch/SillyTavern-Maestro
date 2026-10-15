@@ -15,6 +15,9 @@
 // Persuasion, deception and intimidation are speech checks (they roll on spoken lines and questions too). Skills give
 // experience by the outcome of every check (critical 20, success 10, failure and fumble 3); levels at 100, 250, 500
 // and 1000.
+// Release 1.27: the checks say what each outcome means for the scene (English texts per outcome: the spell takes
+// shape / fizzles, a hit / a miss, persuaded / not…), and some need something to be tried at all: a spell at least 5
+// mana (its smallest cost), an attack a fighter who is not down (HP 1).
 // Pure: no DOM, no SillyTavern.
 import { cloneDef, uniqueId } from './mechanics-defs';
 import type {
@@ -145,7 +148,7 @@ const magic = template('magic', (locale) => ({
     promptName: 'Magic',
     summary: 'Spellcasting powered by mana; every mage knows one or more schools of magic.',
     rules: [
-        'Casting a spell costs mana: a minor spell 5–10, a strong one 20–40, a great working 50 or more. Without enough mana a spell fails or hurts the caster.',
+        'Casting a spell costs mana: a minor spell 5–10, a strong one 20–40, a great working 50 or more. Without enough mana a spell fails or hurts the caster; below 5 mana no spell can be cast at all.',
         'Mana (0–100) returns slowly with rest and meditation, about 10 per hour of rest.',
         'A mage can only cast spells of the schools they know; learning a new school takes long study.',
         'When a spell is cast under pressure, a spellcasting check decides whether it works (d20 + arcana against 12); Maestro takes its mana cost: 10 when it works, 5 when it fails. Spend more mana for stronger spells yourself.',
@@ -185,14 +188,29 @@ const magic = template('magic', (locale) => ({
             difficulty: 12,
             triggers: ['заклин', 'колдую', 'колдов', 'наколд', 'spell', 'casting', 'cast a'],
             effects: [
-                { on: 'success', changes: [{ who: 'actor', attr: 'mana', op: 'sub', value: 10 }] },
-                { on: 'failure', changes: [{ who: 'actor', attr: 'mana', op: 'sub', value: 5 }] },
+                {
+                    on: 'success',
+                    changes: [{ who: 'actor', attr: 'mana', op: 'sub', value: 10 }],
+                    text: 'the spell takes shape and works as cast; the mana is spent',
+                },
+                {
+                    on: 'failure',
+                    changes: [{ who: 'actor', attr: 'mana', op: 'sub', value: 5 }],
+                    text: 'the spell fizzles out; the mana is spent all the same',
+                },
                 {
                     on: 'fumble',
                     changes: [{ who: 'actor', attr: 'mana', op: 'sub', value: 5 }],
                     text: 'the spell backfires on the caster',
                 },
+                {
+                    on: 'critical',
+                    changes: [],
+                    text: 'the spell takes shape perfectly and is stronger than intended',
+                },
             ],
+            // Its smallest cost: below it there is nothing to cast with (no roll, the attempt fails).
+            requires: [{ attr: 'mana', min: 5, note: 'a spell costs at least 5 mana' }],
         },
     ],
     tracking: 'auto',
@@ -259,6 +277,46 @@ const money = template('money', (locale) => ({
     visibility: { preset: 'game' },
 }));
 
+/** What a skill's outcomes mean for the scene (English, for the model): critical, success, failure, fumble. */
+const SKILL_OUTCOMES: Readonly<Record<string, [string, string, string, string]>> = {
+    persuasion: [
+        'they are fully won over and offer more than was asked',
+        'they are persuaded and agree',
+        'they are not persuaded and hold their ground',
+        'the attempt offends them; they grow less willing than before',
+    ],
+    deception: [
+        'the lie is believed completely and they act on it',
+        'the lie is believed',
+        'the lie is not believed; they grow suspicious',
+        'the lie is seen through at once; they know they were lied to',
+    ],
+    intimidation: [
+        'they are terrified and do as they are told',
+        'they are cowed and back down',
+        'they are not impressed and stand firm',
+        'they take it as a challenge and turn hostile',
+    ],
+    stealth: [
+        'unseen and unheard, and in a perfect position',
+        'they move unseen and unheard',
+        'they are noticed',
+        'they make a loud noise and draw the attention of everyone near',
+    ],
+    athletics: [
+        'they make it with ease and time to spare',
+        'they make it',
+        'they do not make it and must find another way',
+        'they fall or get hurt in the attempt',
+    ],
+    perception: [
+        'they notice everything, even what was well hidden',
+        'they notice what matters here',
+        'they miss what matters here',
+        'they notice nothing and draw a wrong conclusion',
+    ],
+};
+
 function skillCheck(locale: Locale, id: string, en: string, ru: string, triggers: string[], speech = false): CheckDef {
     const check: CheckDef = {
         id,
@@ -269,6 +327,16 @@ function skillCheck(locale: Locale, id: string, en: string, ru: string, triggers
         triggers,
     };
     if (speech) check.speech = true;
+    const outcomes = SKILL_OUTCOMES[id];
+    if (outcomes) {
+        const [critical, success, failure, fumble] = outcomes;
+        check.effects = [
+            { on: 'success', changes: [], text: success },
+            { on: 'failure', changes: [], text: failure },
+            { on: 'critical', changes: [], text: critical },
+            { on: 'fumble', changes: [], text: fumble },
+        ];
+    }
     return check;
 }
 
@@ -523,9 +591,22 @@ const sanity = template('sanity', (locale) => ({
             difficulty: null,
             triggers: ['ужас', 'кошмар', 'жуть', 'horror', 'terrif', 'nightmare'],
             effects: [
-                { on: 'success', changes: [{ who: 'actor', attr: 'sanity', op: 'sub', value: 1 }] },
-                { on: 'failure', changes: [{ who: 'actor', attr: 'sanity', op: 'sub', value: '1d6' }] },
-                { on: 'fumble', changes: [{ who: 'actor', attr: 'sanity', op: 'sub', value: '1d6' }] },
+                {
+                    on: 'success',
+                    changes: [{ who: 'actor', attr: 'sanity', op: 'sub', value: 1 }],
+                    text: 'they keep their nerve, though it leaves a mark',
+                },
+                {
+                    on: 'failure',
+                    changes: [{ who: 'actor', attr: 'sanity', op: 'sub', value: '1d6' }],
+                    text: 'the horror shakes them: trembling, a wild urge to flee',
+                },
+                {
+                    on: 'fumble',
+                    changes: [{ who: 'actor', attr: 'sanity', op: 'sub', value: '1d6' }],
+                    text: 'the horror overwhelms them: they panic and lose control for a while',
+                },
+                { on: 'critical', changes: [], text: 'they stay perfectly calm and see it for what it is' },
             ],
         },
     ],
@@ -603,10 +684,19 @@ const combat = template('combat', (locale) => ({
             difficulty: 12,
             triggers: ['атак', 'удар', 'бью', 'рублю', 'стреля', 'attack', 'strike', 'stab', 'shoot'],
             effects: [
-                { on: 'success', changes: [{ who: 'target', attr: 'hp', op: 'sub', value: 'max(1, 1d6 + @attack)' }] },
-                { on: 'critical', changes: [{ who: 'target', attr: 'hp', op: 'sub', value: '2d6' }] },
+                {
+                    on: 'success',
+                    changes: [{ who: 'target', attr: 'hp', op: 'sub', value: 'max(1, 1d6 + @attack)' }],
+                    text: 'the attack hits',
+                },
+                {
+                    on: 'critical',
+                    changes: [{ who: 'target', attr: 'hp', op: 'sub', value: '2d6' }],
+                    text: 'a telling blow: it lands hard where it hurts most',
+                },
                 {
                     on: 'fumble',
+                    text: 'the attack goes wide and leaves an opening for the enemy',
                     changes: [
                         {
                             who: 'actor',
@@ -622,7 +712,10 @@ const combat = template('combat', (locale) => ({
                         },
                     ],
                 },
+                { on: 'failure', changes: [], text: 'the attack misses' },
             ],
+            // A fighter who is down cannot attack (no roll).
+            requires: [{ attr: 'hp', min: 1, note: 'a fighter who is down cannot attack' }],
         },
         {
             id: 'defense',
@@ -631,6 +724,12 @@ const combat = template('combat', (locale) => ({
             dice: '1d20+@agility',
             difficulty: 12,
             triggers: ['уворач', 'парир', 'блокир', 'dodge', 'parry', 'block'],
+            effects: [
+                { on: 'success', changes: [], text: 'the blow is dodged or parried' },
+                { on: 'failure', changes: [], text: 'the defense fails and the blow gets through' },
+                { on: 'critical', changes: [], text: 'a perfect defense that opens a chance to strike back' },
+                { on: 'fumble', changes: [], text: 'the defender stumbles and is left wide open' },
+            ],
         },
     ],
     tracking: 'block',

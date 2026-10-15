@@ -64,6 +64,18 @@ describe('mechanics settings section', () => {
         expect(container.children).toHaveLength(0);
     });
 
+    it('switches the roll in the middle of a reply (1.27, on by default) and says what it does', () => {
+        env.app.i18n.register(MECHANICS_STRINGS);
+        const notify = vi.spyOn(env.app.settings, 'notify');
+        settingsSection(env.deps)(container);
+        const box = input('Roll in the middle of a reply');
+        expect(box.checked).toBe(true);
+        expect(container.textContent).toContain('the same reply goes on with the result');
+        change(box, false);
+        expect(env.slice.rollContinue).toBe(false);
+        expect(notify).toHaveBeenCalledWith('modules.mechanics.rollContinue');
+    });
+
     it('chooses where the HUD shows: over the chat, left or right of it', () => {
         env.app.i18n.register(MECHANICS_STRINGS);
         const notify = vi.spyOn(env.app.settings, 'notify');

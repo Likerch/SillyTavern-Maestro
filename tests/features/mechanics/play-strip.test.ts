@@ -177,6 +177,32 @@ describe('roll cards', () => {
         expect(after.actions).toBeUndefined();
     });
 
+    it('say what the outcome means; an attempt without the means shows why instead of dice (1.27)', async () => {
+        const def = vitalsDef();
+        def.checks[0]!.requires = [{ attr: 'mana', min: 40 }];
+        await setup({ defs: [def], rng: faces(20, 10) });
+        env.pushReply();
+        // 10 vs 10: made it by nothing.
+        await env.api.roll('vitals', 'spell', 'Kai');
+        const first = await env.sendUser('Колдую.');
+        await settlePlay(env);
+        const [close] = byKind(strip.items(first), 'roll');
+        expect(body(close!).querySelector('.maestro-m25-roll-meaning')?.textContent).toBe('Еле-еле получилось');
+
+        // The spell cost 5: mana 40 → 35, under what the spell needs.
+        env.pushReply();
+        await env.api.roll('vitals', 'spell', 'Kai');
+        const second = await env.sendUser('Колдую ещё раз.');
+        await settlePlay(env);
+        const [card] = byKind(strip.items(second), 'roll');
+        expect(card?.text).toBe('Заклинание (Kai): невозможно — Мана 35, нужно 40');
+        const box = body(card!);
+        expect(box.querySelector('.maestro-m25-die')).toBeNull();
+        expect(box.querySelector('.maestro-m25-roll-meaning')).toBeNull();
+        expect(box.querySelector('details')?.textContent).toContain('not possible — mana 35, needs 40');
+        expect(card?.actions).toBeUndefined();
+    });
+
     it('show whom a roll was aimed at and the experience it gave', async () => {
         const study: MechanicDef = {
             id: 'study',

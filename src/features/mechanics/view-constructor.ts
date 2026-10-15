@@ -8,7 +8,7 @@
 //   the background parse as the safety net), «Где видно» (preset buttons and places), attributes (kind, sign, bounds,
 //   start value, formula and growth of numbers, levels/options, tracking, own visibility, events with actions and
 //   chains), checks (dice validated live, difficulty, trigger words, «Срабатывает и на реплики» for speech checks,
-//   consequences per outcome), statuses, inventory and money, levels (experience per roll outcome), time rules,
+//   «Нужно для броска» (1.27: an attribute minimum, else no roll), consequences per outcome), statuses, inventory and money, levels (experience per roll outcome), time rules,
 //   fights, «Сделать статами DES», a live preview of what the model gets, and the problems to fix.
 //   Ids are made from names and never shown in the main text (only under «Подробнее»). Switching an attribute's kind
 //   keeps its events (asks before dropping the ones that no longer fit).
@@ -73,6 +73,7 @@ import {
     inventoryEditor,
     numberExtras,
     progressionEditor,
+    requiresEditor,
     statusesEditor,
     timeEditor,
     visibilityEditor,
@@ -1122,6 +1123,7 @@ export function constructorSection(
                         },
                     }),
                     el('div', { class: 'maestro-muted maestro-m25-speech-hint', text: t('m25.def.check.speech.hint') }),
+                    requiresEditor(engineCtx(def), check),
                     effectsEditor(engineCtx(def), check, index),
                     moreBlock(t('m25.ctor.more'), [
                         field(

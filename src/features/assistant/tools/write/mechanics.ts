@@ -65,6 +65,7 @@ export function mechanicSaveTool(): ToolSpec {
             'actions, chain}], formula (derived, "50 + 10 * @level"), growth {perUse, cap}, visibility}], holders {kind ' +
             'persona|characters|named|world|factions, names}, checks [{id, name, promptName, dice like ' +
             '"1d20+@attr" or "2d6+1d4", difficulty, triggers, speech (true: also in quoted lines and questions), ' +
+            'requires [{attr, min, note}] (below it the attempt fails with no roll: a spell needs mana >= 5), ' +
             'effects [{on success|failure|critical|fumble|any, ' +
             'changes [{who actor|target|persona, attr, op add|sub|set|mul|push|pull, value}], text}]}], tracking ' +
             'auto|desStats|block|background|manual, visibility {preset game|book|hidden|secret}, statuses [{name, ' +

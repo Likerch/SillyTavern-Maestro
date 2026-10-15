@@ -398,6 +398,47 @@ describe('engine fields', () => {
         expect(defs.saved.at(-1)!.checks[0]).not.toHaveProperty('speech');
     });
 
+    it('«Нужно для броска» (1.27): an attribute, its least value and a note for the model; removed again', async () => {
+        await edit({
+            ...mechanic({
+                attributes: [
+                    { id: 'mana', name: 'Мана', promptName: 'Mana', kind: 'number', min: 0, max: 100, initial: 100 },
+                    { id: 'rank', name: 'Ранг', promptName: 'Rank', kind: 'scale', levels: ['novice', 'adept'] },
+                    { id: 'oath', name: 'Клятва', promptName: 'Oath', kind: 'text' },
+                ],
+            }),
+            book: BOOK,
+            uid: 1,
+        });
+        const block = one('.maestro-m25-check .maestro-m25-requires');
+        expect(block.textContent).toContain('Needed for the roll');
+        await click(buttonByText('Add a requirement', block));
+        const row = one('.maestro-m25-check .maestro-m25-require');
+        const attribute = one<HTMLSelectElement>('select[aria-label="What is needed"]', row);
+        // Numbers and scales only: a text has no number to compare.
+        expect([...attribute.options].map((option) => option.textContent)).toEqual(['Мана', 'Ранг']);
+        expect(attribute.value).toBe('mana');
+        type(one<HTMLInputElement>('.maestro-m25-require-min', row), '5');
+        type(one<HTMLInputElement>('.maestro-m25-require-note', row), ' a spell costs at least 5 mana ');
+        await click(buttonByText('Save'));
+        expect(defs.saved.at(-1)!.checks[0]?.requires).toEqual([
+            { attr: 'mana', min: 5, note: 'a spell costs at least 5 mana' },
+        ]);
+
+        if (typeof unmount === 'function') unmount();
+        container.replaceChildren();
+        defs.defs = [defs.saved.at(-1)!];
+        render();
+        await click(buttonByText('Edit'));
+        const again = one('.maestro-m25-check .maestro-m25-require');
+        expect(one<HTMLInputElement>('.maestro-m25-require-min', again).value).toBe('5');
+        choose(one<HTMLSelectElement>('select[aria-label="What is needed"]', again), 'rank');
+        await click(buttonByText('Remove the requirement', again));
+        expect(container.querySelector('.maestro-m25-check .maestro-m25-require')).toBeNull();
+        await click(buttonByText('Save'));
+        expect(defs.saved.at(-1)!.checks[0]).not.toHaveProperty('requires');
+    });
+
     it('keeps the events when the kind changes, asking before dropping the ones that no longer fit', async () => {
         const withEvent = (): MechanicDef => ({
             ...mechanic({

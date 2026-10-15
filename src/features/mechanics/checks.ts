@@ -26,8 +26,18 @@
 //   back). Statuses and equipped items add their modifiers.
 //   Advantage / disadvantage and opposed checks ("vs Guard.Perception"); the model may ask for rolls in its service
 //   block (`roll: …`, by 'model'): rolled as the reply arrives, they belong to the reply (a swipe drops them) and reach
-//   the next generation as facts. A secret mechanic's roll gives the model only its outcomes; a hidden one is marked
-//   so the player surfaces skip it.
+//   the next generation as facts (release 1.27, settings.rollContinue: the same reply goes on with them,
+//   roll-continue.ts). A secret mechanic's roll gives the model only its outcomes; a hidden one is marked so the
+//   player surfaces skip it;
+// - release 1.27: a check may require something of the roller (`requires`: an attribute of the mechanic at least a
+//   minimum, with modifiers — spellcasting needs 5 mana). Short of it no dice are rolled, for auto rolls, rolls by hand
+//   and the model's alike: the result is recorded with outcome 'none' and `blocked`, its fact says the attempt fails
+//   ("Spellcasting (Kai): not possible — mana 3, needs 5. The attempt fails; narrate it, there is no roll."), the card
+//   and the notice say why; nothing else happens (no costs, no experience, no growth);
+// - release 1.27: every fact ends with what the outcome means for the scene ("In the scene: …": the check's own outcome
+//   texts, else a line by outcome; within two points of the other outcome it reads «barely»); the outcome texts are no
+//   longer among `consequences` (the changes). The block instruction lists only the checks of mechanics with a holder
+//   in the scene.
 import { stableHash } from '../../domain/hash';
 import { resolveRollHead } from '../../domain/mechanics-block';
 import type { BlockRoll, RollCheckRef } from '../../domain/mechanics-block';
@@ -35,7 +45,18 @@ import { detectChecks, difficultyWord, namedHolders, normalizeWord } from '../..
 import type { ActorNames, CheckTrigger, DetectedCheck } from '../../domain/mechanics-checks';
 import { criticalsOf, diceAttributes, initialValueOf, parseDice, SPECIAL_ATTRS } from '../../domain/mechanics-defs';
 import type { DiceFormula } from '../../domain/mechanics-defs';
-import { checkFact, difficultyFor, marginOf, opposedFact, opposedOutcome, rollDice } from '../../domain/mechanics-dice';
+import {
+    blockedFact,
+    checkFact,
+    difficultyFor,
+    factWithMeaning,
+    isBarely,
+    marginOf,
+    opposedFact,
+    opposedOutcome,
+    outcomeMeaning,
+    rollDice,
+} from '../../domain/mechanics-dice';
 import type { DiceOutcome, DiceRoll, DifficultyLevel, RollMode, Rng } from '../../domain/mechanics-dice';
 import { resolveActions } from '../../domain/mechanics-effects';
 import type { ActionContext } from '../../domain/mechanics-effects';
@@ -156,6 +177,14 @@ function readResult(raw: unknown): StoredCheck | null {
     if (raw.hidden === true) result.hidden = true;
     if (raw.undone === true) result.undone = true;
     if (typeof raw.against === 'string' && raw.against.trim()) result.against = raw.against;
+    if (isDict(raw.blocked) && typeof raw.blocked.attr === 'string') {
+        result.blocked = {
+            attr: raw.blocked.attr,
+            have: number(raw.blocked.have, 0),
+            need: number(raw.blocked.need, 0),
+        };
+    }
+    if (raw.barely === true) result.barely = true;
     return result;
 }
 
@@ -189,6 +218,8 @@ function publicResult(result: StoredCheck): CheckResult {
     if (result.hidden) out.hidden = true;
     if (result.undone) out.undone = true;
     if (result.against) out.against = result.against;
+    if (result.blocked) out.blocked = { ...result.blocked };
+    if (result.barely) out.barely = true;
     return out;
 }
 
@@ -232,16 +263,60 @@ export function checkNameOf(defs: Pick<DefinitionsPart, 'get'>, result: Pick<Che
     }
 }
 
-/** One localized line: «Убеждение (Kai): 16 против 15 — успех», aimed at someone «Атака (Kai → Bandit): …». */
+/** The display name of the attribute a blocked roll lacked (its id when the definition is gone); '' when not blocked. */
+export function blockedAttributeOf(
+    defs: Pick<DefinitionsPart, 'get'>,
+    result: Pick<CheckResult, 'mechanicId' | 'blocked'>,
+): string {
+    const id = result.blocked?.attr;
+    if (!id) return '';
+    try {
+        return defs.get(result.mechanicId)?.attributes.find((attribute) => attribute.id === id)?.name ?? id;
+    } catch {
+        return id;
+    }
+}
+
+/** The notice after a roll by hand: «Бросок: …», or «Без броска: …» when the roller could not try at all. */
+export function rollNoticeKey(result: Pick<CheckResult, 'blocked'>): string {
+    return result.blocked ? 'm25.check.notRolled' : 'm25.check.rolled';
+}
+
+/** The outcome word of a result (badges): «невозможно» for a blocked one. */
+export function outcomeKey(result: Pick<CheckResult, 'outcome' | 'blocked'>): string {
+    return result.blocked ? 'm25.check.outcome.blocked' : `m25.check.outcome.${result.outcome}`;
+}
+
+/** What the outcome means for the scene, in the UI language (the roll card); null for a result without one. */
+export function meaningKey(result: Pick<CheckResult, 'outcome' | 'blocked' | 'barely'>): string | null {
+    if (result.blocked || result.outcome === 'none') return null;
+    return result.barely && (result.outcome === 'success' || result.outcome === 'failure')
+        ? `m25.check.meaning.${result.outcome}.barely`
+        : `m25.check.meaning.${result.outcome}`;
+}
+
+/**
+ * One localized line: «Убеждение (Kai): 16 против 15 — успех», aimed at someone «Атака (Kai → Bandit): …»; an attempt
+ * without the means: «Заклинание (Kai): невозможно — Мана 3, нужно 5» (`attribute`: the display name it lacked).
+ */
 export function describeCheck(
-    result: Pick<CheckResult, 'holder' | 'total' | 'target' | 'outcome' | 'dice' | 'against'>,
+    result: Pick<CheckResult, 'holder' | 'total' | 'target' | 'outcome' | 'dice' | 'against' | 'blocked'>,
     i18n: Pick<I18n, 't'>,
     checkName: string,
+    attribute?: string,
 ): string {
     const under = result.dice.includes('<=');
     const holder = result.against
         ? i18n.t('m25.check.against', { holder: result.holder, target: result.against })
         : result.holder;
+    if (result.blocked) {
+        const reason = i18n.t('m25.check.blocked.reason', {
+            attribute: attribute || result.blocked.attr,
+            have: Math.round(result.blocked.have * 100) / 100,
+            need: result.blocked.need,
+        });
+        return i18n.t('m25.check.line.blocked', { check: checkName, holder, reason });
+    }
     if (result.outcome === 'none' && result.target === null) {
         return i18n.t('m25.check.line.plain', { check: checkName, holder, total: result.total });
     }
@@ -776,7 +851,10 @@ export class MechanicChecks implements ChecksPart {
         });
     }
 
-    /** The consequences of an outcome: state operations and English notes (the actor's values, the roll). */
+    /**
+     * The consequences of an outcome: state operations, English notes of the changes (the actor's values, the roll) and
+     * the author's outcome texts (what it means for the scene: the outcome's own, a critical's success ones, any).
+     */
     private consequences(
         def: MechanicDef,
         check: CheckDef,
@@ -787,9 +865,10 @@ export class MechanicChecks implements ChecksPart {
         formula: DiceFormula,
         messageIndex: number,
         margin: number,
-    ): { ops: StateOp[]; notes: string[] } {
+    ): { ops: StateOp[]; notes: string[]; texts: { own: string[]; wider: string[]; any: string[] } } {
         const ops: StateOp[] = [];
         const notes: string[] = [];
+        const texts = { own: [] as string[], wider: [] as string[], any: [] as string[] };
         const matches = (on: string) =>
             on === 'any' ||
             on === outcome ||
@@ -814,7 +893,9 @@ export class MechanicChecks implements ChecksPart {
             const resolved = resolveActions(effect.changes, actionContext);
             ops.push(...resolved.ops);
             notes.push(...resolved.notes);
-            if (effect.text) notes.push(effect.text);
+            if (effect.text) {
+                (effect.on === 'any' ? texts.any : effect.on === outcome ? texts.own : texts.wider).push(effect.text);
+            }
             const missed = resolved.rejected.filter(
                 ({ action, reason }) => reason === 'who' && TARGET_WHO.has((action.who ?? '').trim().toLowerCase()),
             );
@@ -852,7 +933,86 @@ export class MechanicChecks implements ChecksPart {
                 reason: check.promptName || check.name,
             });
         }
-        return { ops, notes };
+        return { ops, notes, texts };
+    }
+
+    /**
+     * The first requirement of the check the roller does not meet (release 1.27), or null. A value that cannot be read
+     * (an unknown attribute, someone without the mechanic) does not stop the roll.
+     */
+    private unmet(
+        def: MechanicDef,
+        check: CheckDef,
+        holder: string,
+        known: boolean,
+    ): { attr: string; have: number; need: number; note?: string } | null {
+        for (const need of check.requires ?? []) {
+            const have = this.numeric(def, holder, need.attr, known);
+            if (have === null || have >= need.min) continue;
+            return { attr: need.attr, have, need: need.min, ...(need.note ? { note: need.note } : {}) };
+        }
+        return null;
+    }
+
+    /** An attempt without the means: no dice, outcome 'none', the fact says it fails (as the visibility allows). */
+    private blockedRoll(
+        def: MechanicDef,
+        check: CheckDef,
+        holder: string,
+        formula: DiceFormula,
+        spec: RollSpec,
+        unmet: { attr: string; have: number; need: number; note?: string },
+        aimedAt: string | null,
+    ): Rolled {
+        const visibility = resolveVisibility(def);
+        const attribute = def.attributes.find((item) => item.id === unmet.attr);
+        const mode =
+            visibility.preset === 'secret' ? 'none' : attribute ? resolveVisibility(def, attribute).prompt : 'value';
+        const have = Math.round(unmet.have * 100) / 100;
+        const text = blockedFact(
+            check.promptName || check.name,
+            holder,
+            {
+                attribute: attribute?.promptName || attribute?.name || unmet.attr,
+                have,
+                need: unmet.need,
+                mode,
+                ...(unmet.note ? { note: unmet.note } : {}),
+            },
+            aimedAt,
+        );
+        const result: StoredCheck = {
+            id: newRollId(),
+            mechanicId: def.id,
+            checkId: check.id,
+            holder,
+            dice: formula.text,
+            rolls: [],
+            modifier: 0,
+            total: 0,
+            target: null,
+            outcome: 'none',
+            text,
+            messageIndex: spec.messageIndex,
+            by: spec.by,
+            at: Date.now(),
+            blocked: { attr: unmet.attr, have, need: unmet.need },
+        };
+        if (aimedAt) result.against = aimedAt;
+        this.finishResult(result, spec, visibility.preset);
+        this.deps.log.debug(
+            `check ${def.id}.${check.id}: ${holder} lacks ${unmet.attr} (${have} < ${unmet.need}), no roll`,
+        );
+        return { result, ops: [] };
+    }
+
+    /** Hidden from the player (hidden, secret), the reply variant of a model roll, the stamp of the user's message. */
+    private finishResult(result: StoredCheck, spec: RollSpec, preset: string): void {
+        if (preset === 'secret' || preset === 'hidden') result.hidden = true;
+        if (spec.swipe !== undefined) result.swipe = spec.swipe;
+        if (spec.messageIndex >= 0 && spec.by !== 'model') {
+            result.stamp = stampOf(this.deps.app.host.ctx().chat?.[spec.messageIndex]);
+        }
     }
 
     private makeRoll(def: MechanicDef, check: CheckDef, holder: string, spec: RollSpec): Rolled | null {
@@ -871,6 +1031,9 @@ export class MechanicChecks implements ChecksPart {
         }
         const vs = spec.vs ?? null;
         const against = vs ? null : spec.against?.trim() || null;
+        // Release 1.27: without what the check requires (mana for a spell) the attempt fails with no dice.
+        const unmet = this.unmet(def, check, holder, known);
+        if (unmet) return this.blockedRoll(def, check, holder, formula, spec, unmet, vs?.holder ?? against);
         const roll = this.rollFor(def, check, formula, holder, spec, !!vs && !formula.under);
         if (formula.under && roll.target === null) {
             throw new Error(
@@ -908,7 +1071,7 @@ export class MechanicChecks implements ChecksPart {
                 ? marginOf(roll) - marginOf(other)
                 : roll.total - other.total
             : marginOf(roll);
-        const { ops, notes } = this.consequences(
+        const { ops, notes, texts } = this.consequences(
             def,
             check,
             holder,
@@ -919,20 +1082,21 @@ export class MechanicChecks implements ChecksPart {
             spec.messageIndex,
             margin,
         );
+        const barely = isBarely(outcome, margin, {
+            target: (other ? other.total : roll.target) !== null,
+            opposed: !!other,
+        });
         const visibility = resolveVisibility(def);
         if (visibility.preset === 'secret') {
-            // The model gets only what came of it.
-            const outcomes = (check.effects ?? [])
-                .filter((effect) => effect.text)
-                .map((effect) => effect.text as string);
-            const said = notes.filter((note) => outcomes.includes(note));
+            // The model gets only what came of it: the author's outcome texts.
+            const said = [...texts.own, ...texts.wider, ...texts.any];
             text = said.length ? `${check.promptName || check.name}: ${said.join('; ')}.` : '';
-        } else if (notes.length) {
-            text = `${text} Consequences: ${notes.join('; ')}.`;
+        } else {
+            // Release 1.27: what changed, then what the outcome means for the scene.
+            text = factWithMeaning(text, notes, outcomeMeaning(outcome, texts, barely));
         }
         const result: StoredCheck = {
-            // Not from this.rng: an injected (seeded) RNG serves the dice only.
-            id: `m25c-${Date.now().toString(36)}-${Math.floor(Math.random() * 1e9).toString(36)}`,
+            id: newRollId(),
             mechanicId: def.id,
             checkId: check.id,
             holder,
@@ -962,12 +1126,19 @@ export class MechanicChecks implements ChecksPart {
         }
         if (notes.length) result.consequences = notes;
         if (against) result.against = against;
-        if (visibility.preset === 'secret' || visibility.preset === 'hidden') result.hidden = true;
-        if (spec.swipe !== undefined) result.swipe = spec.swipe;
-        if (spec.messageIndex >= 0 && spec.by !== 'model') {
-            result.stamp = stampOf(this.deps.app.host.ctx().chat?.[spec.messageIndex]);
-        }
+        if (barely) result.barely = true;
+        this.finishResult(result, spec, visibility.preset);
         return { result, ops: ops.map((op) => ({ ...op, rollId: result.id })) };
+    }
+
+    /** The localized line of a result (the journal, notices). */
+    private lineOf(result: StoredCheck): string {
+        return describeCheck(
+            result,
+            this.deps.app.i18n,
+            checkNameOf(this.defs, result),
+            blockedAttributeOf(this.defs, result),
+        );
     }
 
     private record(rolled: Rolled): void {
@@ -1001,7 +1172,7 @@ export class MechanicChecks implements ChecksPart {
 
     /** The roll in the journal; with consequences its undo takes them back (target 'mechanics.batch', by roll id). */
     private journal(result: StoredCheck, consequences = 0): void {
-        const line = describeCheck(result, this.deps.app.i18n, checkNameOf(this.defs, result));
+        const line = this.lineOf(result);
         const chatId = this.deps.app.host.chatId();
         const action: JournalAction = {
             module: MECHANICS_ID,
@@ -1072,12 +1243,15 @@ export class MechanicChecks implements ChecksPart {
 
     /* ---------------------------------------------------------------- rolls the model asks for */
 
-    /** Names of the checks the model may ask for (the block instruction lists them). */
+    /**
+     * Names of the checks the model may ask for (the block instruction lists them): of the mechanics on that have a
+     * holder in the scene now (release 1.27) and that the model may know of.
+     */
     checkNames(): string[] {
         try {
             return this.defs
                 .active()
-                .filter((def) => resolveVisibility(def).prompt !== 'none')
+                .filter((def) => resolveVisibility(def).prompt !== 'none' && this.holdersOf(def).length > 0)
                 .flatMap((def) => def.checks.map((check) => check.promptName || check.name))
                 .filter(Boolean);
         } catch {
@@ -1097,15 +1271,17 @@ export class MechanicChecks implements ChecksPart {
 
     /**
      * The block of a reply asks for rolls (`roll: Stealth Kai vs Guard.Perception adv`): rolled now, they belong to
-     * the reply (a swipe drops them) and reach the next generation as facts.
+     * the reply (a swipe drops them) and reach the next generation as facts — with settings.rollContinue that is the
+     * continuation of the same reply (roll-continue.ts). The rolls made now are counted.
      */
-    requested(index: number, swipeId: number, rolls: readonly BlockRoll[]): void {
-        if (this.disposed || !this.deps.settings().modelRolls || !Number.isInteger(index) || index < 0) return;
-        if (!this.deps.app.host.chatId() || this.deps.app.host.chatId() !== this.chatId) return;
+    requested(index: number, swipeId: number, rolls: readonly BlockRoll[]): number {
+        if (this.disposed || !this.deps.settings().modelRolls || !Number.isInteger(index) || index < 0) return 0;
+        if (!this.deps.app.host.chatId() || this.deps.app.host.chatId() !== this.chatId) return 0;
         const refs = this.checkRefs();
         let made = this.results.filter(
             (result) => result.by === 'model' && result.messageIndex === index && result.swipe === swipeId,
         ).length;
+        let fresh = 0;
         for (const request of rolls) {
             if (made >= MODEL_ROLLS_MAX) break;
             try {
@@ -1133,10 +1309,12 @@ export class MechanicChecks implements ChecksPart {
                 if (!rolled) continue;
                 this.record(rolled);
                 made++;
+                fresh++;
             } catch (error) {
                 this.deps.log.debug(`mechanics: the roll "${request.line}" was not made`, error);
             }
         }
+        return fresh;
     }
 
     /* ---------------------------------------------------------------- per message and undo */
@@ -1148,7 +1326,7 @@ export class MechanicChecks implements ChecksPart {
     async undoRoll(rollId: string): Promise<boolean> {
         const result = this.results.find((item) => item.id === rollId);
         if (!result || result.undone) return false;
-        const line = describeCheck(result, this.deps.app.i18n, checkNameOf(this.defs, result));
+        const line = this.lineOf(result);
         const removed =
             (await this.state.undoWhere?.((change) => change.rollId === rollId, {
                 kind: UNDO_ROLL_KIND,
@@ -1319,8 +1497,7 @@ export class MechanicChecks implements ChecksPart {
         const { app } = this.deps;
         try {
             const result = this.commandRoll(args, typeof value === 'string' ? value : String(value ?? ''));
-            const line = describeCheck(result, app.i18n, checkNameOf(this.defs, result));
-            app.ui.notice(this.t('m25.check.rolled', { line }), { urgent: true });
+            app.ui.notice(this.t(rollNoticeKey(result), { line: this.lineOf(result) }), { urgent: true });
             return result.text;
         } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
@@ -1411,6 +1588,11 @@ export class MechanicChecks implements ChecksPart {
         await app.chat.put<ChecksDoc>(CHECKS_DOC, { results: merged.map((result) => ({ ...result })) });
         this.changed();
     }
+}
+
+/** A roll's id. Not from the checks' RNG: an injected (seeded) RNG serves the dice only. */
+function newRollId(): string {
+    return `m25c-${Date.now().toString(36)}-${Math.floor(Math.random() * 1e9).toString(36)}`;
 }
 
 /** An attack of a mechanic that runs fights (not its initiative): aimed at someone even without target consequences. */

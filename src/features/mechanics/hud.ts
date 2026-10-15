@@ -26,6 +26,7 @@ import type { App, Logger, Unsubscribe } from '../../shared/contracts';
 import { button, clear, el, icon } from '../../ui/components/dom';
 import { coalesce } from '../../ui/views/format';
 import type { CheckDef, MechanicDef, MechanicsApi, TrackingProblem } from './api';
+import { rollNoticeKey } from './checks';
 import {
     DeltaFreshness,
     deltaChip,
@@ -926,7 +927,9 @@ export class MechanicsHud {
         const persona = personaOf(this.api);
         try {
             const result = await this.api.roll(def.id, check.id, persona, this.mode ? { mode: this.mode } : {});
-            app.ui.notice(this.t('m25.check.rolled', { line: rollLine(app.i18n, this.api, result) }), { urgent: true });
+            app.ui.notice(this.t(rollNoticeKey(result), { line: rollLine(app.i18n, this.api, result) }), {
+                urgent: true,
+            });
         } catch (error) {
             app.ui.notice(error instanceof Error ? error.message : String(error), { urgent: true, level: 'warn' });
         }

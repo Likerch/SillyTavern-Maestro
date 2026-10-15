@@ -136,6 +136,17 @@ export interface CheckEffect {
     text?: string;
 }
 
+/**
+ * What a check needs before it can be tried at all (release 1.27): the roller's value of an attribute of the same
+ * mechanic (with status and item modifiers; a scale as its level index) at least `min`. Short of it: no dice.
+ */
+export interface CheckRequirement {
+    attr: string;
+    min: number;
+    /** English, for the model ("a spell costs at least 5 mana"). */
+    note?: string;
+}
+
 export interface CheckDef {
     id: string;
     name: string;
@@ -147,6 +158,8 @@ export interface CheckDef {
     effects?: CheckEffect[];
     /** Triggers count in quoted speech too, and questions do not stop the roll (persuasion, deception…). */
     speech?: boolean;
+    /** «Нужно для броска»: without these the attempt fails with no roll (spellcasting at mana 3). */
+    requires?: CheckRequirement[];
 }
 
 export type TimePer = 'turn' | 'hour' | 'day';
@@ -897,7 +910,33 @@ function normalizeCheck(raw: unknown, index: number): CheckDef | null {
         if (effects.length) check.effects = effects;
     }
     if (raw.speech === true) check.speech = true;
+    const requires = normalizeRequires(raw.requires);
+    if (requires) check.requires = requires;
     return check;
+}
+
+/** Requirements kept per check. */
+const REQUIRES_MAX = 4;
+
+/**
+ * «Нужно для броска»: attribute ids (lower case) with a finite minimum (numeric strings read) and an optional English
+ * note; anything else dropped; none → undefined.
+ */
+export function normalizeRequires(raw: unknown): CheckRequirement[] | undefined {
+    if (!Array.isArray(raw)) return undefined;
+    const out: CheckRequirement[] = [];
+    for (const item of raw) {
+        if (!isDict(item)) continue;
+        const attr = str(item.attr).toLowerCase();
+        const min = finite(item.min) ?? (typeof item.min === 'string' && item.min.trim() ? Number(item.min) : NaN);
+        if (!attr || !Number.isFinite(min)) continue;
+        const requirement: CheckRequirement = { attr, min };
+        const note = text(item.note);
+        if (note) requirement.note = note;
+        out.push(requirement);
+        if (out.length >= REQUIRES_MAX) break;
+    }
+    return out.length ? out : undefined;
 }
 
 export function normalizeHolders(raw: unknown): HolderSpec {
@@ -1360,6 +1399,17 @@ function checkIssues(def: MechanicDef, push: (issue: DefIssue) => void): void {
         (check.effects ?? []).forEach((effect, effectIndex) => {
             actionIssues(def, effect.changes, `${at}.effects.${effectIndex}.changes`, params.check, true, push);
         });
+        // «Нужно для броска»: an attribute of this mechanic that has a number (a scale counts by its level).
+        (check.requires ?? []).forEach((need, needIndex) => {
+            const kind = kinds.get(need.attr);
+            if (kind === 'number' || kind === 'scale') return;
+            push({
+                level: 'warn',
+                code: kind === undefined ? 'requireAttr' : 'requireKind',
+                path: `${at}.requires.${needIndex}.attr`,
+                params: { ...params, attribute: need.attr },
+            });
+        });
     });
 }
 
@@ -1487,12 +1537,13 @@ export function describeCheck(check: CheckDef): string {
     const formula = parseDice(check.dice);
     const dice = formula?.text ?? check.dice;
     const target = formula?.under ? '' : check.difficulty !== null ? ` vs ${check.difficulty}` : '';
+    const needs = (check.requires ?? []).map((need) => `needs ${need.attr} >= ${need.min}`);
     const effects = (check.effects ?? []).map((effect) => {
         const parts = effect.changes.map(describeAction);
         if (effect.text) parts.push(effect.text);
         return `on ${effect.on}: ${parts.join(', ')}`;
     });
-    const tail = effects.length ? `; ${effects.join('; ')}` : '';
+    const tail = [...needs, ...effects].map((part) => `; ${part}`).join('');
     return `${check.promptName || check.name} (${check.id}): ${dice}${target}${tail}`;
 }
 

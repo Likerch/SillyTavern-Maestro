@@ -7,7 +7,8 @@
 //   budget when it is set, else to settings.promptBudget (the block fits itself: the Architect only measures it);
 // - the facts (pending check results and fired events) at depth 0 for one generation; they are marked delivered when
 //   the generation ends without being stopped, and a swipe / regenerate / continue of the same reply gets them again
-//   (the roll belongs to the user's message: it is never rolled again).
+//   (the roll belongs to the user's message: it is never rolled again). Release 1.27: the rolls a reply asked for reach
+//   its own continuation (roll-continue.ts); a swipe or regeneration of that reply does not repeat them.
 // - plan-2 §6–6.А: values as each attribute's visibility allows (numbers, words, nothing), numbers with the
 //   modifiers of statuses and items, derived values computed; the conditions and inventories of the holders in the
 //   scene (cut right after the other holders' values) and the fight's turn order (never cut); the block instruction
@@ -306,10 +307,13 @@ export class MechanicPrompt {
             const fresh = new Set(pendingChecks.map((result) => result.id));
             const known = this.safe(() => this.checks.checks(REPEAT_LOOKUP), [], 'the roll log');
             // A roll dropped since (its message was edited away) is not in the log any more and is not repeated.
+            // Release 1.27: a roll the reply itself asked for (given to its continuation) is the old variant's: a
+            // swipe or regeneration of that reply does not hear it again; a further continue does.
             const repeated = last.checkIds
                 .filter((id) => !fresh.has(id))
                 .map((id) => known.find((result) => result.id === id))
-                .filter((result): result is CheckResult => !!result);
+                .filter((result): result is CheckResult => !!result)
+                .filter((result) => type === 'continue' || result.by !== 'model' || result.messageIndex !== forIndex);
             checks = [...repeated, ...pendingChecks];
             const seen = new Set(pendingEvents.map(eventKey));
             events = [...last.events.filter((event) => !seen.has(eventKey(event))), ...pendingEvents];

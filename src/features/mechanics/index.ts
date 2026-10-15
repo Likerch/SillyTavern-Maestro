@@ -5,7 +5,8 @@
 // Exposed as app.modules.api<MechanicsApi>('mechanics'), the definitions alone also as
 // app.modules.api<MechanicDefinitionsApi>('mechanicsDefinitions'). A service chat (M42) pauses the module but keeps
 // the definitions (`whileSuspended`, release 1.24.1): they have nothing to do with the open chat, and Officina publishes
-// mechanics from its co-author chat through MAESTRO_API.mechanics.
+// mechanics from its co-author chat through MAESTRO_API.mechanics. Release 1.27: a roll the model asks for is rolled
+// as the reply arrives and the same reply goes on with its result (roll-continue.ts).
 import type { App, Logger, MaestroModule } from '../../shared/contracts';
 import { registerProfileTask } from '../../ui';
 import type { MechanicDefinitionsApi, MechanicsApi } from './api';
@@ -22,6 +23,7 @@ import { BATCH_UNDO_TARGET, MechanicState, VALUE_UNDO_TARGET } from './state';
 import { MechanicsHud } from './hud';
 import { MechanicsNarrator } from './narrator';
 import { MechanicsPlayStrip } from './play-strip';
+import { RollContinue } from './roll-continue';
 import { MECHANICS_STRINGS } from './strings';
 import { DES_STATS_UNDO_TARGET, EXTRACT_TASK, MechanicTracking } from './tracking';
 import { MechanicTranslator } from './translate';
@@ -87,8 +89,16 @@ export const mechanicsModule: MaestroModule<MechanicsSettings> = {
         const checks = new MechanicChecks(deps, defs, state);
         own(() => checks.dispose());
         checks.install();
+        // Release 1.27: the reply that asked for a roll goes on with its result (one automatic /continue).
+        const rollContinue = new RollContinue(deps);
+        own(() => rollContinue.dispose());
+        rollContinue.install();
         // Rolls the model asks for in its service block: rolled as soon as the reply arrives.
-        own(tracking.onRollRequests((index, swipeId, rolls) => checks.requested(index, swipeId, rolls)));
+        own(
+            tracking.onRollRequests((index, swipeId, rolls, info) => {
+                if (checks.requested(index, swipeId, rolls) > 0) rollContinue.rolled(index, swipeId, info.arrival);
+            }),
+        );
 
         const combat = new MechanicCombat(deps, defs, state, secureRng);
         own(() => combat.dispose());
@@ -108,6 +118,7 @@ export const mechanicsModule: MaestroModule<MechanicsSettings> = {
             prompt,
             combat,
             tracking,
+            rollContinue,
         }) satisfies MechanicsApi;
         app.modules.expose(MECHANICS_KEY, api);
         app.modules.expose(MECHANICS_DEFS_KEY, api satisfies MechanicDefinitionsApi);

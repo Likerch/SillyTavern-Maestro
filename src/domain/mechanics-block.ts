@@ -10,7 +10,8 @@
 // applies the changes as soon as the reply is shown (release 1.25). Since 1.26 the model writes the block every time
 // it carries values — `<mechanics>none</mechanics>` (нет, -, an empty block) when nothing changed — so a missing block
 // means the model forgot (the background parse covers that reply); `time: +3h` says how much story time passes when
-// DES gives no clock. The parser is tolerant: a missing closing (or opening) tag, code fences, `[mechanics]` brackets,
+// DES gives no clock. A `roll: …` line asks Maestro for a check: since 1.27 (settings.rollContinue) the model stops
+// right there and the same reply continues with the result; otherwise the result comes next turn. The parser is tolerant: a missing closing (or opening) tag, code fences, `[mechanics]` brackets,
 // HTML-escaped tags, bullets, Russian holder names, `Kai's health`, attribute by id / prompt name / display name in
 // any case, unicode minus, ×/x/* factors, `12 → 9`, `45/100`, trailing comments.
 // Pure: no DOM, no SillyTavern.
@@ -983,6 +984,11 @@ function exampleLine(holder: string, attr: AttributeDef): string {
 export interface BlockInstructionOptions {
     /** Names of the checks the model may ask Maestro to roll (`roll: …`); none → no roll line. */
     checks?: readonly string[];
+    /**
+     * Release 1.27: the model stops right at the roll it asks for and Maestro continues the same reply with the
+     * result (else: the result comes next turn).
+     */
+    rollContinue?: boolean;
     /** Fights are run by a mechanic in the scene. */
     combat?: boolean;
     /** Attributes the block tracks for the persona only (DES does not list the user's character). */
@@ -1091,7 +1097,9 @@ export function blockInstruction(
     }
     if (checks.length) {
         lines.push(
-            `Rolls: when the outcome of a risky action is uncertain, do not decide it — write roll: <check> <who> (optionally vs <other>.<check>, adv or dis, easy or hard) and stop before the outcome; Maestro rolls and gives you the result next turn. Checks: ${checks.join(', ')}.`,
+            options.rollContinue
+                ? `Rolls: when the outcome of a risky action is uncertain, do not decide it — stop the story right at the attempt and end the reply there with the service block holding roll: <check> <who> (optionally vs <other>.<check>, adv or dis, easy or hard); Maestro rolls at once and this same reply then continues with the result. Checks: ${checks.join(', ')}.`
+                : `Rolls: when the outcome of a risky action is uncertain, do not decide it — write roll: <check> <who> (optionally vs <other>.<check>, adv or dis, easy or hard) and stop before the outcome; Maestro rolls and gives you the result next turn. Checks: ${checks.join(', ')}.`,
         );
     }
     if (options.combat) {

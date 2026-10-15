@@ -60,6 +60,11 @@ export interface MechanicsSettings {
     background: boolean;
     /** The model may ask Maestro for rolls in its service block (`roll: …`). */
     modelRolls: boolean;
+    /**
+     * Release 1.27: the model stops its reply at the roll it asks for, Maestro rolls at once and the same reply goes on
+     * with the result (one automatic `/continue`); off: the result reaches the next generation.
+     */
+    rollContinue: boolean;
     /** A fight starts and ends with the director's scene type. */
     autoCombat: boolean;
     /** DES does not list the user's character: its DES-stat attributes are read by the background parse or the block. */
@@ -93,6 +98,7 @@ export const DEFAULT_MECHANICS_SETTINGS: MechanicsSettings = {
     depth: 1,
     background: true,
     modelRolls: true,
+    rollContinue: true,
     autoCombat: true,
     personaFallback: 'background',
     relevance: 4,
@@ -226,8 +232,13 @@ export interface TrackingPart {
     /** Adds the mechanic's 'desStats' attributes to DES's character stats (asks, journals, undoable). */
     enableDesStats(def: MechanicDef): Promise<boolean>;
     dispose(): void;
-    /** Roll requests of a reply's block, as soon as the reply arrives (the checks part rolls them). */
-    onRollRequests?(listener: (index: number, swipeId: number, rolls: BlockRoll[]) => void): Unsubscribe;
+    /**
+     * Roll requests of a reply's block, as soon as the reply arrives (the checks part rolls them); `info.arrival`: the
+     * MESSAGE_RECEIVED type when the reply is arriving now (release 1.27), absent for an edit or a re-read.
+     */
+    onRollRequests?(
+        listener: (index: number, swipeId: number, rolls: BlockRoll[], info: { arrival?: string }) => void,
+    ): Unsubscribe;
 }
 
 /** Options of a roll by hand. */

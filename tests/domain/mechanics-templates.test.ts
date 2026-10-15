@@ -160,7 +160,10 @@ describe('templates of plan-2 §6', () => {
             ['success', [10]],
             ['failure', [5]],
             ['fumble', [5]],
+            ['critical', []],
         ]);
+        // Release 1.27: below its smallest cost there is nothing to cast with (no roll).
+        expect(check.requires).toEqual([{ attr: 'mana', min: 5, note: 'a spell costs at least 5 mana' }]);
         expect(magic.attributes.find((attr) => attr.id === 'arcana')?.growth).toEqual({ perUse: 0.2, cap: 8 });
     });
 

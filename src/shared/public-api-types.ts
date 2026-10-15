@@ -349,6 +349,8 @@ export interface ApiCheckDef {
     }[];
     /** Triggers count in quoted speech too, and questions do not stop the roll (persuasion, deception…). */
     speech?: boolean;
+    /** What the roller needs to try at all (an attribute of the mechanic at least `min`); short of it: no roll. */
+    requires?: { attr: string; min: number; note?: string }[];
 }
 
 /** Where a mechanic applies: everywhere, in every chat of a card (its avatar file), or in one chat. */

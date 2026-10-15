@@ -31,6 +31,7 @@ describe('mechanics settings', () => {
             depth: 0,
             background: true,
             modelRolls: true,
+            rollContinue: true,
             autoCombat: true,
             personaFallback: 'background',
             relevance: 4,
