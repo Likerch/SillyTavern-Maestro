@@ -1,0 +1,206 @@
+[
+    {
+        "sourceLanguage": "ru",
+        "cardRole": "narrator",
+        "shape": "narrator",
+        "kind": "scenario",
+        "explicit": { "value": false, "quote": "" },
+        "bible": {
+            "genre": { "value": "готическая мистика в портовом городе", "quote": "" },
+            "tone": { "value": "тихий, тревожный, с солью и туманом", "quote": "" },
+            "setting": {
+                "value": "Серебряная Гавань в устье холодной реки; фонари зажигает гильдия, с моря приходит туман.",
+                "quote": "Серебряная Гавань"
+            },
+            "conflict": {
+                "value": "Гильдия фонарщиков держит договор с туманом, а маяк видит, куда уходят утонувшие.",
+                "quote": ""
+            },
+            "playerRole": { "value": "новый смотритель старого маяка", "quote": "" },
+            "style": { "value": "третье лицо, прошедшее время; приветствия 100–200 слов", "quote": "" },
+            "names": [
+                {
+                    "name": "Ирма Вельс",
+                    "kind": "person",
+                    "aliases": ["Ирма"],
+                    "forms": ["Ирмы Вельс", "Ирме Вельс"],
+                    "english": "Irma Vels"
+                },
+                { "name": "Эдвин Морр", "kind": "person", "aliases": ["Эдвин"], "forms": [], "english": "Edwin Morr" },
+                { "name": "Старый маяк", "kind": "place", "aliases": ["маяк"], "forms": [], "english": "the Old Lighthouse" },
+                {
+                    "name": "Гильдия фонарщиков",
+                    "kind": "faction",
+                    "aliases": ["гильдия"],
+                    "forms": [],
+                    "english": "the Lamplighters' Guild"
+                }
+            ]
+        },
+        "skeleton": {
+            "world": {
+                "value": "Портовый город, который живёт при газовом свете; раз в несколько ночей туман приводит утонувших к дверям тех, кто их помнит.",
+                "quote": ""
+            },
+            "conflict": { "value": "Свет над городом в обмен на тех, кого уводит туман.", "quote": "" },
+            "cast": [
+                {
+                    "name": "Ирма Вельс",
+                    "aliases": ["Ирма"],
+                    "age": { "value": "52", "quote": "" },
+                    "role": { "value": "старшая фонарщица гильдии", "quote": "" },
+                    "attitude": { "value": "присматривается к новому смотрителю, не доверяет", "quote": "" },
+                    "secret": { "value": "знает цену договора с туманом", "quote": "" },
+                    "notes": { "value": "ожоги на ладонях от фитилей", "quote": "" },
+                    "weight": "main"
+                },
+                {
+                    "name": "Эдвин Морр",
+                    "aliases": ["Эдвин"],
+                    "age": { "value": "", "quote": "" },
+                    "role": { "value": "прежний смотритель маяка, ушёл в туман", "quote": "" },
+                    "attitude": { "value": "его нет — остались записи", "quote": "" },
+                    "secret": { "value": "", "quote": "" },
+                    "notes": { "value": "", "quote": "" },
+                    "weight": "npc"
+                }
+            ],
+            "places": [
+                { "name": "Старый маяк", "summary": { "value": "маяк на Вороньем мысу, пустует с осени", "quote": "" } },
+                { "name": "Набережная", "summary": { "value": "мокрые камни, газовые фонари", "quote": "" } }
+            ],
+            "factions": [
+                {
+                    "name": "Гильдия фонарщиков",
+                    "summary": { "value": "люди в серых плащах, зажигают фонари", "quote": "" },
+                    "goal": { "value": "держать договор с туманом в тайне", "quote": "" }
+                }
+            ],
+            "scenes": [
+                {
+                    "greeting": 0,
+                    "title": { "value": "Первая ночь на маяке", "quote": "" },
+                    "place": { "value": "Старый маяк", "quote": "" },
+                    "time": { "value": "ночь", "quote": "" },
+                    "present": ["Ирма Вельс"],
+                    "mood": { "value": "тревога", "quote": "" },
+                    "hook": { "value": "туман идёт с моря", "quote": "" }
+                },
+                {
+                    "greeting": 1,
+                    "title": { "value": "Набережная в тумане", "quote": "" },
+                    "place": { "value": "Набережная", "quote": "" },
+                    "time": { "value": "вечер", "quote": "" },
+                    "present": [],
+                    "mood": { "value": "зыбкая тишина", "quote": "" },
+                    "hook": { "value": "шаги утонувших", "quote": "" }
+                }
+            ]
+        },
+        "entries": [
+            {
+                "n": 1,
+                "type": "place",
+                "about": ["Старый маяк"],
+                "fields": [
+                    { "id": "name", "value": "Старый маяк", "quote": "Старый маяк" },
+                    { "id": "location", "value": "Вороний мыс", "quote": "" }
+                ]
+            },
+            {
+                "n": 2,
+                "type": "faction",
+                "about": ["Гильдия фонарщиков"],
+                "fields": [
+                    { "id": "name", "value": "Гильдия фонарщиков", "quote": "" },
+                    { "id": "goals", "value": "держать свет над городом", "quote": "" }
+                ]
+            },
+            {
+                "n": 3,
+                "type": "character",
+                "about": ["Ирма Вельс"],
+                "fields": [
+                    { "id": "name", "value": "Ирма Вельс", "quote": "" },
+                    { "id": "role", "value": "старшая фонарщица", "quote": "" }
+                ]
+            }
+        ],
+        "notes": [
+            "У Эдвина Морра в карточке нет возраста.",
+            "Набережная названа в приветствии, но в книге её нет."
+        ]
+    },
+    {
+        "sourceLanguage": "en",
+        "cardRole": "character",
+        "shape": "single",
+        "kind": "character",
+        "explicit": { "value": false, "quote": "" },
+        "bible": {
+            "genre": { "value": "smuggling adventure", "quote": "Slow-burn smuggling adventure" },
+            "tone": { "value": "dry humour, fog and risk", "quote": "" },
+            "setting": {
+                "value": "Port Saltmere, a fog-bound harbor town ruled by the Harbor Guild.",
+                "quote": "Port Saltmere is a fog-bound harbor town ruled by the Harbor Guild"
+            },
+            "conflict": { "value": "Mara runs cargo past the Guild; a stowaway could give her away.", "quote": "" },
+            "playerRole": { "value": "a stowaway in the hidden hold", "quote": "is a stowaway found in the hidden hold" },
+            "style": { "value": "third person, past tense, short greetings", "quote": "" },
+            "names": [
+                { "name": "Mara Vance", "kind": "person", "aliases": ["Mara", "Captain"], "forms": [], "english": "Mara Vance" },
+                { "name": "Grey Heron", "kind": "item", "aliases": [], "forms": [], "english": "Grey Heron" },
+                { "name": "Harbor Guild", "kind": "faction", "aliases": ["the Guild"], "forms": [], "english": "Harbor Guild" }
+            ]
+        },
+        "skeleton": {
+            "world": { "value": "A harbor of fog, debts and lantern taxes.", "quote": "" },
+            "conflict": { "value": "Smuggling against the Guild's taxes.", "quote": "" },
+            "cast": [
+                {
+                    "name": "Mara Vance",
+                    "aliases": ["Mara"],
+                    "age": { "value": "38", "quote": "age(\"38\")" },
+                    "role": { "value": "captain of the smuggler schooner Grey Heron", "quote": "captain of the smuggler schooner Grey Heron" },
+                    "attitude": { "value": "suspicious of the stowaway", "quote": "Talk fast, stowaway" },
+                    "secret": { "value": "", "quote": "" },
+                    "notes": { "value": "scar over the left eyebrow", "quote": "scar over the left eyebrow" },
+                    "weight": "main"
+                }
+            ],
+            "places": [
+                { "name": "Port Saltmere", "summary": { "value": "fog-bound harbor town", "quote": "fog-bound harbor town" } },
+                { "name": "The Drowned Bell", "summary": { "value": "a loud tavern", "quote": "" } }
+            ],
+            "factions": [
+                {
+                    "name": "Harbor Guild",
+                    "summary": { "value": "merchants who tax every lantern", "quote": "merchants who tax every lantern" },
+                    "goal": { "value": "", "quote": "" }
+                }
+            ],
+            "scenes": [
+                {
+                    "greeting": 0,
+                    "title": { "value": "Found in the hold", "quote": "" },
+                    "place": { "value": "the hidden hold", "quote": "the hidden hold" },
+                    "time": { "value": "night", "quote": "" },
+                    "present": ["Mara Vance"],
+                    "mood": { "value": "tense", "quote": "" },
+                    "hook": { "value": "Talk fast, stowaway.", "quote": "Talk fast, stowaway" }
+                },
+                {
+                    "greeting": 1,
+                    "title": { "value": "The tavern offer", "quote": "" },
+                    "place": { "value": "a tavern", "quote": "" },
+                    "time": { "value": "evening", "quote": "" },
+                    "present": ["Mara Vance"],
+                    "mood": { "value": "loud, wary", "quote": "" },
+                    "hook": { "value": "old charts", "quote": "I hear you can read old charts" }
+                }
+            ]
+        },
+        "entries": [],
+        "notes": ["The book is long: its entries are laid out in batches."]
+    }
+]

@@ -26,3 +26,10 @@ Vance», W++ description, two greetings) into a Russian project: bible, skeleton
 greeting), the card, three typed lore entries split out of the description, one mechanic idea and two notes.
 `officina_adapt_lore.json` answers each batch of a long foreign book (`officina.adapt.lore`; the mock looks the file up by
 the schema name `officina_adapt_lore`, since the task's second dot is not a separator there) with two adapted entries.
+
+0.6 («Разобрать карточку»): `officina.decompose.json` holds two layouts of a card over Officina's structure — the stand's
+Russian narrator card «Туман над Серебряной Гаванью» (bible, cast with ages, places, a faction, one scene per greeting,
+three typed entries) and an English character card («Captain Mara Vance», its long book left to the batches); every
+value carries a `quote` of the source or an empty one (Officina marks those «выведено»). The source texts are never in
+the answer. `officina_decompose_lore.json` answers a batch of a long book (`officina.decompose.lore`, schema
+`officina_decompose_lore`) with two typed entries by their numbers, Russian and English.

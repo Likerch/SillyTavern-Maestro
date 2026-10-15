@@ -1,0 +1,46 @@
+[
+    {
+        "entries": [
+            {
+                "n": 9,
+                "type": "place",
+                "about": ["Набережная"],
+                "fields": [
+                    { "id": "name", "value": "Набережная", "quote": "" },
+                    { "id": "description", "value": "мокрые камни под газовыми фонарями", "quote": "" }
+                ]
+            },
+            {
+                "n": 10,
+                "type": "tradition",
+                "about": ["Гильдия фонарщиков"],
+                "fields": [
+                    { "id": "name", "value": "Свечи на окнах", "quote": "" },
+                    { "id": "practice", "value": "в туманную ночь закрывают ставни и зажигают свечи", "quote": "" }
+                ]
+            }
+        ]
+    },
+    {
+        "entries": [
+            {
+                "n": 9,
+                "type": "place",
+                "about": ["The Drowned Bell"],
+                "fields": [
+                    { "id": "name", "value": "The Hidden Hold", "quote": "The Hidden Hold" },
+                    { "id": "description", "value": "a hold under the deck of the Grey Heron", "quote": "" }
+                ]
+            },
+            {
+                "n": 10,
+                "type": "faction",
+                "about": ["Harbor Guild"],
+                "fields": [
+                    { "id": "name", "value": "Harbor Guild", "quote": "" },
+                    { "id": "goals", "value": "a tax on every lantern", "quote": "" }
+                ]
+            }
+        ]
+    }
+]
