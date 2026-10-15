@@ -1,14 +1,18 @@
 // M25 «Механики», the service block (plan M25 п. 4: «короткий служебный блок в ответе модели — Maestro разбирает и
-// прячет его, ошибки формата чинит»). In 'block' tracking the model ends its reply with
+// прячет его, ошибки формата чинит»). In 'block' and 'auto' tracking the model ends its reply with
 //     <mechanics>
 //     Kai.Mana: -10
 //     Kai.School += fire
 //     Mira.Attitude = warm
+//     time: +30m
 //     </mechanics>
 // Maestro parses it on arrival, keeps the parsed lines in the message's extra, strips the block from the text and
-// applies the changes when the reply is committed (P14). The parser is tolerant: a missing closing (or opening) tag,
-// code fences, `[mechanics]` brackets, HTML-escaped tags, bullets, Russian holder names, `Kai's health`, attribute by
-// id / prompt name / display name in any case, unicode minus, ×/x/* factors, `12 → 9`, `45/100`, trailing comments.
+// applies the changes as soon as the reply is shown (release 1.25). Since 1.26 the model writes the block every time
+// it carries values — `<mechanics>none</mechanics>` (нет, -, an empty block) when nothing changed — so a missing block
+// means the model forgot (the background parse covers that reply); `time: +3h` says how much story time passes when
+// DES gives no clock. The parser is tolerant: a missing closing (or opening) tag, code fences, `[mechanics]` brackets,
+// HTML-escaped tags, bullets, Russian holder names, `Kai's health`, attribute by id / prompt name / display name in
+// any case, unicode minus, ×/x/* factors, `12 → 9`, `45/100`, trailing comments.
 // Pure: no DOM, no SillyTavern.
 import { difficultyWord } from './mechanics-checks';
 import { trackingOf } from './mechanics-defs';
@@ -66,6 +70,13 @@ export interface ParsedBlock {
     dropped: string[];
     rolls: BlockRoll[];
     combat: BlockCombat[];
+    /**
+     * The model said nothing changed: `<mechanics>none</mechanics>` (or нет, -, nothing, an empty block) and nothing
+     * else in the block (release 1.26).
+     */
+    none: boolean;
+    /** Story minutes the reply says pass (`time: +3h`, `+30m`, `+2d`; several lines add up). */
+    elapsed?: number;
 }
 
 interface Token {
@@ -120,9 +131,13 @@ function lineBounds(text: string, from: number): { start: number; end: number } 
     return { start: from, end: end < 0 ? text.length : end };
 }
 
-/** A line that is surely a block line (outside the tags): `Holder.attribute …`, an explicit change, a roll or a fight. */
+/**
+ * A line that is surely a block line (outside the tags): `Holder.attribute …`, an explicit change, a roll, a fight, a
+ * time line or the «nothing changed» word.
+ */
 function strictLine(line: string): boolean {
-    if (parseRollLine(line) || parseCombatLine(line)) return true;
+    if (parseRollLine(line) || parseCombatLine(line) || parseTimeLine(line) !== null) return true;
+    if (NONE_WORD_RE.test(line.trim())) return true;
     const item = parseBlockLine(line);
     return !!item && (item.attribute !== '' || item.op !== 'set');
 }
@@ -418,6 +433,64 @@ export function parseRollLine(raw: string): BlockRoll | null {
     return roll.head ? roll : null;
 }
 
+/** «Nothing changed» inside a block: `none`, `нет`, `-`, `nothing`, «без изменений». */
+const NONE_WORD_RE =
+    /^(?:none|nothing|no changes?|nothing changed|n\/a|нет|ничего|без изменений|изменений нет|[-—–])\.?$/i;
+
+/** Whether a block line is the «nothing changed» word. */
+export function isNoneLine(raw: string): boolean {
+    return NONE_WORD_RE.test(
+        String(raw ?? '')
+            .replace(/[*_`]+/g, '')
+            .trim(),
+    );
+}
+
+const TIME_LINE_RE = /^(?:time|elapsed|time passes|время|прошло)\s*[:=\-—]\s*(.+)$/i;
+const TIME_PART_RE = /(\d+(?:[.,]\d+)?)\s*([a-zа-яё]+)/gi;
+const TIME_UNITS: readonly { re: RegExp; minutes: number }[] = [
+    { re: /^(?:m|min|mins|minutes?|мин|минут[аы]?|м)$/, minutes: 1 },
+    { re: /^(?:h|hr|hrs|hours?|ч|час|часа|часов)$/, minutes: 60 },
+    { re: /^(?:d|days?|д|дн|день|дня|дней|сут|сутки|суток)$/, minutes: 1440 },
+    { re: /^(?:w|weeks?|нед|неделя|недели|недель|неделю)$/, minutes: 10080 },
+];
+/** A time line never moves the story clock more than this (a year): a typo is not a century. */
+export const BLOCK_TIME_MAX_MINUTES = 365 * 1440;
+
+/** «+3h», "+30m", «+2д», "1h30m", "half an hour", «полчаса» → story minutes; null when it is not a forward time. */
+export function parseElapsedText(raw: string): number | null {
+    const text = String(raw ?? '')
+        .trim()
+        .toLowerCase()
+        .replace(/ё/g, 'е')
+        .replace(/полчаса/g, '30 мин')
+        .replace(/half an hour/g, '30 min');
+    if (!text || /^[-−–—]/.test(text)) return null;
+    let minutes = 0;
+    let found = false;
+    for (const match of text.matchAll(TIME_PART_RE)) {
+        const count = Number((match[1] ?? '').replace(',', '.'));
+        const unit = TIME_UNITS.find((item) => item.re.test(match[2] ?? ''));
+        if (!unit || !Number.isFinite(count)) continue;
+        found = true;
+        minutes += count * unit.minutes;
+    }
+    if (!found) return null;
+    const total = Math.round(Math.min(BLOCK_TIME_MAX_MINUTES, minutes));
+    return total > 0 ? total : null;
+}
+
+/** `time: +3h` → 180 story minutes; null when the line is not a time line. */
+export function parseTimeLine(raw: string): number | null {
+    const line = String(raw ?? '')
+        .trim()
+        .replace(/^(?:[-*•·]|\d+[.)])\s+/, '')
+        .replace(/^[*_`]+|[*_`]+$/g, '')
+        .trim();
+    const match = TIME_LINE_RE.exec(line);
+    return match?.[1] ? parseElapsedText(match[1]) : null;
+}
+
 const COMBAT_RE = /^(?:combat|fight|battle|бой|битва|схватка)\s*[:\-—]\s*(.+)$/i;
 const COMBAT_ACTIONS: { action: CombatAction; re: RegExp }[] = [
     { action: 'start', re: /^(?:start|begin|starts|begins|начало|начать|начинается|старт)(?=[\s,:]|$)\s*[:,]?\s*/i },
@@ -542,15 +615,26 @@ export function parseBlockLine(raw: string): BlockItem | null {
 /** Every block of a text: its lines, what was repaired and what could not be read. */
 export function parseBlock(text: string): ParsedBlock {
     const source = typeof text === 'string' ? text : '';
-    const result: ParsedBlock = { found: false, items: [], repaired: [], dropped: [], rolls: [], combat: [] };
+    const result: ParsedBlock = {
+        found: false,
+        items: [],
+        repaired: [],
+        dropped: [],
+        rolls: [],
+        combat: [],
+        none: false,
+    };
     if (!hasBlockMarker(source)) return result;
     const repaired = new Set<string>();
     const spans = blockSpans(source, repaired);
     result.found = spans.length > 0;
+    let elapsed = 0;
     for (const span of spans) {
         for (const line of source.slice(span.bodyStart, span.bodyEnd).split('\n')) {
             const trimmed = line.trim();
             if (!trimmed || /^```[\w-]*$/.test(trimmed)) continue;
+            // «Nothing changed» says nothing by itself; other lines of the same block still count.
+            if (isNoneLine(trimmed)) continue;
             const roll = parseRollLine(trimmed);
             if (roll) {
                 result.rolls.push(roll);
@@ -561,12 +645,26 @@ export function parseBlock(text: string): ParsedBlock {
                 result.combat.push(combat);
                 continue;
             }
+            const minutes = parseTimeLine(trimmed);
+            if (minutes !== null) {
+                elapsed += minutes;
+                continue;
+            }
             const item = parseBlockLine(trimmed);
             if (item) result.items.push(item);
             else result.dropped.push(trimmed);
         }
     }
     result.repaired = [...repaired];
+    if (elapsed > 0) result.elapsed = Math.min(BLOCK_TIME_MAX_MINUTES, elapsed);
+    // `none`, `нет`, `-` or an empty block: a block that says nothing changed (it counts as the reply's block).
+    result.none =
+        result.found &&
+        !result.items.length &&
+        !result.dropped.length &&
+        !result.rolls.length &&
+        !result.combat.length &&
+        result.elapsed === undefined;
     return result;
 }
 
@@ -609,7 +707,7 @@ export type BlockRejectReason = 'attribute' | 'holder' | 'mode';
 export interface BlockResolveOptions {
     /** The holder of a mechanic a raw name stands for; null when the mechanic has no such holder. */
     resolveHolder: (def: MechanicDef, raw: string) => string | null;
-    /** Attributes the block may change for a holder (default: tracking 'block', known to the model). */
+    /** Attributes the block may change for a holder (default: tracking 'block' or 'auto', known to the model). */
     allows?: (def: MechanicDef, attr: AttributeDef, holder: string) => boolean;
 }
 
@@ -742,7 +840,9 @@ export function resolveBlock(
     const allows =
         options.allows ??
         ((def: MechanicDef, attr: AttributeDef) =>
-            trackingOf(def, attr) === 'block' && !attr.formula && resolveVisibility(def, attr).prompt !== 'none');
+            ['block', 'auto'].includes(trackingOf(def, attr)) &&
+            !attr.formula &&
+            resolveVisibility(def, attr).prompt !== 'none');
     const out: ResolvedBlock = { edits: [], statuses: [], inventory: [], rejected: [] };
     const { edits, rejected } = out;
     for (const item of items) {
@@ -887,19 +987,32 @@ export interface BlockInstructionOptions {
     combat?: boolean;
     /** Attributes the block tracks for the persona only (DES does not list the user's character). */
     persona?: { name: string; attributes: (def: MechanicDef) => AttributeDef[] };
+    /** 'auto' attributes DES keeps as character stats now: they leave the block (the persona's stay, see `persona`). */
+    desTracked?: (def: MechanicDef, attr: AttributeDef) => boolean;
+    /** The block may say how much story time passes (`time: +3h`): time rules or timed statuses, no DES time. */
+    time?: boolean;
 }
 
-/** The attributes the block tracks: block tracking, stored, and known to the model. */
-function blockAttributes(def: MechanicDef): AttributeDef[] {
-    return def.attributes.filter(
-        (attr) => trackingOf(def, attr) === 'block' && !attr.formula && resolveVisibility(def, attr).prompt !== 'none',
-    );
+/** The block carries the mechanic's statuses and items: its tracking is the block or 'auto'. */
+export function blockKeepsParts(def: Pick<MechanicDef, 'tracking'>): boolean {
+    return def.tracking === 'block' || def.tracking === 'auto';
+}
+
+/** The attributes the block tracks: block (or 'auto' that DES does not keep), stored, and known to the model. */
+function blockAttributes(def: MechanicDef, options: BlockInstructionOptions): AttributeDef[] {
+    return def.attributes.filter((attr) => {
+        if (attr.formula || resolveVisibility(def, attr).prompt === 'none') return false;
+        const mode = trackingOf(def, attr);
+        return mode === 'block' || (mode === 'auto' && !options.desTracked?.(def, attr));
+    });
 }
 
 /**
- * English instruction for the 'block' attributes of the mechanics in the scene: the format, the holders and the
- * attributes; statuses and items of the mechanics that keep them (with block tracking); roll requests and fights when
- * given. '' when there is nothing the block could carry.
+ * English instruction for the 'block' and 'auto' attributes of the mechanics in the scene: the format, the holders and
+ * the attributes; statuses and items of the mechanics that keep them (with block or 'auto' tracking); roll requests,
+ * fights and story time when given. When the block carries values the model always writes it (`none` when nothing
+ * changed): a missing block means the model forgot, and the background parse reads that reply instead. '' when there
+ * is nothing the block could carry.
  */
 export function blockInstruction(
     defs: readonly MechanicDef[],
@@ -916,7 +1029,7 @@ export function blockInstruction(
         // A secret mechanic is Maestro's alone: the model is told nothing about it.
         if (!holders.length || resolveVisibility(def).prompt === 'none') continue;
         someone ||= holders.find((holder) => holder !== 'world') ?? '';
-        const attributes = blockAttributes(def);
+        const attributes = blockAttributes(def, options);
         if (attributes.length) {
             const first = attributes[0];
             if (!example && first) example = exampleLine(holders[0] ?? 'Holder', first);
@@ -936,7 +1049,7 @@ export function blockInstruction(
                 );
             }
         }
-        if (def.tracking === 'block') {
+        if (blockKeepsParts(def)) {
             if (def.statuses !== undefined && !statuses) statuses = holders[0] ?? '';
             if (def.inventory !== undefined && !items) items = holders[0] ?? '';
         }
@@ -948,9 +1061,10 @@ export function blockInstruction(
     if (!example && checks.length) example = `roll: ${checks[0]} ${someone || 'Holder'}`;
     if (!example && options.combat) example = 'combat: start';
     const changes = groups.length > 0 || !!statuses || !!items;
+    // Release 1.26: the block is always there when it carries values, so a missing one means the model forgot.
     const lines = changes
         ? [
-              '[Mechanics block] At the very end of your reply, after the story, list every change this reply makes to the values below in a service block (leave the block out when nothing changed):',
+              '[Mechanics block] Always end your reply, after the story, with a service block that lists every change this reply makes to the values below; when nothing changed, write <mechanics>none</mechanics>:',
               '<mechanics>',
               example,
               '</mechanics>',
@@ -962,6 +1076,9 @@ export function blockInstruction(
               example,
               '</mechanics>',
           ];
+    if (options.time) {
+        lines.push('Story time: add time: +30m (or +3h, +2d) for the story time that passes in this reply.');
+    }
     if (statuses) {
         lines.push(
             'Conditions: Holder.status += Poisoned (3 turns) puts a condition on someone (say how long: turns, hours, days, or until when); Holder.status -= Poisoned ends it.',

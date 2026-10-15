@@ -2,7 +2,8 @@
 // - the change line: «Кай: ❤ 80 → 65 · 🔷 40 → 25 · + Отравлен (3 хода)» — only what the player may see under a
 //   reply (each attribute's visibility, place 'strip', in its view: numbers, words, icons), never hidden-unrevealed or
 //   secret values; ticks of statuses are not news; roll consequences go to their roll card. «Отменить» takes the whole
-//   line back, the details list every change with its own «Отменить»;
+//   line back, the details list every change with its own «Отменить» and, under a story reply, «Пересчитать» (release
+//   1.26: the reply's tracked changes are taken back and it is read again);
 // - a roll card per roll the player may see: the check, who, total against the target, the outcome and the applied
 //   consequences («провал: −10 ❤»); the details show the dice, the other side of an opposed check, the second roll of
 //   an advantage, and what the model was told (English, under «Подробнее»); «Отменить бросок» takes its
@@ -300,7 +301,7 @@ export class MechanicsPlayStrip {
         const bucket = this.bucket(index);
         const items: StripItem[] = [];
         if (bucket) {
-            const line = this.changeItem(bucket.changes);
+            const line = this.changeItem(bucket.changes, index);
             if (line) items.push(line);
             for (const roll of bucket.rolls) {
                 const card = this.rollItem(roll, this.byRoll.get(roll.id) ?? []);
@@ -364,7 +365,42 @@ export class MechanicsPlayStrip {
             });
     }
 
-    private changeItem(changes: readonly StateChange[]): StripItem | null {
+    /** A story reply of the model (not the user's message, not a narrator message): it may be read again. */
+    private isReply(index: number): boolean {
+        const message = safe(() => this.deps.app.host.ctx().chat?.[index], undefined);
+        return !!message && !message.is_user && !message.is_system;
+    }
+
+    /** «Пересчитать»: the reply's tracked changes go and it is read again (release 1.26). */
+    private recountButton(index: number): HTMLElement | null {
+        if (!this.api.retrack || !this.isReply(index)) return null;
+        const t = this.t;
+        return el('button', {
+            class: 'maestro-strip-action maestro-m25-recount',
+            text: t('m25.track.recount'),
+            attrs: { type: 'button', title: t('m25.track.recount.hint') },
+            on: {
+                click: (event) => {
+                    const node = event.currentTarget as HTMLButtonElement;
+                    node.disabled = true;
+                    void this.recount(index).finally(() => {
+                        node.disabled = false;
+                    });
+                },
+            },
+        });
+    }
+
+    private async recount(index: number): Promise<void> {
+        const { ui } = this.deps.app;
+        const ok = await safe(() => this.api.retrack?.(index) ?? Promise.resolve(false), Promise.resolve(false)).catch(
+            () => false,
+        );
+        if (ok) ui.notice(this.t('m25.track.recount.done', { index }), { level: 'info' });
+        else ui.notice(this.t('m25.track.recount.failed', { index }), { level: 'warn', urgent: true });
+    }
+
+    private changeItem(changes: readonly StateChange[], index: number): StripItem | null {
         const entries = this.lineChanges(changes);
         if (!entries.length) return null;
         const t = this.t;
@@ -407,6 +443,8 @@ export class MechanicsPlayStrip {
                     ),
                 );
                 container.appendChild(box);
+                const recount = this.recountButton(index);
+                if (recount) container.appendChild(el('div', { class: 'maestro-m25-recount-row' }, [recount]));
                 return () => clear(container);
             },
         };

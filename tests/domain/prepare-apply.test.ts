@@ -174,6 +174,8 @@ describe('prepare apply: mechanics', () => {
             name: 'Доверие',
             promptName: 'Trust',
             holders: { kind: 'named', names: ['Вера'] },
+            // Release 1.26: a mechanic made from the plan tracks itself automatically (was 'background').
+            tracking: 'auto',
         });
         expect(def.attributes.map((attribute) => [attribute.id, attribute.kind, attribute.initial])).toEqual([
             ['trust', 'number', 50],

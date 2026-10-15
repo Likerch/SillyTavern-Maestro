@@ -10,13 +10,17 @@
 //   journaled with an undo (target 'mechanics.value'; a reset as one batch, target 'mechanics.batch');
 // - tracked changes (DES stats, the service block, the background parse, events, time) are written by the leader tab
 //   only; the user's edits and checks from any tab. Group chats keep one state per chat like solo chats;
-// - a committed reply's turn (processTurn, leader, once): the story clock follows DES's date and time
-//   (domain/calendar-time), statuses tick and expire, time rules regenerate / decay, a fight goes to its next round;
+// - a reply's turn (processTurn, leader, once): the story clock follows DES's date and time (domain/calendar-time);
+//   without them (release 1.26) it moves by the minutes the service block (`time: +3h`) or the background parse say
+//   pass — the parse may answer after the turn ran, then the latest turn's clock moves once as story time only;
+//   statuses tick and expire, time rules regenerate / decay, a fight goes to its next round;
 // - holders in the scene: present characters (DES tracker, else the card / group), the persona, the fight's enemies;
 //   factions and world mechanics only when named in the last messages (or the DES scene), changed lately, or pinned;
-// - a swiped or deleted reply takes back every change from that message on (and the clock); an edit of the latest
-//   committed reply takes back that reply's tracked changes (tracking derives them again), an edit of an older one
-//   keeps them (plan §5 «Отмена»: confirmed things are not touched).
+// - a swiped or deleted reply takes back every change from that message on (and the clock); messages deleted from
+//   the middle (the turn pipeline tells which, release 1.26) take back only their own changes and the later ones move
+//   down; an edit of the latest committed reply takes back that reply's tracked changes (tracking derives them again),
+//   an edit of an older one keeps them (plan §5 «Отмена»: confirmed things are not touched). A reply read again
+//   (`retrack`: a continuation, «Пересчитать») keeps its story time when later turns stand on it.
 import { adaptersOf } from '../../adapters';
 import { advanceClock } from '../../domain/calendar-time';
 import { desSwipeRecord, parseDesCharacters } from '../../domain/des-tracker';
@@ -38,6 +42,7 @@ import {
     normalizeStateDoc,
     publicChange,
     publicEvent,
+    removeMessages,
     resetOps,
     resolveHolder,
     revertChange,
@@ -60,6 +65,7 @@ import type {
     StoredEvent,
 } from '../../domain/mechanics-state';
 import { modifierSum } from '../../domain/mechanics-status';
+import { advanceByMinutes } from '../../domain/mechanics-time';
 import { turnOps } from '../../domain/mechanics-turn';
 import { resolveVisibility, shownIn } from '../../domain/mechanics-visibility';
 import { committedIndices } from '../../domain/places-registry';
@@ -202,7 +208,9 @@ export class MechanicState implements StatePart {
         journal.registerUndo(BATCH_UNDO_TARGET, (change) => this.undoBatch(change));
         this.offs.push(
             bus.on('chat:changed', () => this.onChatChanged()),
-            bus.on('message:invalidated', ({ messageIndex, reason }) => this.onInvalidated(messageIndex, reason)),
+            bus.on('message:invalidated', ({ messageIndex, reason, removedAt, removed }) =>
+                this.onInvalidated(messageIndex, reason, { removedAt, removed }),
+            ),
             this.defs.onChange(() => this.emit()),
         );
         void this.load();
@@ -517,6 +525,7 @@ export class MechanicState implements StatePart {
         if (!clock) return null;
         const out: MechanicsClock = { day: clock.day, label: clock.label };
         if (clock.minutes !== undefined) out.minutes = clock.minutes;
+        if (clock.relative) out.relative = true;
         return out;
     }
 
@@ -1040,21 +1049,52 @@ export class MechanicState implements StatePart {
         }
     }
 
-    async processTurn(index: number): Promise<void> {
+    /** DES gives a date or a time for the reply (its clock moves by DES, never by the block's or the parse's minutes). */
+    hasObservedTime(index: number): boolean {
+        const observed = this.observedTime(index);
+        return !!observed && !!(observed.date || observed.start || observed.end);
+    }
+
+    /**
+     * The reply's turn (once per reply): the clock (DES's time first; without it `elapsed`, the minutes the service block
+     * or the background parse say pass — release 1.26), statuses, time rules, the fight's round. An `elapsed` that comes
+     * after the turn ran (the background parse answers later) moves the clock of the latest turn once, as story time only.
+     */
+    async processTurn(index: number, options: { elapsed?: number } = {}): Promise<void> {
         if (this.disposed || !Number.isInteger(index) || index < 0) return;
         if (!this.app.host.chatId() || !safe(() => this.app.leader.isLeader(), false)) return;
         const defs = this.activeDefs();
         const observed = this.observedTime(index);
+        const timed = !!observed && !!(observed.date || observed.start || observed.end);
+        const elapsed = !timed && options.elapsed !== undefined && options.elapsed > 0 ? options.elapsed : 0;
         const restScene = this.restScene();
         const result = await this.mutate((doc) => {
-            if (doc.lastTurn >= index) return { changed: false, result: null };
-            const step = observed ? advanceClock(doc.clock, observed) : null;
-            const clock: ClockRecord | null = step ? (step.clock as ClockRecord) : null;
+            let clock: ClockRecord | null = null;
+            let from: ClockRecord | null | undefined;
+            let turns = 1;
+            if (doc.lastTurn >= index) {
+                // Late minutes: only for the latest turn, and only when nothing moved its clock yet.
+                if (!elapsed || doc.lastTurn !== index || doc.clockHistory.some((entry) => entry.index === index)) {
+                    return { changed: false, result: null };
+                }
+                turns = 0;
+            } else {
+                const step = observed ? advanceClock(doc.clock, observed) : null;
+                clock = step ? (step.clock as ClockRecord) : null;
+            }
+            if (!clock && elapsed) {
+                const moved = advanceByMinutes(doc.clock, elapsed);
+                clock = moved.clock as ClockRecord;
+                from = moved.from as ClockRecord;
+            }
+            if (turns === 0 && !clock) return { changed: false, result: null };
             const { ops } = turnOps(
                 doc,
                 {
                     index,
                     clock,
+                    ...(from !== undefined ? { from } : {}),
+                    turns,
                     defs,
                     holdersOf: (def) => (def.time?.length ? this.holdersInScene(def) : []),
                     restScene,
@@ -1239,12 +1279,33 @@ export class MechanicState implements StatePart {
         return last === undefined || index >= last;
     }
 
-    private onInvalidated(index: number, reason: 'swiped' | 'deleted' | 'edited'): void {
+    private onInvalidated(
+        index: number,
+        reason: 'swiped' | 'deleted' | 'edited',
+        range: { removedAt?: number | undefined; removed?: number | undefined } = {},
+    ): void {
         if (reason === 'edited' && !this.reopens(index)) return;
+        // Release 1.26: messages deleted from the middle (the turn pipeline found which): their changes go, later
+        // changes move down. Otherwise ST's index is the new chat length: everything from there on goes.
+        const { removedAt, removed } = range;
+        if (
+            reason === 'deleted' &&
+            removedAt !== undefined &&
+            removed !== undefined &&
+            removed > 0 &&
+            removedAt >= 0 &&
+            removedAt < index
+        ) {
+            void this.removeRange(removedAt, removed);
+            return;
+        }
         void this.takeBack(index, reason);
     }
 
-    /** A continued reply (release 1.25): its tracked changes are taken back, the tracking derives them again. */
+    /**
+     * The tracked changes of a reply are taken back so the tracking derives them again: a continued reply (release
+     * 1.25) or «Пересчитать» (1.26). An older reply keeps its story time (the later turns stand on it).
+     */
     async retrack(index: number): Promise<void> {
         await this.takeBack(index, 'edited');
     }
@@ -1254,9 +1315,11 @@ export class MechanicState implements StatePart {
         if (!this.app.host.chatId() || !safe(() => this.app.leader.isLeader(), false)) return;
         await this.mutate((doc) => {
             const lastTurn = doc.lastTurn;
+            const sources =
+                doc.lastTurn > index ? TRACKED_SOURCES.filter((source) => source !== 'time') : TRACKED_SOURCES;
             const removed =
                 reason === 'edited'
-                    ? rollbackMessage(doc, index, TRACKED_SOURCES, this.getDef)
+                    ? rollbackMessage(doc, index, sources, this.getDef)
                     : rollbackFrom(doc, index, this.getDef);
             return { changed: removed.length > 0 || doc.lastTurn !== lastTurn, result: removed };
         })
@@ -1265,6 +1328,30 @@ export class MechanicState implements StatePart {
                 this.deps.log.debug(`mechanics: ${removed.length} changes of message #${index} taken back (${reason})`);
                 this.emit();
                 this.emitEvent({ type: 'undone', changes: removed.map((item) => publicChange(item) as StateChange) });
+            })
+            .catch((error: unknown) => this.deps.log.warn('mechanics: rollback failed', error));
+    }
+
+    /** Messages deleted from the middle: their changes go, the later ones move down (domain removeMessages). */
+    private async removeRange(at: number, count: number): Promise<void> {
+        if (this.disposed || !this.app.host.chatId() || !safe(() => this.app.leader.isLeader(), false)) return;
+        await this.mutate((doc) => {
+            // A deletion is rare: comparing the whole document is the simple way to know whether anything moved.
+            const before = JSON.stringify(doc);
+            const removed = removeMessages(doc, at, count, this.getDef);
+            return { changed: removed.length > 0 || JSON.stringify(doc) !== before, result: removed };
+        })
+            .then((removed) => {
+                this.deps.log.debug(
+                    `mechanics: messages #${at}…#${at + count - 1} deleted; ${removed?.length ?? 0} changes taken back`,
+                );
+                this.mentions = null;
+                this.emit();
+                if (removed?.length)
+                    this.emitEvent({
+                        type: 'undone',
+                        changes: removed.map((item) => publicChange(item) as StateChange),
+                    });
             })
             .catch((error: unknown) => this.deps.log.warn('mechanics: rollback failed', error));
     }

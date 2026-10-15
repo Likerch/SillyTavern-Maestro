@@ -2,8 +2,10 @@
 // schools, faction reputation, money, skills with checks, relationship scales; and survival (hunger, thirst, fatigue
 // over story time), sanity, inventory and trade, combat, social scales (sympathy, trust, attraction). Display names
 // and word bands follow the UI language; rules, prompt names, levels and options are English (they go to the model).
-// Default tracking (plan M25 п. 4): numbers of characters that move every scene (health, stamina, mana) are DES stats;
-// fights and survival move by rules and the service block / time; everything else is the background parse.
+// Default tracking (release 1.26): 'auto' everywhere but combat — numbers of characters DES keeps as stats (health,
+// stamina, mana when the user made them DES stats) come from DES, everything else from the service block the model
+// always writes, with the background parse as the safety net when it forgets; combat stays 'block' (its fight lines
+// need the block anyway). Survival also moves by its time rules.
 // Visibility (plan-2 §6.А, В21): every template «Игровой» (game) except the relationships and social scales, which are
 // «Книжный» (book: words, no numbers).
 // Skills (plan-2 §6 п. 13): 0–10 and `1d20 + skill` against a difficulty (12 normal, 7 easy, 17 hard, 22 very hard):
@@ -117,7 +119,7 @@ const health = template('health', (locale) => ({
     ],
     holders: { kind: 'characters', includePersona: true },
     checks: [],
-    tracking: 'desStats',
+    tracking: 'auto',
     visibility: { preset: 'game' },
     statuses: [
         status(locale, 'poisoned', 'poisoned', 'Отравлен', {
@@ -165,7 +167,6 @@ const magic = template('magic', (locale) => ({
             min: 0,
             max: 10,
             initial: 2,
-            tracking: 'background',
             growth: { perUse: 0.2, cap: 8 },
         }),
     ],
@@ -189,7 +190,7 @@ const magic = template('magic', (locale) => ({
             ],
         },
     ],
-    tracking: 'desStats',
+    tracking: 'auto',
     visibility: { preset: 'game' },
 }));
 
@@ -228,7 +229,7 @@ const reputation = template('reputation', (locale) => ({
     ],
     holders: { kind: 'factions', names: [] },
     checks: [],
-    tracking: 'background',
+    tracking: 'auto',
     visibility: { preset: 'game' },
 }));
 
@@ -249,7 +250,7 @@ const money = template('money', (locale) => ({
     ],
     holders: { kind: 'persona' },
     checks: [],
-    tracking: 'background',
+    tracking: 'auto',
     visibility: { preset: 'game' },
 }));
 
@@ -285,7 +286,7 @@ const skills = template('skills', (locale) => ({
     ),
     holders: { kind: 'characters', includePersona: true },
     checks: SKILLS.map(([id, en, ru, triggers]) => skillCheck(locale, id, en, ru, triggers)),
-    tracking: 'background',
+    tracking: 'auto',
     visibility: { preset: 'game' },
 }));
 
@@ -324,7 +325,7 @@ const relationships = template('relationships', (locale) => ({
     ],
     holders: { kind: 'characters' },
     checks: [],
-    tracking: 'background',
+    tracking: 'auto',
     visibility: {
         preset: 'book',
         words: words(locale, [
@@ -422,7 +423,7 @@ const survival = template('survival', (locale) => ({
     ],
     holders: { kind: 'persona' },
     checks: [],
-    tracking: 'background',
+    tracking: 'auto',
     visibility: { preset: 'game' },
     statuses: [],
     time: [
@@ -492,7 +493,7 @@ const sanity = template('sanity', (locale) => ({
             ],
         },
     ],
-    tracking: 'background',
+    tracking: 'auto',
     visibility: { preset: 'game' },
     statuses: [],
     time: [{ attr: 'sanity', amount: 1, per: 'day', when: 'rest' }],
@@ -516,7 +517,7 @@ const trade = template('trade', (locale) => ({
     ],
     holders: { kind: 'persona' },
     checks: [],
-    tracking: 'background',
+    tracking: 'auto',
     visibility: { preset: 'game' },
     inventory: { money: 'coins' },
 }));
@@ -652,7 +653,7 @@ const social = template('social', (locale) => ({
     ],
     holders: { kind: 'characters' },
     checks: [],
-    tracking: 'background',
+    tracking: 'auto',
     visibility: { preset: 'book', words: words(locale, SOCIAL_WORDS) },
 }));
 

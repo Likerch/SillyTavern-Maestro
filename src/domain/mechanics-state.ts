@@ -13,7 +13,9 @@
 //   most OPS_LIMIT operations, nesting at most DEPTH_LIMIT deep (loop guard);
 // - experience: a change of a progression's XP sets the level and runs `onLevelUp` once per level gained;
 // - rollback: changes are undone newest first; a change still followed by a kept change of the same target is
-//   reverted as a difference (numbers, scales, lists, item quantities) instead of overwriting what came later.
+//   reverted as a difference (numbers, scales, lists, item quantities) instead of overwriting what came later;
+// - messages deleted from the middle of the chat (release 1.26, removeMessages): their changes are rolled back and
+//   every message index after them (log, events, clock history, turns, statuses, the fight) moves down.
 // The document is a plain JSON object (a Maestro file per chat); functions here mutate the copy they are given.
 // Pure: no DOM, no SillyTavern.
 import { findChainEvent, initialValueOf } from './mechanics-defs';
@@ -213,6 +215,8 @@ export interface ClockRecord {
     time?: string;
     weekday?: number;
     anchor?: { kind: 'day' | 'date'; n: number; abs?: number; key: string; day: number };
+    /** Counted from the service block or the background parse (no DES time, release 1.26): no real time of day. */
+    relative?: true;
 }
 
 export interface MechanicsStateDoc {
@@ -770,6 +774,7 @@ function readClock(raw: unknown): ClockRecord | null {
     if (typeof raw.minutes === 'number' && Number.isFinite(raw.minutes)) clock.minutes = Math.trunc(raw.minutes);
     if (typeof raw.time === 'string' && raw.time) clock.time = raw.time;
     if (typeof raw.weekday === 'number' && Number.isInteger(raw.weekday)) clock.weekday = raw.weekday;
+    if (raw.relative === true) clock.relative = true;
     const anchor = raw.anchor;
     if (
         isDict(anchor) &&
@@ -1775,6 +1780,69 @@ export function rollbackMessage(
         getDef,
     );
     if (sources.includes('time')) rewindClock(doc, messageIndex, true);
+    return removed;
+}
+
+/**
+ * Messages `at` … `at + count - 1` were deleted from the middle of the chat (release 1.26): their changes are taken
+ * back (user edits stay) and everything the later messages did moves down by `count` — the log, the fired events,
+ * the clock history, the processed turn, the holders' last change, the statuses' start and the fight's start and end
+ * (in the document and in the log's snapshots, so a later rollback restores the right numbers). Returns the removed
+ * changes.
+ */
+export function removeMessages(
+    doc: MechanicsStateDoc,
+    at: number,
+    count: number,
+    getDef?: (id: string) => MechanicDef | null,
+): LoggedChange[] {
+    if (!Number.isInteger(at) || !Number.isInteger(count) || at < 0 || count <= 0) return [];
+    const end = at + count;
+    const inside = (index: number) => index >= at && index < end;
+    const removed = rollbackWhere(doc, (change) => change.source !== 'user' && inside(change.messageIndex), getDef);
+    const shift = (index: number): number => (index >= end ? index - count : inside(index) ? at - 1 : index);
+    // A log entry may share one object between its fields (`status` is `statusAfter`): each object moves once.
+    const seen = new WeakSet<object>();
+    const shiftStatus = (status: StatusState | null | undefined) => {
+        if (!status || seen.has(status)) return;
+        seen.add(status);
+        if (status.since >= at) status.since = shift(status.since);
+    };
+    const shiftCombat = (combat: CombatState | null | undefined) => {
+        if (!combat || seen.has(combat)) return;
+        seen.add(combat);
+        if (combat.startedAt >= at) combat.startedAt = shift(combat.startedAt);
+        if (combat.endedAt !== undefined && combat.endedAt >= at) combat.endedAt = shift(combat.endedAt);
+    };
+    for (const change of doc.log) {
+        if (change.messageIndex >= end) change.messageIndex -= count;
+        if (change.prevUpdatedAt !== undefined && change.prevUpdatedAt >= at) {
+            change.prevUpdatedAt = shift(change.prevUpdatedAt);
+        }
+        shiftStatus(change.status);
+        shiftStatus(change.statusBefore);
+        shiftStatus(change.statusAfter);
+        shiftCombat(change.combatBefore);
+        shiftCombat(change.combatAfter);
+    }
+    for (const event of doc.fired) if (event.messageIndex >= end) event.messageIndex -= count;
+    for (const holders of Object.values(doc.holders)) {
+        for (const holder of Object.values(holders)) {
+            if (holder.updatedAt >= at) holder.updatedAt = shift(holder.updatedAt);
+        }
+    }
+    for (const list of Object.values(doc.statuses)) for (const status of list) shiftStatus(status);
+    shiftCombat(doc.combat);
+    const lastClock = doc.clockHistory[doc.clockHistory.length - 1];
+    doc.clockHistory = doc.clockHistory
+        .filter((entry) => !inside(entry.index))
+        .map((entry) => (entry.index >= end ? { ...entry, index: entry.index - count } : entry));
+    // The newest clock went with the deleted messages: the clock is the one before them.
+    if (lastClock && inside(lastClock.index)) {
+        const last = doc.clockHistory[doc.clockHistory.length - 1];
+        doc.clock = last ? { ...last.clock } : null;
+    }
+    if (doc.lastTurn >= at) doc.lastTurn = shift(doc.lastTurn);
     return removed;
 }
 

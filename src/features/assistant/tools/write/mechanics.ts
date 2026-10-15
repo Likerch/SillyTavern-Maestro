@@ -66,7 +66,7 @@ export function mechanicSaveTool(): ToolSpec {
             'persona|characters|named|world|factions, names}, checks [{id, name, promptName, dice like ' +
             '"1d20+@attr" or "2d6+1d4", difficulty, triggers, effects [{on success|failure|critical|fumble|any, ' +
             'changes [{who actor|target|persona, attr, op add|sub|set|mul|push|pull, value}], text}]}], tracking ' +
-            'desStats|block|background|manual, visibility {preset game|book|hidden|secret}, statuses [{name, ' +
+            'auto|desStats|block|background|manual, visibility {preset game|book|hidden|secret}, statuses [{name, ' +
             'promptName, duration {turns|minutes}, modifiers}], inventory {money}, time [{attr, amount, per ' +
             'turn|hour|day, when rest|awake}], progression {xp, level, thresholds, onLevelUp}, combat {initiative, ' +
             'enemy}). With the id of ' +

@@ -4,8 +4,10 @@
 //   a mechanic) and «Описать словами» (the assistant builds the mechanic from the user's description);
 // - the editor in story words: name, the summary and rules in the user's language (the English for the model is made
 //   by a background translation after saving, or at once by «Перевести сейчас»; it stays editable under «Подробнее»),
-//   scope, holders, tracking, «Где видно» (preset buttons and places), attributes (kind, sign, bounds, start value,
-//   formula and growth of numbers, levels/options, tracking, own visibility, events with actions and chains), checks
+//   scope, holders, tracking («Авто (рекомендуется)» first and the default since 1.26: DES stats, the service block,
+//   the background parse as the safety net), «Где видно» (preset buttons and places), attributes (kind, sign, bounds,
+//   start value, formula and growth of numbers, levels/options, tracking, own visibility, events with actions and
+//   chains), checks
 //   (dice validated live, difficulty, trigger words, consequences per outcome), statuses, inventory and money, levels,
 //   time rules, fights, «Сделать статами DES», a live preview of what the model gets, and the problems to fix.
 //   Ids are made from names and never shown in the main text (only under «Подробнее»). Switching an attribute's kind
@@ -16,6 +18,7 @@ import {
     cleanList,
     criticalsDefault,
     criticalsOf,
+    desStatCandidates,
     desStatsAttributes,
     diceAttributes,
     EVENT_OPS,
@@ -463,7 +466,8 @@ export function constructorSection(
                 attributes: [],
                 holders: { kind: 'characters', includePersona: true },
                 checks: [],
-                tracking: 'background',
+                // Release 1.26: 'auto' — DES stats, the service block, the background parse as the safety net.
+                tracking: 'auto',
                 scope: scopeForNew(scopeContextOf(app)),
             };
         }
@@ -1129,8 +1133,10 @@ export function constructorSection(
 
         const desBlock = (def: MechanicDef): HTMLElement | null => {
             const normalized = normalizeDef(def);
-            if (!normalized || !desStatsAttributes(normalized).length) return null;
-            const body: HTMLElement[] = [el('div', { class: 'maestro-hint', text: t('m25.def.des.hint') })];
+            if (!normalized || !desStatCandidates(normalized).length) return null;
+            // 'auto' numbers of characters may be DES stats too (release 1.26): DES then keeps them for the characters.
+            const hint = desStatsAttributes(normalized).length ? 'm25.def.des.hint' : 'm25.def.des.hint.auto';
+            const body: HTMLElement[] = [el('div', { class: 'maestro-hint', text: t(hint) })];
             if (def.uid === undefined) {
                 body.push(el('div', { class: 'maestro-muted maestro-m25-des-save', text: t('m25.def.des.saveFirst') }));
                 return section(t('m25.def.des.title'), body);
@@ -1427,10 +1433,10 @@ export function constructorSection(
                 field(
                     t('m25.def.field.tracking'),
                     trackingSelect(def.tracking, (value) => {
-                        def.tracking = value ?? 'background';
+                        def.tracking = value ?? 'auto';
                         drawEditorAgain();
                     }),
-                    t('m25.def.tracking.hint'),
+                    t(def.tracking === 'auto' ? 'm25.def.tracking.auto.hint' : 'm25.def.tracking.hint'),
                 ),
                 el('div', { class: 'maestro-m25-sub', text: t('m25.ctor.where') }),
                 visibilityEditor(ctx),

@@ -358,6 +358,8 @@ export interface MechanicsEnv {
     receive(text: string, cast?: CastMember[], type?: string): Promise<number>;
     /** The user answers: a user message, then turn:committed for the reply and the settle pause. */
     commit(index: number): Promise<void>;
+    /** This tab becomes (or stops being) the leader; the leader's listeners hear it. */
+    setLeader(value: boolean): void;
     switchTo(chatId: string | undefined, chat?: STChatMessage[]): Promise<void>;
 }
 
@@ -383,6 +385,7 @@ export function createMechanicsEnv(locale: 'en' | 'ru' = 'en'): MechanicsEnv {
     modules.expose('world', fakeWorld());
     const des = new FakeDes(mock);
     const leader = { value: true };
+    const leaderListeners = new Set<(value: boolean) => void>();
     const ui = createFakeUi();
     const bus = createBus(log);
     const journal = new FakeJournal();
@@ -410,7 +413,13 @@ export function createMechanicsEnv(locale: 'en' | 'ru' = 'en'): MechanicsEnv {
         settings: { core: () => ({ mode: 'balanced' }) } as unknown as SettingsService,
         files,
         chat,
-        leader: { isLeader: () => leader.value, onChange: () => () => {} },
+        leader: {
+            isLeader: () => leader.value,
+            onChange: (listener: (value: boolean) => void) => {
+                leaderListeners.add(listener);
+                return () => leaderListeners.delete(listener);
+            },
+        },
         tasks,
         llm,
         cost: { backgroundCapReached: () => cost.cap } as unknown as App['cost'],
@@ -483,6 +492,10 @@ export function createMechanicsEnv(locale: 'en' | 'ru' = 'en'): MechanicsEnv {
             mock.chat.push(userMessage());
             await bus.emit('turn:committed', { messageIndex: index });
             await tick(SETTLE);
+        },
+        setLeader(value) {
+            leader.value = value;
+            for (const listener of [...leaderListeners]) listener(value);
         },
         async switchTo(chatId, messages = []) {
             mock.chat = messages;

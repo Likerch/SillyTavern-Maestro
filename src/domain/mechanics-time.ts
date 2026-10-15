@@ -2,7 +2,9 @@
 // - the story clock of the mechanics follows DES's date and time of every committed reply (the calendar's reading of
 //   them, domain/calendar-time advanceClock); a step between two committed replies is one turn and the story minutes
 //   in between. Time rules turn a step into amounts: per turn, per story hour (hour boundaries crossed — no fractions
-//   to carry, so a rollback only needs the values), per story day (days crossed);
+//   to carry, so a rollback only needs the values), per story day (days crossed). Without DES's time for a reply
+//   (release 1.26) the clock moves by the minutes the service block (`time: +3h`) or the background parse says pass:
+//   a relative clock counted from day 1, 00:00 when there was none;
 // - experience and levels: the level a number of experience points gives (`thresholds[i]` → level i + 2);
 // - growth by use: the next value of a skill after one use (capped).
 // Pure: no DOM, no SillyTavern.
@@ -61,6 +63,42 @@ export function ruleApplies(rule: Pick<TimeRule, 'when'>, resting: boolean): boo
 
 /** The long pause that counts as rest by itself (a night, a time skip): six story hours or more. */
 export const REST_MINUTES = 360;
+
+/* ------------------------------------------------------------------ time without DES (release 1.26) */
+
+/** A clock the minutes advance moves (the shape of the state's clock record). */
+export interface MovableClock extends ClockPoint {
+    label: string;
+    /** DES's time as written: dropped once the clock moves by itself. */
+    time?: string;
+    weekday?: number;
+    /** Counted from the service block or the background parse: no real time of day behind it. */
+    relative?: true;
+}
+
+/** Where a clock counted without DES starts: day 1, 00:00, relative. */
+export const RELATIVE_START: Readonly<MovableClock> = { day: 1, minutes: 0, label: '', relative: true };
+
+/**
+ * The clock `minutes` of story time later — the service block's `time: +3h` or the background parse's `elapsed`, when
+ * DES gives no time for the reply. `from` is where the step starts (for timeStep): the clock itself, its midnight when
+ * it has no time of day, or RELATIVE_START without a clock. A clock that had no time of day (or none at all) becomes
+ * relative: its minutes are counted, not read.
+ */
+export function advanceByMinutes<T extends MovableClock>(
+    clock: T | null,
+    minutes: number,
+): { from: MovableClock; clock: MovableClock } {
+    const from: MovableClock = clock ? { ...clock, minutes: clock.minutes ?? 0 } : { ...RELATIVE_START };
+    const add = Math.max(0, Math.round(Number.isFinite(minutes) ? minutes : 0));
+    const total = (from.minutes ?? 0) + add;
+    const days = Math.floor(total / MINUTES_PER_DAY);
+    const next: MovableClock = { ...from, day: from.day + days, minutes: total % MINUTES_PER_DAY };
+    delete next.time;
+    if (next.weekday !== undefined) next.weekday = (next.weekday + days) % 7;
+    if (!clock || clock.relative || clock.minutes === undefined) next.relative = true;
+    return { from, clock: next };
+}
 
 /* ------------------------------------------------------------------ progression */
 

@@ -373,6 +373,38 @@ describe('edits and deletions', () => {
         await ctx.env.app.bus.emit('message:invalidated', { messageIndex: again, reason: 'deleted' });
         expect(part.checks()).toHaveLength(1);
     });
+
+    it('messages deleted from the middle (1.26): their rolls go or leave the chat, later rolls move down', async () => {
+        const part = await start(faces(20, 14, 14, 14));
+        const first = await send(ctx, 'Я пытаюсь убедить стражника.');
+        part.markChecksDelivered(part.pendingChecks());
+        ctx.env.mock.chat.push(reply());
+        const second = await send(ctx, 'Я снова пытаюсь убедить стражника.');
+        ctx.env.mock.chat.push(reply());
+        const third = await send(ctx, 'Я опять пытаюсь убедить стражника.');
+        expect([first, second, third]).toEqual([1, 3, 5]);
+        expect(part.checks().map((result) => result.messageIndex)).toEqual([5, 3, 1]);
+        // Messages 1 and 2 go: the delivered roll of 1 stays as history under no message; 3 and 5 are 1 and 3 now.
+        ctx.env.mock.chat.splice(1, 2);
+        await ctx.env.app.bus.emit('message:invalidated', {
+            messageIndex: ctx.env.mock.chat.length,
+            reason: 'deleted',
+            removedAt: 1,
+            removed: 2,
+        });
+        expect(part.checks().map((result) => result.messageIndex)).toEqual([3, 1, -1]);
+        expect(part.rollsOf!(1).map((result) => result.messageIndex)).toEqual([1]);
+        // A pending roll of a deleted message goes (the one at 1 expired when the next message came: history).
+        ctx.env.mock.chat.push(reply());
+        ctx.env.mock.chat.splice(3, 1);
+        await ctx.env.app.bus.emit('message:invalidated', {
+            messageIndex: ctx.env.mock.chat.length,
+            reason: 'deleted',
+            removedAt: 3,
+            removed: 1,
+        });
+        expect(part.checks().map((result) => result.messageIndex)).toEqual([1, -1]);
+    });
 });
 
 describe('the log', () => {
