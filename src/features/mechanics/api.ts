@@ -516,7 +516,13 @@ export type MechanicsEvent =
  * - extractFailed: the latest background parse failed (the error is in `detail`).
  */
 export type TrackingProblemCode =
-    'noProfile' | 'cap' | 'backgroundOff' | 'desStatsPending' | 'noDes' | 'otherTab' | 'extractFailed';
+    | 'noProfile'
+    | 'cap'
+    | 'backgroundOff'
+    | 'desStatsPending'
+    | 'noDes'
+    | 'otherTab'
+    | 'extractFailed';
 
 export interface TrackingProblem {
     code: TrackingProblemCode;
