@@ -27,6 +27,16 @@ export function defaultMechanicsSettings(): MechanicsSettings {
     };
 }
 
+/**
+ * The defaults the core fills a stored slice with (MaestroModule.defaults, before readMechanicsSettings sees it): without
+ * `settingsRev`, so a slice saved by an older release still has no revision and its migrations run once.
+ */
+export function fillMechanicsDefaults(): MechanicsSettings {
+    const defaults: Partial<MechanicsSettings> = defaultMechanicsSettings();
+    delete defaults.settingsRev;
+    return defaults as MechanicsSettings;
+}
+
 /** Unique non-empty strings (pins), at most PIN_LIMIT. */
 function pins(value: unknown): string[] {
     if (!Array.isArray(value)) return [];

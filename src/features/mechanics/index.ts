@@ -18,7 +18,7 @@ import { MECHANICS_DEFS_KEY, MECHANICS_ID, MECHANICS_KEY } from './parts';
 import type { MechanicsSettings, PartDeps } from './parts';
 import { MechanicPrompt } from './prompt';
 import { MechanicsService } from './service';
-import { defaultMechanicsSettings, readMechanicsSettings } from './settings';
+import { fillMechanicsDefaults, readMechanicsSettings } from './settings';
 import { BATCH_UNDO_TARGET, MechanicState, VALUE_UNDO_TARGET } from './state';
 import { MechanicsHud } from './hud';
 import { MechanicsNarrator } from './narrator';
@@ -58,7 +58,7 @@ export const mechanicsModule: MaestroModule<MechanicsSettings> = {
     stage: 11,
     titleKey: 'm25.title',
     enabledByDefault: true,
-    defaults: defaultMechanicsSettings,
+    defaults: fillMechanicsDefaults,
     i18n: MECHANICS_STRINGS,
     targets: [
         // A definition is stored as a lore entry: its name reads in words, the English rules stay under «Подробнее».

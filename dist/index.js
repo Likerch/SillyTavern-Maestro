@@ -9768,7 +9768,7 @@ function presetVisibility(preset, attribute) {
 	switch (preset) {
 		case "book": return {
 			preset,
-			prompt: "value",
+			prompt: "words",
 			mention: "words",
 			places: places(["strip", "dossier"]),
 			view: attribute?.kind === "list" || attribute?.kind === "text" ? "number" : "words"
@@ -10516,6 +10516,7 @@ function normalizeEvent(raw, index) {
 	const value = typeof when.value === "string" ? when.value.trim() : finite$4(when.value);
 	if (op !== "changed" && value !== void 0) event.when.value = value;
 	if (typeof raw.once === "boolean") event.once = raw.once;
+	if (typeof raw.lasting === "boolean" && op !== "changed") event.lasting = raw.lasting;
 	const actions = normalizeActions(raw.actions);
 	if (actions) event.actions = actions;
 	if (str$33(raw.chain)) event.chain = str$33(raw.chain);
@@ -10649,7 +10650,34 @@ function normalizeCheck(raw, index) {
 		if (effects.length) check.effects = effects;
 	}
 	if (raw.speech === true) check.speech = true;
+	const requires = normalizeRequires(raw.requires);
+	if (requires) check.requires = requires;
 	return check;
+}
+/** Requirements kept per check. */
+var REQUIRES_MAX = 4;
+/**
+* «Нужно для броска»: attribute ids (lower case) with a finite minimum (numeric strings read) and an optional English
+* note; anything else dropped; none → undefined.
+*/
+function normalizeRequires(raw) {
+	if (!Array.isArray(raw)) return void 0;
+	const out = [];
+	for (const item of raw) {
+		if (!isDict$137(item)) continue;
+		const attr = str$33(item.attr).toLowerCase();
+		const min = finite$4(item.min) ?? (typeof item.min === "string" && item.min.trim() ? Number(item.min) : NaN);
+		if (!attr || !Number.isFinite(min)) continue;
+		const requirement = {
+			attr,
+			min
+		};
+		const note = text$22(item.note);
+		if (note) requirement.note = note;
+		out.push(requirement);
+		if (out.length >= REQUIRES_MAX) break;
+	}
+	return out.length ? out : void 0;
 }
 function normalizeHolders(raw) {
 	const kind = isDict$137(raw) ? oneOf$2(HOLDER_KINDS$1, raw.kind) : void 0;
@@ -11260,6 +11288,19 @@ function checkIssues(def, push) {
 		(check.effects ?? []).forEach((effect, effectIndex) => {
 			actionIssues(def, effect.changes, `${at}.effects.${effectIndex}.changes`, params.check, true, push);
 		});
+		(check.requires ?? []).forEach((need, needIndex) => {
+			const kind = kinds.get(need.attr);
+			if (kind === "number" || kind === "scale") return;
+			push({
+				level: "warn",
+				code: kind === void 0 ? "requireAttr" : "requireKind",
+				path: `${at}.requires.${needIndex}.attr`,
+				params: {
+					...params,
+					attribute: need.attr
+				}
+			});
+		});
 	});
 }
 /** Problems of a (normalised) definition: errors block saving, warnings are shown. */
@@ -11392,12 +11433,13 @@ function describeCheck$1(check) {
 	const formula = parseDice(check.dice);
 	const dice = formula?.text ?? check.dice;
 	const target = formula?.under ? "" : check.difficulty !== null ? ` vs ${check.difficulty}` : "";
+	const needs = (check.requires ?? []).map((need) => `needs ${need.attr} >= ${need.min}`);
 	const effects = (check.effects ?? []).map((effect) => {
 		const parts = effect.changes.map(describeAction);
 		if (effect.text) parts.push(effect.text);
 		return `on ${effect.on}: ${parts.join(", ")}`;
 	});
-	const tail = effects.length ? `; ${effects.join("; ")}` : "";
+	const tail = [...needs, ...effects].map((part) => `; ${part}`).join("");
 	return `${check.promptName || check.name} (${check.id}): ${dice}${target}${tail}`;
 }
 function describeHolders(holders) {
@@ -12892,7 +12934,7 @@ function compare(op, left, right) {
 	if (op === ">=") return left >= right;
 	return left === right;
 }
-/** The condition of an event for a value. */
+/** The condition of an event for a value (only the kind and the levels of the attribute matter: the prompt uses it too). */
 function eventCondition$1(attr, when, value) {
 	if (when.op === "changed") {
 		if (when.value === void 0 || when.value === "") return true;
@@ -15093,7 +15135,7 @@ function blockInstruction(defs, holdersByMechanic, options = {}) {
 	if (options.time) lines.push("Story time: add time: +30m (or +3h, +2d) for the story time that passes in this reply.");
 	if (statuses) lines.push("Conditions: Holder.status += Poisoned (3 turns) puts a condition on someone (say how long: turns, hours, days, or until when); Holder.status -= Poisoned ends it.");
 	if (items) lines.push("Items: Holder.items += rope x2 gives, Holder.items -= coin x5 takes away; Holder.equip += sword puts it in hand, Holder.wear += cloak puts it on.");
-	if (checks.length) lines.push(`Rolls: when the outcome of a risky action is uncertain, do not decide it — write roll: <check> <who> (optionally vs <other>.<check>, adv or dis, easy or hard) and stop before the outcome; Maestro rolls and gives you the result next turn. Checks: ${checks.join(", ")}.`);
+	if (checks.length) lines.push(options.rollContinue ? `Rolls: when the outcome of a risky action is uncertain, do not decide it — stop the story right at the attempt and end the reply there with the service block holding roll: <check> <who> (optionally vs <other>.<check>, adv or dis, easy or hard); Maestro rolls at once and this same reply then continues with the result. Checks: ${checks.join(", ")}.` : `Rolls: when the outcome of a risky action is uncertain, do not decide it — write roll: <check> <who> (optionally vs <other>.<check>, adv or dis, easy or hard) and stop before the outcome; Maestro rolls and gives you the result next turn. Checks: ${checks.join(", ")}.`);
 	if (options.combat) lines.push("Fights: combat: start (with combat: enemy <name> for each foe), combat: out <name> when someone is down or flees, combat: end when it is over.");
 	return [...lines, ...groups].join("\n");
 }
@@ -28701,7 +28743,7 @@ function beforeClose(content, position, tag) {
 	if (/\s$/.test(before)) return `${tag} `;
 	return `, ${tag}`;
 }
-function sectionText$2(title, text) {
+function sectionText$1(title, text) {
 	return title ? `<${title}>${text}</${title}>` : text;
 }
 /** A start including one newline (and the spaces around it) right before the span, for removed sections. */
@@ -28790,7 +28832,7 @@ function rebuildSheet(content, draft) {
 			if (lingNew === void 0 || !lingNew.trim()) edit(withLeadingBreak(content, lingOld.outer.start), lingOld.outer.end, "");
 			else edit(lingOld.inner.start, lingOld.inner.end, lingNew);
 		}
-	} else if (lingNew?.trim()) edit(block.outer.end, block.outer.end, `\n${sectionText$2("Linguistics", lingNew)}`);
+	} else if (lingNew?.trim()) edit(block.outer.end, block.outer.end, `\n${sectionText$1("Linguistics", lingNew)}`);
 	const byTitle = /* @__PURE__ */ new Map();
 	for (const section of parsed.sections) {
 		const key = section.title.toLowerCase();
@@ -28803,7 +28845,7 @@ function rebuildSheet(content, draft) {
 	for (const section of draft.sections) {
 		const old = byTitle.get(section.title.toLowerCase())?.shift();
 		if (!old) {
-			if (section.text.trim()) additions.push(sectionText$2(section.title, section.text));
+			if (section.text.trim()) additions.push(sectionText$1(section.title, section.text));
 			continue;
 		}
 		used.add(old);
@@ -29737,6 +29779,41 @@ function words$1(locale, bands) {
 		return band;
 	});
 }
+/** Bands of a 0–10 skill as the rules name them (the model gets "stealth 6/10 (professional)", never "(high)"). */
+function skillWords(locale) {
+	return words$1(locale, [
+		[
+			1,
+			"untrained",
+			"не обучен"
+		],
+		[
+			3,
+			"ordinary",
+			"обычный"
+		],
+		[
+			5,
+			"trained",
+			"обучен"
+		],
+		[
+			7,
+			"professional",
+			"профессионал"
+		],
+		[
+			9,
+			"master",
+			"мастер"
+		],
+		[
+			10,
+			"legend",
+			"легенда"
+		]
+	]);
+}
 function template(id, build) {
 	return {
 		id,
@@ -29768,7 +29845,14 @@ var health = template("health", (locale) => ({
 				op: "<=",
 				value: 0
 			},
-			text: "{holder} falls unconscious."
+			text: "{holder} is unconscious and cannot act."
+		}, {
+			id: "badly_wounded",
+			when: {
+				op: "<=",
+				value: 25
+			},
+			text: "{holder} is badly wounded: every move hurts and blood loss slows them down."
 		}]
 	}), numberAttr(locale, "stamina", "Stamina", "Выносливость", {
 		min: 0,
@@ -29781,6 +29865,13 @@ var health = template("health", (locale) => ({
 				value: 0
 			},
 			text: "{holder} is exhausted and can barely move."
+		}, {
+			id: "winded",
+			when: {
+				op: "<=",
+				value: 25
+			},
+			text: "{holder} is winded and tiring fast."
 		}]
 	})],
 	holders: {
@@ -29811,7 +29902,7 @@ var magic = template("magic", (locale) => ({
 	promptName: "Magic",
 	summary: "Spellcasting powered by mana; every mage knows one or more schools of magic.",
 	rules: [
-		"Casting a spell costs mana: a minor spell 5–10, a strong one 20–40, a great working 50 or more. Without enough mana a spell fails or hurts the caster.",
+		"Casting a spell costs mana: a minor spell 5–10, a strong one 20–40, a great working 50 or more. Without enough mana a spell fails or hurts the caster; below 5 mana no spell can be cast at all.",
 		"Mana (0–100) returns slowly with rest and meditation, about 10 per hour of rest.",
 		"A mage can only cast spells of the schools they know; learning a new school takes long study.",
 		"When a spell is cast under pressure, a spellcasting check decides whether it works (d20 + arcana against 12); Maestro takes its mana cost: 10 when it works, 5 when it fails. Spend more mana for stronger spells yourself."
@@ -29828,6 +29919,13 @@ var magic = template("magic", (locale) => ({
 					value: 0
 				},
 				text: "{holder} has no mana left and cannot cast."
+			}, {
+				id: "low_mana",
+				when: {
+					op: "<=",
+					value: 15
+				},
+				text: "{holder} is nearly out of mana: only minor spells are possible."
 			}]
 		}),
 		{
@@ -29855,7 +29953,8 @@ var magic = template("magic", (locale) => ({
 			growth: {
 				perUse: .2,
 				cap: 8
-			}
+			},
+			visibility: { words: skillWords(locale) }
 		})
 	],
 	holders: {
@@ -29885,7 +29984,8 @@ var magic = template("magic", (locale) => ({
 					attr: "mana",
 					op: "sub",
 					value: 10
-				}]
+				}],
+				text: "the spell takes shape and works as cast; the mana is spent"
 			},
 			{
 				on: "failure",
@@ -29894,7 +29994,8 @@ var magic = template("magic", (locale) => ({
 					attr: "mana",
 					op: "sub",
 					value: 5
-				}]
+				}],
+				text: "the spell fizzles out; the mana is spent all the same"
 			},
 			{
 				on: "fumble",
@@ -29905,8 +30006,18 @@ var magic = template("magic", (locale) => ({
 					value: 5
 				}],
 				text: "the spell backfires on the caster"
+			},
+			{
+				on: "critical",
+				changes: [],
+				text: "the spell takes shape perfectly and is stronger than intended"
 			}
-		]
+		],
+		requires: [{
+			attr: "mana",
+			min: 5,
+			note: "a spell costs at least 5 mana"
+		}]
 	}],
 	tracking: "auto",
 	visibility: { preset: "game" }
@@ -29941,14 +30052,14 @@ var reputation = template("reputation", (locale) => ({
 				op: "=",
 				value: "hostile"
 			},
-			text: "{holder} now treats the user's character as an enemy."
+			text: "{holder} treats the user's character as an enemy."
 		}, {
 			id: "revered",
 			when: {
 				op: "=",
 				value: "revered"
 			},
-			text: "{holder} now reveres the user's character."
+			text: "{holder} reveres the user's character."
 		}]
 	}],
 	holders: {
@@ -29973,7 +30084,7 @@ var money$1 = template("money", (locale) => ({
 				op: "<=",
 				value: 0
 			},
-			text: "{holder} has run out of money."
+			text: "{holder} has no money left and cannot pay."
 		}]
 	})],
 	holders: { kind: "persona" },
@@ -29981,6 +30092,45 @@ var money$1 = template("money", (locale) => ({
 	tracking: "auto",
 	visibility: { preset: "game" }
 }));
+/** What a skill's outcomes mean for the scene (English, for the model): critical, success, failure, fumble. */
+var SKILL_OUTCOMES = {
+	persuasion: [
+		"they are fully won over and offer more than was asked",
+		"they are persuaded and agree",
+		"they are not persuaded and hold their ground",
+		"the attempt offends them; they grow less willing than before"
+	],
+	deception: [
+		"the lie is believed completely and they act on it",
+		"the lie is believed",
+		"the lie is not believed; they grow suspicious",
+		"the lie is seen through at once; they know they were lied to"
+	],
+	intimidation: [
+		"they are terrified and do as they are told",
+		"they are cowed and back down",
+		"they are not impressed and stand firm",
+		"they take it as a challenge and turn hostile"
+	],
+	stealth: [
+		"unseen and unheard, and in a perfect position",
+		"they move unseen and unheard",
+		"they are noticed",
+		"they make a loud noise and draw the attention of everyone near"
+	],
+	athletics: [
+		"they make it with ease and time to spare",
+		"they make it",
+		"they do not make it and must find another way",
+		"they fall or get hurt in the attempt"
+	],
+	perception: [
+		"they notice everything, even what was well hidden",
+		"they notice what matters here",
+		"they miss what matters here",
+		"they notice nothing and draw a wrong conclusion"
+	]
+};
 function skillCheck(locale, id, en, ru, triggers, speech = false) {
 	const check = {
 		id,
@@ -29991,6 +30141,32 @@ function skillCheck(locale, id, en, ru, triggers, speech = false) {
 		triggers
 	};
 	if (speech) check.speech = true;
+	const outcomes = SKILL_OUTCOMES[id];
+	if (outcomes) {
+		const [critical, success, failure, fumble] = outcomes;
+		check.effects = [
+			{
+				on: "success",
+				changes: [],
+				text: success
+			},
+			{
+				on: "failure",
+				changes: [],
+				text: failure
+			},
+			{
+				on: "critical",
+				changes: [],
+				text: critical
+			},
+			{
+				on: "fumble",
+				changes: [],
+				text: fumble
+			}
+		];
+	}
 	return check;
 }
 /** Social skills: their checks are speech checks. */
@@ -30102,7 +30278,8 @@ var skills = template("skills", (locale) => ({
 				perUse: .2,
 				cap: 8
 			},
-			tracking: "manual"
+			tracking: "manual",
+			visibility: { words: skillWords(locale) }
 		})),
 		numberAttr(locale, "xp", "Experience", "Опыт", {
 			min: 0,
@@ -30170,14 +30347,14 @@ var relationships = template("relationships", (locale) => ({
 				op: "=",
 				value: "hostile"
 			},
-			text: "{holder} has turned hostile toward the user's character."
+			text: "{holder} is hostile toward the user's character."
 		}, {
 			id: "devoted",
 			when: {
 				op: "=",
 				value: "devoted"
 			},
-			text: "{holder} is now devoted to the user's character."
+			text: "{holder} is devoted to the user's character."
 		}]
 	}],
 	holders: { kind: "characters" },
@@ -30233,80 +30410,168 @@ var survival = template("survival", (locale) => ({
 			min: 0,
 			max: 100,
 			initial: 10,
-			events: [{
-				id: "starving",
-				when: {
-					op: ">=",
-					value: 80
+			visibility: { words: words$1(locale, [
+				[
+					20,
+					"fed",
+					"сыт"
+				],
+				[
+					50,
+					"peckish",
+					"проголодался"
+				],
+				[
+					79,
+					"hungry",
+					"голоден"
+				],
+				[
+					100,
+					"starving",
+					"умирает от голода"
+				]
+			]) },
+			events: [
+				{
+					id: "starving",
+					when: {
+						op: ">=",
+						value: 80
+					},
+					text: "{holder} is starving: weak, dizzy and short-tempered.",
+					actions: [{
+						who: "actor",
+						attr: "status",
+						op: "push",
+						value: "starving",
+						status: {
+							name: pick$2(locale, "Starving", "Голодает"),
+							promptName: "starving",
+							modifiers: { checks: -2 }
+						}
+					}]
 				},
-				text: "{holder} is starving.",
-				actions: [{
-					who: "actor",
-					attr: "status",
-					op: "push",
-					value: "starving",
-					status: {
-						name: pick$2(locale, "Starving", "Голодает"),
-						promptName: "starving",
-						modifiers: { checks: -2 }
-					}
-				}]
-			}, {
-				id: "fed",
-				when: {
-					op: "<=",
-					value: 50
+				{
+					id: "fed",
+					when: {
+						op: "<=",
+						value: 50
+					},
+					text: "",
+					actions: [{
+						who: "actor",
+						attr: "status",
+						op: "pull",
+						value: "starving"
+					}]
 				},
-				text: "",
-				actions: [{
-					who: "actor",
-					attr: "status",
-					op: "pull",
-					value: "starving"
-				}]
-			}]
+				{
+					id: "famished",
+					when: {
+						op: ">=",
+						value: 100
+					},
+					text: "{holder} is starving to death and can think of nothing but food."
+				}
+			]
 		}),
 		numberAttr(locale, "thirst", "Thirst", "Жажда", {
 			min: 0,
 			max: 100,
 			initial: 10,
-			events: [{
-				id: "parched",
-				when: {
-					op: ">=",
-					value: 80
+			visibility: { words: words$1(locale, [
+				[
+					20,
+					"quenched",
+					"напился"
+				],
+				[
+					50,
+					"thirsty",
+					"хочет пить"
+				],
+				[
+					79,
+					"very thirsty",
+					"мучает жажда"
+				],
+				[
+					100,
+					"parched",
+					"изнывает от жажды"
+				]
+			]) },
+			events: [
+				{
+					id: "parched",
+					when: {
+						op: ">=",
+						value: 80
+					},
+					text: "{holder} is parched: dry mouth, headache, slow thoughts.",
+					actions: [{
+						who: "actor",
+						attr: "status",
+						op: "push",
+						value: "parched",
+						status: {
+							name: pick$2(locale, "Parched", "Мучает жажда"),
+							promptName: "parched",
+							modifiers: { checks: -2 }
+						}
+					}]
 				},
-				text: "{holder} is parched with thirst.",
-				actions: [{
-					who: "actor",
-					attr: "status",
-					op: "push",
-					value: "parched",
-					status: {
-						name: pick$2(locale, "Parched", "Мучает жажда"),
-						promptName: "parched",
-						modifiers: { checks: -2 }
-					}
-				}]
-			}, {
-				id: "watered",
-				when: {
-					op: "<=",
-					value: 50
+				{
+					id: "watered",
+					when: {
+						op: "<=",
+						value: 50
+					},
+					text: "",
+					actions: [{
+						who: "actor",
+						attr: "status",
+						op: "pull",
+						value: "parched"
+					}]
 				},
-				text: "",
-				actions: [{
-					who: "actor",
-					attr: "status",
-					op: "pull",
-					value: "parched"
-				}]
-			}]
+				{
+					id: "dying_of_thirst",
+					when: {
+						op: ">=",
+						value: 100
+					},
+					text: "{holder} is dying of thirst and will collapse without water soon."
+				}
+			]
 		}),
 		numberAttr(locale, "fatigue", "Fatigue", "Усталость", {
 			min: 0,
 			max: 100,
 			initial: 0,
+			visibility: { words: words$1(locale, [
+				[
+					20,
+					"rested",
+					"бодр"
+				],
+				[
+					50,
+					"tired",
+					"устал"
+				],
+				[
+					89,
+					"very tired",
+					"очень устал"
+				],
+				[
+					100,
+					"collapsing",
+					"валится с ног"
+				]
+			]) },
 			events: [{
 				id: "collapsing",
 				when: {
@@ -30314,6 +30579,13 @@ var survival = template("survival", (locale) => ({
 					value: 90
 				},
 				text: "{holder} can barely stay on their feet."
+			}, {
+				id: "worn_out",
+				when: {
+					op: ">=",
+					value: 70
+				},
+				text: "{holder} is worn out: slow and clumsy."
 			}]
 		})
 	],
@@ -30367,7 +30639,7 @@ var sanity = template("sanity", (locale) => ({
 					op: "<=",
 					value: 30
 				},
-				text: "{holder} is badly shaken and starts seeing things.",
+				text: "{holder} is badly shaken: jumpy, distracted, seeing things that are not there.",
 				actions: [{
 					who: "actor",
 					attr: "status",
@@ -30400,7 +30672,7 @@ var sanity = template("sanity", (locale) => ({
 					op: "<=",
 					value: 0
 				},
-				text: "{holder}'s mind breaks."
+				text: "{holder}'s mind has broken: they cannot act sanely."
 			}
 		]
 	})],
@@ -30430,7 +30702,8 @@ var sanity = template("sanity", (locale) => ({
 					attr: "sanity",
 					op: "sub",
 					value: 1
-				}]
+				}],
+				text: "they keep their nerve, though it leaves a mark"
 			},
 			{
 				on: "failure",
@@ -30439,7 +30712,8 @@ var sanity = template("sanity", (locale) => ({
 					attr: "sanity",
 					op: "sub",
 					value: "1d6"
-				}]
+				}],
+				text: "the horror shakes them: trembling, a wild urge to flee"
 			},
 			{
 				on: "fumble",
@@ -30448,7 +30722,13 @@ var sanity = template("sanity", (locale) => ({
 					attr: "sanity",
 					op: "sub",
 					value: "1d6"
-				}]
+				}],
+				text: "the horror overwhelms them: they panic and lose control for a while"
+			},
+			{
+				on: "critical",
+				changes: [],
+				text: "they stay perfectly calm and see it for what it is"
 			}
 		]
 	}],
@@ -30480,7 +30760,7 @@ var trade = template("trade", (locale) => ({
 				op: "<=",
 				value: 0
 			},
-			text: "{holder} has run out of money."
+			text: "{holder} has no money left and cannot pay."
 		}]
 	})],
 	holders: { kind: "persona" },
@@ -30509,13 +30789,20 @@ var combat = template("combat", (locale) => ({
 					op: "<=",
 					value: 0
 				},
-				text: "{holder} is down.",
+				text: "{holder} is down and out of the fight.",
 				actions: [{
 					who: "actor",
 					attr: "combat",
 					op: "pull",
 					value: ""
 				}]
+			}, {
+				id: "bloodied",
+				when: {
+					op: "<=",
+					value: 5
+				},
+				text: "{holder} is bloodied and close to falling."
 			}]
 		}),
 		numberAttr(locale, "armor", "Armor", "Броня", {
@@ -30572,7 +30859,8 @@ var combat = template("combat", (locale) => ({
 						attr: "hp",
 						op: "sub",
 						value: "max(1, 1d6 + @attack)"
-					}]
+					}],
+					text: "the attack hits"
 				},
 				{
 					on: "critical",
@@ -30581,10 +30869,12 @@ var combat = template("combat", (locale) => ({
 						attr: "hp",
 						op: "sub",
 						value: "2d6"
-					}]
+					}],
+					text: "a telling blow: it lands hard where it hurts most"
 				},
 				{
 					on: "fumble",
+					text: "the attack goes wide and leaves an opening for the enemy",
 					changes: [{
 						who: "actor",
 						attr: "status",
@@ -30597,8 +30887,18 @@ var combat = template("combat", (locale) => ({
 							modifiers: { checks: -2 }
 						}
 					}]
+				},
+				{
+					on: "failure",
+					changes: [],
+					text: "the attack misses"
 				}
-			]
+			],
+			requires: [{
+				attr: "hp",
+				min: 1,
+				note: "a fighter who is down cannot attack"
+			}]
 		},
 		{
 			id: "defense",
@@ -30613,6 +30913,28 @@ var combat = template("combat", (locale) => ({
 				"dodge",
 				"parry",
 				"block"
+			],
+			effects: [
+				{
+					on: "success",
+					changes: [],
+					text: "the blow is dodged or parried"
+				},
+				{
+					on: "failure",
+					changes: [],
+					text: "the defense fails and the blow gets through"
+				},
+				{
+					on: "critical",
+					changes: [],
+					text: "a perfect defense that opens a chance to strike back"
+				},
+				{
+					on: "fumble",
+					changes: [],
+					text: "the defender stumbles and is left wide open"
+				}
 			]
 		}
 	],
@@ -30706,7 +31028,7 @@ var MECHANIC_TEMPLATES = [
 						op: "<=",
 						value: 10
 					},
-					text: "{holder} no longer trusts the user's character."
+					text: "{holder} does not trust the user's character."
 				}]
 			}),
 			numberAttr(locale, "attraction", "Attraction", "Влечение", {
@@ -34698,8 +35020,14 @@ var MECHANICS_KEY$1 = "mechanics";
 var MECHANICS_DEFS_KEY = "mechanicsDefinitions";
 /** Default Maestro book of the definitions (role 'maestro', never active: Maestro injects the rules itself). */
 var DEFAULT_MECHANICS_BOOK = "Maestro · механики";
-/** Ephemeral injection keys (one generation each). */
-var INJECT_RULES = "maestro_mechanics";
+/**
+* Ephemeral injection keys (one generation each). Release 1.27: `maestro_mechanics` is the state (`<game_state>`, in the
+* chat at settings.stateDepth; the Architect and the neighbour prompts know it by this key), `maestro_mechanics_rules`
+* the rules (`<game_rules>`, in the prompt after the main prompt when settings.rulesPlace is 'top'), the facts stay
+* at depth 0.
+*/
+var INJECT_STATE = "maestro_mechanics";
+var INJECT_RULES = "maestro_mechanics_rules";
 var INJECT_FACTS = "maestro_mechanics_facts";
 /** Flag for conditional preset blocks: `maestro_mech_<mechanic id>` while the mechanic takes part in the scene. */
 var FLAG_PREFIX = "maestro_mech_";
@@ -34707,10 +35035,13 @@ var DEFAULT_MECHANICS_SETTINGS = {
 	book: DEFAULT_MECHANICS_BOOK,
 	autoChecks: true,
 	strip: true,
-	promptBudget: 400,
-	depth: 1,
+	promptBudget: 1200,
+	rulesPlace: "top",
+	stateDepth: 0,
+	settingsRev: 1,
 	background: true,
 	modelRolls: true,
+	rollContinue: true,
 	autoCombat: true,
 	personaFallback: "background",
 	relevance: 4,
@@ -38092,8 +38423,13 @@ function summarizeCache(samples, window = 50) {
 	};
 }
 /** ST extension_prompt_types. */
-var IN_PROMPT = 0;
+var IN_PROMPT$1 = 0;
 var BEFORE_PROMPT = 2;
+/**
+* Maestro's slots that stay the same from turn to turn by design and may sit in the prompt's head: the mechanics rules
+* (`<game_rules>`, release 1.27) change only when the mechanics of the scene do.
+*/
+var STABLE_SLOTS = /* @__PURE__ */ new Set(["maestro_mechanics_rules"]);
 /**
 * P16: a volatile injection must not sit before stable content — every message after it that the previous request
 * already had (same hash anywhere in it) would be re-billed. Without a previous request only injections in the
@@ -38102,11 +38438,11 @@ var BEFORE_PROMPT = 2;
 function findOrderViolations(slots, hashes, previous) {
 	const violations = [];
 	for (const slot of slots) {
-		if (slot.index < 0 || slot.index >= hashes.length) continue;
+		if (slot.index < 0 || slot.index >= hashes.length || slot.stable) continue;
 		let stableAfter = 0;
 		if (previous) {
 			for (let i = slot.index + 1; i < hashes.length; i++) if (previous.has(hashes[i])) stableAfter++;
-		} else if (slot.position === IN_PROMPT || slot.position === BEFORE_PROMPT) stableAfter = hashes.length - slot.index - 1;
+		} else if (slot.position === IN_PROMPT$1 || slot.position === BEFORE_PROMPT) stableAfter = hashes.length - slot.index - 1;
 		if (stableAfter > 0) violations.push({
 			key: slot.key,
 			messageIndex: slot.index,
@@ -40027,6 +40363,8 @@ var BUDGET_SLOTS = {
 	mechanics: "maestro_mechanics",
 	dramatis: "dramatis_cast"
 };
+/** More slots a self-fitting source writes: measured together with its own slot (release 1.27). */
+var EXTRA_SLOTS = { mechanics: ["maestro_mechanics_rules"] };
 /** Sources of later stages: the budget is stored, there is nothing to measure yet. */
 var FUTURE_SOURCES = /* @__PURE__ */ new Set(["director"]);
 /** Sources that fit themselves to the budget (M15 reads it) or belong to a neighbour (Dramatis): measured, never shortened. */
@@ -40147,8 +40485,12 @@ var PromptStage = class {
 				continue;
 			}
 			const key = BUDGET_SLOTS[source];
-			const slot = prompts[key];
-			const value = slot && Number(slot.position) !== POSITION_NONE && typeof slot.value === "string" ? slot.value : "";
+			const slotText = (name) => {
+				const slot = prompts[name];
+				return slot && Number(slot.position) !== POSITION_NONE && typeof slot.value === "string" ? slot.value : "";
+			};
+			const own = slotText(key);
+			const value = SELF_FITTING.has(source) ? [own, ...(EXTRA_SLOTS[source] ?? []).map(slotText)].filter((text) => text.trim()).join("\n") : own;
 			if (!value.trim()) {
 				budgets.push({
 					source,
@@ -40740,7 +41082,8 @@ var ArchitectService = class {
 				key: slot.key,
 				index: hit.message,
 				position: slot.position,
-				depth: slot.depth
+				depth: slot.depth,
+				...STABLE_SLOTS.has(slot.key) ? { stable: true } : {}
 			});
 		}
 		const previous = this.previousPrompt && this.previousPrompt.chatId === capture.chatId ? this.previousPrompt.hashes : null;
@@ -46159,7 +46502,7 @@ function fitToSize(build, max, floor = .1) {
 	};
 }
 /** Drops undefined members (smaller JSON). */
-function compact$1(object) {
+function compact$2(object) {
 	for (const key of Object.keys(object)) if (object[key] === void 0) delete object[key];
 	return object;
 }
@@ -46445,9 +46788,9 @@ var chatRead = (app) => readTool({
 			const notes = [];
 			if (anyCut) notes.push(`Texts over ${cap} characters are cut (\`cut\` = the full length): read fewer messages (from/to) to get them whole.`);
 			if (more > 0) notes.push(`${more} more messages in this range: use from/to.`);
-			return compact$1({
+			return compact$2({
 				chat: totals,
-				shown: compact$1({
+				shown: compact$2({
 					from: picked[0],
 					to: picked[picked.length - 1],
 					count: picked.length,
@@ -46501,7 +46844,7 @@ var chatSearch = (app) => readTool({
 		const full = found.filter((hit) => hit.matched === terms.length).length;
 		const hits = found.slice(0, limit).map((hit) => {
 			const view = messageView(chat[hit.index], hit.index, false);
-			return compact$1({
+			return compact$2({
 				index: hit.index,
 				name: view.name,
 				role: view.role,
@@ -46511,7 +46854,7 @@ var chatSearch = (app) => readTool({
 			});
 		});
 		return {
-			data: compact$1({
+			data: compact$2({
 				query,
 				terms,
 				found: found.length,
@@ -46553,7 +46896,7 @@ var PART_TEXT = {
 var FULL_TEXT = 9e3;
 function sizesOf(card) {
 	const size = (text) => text.length || void 0;
-	return compact$1({
+	return compact$2({
 		description: size(card.description),
 		personality: size(card.personality),
 		scenario: size(card.scenario),
@@ -46573,7 +46916,7 @@ function chatOverrides(app, scale) {
 		const text = str$27(metadata[key]).trim();
 		return text ? cut$8(text, Math.max(80, Math.round(max * scale))) : void 0;
 	};
-	const overrides = compact$1({
+	const overrides = compact$2({
 		scenario: part("scenario", 800),
 		examples: part("mes_example", 400),
 		systemPrompt: part("system_prompt", 400)
@@ -46583,7 +46926,7 @@ function chatOverrides(app, scale) {
 function bookView(card, names) {
 	if (!card.book) return void 0;
 	const entries = card.book.entries;
-	return compact$1({
+	return compact$2({
 		name: card.book.name,
 		entries: entries.length,
 		disabled: entries.filter((entry) => !entry.enabled).length || void 0,
@@ -46601,7 +46944,7 @@ function cardOverview(app, card, chat, groupName) {
 			return cut$8(text, limit);
 		};
 		const alternates = card.alternateGreetings;
-		return compact$1({
+		return compact$2({
 			name: card.name,
 			avatar: card.avatar || void 0,
 			group: groupName,
@@ -46625,7 +46968,7 @@ function cardOverview(app, card, chat, groupName) {
 			creatorNotes: c(card.creatorNotes, 600),
 			systemPrompt: c(card.systemPrompt, 500),
 			postHistory: c(card.postHistory, 500),
-			depthPrompt: card.depthPrompt ? compact$1({
+			depthPrompt: card.depthPrompt ? compact$2({
 				depth: card.depthPrompt.depth,
 				role: card.depthPrompt.role,
 				text: c(card.depthPrompt.text, 500)
@@ -46645,7 +46988,7 @@ function cardPart(card, part, chat, inGroup) {
 	const text = PART_TEXT[part];
 	if (text) {
 		const value = text(card);
-		return compact$1({
+		return compact$2({
 			name: card.name,
 			part,
 			size: value.length,
@@ -46653,7 +46996,7 @@ function cardPart(card, part, chat, inGroup) {
 			note: value ? void 0 : "This part of the card is empty."
 		});
 	}
-	if (part === "depth_prompt") return compact$1({
+	if (part === "depth_prompt") return compact$2({
 		name: card.name,
 		part,
 		depth: card.depthPrompt?.depth,
@@ -46664,13 +47007,13 @@ function cardPart(card, part, chat, inGroup) {
 	});
 	if (part === "book") {
 		const entries = card.book?.entries ?? [];
-		return compact$1({
+		return compact$2({
 			name: card.name,
 			part,
 			world: card.world,
 			book: card.book?.name,
 			entries: entries.length,
-			items: entries.slice(0, 80).map((entry) => compact$1({
+			items: entries.slice(0, 80).map((entry) => compact$2({
 				title: cut$8(entry.title, 60),
 				keys: entry.keys.slice(0, 6).map((key) => cut$8(key, 40)),
 				off: entry.enabled ? void 0 : true
@@ -46680,12 +47023,12 @@ function cardPart(card, part, chat, inGroup) {
 	}
 	const greetings = [card.firstMessage, ...card.alternateGreetings];
 	const inChat = inGroup ? void 0 : greetingInChat(chat, card);
-	const { data } = fitToSize((scale) => compact$1({
+	const { data } = fitToSize((scale) => compact$2({
 		name: card.name,
 		part,
 		total: greetings.length,
 		greetingInChat: inChat,
-		items: greetings.map((value, n) => compact$1({
+		items: greetings.map((value, n) => compact$2({
 			n,
 			kind: n === 0 ? "first message" : "alternate greeting",
 			size: value.length,
@@ -46731,7 +47074,7 @@ var cardRead = (app) => readTool({
 			if (text === void 0 || greeting < 0) return notice(ctx, `No starting scene ${greeting}: the card has the first message and ${alternates} alternate greetings.`, `Нет стартовой сцены ${greeting}: в карточке первое сообщение и ещё приветствий — ${alternates}.`);
 			const inChat = group ? void 0 : greetingInChat(chat, card);
 			return {
-				data: compact$1({
+				data: compact$2({
 					name: card.name,
 					greeting,
 					kind: greeting === 0 ? "first message" : "alternate greeting",
@@ -46753,11 +47096,11 @@ var cardRead = (app) => readTool({
 });
 async function groupOverview(app, group, ctx) {
 	const cards = await Promise.all(group.members.map((member) => loadCard(app, member)));
-	const { data } = fitToSize((scale) => compact$1({
+	const { data } = fitToSize((scale) => compact$2({
 		group: group.name,
 		members: group.members.map((member, index) => {
 			const card = cards[index];
-			return compact$1({
+			return compact$2({
 				name: member.name,
 				avatar: member.avatar || void 0,
 				muted: member.muted,
@@ -46814,7 +47157,7 @@ var personaRead = (app) => readTool({
 		const connections = Array.isArray(descriptorDict.connections) ? descriptorDict.connections.length : 0;
 		const lockLabel = lock.chat ? say(ctx, " (locked to this chat)", " (закреплена за чатом)") : lock.character ? say(ctx, " (connected to this character)", " (привязана к персонажу)") : lock.default ? say(ctx, " (default)", " (по умолчанию)") : "";
 		return {
-			data: compact$1({
+			data: compact$2({
 				name: persona.name || void 0,
 				avatar: persona.avatar || void 0,
 				title: str$27(descriptorDict.title).trim() || void 0,
@@ -46834,7 +47177,7 @@ var personaRead = (app) => readTool({
 	}
 });
 function mechanicView$1(def, active) {
-	return compact$1({
+	return compact$2({
 		id: def.id,
 		name: def.name,
 		active,
@@ -46855,7 +47198,7 @@ function mechanicsView(app) {
 	const active = new Set(safely$4(() => api.active(), []).map((def) => def.id));
 	const defs = safely$4(() => api.list(), []);
 	const templates = safely$4(() => api.templates(), []);
-	return compact$1({
+	return compact$2({
 		existing: defs.slice(0, 12).map((def) => mechanicView$1(def, active.has(def.id))),
 		more: defs.length > 12 ? defs.length - 12 : void 0,
 		templates: templates.slice(0, 20).map((template) => ({
@@ -46893,14 +47236,14 @@ var scenarioOverview = (app) => readTool({
 		const { data } = fitToSize((scale) => {
 			const c = (text, max) => text ? cut$8(text, Math.max(60, Math.round(max * scale))) : void 0;
 			const greetings = card ? [card.firstMessage, ...card.alternateGreetings] : [];
-			return compact$1({
-				chat: compact$1({
+			return compact$2({
+				chat: compact$2({
 					messages: chat.length,
 					group: group?.name,
 					character: card?.name,
 					scene
 				}),
-				card: card ? compact$1({
+				card: card ? compact$2({
 					name: card.name,
 					description: c(card.description, 1500),
 					personality: c(card.personality, 300),
@@ -46914,17 +47257,17 @@ var scenarioOverview = (app) => readTool({
 					world: card.world,
 					book: bookView(card, Math.round(15 * scale))
 				}) : void 0,
-				members: group ? group.members.slice(0, 8).map((member, index) => compact$1({
+				members: group ? group.members.slice(0, 8).map((member, index) => compact$2({
 					name: member.name,
 					muted: member.muted,
 					description: c(memberCards[index]?.description ?? "", 400)
 				})) : void 0,
 				groupScenario: group ? c(str$27(metadata.scenario).trim(), 600) : void 0,
-				persona: compact$1({
+				persona: compact$2({
 					name: persona.name || void 0,
 					description: c(persona.description, 400)
 				}),
-				startingScenes: greetings.length ? compact$1({
+				startingScenes: greetings.length ? compact$2({
 					total: greetings.length,
 					chatOpenedWith: inChat,
 					items: greetings.map((text, n) => ({
@@ -46932,7 +47275,7 @@ var scenarioOverview = (app) => readTool({
 						text: c(text, 400) ?? ""
 					}))
 				}) : void 0,
-				recent: recent.map((view) => compact$1({
+				recent: recent.map((view) => compact$2({
 					index: view.index,
 					name: view.name,
 					role: view.role,
@@ -46945,7 +47288,7 @@ var scenarioOverview = (app) => readTool({
 					...trackerScene(tracker.snapshot) ?? {}
 				} : void 0,
 				mechanics,
-				lorebooks: compact$1({
+				lorebooks: compact$2({
 					active: books.length ? books : void 0,
 					chat: str$27(metadata.world_info).trim() || void 0,
 					card: card?.world
@@ -48355,7 +48698,7 @@ var loreSearch = (app) => readTool({
 				const topic = entryTopic(book, uid, entry);
 				const score = terms.length ? scoreTopic(topic, terms, phrase) : 0;
 				if (score <= 0) continue;
-				hits.push(compact$1({
+				hits.push(compact$2({
 					book,
 					uid: Number(uid),
 					title: cut$8(entry.comment, 80),
@@ -48406,10 +48749,10 @@ var loreEntry = (app) => readTool({
 		const position = num(entry.position);
 		const content = typeof entry.content === "string" ? entry.content : "";
 		return {
-			data: compact$1({
+			data: compact$2({
 				book,
 				uid,
-				bookRole: role ? compact$1({
+				bookRole: role ? compact$2({
 					role: role.role,
 					readOnly: role.readOnly || void 0
 				}) : void 0,
@@ -48438,11 +48781,11 @@ var loreEntry = (app) => readTool({
 					exclude: filter?.isExclude === true,
 					names: filterNames.slice(0, 10)
 				} : void 0,
-				maestro: maestro ? compact$1({
+				maestro: maestro ? compact$2({
 					type: typeof maestro.type === "string" ? maestro.type : void 0,
 					canon: typeof maestro.kind === "string" ? `${maestro.kind}/${String(maestro.status)}` : void 0
 				}) : void 0,
-				passport: passport ? compact$1({
+				passport: passport ? compact$2({
 					storage: passport.storage,
 					kind: typeof passport.passport.kind === "string" ? passport.passport.kind : void 0,
 					name: typeof passport.passport.name === "string" ? passport.passport.name : void 0
@@ -48468,7 +48811,7 @@ var CANON_STATUSES = [
 ];
 function canonView(item) {
 	const entry = item.entry;
-	return compact$1({
+	return compact$2({
 		uid: item.uid,
 		kind: item.meta.kind,
 		status: item.meta.status,
@@ -48513,7 +48856,7 @@ var canonList = (app) => readTool({
 		const list = capList(items.map(canonView), intArg(args, "limit", 20, 1, 40));
 		const scan = safely$4(() => canon.lastScan?.() ?? null, null);
 		return {
-			data: compact$1({
+			data: compact$2({
 				book: safely$4(() => canon.bookName(), void 0),
 				budget: safely$4(() => canon.budget(), void 0),
 				lastScan: scan ?? void 0,
@@ -48568,7 +48911,7 @@ var maestroModules = (app) => readTool({
 	description: "List Maestro's modules: settings key, plan id, title, stage, whether it is on and running, and missing capabilities. Use it to know what is enabled before explaining or diagnosing.",
 	parameters: objectSchema(),
 	async run(_args, ctx) {
-		const modules = safely$4(() => app.modules.list(), []).map((row) => compact$1({
+		const modules = safely$4(() => app.modules.list(), []).map((row) => compact$2({
 			key: row.module.key,
 			id: row.module.id,
 			title: titleOf$2(app, row.module.titleKey, row.module.key),
@@ -48621,7 +48964,7 @@ async function runChecks(app, checks) {
 			status: "skip",
 			message: "timeout"
 		});
-		return compact$1({
+		return compact$2({
 			id: check.id,
 			module: check.module,
 			title,
@@ -48648,11 +48991,11 @@ var maestroHealth = (app) => readTool({
 		const checks = boolArg(args, "run_checks", true) ? await runChecks(app, checksList) : [];
 		checks.sort((a, b) => (RANK$1[a.status] ?? 4) - (RANK$1[b.status] ?? 4));
 		const caps = safely$4(() => app.host.caps.report(), []);
-		const failingCaps = caps.filter((cap) => !cap.ok).slice(0, 25).map((cap) => compact$1({
+		const failingCaps = caps.filter((cap) => !cap.ok).slice(0, 25).map((cap) => compact$2({
 			id: cap.id,
 			detail: cap.detail ? cut$8(cap.detail, 120) : void 0
 		}));
-		const neighbours = Object.values(app.adapters ?? {}).map((adapter) => compact$1({
+		const neighbours = Object.values(app.adapters ?? {}).map((adapter) => compact$2({
 			id: adapter.id,
 			present: safely$4(() => adapter.present(), false),
 			version: safely$4(() => adapter.version(), void 0)
@@ -48668,7 +49011,7 @@ var maestroHealth = (app) => readTool({
 		};
 		for (const check of checks) counts[check.status] = (counts[check.status] ?? 0) + 1;
 		const data = {
-			maestro: compact$1({
+			maestro: compact$2({
 				version: maestroVersion() ?? void 0,
 				mode: safely$4(() => app.settings.core().mode, void 0)
 			}),
@@ -48686,7 +49029,7 @@ var maestroHealth = (app) => readTool({
 			neighbours,
 			doctor: doctor ? {
 				lastScan: when(safely$4(() => doctor.lastScanAt?.(), 0)),
-				findings: capList([...findings].sort((a, b) => (RANK$1[a.severity] ?? 4) - (RANK$1[b.severity] ?? 4)).map((finding) => compact$1({
+				findings: capList([...findings].sort((a, b) => (RANK$1[a.severity] ?? 4) - (RANK$1[b.severity] ?? 4)).map((finding) => compact$2({
 					kind: finding.kind,
 					severity: finding.severity,
 					text: cut$8(safely$4(() => app.i18n.t(finding.messageKey, finding.params), ""), 160)
@@ -48699,7 +49042,7 @@ var maestroHealth = (app) => readTool({
 		};
 		const present = neighbours.filter((row) => row.present).length;
 		return {
-			data: compact$1(data),
+			data: compact$2(data),
 			untrusted: true,
 			summary: say(ctx, `Health: ${counts.error ?? 0} errors, ${counts.warn ?? 0} warnings; neighbours ${present}/${neighbours.length}`, `Здоровье: ошибок ${counts.error ?? 0}, предупреждений ${counts.warn ?? 0}; соседи ${present}/${neighbours.length}`)
 		};
@@ -48731,7 +49074,7 @@ var journalRecent = (app) => readTool({
 		const module = strArg(args, "module", 40);
 		const filter = { limit };
 		if (module) filter.module = moduleIdOf(app, module);
-		const items = safely$4(() => app.journal.list(filter), []).slice(-limit).reverse().map((record) => compact$1({
+		const items = safely$4(() => app.journal.list(filter), []).slice(-limit).reverse().map((record) => compact$2({
 			id: record.id,
 			at: when(record.at),
 			module: record.module,
@@ -48762,7 +49105,7 @@ var inboxList = (app) => readTool({
 		const list = capList([...safely$4(() => app.inbox.list(), [])].sort((a, b) => b.createdAt - a.createdAt), limit);
 		return {
 			data: {
-				cards: list.items.map((card) => compact$1({
+				cards: list.items.map((card) => compact$2({
 					id: card.id,
 					module: card.module,
 					kind: card.kind,
@@ -48821,14 +49164,14 @@ var dossier = (app) => readTool({
 			const known = safely$4(() => world?.entities() ?? [], []).slice(0, 30).map((item) => item.name);
 			return notice(ctx, `No entity named «${name}».`, `Нет сущности «${name}».`, { known });
 		}
-		const data = { entity: compact$1({
+		const data = { entity: compact$2({
 			id: entity.id,
 			kind: entity.kind,
 			name: entity.name,
 			aliases: entity.aliases.slice(0, 12),
 			forms: entity.forms.length ? entity.forms.slice(0, 12) : void 0,
 			present: entity.present,
-			sources: capList(entity.sources.map((source) => compact$1({
+			sources: capList(entity.sources.map((source) => compact$2({
 				kind: source.kind,
 				label: cut$8(source.label, 60),
 				book: source.world,
@@ -48840,14 +49183,14 @@ var dossier = (app) => readTool({
 		if (api) {
 			const built = await withTimeout$5(api.build(entity.id), 5e3, null);
 			if (built) {
-				data.sections = built.sections.slice(0, 14).map((section) => compact$1({
+				data.sections = built.sections.slice(0, 14).map((section) => compact$2({
 					kind: section.kind,
 					title: cut$8(section.title, 60),
 					text: cut$8(section.text, 400),
 					fields: section.fields,
 					message: section.messageIndex
 				}));
-				data.findings = built.findings.slice(0, 10).map((finding) => compact$1({
+				data.findings = built.findings.slice(0, 10).map((finding) => compact$2({
 					kind: finding.kind,
 					severity: finding.severity,
 					text: cut$8(finding.text, 200)
@@ -48856,7 +49199,7 @@ var dossier = (app) => readTool({
 		}
 		const world = apiOf$2(app, "world");
 		const facts = safely$4(() => world?.facts(entity.id) ?? [], []);
-		if (facts.length) data.facts = facts.slice(0, 10).map((fact) => compact$1({
+		if (facts.length) data.facts = facts.slice(0, 10).map((fact) => compact$2({
 			text: cut$8(fact.text, 200),
 			status: fact.status,
 			time: fact.storyTime
@@ -48873,7 +49216,7 @@ function relationView(relation) {
 		from: relation.from,
 		to: relation.to,
 		now: cut$8(relation.current, 80),
-		history: relation.history.slice(-6).map((point) => compact$1({
+		history: relation.history.slice(-6).map((point) => compact$2({
 			message: point.messageIndex,
 			status: cut$8(point.status, 60),
 			time: point.storyTime,
@@ -48913,7 +49256,7 @@ var relations = (app) => readTool({
 	}
 });
 function factView(fact) {
-	return compact$1({
+	return compact$2({
 		id: fact.id,
 		text: cut$8(fact.text, 200),
 		knownBy: fact.knownBy.slice(0, 12),
@@ -48966,7 +49309,7 @@ var knowledgeWho = (app) => readTool({
 function placeView(app, place) {
 	const api = apiOf$2(app, "places");
 	const visit = place.visits[place.visits.length - 1];
-	return compact$1({
+	return compact$2({
 		id: place.id,
 		name: place.name,
 		path: safely$4(() => api?.path?.(place.id), void 0),
@@ -48974,7 +49317,7 @@ function placeView(app, place) {
 		state: place.state,
 		background: place.background,
 		entry: place.entry ? `${place.entry.world}#${place.entry.uid}` : void 0,
-		lastVisit: visit ? compact$1({
+		lastVisit: visit ? compact$2({
 			from: visit.from,
 			to: visit.to,
 			present: visit.present.slice(0, 10),
@@ -48998,12 +49341,12 @@ var placesCurrent = (app) => readTool({
 			name: place.name,
 			lastSeen: place.lastSeen
 		}));
-		const candidates = safely$4(() => api.candidates(), []).slice(0, 5).map((candidate) => compact$1({
+		const candidates = safely$4(() => api.candidates(), []).slice(0, 5).map((candidate) => compact$2({
 			label: cut$8(candidate.label, 80),
 			seen: candidate.seen.length
 		}));
 		return {
-			data: compact$1({
+			data: compact$2({
 				current: current ? placeView(app, current) : null,
 				recent,
 				candidates: candidates.length ? candidates : void 0
@@ -49014,7 +49357,7 @@ var placesCurrent = (app) => readTool({
 	}
 });
 function promiseView(promise) {
-	return compact$1({
+	return compact$2({
 		id: promise.id,
 		who: promise.who,
 		toWhom: promise.toWhom,
@@ -49041,7 +49384,7 @@ var calendarNow = (app) => readTool({
 			"overdue"
 		].includes(promise.status)).map(promiseView), 15);
 		return {
-			data: compact$1({
+			data: compact$2({
 				now,
 				promises: list.items,
 				total: list.total
@@ -49068,7 +49411,7 @@ var wardrobe = (app) => readTool({
 		if (!api) return notice(ctx, "The wardrobe is off.", "Гардероб выключен.");
 		const name = strArg(args, "name", 80);
 		const character = name ? canonicalName$1(app, name) : void 0;
-		const list = capList(safely$4(() => api.outfits(character), []).map((outfit) => compact$1({
+		const list = capList(safely$4(() => api.outfits(character), []).map((outfit) => compact$2({
 			character: outfit.character,
 			name: outfit.name,
 			tags: cut$8(outfit.tags, 160),
@@ -49076,7 +49419,7 @@ var wardrobe = (app) => readTool({
 			seenAs: outfit.seenAs.slice(0, 3).map((item) => cut$8(item, 80)),
 			lastSeen: outfit.lastSeen
 		})), intArg(args, "limit", 15, 1, 30));
-		const changes = safely$4(() => api.changes(10), []).map((change) => compact$1({
+		const changes = safely$4(() => api.changes(10), []).map((change) => compact$2({
 			kind: change.kind,
 			subject: change.subject,
 			state: change.state,
@@ -49102,7 +49445,7 @@ var passportsScene = (app) => readTool({
 	async run(_rawArgs, ctx) {
 		const api = apiOf$2(app, "lorePassports");
 		if (!api) return notice(ctx, "Passports in lorebooks are off.", "Паспорта в лорбуках выключены.");
-		const list = capList(safely$4(() => api.forScene(), []).map((item) => compact$1({
+		const list = capList(safely$4(() => api.forScene(), []).map((item) => compact$2({
 			book: item.world,
 			uid: item.uid,
 			name: cut$8(item.name, 60),
@@ -49111,7 +49454,7 @@ var passportsScene = (app) => readTool({
 		})), 15);
 		const sent = safely$4(() => api.lastSent?.() ?? null, null);
 		return {
-			data: compact$1({
+			data: compact$2({
 				scene: list.items,
 				total: list.total,
 				lastSent: sent ? {
@@ -49140,7 +49483,7 @@ function worldTools(app) {
 //#endregion
 //#region src/features/assistant/tools/read/play.ts
 function definitionView(def, active) {
-	return compact$1({
+	return compact$2({
 		id: def.id,
 		name: def.name,
 		active,
@@ -49149,7 +49492,7 @@ function definitionView(def, active) {
 		holders: def.holders.kind,
 		summary: cut$8(def.summary, 200),
 		rules: cut$8(def.rules, 300),
-		attributes: def.attributes.slice(0, 12).map((attribute) => compact$1({
+		attributes: def.attributes.slice(0, 12).map((attribute) => compact$2({
 			id: attribute.id,
 			name: attribute.name,
 			kind: attribute.kind,
@@ -49160,7 +49503,7 @@ function definitionView(def, active) {
 			tracking: attribute.tracking,
 			events: attribute.events?.length || void 0
 		})),
-		checks: def.checks.slice(0, 8).map((check) => compact$1({
+		checks: def.checks.slice(0, 8).map((check) => compact$2({
 			id: check.id,
 			name: check.name,
 			dice: check.dice,
@@ -49201,14 +49544,14 @@ var mechanicsState = (app) => readTool({
 		const state = safely$4(() => api.state(holder), []);
 		const flags = mechanicsFlags(api);
 		return {
-			data: compact$1({
+			data: compact$2({
 				mechanics: defs.slice(0, 10).map((def) => definitionView(def, active.has(def.id))),
 				state: capList(state.map((row) => ({
 					mechanic: row.mechanicId,
 					holder: row.holder,
 					values: row.values
 				})), 30),
-				recentChanges: safely$4(() => api.history(10), []).map((change) => compact$1({
+				recentChanges: safely$4(() => api.history(10), []).map((change) => compact$2({
 					mechanic: change.mechanicId,
 					holder: change.holder,
 					attribute: change.attribute,
@@ -49238,7 +49581,7 @@ var directorScene = (app) => readTool({
 		const scene = safely$4(() => api.scene(), null);
 		const pending = safely$4(() => api.pending?.() ?? null, null);
 		const suppressed = safely$4(() => api.suppressed?.() ?? null, null);
-		const noteView = (note) => compact$1({
+		const noteView = (note) => compact$2({
 			at: when(note.at),
 			message: note.messageIndex,
 			source: note.source,
@@ -49246,7 +49589,7 @@ var directorScene = (app) => readTool({
 			detail: note.detail ? cut$8(note.detail, 160) : void 0
 		});
 		return {
-			data: compact$1({
+			data: compact$2({
 				scene,
 				override: safely$4(() => api.override?.() ?? null, null),
 				candidate: safely$4(() => api.candidate?.() ?? null, null),
@@ -49296,7 +49639,7 @@ var presetBlocks = (app) => readTool({
 			if (conditionalOnly && !condition && !uses.length) continue;
 			const name = promptName$1(prompt);
 			if (wanted && !normalizeText(`${name} ${prompt.identifier} ${text}`).includes(wanted)) continue;
-			rows.push(compact$1({
+			rows.push(compact$2({
 				id: prompt.identifier,
 				name: cut$8(name, 80),
 				on: item.enabled,
@@ -49315,7 +49658,7 @@ var presetBlocks = (app) => readTool({
 		const directorCatalogue = safely$4(() => director?.catalogue?.() ?? [], []).map((entry) => entry.name);
 		const draft = safely$4(() => store.draft(), null);
 		return {
-			data: compact$1({
+			data: compact$2({
 				preset: safely$4(() => store.current(), void 0),
 				unsaved: draft?.dirty || void 0,
 				macroEngine: macroEngine(app),
@@ -49325,7 +49668,7 @@ var presetBlocks = (app) => readTool({
 					director: directorCatalogue,
 					mechanics: mechanics.catalogue,
 					preset: [...presetFlags],
-					nowSet: compact$1({
+					nowSet: compact$2({
 						director: director ? safely$4(() => director.flags(), {}) : void 0,
 						mechanics: mechanics.on.length ? mechanics.on : void 0
 					})
@@ -50638,7 +50981,7 @@ var presetList = (app) => readTool({
 		const report = layer ? safely$4(() => layer.lastReport(), null) : null;
 		const list = capList(names, 100);
 		return {
-			data: compact$1({
+			data: compact$2({
 				current,
 				presets: list.items,
 				morePresets: list.more,
@@ -50699,7 +51042,7 @@ var presetBlockRead = (app) => readTool({
 		const condition = blockCondition(text);
 		const marker = isMarker(prompt);
 		return {
-			data: compact$1({
+			data: compact$2({
 				preset: found.preset,
 				identifier: row.identifier,
 				name: promptName$1(prompt),
@@ -50745,7 +51088,7 @@ var presetParams = (app) => readTool({
 			scope: op.scope ?? "global"
 		})) : [];
 		return {
-			data: compact$1({
+			data: compact$2({
 				preset: found.preset,
 				params: view.params,
 				other: Object.keys(view.other).length ? view.other : void 0,
@@ -50772,7 +51115,7 @@ var presetFindings = (app) => readTool({
 		const findings = await withTimeout$5(analysis.findings(void 0, { type }), 2e4, null);
 		if (!findings) return notice(ctx, "The analysis took too long.", "Анализ не уложился во время.");
 		const names = new Map(workingRows(store).map((row) => [row.identifier, promptName$1(row.prompt)]));
-		const list = capList(findings.map((finding) => compact$1({
+		const list = capList(findings.map((finding) => compact$2({
 			kind: finding.kind,
 			severity: finding.severity,
 			block: finding.identifier ? names.get(finding.identifier) ?? finding.identifier : void 0,
@@ -50784,7 +51127,7 @@ var presetFindings = (app) => readTool({
 			text: cut$8(hint.text, 400)
 		}));
 		return {
-			data: compact$1({
+			data: compact$2({
 				preset: safely$4(() => store.current(), void 0),
 				findings: list.items,
 				more: list.more,
@@ -50846,7 +51189,7 @@ var presetCompare = (app) => readTool({
 			fields: item.fields
 		})), 60);
 		return {
-			data: compact$1({
+			data: compact$2({
 				a: a.name,
 				b: b.name,
 				onlyInB: result.added.map((item) => item.name),
@@ -50885,7 +51228,7 @@ var presetVersions = (app) => readTool({
 		const versions = await withTimeout$5(store.versions(found.preset), 1e4, []);
 		const list = capList([...versions].sort((x, y) => y.at - x.at), 30);
 		return {
-			data: compact$1({
+			data: compact$2({
 				preset: found.preset,
 				versions: list.items.map((version) => ({
 					id: version.id,
@@ -50970,7 +51313,7 @@ var presetDryRun = (app) => readTool({
 			previewChars: Math.round(preview * scale)
 		}), budget(ctx)).data;
 		return {
-			data: compact$1({
+			data: compact$2({
 				preset,
 				type,
 				sent: false,
@@ -51004,7 +51347,7 @@ var neighbourList = (app) => readTool({
 			return {
 				data: fitToSize((scale) => {
 					const max = Math.max(200, Math.floor(room / 4 * scale));
-					return compact$1({
+					return compact$2({
 						id: entry.id,
 						owner: entry.owner,
 						name: entry.label,
@@ -51017,7 +51360,7 @@ var neighbourList = (app) => readTool({
 						textHere: cut$8(entry.text, max),
 						extensionText: entry.globalText === entry.text ? void 0 : cut$8(entry.globalText, max),
 						builtIn: entry.defaultText !== void 0 && entry.defaultText !== entry.globalText ? cut$8(entry.defaultText, max) : void 0,
-						copies: compact$1({
+						copies: compact$2({
 							character: entry.scoped.character === void 0 ? void 0 : cut$8(entry.scoped.character, max),
 							chat: entry.scoped.chat === void 0 ? void 0 : cut$8(entry.scoped.chat, max)
 						})
@@ -51029,8 +51372,8 @@ var neighbourList = (app) => readTool({
 		}
 		const entries = safely$4(() => api.list(), []);
 		return {
-			data: compact$1({
-				entries: entries.map((entry) => compact$1({
+			data: compact$2({
+				entries: entries.map((entry) => compact$2({
 					id: entry.id,
 					owner: entry.owner,
 					name: entry.label,
@@ -51038,14 +51381,14 @@ var neighbourList = (app) => readTool({
 					editableEverywhere: entry.editable,
 					copyable: entry.scopable,
 					usedIn: entry.usedIn,
-					copy: compact$1({
+					copy: compact$2({
 						character: entry.scoped.character !== void 0 || void 0,
 						chat: entry.scoped.chat !== void 0 || void 0
 					}),
 					chars: entry.text.length,
 					note: entry.note ? cut$8(entry.note, 160) : void 0
 				})),
-				lastGeneration: report ? compact$1({
+				lastGeneration: report ? compact$2({
 					copiesUsed: report.replaced.length ? report.replaced : void 0,
 					copiesNotFound: report.notFound.length ? report.notFound : void 0
 				}) : void 0
@@ -52021,7 +52364,7 @@ async function regexScripts(app) {
 	const inventory = await withTimeout$5(doctor.regexInventory(), 4e3, null);
 	if (!inventory) return fromSettings;
 	const trims = new Map(fromSettings.map((script) => [script.id, script.trimStrings]));
-	return inventory.map((info) => compact$1({
+	return inventory.map((info) => compact$2({
 		id: info.id,
 		name: info.name,
 		type: info.type,
@@ -52061,7 +52404,7 @@ var regexList = (app) => readTool({
 		if (type) scripts = scripts.filter((script) => script.type === type);
 		if (!boolArg(args, "include_disabled", true)) scripts = scripts.filter((script) => !script.disabled);
 		if (query) scripts = scripts.filter((script) => script.name.toLowerCase().includes(query) || script.find.toLowerCase().includes(query));
-		const list = capList(scripts.map((script) => compact$1({
+		const list = capList(scripts.map((script) => compact$2({
 			id: script.id,
 			name: cut$8(script.name, 80),
 			type: script.type,
@@ -52075,7 +52418,7 @@ var regexList = (app) => readTool({
 			replace: cut$8(script.replace, 100)
 		})), 60);
 		const doctor = apiOf$2(app, "doctor");
-		const findings = doctor ? safely$4(() => doctor.findings(), []).filter((finding) => finding.kind.startsWith("regex.")).slice(0, 20).map((finding) => compact$1({
+		const findings = doctor ? safely$4(() => doctor.findings(), []).filter((finding) => finding.kind.startsWith("regex.")).slice(0, 20).map((finding) => compact$2({
 			kind: finding.kind,
 			severity: finding.severity,
 			script: typeof finding.target.name === "string" ? finding.target.name : typeof finding.target.id === "string" ? finding.target.id : void 0,
@@ -52086,7 +52429,7 @@ var regexList = (app) => readTool({
 			return Array.isArray(disabled) && disabled.includes("regex");
 		}, false);
 		return {
-			data: compact$1({
+			data: compact$2({
 				scripts: list.items,
 				total: list.total,
 				findings: findings.length ? findings : void 0,
@@ -52120,7 +52463,7 @@ var regexExplain = (app) => readTool({
 		else return notice(ctx, "Give a script or a pattern.", "Нужен скрипт или шаблон.");
 		const explanation = explainRegex(input.source, input.flags, ctx.locale);
 		const data = { ...explanation };
-		if (script) data.script = compact$1({
+		if (script) data.script = compact$2({
 			id: script.id,
 			name: script.name,
 			type: script.type,
@@ -52132,7 +52475,7 @@ var regexExplain = (app) => readTool({
 			trimStrings: script.trimStrings?.length ? script.trimStrings.slice(0, 10) : void 0
 		});
 		return {
-			data: compact$1(data),
+			data: compact$2(data),
 			untrusted: true,
 			summary: explanation.ok ? say(ctx, `Regex explained${script ? `: ${cut$8(script.name, 40)}` : ""}`, `Регекс разобран${script ? `: ${cut$8(script.name, 40)}` : ""}`) : say(ctx, "The pattern does not compile", "Шаблон не компилируется")
 		};
@@ -52195,7 +52538,7 @@ var regexTest = (app) => readTool({
 			}
 		}
 		return {
-			data: compact$1(data),
+			data: compact$2(data),
 			untrusted: true,
 			summary: run.ok ? say(ctx, `Regex test: ${run.matchCount} matches${run.changed ? ", text changed" : ""}`, `Испытание регекса: совпадений ${run.matchCount}${run.changed ? ", текст изменён" : ""}`) : say(ctx, "The pattern does not compile", "Шаблон не компилируется")
 		};
@@ -52626,7 +52969,7 @@ var turnPrompt = (app) => readTool({
 	async run(rawArgs, ctx) {
 		const record = inspectorTurn(app, optIntArg(argsOf(rawArgs), "message_index"));
 		if (!record) return notice(ctx, "No inspected turn yet.", "Пока нет разобранного хода.");
-		const list = capList([...record.sources].sort((a, b) => b.tokens - a.tokens).map((source) => compact$1({
+		const list = capList([...record.sources].sort((a, b) => b.tokens - a.tokens).map((source) => compact$2({
 			id: source.id,
 			kind: source.kind,
 			owner: source.owner,
@@ -52635,15 +52978,15 @@ var turnPrompt = (app) => readTool({
 		})), 30);
 		const lore = loreTurn(app, record.messageIndex);
 		const report = architectReport(app, record.messageIndex);
-		const cutLore = (lore?.activations ?? []).filter((activation) => activation.cut).slice(0, 15).map((activation) => compact$1({
+		const cutLore = (lore?.activations ?? []).filter((activation) => activation.cut).slice(0, 15).map((activation) => compact$2({
 			book: activation.world,
 			uid: activation.uid,
 			title: cut$8(activation.comment, 60),
 			tokens: activation.tokens,
 			by: activation.cutBy ?? "other"
 		}));
-		const architect = report ? compact$1({
-			budgets: report.budgets.filter((budget) => budget.limit > 0 || budget.status && budget.status !== "off").map((budget) => compact$1({ ...budget })),
+		const architect = report ? compact$2({
+			budgets: report.budgets.filter((budget) => budget.limit > 0 || budget.status && budget.status !== "off").map((budget) => compact$2({ ...budget })),
 			trims: report.trims?.slice(0, 10),
 			cuts: report.cuts?.slice(0, 10).map((item) => ({
 				...item,
@@ -52654,7 +52997,7 @@ var turnPrompt = (app) => readTool({
 			effects: report.effects
 		}) : void 0;
 		return {
-			data: compact$1({
+			data: compact$2({
 				messageIndex: record.messageIndex,
 				at: when(record.at),
 				type: record.generationType,
@@ -52743,7 +53086,7 @@ var loreTurnTool = (app) => readTool({
 		const raw = loreTurn(app, optIntArg(args, "message_index"));
 		if (!journal || !raw) return notice(ctx, "No lore turn recorded yet.", "Журнал лора ещё пуст.");
 		const record = await withTimeout$5(journal.attributeKeys(raw), 3e3, raw);
-		const list = capList([...record.activations].sort((a, b) => b.tokens - a.tokens).map((activation) => compact$1({
+		const list = capList([...record.activations].sort((a, b) => b.tokens - a.tokens).map((activation) => compact$2({
 			book: activation.world,
 			uid: activation.uid,
 			title: cut$8(activation.comment, 60),
@@ -52794,7 +53137,7 @@ var loreTurnTool = (app) => readTool({
 							cutBy: activation.cutBy
 						} : null
 					});
-					return compact$1({
+					return compact$2({
 						book: candidate.book,
 						uid: candidate.uid,
 						title: cut$8(candidate.entry.comment, 60),
@@ -52802,7 +53145,7 @@ var loreTurnTool = (app) => readTool({
 						fired: explanation.fired,
 						reasons: explanation.reasons.map((reason) => {
 							codes.add(reason.code);
-							return compact$1({
+							return compact$2({
 								code: reason.code,
 								detail: reason.detail ? cut$8(reason.detail, 120) : void 0
 							});
@@ -52814,7 +53157,7 @@ var loreTurnTool = (app) => readTool({
 			if (!candidates.length) data.about.note = "No entry about this name was found in the active lorebooks (the character may have no lore at all).";
 		}
 		return {
-			data: compact$1(data),
+			data: compact$2(data),
 			untrusted: true,
 			summary: say(ctx, `Lore of turn #${record.messageIndex}: ${record.activations.length} entries${name ? `, about «${name}»` : ""}`, `Лор хода №${record.messageIndex}: записей ${record.activations.length}${name ? `, о «${name}»` : ""}`)
 		};
@@ -52822,7 +53165,7 @@ var loreTurnTool = (app) => readTool({
 });
 function lineView(line) {
 	const prompt = line.tokens.prompt;
-	return compact$1({
+	return compact$2({
 		source: line.source,
 		usd: Math.round(line.usd * 1e4) / 1e4,
 		requests: line.requests,
@@ -52860,14 +53203,14 @@ var costTurn = (app) => readTool({
 		const cache = architect ? safely$4(() => architect.cache(), null) : null;
 		const totals = costTotals(turn.lines);
 		return {
-			data: compact$1({
+			data: compact$2({
 				messageIndex: turn.messageIndex,
 				at: when(turn.at),
 				totals,
 				lines: turn.lines.map(lineView),
 				promptByKind: byKind,
 				averageUsd: averageUsd === void 0 ? void 0 : Math.round(averageUsd * 1e4) / 1e4,
-				quality: verdict ? compact$1({
+				quality: verdict ? compact$2({
 					ok: verdict.ok,
 					action: verdict.action,
 					defects: verdict.defects.map((defect) => defect.kind),
@@ -52877,7 +53220,7 @@ var costTurn = (app) => readTool({
 					hitRate: Math.round(cache.hitRate * 100) / 100,
 					firstChangeAt: cache.firstChangeAt
 				} : void 0,
-				reasons: hints.map((hint) => compact$1({
+				reasons: hints.map((hint) => compact$2({
 					code: hint.code,
 					detail: hint.detail || void 0,
 					text: COST_HINT_TEXT[ctx.locale][hint.code]
@@ -52916,7 +53259,7 @@ var costSummary = (app) => readTool({
 			backgroundCapReached: safely$4(() => app.cost.backgroundCapReached(), false)
 		} : void 0;
 		if (!treasurer) return {
-			data: compact$1({
+			data: compact$2({
 				period: "day",
 				core: coreView,
 				note: "Treasurer is off: only today's core totals."
@@ -52942,7 +53285,7 @@ var costSummary = (app) => readTool({
 		const summary = safely$4(() => treasurer.summary(period), null);
 		if (!summary) return notice(ctx, "No spending data.", "Нет данных о расходах.");
 		return {
-			data: compact$1({
+			data: compact$2({
 				period,
 				from: when(summary.from),
 				to: when(summary.to),
@@ -54484,7 +54827,7 @@ function mechanicSaveTool() {
 	return {
 		name: "mechanic_save",
 		kind: "write",
-		description: "Creates or changes a mechanic (stats, magic, reputation, money, skills…) of the Mechanics module. Either `template` (a template id, with optional `overrides`) or `definition` (a MechanicDef JSON: id, name, summary, rules (English, for the model), attributes [{id, name, promptName, kind number|scale|list|text, min, max, initial, levels, options, multi, tracking, events [{id, when, text, actions, chain}], formula (derived, \"50 + 10 * @level\"), growth {perUse, cap}, visibility}], holders {kind persona|characters|named|world|factions, names}, checks [{id, name, promptName, dice like \"1d20+@attr\" or \"2d6+1d4\", difficulty, triggers, speech (true: also in quoted lines and questions), effects [{on success|failure|critical|fumble|any, changes [{who actor|target|persona, attr, op add|sub|set|mul|push|pull, value}], text}]}], tracking auto|desStats|block|background|manual, visibility {preset game|book|hidden|secret}, statuses [{name, promptName, duration {turns|minutes}, modifiers}], inventory {money}, time [{attr, amount, per turn|hour|day, when rest|awake}], progression {xp, level, thresholds, onLevelUp, awards {critical, success, failure, fumble} (experience per roll outcome)}, combat {initiative, enemy}). With the id of an existing mechanic only the given fields change: attributes and checks are merged by id, {id, remove: true} removes one. Validated before the user confirms; current ones: mechanics_state.",
+		description: "Creates or changes a mechanic (stats, magic, reputation, money, skills…) of the Mechanics module. Either `template` (a template id, with optional `overrides`) or `definition` (a MechanicDef JSON: id, name, summary, rules (English, for the model), attributes [{id, name, promptName, kind number|scale|list|text, min, max, initial, levels, options, multi, tracking, events [{id, when, text, actions, chain}], formula (derived, \"50 + 10 * @level\"), growth {perUse, cap}, visibility}], holders {kind persona|characters|named|world|factions, names}, checks [{id, name, promptName, dice like \"1d20+@attr\" or \"2d6+1d4\", difficulty, triggers, speech (true: also in quoted lines and questions), requires [{attr, min, note}] (below it the attempt fails with no roll: a spell needs mana >= 5), effects [{on success|failure|critical|fumble|any, changes [{who actor|target|persona, attr, op add|sub|set|mul|push|pull, value}], text}]}], tracking auto|desStats|block|background|manual, visibility {preset game|book|hidden|secret}, statuses [{name, promptName, duration {turns|minutes}, modifiers}], inventory {money}, time [{attr, amount, per turn|hour|day, when rest|awake}], progression {xp, level, thresholds, onLevelUp, awards {critical, success, failure, fumble} (experience per roll outcome)}, combat {initiative, enemy}). With the id of an existing mechanic only the given fields change: attributes and checks are merged by id, {id, remove: true} removes one. Validated before the user confirms; current ones: mechanics_state.",
 		parameters: {
 			type: "object",
 			properties: {
@@ -54730,7 +55073,7 @@ function conditionedText(content, choice) {
 //#region src/features/assistant/tools/write/preset-changes.ts
 /** Longest block text the assistant writes. */
 var MAX_BLOCK_TEXT = 6e4;
-var DEFAULT_DEPTH$1 = 4;
+var DEFAULT_DEPTH = 4;
 var DEFAULT_ORDER$1 = 100;
 /** `{ «Текст»: …, «Роль»: … }`: card values keyed by the user's words (no JSON field names on the card). */
 function fields(say, entries) {
@@ -55356,7 +55699,7 @@ var addChanges = (ctx, args, scope) => {
 		system_prompt: false,
 		marker: false,
 		injection_position: depth === void 0 ? 0 : 1,
-		injection_depth: depth ?? DEFAULT_DEPTH$1,
+		injection_depth: depth ?? DEFAULT_DEPTH,
 		injection_order: DEFAULT_ORDER$1,
 		forbid_overrides: false
 	};
@@ -81595,7 +81938,7 @@ async function planWithBook(app, finding) {
 		data
 	} : null;
 }
-function valueText$1(app, field, value) {
+function valueText$2(app, field, value) {
 	if (field === "scanDepth" && (value === null || value === void 0)) return app.i18n.t("m5.fixFile.globalDepth");
 	if (field === "role" && typeof value === "number") return ROLE_NAMES[value] ?? String(value);
 	if (Array.isArray(value)) return value.map(String).join(", ") || "—";
@@ -81619,7 +81962,7 @@ function previewText(app, data, patches) {
 	const lines = patches.slice(0, PREVIEW_LINES$1).map((patch) => {
 		const entry = data?.[String(patch.uid)];
 		const comment = typeof entry?.comment === "string" && entry.comment.trim() ? ` «${entry.comment.trim()}»` : "";
-		const fields = Object.keys(patch.after).filter((field) => field !== "extensions").map((field) => `${field}: ${valueText$1(app, field, patch.before[field])} → ${valueText$1(app, field, patch.after[field])}`);
+		const fields = Object.keys(patch.after).filter((field) => field !== "extensions").map((field) => `${field}: ${valueText$2(app, field, patch.before[field])} → ${valueText$2(app, field, patch.after[field])}`);
 		return `#${patch.uid}${comment}: ${fields.join("; ") || app.i18n.t("m5.fixFile.marker")}`;
 	});
 	if (patches.length > PREVIEW_LINES$1) lines.push(app.i18n.t("m5.fixFile.more", { count: patches.length - PREVIEW_LINES$1 }));
@@ -114292,6 +114635,82 @@ function opposedFact(actor, defender, outcome) {
 	const natural = outcome === "critical" || outcome === "fumble" ? ` (natural ${actor.roll.natural})` : "";
 	return `${left} vs ${right}: ${actor.roll.total} vs ${defender.roll.total} — ${word}${natural}.`;
 }
+/**
+* The roll was close: a success or a failure with a numeric target whose total was 1–2 points from the other outcome
+* (against a target: won by 0–1 over it or missed by 1–2; opposed: won by 1–2 or lost by 0–1). Never a critical or a
+* fumble, never without a target.
+*/
+function isBarely(outcome, margin, options) {
+	if (!options.target || !Number.isFinite(margin)) return false;
+	let flip;
+	if (outcome === "success") flip = options.opposed ? margin : margin + 1;
+	else if (outcome === "failure") flip = options.opposed ? 1 - margin : -margin;
+	else return false;
+	return flip >= 1 && flip <= 2;
+}
+var GENERIC_MEANING = {
+	critical: "it works brilliantly, with an extra benefit",
+	success: "it works as intended",
+	failure: "it does not work — show what goes wrong and what it costs",
+	fumble: "it goes badly wrong, with a complication"
+};
+var BARELY_MEANING = {
+	success: "it barely works — only just, with nothing to spare",
+	failure: "it barely fails — it nearly works; show what goes wrong and what it costs"
+};
+/** An author's text as part of a sentence: trimmed, without the closing stop. */
+function clause(text) {
+	return text.trim().replace(/[\s.;]+$/, "");
+}
+/**
+* What an outcome means for the scene (English, the end of the fact): the outcome's own texts; a critical (a fumble)
+* with only success (failure) texts gets them «and brilliantly» («and badly»); else a line by outcome. A close roll
+* reads «barely». Texts for any outcome follow. '' for 'none' without texts for any outcome.
+*/
+function outcomeMeaning(outcome, texts = {}, barely = false) {
+	const own = (texts.own ?? []).map(clause).filter(Boolean);
+	const wider = (texts.wider ?? []).map(clause).filter(Boolean);
+	const any = (texts.any ?? []).map(clause).filter(Boolean);
+	let body = "";
+	if (outcome !== "none") {
+		if (own.length) body = own.join("; ");
+		else if (wider.length && (outcome === "critical" || outcome === "fumble")) body = `${wider.join("; ")}, and ${outcome === "critical" ? "brilliantly, with an extra benefit" : "badly, with a complication"}`;
+		else if (barely && (outcome === "success" || outcome === "failure")) body = BARELY_MEANING[outcome];
+		else body = GENERIC_MEANING[outcome];
+		if (barely && own.length) body = `barely — ${body}`;
+	}
+	return [body, ...any].filter(Boolean).join("; ");
+}
+/** The fact with what changed and what it means: "<fact> Consequences: Kai: Mana -10. In the scene: it works." */
+function factWithMeaning(fact, notes, meaning) {
+	let text = fact;
+	if (notes.length) text += ` Consequences: ${notes.join("; ")}.`;
+	if (meaning) text += ` In the scene: ${meaning}.`;
+	return text;
+}
+/** "Mana" → "mana" inside a sentence; "HP" and names with more capitals stay. */
+function midSentence(name) {
+	return /^[A-Z][^A-Z]*$/.test(name) ? name.charAt(0).toLowerCase() + name.slice(1) : name;
+}
+function plain$1(value) {
+	return String(Math.round(value * 100) / 100);
+}
+/**
+* The fact of an attempt the roller lacks the means for (no dice):
+* "Spellcasting (Kai): not possible — mana 3, needs 5. The attempt fails; narrate it, there is no roll." In words: "not
+* enough mana"; with nothing the model may know: "not possible now".
+*/
+function blockedFact(checkName, holder, reason, against) {
+	const name = checkName.trim() || "Skill";
+	const who = holder.trim();
+	const target = (against ?? "").trim();
+	const attribute = midSentence(reason.attribute.trim() || "value");
+	const mode = reason.mode ?? "value";
+	let why = mode === "none" ? "not possible now" : mode === "words" ? `not possible — not enough ${attribute}` : `not possible — ${attribute} ${plain$1(reason.have)}, needs ${plain$1(reason.need)}`;
+	const note = clause(reason.note ?? "");
+	if (note && mode !== "none") why += ` (${note})`;
+	return `${name}${who ? ` (${who})` : ""}${target ? ` against ${target}` : ""}: ${why}. The attempt fails; narrate it, there is no roll.`;
+}
 //#endregion
 //#region src/domain/mechanics-turn.ts
 var REST_RE = /(?:^|[\s_])(?:rest|resting|sleep|sleeping|asleep|nap|camp|отдых|отдыхает|сон|спит|спящ|привал|дрем)/i;
@@ -115338,7 +115757,7 @@ var SCENE_LOOKBACK = 30;
 /** Sources any tab may write (the user's own actions). */
 var FREE_SOURCES = /* @__PURE__ */ new Set(["user", "check"]);
 /** Committed turns a changed faction or world mechanic stays relevant. */
-var RECENT_TURNS = 3;
+var RECENT_TURNS$1 = 3;
 function copyValue(value) {
 	return Array.isArray(value) ? [...value] : value;
 }
@@ -115838,7 +116257,7 @@ var MechanicState = class {
 		const doc = this.peek();
 		if (!doc) return false;
 		const committed = committedIndices(this.app.host.ctx().chat ?? []);
-		const floor = committed[Math.max(0, committed.length - RECENT_TURNS)] ?? 0;
+		const floor = committed[Math.max(0, committed.length - RECENT_TURNS$1)] ?? 0;
 		const key = storedHolderKey(doc, def.id, holder);
 		const updated = key ? doc.holders[def.id]?.[key]?.updatedAt ?? -1 : -1;
 		return updated >= floor && updated >= 0;
@@ -116503,6 +116922,12 @@ function readResult(raw) {
 	if (raw.hidden === true) result.hidden = true;
 	if (raw.undone === true) result.undone = true;
 	if (typeof raw.against === "string" && raw.against.trim()) result.against = raw.against;
+	if (isDict$66(raw.blocked) && typeof raw.blocked.attr === "string") result.blocked = {
+		attr: raw.blocked.attr,
+		have: number(raw.blocked.have, 0),
+		need: number(raw.blocked.need, 0)
+	};
+	if (raw.barely === true) result.barely = true;
 	return result;
 }
 function readResults(doc) {
@@ -116536,6 +116961,8 @@ function publicResult(result) {
 	if (result.hidden) out.hidden = true;
 	if (result.undone) out.undone = true;
 	if (result.against) out.against = result.against;
+	if (result.blocked) out.blocked = { ...result.blocked };
+	if (result.barely) out.barely = true;
 	return out;
 }
 function pending(result) {
@@ -116570,13 +116997,51 @@ function checkNameOf(defs, result) {
 		return result.checkId;
 	}
 }
-/** One localized line: «Убеждение (Kai): 16 против 15 — успех», aimed at someone «Атака (Kai → Bandit): …». */
-function describeCheck(result, i18n, checkName) {
+/** The display name of the attribute a blocked roll lacked (its id when the definition is gone); '' when not blocked. */
+function blockedAttributeOf(defs, result) {
+	const id = result.blocked?.attr;
+	if (!id) return "";
+	try {
+		return defs.get(result.mechanicId)?.attributes.find((attribute) => attribute.id === id)?.name ?? id;
+	} catch {
+		return id;
+	}
+}
+/** The notice after a roll by hand: «Бросок: …», or «Без броска: …» when the roller could not try at all. */
+function rollNoticeKey(result) {
+	return result.blocked ? "m25.check.notRolled" : "m25.check.rolled";
+}
+/** The outcome word of a result (badges): «невозможно» for a blocked one. */
+function outcomeKey(result) {
+	return result.blocked ? "m25.check.outcome.blocked" : `m25.check.outcome.${result.outcome}`;
+}
+/** What the outcome means for the scene, in the UI language (the roll card); null for a result without one. */
+function meaningKey(result) {
+	if (result.blocked || result.outcome === "none") return null;
+	return result.barely && (result.outcome === "success" || result.outcome === "failure") ? `m25.check.meaning.${result.outcome}.barely` : `m25.check.meaning.${result.outcome}`;
+}
+/**
+* One localized line: «Убеждение (Kai): 16 против 15 — успех», aimed at someone «Атака (Kai → Bandit): …»; an attempt
+* without the means: «Заклинание (Kai): невозможно — Мана 3, нужно 5» (`attribute`: the display name it lacked).
+*/
+function describeCheck(result, i18n, checkName, attribute) {
 	const under = result.dice.includes("<=");
 	const holder = result.against ? i18n.t("m25.check.against", {
 		holder: result.holder,
 		target: result.against
 	}) : result.holder;
+	if (result.blocked) {
+		const reason = i18n.t("m25.check.blocked.reason", {
+			attribute: attribute || result.blocked.attr,
+			have: Math.round(result.blocked.have * 100) / 100,
+			need: result.blocked.need
+		});
+		return i18n.t("m25.check.line.blocked", {
+			check: checkName,
+			holder,
+			reason
+		});
+	}
 	if (result.outcome === "none" && result.target === null) return i18n.t("m25.check.line.plain", {
 		check: checkName,
 		holder,
@@ -116986,10 +117451,18 @@ var MechanicChecks = class {
 			bonus: this.bonusOf(def, check, holder)
 		});
 	}
-	/** The consequences of an outcome: state operations and English notes (the actor's values, the roll). */
+	/**
+	* The consequences of an outcome: state operations, English notes of the changes (the actor's values, the roll) and
+	* the author's outcome texts (what it means for the scene: the outcome's own, a critical's success ones, any).
+	*/
 	consequences(def, check, holder, target, roll, outcome, formula, messageIndex, margin) {
 		const ops = [];
 		const notes = [];
+		const texts = {
+			own: [],
+			wider: [],
+			any: []
+		};
 		const matches = (on) => on === "any" || on === outcome || on === "success" && outcome === "critical" || on === "failure" && outcome === "fumble";
 		const context = holderContextOf(this.deps.app);
 		const actionContext = {
@@ -117016,7 +117489,7 @@ var MechanicChecks = class {
 			const resolved = resolveActions(effect.changes, actionContext);
 			ops.push(...resolved.ops);
 			notes.push(...resolved.notes);
-			if (effect.text) notes.push(effect.text);
+			if (effect.text) (effect.on === "any" ? texts.any : effect.on === outcome ? texts.own : texts.wider).push(effect.text);
 			const missed = resolved.rejected.filter(({ action, reason }) => reason === "who" && TARGET_WHO.has((action.who ?? "").trim().toLowerCase()));
 			if (missed.length) this.deps.log.debug(`check ${def.id}.${check.id}: no target, ${missed.length} consequence(s) for the target skipped`);
 		}
@@ -117050,8 +117523,74 @@ var MechanicChecks = class {
 		}
 		return {
 			ops,
-			notes
+			notes,
+			texts
 		};
+	}
+	/**
+	* The first requirement of the check the roller does not meet (release 1.27), or null. A value that cannot be read
+	* (an unknown attribute, someone without the mechanic) does not stop the roll.
+	*/
+	unmet(def, check, holder, known) {
+		for (const need of check.requires ?? []) {
+			const have = this.numeric(def, holder, need.attr, known);
+			if (have === null || have >= need.min) continue;
+			return {
+				attr: need.attr,
+				have,
+				need: need.min,
+				...need.note ? { note: need.note } : {}
+			};
+		}
+		return null;
+	}
+	/** An attempt without the means: no dice, outcome 'none', the fact says it fails (as the visibility allows). */
+	blockedRoll(def, check, holder, formula, spec, unmet, aimedAt) {
+		const visibility = resolveVisibility(def);
+		const attribute = def.attributes.find((item) => item.id === unmet.attr);
+		const mode = visibility.preset === "secret" ? "none" : attribute ? resolveVisibility(def, attribute).prompt : "value";
+		const have = Math.round(unmet.have * 100) / 100;
+		const text = blockedFact(check.promptName || check.name, holder, {
+			attribute: attribute?.promptName || attribute?.name || unmet.attr,
+			have,
+			need: unmet.need,
+			mode,
+			...unmet.note ? { note: unmet.note } : {}
+		}, aimedAt);
+		const result = {
+			id: newRollId(),
+			mechanicId: def.id,
+			checkId: check.id,
+			holder,
+			dice: formula.text,
+			rolls: [],
+			modifier: 0,
+			total: 0,
+			target: null,
+			outcome: "none",
+			text,
+			messageIndex: spec.messageIndex,
+			by: spec.by,
+			at: Date.now(),
+			blocked: {
+				attr: unmet.attr,
+				have,
+				need: unmet.need
+			}
+		};
+		if (aimedAt) result.against = aimedAt;
+		this.finishResult(result, spec, visibility.preset);
+		this.deps.log.debug(`check ${def.id}.${check.id}: ${holder} lacks ${unmet.attr} (${have} < ${unmet.need}), no roll`);
+		return {
+			result,
+			ops: []
+		};
+	}
+	/** Hidden from the player (hidden, secret), the reply variant of a model roll, the stamp of the user's message. */
+	finishResult(result, spec, preset) {
+		if (preset === "secret" || preset === "hidden") result.hidden = true;
+		if (spec.swipe !== void 0) result.swipe = spec.swipe;
+		if (spec.messageIndex >= 0 && spec.by !== "model") result.stamp = stampOf(this.deps.app.host.ctx().chat?.[spec.messageIndex]);
 	}
 	makeRoll(def, check, holder, spec) {
 		const formula = parseDice(check.dice);
@@ -117066,6 +117605,8 @@ var MechanicChecks = class {
 		if (spec.strict && diceAttributes(formula).some((id) => this.numeric(def, holder, id, known) === null)) return null;
 		const vs = spec.vs ?? null;
 		const against = vs ? null : spec.against?.trim() || null;
+		const unmet = this.unmet(def, check, holder, known);
+		if (unmet) return this.blockedRoll(def, check, holder, formula, spec, unmet, vs?.holder ?? against);
 		const roll = this.rollFor(def, check, formula, holder, spec, !!vs && !formula.under);
 		if (formula.under && roll.target === null) throw new Error(this.t("m25.check.error.noValue", {
 			attribute: this.attributeName(def, roll.missing[0]),
@@ -117094,15 +117635,22 @@ var MechanicChecks = class {
 			}
 		}
 		const margin = other ? formula.under ? marginOf(roll) - marginOf(other) : roll.total - other.total : marginOf(roll);
-		const { ops, notes } = this.consequences(def, check, holder, vs?.holder ?? against, roll, outcome, formula, spec.messageIndex, margin);
+		const { ops, notes, texts } = this.consequences(def, check, holder, vs?.holder ?? against, roll, outcome, formula, spec.messageIndex, margin);
+		const barely = isBarely(outcome, margin, {
+			target: (other ? other.total : roll.target) !== null,
+			opposed: !!other
+		});
 		const visibility = resolveVisibility(def);
 		if (visibility.preset === "secret") {
-			const outcomes = (check.effects ?? []).filter((effect) => effect.text).map((effect) => effect.text);
-			const said = notes.filter((note) => outcomes.includes(note));
+			const said = [
+				...texts.own,
+				...texts.wider,
+				...texts.any
+			];
 			text = said.length ? `${check.promptName || check.name}: ${said.join("; ")}.` : "";
-		} else if (notes.length) text = `${text} Consequences: ${notes.join("; ")}.`;
+		} else text = factWithMeaning(text, notes, outcomeMeaning(outcome, texts, barely));
 		const result = {
-			id: `m25c-${Date.now().toString(36)}-${Math.floor(Math.random() * 1e9).toString(36)}`,
+			id: newRollId(),
 			mechanicId: def.id,
 			checkId: check.id,
 			holder,
@@ -117130,9 +117678,8 @@ var MechanicChecks = class {
 		};
 		if (notes.length) result.consequences = notes;
 		if (against) result.against = against;
-		if (visibility.preset === "secret" || visibility.preset === "hidden") result.hidden = true;
-		if (spec.swipe !== void 0) result.swipe = spec.swipe;
-		if (spec.messageIndex >= 0 && spec.by !== "model") result.stamp = stampOf(this.deps.app.host.ctx().chat?.[spec.messageIndex]);
+		if (barely) result.barely = true;
+		this.finishResult(result, spec, visibility.preset);
 		return {
 			result,
 			ops: ops.map((op) => ({
@@ -117140,6 +117687,10 @@ var MechanicChecks = class {
 				rollId: result.id
 			}))
 		};
+	}
+	/** The localized line of a result (the journal, notices). */
+	lineOf(result) {
+		return describeCheck(result, this.deps.app.i18n, checkNameOf(this.defs, result), blockedAttributeOf(this.defs, result));
 	}
 	record(rolled) {
 		const { result, ops } = rolled;
@@ -117168,7 +117719,7 @@ var MechanicChecks = class {
 	}
 	/** The roll in the journal; with consequences its undo takes them back (target 'mechanics.batch', by roll id). */
 	journal(result, consequences = 0) {
-		const line = describeCheck(result, this.deps.app.i18n, checkNameOf(this.defs, result));
+		const line = this.lineOf(result);
 		const chatId = this.deps.app.host.chatId();
 		const action = {
 			module: "M25",
@@ -117231,10 +117782,13 @@ var MechanicChecks = class {
 			vs
 		}));
 	}
-	/** Names of the checks the model may ask for (the block instruction lists them). */
+	/**
+	* Names of the checks the model may ask for (the block instruction lists them): of the mechanics on that have a
+	* holder in the scene now (release 1.27) and that the model may know of.
+	*/
 	checkNames() {
 		try {
-			return this.defs.active().filter((def) => resolveVisibility(def).prompt !== "none").flatMap((def) => def.checks.map((check) => check.promptName || check.name)).filter(Boolean);
+			return this.defs.active().filter((def) => resolveVisibility(def).prompt !== "none" && this.holdersOf(def).length > 0).flatMap((def) => def.checks.map((check) => check.promptName || check.name)).filter(Boolean);
 		} catch {
 			return [];
 		}
@@ -117253,13 +117807,15 @@ var MechanicChecks = class {
 	}
 	/**
 	* The block of a reply asks for rolls (`roll: Stealth Kai vs Guard.Perception adv`): rolled now, they belong to
-	* the reply (a swipe drops them) and reach the next generation as facts.
+	* the reply (a swipe drops them) and reach the next generation as facts — with settings.rollContinue that is the
+	* continuation of the same reply (roll-continue.ts). The rolls made now are counted.
 	*/
 	requested(index, swipeId, rolls) {
-		if (this.disposed || !this.deps.settings().modelRolls || !Number.isInteger(index) || index < 0) return;
-		if (!this.deps.app.host.chatId() || this.deps.app.host.chatId() !== this.chatId) return;
+		if (this.disposed || !this.deps.settings().modelRolls || !Number.isInteger(index) || index < 0) return 0;
+		if (!this.deps.app.host.chatId() || this.deps.app.host.chatId() !== this.chatId) return 0;
 		const refs = this.checkRefs();
 		let made = this.results.filter((result) => result.by === "model" && result.messageIndex === index && result.swipe === swipeId).length;
+		let fresh = 0;
 		for (const request of rolls) {
 			if (made >= MODEL_ROLLS_MAX) break;
 			try {
@@ -117293,10 +117849,12 @@ var MechanicChecks = class {
 				if (!rolled) continue;
 				this.record(rolled);
 				made++;
+				fresh++;
 			} catch (error) {
 				this.deps.log.debug(`mechanics: the roll "${request.line}" was not made`, error);
 			}
 		}
+		return fresh;
 	}
 	rollsOf(messageIndex) {
 		return this.results.filter((result) => result.messageIndex === messageIndex).map(publicResult);
@@ -117304,7 +117862,7 @@ var MechanicChecks = class {
 	async undoRoll(rollId) {
 		const result = this.results.find((item) => item.id === rollId);
 		if (!result || result.undone) return false;
-		const line = describeCheck(result, this.deps.app.i18n, checkNameOf(this.defs, result));
+		const line = this.lineOf(result);
 		const removed = await this.state.undoWhere?.((change) => change.rollId === rollId, {
 			kind: "mechanics.undoRoll",
 			summary: this.t("m25.check.journal.undone", { line })
@@ -117449,8 +118007,7 @@ var MechanicChecks = class {
 		const { app } = this.deps;
 		try {
 			const result = this.commandRoll(args, typeof value === "string" ? value : String(value ?? ""));
-			const line = describeCheck(result, app.i18n, checkNameOf(this.defs, result));
-			app.ui.notice(this.t("m25.check.rolled", { line }), { urgent: true });
+			app.ui.notice(this.t(rollNoticeKey(result), { line: this.lineOf(result) }), { urgent: true });
 			return result.text;
 		} catch (error) {
 			const message = error instanceof Error ? error.message : String(error);
@@ -117532,6 +118089,10 @@ var MechanicChecks = class {
 		this.changed();
 	}
 };
+/** A roll's id. Not from the checks' RNG: an injected (seeded) RNG serves the dice only. */
+function newRollId() {
+	return `m25c-${Date.now().toString(36)}-${Math.floor(Math.random() * 1e9).toString(36)}`;
+}
 /** An attack of a mechanic that runs fights (not its initiative): aimed at someone even without target consequences. */
 function isAttack(def, check) {
 	if (!def.combat || check.id === def.combat.initiative) return false;
@@ -118371,20 +118932,36 @@ var MechanicDefinitionsService = class {
 //#endregion
 //#region src/domain/mechanics-prompt.ts
 var countTokens = (text) => estimateTokens$2(text.length);
-var RULES_HEADER = "[Mechanics]";
+var RULES_OPEN = "<game_rules>";
+var RULES_CLOSE = "</game_rules>";
+var STATE_OPEN = "<game_state>";
+var STATE_CLOSE = "</game_state>";
+/** The framing line of the rules: at the top of the prompt, or right before the state. */
+var RULES_FRAME = {
+	top: "This story runs on the game systems below. They are binding: costs, limits and outcomes decide what can happen; the current values are in <game_state> near the end.",
+	end: "This story runs on the game systems below. They are binding: costs, limits and outcomes decide what can happen; the current values follow in <game_state>."
+};
+var STATE_CLOSING = "Write this reply in line with these values.";
+var PERSONA_MARK = "(the user's character)";
 var FACTS_HEADER = "[Mechanics results — already decided; narrate them as given, do not change them]";
 var TEXT_VALUE_MAX = 80;
-function compact(text) {
+function compact$1(text) {
 	return text.replace(/\s+/g, " ").trim();
 }
 function plainNumber(value) {
 	return String(Math.round(value * 100) / 100);
 }
 function labelOf(attribute) {
-	return compact(attribute.promptName || attribute.name || attribute.id).toLowerCase();
+	return compact$1(attribute.promptName || attribute.name || attribute.id).toLowerCase();
 }
-/** One value for the model: "mana 12/30", "standing: warm (4/5)", "schools: fire, water", 'mood: "calm"'. */
-function formatValue(attribute, value) {
+function mechanicLabel(mechanic) {
+	return compact$1(mechanic.promptName || mechanic.name || mechanic.id);
+}
+/**
+* One value for the model: "mana 12/30", "standing: warm (4/5)", "schools: fire, water", 'mood: "calm"'. `band`: the word
+* of a number ("mana 12/30 (low)", "heat 2 (-10..10, low)").
+*/
+function formatValue(attribute, value, band) {
 	if (value === null || value === void 0) return null;
 	const label = labelOf(attribute);
 	switch (attribute.kind) {
@@ -118392,8 +118969,9 @@ function formatValue(attribute, value) {
 			const number = typeof value === "number" ? value : Number(value);
 			if (!Number.isFinite(number)) return null;
 			const { min, max } = attribute;
-			if (typeof max === "number") return typeof min === "number" && min !== 0 ? `${label} ${plainNumber(number)} (${plainNumber(min)}..${plainNumber(max)})` : `${label} ${plainNumber(number)}/${plainNumber(max)}`;
-			return `${label} ${plainNumber(number)}`;
+			const word = band ? compact$1(band) : "";
+			if (typeof max === "number") return typeof min === "number" && min !== 0 ? `${label} ${plainNumber(number)} (${plainNumber(min)}..${plainNumber(max)}${word ? `, ${word}` : ""})` : `${label} ${plainNumber(number)}/${plainNumber(max)}${word ? ` (${word})` : ""}`;
+			return `${label} ${plainNumber(number)}${word ? ` (${word})` : ""}`;
 		}
 		case "scale": {
 			const level = String(value);
@@ -118402,33 +118980,46 @@ function formatValue(attribute, value) {
 			return index >= 0 ? `${label}: ${level} (${index + 1}/${levels.length})` : `${label}: ${level}`;
 		}
 		case "list": {
-			const items = (Array.isArray(value) ? value : [String(value)]).map(compact).filter(Boolean);
+			const items = (Array.isArray(value) ? value : [String(value)]).map(compact$1).filter(Boolean);
 			return `${label}: ${items.length ? items.join(", ") : "none"}`;
 		}
 		default: {
-			const text = compact(Array.isArray(value) ? value.join(", ") : String(value));
+			const text = compact$1(Array.isArray(value) ? value.join(", ") : String(value));
 			if (!text) return null;
 			return `${label}: "${text.length > TEXT_VALUE_MAX ? `${text.slice(0, 79).trimEnd()}…` : text}"`;
 		}
 	}
 }
+/**
+* The band word of a number the model gets as a value: the attribute's own bands, else the default bands of a bounded
+* number ("very low"); null for other kinds, unbounded numbers without bands and a progression's level.
+*/
+function bandWord(mechanic, attribute, value) {
+	if (attribute.kind !== "number" || mechanic.progression?.level === attribute.id) return null;
+	const words = wordsFor(attribute, resolveVisibility(mechanic, attribute), value);
+	return words ? compact$1(words.label) || null : null;
+}
 /** One value as words ("mana: low"), or as a value when the attribute has no words. */
 function wordsValue(mechanic, attribute, value) {
 	const words = wordsFor(attribute, resolveVisibility(mechanic, attribute), value);
 	if (!words) return formatValue(attribute, value);
-	return `${labelOf(attribute)}: ${compact(words.label)}`;
+	return `${labelOf(attribute)}: ${compact$1(words.label)}`;
 }
-/** "Kai: mana 12/30, schools: fire, water", or null when the holder shows nothing. */
-function holderLine(mechanic, holder) {
+/** One value as the model may know it: words, or the value with its band word; null for secret ones. */
+function valueText$1(mechanic, attribute, value) {
+	const visibility = resolveVisibility(mechanic, attribute);
+	if (visibility.prompt === "none") return null;
+	if (visibility.prompt === "words") return wordsValue(mechanic, attribute, value);
+	return formatValue(attribute, value, bandWord(mechanic, attribute, value));
+}
+/** "mana 12/30 (low), schools: fire, water" of one holder in one mechanic, or null when it shows nothing. */
+function holderValues(mechanic, holder) {
 	const parts = [];
 	for (const attribute of mechanic.attributes) {
-		const visibility = resolveVisibility(mechanic, attribute);
-		if (visibility.prompt === "none") continue;
-		const value = holder.values[attribute.id];
-		const text = visibility.prompt === "words" ? wordsValue(mechanic, attribute, value) : formatValue(attribute, value);
+		const text = valueText$1(mechanic, attribute, holder.values[attribute.id]);
 		if (text) parts.push(text);
 	}
-	return parts.length ? `${compact(holder.name)}: ${parts.join(", ")}` : null;
+	return parts.length ? parts.join(", ") : null;
 }
 /** "Changes: attitude in words only, never as numbers." for attributes that may not be stated with numbers. */
 function mentionText(mechanic) {
@@ -118445,51 +119036,205 @@ function mentionText(mechanic) {
 		names: groups.get(mention) ?? []
 	})));
 }
-function rulesText(mechanic, level) {
+/** A threshold event the model is reminded of every generation while its condition holds. */
+function isLasting(event) {
+	return event.when.op !== "changed" && event.lasting !== false;
+}
+/** Where a threshold sits on its attribute: a number (lists: a size), a scale level's index; null when unknown. */
+function thresholdRank(attribute, raw) {
+	if (raw === void 0) return null;
+	if (attribute.kind === "scale") {
+		const index = (attribute.levels ?? []).findIndex((level) => nameKey$8(level) === nameKey$8(String(raw)));
+		if (index >= 0) return index;
+	}
+	return attribute.kind === "text" ? null : toNumber$1(raw);
+}
+/** Of several holding events on one side ('<=' or '>='), the most extreme threshold; '=' events all. */
+function strongest(attribute, events) {
+	const keep = new Set(events.filter((event) => event.when.op === "="));
+	for (const op of ["<=", ">="]) {
+		const ranked = events.filter((event) => event.when.op === op).map((event) => ({
+			event,
+			rank: thresholdRank(attribute, event.when.value)
+		}));
+		const known = ranked.map((item) => item.rank).filter((rank) => rank !== null);
+		const best = known.length ? op === "<=" ? Math.min(...known) : Math.max(...known) : null;
+		for (const item of ranked) if (item.rank === null || item.rank === best) keep.add(item.event);
+	}
+	return events.filter((event) => keep.has(event));
+}
+function sentence(text) {
+	const clean = compact$1(text);
+	return !clean || /[.!?…"»)]$/.test(clean) ? clean : `${clean}.`;
+}
+/**
+* The lasting events of a holder's values that hold now, filled in ("Kai has no mana left and cannot cast."). Only the
+* attributes the model may know; a 'words' attribute fills {value} with its word.
+*/
+function lastingLines(mechanic, holder) {
+	const lines = [];
+	for (const attribute of mechanic.attributes) {
+		const visibility = resolveVisibility(mechanic, attribute);
+		if (visibility.prompt === "none") continue;
+		const value = holder.values[attribute.id];
+		if (value === null || value === void 0) continue;
+		const holding = (attribute.events ?? []).filter((event) => {
+			if (!isLasting(event) || !event.text.trim()) return false;
+			try {
+				return eventCondition$1(attribute, event.when, value);
+			} catch {
+				return false;
+			}
+		});
+		if (!holding.length) continue;
+		const shown = visibility.prompt === "words" ? wordsFor(attribute, visibility, value)?.label ?? value : value;
+		const name = compact$1(attribute.promptName || attribute.name || attribute.id);
+		for (const event of strongest(attribute, holding)) {
+			const line = sentence(fillEventText(event.text, compact$1(holder.name), shown, name));
+			if (line && !lines.includes(line)) lines.push(line);
+		}
+	}
+	return lines;
+}
+function spaced(id) {
+	return compact$1(id.replace(/_/g, " "));
+}
+var defaultModifierLabel = (key) => {
+	const clean = key.trim();
+	if (clean.toLowerCase() === "checks") return "checks";
+	if (/^check:/i.test(clean)) return `${spaced(clean.slice(6))} checks`;
+	return spaced(clean.includes(".") ? clean.slice(clean.lastIndexOf(".") + 1) : clean);
+};
+function signed(amount) {
+	const rounded = Math.round(amount * 100) / 100;
+	return rounded < 0 ? `−${plainNumber(-rounded)}` : `+${plainNumber(rounded)}`;
+}
+/** "poisoned x2 (2 turns left; checks −4): nausea" — stacks, what is left, the modifiers (times the stacks), the note. */
+function statusText(status, label = defaultModifierLabel) {
+	const stacks = status.stacks && status.stacks > 1 ? status.stacks : 1;
+	const inside = [];
+	const time = durationText$1(status);
+	if (time) inside.push(time);
+	const modifiers = Object.entries(status.modifiers ?? {}).filter(([, amount]) => Number.isFinite(amount) && amount !== 0).map(([key, amount]) => `${label(key, status.mechanicId)} ${signed(amount * stacks)}`);
+	if (modifiers.length) inside.push(modifiers.join(", "));
+	const note = status.text ? `: ${compact$1(status.text)}` : "";
+	return `${compact$1(status.promptName)}${stacks > 1 ? ` x${stacks}` : ""}${inside.length ? ` (${inside.join("; ")})` : ""}${note}`;
+}
+/** The DES line: the tracker's stats are these values (no line without names). */
+function trackerLine(names) {
+	const clean = [];
+	for (const name of names) {
+		const text = compact$1(name);
+		if (text && !clean.some((known) => nameKey$8(known) === nameKey$8(text))) clean.push(text);
+	}
+	return clean.length ? `Tracker stats: ${clean.join(", ")} in your tracker JSON are these same values — start from the numbers above and change them only by what happens in this reply.` : "";
+}
+/** Sections most important first (facts, changed, named, the rest); the given order otherwise. */
+function orderSections(sections, signals) {
+	const facts = new Set(signals.facts ?? []);
+	const changed = new Set(signals.changed ?? []);
+	const named = new Set(signals.named ?? []);
+	const rank = (id) => facts.has(id) ? 0 : changed.has(id) ? 1 : named.has(id) ? 2 : 3;
+	return sections.map((section, index) => ({
+		section,
+		index,
+		rank: rank(section.mechanic.id)
+	})).sort((a, b) => a.rank - b.rank || a.index - b.index).map((item) => item.section);
+}
+/** Lower-case words of a text with spaces around: " kai casts a fireball ". */
+function plainWords(text) {
+	return ` ${nameKey$8(text).replace(/[^\p{L}\p{N}]+/gu, " ").trim()} `;
+}
+/** The words of a name cut to stems (Russian case endings: «мана» → «ман», «здоровье» → «здоров»). */
+function stemsOf(name) {
+	return plainWords(name).trim().split(" ").filter((word) => word.length >= 3).map((word) => {
+		if (!/[а-я]/.test(word) || word.length < 4) return word;
+		return word.slice(0, word.length >= 6 ? -2 : -1);
+	});
+}
+/** One of the names occurs in the text (every word of it, as a word start; Russian endings may differ). */
+function mentionedIn(text, names) {
+	const plain = plainWords(text);
+	return names.some((name) => {
+		const stems = stemsOf(name);
+		return stems.length > 0 && stems.every((stem) => plain.includes(` ${stem}`));
+	});
+}
+/** The rules of a mechanic at a level, lines kept (each compacted, empty ones dropped). */
+function rulesBody(mechanic, level) {
 	if (level === "none") return "";
-	const rules = compact(mechanic.rules);
-	const summary = compact(mechanic.summary);
+	const lines = (text) => text.split(/\r?\n/).map(compact$1).filter(Boolean).join("\n");
+	const rules = lines(mechanic.rules);
+	const summary = lines(mechanic.summary);
 	if (level === "summary") return summary;
 	return rules || summary;
 }
-function sectionText$1(draft) {
-	const label = compact(draft.section.mechanic.promptName || draft.section.mechanic.name || draft.section.mechanic.id);
-	const rules = rulesText(draft.section.mechanic, draft.rules);
-	return [`${rules ? `${label}: ${rules}` : label}${draft.rules !== "none" && draft.mention ? ` ${draft.mention}` : ""}`, ...draft.lines.map((line) => line.text)].join(" | ");
+function sectionRules(draft) {
+	if (draft.rules === "none") return "";
+	const lines = [rulesBody(draft.section.mechanic, draft.rules), draft.mention].filter(Boolean);
+	return lines.length ? `## ${mechanicLabel(draft.section.mechanic)}\n${lines.join("\n")}` : "";
 }
-function assemble(drafts, tail) {
-	const lines = drafts.map(sectionText$1);
-	if (lines.length) lines[0] = `${RULES_HEADER} ${lines[0]}`;
-	lines.push(...tail.extras, ...tail.fixed);
-	if (tail.instruction) lines.push(tail.instruction);
-	return lines.join("\n");
+function assembleRules(drafts, tail) {
+	const position = (id) => {
+		const at = tail.rulesOrder.indexOf(id);
+		return at < 0 ? Number.MAX_SAFE_INTEGER : at;
+	};
+	const sections = drafts.map((draft, index) => ({
+		draft,
+		index
+	})).sort((a, b) => position(a.draft.section.mechanic.id) - position(b.draft.section.mechanic.id) || a.index - b.index).map((item) => item.draft).map(sectionRules).filter(Boolean);
+	const parts = sections.length ? [RULES_FRAME[tail.place], ...sections] : [];
+	return parts.length ? [
+		RULES_OPEN,
+		parts.join("\n\n"),
+		RULES_CLOSE
+	].join("\n") : "";
+}
+/** Holders in the order of the state: the user's character first, then as the sections name them, then the rest. */
+function holderOrder(drafts, extras) {
+	const names = [];
+	const add = (name) => {
+		if (compact$1(name) && !names.some((known) => nameKey$8(known) === nameKey$8(name))) names.push(compact$1(name));
+	};
+	for (const draft of drafts) for (const slice of draft.slices) if (slice.holder.persona) add(slice.holder.name);
+	for (const draft of drafts) for (const slice of draft.slices) add(slice.holder.name);
+	for (const extra of extras) add(extra.name);
+	return names;
+}
+function assembleState(drafts, tail, order) {
+	const blocks = [];
+	for (const name of order) {
+		const key = nameKey$8(name);
+		const lines = [];
+		const now = [];
+		let persona = false;
+		for (const draft of drafts) for (const slice of draft.slices) {
+			if (nameKey$8(slice.holder.name) !== key) continue;
+			persona ||= slice.holder.persona === true;
+			if (slice.values) lines.push(`- ${mechanicLabel(draft.section.mechanic)}: ${slice.values}`);
+			for (const line of slice.now) if (!now.includes(line)) now.push(line);
+		}
+		if (now.length) lines.push(`- now: ${now.join(" ")}`);
+		const extra = tail.extras.find((item) => nameKey$8(item.name) === key);
+		if (extra?.conditions) lines.push(`- conditions: ${extra.conditions}`);
+		if (extra?.inventory) lines.push(`- inventory: ${extra.inventory}`);
+		if (lines.length) blocks.push([persona ? `${name} ${PERSONA_MARK}` : name, ...lines].join("\n"));
+	}
+	return [...blocks.length || tail.fixed.length ? [
+		STATE_OPEN,
+		...blocks,
+		...tail.fixed,
+		STATE_CLOSING,
+		STATE_CLOSE
+	] : [], ...tail.instruction ? [tail.instruction] : []].join("\n");
 }
 /** The next thing to cut, least important first; false when nothing is left to cut. */
-function cutOne(drafts, cut, tail) {
+function cutOne(drafts, extras, cut) {
 	const backwards = [...drafts].reverse();
 	for (const draft of backwards) {
-		const at = draft.lines.map((line) => !line.holder.primary).lastIndexOf(true);
-		if (at < 0) continue;
-		const line = draft.lines.splice(at, 1)[0];
-		cut.push({
-			kind: "holder",
-			mechanicId: draft.section.mechanic.id,
-			holder: line.holder.name,
-			primary: false
-		});
-		return true;
-	}
-	if (tail.extras.length) {
-		tail.extras.pop();
-		cut.push({
-			kind: "extra",
-			index: tail.extras.length
-		});
-		return true;
-	}
-	for (const draft of backwards) {
 		const { mechanic } = draft.section;
-		if (draft.rules !== "full" || !compact(mechanic.summary) || !compact(mechanic.rules)) continue;
+		if (draft.rules !== "full" || !rulesBody(mechanic, "summary") || !compact$1(mechanic.rules)) continue;
+		if (rulesBody(mechanic, "summary") === rulesBody(mechanic, "full")) continue;
 		draft.rules = "summary";
 		cut.push({
 			kind: "rules",
@@ -118499,7 +119244,7 @@ function cutOne(drafts, cut, tail) {
 		return true;
 	}
 	for (const draft of backwards) {
-		if (draft.rules === "none" || !rulesText(draft.section.mechanic, draft.rules)) continue;
+		if (draft.rules === "none" || !sectionRules(draft)) continue;
 		draft.rules = "none";
 		cut.push({
 			kind: "rules",
@@ -118508,17 +119253,42 @@ function cutOne(drafts, cut, tail) {
 		});
 		return true;
 	}
-	for (const draft of backwards) {
-		const line = draft.lines.pop();
-		if (!line) continue;
-		cut.push({
-			kind: "holder",
-			mechanicId: draft.section.mechanic.id,
-			holder: line.holder.name,
-			primary: true
-		});
-		return true;
-	}
+	const slices = (primary, what) => {
+		for (const draft of backwards) for (const slice of [...draft.slices].reverse()) {
+			if (slice.holder.primary === true !== primary) continue;
+			if (what === "values" ? !slice.values : !slice.now.length) continue;
+			if (what === "values") slice.values = null;
+			else slice.now = [];
+			cut.push({
+				kind: what === "values" ? "holder" : "now",
+				mechanicId: draft.section.mechanic.id,
+				holder: slice.holder.name,
+				primary
+			});
+			return true;
+		}
+		return false;
+	};
+	const extra = (primary, what) => {
+		for (const item of [...extras].reverse()) {
+			if (item.primary !== primary || !item[what]) continue;
+			item[what] = "";
+			cut.push({
+				kind: "extra",
+				holder: item.name,
+				what,
+				primary
+			});
+			return true;
+		}
+		return false;
+	};
+	if (slices(false, "values")) return true;
+	if (extra(false, "inventory") || extra(false, "conditions")) return true;
+	if (extra(true, "inventory") || extra(true, "conditions")) return true;
+	if (slices(false, "now")) return true;
+	if (slices(true, "values")) return true;
+	if (slices(true, "now")) return true;
 	const last = drafts.pop();
 	if (!last) return false;
 	cut.push({
@@ -118528,38 +119298,75 @@ function cutOne(drafts, cut, tail) {
 	return true;
 }
 /**
-* The rules + state block. Sections without a holder line are kept (their rules still apply in the scene); sections
-* are taken in the given order (the caller puts the most important first).
+* The rules and the state of the mechanics in the scene, cut together to the budget. Sections are taken in the given
+* order (the caller puts the most important first); the rules block follows `rulesOrder`. Sections without a value
+* still give their rules (they apply in the scene).
 */
-function renderRules(sections, options) {
+function renderGame(sections, options) {
 	const count = options.count ?? countTokens;
-	const tail = {
-		instruction: (options.instruction ?? "").trim(),
-		extras: (options.extras ?? []).map(compact).filter(Boolean),
-		fixed: (options.fixed ?? []).map(compact).filter(Boolean)
-	};
-	const budget = options.budget > 0 ? Math.floor(options.budget) : 0;
+	const label = options.modifierLabel ?? defaultModifierLabel;
 	const drafts = sections.map((section) => ({
 		section,
 		rules: "full",
 		mention: mentionText(section.mechanic),
-		lines: section.holders.flatMap((holder) => {
-			const text = holderLine(section.mechanic, holder);
-			return text ? [{
-				holder,
-				text
-			}] : [];
-		})
+		slices: section.holders.map((holder) => ({
+			holder,
+			values: holderValues(section.mechanic, holder),
+			now: lastingLines(section.mechanic, holder)
+		}))
 	}));
+	const primaryNames = new Set(sections.flatMap((section) => section.holders.filter((holder) => holder.primary || holder.persona).map((holder) => nameKey$8(holder.name))));
+	const extras = [];
+	for (const entry of options.extras ?? []) {
+		const name = compact$1(entry.holder);
+		if (!name) continue;
+		const conditions = (entry.statuses ?? []).map((status) => statusText(status, label)).join(", ");
+		const inventory = entry.items?.length ? itemsText(entry.items) : "";
+		if (!conditions && !inventory) continue;
+		const known = extras.find((item) => nameKey$8(item.name) === nameKey$8(name));
+		if (known) {
+			known.conditions ||= conditions;
+			known.inventory ||= inventory;
+			continue;
+		}
+		extras.push({
+			name,
+			conditions,
+			inventory,
+			primary: primaryNames.has(nameKey$8(name))
+		});
+	}
+	const tail = {
+		instruction: (options.instruction ?? "").trim(),
+		fixed: (options.fixed ?? []).map(compact$1).filter(Boolean),
+		place: options.place === "end" ? "end" : "top",
+		rulesOrder: options.rulesOrder ?? [],
+		extras
+	};
+	const order = holderOrder(drafts, extras);
+	const budget = options.budget > 0 ? Math.floor(options.budget) : 0;
 	const cut = [];
-	let text = assemble(drafts, tail);
-	while (budget > 0 && count(text) > budget && cutOne(drafts, cut, tail)) text = assemble(drafts, tail);
+	const render = () => {
+		const rules = assembleRules(drafts, tail);
+		const state = assembleState(drafts, tail, order);
+		const rulesTokens = rules ? count(rules) : 0;
+		const stateTokens = state ? count(state) : 0;
+		return {
+			rules,
+			state,
+			rulesTokens,
+			stateTokens,
+			tokens: rulesTokens + stateTokens
+		};
+	};
+	let result = render();
+	while (budget > 0 && result.tokens > budget && cutOne(drafts, extras, cut)) result = render();
+	const mechanics = drafts.filter((draft) => sectionRules(draft) || draft.slices.some((slice) => slice.values || slice.now.length)).map((draft) => draft.section.mechanic.id);
 	return {
-		text,
-		tokens: text ? count(text) : 0,
+		...result,
 		budget,
 		cut,
-		mechanics: drafts.map((draft) => draft.section.mechanic.id)
+		mechanics
 	};
 }
 /** Check results and fired events for one generation (each fact on its own line, repeats dropped). */
@@ -118567,48 +119374,33 @@ function renderFacts(facts) {
 	const seen = /* @__PURE__ */ new Set();
 	const lines = [];
 	for (const fact of facts) {
-		const text = compact(fact);
+		const text = compact$1(fact);
 		if (!text || seen.has(text)) continue;
 		seen.add(text);
 		lines.push(`- ${text}`);
 	}
 	return lines.length ? `${FACTS_HEADER}\n${lines.join("\n")}` : "";
 }
-/**
-* "[Conditions] Kai: poisoned (2 turns left), blessed (until day 3 18:00) | Mira: stunned" for the holders in the scene
-* that have any; '' when nobody has one.
-*/
-function conditionsLine(entries) {
-	const parts = [];
-	for (const entry of entries) {
-		if (!entry.statuses.length) continue;
-		const list = entry.statuses.map((status) => {
-			const stacks = status.stacks && status.stacks > 1 ? ` x${status.stacks}` : "";
-			const time = durationText$1(status);
-			const note = status.text ? `: ${compact(status.text)}` : "";
-			return `${compact(status.promptName)}${stacks}${time ? ` (${time})` : ""}${note}`;
-		});
-		parts.push(`${compact(entry.holder)}: ${list.join(", ")}`);
-	}
-	return parts.length ? `[Conditions] ${parts.join(" | ")}` : "";
-}
-/** "[Inventory] Kai: rope x2, sword (in hand) | Mira: lantern"; '' when nobody carries anything. */
-function inventoryLine(entries) {
-	const parts = entries.filter((entry) => entry.items.length).map((entry) => `${compact(entry.holder)}: ${itemsText(entry.items)}`);
-	return parts.length ? `[Inventory] ${parts.join(" | ")}` : "";
-}
 //#endregion
 //#region src/features/mechanics/prompt.ts
 var PROMPT_PRODUCER = "mechanics";
 /**
 * app.ephemeral prefixes injection keys with `maestro_` (core/ephemeral.ts injectionKey): these keys give the
-* extension prompt slots INJECT_RULES (`maestro_mechanics`) and INJECT_FACTS (`maestro_mechanics_facts`).
+* extension prompt slots INJECT_STATE (`maestro_mechanics`), INJECT_RULES (`maestro_mechanics_rules`) and INJECT_FACTS
+* (`maestro_mechanics_facts`).
 */
+var STATE_KEY = INJECT_STATE.replace(/^maestro_/, "");
 var RULES_KEY$1 = INJECT_RULES.replace(/^maestro_/, "");
 var FACTS_KEY = INJECT_FACTS.replace(/^maestro_/, "");
+/** ST extension_prompt_types: in the prompt (after the main prompt in Chat Completion), in the chat at a depth. */
+var IN_PROMPT = 0;
+var IN_CHAT = 1;
 /** Results looked through when a swipe repeats the delivered facts. */
 var REPEAT_LOOKUP = 50;
-var DEFAULT_DEPTH = 1;
+/** Changes looked through for the mechanics changed in the last turns. */
+var HISTORY_LOOKUP$1 = 200;
+/** User turns a change keeps its mechanic among the important ones. */
+var RECENT_TURNS = 2;
 /** `maestro_mech_<id>`, safe for `{{if .name}}` whatever the id. */
 function mechanicFlag(id) {
 	return `${FLAG_PREFIX}${id.replace(/[^\w]/g, "_")}`;
@@ -118628,8 +119420,15 @@ function mechanicFlags(defs) {
 	}
 	return result;
 }
+/** The rules and the state as one text (the state slot's text when the rules go right before it). */
+function joinBlocks(rules, state) {
+	return [rules, state].filter(Boolean).join("\n");
+}
 function eventKey(event) {
 	return `${event.mechanicId}|${event.holder}|${event.attribute}|${event.eventId}|${event.messageIndex}|${event.at}`;
+}
+function compact(text) {
+	return text.replace(/\s+/g, " ").trim();
 }
 var MechanicPrompt = class {
 	deps;
@@ -118703,49 +119502,117 @@ var MechanicPrompt = class {
 	}
 	/** Conditions and inventories of the holders in the scene, as the model may know them. */
 	extras(scene) {
-		const lines = [];
 		const names = [];
+		const add = (list, holder) => {
+			if (!list.some((name) => nameKey$4(name) === nameKey$4(holder))) list.push(holder);
+		};
 		for (const entry of scene) {
 			if (entry.def.holders.kind === "world" || entry.def.holders.kind === "factions") continue;
-			for (const holder of entry.holders) if (!names.some((name) => nameKey$4(name) === nameKey$4(holder))) names.push(holder);
+			for (const holder of entry.holders) add(names, holder);
 		}
 		const statuses = this.safe(() => this.state.statuses?.() ?? [], [], "the statuses");
 		const known = (mechanicId) => {
 			const def = mechanicId ? this.safe(() => this.defs.get(mechanicId), null, "a definition") : null;
 			return !def || resolveVisibility(def).prompt !== "none";
 		};
-		const conditionText = conditionsLine(names.map((holder) => ({
-			holder,
-			statuses: (statuses.find((entry) => nameKey$4(entry.holder) === nameKey$4(holder))?.statuses ?? []).filter((status) => known(status.mechanicId))
-		})));
-		if (conditionText) lines.push(conditionText);
 		const items = this.safe(() => this.state.items?.() ?? [], [], "the items");
 		const carriers = [];
 		for (const entry of scene) {
 			if (entry.def.inventory === void 0 || resolveVisibility(entry.def).prompt === "none") continue;
-			for (const holder of entry.holders) if (!carriers.some((name) => nameKey$4(name) === nameKey$4(holder))) carriers.push(holder);
+			for (const holder of entry.holders) add(carriers, holder);
 		}
-		const inventoryText = inventoryLine(carriers.map((holder) => ({
+		const everyone = [...names];
+		for (const holder of carriers) add(everyone, holder);
+		return everyone.map((holder) => ({
 			holder,
-			items: items.find((entry) => nameKey$4(entry.holder) === nameKey$4(holder))?.items ?? []
-		})));
-		if (inventoryText) lines.push(inventoryText);
-		return lines;
+			statuses: names.some((name) => nameKey$4(name) === nameKey$4(holder)) ? (statuses.find((entry) => nameKey$4(entry.holder) === nameKey$4(holder))?.statuses ?? []).filter((status) => known(status.mechanicId)) : [],
+			items: carriers.some((name) => nameKey$4(name) === nameKey$4(holder)) ? items.find((entry) => nameKey$4(entry.holder) === nameKey$4(holder))?.items ?? [] : []
+		}));
+	}
+	/** Modifier keys in the words of the definitions: a check's or an attribute's English name. */
+	modifierLabel() {
+		const defs = this.safe(() => this.defs.active(), [], "the definitions");
+		return (key, mechanicId) => {
+			const clean = key.trim();
+			if (clean.toLowerCase() === "checks") return "checks";
+			const own = mechanicId ? defs.find((def) => def.id === mechanicId) : void 0;
+			const order = own ? [own, ...defs.filter((def) => def !== own)] : defs;
+			if (/^check:/i.test(clean)) {
+				const id = clean.slice(6).trim();
+				for (const def of order) {
+					const check = def.checks.find((item) => item.id === id);
+					if (check) return `${compact(check.promptName || check.name).toLowerCase()} checks`;
+				}
+				return defaultModifierLabel(key);
+			}
+			const dot = clean.indexOf(".");
+			const pool = dot > 0 ? defs.filter((def) => def.id === clean.slice(0, dot)) : order;
+			const id = dot > 0 ? clean.slice(dot + 1) : clean;
+			for (const def of pool) {
+				const attribute = def.attributes.find((item) => item.id === id);
+				if (attribute) return compact(attribute.promptName || attribute.name).toLowerCase();
+			}
+			return defaultModifierLabel(key);
+		};
 	}
 	sections(scene) {
 		const persona = nameKey$4(this.deps.app.host.ctx().name1 ?? "");
 		return scene.map(({ def, holders }) => {
-			const own = holders.findIndex((name) => nameKey$4(name) === persona);
+			const own = persona ? holders.findIndex((name) => nameKey$4(name) === persona) : -1;
 			const primary = own >= 0 ? own : 0;
 			return {
 				mechanic: def,
 				holders: holders.map((name, index) => ({
 					name,
 					primary: index === primary,
+					...index === own ? { persona: true } : {},
 					values: this.values(def, name)
 				}))
 			};
 		});
+	}
+	/** What makes a mechanic important now: facts of this generation, recent changes, the user's latest message. */
+	signals(scene, facts) {
+		const chat = this.deps.app.host.ctx().chat ?? [];
+		const users = [];
+		chat.forEach((message, index) => {
+			if (message?.is_user) users.push(index);
+		});
+		const floor = users[users.length - RECENT_TURNS] ?? 0;
+		const history = this.safe(() => this.state.history(HISTORY_LOOKUP$1), [], "the history");
+		const changed = new Set(history.filter((change) => change.messageIndex >= 0 && change.messageIndex >= floor).map((c) => c.mechanicId));
+		const latest = users.length ? chat[users[users.length - 1]] : void 0;
+		const text = typeof latest?.mes === "string" ? latest.mes : "";
+		const persona = nameKey$4(this.deps.app.host.ctx().name1 ?? "");
+		return {
+			facts,
+			changed,
+			named: text ? scene.filter(({ def, holders }) => {
+				const words = [
+					def.name,
+					def.promptName ?? "",
+					...def.keys ?? [],
+					...def.attributes.filter((attribute) => resolveVisibility(def, attribute).prompt !== "none").flatMap((attribute) => [attribute.name, attribute.promptName]),
+					...holders.filter((holder) => holder !== "world" && nameKey$4(holder) !== persona)
+				].filter((word) => word.trim());
+				return mentionedIn(text, words);
+			}).map((entry) => entry.def.id) : []
+		};
+	}
+	/** DES's tracker line: the stats DES keeps for the characters of the scene whose numbers the model gets. */
+	desLine(scene) {
+		if (!this.tracking.desTracked) return "";
+		const persona = nameKey$4(this.deps.app.host.ctx().name1 ?? "");
+		const names = [];
+		for (const { def, holders } of scene) {
+			if (!holders.some((holder) => nameKey$4(holder) !== persona && holder !== "world")) continue;
+			const tracked = this.safe(() => this.tracking.desTracked?.(def) ?? [], [], "the DES stats");
+			for (const item of tracked) {
+				const attribute = def.attributes.find((attr) => attr.id === item.attribute);
+				if (attribute && resolveVisibility(def, attribute).prompt === "value") names.push(item.stat);
+			}
+		}
+		return trackerLine(names);
 	}
 	/** The Architect's «mechanics» budget wins when it is set; else the module's own. */
 	budget() {
@@ -118764,23 +119631,33 @@ var MechanicPrompt = class {
 			source: "own"
 		};
 	}
-	depth() {
-		const depth = this.deps.settings().depth;
-		return typeof depth === "number" && Number.isFinite(depth) ? Math.max(0, Math.round(depth)) : DEFAULT_DEPTH;
+	placement() {
+		const settings = this.deps.settings();
+		const depth = settings.stateDepth;
+		return {
+			place: settings.rulesPlace === "end" ? "end" : "top",
+			stateDepth: typeof depth === "number" && Number.isFinite(depth) ? Math.max(0, Math.round(depth)) : 0
+		};
 	}
-	build(withInstruction) {
+	build(withInstruction, facts = []) {
 		const scene = this.scene();
 		const budget = this.budget();
+		const { place, stateDepth } = this.placement();
 		if (!scene.length) return {
 			scene,
 			rendered: {
-				text: "",
+				rules: "",
+				state: "",
 				tokens: 0,
+				rulesTokens: 0,
+				stateTokens: 0,
 				budget: budget.tokens,
 				cut: [],
 				mechanics: []
 			},
-			source: budget.source
+			source: budget.source,
+			place,
+			stateDepth
 		};
 		let instruction = "";
 		const combat = this.safe(() => this.state.combat?.() ?? null, null, "the fight");
@@ -118794,17 +119671,23 @@ var MechanicPrompt = class {
 				...fights ? { combat: true } : {}
 			}), "", "the block instruction");
 		}
-		const fight = combatLine(combat);
 		const known = scene.filter((entry) => resolveVisibility(entry.def).prompt !== "none");
+		const ordered = orderSections(this.sections(known), this.signals(known, facts));
+		const fixed = [combatLine(combat), this.desLine(known)].filter(Boolean);
 		return {
 			scene,
-			rendered: renderRules(this.sections(known), {
+			rendered: renderGame(ordered, {
 				budget: budget.tokens,
 				instruction,
 				extras: this.extras(scene),
-				...fight ? { fixed: [fight] } : {}
+				fixed,
+				rulesOrder: known.map((entry) => entry.def.id),
+				place,
+				modifierLabel: this.modifierLabel()
 			}),
-			source: budget.source
+			source: budget.source,
+			place,
+			stateDepth
 		};
 	}
 	/** The facts of a generation: the delivered ones of the same reply again (swipes), then the pending ones. */
@@ -118817,7 +119700,7 @@ var MechanicPrompt = class {
 		if (type !== "normal" && last && last.chatId === chatId && last.forIndex === forIndex) {
 			const fresh = new Set(pendingChecks.map((result) => result.id));
 			const known = this.safe(() => this.checks.checks(REPEAT_LOOKUP), [], "the roll log");
-			checks = [...last.checkIds.filter((id) => !fresh.has(id)).map((id) => known.find((result) => result.id === id)).filter((result) => !!result), ...pendingChecks];
+			checks = [...last.checkIds.filter((id) => !fresh.has(id)).map((id) => known.find((result) => result.id === id)).filter((result) => !!result).filter((result) => type === "continue" || result.by !== "model" || result.messageIndex !== forIndex), ...pendingChecks];
 			const seen = new Set(pendingEvents.map(eventKey));
 			events = [...last.events.filter((event) => !seen.has(eventKey(event))), ...pendingEvents];
 		}
@@ -118836,6 +119719,46 @@ var MechanicPrompt = class {
 			return !def || resolveVisibility(def).prompt !== "none";
 		});
 	}
+	/** The facts block and the mechanics it is about. */
+	factsText(facts) {
+		const told = this.told(facts.events);
+		const entries = [...facts.checks.map((result) => ({
+			text: result.text,
+			mechanicId: result.mechanicId
+		})), ...told.map((event) => ({
+			text: event.text,
+			mechanicId: event.mechanicId
+		}))].slice(-8);
+		return {
+			text: renderFacts(entries.map((entry) => entry.text)),
+			mechanics: entries.map((entry) => entry.mechanicId)
+		};
+	}
+	/** P16: the rules at the top (stable) or right before the state; the state near the end; system role, not scanned. */
+	inject(built) {
+		const { app } = this.deps;
+		const { rules, state } = built.rendered;
+		const inChat = (text) => ({
+			text,
+			position: IN_CHAT,
+			depth: built.stateDepth,
+			role: 0,
+			scan: false
+		});
+		if (built.place === "top") {
+			if (rules) app.ephemeral.setInjection(RULES_KEY$1, {
+				text: rules,
+				position: IN_PROMPT,
+				depth: 0,
+				role: 0,
+				scan: false
+			});
+			if (state) app.ephemeral.setInjection(STATE_KEY, inChat(state));
+			return;
+		}
+		const text = joinBlocks(rules, state);
+		if (text) app.ephemeral.setInjection(STATE_KEY, inChat(text));
+	}
 	produce(gen) {
 		if (this.disposed || gen.quiet || gen.dryRun || gen.sheetCommand) return;
 		this.armed = null;
@@ -118843,24 +119766,22 @@ var MechanicPrompt = class {
 		const chatId = app.host.chatId();
 		if (!chatId) return;
 		const type = gen.type || "normal";
-		const impersonate = type === "impersonate";
-		const { scene, rendered } = this.build(!impersonate);
-		for (const { def } of scene) app.ephemeral.setFlag(mechanicFlag(def.id), "1");
-		if (rendered.text) app.ephemeral.setInjection(RULES_KEY$1, {
-			text: rendered.text,
-			position: 1,
-			depth: this.depth(),
-			role: 0,
-			scan: false
-		});
-		if (impersonate) return;
+		if (type === "impersonate") {
+			const built = this.build(false);
+			for (const { def } of built.scene) app.ephemeral.setFlag(mechanicFlag(def.id), "1");
+			this.inject(built);
+			return;
+		}
 		const chat = app.host.ctx().chat ?? [];
 		const forIndex = type === "swipe" || type === "continue" ? chat.length - 1 : chat.length;
 		const facts = this.facts(chatId, type, forIndex);
-		const text = renderFacts([...facts.checks.map((result) => result.text), ...this.told(facts.events).map((event) => event.text)].slice(-8));
-		if (text) app.ephemeral.setInjection(FACTS_KEY, {
-			text,
-			position: 1,
+		const told = this.factsText(facts);
+		const built = this.build(true, told.mechanics);
+		for (const { def } of built.scene) app.ephemeral.setFlag(mechanicFlag(def.id), "1");
+		this.inject(built);
+		if (told.text) app.ephemeral.setInjection(FACTS_KEY, {
+			text: told.text,
+			position: IN_CHAT,
 			depth: 0,
 			role: 0,
 			scan: false
@@ -118891,18 +119812,27 @@ var MechanicPrompt = class {
 	}
 	/** What the next generation would get (the pult, the inspector, tests). */
 	preview() {
-		const { scene, rendered, source } = this.build(true);
 		const chatId = this.deps.app.host.chatId();
-		const facts = chatId ? this.facts(chatId, "normal", -1) : null;
+		const facts = chatId ? this.factsText(this.facts(chatId, "normal", -1)) : {
+			text: "",
+			mechanics: []
+		};
+		const { scene, rendered, source, place, stateDepth } = this.build(true, facts.mechanics);
 		return {
-			text: rendered.text,
+			text: joinBlocks(rendered.rules, rendered.state),
+			rules: rendered.rules,
+			state: rendered.state,
+			placement: {
+				rules: place,
+				stateDepth
+			},
 			tokens: rendered.tokens,
 			budget: rendered.budget,
 			budgetSource: source,
 			cut: rendered.cut,
 			mechanics: rendered.mechanics,
 			flags: scene.map((entry) => mechanicFlag(entry.def.id)),
-			facts: facts ? renderFacts([...facts.checks.map((result) => result.text), ...this.told(facts.events).map((event) => event.text)].slice(-8)) : ""
+			facts: facts.text
 		};
 	}
 };
@@ -119858,6 +120788,9 @@ var MechanicsService = class {
 		const recount = this.extras.tracking?.recount;
 		return recount ? recount.call(this.extras.tracking, messageIndex) : false;
 	}
+	continuing(messageIndex) {
+		return this.extras.rollContinue?.continuing(messageIndex) ?? false;
+	}
 	changesOf(messageIndex, options) {
 		return this.statePart.changesOf?.(messageIndex, options) ?? [];
 	}
@@ -120173,9 +121106,17 @@ function clampInt$1(value, min, max, fallback) {
 	if (typeof value !== "number" || !Number.isFinite(value)) return fallback;
 	return Math.min(max, Math.max(min, Math.round(value)));
 }
+/** Runs the migrations a slice of an older revision has not had yet (once: the revision is stored with it). */
+function migrate(slice) {
+	const rev = typeof slice.settingsRev === "number" && Number.isFinite(slice.settingsRev) ? slice.settingsRev : 0;
+	if (rev >= 1) return;
+	if (rev < 1 && slice.promptBudget === 400) slice.promptBudget = DEFAULT_MECHANICS_SETTINGS.promptBudget;
+	slice.settingsRev = 1;
+}
 /** The live slice with every field repaired (wrong types → defaults, numbers clamped, an empty book → the default). */
 function readMechanicsSettings(slice) {
 	const defaults = defaultMechanicsSettings();
+	migrate(slice);
 	slice.book = typeof slice.book === "string" && slice.book.trim() ? slice.book.trim() : DEFAULT_MECHANICS_BOOK;
 	for (const key of [
 		"autoChecks",
@@ -120183,8 +121124,10 @@ function readMechanicsSettings(slice) {
 		"background"
 	]) if (typeof slice[key] !== "boolean") slice[key] = defaults[key];
 	slice.promptBudget = clampInt$1(slice.promptBudget, PROMPT_BUDGET_LIMITS.min, PROMPT_BUDGET_LIMITS.max, defaults.promptBudget);
-	slice.depth = clampInt$1(slice.depth, DEPTH_LIMITS.min, DEPTH_LIMITS.max, defaults.depth);
+	if (slice.rulesPlace !== "top" && slice.rulesPlace !== "end") slice.rulesPlace = defaults.rulesPlace;
+	slice.stateDepth = clampInt$1(slice.stateDepth, DEPTH_LIMITS.min, DEPTH_LIMITS.max, defaults.stateDepth);
 	for (const key of ["modelRolls", "autoCombat"]) if (typeof slice[key] !== "boolean") slice[key] = defaults[key];
+	if (typeof slice.rollContinue !== "boolean") slice.rollContinue = defaults.rollContinue;
 	if (slice.personaFallback !== "background" && slice.personaFallback !== "block") slice.personaFallback = defaults.personaFallback;
 	slice.relevance = clampInt$1(slice.relevance, RELEVANCE_LIMITS.min, RELEVANCE_LIMITS.max, defaults.relevance);
 	for (const key of ["hud", "desPersona"]) if (typeof slice[key] !== "boolean") slice[key] = defaults[key];
@@ -120861,7 +121804,7 @@ function rollLine(i18n, api, result) {
 		rival: result.vs.holder,
 		rivalTotal: result.vs.total,
 		outcome: t(`m25.check.outcome.${result.outcome}`)
-	}) : describeCheck(result, i18n, name);
+	}) : describeCheck(result, i18n, name, blockedAttributeOf(api, result));
 	if (result.mode) line += ` ${t(`m25.play.roll.mode.${result.mode}`)}`;
 	return line;
 }
@@ -121209,6 +122152,18 @@ var MechanicsPlayStrip = class {
 	/** Dice faces, the modifier, the total and the target; the other side; consequences; the model's note. */
 	rollCard(result, consequences) {
 		const t = this.t;
+		if (result.blocked) return el("div", {
+			class: "maestro-m25-roll-card",
+			data: { roll: result.id }
+		}, [
+			el("div", { text: rollLine(this.deps.app.i18n, this.api, result) }),
+			el("div", {
+				class: "maestro-muted",
+				text: t(`m25.check.by.${result.by}`)
+			}),
+			result.text ? details(t("m25.play.details"), result.text) : null
+		]);
+		const meaning = meaningKey(result);
 		const sides = /^\d*d(\d+)/i.exec(result.dice)?.[1];
 		const sideCount = sides ? Number(sides) : null;
 		const modifier = result.modifier ? result.modifier > 0 ? `+${result.modifier}` : String(result.modifier) : "";
@@ -121243,6 +122198,10 @@ var MechanicsPlayStrip = class {
 				text: t("m25.check.target", { target: result.against })
 			}) : null,
 			el("div", { text: t("m25.play.roll.outcome", { outcome: t(`m25.check.outcome.${result.outcome}`) }) }),
+			meaning ? el("div", {
+				class: "maestro-m25-roll-meaning",
+				text: t(meaning)
+			}) : null,
 			consequences.length ? el("div", { text: t("m25.play.roll.consequences", { list: consequences.join(" · ") }) }) : null,
 			result.undone ? el("div", {
 				class: "maestro-muted",
@@ -122090,7 +123049,7 @@ var MechanicsHud = class {
 		const persona = personaOf(this.api);
 		try {
 			const result = await this.api.roll(def.id, check.id, persona, this.mode ? { mode: this.mode } : {});
-			app.ui.notice(this.t("m25.check.rolled", { line: rollLine(app.i18n, this.api, result) }), { urgent: true });
+			app.ui.notice(this.t(rollNoticeKey(result), { line: rollLine(app.i18n, this.api, result) }), { urgent: true });
 		} catch (error) {
 			app.ui.notice(error instanceof Error ? error.message : String(error), {
 				urgent: true,
@@ -122524,6 +123483,403 @@ var MechanicsNarrator = class {
 	}
 };
 //#endregion
+//#region src/host/messages.ts
+/** The message has a block in the chat on screen (not above «Show more messages», not another chat). */
+function isRendered(index) {
+	if (typeof document === "undefined") return false;
+	try {
+		return document.querySelector(`#chat .mes[mesid="${index}"]`) !== null;
+	} catch {
+		return false;
+	}
+}
+/** ST's message editor (or its reasoning editor) is open on this message: its textarea sits inside the block. */
+function isEditing(index) {
+	if (typeof document === "undefined") return false;
+	try {
+		const block = `#chat .mes[mesid="${index}"]`;
+		return document.querySelector(`${block} .edit_textarea, ${block} .reasoning_edit_textarea`) !== null;
+	} catch {
+		return false;
+	}
+}
+/**
+* Re-renders message `index` (updateMessageBlock runs synchronously, before the first await) and, when the message is
+* on screen, announces it with MESSAGE_UPDATED. Never throws. Not while the user edits that message: the re-render
+* would replace the editor and lose what he typed; ST re-renders the message from the chat when the editor closes.
+*/
+async function rerenderMessage(host, index, message, options = {}) {
+	const { announce = true, log } = options;
+	if (isEditing(index)) {
+		log?.debug(`message ${index} is being edited: shown when the editor closes`);
+		return;
+	}
+	try {
+		const ctx = host.ctx();
+		if (typeof ctx.updateMessageBlock !== "function") return;
+		ctx.updateMessageBlock(index, message);
+	} catch (error) {
+		log?.warn("updateMessageBlock failed", error);
+		return;
+	}
+	if (!announce || !isRendered(index)) return;
+	const event = host.events.name("MESSAGE_UPDATED");
+	if (!event) return;
+	try {
+		await host.events.emit(event, index);
+	} catch (error) {
+		log?.warn("MESSAGE_UPDATED listeners failed", error);
+	}
+}
+//#endregion
+//#region src/features/quality/actions.ts
+function swipeIdOf$2(message) {
+	const id = message?.swipe_id;
+	return typeof id === "number" && Number.isInteger(id) && id >= 0 ? id : 0;
+}
+var StActions = class {
+	app;
+	log;
+	timings;
+	constructor(app, log, timings) {
+		this.app = app;
+		this.log = log;
+		this.timings = timings;
+	}
+	extras() {
+		return this.app.host.ctx();
+	}
+	/** This ST can swipe from code. */
+	canSwipe() {
+		const swipe = this.extras().swipe;
+		return typeof swipe?.right === "function" && typeof swipe.isAllowed === "function";
+	}
+	canContinue() {
+		return typeof this.app.host.ctx().executeSlashCommandsWithOptions === "function";
+	}
+	isLast(index) {
+		return index === this.app.host.ctx().chat.length - 1;
+	}
+	/** ST is idle: no generation of Maestro's turn pipeline and ST would accept a swipe. */
+	idle() {
+		if (this.app.turn.current() !== null) return false;
+		const allowed = this.extras().swipe?.isAllowed;
+		try {
+			return typeof allowed === "function" ? allowed() : true;
+		} catch {
+			return false;
+		}
+	}
+	/** Waits until idle(), at most `idleMs`; false when ST stayed busy. */
+	async waitIdle(limitMs = this.timings.idleMs) {
+		const until = Date.now() + limitMs;
+		while (!this.idle()) {
+			if (Date.now() >= until) return false;
+			await new Promise((resolve) => setTimeout(resolve, this.timings.pollMs));
+		}
+		return true;
+	}
+	/** The send box holds nothing the user typed (a /continue would clear it). */
+	sendBoxEmpty() {
+		try {
+			const box = typeof document === "undefined" ? null : document.querySelector("#send_textarea");
+			return !(box instanceof HTMLTextAreaElement) || !box.value.trim();
+		} catch {
+			return true;
+		}
+	}
+	/**
+	* Rewrites the text of a reply swipe when it is still `before`: the message, its swipe copy, the DOM, the chat
+	* file. False when the reply changed meanwhile.
+	*/
+	async writeText(index, swipeId, before, after) {
+		const ctx = this.app.host.ctx();
+		const message = ctx.chat[index];
+		if (!message || message.is_user || swipeIdOf$2(message) !== swipeId || message.mes !== before) return false;
+		message.mes = after;
+		const swipes = message.swipes;
+		if (Array.isArray(swipes) && typeof swipes[swipeId] === "string") swipes[swipeId] = after;
+		await rerenderMessage(this.app.host, index, message, { log: this.log });
+		await ctx.saveChat();
+		return true;
+	}
+	/**
+	* Swipes the last message to a new generation. `onStart` runs right before ST is asked (the one-shot fix note is
+	* armed there). Does not wait for the new reply. False when ST cannot swipe now.
+	*/
+	async swipe(index, onStart) {
+		if (!this.canSwipe()) return false;
+		const chatId = this.app.host.chatId();
+		if (!await this.waitIdle()) {
+			this.log.info("swipe skipped: SillyTavern stayed busy");
+			return false;
+		}
+		const message = this.app.host.ctx().chat[index];
+		if (this.app.host.chatId() !== chatId || !message || !this.isLast(index) || message.is_user) return false;
+		onStart?.();
+		const swipe = this.extras().swipe;
+		try {
+			const result = swipe?.right?.(null, { message });
+			if (result instanceof Promise) result.catch((error) => this.log.warn("swipe failed", error));
+		} catch (error) {
+			this.log.warn("swipe failed", error);
+			return false;
+		}
+		return true;
+	}
+	/** Undo of an automatic swipe: shows the swipe the reply had before. */
+	async swipeBack(index, swipeId) {
+		const swipe = this.extras().swipe;
+		if (typeof swipe?.to !== "function" || !this.isLast(index)) return false;
+		const message = this.app.host.ctx().chat[index];
+		const count = Array.isArray(message?.swipes) ? message.swipes.length : 0;
+		if (!message || swipeId >= count) return false;
+		if (!await this.waitIdle()) return false;
+		try {
+			await swipe.to(null, "left", {
+				message,
+				forceMesId: index,
+				forceSwipeId: swipeId
+			});
+			return true;
+		} catch (error) {
+			this.log.warn("swipe back failed", error);
+			return false;
+		}
+	}
+	/** `/continue` on the last message (only with an empty send box). False when it cannot run. */
+	async continueLast(index) {
+		if (!this.canContinue() || !this.isLast(index) || !this.sendBoxEmpty()) return false;
+		const ctx = this.app.host.ctx();
+		try {
+			const result = ctx.executeSlashCommandsWithOptions("/continue", { handleExecutionErrors: true });
+			if (result instanceof Promise) result.catch((error) => this.log.warn("/continue failed", error));
+			return true;
+		} catch (error) {
+			this.log.warn("/continue failed", error);
+			return false;
+		}
+	}
+	/** Stops the streaming generation (early cutoff). */
+	stop() {
+		const stop = this.extras().stopGeneration;
+		if (typeof stop !== "function") return false;
+		try {
+			stop();
+			return true;
+		} catch (error) {
+			this.log.warn("stopGeneration failed", error);
+			return false;
+		}
+	}
+};
+//#endregion
+//#region src/features/mechanics/roll-continue.ts
+/** How long the /continue may take to start (ST's command waits for the generation lock) before it counts as lost. */
+var START_WAIT_MS = 2e4;
+/** A plan whose reply never ended or never showed is dropped after this long. */
+var PLAN_TTL_MS = 6e4;
+function keyOf(item) {
+	return `${item.chatId}|${item.index}|${item.swipeId}`;
+}
+var RollContinue = class {
+	deps;
+	plan = null;
+	running = null;
+	/** The user stopped the latest generation (a reply arriving from it is not continued). */
+	stopped = false;
+	planTimer = null;
+	startTimer = null;
+	attemptTimer = null;
+	/** Reply variants continued once already (`chat|index|swipe`). */
+	done = /* @__PURE__ */ new Set();
+	offs = [];
+	actions;
+	startWaitMs;
+	planTtlMs;
+	disposed = false;
+	constructor(deps, options = {}) {
+		this.deps = deps;
+		this.actions = new StActions(deps.app, deps.log, {
+			pollMs: 50,
+			idleMs: 0
+		});
+		this.startWaitMs = options.startWaitMs ?? START_WAIT_MS;
+		this.planTtlMs = options.planTtlMs ?? PLAN_TTL_MS;
+	}
+	install() {
+		const { bus } = this.deps.app;
+		this.offs.push(bus.on("generation:before", ({ type, quiet }) => this.onBefore(type, quiet)), bus.on("generation:ended", ({ type, stopped }) => this.onEnded(type, stopped)), bus.on("reply:ready", ({ messageIndex }) => this.onShown(messageIndex)), bus.on("message:invalidated", ({ messageIndex, reason }) => this.onInvalidated(messageIndex, reason)), bus.on("chat:changed", () => this.reset()));
+	}
+	dispose() {
+		if (this.disposed) return;
+		this.disposed = true;
+		this.reset();
+		for (const off of this.offs.splice(0)) try {
+			off();
+		} catch (error) {
+			this.deps.log.debug("roll continue: release failed", error);
+		}
+	}
+	skip(index, why) {
+		this.deps.log.debug(`mechanics: reply #${index} is not continued (${why}); the roll results go to the next generation`);
+	}
+	/** The generation Maestro's turn pipeline sees running (undefined when it cannot tell: counts as running). */
+	generation() {
+		try {
+			return this.deps.app.turn.current();
+		} catch {
+			return;
+		}
+	}
+	/**
+	* The checks part rolled what reply `index` (variant `swipeId`) asked for; `arrival`: the reply is arriving now
+	* (its MESSAGE_RECEIVED type). One /continue is planned.
+	*/
+	rolled(index, swipeId, arrival) {
+		const settings = this.deps.settings();
+		if (this.disposed || settings.rollContinue === false || !settings.modelRolls) return;
+		const chatId = this.deps.app.host.chatId();
+		if (!chatId || !Number.isInteger(index) || index < 0) return;
+		const plan = {
+			chatId,
+			index,
+			swipeId,
+			ended: false,
+			shown: false
+		};
+		if (this.done.has(keyOf(plan))) return this.skip(index, "it was continued once already");
+		if (!arrival) return this.skip(index, "it is not a reply arriving now");
+		if (this.stopped) return this.skip(index, "its generation was stopped");
+		plan.ended = this.generation() === null;
+		this.dropPlan();
+		this.plan = plan;
+		this.planTimer = setTimeout(() => {
+			this.planTimer = null;
+			if (this.plan !== plan) return;
+			this.plan = null;
+			this.skip(index, plan.ended ? "it was never shown" : "its generation never ended");
+		}, this.planTtlMs);
+	}
+	/** Maestro continues this reply itself: planned, or the continue runs (MechanicsApi.continuing). */
+	continuing(index) {
+		if (this.disposed) return false;
+		const chatId = this.deps.app.host.chatId();
+		return [this.plan, this.running].some((item) => !!item && item.chatId === chatId && item.index === index);
+	}
+	onBefore(type, quiet) {
+		if (quiet) return;
+		this.stopped = false;
+		if (this.running && !this.running.started && type === "continue") {
+			this.running.started = true;
+			this.clearStartTimer();
+		}
+	}
+	onEnded(type, stopped) {
+		if (this.disposed) return;
+		if (this.running?.started && type === "continue") this.endRunning();
+		if (stopped) this.stopped = true;
+		const plan = this.plan;
+		if (!plan || plan.ended) return;
+		if (stopped) {
+			this.dropPlan();
+			return this.skip(plan.index, "its generation was stopped");
+		}
+		plan.ended = true;
+		this.ready(plan);
+	}
+	onShown(index) {
+		const plan = this.plan;
+		if (this.disposed || !plan || plan.index !== index || plan.shown) return;
+		plan.shown = true;
+		this.ready(plan);
+	}
+	/** Ended and shown: the attempt on the next tick (the other listeners of the moment go first). */
+	ready(plan) {
+		if (!plan.ended || !plan.shown) return;
+		if (this.attemptTimer !== null) clearTimeout(this.attemptTimer);
+		this.attemptTimer = setTimeout(() => {
+			this.attemptTimer = null;
+			if (this.plan !== plan) return;
+			this.dropPlan();
+			this.attempt(plan);
+		}, 0);
+	}
+	/** Sends `/continue` for the planned reply when everything allows it; else the results wait (debug log says why). */
+	attempt(plan) {
+		const { app } = this.deps;
+		if (this.disposed) return;
+		if (app.host.chatId() !== plan.chatId) return this.skip(plan.index, "the chat changed");
+		const message = app.host.ctx().chat?.[plan.index];
+		if (!message || message.is_user || !this.actions.isLast(plan.index)) return this.skip(plan.index, "it is not the last message");
+		if (swipeIdOf$2(message) !== plan.swipeId) return this.skip(plan.index, "another variant of it is shown");
+		if (this.generation() !== null) return this.skip(plan.index, "a generation runs");
+		if (!this.actions.sendBoxEmpty()) return this.skip(plan.index, "the send box is not empty");
+		if (!this.actions.canContinue()) return this.skip(plan.index, "this SillyTavern cannot /continue");
+		const key = keyOf(plan);
+		if (this.done.has(key)) return this.skip(plan.index, "it was continued once already");
+		this.done.add(key);
+		this.running = {
+			chatId: plan.chatId,
+			index: plan.index,
+			swipeId: plan.swipeId,
+			started: false
+		};
+		this.clearStartTimer();
+		this.startTimer = setTimeout(() => {
+			this.startTimer = null;
+			if (this.running && !this.running.started && keyOf(this.running) === key) {
+				this.running = null;
+				this.deps.log.debug(`mechanics: the /continue of reply #${plan.index} never started`);
+			}
+		}, this.startWaitMs);
+		this.actions.continueLast(plan.index).then((ok) => {
+			if (ok) {
+				this.deps.log.debug(`mechanics: reply #${plan.index} continues with its roll results`);
+				return;
+			}
+			if (this.running && keyOf(this.running) === key) this.endRunning();
+			this.done.delete(key);
+			this.skip(plan.index, "/continue did not start");
+		}).catch((error) => this.deps.log.warn("mechanics: /continue failed", error));
+	}
+	dropPlan() {
+		this.plan = null;
+		if (this.planTimer !== null) clearTimeout(this.planTimer);
+		this.planTimer = null;
+	}
+	endRunning() {
+		this.running = null;
+		this.clearStartTimer();
+	}
+	clearStartTimer() {
+		if (this.startTimer !== null) clearTimeout(this.startTimer);
+		this.startTimer = null;
+	}
+	/** A swipe, an edit or a deletion of the planned reply (or before it) drops the plan; deleted replies forget it. */
+	onInvalidated(index, reason) {
+		if (!Number.isInteger(index) || index < 0) return;
+		if (this.plan && this.plan.index >= index) {
+			const dropped = this.plan;
+			this.dropPlan();
+			this.skip(dropped.index, `it was ${reason}`);
+		}
+		if (reason !== "deleted") return;
+		for (const key of [...this.done]) {
+			const at = Number(key.split("|").at(-2));
+			if (Number.isFinite(at) && at >= index) this.done.delete(key);
+		}
+	}
+	reset() {
+		this.dropPlan();
+		this.endRunning();
+		this.stopped = false;
+		if (this.attemptTimer !== null) clearTimeout(this.attemptTimer);
+		this.attemptTimer = null;
+		this.done.clear();
+	}
+};
+//#endregion
 //#region src/features/mechanics/strings-checks.ts
 var CHECK_STRINGS = {
 	en: {
@@ -122542,6 +123898,16 @@ var CHECK_STRINGS = {
 		"m25.check.xp": "+{amount} XP",
 		"m25.check.journal": "Roll: {line}",
 		"m25.check.rolled": "Rolled: {line}",
+		"m25.check.notRolled": "No roll: {line}",
+		"m25.check.outcome.blocked": "not possible",
+		"m25.check.line.blocked": "{check} ({holder}): not possible — {reason}",
+		"m25.check.blocked.reason": "{attribute} {have}, needs {need}",
+		"m25.check.meaning.critical": "Brilliantly, with something extra",
+		"m25.check.meaning.success": "It works",
+		"m25.check.meaning.success.barely": "It barely works",
+		"m25.check.meaning.failure": "It does not work",
+		"m25.check.meaning.failure.barely": "It nearly works, but not quite",
+		"m25.check.meaning.fumble": "It goes badly wrong",
 		"m25.check.by.auto": "by your message",
 		"m25.check.by.user": "by hand",
 		"m25.check.by.model": "asked by the story",
@@ -122621,6 +123987,16 @@ var CHECK_STRINGS = {
 		"m25.check.xp": "+{amount} опыта",
 		"m25.check.journal": "Бросок: {line}",
 		"m25.check.rolled": "Бросок: {line}",
+		"m25.check.notRolled": "Без броска: {line}",
+		"m25.check.outcome.blocked": "невозможно",
+		"m25.check.line.blocked": "{check} ({holder}): невозможно — {reason}",
+		"m25.check.blocked.reason": "{attribute} {have}, нужно {need}",
+		"m25.check.meaning.critical": "Блестяще, да ещё и с бонусом",
+		"m25.check.meaning.success": "Получилось",
+		"m25.check.meaning.success.barely": "Еле-еле получилось",
+		"m25.check.meaning.failure": "Не вышло",
+		"m25.check.meaning.failure.barely": "Чуть-чуть не хватило",
+		"m25.check.meaning.fumble": "Всё пошло наперекосяк",
 		"m25.check.by.auto": "по твоему сообщению",
 		"m25.check.by.user": "вручную",
 		"m25.check.by.model": "по ходу истории",
@@ -122796,6 +124172,8 @@ var DEF_STRINGS = {
 		"m25.def.event.value": "Value",
 		"m25.def.event.text": "Note for the model (English; {holder} and {value} are filled in)",
 		"m25.def.event.once": "Once, until the condition is false again",
+		"m25.def.event.lasting": "Lasts while the condition holds",
+		"m25.def.event.lasting.hint": "the model is reminded of it every turn",
 		"m25.def.event.remove": "Remove the event",
 		"m25.def.checks": "Checks",
 		"m25.def.checks.empty": "No checks.",
@@ -122881,9 +124259,13 @@ var DEF_STRINGS = {
 		"m25.def.settings.strip": "Widgets next to the DES portraits",
 		"m25.def.settings.background": "Background parse of replies",
 		"m25.def.settings.promptBudget": "Prompt budget, tokens",
-		"m25.def.settings.promptBudget.hint": "Rules and values of the mechanics in the scene. The architect's budget for mechanics wins when it is set.",
-		"m25.def.settings.depth": "Depth in the chat",
-		"m25.def.settings.depth.hint": "How many messages from the end the rules go. Close to the end keeps the provider cache intact."
+		"m25.def.settings.promptBudget.hint": "The rules and the values of the mechanics in the scene together; when they do not fit, the rules get shorter first, your character's values go last. 1200 is enough for three or four mechanics. The architect's budget for mechanics wins when it is set.",
+		"m25.def.settings.rulesPlace": "Rules of the mechanics",
+		"m25.def.settings.rulesPlace.top": "at the start of the prompt",
+		"m25.def.settings.rulesPlace.end": "next to the values",
+		"m25.def.settings.rulesPlace.hint": "At the start they stay the same from turn to turn, so the provider cache keeps them; next to the values the model reads them right before it writes.",
+		"m25.def.settings.stateDepth": "Depth of the values",
+		"m25.def.settings.stateDepth.hint": "How many messages from the end the current values go: 0 is right before the reply. Close to the end keeps the provider cache intact."
 	},
 	ru: {
 		"m25.title": "Механики",
@@ -122993,6 +124375,8 @@ var DEF_STRINGS = {
 		"m25.def.event.value": "Значение",
 		"m25.def.event.text": "Заметка для модели (по-английски; {holder} и {value} подставятся)",
 		"m25.def.event.once": "Один раз, пока условие снова не станет ложным",
+		"m25.def.event.lasting": "Держится, пока условие верно",
+		"m25.def.event.lasting.hint": "модель помнит об этом каждый ход",
 		"m25.def.event.remove": "Убрать событие",
 		"m25.def.checks": "Проверки",
 		"m25.def.checks.empty": "Проверок нет.",
@@ -123078,9 +124462,13 @@ var DEF_STRINGS = {
 		"m25.def.settings.strip": "Виджеты рядом с портретами DES",
 		"m25.def.settings.background": "Фоновый разбор ответов",
 		"m25.def.settings.promptBudget": "Бюджет в промпте, токенов",
-		"m25.def.settings.promptBudget.hint": "Правила и значения механик, участвующих в сцене. Если у архитектора задан бюджет механик, действует он.",
-		"m25.def.settings.depth": "Глубина в чате",
-		"m25.def.settings.depth.hint": "За сколько сообщений от конца ставятся правила. Ближе к концу — кэш провайдера не ломается."
+		"m25.def.settings.promptBudget.hint": "Правила и значения механик сцены вместе; если не влезают, сначала сокращаются правила, значения твоего персонажа — в последнюю очередь. 1200 хватает на три-четыре механики. Если у архитектора задан бюджет механик, действует он.",
+		"m25.def.settings.rulesPlace": "Правила механик",
+		"m25.def.settings.rulesPlace.top": "в начале промпта",
+		"m25.def.settings.rulesPlace.end": "рядом с состоянием",
+		"m25.def.settings.rulesPlace.hint": "В начале они не меняются от хода к ходу, и кэш провайдера их держит; рядом с состоянием модель читает их прямо перед ответом.",
+		"m25.def.settings.stateDepth": "Глубина состояния",
+		"m25.def.settings.stateDepth.hint": "За сколько сообщений от конца ставятся текущие значения: 0 — прямо перед ответом. Ближе к концу — кэш провайдера не ломается."
 	}
 };
 //#endregion
@@ -123117,6 +124505,18 @@ var ENGINE_STRINGS = {
 		"m25.ctor.progression.award.failure": "failure",
 		"m25.ctor.progression.award.fumble": "critical failure",
 		"m25.def.issue.combatInitiative": "The initiative check «{check}» is not among the checks.",
+		"m25.def.issue.requireAttr": "«{check}»: it needs «{attribute}», but there is no such attribute — the roll goes ahead.",
+		"m25.def.issue.requireKind": "«{check}»: «{attribute}» has no number to compare — the roll goes ahead.",
+		"m25.ctor.requires": "Needed for the roll",
+		"m25.ctor.requires.hint": "Without it the attempt fails and there is no roll: «a spell — mana at least 5». The model is told why.",
+		"m25.ctor.requires.none": "The mechanic has no numbers or scales to require.",
+		"m25.ctor.require.attr": "What is needed",
+		"m25.ctor.require.atLeast": "at least",
+		"m25.ctor.require.min": "The least value",
+		"m25.ctor.require.note": "Why, for the model (English)",
+		"m25.ctor.require.note.hint": "a spell costs at least 5 mana",
+		"m25.ctor.require.add": "Add a requirement",
+		"m25.ctor.require.remove": "Remove the requirement",
 		"m25.def.issue.inventoryMoney": "The money of the inventory is «{attribute}», but there is no such number.",
 		"m25.formula.error.empty": "the formula is empty",
 		"m25.formula.error.long": "the formula is too long",
@@ -123147,6 +124547,8 @@ var ENGINE_STRINGS = {
 		"m25.visibility.place.dossier": "Dossier",
 		"m25.combat.error.noMechanic": "No mechanic on in this chat runs fights: add the «Combat» template first.",
 		"m25.def.settings.modelRolls": "The model may ask me for rolls in the service block",
+		"m25.def.settings.rollContinue": "Roll in the middle of a reply",
+		"m25.def.settings.rollContinue.hint": "The model stops at the risky moment and asks for a roll; I roll at once and the same reply goes on with the result (one automatic continue). Off: the result comes only in the next reply.",
 		"m25.def.settings.autoCombat": "Start and end fights with the director’s scene",
 		"m25.def.settings.personaFallback": "Your character’s DES stats",
 		"m25.def.settings.personaFallback.hint": "DES never lists your character, so his numbers are read another way: by the background parse or by the service block.",
@@ -123186,6 +124588,18 @@ var ENGINE_STRINGS = {
 		"m25.ctor.progression.award.failure": "провал",
 		"m25.ctor.progression.award.fumble": "критический провал",
 		"m25.def.issue.combatInitiative": "Проверки инициативы «{check}» нет среди проверок.",
+		"m25.def.issue.requireAttr": "«{check}»: нужно «{attribute}», но такого атрибута нет — бросок пойдёт без условия.",
+		"m25.def.issue.requireKind": "«{check}»: у «{attribute}» нет числа для сравнения — бросок пойдёт без условия.",
+		"m25.ctor.requires": "Нужно для броска",
+		"m25.ctor.requires.hint": "Без этого попытка не удаётся и броска нет: «заклинание — мана не меньше 5». Модель узнает почему.",
+		"m25.ctor.requires.none": "У механики нет чисел или шкал, которые можно потребовать.",
+		"m25.ctor.require.attr": "Что нужно",
+		"m25.ctor.require.atLeast": "не меньше",
+		"m25.ctor.require.min": "Наименьшее значение",
+		"m25.ctor.require.note": "Почему — для модели (по-английски)",
+		"m25.ctor.require.note.hint": "a spell costs at least 5 mana",
+		"m25.ctor.require.add": "Добавить условие",
+		"m25.ctor.require.remove": "Убрать условие",
 		"m25.def.issue.inventoryMoney": "Деньги инвентаря — «{attribute}», а такого числа нет.",
 		"m25.formula.error.empty": "формула пустая",
 		"m25.formula.error.long": "формула слишком длинная",
@@ -123216,6 +124630,8 @@ var ENGINE_STRINGS = {
 		"m25.visibility.place.dossier": "Досье",
 		"m25.combat.error.noMechanic": "Ни одна механика этого чата не ведёт бой: сначала добавь шаблон «Бой».",
 		"m25.def.settings.modelRolls": "Модель может просить меня о бросках в служебном блоке",
+		"m25.def.settings.rollContinue": "Бросок посреди ответа",
+		"m25.def.settings.rollContinue.hint": "Модель останавливается на рискованном моменте и просит бросок; я бросаю сразу, и тот же ответ продолжается с результатом (одно автоматическое продолжение). Выключено — результат придёт только в следующем ответе.",
 		"m25.def.settings.autoCombat": "Начинать и заканчивать бой по сцене режиссёра",
 		"m25.def.settings.personaFallback": "Статы DES твоего персонажа",
 		"m25.def.settings.personaFallback.hint": "DES не ведёт твоего персонажа, поэтому его числа читаются иначе: фоновым разбором или служебным блоком.",
@@ -123474,8 +124890,10 @@ var PLAY_STRINGS = {
 		"m25.ctor.preview.hint": "This mechanic as the next turn would give it to the model, with the start values.",
 		"m25.ctor.preview.empty": "Nothing yet.",
 		"m25.ctor.preview.holder": "Character",
-		"m25.ctor.preview.turn": "The whole mechanics block of the next turn",
+		"m25.ctor.preview.turn": "Everything about the mechanics in the next turn",
 		"m25.ctor.preview.noTurn": "No mechanic takes part in the scene now.",
+		"m25.ctor.preview.place.top": "The rules go at the start of the prompt, the values at depth {depth} in the chat.",
+		"m25.ctor.preview.place.end": "The rules go right before the values, at depth {depth} in the chat.",
 		"m25.ctor.part.statuses": "Conditions",
 		"m25.ctor.part.inventory": "Inventory and money",
 		"m25.ctor.part.progression": "Experience and levels",
@@ -123485,7 +124903,7 @@ var PLAY_STRINGS = {
 		"m25.ctor.vis.inherit": "As the mechanic",
 		"m25.ctor.vis.more": "Places and words",
 		"m25.ctor.vis.hint.game": "Numbers and bars in the HUD, the change line under replies, roll cards.",
-		"m25.ctor.vis.hint.book": "No numbers: words in the chat, only condition signs in the HUD.",
+		"m25.ctor.vis.hint.book": "No numbers: words in the chat, only condition signs in the HUD; the model gets words too.",
 		"m25.ctor.vis.hint.hidden": "Nothing for you until an event reveals it; the window has «Peek».",
 		"m25.ctor.vis.hint.secret": "Nobody sees it: Maestro counts it and gives the model only what came of it.",
 		"m25.ctor.vis.view": "Shown as",
@@ -123837,8 +125255,10 @@ var PLAY_STRINGS = {
 		"m25.ctor.preview.hint": "Эта механика так, как следующий ход отдаст её модели, с начальными значениями.",
 		"m25.ctor.preview.empty": "Пока ничего.",
 		"m25.ctor.preview.holder": "Персонаж",
-		"m25.ctor.preview.turn": "Весь блок механик следующего хода",
+		"m25.ctor.preview.turn": "Всё о механиках в следующем ходе",
 		"m25.ctor.preview.noTurn": "Сейчас в сцене нет ни одной механики.",
+		"m25.ctor.preview.place.top": "Правила — в начале промпта, значения — в чате на глубине {depth}.",
+		"m25.ctor.preview.place.end": "Правила — прямо перед значениями, в чате на глубине {depth}.",
 		"m25.ctor.part.statuses": "Состояния",
 		"m25.ctor.part.inventory": "Инвентарь и деньги",
 		"m25.ctor.part.progression": "Опыт и уровни",
@@ -123848,7 +125268,7 @@ var PLAY_STRINGS = {
 		"m25.ctor.vis.inherit": "Как у механики",
 		"m25.ctor.vis.more": "Места и слова",
 		"m25.ctor.vis.hint.game": "Числа и полосы в HUD, строка изменений под ответом, карточки бросков.",
-		"m25.ctor.vis.hint.book": "Без чисел: в чате словами, в HUD только значки состояний.",
+		"m25.ctor.vis.hint.book": "Без чисел: в чате словами, в HUD только значки состояний; модель тоже получает слова.",
 		"m25.ctor.vis.hint.hidden": "Тебе не видно, пока событие не раскроет; в окне — «Подсмотреть».",
 		"m25.ctor.vis.hint.secret": "Не видит никто: Maestro сам считает и отдаёт модели только последствия.",
 		"m25.ctor.vis.view": "Показывать",
@@ -124639,55 +126059,6 @@ function parseExtractAnswer(raw, targets, options = {}) {
 	};
 }
 //#endregion
-//#region src/host/messages.ts
-/** The message has a block in the chat on screen (not above «Show more messages», not another chat). */
-function isRendered(index) {
-	if (typeof document === "undefined") return false;
-	try {
-		return document.querySelector(`#chat .mes[mesid="${index}"]`) !== null;
-	} catch {
-		return false;
-	}
-}
-/** ST's message editor (or its reasoning editor) is open on this message: its textarea sits inside the block. */
-function isEditing(index) {
-	if (typeof document === "undefined") return false;
-	try {
-		const block = `#chat .mes[mesid="${index}"]`;
-		return document.querySelector(`${block} .edit_textarea, ${block} .reasoning_edit_textarea`) !== null;
-	} catch {
-		return false;
-	}
-}
-/**
-* Re-renders message `index` (updateMessageBlock runs synchronously, before the first await) and, when the message is
-* on screen, announces it with MESSAGE_UPDATED. Never throws. Not while the user edits that message: the re-render
-* would replace the editor and lose what he typed; ST re-renders the message from the chat when the editor closes.
-*/
-async function rerenderMessage(host, index, message, options = {}) {
-	const { announce = true, log } = options;
-	if (isEditing(index)) {
-		log?.debug(`message ${index} is being edited: shown when the editor closes`);
-		return;
-	}
-	try {
-		const ctx = host.ctx();
-		if (typeof ctx.updateMessageBlock !== "function") return;
-		ctx.updateMessageBlock(index, message);
-	} catch (error) {
-		log?.warn("updateMessageBlock failed", error);
-		return;
-	}
-	if (!announce || !isRendered(index)) return;
-	const event = host.events.name("MESSAGE_UPDATED");
-	if (!event) return;
-	try {
-		await host.events.emit(event, index);
-	} catch (error) {
-		log?.warn("MESSAGE_UPDATED listeners failed", error);
-	}
-}
-//#endregion
 //#region src/features/mechanics/tracking.ts
 /** Maestro's record of the parsed service block on a chat message (and its swipe). */
 var EXTRA_KEY = "maestro_mechanics";
@@ -124887,7 +126258,7 @@ var MechanicTracking = class {
 		}
 		this.onSt("MESSAGE_RECEIVED", (messageId, type) => {
 			const kind = String(type ?? "") || "normal";
-			if (!FOREIGN_TYPES.has(kind)) this.takeBlock(Number(messageId), APPEND_TYPES.has(kind), false);
+			if (!FOREIGN_TYPES.has(kind)) this.takeBlock(Number(messageId), APPEND_TYPES.has(kind), false, kind);
 		}, "last");
 		this.onSt("MESSAGE_EDITED", (messageId) => {
 			this.takeBlock(Number(messageId), false, false);
@@ -124970,9 +126341,10 @@ var MechanicTracking = class {
 	* Parses and strips the block of a reply (arrival, edit, the reply:ready safety net). `merge`: a continuation adds
 	* its lines to the record of the same swipe. `announce`: the re-render is followed by MESSAGE_UPDATED, so the
 	* neighbours that decorate the text (DES speaker cards) redo it — not on arrival (CHARACTER_MESSAGE_RENDERED
-	* follows) and not on an edit (ST re-renders and announces after MESSAGE_EDITED). True when a block was taken.
+	* follows) and not on an edit (ST re-renders and announces after MESSAGE_EDITED). `arrival`: the MESSAGE_RECEIVED
+	* type when the reply is arriving now (the roll listeners hear it: release 1.27). True when a block was taken.
 	*/
-	takeBlock(index, merge, announce = true) {
+	takeBlock(index, merge, announce = true, arrival) {
 		if (this.disposed || !Number.isInteger(index) || index < 0) return false;
 		const message = this.app.host.ctx().chat[index];
 		if (!message || message.is_user || typeof message.mes !== "string" || !hasBlockMarker(message.mes)) return false;
@@ -125001,7 +126373,7 @@ var MechanicTracking = class {
 		setMessageText$1(message, stripped);
 		writeBlockRecord(message, record);
 		if (parsed.rolls.length) for (const listener of [...this.rollListeners]) try {
-			listener(index, swipeId, parsed.rolls);
+			listener(index, swipeId, parsed.rolls, arrival ? { arrival } : {});
 		} catch (error) {
 			this.deps.log.warn("mechanics: a roll request failed", error);
 		}
@@ -125306,6 +126678,25 @@ var MechanicTracking = class {
 			inDes: this.inDes(attr, enabled)
 		}));
 	}
+	/** The attributes DES keeps as character stats now and the stat's name there (the prompt's tracker line, 1.27). */
+	desTracked(def) {
+		const stats = this.characterStats();
+		if (!stats?.enabled) return [];
+		const enabled = stats.customStats.filter((stat) => stat.enabled);
+		return desStatCandidates(def).flatMap((attr) => {
+			if (!this.known(def, attr)) return [];
+			const names = [
+				attr.promptName,
+				attr.name,
+				attr.id
+			].filter(Boolean).map(nameKey$8);
+			const stat = enabled.find((item) => names.includes(nameKey$8(item.name)));
+			return stat ? [{
+				attribute: attr.id,
+				stat: stat.name
+			}] : [];
+		});
+	}
 	/** DES's tracker of a message; null without one. */
 	snapshotOf(des, index) {
 		if (typeof des.trackerFor !== "function") return null;
@@ -125597,6 +126988,7 @@ var MechanicTracking = class {
 		const inScene = defs.filter((def) => (holdersByMechanic[def.id] ?? []).length > 0);
 		return blockInstruction(defs, holdersByMechanic, {
 			...options.checks?.length ? { checks: options.checks } : {},
+			...options.checks?.length && this.deps.settings().rollContinue !== false ? { rollContinue: true } : {},
 			...options.combat ? { combat: true } : {},
 			desTracked: (def, attr) => this.desKeeps(def, attr, enabled),
 			...persona ? { persona: {
@@ -126748,6 +128140,92 @@ function effectsEditor(ctx, check, checkIndex) {
 				check.effects = [...effects, effect];
 				ctx.redraw();
 			}
+		})
+	]);
+}
+/**
+* «Нужно для броска»: an attribute of the mechanic (numbers and scales), the least value the roller needs, and under
+* «Подробнее» an English note for the model. Short of it the attempt fails with no roll.
+*/
+function requiresEditor(ctx, check) {
+	const { t, def } = ctx;
+	const needs = check.requires ?? [];
+	const candidates = def.attributes.filter((attr) => !!attr.id && (attr.kind === "number" || attr.kind === "scale"));
+	const options = candidates.map((attr) => ({
+		value: attr.id,
+		label: attr.name || attr.id
+	}));
+	const rows = needs.map((need, index) => el("div", {
+		class: "maestro-m25-action maestro-m25-require",
+		data: { require: String(index) }
+	}, [
+		select({
+			value: need.attr,
+			options: options.some((option) => option.value === need.attr) ? options : [{
+				value: need.attr,
+				label: need.attr
+			}, ...options],
+			label: t("m25.ctor.require.attr"),
+			onChange: (value) => {
+				need.attr = value;
+				ctx.refresh();
+			}
+		}),
+		el("span", {
+			class: "maestro-muted",
+			text: t("m25.ctor.require.atLeast")
+		}),
+		optionalNumber(need.min, (value) => {
+			need.min = value ?? 0;
+			ctx.refresh();
+		}, t("m25.ctor.require.min"), "5", "maestro-m25-require-min"),
+		button({
+			icon: "fa-xmark",
+			title: t("m25.ctor.require.remove"),
+			kind: "ghost",
+			className: "maestro-m25-require-remove",
+			onClick: () => {
+				check.requires = needs.filter((item) => item !== need);
+				if (!check.requires.length) delete check.requires;
+				ctx.redraw();
+			}
+		}),
+		moreBlock(t("m25.ctor.more"), [textInput$1(need.note ?? "", (value) => {
+			if (value.trim()) need.note = value.trim();
+			else delete need.note;
+			ctx.refresh();
+		}, {
+			label: t("m25.ctor.require.note"),
+			placeholder: t("m25.ctor.require.note.hint"),
+			className: "maestro-m25-require-note"
+		})])
+	]));
+	const first = candidates[0];
+	return el("div", { class: "maestro-m25-requires" }, [
+		el("div", {
+			class: "maestro-m25-sub",
+			text: t("m25.ctor.requires")
+		}),
+		el("div", {
+			class: "maestro-hint",
+			text: t("m25.ctor.requires.hint")
+		}),
+		...rows,
+		first ? button({
+			label: t("m25.ctor.require.add"),
+			icon: "fa-plus",
+			kind: "ghost",
+			className: "maestro-m25-require-add",
+			onClick: () => {
+				check.requires = [...needs, {
+					attr: first.id,
+					min: 1
+				}];
+				ctx.redraw();
+			}
+		}) : el("div", {
+			class: "maestro-muted",
+			text: t("m25.ctor.requires.none")
 		})
 	]);
 }
@@ -127964,6 +129442,18 @@ function constructorSection(deps, defs, tracking, extras = {}, read = readFile) 
 					placeholder: t("m25.def.event.text"),
 					className: "maestro-m25-event-text"
 				}),
+				event.when.op === "changed" ? null : el("div", { class: "maestro-m25-row maestro-m25-event-lasting" }, [toggle({
+					label: t("m25.def.event.lasting"),
+					checked: event.lasting !== false,
+					onChange: (checked) => {
+						if (checked) delete event.lasting;
+						else event.lasting = false;
+						refreshIssues();
+					}
+				}), el("span", {
+					class: "maestro-muted",
+					text: t("m25.def.event.lasting.hint")
+				})]),
 				toggle({
 					label: t("m25.def.event.once"),
 					checked: event.once !== false,
@@ -128350,6 +129840,7 @@ function constructorSection(deps, defs, tracking, extras = {}, read = readFile) 
 					class: "maestro-muted maestro-m25-speech-hint",
 					text: t("m25.def.check.speech.hint")
 				}),
+				requiresEditor(engineCtx(def), check),
 				effectsEditor(engineCtx(def), check, index),
 				moreBlock(t("m25.ctor.more"), [field$2(t("m25.def.check.promptName"), textInput$1(check.promptName, (value) => {
 					check.promptName = value;
@@ -128401,29 +129892,37 @@ function constructorSection(deps, defs, tracking, extras = {}, read = readFile) 
 			class: issue.level === "error" ? "maestro-m25-issue-error" : "maestro-m25-issue-warn",
 			text: t(`m25.def.issue.${issue.code}`, issue.params)
 		}));
-		/** What this mechanic gives the model (its rules and one holder's start values), English as sent. */
+		/** What this mechanic gives the model (its rules, one holder's start values), English as sent; both blocks. */
 		const previewText = (def) => {
 			const normalized = normalizeDef(def);
 			if (!normalized) return "";
-			const sample = (() => {
+			const persona = (() => {
 				try {
-					return extras.api?.persona?.() || t("m25.ctor.preview.holder");
+					return extras.api?.persona?.() || "";
 				} catch {
-					return t("m25.ctor.preview.holder");
+					return "";
 				}
 			})();
 			const english = interimEnglish(normalized);
-			return renderRules([{
+			const values = initialValues(english);
+			const rendered = renderGame([{
 				mechanic: english,
-				holders: [{
-					name: sample,
+				holders: [persona ? {
+					name: persona,
 					primary: true,
-					values: initialValues(english)
+					persona: true,
+					values
+				} : {
+					name: t("m25.ctor.preview.holder"),
+					primary: true,
+					values
 				}]
-			}], { budget: 0 }).text;
+			}], { budget: 0 });
+			return [rendered.rules, rendered.state].filter(Boolean).join("\n\n");
 		};
 		const previewBlock = (def) => {
 			const text = el("pre", { class: "maestro-m25-preview maestro-m25-preview-own" });
+			const place = el("div", { class: "maestro-muted maestro-m25-preview-place" });
 			const whole = el("pre", { class: "maestro-m25-preview maestro-m25-preview-turn" });
 			const update = () => {
 				text.textContent = previewText(def) || t("m25.ctor.preview.empty");
@@ -128434,7 +129933,9 @@ function constructorSection(deps, defs, tracking, extras = {}, read = readFile) 
 						return null;
 					}
 				})();
-				whole.textContent = next?.text ? `${next.text}${next.facts ? `\n\n${next.facts}` : ""}` : t("m25.ctor.preview.noTurn");
+				const body = next && (next.rules !== void 0 || next.state !== void 0) ? [next.rules ?? "", next.state ?? ""].filter(Boolean).join("\n\n") : next?.text ?? "";
+				whole.textContent = body ? `${body}${next?.facts ? `\n\n${next.facts}` : ""}` : t("m25.ctor.preview.noTurn");
+				place.textContent = body && next?.placement ? t(`m25.ctor.preview.place.${next.placement.rules === "end" ? "end" : "top"}`, { depth: next.placement.stateDepth }) : "";
 			};
 			update();
 			return {
@@ -128444,7 +129945,7 @@ function constructorSection(deps, defs, tracking, extras = {}, read = readFile) 
 						text: t("m25.ctor.preview.hint")
 					}),
 					text,
-					extras.api?.previewPrompt ? moreBlock(t("m25.ctor.preview.turn"), whole, "maestro-m25-preview-turn-block") : null
+					extras.api?.previewPrompt ? moreBlock(t("m25.ctor.preview.turn"), [place, whole], "maestro-m25-preview-turn-block") : null
 				], "maestro-m25-preview-block"),
 				update
 			};
@@ -129287,8 +130788,8 @@ function stateSection(deps, defs, state, checks, api) {
 								...choice.mode ? { mode: choice.mode } : {},
 								...choice.vs && choice.vs !== choice.holder ? { vs: { holder: choice.vs } } : {}
 							});
-							const line = describeCheck(result, app.i18n, checkNameOf(defs, result));
-							app.ui.notice(t("m25.check.rolled", { line }), { urgent: true });
+							const line = describeCheck(result, app.i18n, checkNameOf(defs, result), blockedAttributeOf(defs, result));
+							app.ui.notice(t(rollNoticeKey(result), { line }), { urgent: true });
 						} catch (error) {
 							const message = error instanceof Error ? error.message : String(error);
 							app.ui.notice(message, {
@@ -129311,7 +130812,7 @@ function stateSection(deps, defs, state, checks, api) {
 			class: "maestro-m25-row maestro-m25-result",
 			data: { id: result.id }
 		}, [
-			badge(t(`m25.check.outcome.${result.outcome}`), OUTCOME_LEVEL$1[result.outcome]),
+			badge(t(outcomeKey(result)), OUTCOME_LEVEL$1[result.outcome]),
 			el("span", { text: describeCheck(result, app.i18n, checkNameOf(defs, result)) }),
 			el("span", {
 				class: "maestro-muted",
@@ -129748,9 +131249,24 @@ function settingsSection(deps, defs) {
 			onChange: (value) => commit("hudSideView", value === "full" ? "full" : "compact")
 		}), t("m25.ctor.settings.hudSideView.hint"));
 		sideView.classList.add("maestro-m25-hud-side-view");
+		const rulesPlace = field$2(t("m25.def.settings.rulesPlace"), select({
+			value: current.rulesPlace === "end" ? "end" : "top",
+			options: ["top", "end"].map((value) => ({
+				value,
+				label: t(`m25.def.settings.rulesPlace.${value}`)
+			})),
+			label: t("m25.def.settings.rulesPlace"),
+			onChange: (value) => commit("rulesPlace", value === "end" ? "end" : "top")
+		}), t("m25.def.settings.rulesPlace.hint"));
+		rulesPlace.classList.add("maestro-m25-rules-place");
 		const node = moduleSettingsSection(t("m25.def.settings.title"), [
 			flag("autoChecks"),
 			flag("modelRolls"),
+			flag("rollContinue"),
+			el("div", {
+				class: "maestro-hint",
+				text: t("m25.def.settings.rollContinue.hint")
+			}),
 			flag("autoCombat"),
 			flag("hud", "m25.ctor.settings.hud"),
 			el("div", {
@@ -129769,7 +131285,8 @@ function settingsSection(deps, defs) {
 			flag("background"),
 			fallback,
 			count("promptBudget", PROMPT_BUDGET_LIMITS),
-			count("depth", DEPTH_LIMITS),
+			rulesPlace,
+			count("stateDepth", DEPTH_LIMITS),
 			count("relevance", RELEVANCE_LIMITS),
 			field$2(t("m25.def.book"), book, t("m25.def.book.hint"))
 		]);
@@ -130331,7 +131848,7 @@ function logSection(deps, api) {
 			],
 			data: { roll: result.id }
 		}, [
-			badge(t(`m25.check.outcome.${result.outcome}`), OUTCOME_LEVEL[result.outcome] ?? "muted"),
+			badge(t(outcomeKey(result)), OUTCOME_LEVEL[result.outcome] ?? "muted"),
 			el("span", { text: rollLine(deps.app.i18n, api, result) }),
 			consequences.length ? el("span", {
 				class: "maestro-muted",
@@ -130567,7 +132084,12 @@ var mechanicsModule = {
 		const checks = new MechanicChecks(deps, defs, state);
 		own(() => checks.dispose());
 		checks.install();
-		own(tracking.onRollRequests((index, swipeId, rolls) => checks.requested(index, swipeId, rolls)));
+		const rollContinue = new RollContinue(deps);
+		own(() => rollContinue.dispose());
+		rollContinue.install();
+		own(tracking.onRollRequests((index, swipeId, rolls, info) => {
+			if (checks.requested(index, swipeId, rolls) > 0) rollContinue.rolled(index, swipeId, info.arrival);
+		}));
 		const combat = new MechanicCombat(deps, defs, state, secureRng);
 		own(() => combat.dispose());
 		combat.install();
@@ -130581,7 +132103,8 @@ var mechanicsModule = {
 		const api = new MechanicsService(defs, state, checks, deps, {
 			prompt,
 			combat,
-			tracking
+			tracking,
+			rollContinue
 		});
 		app.modules.expose(MECHANICS_KEY$1, api);
 		app.modules.expose(MECHANICS_DEFS_KEY, api);
@@ -131411,7 +132934,7 @@ var QUIET_BLOCKS = [
 function isDict$59(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
-function swipeIdOf$2(message) {
+function swipeIdOf$1(message) {
 	return typeof message.swipe_id === "number" && message.swipe_id >= 0 ? message.swipe_id : 0;
 }
 function sectionsOf$2(value) {
@@ -131569,7 +133092,7 @@ var TrackerRepair = class {
 		return {
 			chatId,
 			messageIndex: index,
-			swipeId: swipeIdOf$2(message),
+			swipeId: swipeIdOf$1(message),
 			mesHash: stableHash(message.mes ?? ""),
 			record: kit.normalise(parsed)
 		};
@@ -131650,7 +133173,7 @@ var TrackerRepair = class {
 		if (!isRepairPayload(payload)) return false;
 		if (this.app.host.chatId() !== payload.chatId) return false;
 		const message = this.app.host.ctx().chat[payload.messageIndex];
-		if (!message || message.is_user || swipeIdOf$2(message) !== payload.swipeId) return false;
+		if (!message || message.is_user || swipeIdOf$1(message) !== payload.swipeId) return false;
 		if (stableHash(message.mes ?? "") !== payload.mesHash) return false;
 		return trackerMissing(desSwipeRecord(message));
 	}
@@ -131714,7 +133237,7 @@ var TrackerRepair = class {
 	runKey(index) {
 		const chatId = this.app.host.chatId();
 		const message = this.app.host.ctx().chat[index];
-		return chatId && message ? `${chatId}:${index}:${swipeIdOf$2(message)}` : null;
+		return chatId && message ? `${chatId}:${index}:${swipeIdOf$1(message)}` : null;
 	}
 	/** A failed repair needs his attention (important); after his own «Починить» it is always shown. */
 	reportFailure(index, block, offerFix = true, clicked = false) {
@@ -138571,6 +140094,11 @@ var MAESTRO_INJECTIONS = [
 		slot: "maestro_voices"
 	},
 	{
+		id: "maestro.mechanicsRules",
+		moduleKey: "mechanics",
+		slot: "maestro_mechanics_rules"
+	},
+	{
 		id: "maestro.mechanics",
 		moduleKey: "mechanics",
 		slot: "maestro_mechanics"
@@ -139017,8 +140545,9 @@ var ENTRIES_EN = {
 	"ck.template": ["CarrotKernel consistency template", "Your own template of CarrotKernel’s character data block (empty: its built-in one)."],
 	"maestro.director": ["Maestro: director’s note", "The note of the director about pace and the next beat."],
 	"maestro.voices": ["Maestro: character voices", "How the characters of the scene speak."],
-	"maestro.mechanics": ["Maestro: mechanics rules", "The rules of your mechanics the model should follow."],
-	"maestro.mechanicsFacts": ["Maestro: mechanics values", "Current values of the mechanics (health, money…)."],
+	"maestro.mechanicsRules": ["Maestro: mechanics rules", "The rules of your mechanics the model must follow, and how it reports changes (at the start of the prompt or next to the values)."],
+	"maestro.mechanics": ["Maestro: mechanics values", "Current values of the mechanics (health, money…), what they mean now, conditions and things carried."],
+	"maestro.mechanicsFacts": ["Maestro: rolls and events", "Results of the latest rolls and events, for one reply."],
 	"maestro.wardrobe": ["Maestro: who wears what", "The short line about what the characters of the scene wear."],
 	"maestro.offscreen": ["Maestro: offscreen events", "What happened elsewhere meanwhile."],
 	"maestro.recap": ["Maestro: story so far", "The recap of earlier chapters."],
@@ -139043,8 +140572,9 @@ var ENTRIES_RU = {
 	"ck.template": ["Шаблон данных персонажей CarrotKernel", "Твой шаблон блока данных персонажей CarrotKernel (пусто — встроенный)."],
 	"maestro.director": ["Maestro: заметка режиссёра", "Подсказка режиссёра о темпе и следующем повороте."],
 	"maestro.voices": ["Maestro: голоса персонажей", "Как говорят персонажи сцены."],
-	"maestro.mechanics": ["Maestro: правила механик", "Правила твоих механик, которым следует модель."],
-	"maestro.mechanicsFacts": ["Maestro: значения механик", "Текущие значения механик: здоровье, деньги и прочее."],
+	"maestro.mechanicsRules": ["Maestro: правила механик", "Правила твоих механик, обязательные для модели, и как она сообщает об изменениях (в начале промпта или рядом со значениями)."],
+	"maestro.mechanics": ["Maestro: значения механик", "Текущие значения механик (здоровье, деньги и прочее), что они значат сейчас, состояния и вещи."],
+	"maestro.mechanicsFacts": ["Maestro: броски и события", "Итоги последних бросков и событий — на один ответ."],
 	"maestro.wardrobe": ["Maestro: кто во что одет", "Короткая строка о том, что сейчас надето на персонажах сцены."],
 	"maestro.offscreen": ["Maestro: события за кадром", "Что тем временем произошло в других местах."],
 	"maestro.recap": ["Maestro: ранее в истории", "Пересказ прошлых глав."],
@@ -170435,11 +171965,15 @@ var CAPS = {
 	/** No item text is cut below this when the total is over. */
 	floor: 600
 };
-/** Maestro's own injections (core/ephemeral: slot `maestro_<key>`) by the module that writes them. */
+/**
+* Maestro's own injections (core/ephemeral: slot `maestro_<key>`) by the module that writes them (release 1.27: the
+* mechanics write the rules in the prompt, the state and the facts in the chat).
+*/
 var MAESTRO_SLOTS = {
 	maestro_director: "director",
 	maestro_voices: "voices",
 	maestro_mechanics: "mechanics",
+	maestro_mechanics_rules: "mechanics",
 	maestro_mechanics_facts: "mechanics",
 	maestro_wardrobe: "wardrobe",
 	maestro_offscreen: "offscreen",
@@ -176715,148 +178249,6 @@ var DEFAULT_ACTIONS = {
 	canonContradiction: "notify"
 };
 //#endregion
-//#region src/features/quality/actions.ts
-function swipeIdOf$1(message) {
-	const id = message?.swipe_id;
-	return typeof id === "number" && Number.isInteger(id) && id >= 0 ? id : 0;
-}
-var StActions = class {
-	app;
-	log;
-	timings;
-	constructor(app, log, timings) {
-		this.app = app;
-		this.log = log;
-		this.timings = timings;
-	}
-	extras() {
-		return this.app.host.ctx();
-	}
-	/** This ST can swipe from code. */
-	canSwipe() {
-		const swipe = this.extras().swipe;
-		return typeof swipe?.right === "function" && typeof swipe.isAllowed === "function";
-	}
-	canContinue() {
-		return typeof this.app.host.ctx().executeSlashCommandsWithOptions === "function";
-	}
-	isLast(index) {
-		return index === this.app.host.ctx().chat.length - 1;
-	}
-	/** ST is idle: no generation of Maestro's turn pipeline and ST would accept a swipe. */
-	idle() {
-		if (this.app.turn.current() !== null) return false;
-		const allowed = this.extras().swipe?.isAllowed;
-		try {
-			return typeof allowed === "function" ? allowed() : true;
-		} catch {
-			return false;
-		}
-	}
-	/** Waits until idle(), at most `idleMs`; false when ST stayed busy. */
-	async waitIdle(limitMs = this.timings.idleMs) {
-		const until = Date.now() + limitMs;
-		while (!this.idle()) {
-			if (Date.now() >= until) return false;
-			await new Promise((resolve) => setTimeout(resolve, this.timings.pollMs));
-		}
-		return true;
-	}
-	/** The send box holds nothing the user typed (a /continue would clear it). */
-	sendBoxEmpty() {
-		try {
-			const box = typeof document === "undefined" ? null : document.querySelector("#send_textarea");
-			return !(box instanceof HTMLTextAreaElement) || !box.value.trim();
-		} catch {
-			return true;
-		}
-	}
-	/**
-	* Rewrites the text of a reply swipe when it is still `before`: the message, its swipe copy, the DOM, the chat
-	* file. False when the reply changed meanwhile.
-	*/
-	async writeText(index, swipeId, before, after) {
-		const ctx = this.app.host.ctx();
-		const message = ctx.chat[index];
-		if (!message || message.is_user || swipeIdOf$1(message) !== swipeId || message.mes !== before) return false;
-		message.mes = after;
-		const swipes = message.swipes;
-		if (Array.isArray(swipes) && typeof swipes[swipeId] === "string") swipes[swipeId] = after;
-		await rerenderMessage(this.app.host, index, message, { log: this.log });
-		await ctx.saveChat();
-		return true;
-	}
-	/**
-	* Swipes the last message to a new generation. `onStart` runs right before ST is asked (the one-shot fix note is
-	* armed there). Does not wait for the new reply. False when ST cannot swipe now.
-	*/
-	async swipe(index, onStart) {
-		if (!this.canSwipe()) return false;
-		const chatId = this.app.host.chatId();
-		if (!await this.waitIdle()) {
-			this.log.info("swipe skipped: SillyTavern stayed busy");
-			return false;
-		}
-		const message = this.app.host.ctx().chat[index];
-		if (this.app.host.chatId() !== chatId || !message || !this.isLast(index) || message.is_user) return false;
-		onStart?.();
-		const swipe = this.extras().swipe;
-		try {
-			const result = swipe?.right?.(null, { message });
-			if (result instanceof Promise) result.catch((error) => this.log.warn("swipe failed", error));
-		} catch (error) {
-			this.log.warn("swipe failed", error);
-			return false;
-		}
-		return true;
-	}
-	/** Undo of an automatic swipe: shows the swipe the reply had before. */
-	async swipeBack(index, swipeId) {
-		const swipe = this.extras().swipe;
-		if (typeof swipe?.to !== "function" || !this.isLast(index)) return false;
-		const message = this.app.host.ctx().chat[index];
-		const count = Array.isArray(message?.swipes) ? message.swipes.length : 0;
-		if (!message || swipeId >= count) return false;
-		if (!await this.waitIdle()) return false;
-		try {
-			await swipe.to(null, "left", {
-				message,
-				forceMesId: index,
-				forceSwipeId: swipeId
-			});
-			return true;
-		} catch (error) {
-			this.log.warn("swipe back failed", error);
-			return false;
-		}
-	}
-	/** `/continue` on the last message (only with an empty send box). False when it cannot run. */
-	async continueLast(index) {
-		if (!this.canContinue() || !this.isLast(index) || !this.sendBoxEmpty()) return false;
-		const ctx = this.app.host.ctx();
-		try {
-			const result = ctx.executeSlashCommandsWithOptions("/continue", { handleExecutionErrors: true });
-			if (result instanceof Promise) result.catch((error) => this.log.warn("/continue failed", error));
-			return true;
-		} catch (error) {
-			this.log.warn("/continue failed", error);
-			return false;
-		}
-	}
-	/** Stops the streaming generation (early cutoff). */
-	stop() {
-		const stop = this.extras().stopGeneration;
-		if (typeof stop !== "function") return false;
-		try {
-			stop();
-			return true;
-		} catch (error) {
-			this.log.warn("stopGeneration failed", error);
-			return false;
-		}
-	}
-};
-//#endregion
 //#region src/features/quality/settings.ts
 var QUALITY_KEY = "quality";
 /** Every defect kind in the order the pult lists them. */
@@ -177504,6 +178896,14 @@ var QualityService = class {
 		}
 		return false;
 	}
+	/** The mechanics continue this reply with a roll's result (MechanicsApi.continuing, release 1.27). */
+	mechanicsContinue(index) {
+		try {
+			return this.app.modules.api("mechanics")?.continuing?.(index) === true;
+		} catch {
+			return false;
+		}
+	}
 	/** A story reply the checks apply to (type: the reply:ready type when known). */
 	checkable(index, type) {
 		if (type !== void 0 && !CHECKED_TYPES.has(type || "normal")) return false;
@@ -177521,14 +178921,14 @@ var QualityService = class {
 			chatId,
 			index,
 			message,
-			swipeId: swipeIdOf$1(message),
+			swipeId: swipeIdOf$2(message),
 			text,
 			hash: stableHash(text)
 		};
 	}
 	same(snapshot) {
 		const message = this.app.host.ctx().chat[snapshot.index];
-		return !this.disposed && this.app.host.chatId() === snapshot.chatId && message === snapshot.message && swipeIdOf$1(message) === snapshot.swipeId && message.mes === snapshot.text;
+		return !this.disposed && this.app.host.chatId() === snapshot.chatId && message === snapshot.message && swipeIdOf$2(message) === snapshot.swipeId && message.mes === snapshot.text;
 	}
 	ruleTitles() {
 		const titles = {};
@@ -177675,6 +179075,7 @@ var QualityService = class {
 			});
 		}
 		defects = defects.filter((defect) => this.action(defect.kind) !== "off");
+		if (mode !== "manual" && this.mechanicsContinue(index)) defects = defects.filter((defect) => (defect.fix?.kind ?? defaultFix(defect.kind)) !== "continue");
 		let judged = false;
 		let costUsd = 0;
 		const suspicions = defects.filter((defect) => defect.confidence < JUDGE_THRESHOLD);
@@ -177741,7 +179142,7 @@ var QualityService = class {
 			return verdict;
 		}
 		if (plan.clean.length) await this.clean(verdict, plan.clean, snapshot);
-		const canContinue = plan.continue.length > 0 && this.autoContinuedTurn !== this.turn && this.actions.canContinue() && this.actions.isLast(index) && this.actions.sendBoxEmpty();
+		const canContinue = plan.continue.length > 0 && this.autoContinuedTurn !== this.turn && this.actions.canContinue() && this.actions.isLast(index) && this.actions.sendBoxEmpty() && !this.mechanicsContinue(index);
 		for (const defect of plan.continue) defect.status = canContinue ? "continued" : "notified";
 		if (plan.repair.length) this.repair(verdict, plan.repair);
 		for (const defect of plan.notify) defect.status = "notified";
@@ -178091,7 +179492,7 @@ var QualityService = class {
 				if (message?.is_user) return;
 				continue;
 			}
-			const verdict = this.verdicts.live(i, swipeIdOf$1(message));
+			const verdict = this.verdicts.live(i, swipeIdOf$2(message));
 			if (verdict && !this.badges.has(i)) this.showBadges(verdict);
 			return;
 		}
@@ -178130,7 +179531,7 @@ var QualityService = class {
 		if (!this.isActive()) return true;
 		const message = this.app.host.ctx().chat[index];
 		if (!message || !this.checkable(index)) return true;
-		const verdict = this.verdicts.live(index, swipeIdOf$1(message));
+		const verdict = this.verdicts.live(index, swipeIdOf$2(message));
 		if (verdict) return gateValue(verdict);
 		const running = this.inflightByIndex.get(index);
 		if (running) {
@@ -178289,20 +179690,20 @@ var QualityService = class {
 	verdict(messageIndex) {
 		const message = this.app.host.ctx().chat[messageIndex];
 		if (!message) return void 0;
-		const verdict = this.verdicts.live(messageIndex, swipeIdOf$1(message));
+		const verdict = this.verdicts.live(messageIndex, swipeIdOf$2(message));
 		return verdict ? copyVerdict(verdict) : void 0;
 	}
 	async check(messageIndex) {
 		const message = this.app.host.ctx().chat[messageIndex];
-		if (!this.isActive() || !this.checkable(messageIndex)) return emptyVerdict(messageIndex, swipeIdOf$1(message));
+		if (!this.isActive() || !this.checkable(messageIndex)) return emptyVerdict(messageIndex, swipeIdOf$2(message));
 		await this.verdicts.ready();
 		const verdict = await this.run(messageIndex, "manual");
-		return verdict ? copyVerdict(verdict) : emptyVerdict(messageIndex, swipeIdOf$1(message));
+		return verdict ? copyVerdict(verdict) : emptyVerdict(messageIndex, swipeIdOf$2(message));
 	}
 	async dismiss(messageIndex, kind) {
 		const message = this.app.host.ctx().chat[messageIndex];
 		if (!message) return;
-		const verdict = this.verdicts.live(messageIndex, swipeIdOf$1(message));
+		const verdict = this.verdicts.live(messageIndex, swipeIdOf$2(message));
 		if (!verdict) return;
 		let hit = false;
 		for (const defect of verdict.defects) if (defect.kind === kind && defect.status !== "dismissed") {
@@ -178322,7 +179723,7 @@ var QualityService = class {
 	/** «Не брак» on the badge: every open defect of the reply. */
 	async dismissAll(messageIndex) {
 		const message = this.app.host.ctx().chat[messageIndex];
-		const verdict = message ? this.verdicts.live(messageIndex, swipeIdOf$1(message)) : void 0;
+		const verdict = message ? this.verdicts.live(messageIndex, swipeIdOf$2(message)) : void 0;
 		if (!verdict) return;
 		const kinds = new Set(verdict.defects.filter((defect) => defect.status === "notified").map((defect) => defect.kind));
 		for (const kind of kinds) await this.dismiss(messageIndex, kind);
@@ -178330,7 +179731,7 @@ var QualityService = class {
 	async redo(messageIndex) {
 		const message = this.app.host.ctx().chat[messageIndex];
 		if (!message || !this.isActive()) return;
-		const verdict = this.verdicts.live(messageIndex, swipeIdOf$1(message));
+		const verdict = this.verdicts.live(messageIndex, swipeIdOf$2(message));
 		const defects = (verdict?.defects ?? []).filter((defect) => defect.status !== "dismissed");
 		if (!this.actions.isLast(messageIndex)) {
 			this.app.ui.notice(this.t("m12.redo.notLast"), {

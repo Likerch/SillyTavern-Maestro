@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import type { MechanicsSettings } from '../../../src/features/mechanics/parts';
 import { DEFAULT_MECHANICS_SETTINGS } from '../../../src/features/mechanics/parts';
-import { defaultMechanicsSettings, readMechanicsSettings } from '../../../src/features/mechanics/settings';
+import { fillDefaults } from '../../../src/core/settings';
+import {
+    defaultMechanicsSettings,
+    fillMechanicsDefaults,
+    readMechanicsSettings,
+} from '../../../src/features/mechanics/settings';
 import { DEF_STRINGS } from '../../../src/features/mechanics/strings-defs';
 
 describe('mechanics settings', () => {
@@ -93,6 +98,19 @@ describe('mechanics settings', () => {
         expect(readMechanicsSettings(own)).toMatchObject({ promptBudget: 650, settingsRev: 1 });
         // A fresh slice gets the new defaults.
         expect(readMechanicsSettings({})).toMatchObject({ promptBudget: 1200, settingsRev: 1 });
+    });
+
+    it('migrates a slice saved before 1.27 although the core fills the missing keys first', () => {
+        // The core fills a stored slice with the module's defaults at registration: the revision must not be one of
+        // them, or an old slice would look migrated.
+        expect(fillMechanicsDefaults()).not.toHaveProperty('settingsRev');
+        const stored = { promptBudget: 400, depth: 1, hud: true };
+        const slice = fillDefaults(stored, fillMechanicsDefaults());
+        expect(readMechanicsSettings(slice)).toMatchObject({ promptBudget: 1200, settingsRev: 1 });
+        slice.promptBudget = 400;
+        expect(readMechanicsSettings(fillDefaults(slice, fillMechanicsDefaults())).promptBudget).toBe(400);
+        // A new install: no budget saved, the new default stays.
+        expect(readMechanicsSettings(fillDefaults(undefined, fillMechanicsDefaults())).promptBudget).toBe(1200);
     });
 });
 

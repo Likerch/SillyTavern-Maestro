@@ -112,7 +112,7 @@ describe('mechanics module', () => {
             promptBudget: 1200,
             rulesPlace: 'top',
             stateDepth: 0,
-            settingsRev: 1,
+            // No settingsRev: the core fills old slices with these, and their migrations must still run.
             background: true,
             modelRolls: true,
             rollContinue: true,
