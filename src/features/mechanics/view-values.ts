@@ -489,16 +489,20 @@ function valueSegment(t: T, api: MechanicsApi, change: StateChange, raw: boolean
 
 /* ------------------------------------------------------------------ a holder for a place */
 
+/** Adds to a drawn value (the HUD's mark of the latest reply's change). */
+export type ValueDecorator = (def: MechanicDef, attribute: AttributeDef, node: HTMLElement) => void;
+
 /**
  * A holder's mechanics as the player may see them in a place: per mechanic the values in their view, then the
- * statuses and items. Null when nothing shows. `full`: each value with its sign and name (the HUD's left panel).
+ * statuses and items. Null when nothing shows. `full`: each value with its sign and name (the HUD's side panel);
+ * `decorate`: called with every value drawn.
  */
 export function holderView(
     i18n: Pick<I18n, 't' | 'locale'>,
     api: MechanicsApi,
     holder: string,
     place: VisibilityPlace,
-    options: { full?: boolean } = {},
+    options: { full?: boolean; decorate?: ValueDecorator } = {},
 ): HTMLElement | null {
     const t = translator(i18n);
     const rows: HTMLElement[] = [];
@@ -523,7 +527,10 @@ export function holderView(
         const values = def.attributes
             .map((attribute) => {
                 const shown = shownIn(api, def, attribute, holder, place, effective);
-                return shown ? valueNode(t, attribute, shown, { full: options.full === true }) : null;
+                if (!shown) return null;
+                const node = valueNode(t, attribute, shown, { full: options.full === true });
+                options.decorate?.(def, attribute, node);
+                return node;
             })
             .filter((node): node is HTMLElement => node !== null);
         if (!values.length) continue;

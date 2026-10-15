@@ -40,8 +40,10 @@ export const FLAG_PREFIX = 'maestro_mech_';
 /** The service block the model writes in 'block' mode: `<mechanics>…</mechanics>` at the end of the reply. */
 export const BLOCK_TAG = 'mechanics';
 
-/** Where the HUD goes: over the chat (top or bottom, dragged) or, on a wide screen, left of the chat (hud-place.ts). */
-export type HudPlacement = 'chat' | 'left';
+/** Where the HUD goes: over the chat (top or bottom, dragged), or beside it on the left or the right (hud-place.ts). */
+export type HudPlacement = 'chat' | 'left' | 'right';
+/** What the panel beside the chat shows: what the HUD over the chat shows, or every character of the scene in full. */
+export type HudSideView = 'compact' | 'full';
 
 export interface MechanicsSettings {
     /** Book for new definitions. */
@@ -66,8 +68,13 @@ export interface MechanicsSettings {
     relevance: number;
     /** The HUD over the chat (plan-2 §6.А п.4): shown while a mechanic is on. */
     hud: boolean;
-    /** Where the HUD goes; 'left' falls back to over the chat when the left side has no room (phones, narrow windows). */
+    /**
+     * Where the HUD goes; 'left' / 'right' without the room there is a rail at the chat's edge (a flyout), on phones
+     * over the chat — the setting itself stays.
+     */
     hudPlacement: HudPlacement;
+    /** What the panel beside the chat shows (switched in the panel too). */
+    hudSideView: HudSideView;
     /** Attributes pinned to the HUD (`mechanic.attribute`); empty: every one the HUD may show. */
     hudAttrs: string[];
     /** Characters shown in the HUD besides the user's character. */
@@ -91,6 +98,7 @@ export const DEFAULT_MECHANICS_SETTINGS: MechanicsSettings = {
     relevance: 4,
     hud: true,
     hudPlacement: 'chat',
+    hudSideView: 'compact',
     hudAttrs: [],
     hudHolders: [],
     desAttrs: [],
