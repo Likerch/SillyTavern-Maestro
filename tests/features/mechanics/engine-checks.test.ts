@@ -123,7 +123,7 @@ describe('consequences of a roll', () => {
         expect(result).toMatchObject({ by: 'auto', total: 17, target: 12, outcome: 'success' });
         // No other side in the scene: only the actor's own cost applies.
         expect(result?.text).toBe(
-            'Attack check (Kai): rolled 15 + 2 = 17 vs 12 — success. Consequences: Kai: Mana -10.',
+            'Attack check (Kai): rolled 15 + 2 = 17 vs 12 — success. Consequences: Kai: Mana -10. In the scene: it works as intended.',
         );
         expect(result?.consequences).toEqual(['Kai: Mana -10']);
         expect(state.value('fight', 'Kai', 'mana')).toBe(40);
@@ -175,7 +175,7 @@ describe('consequences of a roll', () => {
             vs: { holder: 'Guard', checkId: 'defense', total: 5 },
         });
         expect(result.text).toBe(
-            'Attack (Kai) vs Defense (Guard): 20 vs 5 — success. Consequences: Guard: HP -16; Kai: Mana -10.',
+            'Attack (Kai) vs Defense (Guard): 20 vs 5 — success. Consequences: Guard: HP -16; Kai: Mana -10. In the scene: it works as intended.',
         );
         await tick(10);
         expect(state.value('fight', 'Guard', 'hp')).toBe(4);

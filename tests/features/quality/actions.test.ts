@@ -194,6 +194,19 @@ describe('continue', () => {
         expect(env.journal.records[0]!.changes[0]!.target).toBe('quality-continue');
     });
 
+    it('leaves a reply alone that the mechanics continue themselves (a roll the model asked for, 1.27)', async () => {
+        env.core.autonomy['quality.truncated'] = 'auto';
+        env.defects(defect('truncated'));
+        env.app.modules.expose('mechanics', { continuing: (index: number) => index === 2 });
+        const service = env.start();
+        await env.reply(2);
+        await sleep(10);
+        expect(env.st.commands).toEqual([]);
+        // Not even a badge: the reply is being continued, its next part is checked again.
+        expect(service.verdict(2)!.defects).toEqual([]);
+        expect(env.badges.filter((item) => !item.removed)).toHaveLength(0);
+    });
+
     it('keeps «notify» (the default) as a badge', async () => {
         env.defects(defect('truncated'));
         const service = env.start();

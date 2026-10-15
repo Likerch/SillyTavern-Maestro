@@ -75,7 +75,7 @@ describe('auto checks', () => {
             total: 14,
             target: 15,
             outcome: 'failure',
-            text: 'Persuasion check (Kai): rolled 14 vs 15 — failure.',
+            text: 'Persuasion check (Kai): rolled 14 vs 15 — failure. In the scene: it barely fails — it nearly works; show what goes wrong and what it costs.',
             messageIndex: 1,
             by: 'auto',
         });
@@ -151,7 +151,7 @@ describe('auto checks', () => {
             modifier: 3,
             total: 17,
             outcome: 'success',
-            text: 'Persuasion check (Elizabeth): rolled 14 + 3 = 17 vs 15 — success.',
+            text: 'Persuasion check (Elizabeth): rolled 14 + 3 = 17 vs 15 — success. In the scene: it works as intended.',
         });
     });
 
@@ -177,7 +177,7 @@ describe('auto checks', () => {
             checkId: 'stealth',
             target: 20,
             outcome: 'success',
-            text: 'Stealth check (Kai): rolled 15, needed 20 or lower — success.',
+            text: 'Stealth check (Kai): rolled 15, needed 20 or lower — success. In the scene: it works as intended.',
         });
     });
 
@@ -266,12 +266,16 @@ describe('/maestro-roll', () => {
     it('rolls a check by name for a holder at a difficulty', async () => {
         const part = await start(faces(20, 14, 14, 14, 14, 14));
         exposeWorld();
-        expect(await run('persuasion Elizabeth 12')).toBe('Persuasion check (Elizabeth): rolled 14 vs 12 — success.');
+        expect(await run('persuasion Elizabeth 12')).toBe(
+            'Persuasion check (Elizabeth): rolled 14 vs 12 — success. In the scene: it works as intended.',
+        );
         expect(ctx.notices.at(-1)).toEqual({ text: 'Rolled: Убеждение (Elizabeth): 14 vs 12 — success', urgent: true });
-        expect(await run('Убеждение трудно')).toBe('Persuasion check (Kai): rolled 14 vs 20 — failure.');
+        expect(await run('Убеждение трудно')).toBe(
+            'Persuasion check (Kai): rolled 14 vs 20 — failure. In the scene: it does not work — show what goes wrong and what it costs.',
+        );
         expect(await run('social.persuasion очень трудно')).toContain('vs 25');
         expect(await run('persuasion', { holder: 'Liz', difficulty: 'easy' })).toBe(
-            'Persuasion check (Elizabeth): rolled 14 vs 10 — success.',
+            'Persuasion check (Elizabeth): rolled 14 vs 10 — success. In the scene: it works as intended.',
         );
         expect(await run('PERSUASION Anna')).toContain('(Anna)');
         expect(part.checks().every((result) => result.by === 'user')).toBe(true);
@@ -422,7 +426,7 @@ describe('the log', () => {
             total: 3,
             target: 15,
             outcome: 'failure',
-            text: 'Persuasion check (Kai): rolled 3 vs 15 — failure.',
+            text: 'Persuasion check (Kai): rolled 3 vs 15 — failure. In the scene: it does not work — show what goes wrong and what it costs.',
             messageIndex: 0,
             by: 'auto',
             at: 5,

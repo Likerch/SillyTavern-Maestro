@@ -1,5 +1,6 @@
-// Strings of M25 «Механики», part C: checks (`m25.check.*`), widgets (`m25.widget.*`), the prompt (`m25.prompt.*`)
-// and the autonomy kind of the rolls. Russian is the primary UI language; the user is addressed as «ты» (male).
+// Strings of M25 «Механики», part C: checks (`m25.check.*`; release 1.27: an attempt without the means and what an
+// outcome means on the roll card), widgets (`m25.widget.*`), the prompt (`m25.prompt.*`) and the autonomy kind of the
+// rolls. Russian is the primary UI language; the user is addressed as «ты» (male).
 import type { I18nParts } from '../../shared/contracts';
 
 export const CHECK_STRINGS: I18nParts = {
@@ -20,6 +21,17 @@ export const CHECK_STRINGS: I18nParts = {
         'm25.check.xp': '+{amount} XP',
         'm25.check.journal': 'Roll: {line}',
         'm25.check.rolled': 'Rolled: {line}',
+        // release 1.27: an attempt without the means, and what an outcome means for the scene
+        'm25.check.notRolled': 'No roll: {line}',
+        'm25.check.outcome.blocked': 'not possible',
+        'm25.check.line.blocked': '{check} ({holder}): not possible — {reason}',
+        'm25.check.blocked.reason': '{attribute} {have}, needs {need}',
+        'm25.check.meaning.critical': 'Brilliantly, with something extra',
+        'm25.check.meaning.success': 'It works',
+        'm25.check.meaning.success.barely': 'It barely works',
+        'm25.check.meaning.failure': 'It does not work',
+        'm25.check.meaning.failure.barely': 'It nearly works, but not quite',
+        'm25.check.meaning.fumble': 'It goes badly wrong',
         'm25.check.by.auto': 'by your message',
         'm25.check.by.user': 'by hand',
         'm25.check.by.model': 'asked by the story',
@@ -105,6 +117,16 @@ export const CHECK_STRINGS: I18nParts = {
         'm25.check.xp': '+{amount} опыта',
         'm25.check.journal': 'Бросок: {line}',
         'm25.check.rolled': 'Бросок: {line}',
+        'm25.check.notRolled': 'Без броска: {line}',
+        'm25.check.outcome.blocked': 'невозможно',
+        'm25.check.line.blocked': '{check} ({holder}): невозможно — {reason}',
+        'm25.check.blocked.reason': '{attribute} {have}, нужно {need}',
+        'm25.check.meaning.critical': 'Блестяще, да ещё и с бонусом',
+        'm25.check.meaning.success': 'Получилось',
+        'm25.check.meaning.success.barely': 'Еле-еле получилось',
+        'm25.check.meaning.failure': 'Не вышло',
+        'm25.check.meaning.failure.barely': 'Чуть-чуть не хватило',
+        'm25.check.meaning.fumble': 'Всё пошло наперекосяк',
         'm25.check.by.auto': 'по твоему сообщению',
         'm25.check.by.user': 'вручную',
         'm25.check.by.model': 'по ходу истории',

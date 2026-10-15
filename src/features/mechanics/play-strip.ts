@@ -18,7 +18,7 @@
 import type { App, I18n, Logger, MessageStripProvider, StripItem, Unsubscribe } from '../../shared/contracts';
 import { clear, el } from '../../ui/components/dom';
 import type { CheckResult, FiredEvent, MechanicDef, MechanicsApi, StateChange } from './api';
-import { describeCheck } from './checks';
+import { blockedAttributeOf, describeCheck, meaningKey } from './checks';
 import {
     changeSeen,
     changeSegment,
@@ -106,7 +106,7 @@ export function rollLine(i18n: I18n, api: MechanicsApi, result: CheckResult): st
               rivalTotal: result.vs.total,
               outcome: t(`m25.check.outcome.${result.outcome}`),
           })
-        : describeCheck(result, i18n, name);
+        : describeCheck(result, i18n, name, blockedAttributeOf(api, result));
     if (result.mode) line += ` ${t(`m25.play.roll.mode.${result.mode}`)}`;
     return line;
 }
@@ -524,6 +524,15 @@ export class MechanicsPlayStrip {
     /** Dice faces, the modifier, the total and the target; the other side; consequences; the model's note. */
     rollCard(result: CheckResult, consequences: readonly string[]): HTMLElement {
         const t = this.t;
+        // Release 1.27: an attempt without the means had no dice — the card says why instead.
+        if (result.blocked) {
+            return el('div', { class: 'maestro-m25-roll-card', data: { roll: result.id } }, [
+                el('div', { text: rollLine(this.deps.app.i18n, this.api, result) }),
+                el('div', { class: 'maestro-muted', text: t(`m25.check.by.${result.by}`) }),
+                result.text ? details(t('m25.play.details'), result.text) : null,
+            ]);
+        }
+        const meaning = meaningKey(result);
         const sides = /^\d*d(\d+)/i.exec(result.dice)?.[1];
         const sideCount = sides ? Number(sides) : null;
         const modifier = result.modifier ? (result.modifier > 0 ? `+${result.modifier}` : String(result.modifier)) : '';
@@ -562,6 +571,7 @@ export class MechanicsPlayStrip {
                   })
                 : null,
             el('div', { text: t('m25.play.roll.outcome', { outcome: t(`m25.check.outcome.${result.outcome}`) }) }),
+            meaning ? el('div', { class: 'maestro-m25-roll-meaning', text: t(meaning) }) : null,
             consequences.length
                 ? el('div', { text: t('m25.play.roll.consequences', { list: consequences.join(' · ') }) })
                 : null,

@@ -155,7 +155,7 @@ describe('the target of an auto roll', () => {
         const [result] = checks.checks(1);
         expect(result).toMatchObject({ holder: 'Kai', against: 'Стражник', outcome: 'success' });
         expect(result?.text).toBe(
-            'Attack check (Kai) against Стражник: rolled 15 + 2 = 17 vs 12 — success. Consequences: Стражник: HP -6; Kai: Mana -10.',
+            'Attack check (Kai) against Стражник: rolled 15 + 2 = 17 vs 12 — success. Consequences: Стражник: HP -6; Kai: Mana -10. In the scene: it works as intended.',
         );
         expect(state.value('fight', 'Стражник', 'hp')).toBe(14);
         expect(state.value('fight', 'Kai', 'mana')).toBe(40);
@@ -244,7 +244,7 @@ describe('the target of an auto roll', () => {
         const [result] = checks.checks(1);
         expect(result).not.toHaveProperty('against');
         expect(result?.text).toBe(
-            'Attack check (Kai): rolled 15 + 2 = 17 vs 12 — success. Consequences: Kai: Mana -10.',
+            'Attack check (Kai): rolled 15 + 2 = 17 vs 12 — success. Consequences: Kai: Mana -10. In the scene: it works as intended.',
         );
         expect(state.value('fight', 'Char', 'hp')).toBe(20);
     });
@@ -263,7 +263,7 @@ describe('the target of an auto roll', () => {
         expect(checks.checks(1)[0]).toMatchObject({
             checkId: 'punch',
             against: 'Bandit',
-            text: 'Strike check (Kai) against Bandit: rolled 15 vs 10 — success.',
+            text: 'Strike check (Kai) against Bandit: rolled 15 vs 10 — success. In the scene: it works as intended.',
         });
         await send(ctx, 'Я уклоняюсь.');
         expect(checks.checks(1)[0]?.checkId).toBe('dodge');
@@ -350,7 +350,7 @@ describe('experience', () => {
         expect(result).toMatchObject({ outcome: 'success' });
         expect(result?.consequences).toEqual(['Kai: Experience +10']);
         expect(result?.text).toBe(
-            'Persuasion check (Kai): rolled 15 + 2 = 17 vs 12 — success. Consequences: Kai: Experience +10.',
+            'Persuasion check (Kai): rolled 15 + 2 = 17 vs 12 — success. Consequences: Kai: Experience +10. In the scene: it works as intended.',
         );
         expect(state.value('talk', 'Kai', 'xp')).toBe(10);
         expect(state.value('talk', 'Kai', 'level')).toBe(2);

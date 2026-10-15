@@ -236,6 +236,19 @@ export interface CheckDef {
     effects?: CheckEffect[];
     /** Triggers count in quoted speech too, and questions do not stop the roll (persuasion, deception…). */
     speech?: boolean;
+    /** «Нужно для броска» (release 1.27): without these the attempt fails with no roll (spellcasting at mana 3). */
+    requires?: CheckRequirement[];
+}
+
+/**
+ * What a check needs before it can be tried at all: the roller's value of an attribute of the same mechanic (with
+ * status and item modifiers; a scale as its level index) at least `min`. Short of it: no dice, the fact says why.
+ */
+export interface CheckRequirement {
+    attr: string;
+    min: number;
+    /** English, for the model ("a spell costs at least 5 mana"). */
+    note?: string;
 }
 
 export type TimePer = 'turn' | 'hour' | 'day';
@@ -473,7 +486,10 @@ export interface CheckResult {
     /** Target (difficulty or roll-under value); null when none. */
     target: number | null;
     outcome: CheckOutcome;
-    /** The fact for the prompt, English: "Persuasion check (Kai): rolled 14 + 2 = 16 vs 15 — success." */
+    /**
+     * The fact for the prompt, English: "Persuasion check (Kai): rolled 14 + 2 = 16 vs 15 — success. In the scene: it
+     * works as intended." (what the outcome means: the check's own outcome texts, else a line by outcome).
+     */
     text: string;
     /** The message the check belongs to: the user's message (auto, by hand before sending), the reply (model). */
     messageIndex: number;
@@ -486,7 +502,7 @@ export interface CheckResult {
     other?: number;
     /** An opposed check: the other side. */
     vs?: { holder: string; mechanicId: string; checkId: string; total: number; rolls: number[] };
-    /** English consequences given to the model ("Kai: mana -10"). */
+    /** English changes given to the model ("Kai: mana -10"); the outcome texts are the fact's «In the scene» part. */
     consequences?: string[];
     /** Ids of the changes the roll made (StateChange.id). */
     changes?: string[];
@@ -499,6 +515,14 @@ export interface CheckResult {
      * `who: 'target'` consequences hit them. (`target` is the difficulty.)
      */
     against?: string;
+    // Release 1.27.
+    /**
+     * The roller lacked what the check requires (`CheckDef.requires`): no dice were rolled (outcome 'none'), the fact
+     * says the attempt fails. `attr`: the attribute id; `have` / `need`: the value and the minimum.
+     */
+    blocked?: { attr: string; have: number; need: number };
+    /** A success or failure within two points of the other outcome: the fact reads «barely». */
+    barely?: boolean;
 }
 
 /** A threshold event that fired (for the director's twists and the pult). */
@@ -721,4 +745,11 @@ export interface MechanicsApi {
      * same again). False when it is not a story reply of the model or this tab does not count the values.
      */
     retrack?(messageIndex: number): Promise<boolean>;
+
+    // ---- release 1.27: a roll in the middle of a reply.
+    /**
+     * Maestro continues this reply itself (settings.rollContinue): the model asked for a roll, the result is rolled
+     * and one `/continue` is planned or running with it. The quality check does not continue such a reply too.
+     */
+    continuing?(messageIndex: number): boolean;
 }

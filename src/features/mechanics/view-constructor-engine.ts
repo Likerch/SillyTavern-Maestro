@@ -1,6 +1,6 @@
 // M25 «Механики», constructor editors of the engine fields (plan-2 §6 п.1–5, 9–11, §6.А): consequences of a check's
-// outcomes, actions and chains of threshold events, the status catalogue, the inventory and its money, formulas and
-// growth of numbers, experience and levels (with the experience per roll outcome), time rules, fights, and «Где видно»
+// outcomes, what a check needs to be tried at all («Нужно для броска», release 1.27), actions and chains of threshold
+// events, the status catalogue, the inventory and its money, formulas and growth of numbers, experience and levels (with the experience per roll outcome), time rules, fights, and «Где видно»
 // of a mechanic and of each attribute (preset buttons «Игровой / Книжный / Скрытый / Тайный от всех», per-place
 // switches, the view, what the model knows and how it mentions changes, words by thresholds). Story words on the labels; ids and English for the model under
 // «Подробнее». Each editor edits the draft in place and calls `refresh` (problems, preview) or `redraw` (structure).
@@ -447,6 +447,89 @@ export function effectsEditor(ctx: EngineCtx, check: CheckDef, checkIndex: numbe
                 ctx.redraw();
             },
         }),
+    ]);
+}
+
+/* ------------------------------------------------------------------ what a check needs (release 1.27) */
+
+/**
+ * «Нужно для броска»: an attribute of the mechanic (numbers and scales), the least value the roller needs, and under
+ * «Подробнее» an English note for the model. Short of it the attempt fails with no roll.
+ */
+export function requiresEditor(ctx: EngineCtx, check: CheckDef): HTMLElement {
+    const { t, def } = ctx;
+    const needs = check.requires ?? [];
+    const candidates = def.attributes.filter((attr) => !!attr.id && (attr.kind === 'number' || attr.kind === 'scale'));
+    const options = candidates.map((attr) => ({ value: attr.id, label: attr.name || attr.id }));
+    const rows = needs.map((need, index) =>
+        el('div', { class: 'maestro-m25-action maestro-m25-require', data: { require: String(index) } }, [
+            select<string>({
+                value: need.attr,
+                options: options.some((option) => option.value === need.attr)
+                    ? options
+                    : [{ value: need.attr, label: need.attr }, ...options],
+                label: t('m25.ctor.require.attr'),
+                onChange: (value) => {
+                    need.attr = value;
+                    ctx.refresh();
+                },
+            }),
+            el('span', { class: 'maestro-muted', text: t('m25.ctor.require.atLeast') }),
+            optionalNumber(
+                need.min,
+                (value) => {
+                    need.min = value ?? 0;
+                    ctx.refresh();
+                },
+                t('m25.ctor.require.min'),
+                '5',
+                'maestro-m25-require-min',
+            ),
+            button({
+                icon: 'fa-xmark',
+                title: t('m25.ctor.require.remove'),
+                kind: 'ghost',
+                className: 'maestro-m25-require-remove',
+                onClick: () => {
+                    check.requires = needs.filter((item) => item !== need);
+                    if (!check.requires.length) delete check.requires;
+                    ctx.redraw();
+                },
+            }),
+            moreBlock(t('m25.ctor.more'), [
+                textInput(
+                    need.note ?? '',
+                    (value) => {
+                        if (value.trim()) need.note = value.trim();
+                        else delete need.note;
+                        ctx.refresh();
+                    },
+                    {
+                        label: t('m25.ctor.require.note'),
+                        placeholder: t('m25.ctor.require.note.hint'),
+                        className: 'maestro-m25-require-note',
+                    },
+                ),
+            ]),
+        ]),
+    );
+    const first = candidates[0];
+    return el('div', { class: 'maestro-m25-requires' }, [
+        el('div', { class: 'maestro-m25-sub', text: t('m25.ctor.requires') }),
+        el('div', { class: 'maestro-hint', text: t('m25.ctor.requires.hint') }),
+        ...rows,
+        first
+            ? button({
+                  label: t('m25.ctor.require.add'),
+                  icon: 'fa-plus',
+                  kind: 'ghost',
+                  className: 'maestro-m25-require-add',
+                  onClick: () => {
+                      check.requires = [...needs, { attr: first.id, min: 1 }];
+                      ctx.redraw();
+                  },
+              })
+            : el('div', { class: 'maestro-muted', text: t('m25.ctor.requires.none') }),
     ]);
 }
 

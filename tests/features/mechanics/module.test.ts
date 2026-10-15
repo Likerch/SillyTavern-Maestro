@@ -59,7 +59,11 @@ vi.mock('../../../src/features/mechanics/tracking', () => ({
         },
     }),
 }));
-vi.mock('../../../src/features/mechanics/checks', () => ({ MechanicChecks: part('checks'), secureRng: () => 0.5 }));
+vi.mock('../../../src/features/mechanics/checks', () => ({
+    // One roll made per request (release 1.27: the reply then goes on with it).
+    MechanicChecks: part('checks', { requested: () => 1 }),
+    secureRng: () => 0.5,
+}));
 vi.mock('../../../src/features/mechanics/prompt', () => ({ MechanicPrompt: part('prompt') }));
 vi.mock('../../../src/features/mechanics/widgets', async (importOriginal) => ({
     ...(await importOriginal<Record<string, unknown>>()),
@@ -111,6 +115,7 @@ describe('mechanics module', () => {
             settingsRev: 1,
             background: true,
             modelRolls: true,
+            rollContinue: true,
             autoCombat: true,
             personaFallback: 'background',
             relevance: 4,
@@ -207,6 +212,24 @@ describe('mechanics module', () => {
         expect(env.ui.tabs.find((item) => item.id === 'mechanics')).toBeUndefined();
         expect(env.ui.styles.has('maestro-m25-defs')).toBe(false);
         expect(env.mock.eventSource.events.get('worldinfo_updated')?.length ?? 0).toBe(0);
+    });
+
+    it('a reply whose roll requests were rolled goes on with them: the API says it continues (1.27)', async () => {
+        const started = await startModule(env, mechanicsModule);
+        const api = env.modules.api<MechanicsApi>('mechanics')!;
+        const listener = calls.args.rollListener?.[0] as (
+            index: number,
+            swipeId: number,
+            rolls: unknown[],
+            info: { arrival?: string },
+        ) => void;
+        // An edit rolls but plans nothing; the reply arriving now (MESSAGE_RECEIVED) does.
+        listener(2, 0, [{ head: 'Persuasion', line: 'roll: Persuasion' }], {});
+        expect(api.continuing?.(2)).toBe(false);
+        listener(2, 0, [{ head: 'Persuasion', line: 'roll: Persuasion' }], { arrival: 'normal' });
+        expect(api.continuing?.(2)).toBe(true);
+        expect(api.continuing?.(1)).toBe(false);
+        await started.stop();
     });
 
     it('keeps the tab working when a section fails', async () => {

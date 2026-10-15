@@ -5,7 +5,9 @@
 // twice, the better / worse one kept), natural criticals, the outcome against a difficulty, opposed checks (the
 // actor's total against the other side's) and the English facts the prompt gets
 // ("Persuasion check (Kai): rolled 14 + 2 = 16 vs 15 — success.", aimed at someone: "Attack check (Kai) against
-// Bandit: …").
+// Bandit: …"). Release 1.27: every fact ends with what the outcome means for the scene (`outcomeMeaning`: the
+// check's own outcome texts, else a line by outcome; a roll within two points of the other outcome reads «barely»),
+// and an attempt the roller lacks the means for has a fact of its own without dice (`blockedFact`).
 // Pure: no DOM, no SillyTavern.
 import { diceParts, dndModifier, naturalRange } from './mechanics-defs';
 import type { DiceFormula } from './mechanics-defs';
@@ -314,4 +316,125 @@ export function opposedFact(
     const word = OUTCOME_TEXT[outcome] || 'tie';
     const natural = outcome === 'critical' || outcome === 'fumble' ? ` (natural ${actor.roll.natural})` : '';
     return `${left} vs ${right}: ${actor.roll.total} vs ${defender.roll.total} — ${word}${natural}.`;
+}
+
+/* ------------------------------------------------------------------ what the outcome means (release 1.27) */
+
+/** A success or failure this many points (or fewer) from the other outcome reads «barely». */
+export const BARELY_POINTS = 2;
+
+/**
+ * The roll was close: a success or a failure with a numeric target whose total was 1–2 points from the other outcome
+ * (against a target: won by 0–1 over it or missed by 1–2; opposed: won by 1–2 or lost by 0–1). Never a critical or a
+ * fumble, never without a target.
+ */
+export function isBarely(
+    outcome: DiceOutcome,
+    margin: number,
+    options: { target: boolean; opposed?: boolean },
+): boolean {
+    if (!options.target || !Number.isFinite(margin)) return false;
+    let flip: number;
+    if (outcome === 'success') flip = options.opposed ? margin : margin + 1;
+    else if (outcome === 'failure') flip = options.opposed ? 1 - margin : -margin;
+    else return false;
+    return flip >= 1 && flip <= BARELY_POINTS;
+}
+
+/** The outcome texts a check's author wrote, by how they match the outcome. */
+export interface OutcomeTexts {
+    /** Written for exactly this outcome. */
+    own?: readonly string[];
+    /** A critical's success texts, a fumble's failure texts (used when it has none of its own). */
+    wider?: readonly string[];
+    /** Written for any outcome (added to the meaning). */
+    any?: readonly string[];
+}
+
+const GENERIC_MEANING: Record<Exclude<DiceOutcome, 'none'>, string> = {
+    critical: 'it works brilliantly, with an extra benefit',
+    success: 'it works as intended',
+    failure: 'it does not work — show what goes wrong and what it costs',
+    fumble: 'it goes badly wrong, with a complication',
+};
+
+const BARELY_MEANING: Record<'success' | 'failure', string> = {
+    success: 'it barely works — only just, with nothing to spare',
+    failure: 'it barely fails — it nearly works; show what goes wrong and what it costs',
+};
+
+/** An author's text as part of a sentence: trimmed, without the closing stop. */
+function clause(text: string): string {
+    return text.trim().replace(/[\s.;]+$/, '');
+}
+
+/**
+ * What an outcome means for the scene (English, the end of the fact): the outcome's own texts; a critical (a fumble)
+ * with only success (failure) texts gets them «and brilliantly» («and badly»); else a line by outcome. A close roll
+ * reads «barely». Texts for any outcome follow. '' for 'none' without texts for any outcome.
+ */
+export function outcomeMeaning(outcome: DiceOutcome, texts: OutcomeTexts = {}, barely = false): string {
+    const own = (texts.own ?? []).map(clause).filter(Boolean);
+    const wider = (texts.wider ?? []).map(clause).filter(Boolean);
+    const any = (texts.any ?? []).map(clause).filter(Boolean);
+    let body = '';
+    if (outcome !== 'none') {
+        if (own.length) body = own.join('; ');
+        else if (wider.length && (outcome === 'critical' || outcome === 'fumble')) {
+            body = `${wider.join('; ')}, and ${outcome === 'critical' ? 'brilliantly, with an extra benefit' : 'badly, with a complication'}`;
+        } else if (barely && (outcome === 'success' || outcome === 'failure')) body = BARELY_MEANING[outcome];
+        else body = GENERIC_MEANING[outcome];
+        if (barely && own.length) body = `barely — ${body}`;
+    }
+    return [body, ...any].filter(Boolean).join('; ');
+}
+
+/** The fact with what changed and what it means: "<fact> Consequences: Kai: Mana -10. In the scene: it works." */
+export function factWithMeaning(fact: string, notes: readonly string[], meaning: string): string {
+    let text = fact;
+    if (notes.length) text += ` Consequences: ${notes.join('; ')}.`;
+    if (meaning) text += ` In the scene: ${meaning}.`;
+    return text;
+}
+
+/** Why a check could not be tried: the attribute (English name), the value and the minimum. */
+export interface BlockedReason {
+    attribute: string;
+    have: number;
+    need: number;
+    /** The author's English note ("a spell costs at least 5 mana"). */
+    note?: string;
+    /** How much the model may know of the attribute: its value (default), words, nothing. */
+    mode?: 'value' | 'words' | 'none';
+}
+
+/** "Mana" → "mana" inside a sentence; "HP" and names with more capitals stay. */
+function midSentence(name: string): string {
+    return /^[A-Z][^A-Z]*$/.test(name) ? name.charAt(0).toLowerCase() + name.slice(1) : name;
+}
+
+function plain(value: number): string {
+    return String(Math.round(value * 100) / 100);
+}
+
+/**
+ * The fact of an attempt the roller lacks the means for (no dice):
+ * "Spellcasting (Kai): not possible — mana 3, needs 5. The attempt fails; narrate it, there is no roll." In words: "not
+ * enough mana"; with nothing the model may know: "not possible now".
+ */
+export function blockedFact(checkName: string, holder: string, reason: BlockedReason, against?: string | null): string {
+    const name = checkName.trim() || 'Skill';
+    const who = holder.trim();
+    const target = (against ?? '').trim();
+    const attribute = midSentence(reason.attribute.trim() || 'value');
+    const mode = reason.mode ?? 'value';
+    let why =
+        mode === 'none'
+            ? 'not possible now'
+            : mode === 'words'
+              ? `not possible — not enough ${attribute}`
+              : `not possible — ${attribute} ${plain(reason.have)}, needs ${plain(reason.need)}`;
+    const note = clause(reason.note ?? '');
+    if (note && mode !== 'none') why += ` (${note})`;
+    return `${name}${who ? ` (${who})` : ''}${target ? ` against ${target}` : ''}: ${why}. The attempt fails; narrate it, there is no roll.`;
 }

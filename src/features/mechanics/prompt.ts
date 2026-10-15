@@ -5,8 +5,7 @@
 // - two blocks of the mechanics in the scene (domain/mechanics-prompt.ts renderGame), fitted together to the
 //   Architect's «mechanics» budget when it is set, else to settings.promptBudget (the blocks fit themselves: the
 //   Architect only measures both slots), never scanned, system role:
-//   · the rules `<game_rules>` (slot `maestro_mechanics_rules`): the framing line, each mechanic's rules, the tracking
-//     part's block instruction at the end. Stable while the scene's mechanics do not change (definition order), so
+//   · the rules `<game_rules>` (slot `maestro_mechanics_rules`): the framing line and each mechanic's rules. Stable while the scene's mechanics do not change (definition order), so
 //     settings.rulesPlace 'top' (default) puts it IN_PROMPT — ST's Chat Completion adds an in-prompt extension prompt
 //     right after the main prompt (openai.js getPromptPosition → 'end', injectToMain), the cache-friendly head of the
 //     prompt; 'end' puts it right before the state in the state's slot (a separate slot at the same depth would sort
@@ -14,11 +13,14 @@
 //   · the state `<game_state>` (slot `maestro_mechanics`, the key the Architect and the neighbour prompts know) in the
 //     chat at settings.stateDepth (default 0, P16): per holder the values with their band words, the lasting events
 //     that hold now, the conditions with their modifiers, the inventory; the fight, DES's tracker stats (attributes DES
-//     keeps: tracking.desTracked) and the closing line;
+//     keeps: tracking.desTracked) and the closing line; after it the tracking part's block instruction (it names the
+//     holders of the scene, so it would change the rules block with the cast);
 // - the facts (pending check results and fired events) at depth 0 for one generation, right after the state (same depth
 //   and role: ST merges the slots in key order, `maestro_mechanics` < `maestro_mechanics_facts`); they are marked
 //   delivered when the generation ends without being stopped, and a swipe / regenerate / continue of the same reply
-//   gets them again (the roll belongs to the user's message: it is never rolled again).
+//   gets them again (the roll belongs to the user's message: it is never rolled again). Release 1.27: the rolls a
+//   reply asked for reach its own continuation (roll-continue.ts); a swipe or regeneration of that reply does not
+//   repeat them.
 // Sections come most important first: mechanics with facts in this generation, changed in the last two turns, named
 // in the user's latest message (name, keys, attributes, a holder), the rest — the cutting goes from the end.
 // Everything is read from memory (definitions, state, the roll log): nothing is awaited on the send path (P15).
@@ -454,10 +456,13 @@ export class MechanicPrompt {
             const fresh = new Set(pendingChecks.map((result) => result.id));
             const known = this.safe(() => this.checks.checks(REPEAT_LOOKUP), [], 'the roll log');
             // A roll dropped since (its message was edited away) is not in the log any more and is not repeated.
+            // Release 1.27: a roll the reply itself asked for (given to its continuation) is the old variant's: a
+            // swipe or regeneration of that reply does not hear it again; a further continue does.
             const repeated = last.checkIds
                 .filter((id) => !fresh.has(id))
                 .map((id) => known.find((result) => result.id === id))
-                .filter((result): result is CheckResult => !!result);
+                .filter((result): result is CheckResult => !!result)
+                .filter((result) => type === 'continue' || result.by !== 'model' || result.messageIndex !== forIndex);
             checks = [...repeated, ...pendingChecks];
             const seen = new Set(pendingEvents.map(eventKey));
             events = [...last.events.filter((event) => !seen.has(eventKey(event))), ...pendingEvents];

@@ -32,9 +32,11 @@
 //   reads the reply with the user's action before it and who «you» is (under the background cost cap) → validated
 //   edits → autonomy 'mechanics.change' (fallback 'auto') → state.apply;
 // - the block also carries statuses (`Kai.status += Poisoned (3 turns)`), items (`Kai.items += rope x2`), roll requests
-//   (`roll: Stealth Kai vs Guard.Perception adv`, rolled by the checks part as soon as the reply arrives), fights
-//   (`combat: start|enemy|out|end`, run by the combat part with the other changes) and story time (`time: +30m`,
-//   asked only when hour / day rules or timed statuses are in the scene and DES gives no time);
+//   (`roll: Stealth Kai vs Guard.Perception adv`, rolled by the checks part as soon as the reply arrives; release 1.27,
+//   settings.rollContinue: the instruction has the model stop right there, and the same reply goes on with the
+//   result — roll-continue.ts), fights (`combat: start|enemy|out|end`, run by the combat part with the other changes)
+//   and story time (`time: +30m`, asked only when hour / day rules or timed statuses are in the scene and DES gives no
+//   time);
 // - the user's character: DES does not list {{user}}, so his DES-stat attributes are read by the background parse (or
 //   the block, settings.personaFallback); his 'auto' ones by the block;
 // - after the tracking of a reply its turn runs (state.processTurn: the clock — DES's time, else the block's or the
@@ -333,12 +335,23 @@ function isDesStatsPayload(value: unknown): value is DesStatsPayload {
     return isDict(value) && value.m25 === 1 && typeof value.mechanicId === 'string' && Array.isArray(value.stats);
 }
 
+/**
+ * Roll requests of a reply's block; `info.arrival`: the reply is arriving now (its MESSAGE_RECEIVED type), not an edit
+ * or a re-read (release 1.27: only then may the same reply go on with the result).
+ */
+export type RollRequestsListener = (
+    index: number,
+    swipeId: number,
+    rolls: BlockRoll[],
+    info: { arrival?: string },
+) => void;
+
 /** Fight lines of a committed reply's block (the combat part runs them). */
 export type CombatLinesListener = (index: number, lines: BlockCombat[]) => Promise<void> | void;
 
 export class MechanicTracking implements TrackingPart {
     private readonly offs: Unsubscribe[] = [];
-    private readonly rollListeners = new Set<(index: number, swipeId: number, rolls: BlockRoll[]) => void>();
+    private readonly rollListeners = new Set<RollRequestsListener>();
     private readonly combatListeners = new Set<CombatLinesListener>();
     private queue: Promise<unknown> = Promise.resolve();
     private timer: ReturnType<typeof setTimeout> | null = null;
@@ -415,7 +428,7 @@ export class MechanicTracking implements TrackingPart {
             'MESSAGE_RECEIVED',
             (messageId, type) => {
                 const kind = String(type ?? '') || 'normal';
-                if (!FOREIGN_TYPES.has(kind)) this.takeBlock(Number(messageId), APPEND_TYPES.has(kind), false);
+                if (!FOREIGN_TYPES.has(kind)) this.takeBlock(Number(messageId), APPEND_TYPES.has(kind), false, kind);
             },
             'last',
         );
@@ -445,7 +458,7 @@ export class MechanicTracking implements TrackingPart {
         }
     }
 
-    onRollRequests(listener: (index: number, swipeId: number, rolls: BlockRoll[]) => void): Unsubscribe {
+    onRollRequests(listener: RollRequestsListener): Unsubscribe {
         this.rollListeners.add(listener);
         return () => this.rollListeners.delete(listener);
     }
@@ -514,9 +527,10 @@ export class MechanicTracking implements TrackingPart {
      * Parses and strips the block of a reply (arrival, edit, the reply:ready safety net). `merge`: a continuation adds
      * its lines to the record of the same swipe. `announce`: the re-render is followed by MESSAGE_UPDATED, so the
      * neighbours that decorate the text (DES speaker cards) redo it — not on arrival (CHARACTER_MESSAGE_RENDERED
-     * follows) and not on an edit (ST re-renders and announces after MESSAGE_EDITED). True when a block was taken.
+     * follows) and not on an edit (ST re-renders and announces after MESSAGE_EDITED). `arrival`: the MESSAGE_RECEIVED
+     * type when the reply is arriving now (the roll listeners hear it: release 1.27). True when a block was taken.
      */
-    takeBlock(index: number, merge: boolean, announce = true): boolean {
+    takeBlock(index: number, merge: boolean, announce = true, arrival?: string): boolean {
         if (this.disposed || !Number.isInteger(index) || index < 0) return false;
         const ctx = this.app.host.ctx();
         const message = ctx.chat[index];
@@ -550,7 +564,7 @@ export class MechanicTracking implements TrackingPart {
         if (parsed.rolls.length) {
             for (const listener of [...this.rollListeners]) {
                 try {
-                    listener(index, swipeId, parsed.rolls);
+                    listener(index, swipeId, parsed.rolls, arrival ? { arrival } : {});
                 } catch (error) {
                     this.deps.log.warn('mechanics: a roll request failed', error);
                 }
@@ -1187,6 +1201,8 @@ export class MechanicTracking implements TrackingPart {
         const inScene = defs.filter((def) => (holdersByMechanic[def.id] ?? []).length > 0);
         return buildBlockInstruction(defs, holdersByMechanic, {
             ...(options.checks?.length ? { checks: options.checks } : {}),
+            // Release 1.27: the reply stops at the roll and goes on with its result (roll-continue.ts).
+            ...(options.checks?.length && this.deps.settings().rollContinue !== false ? { rollContinue: true } : {}),
             ...(options.combat ? { combat: true } : {}),
             // 'auto' numbers DES keeps for the characters leave the block; the user's character's stay.
             desTracked: (def, attr) => this.desKeeps(def, attr, enabled),

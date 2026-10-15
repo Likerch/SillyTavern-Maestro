@@ -1,6 +1,7 @@
 // Settings slice of M25 «Механики» (`extensionSettings.maestro.modules.mechanics`): the book of new definitions, auto
-// checks, the widgets strip, the prompt budget, where the rules go and the depth of the state, the background parse.
-// Read and repaired in place (the returned object is the live slice the pult edits).
+// checks, the widgets strip, the prompt budget, where the rules go and the depth of the state, the background parse,
+// rolls the model asks for and (1.27) whether the same reply continues with their result. Read and repaired in place
+// (the returned object is the live slice the pult edits).
 // Migrations run once by `settingsRev` (release 1.27, rev 1: the old default budget of 400 tokens — too small for the
 // rules and the state of two mechanics — becomes 1200; the old `depth` of the one block is no longer read: the state
 // starts at depth 0, the rules at the top of the prompt).
@@ -71,6 +72,7 @@ export function readMechanicsSettings(slice: Partial<MechanicsSettings>): Mechan
     for (const key of ['modelRolls', 'autoCombat'] as const) {
         if (typeof slice[key] !== 'boolean') slice[key] = defaults[key];
     }
+    if (typeof slice.rollContinue !== 'boolean') slice.rollContinue = defaults.rollContinue;
     if (slice.personaFallback !== 'background' && slice.personaFallback !== 'block') {
         slice.personaFallback = defaults.personaFallback;
     }

@@ -26,7 +26,7 @@ import type {
     MechanicsApi,
     StateChange,
 } from './api';
-import { checkNameOf, describeCheck } from './checks';
+import { blockedAttributeOf, checkNameOf, describeCheck, outcomeKey, rollNoticeKey } from './checks';
 import { MECHANICS_KEY } from './parts';
 import type { ChecksPart, DefinitionsPart, MechanicsSettings, PartDeps, SectionRenderer, StatePart } from './parts';
 import { shownValue } from '../../domain/mechanics-view';
@@ -610,8 +610,13 @@ export function stateSection(
                                 ...(choice.mode ? { mode: choice.mode } : {}),
                                 ...(choice.vs && choice.vs !== choice.holder ? { vs: { holder: choice.vs } } : {}),
                             });
-                            const line = describeCheck(result, app.i18n, checkNameOf(defs, result));
-                            app.ui.notice(t('m25.check.rolled', { line }), { urgent: true });
+                            const line = describeCheck(
+                                result,
+                                app.i18n,
+                                checkNameOf(defs, result),
+                                blockedAttributeOf(defs, result),
+                            );
+                            app.ui.notice(t(rollNoticeKey(result), { line }), { urgent: true });
                         } catch (error) {
                             const message = error instanceof Error ? error.message : String(error);
                             app.ui.notice(message, { urgent: true, level: 'warn' });
@@ -636,7 +641,7 @@ export function stateSection(
                       { class: 'maestro-m25-list' },
                       results.map((result) =>
                           el('div', { class: 'maestro-m25-row maestro-m25-result', data: { id: result.id } }, [
-                              badge(t(`m25.check.outcome.${result.outcome}`), OUTCOME_LEVEL[result.outcome]),
+                              badge(t(outcomeKey(result)), OUTCOME_LEVEL[result.outcome]),
                               el('span', { text: describeCheck(result, app.i18n, checkNameOf(defs, result)) }),
                               el('span', {
                                   class: 'maestro-muted',

@@ -41,6 +41,7 @@ import type { Definitions } from './definitions-service';
 import { mechanicFlag, mechanicFlags } from './prompt';
 import type { MechanicPrompt } from './prompt';
 import type { ChecksPart, PartDeps, RollOptions, StateOp, StatePart } from './parts';
+import type { RollContinue } from './roll-continue';
 import type { MechanicTracking } from './tracking';
 import { ITEM_KIND, REVEAL_KIND, STATUS_KIND } from './state';
 import { holderContextOf, personaOf } from './state-holders';
@@ -53,6 +54,8 @@ export interface ServiceExtras {
     prompt?: Pick<MechanicPrompt, 'preview'>;
     combat?: MechanicCombat;
     tracking?: Partial<Pick<MechanicTracking, 'health' | 'provisionalIndex' | 'onHealthChange' | 'recount'>>;
+    /** Release 1.27: the roll in the middle of a reply (roll-continue.ts). */
+    rollContinue?: Pick<RollContinue, 'continuing'>;
 }
 
 export class MechanicsService implements MechanicsApi {
@@ -184,6 +187,12 @@ export class MechanicsService implements MechanicsApi {
     async retrack(messageIndex: number): Promise<boolean> {
         const recount = this.extras.tracking?.recount;
         return recount ? recount.call(this.extras.tracking, messageIndex) : false;
+    }
+
+    /* ---------------------------------------------------------------- release 1.27: a roll in the middle of a reply */
+
+    continuing(messageIndex: number): boolean {
+        return this.extras.rollContinue?.continuing(messageIndex) ?? false;
     }
 
     /* ---------------------------------------------------------------- plan-2 §6: per message, undo, reset */

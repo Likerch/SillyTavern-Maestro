@@ -26,6 +26,7 @@ import type {
     StatusSpec,
     StatusState,
 } from './api';
+import { outcomeKey } from './checks';
 import type { PartDeps, SectionRenderer } from './parts';
 import { details, eventLine, rollConsequences, rollLine } from './play-strip';
 import {
@@ -556,7 +557,7 @@ export function logSection(deps: PartDeps, api: MechanicsApi): SectionRenderer {
                 data: { roll: result.id },
             },
             [
-                badge(t(`m25.check.outcome.${result.outcome}`), OUTCOME_LEVEL[result.outcome] ?? 'muted'),
+                badge(t(outcomeKey(result)), OUTCOME_LEVEL[result.outcome] ?? 'muted'),
                 el('span', { text: rollLine(deps.app.i18n, api, result) }),
                 consequences.length ? el('span', { class: 'maestro-muted', text: consequences.join(' · ') }) : null,
                 el('span', { class: 'maestro-muted', text: t(`m25.check.by.${result.by}`) }),

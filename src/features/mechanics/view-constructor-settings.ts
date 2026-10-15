@@ -1,8 +1,9 @@
 // M25 «Механики», the module's own settings (the gear of the «Механики» window, plan-2 §10 п.4): the book of new
 // definitions, auto checks, the widgets strip, the background parse, the prompt budget, where the rules go and the
 // depth of the state (release 1.27: «Правила механик: в начале промпта / рядом с состоянием», «Глубина состояния»;
-// the live slice of settings.ts; P16: the state stays near the end); plan-2 §6: rolls asked by the model, fights by the
-// director's scene, how the user's own character's DES stats are read, and how far back factions are looked for;
+// the live slice of settings.ts; P16: the state stays near the end); plan-2 §6: rolls asked by the model (1.27:
+// «Бросок посреди ответа» — the same reply goes on with their result), fights by the director's scene, how the user's
+// own character's DES stats are read, and how far back factions are looked for;
 // plan-2 §6.А: the HUD (over the chat, or beside it on the left or the right — a panel, else a rail at the chat's edge —
 // in the short or the full view; the HUD switches both itself too), the user's character under the DES portraits and
 // which values show there. Narrator messages and the status block are places of each mechanic («Где видно» in the
@@ -24,7 +25,7 @@ import type {
 import { DEPTH_LIMITS, PROMPT_BUDGET_LIMITS, RELEVANCE_LIMITS } from './settings';
 import { nextPins, pinKey } from './widgets';
 
-type Flag = 'autoChecks' | 'strip' | 'background' | 'modelRolls' | 'autoCombat' | 'hud' | 'desPersona';
+type Flag = 'autoChecks' | 'strip' | 'background' | 'modelRolls' | 'rollContinue' | 'autoCombat' | 'hud' | 'desPersona';
 type Count = 'promptBudget' | 'stateDepth' | 'relevance';
 
 export function settingsSection(deps: PartDeps, defs?: Pick<DefinitionsPart, 'active'>): SectionRenderer {
@@ -162,6 +163,8 @@ export function settingsSection(deps: PartDeps, defs?: Pick<DefinitionsPart, 'ac
         const node = moduleSettingsSection(t('m25.def.settings.title'), [
             flag('autoChecks'),
             flag('modelRolls'),
+            flag('rollContinue'),
+            el('div', { class: 'maestro-hint', text: t('m25.def.settings.rollContinue.hint') }),
             flag('autoCombat'),
             flag('hud', 'm25.ctor.settings.hud'),
             el('div', { class: 'maestro-hint', text: t('m25.ctor.settings.hud.hint') }),
