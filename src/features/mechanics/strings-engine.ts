@@ -30,6 +30,13 @@ export const ENGINE_STRINGS: I18nParts = {
         'm25.def.issue.timeAttr': 'A time rule changes «{attribute}», but there is no such number attribute.',
         'm25.def.issue.progressionAttr': 'Levels need number attributes; «{attribute}» is not one.',
         'm25.def.issue.progressionThresholds': 'The experience thresholds of the levels have to grow.',
+        'm25.ctor.progression.awards': 'Experience for a roll of this mechanic:',
+        'm25.ctor.progression.awards.hint':
+            'The one who rolls gets it. Empty — nothing; a critical without its own counts as a success, a critical failure as a failure.',
+        'm25.ctor.progression.award.critical': 'critical success',
+        'm25.ctor.progression.award.success': 'success',
+        'm25.ctor.progression.award.failure': 'failure',
+        'm25.ctor.progression.award.fumble': 'critical failure',
         'm25.def.issue.combatInitiative': 'The initiative check «{check}» is not among the checks.',
         'm25.def.issue.inventoryMoney': 'The money of the inventory is «{attribute}», but there is no such number.',
 
@@ -106,6 +113,13 @@ export const ENGINE_STRINGS: I18nParts = {
         'm25.def.issue.timeAttr': 'Правило времени меняет «{attribute}», а такого числового атрибута нет.',
         'm25.def.issue.progressionAttr': 'Для уровней нужны числовые атрибуты, а «{attribute}» — не такой.',
         'm25.def.issue.progressionThresholds': 'Пороги опыта для уровней должны расти.',
+        'm25.ctor.progression.awards': 'Опыт за бросок этой механики:',
+        'm25.ctor.progression.awards.hint':
+            'Его получает тот, кто бросает. Пусто — ничего; крит без своего числа считается успехом, критический провал — провалом.',
+        'm25.ctor.progression.award.critical': 'крит',
+        'm25.ctor.progression.award.success': 'успех',
+        'm25.ctor.progression.award.failure': 'провал',
+        'm25.ctor.progression.award.fumble': 'критический провал',
         'm25.def.issue.combatInitiative': 'Проверки инициативы «{check}» нет среди проверок.',
         'm25.def.issue.inventoryMoney': 'Деньги инвентаря — «{attribute}», а такого числа нет.',
 

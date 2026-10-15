@@ -2,7 +2,8 @@
 // M25 constructor of plan-2 §6 п.8 and §6.А: ids made from names and kept under «Подробнее», «Где видно» presets and
 // places, the rules in the user's words with the English for the model (at once or by the background task, with a
 // fake LLM), a file out and back in, a copy, resetting the state, «Описать словами», the live preview, editors of
-// consequences, conditions and time rules, and a kind change that keeps the events (asking before dropping any).
+// consequences, conditions and time rules, «Срабатывает и на реплики» and the experience per roll outcome, and a kind
+// change that keeps the events (asking before dropping any).
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { sourceHash } from '../../../src/domain/mechanics-view';
 import type { MechanicDef, MechanicsApi } from '../../../src/features/mechanics/api';
@@ -345,6 +346,56 @@ describe('engine fields', () => {
             { name: 'Отравлен', duration: { turns: 3 }, modifiers: { mana: -2, checks: 1 } },
         ]);
         expect(saved.time).toEqual([{ attr: 'mana', amount: 5, per: 'hour' }]);
+    });
+
+    it('marks a speech check and sets the experience per roll outcome', async () => {
+        await edit({
+            ...mechanic({
+                attributes: [
+                    { id: 'mana', name: 'Мана', promptName: 'Mana', kind: 'number', min: 0, max: 100, initial: 100 },
+                    { id: 'xp', name: 'Опыт', promptName: 'Experience', kind: 'number', min: 0, initial: 0 },
+                    { id: 'level', name: 'Уровень', promptName: 'Level', kind: 'number', min: 1, initial: 1 },
+                ],
+            }),
+            book: BOOK,
+            uid: 1,
+        });
+        const speech = toggleByLabel('Also on spoken lines', one('.maestro-m25-check'));
+        expect(speech.checked).toBe(false);
+        expect(one('.maestro-m25-check .maestro-m25-speech-hint').textContent).toContain('quoted speech');
+        check(speech, true);
+        check(toggleByLabel('Experience and levels'), true);
+        await settle();
+        const award = (outcome: string) =>
+            one<HTMLInputElement>(`.maestro-m25-awards [data-outcome="${outcome}"] input`);
+        // A new progression starts with the awards of the skills template.
+        expect(['critical', 'success', 'failure', 'fumble'].map((outcome) => award(outcome).value)).toEqual([
+            '20',
+            '10',
+            '3',
+            '3',
+        ]);
+        choose(one<HTMLSelectElement>('select[aria-label="Experience"]'), 'xp');
+        choose(one<HTMLSelectElement>('select[aria-label="Level"]'), 'level');
+        type(award('success'), '15');
+        type(award('fumble'), '');
+        type(award('failure'), '-1');
+        await click(buttonByText('Save'));
+        const saved = defs.saved.at(-1)!;
+        expect(saved.checks[0]?.speech).toBe(true);
+        expect(saved.progression).toMatchObject({ xp: 'xp', level: 'level', awards: { critical: 20, success: 15 } });
+
+        // Unchecked, the flag is gone.
+        if (typeof unmount === 'function') unmount();
+        container.replaceChildren();
+        defs.defs = [saved];
+        render();
+        await click(buttonByText('Edit'));
+        expect(toggleByLabel('Also on spoken lines', one('.maestro-m25-check')).checked).toBe(true);
+        expect(award('success').value).toBe('15');
+        check(toggleByLabel('Also on spoken lines', one('.maestro-m25-check')), false);
+        await click(buttonByText('Save'));
+        expect(defs.saved.at(-1)!.checks[0]).not.toHaveProperty('speech');
     });
 
     it('keeps the events when the kind changes, asking before dropping the ones that no longer fit', async () => {

@@ -149,6 +149,9 @@ export const DEF_STRINGS: I18nParts = {
         'm25.def.check.triggers.hint':
             'Stems in Russian and English: «убед», «уговор», persuad. A check is rolled when your message has one of them.',
         'm25.def.check.criticals': 'Highest and lowest roll are critical',
+        'm25.def.check.speech': 'Also on spoken lines',
+        'm25.def.check.speech.hint':
+            'Trigger words count in quoted speech too, and a question does not stop the roll (persuading is often asking).',
         'm25.def.check.remove': 'Remove the check',
         'm25.def.check.new': 'New check',
 
@@ -371,6 +374,9 @@ export const DEF_STRINGS: I18nParts = {
         'm25.def.check.triggers.hint':
             'Основы слов по-русски и по-английски: «убед», «уговор», persuad. Бросок делается, когда в твоём сообщении есть одна из них.',
         'm25.def.check.criticals': 'Наибольший и наименьший бросок — критические',
+        'm25.def.check.speech': 'Срабатывает и на реплики',
+        'm25.def.check.speech.hint':
+            'Слова-триггеры ищутся и в прямой речи в кавычках, а вопрос не отменяет бросок (уговаривают часто вопросом).',
         'm25.def.check.remove': 'Убрать проверку',
         'm25.def.check.new': 'Новая проверка',
 
