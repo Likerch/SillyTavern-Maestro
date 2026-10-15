@@ -1,11 +1,15 @@
 // M25 check detection in the user's message: RU/EN trigger stems, Russian endings, negations, questions, OOC and
-// quoted speech, the acting holder, the strongest match, and the difficulty from words or an explicit number.
+// quoted speech, speech checks (quoted lines and questions count), the acting holder, the strongest match, two
+// different checks in different clauses, the difficulty from words or an explicit number, and the named target.
 import { describe, expect, it } from 'vitest';
 import {
     detectCheck,
+    detectChecks,
     difficultyLevel,
     difficultyWord,
     explicitDifficulty,
+    namedHolders,
+    namedTarget,
     normalizeWord,
     stemOf,
     storyPart,
@@ -162,6 +166,120 @@ describe('the strongest match', () => {
     it('only one check per message', () => {
         const found = detect('Пытаюсь убедить его и пытаюсь взломать замок.');
         expect(found?.checkId).toBe('persuasion');
+    });
+});
+
+describe('speech checks', () => {
+    const SPEECH: CheckTrigger = { ...PERSUASION, speech: true };
+    const INTIMIDATION: CheckTrigger = {
+        mechanicId: 'social',
+        checkId: 'intimidation',
+        triggers: ['запуг', 'угрож', 'threaten'],
+        speech: true,
+    };
+
+    it('match inside quoted speech, where other checks never look', () => {
+        expect(detectCheck('«Я пытаюсь тебя убедить, послушай», — говорю я.', [PERSUASION])).toBeNull();
+        expect(detectCheck('«Я пытаюсь тебя убедить, послушай», — говорю я.', [SPEECH])).toMatchObject({
+            checkId: 'persuasion',
+            trigger: 'убедить',
+        });
+        expect(detectCheck('"I am trying to convince you", I say.', [SPEECH])?.checkId).toBe('persuasion');
+        expect(detectCheck('“Не смей мне угрожать”, — рычит он.', [INTIMIDATION])).toBeNull();
+    });
+
+    it('are not stopped by a question, still by a negation', () => {
+        expect(detect('Может, уговорить его?')).toBeNull();
+        expect(detectCheck('Может, уговорить его?', [SPEECH])?.checkId).toBe('persuasion');
+        expect(detectCheck('«А если я начну угрожать?»', [INTIMIDATION])?.checkId).toBe('intimidation');
+        expect(detectCheck('«Ты ведь не станешь мне угрожать?»', [INTIMIDATION])).toBeNull();
+        expect(detectCheck('Я не пытаюсь его уговорить?', [SPEECH])).toBeNull();
+    });
+
+    it('a narration match keeps working for a speech check', () => {
+        expect(detectCheck('Элизабет пытается убедить стражника.', [SPEECH], ACTORS)).toMatchObject({
+            holder: 'Elizabeth',
+        });
+    });
+});
+
+describe('two checks in one message', () => {
+    it('different checks matched in different clauses, strongest first', () => {
+        const found = detectChecks('Я крадусь к воротам, а потом пытаюсь убедить стражника.', CHECKS, ACTORS, 2);
+        expect(found.map((item) => item.checkId)).toEqual(['persuasion', 'stealth']);
+        expect(detectChecks('Пытаюсь убедить его и пытаюсь взломать замок.', CHECKS, [], 2)).toHaveLength(2);
+        expect(detectChecks('I sneak in. Then I pick locks.', CHECKS, [], 2).map((item) => item.checkId)).toEqual([
+            'locks',
+            'stealth',
+        ]);
+    });
+
+    it('never the same check twice, never one clause, never above the limit', () => {
+        expect(detectChecks('Я крадусь, крадусь и снова крадусь.', CHECKS, [], 2)).toHaveLength(1);
+        expect(detectChecks('Я крадусь уговаривая стражу.', CHECKS, [], 2)).toHaveLength(1);
+        expect(detectChecks('Я крадусь, а потом пытаюсь убедить стражника.', CHECKS, [], 1)).toHaveLength(1);
+        const three = detectChecks('Крадусь к двери. Пытаюсь убедить стражника. Взломать замок.', CHECKS, [], 2);
+        expect(three).toHaveLength(2);
+        expect(detectChecks('Я жду.', CHECKS, [], 2)).toEqual([]);
+    });
+
+    it('each with its own actor, difficulty and place in the message', () => {
+        const text = 'Элизабет тихо крадусь мимо. Я пытаюсь убедить стражника, это трудно.';
+        const [first, second] = detectChecks(text, CHECKS, ACTORS, 2);
+        expect(first).toMatchObject({ checkId: 'persuasion', holder: null, level: 'hard' });
+        expect(second).toMatchObject({ checkId: 'stealth', holder: 'Elizabeth', level: null });
+        expect(text.slice(first!.at, first!.end)).toBe('убедить');
+        expect(text.slice(second!.at, second!.end)).toBe('крадусь');
+    });
+});
+
+describe('the named target', () => {
+    const PEOPLE: ActorNames[] = [
+        { holder: 'Стражник', names: [] },
+        { holder: 'Bandit', names: ['Бандит'] },
+        { holder: 'Elizabeth', names: ['Элизабет', 'Лиз'] },
+    ];
+    const at = (text: string, word: string) => text.indexOf(word);
+
+    it('a name or a case form near the match', () => {
+        const text = 'Я бью стражника мечом.';
+        expect(namedTarget(text, at(text, 'бью'), PEOPLE)).toBe('Стражник');
+        const russian = 'Я атакую бандита.';
+        expect(namedTarget(russian, at(russian, 'атакую'), PEOPLE)).toBe('Bandit');
+        const english = 'I attack the bandits.';
+        expect(namedTarget(english, at(english, 'attack'), PEOPLE)).toBe('Bandit');
+        const alias = 'Пытаюсь убедить Лиз.';
+        expect(namedTarget(alias, at(alias, 'убедить'), PEOPLE)).toBe('Elizabeth');
+    });
+
+    it('the nearest after the match in its sentence, else before, else anywhere; quoted speech counts', () => {
+        const text = 'Бандит смеётся. Я бью стражника, а Лиз смотрит.';
+        expect(namedTarget(text, at(text, 'бью'), PEOPLE)).toBe('Стражник');
+        const before = 'Стражнику я говорю: прочь! Я бью.';
+        expect(namedTarget(before, at(before, 'бью'), PEOPLE)).toBe('Стражник');
+        const inSentence = 'Бандит рядом. Элизабет я пытаюсь убедить.';
+        expect(namedTarget(inSentence, at(inSentence, 'убедить'), PEOPLE)).toBe('Elizabeth');
+        const vocative = '«Стражник, пропусти меня, прошу», — уговариваю я.';
+        expect(namedTarget(vocative, at(vocative, 'уговариваю'), PEOPLE)).toBe('Стражник');
+    });
+
+    it('lists every named holder once, those of the sentence of the match marked near', () => {
+        const text = 'Бандит смеётся. Я бью стражника, а Лиз смотрит на бандита.';
+        expect(namedHolders(text, at(text, 'бью'), PEOPLE)).toEqual([
+            { holder: 'Стражник', near: true },
+            { holder: 'Elizabeth', near: true },
+            { holder: 'Bandit', near: true },
+        ]);
+        const elsewhere = 'Бандит смеётся. Я бью.';
+        expect(namedHolders(elsewhere, at(elsewhere, 'бью'), PEOPLE)).toEqual([{ holder: 'Bandit', near: false }]);
+    });
+
+    it('nobody named: null; short names need an exact word or a world form', () => {
+        expect(namedTarget('Я бью изо всех сил.', 2, PEOPLE)).toBeNull();
+        expect(namedTarget('Я бью.', 2, [])).toBeNull();
+        expect(namedTarget('Я бью Кая.', 2, [{ holder: 'Kai', names: ['Кай'] }])).toBeNull();
+        expect(namedTarget('Я бью Кая.', 2, [{ holder: 'Kai', names: ['Кай', 'Кая'] }])).toBe('Kai');
+        expect(namedTarget('(OOC: бандит) Я бью.', 13, PEOPLE)).toBeNull();
     });
 });
 

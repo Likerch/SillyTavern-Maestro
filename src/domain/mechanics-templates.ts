@@ -10,6 +10,9 @@
 // every point is +5 %, an untrained person makes a normal task 45 % of the time, a professional (6) 75 %, a master (8)
 // 85 %; a hard task separates them (20 % / 50 % / 60 %). The old 0–20 with mod() vs 12 moved only ±25 % over the whole
 // scale. Spellcasting is a check of the arcana skill against 12 that costs mana: 10 when it works, half when it fails.
+// Persuasion, deception and intimidation are speech checks (they roll on spoken lines and questions too). Skills give
+// experience by the outcome of every check (critical 20, success 10, failure and fumble 3); levels at 100, 250, 500
+// and 1000.
 // Pure: no DOM, no SillyTavern.
 import { cloneDef, uniqueId } from './mechanics-defs';
 import type {
@@ -39,6 +42,8 @@ const SIGNS: Readonly<Record<string, string>> = {
     fatigue: '💤',
     sanity: '🧠',
     armor: '🛡',
+    xp: '✨',
+    level: '⭐',
 };
 
 function numberAttr(
@@ -253,9 +258,21 @@ const money = template('money', (locale) => ({
     visibility: { preset: 'game' },
 }));
 
-function skillCheck(locale: Locale, id: string, en: string, ru: string, triggers: string[]): CheckDef {
-    return { id, name: pick(locale, en, ru), promptName: en, dice: `1d20+@${id}`, difficulty: 12, triggers };
+function skillCheck(locale: Locale, id: string, en: string, ru: string, triggers: string[], speech = false): CheckDef {
+    const check: CheckDef = {
+        id,
+        name: pick(locale, en, ru),
+        promptName: en,
+        dice: `1d20+@${id}`,
+        difficulty: 12,
+        triggers,
+    };
+    if (speech) check.speech = true;
+    return check;
 }
+
+/** Social skills: their checks are speech checks. */
+const SPEECH_SKILLS = new Set(['persuasion', 'deception', 'intimidation']);
 
 const SKILLS: [string, string, string, string[]][] = [
     ['persuasion', 'Persuasion', 'Убеждение', ['убед', 'уговор', 'упраш', 'упрос', 'persuad', 'convinc']],
@@ -279,12 +296,23 @@ const skills = template('skills', (locale) => ({
         'Skills go from 0 to 10: 0 untrained, 2 an ordinary person, 4 trained, 6 a professional, 8 a master, 10 a legend.',
         'When a character tries something risky that a skill covers, Maestro rolls d20 + skill against 12 (easy 7, hard 17, very hard 22) and reports the result: follow it, a failure really fails.',
         'A skill grows a little with every successful use and faster with a teacher; never by more than 1 within one scene.',
+        'Every check gives experience (Maestro counts it: 10 for a success, 20 for a critical, 3 for a failure); a character reaches level 2 at 100 experience, 3 at 250, 4 at 500 and 5 at 1000.',
     ].join('\n'),
-    attributes: SKILLS.map(([id, en, ru]) =>
-        numberAttr(locale, id, en, ru, { min: 0, max: 10, initial: 2, growth: { perUse: 0.2, cap: 8 } }),
-    ),
+    attributes: [
+        ...SKILLS.map(([id, en, ru]) =>
+            numberAttr(locale, id, en, ru, { min: 0, max: 10, initial: 2, growth: { perUse: 0.2, cap: 8 } }),
+        ),
+        numberAttr(locale, 'xp', 'Experience', 'Опыт', { min: 0, initial: 0 }),
+        numberAttr(locale, 'level', 'Level', 'Уровень', { min: 1, max: 5, initial: 1 }),
+    ],
+    progression: {
+        xp: 'xp',
+        level: 'level',
+        thresholds: [100, 250, 500, 1000],
+        awards: { critical: 20, success: 10, failure: 3, fumble: 3 },
+    },
     holders: { kind: 'characters', includePersona: true },
-    checks: SKILLS.map(([id, en, ru, triggers]) => skillCheck(locale, id, en, ru, triggers)),
+    checks: SKILLS.map(([id, en, ru, triggers]) => skillCheck(locale, id, en, ru, triggers, SPEECH_SKILLS.has(id))),
     tracking: 'background',
     visibility: { preset: 'game' },
 }));

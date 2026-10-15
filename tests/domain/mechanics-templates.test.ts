@@ -150,12 +150,36 @@ describe('templates of plan-2 §6', () => {
 
     it('skills go 0–10 with d20 + skill against 12 and grow with use', () => {
         const skills = build('skills');
-        expect(
-            skills.attributes.every((attr) => attr.min === 0 && attr.max === 10 && attr.growth?.perUse === 0.2),
-        ).toBe(true);
+        const own = skills.attributes.filter((attr) => skills.checks.some((check) => check.id === attr.id));
+        expect(own).toHaveLength(skills.checks.length);
+        expect(own.every((attr) => attr.min === 0 && attr.max === 10 && attr.growth?.perUse === 0.2)).toBe(true);
         expect(skills.checks.every((check) => check.dice === `1d20+@${check.id}` && check.difficulty === 12)).toBe(
             true,
         );
+    });
+
+    it('skills: the social checks roll on spoken lines; every check gives experience toward five levels', () => {
+        const skills = build('skills', 'ru');
+        expect(skills.checks.filter((check) => check.speech).map((check) => check.id)).toEqual([
+            'persuasion',
+            'deception',
+            'intimidation',
+        ]);
+        expect(skills.checks.find((check) => check.id === 'stealth')).not.toHaveProperty('speech');
+        expect(skills.progression).toEqual({
+            xp: 'xp',
+            level: 'level',
+            thresholds: [100, 250, 500, 1000],
+            awards: { critical: 20, success: 10, failure: 3, fumble: 3 },
+        });
+        expect(skills.attributes.slice(-2)).toMatchObject([
+            { id: 'xp', name: 'Опыт', promptName: 'Experience', min: 0, initial: 0 },
+            { id: 'level', name: 'Уровень', promptName: 'Level', min: 1, max: 5, initial: 1 },
+        ]);
+        // No other template carries experience.
+        for (const item of MECHANIC_TEMPLATES) {
+            if (item.id !== 'skills') expect(build(item.id).progression, item.id).toBeUndefined();
+        }
     });
 
     it('survival grows with story time and puts statuses on at the limits', () => {

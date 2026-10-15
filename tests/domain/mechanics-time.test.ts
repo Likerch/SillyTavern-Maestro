@@ -2,6 +2,7 @@
 // rest, levels by experience, growth of skills by use.
 import { describe, expect, it } from 'vitest';
 import {
+    awardFor,
     grownValue,
     levelFor,
     periodsOf,
@@ -65,6 +66,22 @@ describe('progression', () => {
         expect(levelFor(650, [100, 300, 600])).toBe(4);
         expect(xpToNext(120, { thresholds: [100, 300] })).toBe(180);
         expect(xpToNext(400, { thresholds: [100, 300] })).toBeNull();
+    });
+
+    it('experience by the outcome of a roll: a critical falls back to success, a fumble to failure', () => {
+        const full = { awards: { critical: 20, success: 10, failure: 3, fumble: 1 } };
+        expect(awardFor(full, 'critical')).toBe(20);
+        expect(awardFor(full, 'success')).toBe(10);
+        expect(awardFor(full, 'failure')).toBe(3);
+        expect(awardFor(full, 'fumble')).toBe(1);
+        expect(awardFor(full, 'none')).toBe(0);
+        const plain = { awards: { success: 10, failure: 3 } };
+        expect(awardFor(plain, 'critical')).toBe(10);
+        expect(awardFor(plain, 'fumble')).toBe(3);
+        expect(awardFor({ awards: { success: 10 } }, 'failure')).toBe(0);
+        expect(awardFor({}, 'success')).toBe(0);
+        expect(awardFor(undefined, 'success')).toBe(0);
+        expect(awardFor({ awards: { success: -5 } }, 'success')).toBe(0);
     });
 });
 

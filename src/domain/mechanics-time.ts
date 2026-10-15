@@ -3,7 +3,8 @@
 //   them, domain/calendar-time advanceClock); a step between two committed replies is one turn and the story minutes
 //   in between. Time rules turn a step into amounts: per turn, per story hour (hour boundaries crossed — no fractions
 //   to carry, so a rollback only needs the values), per story day (days crossed);
-// - experience and levels: the level a number of experience points gives (`thresholds[i]` → level i + 2);
+// - experience and levels: the level a number of experience points gives (`thresholds[i]` → level i + 2) and the
+//   experience a check's outcome is worth (`awards`: a critical falls back to success, a fumble to failure);
 // - growth by use: the next value of a skill after one use (capped).
 // Pure: no DOM, no SillyTavern.
 import type { AttributeGrowth, Progression, TimeRule } from './mechanics-defs';
@@ -69,6 +70,22 @@ export function levelFor(xp: number, thresholds: readonly number[]): number {
     let level = 1;
     for (const threshold of thresholds) if (xp >= threshold) level++;
     return level;
+}
+
+/** Experience a check's outcome gives the roller (0: none); a critical without its own counts as a success. */
+export function awardFor(
+    progression: Pick<Progression, 'awards'> | undefined,
+    outcome: 'critical' | 'success' | 'failure' | 'fumble' | 'none',
+): number {
+    const awards = progression?.awards;
+    if (!awards || outcome === 'none') return 0;
+    const value =
+        outcome === 'critical'
+            ? (awards.critical ?? awards.success)
+            : outcome === 'fumble'
+              ? (awards.fumble ?? awards.failure)
+              : awards[outcome];
+    return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : 0;
 }
 
 /** Experience still needed for the next level, null at the top. */

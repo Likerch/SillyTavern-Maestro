@@ -79,6 +79,12 @@ describe('rolling', () => {
         expect(checkFact('Persuasion', 'Kai', roll)).toBe(
             'Persuasion check (Kai): rolled 14 + 2 = 16 vs 15 — success.',
         );
+        // Aimed at someone: the fact names them.
+        expect(checkFact('Attack', 'Kai', roll, 'Bandit')).toBe(
+            'Attack check (Kai) against Bandit: rolled 14 + 2 = 16 vs 15 — success.',
+        );
+        expect(checkFact('Attack', 'Kai', roll, ' ')).toBe('Attack check (Kai): rolled 14 + 2 = 16 vs 15 — success.');
+        expect(checkFact('Attack', 'Kai', roll, null)).toBe('Attack check (Kai): rolled 14 + 2 = 16 vs 15 — success.');
     });
 
     it('subtracts constants and attributes', () => {
