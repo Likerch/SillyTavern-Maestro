@@ -488,6 +488,35 @@ export type MechanicsEvent =
     | { type: 'combat'; combat: CombatState | null }
     | { type: 'undone'; changes: StateChange[] };
 
+/**
+ * Why values may not follow the story now (release 1.25): the HUD shows the 'warn' ones as ⚠, the «В игре» section all.
+ * - noProfile: attributes in the scene rely on the background parse, but no connection profile serves it;
+ * - cap: the daily background cap is reached (the parse waits for tomorrow);
+ * - backgroundOff: the module's background parse is off while attributes rely on it;
+ * - desStatsPending: DES-stat attributes DES does not track yet (parsed in the background meanwhile);
+ * - noDes: DES-stat attributes without DES (parsed in the background instead);
+ * - otherTab: another tab of this chat counts the values, this one only shows them;
+ * - extractFailed: the latest background parse failed (the error is in `detail`).
+ */
+export type TrackingProblemCode =
+    | 'noProfile'
+    | 'cap'
+    | 'backgroundOff'
+    | 'desStatsPending'
+    | 'noDes'
+    | 'otherTab'
+    | 'extractFailed';
+
+export interface TrackingProblem {
+    code: TrackingProblemCode;
+    level: 'warn' | 'info';
+    /** For the player, in the UI language: what does not work and what to do. */
+    text: string;
+    /** Mechanics concerned (ids; empty when it is about all of them). */
+    mechanics: string[];
+    detail?: string;
+}
+
 /** What the next generation would get (MechanicPrompt.preview). */
 export interface MechanicsPromptPreview {
     /** The rules + state block as the next generation would get it ('' when no mechanic takes part). */
@@ -635,4 +664,16 @@ export interface MechanicsApi {
      * their view, statuses with what is left, items. Nothing is drawn (null) when there is nothing to show.
      */
     renderHolder?(container: HTMLElement, holder: string, place: VisibilityPlace): Unsubscribe | null;
+
+    // ---- release 1.25: values follow the story at once.
+    /**
+     * What keeps values from following the story now (empty: all is well). Changes with the scene, the settings and
+     * the latest background parse; `onChange` fires when the list changes.
+     */
+    trackingHealth?(): TrackingProblem[];
+    /**
+     * The latest story reply whose changes are already in the values but not committed yet (the user has not answered
+     * it): a swipe, a regeneration or an edit takes them back. -1 when there is none.
+     */
+    provisionalIndex?(): number;
 }
