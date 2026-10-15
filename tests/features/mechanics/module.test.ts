@@ -113,6 +113,7 @@ describe('mechanics module', () => {
             relevance: 4,
             hud: true,
             hudPlacement: 'chat',
+            hudSideView: 'compact',
             hudAttrs: [],
             hudHolders: [],
             desAttrs: [],

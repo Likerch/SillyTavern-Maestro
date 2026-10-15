@@ -36,6 +36,7 @@ describe('mechanics settings', () => {
             relevance: 4,
             hud: true,
             hudPlacement: 'chat',
+            hudSideView: 'compact',
             hudAttrs: [],
             hudHolders: [],
             desAttrs: [],
@@ -49,10 +50,17 @@ describe('mechanics settings', () => {
             }),
         ).toMatchObject({ hud: false, hudPlacement: 'chat', hudAttrs: ['magic.mana', 'magic.hp'], hudHolders: [] });
         expect(readMechanicsSettings({ hudPlacement: 'left' }).hudPlacement).toBe('left');
+        expect(readMechanicsSettings({ hudPlacement: 'right' }).hudPlacement).toBe('right');
         expect(
-            readMechanicsSettings({ hudPlacement: 'right' as unknown as MechanicsSettings['hudPlacement'] })
-                .hudPlacement,
+            readMechanicsSettings({ hudPlacement: 'top' as unknown as MechanicsSettings['hudPlacement'] }).hudPlacement,
         ).toBe('chat');
+        expect(readMechanicsSettings({ hudSideView: 'full' }).hudSideView).toBe('full');
+        for (const broken of ['wide', 3, null]) {
+            expect(
+                readMechanicsSettings({ hudSideView: broken as unknown as MechanicsSettings['hudSideView'] })
+                    .hudSideView,
+            ).toBe('compact');
+        }
         expect(readMechanicsSettings({ book: ' Мои ', promptBudget: 333.4, depth: Number.NaN })).toMatchObject({
             book: 'Мои',
             promptBudget: 333,

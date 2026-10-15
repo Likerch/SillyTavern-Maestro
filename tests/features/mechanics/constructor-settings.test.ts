@@ -64,20 +64,42 @@ describe('mechanics settings section', () => {
         expect(container.children).toHaveLength(0);
     });
 
-    it('chooses where the HUD shows: over the chat or left of it', () => {
+    it('chooses where the HUD shows: over the chat, left or right of it', () => {
         env.app.i18n.register(MECHANICS_STRINGS);
         const notify = vi.spyOn(env.app.settings, 'notify');
         settingsSection(env.deps)(container);
         const place = container.querySelector<HTMLSelectElement>('select[aria-label="Where the HUD shows"]')!;
         expect([...place.options].map((option) => [option.value, option.textContent])).toEqual([
             ['chat', 'Over the chat (top or bottom)'],
-            ['left', 'Left of the chat (on a wide screen)'],
+            ['left', 'Left of the chat'],
+            ['right', 'Right of the chat'],
         ]);
         expect(place.value).toBe('chat');
-        expect(place.closest('.maestro-field')?.textContent).toContain('at least 1200 px wide');
-        place.value = 'left';
+        // The hint tells the room it needs, the rail without it and phones.
+        const hint = place.closest('.maestro-field')?.textContent ?? '';
+        expect(hint).toContain('at least 150 px');
+        expect(hint).toContain('«Mechanics» tab');
+        expect(hint).toContain('On a phone the HUD is always over the chat');
+        expect(hint).not.toContain('1200 px');
+        place.value = 'right';
         place.dispatchEvent(new Event('change'));
-        expect(env.slice.hudPlacement).toBe('left');
+        expect(env.slice.hudPlacement).toBe('right');
         expect(notify).toHaveBeenCalledWith('modules.mechanics.hudPlacement');
+    });
+
+    it('chooses what the panel beside the chat shows', () => {
+        env.app.i18n.register(MECHANICS_STRINGS);
+        const notify = vi.spyOn(env.app.settings, 'notify');
+        settingsSection(env.deps)(container);
+        const view = container.querySelector<HTMLSelectElement>('select[aria-label="The panel beside the chat"]')!;
+        expect([...view.options].map((option) => [option.value, option.textContent])).toEqual([
+            ['compact', 'Short: what the HUD over the chat shows'],
+            ['full', 'Full: every character of the scene'],
+        ]);
+        expect(view.value).toBe('compact');
+        view.value = 'full';
+        view.dispatchEvent(new Event('change'));
+        expect(env.slice.hudSideView).toBe('full');
+        expect(notify).toHaveBeenCalledWith('modules.mechanics.hudSideView');
     });
 });
