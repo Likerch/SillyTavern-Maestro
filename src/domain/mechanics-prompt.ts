@@ -2,16 +2,17 @@
 // gets about the mechanics taking part in the scene, as two English blocks.
 // - The rules, `<game_rules>` … `</game_rules>`: one framing line (the systems are binding; the values are in
 //   <game_state>), per mechanic a `## Name` heading with its rules (line breaks kept, spaces compacted) and the line that
-//   tells how changes may be mentioned, then the service-block instruction of the tracking part. Its mechanics come in
-//   a stable order (the definitions', not the importance), so the block stays the same while the scene's mechanics do
-//   not change and may sit at the top of the prompt.
+//   tells how changes may be mentioned. Its mechanics come in a stable order (the definitions', not the importance), so
+//   the block stays the same while the scene's mechanics do not change and may sit at the top of the prompt.
 // - The state, `<game_state>` … `</game_state>`: per holder (the user's character first) one line per mechanic with the
 //   values the model may know — bounded numbers with their band word ("mana 12/100 (very low)"), 'words' attributes as
 //   words only —, a "now:" line with the lasting threshold events whose condition holds now ("now: Kai has no mana left
 //   and cannot cast.", every generation while it holds: '<=', '>=', '=' events unless `lasting: false`; of several on
 //   one attribute and side the most extreme), the conditions with what is left and their modifiers ("poisoned (2 turns
 //   left; checks −2): nausea") and the inventory; then the fixed lines (the fight, DES's tracker stats) and one closing
-//   line.
+//   line. After it, the service-block instruction of the tracking part: it names the holders of the scene, so it
+//   changes with the cast — at the end it keeps the rules block (and the provider's cache) stable, and it is the last
+//   thing the model reads before it writes.
 // One shared token budget, cut least important first: the rules (to the summary, then nothing; the least important
 // mechanic first), the other holders' values, inventories, then conditions (the main holders' after them), the other
 // holders' "now" lines, the main holders' values (the persona), their "now" lines, whole mechanics. The block
@@ -461,7 +462,7 @@ export interface RenderedGame {
 export interface GameOptions {
     /** Token budget of both blocks together (0 or less: none). */
     budget: number;
-    /** The service-block instruction of the tracking part: at the end of the rules, never cut. */
+    /** The service-block instruction of the tracking part: after the state, never cut. */
     instruction?: string;
     /** Conditions and inventories of the holders. */
     extras?: readonly HolderExtras[];
@@ -514,7 +515,6 @@ function assembleRules(drafts: readonly Draft[], tail: Tail): string {
         .map((item) => item.draft);
     const sections = ordered.map(sectionRules).filter(Boolean);
     const parts = sections.length ? [RULES_FRAME[tail.place], ...sections] : [];
-    if (tail.instruction) parts.push(tail.instruction);
     return parts.length ? [RULES_OPEN, parts.join('\n\n'), RULES_CLOSE].join('\n') : '';
 }
 
@@ -551,8 +551,9 @@ function assembleState(drafts: readonly Draft[], tail: Tail, order: readonly str
         if (extra?.inventory) lines.push(`- inventory: ${extra.inventory}`);
         if (lines.length) blocks.push([persona ? `${name} ${PERSONA_MARK}` : name, ...lines].join('\n'));
     }
-    if (!blocks.length && !tail.fixed.length) return '';
-    return [STATE_OPEN, ...blocks, ...tail.fixed, STATE_CLOSING, STATE_CLOSE].join('\n');
+    const state =
+        blocks.length || tail.fixed.length ? [STATE_OPEN, ...blocks, ...tail.fixed, STATE_CLOSING, STATE_CLOSE] : [];
+    return [...state, ...(tail.instruction ? [tail.instruction] : [])].join('\n');
 }
 
 /** The next thing to cut, least important first; false when nothing is left to cut. */

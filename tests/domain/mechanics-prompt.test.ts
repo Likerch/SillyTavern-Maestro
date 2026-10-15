@@ -232,12 +232,16 @@ describe('the two blocks', () => {
         expect(renderGame([], { budget: 100 })).toMatchObject({ rules: '', state: '', tokens: 0, mechanics: [] });
     });
 
-    it('ends the rules with the instruction, which is never cut', () => {
+    it('ends the state with the instruction (it names the cast; the rules stay stable), never cut', () => {
         const full = renderGame([magicSection()], { budget: 0, instruction: ' BLOCK FORMAT ' });
-        expect(full.rules.endsWith(`\n\nBLOCK FORMAT\n${RULES_CLOSE}`)).toBe(true);
+        expect(full.rules).not.toContain('BLOCK FORMAT');
+        expect(
+            full.state.endsWith(`${STATE_CLOSE}
+BLOCK FORMAT`),
+        ).toBe(true);
         const rendered = renderGame([magicSection()], { budget: 1, instruction: ' BLOCK FORMAT ', count: length });
-        expect(rendered.rules).toBe(`${RULES_OPEN}\nBLOCK FORMAT\n${RULES_CLOSE}`);
-        expect(rendered.state).toBe('');
+        expect(rendered.rules).toBe('');
+        expect(rendered.state).toBe('BLOCK FORMAT');
         expect(rendered.mechanics).toEqual([]);
         expect(rendered.cut.at(-1)).toEqual({ kind: 'mechanic', mechanicId: 'magic' });
     });

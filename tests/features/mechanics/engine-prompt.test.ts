@@ -153,8 +153,6 @@ describe('the rules block of plan-2 §6', () => {
             '## Hero',
             'Be brave.',
             'Changes: trust in words only, never as numbers.',
-            '',
-            '[Mechanics block] fake',
             '</game_rules>',
         ]);
         // Release 1.27: per holder, numbers with band words, «book» trust as words, the status with its modifier.
@@ -171,6 +169,7 @@ describe('the rules block of plan-2 §6', () => {
             '[Combat] Round 2. Turn order: Kai 14, Bandit 9 (enemy). Now acting: Kai. Keep the fight to this order; one round per reply.',
             'Write this reply in line with these values.',
             '</game_state>',
+            '[Mechanics block] fake',
         ]);
         // The secret mechanic: neither its values nor its status nor its checks reach the model.
         for (const text of [rules, stateText]) {

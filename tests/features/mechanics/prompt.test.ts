@@ -149,14 +149,14 @@ describe('rules and state', () => {
         expect(Object.keys(flags)).toEqual(['maestro_mech_magic']);
     });
 
-    it('ends the rules with the block instruction of the tracking part', async () => {
+    it('ends the state with the block instruction of the tracking part (the rules stay stable)', async () => {
         await start();
         ctx.tracking.instruction = 'End your reply with <mechanics>…</mechanics>.';
         const { slots } = await generate(ctx);
         expect(
-            slots[INJECT_RULES]?.value.endsWith('\n\nEnd your reply with <mechanics>…</mechanics>.\n</game_rules>'),
+            slots[INJECT_STATE]?.value.endsWith('</game_state>\nEnd your reply with <mechanics>…</mechanics>.'),
         ).toBe(true);
-        expect(slots[INJECT_STATE]?.value).not.toContain('<mechanics>');
+        expect(slots[INJECT_RULES]?.value).not.toContain('<mechanics>');
         expect(ctx.tracking.calls.at(-1)).toEqual({
             defs: ['social', 'magic'],
             holders: { social: ['Kai', 'Elizabeth'], magic: ['Kai'] },

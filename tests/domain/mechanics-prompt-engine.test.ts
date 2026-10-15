@@ -204,7 +204,7 @@ describe('conditions, inventories and fixed lines', () => {
             fixed: ['[Combat] Round 1.'],
         });
         expect(rendered.rules).toContain(
-            '## Health\nWounds hurt.\nChanges: trust in words only, never as numbers.\n\n[Mechanics block] …\n</game_rules>',
+            '## Health\nWounds hurt.\nChanges: trust in words only, never as numbers.\n</game_rules>',
         );
         expect(rendered.state.split('\n')).toEqual([
             '<game_state>',
@@ -219,6 +219,7 @@ describe('conditions, inventories and fixed lines', () => {
             '[Combat] Round 1.',
             'Write this reply in line with these values.',
             '</game_state>',
+            '[Mechanics block] …',
         ]);
     });
 
