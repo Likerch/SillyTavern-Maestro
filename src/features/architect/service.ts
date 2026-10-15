@@ -3,12 +3,13 @@
 //
 // Send path (P15): the lore rules and the PROMPT_READY stage only do cached lookups and string work on the texts
 // they change; duplicate detection and the P16 check run on a timer right after PROMPT_READY (the request is on
-// its way by then), token counts and mention look-backs are filled after the generation ends.
+// its way by then), token counts and mention look-backs are filled after the generation ends. The P16 check leaves
+// out Maestro's slots that are stable by design (STABLE_SLOTS: the mechanics rules at the top, release 1.27).
 import { cleanBudget } from '../../domain/architect-budget';
 import { findDuplicateFacts } from '../../domain/architect-dupes';
 import type { DupeSourceText } from '../../domain/architect-dupes';
 import { findInMessages, slotNeedles } from '../../domain/architect-prompt';
-import { findOrderViolations, hashMessages } from '../../domain/architect-cache';
+import { findOrderViolations, hashMessages, STABLE_SLOTS } from '../../domain/architect-cache';
 import type { LocatedSlot } from '../../domain/architect-cache';
 import { slotOwner } from '../../domain/lore-inspector';
 import type { App, GenerationInfo, JournalChange, Logger, Unsubscribe } from '../../shared/contracts';
@@ -428,7 +429,15 @@ export class ArchitectService implements ArchitectApi {
                 capture.messages,
                 slotNeedles(slot.value, (text) => this.substitute(text)),
             );
-            if (hit) located.push({ key: slot.key, index: hit.message, position: slot.position, depth: slot.depth });
+            if (hit) {
+                located.push({
+                    key: slot.key,
+                    index: hit.message,
+                    position: slot.position,
+                    depth: slot.depth,
+                    ...(STABLE_SLOTS.has(slot.key) ? { stable: true } : {}),
+                });
+            }
         }
         const previous =
             this.previousPrompt && this.previousPrompt.chatId === capture.chatId ? this.previousPrompt.hashes : null;

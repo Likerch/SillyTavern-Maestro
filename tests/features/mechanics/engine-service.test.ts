@@ -109,6 +109,9 @@ beforeEach(async () => {
             prompt: {
                 preview: () => ({
                     text: 'x',
+                    rules: '',
+                    state: 'x',
+                    placement: { rules: 'top', stateDepth: 0 },
                     tokens: 1,
                     budget: 0,
                     budgetSource: 'own',

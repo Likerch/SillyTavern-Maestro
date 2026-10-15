@@ -110,6 +110,21 @@ describe("'auto' routing", () => {
         ]);
     });
 
+    it('names the stats DES keeps now, with DES’s own name (the prompt’s tracker line, release 1.27)', () => {
+        expect(env.tracking.desTracked(vitalsDef())).toEqual([]);
+        desKeepsHealth();
+        expect(env.tracking.desTracked(vitalsDef())).toEqual([{ attribute: 'hp', stat: 'Health' }]);
+        // Matched by the display name too; a secret attribute stays Maestro's.
+        const russian = vitalsDef();
+        russian.attributes[0]!.promptName = 'Vitality';
+        env.des.stats().customStats[0]!.name = 'Здоровье';
+        expect(env.tracking.desTracked(russian)).toEqual([{ attribute: 'hp', stat: 'Здоровье' }]);
+        russian.attributes[0]!.visibility = { preset: 'secret' };
+        expect(env.tracking.desTracked(russian)).toEqual([]);
+        env.des.stats().enabled = false;
+        expect(env.tracking.desTracked(vitalsDef())).toEqual([]);
+    });
+
     it('offers to make the numbers of an auto mechanic DES stats', async () => {
         expect(await env.tracking.enableDesStats(vitalsDef())).toBe(true);
         expect(env.des.stats().customStats.map((stat) => [stat.name, stat.enabled])).toEqual([

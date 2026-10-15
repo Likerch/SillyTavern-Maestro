@@ -258,6 +258,7 @@ function ckTemplate(app: App): Descriptor {
 export const MAESTRO_INJECTIONS: readonly { id: string; moduleKey: string; slot: string }[] = [
     { id: 'maestro.director', moduleKey: 'director', slot: 'maestro_director' },
     { id: 'maestro.voices', moduleKey: 'voices', slot: 'maestro_voices' },
+    { id: 'maestro.mechanicsRules', moduleKey: 'mechanics', slot: 'maestro_mechanics_rules' },
     { id: 'maestro.mechanics', moduleKey: 'mechanics', slot: 'maestro_mechanics' },
     { id: 'maestro.mechanicsFacts', moduleKey: 'mechanics', slot: 'maestro_mechanics_facts' },
     { id: 'maestro.wardrobe', moduleKey: 'wardrobe', slot: 'maestro_wardrobe' },

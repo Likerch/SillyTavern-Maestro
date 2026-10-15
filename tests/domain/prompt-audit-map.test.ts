@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
     CAPS,
+    MAESTRO_SLOTS,
     auditOwnerOfSlot,
     buildCapture,
     capCapture,
@@ -55,6 +56,49 @@ describe('owners and needles', () => {
         expect(auditOwnerOfSlot('someone_else')).toBe('other');
         expect(maestroModuleOf('maestro_messageStyle.hint')).toBe('messageStyle');
         expect(maestroModuleOf('maestro_scene_notes')).toBe('scene');
+        // Release 1.27: the mechanics write three slots — the rules, the state, the facts.
+        for (const key of ['maestro_mechanics_rules', 'maestro_mechanics', 'maestro_mechanics_facts']) {
+            expect(MAESTRO_SLOTS[key], key).toBe('mechanics');
+            expect(maestroModuleOf(key)).toBe('mechanics');
+        }
+    });
+
+    it('places the in-prompt mechanics rules among the prompt blocks, the state in the chat', () => {
+        const capture = buildCapture({
+            at: 1,
+            chatId: 'c',
+            type: 'normal',
+            source: 'turn',
+            messages: [
+                { role: 'system', content: 'Main.\n<game_rules>\nRules of the game systems here.\n</game_rules>' },
+                { role: 'user', content: 'Hi.' },
+                { role: 'system', content: '<game_state>\nKai: mana 0/100 (none left)\n</game_state>' },
+            ],
+            slots: [
+                {
+                    key: 'maestro_mechanics_rules',
+                    value: '<game_rules>\nRules of the game systems here.\n</game_rules>',
+                    position: 0,
+                    depth: 0,
+                    role: 0,
+                },
+                {
+                    key: 'maestro_mechanics',
+                    value: '<game_state>\nKai: mana 0/100 (none left)\n</game_state>',
+                    position: 1,
+                    depth: 0,
+                    role: 0,
+                },
+            ],
+            blocks: [],
+            card: [],
+            neighbours: [],
+            lore: [],
+        });
+        const rules = capture.items.find((item) => item.key === 'maestro_mechanics_rules');
+        const state = capture.items.find((item) => item.key === 'maestro_mechanics');
+        expect(rules).toMatchObject({ owner: 'maestro', module: 'mechanics', place: 'prompt', message: 0 });
+        expect(state).toMatchObject({ owner: 'maestro', module: 'mechanics', place: 'chat', depth: 0, message: 2 });
     });
 
     it('finds a text with macros by its substituted form or a distinctive line', () => {

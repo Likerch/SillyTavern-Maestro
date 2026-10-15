@@ -41,13 +41,13 @@ describe('mechanics settings section', () => {
         change(input('Widgets next to the DES portraits'), false);
         change(input('Background parse of replies'), false);
         change(input('Prompt budget, tokens'), '10');
-        change(input('Depth in the chat'), '3.6');
+        change(input('Depth of the values'), '3.6');
         expect(env.slice).toMatchObject({
             autoChecks: false,
             strip: false,
             background: false,
             promptBudget: 50,
-            depth: 4,
+            stateDepth: 4,
         });
 
         const book = input('Book for new mechanics');
@@ -58,7 +58,7 @@ describe('mechanics settings section', () => {
         expect(env.slice.book).toBe(BOOK);
         expect(book.value).toBe(BOOK);
         expect(save).toHaveBeenCalledTimes(7);
-        expect(notify).toHaveBeenCalledWith('modules.mechanics.depth');
+        expect(notify).toHaveBeenCalledWith('modules.mechanics.stateDepth');
 
         if (typeof off === 'function') off();
         expect(container.children).toHaveLength(0);
@@ -101,5 +101,26 @@ describe('mechanics settings section', () => {
         view.dispatchEvent(new Event('change'));
         expect(env.slice.hudSideView).toBe('full');
         expect(notify).toHaveBeenCalledWith('modules.mechanics.hudSideView');
+    });
+
+    it('chooses where the rules go and how deep the values sit (release 1.27)', () => {
+        env.app.i18n.register(MECHANICS_STRINGS);
+        const notify = vi.spyOn(env.app.settings, 'notify');
+        settingsSection(env.deps)(container);
+        const place = container.querySelector<HTMLSelectElement>('select[aria-label="Rules of the mechanics"]')!;
+        expect([...place.options].map((option) => [option.value, option.textContent])).toEqual([
+            ['top', 'at the start of the prompt'],
+            ['end', 'next to the values'],
+        ]);
+        expect(place.value).toBe('top');
+        expect(place.closest('.maestro-field')?.textContent).toContain('provider cache');
+        place.value = 'end';
+        place.dispatchEvent(new Event('change'));
+        expect(env.slice.rulesPlace).toBe('end');
+        expect(notify).toHaveBeenCalledWith('modules.mechanics.rulesPlace');
+        const depth = input('Depth of the values');
+        expect(depth.value).toBe('0');
+        expect(depth.closest('.maestro-field')?.textContent).toContain('right before the reply');
+        expect(input('Prompt budget, tokens').closest('.maestro-field')?.textContent).toContain('1200');
     });
 });

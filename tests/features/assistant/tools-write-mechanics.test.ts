@@ -39,7 +39,7 @@ describe('mechanic_save', () => {
         expect(plan.before).toBeNull();
         const after = plan.after as Record<string, unknown>;
         expect(after.attributes).toEqual([
-            'Mana (mana): number 0–50, starts at 50; at <= 0: {holder} has no mana left and cannot cast.',
+            'Mana (mana): number 0–50, starts at 50; at <= 0: {holder} has no mana left and cannot cast.; at <= 15: {holder} is nearly out of mana: only minor spells are possible.',
             'Arcana (arcana): number 0–10, starts at 2, grows by 0.2 per successful use up to 8',
         ]);
         expect(after.rules).toBe('Mana is scarce.');

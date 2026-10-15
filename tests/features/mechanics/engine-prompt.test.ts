@@ -1,10 +1,12 @@
-// M25 prompt of plan-2 §6–6.А with the real state: values as visibility allows (words for «book», nothing for secret
-// attributes), numbers with modifiers, the mention line, the conditions and inventories of the holders in the scene,
-// the fight's turn order, and the checks the model may ask for in the block instruction.
+// M25 prompt of plan-2 §6–6.А and release 1.27 with the real state: the rules and the state apart; values as
+// visibility allows (words for «book», nothing for secret attributes), numbers with modifiers and band words, the
+// mention line, the conditions (with their modifiers) and inventories of the holders in the scene, the lasting events
+// while they hold, the fight's turn order, and the checks the model may ask for in the block instruction.
 import { afterEach, describe, expect, it } from 'vitest';
 import type { MechanicDef } from '../../../src/features/mechanics/api';
 import { MechanicChecks } from '../../../src/features/mechanics/checks';
-import { INJECT_RULES } from '../../../src/features/mechanics/parts';
+import { RULES_FRAME } from '../../../src/domain/mechanics-prompt';
+import { INJECT_RULES, INJECT_STATE } from '../../../src/features/mechanics/parts';
 import { MechanicPrompt } from '../../../src/features/mechanics/prompt';
 import { MechanicState } from '../../../src/features/mechanics/state';
 import { createChecksEnv, faces, generate } from './helpers-checks';
@@ -142,20 +144,68 @@ describe('the rules block of plan-2 §6', () => {
             },
         ]);
         const { slots } = await generate(ctx);
-        const text = slots[INJECT_RULES]?.value ?? '';
-        expect(text.split('\n')).toEqual([
-            '[Mechanics] Hero: Be brave. Changes: trust in words only, never as numbers. | Mira: hp 20/20, trust 15/100, might 10 | Kai: hp 16/20, trust 15/100, might 8 | Bandit: hp 20/20, trust 15/100, might 10',
-            '[Conditions] Kai: wounded (2 turns left)',
-            '[Inventory] Kai: rope x2',
-            '[Combat] Round 2. Turn order: Kai 14, Bandit 9 (enemy). Now acting: Kai. Keep the fight to this order; one round per reply.',
+        const rules = slots[INJECT_RULES]?.value ?? '';
+        const stateText = slots[INJECT_STATE]?.value ?? '';
+        expect(rules.split('\n')).toEqual([
+            '<game_rules>',
+            RULES_FRAME.top,
+            '',
+            '## Hero',
+            'Be brave.',
+            'Changes: trust in words only, never as numbers.',
+            '',
             '[Mechanics block] fake',
+            '</game_rules>',
+        ]);
+        // Release 1.27: per holder, numbers with band words, «book» trust as words, the status with its modifier.
+        expect(stateText.split('\n')).toEqual([
+            '<game_state>',
+            "Kai (the user's character)",
+            '- Hero: hp 16/20 (high), trust: very low, might 8',
+            '- conditions: wounded (2 turns left; hp −4)',
+            '- inventory: rope x2',
+            'Mira',
+            '- Hero: hp 20/20 (full), trust: very low, might 10',
+            'Bandit',
+            '- Hero: hp 20/20 (full), trust: very low, might 10',
+            '[Combat] Round 2. Turn order: Kai 14, Bandit 9 (enemy). Now acting: Kai. Keep the fight to this order; one round per reply.',
+            'Write this reply in line with these values.',
+            '</game_state>',
         ]);
         // The secret mechanic: neither its values nor its status nor its checks reach the model.
-        expect(text).not.toContain('Plot');
-        expect(text).not.toContain('cursed');
-        expect(text).not.toContain('Doom');
+        for (const text of [rules, stateText]) {
+            expect(text).not.toContain('Plot');
+            expect(text).not.toContain('cursed');
+            expect(text).not.toContain('Doom');
+        }
         expect(checks.checkNames()).toEqual(['Bravery']);
-        expect(prompt.preview().text).toBe(text);
+        expect(prompt.preview()).toMatchObject({ rules, state: stateText });
+    });
+
+    it('a lasting event of the real state stands in the state while it holds', async () => {
+        await start();
+        const def = heroDef();
+        def.attributes[0]!.events = [
+            { id: 'down', when: { op: '<=', value: 0 }, text: '{holder} is down and cannot fight.' },
+            { id: 'hurt', when: { op: '<=', value: 5 }, text: '{holder} is badly hurt.' },
+        ];
+        ctx.defs.defs = [def];
+        await state.apply([
+            { mechanicId: 'hero', holder: 'Mira', attribute: 'hp', value: 3, source: 'user', messageIndex: -1 },
+        ]);
+        const first = prompt.preview().state;
+        expect(first).toContain(
+            'Mira\n- Hero: hp 3/20 (very low), trust: very low, might 1.5\n- now: Mira is badly hurt.',
+        );
+        await state.apply([
+            { mechanicId: 'hero', holder: 'Mira', attribute: 'hp', value: 0, source: 'user', messageIndex: -1 },
+        ]);
+        expect(prompt.preview().state).toContain('- now: Mira is down and cannot fight.');
+        expect(prompt.preview().state).not.toContain('badly hurt');
+        await state.apply([
+            { mechanicId: 'hero', holder: 'Mira', attribute: 'hp', value: 15, source: 'user', messageIndex: -1 },
+        ]);
+        expect(prompt.preview().state).not.toContain('now:');
     });
 
     it('without model rolls the instruction is asked for without checks', async () => {

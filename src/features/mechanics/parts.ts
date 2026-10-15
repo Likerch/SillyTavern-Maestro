@@ -32,8 +32,14 @@ export const MECHANICS_ID = 'M25';
 export const MECHANICS_DEFS_KEY = 'mechanicsDefinitions';
 /** Default Maestro book of the definitions (role 'maestro', never active: Maestro injects the rules itself). */
 export const DEFAULT_MECHANICS_BOOK = 'Maestro · механики';
-/** Ephemeral injection keys (one generation each). */
-export const INJECT_RULES = 'maestro_mechanics';
+/**
+ * Ephemeral injection keys (one generation each). Release 1.27: `maestro_mechanics` is the state (`<game_state>`, in the
+ * chat at settings.stateDepth; the Architect and the neighbour prompts know it by this key), `maestro_mechanics_rules`
+ * the rules (`<game_rules>`, in the prompt after the main prompt when settings.rulesPlace is 'top'), the facts stay
+ * at depth 0.
+ */
+export const INJECT_STATE = 'maestro_mechanics';
+export const INJECT_RULES = 'maestro_mechanics_rules';
 export const INJECT_FACTS = 'maestro_mechanics_facts';
 /** Flag for conditional preset blocks: `maestro_mech_<mechanic id>` while the mechanic takes part in the scene. */
 export const FLAG_PREFIX = 'maestro_mech_';
@@ -44,6 +50,10 @@ export const BLOCK_TAG = 'mechanics';
 export type HudPlacement = 'chat' | 'left' | 'right';
 /** What the panel beside the chat shows: what the HUD over the chat shows, or every character of the scene in full. */
 export type HudSideView = 'compact' | 'full';
+/** Where the rules of the mechanics go: at the top of the prompt (after the main prompt), or right before the state. */
+export type RulesPlace = 'top' | 'end';
+/** Revision of the settings slice: 1 = release 1.27 (the budget of 400 became 1200 once). */
+export const MECHANICS_SETTINGS_REV = 1;
 
 export interface MechanicsSettings {
     /** Book for new definitions. */
@@ -52,10 +62,14 @@ export interface MechanicsSettings {
     autoChecks: boolean;
     /** Widgets next to DES's portrait bar. */
     strip: boolean;
-    /** Token cap of the rules + state injection (the architect's «механики» budget wins when it is set). */
+    /** Token cap of the rules and the state together (the architect's «механики» budget wins when it is set). */
     promptBudget: number;
-    /** Chat depth of the injection (P16: near the end). */
-    depth: number;
+    /** Where the rules go (release 1.27): 'top' — in the prompt after the main prompt; 'end' — right before the state. */
+    rulesPlace: RulesPlace;
+    /** Chat depth of the state (P16: near the end; release 1.27, replaces the old `depth` of the one block). */
+    stateDepth: number;
+    /** Revision of the slice (migrations run once): MECHANICS_SETTINGS_REV. */
+    settingsRev: number;
     /** Background parse of committed replies for 'background' attributes. */
     background: boolean;
     /** The model may ask Maestro for rolls in its service block (`roll: …`). */
@@ -89,8 +103,10 @@ export const DEFAULT_MECHANICS_SETTINGS: MechanicsSettings = {
     book: DEFAULT_MECHANICS_BOOK,
     autoChecks: true,
     strip: true,
-    promptBudget: 400,
-    depth: 1,
+    promptBudget: 1200,
+    rulesPlace: 'top',
+    stateDepth: 0,
+    settingsRev: MECHANICS_SETTINGS_REV,
     background: true,
     modelRolls: true,
     autoCombat: true,
@@ -214,7 +230,8 @@ export interface StatePart {
 export interface TrackingPart {
     /**
      * English instruction for the 'block' and 'auto' attributes of the mechanics in the scene (format of the service
-     * block, the holders and attributes it may change), '' when none uses the block. The prompt part appends it.
+     * block, the holders and attributes it may change), '' when none uses the block. The prompt part puts it at the end
+     * of the rules.
      */
     blockInstruction(
         defs: MechanicDef[],
@@ -223,6 +240,11 @@ export interface TrackingPart {
     ): string;
     /** Which number attributes of a mechanic are DES stats now (constructor). */
     desStatsStatus(def: MechanicDef): { attribute: string; inDes: boolean }[];
+    /**
+     * The attributes of a mechanic DES keeps as character stats now, with the stat's name in DES (the prompt's tracker
+     * line, release 1.27); empty without DES or with its character stats off. Optional for older fakes.
+     */
+    desTracked?(def: MechanicDef): { attribute: string; stat: string }[];
     /** Adds the mechanic's 'desStats' attributes to DES's character stats (asks, journals, undoable). */
     enableDesStats(def: MechanicDef): Promise<boolean>;
     dispose(): void;

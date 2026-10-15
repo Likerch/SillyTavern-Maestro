@@ -5,7 +5,8 @@
 // Four presets fill every field (В21: new mechanics and templates «Игровой», the relationships template «Книжный»;
 // В22: the status block and narrator messages are off in every preset):
 //   game   — numbers and bars everywhere, the model gets values and may name numbers;
-//   book   — no numbers for the player (words), no HUD values, the model gets values and speaks in words;
+//   book   — no numbers for the player (words), no HUD values, the model gets words too, never numbers (release
+//            1.27: before, it got the values and was only told to speak in words);
 //   hidden — the player sees nothing until an event or the user reveals it; the model gets the value (or words);
 //   secret — neither the player nor the model: Maestro applies consequences and gives the model only outcomes.
 // Also the word bands of a value ("mana: low") and the English lines that tell the model how to mention changes.
@@ -97,7 +98,7 @@ export function presetVisibility(preset: VisibilityPreset, attribute?: VisibleAt
         case 'book':
             return {
                 preset,
-                prompt: 'value',
+                prompt: 'words',
                 mention: 'words',
                 places: places(['strip', 'dossier']),
                 view: attribute?.kind === 'list' || attribute?.kind === 'text' ? 'number' : 'words',

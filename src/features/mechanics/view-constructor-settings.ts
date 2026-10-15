@@ -1,6 +1,7 @@
 // M25 «Механики», the module's own settings (the gear of the «Механики» window, plan-2 §10 п.4): the book of new
-// definitions, auto checks, the widgets strip, the background parse, the prompt budget and depth (the live slice of
-// settings.ts; P16: the depth keeps the injection near the end); plan-2 §6: rolls asked by the model, fights by the
+// definitions, auto checks, the widgets strip, the background parse, the prompt budget, where the rules go and the
+// depth of the state (release 1.27: «Правила механик: в начале промпта / рядом с состоянием», «Глубина состояния»;
+// the live slice of settings.ts; P16: the state stays near the end); plan-2 §6: rolls asked by the model, fights by the
 // director's scene, how the user's own character's DES stats are read, and how far back factions are looked for;
 // plan-2 §6.А: the HUD (over the chat, or beside it on the left or the right — a panel, else a rail at the chat's edge —
 // in the short or the full view; the HUD switches both itself too), the user's character under the DES portraits and
@@ -11,12 +12,20 @@ import { moduleSettingsSection } from '../../ui/components/card';
 import { field, numberInput, select, toggle } from '../../ui/components/controls';
 import { el } from '../../ui/components/dom';
 import { DEFAULT_MECHANICS_BOOK, MECHANICS_KEY } from './parts';
-import type { DefinitionsPart, HudPlacement, HudSideView, MechanicsSettings, PartDeps, SectionRenderer } from './parts';
+import type {
+    DefinitionsPart,
+    HudPlacement,
+    HudSideView,
+    MechanicsSettings,
+    PartDeps,
+    RulesPlace,
+    SectionRenderer,
+} from './parts';
 import { DEPTH_LIMITS, PROMPT_BUDGET_LIMITS, RELEVANCE_LIMITS } from './settings';
 import { nextPins, pinKey } from './widgets';
 
 type Flag = 'autoChecks' | 'strip' | 'background' | 'modelRolls' | 'autoCombat' | 'hud' | 'desPersona';
-type Count = 'promptBudget' | 'depth' | 'relevance';
+type Count = 'promptBudget' | 'stateDepth' | 'relevance';
 
 export function settingsSection(deps: PartDeps, defs?: Pick<DefinitionsPart, 'active'>): SectionRenderer {
     const { app } = deps;
@@ -138,6 +147,18 @@ export function settingsSection(deps: PartDeps, defs?: Pick<DefinitionsPart, 'ac
             t('m25.ctor.settings.hudSideView.hint'),
         );
         sideView.classList.add('maestro-m25-hud-side-view');
+        const places: readonly RulesPlace[] = ['top', 'end'];
+        const rulesPlace = field(
+            t('m25.def.settings.rulesPlace'),
+            select<RulesPlace>({
+                value: current.rulesPlace === 'end' ? 'end' : 'top',
+                options: places.map((value) => ({ value, label: t(`m25.def.settings.rulesPlace.${value}`) })),
+                label: t('m25.def.settings.rulesPlace'),
+                onChange: (value) => commit('rulesPlace', value === 'end' ? 'end' : 'top'),
+            }),
+            t('m25.def.settings.rulesPlace.hint'),
+        );
+        rulesPlace.classList.add('maestro-m25-rules-place');
         const node = moduleSettingsSection(t('m25.def.settings.title'), [
             flag('autoChecks'),
             flag('modelRolls'),
@@ -153,7 +174,8 @@ export function settingsSection(deps: PartDeps, defs?: Pick<DefinitionsPart, 'ac
             flag('background'),
             fallback,
             count('promptBudget', PROMPT_BUDGET_LIMITS),
-            count('depth', DEPTH_LIMITS),
+            rulesPlace,
+            count('stateDepth', DEPTH_LIMITS),
             count('relevance', RELEVANCE_LIMITS),
             field(t('m25.def.book'), book, t('m25.def.book.hint')),
         ]);

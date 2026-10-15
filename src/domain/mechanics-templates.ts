@@ -15,6 +15,11 @@
 // Persuasion, deception and intimidation are speech checks (they roll on spoken lines and questions too). Skills give
 // experience by the outcome of every check (critical 20, success 10, failure and fumble 3); levels at 100, 250, 500
 // and 1000.
+// Events (release 1.27): their notes also stand in the model's state while the condition holds ("now: Kai has no mana
+// left and cannot cast."), so they are written as a standing state, not a one-off moment; the obvious middle stages are
+// there too (badly wounded, winded, nearly out of mana, worn out, bloodied, starving to death…). Skills (and arcana)
+// carry word bands as the rules name them (untrained … legend), survival needs its own (fed … starving): the model gets
+// the band word next to the number.
 // Pure: no DOM, no SillyTavern.
 import { cloneDef, uniqueId } from './mechanics-defs';
 import type {
@@ -87,6 +92,18 @@ function words(locale: Locale, bands: [number | string, string, string][]): Word
     });
 }
 
+/** Bands of a 0–10 skill as the rules name them (the model gets "stealth 6/10 (professional)", never "(high)"). */
+function skillWords(locale: Locale): WordLevel[] {
+    return words(locale, [
+        [1, 'untrained', 'не обучен'],
+        [3, 'ordinary', 'обычный'],
+        [5, 'trained', 'обучен'],
+        [7, 'professional', 'профессионал'],
+        [9, 'master', 'мастер'],
+        [10, 'legend', 'легенда'],
+    ]);
+}
+
 function template(id: string, build: (locale: Locale) => Built): MechanicTemplate {
     return {
         id,
@@ -111,7 +128,14 @@ const health = template('health', (locale) => ({
             min: 0,
             max: 100,
             initial: 100,
-            events: [{ id: 'unconscious', when: { op: '<=', value: 0 }, text: '{holder} falls unconscious.' }],
+            events: [
+                { id: 'unconscious', when: { op: '<=', value: 0 }, text: '{holder} is unconscious and cannot act.' },
+                {
+                    id: 'badly_wounded',
+                    when: { op: '<=', value: 25 },
+                    text: '{holder} is badly wounded: every move hurts and blood loss slows them down.',
+                },
+            ],
         }),
         numberAttr(locale, 'stamina', 'Stamina', 'Выносливость', {
             min: 0,
@@ -119,6 +143,7 @@ const health = template('health', (locale) => ({
             initial: 100,
             events: [
                 { id: 'exhausted', when: { op: '<=', value: 0 }, text: '{holder} is exhausted and can barely move.' },
+                { id: 'winded', when: { op: '<=', value: 25 }, text: '{holder} is winded and tiring fast.' },
             ],
         }),
     ],
@@ -157,6 +182,11 @@ const magic = template('magic', (locale) => ({
             initial: 100,
             events: [
                 { id: 'drained', when: { op: '<=', value: 0 }, text: '{holder} has no mana left and cannot cast.' },
+                {
+                    id: 'low_mana',
+                    when: { op: '<=', value: 15 },
+                    text: '{holder} is nearly out of mana: only minor spells are possible.',
+                },
             ],
         }),
         {
@@ -173,6 +203,7 @@ const magic = template('magic', (locale) => ({
             max: 10,
             initial: 2,
             growth: { perUse: 0.2, cap: 8 },
+            visibility: { words: skillWords(locale) },
         }),
     ],
     holders: { kind: 'characters', includePersona: true },
@@ -222,12 +253,12 @@ const reputation = template('reputation', (locale) => ({
                 {
                     id: 'hostile',
                     when: { op: '=', value: 'hostile' },
-                    text: "{holder} now treats the user's character as an enemy.",
+                    text: "{holder} treats the user's character as an enemy.",
                 },
                 {
                     id: 'revered',
                     when: { op: '=', value: 'revered' },
-                    text: "{holder} now reveres the user's character.",
+                    text: "{holder} reveres the user's character.",
                 },
             ],
         },
@@ -250,7 +281,7 @@ const money = template('money', (locale) => ({
         numberAttr(locale, 'coins', 'Coins', 'Монеты', {
             min: 0,
             initial: 50,
-            events: [{ id: 'broke', when: { op: '<=', value: 0 }, text: '{holder} has run out of money.' }],
+            events: [{ id: 'broke', when: { op: '<=', value: 0 }, text: '{holder} has no money left and cannot pay.' }],
         }),
     ],
     holders: { kind: 'persona' },
@@ -309,6 +340,7 @@ const skills = template('skills', (locale) => ({
                 initial: 2,
                 growth: { perUse: 0.2, cap: 8 },
                 tracking: 'manual',
+                visibility: { words: skillWords(locale) },
             }),
         ),
         numberAttr(locale, 'xp', 'Experience', 'Опыт', { min: 0, initial: 0, tracking: 'manual' }),
@@ -349,12 +381,12 @@ const relationships = template('relationships', (locale) => ({
                 {
                     id: 'hostile',
                     when: { op: '=', value: 'hostile' },
-                    text: "{holder} has turned hostile toward the user's character.",
+                    text: "{holder} is hostile toward the user's character.",
                 },
                 {
                     id: 'devoted',
                     when: { op: '=', value: 'devoted' },
-                    text: "{holder} is now devoted to the user's character.",
+                    text: "{holder} is devoted to the user's character.",
                 },
             ],
         },
@@ -390,11 +422,19 @@ const survival = template('survival', (locale) => ({
             min: 0,
             max: 100,
             initial: 10,
+            visibility: {
+                words: words(locale, [
+                    [20, 'fed', 'сыт'],
+                    [50, 'peckish', 'проголодался'],
+                    [79, 'hungry', 'голоден'],
+                    [100, 'starving', 'умирает от голода'],
+                ]),
+            },
             events: [
                 {
                     id: 'starving',
                     when: { op: '>=', value: 80 },
-                    text: '{holder} is starving.',
+                    text: '{holder} is starving: weak, dizzy and short-tempered.',
                     actions: [
                         {
                             who: 'actor',
@@ -415,17 +455,30 @@ const survival = template('survival', (locale) => ({
                     text: '',
                     actions: [{ who: 'actor', attr: 'status', op: 'pull', value: 'starving' }],
                 },
+                {
+                    id: 'famished',
+                    when: { op: '>=', value: 100 },
+                    text: '{holder} is starving to death and can think of nothing but food.',
+                },
             ],
         }),
         numberAttr(locale, 'thirst', 'Thirst', 'Жажда', {
             min: 0,
             max: 100,
             initial: 10,
+            visibility: {
+                words: words(locale, [
+                    [20, 'quenched', 'напился'],
+                    [50, 'thirsty', 'хочет пить'],
+                    [79, 'very thirsty', 'мучает жажда'],
+                    [100, 'parched', 'изнывает от жажды'],
+                ]),
+            },
             events: [
                 {
                     id: 'parched',
                     when: { op: '>=', value: 80 },
-                    text: '{holder} is parched with thirst.',
+                    text: '{holder} is parched: dry mouth, headache, slow thoughts.',
                     actions: [
                         {
                             who: 'actor',
@@ -446,14 +499,28 @@ const survival = template('survival', (locale) => ({
                     text: '',
                     actions: [{ who: 'actor', attr: 'status', op: 'pull', value: 'parched' }],
                 },
+                {
+                    id: 'dying_of_thirst',
+                    when: { op: '>=', value: 100 },
+                    text: '{holder} is dying of thirst and will collapse without water soon.',
+                },
             ],
         }),
         numberAttr(locale, 'fatigue', 'Fatigue', 'Усталость', {
             min: 0,
             max: 100,
             initial: 0,
+            visibility: {
+                words: words(locale, [
+                    [20, 'rested', 'бодр'],
+                    [50, 'tired', 'устал'],
+                    [89, 'very tired', 'очень устал'],
+                    [100, 'collapsing', 'валится с ног'],
+                ]),
+            },
             events: [
                 { id: 'collapsing', when: { op: '>=', value: 90 }, text: '{holder} can barely stay on their feet.' },
+                { id: 'worn_out', when: { op: '>=', value: 70 }, text: '{holder} is worn out: slow and clumsy.' },
             ],
         }),
     ],
@@ -488,7 +555,7 @@ const sanity = template('sanity', (locale) => ({
                 {
                     id: 'unsettled',
                     when: { op: '<=', value: 30 },
-                    text: '{holder} is badly shaken and starts seeing things.',
+                    text: '{holder} is badly shaken: jumpy, distracted, seeing things that are not there.',
                     actions: [
                         {
                             who: 'actor',
@@ -509,7 +576,11 @@ const sanity = template('sanity', (locale) => ({
                     text: '',
                     actions: [{ who: 'actor', attr: 'status', op: 'pull', value: 'unsettled' }],
                 },
-                { id: 'broken', when: { op: '<=', value: 0 }, text: "{holder}'s mind breaks." },
+                {
+                    id: 'broken',
+                    when: { op: '<=', value: 0 },
+                    text: "{holder}'s mind has broken: they cannot act sanely.",
+                },
             ],
         }),
     ],
@@ -548,7 +619,7 @@ const trade = template('trade', (locale) => ({
         numberAttr(locale, 'coins', 'Coins', 'Монеты', {
             min: 0,
             initial: 50,
-            events: [{ id: 'broke', when: { op: '<=', value: 0 }, text: '{holder} has run out of money.' }],
+            events: [{ id: 'broke', when: { op: '<=', value: 0 }, text: '{holder} has no money left and cannot pay.' }],
         }),
     ],
     holders: { kind: 'persona' },
@@ -576,9 +647,10 @@ const combat = template('combat', (locale) => ({
                 {
                     id: 'down',
                     when: { op: '<=', value: 0 },
-                    text: '{holder} is down.',
+                    text: '{holder} is down and out of the fight.',
                     actions: [{ who: 'actor', attr: 'combat', op: 'pull', value: '' }],
                 },
+                { id: 'bloodied', when: { op: '<=', value: 5 }, text: '{holder} is bloodied and close to falling.' },
             ],
         }),
         numberAttr(locale, 'armor', 'Armor', 'Броня', { min: 0, max: 10, initial: 1 }),
@@ -670,7 +742,7 @@ const social = template('social', (locale) => ({
                 {
                     id: 'distrust',
                     when: { op: '<=', value: 10 },
-                    text: "{holder} no longer trusts the user's character.",
+                    text: "{holder} does not trust the user's character.",
                 },
             ],
         }),

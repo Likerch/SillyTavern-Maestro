@@ -177,11 +177,15 @@ export const CAPS = {
 
 /* ------------------------------------------------------------------ owners */
 
-/** Maestro's own injections (core/ephemeral: slot `maestro_<key>`) by the module that writes them. */
+/**
+ * Maestro's own injections (core/ephemeral: slot `maestro_<key>`) by the module that writes them (release 1.27: the
+ * mechanics write the rules in the prompt, the state and the facts in the chat).
+ */
 export const MAESTRO_SLOTS: Readonly<Record<string, string>> = {
     maestro_director: 'director',
     maestro_voices: 'voices',
     maestro_mechanics: 'mechanics',
+    maestro_mechanics_rules: 'mechanics',
     maestro_mechanics_facts: 'mechanics',
     maestro_wardrobe: 'wardrobe',
     maestro_offscreen: 'offscreen',

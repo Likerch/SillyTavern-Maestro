@@ -317,6 +317,88 @@ describe('the assistant and the preview', () => {
         type(one<HTMLTextAreaElement>('.maestro-m25-rules-en'), 'Mana is life.');
         expect(preview.textContent).toContain('Mana is life.');
     });
+
+    it('shows the rules and the state apart with where each goes, a lasting event in the state', async () => {
+        const def = mechanic({
+            attributes: [
+                {
+                    id: 'mana',
+                    name: 'Мана',
+                    promptName: 'Mana',
+                    kind: 'number',
+                    min: 0,
+                    max: 100,
+                    initial: 0,
+                    events: [{ id: 'empty', when: { op: '<=', value: 0 }, text: '{holder} cannot cast.' }],
+                },
+            ],
+        });
+        await edit(
+            { ...def, book: BOOK, uid: 1 },
+            {
+                api: {
+                    persona: () => 'Алекс',
+                    previewPrompt: () => ({
+                        text: 'R\nS',
+                        rules: '<game_rules>R</game_rules>',
+                        state: '<game_state>S</game_state>',
+                        placement: { rules: 'end', stateDepth: 2 },
+                        tokens: 1,
+                        budget: 0,
+                        budgetSource: 'own',
+                        cut: [],
+                        mechanics: [],
+                        flags: [],
+                        facts: '[Mechanics results] F',
+                    }),
+                } as unknown as MechanicsApi,
+            },
+        );
+        const own = one('.maestro-m25-preview-own').textContent ?? '';
+        expect(own).toContain('<game_rules>');
+        expect(own).toContain('## Магия\nCasting costs mana.');
+        expect(own).toContain(
+            "Алекс (the user's character)\n- Магия: mana 0/100 (none left)\n- now: Алекс cannot cast.",
+        );
+        expect(one('.maestro-m25-preview-turn').textContent).toBe(
+            '<game_rules>R</game_rules>\n\n<game_state>S</game_state>\n\n[Mechanics results] F',
+        );
+        expect(one('.maestro-m25-preview-place').textContent).toBe(
+            'The rules go right before the values, at depth 2 in the chat.',
+        );
+    });
+
+    it('«Lasts while the condition holds» for threshold events, not for «changes»', async () => {
+        const def = mechanic({
+            attributes: [
+                {
+                    id: 'mana',
+                    name: 'Мана',
+                    promptName: 'Mana',
+                    kind: 'number',
+                    min: 0,
+                    max: 100,
+                    initial: 100,
+                    events: [
+                        { id: 'empty', when: { op: '<=', value: 0 }, text: '{holder} cannot cast.' },
+                        { id: 'spent', when: { op: 'changed' }, text: '{holder} spent mana.' },
+                    ],
+                },
+            ],
+        });
+        await edit({ ...def, book: BOOK, uid: 1 });
+        const lasting = [...container.querySelectorAll('.maestro-m25-event-lasting')];
+        expect(lasting).toHaveLength(1);
+        expect(lasting[0]!.textContent).toContain('the model is reminded of it every turn');
+        const box = toggleByLabel('Lasts while the condition holds', lasting[0]!);
+        expect(box.checked).toBe(true);
+        check(box, false);
+        await click(buttonByText('Save'));
+        expect(defs.saved[0]!.attributes[0]!.events).toEqual([
+            { id: 'empty', when: { op: '<=', value: 0 }, text: '{holder} cannot cast.', lasting: false },
+            { id: 'spent', when: { op: 'changed' }, text: '{holder} spent mana.' },
+        ]);
+    });
 });
 
 describe('engine fields', () => {

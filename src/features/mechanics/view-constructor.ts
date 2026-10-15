@@ -7,9 +7,11 @@
 //   scope, holders, tracking («Авто (рекомендуется)» first and the default since 1.26: DES stats, the service block,
 //   the background parse as the safety net), «Где видно» (preset buttons and places), attributes (kind, sign, bounds,
 //   start value, formula and growth of numbers, levels/options, tracking, own visibility, events with actions and
-//   chains), checks (dice validated live, difficulty, trigger words, «Срабатывает и на реплики» for speech checks,
-//   consequences per outcome), statuses, inventory and money, levels (experience per roll outcome), time rules,
-//   fights, «Сделать статами DES», a live preview of what the model gets, and the problems to fix.
+//   chains; release 1.27: «Держится, пока условие верно» — the event's note stays in the model's state while its
+//   condition holds), checks (dice validated live, difficulty, trigger words, «Срабатывает и на реплики» for speech
+//   checks, consequences per outcome), statuses, inventory and money, levels (experience per roll outcome), time rules,
+//   fights, «Сделать статами DES», a live preview of what the model gets (release 1.27: the rules block and the state
+//   block, and where each goes), and the problems to fix.
 //   Ids are made from names and never shown in the main text (only under «Подробнее»). Switching an attribute's kind
 //   keeps its events (asks before dropping the ones that no longer fit).
 // Stacked fields and wrapping rows: usable in a narrow side panel and on a phone.
@@ -33,7 +35,7 @@ import {
     validateDef,
 } from '../../domain/mechanics-defs';
 import type { DefIssue } from '../../domain/mechanics-defs';
-import { renderRules } from '../../domain/mechanics-prompt';
+import { renderGame } from '../../domain/mechanics-prompt';
 import { defFromTemplate, MECHANIC_TEMPLATES } from '../../domain/mechanics-templates';
 import type { MechanicTemplate as DomainTemplate } from '../../domain/mechanics-defs';
 import {
@@ -665,6 +667,21 @@ export function constructorSection(
                         className: 'maestro-m25-event-text',
                     },
                 ),
+                // Release 1.27: a threshold's note stays in the model's state while the condition holds.
+                event.when.op === 'changed'
+                    ? null
+                    : el('div', { class: 'maestro-m25-row maestro-m25-event-lasting' }, [
+                          toggle({
+                              label: t('m25.def.event.lasting'),
+                              checked: event.lasting !== false,
+                              onChange: (checked) => {
+                                  if (checked) delete event.lasting;
+                                  else event.lasting = false;
+                                  refreshIssues();
+                              },
+                          }),
+                          el('span', { class: 'maestro-muted', text: t('m25.def.event.lasting.hint') }),
+                      ]),
                 toggle({
                     label: t('m25.def.event.once'),
                     checked: event.once !== false,
@@ -1200,26 +1217,29 @@ export function constructorSection(
                 }),
             );
 
-        /** What this mechanic gives the model (its rules and one holder's start values), English as sent. */
+        /** What this mechanic gives the model (its rules, one holder's start values), English as sent; both blocks. */
         const previewText = (def: MechanicDef): string => {
             const normalized = normalizeDef(def);
             if (!normalized) return '';
-            const sample = (() => {
+            const persona = (() => {
                 try {
-                    return extras.api?.persona?.() || t('m25.ctor.preview.holder');
+                    return extras.api?.persona?.() || '';
                 } catch {
-                    return t('m25.ctor.preview.holder');
+                    return '';
                 }
             })();
             const english = interimEnglish(normalized);
             const values = initialValues(english);
-            return renderRules([{ mechanic: english, holders: [{ name: sample, primary: true, values }] }], {
-                budget: 0,
-            }).text;
+            const holder = persona
+                ? { name: persona, primary: true, persona: true, values }
+                : { name: t('m25.ctor.preview.holder'), primary: true, values };
+            const rendered = renderGame([{ mechanic: english, holders: [holder] }], { budget: 0 });
+            return [rendered.rules, rendered.state].filter(Boolean).join('\n\n');
         };
 
         const previewBlock = (def: MechanicDef): { node: HTMLElement; update: () => void } => {
             const text = el('pre', { class: 'maestro-m25-preview maestro-m25-preview-own' });
+            const place = el('div', { class: 'maestro-muted maestro-m25-preview-place' });
             const whole = el('pre', { class: 'maestro-m25-preview maestro-m25-preview-turn' });
             const update = () => {
                 text.textContent = previewText(def) || t('m25.ctor.preview.empty');
@@ -1230,9 +1250,20 @@ export function constructorSection(
                         return null;
                     }
                 })();
-                whole.textContent = next?.text
-                    ? `${next.text}${next.facts ? `\n\n${next.facts}` : ''}`
+                // Release 1.27: the rules and the state apart, and where each goes (an older preview: one text).
+                const body =
+                    next && (next.rules !== undefined || next.state !== undefined)
+                        ? [next.rules ?? '', next.state ?? ''].filter(Boolean).join('\n\n')
+                        : (next?.text ?? '');
+                whole.textContent = body
+                    ? `${body}${next?.facts ? `\n\n${next.facts}` : ''}`
                     : t('m25.ctor.preview.noTurn');
+                place.textContent =
+                    body && next?.placement
+                        ? t(`m25.ctor.preview.place.${next.placement.rules === 'end' ? 'end' : 'top'}`, {
+                              depth: next.placement.stateDepth,
+                          })
+                        : '';
             };
             update();
             const node = moreBlock(
@@ -1241,7 +1272,7 @@ export function constructorSection(
                     el('div', { class: 'maestro-hint', text: t('m25.ctor.preview.hint') }),
                     text,
                     extras.api?.previewPrompt
-                        ? moreBlock(t('m25.ctor.preview.turn'), whole, 'maestro-m25-preview-turn-block')
+                        ? moreBlock(t('m25.ctor.preview.turn'), [place, whole], 'maestro-m25-preview-turn-block')
                         : null,
                 ],
                 'maestro-m25-preview-block',

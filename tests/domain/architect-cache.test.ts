@@ -9,6 +9,7 @@ import {
     quickHash,
     readCacheUsage,
     requestMessageHashes,
+    STABLE_SLOTS,
     summarizeCache,
 } from '../../src/domain/architect-cache';
 
@@ -194,5 +195,13 @@ describe('findOrderViolations (P16)', () => {
                 null,
             ),
         ).toEqual([{ key: 'maestro_head', messageIndex: 0, stableAfter: 4, position: 0, depth: 0 }]);
+    });
+
+    it('never reports a slot that is stable by design (the mechanics rules at the top, release 1.27)', () => {
+        expect(STABLE_SLOTS.has('maestro_mechanics_rules')).toBe(true);
+        const rules = { key: 'maestro_mechanics_rules', index: 0, position: 0, depth: 0, stable: true };
+        expect(findOrderViolations([rules], hashes, null)).toEqual([]);
+        expect(findOrderViolations([rules], hashes, new Set([20, 30, 40]))).toEqual([]);
+        expect(findOrderViolations([{ ...rules, stable: false }], hashes, null)).toHaveLength(1);
     });
 });

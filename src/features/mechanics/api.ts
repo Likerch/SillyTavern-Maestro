@@ -39,9 +39,9 @@ export type AttributeValue = number | string | string[];
 
 /**
  * Ready-made sets: 'game' — numbers and bars everywhere, the model gets values; 'book' — words instead of numbers, no
- * HUD values, the model gets values and mentions changes in words; 'hidden' — nothing for the player until revealed
- * (an event action `reveal` or MechanicsApi.reveal), the model gets the value (or words); 'secret' — neither the
- * player nor the model: Maestro applies consequences and gives the model only outcomes.
+ * HUD values, the model gets words too and mentions changes in words (release 1.27: never numbers); 'hidden' — nothing
+ * for the player until revealed (an event action `reveal` or MechanicsApi.reveal), the model gets the value (or words);
+ * 'secret' — neither the player nor the model: Maestro applies consequences and gives the model only outcomes.
  */
 export type VisibilityPreset = 'game' | 'book' | 'hidden' | 'secret';
 /** What the model gets: the value ("mana 25/100"), words by thresholds ("mana: low"), nothing. */
@@ -138,14 +138,20 @@ export interface ChangeAction {
     item?: ItemSpec;
 }
 
-/** A change event: when the value crosses a threshold, a one-shot note for the model, actions, a chained event. */
+/**
+ * A change event: when the value crosses a threshold, a note for the model (once, as a fact of the next generation),
+ * actions, a chained event. Release 1.27: a '<=', '>=' or '=' event also lasts — while its condition holds, its note
+ * stands under the holder in the state every generation ("now: Kai has no mana left and cannot cast.").
+ */
 export interface AttributeEvent {
     id: string;
     when: { op: '<=' | '>=' | '=' | 'changed'; value?: number | string };
-    /** English note for the model, e.g. "{holder} collapses from exhaustion." ({holder}, {value} are filled in). */
+    /** English note for the model, e.g. "{holder} is exhausted and can barely move." ({holder}, {value} are filled in). */
     text: string;
     /** Fires once until the condition becomes false again (default true). */
     once?: boolean;
+    /** Stays in the state while the condition holds (default true; 'changed' events never last). */
+    lasting?: boolean;
     /** What else happens: value changes, a status, an item, revealing a hidden attribute, leaving a fight. */
     actions?: ChangeAction[];
     /** Another event of this mechanic (`eventId` or `attribute.eventId`) that fires right after. */
@@ -541,8 +547,16 @@ export interface TrackingProblem {
 
 /** What the next generation would get (MechanicPrompt.preview). */
 export interface MechanicsPromptPreview {
-    /** The rules + state block as the next generation would get it ('' when no mechanic takes part). */
+    /** Both blocks as the next generation would get them, the rules first ('' when no mechanic takes part). */
     text: string;
+    /**
+     * Release 1.27: the rules (`<game_rules>…</game_rules>`) and the state (`<game_state>…</game_state>`) apart, and
+     * where they go — the rules at the top of the prompt (after the main prompt) or right before the state; the state
+     * in the chat at `stateDepth` messages from the end. Optional for fakes of the older contract.
+     */
+    rules?: string;
+    state?: string;
+    placement?: { rules: 'top' | 'end'; stateDepth: number };
     tokens: number;
     budget: number;
     budgetSource: 'architect' | 'own';

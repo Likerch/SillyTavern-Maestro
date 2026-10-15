@@ -28,6 +28,13 @@ describe('strings of release 1.13', () => {
         const app = { adapters: {}, settings: { isModuleEnabled: () => false } } as unknown as App;
         const ids = createDescriptors(app).map((descriptor) => descriptor.id);
         expect(ids).toHaveLength(14 + MAESTRO_INJECTIONS.length);
+        // Release 1.27: the mechanics rules have a slot of their own, beside the state and the facts.
+        expect(ids).toEqual(
+            expect.arrayContaining(['maestro.mechanicsRules', 'maestro.mechanics', 'maestro.mechanicsFacts']),
+        );
+        expect(MAESTRO_INJECTIONS.find((item) => item.id === 'maestro.mechanicsRules')?.slot).toBe(
+            'maestro_mechanics_rules',
+        );
         for (const id of ids) {
             expect(NEIGHBOUR_STRINGS.en[`m36.p.${id}.label`], id).toBeTruthy();
             expect(NEIGHBOUR_STRINGS.ru[`m36.p.${id}.description`], id).toBeTruthy();

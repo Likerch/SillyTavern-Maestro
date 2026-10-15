@@ -1,14 +1,19 @@
-// M25 prompt part: the producer sets the rules injection and the flags only when mechanics take part in the scene,
-// gives the facts (rolls, events) once and again to swipes of the same reply, skips quiet and sheet generations, keeps
-// the block instruction out of impersonation, and respects the budget (the Architect's first).
+// M25 prompt part (release 1.27): the producer sets two injections and the flags only when mechanics take part in the
+// scene — the rules (`<game_rules>`, in the prompt after the main prompt, or right before the state) and the state
+// (`<game_state>`, in the chat at the state depth) — orders the mechanics by importance, adds DES's tracker line, gives
+// the facts (rolls, events) once and again to swipes of the same reply right after the state, skips quiet and sheet
+// generations, keeps the block instruction out of impersonation, and respects the budget (the Architect's first).
 import { afterEach, describe, expect, it } from 'vitest';
-import type { FiredEvent } from '../../../src/features/mechanics/api';
+import { RULES_FRAME } from '../../../src/domain/mechanics-prompt';
+import type { FiredEvent, StateChange } from '../../../src/features/mechanics/api';
 import { MechanicChecks } from '../../../src/features/mechanics/checks';
-import { INJECT_FACTS, INJECT_RULES } from '../../../src/features/mechanics/parts';
+import { INJECT_FACTS, INJECT_RULES, INJECT_STATE } from '../../../src/features/mechanics/parts';
 import {
     FACTS_KEY,
     MechanicPrompt,
     RULES_KEY,
+    STATE_KEY,
+    joinBlocks,
     mechanicFlag,
     mechanicFlags,
 } from '../../../src/features/mechanics/prompt';
@@ -42,8 +47,13 @@ function event(text: string): FiredEvent {
 
 describe('keys and flags', () => {
     it('give the extension prompt slots of the contract', () => {
+        expect(`maestro_${STATE_KEY}`).toBe(INJECT_STATE);
+        expect(INJECT_STATE).toBe('maestro_mechanics');
         expect(`maestro_${RULES_KEY}`).toBe(INJECT_RULES);
+        expect(INJECT_RULES).toBe('maestro_mechanics_rules');
         expect(`maestro_${FACTS_KEY}`).toBe(INJECT_FACTS);
+        // ST joins the slots of one depth and role in key order: the facts come right after the state.
+        expect([INJECT_FACTS, INJECT_STATE].sort()).toEqual([INJECT_STATE, INJECT_FACTS]);
     });
 
     it('lists one flag per mechanic for the Preset Studio', () => {
@@ -57,6 +67,29 @@ describe('keys and flags', () => {
     });
 });
 
+const RULES = [
+    '<game_rules>',
+    RULES_FRAME.top,
+    '',
+    '## Общение',
+    'Charisma helps persuade; stealth hides.',
+    '',
+    '## Магия',
+    'Casting costs mana; at 0 mana no spells.',
+    '</game_rules>',
+].join('\n');
+
+const STATE = [
+    '<game_state>',
+    "Kai (the user's character)",
+    '- Общение: charisma 10 (1..20, moderate), stealth 40/100 (low)',
+    '- Магия: mana 12/30 (low), schools: fire, rank: novice (1/3), element: none',
+    'Elizabeth',
+    '- Общение: charisma 10 (1..20, moderate), stealth 40/100 (low)',
+    'Write this reply in line with these values.',
+    '</game_state>',
+].join('\n');
+
 describe('rules and state', () => {
     it('nothing when no mechanic has a holder in the scene', async () => {
         await start();
@@ -64,49 +97,150 @@ describe('rules and state', () => {
         const { slots, flags } = await generate(ctx);
         expect(slots).toEqual({});
         expect(flags).toEqual({});
-        expect(prompt.preview()).toMatchObject({ text: '', tokens: 0, mechanics: [], flags: [] });
+        expect(prompt.preview()).toMatchObject({ text: '', rules: '', state: '', tokens: 0, mechanics: [], flags: [] });
     });
 
-    it('the rules and state of the mechanics in the scene near the end, with their flags', async () => {
+    it('the rules at the top of the prompt, the state in the chat at its depth, with their flags', async () => {
         await start();
-        ctx.settings.depth = 3;
+        ctx.settings.stateDepth = 3;
         ctx.state.set('magic', 'Kai', 'mana', 12);
         ctx.state.set('magic', 'Kai', 'schools', ['fire']);
         const { slots, flags } = await generate(ctx);
-        expect(slots[INJECT_RULES]).toEqual({
-            value: [
-                '[Mechanics] Общение: Charisma helps persuade; stealth hides. | Kai: charisma 10 (1..20), stealth 40/100 | Elizabeth: charisma 10 (1..20), stealth 40/100',
-                'Магия: Casting costs mana; at 0 mana no spells. | Kai: mana 12/30, schools: fire, rank: novice (1/3), element: none',
-            ].join('\n'),
+        expect(slots[INJECT_RULES]).toEqual({ value: RULES, position: 0, depth: 0, scan: false, role: 0 });
+        expect(slots[INJECT_STATE]).toEqual({ value: STATE, position: 1, depth: 3, scan: false, role: 0 });
+        expect(flags).toEqual({ maestro_mech_social: '1', maestro_mech_magic: '1' });
+        expect(slots[INJECT_FACTS]).toBeUndefined();
+        expect(prompt.preview()).toMatchObject({
+            text: joinBlocks(RULES, STATE),
+            rules: RULES,
+            state: STATE,
+            placement: { rules: 'top', stateDepth: 3 },
+        });
+        // Cleared after the generation.
+        expect(ctx.prompts()[INJECT_RULES]?.value).toBe('');
+        expect(ctx.prompts()[INJECT_STATE]?.value).toBe('');
+        expect(ctx.flags()).toEqual({});
+    });
+
+    it('rules next to the state: one slot, the rules right before the values', async () => {
+        await start();
+        ctx.settings.rulesPlace = 'end';
+        ctx.state.set('magic', 'Kai', 'mana', 12);
+        ctx.state.set('magic', 'Kai', 'schools', ['fire']);
+        const { slots } = await generate(ctx);
+        expect(slots[INJECT_RULES]).toBeUndefined();
+        const rules = RULES.replace(RULES_FRAME.top, RULES_FRAME.end);
+        expect(slots[INJECT_STATE]).toEqual({
+            value: `${rules}\n${STATE}`,
             position: 1,
-            depth: 3,
+            depth: 0,
             scan: false,
             role: 0,
         });
-        expect(flags).toEqual({ maestro_mech_social: '1', maestro_mech_magic: '1' });
-        expect(slots[INJECT_FACTS]).toBeUndefined();
-        // Cleared after the generation.
-        expect(ctx.prompts()[INJECT_RULES]?.value).toBe('');
-        expect(ctx.flags()).toEqual({});
+        expect(prompt.preview().placement).toEqual({ rules: 'end', stateDepth: 0 });
     });
 
     it('only mechanics on in this chat take part', async () => {
         await start();
         ctx.defs.off.add('social');
         const { slots, flags } = await generate(ctx);
-        expect(slots[INJECT_RULES]?.value.startsWith('[Mechanics] Магия:')).toBe(true);
+        expect(slots[INJECT_RULES]?.value).toContain('## Магия');
+        expect(slots[INJECT_RULES]?.value).not.toContain('Общение');
         expect(Object.keys(flags)).toEqual(['maestro_mech_magic']);
     });
 
-    it('appends the block instruction of the tracking part', async () => {
+    it('ends the rules with the block instruction of the tracking part', async () => {
         await start();
         ctx.tracking.instruction = 'End your reply with <mechanics>…</mechanics>.';
         const { slots } = await generate(ctx);
-        expect(slots[INJECT_RULES]?.value.endsWith('\nEnd your reply with <mechanics>…</mechanics>.')).toBe(true);
+        expect(
+            slots[INJECT_RULES]?.value.endsWith('\n\nEnd your reply with <mechanics>…</mechanics>.\n</game_rules>'),
+        ).toBe(true);
+        expect(slots[INJECT_STATE]?.value).not.toContain('<mechanics>');
         expect(ctx.tracking.calls.at(-1)).toEqual({
             defs: ['social', 'magic'],
             holders: { social: ['Kai', 'Elizabeth'], magic: ['Kai'] },
         });
+    });
+
+    it('the state names a lasting event while it holds, every generation', async () => {
+        await start();
+        ctx.state.set('magic', 'Kai', 'mana', 0);
+        for (let i = 0; i < 2; i++) {
+            const { slots } = await generate(ctx);
+            expect(slots[INJECT_STATE]?.value).toContain('- Магия: mana 0/30 (none left),');
+            expect(slots[INJECT_STATE]?.value).toContain('- now: Kai is out of mana.');
+        }
+        ctx.state.set('magic', 'Kai', 'mana', 3);
+        expect(prompt.preview().state).not.toContain('now:');
+    });
+
+    it('orders the mechanics: facts of this generation, changed lately, named by the user, the rest', async () => {
+        await start();
+        const order = () => {
+            const state = prompt.preview().state;
+            return state.indexOf('- Магия') < state.indexOf('- Общение') ? 'magic' : 'social';
+        };
+        expect(order()).toBe('social');
+        // Named in the user's latest message (an attribute's name, any case).
+        await send(ctx, 'Собираю всю ману, что осталась.');
+        expect(order()).toBe('magic');
+        // Changed in the last two turns.
+        await send(ctx, 'Дальше.');
+        const change: StateChange = {
+            id: 'c1',
+            mechanicId: 'social',
+            holder: 'Kai',
+            attribute: 'stealth',
+            from: 40,
+            to: 30,
+            source: 'block',
+            messageIndex: ctx.env.mock.chat.length - 1,
+            at: 1,
+        };
+        ctx.state.changes = [change];
+        expect(order()).toBe('social');
+        await send(ctx, 'Ещё раз.');
+        await send(ctx, 'И ещё.');
+        expect(order()).toBe('social');
+        await send(ctx, 'Колдую с последней маной.');
+        // An old change no longer counts; the name does.
+        expect(order()).toBe('magic');
+        // A fact of this generation wins.
+        ctx.state.pending = [
+            {
+                mechanicId: 'social',
+                holder: 'Kai',
+                attribute: 'stealth',
+                eventId: 'x',
+                text: 'Kai is seen.',
+                messageIndex: 1,
+                at: 1,
+            },
+        ];
+        expect(order()).toBe('social');
+        // The rules keep their own order whatever the importance.
+        const rules = prompt.preview().rules;
+        expect(rules.indexOf('## Общение')).toBeLessThan(rules.indexOf('## Магия'));
+    });
+
+    it('adds DES’s tracker line for the stats DES keeps for the characters of the scene', async () => {
+        await start();
+        Object.assign(ctx.tracking, {
+            desTracked: (def: { id: string }) =>
+                def.id === 'social'
+                    ? [
+                          { attribute: 'charisma', stat: 'Charisma' },
+                          { attribute: 'stealth', stat: 'Скрытность' },
+                      ]
+                    : [{ attribute: 'mana', stat: 'Mana' }],
+        });
+        const state = prompt.preview().state;
+        expect(state).toContain(
+            '\nTracker stats: Charisma, Скрытность in your tracker JSON are these same values — start from the numbers above and change them only by what happens in this reply.\nWrite this reply in line with these values.',
+        );
+        // Magic has only the user's character in the scene: DES does not track him.
+        expect(state).not.toContain('Mana in your tracker');
     });
 
     it('fits the own budget, or the Architect’s when it is set', async () => {
@@ -116,14 +250,14 @@ describe('rules and state', () => {
         expect(own.budgetSource).toBe('own');
         expect(own.budget).toBe(40);
         expect(own.tokens).toBeLessThanOrEqual(40);
-        expect(own.cut.length).toBeGreaterThan(0);
+        expect(own.cut[0]).toMatchObject({ kind: 'rules' });
         expect(own.flags).toEqual(['maestro_mech_social', 'maestro_mech_magic']);
 
         ctx.env.modules.expose('architect', { budgets: () => [{ source: 'mechanics', tokens: 2000 }] });
         const architect = prompt.preview();
         expect(architect).toMatchObject({ budget: 2000, budgetSource: 'architect', cut: [] });
         const { slots } = await generate(ctx);
-        expect(slots[INJECT_RULES]?.value).toBe(architect.text);
+        expect(joinBlocks(slots[INJECT_RULES]?.value ?? '', slots[INJECT_STATE]?.value ?? '')).toBe(architect.text);
 
         ctx.env.modules.expose('architect', { budgets: () => [{ source: 'mechanics', tokens: 0 }] });
         expect(prompt.preview().budgetSource).toBe('own');
@@ -160,6 +294,8 @@ describe('facts', () => {
             role: 0,
         });
         expect(checks.pendingChecks()).toEqual([]);
+        // Same depth and role as the state (stateDepth 0): ST merges them in one message, the facts after the state.
+        expect(first.slots[INJECT_STATE]).toMatchObject({ position: 1, depth: 0, role: 0 });
         ctx.env.mock.chat.push(reply());
         await send(ctx, 'Дальше.');
         const next = await generate(ctx);
@@ -263,12 +399,14 @@ describe('generations left alone', () => {
         expect((await generate(ctx)).slots).toEqual({});
     });
 
-    it('impersonation gets the state without the block instruction and without facts', async () => {
+    it('impersonation gets the rules without the block instruction, the state, and no facts', async () => {
         await start();
         ctx.tracking.instruction = 'BLOCK FORMAT';
         await send(ctx, 'Я пытаюсь убедить стражника.');
         const { slots, flags } = await generate(ctx, { type: 'impersonate' });
+        expect(slots[INJECT_RULES]?.value).toContain('## Общение');
         expect(slots[INJECT_RULES]?.value).not.toContain('BLOCK FORMAT');
+        expect(slots[INJECT_STATE]?.value).toContain('<game_state>');
         expect(slots[INJECT_FACTS]).toBeUndefined();
         expect(Object.keys(flags)).toHaveLength(2);
         expect(checks.pendingChecks()).toHaveLength(1);
