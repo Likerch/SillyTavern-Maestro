@@ -102,7 +102,8 @@ describe('the service block', () => {
         env.mock.chat.push(userMessage(), reply(`${STORY}\n<mechanics>\nKai.mana: -2\n</mechanics>`));
         await env.commit(3);
         expect(env.mock.chat[3]!.mes).toBe(STORY);
-        expect(env.state.value('magic', 'Kai', 'mana')).toBe(48);
+        // Reply #1 was shown (reply:ready) and is read at once since 1.25; #3 at its commit.
+        expect(env.state.value('magic', 'Kai', 'mana')).toBe(47);
     });
 
     it('applies only block attributes of mechanics in the scene', async () => {

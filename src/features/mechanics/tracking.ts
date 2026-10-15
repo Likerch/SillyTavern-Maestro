@@ -1,27 +1,32 @@
 // M25 «Механики», the tracking part (plan M25 п. 4; §5; §10; P8, P14, P15): the three ways changes are noticed.
-// - 'desStats': when a reply is committed (a settle pause after turn:committed, leader tab only) the committed DES
-//   tracker's `characters[].stats` are read for the attributes tracked as DES stats (stat name = the attribute's
-//   prompt name, name or id, any case) → state.apply(source 'desStats'). enableDesStats() adds the attributes to
-//   DES's `trackerConfig.presentCharacters.characterStats` (the user's own stats stay) through autonomy
-//   'mechanics.desStats' (fallback 'ask', never auto), journaled with an undo that takes back only what it added;
+// - when: a story reply is processed as soon as it is shown (reply:ready + a settle pause, leader tab only; release
+//   1.25 — before, only at the user's next message, so the model and the HUD saw every change a turn late). Its
+//   changes are provisional until the user answers: a swipe, a regeneration, a continuation or an edit takes them
+//   back and the reply is processed again (a swipe back to an older variant too). The commit (turn:committed, P14)
+//   stays as the safety net: what was not processed yet (DES's tracker of the separate mode, a missed tab) runs then;
+// - 'desStats': DES's tracker of the reply `characters[].stats` are read for the attributes tracked as DES stats
+//   (stat name = the attribute's prompt name, name or id, any case) → state.apply(source 'desStats').
+//   enableDesStats() adds the attributes to DES's `trackerConfig.presentCharacters.characterStats` (the user's own
+//   stats stay) through autonomy 'mechanics.desStats' (fallback 'ask', never auto), journaled with an undo that takes
+//   back only what it added;
 // - 'block': the model ends its reply with `<mechanics>…</mechanics>`. On MESSAGE_RECEIVED (last listener: after
 //   NAI Studio's markers and DES's tracker parse, before CHARACTER_MESSAGE_RENDERED → reply:ready, so the quality
 //   check never sees it) the block is parsed (repairs in the domain), the lines are kept in
 //   `extra.maestro_mechanics` of the message and its swipe (with the swipe id), and the block leaves the stored text
-//   and the render. A display hook of ST's message formatter hides it while it streams. The changes are applied when
-//   the reply is committed (P14). Leftover blocks of older replies never reach the prompt
-//   (CHAT_COMPLETION_PROMPT_READY, assistant messages only — the block instruction itself is a system message);
-// - 'background': after the commit, when a mechanic in the scene has background attributes (or DES-stat attributes
-//   DES does not track yet), one cheap task 'mechanics.extract' with a strict JSON schema reads the committed reply
-//   (under the background cost cap) → validated edits → autonomy 'mechanics.change' (fallback 'auto') → state.apply.
+//   and the render. A display hook of ST's message formatter hides it while it streams. Leftover blocks of older
+//   replies never reach the prompt (CHAT_COMPLETION_PROMPT_READY, assistant messages only — the block instruction
+//   itself is a system message);
+// - 'background': when a mechanic in the scene has background attributes (or DES-stat attributes DES does not track
+//   yet), one cheap task 'mechanics.extract' with a strict JSON schema reads the reply (under the background cost cap)
+//   → validated edits → autonomy 'mechanics.change' (fallback 'auto') → state.apply;
 // - the block also carries statuses (`Kai.status += Poisoned (3 turns)`), items (`Kai.items += rope x2`), roll requests
 //   (`roll: Stealth Kai vs Guard.Perception adv`, rolled by the checks part as soon as the reply arrives) and fights
-//   (`combat: start|enemy|out|end`, run by the combat part at the commit);
+//   (`combat: start|enemy|out|end`, run by the combat part with the other changes);
 // - the user's character: DES does not list {{user}}, so his DES-stat attributes are read by the background parse (or
 //   the block, settings.personaFallback);
-// - after the tracking of a committed reply its turn runs (state.processTurn: the clock, statuses, time rules, rounds).
-// A committed reply is processed once per source (the state's change log tells); an edit of the latest committed
-// reply is processed again after the state took its changes back.
+// - after the tracking of a reply its turn runs (state.processTurn: the clock, statuses, time rules, rounds).
+// A reply is processed once per source (the state's change log tells). health() says what keeps the values from
+// following the story (no profile, the cap, DES stats not set up, another tab, a failed parse): the HUD's ⚠.
 import { adaptersOf } from '../../adapters';
 import { parseDueExpression, resolveDue } from '../../domain/calendar-time';
 import {
@@ -58,7 +63,7 @@ import { committedIndices } from '../../domain/places-registry';
 import { cleanForAnalysis } from '../../domain/text-clean';
 import { rerenderMessage } from '../../host/messages';
 import type { App, JournalChange, Proposal, TaskInfo, Unsubscribe } from '../../shared/contracts';
-import type { AttributeValue, MechanicDef } from './api';
+import type { AttributeValue, MechanicDef, TrackingProblem } from './api';
 import { MECHANICS_ID } from './parts';
 import type { ChangeInput, DefinitionsPart, PartDeps, StateOp, StatePart, TrackingPart } from './parts';
 import { holderContextOf, isDict, personaOf, swipeIdOf } from './state-holders';
@@ -256,6 +261,11 @@ export class MechanicTracking implements TrackingPart {
     private generation = 0;
     private disposed = false;
     private readonly settleMs: number;
+    /** The latest background parse failed (cleared by the next one that works): the HUD's ⚠. */
+    private extractError: string | null = null;
+    private readonly healthListeners = new Set<() => void>();
+    /** A swipe back to a variant already there: processed once no generation follows. */
+    private swipeTimer: ReturnType<typeof setTimeout> | null = null;
 
     constructor(
         private readonly deps: PartDeps,
@@ -290,8 +300,9 @@ export class MechanicTracking implements TrackingPart {
             app.inbox.registerApplier(DES_STATS_KIND, (payload) => this.applyDesStatsPayload(payload)),
             app.tasks.register(EXTRACT_TASK, (payload, info) => this.runExtract(payload, info)),
             app.bus.on('turn:committed', ({ messageIndex }) => this.onCommitted(messageIndex)),
-            app.bus.on('reply:ready', ({ messageIndex }) => {
+            app.bus.on('reply:ready', ({ messageIndex, type }) => {
                 this.takeBlock(messageIndex, false);
+                this.onReplyReady(messageIndex, type);
             }),
             app.bus.on('message:invalidated', ({ messageIndex, reason }) => this.onInvalidated(messageIndex, reason)),
             app.bus.on('chat:changed', () => this.onChatChanged()),
@@ -317,7 +328,10 @@ export class MechanicTracking implements TrackingPart {
         this.generation++;
         if (this.timer !== null) clearTimeout(this.timer);
         this.timer = null;
+        if (this.swipeTimer !== null) clearTimeout(this.swipeTimer);
+        this.swipeTimer = null;
         this.pending.clear();
+        this.healthListeners.clear();
         for (const off of this.offs.splice(0)) {
             try {
                 off();
@@ -350,8 +364,11 @@ export class MechanicTracking implements TrackingPart {
         this.generation++;
         if (this.timer !== null) clearTimeout(this.timer);
         this.timer = null;
+        if (this.swipeTimer !== null) clearTimeout(this.swipeTimer);
+        this.swipeTimer = null;
         this.pending.clear();
         this.enqueued.clear();
+        this.setExtractError(null);
     }
 
     private enqueue<R>(job: () => Promise<R>): Promise<R> {
@@ -491,11 +508,58 @@ export class MechanicTracking implements TrackingPart {
         });
     }
 
-    /* ---------------------------------------------------------------- commit */
+    /* ---------------------------------------------------------------- arrival and commit */
+
+    /**
+     * A story reply is shown: its changes go into the values now (release 1.25), provisional until the user answers.
+     * A continuation changed the text of a reply already processed: its changes are taken back and derived again.
+     */
+    private onReplyReady(index: number, type: string): void {
+        if (this.disposed || !Number.isInteger(index) || index < 0 || FOREIGN_TYPES.has(type)) return;
+        const message = this.app.host.ctx().chat[index];
+        if (!message || message.is_user || message.is_system) return;
+        if (APPEND_TYPES.has(type)) {
+            void this.retrack(index);
+            return;
+        }
+        this.schedule(index);
+    }
 
     private onCommitted(index: number): void {
         if (this.disposed || !Number.isInteger(index) || index < 0) return;
         this.schedule(index);
+    }
+
+    /** The changes of a reply are taken back (the state) and the reply is processed again. */
+    private async retrack(index: number): Promise<void> {
+        const chatId = this.app.host.chatId() ?? '';
+        for (const key of [...this.enqueued]) if (key.startsWith(`${chatId}|${index}|`)) this.enqueued.delete(key);
+        try {
+            await this.state.retrack?.(index);
+        } catch (error) {
+            this.deps.log.warn('mechanics: the changes of a continued reply were not taken back', error);
+        }
+        this.schedule(index);
+    }
+
+    /**
+     * The latest story reply whose changes are in the values while the user has not answered it yet (-1: none). A swipe,
+     * a regeneration or an edit takes them back.
+     */
+    provisionalIndex(): number {
+        const chat = this.app.host.ctx().chat ?? [];
+        const index = chat.length - 1;
+        const message = chat[index];
+        if (!message || message.is_user || message.is_system) return -1;
+        try {
+            return this.state
+                .history(HISTORY_LOOKUP)
+                .some((change) => change.messageIndex === index && change.source !== 'user')
+                ? index
+                : -1;
+        } catch {
+            return -1;
+        }
     }
 
     private schedule(index: number): void {
@@ -907,6 +971,104 @@ export class MechanicTracking implements TrackingPart {
         return targets;
     }
 
+    /* ---------------------------------------------------------------- health */
+
+    onHealthChange(listener: () => void): Unsubscribe {
+        this.healthListeners.add(listener);
+        return () => this.healthListeners.delete(listener);
+    }
+
+    private setExtractError(error: string | null): void {
+        if (this.extractError === error) return;
+        this.extractError = error;
+        for (const listener of [...this.healthListeners]) {
+            try {
+                listener();
+            } catch (failure) {
+                this.deps.log.debug('mechanics: a health listener failed', failure);
+            }
+        }
+    }
+
+    /** What keeps the values of the mechanics in the scene from following the story now (empty: all is well). */
+    health(): TrackingProblem[] {
+        if (this.disposed) return [];
+        const defs = this.activeDefs().filter((def) => {
+            try {
+                return this.state.holdersInScene(def).length > 0;
+            } catch {
+                return false;
+            }
+        });
+        if (!defs.length) return [];
+        const problems: TrackingProblem[] = [];
+        const names = (ids: readonly string[]) =>
+            ids.map((id) => defs.find((def) => def.id === id)?.name ?? id).join(', ');
+        const enabled = this.desStatus();
+        const background = [...new Set(this.backgroundTargets(defs, enabled).map((target) => target.def.id))];
+        if (background.length) {
+            const list = names(background);
+            const settings = this.deps.settings();
+            if (!settings.background) {
+                problems.push({
+                    code: 'backgroundOff',
+                    level: 'warn',
+                    mechanics: background,
+                    text: this.t('m25.health.backgroundOff', { list }),
+                });
+            } else if (!safely(() => this.app.llm.available(EXTRACT_TASK), false)) {
+                problems.push({
+                    code: 'noProfile',
+                    level: 'warn',
+                    mechanics: background,
+                    text: this.t('m25.health.noProfile', { list }),
+                });
+            } else if (safely(() => this.app.cost.backgroundCapReached(), false)) {
+                problems.push({
+                    code: 'cap',
+                    level: 'warn',
+                    mechanics: background,
+                    text: this.t('m25.health.cap', { list }),
+                });
+            }
+        }
+        if (this.extractError !== null && background.length) {
+            problems.push({
+                code: 'extractFailed',
+                level: 'warn',
+                mechanics: background,
+                text: this.t('m25.health.extractFailed'),
+                detail: this.extractError,
+            });
+        }
+        const des = this.des();
+        const pending: string[] = [];
+        const noDes: string[] = [];
+        for (const def of defs) {
+            const attributes = desStatsAttributes(def).filter((attr) => this.known(def, attr));
+            if (!attributes.length) continue;
+            if (!des) noDes.push(def.id);
+            else if (attributes.some((attr) => !this.inDes(attr, enabled))) pending.push(def.id);
+        }
+        if (pending.length)
+            problems.push({
+                code: 'desStatsPending',
+                level: 'info',
+                mechanics: pending,
+                text: this.t('m25.health.desStatsPending', { list: names(pending) }),
+            });
+        if (noDes.length)
+            problems.push({
+                code: 'noDes',
+                level: 'info',
+                mechanics: noDes,
+                text: this.t('m25.health.noDes', { list: names(noDes) }),
+            });
+        if (!this.isLeader())
+            problems.push({ code: 'otherTab', level: 'info', mechanics: [], text: this.t('m25.health.otherTab') });
+        return problems;
+    }
+
     private canSpend(): boolean {
         try {
             return this.app.llm.available(EXTRACT_TASK) && !this.app.cost.backgroundCapReached();
@@ -979,6 +1141,7 @@ export class MechanicTracking implements TrackingPart {
         });
         if (!response.ok) {
             this.deps.log.info(`mechanics: the background parse failed (${response.error ?? 'unknown error'})`);
+            this.setExtractError(response.error ?? 'unknown error');
             return;
         }
         if (generation !== this.generation || this.app.host.chatId() !== chatId || !this.replyOf(index, swipeId))
@@ -989,8 +1152,10 @@ export class MechanicTracking implements TrackingPart {
         });
         if (!parsed) {
             this.deps.log.warn('mechanics: the background parse answer is not the expected JSON');
+            this.setExtractError('not the expected JSON');
             return;
         }
+        this.setExtractError(null);
         if (parsed.rejected.length) this.deps.log.debug('mechanics: background items dropped', parsed.rejected);
         const changes = this.toChanges(parsed.edits, 'background', index);
         const ops = this.extractOps(parsed.statuses, parsed.items, index);
@@ -1153,13 +1318,44 @@ export class MechanicTracking implements TrackingPart {
                 const [chat, at] = key.split('|');
                 if (chat === chatId && Number(at) >= index) this.enqueued.delete(key);
             }
+            if (reason === 'swiped') this.afterSwipe(index);
             return;
         }
-        // An edit of the latest committed reply: the state took its changes back; derive them again.
+        // An edit of the latest committed reply or of a later one (its changes are in the values since it arrived):
+        // the state took its changes back; derive them again.
         const committed = committedIndices(this.app.host.ctx().chat);
-        if (committed[committed.length - 1] !== index) return;
+        const last = committed[committed.length - 1];
+        if (last !== undefined && index < last) return;
         const chatId = this.app.host.chatId() ?? '';
         for (const key of [...this.enqueued]) if (key.startsWith(`${chatId}|${index}|`)) this.enqueued.delete(key);
         this.schedule(index);
+    }
+
+    /**
+     * A swipe took the reply's changes back. A new variant is generated next (reply:ready processes it); a swipe back to
+     * a variant already there generates nothing, so that variant is processed here once the swipe settled.
+     */
+    private afterSwipe(index: number): void {
+        if (this.swipeTimer !== null) clearTimeout(this.swipeTimer);
+        const generation = this.generation;
+        this.swipeTimer = setTimeout(() => {
+            this.swipeTimer = null;
+            if (this.disposed || generation !== this.generation) return;
+            if (this.app.turn.current() !== null) return;
+            const chat = this.app.host.ctx().chat ?? [];
+            const message = chat[index];
+            if (index !== chat.length - 1 || !message || message.is_user || message.is_system) return;
+            if (typeof message.mes !== 'string' || !message.mes.trim()) return;
+            if (hasBlockMarker(message.mes)) this.takeBlock(index, false);
+            this.schedule(index);
+        }, this.settleMs * 2);
+    }
+}
+
+function safely<T>(run: () => T, fallback: T): T {
+    try {
+        return run();
+    } catch {
+        return fallback;
     }
 }

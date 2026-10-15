@@ -191,6 +191,8 @@ export interface StatePart {
     reset?(target: { mechanicId?: string; holder?: string }): Promise<number>;
     /** The committed reply's turn: the story clock, statuses, time rules, the fight's round (leader, once). */
     processTurn?(index: number): Promise<void>;
+    /** Takes back the tracked changes of a reply whose text changed (a continuation), so it is processed again. */
+    retrack?(index: number): Promise<void>;
     onEvent?(listener: (event: MechanicsEvent) => void): Unsubscribe;
     emitEvent?(event: MechanicsEvent): void;
 }

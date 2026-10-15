@@ -44,6 +44,7 @@ vi.mock('../../../src/features/mechanics/state', () => ({
 }));
 vi.mock('../../../src/features/mechanics/tracking', () => ({
     DES_STATS_UNDO_TARGET: 'mechanics.desStats',
+    EXTRACT_TASK: 'mechanics.extract',
     MechanicTracking: part('tracking', {
         desStatsStatus: () => [],
         enableDesStats: async () => true,
@@ -171,8 +172,9 @@ describe('mechanics module', () => {
         // The API goes to the state section (hidden values, pins, resets).
         expect(calls.args.stateSection?.[4]).toBe(api);
         const parts = [...container.querySelectorAll('.maestro-m25-part')];
-        expect(parts).toHaveLength(3);
-        expect(parts[1]!.querySelector('.fake-state-section')).not.toBeNull();
+        // «Учёт» (empty while all is well), the fight, the values, statuses and items.
+        expect(parts).toHaveLength(4);
+        expect(parts[2]!.querySelector('.fake-state-section')).not.toBeNull();
         if (typeof unmount === 'function') unmount();
         expect(calls.log).toContain('state section off');
         expect(container.children).toHaveLength(0);

@@ -7,6 +7,7 @@
 // the definitions (`whileSuspended`, release 1.24.1): they have nothing to do with the open chat, and Officina publishes
 // mechanics from its co-author chat through MAESTRO_API.mechanics.
 import type { App, Logger, MaestroModule } from '../../shared/contracts';
+import { registerProfileTask } from '../../ui';
 import type { MechanicDefinitionsApi, MechanicsApi } from './api';
 import { MechanicChecks, secureRng } from './checks';
 import { MechanicCombat } from './combat';
@@ -22,10 +23,11 @@ import { MechanicsHud } from './hud';
 import { MechanicsNarrator } from './narrator';
 import { MechanicsPlayStrip } from './play-strip';
 import { MECHANICS_STRINGS } from './strings';
-import { DES_STATS_UNDO_TARGET, MechanicTracking } from './tracking';
+import { DES_STATS_UNDO_TARGET, EXTRACT_TASK, MechanicTracking } from './tracking';
 import { MechanicTranslator } from './translate';
 import { mechanicsBuildTab, mechanicsLogTab, mechanicsTab } from './view';
 import { MECHANICS_DEF_CSS } from './view-constructor';
+import { HEALTH_CSS } from './view-health';
 import { PLAY_CSS } from './view-play';
 import { VALUES_CSS } from './view-values';
 import { MechanicStrip } from './widgets';
@@ -79,6 +81,8 @@ export const mechanicsModule: MaestroModule<MechanicsSettings> = {
         const tracking = new MechanicTracking(deps, defs, state);
         own(() => tracking.dispose());
         tracking.install();
+        // Its own line in «Профили»: the background parse of replies may go to a cheaper model than the default.
+        own(registerProfileTask(EXTRACT_TASK, 'm25.profileTask'));
 
         const checks = new MechanicChecks(deps, defs, state);
         own(() => checks.dispose());
@@ -100,7 +104,11 @@ export const mechanicsModule: MaestroModule<MechanicsSettings> = {
         own(() => strip.dispose());
         strip.install();
 
-        const api = new MechanicsService(defs, state, checks, deps, { prompt, combat }) satisfies MechanicsApi;
+        const api = new MechanicsService(defs, state, checks, deps, {
+            prompt,
+            combat,
+            tracking,
+        }) satisfies MechanicsApi;
         app.modules.expose(MECHANICS_KEY, api);
         app.modules.expose(MECHANICS_DEFS_KEY, api satisfies MechanicDefinitionsApi);
 
@@ -125,7 +133,8 @@ export const mechanicsModule: MaestroModule<MechanicsSettings> = {
         own(app.ui.style('maestro-m25-defs', MECHANICS_DEF_CSS));
         own(app.ui.style('maestro-m25-values', VALUES_CSS));
         own(app.ui.style('maestro-m25-play', PLAY_CSS));
-        own(app.ui.addTab(mechanicsTab(deps, defs, state, checks, api)));
+        own(app.ui.style('maestro-m25-health', HEALTH_CSS));
+        own(app.ui.addTab(mechanicsTab(deps, defs, state, checks, api, tracking)));
         own(app.ui.addTab(mechanicsLogTab(deps, api)));
         own(app.ui.addTab(mechanicsBuildTab(deps, defs, tracking, api, translator)));
     },

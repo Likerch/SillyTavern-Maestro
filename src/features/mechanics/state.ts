@@ -1240,10 +1240,19 @@ export class MechanicState implements StatePart {
     }
 
     private onInvalidated(index: number, reason: 'swiped' | 'deleted' | 'edited'): void {
+        if (reason === 'edited' && !this.reopens(index)) return;
+        void this.takeBack(index, reason);
+    }
+
+    /** A continued reply (release 1.25): its tracked changes are taken back, the tracking derives them again. */
+    async retrack(index: number): Promise<void> {
+        await this.takeBack(index, 'edited');
+    }
+
+    private async takeBack(index: number, reason: 'swiped' | 'deleted' | 'edited'): Promise<void> {
         if (this.disposed || !Number.isInteger(index) || index < 0) return;
         if (!this.app.host.chatId() || !safe(() => this.app.leader.isLeader(), false)) return;
-        if (reason === 'edited' && !this.reopens(index)) return;
-        void this.mutate((doc) => {
+        await this.mutate((doc) => {
             const lastTurn = doc.lastTurn;
             const removed =
                 reason === 'edited'

@@ -14,6 +14,7 @@ import type { MechanicDef } from '../../../src/features/mechanics/api';
 import { DEFAULT_MECHANICS_SETTINGS } from '../../../src/features/mechanics/parts';
 import type { DefinitionsPart, MechanicsSettings, PartDeps } from '../../../src/features/mechanics/parts';
 import { MechanicState } from '../../../src/features/mechanics/state';
+import { HEALTH_STRINGS } from '../../../src/features/mechanics/strings-health';
 import { STATE_STRINGS } from '../../../src/features/mechanics/strings-state';
 import { MechanicTracking } from '../../../src/features/mechanics/tracking';
 import type { Entity, WorldModelApi } from '../../../src/features/world/api';
@@ -375,6 +376,7 @@ export function createMechanicsEnv(locale: 'en' | 'ru' = 'en'): MechanicsEnv {
     const i18n = createI18n(() => locale);
     i18n.register(CORE_STRINGS);
     i18n.register(STATE_STRINGS);
+    i18n.register(HEALTH_STRINGS);
     const files = createFileStore(host, log);
     const chat = createChatStore(host, files, log, { metadataSaveDelayMs: 0 });
     const modules = new FakeModules();

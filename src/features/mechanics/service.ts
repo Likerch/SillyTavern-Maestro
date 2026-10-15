@@ -31,6 +31,7 @@ import type {
     StateChange,
     StatusSpec,
     StatusState,
+    TrackingProblem,
     Visibility,
     VisibilityPlace,
 } from './api';
@@ -40,6 +41,7 @@ import type { Definitions } from './definitions-service';
 import { mechanicFlag, mechanicFlags } from './prompt';
 import type { MechanicPrompt } from './prompt';
 import type { ChecksPart, PartDeps, RollOptions, StateOp, StatePart } from './parts';
+import type { MechanicTracking } from './tracking';
 import { ITEM_KIND, REVEAL_KIND, STATUS_KIND } from './state';
 import { holderContextOf, personaOf } from './state-holders';
 import { renderHolderInto } from './view-values';
@@ -50,6 +52,7 @@ const TWIST_EVENTS = 5;
 export interface ServiceExtras {
     prompt?: Pick<MechanicPrompt, 'preview'>;
     combat?: MechanicCombat;
+    tracking?: Partial<Pick<MechanicTracking, 'health' | 'provisionalIndex' | 'onHealthChange'>>;
 }
 
 export class MechanicsService implements MechanicsApi {
@@ -159,10 +162,21 @@ export class MechanicsService implements MechanicsApi {
             this.defs.onChange(listener),
             this.statePart.onChange(listener),
             this.checksPart.onChange(listener),
+            ...(this.extras.tracking?.onHealthChange ? [this.extras.tracking.onHealthChange(listener)] : []),
         ];
         return () => {
             for (const off of offs) off();
         };
+    }
+
+    /* ---------------------------------------------------------------- release 1.25: values follow the story */
+
+    trackingHealth(): TrackingProblem[] {
+        return this.extras.tracking?.health?.() ?? [];
+    }
+
+    provisionalIndex(): number {
+        return this.extras.tracking?.provisionalIndex?.() ?? -1;
     }
 
     /* ---------------------------------------------------------------- plan-2 §6: per message, undo, reset */

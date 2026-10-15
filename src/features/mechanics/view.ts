@@ -1,5 +1,6 @@
 // The «Механики» window (plan §7, plan-2 §6.А п.5, §10): three sections of the mechanics group.
-// - «В игре» (tab 'mechanics'): the fight, the values of everyone in the scene with inline edits, hidden values behind
+// - «В игре» (tab 'mechanics'): what keeps the values from following the story (view-health.ts, release 1.25), the
+//   fight, the values of everyone in the scene with inline edits, hidden values behind
 //   «Подсмотреть», HUD pins, resets, the «Бросок» picker and the recent rolls and changes (widgets.ts), then statuses
 //   and items per holder (view-play.ts);
 // - «История» (tab 'mechanicsLog'): every change with «Отменить», the roll journal with «Отменить бросок», events;
@@ -12,6 +13,7 @@ import type { ChecksPart, DefinitionsPart, PartDeps, SectionRenderer, StatePart,
 import type { MechanicTranslator } from './translate';
 import { constructorSection } from './view-constructor';
 import { settingsSection } from './view-constructor-settings';
+import { healthSection } from './view-health';
 import { combatSection, logSection, peopleSection } from './view-play';
 import { stateSection } from './widgets';
 
@@ -67,8 +69,10 @@ export function mechanicsTab(
     state: StatePart,
     checks: ChecksPart,
     api: MechanicsApi,
+    tracking?: Pick<TrackingPart, 'enableDesStats'>,
 ): PultTab {
     return tab(deps, { id: MECHANICS_TAB, titleKey: 'm25.tab', icon: 'fa-dice-d20', order: 63 }, () => [
+        healthSection(deps, api, tracking),
         combatSection(deps, api),
         stateSection(deps, defs, state, checks, api),
         peopleSection(deps, api),
