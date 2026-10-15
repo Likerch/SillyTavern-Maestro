@@ -66,7 +66,7 @@ export interface ItemSpec {
 
 /**
  * One consequence: of a check's outcome, a threshold event, a level up. `who`: 'actor' (who rolled / the event's
- * holder), 'target' (the other side of an opposed check), 'persona', or a holder name. `attr`: an attribute id of the
+ * holder), 'target' (whom the check is aimed at), 'persona', or a holder name. `attr`: an attribute id of the
  * mechanic, 'mechanic.attr' of another one, or 'status' / 'item' / 'reveal' / 'combat'. `value`: a number, a text, or a
  * formula ('2d6', '@mana / 2', 'max(1, @roll.margin)').
  */
@@ -145,6 +145,8 @@ export interface CheckDef {
     triggers: string[];
     criticals?: boolean;
     effects?: CheckEffect[];
+    /** Triggers count in quoted speech too, and questions do not stop the roll (persuasion, deception…). */
+    speech?: boolean;
 }
 
 export type TimePer = 'turn' | 'hour' | 'day';
@@ -164,6 +166,16 @@ export interface Progression {
     level: string;
     thresholds: number[];
     onLevelUp?: ChangeAction[];
+    /** Experience the roller gains by the outcome of a check of this mechanic. */
+    awards?: ProgressionAwards;
+}
+
+/** Experience per outcome (a critical without its own falls back to success, a fumble to failure). */
+export interface ProgressionAwards {
+    critical?: number;
+    success?: number;
+    failure?: number;
+    fumble?: number;
 }
 
 /** The mechanic keeps inventories of its holders; items with a price trade against `money` ('coins', 'money.coins'). */
@@ -768,7 +780,23 @@ function normalizeProgression(raw: unknown): Progression | undefined {
     const progression: Progression = { xp, level, thresholds };
     const actions = normalizeActions(raw.onLevelUp);
     if (actions) progression.onLevelUp = actions;
+    const awards = normalizeAwards(raw.awards);
+    if (awards) progression.awards = awards;
     return progression;
+}
+
+const AWARD_OUTCOMES = ['critical', 'success', 'failure', 'fumble'] as const;
+
+/** Experience by outcome: positive numbers (numeric strings read), anything else dropped; none → undefined. */
+export function normalizeAwards(raw: unknown): ProgressionAwards | undefined {
+    if (!isDict(raw)) return undefined;
+    const awards: ProgressionAwards = {};
+    for (const outcome of AWARD_OUTCOMES) {
+        const value = raw[outcome];
+        const number = finite(value) ?? (typeof value === 'string' && value.trim() ? Number(value) : NaN);
+        if (Number.isFinite(number) && number > 0) awards[outcome] = number;
+    }
+    return Object.keys(awards).length ? awards : undefined;
 }
 
 function normalizeAttribute(raw: unknown, index: number): AttributeDef | null {
@@ -852,6 +880,7 @@ function normalizeCheck(raw: unknown, index: number): CheckDef | null {
             .slice(0, DEF_LIMITS.effects);
         if (effects.length) check.effects = effects;
     }
+    if (raw.speech === true) check.speech = true;
     return check;
 }
 

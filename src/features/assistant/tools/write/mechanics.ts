@@ -64,11 +64,13 @@ export function mechanicSaveTool(): ToolSpec {
             'number|scale|list|text, min, max, initial, levels, options, multi, tracking, events [{id, when, text, ' +
             'actions, chain}], formula (derived, "50 + 10 * @level"), growth {perUse, cap}, visibility}], holders {kind ' +
             'persona|characters|named|world|factions, names}, checks [{id, name, promptName, dice like ' +
-            '"1d20+@attr" or "2d6+1d4", difficulty, triggers, effects [{on success|failure|critical|fumble|any, ' +
+            '"1d20+@attr" or "2d6+1d4", difficulty, triggers, speech (true: also in quoted lines and questions), ' +
+            'effects [{on success|failure|critical|fumble|any, ' +
             'changes [{who actor|target|persona, attr, op add|sub|set|mul|push|pull, value}], text}]}], tracking ' +
             'desStats|block|background|manual, visibility {preset game|book|hidden|secret}, statuses [{name, ' +
             'promptName, duration {turns|minutes}, modifiers}], inventory {money}, time [{attr, amount, per ' +
-            'turn|hour|day, when rest|awake}], progression {xp, level, thresholds, onLevelUp}, combat {initiative, ' +
+            'turn|hour|day, when rest|awake}], progression {xp, level, thresholds, onLevelUp, awards {critical, ' +
+            'success, failure, fumble} (experience per roll outcome)}, combat {initiative, ' +
             'enemy}). With the id of ' +
             'an existing mechanic only the given fields change: attributes and checks are merged by id, ' +
             '{id, remove: true} removes one. Validated before the user confirms; current ones: mechanics_state.',

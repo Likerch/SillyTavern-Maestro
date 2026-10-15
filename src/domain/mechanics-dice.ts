@@ -4,7 +4,8 @@
 // ('2d6+1d4+3'), keep highest/lowest ('4d6kh3'), exploding dice ('1d6!'), advantage and disadvantage (the whole roll
 // twice, the better / worse one kept), natural criticals, the outcome against a difficulty, opposed checks (the
 // actor's total against the other side's) and the English facts the prompt gets
-// ("Persuasion check (Kai): rolled 14 + 2 = 16 vs 15 — success.").
+// ("Persuasion check (Kai): rolled 14 + 2 = 16 vs 15 — success.", aimed at someone: "Attack check (Kai) against
+// Bandit: …").
 // Pure: no DOM, no SillyTavern.
 import { diceParts, dndModifier, naturalRange } from './mechanics-defs';
 import type { DiceFormula } from './mechanics-defs';
@@ -288,11 +289,15 @@ export function rollText(roll: DiceRoll): string {
     return text;
 }
 
-/** The English fact for the prompt: "Persuasion check (Kai): rolled 14 + 2 = 16 vs 15 — success." */
-export function checkFact(checkName: string, holder: string, roll: DiceRoll): string {
+/**
+ * The English fact for the prompt: "Persuasion check (Kai): rolled 14 + 2 = 16 vs 15 — success."; aimed at someone:
+ * "Attack check (Kai) against Bandit: rolled 15 + 2 = 17 vs 12 — success."
+ */
+export function checkFact(checkName: string, holder: string, roll: DiceRoll, against?: string | null): string {
     const name = checkName.trim() || 'Skill';
     const who = holder.trim();
-    return `${name} check${who ? ` (${who})` : ''}: ${rollText(roll)}.`;
+    const target = (against ?? '').trim();
+    return `${name} check${who ? ` (${who})` : ''}${target ? ` against ${target}` : ''}: ${rollText(roll)}.`;
 }
 
 /**

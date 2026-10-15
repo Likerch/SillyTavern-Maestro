@@ -3,8 +3,9 @@
 //   reply (each attribute's visibility, place 'strip', in its view: numbers, words, icons), never hidden-unrevealed or
 //   secret values; ticks of statuses are not news; roll consequences go to their roll card. «Отменить» takes the whole
 //   line back, the details list every change with its own «Отменить»;
-// - a roll card per roll the player may see: the check, who, total against the target, the outcome and the applied
-//   consequences («провал: −10 ❤»); the details show the dice, the other side of an opposed check, the second roll of
+// - a roll card per roll the player may see: the check, who (and whom it was aimed at: «Kai → Bandit»), total against
+//   the target, the outcome and the applied consequences («провал: −10 ❤», experience as «+10 опыта»); the details
+//   show the dice, whom it was aimed at, the other side of an opposed check, the second roll of
 //   an advantage, and what the model was told (English, under «Подробнее»); «Отменить бросок» takes its
 //   consequences back. It replaces the old memory-only roll badge: the roll log is stored, so the cards come back
 //   after a reload;
@@ -109,7 +110,16 @@ export function rollLine(i18n: I18n, api: MechanicsApi, result: CheckResult): st
     return line;
 }
 
-/** The applied consequences of a roll the player may see («−10 ❤», «Стражник: + Встревожен»). */
+/** «+10 опыта» for the experience a roll gave (the mechanic's progression XP, source 'check'); null otherwise. */
+function xpGain(i18n: I18n, api: MechanicsApi, change: StateChange): string | null {
+    if (change.kind || change.source !== 'check' || typeof change.to !== 'number') return null;
+    const xp = safe(() => api.get(change.mechanicId)?.progression?.xp, undefined);
+    if (!xp || xp !== change.attribute) return null;
+    const amount = Math.round((change.to - (typeof change.from === 'number' ? change.from : 0)) * 100) / 100;
+    return amount > 0 ? i18n.t('m25.check.xp', { amount }) : null;
+}
+
+/** The applied consequences of a roll the player may see («−10 ❤», «Стражник: + Встревожен», «+10 опыта»). */
 export function rollConsequences(
     i18n: I18n,
     api: MechanicsApi,
@@ -120,7 +130,7 @@ export function rollConsequences(
     for (const change of changes) {
         if (change.rollId !== result.id) continue;
         if (!safe(() => changeSeen(api, change, 'strip'), false)) continue;
-        const text = safe(() => changeSegment(i18n, api, change), null);
+        const text = xpGain(i18n, api, change) ?? safe(() => changeSegment(i18n, api, change), null);
         if (!text) continue;
         const holder = change.holder === 'world' ? i18n.t('m25.state.holder.world') : change.holder;
         out.push(sameName(change.holder, result.holder) ? text : `${holder}: ${text}`);
@@ -506,6 +516,12 @@ export class MechanicsPlayStrip {
                       this.dice(result.vs.rolls, null),
                       el('span', { text: t('m25.play.roll.total', { total: result.vs.total }) }),
                   ])
+                : null,
+            result.against && !result.vs
+                ? el('div', {
+                      class: 'maestro-m25-roll-target',
+                      text: t('m25.check.target', { target: result.against }),
+                  })
                 : null,
             el('div', { text: t('m25.play.roll.outcome', { outcome: t(`m25.check.outcome.${result.outcome}`) }) }),
             consequences.length

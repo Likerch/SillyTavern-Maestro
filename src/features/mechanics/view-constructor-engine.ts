@@ -1,8 +1,8 @@
 // M25 «Механики», constructor editors of the engine fields (plan-2 §6 п.1–5, 9–11, §6.А): consequences of a check's
 // outcomes, actions and chains of threshold events, the status catalogue, the inventory and its money, formulas and
-// growth of numbers, experience and levels, time rules, fights, and «Где видно» of a mechanic and of each attribute
-// (preset buttons «Игровой / Книжный / Скрытый / Тайный от всех», per-place switches, the view, what the model knows
-// and how it mentions changes, words by thresholds). Story words on the labels; ids and English for the model under
+// growth of numbers, experience and levels (with the experience per roll outcome), time rules, fights, and «Где видно»
+// of a mechanic and of each attribute (preset buttons «Игровой / Книжный / Скрытый / Тайный от всех», per-place
+// switches, the view, what the model knows and how it mentions changes, words by thresholds). Story words on the labels; ids and English for the model under
 // «Подробнее». Each editor edits the draft in place and calls `refresh` (problems, preview) or `redraw` (structure).
 import { normalizeDef, validateDef } from '../../domain/mechanics-defs';
 import type { DefIssue } from '../../domain/mechanics-defs';
@@ -28,6 +28,8 @@ import type {
     CheckEffect,
     EffectOn,
     MechanicDef,
+    Progression,
+    ProgressionAwards,
     StatusSpec,
     TimeRule,
     VisibilityInput,
@@ -769,6 +771,41 @@ export function inventoryEditor(ctx: EngineCtx): HTMLElement {
 
 /* ------------------------------------------------------------------ progression */
 
+/** Experience a new progression gives per roll outcome (as the skills template). */
+const DEFAULT_AWARDS: Readonly<ProgressionAwards> = { critical: 20, success: 10, failure: 3, fumble: 3 };
+const AWARD_OUTCOMES = ['critical', 'success', 'failure', 'fumble'] as const;
+
+/** «Опыт за бросок»: experience the roller gains by the outcome (empty: none; a critical falls back to success). */
+function awardsEditor(ctx: EngineCtx, progression: Progression): HTMLElement {
+    const { t } = ctx;
+    return el('div', { class: 'maestro-m25-awards' }, [
+        el('div', { class: 'maestro-muted', text: t('m25.ctor.progression.awards') }),
+        el(
+            'div',
+            { class: 'maestro-m25-row' },
+            AWARD_OUTCOMES.map((outcome) =>
+                el('label', { class: 'maestro-m25-award', data: { outcome } }, [
+                    el('span', { class: 'maestro-muted', text: t(`m25.ctor.progression.award.${outcome}`) }),
+                    optionalNumber(
+                        progression.awards?.[outcome],
+                        (value) => {
+                            const awards: ProgressionAwards = { ...progression.awards };
+                            if (value !== undefined && value > 0) awards[outcome] = value;
+                            else delete awards[outcome];
+                            if (Object.keys(awards).length) progression.awards = awards;
+                            else delete progression.awards;
+                            ctx.refresh();
+                        },
+                        t(`m25.ctor.progression.award.${outcome}`),
+                        '0',
+                    ),
+                ]),
+            ),
+        ),
+        el('div', { class: 'maestro-hint', text: t('m25.ctor.progression.awards.hint') }),
+    ]);
+}
+
 export function progressionEditor(ctx: EngineCtx): HTMLElement {
     const { t, def } = ctx;
     const numbers = def.attributes.filter((item) => item.kind === 'number' && !item.formula);
@@ -790,6 +827,7 @@ export function progressionEditor(ctx: EngineCtx): HTMLElement {
                         xp: numbers[0]?.id ?? '',
                         level: numbers[1]?.id ?? numbers[0]?.id ?? '',
                         thresholds: [100, 300, 600],
+                        awards: { ...DEFAULT_AWARDS },
                     };
                 } else delete def.progression;
                 ctx.redraw();
@@ -825,6 +863,7 @@ export function progressionEditor(ctx: EngineCtx): HTMLElement {
                       },
                   ),
                   verdict(t, def, 'progression'),
+                  awardsEditor(ctx, progression),
                   el('div', { class: 'maestro-muted', text: t('m25.ctor.progression.levelUp') }),
                   actionsEditor(
                       ctx,

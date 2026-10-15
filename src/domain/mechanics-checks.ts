@@ -1,11 +1,14 @@
 // M25 «Механики», checks in the user's message (plan M25 п.3, §5 phase 1, P15): the trigger words of the checks
 // on in this chat are looked up in the story part of the message (OOC, parentheses, brackets, macros and quoted
 // speech skipped), at word starts (RU/EN stems; a full word given as a trigger is cut to its stem, so Russian endings
-// follow), never after a negation («не пытаюсь убедить», "don't try to persuade") and never in a question. At most one
-// check per message: the strongest match (an attempt word nearby, a longer stem, repeated hits). The actor is the
-// persona unless a clause starts with the name of a known actor («Элизабет пытается убедить…») — conservative.
-// The difficulty comes from an explicit number ("DC 15", «сложность 15») or from words in the same sentence
-// («легко», «трудно», "very hard"), otherwise the check's default.
+// follow), never after a negation («не пытаюсь убедить», "don't try to persuade") and never in a question. Speech
+// checks (persuasion, deception, intimidation: `speech`) look inside quoted speech too, and a question does not stop
+// them («"Может, договоримся?"»). The strongest match comes first (an attempt word nearby, a longer stem, repeated
+// hits); `detectChecks` may add the next different check whose match is in another clause (a separator or a
+// conjunction between the two: «подкрадываюсь, а потом бью»). The actor is the persona unless a clause starts with the
+// name of a known actor («Элизабет пытается убедить…») — conservative. The difficulty comes from an explicit number
+// ("DC 15", «сложность 15») or from words in the same sentence («легко», «трудно», "very hard"), otherwise the
+// check's default. `namedHolders` / `namedTarget` find whom a check is aimed at (a name or a case form near the match).
 // Runs on the send path: one short message, plain string work, no allocation-heavy parsing.
 // Pure: no DOM, no SillyTavern.
 import type { DifficultyLevel } from './mechanics-dice';
@@ -14,6 +17,8 @@ export interface CheckTrigger {
     mechanicId: string;
     checkId: string;
     triggers: readonly string[];
+    /** Speech checks: triggers count inside quoted speech too, and questions do not stop them. */
+    speech?: boolean;
 }
 
 /** Someone who may act in the scene: the canonical holder name and every name to look for. */
@@ -35,6 +40,9 @@ export interface DetectedCheck {
     /** An explicit number anywhere in the message (OOC included); wins over words. */
     difficulty: number | null;
     score: number;
+    /** Where the trigger matched: character offsets in the message (line breaks as `\n`); `namedTarget` reads it. */
+    at: number;
+    end: number;
 }
 
 /* ------------------------------------------------------------------ text */
@@ -63,8 +71,31 @@ export function storyPart(text: string): string {
         previous = out;
         out = out.replace(/\([^()]*\)/g, ' ').replace(/\[[^[\]]*\]/g, ' ');
     } while (out !== previous);
-    out = out.replace(/"[^"\n]*"|«[^«»]*»|“[^“”]*”|„[^„“”]*[“”]/g, ' ');
+    out = out.replace(QUOTED_RE, ' ');
     return out;
+}
+
+const QUOTED_RE = /"[^"\n]*"|«[^«»]*»|“[^“”]*”|„[^„“”]*[“”]/g;
+
+function blank(match: string): string {
+    return ' '.repeat(match.length);
+}
+
+/**
+ * The story part with the same removals as `storyPart`, but every removed character becomes a space, so offsets stay
+ * those of the message; `keepSpeech` keeps quoted speech (speech checks, names said in it).
+ */
+function maskStory(text: string, keepSpeech: boolean): string {
+    let out = text.replace(/\r\n?/g, '\n');
+    out = out.replace(/<!--[\s\S]*?-->/g, blank).replace(/\{\{[\s\S]*?\}\}/g, blank);
+    out = out.replace(/\(\([\s\S]*?\)\)/g, blank);
+    out = out.replace(/^[ \t>*_]*(?:\/\/|(?:ooc|оос)(?![\p{L}])).*$/gimu, blank);
+    let previous: string;
+    do {
+        previous = out;
+        out = out.replace(/\([^()]*\)/g, blank).replace(/\[[^[\]]*\]/g, blank);
+    } while (out !== previous);
+    return keepSpeech ? out : out.replace(QUOTED_RE, blank);
 }
 
 const EXPLICIT_DC_RE = /(?<![\p{L}\p{N}])(?:dc|сл|сложность|difficulty)\s*[:=]?\s*(\d{1,3})(?!\p{N})/iu;
@@ -75,20 +106,53 @@ export function explicitDifficulty(text: string): number | null {
     return match ? Number(match[1]) : null;
 }
 
-interface Sentence {
-    clauses: string[][];
-    question: boolean;
+/** Tokens of a clause with their character offsets in the message (start, end). */
+interface Clause {
+    tokens: string[];
+    starts: number[];
+    ends: number[];
 }
+
+interface Sentence {
+    clauses: Clause[];
+    question: boolean;
+    start: number;
+    end: number;
+}
+
+function clauseAt(piece: string, base: number): Clause {
+    const clause: Clause = { tokens: [], starts: [], ends: [] };
+    for (const match of normalizeWord(piece).matchAll(TOKEN_RE)) {
+        clause.tokens.push(match[0]);
+        clause.starts.push(base + match.index);
+        clause.ends.push(base + match.index + match[0].length);
+    }
+    return clause;
+}
+
+const CLAUSE_SEPARATOR_RE = /[,;:—–]|\s-\s/g;
 
 function splitSentences(text: string): Sentence[] {
     const result: Sentence[] = [];
     for (const match of text.matchAll(/([^.!?…\n]+)([.!?…]*)/g)) {
         const body = match[1] ?? '';
-        const clauses = body
-            .split(/[,;:—–]|\s-\s/)
-            .map(tokenize)
-            .filter((tokens) => tokens.length > 0);
-        if (clauses.length) result.push({ clauses, question: (match[2] ?? '').includes('?') });
+        const base = match.index;
+        const clauses: Clause[] = [];
+        let from = 0;
+        for (const separator of [...body.matchAll(CLAUSE_SEPARATOR_RE), null]) {
+            const to = separator ? separator.index : body.length;
+            const clause = clauseAt(body.slice(from, to), base + from);
+            if (clause.tokens.length) clauses.push(clause);
+            if (separator) from = separator.index + separator[0].length;
+        }
+        if (clauses.length) {
+            result.push({
+                clauses,
+                question: (match[2] ?? '').includes('?'),
+                start: base,
+                end: base + match[0].length,
+            });
+        }
     }
     return result;
 }
@@ -420,14 +484,140 @@ function subjectOf(clause: readonly string[], hitAt: number, actors: readonly Ac
 interface Hit {
     check: CheckTrigger;
     trigger: string;
+    /** The sentences the hit was found in (the story part, or with quoted speech for speech checks). */
+    sentences: Sentence[];
     sentence: number;
     clause: number;
     at: number;
+    /** Character offsets of the matched words in the message. */
+    start: number;
+    end: number;
     score: number;
 }
 
 const REPEAT_BONUS = 0.25;
 const REPEAT_BONUS_MAX = 0.5;
+
+/** Words that start another clause of the same sentence («подкрадываюсь и бью»): two checks may be rolled. */
+const CLAUSE_WORDS = new Set(['и', 'а', 'но', 'затем', 'потом', 'тогда', 'после', 'and', 'but', 'then', 'after']);
+const BETWEEN_SEPARATOR_RE = /[.!?…\n,;:—–]|\s-\s/;
+
+function hitsIn(
+    sentences: Sentence[],
+    prepared: readonly { check: CheckTrigger; triggers: { trigger: string; words: string[]; length: number }[] }[],
+    questions: boolean,
+    hits: Hit[],
+): void {
+    sentences.forEach((sentence, s) => {
+        if (sentence.question && !questions) return;
+        sentence.clauses.forEach((clause, c) => {
+            const { tokens } = clause;
+            for (const { check, triggers } of prepared) {
+                for (const { trigger, words, length } of triggers) {
+                    for (let at = 0; at < tokens.length; at++) {
+                        if (!matchAt(tokens, at, words)) continue;
+                        if (negated(tokens, at, at + words.length)) continue;
+                        const score = 1 + (attemptBefore(tokens, at) ? 1 : 0) + Math.min(length, 12) / 24;
+                        hits.push({
+                            check,
+                            trigger,
+                            sentences,
+                            sentence: s,
+                            clause: c,
+                            at,
+                            start: clause.starts[at] as number,
+                            end: clause.ends[at + words.length - 1] as number,
+                            score,
+                        });
+                    }
+                }
+            }
+        });
+    });
+}
+
+/** Two matches are in different clauses: no overlap, and a separator or a clause word between them. */
+function separated(text: string, a: Hit, b: Hit): boolean {
+    const [first, second] = a.start <= b.start ? [a, b] : [b, a];
+    if (second.start < first.end) return false;
+    const between = text.slice(first.end, second.start);
+    return BETWEEN_SEPARATOR_RE.test(between) || tokenize(between).some((token) => CLAUSE_WORDS.has(token));
+}
+
+function sameCheck(a: CheckTrigger, b: CheckTrigger): boolean {
+    return a.mechanicId === b.mechanicId && a.checkId === b.checkId;
+}
+
+/**
+ * The checks the message calls for, strongest first: at most `max`, each a different check, every one matched in a
+ * clause of its own. Empty when none.
+ */
+export function detectChecks(
+    text: string,
+    checks: readonly CheckTrigger[],
+    actors: readonly ActorNames[] = [],
+    max = 1,
+): DetectedCheck[] {
+    if (!text || !checks.length || max < 1) return [];
+    const prepare = (list: readonly CheckTrigger[]) =>
+        list.map((check) => ({
+            check,
+            triggers: check.triggers.flatMap((trigger) =>
+                triggerStems(trigger).map((words) => ({ trigger, words, length: words.join(' ').length })),
+            ),
+        }));
+    const hits: Hit[] = [];
+    hitsIn(splitSentences(maskStory(text, false)), prepare(checks.filter((check) => !check.speech)), false, hits);
+    const spoken = maskStory(text, true);
+    const speech = checks.filter((check) => check.speech);
+    if (speech.length) hitsIn(splitSentences(spoken), prepare(speech), true, hits);
+    if (!hits.length) return [];
+
+    // Per check: its best hit, plus a little for every other place it is called for.
+    const best = new Map<CheckTrigger, { hit: Hit; hits: Hit[]; places: Set<number> }>();
+    for (const hit of hits) {
+        const entry = best.get(hit.check);
+        if (!entry) {
+            best.set(hit.check, { hit, hits: [hit], places: new Set([hit.start]) });
+            continue;
+        }
+        entry.hits.push(hit);
+        entry.places.add(hit.start);
+        if (hit.score > entry.hit.score) entry.hit = hit;
+    }
+    const bonus = (places: Set<number>) => Math.min(REPEAT_BONUS_MAX, REPEAT_BONUS * (places.size - 1));
+    // Strongest first; a tie goes to the earliest (stable: then the order of the checks).
+    const ranked = [...best.values()]
+        .map((entry) => ({ ...entry, score: entry.hit.score + bonus(entry.places) }))
+        .sort((a, b) => b.score - a.score || a.hit.start - b.hit.start);
+    const winner = ranked[0] as (typeof ranked)[number];
+    const chosen: { hit: Hit; score: number }[] = [{ hit: winner.hit, score: winner.score }];
+    for (const entry of ranked.slice(1)) {
+        if (chosen.length >= max) break;
+        if (chosen.some((item) => sameCheck(item.hit.check, entry.hit.check))) continue;
+        const apart = entry.hits
+            .filter((hit) => chosen.every((item) => separated(spoken, item.hit, hit)))
+            .sort((a, b) => b.score - a.score || a.start - b.start)[0];
+        if (apart) chosen.push({ hit: apart, score: apart.score + bonus(entry.places) });
+    }
+    const people = actors.length ? actorTokens(actors) : null;
+    const difficulty = explicitDifficulty(text);
+    return chosen.map(({ hit, score }) => {
+        const sentence = hit.sentences[hit.sentence] as Sentence;
+        const clause = sentence.clauses[hit.clause] as Clause;
+        return {
+            mechanicId: hit.check.mechanicId,
+            checkId: hit.check.checkId,
+            trigger: hit.trigger,
+            holder: people ? subjectOf(clause.tokens, hit.at, people) : null,
+            level: difficultyLevel(sentence.clauses.flatMap((item) => item.tokens)),
+            difficulty,
+            score: Math.round(score * 1000) / 1000,
+            at: hit.start,
+            end: hit.end,
+        };
+    });
+}
 
 /** The strongest check the message calls for, or null. */
 export function detectCheck(
@@ -435,67 +625,70 @@ export function detectCheck(
     checks: readonly CheckTrigger[],
     actors: readonly ActorNames[] = [],
 ): DetectedCheck | null {
-    if (!text || !checks.length) return null;
-    const sentences = splitSentences(storyPart(text));
-    if (!sentences.length) return null;
-    const prepared = checks.map((check) => ({
-        check,
-        triggers: check.triggers.flatMap((trigger) =>
-            triggerStems(trigger).map((words) => ({ trigger, words, length: words.join(' ').length })),
-        ),
-    }));
-    const hits: Hit[] = [];
+    return detectChecks(text, checks, actors, 1)[0] ?? null;
+}
+
+/* ------------------------------------------------------------------ the target */
+
+/** Single words at least this long also match by stem («стражника» → «Стражник», "guards" → "Guard"). */
+const TARGET_STEM_MIN = 4;
+
+function nameWordMatches(token: string, word: string): boolean {
+    if (token === word) return true;
+    return word.length >= TARGET_STEM_MIN && token.length >= TARGET_STEM_MIN && stemOf(token) === stemOf(word);
+}
+
+/** A holder named in the message; `near`: in the sentence of the match. */
+export interface NamedHolder {
+    holder: string;
+    near: boolean;
+}
+
+/**
+ * The holders named in the message (quoted speech included: «Стражник, пропусти меня»), each once, best first for a
+ * check matched at `at`: the nearest after the match in its sentence, then the nearest before it, then the others in
+ * the order of the message. Names as for actors (full names, long first names, world forms and aliases), longer
+ * single words also by stem. The caller leaves the actor out of `candidates`.
+ */
+export function namedHolders(text: string, at: number, candidates: readonly ActorNames[]): NamedHolder[] {
+    if (!text || !candidates.length) return [];
+    const people = actorTokens(candidates);
+    const sentences = splitSentences(maskStory(text, true));
+    const found: { holder: string; start: number; sentence: number }[] = [];
     sentences.forEach((sentence, s) => {
-        if (sentence.question) return;
-        sentence.clauses.forEach((tokens, c) => {
-            for (const { check, triggers } of prepared) {
-                for (const { trigger, words, length } of triggers) {
-                    for (let at = 0; at < tokens.length; at++) {
-                        if (!matchAt(tokens, at, words)) continue;
-                        if (negated(tokens, at, at + words.length)) continue;
-                        const score = 1 + (attemptBefore(tokens, at) ? 1 : 0) + Math.min(length, 12) / 24;
-                        hits.push({ check, trigger, sentence: s, clause: c, at, score });
+        for (const clause of sentence.clauses) {
+            const { tokens } = clause;
+            for (let i = 0; i < tokens.length; i++) {
+                let best: { holder: string; length: number } | null = null;
+                for (const person of people) {
+                    for (const name of person.names) {
+                        if (i + name.length > tokens.length || (best && best.length >= name.length)) continue;
+                        if (name.every((word, k) => nameWordMatches(tokens[i + k] as string, word))) {
+                            best = { holder: person.holder, length: name.length };
+                        }
                     }
                 }
+                if (best) found.push({ holder: best.holder, start: clause.starts[i] as number, sentence: s });
             }
-        });
-    });
-    if (!hits.length) return null;
-
-    // Per check: its best hit, plus a little for every other place it is called for.
-    const best = new Map<CheckTrigger, { hit: Hit; places: Set<string> }>();
-    for (const hit of hits) {
-        const place = `${hit.sentence}:${hit.clause}:${hit.at}`;
-        const entry = best.get(hit.check);
-        if (!entry) {
-            best.set(hit.check, { hit, places: new Set([place]) });
-            continue;
         }
-        entry.places.add(place);
-        if (hit.score > entry.hit.score) entry.hit = hit;
+    });
+    const home = sentences.findIndex((sentence) => at >= sentence.start && at < sentence.end);
+    const inSentence = found.filter((item) => item.sentence === home);
+    const ordered = [
+        ...inSentence.filter((item) => item.start > at).sort((a, b) => a.start - b.start),
+        ...inSentence.filter((item) => item.start < at).sort((a, b) => b.start - a.start),
+        ...found.filter((item) => item.sentence !== home),
+    ];
+    const out: NamedHolder[] = [];
+    for (const item of ordered) {
+        if (!out.some((known) => known.holder === item.holder)) {
+            out.push({ holder: item.holder, near: item.sentence === home });
+        }
     }
-    let winner: { hit: Hit; score: number } | null = null;
-    for (const { hit, places } of best.values()) {
-        const score = hit.score + Math.min(REPEAT_BONUS_MAX, REPEAT_BONUS * (places.size - 1));
-        const earlier =
-            winner !== null &&
-            (hit.sentence !== winner.hit.sentence
-                ? hit.sentence < winner.hit.sentence
-                : hit.clause !== winner.hit.clause
-                  ? hit.clause < winner.hit.clause
-                  : hit.at < winner.hit.at);
-        if (!winner || score > winner.score || (score === winner.score && earlier)) winner = { hit, score };
-    }
-    const { hit, score } = winner as { hit: Hit; score: number };
-    const sentence = sentences[hit.sentence] as Sentence;
-    const clause = sentence.clauses[hit.clause] as string[];
-    return {
-        mechanicId: hit.check.mechanicId,
-        checkId: hit.check.checkId,
-        trigger: hit.trigger,
-        holder: actors.length ? subjectOf(clause, hit.at, actorTokens(actors)) : null,
-        level: difficultyLevel(sentence.clauses.flat()),
-        difficulty: explicitDifficulty(text),
-        score: Math.round(score * 1000) / 1000,
-    };
+    return out;
+}
+
+/** The best holder named for a check matched at `at` (see `namedHolders`), or null when nobody is named. */
+export function namedTarget(text: string, at: number, candidates: readonly ActorNames[]): string | null {
+    return namedHolders(text, at, candidates)[0]?.holder ?? null;
 }

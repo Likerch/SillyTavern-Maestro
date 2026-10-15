@@ -6,8 +6,9 @@
 //   by a background translation after saving, or at once by «Перевести сейчас»; it stays editable under «Подробнее»),
 //   scope, holders, tracking, «Где видно» (preset buttons and places), attributes (kind, sign, bounds, start value,
 //   formula and growth of numbers, levels/options, tracking, own visibility, events with actions and chains), checks
-//   (dice validated live, difficulty, trigger words, consequences per outcome), statuses, inventory and money, levels,
-//   time rules, fights, «Сделать статами DES», a live preview of what the model gets, and the problems to fix.
+//   (dice validated live, difficulty, trigger words, «Срабатывает и на реплики» for speech checks, consequences per
+//   outcome), statuses, inventory and money, levels (experience per roll outcome), time rules, fights, «Сделать
+//   статами DES», a live preview of what the model gets, and the problems to fix.
 //   Ids are made from names and never shown in the main text (only under «Подробнее»). Switching an attribute's kind
 //   keeps its events (asks before dropping the ones that no longer fit).
 // Stacked fields and wrapping rows: usable in a narrow side panel and on a phone.
@@ -1107,6 +1108,17 @@ export function constructorSection(
                             else check.criticals = checked;
                         },
                     }),
+                    toggle({
+                        label: t('m25.def.check.speech'),
+                        hint: t('m25.def.check.speech.hint'),
+                        checked: check.speech === true,
+                        onChange: (checked) => {
+                            if (checked) check.speech = true;
+                            else delete check.speech;
+                            refreshIssues();
+                        },
+                    }),
+                    el('div', { class: 'maestro-muted maestro-m25-speech-hint', text: t('m25.def.check.speech.hint') }),
                     effectsEditor(engineCtx(def), check, index),
                     moreBlock(t('m25.ctor.more'), [
                         field(

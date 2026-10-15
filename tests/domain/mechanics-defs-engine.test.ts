@@ -12,6 +12,7 @@ import {
     formulaIssueCode,
     mechanicLimits,
     normalizeAction,
+    normalizeAwards,
     normalizeDef,
     normalizeDuration,
     normalizeItemSpec,
@@ -243,6 +244,37 @@ describe('normalizing the new parts', () => {
             'time',
         );
         expect(normalizeDef({ ...base(), inventory: {} })?.inventory).toEqual({});
+    });
+
+    it('keeps speech checks and the experience per outcome clean', () => {
+        const stored = normalizeDef({
+            ...base(),
+            checks: [
+                { id: 'talk', name: 'Talk', dice: '1d20', speech: true },
+                { id: 'walk', name: 'Walk', dice: '1d20', speech: 'yes' },
+                { id: 'run', name: 'Run', dice: '1d20', speech: false },
+            ],
+            progression: {
+                xp: 'XP',
+                level: 'level',
+                thresholds: [10],
+                awards: { critical: '20', success: 10, failure: 0, fumble: -2, other: 5 },
+            },
+        });
+        expect(stored?.checks.map((check) => check.speech)).toEqual([true, undefined, undefined]);
+        expect(stored?.checks[1]).not.toHaveProperty('speech');
+        expect(stored?.progression).toEqual({
+            xp: 'xp',
+            level: 'level',
+            thresholds: [10],
+            awards: { critical: 20, success: 10 },
+        });
+        const none = normalizeDef({ ...base(), progression: { xp: 'xp', level: 'level', thresholds: [], awards: {} } });
+        expect(none?.progression).not.toHaveProperty('awards');
+        expect(normalizeAwards({ failure: '3', fumble: 'x' })).toEqual({ failure: 3 });
+        expect(normalizeAwards('10')).toBeUndefined();
+        // Stored and read back as they are.
+        expect(normalizeDef(stored)).toEqual(stored);
     });
 
     it('finds chained events by id or attribute.id', () => {

@@ -1,7 +1,8 @@
 // M25 «Механики», consequences (plan-2 §6 п. 1 «Последствия бросков», п. 2 «Действия событий», п. 10 level ups): a
 // ChangeAction of a check's effect, a threshold event or a level up becomes state operations for concrete holders.
-// - who: 'actor' (who rolled / the event's holder), 'target' (the other side of an opposed check), 'persona', or a
-//   holder name of the attribute's mechanic;
+// - who: 'actor' (who rolled / the event's holder), 'target' (whom the check is aimed at: the other side of an opposed
+//   check, or the target an auto roll found — named in the message or the enemy of the fight), 'persona', or a holder
+//   name of the attribute's mechanic;
 // - attr: an attribute of the mechanic, 'mechanic.attr' of another one, or 'status' / 'item' / 'reveal' / 'combat';
 // - value: a number, a text, or a formula evaluated now — references read the ACTOR's values ('@strength',
 //   '@magic.mana'), '@roll.total' / '@roll.margin' / '@roll.natural' the roll, dice ('1d6') are rolled;
@@ -23,7 +24,7 @@ export interface ActionContext {
     /** The mechanic the actions belong to. */
     def: MechanicDef;
     actor: string;
-    /** The other side of an opposed check. */
+    /** Whom the check is aimed at: the other side of an opposed check, or an auto roll's target. */
     target?: string | null;
     persona: string;
     getDef(id: string): MechanicDef | null;

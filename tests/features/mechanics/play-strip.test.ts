@@ -1,8 +1,10 @@
 // @vitest-environment happy-dom
 // M25 under the replies (plan-2 §6.А п.2): the change line in each attribute's view (numbers, words, statuses), hidden
-// and secret values never shown, «Отменить» for the line and for one change, roll cards with their consequences and
-// «Отменить бросок», threshold events, and the status block under the latest reply only.
+// and secret values never shown, «Отменить» for the line and for one change, roll cards with their consequences
+// (experience as «+10 опыта»), whom the roll was aimed at and «Отменить бросок», threshold events, and the status block
+// under the latest reply only.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { MechanicDef } from '../../../src/features/mechanics/api';
 import { MechanicsPlayStrip, PLAY_STRIP_ORDER, PLAY_STRIP_PROVIDER } from '../../../src/features/mechanics/play-strip';
 import type { StripItem } from '../../../src/shared/contracts';
 import { ambushDef, createPlayEnv, feelingsDef, settlePlay, vitalsDef } from './helpers-play';
@@ -143,6 +145,49 @@ describe('roll cards', () => {
         const after = byKind(strip.items(index), 'roll')[0]!;
         expect(after.text).toContain('— отменён');
         expect(after.actions).toBeUndefined();
+    });
+
+    it('show whom a roll was aimed at and the experience it gave', async () => {
+        const study: MechanicDef = {
+            id: 'study',
+            name: 'Учёба',
+            summary: '',
+            rules: 'Sparring.',
+            attributes: [
+                { id: 'hp', name: 'Здоровье', promptName: 'Health', kind: 'number', min: 0, initial: 10 },
+                { id: 'xp', name: 'Опыт', promptName: 'Experience', kind: 'number', min: 0, initial: 0 },
+                { id: 'level', name: 'Уровень', promptName: 'Level', kind: 'number', min: 1, initial: 1 },
+            ],
+            holders: { kind: 'characters', includePersona: true },
+            checks: [
+                {
+                    id: 'spar',
+                    name: 'Спарринг',
+                    promptName: 'Spar',
+                    dice: '1d20',
+                    difficulty: 10,
+                    triggers: ['спарр'],
+                    effects: [{ on: 'success', changes: [{ who: 'target', attr: 'hp', op: 'sub', value: 2 }] }],
+                },
+            ],
+            tracking: 'manual',
+            scope: { kind: 'global' },
+            progression: { xp: 'xp', level: 'level', thresholds: [10], awards: { success: 10 } },
+        };
+        await setup({ defs: [study], rng: faces(20, 15) });
+        env.pushReply();
+        const index = await env.sendUser('Спаррингую с Kai.');
+        await settlePlay(env);
+        const [card] = byKind(strip.items(index), 'roll');
+        expect(card?.text).toContain('Спарринг (Алекс → Kai): 15 против 10 — успех');
+        expect(card?.text).toContain('+10 опыта');
+        expect(card?.text).toContain('Kai: ');
+        expect(env.api.value('study', 'Kai', 'hp')).toBe(8);
+        expect(env.api.value('study', 'Алекс', 'level')).toBe(2);
+        const box = body(card!);
+        expect(box.querySelector('.maestro-m25-roll-target')?.textContent).toBe('Цель: Kai');
+        expect(box.textContent).toContain('+10 опыта');
+        expect(box.querySelector('details')?.textContent).toContain('Spar check (Алекс) against Kai');
     });
 
     it('never show a secret roll', async () => {

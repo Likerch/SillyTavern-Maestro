@@ -119,7 +119,7 @@ export interface ItemSpec {
 
 /**
  * One consequence: of a check's outcome, a threshold event, a level up. `who`: 'actor' (who rolled / the event's
- * holder), 'target' (the other side of an opposed check), 'persona', or a holder name. `attr`: an attribute id of the
+ * holder), 'target' (whom the check is aimed at), 'persona', or a holder name. `attr`: an attribute id of the
  * mechanic, 'mechanic.attr' of another one, or 'status' / 'item' / 'reveal' / 'combat'. `value`: a number, a text, or a
  * formula ('2d6', '@mana / 2', 'max(1, @roll.margin)'; references read the actor's values).
  */
@@ -222,6 +222,8 @@ export interface CheckDef {
     /** Natural max/min of the kept dice as critical success/failure (default: true for one d20 or d100). */
     criticals?: boolean;
     effects?: CheckEffect[];
+    /** Triggers count in quoted speech too, and questions do not stop the roll (persuasion, deception…). */
+    speech?: boolean;
 }
 
 export type TimePer = 'turn' | 'hour' | 'day';
@@ -241,6 +243,16 @@ export interface Progression {
     level: string;
     thresholds: number[];
     onLevelUp?: ChangeAction[];
+    /** Experience the roller gains by the outcome of a check of this mechanic. */
+    awards?: ProgressionAwards;
+}
+
+/** Experience per outcome (a critical without its own falls back to success, a fumble to failure). */
+export interface ProgressionAwards {
+    critical?: number;
+    success?: number;
+    failure?: number;
+    fumble?: number;
 }
 
 /** The mechanic keeps inventories of its holders; items with a price trade against `money` ('coins', 'money.coins'). */
@@ -465,6 +477,11 @@ export interface CheckResult {
     hidden?: boolean;
     /** Its consequences were taken back (undoRoll). */
     undone?: boolean;
+    /**
+     * Who the roll was aimed at (not an opposed check): named in the user's message, else the enemy of the fight; its
+     * `who: 'target'` consequences hit them. (`target` is the difficulty.)
+     */
+    against?: string;
 }
 
 /** A threshold event that fired (for the director's twists and the pult). */

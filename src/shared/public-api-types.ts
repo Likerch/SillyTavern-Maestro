@@ -347,6 +347,8 @@ export interface ApiCheckDef {
         changes: ApiChangeAction[];
         text?: string;
     }[];
+    /** Triggers count in quoted speech too, and questions do not stop the roll (persuasion, deception…). */
+    speech?: boolean;
 }
 
 /** Where a mechanic applies: everywhere, in every chat of a card (its avatar file), or in one chat. */
@@ -378,7 +380,14 @@ export interface ApiMechanicDef {
         per: 'turn' | 'hour' | 'day';
         when?: 'always' | 'rest' | 'awake';
     }[];
-    progression?: { xp: string; level: string; thresholds: number[]; onLevelUp?: ApiChangeAction[] };
+    progression?: {
+        xp: string;
+        level: string;
+        thresholds: number[];
+        onLevelUp?: ApiChangeAction[];
+        /** Experience the roller gains by the outcome of a check of this mechanic. */
+        awards?: { critical?: number; success?: number; failure?: number; fumble?: number };
+    };
     combat?: { initiative?: string; enemy?: Record<string, number> };
     pinned?: boolean;
     keys?: string[];

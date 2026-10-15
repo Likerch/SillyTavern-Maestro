@@ -1,9 +1,15 @@
 // M25 «Механики», checks part (plan M25 п.3, §5 phase 1 «Делает броски механик», §8 «броски механик — Само», P15):
 // - auto checks: at ST's MESSAGE_SENT (the user's message index, before the generate interceptor runs the producers)
 //   the story part of the message is read for the trigger words of the checks on in this chat (domain detection,
-//   string work only) and at most one check is rolled at once; the save and the journal entry follow without being
-//   awaited (P15); the roll card under the message comes from the mechanics strip provider over this log
-//   (play-strip.ts), so it is back after a reload;
+//   string work only; speech checks also in quoted speech and questions) and at most AUTO_CHECKS_MAX different checks
+//   matched in different clauses are rolled at once («подкрадываюсь, а потом бью»); the save and the journal entry
+//   follow without being awaited (P15); the roll card under the message comes from the mechanics strip provider over
+//   this log (play-strip.ts), so it is back after a reload;
+// - a check aimed at someone (consequences for `who: 'target'`, or an attack of a fighting mechanic) gets its target,
+//   never the actor: a holder of the scene named in the sentence of the match (names, aliases, case forms); else, in
+//   a fight, a named fighter of the other side, the current enemy or the first one still standing; else a holder
+//   named elsewhere in the message; else none (its target consequences are skipped). The fact says it ("Attack check
+//   (Kai) against Bandit: …"), the roll lines show «Kai → Bandit»;
 // - the roll belongs to the user message: swipes, regenerations and continues never roll again (MESSAGE_SENT does not
 //   fire for them; the prompt part repeats the delivered fact); an edit of the last user message keeps the roll while
 //   the same check is called for and replaces it otherwise; deleting the message drops its undelivered roll;
@@ -14,7 +20,9 @@
 // - every roll is journaled (kind 'mechanics.check', nothing to undo); an autonomy level 'off' stops auto rolls;
 // - plan-2 §6: a check's effects (consequences per outcome) are resolved when it is rolled (formulas over the actor's
 //   values, the roll's total and margin) and applied at once (source 'check', the roll's id: undoRoll takes them
-//   back); the fact names them. Skills used by a check grow by use. Statuses and equipped items add their modifiers.
+//   back); the fact names them. Skills used by a check grow by use. A mechanic with experience gives the roller the
+//   award of the outcome (`progression.awards`, part of the roll's changes: a level up follows, undoRoll takes both
+//   back). Statuses and equipped items add their modifiers.
 //   Advantage / disadvantage and opposed checks ("vs Guard.Perception"); the model may ask for rolls in its service
 //   block (`roll: …`, by 'model'): rolled as the reply arrives, they belong to the reply (a swipe drops them) and reach
 //   the next generation as facts. A secret mechanic's roll gives the model only its outcomes; a hidden one is marked
@@ -22,21 +30,22 @@
 import { stableHash } from '../../domain/hash';
 import { resolveRollHead } from '../../domain/mechanics-block';
 import type { BlockRoll, RollCheckRef } from '../../domain/mechanics-block';
-import { detectCheck, difficultyWord, normalizeWord } from '../../domain/mechanics-checks';
-import type { ActorNames, CheckTrigger } from '../../domain/mechanics-checks';
-import { criticalsOf, diceAttributes, initialValueOf, parseDice } from '../../domain/mechanics-defs';
+import { detectChecks, difficultyWord, namedHolders, normalizeWord } from '../../domain/mechanics-checks';
+import type { ActorNames, CheckTrigger, DetectedCheck } from '../../domain/mechanics-checks';
+import { criticalsOf, diceAttributes, initialValueOf, parseDice, SPECIAL_ATTRS } from '../../domain/mechanics-defs';
 import type { DiceFormula } from '../../domain/mechanics-defs';
 import { checkFact, difficultyFor, marginOf, opposedFact, opposedOutcome, rollDice } from '../../domain/mechanics-dice';
 import type { DiceOutcome, DiceRoll, DifficultyLevel, RollMode, Rng } from '../../domain/mechanics-dice';
 import { resolveActions } from '../../domain/mechanics-effects';
-import { resolveHolder as resolveStateHolder } from '../../domain/mechanics-state';
-import { grownValue } from '../../domain/mechanics-time';
+import type { ActionContext } from '../../domain/mechanics-effects';
+import { resolveHolder as resolveStateHolder, WORLD_HOLDER } from '../../domain/mechanics-state';
+import { awardFor, grownValue } from '../../domain/mechanics-time';
 import { resolveVisibility } from '../../domain/mechanics-visibility';
 import { detectSheetCommand } from '../../domain/sheets';
 import { cleanForAnalysis } from '../../domain/text-clean';
 import type { I18n, JournalAction, SlashCommandSpec, Unsubscribe } from '../../shared/contracts';
 import type { WorldModelApi } from '../world/api';
-import type { CheckDef, CheckOutcome, CheckResult, MechanicDef } from './api';
+import type { CheckDef, CheckOutcome, CheckResult, Combatant, CombatState, MechanicDef } from './api';
 import { MECHANICS_ID } from './parts';
 import type { ChecksPart, DefinitionsPart, PartDeps, RollOptions, StateOp, StatePart } from './parts';
 import { BATCH_UNDO_TARGET } from './state';
@@ -55,6 +64,12 @@ export const ROLL_COMMAND = 'maestro-roll';
 const RESULTS_KEPT = 100;
 /** Rolls the model may ask for in one reply. */
 const MODEL_ROLLS_MAX = 3;
+/** Different checks one user message may roll (each matched in a clause of its own). */
+export const AUTO_CHECKS_MAX = 2;
+/** Who of a consequence is the one the check is aimed at. */
+const TARGET_WHO = new Set(['target', 'opponent']);
+/** An attack of a fighting mechanic (by its id or English name) wants a target even without target consequences. */
+const ATTACK_RE = /attack|strike|shoot|stab|slash|атак|удар|выстрел/i;
 /** Journal kind of taking a roll's consequences back. */
 export const UNDO_ROLL_KIND = 'mechanics.undoRoll';
 const DEFAULT_SAVE_MS = 300;
@@ -139,6 +154,7 @@ function readResult(raw: unknown): StoredCheck | null {
         result.changes = raw.changes.filter((item): item is string => typeof item === 'string');
     if (raw.hidden === true) result.hidden = true;
     if (raw.undone === true) result.undone = true;
+    if (typeof raw.against === 'string' && raw.against.trim()) result.against = raw.against;
     return result;
 }
 
@@ -171,6 +187,7 @@ function publicResult(result: StoredCheck): CheckResult {
     if (result.changes?.length) out.changes = [...result.changes];
     if (result.hidden) out.hidden = true;
     if (result.undone) out.undone = true;
+    if (result.against) out.against = result.against;
     return out;
 }
 
@@ -214,21 +231,24 @@ export function checkNameOf(defs: Pick<DefinitionsPart, 'get'>, result: Pick<Che
     }
 }
 
-/** One localized line: «Убеждение (Kai): 16 против 15 — успех». */
+/** One localized line: «Убеждение (Kai): 16 против 15 — успех», aimed at someone «Атака (Kai → Bandit): …». */
 export function describeCheck(
-    result: Pick<CheckResult, 'holder' | 'total' | 'target' | 'outcome' | 'dice'>,
+    result: Pick<CheckResult, 'holder' | 'total' | 'target' | 'outcome' | 'dice' | 'against'>,
     i18n: Pick<I18n, 't'>,
     checkName: string,
 ): string {
     const under = result.dice.includes('<=');
+    const holder = result.against
+        ? i18n.t('m25.check.against', { holder: result.holder, target: result.against })
+        : result.holder;
     if (result.outcome === 'none' && result.target === null) {
-        return i18n.t('m25.check.line.plain', { check: checkName, holder: result.holder, total: result.total });
+        return i18n.t('m25.check.line.plain', { check: checkName, holder, total: result.total });
     }
     const target =
         result.target === null ? '' : i18n.t(under ? 'm25.check.under' : 'm25.check.vs', { target: result.target });
     return i18n.t('m25.check.line', {
         check: checkName,
-        holder: result.holder,
+        holder,
         total: result.total,
         target,
         outcome: i18n.t(`m25.check.outcome.${result.outcome}`),
@@ -241,6 +261,8 @@ interface Found {
     holder: string;
     explicit: number | null;
     level: DifficultyLevel | null;
+    /** Who the check is aimed at (its target consequences hit them); null: nobody. */
+    against: string | null;
 }
 
 interface RollSpec {
@@ -253,6 +275,8 @@ interface RollSpec {
     mode?: RollMode | null;
     /** The other side of an opposed check. */
     vs?: { def: MechanicDef; check: CheckDef; holder: string } | null;
+    /** Who a check that is not opposed is aimed at. */
+    against?: string | null;
     swipe?: number;
 }
 
@@ -435,36 +459,155 @@ export class MechanicChecks implements ChecksPart {
         if (this.results.some((result) => result.messageIndex === index && result.by === 'auto' && !result.expired))
             return;
         if (detectSheetCommand(message.mes)) return;
-        const found = this.detect(message);
-        if (!found) return;
+        for (const found of this.detect(message)) this.rollFound(found, index);
+    }
+
+    /** An auto roll of a check the message calls for; false when nothing could be rolled. */
+    private rollFound(found: Found, index: number): boolean {
         const rolled = this.makeRoll(found.def, found.check, found.holder, {
             explicit: found.explicit,
             level: found.level,
             by: 'auto',
             messageIndex: index,
             strict: true,
+            against: found.against,
         });
         if (rolled) this.record(rolled);
+        return !!rolled;
     }
 
-    /** The check the message calls for, with its actor, or null (no roll). */
-    private detect(message: STChatMessage): Found | null {
+    /** The checks the message calls for (at most AUTO_CHECKS_MAX), with their actors and targets; empty: no roll. */
+    private detect(message: STChatMessage): Found[] {
         const text = cleanForAnalysis(message);
-        if (!text) return null;
+        if (!text) return [];
         const active = this.defs.active();
         const withChecks = active.filter((def) => def.checks.length > 0);
-        if (!withChecks.length) return null;
+        if (!withChecks.length) return [];
         const triggers: CheckTrigger[] = withChecks.flatMap((def) =>
-            def.checks.map((check) => ({ mechanicId: def.id, checkId: check.id, triggers: check.triggers })),
+            def.checks.map((check) => ({
+                mechanicId: def.id,
+                checkId: check.id,
+                triggers: check.triggers,
+                ...(check.speech ? { speech: true } : {}),
+            })),
         );
-        const detected = detectCheck(text, triggers, this.actors(active));
-        if (!detected) return null;
-        const def = withChecks.find((item) => item.id === detected.mechanicId);
-        const check = def?.checks.find((item) => item.id === detected.checkId);
-        if (!def || !check) return null;
-        const holder = this.actingHolder(def, detected.holder);
-        if (!holder) return null;
-        return { def, check, holder, explicit: detected.difficulty, level: detected.level };
+        const out: Found[] = [];
+        for (const detected of detectChecks(text, triggers, this.actors(active), AUTO_CHECKS_MAX)) {
+            const def = withChecks.find((item) => item.id === detected.mechanicId);
+            const check = def?.checks.find((item) => item.id === detected.checkId);
+            if (!def || !check) continue;
+            const holder = this.actingHolder(def, detected.holder);
+            if (!holder) continue;
+            out.push({
+                def,
+                check,
+                holder,
+                explicit: detected.difficulty,
+                level: detected.level,
+                against: this.autoTarget(def, check, holder, text, detected),
+            });
+        }
+        return out;
+    }
+
+    /* ---------------------------------------------------------------- targets */
+
+    /**
+     * The mechanics whose holders the check's consequences for `who: 'target'` change (an attack of a fighting
+     * mechanic: its own); empty when the check is aimed at nobody.
+     */
+    private targetMechanics(def: MechanicDef, check: CheckDef): MechanicDef[] {
+        const out = new Map<string, MechanicDef>();
+        for (const effect of check.effects ?? []) {
+            for (const change of effect.changes) {
+                if (!TARGET_WHO.has((change.who ?? '').trim().toLowerCase())) continue;
+                const attr = change.attr.trim().toLowerCase();
+                const dot = attr.indexOf('.');
+                const special = (SPECIAL_ATTRS as readonly string[]).includes(attr);
+                const owner = !special && dot > 0 ? this.defs.get(attr.slice(0, dot)) : def;
+                if (owner) out.set(owner.id, owner);
+            }
+        }
+        if (!out.size && isAttack(def, check)) out.set(def.id, def);
+        return [...out.values()];
+    }
+
+    /** The holder may be changed by these mechanics (a scene holder of one, or a name their holders accept). */
+    private holdsAny(defs: readonly MechanicDef[], holder: string): boolean {
+        const context = holderContextOf(this.deps.app);
+        const key = nameKey(holder);
+        return defs.some(
+            (def) =>
+                this.holdersOf(def).some((name) => nameKey(name) === key) ||
+                resolveStateHolder(def, holder, context) !== null,
+        );
+    }
+
+    private combatState(): CombatState | null {
+        try {
+            return this.state.combat?.() ?? null;
+        } catch (error) {
+            this.deps.log.debug('the fight is not available', error);
+            return null;
+        }
+    }
+
+    /**
+     * In a fight: a fighter of the other side named in the message, else the current one when still standing, else
+     * the first one standing; null outside a fight.
+     */
+    private fightTarget(actor: string, named: readonly string[], fits: (holder: string) => boolean): string | null {
+        const combat = this.combatState();
+        if (!combat?.active) return null;
+        const key = nameKey(actor);
+        const own = combat.order.find((item) => nameKey(item.holder) === key);
+        // The actor's side: an enemy attacks the others; anyone else (the persona, an ally) attacks the enemies.
+        const enemies = !own?.enemy;
+        const other = (item: Combatant) =>
+            !item.out && !!item.enemy === enemies && nameKey(item.holder) !== key && fits(item.holder);
+        for (const holder of named) {
+            const item = combat.order.find((fighter) => nameKey(fighter.holder) === nameKey(holder));
+            if (item && other(item)) return item.holder;
+        }
+        const current = combat.order[combat.current];
+        if (current && other(current)) return current.holder;
+        return combat.order.find(other)?.holder ?? null;
+    }
+
+    /**
+     * Who an auto roll is aimed at: a holder named in the sentence of the match; else, in a fight, a named fighter of
+     * the other side or the enemy of the moment; else a holder named elsewhere in the message; null: nobody.
+     */
+    private autoTarget(
+        def: MechanicDef,
+        check: CheckDef,
+        actor: string,
+        text: string,
+        detected: Pick<DetectedCheck, 'at'>,
+    ): string | null {
+        const mechanics = this.targetMechanics(def, check);
+        if (!mechanics.length) return null;
+        const key = nameKey(actor);
+        const candidates = new Map<string, ActorNames>();
+        const add = (holder: string) => {
+            const name = nameKey(holder);
+            if (!name || name === key || holder === WORLD_HOLDER || candidates.has(name)) return;
+            candidates.set(name, this.namesOf(holder));
+        };
+        for (const mechanic of mechanics) for (const holder of this.holdersOf(mechanic)) add(holder);
+        const combat = this.combatState();
+        for (const item of combat?.active ? combat.order : []) {
+            if (!item.out && this.holdsAny(mechanics, item.holder)) add(item.holder);
+        }
+        const named = namedHolders(text, detected.at, [...candidates.values()]);
+        const near = named.find((item) => item.near);
+        if (near) return near.holder;
+        const holders = named.map((item) => item.holder);
+        const enemy = this.fightTarget(actor, holders, (holder) => this.holdsAny(mechanics, holder));
+        if (enemy) return enemy;
+        if (holders[0]) return holders[0];
+        this.deps.log.debug(`check ${def.id}.${check.id}: nobody to aim at, its target consequences are skipped`);
+        return null;
     }
 
     /* ---------------------------------------------------------------- holders */
@@ -515,21 +658,25 @@ export class MechanicChecks implements ChecksPart {
         }
     }
 
+    /** A holder with every name to look for: the world's name, aliases and Russian case forms. */
+    private namesOf(holder: string): ActorNames {
+        const names = [holder];
+        try {
+            const entity = this.world()?.resolve(holder);
+            if (entity) names.push(entity.name, ...entity.aliases, ...entity.forms);
+        } catch (error) {
+            this.deps.log.debug('world names are not available', error);
+        }
+        return { holder, names };
+    }
+
     /** Everyone who may act: character holders of the mechanics on (with their world names and forms), the persona. */
     private actors(defs: readonly MechanicDef[]): ActorNames[] {
-        const world = this.world();
         const actors = new Map<string, ActorNames>();
         const add = (holder: string) => {
             const key = nameKey(holder);
             if (!key || actors.has(key)) return;
-            const names = [holder];
-            try {
-                const entity = world?.resolve(holder);
-                if (entity) names.push(entity.name, ...entity.aliases, ...entity.forms);
-            } catch (error) {
-                this.deps.log.debug('world names are not available', error);
-            }
-            actors.set(key, { holder, names });
+            actors.set(key, this.namesOf(holder));
         };
         for (const def of defs) {
             if (def.holders.kind === 'world' || def.holders.kind === 'factions') continue;
@@ -646,24 +793,43 @@ export class MechanicChecks implements ChecksPart {
             (on === 'success' && outcome === 'critical') ||
             (on === 'failure' && outcome === 'fumble');
         const context = holderContextOf(this.deps.app);
+        const actionContext: ActionContext = {
+            def,
+            actor: holder,
+            target,
+            persona: context.persona,
+            getDef: (id) => this.defs.get(id),
+            resolveHolder: (owner, raw) => resolveStateHolder(owner, raw, context),
+            numberOf: (mechanicId, who, attribute) =>
+                this.state.numberOf?.(mechanicId, who, attribute) ??
+                numberValue(this.state.value(mechanicId, who, attribute)),
+            roll: { total: roll.total, margin, natural: roll.natural },
+            rng: this.rng,
+            base: { source: 'check', messageIndex, reason: check.promptName || check.name },
+        };
         for (const effect of (check.effects ?? []).filter((item) => matches(item.on))) {
-            const resolved = resolveActions(effect.changes, {
-                def,
-                actor: holder,
-                target,
-                persona: context.persona,
-                getDef: (id) => this.defs.get(id),
-                resolveHolder: (owner, raw) => resolveStateHolder(owner, raw, context),
-                numberOf: (mechanicId, who, attribute) =>
-                    this.state.numberOf?.(mechanicId, who, attribute) ??
-                    numberValue(this.state.value(mechanicId, who, attribute)),
-                roll: { total: roll.total, margin, natural: roll.natural },
-                rng: this.rng,
-                base: { source: 'check', messageIndex, reason: check.promptName || check.name },
-            });
+            const resolved = resolveActions(effect.changes, actionContext);
             ops.push(...resolved.ops);
             notes.push(...resolved.notes);
             if (effect.text) notes.push(effect.text);
+            const missed = resolved.rejected.filter(
+                ({ action, reason }) => reason === 'who' && TARGET_WHO.has((action.who ?? '').trim().toLowerCase()),
+            );
+            if (missed.length) {
+                this.deps.log.debug(
+                    `check ${def.id}.${check.id}: no target, ${missed.length} consequence(s) for the target skipped`,
+                );
+            }
+        }
+        // Experience: the roller of a mechanic with levels gains the award of the outcome (the state levels up).
+        const award = awardFor(def.progression, outcome);
+        if (award > 0 && def.progression && resolveStateHolder(def, holder, context) !== null) {
+            const resolved = resolveActions(
+                [{ who: 'actor', attr: def.progression.xp, op: 'add', value: award }],
+                actionContext,
+            );
+            ops.push(...resolved.ops);
+            notes.push(...resolved.notes);
         }
         // Growth by use: the attributes the dice read.
         for (const attributeId of diceAttributes(formula)) {
@@ -701,6 +867,7 @@ export class MechanicChecks implements ChecksPart {
             return null;
         }
         const vs = spec.vs ?? null;
+        const against = vs ? null : spec.against?.trim() || null;
         const roll = this.rollFor(def, check, formula, holder, spec, !!vs && !formula.under);
         if (formula.under && roll.target === null) {
             throw new Error(
@@ -711,7 +878,7 @@ export class MechanicChecks implements ChecksPart {
             );
         }
         let outcome: DiceOutcome = roll.outcome;
-        let text = checkFact(check.promptName || check.name, holder, roll);
+        let text = checkFact(check.promptName || check.name, holder, roll, against);
         let other: DiceRoll | null = null;
         if (vs) {
             const otherFormula = parseDice(vs.check.dice);
@@ -742,7 +909,7 @@ export class MechanicChecks implements ChecksPart {
             def,
             check,
             holder,
-            vs?.holder ?? null,
+            vs?.holder ?? against,
             roll,
             outcome,
             formula,
@@ -791,6 +958,7 @@ export class MechanicChecks implements ChecksPart {
             };
         }
         if (notes.length) result.consequences = notes;
+        if (against) result.against = against;
         if (visibility.preset === 'secret' || visibility.preset === 'hidden') result.hidden = true;
         if (spec.swipe !== undefined) result.swipe = spec.swipe;
         if (spec.messageIndex >= 0 && spec.by !== 'model') {
@@ -1050,7 +1218,10 @@ export class MechanicChecks implements ChecksPart {
         this.changed();
     }
 
-    /** The last user message was edited: its auto roll stays while it calls for the same check, else it is redone. */
+    /**
+     * The last user message was edited: each auto roll stays while the message calls for the same check (same actor,
+     * same target), the others are taken back, and checks it now calls for anew are rolled.
+     */
     private edited(index: number): void {
         const chat = this.deps.app.host.ctx().chat ?? [];
         const message = chat[index];
@@ -1066,38 +1237,33 @@ export class MechanicChecks implements ChecksPart {
             return;
         }
         const autos = mine;
-        const found = detectSheetCommand(message.mes) ? null : this.detect(message);
-        if (!autos.length && !found) return;
-        const same = found
-            ? autos.find(
-                  (result) =>
-                      result.mechanicId === found.def.id &&
-                      result.checkId === found.check.id &&
-                      nameKey(result.holder) === nameKey(found.holder),
-              )
-            : undefined;
-        const dropped = new Set(autos.filter((result) => result !== same).map((result) => result.id));
+        const found = detectSheetCommand(message.mes) ? [] : this.detect(message);
+        if (!autos.length && !found.length) return;
+        const kept = new Set<StoredCheck>();
+        const fresh: Found[] = [];
+        for (const item of found) {
+            const same = autos.find(
+                (result) =>
+                    !kept.has(result) &&
+                    result.mechanicId === item.def.id &&
+                    result.checkId === item.check.id &&
+                    nameKey(result.holder) === nameKey(item.holder) &&
+                    nameKey(result.against ?? '') === nameKey(item.against ?? ''),
+            );
+            if (same) kept.add(same);
+            else fresh.push(item);
+        }
+        const dropped = new Set(autos.filter((result) => !kept.has(result)).map((result) => result.id));
         if (dropped.size && this.state.undoWhere) {
             void this.state
                 .undoWhere((change) => !!change.rollId && dropped.has(change.rollId))
                 .catch((error: unknown) => this.deps.log.debug('roll consequences were not taken back', error));
         }
         this.results = this.results.filter((result) => !dropped.has(result.id));
-        if (same) {
-            same.stamp = stamp;
-        } else if (found) {
-            const rolled = this.makeRoll(found.def, found.check, found.holder, {
-                explicit: found.explicit,
-                level: found.level,
-                by: 'auto',
-                messageIndex: index,
-                strict: true,
-            });
-            if (rolled) {
-                this.record(rolled);
-                return;
-            }
-        }
+        for (const result of kept) result.stamp = stamp;
+        let rolled = false;
+        for (const item of fresh) rolled = this.rollFound(item, index) || rolled;
+        if (rolled) return;
         this.saveSoon();
         this.changed();
     }
@@ -1213,6 +1379,12 @@ export class MechanicChecks implements ChecksPart {
         await app.chat.put<ChecksDoc>(CHECKS_DOC, { results: merged.map((result) => ({ ...result })) });
         this.changed();
     }
+}
+
+/** An attack of a mechanic that runs fights (not its initiative): aimed at someone even without target consequences. */
+function isAttack(def: MechanicDef, check: CheckDef): boolean {
+    if (!def.combat || check.id === def.combat.initiative) return false;
+    return ATTACK_RE.test(`${check.id} ${check.promptName}`);
 }
 
 function numberValue(value: unknown): number | null {
