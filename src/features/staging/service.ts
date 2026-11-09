@@ -102,7 +102,7 @@ export class StagingService implements StagingApi {
                 module: 'staging',
                 labelKey: 'm45.receiver',
                 describe:
-                    "the staging after the reply: for every character present (and the player's character) what changed in pose (stands, sits, lies…), where in the scene (at the window, in the door), next to whom and how, what they hold, what is visible on them (wet, wounded, bound). characters: only those whose staging the reply changed or that are not in the current staging yet; a field you leave out stays as it was (write the new state instead, e.g. holding: "nothing"); gone: names that left the scene.",
+                    "the staging after the reply: for every character present (and the player's character) what changed in pose (stands, sits, lies…), where in the scene (at the window, in the door), next to whom and how, what they hold, what is visible on them (wet, wounded, bound). characters: only those whose staging the reply changed or that are not in the current staging yet; a field you leave out stays as it was (write the new state instead, e.g. holding: nothing); gone: names that left the scene.",
                 schema: {
                     type: 'object',
                     properties: {

@@ -16,7 +16,7 @@ function setup() {
         { is_user: false, mes: 'Привет.', swipe_id: 0 },
         { is_user: true, mes: 'Я сажусь.', swipe_id: 0 },
         { is_user: false, mes: 'Мира садится рядом.', swipe_id: 0 },
-    ] as STChatMessage[];
+    ] as unknown as STChatMessage[];
     const docs = new Map<string, unknown>();
     const undo = new Map<string, UndoHandler>();
     const injections = new Map<string, InjectionSpec>();
