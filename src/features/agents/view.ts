@@ -688,7 +688,7 @@ export function logTab(view: AgentsView): PultTab {
                     const details = el('details', { class: 'maestro-agent-run' }, [
                         el('summary', {}, [
                             el('span', { class: ['maestro-lamp', `maestro-lamp-${status}`] }),
-                            ` ${time} · ${run.agentName} · ${view.t(`m44.phase.${run.phase}`)}${run.test ? ` · ${view.t('m44.log.test')}` : ''}`,
+                            ` ${time} · ${run.agentName} · ${run.builtin ? view.t('m44.bi.builtin') : view.t(`m44.phase.${run.phase}`)}${run.test ? ` · ${view.t('m44.log.test')}` : ''}`,
                             run.ok ? '' : ` · ${view.t(`m44.error.${run.error ?? 'other'}`)}`,
                             run.costUsd !== undefined ? ` · ${money(run.costUsd)}` : '',
                             ` · ${(run.ms / 1000).toFixed(1)} s`,
