@@ -1182,6 +1182,8 @@ export const AGENTS_CSS = `
 .maestro-agent-editor-body { min-width: 0; display: flex; flex-direction: column; gap: 8px; }
 .maestro-agent-textarea { width: 100%; min-height: 3em; font-family: inherit; resize: vertical; }
 .maestro-agent-var, .maestro-agent-variant { display: grid; grid-template-columns: minmax(80px, 160px) 1fr auto; gap: 6px; align-items: start; margin-bottom: 6px; }
+.maestro-agent-var:has(> code), .maestro-agent-variant { grid-template-columns: 1fr auto; }
+.maestro-agent-var > code, .maestro-agent-variant > input { grid-column: 1 / -1; }
 .maestro-agent-source { display: grid; grid-template-columns: 1fr auto 110px; gap: 6px; align-items: center; }
 .maestro-agent-preview { white-space: pre-wrap; word-break: break-word; max-height: 50vh; overflow: auto; font-size: 0.85em; background: var(--black30a, rgba(0,0,0,.3)); padding: 8px; border-radius: 6px; }
 .maestro-agent-preview:empty { display: none; }

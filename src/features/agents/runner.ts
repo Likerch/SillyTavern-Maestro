@@ -10,9 +10,9 @@ import type { AgentMessage } from '../../domain/agents/request';
 import { protect } from '../../domain/agents/rewrite';
 import type { Protected } from '../../domain/agents/rewrite';
 import type { AgentDef, AgentErrorKind, AgentPhase, AgentRun, AgentState } from '../../domain/agents/types';
-import { cleanForAnalysis } from '../../domain/text-clean';
 import type { App, LlmResult, Logger } from '../../shared/contracts';
 import type { AgentsChatState } from './chat-state';
+import { agentText as cleanForAnalysis } from './sources';
 import type { SourceRegistry } from './sources';
 
 /** Profile row of «профиль агентов по умолчанию» (CoreSettings.profiles, plan В7). */

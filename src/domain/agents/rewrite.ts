@@ -23,12 +23,41 @@ interface Range {
 const NAI_PLACEHOLDER_RE = /\[nai:img:[^\]\s]{1,80}\]/g;
 const IMG_TAG_RE = /<img\b[^>]*>/gi;
 const CK_DUMP_RE = /<BunnyMoTags>[\s\S]*?<\/BunnyMoTags>/g;
+/** A fenced block anywhere in a reply (a continued reply carries the tracker of its second part in the middle). */
+const FENCED_RE = /```(?:json|markdown|md)?[ \t]*\r?\n([\s\S]*?)\r?\n?[ \t]*```[ \t]*(?:\r?\n)?/gi;
+const TRACKER_KEY_RE = /"(?:quests|infoBox|infobox|characterThoughts|characters)"\s*:/;
+
+/** Fenced DES tracker blocks anywhere in a text (not only the leading one). */
+export function trackerRanges(text: string): Range[] {
+    const ranges: Range[] = [];
+    if (!text.includes('```')) return ranges;
+    for (const match of text.matchAll(FENCED_RE)) {
+        if (!TRACKER_KEY_RE.test(match[1] ?? '')) continue;
+        const start = match.index ?? 0;
+        ranges.push({ start, end: start + match[0].length });
+    }
+    return ranges;
+}
+
+/** The text without any fenced DES tracker block (what an agent reads of older replies). */
+export function stripTrackerBlocks(text: string): string {
+    const ranges = trackerRanges(text);
+    if (!ranges.length) return text;
+    let out = '';
+    let cursor = 0;
+    for (const range of ranges) {
+        out += text.slice(cursor, range.start);
+        cursor = range.end;
+    }
+    return (out + text.slice(cursor)).replace(/\n{3,}/g, '\n\n').trim();
+}
 
 /** Ranges of every service block, merged and sorted. */
 export function serviceRanges(text: string): Range[] {
     const ranges: Range[] = [];
     const stripped = stripDesTrackerJson(text);
     if (stripped !== text) ranges.push({ start: 0, end: text.length - stripped.length });
+    for (const range of trackerRanges(text)) ranges.push(range);
     for (const range of blockRanges(text)) ranges.push(range);
     for (const block of findOffscreen(text)) ranges.push({ start: block.start, end: block.end });
     for (const re of [NAI_PLACEHOLDER_RE, IMG_TAG_RE, CK_DUMP_RE]) {

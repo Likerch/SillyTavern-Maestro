@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { checkRewrite, protect, restore, serviceRanges } from '../../../src/domain/agents/rewrite';
+import { checkRewrite, protect, restore, serviceRanges, stripTrackerBlocks } from '../../../src/domain/agents/rewrite';
 
 const TRACKER = '```json\n{"infoBox": {"location": "Tavern"}, "characters": []}\n```\n';
 const MECHANICS = '<mechanics>\nMira.hp -2\n</mechanics>';
@@ -12,6 +12,16 @@ describe('protect', () => {
         expect(protectedReply.text).toBe('Mira laughs.  She pours the wine.\n\nThe door opens.\n\n\n');
         expect(protectedReply.blocks.map((block) => block.where)).toEqual(['lead', 'inline', 'tail', 'tail']);
         expect(serviceRanges('plain text')).toEqual([]);
+    });
+
+    it('finds a tracker in the middle of a continued reply and strips trackers anywhere', () => {
+        const reply = `First part.\n\n${TRACKER}Second part.`;
+        const protectedReply = protect(reply);
+        expect(protectedReply.text).toBe('First part.\n\nSecond part.');
+        expect(protectedReply.blocks[0]?.where).toBe('inline');
+        expect(restore(protectedReply, 'First part, edited.\n\nSecond part.')).toContain('infoBox');
+        expect(stripTrackerBlocks(`A\n\n${TRACKER}\nB`)).toBe('A\n\nB');
+        expect(stripTrackerBlocks('```js\nconst a = 1;\n```')).toBe('```js\nconst a = 1;\n```');
     });
 
     it('keeps a reply without blocks as it is', () => {

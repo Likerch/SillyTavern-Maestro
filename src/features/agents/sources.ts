@@ -6,12 +6,20 @@ import { adaptersOf } from '../../adapters';
 import { parseDesTracker, desSwipeRecord } from '../../domain/des-tracker';
 import type { DesCharacter } from '../../domain/des-tracker';
 import type { RenderedSource } from '../../domain/agents/request';
-import { cleanForAnalysis } from '../../domain/text-clean';
+import { stripTrackerBlocks } from '../../domain/agents/rewrite';
+import { cleanForAnalysis as cleanStory } from '../../domain/text-clean';
 import type { App, Unsubscribe } from '../../shared/contracts';
 import type { DirectorApi } from '../director/api';
 import type { LoreJournalApi } from '../loreJournal/api';
 import type { MechanicsApi } from '../mechanics/api';
 import type { AgentsChatState } from './chat-state';
+
+/** Story text for an agent: Maestro's cleaning plus DES tracker blocks anywhere (a continued reply). */
+export function agentText(message: unknown): string {
+    return stripTrackerBlocks(cleanStory(message));
+}
+
+const cleanForAnalysis = agentText;
 
 /** The moment a source is read for. */
 export interface SourceContext {
