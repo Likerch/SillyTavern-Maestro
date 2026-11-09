@@ -278,6 +278,21 @@ describe('batches and the cheap-model question (release 1.30)', () => {
         expect(strip(h, 2).map((item) => item.text)).toEqual(['Первый: Первая заметка.', 'Второй: Вторая заметка.']);
     });
 
+    it('agents with different temperatures still share a batch, at the average temperature', async () => {
+        const h = await withAgents([
+            { ...note('u-one-aaaaa', 'Первый'), model: { temperature: 0.5 } },
+            { ...note('u-two-bbbbb', 'Второй'), model: { temperature: 0.9 } },
+        ]);
+        h.answers.push((request) => {
+            expect(request.task).toBe('agent.batch');
+            expect(request.temperature).toBe(0.7);
+            return { ok: true, data: { a1: 'Раз.', a2: 'Два.' } };
+        });
+        await h.app.bus.emit('reply:ready', { messageIndex: 2, type: 'normal' });
+        await settle(80);
+        expect(h.llm).toHaveBeenCalledTimes(1);
+    });
+
     it('an agent the batch answer left out is asked again on its own', async () => {
         const h = await withAgents([note('u-one-aaaaa', 'Первый'), note('u-two-bbbbb', 'Второй')]);
         h.answers.push(() => ({ ok: true, data: { a1: 'Первая заметка.' } }));

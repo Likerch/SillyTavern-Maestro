@@ -231,7 +231,7 @@ export const AGENTS_STRINGS: I18nParts = {
         'm44.editor.gateQuestionHint': "Empty — the general question about the agent's job.",
         'm44.editor.batch': 'Send together with other agents of the same model',
         'm44.editor.batchHint':
-            'Agents of one moment, one profile and one model that allow it go in one request: the context is sent once. An agent the batch answer leaves out is asked again on its own.',
+            'Agents of one moment, one profile and one model that allow it go in one request: the context is sent once. An agent the batch answer leaves out is asked again on its own. A batch has one temperature: the average of its agents.',
         'm44.editor.batchRewrite': 'A rewrite answers the whole reply: it always goes on its own.',
         'm44.list.estimate': 'Your agents add ≈ {usd} to a turn.',
         'm44.list.estimateUnknown': 'Not estimated yet: {count}.',
@@ -610,7 +610,7 @@ export const AGENTS_STRINGS: I18nParts = {
         'm44.editor.gateQuestionHint': 'Пусто — общий вопрос о работе агента.',
         'm44.editor.batch': 'Отправлять вместе с другими агентами той же модели',
         'm44.editor.batchHint':
-            'Агенты одного момента, одного профиля и одной модели, которым это разрешено, идут одним запросом: контекст отправляется один раз. Если в общем ответе агента не оказалось, его спросят отдельно.',
+            'Агенты одного момента, одного профиля и одной модели, которым это разрешено, идут одним запросом: контекст отправляется один раз. Если в общем ответе агента не оказалось, его спросят отдельно. У пакета одна температура — средняя по его агентам.',
         'm44.editor.batchRewrite': 'Правка отвечает целым ответом: она всегда идёт отдельно.',
         'm44.list.estimate': 'Твои агенты добавляют к ходу ≈ {usd}.',
         'm44.list.estimateUnknown': 'Ещё не оценены: {count}.',

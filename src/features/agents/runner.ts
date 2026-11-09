@@ -222,7 +222,6 @@ export class AgentRunner {
         const keyOf = (request: RunRequest) =>
             [
                 request.state?.profile ?? request.def.model.profile ?? '',
-                request.def.model.temperature ?? DEFAULT_MODEL.temperature,
                 request.def.model.reasoning ?? DEFAULT_MODEL.reasoning,
                 request.phase,
                 request.focusIndex ?? '',
@@ -302,7 +301,16 @@ export class AgentRunner {
                     BATCH_MAX_TOKENS,
                     allowed.reduce((sum, request) => sum + this.maxTokensOf(request.def), 0),
                 ),
-                temperature: first.def.model.temperature ?? DEFAULT_MODEL.temperature,
+                // One request has one temperature: the average of the batch.
+                temperature:
+                    Math.round(
+                        (allowed.reduce(
+                            (sum, request) => sum + (request.def.model.temperature ?? DEFAULT_MODEL.temperature),
+                            0,
+                        ) /
+                            allowed.length) *
+                            100,
+                    ) / 100,
                 reasoning: first.def.model.reasoning ?? DEFAULT_MODEL.reasoning,
                 schema: batchSchema(items),
                 profile: first.state?.profile ?? first.def.model.profile,
