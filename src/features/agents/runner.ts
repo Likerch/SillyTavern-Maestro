@@ -15,7 +15,8 @@ import {
 } from '../../domain/agents/batch';
 import type { BatchItem } from '../../domain/agents/batch';
 import { answerSchema, buildAgentMessages } from '../../domain/agents/request';
-import type { AgentMessage, RenderedSource } from '../../domain/agents/request';
+import type { AgentMessage, ReceiverInfo, RenderedSource } from '../../domain/agents/request';
+import { proposalReceivers } from '../../core/proposal-receivers';
 import { protect } from '../../domain/agents/rewrite';
 import type { Protected } from '../../domain/agents/rewrite';
 import type { AgentDef, AgentErrorKind, AgentPhase, AgentRun, AgentState } from '../../domain/agents/types';
@@ -29,6 +30,15 @@ export const AGENTS_PROFILE_KEY = 'agents';
 
 /** Single runs of one moment at most at the same time (a batch counts as one). */
 const MAX_SOLO_PARALLEL = 3;
+
+/** The receivers an agent of type «Предложения» may propose to, as the model is told about them. */
+export function receiversFor(def: AgentDef): ReceiverInfo[] {
+    if (def.result.type !== 'proposals') return [];
+    const allowed = def.result.options.receivers;
+    return proposalReceivers()
+        .filter((receiver) => allowed.includes(receiver.kind))
+        .map((receiver) => ({ kind: receiver.kind, describe: receiver.describe, schema: receiver.schema }));
+}
 
 export function agentTask(id: string): string {
     return `agent.${id}`;
@@ -160,6 +170,7 @@ export class AgentRunner {
         const messages = buildAgentMessages({
             def,
             variantInstruction: this.instructionOf(def, request.state),
+            receivers: receiversFor(def),
             sources: rendered,
             values: { ...this.names(), language: this.languageWord() },
             extra: request.extra,
@@ -277,6 +288,7 @@ export class AgentRunner {
             };
             if (request.def.vars) item.vars = request.def.vars;
             if (request.extra) item.extra = request.extra;
+            if (request.def.result.type === 'proposals') item.receivers = receiversFor(request.def);
             items.push(item);
         }
         const messages = buildBatchMessages(items, { ...this.names(), language: this.languageWord() });
@@ -478,7 +490,7 @@ export class AgentRunner {
                 maxTokens: def.result.type === 'rewrite' ? Math.max(maxTokens, REWRITE_MIN_TOKENS) : maxTokens,
                 temperature: def.model.temperature ?? DEFAULT_MODEL.temperature,
                 reasoning: def.model.reasoning ?? DEFAULT_MODEL.reasoning,
-                schema: answerSchema(def.result),
+                schema: answerSchema(def.result, receiversFor(def)),
                 profile: request.state?.profile ?? def.model.profile,
                 profileKeys: [AGENTS_PROFILE_KEY],
                 interactive: request.interactive === true || request.test === true,

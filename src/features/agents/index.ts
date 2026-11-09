@@ -2,6 +2,7 @@
 // the model and what it does with its answer — created, edited, tested and switched on in the «Агенты» window; sets
 // and default agents; card agents with consent. After the update the set «Как в 1.27» is in force: nothing changes
 // until the user takes an agent or a set. Exposed as app.modules.api<AgentsApi>('agents').
+import { onProposalReceiversChange, proposalReceivers } from '../../core/proposal-receivers';
 import type { MaestroModule } from '../../shared/contracts';
 import { registerProfileTask } from '../../ui';
 import type { AgentsApi } from './api';
@@ -46,6 +47,9 @@ export const agentsModule: MaestroModule<AgentsSettings> = {
         { target: DEF_TARGET, technical: true },
         { target: 'message.text', valueLabelKey: 'm44.field.text' },
         { target: BUILTIN_TARGET, technical: true },
+        { target: 'canon.agentEntry', technical: true },
+        { target: 'canon.agentEdit', technical: true },
+        { target: 'calendar.agentPromise', technical: true },
     ],
     init({ app, log, own }) {
         const store = new AgentStore(app, log);
@@ -64,6 +68,32 @@ export const agentsModule: MaestroModule<AgentsSettings> = {
         app.journal.registerUndo(BUILTIN_TARGET, async (change) => {
             const id = typeof change.ref.id === 'string' ? change.ref.id : '';
             return id ? store.undoBuiltin(id, change.before) : false;
+        });
+
+        // Inbox cards of agents' proposals outlive the page: each receiver's applier, also for receivers added later.
+        const appliers = new Map<string, () => void>();
+        const syncAppliers = () => {
+            const kinds = new Set(proposalReceivers().map((receiver) => receiver.kind));
+            for (const [kind, off] of appliers) {
+                if (!kinds.has(kind)) {
+                    off();
+                    appliers.delete(kind);
+                }
+            }
+            for (const receiver of proposalReceivers()) {
+                if (appliers.has(receiver.kind)) continue;
+                appliers.set(
+                    receiver.kind,
+                    app.inbox.registerApplier(receiver.kind, (payload) => receiver.apply(payload)),
+                );
+                if (receiver.neverAuto) app.autonomy.neverAuto(receiver.kind);
+            }
+        };
+        syncAppliers();
+        own(onProposalReceiversChange(syncAppliers));
+        own(() => {
+            for (const off of appliers.values()) off();
+            appliers.clear();
         });
 
         runtime.install(own);

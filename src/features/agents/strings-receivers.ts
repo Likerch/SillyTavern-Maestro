@@ -1,0 +1,123 @@
+// Strings of release 1.31 (`m44.*`): proposals and their receivers, the creators, new sources.
+import type { I18nParts } from '../../shared/contracts';
+
+export const RECEIVER_STRINGS: I18nParts = {
+    en: {
+        'kind.canon.agentEntry': 'New lore entries from agents',
+        'kind.canon.agentEdit': 'Lore entry changes from agents',
+        'kind.calendar.agentPromise': 'Promises from agents',
+        'target.canon.agentEntry': 'Lore entry of the chat',
+        'target.canon.agentEdit': 'Lore entry (in this chat)',
+        'target.calendar.agentPromise': 'Promise',
+        'm44.recv.canon.agentEntry': 'A new entry of the chat lore',
+        'm44.recv.canon.agentEdit': 'A change of a lore entry (in this chat only)',
+        'm44.recv.calendar.agentPromise': 'A promise or a deadline in the calendar',
+        'm44.recv.entryTitle': 'New in the lore: {name} ({type})',
+        'm44.recv.editTitle': 'Update the entry «{name}»',
+        'm44.recv.editDetails': 'Book «{book}» stays as it is: the change lives in this chat.',
+        'm44.recv.promiseTitle': 'A promise of {who}',
+        'm44.recv.type.character': 'character',
+        'm44.recv.type.place': 'place',
+        'm44.recv.type.item': 'item',
+        'm44.recv.type.faction': 'faction',
+        'm44.recv.type.event': 'event',
+        'm44.recv.type.tradition': 'tradition',
+        'm44.recv.type.note': 'note',
+        'm44.proposal.by': 'Proposed by the agent «{name}».',
+        'm44.applied.proposalsDone': 'applied: {count}',
+        'm44.applied.proposalsInbox': 'to the Inbox: {count}',
+        'm44.applied.proposalsRefused': 'not taken: {count}',
+        'm44.type.proposals': 'Proposals',
+        'm44.type.proposals.hint':
+            "Changes of the story's stores — a new lore entry of the chat, a change of an entry, a promise — through autonomy and the Inbox, with undo. The original books and the card are never changed.",
+        'm44.src.knowledge': 'Who knows what',
+        'm44.src.worldNames': 'Names the world knows',
+        'm44.src.places': 'Places',
+        'm44.cap.propose': 'proposes changes ({what})',
+        'm44.editor.receivers': 'What it may propose',
+        'm44.editor.noReceivers': 'No store accepts proposals now (the canon module is off?).',
+        'm44.editor.proposalsMax': 'Proposals per run at most',
+        'm44.editor.proposalsHint':
+            'Each proposal goes through autonomy: by default to the Inbox. «Always so» on a card lets them apply by themselves.',
+        'm44.tplGroup.creators': 'Creators',
+        'm44.tpl.secrets.name': 'Keeper of secrets',
+        'm44.tpl.secrets.desc':
+            'Marks a character who knows what they could not know — a secret nobody told them, an event they did not see. Uses the record of who knows what.',
+        'm44.tpl.character-creator.name': 'Character creator',
+        'm44.tpl.character-creator.desc':
+            'When a new person enters the story and matters, proposes their entry in the chat lore: who they are, looks, manner, relations — from what the story showed. No ST cards: the character lives in the chat and its lore.',
+        'm44.tpl.character-editor.name': 'Character editor',
+        'm44.tpl.character-editor.desc':
+            'At the end of a scene proposes updates of the entries of characters the scene changed: a scar, a new role, new relations. The original book stays; the change lives in the chat.',
+        'm44.tpl.biographer.name': 'Biographer',
+        'm44.tpl.biographer.desc':
+            'Every 25 messages finds a character with a thin entry and writes it out: background, speech, habits, looks — consistent with the story.',
+        'm44.tpl.cartographer.name': 'Cartographer',
+        'm44.tpl.cartographer.desc':
+            'When the story moves to a place without a lore entry, proposes one: what and where it is, how it looks and sounds, who is there.',
+        'm44.tpl.world-chronicler.name': 'World chronicler',
+        'm44.tpl.world-chronicler.desc':
+            'Every 30 messages proposes lore entries for what the story keeps relying on but the lore lacks: factions, customs, items, past events.',
+        'm44.set.worldGrows': 'World grows',
+        'm44.set.worldGrows.desc': 'Sandbox: character creator, cartographer, world chronicler, biographer.',
+    },
+    ru: {
+        'kind.canon.agentEntry': 'Новые записи лора от агентов',
+        'kind.canon.agentEdit': 'Правки записей лора от агентов',
+        'kind.calendar.agentPromise': 'Обещания от агентов',
+        'target.canon.agentEntry': 'Запись лора чата',
+        'target.canon.agentEdit': 'Запись лора (в этом чате)',
+        'target.calendar.agentPromise': 'Обещание',
+        'm44.recv.canon.agentEntry': 'Новая запись лора чата',
+        'm44.recv.canon.agentEdit': 'Правка записи лора (только в этом чате)',
+        'm44.recv.calendar.agentPromise': 'Обещание или срок в календаре',
+        'm44.recv.entryTitle': 'Новое в лоре: {name} ({type})',
+        'm44.recv.editTitle': 'Обновить запись «{name}»',
+        'm44.recv.editDetails': 'Книга «{book}» не меняется: правка живёт в этом чате.',
+        'm44.recv.promiseTitle': 'Обещание: {who}',
+        'm44.recv.type.character': 'персонаж',
+        'm44.recv.type.place': 'место',
+        'm44.recv.type.item': 'предмет',
+        'm44.recv.type.faction': 'фракция',
+        'm44.recv.type.event': 'событие',
+        'm44.recv.type.tradition': 'обычай',
+        'm44.recv.type.note': 'заметка',
+        'm44.proposal.by': 'Предложил агент «{name}».',
+        'm44.applied.proposalsDone': 'применено: {count}',
+        'm44.applied.proposalsInbox': 'во «Входящих»: {count}',
+        'm44.applied.proposalsRefused': 'не принято: {count}',
+        'm44.type.proposals': 'Предложения',
+        'm44.type.proposals.hint':
+            'Изменения хранилищ истории — новая запись лора чата, правка записи, обещание — через автономию и «Входящие», с откатом. Исходные книги и карточку агент не меняет.',
+        'm44.src.knowledge': 'Кто что знает',
+        'm44.src.worldNames': 'Известные миру имена',
+        'm44.src.places': 'Места',
+        'm44.cap.propose': 'предлагает изменения ({what})',
+        'm44.editor.receivers': 'Что может предлагать',
+        'm44.editor.noReceivers': 'Сейчас предложения никто не принимает (выключен канон?).',
+        'm44.editor.proposalsMax': 'Не больше предложений за запуск',
+        'm44.editor.proposalsHint':
+            'Каждое предложение идёт через автономию: по умолчанию во «Входящие». «Всегда так» на карточке разрешит применять их самому.',
+        'm44.tplGroup.creators': 'Создатели',
+        'm44.tpl.secrets.name': 'Хранитель тайн',
+        'm44.tpl.secrets.desc':
+            'Отмечает персонажа, который знает то, чего не мог узнать: тайну, которую ему не говорили, событие, которого он не видел. Сверяется с тем, кто что знает.',
+        'm44.tpl.character-creator.name': 'Создатель персонажей',
+        'm44.tpl.character-creator.desc':
+            'Когда в истории появляется новое лицо, которое что-то значит, предлагает его запись в лоре чата: кто он, внешность, манера, связи — по тому, что показала история. Карточек ST не создаёт: персонаж живёт в чате и его лоре.',
+        'm44.tpl.character-editor.name': 'Редактор персонажей',
+        'm44.tpl.character-editor.desc':
+            'В конце сцены предлагает обновить записи персонажей, которых сцена изменила: шрам, новая роль, новые связи. Исходная книга остаётся; правка живёт в чате.',
+        'm44.tpl.biographer.name': 'Биограф',
+        'm44.tpl.biographer.desc':
+            'Раз в 25 сообщений находит персонажа с тонкой записью и прописывает его: прошлое, речь, привычки, внешность — в согласии с историей.',
+        'm44.tpl.cartographer.name': 'Картограф',
+        'm44.tpl.cartographer.desc':
+            'Когда история приходит в место без записи в лоре, предлагает её: что и где это, как выглядит и звучит, кто там бывает.',
+        'm44.tpl.world-chronicler.name': 'Летописец мира',
+        'm44.tpl.world-chronicler.desc':
+            'Раз в 30 сообщений предлагает записи лора о том, на что история опирается, а лора нет: фракции, обычаи, вещи, прошлые события.',
+        'm44.set.worldGrows': 'Мир растёт',
+        'm44.set.worldGrows.desc': 'Песочница: Создатель персонажей, Картограф, Летописец мира, Биограф.',
+    },
+};

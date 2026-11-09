@@ -11,7 +11,16 @@ type Dict = Record<string, unknown>;
 
 export const CANON_KINDS = ['override', 'addition', 'suppress', 'pin'] as const;
 export const CANON_STATUSES = ['active', 'provisional', 'archived'] as const;
-export const CANON_ORIGINS = ['user', 'revision', 'living', 'chronicle', 'backstage', 'entity', 'import'] as const;
+export const CANON_ORIGINS = [
+    'user',
+    'revision',
+    'living',
+    'chronicle',
+    'backstage',
+    'entity',
+    'import',
+    'agent',
+] as const;
 
 export type CanonKindId = (typeof CANON_KINDS)[number];
 export type CanonStatusId = (typeof CANON_STATUSES)[number];

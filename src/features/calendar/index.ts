@@ -2,6 +2,7 @@
 // — who promised what to whom, by when in story time — from the revision's deferred cards (and its direct route from
 // this stage), placed on a per-chat story clock read from DES. A due promise reaches the director through due(); an
 // overdue or broken one is a reason for consequences. Exposed as app.modules.api<CalendarApi>('calendar').
+import { installCalendarReceiver } from './agent-receiver';
 import type { MaestroModule } from '../../shared/contracts';
 import type { CalendarApi } from './api';
 import { CalendarService } from './service';
@@ -23,6 +24,8 @@ export const calendarModule: MaestroModule<CalendarSettings> = {
         const service = new CalendarService(app, log.scope('calendar'), settings);
         for (const off of service.install()) own(off);
         app.modules.expose(CALENDAR_KEY, service satisfies Required<CalendarApi>);
+        // Release 1.31: agents may propose promises (M44 «Агенты»).
+        for (const off of installCalendarReceiver(app, service)) own(off);
         own(app.ui.style('maestro-m17', CALENDAR_CSS));
         own(app.ui.addTab(calendarTab(app, service, settings)));
     },

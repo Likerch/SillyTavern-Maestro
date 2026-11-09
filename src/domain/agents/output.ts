@@ -23,8 +23,16 @@ export type AgentOutput =
     | { type: 'verdict'; ok: boolean; problems: VerdictProblem[] }
     | { type: 'choices'; choices: string[] }
     | { type: 'memory'; fields: Record<string, string> }
+    | { type: 'proposals'; items: ProposalItem[] }
     /** The agent had nothing to say this time (NONE, an empty note, no flags). */
     | { type: 'none' };
+
+/** One proposal of an agent: a receiver kind, why (story words) and the receiver's data. */
+export interface ProposalItem {
+    kind: string;
+    why: string;
+    data: Record<string, unknown>;
+}
 
 export type ParseOutcome = { ok: true; output: AgentOutput } | { ok: false; error: AgentErrorKind };
 
@@ -137,6 +145,21 @@ export function parseAgentOutput(result: AgentResultSpec, data: unknown, text?: 
             }
             const ok = data.ok && problems.length === 0;
             return { ok: true, output: { type: 'verdict', ok, problems } };
+        }
+        case 'proposals': {
+            if (!isDict(data) || !Array.isArray(data.proposals)) return { ok: false, error: 'shape' };
+            const items: ProposalItem[] = [];
+            for (const raw of data.proposals) {
+                if (!isDict(raw) || typeof raw.kind !== 'string' || !isDict(raw.data)) continue;
+                if (!result.options.receivers.includes(raw.kind)) continue;
+                items.push({
+                    kind: raw.kind,
+                    why: typeof raw.why === 'string' ? raw.why.slice(0, 400) : '',
+                    data: raw.data,
+                });
+                if (items.length >= result.options.max) break;
+            }
+            return { ok: true, output: items.length ? { type: 'proposals', items } : { type: 'none' } };
         }
         case 'choices': {
             if (!isDict(data) || !Array.isArray(data.choices)) return { ok: false, error: 'shape' };

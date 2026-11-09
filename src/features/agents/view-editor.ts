@@ -16,6 +16,7 @@ import { button, clear, el, icon } from '../../ui/components/dom';
 import type { Child } from '../../ui/components/dom';
 import { field, numberInput, select, toggle } from '../../ui/components/controls';
 import { banner, section } from '../../ui/components/card';
+import { proposalReceivers } from '../../core/proposal-receivers';
 import { DEFAULT_GATE_QUESTION } from './gate';
 import { tabs } from '../../ui/components/tabs';
 import type { AgentsView } from './view';
@@ -793,6 +794,44 @@ export class AgentEditor {
                     }),
                 );
                 break;
+            case 'proposals': {
+                const receivers = proposalReceivers();
+                parts.push(
+                    section(
+                        this.t('m44.editor.receivers'),
+                        receivers.length
+                            ? receivers.map((receiver) =>
+                                  toggle({
+                                      label: this.t(receiver.labelKey),
+                                      checked: result.options.receivers.includes(receiver.kind),
+                                      onChange: (on) => {
+                                          const set = new Set(result.options.receivers);
+                                          if (on) set.add(receiver.kind);
+                                          else set.delete(receiver.kind);
+                                          result.options.receivers = [...set];
+                                          this.touch();
+                                      },
+                                  }),
+                              )
+                            : [el('div', { class: 'maestro-muted', text: this.t('m44.editor.noReceivers') })],
+                    ),
+                    field(
+                        this.t('m44.editor.proposalsMax'),
+                        numberInput({
+                            value: result.options.max,
+                            min: 1,
+                            max: 20,
+                            step: 1,
+                            onChange: (value) => {
+                                result.options.max = value;
+                                this.touch();
+                            },
+                        }),
+                    ),
+                    el('div', { class: 'maestro-hint', text: this.t('m44.editor.proposalsHint') }),
+                );
+                break;
+            }
             case 'memory': {
                 const list = el('div', { class: 'maestro-agent-fields' });
                 const paint = () => {

@@ -4,7 +4,7 @@
 // caller). The cost is split by the length of each agent's task. Rewrites never go in a batch (they answer the whole
 // reply).
 import { AGENT_FRAME, answerForm, answerSchema, substitute } from './request';
-import type { AgentMessage, RenderedSource, SubstitutionValues } from './request';
+import type { AgentMessage, ReceiverInfo, RenderedSource, SubstitutionValues } from './request';
 import type { AgentResultSpec } from './types';
 
 export interface BatchItem {
@@ -16,6 +16,7 @@ export interface BatchItem {
     result: AgentResultSpec;
     sources: readonly RenderedSource[];
     extra?: string;
+    receivers?: readonly ReceiverInfo[];
 }
 
 export const BATCH_FRAME = `${AGENT_FRAME}\nThis time you do several such jobs at once, each in its own <agent_task> block: keep them apart — every job sees the same context but answers only its own task.`;
@@ -53,7 +54,7 @@ export function buildBatchMessages(
             `<agent_task id="${item.key}" name="${item.name.replace(/"/g, "'")}">`,
             instruction.trim() || '(no task given)',
             item.extra?.trim() ? `Additional instruction for this run: ${item.extra.trim()}` : '',
-            `Form of the value of "${item.key}": ${answerForm(item.result)}`,
+            `Form of the value of "${item.key}": ${answerForm(item.result, item.receivers)}`,
             '</agent_task>',
         ]
             .filter(Boolean)
@@ -70,7 +71,8 @@ export function buildBatchMessages(
 /** The structured-output schema of a batch: one property per agent. */
 export function batchSchema(items: readonly BatchItem[]): { name: string; schema: Record<string, unknown> } {
     const properties: Record<string, unknown> = {};
-    for (const item of items) properties[item.key] = answerSchema(item.result)?.schema ?? { type: 'string' };
+    for (const item of items)
+        properties[item.key] = answerSchema(item.result, item.receivers)?.schema ?? { type: 'string' };
     return {
         name: 'agent_batch',
         schema: { type: 'object', properties, required: items.map((item) => item.key) },

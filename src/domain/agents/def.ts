@@ -158,6 +158,8 @@ export function defaultResult(type: AgentResultType): AgentResultSpec {
                 type,
                 options: { fields: [], inject: false, injectOptions: { ...DEFAULT_INJECT, lifetime: 'untilNext' } },
             };
+        case 'proposals':
+            return { type, options: { receivers: [], max: 5 } };
     }
 }
 
@@ -168,6 +170,7 @@ export function defaultPhaseFor(type: AgentResultType): AgentPhase {
         case 'flags':
             return 'prefetch';
         case 'memory':
+        case 'proposals':
             return 'schedule';
         default:
             return 'post';
@@ -226,6 +229,9 @@ export function capabilitiesOf(def: Pick<AgentDef, 'result' | 'sources'>): strin
             caps.push('memory');
             if (def.result.options.inject) caps.push('prompt.inject');
             break;
+        case 'proposals':
+            for (const kind of def.result.options.receivers) caps.push(`propose.${kind}`);
+            break;
     }
     for (const source of def.sources) caps.push(`read.${source.id}`);
     return caps;
@@ -269,6 +275,14 @@ function sanitizeResult(raw: unknown): AgentResultSpec {
             return { type: 'note', options: { show: pick(o.show, ['strip', 'toast'] as const, 'strip') } };
         case 'choices':
             return { type: 'choices', options: { count: int(o.count, 2, 5) ?? 3, send: o.send === true } };
+        case 'proposals':
+            return {
+                type: 'proposals',
+                options: {
+                    receivers: strList(o.receivers, 20, 60).filter((kind) => /^[a-z][\w.]{0,59}$/.test(kind)),
+                    max: int(o.max, 1, 20) ?? 5,
+                },
+            };
         case 'memory': {
             const fields: MemoryField[] = [];
             if (Array.isArray(o.fields)) {

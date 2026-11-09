@@ -5,6 +5,7 @@
 import { adaptersOf } from '../../adapters';
 import { isCanonBookName } from '../../domain/roles-detect';
 import type { MaestroModule, Unsubscribe } from '../../shared/contracts';
+import { CanonAgentReceivers } from './agent-receivers';
 import type { CanonApi } from './api';
 import { CanonBranches } from './branch';
 import { CanonGlosses } from './glosses';
@@ -46,6 +47,8 @@ export const canonModule: MaestroModule<CanonSettings> = {
         for (const off of scan.install()) own(off);
         const branches = new CanonBranches(app, store, log);
         for (const off of branches.install()) own(off);
+        // Release 1.31: what agents may propose to the canon (M44 «Агенты»).
+        for (const off of new CanonAgentReceivers(app, log.scope('agents')).install()) own(off);
 
         const api: Required<CanonApi> = {
             bookName: (chatId) => store.bookName(chatId),

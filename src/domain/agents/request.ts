@@ -81,8 +81,21 @@ export function missingVars(instruction: string, vars: Record<string, string> | 
 
 /* ------------------------------------------------------------------ answer forms */
 
+/** A receiver of proposals as the model is told about it (release 1.31). */
+export interface ReceiverInfo {
+    kind: string;
+    describe: string;
+    schema: Record<string, unknown>;
+}
+
+function receiverLines(receivers: readonly ReceiverInfo[]): string {
+    return receivers
+        .map((receiver) => `- "${receiver.kind}": ${receiver.describe}\n  data: ${JSON.stringify(receiver.schema)}`)
+        .join('\n');
+}
+
 /** The answer form of a result type: what the model is told after the instruction. */
-export function answerForm(result: AgentResultSpec): string {
+export function answerForm(result: AgentResultSpec, receivers: readonly ReceiverInfo[] = []): string {
     switch (result.type) {
         case 'inject':
             return "Answer with the text to put into the main model's prompt and nothing else: a short directive for the next reply of the story (not story prose, not dialogue). If nothing is needed this time, answer exactly NONE.";
@@ -102,12 +115,45 @@ export function answerForm(result: AgentResultSpec): string {
                 .join('\n');
             return `Answer with JSON: {"fields": {…}} with your updated records. The fields are:\n${fields || '- (none)'}\nGive only the fields you change; keep each value short and up to date (it replaces the old value).`;
         }
+        case 'proposals': {
+            const allowed = receivers.filter((receiver) => result.options.receivers.includes(receiver.kind));
+            return `Answer with JSON: {"proposals": [{"kind": "<one of the kinds below>", "why": "<one short sentence in the story's language: what happened in the story and what you propose>", "data": {…}}]} with at most ${result.options.max} proposals — only changes the story clearly calls for; an empty list when nothing is needed. The kinds you may propose:\n${receiverLines(allowed) || '- (none)'}`;
+        }
     }
 }
 
 /** JSON schema of a result type (structured output); undefined for plain-text types. */
-export function answerSchema(result: AgentResultSpec): { name: string; schema: Record<string, unknown> } | undefined {
+export function answerSchema(
+    result: AgentResultSpec,
+    receivers: readonly ReceiverInfo[] = [],
+): { name: string; schema: Record<string, unknown> } | undefined {
     switch (result.type) {
+        case 'proposals': {
+            const kinds = result.options.receivers.filter((kind) =>
+                receivers.some((receiver) => receiver.kind === kind),
+            );
+            return {
+                name: 'agent_proposals',
+                schema: {
+                    type: 'object',
+                    properties: {
+                        proposals: {
+                            type: 'array',
+                            items: {
+                                type: 'object',
+                                properties: {
+                                    kind: kinds.length ? { type: 'string', enum: kinds } : { type: 'string' },
+                                    why: { type: 'string' },
+                                    data: { type: 'object' },
+                                },
+                                required: ['kind', 'data'],
+                            },
+                        },
+                    },
+                    required: ['proposals'],
+                },
+            };
+        }
         case 'flags': {
             const properties: Record<string, unknown> = {};
             for (const name of result.options.names) properties[name] = { type: ['string', 'number', 'boolean'] };
@@ -216,6 +262,8 @@ export interface BuildInput {
     limit?: number;
     /** A one-off addition from the user (`/maestro-agent <name> <указание>`, «Запустить с указанием»). */
     extra?: string;
+    /** Receivers of proposals (type «Предложения»). */
+    receivers?: readonly ReceiverInfo[];
 }
 
 /** The messages of one agent request. */
@@ -235,7 +283,7 @@ export function buildAgentMessages(input: BuildInput): AgentMessage[] {
         input.extra?.trim() ? `\nAdditional instruction for this run: ${input.extra.trim()}` : '',
         '</task>',
         '',
-        answerForm(input.def.result),
+        answerForm(input.def.result, input.receivers),
     ]
         .filter((line, index, all) => !(line === '' && all[index - 1] === ''))
         .join('\n');

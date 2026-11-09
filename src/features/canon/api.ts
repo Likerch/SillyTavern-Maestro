@@ -8,7 +8,16 @@ import type { Unsubscribe } from '../../shared/contracts';
 
 export type CanonKind = 'override' | 'addition' | 'suppress' | 'pin';
 export type CanonStatus = 'active' | 'provisional' | 'archived';
-export type CanonOrigin = 'user' | 'revision' | 'living' | 'chronicle' | 'backstage' | 'entity' | 'import';
+export type CanonOrigin =
+    | 'user'
+    | 'revision'
+    | 'living'
+    | 'chronicle'
+    | 'backstage'
+    | 'entity'
+    | 'import'
+    /** Release 1.31: an agent's proposal (M44). */
+    | 'agent';
 
 /** Typed entry of Maestro books (M23 typed entries; stored in extensions.maestro.type). */
 export type EntryType =

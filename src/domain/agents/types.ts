@@ -15,8 +15,8 @@ export const AGENT_PHASES: readonly AgentPhase[] = [
     'manual',
 ];
 
-/** What an agent returns (plan §3.5). 'proposals' and 'image' come with releases 1.31 and 1.33. */
-export type AgentResultType = 'inject' | 'flags' | 'rewrite' | 'verdict' | 'note' | 'choices' | 'memory';
+/** What an agent returns (plan §3.5). 'proposals' since release 1.31; 'image' comes with 1.33. */
+export type AgentResultType = 'inject' | 'flags' | 'rewrite' | 'verdict' | 'note' | 'choices' | 'memory' | 'proposals';
 
 export const AGENT_RESULT_TYPES: readonly AgentResultType[] = [
     'inject',
@@ -26,6 +26,7 @@ export const AGENT_RESULT_TYPES: readonly AgentResultType[] = [
     'note',
     'choices',
     'memory',
+    'proposals',
 ];
 
 /** Result types answered as JSON (with a schema); the others are plain text. */
@@ -35,6 +36,7 @@ export const JSON_RESULT_TYPES: ReadonlySet<AgentResultType> = new Set([
     'verdict',
     'choices',
     'memory',
+    'proposals',
 ]);
 
 export type AgentReasoning = 'off' | 'low' | 'medium' | 'high';
@@ -136,6 +138,13 @@ export interface MemoryOptions {
     injectOptions: InjectOptions;
 }
 
+export interface ProposalsOptions {
+    /** Receivers the agent may propose to (ProposalReceiver.kind). */
+    receivers: string[];
+    /** Proposals per run at most. */
+    max: number;
+}
+
 export type AgentResultSpec =
     | { type: 'inject'; options: InjectOptions }
     | { type: 'flags'; options: FlagsOptions }
@@ -143,7 +152,8 @@ export type AgentResultSpec =
     | { type: 'verdict'; options: VerdictOptions }
     | { type: 'note'; options: NoteOptions }
     | { type: 'choices'; options: ChoicesOptions }
-    | { type: 'memory'; options: MemoryOptions };
+    | { type: 'memory'; options: MemoryOptions }
+    | { type: 'proposals'; options: ProposalsOptions };
 
 export interface AgentModel {
     /** Connection Manager profile id; absent = «профиль агентов по умолчанию» (core profiles.agents), then default. */

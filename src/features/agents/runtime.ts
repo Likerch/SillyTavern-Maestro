@@ -13,8 +13,10 @@
 import { rerenderMessage } from '../../host/messages';
 import { conditionsHold, eventOfSignal, isBreak, isDue } from '../../domain/agents/cadence';
 import type { ConditionContext } from '../../domain/agents/cadence';
+import { matchesSchema } from '../../core/llm';
+import { proposalReceiver } from '../../core/proposal-receivers';
 import { verdictFix } from '../../domain/agents/output';
-import type { AgentOutput } from '../../domain/agents/output';
+import type { AgentOutput, ProposalItem } from '../../domain/agents/output';
 import { checkRewrite, restore } from '../../domain/agents/rewrite';
 import type { AgentDef, AgentEvent, AgentPhase, AgentRun, AgentState, InjectOptions } from '../../domain/agents/types';
 import { stableHash } from '../../domain/hash';
@@ -291,8 +293,54 @@ export class AgentRuntime {
             case 'rewrite':
                 if (index !== undefined) applied.push(...(await this.applyRewrite(def, outcome, index)));
                 break;
+            case 'proposals':
+                applied.push(...(await this.applyProposals(def, output.items, index)));
+                break;
         }
         return applied;
+    }
+
+    /** Proposals (release 1.31): each item through its receiver to autonomy and the Inbox. */
+    private async applyProposals(
+        def: AgentDef,
+        items: readonly ProposalItem[],
+        index: number | undefined,
+    ): Promise<string[]> {
+        let applied = 0;
+        let queued = 0;
+        let refused = 0;
+        for (const item of items) {
+            const receiver = proposalReceiver(item.kind);
+            if (!receiver || !matchesSchema(item.data, receiver.schema)) {
+                refused += 1;
+                continue;
+            }
+            try {
+                const context: { agentName: string; messageIndex?: number } = { agentName: def.name };
+                if (index !== undefined) context.messageIndex = index;
+                const proposal = await receiver.toProposal(item.data, context);
+                if (!proposal) {
+                    refused += 1;
+                    continue;
+                }
+                if (item.why && !proposal.description) proposal.description = item.why;
+                proposal.details = [proposal.details, this.t('m44.proposal.by', { name: def.name })]
+                    .filter(Boolean)
+                    .join('\n');
+                if (index !== undefined && proposal.sourceMessage === undefined) proposal.sourceMessage = index;
+                const decision = await this.app.autonomy.decide(proposal, receiver.defaultAutonomy);
+                if (decision === 'applied' || decision === 'notified') applied += 1;
+                else if (decision === 'queued') queued += 1;
+            } catch (error) {
+                this.log.warn(`proposal ${item.kind} failed`, error);
+                refused += 1;
+            }
+        }
+        const out: string[] = [];
+        if (applied) out.push(this.t('m44.applied.proposalsDone', { count: applied }));
+        if (queued) out.push(this.t('m44.applied.proposalsInbox', { count: queued }));
+        if (refused) out.push(this.t('m44.applied.proposalsRefused', { count: refused }));
+        return out;
     }
 
     private applyInjection(def: AgentDef, output: AgentOutput, phase: AgentPhase): string[] {

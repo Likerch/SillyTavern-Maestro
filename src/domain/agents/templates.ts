@@ -196,6 +196,78 @@ export const AGENT_TEMPLATES: readonly AgentTemplate[] = [
         result: { type: 'inject', options: { ...DEFAULT_INJECT, depth: 4, lifetime: 'untilNext' } },
         model: { temperature: 1.0 },
     },
+    {
+        id: 'secrets',
+        group: 'text',
+        icon: 'fa-user-secret',
+        since: '1.31',
+        instruction:
+            'Check whether any character in the reply knows or uses something they could not know: a secret they were not told, an event they did not witness, a name nobody said to them. Use the record of who knows what and the story. Report only clear cases with the quote; never style preferences.',
+        sources: [{ id: 'knowledge' }, { id: 'canon' }, RECENT(10), { id: 'reply' }],
+        trigger: { phase: 'post' },
+        result: { type: 'verdict', options: { action: 'offerRedo' } },
+        model: { temperature: 0.2 },
+    },
+    {
+        id: 'character-creator',
+        group: 'creators',
+        icon: 'fa-user-plus',
+        since: '1.31',
+        instruction:
+            'A new person has entered the story. For every named character who now matters to the story (speaks, acts, will clearly come back) and is neither in the known names nor in the lore, propose a lore entry of this chat: who they are, how they look, how they speak and behave, how they relate to {{user}} and to the others — only what the story showed or clearly implied, nothing invented beyond that. Skip passers-by and unnamed extras. Name them exactly as the story does, in {{язык_истории}}.',
+        sources: [{ id: 'worldNames' }, { id: 'lore' }, { id: 'canon' }, RECENT(14)],
+        trigger: { phase: 'schedule', events: ['newCharacter'] },
+        result: { type: 'proposals', options: { receivers: ['canon.agentEntry'], max: 2 } },
+        model: { temperature: 0.4 },
+    },
+    {
+        id: 'character-editor',
+        group: 'creators',
+        icon: 'fa-user-pen',
+        since: '1.31',
+        instruction:
+            "The scene has ended. Look at the characters' lore entries and at what the scene did to them: wounds and scars, a new role or title, changed relations, a new look or new clothes for good, a secret revealed. For each entry the story clearly changed, propose its updated text (keep everything still true). Do not touch entries the scene did not change.",
+        sources: [{ id: 'lore' }, { id: 'canon' }, RECENT(20)],
+        trigger: { phase: 'schedule', events: ['sceneEnd'] },
+        result: { type: 'proposals', options: { receivers: ['canon.agentEdit'], max: 3 } },
+        model: { temperature: 0.3 },
+    },
+    {
+        id: 'biographer',
+        group: 'creators',
+        icon: 'fa-book-open-reader',
+        since: '1.31',
+        instruction:
+            'Find a character of the story whose lore entry is thin (a line or two) although they have played a real part. Write their entry out: background that fits what the story showed, manner of speech, habits, appearance details, wants and fears — consistent with everything known, never contradicting it, and marked as inferred where the story did not state it. Propose the whole updated text of that one entry.',
+        sources: [{ id: 'lore' }, { id: 'canon' }, { id: 'worldNames' }, RECENT(20)],
+        trigger: { phase: 'schedule', everyMessages: 25 },
+        result: { type: 'proposals', options: { receivers: ['canon.agentEdit'], max: 1 } },
+        model: { temperature: 0.6 },
+    },
+    {
+        id: 'cartographer',
+        group: 'creators',
+        icon: 'fa-map-location-dot',
+        since: '1.31',
+        instruction:
+            'The story has moved to a place. If this place (or another named place the story now uses) has no lore entry yet, propose one: what it is, where it lies relative to known places, what it looks like, sounds and smells like, who is usually there, what can be found there — what the story showed plus a few details that fit the world, never contradicting it. Name it as the story does, in {{язык_истории}}.',
+        sources: [{ id: 'places' }, { id: 'worldNames' }, { id: 'lore' }, { id: 'desScene' }, RECENT(8)],
+        trigger: { phase: 'schedule', events: ['placeChange'] },
+        result: { type: 'proposals', options: { receivers: ['canon.agentEntry'], max: 2 } },
+        model: { temperature: 0.6 },
+    },
+    {
+        id: 'world-chronicler',
+        group: 'creators',
+        icon: 'fa-landmark',
+        since: '1.31',
+        instruction:
+            "Read the recent story and find things it keeps relying on that the lore does not describe: factions and families, customs and holidays, items of note, past events people refer to. For the most important ones propose lore entries — only what the story showed or clearly implied, written as the world's own truth. Skip what is already known.",
+        sources: [{ id: 'worldNames' }, { id: 'lore' }, { id: 'canon' }, RECENT(30)],
+        trigger: { phase: 'schedule', everyMessages: 30 },
+        result: { type: 'proposals', options: { receivers: ['canon.agentEntry'], max: 3 } },
+        model: { temperature: 0.4 },
+    },
 ];
 
 export function templateById(id: string): AgentTemplate | undefined {
@@ -256,6 +328,20 @@ export const BUILTIN_SETS: readonly AgentSet[] = [
             'template:director-hint': { on: true },
             'template:names': { on: true },
             'template:anti-loop': { on: true },
+        },
+    },
+    // Release 1.31: «Мир растёт» — the creators.
+    {
+        id: 'world-grows',
+        name: 'World grows',
+        builtin: true,
+        titleKey: 'm44.set.worldGrows',
+        descriptionKey: 'm44.set.worldGrows.desc',
+        agents: {
+            'template:character-creator': { on: true },
+            'template:cartographer': { on: true },
+            'template:world-chronicler': { on: true },
+            'template:biographer': { on: true },
         },
     },
 ];

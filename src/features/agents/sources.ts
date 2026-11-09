@@ -11,7 +11,10 @@ import { cleanForAnalysis as cleanStory } from '../../domain/text-clean';
 import type { App, Unsubscribe } from '../../shared/contracts';
 import type { DirectorApi } from '../director/api';
 import type { LoreJournalApi } from '../loreJournal/api';
+import type { KnowledgeApi } from '../knowledge/api';
 import type { MechanicsApi } from '../mechanics/api';
+import type { PlacesApi } from '../places/api';
+import type { WorldModelApi } from '../world/api';
 import type { AgentsChatState } from './chat-state';
 
 /** Story text for an agent: Maestro's cleaning plus DES tracker blocks anywhere (a continued reply). */
@@ -229,7 +232,10 @@ export const BUILTIN_SOURCES: readonly ContextSource[] = [
             const contents = journal?.lastContents?.() ?? [];
             const text = contents
                 .filter((entry) => entry.content.trim())
-                .map((entry) => `[${entry.comment || entry.world}] ${entry.content.trim()}`)
+                .map(
+                    (entry) =>
+                        `[${entry.comment || entry.world} · ${entry.world}#${entry.uid}] ${entry.content.trim()}`,
+                )
                 .join('\n\n');
             return cutEnd(text, budget);
         },
@@ -353,6 +359,68 @@ export const BUILTIN_SOURCES: readonly ContextSource[] = [
             const lines = [
                 scene ? `Scene type: ${scene.type} (held ${scene.held} turns)` : '',
                 stall.turns ? `Stalling for ${stall.turns} turns (${stall.reasons.join(', ')})` : '',
+            ].filter(Boolean);
+            return cutEnd(lines.join('\n'), budget);
+        },
+    },
+    {
+        id: 'knowledge',
+        labelKey: 'm44.src.knowledge',
+        title: 'Who knows what (secrets and known facts)',
+        budget: 1500,
+        stable: false,
+        available: (app) => app.modules.api<KnowledgeApi>('knowledge') !== undefined,
+        render: (ctx, budget) => {
+            const facts = ctx.app.modules.api<KnowledgeApi>('knowledge')?.facts() ?? [];
+            const lines = facts.map(
+                (fact) =>
+                    `- ${fact.secret ? '[secret] ' : ''}${fact.text} — known by: ${fact.knownBy.join(', ') || 'nobody'}`,
+            );
+            return cutEnd(lines.join('\n'), budget);
+        },
+    },
+    {
+        id: 'worldNames',
+        labelKey: 'm44.src.worldNames',
+        title: 'Names the world already knows (characters, places, things)',
+        budget: 1500,
+        stable: true,
+        available: (app) => app.modules.api<WorldModelApi>('world') !== undefined,
+        render: (ctx, budget) => {
+            const world = ctx.app.modules.api<WorldModelApi>('world');
+            if (!world) return '';
+            const byKind = new Map<string, string[]>();
+            for (const entity of world.entities()) {
+                const list = byKind.get(entity.kind) ?? [];
+                list.push(
+                    entity.aliases.length ? `${entity.name} (${entity.aliases.slice(0, 3).join(', ')})` : entity.name,
+                );
+                byKind.set(entity.kind, list);
+            }
+            const lines = [...byKind.entries()].map(([kind, list]) => `${kind}: ${list.join('; ')}`);
+            return cutEnd(lines.join('\n'), budget);
+        },
+    },
+    {
+        id: 'places',
+        labelKey: 'm44.src.places',
+        title: 'Places (the current one first)',
+        budget: 800,
+        stable: false,
+        available: (app) => app.modules.api<PlacesApi>('places') !== undefined,
+        render: (ctx, budget) => {
+            const places = ctx.app.modules.api<PlacesApi>('places');
+            if (!places) return '';
+            const current = places.current();
+            const others = places
+                .list()
+                .filter((place) => place.id !== current?.id)
+                .map((place) => place.name);
+            const lines = [
+                current
+                    ? `Now: ${current.name}${current.entry ? ` (lore: ${current.entry.world}#${current.entry.uid})` : ' (no lore entry yet)'}`
+                    : '',
+                others.length ? `Known: ${others.join(', ')}` : '',
             ].filter(Boolean);
             return cutEnd(lines.join('\n'), budget);
         },

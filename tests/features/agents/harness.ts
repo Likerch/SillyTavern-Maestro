@@ -14,6 +14,7 @@ import type {
     LlmResult,
     MessageStripProvider,
     PultTab,
+    Proposal,
     TaskRunner,
     TaskSpec,
     Unsubscribe,
@@ -39,6 +40,8 @@ export interface Harness {
     docs: Map<string, unknown>;
     disposers: (() => void | Promise<void>)[];
     interceptors: LlmInterceptor[];
+    decisions: { proposal: Proposal; fallback: string }[];
+    appliers: string[];
     produce(type?: string): Promise<void>;
     saved: number;
 }
@@ -85,6 +88,8 @@ export async function harness(options: HarnessOptions = {}): Promise<Harness> {
     });
     const exposed = new Map<string, unknown>();
     const interceptors: LlmInterceptor[] = [];
+    const decisions: { proposal: Proposal; fallback: string }[] = [];
+    const appliers: string[] = [];
     if (options.qualityApi) exposed.set('quality', options.qualityApi);
     const bus = createBus(log);
     const h = { saved: 0 } as Harness;
@@ -198,8 +203,19 @@ export async function harness(options: HarnessOptions = {}): Promise<Harness> {
             onChange: () => () => {},
         },
         journal,
-        autonomy: {},
-        inbox: {},
+        autonomy: {
+            decide: async (proposal: Proposal, fallback: string) => {
+                decisions.push({ proposal, fallback });
+                return 'queued';
+            },
+            neverAuto() {},
+        },
+        inbox: {
+            registerApplier: (kind: string) => {
+                appliers.push(kind);
+                return () => appliers.splice(appliers.indexOf(kind), 1);
+            },
+        },
         ephemeral: {
             setFlag: (name: string, value: string | number | boolean) => void flags.set(name, String(value)),
             setInjection: (key: string, spec: InjectionSpec) => void injections.set(key, spec),
@@ -247,6 +263,8 @@ export async function harness(options: HarnessOptions = {}): Promise<Harness> {
         docs,
         disposers,
         interceptors,
+        decisions,
+        appliers,
         async produce(type = 'normal') {
             injections.clear();
             flags.clear();
