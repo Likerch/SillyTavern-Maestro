@@ -1,5 +1,6 @@
 // Strings of M44 «Агенты» (`m44.*`). Russian is the primary UI language; the user is addressed as «ты» (male).
 import type { I18nParts } from '../../shared/contracts';
+import { BUILTIN_STRINGS } from './strings-builtin';
 
 const PHASES_RU: Record<string, [string, string]> = {
     prefetch: [
@@ -217,6 +218,7 @@ function expandTemplates(table: Record<string, [string, string]>): Record<string
 
 export const AGENTS_STRINGS: I18nParts = {
     en: {
+        ...BUILTIN_STRINGS.en,
         'm44.title': 'Agents',
         'm44.profileDefault': 'Agents (default for your own agents)',
         'kind.agents.def': 'Agent changes',
@@ -580,6 +582,7 @@ export const AGENTS_STRINGS: I18nParts = {
         'm44.import.done': 'Agents imported: {count}.',
     },
     ru: {
+        ...BUILTIN_STRINGS.ru,
         'm44.title': 'Агенты',
         'm44.profileDefault': 'Агенты (по умолчанию для твоих агентов)',
         'kind.agents.def': 'Изменения агентов',

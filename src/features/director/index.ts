@@ -1,6 +1,8 @@
 // M13 «Режиссёр сцены» + M14 «Темп и повороты» (plan M13, M14, M34 п.8, §11, §12, P14–P16; stage 8): the scene type
 // of every committed reply drives one-shot flags `maestro_*` for conditional preset blocks; a stalled story gets a
 // one-shot director's note near the end of the prompt. Exposed as app.modules.api<DirectorApi>('director').
+import { registerBuiltInAgent } from '../../core/builtin-agents';
+import { SCENE_INSTRUCTION_HEAD } from '../../domain/director-scene';
 import type { MaestroModule } from '../../shared/contracts';
 import { registerProfileTask } from '../../ui';
 import type { DirectorApi } from './api';
@@ -25,6 +27,17 @@ export const directorModule: MaestroModule<DirectorSettings> = {
         service.install(own);
         app.modules.expose(DIRECTOR_KEY, service satisfies Required<DirectorApi>);
         own(registerProfileTask(SCENE_TASK, 'm13.profileTask'));
+        own(
+            registerBuiltInAgent({
+                id: SCENE_TASK,
+                module: 'director',
+                group: 'story',
+                icon: 'fa-clapperboard',
+                defaultInstructions: () => [SCENE_INSTRUCTION_HEAD],
+                defaults: { maxTokens: 80, temperature: 0 },
+                switch: { path: 'model' },
+            }),
+        );
         own(app.ui.style('maestro-m13', DIRECTOR_CSS));
         own(app.ui.addTab(directorTab(app, service, settings)));
         own(app.ui.addSlashCommand(sceneCommand(app, service)));

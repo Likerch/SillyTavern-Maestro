@@ -477,3 +477,6 @@ export function parseExtractAnswer(
     }
     return { edits, statuses, items, rejected, elapsed: elapsedOf(answer.elapsed) };
 }
+
+/** The base instruction of the background parse, `{max}` not filled (built-in agent «Учёт механик», release 1.29). */
+export const MECHANICS_EXTRACT_INSTRUCTION = SYSTEM_PROMPT;

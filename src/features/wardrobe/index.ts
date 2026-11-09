@@ -10,6 +10,9 @@
 // change the player's message or the narration says, the model reads what the text does not tell; «Переодеться» at
 // the Maestro button at the message box, the line under the message, `/maestro-wear` (quick.ts).
 // Exposed as app.modules.api<WardrobeApi>('wardrobe').
+import { registerBuiltInAgent } from '../../core/builtin-agents';
+import { WARDROBE_CHANGE_INSTRUCTION } from '../../domain/wardrobe-change-model';
+import { WARDROBE_PERSONA_INSTRUCTION } from '../../domain/wardrobe-persona';
 import type { I18n, MaestroModule, TargetSpec } from '../../shared/contracts';
 import type { WardrobeApi } from './api';
 import { DesFieldOffer } from './des-field';
@@ -135,6 +138,38 @@ export const wardrobeModule: MaestroModule<WardrobeSettings> = {
         const field = new DesFieldOffer(app, scoped);
         const persona = new PersonaCheck(app, scoped, service, settings);
         const triggers = new WardrobeTriggers(app, scoped, service, settings);
+        own(
+            registerBuiltInAgent({
+                id: 'wardrobe.change',
+                module: 'wardrobe',
+                group: 'world',
+                icon: 'fa-shirt',
+                defaultInstructions: () => [WARDROBE_CHANGE_INSTRUCTION],
+                defaults: { maxTokens: 300, temperature: 0 },
+                switch: { path: 'triggers' },
+            }),
+        );
+        own(
+            registerBuiltInAgent({
+                id: 'wardrobe.persona',
+                module: 'wardrobe',
+                group: 'world',
+                icon: 'fa-user-tie',
+                defaultInstructions: () => [WARDROBE_PERSONA_INSTRUCTION],
+                defaults: { maxTokens: 150, temperature: 0 },
+                knobs: [
+                    {
+                        path: 'personaEvery',
+                        labelKey: 'm44.bi.wardrobe.persona.knob.personaEvery',
+                        kind: 'number',
+                        min: 1,
+                        max: 50,
+                        step: 1,
+                    },
+                ],
+                switch: { path: 'persona' },
+            }),
+        );
         // The narration of the reply after the tracker; the persona check every N turns only without the triggers.
         service.setTurnHook(async (index) => {
             // The hook runs inside the service's queue: the narration's changes queue up behind this turn.

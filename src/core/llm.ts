@@ -12,11 +12,13 @@ import type {
     CostMeter,
     Host,
     LlmClient,
+    LlmInterceptor,
     LlmMessage,
     LlmRequest,
     LlmResult,
     Logger,
     SettingsService,
+    Unsubscribe,
 } from '../shared/contracts';
 import { readUsage, tokensOf } from './cost';
 
@@ -56,6 +58,7 @@ export interface BreakerState {
 }
 
 export interface LlmClientImpl extends LlmClient {
+    addInterceptor(interceptor: LlmInterceptor): Unsubscribe;
     /** Breaker state of a profile (UI, tests). */
     breaker(profileId: string): BreakerState;
     resetBreakers(): void;
@@ -88,6 +91,32 @@ export function createLlmClient(deps: LlmClientDeps): LlmClientImpl {
     const backoff = deps.backoffMs ?? DEFAULT_BACKOFF_MS;
     const now = deps.now ?? Date.now;
     const breakers = new Map<string, BreakerState>();
+    const interceptors = new Set<LlmInterceptor>();
+
+    function intercept(request: LlmRequest): LlmRequest {
+        let current = request;
+        for (const interceptor of [...interceptors]) {
+            if (!interceptor.before) continue;
+            try {
+                current = interceptor.before(current) ?? current;
+            } catch (error) {
+                log.warn('llm interceptor failed (before)', error);
+            }
+        }
+        return current;
+    }
+
+    function observe(request: LlmRequest, result: LlmResult, startedAt: number): void {
+        const ms = now() - startedAt;
+        for (const interceptor of [...interceptors]) {
+            if (!interceptor.after) continue;
+            try {
+                interceptor.after(request, result, ms);
+            } catch (error) {
+                log.warn('llm interceptor failed (after)', error);
+            }
+        }
+    }
 
     function connectionManager(): ConnectionManager | undefined {
         const context: Partial<STContext> = host.ctx();
@@ -291,29 +320,20 @@ export function createLlmClient(deps: LlmClientDeps): LlmClientImpl {
     }
 
     return {
-        async request<T = unknown>(request: LlmRequest): Promise<LlmResult<T>> {
-            const interactive = request.interactive === true || INTERACTIVE_TASKS.has(request.task);
-            if (!interactive && cost.backgroundCapReached()) return { ok: false, error: 'cap' };
-            const service = connectionManager();
-            if (!service) return { ok: false, error: 'no-cm' };
-            const profiles = candidates(request.task, request.profile, request.profileKeys);
-            if (profiles.length === 0) return { ok: false, error: 'no-profile' };
-            const usable = profiles.filter((id) => !isOpen(id));
-            if (usable.length === 0) return { ok: false, error: 'breaker-open' };
-
-            const spent: Spent = { any: false, usd: 0, prompt: 0, completion: 0 };
-            let result: LlmResult<T> = { ok: false, error: 'breaker-open' };
-            for (const profileId of usable) {
-                const outcome = await viaProfile<T>(service, profileId, request, spent);
-                result = outcome.result;
-                // The fallback profile is used only once the primary's breaker is open.
-                if (outcome.final || !isOpen(profileId)) break;
-            }
-            if (spent.any) {
-                result.costUsd = spent.usd;
-                result.tokens = { prompt: spent.prompt, completion: spent.completion };
-            }
+        async request<T = unknown>(original: LlmRequest): Promise<LlmResult<T>> {
+            const request = interceptors.size ? intercept(original) : original;
+            if (!interceptors.size) return send<T>(request);
+            const startedAt = now();
+            const result = await send<T>(request);
+            observe(request, result as LlmResult, startedAt);
             return result;
+        },
+
+        addInterceptor(interceptor: LlmInterceptor): Unsubscribe {
+            interceptors.add(interceptor);
+            return () => {
+                interceptors.delete(interceptor);
+            };
         },
 
         available(task: string, profile?: string, profileKeys?: readonly string[]): boolean {
@@ -330,6 +350,31 @@ export function createLlmClient(deps: LlmClientDeps): LlmClientImpl {
             breakers.clear();
         },
     };
+
+    async function send<T>(request: LlmRequest): Promise<LlmResult<T>> {
+        const interactive = request.interactive === true || INTERACTIVE_TASKS.has(request.task);
+        if (!interactive && cost.backgroundCapReached()) return { ok: false, error: 'cap' };
+        const service = connectionManager();
+        if (!service) return { ok: false, error: 'no-cm' };
+        const profiles = candidates(request.task, request.profile, request.profileKeys);
+        if (profiles.length === 0) return { ok: false, error: 'no-profile' };
+        const usable = profiles.filter((id) => !isOpen(id));
+        if (usable.length === 0) return { ok: false, error: 'breaker-open' };
+
+        const spent: Spent = { any: false, usd: 0, prompt: 0, completion: 0 };
+        let result: LlmResult<T> = { ok: false, error: 'breaker-open' };
+        for (const profileId of usable) {
+            const outcome = await viaProfile<T>(service, profileId, request, spent);
+            result = outcome.result;
+            // The fallback profile is used only once the primary's breaker is open.
+            if (outcome.final || !isOpen(profileId)) break;
+        }
+        if (spent.any) {
+            result.costUsd = spent.usd;
+            result.tokens = { prompt: spent.prompt, completion: spent.completion };
+        }
+        return result;
+    }
 }
 
 /* ------------------------------------------------------------------ request building */

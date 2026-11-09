@@ -31,15 +31,18 @@ export interface PersonaRequest {
     excerpt: string;
 }
 
+/** The instruction of the persona's clothes request (built-in agent, release 1.29). */
+export const WARDROBE_PERSONA_INSTRUCTION = [
+    "You read an excerpt of a role-play and say what one character is wearing right now: the user's character.",
+    'Answer with JSON only: {"wearing": "<short phrase>"} or {"wearing": null}.',
+    'The phrase lists garments, footwear and accessories as the story says them, in the language of the story',
+    '(Russian stays Russian), or says that the character is naked, in a towel or in underwear.',
+    'Only clothing: no hair, eyes, body, mood. Do not describe anyone else.',
+    'If the excerpt does not say or clearly imply what this character wears now, answer null.',
+].join(' ');
+
 export function personaMessages(request: PersonaRequest): LlmMessage[] {
-    const system = [
-        "You read an excerpt of a role-play and say what one character is wearing right now: the user's character.",
-        'Answer with JSON only: {"wearing": "<short phrase>"} or {"wearing": null}.',
-        'The phrase lists garments, footwear and accessories as the story says them, in the language of the story',
-        '(Russian stays Russian), or says that the character is naked, in a towel or in underwear.',
-        'Only clothing: no hair, eyes, body, mood. Do not describe anyone else.',
-        'If the excerpt does not say or clearly imply what this character wears now, answer null.',
-    ].join(' ');
+    const system = WARDROBE_PERSONA_INSTRUCTION;
     const user = [
         `Character: ${request.name}`,
         `Known so far: ${request.current.trim() || 'unknown'}`,

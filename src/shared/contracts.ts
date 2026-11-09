@@ -365,8 +365,20 @@ export interface LlmResult<T = unknown> {
     truncated?: boolean;
 }
 
+/**
+ * Release 1.29 (built-in agents, M44): sees every request of Maestro's client. `before` may return a changed copy (the
+ * user's instruction, model parameters of a built-in agent); `after` sees the outcome (the run log). Interceptors never
+ * throw into the caller: a failing one is skipped.
+ */
+export interface LlmInterceptor {
+    before?(request: LlmRequest): LlmRequest;
+    after?(request: LlmRequest, result: LlmResult, ms: number): void;
+}
+
 export interface LlmClient {
     request<T = unknown>(request: LlmRequest): Promise<LlmResult<T>>;
+    /** Release 1.29: adds an interceptor (optional for older fakes). */
+    addInterceptor?(interceptor: LlmInterceptor): Unsubscribe;
     /** False when no usable profile exists or the circuit breaker is open for the task's profile. */
     available(task: string, profile?: string, profileKeys?: readonly string[]): boolean;
 }

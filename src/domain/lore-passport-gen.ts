@@ -213,3 +213,6 @@ export function estimatePassportCost(lengths: readonly number[]): { tokens: numb
     );
     return { tokens, usd: bootstrapCostUsd(tokens) };
 }
+
+/** The instruction of the passport generator (built-in agent, release 1.29). */
+export const LORE_PASSPORT_INSTRUCTION = SYSTEM_PROMPT;

@@ -271,6 +271,8 @@ export interface AgentRun {
     error?: AgentErrorKind;
     /** A test run: nothing was applied. */
     test?: boolean;
+    /** A run of a built-in agent (a module's own request, release 1.29). */
+    builtin?: boolean;
     /** The request and the raw answer (kept for the newest runs only). */
     request?: { role: string; content: string }[];
     raw?: string;

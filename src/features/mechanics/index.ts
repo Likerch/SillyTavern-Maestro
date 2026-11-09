@@ -7,6 +7,8 @@
 // the definitions (`whileSuspended`, release 1.24.1): they have nothing to do with the open chat, and Officina publishes
 // mechanics from its co-author chat through MAESTRO_API.mechanics. Release 1.27: a roll the model asks for is rolled
 // as the reply arrives and the same reply goes on with its result (roll-continue.ts).
+import { registerBuiltInAgent } from '../../core/builtin-agents';
+import { EXTRACT_LIMITS, MECHANICS_EXTRACT_INSTRUCTION } from '../../domain/mechanics-extract';
 import type { App, Logger, MaestroModule } from '../../shared/contracts';
 import { registerProfileTask } from '../../ui';
 import type { MechanicDefinitionsApi, MechanicsApi } from './api';
@@ -85,6 +87,19 @@ export const mechanicsModule: MaestroModule<MechanicsSettings> = {
         tracking.install();
         // Its own line in «Профили»: the background parse of replies may go to a cheaper model than the default.
         own(registerProfileTask(EXTRACT_TASK, 'm25.profileTask'));
+        own(
+            registerBuiltInAgent({
+                id: EXTRACT_TASK,
+                module: 'mechanics',
+                group: 'mechanics',
+                icon: 'fa-dice-d20',
+                defaultInstructions: () => [
+                    MECHANICS_EXTRACT_INSTRUCTION.replace('{max}', String(EXTRACT_LIMITS.changes)),
+                ],
+                defaults: { maxTokens: 1200, temperature: 0.1 },
+                switch: { path: 'background' },
+            }),
+        );
 
         const checks = new MechanicChecks(deps, defs, state);
         own(() => checks.dispose());

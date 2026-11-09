@@ -174,3 +174,6 @@ export function estimateCompare(snippets: readonly CompareSnippet[]): { input: n
     const input = Math.ceil(chars / 4) + OVERHEAD_TOKENS;
     return { input, output: OUTPUT_TOKENS, usd: bootstrapCostUsd(input + OUTPUT_TOKENS) };
 }
+
+/** The instruction of «Сверить с ИИ» (built-in agent, release 1.29). */
+export const DOSSIER_COMPARE_INSTRUCTION = SYSTEM_PROMPT;

@@ -2,6 +2,8 @@
 // dates, explicit negations, English and Russian), the cheap background model only on suspicion. Used by the living
 // canon (M26), the revision (M8) and later the quality check (M12). No UI of its own: the profile for its background
 // task is chosen in Settings. Exposed as app.modules.api<ContradictionsApi>('contradictions').
+import { registerBuiltInAgent } from '../../core/builtin-agents';
+import { CONTRADICTIONS_INSTRUCTION } from '../../domain/contradictions-ai';
 import type { MaestroModule } from '../../shared/contracts';
 import { registerProfileTask } from '../../ui';
 import type { ContradictionsApi } from './api';
@@ -25,6 +27,16 @@ export const contradictionsModule: MaestroModule = {
         };
         app.modules.expose(CONTRADICTIONS_KEY, api);
         own(registerProfileTask(CHECK_TASK, 'm26c.profileTask'));
+        own(
+            registerBuiltInAgent({
+                id: CHECK_TASK,
+                module: 'contradictions',
+                group: 'canon',
+                icon: 'fa-code-compare',
+                defaultInstructions: () => [CONTRADICTIONS_INSTRUCTION],
+                defaults: { maxTokens: 900, temperature: 0 },
+            }),
+        );
     },
 };
 

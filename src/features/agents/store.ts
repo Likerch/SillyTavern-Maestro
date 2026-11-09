@@ -12,6 +12,8 @@ import {
     sanitizeSet,
 } from '../../domain/agents/def';
 import { BUILTIN_SETS, DEFAULT_SET_ID, agentFromTemplate, templateById } from '../../domain/agents/templates';
+import { sanitizeOverride } from '../../domain/agents/builtin';
+import type { BuiltInOverride } from '../../domain/agents/builtin';
 import type { AgentDef, AgentScope, AgentScopeState, AgentSet, AgentState } from '../../domain/agents/types';
 import type { App, Logger, Unsubscribe } from '../../shared/contracts';
 
@@ -19,6 +21,7 @@ export const AGENTS_FILE = 'agents';
 export const SCOPE_DOC_KIND = 'agents-scope';
 export const DEF_TARGET = 'agent-def';
 export const SCOPE_TARGET = 'agent-scope';
+export const BUILTIN_TARGET = 'agent-builtin';
 
 interface AgentsFile {
     schema: 1;
@@ -29,6 +32,8 @@ interface AgentsFile {
     hintShown?: boolean;
     /** Card agents the user decided about: card avatar → hash of the agents he saw (plan В6). */
     cards?: Record<string, string>;
+    /** What the user changed in built-in agents (release 1.29): task id → override. */
+    builtins?: Record<string, BuiltInOverride>;
 }
 
 function emptyFile(): AgentsFile {
@@ -62,6 +67,14 @@ function sanitizeFile(raw: unknown, now: number): AgentsFile {
         global: isDict(raw.global) ? sanitizeScopeState(raw.global) : { set: DEFAULT_SET_ID, overrides: {} },
     };
     if (raw.hintShown === true) file.hintShown = true;
+    if (isDict(raw.builtins)) {
+        const builtins: Record<string, BuiltInOverride> = {};
+        for (const [id, value] of Object.entries(raw.builtins)) {
+            const override = sanitizeOverride(value);
+            if (override && /^[a-zA-Z][\w.]{0,60}$/.test(id)) builtins[id] = override;
+        }
+        if (Object.keys(builtins).length) file.builtins = builtins;
+    }
     if (isDict(raw.cards)) {
         const cards: Record<string, string> = {};
         for (const [avatar, hash] of Object.entries(raw.cards)) if (typeof hash === 'string') cards[avatar] = hash;
@@ -306,6 +319,53 @@ export class AgentStore {
     /** «Вернуть как было» of a built-in set the user changed. */
     async resetBuiltinSet(id: string): Promise<void> {
         await this.removeSet(id);
+    }
+
+    /* ------------------------------------------------------------ built-in agents (release 1.29) */
+
+    builtinOverride(id: string): BuiltInOverride | undefined {
+        return this.file.builtins?.[id];
+    }
+
+    /** Saves what the user changed in a built-in agent (null: back to the defaults), journaled with undo. */
+    async setBuiltinOverride(id: string, override: BuiltInOverride | null, summary: string): Promise<void> {
+        const clean = override ? sanitizeOverride(override) : null;
+        const before = this.builtinOverride(id) ?? null;
+        await this.write((file) => {
+            const next = { ...(file.builtins ?? {}) };
+            if (clean) next[id] = clean;
+            else delete next[id];
+            file.builtins = Object.keys(next).length ? next : undefined;
+        });
+        try {
+            await this.app.journal.record({
+                module: 'agents',
+                kind: 'agents.builtin',
+                summary,
+                changes: [
+                    {
+                        target: BUILTIN_TARGET,
+                        ref: { id },
+                        before: before ? copy(before) : null,
+                        after: clean ? copy(clean) : null,
+                    },
+                ],
+            });
+        } catch (error) {
+            this.log.debug('journal record failed', error);
+        }
+    }
+
+    /** Undo of a built-in agent change. */
+    async undoBuiltin(id: string, before: unknown): Promise<boolean> {
+        const override = before === null ? null : sanitizeOverride(before);
+        await this.write((file) => {
+            const next = { ...(file.builtins ?? {}) };
+            if (override) next[id] = override;
+            else delete next[id];
+            file.builtins = Object.keys(next).length ? next : undefined;
+        });
+        return true;
     }
 
     cardDecision(avatar: string): string | undefined {

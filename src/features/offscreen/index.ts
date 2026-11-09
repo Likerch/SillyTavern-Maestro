@@ -3,6 +3,8 @@
 // request asks what up to three important absent characters did meanwhile; the events go to the chat canon (Inbox
 // for conflicts and drastic turns), and present characters may mention a rumour. Exposed as
 // app.modules.api<OffscreenApi>('offscreen').
+import { registerBuiltInAgent } from '../../core/builtin-agents';
+import { offscreenInstructions } from '../../domain/offscreen-prompt';
 import type { MaestroModule } from '../../shared/contracts';
 import { registerProfileTask } from '../../ui';
 import type { OffscreenApi } from './api';
@@ -35,6 +37,53 @@ export const offscreenModule: MaestroModule<OffscreenSettings> = {
         service.install(own);
         app.modules.expose(OFFSCREEN_KEY, service satisfies Required<OffscreenApi>);
         own(registerProfileTask(OFFSCREEN_LLM_TASK, 'm16.profileTask'));
+        own(
+            registerBuiltInAgent({
+                id: OFFSCREEN_LLM_TASK,
+                module: 'offscreen',
+                group: 'world',
+                icon: 'fa-masks-theater',
+                defaultInstructions: () => [offscreenInstructions()],
+                defaults: { maxTokens: 900, temperature: 0.8 },
+                knobs: [
+                    {
+                        path: 'every.balanced',
+                        labelKey: 'm44.bi.offscreen.knob.every.balanced',
+                        kind: 'number',
+                        min: 0,
+                        max: 100,
+                        step: 1,
+                    },
+                    {
+                        path: 'every.cinema',
+                        labelKey: 'm44.bi.offscreen.knob.every.cinema',
+                        kind: 'number',
+                        min: 0,
+                        max: 100,
+                        step: 1,
+                    },
+                    { path: 'sceneEnd.cinema', labelKey: 'm44.bi.offscreen.knob.sceneEnd.cinema', kind: 'toggle' },
+                    {
+                        path: 'maxCharacters',
+                        labelKey: 'm44.bi.offscreen.knob.maxCharacters',
+                        kind: 'number',
+                        min: 1,
+                        max: 3,
+                        step: 1,
+                    },
+                    {
+                        path: 'minAbsentTurns',
+                        labelKey: 'm44.bi.offscreen.knob.minAbsentTurns',
+                        kind: 'number',
+                        min: 1,
+                        max: 100,
+                        step: 1,
+                    },
+                    { path: 'rumours', labelKey: 'm44.bi.offscreen.knob.rumours', kind: 'toggle' },
+                ],
+                switch: 'module',
+            }),
+        );
         own(app.ui.style('maestro-m16', OFFSCREEN_CSS));
         own(app.ui.addTab(offscreenTab(app, service, settings)));
     },

@@ -2,6 +2,8 @@
 // puts instructions into the prompt (api.ts). Entry points: the «Проверка промпта» tab of the Preset Studio (it shows
 // renderReport()), /maestro-audit [dry], and the assistant's prompt_audit / prompt_audit_fix tools. Only on request —
 // no background watcher (В4).
+import { registerBuiltInAgent } from '../../core/builtin-agents';
+import { AUDIT_INSTRUCTION_HEAD } from '../../domain/prompt-audit-ai';
 import type { I18n, MaestroModule, TargetSpec } from '../../shared/contracts';
 import { registerProfileTask } from '../../ui';
 import type { AssistantApi } from '../assistant/api';
@@ -88,6 +90,17 @@ export const promptAuditModule: MaestroModule<PromptAuditSettings> = {
         app.modules.expose(PROMPT_AUDIT_KEY, api);
         own(() => app.modules.expose(PROMPT_AUDIT_KEY, undefined));
         own(registerProfileTask(AI_TASK, 'm38.profileTask'));
+        own(
+            registerBuiltInAgent({
+                id: AI_TASK,
+                module: 'promptAudit',
+                group: 'button',
+                icon: 'fa-stethoscope',
+                defaultInstructions: () => [AUDIT_INSTRUCTION_HEAD],
+                defaults: { maxTokens: 3000, temperature: 0 },
+                interactive: true,
+            }),
+        );
         own(app.ui.style('maestro-m38', M38_CSS));
 
         /* /maestro-audit [dry]: the rules now, then the report in the Preset Studio */

@@ -2,6 +2,8 @@
 // chat canon after the turn is committed (cheap search on every reply, batch extraction every N messages) and are
 // confirmed only by the rules of plan M26 п. 4. Exposed as app.modules.api<LivingCanonApi>('livingCanon'). Provisional
 // facts also show in the strip under their reply (strip.ts).
+import { registerBuiltInAgent } from '../../core/builtin-agents';
+import { LIVING_INSTRUCTION } from '../../domain/living-extract';
 import { formatEnum } from '../../core/labels';
 import type { MaestroModule } from '../../shared/contracts';
 import { registerProfileTask } from '../../ui';
@@ -55,6 +57,55 @@ export const livingCanonModule: MaestroModule<LivingCanonSettings> = {
         own(() => service.dispose());
         app.modules.expose(LIVING_KEY, service satisfies Required<LivingCanonApi>);
         own(registerProfileTask(EXTRACT_TASK, 'm26.profileTask'));
+        own(
+            registerBuiltInAgent({
+                id: EXTRACT_TASK,
+                module: 'livingCanon',
+                group: 'canon',
+                icon: 'fa-seedling',
+                defaultInstructions: () => [
+                    LIVING_INSTRUCTION.replace(
+                        '{max}',
+                        String(
+                            Math.max(
+                                0,
+                                Math.floor(
+                                    Number(app.settings.module<{ maxPerTurn?: number }>('livingCanon').maxPerTurn ?? 3),
+                                ),
+                            ),
+                        ),
+                    ),
+                ],
+                defaults: { maxTokens: 1800, temperature: 0.2 },
+                knobs: [
+                    {
+                        path: 'extractEvery',
+                        labelKey: 'm44.bi.living.extract.knob.extractEvery',
+                        kind: 'number',
+                        min: 0,
+                        max: 200,
+                        step: 1,
+                    },
+                    {
+                        path: 'maxPerTurn',
+                        labelKey: 'm44.bi.living.extract.knob.maxPerTurn',
+                        kind: 'number',
+                        min: 0,
+                        max: 10,
+                        step: 1,
+                    },
+                    {
+                        path: 'surviveTurns',
+                        labelKey: 'm44.bi.living.extract.knob.surviveTurns',
+                        kind: 'number',
+                        min: 0,
+                        max: 100,
+                        step: 1,
+                    },
+                ],
+                switch: 'module',
+            }),
+        );
         own(app.ui.style('m26-living', LIVING_CSS));
         own(app.ui.addTab(livingTab(app, service, settings)));
         // Facts under the replies they came from (plan-2 §5); an older shell without the strip simply has none.

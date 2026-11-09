@@ -8,6 +8,8 @@
 // it the current persona only on request. No undo: a persona is deleted in ST's persona window.
 // Needs personas.js (`st.personas`); without NAI Studio's feature the persona is still made and the window says what
 // was skipped and why.
+import { registerBuiltInAgent } from '../../core/builtin-agents';
+import { PERSONA_INSTRUCTION_HEAD } from '../../domain/persona-create';
 import { PERSONA_TASK } from '../../domain/persona-create';
 import type { App, MaestroModule, SlashCommandSpec } from '../../shared/contracts';
 import { registerProfileTask } from '../../ui';
@@ -69,6 +71,17 @@ export const personaCreatorModule: MaestroModule<PersonaCreatorSettings> = {
         const ui = new PersonaUi(app, log, service, settings, stDialog(app));
         own(() => ui.dispose());
         own(registerProfileTask(PERSONA_TASK, 'm41.profileTask'));
+        own(
+            registerBuiltInAgent({
+                id: PERSONA_TASK,
+                module: 'personaCreator',
+                group: 'button',
+                icon: 'fa-user-plus',
+                defaultInstructions: () => [PERSONA_INSTRUCTION_HEAD],
+                defaults: { maxTokens: 3000, temperature: 0.8 },
+                interactive: true,
+            }),
+        );
         own(app.ui.style('maestro-m41', PERSONA_CREATOR_CSS));
         const button = new EditorButton(
             app,

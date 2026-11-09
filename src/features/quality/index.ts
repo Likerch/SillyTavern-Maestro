@@ -1,6 +1,8 @@
 // M12 «Контроль качества ответа» (plan M12, §8, §11, §12, §16; dev-plan stage 6): every story reply is checked on
 // reply:ready before NAI Studio draws — free rules, the judge only on suspicion — and each defect kind is handled as
 // set (off / auto / notify). Exposed as app.modules.api<QualityApi>('quality').
+import { registerBuiltInAgent } from '../../core/builtin-agents';
+import { JUDGE_INSTRUCTION_HEAD } from './judge';
 import type { MaestroModule } from '../../shared/contracts';
 import { registerProfileTask } from '../../ui';
 import type { QualityApi } from './api';
@@ -32,6 +34,17 @@ export const qualityModule: MaestroModule<QualitySettings> = {
         service.install(own);
         app.modules.expose(QUALITY_KEY, service satisfies Required<QualityApi>);
         own(registerProfileTask(JUDGE_TASK, 'm12.profileTask'));
+        own(
+            registerBuiltInAgent({
+                id: JUDGE_TASK,
+                module: 'quality',
+                group: 'quality',
+                icon: 'fa-gavel',
+                defaultInstructions: () => [JUDGE_INSTRUCTION_HEAD],
+                defaults: { maxTokens: 600, temperature: 0 },
+                switch: { path: 'judge' },
+            }),
+        );
         own(app.ui.style('maestro-m12', QUALITY_CSS));
         own(app.ui.addTab(qualityTab(app, service, settings)));
     },

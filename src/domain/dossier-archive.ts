@@ -548,3 +548,6 @@ export function archiveEntry(
         content: input.content,
     });
 }
+
+/** The instruction of «Оформить» (built-in agent, release 1.29). */
+export const DOSSIER_STYLEUP_INSTRUCTION = SYSTEM_PROMPT;

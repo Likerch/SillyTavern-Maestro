@@ -9,7 +9,8 @@ import { AgentsChatState } from './chat-state';
 import { AGENTS_PROFILE_KEY, AgentRunner } from './runner';
 import { AgentRuntime } from './runtime';
 import { SourceRegistry } from './sources';
-import { AgentStore, DEF_TARGET } from './store';
+import { installBuiltinRuntime } from './builtin-runtime';
+import { AgentStore, BUILTIN_TARGET, DEF_TARGET } from './store';
 import { AGENTS_STRINGS } from './strings';
 import {
     AGENTS_CSS,
@@ -43,6 +44,7 @@ export const agentsModule: MaestroModule<AgentsSettings> = {
     targets: [
         { target: DEF_TARGET, technical: true },
         { target: 'message.text', valueLabelKey: 'm44.field.text' },
+        { target: BUILTIN_TARGET, technical: true },
     ],
     init({ app, log, own }) {
         const store = new AgentStore(app, log);
@@ -58,7 +60,13 @@ export const agentsModule: MaestroModule<AgentsSettings> = {
         });
         app.journal.registerUndo('message.text', (change) => runtime.undoText(change.ref, change.before, change.after));
 
+        app.journal.registerUndo(BUILTIN_TARGET, async (change) => {
+            const id = typeof change.ref.id === 'string' ? change.ref.id : '';
+            return id ? store.undoBuiltin(id, change.before) : false;
+        });
+
         runtime.install(own);
+        own(installBuiltinRuntime(app, store, state));
         own(registerProfileTask(AGENTS_PROFILE_KEY, 'm44.profileDefault'));
         own(app.ui.style('maestro-m44', AGENTS_CSS));
         const addWindow = app.ui.addWindow?.bind(app.ui);

@@ -4,6 +4,8 @@
 // - auto-memory: Maestro is the only owner of Qvink's «remember» mark (all swipes);
 // - «Ранее в истории…» after a break, once per break.
 // Exposed as app.modules.api<ChronicleApi>('chronicle').
+import { registerBuiltInAgent } from '../../core/builtin-agents';
+import { RECAP_INSTRUCTION_HEAD } from '../../domain/chronicle-recap';
 import type { MaestroModule, Unsubscribe } from '../../shared/contracts';
 import { registerProfileTask } from '../../ui';
 import type { ChronicleApi } from './api';
@@ -53,6 +55,48 @@ export const chronicleModule: MaestroModule<ChronicleSettings> = {
         own(() => app.modules.expose(CHRONICLE_KEY, undefined));
 
         own(registerProfileTask(RECAP_TASK, 'm9.profileTask'));
+        own(
+            registerBuiltInAgent({
+                id: RECAP_TASK,
+                module: 'chronicle',
+                group: 'story',
+                icon: 'fa-clock-rotate-left',
+                defaultInstructions: () => [RECAP_INSTRUCTION_HEAD],
+                defaults: { maxTokens: 400, temperature: 0.4 },
+                knobs: [
+                    {
+                        path: 'recap.source',
+                        labelKey: 'm44.bi.chronicle.recap.knob.recap.source',
+                        kind: 'select',
+                        options: [
+                            { value: 'memory', labelKey: 'm44.bi.chronicle.recap.knob.recap.source.memory' },
+                            { value: 'ai', labelKey: 'm44.bi.chronicle.recap.knob.recap.source.ai' },
+                        ],
+                    },
+                    {
+                        path: 'recap.afterHours',
+                        labelKey: 'm44.bi.chronicle.recap.knob.recap.afterHours',
+                        kind: 'number',
+                        min: 1,
+                        max: 720,
+                        step: 1,
+                    },
+                    {
+                        path: 'recap.target',
+                        labelKey: 'm44.bi.chronicle.recap.knob.recap.target',
+                        kind: 'select',
+                        options: [
+                            { value: 'user', labelKey: 'm44.bi.chronicle.recap.knob.recap.target.user' },
+                            {
+                                value: 'userAndPrompt',
+                                labelKey: 'm44.bi.chronicle.recap.knob.recap.target.userAndPrompt',
+                            },
+                            { value: 'off', labelKey: 'm44.bi.chronicle.recap.knob.recap.target.off' },
+                        ],
+                    },
+                ],
+            }),
+        );
         own(app.ui.style('m9-chronicle', `${CHRONICLE_CSS}\n${RECAP_CSS}`));
         own(app.ui.addTab(chronicleTab({ env, chapters, memory, recap, onChange })));
 

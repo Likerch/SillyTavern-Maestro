@@ -251,3 +251,6 @@ export function mergeFindings(
     });
     return out.sort((a, b) => b.confidence - a.confidence);
 }
+
+/** The instruction of the check (built-in agent «Сверка противоречий», release 1.29). */
+export const CONTRADICTIONS_INSTRUCTION = SYSTEM_PROMPT;

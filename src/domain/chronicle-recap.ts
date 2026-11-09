@@ -164,6 +164,12 @@ export function freeRecap(material: RecapMaterial, labels: RecapLabels, maxChars
     return text.length > maxChars ? `${text.slice(0, maxChars - 1).trimEnd()}…` : text;
 }
 
+/** The fixed opening of the recap request (built-in agent «Пересказ», release 1.29). */
+export const RECAP_INSTRUCTION_HEAD = [
+    'You write a short «Previously in the story…» recap for a reader who returns to an interactive story after a break.',
+    'Use only the material below; do not invent events. Keep names exactly as written.',
+].join('\n');
+
 /** Messages for the background model: a ≤ `maxWords` recap in the chat's language, from the material only. */
 export function recapPrompt(
     material: RecapMaterial,
@@ -171,8 +177,7 @@ export function recapPrompt(
     maxWords = 120,
 ): { system: string; user: string } {
     const system = [
-        'You write a short «Previously in the story…» recap for a reader who returns to an interactive story after a break.',
-        'Use only the material below; do not invent events. Keep names exactly as written.',
+        RECAP_INSTRUCTION_HEAD,
         `At most ${maxWords} words of plain prose: no headings, no lists, no quotes around the text, past tense.`,
         language === 'ru' ? 'Write in natural Russian (translate the English material).' : 'Write in English.',
         'Answer with the recap only.',

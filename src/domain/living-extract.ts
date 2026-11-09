@@ -286,3 +286,6 @@ export function parseExtraction(data: unknown, context: ExtractContext): Extract
     }
     return { updates, facts, rejected };
 }
+
+/** The instruction of the request, `{max}` not filled (built-in agent «Живой канон», release 1.29). */
+export const LIVING_INSTRUCTION = SYSTEM_PROMPT;

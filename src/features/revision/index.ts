@@ -4,6 +4,8 @@
 // chat canon, CK archive tags (through the canon), NAI passports, the chat alias map, DES (a note), the chronicle,
 // the place registry; later-stage things wait as deferred cards, new things go to the living canon (M26).
 // Exposed as app.modules.api<RevisionApi>('revision').
+import { registerBuiltInAgent } from '../../core/builtin-agents';
+import { DEFAULT_PROMPT_LIMITS, revisionInstructions } from '../../domain/revision-prompt';
 import type { MaestroModule } from '../../shared/contracts';
 import { registerProfileTask } from '../../ui';
 import { RevisionRoutes, TARGETS } from './routes';
@@ -53,6 +55,44 @@ export const revisionModule: MaestroModule<RevisionSettings> = {
         app.modules.expose(REVISION_KEY, service.api());
 
         own(registerProfileTask(REVISION_LLM_TASK, 'm8.profileTask'));
+        own(
+            registerBuiltInAgent({
+                id: REVISION_LLM_TASK,
+                module: 'revision',
+                group: 'canon',
+                icon: 'fa-magnifying-glass-chart',
+                defaultInstructions: () => [revisionInstructions(DEFAULT_PROMPT_LIMITS.maxChanges)],
+                defaults: { maxTokens: 2000, temperature: 0 },
+                knobs: [
+                    {
+                        path: 'everyMessages',
+                        labelKey: 'm44.bi.revision.knob.everyMessages',
+                        kind: 'number',
+                        min: 0,
+                        max: 500,
+                        step: 1,
+                    },
+                    {
+                        path: 'signalThreshold',
+                        labelKey: 'm44.bi.revision.knob.signalThreshold',
+                        kind: 'number',
+                        min: 1,
+                        max: 50,
+                        step: 1,
+                    },
+                    { path: 'sceneEnd', labelKey: 'm44.bi.revision.knob.sceneEnd', kind: 'toggle' },
+                    {
+                        path: 'minConfidence',
+                        labelKey: 'm44.bi.revision.knob.minConfidence',
+                        kind: 'number',
+                        min: 0,
+                        max: 1,
+                        step: 0.05,
+                    },
+                ],
+                switch: 'module',
+            }),
+        );
         own(app.ui.style('m8-revision', REVISION_CSS));
         own(app.ui.addTab(revisionTab(app, service)));
         own(

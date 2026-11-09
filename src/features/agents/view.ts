@@ -19,6 +19,8 @@ import type { AgentRuntime } from './runtime';
 import type { SourceRegistry } from './sources';
 import { readCardAgents } from './store';
 import type { AgentStore } from './store';
+import { builtInAgent } from '../../core/builtin-agents';
+import { BuiltinEditor, builtinSections } from './view-builtin';
 import { AgentEditor } from './view-editor';
 
 export const AGENTS_WINDOW = 'agents';
@@ -292,9 +294,20 @@ export function agentsListTab(view: AgentsView): PultTab {
         order: 10,
         group: AGENTS_GROUP,
         render(container: HTMLElement): Unsubscribe {
-            let editor: AgentEditor | null = null;
+            let editor: AgentEditor | BuiltinEditor | null = null;
             const paint = () => {
                 clear(container);
+                const builtinId = view.editing?.startsWith('builtin:') ? view.editing.slice('builtin:'.length) : null;
+                const spec = builtinId ? builtInAgent(builtinId) : undefined;
+                if (spec) {
+                    editor = new BuiltinEditor(view, spec, () => {
+                        view.editing = null;
+                        editor = null;
+                        paint();
+                    });
+                    editor.render(container);
+                    return;
+                }
                 if (view.editing) {
                     const def = view.editing === 'new' ? null : (view.store.get(view.editing) ?? null);
                     editor = new AgentEditor(view, def, () => {
@@ -352,6 +365,12 @@ export function agentsListTab(view: AgentsView): PultTab {
                             list.map((def) => agentRow(view, def, scope, paint)),
                         ),
                     );
+                }
+                const builtins = builtinSections(view, paint);
+                if (builtins.length) {
+                    parts.push(el('h3', { class: 'maestro-agent-subhead', text: view.t('m44.bi.heading') }));
+                    parts.push(el('div', { class: 'maestro-hint', text: view.t('m44.bi.hint') }));
+                    parts.push(...builtins);
                 }
                 for (const part of parts) if (part) container.append(part as Node);
             };
@@ -1175,6 +1194,8 @@ export const AGENTS_CSS = `
 .maestro-agent-row-main { flex: 1; min-width: 0; }
 .maestro-agent-row-name { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 .maestro-agent-row-actions { display: flex; gap: 2px; }
+.maestro-agent-row-fixed { width: 18px; text-align: center; opacity: 0.5; }
+.maestro-agent-subhead { margin: 14px 0 4px; font-size: 1.05em; }
 .maestro-agent-row:not(.maestro-on) .maestro-agent-row-name strong { opacity: 0.7; }
 .maestro-agent-editor-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
 .maestro-agent-editor-spacer { flex: 1; }

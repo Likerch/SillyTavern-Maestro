@@ -4,6 +4,10 @@
 // and descriptions on demand, «Разнести», and «Оформить» for a new NPC or place (stage 10, style-up.ts) with
 // «В книгу карточки» for its canon entries. Reads the world model (WorldModelApi) when it is on; works for the card
 // character, the persona, DES's roster and places without it. Exposed as app.modules.api<DossierApi>('dossier').
+import { registerBuiltInAgent } from '../../core/builtin-agents';
+import { DOSSIER_STYLEUP_INSTRUCTION } from '../../domain/dossier-archive';
+import { DOSSIER_COMPARE_INSTRUCTION } from '../../domain/dossier-compare';
+import { COMPARE_TASK } from './compare';
 import { adaptersOf } from '../../adapters';
 import type { MaestroModule, TargetSpec } from '../../shared/contracts';
 import { registerProfileTask } from '../../ui';
@@ -90,6 +94,28 @@ export const dossierModule: MaestroModule<DossierSettings> = {
         const styleUp = new DossierStyleUp(app, sources, log);
         for (const off of styleUp.install()) own(off);
         own(registerProfileTask(STYLE_UP_TASK, 'm7.styleUp.profileTask'));
+        own(
+            registerBuiltInAgent({
+                id: COMPARE_TASK,
+                module: 'dossier',
+                group: 'button',
+                icon: 'fa-scale-balanced',
+                defaultInstructions: () => [DOSSIER_COMPARE_INSTRUCTION],
+                defaults: { maxTokens: 1200, temperature: 0 },
+                interactive: true,
+            }),
+        );
+        own(
+            registerBuiltInAgent({
+                id: STYLE_UP_TASK,
+                module: 'dossier',
+                group: 'button',
+                icon: 'fa-wand-magic',
+                defaultInstructions: () => [DOSSIER_STYLEUP_INSTRUCTION],
+                defaults: { maxTokens: 700, temperature: 0.2 },
+                interactive: true,
+            }),
+        );
         const service = new DossierService(app, sources, actions, compare, styleUp);
         own(compare.onResult((entityId) => service.emit(entityId)));
         own(styleUp.onResult((entityId) => service.emit(entityId)));

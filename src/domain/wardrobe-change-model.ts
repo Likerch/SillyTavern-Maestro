@@ -57,16 +57,19 @@ export interface ChangeRequest {
     excerpt: string;
 }
 
+/** The instruction of the change-of-clothes request (built-in agent, release 1.29). */
+export const WARDROBE_CHANGE_INSTRUCTION = [
+    'You read an excerpt of a role-play where someone changed clothes and say what each listed person is wearing',
+    'right now. Answer with JSON only: {"changes": [{"name": "<name>", "wearing": "<short phrase>" or null,',
+    '"outfit": "<known outfit name>" or null}]}. The phrase lists garments, footwear and accessories as the story',
+    'says them, in the language of the story (Russian stays Russian), or says that the person is naked, in a towel',
+    'or in underwear. Only clothing: no hair, body or mood. When the clothes are one of the person’s known outfits,',
+    'put its exact name in "outfit" as well. If the excerpt does not say or clearly imply what someone wears now,',
+    'give null for them. Only the listed people.',
+].join(' ');
+
 export function changeMessages(request: ChangeRequest): LlmMessage[] {
-    const system = [
-        'You read an excerpt of a role-play where someone changed clothes and say what each listed person is wearing',
-        'right now. Answer with JSON only: {"changes": [{"name": "<name>", "wearing": "<short phrase>" or null,',
-        '"outfit": "<known outfit name>" or null}]}. The phrase lists garments, footwear and accessories as the story',
-        'says them, in the language of the story (Russian stays Russian), or says that the person is naked, in a towel',
-        'or in underwear. Only clothing: no hair, body or mood. When the clothes are one of the person’s known outfits,',
-        'put its exact name in "outfit" as well. If the excerpt does not say or clearly imply what someone wears now,',
-        'give null for them. Only the listed people.',
-    ].join(' ');
+    const system = WARDROBE_CHANGE_INSTRUCTION;
     const people = request.people.map((person) => {
         const parts = [`- ${person.name}${person.persona ? " (the user's character)" : ''}`];
         if (person.current.trim()) parts.push(`wore before: ${person.current.trim()}`);

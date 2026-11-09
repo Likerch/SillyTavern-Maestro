@@ -150,6 +150,16 @@ export interface AiRequest {
     chars: number;
 }
 
+/** The fixed opening of the audit request (built-in agent «Проверка промпта ИИ», release 1.29). */
+export const AUDIT_INSTRUCTION_HEAD = [
+    'You audit the INSTRUCTIONS a role-play prompt sends to a chat model: the preset blocks, the character card,',
+    "the author's note and the texts several extensions inject. Find conflicts between them: demands that cannot",
+    'all be met in one reply (length limits against mandatory blocks, JSON trackers, image markers, info boxes,',
+    'HTML), opposite rules (language, narration person, tense, formats, writing for the user, asking the user),',
+    'and roles or places that are risky on the given model. Ignore conflicts that are not real (an exception',
+    'already written, a rule about a different part of the reply such as image tags or tracker fields).',
+].join('\n');
+
 /** The request for a capture: what the model must check, in which language to explain, the compact map. */
 export function buildAiRequest(capture: AuditCapture, locale: 'en' | 'ru'): AiRequest {
     const ids = new Map<string, string>();
@@ -161,12 +171,7 @@ export function buildAiRequest(capture: AuditCapture, locale: 'en' | 'ru'): AiRe
     });
     const language = locale === 'ru' ? 'Russian' : 'English';
     const system = [
-        'You audit the INSTRUCTIONS a role-play prompt sends to a chat model: the preset blocks, the character card,',
-        "the author's note and the texts several extensions inject. Find conflicts between them: demands that cannot",
-        'all be met in one reply (length limits against mandatory blocks, JSON trackers, image markers, info boxes,',
-        'HTML), opposite rules (language, narration person, tense, formats, writing for the user, asking the user),',
-        'and roles or places that are risky on the given model. Ignore conflicts that are not real (an exception',
-        'already written, a rule about a different part of the reply such as image tags or tracker fields).',
+        AUDIT_INSTRUCTION_HEAD,
         'Rules for the answer:',
         '- a and b are two different instructions of the map (ids like I3); quote = an EXACT sentence from that',
         '  instruction, copied character by character;',

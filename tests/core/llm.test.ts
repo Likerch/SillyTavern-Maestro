@@ -490,3 +490,57 @@ describe('llm helpers', () => {
         expect(extractReply(null).text).toBe('');
     });
 });
+
+describe('llm client: interceptors (release 1.28/1.29)', () => {
+    it('lets an interceptor change the request and see the outcome; removed ones stop', async () => {
+        const { client } = setup();
+        const seen: { task: string; ok: boolean; ms: number }[] = [];
+        const off = client.addInterceptor({
+            before: (request) =>
+                request.task === 'judge'
+                    ? { ...request, messages: [{ role: 'system', content: 'You are a strict judge.' }, ...request.messages.slice(1)] }
+                    : request,
+            after: (request, result, ms) => seen.push({ task: request.task, ok: result.ok, ms }),
+        });
+        replies.push(completion('Fine.'));
+        await client.request(ask());
+        expect(calls[0]?.messages[0]).toEqual({ role: 'system', content: 'You are a strict judge.' });
+        expect(seen).toEqual([{ task: 'judge', ok: true, ms: 0 }]);
+        off();
+        replies.push(completion('Fine.'));
+        await client.request(ask());
+        expect(calls[1]?.messages[0]).toEqual({ role: 'system', content: 'You are a judge.' });
+        expect(seen).toHaveLength(1);
+    });
+
+    it('a failing interceptor is skipped; the outcome of a refused request is seen too', async () => {
+        const { client } = setup({ capped: true });
+        const seen: string[] = [];
+        client.addInterceptor({
+            before: () => {
+                throw new Error('boom');
+            },
+        });
+        client.addInterceptor({ after: (_request, result) => seen.push(result.error ?? 'ok') });
+        const result = await client.request(ask());
+        expect(result).toEqual({ ok: false, error: 'cap' });
+        expect(seen).toEqual(['cap']);
+    });
+
+    it('per-request profile, profile rows and reasoning', async () => {
+        const { client } = setup({ profiles: { default: 'p-default', agents: 'p-agents' } });
+        replies.push(completion('a'), completion('b'), completion('c'));
+        await client.request(ask({ task: 'agent.x', profileKeys: ['agents'] }));
+        await client.request(ask({ task: 'agent.x', profile: 'p-own', profileKeys: ['agents'] }));
+        await client.request(ask({ task: 'agent.x', reasoning: 'high' }));
+        expect(calls.map((call) => call.profileId)).toEqual(['p-agents', 'p-own', 'p-default']);
+        expect(calls[2]?.override['reasoning_effort']).toBe('high');
+    });
+
+    it('marks an answer cut by the length limit', async () => {
+        const { client } = setup();
+        replies.push({ choices: [{ message: { content: 'Half a sent' }, finish_reason: 'length' }] });
+        const result = await client.request(ask());
+        expect(result).toMatchObject({ ok: true, truncated: true });
+    });
+});

@@ -10,6 +10,7 @@ import type {
     GenerationInfo,
     InjectionSpec,
     LlmRequest,
+    LlmInterceptor,
     LlmResult,
     MessageStripProvider,
     PultTab,
@@ -37,6 +38,7 @@ export interface Harness {
     files: Map<string, unknown>;
     docs: Map<string, unknown>;
     disposers: (() => void | Promise<void>)[];
+    interceptors: LlmInterceptor[];
     produce(type?: string): Promise<void>;
     saved: number;
 }
@@ -82,6 +84,7 @@ export async function harness(options: HarnessOptions = {}): Promise<Harness> {
         return answer ? answer(request) : { ok: false, error: 'transport: no answer' };
     });
     const exposed = new Map<string, unknown>();
+    const interceptors: LlmInterceptor[] = [];
     if (options.qualityApi) exposed.set('quality', options.qualityApi);
     const bus = createBus(log);
     const h = { saved: 0 } as Harness;
@@ -179,7 +182,14 @@ export async function harness(options: HarnessOptions = {}): Promise<Harness> {
             list: () => [],
             kick() {},
         },
-        llm: { request: llm, available: () => true },
+        llm: {
+            request: llm,
+            available: () => true,
+            addInterceptor: (interceptor: LlmInterceptor) => {
+                interceptors.push(interceptor);
+                return () => interceptors.splice(interceptors.indexOf(interceptor), 1);
+            },
+        },
         cost: {
             record() {},
             recordAnlas() {},
@@ -236,6 +246,7 @@ export async function harness(options: HarnessOptions = {}): Promise<Harness> {
         files,
         docs,
         disposers,
+        interceptors,
         async produce(type = 'normal') {
             injections.clear();
             flags.clear();
