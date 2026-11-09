@@ -328,6 +328,20 @@ export class AgentRuntime {
                     .filter(Boolean)
                     .join('\n');
                 if (index !== undefined && proposal.sourceMessage === undefined) proposal.sourceMessage = index;
+                if (receiver.direct) {
+                    await proposal.apply(proposal.payload);
+                    applied += 1;
+                    // A receiver that journals its own change (the wardrobe) gives no changes here.
+                    if (!proposal.changes.length) continue;
+                    await this.app.journal.record({
+                        module: proposal.module,
+                        kind: proposal.kind,
+                        summary: proposal.title,
+                        changes: proposal.changes,
+                        ...(proposal.sourceMessage !== undefined ? { sourceMessage: proposal.sourceMessage } : {}),
+                    });
+                    continue;
+                }
                 const decision = await this.app.autonomy.decide(proposal, receiver.defaultAutonomy);
                 if (decision === 'applied' || decision === 'notified') applied += 1;
                 else if (decision === 'queued') queued += 1;

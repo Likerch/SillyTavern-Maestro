@@ -781,7 +781,7 @@ export function templatesTab(view: AgentsView): PultTab {
             const paint = () => {
                 clear(container);
                 container.append(el('div', { class: 'maestro-hint', text: view.t('m44.templates.hint') }));
-                const groups: TemplateGroup[] = ['text', 'story', 'player', 'creators'];
+                const groups: TemplateGroup[] = ['text', 'story', 'player', 'trackers', 'mechanics', 'creators'];
                 for (const group of groups) {
                     const list = AGENT_TEMPLATES.filter((template) => template.group === group);
                     if (!list.length) continue;

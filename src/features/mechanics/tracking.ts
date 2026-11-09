@@ -897,11 +897,14 @@ export class MechanicTracking implements TrackingPart {
         persona: boolean,
     ): 'desStats' | 'block' | 'background' | 'manual' | 'auto' {
         const mode = trackingOf(def, attr);
+        const agent = this.deps.settings().agentTracking === true;
         if (mode === 'desStats') {
-            if (persona) return this.deps.settings().personaFallback;
+            if (persona) return agent ? 'background' : this.deps.settings().personaFallback;
             return this.inDes(attr, enabled) ? 'desStats' : 'background';
         }
         if (mode === 'auto' && !persona && this.desKeeps(def, attr, enabled)) return 'desStats';
+        // «Учёт: агент»: no service block — the agent after the reply reads what the block would carry.
+        if (agent && (mode === 'block' || mode === 'auto')) return 'background';
         return mode;
     }
 

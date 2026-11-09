@@ -24,6 +24,7 @@
 // - Maestro's memory (the outfit library with the wordings, history, state bookkeeping) is the chat document
 //   'wardrobe'; the DES wordings an outfit was created or recognised from also go into the outfit's `looks` in the
 //   passport (NAI Studio 0.12.1 draws the outfit, not the tracker look, when the tracker says one of them).
+import { wardrobeText } from './agent-receiver';
 import { adaptersOf } from '../../adapters';
 import { readPassport } from '../../adapters/nai';
 import { tPlural } from '../../core/labels';
@@ -2553,6 +2554,11 @@ export class WardrobeService implements Required<WardrobeApi> {
     }
 
     /** Outfit names per who for the change detector ('persona' and the characters with a passport in this chat). */
+    /** Who wears what with known outfits, for agents (release 1.32). */
+    agentText(): string {
+        return wardrobeText(this);
+    }
+
     outfitNames(): Record<string, string[]> {
         const out: Record<string, string[]> = {};
         const named = (passport: NaiPassport) =>

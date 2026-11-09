@@ -498,7 +498,13 @@ describe('llm client: interceptors (release 1.28/1.29)', () => {
         const off = client.addInterceptor({
             before: (request) =>
                 request.task === 'judge'
-                    ? { ...request, messages: [{ role: 'system', content: 'You are a strict judge.' }, ...request.messages.slice(1)] }
+                    ? {
+                          ...request,
+                          messages: [
+                              { role: 'system', content: 'You are a strict judge.' },
+                              ...request.messages.slice(1),
+                          ],
+                      }
                     : request,
             after: (request, result, ms) => seen.push({ task: request.task, ok: result.ok, ms }),
         });

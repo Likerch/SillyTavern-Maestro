@@ -17,6 +17,11 @@ export interface ProposalReceiver {
     defaultAutonomy: AutonomyLevel;
     /** Never applied by itself (a card): autonomy refuses 'auto'. */
     neverAuto?: boolean;
+    /**
+     * A tracker (release 1.32): its items are applied at once and journaled with undo, without autonomy's notice every
+     * turn; a swipe has its own record, so nothing needs a decision.
+     */
+    direct?: boolean;
     /** An item as a proposal (null: nothing to do — a duplicate, an unknown name). */
     toProposal(
         data: Record<string, unknown>,

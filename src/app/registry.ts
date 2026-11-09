@@ -40,6 +40,7 @@ import { rulesModule } from '../features/rules';
 import { sceneSplitModule } from '../features/sceneSplit';
 import { scenariosModule } from '../features/scenarios';
 import { sheetsModule } from '../features/sheets';
+import { stagingModule } from '../features/staging';
 import { signalsModule } from '../features/signals';
 import { themeModule } from '../features/theme';
 import { treasurerModule } from '../features/treasurer';
@@ -118,6 +119,8 @@ export const MODULES: MaestroModule[] = [
     personaCreatorModule,
     // M40: BunnyMo's sheet commands at the message box.
     bunnymoCommandsModule,
+    // Release 1.32: M45 «Мизансцена» — the store the agent «Мизансцена» fills.
+    stagingModule,
     // Release 1.28: M44 «Агенты» — after the quality check (its after-verdict hook) and every module it reads.
     agentsModule,
     // Release 1.23: M43 «Сцена и вокруг» — the scene apart from what goes on around it.

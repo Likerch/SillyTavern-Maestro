@@ -406,8 +406,16 @@ export class QualityService implements QualityApi {
     private desTogether(): boolean {
         try {
             const des = adaptersOf(this.app).des;
+            // «Трекер сцены» (release 1.32): the tracker comes by a request of its own, the reply carries none.
+            const separate =
+                this.app.settings.isModuleEnabled('medic') &&
+                this.app.settings.module<{ separateTracker?: boolean }>('medic').separateTracker === true;
             return (
-                des.present() && des.enabled() && des.generationMode() === 'together' && expectsTracker(des.settings())
+                !separate &&
+                des.present() &&
+                des.enabled() &&
+                des.generationMode() === 'together' &&
+                expectsTracker(des.settings())
             );
         } catch {
             return false;

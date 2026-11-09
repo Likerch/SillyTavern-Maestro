@@ -72,6 +72,12 @@ export interface MechanicsSettings {
     settingsRev: number;
     /** Background parse of committed replies for 'background' attributes. */
     background: boolean;
+    /**
+     * Release 1.32 «Учёт: агент» (plan §3.17, В10): the main model writes no service block; every 'block' and 'auto'
+     * attribute is read by the built-in agent «Учёт механик» after the reply (the background parse). Rolls in the middle
+     * of a reply need the block, so they are not available in this mode.
+     */
+    agentTracking?: boolean;
     /** The model may ask Maestro for rolls in its service block (`roll: …`). */
     modelRolls: boolean;
     /**

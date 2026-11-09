@@ -10,6 +10,7 @@
 // change the player's message or the narration says, the model reads what the text does not tell; «Переодеться» at
 // the Maestro button at the message box, the line under the message, `/maestro-wear` (quick.ts).
 // Exposed as app.modules.api<WardrobeApi>('wardrobe').
+import { installWardrobeReceiver } from './agent-receiver';
 import { registerBuiltInAgent } from '../../core/builtin-agents';
 import { WARDROBE_CHANGE_INSTRUCTION } from '../../domain/wardrobe-change-model';
 import { WARDROBE_PERSONA_INSTRUCTION } from '../../domain/wardrobe-persona';
@@ -138,6 +139,8 @@ export const wardrobeModule: MaestroModule<WardrobeSettings> = {
         const field = new DesFieldOffer(app, scoped);
         const persona = new PersonaCheck(app, scoped, service, settings);
         const triggers = new WardrobeTriggers(app, scoped, service, settings);
+        // Release 1.32: the agent «Костюмер» writes through this receiver (M44 «Агенты»).
+        for (const off of installWardrobeReceiver(app, service)) own(off);
         own(
             registerBuiltInAgent({
                 id: 'wardrobe.change',

@@ -14,6 +14,8 @@ import type { LoreJournalApi } from '../loreJournal/api';
 import type { KnowledgeApi } from '../knowledge/api';
 import type { MechanicsApi } from '../mechanics/api';
 import type { PlacesApi } from '../places/api';
+import type { StagingApi } from '../staging/api';
+import { describeEntry } from '../../domain/staging';
 import type { WorldModelApi } from '../world/api';
 import type { AgentsChatState } from './chat-state';
 
@@ -423,6 +425,29 @@ export const BUILTIN_SOURCES: readonly ContextSource[] = [
                 others.length ? `Known: ${others.join(', ')}` : '',
             ].filter(Boolean);
             return cutEnd(lines.join('\n'), budget);
+        },
+    },
+    {
+        id: 'wardrobe',
+        labelKey: 'm44.src.wardrobe',
+        title: 'Who wears what (and their known outfits)',
+        budget: 800,
+        stable: false,
+        available: (app) => typeof app.modules.api<{ agentText?: () => string }>('wardrobe')?.agentText === 'function',
+        render: (ctx, budget) =>
+            cutEnd(ctx.app.modules.api<{ agentText?: () => string }>('wardrobe')?.agentText?.() ?? '', budget),
+    },
+    {
+        id: 'staging',
+        labelKey: 'm44.src.staging',
+        title: 'Staging now (poses and positions)',
+        budget: 800,
+        stable: false,
+        available: (app) => app.modules.api<StagingApi>('staging') !== undefined,
+        render: (ctx, budget) => {
+            const staging = ctx.app.modules.api<StagingApi>('staging');
+            const entries = staging?.current() ?? [];
+            return cutEnd(entries.map((entry) => `- ${describeEntry(entry)}`).join('\n'), budget);
         },
     },
     {

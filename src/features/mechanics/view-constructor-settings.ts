@@ -175,6 +175,12 @@ export function settingsSection(deps: PartDeps, defs?: Pick<DefinitionsPart, 'ac
             desChoice(),
             el('div', { class: 'maestro-hint', text: t('m25.ctor.settings.places.hint') }),
             flag('background'),
+            toggle({
+                label: t('m25.def.settings.agentTracking'),
+                checked: current.agentTracking === true,
+                onChange: (checked) => commit('agentTracking', checked),
+            }),
+            el('div', { class: 'maestro-hint', text: t('m25.def.settings.agentTracking.hint') }),
             fallback,
             count('promptBudget', PROMPT_BUDGET_LIMITS),
             rulesPlace,

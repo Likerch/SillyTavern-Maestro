@@ -3,6 +3,8 @@
 // gaps, assistant-role lore at depth, Localizer keys, an assistant prefill in the preset, regex damage and
 // Maestro's own dependencies (§4.14). Health checks live in the Pult's Health tab; per-reply checks run after
 // `reply:ready`.
+import { registerBuiltInAgent } from '../../core/builtin-agents';
+import { removeTrackerInstruction } from './separate-tracker';
 import { formatEnum } from '../../core/labels';
 import type { MaestroModule } from '../../shared/contracts';
 import { registerProfileTask } from '../../ui';
@@ -21,7 +23,7 @@ export const medicModule: MaestroModule<MedicSettings> = {
     stage: 1,
     titleKey: 'm3.title',
     enabledByDefault: true,
-    defaults: () => ({ trackerRepair: true }),
+    defaults: () => ({ trackerRepair: true, separateTracker: false }),
     i18n: MEDIC_STRINGS,
     targets: [
         // The tracker record is DES's JSON: only under «Подробнее».
@@ -51,6 +53,39 @@ export const medicModule: MaestroModule<MedicSettings> = {
         );
         own(registerProfileTask(REPAIR_KIND, 'm3.profileTask'));
         own(app.bus.on('reply:ready', ({ messageIndex, type }) => replies.onReply(messageIndex, type)));
+        // «Трекер сцены» (release 1.32): DES's tracker instruction leaves the assembled prompt of real generations.
+        const promptReady = app.host.events.name('CHAT_COMPLETION_PROMPT_READY');
+        if (promptReady) {
+            own(
+                app.host.events.on(
+                    promptReady,
+                    (data) => {
+                        if (settings.separateTracker !== true) return;
+                        removeTrackerInstruction(app, data, log);
+                    },
+                    { order: 'last' },
+                ),
+            );
+        }
+        own(
+            registerBuiltInAgent({
+                id: REPAIR_KIND,
+                module: 'medic',
+                group: 'world',
+                icon: 'fa-table-list',
+                defaultInstructions: () => [],
+                defaults: { maxTokens: 2048, temperature: 0 },
+                knobs: [
+                    {
+                        path: 'separateTracker',
+                        labelKey: 'm44.bi.medic.trackerRepair.knob.separateTracker',
+                        kind: 'toggle',
+                        hintKey: 'm44.bi.medic.trackerRepair.knob.separateTracker.hint',
+                    },
+                ],
+                switch: { path: 'trackerRepair' },
+            }),
+        );
         // M12 «Качество»: tracker repair on request (true = the tracker is there now).
         app.modules.expose('medic', { repairTracker: (index: number) => repair.repairOrWait(index) });
         for (const check of medicHealthChecks({ app, t, repair, prefill })) own(app.ui.addHealthCheck(check));

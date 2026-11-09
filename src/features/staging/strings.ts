@@ -1,0 +1,53 @@
+// Strings of M45 «Мизансцена» (`m45.*`). Russian is the primary UI language.
+import type { I18nParts } from '../../shared/contracts';
+
+export const STAGING_STRINGS: I18nParts = {
+    en: {
+        'm45.title': 'Staging',
+        'kind.staging.set': 'Staging (poses and positions)',
+        'target.staging.record': 'Staging',
+        'm45.receiver': 'Staging: poses and positions',
+        'm45.proposal': 'Staging: {names}',
+        'm45.edited': 'Staging edited by hand',
+        'm45.hint':
+            'Who is where and how now: pose, place in the scene, next to whom, what they hold, what is visible on them. The agent «Staging» fills it after replies; you can correct it here. A swipe has its own staging.',
+        'm45.empty': "Nothing yet: take the agent «Staging» from the agents' templates.",
+        'm45.field.name': 'Who',
+        'm45.field.pose': 'Pose',
+        'm45.field.where': 'Where',
+        'm45.field.near': 'Next to',
+        'm45.field.holding': 'Holds',
+        'm45.field.state': 'Visible',
+        'm45.add': 'Add',
+        'm45.save': 'Save',
+        'm45.remove': 'Remove',
+        'm45.settings': 'Staging settings',
+        'm45.promptLine': 'The line «who is where and how» in the prompt',
+        'm45.promptLineHint': 'Up to about 80 tokens, so the model keeps poses and places consistent.',
+        'm45.depth': 'Depth of the line (messages from the end)',
+    },
+    ru: {
+        'm45.title': 'Мизансцена',
+        'kind.staging.set': 'Мизансцена (позы и положения)',
+        'target.staging.record': 'Мизансцена',
+        'm45.receiver': 'Мизансцена: позы и положения',
+        'm45.proposal': 'Мизансцена: {names}',
+        'm45.edited': 'Мизансцена поправлена вручную',
+        'm45.hint':
+            'Кто где и как сейчас: поза, место в сцене, рядом с кем, что держит, что видно на нём. После ответов её заполняет агент «Мизансцена»; здесь можно поправить. У каждого свайпа своя мизансцена.',
+        'm45.empty': 'Пока пусто: возьми агента «Мизансцена» из шаблонов агентов.',
+        'm45.field.name': 'Кто',
+        'm45.field.pose': 'Поза',
+        'm45.field.where': 'Где',
+        'm45.field.near': 'Рядом с',
+        'm45.field.holding': 'Держит',
+        'm45.field.state': 'Видно',
+        'm45.add': 'Добавить',
+        'm45.save': 'Сохранить',
+        'm45.remove': 'Убрать',
+        'm45.settings': 'Настройки мизансцены',
+        'm45.promptLine': 'Строка «кто где и как» в промпте',
+        'm45.promptLineHint': 'До ~80 токенов, чтобы модель не путала позы и места.',
+        'm45.depth': 'Глубина строки (сообщений от конца)',
+    },
+};

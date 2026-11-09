@@ -13,6 +13,12 @@ type Translate = (key: string, params?: Record<string, string | number>) => stri
 export interface MedicSettings {
     /** Repair a missing DES tracker after each reply (together mode). */
     trackerRepair: boolean;
+    /**
+     * Release 1.32 «Трекер сцены» (plan §3.16): DES's tracker instruction leaves the main prompt (at assembly, DES's
+     * settings stay untouched) and the tracker is made by a request of its own after the reply — the repair, with
+     * DES's own update prompt, parser and rendering.
+     */
+    separateTracker?: boolean;
 }
 
 export class ReplyWatcher {

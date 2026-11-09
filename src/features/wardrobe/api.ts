@@ -104,6 +104,8 @@ export interface WearNowResult {
 }
 
 export interface WardrobeApi {
+    /** Release 1.32: who wears what with known outfits, as text for agents (M44). */
+    agentText?(): string;
     /** Outfits known for a character (the dossier's library), newest first. */
     outfits(character?: string): Outfit[];
     /** State changes applied recently (pult). */

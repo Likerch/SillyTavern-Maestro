@@ -98,6 +98,9 @@ export const ENGINE_STRINGS: I18nParts = {
         'm25.def.settings.rollContinue.hint':
             'The model stops at the risky moment and asks for a roll; I roll at once and the same reply goes on with the result (one automatic continue). Off: the result comes only in the next reply.',
         'm25.def.settings.autoCombat': 'Start and end fights with the director’s scene',
+        'm25.def.settings.agentTracking': 'Tracking: the agent after the reply (no service block)',
+        'm25.def.settings.agentTracking.hint':
+            'The main model writes only the story; the built-in agent «Mechanics tracking» reads every change after the reply (its instruction and model are in the Agents window). Rolls in the middle of a reply are not available in this mode.',
         'm25.def.settings.personaFallback': 'Your character’s DES stats',
         'm25.def.settings.personaFallback.hint':
             'DES never lists your character, so his numbers are read another way: by the background parse or by the service block.',
@@ -193,6 +196,9 @@ export const ENGINE_STRINGS: I18nParts = {
         'm25.def.settings.rollContinue.hint':
             'Модель останавливается на рискованном моменте и просит бросок; я бросаю сразу, и тот же ответ продолжается с результатом (одно автоматическое продолжение). Выключено — результат придёт только в следующем ответе.',
         'm25.def.settings.autoCombat': 'Начинать и заканчивать бой по сцене режиссёра',
+        'm25.def.settings.agentTracking': 'Учёт: агент после ответа (без служебного блока)',
+        'm25.def.settings.agentTracking.hint':
+            'Основная модель пишет только историю; все изменения после ответа читает встроенный агент «Учёт механик» (его поручение и модель — в окне «Агенты»). Броска посреди ответа в этом режиме нет.',
         'm25.def.settings.personaFallback': 'Статы DES твоего персонажа',
         'm25.def.settings.personaFallback.hint':
             'DES не ведёт твоего персонажа, поэтому его числа читаются иначе: фоновым разбором или служебным блоком.',

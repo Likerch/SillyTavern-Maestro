@@ -268,6 +268,68 @@ export const AGENT_TEMPLATES: readonly AgentTemplate[] = [
         result: { type: 'proposals', options: { receivers: ['canon.agentEntry'], max: 3 } },
         model: { temperature: 0.4 },
     },
+    {
+        id: 'staging',
+        group: 'trackers',
+        icon: 'fa-people-arrows',
+        since: '1.32',
+        instruction:
+            "Keep the staging of the scene: after the reply, update where everyone present is and how — pose, place in the room, who they are next to and how, what they hold, what is visible on them. Change only what the reply changed or what the current staging lacks; keep everything else. Write short phrases in the story's language ({{язык_истории}}).",
+        sources: [{ id: 'staging' }, { id: 'desScene' }, RECENT(2), { id: 'reply' }],
+        trigger: { phase: 'post', priority: 30 },
+        result: { type: 'proposals', options: { receivers: ['staging.set'], max: 1 } },
+        model: { temperature: 0.1 },
+    },
+    {
+        id: 'costumer',
+        group: 'trackers',
+        icon: 'fa-shirt',
+        since: '1.32',
+        instruction:
+            "You keep the wardrobe. Read the reply: did anyone dress, undress, change clothes or take something off? For each such person say what they wear now — one of their known outfits by its exact name when it fits, otherwise the clothes in the story's words. Ignore people whose clothes did not change; never guess.",
+        sources: [{ id: 'wardrobe' }, RECENT(2), { id: 'reply' }],
+        trigger: { phase: 'post', priority: 30 },
+        result: { type: 'proposals', options: { receivers: ['wardrobe.agentWear'], max: 4 } },
+        model: { temperature: 0.1 },
+    },
+    {
+        id: 'outfit-hint',
+        group: 'trackers',
+        icon: 'fa-vest-patches',
+        since: '1.32',
+        instruction:
+            "Look at what everyone wears and at the scene: place, time of day, weather, what is happening. If someone's clothes no longer fit — night and still in armour, a ball in travel clothes, soaked by rain, a fight in a nightgown, days in the same dress — write ONE short directive for the narrator: who could change into what (prefer their known outfits) and why, to be shown naturally in the story. If the clothes fit, answer NONE.",
+        sources: [{ id: 'wardrobe' }, { id: 'desScene' }, { id: 'director' }, RECENT(6)],
+        trigger: { phase: 'prefetch' },
+        result: { type: 'inject', options: { position: 'depth', depth: 2, role: 'system', lifetime: 'turn' } },
+        model: { temperature: 0.5 },
+    },
+    {
+        id: 'own-mechanic',
+        group: 'mechanics',
+        icon: 'fa-gauge-high',
+        since: '1.32',
+        instruction:
+            'You run a game mechanic of this story that the engine does not have: {{agent.mechanic}}. Its rules: {{agent.rules}}. After every few messages update its values in your records from what happened in the story, following the rules strictly (no change without a cause in the story). In the field "effects" write what the current values mean for the next replies, as a short directive for the narrator.',
+        vars: {
+            mechanic: 'hunger and fatigue of the player character',
+            rules: 'hunger 0-100 grows by 10 every few hours of story time and drops by 40 after a meal; fatigue 0-100 grows with effort and drops after sleep; at 70+ the character is weakened, at 90+ can barely act',
+        },
+        sources: [{ id: 'ownMemory' }, { id: 'desScene' }, RECENT(6)],
+        trigger: { phase: 'schedule', everyMessages: 2 },
+        result: {
+            type: 'memory',
+            options: {
+                fields: [
+                    { name: 'values', hint: 'the current values, e.g. «hunger 40/100; fatigue 65/100»' },
+                    { name: 'effects', hint: 'what they mean for the next replies, as a directive' },
+                ],
+                inject: true,
+                injectOptions: { position: 'depth', depth: 1, role: 'system', lifetime: 'untilNext' },
+            },
+        },
+        model: { temperature: 0.2 },
+    },
 ];
 
 export function templateById(id: string): AgentTemplate | undefined {
@@ -342,6 +404,31 @@ export const BUILTIN_SETS: readonly AgentSet[] = [
             'template:cartographer': { on: true },
             'template:world-chronicler': { on: true },
             'template:biographer': { on: true },
+        },
+    },
+    // Release 1.32: «Игра» and «Кино» (pictures join the cinema set with 1.33).
+    {
+        id: 'game',
+        name: 'Game',
+        builtin: true,
+        titleKey: 'm44.set.game',
+        descriptionKey: 'm44.set.game.desc',
+        agents: {
+            'template:costumer': { on: true },
+            'template:staging': { on: true },
+            'template:choices': { on: true },
+        },
+    },
+    {
+        id: 'cinema',
+        name: 'Cinema',
+        builtin: true,
+        titleKey: 'm44.set.cinema',
+        descriptionKey: 'm44.set.cinema.desc',
+        agents: {
+            'template:costumer': { on: true },
+            'template:staging': { on: true },
+            'template:outfit-hint': { on: true },
         },
     },
 ];
