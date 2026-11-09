@@ -196,6 +196,8 @@ export interface AgentDef {
     model: AgentModel;
     /** May be sent in one request with other agents of the same model (release 1.30). */
     batch?: boolean;
+    /** Ask a cheap model «is it needed now?» before running (release 1.30). */
+    gate?: { question?: string };
     limits?: AgentLimits;
     /** What the agent may do (shown on import and for card agents). */
     capabilities: string[];
@@ -273,6 +275,8 @@ export interface AgentRun {
     test?: boolean;
     /** A run of a built-in agent (a module's own request, release 1.29). */
     builtin?: boolean;
+    /** The batch request the run was part of (release 1.30). */
+    batchId?: string;
     /** The request and the raw answer (kept for the newest runs only). */
     request?: { role: string; content: string }[];
     raw?: string;

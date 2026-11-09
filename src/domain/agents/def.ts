@@ -437,6 +437,10 @@ export function sanitizeAgent(raw: unknown, now: number): AgentDef | null {
     const vars = sanitizeVars(raw.vars);
     if (vars) def.vars = vars;
     if (raw.batch === true) def.batch = true;
+    if (isDict(raw.gate)) {
+        const question = str(raw.gate.question, 500).trim();
+        def.gate = question ? { question } : {};
+    }
     const limits = sanitizeLimits(raw.limits);
     if (limits) def.limits = limits;
     return def;

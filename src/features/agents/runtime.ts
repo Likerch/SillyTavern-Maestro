@@ -22,7 +22,9 @@ import type { App, GenerationInfo, InjectionSpec, Logger, Unsubscribe } from '..
 import type { DirectorApi } from '../director/api';
 import type { QualityApi } from '../quality/api';
 import type { AgentsChatState, MessageResult } from './chat-state';
-import type { AgentRunner, RunOutcome } from './runner';
+import { gateMessages, GATE_SCHEMA, GATE_TASK } from './gate';
+import type { AgentRunner, RunOutcome, RunRequest } from './runner';
+import { recentMessages } from './sources';
 import type { AgentStore } from './store';
 
 export const RUN_TASK = 'agent.run';
@@ -476,8 +478,20 @@ export class AgentRuntime {
             timeoutMs?: number;
         } = {},
     ): Promise<RunOutcome> {
+        if (!options.interactive && !(await this.passGate(def, options.focusIndex, phase)))
+            return this.skipped(def, phase);
         const outcome = await this.runner.run({ def, state, phase, reason, ...options });
-        const index = options.focusIndex;
+        await this.finishOutcome(def, outcome, options.focusIndex, phase);
+        return outcome;
+    }
+
+    /** Applies a finished run, marks the counter, notes failures. */
+    private async finishOutcome(
+        def: AgentDef,
+        outcome: RunOutcome,
+        index: number | undefined,
+        phase: AgentPhase,
+    ): Promise<void> {
         if (outcome.run.ok) {
             const applied = await this.apply(def, outcome, index, phase);
             if (applied.length) outcome.run.applied = applied;
@@ -486,7 +500,78 @@ export class AgentRuntime {
             this.state.notify();
         }
         this.noteFailure(def, outcome.run);
-        return outcome;
+    }
+
+    /**
+     * Agents of one moment together (release 1.30): the cheap model's «is it needed now?» first for agents that ask it,
+     * then the runner — batchable agents of one model in one request.
+     */
+    private async runSet(
+        list: readonly { def: AgentDef; state: AgentState }[],
+        base: {
+            phase: AgentPhase;
+            reason: string;
+            focusIndex?: number;
+            signal?: AbortSignal;
+            timeoutMs?: (def: AgentDef) => number | undefined;
+        },
+    ): Promise<{ def: AgentDef; state: AgentState; outcome: RunOutcome }[]> {
+        const passed: { def: AgentDef; state: AgentState }[] = [];
+        await pool(list, MAX_PARALLEL, async (item) => {
+            if (await this.passGate(item.def, base.focusIndex, base.phase)) passed.push(item);
+            else this.skipped(item.def, base.phase);
+        });
+        const ordered = list.filter((item) => passed.includes(item));
+        const requests: RunRequest[] = ordered.map(({ def, state }) => {
+            const request: RunRequest = { def, state, phase: base.phase, reason: base.reason };
+            if (base.focusIndex !== undefined) request.focusIndex = base.focusIndex;
+            if (base.signal) request.signal = base.signal;
+            const timeout = base.timeoutMs?.(def);
+            if (timeout !== undefined) request.timeoutMs = timeout;
+            return request;
+        });
+        const outcomes = await this.runner.runMany(requests);
+        return ordered.map((item, index) => ({ ...item, outcome: outcomes[index]! }));
+    }
+
+    /** «Спросить дешёвую модель» (release 1.30): false only when the model clearly says the agent is not needed. */
+    async passGate(def: AgentDef, focusIndex: number | undefined, phase: AgentPhase): Promise<boolean> {
+        if (!def.gate || phase === 'manual') return true;
+        const recent = recentMessages(this.app, focusIndex !== undefined ? focusIndex + 1 : this.chat().length, 4).join(
+            '\n\n',
+        );
+        try {
+            const result = await this.app.llm.request<{ run?: unknown }>({
+                task: GATE_TASK,
+                messages: gateMessages(def, recent),
+                maxTokens: 60,
+                temperature: 0,
+                reasoning: 'off',
+                schema: GATE_SCHEMA,
+                profileKeys: [GATE_TASK, 'agents'],
+            });
+            return !(result.ok && result.data?.run === false);
+        } catch {
+            return true;
+        }
+    }
+
+    private skipped(def: AgentDef, phase: AgentPhase): RunOutcome {
+        const at = this.now();
+        const run: AgentRun = {
+            id: `${at.toString(36)}-g${Math.floor(Math.random() * 1e6).toString(36)}`,
+            agentId: def.id,
+            agentName: def.name,
+            chatId: this.app.host.chatId(),
+            phase,
+            reason: 'gate',
+            startedAt: at,
+            ms: 0,
+            ok: true,
+            applied: [this.t('m44.gate.skipped')],
+        };
+        this.state.addRun(run);
+        return { run };
     }
 
     /* ------------------------------------------------------------ post */
@@ -537,10 +622,16 @@ export class AgentRuntime {
             const hold = rewrites.some(({ def }) => def.result.type === 'rewrite' && def.result.options.holdReply);
             if (hold) this.holdReply(index, rewrites[0]?.def.name ?? '', true);
             try {
-                await pool(others, MAX_PARALLEL, async ({ def, state }) => {
-                    if (controller.signal.aborted) return;
-                    await this.runAgent(def, state, 'post', 'reply', { focusIndex: index, signal: controller.signal });
+                const done = await this.runSet(others, {
+                    phase: 'post',
+                    reason: 'reply',
+                    focusIndex: index,
+                    signal: controller.signal,
                 });
+                for (const { def, outcome } of done) {
+                    if (controller.signal.aborted) break;
+                    await this.finishOutcome(def, outcome, index, 'post');
+                }
                 for (const { def, state } of rewrites) {
                     if (controller.signal.aborted) break;
                     await this.runAgent(def, state, 'post', 'reply', { focusIndex: index, signal: controller.signal });
@@ -575,8 +666,9 @@ export class AgentRuntime {
         const agents = this.agentsFor('prefetch');
         if (!agents.length) return;
         const anchor = this.anchorOfReply(index);
-        await pool(agents, MAX_PARALLEL, async ({ def, state }) => {
-            const outcome = await this.runner.run({ def, state, phase: 'prefetch', reason: 'prefetch' });
+        const done = await this.runSet(agents, { phase: 'prefetch', reason: 'prefetch' });
+        for (const { def, outcome } of done) {
+            if (outcome.run.reason === 'gate') continue;
             if (outcome.run.ok && outcome.output && outcome.output.type !== 'none') {
                 const item = { agentId: def.id, anchor: anchor.index, hash: anchor.hash, at: this.now() };
                 if (outcome.output.type === 'inject') this.state.setPrepared({ ...item, text: outcome.output.text });
@@ -589,7 +681,7 @@ export class AgentRuntime {
                 this.state.dropPrepared(def.id);
             }
             this.noteFailure(def, outcome.run);
-        });
+        }
     }
 
     /** «Пересчитать» of one agent in «Вставки хода». */
@@ -626,18 +718,19 @@ export class AgentRuntime {
         if (!agents.length || !this.app.leader.isLeader()) return;
         const chat = this.chat();
         const target = info.type === 'normal' || info.type === 'impersonate' ? chat.length : chat.length - 1;
-        void pool(agents, MAX_PARALLEL, async ({ def, state }) => {
-            const outcome = await this.runner.run({ def, state, phase: 'parallel', reason: 'generation' });
-            if (!outcome.run.ok || !outcome.output || outcome.output.type === 'none') return;
-            if (outcome.output.type === 'note' || outcome.output.type === 'choices') {
-                await this.waitIdle();
-                const index = Math.min(target, this.chat().length - 1);
-                const applied = await this.apply(def, outcome, index, 'parallel');
-                outcome.run.applied = applied;
-            } else {
-                outcome.run.applied = await this.apply(def, outcome, undefined, 'schedule');
+        void this.runSet(agents, { phase: 'parallel', reason: 'generation' }).then(async (done) => {
+            for (const { def, outcome } of done) {
+                if (!outcome.run.ok || !outcome.output || outcome.output.type === 'none') continue;
+                if (outcome.output.type === 'note' || outcome.output.type === 'choices') {
+                    await this.waitIdle();
+                    const index = Math.min(target, this.chat().length - 1);
+                    const applied = await this.apply(def, outcome, index, 'parallel');
+                    outcome.run.applied = applied;
+                } else {
+                    outcome.run.applied = await this.apply(def, outcome, undefined, 'schedule');
+                }
+                this.state.markOk(def.id, target, this.now());
             }
-            this.state.markOk(def.id, target, this.now());
         });
     }
 
@@ -733,22 +826,21 @@ export class AgentRuntime {
             const collected: { agentId: string; text?: string; flags?: Record<string, string | number | boolean> }[] =
                 [];
             try {
-                await pool(agents, MAX_PARALLEL, async ({ def, state }) => {
-                    const outcome = await this.runner.run({
-                        def,
-                        state,
-                        phase: 'onSend',
-                        reason: 'send',
-                        signal: controller.signal,
-                        timeoutMs: def.trigger.onSendTimeoutMs ?? timeout,
-                    });
+                const done = await this.runSet(agents, {
+                    phase: 'onSend',
+                    reason: 'send',
+                    signal: controller.signal,
+                    timeoutMs: (def) => def.trigger.onSendTimeoutMs ?? timeout,
+                });
+                for (const { def, outcome } of done) {
+                    if (outcome.run.reason === 'gate') continue;
                     this.noteFailure(def, outcome.run);
                     const output = outcome.output;
-                    if (!outcome.run.ok || !output) return;
+                    if (!outcome.run.ok || !output) continue;
                     if (output.type === 'inject') collected.push({ agentId: def.id, text: output.text });
                     else if (output.type === 'flags') collected.push({ agentId: def.id, flags: output.flags });
                     else await this.apply(def, outcome, undefined, 'schedule');
-                });
+                }
             } finally {
                 indicator();
             }
@@ -806,11 +898,16 @@ export class AgentRuntime {
         if (this.isGroup() || !this.app.leader.isLeader()) return;
         const events = this.events;
         this.events = new Set();
+        const batched: { id: string; reason: string }[] = [];
         for (const { def } of this.agentsFor('schedule')) {
             const last = this.state.doc.lastOk[def.id];
             const since = last ? index - last.index : index + 1;
             const due = isDue(def.trigger, { sinceLastOk: since, events });
             if (!due.due) continue;
+            if (def.batch === true && def.result.type !== 'rewrite') {
+                batched.push({ id: def.id, reason: due.reason ?? 'schedule' });
+                continue;
+            }
             void this.app.tasks.enqueue({
                 kind: RUN_TASK,
                 dedupeKey: `agent:${def.id}`,
@@ -823,9 +920,43 @@ export class AgentRuntime {
                 ttlMs: 30 * 60_000,
             });
         }
+        if (batched.length) {
+            void this.app.tasks.enqueue({
+                kind: RUN_TASK,
+                dedupeKey: `agents:${batched.map((item) => item.id).join(',')}`,
+                payload: {
+                    agentIds: batched.map((item) => item.id),
+                    phase: 'schedule',
+                    reason: batched[0]!.reason,
+                    focusIndex: index >= 0 ? index : undefined,
+                },
+                ttlMs: 30 * 60_000,
+            });
+        }
     }
 
     private async runTask(payload: Record<string, unknown>): Promise<void> {
+        if (Array.isArray(payload.agentIds)) {
+            const phase = (typeof payload.phase === 'string' ? payload.phase : 'schedule') as AgentPhase;
+            const focus = typeof payload.focusIndex === 'number' ? payload.focusIndex : undefined;
+            const message = focus !== undefined ? this.chat()[focus] : undefined;
+            const focusIndex = message && !message.is_user ? focus : undefined;
+            const states = this.store.states();
+            const list = payload.agentIds
+                .filter((id): id is string => typeof id === 'string')
+                .map((id) => ({ def: this.store.get(id), state: states.get(id) }))
+                .filter((item): item is { def: AgentDef; state: AgentState } => Boolean(item.def && item.state?.on));
+            const base: { phase: AgentPhase; reason: string; focusIndex?: number } = {
+                phase,
+                reason: String(payload.reason ?? phase),
+            };
+            if (focusIndex !== undefined) base.focusIndex = focusIndex;
+            const done = await this.runSet(list, base);
+            for (const { def, outcome } of done) {
+                if (outcome.run.reason !== 'gate') await this.finishOutcome(def, outcome, focusIndex, phase);
+            }
+            return;
+        }
         const agentId = typeof payload.agentId === 'string' ? payload.agentId : '';
         const def = this.store.get(agentId);
         if (!def) return;

@@ -16,6 +16,7 @@ import { button, clear, el, icon } from '../../ui/components/dom';
 import type { Child } from '../../ui/components/dom';
 import { field, numberInput, select, toggle } from '../../ui/components/controls';
 import { banner, section } from '../../ui/components/card';
+import { DEFAULT_GATE_QUESTION } from './gate';
 import { tabs } from '../../ui/components/tabs';
 import type { AgentsView } from './view';
 import { describeOutput } from './view';
@@ -505,6 +506,32 @@ export class AgentEditor {
                 }),
                 this.t('m44.editor.priorityHint'),
             ),
+            section(this.t('m44.editor.gate'), [
+                toggle({
+                    label: this.t('m44.editor.gateOn'),
+                    hint: this.t('m44.editor.gateHint'),
+                    checked: Boolean(d.gate),
+                    onChange: (on) => {
+                        d.gate = on ? (d.gate ?? {}) : undefined;
+                        this.touch();
+                        this.paint();
+                    },
+                }),
+                d.gate
+                    ? field(
+                          this.t('m44.editor.gateQuestion'),
+                          textInput(
+                              d.gate.question ?? '',
+                              (text) => {
+                                  d.gate = text.trim() ? { question: text } : {};
+                                  this.touch();
+                              },
+                              DEFAULT_GATE_QUESTION,
+                          ),
+                          this.t('m44.editor.gateQuestionHint'),
+                      )
+                    : null,
+            ]),
             section(this.t('m44.editor.conditions'), [
                 el('div', { class: 'maestro-hint', text: this.t('m44.editor.conditionsHint') }),
                 field(
@@ -846,6 +873,20 @@ export class AgentEditor {
         const d = this.draft;
         const profiles = connectionProfiles(this.view);
         return [
+            toggle({
+                label: this.t('m44.editor.batch'),
+                hint: this.t('m44.editor.batchHint'),
+                checked: d.batch === true,
+                disabled: d.result.type === 'rewrite',
+                onChange: (on) => {
+                    d.batch = on || undefined;
+                    this.touch();
+                },
+            }),
+            el('div', {
+                class: 'maestro-hint',
+                text: this.t(d.result.type === 'rewrite' ? 'm44.editor.batchRewrite' : 'm44.editor.batchHint'),
+            }),
             field(
                 this.t('m44.editor.profile'),
                 select({

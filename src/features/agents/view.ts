@@ -3,6 +3,7 @@
 // agents question (plan §3.7, В6).
 import { capabilitiesOf, newAgentId, sanitizeAgent, setFromStates } from '../../domain/agents/def';
 import type { AgentOutput } from '../../domain/agents/output';
+import { estimateTurn } from '../../domain/agents/cost';
 import { AGENT_TEMPLATES } from '../../domain/agents/templates';
 import type { TemplateGroup } from '../../domain/agents/templates';
 import type { AgentDef, AgentRun, AgentScope, AgentSet } from '../../domain/agents/types';
@@ -344,8 +345,22 @@ export function agentsListTab(view: AgentsView): PultTab {
                           })
                         : null,
                 ]);
+                const estimate = estimateTurn(
+                    view.state.runs(),
+                    view.store.activeAgents().map(({ def }) => ({ id: def.id, trigger: def.trigger })),
+                );
                 const parts: Child[] = [
                     el('div', { class: 'maestro-hint', text: view.t('m44.list.hint') }),
+                    estimate.counted || estimate.unknown
+                        ? el('div', {
+                              class: 'maestro-agent-estimate',
+                              text:
+                                  view.t('m44.list.estimate', { usd: money(estimate.usd) }) +
+                                  (estimate.unknown
+                                      ? ` ${view.t('m44.list.estimateUnknown', { count: estimate.unknown })}`
+                                      : ''),
+                          })
+                        : null,
                     view.app.host.isGroupChat() ? banner(view.t('m44.group')) : null,
                     scopePicker(view, scope, (next) => {
                         scope = next;
@@ -688,7 +703,7 @@ export function logTab(view: AgentsView): PultTab {
                     const details = el('details', { class: 'maestro-agent-run' }, [
                         el('summary', {}, [
                             el('span', { class: ['maestro-lamp', `maestro-lamp-${status}`] }),
-                            ` ${time} · ${run.agentName} · ${run.builtin ? view.t('m44.bi.builtin') : view.t(`m44.phase.${run.phase}`)}${run.test ? ` · ${view.t('m44.log.test')}` : ''}`,
+                            ` ${time} · ${run.agentName} · ${run.builtin ? view.t('m44.bi.builtin') : view.t(`m44.phase.${run.phase}`)}${run.test ? ` · ${view.t('m44.log.test')}` : ''}${run.batchId ? ` · ${view.t('m44.log.batch')}` : ''}${run.reason === 'gate' ? ` · ${view.t('m44.gate.skipped')}` : ''}`,
                             run.ok ? '' : ` · ${view.t(`m44.error.${run.error ?? 'other'}`)}`,
                             run.costUsd !== undefined ? ` · ${money(run.costUsd)}` : '',
                             ` · ${(run.ms / 1000).toFixed(1)} s`,

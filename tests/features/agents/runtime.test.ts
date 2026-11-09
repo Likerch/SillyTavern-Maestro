@@ -255,3 +255,74 @@ describe('agents module', () => {
         expect(h.llm).toHaveBeenCalledTimes(1);
     });
 });
+
+describe('batches and the cheap-model question (release 1.30)', () => {
+    const note = (id: string, name: string, batch = true) => ({
+        id,
+        name,
+        batch,
+        trigger: { phase: 'post' as const },
+        result: { type: 'note' as const, options: { show: 'strip' as const } },
+    });
+
+    it('two batchable agents of one moment go in one request; each gets its part and a share of the cost', async () => {
+        const h = await withAgents([note('u-one-aaaaa', 'Первый'), note('u-two-bbbbb', 'Второй')]);
+        h.answers.push((request) => {
+            expect(request.task).toBe('agent.batch');
+            expect(request.schema?.name).toBe('agent_batch');
+            return { ok: true, data: { a1: 'Первая заметка.', a2: 'Вторая заметка.' }, costUsd: 0.004 };
+        });
+        await h.app.bus.emit('reply:ready', { messageIndex: 2, type: 'normal' });
+        await settle(80);
+        expect(h.llm).toHaveBeenCalledTimes(1);
+        expect(strip(h, 2).map((item) => item.text)).toEqual(['Первый: Первая заметка.', 'Второй: Вторая заметка.']);
+    });
+
+    it('an agent the batch answer left out is asked again on its own', async () => {
+        const h = await withAgents([note('u-one-aaaaa', 'Первый'), note('u-two-bbbbb', 'Второй')]);
+        h.answers.push(() => ({ ok: true, data: { a1: 'Первая заметка.' } }));
+        h.answers.push((request) => {
+            expect(request.task).toBe('agent.u-two-bbbbb');
+            return { ok: true, text: 'Вторая отдельно.', data: 'Вторая отдельно.' };
+        });
+        await h.app.bus.emit('reply:ready', { messageIndex: 2, type: 'normal' });
+        await settle(100);
+        expect(h.llm).toHaveBeenCalledTimes(2);
+        expect(strip(h, 2).map((item) => item.text)).toContain('Второй: Вторая отдельно.');
+    });
+
+    it('agents without «batch» go one by one', async () => {
+        const h = await withAgents([note('u-one-aaaaa', 'Первый', false), note('u-two-bbbbb', 'Второй', false)]);
+        h.answers.push(
+            () => ({ ok: true, text: 'A', data: 'A' }),
+            () => ({ ok: true, text: 'B', data: 'B' }),
+        );
+        await h.app.bus.emit('reply:ready', { messageIndex: 2, type: 'normal' });
+        await settle(80);
+        expect(h.llm.mock.calls.map((call) => (call[0] as LlmRequest).task).sort()).toEqual([
+            'agent.u-one-aaaaa',
+            'agent.u-two-bbbbb',
+        ]);
+    });
+
+    it('a clear «no» of the cheap model skips the agent; a failed question lets it run', async () => {
+        const h = await withAgents([{ ...note('u-one-aaaaa', 'Первый', false), gate: {} }]);
+        h.answers.push((request) => {
+            expect(request.task).toBe('agents.gate');
+            expect(request.profileKeys).toEqual(['agents.gate', 'agents']);
+            return { ok: true, data: { run: false } };
+        });
+        await h.app.bus.emit('reply:ready', { messageIndex: 2, type: 'normal' });
+        await settle(60);
+        expect(h.llm).toHaveBeenCalledTimes(1);
+        expect(strip(h, 2)).toEqual([]);
+
+        h.chat[2]!.mes = 'Другой ответ.';
+        h.answers.push(() => ({ ok: false, error: 'transport: down' }));
+        h.answers.push(() => ({ ok: true, text: 'Заметка.', data: 'Заметка.' }));
+        await h.app.bus.emit('reply:ready', { messageIndex: 2, type: 'normal' });
+        await settle(60);
+        expect(h.llm).toHaveBeenCalledTimes(3);
+        expect(strip(h, 2)[0]?.text).toBe('Первый: Заметка.');
+    });
+});

@@ -10,6 +10,7 @@ import { AGENTS_PROFILE_KEY, AgentRunner } from './runner';
 import { AgentRuntime } from './runtime';
 import { SourceRegistry } from './sources';
 import { installBuiltinRuntime } from './builtin-runtime';
+import { GATE_TASK } from './gate';
 import { AgentStore, BUILTIN_TARGET, DEF_TARGET } from './store';
 import { AGENTS_STRINGS } from './strings';
 import {
@@ -68,6 +69,7 @@ export const agentsModule: MaestroModule<AgentsSettings> = {
         runtime.install(own);
         own(installBuiltinRuntime(app, store, state));
         own(registerProfileTask(AGENTS_PROFILE_KEY, 'm44.profileDefault'));
+        own(registerProfileTask(GATE_TASK, 'm44.profileGate'));
         own(app.ui.style('maestro-m44', AGENTS_CSS));
         const addWindow = app.ui.addWindow?.bind(app.ui);
         if (addWindow) {
