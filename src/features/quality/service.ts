@@ -35,6 +35,7 @@ import type { MetricsApi } from '../metrics/api';
 import type { TreasurerApi } from '../treasurer/api';
 import type { SheetsApi } from '../sheets/api';
 import { StActions, swipeIdOf } from './actions';
+import { AFTER_VERDICT_MS } from './api';
 import type { BoundaryRule, Defect, DefectAction, DefectKind, QualityApi, QualityStats, QualityVerdict } from './api';
 import { buildJudgeMessages, JUDGE_MAX_TOKENS, JUDGE_SCHEMA, JUDGE_TASK, parseJudge } from './judge';
 import type { JudgeItem } from './judge';
@@ -197,6 +198,7 @@ export class QualityService implements QualityApi {
     private readonly inflight = new Map<string, Promise<StoredVerdict | null>>();
     private readonly inflightByIndex = new Map<number, Promise<StoredVerdict | null>>();
     private readonly waiters = new Map<number, Waiter[]>();
+    private readonly afterVerdict = new Set<(messageIndex: number, ok: boolean) => Promise<void>>();
     private readonly badges = new Map<number, Unsubscribe[]>();
     private expecting: { chatId: string | null; at: number } | null = null;
     private expectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -634,15 +636,43 @@ export class QualityService implements QualityApi {
         return verdict;
     }
 
-    /** Stores the verdict and tells everyone: listeners, badges, 'reply:ok', NAI Studio's wait. */
+    /** Stores the verdict and tells everyone: listeners, badges, the after-verdict hooks, 'reply:ok', NAI's wait. */
     private finish(verdict: StoredVerdict): void {
         verdict.ok = isOk(verdict.defects);
         verdict.action = verdictAction(verdict.defects);
         this.verdicts.put(verdict);
         this.showBadges(verdict);
         this.emitVerdict(verdict);
-        if (verdict.ok) void this.app.bus.emit('reply:ok', { messageIndex: verdict.messageIndex });
-        this.release(verdict.messageIndex, gateValue(verdict));
+        const gate = gateValue(verdict);
+        const index = verdict.messageIndex;
+        const hooks = gate ? [...this.afterVerdict] : [];
+        if (!hooks.length) {
+            if (verdict.ok) void this.app.bus.emit('reply:ok', { messageIndex: index });
+            this.release(index, gate);
+            return;
+        }
+        const ok = verdict.ok;
+        const run = Promise.all(
+            hooks.map((hook) =>
+                hook(index, ok).catch((error: unknown) => this.log.error('after-verdict hook failed', error)),
+            ),
+        );
+        void withTimeout(
+            run.then(() => true),
+            AFTER_VERDICT_MS,
+            false,
+        ).then(() => {
+            if (ok) void this.app.bus.emit('reply:ok', { messageIndex: index });
+            this.release(index, gate);
+        });
+    }
+
+    /** Agents after the reply (release 1.28): see QualityApi.addAfterVerdict. */
+    addAfterVerdict(hook: (messageIndex: number, ok: boolean) => Promise<void>): Unsubscribe {
+        this.afterVerdict.add(hook);
+        return () => {
+            this.afterVerdict.delete(hook);
+        };
     }
 
     private emitVerdict(verdict: QualityVerdict): void {

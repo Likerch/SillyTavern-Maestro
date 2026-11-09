@@ -111,6 +111,12 @@ export function hasBlockMarker(text: string): boolean {
     return typeof text === 'string' && MARKER_RE.test(text);
 }
 
+/** Where the service blocks of a text are (start inclusive, end exclusive): agents' rewrites keep them (M44). */
+export function blockRanges(text: string): { start: number; end: number }[] {
+    if (!hasBlockMarker(text)) return [];
+    return blockSpans(text, new Set()).map((span) => ({ start: span.start, end: span.end }));
+}
+
 function tokensOf(text: string): Token[] {
     const tokens: Token[] = [];
     const collect = (re: RegExp, kind: Token['kind'], style: Token['style']) => {

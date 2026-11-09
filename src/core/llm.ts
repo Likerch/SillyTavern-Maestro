@@ -107,9 +107,11 @@ export function createLlmClient(deps: LlmClientDeps): LlmClientImpl {
         return typeof api === 'string' ? api : undefined;
     }
 
-    function candidates(task: string): string[] {
+    function candidates(task: string, explicit?: string, keys?: readonly string[]): string[] {
         const profiles = settings.core().profiles ?? {};
-        const primary = nonEmpty(profiles[task]) ?? nonEmpty(profiles['default']);
+        let primary = nonEmpty(explicit) ?? nonEmpty(profiles[task]);
+        for (const key of keys ?? []) primary = primary ?? nonEmpty(profiles[key]);
+        primary = primary ?? nonEmpty(profiles['default']);
         const fallback = nonEmpty(profiles['fallback']);
         const list: string[] = [];
         for (const id of [primary, fallback]) if (id && !list.includes(id)) list.push(id);
@@ -244,11 +246,23 @@ export function createLlmClient(deps: LlmClientDeps): LlmClientImpl {
                 const parsed = parseStructured(reply, request.schema);
                 if (parsed.ok) {
                     succeeded(profileId);
-                    return { final: true, result: { ok: true, data: parsed.value as T, text } };
+                    return {
+                        final: true,
+                        result: dropUndefined({
+                            ok: true,
+                            data: parsed.value as T,
+                            text,
+                            truncated: reply.truncated || undefined,
+                        }),
+                    };
                 }
                 if (reply.refusal || looksLikeRefusal(text)) {
                     succeeded(profileId);
                     return { final: true, result: { ok: false, refusal: true, error: 'refusal', text } };
+                }
+                if (reply.truncated) {
+                    succeeded(profileId);
+                    return { final: true, result: { ok: false, error: 'length', text, truncated: true } };
                 }
                 if (pass === 0) {
                     log.debug(`request ${request.task}: unparsable JSON, retrying without json_schema`);
@@ -268,7 +282,10 @@ export function createLlmClient(deps: LlmClientDeps): LlmClientImpl {
                 return { final: false, result: { ok: false, error: 'empty' } };
             }
             succeeded(profileId);
-            return { final: true, result: { ok: true, text, data: text as T } };
+            return {
+                final: true,
+                result: dropUndefined({ ok: true, text, data: text as T, truncated: reply.truncated || undefined }),
+            };
         }
         return { final: false, result: { ok: false, error: 'parse' } };
     }
@@ -279,7 +296,7 @@ export function createLlmClient(deps: LlmClientDeps): LlmClientImpl {
             if (!interactive && cost.backgroundCapReached()) return { ok: false, error: 'cap' };
             const service = connectionManager();
             if (!service) return { ok: false, error: 'no-cm' };
-            const profiles = candidates(request.task);
+            const profiles = candidates(request.task, request.profile, request.profileKeys);
             if (profiles.length === 0) return { ok: false, error: 'no-profile' };
             const usable = profiles.filter((id) => !isOpen(id));
             if (usable.length === 0) return { ok: false, error: 'breaker-open' };
@@ -299,9 +316,9 @@ export function createLlmClient(deps: LlmClientDeps): LlmClientImpl {
             return result;
         },
 
-        available(task: string): boolean {
+        available(task: string, profile?: string, profileKeys?: readonly string[]): boolean {
             if (!connectionManager()) return false;
-            return candidates(task).some((id) => !isOpen(id));
+            return candidates(task, profile, profileKeys).some((id) => !isOpen(id));
         },
 
         breaker(profileId: string): BreakerState {
@@ -342,8 +359,13 @@ function toWire(message: LlmMessage): WireMessage {
  * (DeepSeek V4 on OpenRouter) thinks by default and a short task spends its whole budget on thoughts and answers
  * nothing. OpenRouter takes the effort as given ('none'); other APIs keep their own default.
  */
-export function reasoningOverride(task: string, api: string | undefined): string | undefined {
-    if (REASONING_TASKS.has(task)) return undefined;
+export function reasoningOverride(
+    task: string,
+    api: string | undefined,
+    reasoning?: LlmRequest['reasoning'],
+): string | undefined {
+    if (reasoning && reasoning !== 'off') return reasoning;
+    if (!reasoning && REASONING_TASKS.has(task)) return undefined;
     return api === 'openrouter' ? 'none' : undefined;
 }
 
@@ -358,7 +380,7 @@ function buildOverride(request: LlmRequest, useSchema: boolean, api?: string): R
     const tools = request.tools && request.tools.length > 0 ? request.tools : undefined;
     return dropUndefined({
         temperature: request.temperature,
-        reasoning_effort: reasoningOverride(request.task, api),
+        reasoning_effort: reasoningOverride(request.task, api, request.reasoning),
         json_schema:
             useSchema && request.schema
                 ? { name: request.schema.name, strict: true, value: request.schema.schema }
@@ -380,11 +402,13 @@ export interface ExtractedReply {
     toolInputs: { name: string; input: unknown }[];
     /** The provider flagged a refusal (message.refusal, finish_reason content_filter). */
     refusal: boolean;
+    /** The answer was cut by the length limit. */
+    truncated: boolean;
 }
 
 /** Reads the raw response of ChatCompletionService/TextCompletionService (extractData: false). */
 export function extractReply(raw: unknown): ExtractedReply {
-    const reply: ExtractedReply = { text: '', toolCalls: [], toolInputs: [], refusal: false };
+    const reply: ExtractedReply = { text: '', toolCalls: [], toolInputs: [], refusal: false, truncated: false };
     if (typeof raw === 'string') {
         reply.text = raw;
         return reply;
@@ -405,6 +429,7 @@ export function extractReply(raw: unknown): ExtractedReply {
         }
         if (!reply.text && typeof choice['text'] === 'string') reply.text = choice['text'];
         if (choice['finish_reason'] === 'content_filter') reply.refusal = true;
+        if (choice['finish_reason'] === 'length') reply.truncated = true;
         return reply;
     }
 
@@ -425,6 +450,7 @@ export function extractReply(raw: unknown): ExtractedReply {
             });
         }
         if (raw['stop_reason'] === 'refusal') reply.refusal = true;
+        if (raw['stop_reason'] === 'max_tokens') reply.truncated = true;
         return reply;
     }
     const message = isRecord(raw['message']) ? raw['message'] : undefined;

@@ -1,4 +1,5 @@
 // Every plan module, in stage order. Stages add their modules here.
+import { agentsModule } from '../features/agents';
 import { architectModule } from '../features/architect';
 import { assistantModule } from '../features/assistant';
 import { backgroundsModule } from '../features/backgrounds';
@@ -117,6 +118,8 @@ export const MODULES: MaestroModule[] = [
     personaCreatorModule,
     // M40: BunnyMo's sheet commands at the message box.
     bunnymoCommandsModule,
+    // Release 1.28: M44 «Агенты» — after the quality check (its after-verdict hook) and every module it reads.
+    agentsModule,
     // Release 1.23: M43 «Сцена и вокруг» — the scene apart from what goes on around it.
     sceneSplitModule,
 ];

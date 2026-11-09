@@ -84,4 +84,14 @@ export interface QualityApi {
     test?(text: string, boundary?: BoundaryRule[]): Defect[];
     /** Recent verdicts of the current chat, newest first (swiped and deleted ones included, for the pult). */
     history?(): QualityVerdict[];
+    /**
+     * Release 1.28 (agents, plan §4.4 «общие ворота ответа»): work that runs after a verdict that lets the reply stand
+     * (pictures may be drawn) and before 'reply:ok' goes out and NAI Studio's wait resolves — the agents after the
+     * reply (rewrites, checks). The hook gets the message index and whether the verdict is ok; Maestro waits for it
+     * AFTER_VERDICT_MS at most. A reply being redone gets no hook call.
+     */
+    addAfterVerdict?(hook: (messageIndex: number, ok: boolean) => Promise<void>): Unsubscribe;
 }
+
+/** The longest wait for the after-verdict hooks before 'reply:ok' goes out anyway. */
+export const AFTER_VERDICT_MS = 45_000;

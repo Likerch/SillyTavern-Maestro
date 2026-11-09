@@ -20,6 +20,8 @@ export const PULT_GROUPS: readonly string[] = [
     'mechanics',
     'health',
     'journal',
+    // Release 1.28: the agents (M44) — their own window gathers this group.
+    'agents',
     'assistant',
     'extensions',
     MORE_GROUP,

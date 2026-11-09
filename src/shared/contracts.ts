@@ -338,6 +338,17 @@ export interface LlmRequest {
      * background cap does not stop it, like the tasks in INTERACTIVE_TASKS (core/llm.ts).
      */
     interactive?: boolean;
+    /**
+     * Release 1.28 (agents, M44): a Connection Manager profile id tried before the task's row, and further rows of
+     * CoreSettings.profiles to look at before 'default' (an agent: its own profile, then «профиль агентов по умолчанию»).
+     */
+    profile?: string;
+    profileKeys?: string[];
+    /**
+     * Release 1.28: the reasoning effort of this request ('off' as background tasks; low / medium / high for an agent
+     * that should think). Absent: the task's rule (REASONING_TASKS).
+     */
+    reasoning?: 'off' | 'low' | 'medium' | 'high';
 }
 
 export interface LlmResult<T = unknown> {
@@ -350,12 +361,14 @@ export interface LlmResult<T = unknown> {
     error?: string;
     costUsd?: number;
     tokens?: { prompt: number; completion: number };
+    /** The answer was cut by the length limit (finish_reason 'length' / stop_reason 'max_tokens'), release 1.28. */
+    truncated?: boolean;
 }
 
 export interface LlmClient {
     request<T = unknown>(request: LlmRequest): Promise<LlmResult<T>>;
     /** False when no usable profile exists or the circuit breaker is open for the task's profile. */
-    available(task: string): boolean;
+    available(task: string, profile?: string, profileKeys?: readonly string[]): boolean;
 }
 
 export interface CostEntry {
