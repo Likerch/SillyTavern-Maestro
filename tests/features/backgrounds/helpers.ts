@@ -133,6 +133,11 @@ export class FakeNai {
             return { file };
         };
     }
+    /** NAI Studio 0.16 takes `freeOnly` for backgrounds (release 1.33). */
+    freeOnlyBackgrounds = true;
+    canBackgroundFreeOnly(): boolean {
+        return this.freeOnlyBackgrounds;
+    }
     present(): boolean {
         return this.isPresent;
     }

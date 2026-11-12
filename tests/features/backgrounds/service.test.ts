@@ -9,6 +9,8 @@ import {
     SET_KIND,
 } from '../../../src/features/backgrounds';
 import type { SetPayload } from '../../../src/features/backgrounds';
+import { AGENT_GENERATE_KIND } from '../../../src/features/backgrounds/agent-receiver';
+import { proposalReceiver } from '../../../src/core/proposal-receivers';
 import { GLOBAL_URL, SETTLE, createBgEnv, proposalKinds, reply, url } from './helpers';
 import type { BgEnv } from './helpers';
 
@@ -561,5 +563,34 @@ describe('module', () => {
         expect(env.ui.styles.size).toBe(0);
         expect(env.inbox.appliers.size).toBe(0);
         expect(env.places.enterListeners.size).toBe(0);
+    });
+});
+
+describe('the decorator (release 1.33)', () => {
+    it('a background is needed only where the library had none; drawn free only, set through autonomy, once per place', async () => {
+        const cave = env.places.add('Пещера');
+        const tavern = env.places.add('Таверна');
+        await env.start();
+        await env.turn({});
+        await env.enter(tavern.id);
+        expect(env.service().needsBackground()).toBeNull();
+        await env.enter(cave.id);
+        expect(env.service().needsBackground()).toEqual({ placeId: cave.id, placeName: 'Пещера' });
+        const receiver = proposalReceiver(AGENT_GENERATE_KIND)!;
+        expect(receiver.direct).toBe(true);
+        expect(await receiver.available?.({})).toBe(true);
+        // An older NAI Studio cannot be asked «free only»: not by an agent.
+        env.nai.freeOnlyBackgrounds = false;
+        expect(await receiver.available?.({})).toBe(false);
+        env.nai.freeOnlyBackgrounds = true;
+        expect(await receiver.toProposal({ tags: '  ' }, { agentName: 'D' })).toBeNull();
+        const proposal = (await receiver.toProposal({ tags: 'stalactites, torchlight' }, { agentName: 'D' }))!;
+        const before = proposalKinds(env).length;
+        await proposal.apply(proposal.payload);
+        expect(env.nai.calls.at(-1)).toMatchObject({ locationName: 'Пещера', freeOnly: true });
+        expect(env.nai.calls.at(-1)?.tags).toContain('stalactites, torchlight');
+        expect(proposalKinds(env).slice(before)).toEqual([SET_KIND]);
+        expect(env.service().needsBackground()).toBeNull();
+        expect(await receiver.available?.({})).toBe(false);
     });
 });

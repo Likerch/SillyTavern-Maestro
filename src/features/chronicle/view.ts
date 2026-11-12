@@ -8,6 +8,8 @@ import { button, clear, el } from '../../ui/components/dom';
 import { coalesce } from '../../ui/views/format';
 import type { Chapter } from './api';
 import type { ChapterService } from './chapters';
+import { coverUrl } from './covers';
+import type { ChapterCover, ChapterCovers } from './covers';
 import type { ChronicleEnv } from './env';
 import type { AutoMemory } from './memory';
 import type { RecapService } from './recap';
@@ -17,6 +19,7 @@ import type { ChronicleSettings } from './settings';
 export const CHRONICLE_TAB = 'chronicle';
 
 export const CHRONICLE_CSS = `
+.maestro-m9 .maestro-m9-cover { display: block; width: 100%; max-height: 220px; object-fit: cover; border-radius: 6px; margin-bottom: 6px; }
 .maestro-m9 .maestro-m9-keys { display: flex; flex-wrap: wrap; gap: 4px; align-items: baseline; overflow-wrap: anywhere; }
 .maestro-m9 .maestro-m9-key { border: 1px solid var(--maestro-border); border-radius: var(--maestro-radius-sm);
     padding: 0 6px; font-size: 0.9em; }
@@ -33,6 +36,8 @@ export interface ChronicleTabDeps {
     chapters: ChapterService;
     memory: AutoMemory;
     recap: RecapService;
+    /** Release 1.33: chapter covers drawn by the agent «Обложки глав». */
+    covers?: ChapterCovers;
     onChange(listener: () => void): Unsubscribe;
 }
 
@@ -72,7 +77,16 @@ export function chronicleTab(deps: ChronicleTabDeps): PultTab {
         studio.open(book, chapter.uid);
     };
 
-    const chapterCard = (chapter: Chapter): HTMLElement =>
+    const coverImage = (cover: ChapterCover | undefined): HTMLElement | null => {
+        if (!cover) return null;
+        const img = el('img', { class: 'maestro-m9-cover', title: cover.caption ?? '' });
+        (img as HTMLImageElement).alt = cover.caption ?? '';
+        (img as HTMLImageElement).src = coverUrl(cover.path);
+        (img as HTMLImageElement).loading = 'lazy';
+        return img;
+    };
+
+    const chapterCard = (chapter: Chapter, cover?: ChapterCover): HTMLElement =>
         card({
             title: chapter.title,
             className: 'maestro-m9-chapter',
@@ -81,10 +95,13 @@ export function chronicleTab(deps: ChronicleTabDeps): PultTab {
                 el('span', { class: 'maestro-muted', text: t('m9.chapter.chars', { count: chapter.chars }) }),
                 chapter.status === 'archived' ? badge(t('m9.chapter.archived'), 'muted') : null,
             ]),
-            body: el('div', { class: 'maestro-m9-keys', title: t('m9.keys.hint') }, [
-                ...keyChips(chapter.keys),
-                el('span', { class: 'maestro-m9-and', text: t('m9.keys.and') }),
-                ...keyChips(chapter.secondary),
+            body: el('div', {}, [
+                coverImage(cover),
+                el('div', { class: 'maestro-m9-keys', title: t('m9.keys.hint') }, [
+                    ...keyChips(chapter.keys),
+                    el('span', { class: 'maestro-m9-and', text: t('m9.keys.and') }),
+                    ...keyChips(chapter.secondary),
+                ]),
             ]),
             actions: button({
                 label: t('m9.chapter.open'),
@@ -94,7 +111,7 @@ export function chronicleTab(deps: ChronicleTabDeps): PultTab {
             }),
         });
 
-    const chaptersSection = (list: Chapter[]): HTMLElement => {
+    const chaptersSection = (list: Chapter[], covers: Record<string, ChapterCover> = {}): HTMLElement => {
         const counts = chapters.counts();
         const waiting = counts.fallen + counts.proposed;
         return section(t('m9.chapters.title'), [
@@ -106,7 +123,11 @@ export function chronicleTab(deps: ChronicleTabDeps): PultTab {
                   })
                 : null,
             list.length
-                ? el('div', { class: 'maestro-m9-list' }, list.map(chapterCard))
+                ? el(
+                      'div',
+                      { class: 'maestro-m9-list' },
+                      list.map((chapter) => chapterCard(chapter, covers[String(chapter.uid)])),
+                  )
                 : emptyState(t('m9.chapters.empty'), 'fa-book'),
         ]);
     };
@@ -261,12 +282,13 @@ export function chronicleTab(deps: ChronicleTabDeps): PultTab {
                     return;
                 }
                 const list = await chapters.chapters();
+                const covers = (await deps.covers?.all().catch(() => ({}))) ?? {};
                 if (!alive || mine !== token) return;
                 const settings = env.settings();
                 clear(root);
                 if (!env.qvinkReady()) root.appendChild(banner(t('m9.warn.noQvink'), 'warn'));
                 if (!env.canon()) root.appendChild(banner(t('m9.warn.noCanon'), 'warn'));
-                root.appendChild(chaptersSection(list));
+                root.appendChild(chaptersSection(list, covers));
                 root.appendChild(rememberedSection());
                 root.appendChild(recapSection(settings));
                 root.appendChild(settingsSection(settings));

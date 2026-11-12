@@ -36,6 +36,7 @@ describe('agents window', () => {
             'agents-templates',
             'agents-sets',
             'agents-cost',
+            'agents-images',
         ]);
         for (const tab of tabs) {
             const container = document.createElement('div');

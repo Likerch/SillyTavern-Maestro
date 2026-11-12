@@ -17,7 +17,9 @@ import type { PlacesApi } from '../places/api';
 import type { StagingApi } from '../staging/api';
 import { describeEntry } from '../../domain/staging';
 import type { WorldModelApi } from '../world/api';
+import type { ChronicleApi } from '../chronicle/api';
 import type { AgentsChatState } from './chat-state';
+import { portraitlessText } from './image-receivers';
 
 /** Story text for an agent: Maestro's cleaning plus DES tracker blocks anywhere (a continued reply). */
 export function agentText(message: unknown): string {
@@ -449,6 +451,34 @@ export const BUILTIN_SOURCES: readonly ContextSource[] = [
             const entries = staging?.current() ?? [];
             return cutEnd(entries.map((entry) => `- ${describeEntry(entry)}`).join('\n'), budget);
         },
+    },
+    {
+        id: 'markerRules',
+        labelKey: 'm44.src.markerRules',
+        title: 'Image rules (how a picture is written)',
+        budget: 4000,
+        stable: true,
+        available: (app) => adaptersOf(app).nai.canIllustrate(),
+        render: async (ctx, budget) => cutEnd(await adaptersOf(ctx.app).nai.markerRules(), budget),
+    },
+    {
+        id: 'portraitless',
+        labelKey: 'm44.src.portraitless',
+        title: 'No portrait yet (people of the scene without a picture passport)',
+        budget: 600,
+        stable: false,
+        available: (app) => adaptersOf(app).nai.api() !== undefined,
+        render: (ctx, budget) => cutEnd(portraitlessText(ctx.app), budget),
+    },
+    {
+        id: 'chapters',
+        labelKey: 'm44.src.chapters',
+        title: 'Chapters of the chronicle without a cover',
+        budget: 4000,
+        stable: false,
+        available: (app) => typeof app.modules.api<ChronicleApi>('chronicle')?.uncoveredText === 'function',
+        render: async (ctx, budget) =>
+            (await ctx.app.modules.api<ChronicleApi>('chronicle')?.uncoveredText?.(budget)) ?? '',
     },
     {
         id: 'ownMemory',

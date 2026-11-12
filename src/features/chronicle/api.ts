@@ -35,4 +35,9 @@ export interface ChronicleApi {
     /** Builds and shows the recap now (ignores the absence timer). */
     recapNow(): Promise<string>;
     onChange(listener: () => void): Unsubscribe;
+    // Release 1.33 «Обложки глав» (optional so that fakes of the stage-4 contract stay valid).
+    /** Covers by chapter uid (/user/images paths). */
+    covers?(): Promise<Record<string, { path: string; caption?: string }>>;
+    /** For agents: the chapters without a cover with their text, within `budget` characters. */
+    uncoveredText?(budget: number): Promise<string>;
 }

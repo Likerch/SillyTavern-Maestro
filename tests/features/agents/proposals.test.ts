@@ -48,7 +48,10 @@ describe('agent proposals', () => {
                 result: { type: 'proposals', options: { receivers: ['canon.agentEntry'], max: 5 } },
             },
         ]);
-        expect(h.appliers).toEqual(['canon.agentEntry']);
+        // The agents module itself takes the pictures for NAI Studio (release 1.33).
+        expect([...h.appliers].sort()).toEqual(
+            ['canon.agentEntry', 'nai.cardAvatar', 'nai.illustrate', 'nai.portrait'].sort(),
+        );
         h.answers.push((request: LlmRequest) => {
             expect(request.schema?.name).toBe('agent_proposals');
             expect(JSON.stringify(request.schema?.schema)).toContain('canon.agentEntry');

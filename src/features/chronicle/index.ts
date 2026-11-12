@@ -10,6 +10,7 @@ import type { MaestroModule, Unsubscribe } from '../../shared/contracts';
 import { registerProfileTask } from '../../ui';
 import type { ChronicleApi } from './api';
 import { ChapterService } from './chapters';
+import { COVER_TARGET, ChapterCovers } from './covers';
 import { createChronicleEnv } from './env';
 import { AutoMemory } from './memory';
 import { RECAP_CSS, RECAP_TASK, RecapService } from './recap';
@@ -41,8 +42,16 @@ export const chronicleModule: MaestroModule<ChronicleSettings> = {
         const recap = new RecapService(env, chapters);
         for (const off of recap.install()) own(off);
 
+        const covers = new ChapterCovers(app, log.scope('covers'), {
+            chapters: () => chapters.chapters(),
+            chapterText: (uid) => chapters.chapterText(uid),
+        });
+        own(covers.installReceiver());
+        own(app.bus.on('chat:changed', () => covers.chatChanged()));
+        app.journal.registerUndo(COVER_TARGET, (change) => covers.undo(change));
+
         const onChange = (listener: () => void): Unsubscribe => {
-            const offs = [store.onChange(listener), chapters.onChange(listener)];
+            const offs = [store.onChange(listener), chapters.onChange(listener), covers.onChange(listener)];
             return () => offs.forEach((off) => off());
         };
         const api: ChronicleApi = {
@@ -50,6 +59,8 @@ export const chronicleModule: MaestroModule<ChronicleSettings> = {
             remembered: () => memory.remembered(),
             recapNow: () => recap.recapNow(),
             onChange,
+            covers: () => covers.all(),
+            uncoveredText: (budget) => covers.agentText(budget),
         };
         app.modules.expose(CHRONICLE_KEY, api);
         own(() => app.modules.expose(CHRONICLE_KEY, undefined));
@@ -98,7 +109,7 @@ export const chronicleModule: MaestroModule<ChronicleSettings> = {
             }),
         );
         own(app.ui.style('m9-chronicle', `${CHRONICLE_CSS}\n${RECAP_CSS}`));
-        own(app.ui.addTab(chronicleTab({ env, chapters, memory, recap, onChange })));
+        own(app.ui.addTab(chronicleTab({ env, chapters, memory, recap, covers, onChange })));
 
         void store.load();
         chapters.start();

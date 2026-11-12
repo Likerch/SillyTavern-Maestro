@@ -15,4 +15,9 @@ export interface AgentsApi {
     /** Adds a context source (modules and, from 1.34, neighbours). */
     registerSource(source: ContextSource): Unsubscribe;
     onChange(listener: () => void): Unsubscribe;
+    /**
+     * Release 1.33: «Картинки агентов могут тратить Anlas» (the agents' settings). False: agents' pictures are free only
+     * (backgrounds, illustrations, covers); optional so that fakes of the 1.28 contract stay valid.
+     */
+    imagesPaid?(): boolean;
 }

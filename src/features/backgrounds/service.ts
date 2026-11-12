@@ -38,7 +38,7 @@ import type { BackgroundsPointer, ChoiceSource, StoredChoice } from '../../domai
 import { fileTitle, tokenizeFile, variantKind } from '../../domain/backgrounds-tokens';
 import type { App, JournalChange, Logger, Unsubscribe } from '../../shared/contracts';
 import type { Place, PlacesApi } from '../places/api';
-import type { BackgroundChoice, BackgroundsApi } from './api';
+import type { BackgroundChoice, BackgroundsApi, GenerateOptions } from './api';
 import { BACKGROUNDS_KEY, CHAT_BG_TARGET, GENERATE_KIND, PICK_KIND, POINTER, SET_KIND } from './settings';
 import type { BackgroundsSettings } from './settings';
 import { CAP_ST_BACKGROUNDS, ChatBackground } from './st-background';
@@ -62,6 +62,8 @@ export interface GenerateBackgroundInput {
     timeOfDay?: string;
     weather?: string;
     style?: string;
+    /** NAI Studio 0.16: free only, no cost question (an agent's background). */
+    freeOnly?: boolean;
 }
 
 /** Why NAI Studio's `generateBackground` resolved null (its `requestFailed` event, NAI Studio 0.12.0+). */
@@ -221,6 +223,8 @@ export class BackgroundsService implements BackgroundsApi {
     private readonly idles = new Set<number>();
     private readonly generating = new Set<string>();
     private lastOutcome: { chatId: string; placeId: string; found: boolean } | null = null;
+    /** `chatId|placeId` an agent already asked a background for (release 1.33): once per place and chat. */
+    private readonly agentTried = new Set<string>();
     private disposed = false;
 
     constructor(
@@ -843,7 +847,19 @@ export class BackgroundsService implements BackgroundsApi {
         await this.enqueue(() => this.evaluate('release'));
     }
 
-    async generate(placeId: string): Promise<BackgroundChoice | null> {
+    /** Release 1.33 («Декоратор»): see BackgroundsApi.needsBackground. */
+    needsBackground(): { placeId: string; placeName: string } | null {
+        const chatId = this.app.host.chatId();
+        const place = this.ensurePlaces()?.current() ?? null;
+        const outcome = this.lastOutcome;
+        if (!chatId || !place || !outcome) return null;
+        if (outcome.chatId !== chatId || outcome.placeId !== place.id || outcome.found) return null;
+        if (this.userPinned() || !this.canGenerate() || this.generating.has(place.id)) return null;
+        if (this.agentTried.has(`${chatId}|${place.id}`)) return null;
+        return { placeId: place.id, placeName: place.name };
+    }
+
+    async generate(placeId: string, options: GenerateOptions = {}): Promise<BackgroundChoice | null> {
         const port = this.naiPort();
         if (typeof port?.generateBackground !== 'function' || !this.canGenerate()) {
             this.app.ui.notice(this.t('m29.generate.unavailable'), { level: 'warn', urgent: true });
@@ -857,6 +873,7 @@ export class BackgroundsService implements BackgroundsApi {
             return null;
         }
         if (this.generating.has(placeId)) return null;
+        if (options.auto) this.agentTried.add(`${chatId}|${placeId}`);
         this.generating.add(placeId);
         this.emitChange();
         try {
@@ -864,8 +881,9 @@ export class BackgroundsService implements BackgroundsApi {
             const scene = withPlace(this.conditions(), profile);
             const weather = scene.weather.find((tag) => tag !== 'clear' && tag !== 'cloudy') ?? scene.weather[0];
             const input: GenerateBackgroundInput = { locationName: place.name };
-            const tags = generationTags(profile, scene);
+            const tags = [generationTags(profile, scene), options.tags?.trim() ?? ''].filter(Boolean).join(', ');
             if (tags) input.tags = tags;
+            if (options.freeOnly) input.freeOnly = true;
             if (place.passportId) input.passportId = place.passportId;
             if (scene.time) input.timeOfDay = scene.time;
             if (weather) input.weather = weather;
@@ -920,7 +938,10 @@ export class BackgroundsService implements BackgroundsApi {
             };
             if (places.current()?.id === placeId) {
                 if (this.userPinned()) this.app.ui.notice(this.t('m29.generate.pinned'), { level: 'info' });
-                else {
+                else if (options.auto) {
+                    // An agent's background goes through autonomy like any automatic choice (default «Само», undo).
+                    await this.propose(chatId, fresh, choice, this.door.live(), this.pointer());
+                } else {
                     await this.setByUser(
                         choice,
                         GENERATE_KIND,

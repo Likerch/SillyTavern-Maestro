@@ -211,6 +211,12 @@ describe('M13 director: NAI Studio scene hint', () => {
         await env.reply(CALM, { location: 'Двор', characters: [] });
         expect(provider.describe({ messageIndex: 1, text: '' })).toEqual({ locationName: 'Где-то' });
         expect(provider.describe({ messageIndex: 99, text: '' })).toEqual({ locationId: 'p2', locationName: 'Двор' });
+        // Release 1.33: the latest reply gets M45's poses; an earlier one does not.
+        env.modules.expose('staging', { current: () => [{ name: 'Лиза', pose: 'сидит', where: 'у окна' }] });
+        expect(provider.describe({ messageIndex: 99, text: '' })).toMatchObject({
+            poses: [{ name: 'Лиза', pose: 'сидит у окна' }],
+        });
+        expect(provider.describe({ messageIndex: 1, text: '' })).not.toHaveProperty('poses');
         expect(provider.describe(null as never)).toBeNull();
         await env.stop();
         expect(nai.offs).toBe(1);

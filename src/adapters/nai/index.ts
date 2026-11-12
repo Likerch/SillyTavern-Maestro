@@ -19,6 +19,10 @@
 // - `nai.backgrounds`  it draws backgrounds of places (`generateBackground`, NAI Studio 0.12.0+);
 // - `nai.personaKeys`  passports and avatars of any persona by its avatar file key (`features` lists 'personaKeys':
 //                      `getPersonaPassport`, `savePassport(…, { personaKey })`, `generatePersonaAvatar`; M41).
+// NAI Studio 0.16.0 (release 1.33, pictures by agents; feature-detected through `features`, every member answers «no»
+// without it): an illustrator writes the markers of a reply in the main model's form ('illustrator', 'requestImage'),
+// pictures into no message ('drawPicture', chapter covers), a card's avatar ('cardAvatar'), free-only backgrounds
+// ('backgroundFreeOnly') and poses in scene hints ('scenePoses').
 import { NeighbourBase, extensionSettingsOf, homePageHas, isDict, stringList } from '../base';
 import type { AdapterDeps, Dict, ExtensionManifest } from '../base';
 
@@ -103,6 +107,11 @@ export interface NaiSceneHint {
     tags?: string;
     /** Names of the characters present (the automatic scene uses them when the text names nobody). */
     characters?: string[];
+    /**
+     * NAI Studio 0.16 ('scenePoses'; older ones ignore it): how each person is placed now (M45 «Мизансцена») — a
+     * person whose marker says nothing about the pose is drawn so.
+     */
+    poses?: { name: string; pose: string }[];
 }
 
 export interface NaiSceneHintContext {
@@ -198,6 +207,8 @@ export interface NaiBackgroundInput {
     tags?: string;
     /** A location (or world) passport of the chat or of a passport provider. */
     passportId?: string;
+    /** NAI Studio 0.16 ('backgroundFreeOnly'): free only, no cost question; older ones ignore it. */
+    freeOnly?: boolean;
     /** As a tracker writes it (`evening`, `19:40`, Russian words too). */
     timeOfDay?: string;
     /** As a tracker writes it (`rain`, Russian words too). */
@@ -663,6 +674,174 @@ export class NaiAdapter extends NeighbourBase<'nai'> {
         }
     }
 
+    /* ---------------------------------------------------------------- pictures by agents (NAI Studio 0.16.0) */
+    // Release 1.33: «Иллюстратор» writes the markers of a reply in the main model's form, «Обложки глав» draw pictures
+    // into no message, «Портретист» sets a card's avatar (always asked). Feature-detected through `features`.
+
+    private pictureApi(feature: NaiPictureFeature): (NaiStudioApi & NaiPictures) | undefined {
+        const api = this.api() as (NaiStudioApi & NaiPictures) | undefined;
+        if (!api || !Array.isArray(api.features) || !api.features.includes(feature)) return undefined;
+        return api;
+    }
+
+    /** NAI Studio takes an illustrator (0.16: registerIllustrator, markerWriter, requestImage, messageMarkers). */
+    canIllustrate(): boolean {
+        const api = this.pictureApi('requestImage');
+        return (
+            !!api &&
+            api.features?.includes('illustrator') === true &&
+            typeof api.registerIllustrator === 'function' &&
+            typeof api.requestImage === 'function' &&
+            typeof api.markerWriter === 'function'
+        );
+    }
+
+    /** Maestro's illustrator is on: NAI Studio's setting «Кто пишет метки» counts. A no-op without the feature. */
+    registerIllustrator(id: string): () => void {
+        const api = this.pictureApi('illustrator');
+        if (typeof api?.registerIllustrator !== 'function') return () => {};
+        try {
+            const off = api.registerIllustrator(id);
+            return typeof off === 'function' ? off : () => {};
+        } catch (error) {
+            this.log.warn('NAI_STUDIO_API.registerIllustrator failed', error);
+            return () => {};
+        }
+    }
+
+    /** Who writes the markers (the setting, and who does now); null without the feature. */
+    markerWriter(): NaiMarkerWriterState | null {
+        const api = this.pictureApi('illustrator');
+        if (typeof api?.markerWriter !== 'function') return null;
+        try {
+            const state: unknown = api.markerWriter();
+            if (!isDict(state)) return null;
+            const read = (value: unknown): NaiMarkerWriter =>
+                value === 'illustrator' || value === 'fallback' ? value : 'main';
+            return { setting: read(state.setting), effective: read(state.effective) };
+        } catch (error) {
+            this.log.warn('NAI_STUDIO_API.markerWriter failed', error);
+            return null;
+        }
+    }
+
+    /** Changes NAI Studio's setting «Кто пишет метки»; false without the feature or when it refused. */
+    setMarkerWriter(writer: NaiMarkerWriter): boolean {
+        const api = this.pictureApi('illustrator');
+        if (typeof api?.setMarkerWriter !== 'function') return false;
+        try {
+            api.setMarkerWriter(writer);
+            return true;
+        } catch (error) {
+            this.log.warn('NAI_STUDIO_API.setMarkerWriter failed', error);
+            return false;
+        }
+    }
+
+    /** The marker rules for the illustrator (the preset's block, else NAI Studio's own instruction); '' without. */
+    async markerRules(): Promise<string> {
+        const api = this.pictureApi('illustrator');
+        if (typeof api?.markerRules !== 'function') return '';
+        try {
+            const rules: unknown = await api.markerRules();
+            return typeof rules === 'string' ? rules : '';
+        } catch (error) {
+            this.log.warn('NAI_STUDIO_API.markerRules failed', error);
+            return '';
+        }
+    }
+
+    /** Marker pictures of a reply's swipe shown; [] without the feature. */
+    messageMarkers(messageIndex: number): NaiMessageMarker[] {
+        const api = this.pictureApi('requestImage');
+        if (typeof api?.messageMarkers !== 'function') return [];
+        try {
+            const list: unknown = api.messageMarkers(messageIndex);
+            if (!Array.isArray(list)) return [];
+            return list.filter(isDict).map((item) => {
+                const marker: NaiMessageMarker = {
+                    imageId: typeof item.imageId === 'string' ? item.imageId : '',
+                    marker: isDict(item.marker) ? (structuredClone(item.marker) as Dict) : {},
+                    status: item.status === 'done' || item.status === 'error' ? item.status : 'pending',
+                };
+                if (typeof item.path === 'string' && item.path) marker.path = item.path;
+                if (item.by === 'illustrator') marker.by = 'illustrator';
+                return marker;
+            });
+        } catch (error) {
+            this.log.warn('NAI_STUDIO_API.messageMarkers failed', error);
+            return [];
+        }
+    }
+
+    /** An illustrator's marker into a reply (placed at once, drawn later); `unavailable` without the feature. */
+    async requestImage(request: NaiImageRequest): Promise<NaiImageResult> {
+        const api = this.pictureApi('requestImage');
+        if (typeof api?.requestImage !== 'function') return { ok: false, error: 'unavailable' };
+        try {
+            const result: unknown = await api.requestImage(request);
+            if (!isDict(result)) return { ok: false, error: 'no answer' };
+            if (result.ok === true && typeof result.imageId === 'string') return { ok: true, imageId: result.imageId };
+            return { ok: false, error: typeof result.error === 'string' ? result.error : 'failed' };
+        } catch (error) {
+            this.log.warn('NAI_STUDIO_API.requestImage failed', error);
+            return { ok: false, error: error instanceof Error ? error.message : String(error) };
+        }
+    }
+
+    /** NAI Studio draws pictures into no message (0.16 'drawPicture'). */
+    canDrawPicture(): boolean {
+        return typeof this.pictureApi('drawPicture')?.drawPicture === 'function';
+    }
+
+    /** One picture from a marker saved into /user/images (a chapter cover). */
+    async drawPicture(input: NaiPictureInput): Promise<NaiPictureResult> {
+        const api = this.pictureApi('drawPicture');
+        if (typeof api?.drawPicture !== 'function') return { ok: false, error: 'unavailable' };
+        try {
+            const result: unknown = await api.drawPicture(input);
+            if (!isDict(result)) return { ok: false, error: 'no answer' };
+            if (result.ok === true && typeof result.path === 'string' && result.path)
+                return { ok: true, path: result.path };
+            return { ok: false, error: typeof result.error === 'string' ? result.error : 'failed' };
+        } catch (error) {
+            this.log.warn('NAI_STUDIO_API.drawPicture failed', error);
+            return { ok: false, error: error instanceof Error ? error.message : String(error) };
+        }
+    }
+
+    /** NAI Studio sets a card's avatar (0.16 'cardAvatar'). */
+    canCardAvatar(): boolean {
+        return typeof this.pictureApi('cardAvatar')?.generateCardAvatar === 'function';
+    }
+
+    /** A card's avatar from its passport (or the given one); the previous image is backed up by NAI Studio. */
+    async generateCardAvatar(input: NaiCardAvatarInput): Promise<NaiCardAvatarResult> {
+        const api = this.pictureApi('cardAvatar');
+        if (typeof api?.generateCardAvatar !== 'function') return { ok: false, error: 'unavailable' };
+        try {
+            const result: unknown = await api.generateCardAvatar(input);
+            if (!isDict(result)) return { ok: false, error: 'no answer' };
+            const backup = typeof result.backup === 'string' && result.backup ? result.backup : undefined;
+            if (result.ok === true) return backup ? { ok: true, backup } : { ok: true };
+            const error = typeof result.error === 'string' ? result.error : 'failed';
+            return backup ? { ok: false, error, backup } : { ok: false, error };
+        } catch (error) {
+            this.log.warn('NAI_STUDIO_API.generateCardAvatar failed', error);
+            return { ok: false, error: error instanceof Error ? error.message : String(error) };
+        }
+    }
+
+    /** Backgrounds may be asked free only (0.16 'backgroundFreeOnly'); older NAI Studio would ask about the cost. */
+    canBackgroundFreeOnly(): boolean {
+        return this.pictureApi('backgroundFreeOnly') !== undefined;
+    }
+
+    /** Scene hints carry poses (0.16 'scenePoses'). */
+    canScenePoses(): boolean {
+        return this.pictureApi('scenePoses') !== undefined;
+    }
+
     /* ---------------------------------------------------------------- passport exclusion (NAI Studio 0.14.0+) */
     // Plan-2 §9: a card passport the user declared another one's («Другой») is switched off in the current chat only;
     // NAI Studio then treats it as absent everywhere in that chat. Feature-detected through `features`.
@@ -764,4 +943,81 @@ export interface NaiPersonaKeys {
     features?: readonly string[];
     getPersonaPassport?(personaKey: string): unknown;
     generatePersonaAvatar?(options: NaiPersonaAvatarInput): Promise<unknown>;
+}
+
+/* ------------------------------------------------------------------ pictures by agents (NAI Studio 0.16.0) */
+
+export type NaiPictureFeature =
+    'illustrator' | 'requestImage' | 'drawPicture' | 'cardAvatar' | 'backgroundFreeOnly' | 'scenePoses';
+
+/** Who writes the image markers: the main model, the illustrator, or the illustrator when the model wrote none. */
+export type NaiMarkerWriter = 'main' | 'illustrator' | 'fallback';
+
+export interface NaiMarkerWriterState {
+    setting: NaiMarkerWriter;
+    /** 'main' unless markers are on and an illustrator is registered. */
+    effective: NaiMarkerWriter;
+}
+
+/** A marker picture of a reply. */
+export interface NaiMessageMarker {
+    imageId: string;
+    /** The marker object (prompt, chars, ratio, caption…). */
+    marker: Dict;
+    status: 'pending' | 'error' | 'done';
+    /** /user/images path when saved. */
+    path?: string;
+    /** 'illustrator' when Maestro's illustrator wrote it; absent: the main model. */
+    by?: 'illustrator';
+}
+
+export interface NaiImageRequest {
+    messageIndex: number;
+    /** The marker object as the main model writes it inside `data-nai`. */
+    marker: Dict;
+    /** A sentence of the reply: the picture goes after its paragraph. */
+    after?: string;
+    swipeId?: number;
+    freeOnly?: boolean;
+}
+
+export type NaiImageResult = { ok: true; imageId: string } | { ok: false; error: string };
+
+export interface NaiPictureInput {
+    marker: Dict;
+    freeOnly?: boolean;
+    name?: string;
+    signal?: AbortSignal;
+}
+
+export interface NaiPictureResult {
+    ok: boolean;
+    path?: string;
+    error?: string;
+}
+
+export interface NaiCardAvatarInput {
+    avatar: string;
+    passport?: NaiPassport;
+    signal?: AbortSignal;
+}
+
+export interface NaiCardAvatarResult {
+    ok: boolean;
+    /** /user/images path of the previous card image (with the card's data). */
+    backup?: string;
+    error?: string;
+}
+
+/** Members of `NAI_STUDIO_API` v1 added by NAI Studio 0.16.0 (all optional). */
+export interface NaiPictures {
+    features?: readonly string[];
+    registerIllustrator?(id: string): () => void;
+    markerWriter?(): unknown;
+    setMarkerWriter?(writer: NaiMarkerWriter): void;
+    markerRules?(): Promise<unknown>;
+    messageMarkers?(messageIndex: number): unknown;
+    requestImage?(request: NaiImageRequest): Promise<unknown>;
+    drawPicture?(input: NaiPictureInput): Promise<unknown>;
+    generateCardAvatar?(input: NaiCardAvatarInput): Promise<unknown>;
 }

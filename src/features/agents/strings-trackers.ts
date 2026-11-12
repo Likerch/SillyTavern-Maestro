@@ -26,7 +26,6 @@ export const TRACKER_STRINGS: I18nParts = {
         'm44.set.game.desc':
             'Costumer, Staging, Action options. For mechanics also switch «Tracking: the agent» in Mechanics if you like.',
         'm44.set.cinema': 'Cinema',
-        'm44.set.cinema.desc': 'Costumer, Staging, Change of outfit (pictures join with 1.33).',
         'm44.bi.medic.trackerRepair.title': 'Scene tracker (DES)',
         'm44.bi.medic.trackerRepair.desc':
             "Makes DES's tracker (place, time, weather, characters, quests) with DES's own prompt when a reply has none. With «Tracker by its own request» on, the main model no longer writes the tracker at all: the reply starts with the story, and the tracker comes a few seconds later.",
@@ -61,7 +60,6 @@ export const TRACKER_STRINGS: I18nParts = {
         'm44.set.game.desc':
             'Костюмер, Мизансцена, Варианты действий. Для механик можно включить «Учёт: агент» в Механиках.',
         'm44.set.cinema': 'Кино',
-        'm44.set.cinema.desc': 'Костюмер, Мизансцена, Смена наряда (картинки добавятся в 1.33).',
         'm44.bi.medic.trackerRepair.title': 'Трекер сцены (DES)',
         'm44.bi.medic.trackerRepair.desc':
             'Делает трекер DES (место, время, погода, персонажи, квесты) по собственному промпту DES, когда в ответе его нет. С «Трекером отдельным запросом» основная модель трекер вообще не пишет: ответ начинается сразу с истории, а трекер приходит через несколько секунд.',

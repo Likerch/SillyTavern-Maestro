@@ -99,8 +99,8 @@ describe('M9 module', () => {
     it('names its action kinds and journal targets in both languages', () => {
         expect(chronicleModule.targets).toBe(CHRONICLE_TARGETS);
         const targets = CHRONICLE_TARGETS.map((spec) => spec.target);
-        expect(targets).toEqual(['m9.chapter', 'm9.merge', 'm9.archive', 'm9.remember']);
-        const kinds = ['chapter', 'merge', 'archive', 'remember'].map((kind) => `kind.chronicle.${kind}`);
+        expect(targets).toEqual(['m9.chapter', 'm9.merge', 'm9.archive', 'm9.remember', 'm9.cover']);
+        const kinds = ['chapter', 'merge', 'archive', 'remember', 'cover'].map((kind) => `kind.chronicle.${kind}`);
         const fields = CHRONICLE_TARGETS.flatMap((spec) => Object.values(spec.fields ?? {}).map((f) => f.labelKey));
         const keys = [...kinds, ...targets.map((target) => `target.${target}`), ...fields, 'm9.field.state'];
         for (const key of keys) {

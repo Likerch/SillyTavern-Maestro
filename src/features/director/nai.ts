@@ -5,8 +5,10 @@
 import { adaptersOf } from '../../adapters';
 import type { NaiSceneHint, NaiSceneHintContext, NaiStudioApi } from '../../adapters';
 import { presentNames } from '../../domain/director-scene';
+import { stagingPoses } from '../../domain/staging';
 import type { App, Logger } from '../../shared/contracts';
 import type { PlacesApi } from '../places/api';
+import type { StagingApi } from '../staging/api';
 import type { WorldModelApi } from '../world/api';
 
 export const SCENE_PROVIDER_ID = 'maestro-director';
@@ -66,7 +68,10 @@ export class SceneHints {
         return this.registered !== null;
     }
 
-    /** The hint for one message: its DES location as a registry place, and who is present (null: nothing known). */
+    /**
+     * The hint for one message: its DES location as a registry place, who is present, and (release 1.33) for the latest
+     * reply the poses of M45 «Мизансцена» (null: nothing known).
+     */
     describe(context: NaiSceneHintContext): NaiSceneHint | null {
         try {
             const index = typeof context?.messageIndex === 'number' ? context.messageIndex : -1;
@@ -85,6 +90,10 @@ export class SceneHints {
             const world = this.world();
             const names = presentNames(tracker).map((name) => world?.resolve(name)?.name ?? name);
             if (names.length) hint.characters = [...new Set(names)];
+            if (index >= this.app.turn.lastAssistantIndex()) {
+                const poses = stagingPoses(this.app.modules.api<StagingApi>('staging')?.current() ?? []);
+                if (poses.length) hint.poses = poses;
+            }
             return Object.keys(hint).length ? hint : null;
         } catch (error) {
             this.log.debug('scene hint failed', error);

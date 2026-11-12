@@ -96,3 +96,22 @@ export function stagingLine(entries: readonly StagingEntry[]): string {
     const text = `[Staging now — keep it consistent: ${entries.map(describeEntry).join(' | ')}]`;
     return text.length <= STAGING_LINE_MAX ? text : `${text.slice(0, STAGING_LINE_MAX - 2).trimEnd()}…]`;
 }
+
+/**
+ * Poses for NAI Studio's scene hint (release 1.33, NAI Studio 0.16 'scenePoses'): pose, place in the scene, what one holds,
+ * what is visible — for a picture whose marker says nothing about that person's pose. People with none of these are left out.
+ */
+export function stagingPoses(entries: readonly StagingEntry[]): { name: string; pose: string }[] {
+    return entries
+        .map((entry) => ({
+            name: entry.name,
+            pose: [
+                [entry.pose, entry.where].filter(Boolean).join(' '),
+                entry.holding ? `holding ${entry.holding}` : '',
+                entry.state ?? '',
+            ]
+                .filter(Boolean)
+                .join(', '),
+        }))
+        .filter((item) => item.pose.trim().length > 0);
+}

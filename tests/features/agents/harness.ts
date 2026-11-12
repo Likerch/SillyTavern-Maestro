@@ -64,6 +64,8 @@ export interface HarnessOptions {
     seed?: Map<string, unknown>;
     /** M12's API (the after-verdict hook). */
     qualityApi?: unknown;
+    /** Adapters the agents read (release 1.33: NAI Studio). */
+    adapters?: Record<string, unknown>;
 }
 
 export async function harness(options: HarnessOptions = {}): Promise<Harness> {
@@ -93,6 +95,7 @@ export async function harness(options: HarnessOptions = {}): Promise<Harness> {
     if (options.qualityApi) exposed.set('quality', options.qualityApi);
     const bus = createBus(log);
     const h = { saved: 0 } as Harness;
+    const moduleSettings = new Map<string, Record<string, unknown>>();
     const ctx = {
         chat,
         name1: 'Я',
@@ -147,7 +150,11 @@ export async function harness(options: HarnessOptions = {}): Promise<Harness> {
         })(),
         settings: {
             core: () => ({ mode: 'balanced', profiles: {} }),
-            module: () => ({}),
+            module: (key: string) => {
+                const slice = moduleSettings.get(key) ?? {};
+                moduleSettings.set(key, slice);
+                return slice;
+            },
             isModuleEnabled: (key: string) => key === 'quality' && options.quality === true,
             setModuleEnabled() {},
             save() {},
@@ -230,7 +237,7 @@ export async function harness(options: HarnessOptions = {}): Promise<Harness> {
         },
         bus,
         ui,
-        adapters: {},
+        adapters: options.adapters ?? {},
         modules: {
             list: () => [],
             enable: async () => {},

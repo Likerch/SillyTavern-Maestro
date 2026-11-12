@@ -27,8 +27,8 @@ export interface BackgroundsApi {
      * (place state `bg:<tags>`) instead of the main background.
      */
     bind(placeId: string, file: string, variant?: string[]): Promise<void>;
-    /** Asks NAI Studio to generate one for the place (by the user's button). */
-    generate(placeId: string): Promise<BackgroundChoice | null>;
+    /** Asks NAI Studio to generate one for the place (by the user's button; release 1.33: or by an agent). */
+    generate(placeId: string, options?: GenerateOptions): Promise<BackgroundChoice | null>;
     /** The user set their own background: Maestro stops changing it for this chat until released. */
     userPinned(): boolean;
     release(): Promise<void>;
@@ -40,4 +40,20 @@ export interface BackgroundsApi {
     pick?(placeId: string, file: string): Promise<void>;
     /** Re-reads ST's background library (it is cached for the session). */
     refreshLibrary?(): Promise<void>;
+    // Release 1.33 («Декоратор»).
+    /**
+     * The place the scene is in now when the library had nothing for it, nothing is pinned by the user, NAI Studio can
+     * draw backgrounds and no agent tried this place in this chat yet; null otherwise.
+     */
+    needsBackground?(): { placeId: string; placeName: string } | null;
+}
+
+/** Release 1.33: how `generate` draws for an agent. */
+export interface GenerateOptions {
+    /** The place's look now (tags) added to its passport's. */
+    tags?: string;
+    /** Free only: NAI Studio refuses a paid request before sending it, with no cost question. */
+    freeOnly?: boolean;
+    /** An agent's request: set through autonomy `backgrounds.set` (not as the user's pick), tried once per place. */
+    auto?: boolean;
 }

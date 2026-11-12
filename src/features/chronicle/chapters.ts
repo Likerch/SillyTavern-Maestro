@@ -405,6 +405,12 @@ export class ChapterService {
         }));
     }
 
+    /** The chapter's text in the canon ('' when it is gone); release 1.33, the covers agent reads it. */
+    async chapterText(uid: number): Promise<string> {
+        const content = (await this.canonItem(uid))?.entry.content;
+        return typeof content === 'string' ? content : '';
+    }
+
     private async canonItem(uid: number): Promise<CanonItem | undefined> {
         const canon = this.env.canon();
         if (!canon) return undefined;

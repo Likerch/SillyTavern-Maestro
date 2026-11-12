@@ -2,6 +2,8 @@
 // the model and what it does with its answer — created, edited, tested and switched on in the «Агенты» window; sets
 // and default agents; card agents with consent. After the update the set «Как в 1.27» is in force: nothing changes
 // until the user takes an agent or a set. Exposed as app.modules.api<AgentsApi>('agents').
+import { adaptersOf } from '../../adapters';
+import { storyLanguage } from '../../core/language';
 import { onProposalReceiversChange, proposalReceivers } from '../../core/proposal-receivers';
 import type { MaestroModule } from '../../shared/contracts';
 import { registerProfileTask } from '../../ui';
@@ -12,6 +14,15 @@ import { AgentRuntime } from './runtime';
 import { SourceRegistry } from './sources';
 import { installBuiltinRuntime } from './builtin-runtime';
 import { GATE_TASK } from './gate';
+import {
+    CARD_AVATAR_TARGET,
+    CHAT_PASSPORT_TARGET,
+    ILLUSTRATE_KIND,
+    IllustratorRegistration,
+    installImageReceivers,
+} from './image-receivers';
+import { IMAGES_CSS, imagesTab } from './view-images';
+import type { AgentsImageSettings } from './view-images';
 import { AgentStore, BUILTIN_TARGET, DEF_TARGET } from './store';
 import { AGENTS_STRINGS } from './strings';
 import {
@@ -31,7 +42,7 @@ import {
 
 export const AGENTS_KEY = 'agents';
 
-export interface AgentsSettings {
+export interface AgentsSettings extends AgentsImageSettings {
     version: 1;
 }
 
@@ -50,6 +61,8 @@ export const agentsModule: MaestroModule<AgentsSettings> = {
         { target: 'canon.agentEntry', technical: true },
         { target: 'canon.agentEdit', technical: true },
         { target: 'calendar.agentPromise', technical: true },
+        { target: CHAT_PASSPORT_TARGET, technical: true },
+        { target: CARD_AVATAR_TARGET, technical: true },
     ],
     init({ app, log, own }) {
         const store = new AgentStore(app, log);
@@ -69,6 +82,42 @@ export const agentsModule: MaestroModule<AgentsSettings> = {
             const id = typeof change.ref.id === 'string' ? change.ref.id : '';
             return id ? store.undoBuiltin(id, change.before) : false;
         });
+
+        // Release 1.33: pictures by agents through NAI Studio 0.16.
+        const imageSettings = (): AgentsImageSettings => app.settings.module<AgentsSettings>(AGENTS_KEY);
+        const saveImageSettings = (patch: Partial<AgentsImageSettings>) => {
+            Object.assign(app.settings.module<AgentsSettings>(AGENTS_KEY), patch);
+            app.settings.notify(`modules.${AGENTS_KEY}.images`);
+            app.settings.save();
+        };
+        for (const off of installImageReceivers(app, log.scope('images'), {
+            paid: () => imageSettings().imagesPaid === true,
+            language: () => storyLanguage(app),
+        }))
+            own(off);
+        // A passport the portraitist wrote into the chat: NAI Studio drops it (same chat only).
+        app.journal.registerUndo(CHAT_PASSPORT_TARGET, async (change) => {
+            const id = typeof change.ref.id === 'string' ? change.ref.id : '';
+            if (!id || change.ref.chatId !== app.host.chatId()) return false;
+            const api = adaptersOf(app).nai.api();
+            if (!api) return false;
+            await api.clearChatOverride(id);
+            return true;
+        });
+        // Maestro is NAI Studio's illustrator exactly while an illustrator agent is on in this chat.
+        const illustrator = new IllustratorRegistration(app, log.scope('illustrator'), () =>
+            store
+                .activeAgents()
+                .some(
+                    ({ def }) =>
+                        def.result.type === 'proposals' && def.result.options.receivers.includes(ILLUSTRATE_KIND),
+                ),
+        );
+        const syncIllustrator = () => illustrator.sync();
+        own(store.onChange(syncIllustrator));
+        own(app.bus.on('chat:changed', syncIllustrator));
+        own(app.bus.on('reply:ready', syncIllustrator));
+        own(() => illustrator.dispose());
 
         // Inbox cards of agents' proposals outlive the page: each receiver's applier, also for receivers added later.
         const appliers = new Map<string, () => void>();
@@ -100,7 +149,7 @@ export const agentsModule: MaestroModule<AgentsSettings> = {
         own(installBuiltinRuntime(app, store, state));
         own(registerProfileTask(AGENTS_PROFILE_KEY, 'm44.profileDefault'));
         own(registerProfileTask(GATE_TASK, 'm44.profileGate'));
-        own(app.ui.style('maestro-m44', AGENTS_CSS));
+        own(app.ui.style('maestro-m44', `${AGENTS_CSS}\n${IMAGES_CSS}`));
         const addWindow = app.ui.addWindow?.bind(app.ui);
         if (addWindow) {
             own(
@@ -123,6 +172,16 @@ export const agentsModule: MaestroModule<AgentsSettings> = {
             templatesTab(view),
             setsTab(view),
             costTab(view),
+            imagesTab({
+                app,
+                log: log.scope('images'),
+                store,
+                runner,
+                settings: imageSettings,
+                save: saveImageSettings,
+                group: AGENTS_GROUP,
+                syncIllustrator,
+            }),
         ])
             own(app.ui.addTab(tab));
         const strip = app.ui.addMessageStripProvider?.(stripProvider(view));
@@ -199,10 +258,12 @@ export const agentsModule: MaestroModule<AgentsSettings> = {
             run: async (id, options) => (await runtime.runManual(id, options))?.run ?? null,
             registerSource: (source) => sources.register(source),
             onChange: (listener) => store.onChange(listener),
+            imagesPaid: () => imageSettings().imagesPaid === true,
         };
         app.modules.expose(AGENTS_KEY, api);
 
         void store.load().then(async () => {
+            syncIllustrator();
             await runtime.onChatChanged();
             await view.checkCardAgents().catch((error: unknown) => log.warn('card agents', error));
             if (!store.hintShown()) {

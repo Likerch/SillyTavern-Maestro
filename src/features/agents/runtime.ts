@@ -540,6 +540,7 @@ export class AgentRuntime {
             timeoutMs?: number;
         } = {},
     ): Promise<RunOutcome> {
+        if (!options.interactive && !(await this.receiversReady(def, options.focusIndex))) return this.idle(def, phase);
         if (!options.interactive && !(await this.passGate(def, options.focusIndex, phase)))
             return this.skipped(def, phase);
         const outcome = await this.runner.run({ def, state, phase, reason, ...options });
@@ -580,6 +581,8 @@ export class AgentRuntime {
     ): Promise<{ def: AgentDef; state: AgentState; outcome: RunOutcome }[]> {
         const passed: { def: AgentDef; state: AgentState }[] = [];
         await pool(list, MAX_PARALLEL, async (item) => {
+            // Nothing its receivers could take now (release 1.33): not run, not logged.
+            if (!(await this.receiversReady(item.def, base.focusIndex))) return;
             if (await this.passGate(item.def, base.focusIndex, base.phase)) passed.push(item);
             else this.skipped(item.def, base.phase);
         });
@@ -594,6 +597,28 @@ export class AgentRuntime {
         });
         const outcomes = await this.runner.runMany(requests);
         return ordered.map((item, index) => ({ ...item, outcome: outcomes[index]! }));
+    }
+
+    /**
+     * A proposals agent whose every receiver says it is not available now is not needed (release 1.33). A receiver
+     * without `available`, an unknown one, or one that throws counts as available.
+     */
+    async receiversReady(def: AgentDef, focusIndex: number | undefined): Promise<boolean> {
+        if (def.result.type !== 'proposals') return true;
+        const kinds = def.result.options.receivers;
+        if (!kinds.length) return true;
+        const context = focusIndex !== undefined ? { messageIndex: focusIndex } : {};
+        for (const kind of kinds) {
+            const receiver = proposalReceiver(kind);
+            if (!receiver?.available) return true;
+            try {
+                if (await receiver.available(context)) return true;
+            } catch (error) {
+                this.log.debug(`receiver ${kind}: availability unknown`, error);
+                return true;
+            }
+        }
+        return false;
     }
 
     /** «Спросить дешёвую модель» (release 1.30): false only when the model clearly says the agent is not needed. */
@@ -616,6 +641,25 @@ export class AgentRuntime {
         } catch {
             return true;
         }
+    }
+
+    /** Not run: nothing its receivers could take now (release 1.33). Not logged — it would be every turn. */
+    private idle(def: AgentDef, phase: AgentPhase): RunOutcome {
+        const at = this.now();
+        return {
+            run: {
+                id: `${at.toString(36)}-i`,
+                agentId: def.id,
+                agentName: def.name,
+                chatId: this.app.host.chatId(),
+                phase,
+                reason: 'idle',
+                startedAt: at,
+                ms: 0,
+                ok: true,
+                applied: [],
+            },
+        };
     }
 
     private skipped(def: AgentDef, phase: AgentPhase): RunOutcome {

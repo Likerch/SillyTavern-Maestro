@@ -36,10 +36,17 @@ export const CHRONICLE_TARGETS: TargetSpec[] = [
             swipes: { labelKey: 'm9.field.remember', hidden: true },
         },
     },
+    // Release 1.33: covers drawn by the agent «Обложки глав».
+    { target: 'm9.cover', technical: true },
 ];
 
 export const CHRONICLE_STRINGS: I18nParts = {
     en: {
+        'kind.chronicle.cover': 'Chapter covers from agents',
+        'target.m9.cover': 'Chapter cover',
+        'm9.cover.title': 'Cover of «{title}»',
+        'm9.cover.otherChat': 'Another chat is open now.',
+        'm9.cover.failed': 'The cover was not drawn: {error}',
         'm9.title': 'Chronicle and memory',
         'm9.tab': 'Chronicle',
         'm9.noChat': 'No chat is open.',
@@ -163,6 +170,11 @@ export const CHRONICLE_STRINGS: I18nParts = {
         'm9.settings.keywordsHint': "Cheap word search in each committed reply, besides the revision's signals",
     },
     ru: {
+        'kind.chronicle.cover': 'Обложки глав от агентов',
+        'target.m9.cover': 'Обложка главы',
+        'm9.cover.title': 'Обложка «{title}»',
+        'm9.cover.otherChat': 'Сейчас открыт другой чат.',
+        'm9.cover.failed': 'Обложка не нарисована: {error}',
         'm9.title': 'Летопись и автопамять',
         'm9.tab': 'Летопись',
         'm9.noChat': 'Чат не открыт.',

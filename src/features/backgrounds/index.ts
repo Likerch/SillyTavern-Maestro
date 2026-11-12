@@ -5,6 +5,7 @@
 // Exposed as app.modules.api<BackgroundsApi>('backgrounds').
 import { formatPlain } from '../../core/labels';
 import type { I18n, MaestroModule } from '../../shared/contracts';
+import { installBackgroundsReceiver } from './agent-receiver';
 import type { BackgroundsApi } from './api';
 import { BackgroundsService } from './service';
 import {
@@ -44,6 +45,7 @@ export const backgroundsModule: MaestroModule<BackgroundsSettings> = {
         for (const off of service.install()) own(off);
         own(() => service.dispose());
         app.modules.expose(BACKGROUNDS_KEY, service satisfies Required<BackgroundsApi>);
+        own(installBackgroundsReceiver(app, service));
         own(app.ui.style('maestro-m29', BACKGROUNDS_CSS));
         own(app.ui.addTab(backgroundsTab(app, service, settings)));
     },

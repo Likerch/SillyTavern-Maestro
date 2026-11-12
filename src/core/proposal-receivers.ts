@@ -22,6 +22,11 @@ export interface ProposalReceiver {
      * turn; a swipe has its own record, so nothing needs a decision.
      */
     direct?: boolean;
+    /**
+     * Release 1.33: whether an item could be used now (NAI Studio writes no markers by an illustrator, the place has a
+     * background…). An agent none of whose receivers is available is not run at all — no request, nothing logged.
+     */
+    available?(context: { messageIndex?: number }): Promise<boolean> | boolean;
     /** An item as a proposal (null: nothing to do — a duplicate, an unknown name). */
     toProposal(
         data: Record<string, unknown>,

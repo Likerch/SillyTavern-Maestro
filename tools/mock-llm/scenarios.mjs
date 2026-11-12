@@ -367,6 +367,7 @@ const FLAG_MARKERS = [
     'mechextract',
     'say',
     'offscreen',
+    'image',
 ];
 
 /** Marker names this engine understands (for README and the /__config validation). */
@@ -1097,6 +1098,70 @@ export function conformToSchema(value, schema, root = schema, depth = 0, hint = 
 // Example handlers for Maestro background tasks. The real schemas are defined by src/ (stage 2+); the
 // filling rules above keep these replies valid even when the real schema differs.
 registerSchema('maestro_ping', (ctx) => ({ ok: true, model: ctx.model, echo: ctx.lastUserText.slice(0, 120) }));
+// Agents' proposals (release 1.31+): the receivers the request allows (the `kind` enum of the schema). Release 1.33:
+// pictures — the illustrator answers one marker after the reply's first sentence, the decorator tags of a place, the
+// portraitist the first face of «No portrait yet», the covers agent the first chapter listed.
+registerSchema('agent_proposals', (ctx) => {
+    const kinds = ctx.schema?.schema?.properties?.proposals?.items?.properties?.kind?.enum ?? [];
+    const all = ctx.texts.join('\n');
+    const proposals = [];
+    if (kinds.includes('nai.illustrate')) {
+        const reply =
+            String(ctx.lastUserText ?? '')
+                .split('\n')
+                .reverse()
+                .find((line) => line.trim().length > 20) ?? '';
+        const sentence = (reply.match(/[^.!?…]+[.!?…]/) ?? [reply])[0].trim();
+        proposals.push({
+            kind: 'nai.illustrate',
+            why: 'mock: a moment worth a picture',
+            data: {
+                marker: {
+                    prompt: '2girls, tavern interior, candlelight, warm light, upper body',
+                    ratio: 'landscape',
+                    chars: [{ name: 'Мира', look: '', action: 'smiling, holding a mug', pos: 'left' }],
+                    caption: 'Мира в таверне',
+                },
+                after: sentence,
+            },
+        });
+    }
+    if (kinds.includes('backgrounds.agentGenerate')) {
+        proposals.push({
+            kind: 'backgrounds.agentGenerate',
+            why: 'mock',
+            data: { tags: 'stone walls, wooden beams, hearth, lanterns, cozy, crowded' },
+        });
+    }
+    if (kinds.includes('nai.portrait')) {
+        const face = all.match(/No portrait yet[^\n]*\n- ([^\n]+)/);
+        if (face) {
+            proposals.push({
+                kind: 'nai.portrait',
+                why: 'mock',
+                data: {
+                    name: face[1].trim(),
+                    look: 'adult man, short black hair, grey eyes, scar on cheek, leather coat',
+                },
+            });
+        }
+    }
+    if (kinds.includes('chronicle.cover')) {
+        const chapter = all.match(/\[chapter (\d+)\]/);
+        if (chapter) {
+            proposals.push({
+                kind: 'chronicle.cover',
+                why: 'mock',
+                data: {
+                    chapter: Number(chapter[1]),
+                    marker: { prompt: 'harbour at dusk, ships, lanterns', caption: 'Гавань' },
+                },
+            });
+        }
+    }
+    return { proposals };
+});
+
 // A wiring check for Dramatis through MAESTRO_API (task `dramatis.ping`).
 registerTask('dramatis.ping', (ctx) => ({ ok: true, task: 'dramatis.ping', echo: ctx.lastUserText.slice(0, 120) }));
 
@@ -2120,6 +2185,18 @@ ${m.get('say')}`;
     // [mock:mechextract:…] in a story turn: the reply repeats the marker on its last line, so the background parse of
     // that reply (which only sees the reply) finds it.
     if (kind === 'story' && m.get('mechextract')) content += `\n\n[mock:mechextract:${m.get('mechextract')}]`;
+
+    // [mock:image] (release 1.33): the reply carries an image marker of the main model, as NAI Studio's rules ask.
+    if (kind === 'story' && m.has('image')) {
+        content += [
+            '',
+            '',
+            '<figure class="story-img">',
+            `<img data-nai='{"prompt":"tavern at night, rain on the windows, candlelight","ratio":"landscape","chars":[{"name":"Мира","look":"","action":"sitting by the window","pos":"left"}]}'>`,
+            '<figcaption>Дождь за окном таверны</figcaption>',
+            '</figure>',
+        ].join('\n');
+    }
 
     let finishReason = 'stop';
     if (m.has('bos')) content = BOS_PREFIX + content;
