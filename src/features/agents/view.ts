@@ -729,6 +729,22 @@ export function logTab(view: AgentsView): PultTab {
                                       text: JSON.stringify(run.result, null, 2),
                                   })
                                 : null,
+                            run.tools?.length
+                                ? el('details', {}, [
+                                      el('summary', {
+                                          text: view.t('m44.log.tools', { count: run.tools.length }),
+                                      }),
+                                      el('pre', {
+                                          class: 'maestro-agent-preview',
+                                          text: run.tools
+                                              .map(
+                                                  (call) =>
+                                                      `${call.name} ${JSON.stringify(call.args)}\n→ ${call.result}`,
+                                              )
+                                              .join('\n\n'),
+                                      }),
+                                  ])
+                                : null,
                             run.raw !== undefined
                                 ? el('details', {}, [
                                       el('summary', { text: view.t('m44.log.raw') }),

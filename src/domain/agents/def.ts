@@ -1,6 +1,7 @@
 // Agent definitions (plan §4.2, §4.3): defaults of every result type, sanitising what comes from a file, an import or a
 // card (unknown or broken parts are dropped, never trusted), ids, capabilities, and how sets and the three scopes
 // («везде / персонаж / чат», the nearest wins) give the state of an agent in the open chat.
+import { sanitizeTools } from './tools';
 import { AGENT_EVENTS, AGENT_PHASES, AGENT_RESULT_TYPES } from './types';
 import type {
     AgentConditions,
@@ -202,7 +203,7 @@ export function blankAgent(name: string, now: number, id = newAgentId(name)): Ag
  * What an agent may do, as stable codes (the UI translates them, plan §3.10): shown on import and before card agents
  * are switched on.
  */
-export function capabilitiesOf(def: Pick<AgentDef, 'result' | 'sources'>): string[] {
+export function capabilitiesOf(def: Pick<AgentDef, 'result' | 'sources' | 'tools'>): string[] {
     const caps: string[] = [];
     switch (def.result.type) {
         case 'inject':
@@ -234,6 +235,7 @@ export function capabilitiesOf(def: Pick<AgentDef, 'result' | 'sources'>): strin
             break;
     }
     for (const source of def.sources) caps.push(`read.${source.id}`);
+    for (const tool of def.tools ?? []) caps.push(`tool.${tool}`);
     return caps;
 }
 
@@ -457,6 +459,11 @@ export function sanitizeAgent(raw: unknown, now: number): AgentDef | null {
     }
     const limits = sanitizeLimits(raw.limits);
     if (limits) def.limits = limits;
+    const tools = sanitizeTools(raw.tools);
+    if (tools.length) {
+        def.tools = tools;
+        def.capabilities = capabilitiesOf(def);
+    }
     return def;
 }
 

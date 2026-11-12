@@ -2,6 +2,7 @@
 // «текст», «сюжет», «игрок». Names and descriptions are i18n keys (`m44.tpl.<id>.name` / `.desc`); instructions are
 // English (the model reads them; the user may rewrite them in any language). Every template is off until taken.
 import { DEFAULT_INJECT } from './def';
+import type { AgentToolId } from './tools';
 import type { AgentDef, AgentResultSpec, AgentSet, AgentSourceRef, AgentTrigger, AgentModel } from './types';
 
 export type TemplateGroup = 'text' | 'story' | 'player' | 'trackers' | 'mechanics' | 'creators' | 'images';
@@ -18,6 +19,8 @@ export interface AgentTemplate {
     trigger: AgentTrigger;
     result: AgentResultSpec;
     model?: AgentModel;
+    /** Release 1.34: tools the agent may call. */
+    tools?: AgentToolId[];
 }
 
 const RECENT = (count: number): AgentSourceRef => ({ id: 'messages', budget: count });
@@ -377,6 +380,18 @@ export const AGENT_TEMPLATES: readonly AgentTemplate[] = [
         model: { temperature: 0.6 },
     },
     {
+        id: 'group-host',
+        group: 'player',
+        icon: 'fa-people-group',
+        since: '1.34',
+        instruction:
+            "You host a group scene. After the player's message decide who of the group members should answer now: the one addressed or looked at, the one the news concerns, the one with a reason to react — and let someone who has been silent for long speak when the scene allows. Never the same member three times in a row unless addressed.",
+        sources: [{ id: 'groupMembers' }, { id: 'desScene' }, RECENT(8)],
+        trigger: { phase: 'manual' },
+        result: { type: 'proposals', options: { receivers: ['group.speaker'], max: 1 } },
+        model: { temperature: 0.3 },
+    },
+    {
         id: 'own-mechanic',
         group: 'mechanics',
         icon: 'fa-gauge-high',
@@ -388,6 +403,8 @@ export const AGENT_TEMPLATES: readonly AgentTemplate[] = [
             rules: 'hunger 0-100 grows by 10 every few hours of story time and drops by 40 after a meal; fatigue 0-100 grows with effort and drops after sleep; at 70+ the character is weakened, at 90+ can barely act',
         },
         sources: [{ id: 'ownMemory' }, { id: 'desScene' }, RECENT(6)],
+        // Release 1.34: rolls by the dice engine of M25 when a rule asks for one.
+        tools: ['roll'],
         trigger: { phase: 'schedule', everyMessages: 2 },
         result: {
             type: 'memory',
@@ -414,9 +431,10 @@ export function agentFromTemplate(
     name: string,
     id: string,
     now: number,
-    capabilities: (def: Pick<AgentDef, 'result' | 'sources'>) => string[],
+    capabilities: (def: Pick<AgentDef, 'result' | 'sources' | 'tools'>) => string[],
 ): AgentDef {
     const sources = template.sources.map((source) => ({ ...source }));
+    const tools = template.tools ? [...template.tools] : undefined;
     const result = JSON.parse(JSON.stringify(template.result)) as AgentResultSpec;
     const def: AgentDef = {
         v: 1,
@@ -431,9 +449,10 @@ export function agentFromTemplate(
         trigger: JSON.parse(JSON.stringify(template.trigger)) as AgentTrigger,
         result,
         model: { ...(template.model ?? {}) },
-        capabilities: capabilities({ result, sources }),
+        capabilities: capabilities({ result, sources, ...(tools ? { tools } : {}) }),
         updatedAt: now,
     };
+    if (tools) def.tools = tools;
     if (template.vars) def.vars = { ...template.vars };
     return def;
 }

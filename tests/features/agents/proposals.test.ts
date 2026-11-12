@@ -50,7 +50,7 @@ describe('agent proposals', () => {
         ]);
         // The agents module itself takes the pictures for NAI Studio (release 1.33).
         expect([...h.appliers].sort()).toEqual(
-            ['canon.agentEntry', 'nai.cardAvatar', 'nai.illustrate', 'nai.portrait'].sort(),
+            ['canon.agentEntry', 'group.speaker', 'nai.cardAvatar', 'nai.illustrate', 'nai.portrait'].sort(),
         );
         h.answers.push((request: LlmRequest) => {
             expect(request.schema?.name).toBe('agent_proposals');

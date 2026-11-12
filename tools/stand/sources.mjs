@@ -64,9 +64,9 @@ export const NEIGHBOURS = [
     {
         id: 'localizer',
         folder: 'SillyTavern-LorebookLocalizer',
-        version: '0.5.1',
+        version: '0.6.0',
         repo: 'SillyTavern-LorebookLocalizer',
-        ref: '099f3a2e090c71d47fc91e6b2d095ae50730386a',
+        ref: '27f12e52728f76a49a32b5eec5fb040a311c026a',
         note: 'Lorebook Localizer',
     },
     {

@@ -25,7 +25,8 @@ export type MaestroApiFeature =
     | 'promptAudit'
     | 'persona'
     | 'serviceCard'
-    | 'prepareScenes';
+    | 'prepareScenes'
+    | 'agents';
 
 /**
  * Errors of the service facades (1.24): 'off' — the module that owns it is switched off or paused (a service chat
@@ -774,4 +775,192 @@ export interface MaestroApi {
     persona?: {
         create(input: ApiPersonaInput): Promise<ApiResult<ApiPersonaOutcome>>;
     };
+    /** 1.34+ (`features` has 'agents'): agents — neighbours' built-in agents, receivers, own agents and sets. */
+    agents?: ApiAgents;
+    /** 1.34+: sources of context for agents. */
+    context?: ApiContext;
+}
+
+/* ------------------------------------------------------------------ agents (release 1.34, docs/integration-agents.md) */
+
+/** Words for both interface languages. */
+export interface ApiLabel {
+    ru: string;
+    en: string;
+}
+
+/** A setting of a neighbour's built-in agent shown in its card («Когда»); the neighbour reads and writes it. */
+export interface ApiBuiltInKnob {
+    /** Unique within the agent (`everyMessages`). */
+    id: string;
+    label: ApiLabel;
+    kind: 'number' | 'toggle' | 'select';
+    min?: number;
+    max?: number;
+    step?: number;
+    options?: { value: string; label: ApiLabel }[];
+    get(): unknown;
+    set(value: unknown): void | Promise<void>;
+}
+
+/**
+ * A neighbour's model job shown as a built-in agent in Maestro's «Агенты» window: the user sees and changes its
+ * instruction («Дополнительные указания» or the whole text), its model parameters and profile, its log. The logic stays
+ * the neighbour's.
+ */
+export interface ApiBuiltInSpec {
+    /** The task id with the neighbour's prefix ('dramatis.turn', 'localizer.expand'). */
+    id: string;
+    title: ApiLabel;
+    /** When it runs, one line. */
+    when: ApiLabel;
+    description?: ApiLabel;
+    /** What it reads, one line. */
+    sources?: ApiLabel;
+    /** Font Awesome class ('fa-masks-theater'). */
+    icon?: string;
+    /**
+     * The default instruction as it appears in the system message of its requests; several when it depends on the
+     * language or a setting (the first one is shown). On Maestro's channel the first one found in a request is replaced.
+     */
+    defaultInstructions: string[] | (() => string[]);
+    defaults?: { maxTokens: number; temperature: number };
+    /**
+     * 'maestro' (default): its requests go through MAESTRO_API.llm.request with `task` = id, and Maestro puts the user's
+     * changes in. 'own': the neighbour calls its model on its own channel; it asks `instruction(id, text)` before each
+     * request and reports runs with `report`.
+     */
+    channel?: 'maestro' | 'own';
+    /** The user starts it himself (a button). */
+    interactive?: boolean;
+    /** The neighbour's own switch of the job (absent: always on while the neighbour is). */
+    enabled?(): boolean;
+    setEnabled?(on: boolean): void | Promise<void>;
+    knobs?: ApiBuiltInKnob[];
+}
+
+export interface ApiAgentInstruction {
+    text: string;
+    temperature?: number;
+    maxTokens?: number;
+    reasoning?: 'off' | 'low' | 'medium' | 'high';
+}
+
+export interface ApiAgentRunReport {
+    ok: boolean;
+    ms: number;
+    error?: string;
+    costUsd?: number;
+    tokens?: { prompt: number; completion: number };
+    request?: { role: string; content: string }[];
+    raw?: string;
+}
+
+/** An agent as a neighbour sees it in a list. */
+export interface ApiAgentInfo {
+    id: string;
+    name: string;
+    /** A built-in agent (Maestro's or a neighbour's) or an own one. */
+    builtin: boolean;
+    /** Own agents: when it runs and what it returns. */
+    phase?: string;
+    result?: string;
+    /** On in the open chat (sets and scopes applied). */
+    on: boolean;
+}
+
+/** One finished run (MAESTRO_API.agents.onResult). */
+export interface ApiAgentRun {
+    agentId: string;
+    agentName: string;
+    ok: boolean;
+    builtin: boolean;
+    messageIndex?: number;
+    /** What was done with its answer, in the user's words. */
+    applied: string[];
+    error?: string;
+    at: number;
+}
+
+export type ApiAgentScope = 'global' | 'character' | 'chat';
+
+/** What a neighbour's proposal receiver makes of one item of an agent's answer. */
+export interface ApiReceiverProposal {
+    /** One line in the user's language. */
+    title: string;
+    description?: string;
+    /** JSON: what `apply` gets (also after a reload, from an Inbox card). */
+    payload: unknown;
+    /** Journal changes with the neighbour's targets (undo through journal.registerUndo). */
+    changes?: ApiJournalChange[];
+    sourceMessage?: number;
+}
+
+/** A store of a neighbour agents may propose changes to (Dramatis: a character's profile). */
+export interface ApiProposalReceiver {
+    /** With the neighbour's prefix ('dramatis.profile'); also the action kind of its proposals. */
+    kind: string;
+    /** What it changes, for the agent editor and Maestro's settings. */
+    label: ApiLabel;
+    /** For the model (English): what one item means and how to fill its fields. */
+    describe: string;
+    /** JSON schema of one item's `data`. */
+    schema: Record<string, unknown>;
+    defaultAutonomy?: 'auto' | 'notify' | 'inbox' | 'ask' | 'off';
+    /** Never applied by itself. */
+    neverAuto?: boolean;
+    /** Applied at once without autonomy (a tracker); it journals itself. */
+    direct?: boolean;
+    /** Not needed now: an agent none of whose receivers is available is not run. */
+    available?(context: { messageIndex?: number }): boolean | Promise<boolean>;
+    toProposal(
+        data: Record<string, unknown>,
+        context: { agentName: string; messageIndex?: number },
+    ): ApiReceiverProposal | null | Promise<ApiReceiverProposal | null>;
+    apply(payload: unknown): Promise<void>;
+}
+
+/** A source of context a neighbour gives agents (Dramatis: the cast's motives). */
+export interface ApiContextSource {
+    /** With the neighbour's prefix ('dramatis.cast'). */
+    id: string;
+    /** For the model (English). */
+    title: string;
+    label: ApiLabel;
+    /** Default budget in characters. */
+    budget?: number;
+    /** Changes rarely (goes first in a request, for the cache). */
+    stable?: boolean;
+    available?(): boolean;
+    render(context: { agentId: string; focusIndex?: number; budget: number }): string | Promise<string>;
+}
+
+export interface ApiAgents {
+    /** A neighbour's job as a built-in agent; the remover takes it out of the window. */
+    registerBuiltIn(spec: ApiBuiltInSpec): ApiUnsubscribe;
+    /** For 'own' channel agents: the instruction and parameters to use now (the default text when unchanged). */
+    instruction(id: string, defaultText: string): ApiAgentInstruction;
+    /** For 'own' channel agents: a finished run into the chat's run log. */
+    report(id: string, run: ApiAgentRunReport): void;
+    list(): ApiAgentInfo[];
+    /** An own agent's definition (a copy), or null. */
+    get(id: string): Record<string, unknown> | null;
+    /** Saves an own agent (new or changed); its id, or null when the definition is not valid. */
+    save(def: Record<string, unknown>): Promise<string | null>;
+    /** Switches an own agent in a scope ('global' by default). */
+    setEnabled(id: string, on: boolean, scope?: ApiAgentScope): Promise<boolean>;
+    /** The sets (built-in and own), as copies. */
+    sets(): Record<string, unknown>[];
+    /** Saves an own set; false when it is not valid. */
+    saveSet(set: Record<string, unknown>): Promise<boolean>;
+    /** A scope follows a set. */
+    applySet(setId: string, scope?: ApiAgentScope): Promise<boolean>;
+    /** Runs an own agent now on a message (or the last reply). */
+    run(id: string, options?: { messageIndex?: number }): Promise<ApiAgentRun | null>;
+    onResult(listener: (run: ApiAgentRun) => void): ApiUnsubscribe;
+    registerReceiver(receiver: ApiProposalReceiver): ApiUnsubscribe;
+}
+
+export interface ApiContext {
+    register(source: ApiContextSource): ApiUnsubscribe;
 }

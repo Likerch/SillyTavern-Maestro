@@ -1,5 +1,5 @@
 //#region src/adapters/base.ts
-function isDict$158(value) {
+function isDict$159(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function stringList$6(value) {
@@ -23,10 +23,10 @@ function extras$1(host) {
 /** `extension_settings[key]` when it is an object. */
 function extensionSettingsOf(host, key) {
 	const value = host.ctx().extensionSettings[key];
-	return isDict$158(value) ? value : null;
+	return isDict$159(value) ? value : null;
 }
 function toManifest(value) {
-	if (!isDict$158(value)) return null;
+	if (!isDict$159(value)) return null;
 	const manifest = {};
 	for (const key of [
 		"display_name",
@@ -272,13 +272,13 @@ var MBTI_TAG_RE$1 = /<([EI][NS][FT][JP]-[UH])>/gi;
 var PLACEHOLDER_RE$2 = /^(?:BLANK|NEW|VALUE|TARGET|NAME|NAME[\s_]HERE|PLACEHOLDER|TBD|X{3,})$/i;
 /** Entry wrapper `<BunnymoTags:Title>…</BunnymoTags:Title>`, used by the core and by some packs. */
 var WRAPPED_RE = /^<BunnymoTags:/i;
-function text$25(value) {
+function text$26(value) {
 	return value === void 0 || value === null ? "" : String(value);
 }
 /** Primary and secondary keys of an entry, trimmed, without empty ones. */
 function entryKeys$1(entry) {
 	const list = (value) => Array.isArray(value) ? value : [];
-	return [...list(entry?.key), ...list(entry?.keysecondary)].map((key) => text$25(key).trim()).filter(Boolean);
+	return [...list(entry?.key), ...list(entry?.keysecondary)].map((key) => text$26(key).trim()).filter(Boolean);
 }
 /**
 * Is this an entry of the BunnyMo core lorebook? By a sheet command in its keys or by a known entry title.
@@ -286,7 +286,7 @@ function entryKeys$1(entry) {
 */
 function isBunnyMoCoreEntry(entry) {
 	if (entryKeys$1(entry).some((key) => BUNNYMO_SHEET_COMMANDS.includes(key.toLowerCase()))) return true;
-	return CORE_COMMENT_RE.test(text$25(entry?.comment));
+	return CORE_COMMENT_RE.test(text$26(entry?.comment));
 }
 /**
 * Which books are BunnyMo: the core (3+ core entries) and packs ((3+ tag-keyed entries that are at least 60 %
@@ -295,7 +295,7 @@ function isBunnyMoCoreEntry(entry) {
 function classifyWorlds(entries) {
 	const stats = /* @__PURE__ */ new Map();
 	for (const entry of entries) {
-		const world = text$25(entry?.world);
+		const world = text$26(entry?.world);
 		if (!world) continue;
 		const item = stats.get(world) ?? {
 			core: 0,
@@ -304,7 +304,7 @@ function classifyWorlds(entries) {
 			wrapped: 0
 		};
 		if (isBunnyMoCoreEntry(entry)) item.core += 1;
-		if (WRAPPED_RE.test(text$25(entry?.content).trimStart())) item.wrapped += 1;
+		if (WRAPPED_RE.test(text$26(entry?.content).trimStart())) item.wrapped += 1;
 		const keys = entryKeys$1(entry);
 		if (keys.length) {
 			item.keyed += 1;
@@ -326,7 +326,7 @@ function classifyWorlds(entries) {
 * Template placeholders (`<GENRE:BLANK>`, `<Dere:NEW>`) are skipped.
 */
 function archiveTags(entry) {
-	const block = TAG_BLOCK_RE$2.exec(text$25(entry?.content));
+	const block = TAG_BLOCK_RE$2.exec(text$26(entry?.content));
 	if (!block?.[1]) return {
 		name: null,
 		tags: []
@@ -351,7 +351,7 @@ function archiveTags(entry) {
 * block whose name is a placeholder.
 */
 function isCharacterArchive(entry) {
-	if (!TAG_BLOCK_RE$2.test(text$25(entry?.content)) || isBunnyMoCoreEntry(entry)) return false;
+	if (!TAG_BLOCK_RE$2.test(text$26(entry?.content)) || isBunnyMoCoreEntry(entry)) return false;
 	const { name, tags } = archiveTags(entry);
 	return name !== null ? !PLACEHOLDER_RE$2.test(name) : tags.length > 0;
 }
@@ -369,8 +369,8 @@ var MATCH_ALL_KEY = "/^/";
 */
 function isMedicineCheckEntry(entry) {
 	if (!entry) return false;
-	const titled = MEDICINE_COMMENT_RE.test(text$25(entry.comment));
-	const wrapped = MEDICINE_WRAPPER_RE.test(text$25(entry.content).trimStart());
+	const titled = MEDICINE_COMMENT_RE.test(text$26(entry.comment));
+	const wrapped = MEDICINE_WRAPPER_RE.test(text$26(entry.content).trimStart());
 	if (!titled && !wrapped) return false;
 	return entry.constant === true || entryKeys$1(entry).includes(MATCH_ALL_KEY);
 }
@@ -387,7 +387,7 @@ function hasDependenceTags(tags) {
 function archiveWorlds(entries) {
 	const worlds = /* @__PURE__ */ new Set();
 	for (const entry of entries) {
-		const world = text$25(entry?.world);
+		const world = text$26(entry?.world);
 		if (world && !worlds.has(world) && isCharacterArchive(entry)) worlds.add(world);
 	}
 	return worlds;
@@ -457,7 +457,7 @@ var BunnyMoAdapter = class extends NeighbourBase {
 			const worldInfo = await this.host.modules.worldInfo();
 			for (const name of stringList$6(worldInfo.selected_world_info)) names.add(name);
 			const settings = worldInfo.world_info;
-			if (isDict$158(settings) && Array.isArray(settings.charLore)) charLore = settings.charLore;
+			if (isDict$159(settings) && Array.isArray(settings.charLore)) charLore = settings.charLore;
 		} catch (error) {
 			this.log.debug("world-info.js is not available; global books are skipped", error);
 		}
@@ -471,7 +471,7 @@ var BunnyMoAdapter = class extends NeighbourBase {
 			const primary = character.data?.extensions?.world;
 			if (typeof primary === "string" && primary) names.add(primary);
 			const key = avatarKey$2(character.avatar ?? "");
-			for (const lore of charLore) if (isDict$158(lore) && lore.name === key) for (const book of stringList$6(lore.extraBooks)) names.add(book);
+			for (const lore of charLore) if (isDict$159(lore) && lore.name === key) for (const book of stringList$6(lore.extraBooks)) names.add(book);
 		}
 		const known = extras$1(this.host).getWorldInfoNames?.() ?? [];
 		return known.length ? [...names].filter((name) => known.includes(name)) : [...names];
@@ -514,11 +514,11 @@ var BunnyMoAdapter = class extends NeighbourBase {
 			this.log.debug(`lorebook ${book} did not load`, error);
 			return null;
 		}
-		if (!isDict$158(data) || !isDict$158(data.entries)) return null;
+		if (!isDict$159(data) || !isDict$159(data.entries)) return null;
 		const entries = [];
 		const enabled = [];
 		for (const raw of Object.values(data.entries)) {
-			if (!isDict$158(raw)) continue;
+			if (!isDict$159(raw)) continue;
 			const entry = {
 				key: raw.key,
 				keysecondary: raw.keysecondary,
@@ -549,7 +549,7 @@ function isCkManifest(manifest) {
 }
 function globalObject(name) {
 	const value = globalThis[name];
-	return isDict$158(value) ? value : null;
+	return isDict$159(value) ? value : null;
 }
 var CkAdapter = class extends NeighbourBase {
 	id = "ck";
@@ -591,7 +591,7 @@ var CkAdapter = class extends NeighbourBase {
 	}
 	ragEnabled() {
 		const rag = this.settings()?.rag;
-		return isDict$158(rag) && rag.enabled === true;
+		return isDict$159(rag) && rag.enabled === true;
 	}
 };
 //#endregion
@@ -609,7 +609,7 @@ var KNOWN_INFO_KEYS = /* @__PURE__ */ new Set([
 	"temperature",
 	"recentEvents"
 ]);
-function isDict$157(value) {
+function isDict$158(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /** Trims and drops brackets that wrap the whole value (`[Friend]`), as DES's renderers do. */
@@ -626,7 +626,7 @@ function textOf$1(value) {
 		const parts = value.map(textOf$1).filter((part) => !!part);
 		return parts.length ? parts.join(", ") : void 0;
 	}
-	if (isDict$157(value)) for (const key of [
+	if (isDict$158(value)) for (const key of [
 		"value",
 		"text",
 		"description",
@@ -668,13 +668,13 @@ function statsOf$1(raw) {
 		});
 	};
 	if (Array.isArray(raw)) {
-		for (const item of raw) if (isDict$157(item)) push(item.name, item.value);
-	} else if (isDict$157(raw)) for (const [name, value] of Object.entries(raw)) push(name, isDict$157(value) ? value.value : value);
+		for (const item of raw) if (isDict$158(item)) push(item.name, item.value);
+	} else if (isDict$158(raw)) for (const [name, value] of Object.entries(raw)) push(name, isDict$158(value) ? value.value : value);
 	return stats;
 }
 function detailsOf$1(raw) {
 	const details = {};
-	if (!isDict$157(raw)) return details;
+	if (!isDict$158(raw)) return details;
 	for (const [key, value] of Object.entries(raw)) {
 		const text = textOf$1(value);
 		if (key && text) details[key] = text;
@@ -684,16 +684,16 @@ function detailsOf$1(raw) {
 function relationshipOf$1(entry) {
 	if (typeof entry.Relationship === "string") return clean$5(entry.Relationship) || void 0;
 	const relationship = entry.relationship;
-	if (isDict$157(relationship)) return textOf$1(relationship.status) ?? textOf$1(relationship);
+	if (isDict$158(relationship)) return textOf$1(relationship.status) ?? textOf$1(relationship);
 	return textOf$1(relationship);
 }
 function thoughtsOf(entry) {
 	const thoughts = entry.thoughts;
-	if (isDict$157(thoughts)) return textOf$1(thoughts.content) ?? textOf$1(thoughts);
+	if (isDict$158(thoughts)) return textOf$1(thoughts.content) ?? textOf$1(thoughts);
 	return textOf$1(thoughts);
 }
 function characterOf(raw) {
-	if (!isDict$157(raw) || typeof raw.name !== "string" || !raw.name.trim()) return null;
+	if (!isDict$158(raw) || typeof raw.name !== "string" || !raw.name.trim()) return null;
 	const thoughts = thoughtsOf(raw);
 	const character = {
 		name: raw.name.trim(),
@@ -711,7 +711,7 @@ function characterOf(raw) {
 /** Characters from `characterThoughts`: an array (DES 2.6 parse) or `{characters: [...]}` (legacy, defaults). */
 function parseDesCharacters(raw) {
 	const data = parseTrackerJson(raw);
-	const list = Array.isArray(data) ? data : isDict$157(data) && Array.isArray(data.characters) ? data.characters : [];
+	const list = Array.isArray(data) ? data : isDict$158(data) && Array.isArray(data.characters) ? data.characters : [];
 	const characters = [];
 	for (const item of list) {
 		const character = characterOf(item);
@@ -720,7 +720,7 @@ function parseDesCharacters(raw) {
 	return characters;
 }
 function timeOf(raw) {
-	if (isDict$157(raw)) {
+	if (isDict$158(raw)) {
 		const start = textOf$1(raw.start) ?? textOf$1(raw.value);
 		const end = textOf$1(raw.end);
 		if (!start && !end) return void 0;
@@ -733,7 +733,7 @@ function timeOf(raw) {
 	return flat ? { start: flat } : void 0;
 }
 function weatherOf(raw) {
-	if (isDict$157(raw)) {
+	if (isDict$158(raw)) {
 		const emoji = textOf$1(raw.emoji);
 		const forecast = textOf$1(raw.forecast) ?? textOf$1(raw.value);
 		if (!emoji && !forecast) return void 0;
@@ -748,7 +748,7 @@ function weatherOf(raw) {
 function temperatureOf(raw) {
 	if (typeof raw === "number" && Number.isFinite(raw)) return { value: raw };
 	if (typeof raw === "string") return raw.trim() ? { value: raw.trim() } : void 0;
-	if (!isDict$157(raw)) return void 0;
+	if (!isDict$158(raw)) return void 0;
 	const value = raw.value;
 	const temperature = typeof value === "number" && Number.isFinite(value) ? { value } : typeof value === "string" && value.trim() ? { value: value.trim() } : void 0;
 	const unit = textOf$1(raw.unit);
@@ -757,14 +757,14 @@ function temperatureOf(raw) {
 }
 function eventsOf$1(raw) {
 	if (Array.isArray(raw)) return raw.map(textOf$1).filter((event) => !!event);
-	if (isDict$157(raw) && raw.events !== void 0 && raw.value === void 0) return eventsOf$1(raw.events);
+	if (isDict$158(raw) && raw.events !== void 0 && raw.value === void 0) return eventsOf$1(raw.events);
 	const flat = textOf$1(raw);
 	return flat ? [flat] : [];
 }
 /** Scene data from `infoBox`; null when the section is missing or not a JSON object. */
 function parseDesInfoBox(raw) {
 	const data = parseTrackerJson(raw);
-	if (!isDict$157(data)) return null;
+	if (!isDict$158(data)) return null;
 	const info = {
 		recentEvents: eventsOf$1(data.recentEvents),
 		fields: {}
@@ -789,14 +789,14 @@ function parseDesInfoBox(raw) {
 /** A quest title from a string, `{title}`, `{value}` (nested) or `{description}`; "None" → null. */
 function questOf(raw) {
 	let value = raw;
-	while (isDict$157(value) && value.value !== void 0) value = value.value;
-	const title = isDict$157(value) ? textOf$1(value.title) ?? textOf$1(value.description) : textOf$1(value);
+	while (isDict$158(value) && value.value !== void 0) value = value.value;
+	const title = isDict$158(value) ? textOf$1(value.title) ?? textOf$1(value.description) : textOf$1(value);
 	return title && !NO_QUEST_RE.test(title) ? title : null;
 }
 /** Quests from `quests`: `{main, optional[]}` with string or `{title}` items. Null when missing. */
 function parseDesQuests(raw) {
 	const data = parseTrackerJson(raw);
-	if (!isDict$157(data)) return null;
+	if (!isDict$158(data)) return null;
 	const optional = Array.isArray(data.optional) ? data.optional.map(questOf).filter((quest) => quest !== null) : [];
 	return {
 		main: questOf(data.main),
@@ -812,8 +812,8 @@ function parseDesTracker(strings) {
 	};
 }
 function swipeRecordOf(swipes, swipeId) {
-	const record = Array.isArray(swipes) ? swipes[swipeId] : isDict$157(swipes) ? swipes[String(swipeId)] : void 0;
-	if (!isDict$157(record)) return null;
+	const record = Array.isArray(swipes) ? swipes[swipeId] : isDict$158(swipes) ? swipes[String(swipeId)] : void 0;
+	if (!isDict$158(record)) return null;
 	const { quests = null, infoBox = null, characterThoughts = null } = record;
 	if (quests === null && infoBox === null && characterThoughts === null) return null;
 	return {
@@ -829,12 +829,12 @@ function swipeRecordOf(swipes, swipeId) {
 * stores an all-null record).
 */
 function desSwipeRecord(message) {
-	if (!isDict$157(message) || message.is_user === true) return null;
+	if (!isDict$158(message) || message.is_user === true) return null;
 	const swipeId = typeof message.swipe_id === "number" && message.swipe_id >= 0 ? message.swipe_id : 0;
-	const direct = swipeRecordOf((isDict$157(message.extra) ? message.extra : void 0)?.dooms_tracker_swipes, swipeId);
+	const direct = swipeRecordOf((isDict$158(message.extra) ? message.extra : void 0)?.dooms_tracker_swipes, swipeId);
 	if (direct) return direct;
 	const info = Array.isArray(message.swipe_info) ? message.swipe_info[swipeId] : void 0;
-	return swipeRecordOf((isDict$157(info) && isDict$157(info.extra) ? info.extra : void 0)?.dooms_tracker_swipes, swipeId);
+	return swipeRecordOf((isDict$158(info) && isDict$158(info.extra) ? info.extra : void 0)?.dooms_tracker_swipes, swipeId);
 }
 /** True when the snapshot holds nothing at all. */
 function isEmptySnapshot(snapshot) {
@@ -963,9 +963,9 @@ var DesAdapter = class extends NeighbourBase {
 	*/
 	settings() {
 		const live = this.modules.state?.extensionSettings;
-		if (isDict$158(live)) return live;
+		if (isDict$159(live)) return live;
 		const saved = this.located ? this.host.ctx().extensionSettings[this.located.name] : void 0;
-		return isDict$158(saved) ? saved : null;
+		return isDict$159(saved) ? saved : null;
 	}
 	/** DES's own switch (on unless explicitly false). */
 	enabled() {
@@ -991,7 +991,7 @@ var DesAdapter = class extends NeighbourBase {
 	*/
 	knownCharacters() {
 		const roster = this.chatState()?.knownCharacters;
-		return isDict$158(roster) ? Object.keys(roster) : [];
+		return isDict$159(roster) ? Object.keys(roster) : [];
 	}
 	/**
 	* DES keeps this chat's roster in the chat (`perChatCharacterTracking` on and the chat's tracker state there): its
@@ -1008,7 +1008,7 @@ var DesAdapter = class extends NeighbourBase {
 	aliases() {
 		const map = this.settings()?.characterAliases;
 		const copy = {};
-		if (!isDict$158(map)) return copy;
+		if (!isDict$159(map)) return copy;
 		for (const [canonical, list] of Object.entries(map)) if (Array.isArray(list)) copy[canonical] = list.map(String);
 		return copy;
 	}
@@ -1024,11 +1024,11 @@ var DesAdapter = class extends NeighbourBase {
 	*/
 	setCharacterStats(next, options = {}) {
 		const live = this.modules.state?.extensionSettings;
-		if (!this.present() || !isDict$158(live)) return false;
-		const tracker = isDict$158(live.trackerConfig) ? live.trackerConfig : live.trackerConfig = {};
-		const present = isDict$158(tracker.presentCharacters) ? tracker.presentCharacters : tracker.presentCharacters = {};
-		const previous = isDict$158(present.characterStats) ? present.characterStats : {};
-		const before = Array.isArray(previous.customStats) ? previous.customStats.filter(isDict$158) : [];
+		if (!this.present() || !isDict$159(live)) return false;
+		const tracker = isDict$159(live.trackerConfig) ? live.trackerConfig : live.trackerConfig = {};
+		const present = isDict$159(tracker.presentCharacters) ? tracker.presentCharacters : tracker.presentCharacters = {};
+		const previous = isDict$159(present.characterStats) ? present.characterStats : {};
+		const before = Array.isArray(previous.customStats) ? previous.customStats.filter(isDict$159) : [];
 		const customStats = next.filter((stat) => stat && typeof stat.name === "string" && stat.name.trim()).map((stat) => {
 			const id = String(stat.id ?? "").trim() || stat.name.trim();
 			return {
@@ -1044,12 +1044,12 @@ var DesAdapter = class extends NeighbourBase {
 			customStats
 		};
 		present.characterStats = stats;
-		const manager = isDict$158(live.presetManager) ? live.presetManager : null;
+		const manager = isDict$159(live.presetManager) ? live.presetManager : null;
 		const activeId = typeof manager?.activePresetId === "string" ? manager.activePresetId : null;
-		const presets = isDict$158(manager?.presets) ? manager.presets : null;
-		const preset = activeId && presets && isDict$158(presets[activeId]) ? presets[activeId] : null;
-		if (preset && isDict$158(preset.trackerConfig)) {
-			const presetChars = isDict$158(preset.trackerConfig.presentCharacters) ? preset.trackerConfig.presentCharacters : preset.trackerConfig.presentCharacters = {};
+		const presets = isDict$159(manager?.presets) ? manager.presets : null;
+		const preset = activeId && presets && isDict$159(presets[activeId]) ? presets[activeId] : null;
+		if (preset && isDict$159(preset.trackerConfig)) {
+			const presetChars = isDict$159(preset.trackerConfig.presentCharacters) ? preset.trackerConfig.presentCharacters : preset.trackerConfig.presentCharacters = {};
 			presetChars.characterStats = JSON.parse(JSON.stringify(stats));
 		}
 		this.persistSettings(live);
@@ -1063,10 +1063,10 @@ var DesAdapter = class extends NeighbourBase {
 	*/
 	characterFields() {
 		const live = this.modules.state?.extensionSettings;
-		if (!this.present() || !isDict$158(live)) return null;
-		const tracker = isDict$158(live.trackerConfig) ? live.trackerConfig : {};
-		const present = isDict$158(tracker.presentCharacters) ? tracker.presentCharacters : {};
-		return (Array.isArray(present.customFields) ? present.customFields.filter(isDict$158) : []).map((field) => ({
+		if (!this.present() || !isDict$159(live)) return null;
+		const tracker = isDict$159(live.trackerConfig) ? live.trackerConfig : {};
+		const present = isDict$159(tracker.presentCharacters) ? tracker.presentCharacters : {};
+		return (Array.isArray(present.customFields) ? present.customFields.filter(isDict$159) : []).map((field) => ({
 			id: typeof field.id === "string" ? field.id : "",
 			name: typeof field.name === "string" ? field.name : "",
 			enabled: field.enabled !== false,
@@ -1081,11 +1081,11 @@ var DesAdapter = class extends NeighbourBase {
 	*/
 	addCharacterField(field) {
 		const live = this.modules.state?.extensionSettings;
-		if (!this.present() || !isDict$158(live) || !field.id.trim() || !field.name.trim()) return null;
+		if (!this.present() || !isDict$159(live) || !field.id.trim() || !field.name.trim()) return null;
 		const change = (config) => {
-			const present = isDict$158(config.presentCharacters) ? config.presentCharacters : config.presentCharacters = {};
+			const present = isDict$159(config.presentCharacters) ? config.presentCharacters : config.presentCharacters = {};
 			const list = Array.isArray(present.customFields) ? present.customFields : present.customFields = [];
-			const existing = list.find((item) => isDict$158(item) && item.id === field.id);
+			const existing = list.find((item) => isDict$159(item) && item.id === field.id);
 			if (existing) {
 				const before = JSON.parse(JSON.stringify(existing));
 				existing.enabled = true;
@@ -1100,9 +1100,9 @@ var DesAdapter = class extends NeighbourBase {
 			});
 			return null;
 		};
-		const before = change(isDict$158(live.trackerConfig) ? live.trackerConfig : live.trackerConfig = {});
+		const before = change(isDict$159(live.trackerConfig) ? live.trackerConfig : live.trackerConfig = {});
 		const preset = this.activePreset(live);
-		if (preset && isDict$158(preset.trackerConfig)) change(preset.trackerConfig);
+		if (preset && isDict$159(preset.trackerConfig)) change(preset.trackerConfig);
 		this.persistSettings(live);
 		return { before };
 	}
@@ -1112,12 +1112,12 @@ var DesAdapter = class extends NeighbourBase {
 	*/
 	removeCharacterField(id, before = null) {
 		const live = this.modules.state?.extensionSettings;
-		if (!this.present() || !isDict$158(live)) return false;
+		if (!this.present() || !isDict$159(live)) return false;
 		const change = (config) => {
-			if (!isDict$158(config) || !isDict$158(config.presentCharacters)) return;
+			if (!isDict$159(config) || !isDict$159(config.presentCharacters)) return;
 			const present = config.presentCharacters;
 			if (!Array.isArray(present.customFields)) return;
-			const index = present.customFields.findIndex((item) => isDict$158(item) && item.id === id);
+			const index = present.customFields.findIndex((item) => isDict$159(item) && item.id === id);
 			if (index < 0) return;
 			if (before) present.customFields[index] = JSON.parse(JSON.stringify(before));
 			else present.customFields.splice(index, 1);
@@ -1131,7 +1131,7 @@ var DesAdapter = class extends NeighbourBase {
 	/** A DES prompt override as DES holds it now ('' = DES's built-in text); null without DES's live settings. */
 	promptOverride(key) {
 		const live = this.modules.state?.extensionSettings;
-		if (!this.present() || !isDict$158(live)) return null;
+		if (!this.present() || !isDict$159(live)) return null;
 		const value = live[key];
 		return typeof value === "string" ? value : "";
 	}
@@ -1161,16 +1161,16 @@ var DesAdapter = class extends NeighbourBase {
 	*/
 	setPromptOverride(key, text) {
 		const live = this.modules.state?.extensionSettings;
-		if (!this.present() || !isDict$158(live) || !DES_PROMPT_KEYS.includes(key)) return false;
+		if (!this.present() || !isDict$159(live) || !DES_PROMPT_KEYS.includes(key)) return false;
 		live[key] = text;
 		this.persistSettings(live);
 		return true;
 	}
 	activePreset(live) {
-		const manager = isDict$158(live.presetManager) ? live.presetManager : null;
+		const manager = isDict$159(live.presetManager) ? live.presetManager : null;
 		const activeId = typeof manager?.activePresetId === "string" ? manager.activePresetId : null;
-		const presets = isDict$158(manager?.presets) ? manager.presets : null;
-		return activeId && presets && isDict$158(presets[activeId]) ? presets[activeId] : null;
+		const presets = isDict$159(manager?.presets) ? manager.presets : null;
+		return activeId && presets && isDict$159(presets[activeId]) ? presets[activeId] : null;
 	}
 	/** Saves DES's live settings the way DES does (persistence.js saveSettings), with ST's own save as fallback. */
 	persistSettings(live) {
@@ -1231,7 +1231,7 @@ var DesAdapter = class extends NeighbourBase {
 	}
 	chatState() {
 		const state = this.host.ctx().chatMetadata[DES_KEYS$1.chatMetadata];
-		return isDict$158(state) ? state : null;
+		return isDict$159(state) ? state : null;
 	}
 };
 var DESRU_KNOWN_NAMES = ["third-party/SillyTavern-DES-RU", "third-party/SillyTavern-Doom-Enhancement-Suite-RU"];
@@ -1281,8 +1281,8 @@ var DesRuAdapter = class extends NeighbourBase {
 	/** A DES-RU module switch; modules are on by default, as in DES-RU's DEFAULT_SETTINGS. */
 	moduleEnabled(module) {
 		const modules = this.settings()?.modules;
-		const slice = isDict$158(modules) ? modules[module] : void 0;
-		return !isDict$158(slice) || slice.enabled !== false;
+		const slice = isDict$159(modules) ? modules[module] : void 0;
+		return !isDict$159(slice) || slice.enabled !== false;
 	}
 	/** DES-RU's API (read live: it appears when DES-RU starts and goes when it is disabled); undefined before 0.8.0. */
 	api() {
@@ -1378,7 +1378,7 @@ function cleanList$2(value) {
 }
 /** A stance as Maestro shows it: names and a label, the stance clamped to −3…+3; null for junk. */
 function readStance(value) {
-	if (!isDict$158(value)) return null;
+	if (!isDict$159(value)) return null;
 	const from = cleanText$1(value.from);
 	const to = cleanText$1(value.to);
 	const stance = Number(value.stance);
@@ -1396,7 +1396,7 @@ function readStance(value) {
 * clamped to −3…+3 (dropped when not a number), the gender only when Dramatis knows it; null for junk.
 */
 function readStartMember(value) {
-	if (!isDict$158(value)) return null;
+	if (!isDict$159(value)) return null;
 	const name = cleanText$1(value.name);
 	if (!name) return null;
 	const member = {
@@ -1420,7 +1420,7 @@ function readStartMember(value) {
 }
 /** A mature agenda with a positive finite weight; null for junk. */
 function readAgenda(value) {
-	if (!isDict$158(value)) return null;
+	if (!isDict$159(value)) return null;
 	const text = cleanText$1(value.text);
 	const weight = Number(value.weight);
 	if (!text || !Number.isFinite(weight) || weight <= 0) return null;
@@ -1435,7 +1435,7 @@ function count$2(value) {
 }
 /** Where the reading of the card stands (intentState), counts made whole and non-negative; null for junk. */
 function readIntentState(value) {
-	if (!isDict$158(value)) return null;
+	if (!isDict$159(value)) return null;
 	const state = {
 		read: value.read === true,
 		characters: count$2(value.characters),
@@ -1448,7 +1448,7 @@ function readIntentState(value) {
 }
 /** The outcome of a reading (readIntent) as Maestro reports it; junk is a failure. */
 function readReadOutcome(value) {
-	if (!isDict$158(value)) return {
+	if (!isDict$159(value)) return {
 		ok: false,
 		characters: 0,
 		error: "bad-answer"
@@ -1466,10 +1466,10 @@ function readReadOutcome(value) {
 }
 /** One line of a summary: the text trimmed (its own line breaks kept), the secret mark only when set; null when empty. */
 function readViewLine(value) {
-	const raw = isDict$158(value) ? value.text : value;
+	const raw = isDict$159(value) ? value.text : value;
 	const text = typeof raw === "string" ? raw.replace(/[ \t]+/g, " ").trim() : "";
 	if (!text) return null;
-	return isDict$158(value) && value.secret === true ? {
+	return isDict$159(value) && value.secret === true ? {
 		text,
 		secret: true
 	} : { text };
@@ -1479,12 +1479,12 @@ function readViewLine(value) {
 * one of the three (unknown: 'spoiler' — never show a secret by mistake); null without a name or for junk.
 */
 function readCharacterView(value) {
-	if (!isDict$158(value)) return null;
+	if (!isDict$159(value)) return null;
 	const name = cleanText$1(value.name);
 	if (!name) return null;
 	const sections = [];
 	for (const raw of Array.isArray(value.sections) ? value.sections : []) {
-		if (!isDict$158(raw)) continue;
+		if (!isDict$159(raw)) continue;
 		const lines = (Array.isArray(raw.lines) ? raw.lines : []).map(readViewLine).filter((line) => line !== null);
 		const title = cleanText$1(raw.title);
 		if (!lines.length) continue;
@@ -1799,7 +1799,7 @@ function dramatisOf(app) {
 }
 /** A test double shaped like the adapter (duck-typed: the methods the features call). */
 function isDramatisLike(value) {
-	return isDict$158(value) && typeof value.silences === "function" && typeof value.present === "function" && typeof value.stances === "function";
+	return isDict$159(value) && typeof value.silences === "function" && typeof value.present === "function" && typeof value.stances === "function";
 }
 //#endregion
 //#region src/adapters/localizer/index.ts
@@ -1837,13 +1837,13 @@ function readLocalizerApi(value) {
 }
 /** Reads the Localizer marker of a World Info entry as a typed copy; null when the entry has none. */
 function readLocalizerMarker(entry) {
-	const extensions = isDict$158(entry) ? entry.extensions : void 0;
-	const marker = isDict$158(extensions) ? extensions[LOCALIZER_MARKER_KEY] : void 0;
-	if (!isDict$158(marker)) return null;
+	const extensions = isDict$159(entry) ? entry.extensions : void 0;
+	const marker = isDict$159(extensions) ? extensions[LOCALIZER_MARKER_KEY] : void 0;
+	if (!isDict$159(marker)) return null;
 	const languages = {};
-	if (isDict$158(marker.languages)) for (const [id, state] of Object.entries(marker.languages)) {
-		if (!isDict$158(state)) continue;
-		const added = isDict$158(state.added) ? state.added : {};
+	if (isDict$159(marker.languages)) for (const [id, state] of Object.entries(marker.languages)) {
+		if (!isDict$159(state)) continue;
+		const added = isDict$159(state.added) ? state.added : {};
 		languages[id] = {
 			language: typeof state.language === "string" ? state.language : id,
 			sources: stringList$6(state.sources),
@@ -1938,43 +1938,43 @@ function portraitApi(api) {
 function isNaiManifest(manifest) {
 	return manifest.display_name === "NAI Studio" || manifest.generate_interceptor === "NAIST_ProcessTriggers" || homePageHas(manifest, "likerch/st-nai-studio");
 }
-function text$24(value) {
+function text$25(value) {
 	return typeof value === "string" ? value : "";
 }
 /** A typed deep copy of one stored passport; null for junk. Legacy passports without an id get 'main'. */
 function readPassport(raw) {
-	if (!isDict$158(raw)) return null;
+	if (!isDict$159(raw)) return null;
 	const copy = structuredClone(raw);
 	const slots = {};
-	if (isDict$158(copy.slots)) {
+	if (isDict$159(copy.slots)) {
 		for (const [slot, value] of Object.entries(copy.slots)) if (typeof value === "string") slots[slot] = value;
 	}
-	const outfits = Array.isArray(copy.outfits) ? copy.outfits.filter(isDict$158).map((outfit) => {
+	const outfits = Array.isArray(copy.outfits) ? copy.outfits.filter(isDict$159).map((outfit) => {
 		const looks = stringList$6(outfit.looks);
 		return {
-			name: text$24(outfit.name),
-			tags: text$24(outfit.tags),
+			name: text$25(outfit.name),
+			tags: text$25(outfit.tags),
 			...looks.length ? { looks } : {}
 		};
 	}) : [];
-	const states = Array.isArray(copy.states) ? copy.states.filter(isDict$158).map((state) => ({
-		id: text$24(state.id),
-		tags: text$24(state.tags),
+	const states = Array.isArray(copy.states) ? copy.states.filter(isDict$159).map((state) => ({
+		id: text$25(state.id),
+		tags: text$25(state.tags),
 		enabled: state.enabled === true
 	})) : [];
 	const kind = KINDS$5.find((candidate) => candidate === copy.kind) ?? "character";
 	return {
 		...copy,
-		id: text$24(copy.id) || "main",
+		id: text$25(copy.id) || "main",
 		kind,
-		name: text$24(copy.name),
+		name: text$25(copy.name),
 		aliases: stringList$6(copy.aliases),
-		tags: text$24(copy.tags),
+		tags: text$25(copy.tags),
 		slots,
 		outfits,
-		activeOutfit: text$24(copy.activeOutfit),
+		activeOutfit: text$25(copy.activeOutfit),
 		states,
-		negative: text$24(copy.negative)
+		negative: text$25(copy.negative)
 	};
 }
 var NaiAdapter = class extends NeighbourBase {
@@ -2083,7 +2083,7 @@ var NaiAdapter = class extends NeighbourBase {
 		if (typeof api?.generateBackground !== "function") return null;
 		try {
 			const result = await api.generateBackground(input);
-			const file = isDict$158(result) && typeof result.file === "string" ? result.file.trim() : "";
+			const file = isDict$159(result) && typeof result.file === "string" ? result.file.trim() : "";
 			return file ? { file } : null;
 		} catch (error) {
 			this.log.warn("NAI_STUDIO_API.generateBackground failed", error);
@@ -2143,7 +2143,7 @@ var NaiAdapter = class extends NeighbourBase {
 	/** The marker instruction settings (a copy); null without NAI Studio's settings. */
 	markerSettings() {
 		const markers = this.settings()?.markers;
-		if (!isDict$158(markers)) return null;
+		if (!isDict$159(markers)) return null;
 		const preset = markers.preset === "tags" || markers.preset === "custom" ? markers.preset : "natural";
 		const number = (value, fallback) => typeof value === "number" && Number.isFinite(value) ? value : fallback;
 		return {
@@ -2162,7 +2162,7 @@ var NaiAdapter = class extends NeighbourBase {
 	*/
 	setMarkerInstruction(next) {
 		const markers = this.settings()?.markers;
-		if (!this.present() || !isDict$158(markers)) return false;
+		if (!this.present() || !isDict$159(markers)) return false;
 		markers.preset = next.preset;
 		markers.template = next.template;
 		this.host.ctx().saveSettingsDebounced();
@@ -2177,8 +2177,8 @@ var NaiAdapter = class extends NeighbourBase {
 	*/
 	passportsOf(characterIndex) {
 		const field = this.host.ctx().characters[characterIndex]?.data?.extensions?.[NAI_KEY];
-		if (!isDict$158(field)) return [];
-		return (Array.isArray(field.passports) ? field.passports : isDict$158(field.passport) ? [field.passport] : []).map(readPassport).filter((passport) => passport !== null);
+		if (!isDict$159(field)) return [];
+		return (Array.isArray(field.passports) ? field.passports : isDict$159(field.passport) ? [field.passport] : []).map(readPassport).filter((passport) => passport !== null);
 	}
 	/** NAI Studio's API with the persona members, when `features` lists 'personaKeys'. */
 	personaApi() {
@@ -2228,7 +2228,7 @@ var NaiAdapter = class extends NeighbourBase {
 		};
 		try {
 			const result = await api.generatePersonaAvatar(input);
-			if (!isDict$158(result)) return {
+			if (!isDict$159(result)) return {
 				ok: false,
 				error: "no answer"
 			};
@@ -2278,7 +2278,7 @@ var NaiAdapter = class extends NeighbourBase {
 		if (typeof api?.markerWriter !== "function") return null;
 		try {
 			const state = api.markerWriter();
-			if (!isDict$158(state)) return null;
+			if (!isDict$159(state)) return null;
 			const read = (value) => value === "illustrator" || value === "fallback" ? value : "main";
 			return {
 				setting: read(state.setting),
@@ -2320,10 +2320,10 @@ var NaiAdapter = class extends NeighbourBase {
 		try {
 			const list = api.messageMarkers(messageIndex);
 			if (!Array.isArray(list)) return [];
-			return list.filter(isDict$158).map((item) => {
+			return list.filter(isDict$159).map((item) => {
 				const marker = {
 					imageId: typeof item.imageId === "string" ? item.imageId : "",
-					marker: isDict$158(item.marker) ? structuredClone(item.marker) : {},
+					marker: isDict$159(item.marker) ? structuredClone(item.marker) : {},
 					status: item.status === "done" || item.status === "error" ? item.status : "pending"
 				};
 				if (typeof item.path === "string" && item.path) marker.path = item.path;
@@ -2344,7 +2344,7 @@ var NaiAdapter = class extends NeighbourBase {
 		};
 		try {
 			const result = await api.requestImage(request);
-			if (!isDict$158(result)) return {
+			if (!isDict$159(result)) return {
 				ok: false,
 				error: "no answer"
 			};
@@ -2377,7 +2377,7 @@ var NaiAdapter = class extends NeighbourBase {
 		};
 		try {
 			const result = await api.drawPicture(input);
-			if (!isDict$158(result)) return {
+			if (!isDict$159(result)) return {
 				ok: false,
 				error: "no answer"
 			};
@@ -2410,7 +2410,7 @@ var NaiAdapter = class extends NeighbourBase {
 		};
 		try {
 			const result = await api.generateCardAvatar(input);
-			if (!isDict$158(result)) return {
+			if (!isDict$159(result)) return {
 				ok: false,
 				error: "no answer"
 			};
@@ -2513,7 +2513,7 @@ var PresetAdapter = class extends NeighbourBase {
 	/** ST's live Chat Completion settings (`oai_settings`); read-only for Maestro. */
 	settings() {
 		const settings = extras$1(this.host).chatCompletionSettings;
-		return isDict$158(settings) ? settings : null;
+		return isDict$159(settings) ? settings : null;
 	}
 	/** Name of the active Chat Completion preset. */
 	presetName() {
@@ -2524,7 +2524,7 @@ var PresetAdapter = class extends NeighbourBase {
 	prompts() {
 		const prompts = this.settings()?.prompts;
 		if (!Array.isArray(prompts)) return [];
-		return prompts.filter(isDict$158).map((prompt) => ({
+		return prompts.filter(isDict$159).map((prompt) => ({
 			identifier: typeof prompt.identifier === "string" ? prompt.identifier : "",
 			name: typeof prompt.name === "string" ? prompt.name : "",
 			role: typeof prompt.role === "string" ? prompt.role : "system",
@@ -2536,7 +2536,7 @@ var PresetAdapter = class extends NeighbourBase {
 		if (MARINARA_NAME_RE.test(this.presetName() ?? "")) return true;
 		const prompts = this.settings()?.prompts;
 		if (!Array.isArray(prompts)) return false;
-		const contents = prompts.filter(isDict$158).map((prompt) => typeof prompt.content === "string" ? prompt.content : "");
+		const contents = prompts.filter(isDict$159).map((prompt) => typeof prompt.content === "string" ? prompt.content : "");
 		return MARINARA_SECTION_TAGS.every((tag) => contents.some((content) => content.includes(tag)));
 	}
 };
@@ -2594,7 +2594,7 @@ var QvinkAdapter = class extends NeighbourBase {
 		settings[key] = text;
 		const profiles = settings.profiles;
 		const profile = typeof settings.profile === "string" ? settings.profile : "";
-		if (isDict$158(profiles) && profile && isDict$158(profiles[profile])) profiles[profile][key] = text;
+		if (isDict$159(profiles) && profile && isDict$159(profiles[profile])) profiles[profile][key] = text;
 		this.host.ctx().saveSettingsDebounced();
 		return true;
 	}
@@ -2602,7 +2602,7 @@ var QvinkAdapter = class extends NeighbourBase {
 	chatEnabled() {
 		if (this.setting("use_global_toggle_state")) return this.setting("global_toggle_state");
 		const chatState = this.host.ctx().chatMetadata[QVINK_KEY];
-		const perChat = isDict$158(chatState) ? chatState.enabled : void 0;
+		const perChat = isDict$159(chatState) ? chatState.enabled : void 0;
 		return typeof perChat === "boolean" ? perChat : this.setting("default_chat_enabled");
 	}
 	/** "Remove Messages": every message older than the injection threshold leaves the prompt. */
@@ -2612,7 +2612,7 @@ var QvinkAdapter = class extends NeighbourBase {
 	/** Qvink's record of a message, as a typed copy; null when there is none. */
 	memoryOf(index) {
 		const raw = this.host.ctx().chat[index]?.extra?.[QVINK_KEY];
-		if (!isDict$158(raw)) return null;
+		if (!isDict$159(raw)) return null;
 		const memory = {
 			memory: typeof raw.memory === "string" ? raw.memory : "",
 			remember: raw.remember === true,
@@ -4424,7 +4424,7 @@ var SNOOZE_GRACE_MS = 864e5;
 function newId$10() {
 	return `in-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
-function jsonCopy$9(value) {
+function jsonCopy$10(value) {
 	const text = JSON.stringify(value);
 	return text === void 0 ? value : JSON.parse(text);
 }
@@ -4588,8 +4588,8 @@ function createInbox(deps, options = {}) {
 				kind: proposal.kind,
 				title: proposal.title,
 				description: proposal.description,
-				changes: jsonCopy$9(proposal.changes),
-				payload: jsonCopy$9(proposal.payload),
+				changes: jsonCopy$10(proposal.changes),
+				payload: jsonCopy$10(proposal.payload),
 				createdAt: now,
 				sourceMessage: proposal.sourceMessage,
 				expiresAt: now + (addOptions?.ttlMs ?? defaultTtl)
@@ -4903,7 +4903,7 @@ function newId$9() {
 	return `j-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 /** JSON copy: the journal is stored as JSON, so what is kept in memory must look the same. */
-function jsonCopy$8(value) {
+function jsonCopy$9(value) {
 	const text = JSON.stringify(value);
 	return text === void 0 ? value : JSON.parse(text);
 }
@@ -5035,7 +5035,7 @@ function createJournal(deps, options = {}) {
 				}
 			}
 			await markUndone(record);
-			const copy = jsonCopy$8(record);
+			const copy = jsonCopy$9(record);
 			for (const listener of [...undoneListeners]) try {
 				listener(copy);
 			} catch (error) {
@@ -5056,7 +5056,7 @@ function createJournal(deps, options = {}) {
 		async record(action) {
 			const chatId = host.chatId();
 			const record = {
-				...jsonCopy$8(action),
+				...jsonCopy$9(action),
 				id: newId$9(),
 				at: Date.now(),
 				chatId
@@ -7271,7 +7271,7 @@ var SCENE_ALIASES = {
 	emotional: "drama",
 	party: "social"
 };
-function isDict$156(value) {
+function isDict$157(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /** The scene type a model answered with: an object or JSON text (fences, prose around it); null when unusable. */
@@ -7287,7 +7287,7 @@ function parseSceneAnswer(raw) {
 			return null;
 		}
 	}
-	if (!isDict$156(data) || typeof data.type !== "string") return null;
+	if (!isDict$157(data) || typeof data.type !== "string") return null;
 	const name = data.type.trim().toLowerCase();
 	const type = SCENE_KINDS.includes(name) ? name : SCENE_ALIASES[name];
 	if (!type) return null;
@@ -7661,7 +7661,7 @@ function climaxWords(text) {
 	for (const match of normalizeText$2(text).matchAll(CLIMAX_RE)) found.add(match[0]);
 	return found.size;
 }
-function isDict$155(value) {
+function isDict$156(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /**
@@ -7669,9 +7669,9 @@ function isDict$155(value) {
 * off (NAI Studio then never spends Anlas on them), 'paid' when they may spend, 'unknown' without readable settings.
 */
 function pictureBudget(naiSettings) {
-	if (!isDict$155(naiSettings)) return "unknown";
-	const anlas = isDict$155(naiSettings.anlas) ? naiSettings.anlas : void 0;
-	const markers = isDict$155(naiSettings.markers) ? naiSettings.markers : void 0;
+	if (!isDict$156(naiSettings)) return "unknown";
+	const anlas = isDict$156(naiSettings.anlas) ? naiSettings.anlas : void 0;
+	const markers = isDict$156(naiSettings.markers) ? naiSettings.markers : void 0;
 	if (!anlas && !markers) return "unknown";
 	if (anlas?.freeOnly !== false) return "free";
 	return markers?.allowPaid === true ? "paid" : "free";
@@ -7865,7 +7865,7 @@ var RU_MIN_STEM = 5;
 var RU_MIN_INFINITIVE_STEM = 4;
 var EN_MIN_STEM = 3;
 /** A word cut to its stem (one ending; Cyrillic → Russian endings, Latin → English); unchanged when too short. */
-function stemOf(word) {
+function stemOf$1(word) {
 	const plain = normalizeWord$1(word.trim());
 	const russian = /[а-я]/.test(plain);
 	for (const ending of russian ? RU_ENDINGS$5 : EN_ENDINGS) {
@@ -7880,7 +7880,7 @@ function triggerStems(trigger) {
 	const words = tokenize$5(trigger);
 	if (!words.length) return [];
 	const variants = [words];
-	const stems = words.map(stemOf);
+	const stems = words.map(stemOf$1);
 	if (stems.some((stem, index) => stem !== words[index])) variants.push(stems);
 	return variants;
 }
@@ -8309,7 +8309,7 @@ function detectChecks(text, checks, actors = [], max = 1) {
 var TARGET_STEM_MIN = 4;
 function nameWordMatches(token, word) {
 	if (token === word) return true;
-	return word.length >= TARGET_STEM_MIN && token.length >= TARGET_STEM_MIN && stemOf(token) === stemOf(word);
+	return word.length >= TARGET_STEM_MIN && token.length >= TARGET_STEM_MIN && stemOf$1(token) === stemOf$1(word);
 }
 /**
 * The holders named in the message (quoted speech included: «Стражник, пропусти меня»), each once, best first for a
@@ -8371,7 +8371,7 @@ var LORE_TAG_ORDER = [
 	"maestro.book",
 	"constant"
 ];
-function isDict$154(value) {
+function isDict$155(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function strings$27(value) {
@@ -8379,7 +8379,7 @@ function strings$27(value) {
 }
 /** Canon items carry `extensions.maestro` with a `kind` (CanonMeta); overrides keep the base book's name. */
 function isCanonMeta$1(extensions) {
-	return isDict$154(extensions) && isDict$154(extensions.maestro) && typeof extensions.maestro.kind === "string";
+	return isDict$155(extensions) && isDict$155(extensions.maestro) && typeof extensions.maestro.kind === "string";
 }
 function tagsFor(entry, context, hasLocalizerMarker) {
 	const tags = [];
@@ -8410,20 +8410,20 @@ function desLinkedBooks(settings) {
 		autoLinked: [],
 		workshop: []
 	};
-	if (!isDict$154(settings)) return links;
-	const lorebook = isDict$154(settings.lorebook) ? settings.lorebook : {};
-	const campaigns = isDict$154(lorebook.campaigns) ? lorebook.campaigns : {};
+	if (!isDict$155(settings)) return links;
+	const lorebook = isDict$155(settings.lorebook) ? settings.lorebook : {};
+	const campaigns = isDict$155(lorebook.campaigns) ? lorebook.campaigns : {};
 	const all = /* @__PURE__ */ new Set();
-	for (const campaign of Object.values(campaigns)) if (isDict$154(campaign)) for (const book of strings$27(campaign.books)) all.add(book);
+	for (const campaign of Object.values(campaigns)) if (isDict$155(campaign)) for (const book of strings$27(campaign.books)) all.add(book);
 	const active = typeof lorebook.activeCampaignId === "string" ? campaigns[lorebook.activeCampaignId] : void 0;
 	const campaign = new Set(strings$27(lorebook.campaignActivated));
-	if (isDict$154(active)) for (const book of strings$27(active.books)) campaign.add(book);
+	if (isDict$155(active)) for (const book of strings$27(active.books)) campaign.add(book);
 	links.campaign = [...campaign];
 	links.campaignAll = [...all];
 	links.autoLinked = strings$27(lorebook.autoLinked);
-	const injections = isDict$154(settings.characterInjection) ? settings.characterInjection : {};
+	const injections = isDict$155(settings.characterInjection) ? settings.characterInjection : {};
 	const workshop = /* @__PURE__ */ new Set();
-	for (const injection of Object.values(injections)) if (isDict$154(injection) && typeof injection.lorebook === "string" && injection.lorebook) workshop.add(injection.lorebook);
+	for (const injection of Object.values(injections)) if (isDict$155(injection) && typeof injection.lorebook === "string" && injection.lorebook) workshop.add(injection.lorebook);
 	links.workshop = [...workshop];
 	return links;
 }
@@ -8477,16 +8477,16 @@ function ensureJournal(doc) {
 	const raw = doc;
 	raw.v = 1;
 	if (!Array.isArray(raw.worlds)) raw.worlds = [];
-	if (!isDict$154(raw.titles)) raw.titles = {};
+	if (!isDict$155(raw.titles)) raw.titles = {};
 	if (!Array.isArray(raw.records)) raw.records = [];
-	const stats = isDict$154(raw.stats) ? raw.stats : {};
+	const stats = isDict$155(raw.stats) ? raw.stats : {};
 	raw.stats = {
 		turns: typeof stats.turns === "number" ? stats.turns : 0,
 		chars: typeof stats.chars === "number" ? stats.chars : 0,
 		canon: typeof stats.canon === "number" ? stats.canon : 0,
-		entries: isDict$154(stats.entries) ? stats.entries : {}
+		entries: isDict$155(stats.entries) ? stats.entries : {}
 	};
-	raw.records = raw.records.filter((record) => isDict$154(record) && typeof record.i === "number" && Array.isArray(record.a));
+	raw.records = raw.records.filter((record) => isDict$155(record) && typeof record.i === "number" && Array.isArray(record.a));
 	return raw;
 }
 function worldIndex(doc, name) {
@@ -8656,7 +8656,7 @@ function setRecordKeys(doc, record) {
 }
 /** Entries of the ENTRIES_LOADED lists, de-duplicated by world and uid. */
 function catalogFromLists(lists) {
-	if (!isDict$154(lists)) return [];
+	if (!isDict$155(lists)) return [];
 	const seen = /* @__PURE__ */ new Set();
 	const entries = [];
 	for (const name of [
@@ -8668,7 +8668,7 @@ function catalogFromLists(lists) {
 		const list = lists[name];
 		if (!Array.isArray(list)) continue;
 		for (const raw of list) {
-			if (!isDict$154(raw) || typeof raw.world !== "string") continue;
+			if (!isDict$155(raw) || typeof raw.world !== "string") continue;
 			const uid = Number(raw.uid);
 			if (!Number.isFinite(uid)) continue;
 			const id = `${raw.world}\u0000${uid}`;
@@ -8745,7 +8745,7 @@ function summarize$1(doc, catalog, limits = {}) {
 }
 //#endregion
 //#region src/domain/roles-meta.ts
-function isDict$153(value) {
+function isDict$154(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function emptyEntryMetaFile() {
@@ -8771,15 +8771,15 @@ function parseEntryMetaKey(key) {
 }
 /** Hash of what the entry says: its content (keys and settings may change without invalidating a type/passport). */
 function entryContentHash(entry) {
-	const content = isDict$153(entry) ? entry.content : void 0;
+	const content = isDict$154(entry) ? entry.content : void 0;
 	return stableHash(typeof content === "string" ? content : "");
 }
 /** Content hashes of every entry of a book (`data.entries`), by uid. */
 function entryHashes(data) {
 	const hashes = /* @__PURE__ */ new Map();
-	const entries = isDict$153(data) && isDict$153(data.entries) ? data.entries : {};
+	const entries = isDict$154(data) && isDict$154(data.entries) ? data.entries : {};
 	for (const [key, entry] of Object.entries(entries)) {
-		if (!isDict$153(entry)) continue;
+		if (!isDict$154(entry)) continue;
 		const uid = typeof entry.uid === "number" && Number.isInteger(entry.uid) ? entry.uid : Number(key);
 		if (Number.isInteger(uid)) hashes.set(uid, entryContentHash(entry));
 	}
@@ -8788,9 +8788,9 @@ function entryHashes(data) {
 /** A stored sidecar file with junk records dropped. */
 function readEntryMetaFile(raw) {
 	const file = emptyEntryMetaFile();
-	const entries = isDict$153(raw) && isDict$153(raw.entries) ? raw.entries : {};
+	const entries = isDict$154(raw) && isDict$154(raw.entries) ? raw.entries : {};
 	for (const [key, record] of Object.entries(entries)) {
-		if (!parseEntryMetaKey(key) || !isDict$153(record) || !isDict$153(record.meta)) continue;
+		if (!parseEntryMetaKey(key) || !isDict$154(record) || !isDict$154(record.meta)) continue;
 		if (typeof record.contentHash !== "string") continue;
 		file.entries[key] = {
 			meta: record.meta,
@@ -8912,7 +8912,7 @@ var WI_ENTRY_TEMPLATE = Object.freeze({
 		tags: []
 	}
 });
-function isDict$152(value) {
+function isDict$153(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /** Canon book of a chat: "Maestro · канон · <8 chars of a stable hash of the chat id>". */
@@ -8925,7 +8925,7 @@ function canonBookName(chatId) {
 */
 function copyValue$2(value) {
 	if (Array.isArray(value)) return value.map((item) => copyValue$2(item));
-	if (isDict$152(value)) {
+	if (isDict$153(value)) {
 		const out = {};
 		for (const [key, item] of Object.entries(value)) out[key] = copyValue$2(item);
 		return out;
@@ -9001,7 +9001,7 @@ function oneOf$4(list, value, fallback) {
 }
 /** Validated meta of a stored canon entry; null when the entry is not a canon item. */
 function readCanonMeta(raw) {
-	if (!isDict$152(raw) || !CANON_KINDS$1.includes(String(raw.kind))) return null;
+	if (!isDict$153(raw) || !CANON_KINDS$1.includes(String(raw.kind))) return null;
 	const meta = {
 		kind: raw.kind,
 		status: oneOf$4(CANON_STATUSES$1, raw.status, "active"),
@@ -9010,7 +9010,7 @@ function readCanonMeta(raw) {
 		updatedAt: typeof raw.updatedAt === "number" ? raw.updatedAt : 0
 	};
 	if (typeof raw.type === "string") meta.type = raw.type;
-	if (isDict$152(raw.base) && typeof raw.base.world === "string" && Number.isInteger(raw.base.uid)) {
+	if (isDict$153(raw.base) && typeof raw.base.world === "string" && Number.isInteger(raw.base.uid)) {
 		meta.base = {
 			world: raw.base.world,
 			uid: raw.base.uid,
@@ -9031,12 +9031,12 @@ function readCanonMeta(raw) {
 * editor) is a user addition; one whose meta is broken (an override without a base) is not an item.
 */
 function canonItemsOf(data) {
-	const entries = isDict$152(data) && isDict$152(data.entries) ? data.entries : {};
+	const entries = isDict$153(data) && isDict$153(data.entries) ? data.entries : {};
 	const items = [];
 	for (const [key, entry] of Object.entries(entries)) {
-		if (!isDict$152(entry)) continue;
-		const raw = (isDict$152(entry.extensions) ? entry.extensions : {}).maestro;
-		const meta = isDict$152(raw) && raw.kind !== void 0 ? readCanonMeta(raw) : {
+		if (!isDict$153(entry)) continue;
+		const raw = (isDict$153(entry.extensions) ? entry.extensions : {}).maestro;
+		const meta = isDict$153(raw) && raw.kind !== void 0 ? readCanonMeta(raw) : {
 			kind: "addition",
 			status: "active",
 			origin: "user",
@@ -9076,7 +9076,7 @@ function buildCanonEntry(uid, fields, meta, fallbackComment = "") {
 	if (!entry.comment && fallbackComment) entry.comment = fallbackComment;
 	if (meta.kind !== "addition") entry.disable = true;
 	entry.extensions = {
-		...isDict$152(fields.extensions) ? copyValue$2(fields.extensions) : {},
+		...isDict$153(fields.extensions) ? copyValue$2(fields.extensions) : {},
 		maestro: copyValue$2(meta)
 	};
 	delete entry.world;
@@ -9099,8 +9099,8 @@ function scanMarker(item) {
 function baseDriftOf(item, baseEntry) {
 	const base = item.meta.base;
 	if (!base) return null;
-	const now = isDict$152(baseEntry) && typeof baseEntry.content === "string" ? baseEntry.content : "";
-	if (isDict$152(baseEntry) && entryContentHash(baseEntry) === base.contentHash) return null;
+	const now = isDict$153(baseEntry) && typeof baseEntry.content === "string" ? baseEntry.content : "";
+	if (isDict$153(baseEntry) && entryContentHash(baseEntry) === base.contentHash) return null;
 	return {
 		then: base.content ?? "",
 		now
@@ -9108,7 +9108,7 @@ function baseDriftOf(item, baseEntry) {
 }
 function stripMaestro$1(entry) {
 	const out = { ...entry };
-	if (isDict$152(out.extensions)) {
+	if (isDict$153(out.extensions)) {
 		const extensions = { ...out.extensions };
 		delete extensions.maestro;
 		if (Object.keys(extensions).length) out.extensions = extensions;
@@ -9203,7 +9203,7 @@ var line = (id, label) => ({
 	id,
 	label
 });
-var text$23 = (id, label) => ({
+var text$24 = (id, label) => ({
 	id,
 	label,
 	multiline: true
@@ -9217,12 +9217,12 @@ var ENTRY_TYPES$1 = {
 			line("aliases", "Aliases"),
 			line("role", "Role"),
 			line("age", "Age"),
-			text$23("appearance", "Appearance"),
-			text$23("personality", "Personality"),
-			text$23("background", "Background"),
-			text$23("relationships", "Relationships"),
-			text$23("speech", "Speech"),
-			text$23("goals", "Goals")
+			text$24("appearance", "Appearance"),
+			text$24("personality", "Personality"),
+			text$24("background", "Background"),
+			text$24("relationships", "Relationships"),
+			text$24("speech", "Speech"),
+			text$24("goals", "Goals")
 		]
 	},
 	place: {
@@ -9233,11 +9233,11 @@ var ENTRY_TYPES$1 = {
 			line("aliases", "Aliases"),
 			line("kind", "Kind"),
 			line("location", "Location"),
-			text$23("description", "Description"),
-			text$23("atmosphere", "Atmosphere"),
-			text$23("inhabitants", "Inhabitants"),
-			text$23("features", "Notable features"),
-			text$23("secrets", "Secrets")
+			text$24("description", "Description"),
+			text$24("atmosphere", "Atmosphere"),
+			text$24("inhabitants", "Inhabitants"),
+			text$24("features", "Notable features"),
+			text$24("secrets", "Secrets")
 		]
 	},
 	item: {
@@ -9247,10 +9247,10 @@ var ENTRY_TYPES$1 = {
 			line("name", "Name"),
 			line("aliases", "Aliases"),
 			line("kind", "Kind"),
-			text$23("appearance", "Appearance"),
-			text$23("properties", "Properties"),
+			text$24("appearance", "Appearance"),
+			text$24("properties", "Properties"),
 			line("owner", "Owner"),
-			text$23("origin", "Origin"),
+			text$24("origin", "Origin"),
 			line("whereabouts", "Whereabouts")
 		]
 	},
@@ -9262,12 +9262,12 @@ var ENTRY_TYPES$1 = {
 			line("aliases", "Aliases"),
 			line("kind", "Kind"),
 			line("leader", "Leader"),
-			text$23("members", "Members"),
-			text$23("goals", "Goals"),
+			text$24("members", "Members"),
+			text$24("goals", "Goals"),
 			line("territory", "Territory"),
 			line("allies", "Allies"),
 			line("enemies", "Enemies"),
-			text$23("symbols", "Symbols and customs")
+			text$24("symbols", "Symbols and customs")
 		]
 	},
 	event: {
@@ -9278,8 +9278,8 @@ var ENTRY_TYPES$1 = {
 			line("when", "When"),
 			line("where", "Where"),
 			line("participants", "Participants"),
-			text$23("description", "What happened"),
-			text$23("consequences", "Consequences")
+			text$24("description", "What happened"),
+			text$24("consequences", "Consequences")
 		]
 	},
 	tradition: {
@@ -9289,9 +9289,9 @@ var ENTRY_TYPES$1 = {
 			line("name", "Name"),
 			line("culture", "Culture"),
 			line("when", "When"),
-			text$23("practice", "Practice"),
-			text$23("meaning", "Meaning"),
-			text$23("taboos", "Taboos")
+			text$24("practice", "Practice"),
+			text$24("meaning", "Meaning"),
+			text$24("taboos", "Taboos")
 		]
 	},
 	mechanic: {
@@ -9299,10 +9299,10 @@ var ENTRY_TYPES$1 = {
 		label: "Mechanic",
 		fields: [
 			line("name", "Name"),
-			text$23("summary", "Summary"),
-			text$23("rules", "Rules"),
-			text$23("limits", "Costs and limits"),
-			text$23("examples", "Examples")
+			text$24("summary", "Summary"),
+			text$24("rules", "Rules"),
+			text$24("limits", "Costs and limits"),
+			text$24("examples", "Examples")
 		]
 	},
 	rule: {
@@ -9310,9 +9310,9 @@ var ENTRY_TYPES$1 = {
 		label: "Rule",
 		fields: [
 			line("name", "Name"),
-			text$23("statement", "Rule"),
+			text$24("statement", "Rule"),
 			line("scope", "Scope"),
-			text$23("exceptions", "Exceptions")
+			text$24("exceptions", "Exceptions")
 		]
 	},
 	chapter: {
@@ -9321,16 +9321,16 @@ var ENTRY_TYPES$1 = {
 		fields: [
 			line("name", "Title"),
 			line("period", "Period"),
-			text$23("summary", "Summary"),
-			text$23("events", "Key events"),
+			text$24("summary", "Summary"),
+			text$24("events", "Key events"),
 			line("characters", "Characters"),
-			text$23("threads", "Open threads")
+			text$24("threads", "Open threads")
 		]
 	},
 	note: {
 		id: "note",
 		label: "Note",
-		fields: [line("name", "Title"), text$23("text", "Text")]
+		fields: [line("name", "Title"), text$24("text", "Text")]
 	}
 };
 /**
@@ -10008,7 +10008,7 @@ var VALUE_VIEWS = [
 	"icon",
 	"hidden"
 ];
-function isDict$151(value) {
+function isDict$152(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function oneOf$3(list, value) {
@@ -10062,7 +10062,7 @@ function normalizeWords(raw) {
 	if (!Array.isArray(raw)) return void 0;
 	const out = [];
 	for (const item of raw) {
-		if (!isDict$151(item) || typeof item.label !== "string" || !item.label.trim()) continue;
+		if (!isDict$152(item) || typeof item.label !== "string" || !item.label.trim()) continue;
 		const level = { label: item.label.trim() };
 		if (typeof item.upTo === "number" && Number.isFinite(item.upTo)) level.upTo = item.upTo;
 		if (typeof item.level === "string" && item.level.trim()) level.level = item.level.trim();
@@ -10077,7 +10077,7 @@ function normalizeVisibilityInput(raw) {
 		const preset = oneOf$3(VISIBILITY_PRESETS, raw);
 		return preset ? { preset } : void 0;
 	}
-	if (!isDict$151(raw)) return void 0;
+	if (!isDict$152(raw)) return void 0;
 	const out = {};
 	const preset = oneOf$3(VISIBILITY_PRESETS, raw.preset);
 	if (preset) out.preset = preset;
@@ -10087,7 +10087,7 @@ function normalizeVisibilityInput(raw) {
 	if (mention) out.mention = mention;
 	const view = oneOf$3(VALUE_VIEWS, raw.view);
 	if (view) out.view = view;
-	if (isDict$151(raw.places)) {
+	if (isDict$152(raw.places)) {
 		const placesIn = {};
 		for (const place of VISIBILITY_PLACES) if (typeof raw.places[place] === "boolean") placesIn[place] = raw.places[place];
 		if (Object.keys(placesIn).length) out.places = placesIn;
@@ -10304,14 +10304,14 @@ var DICE_LIMITS = {
 	flat: 1e4,
 	target: 1e5
 };
-function isDict$150(value) {
+function isDict$151(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function str$37(value) {
 	return typeof value === "string" ? value.trim() : "";
 }
 /** A string kept as typed (multi-line rules keep inner spacing), only trimmed at the ends. */
-function text$22(value) {
+function text$23(value) {
 	return typeof value === "string" ? value.replace(/\r\n?/g, "\n").trim() : "";
 }
 function finite$4(value) {
@@ -10670,7 +10670,7 @@ function initialValueOf(attribute) {
 	}
 }
 function numberRecord(raw) {
-	if (!isDict$150(raw)) return void 0;
+	if (!isDict$151(raw)) return void 0;
 	const out = {};
 	for (const [key, value] of Object.entries(raw)) {
 		const name = key.trim().toLowerCase();
@@ -10681,14 +10681,14 @@ function numberRecord(raw) {
 }
 /** A duration from stored data, or from words: {turns: 3}, {minutes: 120}, {until: {day, minutes}}; null: none. */
 function normalizeDuration(raw) {
-	if (!isDict$150(raw)) return null;
+	if (!isDict$151(raw)) return null;
 	const out = {};
 	const turns = finite$4(raw.turns);
 	if (turns !== void 0 && turns > 0) out.turns = Math.ceil(turns);
 	let minutes = finite$4(raw.minutes) ?? 0;
 	minutes += (finite$4(raw.hours) ?? 0) * 60 + (finite$4(raw.days) ?? 0) * 1440 + (finite$4(raw.weeks) ?? 0) * 10080;
 	if (minutes > 0) out.minutes = Math.round(minutes);
-	if (isDict$150(raw.until) && finite$4(raw.until.day) !== void 0) {
+	if (isDict$151(raw.until) && finite$4(raw.until.day) !== void 0) {
 		out.until = { day: Math.trunc(raw.until.day) };
 		const at = finite$4(raw.until.minutes);
 		if (at !== void 0) out.until.minutes = Math.max(0, Math.min(1439, Math.round(at)));
@@ -10697,7 +10697,7 @@ function normalizeDuration(raw) {
 }
 function normalizeStatusSpec(raw) {
 	if (typeof raw === "string") return raw.trim() ? { name: raw.trim() } : null;
-	if (!isDict$150(raw)) return null;
+	if (!isDict$151(raw)) return null;
 	const name = str$37(raw.name) || str$37(raw.promptName) || str$37(raw.id);
 	if (!name) return null;
 	const spec = { name };
@@ -10714,19 +10714,19 @@ function normalizeStatusSpec(raw) {
 	if (stacks !== void 0 && stacks >= 1) spec.stacks = Math.round(stacks);
 	const maxStacks = finite$4(raw.maxStacks);
 	if (maxStacks !== void 0 && maxStacks >= 1) spec.maxStacks = Math.round(maxStacks);
-	if (text$22(raw.text)) spec.text = text$22(raw.text);
+	if (text$23(raw.text)) spec.text = text$23(raw.text);
 	if (str$37(raw.icon)) spec.icon = str$37(raw.icon);
 	return spec;
 }
 function normalizeItemSpec(raw) {
 	if (typeof raw === "string") return raw.trim() ? { name: raw.trim() } : null;
-	if (!isDict$150(raw)) return null;
+	if (!isDict$151(raw)) return null;
 	const name = str$37(raw.name);
 	if (!name) return null;
 	const item = { name };
 	const qty = finite$4(raw.qty);
 	if (qty !== void 0) item.qty = qty;
-	if (text$22(raw.desc)) item.desc = text$22(raw.desc);
+	if (text$23(raw.desc)) item.desc = text$23(raw.desc);
 	if (raw.equipped === "worn" || raw.equipped === "hand") item.equipped = raw.equipped;
 	else if (raw.equipped === null) item.equipped = null;
 	const tags = cleanList$1(raw.tags);
@@ -10738,7 +10738,7 @@ function normalizeItemSpec(raw) {
 	return item;
 }
 function normalizeAction(raw) {
-	if (!isDict$150(raw)) return null;
+	if (!isDict$151(raw)) return null;
 	const attr = str$37(raw.attr) || str$37(raw.attribute);
 	const op = oneOf$2(CHANGE_OPS, raw.op) ?? (raw.op === "+" ? "add" : raw.op === "-" ? "sub" : raw.op === "=" ? "set" : void 0);
 	if (!attr || !op) return null;
@@ -10761,14 +10761,14 @@ function normalizeActions(raw) {
 	return actions.length ? actions : void 0;
 }
 function normalizeEvent(raw, index) {
-	if (!isDict$150(raw)) return null;
-	const when = isDict$150(raw.when) ? raw.when : {};
+	if (!isDict$151(raw)) return null;
+	const when = isDict$151(raw.when) ? raw.when : {};
 	const op = oneOf$2(EVENT_OPS, when.op);
 	if (!op) return null;
 	const event = {
 		id: str$37(raw.id) || `event_${index + 1}`,
 		when: { op },
-		text: text$22(raw.text)
+		text: text$23(raw.text)
 	};
 	const value = typeof when.value === "string" ? when.value.trim() : finite$4(when.value);
 	if (op !== "changed" && value !== void 0) event.when.value = value;
@@ -10780,18 +10780,18 @@ function normalizeEvent(raw, index) {
 	return event;
 }
 function normalizeEffect(raw) {
-	if (!isDict$150(raw)) return null;
+	if (!isDict$151(raw)) return null;
 	const on = oneOf$2(EFFECT_ONS$1, raw.on);
 	if (!on) return null;
 	const effect = {
 		on,
 		changes: normalizeActions(raw.changes) ?? []
 	};
-	if (text$22(raw.text)) effect.text = text$22(raw.text);
+	if (text$23(raw.text)) effect.text = text$23(raw.text);
 	return effect.changes.length || effect.text ? effect : null;
 }
 function normalizeTimeRule(raw) {
-	if (!isDict$150(raw)) return null;
+	if (!isDict$151(raw)) return null;
 	const attr = str$37(raw.attr).toLowerCase();
 	const per = oneOf$2(TIME_PERS, raw.per);
 	const amount = typeof raw.amount === "number" && Number.isFinite(raw.amount) ? raw.amount : typeof raw.amount === "string" && raw.amount.trim() ? raw.amount.trim() : null;
@@ -10805,7 +10805,7 @@ function normalizeTimeRule(raw) {
 	return rule;
 }
 function normalizeProgression(raw) {
-	if (!isDict$150(raw)) return void 0;
+	if (!isDict$151(raw)) return void 0;
 	const xp = str$37(raw.xp).toLowerCase();
 	const level = str$37(raw.level).toLowerCase();
 	if (!xp || !level || !Array.isArray(raw.thresholds)) return void 0;
@@ -10828,7 +10828,7 @@ var AWARD_OUTCOMES$1 = [
 ];
 /** Experience by outcome: positive numbers (numeric strings read), anything else dropped; none → undefined. */
 function normalizeAwards(raw) {
-	if (!isDict$150(raw)) return void 0;
+	if (!isDict$151(raw)) return void 0;
 	const awards = {};
 	for (const outcome of AWARD_OUTCOMES$1) {
 		const value = raw[outcome];
@@ -10838,7 +10838,7 @@ function normalizeAwards(raw) {
 	return Object.keys(awards).length ? awards : void 0;
 }
 function normalizeAttribute(raw, index) {
-	if (!isDict$150(raw)) return null;
+	if (!isDict$151(raw)) return null;
 	const kind = oneOf$2(ATTRIBUTE_KINDS$1, raw.kind) ?? (raw.kind === void 0 ? "number" : "text");
 	const name = str$37(raw.name);
 	const promptName = str$37(raw.promptName);
@@ -10863,7 +10863,7 @@ function normalizeAttribute(raw, index) {
 		attribute.options = cleanList$1(raw.options);
 		if (raw.multi === true) attribute.multi = true;
 		if (Array.isArray(initial) || typeof initial === "string") attribute.initial = cleanList$1(initial);
-	} else if (typeof initial === "string") attribute.initial = text$22(initial);
+	} else if (typeof initial === "string") attribute.initial = text$23(initial);
 	const tracking = oneOf$2(TRACKING_MODES, raw.tracking);
 	if (tracking) attribute.tracking = tracking;
 	if (typeof raw.visible === "boolean") attribute.visible = raw.visible;
@@ -10872,7 +10872,7 @@ function normalizeAttribute(raw, index) {
 		if (events.length) attribute.events = events;
 	}
 	if (kind === "number" && typeof raw.formula === "string" && raw.formula.trim()) attribute.formula = raw.formula.trim();
-	if (kind === "number" && isDict$150(raw.growth)) {
+	if (kind === "number" && isDict$151(raw.growth)) {
 		const perUse = finite$4(raw.growth.perUse);
 		if (perUse !== void 0 && perUse !== 0) {
 			const growth = { perUse };
@@ -10889,7 +10889,7 @@ function normalizeAttribute(raw, index) {
 	return attribute;
 }
 function normalizeCheck(raw, index) {
-	if (!isDict$150(raw)) return null;
+	if (!isDict$151(raw)) return null;
 	const name = str$37(raw.name);
 	const promptName = str$37(raw.promptName);
 	const difficulty = finite$4(raw.difficulty) ?? (typeof raw.difficulty === "string" && raw.difficulty.trim() ? Number(raw.difficulty) : null);
@@ -10921,7 +10921,7 @@ function normalizeRequires(raw) {
 	if (!Array.isArray(raw)) return void 0;
 	const out = [];
 	for (const item of raw) {
-		if (!isDict$150(item)) continue;
+		if (!isDict$151(item)) continue;
 		const attr = str$37(item.attr).toLowerCase();
 		const min = finite$4(item.min) ?? (typeof item.min === "string" && item.min.trim() ? Number(item.min) : NaN);
 		if (!attr || !Number.isFinite(min)) continue;
@@ -10929,7 +10929,7 @@ function normalizeRequires(raw) {
 			attr,
 			min
 		};
-		const note = text$22(item.note);
+		const note = text$23(item.note);
 		if (note) requirement.note = note;
 		out.push(requirement);
 		if (out.length >= REQUIRES_MAX) break;
@@ -10937,8 +10937,8 @@ function normalizeRequires(raw) {
 	return out.length ? out : void 0;
 }
 function normalizeHolders(raw) {
-	const kind = isDict$150(raw) ? oneOf$2(HOLDER_KINDS$1, raw.kind) : void 0;
-	const names = isDict$150(raw) ? cleanList$1(raw.names) : [];
+	const kind = isDict$151(raw) ? oneOf$2(HOLDER_KINDS$1, raw.kind) : void 0;
+	const names = isDict$151(raw) ? cleanList$1(raw.names) : [];
 	switch (kind) {
 		case "persona": return { kind };
 		case "world": return { kind };
@@ -10952,13 +10952,13 @@ function normalizeHolders(raw) {
 		};
 		default: {
 			const holders = { kind: "characters" };
-			if (isDict$150(raw) && raw.includePersona === true) holders.includePersona = true;
+			if (isDict$151(raw) && raw.includePersona === true) holders.includePersona = true;
 			return holders;
 		}
 	}
 }
 function normalizeScope(raw) {
-	if (isDict$150(raw)) {
+	if (isDict$151(raw)) {
 		if (raw.kind === "card" && str$37(raw.avatar)) return {
 			kind: "card",
 			avatar: str$37(raw.avatar)
@@ -10976,15 +10976,15 @@ function normalizeScope(raw) {
 * Null when it is not an object or has no id.
 */
 function normalizeDef(raw) {
-	if (!isDict$150(raw)) return null;
+	if (!isDict$151(raw)) return null;
 	const id = str$37(raw.id);
 	if (!id) return null;
 	const def = {
 		id,
 		name: str$37(raw.name) || id,
 		...str$37(raw.promptName) ? { promptName: str$37(raw.promptName) } : {},
-		summary: text$22(raw.summary),
-		rules: text$22(raw.rules),
+		summary: text$23(raw.summary),
+		rules: text$23(raw.rules),
 		attributes: (Array.isArray(raw.attributes) ? raw.attributes : []).map((item, index) => normalizeAttribute(item, index)).filter((item) => item !== null),
 		holders: normalizeHolders(raw.holders),
 		checks: (Array.isArray(raw.checks) ? raw.checks : []).map((item, index) => normalizeCheck(item, index)).filter((item) => item !== null),
@@ -10998,14 +10998,14 @@ function normalizeDef(raw) {
 	const visibility = normalizeVisibilityInput(raw.visibility);
 	if (visibility) def.visibility = visibility;
 	if (Array.isArray(raw.statuses)) def.statuses = raw.statuses.map(normalizeStatusSpec).filter((item) => item !== null).slice(0, DEF_LIMITS.statuses);
-	if (isDict$150(raw.inventory)) def.inventory = str$37(raw.inventory.money) ? { money: str$37(raw.inventory.money).toLowerCase() } : {};
+	if (isDict$151(raw.inventory)) def.inventory = str$37(raw.inventory.money) ? { money: str$37(raw.inventory.money).toLowerCase() } : {};
 	if (Array.isArray(raw.time)) {
 		const rules = raw.time.map(normalizeTimeRule).filter((item) => item !== null).slice(0, DEF_LIMITS.time);
 		if (rules.length) def.time = rules;
 	}
 	const progression = normalizeProgression(raw.progression);
 	if (progression) def.progression = progression;
-	if (isDict$150(raw.combat)) {
+	if (isDict$151(raw.combat)) {
 		const combat = {};
 		if (str$37(raw.combat.initiative)) combat.initiative = str$37(raw.combat.initiative);
 		const enemy = numberRecord(raw.combat.enemy);
@@ -11015,9 +11015,9 @@ function normalizeDef(raw) {
 	if (raw.pinned === true) def.pinned = true;
 	const keys = cleanList$1(raw.keys).slice(0, DEF_LIMITS.keys);
 	if (keys.length) def.keys = keys;
-	if (text$22(raw.summarySource)) def.summarySource = text$22(raw.summarySource);
-	if (text$22(raw.rulesSource)) def.rulesSource = text$22(raw.rulesSource);
-	if (isDict$150(raw.translatedFrom)) {
+	if (text$23(raw.summarySource)) def.summarySource = text$23(raw.summarySource);
+	if (text$23(raw.rulesSource)) def.rulesSource = text$23(raw.rulesSource);
+	if (isDict$151(raw.translatedFrom)) {
 		const from = {};
 		if (str$37(raw.translatedFrom.summary)) from.summary = str$37(raw.translatedFrom.summary);
 		if (str$37(raw.translatedFrom.rules)) from.rules = str$37(raw.translatedFrom.rules);
@@ -11735,11 +11735,11 @@ function storedDef(def) {
 }
 /** The definition JSON of an entry, or null when it is not a mechanic entry. */
 function mechanicJsonOf(entry) {
-	if (!isDict$150(entry) || !isDict$150(entry.extensions) || !isDict$150(entry.extensions.maestro)) return null;
+	if (!isDict$151(entry) || !isDict$151(entry.extensions) || !isDict$151(entry.extensions.maestro)) return null;
 	const maestro = entry.extensions.maestro;
 	if (maestro.type !== void 0 && maestro.type !== "mechanic") return null;
 	const json = maestro[MECHANIC_EXTENSION_KEY];
-	return isDict$150(json) ? json : null;
+	return isDict$151(json) ? json : null;
 }
 function isMechanicEntry(entry) {
 	return mechanicJsonOf(entry) !== null;
@@ -11751,8 +11751,8 @@ function isMechanicEntry(entry) {
 */
 function defToEntry(def, uid, previous) {
 	const stored = storedDef(def);
-	const before = isDict$150(previous) ? previous : {};
-	const previousTyped = readTypedMeta(isDict$150(before.extensions) ? before.extensions.maestro : void 0);
+	const before = isDict$151(previous) ? previous : {};
+	const previousTyped = readTypedMeta(isDict$151(before.extensions) ? before.extensions.maestro : void 0);
 	const meta = {
 		type: MECHANIC_ENTRY_TYPE,
 		fields: {
@@ -11765,7 +11765,7 @@ function defToEntry(def, uid, previous) {
 	};
 	const extensions = withTypedMeta(before.extensions, meta) ?? {};
 	extensions.maestro = {
-		...isDict$150(extensions.maestro) ? extensions.maestro : {},
+		...isDict$151(extensions.maestro) ? extensions.maestro : {},
 		[MECHANIC_EXTENSION_KEY]: stored
 	};
 	const rest = { ...before };
@@ -11791,7 +11791,7 @@ function defToEntry(def, uid, previous) {
 function entryToDef(entry, book) {
 	const json = mechanicJsonOf(entry);
 	const def = json ? normalizeDef(json) : null;
-	if (!def || !isDict$150(entry)) return null;
+	if (!def || !isDict$151(entry)) return null;
 	const maestro = entry.extensions.maestro;
 	const typed = readTypedMeta(maestro);
 	const content = typeof entry.content === "string" ? entry.content.replace(/\r\n?/g, "\n").trim() : "";
@@ -11818,7 +11818,7 @@ function entryToDef(entry, book) {
 }
 //#endregion
 //#region src/domain/mechanics-combat.ts
-function isDict$149(value) {
+function isDict$150(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function same$3(a, b) {
@@ -11946,10 +11946,10 @@ function combatLine(state) {
 }
 /** A stored combat state repaired, or null. */
 function readCombat(raw) {
-	if (!isDict$149(raw) || !Array.isArray(raw.order)) return null;
+	if (!isDict$150(raw) || !Array.isArray(raw.order)) return null;
 	const order = [];
 	for (const item of raw.order) {
-		if (!isDict$149(item) || typeof item.holder !== "string" || !item.holder.trim()) continue;
+		if (!isDict$150(item) || typeof item.holder !== "string" || !item.holder.trim()) continue;
 		const combatant = {
 			holder: item.holder,
 			init: typeof item.init === "number" && Number.isFinite(item.init) ? item.init : 0
@@ -11979,7 +11979,7 @@ var STATUS_LIMITS = {
 	qty: 1e6,
 	turns: 1e4
 };
-function isDict$148(value) {
+function isDict$149(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function key(value) {
@@ -12364,13 +12364,13 @@ function itemsText(list, max = 12) {
 }
 function readModifiers(raw) {
 	const out = {};
-	if (!isDict$148(raw)) return out;
+	if (!isDict$149(raw)) return out;
 	for (const [name, value] of Object.entries(raw)) if (finite$3(value) !== void 0) out[name] = value;
 	return out;
 }
 /** A stored status repaired, or null. */
 function readStatus(raw) {
-	if (!isDict$148(raw) || typeof raw.id !== "string" || typeof raw.name !== "string") return null;
+	if (!isDict$149(raw) || typeof raw.id !== "string" || typeof raw.name !== "string") return null;
 	const status = {
 		id: raw.id,
 		statusId: typeof raw.statusId === "string" && raw.statusId ? raw.statusId : snakeId(raw.name, "status"),
@@ -12384,13 +12384,13 @@ function readStatus(raw) {
 		since: Math.trunc(finite$3(raw.since) ?? -1),
 		at: Math.trunc(finite$3(raw.at) ?? 0)
 	};
-	if (isDict$148(raw.remaining)) {
+	if (isDict$149(raw.remaining)) {
 		const remaining = {};
 		if (finite$3(raw.remaining.turns) !== void 0) remaining.turns = raw.remaining.turns;
 		if (finite$3(raw.remaining.minutes) !== void 0) remaining.minutes = raw.remaining.minutes;
 		status.remaining = Object.keys(remaining).length ? remaining : null;
 	}
-	if (isDict$148(raw.until) && finite$3(raw.until.day) !== void 0) {
+	if (isDict$149(raw.until) && finite$3(raw.until.day) !== void 0) {
 		status.until = { day: raw.until.day };
 		if (finite$3(raw.until.minutes) !== void 0) status.until.minutes = raw.until.minutes;
 	}
@@ -12401,7 +12401,7 @@ function readStatus(raw) {
 }
 /** A stored item repaired, or null. */
 function readItem(raw) {
-	if (!isDict$148(raw) || typeof raw.id !== "string" || typeof raw.name !== "string" || !raw.name.trim()) return null;
+	if (!isDict$149(raw) || typeof raw.id !== "string" || typeof raw.name !== "string" || !raw.name.trim()) return null;
 	const item = {
 		id: raw.id,
 		name: raw.name,
@@ -12800,7 +12800,7 @@ var STATE_LIMITS = {
 	reason: 200,
 	clockHistory: 200
 };
-function isDict$147(value) {
+function isDict$148(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function str$36(value) {
@@ -13275,7 +13275,7 @@ var KINDS$4 = [
 	"combat"
 ];
 function readClock(raw) {
-	if (!isDict$147(raw) || typeof raw.day !== "number" || !Number.isFinite(raw.day)) return null;
+	if (!isDict$148(raw) || typeof raw.day !== "number" || !Number.isFinite(raw.day)) return null;
 	const clock = {
 		day: Math.trunc(raw.day),
 		label: typeof raw.label === "string" ? raw.label : ""
@@ -13285,7 +13285,7 @@ function readClock(raw) {
 	if (typeof raw.weekday === "number" && Number.isInteger(raw.weekday)) clock.weekday = raw.weekday;
 	if (raw.relative === true) clock.relative = true;
 	const anchor = raw.anchor;
-	if (isDict$147(anchor) && (anchor.kind === "day" || anchor.kind === "date") && typeof anchor.n === "number" && typeof anchor.key === "string" && typeof anchor.day === "number") {
+	if (isDict$148(anchor) && (anchor.kind === "day" || anchor.kind === "date") && typeof anchor.n === "number" && typeof anchor.key === "string" && typeof anchor.day === "number") {
 		clock.anchor = {
 			kind: anchor.kind,
 			n: anchor.n,
@@ -13297,7 +13297,7 @@ function readClock(raw) {
 	return clock;
 }
 function readChange$1(raw) {
-	if (!isDict$147(raw)) return null;
+	if (!isDict$148(raw)) return null;
 	const { id, mechanicId, holder, attribute, to, source } = raw;
 	if (typeof id !== "string" || typeof mechanicId !== "string" || typeof holder !== "string") return null;
 	if (typeof attribute !== "string" || !isValue(to) || !isSource(source)) return null;
@@ -13313,7 +13313,7 @@ function readChange$1(raw) {
 		at: int$2(raw.at, 0)
 	};
 	if (typeof raw.reason === "string" && raw.reason) change.reason = raw.reason;
-	if (isDict$147(raw.latch)) {
+	if (isDict$148(raw.latch)) {
 		const latch = {};
 		for (const [key, value] of Object.entries(raw.latch)) if (typeof value === "boolean") latch[key] = value;
 		if (Object.keys(latch).length) change.latch = latch;
@@ -13342,7 +13342,7 @@ function readChange$1(raw) {
 	return change;
 }
 function readEvent(raw) {
-	if (!isDict$147(raw)) return null;
+	if (!isDict$148(raw)) return null;
 	const { id, changeId, mechanicId, holder, attribute, eventId, text } = raw;
 	for (const field of [
 		id,
@@ -13368,7 +13368,7 @@ function readEvent(raw) {
 }
 function readRecords(raw, read) {
 	const out = {};
-	if (!isDict$147(raw)) return out;
+	if (!isDict$148(raw)) return out;
 	for (const [holder, list] of Object.entries(raw)) {
 		if (!Array.isArray(list)) continue;
 		const items = list.map(read).filter((item) => item !== null);
@@ -13379,12 +13379,12 @@ function readRecords(raw, read) {
 /** A stored document repaired (unknown or broken parts dropped). */
 function normalizeStateDoc(raw) {
 	const doc = emptyStateDoc();
-	if (!isDict$147(raw)) return doc;
-	if (isDict$147(raw.holders)) for (const [mechanicId, holders] of Object.entries(raw.holders)) {
-		if (!isDict$147(holders)) continue;
+	if (!isDict$148(raw)) return doc;
+	if (isDict$148(raw.holders)) for (const [mechanicId, holders] of Object.entries(raw.holders)) {
+		if (!isDict$148(holders)) continue;
 		const out = {};
 		for (const [name, holder] of Object.entries(holders)) {
-			if (!isDict$147(holder) || !isDict$147(holder.values)) continue;
+			if (!isDict$148(holder) || !isDict$148(holder.values)) continue;
 			const values = {};
 			for (const [attr, value] of Object.entries(holder.values)) if (isValue(value)) values[attr] = value;
 			out[name] = {
@@ -13398,7 +13398,7 @@ function normalizeStateDoc(raw) {
 		const change = readChange$1(item);
 		if (change) doc.log.push(change);
 	}
-	if (isDict$147(raw.latched)) {
+	if (isDict$148(raw.latched)) {
 		for (const [key, value] of Object.entries(raw.latched)) if (value === true) doc.latched[key] = true;
 	}
 	if (Array.isArray(raw.fired)) for (const item of raw.fired) {
@@ -13407,13 +13407,13 @@ function normalizeStateDoc(raw) {
 	}
 	doc.statuses = readRecords(raw.statuses, readStatus);
 	doc.items = readRecords(raw.items, readItem);
-	if (isDict$147(raw.revealed)) {
+	if (isDict$148(raw.revealed)) {
 		for (const [key, value] of Object.entries(raw.revealed)) if (value === true) doc.revealed[key] = true;
 	}
 	doc.combat = readCombat(raw.combat);
 	doc.clock = readClock(raw.clock);
 	if (Array.isArray(raw.clockHistory)) for (const item of raw.clockHistory) {
-		if (!isDict$147(item)) continue;
+		if (!isDict$148(item)) continue;
 		const clock = readClock(item.clock);
 		if (clock && typeof item.index === "number") doc.clockHistory.push({
 			index: int$2(item.index, -1),
@@ -15615,7 +15615,7 @@ function wrapDisplay(html, label) {
 }
 //#endregion
 //#region src/domain/text-clean.ts
-function isDict$146(value) {
+function isDict$147(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /** Names of real HTML elements (lower case). BunnyMo tags (`<SPECIES:ELF>`, `<PHYSICAL>`) are not among them. */
@@ -15824,7 +15824,7 @@ function looksLikeTracker(json) {
 	if (!body.startsWith("{")) return false;
 	try {
 		const parsed = JSON.parse(body);
-		return isDict$146(parsed) && TRACKER_KEYS.some((key) => key in parsed);
+		return isDict$147(parsed) && TRACKER_KEYS.some((key) => key in parsed);
 	} catch {
 		return TRACKER_KEY_RE$4.test(body);
 	}
@@ -15911,11 +15911,11 @@ function stripNaiPlaceholders(text) {
 * its own text and is not a picture post.
 */
 function isImagePost(message) {
-	if (!isDict$146(message) || !isDict$146(message.extra)) return false;
+	if (!isDict$147(message) || !isDict$147(message.extra)) return false;
 	const extra = message.extra;
-	if (isDict$146(extra.nai_studio)) return true;
+	if (isDict$147(extra.nai_studio)) return true;
 	const media = extra.media;
-	if (!Array.isArray(media) || !media.length || !media.every((item) => isDict$146(item) && isDict$146(item.nai_studio))) return false;
+	if (!Array.isArray(media) || !media.length || !media.every((item) => isDict$147(item) && isDict$147(item.nai_studio))) return false;
 	const text = typeof message.mes === "string" ? message.mes.trim() : "";
 	if (!text) return true;
 	return media.some((item) => {
@@ -15933,7 +15933,7 @@ function normalizeWhitespace(text) {
 */
 function cleanForAnalysis$1(message) {
 	if (typeof message !== "string" && isImagePost(message)) return "";
-	const raw = typeof message === "string" ? message : isDict$146(message) ? message.mes : void 0;
+	const raw = typeof message === "string" ? message : isDict$147(message) ? message.mes : void 0;
 	if (typeof raw !== "string" || !raw) return "";
 	let text = stripDesTrackerJson(raw);
 	text = stripOffscreen(text);
@@ -18621,7 +18621,7 @@ function coalesce(run, ms = 100) {
 //#endregion
 //#region src/ui/views/overview.ts
 var OVERVIEW_TAB = "overview";
-var MODES$1 = [
+var MODES$2 = [
 	"economy",
 	"balanced",
 	"cinema"
@@ -18663,7 +18663,7 @@ function overviewTab(env) {
 		return section$3(t("ui.overview.mode"), [segmented({
 			value: core.mode,
 			label: t("ui.overview.mode"),
-			options: MODES$1.map((mode) => ({
+			options: MODES$2.map((mode) => ({
 				value: mode,
 				label: t(`ui.mode.${mode}`)
 			})),
@@ -19685,7 +19685,7 @@ function resolveTarget(deps, raw) {
 }
 function modeOf(deps, raw) {
 	const name = normalizeName$1(raw);
-	return MODES$1.find((mode) => [
+	return MODES$2.find((mode) => [
 		mode,
 		deps.i18n.t(`ui.mode.${mode}`),
 		UI_STRINGS.en[`ui.mode.${mode}`],
@@ -19749,7 +19749,7 @@ function coreCommands(deps) {
 			}],
 			callback: (_args, value) => {
 				const core = deps.settings.core();
-				const list = MODES$1.map((item) => t(`ui.mode.${item}`)).join(", ");
+				const list = MODES$2.map((item) => t(`ui.mode.${item}`)).join(", ");
 				if (!value.trim()) return answer(t("ui.slash.mode.current", {
 					mode: t(`ui.mode.${core.mode}`),
 					list
@@ -20294,12 +20294,12 @@ var INBOX_CSS = `
 .maestro-inbox-group + .maestro-inbox-group { margin-top: var(--maestro-gap, 10px); }
 .maestro-inbox-group-head { display: flex; align-items: center; gap: 6px; font-weight: 600; overflow-wrap: anywhere; }
 `;
-function isDict$145(value) {
+function isDict$146(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /** What the payload says about the card (see the convention above). */
 function cardMeta(item) {
-	const payload = isDict$145(item.payload) ? item.payload : {};
+	const payload = isDict$146(item.payload) ? item.payload : {};
 	const meta = {
 		entityName: typeof payload.entityName === "string" ? payload.entityName.trim() : "",
 		editable: false
@@ -20346,7 +20346,7 @@ function inboxCardRenderer(env) {
 		return ok;
 	};
 	const acceptEdited = async (item, value) => {
-		const payload = isDict$145(item.payload) ? item.payload : {};
+		const payload = isDict$146(item.payload) ? item.payload : {};
 		if (await env.inbox.accept(item.id, {
 			...payload,
 			value
@@ -21730,7 +21730,7 @@ function settingsTab(env) {
 		field$2(t("ui.settings.mode"), select({
 			value: core().mode,
 			label: t("ui.settings.mode"),
-			options: MODES$1.map((value) => ({
+			options: MODES$2.map((value) => ({
 				value,
 				label: t(`ui.mode.${value}`)
 			})),
@@ -26665,16 +26665,16 @@ function isPlainObject$1(value) {
 }
 //#endregion
 //#region src/domain/architect-prompt.ts
-function isDict$144(value) {
+function isDict$145(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /** Text parts of a message: [content] for string content, the `text` of each text part for multimodal content. */
 function messageTextParts(message) {
-	if (!isDict$144(message)) return [];
+	if (!isDict$145(message)) return [];
 	const content = message.content;
 	if (typeof content === "string") return [content];
 	if (!Array.isArray(content)) return [];
-	return content.map((part) => isDict$144(part) && typeof part.text === "string" ? part.text : "");
+	return content.map((part) => isDict$145(part) && typeof part.text === "string" ? part.text : "");
 }
 /**
 * Forms an extension prompt can take in the final prompt, most exact first: as set, trimmed (ST trims in-chat
@@ -26713,9 +26713,9 @@ function spliceText(text, start, length, replacement) {
 function qvinkShortMemories(chat) {
 	const result = [];
 	for (const message of chat) {
-		if (!isDict$144(message) || !isDict$144(message.extra)) continue;
+		if (!isDict$145(message) || !isDict$145(message.extra)) continue;
 		const record = message.extra.qvink_memory;
-		if (!isDict$144(record) || record.include !== "short" || record.lagging === true) continue;
+		if (!isDict$145(record) || record.include !== "short" || record.lagging === true) continue;
 		if (typeof record.memory === "string" && record.memory.trim()) result.push(record.memory);
 	}
 	return result;
@@ -26726,14 +26726,14 @@ function qvinkShortMemories(chat) {
 var CK_CONSISTENCY_SLOT = "script_inject_carrot-consistency";
 /** ST extension_prompt_types.NONE: never injected. */
 var POSITION_NONE$1 = -1;
-function isDict$143(value) {
+function isDict$144(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /** The text a slot sends to the model now; '' when it is missing, empty or scan-only. */
 function slotText(prompts, key) {
-	if (!isDict$143(prompts)) return "";
+	if (!isDict$144(prompts)) return "";
 	const slot = prompts[key];
-	if (!isDict$143(slot) || typeof slot.value !== "string" || !slot.value.trim()) return "";
+	if (!isDict$144(slot) || typeof slot.value !== "string" || !slot.value.trim()) return "";
 	return Number(slot.position) === POSITION_NONE$1 ? "" : slot.value;
 }
 /** Replaces the text of one part of a message (string content, or a new array with a new text part). */
@@ -26745,7 +26745,7 @@ function setPartText$3(message, part, text) {
 	if (Array.isArray(message.content)) {
 		const parts = [...message.content];
 		const old = parts[part];
-		if (!isDict$143(old)) return;
+		if (!isDict$144(old)) return;
 		parts[part] = {
 			...old,
 			text
@@ -26776,7 +26776,7 @@ function removeSlotText(messages, value, substitute) {
 		chars: 0
 	};
 	const message = messages[hit.message];
-	if (!isDict$143(message)) return {
+	if (!isDict$144(message)) return {
 		removed: false,
 		chars: 0
 	};
@@ -26881,7 +26881,7 @@ var CkQuiet = class {
 };
 //#endregion
 //#region src/app/dramatis-bridge.ts
-function isDict$142(value) {
+function isDict$143(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function installDramatisBridge(app) {
@@ -26924,7 +26924,7 @@ function installDramatisBridge(app) {
 	};
 	const prompt = app.host.events.name("CHAT_COMPLETION_PROMPT_READY");
 	if (prompt) offs.push(app.host.events.on(prompt, (data) => {
-		if (voicesRunning() || !isDict$142(data) || data.dryRun !== false || !Array.isArray(data.chat)) return;
+		if (voicesRunning() || !isDict$143(data) || data.dryRun !== false || !Array.isArray(data.chat)) return;
 		const generation = app.turn.current();
 		if (!generation || generation.quiet || generation.dryRun || generation.sheetCommand) return;
 		if (!app.host.chatId() || !silences()) return;
@@ -26952,7 +26952,7 @@ var manifest_default = {
 	css: "dist/style.css",
 	generate_interceptor: "MAESTRO_Intercept",
 	author: "Likerchik",
-	version: "1.33.0",
+	version: "1.34.0",
 	homePage: "https://github.com/Likerch/SillyTavern-Maestro",
 	auto_update: true,
 	minimum_client_version: "1.19.0",
@@ -28459,7 +28459,7 @@ function compareSheetTags(rawReply, archiveText) {
 }
 //#endregion
 //#region src/domain/dossier-data.ts
-function isDict$141(value) {
+function isDict$142(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function str$35(value) {
@@ -28519,7 +28519,7 @@ function passportFields(passport) {
 * per slot, other known fields replace. Returns the effective passport and the overridden field names.
 */
 function overridePassport(base, override) {
-	if (!isDict$141(override)) return {
+	if (!isDict$142(override)) return {
 		passport: base,
 		overridden: []
 	};
@@ -28531,7 +28531,7 @@ function overridePassport(base, override) {
 		states: base.states.map((state) => ({ ...state }))
 	};
 	const overridden = [];
-	if (isDict$141(override.slots)) for (const [slot, value] of Object.entries(override.slots)) {
+	if (isDict$142(override.slots)) for (const [slot, value] of Object.entries(override.slots)) {
 		if (typeof value !== "string" || passport.slots[slot] === value) continue;
 		passport.slots[slot] = value;
 		overridden.push(`slot.${slot}`);
@@ -28553,14 +28553,14 @@ function overridePassport(base, override) {
 		overridden.push("aliases");
 	}
 	if (Array.isArray(override.outfits)) {
-		passport.outfits = override.outfits.filter(isDict$141).map((outfit) => ({
+		passport.outfits = override.outfits.filter(isDict$142).map((outfit) => ({
 			name: str$35(outfit.name),
 			tags: str$35(outfit.tags)
 		}));
 		overridden.push("outfits");
 	}
 	if (Array.isArray(override.states)) {
-		passport.states = override.states.filter(isDict$141).map((state) => ({
+		passport.states = override.states.filter(isDict$142).map((state) => ({
 			id: str$35(state.id),
 			tags: str$35(state.tags),
 			enabled: state.enabled === true
@@ -28630,9 +28630,9 @@ function pickMemories(memories, limit) {
 }
 /** M31's mark `extra.maestro.sheet` of a message, when it is there. */
 function readSheetMark(extra) {
-	const maestro = isDict$141(extra) ? extra.maestro : void 0;
-	const sheet = isDict$141(maestro) ? maestro.sheet : void 0;
-	if (!isDict$141(sheet) || typeof sheet.command !== "string") return null;
+	const maestro = isDict$142(extra) ? extra.maestro : void 0;
+	const sheet = isDict$142(maestro) ? maestro.sheet : void 0;
+	if (!isDict$142(sheet) || typeof sheet.command !== "string") return null;
 	return {
 		command: sheet.command,
 		target: str$35(sheet.target),
@@ -28671,11 +28671,11 @@ function findLastSheet(messages, names) {
 }
 /** CK RAG collections of a character (`rag.collectionMetadata[id].characterName`) with their triggers. */
 function ragCollectionsFor(rag, names) {
-	const metadata = isDict$141(rag) ? rag.collectionMetadata : void 0;
-	if (!isDict$141(metadata)) return [];
+	const metadata = isDict$142(rag) ? rag.collectionMetadata : void 0;
+	if (!isDict$142(metadata)) return [];
 	const out = [];
 	for (const [id, raw] of Object.entries(metadata)) {
-		if (!isDict$141(raw) || !isFor(str$35(raw.characterName) || null, names)) continue;
+		if (!isDict$142(raw) || !isFor(str$35(raw.characterName) || null, names)) continue;
 		const keywords = Array.isArray(raw.keywords) ? raw.keywords.filter((item) => typeof item === "string" && item.trim() !== "") : [];
 		out.push({
 			id,
@@ -29181,7 +29181,7 @@ var SPEECH_ASPECTS = [
 		re: /\b(?:pet\s+names?|nicknames?|calls|refers\s+to|endearments?|honorifics?|catchphrases?|says|favou?rite\s+words?|exclaims?|interjections?|addresses)|(?:обращается|называет|словечк|присказк|прозвищ)/i
 	}
 ];
-function text$21(value) {
+function text$22(value) {
 	return typeof value === "string" ? value : "";
 }
 function collapse$1(value) {
@@ -29220,7 +29220,7 @@ function archiveVoiceFromSheet(sheet) {
 		if (LING_KEYS.has(key)) pushUnique(ling, tag.value);
 		else if (key === "MBTI" && !mbti) mbti = mbtiOf([`<MBTI:${tag.value}>`]);
 	}
-	const prose = text$21(sheet.linguistics);
+	const prose = text$22(sheet.linguistics);
 	for (const value of lingInProse(prose)) if (!ling.includes(value)) ling.push(value);
 	return {
 		ling,
@@ -29230,7 +29230,7 @@ function archiveVoiceFromSheet(sheet) {
 }
 /** The voice of an archive entry's text; null when it has no `<BunnymoTags>` block. */
 function archiveVoiceOf(content) {
-	const parsed = parseSheet(text$21(content));
+	const parsed = parseSheet(text$22(content));
 	if (!parsed.block) return null;
 	const first = parsed.mbti[0];
 	return archiveVoiceFromSheet({
@@ -29624,7 +29624,7 @@ function sceneCast(tracker, options) {
 }
 //#endregion
 //#region src/domain/neighbour-prompts.ts
-function isDict$140(value) {
+function isDict$141(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /** The forms of a global text worth looking for (too short ones dropped). */
@@ -29640,7 +29640,7 @@ function setPartText$2(message, part, text) {
 	if (!Array.isArray(message.content)) return;
 	const parts = [...message.content];
 	const old = parts[part];
-	if (!isDict$140(old)) return;
+	if (!isDict$141(old)) return;
 	parts[part] = {
 		...old,
 		text
@@ -29656,7 +29656,7 @@ function replaceInMessages(messages, needles, replacement) {
 		if (!needle) continue;
 		let count = 0;
 		for (const message of messages) {
-			if (!isDict$140(message)) continue;
+			if (!isDict$141(message)) continue;
 			messageTextParts(message).forEach((text, part) => {
 				if (!text.includes(needle)) return;
 				const pieces = text.split(needle);
@@ -29678,7 +29678,7 @@ function fillDoubleBraces(text, values) {
 }
 //#endregion
 //#region src/domain/workshop.ts
-function isDict$139(value) {
+function isDict$140(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /** Tag names that make a card a service card, by default; the button sets the first. */
@@ -29753,7 +29753,7 @@ function slotsToCut(slots) {
 	if (!slots) return [];
 	const result = [];
 	for (const [key, slot] of Object.entries(slots)) {
-		if (keepsSlot(key) || !isDict$139(slot) || typeof slot.value !== "string") continue;
+		if (keepsSlot(key) || !isDict$140(slot) || typeof slot.value !== "string") continue;
 		if (slot.value.trim().length < 12) continue;
 		result.push({
 			key,
@@ -29770,7 +29770,7 @@ function setPartText$1(message, part, text) {
 	if (!Array.isArray(message.content)) return;
 	const parts = [...message.content];
 	const old = parts[part];
-	if (!isDict$139(old)) return;
+	if (!isDict$140(old)) return;
 	parts[part] = {
 		...old,
 		text
@@ -29792,7 +29792,7 @@ function cutTexts(messages, texts, substitute) {
 		const needles = slotNeedles(value, substitute).filter((needle) => needle.trim().length >= 12).sort((a, b) => b.length - a.length);
 		let found = false;
 		for (const needle of needles) for (const message of messages) {
-			if (!isDict$139(message)) continue;
+			if (!isDict$140(message)) continue;
 			messageTextParts(message).forEach((text, part) => {
 				if (!text.includes(needle)) return;
 				setPartText$1(message, part, tidy$2(text.split(needle).join("")));
@@ -29804,8 +29804,8 @@ function cutTexts(messages, texts, substitute) {
 	}
 	for (let index = messages.length - 1; index >= 0; index--) {
 		const message = messages[index];
-		if (!isDict$139(message) || !touched.has(message)) continue;
-		if (!(Array.isArray(message.content) && message.content.some((part) => isDict$139(part) && part.type !== "text")) && messageTextParts(message).every((text) => !text.trim())) messages.splice(index, 1);
+		if (!isDict$140(message) || !touched.has(message)) continue;
+		if (!(Array.isArray(message.content) && message.content.some((part) => isDict$140(part) && part.type !== "text")) && messageTextParts(message).every((text) => !text.trim())) messages.splice(index, 1);
 	}
 	return cut;
 }
@@ -29825,7 +29825,7 @@ var LORE_LISTS = [
 * persona lists, 'none' all four, 'all' none. Returns how many entries were dropped.
 */
 function filterLore(payload, mode) {
-	if (mode === "all" || !isDict$139(payload)) return 0;
+	if (mode === "all" || !isDict$140(payload)) return 0;
 	let dropped = 0;
 	for (const name of LORE_LISTS) {
 		if (mode === "own" && (name === "characterLore" || name === "chatLore")) continue;
@@ -29890,7 +29890,7 @@ var WORKSHOP_LISTENER_TIMEOUT_MS = 1500;
 //#endregion
 //#region src/app/archive-speech.ts
 var CACHE_LIMIT$1 = 300;
-function isDict$138(value) {
+function isDict$139(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function splitRef$2(ref) {
@@ -29995,11 +29995,410 @@ var ArchiveSpeech = class {
 		const load = this.app.host.ctx().loadWorldInfo;
 		if (typeof load !== "function") return null;
 		const data = await load(book);
-		const entries = isDict$138(data) && isDict$138(data.entries) ? data.entries : {};
-		const entry = Object.values(entries).find((item) => isDict$138(item) && Number(item.uid) === uid) ?? entries[String(uid)];
-		return isDict$138(entry) ? archiveVoiceOf(entry.content) : null;
+		const entries = isDict$139(data) && isDict$139(data.entries) ? data.entries : {};
+		const entry = Object.values(entries).find((item) => isDict$139(item) && Number(item.uid) === uid) ?? entries[String(uid)];
+		return isDict$139(entry) ? archiveVoiceOf(entry.content) : null;
 	}
 };
+//#endregion
+//#region src/core/builtin-agents.ts
+var specs = /* @__PURE__ */ new Map();
+var listeners$1 = /* @__PURE__ */ new Set();
+function changed$1() {
+	for (const listener of [...listeners$1]) try {
+		listener();
+	} catch (error) {
+		console.error("[Maestro] built-in agents listener failed", error);
+	}
+}
+function registerBuiltInAgent(spec) {
+	specs.set(spec.id, spec);
+	changed$1();
+	return () => {
+		if (specs.get(spec.id) !== spec) return;
+		specs.delete(spec.id);
+		changed$1();
+	};
+}
+function builtInAgents() {
+	return [...specs.values()];
+}
+function builtInAgent(id) {
+	return specs.get(id);
+}
+//#endregion
+//#region src/core/proposal-receivers.ts
+var receivers = /* @__PURE__ */ new Map();
+var listeners = /* @__PURE__ */ new Set();
+function changed() {
+	for (const listener of [...listeners]) try {
+		listener();
+	} catch (error) {
+		console.error("[Maestro] proposal receivers listener failed", error);
+	}
+}
+function registerProposalReceiver(receiver) {
+	receivers.set(receiver.kind, receiver);
+	changed();
+	return () => {
+		if (receivers.get(receiver.kind) !== receiver) return;
+		receivers.delete(receiver.kind);
+		changed();
+	};
+}
+function proposalReceivers() {
+	return [...receivers.values()];
+}
+function proposalReceiver(kind) {
+	return receivers.get(kind);
+}
+function onProposalReceiversChange(listener) {
+	listeners.add(listener);
+	return () => listeners.delete(listener);
+}
+//#endregion
+//#region src/app/public-api-agents.ts
+/** Neighbours that may register agents, receivers and sources (NAI Studio and Localizer use their own channels). */
+var AGENT_NEIGHBOURS = [
+	"dramatis",
+	"officina",
+	"nai",
+	"localizer"
+];
+AGENT_NEIGHBOURS.map((name) => `${name}.`);
+var ID_RE$2 = new RegExp(`^(${AGENT_NEIGHBOURS.join("|")})\\.[A-Za-z0-9_][A-Za-z0-9_.-]{0,80}$`);
+var LEVELS$2 = [
+	"auto",
+	"notify",
+	"inbox",
+	"ask",
+	"off"
+];
+var SCOPES$3 = [
+	"global",
+	"character",
+	"chat"
+];
+function isDict$138(value) {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+/** An id with an agents neighbour's prefix ('dramatis.turn', 'localizer.expand'). */
+function isAgentNeighbourId(value) {
+	return typeof value === "string" && ID_RE$2.test(value);
+}
+function neighbourOf(id) {
+	return AGENT_NEIGHBOURS.find((name) => id.startsWith(`${name}.`)) ?? "dramatis";
+}
+function label$2(value) {
+	if (!isDict$138(value)) return null;
+	const ru = typeof value.ru === "string" ? value.ru.trim() : "";
+	const en = typeof value.en === "string" ? value.en.trim() : "";
+	if (!ru && !en) return null;
+	return {
+		ru: ru || en,
+		en: en || ru
+	};
+}
+function jsonCopy$8(value) {
+	const json = JSON.stringify(value);
+	return json === void 0 ? value : JSON.parse(json);
+}
+/** Strings for i18n.register: { key: label } → { en: {key: en}, ru: {key: ru} }. */
+function partsOf$1(entries) {
+	const en = {};
+	const ru = {};
+	for (const [key, value] of entries) {
+		en[key] = value.en;
+		ru[key] = value.ru;
+	}
+	return {
+		en,
+		ru
+	};
+}
+function publicRun(run) {
+	const out = {
+		agentId: run.agentId,
+		agentName: run.agentName,
+		ok: run.ok,
+		builtin: run.builtin === true,
+		applied: [...run.applied ?? []],
+		at: run.startedAt + run.ms
+	};
+	if (run.messageIndex !== void 0) out.messageIndex = run.messageIndex;
+	if (run.error) out.error = run.error;
+	return out;
+}
+function createAgentsFacade(deps) {
+	const { app, log, own } = deps;
+	const agentsApi = () => app.modules.api("agents");
+	const fail = (message) => {
+		throw new Error(`MAESTRO_API.agents: ${message}`);
+	};
+	/** Built-in agents registered through the API (instruction / report only for these). */
+	const external = /* @__PURE__ */ new Map();
+	const registerBuiltIn = (raw) => {
+		if (deps.disposed()) return () => {};
+		if (!isDict$138(raw) || !isAgentNeighbourId(raw.id)) fail("id must start with a neighbour prefix");
+		const id = raw.id;
+		const title = label$2(raw.title) ?? fail("title {ru, en} is required");
+		const when = label$2(raw.when) ?? fail("when {ru, en} is required");
+		const instructions = raw.defaultInstructions;
+		const defaults = () => {
+			try {
+				const list = typeof instructions === "function" ? instructions() : instructions;
+				return Array.isArray(list) ? list.filter((item) => typeof item === "string") : [];
+			} catch (error) {
+				log.debug(`${id}: default instructions not available`, error);
+				return [];
+			}
+		};
+		if (!defaults().length) fail("defaultInstructions must give at least one text");
+		const strings = [
+			[`m44.bi.${id}.title`, title],
+			[`m44.bi.${id}.when`, when],
+			[`m44.bi.${id}.desc`, label$2(raw.description) ?? when],
+			[`m44.bi.${id}.sources`, label$2(raw.sources) ?? {
+				ru: "—",
+				en: "—"
+			}]
+		];
+		const knobs = [];
+		for (const knob of Array.isArray(raw.knobs) ? raw.knobs : []) {
+			if (!isDict$138(knob) || typeof knob.id !== "string" || typeof knob.get !== "function") continue;
+			if (typeof knob.set !== "function") continue;
+			const kind = knob.kind === "toggle" || knob.kind === "select" ? knob.kind : "number";
+			const labelKey = `m44.bi.${id}.knob.${knob.id}`;
+			strings.push([labelKey, label$2(knob.label) ?? {
+				ru: knob.id,
+				en: knob.id
+			}]);
+			const spec = {
+				path: knob.id,
+				labelKey,
+				kind,
+				get: () => knob.get(),
+				set: (value) => knob.set(value)
+			};
+			if (typeof knob.min === "number") spec.min = knob.min;
+			if (typeof knob.max === "number") spec.max = knob.max;
+			if (typeof knob.step === "number") spec.step = knob.step;
+			if (kind === "select" && Array.isArray(knob.options)) spec.options = knob.options.filter((option) => isDict$138(option) && typeof option.value === "string").map((option) => {
+				const key = `${labelKey}.${option.value}`;
+				strings.push([key, label$2(option.label) ?? {
+					ru: option.value,
+					en: option.value
+				}]);
+				return {
+					value: option.value,
+					labelKey: key
+				};
+			});
+			knobs.push(spec);
+		}
+		app.i18n.register(partsOf$1(strings));
+		const neighbour = neighbourOf(id);
+		const temperature = Number(raw.defaults?.temperature);
+		const maxTokens = Number(raw.defaults?.maxTokens);
+		const spec = {
+			id,
+			module: neighbour,
+			neighbour,
+			group: "neighbours",
+			icon: typeof raw.icon === "string" && /^fa-[a-z0-9-]+$/.test(raw.icon) ? raw.icon : "fa-puzzle-piece",
+			defaultInstructions: defaults,
+			defaults: {
+				maxTokens: Number.isFinite(maxTokens) && maxTokens > 0 ? maxTokens : 1e3,
+				temperature: Number.isFinite(temperature) ? temperature : .5
+			},
+			channel: raw.channel === "own" ? "own" : "maestro"
+		};
+		if (knobs.length) spec.knobs = knobs;
+		if (raw.interactive === true) spec.interactive = true;
+		if (typeof raw.enabled === "function" && typeof raw.setEnabled === "function") {
+			const get = raw.enabled.bind(raw);
+			const set = raw.setEnabled.bind(raw);
+			spec.toggle = {
+				get: () => get() !== false,
+				set: (on) => set(on)
+			};
+		}
+		external.set(id, spec);
+		const off = registerBuiltInAgent(spec);
+		return own(() => {
+			off();
+			if (external.get(id) === spec) external.delete(id);
+		});
+	};
+	const instruction = (id, defaultText) => {
+		const text = typeof defaultText === "string" ? defaultText : "";
+		if (!external.has(id)) return { text };
+		return agentsApi()?.builtinInstruction?.(id, text) ?? { text };
+	};
+	const report = (id, run) => {
+		if (deps.disposed() || !external.has(id) || !isDict$138(run)) return;
+		agentsApi()?.reportBuiltinRun?.(id, {
+			ok: run.ok === true,
+			ms: Number(run.ms) || 0,
+			...typeof run.error === "string" ? { error: run.error } : {},
+			...typeof run.costUsd === "number" ? { costUsd: run.costUsd } : {},
+			...isDict$138(run.tokens) ? { tokens: run.tokens } : {},
+			...Array.isArray(run.request) ? { request: run.request } : {},
+			...typeof run.raw === "string" ? { raw: run.raw } : {}
+		});
+	};
+	const scopeOf = (value) => SCOPES$3.includes(value) ? value : "global";
+	const list = () => {
+		const api = agentsApi();
+		if (!api) return [];
+		const states = api.states();
+		return api.list().map((def) => ({
+			id: def.id,
+			name: def.name,
+			builtin: false,
+			phase: def.trigger.phase,
+			result: def.result.type,
+			on: states.get(def.id)?.on === true
+		}));
+	};
+	return {
+		agents: {
+			registerBuiltIn,
+			instruction,
+			report,
+			list,
+			get: (id) => {
+				const def = agentsApi()?.get(id);
+				return def ? jsonCopy$8(def) : null;
+			},
+			save: async (def) => {
+				const api = agentsApi();
+				if (deps.disposed() || !api?.save || !isDict$138(def)) return null;
+				return api.save(jsonCopy$8(def));
+			},
+			setEnabled: async (id, on, scope) => {
+				const api = agentsApi();
+				if (deps.disposed() || !api?.setState || !api.get(id)) return false;
+				await api.setState(scopeOf(scope), id, { on: on === true });
+				return true;
+			},
+			sets: () => jsonCopy$8(agentsApi()?.sets?.() ?? []),
+			saveSet: async (set) => {
+				const api = agentsApi();
+				if (deps.disposed() || !api?.saveSet || !isDict$138(set)) return false;
+				if (typeof set.id !== "string" || typeof set.name !== "string" || !isDict$138(set.agents)) return false;
+				if (set.builtin === true) return false;
+				await api.saveSet(jsonCopy$8(set));
+				return true;
+			},
+			applySet: async (setId, scope) => {
+				const api = agentsApi();
+				if (deps.disposed() || !api?.applySet || !api.sets?.().some((set) => set.id === setId)) return false;
+				await api.applySet(scopeOf(scope), setId);
+				return true;
+			},
+			run: async (id, options) => {
+				const api = agentsApi();
+				if (deps.disposed() || !api) return null;
+				const run = await api.run(id, typeof options?.messageIndex === "number" ? { messageIndex: options.messageIndex } : {});
+				return run ? publicRun(run) : null;
+			},
+			onResult: (listener) => {
+				const api = agentsApi();
+				if (deps.disposed() || typeof listener !== "function" || !api?.onRun) return () => {};
+				return own(api.onRun((run) => {
+					try {
+						listener(publicRun(run));
+					} catch (error) {
+						log.warn("MAESTRO_API agents.onResult listener failed", error);
+					}
+				}));
+			},
+			registerReceiver: (raw) => {
+				if (deps.disposed()) return () => {};
+				if (!isDict$138(raw) || !isAgentNeighbourId(raw.kind)) fail("kind must start with a neighbour prefix");
+				if (typeof raw.toProposal !== "function" || typeof raw.apply !== "function") fail("toProposal and apply are required");
+				if (typeof raw.describe !== "string" || !isDict$138(raw.schema)) fail("describe and schema are required");
+				const kind = raw.kind;
+				const name = label$2(raw.label) ?? fail("label {ru, en} is required");
+				app.i18n.register(partsOf$1([[`m44.recv.${kind}`, name], [`kind.${kind}`, name]]));
+				const module = neighbourOf(kind);
+				const apply = (payload) => raw.apply(payload);
+				const off = registerProposalReceiver({
+					kind,
+					module,
+					labelKey: `m44.recv.${kind}`,
+					describe: raw.describe,
+					schema: raw.schema,
+					defaultAutonomy: LEVELS$2.includes(raw.defaultAutonomy) ? raw.defaultAutonomy : "inbox",
+					...raw.neverAuto === true ? { neverAuto: true } : {},
+					...raw.direct === true ? { direct: true } : {},
+					...typeof raw.available === "function" ? { available: (context) => raw.available(context) } : {},
+					toProposal: async (data, context) => {
+						const made = await raw.toProposal(data, context);
+						if (!isDict$138(made) || typeof made.title !== "string" || !made.title.trim()) return null;
+						const changes = Array.isArray(made.changes) ? made.changes.filter((change) => isDict$138(change) && typeof change.target === "string" && isDict$138(change.ref)) : [];
+						const proposal = {
+							module,
+							kind,
+							title: made.title.trim(),
+							changes,
+							payload: made.payload,
+							apply
+						};
+						if (typeof made.description === "string" && made.description.trim()) proposal.description = made.description.trim();
+						if (typeof made.sourceMessage === "number") proposal.sourceMessage = made.sourceMessage;
+						return proposal;
+					},
+					apply
+				});
+				return own(off);
+			}
+		},
+		context: { register: (raw) => {
+			if (deps.disposed()) return () => {};
+			if (!isDict$138(raw) || !isAgentNeighbourId(raw.id)) fail("source id must start with a neighbour prefix");
+			if (typeof raw.render !== "function" || typeof raw.title !== "string") fail("title and render are required");
+			const api = agentsApi();
+			if (!api) return () => {};
+			const name = label$2(raw.label) ?? {
+				ru: raw.id,
+				en: raw.id
+			};
+			const labelKey = `m44.src.${raw.id}`;
+			app.i18n.register(partsOf$1([[labelKey, name]]));
+			const budget = Number(raw.budget);
+			const off = api.registerSource({
+				id: raw.id,
+				labelKey,
+				title: raw.title.slice(0, 120),
+				budget: Number.isFinite(budget) && budget > 0 ? Math.min(budget, 2e4) : 1500,
+				stable: raw.stable === true,
+				...typeof raw.available === "function" ? { available: () => {
+					try {
+						return raw.available() !== false;
+					} catch {
+						return false;
+					}
+				} } : {},
+				render: async (ctx, limit) => {
+					try {
+						const text = await raw.render({
+							agentId: ctx.agentId,
+							budget: limit,
+							...ctx.focusIndex !== void 0 ? { focusIndex: ctx.focusIndex } : {}
+						});
+						return typeof text === "string" ? text.slice(0, limit) : "";
+					} catch (error) {
+						log.warn(`source ${raw.id} failed`, error);
+						return "";
+					}
+				}
+			});
+			return own(off);
+		} }
+	};
+}
 //#endregion
 //#region src/domain/mechanics-templates.ts
 var pick$3 = (locale, en, ru) => locale === "ru" ? ru : en;
@@ -36850,7 +37249,7 @@ var NEIGHBOUR_MODULES = ["officina", "dramatis"];
 function isDict$131(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
-function text$20(value) {
+function text$21(value) {
 	return typeof value === "string" ? value.trim() : "";
 }
 function jsonCopy$6(value) {
@@ -36897,7 +37296,7 @@ function moduleOf(options) {
 	return NEIGHBOUR_MODULES.find((module) => module === options?.by) ?? "officina";
 }
 function summaryOf$1(options) {
-	return text$20(options?.summary);
+	return text$21(options?.summary);
 }
 /** A string list as World Info keeps keys (blank ones dropped); null when it is not a list of strings. */
 function keyList$2(value) {
@@ -36966,7 +37365,7 @@ function createServiceFacades(deps) {
 			const halt = stopped();
 			if (halt) return halt;
 			if (!isDict$131(spend)) return fail("bad-args");
-			const task = text$20(spend.task);
+			const task = text$21(spend.task);
 			if (!/^officina\.[A-Za-z0-9_][A-Za-z0-9_.-]{0,80}$/.test(task)) return fail("bad-args", "task");
 			if (typeof spend.usd !== "number" || !Number.isFinite(spend.usd) || spend.usd < 0) return fail("bad-args", "usd");
 			const count = (value) => typeof value === "number" && Number.isFinite(value) && value > 0 ? Math.round(value) : 0;
@@ -36982,8 +37381,8 @@ function createServiceFacades(deps) {
 					...cached ? { cached } : {}
 				},
 				...spend.usd === 0 ? { estimated: true } : {},
-				...text$20(spend.model) ? { model: text$20(spend.model) } : {},
-				...text$20(spend.provider) ? { provider: text$20(spend.provider) } : {},
+				...text$21(spend.model) ? { model: text$21(spend.model) } : {},
+				...text$21(spend.provider) ? { provider: text$21(spend.provider) } : {},
 				...typeof spend.at === "number" ? { at: spend.at } : {},
 				chatId: null
 			});
@@ -37059,7 +37458,7 @@ function createServiceFacades(deps) {
 		load: (book) => attempt("lore.load", async () => {
 			const lore = store();
 			if (!lore) return fail("off");
-			if (!text$20(book)) return fail("bad-args");
+			if (!text$21(book)) return fail("bad-args");
 			const data = await lore.load(book);
 			return data ? {
 				ok: true,
@@ -37069,8 +37468,8 @@ function createServiceFacades(deps) {
 		createBook: (name, options) => attempt("lore.createBook", async () => {
 			const lore = store();
 			if (!lore) return fail("off");
-			if (!text$20(name)) return fail("bad-args");
-			const created = await lore.createBook(text$20(name), {
+			if (!text$21(name)) return fail("bad-args");
+			const created = await lore.createBook(text$21(name), {
 				module: moduleOf(options),
 				...summaryOf$1(options) ? { summary: summaryOf$1(options) } : {}
 			});
@@ -37084,7 +37483,7 @@ function createServiceFacades(deps) {
 			const lore = store();
 			if (!lore) return fail("off");
 			const patch = entryPatch$1(entry);
-			if (!text$20(book) || !patch) return fail("bad-args");
+			if (!text$21(book) || !patch) return fail("bad-args");
 			if (!lore.books().includes(book)) return fail("not-found");
 			await detected(book);
 			if (lore.isReadOnly?.(book)) return fail("read-only");
@@ -37100,7 +37499,7 @@ function createServiceFacades(deps) {
 			const lore = store();
 			if (!lore) return fail("off");
 			const clean = entryPatch$1(patch);
-			if (!text$20(book) || !isUid(uid) || !clean) return fail("bad-args");
+			if (!text$21(book) || !isUid(uid) || !clean) return fail("bad-args");
 			if (!lore.books().includes(book)) return fail("not-found");
 			await detected(book);
 			if (lore.isReadOnly?.(book)) return fail("read-only");
@@ -37116,7 +37515,7 @@ function createServiceFacades(deps) {
 		deleteEntry: (book, uid, options) => attempt("lore.deleteEntry", async () => {
 			const lore = store();
 			if (!lore) return fail("off");
-			if (!text$20(book) || !isUid(uid)) return fail("bad-args");
+			if (!text$21(book) || !isUid(uid)) return fail("bad-args");
 			if (!lore.books().includes(book)) return fail("not-found");
 			await detected(book);
 			if (lore.isReadOnly?.(book)) return fail("read-only");
@@ -37133,7 +37532,7 @@ function createServiceFacades(deps) {
 		setCharacterBook: (avatar, book, options) => attempt("lore.setCharacterBook", async () => {
 			const lore = store();
 			if (!lore) return fail("off");
-			if (book !== null && !text$20(book)) return fail("bad-args");
+			if (book !== null && !text$21(book)) return fail("bad-args");
 			if (!knownCard(avatar)) return fail("not-found", "card");
 			if (book !== null && !lore.books().includes(book)) return fail("not-found", "book");
 			if (typeof lore.setCharacterPrimaryOf !== "function") return fail("unavailable");
@@ -37157,7 +37556,7 @@ function createServiceFacades(deps) {
 		typeFields: (book, uid) => attempt("lore.typeFields", async () => {
 			const lore = store();
 			if (!lore) return fail("off");
-			if (!text$20(book) || !isUid(uid)) return fail("bad-args");
+			if (!text$21(book) || !isUid(uid)) return fail("bad-args");
 			const entry = await loadEntry(lore, book, uid);
 			if (!entry) return fail("not-found");
 			if (typedStorage(book, entry) === "entry") return {
@@ -37174,7 +37573,7 @@ function createServiceFacades(deps) {
 		setTypeFields: (book, uid, typed, options) => attempt("lore.setTypeFields", async () => {
 			const lore = store();
 			if (!lore) return fail("off");
-			if (!text$20(book) || !isUid(uid)) return fail("bad-args");
+			if (!text$21(book) || !isUid(uid)) return fail("bad-args");
 			if (typed !== null && (!isDict$131(typed) || !isEntryType(typed.type) || !isDict$131(typed.fields))) return fail("bad-args");
 			await detected(book);
 			if (lore.isReadOnly?.(book)) return fail("read-only");
@@ -37227,7 +37626,7 @@ function createServiceFacades(deps) {
 			if (halt) return halt;
 			const known = roles();
 			if (!known) return fail("off");
-			if (!text$20(book)) return fail("bad-args");
+			if (!text$21(book)) return fail("bad-args");
 			const info = known.roleOf(book);
 			return {
 				ok: true,
@@ -37237,7 +37636,7 @@ function createServiceFacades(deps) {
 		set: (book, role, options) => attempt("bookRoles.set", async () => {
 			const known = roles();
 			if (!known) return fail("off");
-			if (!text$20(book) || !BOOK_ROLES.includes(role)) return fail("bad-args");
+			if (!text$21(book) || !BOOK_ROLES.includes(role)) return fail("bad-args");
 			const info = known.roleOf(book);
 			if (info?.readOnly || info?.role === "bunnymo.core" || info?.role === "bunnymo.pack") return fail("read-only");
 			await known.setRole(book, role, moduleOf(options));
@@ -37275,7 +37674,7 @@ function createServiceFacades(deps) {
 			if (halt) return halt;
 			const mechanics = definitionsApi();
 			if (!mechanics) return fail("off");
-			if (!text$20(id)) return fail("bad-args");
+			if (!text$21(id)) return fail("bad-args");
 			const def = mechanics.get(id);
 			return {
 				ok: true,
@@ -37301,7 +37700,7 @@ function createServiceFacades(deps) {
 		remove: (id, options) => attempt("mechanics.remove", async () => {
 			const mechanics = definitionsApi();
 			if (!mechanics) return fail("off");
-			if (!text$20(id)) return fail("bad-args");
+			if (!text$21(id)) return fail("bad-args");
 			if (!mechanics.get(id)) return fail("not-found");
 			await mechanics.remove(id, moduleOf(options));
 			return { ok: true };
@@ -37321,7 +37720,7 @@ function createServiceFacades(deps) {
 		fromTemplate(id, options) {
 			const halt = stopped();
 			if (halt) return halt;
-			const item = templateById$1(text$20(id));
+			const item = templateById$1(text$21(id));
 			if (!item) return fail("not-found");
 			if (options?.scope !== void 0 && !isScope$1(options.scope)) return fail("bad-args", "scope");
 			const scope = options?.scope ? jsonCopy$6(options.scope) : { kind: "global" };
@@ -37343,7 +37742,7 @@ function createServiceFacades(deps) {
 		setEnabledInChat: (id, on) => attempt("mechanics.setEnabledInChat", async () => {
 			const mechanics = mechanicsApi();
 			if (!mechanics) return fail("off");
-			if (!text$20(id) || typeof on !== "boolean") return fail("bad-args");
+			if (!text$21(id) || typeof on !== "boolean") return fail("bad-args");
 			if (!app.host.chatId()) return fail("no-chat");
 			if (!mechanics.get(id)) return fail("not-found");
 			await mechanics.setEnabledInChat(id, on);
@@ -37392,7 +37791,7 @@ function createServiceFacades(deps) {
 			if (halt) return halt;
 			const presetsStore = presetStore();
 			if (!presetsStore) return fail("off");
-			const body = text$20(name) ? presetsStore.saved(name) : null;
+			const body = text$21(name) ? presetsStore.saved(name) : null;
 			return body ? {
 				ok: true,
 				body: jsonCopy$6(body)
@@ -37401,7 +37800,7 @@ function createServiceFacades(deps) {
 		select: (name, options) => attempt("presets.select", async () => {
 			const presetsStore = presetStore();
 			if (!presetsStore) return fail("off");
-			if (!text$20(name)) return fail("bad-args");
+			if (!text$21(name)) return fail("bad-args");
 			if (!presetsStore.names().includes(name)) return fail("not-found");
 			if (presetsStore.current() === name) return { ok: true };
 			if (options?.force !== true && presetsStore.draft({ ignoreConnection: true }).dirty) return fail("unsaved");
@@ -37411,14 +37810,14 @@ function createServiceFacades(deps) {
 		saveAs: (name, body, options) => attempt("presets.saveAs", async () => {
 			const presetsStore = presetStore();
 			if (!presetsStore) return fail("off");
-			if (!text$20(name) || body !== void 0 && !isDict$131(body)) return fail("bad-args");
+			if (!text$21(name) || body !== void 0 && !isDict$131(body)) return fail("bad-args");
 			const module = moduleOf(options);
 			const summary = summaryOf$1(options);
 			if (body) {
 				if (typeof presetsStore.createFromBody !== "function") return fail("unavailable");
 				return {
 					ok: true,
-					name: await presetsStore.createFromBody(text$20(name), jsonCopy$6(body), {
+					name: await presetsStore.createFromBody(text$21(name), jsonCopy$6(body), {
 						module,
 						...summary ? { summary } : {},
 						...options?.select ? { select: true } : {},
@@ -37428,7 +37827,7 @@ function createServiceFacades(deps) {
 			}
 			return {
 				ok: true,
-				name: await presetsStore.saveAs(text$20(name), {
+				name: await presetsStore.saveAs(text$21(name), {
 					module,
 					...summary ? { summary } : {}
 				})
@@ -37454,7 +37853,7 @@ function createServiceFacades(deps) {
 			const wrong = layerOwner(scope, owner);
 			if (wrong) return wrong;
 			const invalid = validateOp(op);
-			if (!text$20(base) || invalid) return fail("bad-args", invalid ?? "base");
+			if (!text$21(base) || invalid) return fail("bad-args", invalid ?? "base");
 			if (!presetsStore.names().includes(base)) return fail("not-found", "base");
 			if (typeof layer.recordFor !== "function") return fail("unavailable");
 			const summary = summaryOf$1(options);
@@ -37470,7 +37869,7 @@ function createServiceFacades(deps) {
 			if (!layer) return fail("off");
 			const wrong = layerOwner(scope, owner);
 			if (wrong) return wrong;
-			if (!text$20(base) || !isUid(index)) return fail("bad-args");
+			if (!text$21(base) || !isUid(index)) return fail("bad-args");
 			if (typeof layer.part !== "function" || typeof layer.removeFor !== "function") return fail("unavailable");
 			if (!(await layer.part(scope, owner)).layers[base]?.[index]) return fail("not-found");
 			const summary = summaryOf$1(options);
@@ -37488,7 +37887,7 @@ function createServiceFacades(deps) {
 			if (scope !== "character" && scope !== "chat") return fail("bad-args", "scope");
 			const wrong = layerOwner(scope, owner);
 			if (wrong) return wrong;
-			if (!text$20(preset)) return fail("bad-args");
+			if (!text$21(preset)) return fail("bad-args");
 			if (!presetsStore.names().includes(preset)) return fail("not-found");
 			if (typeof layer.bindFor !== "function") return fail("unavailable");
 			await layer.bindFor(scope, preset, {
@@ -37551,13 +37950,13 @@ function createServiceFacades(deps) {
 	const persona = { create: (input) => attempt("persona.create", async () => {
 		const creator = api("personaCreator");
 		if (!creator) return fail("off");
-		if (!isDict$131(input) || !text$20(input.name) || !text$20(input.description)) return fail("bad-args");
+		if (!isDict$131(input) || !text$21(input.name) || !text$21(input.description)) return fail("bad-args");
 		const wardrobe = input.wardrobe ?? [];
-		if (!Array.isArray(wardrobe) || wardrobe.some((item) => !isDict$131(item) || !text$20(item.name))) return fail("bad-args", "wardrobe");
+		if (!Array.isArray(wardrobe) || wardrobe.some((item) => !isDict$131(item) || !text$21(item.name))) return fail("bad-args", "wardrobe");
 		const outfits = wardrobe.map((item) => ({
-			name: text$20(item.name),
-			wording: text$20(item.wording),
-			tags: text$20(item.tags)
+			name: text$21(item.name),
+			wording: text$21(item.wording),
+			tags: text$21(item.tags)
 		}));
 		let card = {
 			index: -1,
@@ -37572,15 +37971,15 @@ function createServiceFacades(deps) {
 		const passport = input.passport === true;
 		const outcome = await creator.create({
 			card,
-			name: text$20(input.name),
-			title: text$20(input.title),
-			description: text$20(input.description),
+			name: text$21(input.name),
+			title: text$21(input.title),
+			description: text$21(input.description),
 			outfits,
 			draft: {
-				name: text$20(input.name),
-				title: text$20(input.title),
-				appearance: text$20(input.description),
-				appearanceEn: text$20(input.appearanceEn),
+				name: text$21(input.name),
+				title: text$21(input.title),
+				appearance: text$21(input.description),
+				appearanceEn: text$21(input.appearanceEn),
 				background: "",
 				personality: "",
 				outfits
@@ -37655,7 +38054,8 @@ var API_FEATURES = [
 	"promptAudit",
 	"persona",
 	"serviceCard",
-	"prepareScenes"
+	"prepareScenes",
+	"agents"
 ];
 /** `generation:before` runs inside Maestro's generate interceptor: a listener is awaited at most this long (P15). */
 var BEFORE_TIMEOUT_MS = 1500;
@@ -37701,7 +38101,7 @@ function apiError(error) {
 	if (error === "no-cm") return "no-profile";
 	return error;
 }
-function text$19(value) {
+function text$20(value) {
 	return typeof value === "string" ? value.trim() : "";
 }
 function jsonCopy$5(value) {
@@ -37719,8 +38119,8 @@ function cleanChanges(changes) {
 }
 function label$1(value) {
 	if (!isDict$130(value)) return null;
-	const ru = text$19(value.ru);
-	const en = text$19(value.en);
+	const ru = text$20(value.ru);
+	const en = text$20(value.en);
 	if (!ru && !en) return null;
 	return {
 		ru: ru || en,
@@ -38090,7 +38490,7 @@ function createMaestroApi(deps) {
 			log.warn(`proposal ${input.kind} skipped: registerApplier() first`);
 			return "skipped";
 		}
-		const title = text$19(input.title) || app.i18n.t(`kind.${input.kind}`);
+		const title = text$20(input.title) || app.i18n.t(`kind.${input.kind}`);
 		const payload = jsonCopy$5(input.payload);
 		const proposal = {
 			module: externalModuleOf(input.kind),
@@ -38100,12 +38500,12 @@ function createMaestroApi(deps) {
 			payload,
 			apply: (value) => applier.apply(value)
 		};
-		if (text$19(input.description)) proposal.description = text$19(input.description);
-		if (text$19(input.details)) proposal.details = text$19(input.details);
+		if (text$20(input.description)) proposal.description = text$20(input.description);
+		if (text$20(input.details)) proposal.details = text$20(input.details);
 		if (Number.isInteger(input.sourceMessage) && input.sourceMessage >= 0) proposal.sourceMessage = input.sourceMessage;
 		if (typeof input.ttlMs === "number" && input.ttlMs > 0) proposal.ttlMs = input.ttlMs;
-		if (text$19(input.acceptLabel)) proposal.acceptLabel = text$19(input.acceptLabel);
-		if (text$19(input.rejectLabel)) proposal.rejectLabel = text$19(input.rejectLabel);
+		if (text$20(input.acceptLabel)) proposal.acceptLabel = text$20(input.acceptLabel);
+		if (text$20(input.rejectLabel)) proposal.rejectLabel = text$20(input.rejectLabel);
 		const check = applier.stillValid;
 		if (check) proposal.stillValid = () => check(payload);
 		const fallback = LEVELS$1.includes(input.fallback) ? input.fallback : "inbox";
@@ -38117,7 +38517,7 @@ function createMaestroApi(deps) {
 		return app.journal.record({
 			module: externalModuleOf(action.kind),
 			kind: action.kind,
-			summary: text$19(action.summary) || app.i18n.t(`kind.${action.kind}`),
+			summary: text$20(action.summary) || app.i18n.t(`kind.${action.kind}`),
 			changes: cleanChanges(action.changes),
 			...Number.isInteger(action.sourceMessage) && action.sourceMessage >= 0 ? { sourceMessage: action.sourceMessage } : {}
 		});
@@ -38146,22 +38546,22 @@ function createMaestroApi(deps) {
 		});
 	};
 	const styleUp = async (name, tags) => {
-		if (disposed || !text$19(name) || !Array.isArray(tags) || !tags.length) return false;
+		if (disposed || !text$20(name) || !Array.isArray(tags) || !tags.length) return false;
 		const dossier = app.modules.api("dossier");
 		if (typeof dossier?.styleUpArchive !== "function") return false;
 		try {
-			return await dossier.styleUpArchive(text$19(name), tags.filter((tag) => typeof tag === "string")) === true;
+			return await dossier.styleUpArchive(text$20(name), tags.filter((tag) => typeof tag === "string")) === true;
 		} catch (error) {
 			log.warn(`styleUp of ${name} failed`, error);
 			return false;
 		}
 	};
 	const setCanonGoals = async (name, goals) => {
-		const who = text$19(name);
+		const who = text$20(name);
 		if (disposed || !who || !Array.isArray(goals) || !app.host.chatId()) return false;
 		const canon = app.modules.api("canon");
 		if (!canon) return false;
-		const list = uniqueStrings(goals.map(text$19).filter(Boolean));
+		const list = uniqueStrings(goals.map(text$20).filter(Boolean));
 		try {
 			const item = (await canon.list()).find((candidate) => isCharacterOf(candidate, who, same));
 			if (item) {
@@ -38233,6 +38633,12 @@ function createMaestroApi(deps) {
 		disposed: () => disposed,
 		own
 	});
+	const agentsFacade = createAgentsFacade({
+		app,
+		log,
+		disposed: () => disposed,
+		own
+	});
 	return {
 		api: {
 			version: 1,
@@ -38263,13 +38669,13 @@ function createMaestroApi(deps) {
 				registerUndo
 			},
 			notice(message, options) {
-				const words = text$19(message);
+				const words = text$20(message);
 				if (disposed || !words) return;
 				const action = options?.action;
 				app.ui.notice(words, {
 					importance: options?.importance ?? "info",
-					...action && text$19(action.label) && typeof action.run === "function" ? { action: {
-						label: text$19(action.label),
+					...action && text$20(action.label) && typeof action.run === "function" ? { action: {
+						label: text$20(action.label),
 						run: () => {
 							try {
 								action.run();
@@ -38314,7 +38720,9 @@ function createMaestroApi(deps) {
 			mechanics: services.mechanics,
 			presets: services.presets,
 			promptAudit: services.promptAudit,
-			persona: services.persona
+			persona: services.persona,
+			agents: agentsFacade.agents,
+			context: agentsFacade.context
 		},
 		speech,
 		dispose() {
@@ -38374,36 +38782,6 @@ function installMaestroApi(deps) {
 			handle.dispose();
 		}
 	};
-}
-//#endregion
-//#region src/core/proposal-receivers.ts
-var receivers = /* @__PURE__ */ new Map();
-var listeners$1 = /* @__PURE__ */ new Set();
-function changed$1() {
-	for (const listener of [...listeners$1]) try {
-		listener();
-	} catch (error) {
-		console.error("[Maestro] proposal receivers listener failed", error);
-	}
-}
-function registerProposalReceiver(receiver) {
-	receivers.set(receiver.kind, receiver);
-	changed$1();
-	return () => {
-		if (receivers.get(receiver.kind) !== receiver) return;
-		receivers.delete(receiver.kind);
-		changed$1();
-	};
-}
-function proposalReceivers() {
-	return [...receivers.values()];
-}
-function proposalReceiver(kind) {
-	return receivers.get(kind);
-}
-function onProposalReceiversChange(listener) {
-	listeners$1.add(listener);
-	return () => listeners$1.delete(listener);
 }
 //#endregion
 //#region src/features/agents/chat-state.ts
@@ -38601,7 +38979,16 @@ var AgentsChatState = class {
 		this.log.doc.runs = trimRuns([...this.log.doc.runs, run]);
 		this.log.changed();
 		this.notify();
+		for (const listener of [...this.runListeners]) try {
+			listener(run);
+		} catch {}
 	}
+	/** Release 1.34: every run added to the log (MAESTRO_API.agents.onResult). */
+	onRun(listener) {
+		this.runListeners.add(listener);
+		return () => this.runListeners.delete(listener);
+	}
+	runListeners = /* @__PURE__ */ new Set();
 	runs() {
 		return this.log.doc.runs;
 	}
@@ -38724,6 +39111,111 @@ var AgentsChatState = class {
 		await Promise.all([this.state.flush(), this.log.flush()]);
 	}
 };
+//#endregion
+//#region src/domain/agents/tools.ts
+var AGENT_TOOL_IDS = [
+	"roll",
+	"lore_search",
+	"chat_search"
+];
+var AGENT_TOOLS = [
+	{
+		id: "roll",
+		description: "Rolls dice by a formula: \"1d20+3\", \"2d6\", \"1d100<=45\" (roll-under), \"4d6kh3\" (keep highest), \"1d6!\" (exploding). With difficulty the outcome is success or failure. Use it when a rule asks for a roll; never invent a result.",
+		parameters: {
+			type: "object",
+			properties: {
+				dice: {
+					type: "string",
+					description: "The dice formula."
+				},
+				difficulty: {
+					type: "number",
+					description: "The total to reach (optional)."
+				},
+				why: {
+					type: "string",
+					description: "What the roll decides, a few words."
+				}
+			},
+			required: ["dice"],
+			additionalProperties: false
+		}
+	},
+	{
+		id: "lore_search",
+		description: "Searches the chat's lore (the chat canon: characters, places, items, events, chapters) for words; returns up to 5 entries with their beginning.",
+		parameters: {
+			type: "object",
+			properties: { query: {
+				type: "string",
+				description: "Words to find (a name, a thing)."
+			} },
+			required: ["query"],
+			additionalProperties: false
+		}
+	},
+	{
+		id: "chat_search",
+		description: "Searches the older messages of this chat for words; returns up to 5 passages with their message numbers. Use it to check what was said or happened earlier.",
+		parameters: {
+			type: "object",
+			properties: { query: {
+				type: "string",
+				description: "Words to find."
+			} },
+			required: ["query"],
+			additionalProperties: false
+		}
+	}
+];
+function isAgentToolId(value) {
+	return typeof value === "string" && AGENT_TOOL_IDS.includes(value);
+}
+/** The tools of a definition, cleaned (known ids, no repeats). */
+function sanitizeTools(raw) {
+	if (!Array.isArray(raw)) return [];
+	return [...new Set(raw.filter(isAgentToolId))];
+}
+function agentToolSpec(id) {
+	return AGENT_TOOLS.find((tool) => tool.id === id);
+}
+var fold$6 = (text) => text.toLowerCase().replace(/ё/g, "е");
+/** Words of a query worth looking for (two letters and more). */
+function queryWords(query) {
+	return [...new Set(fold$6(query).split(/[^\p{L}\p{N}]+/u).filter((word) => word.length >= 2))].slice(0, 8);
+}
+/** A word's stem for Russian forms («карта» → «карт», «контрабандистов» → «контра»). */
+function stemOf(word) {
+	return word.length >= 5 ? word.slice(0, Math.max(4, Math.min(6, word.length - 2))) : word;
+}
+/** How well a text matches the words: how many of them it has (0 — none), by their stems. */
+function matchScore(text, words) {
+	const folded = fold$6(text);
+	let score = 0;
+	for (const word of words) if (folded.includes(stemOf(word))) score += 1;
+	return score;
+}
+/** The passage of a text around the first word found, at most HIT_CHARS. */
+function passageAround(text, words, chars = 400) {
+	const folded = fold$6(text);
+	let at = -1;
+	for (const word of words) {
+		const index = folded.indexOf(stemOf(word));
+		if (index >= 0 && (at < 0 || index < at)) at = index;
+	}
+	const start = Math.max(0, (at < 0 ? 0 : at) - Math.floor(chars / 3));
+	const piece = text.slice(start, start + chars).trim();
+	return `${start > 0 ? "…" : ""}${piece}${start + chars < text.length ? "…" : ""}`;
+}
+/** A roll as the model reads it. */
+function rollText$1(dice, roll, why) {
+	const faces = `[${roll.rolls.join(", ")}]`;
+	const mod = roll.modifier ? ` ${roll.modifier > 0 ? "+" : "-"} ${Math.abs(roll.modifier)}` : "";
+	const target = roll.target === null ? "" : ` vs ${roll.under ? "≤" : ""}${roll.target}`;
+	const outcome = roll.outcome === "none" ? "" : ` → ${roll.outcome}`;
+	return `${why ? `${why}: ` : ""}${dice} = ${faces}${mod} = ${roll.total}${target}${outcome}`;
+}
 //#endregion
 //#region src/domain/agents/types.ts
 var AGENT_PHASES = [
@@ -38961,6 +39453,7 @@ function capabilitiesOf(def) {
 		case "proposals": for (const kind of def.result.options.receivers) caps.push(`propose.${kind}`);
 	}
 	for (const source of def.sources) caps.push(`read.${source.id}`);
+	for (const tool of def.tools ?? []) caps.push(`tool.${tool}`);
 	return caps;
 }
 function sanitizeInject(raw, fallback) {
@@ -39205,6 +39698,11 @@ function sanitizeAgent(raw, now) {
 	}
 	const limits = sanitizeLimits(raw.limits);
 	if (limits) def.limits = limits;
+	const tools = sanitizeTools(raw.tools);
+	if (tools.length) {
+		def.tools = tools;
+		def.capabilities = capabilitiesOf(def);
+	}
 	return def;
 }
 function sanitizeState(raw) {
@@ -39956,6 +40454,187 @@ function checkRewrite(before, after, changes, truncated) {
 	return { ok: true };
 }
 //#endregion
+//#region src/domain/assistant-calls.ts
+/** Tool names: snake_case, as most providers require (^[a-zA-Z0-9_-]{1,64}$, stricter here). */
+var TOOL_NAME = /^[a-z][a-z0-9_]{0,63}$/;
+/** A name the provider accepts when it comes back in the history (the model may have sent garbage). */
+function safeToolName(name) {
+	return name.replace(/[^A-Za-z0-9_-]/g, "_").slice(0, 64) || "unknown_tool";
+}
+function isRecord$10(value) {
+	return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+function tryJson(text) {
+	try {
+		return {
+			ok: true,
+			value: JSON.parse(text)
+		};
+	} catch {
+		return { ok: false };
+	}
+}
+/** Second chance for sloppy JSON: code fences, prose around the object, trailing commas. */
+function repairJson(text) {
+	const unfenced = text.replace(/```[a-zA-Z]*\s*/g, "").replace(/```/g, "").trim();
+	const start = unfenced.indexOf("{");
+	const end = unfenced.lastIndexOf("}");
+	if (start < 0 || end <= start) return void 0;
+	return unfenced.slice(start, end + 1).replace(/,\s*([}\]])/g, "$1");
+}
+/** Arguments of a tool call: an object, a JSON string (repaired when sloppy), or nothing (= no arguments). */
+function parseArgs(raw) {
+	if (raw === void 0 || raw === null) return {
+		ok: true,
+		args: {}
+	};
+	if (isRecord$10(raw)) return {
+		ok: true,
+		args: raw
+	};
+	if (typeof raw !== "string") return {
+		ok: false,
+		error: "arguments must be a JSON object"
+	};
+	const text = raw.trim();
+	if (!text) return {
+		ok: true,
+		args: {}
+	};
+	let parsed = tryJson(text);
+	if (!parsed.ok) {
+		const repaired = repairJson(text);
+		if (repaired !== void 0) parsed = tryJson(repaired);
+	}
+	if (!parsed.ok) return {
+		ok: false,
+		error: "arguments are not valid JSON"
+	};
+	if (!isRecord$10(parsed.value)) return {
+		ok: false,
+		error: "arguments must be a JSON object"
+	};
+	return {
+		ok: true,
+		args: parsed.value
+	};
+}
+var PROVIDER_ID$1 = /^[A-Za-z0-9_-]{1,64}$/;
+/**
+* Normalises the provider's tool calls. Items without a function name are kept (with an empty name) so the model
+* is told about its mistake instead of being ignored. Ids are kept when usable and unique, otherwise generated.
+*/
+function readToolCalls(raw, makeId) {
+	if (!Array.isArray(raw)) return [];
+	const seen = /* @__PURE__ */ new Set();
+	const calls = [];
+	for (const item of raw) {
+		if (!isRecord$10(item)) continue;
+		const fn = isRecord$10(item["function"]) ? item["function"] : item;
+		const name = typeof fn["name"] === "string" ? fn["name"].trim() : "";
+		const rawArgs = fn["arguments"] ?? fn["input"] ?? fn["args"];
+		const providerId = typeof item["id"] === "string" ? item["id"] : "";
+		const id = PROVIDER_ID$1.test(providerId) && !seen.has(providerId) ? providerId : makeId();
+		seen.add(id);
+		const parsed = parseArgs(rawArgs);
+		const text = typeof rawArgs === "string" ? rawArgs : rawArgs === void 0 ? "{}" : safeStringify(rawArgs);
+		calls.push(parsed.ok ? {
+			id,
+			name,
+			rawArgs: text,
+			args: parsed.args
+		} : {
+			id,
+			name,
+			rawArgs: text,
+			args: {},
+			error: parsed.error
+		});
+	}
+	return calls;
+}
+function safeStringify(value) {
+	try {
+		return JSON.stringify(value) ?? "{}";
+	} catch {
+		return "{}";
+	}
+}
+/**
+* The call as it goes back to the provider inside the assistant message. Always valid JSON (the parsed arguments,
+* `{}` when they could not be parsed): some backends parse it again (Claude tool_use input) and would fail.
+*/
+function wireCall(call) {
+	return {
+		id: call.id,
+		type: "function",
+		function: {
+			name: safeToolName(call.name),
+			arguments: safeStringify(call.args)
+		}
+	};
+}
+/** OpenAI function spec of a tool. */
+function functionSpec(tool) {
+	const parameters = isRecord$10(tool.parameters) ? tool.parameters : {};
+	return {
+		type: "function",
+		function: {
+			name: tool.name,
+			description: tool.description,
+			parameters: parameters["type"] === "object" ? parameters : {
+				type: "object",
+				properties: {},
+				...parameters
+			}
+		}
+	};
+}
+function matchesType(value, type) {
+	switch (type) {
+		case "string": return typeof value === "string";
+		case "number": return typeof value === "number" && Number.isFinite(value);
+		case "integer": return typeof value === "number" && Number.isInteger(value);
+		case "boolean": return typeof value === "boolean";
+		case "array": return Array.isArray(value);
+		case "object": return isRecord$10(value);
+		case "null": return value === null;
+		default: return true;
+	}
+}
+function describe$2(value) {
+	if (value === null) return "null";
+	if (Array.isArray(value)) return "array";
+	return typeof value;
+}
+/**
+* Top-level problems of the arguments against the tool's schema: missing required properties, wrong types,
+* values outside an enum. Nested shapes are the tool's business. Messages are English (for the model).
+*/
+function argProblems(args, schema) {
+	if (!isRecord$10(schema)) return [];
+	const problems = [];
+	const required = Array.isArray(schema["required"]) ? schema["required"] : [];
+	for (const key of required) if (typeof key === "string" && (args[key] === void 0 || args[key] === null)) problems.push(`"${key}" is required`);
+	const properties = isRecord$10(schema["properties"]) ? schema["properties"] : {};
+	for (const [key, sub] of Object.entries(properties)) {
+		const value = args[key];
+		if (value === void 0 || !isRecord$10(sub)) continue;
+		const type = sub["type"];
+		const types = typeof type === "string" ? [type] : Array.isArray(type) ? type.filter((t) => typeof t === "string") : [];
+		if (types.length && !types.some((item) => matchesType(value, item))) {
+			problems.push(`"${key}" must be ${types.join(" or ")}, got ${describe$2(value)}`);
+			continue;
+		}
+		const options = sub["enum"];
+		if (Array.isArray(options) && !options.some((option) => option === value)) problems.push(`"${key}" must be one of ${options.map((option) => JSON.stringify(option)).join(", ")}`);
+	}
+	if (schema["additionalProperties"] === false) {
+		for (const key of Object.keys(args)) if (!Object.hasOwn(properties, key)) problems.push(`"${key}" is not a known argument`);
+	}
+	return problems;
+}
+//#endregion
 //#region src/domain/staging.ts
 var STAGING_FIELDS = [
 	"pose",
@@ -39967,7 +40646,7 @@ var STAGING_FIELDS = [
 function isDict$126(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
-function fold$4(name) {
+function fold$5(name) {
 	return name.trim().toLowerCase().replace(/ё/g, "е");
 }
 function clean$4(value, max = 120) {
@@ -39991,7 +40670,7 @@ function sanitizeEntries(raw) {
 	const out = [];
 	for (const item of raw) {
 		const entry = sanitizeEntry(item);
-		if (entry && !out.some((other) => fold$4(other.name) === fold$4(entry.name))) out.push(entry);
+		if (entry && !out.some((other) => fold$5(other.name) === fold$5(entry.name))) out.push(entry);
 		if (out.length >= 12) break;
 	}
 	return out;
@@ -40001,11 +40680,11 @@ function sanitizeEntries(raw) {
 * one it leaves out stays); `gone` names leave the scene.
 */
 function mergeStaging(previous, changes, gone = []) {
-	const goneSet = new Set(gone.map(fold$4));
-	const out = previous.filter((entry) => !goneSet.has(fold$4(entry.name))).map((entry) => ({ ...entry }));
+	const goneSet = new Set(gone.map(fold$5));
+	const out = previous.filter((entry) => !goneSet.has(fold$5(entry.name))).map((entry) => ({ ...entry }));
 	for (const change of changes) {
-		if (goneSet.has(fold$4(change.name))) continue;
-		const current = out.find((entry) => fold$4(entry.name) === fold$4(change.name));
+		if (goneSet.has(fold$5(change.name))) continue;
+		const current = out.find((entry) => fold$5(entry.name) === fold$5(change.name));
 		if (!current) {
 			out.push({ ...change });
 			continue;
@@ -40055,13 +40734,13 @@ var CARD_AVATAR_TARGET = "nai.cardAvatar";
 /** Maestro's id as NAI Studio's illustrator. */
 var ILLUSTRATOR_ID = "maestro-agents";
 var MAX_PORTRAITS = 2;
-var fold$3 = (text) => text.trim().toLowerCase().replace(/ё/g, "е");
+var fold$4 = (text) => text.trim().toLowerCase().replace(/ё/g, "е");
 var str$33 = (value) => typeof value === "string" ? value.trim() : "";
 var isDict$125 = (value) => typeof value === "object" && value !== null && !Array.isArray(value);
 /** A passport of the chat (card, persona, chat, lore) named so (name or alias). */
 function passportNamed(passports, name) {
-	const wanted = fold$3(name);
-	return passports.find((p) => p.kind === "character" && [p.name, ...p.aliases].some((n) => n.trim() && fold$3(n) === wanted));
+	const wanted = fold$4(name);
+	return passports.find((p) => p.kind === "character" && [p.name, ...p.aliases].some((n) => n.trim() && fold$4(n) === wanted));
 }
 /** Faces each chat's portraitist was shown (folded names): a new face is considered once per session. */
 var shownFaces = /* @__PURE__ */ new Map();
@@ -40076,11 +40755,11 @@ function facesWithoutPassport(app) {
 		const index = app.turn.lastAssistantIndex();
 		const names = [...index >= 0 ? presentNames(adaptersOf(app).des.trackerFor(index)) : [], ...(app.modules.api("staging")?.current() ?? []).map((entry) => entry.name)];
 		const ctx = app.host.ctx();
-		const skip = new Set([ctx.name1, ctx.name2].filter((n) => !!n).map(fold$3));
+		const skip = new Set([ctx.name1, ctx.name2].filter((n) => !!n).map(fold$4));
 		const passports = nai.chatPassports();
 		const seen = /* @__PURE__ */ new Set();
 		return names.filter((name) => {
-			const key = fold$3(name);
+			const key = fold$4(name);
 			if (!key || skip.has(key) || seen.has(key)) return false;
 			seen.add(key);
 			return !passportNamed(passports, name);
@@ -40092,14 +40771,14 @@ function facesWithoutPassport(app) {
 /** Faces the portraitist of this chat has not been shown yet. */
 function unseenFaces(app) {
 	const shown = shownFaces.get(app.host.chatId() ?? "") ?? /* @__PURE__ */ new Set();
-	return facesWithoutPassport(app).filter((name) => !shown.has(fold$3(name)));
+	return facesWithoutPassport(app).filter((name) => !shown.has(fold$4(name)));
 }
 /** The source «No portrait yet»: the unseen faces, then marked as shown. */
 function portraitlessText(app) {
 	const chatId = app.host.chatId() ?? "";
 	const faces = unseenFaces(app);
 	const shown = shownFaces.get(chatId) ?? /* @__PURE__ */ new Set();
-	for (const name of faces) shown.add(fold$3(name));
+	for (const name of faces) shown.add(fold$4(name));
 	shownFaces.set(chatId, shown);
 	return faces.map((name) => `- ${name}`).join("\n");
 }
@@ -40794,6 +41473,360 @@ var SourceRegistry = class {
 	}
 };
 //#endregion
+//#region src/domain/mechanics-dice.ts
+/** How many times one exploding die may roll again. */
+var EXPLODE_MAX = 10;
+/** One die, 1..sides; a broken RNG value (NaN, out of range) is clamped instead of producing 0 or sides+1. */
+function rollDie(sides, rng) {
+	const raw = rng();
+	return Math.floor((Number.isFinite(raw) ? Math.min(Math.max(raw, 0), 1 - Number.EPSILON) : 0) * sides) + 1;
+}
+var UNDER_SCALE = {
+	easy: 1.5,
+	normal: 1,
+	hard: .5,
+	veryHard: .2
+};
+function criticalsByDefault(formula) {
+	return !formula.parts && formula.count === 1 && (formula.sides === 20 || formula.sides === 100);
+}
+/** 'critical' / 'fumble' for a natural extreme, null otherwise (d100: 01–05 and 96–00). */
+function naturalExtreme(formula, sum, under) {
+	if (!formula.parts && formula.count === 1 && formula.sides === 100) {
+		if (sum <= 5) return under ? "critical" : "fumble";
+		if (sum >= 96) return under ? "fumble" : "critical";
+		return null;
+	}
+	const range = naturalRange(formula);
+	if (!range) return null;
+	if (sum === range.max) return under ? "fumble" : "critical";
+	if (sum === range.min) return under ? "critical" : "fumble";
+	return null;
+}
+function rollParts(formula, rng) {
+	const rolls = [];
+	const dropped = [];
+	let natural = 0;
+	for (const part of diceParts(formula)) {
+		if (part.kind !== "dice") continue;
+		const faces = [];
+		for (let i = 0; i < part.count; i++) {
+			let face = rollDie(part.sides, rng);
+			let die = face;
+			for (let again = 0; part.explode && face === part.sides && again < EXPLODE_MAX; again++) {
+				face = rollDie(part.sides, rng);
+				die += face;
+			}
+			faces.push(die);
+		}
+		rolls.push(...faces);
+		let kept = faces;
+		if (part.keep) {
+			kept = [...faces].sort((a, b) => part.keep?.high ? b - a : a - b).slice(0, part.keep.n);
+			const rest = [...faces];
+			for (const face of kept) rest.splice(rest.indexOf(face), 1);
+			dropped.push(...rest);
+		}
+		natural += part.sign * kept.reduce((total, value) => total + value, 0);
+	}
+	return {
+		rolls,
+		dropped,
+		natural
+	};
+}
+function rollDice(formula, lookup, rng, options = {}) {
+	const missing = [];
+	const read = (attribute) => {
+		const value = lookup(attribute);
+		if (typeof value === "number" && Number.isFinite(value)) return value;
+		if (!missing.includes(attribute)) missing.push(attribute);
+		return null;
+	};
+	let modifier = 0;
+	for (const part of diceParts(formula)) {
+		if (part.kind !== "term") continue;
+		const { term } = part;
+		if (term.kind === "flat") modifier += part.sign * term.value;
+		else {
+			const value = read(term.attribute);
+			if (value !== null) modifier += part.sign * (term.kind === "mod" ? dndModifier(value) : Math.round(value));
+		}
+	}
+	const bonus = typeof options.bonus === "number" && Number.isFinite(options.bonus) ? Math.round(options.bonus) : 0;
+	modifier += bonus;
+	const under = formula.under !== null;
+	let target = null;
+	if (formula.under) {
+		const base = formula.under.kind === "flat" ? formula.under.value : read(formula.under.attribute);
+		if (base !== null) target = Math.floor(base * UNDER_SCALE[options.level ?? "normal"]);
+	} else if (typeof options.difficulty === "number" && Number.isFinite(options.difficulty)) target = Math.round(options.difficulty);
+	let kept = rollParts(formula, rng);
+	let other = null;
+	if (options.mode === "adv" || options.mode === "dis") {
+		const second = rollParts(formula, rng);
+		const firstBetter = under ? kept.natural <= second.natural : kept.natural >= second.natural;
+		const keepFirst = options.mode === "adv" ? firstBetter : !firstBetter;
+		other = keepFirst ? second : kept;
+		if (!keepFirst) kept = second;
+	}
+	const total = kept.natural + modifier;
+	const extreme = options.criticals ?? criticalsByDefault(formula) ? naturalExtreme(formula, kept.natural, under) : null;
+	let outcome;
+	if (extreme) outcome = extreme;
+	else if (target === null) outcome = "none";
+	else if (under) outcome = total <= target ? "success" : "failure";
+	else outcome = total >= target ? "success" : "failure";
+	const roll = {
+		rolls: kept.rolls,
+		natural: kept.natural,
+		modifier,
+		total,
+		target,
+		under,
+		outcome,
+		missing
+	};
+	if (kept.dropped.length) roll.dropped = kept.dropped;
+	if (other && options.mode) {
+		roll.mode = options.mode;
+		roll.other = {
+			rolls: other.rolls,
+			total: other.natural + modifier
+		};
+	}
+	return roll;
+}
+/** How far a roll beat its target (positive) or missed it (negative); 0 without a target. */
+function marginOf(roll) {
+	if (roll.target === null) return 0;
+	return roll.under ? roll.target - roll.total : roll.total - roll.target;
+}
+/**
+* The actor's outcome against the other side: criticals of the actor's own roll stand; otherwise roll-over: a higher
+* total wins (a tie keeps things as they are: the defender wins); roll-under: the actor must succeed, and beat a
+* succeeding defender by margin.
+*/
+function opposedOutcome(actor, defender) {
+	if (actor.outcome === "critical" || actor.outcome === "fumble") return actor.outcome;
+	if (actor.under) {
+		if (!(actor.target !== null && actor.total <= actor.target)) return "failure";
+		const defenderOk = defender.target !== null && defender.total <= defender.target;
+		if (defender.outcome === "critical") return "failure";
+		return !defenderOk || marginOf(actor) > marginOf(defender) ? "success" : "failure";
+	}
+	if (defender.outcome === "critical") return "failure";
+	return actor.total > defender.total ? "success" : "failure";
+}
+/** The middle of the formula's range (dice only), the base when a check has no default difficulty. */
+function middleOf(formula) {
+	if (formula.parts) {
+		const range = naturalRange(formula);
+		if (range) return Math.round((range.min + range.max) / 2);
+	}
+	return Math.round(formula.count * (formula.sides + 1) / 2);
+}
+/**
+* The target of a roll-over check at a difficulty level: the check's default (or the middle of the range) moved by a
+* quarter of the dice range per step (d20: 5, 2d6: 3, d100: 25). Roll-under checks carry their own target: null.
+*/
+function difficultyFor(level, base, formula) {
+	if (formula.under) return null;
+	const start = base ?? middleOf(formula);
+	const range = formula.parts ? naturalRange(formula) : null;
+	const spread = range ? range.max - range.min : formula.count * formula.sides - formula.count;
+	const step = Math.max(1, Math.round(spread / 4));
+	return start + (level === "easy" ? -step : level === "hard" ? step : level === "veryHard" ? 2 * step : 0);
+}
+var OUTCOME_TEXT = {
+	critical: "critical success",
+	success: "success",
+	failure: "failure",
+	fumble: "critical failure",
+	none: ""
+};
+function diceShown(roll) {
+	return roll.rolls.length > 1 ? `${roll.natural} (${roll.rolls.join("+")})` : String(roll.natural);
+}
+/** "rolled 14 + 2 = 16 vs 15 — success" without the check and the holder (the pult shows it too). */
+function rollText(roll) {
+	let text = `rolled ${diceShown(roll)}`;
+	if (roll.modifier !== 0) text += ` ${roll.modifier < 0 ? "-" : "+"} ${Math.abs(roll.modifier)} = ${roll.total}`;
+	if (roll.mode && roll.other) text += ` (${roll.mode === "adv" ? "advantage" : "disadvantage"}, other roll ${roll.other.total})`;
+	if (roll.target !== null) text += roll.under ? `, needed ${roll.target} or lower` : ` vs ${roll.target}`;
+	const outcome = OUTCOME_TEXT[roll.outcome];
+	if (outcome) {
+		text += ` — ${outcome}`;
+		if (roll.outcome === "critical" || roll.outcome === "fumble") text += ` (natural ${roll.natural})`;
+	}
+	return text;
+}
+/**
+* The English fact for the prompt: "Persuasion check (Kai): rolled 14 + 2 = 16 vs 15 — success."; aimed at someone:
+* "Attack check (Kai) against Bandit: rolled 15 + 2 = 17 vs 12 — success."
+*/
+function checkFact(checkName, holder, roll, against) {
+	const name = checkName.trim() || "Skill";
+	const who = holder.trim();
+	const target = (against ?? "").trim();
+	return `${name} check${who ? ` (${who})` : ""}${target ? ` against ${target}` : ""}: ${rollText(roll)}.`;
+}
+/**
+* The English fact of an opposed check: "Stealth (Kai) vs Perception (Guard): 14 vs 11 — success." (the outcome is
+* the actor's).
+*/
+function opposedFact(actor, defender, outcome) {
+	const left = `${actor.check.trim() || "Skill"} (${actor.holder.trim()})`;
+	const right = `${defender.check.trim() || "Skill"} (${defender.holder.trim()})`;
+	const word = OUTCOME_TEXT[outcome] || "tie";
+	const natural = outcome === "critical" || outcome === "fumble" ? ` (natural ${actor.roll.natural})` : "";
+	return `${left} vs ${right}: ${actor.roll.total} vs ${defender.roll.total} — ${word}${natural}.`;
+}
+/**
+* The roll was close: a success or a failure with a numeric target whose total was 1–2 points from the other outcome
+* (against a target: won by 0–1 over it or missed by 1–2; opposed: won by 1–2 or lost by 0–1). Never a critical or a
+* fumble, never without a target.
+*/
+function isBarely(outcome, margin, options) {
+	if (!options.target || !Number.isFinite(margin)) return false;
+	let flip;
+	if (outcome === "success") flip = options.opposed ? margin : margin + 1;
+	else if (outcome === "failure") flip = options.opposed ? 1 - margin : -margin;
+	else return false;
+	return flip >= 1 && flip <= 2;
+}
+var GENERIC_MEANING = {
+	critical: "it works brilliantly, with an extra benefit",
+	success: "it works as intended",
+	failure: "it does not work — show what goes wrong and what it costs",
+	fumble: "it goes badly wrong, with a complication"
+};
+var BARELY_MEANING = {
+	success: "it barely works — only just, with nothing to spare",
+	failure: "it barely fails — it nearly works; show what goes wrong and what it costs"
+};
+/** An author's text as part of a sentence: trimmed, without the closing stop. */
+function clause(text) {
+	return text.trim().replace(/[\s.;]+$/, "");
+}
+/**
+* What an outcome means for the scene (English, the end of the fact): the outcome's own texts; a critical (a fumble)
+* with only success (failure) texts gets them «and brilliantly» («and badly»); else a line by outcome. A close roll
+* reads «barely». Texts for any outcome follow. '' for 'none' without texts for any outcome.
+*/
+function outcomeMeaning(outcome, texts = {}, barely = false) {
+	const own = (texts.own ?? []).map(clause).filter(Boolean);
+	const wider = (texts.wider ?? []).map(clause).filter(Boolean);
+	const any = (texts.any ?? []).map(clause).filter(Boolean);
+	let body = "";
+	if (outcome !== "none") {
+		if (own.length) body = own.join("; ");
+		else if (wider.length && (outcome === "critical" || outcome === "fumble")) body = `${wider.join("; ")}, and ${outcome === "critical" ? "brilliantly, with an extra benefit" : "badly, with a complication"}`;
+		else if (barely && (outcome === "success" || outcome === "failure")) body = BARELY_MEANING[outcome];
+		else body = GENERIC_MEANING[outcome];
+		if (barely && own.length) body = `barely — ${body}`;
+	}
+	return [body, ...any].filter(Boolean).join("; ");
+}
+/** The fact with what changed and what it means: "<fact> Consequences: Kai: Mana -10. In the scene: it works." */
+function factWithMeaning(fact, notes, meaning) {
+	let text = fact;
+	if (notes.length) text += ` Consequences: ${notes.join("; ")}.`;
+	if (meaning) text += ` In the scene: ${meaning}.`;
+	return text;
+}
+/** "Mana" → "mana" inside a sentence; "HP" and names with more capitals stay. */
+function midSentence(name) {
+	return /^[A-Z][^A-Z]*$/.test(name) ? name.charAt(0).toLowerCase() + name.slice(1) : name;
+}
+function plain$1(value) {
+	return String(Math.round(value * 100) / 100);
+}
+/**
+* The fact of an attempt the roller lacks the means for (no dice):
+* "Spellcasting (Kai): not possible — mana 3, needs 5. The attempt fails; narrate it, there is no roll." In words: "not
+* enough mana"; with nothing the model may know: "not possible now".
+*/
+function blockedFact(checkName, holder, reason, against) {
+	const name = checkName.trim() || "Skill";
+	const who = holder.trim();
+	const target = (against ?? "").trim();
+	const attribute = midSentence(reason.attribute.trim() || "value");
+	const mode = reason.mode ?? "value";
+	let why = mode === "none" ? "not possible now" : mode === "words" ? `not possible — not enough ${attribute}` : `not possible — ${attribute} ${plain$1(reason.have)}, needs ${plain$1(reason.need)}`;
+	const note = clause(reason.note ?? "");
+	if (note && mode !== "none") why += ` (${note})`;
+	return `${name}${who ? ` (${who})` : ""}${target ? ` against ${target}` : ""}: ${why}. The attempt fails; narrate it, there is no roll.`;
+}
+//#endregion
+//#region src/features/agents/tools.ts
+/** Function specs for the request. */
+function toolSpecs(ids) {
+	return ids.map((id) => {
+		const spec = agentToolSpec(id);
+		return functionSpec({
+			name: spec.id,
+			description: spec.description,
+			parameters: spec.parameters
+		});
+	});
+}
+function text$19(value, max = 200) {
+	return typeof value === "string" ? value.trim().slice(0, max) : "";
+}
+/** Runs one tool call; the text the model gets back. */
+async function runAgentTool(app, name, args, options) {
+	if (!options.allowed.includes(name)) return `Error: no tool "${name}".`;
+	switch (name) {
+		case "roll": {
+			const dice = text$19(args.dice, 60);
+			const formula = dice ? parseDice(dice) : null;
+			if (!formula) return `Error: "${dice}" is not a dice formula (e.g. 1d20+3, 2d6, 1d100<=45).`;
+			const difficulty = typeof args.difficulty === "number" ? args.difficulty : void 0;
+			return rollText$1(dice, rollDice(formula, () => null, options.rng ?? Math.random, { ...difficulty !== void 0 ? { difficulty } : {} }), text$19(args.why, 80) || void 0);
+		}
+		case "lore_search": {
+			const words = queryWords(text$19(args.query));
+			if (!words.length) return "Error: say what to look for.";
+			const canon = app.modules.api("canon");
+			if (!canon) return "The chat lore is not available.";
+			const hits = (await canon.list()).map((item) => {
+				const title = typeof item.entry.comment === "string" ? item.entry.comment : "";
+				const content = typeof item.entry.content === "string" ? item.entry.content : "";
+				return {
+					title,
+					content,
+					score: matchScore(`${title} ${Array.isArray(item.entry.key) ? item.entry.key.join(", ") : ""} ${content}`, words) * 2 + matchScore(title, words)
+				};
+			}).filter((hit) => hit.score > 0).sort((a, b) => b.score - a.score).slice(0, 5);
+			if (!hits.length) return `Nothing in the lore about: ${words.join(", ")}.`;
+			return hits.map((hit) => `- ${hit.title || "entry"}: ${passageAround(hit.content, words, 400)}`).join("\n");
+		}
+		case "chat_search": {
+			const words = queryWords(text$19(args.query));
+			if (!words.length) return "Error: say what to look for.";
+			const chat = app.host.ctx().chat ?? [];
+			const end = options.focusIndex !== void 0 ? Math.min(options.focusIndex, chat.length) : chat.length;
+			const hits = [];
+			for (let i = 0; i < end; i++) {
+				const message = chat[i];
+				if (!message || message.is_system) continue;
+				const body = agentText(message);
+				const score = matchScore(body, words);
+				if (score > 0) hits.push({
+					index: i,
+					score,
+					text: body
+				});
+			}
+			const best = hits.sort((a, b) => b.score - a.score || b.index - a.index).slice(0, 5).sort((a, b) => a.index - b.index);
+			if (!best.length) return `Nothing earlier in the chat about: ${words.join(", ")}.`;
+			return best.map((hit) => `#${hit.index}: ${passageAround(hit.text, words, 400)}`).join("\n");
+		}
+	}
+	return `Error: no tool "${name}".`;
+}
+//#endregion
 //#region src/features/agents/runner.ts
 /** Profile row of «профиль агентов по умолчанию» (CoreSettings.profiles, plan В7). */
 var AGENTS_PROFILE_KEY = "agents";
@@ -40944,7 +41977,7 @@ var AgentRunner = class AgentRunner {
 	}
 	/** Whether a run may share a request with others (plan §4.6): the agent allows it, never a rewrite or a test. */
 	static batchable(request) {
-		return request.def.batch === true && request.def.result.type !== "rewrite" && !request.test;
+		return request.def.batch === true && request.def.result.type !== "rewrite" && !request.test && !request.def.tools?.length;
 	}
 	/** Runs of one moment: batchable agents of the same model in one request each group, the rest one by one. */
 	async runMany(requests) {
@@ -41166,10 +42199,18 @@ var AgentRunner = class AgentRunner {
 		}, request.timeoutMs) : null;
 		const maxTokens = def.model.maxTokens ?? (def.result.type === "rewrite" ? 2500 : def.result.type === "memory" ? 1200 : DEFAULT_MODEL.maxTokens);
 		let result;
+		let messages = built.messages;
+		let toolCost = 0;
 		try {
+			if (def.tools?.length) {
+				const rounds = await this.toolRounds(request, messages, controller.signal);
+				messages = rounds.messages;
+				toolCost = rounds.costUsd;
+				if (rounds.calls.length) run.tools = rounds.calls;
+			}
 			result = await this.app.llm.request({
 				task: agentTask(def.id),
-				messages: built.messages,
+				messages,
 				maxTokens: def.result.type === "rewrite" ? Math.max(maxTokens, REWRITE_MIN_TOKENS) : maxTokens,
 				temperature: def.model.temperature ?? DEFAULT_MODEL.temperature,
 				reasoning: def.model.reasoning ?? DEFAULT_MODEL.reasoning,
@@ -41189,7 +42230,7 @@ var AgentRunner = class AgentRunner {
 			if (timer) clearTimeout(timer);
 			outer?.removeEventListener("abort", forward);
 		}
-		if (result.costUsd !== void 0) run.costUsd = result.costUsd;
+		if (result.costUsd !== void 0 || toolCost) run.costUsd = (result.costUsd ?? 0) + toolCost;
 		if (result.tokens) run.tokens = result.tokens;
 		if (result.text !== void 0) run.raw = result.text.slice(0, 2e4);
 		if (!result.ok) {
@@ -41212,6 +42253,72 @@ var AgentRunner = class AgentRunner {
 			delete outcome.output;
 		}
 		return finish(outcome);
+	}
+	/**
+	* Tool rounds of an agent with tools (release 1.34): the model may call its tools up to AGENT_TOOL_ROUNDS times;
+	* each call runs and its result goes back. The messages to ask the final answer with (a closing note added when a
+	* tool was called), the calls made and what the rounds cost. A failed round just ends the rounds.
+	*/
+	async toolRounds(request, start, signal) {
+		const { def } = request;
+		const allowed = def.tools ?? [];
+		const messages = [...start];
+		const calls = [];
+		let costUsd = 0;
+		let seq = 0;
+		for (let round = 0; round < 3 && !signal.aborted; round++) {
+			let result;
+			try {
+				result = await this.app.llm.request({
+					task: agentTask(def.id),
+					messages,
+					maxTokens: 600,
+					temperature: def.model.temperature ?? DEFAULT_MODEL.temperature,
+					reasoning: def.model.reasoning ?? DEFAULT_MODEL.reasoning,
+					tools: toolSpecs(allowed),
+					profile: request.state?.profile ?? def.model.profile,
+					profileKeys: [AGENTS_PROFILE_KEY],
+					interactive: request.interactive === true || request.test === true,
+					signal
+				});
+			} catch (error) {
+				this.log.debug(`agent ${def.id}: tool round failed`, error);
+				break;
+			}
+			costUsd += result.costUsd ?? 0;
+			const made = result.ok ? readToolCalls(result.toolCalls, () => `call_${def.id}_${++seq}`) : [];
+			if (!made.length) break;
+			messages.push({
+				role: "assistant",
+				content: result.text ?? "",
+				tool_calls: made.map(wireCall)
+			});
+			for (const call of made) {
+				const answer = call.error ? `Error: ${call.error}.` : await runAgentTool(this.app, call.name, call.args, {
+					allowed,
+					...request.focusIndex !== void 0 ? { focusIndex: request.focusIndex } : {}
+				});
+				calls.push({
+					name: call.name,
+					args: call.args,
+					result: answer.slice(0, 2e3)
+				});
+				messages.push({
+					role: "tool",
+					tool_call_id: call.id,
+					content: answer
+				});
+			}
+		}
+		if (calls.length) messages.push({
+			role: "user",
+			content: "Now give your final answer in the required form, using the tool results above."
+		});
+		return {
+			messages,
+			calls,
+			costUsd
+		};
 	}
 };
 function errorKind(result) {
@@ -41279,7 +42386,7 @@ async function rerenderMessage(host, index, message, options = {}) {
 }
 //#endregion
 //#region src/domain/agents/cadence.ts
-function fold$2(text) {
+function fold$3(text) {
 	return text.toLowerCase().replace(/ё/g, "е");
 }
 /** Whether the conditions hold now. */
@@ -41293,8 +42400,8 @@ function conditionsHold(when, ctx) {
 	if (when.scenes?.length && ctx.scene !== null && !when.scenes.includes(ctx.scene)) return false;
 	if (when.words?.length) {
 		const depth = when.scanDepth ?? 2;
-		const text = fold$2(ctx.recentTexts.slice(-depth).join("\n"));
-		if (!when.words.some((word) => word.trim() && text.includes(fold$2(word.trim())))) return false;
+		const text = fold$3(ctx.recentTexts.slice(-depth).join("\n"));
+		if (!when.words.some((word) => word.trim() && text.includes(fold$3(word.trim())))) return false;
 	}
 	return true;
 }
@@ -42391,703 +43498,6 @@ var AgentRuntime = class {
 	}
 };
 //#endregion
-//#region src/core/builtin-agents.ts
-var specs = /* @__PURE__ */ new Map();
-var listeners = /* @__PURE__ */ new Set();
-function changed() {
-	for (const listener of [...listeners]) try {
-		listener();
-	} catch (error) {
-		console.error("[Maestro] built-in agents listener failed", error);
-	}
-}
-function registerBuiltInAgent(spec) {
-	specs.set(spec.id, spec);
-	changed();
-	return () => {
-		if (specs.get(spec.id) !== spec) return;
-		specs.delete(spec.id);
-		changed();
-	};
-}
-function builtInAgents() {
-	return [...specs.values()];
-}
-function builtInAgent(id) {
-	return specs.get(id);
-}
-//#endregion
-//#region src/domain/agents/builtin.ts
-var ADDITION_HEADER = "Additional instructions from the player (follow them as long as they do not change the required answer format):";
-function textHash(text) {
-	return stableHash(text);
-}
-function isDict$123(value) {
-	return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-/** Turns stored data into an override; null when it says nothing. */
-function sanitizeOverride(raw) {
-	if (!isDict$123(raw)) return null;
-	const out = { mode: raw.mode === "addition" || raw.mode === "full" ? raw.mode : "default" };
-	if (typeof raw.addition === "string" && raw.addition.trim()) out.addition = raw.addition.slice(0, 8e3);
-	if (typeof raw.full === "string" && raw.full.trim()) out.full = raw.full.slice(0, 4e4);
-	if (typeof raw.baseHash === "string") out.baseHash = raw.baseHash;
-	if (typeof raw.baseText === "string") out.baseText = raw.baseText.slice(0, 4e4);
-	if (typeof raw.temperature === "number" && Number.isFinite(raw.temperature)) out.temperature = Math.min(2, Math.max(0, raw.temperature));
-	if (typeof raw.maxTokens === "number" && Number.isFinite(raw.maxTokens)) out.maxTokens = Math.round(Math.min(16e3, Math.max(50, raw.maxTokens)));
-	if (raw.reasoning === "off" || raw.reasoning === "low" || raw.reasoning === "medium" || raw.reasoning === "high") out.reasoning = raw.reasoning;
-	return (out.mode === "default" || out.mode === "addition" && !out.addition || out.mode === "full" && !out.full) && out.temperature === void 0 && out.maxTokens === void 0 && out.reasoning === void 0 && !out.addition && !out.full ? null : out;
-}
-/** The instruction the request will carry instead of the default text. */
-function effectiveInstruction(defaultText, override) {
-	if (!override) return defaultText;
-	if (override.mode === "full" && override.full?.trim()) return override.full;
-	if (override.mode === "addition" && override.addition?.trim()) return `${defaultText}\n\n${ADDITION_HEADER}\n${override.addition.trim()}`;
-	return defaultText;
-}
-/**
-* Puts the user's instruction into a request: the first message holding the default text gets it in its place; when
-* no message holds it (the module changed its text), the addition or the full text goes as a system message right
-* before the last message. Nothing changes without an instruction override.
-*/
-function applyInstruction(messages, defaultTexts, override) {
-	if (!override || override.mode === "default") return {
-		messages: [...messages],
-		placed: "unchanged"
-	};
-	if (override.mode === "addition" && !override.addition?.trim()) return {
-		messages: [...messages],
-		placed: "unchanged"
-	};
-	if (override.mode === "full" && !override.full?.trim()) return {
-		messages: [...messages],
-		placed: "unchanged"
-	};
-	for (const text of defaultTexts) {
-		if (!text) continue;
-		const index = messages.findIndex((message) => message.content.includes(text));
-		if (index < 0) continue;
-		const out = messages.map((message) => ({ ...message }));
-		const target = out[index];
-		target.content = target.content.replace(text, () => effectiveInstruction(text, override));
-		return {
-			messages: out,
-			placed: "replaced"
-		};
-	}
-	const extra = override.mode === "full" ? override.full ?? "" : `${ADDITION_HEADER}\n${(override.addition ?? "").trim()}`;
-	const out = messages.map((message) => ({ ...message }));
-	out.splice(Math.max(0, out.length - 1), 0, {
-		role: "system",
-		content: extra
-	});
-	return {
-		messages: out,
-		placed: "appended"
-	};
-}
-/** The default text changed since the user's full text was made from it. */
-function defaultChanged(override, defaultText) {
-	return Boolean(override?.mode === "full" && override.baseHash && override.baseHash !== textHash(defaultText));
-}
-//#endregion
-//#region src/features/agents/builtin-runtime.ts
-function builtinName(app, spec) {
-	return app.i18n.t(`m44.bi.${spec.id}.title`);
-}
-function errorOf(result) {
-	if (result.refusal) return "refusal";
-	switch (result.error) {
-		case "cap": return "cap";
-		case "no-profile":
-		case "no-cm": return "no-profile";
-		case "aborted": return "aborted";
-		case "parse": return "parse";
-		case "length": return "length";
-		case "empty": return "empty";
-		default: return result.error?.startsWith("transport") || result.error === "breaker-open" ? "transport" : "other";
-	}
-}
-/** The request with the user's changes of a built-in agent; the same object when there are none. */
-function interceptBuiltin(request, store) {
-	const spec = builtInAgent(request.task);
-	if (!spec) return request;
-	const override = store.builtinOverride(spec.id);
-	if (!override) return request;
-	let defaults;
-	try {
-		defaults = spec.defaultInstructions();
-	} catch {
-		defaults = [];
-	}
-	const applied = applyInstruction(request.messages, defaults, override);
-	const next = { ...request };
-	if (applied.placed !== "unchanged") next.messages = applied.messages;
-	if (override.temperature !== void 0) next.temperature = override.temperature;
-	if (override.maxTokens !== void 0) next.maxTokens = override.maxTokens;
-	if (override.reasoning !== void 0) next.reasoning = override.reasoning;
-	return next;
-}
-function installBuiltinRuntime(app, store, state, now = Date.now) {
-	return app.llm.addInterceptor?.({
-		before: (request) => interceptBuiltin(request, store),
-		after: (request, result, ms) => {
-			const spec = builtInAgent(request.task);
-			if (!spec) return;
-			const startedAt = now() - ms;
-			const run = {
-				id: `${startedAt.toString(36)}-${Math.floor(Math.random() * 1e6).toString(36)}`,
-				agentId: spec.id,
-				agentName: builtinName(app, spec),
-				chatId: app.host.chatId(),
-				phase: spec.interactive ? "manual" : "schedule",
-				reason: "builtin",
-				startedAt,
-				ms,
-				ok: result.ok,
-				builtin: true,
-				request: request.messages.map((message) => ({
-					role: message.role,
-					content: message.content
-				}))
-			};
-			if (!result.ok) run.error = errorOf(result);
-			if (result.costUsd !== void 0) run.costUsd = result.costUsd;
-			if (result.tokens) run.tokens = result.tokens;
-			if (result.text !== void 0) run.raw = result.text.slice(0, 2e4);
-			if (result.ok && result.data !== void 0 && typeof result.data !== "string") run.result = result.data;
-			state.addRun(run);
-		}
-	}) ?? (() => void 0);
-}
-//#endregion
-//#region src/domain/user-images.ts
-function userImageUrl(path) {
-	return `/${path.replace(/\\/g, "/").replace(/^\/+/, "").split("/").map(encodeURIComponent).join("/")}`;
-}
-var AB_JOB_KEY = "agents:ab-illustrator";
-/** The illustrator is not worse: it won at least as often as the main model. */
-function abVerdict(summary) {
-	if (summary.agent > summary.main) return "agent";
-	if (summary.agent < summary.main) return "main";
-	return "tie";
-}
-function summarize(pairs, agentName, at) {
-	const chosen = pairs.filter((pair) => pair.choice);
-	return {
-		at,
-		agentName,
-		total: chosen.length,
-		agent: chosen.filter((pair) => pair.choice === "agent").length,
-		main: chosen.filter((pair) => pair.choice === "main").length,
-		same: chosen.filter((pair) => pair.choice === "same").length
-	};
-}
-/** Replies of the chat with a marker of the main model (not the illustrator's), newest first, at most `max`. */
-function candidateReplies(app, max = 20) {
-	const nai = adaptersOf(app).nai;
-	const chat = app.host.ctx().chat ?? [];
-	const out = [];
-	for (let i = chat.length - 1; i >= 0 && out.length < max; i--) {
-		const message = chat[i];
-		if (!message || message.is_user || message.is_system) continue;
-		const first = nai.messageMarkers(i).find((item) => item.by !== "illustrator" && typeof item.marker.prompt === "string");
-		if (first) out.push({
-			index: i,
-			marker: first.marker
-		});
-	}
-	return out;
-}
-/**
-* Builds the pairs: the illustrator's marker for each reply (a test run), then both pictures drawn free only. A reply
-* the illustrator answers without a picture, or a picture that fails, is skipped. Stops on the signal.
-*/
-async function buildPairs(app, log, runner, def, options) {
-	const nai = adaptersOf(app).nai;
-	const random = options.random ?? Math.random;
-	const candidates = candidateReplies(app);
-	const pairs = [];
-	const failures = /* @__PURE__ */ new Set();
-	let done = 0;
-	options.onProgress({
-		done,
-		total: candidates.length
-	});
-	for (const candidate of candidates) {
-		if (options.signal.aborted) break;
-		try {
-			const outcome = await runner.run({
-				def,
-				phase: "manual",
-				reason: "ab",
-				focusIndex: candidate.index,
-				test: true,
-				signal: options.signal
-			});
-			const output = outcome.output;
-			const marker = (output?.type === "proposals" ? output.items.find((entry) => entry.kind === "nai.illustrate" && typeof entry.data.marker?.prompt === "string") : void 0)?.data.marker;
-			if (!marker && !options.signal.aborted) failures.add(outcome.run.ok ? "no-picture" : "agent");
-			if (marker && !options.signal.aborted) {
-				const main = await nai.drawPicture({
-					marker: candidate.marker,
-					freeOnly: true,
-					name: "ab",
-					signal: options.signal
-				});
-				const agent = main.ok ? await nai.drawPicture({
-					marker,
-					freeOnly: true,
-					name: "ab",
-					signal: options.signal
-				}) : main;
-				if (main.ok && main.path && agent.ok && agent.path) pairs.push({
-					messageIndex: candidate.index,
-					main: {
-						path: main.path,
-						prompt: String(candidate.marker.prompt)
-					},
-					agent: {
-						path: agent.path,
-						prompt: String(marker.prompt)
-					},
-					agentLeft: random() < .5
-				});
-				else {
-					const error = (main.ok ? agent.error : main.error) ?? "failed";
-					failures.add(error);
-					log.info(`blind comparison: reply ${candidate.index} not drawn (${error})`);
-				}
-			}
-		} catch (error) {
-			failures.add("failed");
-			log.warn(`blind comparison: reply ${candidate.index} failed`, error);
-		}
-		done += 1;
-		options.onProgress({
-			done,
-			total: candidates.length
-		});
-	}
-	return {
-		pairs,
-		failures: [...failures]
-	};
-}
-//#endregion
-//#region src/features/agents/view-images.ts
-var IMAGES_TAB = "agents-images";
-/** The NAI adapter, or undefined when adapters are not there (tests, a failed start). */
-function naiOf(app) {
-	try {
-		return adaptersOf(app).nai ?? void 0;
-	} catch {
-		return;
-	}
-}
-/** The illustrator agents: an own agent that proposes `nai.illustrate`; the one that is on first. */
-function illustratorAgents(store) {
-	const states = store.states();
-	return store.list().filter((def) => def.result.type === "proposals" && def.result.options.receivers.includes("nai.illustrate")).sort((a, b) => Number(states.get(b.id)?.on === true) - Number(states.get(a.id)?.on === true));
-}
-function imagesTab(deps) {
-	const { app } = deps;
-	const t = (key, params) => app.i18n.t(key, params);
-	let session = null;
-	const listeners = /* @__PURE__ */ new Set();
-	const changed = () => listeners.forEach((listener) => listener());
-	const start = (def) => {
-		const job = app.jobs?.start({
-			key: AB_JOB_KEY,
-			title: t("m44.ab.job", { name: def.name }),
-			module: "agents",
-			cancellable: true,
-			open: {
-				label: t("m44.ab.open"),
-				run: () => app.ui.openWindow?.("agents", { tab: IMAGES_TAB })
-			}
-		});
-		if (!job) return;
-		const controller = new AbortController();
-		job.signal.addEventListener("abort", () => controller.abort());
-		session = {
-			agentName: def.name,
-			pairs: [],
-			position: 0,
-			building: true,
-			progress: {
-				done: 0,
-				total: 0
-			},
-			failures: [],
-			controller
-		};
-		const current = session;
-		changed();
-		buildPairs(app, deps.log, deps.runner, def, {
-			signal: controller.signal,
-			onProgress: (progress) => {
-				current.progress = progress;
-				job.progress(progress.done, progress.total, t("m44.ab.progress", { ...progress }));
-				changed();
-			}
-		}).then(({ pairs, failures }) => {
-			current.pairs = pairs;
-			current.failures = failures;
-			current.building = false;
-			current.controller = null;
-			job.finish(t("m44.ab.ready", { count: pairs.length }), { cancelled: controller.signal.aborted });
-			changed();
-		}).catch((error) => {
-			current.building = false;
-			current.controller = null;
-			job.fail(error instanceof Error ? error.message : String(error));
-			changed();
-		});
-	};
-	const choose = (choice) => {
-		const current = session;
-		const pair = current?.pairs[current.position];
-		if (!current || !pair) return;
-		pair.choice = choice;
-		current.position += 1;
-		if (current.position >= current.pairs.length) deps.save({ abLast: summarize(current.pairs, current.agentName, Date.now()) });
-		changed();
-	};
-	/** NAI Studio's codes in the user's words («стоило бы Anlas», …). */
-	const failureText = (codes) => codes.map((code) => {
-		if (/free-only|cost|anlas/i.test(code)) return t("m44.ab.why.cost");
-		if (code === "no-picture") return t("m44.ab.why.noPicture");
-		if (code === "agent") return t("m44.ab.why.agent");
-		if (code === "aborted") return t("m44.ab.why.aborted");
-		return code;
-	}).filter((text, index, all) => all.indexOf(text) === index).join("; ") || t("m44.ab.why.unknown");
-	const writerSection = () => {
-		const nai = naiOf(app);
-		const writer = nai?.markerWriter() ?? null;
-		const parts = [el("div", {
-			class: "maestro-hint",
-			text: t("m44.images.hint")
-		})];
-		if (!nai?.canIllustrate()) parts.push(banner(t("m44.images.needNai"), "warn"));
-		else if (writer) parts.push(field$2(t("m44.images.writer"), select({
-			label: t("m44.images.writer"),
-			value: writer.setting,
-			options: [
-				"main",
-				"illustrator",
-				"fallback"
-			].map((value) => ({
-				value,
-				label: t(`m44.images.writer.${value}`)
-			})),
-			onChange: (value) => {
-				nai.setMarkerWriter(value);
-				deps.syncIllustrator();
-				changed();
-			}
-		}), t("m44.images.writerNow", { now: t(`m44.images.writer.${writer.effective}`) })));
-		parts.push(toggle({
-			label: t("m44.images.paid"),
-			checked: deps.settings().imagesPaid === true,
-			hint: t("m44.images.paidHint"),
-			onChange: (checked) => {
-				deps.save({ imagesPaid: checked });
-				changed();
-			}
-		}));
-		return section$3(t("m44.images.title"), parts);
-	};
-	const picture = (path, label) => {
-		const img = el("img", {
-			class: "maestro-ab-img",
-			title: label
-		});
-		img.src = userImageUrl(path);
-		img.alt = label;
-		return el("figure", { class: "maestro-ab-pic" }, [img, el("figcaption", { text: label })]);
-	};
-	const comparisonSection = () => {
-		const parts = [el("div", {
-			class: "maestro-hint",
-			text: t("m44.ab.hint")
-		})];
-		const last = deps.settings().abLast;
-		if (last) parts.push(el("div", {
-			class: "maestro-ab-last",
-			text: t(`m44.ab.last.${abVerdict(last)}`, {
-				name: last.agentName,
-				agent: last.agent,
-				main: last.main,
-				same: last.same,
-				total: last.total
-			})
-		}));
-		const current = session;
-		if (current?.building) {
-			parts.push(el("div", { text: t("m44.ab.progress", { ...current.progress }) }), button({
-				label: t("m44.ab.stop"),
-				icon: "fa-stop",
-				onClick: () => {
-					if (!app.jobs?.cancel("agents:ab-illustrator")) current.controller?.abort();
-				}
-			}));
-			return section$3(t("m44.ab.title"), parts);
-		}
-		const pair = current?.pairs[current.position];
-		if (current && pair) {
-			const left = pair.agentLeft ? pair.agent : pair.main;
-			const right = pair.agentLeft ? pair.main : pair.agent;
-			parts.push(el("div", {
-				class: "maestro-muted",
-				text: t("m44.ab.pair", {
-					n: current.position + 1,
-					total: current.pairs.length,
-					message: pair.messageIndex
-				})
-			}), el("div", { class: "maestro-ab-row" }, [picture(left.path, t("m44.ab.left")), picture(right.path, t("m44.ab.right"))]), el("div", { class: "maestro-ab-actions" }, [
-				button({
-					label: t("m44.ab.pickLeft"),
-					onClick: () => choose(pair.agentLeft ? "agent" : "main")
-				}),
-				button({
-					label: t("m44.ab.same"),
-					onClick: () => choose("same")
-				}),
-				button({
-					label: t("m44.ab.pickRight"),
-					onClick: () => choose(pair.agentLeft ? "main" : "agent")
-				})
-			]));
-			return section$3(t("m44.ab.title"), parts);
-		}
-		if (current && current.pairs.length && current.position >= current.pairs.length) {
-			const summary = summarize(current.pairs, current.agentName, Date.now());
-			parts.push(banner(t(`m44.ab.result.${abVerdict(summary)}`, {
-				agent: summary.agent,
-				main: summary.main,
-				same: summary.same,
-				total: summary.total
-			}), abVerdict(summary) === "main" ? "warn" : "info"));
-		}
-		if (current && !current.building && !current.pairs.length) parts.push(banner(t("m44.ab.empty", { reasons: failureText(current.failures) }), "warn"));
-		const def = illustratorAgents(deps.store)[0];
-		const candidates = naiOf(app)?.canDrawPicture() ? candidateReplies(app).length : 0;
-		if (!def) parts.push(emptyState$1(t("m44.ab.noAgent"), "fa-palette"));
-		else if (!candidates) parts.push(emptyState$1(t("m44.ab.noReplies"), "fa-image"));
-		else parts.push(el("div", {
-			class: "maestro-muted",
-			text: t("m44.ab.cost", { count: candidates })
-		}), button({
-			label: t("m44.ab.start", { name: def.name }),
-			icon: "fa-scale-balanced",
-			onClick: () => start(def)
-		}));
-		return section$3(t("m44.ab.title"), parts);
-	};
-	return {
-		id: IMAGES_TAB,
-		titleKey: "m44.tab.images",
-		icon: "fa-image",
-		order: 65,
-		group: deps.group,
-		render(container) {
-			const paint = () => {
-				clear(container);
-				container.append(writerSection(), comparisonSection());
-			};
-			listeners.add(paint);
-			const offStore = deps.store.onChange(paint);
-			paint();
-			return () => {
-				listeners.delete(paint);
-				offStore();
-			};
-		}
-	};
-}
-var IMAGES_CSS = `
-.maestro-ab-row { display: flex; gap: 8px; }
-.maestro-ab-pic { flex: 1 1 0; margin: 0; text-align: center; min-width: 0; }
-.maestro-ab-img { width: 100%; max-height: 360px; object-fit: contain; border-radius: 6px; background: var(--black30a, rgba(0,0,0,.3)); }
-.maestro-ab-actions { display: flex; gap: 6px; justify-content: center; margin-top: 6px; flex-wrap: wrap; }
-.maestro-ab-last { margin: 4px 0; }
-`;
-//#endregion
-//#region src/core/scoped-docs.ts
-var EMPTY_SCOPE_CONTEXT = Object.freeze({
-	avatar: null,
-	characterName: null,
-	chatId: null
-});
-/** The scopes of the chat open now; a group chat (or no chat) has none. */
-function currentScopeContext(host) {
-	try {
-		if (host.isGroupChat()) return { ...EMPTY_SCOPE_CONTEXT };
-		const ctx = host.ctx();
-		const chatId = host.chatId();
-		const id = ctx.characterId;
-		const card = id === void 0 || id === "" ? void 0 : ctx.characters[Number(id)];
-		const avatar = typeof card?.avatar === "string" && card.avatar ? card.avatar : null;
-		const name = typeof card?.name === "string" && card.name ? card.name : null;
-		return {
-			avatar,
-			characterName: avatar ? name : null,
-			chatId: chatId || null
-		};
-	} catch {
-		return { ...EMPTY_SCOPE_CONTEXT };
-	}
-}
-function sameScopeContext(a, b) {
-	return (a?.avatar ?? null) === (b?.avatar ?? null) && (a?.chatId ?? null) === (b?.chatId ?? null);
-}
-/** The owner of a scope in a context (the avatar or the chat id), null when the context has no such scope. */
-function scopeOwner(context, scope) {
-	if (!context) return null;
-	return scope === "character" ? context.avatar : context.chatId;
-}
-function isDict$122(value) {
-	return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-/** How many times a chat document write is retried after another tab wrote a newer version. */
-var CHAT_RETRIES = 3;
-var ScopedDocs = class {
-	deps;
-	options;
-	memory = /* @__PURE__ */ new Map();
-	pending = /* @__PURE__ */ new Map();
-	loads = /* @__PURE__ */ new Map();
-	chains = /* @__PURE__ */ new Map();
-	constructor(deps, options) {
-		this.deps = deps;
-		this.options = options;
-	}
-	key(scope, owner) {
-		return `${scope}\u0000${owner}`;
-	}
-	fileName(owner) {
-		return this.deps.files.fileName(`${this.options.kind}-char`, owner);
-	}
-	/** Loads the documents of a context (both scopes) that are not in memory yet. */
-	async load(context) {
-		const jobs = [];
-		if (context?.avatar) jobs.push(this.loadOne("character", context.avatar));
-		if (context?.chatId) jobs.push(this.loadOne("chat", context.chatId));
-		await Promise.all(jobs);
-	}
-	/** Reads one document (again, with `force`) into memory; changes made meanwhile stay on top. */
-	loadOne(scope, owner, force = false) {
-		const key = this.key(scope, owner);
-		if (!force && this.memory.has(key)) return Promise.resolve();
-		const running = this.loads.get(key);
-		if (running && !force) return running;
-		const job = (async () => {
-			try {
-				const data = await this.read(scope, owner);
-				for (const change of this.pending.get(key) ?? []) change(data);
-				this.memory.set(key, data);
-			} catch (error) {
-				this.deps.log.warn(`${this.options.kind}: the ${scope} document could not be read`, error);
-				if (!this.memory.has(key)) this.memory.set(key, this.options.defaults());
-			}
-		})();
-		this.loads.set(key, job);
-		job.finally(() => {
-			if (this.loads.get(key) === job) this.loads.delete(key);
-		});
-		return job;
-	}
-	/** True when the document is in memory (loaded or changed in this session). */
-	has(scope, owner) {
-		return this.memory.has(this.key(scope, owner));
-	}
-	/** The document in memory (undefined when it was never loaded). Do not change it: use mutate(). */
-	get(scope, owner) {
-		return this.memory.get(this.key(scope, owner));
-	}
-	/** Changes a document now (memory) and writes it (fresh read, the change replayed on it). */
-	async mutate(scope, owner, change) {
-		const key = this.key(scope, owner);
-		if (!this.memory.has(key)) await this.loadOne(scope, owner);
-		const next = jsonCopy$7(this.memory.get(key) ?? this.options.defaults());
-		change(next);
-		this.memory.set(key, next);
-		const list = this.pending.get(key) ?? [];
-		list.push(change);
-		this.pending.set(key, list);
-		await this.serial(key, () => this.write(scope, owner));
-	}
-	/** Waits for the writes in flight. */
-	async flush() {
-		await Promise.all([...this.chains.values()].map((chain) => chain.catch(() => void 0)));
-	}
-	/** Forgets what is in memory (another feature instance, tests). */
-	clear() {
-		this.memory.clear();
-	}
-	serial(key, job) {
-		const next = (this.chains.get(key) ?? Promise.resolve()).then(job, job);
-		const settled = next.catch(() => void 0);
-		this.chains.set(key, settled);
-		settled.then(() => {
-			if (this.chains.get(key) === settled) this.chains.delete(key);
-		});
-		return next;
-	}
-	async read(scope, owner) {
-		if (scope === "chat") {
-			const doc = await this.deps.chat.getFor(owner, this.options.kind, this.options.defaults);
-			return this.options.sanitize(jsonCopy$7(doc));
-		}
-		const raw = await readFresh(this.deps.files, this.fileName(owner));
-		if (!isDict$122(raw) || raw.owner !== owner) return this.options.defaults();
-		return this.options.sanitize(raw.data);
-	}
-	/** Writes every queued change of one document. */
-	async write(scope, owner) {
-		const key = this.key(scope, owner);
-		const changes = this.pending.get(key) ?? [];
-		if (!changes.length) return;
-		this.pending.delete(key);
-		try {
-			const memory = jsonCopy$7(scope === "chat" ? await this.writeChat(owner, changes) : await this.writeFile(owner, changes));
-			for (const change of this.pending.get(key) ?? []) change(memory);
-			this.memory.set(key, memory);
-		} catch (error) {
-			this.pending.set(key, [...changes, ...this.pending.get(key) ?? []]);
-			this.deps.log.error(`${this.options.kind}: the ${scope} document could not be saved`, error);
-			this.options.onError?.(scope, owner, error);
-		}
-	}
-	async writeFile(owner, changes) {
-		const name = this.fileName(owner);
-		const raw = await readFresh(this.deps.files, name);
-		const data = isDict$122(raw) && raw.owner === owner ? this.options.sanitize(raw.data) : this.options.defaults();
-		for (const change of changes) change(data);
-		await this.deps.files.write(name, {
-			schema: 1,
-			owner,
-			data,
-			updatedAt: Date.now()
-		});
-		return data;
-	}
-	/** The chat store writes over the version this tab saw: a newer one from another tab is re-read and replayed. */
-	async writeChat(owner, changes) {
-		for (let attempt = 0; attempt < CHAT_RETRIES; attempt++) {
-			const doc = await this.deps.chat.getFor(owner, this.options.kind, this.options.defaults);
-			const data = this.options.sanitize(jsonCopy$7(doc));
-			for (const change of changes) change(data);
-			const target = doc;
-			for (const field of Object.keys(target)) delete target[field];
-			Object.assign(target, jsonCopy$7(data));
-			if (await this.deps.chat.put(this.options.kind, target)) return data;
-		}
-		throw new Error(`${this.options.kind}: the chat document kept changing in another tab`);
-	}
-};
-//#endregion
 //#region src/domain/agents/templates.ts
 var RECENT = (count) => ({
 	id: "messages",
@@ -43718,6 +44128,27 @@ var AGENT_TEMPLATES = [
 		model: { temperature: .6 }
 	},
 	{
+		id: "group-host",
+		group: "player",
+		icon: "fa-people-group",
+		since: "1.34",
+		instruction: "You host a group scene. After the player's message decide who of the group members should answer now: the one addressed or looked at, the one the news concerns, the one with a reason to react — and let someone who has been silent for long speak when the scene allows. Never the same member three times in a row unless addressed.",
+		sources: [
+			{ id: "groupMembers" },
+			{ id: "desScene" },
+			RECENT(8)
+		],
+		trigger: { phase: "manual" },
+		result: {
+			type: "proposals",
+			options: {
+				receivers: ["group.speaker"],
+				max: 1
+			}
+		},
+		model: { temperature: .3 }
+	},
+	{
 		id: "own-mechanic",
 		group: "mechanics",
 		icon: "fa-gauge-high",
@@ -43732,6 +44163,7 @@ var AGENT_TEMPLATES = [
 			{ id: "desScene" },
 			RECENT(6)
 		],
+		tools: ["roll"],
 		trigger: {
 			phase: "schedule",
 			everyMessages: 2
@@ -43764,6 +44196,7 @@ function templateById(id) {
 /** A new own agent from a template (name translated by the caller). */
 function agentFromTemplate(template, name, id, now, capabilities) {
 	const sources = template.sources.map((source) => ({ ...source }));
+	const tools = template.tools ? [...template.tools] : void 0;
 	const result = JSON.parse(JSON.stringify(template.result));
 	const def = {
 		v: 1,
@@ -43780,10 +44213,12 @@ function agentFromTemplate(template, name, id, now, capabilities) {
 		model: { ...template.model ?? {} },
 		capabilities: capabilities({
 			result,
-			sources
+			sources,
+			...tools ? { tools } : {}
 		}),
 		updatedAt: now
 	};
+	if (tools) def.tools = tools;
 	if (template.vars) def.vars = { ...template.vars };
 	return def;
 }
@@ -43853,6 +44288,826 @@ var BUILTIN_SETS = [
 	}
 ];
 var DEFAULT_SET_ID = "as-1-27";
+//#endregion
+//#region src/domain/agents/builtin.ts
+var ADDITION_HEADER = "Additional instructions from the player (follow them as long as they do not change the required answer format):";
+function textHash(text) {
+	return stableHash(text);
+}
+function isDict$123(value) {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+/** Turns stored data into an override; null when it says nothing. */
+function sanitizeOverride(raw) {
+	if (!isDict$123(raw)) return null;
+	const out = { mode: raw.mode === "addition" || raw.mode === "full" ? raw.mode : "default" };
+	if (typeof raw.addition === "string" && raw.addition.trim()) out.addition = raw.addition.slice(0, 8e3);
+	if (typeof raw.full === "string" && raw.full.trim()) out.full = raw.full.slice(0, 4e4);
+	if (typeof raw.baseHash === "string") out.baseHash = raw.baseHash;
+	if (typeof raw.baseText === "string") out.baseText = raw.baseText.slice(0, 4e4);
+	if (typeof raw.temperature === "number" && Number.isFinite(raw.temperature)) out.temperature = Math.min(2, Math.max(0, raw.temperature));
+	if (typeof raw.maxTokens === "number" && Number.isFinite(raw.maxTokens)) out.maxTokens = Math.round(Math.min(16e3, Math.max(50, raw.maxTokens)));
+	if (raw.reasoning === "off" || raw.reasoning === "low" || raw.reasoning === "medium" || raw.reasoning === "high") out.reasoning = raw.reasoning;
+	return (out.mode === "default" || out.mode === "addition" && !out.addition || out.mode === "full" && !out.full) && out.temperature === void 0 && out.maxTokens === void 0 && out.reasoning === void 0 && !out.addition && !out.full ? null : out;
+}
+/** The instruction the request will carry instead of the default text. */
+function effectiveInstruction(defaultText, override) {
+	if (!override) return defaultText;
+	if (override.mode === "full" && override.full?.trim()) return override.full;
+	if (override.mode === "addition" && override.addition?.trim()) return `${defaultText}\n\n${ADDITION_HEADER}\n${override.addition.trim()}`;
+	return defaultText;
+}
+/**
+* Puts the user's instruction into a request: the first message holding the default text gets it in its place; when
+* no message holds it (the module changed its text), the addition or the full text goes as a system message right
+* before the last message. Nothing changes without an instruction override.
+*/
+function applyInstruction(messages, defaultTexts, override) {
+	if (!override || override.mode === "default") return {
+		messages: [...messages],
+		placed: "unchanged"
+	};
+	if (override.mode === "addition" && !override.addition?.trim()) return {
+		messages: [...messages],
+		placed: "unchanged"
+	};
+	if (override.mode === "full" && !override.full?.trim()) return {
+		messages: [...messages],
+		placed: "unchanged"
+	};
+	for (const text of defaultTexts) {
+		if (!text) continue;
+		const index = messages.findIndex((message) => message.content.includes(text));
+		if (index < 0) continue;
+		const out = messages.map((message) => ({ ...message }));
+		const target = out[index];
+		target.content = target.content.replace(text, () => effectiveInstruction(text, override));
+		return {
+			messages: out,
+			placed: "replaced"
+		};
+	}
+	const extra = override.mode === "full" ? override.full ?? "" : `${ADDITION_HEADER}\n${(override.addition ?? "").trim()}`;
+	const out = messages.map((message) => ({ ...message }));
+	out.splice(Math.max(0, out.length - 1), 0, {
+		role: "system",
+		content: extra
+	});
+	return {
+		messages: out,
+		placed: "appended"
+	};
+}
+/** The default text changed since the user's full text was made from it. */
+function defaultChanged(override, defaultText) {
+	return Boolean(override?.mode === "full" && override.baseHash && override.baseHash !== textHash(defaultText));
+}
+//#endregion
+//#region src/features/agents/builtin-runtime.ts
+function builtinName(app, spec) {
+	return app.i18n.t(`m44.bi.${spec.id}.title`);
+}
+function errorOf(result) {
+	if (result.refusal) return "refusal";
+	switch (result.error) {
+		case "cap": return "cap";
+		case "no-profile":
+		case "no-cm": return "no-profile";
+		case "aborted": return "aborted";
+		case "parse": return "parse";
+		case "length": return "length";
+		case "empty": return "empty";
+		default: return result.error?.startsWith("transport") || result.error === "breaker-open" ? "transport" : "other";
+	}
+}
+/** The request with the user's changes of a built-in agent; the same object when there are none. */
+function interceptBuiltin(request, store) {
+	const spec = builtInAgent(request.task);
+	if (!spec) return request;
+	const override = store.builtinOverride(spec.id);
+	if (!override) return request;
+	let defaults;
+	try {
+		defaults = spec.defaultInstructions();
+	} catch {
+		defaults = [];
+	}
+	const applied = applyInstruction(request.messages, defaults, override);
+	const next = { ...request };
+	if (applied.placed !== "unchanged") next.messages = applied.messages;
+	if (override.temperature !== void 0) next.temperature = override.temperature;
+	if (override.maxTokens !== void 0) next.maxTokens = override.maxTokens;
+	if (override.reasoning !== void 0) next.reasoning = override.reasoning;
+	return next;
+}
+/** Release 1.34: the instruction and parameters of a built-in agent on a neighbour's own channel. */
+function ownChannelInstruction(store, id, defaultText) {
+	const override = builtInAgent(id) ? store.builtinOverride(id) : void 0;
+	if (!override) return { text: defaultText };
+	const first = applyInstruction([{
+		role: "system",
+		content: defaultText
+	}], [defaultText], override).messages[0];
+	const out = { text: typeof first?.content === "string" ? first.content : defaultText };
+	if (override.temperature !== void 0) out.temperature = override.temperature;
+	if (override.maxTokens !== void 0) out.maxTokens = override.maxTokens;
+	if (override.reasoning !== void 0) out.reasoning = override.reasoning;
+	return out;
+}
+/** Release 1.34: a neighbour's run on its own channel into the run log. */
+function reportedRun(app, spec, report, now = Date.now) {
+	const ms = Math.max(0, Number(report.ms) || 0);
+	const startedAt = now() - ms;
+	const run = {
+		id: `${startedAt.toString(36)}-n${Math.floor(Math.random() * 1e6).toString(36)}`,
+		agentId: spec.id,
+		agentName: builtinName(app, spec),
+		chatId: app.host.chatId(),
+		phase: spec.interactive ? "manual" : "schedule",
+		reason: "builtin",
+		startedAt,
+		ms,
+		ok: report.ok === true,
+		builtin: true
+	};
+	if (!run.ok) run.error = "other";
+	if (typeof report.costUsd === "number") run.costUsd = report.costUsd;
+	if (report.tokens) run.tokens = report.tokens;
+	if (Array.isArray(report.request)) run.request = report.request.filter((m) => typeof m?.content === "string").map((m) => ({
+		role: String(m.role),
+		content: m.content.slice(0, 2e4)
+	}));
+	if (typeof report.raw === "string") run.raw = report.raw.slice(0, 2e4);
+	return run;
+}
+function installBuiltinRuntime(app, store, state, now = Date.now) {
+	return app.llm.addInterceptor?.({
+		before: (request) => interceptBuiltin(request, store),
+		after: (request, result, ms) => {
+			const spec = builtInAgent(request.task);
+			if (!spec) return;
+			const startedAt = now() - ms;
+			const run = {
+				id: `${startedAt.toString(36)}-${Math.floor(Math.random() * 1e6).toString(36)}`,
+				agentId: spec.id,
+				agentName: builtinName(app, spec),
+				chatId: app.host.chatId(),
+				phase: spec.interactive ? "manual" : "schedule",
+				reason: "builtin",
+				startedAt,
+				ms,
+				ok: result.ok,
+				builtin: true,
+				request: request.messages.map((message) => ({
+					role: message.role,
+					content: message.content
+				}))
+			};
+			if (!result.ok) run.error = errorOf(result);
+			if (result.costUsd !== void 0) run.costUsd = result.costUsd;
+			if (result.tokens) run.tokens = result.tokens;
+			if (result.text !== void 0) run.raw = result.text.slice(0, 2e4);
+			if (result.ok && result.data !== void 0 && typeof result.data !== "string") run.result = result.data;
+			state.addRun(run);
+		}
+	}) ?? (() => void 0);
+}
+//#endregion
+//#region src/features/agents/group-host.ts
+var SPEAKER_KIND = "group.speaker";
+var fold$2 = (text) => text.trim().toLowerCase().replace(/ё/g, "е");
+/** The open group with its enabled members (null outside a group chat). */
+function currentGroup(app) {
+	try {
+		const ctx = app.host.ctx();
+		if (!ctx.groupId) return null;
+		const group = (ctx.groups ?? []).find((item) => item.id === ctx.groupId);
+		if (!group) return null;
+		const disabled = new Set(group.disabled_members ?? []);
+		const characters = ctx.characters ?? [];
+		const members = group.members.filter((avatar) => !disabled.has(avatar)).map((avatar) => {
+			const chid = characters.findIndex((character) => character.avatar === avatar);
+			const character = characters[chid];
+			const description = String(character?.data?.description ?? character?.description ?? "");
+			return {
+				name: String(character?.name ?? ""),
+				chid,
+				description
+			};
+		}).filter((member) => member.chid >= 0 && member.name);
+		return {
+			id: group.id,
+			name: group.name,
+			manual: Number(group.activation_strategy ?? 0) === 2,
+			members
+		};
+	} catch {
+		return null;
+	}
+}
+/** The source «Участники группы»: who may speak, a line about each. */
+var GROUP_MEMBERS_SOURCE = {
+	id: "groupMembers",
+	labelKey: "m44.src.groupMembers",
+	title: "Members of the group who may speak next",
+	budget: 2e3,
+	stable: true,
+	render: (ctx, budget) => {
+		const group = currentGroup(ctx.app);
+		if (!group) return "";
+		const per = Math.max(80, Math.floor(budget / Math.max(1, group.members.length)) - 40);
+		return group.members.map((member) => `- ${member.name}: ${member.description.replace(/\s+/g, " ").slice(0, per)}`).join("\n").slice(0, budget);
+	}
+};
+/** The receiver: the member to answer next; applied at once (ST generates the reply). */
+function installGroupHost(app, log, deps) {
+	const t = (key, params) => app.i18n.t(key, params);
+	const speak = async (raw) => {
+		const payload = raw;
+		const group = currentGroup(app);
+		if (!group || group.id !== payload.groupId) throw new Error(t("m44.group.otherChat"));
+		const member = group.members.find((item) => fold$2(item.name) === fold$2(payload.name));
+		if (!member) throw new Error(t("m44.group.noMember", { name: payload.name }));
+		const generate = app.host.ctx().generate;
+		if (typeof generate !== "function") throw new Error(t("m44.group.noGenerate"));
+		Promise.resolve(generate("normal", { force_chid: member.chid })).catch((error) => log.warn("group host: the member did not answer", error));
+	};
+	let busy = false;
+	const onSent = async () => {
+		if (!currentGroup(app)?.manual || busy || !app.leader.isLeader()) return;
+		const host = deps.hosts()[0];
+		if (!host) return;
+		busy = true;
+		try {
+			const index = (app.host.ctx().chat?.length ?? 1) - 1;
+			await deps.run(host.id, index);
+		} catch (error) {
+			log.warn("group host failed", error);
+		} finally {
+			busy = false;
+		}
+	};
+	return [registerProposalReceiver({
+		kind: SPEAKER_KIND,
+		module: "agents",
+		labelKey: "m44.recv.group.speaker",
+		describe: "who of the group members (listed in the sources) should answer the player now, by the scene: who was addressed, who has a reason to react, who has been silent too long. name: exactly as listed. One item.",
+		schema: {
+			type: "object",
+			properties: { name: { type: "string" } },
+			required: ["name"]
+		},
+		defaultAutonomy: "auto",
+		direct: true,
+		available: () => currentGroup(app)?.manual === true,
+		toProposal: (data) => {
+			const group = currentGroup(app);
+			const name = typeof data.name === "string" ? data.name.trim() : "";
+			if (!group || !name) return null;
+			const member = group.members.find((item) => fold$2(item.name) === fold$2(name));
+			if (!member) return null;
+			return {
+				module: "agents",
+				kind: SPEAKER_KIND,
+				title: t("m44.group.speaks", { name: member.name }),
+				changes: [],
+				payload: {
+					name: member.name,
+					groupId: group.id
+				},
+				apply: speak
+			};
+		},
+		apply: speak
+	}), app.host.events.on("MESSAGE_SENT", () => void onSent())];
+}
+//#endregion
+//#region src/domain/user-images.ts
+function userImageUrl(path) {
+	return `/${path.replace(/\\/g, "/").replace(/^\/+/, "").split("/").map(encodeURIComponent).join("/")}`;
+}
+var AB_JOB_KEY = "agents:ab-illustrator";
+/** The illustrator is not worse: it won at least as often as the main model. */
+function abVerdict(summary) {
+	if (summary.agent > summary.main) return "agent";
+	if (summary.agent < summary.main) return "main";
+	return "tie";
+}
+function summarize(pairs, agentName, at) {
+	const chosen = pairs.filter((pair) => pair.choice);
+	return {
+		at,
+		agentName,
+		total: chosen.length,
+		agent: chosen.filter((pair) => pair.choice === "agent").length,
+		main: chosen.filter((pair) => pair.choice === "main").length,
+		same: chosen.filter((pair) => pair.choice === "same").length
+	};
+}
+/** Replies of the chat with a marker of the main model (not the illustrator's), newest first, at most `max`. */
+function candidateReplies(app, max = 20) {
+	const nai = adaptersOf(app).nai;
+	const chat = app.host.ctx().chat ?? [];
+	const out = [];
+	for (let i = chat.length - 1; i >= 0 && out.length < max; i--) {
+		const message = chat[i];
+		if (!message || message.is_user || message.is_system) continue;
+		const first = nai.messageMarkers(i).find((item) => item.by !== "illustrator" && typeof item.marker.prompt === "string");
+		if (first) out.push({
+			index: i,
+			marker: first.marker
+		});
+	}
+	return out;
+}
+/**
+* Builds the pairs: the illustrator's marker for each reply (a test run), then both pictures drawn free only. A reply
+* the illustrator answers without a picture, or a picture that fails, is skipped. Stops on the signal.
+*/
+async function buildPairs(app, log, runner, def, options) {
+	const nai = adaptersOf(app).nai;
+	const random = options.random ?? Math.random;
+	const candidates = candidateReplies(app);
+	const pairs = [];
+	const failures = /* @__PURE__ */ new Set();
+	let done = 0;
+	options.onProgress({
+		done,
+		total: candidates.length
+	});
+	for (const candidate of candidates) {
+		if (options.signal.aborted) break;
+		try {
+			const outcome = await runner.run({
+				def,
+				phase: "manual",
+				reason: "ab",
+				focusIndex: candidate.index,
+				test: true,
+				signal: options.signal
+			});
+			const output = outcome.output;
+			const marker = (output?.type === "proposals" ? output.items.find((entry) => entry.kind === "nai.illustrate" && typeof entry.data.marker?.prompt === "string") : void 0)?.data.marker;
+			if (!marker && !options.signal.aborted) failures.add(outcome.run.ok ? "no-picture" : "agent");
+			if (marker && !options.signal.aborted) {
+				const main = await nai.drawPicture({
+					marker: candidate.marker,
+					freeOnly: true,
+					name: "ab",
+					signal: options.signal
+				});
+				const agent = main.ok ? await nai.drawPicture({
+					marker,
+					freeOnly: true,
+					name: "ab",
+					signal: options.signal
+				}) : main;
+				if (main.ok && main.path && agent.ok && agent.path) pairs.push({
+					messageIndex: candidate.index,
+					main: {
+						path: main.path,
+						prompt: String(candidate.marker.prompt)
+					},
+					agent: {
+						path: agent.path,
+						prompt: String(marker.prompt)
+					},
+					agentLeft: random() < .5
+				});
+				else {
+					const error = (main.ok ? agent.error : main.error) ?? "failed";
+					failures.add(error);
+					log.info(`blind comparison: reply ${candidate.index} not drawn (${error})`);
+				}
+			}
+		} catch (error) {
+			failures.add("failed");
+			log.warn(`blind comparison: reply ${candidate.index} failed`, error);
+		}
+		done += 1;
+		options.onProgress({
+			done,
+			total: candidates.length
+		});
+	}
+	return {
+		pairs,
+		failures: [...failures]
+	};
+}
+//#endregion
+//#region src/features/agents/view-images.ts
+var IMAGES_TAB = "agents-images";
+/** The NAI adapter, or undefined when adapters are not there (tests, a failed start). */
+function naiOf(app) {
+	try {
+		return adaptersOf(app).nai ?? void 0;
+	} catch {
+		return;
+	}
+}
+/** The illustrator agents: an own agent that proposes `nai.illustrate`; the one that is on first. */
+function illustratorAgents(store) {
+	const states = store.states();
+	return store.list().filter((def) => def.result.type === "proposals" && def.result.options.receivers.includes("nai.illustrate")).sort((a, b) => Number(states.get(b.id)?.on === true) - Number(states.get(a.id)?.on === true));
+}
+function imagesTab(deps) {
+	const { app } = deps;
+	const t = (key, params) => app.i18n.t(key, params);
+	let session = null;
+	const listeners = /* @__PURE__ */ new Set();
+	const changed = () => listeners.forEach((listener) => listener());
+	const start = (def) => {
+		const job = app.jobs?.start({
+			key: AB_JOB_KEY,
+			title: t("m44.ab.job", { name: def.name }),
+			module: "agents",
+			cancellable: true,
+			open: {
+				label: t("m44.ab.open"),
+				run: () => app.ui.openWindow?.("agents", { tab: IMAGES_TAB })
+			}
+		});
+		if (!job) return;
+		const controller = new AbortController();
+		job.signal.addEventListener("abort", () => controller.abort());
+		session = {
+			agentName: def.name,
+			pairs: [],
+			position: 0,
+			building: true,
+			progress: {
+				done: 0,
+				total: 0
+			},
+			failures: [],
+			controller
+		};
+		const current = session;
+		changed();
+		buildPairs(app, deps.log, deps.runner, def, {
+			signal: controller.signal,
+			onProgress: (progress) => {
+				current.progress = progress;
+				job.progress(progress.done, progress.total, t("m44.ab.progress", { ...progress }));
+				changed();
+			}
+		}).then(({ pairs, failures }) => {
+			current.pairs = pairs;
+			current.failures = failures;
+			current.building = false;
+			current.controller = null;
+			job.finish(t("m44.ab.ready", { count: pairs.length }), { cancelled: controller.signal.aborted });
+			changed();
+		}).catch((error) => {
+			current.building = false;
+			current.controller = null;
+			job.fail(error instanceof Error ? error.message : String(error));
+			changed();
+		});
+	};
+	const choose = (choice) => {
+		const current = session;
+		const pair = current?.pairs[current.position];
+		if (!current || !pair) return;
+		pair.choice = choice;
+		current.position += 1;
+		if (current.position >= current.pairs.length) deps.save({ abLast: summarize(current.pairs, current.agentName, Date.now()) });
+		changed();
+	};
+	/** NAI Studio's codes in the user's words («стоило бы Anlas», …). */
+	const failureText = (codes) => codes.map((code) => {
+		if (/free-only|cost|anlas/i.test(code)) return t("m44.ab.why.cost");
+		if (code === "no-picture") return t("m44.ab.why.noPicture");
+		if (code === "agent") return t("m44.ab.why.agent");
+		if (code === "aborted") return t("m44.ab.why.aborted");
+		return code;
+	}).filter((text, index, all) => all.indexOf(text) === index).join("; ") || t("m44.ab.why.unknown");
+	const writerSection = () => {
+		const nai = naiOf(app);
+		const writer = nai?.markerWriter() ?? null;
+		const parts = [el("div", {
+			class: "maestro-hint",
+			text: t("m44.images.hint")
+		})];
+		if (!nai?.canIllustrate()) parts.push(banner(t("m44.images.needNai"), "warn"));
+		else if (writer) parts.push(field$2(t("m44.images.writer"), select({
+			label: t("m44.images.writer"),
+			value: writer.setting,
+			options: [
+				"main",
+				"illustrator",
+				"fallback"
+			].map((value) => ({
+				value,
+				label: t(`m44.images.writer.${value}`)
+			})),
+			onChange: (value) => {
+				nai.setMarkerWriter(value);
+				deps.syncIllustrator();
+				changed();
+			}
+		}), t("m44.images.writerNow", { now: t(`m44.images.writer.${writer.effective}`) })));
+		parts.push(toggle({
+			label: t("m44.images.paid"),
+			checked: deps.settings().imagesPaid === true,
+			hint: t("m44.images.paidHint"),
+			onChange: (checked) => {
+				deps.save({ imagesPaid: checked });
+				changed();
+			}
+		}));
+		return section$3(t("m44.images.title"), parts);
+	};
+	const picture = (path, label) => {
+		const img = el("img", {
+			class: "maestro-ab-img",
+			title: label
+		});
+		img.src = userImageUrl(path);
+		img.alt = label;
+		return el("figure", { class: "maestro-ab-pic" }, [img, el("figcaption", { text: label })]);
+	};
+	const comparisonSection = () => {
+		const parts = [el("div", {
+			class: "maestro-hint",
+			text: t("m44.ab.hint")
+		})];
+		const last = deps.settings().abLast;
+		if (last) parts.push(el("div", {
+			class: "maestro-ab-last",
+			text: t(`m44.ab.last.${abVerdict(last)}`, {
+				name: last.agentName,
+				agent: last.agent,
+				main: last.main,
+				same: last.same,
+				total: last.total
+			})
+		}));
+		const current = session;
+		if (current?.building) {
+			parts.push(el("div", { text: t("m44.ab.progress", { ...current.progress }) }), button({
+				label: t("m44.ab.stop"),
+				icon: "fa-stop",
+				onClick: () => {
+					if (!app.jobs?.cancel("agents:ab-illustrator")) current.controller?.abort();
+				}
+			}));
+			return section$3(t("m44.ab.title"), parts);
+		}
+		const pair = current?.pairs[current.position];
+		if (current && pair) {
+			const left = pair.agentLeft ? pair.agent : pair.main;
+			const right = pair.agentLeft ? pair.main : pair.agent;
+			parts.push(el("div", {
+				class: "maestro-muted",
+				text: t("m44.ab.pair", {
+					n: current.position + 1,
+					total: current.pairs.length,
+					message: pair.messageIndex
+				})
+			}), el("div", { class: "maestro-ab-row" }, [picture(left.path, t("m44.ab.left")), picture(right.path, t("m44.ab.right"))]), el("div", { class: "maestro-ab-actions" }, [
+				button({
+					label: t("m44.ab.pickLeft"),
+					onClick: () => choose(pair.agentLeft ? "agent" : "main")
+				}),
+				button({
+					label: t("m44.ab.same"),
+					onClick: () => choose("same")
+				}),
+				button({
+					label: t("m44.ab.pickRight"),
+					onClick: () => choose(pair.agentLeft ? "main" : "agent")
+				})
+			]));
+			return section$3(t("m44.ab.title"), parts);
+		}
+		if (current && current.pairs.length && current.position >= current.pairs.length) {
+			const summary = summarize(current.pairs, current.agentName, Date.now());
+			parts.push(banner(t(`m44.ab.result.${abVerdict(summary)}`, {
+				agent: summary.agent,
+				main: summary.main,
+				same: summary.same,
+				total: summary.total
+			}), abVerdict(summary) === "main" ? "warn" : "info"));
+		}
+		if (current && !current.building && !current.pairs.length) parts.push(banner(t("m44.ab.empty", { reasons: failureText(current.failures) }), "warn"));
+		const def = illustratorAgents(deps.store)[0];
+		const candidates = naiOf(app)?.canDrawPicture() ? candidateReplies(app).length : 0;
+		if (!def) parts.push(emptyState$1(t("m44.ab.noAgent"), "fa-palette"));
+		else if (!candidates) parts.push(emptyState$1(t("m44.ab.noReplies"), "fa-image"));
+		else parts.push(el("div", {
+			class: "maestro-muted",
+			text: t("m44.ab.cost", { count: candidates })
+		}), button({
+			label: t("m44.ab.start", { name: def.name }),
+			icon: "fa-scale-balanced",
+			onClick: () => start(def)
+		}));
+		return section$3(t("m44.ab.title"), parts);
+	};
+	return {
+		id: IMAGES_TAB,
+		titleKey: "m44.tab.images",
+		icon: "fa-image",
+		order: 65,
+		group: deps.group,
+		render(container) {
+			const paint = () => {
+				clear(container);
+				container.append(writerSection(), comparisonSection());
+			};
+			listeners.add(paint);
+			const offStore = deps.store.onChange(paint);
+			paint();
+			return () => {
+				listeners.delete(paint);
+				offStore();
+			};
+		}
+	};
+}
+var IMAGES_CSS = `
+.maestro-ab-row { display: flex; gap: 8px; }
+.maestro-ab-pic { flex: 1 1 0; margin: 0; text-align: center; min-width: 0; }
+.maestro-ab-img { width: 100%; max-height: 360px; object-fit: contain; border-radius: 6px; background: var(--black30a, rgba(0,0,0,.3)); }
+.maestro-ab-actions { display: flex; gap: 6px; justify-content: center; margin-top: 6px; flex-wrap: wrap; }
+.maestro-ab-last { margin: 4px 0; }
+`;
+//#endregion
+//#region src/core/scoped-docs.ts
+var EMPTY_SCOPE_CONTEXT = Object.freeze({
+	avatar: null,
+	characterName: null,
+	chatId: null
+});
+/** The scopes of the chat open now; a group chat (or no chat) has none. */
+function currentScopeContext(host) {
+	try {
+		if (host.isGroupChat()) return { ...EMPTY_SCOPE_CONTEXT };
+		const ctx = host.ctx();
+		const chatId = host.chatId();
+		const id = ctx.characterId;
+		const card = id === void 0 || id === "" ? void 0 : ctx.characters[Number(id)];
+		const avatar = typeof card?.avatar === "string" && card.avatar ? card.avatar : null;
+		const name = typeof card?.name === "string" && card.name ? card.name : null;
+		return {
+			avatar,
+			characterName: avatar ? name : null,
+			chatId: chatId || null
+		};
+	} catch {
+		return { ...EMPTY_SCOPE_CONTEXT };
+	}
+}
+function sameScopeContext(a, b) {
+	return (a?.avatar ?? null) === (b?.avatar ?? null) && (a?.chatId ?? null) === (b?.chatId ?? null);
+}
+/** The owner of a scope in a context (the avatar or the chat id), null when the context has no such scope. */
+function scopeOwner(context, scope) {
+	if (!context) return null;
+	return scope === "character" ? context.avatar : context.chatId;
+}
+function isDict$122(value) {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+/** How many times a chat document write is retried after another tab wrote a newer version. */
+var CHAT_RETRIES = 3;
+var ScopedDocs = class {
+	deps;
+	options;
+	memory = /* @__PURE__ */ new Map();
+	pending = /* @__PURE__ */ new Map();
+	loads = /* @__PURE__ */ new Map();
+	chains = /* @__PURE__ */ new Map();
+	constructor(deps, options) {
+		this.deps = deps;
+		this.options = options;
+	}
+	key(scope, owner) {
+		return `${scope}\u0000${owner}`;
+	}
+	fileName(owner) {
+		return this.deps.files.fileName(`${this.options.kind}-char`, owner);
+	}
+	/** Loads the documents of a context (both scopes) that are not in memory yet. */
+	async load(context) {
+		const jobs = [];
+		if (context?.avatar) jobs.push(this.loadOne("character", context.avatar));
+		if (context?.chatId) jobs.push(this.loadOne("chat", context.chatId));
+		await Promise.all(jobs);
+	}
+	/** Reads one document (again, with `force`) into memory; changes made meanwhile stay on top. */
+	loadOne(scope, owner, force = false) {
+		const key = this.key(scope, owner);
+		if (!force && this.memory.has(key)) return Promise.resolve();
+		const running = this.loads.get(key);
+		if (running && !force) return running;
+		const job = (async () => {
+			try {
+				const data = await this.read(scope, owner);
+				for (const change of this.pending.get(key) ?? []) change(data);
+				this.memory.set(key, data);
+			} catch (error) {
+				this.deps.log.warn(`${this.options.kind}: the ${scope} document could not be read`, error);
+				if (!this.memory.has(key)) this.memory.set(key, this.options.defaults());
+			}
+		})();
+		this.loads.set(key, job);
+		job.finally(() => {
+			if (this.loads.get(key) === job) this.loads.delete(key);
+		});
+		return job;
+	}
+	/** True when the document is in memory (loaded or changed in this session). */
+	has(scope, owner) {
+		return this.memory.has(this.key(scope, owner));
+	}
+	/** The document in memory (undefined when it was never loaded). Do not change it: use mutate(). */
+	get(scope, owner) {
+		return this.memory.get(this.key(scope, owner));
+	}
+	/** Changes a document now (memory) and writes it (fresh read, the change replayed on it). */
+	async mutate(scope, owner, change) {
+		const key = this.key(scope, owner);
+		if (!this.memory.has(key)) await this.loadOne(scope, owner);
+		const next = jsonCopy$7(this.memory.get(key) ?? this.options.defaults());
+		change(next);
+		this.memory.set(key, next);
+		const list = this.pending.get(key) ?? [];
+		list.push(change);
+		this.pending.set(key, list);
+		await this.serial(key, () => this.write(scope, owner));
+	}
+	/** Waits for the writes in flight. */
+	async flush() {
+		await Promise.all([...this.chains.values()].map((chain) => chain.catch(() => void 0)));
+	}
+	/** Forgets what is in memory (another feature instance, tests). */
+	clear() {
+		this.memory.clear();
+	}
+	serial(key, job) {
+		const next = (this.chains.get(key) ?? Promise.resolve()).then(job, job);
+		const settled = next.catch(() => void 0);
+		this.chains.set(key, settled);
+		settled.then(() => {
+			if (this.chains.get(key) === settled) this.chains.delete(key);
+		});
+		return next;
+	}
+	async read(scope, owner) {
+		if (scope === "chat") {
+			const doc = await this.deps.chat.getFor(owner, this.options.kind, this.options.defaults);
+			return this.options.sanitize(jsonCopy$7(doc));
+		}
+		const raw = await readFresh(this.deps.files, this.fileName(owner));
+		if (!isDict$122(raw) || raw.owner !== owner) return this.options.defaults();
+		return this.options.sanitize(raw.data);
+	}
+	/** Writes every queued change of one document. */
+	async write(scope, owner) {
+		const key = this.key(scope, owner);
+		const changes = this.pending.get(key) ?? [];
+		if (!changes.length) return;
+		this.pending.delete(key);
+		try {
+			const memory = jsonCopy$7(scope === "chat" ? await this.writeChat(owner, changes) : await this.writeFile(owner, changes));
+			for (const change of this.pending.get(key) ?? []) change(memory);
+			this.memory.set(key, memory);
+		} catch (error) {
+			this.pending.set(key, [...changes, ...this.pending.get(key) ?? []]);
+			this.deps.log.error(`${this.options.kind}: the ${scope} document could not be saved`, error);
+			this.options.onError?.(scope, owner, error);
+		}
+	}
+	async writeFile(owner, changes) {
+		const name = this.fileName(owner);
+		const raw = await readFresh(this.deps.files, name);
+		const data = isDict$122(raw) && raw.owner === owner ? this.options.sanitize(raw.data) : this.options.defaults();
+		for (const change of changes) change(data);
+		await this.deps.files.write(name, {
+			schema: 1,
+			owner,
+			data,
+			updatedAt: Date.now()
+		});
+		return data;
+	}
+	/** The chat store writes over the version this tab saw: a newer one from another tab is re-read and replayed. */
+	async writeChat(owner, changes) {
+		for (let attempt = 0; attempt < CHAT_RETRIES; attempt++) {
+			const doc = await this.deps.chat.getFor(owner, this.options.kind, this.options.defaults);
+			const data = this.options.sanitize(jsonCopy$7(doc));
+			for (const change of changes) change(data);
+			const target = doc;
+			for (const field of Object.keys(target)) delete target[field];
+			Object.assign(target, jsonCopy$7(data));
+			if (await this.deps.chat.put(this.options.kind, target)) return data;
+		}
+		throw new Error(`${this.options.kind}: the chat document kept changing in another tab`);
+	}
+};
 //#endregion
 //#region src/features/agents/store.ts
 var AGENTS_FILE = "agents";
@@ -44884,6 +46139,54 @@ var IMAGE_STRINGS = {
 	}
 };
 //#endregion
+//#region src/features/agents/strings-neighbours.ts
+var NEIGHBOUR_STRINGS$2 = {
+	en: {
+		"m44.biGroup.neighbours": "Neighbours (Dramatis, Localizer, NAI Studio…)",
+		"m44.bi.ownChannel": "This agent calls its model on its extension's own channel (chosen there): here you change only its instruction, temperature and length.",
+		"m44.editor.tools": "Tools",
+		"m44.editor.toolsHint": "Before it answers, the agent may call these (up to 3 rounds); each round is one more request to its model. The calls are in the run log.",
+		"m44.tool.roll": "Roll dice",
+		"m44.tool.roll.hint": "By the dice engine of Mechanics: 1d20+3, 2d6, 1d100<=45, 4d6kh3.",
+		"m44.tool.lore_search": "Search the lore",
+		"m44.tool.lore_search.hint": "Entries of the chat canon by words.",
+		"m44.tool.chat_search": "Search the chat",
+		"m44.tool.chat_search.hint": "Older messages of this chat by words.",
+		"m44.log.tools": "Tool calls: {count}",
+		"m44.src.groupMembers": "Members of the group",
+		"m44.recv.group.speaker": "Who of the group answers next",
+		"kind.group.speaker": "The next speaker of a group from agents",
+		"m44.group.speaks": "{name} answers",
+		"m44.group.otherChat": "Another chat is open now.",
+		"m44.group.noMember": "{name} is not a member of this group (or is muted).",
+		"m44.group.noGenerate": "SillyTavern cannot start a reply here.",
+		"m44.tpl.group-host.name": "Group host",
+		"m44.tpl.group-host.desc": "In a group chat picks who answers your message by the scene, not by turn or at random. Set the group's reply order to «Manual» in SillyTavern: then after your message the agent names the member and Maestro starts their reply."
+	},
+	ru: {
+		"m44.biGroup.neighbours": "Соседи (Dramatis, Localizer, NAI Studio…)",
+		"m44.bi.ownChannel": "Этот агент зовёт модель по своему каналу расширения (модель выбирается там): здесь меняются только поручение, температура и длина.",
+		"m44.editor.tools": "Инструменты",
+		"m44.editor.toolsHint": "Перед ответом агент может их вызвать (до 3 кругов); каждый круг — ещё один запрос к его модели. Вызовы видны в журнале запусков.",
+		"m44.tool.roll": "Бросить кубики",
+		"m44.tool.roll.hint": "Движком кубиков «Механик»: 1d20+3, 2d6, 1d100<=45, 4d6kh3.",
+		"m44.tool.lore_search": "Искать в лоре",
+		"m44.tool.lore_search.hint": "Записи канона чата по словам.",
+		"m44.tool.chat_search": "Искать в чате",
+		"m44.tool.chat_search.hint": "Старые сообщения этого чата по словам.",
+		"m44.log.tools": "Вызовы инструментов: {count}",
+		"m44.src.groupMembers": "Участники группы",
+		"m44.recv.group.speaker": "Кто из группы отвечает следующим",
+		"kind.group.speaker": "Следующий говорящий группы от агентов",
+		"m44.group.speaks": "Отвечает {name}",
+		"m44.group.otherChat": "Сейчас открыт другой чат.",
+		"m44.group.noMember": "{name} не в этой группе (или выключен).",
+		"m44.group.noGenerate": "SillyTavern не может запустить ответ здесь.",
+		"m44.tpl.group-host.name": "Ведущий группы",
+		"m44.tpl.group-host.desc": "В групповом чате выбирает, кто ответит на твоё сообщение, — по сцене, а не по кругу или случайно. В SillyTavern поставь группе порядок ответов «Вручную»: тогда после твоего сообщения агент назовёт участника, и Maestro запустит его ответ."
+	}
+};
+//#endregion
 //#region src/features/agents/strings-trackers.ts
 var TRACKER_STRINGS = {
 	en: {
@@ -45027,6 +46330,7 @@ var AGENTS_STRINGS = {
 		...RECEIVER_STRINGS.en,
 		...TRACKER_STRINGS.en,
 		...IMAGE_STRINGS.en,
+		...NEIGHBOUR_STRINGS$2.en,
 		"m44.title": "Agents",
 		"m44.profileDefault": "Agents (default for your own agents)",
 		"m44.profileGate": "Agents: the «is it needed now?» question (a cheap model)",
@@ -45366,6 +46670,7 @@ var AGENTS_STRINGS = {
 		...RECEIVER_STRINGS.ru,
 		...TRACKER_STRINGS.ru,
 		...IMAGE_STRINGS.ru,
+		...NEIGHBOUR_STRINGS$2.ru,
 		"m44.title": "Агенты",
 		"m44.profileDefault": "Агенты (по умолчанию для твоих агентов)",
 		"m44.profileGate": "Агенты: вопрос «нужен ли сейчас» (дешёвая модель)",
@@ -46336,12 +47641,40 @@ var AgentEditor = class {
 				text: this.t("m44.editor.sourcesHint")
 			}),
 			...rows,
+			...this.toolRows(),
 			el("div", { class: "maestro-actions" }, [button({
 				icon: "fa-magnifying-glass",
 				label: this.t("m44.editor.preview"),
 				onClick: () => this.preview(out)
 			})]),
 			out
+		];
+	}
+	/** Release 1.34: tools the agent may call before it answers. */
+	toolRows() {
+		const draft = this.draft;
+		return [
+			el("div", {
+				class: "maestro-field-label",
+				text: this.t("m44.editor.tools")
+			}),
+			...AGENT_TOOL_IDS.map((id) => toggle({
+				label: this.t(`m44.tool.${id}`),
+				checked: draft.tools?.includes(id) === true,
+				hint: this.t(`m44.tool.${id}.hint`),
+				onChange: (on) => {
+					const next = new Set(draft.tools ?? []);
+					if (on) next.add(id);
+					else next.delete(id);
+					if (next.size) draft.tools = AGENT_TOOL_IDS.filter((tool) => next.has(tool));
+					else delete draft.tools;
+					this.touch();
+				}
+			})),
+			el("div", {
+				class: "maestro-hint",
+				text: this.t("m44.editor.toolsHint")
+			})
 		];
 	}
 	async preview(out) {
@@ -46960,14 +48293,24 @@ function writePath$1(app, module, path, value) {
 	app.settings.save();
 	app.settings.notify(`${module}.${path}`);
 }
-/** Whether the job runs: the module, a boolean setting, or always (no switch). */
+/** Whether the job runs: the module, a boolean setting, or always (no switch); a neighbour's: its own switch. */
 function builtinOn(app, spec) {
+	if (spec.toggle) try {
+		return spec.toggle.get() !== false;
+	} catch {
+		return true;
+	}
+	if (spec.neighbour) return true;
 	if (!app.settings.isModuleEnabled(spec.module)) return false;
 	if (spec.switch && spec.switch !== "module") return readPath$1(app, spec.module, spec.switch.path) !== false;
 	return true;
 }
 async function setBuiltinOn(app, spec, on) {
-	if (!spec.switch) return;
+	if (spec.toggle) {
+		await spec.toggle.set(on);
+		return;
+	}
+	if (!spec.switch || spec.neighbour) return;
 	if (spec.switch === "module") {
 		if (on) await app.modules.enable(spec.module);
 		else await app.modules.disable(spec.module);
@@ -46994,8 +48337,25 @@ var GROUPS$1 = [
 	"quality",
 	"world",
 	"mechanics",
-	"button"
+	"button",
+	"neighbours"
 ];
+/** A knob's value: the neighbour's own getter, else Maestro's settings slice. */
+function knobValue(app, spec, knob) {
+	if (knob.get) try {
+		return knob.get();
+	} catch {
+		return;
+	}
+	return readPath$1(app, spec.module, knob.path);
+}
+function setKnob(app, spec, knob, value) {
+	if (knob.set) {
+		Promise.resolve(knob.set(value)).catch(() => void 0);
+		return;
+	}
+	writePath$1(app, spec.module, knob.path, value);
+}
 function builtinSections(view, repaint) {
 	const specs = builtInAgents();
 	if (!specs.length) return [];
@@ -47014,7 +48374,7 @@ function builtinRow(view, spec, repaint) {
 	const last = runs[runs.length - 1];
 	const changed = Boolean(view.store.builtinOverride(spec.id)) || Boolean(profileOf(app, spec.id));
 	return el("div", { class: ["maestro-agent-row", on ? "maestro-on" : null] }, [
-		spec.switch ? toggle({
+		spec.switch || spec.toggle ? toggle({
 			label: "",
 			checked: on,
 			hint: view.t("m44.bi.toggleHint"),
@@ -47286,7 +48646,10 @@ var BuiltinEditor = class {
 		const app = this.view.app;
 		const profiles = connectionProfiles$1(this.view);
 		return [
-			field$2(this.t("m44.editor.profile"), select({
+			this.spec.channel === "own" ? el("div", {
+				class: "maestro-hint",
+				text: this.t("m44.bi.ownChannel")
+			}) : field$2(this.t("m44.editor.profile"), select({
 				value: profileOf(app, this.spec.id),
 				options: [{
 					value: "",
@@ -47340,7 +48703,7 @@ var BuiltinEditor = class {
 			class: "maestro-hint",
 			text: this.t(`m44.bi.${this.spec.id}.when`)
 		})];
-		if (this.spec.switch) parts.push(toggle({
+		if (this.spec.switch || this.spec.toggle) parts.push(toggle({
 			label: this.t("m44.bi.on"),
 			checked: builtinOn(app, this.spec),
 			onChange: (on) => setBuiltinOn(app, this.spec, on)
@@ -47358,12 +48721,12 @@ var BuiltinEditor = class {
 	}
 	knob(knob) {
 		const app = this.view.app;
-		const value = readPath$1(app, this.spec.module, knob.path);
+		const value = knobValue(app, this.spec, knob);
 		const label = this.t(knob.labelKey);
 		if (knob.kind === "toggle") return toggle({
 			label,
 			checked: value === true,
-			onChange: (on) => writePath$1(app, this.spec.module, knob.path, on)
+			onChange: (on) => setKnob(app, this.spec, knob, on)
 		});
 		if (knob.kind === "select") return field$2(label, select({
 			value: typeof value === "string" ? value : knob.options?.[0]?.value ?? "",
@@ -47371,14 +48734,14 @@ var BuiltinEditor = class {
 				value: option.value,
 				label: this.t(option.labelKey)
 			})),
-			onChange: (next) => writePath$1(app, this.spec.module, knob.path, next)
+			onChange: (next) => setKnob(app, this.spec, knob, next)
 		}));
 		return field$2(label, numberInput({
 			value: typeof value === "number" ? value : knob.min ?? 0,
 			min: knob.min,
 			max: knob.max,
 			step: knob.step,
-			onChange: (next) => writePath$1(app, this.spec.module, knob.path, next)
+			onChange: (next) => setKnob(app, this.spec, knob, next)
 		}));
 	}
 	sourcesTab() {
@@ -48008,6 +49371,10 @@ function logTab(view) {
 								class: "maestro-agent-preview",
 								text: JSON.stringify(run.result, null, 2)
 							}) : null,
+							run.tools?.length ? el("details", {}, [el("summary", { text: view.t("m44.log.tools", { count: run.tools.length }) }), el("pre", {
+								class: "maestro-agent-preview",
+								text: run.tools.map((call) => `${call.name} ${JSON.stringify(call.args)}\n→ ${call.result}`).join("\n\n")
+							})]) : null,
 							run.raw !== void 0 ? el("details", {}, [el("summary", { text: view.t("m44.log.raw") }), el("pre", {
 								class: "maestro-agent-preview",
 								text: run.raw
@@ -48470,6 +49837,7 @@ var agentsModule = {
 		const store = new AgentStore(app, log);
 		const state = new AgentsChatState(app, log);
 		const sources = new SourceRegistry();
+		own(sources.register(GROUP_MEMBERS_SOURCE));
 		const runner = new AgentRunner(app, log, sources, state);
 		const runtime = new AgentRuntime(app, log, store, state, runner);
 		const view = new AgentsView(app, store, state, runtime, runner, sources);
@@ -48482,6 +49850,14 @@ var agentsModule = {
 			const id = typeof change.ref.id === "string" ? change.ref.id : "";
 			return id ? store.undoBuiltin(id, change.before) : false;
 		});
+		for (const off of installGroupHost(app, log.scope("group"), {
+			hosts: () => store.activeAgents().filter(({ def }) => def.result.type === "proposals" && def.result.options.receivers.includes("group.speaker")).map(({ def }) => ({ id: def.id })),
+			run: async (id, index) => {
+				const def = store.get(id);
+				if (!def) return;
+				await runtime.runAgent(def, store.states().get(id), "manual", "group", { focusIndex: index });
+			}
+		})) own(off);
 		const imageSettings = () => app.settings.module(AGENTS_KEY);
 		const saveImageSettings = (patch) => {
 			Object.assign(app.settings.module(AGENTS_KEY), patch);
@@ -48612,7 +49988,47 @@ var agentsModule = {
 			run: async (id, options) => (await runtime.runManual(id, options))?.run ?? null,
 			registerSource: (source) => sources.register(source),
 			onChange: (listener) => store.onChange(listener),
-			imagesPaid: () => imageSettings().imagesPaid === true
+			imagesPaid: () => imageSettings().imagesPaid === true,
+			builtinInstruction: (id, defaultText) => ownChannelInstruction(store, id, defaultText),
+			reportBuiltinRun: (id, report) => {
+				const spec = builtInAgent(id);
+				if (spec) state.addRun(reportedRun(app, spec, report));
+			},
+			save: async (raw, summary) => {
+				const def = sanitizeAgent(raw, Date.now());
+				if (!def) return null;
+				await store.save(def, summary ?? app.i18n.t(store.get(def.id) ? "m44.journal.changed" : "m44.journal.created", { name: def.name }));
+				return def.id;
+			},
+			fromTemplate: (templateId) => {
+				const template = templateById(templateId);
+				if (!template) return void 0;
+				const name = view.templateName(templateId);
+				return agentFromTemplate(template, name, view.newId(name), Date.now(), capabilitiesOf);
+			},
+			setState: (scope, id, patch) => store.setAgentState(scope, id, patch),
+			sets: () => store.sets(),
+			saveSet: (set) => store.saveSet(set),
+			applySet: (scope, setId) => store.applySet(scope, setId, (templateId) => view.templateName(templateId), (name) => view.newId(name)),
+			test: async (id, options = {}) => {
+				const def = store.get(id);
+				if (!def) return null;
+				const outcome = await runner.run({
+					def,
+					state: store.states().get(id),
+					phase: "manual",
+					reason: "test",
+					test: true,
+					...options.messageIndex !== void 0 ? { focusIndex: options.messageIndex } : {}
+				});
+				return outcome.output ? {
+					run: outcome.run,
+					output: outcome.output
+				} : { run: outcome.run };
+			},
+			onRun: (listener) => state.onRun(listener),
+			builtinOverride: (id) => store.builtinOverride(id),
+			setBuiltinOverride: (id, override, summary) => store.setBuiltinOverride(id, override, summary)
 		});
 		store.load().then(async () => {
 			syncIllustrator();
@@ -49740,7 +51156,7 @@ function activationKey(world, uid) {
 }
 /** The four lists of a WORLDINFO_ENTRIES_LOADED payload; null when the payload does not look like one. */
 function listsOf(payload) {
-	if (!isDict$152(payload)) return null;
+	if (!isDict$153(payload)) return null;
 	const lists = {};
 	for (const name of LIST_NAMES) {
 		const list = payload[name];
@@ -49767,8 +51183,8 @@ function stripCanonBooks(lists) {
 	return [...found].sort();
 }
 function isOwnCopy(entry) {
-	const extensions = isDict$152(entry?.extensions) ? entry.extensions : void 0;
-	return typeof (isDict$152(extensions?.maestro) ? extensions.maestro : void 0)?.canonUid === "number";
+	const extensions = isDict$153(entry?.extensions) ? entry.extensions : void 0;
+	return typeof (isDict$153(extensions?.maestro) ? extensions.maestro : void 0)?.canonUid === "number";
 }
 function findBase(lists, world, uid) {
 	for (const name of LIST_NAMES) {
@@ -49782,13 +51198,13 @@ function findBase(lists, world, uid) {
 	return null;
 }
 function markerOf(entry) {
-	const extensions = isDict$152(entry.extensions) ? entry.extensions : void 0;
-	return isDict$152(extensions?.maestro) ? extensions.maestro : void 0;
+	const extensions = isDict$153(entry.extensions) ? entry.extensions : void 0;
+	return isDict$153(extensions?.maestro) ? extensions.maestro : void 0;
 }
 /** The scan copy of an addition: a fresh object with fresh arrays, in the canon book's name. */
 function additionCopy(item, canonBook) {
 	const copy = copyValue$2(item.entry);
-	const extensions = isDict$152(copy.extensions) ? copy.extensions : {};
+	const extensions = isDict$153(copy.extensions) ? copy.extensions : {};
 	return {
 		...copy,
 		uid: item.uid,
@@ -49803,7 +51219,7 @@ function additionCopy(item, canonBook) {
 function overrideCopy(base, item) {
 	const copy = materializeOverride(base, item.entry, itemOverrideFields(item.meta, item.entry));
 	copy.extensions = {
-		...isDict$152(base.extensions) ? base.extensions : {},
+		...isDict$153(base.extensions) ? base.extensions : {},
 		maestro: scanMarker(item)
 	};
 	return copy;
@@ -49883,7 +51299,7 @@ function recentText(messages, count) {
 	const parts = [];
 	for (let i = messages.length - 1; i >= 0 && parts.length < count; i--) {
 		const message = messages[i];
-		if (!isDict$152(message) || message.is_system === true) continue;
+		if (!isDict$153(message) || message.is_system === true) continue;
 		if (typeof message.mes === "string" && message.mes) parts.push(message.mes);
 	}
 	return parts.reverse().join("\n");
@@ -49915,7 +51331,7 @@ function itemKeys(item) {
 }
 /** Is an activated entry the canon's own (an addition copy or an override copy)? */
 function isCanonActivation(entry, canonBook) {
-	if (!isDict$152(entry)) return false;
+	if (!isDict$153(entry)) return false;
 	if (entry.world === canonBook) return true;
 	const marker = markerOf(entry);
 	return typeof marker?.canonUid === "number" && typeof marker.kind === "string";
@@ -52873,187 +54289,6 @@ function registerSettingUndo(app, options = {}) {
 	});
 }
 //#endregion
-//#region src/domain/assistant-calls.ts
-/** Tool names: snake_case, as most providers require (^[a-zA-Z0-9_-]{1,64}$, stricter here). */
-var TOOL_NAME = /^[a-z][a-z0-9_]{0,63}$/;
-/** A name the provider accepts when it comes back in the history (the model may have sent garbage). */
-function safeToolName(name) {
-	return name.replace(/[^A-Za-z0-9_-]/g, "_").slice(0, 64) || "unknown_tool";
-}
-function isRecord$10(value) {
-	return value !== null && typeof value === "object" && !Array.isArray(value);
-}
-function tryJson(text) {
-	try {
-		return {
-			ok: true,
-			value: JSON.parse(text)
-		};
-	} catch {
-		return { ok: false };
-	}
-}
-/** Second chance for sloppy JSON: code fences, prose around the object, trailing commas. */
-function repairJson(text) {
-	const unfenced = text.replace(/```[a-zA-Z]*\s*/g, "").replace(/```/g, "").trim();
-	const start = unfenced.indexOf("{");
-	const end = unfenced.lastIndexOf("}");
-	if (start < 0 || end <= start) return void 0;
-	return unfenced.slice(start, end + 1).replace(/,\s*([}\]])/g, "$1");
-}
-/** Arguments of a tool call: an object, a JSON string (repaired when sloppy), or nothing (= no arguments). */
-function parseArgs(raw) {
-	if (raw === void 0 || raw === null) return {
-		ok: true,
-		args: {}
-	};
-	if (isRecord$10(raw)) return {
-		ok: true,
-		args: raw
-	};
-	if (typeof raw !== "string") return {
-		ok: false,
-		error: "arguments must be a JSON object"
-	};
-	const text = raw.trim();
-	if (!text) return {
-		ok: true,
-		args: {}
-	};
-	let parsed = tryJson(text);
-	if (!parsed.ok) {
-		const repaired = repairJson(text);
-		if (repaired !== void 0) parsed = tryJson(repaired);
-	}
-	if (!parsed.ok) return {
-		ok: false,
-		error: "arguments are not valid JSON"
-	};
-	if (!isRecord$10(parsed.value)) return {
-		ok: false,
-		error: "arguments must be a JSON object"
-	};
-	return {
-		ok: true,
-		args: parsed.value
-	};
-}
-var PROVIDER_ID$1 = /^[A-Za-z0-9_-]{1,64}$/;
-/**
-* Normalises the provider's tool calls. Items without a function name are kept (with an empty name) so the model
-* is told about its mistake instead of being ignored. Ids are kept when usable and unique, otherwise generated.
-*/
-function readToolCalls(raw, makeId) {
-	if (!Array.isArray(raw)) return [];
-	const seen = /* @__PURE__ */ new Set();
-	const calls = [];
-	for (const item of raw) {
-		if (!isRecord$10(item)) continue;
-		const fn = isRecord$10(item["function"]) ? item["function"] : item;
-		const name = typeof fn["name"] === "string" ? fn["name"].trim() : "";
-		const rawArgs = fn["arguments"] ?? fn["input"] ?? fn["args"];
-		const providerId = typeof item["id"] === "string" ? item["id"] : "";
-		const id = PROVIDER_ID$1.test(providerId) && !seen.has(providerId) ? providerId : makeId();
-		seen.add(id);
-		const parsed = parseArgs(rawArgs);
-		const text = typeof rawArgs === "string" ? rawArgs : rawArgs === void 0 ? "{}" : safeStringify(rawArgs);
-		calls.push(parsed.ok ? {
-			id,
-			name,
-			rawArgs: text,
-			args: parsed.args
-		} : {
-			id,
-			name,
-			rawArgs: text,
-			args: {},
-			error: parsed.error
-		});
-	}
-	return calls;
-}
-function safeStringify(value) {
-	try {
-		return JSON.stringify(value) ?? "{}";
-	} catch {
-		return "{}";
-	}
-}
-/**
-* The call as it goes back to the provider inside the assistant message. Always valid JSON (the parsed arguments,
-* `{}` when they could not be parsed): some backends parse it again (Claude tool_use input) and would fail.
-*/
-function wireCall(call) {
-	return {
-		id: call.id,
-		type: "function",
-		function: {
-			name: safeToolName(call.name),
-			arguments: safeStringify(call.args)
-		}
-	};
-}
-/** OpenAI function spec of a tool. */
-function functionSpec(tool) {
-	const parameters = isRecord$10(tool.parameters) ? tool.parameters : {};
-	return {
-		type: "function",
-		function: {
-			name: tool.name,
-			description: tool.description,
-			parameters: parameters["type"] === "object" ? parameters : {
-				type: "object",
-				properties: {},
-				...parameters
-			}
-		}
-	};
-}
-function matchesType(value, type) {
-	switch (type) {
-		case "string": return typeof value === "string";
-		case "number": return typeof value === "number" && Number.isFinite(value);
-		case "integer": return typeof value === "number" && Number.isInteger(value);
-		case "boolean": return typeof value === "boolean";
-		case "array": return Array.isArray(value);
-		case "object": return isRecord$10(value);
-		case "null": return value === null;
-		default: return true;
-	}
-}
-function describe$2(value) {
-	if (value === null) return "null";
-	if (Array.isArray(value)) return "array";
-	return typeof value;
-}
-/**
-* Top-level problems of the arguments against the tool's schema: missing required properties, wrong types,
-* values outside an enum. Nested shapes are the tool's business. Messages are English (for the model).
-*/
-function argProblems(args, schema) {
-	if (!isRecord$10(schema)) return [];
-	const problems = [];
-	const required = Array.isArray(schema["required"]) ? schema["required"] : [];
-	for (const key of required) if (typeof key === "string" && (args[key] === void 0 || args[key] === null)) problems.push(`"${key}" is required`);
-	const properties = isRecord$10(schema["properties"]) ? schema["properties"] : {};
-	for (const [key, sub] of Object.entries(properties)) {
-		const value = args[key];
-		if (value === void 0 || !isRecord$10(sub)) continue;
-		const type = sub["type"];
-		const types = typeof type === "string" ? [type] : Array.isArray(type) ? type.filter((t) => typeof t === "string") : [];
-		if (types.length && !types.some((item) => matchesType(value, item))) {
-			problems.push(`"${key}" must be ${types.join(" or ")}, got ${describe$2(value)}`);
-			continue;
-		}
-		const options = sub["enum"];
-		if (Array.isArray(options) && !options.some((option) => option === value)) problems.push(`"${key}" must be one of ${options.map((option) => JSON.stringify(option)).join(", ")}`);
-	}
-	if (schema["additionalProperties"] === false) {
-		for (const key of Object.keys(args)) if (!Object.hasOwn(properties, key)) problems.push(`"${key}" is not a known argument`);
-	}
-	return problems;
-}
-//#endregion
 //#region src/domain/assistant-history.ts
 /** Share of the budget kept for the one-line summaries of older turns (full and compact turns use the rest). */
 var LINES_SHARE = .2;
@@ -55937,14 +57172,57 @@ var BASE_STRINGS = {
 	}
 };
 /** Every string of the write tools (the preset and neighbour-prompt tools have their own file). */
+/** Release 1.34: the agent tools (../agents.ts). */
+var AGENT_WRITE_STRINGS = {
+	en: {
+		"m33w.target.agents": "Maestro · agents",
+		"m33w.agent.summary.create": "New agent «{name}»",
+		"m33w.agent.summary.change": "Agent «{name}»: change",
+		"m33w.agent.summary.on": "Agent «{name}»: on ({scope})",
+		"m33w.agent.summary.off": "Agent «{name}»: off ({scope})",
+		"m33w.agent.summary.set": "Set «{name}» ({scope})",
+		"m33w.agent.summary.builtin": "Built-in agent «{name}»: instruction",
+		"m33w.agent.summary.builtinReset": "Built-in agent «{name}»: back to the default",
+		"m33w.agent.journal.builtin": "The assistant changed the built-in agent «{name}»",
+		"m33w.agent.scope.global": "everywhere",
+		"m33w.agent.scope.character": "this character",
+		"m33w.agent.scope.chat": "this chat",
+		"m33w.err.agentTemplate": "There is no template «{template}». Templates: {list}.",
+		"m33w.err.agentInvalid": "The agent is not valid: it needs at least a name.",
+		"m33w.err.agentsUnavailable": "The «Agents» module is off.",
+		"m33w.err.agentUnknown": "There is no agent «{id}» (see agents_list).",
+		"m33w.err.agentSetUnknown": "There is no set «{set}» (see agents_list)."
+	},
+	ru: {
+		"m33w.target.agents": "Maestro · агенты",
+		"m33w.agent.summary.create": "Новый агент «{name}»",
+		"m33w.agent.summary.change": "Агент «{name}»: изменить",
+		"m33w.agent.summary.on": "Агент «{name}»: включить ({scope})",
+		"m33w.agent.summary.off": "Агент «{name}»: выключить ({scope})",
+		"m33w.agent.summary.set": "Набор «{name}» ({scope})",
+		"m33w.agent.summary.builtin": "Встроенный агент «{name}»: поручение",
+		"m33w.agent.summary.builtinReset": "Встроенный агент «{name}»: вернуть по умолчанию",
+		"m33w.agent.journal.builtin": "Ассистент изменил встроенного агента «{name}»",
+		"m33w.agent.scope.global": "везде",
+		"m33w.agent.scope.character": "этот персонаж",
+		"m33w.agent.scope.chat": "этот чат",
+		"m33w.err.agentTemplate": "Шаблона «{template}» нет. Шаблоны: {list}.",
+		"m33w.err.agentInvalid": "Агент не годится: нужно хотя бы имя.",
+		"m33w.err.agentsUnavailable": "Модуль «Агенты» выключен.",
+		"m33w.err.agentUnknown": "Агента «{id}» нет (см. agents_list).",
+		"m33w.err.agentSetUnknown": "Набора «{set}» нет (см. agents_list)."
+	}
+};
 var WRITE_STRINGS = {
 	en: {
 		...BASE_STRINGS.en,
-		...PRESET_WRITE_STRINGS.en
+		...PRESET_WRITE_STRINGS.en,
+		...AGENT_WRITE_STRINGS.en
 	},
 	ru: {
 		...BASE_STRINGS.ru,
-		...PRESET_WRITE_STRINGS.ru
+		...PRESET_WRITE_STRINGS.ru,
+		...AGENT_WRITE_STRINGS.ru
 	}
 };
 /** Translator for a locale (falls back to English, then the key); `{name}` placeholders are filled from params. */
@@ -57839,7 +59117,7 @@ function chatTools(app) {
 }
 //#endregion
 //#region CHANGELOG.md?raw
-var CHANGELOG_default = "# Журнал изменений\n\n## 1.33.0 — картинки через агентов (2026-11-12)\n\nНужна NAI Studio 0.16.0.\n\n- **Иллюстратор** (шаблон, группа «Картинки»):\n  - пишет метки картинок вместо основной модели — тот же объект метки и по тем же правилам (твой блок картинок из пресета);\n  - видит весь готовый ответ, гардероб, мизансцену, трекер и место;\n  - NAI Studio рисует его метки своим обычным путём: паспорта, стиль, непрерывность, ворота качества, «Повторить».\n- **Кто пишет метки** («Агенты» → «Картинки», то же в NAI Studio): «Основная модель» (по умолчанию), «Иллюстратор» (блок картинок пресета уходит из основного промпта, ответ — только история), «Иллюстратор, если основная модель не поставила метку». Действует, только пока Иллюстратор включён в чате; выключил агента — метки снова пишет основная модель.\n- **Сравнение вслепую** («Картинки»):\n  - до 20 ответов, которые проиллюстрировала основная модель, рисуются заново парами — её метка и метка Иллюстратора, одним путём, бесплатно;\n  - ты выбираешь лучшую, не зная, чья она;\n  - пока Иллюстратор не выиграет, его нет ни в одном наборе.\n- **Декоратор**: место, для которого в библиотеке фонов ничего не нашлось, получает фон. Агент описывает место, NAI Studio рисует, «Фоны» привязывают к месту и ставят с откатом. Один раз на место.\n- **Портретист**: новое важное лицо без паспорта картинок получает паспорт по сюжету и лору (в этом чате, с откатом) и, с DES, портрет.\n- **Аватар карточки** (по кнопке, всегда с вопросом): новый аватар по тому, как персонаж выглядит сейчас; старая картинка сохраняется копией в user/images/avatar-backups.\n- **Обложки глав**: новая глава летописи получает картинку-обложку, её видно в «Летописи».\n- **Только бесплатно по умолчанию**: картинки агентов не тратят Anlas, пока не включишь «Картинки агентов могут тратить Anlas».\n- **Мизансцена → картинки**: поза и место из «Мизансцены» доходят до картинок NAI Studio, если в метке поза не указана.\n- **Набор «Кино»**: + Декоратор, Портретист, Обложки глав.\n\n## 1.32.0 — трекеры и механики через агентов (2026-11-09)\n\n- **Новый модуль «Мизансцена»** (окно «Мир»): кто где и как сейчас — поза, место в сцене, рядом с кем, что держит, что видно на нём. Заполняет агент «Мизансцена» после ответа; у каждого свайпа своя мизансцена; удалённые сообщения уносят свою. Строка «кто где и как» (до ~80 токенов) идёт в промпт, выключается в настройках раздела. Поправить можно руками — с откатом в журнале.\n- **Трекеры через агентов пишут сразу**, без уведомления «Сделал…» каждый ход: запись в журнале с откатом, свайп возвращает своё.\n- **Костюмер** — после ответа замечает, кто переоделся, и пишет в гардероб: известный наряд по имени или одежду словами. Тот же путь, что у разбора переодеваний: наряд паспорта, поле «Одежда» DES, строка под сообщением, откат. Работает и без поля DES, и для твоего персонажа.\n- **Смена наряда** — заранее к следующему ходу подсказывает рассказчику, когда одежда больше не подходит сцене (ночь, бал, дождь, бой, долго в одном) и во что переодеть из известных нарядов.\n- **Механики: «Учёт: агент после ответа»** (Механики → настройки). Основная модель пишет только историю, без служебного блока; все изменения читает встроенный агент «Учёт механик» (его поручение и модель — в окне «Агенты»). Броска посреди ответа в этом режиме нет — он живёт в служебном блоке.\n- **Своя механика** — шаблон для правил, которых нет в механиках: голод, рассудок, долг, слава. Значения — в записях агента, правила — в его переменных, смысл значений идёт в промпт.\n- **Трекер сцены (DES) отдельным запросом** — встроенный агент «Трекер сцены (DES)», переключатель «Трекер отдельным запросом». Инструкция трекера DES уходит из основного промпта (настройки DES не меняются), ответ начинается сразу с истории, а трекер делается сразу после ответа отдельным запросом — по собственному промпту DES, его разбором и отрисовкой (это ремонт трекера медиком). Проверка качества в этом режиме не считает отсутствие трекера в ответе браком. По умолчанию выключено.\n- **Новые источники** для агентов: «Кто во что одет» (с известными нарядами) и «Мизансцена».\n- **Наборы «Игра»** (Костюмер, Мизансцена, Варианты действий) **и «Кино»** (Костюмер, Мизансцена, Смена наряда; картинки добавятся в 1.33).\n\n## 1.31.0 — агенты предлагают изменения: создатели (2026-11-09)\n\n- **Новый тип результата «Предложения».** Агент получает список того, что ему разрешено предлагать, и возвращает предложения; каждое идёт через автономию — по умолчанию во «Входящие», с «Подробнее», «Всегда так» и откатом из журнала. Исходные книги и карточку агенты не меняют.\n- **Что можно предлагать:**\n  - **новая запись лора чата** (канон чата): персонаж, место, предмет, фракция, событие, обычай — с русскими ключами-словоформами; уже известные имена не предлагаются повторно;\n  - **правка записи лора** — только в этом чате, поверх записи (исходная книга не трогается), с полным новым текстом; откат возвращает прежнюю правку или снимает её;\n  - **обещание или срок** в календаре (откат — «отменено»).\n- **Создатели** (шаблоны, группа «Создатели»):\n  - **Создатель персонажей** — новое значимое лицо в истории → запись в лоре чата: кто он, внешность, манера, связи. Карточек ST не создаёт: персонаж живёт в чате и его лоре;\n  - **Редактор персонажей** — в конце сцены предлагает обновить записи тех, кого сцена изменила;\n  - **Биограф** — раз в 25 сообщений прописывает персонажа с тонкой записью;\n  - **Картограф** — новое место без записи → запись места;\n  - **Летописец мира** — раз в 30 сообщений: фракции, обычаи, вещи, прошлые события, на которые история опирается;\n  - **Хранитель тайн** (группа «Текст») — отмечает персонажа, который знает то, чего не мог узнать, и предлагает «Переделать».\n- **Набор «Мир растёт»**: Создатель персонажей, Картограф, Летописец мира, Биограф.\n- **Новые источники**: «Кто что знает», «Известные миру имена», «Места». У записей «Лора хода» теперь видна ссылка «Книга#номер» — по ней агент предлагает правку.\n- В редакторе агента у типа «Предложения» — галочки «Что может предлагать» и «Не больше предложений за запуск».\n\n## 1.30.0 — агенты: пакеты и экономия (2026-11-09)\n\n- **Пакеты.** Агенты одного момента и одного профиля, которым это разрешено («Модель» → «Отправлять вместе с другими агентами той же модели»), идут одним запросом: общий контекст — один раз, у каждого агента свой блок задачи, ответ — один JSON со своей частью для каждого. Агент, которого в общем ответе не оказалось или чья часть не по форме, сам переспрашивается отдельно. У пакета одна температура — средняя по его агентам. Правки ответа всегда идут отдельно. Агенты по расписанию, которым пора в один и тот же момент, тоже собираются в пакет. В журнале запусков у таких запусков — «в пакете», цена пакета делится между агентами по длине их поручений.\n- **«Сначала спросить дешёвую модель».** У агента во вкладке «Когда» — переключатель «Перед каждым запуском спрашивать „нужен ли сейчас?“» и свой вопрос. Короткий вопрос уходит модели из новой строки «Агенты: вопрос „нужен ли сейчас“» в «Профилях подключения» (иначе — профиль агентов по умолчанию). Пропускает запуск только явное «нет»; если вопрос не прошёл, агент работает как обычно. Пропуски видны в журнале: «пропущен: сейчас не нужен».\n- **Цена хода.** В шапке списка агентов — «Твои агенты добавляют к ходу ≈ $…»: средняя цена последних платных запусков каждого включённого агента × как часто он работает (раз в ход, раз в N сообщений, по кнопке — не считается). Агенты без запусков — «Ещё не оценены: N».\n- Одновременно работают не больше трёх отдельных запросов агентов (пакет считается за один).\n\n## 1.29.0 — встроенные агенты (2026-11-09)\n\n- **Задачи Maestro, которые ходят к модели, стали встроенными агентами** — 15 штук в окне «Агенты» → раздел «Встроенные агенты», по группам:\n  - канон и память: Ревизия канона, Живой канон, Сверка противоречий;\n  - сюжет и режиссура: Пересказ «Ранее в истории…», Режиссёр (тип сцены);\n  - качество: Судья качества;\n  - мир и гардероб: Закулисье, Гардероб (переодевание и твоя одежда);\n  - механики: Учёт механик;\n  - по кнопке: Досье (сверить с ИИ, оформить), Паспорта записей, Проверка промпта ИИ, Персона для персонажа.\n- **Поручение встроенного агента**: «По умолчанию» (текст Maestro), «Дополнительные указания» (твои строки после текста Maestro) или «Весь текст» (заменяет текст Maestro). Форма ответа и то, как Maestro применяет ответ, остаются в коде — правка поручения не может их сломать. «Вернуть как было» — к умолчаниям; если текст Maestro по умолчанию поменяется в новой версии, а у тебя свой, — предупреждение со сравнением «было / стало», «Взять новый текст» или «Оставить свой». Текст Maestro по умолчанию виден под спойлером.\n- **Модель** у каждого встроенного агента: профиль подключения (та же строка, что в «Профилях подключения»), температура, длина ответа, рассуждения; пусто — как решает Maestro.\n- **«Когда»**: включатель (собственная настройка модуля) и его ручки — частота ревизии и живого канона, сколько фактов за раз, закулисье по режимам, источник и порог пересказа, частота одежды персоны.\n- **Журнал запусков** показывает и встроенных агентов: запрос ровно таким, каким ушёл (с твоим поручением), ответ, цена, причина сбоя. «Проверка» в карточке — последний запрос.\n- Без твоих правок запросы встроенных агентов уходят ровно такими же, как в 1.28.\n- Изменения встроенных агентов — в журнале Maestro с отменой.\n\n## 1.28.0 — агенты (2026-11-09)\n\n- **Новое окно «Агенты»** (меню Maestro → «Агенты»). Агент — модель-помощник с одной работой: что ей поручено, что она видит, когда запускается, на какой модели и что делает с ответом. Агентов создаёшь, правишь, включаешь и проверяешь прямо в ST. Разделы окна: Агенты, Вставки хода, Записи, Журнал запусков, Шаблоны, Наборы, Расходы.\n- **Карточка агента** — вкладки Поручение · Что видит · Когда · Результат · Модель · Область · Проверка:\n  - поручение обычным текстом с подстановками `{{char}}`, `{{user}}`, `{{язык_истории}}`, своими переменными `{{agent.<имя>}}` и вариантами поручения («мягкий / жёсткий»);\n  - 14 источников с бюджетами: последние сообщения, твоё сообщение, ответ, карточка, персона, лор хода, канон, память Qvink, сцена и персонажи DES, механики, режиссёр, свои записи, свой прошлый ответ;\n  - семь моментов запуска: заранее к следующему ходу, при отправке (с таймаутом и кнопкой «Не ждать»), вместе с ответом, после ответа, при фиксации, по расписанию / событию (конец сцены, смена места, новый персонаж, пропуск времени, перерыв, открыт чат), по кнопке; условия — слова, тип сцены, режим Maestro, что должно быть включено, «только при застое»;\n  - семь типов результата: вставка в промпт, флаги для пресета, правка ответа, проверка ответа, заметка для тебя, варианты действий, записи агента;\n  - свой профиль подключения у каждого агента, температура, длина ответа, рассуждения, лимиты на ход и на день;\n  - «Что увидит агент» (запрос без модели, токены по источникам) и «Пробный запуск» (модель отвечает, ничего не применяется — видно, что Maestro сделал бы).\n- **Правка ответа не трогает служебные блоки**: трекер DES (и в начале, и в середине продолженного ответа), блок механик, `<offscreen>`, маркеры и картинки NAI агент не видит — код возвращает их на место. Исходник хранится: под сообщением «Показать исходный» и «Вернуть исходный», правка есть в журнале с отменой. Обрезанная по длине или подозрительно короткая правка не применяется. «Придержать ответ» скрывает ответ дымкой, пока агент правит.\n- **Общие ворота ответа**: агенты «после ответа» идут после проверки качества и до картинок NAI — NAI Studio рисует уже исправленный ответ.\n- **12 шаблонов**: Прозаик, Сверка непрерывности, Сверка голоса, Редактор-критик, Варианты действий, Хроникёр сцены, Дневник персонажа, Подсказка режиссёра, Сюжетная линия, Осложнения, Анти-петля, Именослов. «Взять в работу» — своя копия, которую можно менять.\n- **Наборы и агенты по умолчанию**: набор — именованный список агентов и их включателей, как пресет ST; набор «Везде» — агенты для новых чатов, набор персонажа или чата главнее; поверх набора — точечные включатели с «Вернуть к набору». Готовые наборы «Как в 1.27» (в силе после обновления: ничего не меняется) и «Рассказчик».\n- **Агенты карточки**: агентов можно положить в карточку; чужая карточка с агентами спрашивает согласия и показывает, что каждому разрешено. Импорт и экспорт агентов файлом — тоже с подтверждением.\n- **Журнал запусков**: каждый запуск — момент и причина, время, токены, цена, полный запрос, сырой ответ, результат, что сделано, понятная причина сбоя и «Повторить». Три сбоя подряд — уведомление.\n- Профиль «Агенты (по умолчанию для твоих агентов)» — новая строка в «Профилях подключения». Траты агентов — в общем дневном потолке фоновых трат.\n- Команда `/maestro-agent <имя> [указание]`, агенты в меню кнопки Maestro у поля ввода.\n- В групповых чатах и в служебных чатах «Мастерской» агенты спят.\n\n## 1.27.0 — механики правят игрой (2026-10-15)\n\n- **Правила и состояние — отдельно.** Раньше модель получала одну строку-справку на механику («[Mechanics] Магия: … | Кай: mana 12/100») где-то перед последней репликой. Теперь два блока:\n  - **`<game_rules>` в начале промпта** (сразу после основного): «эти системы обязательны — цены, пределы и исходы решают, что может случиться», под каждой механикой её правила с сохранёнными переносами строк. Блок не меняется, пока не меняется набор механик сцены, — кэш провайдера не ломается.\n  - **`<game_state>` в самом конце**, прямо перед ходом модели: по каждому персонажу (твой — первым) значения со словами («мана 12/100 (very low)»), состояния с остатком и модификаторами («отравлен (ещё 2 хода; проверки −2)»), инвентарь, бой, и строка «пиши этот ответ в согласии с этими значениями». Сразу за ним — инструкция служебного блока и результаты бросков.\n  - Где лежат правила — настройка «Правила механик: в начале промпта / рядом с состоянием»; «Глубина состояния» — по умолчанию 0.\n- **«Что это значит сейчас».** События на порогах больше не говорятся один раз и не исчезают: пока условие верно, модель каждый ход видит строку «now: Кай без маны и колдовать не может». В конструкторе у события — переключатель «Держится, пока условие верно». В шаблонах добавлены промежуточные ступени: тяжело ранен, задыхается, мана на исходе, вымотан, истекает кровью, умирает от голода и жажды; у навыков и выживания — свои слова для уровней.\n- **Бюджет механик — 1200 токенов вместо 400**: две встроенные механики раньше не влезали, и обрезались правила и значения NPC. Сохранённые 400 поднимаются до 1200 один раз (свой бюджет остаётся твоим). Важнее то, о чём сейчас речь: механики с бросками этого хода, менявшиеся в последние ходы, названные в твоём сообщении, — остальное режется первым.\n- **«Книжный» вид отдаёт модели слова, а не числа** («доверие: умеренное»). Затронуты шаблоны «Отношения» и «Социальные шкалы».\n- **Статы DES связаны с механиками:** модель получает строку «Health, Stamina в трекере — те же значения: начни с чисел выше и меняй только тем, что происходит в этом ответе».\n- **Броски:**\n  - **Условия броска** («Нужно для броска»): заклинание требует хотя бы 5 маны, атака — бойца на ногах. Не хватает — броска нет, а модель получает «Заклинание (Кай): невозможно — мана 3, нужно 5. Попытка не удаётся». В HUD и под ответом — «Без броска: … невозможно».\n  - **Исход со смыслом.** К каждому результату модель получает, что он значит в сцене: тексты автора механики или общее («не получается — покажи, что пошло не так и чего это стоило»), «еле-еле» при разнице в 1–2 очка. У всех проверок встроенных шаблонов — свои тексты исходов (заклинание складывается / гаснет, мана потрачена / бьёт по магу; удар / промах…). Под ответом — строка смысла по-русски.\n  - **Бросок посреди ответа.** Модель останавливается на попытке и просит бросок, Maestro бросает и сразу продолжает тот же ответ с результатом (один дополнительный запрос «Продолжить»). Не продолжает, если в поле ввода есть текст или идёт генерация, — тогда результат придёт следующим ходом, как раньше. Настройка «Бросок посреди ответа» (включена). Контроль качества не продолжает такой ответ второй раз.\n  - В списке проверок, которые модель может попросить, — только механики этой сцены.\n\n## 1.26.0 — механики: учёт, который поспевает за историей (2026-10-15)\n\n- **Новый способ учёта «Авто» — теперь он по умолчанию** у новых механик, у механик из «Подготовки» и у всех шаблонов, кроме боя. Статы, которые ведёт DES, берутся из трекера, остальное модель пишет в служебном блоке, а если блока нет или его не прочесть — подстрахует фоновый разбор. Состояния и вещи у «Авто» тоже идут блоком. Уже созданные механики сохраняют свой способ — его можно сменить в конструкторе («Авто (рекомендуется)» — первым в списке).\n- **Модель пишет служебный блок всегда**, а когда ничего не поменялось — `<mechanics>none</mechanics>`. Раньше ей разрешалось пропускать блок, и нельзя было понять, забыла она или ничего не случилось. Блок `none`, `нет`, `-` или пустой убирается из ответа как обычный.\n- **Статы DES — как изменения, а не перезапись.** Раньше значение из трекера каждый ход затирало то, что Maestro посчитал сам: трату маны на бросок, восстановление со временем. Теперь берётся разница с прошлым трекером этого персонажа (до 40 сообщений назад), и она ложится поверх значения Maestro. Модель переписала старое число — ничего не меняется.\n- **Фоновый разбор понимает больше.** Он видит и твоё действие, которое привело к ответу, знает, что «ты/вы» в рассказе — твой персонаж, получает правила механики целиком (до 2000 знаков вместо 600) и применяет их: если в ответе нет чисел, оценивает по правилам («рана мечом стоит здоровья, как сказано в правилах»). Ответ модели разбора — до 1200 токенов.\n- **Время идёт и без DES.** Модель может написать в блоке `time: +3h` (`+30m`, `+2d`, `время: +20м`), фоновый разбор — сколько минут прошло в ответе. По этому идут часы истории: голод, жажда, восстановление, состояния «на 2 недели». Состояние «до заката», которое не к чему привязать, длится 8 ходов, а не вечно.\n- **«Пересчитать»** в подробностях строки изменений под ответом: Maestro снимает изменения ответа и читает его заново (блок, статы DES и фоновый разбор).\n- **Броски:**\n  - **Цель у атаки по твоим словам.** «Бью стражника мечом» — урон получает стражник: тот, кого ты назвал в той же фразе, в бою — названный противник, иначе текущий. В карточке броска — «Атака (Кай → Стражник)» и строка «Цель». Раньше автоматическая атака никого не задевала.\n  - **Проверки на реплики.** «Убеждение», «Обман», «Запугивание» срабатывают и на прямую речь в кавычках, и на вопрос («Может, договоримся?»). В конструкторе — переключатель «Срабатывает и на реплики».\n  - **До двух проверок за сообщение**, если они разные и в разных частях фразы («подкрадываюсь к двери и вскрываю замок»).\n  - **Опыт за броски.** У уровней механики — опыт за исход (крит, успех, провал, промах); уровень растёт сам, «Отменить бросок» забирает и опыт. В шаблоне «Навыки» появились опыт и уровень (уровни на 100, 250, 500 и 1000; 20 / 10 / 3 / 3 за исход). Навыки, опыт и уровень этого шаблона двигает только Maestro — модель их не переписывает, и опыт не засчитывается дважды.\n- **Исправлено:**\n  - удаление сообщения из середины чата сбивало учёт: изменения и броски сдвигались не туда. Теперь Maestro понимает, какие сообщения удалены, снимает их изменения, а изменения следующих сдвигает вместе с ними;\n  - вкладка, ставшая ведущей, дочитывает ответы, пришедшие, пока считала другая;\n  - уже разобранный ответ не отправляется на фоновый разбор повторно после перезагрузки страницы.\n\n## 1.25.0 — механики: значения сразу и колонка у чата (2026-10-15)\n\n- **Значения меняются сразу после ответа**, а не когда ты напишешь следующее сообщение. Раньше изменения из ответа (служебный блок, статы DES, фоновый разбор, тики состояний и времени) применялись только при отправке следующей реплики — и уже после того, как для нового ответа собран промпт. Поэтому HUD стоял на месте, а модель писала следующий ход по старым числам. Теперь всё применяется, как только ответ показан. До твоего ответа изменения предварительные: свайп, перегенерация, «Продолжить» и правка ответа их откатывают и читают ответ заново. Вернулся свайпом к старому варианту — его изменения возвращаются сами.\n- **Фоновый разбор запускается сразу после ответа**, пока ты читаешь, и у него своя строка в «Профилях» — «Механики: разбор ответа» (можно дать модель дешевле основной).\n- **«Учёт» — почему значения могут не меняться.** Раньше фоновый разбор без профиля или сверх дневного лимита молча пропускался. Теперь в окне «Механики» → «В игре» сверху раздел «Учёт» с причиной и кнопкой: нет профиля (→ «Профили»), исчерпан лимит, разбор выключен (→ «Настройки»), статы DES ещё не заведены (→ «Статы DES: …»), последний разбор не удался, значения считает другая вкладка. В HUD — значок ⚠, пока есть что-то серьёзное.\n- **Механики сбоку от чата на ПК — слева или справа.** Кнопка «Где показывать механики» прямо в HUD: «Над чатом», «Слева от чата», «Справа от чата» (то же — в настройках конструктора).\n  - Колонка показывает то же, что HUD над чатом: твоего персонажа и выбранных, закреплённые значения, состояния, деньги и вещи, «Бросок» и «Инвентарь». Переключатель «Подробно» — все персонажи сцены, все значения, бой.\n  - Ширину меняешь, потянув край колонки; ширина и свёрнутые персонажи запоминаются на этом устройстве.\n  - Не хватает места (широкий чат, закреплена панель SillyTavern с этой стороны) — механики больше не прыгают на чат: у края чата остаётся язычок «Механики», он раскрывает ту же колонку поверх чата и объясняет, почему места нет, с кнопкой «Показать с другой стороны». Просто открытая (не закреплённая) панель SillyTavern ничего не сдвигает. Ограничение «окно не уже 1200 px» убрано — решает свободное место.\n  - На телефоне всё по-прежнему: одна строка над чатом.\n- **Что изменилось последним ответом — видно у значения**: «−15», «+1», «→ ранен». Подсказка: «Из последнего ответа · свайп отменит». И в HUD над чатом, и в колонке.\n- Полоска механик под портретами DES прячется, пока видна колонка с любой стороны, и возвращается при язычке.\n\n## 1.24.2 — одна кнопка у поля ввода (2026-10-14)\n\n- **Одна кнопка вместо ряда значков.** Кнопка Maestro у поля ввода теперь открывает и меню SillyTavern (≡), и волшебную палочку с расширениями, и LoreBook Creator, а на телефоне ещё и выбор персоны (QuickPersona). Их значки из ряда убраны: на ПК остаются общая кнопка и аватар персоны, на телефоне — одна кнопка вместо столбика из четырёх. Пункт открывает родное меню SillyTavern или соседа на прежнем месте, над полем ввода, со всем, что оно умеет. У «Персоны» в подписи — имя текущей персоны. Пока значок скрывает его хозяин (палочка без пунктов, выключенная кнопка LoreBook Creator), его нет и в меню.\n- Значок общей кнопки — ≡, подсказка «Меню: SillyTavern, расширения, Maestro»; быстрые действия Maestro идут в том же меню под пунктами SillyTavern. Кнопка видна, даже когда у Maestro нет быстрых действий.\n- Выключается в «Настройки» → «Одна кнопка у поля ввода» (по умолчанию включено): значки возвращаются на место, кнопка снова только для быстрых действий Maestro. Выключенная «Кнопка Maestro у поля ввода» тоже возвращает значки.\n- **Исправлено: меню кнопки у поля ввода на телефоне уходило за верх экрана.** На телефонах SillyTavern фиксирует `html` нулевого размера, и меню, прижатое к низу, отсчитывалось от верхнего угла. Теперь меню ставится явной шириной и отступом сверху и открывается прямо над полем ввода.\n\n## 1.24.1 — определения механик в служебном чате (2026-10-14)\n\n- **Исправлено: Officina не могла опубликовать механику из чата соавтора.** В служебном чате модуль «Механики» стоит на паузе, и вместе с ним пропадали его определения: `MAESTRO_API.mechanics` (`list`, `get`, `save`, `remove`) отвечал `'off'`. Но книга «Maestro · механики» к открытому чату не относится. Теперь определения доступны и в служебном чате: их можно читать, записывать в любую область (в карточку тоже), удалять и собирать из шаблонов. Записи попадают в журнал под «Officina» и отменяются оттуда — в том же служебном чате или потом в сюжетном.\n- Всё, что относится к самому чату, в служебном чате по-прежнему молчит: механики ничего не вставляют в промпт, не разбирают блок `<mechanics>` в ответах, не бросают проверок, не показывают HUD и значения. Переключатель механики для открытого чата (`setEnabledInChat`) там отвечает `'off'`. В сюжетном чате модуль запускается заново и читает определения, записанные за это время; запись, которая ещё сохраняется, успевает лечь в книгу.\n- Если модуль «Механики» выключен в «Модулях», `'off'` остаётся, как раньше.\n- Для разработчиков: модуль может держать на время паузы узкую часть, которая к чату не относится (`MaestroModule.whileSuspended`); у механик это определения, `app.modules.api('mechanicsDefinitions')`. Описание — в `docs/integration-officina.md` и `docs/ARCHITECTURE.md`.\n\n## 1.24.0 — «Служебный режим» и MAESTRO_API для Officina (2026-10-14)\n\n- **«Мастерская» теперь называется «Служебный режим»** (модуль M42). Новое название — в «Модулях», в настройках, на кнопке с гаечным ключом в редакторе карточки, в пунктах «Ещё…» («Служебный режим: включить для карточки» / «вернуть в сюжетные»), в уведомлениях и журнале, в руководстве `docs/guide/workshop.md`. Мастерская теперь — это расширение Officina («Officina — мастерская»), а оно пользуется служебным режимом для своего чата с соавтором.\n- **Тег по умолчанию — «служебная».** Список тегов по умолчанию: «служебная», «мастерская», «workshop»; кнопка ставит первый. Карточки, помеченные «мастерской» раньше, остаются служебными. Если ты не менял список тегов, старый «мастерская, workshop» сам станет новым; свой список остаётся как был. Команда `/maestro-workshop` и пресет соавтора «Мастерская» не изменились.\n- **Officina — второй сосед `MAESTRO_API`** (версия API та же, 1; члены только добавлены, их перечень — в `features`). Задачи, виды действий и записи журнала Officina начинаются с `officina.`; её записи и карточки «Входящих» подписаны «Officina», её задачи видны в «Профилях». В служебном чате задачи Officina работают (задачи Dramatis там по-прежнему молчат). Полный тип API для соседей — `src/shared/public-api-types.ts`, описание — `docs/integration-officina.md`.\n- **Общий дневной лимит.** Траты Officina своим каналом записываются через `MAESTRO_API.cost.record` и считаются в тот же «Потолок фона в день», что и фоновые задачи Maestro; `cost.remaining()` говорит, сколько осталось. В «Расходах» у Officina своя строка — появляется, когда она что-то потратила. Её запросы (со схемой `officina_*` или помеченные через `cost.claim`) счётчик второй раз не считает.\n- **Службы Maestro для Officina** — с проверкой аргументов, с журналом и откатом под «Officina»: книги и записи Лор-студии (типовые записи, основная книга любой карточки), роли книг, определения механик (любая область, разбор блока `<mechanics>` для стенда механик), пресеты и слой пресета для любой карточки, привязка пресета к карточке, находки проверки промпта, «Создать персону» по готовому описанию, служебная карточка. Книги BunnyMo по-прежнему только для чтения.\n- **«Подготовка к игре» берёт готовые стартовые сцены автора.** Если карточка несёт `extensions.officina.scenes` (сцена на каждое приветствие: место, время, кто в сцене, настроение, крючок), анализ получает их как заданные, а сцены этих приветствий в плане берут место, время и состав из них; сцена, которую анализ не нашёл, собирается из сцены автора.\n- Для стенда: сосед `officina` (необязательный, пока у Officina нет сборки), имитация модели отвечает на схемы `officina_*` из `tools/mock-llm/fixtures/officina/` (`MOCK_OFFICINA_FIXTURES`).\n\n## 1.23.0 — сцена отдельно от того, что вокруг (2026-10-12)\n\n- **«Сцена и вокруг»** (новый модуль M43). Мир и персонажи за кадром по-прежнему живут своей жизнью, но ответ рассказывает о сцене: о тех, кто в ней, и о том, что они видят и слышат. Ушедший персонаж выбывает из сцены — модель не идёт за ним следом и не пишет ещё три сообщения, где он сейчас. Если за это время в другом месте случилось что-то заметное (у отсутствующего персонажа свои дела, мир не стоит на месте), модель пишет это после сцены одним блоком `<offscreen>…</offscreen>` — одну-три короткие фразы на языке истории. Ничего не случилось — блока нет.\n- **«Вокруг» под ответом.** Блок показывается свёрнутым под сценой: нажми «Вокруг», чтобы прочитать. С пузырями DES («Карточки», «Discord») это один отдельный блок после карточек, а не ещё одна карточка рассказчика (если в DES выключено «пропускать оформленные блоки» — один свёрнутый блок внутри карточки). Сохранённое сообщение не меняется: блок в нём остаётся как написан, а без модуля чат выглядит как раньше.\n- **Старое «вокруг» не копится в промпте.** Два последних ответа (настраивается) держат его одной строкой `[Elsewhere, not in the scene: …]` — модель помнит, что происходило; в более старых ответах блок убирается. Строку не съедает регекс DES «Clean HTML», который вырезает из промпта все теги.\n- **Ушедшие — вне сцены со следующего хода.** DES в режиме «вместе» пишет трекер до рассказа, поэтому персонаж, ушедший в этом ответе, ещё значится в трекере. Теперь Maestro читает сам рассказ: «Вера вышла», «Мартин ушёл, не попрощавшись», «дверь за ней закрылась», «направилась к выходу» — и со следующего хода не даёт этому персонажу голосовую карточку, строку «кто во что одет», механики, «кто что знает» и приоритет лора. Персонаж возвращается, когда в новом ответе снова действует или говорит в сцене, или когда ты сам его зовёшь или называешь (вопрос «Где Вера?» не считается). Отмена, правка и смена варианта ответа учитываются сами.\n- Анализ ответов (сигналы, режиссёр, качество ответа, хроника, гардероб, живой канон, механики и другие) блок «Вокруг» не читает: что случилось в сцене и кто в ней — только по самой сцене. Превью чата в списках заканчивается сценой.\n- **Слух из «Закулисья»** (M16) подаётся модели как то, что присутствующие могут упомянуть, а не как сцена, которая происходит здесь.\n- Настройки — «Настройки» → «Сцена и вокруг»: включение, сколько последних ответов держат «Вокруг» в промпте, подпись свёрнутого блока. В чатах мастерской модуль на паузе.\n- Для соседей: `MAESTRO_API.sceneSplit` — `active()` и `tag` (`'offscreen'`); `present()` не называет тех, чей уход показал рассказ. Заметки об отсутствующих персонажах сосед должен просить писать только в этот блок.\n- Для стенда: мок модели понимает `[mock:say:…]` (абзац в конце ответа) и `[mock:offscreen:…]` (блок «вокруг»).\n\n## 1.22.0 — режиссёр мягче различает сцены (2026-10-12)\n\n- **Смешанные сцены.** Если ответ почти в той же мере и бой, и разговор, и близость, у сцены теперь два вида: в пресет уходят флаги обоих (`maestro_scene_…`), длина ответа — по более длинному. Пока инерция режиссёра держит прежний вид, новый уже считается вторым — переходная сцена тоже «и то, и другое». В окне «Режиссёр» второй вид показан рядом с первым («+ Близость»).\n- **Длина ответа — только когда режиссёр уверен.** Флаги `maestro_reply_short / medium / long` ставятся, если уверенность не ниже 0,85, или не ниже 0,7 и вид держится второй ход; твой выбор вида — сразу. В остальное время действует общее правило пресета «длина по моменту». Разговор теперь даёт «средне», а не «коротко».\n- **Бой в механиках** начинается только при уверенном виде «бой»: твой выбор, уверенность от 0,85 или второй ход подряд. Меч на стене и боевое слово в смешанной сцене бой не запускают.\n- **Словари умнее.**\n  - Полный вес — у того, что происходит (удар, целует, раздевает, исследует, кланяется). Обстановка, предметы, титулы и люди вокруг — кровать, таверна, лес, зал, король, меч, враг — стали лёгкими подсказками.\n  - Слова в прямой речи весят вдвое меньше: разговор о драке — не драка. Речь — это кавычки и реплики через тире; ремарка после второго тире («— Беги, — крикнул он») считается повествованием.\n  - Исправлено: «драконица», «по-драконьи» считались дракой («драк…»). Теперь «драка» узнаётся только целыми словами.\n  - Русские откровенные слова распознаются («лизать», «киска», «кончил», «стояк» — целыми словами, так что имя «Лиза» не задевается).\n  - Ответ без единой реплики больше не тянется к «разговору»: у разговора без речи только запасной вес, и явный бой сразу уверенный.\n- **Модель решает чаще.** Дешёвая модель спрашивается, когда два лучших вида ближе 40% (было 25%). Где модель выбрала другой вид, чем правила, сцена считается смешанной из обоих. Явные улики — скачок времени в трекере, два и больше откровенных слова — спорными не считаются никогда.\n\n## 1.21.2 — правка сообщения не теряется (2026-10-12)\n\n- **Исправлено: перерисовка сообщения Maestro больше не стирает открытый редактор.** Если Maestro чистил ответ, обрезал лист BunnyMo или снимал блок механик, пока у этого сообщения был открыт редактор (или редактор рассуждений), поле правки пропадало вместе с набранным текстом. Теперь при открытом редакторе Maestro сообщение не перерисовывает: SillyTavern покажет его сам, когда редактор закроется. Если правку сохранить, побеждает твой текст.\n\n## 1.21.1 — ответ не теряет оформление после правки Maestro (2026-10-11)\n\n- **Исправлено: после чистки ответа он оставался без карточек DES** («Карточки» и «Discord»), без мыслей персонажей в чате и без карточек Silly Sim Tracker — пока не откроешь и не закроешь редактор сообщения. Maestro перерисовывал сообщение, но не сообщал об этом: DES держит пометку «уже разложено» на самом блоке текста, она переживает перерисовку, и DES больше не трогал сообщение. Теперь после перерисовки Maestro посылает `MESSAGE_UPDATED` — как редактор SillyTavern, и все расширения оформляют сообщение заново. Касается:\n  - «Качества ответа» (M12): чистка служебного мусора и её отмена;\n  - листов BunnyMo: обрезка лишней сцены после листа и её отмена;\n  - механик: служебный блок `<mechanics>`, снятый уже после показа ответа (страховка на `reply:ready` и при следующем ходе).\n- `MESSAGE_EDITED` Maestro при этом не посылает: для Qvink это правка (пересказ заново), а для самого Maestro — правка игрока. Пока ответ только пришёл (`MESSAGE_RECEIVED`) или игрок закрывает редактор, Maestro молчит — SillyTavern сообщает о сообщении сам. Общая функция — `src/host/messages.ts`.\n\n## 1.21.0 — мастерская: служебные персонажи без сюжетной машинерии (2026-10-11)\n\n- **«Мастерская»** (новый модуль M42) — категория для служебных персонажей: генераторов сценариев и персонажей, редакторов, «соавторов». Кнопка с гаечным ключом в редакторе карточки (и пункт в «Ещё…», и `/maestro-workshop [on|off]`) ставит карточке тег «мастерская»; можно поставить тег и самому. В чатах такой карточки:\n  - сюжетные модули Maestro (канон, ревизия, режиссёр, голоса, закулисье, гардероб, механики, качество ответа, медик, подготовка к игре и другие) стоят на паузе — их переключатели не меняются, в сюжетном чате всё снова работает;\n  - из уходящего запроса вырезаются инструкции соседей — трекер DES, метки картинок NAI Studio, CarrotKernel, Dramatis, DES-RU, Qvink; остаются карточка, история, заметка автора, глубинный промпт карточки и векторная память;\n  - глобальные лорбуки (паки BunnyMo, «Архив персонажей») и лорбук персоны не сканируются, лорбуки карточки и чата остаются (настраивается);\n  - Qvink выключается для этого чата своим переключателем — без пересказов, и черновики не выпадают из истории; когда карточка уходит из мастерской, Qvink включается обратно;\n  - Dramatis 1.4.1 останавливает свои модули: не читает замысел, не разбирает ходы.\n- **Пресет «Мастерская»** включается сам, когда открывается чат мастерской, и уходит при выходе (своя привязка пресета к персонажу или чату важнее). Короткий пресет соавтора лежит в `presets/Мастерская.json`: разговор вне роли, до трёх вопросов с вариантами, готовые карточки и записи лорбука в Markdown. Руководство: `docs/guide/workshop.md`.\n- **Автоматическая смена пресета больше не меняет модель.** Привязки пресета к персонажу и чату и мастерская переключают только пресет: модель, источник и провайдеры остаются те, что выбраны, даже если в файле пресета записаны другие (с включённым в ST «Bind presets to API connections» раньше могла молча смениться модель). Расхождение только в модели не вызывает вопроса «Есть несохранённые правки».\n- Для соседей: `MAESTRO_API.workshop` — `active()` и `onChange()`; пока открыт чат мастерской, `llm.request` отвечает `'workshop'`, события хода не приходят.\n- Исправлено: обработчик события, снятый другим обработчиком того же события (модуль ушёл на паузу при смене чата), больше не вызывается — и в событиях SillyTavern, и во внутренней шине Maestro.\n\n## 1.20.0 — язык истории, персона для персонажа, переодевание, кнопка у поля ввода (2026-10-10)\n\n- **«Язык истории»** (Настройки → Общие: авто / русский / английский). На «авто» решают твои сообщения, затем остальной чат, затем язык интерфейса — играешь по-русски, и даже английская карточка считается русской историей. По нему:\n  - «Подготовка» пишет имена по-русски: личные — транслитом (Ophelia → Офелия), «говорящие» названия мест, фракций, традиций — переводом («The Long Winter» → «Долгая зима»); английское написание остаётся алиасом. По-русски — наряды, секреты и обещания (окна «Знания» и «Календарь»), названия механик и показателей; канон для модели остаётся английским. Повторная подготовка узнаёт то, что раньше сделано по-английски, и не дублирует.\n  - Персонажи в DES на стартовых сценах — с русскими именами, мыслями, внешностью, настроением и одеждой.\n  - Паспорта NAI, подсказка о формате и «Ранее в истории…» берут язык отсюда; соседям он доступен как `MAESTRO_API.storyLanguage()` (Dramatis переводит по нему описания в окнах).\n- **«Создать персону» в карточке персонажа** (новый модуль M41): кнопка рядом с «Connected Personas» и пункт в меню «Ещё…», команда `/maestro-persona [комментарий]`. Maestro читает карточку, сценарий, приветствие, заметки автора и лорбук, учитывает твой комментарий и придумывает тебе персонажа: имя, внешность, предысторию и 5–6 нарядов. Всё можно поправить перед созданием; затем — персона в SillyTavern, связь с этим персонажем (другие связанные персоны остаются), паспорт NAI с этими нарядами и бесплатная картинка-аватар (нужна NAI Studio 0.15). Задача «Персона для персонажа» — в «Профилях».\n- **Кнопка Maestro у поля ввода** — один значок рядом с волшебной палочкой, с быстрыми действиями (выключается в настройках; те же действия — в меню Maestro):\n  - **BunnyMo** (новый модуль M40): полный и короткий лист, только теги, обновить теги, внешность, «Запомнить момент» — выбираешь персонажа сцены, и команда `!fullsheet Имя` встаёт в поле ввода (или уходит сразу — настройка «Отправлять сразу»). Команды-справочники BunnyMo, которые тянут целые паки, сюда не вынесены.\n  - **Переодеться:** персонажи сцены и «Я» → их наряды, «Описать…», «Открыть гардероб»; команда `/maestro-wear <кто> <наряд или описание>`.\n- **Переодевание по сообщениям** (гардероб, M27). Пишешь «переодеваюсь в домашнее» — Maestro узнаёт наряд и переодевает ещё до ответа, так что ответ пишется в новой одежде. Переодевания в рассказе («Офелия сняла плащ») тоже подхватываются. Желания, просьбы, прямая речь и «снял очки / квартиру» переодеванием не считаются; если непонятно, во что, — один фоновый запрос после ответа.\n- **«Переодеть сейчас»** рядом с «Надеть» в гардеробе и досье: одежда меняется сразу везде — «что надето сейчас», наряд и его формулировка в паспорте NAI, портрет, трекер DES (настройка «Записывать одежду в трекер DES»), строка «кто во что одет» для модели. Под сообщением — «Офелия → Домашнее · Отменить · Другое…»; одна запись журнала всё откатывает.\n- **Механики слева от чата** на широком экране (настройка «Где показывать HUD»): подробная панель — все персонажи сцены, их показатели, состояния и предметы, бой. На узком экране, на телефоне или при открытой левой панели ST механики сами возвращаются поверх чата. Пока панель слева показана, полоска механик под портретами DES не дублирует её.\n- **«Эталон» — только системные настройки.** Пресет, источник и модель, размер контекста и ответа, рассуждения, профиль подключения, регексы, настройки движка лорбуков и расширений. Какие лорбуки включены, библиотеки CarrotKernel, переключения профилей Qvink при смене чата, выбранный стиль NAI Studio больше не считаются изменениями. Старый эталон переводится в новый формат.\n- **«Проверка лекарств» BunnyMo — только когда нужна** (правило переименовано): запись (около 4,5 тыс. символов) выключается на ход, если ни у кого в сцене и ни в одном архиве персонажа в лорбуках нет тегов MED или REC, — теперь и без Dramatis.\n- Персонажи в механиках, в «Переодеться» и в целях листов BunnyMo называются так, как их пишет история (имя из трекера DES), а не каноническим именем модели мира — в русской истории «Вера», а не «Vera». Значения хранятся как прежде.\n- Для стенда: мок модели отвечает на переодевание, персону и шаг досье и перевод описаний Dramatis 1.4, «Расширить мир» Localizer 0.5.\n\n## 1.19.0 — Dramatis в листе персонажа DES (2026-10-09)\n\n- **Вкладка «Dramatis» в листе персонажа DES.** Что Dramatis знает о персонаже — теперь там, где его ищешь: правый клик по портрету → «Character Sheet» → вкладка «Dramatis». Имя, кто он такой, насколько подробно Dramatis его знает, разделы (мотивы, цели, отношения…) блоками. Тайны — как ты выбрал в Dramatis: размыты, пока не нажмёшь, открыты с пометкой или не показываются вовсе. Если Dramatis персонажа ещё не знает — так и сказано, с кнопкой «Открыть Dramatis»; на твоём собственном персонаже — короткая заметка. Кнопка «Открыть в Dramatis» ведёт в его «Лист замысла». Пока лист открыт, вкладка обновляется вслед за Dramatis.\n- **Пункт «Dramatis» в меню портрета** открывает лист персонажа сразу на этой вкладке. На твоей карточке пункта нет.\n- **Панель «Dramatis» в Мастерской DES** — то же самое для тех, у кого нет правого клика (iPhone, iPad): «Ростер» → Мастерская → «Dramatis». Только чтение: пока Мастерская открыта, Maestro в DES ничего не пишет.\n- **Подготовка к игре и Dramatis.** В окне подготовки — переключатель «Личности в Dramatis: прочитать замысел карточки» (включён, если Dramatis карточку ещё не читал). Если уже читал — видно, сколько персонажей он прочитал, а переключатель перечитывает карточку. Dramatis читает её до того, как Maestro заполняет DES, — стартовые сцены сразу получают то, что он прочитал. В «Что сделано» — строка «Dramatis: прочитал личности — N персонажей» (или ошибка, или «личности из карточки — N», если перечитывать не понадобилось) с кнопкой «Открыть»; то же — в «Готово к игре». Отменять тут нечего: чтение записывает в журнал сам Dramatis. Сохранённая подготовка и кнопки «Готово к игре» Dramatis не зовут.\n- Всё это — с Dramatis 1.3 и новее; со старым Dramatis или без него ничего не меняется. Раздел выключается в «Модулях» («Раздел Dramatis в листе персонажа DES»), при этом всё добавленное в окна DES убирается. DES-RU эти разделы не переводит; оформление следует теме Maestro и DES, на телефоне вкладки переносятся.\n\n## 1.18.0 — персонажи стартовых сцен в DES (2026-10-09)\n\n- **«Персонажи в DES».** «Подготовить к игре» теперь заполняет и трекер DES для каждой стартовой сцены — для приветствия, что сейчас в чате, и для всех альтернативных. С первого же сообщения в полосе портретов и на панели сцены — те, кто в этой сцене: внешность, как держатся, во что одеты, как относятся к твоему персонажу, о чём думают, их показатели, а ещё дата, время, место и погода. Значения — на языке истории и в тех полях, что настроены в DES (свои поля, свои варианты отношений, показатели, виджеты сцены). Переключатель «Персонажи в DES» — в окне подготовки рядом с паспортами (включён по умолчанию).\n- **Одна модель на приветствие.** Для каждой стартовой сцены — один короткий запрос (задача «Подготовка: персонажи в DES» в настройках «Профили»; ты сам нажал «Применить», поэтому дневной потолок фоновых трат его не останавливает). Кто в сцене — по подготовленной сцене, имена — ровно те, что у паспортов; если модель не ответила, в DES попадают хотя бы имена, место, дата и время, и итог об этом говорит. Сохранённая «для персонажа» подготовка модель не зовёт — только имена.\n- **Всё связано.** Одежда — тот же стартовый наряд, что надевает гардероб; показатели — из механик, которые DES ведёт как статы; место — как его знает реестр мест; отношение — по позиции Dramatis к твоему персонажу, если Dramatis подключён (а ещё он подсказывает, кто в сцене и чем занят); NAI Studio рисует портреты новых лиц (не твоего персонажа и не персонажа карточки; у кого портрет в DES уже есть — не трогает). Медик не «чинит» подготовленный трекер первого сообщения.\n- **DES не затирает подготовку.** DES стирает трекер приветствия, когда чат открывается, когда карточку сохраняют заново и после «Продолжить», — Maestro возвращает подготовленное, пока ты не написал первое сообщение. Свайп приветствия переключает и DES: его персонажи, сцена и список персонажей чата следуют за приветствием (кто был только в прежней сцене — уходит из списка). В первом ответе модель видит трекер начальной сцены (в режиме DES «вместе с ответом» DES сам его не передаёт) и продолжает от него с теми же именами.\n- **Отмена** одной строкой итога: прежние трекеры всех приветствий, то, что показывал DES, и добавленные в список имена возвращаются. Пока открыта Мастерская DES, Maestro в DES ничего не пишет и не отменяет.\n- Для Dramatis: Maestro читает новый необязательный `startCast` (Dramatis 1.2) — кто в каждой стартовой сцене, что делает и как относится к игроку.\n\n## 1.17.0 — Maestro и Dramatis (2026-10-09)\n\n- **Связка с Dramatis** — новым расширением-движком личностей (мотивы, цели, отношения, повестки персонажей). Maestro сам находит Dramatis и работает с ним, когда тот установлен; без Dramatis всё как раньше. Подробно — в `docs/integration-dramatis.md`.\n- **Открытый API для соседей** (`MAESTRO_API`): Dramatis пользуется инфраструктурой Maestro, а не заводит свою.\n  - Фоновые задачи ИИ — через профили задач Maestro (каждая задача Dramatis появляется в настройках «Профили» под своим названием), с учётом стоимости у казначея и дневным потолком; фоновую работу делает только ведущая вкладка. То, что ты запускаешь кнопкой, потолок не останавливает.\n  - Предложения Dramatis идут по твоим уровням автономии: сами, «Уведомить», «Входящие», «Спросить». Карточки во «Входящих» переживают перезагрузку, у каждого вида — человеческое название в настройках и журнале.\n  - Журнал с откатом, уведомления, события хода (свайпы, правки и ветки уже учтены), опознание имён (модель мира и склонения DES-RU), кто сейчас в сцене — так же, как видят голосовые карточки.\n  - Речь персонажа из архива CarrotKernel (теги LING, раздел Linguistics, MBTI) — та же выжимка, что в голосовых карточках, даже когда модуль голосовых карточек выключен.\n  - Для генератора Dramatis: «Оформить» нового персонажа с готовыми тегами BunnyMo (архив CK только с теми тегами, что знают подключённые паки; паки не меняются) и запись целей персонажа в его запись канона чата.\n- **Один блок вместо двух.** Когда Dramatis берёт голосовые карточки к себе, Maestro не отправляет свои отдельно — модель получает один блок «кто в сцене, как говорит и чего хочет». Подсказка CarrotKernel о персонажах при этом убирается из промпта, как и с голосовыми карточками, — в том числе когда сами голосовые карточки выключены. Настройки CarrotKernel не трогаются.\n- **«Проверка лекарств» BunnyMo.** Если зависимости всех персонажей сцены с тегами MED или REC ведёт Dramatis, запись «Medicine Check» из основного лорбука BunnyMo на этот ход выключается — модель не получает двух разных указаний об одной привычке. Новое правило во вкладке «Правила»; файл BunnyMo не меняется.\n- **Граф отношений** показывает и позиции Dramatis — как персонажи относятся к твоему персонажу и друг к другу, с причинами; они помечены как данные Dramatis.\n- **Механики**: пока Dramatis ведёт отношения и положение в обществе, шаблоны «Отношения» и «Социальные шкалы» не предлагаются; уже созданные механики остаются, у них появляется пометка.\n- **Закулисье** узнаёт у Dramatis цели персонажа, что он пытался сделать и чем кончилось — событие за кадром следует его планам.\n- **Режиссёр** берёт созревшие повестки Dramatis как повод для поворота.\n- **Проверка промпта и архитектор** знают блок Dramatis: его вставка подписана «Dramatis», правки к ней — советом (Maestro её не меняет), у архитектора — отдельный бюджет «Dramatis: карточка мотивов» (только замер).\n- Исправлено: время жизни карточки «Входящих», заданное предложением, теперь соблюдается; подсказка к бюджету механик у архитектора показывалась ключом.\n\n## 1.16.0 — подготовка всех стартовых сцен (2026-10-08)\n\n- **Все стартовые сцены.** «Подготовить к игре» читает каждое приветствие карточки целиком (а не только то, с которого открылся чат), и для каждого готовит свою стартовую сцену: где и когда, кто рядом, во что одеты, что происходит, тип первой сцены. Персонажи, мир, места, фракции, механики — общие для всех стартов. В окне подготовки — раздел «Стартовые сцены» с пометкой «сейчас в чате».\n- **Действует сцена, что сейчас в чате.** Пока ты не написал первое сообщение, свайп приветствия переключает сцену: наряды, тип первой сцены и заметка канона о начале истории меняются под неё (заметка одна, она переписывается). Первое сообщение закрепляет сцену. «Для персонажа» сохраняются все сцены — в следующем новом чате этой карточки действует сцена того приветствия, с которого он начнётся.\n- **Тип первой сцены доходит до первого ответа.** Раньше режиссёр снимал его в момент твоего первого сообщения — ещё до ответа модели; теперь он снимается, когда первый ответ уже написан.\n- Исправлено: окно подготовки не прокручивалось — после разбора длинный план нельзя было пролистать.\n\n## 1.15.0 — «Подготовить к игре» (2026-10-07)\n\n- **Подготовка новой истории.** В новом чате (пока нет твоих сообщений) под приветствием Maestro сам предлагает: «Подготовить историю к игре?» — и открывает окно «Подготовка к игре». Ещё — командой `/maestro-prepare`.\n  1. **Что читать**: карточка целиком (описание, характер, сценарий, выбранное и другие приветствия, примеры диалогов, заметки автора), её книги и книга мира, книга чата, твоя персона, кампания DES, листы CarrotKernel персонажей этой истории; что не влезает — видно; цена разбора — заранее.\n  2. **Разбор** фоновой моделью по частям, с прогрессом и «Остановить».\n  3. **Просмотр** по разделам: персонажи (имена и русские формы, роль, внешность, характер, манера речи, отношения, в том числе к твоему персонажу, во что одеты в начале), мир, места (с вложенностью), фракции, предметы, традиции, время начала и календарь, секреты, стартовая сцена, механики с начальными значениями, режиссура. Галочки, правка текста, «уже есть» и расхождения с каноном, выбор «для чата / для персонажа» у каждого пункта и раздела.\n  4. **Применение** одним пакетом: канон, места, паспорта NAI Studio для персонажей без паспорта (текстом, без Anlas), секреты, договорённости, механики, стартовые наряды, тип первой сцены; у каждого пункта — «Отменить» и ссылка в нужное окно. Фоны — только предложением.\n  5. **«Готово к игре»**: что сделано и чего не хватает (паспорт, портрет, фон…), с кнопками.\n- **Подготовка для персонажа** сохраняется: в следующем новом чате этой карточки её можно применить сразу, без нового разбора, или разобрать только изменившееся в карточке и книгах.\n- Подготовку запускаешь ты сам, поэтому дневной потолок фоновых трат её не останавливает (цена всё равно показывается заранее).\n\n## 1.14.0 — механики в игре (2026-10-07)\n\n- **Последствия и действия.** У проверки — последствия по исходу («провал — −10 здоровья», «заклинание стоит маны, сорвавшееся — половину»), у событий на порогах — действия: изменить значение, наложить состояние, дать предмет, раскрыть скрытое, запустить другое событие.\n- **Состояния с длительностью** («Отравлен — 3 хода», «Благословение — до заката»): модификаторы к проверкам и значениям, снимаются сами по ходам или по времени истории.\n- **Инвентарь**: предметы с количеством, «надето / в руках», цены, покупка и продажа за деньги механики; модель отдаёт и забирает предметы служебным блоком.\n- **Формулы** («макс. здоровье = 50 + 10 × уровень»), **опыт и уровни**, **рост навыков** от применения, **время**: восстановление и расход по дате и времени DES («+10 маны за час отдыха», голод растёт).\n- **Броски**: модель может сама попросить проверку в служебном блоке; встречные проверки («Скрытность Кая против Внимательности стражника»), преимущество и помеха, формулы вроде `2d6+1d4+3`, `4d6kh3`.\n- **Бой**: инициатива, очередь ходов, противники со своими статами; начинается сам, когда режиссёр видит бой, или кнопкой.\n- **Где видно** — у каждой механики и атрибута: «Игровой» (числа и полосы), «Книжный» (только словами), «Скрытый» (пока не раскрыт), «Тайный от всех» (знает только Maestro, модели — только последствия). По умолчанию — «Игровой», у отношений и социальных шкал — «Книжный».\n  - **Строка под ответом**: «Кай: ❤ 80 → 65 · 🔷 40 → 25 · + Отравлен (3 хода)» с «Отменить», карточки бросков с кубиками и последствиями, события порогов.\n  - **HUD** поверх чата: твой персонаж и выбранные, полосы, состояния с оставшимся временем, деньги и вещи, «Бросок» и «Инвентарь»; перетаскивается к верху или низу; на телефоне — одна строка.\n  - **Окно «Механики»**: «В игре» (значения, состояния, инвентари, бой, «Подсмотреть» скрытое), «История» (каждое изменение и бросок с откатом), «Конструктор».\n  - Полоса под портретами DES — с твоим персонажем и выбранными атрибутами; раздел «Механики» в досье.\n  - По желанию: сообщения рассказчика о бросках в ленте чата и статус-блок под ответом (выключены по умолчанию).\n- **Конструктор**: без id и английских полей — правила пишешь по-русски, модели уходит английский перевод (правится в «Подробнее»); «Описать словами» — механику собирает ассистент; предпросмотр того, что уйдёт в промпт; редакторы всех новых частей и видимости; копировать, сохранить в файл и загрузить, сбросить состояние.\n- **Шаблоны**: новые — выживание, рассудок, инвентарь и торговля, бой, социальные шкалы (симпатия, доверие, влечение); исправлены — заклинание (бросок против сложности с тратой маны), навыки (понятный разброс), репутация (фракции из лора), переключатель критов.\n- Исправлено: статы твоего персонажа в режиме DES теперь обновляются; механики мира и фракций уходят в промпт, только когда о них речь.\n- Состояния и инвентарь работают у механик, где эти части включены (новые шаблоны или конструктор); старые механики можно дополнить в конструкторе.\n\n## 1.13.0 — пресеты с ассистентом, правки по чатам, проверка промпта (2026-10-07)\n\n- **Правки пресета — везде, для персонажа или для этого чата.** Твой слой поверх пресета теперь из трёх частей: общий, персонажа и чата, накладываются по очереди. В редакторе блока и в «Слое» Пресет-студии — переключатель «Везде / Этот персонаж / Этот чат»; правку можно перенести между областями. Правки персонажа и чата никогда не попадают в файл пресета (ни при сохранении из студии, ни через «Обновить пресет» ST) и меняются сами при переходе в другой чат — пресет не становится «несохранённым».\n- **Пресет персонажа или чата.** Целый пресет можно привязать к персонажу или чату: при входе в чат Maestro включает его (спросив про несохранённые правки), при выходе возвращает прежний.\n- **Промпты соседей** — новая вкладка Пресет-студии: тексты инструкций, которые вставляют другие расширения (трекер DES, правила картинок NAI Studio, пересказы Qvink, языковой замок DES-RU, CarrotKernel, вставки самого Maestro). Можно изменить везде или сделать копию только для персонажа или чата — копия подставляется в момент отправки, настройки соседа не меняются.\n- **Ассистент работает с пресетами.** Видит пресет целиком (полный текст блоков, параметры, анализ, версии, сравнение двух пресетов, промпты соседей) и правит всё, что правишь ты в студии: текст («было/стало» по словам), название, роль, место, включение, порядок, удаление, параметры генерации — в слой выбранной области. Собирает новые пресеты (с нуля, из текущего, из блоков нескольких, из присланного JSON), привязывает их к персонажу или чату. Связанные правки приходят одной карточкой-пакетом: применить всё или выбранное, откат одним действием. «Пробная сборка» показывает, что уйдёт модели, ничего не отправляя. «Обсудить с ассистентом» у блока и у пресета открывает ассистента с ним в контексте. Знает подводные камни DeepSeek V4 через OpenRouter.\n- **Проверка промпта** — вкладка Пресет-студии, команда `/maestro-audit` и просьба ассистенту. Проверяет всё, что уходит модели как инструкция: пресет, карточку, заметку автора, вставки всех расширений и Maestro. Быстрые правила — язык, лицо, время, длина, обязательные части ответа (JSON трекера, картинки, инфобокс), форматы, «кто пишет за игрока», повторы, роли и места сообщений для твоей модели; по кнопке — проверка ИИ (с ценой заранее). Для каждого конфликта — две цитаты, чьи они, чем грозит именно на твоей модели и готовое исправление «было/стало» с выбором «везде / персонаж / чат». Паки BunnyMo не правятся никогда.\n- Исправлено: значение, поставленное «везде» после правки этого же значения в чате, больше не теряется при выходе из чата.\n\n## 1.12.0 — окна вместо пульта, Maestro в чате (2026-10-07)\n\n- **Окна.** Всё, что раньше жило в одном модальном пульте, теперь в отдельных окнах, которые не мешают играть: «Ассистент», «Входящие», «Персонажи» (досье, гардероб, BunnyMo), «Механики», «Мир», «Канон», «Ход», «Здоровье» и «Maestro» (обзор, журнал, настройки, оформление, расширения). По умолчанию окно открывается боковой панелью рядом с чатом; его можно открепить в плавающее окно (перетаскивание, размер, свернуть в заголовок) и прикрепить обратно. Несколько окон сразу; где какое окно было — запоминается на этом устройстве. На телефоне окно занимает экран под верхней панелью, открытые окна переключаются кнопками.\n- **Лор-студия и Пресет-студия** — тоже окна: рядом можно держать чат или ассистента.\n- **Шестерёнка в окне** показывает настройки модулей этого раздела.\n- **Меню Maestro** — по значку в верхней панели (новых значков нет): все окна со счётчиками, студии, твои задачи с прогрессом, настройки. То же меню — в «волшебной палочке».\n- **Кнопка Maestro у сообщения** (в «…»): «Досье» говорящего и «Механики».\n- **Команды**: `/maestro [окно]`, `/maestro-undo` (отменить последнее действие Maestro в этом чате), `/maestro-mode экономный|сбалансированный|кино`, `/maestro-scene <тип сцены|авто>`.\n- **Строка Maestro под сообщением**: предложения «Входящих» по этому ответу, запомненные живым каноном факты ([Верно] [Забыть] [Это ошибка]), вопрос «тот же персонаж или другой?», брак ответа, броски — прямо в чате; нажатие раскрывает карточку с кнопками, окно открывать не нужно. Строки переживают перезагрузку и исчезают, когда всё решено; в текст сообщения, промпт и память Qvink ничего не попадает, «пузыри» DES не ломаются. Настройка «Строка Maestro под сообщениями»: всё / только то, что ждёт решения / ничего.\n- Переход к сообщению или открытие студии больше не закрывает окна на компьютере (на телефоне окно уступает место чату).\n\n## 1.11.0 — понятные уведомления, гардероб, тёзки из разных историй (2026-10-06)\n\n- **Тёзки больше не сливаются.** Раньше новый персонаж с тем же именем, что у кого-то из другого чата (паспорт карточки, лист в общем архиве CarrotKernel, запись в общей книге), молча становился «тем же самым»: в новый чат приходили его внешность, наряды, характер, манера речи — и голос попадал в промпт. Теперь Maestro спрашивает во «Входящих» и значком у сообщения: «Офелия здесь — тот же персонаж, что в паспорте карточки?» [Тот же] [Другой]. Пока ты не ответил, старое не используется; «Другой» — в этом чате у неё всё своё, а паспорт карточки выключается только здесь (NAI Studio 0.14). Персонажи самой карточки (названные в её описании, сценарии, приветствиях или книге) — те же без вопросов. «Это разные» в модели мира теперь работает и для одинаковых имён. Решение можно поменять в досье. Данные Maestro удалённых чатов убираются вместе с чатом.\n- **Гардероб видит, во что все одеты сейчас.** Раньше в настоящих чатах он не срабатывал: DES пишет одежду внутри «Внешности», а гардероб ждал отдельного поля. Теперь:\n  - поле «Одежда» в трекер DES — одной кнопкой во вкладке «Гардероб» (только с твоего согласия, откат в журнале); пока его нет, одежда вычитывается из «Внешности»;\n  - каждый ход — сверка: знакомый наряд надевается сам, новый через два хода становится нарядом с русским названием («Шёлковое платье», «Блузка и юбка»); переодевания, раздевание, полотенце, бельё; пропущенный ход больше не «застревает»;\n  - «Кто в сцене и что на нём» во вкладке, «Сейчас: …» в досье, твой персонаж — по разговору об одежде (фоновая модель, не чаще раза в 6 ходов) или полем «Сейчас на тебе»;\n  - строка «кто во что одет» в конце промпта, чтобы модель не путала одежду (выключается);\n  - портрет DES перерисовывается при смене наряда (NAI Studio 0.14, выключается);\n  - NPC с паспортом только из лора получает паспорт чата при первом наряде.\n- **Понятные уведомления.** Каждое говорит словами истории: что случилось, что Maestro сделал или предлагает, что будет, если согласиться. Служебное (книги, номера записей, теги, английский текст канона) — под «Подробнее». У всех действий человеческие названия — в карточках, журнале и настройках автономии. Новое в настройках: «О чём сообщать» — всё (по умолчанию), важное, только срочное; «Показывать технические подробности». Однотипное за ход склеивается («Запомнил 3 новых факта о мире»). То, что Maestro делает сам, теперь видно: «Вера переоделась: «Шёлковое платье»» [Отменить]; живой канон сообщает, что запомнил, подтвердил и отбросил. Канон по-прежнему хранится по-английски, но в карточках — русская формулировка и цитата.\n- **Видно, как идёт локализация лорбука.** В шапке книги Лор-студии — «Локализую: 34 из 120 записей» с полосой и «Остановить»; «Жду: Localizer занят другой задачей»; итог «добавлено N ключей в M записей» и «Повторить неудачные»; ошибки — человеческими словами. Задача не теряется, если закрыть студию: она видна во вкладке «Задачи», а вокруг значка Maestro — кольцо прогресса. То же у кнопки «Русские ключи» записи. Живой счётчик и остановка — с Lorebook Localizer 0.3.\n- Исправлено: гардероб, режиссёр и закулисье переставали замечать новые ходы, если сообщения удалили, пока Maestro не видел (другая вкладка, выключенный Maestro); отмена правки «описание места» в журнале сообщала об успехе и ничего не меняла; номера сообщений в уведомлениях везде такие же, как в чате.\n- Для всех новых возможностей: NAI Studio 0.14.0, DES-RU 0.8.2, Lorebook Localizer 0.3.0; со старыми версиями соответствующие части просто не включаются.\n\n## 1.10.3 — закулисье только своих персонажей (2026-10-05)\n\n- «Закулисье» больше не придумывает события персонажам из других историй. Раньше важным считался любой отсутствующий персонаж с архивом CarrotKernel или записью лора — и персонаж из общей книги-архива получал события во всех чатах, а модель потом его упоминала. Теперь кандидат — только персонаж этой истории: из трекера DES этого чата, появлявшийся в сцене, упомянутый в сообщениях, из карточки, канона чата, книги чата или книги карточки.\n- Уже сохранённые события таких персонажей убираются из канона чата один раз при открытии чата (с откатом в журнале) и сообщаются уведомлением.\n\n## 1.10.2 — цвета реплик персонажей (2026-10-05)\n\n- «Стиль сообщений» больше не перекрашивает реплики, у которых есть свой цвет (раскраска реплик DES: `<font color=…>\"…\"</font>`): цвет персонажа остаётся, правило добавляет только курсив и жирный.\n\n## 1.10.1 — фоновые задачи без рассуждения (2026-10-05)\n\n- Фоновые задачи Maestro (режиссёр, ревизия, живой канон, летопись, закулисье…) на профилях OpenRouter теперь просят модель не рассуждать: пресет профиля к ним не применяется, и DeepSeek V4 тратил весь короткий бюджет на размышления — тип сцены у режиссёра не определялся ни разу, ревизия отвечала со второй-третьей попытки. Ассистент рассуждает как раньше.\n- Задачи со строгой схемой ответа получают не меньше 200 токенов.\n\n## 1.10.0 — правки по живым тестам (2026-10-05)\n\n- **Стиль сообщений** — новая вкладка в «Настройках»: редактор правил, как выглядят сообщения игрока и персонажей. Правило — что найти (\"…\", «…» ёлочками, реплики через тире, \\*мысли\\*, \\*\\*акцент\\*\\*, (…), […], свой регекс с проверкой) и как показать (цвет из темы, курсив, жирный, приглушение, шрифт, черта или подложка, вид кавычек — только на экране). Пресеты: «Классика» (по умолчанию: повествование обычным текстом, \"диалоги\" цветом цитат, \\*мысли\\* курсивом), «Книга», «Подсветка речи», «Мысли отдельно», «Ёлочки», «Сценарий», «Роман», «Контраст», «Игрок отдельно», «Минимум». Живой пример. Сохранённый текст сообщений не меняется. По желанию — «Подсказать модели этот формат».\n- **Сообщения игрока** — свой вид: акцентная черта, имя акцентным цветом, по желанию сдвиг вправо в «пузырях».\n- **Стартовая страница** в едином стиле: карточки недавних чатов, кнопки, приветствие. В превью чатов больше нет JSON трекера DES и сырых тегов вроде `<font color=…>` (только на экране; то же в «Управлении чатами» и боковой панели Top Info Bar).\n- **Оформлены**: панель персон игрока, «Управление чатами», панель чатов Top Info Bar, поле ввода (скругление, отступы, подсветка фокуса; на телефоне — крупные кнопки и шрифт 16 px без увеличения в iOS).\n- **Верхняя панель** снова с воздухом: высота подросла через собственную переменную ST, вся раскладка сдвигается вместе с ней (в iOS и в режиме «Плотно» — как в ST).\n- **Ассистент видит чат и карточку**: чтение и поиск по сообщениям текущего чата (трекер DES — коротко), карточка персонажа со всеми стартовыми сценами (первое сообщение и альтернативные приветствия), персона игрока и «обзор сценария» — одним вызовом всё, что нужно, чтобы предложить механики по этому чату.\n\n## 1.9.0 — ассистент (2026-10-05)\n\n- **Ассистент Maestro** — вкладка «Ассистент» в пульте, отдельно от ролевой игры: спрашивай про Maestro, этот чат и расширения. Модель — из своего профиля подключения (по умолчанию фоновый), свой цикл с инструментами, а не инструменты ST — модель РП их не видит. Дневной потолок фоновых трат ассистента не останавливает: его запускаешь ты.\n- **Читает и объясняет** — 27 инструментов: модули и их настройки, здоровье стека, журнал, «Входящие», промпт хода, почему запись лора сработала или нет («почему героиня не узнала сестру?» — ключи, глубина сканирования, падежи, вероятность, группы, задержки), почему ход дорогой (источники, кэш, перегенерации), регексы (объяснение и проверка на примере по правилам ST), досье, отношения, кто что знает, места, календарь, гардероб, паспорта, механики, режиссёр, блоки пресета. Встроенная справка: каждый модуль, каждый сосед и частые вопросы — на русском и английском.\n- **Делает — только с твоего согласия**: настройки модулей, включение модулей, уровни автономии, механики, регексы (только после проверки на примерах), блоки и условия в твоём слое пресета, записи лора, паспорта. Каждое изменение — карточкой «было/стало» с кнопками «Применить» и «Отклонить», всё в журнале с откатом.\n- **Безопасность**: текст чата, лора, карточек и пресетов для ассистента — только данные, не инструкции; ключи API, токены, адреса и профили подключения он не видит и не меняет; книги BunnyMo не трогает; не больше 10 шагов и 5 предложенных изменений на сообщение и 20 применённых изменений в час.\n\n## 1.8.0 — единый интерфейс (2026-10-05)\n\n- **Единый стиль** — SillyTavern, чат и расширения выглядят как одно приложение: одна таблица стилей Maestro за классом `maestro-theme` на странице. Цвета, размытие, тени, размер шрифта и ширину чата даёт твоя тема ST (смена темы подхватывается сама), скругления, отступы и элементы управления — общие с окнами Maestro. Выключил стиль или Maestro — всё выглядит как раньше; настройки соседей не меняются.\n- **Соседи в том же стиле**: Doom's Enhancement Suite (окна, полоса портретов, шапки сцены и мысли в чате — через его собственные переменные), CarrotKernel (самые заметные части), NAI Studio (панель, окна, картинки в чате), DES-RU, строки памяти Qvink, Lorebook Localizer.\n- **«Оформление» в настройках пульта**: стиль целиком и по частям (ST, чат, каждое расширение), плотность, скругления, «Показать, как было» на 10 секунд.\n- **Док «Расширения»** — блоки настроек CarrotKernel, Qvink, NAI Studio, DES-RU, Localizer и DES открываются прямо в пульте (настоящие блоки, всё работает) и возвращаются на своё место, когда пульт закрыт или Maestro выключен; по желанию — и полоса портретов DES. Ярлыки открывают окна соседей: настройки и каталог персонажей DES, редактор памяти Qvink, галерея и сцена NAI Studio, локализатор, менеджеры CarrotKernel.\n- **Пульт по разделам** — вкладки собраны в группы: Ход, Входящие, Канон, Досье, Мир, Механики, Здоровье, Журнал, Расширения, Настройки; группы сворачиваются, на телефоне — разделы в списке вкладок.\n\n## 1.7.0 — механики (2026-10-05)\n\n- **Конструктор механик** во вкладке «Механики»: свои игровые системы без возни через лор — атрибуты (числа, шкалы, списки, тексты), у кого они есть (персонажи, твой персонаж, фракции, мир), правила для модели, события на порогах («мана на нуле — заклинание срывается»), проверки с кубиками. Шаблоны: здоровье и выносливость, магия с маной и школами, репутация у фракций, деньги, навыки с проверками, отношения. Механика хранится записью типа «механика» в книге Maestro, действует для карточки, чата или везде и выключается в отдельном чате.\n- **Три способа учёта** — на выбор для каждой механики и атрибута: статы трекера DES (Maestro по твоему согласию добавляет их в DES, твои собственные статы не трогает), короткий служебный блок в конце ответа модели (Maestro читает его, чинит ошибки формата и прячет), фоновый разбор ответа. Изменения применяются, когда ты отправляешь следующее сообщение; свайп или удаление ответа откатывает его изменения. Правка значения в пульте — с откатом.\n- **Броски делает Maestro**: слово-триггер в твоём сообщении («убедить», «колдую», \"sneak\") — и проверка уходит в промпт фактом: «Spellcasting check (Элизабет): rolled 6, needed 100 or lower — success». Свайп не перебрасывает. Есть кнопка «Бросок» и команда `/maestro-roll`.\n- **В промпте** — только правила и значения механик, которые участвуют в сцене, ближе к концу; бюджет «механики» у архитектора. Флаги `maestro_mech_<механика>` для условных блоков пресета — в каталоге Пресет-студии. События на порогах — материал для поворотов режиссёра.\n- **Виджеты** — значения в пульте и строкой под портретами DES (на телефоне — одна строка с прокруткой).\n\n## 1.6.0 — визуальная связка (2026-10-05)\n\n- **Гардероб и состояния** — новый наряд из трекера DES (повторившийся два хода) становится именованным нарядом в паспорте NAI Studio уровня чата, а знакомый наряд узнаётся и надевается снова; состояния персонажей (мокрый, ранен, устал…) и мест (разрушено, украшено, пожар, ночь) включаются и выключаются в паспортах по трекеру. Персонаж, который появляется уже в новом наряде, тоже получает его. NAI Studio рисует узнанный наряд его тегами. Библиотека нарядов — во вкладке «Гардероб» и в досье, всё с откатом. Отложенные карточки нарядов из ревизии разбираются сами.\n- **Паспорта в лорбуках** — у записи лора может быть визуальный паспорт в формате NAI Studio: в книгах Maestro — в самой записи, у базовых книг — в реестре Maestro (файлы книг не меняются, книги BunnyMo не трогаются). Создаётся генератором NAI Studio или фоновой моделью по его схеме, правится в Лор-студии рядом с текстом. NAI Studio получает паспорта записей, сработавших или упомянутых в сцене.\n- **Фоны** — фон чата следует за местом: сначала подбор из библиотеки фонов SillyTavern (по названию, папкам, состоянию места, времени суток и погоде из DES), иначе — кнопка «Сгенерировать фон» в NAI Studio (с учётом режима «только бесплатно»). Только фон этого чата — общий фон и `settings.json` не меняются. Поставленный тобой фон Maestro не трогает, пока не разрешишь снова выбирать самому.\n- **«Оформить»** в досье — новый NPC или место получает всё одной кнопкой: запись канона с русскими ключами, архив CarrotKernel по словарю загруженных пакетов BunnyMo (в твою книгу-репозиторий или новую «Maestro · архив»), паспорт NAI Studio, если его нет. Весь план — одной карточкой во «Входящих», каждую часть можно откатить отдельно. «В книгу карточки» переносит запись канона в книгу карточки.\n- Нужен NAI Studio 0.12.1 (паспорта от Maestro, генерация паспорта и фона, наряды по формулировке трекера); со старыми версиями эти части просто не включаются.\n\n## 1.5.0 — живой мир (2026-10-05)\n\n- **Закулисье** — раз в несколько ходов (15 в «Сбалансированном», 10 и в конце сцен в «Кино», в «Экономном» только по кнопке) фоновая модель коротко рассказывает, чем были заняты до трёх важных персонажей, которых давно нет в сцене. События — в канон чата; смерть, плен, исчезновение и всё, что спорит с каноном, сначала ждёт тебя во «Входящих». Иногда присутствующие слышат слух.\n- **Календарь и обещания** — время истории по трекеру DES (обычные даты, «День N», выдуманные календари); договорённости и сроки из ревизии или вручную: «к закату», «через три дня», «by tomorrow». Наступивший срок — повод для заметки режиссёра; просроченное и нарушенное отмечается.\n- **Кто что знает** (экспериментально, выключено по умолчанию) — участники сцены знают её события, секреты из ревизии помечаются; голосовые карточки получают «не знает: …», когда тема всплыла.\n- Ревизия сразу отдаёт обещания календарю и секреты — модулю «Кто что знает»; отложенные карточки прошлых этапов разбираются сами.\n\n## 1.4.0 — режиссура (2026-10-05)\n\n- **Режиссёр сцены** — после каждого хода определяет тип сцены (диалог, бой, интимная, исследование, пропуск времени, светская, драма) по ответу, твоему сообщению и трекеру DES, с устойчивостью к случайным скачкам; при сомнении — дешёвая модель. Для следующей генерации ставит одноразовые флаги: `maestro_scene_<тип>`, длина ответа, откровенная сцена, язык, «момент для картинки». Тип можно задать самому.\n- **Темп и повороты** — если история встала (то же место, ничего не происходит, повторы, разговор по кругу), короткая заметка режиссёра ближе к концу промпта с поворотом из квестов DES и незакрытых нитей. Молчит, когда ты сам ведёшь сюжет; никогда не уводит от тёмных и откровенных сцен. «Встряхнуть» — заметка по кнопке.\n- **Голоса персонажей** — компактная карточка на каждого присутствующего: манера речи (LING и блок Linguistics), MBTI с состоянием, отношение к тебе сейчас, связи с другими присутствующими, цели. Когда карточки включены, вставка CarrotKernel «Character Consistency» гасится при сборке промпта (настройки CK не меняются), а DES-RU перестаёт её пересобирать. Выключено по умолчанию.\n- **Условные блоки пресета** — в Пресет-студии блок можно сделать «только когда …» / «кроме когда …» по флагу Maestro (`{{if .maestro_…}}`), с симулятором флагов, проверкой синтаксиса и предупреждением, если новый движок макросов выключен. «Подготовить к отключению» спрашивает, оставить ли такие блоки обычным текстом или выключить.\n\n## 1.3.0 — ресурсы: архитектор промпта и казначей (2026-10-05)\n\n- **Бюджеты по источникам** — общий потолок лора (поверх потолков книг), RAG CarrotKernel, краткосрочной памяти Qvink и необязательного блока контекста DES; при превышении уходят наименее важные куски, инструкции трекера DES и долгая память Qvink не трогаются никогда. По умолчанию всё выключено.\n- **Кто рядом** — записи об отсутствующих и далёких местах приглушаются, если о них не говорили последние сообщения; записи присутствующих и текущего места закрепляются (включается в «Архитекторе»).\n- **Повторы фактов** между лором, каноном, памятью Qvink, архивами CK и DES — отчёт, а по твоему согласию остаётся один источник.\n- **Кэш провайдера** — доля промпта из кэша и место, где промпт начинает меняться; проверка, что меняющиеся вставки Maestro стоят в конце.\n- **«До и после»** каждого правила — во «Промпте хода».\n- **Казначей** — сколько стоит игра: последний ход, сессия, сегодня и 14 дней, по источникам (основная модель, перегенерации, авто-свайпы, Qvink, задачи Maestro, NAI) и Anlas; при достижении общего дневного лимита — переход в «Экономный», если так настроено.\n- Учитываются кэшированные токены провайдеров.\n\n## 1.2.0 — контроль качества ответа (2026-10-04)\n\n- **Проверка каждого ответа** до того, как NAI Studio начнёт рисовать: уход в другой язык, кальки и штампы; реплики и действия за тебя; отказы, морализаторство, оговорки вне роли, смягчение и навязчивые вопросы; повторы прошлых ответов; обрезанный ответ; служебный мусор и протёкший HTML (JSON трекера DES и маркеры NAI — норма); нет трекера DES; граница контента. Сначала бесплатные правила, дешёвая модель-судья — только при сомнении (в «Экономном» — никогда).\n- **Действия по видам брака** — выкл / «Само» (очистить, попросить продолжить, один свайп за ход с точной инструкцией, ремонт трекера через Медика) / «Уведомить» (значки «Переделать» и «Не брак»). По умолчанию «Само» — только мусор и трекер, остальное — «Уведомить», пока не набрана статистика ложных срабатываний.\n- **Ранняя отсечка** служебных токенов модели прямо в потоке: остановка и один свайп.\n- **Граница контента** — настраиваемые правила с умолчанием (никакого сексуального контента с несовершеннолетними), тестовый режим.\n- **NAI Studio ждёт «качество ок»** (нужен NAI Studio 0.11.0): картинки не рисуются для ответа, ушедшего на переделку.\n\n## 1.1.0 — Пресет-студия (2026-10-04)\n\n- **Пресет-студия** — большое окно для пресета Chat Completion: «Карта» (как SillyTavern соберёт промпт: блоки по порядку, вставки расширений на своих местах, токены, блоки, которые включены, но не уйдут), «Блоки» (порядок перетаскиванием, массовое включение, поиск, предпросмотр с макросами), редактор блока, «Анализ» (несохранённые правки, пустые и неотправляемые блоки, противоречия, повторы с лором и вставками, особенности модели и провайдера), «Версии» (каждое сохранение — версия, откат), «Параметры» генерации и сценариев.\n- **Твой слой** — твои блоки и правки хранятся отдельно от базового пресета и накладываются при его выборе; новая версия базы (например, Marinara) ставится без потери правок, а при изменённом тексте блока — выбор из трёх версий. Перенос текущих правок в слой с предпросмотром (ключи подключения можно не переносить), перенос слоя на другой пресет, блоки из чужих пресетов.\n- **Безопасное сохранение** — пресет сохраняется только с явным телом, незнакомые ключи и расширения сохраняются, переименование переносит разрешения регексов и спрашивает о профилях подключения; несохранённые правки сохраняются версией перед переключением пресета.\n- **Сценарии генерации** — свои параметры для перевоплощения и продолжения (выключены по умолчанию).\n- Раздел Prompt Manager можно заменить кнопкой студии (настройка, по умолчанию выключена — до проверки паритета вживую).\n- **«Подготовить к отключению», экспорт и импорт данных Maestro** в настройках пульта.\n\n## 1.0.0 — выпуск R3, первая полная версия (2026-10-04)\n\nЭтап 4: ревизия и живой канон.\n\n- **Сигналы хода** — когда ты отправляешь сообщение, прошлый ответ фиксируется, и Maestro без ИИ сравнивает его с ходом раньше: смена отношения, стойкая внешность, место, пропуск времени, конец сцены, квесты, кто пришёл и ушёл, новые алиасы и имена, память Qvink. Свободный текст засчитывается, только если продержался два хода; свайп и правка откатывают ровно то, что дал ответ.\n- **Ревизия «сюжет → канон»** — по сигналам, раз в N сообщений, в конце сцены или командой `/maestro-revise` дешёвая модель смотрит, что изменилось у известных персонажей и мест, и предлагает обновить владельца: канон чата, теги архива CK (только из словаря паков), паспорт NAI уровня чата, прозвища чата, реестр мест. Наряды, обещания и секреты ждут своих этапов отложенными карточками.\n- **«Входящие»** — карточки по персонажам, ссылка на сообщение, «было/стало» по хранилищам, цитата и уверенность; принять, изменить на месте, отклонить, отложить, «Всегда так», принять всё.\n- **Проверка противоречий** — сначала правила (имена, числа, даты, отрицания), при сомнении — дешёвая модель; общий сервис для ревизии и живого канона.\n- **Живой канон** — то, что придумала модель (праздник, таверна, род), после фиксации хода становится пробной записью канона с русскими ключами; подтверждается, только если ты сам это упомянул, принял, если оно всплыло снова без подсказки или продержалось 10 ходов без противоречий. Пакетное извлечение пишет английский текст записей. Свайп убирает пробное, подтверждённое остаётся.\n- **Летопись и автопамять** — воспоминания Qvink, выпавшие из долгой памяти, становятся главами канона (срабатывают по двум ключам сразу); важные моменты сами получают отметку «запомнить» во всех свайпах; «Ранее в истории…» после перерыва.\n- **Замеры** — вкладка с критериями первой полной версии: задержка Maestro до запроса, доля фоновых расходов, лор на ход, выпавшие сообщения, роли записей, вкладки, ревизия, живой канон, листы, файлы паков. Скрипт стенда `tools/stand/measure.mjs`.\n- Исправлено: досье и листы брали архив «Александра» для «Александр» (падежная форма совпадала с другим именем); запросы NAI Studio записывались в расходы Qvink.\n\n## 0.2.0 — выпуск R2 (2026-10-04)\n\nЭтапы 2 и 3: Лор-студия, роли книг, доктор, канон; модель мира, досье, места.\n\n**Этап 3**\n\n- **Модель мира** — каждый персонаж, персона и место стека одной сущностью: карточки, состав DES, алиасы DES и DES-RU, падежи, паспорта NAI, архивы CK, записи лорбуков с типом, канон и места. Одно лицо под разными именами склеивается; сомнительные совпадения — во «Входящих». Прозвища, которые действуют только в этом чате.\n- **Досье** — одна страница на сущность: DES, лор, канон, архив CK и теги, паспорт NAI (с изменениями этого чата), падежи, воспоминания Qvink, RAG, последний лист. Сверка структуры (нет записи, паспорта или архива, алиас не стал ключом, имена расходятся), сверка внешности ИИ по кнопке, «Разнести» правку по хранилищам. Команда `/maestro-dossier`.\n- **Места** — реестр мест чата по локации DES: новое название становится местом, если продержалось два хода; вложенность, история визитов (кто был, когда), описание записью канона. NAI Studio держит непрерывность фона по id места.\n- **Граф отношений** — как персонажи относятся к твоей персоне, ход за ходом по трекеру DES.\n- **Режим BunnyMo** — словарь тегов всех паков (конфликты, дубли, теги без пака), паки по чатам, сравнение пака с новым файлом, проверка целостности, редактор листов архивов CK. Команда `/maestro-bunnymo`.\n- Нужен NAI Studio 0.10.0 для паспортов уровня чата и непрерывности по местам (без него всё остальное работает).\n\n**Этап 2**\n\n- **Лор-студия** — свой редактор лорбуков рядом со штатным: книги по ролям, все поля и действия штатного окна, канон рядом с базой, история версий, русские ключи, кампании DES. Кнопку «Миры и лорбуки» можно отдать студии настройкой.\n- **Роли книг** — Maestro знает, где ядро и паки BunnyMo, архивы CK, мир, карточка, NPC, канон; паки BunnyMo только для чтения.\n- **Канон чата** — изменения сюжета в отдельном лорбуке чата: переопределение, подавление, закрепление, добавление; бюджет, архив, слежение за базой, повышение до базы, экспорт, ветки. Срабатывает по русскому тексту.\n- **Доктор** — «Исправить в файле» для твоих книг (паки — никогда) и лечение регексов, всё с откатом.\n- **Правила** — кириллица и «целые слова», конфликт версий паков, `<NSFW>` в архивах, глубина сканирования архивов CK.\n- Нужны DES-RU 0.8.0 и Lorebook Localizer 0.2.0 (без них всё работает, но без склонений и локализации из студии).\n\n## 0.1.0 — выпуск R1 (2026-10-04)\n\nНаблюдение и быстрые исправления.\n\n- **Журнал лора** — какой лор ушёл в промпт на каждом ходу, почему, каким ключом и через какую запись; почему книга активна; «Что если» без генерации.\n- **Инспектор хода** — из чего собран промпт: пресет, лор по книгам, вставки соседей, история.\n- **Медик** — проверки соседей после каждого ответа; ремонт трекера DES; предупреждение о prefill с ролью assistant.\n- **Страж** — эталон настроек и пресета, дрейф во «Входящих»; устаревшая вкладка больше не перезаписывает настройки, пресеты и лорбуки.\n- **Доктор** — находки в лорбуках и регексах, испытание регексов.\n- **Правила на лету** — роль assistant → system, потолок и лимит рекурсии книги, дубли паков, «дыры» Qvink, картинки NAI вне пересказов, видимые теги BunnyMo, кнопка векторизации CK и полоса портретов DES на телефоне.\n- **Листы персонажей** — команды BunnyMo генерируются своей сборкой промпта, без хвоста сцены и трекера, сворачиваются и уходят из промпта после следующего хода.\n- **Мастер первого запуска.**\n\n## 0.0.0 — этап 0\n\nКаркас: слой ST, сервисы ядра, адаптеры соседей, пульт, стенд с имитацией модели.\n";
+var CHANGELOG_default = "# Журнал изменений\n\n## 1.34.0 — соседи и авторство (2026-11-12)\n\nВместе с Dramatis 1.8.0, Localizer 0.6.0 и Officina 0.9.0.\n\n- **Задачи соседей — в окне «Агенты»** (группа «Соседи»):\n  - шесть задач Dramatis — такт, режиссёр такта, замысел автора, генератор личностей, пересборка по истории, перевод описаний;\n  - «Расширить мир» Localizer.\n  - Как у встроенных агентов Maestro: видно поручение, можно дописать «Дополнительные указания» или переписать текст, поменять модель и её параметры, посмотреть журнал запусков. Логика задач остаётся у соседей.\n- **Каст Dramatis — источник для твоих агентов**: чего хотят присутствующие и как стоят друг к другу.\n- **Агенты правят профили Dramatis**: «заполнить пустые поля» и «поднять до черновика / портрета» — через «Входящие», пишет сам Dramatis.\n- **Инструменты агентов**: бросить кубики (движком «Механик»), искать в лоре, искать в старых сообщениях чата. «Своя механика» теперь бросает кубики сама. Вызовы видны в журнале запусков.\n- **Ведущий группы**: в групповом чате с порядком ответов «Вручную» агент по сцене выбирает, кто ответит на твоё сообщение, и запускает его ответ.\n- **Ассистент и агенты**: «покажи агентов», «сделай агента, который…», «включи…», «поставь набор…», «добавь к такту Dramatis указание…». Каждое изменение — карточкой «было / стало» с подтверждением.\n- **Officina 0.9**: агенты под историю в проекте и в выпущенной карточке (Maestro спросит игрока, брать ли их); «Перенести в механики» из «Своей механики».\n- **Для соседей**: `MAESTRO_API.agents` и `MAESTRO_API.context` — свои встроенные агенты (на канале Maestro или на своём), приёмники предложений, источники контекста, свои агенты и наборы (`docs/integration-agents.md`).\n- **Руководство по агентам** — `docs/guide/agents.md`.\n\n## 1.33.0 — картинки через агентов (2026-11-12)\n\nНужна NAI Studio 0.16.0.\n\n- **Иллюстратор** (шаблон, группа «Картинки»):\n  - пишет метки картинок вместо основной модели — тот же объект метки и по тем же правилам (твой блок картинок из пресета);\n  - видит весь готовый ответ, гардероб, мизансцену, трекер и место;\n  - NAI Studio рисует его метки своим обычным путём: паспорта, стиль, непрерывность, ворота качества, «Повторить».\n- **Кто пишет метки** («Агенты» → «Картинки», то же в NAI Studio): «Основная модель» (по умолчанию), «Иллюстратор» (блок картинок пресета уходит из основного промпта, ответ — только история), «Иллюстратор, если основная модель не поставила метку». Действует, только пока Иллюстратор включён в чате; выключил агента — метки снова пишет основная модель.\n- **Сравнение вслепую** («Картинки»):\n  - до 20 ответов, которые проиллюстрировала основная модель, рисуются заново парами — её метка и метка Иллюстратора, одним путём, бесплатно;\n  - ты выбираешь лучшую, не зная, чья она;\n  - пока Иллюстратор не выиграет, его нет ни в одном наборе.\n- **Декоратор**: место, для которого в библиотеке фонов ничего не нашлось, получает фон. Агент описывает место, NAI Studio рисует, «Фоны» привязывают к месту и ставят с откатом. Один раз на место.\n- **Портретист**: новое важное лицо без паспорта картинок получает паспорт по сюжету и лору (в этом чате, с откатом) и, с DES, портрет.\n- **Аватар карточки** (по кнопке, всегда с вопросом): новый аватар по тому, как персонаж выглядит сейчас; старая картинка сохраняется копией в user/images/avatar-backups.\n- **Обложки глав**: новая глава летописи получает картинку-обложку, её видно в «Летописи».\n- **Только бесплатно по умолчанию**: картинки агентов не тратят Anlas, пока не включишь «Картинки агентов могут тратить Anlas».\n- **Мизансцена → картинки**: поза и место из «Мизансцены» доходят до картинок NAI Studio, если в метке поза не указана.\n- **Набор «Кино»**: + Декоратор, Портретист, Обложки глав.\n\n## 1.32.0 — трекеры и механики через агентов (2026-11-09)\n\n- **Новый модуль «Мизансцена»** (окно «Мир»): кто где и как сейчас — поза, место в сцене, рядом с кем, что держит, что видно на нём. Заполняет агент «Мизансцена» после ответа; у каждого свайпа своя мизансцена; удалённые сообщения уносят свою. Строка «кто где и как» (до ~80 токенов) идёт в промпт, выключается в настройках раздела. Поправить можно руками — с откатом в журнале.\n- **Трекеры через агентов пишут сразу**, без уведомления «Сделал…» каждый ход: запись в журнале с откатом, свайп возвращает своё.\n- **Костюмер** — после ответа замечает, кто переоделся, и пишет в гардероб: известный наряд по имени или одежду словами. Тот же путь, что у разбора переодеваний: наряд паспорта, поле «Одежда» DES, строка под сообщением, откат. Работает и без поля DES, и для твоего персонажа.\n- **Смена наряда** — заранее к следующему ходу подсказывает рассказчику, когда одежда больше не подходит сцене (ночь, бал, дождь, бой, долго в одном) и во что переодеть из известных нарядов.\n- **Механики: «Учёт: агент после ответа»** (Механики → настройки). Основная модель пишет только историю, без служебного блока; все изменения читает встроенный агент «Учёт механик» (его поручение и модель — в окне «Агенты»). Броска посреди ответа в этом режиме нет — он живёт в служебном блоке.\n- **Своя механика** — шаблон для правил, которых нет в механиках: голод, рассудок, долг, слава. Значения — в записях агента, правила — в его переменных, смысл значений идёт в промпт.\n- **Трекер сцены (DES) отдельным запросом** — встроенный агент «Трекер сцены (DES)», переключатель «Трекер отдельным запросом». Инструкция трекера DES уходит из основного промпта (настройки DES не меняются), ответ начинается сразу с истории, а трекер делается сразу после ответа отдельным запросом — по собственному промпту DES, его разбором и отрисовкой (это ремонт трекера медиком). Проверка качества в этом режиме не считает отсутствие трекера в ответе браком. По умолчанию выключено.\n- **Новые источники** для агентов: «Кто во что одет» (с известными нарядами) и «Мизансцена».\n- **Наборы «Игра»** (Костюмер, Мизансцена, Варианты действий) **и «Кино»** (Костюмер, Мизансцена, Смена наряда; картинки добавятся в 1.33).\n\n## 1.31.0 — агенты предлагают изменения: создатели (2026-11-09)\n\n- **Новый тип результата «Предложения».** Агент получает список того, что ему разрешено предлагать, и возвращает предложения; каждое идёт через автономию — по умолчанию во «Входящие», с «Подробнее», «Всегда так» и откатом из журнала. Исходные книги и карточку агенты не меняют.\n- **Что можно предлагать:**\n  - **новая запись лора чата** (канон чата): персонаж, место, предмет, фракция, событие, обычай — с русскими ключами-словоформами; уже известные имена не предлагаются повторно;\n  - **правка записи лора** — только в этом чате, поверх записи (исходная книга не трогается), с полным новым текстом; откат возвращает прежнюю правку или снимает её;\n  - **обещание или срок** в календаре (откат — «отменено»).\n- **Создатели** (шаблоны, группа «Создатели»):\n  - **Создатель персонажей** — новое значимое лицо в истории → запись в лоре чата: кто он, внешность, манера, связи. Карточек ST не создаёт: персонаж живёт в чате и его лоре;\n  - **Редактор персонажей** — в конце сцены предлагает обновить записи тех, кого сцена изменила;\n  - **Биограф** — раз в 25 сообщений прописывает персонажа с тонкой записью;\n  - **Картограф** — новое место без записи → запись места;\n  - **Летописец мира** — раз в 30 сообщений: фракции, обычаи, вещи, прошлые события, на которые история опирается;\n  - **Хранитель тайн** (группа «Текст») — отмечает персонажа, который знает то, чего не мог узнать, и предлагает «Переделать».\n- **Набор «Мир растёт»**: Создатель персонажей, Картограф, Летописец мира, Биограф.\n- **Новые источники**: «Кто что знает», «Известные миру имена», «Места». У записей «Лора хода» теперь видна ссылка «Книга#номер» — по ней агент предлагает правку.\n- В редакторе агента у типа «Предложения» — галочки «Что может предлагать» и «Не больше предложений за запуск».\n\n## 1.30.0 — агенты: пакеты и экономия (2026-11-09)\n\n- **Пакеты.** Агенты одного момента и одного профиля, которым это разрешено («Модель» → «Отправлять вместе с другими агентами той же модели»), идут одним запросом: общий контекст — один раз, у каждого агента свой блок задачи, ответ — один JSON со своей частью для каждого. Агент, которого в общем ответе не оказалось или чья часть не по форме, сам переспрашивается отдельно. У пакета одна температура — средняя по его агентам. Правки ответа всегда идут отдельно. Агенты по расписанию, которым пора в один и тот же момент, тоже собираются в пакет. В журнале запусков у таких запусков — «в пакете», цена пакета делится между агентами по длине их поручений.\n- **«Сначала спросить дешёвую модель».** У агента во вкладке «Когда» — переключатель «Перед каждым запуском спрашивать „нужен ли сейчас?“» и свой вопрос. Короткий вопрос уходит модели из новой строки «Агенты: вопрос „нужен ли сейчас“» в «Профилях подключения» (иначе — профиль агентов по умолчанию). Пропускает запуск только явное «нет»; если вопрос не прошёл, агент работает как обычно. Пропуски видны в журнале: «пропущен: сейчас не нужен».\n- **Цена хода.** В шапке списка агентов — «Твои агенты добавляют к ходу ≈ $…»: средняя цена последних платных запусков каждого включённого агента × как часто он работает (раз в ход, раз в N сообщений, по кнопке — не считается). Агенты без запусков — «Ещё не оценены: N».\n- Одновременно работают не больше трёх отдельных запросов агентов (пакет считается за один).\n\n## 1.29.0 — встроенные агенты (2026-11-09)\n\n- **Задачи Maestro, которые ходят к модели, стали встроенными агентами** — 15 штук в окне «Агенты» → раздел «Встроенные агенты», по группам:\n  - канон и память: Ревизия канона, Живой канон, Сверка противоречий;\n  - сюжет и режиссура: Пересказ «Ранее в истории…», Режиссёр (тип сцены);\n  - качество: Судья качества;\n  - мир и гардероб: Закулисье, Гардероб (переодевание и твоя одежда);\n  - механики: Учёт механик;\n  - по кнопке: Досье (сверить с ИИ, оформить), Паспорта записей, Проверка промпта ИИ, Персона для персонажа.\n- **Поручение встроенного агента**: «По умолчанию» (текст Maestro), «Дополнительные указания» (твои строки после текста Maestro) или «Весь текст» (заменяет текст Maestro). Форма ответа и то, как Maestro применяет ответ, остаются в коде — правка поручения не может их сломать. «Вернуть как было» — к умолчаниям; если текст Maestro по умолчанию поменяется в новой версии, а у тебя свой, — предупреждение со сравнением «было / стало», «Взять новый текст» или «Оставить свой». Текст Maestro по умолчанию виден под спойлером.\n- **Модель** у каждого встроенного агента: профиль подключения (та же строка, что в «Профилях подключения»), температура, длина ответа, рассуждения; пусто — как решает Maestro.\n- **«Когда»**: включатель (собственная настройка модуля) и его ручки — частота ревизии и живого канона, сколько фактов за раз, закулисье по режимам, источник и порог пересказа, частота одежды персоны.\n- **Журнал запусков** показывает и встроенных агентов: запрос ровно таким, каким ушёл (с твоим поручением), ответ, цена, причина сбоя. «Проверка» в карточке — последний запрос.\n- Без твоих правок запросы встроенных агентов уходят ровно такими же, как в 1.28.\n- Изменения встроенных агентов — в журнале Maestro с отменой.\n\n## 1.28.0 — агенты (2026-11-09)\n\n- **Новое окно «Агенты»** (меню Maestro → «Агенты»). Агент — модель-помощник с одной работой: что ей поручено, что она видит, когда запускается, на какой модели и что делает с ответом. Агентов создаёшь, правишь, включаешь и проверяешь прямо в ST. Разделы окна: Агенты, Вставки хода, Записи, Журнал запусков, Шаблоны, Наборы, Расходы.\n- **Карточка агента** — вкладки Поручение · Что видит · Когда · Результат · Модель · Область · Проверка:\n  - поручение обычным текстом с подстановками `{{char}}`, `{{user}}`, `{{язык_истории}}`, своими переменными `{{agent.<имя>}}` и вариантами поручения («мягкий / жёсткий»);\n  - 14 источников с бюджетами: последние сообщения, твоё сообщение, ответ, карточка, персона, лор хода, канон, память Qvink, сцена и персонажи DES, механики, режиссёр, свои записи, свой прошлый ответ;\n  - семь моментов запуска: заранее к следующему ходу, при отправке (с таймаутом и кнопкой «Не ждать»), вместе с ответом, после ответа, при фиксации, по расписанию / событию (конец сцены, смена места, новый персонаж, пропуск времени, перерыв, открыт чат), по кнопке; условия — слова, тип сцены, режим Maestro, что должно быть включено, «только при застое»;\n  - семь типов результата: вставка в промпт, флаги для пресета, правка ответа, проверка ответа, заметка для тебя, варианты действий, записи агента;\n  - свой профиль подключения у каждого агента, температура, длина ответа, рассуждения, лимиты на ход и на день;\n  - «Что увидит агент» (запрос без модели, токены по источникам) и «Пробный запуск» (модель отвечает, ничего не применяется — видно, что Maestro сделал бы).\n- **Правка ответа не трогает служебные блоки**: трекер DES (и в начале, и в середине продолженного ответа), блок механик, `<offscreen>`, маркеры и картинки NAI агент не видит — код возвращает их на место. Исходник хранится: под сообщением «Показать исходный» и «Вернуть исходный», правка есть в журнале с отменой. Обрезанная по длине или подозрительно короткая правка не применяется. «Придержать ответ» скрывает ответ дымкой, пока агент правит.\n- **Общие ворота ответа**: агенты «после ответа» идут после проверки качества и до картинок NAI — NAI Studio рисует уже исправленный ответ.\n- **12 шаблонов**: Прозаик, Сверка непрерывности, Сверка голоса, Редактор-критик, Варианты действий, Хроникёр сцены, Дневник персонажа, Подсказка режиссёра, Сюжетная линия, Осложнения, Анти-петля, Именослов. «Взять в работу» — своя копия, которую можно менять.\n- **Наборы и агенты по умолчанию**: набор — именованный список агентов и их включателей, как пресет ST; набор «Везде» — агенты для новых чатов, набор персонажа или чата главнее; поверх набора — точечные включатели с «Вернуть к набору». Готовые наборы «Как в 1.27» (в силе после обновления: ничего не меняется) и «Рассказчик».\n- **Агенты карточки**: агентов можно положить в карточку; чужая карточка с агентами спрашивает согласия и показывает, что каждому разрешено. Импорт и экспорт агентов файлом — тоже с подтверждением.\n- **Журнал запусков**: каждый запуск — момент и причина, время, токены, цена, полный запрос, сырой ответ, результат, что сделано, понятная причина сбоя и «Повторить». Три сбоя подряд — уведомление.\n- Профиль «Агенты (по умолчанию для твоих агентов)» — новая строка в «Профилях подключения». Траты агентов — в общем дневном потолке фоновых трат.\n- Команда `/maestro-agent <имя> [указание]`, агенты в меню кнопки Maestro у поля ввода.\n- В групповых чатах и в служебных чатах «Мастерской» агенты спят.\n\n## 1.27.0 — механики правят игрой (2026-10-15)\n\n- **Правила и состояние — отдельно.** Раньше модель получала одну строку-справку на механику («[Mechanics] Магия: … | Кай: mana 12/100») где-то перед последней репликой. Теперь два блока:\n  - **`<game_rules>` в начале промпта** (сразу после основного): «эти системы обязательны — цены, пределы и исходы решают, что может случиться», под каждой механикой её правила с сохранёнными переносами строк. Блок не меняется, пока не меняется набор механик сцены, — кэш провайдера не ломается.\n  - **`<game_state>` в самом конце**, прямо перед ходом модели: по каждому персонажу (твой — первым) значения со словами («мана 12/100 (very low)»), состояния с остатком и модификаторами («отравлен (ещё 2 хода; проверки −2)»), инвентарь, бой, и строка «пиши этот ответ в согласии с этими значениями». Сразу за ним — инструкция служебного блока и результаты бросков.\n  - Где лежат правила — настройка «Правила механик: в начале промпта / рядом с состоянием»; «Глубина состояния» — по умолчанию 0.\n- **«Что это значит сейчас».** События на порогах больше не говорятся один раз и не исчезают: пока условие верно, модель каждый ход видит строку «now: Кай без маны и колдовать не может». В конструкторе у события — переключатель «Держится, пока условие верно». В шаблонах добавлены промежуточные ступени: тяжело ранен, задыхается, мана на исходе, вымотан, истекает кровью, умирает от голода и жажды; у навыков и выживания — свои слова для уровней.\n- **Бюджет механик — 1200 токенов вместо 400**: две встроенные механики раньше не влезали, и обрезались правила и значения NPC. Сохранённые 400 поднимаются до 1200 один раз (свой бюджет остаётся твоим). Важнее то, о чём сейчас речь: механики с бросками этого хода, менявшиеся в последние ходы, названные в твоём сообщении, — остальное режется первым.\n- **«Книжный» вид отдаёт модели слова, а не числа** («доверие: умеренное»). Затронуты шаблоны «Отношения» и «Социальные шкалы».\n- **Статы DES связаны с механиками:** модель получает строку «Health, Stamina в трекере — те же значения: начни с чисел выше и меняй только тем, что происходит в этом ответе».\n- **Броски:**\n  - **Условия броска** («Нужно для броска»): заклинание требует хотя бы 5 маны, атака — бойца на ногах. Не хватает — броска нет, а модель получает «Заклинание (Кай): невозможно — мана 3, нужно 5. Попытка не удаётся». В HUD и под ответом — «Без броска: … невозможно».\n  - **Исход со смыслом.** К каждому результату модель получает, что он значит в сцене: тексты автора механики или общее («не получается — покажи, что пошло не так и чего это стоило»), «еле-еле» при разнице в 1–2 очка. У всех проверок встроенных шаблонов — свои тексты исходов (заклинание складывается / гаснет, мана потрачена / бьёт по магу; удар / промах…). Под ответом — строка смысла по-русски.\n  - **Бросок посреди ответа.** Модель останавливается на попытке и просит бросок, Maestro бросает и сразу продолжает тот же ответ с результатом (один дополнительный запрос «Продолжить»). Не продолжает, если в поле ввода есть текст или идёт генерация, — тогда результат придёт следующим ходом, как раньше. Настройка «Бросок посреди ответа» (включена). Контроль качества не продолжает такой ответ второй раз.\n  - В списке проверок, которые модель может попросить, — только механики этой сцены.\n\n## 1.26.0 — механики: учёт, который поспевает за историей (2026-10-15)\n\n- **Новый способ учёта «Авто» — теперь он по умолчанию** у новых механик, у механик из «Подготовки» и у всех шаблонов, кроме боя. Статы, которые ведёт DES, берутся из трекера, остальное модель пишет в служебном блоке, а если блока нет или его не прочесть — подстрахует фоновый разбор. Состояния и вещи у «Авто» тоже идут блоком. Уже созданные механики сохраняют свой способ — его можно сменить в конструкторе («Авто (рекомендуется)» — первым в списке).\n- **Модель пишет служебный блок всегда**, а когда ничего не поменялось — `<mechanics>none</mechanics>`. Раньше ей разрешалось пропускать блок, и нельзя было понять, забыла она или ничего не случилось. Блок `none`, `нет`, `-` или пустой убирается из ответа как обычный.\n- **Статы DES — как изменения, а не перезапись.** Раньше значение из трекера каждый ход затирало то, что Maestro посчитал сам: трату маны на бросок, восстановление со временем. Теперь берётся разница с прошлым трекером этого персонажа (до 40 сообщений назад), и она ложится поверх значения Maestro. Модель переписала старое число — ничего не меняется.\n- **Фоновый разбор понимает больше.** Он видит и твоё действие, которое привело к ответу, знает, что «ты/вы» в рассказе — твой персонаж, получает правила механики целиком (до 2000 знаков вместо 600) и применяет их: если в ответе нет чисел, оценивает по правилам («рана мечом стоит здоровья, как сказано в правилах»). Ответ модели разбора — до 1200 токенов.\n- **Время идёт и без DES.** Модель может написать в блоке `time: +3h` (`+30m`, `+2d`, `время: +20м`), фоновый разбор — сколько минут прошло в ответе. По этому идут часы истории: голод, жажда, восстановление, состояния «на 2 недели». Состояние «до заката», которое не к чему привязать, длится 8 ходов, а не вечно.\n- **«Пересчитать»** в подробностях строки изменений под ответом: Maestro снимает изменения ответа и читает его заново (блок, статы DES и фоновый разбор).\n- **Броски:**\n  - **Цель у атаки по твоим словам.** «Бью стражника мечом» — урон получает стражник: тот, кого ты назвал в той же фразе, в бою — названный противник, иначе текущий. В карточке броска — «Атака (Кай → Стражник)» и строка «Цель». Раньше автоматическая атака никого не задевала.\n  - **Проверки на реплики.** «Убеждение», «Обман», «Запугивание» срабатывают и на прямую речь в кавычках, и на вопрос («Может, договоримся?»). В конструкторе — переключатель «Срабатывает и на реплики».\n  - **До двух проверок за сообщение**, если они разные и в разных частях фразы («подкрадываюсь к двери и вскрываю замок»).\n  - **Опыт за броски.** У уровней механики — опыт за исход (крит, успех, провал, промах); уровень растёт сам, «Отменить бросок» забирает и опыт. В шаблоне «Навыки» появились опыт и уровень (уровни на 100, 250, 500 и 1000; 20 / 10 / 3 / 3 за исход). Навыки, опыт и уровень этого шаблона двигает только Maestro — модель их не переписывает, и опыт не засчитывается дважды.\n- **Исправлено:**\n  - удаление сообщения из середины чата сбивало учёт: изменения и броски сдвигались не туда. Теперь Maestro понимает, какие сообщения удалены, снимает их изменения, а изменения следующих сдвигает вместе с ними;\n  - вкладка, ставшая ведущей, дочитывает ответы, пришедшие, пока считала другая;\n  - уже разобранный ответ не отправляется на фоновый разбор повторно после перезагрузки страницы.\n\n## 1.25.0 — механики: значения сразу и колонка у чата (2026-10-15)\n\n- **Значения меняются сразу после ответа**, а не когда ты напишешь следующее сообщение. Раньше изменения из ответа (служебный блок, статы DES, фоновый разбор, тики состояний и времени) применялись только при отправке следующей реплики — и уже после того, как для нового ответа собран промпт. Поэтому HUD стоял на месте, а модель писала следующий ход по старым числам. Теперь всё применяется, как только ответ показан. До твоего ответа изменения предварительные: свайп, перегенерация, «Продолжить» и правка ответа их откатывают и читают ответ заново. Вернулся свайпом к старому варианту — его изменения возвращаются сами.\n- **Фоновый разбор запускается сразу после ответа**, пока ты читаешь, и у него своя строка в «Профилях» — «Механики: разбор ответа» (можно дать модель дешевле основной).\n- **«Учёт» — почему значения могут не меняться.** Раньше фоновый разбор без профиля или сверх дневного лимита молча пропускался. Теперь в окне «Механики» → «В игре» сверху раздел «Учёт» с причиной и кнопкой: нет профиля (→ «Профили»), исчерпан лимит, разбор выключен (→ «Настройки»), статы DES ещё не заведены (→ «Статы DES: …»), последний разбор не удался, значения считает другая вкладка. В HUD — значок ⚠, пока есть что-то серьёзное.\n- **Механики сбоку от чата на ПК — слева или справа.** Кнопка «Где показывать механики» прямо в HUD: «Над чатом», «Слева от чата», «Справа от чата» (то же — в настройках конструктора).\n  - Колонка показывает то же, что HUD над чатом: твоего персонажа и выбранных, закреплённые значения, состояния, деньги и вещи, «Бросок» и «Инвентарь». Переключатель «Подробно» — все персонажи сцены, все значения, бой.\n  - Ширину меняешь, потянув край колонки; ширина и свёрнутые персонажи запоминаются на этом устройстве.\n  - Не хватает места (широкий чат, закреплена панель SillyTavern с этой стороны) — механики больше не прыгают на чат: у края чата остаётся язычок «Механики», он раскрывает ту же колонку поверх чата и объясняет, почему места нет, с кнопкой «Показать с другой стороны». Просто открытая (не закреплённая) панель SillyTavern ничего не сдвигает. Ограничение «окно не уже 1200 px» убрано — решает свободное место.\n  - На телефоне всё по-прежнему: одна строка над чатом.\n- **Что изменилось последним ответом — видно у значения**: «−15», «+1», «→ ранен». Подсказка: «Из последнего ответа · свайп отменит». И в HUD над чатом, и в колонке.\n- Полоска механик под портретами DES прячется, пока видна колонка с любой стороны, и возвращается при язычке.\n\n## 1.24.2 — одна кнопка у поля ввода (2026-10-14)\n\n- **Одна кнопка вместо ряда значков.** Кнопка Maestro у поля ввода теперь открывает и меню SillyTavern (≡), и волшебную палочку с расширениями, и LoreBook Creator, а на телефоне ещё и выбор персоны (QuickPersona). Их значки из ряда убраны: на ПК остаются общая кнопка и аватар персоны, на телефоне — одна кнопка вместо столбика из четырёх. Пункт открывает родное меню SillyTavern или соседа на прежнем месте, над полем ввода, со всем, что оно умеет. У «Персоны» в подписи — имя текущей персоны. Пока значок скрывает его хозяин (палочка без пунктов, выключенная кнопка LoreBook Creator), его нет и в меню.\n- Значок общей кнопки — ≡, подсказка «Меню: SillyTavern, расширения, Maestro»; быстрые действия Maestro идут в том же меню под пунктами SillyTavern. Кнопка видна, даже когда у Maestro нет быстрых действий.\n- Выключается в «Настройки» → «Одна кнопка у поля ввода» (по умолчанию включено): значки возвращаются на место, кнопка снова только для быстрых действий Maestro. Выключенная «Кнопка Maestro у поля ввода» тоже возвращает значки.\n- **Исправлено: меню кнопки у поля ввода на телефоне уходило за верх экрана.** На телефонах SillyTavern фиксирует `html` нулевого размера, и меню, прижатое к низу, отсчитывалось от верхнего угла. Теперь меню ставится явной шириной и отступом сверху и открывается прямо над полем ввода.\n\n## 1.24.1 — определения механик в служебном чате (2026-10-14)\n\n- **Исправлено: Officina не могла опубликовать механику из чата соавтора.** В служебном чате модуль «Механики» стоит на паузе, и вместе с ним пропадали его определения: `MAESTRO_API.mechanics` (`list`, `get`, `save`, `remove`) отвечал `'off'`. Но книга «Maestro · механики» к открытому чату не относится. Теперь определения доступны и в служебном чате: их можно читать, записывать в любую область (в карточку тоже), удалять и собирать из шаблонов. Записи попадают в журнал под «Officina» и отменяются оттуда — в том же служебном чате или потом в сюжетном.\n- Всё, что относится к самому чату, в служебном чате по-прежнему молчит: механики ничего не вставляют в промпт, не разбирают блок `<mechanics>` в ответах, не бросают проверок, не показывают HUD и значения. Переключатель механики для открытого чата (`setEnabledInChat`) там отвечает `'off'`. В сюжетном чате модуль запускается заново и читает определения, записанные за это время; запись, которая ещё сохраняется, успевает лечь в книгу.\n- Если модуль «Механики» выключен в «Модулях», `'off'` остаётся, как раньше.\n- Для разработчиков: модуль может держать на время паузы узкую часть, которая к чату не относится (`MaestroModule.whileSuspended`); у механик это определения, `app.modules.api('mechanicsDefinitions')`. Описание — в `docs/integration-officina.md` и `docs/ARCHITECTURE.md`.\n\n## 1.24.0 — «Служебный режим» и MAESTRO_API для Officina (2026-10-14)\n\n- **«Мастерская» теперь называется «Служебный режим»** (модуль M42). Новое название — в «Модулях», в настройках, на кнопке с гаечным ключом в редакторе карточки, в пунктах «Ещё…» («Служебный режим: включить для карточки» / «вернуть в сюжетные»), в уведомлениях и журнале, в руководстве `docs/guide/workshop.md`. Мастерская теперь — это расширение Officina («Officina — мастерская»), а оно пользуется служебным режимом для своего чата с соавтором.\n- **Тег по умолчанию — «служебная».** Список тегов по умолчанию: «служебная», «мастерская», «workshop»; кнопка ставит первый. Карточки, помеченные «мастерской» раньше, остаются служебными. Если ты не менял список тегов, старый «мастерская, workshop» сам станет новым; свой список остаётся как был. Команда `/maestro-workshop` и пресет соавтора «Мастерская» не изменились.\n- **Officina — второй сосед `MAESTRO_API`** (версия API та же, 1; члены только добавлены, их перечень — в `features`). Задачи, виды действий и записи журнала Officina начинаются с `officina.`; её записи и карточки «Входящих» подписаны «Officina», её задачи видны в «Профилях». В служебном чате задачи Officina работают (задачи Dramatis там по-прежнему молчат). Полный тип API для соседей — `src/shared/public-api-types.ts`, описание — `docs/integration-officina.md`.\n- **Общий дневной лимит.** Траты Officina своим каналом записываются через `MAESTRO_API.cost.record` и считаются в тот же «Потолок фона в день», что и фоновые задачи Maestro; `cost.remaining()` говорит, сколько осталось. В «Расходах» у Officina своя строка — появляется, когда она что-то потратила. Её запросы (со схемой `officina_*` или помеченные через `cost.claim`) счётчик второй раз не считает.\n- **Службы Maestro для Officina** — с проверкой аргументов, с журналом и откатом под «Officina»: книги и записи Лор-студии (типовые записи, основная книга любой карточки), роли книг, определения механик (любая область, разбор блока `<mechanics>` для стенда механик), пресеты и слой пресета для любой карточки, привязка пресета к карточке, находки проверки промпта, «Создать персону» по готовому описанию, служебная карточка. Книги BunnyMo по-прежнему только для чтения.\n- **«Подготовка к игре» берёт готовые стартовые сцены автора.** Если карточка несёт `extensions.officina.scenes` (сцена на каждое приветствие: место, время, кто в сцене, настроение, крючок), анализ получает их как заданные, а сцены этих приветствий в плане берут место, время и состав из них; сцена, которую анализ не нашёл, собирается из сцены автора.\n- Для стенда: сосед `officina` (необязательный, пока у Officina нет сборки), имитация модели отвечает на схемы `officina_*` из `tools/mock-llm/fixtures/officina/` (`MOCK_OFFICINA_FIXTURES`).\n\n## 1.23.0 — сцена отдельно от того, что вокруг (2026-10-12)\n\n- **«Сцена и вокруг»** (новый модуль M43). Мир и персонажи за кадром по-прежнему живут своей жизнью, но ответ рассказывает о сцене: о тех, кто в ней, и о том, что они видят и слышат. Ушедший персонаж выбывает из сцены — модель не идёт за ним следом и не пишет ещё три сообщения, где он сейчас. Если за это время в другом месте случилось что-то заметное (у отсутствующего персонажа свои дела, мир не стоит на месте), модель пишет это после сцены одним блоком `<offscreen>…</offscreen>` — одну-три короткие фразы на языке истории. Ничего не случилось — блока нет.\n- **«Вокруг» под ответом.** Блок показывается свёрнутым под сценой: нажми «Вокруг», чтобы прочитать. С пузырями DES («Карточки», «Discord») это один отдельный блок после карточек, а не ещё одна карточка рассказчика (если в DES выключено «пропускать оформленные блоки» — один свёрнутый блок внутри карточки). Сохранённое сообщение не меняется: блок в нём остаётся как написан, а без модуля чат выглядит как раньше.\n- **Старое «вокруг» не копится в промпте.** Два последних ответа (настраивается) держат его одной строкой `[Elsewhere, not in the scene: …]` — модель помнит, что происходило; в более старых ответах блок убирается. Строку не съедает регекс DES «Clean HTML», который вырезает из промпта все теги.\n- **Ушедшие — вне сцены со следующего хода.** DES в режиме «вместе» пишет трекер до рассказа, поэтому персонаж, ушедший в этом ответе, ещё значится в трекере. Теперь Maestro читает сам рассказ: «Вера вышла», «Мартин ушёл, не попрощавшись», «дверь за ней закрылась», «направилась к выходу» — и со следующего хода не даёт этому персонажу голосовую карточку, строку «кто во что одет», механики, «кто что знает» и приоритет лора. Персонаж возвращается, когда в новом ответе снова действует или говорит в сцене, или когда ты сам его зовёшь или называешь (вопрос «Где Вера?» не считается). Отмена, правка и смена варианта ответа учитываются сами.\n- Анализ ответов (сигналы, режиссёр, качество ответа, хроника, гардероб, живой канон, механики и другие) блок «Вокруг» не читает: что случилось в сцене и кто в ней — только по самой сцене. Превью чата в списках заканчивается сценой.\n- **Слух из «Закулисья»** (M16) подаётся модели как то, что присутствующие могут упомянуть, а не как сцена, которая происходит здесь.\n- Настройки — «Настройки» → «Сцена и вокруг»: включение, сколько последних ответов держат «Вокруг» в промпте, подпись свёрнутого блока. В чатах мастерской модуль на паузе.\n- Для соседей: `MAESTRO_API.sceneSplit` — `active()` и `tag` (`'offscreen'`); `present()` не называет тех, чей уход показал рассказ. Заметки об отсутствующих персонажах сосед должен просить писать только в этот блок.\n- Для стенда: мок модели понимает `[mock:say:…]` (абзац в конце ответа) и `[mock:offscreen:…]` (блок «вокруг»).\n\n## 1.22.0 — режиссёр мягче различает сцены (2026-10-12)\n\n- **Смешанные сцены.** Если ответ почти в той же мере и бой, и разговор, и близость, у сцены теперь два вида: в пресет уходят флаги обоих (`maestro_scene_…`), длина ответа — по более длинному. Пока инерция режиссёра держит прежний вид, новый уже считается вторым — переходная сцена тоже «и то, и другое». В окне «Режиссёр» второй вид показан рядом с первым («+ Близость»).\n- **Длина ответа — только когда режиссёр уверен.** Флаги `maestro_reply_short / medium / long` ставятся, если уверенность не ниже 0,85, или не ниже 0,7 и вид держится второй ход; твой выбор вида — сразу. В остальное время действует общее правило пресета «длина по моменту». Разговор теперь даёт «средне», а не «коротко».\n- **Бой в механиках** начинается только при уверенном виде «бой»: твой выбор, уверенность от 0,85 или второй ход подряд. Меч на стене и боевое слово в смешанной сцене бой не запускают.\n- **Словари умнее.**\n  - Полный вес — у того, что происходит (удар, целует, раздевает, исследует, кланяется). Обстановка, предметы, титулы и люди вокруг — кровать, таверна, лес, зал, король, меч, враг — стали лёгкими подсказками.\n  - Слова в прямой речи весят вдвое меньше: разговор о драке — не драка. Речь — это кавычки и реплики через тире; ремарка после второго тире («— Беги, — крикнул он») считается повествованием.\n  - Исправлено: «драконица», «по-драконьи» считались дракой («драк…»). Теперь «драка» узнаётся только целыми словами.\n  - Русские откровенные слова распознаются («лизать», «киска», «кончил», «стояк» — целыми словами, так что имя «Лиза» не задевается).\n  - Ответ без единой реплики больше не тянется к «разговору»: у разговора без речи только запасной вес, и явный бой сразу уверенный.\n- **Модель решает чаще.** Дешёвая модель спрашивается, когда два лучших вида ближе 40% (было 25%). Где модель выбрала другой вид, чем правила, сцена считается смешанной из обоих. Явные улики — скачок времени в трекере, два и больше откровенных слова — спорными не считаются никогда.\n\n## 1.21.2 — правка сообщения не теряется (2026-10-12)\n\n- **Исправлено: перерисовка сообщения Maestro больше не стирает открытый редактор.** Если Maestro чистил ответ, обрезал лист BunnyMo или снимал блок механик, пока у этого сообщения был открыт редактор (или редактор рассуждений), поле правки пропадало вместе с набранным текстом. Теперь при открытом редакторе Maestro сообщение не перерисовывает: SillyTavern покажет его сам, когда редактор закроется. Если правку сохранить, побеждает твой текст.\n\n## 1.21.1 — ответ не теряет оформление после правки Maestro (2026-10-11)\n\n- **Исправлено: после чистки ответа он оставался без карточек DES** («Карточки» и «Discord»), без мыслей персонажей в чате и без карточек Silly Sim Tracker — пока не откроешь и не закроешь редактор сообщения. Maestro перерисовывал сообщение, но не сообщал об этом: DES держит пометку «уже разложено» на самом блоке текста, она переживает перерисовку, и DES больше не трогал сообщение. Теперь после перерисовки Maestro посылает `MESSAGE_UPDATED` — как редактор SillyTavern, и все расширения оформляют сообщение заново. Касается:\n  - «Качества ответа» (M12): чистка служебного мусора и её отмена;\n  - листов BunnyMo: обрезка лишней сцены после листа и её отмена;\n  - механик: служебный блок `<mechanics>`, снятый уже после показа ответа (страховка на `reply:ready` и при следующем ходе).\n- `MESSAGE_EDITED` Maestro при этом не посылает: для Qvink это правка (пересказ заново), а для самого Maestro — правка игрока. Пока ответ только пришёл (`MESSAGE_RECEIVED`) или игрок закрывает редактор, Maestro молчит — SillyTavern сообщает о сообщении сам. Общая функция — `src/host/messages.ts`.\n\n## 1.21.0 — мастерская: служебные персонажи без сюжетной машинерии (2026-10-11)\n\n- **«Мастерская»** (новый модуль M42) — категория для служебных персонажей: генераторов сценариев и персонажей, редакторов, «соавторов». Кнопка с гаечным ключом в редакторе карточки (и пункт в «Ещё…», и `/maestro-workshop [on|off]`) ставит карточке тег «мастерская»; можно поставить тег и самому. В чатах такой карточки:\n  - сюжетные модули Maestro (канон, ревизия, режиссёр, голоса, закулисье, гардероб, механики, качество ответа, медик, подготовка к игре и другие) стоят на паузе — их переключатели не меняются, в сюжетном чате всё снова работает;\n  - из уходящего запроса вырезаются инструкции соседей — трекер DES, метки картинок NAI Studio, CarrotKernel, Dramatis, DES-RU, Qvink; остаются карточка, история, заметка автора, глубинный промпт карточки и векторная память;\n  - глобальные лорбуки (паки BunnyMo, «Архив персонажей») и лорбук персоны не сканируются, лорбуки карточки и чата остаются (настраивается);\n  - Qvink выключается для этого чата своим переключателем — без пересказов, и черновики не выпадают из истории; когда карточка уходит из мастерской, Qvink включается обратно;\n  - Dramatis 1.4.1 останавливает свои модули: не читает замысел, не разбирает ходы.\n- **Пресет «Мастерская»** включается сам, когда открывается чат мастерской, и уходит при выходе (своя привязка пресета к персонажу или чату важнее). Короткий пресет соавтора лежит в `presets/Мастерская.json`: разговор вне роли, до трёх вопросов с вариантами, готовые карточки и записи лорбука в Markdown. Руководство: `docs/guide/workshop.md`.\n- **Автоматическая смена пресета больше не меняет модель.** Привязки пресета к персонажу и чату и мастерская переключают только пресет: модель, источник и провайдеры остаются те, что выбраны, даже если в файле пресета записаны другие (с включённым в ST «Bind presets to API connections» раньше могла молча смениться модель). Расхождение только в модели не вызывает вопроса «Есть несохранённые правки».\n- Для соседей: `MAESTRO_API.workshop` — `active()` и `onChange()`; пока открыт чат мастерской, `llm.request` отвечает `'workshop'`, события хода не приходят.\n- Исправлено: обработчик события, снятый другим обработчиком того же события (модуль ушёл на паузу при смене чата), больше не вызывается — и в событиях SillyTavern, и во внутренней шине Maestro.\n\n## 1.20.0 — язык истории, персона для персонажа, переодевание, кнопка у поля ввода (2026-10-10)\n\n- **«Язык истории»** (Настройки → Общие: авто / русский / английский). На «авто» решают твои сообщения, затем остальной чат, затем язык интерфейса — играешь по-русски, и даже английская карточка считается русской историей. По нему:\n  - «Подготовка» пишет имена по-русски: личные — транслитом (Ophelia → Офелия), «говорящие» названия мест, фракций, традиций — переводом («The Long Winter» → «Долгая зима»); английское написание остаётся алиасом. По-русски — наряды, секреты и обещания (окна «Знания» и «Календарь»), названия механик и показателей; канон для модели остаётся английским. Повторная подготовка узнаёт то, что раньше сделано по-английски, и не дублирует.\n  - Персонажи в DES на стартовых сценах — с русскими именами, мыслями, внешностью, настроением и одеждой.\n  - Паспорта NAI, подсказка о формате и «Ранее в истории…» берут язык отсюда; соседям он доступен как `MAESTRO_API.storyLanguage()` (Dramatis переводит по нему описания в окнах).\n- **«Создать персону» в карточке персонажа** (новый модуль M41): кнопка рядом с «Connected Personas» и пункт в меню «Ещё…», команда `/maestro-persona [комментарий]`. Maestro читает карточку, сценарий, приветствие, заметки автора и лорбук, учитывает твой комментарий и придумывает тебе персонажа: имя, внешность, предысторию и 5–6 нарядов. Всё можно поправить перед созданием; затем — персона в SillyTavern, связь с этим персонажем (другие связанные персоны остаются), паспорт NAI с этими нарядами и бесплатная картинка-аватар (нужна NAI Studio 0.15). Задача «Персона для персонажа» — в «Профилях».\n- **Кнопка Maestro у поля ввода** — один значок рядом с волшебной палочкой, с быстрыми действиями (выключается в настройках; те же действия — в меню Maestro):\n  - **BunnyMo** (новый модуль M40): полный и короткий лист, только теги, обновить теги, внешность, «Запомнить момент» — выбираешь персонажа сцены, и команда `!fullsheet Имя` встаёт в поле ввода (или уходит сразу — настройка «Отправлять сразу»). Команды-справочники BunnyMo, которые тянут целые паки, сюда не вынесены.\n  - **Переодеться:** персонажи сцены и «Я» → их наряды, «Описать…», «Открыть гардероб»; команда `/maestro-wear <кто> <наряд или описание>`.\n- **Переодевание по сообщениям** (гардероб, M27). Пишешь «переодеваюсь в домашнее» — Maestro узнаёт наряд и переодевает ещё до ответа, так что ответ пишется в новой одежде. Переодевания в рассказе («Офелия сняла плащ») тоже подхватываются. Желания, просьбы, прямая речь и «снял очки / квартиру» переодеванием не считаются; если непонятно, во что, — один фоновый запрос после ответа.\n- **«Переодеть сейчас»** рядом с «Надеть» в гардеробе и досье: одежда меняется сразу везде — «что надето сейчас», наряд и его формулировка в паспорте NAI, портрет, трекер DES (настройка «Записывать одежду в трекер DES»), строка «кто во что одет» для модели. Под сообщением — «Офелия → Домашнее · Отменить · Другое…»; одна запись журнала всё откатывает.\n- **Механики слева от чата** на широком экране (настройка «Где показывать HUD»): подробная панель — все персонажи сцены, их показатели, состояния и предметы, бой. На узком экране, на телефоне или при открытой левой панели ST механики сами возвращаются поверх чата. Пока панель слева показана, полоска механик под портретами DES не дублирует её.\n- **«Эталон» — только системные настройки.** Пресет, источник и модель, размер контекста и ответа, рассуждения, профиль подключения, регексы, настройки движка лорбуков и расширений. Какие лорбуки включены, библиотеки CarrotKernel, переключения профилей Qvink при смене чата, выбранный стиль NAI Studio больше не считаются изменениями. Старый эталон переводится в новый формат.\n- **«Проверка лекарств» BunnyMo — только когда нужна** (правило переименовано): запись (около 4,5 тыс. символов) выключается на ход, если ни у кого в сцене и ни в одном архиве персонажа в лорбуках нет тегов MED или REC, — теперь и без Dramatis.\n- Персонажи в механиках, в «Переодеться» и в целях листов BunnyMo называются так, как их пишет история (имя из трекера DES), а не каноническим именем модели мира — в русской истории «Вера», а не «Vera». Значения хранятся как прежде.\n- Для стенда: мок модели отвечает на переодевание, персону и шаг досье и перевод описаний Dramatis 1.4, «Расширить мир» Localizer 0.5.\n\n## 1.19.0 — Dramatis в листе персонажа DES (2026-10-09)\n\n- **Вкладка «Dramatis» в листе персонажа DES.** Что Dramatis знает о персонаже — теперь там, где его ищешь: правый клик по портрету → «Character Sheet» → вкладка «Dramatis». Имя, кто он такой, насколько подробно Dramatis его знает, разделы (мотивы, цели, отношения…) блоками. Тайны — как ты выбрал в Dramatis: размыты, пока не нажмёшь, открыты с пометкой или не показываются вовсе. Если Dramatis персонажа ещё не знает — так и сказано, с кнопкой «Открыть Dramatis»; на твоём собственном персонаже — короткая заметка. Кнопка «Открыть в Dramatis» ведёт в его «Лист замысла». Пока лист открыт, вкладка обновляется вслед за Dramatis.\n- **Пункт «Dramatis» в меню портрета** открывает лист персонажа сразу на этой вкладке. На твоей карточке пункта нет.\n- **Панель «Dramatis» в Мастерской DES** — то же самое для тех, у кого нет правого клика (iPhone, iPad): «Ростер» → Мастерская → «Dramatis». Только чтение: пока Мастерская открыта, Maestro в DES ничего не пишет.\n- **Подготовка к игре и Dramatis.** В окне подготовки — переключатель «Личности в Dramatis: прочитать замысел карточки» (включён, если Dramatis карточку ещё не читал). Если уже читал — видно, сколько персонажей он прочитал, а переключатель перечитывает карточку. Dramatis читает её до того, как Maestro заполняет DES, — стартовые сцены сразу получают то, что он прочитал. В «Что сделано» — строка «Dramatis: прочитал личности — N персонажей» (или ошибка, или «личности из карточки — N», если перечитывать не понадобилось) с кнопкой «Открыть»; то же — в «Готово к игре». Отменять тут нечего: чтение записывает в журнал сам Dramatis. Сохранённая подготовка и кнопки «Готово к игре» Dramatis не зовут.\n- Всё это — с Dramatis 1.3 и новее; со старым Dramatis или без него ничего не меняется. Раздел выключается в «Модулях» («Раздел Dramatis в листе персонажа DES»), при этом всё добавленное в окна DES убирается. DES-RU эти разделы не переводит; оформление следует теме Maestro и DES, на телефоне вкладки переносятся.\n\n## 1.18.0 — персонажи стартовых сцен в DES (2026-10-09)\n\n- **«Персонажи в DES».** «Подготовить к игре» теперь заполняет и трекер DES для каждой стартовой сцены — для приветствия, что сейчас в чате, и для всех альтернативных. С первого же сообщения в полосе портретов и на панели сцены — те, кто в этой сцене: внешность, как держатся, во что одеты, как относятся к твоему персонажу, о чём думают, их показатели, а ещё дата, время, место и погода. Значения — на языке истории и в тех полях, что настроены в DES (свои поля, свои варианты отношений, показатели, виджеты сцены). Переключатель «Персонажи в DES» — в окне подготовки рядом с паспортами (включён по умолчанию).\n- **Одна модель на приветствие.** Для каждой стартовой сцены — один короткий запрос (задача «Подготовка: персонажи в DES» в настройках «Профили»; ты сам нажал «Применить», поэтому дневной потолок фоновых трат его не останавливает). Кто в сцене — по подготовленной сцене, имена — ровно те, что у паспортов; если модель не ответила, в DES попадают хотя бы имена, место, дата и время, и итог об этом говорит. Сохранённая «для персонажа» подготовка модель не зовёт — только имена.\n- **Всё связано.** Одежда — тот же стартовый наряд, что надевает гардероб; показатели — из механик, которые DES ведёт как статы; место — как его знает реестр мест; отношение — по позиции Dramatis к твоему персонажу, если Dramatis подключён (а ещё он подсказывает, кто в сцене и чем занят); NAI Studio рисует портреты новых лиц (не твоего персонажа и не персонажа карточки; у кого портрет в DES уже есть — не трогает). Медик не «чинит» подготовленный трекер первого сообщения.\n- **DES не затирает подготовку.** DES стирает трекер приветствия, когда чат открывается, когда карточку сохраняют заново и после «Продолжить», — Maestro возвращает подготовленное, пока ты не написал первое сообщение. Свайп приветствия переключает и DES: его персонажи, сцена и список персонажей чата следуют за приветствием (кто был только в прежней сцене — уходит из списка). В первом ответе модель видит трекер начальной сцены (в режиме DES «вместе с ответом» DES сам его не передаёт) и продолжает от него с теми же именами.\n- **Отмена** одной строкой итога: прежние трекеры всех приветствий, то, что показывал DES, и добавленные в список имена возвращаются. Пока открыта Мастерская DES, Maestro в DES ничего не пишет и не отменяет.\n- Для Dramatis: Maestro читает новый необязательный `startCast` (Dramatis 1.2) — кто в каждой стартовой сцене, что делает и как относится к игроку.\n\n## 1.17.0 — Maestro и Dramatis (2026-10-09)\n\n- **Связка с Dramatis** — новым расширением-движком личностей (мотивы, цели, отношения, повестки персонажей). Maestro сам находит Dramatis и работает с ним, когда тот установлен; без Dramatis всё как раньше. Подробно — в `docs/integration-dramatis.md`.\n- **Открытый API для соседей** (`MAESTRO_API`): Dramatis пользуется инфраструктурой Maestro, а не заводит свою.\n  - Фоновые задачи ИИ — через профили задач Maestro (каждая задача Dramatis появляется в настройках «Профили» под своим названием), с учётом стоимости у казначея и дневным потолком; фоновую работу делает только ведущая вкладка. То, что ты запускаешь кнопкой, потолок не останавливает.\n  - Предложения Dramatis идут по твоим уровням автономии: сами, «Уведомить», «Входящие», «Спросить». Карточки во «Входящих» переживают перезагрузку, у каждого вида — человеческое название в настройках и журнале.\n  - Журнал с откатом, уведомления, события хода (свайпы, правки и ветки уже учтены), опознание имён (модель мира и склонения DES-RU), кто сейчас в сцене — так же, как видят голосовые карточки.\n  - Речь персонажа из архива CarrotKernel (теги LING, раздел Linguistics, MBTI) — та же выжимка, что в голосовых карточках, даже когда модуль голосовых карточек выключен.\n  - Для генератора Dramatis: «Оформить» нового персонажа с готовыми тегами BunnyMo (архив CK только с теми тегами, что знают подключённые паки; паки не меняются) и запись целей персонажа в его запись канона чата.\n- **Один блок вместо двух.** Когда Dramatis берёт голосовые карточки к себе, Maestro не отправляет свои отдельно — модель получает один блок «кто в сцене, как говорит и чего хочет». Подсказка CarrotKernel о персонажах при этом убирается из промпта, как и с голосовыми карточками, — в том числе когда сами голосовые карточки выключены. Настройки CarrotKernel не трогаются.\n- **«Проверка лекарств» BunnyMo.** Если зависимости всех персонажей сцены с тегами MED или REC ведёт Dramatis, запись «Medicine Check» из основного лорбука BunnyMo на этот ход выключается — модель не получает двух разных указаний об одной привычке. Новое правило во вкладке «Правила»; файл BunnyMo не меняется.\n- **Граф отношений** показывает и позиции Dramatis — как персонажи относятся к твоему персонажу и друг к другу, с причинами; они помечены как данные Dramatis.\n- **Механики**: пока Dramatis ведёт отношения и положение в обществе, шаблоны «Отношения» и «Социальные шкалы» не предлагаются; уже созданные механики остаются, у них появляется пометка.\n- **Закулисье** узнаёт у Dramatis цели персонажа, что он пытался сделать и чем кончилось — событие за кадром следует его планам.\n- **Режиссёр** берёт созревшие повестки Dramatis как повод для поворота.\n- **Проверка промпта и архитектор** знают блок Dramatis: его вставка подписана «Dramatis», правки к ней — советом (Maestro её не меняет), у архитектора — отдельный бюджет «Dramatis: карточка мотивов» (только замер).\n- Исправлено: время жизни карточки «Входящих», заданное предложением, теперь соблюдается; подсказка к бюджету механик у архитектора показывалась ключом.\n\n## 1.16.0 — подготовка всех стартовых сцен (2026-10-08)\n\n- **Все стартовые сцены.** «Подготовить к игре» читает каждое приветствие карточки целиком (а не только то, с которого открылся чат), и для каждого готовит свою стартовую сцену: где и когда, кто рядом, во что одеты, что происходит, тип первой сцены. Персонажи, мир, места, фракции, механики — общие для всех стартов. В окне подготовки — раздел «Стартовые сцены» с пометкой «сейчас в чате».\n- **Действует сцена, что сейчас в чате.** Пока ты не написал первое сообщение, свайп приветствия переключает сцену: наряды, тип первой сцены и заметка канона о начале истории меняются под неё (заметка одна, она переписывается). Первое сообщение закрепляет сцену. «Для персонажа» сохраняются все сцены — в следующем новом чате этой карточки действует сцена того приветствия, с которого он начнётся.\n- **Тип первой сцены доходит до первого ответа.** Раньше режиссёр снимал его в момент твоего первого сообщения — ещё до ответа модели; теперь он снимается, когда первый ответ уже написан.\n- Исправлено: окно подготовки не прокручивалось — после разбора длинный план нельзя было пролистать.\n\n## 1.15.0 — «Подготовить к игре» (2026-10-07)\n\n- **Подготовка новой истории.** В новом чате (пока нет твоих сообщений) под приветствием Maestro сам предлагает: «Подготовить историю к игре?» — и открывает окно «Подготовка к игре». Ещё — командой `/maestro-prepare`.\n  1. **Что читать**: карточка целиком (описание, характер, сценарий, выбранное и другие приветствия, примеры диалогов, заметки автора), её книги и книга мира, книга чата, твоя персона, кампания DES, листы CarrotKernel персонажей этой истории; что не влезает — видно; цена разбора — заранее.\n  2. **Разбор** фоновой моделью по частям, с прогрессом и «Остановить».\n  3. **Просмотр** по разделам: персонажи (имена и русские формы, роль, внешность, характер, манера речи, отношения, в том числе к твоему персонажу, во что одеты в начале), мир, места (с вложенностью), фракции, предметы, традиции, время начала и календарь, секреты, стартовая сцена, механики с начальными значениями, режиссура. Галочки, правка текста, «уже есть» и расхождения с каноном, выбор «для чата / для персонажа» у каждого пункта и раздела.\n  4. **Применение** одним пакетом: канон, места, паспорта NAI Studio для персонажей без паспорта (текстом, без Anlas), секреты, договорённости, механики, стартовые наряды, тип первой сцены; у каждого пункта — «Отменить» и ссылка в нужное окно. Фоны — только предложением.\n  5. **«Готово к игре»**: что сделано и чего не хватает (паспорт, портрет, фон…), с кнопками.\n- **Подготовка для персонажа** сохраняется: в следующем новом чате этой карточки её можно применить сразу, без нового разбора, или разобрать только изменившееся в карточке и книгах.\n- Подготовку запускаешь ты сам, поэтому дневной потолок фоновых трат её не останавливает (цена всё равно показывается заранее).\n\n## 1.14.0 — механики в игре (2026-10-07)\n\n- **Последствия и действия.** У проверки — последствия по исходу («провал — −10 здоровья», «заклинание стоит маны, сорвавшееся — половину»), у событий на порогах — действия: изменить значение, наложить состояние, дать предмет, раскрыть скрытое, запустить другое событие.\n- **Состояния с длительностью** («Отравлен — 3 хода», «Благословение — до заката»): модификаторы к проверкам и значениям, снимаются сами по ходам или по времени истории.\n- **Инвентарь**: предметы с количеством, «надето / в руках», цены, покупка и продажа за деньги механики; модель отдаёт и забирает предметы служебным блоком.\n- **Формулы** («макс. здоровье = 50 + 10 × уровень»), **опыт и уровни**, **рост навыков** от применения, **время**: восстановление и расход по дате и времени DES («+10 маны за час отдыха», голод растёт).\n- **Броски**: модель может сама попросить проверку в служебном блоке; встречные проверки («Скрытность Кая против Внимательности стражника»), преимущество и помеха, формулы вроде `2d6+1d4+3`, `4d6kh3`.\n- **Бой**: инициатива, очередь ходов, противники со своими статами; начинается сам, когда режиссёр видит бой, или кнопкой.\n- **Где видно** — у каждой механики и атрибута: «Игровой» (числа и полосы), «Книжный» (только словами), «Скрытый» (пока не раскрыт), «Тайный от всех» (знает только Maestro, модели — только последствия). По умолчанию — «Игровой», у отношений и социальных шкал — «Книжный».\n  - **Строка под ответом**: «Кай: ❤ 80 → 65 · 🔷 40 → 25 · + Отравлен (3 хода)» с «Отменить», карточки бросков с кубиками и последствиями, события порогов.\n  - **HUD** поверх чата: твой персонаж и выбранные, полосы, состояния с оставшимся временем, деньги и вещи, «Бросок» и «Инвентарь»; перетаскивается к верху или низу; на телефоне — одна строка.\n  - **Окно «Механики»**: «В игре» (значения, состояния, инвентари, бой, «Подсмотреть» скрытое), «История» (каждое изменение и бросок с откатом), «Конструктор».\n  - Полоса под портретами DES — с твоим персонажем и выбранными атрибутами; раздел «Механики» в досье.\n  - По желанию: сообщения рассказчика о бросках в ленте чата и статус-блок под ответом (выключены по умолчанию).\n- **Конструктор**: без id и английских полей — правила пишешь по-русски, модели уходит английский перевод (правится в «Подробнее»); «Описать словами» — механику собирает ассистент; предпросмотр того, что уйдёт в промпт; редакторы всех новых частей и видимости; копировать, сохранить в файл и загрузить, сбросить состояние.\n- **Шаблоны**: новые — выживание, рассудок, инвентарь и торговля, бой, социальные шкалы (симпатия, доверие, влечение); исправлены — заклинание (бросок против сложности с тратой маны), навыки (понятный разброс), репутация (фракции из лора), переключатель критов.\n- Исправлено: статы твоего персонажа в режиме DES теперь обновляются; механики мира и фракций уходят в промпт, только когда о них речь.\n- Состояния и инвентарь работают у механик, где эти части включены (новые шаблоны или конструктор); старые механики можно дополнить в конструкторе.\n\n## 1.13.0 — пресеты с ассистентом, правки по чатам, проверка промпта (2026-10-07)\n\n- **Правки пресета — везде, для персонажа или для этого чата.** Твой слой поверх пресета теперь из трёх частей: общий, персонажа и чата, накладываются по очереди. В редакторе блока и в «Слое» Пресет-студии — переключатель «Везде / Этот персонаж / Этот чат»; правку можно перенести между областями. Правки персонажа и чата никогда не попадают в файл пресета (ни при сохранении из студии, ни через «Обновить пресет» ST) и меняются сами при переходе в другой чат — пресет не становится «несохранённым».\n- **Пресет персонажа или чата.** Целый пресет можно привязать к персонажу или чату: при входе в чат Maestro включает его (спросив про несохранённые правки), при выходе возвращает прежний.\n- **Промпты соседей** — новая вкладка Пресет-студии: тексты инструкций, которые вставляют другие расширения (трекер DES, правила картинок NAI Studio, пересказы Qvink, языковой замок DES-RU, CarrotKernel, вставки самого Maestro). Можно изменить везде или сделать копию только для персонажа или чата — копия подставляется в момент отправки, настройки соседа не меняются.\n- **Ассистент работает с пресетами.** Видит пресет целиком (полный текст блоков, параметры, анализ, версии, сравнение двух пресетов, промпты соседей) и правит всё, что правишь ты в студии: текст («было/стало» по словам), название, роль, место, включение, порядок, удаление, параметры генерации — в слой выбранной области. Собирает новые пресеты (с нуля, из текущего, из блоков нескольких, из присланного JSON), привязывает их к персонажу или чату. Связанные правки приходят одной карточкой-пакетом: применить всё или выбранное, откат одним действием. «Пробная сборка» показывает, что уйдёт модели, ничего не отправляя. «Обсудить с ассистентом» у блока и у пресета открывает ассистента с ним в контексте. Знает подводные камни DeepSeek V4 через OpenRouter.\n- **Проверка промпта** — вкладка Пресет-студии, команда `/maestro-audit` и просьба ассистенту. Проверяет всё, что уходит модели как инструкция: пресет, карточку, заметку автора, вставки всех расширений и Maestro. Быстрые правила — язык, лицо, время, длина, обязательные части ответа (JSON трекера, картинки, инфобокс), форматы, «кто пишет за игрока», повторы, роли и места сообщений для твоей модели; по кнопке — проверка ИИ (с ценой заранее). Для каждого конфликта — две цитаты, чьи они, чем грозит именно на твоей модели и готовое исправление «было/стало» с выбором «везде / персонаж / чат». Паки BunnyMo не правятся никогда.\n- Исправлено: значение, поставленное «везде» после правки этого же значения в чате, больше не теряется при выходе из чата.\n\n## 1.12.0 — окна вместо пульта, Maestro в чате (2026-10-07)\n\n- **Окна.** Всё, что раньше жило в одном модальном пульте, теперь в отдельных окнах, которые не мешают играть: «Ассистент», «Входящие», «Персонажи» (досье, гардероб, BunnyMo), «Механики», «Мир», «Канон», «Ход», «Здоровье» и «Maestro» (обзор, журнал, настройки, оформление, расширения). По умолчанию окно открывается боковой панелью рядом с чатом; его можно открепить в плавающее окно (перетаскивание, размер, свернуть в заголовок) и прикрепить обратно. Несколько окон сразу; где какое окно было — запоминается на этом устройстве. На телефоне окно занимает экран под верхней панелью, открытые окна переключаются кнопками.\n- **Лор-студия и Пресет-студия** — тоже окна: рядом можно держать чат или ассистента.\n- **Шестерёнка в окне** показывает настройки модулей этого раздела.\n- **Меню Maestro** — по значку в верхней панели (новых значков нет): все окна со счётчиками, студии, твои задачи с прогрессом, настройки. То же меню — в «волшебной палочке».\n- **Кнопка Maestro у сообщения** (в «…»): «Досье» говорящего и «Механики».\n- **Команды**: `/maestro [окно]`, `/maestro-undo` (отменить последнее действие Maestro в этом чате), `/maestro-mode экономный|сбалансированный|кино`, `/maestro-scene <тип сцены|авто>`.\n- **Строка Maestro под сообщением**: предложения «Входящих» по этому ответу, запомненные живым каноном факты ([Верно] [Забыть] [Это ошибка]), вопрос «тот же персонаж или другой?», брак ответа, броски — прямо в чате; нажатие раскрывает карточку с кнопками, окно открывать не нужно. Строки переживают перезагрузку и исчезают, когда всё решено; в текст сообщения, промпт и память Qvink ничего не попадает, «пузыри» DES не ломаются. Настройка «Строка Maestro под сообщениями»: всё / только то, что ждёт решения / ничего.\n- Переход к сообщению или открытие студии больше не закрывает окна на компьютере (на телефоне окно уступает место чату).\n\n## 1.11.0 — понятные уведомления, гардероб, тёзки из разных историй (2026-10-06)\n\n- **Тёзки больше не сливаются.** Раньше новый персонаж с тем же именем, что у кого-то из другого чата (паспорт карточки, лист в общем архиве CarrotKernel, запись в общей книге), молча становился «тем же самым»: в новый чат приходили его внешность, наряды, характер, манера речи — и голос попадал в промпт. Теперь Maestro спрашивает во «Входящих» и значком у сообщения: «Офелия здесь — тот же персонаж, что в паспорте карточки?» [Тот же] [Другой]. Пока ты не ответил, старое не используется; «Другой» — в этом чате у неё всё своё, а паспорт карточки выключается только здесь (NAI Studio 0.14). Персонажи самой карточки (названные в её описании, сценарии, приветствиях или книге) — те же без вопросов. «Это разные» в модели мира теперь работает и для одинаковых имён. Решение можно поменять в досье. Данные Maestro удалённых чатов убираются вместе с чатом.\n- **Гардероб видит, во что все одеты сейчас.** Раньше в настоящих чатах он не срабатывал: DES пишет одежду внутри «Внешности», а гардероб ждал отдельного поля. Теперь:\n  - поле «Одежда» в трекер DES — одной кнопкой во вкладке «Гардероб» (только с твоего согласия, откат в журнале); пока его нет, одежда вычитывается из «Внешности»;\n  - каждый ход — сверка: знакомый наряд надевается сам, новый через два хода становится нарядом с русским названием («Шёлковое платье», «Блузка и юбка»); переодевания, раздевание, полотенце, бельё; пропущенный ход больше не «застревает»;\n  - «Кто в сцене и что на нём» во вкладке, «Сейчас: …» в досье, твой персонаж — по разговору об одежде (фоновая модель, не чаще раза в 6 ходов) или полем «Сейчас на тебе»;\n  - строка «кто во что одет» в конце промпта, чтобы модель не путала одежду (выключается);\n  - портрет DES перерисовывается при смене наряда (NAI Studio 0.14, выключается);\n  - NPC с паспортом только из лора получает паспорт чата при первом наряде.\n- **Понятные уведомления.** Каждое говорит словами истории: что случилось, что Maestro сделал или предлагает, что будет, если согласиться. Служебное (книги, номера записей, теги, английский текст канона) — под «Подробнее». У всех действий человеческие названия — в карточках, журнале и настройках автономии. Новое в настройках: «О чём сообщать» — всё (по умолчанию), важное, только срочное; «Показывать технические подробности». Однотипное за ход склеивается («Запомнил 3 новых факта о мире»). То, что Maestro делает сам, теперь видно: «Вера переоделась: «Шёлковое платье»» [Отменить]; живой канон сообщает, что запомнил, подтвердил и отбросил. Канон по-прежнему хранится по-английски, но в карточках — русская формулировка и цитата.\n- **Видно, как идёт локализация лорбука.** В шапке книги Лор-студии — «Локализую: 34 из 120 записей» с полосой и «Остановить»; «Жду: Localizer занят другой задачей»; итог «добавлено N ключей в M записей» и «Повторить неудачные»; ошибки — человеческими словами. Задача не теряется, если закрыть студию: она видна во вкладке «Задачи», а вокруг значка Maestro — кольцо прогресса. То же у кнопки «Русские ключи» записи. Живой счётчик и остановка — с Lorebook Localizer 0.3.\n- Исправлено: гардероб, режиссёр и закулисье переставали замечать новые ходы, если сообщения удалили, пока Maestro не видел (другая вкладка, выключенный Maestro); отмена правки «описание места» в журнале сообщала об успехе и ничего не меняла; номера сообщений в уведомлениях везде такие же, как в чате.\n- Для всех новых возможностей: NAI Studio 0.14.0, DES-RU 0.8.2, Lorebook Localizer 0.3.0; со старыми версиями соответствующие части просто не включаются.\n\n## 1.10.3 — закулисье только своих персонажей (2026-10-05)\n\n- «Закулисье» больше не придумывает события персонажам из других историй. Раньше важным считался любой отсутствующий персонаж с архивом CarrotKernel или записью лора — и персонаж из общей книги-архива получал события во всех чатах, а модель потом его упоминала. Теперь кандидат — только персонаж этой истории: из трекера DES этого чата, появлявшийся в сцене, упомянутый в сообщениях, из карточки, канона чата, книги чата или книги карточки.\n- Уже сохранённые события таких персонажей убираются из канона чата один раз при открытии чата (с откатом в журнале) и сообщаются уведомлением.\n\n## 1.10.2 — цвета реплик персонажей (2026-10-05)\n\n- «Стиль сообщений» больше не перекрашивает реплики, у которых есть свой цвет (раскраска реплик DES: `<font color=…>\"…\"</font>`): цвет персонажа остаётся, правило добавляет только курсив и жирный.\n\n## 1.10.1 — фоновые задачи без рассуждения (2026-10-05)\n\n- Фоновые задачи Maestro (режиссёр, ревизия, живой канон, летопись, закулисье…) на профилях OpenRouter теперь просят модель не рассуждать: пресет профиля к ним не применяется, и DeepSeek V4 тратил весь короткий бюджет на размышления — тип сцены у режиссёра не определялся ни разу, ревизия отвечала со второй-третьей попытки. Ассистент рассуждает как раньше.\n- Задачи со строгой схемой ответа получают не меньше 200 токенов.\n\n## 1.10.0 — правки по живым тестам (2026-10-05)\n\n- **Стиль сообщений** — новая вкладка в «Настройках»: редактор правил, как выглядят сообщения игрока и персонажей. Правило — что найти (\"…\", «…» ёлочками, реплики через тире, \\*мысли\\*, \\*\\*акцент\\*\\*, (…), […], свой регекс с проверкой) и как показать (цвет из темы, курсив, жирный, приглушение, шрифт, черта или подложка, вид кавычек — только на экране). Пресеты: «Классика» (по умолчанию: повествование обычным текстом, \"диалоги\" цветом цитат, \\*мысли\\* курсивом), «Книга», «Подсветка речи», «Мысли отдельно», «Ёлочки», «Сценарий», «Роман», «Контраст», «Игрок отдельно», «Минимум». Живой пример. Сохранённый текст сообщений не меняется. По желанию — «Подсказать модели этот формат».\n- **Сообщения игрока** — свой вид: акцентная черта, имя акцентным цветом, по желанию сдвиг вправо в «пузырях».\n- **Стартовая страница** в едином стиле: карточки недавних чатов, кнопки, приветствие. В превью чатов больше нет JSON трекера DES и сырых тегов вроде `<font color=…>` (только на экране; то же в «Управлении чатами» и боковой панели Top Info Bar).\n- **Оформлены**: панель персон игрока, «Управление чатами», панель чатов Top Info Bar, поле ввода (скругление, отступы, подсветка фокуса; на телефоне — крупные кнопки и шрифт 16 px без увеличения в iOS).\n- **Верхняя панель** снова с воздухом: высота подросла через собственную переменную ST, вся раскладка сдвигается вместе с ней (в iOS и в режиме «Плотно» — как в ST).\n- **Ассистент видит чат и карточку**: чтение и поиск по сообщениям текущего чата (трекер DES — коротко), карточка персонажа со всеми стартовыми сценами (первое сообщение и альтернативные приветствия), персона игрока и «обзор сценария» — одним вызовом всё, что нужно, чтобы предложить механики по этому чату.\n\n## 1.9.0 — ассистент (2026-10-05)\n\n- **Ассистент Maestro** — вкладка «Ассистент» в пульте, отдельно от ролевой игры: спрашивай про Maestro, этот чат и расширения. Модель — из своего профиля подключения (по умолчанию фоновый), свой цикл с инструментами, а не инструменты ST — модель РП их не видит. Дневной потолок фоновых трат ассистента не останавливает: его запускаешь ты.\n- **Читает и объясняет** — 27 инструментов: модули и их настройки, здоровье стека, журнал, «Входящие», промпт хода, почему запись лора сработала или нет («почему героиня не узнала сестру?» — ключи, глубина сканирования, падежи, вероятность, группы, задержки), почему ход дорогой (источники, кэш, перегенерации), регексы (объяснение и проверка на примере по правилам ST), досье, отношения, кто что знает, места, календарь, гардероб, паспорта, механики, режиссёр, блоки пресета. Встроенная справка: каждый модуль, каждый сосед и частые вопросы — на русском и английском.\n- **Делает — только с твоего согласия**: настройки модулей, включение модулей, уровни автономии, механики, регексы (только после проверки на примерах), блоки и условия в твоём слое пресета, записи лора, паспорта. Каждое изменение — карточкой «было/стало» с кнопками «Применить» и «Отклонить», всё в журнале с откатом.\n- **Безопасность**: текст чата, лора, карточек и пресетов для ассистента — только данные, не инструкции; ключи API, токены, адреса и профили подключения он не видит и не меняет; книги BunnyMo не трогает; не больше 10 шагов и 5 предложенных изменений на сообщение и 20 применённых изменений в час.\n\n## 1.8.0 — единый интерфейс (2026-10-05)\n\n- **Единый стиль** — SillyTavern, чат и расширения выглядят как одно приложение: одна таблица стилей Maestro за классом `maestro-theme` на странице. Цвета, размытие, тени, размер шрифта и ширину чата даёт твоя тема ST (смена темы подхватывается сама), скругления, отступы и элементы управления — общие с окнами Maestro. Выключил стиль или Maestro — всё выглядит как раньше; настройки соседей не меняются.\n- **Соседи в том же стиле**: Doom's Enhancement Suite (окна, полоса портретов, шапки сцены и мысли в чате — через его собственные переменные), CarrotKernel (самые заметные части), NAI Studio (панель, окна, картинки в чате), DES-RU, строки памяти Qvink, Lorebook Localizer.\n- **«Оформление» в настройках пульта**: стиль целиком и по частям (ST, чат, каждое расширение), плотность, скругления, «Показать, как было» на 10 секунд.\n- **Док «Расширения»** — блоки настроек CarrotKernel, Qvink, NAI Studio, DES-RU, Localizer и DES открываются прямо в пульте (настоящие блоки, всё работает) и возвращаются на своё место, когда пульт закрыт или Maestro выключен; по желанию — и полоса портретов DES. Ярлыки открывают окна соседей: настройки и каталог персонажей DES, редактор памяти Qvink, галерея и сцена NAI Studio, локализатор, менеджеры CarrotKernel.\n- **Пульт по разделам** — вкладки собраны в группы: Ход, Входящие, Канон, Досье, Мир, Механики, Здоровье, Журнал, Расширения, Настройки; группы сворачиваются, на телефоне — разделы в списке вкладок.\n\n## 1.7.0 — механики (2026-10-05)\n\n- **Конструктор механик** во вкладке «Механики»: свои игровые системы без возни через лор — атрибуты (числа, шкалы, списки, тексты), у кого они есть (персонажи, твой персонаж, фракции, мир), правила для модели, события на порогах («мана на нуле — заклинание срывается»), проверки с кубиками. Шаблоны: здоровье и выносливость, магия с маной и школами, репутация у фракций, деньги, навыки с проверками, отношения. Механика хранится записью типа «механика» в книге Maestro, действует для карточки, чата или везде и выключается в отдельном чате.\n- **Три способа учёта** — на выбор для каждой механики и атрибута: статы трекера DES (Maestro по твоему согласию добавляет их в DES, твои собственные статы не трогает), короткий служебный блок в конце ответа модели (Maestro читает его, чинит ошибки формата и прячет), фоновый разбор ответа. Изменения применяются, когда ты отправляешь следующее сообщение; свайп или удаление ответа откатывает его изменения. Правка значения в пульте — с откатом.\n- **Броски делает Maestro**: слово-триггер в твоём сообщении («убедить», «колдую», \"sneak\") — и проверка уходит в промпт фактом: «Spellcasting check (Элизабет): rolled 6, needed 100 or lower — success». Свайп не перебрасывает. Есть кнопка «Бросок» и команда `/maestro-roll`.\n- **В промпте** — только правила и значения механик, которые участвуют в сцене, ближе к концу; бюджет «механики» у архитектора. Флаги `maestro_mech_<механика>` для условных блоков пресета — в каталоге Пресет-студии. События на порогах — материал для поворотов режиссёра.\n- **Виджеты** — значения в пульте и строкой под портретами DES (на телефоне — одна строка с прокруткой).\n\n## 1.6.0 — визуальная связка (2026-10-05)\n\n- **Гардероб и состояния** — новый наряд из трекера DES (повторившийся два хода) становится именованным нарядом в паспорте NAI Studio уровня чата, а знакомый наряд узнаётся и надевается снова; состояния персонажей (мокрый, ранен, устал…) и мест (разрушено, украшено, пожар, ночь) включаются и выключаются в паспортах по трекеру. Персонаж, который появляется уже в новом наряде, тоже получает его. NAI Studio рисует узнанный наряд его тегами. Библиотека нарядов — во вкладке «Гардероб» и в досье, всё с откатом. Отложенные карточки нарядов из ревизии разбираются сами.\n- **Паспорта в лорбуках** — у записи лора может быть визуальный паспорт в формате NAI Studio: в книгах Maestro — в самой записи, у базовых книг — в реестре Maestro (файлы книг не меняются, книги BunnyMo не трогаются). Создаётся генератором NAI Studio или фоновой моделью по его схеме, правится в Лор-студии рядом с текстом. NAI Studio получает паспорта записей, сработавших или упомянутых в сцене.\n- **Фоны** — фон чата следует за местом: сначала подбор из библиотеки фонов SillyTavern (по названию, папкам, состоянию места, времени суток и погоде из DES), иначе — кнопка «Сгенерировать фон» в NAI Studio (с учётом режима «только бесплатно»). Только фон этого чата — общий фон и `settings.json` не меняются. Поставленный тобой фон Maestro не трогает, пока не разрешишь снова выбирать самому.\n- **«Оформить»** в досье — новый NPC или место получает всё одной кнопкой: запись канона с русскими ключами, архив CarrotKernel по словарю загруженных пакетов BunnyMo (в твою книгу-репозиторий или новую «Maestro · архив»), паспорт NAI Studio, если его нет. Весь план — одной карточкой во «Входящих», каждую часть можно откатить отдельно. «В книгу карточки» переносит запись канона в книгу карточки.\n- Нужен NAI Studio 0.12.1 (паспорта от Maestro, генерация паспорта и фона, наряды по формулировке трекера); со старыми версиями эти части просто не включаются.\n\n## 1.5.0 — живой мир (2026-10-05)\n\n- **Закулисье** — раз в несколько ходов (15 в «Сбалансированном», 10 и в конце сцен в «Кино», в «Экономном» только по кнопке) фоновая модель коротко рассказывает, чем были заняты до трёх важных персонажей, которых давно нет в сцене. События — в канон чата; смерть, плен, исчезновение и всё, что спорит с каноном, сначала ждёт тебя во «Входящих». Иногда присутствующие слышат слух.\n- **Календарь и обещания** — время истории по трекеру DES (обычные даты, «День N», выдуманные календари); договорённости и сроки из ревизии или вручную: «к закату», «через три дня», «by tomorrow». Наступивший срок — повод для заметки режиссёра; просроченное и нарушенное отмечается.\n- **Кто что знает** (экспериментально, выключено по умолчанию) — участники сцены знают её события, секреты из ревизии помечаются; голосовые карточки получают «не знает: …», когда тема всплыла.\n- Ревизия сразу отдаёт обещания календарю и секреты — модулю «Кто что знает»; отложенные карточки прошлых этапов разбираются сами.\n\n## 1.4.0 — режиссура (2026-10-05)\n\n- **Режиссёр сцены** — после каждого хода определяет тип сцены (диалог, бой, интимная, исследование, пропуск времени, светская, драма) по ответу, твоему сообщению и трекеру DES, с устойчивостью к случайным скачкам; при сомнении — дешёвая модель. Для следующей генерации ставит одноразовые флаги: `maestro_scene_<тип>`, длина ответа, откровенная сцена, язык, «момент для картинки». Тип можно задать самому.\n- **Темп и повороты** — если история встала (то же место, ничего не происходит, повторы, разговор по кругу), короткая заметка режиссёра ближе к концу промпта с поворотом из квестов DES и незакрытых нитей. Молчит, когда ты сам ведёшь сюжет; никогда не уводит от тёмных и откровенных сцен. «Встряхнуть» — заметка по кнопке.\n- **Голоса персонажей** — компактная карточка на каждого присутствующего: манера речи (LING и блок Linguistics), MBTI с состоянием, отношение к тебе сейчас, связи с другими присутствующими, цели. Когда карточки включены, вставка CarrotKernel «Character Consistency» гасится при сборке промпта (настройки CK не меняются), а DES-RU перестаёт её пересобирать. Выключено по умолчанию.\n- **Условные блоки пресета** — в Пресет-студии блок можно сделать «только когда …» / «кроме когда …» по флагу Maestro (`{{if .maestro_…}}`), с симулятором флагов, проверкой синтаксиса и предупреждением, если новый движок макросов выключен. «Подготовить к отключению» спрашивает, оставить ли такие блоки обычным текстом или выключить.\n\n## 1.3.0 — ресурсы: архитектор промпта и казначей (2026-10-05)\n\n- **Бюджеты по источникам** — общий потолок лора (поверх потолков книг), RAG CarrotKernel, краткосрочной памяти Qvink и необязательного блока контекста DES; при превышении уходят наименее важные куски, инструкции трекера DES и долгая память Qvink не трогаются никогда. По умолчанию всё выключено.\n- **Кто рядом** — записи об отсутствующих и далёких местах приглушаются, если о них не говорили последние сообщения; записи присутствующих и текущего места закрепляются (включается в «Архитекторе»).\n- **Повторы фактов** между лором, каноном, памятью Qvink, архивами CK и DES — отчёт, а по твоему согласию остаётся один источник.\n- **Кэш провайдера** — доля промпта из кэша и место, где промпт начинает меняться; проверка, что меняющиеся вставки Maestro стоят в конце.\n- **«До и после»** каждого правила — во «Промпте хода».\n- **Казначей** — сколько стоит игра: последний ход, сессия, сегодня и 14 дней, по источникам (основная модель, перегенерации, авто-свайпы, Qvink, задачи Maestro, NAI) и Anlas; при достижении общего дневного лимита — переход в «Экономный», если так настроено.\n- Учитываются кэшированные токены провайдеров.\n\n## 1.2.0 — контроль качества ответа (2026-10-04)\n\n- **Проверка каждого ответа** до того, как NAI Studio начнёт рисовать: уход в другой язык, кальки и штампы; реплики и действия за тебя; отказы, морализаторство, оговорки вне роли, смягчение и навязчивые вопросы; повторы прошлых ответов; обрезанный ответ; служебный мусор и протёкший HTML (JSON трекера DES и маркеры NAI — норма); нет трекера DES; граница контента. Сначала бесплатные правила, дешёвая модель-судья — только при сомнении (в «Экономном» — никогда).\n- **Действия по видам брака** — выкл / «Само» (очистить, попросить продолжить, один свайп за ход с точной инструкцией, ремонт трекера через Медика) / «Уведомить» (значки «Переделать» и «Не брак»). По умолчанию «Само» — только мусор и трекер, остальное — «Уведомить», пока не набрана статистика ложных срабатываний.\n- **Ранняя отсечка** служебных токенов модели прямо в потоке: остановка и один свайп.\n- **Граница контента** — настраиваемые правила с умолчанием (никакого сексуального контента с несовершеннолетними), тестовый режим.\n- **NAI Studio ждёт «качество ок»** (нужен NAI Studio 0.11.0): картинки не рисуются для ответа, ушедшего на переделку.\n\n## 1.1.0 — Пресет-студия (2026-10-04)\n\n- **Пресет-студия** — большое окно для пресета Chat Completion: «Карта» (как SillyTavern соберёт промпт: блоки по порядку, вставки расширений на своих местах, токены, блоки, которые включены, но не уйдут), «Блоки» (порядок перетаскиванием, массовое включение, поиск, предпросмотр с макросами), редактор блока, «Анализ» (несохранённые правки, пустые и неотправляемые блоки, противоречия, повторы с лором и вставками, особенности модели и провайдера), «Версии» (каждое сохранение — версия, откат), «Параметры» генерации и сценариев.\n- **Твой слой** — твои блоки и правки хранятся отдельно от базового пресета и накладываются при его выборе; новая версия базы (например, Marinara) ставится без потери правок, а при изменённом тексте блока — выбор из трёх версий. Перенос текущих правок в слой с предпросмотром (ключи подключения можно не переносить), перенос слоя на другой пресет, блоки из чужих пресетов.\n- **Безопасное сохранение** — пресет сохраняется только с явным телом, незнакомые ключи и расширения сохраняются, переименование переносит разрешения регексов и спрашивает о профилях подключения; несохранённые правки сохраняются версией перед переключением пресета.\n- **Сценарии генерации** — свои параметры для перевоплощения и продолжения (выключены по умолчанию).\n- Раздел Prompt Manager можно заменить кнопкой студии (настройка, по умолчанию выключена — до проверки паритета вживую).\n- **«Подготовить к отключению», экспорт и импорт данных Maestro** в настройках пульта.\n\n## 1.0.0 — выпуск R3, первая полная версия (2026-10-04)\n\nЭтап 4: ревизия и живой канон.\n\n- **Сигналы хода** — когда ты отправляешь сообщение, прошлый ответ фиксируется, и Maestro без ИИ сравнивает его с ходом раньше: смена отношения, стойкая внешность, место, пропуск времени, конец сцены, квесты, кто пришёл и ушёл, новые алиасы и имена, память Qvink. Свободный текст засчитывается, только если продержался два хода; свайп и правка откатывают ровно то, что дал ответ.\n- **Ревизия «сюжет → канон»** — по сигналам, раз в N сообщений, в конце сцены или командой `/maestro-revise` дешёвая модель смотрит, что изменилось у известных персонажей и мест, и предлагает обновить владельца: канон чата, теги архива CK (только из словаря паков), паспорт NAI уровня чата, прозвища чата, реестр мест. Наряды, обещания и секреты ждут своих этапов отложенными карточками.\n- **«Входящие»** — карточки по персонажам, ссылка на сообщение, «было/стало» по хранилищам, цитата и уверенность; принять, изменить на месте, отклонить, отложить, «Всегда так», принять всё.\n- **Проверка противоречий** — сначала правила (имена, числа, даты, отрицания), при сомнении — дешёвая модель; общий сервис для ревизии и живого канона.\n- **Живой канон** — то, что придумала модель (праздник, таверна, род), после фиксации хода становится пробной записью канона с русскими ключами; подтверждается, только если ты сам это упомянул, принял, если оно всплыло снова без подсказки или продержалось 10 ходов без противоречий. Пакетное извлечение пишет английский текст записей. Свайп убирает пробное, подтверждённое остаётся.\n- **Летопись и автопамять** — воспоминания Qvink, выпавшие из долгой памяти, становятся главами канона (срабатывают по двум ключам сразу); важные моменты сами получают отметку «запомнить» во всех свайпах; «Ранее в истории…» после перерыва.\n- **Замеры** — вкладка с критериями первой полной версии: задержка Maestro до запроса, доля фоновых расходов, лор на ход, выпавшие сообщения, роли записей, вкладки, ревизия, живой канон, листы, файлы паков. Скрипт стенда `tools/stand/measure.mjs`.\n- Исправлено: досье и листы брали архив «Александра» для «Александр» (падежная форма совпадала с другим именем); запросы NAI Studio записывались в расходы Qvink.\n\n## 0.2.0 — выпуск R2 (2026-10-04)\n\nЭтапы 2 и 3: Лор-студия, роли книг, доктор, канон; модель мира, досье, места.\n\n**Этап 3**\n\n- **Модель мира** — каждый персонаж, персона и место стека одной сущностью: карточки, состав DES, алиасы DES и DES-RU, падежи, паспорта NAI, архивы CK, записи лорбуков с типом, канон и места. Одно лицо под разными именами склеивается; сомнительные совпадения — во «Входящих». Прозвища, которые действуют только в этом чате.\n- **Досье** — одна страница на сущность: DES, лор, канон, архив CK и теги, паспорт NAI (с изменениями этого чата), падежи, воспоминания Qvink, RAG, последний лист. Сверка структуры (нет записи, паспорта или архива, алиас не стал ключом, имена расходятся), сверка внешности ИИ по кнопке, «Разнести» правку по хранилищам. Команда `/maestro-dossier`.\n- **Места** — реестр мест чата по локации DES: новое название становится местом, если продержалось два хода; вложенность, история визитов (кто был, когда), описание записью канона. NAI Studio держит непрерывность фона по id места.\n- **Граф отношений** — как персонажи относятся к твоей персоне, ход за ходом по трекеру DES.\n- **Режим BunnyMo** — словарь тегов всех паков (конфликты, дубли, теги без пака), паки по чатам, сравнение пака с новым файлом, проверка целостности, редактор листов архивов CK. Команда `/maestro-bunnymo`.\n- Нужен NAI Studio 0.10.0 для паспортов уровня чата и непрерывности по местам (без него всё остальное работает).\n\n**Этап 2**\n\n- **Лор-студия** — свой редактор лорбуков рядом со штатным: книги по ролям, все поля и действия штатного окна, канон рядом с базой, история версий, русские ключи, кампании DES. Кнопку «Миры и лорбуки» можно отдать студии настройкой.\n- **Роли книг** — Maestro знает, где ядро и паки BunnyMo, архивы CK, мир, карточка, NPC, канон; паки BunnyMo только для чтения.\n- **Канон чата** — изменения сюжета в отдельном лорбуке чата: переопределение, подавление, закрепление, добавление; бюджет, архив, слежение за базой, повышение до базы, экспорт, ветки. Срабатывает по русскому тексту.\n- **Доктор** — «Исправить в файле» для твоих книг (паки — никогда) и лечение регексов, всё с откатом.\n- **Правила** — кириллица и «целые слова», конфликт версий паков, `<NSFW>` в архивах, глубина сканирования архивов CK.\n- Нужны DES-RU 0.8.0 и Lorebook Localizer 0.2.0 (без них всё работает, но без склонений и локализации из студии).\n\n## 0.1.0 — выпуск R1 (2026-10-04)\n\nНаблюдение и быстрые исправления.\n\n- **Журнал лора** — какой лор ушёл в промпт на каждом ходу, почему, каким ключом и через какую запись; почему книга активна; «Что если» без генерации.\n- **Инспектор хода** — из чего собран промпт: пресет, лор по книгам, вставки соседей, история.\n- **Медик** — проверки соседей после каждого ответа; ремонт трекера DES; предупреждение о prefill с ролью assistant.\n- **Страж** — эталон настроек и пресета, дрейф во «Входящих»; устаревшая вкладка больше не перезаписывает настройки, пресеты и лорбуки.\n- **Доктор** — находки в лорбуках и регексах, испытание регексов.\n- **Правила на лету** — роль assistant → system, потолок и лимит рекурсии книги, дубли паков, «дыры» Qvink, картинки NAI вне пересказов, видимые теги BunnyMo, кнопка векторизации CK и полоса портретов DES на телефоне.\n- **Листы персонажей** — команды BunnyMo генерируются своей сборкой промпта, без хвоста сцены и трекера, сворачиваются и уходят из промпта после следующего хода.\n- **Мастер первого запуска.**\n\n## 0.0.0 — этап 0\n\nКаркас: слой ST, сервисы ядра, адаптеры соседей, пульт, стенд с имитацией модели.\n";
 //#endregion
 //#region README.md?raw
 var README_default = "# Maestro\n\nРасширение-дирижёр для SillyTavern. Оно связывает DES, Qvink Memory, BunnyMo и CarrotKernel, NAI Studio, DES-RU и Lorebook Localizer в одну систему. Maestro держит канон истории согласованным, показывает, из чего собран каждый ход, само чинит типовые сбои и ведёт сцену с минимальным участием пользователя.\n\n**Статус:** 1.16.0 — выполнены все этапы 0–13 плана разработки; выполнены обновления по [`docs/plan-2.md`](docs/plan-2.md) (выпуски 1.11–1.15). Список изменений — [`CHANGELOG.md`](CHANGELOG.md).\n\n## Что умеет сейчас\n\n- **Окна** — боковые панели и плавающие окна по разделам: ассистент, «Входящие», персонажи, механики, мир, канон, ход, здоровье, журнал с откатом каждого действия, блоки настроек соседей; строка Maestro под сообщениями с предложениями и фактами прямо в чате.\n- **Ассистент** — отдельное окно: объясняет, почему что-то произошло в чате, диагностирует стек, правит и собирает пресеты вместе с тобой — каждое изменение только после твоего подтверждения и с откатом.\n- **Стиль сообщений** — редактор правил, как выглядят повествование, диалоги и мысли у игрока и персонажей; пресеты от «Классики» до «Сценария».\n- **Единый стиль** — SillyTavern, чат и расширения в одном оформлении поверх твоей темы ST; выключил — всё как было.\n- **Наблюдение** — какой лор ушёл в промпт и почему, из чего собран промпт хода, здоровье соседей, страж настроек и вкладок.\n- **Правила на лету** — исправления известных «углов» стека при каждом сканировании, без правки файлов: роли записей, потолки книг, кириллица и «целые слова», дубли и версии паков BunnyMo, «дыры» Qvink и другое.\n- **Листы персонажей** — команды BunnyMo генерируются своей сборкой промпта и сворачиваются.\n- **Кнопка Maestro у поля ввода** — один значок рядом с волшебной палочкой ST: команды BunnyMo (полный и короткий лист, теги, внешность, «запомнить момент» — для персонажа сцены одним нажатием), «Переодеться» (наряды каждого в сцене и твои, «Описать…»), словарь BunnyMo и досье. Те же действия — в меню Maestro; выключается в настройках. «Одна кнопка» собирает в неё и меню SillyTavern, палочку, LoreBook Creator и на телефоне выбор персоны.\n- **Лор-студия** — редактор лорбуков рядом со штатным окном: книги по ролям, все поля записи, история версий, русские ключи, кампании DES.\n- **Канон чата** — изменения сюжета живут в отдельном лорбуке чата и не трогают твои книги.\n- **Модель мира, досье, места, отношения** — одна страница на персонажа или место со всем, что знает стек; места и отношения записываются по ходу игры.\n- **Режим BunnyMo** — словарь тегов, паки по чатам, редактор листов. Файлы паков не меняются никогда.\n- **Персона для персонажа** — кнопка «Создать персону» в карточке персонажа: Maestro читает карточку, сценарий и лорбук, учитывает твой комментарий и придумывает тебе персонажа — имя, внешность, предысторию и 5–6 нарядов; после проверки создаёт персону в SillyTavern, связывает с персонажем, а с NAI Studio — делает паспорт с нарядами и картинку. Подробно: [`docs/guide/persona.md`](docs/guide/persona.md).\n- **Служебный режим** (до 1.24 — «Мастерская») — для служебных персонажей (генераторы сценариев и персонажей, редакторы, соавтор): кнопка с гаечным ключом в карточке ставит ей тег «служебная» (старые «мастерская» и «workshop» тоже считаются), и в её чатах молчат трекеры DES, картинки, BunnyMo, память Qvink, Dramatis, глобальные лорбуки и сюжетные модули Maestro, а пресет сам переключается на короткий пресет соавтора «Мастерская» (модель не меняется). Подробно: [`docs/guide/workshop.md`](docs/guide/workshop.md).\n- **Подготовка к игре** — в новом чате Maestro читает карточку (все приветствия) и лор и предлагает персонажей, мир, места, фракции, время, секреты, механики и стартовую сцену для каждого приветствия; применяешь выбранное «для чата» или «для персонажа». Имена, наряды, секреты и обещания — на языке истории (настройка «Язык истории»): играешь по-русски — даже английская карточка получает русские имена, канон остаётся английским.\n- **Ревизия и живой канон** — канон следует за историей: перемены у известных персонажей приходят предложениями во «Входящие», придуманное моделью сохраняется пробным и подтверждается по правилам; летопись, автопамять Qvink и «Ранее в истории…».\n- **Замеры** — как Maestro справляется с критериями первой полной версии, по живой игре.\n- **Пресет-студия** — карта сборки промпта, анализ, версии и твой слой поверх базового пресета (везде, для персонажа или чата): обновление Marinara не теряет твоих правок; пресет можно привязать к персонажу или чату; промпты соседей; проверка промпта на конфликты с исправлениями.\n- **Визуальная связка** — наряды и состояния персонажей и мест в паспортах NAI Studio, паспорта у записей лора, фон чата по месту, «Оформить» нового NPC одной кнопкой.\n- **Гардероб** — что сейчас надето на каждом в сцене и на тебе. «Переодеть сейчас» меняет одежду сразу везде: паспорт и картинки, портрет и трекер DES, строка для модели. Пишешь «переодеваюсь в домашнее» — ответ уже пишется в новой одежде; переодевания в рассказе тоже подхватываются, а чего текст не сказал, уточняет фоновая модель. Под сообщением — строка с «Отменить»; команда `/maestro-wear`.\n- **Механики** — свои игровые системы: статы, состояния, инвентарь, формулы, опыт, время, бой; броски с последствиями, условиями и смыслом исхода, бросок посреди ответа; правила в начале промпта и состояние «что это значит сейчас» в конце; видимость от «Игрового» до «Тайного»; учёт «Авто» (статы DES, служебный блок, фоновый разбор как страховка); значения следуют за ответом сразу, а свайп их откатывает; строка изменений под ответом, HUD над чатом или на ПК колонкой слева или справа от него (не хватает места — язычок у края чата), окно «Механики» с разделом «Учёт» и конструктор на русском.\n- **Живой мир** — закулисье отсутствующих персонажей, календарь и обещания по времени истории, «кто что знает» (экспериментально).\n- **Сцена и вокруг** — ответ рассказывает только сцену; что тем временем происходит в других местах, модель пишет после неё одним блоком, свёрнутым под ответом («Вокруг», нажми, чтобы прочитать). Ушедший персонаж выбывает из сцены со следующего хода — Maestro понимает это по самому рассказу, хотя трекер DES его ещё держит; в промпте остаётся только «вокруг» двух последних ответов. Настройки — «Настройки» → «Сцена и вокруг».\n- **Режиссура** — тип сцены и одноразовые флаги для условных блоков пресета, заметки режиссёра при застое, голосовые карточки присутствующих вместо вставки CarrotKernel.\n- **Архитектор промпта и казначей** — бюджеты по источникам, лор тех, кто рядом, повторы фактов, кэш провайдера; расходы по ходам, дням и источникам.\n- **Контроль качества** — отказы, ответ за тебя, уход в английский, повторы, мусор и обрезка ловятся сразу; переделка одной кнопкой или сама; картинки NAI ждут проверки.\n\n## Требования\n\n- SillyTavern 1.19, Chat Completion.\n- Работает с любым набором соседей; для всех возможностей — DES 2.6, DES-RU 0.8.2+, Lorebook Localizer 0.3+, NAI Studio 0.14+, Qvink Memory, BunnyMo V3.0 и CarrotKernel.\n- Для `{{if}}` в пресете — новый движок макросов ST (мастер первого запуска проверяет).\n\n## Установка\n\n«Установить расширение» в SillyTavern → адрес этого репозитория. После установки откроется мастер первого запуска.\n\n## Документы\n\n- Функциональный план: [`docs/plan.md`](docs/plan.md); обновления после 1.10: [`docs/plan-2.md`](docs/plan-2.md)\n- План разработки: [`docs/dev-plan.md`](docs/dev-plan.md)\n- Устройство кода: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)\n- Соседи через `MAESTRO_API`: [Dramatis](docs/integration-dramatis.md), [Officina](docs/integration-officina.md)\n- Отчёты этапов: [`docs/reports/`](docs/reports/)\n- Руководства: [персона для персонажа](docs/guide/persona.md), [служебный режим](docs/guide/workshop.md)\n- Паритет студий со штатными окнами: [`docs/parity/lore-studio.md`](docs/parity/lore-studio.md), [`docs/parity/preset-studio.md`](docs/parity/preset-studio.md)\n- Исследование стека: [`docs/research/`](docs/research/)\n\nЛицензия: AGPL-3.0.\n";
@@ -59062,7 +60340,7 @@ function knowledgeBase() {
 }
 /** Maestro's version: the newest `## x.y.z` heading of the changelog (null when it cannot be read). */
 function maestroVersion() {
-	return /^##\s+(\d+\.\d+\.\d+)/m.exec("# Журнал изменений\n\n## 1.33.0 — картинки через агентов (2026-11-12)\n\nНужна NAI Studio 0.16.0.\n\n- **Иллюстратор** (шаблон, группа «Картинки»):\n  - пишет метки картинок вместо основной модели — тот же объект метки и по тем же правилам (твой блок картинок из пресета);\n  - видит весь готовый ответ, гардероб, мизансцену, трекер и место;\n  - NAI Studio рисует его метки своим обычным путём: паспорта, стиль, непрерывность, ворота качества, «Повторить».\n- **Кто пишет метки** («Агенты» → «Картинки», то же в NAI Studio): «Основная модель» (по умолчанию), «Иллюстратор» (блок картинок пресета уходит из основного промпта, ответ — только история), «Иллюстратор, если основная модель не поставила метку». Действует, только пока Иллюстратор включён в чате; выключил агента — метки снова пишет основная модель.\n- **Сравнение вслепую** («Картинки»):\n  - до 20 ответов, которые проиллюстрировала основная модель, рисуются заново парами — её метка и метка Иллюстратора, одним путём, бесплатно;\n  - ты выбираешь лучшую, не зная, чья она;\n  - пока Иллюстратор не выиграет, его нет ни в одном наборе.\n- **Декоратор**: место, для которого в библиотеке фонов ничего не нашлось, получает фон. Агент описывает место, NAI Studio рисует, «Фоны» привязывают к месту и ставят с откатом. Один раз на место.\n- **Портретист**: новое важное лицо без паспорта картинок получает паспорт по сюжету и лору (в этом чате, с откатом) и, с DES, портрет.\n- **Аватар карточки** (по кнопке, всегда с вопросом): новый аватар по тому, как персонаж выглядит сейчас; старая картинка сохраняется копией в user/images/avatar-backups.\n- **Обложки глав**: новая глава летописи получает картинку-обложку, её видно в «Летописи».\n- **Только бесплатно по умолчанию**: картинки агентов не тратят Anlas, пока не включишь «Картинки агентов могут тратить Anlas».\n- **Мизансцена → картинки**: поза и место из «Мизансцены» доходят до картинок NAI Studio, если в метке поза не указана.\n- **Набор «Кино»**: + Декоратор, Портретист, Обложки глав.\n\n## 1.32.0 — трекеры и механики через агентов (2026-11-09)\n\n- **Новый модуль «Мизансцена»** (окно «Мир»): кто где и как сейчас — поза, место в сцене, рядом с кем, что держит, что видно на нём. Заполняет агент «Мизансцена» после ответа; у каждого свайпа своя мизансцена; удалённые сообщения уносят свою. Строка «кто где и как» (до ~80 токенов) идёт в промпт, выключается в настройках раздела. Поправить можно руками — с откатом в журнале.\n- **Трекеры через агентов пишут сразу**, без уведомления «Сделал…» каждый ход: запись в журнале с откатом, свайп возвращает своё.\n- **Костюмер** — после ответа замечает, кто переоделся, и пишет в гардероб: известный наряд по имени или одежду словами. Тот же путь, что у разбора переодеваний: наряд паспорта, поле «Одежда» DES, строка под сообщением, откат. Работает и без поля DES, и для твоего персонажа.\n- **Смена наряда** — заранее к следующему ходу подсказывает рассказчику, когда одежда больше не подходит сцене (ночь, бал, дождь, бой, долго в одном) и во что переодеть из известных нарядов.\n- **Механики: «Учёт: агент после ответа»** (Механики → настройки). Основная модель пишет только историю, без служебного блока; все изменения читает встроенный агент «Учёт механик» (его поручение и модель — в окне «Агенты»). Броска посреди ответа в этом режиме нет — он живёт в служебном блоке.\n- **Своя механика** — шаблон для правил, которых нет в механиках: голод, рассудок, долг, слава. Значения — в записях агента, правила — в его переменных, смысл значений идёт в промпт.\n- **Трекер сцены (DES) отдельным запросом** — встроенный агент «Трекер сцены (DES)», переключатель «Трекер отдельным запросом». Инструкция трекера DES уходит из основного промпта (настройки DES не меняются), ответ начинается сразу с истории, а трекер делается сразу после ответа отдельным запросом — по собственному промпту DES, его разбором и отрисовкой (это ремонт трекера медиком). Проверка качества в этом режиме не считает отсутствие трекера в ответе браком. По умолчанию выключено.\n- **Новые источники** для агентов: «Кто во что одет» (с известными нарядами) и «Мизансцена».\n- **Наборы «Игра»** (Костюмер, Мизансцена, Варианты действий) **и «Кино»** (Костюмер, Мизансцена, Смена наряда; картинки добавятся в 1.33).\n\n## 1.31.0 — агенты предлагают изменения: создатели (2026-11-09)\n\n- **Новый тип результата «Предложения».** Агент получает список того, что ему разрешено предлагать, и возвращает предложения; каждое идёт через автономию — по умолчанию во «Входящие», с «Подробнее», «Всегда так» и откатом из журнала. Исходные книги и карточку агенты не меняют.\n- **Что можно предлагать:**\n  - **новая запись лора чата** (канон чата): персонаж, место, предмет, фракция, событие, обычай — с русскими ключами-словоформами; уже известные имена не предлагаются повторно;\n  - **правка записи лора** — только в этом чате, поверх записи (исходная книга не трогается), с полным новым текстом; откат возвращает прежнюю правку или снимает её;\n  - **обещание или срок** в календаре (откат — «отменено»).\n- **Создатели** (шаблоны, группа «Создатели»):\n  - **Создатель персонажей** — новое значимое лицо в истории → запись в лоре чата: кто он, внешность, манера, связи. Карточек ST не создаёт: персонаж живёт в чате и его лоре;\n  - **Редактор персонажей** — в конце сцены предлагает обновить записи тех, кого сцена изменила;\n  - **Биограф** — раз в 25 сообщений прописывает персонажа с тонкой записью;\n  - **Картограф** — новое место без записи → запись места;\n  - **Летописец мира** — раз в 30 сообщений: фракции, обычаи, вещи, прошлые события, на которые история опирается;\n  - **Хранитель тайн** (группа «Текст») — отмечает персонажа, который знает то, чего не мог узнать, и предлагает «Переделать».\n- **Набор «Мир растёт»**: Создатель персонажей, Картограф, Летописец мира, Биограф.\n- **Новые источники**: «Кто что знает», «Известные миру имена», «Места». У записей «Лора хода» теперь видна ссылка «Книга#номер» — по ней агент предлагает правку.\n- В редакторе агента у типа «Предложения» — галочки «Что может предлагать» и «Не больше предложений за запуск».\n\n## 1.30.0 — агенты: пакеты и экономия (2026-11-09)\n\n- **Пакеты.** Агенты одного момента и одного профиля, которым это разрешено («Модель» → «Отправлять вместе с другими агентами той же модели»), идут одним запросом: общий контекст — один раз, у каждого агента свой блок задачи, ответ — один JSON со своей частью для каждого. Агент, которого в общем ответе не оказалось или чья часть не по форме, сам переспрашивается отдельно. У пакета одна температура — средняя по его агентам. Правки ответа всегда идут отдельно. Агенты по расписанию, которым пора в один и тот же момент, тоже собираются в пакет. В журнале запусков у таких запусков — «в пакете», цена пакета делится между агентами по длине их поручений.\n- **«Сначала спросить дешёвую модель».** У агента во вкладке «Когда» — переключатель «Перед каждым запуском спрашивать „нужен ли сейчас?“» и свой вопрос. Короткий вопрос уходит модели из новой строки «Агенты: вопрос „нужен ли сейчас“» в «Профилях подключения» (иначе — профиль агентов по умолчанию). Пропускает запуск только явное «нет»; если вопрос не прошёл, агент работает как обычно. Пропуски видны в журнале: «пропущен: сейчас не нужен».\n- **Цена хода.** В шапке списка агентов — «Твои агенты добавляют к ходу ≈ $…»: средняя цена последних платных запусков каждого включённого агента × как часто он работает (раз в ход, раз в N сообщений, по кнопке — не считается). Агенты без запусков — «Ещё не оценены: N».\n- Одновременно работают не больше трёх отдельных запросов агентов (пакет считается за один).\n\n## 1.29.0 — встроенные агенты (2026-11-09)\n\n- **Задачи Maestro, которые ходят к модели, стали встроенными агентами** — 15 штук в окне «Агенты» → раздел «Встроенные агенты», по группам:\n  - канон и память: Ревизия канона, Живой канон, Сверка противоречий;\n  - сюжет и режиссура: Пересказ «Ранее в истории…», Режиссёр (тип сцены);\n  - качество: Судья качества;\n  - мир и гардероб: Закулисье, Гардероб (переодевание и твоя одежда);\n  - механики: Учёт механик;\n  - по кнопке: Досье (сверить с ИИ, оформить), Паспорта записей, Проверка промпта ИИ, Персона для персонажа.\n- **Поручение встроенного агента**: «По умолчанию» (текст Maestro), «Дополнительные указания» (твои строки после текста Maestro) или «Весь текст» (заменяет текст Maestro). Форма ответа и то, как Maestro применяет ответ, остаются в коде — правка поручения не может их сломать. «Вернуть как было» — к умолчаниям; если текст Maestro по умолчанию поменяется в новой версии, а у тебя свой, — предупреждение со сравнением «было / стало», «Взять новый текст» или «Оставить свой». Текст Maestro по умолчанию виден под спойлером.\n- **Модель** у каждого встроенного агента: профиль подключения (та же строка, что в «Профилях подключения»), температура, длина ответа, рассуждения; пусто — как решает Maestro.\n- **«Когда»**: включатель (собственная настройка модуля) и его ручки — частота ревизии и живого канона, сколько фактов за раз, закулисье по режимам, источник и порог пересказа, частота одежды персоны.\n- **Журнал запусков** показывает и встроенных агентов: запрос ровно таким, каким ушёл (с твоим поручением), ответ, цена, причина сбоя. «Проверка» в карточке — последний запрос.\n- Без твоих правок запросы встроенных агентов уходят ровно такими же, как в 1.28.\n- Изменения встроенных агентов — в журнале Maestro с отменой.\n\n## 1.28.0 — агенты (2026-11-09)\n\n- **Новое окно «Агенты»** (меню Maestro → «Агенты»). Агент — модель-помощник с одной работой: что ей поручено, что она видит, когда запускается, на какой модели и что делает с ответом. Агентов создаёшь, правишь, включаешь и проверяешь прямо в ST. Разделы окна: Агенты, Вставки хода, Записи, Журнал запусков, Шаблоны, Наборы, Расходы.\n- **Карточка агента** — вкладки Поручение · Что видит · Когда · Результат · Модель · Область · Проверка:\n  - поручение обычным текстом с подстановками `{{char}}`, `{{user}}`, `{{язык_истории}}`, своими переменными `{{agent.<имя>}}` и вариантами поручения («мягкий / жёсткий»);\n  - 14 источников с бюджетами: последние сообщения, твоё сообщение, ответ, карточка, персона, лор хода, канон, память Qvink, сцена и персонажи DES, механики, режиссёр, свои записи, свой прошлый ответ;\n  - семь моментов запуска: заранее к следующему ходу, при отправке (с таймаутом и кнопкой «Не ждать»), вместе с ответом, после ответа, при фиксации, по расписанию / событию (конец сцены, смена места, новый персонаж, пропуск времени, перерыв, открыт чат), по кнопке; условия — слова, тип сцены, режим Maestro, что должно быть включено, «только при застое»;\n  - семь типов результата: вставка в промпт, флаги для пресета, правка ответа, проверка ответа, заметка для тебя, варианты действий, записи агента;\n  - свой профиль подключения у каждого агента, температура, длина ответа, рассуждения, лимиты на ход и на день;\n  - «Что увидит агент» (запрос без модели, токены по источникам) и «Пробный запуск» (модель отвечает, ничего не применяется — видно, что Maestro сделал бы).\n- **Правка ответа не трогает служебные блоки**: трекер DES (и в начале, и в середине продолженного ответа), блок механик, `<offscreen>`, маркеры и картинки NAI агент не видит — код возвращает их на место. Исходник хранится: под сообщением «Показать исходный» и «Вернуть исходный», правка есть в журнале с отменой. Обрезанная по длине или подозрительно короткая правка не применяется. «Придержать ответ» скрывает ответ дымкой, пока агент правит.\n- **Общие ворота ответа**: агенты «после ответа» идут после проверки качества и до картинок NAI — NAI Studio рисует уже исправленный ответ.\n- **12 шаблонов**: Прозаик, Сверка непрерывности, Сверка голоса, Редактор-критик, Варианты действий, Хроникёр сцены, Дневник персонажа, Подсказка режиссёра, Сюжетная линия, Осложнения, Анти-петля, Именослов. «Взять в работу» — своя копия, которую можно менять.\n- **Наборы и агенты по умолчанию**: набор — именованный список агентов и их включателей, как пресет ST; набор «Везде» — агенты для новых чатов, набор персонажа или чата главнее; поверх набора — точечные включатели с «Вернуть к набору». Готовые наборы «Как в 1.27» (в силе после обновления: ничего не меняется) и «Рассказчик».\n- **Агенты карточки**: агентов можно положить в карточку; чужая карточка с агентами спрашивает согласия и показывает, что каждому разрешено. Импорт и экспорт агентов файлом — тоже с подтверждением.\n- **Журнал запусков**: каждый запуск — момент и причина, время, токены, цена, полный запрос, сырой ответ, результат, что сделано, понятная причина сбоя и «Повторить». Три сбоя подряд — уведомление.\n- Профиль «Агенты (по умолчанию для твоих агентов)» — новая строка в «Профилях подключения». Траты агентов — в общем дневном потолке фоновых трат.\n- Команда `/maestro-agent <имя> [указание]`, агенты в меню кнопки Maestro у поля ввода.\n- В групповых чатах и в служебных чатах «Мастерской» агенты спят.\n\n## 1.27.0 — механики правят игрой (2026-10-15)\n\n- **Правила и состояние — отдельно.** Раньше модель получала одну строку-справку на механику («[Mechanics] Магия: … | Кай: mana 12/100») где-то перед последней репликой. Теперь два блока:\n  - **`<game_rules>` в начале промпта** (сразу после основного): «эти системы обязательны — цены, пределы и исходы решают, что может случиться», под каждой механикой её правила с сохранёнными переносами строк. Блок не меняется, пока не меняется набор механик сцены, — кэш провайдера не ломается.\n  - **`<game_state>` в самом конце**, прямо перед ходом модели: по каждому персонажу (твой — первым) значения со словами («мана 12/100 (very low)»), состояния с остатком и модификаторами («отравлен (ещё 2 хода; проверки −2)»), инвентарь, бой, и строка «пиши этот ответ в согласии с этими значениями». Сразу за ним — инструкция служебного блока и результаты бросков.\n  - Где лежат правила — настройка «Правила механик: в начале промпта / рядом с состоянием»; «Глубина состояния» — по умолчанию 0.\n- **«Что это значит сейчас».** События на порогах больше не говорятся один раз и не исчезают: пока условие верно, модель каждый ход видит строку «now: Кай без маны и колдовать не может». В конструкторе у события — переключатель «Держится, пока условие верно». В шаблонах добавлены промежуточные ступени: тяжело ранен, задыхается, мана на исходе, вымотан, истекает кровью, умирает от голода и жажды; у навыков и выживания — свои слова для уровней.\n- **Бюджет механик — 1200 токенов вместо 400**: две встроенные механики раньше не влезали, и обрезались правила и значения NPC. Сохранённые 400 поднимаются до 1200 один раз (свой бюджет остаётся твоим). Важнее то, о чём сейчас речь: механики с бросками этого хода, менявшиеся в последние ходы, названные в твоём сообщении, — остальное режется первым.\n- **«Книжный» вид отдаёт модели слова, а не числа** («доверие: умеренное»). Затронуты шаблоны «Отношения» и «Социальные шкалы».\n- **Статы DES связаны с механиками:** модель получает строку «Health, Stamina в трекере — те же значения: начни с чисел выше и меняй только тем, что происходит в этом ответе».\n- **Броски:**\n  - **Условия броска** («Нужно для броска»): заклинание требует хотя бы 5 маны, атака — бойца на ногах. Не хватает — броска нет, а модель получает «Заклинание (Кай): невозможно — мана 3, нужно 5. Попытка не удаётся». В HUD и под ответом — «Без броска: … невозможно».\n  - **Исход со смыслом.** К каждому результату модель получает, что он значит в сцене: тексты автора механики или общее («не получается — покажи, что пошло не так и чего это стоило»), «еле-еле» при разнице в 1–2 очка. У всех проверок встроенных шаблонов — свои тексты исходов (заклинание складывается / гаснет, мана потрачена / бьёт по магу; удар / промах…). Под ответом — строка смысла по-русски.\n  - **Бросок посреди ответа.** Модель останавливается на попытке и просит бросок, Maestro бросает и сразу продолжает тот же ответ с результатом (один дополнительный запрос «Продолжить»). Не продолжает, если в поле ввода есть текст или идёт генерация, — тогда результат придёт следующим ходом, как раньше. Настройка «Бросок посреди ответа» (включена). Контроль качества не продолжает такой ответ второй раз.\n  - В списке проверок, которые модель может попросить, — только механики этой сцены.\n\n## 1.26.0 — механики: учёт, который поспевает за историей (2026-10-15)\n\n- **Новый способ учёта «Авто» — теперь он по умолчанию** у новых механик, у механик из «Подготовки» и у всех шаблонов, кроме боя. Статы, которые ведёт DES, берутся из трекера, остальное модель пишет в служебном блоке, а если блока нет или его не прочесть — подстрахует фоновый разбор. Состояния и вещи у «Авто» тоже идут блоком. Уже созданные механики сохраняют свой способ — его можно сменить в конструкторе («Авто (рекомендуется)» — первым в списке).\n- **Модель пишет служебный блок всегда**, а когда ничего не поменялось — `<mechanics>none</mechanics>`. Раньше ей разрешалось пропускать блок, и нельзя было понять, забыла она или ничего не случилось. Блок `none`, `нет`, `-` или пустой убирается из ответа как обычный.\n- **Статы DES — как изменения, а не перезапись.** Раньше значение из трекера каждый ход затирало то, что Maestro посчитал сам: трату маны на бросок, восстановление со временем. Теперь берётся разница с прошлым трекером этого персонажа (до 40 сообщений назад), и она ложится поверх значения Maestro. Модель переписала старое число — ничего не меняется.\n- **Фоновый разбор понимает больше.** Он видит и твоё действие, которое привело к ответу, знает, что «ты/вы» в рассказе — твой персонаж, получает правила механики целиком (до 2000 знаков вместо 600) и применяет их: если в ответе нет чисел, оценивает по правилам («рана мечом стоит здоровья, как сказано в правилах»). Ответ модели разбора — до 1200 токенов.\n- **Время идёт и без DES.** Модель может написать в блоке `time: +3h` (`+30m`, `+2d`, `время: +20м`), фоновый разбор — сколько минут прошло в ответе. По этому идут часы истории: голод, жажда, восстановление, состояния «на 2 недели». Состояние «до заката», которое не к чему привязать, длится 8 ходов, а не вечно.\n- **«Пересчитать»** в подробностях строки изменений под ответом: Maestro снимает изменения ответа и читает его заново (блок, статы DES и фоновый разбор).\n- **Броски:**\n  - **Цель у атаки по твоим словам.** «Бью стражника мечом» — урон получает стражник: тот, кого ты назвал в той же фразе, в бою — названный противник, иначе текущий. В карточке броска — «Атака (Кай → Стражник)» и строка «Цель». Раньше автоматическая атака никого не задевала.\n  - **Проверки на реплики.** «Убеждение», «Обман», «Запугивание» срабатывают и на прямую речь в кавычках, и на вопрос («Может, договоримся?»). В конструкторе — переключатель «Срабатывает и на реплики».\n  - **До двух проверок за сообщение**, если они разные и в разных частях фразы («подкрадываюсь к двери и вскрываю замок»).\n  - **Опыт за броски.** У уровней механики — опыт за исход (крит, успех, провал, промах); уровень растёт сам, «Отменить бросок» забирает и опыт. В шаблоне «Навыки» появились опыт и уровень (уровни на 100, 250, 500 и 1000; 20 / 10 / 3 / 3 за исход). Навыки, опыт и уровень этого шаблона двигает только Maestro — модель их не переписывает, и опыт не засчитывается дважды.\n- **Исправлено:**\n  - удаление сообщения из середины чата сбивало учёт: изменения и броски сдвигались не туда. Теперь Maestro понимает, какие сообщения удалены, снимает их изменения, а изменения следующих сдвигает вместе с ними;\n  - вкладка, ставшая ведущей, дочитывает ответы, пришедшие, пока считала другая;\n  - уже разобранный ответ не отправляется на фоновый разбор повторно после перезагрузки страницы.\n\n## 1.25.0 — механики: значения сразу и колонка у чата (2026-10-15)\n\n- **Значения меняются сразу после ответа**, а не когда ты напишешь следующее сообщение. Раньше изменения из ответа (служебный блок, статы DES, фоновый разбор, тики состояний и времени) применялись только при отправке следующей реплики — и уже после того, как для нового ответа собран промпт. Поэтому HUD стоял на месте, а модель писала следующий ход по старым числам. Теперь всё применяется, как только ответ показан. До твоего ответа изменения предварительные: свайп, перегенерация, «Продолжить» и правка ответа их откатывают и читают ответ заново. Вернулся свайпом к старому варианту — его изменения возвращаются сами.\n- **Фоновый разбор запускается сразу после ответа**, пока ты читаешь, и у него своя строка в «Профилях» — «Механики: разбор ответа» (можно дать модель дешевле основной).\n- **«Учёт» — почему значения могут не меняться.** Раньше фоновый разбор без профиля или сверх дневного лимита молча пропускался. Теперь в окне «Механики» → «В игре» сверху раздел «Учёт» с причиной и кнопкой: нет профиля (→ «Профили»), исчерпан лимит, разбор выключен (→ «Настройки»), статы DES ещё не заведены (→ «Статы DES: …»), последний разбор не удался, значения считает другая вкладка. В HUD — значок ⚠, пока есть что-то серьёзное.\n- **Механики сбоку от чата на ПК — слева или справа.** Кнопка «Где показывать механики» прямо в HUD: «Над чатом», «Слева от чата», «Справа от чата» (то же — в настройках конструктора).\n  - Колонка показывает то же, что HUD над чатом: твоего персонажа и выбранных, закреплённые значения, состояния, деньги и вещи, «Бросок» и «Инвентарь». Переключатель «Подробно» — все персонажи сцены, все значения, бой.\n  - Ширину меняешь, потянув край колонки; ширина и свёрнутые персонажи запоминаются на этом устройстве.\n  - Не хватает места (широкий чат, закреплена панель SillyTavern с этой стороны) — механики больше не прыгают на чат: у края чата остаётся язычок «Механики», он раскрывает ту же колонку поверх чата и объясняет, почему места нет, с кнопкой «Показать с другой стороны». Просто открытая (не закреплённая) панель SillyTavern ничего не сдвигает. Ограничение «окно не уже 1200 px» убрано — решает свободное место.\n  - На телефоне всё по-прежнему: одна строка над чатом.\n- **Что изменилось последним ответом — видно у значения**: «−15», «+1», «→ ранен». Подсказка: «Из последнего ответа · свайп отменит». И в HUD над чатом, и в колонке.\n- Полоска механик под портретами DES прячется, пока видна колонка с любой стороны, и возвращается при язычке.\n\n## 1.24.2 — одна кнопка у поля ввода (2026-10-14)\n\n- **Одна кнопка вместо ряда значков.** Кнопка Maestro у поля ввода теперь открывает и меню SillyTavern (≡), и волшебную палочку с расширениями, и LoreBook Creator, а на телефоне ещё и выбор персоны (QuickPersona). Их значки из ряда убраны: на ПК остаются общая кнопка и аватар персоны, на телефоне — одна кнопка вместо столбика из четырёх. Пункт открывает родное меню SillyTavern или соседа на прежнем месте, над полем ввода, со всем, что оно умеет. У «Персоны» в подписи — имя текущей персоны. Пока значок скрывает его хозяин (палочка без пунктов, выключенная кнопка LoreBook Creator), его нет и в меню.\n- Значок общей кнопки — ≡, подсказка «Меню: SillyTavern, расширения, Maestro»; быстрые действия Maestro идут в том же меню под пунктами SillyTavern. Кнопка видна, даже когда у Maestro нет быстрых действий.\n- Выключается в «Настройки» → «Одна кнопка у поля ввода» (по умолчанию включено): значки возвращаются на место, кнопка снова только для быстрых действий Maestro. Выключенная «Кнопка Maestro у поля ввода» тоже возвращает значки.\n- **Исправлено: меню кнопки у поля ввода на телефоне уходило за верх экрана.** На телефонах SillyTavern фиксирует `html` нулевого размера, и меню, прижатое к низу, отсчитывалось от верхнего угла. Теперь меню ставится явной шириной и отступом сверху и открывается прямо над полем ввода.\n\n## 1.24.1 — определения механик в служебном чате (2026-10-14)\n\n- **Исправлено: Officina не могла опубликовать механику из чата соавтора.** В служебном чате модуль «Механики» стоит на паузе, и вместе с ним пропадали его определения: `MAESTRO_API.mechanics` (`list`, `get`, `save`, `remove`) отвечал `'off'`. Но книга «Maestro · механики» к открытому чату не относится. Теперь определения доступны и в служебном чате: их можно читать, записывать в любую область (в карточку тоже), удалять и собирать из шаблонов. Записи попадают в журнал под «Officina» и отменяются оттуда — в том же служебном чате или потом в сюжетном.\n- Всё, что относится к самому чату, в служебном чате по-прежнему молчит: механики ничего не вставляют в промпт, не разбирают блок `<mechanics>` в ответах, не бросают проверок, не показывают HUD и значения. Переключатель механики для открытого чата (`setEnabledInChat`) там отвечает `'off'`. В сюжетном чате модуль запускается заново и читает определения, записанные за это время; запись, которая ещё сохраняется, успевает лечь в книгу.\n- Если модуль «Механики» выключен в «Модулях», `'off'` остаётся, как раньше.\n- Для разработчиков: модуль может держать на время паузы узкую часть, которая к чату не относится (`MaestroModule.whileSuspended`); у механик это определения, `app.modules.api('mechanicsDefinitions')`. Описание — в `docs/integration-officina.md` и `docs/ARCHITECTURE.md`.\n\n## 1.24.0 — «Служебный режим» и MAESTRO_API для Officina (2026-10-14)\n\n- **«Мастерская» теперь называется «Служебный режим»** (модуль M42). Новое название — в «Модулях», в настройках, на кнопке с гаечным ключом в редакторе карточки, в пунктах «Ещё…» («Служебный режим: включить для карточки» / «вернуть в сюжетные»), в уведомлениях и журнале, в руководстве `docs/guide/workshop.md`. Мастерская теперь — это расширение Officina («Officina — мастерская»), а оно пользуется служебным режимом для своего чата с соавтором.\n- **Тег по умолчанию — «служебная».** Список тегов по умолчанию: «служебная», «мастерская», «workshop»; кнопка ставит первый. Карточки, помеченные «мастерской» раньше, остаются служебными. Если ты не менял список тегов, старый «мастерская, workshop» сам станет новым; свой список остаётся как был. Команда `/maestro-workshop` и пресет соавтора «Мастерская» не изменились.\n- **Officina — второй сосед `MAESTRO_API`** (версия API та же, 1; члены только добавлены, их перечень — в `features`). Задачи, виды действий и записи журнала Officina начинаются с `officina.`; её записи и карточки «Входящих» подписаны «Officina», её задачи видны в «Профилях». В служебном чате задачи Officina работают (задачи Dramatis там по-прежнему молчат). Полный тип API для соседей — `src/shared/public-api-types.ts`, описание — `docs/integration-officina.md`.\n- **Общий дневной лимит.** Траты Officina своим каналом записываются через `MAESTRO_API.cost.record` и считаются в тот же «Потолок фона в день», что и фоновые задачи Maestro; `cost.remaining()` говорит, сколько осталось. В «Расходах» у Officina своя строка — появляется, когда она что-то потратила. Её запросы (со схемой `officina_*` или помеченные через `cost.claim`) счётчик второй раз не считает.\n- **Службы Maestro для Officina** — с проверкой аргументов, с журналом и откатом под «Officina»: книги и записи Лор-студии (типовые записи, основная книга любой карточки), роли книг, определения механик (любая область, разбор блока `<mechanics>` для стенда механик), пресеты и слой пресета для любой карточки, привязка пресета к карточке, находки проверки промпта, «Создать персону» по готовому описанию, служебная карточка. Книги BunnyMo по-прежнему только для чтения.\n- **«Подготовка к игре» берёт готовые стартовые сцены автора.** Если карточка несёт `extensions.officina.scenes` (сцена на каждое приветствие: место, время, кто в сцене, настроение, крючок), анализ получает их как заданные, а сцены этих приветствий в плане берут место, время и состав из них; сцена, которую анализ не нашёл, собирается из сцены автора.\n- Для стенда: сосед `officina` (необязательный, пока у Officina нет сборки), имитация модели отвечает на схемы `officina_*` из `tools/mock-llm/fixtures/officina/` (`MOCK_OFFICINA_FIXTURES`).\n\n## 1.23.0 — сцена отдельно от того, что вокруг (2026-10-12)\n\n- **«Сцена и вокруг»** (новый модуль M43). Мир и персонажи за кадром по-прежнему живут своей жизнью, но ответ рассказывает о сцене: о тех, кто в ней, и о том, что они видят и слышат. Ушедший персонаж выбывает из сцены — модель не идёт за ним следом и не пишет ещё три сообщения, где он сейчас. Если за это время в другом месте случилось что-то заметное (у отсутствующего персонажа свои дела, мир не стоит на месте), модель пишет это после сцены одним блоком `<offscreen>…</offscreen>` — одну-три короткие фразы на языке истории. Ничего не случилось — блока нет.\n- **«Вокруг» под ответом.** Блок показывается свёрнутым под сценой: нажми «Вокруг», чтобы прочитать. С пузырями DES («Карточки», «Discord») это один отдельный блок после карточек, а не ещё одна карточка рассказчика (если в DES выключено «пропускать оформленные блоки» — один свёрнутый блок внутри карточки). Сохранённое сообщение не меняется: блок в нём остаётся как написан, а без модуля чат выглядит как раньше.\n- **Старое «вокруг» не копится в промпте.** Два последних ответа (настраивается) держат его одной строкой `[Elsewhere, not in the scene: …]` — модель помнит, что происходило; в более старых ответах блок убирается. Строку не съедает регекс DES «Clean HTML», который вырезает из промпта все теги.\n- **Ушедшие — вне сцены со следующего хода.** DES в режиме «вместе» пишет трекер до рассказа, поэтому персонаж, ушедший в этом ответе, ещё значится в трекере. Теперь Maestro читает сам рассказ: «Вера вышла», «Мартин ушёл, не попрощавшись», «дверь за ней закрылась», «направилась к выходу» — и со следующего хода не даёт этому персонажу голосовую карточку, строку «кто во что одет», механики, «кто что знает» и приоритет лора. Персонаж возвращается, когда в новом ответе снова действует или говорит в сцене, или когда ты сам его зовёшь или называешь (вопрос «Где Вера?» не считается). Отмена, правка и смена варианта ответа учитываются сами.\n- Анализ ответов (сигналы, режиссёр, качество ответа, хроника, гардероб, живой канон, механики и другие) блок «Вокруг» не читает: что случилось в сцене и кто в ней — только по самой сцене. Превью чата в списках заканчивается сценой.\n- **Слух из «Закулисья»** (M16) подаётся модели как то, что присутствующие могут упомянуть, а не как сцена, которая происходит здесь.\n- Настройки — «Настройки» → «Сцена и вокруг»: включение, сколько последних ответов держат «Вокруг» в промпте, подпись свёрнутого блока. В чатах мастерской модуль на паузе.\n- Для соседей: `MAESTRO_API.sceneSplit` — `active()` и `tag` (`'offscreen'`); `present()` не называет тех, чей уход показал рассказ. Заметки об отсутствующих персонажах сосед должен просить писать только в этот блок.\n- Для стенда: мок модели понимает `[mock:say:…]` (абзац в конце ответа) и `[mock:offscreen:…]` (блок «вокруг»).\n\n## 1.22.0 — режиссёр мягче различает сцены (2026-10-12)\n\n- **Смешанные сцены.** Если ответ почти в той же мере и бой, и разговор, и близость, у сцены теперь два вида: в пресет уходят флаги обоих (`maestro_scene_…`), длина ответа — по более длинному. Пока инерция режиссёра держит прежний вид, новый уже считается вторым — переходная сцена тоже «и то, и другое». В окне «Режиссёр» второй вид показан рядом с первым («+ Близость»).\n- **Длина ответа — только когда режиссёр уверен.** Флаги `maestro_reply_short / medium / long` ставятся, если уверенность не ниже 0,85, или не ниже 0,7 и вид держится второй ход; твой выбор вида — сразу. В остальное время действует общее правило пресета «длина по моменту». Разговор теперь даёт «средне», а не «коротко».\n- **Бой в механиках** начинается только при уверенном виде «бой»: твой выбор, уверенность от 0,85 или второй ход подряд. Меч на стене и боевое слово в смешанной сцене бой не запускают.\n- **Словари умнее.**\n  - Полный вес — у того, что происходит (удар, целует, раздевает, исследует, кланяется). Обстановка, предметы, титулы и люди вокруг — кровать, таверна, лес, зал, король, меч, враг — стали лёгкими подсказками.\n  - Слова в прямой речи весят вдвое меньше: разговор о драке — не драка. Речь — это кавычки и реплики через тире; ремарка после второго тире («— Беги, — крикнул он») считается повествованием.\n  - Исправлено: «драконица», «по-драконьи» считались дракой («драк…»). Теперь «драка» узнаётся только целыми словами.\n  - Русские откровенные слова распознаются («лизать», «киска», «кончил», «стояк» — целыми словами, так что имя «Лиза» не задевается).\n  - Ответ без единой реплики больше не тянется к «разговору»: у разговора без речи только запасной вес, и явный бой сразу уверенный.\n- **Модель решает чаще.** Дешёвая модель спрашивается, когда два лучших вида ближе 40% (было 25%). Где модель выбрала другой вид, чем правила, сцена считается смешанной из обоих. Явные улики — скачок времени в трекере, два и больше откровенных слова — спорными не считаются никогда.\n\n## 1.21.2 — правка сообщения не теряется (2026-10-12)\n\n- **Исправлено: перерисовка сообщения Maestro больше не стирает открытый редактор.** Если Maestro чистил ответ, обрезал лист BunnyMo или снимал блок механик, пока у этого сообщения был открыт редактор (или редактор рассуждений), поле правки пропадало вместе с набранным текстом. Теперь при открытом редакторе Maestro сообщение не перерисовывает: SillyTavern покажет его сам, когда редактор закроется. Если правку сохранить, побеждает твой текст.\n\n## 1.21.1 — ответ не теряет оформление после правки Maestro (2026-10-11)\n\n- **Исправлено: после чистки ответа он оставался без карточек DES** («Карточки» и «Discord»), без мыслей персонажей в чате и без карточек Silly Sim Tracker — пока не откроешь и не закроешь редактор сообщения. Maestro перерисовывал сообщение, но не сообщал об этом: DES держит пометку «уже разложено» на самом блоке текста, она переживает перерисовку, и DES больше не трогал сообщение. Теперь после перерисовки Maestro посылает `MESSAGE_UPDATED` — как редактор SillyTavern, и все расширения оформляют сообщение заново. Касается:\n  - «Качества ответа» (M12): чистка служебного мусора и её отмена;\n  - листов BunnyMo: обрезка лишней сцены после листа и её отмена;\n  - механик: служебный блок `<mechanics>`, снятый уже после показа ответа (страховка на `reply:ready` и при следующем ходе).\n- `MESSAGE_EDITED` Maestro при этом не посылает: для Qvink это правка (пересказ заново), а для самого Maestro — правка игрока. Пока ответ только пришёл (`MESSAGE_RECEIVED`) или игрок закрывает редактор, Maestro молчит — SillyTavern сообщает о сообщении сам. Общая функция — `src/host/messages.ts`.\n\n## 1.21.0 — мастерская: служебные персонажи без сюжетной машинерии (2026-10-11)\n\n- **«Мастерская»** (новый модуль M42) — категория для служебных персонажей: генераторов сценариев и персонажей, редакторов, «соавторов». Кнопка с гаечным ключом в редакторе карточки (и пункт в «Ещё…», и `/maestro-workshop [on|off]`) ставит карточке тег «мастерская»; можно поставить тег и самому. В чатах такой карточки:\n  - сюжетные модули Maestro (канон, ревизия, режиссёр, голоса, закулисье, гардероб, механики, качество ответа, медик, подготовка к игре и другие) стоят на паузе — их переключатели не меняются, в сюжетном чате всё снова работает;\n  - из уходящего запроса вырезаются инструкции соседей — трекер DES, метки картинок NAI Studio, CarrotKernel, Dramatis, DES-RU, Qvink; остаются карточка, история, заметка автора, глубинный промпт карточки и векторная память;\n  - глобальные лорбуки (паки BunnyMo, «Архив персонажей») и лорбук персоны не сканируются, лорбуки карточки и чата остаются (настраивается);\n  - Qvink выключается для этого чата своим переключателем — без пересказов, и черновики не выпадают из истории; когда карточка уходит из мастерской, Qvink включается обратно;\n  - Dramatis 1.4.1 останавливает свои модули: не читает замысел, не разбирает ходы.\n- **Пресет «Мастерская»** включается сам, когда открывается чат мастерской, и уходит при выходе (своя привязка пресета к персонажу или чату важнее). Короткий пресет соавтора лежит в `presets/Мастерская.json`: разговор вне роли, до трёх вопросов с вариантами, готовые карточки и записи лорбука в Markdown. Руководство: `docs/guide/workshop.md`.\n- **Автоматическая смена пресета больше не меняет модель.** Привязки пресета к персонажу и чату и мастерская переключают только пресет: модель, источник и провайдеры остаются те, что выбраны, даже если в файле пресета записаны другие (с включённым в ST «Bind presets to API connections» раньше могла молча смениться модель). Расхождение только в модели не вызывает вопроса «Есть несохранённые правки».\n- Для соседей: `MAESTRO_API.workshop` — `active()` и `onChange()`; пока открыт чат мастерской, `llm.request` отвечает `'workshop'`, события хода не приходят.\n- Исправлено: обработчик события, снятый другим обработчиком того же события (модуль ушёл на паузу при смене чата), больше не вызывается — и в событиях SillyTavern, и во внутренней шине Maestro.\n\n## 1.20.0 — язык истории, персона для персонажа, переодевание, кнопка у поля ввода (2026-10-10)\n\n- **«Язык истории»** (Настройки → Общие: авто / русский / английский). На «авто» решают твои сообщения, затем остальной чат, затем язык интерфейса — играешь по-русски, и даже английская карточка считается русской историей. По нему:\n  - «Подготовка» пишет имена по-русски: личные — транслитом (Ophelia → Офелия), «говорящие» названия мест, фракций, традиций — переводом («The Long Winter» → «Долгая зима»); английское написание остаётся алиасом. По-русски — наряды, секреты и обещания (окна «Знания» и «Календарь»), названия механик и показателей; канон для модели остаётся английским. Повторная подготовка узнаёт то, что раньше сделано по-английски, и не дублирует.\n  - Персонажи в DES на стартовых сценах — с русскими именами, мыслями, внешностью, настроением и одеждой.\n  - Паспорта NAI, подсказка о формате и «Ранее в истории…» берут язык отсюда; соседям он доступен как `MAESTRO_API.storyLanguage()` (Dramatis переводит по нему описания в окнах).\n- **«Создать персону» в карточке персонажа** (новый модуль M41): кнопка рядом с «Connected Personas» и пункт в меню «Ещё…», команда `/maestro-persona [комментарий]`. Maestro читает карточку, сценарий, приветствие, заметки автора и лорбук, учитывает твой комментарий и придумывает тебе персонажа: имя, внешность, предысторию и 5–6 нарядов. Всё можно поправить перед созданием; затем — персона в SillyTavern, связь с этим персонажем (другие связанные персоны остаются), паспорт NAI с этими нарядами и бесплатная картинка-аватар (нужна NAI Studio 0.15). Задача «Персона для персонажа» — в «Профилях».\n- **Кнопка Maestro у поля ввода** — один значок рядом с волшебной палочкой, с быстрыми действиями (выключается в настройках; те же действия — в меню Maestro):\n  - **BunnyMo** (новый модуль M40): полный и короткий лист, только теги, обновить теги, внешность, «Запомнить момент» — выбираешь персонажа сцены, и команда `!fullsheet Имя` встаёт в поле ввода (или уходит сразу — настройка «Отправлять сразу»). Команды-справочники BunnyMo, которые тянут целые паки, сюда не вынесены.\n  - **Переодеться:** персонажи сцены и «Я» → их наряды, «Описать…», «Открыть гардероб»; команда `/maestro-wear <кто> <наряд или описание>`.\n- **Переодевание по сообщениям** (гардероб, M27). Пишешь «переодеваюсь в домашнее» — Maestro узнаёт наряд и переодевает ещё до ответа, так что ответ пишется в новой одежде. Переодевания в рассказе («Офелия сняла плащ») тоже подхватываются. Желания, просьбы, прямая речь и «снял очки / квартиру» переодеванием не считаются; если непонятно, во что, — один фоновый запрос после ответа.\n- **«Переодеть сейчас»** рядом с «Надеть» в гардеробе и досье: одежда меняется сразу везде — «что надето сейчас», наряд и его формулировка в паспорте NAI, портрет, трекер DES (настройка «Записывать одежду в трекер DES»), строка «кто во что одет» для модели. Под сообщением — «Офелия → Домашнее · Отменить · Другое…»; одна запись журнала всё откатывает.\n- **Механики слева от чата** на широком экране (настройка «Где показывать HUD»): подробная панель — все персонажи сцены, их показатели, состояния и предметы, бой. На узком экране, на телефоне или при открытой левой панели ST механики сами возвращаются поверх чата. Пока панель слева показана, полоска механик под портретами DES не дублирует её.\n- **«Эталон» — только системные настройки.** Пресет, источник и модель, размер контекста и ответа, рассуждения, профиль подключения, регексы, настройки движка лорбуков и расширений. Какие лорбуки включены, библиотеки CarrotKernel, переключения профилей Qvink при смене чата, выбранный стиль NAI Studio больше не считаются изменениями. Старый эталон переводится в новый формат.\n- **«Проверка лекарств» BunnyMo — только когда нужна** (правило переименовано): запись (около 4,5 тыс. символов) выключается на ход, если ни у кого в сцене и ни в одном архиве персонажа в лорбуках нет тегов MED или REC, — теперь и без Dramatis.\n- Персонажи в механиках, в «Переодеться» и в целях листов BunnyMo называются так, как их пишет история (имя из трекера DES), а не каноническим именем модели мира — в русской истории «Вера», а не «Vera». Значения хранятся как прежде.\n- Для стенда: мок модели отвечает на переодевание, персону и шаг досье и перевод описаний Dramatis 1.4, «Расширить мир» Localizer 0.5.\n\n## 1.19.0 — Dramatis в листе персонажа DES (2026-10-09)\n\n- **Вкладка «Dramatis» в листе персонажа DES.** Что Dramatis знает о персонаже — теперь там, где его ищешь: правый клик по портрету → «Character Sheet» → вкладка «Dramatis». Имя, кто он такой, насколько подробно Dramatis его знает, разделы (мотивы, цели, отношения…) блоками. Тайны — как ты выбрал в Dramatis: размыты, пока не нажмёшь, открыты с пометкой или не показываются вовсе. Если Dramatis персонажа ещё не знает — так и сказано, с кнопкой «Открыть Dramatis»; на твоём собственном персонаже — короткая заметка. Кнопка «Открыть в Dramatis» ведёт в его «Лист замысла». Пока лист открыт, вкладка обновляется вслед за Dramatis.\n- **Пункт «Dramatis» в меню портрета** открывает лист персонажа сразу на этой вкладке. На твоей карточке пункта нет.\n- **Панель «Dramatis» в Мастерской DES** — то же самое для тех, у кого нет правого клика (iPhone, iPad): «Ростер» → Мастерская → «Dramatis». Только чтение: пока Мастерская открыта, Maestro в DES ничего не пишет.\n- **Подготовка к игре и Dramatis.** В окне подготовки — переключатель «Личности в Dramatis: прочитать замысел карточки» (включён, если Dramatis карточку ещё не читал). Если уже читал — видно, сколько персонажей он прочитал, а переключатель перечитывает карточку. Dramatis читает её до того, как Maestro заполняет DES, — стартовые сцены сразу получают то, что он прочитал. В «Что сделано» — строка «Dramatis: прочитал личности — N персонажей» (или ошибка, или «личности из карточки — N», если перечитывать не понадобилось) с кнопкой «Открыть»; то же — в «Готово к игре». Отменять тут нечего: чтение записывает в журнал сам Dramatis. Сохранённая подготовка и кнопки «Готово к игре» Dramatis не зовут.\n- Всё это — с Dramatis 1.3 и новее; со старым Dramatis или без него ничего не меняется. Раздел выключается в «Модулях» («Раздел Dramatis в листе персонажа DES»), при этом всё добавленное в окна DES убирается. DES-RU эти разделы не переводит; оформление следует теме Maestro и DES, на телефоне вкладки переносятся.\n\n## 1.18.0 — персонажи стартовых сцен в DES (2026-10-09)\n\n- **«Персонажи в DES».** «Подготовить к игре» теперь заполняет и трекер DES для каждой стартовой сцены — для приветствия, что сейчас в чате, и для всех альтернативных. С первого же сообщения в полосе портретов и на панели сцены — те, кто в этой сцене: внешность, как держатся, во что одеты, как относятся к твоему персонажу, о чём думают, их показатели, а ещё дата, время, место и погода. Значения — на языке истории и в тех полях, что настроены в DES (свои поля, свои варианты отношений, показатели, виджеты сцены). Переключатель «Персонажи в DES» — в окне подготовки рядом с паспортами (включён по умолчанию).\n- **Одна модель на приветствие.** Для каждой стартовой сцены — один короткий запрос (задача «Подготовка: персонажи в DES» в настройках «Профили»; ты сам нажал «Применить», поэтому дневной потолок фоновых трат его не останавливает). Кто в сцене — по подготовленной сцене, имена — ровно те, что у паспортов; если модель не ответила, в DES попадают хотя бы имена, место, дата и время, и итог об этом говорит. Сохранённая «для персонажа» подготовка модель не зовёт — только имена.\n- **Всё связано.** Одежда — тот же стартовый наряд, что надевает гардероб; показатели — из механик, которые DES ведёт как статы; место — как его знает реестр мест; отношение — по позиции Dramatis к твоему персонажу, если Dramatis подключён (а ещё он подсказывает, кто в сцене и чем занят); NAI Studio рисует портреты новых лиц (не твоего персонажа и не персонажа карточки; у кого портрет в DES уже есть — не трогает). Медик не «чинит» подготовленный трекер первого сообщения.\n- **DES не затирает подготовку.** DES стирает трекер приветствия, когда чат открывается, когда карточку сохраняют заново и после «Продолжить», — Maestro возвращает подготовленное, пока ты не написал первое сообщение. Свайп приветствия переключает и DES: его персонажи, сцена и список персонажей чата следуют за приветствием (кто был только в прежней сцене — уходит из списка). В первом ответе модель видит трекер начальной сцены (в режиме DES «вместе с ответом» DES сам его не передаёт) и продолжает от него с теми же именами.\n- **Отмена** одной строкой итога: прежние трекеры всех приветствий, то, что показывал DES, и добавленные в список имена возвращаются. Пока открыта Мастерская DES, Maestro в DES ничего не пишет и не отменяет.\n- Для Dramatis: Maestro читает новый необязательный `startCast` (Dramatis 1.2) — кто в каждой стартовой сцене, что делает и как относится к игроку.\n\n## 1.17.0 — Maestro и Dramatis (2026-10-09)\n\n- **Связка с Dramatis** — новым расширением-движком личностей (мотивы, цели, отношения, повестки персонажей). Maestro сам находит Dramatis и работает с ним, когда тот установлен; без Dramatis всё как раньше. Подробно — в `docs/integration-dramatis.md`.\n- **Открытый API для соседей** (`MAESTRO_API`): Dramatis пользуется инфраструктурой Maestro, а не заводит свою.\n  - Фоновые задачи ИИ — через профили задач Maestro (каждая задача Dramatis появляется в настройках «Профили» под своим названием), с учётом стоимости у казначея и дневным потолком; фоновую работу делает только ведущая вкладка. То, что ты запускаешь кнопкой, потолок не останавливает.\n  - Предложения Dramatis идут по твоим уровням автономии: сами, «Уведомить», «Входящие», «Спросить». Карточки во «Входящих» переживают перезагрузку, у каждого вида — человеческое название в настройках и журнале.\n  - Журнал с откатом, уведомления, события хода (свайпы, правки и ветки уже учтены), опознание имён (модель мира и склонения DES-RU), кто сейчас в сцене — так же, как видят голосовые карточки.\n  - Речь персонажа из архива CarrotKernel (теги LING, раздел Linguistics, MBTI) — та же выжимка, что в голосовых карточках, даже когда модуль голосовых карточек выключен.\n  - Для генератора Dramatis: «Оформить» нового персонажа с готовыми тегами BunnyMo (архив CK только с теми тегами, что знают подключённые паки; паки не меняются) и запись целей персонажа в его запись канона чата.\n- **Один блок вместо двух.** Когда Dramatis берёт голосовые карточки к себе, Maestro не отправляет свои отдельно — модель получает один блок «кто в сцене, как говорит и чего хочет». Подсказка CarrotKernel о персонажах при этом убирается из промпта, как и с голосовыми карточками, — в том числе когда сами голосовые карточки выключены. Настройки CarrotKernel не трогаются.\n- **«Проверка лекарств» BunnyMo.** Если зависимости всех персонажей сцены с тегами MED или REC ведёт Dramatis, запись «Medicine Check» из основного лорбука BunnyMo на этот ход выключается — модель не получает двух разных указаний об одной привычке. Новое правило во вкладке «Правила»; файл BunnyMo не меняется.\n- **Граф отношений** показывает и позиции Dramatis — как персонажи относятся к твоему персонажу и друг к другу, с причинами; они помечены как данные Dramatis.\n- **Механики**: пока Dramatis ведёт отношения и положение в обществе, шаблоны «Отношения» и «Социальные шкалы» не предлагаются; уже созданные механики остаются, у них появляется пометка.\n- **Закулисье** узнаёт у Dramatis цели персонажа, что он пытался сделать и чем кончилось — событие за кадром следует его планам.\n- **Режиссёр** берёт созревшие повестки Dramatis как повод для поворота.\n- **Проверка промпта и архитектор** знают блок Dramatis: его вставка подписана «Dramatis», правки к ней — советом (Maestro её не меняет), у архитектора — отдельный бюджет «Dramatis: карточка мотивов» (только замер).\n- Исправлено: время жизни карточки «Входящих», заданное предложением, теперь соблюдается; подсказка к бюджету механик у архитектора показывалась ключом.\n\n## 1.16.0 — подготовка всех стартовых сцен (2026-10-08)\n\n- **Все стартовые сцены.** «Подготовить к игре» читает каждое приветствие карточки целиком (а не только то, с которого открылся чат), и для каждого готовит свою стартовую сцену: где и когда, кто рядом, во что одеты, что происходит, тип первой сцены. Персонажи, мир, места, фракции, механики — общие для всех стартов. В окне подготовки — раздел «Стартовые сцены» с пометкой «сейчас в чате».\n- **Действует сцена, что сейчас в чате.** Пока ты не написал первое сообщение, свайп приветствия переключает сцену: наряды, тип первой сцены и заметка канона о начале истории меняются под неё (заметка одна, она переписывается). Первое сообщение закрепляет сцену. «Для персонажа» сохраняются все сцены — в следующем новом чате этой карточки действует сцена того приветствия, с которого он начнётся.\n- **Тип первой сцены доходит до первого ответа.** Раньше режиссёр снимал его в момент твоего первого сообщения — ещё до ответа модели; теперь он снимается, когда первый ответ уже написан.\n- Исправлено: окно подготовки не прокручивалось — после разбора длинный план нельзя было пролистать.\n\n## 1.15.0 — «Подготовить к игре» (2026-10-07)\n\n- **Подготовка новой истории.** В новом чате (пока нет твоих сообщений) под приветствием Maestro сам предлагает: «Подготовить историю к игре?» — и открывает окно «Подготовка к игре». Ещё — командой `/maestro-prepare`.\n  1. **Что читать**: карточка целиком (описание, характер, сценарий, выбранное и другие приветствия, примеры диалогов, заметки автора), её книги и книга мира, книга чата, твоя персона, кампания DES, листы CarrotKernel персонажей этой истории; что не влезает — видно; цена разбора — заранее.\n  2. **Разбор** фоновой моделью по частям, с прогрессом и «Остановить».\n  3. **Просмотр** по разделам: персонажи (имена и русские формы, роль, внешность, характер, манера речи, отношения, в том числе к твоему персонажу, во что одеты в начале), мир, места (с вложенностью), фракции, предметы, традиции, время начала и календарь, секреты, стартовая сцена, механики с начальными значениями, режиссура. Галочки, правка текста, «уже есть» и расхождения с каноном, выбор «для чата / для персонажа» у каждого пункта и раздела.\n  4. **Применение** одним пакетом: канон, места, паспорта NAI Studio для персонажей без паспорта (текстом, без Anlas), секреты, договорённости, механики, стартовые наряды, тип первой сцены; у каждого пункта — «Отменить» и ссылка в нужное окно. Фоны — только предложением.\n  5. **«Готово к игре»**: что сделано и чего не хватает (паспорт, портрет, фон…), с кнопками.\n- **Подготовка для персонажа** сохраняется: в следующем новом чате этой карточки её можно применить сразу, без нового разбора, или разобрать только изменившееся в карточке и книгах.\n- Подготовку запускаешь ты сам, поэтому дневной потолок фоновых трат её не останавливает (цена всё равно показывается заранее).\n\n## 1.14.0 — механики в игре (2026-10-07)\n\n- **Последствия и действия.** У проверки — последствия по исходу («провал — −10 здоровья», «заклинание стоит маны, сорвавшееся — половину»), у событий на порогах — действия: изменить значение, наложить состояние, дать предмет, раскрыть скрытое, запустить другое событие.\n- **Состояния с длительностью** («Отравлен — 3 хода», «Благословение — до заката»): модификаторы к проверкам и значениям, снимаются сами по ходам или по времени истории.\n- **Инвентарь**: предметы с количеством, «надето / в руках», цены, покупка и продажа за деньги механики; модель отдаёт и забирает предметы служебным блоком.\n- **Формулы** («макс. здоровье = 50 + 10 × уровень»), **опыт и уровни**, **рост навыков** от применения, **время**: восстановление и расход по дате и времени DES («+10 маны за час отдыха», голод растёт).\n- **Броски**: модель может сама попросить проверку в служебном блоке; встречные проверки («Скрытность Кая против Внимательности стражника»), преимущество и помеха, формулы вроде `2d6+1d4+3`, `4d6kh3`.\n- **Бой**: инициатива, очередь ходов, противники со своими статами; начинается сам, когда режиссёр видит бой, или кнопкой.\n- **Где видно** — у каждой механики и атрибута: «Игровой» (числа и полосы), «Книжный» (только словами), «Скрытый» (пока не раскрыт), «Тайный от всех» (знает только Maestro, модели — только последствия). По умолчанию — «Игровой», у отношений и социальных шкал — «Книжный».\n  - **Строка под ответом**: «Кай: ❤ 80 → 65 · 🔷 40 → 25 · + Отравлен (3 хода)» с «Отменить», карточки бросков с кубиками и последствиями, события порогов.\n  - **HUD** поверх чата: твой персонаж и выбранные, полосы, состояния с оставшимся временем, деньги и вещи, «Бросок» и «Инвентарь»; перетаскивается к верху или низу; на телефоне — одна строка.\n  - **Окно «Механики»**: «В игре» (значения, состояния, инвентари, бой, «Подсмотреть» скрытое), «История» (каждое изменение и бросок с откатом), «Конструктор».\n  - Полоса под портретами DES — с твоим персонажем и выбранными атрибутами; раздел «Механики» в досье.\n  - По желанию: сообщения рассказчика о бросках в ленте чата и статус-блок под ответом (выключены по умолчанию).\n- **Конструктор**: без id и английских полей — правила пишешь по-русски, модели уходит английский перевод (правится в «Подробнее»); «Описать словами» — механику собирает ассистент; предпросмотр того, что уйдёт в промпт; редакторы всех новых частей и видимости; копировать, сохранить в файл и загрузить, сбросить состояние.\n- **Шаблоны**: новые — выживание, рассудок, инвентарь и торговля, бой, социальные шкалы (симпатия, доверие, влечение); исправлены — заклинание (бросок против сложности с тратой маны), навыки (понятный разброс), репутация (фракции из лора), переключатель критов.\n- Исправлено: статы твоего персонажа в режиме DES теперь обновляются; механики мира и фракций уходят в промпт, только когда о них речь.\n- Состояния и инвентарь работают у механик, где эти части включены (новые шаблоны или конструктор); старые механики можно дополнить в конструкторе.\n\n## 1.13.0 — пресеты с ассистентом, правки по чатам, проверка промпта (2026-10-07)\n\n- **Правки пресета — везде, для персонажа или для этого чата.** Твой слой поверх пресета теперь из трёх частей: общий, персонажа и чата, накладываются по очереди. В редакторе блока и в «Слое» Пресет-студии — переключатель «Везде / Этот персонаж / Этот чат»; правку можно перенести между областями. Правки персонажа и чата никогда не попадают в файл пресета (ни при сохранении из студии, ни через «Обновить пресет» ST) и меняются сами при переходе в другой чат — пресет не становится «несохранённым».\n- **Пресет персонажа или чата.** Целый пресет можно привязать к персонажу или чату: при входе в чат Maestro включает его (спросив про несохранённые правки), при выходе возвращает прежний.\n- **Промпты соседей** — новая вкладка Пресет-студии: тексты инструкций, которые вставляют другие расширения (трекер DES, правила картинок NAI Studio, пересказы Qvink, языковой замок DES-RU, CarrotKernel, вставки самого Maestro). Можно изменить везде или сделать копию только для персонажа или чата — копия подставляется в момент отправки, настройки соседа не меняются.\n- **Ассистент работает с пресетами.** Видит пресет целиком (полный текст блоков, параметры, анализ, версии, сравнение двух пресетов, промпты соседей) и правит всё, что правишь ты в студии: текст («было/стало» по словам), название, роль, место, включение, порядок, удаление, параметры генерации — в слой выбранной области. Собирает новые пресеты (с нуля, из текущего, из блоков нескольких, из присланного JSON), привязывает их к персонажу или чату. Связанные правки приходят одной карточкой-пакетом: применить всё или выбранное, откат одним действием. «Пробная сборка» показывает, что уйдёт модели, ничего не отправляя. «Обсудить с ассистентом» у блока и у пресета открывает ассистента с ним в контексте. Знает подводные камни DeepSeek V4 через OpenRouter.\n- **Проверка промпта** — вкладка Пресет-студии, команда `/maestro-audit` и просьба ассистенту. Проверяет всё, что уходит модели как инструкция: пресет, карточку, заметку автора, вставки всех расширений и Maestro. Быстрые правила — язык, лицо, время, длина, обязательные части ответа (JSON трекера, картинки, инфобокс), форматы, «кто пишет за игрока», повторы, роли и места сообщений для твоей модели; по кнопке — проверка ИИ (с ценой заранее). Для каждого конфликта — две цитаты, чьи они, чем грозит именно на твоей модели и готовое исправление «было/стало» с выбором «везде / персонаж / чат». Паки BunnyMo не правятся никогда.\n- Исправлено: значение, поставленное «везде» после правки этого же значения в чате, больше не теряется при выходе из чата.\n\n## 1.12.0 — окна вместо пульта, Maestro в чате (2026-10-07)\n\n- **Окна.** Всё, что раньше жило в одном модальном пульте, теперь в отдельных окнах, которые не мешают играть: «Ассистент», «Входящие», «Персонажи» (досье, гардероб, BunnyMo), «Механики», «Мир», «Канон», «Ход», «Здоровье» и «Maestro» (обзор, журнал, настройки, оформление, расширения). По умолчанию окно открывается боковой панелью рядом с чатом; его можно открепить в плавающее окно (перетаскивание, размер, свернуть в заголовок) и прикрепить обратно. Несколько окон сразу; где какое окно было — запоминается на этом устройстве. На телефоне окно занимает экран под верхней панелью, открытые окна переключаются кнопками.\n- **Лор-студия и Пресет-студия** — тоже окна: рядом можно держать чат или ассистента.\n- **Шестерёнка в окне** показывает настройки модулей этого раздела.\n- **Меню Maestro** — по значку в верхней панели (новых значков нет): все окна со счётчиками, студии, твои задачи с прогрессом, настройки. То же меню — в «волшебной палочке».\n- **Кнопка Maestro у сообщения** (в «…»): «Досье» говорящего и «Механики».\n- **Команды**: `/maestro [окно]`, `/maestro-undo` (отменить последнее действие Maestro в этом чате), `/maestro-mode экономный|сбалансированный|кино`, `/maestro-scene <тип сцены|авто>`.\n- **Строка Maestro под сообщением**: предложения «Входящих» по этому ответу, запомненные живым каноном факты ([Верно] [Забыть] [Это ошибка]), вопрос «тот же персонаж или другой?», брак ответа, броски — прямо в чате; нажатие раскрывает карточку с кнопками, окно открывать не нужно. Строки переживают перезагрузку и исчезают, когда всё решено; в текст сообщения, промпт и память Qvink ничего не попадает, «пузыри» DES не ломаются. Настройка «Строка Maestro под сообщениями»: всё / только то, что ждёт решения / ничего.\n- Переход к сообщению или открытие студии больше не закрывает окна на компьютере (на телефоне окно уступает место чату).\n\n## 1.11.0 — понятные уведомления, гардероб, тёзки из разных историй (2026-10-06)\n\n- **Тёзки больше не сливаются.** Раньше новый персонаж с тем же именем, что у кого-то из другого чата (паспорт карточки, лист в общем архиве CarrotKernel, запись в общей книге), молча становился «тем же самым»: в новый чат приходили его внешность, наряды, характер, манера речи — и голос попадал в промпт. Теперь Maestro спрашивает во «Входящих» и значком у сообщения: «Офелия здесь — тот же персонаж, что в паспорте карточки?» [Тот же] [Другой]. Пока ты не ответил, старое не используется; «Другой» — в этом чате у неё всё своё, а паспорт карточки выключается только здесь (NAI Studio 0.14). Персонажи самой карточки (названные в её описании, сценарии, приветствиях или книге) — те же без вопросов. «Это разные» в модели мира теперь работает и для одинаковых имён. Решение можно поменять в досье. Данные Maestro удалённых чатов убираются вместе с чатом.\n- **Гардероб видит, во что все одеты сейчас.** Раньше в настоящих чатах он не срабатывал: DES пишет одежду внутри «Внешности», а гардероб ждал отдельного поля. Теперь:\n  - поле «Одежда» в трекер DES — одной кнопкой во вкладке «Гардероб» (только с твоего согласия, откат в журнале); пока его нет, одежда вычитывается из «Внешности»;\n  - каждый ход — сверка: знакомый наряд надевается сам, новый через два хода становится нарядом с русским названием («Шёлковое платье», «Блузка и юбка»); переодевания, раздевание, полотенце, бельё; пропущенный ход больше не «застревает»;\n  - «Кто в сцене и что на нём» во вкладке, «Сейчас: …» в досье, твой персонаж — по разговору об одежде (фоновая модель, не чаще раза в 6 ходов) или полем «Сейчас на тебе»;\n  - строка «кто во что одет» в конце промпта, чтобы модель не путала одежду (выключается);\n  - портрет DES перерисовывается при смене наряда (NAI Studio 0.14, выключается);\n  - NPC с паспортом только из лора получает паспорт чата при первом наряде.\n- **Понятные уведомления.** Каждое говорит словами истории: что случилось, что Maestro сделал или предлагает, что будет, если согласиться. Служебное (книги, номера записей, теги, английский текст канона) — под «Подробнее». У всех действий человеческие названия — в карточках, журнале и настройках автономии. Новое в настройках: «О чём сообщать» — всё (по умолчанию), важное, только срочное; «Показывать технические подробности». Однотипное за ход склеивается («Запомнил 3 новых факта о мире»). То, что Maestro делает сам, теперь видно: «Вера переоделась: «Шёлковое платье»» [Отменить]; живой канон сообщает, что запомнил, подтвердил и отбросил. Канон по-прежнему хранится по-английски, но в карточках — русская формулировка и цитата.\n- **Видно, как идёт локализация лорбука.** В шапке книги Лор-студии — «Локализую: 34 из 120 записей» с полосой и «Остановить»; «Жду: Localizer занят другой задачей»; итог «добавлено N ключей в M записей» и «Повторить неудачные»; ошибки — человеческими словами. Задача не теряется, если закрыть студию: она видна во вкладке «Задачи», а вокруг значка Maestro — кольцо прогресса. То же у кнопки «Русские ключи» записи. Живой счётчик и остановка — с Lorebook Localizer 0.3.\n- Исправлено: гардероб, режиссёр и закулисье переставали замечать новые ходы, если сообщения удалили, пока Maestro не видел (другая вкладка, выключенный Maestro); отмена правки «описание места» в журнале сообщала об успехе и ничего не меняла; номера сообщений в уведомлениях везде такие же, как в чате.\n- Для всех новых возможностей: NAI Studio 0.14.0, DES-RU 0.8.2, Lorebook Localizer 0.3.0; со старыми версиями соответствующие части просто не включаются.\n\n## 1.10.3 — закулисье только своих персонажей (2026-10-05)\n\n- «Закулисье» больше не придумывает события персонажам из других историй. Раньше важным считался любой отсутствующий персонаж с архивом CarrotKernel или записью лора — и персонаж из общей книги-архива получал события во всех чатах, а модель потом его упоминала. Теперь кандидат — только персонаж этой истории: из трекера DES этого чата, появлявшийся в сцене, упомянутый в сообщениях, из карточки, канона чата, книги чата или книги карточки.\n- Уже сохранённые события таких персонажей убираются из канона чата один раз при открытии чата (с откатом в журнале) и сообщаются уведомлением.\n\n## 1.10.2 — цвета реплик персонажей (2026-10-05)\n\n- «Стиль сообщений» больше не перекрашивает реплики, у которых есть свой цвет (раскраска реплик DES: `<font color=…>\"…\"</font>`): цвет персонажа остаётся, правило добавляет только курсив и жирный.\n\n## 1.10.1 — фоновые задачи без рассуждения (2026-10-05)\n\n- Фоновые задачи Maestro (режиссёр, ревизия, живой канон, летопись, закулисье…) на профилях OpenRouter теперь просят модель не рассуждать: пресет профиля к ним не применяется, и DeepSeek V4 тратил весь короткий бюджет на размышления — тип сцены у режиссёра не определялся ни разу, ревизия отвечала со второй-третьей попытки. Ассистент рассуждает как раньше.\n- Задачи со строгой схемой ответа получают не меньше 200 токенов.\n\n## 1.10.0 — правки по живым тестам (2026-10-05)\n\n- **Стиль сообщений** — новая вкладка в «Настройках»: редактор правил, как выглядят сообщения игрока и персонажей. Правило — что найти (\"…\", «…» ёлочками, реплики через тире, \\*мысли\\*, \\*\\*акцент\\*\\*, (…), […], свой регекс с проверкой) и как показать (цвет из темы, курсив, жирный, приглушение, шрифт, черта или подложка, вид кавычек — только на экране). Пресеты: «Классика» (по умолчанию: повествование обычным текстом, \"диалоги\" цветом цитат, \\*мысли\\* курсивом), «Книга», «Подсветка речи», «Мысли отдельно», «Ёлочки», «Сценарий», «Роман», «Контраст», «Игрок отдельно», «Минимум». Живой пример. Сохранённый текст сообщений не меняется. По желанию — «Подсказать модели этот формат».\n- **Сообщения игрока** — свой вид: акцентная черта, имя акцентным цветом, по желанию сдвиг вправо в «пузырях».\n- **Стартовая страница** в едином стиле: карточки недавних чатов, кнопки, приветствие. В превью чатов больше нет JSON трекера DES и сырых тегов вроде `<font color=…>` (только на экране; то же в «Управлении чатами» и боковой панели Top Info Bar).\n- **Оформлены**: панель персон игрока, «Управление чатами», панель чатов Top Info Bar, поле ввода (скругление, отступы, подсветка фокуса; на телефоне — крупные кнопки и шрифт 16 px без увеличения в iOS).\n- **Верхняя панель** снова с воздухом: высота подросла через собственную переменную ST, вся раскладка сдвигается вместе с ней (в iOS и в режиме «Плотно» — как в ST).\n- **Ассистент видит чат и карточку**: чтение и поиск по сообщениям текущего чата (трекер DES — коротко), карточка персонажа со всеми стартовыми сценами (первое сообщение и альтернативные приветствия), персона игрока и «обзор сценария» — одним вызовом всё, что нужно, чтобы предложить механики по этому чату.\n\n## 1.9.0 — ассистент (2026-10-05)\n\n- **Ассистент Maestro** — вкладка «Ассистент» в пульте, отдельно от ролевой игры: спрашивай про Maestro, этот чат и расширения. Модель — из своего профиля подключения (по умолчанию фоновый), свой цикл с инструментами, а не инструменты ST — модель РП их не видит. Дневной потолок фоновых трат ассистента не останавливает: его запускаешь ты.\n- **Читает и объясняет** — 27 инструментов: модули и их настройки, здоровье стека, журнал, «Входящие», промпт хода, почему запись лора сработала или нет («почему героиня не узнала сестру?» — ключи, глубина сканирования, падежи, вероятность, группы, задержки), почему ход дорогой (источники, кэш, перегенерации), регексы (объяснение и проверка на примере по правилам ST), досье, отношения, кто что знает, места, календарь, гардероб, паспорта, механики, режиссёр, блоки пресета. Встроенная справка: каждый модуль, каждый сосед и частые вопросы — на русском и английском.\n- **Делает — только с твоего согласия**: настройки модулей, включение модулей, уровни автономии, механики, регексы (только после проверки на примерах), блоки и условия в твоём слое пресета, записи лора, паспорта. Каждое изменение — карточкой «было/стало» с кнопками «Применить» и «Отклонить», всё в журнале с откатом.\n- **Безопасность**: текст чата, лора, карточек и пресетов для ассистента — только данные, не инструкции; ключи API, токены, адреса и профили подключения он не видит и не меняет; книги BunnyMo не трогает; не больше 10 шагов и 5 предложенных изменений на сообщение и 20 применённых изменений в час.\n\n## 1.8.0 — единый интерфейс (2026-10-05)\n\n- **Единый стиль** — SillyTavern, чат и расширения выглядят как одно приложение: одна таблица стилей Maestro за классом `maestro-theme` на странице. Цвета, размытие, тени, размер шрифта и ширину чата даёт твоя тема ST (смена темы подхватывается сама), скругления, отступы и элементы управления — общие с окнами Maestro. Выключил стиль или Maestro — всё выглядит как раньше; настройки соседей не меняются.\n- **Соседи в том же стиле**: Doom's Enhancement Suite (окна, полоса портретов, шапки сцены и мысли в чате — через его собственные переменные), CarrotKernel (самые заметные части), NAI Studio (панель, окна, картинки в чате), DES-RU, строки памяти Qvink, Lorebook Localizer.\n- **«Оформление» в настройках пульта**: стиль целиком и по частям (ST, чат, каждое расширение), плотность, скругления, «Показать, как было» на 10 секунд.\n- **Док «Расширения»** — блоки настроек CarrotKernel, Qvink, NAI Studio, DES-RU, Localizer и DES открываются прямо в пульте (настоящие блоки, всё работает) и возвращаются на своё место, когда пульт закрыт или Maestro выключен; по желанию — и полоса портретов DES. Ярлыки открывают окна соседей: настройки и каталог персонажей DES, редактор памяти Qvink, галерея и сцена NAI Studio, локализатор, менеджеры CarrotKernel.\n- **Пульт по разделам** — вкладки собраны в группы: Ход, Входящие, Канон, Досье, Мир, Механики, Здоровье, Журнал, Расширения, Настройки; группы сворачиваются, на телефоне — разделы в списке вкладок.\n\n## 1.7.0 — механики (2026-10-05)\n\n- **Конструктор механик** во вкладке «Механики»: свои игровые системы без возни через лор — атрибуты (числа, шкалы, списки, тексты), у кого они есть (персонажи, твой персонаж, фракции, мир), правила для модели, события на порогах («мана на нуле — заклинание срывается»), проверки с кубиками. Шаблоны: здоровье и выносливость, магия с маной и школами, репутация у фракций, деньги, навыки с проверками, отношения. Механика хранится записью типа «механика» в книге Maestro, действует для карточки, чата или везде и выключается в отдельном чате.\n- **Три способа учёта** — на выбор для каждой механики и атрибута: статы трекера DES (Maestro по твоему согласию добавляет их в DES, твои собственные статы не трогает), короткий служебный блок в конце ответа модели (Maestro читает его, чинит ошибки формата и прячет), фоновый разбор ответа. Изменения применяются, когда ты отправляешь следующее сообщение; свайп или удаление ответа откатывает его изменения. Правка значения в пульте — с откатом.\n- **Броски делает Maestro**: слово-триггер в твоём сообщении («убедить», «колдую», \"sneak\") — и проверка уходит в промпт фактом: «Spellcasting check (Элизабет): rolled 6, needed 100 or lower — success». Свайп не перебрасывает. Есть кнопка «Бросок» и команда `/maestro-roll`.\n- **В промпте** — только правила и значения механик, которые участвуют в сцене, ближе к концу; бюджет «механики» у архитектора. Флаги `maestro_mech_<механика>` для условных блоков пресета — в каталоге Пресет-студии. События на порогах — материал для поворотов режиссёра.\n- **Виджеты** — значения в пульте и строкой под портретами DES (на телефоне — одна строка с прокруткой).\n\n## 1.6.0 — визуальная связка (2026-10-05)\n\n- **Гардероб и состояния** — новый наряд из трекера DES (повторившийся два хода) становится именованным нарядом в паспорте NAI Studio уровня чата, а знакомый наряд узнаётся и надевается снова; состояния персонажей (мокрый, ранен, устал…) и мест (разрушено, украшено, пожар, ночь) включаются и выключаются в паспортах по трекеру. Персонаж, который появляется уже в новом наряде, тоже получает его. NAI Studio рисует узнанный наряд его тегами. Библиотека нарядов — во вкладке «Гардероб» и в досье, всё с откатом. Отложенные карточки нарядов из ревизии разбираются сами.\n- **Паспорта в лорбуках** — у записи лора может быть визуальный паспорт в формате NAI Studio: в книгах Maestro — в самой записи, у базовых книг — в реестре Maestro (файлы книг не меняются, книги BunnyMo не трогаются). Создаётся генератором NAI Studio или фоновой моделью по его схеме, правится в Лор-студии рядом с текстом. NAI Studio получает паспорта записей, сработавших или упомянутых в сцене.\n- **Фоны** — фон чата следует за местом: сначала подбор из библиотеки фонов SillyTavern (по названию, папкам, состоянию места, времени суток и погоде из DES), иначе — кнопка «Сгенерировать фон» в NAI Studio (с учётом режима «только бесплатно»). Только фон этого чата — общий фон и `settings.json` не меняются. Поставленный тобой фон Maestro не трогает, пока не разрешишь снова выбирать самому.\n- **«Оформить»** в досье — новый NPC или место получает всё одной кнопкой: запись канона с русскими ключами, архив CarrotKernel по словарю загруженных пакетов BunnyMo (в твою книгу-репозиторий или новую «Maestro · архив»), паспорт NAI Studio, если его нет. Весь план — одной карточкой во «Входящих», каждую часть можно откатить отдельно. «В книгу карточки» переносит запись канона в книгу карточки.\n- Нужен NAI Studio 0.12.1 (паспорта от Maestro, генерация паспорта и фона, наряды по формулировке трекера); со старыми версиями эти части просто не включаются.\n\n## 1.5.0 — живой мир (2026-10-05)\n\n- **Закулисье** — раз в несколько ходов (15 в «Сбалансированном», 10 и в конце сцен в «Кино», в «Экономном» только по кнопке) фоновая модель коротко рассказывает, чем были заняты до трёх важных персонажей, которых давно нет в сцене. События — в канон чата; смерть, плен, исчезновение и всё, что спорит с каноном, сначала ждёт тебя во «Входящих». Иногда присутствующие слышат слух.\n- **Календарь и обещания** — время истории по трекеру DES (обычные даты, «День N», выдуманные календари); договорённости и сроки из ревизии или вручную: «к закату», «через три дня», «by tomorrow». Наступивший срок — повод для заметки режиссёра; просроченное и нарушенное отмечается.\n- **Кто что знает** (экспериментально, выключено по умолчанию) — участники сцены знают её события, секреты из ревизии помечаются; голосовые карточки получают «не знает: …», когда тема всплыла.\n- Ревизия сразу отдаёт обещания календарю и секреты — модулю «Кто что знает»; отложенные карточки прошлых этапов разбираются сами.\n\n## 1.4.0 — режиссура (2026-10-05)\n\n- **Режиссёр сцены** — после каждого хода определяет тип сцены (диалог, бой, интимная, исследование, пропуск времени, светская, драма) по ответу, твоему сообщению и трекеру DES, с устойчивостью к случайным скачкам; при сомнении — дешёвая модель. Для следующей генерации ставит одноразовые флаги: `maestro_scene_<тип>`, длина ответа, откровенная сцена, язык, «момент для картинки». Тип можно задать самому.\n- **Темп и повороты** — если история встала (то же место, ничего не происходит, повторы, разговор по кругу), короткая заметка режиссёра ближе к концу промпта с поворотом из квестов DES и незакрытых нитей. Молчит, когда ты сам ведёшь сюжет; никогда не уводит от тёмных и откровенных сцен. «Встряхнуть» — заметка по кнопке.\n- **Голоса персонажей** — компактная карточка на каждого присутствующего: манера речи (LING и блок Linguistics), MBTI с состоянием, отношение к тебе сейчас, связи с другими присутствующими, цели. Когда карточки включены, вставка CarrotKernel «Character Consistency» гасится при сборке промпта (настройки CK не меняются), а DES-RU перестаёт её пересобирать. Выключено по умолчанию.\n- **Условные блоки пресета** — в Пресет-студии блок можно сделать «только когда …» / «кроме когда …» по флагу Maestro (`{{if .maestro_…}}`), с симулятором флагов, проверкой синтаксиса и предупреждением, если новый движок макросов выключен. «Подготовить к отключению» спрашивает, оставить ли такие блоки обычным текстом или выключить.\n\n## 1.3.0 — ресурсы: архитектор промпта и казначей (2026-10-05)\n\n- **Бюджеты по источникам** — общий потолок лора (поверх потолков книг), RAG CarrotKernel, краткосрочной памяти Qvink и необязательного блока контекста DES; при превышении уходят наименее важные куски, инструкции трекера DES и долгая память Qvink не трогаются никогда. По умолчанию всё выключено.\n- **Кто рядом** — записи об отсутствующих и далёких местах приглушаются, если о них не говорили последние сообщения; записи присутствующих и текущего места закрепляются (включается в «Архитекторе»).\n- **Повторы фактов** между лором, каноном, памятью Qvink, архивами CK и DES — отчёт, а по твоему согласию остаётся один источник.\n- **Кэш провайдера** — доля промпта из кэша и место, где промпт начинает меняться; проверка, что меняющиеся вставки Maestro стоят в конце.\n- **«До и после»** каждого правила — во «Промпте хода».\n- **Казначей** — сколько стоит игра: последний ход, сессия, сегодня и 14 дней, по источникам (основная модель, перегенерации, авто-свайпы, Qvink, задачи Maestro, NAI) и Anlas; при достижении общего дневного лимита — переход в «Экономный», если так настроено.\n- Учитываются кэшированные токены провайдеров.\n\n## 1.2.0 — контроль качества ответа (2026-10-04)\n\n- **Проверка каждого ответа** до того, как NAI Studio начнёт рисовать: уход в другой язык, кальки и штампы; реплики и действия за тебя; отказы, морализаторство, оговорки вне роли, смягчение и навязчивые вопросы; повторы прошлых ответов; обрезанный ответ; служебный мусор и протёкший HTML (JSON трекера DES и маркеры NAI — норма); нет трекера DES; граница контента. Сначала бесплатные правила, дешёвая модель-судья — только при сомнении (в «Экономном» — никогда).\n- **Действия по видам брака** — выкл / «Само» (очистить, попросить продолжить, один свайп за ход с точной инструкцией, ремонт трекера через Медика) / «Уведомить» (значки «Переделать» и «Не брак»). По умолчанию «Само» — только мусор и трекер, остальное — «Уведомить», пока не набрана статистика ложных срабатываний.\n- **Ранняя отсечка** служебных токенов модели прямо в потоке: остановка и один свайп.\n- **Граница контента** — настраиваемые правила с умолчанием (никакого сексуального контента с несовершеннолетними), тестовый режим.\n- **NAI Studio ждёт «качество ок»** (нужен NAI Studio 0.11.0): картинки не рисуются для ответа, ушедшего на переделку.\n\n## 1.1.0 — Пресет-студия (2026-10-04)\n\n- **Пресет-студия** — большое окно для пресета Chat Completion: «Карта» (как SillyTavern соберёт промпт: блоки по порядку, вставки расширений на своих местах, токены, блоки, которые включены, но не уйдут), «Блоки» (порядок перетаскиванием, массовое включение, поиск, предпросмотр с макросами), редактор блока, «Анализ» (несохранённые правки, пустые и неотправляемые блоки, противоречия, повторы с лором и вставками, особенности модели и провайдера), «Версии» (каждое сохранение — версия, откат), «Параметры» генерации и сценариев.\n- **Твой слой** — твои блоки и правки хранятся отдельно от базового пресета и накладываются при его выборе; новая версия базы (например, Marinara) ставится без потери правок, а при изменённом тексте блока — выбор из трёх версий. Перенос текущих правок в слой с предпросмотром (ключи подключения можно не переносить), перенос слоя на другой пресет, блоки из чужих пресетов.\n- **Безопасное сохранение** — пресет сохраняется только с явным телом, незнакомые ключи и расширения сохраняются, переименование переносит разрешения регексов и спрашивает о профилях подключения; несохранённые правки сохраняются версией перед переключением пресета.\n- **Сценарии генерации** — свои параметры для перевоплощения и продолжения (выключены по умолчанию).\n- Раздел Prompt Manager можно заменить кнопкой студии (настройка, по умолчанию выключена — до проверки паритета вживую).\n- **«Подготовить к отключению», экспорт и импорт данных Maestro** в настройках пульта.\n\n## 1.0.0 — выпуск R3, первая полная версия (2026-10-04)\n\nЭтап 4: ревизия и живой канон.\n\n- **Сигналы хода** — когда ты отправляешь сообщение, прошлый ответ фиксируется, и Maestro без ИИ сравнивает его с ходом раньше: смена отношения, стойкая внешность, место, пропуск времени, конец сцены, квесты, кто пришёл и ушёл, новые алиасы и имена, память Qvink. Свободный текст засчитывается, только если продержался два хода; свайп и правка откатывают ровно то, что дал ответ.\n- **Ревизия «сюжет → канон»** — по сигналам, раз в N сообщений, в конце сцены или командой `/maestro-revise` дешёвая модель смотрит, что изменилось у известных персонажей и мест, и предлагает обновить владельца: канон чата, теги архива CK (только из словаря паков), паспорт NAI уровня чата, прозвища чата, реестр мест. Наряды, обещания и секреты ждут своих этапов отложенными карточками.\n- **«Входящие»** — карточки по персонажам, ссылка на сообщение, «было/стало» по хранилищам, цитата и уверенность; принять, изменить на месте, отклонить, отложить, «Всегда так», принять всё.\n- **Проверка противоречий** — сначала правила (имена, числа, даты, отрицания), при сомнении — дешёвая модель; общий сервис для ревизии и живого канона.\n- **Живой канон** — то, что придумала модель (праздник, таверна, род), после фиксации хода становится пробной записью канона с русскими ключами; подтверждается, только если ты сам это упомянул, принял, если оно всплыло снова без подсказки или продержалось 10 ходов без противоречий. Пакетное извлечение пишет английский текст записей. Свайп убирает пробное, подтверждённое остаётся.\n- **Летопись и автопамять** — воспоминания Qvink, выпавшие из долгой памяти, становятся главами канона (срабатывают по двум ключам сразу); важные моменты сами получают отметку «запомнить» во всех свайпах; «Ранее в истории…» после перерыва.\n- **Замеры** — вкладка с критериями первой полной версии: задержка Maestro до запроса, доля фоновых расходов, лор на ход, выпавшие сообщения, роли записей, вкладки, ревизия, живой канон, листы, файлы паков. Скрипт стенда `tools/stand/measure.mjs`.\n- Исправлено: досье и листы брали архив «Александра» для «Александр» (падежная форма совпадала с другим именем); запросы NAI Studio записывались в расходы Qvink.\n\n## 0.2.0 — выпуск R2 (2026-10-04)\n\nЭтапы 2 и 3: Лор-студия, роли книг, доктор, канон; модель мира, досье, места.\n\n**Этап 3**\n\n- **Модель мира** — каждый персонаж, персона и место стека одной сущностью: карточки, состав DES, алиасы DES и DES-RU, падежи, паспорта NAI, архивы CK, записи лорбуков с типом, канон и места. Одно лицо под разными именами склеивается; сомнительные совпадения — во «Входящих». Прозвища, которые действуют только в этом чате.\n- **Досье** — одна страница на сущность: DES, лор, канон, архив CK и теги, паспорт NAI (с изменениями этого чата), падежи, воспоминания Qvink, RAG, последний лист. Сверка структуры (нет записи, паспорта или архива, алиас не стал ключом, имена расходятся), сверка внешности ИИ по кнопке, «Разнести» правку по хранилищам. Команда `/maestro-dossier`.\n- **Места** — реестр мест чата по локации DES: новое название становится местом, если продержалось два хода; вложенность, история визитов (кто был, когда), описание записью канона. NAI Studio держит непрерывность фона по id места.\n- **Граф отношений** — как персонажи относятся к твоей персоне, ход за ходом по трекеру DES.\n- **Режим BunnyMo** — словарь тегов всех паков (конфликты, дубли, теги без пака), паки по чатам, сравнение пака с новым файлом, проверка целостности, редактор листов архивов CK. Команда `/maestro-bunnymo`.\n- Нужен NAI Studio 0.10.0 для паспортов уровня чата и непрерывности по местам (без него всё остальное работает).\n\n**Этап 2**\n\n- **Лор-студия** — свой редактор лорбуков рядом со штатным: книги по ролям, все поля и действия штатного окна, канон рядом с базой, история версий, русские ключи, кампании DES. Кнопку «Миры и лорбуки» можно отдать студии настройкой.\n- **Роли книг** — Maestro знает, где ядро и паки BunnyMo, архивы CK, мир, карточка, NPC, канон; паки BunnyMo только для чтения.\n- **Канон чата** — изменения сюжета в отдельном лорбуке чата: переопределение, подавление, закрепление, добавление; бюджет, архив, слежение за базой, повышение до базы, экспорт, ветки. Срабатывает по русскому тексту.\n- **Доктор** — «Исправить в файле» для твоих книг (паки — никогда) и лечение регексов, всё с откатом.\n- **Правила** — кириллица и «целые слова», конфликт версий паков, `<NSFW>` в архивах, глубина сканирования архивов CK.\n- Нужны DES-RU 0.8.0 и Lorebook Localizer 0.2.0 (без них всё работает, но без склонений и локализации из студии).\n\n## 0.1.0 — выпуск R1 (2026-10-04)\n\nНаблюдение и быстрые исправления.\n\n- **Журнал лора** — какой лор ушёл в промпт на каждом ходу, почему, каким ключом и через какую запись; почему книга активна; «Что если» без генерации.\n- **Инспектор хода** — из чего собран промпт: пресет, лор по книгам, вставки соседей, история.\n- **Медик** — проверки соседей после каждого ответа; ремонт трекера DES; предупреждение о prefill с ролью assistant.\n- **Страж** — эталон настроек и пресета, дрейф во «Входящих»; устаревшая вкладка больше не перезаписывает настройки, пресеты и лорбуки.\n- **Доктор** — находки в лорбуках и регексах, испытание регексов.\n- **Правила на лету** — роль assistant → system, потолок и лимит рекурсии книги, дубли паков, «дыры» Qvink, картинки NAI вне пересказов, видимые теги BunnyMo, кнопка векторизации CK и полоса портретов DES на телефоне.\n- **Листы персонажей** — команды BunnyMo генерируются своей сборкой промпта, без хвоста сцены и трекера, сворачиваются и уходят из промпта после следующего хода.\n- **Мастер первого запуска.**\n\n## 0.0.0 — этап 0\n\nКаркас: слой ST, сервисы ядра, адаптеры соседей, пульт, стенд с имитацией модели.\n")?.[1] ?? null;
+	return /^##\s+(\d+\.\d+\.\d+)/m.exec("# Журнал изменений\n\n## 1.34.0 — соседи и авторство (2026-11-12)\n\nВместе с Dramatis 1.8.0, Localizer 0.6.0 и Officina 0.9.0.\n\n- **Задачи соседей — в окне «Агенты»** (группа «Соседи»):\n  - шесть задач Dramatis — такт, режиссёр такта, замысел автора, генератор личностей, пересборка по истории, перевод описаний;\n  - «Расширить мир» Localizer.\n  - Как у встроенных агентов Maestro: видно поручение, можно дописать «Дополнительные указания» или переписать текст, поменять модель и её параметры, посмотреть журнал запусков. Логика задач остаётся у соседей.\n- **Каст Dramatis — источник для твоих агентов**: чего хотят присутствующие и как стоят друг к другу.\n- **Агенты правят профили Dramatis**: «заполнить пустые поля» и «поднять до черновика / портрета» — через «Входящие», пишет сам Dramatis.\n- **Инструменты агентов**: бросить кубики (движком «Механик»), искать в лоре, искать в старых сообщениях чата. «Своя механика» теперь бросает кубики сама. Вызовы видны в журнале запусков.\n- **Ведущий группы**: в групповом чате с порядком ответов «Вручную» агент по сцене выбирает, кто ответит на твоё сообщение, и запускает его ответ.\n- **Ассистент и агенты**: «покажи агентов», «сделай агента, который…», «включи…», «поставь набор…», «добавь к такту Dramatis указание…». Каждое изменение — карточкой «было / стало» с подтверждением.\n- **Officina 0.9**: агенты под историю в проекте и в выпущенной карточке (Maestro спросит игрока, брать ли их); «Перенести в механики» из «Своей механики».\n- **Для соседей**: `MAESTRO_API.agents` и `MAESTRO_API.context` — свои встроенные агенты (на канале Maestro или на своём), приёмники предложений, источники контекста, свои агенты и наборы (`docs/integration-agents.md`).\n- **Руководство по агентам** — `docs/guide/agents.md`.\n\n## 1.33.0 — картинки через агентов (2026-11-12)\n\nНужна NAI Studio 0.16.0.\n\n- **Иллюстратор** (шаблон, группа «Картинки»):\n  - пишет метки картинок вместо основной модели — тот же объект метки и по тем же правилам (твой блок картинок из пресета);\n  - видит весь готовый ответ, гардероб, мизансцену, трекер и место;\n  - NAI Studio рисует его метки своим обычным путём: паспорта, стиль, непрерывность, ворота качества, «Повторить».\n- **Кто пишет метки** («Агенты» → «Картинки», то же в NAI Studio): «Основная модель» (по умолчанию), «Иллюстратор» (блок картинок пресета уходит из основного промпта, ответ — только история), «Иллюстратор, если основная модель не поставила метку». Действует, только пока Иллюстратор включён в чате; выключил агента — метки снова пишет основная модель.\n- **Сравнение вслепую** («Картинки»):\n  - до 20 ответов, которые проиллюстрировала основная модель, рисуются заново парами — её метка и метка Иллюстратора, одним путём, бесплатно;\n  - ты выбираешь лучшую, не зная, чья она;\n  - пока Иллюстратор не выиграет, его нет ни в одном наборе.\n- **Декоратор**: место, для которого в библиотеке фонов ничего не нашлось, получает фон. Агент описывает место, NAI Studio рисует, «Фоны» привязывают к месту и ставят с откатом. Один раз на место.\n- **Портретист**: новое важное лицо без паспорта картинок получает паспорт по сюжету и лору (в этом чате, с откатом) и, с DES, портрет.\n- **Аватар карточки** (по кнопке, всегда с вопросом): новый аватар по тому, как персонаж выглядит сейчас; старая картинка сохраняется копией в user/images/avatar-backups.\n- **Обложки глав**: новая глава летописи получает картинку-обложку, её видно в «Летописи».\n- **Только бесплатно по умолчанию**: картинки агентов не тратят Anlas, пока не включишь «Картинки агентов могут тратить Anlas».\n- **Мизансцена → картинки**: поза и место из «Мизансцены» доходят до картинок NAI Studio, если в метке поза не указана.\n- **Набор «Кино»**: + Декоратор, Портретист, Обложки глав.\n\n## 1.32.0 — трекеры и механики через агентов (2026-11-09)\n\n- **Новый модуль «Мизансцена»** (окно «Мир»): кто где и как сейчас — поза, место в сцене, рядом с кем, что держит, что видно на нём. Заполняет агент «Мизансцена» после ответа; у каждого свайпа своя мизансцена; удалённые сообщения уносят свою. Строка «кто где и как» (до ~80 токенов) идёт в промпт, выключается в настройках раздела. Поправить можно руками — с откатом в журнале.\n- **Трекеры через агентов пишут сразу**, без уведомления «Сделал…» каждый ход: запись в журнале с откатом, свайп возвращает своё.\n- **Костюмер** — после ответа замечает, кто переоделся, и пишет в гардероб: известный наряд по имени или одежду словами. Тот же путь, что у разбора переодеваний: наряд паспорта, поле «Одежда» DES, строка под сообщением, откат. Работает и без поля DES, и для твоего персонажа.\n- **Смена наряда** — заранее к следующему ходу подсказывает рассказчику, когда одежда больше не подходит сцене (ночь, бал, дождь, бой, долго в одном) и во что переодеть из известных нарядов.\n- **Механики: «Учёт: агент после ответа»** (Механики → настройки). Основная модель пишет только историю, без служебного блока; все изменения читает встроенный агент «Учёт механик» (его поручение и модель — в окне «Агенты»). Броска посреди ответа в этом режиме нет — он живёт в служебном блоке.\n- **Своя механика** — шаблон для правил, которых нет в механиках: голод, рассудок, долг, слава. Значения — в записях агента, правила — в его переменных, смысл значений идёт в промпт.\n- **Трекер сцены (DES) отдельным запросом** — встроенный агент «Трекер сцены (DES)», переключатель «Трекер отдельным запросом». Инструкция трекера DES уходит из основного промпта (настройки DES не меняются), ответ начинается сразу с истории, а трекер делается сразу после ответа отдельным запросом — по собственному промпту DES, его разбором и отрисовкой (это ремонт трекера медиком). Проверка качества в этом режиме не считает отсутствие трекера в ответе браком. По умолчанию выключено.\n- **Новые источники** для агентов: «Кто во что одет» (с известными нарядами) и «Мизансцена».\n- **Наборы «Игра»** (Костюмер, Мизансцена, Варианты действий) **и «Кино»** (Костюмер, Мизансцена, Смена наряда; картинки добавятся в 1.33).\n\n## 1.31.0 — агенты предлагают изменения: создатели (2026-11-09)\n\n- **Новый тип результата «Предложения».** Агент получает список того, что ему разрешено предлагать, и возвращает предложения; каждое идёт через автономию — по умолчанию во «Входящие», с «Подробнее», «Всегда так» и откатом из журнала. Исходные книги и карточку агенты не меняют.\n- **Что можно предлагать:**\n  - **новая запись лора чата** (канон чата): персонаж, место, предмет, фракция, событие, обычай — с русскими ключами-словоформами; уже известные имена не предлагаются повторно;\n  - **правка записи лора** — только в этом чате, поверх записи (исходная книга не трогается), с полным новым текстом; откат возвращает прежнюю правку или снимает её;\n  - **обещание или срок** в календаре (откат — «отменено»).\n- **Создатели** (шаблоны, группа «Создатели»):\n  - **Создатель персонажей** — новое значимое лицо в истории → запись в лоре чата: кто он, внешность, манера, связи. Карточек ST не создаёт: персонаж живёт в чате и его лоре;\n  - **Редактор персонажей** — в конце сцены предлагает обновить записи тех, кого сцена изменила;\n  - **Биограф** — раз в 25 сообщений прописывает персонажа с тонкой записью;\n  - **Картограф** — новое место без записи → запись места;\n  - **Летописец мира** — раз в 30 сообщений: фракции, обычаи, вещи, прошлые события, на которые история опирается;\n  - **Хранитель тайн** (группа «Текст») — отмечает персонажа, который знает то, чего не мог узнать, и предлагает «Переделать».\n- **Набор «Мир растёт»**: Создатель персонажей, Картограф, Летописец мира, Биограф.\n- **Новые источники**: «Кто что знает», «Известные миру имена», «Места». У записей «Лора хода» теперь видна ссылка «Книга#номер» — по ней агент предлагает правку.\n- В редакторе агента у типа «Предложения» — галочки «Что может предлагать» и «Не больше предложений за запуск».\n\n## 1.30.0 — агенты: пакеты и экономия (2026-11-09)\n\n- **Пакеты.** Агенты одного момента и одного профиля, которым это разрешено («Модель» → «Отправлять вместе с другими агентами той же модели»), идут одним запросом: общий контекст — один раз, у каждого агента свой блок задачи, ответ — один JSON со своей частью для каждого. Агент, которого в общем ответе не оказалось или чья часть не по форме, сам переспрашивается отдельно. У пакета одна температура — средняя по его агентам. Правки ответа всегда идут отдельно. Агенты по расписанию, которым пора в один и тот же момент, тоже собираются в пакет. В журнале запусков у таких запусков — «в пакете», цена пакета делится между агентами по длине их поручений.\n- **«Сначала спросить дешёвую модель».** У агента во вкладке «Когда» — переключатель «Перед каждым запуском спрашивать „нужен ли сейчас?“» и свой вопрос. Короткий вопрос уходит модели из новой строки «Агенты: вопрос „нужен ли сейчас“» в «Профилях подключения» (иначе — профиль агентов по умолчанию). Пропускает запуск только явное «нет»; если вопрос не прошёл, агент работает как обычно. Пропуски видны в журнале: «пропущен: сейчас не нужен».\n- **Цена хода.** В шапке списка агентов — «Твои агенты добавляют к ходу ≈ $…»: средняя цена последних платных запусков каждого включённого агента × как часто он работает (раз в ход, раз в N сообщений, по кнопке — не считается). Агенты без запусков — «Ещё не оценены: N».\n- Одновременно работают не больше трёх отдельных запросов агентов (пакет считается за один).\n\n## 1.29.0 — встроенные агенты (2026-11-09)\n\n- **Задачи Maestro, которые ходят к модели, стали встроенными агентами** — 15 штук в окне «Агенты» → раздел «Встроенные агенты», по группам:\n  - канон и память: Ревизия канона, Живой канон, Сверка противоречий;\n  - сюжет и режиссура: Пересказ «Ранее в истории…», Режиссёр (тип сцены);\n  - качество: Судья качества;\n  - мир и гардероб: Закулисье, Гардероб (переодевание и твоя одежда);\n  - механики: Учёт механик;\n  - по кнопке: Досье (сверить с ИИ, оформить), Паспорта записей, Проверка промпта ИИ, Персона для персонажа.\n- **Поручение встроенного агента**: «По умолчанию» (текст Maestro), «Дополнительные указания» (твои строки после текста Maestro) или «Весь текст» (заменяет текст Maestro). Форма ответа и то, как Maestro применяет ответ, остаются в коде — правка поручения не может их сломать. «Вернуть как было» — к умолчаниям; если текст Maestro по умолчанию поменяется в новой версии, а у тебя свой, — предупреждение со сравнением «было / стало», «Взять новый текст» или «Оставить свой». Текст Maestro по умолчанию виден под спойлером.\n- **Модель** у каждого встроенного агента: профиль подключения (та же строка, что в «Профилях подключения»), температура, длина ответа, рассуждения; пусто — как решает Maestro.\n- **«Когда»**: включатель (собственная настройка модуля) и его ручки — частота ревизии и живого канона, сколько фактов за раз, закулисье по режимам, источник и порог пересказа, частота одежды персоны.\n- **Журнал запусков** показывает и встроенных агентов: запрос ровно таким, каким ушёл (с твоим поручением), ответ, цена, причина сбоя. «Проверка» в карточке — последний запрос.\n- Без твоих правок запросы встроенных агентов уходят ровно такими же, как в 1.28.\n- Изменения встроенных агентов — в журнале Maestro с отменой.\n\n## 1.28.0 — агенты (2026-11-09)\n\n- **Новое окно «Агенты»** (меню Maestro → «Агенты»). Агент — модель-помощник с одной работой: что ей поручено, что она видит, когда запускается, на какой модели и что делает с ответом. Агентов создаёшь, правишь, включаешь и проверяешь прямо в ST. Разделы окна: Агенты, Вставки хода, Записи, Журнал запусков, Шаблоны, Наборы, Расходы.\n- **Карточка агента** — вкладки Поручение · Что видит · Когда · Результат · Модель · Область · Проверка:\n  - поручение обычным текстом с подстановками `{{char}}`, `{{user}}`, `{{язык_истории}}`, своими переменными `{{agent.<имя>}}` и вариантами поручения («мягкий / жёсткий»);\n  - 14 источников с бюджетами: последние сообщения, твоё сообщение, ответ, карточка, персона, лор хода, канон, память Qvink, сцена и персонажи DES, механики, режиссёр, свои записи, свой прошлый ответ;\n  - семь моментов запуска: заранее к следующему ходу, при отправке (с таймаутом и кнопкой «Не ждать»), вместе с ответом, после ответа, при фиксации, по расписанию / событию (конец сцены, смена места, новый персонаж, пропуск времени, перерыв, открыт чат), по кнопке; условия — слова, тип сцены, режим Maestro, что должно быть включено, «только при застое»;\n  - семь типов результата: вставка в промпт, флаги для пресета, правка ответа, проверка ответа, заметка для тебя, варианты действий, записи агента;\n  - свой профиль подключения у каждого агента, температура, длина ответа, рассуждения, лимиты на ход и на день;\n  - «Что увидит агент» (запрос без модели, токены по источникам) и «Пробный запуск» (модель отвечает, ничего не применяется — видно, что Maestro сделал бы).\n- **Правка ответа не трогает служебные блоки**: трекер DES (и в начале, и в середине продолженного ответа), блок механик, `<offscreen>`, маркеры и картинки NAI агент не видит — код возвращает их на место. Исходник хранится: под сообщением «Показать исходный» и «Вернуть исходный», правка есть в журнале с отменой. Обрезанная по длине или подозрительно короткая правка не применяется. «Придержать ответ» скрывает ответ дымкой, пока агент правит.\n- **Общие ворота ответа**: агенты «после ответа» идут после проверки качества и до картинок NAI — NAI Studio рисует уже исправленный ответ.\n- **12 шаблонов**: Прозаик, Сверка непрерывности, Сверка голоса, Редактор-критик, Варианты действий, Хроникёр сцены, Дневник персонажа, Подсказка режиссёра, Сюжетная линия, Осложнения, Анти-петля, Именослов. «Взять в работу» — своя копия, которую можно менять.\n- **Наборы и агенты по умолчанию**: набор — именованный список агентов и их включателей, как пресет ST; набор «Везде» — агенты для новых чатов, набор персонажа или чата главнее; поверх набора — точечные включатели с «Вернуть к набору». Готовые наборы «Как в 1.27» (в силе после обновления: ничего не меняется) и «Рассказчик».\n- **Агенты карточки**: агентов можно положить в карточку; чужая карточка с агентами спрашивает согласия и показывает, что каждому разрешено. Импорт и экспорт агентов файлом — тоже с подтверждением.\n- **Журнал запусков**: каждый запуск — момент и причина, время, токены, цена, полный запрос, сырой ответ, результат, что сделано, понятная причина сбоя и «Повторить». Три сбоя подряд — уведомление.\n- Профиль «Агенты (по умолчанию для твоих агентов)» — новая строка в «Профилях подключения». Траты агентов — в общем дневном потолке фоновых трат.\n- Команда `/maestro-agent <имя> [указание]`, агенты в меню кнопки Maestro у поля ввода.\n- В групповых чатах и в служебных чатах «Мастерской» агенты спят.\n\n## 1.27.0 — механики правят игрой (2026-10-15)\n\n- **Правила и состояние — отдельно.** Раньше модель получала одну строку-справку на механику («[Mechanics] Магия: … | Кай: mana 12/100») где-то перед последней репликой. Теперь два блока:\n  - **`<game_rules>` в начале промпта** (сразу после основного): «эти системы обязательны — цены, пределы и исходы решают, что может случиться», под каждой механикой её правила с сохранёнными переносами строк. Блок не меняется, пока не меняется набор механик сцены, — кэш провайдера не ломается.\n  - **`<game_state>` в самом конце**, прямо перед ходом модели: по каждому персонажу (твой — первым) значения со словами («мана 12/100 (very low)»), состояния с остатком и модификаторами («отравлен (ещё 2 хода; проверки −2)»), инвентарь, бой, и строка «пиши этот ответ в согласии с этими значениями». Сразу за ним — инструкция служебного блока и результаты бросков.\n  - Где лежат правила — настройка «Правила механик: в начале промпта / рядом с состоянием»; «Глубина состояния» — по умолчанию 0.\n- **«Что это значит сейчас».** События на порогах больше не говорятся один раз и не исчезают: пока условие верно, модель каждый ход видит строку «now: Кай без маны и колдовать не может». В конструкторе у события — переключатель «Держится, пока условие верно». В шаблонах добавлены промежуточные ступени: тяжело ранен, задыхается, мана на исходе, вымотан, истекает кровью, умирает от голода и жажды; у навыков и выживания — свои слова для уровней.\n- **Бюджет механик — 1200 токенов вместо 400**: две встроенные механики раньше не влезали, и обрезались правила и значения NPC. Сохранённые 400 поднимаются до 1200 один раз (свой бюджет остаётся твоим). Важнее то, о чём сейчас речь: механики с бросками этого хода, менявшиеся в последние ходы, названные в твоём сообщении, — остальное режется первым.\n- **«Книжный» вид отдаёт модели слова, а не числа** («доверие: умеренное»). Затронуты шаблоны «Отношения» и «Социальные шкалы».\n- **Статы DES связаны с механиками:** модель получает строку «Health, Stamina в трекере — те же значения: начни с чисел выше и меняй только тем, что происходит в этом ответе».\n- **Броски:**\n  - **Условия броска** («Нужно для броска»): заклинание требует хотя бы 5 маны, атака — бойца на ногах. Не хватает — броска нет, а модель получает «Заклинание (Кай): невозможно — мана 3, нужно 5. Попытка не удаётся». В HUD и под ответом — «Без броска: … невозможно».\n  - **Исход со смыслом.** К каждому результату модель получает, что он значит в сцене: тексты автора механики или общее («не получается — покажи, что пошло не так и чего это стоило»), «еле-еле» при разнице в 1–2 очка. У всех проверок встроенных шаблонов — свои тексты исходов (заклинание складывается / гаснет, мана потрачена / бьёт по магу; удар / промах…). Под ответом — строка смысла по-русски.\n  - **Бросок посреди ответа.** Модель останавливается на попытке и просит бросок, Maestro бросает и сразу продолжает тот же ответ с результатом (один дополнительный запрос «Продолжить»). Не продолжает, если в поле ввода есть текст или идёт генерация, — тогда результат придёт следующим ходом, как раньше. Настройка «Бросок посреди ответа» (включена). Контроль качества не продолжает такой ответ второй раз.\n  - В списке проверок, которые модель может попросить, — только механики этой сцены.\n\n## 1.26.0 — механики: учёт, который поспевает за историей (2026-10-15)\n\n- **Новый способ учёта «Авто» — теперь он по умолчанию** у новых механик, у механик из «Подготовки» и у всех шаблонов, кроме боя. Статы, которые ведёт DES, берутся из трекера, остальное модель пишет в служебном блоке, а если блока нет или его не прочесть — подстрахует фоновый разбор. Состояния и вещи у «Авто» тоже идут блоком. Уже созданные механики сохраняют свой способ — его можно сменить в конструкторе («Авто (рекомендуется)» — первым в списке).\n- **Модель пишет служебный блок всегда**, а когда ничего не поменялось — `<mechanics>none</mechanics>`. Раньше ей разрешалось пропускать блок, и нельзя было понять, забыла она или ничего не случилось. Блок `none`, `нет`, `-` или пустой убирается из ответа как обычный.\n- **Статы DES — как изменения, а не перезапись.** Раньше значение из трекера каждый ход затирало то, что Maestro посчитал сам: трату маны на бросок, восстановление со временем. Теперь берётся разница с прошлым трекером этого персонажа (до 40 сообщений назад), и она ложится поверх значения Maestro. Модель переписала старое число — ничего не меняется.\n- **Фоновый разбор понимает больше.** Он видит и твоё действие, которое привело к ответу, знает, что «ты/вы» в рассказе — твой персонаж, получает правила механики целиком (до 2000 знаков вместо 600) и применяет их: если в ответе нет чисел, оценивает по правилам («рана мечом стоит здоровья, как сказано в правилах»). Ответ модели разбора — до 1200 токенов.\n- **Время идёт и без DES.** Модель может написать в блоке `time: +3h` (`+30m`, `+2d`, `время: +20м`), фоновый разбор — сколько минут прошло в ответе. По этому идут часы истории: голод, жажда, восстановление, состояния «на 2 недели». Состояние «до заката», которое не к чему привязать, длится 8 ходов, а не вечно.\n- **«Пересчитать»** в подробностях строки изменений под ответом: Maestro снимает изменения ответа и читает его заново (блок, статы DES и фоновый разбор).\n- **Броски:**\n  - **Цель у атаки по твоим словам.** «Бью стражника мечом» — урон получает стражник: тот, кого ты назвал в той же фразе, в бою — названный противник, иначе текущий. В карточке броска — «Атака (Кай → Стражник)» и строка «Цель». Раньше автоматическая атака никого не задевала.\n  - **Проверки на реплики.** «Убеждение», «Обман», «Запугивание» срабатывают и на прямую речь в кавычках, и на вопрос («Может, договоримся?»). В конструкторе — переключатель «Срабатывает и на реплики».\n  - **До двух проверок за сообщение**, если они разные и в разных частях фразы («подкрадываюсь к двери и вскрываю замок»).\n  - **Опыт за броски.** У уровней механики — опыт за исход (крит, успех, провал, промах); уровень растёт сам, «Отменить бросок» забирает и опыт. В шаблоне «Навыки» появились опыт и уровень (уровни на 100, 250, 500 и 1000; 20 / 10 / 3 / 3 за исход). Навыки, опыт и уровень этого шаблона двигает только Maestro — модель их не переписывает, и опыт не засчитывается дважды.\n- **Исправлено:**\n  - удаление сообщения из середины чата сбивало учёт: изменения и броски сдвигались не туда. Теперь Maestro понимает, какие сообщения удалены, снимает их изменения, а изменения следующих сдвигает вместе с ними;\n  - вкладка, ставшая ведущей, дочитывает ответы, пришедшие, пока считала другая;\n  - уже разобранный ответ не отправляется на фоновый разбор повторно после перезагрузки страницы.\n\n## 1.25.0 — механики: значения сразу и колонка у чата (2026-10-15)\n\n- **Значения меняются сразу после ответа**, а не когда ты напишешь следующее сообщение. Раньше изменения из ответа (служебный блок, статы DES, фоновый разбор, тики состояний и времени) применялись только при отправке следующей реплики — и уже после того, как для нового ответа собран промпт. Поэтому HUD стоял на месте, а модель писала следующий ход по старым числам. Теперь всё применяется, как только ответ показан. До твоего ответа изменения предварительные: свайп, перегенерация, «Продолжить» и правка ответа их откатывают и читают ответ заново. Вернулся свайпом к старому варианту — его изменения возвращаются сами.\n- **Фоновый разбор запускается сразу после ответа**, пока ты читаешь, и у него своя строка в «Профилях» — «Механики: разбор ответа» (можно дать модель дешевле основной).\n- **«Учёт» — почему значения могут не меняться.** Раньше фоновый разбор без профиля или сверх дневного лимита молча пропускался. Теперь в окне «Механики» → «В игре» сверху раздел «Учёт» с причиной и кнопкой: нет профиля (→ «Профили»), исчерпан лимит, разбор выключен (→ «Настройки»), статы DES ещё не заведены (→ «Статы DES: …»), последний разбор не удался, значения считает другая вкладка. В HUD — значок ⚠, пока есть что-то серьёзное.\n- **Механики сбоку от чата на ПК — слева или справа.** Кнопка «Где показывать механики» прямо в HUD: «Над чатом», «Слева от чата», «Справа от чата» (то же — в настройках конструктора).\n  - Колонка показывает то же, что HUD над чатом: твоего персонажа и выбранных, закреплённые значения, состояния, деньги и вещи, «Бросок» и «Инвентарь». Переключатель «Подробно» — все персонажи сцены, все значения, бой.\n  - Ширину меняешь, потянув край колонки; ширина и свёрнутые персонажи запоминаются на этом устройстве.\n  - Не хватает места (широкий чат, закреплена панель SillyTavern с этой стороны) — механики больше не прыгают на чат: у края чата остаётся язычок «Механики», он раскрывает ту же колонку поверх чата и объясняет, почему места нет, с кнопкой «Показать с другой стороны». Просто открытая (не закреплённая) панель SillyTavern ничего не сдвигает. Ограничение «окно не уже 1200 px» убрано — решает свободное место.\n  - На телефоне всё по-прежнему: одна строка над чатом.\n- **Что изменилось последним ответом — видно у значения**: «−15», «+1», «→ ранен». Подсказка: «Из последнего ответа · свайп отменит». И в HUD над чатом, и в колонке.\n- Полоска механик под портретами DES прячется, пока видна колонка с любой стороны, и возвращается при язычке.\n\n## 1.24.2 — одна кнопка у поля ввода (2026-10-14)\n\n- **Одна кнопка вместо ряда значков.** Кнопка Maestro у поля ввода теперь открывает и меню SillyTavern (≡), и волшебную палочку с расширениями, и LoreBook Creator, а на телефоне ещё и выбор персоны (QuickPersona). Их значки из ряда убраны: на ПК остаются общая кнопка и аватар персоны, на телефоне — одна кнопка вместо столбика из четырёх. Пункт открывает родное меню SillyTavern или соседа на прежнем месте, над полем ввода, со всем, что оно умеет. У «Персоны» в подписи — имя текущей персоны. Пока значок скрывает его хозяин (палочка без пунктов, выключенная кнопка LoreBook Creator), его нет и в меню.\n- Значок общей кнопки — ≡, подсказка «Меню: SillyTavern, расширения, Maestro»; быстрые действия Maestro идут в том же меню под пунктами SillyTavern. Кнопка видна, даже когда у Maestro нет быстрых действий.\n- Выключается в «Настройки» → «Одна кнопка у поля ввода» (по умолчанию включено): значки возвращаются на место, кнопка снова только для быстрых действий Maestro. Выключенная «Кнопка Maestro у поля ввода» тоже возвращает значки.\n- **Исправлено: меню кнопки у поля ввода на телефоне уходило за верх экрана.** На телефонах SillyTavern фиксирует `html` нулевого размера, и меню, прижатое к низу, отсчитывалось от верхнего угла. Теперь меню ставится явной шириной и отступом сверху и открывается прямо над полем ввода.\n\n## 1.24.1 — определения механик в служебном чате (2026-10-14)\n\n- **Исправлено: Officina не могла опубликовать механику из чата соавтора.** В служебном чате модуль «Механики» стоит на паузе, и вместе с ним пропадали его определения: `MAESTRO_API.mechanics` (`list`, `get`, `save`, `remove`) отвечал `'off'`. Но книга «Maestro · механики» к открытому чату не относится. Теперь определения доступны и в служебном чате: их можно читать, записывать в любую область (в карточку тоже), удалять и собирать из шаблонов. Записи попадают в журнал под «Officina» и отменяются оттуда — в том же служебном чате или потом в сюжетном.\n- Всё, что относится к самому чату, в служебном чате по-прежнему молчит: механики ничего не вставляют в промпт, не разбирают блок `<mechanics>` в ответах, не бросают проверок, не показывают HUD и значения. Переключатель механики для открытого чата (`setEnabledInChat`) там отвечает `'off'`. В сюжетном чате модуль запускается заново и читает определения, записанные за это время; запись, которая ещё сохраняется, успевает лечь в книгу.\n- Если модуль «Механики» выключен в «Модулях», `'off'` остаётся, как раньше.\n- Для разработчиков: модуль может держать на время паузы узкую часть, которая к чату не относится (`MaestroModule.whileSuspended`); у механик это определения, `app.modules.api('mechanicsDefinitions')`. Описание — в `docs/integration-officina.md` и `docs/ARCHITECTURE.md`.\n\n## 1.24.0 — «Служебный режим» и MAESTRO_API для Officina (2026-10-14)\n\n- **«Мастерская» теперь называется «Служебный режим»** (модуль M42). Новое название — в «Модулях», в настройках, на кнопке с гаечным ключом в редакторе карточки, в пунктах «Ещё…» («Служебный режим: включить для карточки» / «вернуть в сюжетные»), в уведомлениях и журнале, в руководстве `docs/guide/workshop.md`. Мастерская теперь — это расширение Officina («Officina — мастерская»), а оно пользуется служебным режимом для своего чата с соавтором.\n- **Тег по умолчанию — «служебная».** Список тегов по умолчанию: «служебная», «мастерская», «workshop»; кнопка ставит первый. Карточки, помеченные «мастерской» раньше, остаются служебными. Если ты не менял список тегов, старый «мастерская, workshop» сам станет новым; свой список остаётся как был. Команда `/maestro-workshop` и пресет соавтора «Мастерская» не изменились.\n- **Officina — второй сосед `MAESTRO_API`** (версия API та же, 1; члены только добавлены, их перечень — в `features`). Задачи, виды действий и записи журнала Officina начинаются с `officina.`; её записи и карточки «Входящих» подписаны «Officina», её задачи видны в «Профилях». В служебном чате задачи Officina работают (задачи Dramatis там по-прежнему молчат). Полный тип API для соседей — `src/shared/public-api-types.ts`, описание — `docs/integration-officina.md`.\n- **Общий дневной лимит.** Траты Officina своим каналом записываются через `MAESTRO_API.cost.record` и считаются в тот же «Потолок фона в день», что и фоновые задачи Maestro; `cost.remaining()` говорит, сколько осталось. В «Расходах» у Officina своя строка — появляется, когда она что-то потратила. Её запросы (со схемой `officina_*` или помеченные через `cost.claim`) счётчик второй раз не считает.\n- **Службы Maestro для Officina** — с проверкой аргументов, с журналом и откатом под «Officina»: книги и записи Лор-студии (типовые записи, основная книга любой карточки), роли книг, определения механик (любая область, разбор блока `<mechanics>` для стенда механик), пресеты и слой пресета для любой карточки, привязка пресета к карточке, находки проверки промпта, «Создать персону» по готовому описанию, служебная карточка. Книги BunnyMo по-прежнему только для чтения.\n- **«Подготовка к игре» берёт готовые стартовые сцены автора.** Если карточка несёт `extensions.officina.scenes` (сцена на каждое приветствие: место, время, кто в сцене, настроение, крючок), анализ получает их как заданные, а сцены этих приветствий в плане берут место, время и состав из них; сцена, которую анализ не нашёл, собирается из сцены автора.\n- Для стенда: сосед `officina` (необязательный, пока у Officina нет сборки), имитация модели отвечает на схемы `officina_*` из `tools/mock-llm/fixtures/officina/` (`MOCK_OFFICINA_FIXTURES`).\n\n## 1.23.0 — сцена отдельно от того, что вокруг (2026-10-12)\n\n- **«Сцена и вокруг»** (новый модуль M43). Мир и персонажи за кадром по-прежнему живут своей жизнью, но ответ рассказывает о сцене: о тех, кто в ней, и о том, что они видят и слышат. Ушедший персонаж выбывает из сцены — модель не идёт за ним следом и не пишет ещё три сообщения, где он сейчас. Если за это время в другом месте случилось что-то заметное (у отсутствующего персонажа свои дела, мир не стоит на месте), модель пишет это после сцены одним блоком `<offscreen>…</offscreen>` — одну-три короткие фразы на языке истории. Ничего не случилось — блока нет.\n- **«Вокруг» под ответом.** Блок показывается свёрнутым под сценой: нажми «Вокруг», чтобы прочитать. С пузырями DES («Карточки», «Discord») это один отдельный блок после карточек, а не ещё одна карточка рассказчика (если в DES выключено «пропускать оформленные блоки» — один свёрнутый блок внутри карточки). Сохранённое сообщение не меняется: блок в нём остаётся как написан, а без модуля чат выглядит как раньше.\n- **Старое «вокруг» не копится в промпте.** Два последних ответа (настраивается) держат его одной строкой `[Elsewhere, not in the scene: …]` — модель помнит, что происходило; в более старых ответах блок убирается. Строку не съедает регекс DES «Clean HTML», который вырезает из промпта все теги.\n- **Ушедшие — вне сцены со следующего хода.** DES в режиме «вместе» пишет трекер до рассказа, поэтому персонаж, ушедший в этом ответе, ещё значится в трекере. Теперь Maestro читает сам рассказ: «Вера вышла», «Мартин ушёл, не попрощавшись», «дверь за ней закрылась», «направилась к выходу» — и со следующего хода не даёт этому персонажу голосовую карточку, строку «кто во что одет», механики, «кто что знает» и приоритет лора. Персонаж возвращается, когда в новом ответе снова действует или говорит в сцене, или когда ты сам его зовёшь или называешь (вопрос «Где Вера?» не считается). Отмена, правка и смена варианта ответа учитываются сами.\n- Анализ ответов (сигналы, режиссёр, качество ответа, хроника, гардероб, живой канон, механики и другие) блок «Вокруг» не читает: что случилось в сцене и кто в ней — только по самой сцене. Превью чата в списках заканчивается сценой.\n- **Слух из «Закулисья»** (M16) подаётся модели как то, что присутствующие могут упомянуть, а не как сцена, которая происходит здесь.\n- Настройки — «Настройки» → «Сцена и вокруг»: включение, сколько последних ответов держат «Вокруг» в промпте, подпись свёрнутого блока. В чатах мастерской модуль на паузе.\n- Для соседей: `MAESTRO_API.sceneSplit` — `active()` и `tag` (`'offscreen'`); `present()` не называет тех, чей уход показал рассказ. Заметки об отсутствующих персонажах сосед должен просить писать только в этот блок.\n- Для стенда: мок модели понимает `[mock:say:…]` (абзац в конце ответа) и `[mock:offscreen:…]` (блок «вокруг»).\n\n## 1.22.0 — режиссёр мягче различает сцены (2026-10-12)\n\n- **Смешанные сцены.** Если ответ почти в той же мере и бой, и разговор, и близость, у сцены теперь два вида: в пресет уходят флаги обоих (`maestro_scene_…`), длина ответа — по более длинному. Пока инерция режиссёра держит прежний вид, новый уже считается вторым — переходная сцена тоже «и то, и другое». В окне «Режиссёр» второй вид показан рядом с первым («+ Близость»).\n- **Длина ответа — только когда режиссёр уверен.** Флаги `maestro_reply_short / medium / long` ставятся, если уверенность не ниже 0,85, или не ниже 0,7 и вид держится второй ход; твой выбор вида — сразу. В остальное время действует общее правило пресета «длина по моменту». Разговор теперь даёт «средне», а не «коротко».\n- **Бой в механиках** начинается только при уверенном виде «бой»: твой выбор, уверенность от 0,85 или второй ход подряд. Меч на стене и боевое слово в смешанной сцене бой не запускают.\n- **Словари умнее.**\n  - Полный вес — у того, что происходит (удар, целует, раздевает, исследует, кланяется). Обстановка, предметы, титулы и люди вокруг — кровать, таверна, лес, зал, король, меч, враг — стали лёгкими подсказками.\n  - Слова в прямой речи весят вдвое меньше: разговор о драке — не драка. Речь — это кавычки и реплики через тире; ремарка после второго тире («— Беги, — крикнул он») считается повествованием.\n  - Исправлено: «драконица», «по-драконьи» считались дракой («драк…»). Теперь «драка» узнаётся только целыми словами.\n  - Русские откровенные слова распознаются («лизать», «киска», «кончил», «стояк» — целыми словами, так что имя «Лиза» не задевается).\n  - Ответ без единой реплики больше не тянется к «разговору»: у разговора без речи только запасной вес, и явный бой сразу уверенный.\n- **Модель решает чаще.** Дешёвая модель спрашивается, когда два лучших вида ближе 40% (было 25%). Где модель выбрала другой вид, чем правила, сцена считается смешанной из обоих. Явные улики — скачок времени в трекере, два и больше откровенных слова — спорными не считаются никогда.\n\n## 1.21.2 — правка сообщения не теряется (2026-10-12)\n\n- **Исправлено: перерисовка сообщения Maestro больше не стирает открытый редактор.** Если Maestro чистил ответ, обрезал лист BunnyMo или снимал блок механик, пока у этого сообщения был открыт редактор (или редактор рассуждений), поле правки пропадало вместе с набранным текстом. Теперь при открытом редакторе Maestro сообщение не перерисовывает: SillyTavern покажет его сам, когда редактор закроется. Если правку сохранить, побеждает твой текст.\n\n## 1.21.1 — ответ не теряет оформление после правки Maestro (2026-10-11)\n\n- **Исправлено: после чистки ответа он оставался без карточек DES** («Карточки» и «Discord»), без мыслей персонажей в чате и без карточек Silly Sim Tracker — пока не откроешь и не закроешь редактор сообщения. Maestro перерисовывал сообщение, но не сообщал об этом: DES держит пометку «уже разложено» на самом блоке текста, она переживает перерисовку, и DES больше не трогал сообщение. Теперь после перерисовки Maestro посылает `MESSAGE_UPDATED` — как редактор SillyTavern, и все расширения оформляют сообщение заново. Касается:\n  - «Качества ответа» (M12): чистка служебного мусора и её отмена;\n  - листов BunnyMo: обрезка лишней сцены после листа и её отмена;\n  - механик: служебный блок `<mechanics>`, снятый уже после показа ответа (страховка на `reply:ready` и при следующем ходе).\n- `MESSAGE_EDITED` Maestro при этом не посылает: для Qvink это правка (пересказ заново), а для самого Maestro — правка игрока. Пока ответ только пришёл (`MESSAGE_RECEIVED`) или игрок закрывает редактор, Maestro молчит — SillyTavern сообщает о сообщении сам. Общая функция — `src/host/messages.ts`.\n\n## 1.21.0 — мастерская: служебные персонажи без сюжетной машинерии (2026-10-11)\n\n- **«Мастерская»** (новый модуль M42) — категория для служебных персонажей: генераторов сценариев и персонажей, редакторов, «соавторов». Кнопка с гаечным ключом в редакторе карточки (и пункт в «Ещё…», и `/maestro-workshop [on|off]`) ставит карточке тег «мастерская»; можно поставить тег и самому. В чатах такой карточки:\n  - сюжетные модули Maestro (канон, ревизия, режиссёр, голоса, закулисье, гардероб, механики, качество ответа, медик, подготовка к игре и другие) стоят на паузе — их переключатели не меняются, в сюжетном чате всё снова работает;\n  - из уходящего запроса вырезаются инструкции соседей — трекер DES, метки картинок NAI Studio, CarrotKernel, Dramatis, DES-RU, Qvink; остаются карточка, история, заметка автора, глубинный промпт карточки и векторная память;\n  - глобальные лорбуки (паки BunnyMo, «Архив персонажей») и лорбук персоны не сканируются, лорбуки карточки и чата остаются (настраивается);\n  - Qvink выключается для этого чата своим переключателем — без пересказов, и черновики не выпадают из истории; когда карточка уходит из мастерской, Qvink включается обратно;\n  - Dramatis 1.4.1 останавливает свои модули: не читает замысел, не разбирает ходы.\n- **Пресет «Мастерская»** включается сам, когда открывается чат мастерской, и уходит при выходе (своя привязка пресета к персонажу или чату важнее). Короткий пресет соавтора лежит в `presets/Мастерская.json`: разговор вне роли, до трёх вопросов с вариантами, готовые карточки и записи лорбука в Markdown. Руководство: `docs/guide/workshop.md`.\n- **Автоматическая смена пресета больше не меняет модель.** Привязки пресета к персонажу и чату и мастерская переключают только пресет: модель, источник и провайдеры остаются те, что выбраны, даже если в файле пресета записаны другие (с включённым в ST «Bind presets to API connections» раньше могла молча смениться модель). Расхождение только в модели не вызывает вопроса «Есть несохранённые правки».\n- Для соседей: `MAESTRO_API.workshop` — `active()` и `onChange()`; пока открыт чат мастерской, `llm.request` отвечает `'workshop'`, события хода не приходят.\n- Исправлено: обработчик события, снятый другим обработчиком того же события (модуль ушёл на паузу при смене чата), больше не вызывается — и в событиях SillyTavern, и во внутренней шине Maestro.\n\n## 1.20.0 — язык истории, персона для персонажа, переодевание, кнопка у поля ввода (2026-10-10)\n\n- **«Язык истории»** (Настройки → Общие: авто / русский / английский). На «авто» решают твои сообщения, затем остальной чат, затем язык интерфейса — играешь по-русски, и даже английская карточка считается русской историей. По нему:\n  - «Подготовка» пишет имена по-русски: личные — транслитом (Ophelia → Офелия), «говорящие» названия мест, фракций, традиций — переводом («The Long Winter» → «Долгая зима»); английское написание остаётся алиасом. По-русски — наряды, секреты и обещания (окна «Знания» и «Календарь»), названия механик и показателей; канон для модели остаётся английским. Повторная подготовка узнаёт то, что раньше сделано по-английски, и не дублирует.\n  - Персонажи в DES на стартовых сценах — с русскими именами, мыслями, внешностью, настроением и одеждой.\n  - Паспорта NAI, подсказка о формате и «Ранее в истории…» берут язык отсюда; соседям он доступен как `MAESTRO_API.storyLanguage()` (Dramatis переводит по нему описания в окнах).\n- **«Создать персону» в карточке персонажа** (новый модуль M41): кнопка рядом с «Connected Personas» и пункт в меню «Ещё…», команда `/maestro-persona [комментарий]`. Maestro читает карточку, сценарий, приветствие, заметки автора и лорбук, учитывает твой комментарий и придумывает тебе персонажа: имя, внешность, предысторию и 5–6 нарядов. Всё можно поправить перед созданием; затем — персона в SillyTavern, связь с этим персонажем (другие связанные персоны остаются), паспорт NAI с этими нарядами и бесплатная картинка-аватар (нужна NAI Studio 0.15). Задача «Персона для персонажа» — в «Профилях».\n- **Кнопка Maestro у поля ввода** — один значок рядом с волшебной палочкой, с быстрыми действиями (выключается в настройках; те же действия — в меню Maestro):\n  - **BunnyMo** (новый модуль M40): полный и короткий лист, только теги, обновить теги, внешность, «Запомнить момент» — выбираешь персонажа сцены, и команда `!fullsheet Имя` встаёт в поле ввода (или уходит сразу — настройка «Отправлять сразу»). Команды-справочники BunnyMo, которые тянут целые паки, сюда не вынесены.\n  - **Переодеться:** персонажи сцены и «Я» → их наряды, «Описать…», «Открыть гардероб»; команда `/maestro-wear <кто> <наряд или описание>`.\n- **Переодевание по сообщениям** (гардероб, M27). Пишешь «переодеваюсь в домашнее» — Maestro узнаёт наряд и переодевает ещё до ответа, так что ответ пишется в новой одежде. Переодевания в рассказе («Офелия сняла плащ») тоже подхватываются. Желания, просьбы, прямая речь и «снял очки / квартиру» переодеванием не считаются; если непонятно, во что, — один фоновый запрос после ответа.\n- **«Переодеть сейчас»** рядом с «Надеть» в гардеробе и досье: одежда меняется сразу везде — «что надето сейчас», наряд и его формулировка в паспорте NAI, портрет, трекер DES (настройка «Записывать одежду в трекер DES»), строка «кто во что одет» для модели. Под сообщением — «Офелия → Домашнее · Отменить · Другое…»; одна запись журнала всё откатывает.\n- **Механики слева от чата** на широком экране (настройка «Где показывать HUD»): подробная панель — все персонажи сцены, их показатели, состояния и предметы, бой. На узком экране, на телефоне или при открытой левой панели ST механики сами возвращаются поверх чата. Пока панель слева показана, полоска механик под портретами DES не дублирует её.\n- **«Эталон» — только системные настройки.** Пресет, источник и модель, размер контекста и ответа, рассуждения, профиль подключения, регексы, настройки движка лорбуков и расширений. Какие лорбуки включены, библиотеки CarrotKernel, переключения профилей Qvink при смене чата, выбранный стиль NAI Studio больше не считаются изменениями. Старый эталон переводится в новый формат.\n- **«Проверка лекарств» BunnyMo — только когда нужна** (правило переименовано): запись (около 4,5 тыс. символов) выключается на ход, если ни у кого в сцене и ни в одном архиве персонажа в лорбуках нет тегов MED или REC, — теперь и без Dramatis.\n- Персонажи в механиках, в «Переодеться» и в целях листов BunnyMo называются так, как их пишет история (имя из трекера DES), а не каноническим именем модели мира — в русской истории «Вера», а не «Vera». Значения хранятся как прежде.\n- Для стенда: мок модели отвечает на переодевание, персону и шаг досье и перевод описаний Dramatis 1.4, «Расширить мир» Localizer 0.5.\n\n## 1.19.0 — Dramatis в листе персонажа DES (2026-10-09)\n\n- **Вкладка «Dramatis» в листе персонажа DES.** Что Dramatis знает о персонаже — теперь там, где его ищешь: правый клик по портрету → «Character Sheet» → вкладка «Dramatis». Имя, кто он такой, насколько подробно Dramatis его знает, разделы (мотивы, цели, отношения…) блоками. Тайны — как ты выбрал в Dramatis: размыты, пока не нажмёшь, открыты с пометкой или не показываются вовсе. Если Dramatis персонажа ещё не знает — так и сказано, с кнопкой «Открыть Dramatis»; на твоём собственном персонаже — короткая заметка. Кнопка «Открыть в Dramatis» ведёт в его «Лист замысла». Пока лист открыт, вкладка обновляется вслед за Dramatis.\n- **Пункт «Dramatis» в меню портрета** открывает лист персонажа сразу на этой вкладке. На твоей карточке пункта нет.\n- **Панель «Dramatis» в Мастерской DES** — то же самое для тех, у кого нет правого клика (iPhone, iPad): «Ростер» → Мастерская → «Dramatis». Только чтение: пока Мастерская открыта, Maestro в DES ничего не пишет.\n- **Подготовка к игре и Dramatis.** В окне подготовки — переключатель «Личности в Dramatis: прочитать замысел карточки» (включён, если Dramatis карточку ещё не читал). Если уже читал — видно, сколько персонажей он прочитал, а переключатель перечитывает карточку. Dramatis читает её до того, как Maestro заполняет DES, — стартовые сцены сразу получают то, что он прочитал. В «Что сделано» — строка «Dramatis: прочитал личности — N персонажей» (или ошибка, или «личности из карточки — N», если перечитывать не понадобилось) с кнопкой «Открыть»; то же — в «Готово к игре». Отменять тут нечего: чтение записывает в журнал сам Dramatis. Сохранённая подготовка и кнопки «Готово к игре» Dramatis не зовут.\n- Всё это — с Dramatis 1.3 и новее; со старым Dramatis или без него ничего не меняется. Раздел выключается в «Модулях» («Раздел Dramatis в листе персонажа DES»), при этом всё добавленное в окна DES убирается. DES-RU эти разделы не переводит; оформление следует теме Maestro и DES, на телефоне вкладки переносятся.\n\n## 1.18.0 — персонажи стартовых сцен в DES (2026-10-09)\n\n- **«Персонажи в DES».** «Подготовить к игре» теперь заполняет и трекер DES для каждой стартовой сцены — для приветствия, что сейчас в чате, и для всех альтернативных. С первого же сообщения в полосе портретов и на панели сцены — те, кто в этой сцене: внешность, как держатся, во что одеты, как относятся к твоему персонажу, о чём думают, их показатели, а ещё дата, время, место и погода. Значения — на языке истории и в тех полях, что настроены в DES (свои поля, свои варианты отношений, показатели, виджеты сцены). Переключатель «Персонажи в DES» — в окне подготовки рядом с паспортами (включён по умолчанию).\n- **Одна модель на приветствие.** Для каждой стартовой сцены — один короткий запрос (задача «Подготовка: персонажи в DES» в настройках «Профили»; ты сам нажал «Применить», поэтому дневной потолок фоновых трат его не останавливает). Кто в сцене — по подготовленной сцене, имена — ровно те, что у паспортов; если модель не ответила, в DES попадают хотя бы имена, место, дата и время, и итог об этом говорит. Сохранённая «для персонажа» подготовка модель не зовёт — только имена.\n- **Всё связано.** Одежда — тот же стартовый наряд, что надевает гардероб; показатели — из механик, которые DES ведёт как статы; место — как его знает реестр мест; отношение — по позиции Dramatis к твоему персонажу, если Dramatis подключён (а ещё он подсказывает, кто в сцене и чем занят); NAI Studio рисует портреты новых лиц (не твоего персонажа и не персонажа карточки; у кого портрет в DES уже есть — не трогает). Медик не «чинит» подготовленный трекер первого сообщения.\n- **DES не затирает подготовку.** DES стирает трекер приветствия, когда чат открывается, когда карточку сохраняют заново и после «Продолжить», — Maestro возвращает подготовленное, пока ты не написал первое сообщение. Свайп приветствия переключает и DES: его персонажи, сцена и список персонажей чата следуют за приветствием (кто был только в прежней сцене — уходит из списка). В первом ответе модель видит трекер начальной сцены (в режиме DES «вместе с ответом» DES сам его не передаёт) и продолжает от него с теми же именами.\n- **Отмена** одной строкой итога: прежние трекеры всех приветствий, то, что показывал DES, и добавленные в список имена возвращаются. Пока открыта Мастерская DES, Maestro в DES ничего не пишет и не отменяет.\n- Для Dramatis: Maestro читает новый необязательный `startCast` (Dramatis 1.2) — кто в каждой стартовой сцене, что делает и как относится к игроку.\n\n## 1.17.0 — Maestro и Dramatis (2026-10-09)\n\n- **Связка с Dramatis** — новым расширением-движком личностей (мотивы, цели, отношения, повестки персонажей). Maestro сам находит Dramatis и работает с ним, когда тот установлен; без Dramatis всё как раньше. Подробно — в `docs/integration-dramatis.md`.\n- **Открытый API для соседей** (`MAESTRO_API`): Dramatis пользуется инфраструктурой Maestro, а не заводит свою.\n  - Фоновые задачи ИИ — через профили задач Maestro (каждая задача Dramatis появляется в настройках «Профили» под своим названием), с учётом стоимости у казначея и дневным потолком; фоновую работу делает только ведущая вкладка. То, что ты запускаешь кнопкой, потолок не останавливает.\n  - Предложения Dramatis идут по твоим уровням автономии: сами, «Уведомить», «Входящие», «Спросить». Карточки во «Входящих» переживают перезагрузку, у каждого вида — человеческое название в настройках и журнале.\n  - Журнал с откатом, уведомления, события хода (свайпы, правки и ветки уже учтены), опознание имён (модель мира и склонения DES-RU), кто сейчас в сцене — так же, как видят голосовые карточки.\n  - Речь персонажа из архива CarrotKernel (теги LING, раздел Linguistics, MBTI) — та же выжимка, что в голосовых карточках, даже когда модуль голосовых карточек выключен.\n  - Для генератора Dramatis: «Оформить» нового персонажа с готовыми тегами BunnyMo (архив CK только с теми тегами, что знают подключённые паки; паки не меняются) и запись целей персонажа в его запись канона чата.\n- **Один блок вместо двух.** Когда Dramatis берёт голосовые карточки к себе, Maestro не отправляет свои отдельно — модель получает один блок «кто в сцене, как говорит и чего хочет». Подсказка CarrotKernel о персонажах при этом убирается из промпта, как и с голосовыми карточками, — в том числе когда сами голосовые карточки выключены. Настройки CarrotKernel не трогаются.\n- **«Проверка лекарств» BunnyMo.** Если зависимости всех персонажей сцены с тегами MED или REC ведёт Dramatis, запись «Medicine Check» из основного лорбука BunnyMo на этот ход выключается — модель не получает двух разных указаний об одной привычке. Новое правило во вкладке «Правила»; файл BunnyMo не меняется.\n- **Граф отношений** показывает и позиции Dramatis — как персонажи относятся к твоему персонажу и друг к другу, с причинами; они помечены как данные Dramatis.\n- **Механики**: пока Dramatis ведёт отношения и положение в обществе, шаблоны «Отношения» и «Социальные шкалы» не предлагаются; уже созданные механики остаются, у них появляется пометка.\n- **Закулисье** узнаёт у Dramatis цели персонажа, что он пытался сделать и чем кончилось — событие за кадром следует его планам.\n- **Режиссёр** берёт созревшие повестки Dramatis как повод для поворота.\n- **Проверка промпта и архитектор** знают блок Dramatis: его вставка подписана «Dramatis», правки к ней — советом (Maestro её не меняет), у архитектора — отдельный бюджет «Dramatis: карточка мотивов» (только замер).\n- Исправлено: время жизни карточки «Входящих», заданное предложением, теперь соблюдается; подсказка к бюджету механик у архитектора показывалась ключом.\n\n## 1.16.0 — подготовка всех стартовых сцен (2026-10-08)\n\n- **Все стартовые сцены.** «Подготовить к игре» читает каждое приветствие карточки целиком (а не только то, с которого открылся чат), и для каждого готовит свою стартовую сцену: где и когда, кто рядом, во что одеты, что происходит, тип первой сцены. Персонажи, мир, места, фракции, механики — общие для всех стартов. В окне подготовки — раздел «Стартовые сцены» с пометкой «сейчас в чате».\n- **Действует сцена, что сейчас в чате.** Пока ты не написал первое сообщение, свайп приветствия переключает сцену: наряды, тип первой сцены и заметка канона о начале истории меняются под неё (заметка одна, она переписывается). Первое сообщение закрепляет сцену. «Для персонажа» сохраняются все сцены — в следующем новом чате этой карточки действует сцена того приветствия, с которого он начнётся.\n- **Тип первой сцены доходит до первого ответа.** Раньше режиссёр снимал его в момент твоего первого сообщения — ещё до ответа модели; теперь он снимается, когда первый ответ уже написан.\n- Исправлено: окно подготовки не прокручивалось — после разбора длинный план нельзя было пролистать.\n\n## 1.15.0 — «Подготовить к игре» (2026-10-07)\n\n- **Подготовка новой истории.** В новом чате (пока нет твоих сообщений) под приветствием Maestro сам предлагает: «Подготовить историю к игре?» — и открывает окно «Подготовка к игре». Ещё — командой `/maestro-prepare`.\n  1. **Что читать**: карточка целиком (описание, характер, сценарий, выбранное и другие приветствия, примеры диалогов, заметки автора), её книги и книга мира, книга чата, твоя персона, кампания DES, листы CarrotKernel персонажей этой истории; что не влезает — видно; цена разбора — заранее.\n  2. **Разбор** фоновой моделью по частям, с прогрессом и «Остановить».\n  3. **Просмотр** по разделам: персонажи (имена и русские формы, роль, внешность, характер, манера речи, отношения, в том числе к твоему персонажу, во что одеты в начале), мир, места (с вложенностью), фракции, предметы, традиции, время начала и календарь, секреты, стартовая сцена, механики с начальными значениями, режиссура. Галочки, правка текста, «уже есть» и расхождения с каноном, выбор «для чата / для персонажа» у каждого пункта и раздела.\n  4. **Применение** одним пакетом: канон, места, паспорта NAI Studio для персонажей без паспорта (текстом, без Anlas), секреты, договорённости, механики, стартовые наряды, тип первой сцены; у каждого пункта — «Отменить» и ссылка в нужное окно. Фоны — только предложением.\n  5. **«Готово к игре»**: что сделано и чего не хватает (паспорт, портрет, фон…), с кнопками.\n- **Подготовка для персонажа** сохраняется: в следующем новом чате этой карточки её можно применить сразу, без нового разбора, или разобрать только изменившееся в карточке и книгах.\n- Подготовку запускаешь ты сам, поэтому дневной потолок фоновых трат её не останавливает (цена всё равно показывается заранее).\n\n## 1.14.0 — механики в игре (2026-10-07)\n\n- **Последствия и действия.** У проверки — последствия по исходу («провал — −10 здоровья», «заклинание стоит маны, сорвавшееся — половину»), у событий на порогах — действия: изменить значение, наложить состояние, дать предмет, раскрыть скрытое, запустить другое событие.\n- **Состояния с длительностью** («Отравлен — 3 хода», «Благословение — до заката»): модификаторы к проверкам и значениям, снимаются сами по ходам или по времени истории.\n- **Инвентарь**: предметы с количеством, «надето / в руках», цены, покупка и продажа за деньги механики; модель отдаёт и забирает предметы служебным блоком.\n- **Формулы** («макс. здоровье = 50 + 10 × уровень»), **опыт и уровни**, **рост навыков** от применения, **время**: восстановление и расход по дате и времени DES («+10 маны за час отдыха», голод растёт).\n- **Броски**: модель может сама попросить проверку в служебном блоке; встречные проверки («Скрытность Кая против Внимательности стражника»), преимущество и помеха, формулы вроде `2d6+1d4+3`, `4d6kh3`.\n- **Бой**: инициатива, очередь ходов, противники со своими статами; начинается сам, когда режиссёр видит бой, или кнопкой.\n- **Где видно** — у каждой механики и атрибута: «Игровой» (числа и полосы), «Книжный» (только словами), «Скрытый» (пока не раскрыт), «Тайный от всех» (знает только Maestro, модели — только последствия). По умолчанию — «Игровой», у отношений и социальных шкал — «Книжный».\n  - **Строка под ответом**: «Кай: ❤ 80 → 65 · 🔷 40 → 25 · + Отравлен (3 хода)» с «Отменить», карточки бросков с кубиками и последствиями, события порогов.\n  - **HUD** поверх чата: твой персонаж и выбранные, полосы, состояния с оставшимся временем, деньги и вещи, «Бросок» и «Инвентарь»; перетаскивается к верху или низу; на телефоне — одна строка.\n  - **Окно «Механики»**: «В игре» (значения, состояния, инвентари, бой, «Подсмотреть» скрытое), «История» (каждое изменение и бросок с откатом), «Конструктор».\n  - Полоса под портретами DES — с твоим персонажем и выбранными атрибутами; раздел «Механики» в досье.\n  - По желанию: сообщения рассказчика о бросках в ленте чата и статус-блок под ответом (выключены по умолчанию).\n- **Конструктор**: без id и английских полей — правила пишешь по-русски, модели уходит английский перевод (правится в «Подробнее»); «Описать словами» — механику собирает ассистент; предпросмотр того, что уйдёт в промпт; редакторы всех новых частей и видимости; копировать, сохранить в файл и загрузить, сбросить состояние.\n- **Шаблоны**: новые — выживание, рассудок, инвентарь и торговля, бой, социальные шкалы (симпатия, доверие, влечение); исправлены — заклинание (бросок против сложности с тратой маны), навыки (понятный разброс), репутация (фракции из лора), переключатель критов.\n- Исправлено: статы твоего персонажа в режиме DES теперь обновляются; механики мира и фракций уходят в промпт, только когда о них речь.\n- Состояния и инвентарь работают у механик, где эти части включены (новые шаблоны или конструктор); старые механики можно дополнить в конструкторе.\n\n## 1.13.0 — пресеты с ассистентом, правки по чатам, проверка промпта (2026-10-07)\n\n- **Правки пресета — везде, для персонажа или для этого чата.** Твой слой поверх пресета теперь из трёх частей: общий, персонажа и чата, накладываются по очереди. В редакторе блока и в «Слое» Пресет-студии — переключатель «Везде / Этот персонаж / Этот чат»; правку можно перенести между областями. Правки персонажа и чата никогда не попадают в файл пресета (ни при сохранении из студии, ни через «Обновить пресет» ST) и меняются сами при переходе в другой чат — пресет не становится «несохранённым».\n- **Пресет персонажа или чата.** Целый пресет можно привязать к персонажу или чату: при входе в чат Maestro включает его (спросив про несохранённые правки), при выходе возвращает прежний.\n- **Промпты соседей** — новая вкладка Пресет-студии: тексты инструкций, которые вставляют другие расширения (трекер DES, правила картинок NAI Studio, пересказы Qvink, языковой замок DES-RU, CarrotKernel, вставки самого Maestro). Можно изменить везде или сделать копию только для персонажа или чата — копия подставляется в момент отправки, настройки соседа не меняются.\n- **Ассистент работает с пресетами.** Видит пресет целиком (полный текст блоков, параметры, анализ, версии, сравнение двух пресетов, промпты соседей) и правит всё, что правишь ты в студии: текст («было/стало» по словам), название, роль, место, включение, порядок, удаление, параметры генерации — в слой выбранной области. Собирает новые пресеты (с нуля, из текущего, из блоков нескольких, из присланного JSON), привязывает их к персонажу или чату. Связанные правки приходят одной карточкой-пакетом: применить всё или выбранное, откат одним действием. «Пробная сборка» показывает, что уйдёт модели, ничего не отправляя. «Обсудить с ассистентом» у блока и у пресета открывает ассистента с ним в контексте. Знает подводные камни DeepSeek V4 через OpenRouter.\n- **Проверка промпта** — вкладка Пресет-студии, команда `/maestro-audit` и просьба ассистенту. Проверяет всё, что уходит модели как инструкция: пресет, карточку, заметку автора, вставки всех расширений и Maestro. Быстрые правила — язык, лицо, время, длина, обязательные части ответа (JSON трекера, картинки, инфобокс), форматы, «кто пишет за игрока», повторы, роли и места сообщений для твоей модели; по кнопке — проверка ИИ (с ценой заранее). Для каждого конфликта — две цитаты, чьи они, чем грозит именно на твоей модели и готовое исправление «было/стало» с выбором «везде / персонаж / чат». Паки BunnyMo не правятся никогда.\n- Исправлено: значение, поставленное «везде» после правки этого же значения в чате, больше не теряется при выходе из чата.\n\n## 1.12.0 — окна вместо пульта, Maestro в чате (2026-10-07)\n\n- **Окна.** Всё, что раньше жило в одном модальном пульте, теперь в отдельных окнах, которые не мешают играть: «Ассистент», «Входящие», «Персонажи» (досье, гардероб, BunnyMo), «Механики», «Мир», «Канон», «Ход», «Здоровье» и «Maestro» (обзор, журнал, настройки, оформление, расширения). По умолчанию окно открывается боковой панелью рядом с чатом; его можно открепить в плавающее окно (перетаскивание, размер, свернуть в заголовок) и прикрепить обратно. Несколько окон сразу; где какое окно было — запоминается на этом устройстве. На телефоне окно занимает экран под верхней панелью, открытые окна переключаются кнопками.\n- **Лор-студия и Пресет-студия** — тоже окна: рядом можно держать чат или ассистента.\n- **Шестерёнка в окне** показывает настройки модулей этого раздела.\n- **Меню Maestro** — по значку в верхней панели (новых значков нет): все окна со счётчиками, студии, твои задачи с прогрессом, настройки. То же меню — в «волшебной палочке».\n- **Кнопка Maestro у сообщения** (в «…»): «Досье» говорящего и «Механики».\n- **Команды**: `/maestro [окно]`, `/maestro-undo` (отменить последнее действие Maestro в этом чате), `/maestro-mode экономный|сбалансированный|кино`, `/maestro-scene <тип сцены|авто>`.\n- **Строка Maestro под сообщением**: предложения «Входящих» по этому ответу, запомненные живым каноном факты ([Верно] [Забыть] [Это ошибка]), вопрос «тот же персонаж или другой?», брак ответа, броски — прямо в чате; нажатие раскрывает карточку с кнопками, окно открывать не нужно. Строки переживают перезагрузку и исчезают, когда всё решено; в текст сообщения, промпт и память Qvink ничего не попадает, «пузыри» DES не ломаются. Настройка «Строка Maestro под сообщениями»: всё / только то, что ждёт решения / ничего.\n- Переход к сообщению или открытие студии больше не закрывает окна на компьютере (на телефоне окно уступает место чату).\n\n## 1.11.0 — понятные уведомления, гардероб, тёзки из разных историй (2026-10-06)\n\n- **Тёзки больше не сливаются.** Раньше новый персонаж с тем же именем, что у кого-то из другого чата (паспорт карточки, лист в общем архиве CarrotKernel, запись в общей книге), молча становился «тем же самым»: в новый чат приходили его внешность, наряды, характер, манера речи — и голос попадал в промпт. Теперь Maestro спрашивает во «Входящих» и значком у сообщения: «Офелия здесь — тот же персонаж, что в паспорте карточки?» [Тот же] [Другой]. Пока ты не ответил, старое не используется; «Другой» — в этом чате у неё всё своё, а паспорт карточки выключается только здесь (NAI Studio 0.14). Персонажи самой карточки (названные в её описании, сценарии, приветствиях или книге) — те же без вопросов. «Это разные» в модели мира теперь работает и для одинаковых имён. Решение можно поменять в досье. Данные Maestro удалённых чатов убираются вместе с чатом.\n- **Гардероб видит, во что все одеты сейчас.** Раньше в настоящих чатах он не срабатывал: DES пишет одежду внутри «Внешности», а гардероб ждал отдельного поля. Теперь:\n  - поле «Одежда» в трекер DES — одной кнопкой во вкладке «Гардероб» (только с твоего согласия, откат в журнале); пока его нет, одежда вычитывается из «Внешности»;\n  - каждый ход — сверка: знакомый наряд надевается сам, новый через два хода становится нарядом с русским названием («Шёлковое платье», «Блузка и юбка»); переодевания, раздевание, полотенце, бельё; пропущенный ход больше не «застревает»;\n  - «Кто в сцене и что на нём» во вкладке, «Сейчас: …» в досье, твой персонаж — по разговору об одежде (фоновая модель, не чаще раза в 6 ходов) или полем «Сейчас на тебе»;\n  - строка «кто во что одет» в конце промпта, чтобы модель не путала одежду (выключается);\n  - портрет DES перерисовывается при смене наряда (NAI Studio 0.14, выключается);\n  - NPC с паспортом только из лора получает паспорт чата при первом наряде.\n- **Понятные уведомления.** Каждое говорит словами истории: что случилось, что Maestro сделал или предлагает, что будет, если согласиться. Служебное (книги, номера записей, теги, английский текст канона) — под «Подробнее». У всех действий человеческие названия — в карточках, журнале и настройках автономии. Новое в настройках: «О чём сообщать» — всё (по умолчанию), важное, только срочное; «Показывать технические подробности». Однотипное за ход склеивается («Запомнил 3 новых факта о мире»). То, что Maestro делает сам, теперь видно: «Вера переоделась: «Шёлковое платье»» [Отменить]; живой канон сообщает, что запомнил, подтвердил и отбросил. Канон по-прежнему хранится по-английски, но в карточках — русская формулировка и цитата.\n- **Видно, как идёт локализация лорбука.** В шапке книги Лор-студии — «Локализую: 34 из 120 записей» с полосой и «Остановить»; «Жду: Localizer занят другой задачей»; итог «добавлено N ключей в M записей» и «Повторить неудачные»; ошибки — человеческими словами. Задача не теряется, если закрыть студию: она видна во вкладке «Задачи», а вокруг значка Maestro — кольцо прогресса. То же у кнопки «Русские ключи» записи. Живой счётчик и остановка — с Lorebook Localizer 0.3.\n- Исправлено: гардероб, режиссёр и закулисье переставали замечать новые ходы, если сообщения удалили, пока Maestro не видел (другая вкладка, выключенный Maestro); отмена правки «описание места» в журнале сообщала об успехе и ничего не меняла; номера сообщений в уведомлениях везде такие же, как в чате.\n- Для всех новых возможностей: NAI Studio 0.14.0, DES-RU 0.8.2, Lorebook Localizer 0.3.0; со старыми версиями соответствующие части просто не включаются.\n\n## 1.10.3 — закулисье только своих персонажей (2026-10-05)\n\n- «Закулисье» больше не придумывает события персонажам из других историй. Раньше важным считался любой отсутствующий персонаж с архивом CarrotKernel или записью лора — и персонаж из общей книги-архива получал события во всех чатах, а модель потом его упоминала. Теперь кандидат — только персонаж этой истории: из трекера DES этого чата, появлявшийся в сцене, упомянутый в сообщениях, из карточки, канона чата, книги чата или книги карточки.\n- Уже сохранённые события таких персонажей убираются из канона чата один раз при открытии чата (с откатом в журнале) и сообщаются уведомлением.\n\n## 1.10.2 — цвета реплик персонажей (2026-10-05)\n\n- «Стиль сообщений» больше не перекрашивает реплики, у которых есть свой цвет (раскраска реплик DES: `<font color=…>\"…\"</font>`): цвет персонажа остаётся, правило добавляет только курсив и жирный.\n\n## 1.10.1 — фоновые задачи без рассуждения (2026-10-05)\n\n- Фоновые задачи Maestro (режиссёр, ревизия, живой канон, летопись, закулисье…) на профилях OpenRouter теперь просят модель не рассуждать: пресет профиля к ним не применяется, и DeepSeek V4 тратил весь короткий бюджет на размышления — тип сцены у режиссёра не определялся ни разу, ревизия отвечала со второй-третьей попытки. Ассистент рассуждает как раньше.\n- Задачи со строгой схемой ответа получают не меньше 200 токенов.\n\n## 1.10.0 — правки по живым тестам (2026-10-05)\n\n- **Стиль сообщений** — новая вкладка в «Настройках»: редактор правил, как выглядят сообщения игрока и персонажей. Правило — что найти (\"…\", «…» ёлочками, реплики через тире, \\*мысли\\*, \\*\\*акцент\\*\\*, (…), […], свой регекс с проверкой) и как показать (цвет из темы, курсив, жирный, приглушение, шрифт, черта или подложка, вид кавычек — только на экране). Пресеты: «Классика» (по умолчанию: повествование обычным текстом, \"диалоги\" цветом цитат, \\*мысли\\* курсивом), «Книга», «Подсветка речи», «Мысли отдельно», «Ёлочки», «Сценарий», «Роман», «Контраст», «Игрок отдельно», «Минимум». Живой пример. Сохранённый текст сообщений не меняется. По желанию — «Подсказать модели этот формат».\n- **Сообщения игрока** — свой вид: акцентная черта, имя акцентным цветом, по желанию сдвиг вправо в «пузырях».\n- **Стартовая страница** в едином стиле: карточки недавних чатов, кнопки, приветствие. В превью чатов больше нет JSON трекера DES и сырых тегов вроде `<font color=…>` (только на экране; то же в «Управлении чатами» и боковой панели Top Info Bar).\n- **Оформлены**: панель персон игрока, «Управление чатами», панель чатов Top Info Bar, поле ввода (скругление, отступы, подсветка фокуса; на телефоне — крупные кнопки и шрифт 16 px без увеличения в iOS).\n- **Верхняя панель** снова с воздухом: высота подросла через собственную переменную ST, вся раскладка сдвигается вместе с ней (в iOS и в режиме «Плотно» — как в ST).\n- **Ассистент видит чат и карточку**: чтение и поиск по сообщениям текущего чата (трекер DES — коротко), карточка персонажа со всеми стартовыми сценами (первое сообщение и альтернативные приветствия), персона игрока и «обзор сценария» — одним вызовом всё, что нужно, чтобы предложить механики по этому чату.\n\n## 1.9.0 — ассистент (2026-10-05)\n\n- **Ассистент Maestro** — вкладка «Ассистент» в пульте, отдельно от ролевой игры: спрашивай про Maestro, этот чат и расширения. Модель — из своего профиля подключения (по умолчанию фоновый), свой цикл с инструментами, а не инструменты ST — модель РП их не видит. Дневной потолок фоновых трат ассистента не останавливает: его запускаешь ты.\n- **Читает и объясняет** — 27 инструментов: модули и их настройки, здоровье стека, журнал, «Входящие», промпт хода, почему запись лора сработала или нет («почему героиня не узнала сестру?» — ключи, глубина сканирования, падежи, вероятность, группы, задержки), почему ход дорогой (источники, кэш, перегенерации), регексы (объяснение и проверка на примере по правилам ST), досье, отношения, кто что знает, места, календарь, гардероб, паспорта, механики, режиссёр, блоки пресета. Встроенная справка: каждый модуль, каждый сосед и частые вопросы — на русском и английском.\n- **Делает — только с твоего согласия**: настройки модулей, включение модулей, уровни автономии, механики, регексы (только после проверки на примерах), блоки и условия в твоём слое пресета, записи лора, паспорта. Каждое изменение — карточкой «было/стало» с кнопками «Применить» и «Отклонить», всё в журнале с откатом.\n- **Безопасность**: текст чата, лора, карточек и пресетов для ассистента — только данные, не инструкции; ключи API, токены, адреса и профили подключения он не видит и не меняет; книги BunnyMo не трогает; не больше 10 шагов и 5 предложенных изменений на сообщение и 20 применённых изменений в час.\n\n## 1.8.0 — единый интерфейс (2026-10-05)\n\n- **Единый стиль** — SillyTavern, чат и расширения выглядят как одно приложение: одна таблица стилей Maestro за классом `maestro-theme` на странице. Цвета, размытие, тени, размер шрифта и ширину чата даёт твоя тема ST (смена темы подхватывается сама), скругления, отступы и элементы управления — общие с окнами Maestro. Выключил стиль или Maestro — всё выглядит как раньше; настройки соседей не меняются.\n- **Соседи в том же стиле**: Doom's Enhancement Suite (окна, полоса портретов, шапки сцены и мысли в чате — через его собственные переменные), CarrotKernel (самые заметные части), NAI Studio (панель, окна, картинки в чате), DES-RU, строки памяти Qvink, Lorebook Localizer.\n- **«Оформление» в настройках пульта**: стиль целиком и по частям (ST, чат, каждое расширение), плотность, скругления, «Показать, как было» на 10 секунд.\n- **Док «Расширения»** — блоки настроек CarrotKernel, Qvink, NAI Studio, DES-RU, Localizer и DES открываются прямо в пульте (настоящие блоки, всё работает) и возвращаются на своё место, когда пульт закрыт или Maestro выключен; по желанию — и полоса портретов DES. Ярлыки открывают окна соседей: настройки и каталог персонажей DES, редактор памяти Qvink, галерея и сцена NAI Studio, локализатор, менеджеры CarrotKernel.\n- **Пульт по разделам** — вкладки собраны в группы: Ход, Входящие, Канон, Досье, Мир, Механики, Здоровье, Журнал, Расширения, Настройки; группы сворачиваются, на телефоне — разделы в списке вкладок.\n\n## 1.7.0 — механики (2026-10-05)\n\n- **Конструктор механик** во вкладке «Механики»: свои игровые системы без возни через лор — атрибуты (числа, шкалы, списки, тексты), у кого они есть (персонажи, твой персонаж, фракции, мир), правила для модели, события на порогах («мана на нуле — заклинание срывается»), проверки с кубиками. Шаблоны: здоровье и выносливость, магия с маной и школами, репутация у фракций, деньги, навыки с проверками, отношения. Механика хранится записью типа «механика» в книге Maestro, действует для карточки, чата или везде и выключается в отдельном чате.\n- **Три способа учёта** — на выбор для каждой механики и атрибута: статы трекера DES (Maestro по твоему согласию добавляет их в DES, твои собственные статы не трогает), короткий служебный блок в конце ответа модели (Maestro читает его, чинит ошибки формата и прячет), фоновый разбор ответа. Изменения применяются, когда ты отправляешь следующее сообщение; свайп или удаление ответа откатывает его изменения. Правка значения в пульте — с откатом.\n- **Броски делает Maestro**: слово-триггер в твоём сообщении («убедить», «колдую», \"sneak\") — и проверка уходит в промпт фактом: «Spellcasting check (Элизабет): rolled 6, needed 100 or lower — success». Свайп не перебрасывает. Есть кнопка «Бросок» и команда `/maestro-roll`.\n- **В промпте** — только правила и значения механик, которые участвуют в сцене, ближе к концу; бюджет «механики» у архитектора. Флаги `maestro_mech_<механика>` для условных блоков пресета — в каталоге Пресет-студии. События на порогах — материал для поворотов режиссёра.\n- **Виджеты** — значения в пульте и строкой под портретами DES (на телефоне — одна строка с прокруткой).\n\n## 1.6.0 — визуальная связка (2026-10-05)\n\n- **Гардероб и состояния** — новый наряд из трекера DES (повторившийся два хода) становится именованным нарядом в паспорте NAI Studio уровня чата, а знакомый наряд узнаётся и надевается снова; состояния персонажей (мокрый, ранен, устал…) и мест (разрушено, украшено, пожар, ночь) включаются и выключаются в паспортах по трекеру. Персонаж, который появляется уже в новом наряде, тоже получает его. NAI Studio рисует узнанный наряд его тегами. Библиотека нарядов — во вкладке «Гардероб» и в досье, всё с откатом. Отложенные карточки нарядов из ревизии разбираются сами.\n- **Паспорта в лорбуках** — у записи лора может быть визуальный паспорт в формате NAI Studio: в книгах Maestro — в самой записи, у базовых книг — в реестре Maestro (файлы книг не меняются, книги BunnyMo не трогаются). Создаётся генератором NAI Studio или фоновой моделью по его схеме, правится в Лор-студии рядом с текстом. NAI Studio получает паспорта записей, сработавших или упомянутых в сцене.\n- **Фоны** — фон чата следует за местом: сначала подбор из библиотеки фонов SillyTavern (по названию, папкам, состоянию места, времени суток и погоде из DES), иначе — кнопка «Сгенерировать фон» в NAI Studio (с учётом режима «только бесплатно»). Только фон этого чата — общий фон и `settings.json` не меняются. Поставленный тобой фон Maestro не трогает, пока не разрешишь снова выбирать самому.\n- **«Оформить»** в досье — новый NPC или место получает всё одной кнопкой: запись канона с русскими ключами, архив CarrotKernel по словарю загруженных пакетов BunnyMo (в твою книгу-репозиторий или новую «Maestro · архив»), паспорт NAI Studio, если его нет. Весь план — одной карточкой во «Входящих», каждую часть можно откатить отдельно. «В книгу карточки» переносит запись канона в книгу карточки.\n- Нужен NAI Studio 0.12.1 (паспорта от Maestro, генерация паспорта и фона, наряды по формулировке трекера); со старыми версиями эти части просто не включаются.\n\n## 1.5.0 — живой мир (2026-10-05)\n\n- **Закулисье** — раз в несколько ходов (15 в «Сбалансированном», 10 и в конце сцен в «Кино», в «Экономном» только по кнопке) фоновая модель коротко рассказывает, чем были заняты до трёх важных персонажей, которых давно нет в сцене. События — в канон чата; смерть, плен, исчезновение и всё, что спорит с каноном, сначала ждёт тебя во «Входящих». Иногда присутствующие слышат слух.\n- **Календарь и обещания** — время истории по трекеру DES (обычные даты, «День N», выдуманные календари); договорённости и сроки из ревизии или вручную: «к закату», «через три дня», «by tomorrow». Наступивший срок — повод для заметки режиссёра; просроченное и нарушенное отмечается.\n- **Кто что знает** (экспериментально, выключено по умолчанию) — участники сцены знают её события, секреты из ревизии помечаются; голосовые карточки получают «не знает: …», когда тема всплыла.\n- Ревизия сразу отдаёт обещания календарю и секреты — модулю «Кто что знает»; отложенные карточки прошлых этапов разбираются сами.\n\n## 1.4.0 — режиссура (2026-10-05)\n\n- **Режиссёр сцены** — после каждого хода определяет тип сцены (диалог, бой, интимная, исследование, пропуск времени, светская, драма) по ответу, твоему сообщению и трекеру DES, с устойчивостью к случайным скачкам; при сомнении — дешёвая модель. Для следующей генерации ставит одноразовые флаги: `maestro_scene_<тип>`, длина ответа, откровенная сцена, язык, «момент для картинки». Тип можно задать самому.\n- **Темп и повороты** — если история встала (то же место, ничего не происходит, повторы, разговор по кругу), короткая заметка режиссёра ближе к концу промпта с поворотом из квестов DES и незакрытых нитей. Молчит, когда ты сам ведёшь сюжет; никогда не уводит от тёмных и откровенных сцен. «Встряхнуть» — заметка по кнопке.\n- **Голоса персонажей** — компактная карточка на каждого присутствующего: манера речи (LING и блок Linguistics), MBTI с состоянием, отношение к тебе сейчас, связи с другими присутствующими, цели. Когда карточки включены, вставка CarrotKernel «Character Consistency» гасится при сборке промпта (настройки CK не меняются), а DES-RU перестаёт её пересобирать. Выключено по умолчанию.\n- **Условные блоки пресета** — в Пресет-студии блок можно сделать «только когда …» / «кроме когда …» по флагу Maestro (`{{if .maestro_…}}`), с симулятором флагов, проверкой синтаксиса и предупреждением, если новый движок макросов выключен. «Подготовить к отключению» спрашивает, оставить ли такие блоки обычным текстом или выключить.\n\n## 1.3.0 — ресурсы: архитектор промпта и казначей (2026-10-05)\n\n- **Бюджеты по источникам** — общий потолок лора (поверх потолков книг), RAG CarrotKernel, краткосрочной памяти Qvink и необязательного блока контекста DES; при превышении уходят наименее важные куски, инструкции трекера DES и долгая память Qvink не трогаются никогда. По умолчанию всё выключено.\n- **Кто рядом** — записи об отсутствующих и далёких местах приглушаются, если о них не говорили последние сообщения; записи присутствующих и текущего места закрепляются (включается в «Архитекторе»).\n- **Повторы фактов** между лором, каноном, памятью Qvink, архивами CK и DES — отчёт, а по твоему согласию остаётся один источник.\n- **Кэш провайдера** — доля промпта из кэша и место, где промпт начинает меняться; проверка, что меняющиеся вставки Maestro стоят в конце.\n- **«До и после»** каждого правила — во «Промпте хода».\n- **Казначей** — сколько стоит игра: последний ход, сессия, сегодня и 14 дней, по источникам (основная модель, перегенерации, авто-свайпы, Qvink, задачи Maestro, NAI) и Anlas; при достижении общего дневного лимита — переход в «Экономный», если так настроено.\n- Учитываются кэшированные токены провайдеров.\n\n## 1.2.0 — контроль качества ответа (2026-10-04)\n\n- **Проверка каждого ответа** до того, как NAI Studio начнёт рисовать: уход в другой язык, кальки и штампы; реплики и действия за тебя; отказы, морализаторство, оговорки вне роли, смягчение и навязчивые вопросы; повторы прошлых ответов; обрезанный ответ; служебный мусор и протёкший HTML (JSON трекера DES и маркеры NAI — норма); нет трекера DES; граница контента. Сначала бесплатные правила, дешёвая модель-судья — только при сомнении (в «Экономном» — никогда).\n- **Действия по видам брака** — выкл / «Само» (очистить, попросить продолжить, один свайп за ход с точной инструкцией, ремонт трекера через Медика) / «Уведомить» (значки «Переделать» и «Не брак»). По умолчанию «Само» — только мусор и трекер, остальное — «Уведомить», пока не набрана статистика ложных срабатываний.\n- **Ранняя отсечка** служебных токенов модели прямо в потоке: остановка и один свайп.\n- **Граница контента** — настраиваемые правила с умолчанием (никакого сексуального контента с несовершеннолетними), тестовый режим.\n- **NAI Studio ждёт «качество ок»** (нужен NAI Studio 0.11.0): картинки не рисуются для ответа, ушедшего на переделку.\n\n## 1.1.0 — Пресет-студия (2026-10-04)\n\n- **Пресет-студия** — большое окно для пресета Chat Completion: «Карта» (как SillyTavern соберёт промпт: блоки по порядку, вставки расширений на своих местах, токены, блоки, которые включены, но не уйдут), «Блоки» (порядок перетаскиванием, массовое включение, поиск, предпросмотр с макросами), редактор блока, «Анализ» (несохранённые правки, пустые и неотправляемые блоки, противоречия, повторы с лором и вставками, особенности модели и провайдера), «Версии» (каждое сохранение — версия, откат), «Параметры» генерации и сценариев.\n- **Твой слой** — твои блоки и правки хранятся отдельно от базового пресета и накладываются при его выборе; новая версия базы (например, Marinara) ставится без потери правок, а при изменённом тексте блока — выбор из трёх версий. Перенос текущих правок в слой с предпросмотром (ключи подключения можно не переносить), перенос слоя на другой пресет, блоки из чужих пресетов.\n- **Безопасное сохранение** — пресет сохраняется только с явным телом, незнакомые ключи и расширения сохраняются, переименование переносит разрешения регексов и спрашивает о профилях подключения; несохранённые правки сохраняются версией перед переключением пресета.\n- **Сценарии генерации** — свои параметры для перевоплощения и продолжения (выключены по умолчанию).\n- Раздел Prompt Manager можно заменить кнопкой студии (настройка, по умолчанию выключена — до проверки паритета вживую).\n- **«Подготовить к отключению», экспорт и импорт данных Maestro** в настройках пульта.\n\n## 1.0.0 — выпуск R3, первая полная версия (2026-10-04)\n\nЭтап 4: ревизия и живой канон.\n\n- **Сигналы хода** — когда ты отправляешь сообщение, прошлый ответ фиксируется, и Maestro без ИИ сравнивает его с ходом раньше: смена отношения, стойкая внешность, место, пропуск времени, конец сцены, квесты, кто пришёл и ушёл, новые алиасы и имена, память Qvink. Свободный текст засчитывается, только если продержался два хода; свайп и правка откатывают ровно то, что дал ответ.\n- **Ревизия «сюжет → канон»** — по сигналам, раз в N сообщений, в конце сцены или командой `/maestro-revise` дешёвая модель смотрит, что изменилось у известных персонажей и мест, и предлагает обновить владельца: канон чата, теги архива CK (только из словаря паков), паспорт NAI уровня чата, прозвища чата, реестр мест. Наряды, обещания и секреты ждут своих этапов отложенными карточками.\n- **«Входящие»** — карточки по персонажам, ссылка на сообщение, «было/стало» по хранилищам, цитата и уверенность; принять, изменить на месте, отклонить, отложить, «Всегда так», принять всё.\n- **Проверка противоречий** — сначала правила (имена, числа, даты, отрицания), при сомнении — дешёвая модель; общий сервис для ревизии и живого канона.\n- **Живой канон** — то, что придумала модель (праздник, таверна, род), после фиксации хода становится пробной записью канона с русскими ключами; подтверждается, только если ты сам это упомянул, принял, если оно всплыло снова без подсказки или продержалось 10 ходов без противоречий. Пакетное извлечение пишет английский текст записей. Свайп убирает пробное, подтверждённое остаётся.\n- **Летопись и автопамять** — воспоминания Qvink, выпавшие из долгой памяти, становятся главами канона (срабатывают по двум ключам сразу); важные моменты сами получают отметку «запомнить» во всех свайпах; «Ранее в истории…» после перерыва.\n- **Замеры** — вкладка с критериями первой полной версии: задержка Maestro до запроса, доля фоновых расходов, лор на ход, выпавшие сообщения, роли записей, вкладки, ревизия, живой канон, листы, файлы паков. Скрипт стенда `tools/stand/measure.mjs`.\n- Исправлено: досье и листы брали архив «Александра» для «Александр» (падежная форма совпадала с другим именем); запросы NAI Studio записывались в расходы Qvink.\n\n## 0.2.0 — выпуск R2 (2026-10-04)\n\nЭтапы 2 и 3: Лор-студия, роли книг, доктор, канон; модель мира, досье, места.\n\n**Этап 3**\n\n- **Модель мира** — каждый персонаж, персона и место стека одной сущностью: карточки, состав DES, алиасы DES и DES-RU, падежи, паспорта NAI, архивы CK, записи лорбуков с типом, канон и места. Одно лицо под разными именами склеивается; сомнительные совпадения — во «Входящих». Прозвища, которые действуют только в этом чате.\n- **Досье** — одна страница на сущность: DES, лор, канон, архив CK и теги, паспорт NAI (с изменениями этого чата), падежи, воспоминания Qvink, RAG, последний лист. Сверка структуры (нет записи, паспорта или архива, алиас не стал ключом, имена расходятся), сверка внешности ИИ по кнопке, «Разнести» правку по хранилищам. Команда `/maestro-dossier`.\n- **Места** — реестр мест чата по локации DES: новое название становится местом, если продержалось два хода; вложенность, история визитов (кто был, когда), описание записью канона. NAI Studio держит непрерывность фона по id места.\n- **Граф отношений** — как персонажи относятся к твоей персоне, ход за ходом по трекеру DES.\n- **Режим BunnyMo** — словарь тегов всех паков (конфликты, дубли, теги без пака), паки по чатам, сравнение пака с новым файлом, проверка целостности, редактор листов архивов CK. Команда `/maestro-bunnymo`.\n- Нужен NAI Studio 0.10.0 для паспортов уровня чата и непрерывности по местам (без него всё остальное работает).\n\n**Этап 2**\n\n- **Лор-студия** — свой редактор лорбуков рядом со штатным: книги по ролям, все поля и действия штатного окна, канон рядом с базой, история версий, русские ключи, кампании DES. Кнопку «Миры и лорбуки» можно отдать студии настройкой.\n- **Роли книг** — Maestro знает, где ядро и паки BunnyMo, архивы CK, мир, карточка, NPC, канон; паки BunnyMo только для чтения.\n- **Канон чата** — изменения сюжета в отдельном лорбуке чата: переопределение, подавление, закрепление, добавление; бюджет, архив, слежение за базой, повышение до базы, экспорт, ветки. Срабатывает по русскому тексту.\n- **Доктор** — «Исправить в файле» для твоих книг (паки — никогда) и лечение регексов, всё с откатом.\n- **Правила** — кириллица и «целые слова», конфликт версий паков, `<NSFW>` в архивах, глубина сканирования архивов CK.\n- Нужны DES-RU 0.8.0 и Lorebook Localizer 0.2.0 (без них всё работает, но без склонений и локализации из студии).\n\n## 0.1.0 — выпуск R1 (2026-10-04)\n\nНаблюдение и быстрые исправления.\n\n- **Журнал лора** — какой лор ушёл в промпт на каждом ходу, почему, каким ключом и через какую запись; почему книга активна; «Что если» без генерации.\n- **Инспектор хода** — из чего собран промпт: пресет, лор по книгам, вставки соседей, история.\n- **Медик** — проверки соседей после каждого ответа; ремонт трекера DES; предупреждение о prefill с ролью assistant.\n- **Страж** — эталон настроек и пресета, дрейф во «Входящих»; устаревшая вкладка больше не перезаписывает настройки, пресеты и лорбуки.\n- **Доктор** — находки в лорбуках и регексах, испытание регексов.\n- **Правила на лету** — роль assistant → system, потолок и лимит рекурсии книги, дубли паков, «дыры» Qvink, картинки NAI вне пересказов, видимые теги BunnyMo, кнопка векторизации CK и полоса портретов DES на телефоне.\n- **Листы персонажей** — команды BunnyMo генерируются своей сборкой промпта, без хвоста сцены и трекера, сворачиваются и уходят из промпта после следующего хода.\n- **Мастер первого запуска.**\n\n## 0.0.0 — этап 0\n\nКаркас: слой ST, сервисы ядра, адаптеры соседей, пульт, стенд с имитацией модели.\n")?.[1] ?? null;
 }
 //#endregion
 //#region src/features/assistant/tools/read/docs.ts
@@ -61446,7 +62724,7 @@ var OVERHEAD = 1500;
 function budget(ctx) {
 	return Math.max(2e3, (ctx.resultChars ?? 12e3) - OVERHEAD);
 }
-var off = (ctx) => notice(ctx, "The Preset Studio is off.", "Пресет-студия выключена.");
+var off$1 = (ctx) => notice(ctx, "The Preset Studio is off.", "Пресет-студия выключена.");
 var PRESET_ARG = prop.string("Another saved preset by name (default: the current one, as it works now).");
 /** The rows of the preset asked for: the working copy of the current one, else the saved body of another. */
 function rowsFor(store, wanted) {
@@ -61495,7 +62773,7 @@ var presetList = (app) => readTool({
 	available: needsApi("presetStore"),
 	async run(_rawArgs, ctx) {
 		const store = presetStore(app);
-		if (!store) return off(ctx);
+		if (!store) return off$1(ctx);
 		const layer = presetLayer(app);
 		const current = safely$4(() => store.current(), "");
 		const names = safely$4(() => store.names(), []);
@@ -61543,7 +62821,7 @@ var presetBlockRead = (app) => readTool({
 	async run(rawArgs, ctx) {
 		const args = argsOf(rawArgs);
 		const store = presetStore(app);
-		if (!store) return off(ctx);
+		if (!store) return off$1(ctx);
 		const wanted = strArg(args, "block", 200);
 		if (!wanted) return notice(ctx, "Name a block.", "Укажи блок.");
 		const found = rowsFor(store, strArg(args, "preset", 200));
@@ -61602,7 +62880,7 @@ var presetParams = (app) => readTool({
 	async run(rawArgs, ctx) {
 		const args = argsOf(rawArgs);
 		const store = presetStore(app);
-		if (!store) return off(ctx);
+		if (!store) return off$1(ctx);
 		const found = rowsFor(store, strArg(args, "preset", 200));
 		if (!found) return notice(ctx, "There is no such preset.", "Такого пресета нет.");
 		const view = paramsView(found.body);
@@ -61634,7 +62912,7 @@ var presetFindings = (app) => readTool({
 		const args = argsOf(rawArgs);
 		const analysis = presetAnalysis(app);
 		const store = presetStore(app);
-		if (!analysis || !store) return off(ctx);
+		if (!analysis || !store) return off$1(ctx);
 		const type = enumArg(args, "type", PROMPT_TRIGGERS, "normal");
 		const findings = await withTimeout$5(analysis.findings(void 0, { type }), 2e4, null);
 		if (!findings) return notice(ctx, "The analysis took too long.", "Анализ не уложился во время.");
@@ -61675,7 +62953,7 @@ var presetCompare = (app) => readTool({
 	async run(rawArgs, ctx) {
 		const args = argsOf(rawArgs);
 		const store = presetStore(app);
-		if (!store) return off(ctx);
+		if (!store) return off$1(ctx);
 		const bodyOf = (name) => {
 			if (!name) return null;
 			if (name === WORKING) return {
@@ -61746,7 +63024,7 @@ var presetVersions = (app) => readTool({
 	async run(rawArgs, ctx) {
 		const args = argsOf(rawArgs);
 		const store = presetStore(app);
-		if (!store) return off(ctx);
+		if (!store) return off$1(ctx);
 		const found = rowsFor(store, strArg(args, "preset", 200));
 		if (!found) return notice(ctx, "There is no such preset.", "Такого пресета нет.");
 		const versions = await withTimeout$5(store.versions(found.preset), 1e4, []);
@@ -61793,7 +63071,7 @@ var presetDryRun = (app) => readTool({
 		const args = argsOf(rawArgs);
 		const analysis = presetAnalysis(app);
 		const store = presetStore(app);
-		if (!analysis || !store) return off(ctx);
+		if (!analysis || !store) return off$1(ctx);
 		const type = enumArg(args, "type", PROMPT_TRIGGERS, "normal");
 		const current = safely$4(() => store.current(), "");
 		const wanted = strArg(args, "preset", 200);
@@ -68201,6 +69479,429 @@ var writeTools = (app, log) => {
 	];
 };
 //#endregion
+//#region src/features/assistant/tools/agents.ts
+var SCOPES$2 = [
+	"global",
+	"character",
+	"chat"
+];
+var MODES$1 = [
+	"addition",
+	"full",
+	"default"
+];
+var agentsOf = (app) => apiOf$2(app, "agents");
+var available = (app) => agentsOf(app) !== void 0;
+/** A definition as the model reads it (no ids of no interest, instruction kept whole). */
+function view$1(def) {
+	const out = {
+		id: def.id,
+		name: def.name,
+		instruction: def.instruction,
+		sources: def.sources,
+		trigger: def.trigger,
+		result: def.result,
+		model: def.model
+	};
+	if (def.vars) out.vars = def.vars;
+	if (def.tools) out.tools = def.tools;
+	if (def.templateId) out.template = def.templateId;
+	if (def.batch) out.batch = true;
+	if (def.gate) out.gate = def.gate;
+	if (def.limits) out.limits = def.limits;
+	return out;
+}
+/** A built-in agent's default instruction texts ([] when they cannot be read). */
+function defaultsOf(id) {
+	try {
+		return builtInAgent(id)?.defaultInstructions() ?? [];
+	} catch {
+		return [];
+	}
+}
+/** Without the «Агенты» module: a note instead of an answer. */
+function off(ctx) {
+	return notice(ctx, "The Agents module is off.", "Модуль «Агенты» выключен.");
+}
+function title(app, key, fallback) {
+	const text = app.i18n.t(key);
+	return text && text !== key ? text : fallback;
+}
+var agentsList = () => readTool({
+	name: "agents_list",
+	description: "Lists Maestro's agents: the user's own agents (id, name, when it runs, what it returns, on in this chat), the built-in ones (Maestro's and neighbours' model jobs with an editable instruction), the sets, and the templates one can start from. Use before changing or creating an agent.",
+	parameters: objectSchema({}),
+	available,
+	async run(_args, ctx) {
+		const api = agentsOf(ctx.app);
+		if (!api) return off(ctx);
+		const states = api.states();
+		const own = api.list().map((def) => ({
+			id: def.id,
+			name: def.name,
+			phase: def.trigger.phase,
+			result: def.result.type,
+			on: states.get(def.id)?.on === true,
+			...def.tools ? { tools: def.tools } : {}
+		}));
+		return {
+			data: {
+				agents: own,
+				builtins: builtInAgents().map((spec) => ({
+					id: spec.id,
+					title: title(ctx.app, `m44.bi.${spec.id}.title`, spec.id),
+					changed: Boolean(api.builtinOverride?.(spec.id)),
+					...spec.neighbour ? { neighbour: spec.neighbour } : {}
+				})),
+				sets: (api.sets?.() ?? []).map((set) => ({
+					id: set.id,
+					name: set.name,
+					builtin: set.builtin === true
+				})),
+				templates: AGENT_TEMPLATES.map((template) => ({
+					id: template.id,
+					name: title(ctx.app, `m44.tpl.${template.id}.name`, template.id),
+					group: template.group
+				}))
+			},
+			summary: say(ctx, `Agents: ${own.length}`, `Агентов: ${own.length}`)
+		};
+	}
+});
+var agentGet = () => readTool({
+	name: "agent_get",
+	description: "One agent's whole definition: the user's own agent by id (instruction, sources, trigger, result, model, tools), or a built-in agent by its id (its default instruction and what the user changed).",
+	parameters: objectSchema({ id: prop.string("The agent id (from agents_list).") }, ["id"]),
+	available,
+	async run(rawArgs, ctx) {
+		const api = agentsOf(ctx.app);
+		if (!api) return off(ctx);
+		const id = strArg(argsOf(rawArgs), "id", 120) ?? "";
+		const def = api.get(id);
+		if (def) return {
+			data: view$1(def),
+			untrusted: true,
+			summary: say(ctx, `Agent ${def.name}`, `Агент ${def.name}`)
+		};
+		const spec = builtInAgent(id);
+		if (spec) {
+			const defaults = defaultsOf(id);
+			return {
+				data: {
+					id,
+					builtin: true,
+					title: title(ctx.app, `m44.bi.${id}.title`, id),
+					defaultInstruction: cut$8(defaults[0] ?? "", 6e3),
+					changed: api.builtinOverride?.(id) ?? null,
+					defaults: spec.defaults
+				},
+				untrusted: true,
+				summary: say(ctx, `Built-in agent ${id}`, `Встроенный агент ${id}`)
+			};
+		}
+		return {
+			data: { error: `No agent "${id}". Use agents_list.` },
+			summary: say(ctx, "No such agent", "Нет такого агента")
+		};
+	}
+});
+var agentTest = () => readTool({
+	name: "agent_test",
+	description: "Tries the user's own agent on a message without applying anything: returns what it would answer. Costs one request to the agent's model.",
+	parameters: objectSchema({
+		id: prop.string("The agent id."),
+		message_index: prop.integer("The message to try it on (default: the last reply).")
+	}, ["id"]),
+	available: (app) => typeof agentsOf(app)?.test === "function",
+	async run(rawArgs, ctx) {
+		const api = agentsOf(ctx.app);
+		if (!api?.test) return off(ctx);
+		const args = argsOf(rawArgs);
+		const id = strArg(args, "id", 120) ?? "";
+		const index = intArg(args, "message_index", -1, -1, 1e6);
+		const outcome = await api.test(id, index >= 0 ? { messageIndex: index } : {});
+		if (!outcome) return {
+			data: { error: `No agent "${id}".` },
+			summary: say(ctx, "No such agent", "Нет такого агента")
+		};
+		return {
+			data: {
+				ok: outcome.run.ok,
+				error: outcome.run.error ?? null,
+				output: outcome.output ?? null
+			},
+			untrusted: true,
+			summary: say(ctx, "Agent tried", "Пробный запуск агента")
+		};
+	}
+});
+var agentSave = () => ({
+	name: "agent_save",
+	kind: "write",
+	description: "Creates or changes one of the user's own agents. Give `template` (a template id from agents_list) to start from one, and/or `definition`: {id (to change an existing one), name, instruction (English for the model, or the user's language), sources [{id, budget}] (ids: messages, reply, card, persona, lore, canon, wardrobe, staging, desScene, desCharacters, mechanics, director, knowledge, worldNames, places, ownMemory, …), trigger {phase: prefetch|onSend|parallel|post|commit|schedule|manual, everyMessages, events, priority, when}, result {type: inject|flags|rewrite|verdict|note|choices|memory|proposals, options}, model {temperature, maxTokens, reasoning}, vars, tools [roll, lore_search, chat_search]}. A change keeps the fields not given. New agents start off: switch them on with agent_switch.",
+	parameters: {
+		type: "object",
+		properties: {
+			template: {
+				type: "string",
+				description: "A template id to start from."
+			},
+			definition: {
+				type: "object",
+				description: "The agent (or the fields to change of an existing one)."
+			}
+		},
+		additionalProperties: false
+	},
+	available: (app) => typeof agentsOf(app)?.save === "function",
+	plan: (raw, ctx) => planWith(ctx, (sayIt) => {
+		const app = ctx.app;
+		const api = agentsOf(app);
+		const args = argsOf(raw);
+		const templateId = strArg(args, "template", 40);
+		const given = typeof args.definition === "object" && args.definition !== null ? args.definition : {};
+		let base = {};
+		if (templateId) {
+			const made = api.fromTemplate?.(templateId);
+			if (!made) throw failure(sayIt, "agentTemplate", {
+				template: templateId,
+				list: AGENT_TEMPLATES.map((template) => template.id).join(", ")
+			});
+			base = {
+				...made,
+				name: title(app, `m44.tpl.${templateId}.name`, made.name)
+			};
+		}
+		const id = typeof given.id === "string" ? given.id : "";
+		const existing = id ? api.get(id) : void 0;
+		if (existing) base = { ...existing };
+		const draft = sanitizeAgent({
+			...base,
+			...given,
+			...existing ? { id: existing.id } : {}
+		}, Date.now());
+		if (!draft) throw failure(sayIt, "agentInvalid");
+		return {
+			summary: existing ? sayIt("m33w.agent.summary.change", { name: draft.name }) : sayIt("m33w.agent.summary.create", { name: draft.name }),
+			target: sayIt("m33w.target.agents"),
+			before: existing ? view$1(existing) : null,
+			after: view$1(draft),
+			full: true,
+			async apply() {
+				const live = agentsOf(app);
+				if (!live?.save) throw failure(sayIt, "agentsUnavailable");
+				const saved = await live.save(draft);
+				if (!saved) throw failure(sayIt, "agentInvalid");
+				return { result: {
+					id: saved,
+					name: draft.name
+				} };
+			}
+		};
+	})
+});
+var agentSwitch = () => ({
+	name: "agent_switch",
+	kind: "write",
+	description: "Switches one of the user's own agents on or off: everywhere (global), for this character, or in this chat only.",
+	parameters: {
+		type: "object",
+		properties: {
+			id: {
+				type: "string",
+				description: "The agent id."
+			},
+			on: {
+				type: "boolean",
+				description: "true: on; false: off."
+			},
+			scope: {
+				type: "string",
+				enum: [...SCOPES$2],
+				description: "Where (default: chat)."
+			}
+		},
+		required: ["id", "on"],
+		additionalProperties: false
+	},
+	available: (app) => typeof agentsOf(app)?.setState === "function",
+	plan: (raw, ctx) => planWith(ctx, (sayIt) => {
+		const api = agentsOf(ctx.app);
+		const args = argsOf(raw);
+		const def = api.get(strArg(args, "id", 120) ?? "");
+		if (!def) throw failure(sayIt, "agentUnknown", { id: String(args.id ?? "") });
+		const on = args.on === true;
+		const scope = SCOPES$2.includes(args.scope) ? args.scope : "chat";
+		const now = api.states().get(def.id)?.on === true;
+		const state = (value) => sayIt(value ? "m33w.state.on" : "m33w.state.off");
+		return {
+			summary: sayIt(on ? "m33w.agent.summary.on" : "m33w.agent.summary.off", {
+				name: def.name,
+				scope: sayIt(`m33w.agent.scope.${scope}`)
+			}),
+			target: sayIt("m33w.target.agents"),
+			before: { [def.name]: state(now) },
+			after: { [def.name]: state(on) },
+			scope,
+			scopes: SCOPES$2.map((value) => ({
+				value,
+				label: sayIt(`m33w.agent.scope.${value}`)
+			})),
+			async apply(choice) {
+				const picked = SCOPES$2.find((value) => value === choice?.scope) ?? scope;
+				await agentsOf(ctx.app).setState(picked, def.id, { on });
+				return { result: {
+					id: def.id,
+					on,
+					scope: picked
+				} };
+			}
+		};
+	})
+});
+var agentSetApply = () => ({
+	name: "agent_set_apply",
+	kind: "write",
+	description: "Puts a set of agents in force (its templates are taken into work) everywhere, for this character or in this chat. Sets: agents_list.",
+	parameters: {
+		type: "object",
+		properties: {
+			set: {
+				type: "string",
+				description: "The set id."
+			},
+			scope: {
+				type: "string",
+				enum: [...SCOPES$2],
+				description: "Where (default: chat)."
+			}
+		},
+		required: ["set"],
+		additionalProperties: false
+	},
+	available: (app) => typeof agentsOf(app)?.applySet === "function",
+	plan: (raw, ctx) => planWith(ctx, (sayIt) => {
+		const api = agentsOf(ctx.app);
+		const args = argsOf(raw);
+		const setId = strArg(args, "set", 80) ?? "";
+		const set = api.sets?.().find((item) => item.id === setId);
+		if (!set) throw failure(sayIt, "agentSetUnknown", { set: setId });
+		const scope = SCOPES$2.includes(args.scope) ? args.scope : "chat";
+		const name = set.titleKey ? title(ctx.app, set.titleKey, set.name) : set.name;
+		return {
+			summary: sayIt("m33w.agent.summary.set", {
+				name,
+				scope: sayIt(`m33w.agent.scope.${scope}`)
+			}),
+			target: sayIt("m33w.target.agents"),
+			before: null,
+			after: {
+				set: name,
+				agents: Object.keys(set.agents)
+			},
+			scope,
+			scopes: SCOPES$2.map((value) => ({
+				value,
+				label: sayIt(`m33w.agent.scope.${value}`)
+			})),
+			async apply(choice) {
+				const picked = SCOPES$2.find((value) => value === choice?.scope) ?? scope;
+				await agentsOf(ctx.app).applySet(picked, set.id);
+				return { result: {
+					set: set.id,
+					scope: picked
+				} };
+			}
+		};
+	})
+});
+var builtinInstruction = () => ({
+	name: "builtin_agent_instruction",
+	kind: "write",
+	description: "Changes the instruction of a built-in agent (Maestro's or a neighbour's model job): mode `addition` adds «additional instructions» after its default text, `full` replaces the whole text, `default` goes back to the default. The logic of the job is unchanged.",
+	parameters: {
+		type: "object",
+		properties: {
+			id: {
+				type: "string",
+				description: "The built-in agent id (agents_list → builtins)."
+			},
+			mode: {
+				type: "string",
+				enum: [...MODES$1]
+			},
+			text: {
+				type: "string",
+				description: "The addition or the whole text (not for default)."
+			}
+		},
+		required: ["id", "mode"],
+		additionalProperties: false
+	},
+	available: (app) => typeof agentsOf(app)?.setBuiltinOverride === "function",
+	plan: (raw, ctx) => planWith(ctx, (sayIt) => {
+		const api = agentsOf(ctx.app);
+		const args = argsOf(raw);
+		const id = strArg(args, "id", 120) ?? "";
+		if (!builtInAgent(id)) throw failure(sayIt, "agentUnknown", { id });
+		const mode = MODES$1.find((value) => value === args.mode) ?? "addition";
+		const text = typeof args.text === "string" ? args.text.trim().slice(0, 12e3) : "";
+		if (mode !== "default" && !text) throw failure(sayIt, "argEmpty", { name: "text" });
+		const before = api.builtinOverride?.(id) ?? null;
+		let next = null;
+		if (mode !== "default") {
+			next = {
+				...before ?? {},
+				mode
+			};
+			if (mode === "addition") next.addition = text;
+			else {
+				const defaults = defaultsOf(id);
+				next.full = text;
+				next.baseText = defaults[0] ?? "";
+			}
+		}
+		const name = title(ctx.app, `m44.bi.${id}.title`, id);
+		return {
+			summary: sayIt(mode === "default" ? "m33w.agent.summary.builtinReset" : "m33w.agent.summary.builtin", { name }),
+			target: sayIt("m33w.target.agents"),
+			before: before ? {
+				mode: before.mode,
+				addition: before.addition,
+				full: before.full
+			} : null,
+			after: next ? {
+				mode: next.mode,
+				addition: next.addition,
+				full: next.full
+			} : null,
+			full: true,
+			async apply() {
+				await agentsOf(ctx.app).setBuiltinOverride(id, next, sayIt("m33w.agent.journal.builtin", { name }));
+				return { result: {
+					id,
+					mode
+				} };
+			}
+		};
+	})
+});
+function agentReadTools() {
+	return [
+		agentsList(),
+		agentGet(),
+		agentTest()
+	];
+}
+function agentWriteTools() {
+	return [
+		agentSave(),
+		agentSwitch(),
+		agentSetApply(),
+		builtinInstruction()
+	];
+}
+//#endregion
 //#region src/features/assistant/tools/index.ts
 /** Every read tool (kind 'read'), in the order the model sees them. */
 function readTools(app) {
@@ -68213,10 +69914,15 @@ function readTools(app) {
 		...regexTools(app),
 		...worldTools(app),
 		...playTools(app),
-		...presetReadTools(app)
+		...presetReadTools(app),
+		...agentReadTools()
 	];
 }
-var builtinTools = (app, log) => [...readTools(app), ...writeTools(app, log)];
+var builtinTools = (app, log) => [
+	...readTools(app),
+	...writeTools(app, log),
+	...agentWriteTools()
+];
 //#endregion
 //#region src/domain/assistant-markdown.ts
 var FENCE = /^\s*(```|~~~)\s*([\w+#.-]*)\s*$/;
@@ -82047,11 +83753,11 @@ function emptyBook(chatId, chatName) {
 	};
 }
 function entriesOf$1(data) {
-	if (!isDict$152(data.entries)) data.entries = {};
+	if (!isDict$153(data.entries)) data.entries = {};
 	return data.entries;
 }
 function titleOf$1(entry, uid) {
-	if (isDict$152(entry)) {
+	if (isDict$153(entry)) {
 		if (typeof entry.comment === "string" && entry.comment.trim()) return entry.comment.trim();
 		const key = Array.isArray(entry.key) ? entry.key.find((item) => typeof item === "string" && item.trim()) : "";
 		if (typeof key === "string" && key) return key;
@@ -82087,7 +83793,7 @@ var CanonStore = class {
 		};
 		on("WORLDINFO_UPDATED", (name, data) => {
 			if (typeof name !== "string" || !isCanonBookName(name)) return;
-			if (isDict$152(data) && isDict$152(data.entries)) this.remember(name, jsonClone(data));
+			if (isDict$153(data) && isDict$153(data.entries)) this.remember(name, jsonClone(data));
 			else this.invalidate(name);
 			this.emit();
 		});
@@ -82173,7 +83879,7 @@ var CanonStore = class {
 		if (typeof ctx.loadWorldInfo !== "function") return null;
 		try {
 			const data = await ctx.loadWorldInfo(name);
-			return isDict$152(data) && isDict$152(data.entries) ? data : null;
+			return isDict$153(data) && isDict$153(data.entries) ? data : null;
 		} catch (error) {
 			this.log.debug(`lorebook ${name} did not load`, error);
 			return null;
@@ -82181,8 +83887,8 @@ var CanonStore = class {
 	}
 	async readEntry(book, uid) {
 		const data = await this.readBook(book);
-		const entry = data && isDict$152(data.entries) ? data.entries[String(uid)] : void 0;
-		return isDict$152(entry) ? entry : null;
+		const entry = data && isDict$153(data.entries) ? data.entries[String(uid)] : void 0;
+		return isDict$153(entry) ? entry : null;
 	}
 	async list(filter = {}) {
 		const name = this.bookName();
@@ -82291,8 +83997,8 @@ var CanonStore = class {
 			const existing = options.uid !== void 0 ? state.items.find((item) => item.uid === options.uid) : findItemForBase(state.items, kind, draft.meta.base);
 			const uid = options.uid ?? existing?.uid ?? freeUid$2(entries);
 			const previous = entries[String(uid)];
-			const before = isDict$152(previous) ? jsonClone(previous) : null;
-			const previousMeta = before && isDict$152(before.extensions) ? readCanonMeta(before.extensions.maestro) : null;
+			const before = isDict$153(previous) ? jsonClone(previous) : null;
+			const previousMeta = before && isDict$153(before.extensions) ? readCanonMeta(before.extensions.maestro) : null;
 			const now = Date.now();
 			const meta = {
 				...draft.meta,
@@ -82314,8 +84020,8 @@ var CanonStore = class {
 			}
 			const fallback = kind === "addition" ? "" : `${this.t(`m6.kind.${kind}`)}: ${titleOf$1(base, meta.base?.uid ?? uid)}`;
 			const entry = buildCanonEntry(uid, draft.entry, meta, fallback);
-			const keptPassport = before && isDict$152(before.extensions) && isDict$152(before.extensions.maestro) ? before.extensions.maestro.passport : void 0;
-			if (keptPassport !== void 0 && isDict$152(entry.extensions) && isDict$152(entry.extensions.maestro)) entry.extensions.maestro.passport ??= keptPassport;
+			const keptPassport = before && isDict$153(before.extensions) && isDict$153(before.extensions.maestro) ? before.extensions.maestro.passport : void 0;
+			if (keptPassport !== void 0 && isDict$153(entry.extensions) && isDict$153(entry.extensions.maestro)) entry.extensions.maestro.passport ??= keptPassport;
 			entries[String(uid)] = entry;
 			await this.saveBook(name, data);
 			const title = this.shownTitle(entry, uid);
@@ -82341,7 +84047,7 @@ var CanonStore = class {
 			const data = jsonClone(state.data);
 			const entries = entriesOf$1(data);
 			const before = entries[String(uid)];
-			if (!isDict$152(before)) return;
+			if (!isDict$153(before)) return;
 			delete entries[String(uid)];
 			await this.saveBook(name, data);
 			await this.journal("canon.remove", this.t("m6.journal.remove", { title: this.shownTitle(before, uid) }), [{
@@ -82365,7 +84071,7 @@ var CanonStore = class {
 			const data = jsonClone(state.data);
 			const entries = entriesOf$1(data);
 			const current = entries[String(uid)];
-			if (!isDict$152(current) || !isDict$152(current.extensions) || !isDict$152(current.extensions.maestro)) return;
+			if (!isDict$153(current) || !isDict$153(current.extensions) || !isDict$153(current.extensions.maestro)) return;
 			const raw = current.extensions.maestro;
 			if (!readCanonMeta(raw) || raw.status === status) return;
 			const before = jsonClone(current);
@@ -82427,8 +84133,8 @@ var CanonStore = class {
 		const canonBook = this.bookName();
 		return this.enqueue(async () => {
 			const baseData = await this.readBook(base.world);
-			const current = baseData && isDict$152(baseData.entries) ? baseData.entries[String(base.uid)] : void 0;
-			if (!baseData || !isDict$152(current)) return false;
+			const current = baseData && isDict$153(baseData.entries) ? baseData.entries[String(base.uid)] : void 0;
+			if (!baseData || !isDict$153(current)) return false;
 			const data = jsonClone(baseData);
 			const before = jsonClone(current);
 			const after = item.meta.kind === "override" ? materializeOverride(current, item.entry, itemOverrideFields(item.meta, item.entry)) : {
@@ -82448,7 +84154,7 @@ var CanonStore = class {
 				before,
 				after
 			}];
-			if (state.data && isDict$152(entriesOf$1(state.data)[String(uid)])) {
+			if (state.data && isDict$153(entriesOf$1(state.data)[String(uid)])) {
 				const canonData = jsonClone(state.data);
 				const removed = entriesOf$1(canonData)[String(uid)];
 				delete entriesOf$1(canonData)[String(uid)];
@@ -82481,7 +84187,7 @@ var CanonStore = class {
 			if (!base) continue;
 			if (!books.has(base.world)) books.set(base.world, await this.readBook(base.world));
 			const data = books.get(base.world);
-			const changed = baseDriftOf(item, data && isDict$152(data.entries) ? data.entries[String(base.uid)] : void 0);
+			const changed = baseDriftOf(item, data && isDict$153(data.entries) ? data.entries[String(base.uid)] : void 0);
 			if (changed) drift.push({
 				item,
 				baseThen: changed.then,
@@ -82506,8 +84212,8 @@ var CanonStore = class {
 		for (const name of (this.worldNames() ?? []).filter((book) => isCanonBookName(book))) {
 			const data = await this.readBook(name);
 			if (!data || !canonItemsOf(data).length) continue;
-			const extensions = isDict$152(data.extensions) ? data.extensions : {};
-			const meta = isDict$152(extensions.maestro) ? extensions.maestro : {};
+			const extensions = isDict$153(data.extensions) ? data.extensions : {};
+			const meta = isDict$153(extensions.maestro) ? extensions.maestro : {};
 			const chatName = typeof meta.chatName === "string" && meta.chatName ? meta.chatName : name;
 			created.push(await this.exportBook(name, chatName));
 		}
@@ -82523,8 +84229,8 @@ var CanonStore = class {
 		}
 		const baseOf = (world, uid) => {
 			const data = books.get(world);
-			const entry = data && isDict$152(data.entries) ? data.entries[String(uid)] : void 0;
-			return isDict$152(entry) ? entry : null;
+			const entry = data && isDict$153(data.entries) ? data.entries[String(uid)] : void 0;
+			return isDict$153(entry) ? entry : null;
 		};
 		const book = buildExportBook(items, baseOf, {
 			noteTitle: this.t("m6.export.noteTitle"),
@@ -82562,7 +84268,7 @@ var CanonStore = class {
 			if (!source) return false;
 			const data = jsonClone(source);
 			data.extensions = {
-				...isDict$152(data.extensions) ? data.extensions : {},
+				...isDict$153(data.extensions) ? data.extensions : {},
 				maestro: {
 					role: "canon",
 					chatId,
@@ -82588,9 +84294,9 @@ var CanonStore = class {
 				const data = jsonClone(current);
 				let changed = false;
 				for (const entry of Object.values(entriesOf$1(data))) {
-					if (!isDict$152(entry) || !isDict$152(entry.extensions)) continue;
+					if (!isDict$153(entry) || !isDict$153(entry.extensions)) continue;
 					const meta = entry.extensions.maestro;
-					if (!isDict$152(meta) || !isDict$152(meta.base) || meta.base.world !== oldName) continue;
+					if (!isDict$153(meta) || !isDict$153(meta.base) || meta.base.world !== oldName) continue;
 					entry.extensions = {
 						...entry.extensions,
 						maestro: {
@@ -82619,7 +84325,7 @@ var CanonStore = class {
 			if (!state.data && change.before === null) return true;
 			const data = state.data ? jsonClone(state.data) : { entries: {} };
 			const entries = entriesOf$1(data);
-			if (isDict$152(change.before)) entries[String(uid)] = jsonClone(change.before);
+			if (isDict$153(change.before)) entries[String(uid)] = jsonClone(change.before);
 			else delete entries[String(uid)];
 			await this.saveBook(book, data, !state.exists);
 			this.emit();
@@ -82635,7 +84341,7 @@ var CanonStore = class {
 			if (!current) return false;
 			const data = jsonClone(current);
 			const entries = entriesOf$1(data);
-			if (isDict$152(change.before)) entries[String(uid)] = jsonClone(change.before);
+			if (isDict$153(change.before)) entries[String(uid)] = jsonClone(change.before);
 			else delete entries[String(uid)];
 			await this.saveBook(book, data);
 			return true;
@@ -82802,7 +84508,7 @@ var CanonGlosses = class {
 	collectLocalizer(lists) {
 		const pairs = [];
 		for (const list of Object.values(lists)) for (const entry of list) {
-			if (!isDict$152(entry) || !isDict$152(entry.extensions) || !entry.extensions.lorebook_localizer) continue;
+			if (!isDict$153(entry) || !isDict$153(entry.extensions) || !entry.extensions.lorebook_localizer) continue;
 			const marker = readLocalizerMarker(entry);
 			if (!marker) continue;
 			for (const state of Object.values(marker.languages)) pairs.push(...pairsFromLocalizer(state.sources, [...state.added.key, ...state.added.keysecondary]));
@@ -82996,11 +84702,11 @@ var CanonScan = class {
 		}
 	}
 	onScanDone(args) {
-		if (!isDict$152(args)) return;
+		if (!isDict$153(args)) return;
 		const book = this.store.bookName();
-		const activated = isDict$152(args.activated) ? args.activated.entries : void 0;
+		const activated = isDict$153(args.activated) ? args.activated.entries : void 0;
 		if (!book || !(activated instanceof Map)) return;
-		const state = isDict$152(args.state) ? args.state : {};
+		const state = isDict$153(args.state) ? args.state : {};
 		const loop = typeof state.loopCount === "number" && state.loopCount > 0 ? state.loopCount : 1;
 		const sorted = Array.isArray(args.sortedEntries) ? args.sortedEntries : [];
 		let scan = this.scan;
@@ -83023,8 +84729,8 @@ var CanonScan = class {
 	forcePins(activated, sorted, scan) {
 		for (const key of this.pins) {
 			if (activated.has(key)) continue;
-			const entry = sorted.find((item) => isDict$152(item) && activationKey(item.world, item.uid) === key);
-			if (!isDict$152(entry)) continue;
+			const entry = sorted.find((item) => isDict$153(item) && activationKey(item.world, item.uid) === key);
+			if (!isDict$153(entry)) continue;
 			if (typeof entry.content === "string") try {
 				entry.content = this.app.host.ctx().substituteParams(entry.content);
 			} catch (error) {
@@ -83044,7 +84750,7 @@ var CanonScan = class {
 			const key = String(rawKey);
 			if (scan.accepted.has(key) || scan.pinned.has(key) || !isCanonActivation(entry, book)) continue;
 			const copy = entry;
-			const marker = isDict$152(copy.extensions) && isDict$152(copy.extensions.maestro) ? copy.extensions.maestro : {};
+			const marker = isDict$153(copy.extensions) && isDict$153(copy.extensions.maestro) ? copy.extensions.maestro : {};
 			const uid = copy.world === book ? Number(copy.uid) : Number(marker.canonUid);
 			byKey.set(key, copy);
 			candidates.push({
@@ -83065,8 +84771,8 @@ var CanonScan = class {
 			activated.delete(key);
 			entry.disable = true;
 			if (!sorted.includes(entry)) {
-				const twin = sorted.find((item) => isDict$152(item) && activationKey(item.world, item.uid) === key);
-				if (isDict$152(twin)) twin.disable = true;
+				const twin = sorted.find((item) => isDict$153(item) && activationKey(item.world, item.uid) === key);
+				if (isDict$153(twin)) twin.disable = true;
 			}
 			scan.cut++;
 			lore?.markCut?.(String(entry.world), Number(entry.uid));
@@ -126278,292 +127984,6 @@ function parseExtractAnswer(raw, targets, options = {}) {
 }
 /** The base instruction of the background parse, `{max}` not filled (built-in agent «Учёт механик», release 1.29). */
 var MECHANICS_EXTRACT_INSTRUCTION = SYSTEM_PROMPT;
-//#endregion
-//#region src/domain/mechanics-dice.ts
-/** How many times one exploding die may roll again. */
-var EXPLODE_MAX = 10;
-/** One die, 1..sides; a broken RNG value (NaN, out of range) is clamped instead of producing 0 or sides+1. */
-function rollDie(sides, rng) {
-	const raw = rng();
-	return Math.floor((Number.isFinite(raw) ? Math.min(Math.max(raw, 0), 1 - Number.EPSILON) : 0) * sides) + 1;
-}
-var UNDER_SCALE = {
-	easy: 1.5,
-	normal: 1,
-	hard: .5,
-	veryHard: .2
-};
-function criticalsByDefault(formula) {
-	return !formula.parts && formula.count === 1 && (formula.sides === 20 || formula.sides === 100);
-}
-/** 'critical' / 'fumble' for a natural extreme, null otherwise (d100: 01–05 and 96–00). */
-function naturalExtreme(formula, sum, under) {
-	if (!formula.parts && formula.count === 1 && formula.sides === 100) {
-		if (sum <= 5) return under ? "critical" : "fumble";
-		if (sum >= 96) return under ? "fumble" : "critical";
-		return null;
-	}
-	const range = naturalRange(formula);
-	if (!range) return null;
-	if (sum === range.max) return under ? "fumble" : "critical";
-	if (sum === range.min) return under ? "critical" : "fumble";
-	return null;
-}
-function rollParts(formula, rng) {
-	const rolls = [];
-	const dropped = [];
-	let natural = 0;
-	for (const part of diceParts(formula)) {
-		if (part.kind !== "dice") continue;
-		const faces = [];
-		for (let i = 0; i < part.count; i++) {
-			let face = rollDie(part.sides, rng);
-			let die = face;
-			for (let again = 0; part.explode && face === part.sides && again < EXPLODE_MAX; again++) {
-				face = rollDie(part.sides, rng);
-				die += face;
-			}
-			faces.push(die);
-		}
-		rolls.push(...faces);
-		let kept = faces;
-		if (part.keep) {
-			kept = [...faces].sort((a, b) => part.keep?.high ? b - a : a - b).slice(0, part.keep.n);
-			const rest = [...faces];
-			for (const face of kept) rest.splice(rest.indexOf(face), 1);
-			dropped.push(...rest);
-		}
-		natural += part.sign * kept.reduce((total, value) => total + value, 0);
-	}
-	return {
-		rolls,
-		dropped,
-		natural
-	};
-}
-function rollDice(formula, lookup, rng, options = {}) {
-	const missing = [];
-	const read = (attribute) => {
-		const value = lookup(attribute);
-		if (typeof value === "number" && Number.isFinite(value)) return value;
-		if (!missing.includes(attribute)) missing.push(attribute);
-		return null;
-	};
-	let modifier = 0;
-	for (const part of diceParts(formula)) {
-		if (part.kind !== "term") continue;
-		const { term } = part;
-		if (term.kind === "flat") modifier += part.sign * term.value;
-		else {
-			const value = read(term.attribute);
-			if (value !== null) modifier += part.sign * (term.kind === "mod" ? dndModifier(value) : Math.round(value));
-		}
-	}
-	const bonus = typeof options.bonus === "number" && Number.isFinite(options.bonus) ? Math.round(options.bonus) : 0;
-	modifier += bonus;
-	const under = formula.under !== null;
-	let target = null;
-	if (formula.under) {
-		const base = formula.under.kind === "flat" ? formula.under.value : read(formula.under.attribute);
-		if (base !== null) target = Math.floor(base * UNDER_SCALE[options.level ?? "normal"]);
-	} else if (typeof options.difficulty === "number" && Number.isFinite(options.difficulty)) target = Math.round(options.difficulty);
-	let kept = rollParts(formula, rng);
-	let other = null;
-	if (options.mode === "adv" || options.mode === "dis") {
-		const second = rollParts(formula, rng);
-		const firstBetter = under ? kept.natural <= second.natural : kept.natural >= second.natural;
-		const keepFirst = options.mode === "adv" ? firstBetter : !firstBetter;
-		other = keepFirst ? second : kept;
-		if (!keepFirst) kept = second;
-	}
-	const total = kept.natural + modifier;
-	const extreme = options.criticals ?? criticalsByDefault(formula) ? naturalExtreme(formula, kept.natural, under) : null;
-	let outcome;
-	if (extreme) outcome = extreme;
-	else if (target === null) outcome = "none";
-	else if (under) outcome = total <= target ? "success" : "failure";
-	else outcome = total >= target ? "success" : "failure";
-	const roll = {
-		rolls: kept.rolls,
-		natural: kept.natural,
-		modifier,
-		total,
-		target,
-		under,
-		outcome,
-		missing
-	};
-	if (kept.dropped.length) roll.dropped = kept.dropped;
-	if (other && options.mode) {
-		roll.mode = options.mode;
-		roll.other = {
-			rolls: other.rolls,
-			total: other.natural + modifier
-		};
-	}
-	return roll;
-}
-/** How far a roll beat its target (positive) or missed it (negative); 0 without a target. */
-function marginOf(roll) {
-	if (roll.target === null) return 0;
-	return roll.under ? roll.target - roll.total : roll.total - roll.target;
-}
-/**
-* The actor's outcome against the other side: criticals of the actor's own roll stand; otherwise roll-over: a higher
-* total wins (a tie keeps things as they are: the defender wins); roll-under: the actor must succeed, and beat a
-* succeeding defender by margin.
-*/
-function opposedOutcome(actor, defender) {
-	if (actor.outcome === "critical" || actor.outcome === "fumble") return actor.outcome;
-	if (actor.under) {
-		if (!(actor.target !== null && actor.total <= actor.target)) return "failure";
-		const defenderOk = defender.target !== null && defender.total <= defender.target;
-		if (defender.outcome === "critical") return "failure";
-		return !defenderOk || marginOf(actor) > marginOf(defender) ? "success" : "failure";
-	}
-	if (defender.outcome === "critical") return "failure";
-	return actor.total > defender.total ? "success" : "failure";
-}
-/** The middle of the formula's range (dice only), the base when a check has no default difficulty. */
-function middleOf(formula) {
-	if (formula.parts) {
-		const range = naturalRange(formula);
-		if (range) return Math.round((range.min + range.max) / 2);
-	}
-	return Math.round(formula.count * (formula.sides + 1) / 2);
-}
-/**
-* The target of a roll-over check at a difficulty level: the check's default (or the middle of the range) moved by a
-* quarter of the dice range per step (d20: 5, 2d6: 3, d100: 25). Roll-under checks carry their own target: null.
-*/
-function difficultyFor(level, base, formula) {
-	if (formula.under) return null;
-	const start = base ?? middleOf(formula);
-	const range = formula.parts ? naturalRange(formula) : null;
-	const spread = range ? range.max - range.min : formula.count * formula.sides - formula.count;
-	const step = Math.max(1, Math.round(spread / 4));
-	return start + (level === "easy" ? -step : level === "hard" ? step : level === "veryHard" ? 2 * step : 0);
-}
-var OUTCOME_TEXT = {
-	critical: "critical success",
-	success: "success",
-	failure: "failure",
-	fumble: "critical failure",
-	none: ""
-};
-function diceShown(roll) {
-	return roll.rolls.length > 1 ? `${roll.natural} (${roll.rolls.join("+")})` : String(roll.natural);
-}
-/** "rolled 14 + 2 = 16 vs 15 — success" without the check and the holder (the pult shows it too). */
-function rollText(roll) {
-	let text = `rolled ${diceShown(roll)}`;
-	if (roll.modifier !== 0) text += ` ${roll.modifier < 0 ? "-" : "+"} ${Math.abs(roll.modifier)} = ${roll.total}`;
-	if (roll.mode && roll.other) text += ` (${roll.mode === "adv" ? "advantage" : "disadvantage"}, other roll ${roll.other.total})`;
-	if (roll.target !== null) text += roll.under ? `, needed ${roll.target} or lower` : ` vs ${roll.target}`;
-	const outcome = OUTCOME_TEXT[roll.outcome];
-	if (outcome) {
-		text += ` — ${outcome}`;
-		if (roll.outcome === "critical" || roll.outcome === "fumble") text += ` (natural ${roll.natural})`;
-	}
-	return text;
-}
-/**
-* The English fact for the prompt: "Persuasion check (Kai): rolled 14 + 2 = 16 vs 15 — success."; aimed at someone:
-* "Attack check (Kai) against Bandit: rolled 15 + 2 = 17 vs 12 — success."
-*/
-function checkFact(checkName, holder, roll, against) {
-	const name = checkName.trim() || "Skill";
-	const who = holder.trim();
-	const target = (against ?? "").trim();
-	return `${name} check${who ? ` (${who})` : ""}${target ? ` against ${target}` : ""}: ${rollText(roll)}.`;
-}
-/**
-* The English fact of an opposed check: "Stealth (Kai) vs Perception (Guard): 14 vs 11 — success." (the outcome is
-* the actor's).
-*/
-function opposedFact(actor, defender, outcome) {
-	const left = `${actor.check.trim() || "Skill"} (${actor.holder.trim()})`;
-	const right = `${defender.check.trim() || "Skill"} (${defender.holder.trim()})`;
-	const word = OUTCOME_TEXT[outcome] || "tie";
-	const natural = outcome === "critical" || outcome === "fumble" ? ` (natural ${actor.roll.natural})` : "";
-	return `${left} vs ${right}: ${actor.roll.total} vs ${defender.roll.total} — ${word}${natural}.`;
-}
-/**
-* The roll was close: a success or a failure with a numeric target whose total was 1–2 points from the other outcome
-* (against a target: won by 0–1 over it or missed by 1–2; opposed: won by 1–2 or lost by 0–1). Never a critical or a
-* fumble, never without a target.
-*/
-function isBarely(outcome, margin, options) {
-	if (!options.target || !Number.isFinite(margin)) return false;
-	let flip;
-	if (outcome === "success") flip = options.opposed ? margin : margin + 1;
-	else if (outcome === "failure") flip = options.opposed ? 1 - margin : -margin;
-	else return false;
-	return flip >= 1 && flip <= 2;
-}
-var GENERIC_MEANING = {
-	critical: "it works brilliantly, with an extra benefit",
-	success: "it works as intended",
-	failure: "it does not work — show what goes wrong and what it costs",
-	fumble: "it goes badly wrong, with a complication"
-};
-var BARELY_MEANING = {
-	success: "it barely works — only just, with nothing to spare",
-	failure: "it barely fails — it nearly works; show what goes wrong and what it costs"
-};
-/** An author's text as part of a sentence: trimmed, without the closing stop. */
-function clause(text) {
-	return text.trim().replace(/[\s.;]+$/, "");
-}
-/**
-* What an outcome means for the scene (English, the end of the fact): the outcome's own texts; a critical (a fumble)
-* with only success (failure) texts gets them «and brilliantly» («and badly»); else a line by outcome. A close roll
-* reads «barely». Texts for any outcome follow. '' for 'none' without texts for any outcome.
-*/
-function outcomeMeaning(outcome, texts = {}, barely = false) {
-	const own = (texts.own ?? []).map(clause).filter(Boolean);
-	const wider = (texts.wider ?? []).map(clause).filter(Boolean);
-	const any = (texts.any ?? []).map(clause).filter(Boolean);
-	let body = "";
-	if (outcome !== "none") {
-		if (own.length) body = own.join("; ");
-		else if (wider.length && (outcome === "critical" || outcome === "fumble")) body = `${wider.join("; ")}, and ${outcome === "critical" ? "brilliantly, with an extra benefit" : "badly, with a complication"}`;
-		else if (barely && (outcome === "success" || outcome === "failure")) body = BARELY_MEANING[outcome];
-		else body = GENERIC_MEANING[outcome];
-		if (barely && own.length) body = `barely — ${body}`;
-	}
-	return [body, ...any].filter(Boolean).join("; ");
-}
-/** The fact with what changed and what it means: "<fact> Consequences: Kai: Mana -10. In the scene: it works." */
-function factWithMeaning(fact, notes, meaning) {
-	let text = fact;
-	if (notes.length) text += ` Consequences: ${notes.join("; ")}.`;
-	if (meaning) text += ` In the scene: ${meaning}.`;
-	return text;
-}
-/** "Mana" → "mana" inside a sentence; "HP" and names with more capitals stay. */
-function midSentence(name) {
-	return /^[A-Z][^A-Z]*$/.test(name) ? name.charAt(0).toLowerCase() + name.slice(1) : name;
-}
-function plain$1(value) {
-	return String(Math.round(value * 100) / 100);
-}
-/**
-* The fact of an attempt the roller lacks the means for (no dice):
-* "Spellcasting (Kai): not possible — mana 3, needs 5. The attempt fails; narrate it, there is no roll." In words: "not
-* enough mana"; with nothing the model may know: "not possible now".
-*/
-function blockedFact(checkName, holder, reason, against) {
-	const name = checkName.trim() || "Skill";
-	const who = holder.trim();
-	const target = (against ?? "").trim();
-	const attribute = midSentence(reason.attribute.trim() || "value");
-	const mode = reason.mode ?? "value";
-	let why = mode === "none" ? "not possible now" : mode === "words" ? `not possible — not enough ${attribute}` : `not possible — ${attribute} ${plain$1(reason.have)}, needs ${plain$1(reason.need)}`;
-	const note = clause(reason.note ?? "");
-	if (note && mode !== "none") why += ` (${note})`;
-	return `${name}${who ? ` (${who})` : ""}${target ? ` against ${target}` : ""}: ${why}. The attempt fails; narrate it, there is no roll.`;
-}
 //#endregion
 //#region src/domain/mechanics-turn.ts
 var REST_RE = /(?:^|[\s_])(?:rest|resting|sleep|sleeping|asleep|nap|camp|отдых|отдыхает|сон|спит|спящ|привал|дрем)/i;

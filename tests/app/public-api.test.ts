@@ -837,6 +837,7 @@ describe('neighbours (1.24): Officina beside Dramatis', () => {
             'persona',
             'serviceCard',
             'prepareScenes',
+            'agents',
         ]);
         for (const member of ['cost', 'lore', 'bookRoles', 'mechanics', 'presets', 'promptAudit', 'persona'] as const) {
             expect(api[member], member).toBeDefined();

@@ -20,10 +20,13 @@ import { proposalReceivers } from '../../core/proposal-receivers';
 import { protect } from '../../domain/agents/rewrite';
 import type { Protected } from '../../domain/agents/rewrite';
 import type { AgentDef, AgentErrorKind, AgentPhase, AgentRun, AgentState } from '../../domain/agents/types';
-import type { App, LlmResult, Logger } from '../../shared/contracts';
+import { AGENT_TOOL_ROUNDS } from '../../domain/agents/tools';
+import { readToolCalls, wireCall } from '../../domain/assistant-calls';
+import type { App, LlmMessage, LlmResult, Logger } from '../../shared/contracts';
 import type { AgentsChatState } from './chat-state';
 import { agentText as cleanForAnalysis } from './sources';
 import type { SourceRegistry } from './sources';
+import { runAgentTool, toolSpecs } from './tools';
 
 /** Profile row of «профиль агентов по умолчанию» (CoreSettings.profiles, plan В7). */
 export const AGENTS_PROFILE_KEY = 'agents';
@@ -223,7 +226,12 @@ export class AgentRunner {
 
     /** Whether a run may share a request with others (plan §4.6): the agent allows it, never a rewrite or a test. */
     static batchable(request: RunRequest): boolean {
-        return request.def.batch === true && request.def.result.type !== 'rewrite' && !request.test;
+        return (
+            request.def.batch === true &&
+            request.def.result.type !== 'rewrite' &&
+            !request.test &&
+            !request.def.tools?.length
+        );
     }
 
     /** Runs of one moment: batchable agents of the same model in one request each group, the rest one by one. */
@@ -483,10 +491,19 @@ export class AgentRunner {
                   ? 1200
                   : DEFAULT_MODEL.maxTokens);
         let result: LlmResult;
+        let messages: LlmMessage[] = built.messages;
+        let toolCost = 0;
         try {
+            // Release 1.34: tool rounds first (rolls, lookups), then the answer in the agent's form.
+            if (def.tools?.length) {
+                const rounds = await this.toolRounds(request, messages, controller.signal);
+                messages = rounds.messages;
+                toolCost = rounds.costUsd;
+                if (rounds.calls.length) run.tools = rounds.calls;
+            }
             result = await this.app.llm.request({
                 task: agentTask(def.id),
-                messages: built.messages,
+                messages,
                 maxTokens: def.result.type === 'rewrite' ? Math.max(maxTokens, REWRITE_MIN_TOKENS) : maxTokens,
                 temperature: def.model.temperature ?? DEFAULT_MODEL.temperature,
                 reasoning: def.model.reasoning ?? DEFAULT_MODEL.reasoning,
@@ -503,7 +520,7 @@ export class AgentRunner {
             if (timer) clearTimeout(timer);
             outer?.removeEventListener('abort', forward);
         }
-        if (result.costUsd !== undefined) run.costUsd = result.costUsd;
+        if (result.costUsd !== undefined || toolCost) run.costUsd = (result.costUsd ?? 0) + toolCost;
         if (result.tokens) run.tokens = result.tokens;
         if (result.text !== undefined) run.raw = result.text.slice(0, 20_000);
         if (!result.ok) {
@@ -527,6 +544,71 @@ export class AgentRunner {
         }
         return finish(outcome);
     }
+
+    /**
+     * Tool rounds of an agent with tools (release 1.34): the model may call its tools up to AGENT_TOOL_ROUNDS times;
+     * each call runs and its result goes back. The messages to ask the final answer with (a closing note added when a
+     * tool was called), the calls made and what the rounds cost. A failed round just ends the rounds.
+     */
+    private async toolRounds(
+        request: RunRequest,
+        start: readonly LlmMessage[],
+        signal: AbortSignal,
+    ): Promise<{ messages: LlmMessage[]; calls: ToolCallRecord[]; costUsd: number }> {
+        const { def } = request;
+        const allowed = def.tools ?? [];
+        const messages: LlmMessage[] = [...start];
+        const calls: ToolCallRecord[] = [];
+        let costUsd = 0;
+        let seq = 0;
+        for (let round = 0; round < AGENT_TOOL_ROUNDS && !signal.aborted; round++) {
+            let result: LlmResult;
+            try {
+                result = await this.app.llm.request({
+                    task: agentTask(def.id),
+                    messages,
+                    maxTokens: 600,
+                    temperature: def.model.temperature ?? DEFAULT_MODEL.temperature,
+                    reasoning: def.model.reasoning ?? DEFAULT_MODEL.reasoning,
+                    tools: toolSpecs(allowed),
+                    profile: request.state?.profile ?? def.model.profile,
+                    profileKeys: [AGENTS_PROFILE_KEY],
+                    interactive: request.interactive === true || request.test === true,
+                    signal,
+                });
+            } catch (error) {
+                this.log.debug(`agent ${def.id}: tool round failed`, error);
+                break;
+            }
+            costUsd += result.costUsd ?? 0;
+            const made = result.ok ? readToolCalls(result.toolCalls, () => `call_${def.id}_${++seq}`) : [];
+            if (!made.length) break;
+            messages.push({ role: 'assistant', content: result.text ?? '', tool_calls: made.map(wireCall) });
+            for (const call of made) {
+                const answer = call.error
+                    ? `Error: ${call.error}.`
+                    : await runAgentTool(this.app, call.name, call.args, {
+                          allowed,
+                          ...(request.focusIndex !== undefined ? { focusIndex: request.focusIndex } : {}),
+                      });
+                calls.push({ name: call.name, args: call.args, result: answer.slice(0, 2000) });
+                messages.push({ role: 'tool', tool_call_id: call.id, content: answer });
+            }
+        }
+        if (calls.length) {
+            messages.push({
+                role: 'user',
+                content: 'Now give your final answer in the required form, using the tool results above.',
+            });
+        }
+        return { messages, calls, costUsd };
+    }
+}
+
+export interface ToolCallRecord {
+    name: string;
+    args: Record<string, unknown>;
+    result: string;
 }
 
 function errorKind(result: LlmResult): AgentErrorKind {

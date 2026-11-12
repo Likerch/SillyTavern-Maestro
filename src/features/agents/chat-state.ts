@@ -264,7 +264,22 @@ export class AgentsChatState {
         this.log.doc.runs = trimRuns([...this.log.doc.runs, run]);
         this.log.changed();
         this.notify();
+        for (const listener of [...this.runListeners]) {
+            try {
+                listener(run);
+            } catch {
+                // a listener of a neighbour must not break the log
+            }
+        }
     }
+
+    /** Release 1.34: every run added to the log (MAESTRO_API.agents.onResult). */
+    onRun(listener: (run: AgentRun) => void): () => void {
+        this.runListeners.add(listener);
+        return () => this.runListeners.delete(listener);
+    }
+
+    private readonly runListeners = new Set<(run: AgentRun) => void>();
 
     runs(): AgentRun[] {
         return this.log.doc.runs;

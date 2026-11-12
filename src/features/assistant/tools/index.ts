@@ -16,6 +16,7 @@ import { regexTools } from './read/regex';
 import { turnTools } from './read/turn';
 import { worldTools } from './read/world';
 import { writeTools } from './write';
+import { agentReadTools, agentWriteTools } from './agents';
 
 /** Every read tool (kind 'read'), in the order the model sees them. */
 export function readTools(app: App): ToolSpec[] {
@@ -29,12 +30,14 @@ export function readTools(app: App): ToolSpec[] {
         ...worldTools(app),
         ...playTools(app),
         ...presetReadTools(app),
+        ...agentReadTools(),
     ];
 }
 
 export const builtinTools: ToolFactory = (app: App, log: Logger): ToolSpec[] => [
     ...readTools(app),
     ...writeTools(app, log),
+    ...agentWriteTools(),
 ];
 
 export { knowledgeBase, maestroVersion } from './knowledge';

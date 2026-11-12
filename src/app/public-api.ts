@@ -68,6 +68,7 @@ import type {
 } from '../shared/public-api-types';
 import { registerProfileTask as registerProfileTaskUi } from '../ui';
 import { ArchiveSpeech } from './archive-speech';
+import { createAgentsFacade } from './public-api-agents';
 import { createServiceFacades } from './public-api-services';
 
 /** The neighbours: the journal and Inbox module of everything that comes through the API with their prefix. */
@@ -88,6 +89,7 @@ export const API_FEATURES: readonly MaestroApiFeature[] = [
     'persona',
     'serviceCard',
     'prepareScenes',
+    'agents',
 ];
 /** `generation:before` runs inside Maestro's generate interceptor: a listener is awaited at most this long (P15). */
 export const BEFORE_TIMEOUT_MS = 1500;
@@ -717,6 +719,8 @@ export function createMaestroApi(deps: MaestroApiDeps): MaestroApiHandle {
     /* ---------------------------------------------------------------- the service facades (1.24) */
 
     const services = createServiceFacades({ app, log, disposed: () => disposed, own });
+    // Release 1.34: agents and context (plan §4.10).
+    const agentsFacade = createAgentsFacade({ app, log, disposed: () => disposed, own });
 
     /* ---------------------------------------------------------------- the object */
 
@@ -804,6 +808,8 @@ export function createMaestroApi(deps: MaestroApiDeps): MaestroApiHandle {
         presets: services.presets,
         promptAudit: services.promptAudit,
         persona: services.persona,
+        agents: agentsFacade.agents,
+        context: agentsFacade.context,
     };
     // The Dramatis contract stays a part of it (Dramatis reads MAESTRO_API as its MaestroApiV1).
     const asDramatisSees: MaestroApiV1 = api;

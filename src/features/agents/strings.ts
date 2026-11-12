@@ -3,6 +3,7 @@ import type { I18nParts } from '../../shared/contracts';
 import { BUILTIN_STRINGS } from './strings-builtin';
 import { RECEIVER_STRINGS } from './strings-receivers';
 import { IMAGE_STRINGS } from './strings-images';
+import { NEIGHBOUR_STRINGS } from './strings-neighbours';
 import { TRACKER_STRINGS } from './strings-trackers';
 
 const PHASES_RU: Record<string, [string, string]> = {
@@ -225,6 +226,7 @@ export const AGENTS_STRINGS: I18nParts = {
         ...RECEIVER_STRINGS.en,
         ...TRACKER_STRINGS.en,
         ...IMAGE_STRINGS.en,
+        ...NEIGHBOUR_STRINGS.en,
         'm44.title': 'Agents',
         'm44.profileDefault': 'Agents (default for your own agents)',
         'm44.profileGate': 'Agents: the «is it needed now?» question (a cheap model)',
@@ -607,6 +609,7 @@ export const AGENTS_STRINGS: I18nParts = {
         ...RECEIVER_STRINGS.ru,
         ...TRACKER_STRINGS.ru,
         ...IMAGE_STRINGS.ru,
+        ...NEIGHBOUR_STRINGS.ru,
         'm44.title': 'Агенты',
         'm44.profileDefault': 'Агенты (по умолчанию для твоих агентов)',
         'm44.profileGate': 'Агенты: вопрос «нужен ли сейчас» (дешёвая модель)',

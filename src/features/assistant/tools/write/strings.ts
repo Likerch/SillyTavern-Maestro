@@ -368,9 +368,51 @@ const BASE_STRINGS: I18nParts = {
 };
 
 /** Every string of the write tools (the preset and neighbour-prompt tools have their own file). */
+/** Release 1.34: the agent tools (../agents.ts). */
+const AGENT_WRITE_STRINGS: I18nParts = {
+    en: {
+        'm33w.target.agents': 'Maestro · agents',
+        'm33w.agent.summary.create': 'New agent «{name}»',
+        'm33w.agent.summary.change': 'Agent «{name}»: change',
+        'm33w.agent.summary.on': 'Agent «{name}»: on ({scope})',
+        'm33w.agent.summary.off': 'Agent «{name}»: off ({scope})',
+        'm33w.agent.summary.set': 'Set «{name}» ({scope})',
+        'm33w.agent.summary.builtin': 'Built-in agent «{name}»: instruction',
+        'm33w.agent.summary.builtinReset': 'Built-in agent «{name}»: back to the default',
+        'm33w.agent.journal.builtin': 'The assistant changed the built-in agent «{name}»',
+        'm33w.agent.scope.global': 'everywhere',
+        'm33w.agent.scope.character': 'this character',
+        'm33w.agent.scope.chat': 'this chat',
+        'm33w.err.agentTemplate': 'There is no template «{template}». Templates: {list}.',
+        'm33w.err.agentInvalid': 'The agent is not valid: it needs at least a name.',
+        'm33w.err.agentsUnavailable': 'The «Agents» module is off.',
+        'm33w.err.agentUnknown': 'There is no agent «{id}» (see agents_list).',
+        'm33w.err.agentSetUnknown': 'There is no set «{set}» (see agents_list).',
+    },
+    ru: {
+        'm33w.target.agents': 'Maestro · агенты',
+        'm33w.agent.summary.create': 'Новый агент «{name}»',
+        'm33w.agent.summary.change': 'Агент «{name}»: изменить',
+        'm33w.agent.summary.on': 'Агент «{name}»: включить ({scope})',
+        'm33w.agent.summary.off': 'Агент «{name}»: выключить ({scope})',
+        'm33w.agent.summary.set': 'Набор «{name}» ({scope})',
+        'm33w.agent.summary.builtin': 'Встроенный агент «{name}»: поручение',
+        'm33w.agent.summary.builtinReset': 'Встроенный агент «{name}»: вернуть по умолчанию',
+        'm33w.agent.journal.builtin': 'Ассистент изменил встроенного агента «{name}»',
+        'm33w.agent.scope.global': 'везде',
+        'm33w.agent.scope.character': 'этот персонаж',
+        'm33w.agent.scope.chat': 'этот чат',
+        'm33w.err.agentTemplate': 'Шаблона «{template}» нет. Шаблоны: {list}.',
+        'm33w.err.agentInvalid': 'Агент не годится: нужно хотя бы имя.',
+        'm33w.err.agentsUnavailable': 'Модуль «Агенты» выключен.',
+        'm33w.err.agentUnknown': 'Агента «{id}» нет (см. agents_list).',
+        'm33w.err.agentSetUnknown': 'Набора «{set}» нет (см. agents_list).',
+    },
+};
+
 export const WRITE_STRINGS: I18nParts = {
-    en: { ...BASE_STRINGS.en, ...PRESET_WRITE_STRINGS.en },
-    ru: { ...BASE_STRINGS.ru, ...PRESET_WRITE_STRINGS.ru },
+    en: { ...BASE_STRINGS.en, ...PRESET_WRITE_STRINGS.en, ...AGENT_WRITE_STRINGS.en },
+    ru: { ...BASE_STRINGS.ru, ...PRESET_WRITE_STRINGS.ru, ...AGENT_WRITE_STRINGS.ru },
 };
 
 export type Say = (key: string, params?: Record<string, string | number>) => string;

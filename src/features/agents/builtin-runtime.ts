@@ -5,8 +5,9 @@
 import { builtInAgent } from '../../core/builtin-agents';
 import type { BuiltInAgentSpec } from '../../core/builtin-agents';
 import { applyInstruction } from '../../domain/agents/builtin';
-import type { AgentErrorKind, AgentRun } from '../../domain/agents/types';
+import type { AgentErrorKind, AgentReasoning, AgentRun } from '../../domain/agents/types';
 import type { App, LlmInterceptor, LlmRequest, LlmResult, Unsubscribe } from '../../shared/contracts';
+import type { BuiltinRunReport } from './api';
 import type { AgentsChatState } from './chat-state';
 import type { AgentStore } from './store';
 
@@ -54,6 +55,57 @@ export function interceptBuiltin(request: LlmRequest, store: AgentStore): LlmReq
     if (override.maxTokens !== undefined) next.maxTokens = override.maxTokens;
     if (override.reasoning !== undefined) next.reasoning = override.reasoning;
     return next;
+}
+
+/** Release 1.34: the instruction and parameters of a built-in agent on a neighbour's own channel. */
+export function ownChannelInstruction(
+    store: AgentStore,
+    id: string,
+    defaultText: string,
+): { text: string; temperature?: number; maxTokens?: number; reasoning?: AgentReasoning } {
+    const override = builtInAgent(id) ? store.builtinOverride(id) : undefined;
+    if (!override) return { text: defaultText };
+    const applied = applyInstruction([{ role: 'system', content: defaultText }], [defaultText], override);
+    const first = applied.messages[0];
+    const out: { text: string; temperature?: number; maxTokens?: number; reasoning?: AgentReasoning } = {
+        text: typeof first?.content === 'string' ? first.content : defaultText,
+    };
+    if (override.temperature !== undefined) out.temperature = override.temperature;
+    if (override.maxTokens !== undefined) out.maxTokens = override.maxTokens;
+    if (override.reasoning !== undefined) out.reasoning = override.reasoning;
+    return out;
+}
+
+/** Release 1.34: a neighbour's run on its own channel into the run log. */
+export function reportedRun(
+    app: App,
+    spec: BuiltInAgentSpec,
+    report: BuiltinRunReport,
+    now: () => number = Date.now,
+): AgentRun {
+    const ms = Math.max(0, Number(report.ms) || 0);
+    const startedAt = now() - ms;
+    const run: AgentRun = {
+        id: `${startedAt.toString(36)}-n${Math.floor(Math.random() * 1e6).toString(36)}`,
+        agentId: spec.id,
+        agentName: builtinName(app, spec),
+        chatId: app.host.chatId(),
+        phase: spec.interactive ? 'manual' : 'schedule',
+        reason: 'builtin',
+        startedAt,
+        ms,
+        ok: report.ok === true,
+        builtin: true,
+    };
+    if (!run.ok) run.error = 'other';
+    if (typeof report.costUsd === 'number') run.costUsd = report.costUsd;
+    if (report.tokens) run.tokens = report.tokens;
+    if (Array.isArray(report.request))
+        run.request = report.request
+            .filter((m) => typeof m?.content === 'string')
+            .map((m) => ({ role: String(m.role), content: m.content.slice(0, 20_000) }));
+    if (typeof report.raw === 'string') run.raw = report.raw.slice(0, 20_000);
+    return run;
 }
 
 export function installBuiltinRuntime(

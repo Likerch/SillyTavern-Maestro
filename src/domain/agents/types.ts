@@ -1,6 +1,7 @@
 // Agents (plan docs/agents-plan.md, module M44): the data model shared by the pure logic and the feature. An agent is
 // an instruction + what it sees (context sources) + when it runs (phase and conditions) + the model + what it returns
 // (result type) + where it is on (scope). Release 1.28: the user's own agents, seven phases, seven result types, sets.
+import type { AgentToolId } from './tools';
 
 /** When an agent runs (plan §3.3). */
 export type AgentPhase = 'prefetch' | 'onSend' | 'parallel' | 'post' | 'commit' | 'schedule' | 'manual';
@@ -209,6 +210,8 @@ export interface AgentDef {
     /** Ask a cheap model «is it needed now?» before running (release 1.30). */
     gate?: { question?: string };
     limits?: AgentLimits;
+    /** Release 1.34: tools the agent may call before it answers (domain/agents/tools.ts). */
+    tools?: AgentToolId[];
     /** What the agent may do (shown on import and for card agents). */
     capabilities: string[];
     updatedAt: number;
@@ -290,6 +293,8 @@ export interface AgentRun {
     /** The request and the raw answer (kept for the newest runs only). */
     request?: { role: string; content: string }[];
     raw?: string;
+    /** Release 1.34: the tool calls of the run and what they gave back. */
+    tools?: { name: string; args: Record<string, unknown>; result: string }[];
     /** The parsed result. */
     result?: unknown;
     /** What was done with it, in words («вставка на 1 ход», «правка: 3 изменения»). */

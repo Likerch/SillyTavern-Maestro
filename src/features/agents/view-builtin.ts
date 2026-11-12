@@ -45,15 +45,27 @@ export function writePath(app: App, module: string, path: string, value: unknown
     app.settings.notify(`${module}.${path}`);
 }
 
-/** Whether the job runs: the module, a boolean setting, or always (no switch). */
+/** Whether the job runs: the module, a boolean setting, or always (no switch); a neighbour's: its own switch. */
 export function builtinOn(app: App, spec: BuiltInAgentSpec): boolean {
+    if (spec.toggle) {
+        try {
+            return spec.toggle.get() !== false;
+        } catch {
+            return true;
+        }
+    }
+    if (spec.neighbour) return true;
     if (!app.settings.isModuleEnabled(spec.module)) return false;
     if (spec.switch && spec.switch !== 'module') return readPath(app, spec.module, spec.switch.path) !== false;
     return true;
 }
 
 async function setBuiltinOn(app: App, spec: BuiltInAgentSpec, on: boolean): Promise<void> {
-    if (!spec.switch) return;
+    if (spec.toggle) {
+        await spec.toggle.set(on);
+        return;
+    }
+    if (!spec.switch || spec.neighbour) return;
     if (spec.switch === 'module') {
         if (on) await app.modules.enable(spec.module);
         else await app.modules.disable(spec.module);
@@ -79,7 +91,27 @@ function setProfile(app: App, id: string, profile: string): void {
 
 /* ------------------------------------------------------------------ the list */
 
-const GROUPS: BuiltInGroup[] = ['canon', 'story', 'quality', 'world', 'mechanics', 'button'];
+const GROUPS: BuiltInGroup[] = ['canon', 'story', 'quality', 'world', 'mechanics', 'button', 'neighbours'];
+
+/** A knob's value: the neighbour's own getter, else Maestro's settings slice. */
+function knobValue(app: App, spec: BuiltInAgentSpec, knob: BuiltInKnob): unknown {
+    if (knob.get) {
+        try {
+            return knob.get();
+        } catch {
+            return undefined;
+        }
+    }
+    return readPath(app, spec.module, knob.path);
+}
+
+function setKnob(app: App, spec: BuiltInAgentSpec, knob: BuiltInKnob, value: unknown): void {
+    if (knob.set) {
+        void Promise.resolve(knob.set(value)).catch(() => undefined);
+        return;
+    }
+    writePath(app, spec.module, knob.path, value);
+}
 
 export function builtinSections(view: AgentsView, repaint: () => void): HTMLElement[] {
     const specs = builtInAgents();
@@ -105,7 +137,7 @@ function builtinRow(view: AgentsView, spec: BuiltInAgentSpec, repaint: () => voi
     const last = runs[runs.length - 1];
     const changed = Boolean(view.store.builtinOverride(spec.id)) || Boolean(profileOf(app, spec.id));
     return el('div', { class: ['maestro-agent-row', on ? 'maestro-on' : null] }, [
-        spec.switch
+        spec.switch || spec.toggle
             ? toggle({
                   label: '',
                   checked: on,
@@ -408,19 +440,23 @@ export class BuiltinEditor {
         const draft = this.draft;
         const app = this.view.app;
         const profiles = connectionProfiles(this.view);
+        // A neighbour on its own channel (В11) picks its model itself: only its parameters are passed on.
+        const own = this.spec.channel === 'own';
         return [
-            field(
-                this.t('m44.editor.profile'),
-                select({
-                    value: profileOf(app, this.spec.id),
-                    options: [
-                        { value: '', label: this.t('m44.bi.profileDefault') },
-                        ...profiles.map((profile) => ({ value: profile.id, label: profile.name })),
-                    ],
-                    onChange: (value) => setProfile(app, this.spec.id, value),
-                }),
-                this.t('m44.bi.profileHint'),
-            ),
+            own
+                ? el('div', { class: 'maestro-hint', text: this.t('m44.bi.ownChannel') })
+                : field(
+                      this.t('m44.editor.profile'),
+                      select({
+                          value: profileOf(app, this.spec.id),
+                          options: [
+                              { value: '', label: this.t('m44.bi.profileDefault') },
+                              ...profiles.map((profile) => ({ value: profile.id, label: profile.name })),
+                          ],
+                          onChange: (value) => setProfile(app, this.spec.id, value),
+                      }),
+                      this.t('m44.bi.profileHint'),
+                  ),
             field(
                 this.t('m44.editor.temperature'),
                 optionalNumber(
@@ -473,7 +509,7 @@ export class BuiltinEditor {
     private triggerTab(): Child[] {
         const app = this.view.app;
         const parts: Child[] = [el('div', { class: 'maestro-hint', text: this.t(`m44.bi.${this.spec.id}.when`) })];
-        if (this.spec.switch) {
+        if (this.spec.switch || this.spec.toggle) {
             parts.push(
                 toggle({
                     label: this.t('m44.bi.on'),
@@ -490,13 +526,13 @@ export class BuiltinEditor {
 
     private knob(knob: BuiltInKnob): Child {
         const app = this.view.app;
-        const value = readPath(app, this.spec.module, knob.path);
+        const value = knobValue(app, this.spec, knob);
         const label = this.t(knob.labelKey);
         if (knob.kind === 'toggle')
             return toggle({
                 label,
                 checked: value === true,
-                onChange: (on) => writePath(app, this.spec.module, knob.path, on),
+                onChange: (on) => setKnob(app, this.spec, knob, on),
             });
         if (knob.kind === 'select')
             return field(
@@ -507,7 +543,7 @@ export class BuiltinEditor {
                         value: option.value,
                         label: this.t(option.labelKey),
                     })),
-                    onChange: (next) => writePath(app, this.spec.module, knob.path, next),
+                    onChange: (next) => setKnob(app, this.spec, knob, next),
                 }),
             );
         return field(
@@ -517,7 +553,7 @@ export class BuiltinEditor {
                 min: knob.min,
                 max: knob.max,
                 step: knob.step,
-                onChange: (next) => writePath(app, this.spec.module, knob.path, next),
+                onChange: (next) => setKnob(app, this.spec, knob, next),
             }),
         );
     }

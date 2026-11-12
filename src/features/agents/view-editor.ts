@@ -1,5 +1,6 @@
 // The agent card (plan §3.2): one editor with the tabs Поручение · Что видит · Когда · Результат · Модель · Область ·
 // Проверка. It edits a copy; «Сохранить» writes it (journal, undo), «Пробный запуск» runs the copy and applies nothing.
+import { AGENT_TOOL_IDS } from '../../domain/agents/tools';
 import { blankAgent, defaultPhaseFor, defaultResult, FLAG_NAME_RE } from '../../domain/agents/def';
 import { missingVars } from '../../domain/agents/request';
 import { AGENT_EVENTS, AGENT_PHASES, AGENT_RESULT_TYPES } from '../../domain/agents/types';
@@ -376,6 +377,7 @@ export class AgentEditor {
         return [
             el('div', { class: 'maestro-hint', text: this.t('m44.editor.sourcesHint') }),
             ...rows,
+            ...this.toolRows(),
             el('div', { class: 'maestro-actions' }, [
                 button({
                     icon: 'fa-magnifying-glass',
@@ -384,6 +386,30 @@ export class AgentEditor {
                 }),
             ]),
             out,
+        ];
+    }
+
+    /** Release 1.34: tools the agent may call before it answers. */
+    private toolRows(): Child[] {
+        const draft = this.draft;
+        return [
+            el('div', { class: 'maestro-field-label', text: this.t('m44.editor.tools') }),
+            ...AGENT_TOOL_IDS.map((id) =>
+                toggle({
+                    label: this.t(`m44.tool.${id}`),
+                    checked: draft.tools?.includes(id) === true,
+                    hint: this.t(`m44.tool.${id}.hint`),
+                    onChange: (on) => {
+                        const next = new Set(draft.tools ?? []);
+                        if (on) next.add(id);
+                        else next.delete(id);
+                        if (next.size) draft.tools = AGENT_TOOL_IDS.filter((tool) => next.has(tool));
+                        else delete draft.tools;
+                        this.touch();
+                    },
+                }),
+            ),
+            el('div', { class: 'maestro-hint', text: this.t('m44.editor.toolsHint') }),
         ];
     }
 

@@ -12,8 +12,12 @@ import { AgentsChatState } from './chat-state';
 import { AGENTS_PROFILE_KEY, AgentRunner } from './runner';
 import { AgentRuntime } from './runtime';
 import { SourceRegistry } from './sources';
-import { installBuiltinRuntime } from './builtin-runtime';
+import { builtInAgent } from '../../core/builtin-agents';
+import { capabilitiesOf, sanitizeAgent } from '../../domain/agents/def';
+import { agentFromTemplate, templateById } from '../../domain/agents/templates';
+import { installBuiltinRuntime, ownChannelInstruction, reportedRun } from './builtin-runtime';
 import { GATE_TASK } from './gate';
+import { GROUP_MEMBERS_SOURCE, SPEAKER_KIND, installGroupHost } from './group-host';
 import {
     CARD_AVATAR_TARGET,
     CHAT_PASSPORT_TARGET,
@@ -68,6 +72,7 @@ export const agentsModule: MaestroModule<AgentsSettings> = {
         const store = new AgentStore(app, log);
         const state = new AgentsChatState(app, log);
         const sources = new SourceRegistry();
+        own(sources.register(GROUP_MEMBERS_SOURCE));
         const runner = new AgentRunner(app, log, sources, state);
         const runtime = new AgentRuntime(app, log, store, state, runner);
         const view = new AgentsView(app, store, state, runtime, runner, sources);
@@ -82,6 +87,24 @@ export const agentsModule: MaestroModule<AgentsSettings> = {
             const id = typeof change.ref.id === 'string' ? change.ref.id : '';
             return id ? store.undoBuiltin(id, change.before) : false;
         });
+
+        // Release 1.34: «Ведущий группы» — in a group chat with the reply order «Вручную» it picks who answers.
+        for (const off of installGroupHost(app, log.scope('group'), {
+            hosts: () =>
+                store
+                    .activeAgents()
+                    .filter(
+                        ({ def }) =>
+                            def.result.type === 'proposals' && def.result.options.receivers.includes(SPEAKER_KIND),
+                    )
+                    .map(({ def }) => ({ id: def.id })),
+            run: async (id, index) => {
+                const def = store.get(id);
+                if (!def) return;
+                await runtime.runAgent(def, store.states().get(id), 'manual', 'group', { focusIndex: index });
+            },
+        }))
+            own(off);
 
         // Release 1.33: pictures by agents through NAI Studio 0.16.
         const imageSettings = (): AgentsImageSettings => app.settings.module<AgentsSettings>(AGENTS_KEY);
@@ -259,6 +282,55 @@ export const agentsModule: MaestroModule<AgentsSettings> = {
             registerSource: (source) => sources.register(source),
             onChange: (listener) => store.onChange(listener),
             imagesPaid: () => imageSettings().imagesPaid === true,
+            builtinInstruction: (id, defaultText) => ownChannelInstruction(store, id, defaultText),
+            reportBuiltinRun: (id, report) => {
+                const spec = builtInAgent(id);
+                if (spec) state.addRun(reportedRun(app, spec, report));
+            },
+            save: async (raw, summary) => {
+                const def = sanitizeAgent(raw, Date.now());
+                if (!def) return null;
+                await store.save(
+                    def,
+                    summary ??
+                        app.i18n.t(store.get(def.id) ? 'm44.journal.changed' : 'm44.journal.created', {
+                            name: def.name,
+                        }),
+                );
+                return def.id;
+            },
+            fromTemplate: (templateId) => {
+                const template = templateById(templateId);
+                if (!template) return undefined;
+                const name = view.templateName(templateId);
+                return agentFromTemplate(template, name, view.newId(name), Date.now(), capabilitiesOf);
+            },
+            setState: (scope, id, patch) => store.setAgentState(scope, id, patch),
+            sets: () => store.sets(),
+            saveSet: (set) => store.saveSet(set),
+            applySet: (scope, setId) =>
+                store.applySet(
+                    scope,
+                    setId,
+                    (templateId) => view.templateName(templateId),
+                    (name) => view.newId(name),
+                ),
+            test: async (id, options = {}) => {
+                const def = store.get(id);
+                if (!def) return null;
+                const outcome = await runner.run({
+                    def,
+                    state: store.states().get(id),
+                    phase: 'manual',
+                    reason: 'test',
+                    test: true,
+                    ...(options.messageIndex !== undefined ? { focusIndex: options.messageIndex } : {}),
+                });
+                return outcome.output ? { run: outcome.run, output: outcome.output } : { run: outcome.run };
+            },
+            onRun: (listener) => state.onRun(listener),
+            builtinOverride: (id) => store.builtinOverride(id),
+            setBuiltinOverride: (id, override, summary) => store.setBuiltinOverride(id, override, summary),
         };
         app.modules.expose(AGENTS_KEY, api);
 

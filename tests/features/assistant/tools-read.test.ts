@@ -45,6 +45,9 @@ const READ_NAMES = [
     'preset_versions',
     'preset_dry_run',
     'neighbour_prompts',
+    'agents_list',
+    'agent_get',
+    'agent_test',
 ];
 
 /** Tool → the module API keys that switch it on. */
